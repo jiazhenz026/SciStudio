@@ -29,11 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
-<<<<<<< fix/issue-678/native-dialog-no-timeout
 - [#678] Remove 120s timeout from native file dialog; status-aware frontend fallback (only fall back to in-app picker on HTTP 500, not 504) (@claude, 2026-04-24, branch: fix/issue-678/native-dialog-no-timeout, session: 20260424-130419-fix-678-remove-native-dialog-timeout)
-=======
 - [#677] macOS AppBlock: launch .app bundles via `open -W -n -a` so Popen tracks the .app's lifetime instead of the short-lived `open` launcher, preventing PAUSED -> DONE skip on macOS (@claude, 2026-04-24, branch: fix/issue-677/macos-appblock-open-w, session: 20260424-130347-fix-677-macos-appblock-open-w)
->>>>>>> main
 - [#665] Fix variadic port rendering: config-driven handles, dynamic layout, type dropdown (@claude, 2026-04-12, branch: fix/issue-665/variadic-port-frontend, session: 20260412-052953-fix-variadic-port-frontend-missing-handl)
 - [#630] Pass block registry to validate_workflow() in API save path so type compatibility and dangling port checks run (@claude, 2026-04-11, branch: fix/issue-638/validator-batch-improvements, session: 20260411-224417-batch-validator-improvements-registry-pa)
 - [#631] Add variadic port cardinality validation (Check 7) to workflow validator (@claude, 2026-04-11, branch: fix/issue-638/validator-batch-improvements, session: 20260411-224417-batch-validator-improvements-registry-pa)
