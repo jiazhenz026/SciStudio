@@ -87,18 +87,18 @@ class ProviderStatus:
 class AgentEvent:
     """Canonical event emitted by an :class:`AgentSession` event stream.
 
-    Phase 1 ships the base envelope only; T-ECA-103 introduces the
-    typed canonical sub-events (``init``, ``assistant_text_delta``,
-    ``tool_use``, ``tool_result``, ``permission_request``, ``error``,
-    ``done``) and the ``OtherEvent`` catch-all for unknown kinds (spec
-    §3 OQ5).
+    The base envelope carries the canonical ``kind`` and the original
+    parsed JSON payload as ``raw``. T-ECA-103 adds the typed sub-events
+    below (``InitEvent``, ``AssistantTextDeltaEvent`` …) plus the
+    ``OtherEvent`` catch-all for unknown kinds (spec §3 OQ5).
 
     Attributes
     ----------
     kind
         Canonical event kind string. Unknown kinds are surfaced as
         ``"other"`` with the original ``kind`` value preserved in
-        ``raw["kind"]``.
+        ``raw["kind"]`` (or ``raw["type"]`` if the provider used that
+        field name).
     raw
         The original parsed JSON payload as a dict. Provider-specific
         fields are preserved here for forensic logging.
@@ -106,6 +106,86 @@ class AgentEvent:
 
     kind: str
     raw: dict[str, Any] = field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
+# Typed canonical event subclasses (T-ECA-103)
+#
+# Subclasses inherit ``kind`` and ``raw`` from the base. ``kw_only=True`` is
+# used so we can declare additional non-default fields after ``raw`` (which
+# has a ``default_factory``). All subclasses are dataclasses; consumers
+# match on ``isinstance`` or on ``kind``.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(kw_only=True)
+class InitEvent(AgentEvent):
+    """First event in every session; carries the provider-assigned session id."""
+
+    session_id: str
+    schema_version: str | None = None
+    model: str | None = None
+
+
+@dataclass(kw_only=True)
+class AssistantTextDeltaEvent(AgentEvent):
+    """Streaming assistant-text chunk. Multiple deltas concatenate into a turn's text."""
+
+    delta: str
+
+
+@dataclass(kw_only=True)
+class ToolUseEvent(AgentEvent):
+    """Agent announced a tool invocation; the matching ``ToolResultEvent`` follows."""
+
+    tool_name: str
+    tool_input: dict[str, Any]
+    tool_use_id: str
+
+
+@dataclass(kw_only=True)
+class ToolResultEvent(AgentEvent):
+    """Result of a previously announced tool invocation, correlated by ``tool_use_id``."""
+
+    tool_use_id: str
+    output: str | dict[str, Any]
+    is_error: bool = False
+
+
+@dataclass(kw_only=True)
+class PermissionRequestEvent(AgentEvent):
+    """Synthetic event surfaced by the hook bridge when user approval is required.
+
+    Note: Claude Code emits this through the ``PreToolUse`` hook, not the
+    raw stream-json. The hook bridge is responsible for synthesising this
+    event onto the canonical stream (T-ECA-110).
+    """
+
+    tool_name: str
+    tool_input: dict[str, Any]
+    request_id: str
+
+
+@dataclass(kw_only=True)
+class ErrorEvent(AgentEvent):
+    """Stream-level error reported by the provider subprocess."""
+
+    message: str
+    error_type: str | None = None
+
+
+@dataclass(kw_only=True)
+class DoneEvent(AgentEvent):
+    """Terminal event marking the end of an agent turn."""
+
+
+@dataclass(kw_only=True)
+class OtherEvent(AgentEvent):
+    """Catch-all for unknown event kinds (spec §3 OQ5).
+
+    Unknown kinds are surfaced to the frontend transparently; the original
+    payload lives in ``raw`` for forensic logging.
+    """
 
 
 class AgentProvider(Protocol):

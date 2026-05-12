@@ -143,11 +143,19 @@ def test_stubs_raise_not_implemented() -> None:
     from scieasy.ai.agent.system_prompt import compose_system_prompt
     from scieasy.ai.agent.transcript import TranscriptWriter
 
-    with pytest.raises(NotImplementedError):
-        find_binary("claude")
+    # T-ECA-102 has implemented `find_binary`; it now returns Path | None
+    # rather than raising. Skeleton coverage for binary_discovery is
+    # owned by tests/ai/test_binary_discovery.py.
+    result = find_binary("definitely-not-a-real-binary-xyz-123")
+    assert result is None or isinstance(result, Path)
 
-    with pytest.raises(NotImplementedError):
-        parse_event(b"{}")
+    # T-ECA-103 has implemented `parse_event`; empty bytes now raise
+    # AgentStreamError, not NotImplementedError. Full coverage lives in
+    # tests/ai/test_stream_json.py.
+    from scieasy.ai.agent.errors import AgentStreamError
+
+    with pytest.raises(AgentStreamError):
+        parse_event(b"")
 
     with pytest.raises(NotImplementedError):
         compose_system_prompt(Path("/tmp"))
