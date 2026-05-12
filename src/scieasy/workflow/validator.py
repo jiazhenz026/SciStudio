@@ -300,11 +300,24 @@ def validate_workflow(
     # such configurations at save time. Case-insensitive comparison; ports
     # that omit the ``extension`` field are skipped (the runtime binner
     # will leave them empty / raise on its own if required).
+    #
+    # #690 audit fix: the frontend port editor writes ``output_ports`` under
+    # ``node.config["params"]["output_ports"]`` (mirroring the
+    # :class:`BlockConfig` two-tier layout used at runtime), so the original
+    # root-level read here never matched real configs and Check 8 silently
+    # passed every workflow. Read ``params.output_ports`` first; fall back
+    # to the root-level key so direct API callers and existing tests that
+    # construct configs without a ``params`` envelope still work.
     for node in workflow.nodes:
         spec = registry.get_spec(node.block_type)
         if spec is None or not spec.variadic_outputs:
             continue
-        configured = node.config.get("output_ports")
+        params = node.config.get("params")
+        configured: Any = None
+        if isinstance(params, dict):
+            configured = params.get("output_ports")
+        if configured is None:
+            configured = node.config.get("output_ports")
         if not isinstance(configured, list):
             continue
         ext_to_ports: dict[str, list[str]] = {}
