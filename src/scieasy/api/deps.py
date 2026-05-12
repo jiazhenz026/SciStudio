@@ -50,3 +50,15 @@ def get_process_registry(request: Request) -> ProcessRegistry:
     if registry is None:
         raise RuntimeError("ProcessRegistry not initialized -- app lifespan not started")
     return registry
+
+
+def get_agent_session_manager() -> Any:
+    """Return the process-wide ``AgentSessionManager`` singleton (ADR-033 / T-ECA-107).
+
+    Imported lazily so that API modules that don't touch the agent
+    runtime do not pay the import cost of ``scieasy.ai.agent`` at app
+    startup.
+    """
+    from scieasy.ai.agent.session import get_session_manager
+
+    return get_session_manager()

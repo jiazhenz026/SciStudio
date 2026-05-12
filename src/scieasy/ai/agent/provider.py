@@ -222,7 +222,7 @@ class AgentProvider(Protocol):
         """
         ...
 
-    def start_session(
+    async def start_session(
         self,
         *,
         project_dir: Path,
@@ -232,6 +232,10 @@ class AgentProvider(Protocol):
         permission_mode: PermissionMode,
     ) -> AgentSession:
         """Spawn a new agent subprocess and return an active session handle.
+
+        Awaitable because the underlying subprocess is spawned via
+        :func:`asyncio.create_subprocess_exec`; call sites typically
+        execute inside a running event loop (FastAPI request handlers).
 
         Parameters
         ----------
