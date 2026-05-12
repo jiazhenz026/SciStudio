@@ -947,6 +947,72 @@ class TestAppBlockExtensionBinner:
         assert result["images"].length == 1
         assert any("Unmatched output file" in record.message for record in caplog.records)
 
+    def test_binner_constructs_typed_artifact_items(self, tmp_path: Path) -> None:
+        """#690 audit fix: when an output port declares an ``Artifact`` (or
+        subclass) type, the binner must construct items of that class so the
+        resulting ``Collection.item_type`` homogeneity check passes.
+
+        Previously the binner unconditionally instantiated ``Artifact``,
+        which would be rejected by a Collection whose declared ``item_type``
+        was a strict ``Artifact`` subclass.
+        """
+        from scieasy.blocks.base.config import BlockConfig
+        from scieasy.core.types.artifact import Artifact
+
+        f1 = tmp_path / "report.pdf"
+        f1.write_text("x", encoding="utf-8")
+
+        block = self._make_block_with_ports([{"name": "reports", "types": ["Artifact"], "extension": "pdf"}])
+        config = BlockConfig(
+            params={
+                "output_ports": [
+                    {"name": "reports", "types": ["Artifact"], "extension": "pdf"},
+                ]
+            }
+        )
+
+        result = block._bin_outputs_by_extension([f1], config)
+        coll = result["reports"]
+        assert coll.length == 1
+        assert coll.item_type is Artifact
+        assert isinstance(next(iter(coll)), Artifact)
+
+    def test_binner_falls_back_to_artifact_for_non_constructible_type(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """#690 audit fix: when the declared port type cannot be constructed
+        from a file path (e.g. ``Array`` / ``Image`` need axes), the binner
+        falls back to ``Artifact`` and logs a warning. The Collection's
+        ``item_type`` is then ``Artifact`` so homogeneity holds.
+        """
+        import logging
+
+        from scieasy.blocks.base.config import BlockConfig
+        from scieasy.core.types.artifact import Artifact
+
+        f1 = tmp_path / "image.tif"
+        f1.write_text("x", encoding="utf-8")
+
+        # "Array" is registered but not a subclass of Artifact and cannot be
+        # built from just a file path; the binner must fall back to Artifact.
+        block = self._make_block_with_ports([{"name": "imgs", "types": ["Array"], "extension": "tif"}])
+        config = BlockConfig(
+            params={
+                "output_ports": [
+                    {"name": "imgs", "types": ["Array"], "extension": "tif"},
+                ]
+            }
+        )
+
+        with caplog.at_level(logging.WARNING, logger="scieasy.blocks.app.app_block"):
+            result = block._bin_outputs_by_extension([f1], config)
+
+        coll = result["imgs"]
+        assert coll.length == 1
+        assert coll.item_type is Artifact
+        assert isinstance(next(iter(coll)), Artifact)
+        assert any("not constructible from a file path" in r.message for r in caplog.records)
+
     def test_classvar_optional_port_with_no_files_returns_empty_collection(self) -> None:
         """ClassVar-declared optional ports stay empty without raising.
 

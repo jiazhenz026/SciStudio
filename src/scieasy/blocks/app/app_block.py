@@ -230,6 +230,33 @@ class AppBlock(Block):
                 continue
             ext_to_port[ext] = port
 
+        # #690 audit fix: determine the typed item class per port up front so
+        # that constructed items satisfy ``Collection.item_type`` homogeneity.
+        # ``port.accepted_types`` holds resolved Python classes (see
+        # ``ports_from_config_dicts``). Only ``Artifact`` and its subclasses
+        # share the file-path constructor signature; for any other declared
+        # type (Array/Image/PeakTable/etc.) we fall back to ``Artifact`` and
+        # warn, because we cannot construct those from just a file path.
+        port_item_types: dict[str, type] = {}
+        for port in ports:
+            declared = port.accepted_types[0] if port.accepted_types else Artifact
+            if isinstance(declared, type) and issubclass(declared, Artifact):
+                port_item_types[port.name] = declared
+            else:
+                # Fall back to Artifact for types we cannot construct from
+                # only a file path (Array/Image require axes; plugin types
+                # generally need more than a path). The output is still
+                # "loadable but not yet structured" — downstream loader
+                # blocks can convert.
+                if declared is not Artifact:
+                    logger.warning(
+                        "Output port %r declared type %r is not constructible from a "
+                        "file path; falling back to Artifact",
+                        port.name,
+                        getattr(declared, "__name__", declared),
+                    )
+                port_item_types[port.name] = Artifact
+
         grouped: dict[str, list[DataObject]] = {port.name: [] for port in ports}
         unmatched: list[Path] = []
         for path in output_files:
@@ -238,7 +265,8 @@ class AppBlock(Block):
             if target is None:
                 unmatched.append(path)
                 continue
-            grouped[target.name].append(Artifact(file_path=path, mime_type=_guess_mime(path), description=path.name))
+            item_cls = port_item_types[target.name]
+            grouped[target.name].append(item_cls(file_path=path, mime_type=_guess_mime(path), description=path.name))
 
         for path in unmatched:
             logger.warning("Unmatched output file %r", path.name)
@@ -251,8 +279,9 @@ class AppBlock(Block):
         result: dict[str, Collection] = {}
         for port in ports:
             items = grouped[port.name]
-            item_type = port.accepted_types[0] if port.accepted_types else Artifact
-            result[port.name] = Collection(items, item_type=item_type)
+            # Collection.item_type must match the constructed items, not the
+            # originally-declared port type (we may have fallen back above).
+            result[port.name] = Collection(items, item_type=port_item_types[port.name])
         return result
 
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
