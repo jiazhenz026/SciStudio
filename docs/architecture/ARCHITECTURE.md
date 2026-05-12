@@ -1964,6 +1964,24 @@ All platform-specific process management is isolated in a single module:
 | Alive check | `os.kill(pid, 0)` | `OpenProcess()` + `GetExitCodeProcess()` |
 | Zombie cleanup | `os.waitpid(pid, WNOHANG)` | Not applicable (Windows auto-cleans) |
 
+#### Worker → orchestrator stdout envelope
+
+The worker subprocess writes a single JSON object to stdout when `block.run()` completes. The envelope shape is:
+
+```jsonc
+{
+  "outputs": { /* port-name -> wire-format dict */ },
+  "environment": { /* EnvironmentSnapshot fields, see §6.7 */ },
+  "final_state": "cancelled"  // optional; see below
+}
+```
+
+The `final_state` field (added in #681) is **only present when the block ended in a non-DONE terminal state** (`cancelled`, `error`, or `skipped`) by calling `self.transition()` from inside `run()`. The common case — block ends in `RUNNING`/`DONE` — omits the field entirely, preserving the original "no field == DONE" semantics for blocks that do not transition themselves.
+
+`LocalRunner` translates a present `final_state` into a `BlockTerminalStateReportedError` exception. The scheduler's `_run_and_finalize` catches it and finalises the block to the reported state, emitting `BLOCK_CANCELLED` / `BLOCK_ERROR` / `BLOCK_SKIPPED` and propagating skips downstream — the same downstream behaviour as the corresponding cancel-from-outside path. This contract decouples the in-process `Block.transition()` API (private to the worker) from the orchestrator's view of terminal state without requiring a sidecar IPC channel.
+
+The pattern is used by `AppBlock` when an external GUI exits without producing the expected output (see §5.3 / `AppBlock`): the block transitions to `CANCELLED` and returns `{}`, and the orchestrator records `CANCELLED` rather than incorrectly recording `DONE` with empty outputs.
+
 ### 6.6 Error handling within blocks (ADR-020)
 
 With Collection-based transport, error handling for individual items within a Collection is the block's responsibility, not the engine's. The engine only sees block-level outcomes: DONE, ERROR, CANCELLED, or SKIPPED.

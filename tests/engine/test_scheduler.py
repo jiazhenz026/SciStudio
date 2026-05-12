@@ -219,6 +219,152 @@ class TestSchedulerErrorPropagation:
 
 
 # ---------------------------------------------------------------------------
+# #681: Worker-reported terminal state propagation
+# ---------------------------------------------------------------------------
+
+
+class TestSchedulerWorkerReportedTerminalState:
+    """#681: when ``LocalRunner.run()`` raises ``BlockTerminalStateReportedError``,
+    the scheduler must record the block in the reported state (CANCELLED /
+    ERROR / SKIPPED) rather than ERROR (the default for arbitrary exceptions).
+    """
+
+    def test_runner_reports_cancelled_records_cancelled(self) -> None:
+        """A block whose worker subprocess reports CANCELLED ends up CANCELLED.
+
+        Regression for #681 / AppBlock cancellation: previously the scheduler
+        recorded the block as DONE because ``self.transition(CANCELLED)``
+        inside ``run()`` was lost when the worker only forwarded ``return {}``.
+        """
+        from scieasy.engine.runners.terminal_state import BlockTerminalStateReportedError
+
+        wf = _wf(
+            nodes=[("A", "proc"), ("B", "proc"), ("C", "proc")],
+            edges=[("A:out", "B:in"), ("B:out", "C:in")],
+        )
+
+        async def reports_cancelled(block: object, inputs: dict, config: dict, **kwargs: object) -> dict:
+            if block.id == "A":  # type: ignore[attr-defined]
+                raise BlockTerminalStateReportedError(
+                    state=BlockState.CANCELLED,
+                    outputs={},
+                )
+            return {"output": "ok"}
+
+        scheduler, _event_bus, runner = _make_scheduler(wf)
+        runner.run.side_effect = reports_cancelled
+
+        asyncio.run(scheduler.execute())
+
+        assert scheduler._block_states["A"] == BlockState.CANCELLED
+        assert scheduler._block_states["B"] == BlockState.SKIPPED
+        assert scheduler._block_states["C"] == BlockState.SKIPPED
+
+    def test_runner_reports_error_records_error_not_default(self) -> None:
+        """``BlockTerminalStateReportedError(ERROR)`` records ERROR via the
+        worker-reported path (and emits BLOCK_ERROR + propagates skip),
+        equivalent to the generic exception path in observable behaviour.
+        """
+        from scieasy.engine.runners.terminal_state import BlockTerminalStateReportedError
+
+        wf = _wf(
+            nodes=[("A", "proc"), ("B", "proc")],
+            edges=[("A:out", "B:in")],
+        )
+
+        async def reports_error(block: object, inputs: dict, config: dict, **kwargs: object) -> dict:
+            if block.id == "A":  # type: ignore[attr-defined]
+                raise BlockTerminalStateReportedError(
+                    state=BlockState.ERROR,
+                    outputs={},
+                )
+            return {"output": "ok"}
+
+        scheduler, _event_bus, runner = _make_scheduler(wf)
+        runner.run.side_effect = reports_error
+
+        asyncio.run(scheduler.execute())
+
+        assert scheduler._block_states["A"] == BlockState.ERROR
+        assert scheduler._block_states["B"] == BlockState.SKIPPED
+
+    def test_normal_block_returning_dict_still_records_done(self) -> None:
+        """Regression: a block that returns ``{outputs}`` without raising
+        ``BlockTerminalStateReportedError`` still records DONE — the new exception
+        path does not affect the happy path.
+        """
+        wf = _wf(nodes=[("A", "proc")])
+        scheduler, _event_bus, _runner = _make_scheduler(wf, runner_return={"output": "ok"})
+
+        asyncio.run(scheduler.execute())
+
+        assert scheduler._block_states["A"] == BlockState.DONE
+        assert scheduler._block_outputs["A"] == {"output": "ok"}
+
+    def test_runner_reports_cancelled_preserves_partial_outputs(self) -> None:
+        """When the worker forwards partial outputs alongside CANCELLED, the
+        scheduler stores them in ``_block_outputs`` so checkpoints / lineage
+        see the same view.
+        """
+        from scieasy.engine.runners.terminal_state import BlockTerminalStateReportedError
+
+        wf = _wf(nodes=[("A", "proc")])
+
+        async def reports_cancelled_with_partial(block: object, inputs: dict, config: dict, **kwargs: object) -> dict:
+            raise BlockTerminalStateReportedError(
+                state=BlockState.CANCELLED,
+                outputs={"partial": "value"},
+            )
+
+        scheduler, _event_bus, runner = _make_scheduler(wf)
+        runner.run.side_effect = reports_cancelled_with_partial
+
+        asyncio.run(scheduler.execute())
+
+        assert scheduler._block_states["A"] == BlockState.CANCELLED
+        assert scheduler._block_outputs.get("A") == {"partial": "value"}
+
+    def test_pre_cancelled_state_preserved_against_worker_error(self) -> None:
+        """#689 cancel-race guard: if ``_on_cancel_block`` already pre-set
+        the block to CANCELLED while the worker was finalising a different
+        terminal state (ERROR / SKIPPED), the CANCELLED state must be
+        preserved and the runner's reported state must not overwrite it.
+
+        Exercises ``_run_and_finalize`` directly with a pre-set CANCELLED
+        state to simulate the race window between ``_on_cancel_block``
+        marking CANCELLED and the worker's ``BlockTerminalStateReportedError``
+        unwinding through ``_run_and_finalize``.
+        """
+        from scieasy.engine.runners.terminal_state import BlockTerminalStateReportedError
+
+        wf = _wf(nodes=[("A", "proc")])
+        scheduler, event_bus, runner = _make_scheduler(wf)
+
+        async def reports_error(block: object, inputs: dict, config: dict, **kwargs: object) -> dict:
+            raise BlockTerminalStateReportedError(
+                state=BlockState.ERROR,
+                outputs={},
+            )
+
+        runner.run.side_effect = reports_error
+
+        # Capture any contradictory events that would follow CANCELLED.
+        emitted: list[str] = []
+        event_bus.subscribe(BLOCK_ERROR, lambda e: emitted.append(BLOCK_ERROR))
+
+        # Pre-set CANCELLED as _on_cancel_block would have done.
+        scheduler._block_states["A"] = BlockState.CANCELLED
+
+        block = MagicMock()
+        block.id = "A"
+        asyncio.run(scheduler._run_and_finalize("A", block, {}, {}))
+
+        # CANCELLED must win and the worker's ERROR must not be emitted.
+        assert scheduler._block_states["A"] == BlockState.CANCELLED
+        assert BLOCK_ERROR not in emitted
+
+
+# ---------------------------------------------------------------------------
 # Cancellation
 # ---------------------------------------------------------------------------
 

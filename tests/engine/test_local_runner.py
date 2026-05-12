@@ -241,6 +241,111 @@ class TestLocalRunnerRun:
         result = asyncio.run(runner.run(FakeBlock(), {}, {}))
         assert result == raw
 
+    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    def test_run_raises_terminal_state_for_cancelled(self, mock_create_sub: AsyncMock) -> None:
+        """#681: run() should raise BlockTerminalStateReportedError(CANCELLED)
+        when the worker envelope contains ``final_state: "cancelled"``.
+        """
+        from scieasy.blocks.base.state import BlockState
+        from scieasy.engine.runners.terminal_state import BlockTerminalStateReportedError
+
+        envelope = {
+            "outputs": {},
+            "environment": {},
+            "final_state": "cancelled",
+        }
+        mock_proc = self._make_async_proc(json.dumps(envelope).encode(), b"", 0, pid=300)
+        mock_create_sub.return_value = mock_proc
+
+        bus = MagicMock()
+        bus.emit = AsyncMock()
+        runner = LocalRunner(event_bus=bus, registry=ProcessRegistry())
+
+        class FakeBlock:
+            pass
+
+        try:
+            asyncio.run(runner.run(FakeBlock(), {}, {}))
+        except BlockTerminalStateReportedError as exc:
+            assert exc.state == BlockState.CANCELLED
+            assert exc.outputs == {}
+        else:
+            raise AssertionError("Expected BlockTerminalStateReportedError to be raised")
+
+    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    def test_run_raises_terminal_state_for_error(self, mock_create_sub: AsyncMock) -> None:
+        """#681: ``final_state: "error"`` raises BlockTerminalStateReportedError(ERROR)."""
+        from scieasy.blocks.base.state import BlockState
+        from scieasy.engine.runners.terminal_state import BlockTerminalStateReportedError
+
+        envelope = {
+            "outputs": {"partial": "value"},
+            "environment": {},
+            "final_state": "error",
+        }
+        mock_proc = self._make_async_proc(json.dumps(envelope).encode(), b"", 0, pid=301)
+        mock_create_sub.return_value = mock_proc
+
+        bus = MagicMock()
+        bus.emit = AsyncMock()
+        runner = LocalRunner(event_bus=bus, registry=ProcessRegistry())
+
+        class FakeBlock:
+            pass
+
+        try:
+            asyncio.run(runner.run(FakeBlock(), {}, {}))
+        except BlockTerminalStateReportedError as exc:
+            assert exc.state == BlockState.ERROR
+            assert exc.outputs == {"partial": "value"}
+        else:
+            raise AssertionError("Expected BlockTerminalStateReportedError to be raised")
+
+    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    def test_run_ignores_done_final_state(self, mock_create_sub: AsyncMock) -> None:
+        """#681: ``final_state: "done"`` (non-terminal-failure) is treated as a
+        normal return — the runner does not raise. The worker only emits
+        ``final_state`` for non-DONE terminal states, but defensively the
+        runner must not raise on values like ``"done"`` or unknown values.
+        """
+        envelope = {
+            "outputs": {"port_a": "value"},
+            "environment": {},
+            "final_state": "done",
+        }
+        mock_proc = self._make_async_proc(json.dumps(envelope).encode(), b"", 0, pid=302)
+        mock_create_sub.return_value = mock_proc
+
+        bus = MagicMock()
+        bus.emit = AsyncMock()
+        runner = LocalRunner(event_bus=bus, registry=ProcessRegistry())
+
+        class FakeBlock:
+            pass
+
+        result = asyncio.run(runner.run(FakeBlock(), {}, {}))
+        assert result == {"port_a": "value"}
+
+    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    def test_run_returns_outputs_when_final_state_absent(self, mock_create_sub: AsyncMock) -> None:
+        """#681 backward compat: envelope without ``final_state`` returns outputs."""
+        envelope = {
+            "outputs": {"port_a": "value"},
+            "environment": {},
+        }
+        mock_proc = self._make_async_proc(json.dumps(envelope).encode(), b"", 0, pid=303)
+        mock_create_sub.return_value = mock_proc
+
+        bus = MagicMock()
+        bus.emit = AsyncMock()
+        runner = LocalRunner(event_bus=bus, registry=ProcessRegistry())
+
+        class FakeBlock:
+            pass
+
+        result = asyncio.run(runner.run(FakeBlock(), {}, {}))
+        assert result == {"port_a": "value"}
+
 
 class TestLocalRunnerOutputDir:
     def test_derive_output_dir_prefers_project_scoped_path(self, tmp_path: Path) -> None:

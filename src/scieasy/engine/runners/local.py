@@ -218,10 +218,41 @@ class LocalRunner:
         if stdout:
             try:
                 parsed = json.loads(stdout.decode())
-                # Worker wraps outputs as {"outputs": {...}}. Unwrap the
-                # envelope so callers see port names at the top level.
+                # Worker wraps outputs as {"outputs": {...}, "environment": {...},
+                # "final_state": "<state>"?}. Unwrap the envelope so callers see
+                # port names at the top level.
                 if isinstance(parsed, dict) and "outputs" in parsed:
-                    return dict(parsed["outputs"])
+                    outputs_dict = dict(parsed["outputs"])
+                    # #681: when the worker reports a non-DONE terminal state
+                    # (block called ``self.transition()`` from inside ``run()``),
+                    # raise the typed exception so the scheduler's existing
+                    # exception path can finalise the block to that state.
+                    final_state_raw = parsed.get("final_state")
+                    if isinstance(final_state_raw, str):
+                        from scieasy.blocks.base.state import BlockState
+                        from scieasy.engine.runners.terminal_state import (
+                            BlockTerminalStateReportedError,
+                        )
+
+                        try:
+                            reported = BlockState(final_state_raw)
+                        except ValueError:
+                            logger.warning(
+                                "Worker reported unknown final_state %r for block %s",
+                                final_state_raw,
+                                block_id,
+                            )
+                        else:
+                            if reported in (
+                                BlockState.CANCELLED,
+                                BlockState.ERROR,
+                                BlockState.SKIPPED,
+                            ):
+                                raise BlockTerminalStateReportedError(
+                                    state=reported,
+                                    outputs=outputs_dict,
+                                )
+                    return outputs_dict
                 return dict(parsed)
             except (json.JSONDecodeError, UnicodeDecodeError) as exc:
                 raise RuntimeError(f"Failed to parse worker output: {exc}") from exc
