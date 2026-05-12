@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#682] Align variadic-port + button with port-handle column (@claude, 2026-04-24, branch: fix/issue-682/variadic-add-port-alignment, session: 20260424-145113-fix-682-button-css-alignment)
 - [#693] Skip mypy follow_imports for zarr to avoid PEP 695 syntax error on Python 3.13 CI runner (@claude, 2026-05-12, branch: fix/issue-693/mypy-zarr-override, session: 20260512-170159-fix-silence-zarr-py3-12-syntax-error-in)
 - [#678] Remove 120s timeout from native file dialog; status-aware frontend fallback (only fall back to in-app picker on HTTP 500, not 504) (@claude, 2026-04-24, branch: fix/issue-678/native-dialog-no-timeout, session: 20260424-130419-fix-678-remove-native-dialog-timeout)
 - [#677] macOS AppBlock: launch .app bundles via `open -W -n -a` so Popen tracks the .app's lifetime instead of the short-lived `open` launcher, preventing PAUSED -> DONE skip on macOS (@claude, 2026-04-24, branch: fix/issue-677/macos-appblock-open-w, session: 20260424-130347-fix-677-macos-appblock-open-w)
