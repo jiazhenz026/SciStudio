@@ -860,7 +860,7 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
           type="button"
           className="nodrag absolute flex h-3.5 w-3.5 items-center justify-center rounded-full bg-stone-100 text-[9px] text-stone-500 transition-colors hover:bg-ember hover:text-white"
           title="Add input port"
-          style={{ left: 6, top: portStartY + effectiveInputPorts.length * 20 - 1 }}
+          style={{ left: -7, top: portStartY + effectiveInputPorts.length * 20 - 1 }}
           onClick={() => handleAddPort("input")}
         >
           +
@@ -908,7 +908,7 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
           type="button"
           className="nodrag absolute flex h-3.5 w-3.5 items-center justify-center rounded-full bg-stone-100 text-[9px] text-stone-500 transition-colors hover:bg-ember hover:text-white"
           title="Add output port"
-          style={{ right: 6, top: portStartY + effectiveOutputPorts.length * 20 - 1 }}
+          style={{ right: -7, top: portStartY + effectiveOutputPorts.length * 20 - 1 }}
           onClick={() => handleAddPort("output")}
         >
           +
