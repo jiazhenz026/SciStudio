@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#706] Tier 1 drop-in blocks now run in the worker subprocess (ADR-017): the registry stamps `_scieasy_file_path` on each Tier-1 class, `LocalRunner` threads it into the dispatch payload as `block_file_path`, and the worker reloads the synthetic module via `importlib.util.spec_from_file_location` before resolving the class. Tier-2 entry-point blocks unchanged (@claude, 2026-05-12, branch: fix/issue-706/tier1-dropin-subprocess-import, session: 20260512-190456-fix-tier-1-dropin-worker-subprocess-impo)
 - [#700] Variadic port UI: stop port-name input from dropping focus after one keystroke (row React key no longer embeds the controlled value), and align the on-canvas "+ Add port" button with the existing port-handle column via the same `translate(-50%, -50%)` convention React Flow's Handle uses (@claude, 2026-05-12, branch: fix/issue-700/variadic-port-ui-focus-and-alignment, session: 20260512-181447-fix-variadic-port-ui-focus-loss-icon-col)
 - [#681] Forward terminal block state (CANCELLED/ERROR) from worker subprocess to orchestrator so blocks that call ``self.transition()`` from inside ``run()`` are recorded with the correct terminal state (@claude, 2026-04-24, branch: fix/issue-681/worker-ipc-terminal-state, session: 20260424-145324-fix-681-worker-ipc-terminal-state-propag)
 - [#682] Align variadic-port + button with port-handle column (@claude, 2026-04-24, branch: fix/issue-682/variadic-add-port-alignment, session: 20260424-145113-fix-682-button-css-alignment)
