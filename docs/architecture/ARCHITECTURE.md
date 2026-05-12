@@ -2047,198 +2047,118 @@ The DAG scheduler interacts only with the `BlockRunner` protocol. `run()` return
 
 ## 7. Layer 4 — AI services
 
-Four tiers of AI integration, from generation to autonomous optimisation:
+Layer 4 hosts SciEasy's **embedded coding agent** (ADR-033): the user's locally installed Claude Code (or Codex) CLI, wrapped as a subprocess and surfaced through the chat tab. Layer 4 no longer ships generation / synthesis / optimisation pipelines as separate single-call services — those user needs are met by the agent calling SciEasy's MCP tools.
 
-### 7.1 Block and data type generation
+> **Note**: this section was rewritten for ADR-033 (2026-05-12). The previous content (block generation, workflow synthesis, parameter optimisation pipelines as standalone services) is superseded. `AIBlock` (the workflow-graph LLM node) is unaffected and continues to live under `blocks/ai/` — it is a workflow primitive, not an agent surface.
 
-AI can generate **any of the five block categories** as well as **new DataObject subtypes**. The user provides a natural-language description; the AI produces validated, ready-to-use code that plugs directly into the framework.
+### 7.1 Agent runtime (ADR-033 D1)
 
-#### Generating blocks
-
-The AI infers which block category to subclass based on the user's intent. All generated blocks use `dict[str, Collection]` for `run()` signatures and wrap outputs in `Collection` (ADR-020). State transitions are managed by the engine in subprocess isolation (ADR-017) --- generated blocks must NOT call `self.transition()`. The removed `estimated_memory_gb` parameter (ADR-022) must not appear in generated code.
+The agent runtime spawns the user's locally installed CLI as a subprocess; the engine streams the CLI's `--output-format stream-json` events to the frontend via WebSocket. SciEasy does not implement an agent loop, does not handle OAuth, and does not maintain a prompt-cache strategy — those concerns are delegated to the upstream CLI.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ ProcessBlock generation                                                     │
+│ Provider abstraction (src/scieasy/ai/agent/)                                │
 │                                                                             │
-│ User: "I need a block that performs Savitzky-Golay smoothing on Raman       │
-│        spectra with configurable window length and polynomial order."        │
+│ AgentProvider Protocol — name, binary_name, discover(), start_session()     │
+│   ClaudeCodeProvider — wraps `claude` CLI                                   │
+│   CodexProvider      — wraps OpenAI `codex` CLI (Phase 4)                   │
 │                                                                             │
-│ AI generates:                                                               │
-│   - Class inheriting ProcessBlock                                           │
-│   - Input port: Spectrum (or Series) via Collection                         │
-│   - Output port: Spectrum via Collection                                    │
-│   - Config schema: { window_length: int, poly_order: int }                  │
-│   - process_item(self, item, config) for Tier-1 single-item processing      │
-│     (engine auto-iterates Collection and auto-flushes outputs)              │
-│   - Or run(self, inputs: dict[str, Collection], config) for custom logic    │
-│   - Output: Collection([smoothed], item_type=Spectrum)                      │
-│   - Unit tests with synthetic spectrum data                                 │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ IOBlock generation                                                          │
-│                                                                             │
-│ User: "I need a loader for Bruker .d mass spectrometry folders that         │
-│        extracts the profile spectra as a DataFrame."                        │
-│                                                                             │
-│ AI generates:                                                               │
-│   - Class inheriting IOBlock                                                │
-│   - direction: "input", format: "bruker_d"                                  │
-│   - Output port: DataFrame (or PeakTable) via Collection                    │
-│   - run(self, inputs: dict[str, Collection], config) -> dict[str, Coll.]    │
-│   - Output: Collection([df], item_type=DataFrame)                           │
-│   - FormatAdapter registration for ".d" extension                           │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ CodeBlock generation                                                        │
-│                                                                             │
-│ User: "Wrap my existing R script for DESeq2 differential expression.        │
-│        It takes a count matrix and a sample metadata table."                │
-│                                                                             │
-│ AI generates:                                                               │
-│   - Class inheriting CodeBlock                                              │
-│   - language: "r"                                                           │
-│   - Input ports: Collection of DataFrame (counts), Collection of DataFrame  │
-│   - Output port: Collection of DataFrame (DESeq2 results)                   │
-│   - run(self, inputs: dict[str, Collection], config) -> dict[str, Coll.]    │
-│   - Pre-populated script with variable injection for input_0, input_1       │
-│   - Config: { alpha: float, lfc_threshold: float }                          │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ AppBlock generation                                                         │
-│                                                                             │
-│ User: "I use MestReNova for NMR processing. I want to send FID files in,    │
-│        process them manually, and get the phased spectrum back."             │
-│                                                                             │
-│ AI generates:                                                               │
-│   - Class inheriting AppBlock                                               │
-│   - app_command template for MestReNova CLI                                 │
-│   - Input format: ".fid", output format: ".csv" or ".jdx"                   │
-│   - FileExchangeBridge serializes Collection inputs to files                │
-│   - Output: Collection([artifact], item_type=Artifact)                      │
-│   - watch_patterns for MestReNova's default export directory                │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ AIBlock generation                                                          │
-│                                                                             │
-│ User: "I want a block that looks at H&E pathology images and classifies     │
-│        tissue regions as tumour, stroma, or necrosis."                      │
-│                                                                             │
-│ AI generates:                                                               │
-│   - Class inheriting AIBlock                                                │
-│   - Input port: Collection of Image                                         │
-│   - Output port: Collection of DataFrame                                    │
-│   - run(self, inputs: dict[str, Collection], config) -> dict[str, Coll.]    │
-│   - Output: Collection([result_df], item_type=DataFrame)                    │
-│   - prompt_template with image description + classification instructions    │
-│   - Optional: vision model config for multimodal LLM                        │
-│   - Structured output parser for consistent DataFrame schema                │
+│ Binary discovery (8 fallback paths, incl. Windows registry)                 │
+│ Subprocess lifecycle (asyncio.create_subprocess_exec, stdin/stdout pipes)   │
+│ Stream-json parser (NDJSON line-by-line)                                    │
+│ SessionManager — dict[chat_id, AgentSession]; cap=5 per project             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### Generating data types
+Each `AgentSession` corresponds to one CLI subprocess with one `session_id`. The first stream-json `init` event carries the session id; subsequent turns within the same chat use `--resume <id>`. Sessions persist as `{project}/.scieasy/sessions/<chat_id>.json` + `transcript.jsonl`.
 
-AI can also extend the type hierarchy when existing types don't capture the user's data semantics. Generated types are transported between blocks inside `Collection` (ADR-020):
+### 7.2 SciEasy MCP server (ADR-033 D2)
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ DataObject subtype generation                                               │
-│                                                                             │
-│ User: "I work with MALDI imaging data. Each pixel has a full mass           │
-│        spectrum. I need a data type that knows about x/y coordinates         │
-│        and m/z axis, and can return a single-pixel spectrum or a             │
-│        single-m/z ion image."                                               │
-│                                                                             │
-│ AI generates:                                                               │
-│   - Class MALDIImage inheriting Array (3D: x, y, m/z)                       │
-│   - Additional fields: mz_axis (array), pixel_size_um (float),              │
-│     spatial_shape (tuple)                                                   │
-│   - Helper methods:                                                         │
-│       .spectrum_at(x, y) → MassSpectrum                                     │
-│       .ion_image(mz, tolerance) → Image                                     │
-│       .tic_image() → Image                                                  │
-│   - Storage hint: Zarr with chunks aligned to spatial tiles                  │
-│   - TypeSignature registration so ports accepting Array or Image             │
-│     also accept MALDIImage                                                  │
-│   - Suggested companion blocks: MALDILoader (IOBlock),                      │
-│     MALDIPeakPick (ProcessBlock)                                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ User: "I have flow cytometry FCS files with multi-channel fluorescence       │
-│        per event."                                                          │
-│                                                                             │
-│ AI generates:                                                               │
-│   - Class FlowCytoData inheriting DataFrame                                 │
-│   - Additional fields: channels (list[str]), compensation_matrix (Array)    │
-│   - Helper methods:                                                         │
-│       .compensate() → FlowCytoData                                          │
-│       .gate(channel, threshold) → FlowCytoData                              │
-│       .to_anndata() → AnnData                                               │
-│   - FormatAdapter for .fcs files                                            │
-│   - TypeSignature: compatible with DataFrame ports                           │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+The MCP server runs **in-process with FastAPI** and exposes ~25 tools across four user-need categories. Tools share the same dependency-injection container as REST routes (BlockRegistry, TypeRegistry, scheduler, lineage, MetadataStore).
 
-#### Validation pipeline
+| Category | Tools | Read / Write |
+|---|---|---|
+| **(a) Workflow design + execution** | `list_blocks`, `get_block_schema`, `list_types`, `get_workflow`, `validate_workflow`, `get_run_status`, `write_workflow`, `run_workflow`, `cancel_run` | 6 R / 3 W |
+| **(b) Custom block authoring** | `read_block_source`, `list_block_examples`, `scaffold_block`, `reload_blocks`, `run_block_tests` | 2 R / 3 W |
+| **(c) Result inspection + parameter tuning** | `get_block_output`, `inspect_data`, `preview_data`, `get_lineage`, `get_block_config`, `update_block_config`, `get_block_logs` | 6 R / 1 W |
+| **(d) Q&A about the project** | `search_docs`, `get_doc`, `list_data`, `get_project_info` | 4 R / 0 W |
 
-All AI-generated code (blocks and data types) passes through an automated validation pipeline before being added to the user's local library. The validator enforces ADR-017 (no in-process state transitions), ADR-020 (`dict[str, Collection]` for run() signatures), and ADR-022 (no `estimated_memory_gb`):
+Generic file IO (Read / Write / Edit / Glob / Grep / Bash) remains Claude Code's native domain — MCP focuses on SciEasy-semantic operations.
+
+The CLI is pointed at the in-process server via `{project}/.scieasy/mcp.json`, which spawns a small `scieasy mcp-bridge` proxy subprocess that connects to the FastAPI process. See ADR-033 §3 D2 for the full bridge contract.
+
+### 7.3 Permission model (ADR-033 D4)
+
+Strict by default: every Edit, Write, Bash, WebFetch, and write-class MCP tool call requires user approval. Read-only operations are auto-approved. A per-session **Bypass mode** opts out of approval entirely (red banner shown while active).
+
+Enforcement uses Claude Code's `PreToolUse` hook protocol. The hook posts the tool call to a SciEasy backend endpoint (`POST /api/ai/permission-check`); the frontend renders the prompt; the user's decision flows back through `POST /api/ai/permission-decision`.
 
 ```
-Natural-language description
-    │
-    ▼
-┌────────────────────┐
-│ 1. Code generation │  AI produces class definition, ports, config, tests
-└────────┬───────────┘
-         ▼
-┌────────────────────┐
-│ 2. Static analysis │  ast.parse() syntax check, verify class with run() method
-└────────┬───────────┘
-         ▼
-┌────────────────────────┐
-│ 3. Contract check      │  Reject estimated_memory_gb (ADR-022), warn on
-│                        │  dict[str, Any] (should be dict[str, Collection]),
-│                        │  warn on self.transition() (ADR-017)
-└────────┬───────────────┘
-         ▼
-┌────────────────────┐
-│ 4. Dry run         │  Execute with synthetic Collection matching port types
-└────────┬───────────┘    (future: not yet implemented)
-         ▼
-┌────────────────────┐
-│ 5. Port contract   │  Verify output types match declared output port signatures
-└────────┬───────────┘    (future: not yet implemented)
-         ▼
-┌────────────────────┐
-│ 6. User review     │  Show generated code + validation results for approval
-└────────┬───────────┘
-         ▼
-  Added to local block library / type registry
+   Claude Code subprocess
+        │
+        │  about to call Edit("workflows/foo.yaml")
+        ▼
+   PreToolUse hook ──► scieasy hook-bridge ──► POST /api/ai/permission-check
+                                                         │
+                                                         ▼
+                                            WebSocket → frontend prompt UI
+                                                         │
+                                                         ▼
+                                            user clicks Approve / Deny
+                                                         │
+                                                         ▼
+                                       POST /api/ai/permission-decision
+                                                         │
+                                       hook exits 0 (approve) or 2 (deny)
+                                                         │
+                                                         ▼
+                                            Claude Code proceeds / aborts
 ```
 
-If any step fails, the AI receives the error and iterates automatically (up to a configurable retry limit) before escalating to the user.
+### 7.4 System prompt composition (ADR-033 D3)
 
-### 7.2 Workflow synthesis
+The agent's behaviour is shaped by a three-tier system prompt assembled at session start and passed via `--append-system-prompt @<tmp_file>`:
 
-Given a description of available data and the analysis goal, AI proposes a complete workflow DAG:
+1. **Builtin** — `src/scieasy/ai/agent/system_prompt.py`. Covers SciEasy core concepts (block contract, six data types, workflow YAML), explicit MCP tool enumeration, and production-mode working principles. Distinct from `CLAUDE.md` developer discipline — the agent is told to plan-before-act, verify-before-claim, cite-real-data, prefer-minimal-change, use-SciEasy-semantics, be-honest, respect-data-scale, never-silently-overwrite. It is NOT told to file GitHub issues, follow conventional commits, or pass the workflow gate.
+2. **Project overlay** — `{project}/.scieasy/system_prompt.md` (optional, gitignored opt-in).
+3. **Per-machine overlay** — `{project}/.scieasy/system_prompt.local.md` (optional, gitignored by default).
+
+### 7.5 Project-local state (ADR-033 D7)
+
+All agent-related persistent state lives under the project workspace, making projects portable and self-contained:
 
 ```
-User: "I have LC-MS mzXML files, Raman CSV spectra, and IF TIFF images.
-       I want to identify metabolites, characterise spectral signatures per cell type,
-       and correlate metabolite abundance with cell-type spatial distribution."
-
-AI produces:
-    - IOBlock (load mzXML) → AppBlock (ElMAVEN) → CodeBlock (R: peak annotation)
-    - IOBlock (load Raman CSV) → ProcessBlock (baseline correction) → ProcessBlock (PCA)
-    - IOBlock (load IF TIFF) → ProcessBlock (Cellpose) → ProcessBlock (cell typing)
-    - ProcessBlock (merge: cell types + Raman clusters + metabolite table)
-    - ProcessBlock (correlation analysis) → IOBlock (export results)
+{project}/
+└── .scieasy/
+    ├── settings.json                # permission mode, concurrent-chat cap, model preference
+    ├── system_prompt.md             # project-level system prompt overlay
+    ├── system_prompt.local.md       # per-machine prompt overlay
+    ├── mcp.json                     # generated at session start
+    ├── claude-hooks.json            # generated PreToolUse hook config
+    ├── sessions/<chat_id>.json      # SciEasy chat metadata
+    ├── sessions/<chat_id>/transcript.jsonl   # write-through stream-json snapshot
+    ├── memory/MEMORY.md             # project-local agent memory
+    └── skills/*.md                  # project-local Claude Code skills
 ```
 
-### 7.3 Runtime parameter optimisation
+The CLI's home-directory transcript (`~/.claude/projects/<sha>/`) remains canonical for `--resume`; the project-local copy is a write-through mirror for portability.
 
-An AI agent monitors intermediate outputs during workflow execution and suggests (or auto-applies) parameter adjustments:
+### 7.6 AIBlock (workflow LLM node) — unchanged
 
-- Observes Cellpose segmentation results → suggests adjusting `diameter` parameter.
-- Observes baseline correction output → recommends switching algorithm.
-- Runs a hyperparameter sweep across a user-defined search space while the workflow loops.
+The `AIBlock` workflow primitive (`src/scieasy/blocks/ai/`) is preserved unchanged in this layer revision. It continues to function as a single-call LLM node inside the workflow graph — appropriate for batch operations like "run a vision model over every image in this Collection" that an interactive chat cannot perform. A future ADR will decide whether to re-implement AIBlock on top of `AgentProvider` in non-interactive mode, leave it as-is, or retire it.
+
+### 7.7 What this layer no longer ships
+
+The following modules existed prior to ADR-033 and are removed as part of the Phase 4 cleanup:
+
+- `ai/generation/` (block_generator, type_generator, validator, templates) — block generation now happens through the agent calling `scaffold_block` + native `Write`, with the agent supplying domain reasoning.
+- `ai/synthesis/workflow_planner.py` — workflow synthesis now happens through the agent calling `list_blocks` + `validate_workflow` + `write_workflow`.
+- `ai/optimization/param_optimizer.py` — parameter tuning now happens through the agent calling `get_run_status` + `inspect_data` + `update_block_config`.
+- `ai/config.py` (`AIConfig`, `get_provider()`) — provider selection happens through the chat's settings panel, not env vars.
+- `/api/ai/generate-block`, `/suggest-workflow`, `/optimize-params` — REST endpoints retired; replaced by `WS /api/ai/chat/{chat_id}`, `GET /api/ai/status`, `POST /api/ai/permission-check`, `POST /api/ai/permission-decision`.
 
 ---
+
 
 ## 8. Layer 5 — API
 
@@ -2284,11 +2204,19 @@ GET    /api/projects/{id}              Get project details
 PUT    /api/projects/{id}              Update project metadata
 DELETE /api/projects/{id}              Delete project
 
-# AI services
-POST   /api/ai/generate-block          Generate a block from natural-language description
-POST   /api/ai/suggest-workflow         Suggest a workflow for given data + goal
-POST   /api/ai/optimize-params          Run parameter optimisation on a block
+# AI services (ADR-033)
+GET    /api/ai/status                   Provider availability, version, login state
+WS     /api/ai/chat/{chat_id}           Bidirectional chat: user_message, cancel,
+                                        permission_decision; agent_event stream-out
+POST   /api/ai/permission-check         Called by `scieasy hook-bridge`; returns
+                                        approve / deny / ask
+POST   /api/ai/permission-decision      Frontend posts approve / deny for pending tool call
 ```
+
+Removed REST endpoints (vs. pre-ADR-033 design): `POST /api/ai/generate-block`,
+`POST /api/ai/suggest-workflow`, `POST /api/ai/optimize-params`. Their use cases
+are now served by the chat agent invoking MCP tools (`scaffold_block`,
+`write_workflow`, `update_block_config`, etc.).
 
 ### 8.3 WebSocket protocol
 
