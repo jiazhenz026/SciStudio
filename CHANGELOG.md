@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#680] AppBlock variadic input/output ports with extension-based output binning; per-port extension field, case-insensitive matching, duplicate-extension config validation, unmatched-file warning (@claude, 2026-04-24, branch: feat/issue-680/appblock-variadic-extension-binning, session: 20260424-145408-feat-680-appblock-variadic-ports-extensi)
 - [#652] Block Developer SDK rewrite: 9-document suite in docs/block-development/ plus 3 complete examples, replacing outdated docs/guides/block-sdk.md (@claude, 2026-04-12, branch: docs/issue-652/block-sdk-rewrite, session: 20260412-003237-block-developer-sdk-documentation-rewrit)
 - [#651] Implement ADR-032 MetadataStore — SQLite persistent mirror of DataObject metadata with engine-side writes, checkpoint restore sync, and 30 unit tests (@claude, 2026-04-12, branch: feat/issue-651/adr-032-metadata-store, session: 20260412-003142-implement-adr-032-metadatastore-639-640)
 - [#644] Implement DataRouter + PairEditor interactive variadic blocks — first consumers of ADR-029 variadic ports, with interactive PAUSED execution mode, drag-and-drop routing modal, sortable pairing modal, and scheduler interactive flow (@claude, 2026-04-11, branch: feat/issue-644/data-router-pair-editor, session: 20260411-225938-implement-datarouter-paireditor-interact)

@@ -464,3 +464,73 @@ input_ports: ClassVar[list[InputPort]] = [
 The `validate()` hook calls `validate_port_constraint(port, value)` for
 each input. If the constraint function returns `False`, validation fails
 with the `constraint_description` message.
+
+---
+
+## AppBlock: variadic ports + extension-based output binning
+
+**Issue #680**: All AppBlock subclasses (Fiji, Napari, ElMAVEN, custom
+external-app blocks) inherit:
+
+- `variadic_inputs = True` and `variadic_outputs = True` — the user
+  defines input and output ports via the standard ADR-029 port editor.
+- A required `extension` field on every output port entry. The runtime
+  uses this string (no leading dot, case-insensitive) to bin saved
+  files into ports.
+- A generic binner method `_bin_outputs_by_extension(output_files,
+  config)` that subclasses call after their watcher returns.
+
+### Routing rules
+
+After the external app produces output files, the binner:
+
+1. For each port, finds files whose suffix (case-insensitively) matches
+   the port's declared extension and wraps them as
+   `Artifact(file_path=..., mime_type=..., description=...)` instances
+   in a `Collection(item_type=port.accepted_types[0])`.
+2. Raises `ValueError("Port 'X' required, no '.ext' files in output dir")`
+   when a required port receives zero files.
+3. Logs `WARNING — Unmatched output file 'name.ext'` for files whose
+   extension matches no port and continues.
+
+### Config-save validation
+
+The workflow validator's **Check 8** rejects configurations where two
+output ports on the same variadic-output block declare the same
+extension (case-insensitive):
+
+```
+Node 'A': Duplicate extension 'tif' across output ports {images, masks}
+```
+
+This catches the only ambiguity in the routing model at save time,
+before the workflow runs.
+
+### Subclass authoring
+
+Concrete AppBlock subclasses keep their `output_ports` ClassVar as a
+**default scaffold** that the user may override via the editor. The
+`run()` method ends with:
+
+```python
+if config.get("output_ports"):
+    return self._bin_outputs_by_extension(output_files, config)
+# Backwards-compatible fallback when no ports are declared:
+from scieasy.blocks.app.bridge import _guess_mime
+from scieasy.core.types.artifact import Artifact
+from scieasy.core.types.collection import Collection
+artifacts = [
+    Artifact(file_path=p, mime_type=_guess_mime(p), description=p.name)
+    for p in output_files
+]
+return {"image": Collection(artifacts, item_type=Artifact)} if artifacts else {}
+```
+
+### What the binner does NOT do
+
+- No file content inspection or type inference (the user is responsible
+  for saving the right kind of data into the declared extension).
+- No multi-extension ports (one extension per port — Collections are
+  homogeneous by type).
+- No per-port glob fields.
+- No automatic port creation based on saved content.

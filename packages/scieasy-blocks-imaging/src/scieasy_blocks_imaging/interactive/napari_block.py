@@ -10,7 +10,6 @@ from scieasy.blocks.base.ports import InputPort, OutputPort
 from scieasy.blocks.base.state import ExecutionMode
 from scieasy.core.types.collection import Collection
 from scieasy_blocks_imaging.interactive import (
-    _collect_outputs,
     _input_images,
     _prepare_image_exchange,
     _resolve_command,
@@ -55,14 +54,30 @@ class NapariBlock(AppBlock):
         exchange_dir = _resolve_exchange_dir(config, prefix="scieasy_napari_")
         staged_paths = _prepare_image_exchange(images, exchange_dir, tool_name=self.type_name, config=config)
         command = _resolve_command(config, app_command=self.app_command, override_key="napari_path")
+        # Issue #680: broaden watcher patterns with each declared extension.
+        patterns = list(self.output_patterns)
+        configured_ports = config.get("output_ports") or []
+        if isinstance(configured_ports, list):
+            for entry in configured_ports:
+                if isinstance(entry, dict) and entry.get("extension"):
+                    ext = str(entry["extension"]).strip().lstrip(".").lower()
+                    if ext and f"*.{ext}" not in patterns:
+                        patterns.append(f"*.{ext}")
         output_files = _run_external_app(
             self,
             command=command,
             exchange_dir=exchange_dir,
-            patterns=self.output_patterns,
+            patterns=patterns,
             config=config,
             launch_args=[str(p) for p in staged_paths],
         )
-        return _collect_outputs(
-            output_files, template_image=images[0] if images else None, allowed_ports={"image", "mask", "label"}
-        )
+        # Issue #680: extension-based binning (see FijiBlock for rationale).
+        if config.get("output_ports"):
+            return self._bin_outputs_by_extension(output_files, config)
+        from scieasy.blocks.app.bridge import _guess_mime
+        from scieasy.core.types.artifact import Artifact
+
+        artifacts = [Artifact(file_path=p, mime_type=_guess_mime(p), description=p.name) for p in output_files]
+        if not artifacts:
+            return {}
+        return {"image": Collection(artifacts, item_type=Artifact)}

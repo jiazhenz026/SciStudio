@@ -3,6 +3,10 @@ import type { TypeHierarchyEntry } from "../types/api";
 export interface PortRow {
   name: string;
   types: string[];
+  /** Issue #680: file extension (no leading dot, case-insensitive) used by the
+   *  AppBlock runtime to bin saved files into output ports. Only meaningful
+   *  for output ports. */
+  extension?: string;
 }
 
 interface PortEditorTableProps {
@@ -16,9 +20,34 @@ interface PortEditorTableProps {
   minPorts?: number | null;
   /** ADR-029 Addendum 1: maximum number of ports. null/undefined = no maximum. */
   maxPorts?: number | null;
+  /** Issue #680: when true, render the extension column for output ports.
+   *  Defaults to true for output direction. Input ports never show this
+   *  column because they have no file context. */
+  showExtensionColumn?: boolean;
 }
 
-export function PortEditorTable({ direction, ports, allowedTypes, typeHierarchy, onChange, minPorts, maxPorts }: PortEditorTableProps) {
+/**
+ * Normalise an extension string the same way the backend does:
+ * lowercase, strip any leading dots. Returns "" for empty input.
+ */
+function normalizeExtension(raw: string): string {
+  let text = raw.trim();
+  while (text.startsWith(".")) {
+    text = text.slice(1);
+  }
+  return text.toLowerCase();
+}
+
+export function PortEditorTable({
+  direction,
+  ports,
+  allowedTypes,
+  typeHierarchy,
+  onChange,
+  minPorts,
+  maxPorts,
+  showExtensionColumn,
+}: PortEditorTableProps) {
   const availableTypes =
     allowedTypes.length > 0
       ? typeHierarchy.filter((t) => allowedTypes.includes(t.name))
@@ -30,6 +59,11 @@ export function PortEditorTable({ direction, ports, allowedTypes, typeHierarchy,
   const canAdd = maxPorts == null || ports.length < maxPorts;
   const canRemove = minPorts == null || ports.length > minPorts;
 
+  // Issue #680: input ports never show the extension column; output ports
+  // show it by default unless the caller explicitly opts out.
+  const renderExtension =
+    direction === "output" && (showExtensionColumn ?? true);
+
   function handleNameChange(index: number, name: string) {
     onChange(ports.map((p, i) => (i === index ? { ...p, name } : p)));
   }
@@ -38,12 +72,24 @@ export function PortEditorTable({ direction, ports, allowedTypes, typeHierarchy,
     onChange(ports.map((p, i) => (i === index ? { ...p, types: [typeName] } : p)));
   }
 
+  function handleExtensionChange(index: number, extension: string) {
+    onChange(
+      ports.map((p, i) =>
+        i === index ? { ...p, extension: normalizeExtension(extension) } : p,
+      ),
+    );
+  }
+
   function handleRemove(index: number) {
     onChange(ports.filter((_, i) => i !== index));
   }
 
   function handleAdd() {
-    onChange([...ports, { name: `port_${ports.length + 1}`, types: [defaultType] }]);
+    const next: PortRow = { name: `port_${ports.length + 1}`, types: [defaultType] };
+    if (renderExtension) {
+      next.extension = "";
+    }
+    onChange([...ports, next]);
   }
 
   return (
@@ -75,6 +121,15 @@ export function PortEditorTable({ direction, ports, allowedTypes, typeHierarchy,
                 <option value="DataObject">DataObject</option>
               )}
             </select>
+            {renderExtension && (
+              <input
+                aria-label={`extension for ${port.name}`}
+                className="w-24 rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-sm"
+                onChange={(e) => handleExtensionChange(index, e.target.value)}
+                placeholder="ext (e.g. tif)"
+                value={port.extension ?? ""}
+              />
+            )}
             <button
               className={`rounded-lg px-2 py-1 text-xs ${canRemove ? "text-stone-500 hover:bg-red-100 hover:text-red-700" : "cursor-not-allowed text-stone-300"}`}
               disabled={!canRemove}
