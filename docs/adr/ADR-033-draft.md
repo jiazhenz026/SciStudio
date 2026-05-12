@@ -368,13 +368,24 @@ The user can opt into a Bypass mode that skips all approvals — equivalent to l
 
 Claude Code's hooks system supports a `PreToolUse` hook: a user-defined command invoked before each tool call, with the tool name + arguments on stdin, returning approve/deny/ask via exit code or JSON output.
 
-SciEasy registers a hook in `{project}/.scieasy/claude-hooks.json` that points at a local HTTP endpoint:
+SciEasy registers a hook in `{project}/.scieasy/claude-hooks.json` that points at the local `scieasy hook-bridge` subcommand. Claude Code's actual hook config schema is nested under a top-level `hooks` key with per-matcher arrays:
 
 ```json
 {
-  "PreToolUse": "scieasy hook-bridge --endpoint http://127.0.0.1:8000/api/ai/permission-check"
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          { "type": "command", "command": "scieasy hook-bridge" }
+        ]
+      }
+    ]
+  }
 }
 ```
+
+(The `matcher` field empty-string matches all tools. `scieasy hook-bridge` reads the tool name + arguments from stdin and POSTs them to `http://127.0.0.1:8000/api/ai/permission-check`.)
 
 The endpoint receives:
 
@@ -773,3 +784,19 @@ The two projects share the **core architectural insight**: spawning the user's i
 - **Bypass mode**: SciEasy's name for running Claude Code with `--dangerously-skip-permissions`.
 - **Session**: One Claude Code subprocess instance with a unique `session_id`. Sessions can be resumed via `--resume <id>`.
 - **Project workspace**: SciEasy's project directory layout (`workflows/`, `blocks/`, `data/`, `.scieasy/`, etc.) defined by `scieasy init` and used as `cwd` for the agent.
+
+---
+
+### Addendum 1: Hook config format correction (2026-05-12, issue #705)
+
+The first revision of §3 D4.3 showed a simplified hook config shape:
+
+```json
+{
+  "PreToolUse": "scieasy hook-bridge --endpoint http://127.0.0.1:8000/api/ai/permission-check"
+}
+```
+
+The real Claude Code hook config schema is nested under a top-level `hooks` key with per-matcher arrays. T-ECA-108 (PR #704) implemented the correct shape; this addendum updates §3 D4.3 in-place to match. No code change was required because the implementation already used the correct format. Reviewers should consult the updated §3 D4.3 above for the canonical example.
+
+The `scieasy hook-bridge` command line is also simpler than the original prose suggested: the bridge reads its target endpoint from `127.0.0.1:8000` (the local FastAPI server) without needing an `--endpoint` flag. The endpoint URL becomes a deployment concern only if SciEasy is ever served on a non-default host/port; in that case `hook-bridge` reads it from an env var.
