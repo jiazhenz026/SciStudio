@@ -492,17 +492,58 @@ function InlineConfigField({
     }
   };
 
+  // Caret-preservation pattern for controlled text inputs (#710).
+  //
+  // Because the value flows out to a Zustand store and back as a new `value`
+  // prop on the next render, the browser does not reliably preserve the
+  // caret position when typing in the middle of an existing string — the
+  // caret jumps to the end. We capture selectionStart/selectionEnd on every
+  // change and restore them after the value prop is applied. The
+  // document.activeElement guard ensures the unfocused mirror (e.g. the
+  // BottomPanel input bound to the same store entry) does not steal
+  // selection from the canvas input.
+  const inputRef = useRef<HTMLInputElement>(null);
+  const selectionRef = useRef<{ start: number | null; end: number | null }>({
+    start: null,
+    end: null,
+  });
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (
+      el &&
+      document.activeElement === el &&
+      selectionRef.current.start !== null
+    ) {
+      try {
+        el.setSelectionRange(
+          selectionRef.current.start,
+          selectionRef.current.end ?? selectionRef.current.start,
+        );
+      } catch {
+        // setSelectionRange throws on input types where selection is not
+        // applicable; harmless to ignore here.
+      }
+    }
+  });
+
   return (
     <label className="flex items-center justify-between gap-2 text-xs">
       <span className="shrink-0 text-stone-500">{label}</span>
       <div className="flex min-w-0 flex-1 gap-1">
         <input
+          ref={inputRef}
           type="text"
           className="nodrag nowheel min-w-0 flex-1 truncate rounded border border-stone-200 bg-white px-2 py-1 text-xs text-ink focus:border-sea focus:outline-none"
           placeholder={key === "path" || key === "script_path" ? "Type or paste path" : undefined}
           title={String(value ?? schema.default ?? "")}
           value={String(value ?? schema.default ?? "")}
-          onChange={(e) => onChange(key, e.target.value)}
+          onChange={(e) => {
+            selectionRef.current = {
+              start: e.target.selectionStart,
+              end: e.target.selectionEnd,
+            };
+            onChange(key, e.target.value);
+          }}
         />
         {hasBrowse && (
           <button

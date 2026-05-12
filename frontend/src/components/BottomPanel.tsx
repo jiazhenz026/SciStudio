@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type { BlockSchemaResponse, ChatMessage, LogEntry, WorkflowNode } from "../types/api";
 import type { BottomTab } from "../types/ui";
@@ -30,6 +30,71 @@ const TAB_LABELS: Record<BottomTab, string> = {
 };
 
 const ALL_TABS: BottomTab[] = ["ai", "config", "logs", "lineage", "jobs", "problems"];
+
+// Controlled text input that preserves caret position across re-renders (#710).
+//
+// The standard React controlled-input pattern resets the browser caret to
+// the end of the value whenever the `value` prop is replaced by a non-
+// synchronous round-trip (e.g. onChange -> Zustand -> next render). This
+// component captures selectionStart/selectionEnd on each change and restores
+// them in a layout effect after the value prop has been applied. The
+// activeElement guard ensures we never steal selection from another input
+// (the canvas BlockNode renders the same field, bound to the same store).
+function CaretPreservingTextInput({
+  value,
+  onChange,
+  type,
+  className,
+  placeholder,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  type: "text" | "number";
+  className?: string;
+  placeholder?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const selectionRef = useRef<{ start: number | null; end: number | null }>({
+    start: null,
+    end: null,
+  });
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (
+      el &&
+      document.activeElement === el &&
+      selectionRef.current.start !== null
+    ) {
+      try {
+        el.setSelectionRange(
+          selectionRef.current.start,
+          selectionRef.current.end ?? selectionRef.current.start,
+        );
+      } catch {
+        // setSelectionRange is not supported on type=number; ignore.
+      }
+    }
+  });
+  return (
+    <input
+      ref={inputRef}
+      className={className}
+      onChange={(event) => {
+        // type=number does not expose selectionStart/selectionEnd in most
+        // browsers; values come back as null which is fine — the guard in
+        // the layout effect short-circuits in that case.
+        selectionRef.current = {
+          start: event.target.selectionStart,
+          end: event.target.selectionEnd,
+        };
+        onChange(event.target.value);
+      }}
+      placeholder={placeholder}
+      type={type}
+      value={value}
+    />
+  );
+}
 
 function ConfigPanel({
   selectedNode,
@@ -115,11 +180,11 @@ function ConfigPanel({
         return (
           <label className="grid gap-2 text-sm" key={key}>
             <span className="font-medium text-ink">{String(value.title ?? key)}</span>
-            <input
+            <CaretPreservingTextInput
               className="min-w-0 flex-1 rounded-2xl border border-stone-300 bg-white px-4 py-3"
-              onChange={(event) =>
+              onChange={(next) =>
                 onUpdateConfig({
-                  [key]: value.type === "number" ? Number(event.target.value) : event.target.value,
+                  [key]: value.type === "number" ? Number(next) : next,
                 })
               }
               placeholder={key === "path" ? "Type or paste file/directory path" : undefined}
