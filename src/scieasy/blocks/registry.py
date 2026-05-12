@@ -260,6 +260,22 @@ class BlockRegistry:
                             and obj is not Block
                             and not inspect.isabstract(obj)
                         ):
+                            # #706: stamp the source-file path on the class so the
+                            # worker subprocess can reload the synthetic module via
+                            # importlib.util.spec_from_file_location (the synthetic
+                            # mod_name only exists in the parent's sys.modules).
+                            # Only Tier-1 drop-in classes get this attribute;
+                            # Tier-2 entry-point blocks remain importable via the
+                            # normal importlib.import_module path.
+                            try:
+                                obj._scieasy_file_path = str(py_file)  # type: ignore[attr-defined]
+                            except (AttributeError, TypeError):
+                                # Defensive: if the class disallows attribute
+                                # assignment (e.g. __slots__ without the slot),
+                                # fall through; the worker will then fail loudly
+                                # with the original ModuleNotFoundError rather
+                                # than silently mis-dispatching.
+                                pass
                             block_spec = _spec_from_class(obj, source="tier1")
                             block_spec.file_path = str(py_file)
                             block_spec.file_mtime = mtime
@@ -487,6 +503,15 @@ class BlockRegistry:
             module = importlib.import_module(spec.module_path)
 
         cls = getattr(module, spec.class_name)
+        # #706: this is a *fresh* class object (re-imported from the file) so
+        # the stamp set during _scan_tier1 is on the prior class object. Re-
+        # stamp here so LocalRunner can read _scieasy_file_path from the class
+        # of the instance it is about to dispatch.
+        if spec.file_path:
+            try:
+                cls._scieasy_file_path = spec.file_path
+            except (AttributeError, TypeError):
+                pass
         return cls(config=config)
 
     def hot_reload(self) -> None:
