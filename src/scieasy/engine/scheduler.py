@@ -331,6 +331,23 @@ class DAGScheduler:
                 # via ``self.transition()`` inside ``run()``. Honour that
                 # state directly — do NOT overwrite it with ERROR like the
                 # generic ``except Exception`` branch below.
+                #
+                # #689 cancel-race guard: if ``_on_cancel_block`` already
+                # pre-set the block to CANCELLED while the worker was
+                # finalising its own terminal state (e.g. ERROR / SKIPPED),
+                # the CANCELLED state takes precedence. Mirror the generic
+                # ``except Exception`` branch's cancellation guard below —
+                # do not overwrite the state or emit a contradictory event
+                # sequence (BLOCK_CANCELLED followed by BLOCK_ERROR).
+                if self._block_states.get(node_id) == BlockState.CANCELLED:
+                    logger.info(
+                        "Block %s reported terminal state %s from worker "
+                        "but was already CANCELLED; preserving CANCELLED",
+                        node_id,
+                        terminal.state.value,
+                    )
+                    self.save_checkpoint(self._checkpoint_manager)
+                    return
                 logger.info(
                     "Block %s reported terminal state %s from worker",
                     node_id,

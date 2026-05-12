@@ -324,6 +324,45 @@ class TestSchedulerWorkerReportedTerminalState:
         assert scheduler._block_states["A"] == BlockState.CANCELLED
         assert scheduler._block_outputs.get("A") == {"partial": "value"}
 
+    def test_pre_cancelled_state_preserved_against_worker_error(self) -> None:
+        """#689 cancel-race guard: if ``_on_cancel_block`` already pre-set
+        the block to CANCELLED while the worker was finalising a different
+        terminal state (ERROR / SKIPPED), the CANCELLED state must be
+        preserved and the runner's reported state must not overwrite it.
+
+        Exercises ``_run_and_finalize`` directly with a pre-set CANCELLED
+        state to simulate the race window between ``_on_cancel_block``
+        marking CANCELLED and the worker's ``BlockTerminalStateReportedError``
+        unwinding through ``_run_and_finalize``.
+        """
+        from scieasy.engine.runners.terminal_state import BlockTerminalStateReportedError
+
+        wf = _wf(nodes=[("A", "proc")])
+        scheduler, event_bus, runner = _make_scheduler(wf)
+
+        async def reports_error(block: object, inputs: dict, config: dict, **kwargs: object) -> dict:
+            raise BlockTerminalStateReportedError(
+                state=BlockState.ERROR,
+                outputs={},
+            )
+
+        runner.run.side_effect = reports_error
+
+        # Capture any contradictory events that would follow CANCELLED.
+        emitted: list[str] = []
+        event_bus.subscribe(BLOCK_ERROR, lambda e: emitted.append(BLOCK_ERROR))
+
+        # Pre-set CANCELLED as _on_cancel_block would have done.
+        scheduler._block_states["A"] = BlockState.CANCELLED
+
+        block = MagicMock()
+        block.id = "A"
+        asyncio.run(scheduler._run_and_finalize("A", block, {}, {}))
+
+        # CANCELLED must win and the worker's ERROR must not be emitted.
+        assert scheduler._block_states["A"] == BlockState.CANCELLED
+        assert BLOCK_ERROR not in emitted
+
 
 # ---------------------------------------------------------------------------
 # Cancellation
