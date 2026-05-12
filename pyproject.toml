@@ -126,6 +126,14 @@ ignore_missing_imports = true
 mypy_path = "src"
 packages = ["scieasy"]
 
+# zarr 3.2+ uses PEP 695 generic syntax (`class Foo[T]:`) which is only valid
+# in Python 3.12+. Our mypy is pinned to python_version = "3.11", so it cannot
+# parse zarr's source. Skip following imports into zarr to avoid syntax errors.
+# See issue #693.
+[[tool.mypy.overrides]]
+module = ["zarr", "zarr.*"]
+follow_imports = "skip"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra -q --cov=scieasy --cov-report=term-missing --cov-fail-under=85"
