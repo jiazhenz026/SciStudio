@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from scieasy.blocks.app.bridge import FileExchangeBridge, _guess_mime
 from scieasy.blocks.app.command_validator import validate_app_command
@@ -209,8 +209,11 @@ class AppBlock(Block):
         from scieasy.blocks.base.ports import ports_from_config_dicts
 
         config_ports = config.get("output_ports")
+        ports: list[OutputPort]
         if config_ports and isinstance(config_ports, list):
-            ports = list(ports_from_config_dicts(config_ports, "output"))
+            # ports_from_config_dicts returns list[InputPort] | list[OutputPort];
+            # we requested direction="output" so the runtime type is list[OutputPort].
+            ports = cast(list[OutputPort], list(ports_from_config_dicts(config_ports, "output")))
         else:
             ports = self.get_effective_output_ports()
         if not ports:
@@ -227,7 +230,7 @@ class AppBlock(Block):
                 continue
             ext_to_port[ext] = port
 
-        grouped: dict[str, list[Artifact]] = {port.name: [] for port in ports}
+        grouped: dict[str, list[DataObject]] = {port.name: [] for port in ports}
         unmatched: list[Path] = []
         for path in output_files:
             suffix = path.suffix.lstrip(".").lower()
