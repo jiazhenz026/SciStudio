@@ -909,6 +909,8 @@ For each phase the dispatching process is:
 4. **Once all implementation PRs are merged**, dispatch the **audit agent**. (1 agent.) The audit agent reviews each implementation PR via GitHub comments OR opens follow-up PRs for blockers.
 5. **Once audit clears**, the phase is complete. Proceed to the next phase's scaffold agent.
 
+**Cross-phase parallelism** (revised 2026-05-12 per issue #712): after Phase 1's T-ECA-119 audit closes, **Phase 2 and Phase 3 may be launched simultaneously**. Their scaffold agents start at T+0, impl agents at T+1, audit agents at T+2. Each phase still runs its internal scaffold → impl → audit sequence; the parallelism is between phases, not inside one. Phase 4 waits for both Phase 2 and Phase 3 audits to close. See §10 for the updated dependency graph.
+
 Total agents per phase: **3** (1 scaffold + 2 implementation OR 1 scaffold + 1 implementation + 1 audit, depending on phase size).
 
 **Parallel-safe groups per phase**:
@@ -928,16 +930,25 @@ Total agents per phase: **3** (1 scaffold + 2 implementation OR 1 scaffold + 1 i
             Phase 1 (T-ECA-101..119)
                     │
                     ▼  (T-ECA-119 audit pass)
-            Phase 2 (T-ECA-201..225)
-                    │
-                    ▼  (T-ECA-225 audit pass)
-            Phase 3 (T-ECA-301..318)
-                    │
-                    ▼  (T-ECA-318 audit pass)
+              ┌─────┴─────┐
+              ▼           ▼
+    Phase 2 (MCP)   Phase 3 (Frontend)
+   (T-ECA-201..225) (T-ECA-301..318)
+              │           │
+              ▼ 225       ▼ 318
+              └─────┬─────┘
+                    ▼  (both audits pass)
             Phase 4 (T-ECA-401..410)
 ```
 
-No phase may begin its scaffold ticket until the prior phase's audit ticket is closed. Implementation tickets within a phase may overlap as documented in §9.
+Phase 1 and Phase 4 are strict serialisation points. **Phase 2 and Phase 3 may run concurrently** after T-ECA-119 closes. The two phases own disjoint files:
+
+- Phase 2 owned files: `src/scieasy/ai/agent/mcp/*`, `src/scieasy/cli/mcp_bridge.py`, plus narrow edits to `src/scieasy/ai/agent/system_prompt.py` (T-ECA-204 fills in builtin content) and `src/scieasy/api/app.py` (T-ECA-205 adds the MCP-server lifespan hook).
+- Phase 3 owned files: `frontend/src/components/AIChat/*`, `frontend/src/hooks/*`, `frontend/src/stores/aiChatSlice.ts`, `frontend/src/types/agentEvents.ts`, plus edits to `src/scieasy/api/routes/ai.py` (event envelope additions) and `src/scieasy/api/schemas.py` (new Pydantic envelope models).
+
+There is **no file overlap** between the two phases. Logical convergence happens only at Phase 3's manual end-to-end smoke test, which is richer when Phase 2's MCP tools are also available but does not require it (the frontend renders Claude Code native tool calls identically to MCP tool calls).
+
+Phase 4 still waits for **both** Phase 2 and Phase 3 audits to close. Its deletions (legacy `ai/generation/`, `ai/synthesis/`, etc.) and additions (Codex provider, user-facing docs) require the new chat stack to be stable.
 
 ---
 

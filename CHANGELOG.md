@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- [#712,#705] ADR-033 §3 D4.3 hook config example replaced with real Claude Code nested shape (top-level `hooks` key with per-matcher arrays); spec §10 dep graph updated to allow Phase 2 (MCP) and Phase 3 (Frontend) to run in parallel after Phase 1 audit closes. §9 dispatch protocol records the cross-phase parallelism rule. Phase 4 still gates on both. (@claude, 2026-05-12, branch: docs/issue-712/adr-033-spec-corrections, session: 20260512-190605-docs-adr-033-hook-config-spec-10-dep-gra)
+
 ### Added
 
 - [#703] T-ECA-102 + T-ECA-103 + T-ECA-108 Phase 1 batch B: implement CLI binary discovery with 8-fallback search (`find_binary` in `binary_discovery.py`), stream-JSON parser with bounded 1 MiB buffer and the canonical AgentEvent taxonomy (`InitEvent`, `AssistantTextDeltaEvent`, `ToolUseEvent`, `ToolResultEvent`, `PermissionRequestEvent`, `ErrorEvent`, `DoneEvent`, `OtherEvent`) plus async `parse_stream`, and static MCP + claude-hooks config emission (`config_files.py`); 76 new unit tests including 100% line coverage on `stream_json.py`; synthetic NDJSON fixtures under `tests/fixtures/stream_json/`. Parser tolerates both ADR-canonical `kind` and Claude Code wire `type` field names. (@claude, 2026-05-12, branch: feat/issue-703/eca-102-103-108-batch, session: 20260512-182957-t-eca-102-103-108-phase-1-batch-b-binary)
