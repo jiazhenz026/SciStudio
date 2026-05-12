@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { type PortRow, PortEditorTable } from "./PortEditorTable";
@@ -67,6 +68,42 @@ describe("PortEditorTable", () => {
     expect(onChange.mock.calls[0][0]).toEqual([
       { name: "tables", types: ["DataObject"], extension: "csv" },
     ]);
+  });
+
+  it("keeps the port-name input focused across rapid edits (issue #700)", () => {
+    // Regression: the row was keyed by `port.name + index`, so each keystroke
+    // changed the React key, remounted the <input>, and dropped focus after
+    // a single character. The fix uses a stable index-based key.
+    function Harness() {
+      const [ports, setPorts] = useState<PortRow[]>([
+        { name: "a", types: ["DataObject"] },
+      ]);
+      return (
+        <PortEditorTable
+          allowedTypes={[]}
+          direction="input"
+          onChange={setPorts}
+          ports={ports}
+          typeHierarchy={TYPE_HIERARCHY}
+        />
+      );
+    }
+    render(<Harness />);
+
+    const nameInput = screen.getByPlaceholderText("port name") as HTMLInputElement;
+    nameInput.focus();
+    expect(document.activeElement).toBe(nameInput);
+
+    // Three rapid edits — focus must survive every one of them.
+    fireEvent.change(nameInput, { target: { value: "ab" } });
+    expect(document.activeElement).toBe(screen.getByPlaceholderText("port name"));
+    fireEvent.change(nameInput, { target: { value: "abc" } });
+    expect(document.activeElement).toBe(screen.getByPlaceholderText("port name"));
+    fireEvent.change(nameInput, { target: { value: "abcd" } });
+
+    const finalInput = screen.getByPlaceholderText("port name") as HTMLInputElement;
+    expect(document.activeElement).toBe(finalInput);
+    expect(finalInput.value).toBe("abcd");
   });
 
   it("seeds new output rows with an empty extension field", () => {
