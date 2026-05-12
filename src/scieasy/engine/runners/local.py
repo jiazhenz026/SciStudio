@@ -157,12 +157,20 @@ class LocalRunner:
         block_id = getattr(block, "id", block_class_path)
         output_dir = _derive_output_dir(block, config)
 
+        # #706: For Tier-1 drop-in blocks, the registry stamps the source
+        # ``.py`` file path on the class so the worker can reload the module
+        # (the synthetic ``_scieasy_dropin_*`` module name only exists in the
+        # parent process's ``sys.modules``). Tier-2 / builtin block classes
+        # do not have this attribute and use the normal import path.
+        block_file_path = getattr(block.__class__, "_scieasy_file_path", None)
+
         # Build the serialized payload for the worker subprocess.
         payload_bytes = build_worker_payload(
             block_class=block_class_path,
             inputs_refs=inputs,
             config=config,
             output_dir=output_dir,
+            block_file_path=block_file_path,
         )
 
         # Launch via asyncio.create_subprocess_exec to avoid os.fork()
