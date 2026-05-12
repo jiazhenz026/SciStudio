@@ -260,6 +260,14 @@ class BlockRegistry:
                             and issubclass(obj, Block)
                             and obj is not Block
                             and not inspect.isabstract(obj)
+                            # #706 audit: ``dir(module)`` also surfaces Block
+                            # subclasses *imported* from other modules (e.g.
+                            # ``from scieasy.blocks.code import CodeBlock``).
+                            # Stamping or re-registering those would make the
+                            # worker try to spec_from_file_location the wrong
+                            # source. Restrict the loop body to classes that
+                            # are actually defined in this drop-in file.
+                            and getattr(obj, "__module__", None) == module.__name__
                         ):
                             # #706: stamp the source-file path on the class so the
                             # worker subprocess can reload the synthetic module via

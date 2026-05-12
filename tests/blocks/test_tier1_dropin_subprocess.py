@@ -84,6 +84,52 @@ class TestRegistryStampsFilePath:
         assert hasattr(block.__class__, "_scieasy_file_path")
         assert block.__class__._scieasy_file_path == str(dropin)  # type: ignore[attr-defined]
 
+    def test_imported_block_class_in_dropin_is_not_stamped(self, tmp_path: Path) -> None:
+        """#706 audit: ``dir(module)`` enumerates Block subclasses imported by
+        the drop-in file (e.g. a user file that ``from scieasy.blocks.code
+        import CodeBlock``).  Those classes must NOT be stamped with the
+        drop-in's ``file_path`` and must NOT be re-registered as Tier-1
+        specs — otherwise the worker would try to ``spec_from_file_location``
+        the wrong source.  Only classes whose ``__module__`` is the synthetic
+        drop-in module name should be touched.
+        """
+        from scieasy.blocks.code.code_block import CodeBlock
+
+        # Drop-in that imports a real concrete Block subclass alongside its
+        # own class.  Without the audit guard the import alone is enough to
+        # stamp CodeBlock.
+        dropin = tmp_path / "imports_codeblock.py"
+        dropin.write_text(
+            DROPIN_SOURCE + "\n" + "from scieasy.blocks.code.code_block import CodeBlock  # noqa: E402, F401\n"
+        )
+
+        original_stamp = getattr(CodeBlock, "_scieasy_file_path", None)
+        try:
+            reg = BlockRegistry()
+            reg.add_scan_dir(tmp_path)
+            reg.scan()
+            # The drop-in's own class must still be stamped.
+            assert "Issue706Echo" in reg.all_specs()
+            # The imported CodeBlock must NOT have acquired the drop-in path.
+            current_stamp = getattr(CodeBlock, "_scieasy_file_path", None)
+            assert current_stamp == original_stamp, (
+                f"CodeBlock._scieasy_file_path leaked: was {original_stamp!r}, "
+                f"became {current_stamp!r} after scanning a drop-in that merely "
+                f"imports CodeBlock"
+            )
+        finally:
+            # Restore the prior state so this test does not leak into other
+            # tests in the same session.
+            if original_stamp is None:
+                # Only delete if we (or a prior test) set it; setattr-then-delete
+                # is safe under ``contextlib.suppress``.
+                import contextlib as _ctx
+
+                with _ctx.suppress(AttributeError):
+                    del CodeBlock._scieasy_file_path
+            else:
+                CodeBlock._scieasy_file_path = original_stamp
+
     def test_tier2_or_builtin_class_does_not_have_scieasy_file_path(self) -> None:
         """Built-in blocks (registered via ``_register_builtins`` or Tier 2
         entry points) must NOT carry ``_scieasy_file_path`` — the worker
