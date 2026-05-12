@@ -860,7 +860,14 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
           type="button"
           className="nodrag absolute flex h-3.5 w-3.5 items-center justify-center rounded-full bg-stone-100 text-[9px] text-stone-500 transition-colors hover:bg-ember hover:text-white"
           title="Add input port"
-          style={{ left: -7, top: portStartY + effectiveInputPorts.length * 20 - 1 }}
+          // translate(-50%, -50%) matches React Flow's <Handle> convention so
+          // the button center aligns with the port-handle column (x = block_left - 7)
+          // and sits on the next-port row (y = portStartY + N * 20).
+          style={{
+            left: -7,
+            top: portStartY + effectiveInputPorts.length * 20,
+            transform: "translate(-50%, -50%)",
+          }}
           onClick={() => handleAddPort("input")}
         >
           +
@@ -908,7 +915,13 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
           type="button"
           className="nodrag absolute flex h-3.5 w-3.5 items-center justify-center rounded-full bg-stone-100 text-[9px] text-stone-500 transition-colors hover:bg-ember hover:text-white"
           title="Add output port"
-          style={{ right: -7, top: portStartY + effectiveOutputPorts.length * 20 - 1 }}
+          // See input button above: translate(-50%, -50%) keeps this aligned with
+          // the output port-handle column on the right edge.
+          style={{
+            right: -7,
+            top: portStartY + effectiveOutputPorts.length * 20,
+            transform: "translate(50%, -50%)",
+          }}
           onClick={() => handleAddPort("output")}
         >
           +

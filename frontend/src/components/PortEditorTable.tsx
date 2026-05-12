@@ -99,7 +99,11 @@ export function PortEditorTable({
       </h3>
       <div className="flex flex-col gap-1.5">
         {ports.map((port, index) => (
-          <div className="flex items-center gap-2" key={port.name + '-' + index}>
+          // Use the row index as the React key. Embedding `port.name` here
+          // would remount the row on every keystroke in the name input
+          // (since the controlled value changes), which drops focus after
+          // a single character.
+          <div className="flex items-center gap-2" key={index}>
             <input
               className="w-32 rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-sm"
               onChange={(e) => handleNameChange(index, e.target.value)}
