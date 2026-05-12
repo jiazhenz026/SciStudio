@@ -240,10 +240,7 @@ def main() -> None:
         if block_file_path is not None:
             spec = importlib.util.spec_from_file_location(module_path, block_file_path)
             if spec is None or spec.loader is None:
-                raise ImportError(
-                    f"Cannot create module spec for {module_path!r} "
-                    f"from file {block_file_path!r}"
-                )
+                raise ImportError(f"Cannot create module spec for {module_path!r} from file {block_file_path!r}")
             module = importlib.util.module_from_spec(spec)
             # Register before exec so any intra-module imports of the same
             # name resolve to the in-flight module (matches importlib's

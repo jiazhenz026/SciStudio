@@ -8,6 +8,7 @@ workflow instances.
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import importlib.metadata
 import importlib.util
@@ -267,15 +268,13 @@ class BlockRegistry:
                             # Only Tier-1 drop-in classes get this attribute;
                             # Tier-2 entry-point blocks remain importable via the
                             # normal importlib.import_module path.
-                            try:
+                            # Defensive: if the class disallows attribute
+                            # assignment (e.g. __slots__ without the slot),
+                            # fall through; the worker will then fail loudly
+                            # with the original ModuleNotFoundError rather
+                            # than silently mis-dispatching.
+                            with contextlib.suppress(AttributeError, TypeError):
                                 obj._scieasy_file_path = str(py_file)  # type: ignore[attr-defined]
-                            except (AttributeError, TypeError):
-                                # Defensive: if the class disallows attribute
-                                # assignment (e.g. __slots__ without the slot),
-                                # fall through; the worker will then fail loudly
-                                # with the original ModuleNotFoundError rather
-                                # than silently mis-dispatching.
-                                pass
                             block_spec = _spec_from_class(obj, source="tier1")
                             block_spec.file_path = str(py_file)
                             block_spec.file_mtime = mtime
@@ -508,10 +507,8 @@ class BlockRegistry:
         # stamp here so LocalRunner can read _scieasy_file_path from the class
         # of the instance it is about to dispatch.
         if spec.file_path:
-            try:
+            with contextlib.suppress(AttributeError, TypeError):
                 cls._scieasy_file_path = spec.file_path
-            except (AttributeError, TypeError):
-                pass
         return cls(config=config)
 
     def hot_reload(self) -> None:

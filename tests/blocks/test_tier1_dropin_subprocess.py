@@ -41,7 +41,7 @@ from scieasy.engine.runners.process_handle import build_worker_payload
 # as a plain string so the worker doesn't need any DataObject reconstruction.
 # ---------------------------------------------------------------------------
 
-DROPIN_SOURCE = '''\
+DROPIN_SOURCE = """\
 from typing import Any, ClassVar
 from scieasy.blocks.base.block import Block
 from scieasy.blocks.base.config import BlockConfig
@@ -60,7 +60,7 @@ class Issue706Echo(Block):
     def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
         cfg_dict = config.model_dump() if hasattr(config, "model_dump") else dict(config)
         return {"out": cfg_dict.get("value", "default")}
-'''
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -180,18 +180,14 @@ class TestWorkerSubprocessRoundtrip:
         # is a non-zero exit with ModuleNotFoundError in stdout.
         stdout = proc.stdout.decode("utf-8", errors="replace")
         stderr = proc.stderr.decode("utf-8", errors="replace")
-        assert proc.returncode == 0, (
-            f"Worker exited {proc.returncode}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
-        )
+        assert proc.returncode == 0, f"Worker exited {proc.returncode}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
 
         result = json.loads(stdout)
         assert "error" not in result, f"Worker reported error: {result.get('error')}"
         # Worker wraps outputs under an "outputs" key alongside diagnostic
         # metadata (environment, etc.).
         outputs = result.get("outputs", result)
-        assert outputs.get("out") == "hello-706", (
-            f"Unexpected worker result: {result}"
-        )
+        assert outputs.get("out") == "hello-706", f"Unexpected worker result: {result}"
 
     def test_worker_without_block_file_path_still_works_for_importable_module(
         self,
@@ -213,9 +209,7 @@ class TestWorkerSubprocessRoundtrip:
             # block_file_path intentionally omitted.
         )
         payload = json.loads(payload_bytes.decode("utf-8"))
-        assert "block_file_path" not in payload, (
-            "Tier-2 dispatch must not include block_file_path"
-        )
+        assert "block_file_path" not in payload, "Tier-2 dispatch must not include block_file_path"
 
         proc = subprocess.run(
             [sys.executable, "-m", "scieasy.engine.runners.worker"],
@@ -236,12 +230,9 @@ class TestWorkerSubprocessRoundtrip:
         # dispatch. So we check only that the *target* module path
         # resolved.
         assert MergeBlock.__module__ not in stderr, (
-            f"Worker failed to import target module {MergeBlock.__module__}:\n"
-            f"STDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+            f"Worker failed to import target module {MergeBlock.__module__}:\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
         )
         # And the worker should have written *some* JSON on stdout
         # (error envelope or success envelope) — not died before any
         # output was produced.
-        assert stdout.strip(), (
-            f"Worker produced no stdout:\nSTDERR:\n{stderr}"
-        )
+        assert stdout.strip(), f"Worker produced no stdout:\nSTDERR:\n{stderr}"
