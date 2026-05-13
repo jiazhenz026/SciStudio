@@ -84,6 +84,11 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--mcp-config", default=None)
     parser.add_argument("--resume", default=None)
     parser.add_argument("--model", default=None)
+    # Issue #784: provider now passes --disallowedTools to suppress
+    # AskUserQuestion (and possibly more). Accept and ignore — the stub
+    # has no native-tool surface to disallow.
+    parser.add_argument("--disallowedTools", default=None)
+    parser.add_argument("--permission-mode", default=None)
     return parser.parse_args(argv)
 
 
