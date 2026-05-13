@@ -206,13 +206,13 @@ class MCPServer:
                     },
                 )
             if method == "tools/list":
-                # #789: emit the real auto-generated schema so the LLM
-                # sees parameter names + types + required fields.
                 tools = [
                     {
                         "name": entry.name,
                         "description": entry.description,
-                        "inputSchema": entry.input_schema,
+                        # Minimal JSON Schema; rich per-tool schemas land in a
+                        # later pass once the tools are battle-tested.
+                        "inputSchema": {"type": "object", "additionalProperties": True},
                         "_meta": {"category": entry.category, "mutation": entry.mutation},
                     }
                     for entry in _registry.TOOL_REGISTRY
@@ -226,19 +226,6 @@ class MCPServer:
                 entry = _registry.lookup(name)
                 if entry is None:
                     return _error_response(req_id, _METHOD_NOT_FOUND, f"unknown tool '{name}'")
-                # #789: light-touch schema validation BEFORE invoking the
-                # handler so the agent gets "missing field 'path'" rather
-                # than a confusing Python TypeError.
-                if isinstance(arguments, dict):
-                    from scieasy.ai.agent.mcp._schema import validate_call_arguments
-
-                    err = validate_call_arguments(entry.input_schema, arguments)
-                    if err is not None:
-                        return _error_response(
-                            req_id,
-                            _INVALID_PARAMS,
-                            f"bad arguments for {name}: {err}",
-                        )
                 try:
                     result = entry.handler(**arguments) if isinstance(arguments, dict) else entry.handler(*arguments)
                 except TypeError as exc:

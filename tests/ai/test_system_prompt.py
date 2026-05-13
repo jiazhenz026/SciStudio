@@ -9,29 +9,9 @@ from scieasy.ai.agent.system_prompt import (
     SECTION_A_IDENTITY,
     SECTION_B_CORE_CONCEPTS,
     SECTION_D_WORKING_PRINCIPLES,
-    SECTION_E_USAGE_CHEATSHEET,
     compose_system_prompt,
     prompt_hash,
 )
-
-
-def test_compose_section_c_renders_full_signatures(tmp_path: Path) -> None:
-    """#789: Section C must render full parameter signatures so the agent
-    knows the correct parameter names on first call."""
-    prompt = compose_system_prompt(tmp_path)
-    # write_workflow(path: str, yaml: str)
-    assert "write_workflow(path: str, yaml: str)" in prompt
-    # run_workflow(path: str)
-    assert "run_workflow(path: str)" in prompt
-
-
-def test_compose_includes_section_e_cheatsheet(tmp_path: Path) -> None:
-    """#789: Section E (usage cheat-sheet) must be present."""
-    prompt = compose_system_prompt(tmp_path)
-    assert "Common usage patterns" in prompt
-    # Section E references key canonical tools.
-    assert "write_workflow" in SECTION_E_USAGE_CHEATSHEET
-    assert "preview_data" in SECTION_E_USAGE_CHEATSHEET
 
 
 def test_compose_contains_all_four_sections(tmp_path: Path) -> None:

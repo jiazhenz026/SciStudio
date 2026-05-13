@@ -18,9 +18,8 @@ and feeds the permission policy: write-class tools route through the
 
 from __future__ import annotations
 
-import inspect
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from scieasy.ai.agent.mcp import (
@@ -29,47 +28,6 @@ from scieasy.ai.agent.mcp import (
     tools_qa,
     tools_workflow,
 )
-
-
-def _signature_string(handler: Callable[..., Any]) -> str:
-    """Return a printable ``name(param: type, ...)`` signature for *handler*.
-
-    Used by :func:`scieasy.ai.agent.system_prompt._build_section_c` to
-    render full tool signatures in the agent's prompt — fixes #789's
-    "agent guesses param names" failure mode.
-
-    Best-effort: unannotated parameters render as just their names;
-    introspection failure returns ``"()"`` rather than raising.
-    """
-    try:
-        signature = inspect.signature(handler)
-    except (TypeError, ValueError):
-        return "()"
-    parts: list[str] = []
-    for name, param in signature.parameters.items():
-        if param.kind in (
-            inspect.Parameter.VAR_POSITIONAL,
-            inspect.Parameter.VAR_KEYWORD,
-        ):
-            continue
-        ann = param.annotation
-        type_str = "" if ann is inspect.Parameter.empty else _format_annotation(ann)
-        piece = f"{name}: {type_str}" if type_str else name
-        if param.default is not inspect.Parameter.empty:
-            piece += f" = {param.default!r}"
-        parts.append(piece)
-    return "(" + ", ".join(parts) + ")"
-
-
-def _format_annotation(annotation: Any) -> str:
-    """Render a type annotation as a short, readable string."""
-    if annotation is None or annotation is type(None):
-        return "None"
-    if hasattr(annotation, "__name__"):
-        return str(annotation.__name__)
-    text = str(annotation)
-    # Strip the ``typing.`` prefix for readability.
-    return text.removeprefix("typing.")
 
 
 @dataclass(frozen=True)
@@ -98,33 +56,6 @@ class ToolEntry:
     mutation: str
     description: str
     handler: Callable[..., Any]
-
-    # #789: cached schema + signature string. Computed lazily on first
-    # access so importing this module stays cheap. ``field(default=...,
-    # init=False, repr=False, compare=False, hash=False)`` keeps the
-    # dataclass frozen-compatible while allowing mutation via
-    # ``object.__setattr__`` in the property body.
-    _cached: dict[str, Any] = field(default_factory=dict, init=False, repr=False, compare=False, hash=False)
-
-    @property
-    def input_schema(self) -> dict[str, Any]:
-        """JSON Schema for the handler's parameters (lazy, cached)."""
-        cached = self._cached.get("input_schema")
-        if cached is None:
-            from scieasy.ai.agent.mcp._schema import infer_tool_schema
-
-            cached = infer_tool_schema(self.handler)
-            self._cached["input_schema"] = cached
-        return cached
-
-    @property
-    def signature_string(self) -> str:
-        """Printable ``name(arg: type, ...)`` signature for the system prompt."""
-        cached = self._cached.get("signature_string")
-        if cached is None:
-            cached = _signature_string(self.handler)
-            self._cached["signature_string"] = cached
-        return cached
 
 
 # Order matters for the system prompt enumeration but not for dispatch.

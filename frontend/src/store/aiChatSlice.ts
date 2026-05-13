@@ -74,14 +74,6 @@ export interface AIChatSlice {
 
   setActiveChatId: (chatId: string | null) => void;
   appendEvent: (chatId: string, event: AgentEvent) => void;
-  /**
-   * Replace the chat's event list with historical events (#783).
-   * Used by the sessions sidebar when opening a prior chat — the
-   * transcript replay endpoint streams every recorded event and we
-   * prepend them so the user sees the full history before the live
-   * WS attaches.
-   */
-  prependHistoricalEvents: (chatId: string, events: AgentEvent[]) => void;
   clearEvents: (chatId: string) => void;
   setPendingPermission: (chatId: string, prompt: PendingPermission | null) => void;
   setPermissionMode: (mode: PermissionMode) => void;
@@ -152,22 +144,6 @@ export const createAIChatSlice: StateCreator<AppStore, [], [], AIChatSlice> = (s
         eventsByChat: {
           ...state.eventsByChat,
           [chatId]: [...(state.eventsByChat[chatId] ?? []), event],
-        },
-      };
-    }),
-
-  prependHistoricalEvents: (chatId, events) =>
-    set((state) => {
-      const existing = state.eventsByChat[chatId] ?? [];
-      // Idempotent: if the buffer already starts with the same history
-      // (same length), don't re-prepend.
-      if (existing.length >= events.length) {
-        return {} as Partial<AppStore>;
-      }
-      return {
-        eventsByChat: {
-          ...state.eventsByChat,
-          [chatId]: [...events, ...existing],
         },
       };
     }),

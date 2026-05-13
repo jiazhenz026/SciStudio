@@ -375,46 +375,6 @@ class PermissionCheckResponse(BaseModel):
     request_id: str | None = None
 
 
-class SessionListItem(BaseModel):
-    """One entry returned by ``GET /api/ai/sessions`` (#783).
-
-    Mirrors :class:`scieasy.ai.agent.session.SessionMetadata` projected
-    to a JSON-friendly shape. The frontend uses this to render the
-    sessions sidebar after a backend restart.
-    """
-
-    chat_id: str
-    title: str = ""
-    created: str
-    last_active: str
-    provider: str
-    model: str | None = None
-    session_id: str | None = None
-    bypass_mode: bool = False
-    total_turns: int = 0
-
-
-class SessionListResponse(BaseModel):
-    """Response body for ``GET /api/ai/sessions`` (#783)."""
-
-    sessions: list[SessionListItem] = Field(default_factory=list)
-
-
-class SlashCommandItem(BaseModel):
-    """One entry returned by ``GET /api/ai/slash_commands`` (#786)."""
-
-    name: str
-    description: str = ""
-    source: str  # "user-commands" | "user-skills" | "project" | "plugin"
-    path: str = ""
-
-
-class SlashCommandsResponse(BaseModel):
-    """Response body for ``GET /api/ai/slash_commands`` (#786)."""
-
-    commands: list[SlashCommandItem] = Field(default_factory=list)
-
-
 class PermissionDecisionRequest(BaseModel):
     """Inbound payload for ``POST /api/ai/permission-decision``.
 

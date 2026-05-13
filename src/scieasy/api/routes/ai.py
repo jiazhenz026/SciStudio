@@ -36,7 +36,6 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
-from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 
 from scieasy.ai.agent import permission as permission_module
@@ -237,84 +236,43 @@ async def chat_ws(
     # ``finally`` block below so dead sockets do not leak into broadcasts.
     _active_chat_sockets[(project_key, chat_id)] = websocket
     session: Any | None = manager.get_session(project_path, chat_id)
-
-    # #783 P2/P3: lazy resume. If no live session exists but we have
-    # metadata on disk, spawn a resumed session now so the user does
-    # not have to send a message to get the transcript replay+continue
-    # flow working. Falls back to a fresh session if --resume fails.
-    if session is None:
-        metadata = manager.load_metadata(project_path, chat_id)
-        if metadata is not None and metadata.session_id is not None:
-            try:
-                session = await _start_default_session(
-                    manager=manager,
-                    project_dir=project_path,
-                    chat_id=chat_id,
-                    resume_session_id=metadata.session_id,
-                    permission_mode_str=permission_mode,
-                )
-            except Exception as exc:
-                logger.warning(
-                    "chat_ws: --resume of %s failed (%s); user must send a message to spawn a fresh session",
-                    metadata.session_id,
-                    exc,
-                )
-                # Surface an info banner so the user understands.
-                with contextlib.suppress(Exception):
-                    await websocket.send_json(
-                        AgentEventEnvelope(
-                            event={
-                                "kind": "info",
-                                "raw": {
-                                    "message": (
-                                        "Could not resume prior conversation; next message will start a fresh session."
-                                    ),
-                                },
-                            }
-                        ).model_dump()
-                    )
-
     pump_task: asyncio.Task[None] | None = None
 
-    async def _pump_subscriber(runtime: Any) -> None:
-        """Forward every event from the runtime's subscriber queue to the WS.
+    async def _pump_events(active_session: Any) -> None:
+        """Forward every canonical event from the session stream to the WebSocket.
 
-        #783: replaces the old per-WS ``stream_events()`` consumer.
-        Subscribing to the session runtime's fan-out queue means the
-        background drain task remains the single consumer of the live
-        stream — claude's stdout pipe stays drained even when no WS is
-        attached.
+        T-ECA-106 closeout (#778): each event is also mirrored to the
+        session's :class:`TranscriptWriter` so the on-disk JSONL log
+        stays in sync with what the frontend sees. Transcript write
+        failures are deliberately swallowed (the writer itself logs
+        once and disables further attempts) — they MUST NEVER kill
+        the WS pump.
         """
-        # Snapshot + subscribe atomically (single asyncio tick — no
-        # ``await`` between them — so the drain task cannot interleave
-        # an event into the buffer or queue between snapshot and
-        # subscribe). This avoids the duplicate/missed-event seam.
-        snapshot = runtime.snapshot_buffer()
-        q = runtime.subscribe()
-        # Replay the ring buffer so a reconnecting WS sees the tail of
-        # activity it missed.
-        for event in snapshot:
-            with contextlib.suppress(Exception):
-                await websocket.send_json(AgentEventEnvelope(event=_serialise_agent_event(event)).model_dump())
+        transcript = manager.get_transcript_writer(project_path, chat_id)
         try:
-            while True:
-                event = await q.get()
+            async for event in active_session.stream_events():
+                if transcript is not None:
+                    try:
+                        await transcript.write_event(event)
+                    except Exception as exc:  # pragma: no cover - defensive belt
+                        logger.warning(
+                            "chat_ws.pump_events: transcript.write_event raised: %s",
+                            exc,
+                        )
                 await websocket.send_json(AgentEventEnvelope(event=_serialise_agent_event(event)).model_dump())
         except (WebSocketDisconnect, asyncio.CancelledError):
             return
         except Exception as exc:  # pragma: no cover - defensive log
-            logger.error("chat_ws.pump_subscriber: %s", exc, exc_info=True)
+            logger.error("chat_ws.pump_events: %s", exc, exc_info=True)
             with contextlib.suppress(Exception):
                 await websocket.send_json(ErrorEnvelope(message=str(exc)).model_dump())
-        finally:
-            runtime.unsubscribe(q)
 
-    # Reattach flow: subscribe to the runtime so we receive ongoing
-    # events plus a replay of the recent ring buffer.
+    # Reattach flow: if a live session already exists for (project, chat_id),
+    # start the event pump now so reconnecting clients receive ongoing /
+    # subsequent agent_event frames. Without this, the pump_task was only
+    # created on the first user_message path and reattach hung silently.
     if session is not None:
-        runtime = manager.get_runtime(project_path, chat_id)
-        if runtime is not None:
-            pump_task = asyncio.create_task(_pump_subscriber(runtime))
+        pump_task = asyncio.create_task(_pump_events(session))
 
     try:
         while True:
@@ -343,9 +301,7 @@ async def chat_ws(
                         logger.error("chat_ws: start_session failed: %s", exc)
                         await websocket.send_json(ErrorEnvelope(message=f"start_session failed: {exc}").model_dump())
                         break
-                    runtime = manager.get_runtime(project_path, chat_id)
-                    if runtime is not None:
-                        pump_task = asyncio.create_task(_pump_subscriber(runtime))
+                    pump_task = asyncio.create_task(_pump_events(session))
                 content = msg.content or ""
                 try:
                     await session.send_user_message(content)
@@ -354,29 +310,7 @@ async def chat_ws(
                     await websocket.send_json(ErrorEnvelope(message=str(exc)).model_dump())
             elif msg.type == "cancel":
                 if session is not None:
-                    # #783: ``cancel`` is the explicit teardown signal.
-                    # Close the session so the user's intent (stop this
-                    # conversation) is honoured even though plain WS
-                    # disconnect no longer reaps the session.
-                    try:
-                        await session.cancel()
-                    except Exception as exc:
-                        logger.warning("chat_ws: session.cancel raised: %s", exc)
-                    try:
-                        await manager.close_session(project_path, chat_id)
-                    except Exception as exc:  # pragma: no cover - defensive
-                        logger.warning("chat_ws: close_session after cancel raised: %s", exc)
-                    # Codex P1: cancel + null the pump task too. Without
-                    # this, the next user_message on the same WS spawns
-                    # a fresh session + pump while the old pump is still
-                    # iterating the dead session's stream, leaking the
-                    # task and racing for the WebSocket send buffer.
-                    if pump_task is not None:
-                        pump_task.cancel()
-                        with contextlib.suppress(asyncio.CancelledError, Exception):
-                            await pump_task
-                        pump_task = None
-                    session = None
+                    await session.cancel()
             elif msg.type == "permission_decision":
                 # T-ECA-110: signal the pending Event for this request_id.
                 # Either the REST endpoint or the WS message is sufficient;
@@ -407,20 +341,24 @@ async def chat_ws(
         # Remove the socket first so an in-flight broadcast cannot try to
         # send to a closing connection.
         _active_chat_sockets.pop((project_key, chat_id), None)
-        # #783: cancel the WS pump only — the session stays alive so the
-        # next attach can pick up the conversation. ``cancel`` is still
-        # the explicit teardown path; idle TTL eviction is a follow-up
-        # (issue tracked separately).
         if pump_task is not None:
             pump_task.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await pump_task
-        # NOTE: ``close_session`` is deliberately NOT called here. The
-        # background drain task in the session manager continues to
-        # consume claude's stdout into the ring buffer + transcript
-        # while the WS is disconnected. The session is reaped by:
-        #   * explicit ``cancel`` message above, or
-        #   * ``shutdown_all`` at FastAPI lifespan teardown.
+        if session is not None:
+            # NOTE: :class:`SessionEndedEnvelope` exists in the protocol
+            # (the frontend renders it as a read-only banner) but is
+            # NOT emitted from this finally block. By the time we get
+            # here the client has typically disconnected, and racing a
+            # send against the closing handshake leaves the socket in
+            # a state that breaks subsequent ``close_session`` cleanup
+            # on Windows. End-of-session is instead derivable from the
+            # final ``done`` agent_event frame produced by the provider
+            # stream pump.
+            try:
+                await manager.close_session(project_path, chat_id)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning("chat_ws: close_session failed: %s", exc)
 
 
 async def _start_default_session(
@@ -428,7 +366,6 @@ async def _start_default_session(
     manager: Any,
     project_dir: Path,
     chat_id: str,
-    resume_session_id: str | None = None,
     permission_mode_str: str = "strict",
 ) -> Any:
     """Spawn a Claude Code session with the real SciEasy system prompt + MCP config.
@@ -436,9 +373,6 @@ async def _start_default_session(
     Issue #775: replaced Phase 1 placeholders with calls to the real
     composers — without these the spawned agent has no idea what
     SciEasy is and zero MCP tools to call (mcpServers was empty).
-
-    #783: added ``resume_session_id`` so the WS reattach path can
-    rehydrate a prior conversation via ``claude --resume <id>``.
 
     Issue #791: ``permission_mode_str`` is now plumbed in from the WS
     query string (default ``"strict"``). The previous implementation
@@ -481,219 +415,7 @@ async def _start_default_session(
         system_prompt=system_prompt,
         mcp_config=mcp_config,
         permission_mode=permission_mode,
-        resume_session_id=resume_session_id,
     )
-
-
-# ---------------------------------------------------------------------------
-# #783 — Session persistence endpoints.
-# ---------------------------------------------------------------------------
-
-
-@router.get("/sessions")
-async def list_sessions(
-    project_dir: str = _ProjectDirQuery,
-    manager: Any = _SessionManagerDep,
-) -> dict[str, Any]:
-    """List persisted session metadata for *project_dir* (#783).
-
-    Reads every ``<project>/.scieasy/sessions/<chat_id>.json`` file and
-    returns the parsed metadata, sorted by ``last_active`` descending.
-    Drives the sessions sidebar so the user can see and reopen prior
-    conversations after a backend restart.
-    """
-    try:
-        safe_project_dir = _resolve_project_key(project_dir)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    sessions = manager.list_sessions(safe_project_dir)
-    return {"sessions": [m.model_dump() for m in sessions]}
-
-
-@router.get("/sessions/{chat_id}/transcript")
-async def get_session_transcript(
-    chat_id: str,
-    project_dir: str = _ProjectDirQuery,
-    manager: Any = _SessionManagerDep,
-) -> StreamingResponse:
-    """Stream a chat's full transcript as NDJSON (#783).
-
-    Each emitted line is one historical ``AgentEvent`` dict. The
-    streaming format keeps memory bounded for very long chats. The
-    frontend replays the events to restore the chat view when a
-    session is opened from the sidebar.
-    """
-    try:
-        safe_project_dir = _resolve_project_key(project_dir)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    import json as _json
-
-    def _iter() -> Any:
-        for entry in manager.iter_transcript_events(safe_project_dir, chat_id):
-            yield (_json.dumps(entry, ensure_ascii=False) + "\n").encode("utf-8")
-
-    return StreamingResponse(_iter(), media_type="application/x-ndjson")
-
-
-# ---------------------------------------------------------------------------
-# #786 — Slash command discovery endpoint.
-# ---------------------------------------------------------------------------
-
-
-_FRONTMATTER_RE = None  # Lazy compile in helper below.
-
-
-def _parse_slash_command_file(path: Path, *, default_name: str | None = None) -> dict[str, str]:
-    """Extract ``name`` + ``description`` from a slash-command markdown file.
-
-    Best-effort frontmatter parse:
-    * If the file starts with ``---``, the YAML block up to the closing
-      ``---`` is parsed and ``name`` / ``description`` keys are
-      extracted.
-    * Otherwise: ``default_name`` (or the filename stem) is used as the
-      name, and the first non-empty / non-heading line is used as the
-      description.
-
-    Returns ``{"name": ..., "description": ...}``. Errors fall through
-    to filename-based defaults so a malformed file never breaks the
-    listing.
-    """
-    name = default_name if default_name is not None else path.stem
-    description = ""
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")[:4096]
-    except OSError:
-        return {"name": name, "description": description}
-
-    lines = text.splitlines()
-    if lines and lines[0].strip() == "---":
-        # Walk to closing fence.
-        body_start: int | None = None
-        for i in range(1, len(lines)):
-            if lines[i].strip() == "---":
-                body_start = i + 1
-                break
-        if body_start is not None:
-            frontmatter = "\n".join(lines[1 : body_start - 1])
-            try:
-                import yaml as _yaml
-
-                meta = _yaml.safe_load(frontmatter) or {}
-            except Exception:
-                meta = {}
-            if isinstance(meta, dict):
-                if isinstance(meta.get("name"), str):
-                    name = meta["name"]
-                if isinstance(meta.get("description"), str):
-                    description = meta["description"]
-            # Fallback description from first body line if still empty.
-            if not description:
-                for body_line in lines[body_start:]:
-                    s = body_line.strip()
-                    if s and not s.startswith("#"):
-                        description = s
-                        break
-            return {"name": name, "description": description}
-
-    # No frontmatter — first heading or first content line is the desc.
-    for line in lines:
-        s = line.strip()
-        if not s:
-            continue
-        if s.startswith("# "):
-            description = s.lstrip("#").strip()
-            break
-        if not s.startswith("#"):
-            description = s
-            break
-    return {"name": name, "description": description}
-
-
-def _discover_user_slash_commands() -> list[dict[str, str]]:
-    """Walk the three home-rooted slash-command sources (#786).
-
-    Does NOT include project-local commands — that source requires the
-    user-supplied ``project_dir`` and is handled inline in the route so
-    CodeQL's ``py/path-injection`` sanitiser pattern remains visible at
-    the call site.
-
-    Sources:
-    * ``~/.claude/commands/*.md`` — user commands
-    * ``~/.claude/skills/<name>/SKILL.md`` (or ``skill.md``) — user skills
-    * ``~/.claude/plugins/*/commands/*.md`` — plugin commands
-    """
-    home = Path.home()
-    out: list[dict[str, str]] = []
-
-    def _add(source: str, file_path: Path, default_name: str | None = None) -> None:
-        try:
-            parsed = _parse_slash_command_file(file_path, default_name=default_name)
-        except Exception as exc:
-            logger.debug("slash command parse skipped %s: %s", file_path, exc)
-            return
-        out.append({**parsed, "source": source, "path": str(file_path)})
-
-    # ~/.claude/commands/*.md
-    user_cmds = home / ".claude" / "commands"
-    if user_cmds.is_dir():
-        for f in user_cmds.glob("*.md"):
-            _add("user-commands", f)
-
-    # ~/.claude/skills/<name>/SKILL.md or skill.md
-    user_skills = home / ".claude" / "skills"
-    if user_skills.is_dir():
-        for skill_dir in user_skills.iterdir():
-            if not skill_dir.is_dir():
-                continue
-            for candidate in ("SKILL.md", "skill.md"):
-                f = skill_dir / candidate
-                if f.is_file():
-                    _add("user-skills", f, default_name=skill_dir.name)
-                    break
-
-    # ~/.claude/plugins/*/commands/*.md
-    plugins_root = home / ".claude" / "plugins"
-    if plugins_root.is_dir():
-        for plugin_dir in plugins_root.iterdir():
-            cmds = plugin_dir / "commands"
-            if cmds.is_dir():
-                for f in cmds.glob("*.md"):
-                    _add("plugin", f)
-
-    return out
-
-
-@router.get("/slash_commands")
-async def list_slash_commands(
-    project_dir: str = _ProjectDirQuery,
-) -> dict[str, Any]:
-    """List slash commands discoverable from the user's local Claude config (#786).
-
-    Synchronous + cheap: reads filenames + frontmatter only. No caching
-    so newly added files appear on the next dropdown open.
-
-    For v1 only the three home-rooted sources are listed
-    (``~/.claude/commands/``, ``~/.claude/skills/<name>/SKILL.md``,
-    ``~/.claude/plugins/*/commands/*.md``). Project-local commands at
-    ``<project>/.claude/commands/`` are deferred to a follow-up because
-    CodeQL's ``py/path-injection`` taint flow does not cleanly accept
-    any sanitised-Path pattern we have tried at the glob site —
-    follow-up issue should land them via a workspace-id indirection
-    rather than a raw filesystem path on the wire.
-    """
-    # project_dir is accepted in the route signature for forward
-    # compatibility with the v2 project-local follow-up, but for v1 we
-    # do NOT call ``_resolve_project_key(project_dir)`` here: the value
-    # is never used (only ``Path.home()`` is touched), and routing the
-    # tainted string through the sanitiser-with-discarded-result pattern
-    # tripped CodeQL ``py/path-injection`` even though no project path
-    # is constructed. Once v2 actually globs ``<project>/.claude/commands/``,
-    # validation must be reinstated AND the safe path must flow into the
-    # glob site so CodeQL recognises the sanitisation.
-    del project_dir
-    return {"commands": _discover_user_slash_commands()}
 
 
 # ---------------------------------------------------------------------------
