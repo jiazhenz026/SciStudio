@@ -19,7 +19,12 @@ jobs:
     # "dependabot/..." and bypass the gate. The actor field is set by
     # GitHub Actions itself based on who triggered the workflow and
     # cannot be spoofed by a contributor. Per Codex P1 review on PR #729.
-    if: github.actor != 'dependabot[bot]'
+    # Check PR AUTHOR, not github.actor. github.actor is the user who
+    # triggered THIS workflow run — a human running update-branch on a
+    # dependabot PR would re-evaluate as the human, bypassing the
+    # exemption and re-failing the gate. github.event.pull_request.user.login
+    # is the immutable PR author set by GitHub at PR open time.
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v6
         with:

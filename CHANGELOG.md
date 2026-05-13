@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#742] Dependabot Verify Workflow Compliance exemption now checks PR author (`github.event.pull_request.user.login`) not `github.actor`. Without this, running `gh pr update-branch` on a dependabot PR as a human re-fires the workflow with the human as actor and reverts the exemption. (@claude, 2026-05-13, branch: fix/issue-742/dependabot-pr-author, session: 20260512-220337-fix-728-followup-gate-exemption-uses-pr)
 - [#723] AgentProvider.start_session now injects SCIEASY_CHAT_ID + SCIEASY_PROJECT_DIR into CC subprocess env; PreToolUse hook children inherit them so scieasy hook-bridge can route permission requests. Closes the audit P1 blocker from #722. (@claude, 2026-05-13, branch: fix/issue-723/hook-bridge-env, session: 20260512-215414-fix-723-inject-scieasy-chat-id-into-cc-s)
 
 ### Fixed
