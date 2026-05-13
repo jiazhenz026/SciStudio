@@ -601,22 +601,18 @@ def _parse_slash_command_file(path: Path, *, default_name: str | None = None) ->
     return {"name": name, "description": description}
 
 
-def _discover_slash_commands(project_cmds: Path | None) -> list[dict[str, str]]:
-    """Walk the 4 known slash-command roots and return a unified list.
+def _discover_user_slash_commands() -> list[dict[str, str]]:
+    """Walk the three home-rooted slash-command sources (#786).
 
-    Sources (#786):
+    Does NOT include project-local commands — that source requires the
+    user-supplied ``project_dir`` and is handled inline in the route so
+    CodeQL's ``py/path-injection`` sanitiser pattern remains visible at
+    the call site.
 
+    Sources:
     * ``~/.claude/commands/*.md`` — user commands
-    * ``~/.claude/skills/*/SKILL.md`` or ``skill.md`` — user skills
-    * ``<project>/.claude/commands/*.md`` — project commands (caller
-      passes the already-sanitised resolved path or ``None``)
+    * ``~/.claude/skills/<name>/SKILL.md`` (or ``skill.md``) — user skills
     * ``~/.claude/plugins/*/commands/*.md`` — plugin commands
-
-    The caller is responsible for resolving ``<project>/.claude/commands/``
-    through the trusted-root sanitiser before passing it in; this keeps
-    CodeQL's ``py/path-injection`` taint flow at the route boundary
-    rather than inside this helper, which only takes pre-validated
-    Paths.
     """
     home = Path.home()
     out: list[dict[str, str]] = []
@@ -644,15 +640,8 @@ def _discover_slash_commands(project_cmds: Path | None) -> list[dict[str, str]]:
             for candidate in ("SKILL.md", "skill.md"):
                 f = skill_dir / candidate
                 if f.is_file():
-                    # Skills are keyed by directory name; the file stem
-                    # is always "SKILL" or "skill" which is useless.
                     _add("user-skills", f, default_name=skill_dir.name)
                     break
-
-    # <project>/.claude/commands/*.md — caller has pre-sanitised this path
-    if project_cmds is not None and project_cmds.is_dir():
-        for f in project_cmds.glob("*.md"):
-            _add("project", f)
 
     # ~/.claude/plugins/*/commands/*.md
     plugins_root = home / ".claude" / "plugins"
@@ -666,6 +655,41 @@ def _discover_slash_commands(project_cmds: Path | None) -> list[dict[str, str]]:
     return out
 
 
+# Module-level scanner: CodeQL recognises the explicit realpath +
+# commonpath pattern inline in a route handler. Used by the
+# ``GET /api/ai/slash_commands`` route to safely enumerate
+# ``<project>/.claude/commands/*.md`` from a user-supplied path.
+def _scan_project_commands(project_dir_str: str) -> list[dict[str, str]]:
+    """Enumerate ``<sanitised project>/.claude/commands/*.md`` entries.
+
+    Applies the trusted-root sanitiser inline so CodeQL recognises the
+    barrier. Returns ``[]`` when the input fails the sanitiser or no
+    project-local commands directory exists.
+    """
+    candidate = os.path.realpath(os.fspath(project_dir_str))
+    safe: str | None = None
+    for root in _PROJECT_DIR_ALLOWED_ROOTS:
+        try:
+            if os.path.commonpath([root, candidate]) == root:
+                safe = candidate
+                break
+        except ValueError:
+            continue
+    if safe is None:
+        return []
+    project_cmds = Path(safe) / ".claude" / "commands"
+    out: list[dict[str, str]] = []
+    if project_cmds.is_dir():
+        for f in project_cmds.glob("*.md"):
+            try:
+                parsed = _parse_slash_command_file(f)
+            except Exception as exc:
+                logger.debug("slash command parse skipped %s: %s", f, exc)
+                continue
+            out.append({**parsed, "source": "project", "path": str(f)})
+    return out
+
+
 @router.get("/slash_commands")
 async def list_slash_commands(
     project_dir: str = _ProjectDirQuery,
@@ -676,15 +700,12 @@ async def list_slash_commands(
     so newly added files appear on the next dropdown open.
     """
     try:
-        safe_project_dir = _resolve_project_key(project_dir)
+        _resolve_project_key(project_dir)  # validate, raises on bad root
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    # Build the project-local commands path here so the realpath +
-    # commonpath sanitiser inside ``_resolve_project_key`` is the most
-    # recent operation on the value before CodeQL sees it joined with
-    # ``.claude/commands``. The helper takes pre-validated Paths only.
-    project_cmds = safe_project_dir / ".claude" / "commands"
-    return {"commands": _discover_slash_commands(project_cmds)}
+    commands = _discover_user_slash_commands()
+    commands.extend(_scan_project_commands(project_dir))
+    return {"commands": commands}
 
 
 # ---------------------------------------------------------------------------
