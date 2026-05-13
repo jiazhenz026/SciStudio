@@ -125,15 +125,16 @@ def _resolve_project_key(project_dir: str | Path) -> Path:
 def _discover_providers() -> list[ProviderStatusItem]:
     """Return ``ProviderStatusItem`` records for every registered agent provider.
 
-    Phase 1 ships only the Claude Code provider; the Codex provider lands
-    in Phase 4 (T-ECA-410). This helper is invoked by the
-    ``GET /api/ai/status`` route and is also reused by tests via DI
-    override.
+    Phase 1 shipped only Claude Code; Phase 4 (T-ECA-402) adds Codex.
+    Both providers are reported by ``GET /api/ai/status`` so the
+    frontend's Provider selector knows which CLIs are installed. This
+    helper is also reused by tests via DI override.
     """
     from scieasy.ai.agent.claude_code import ClaudeCodeProvider
+    from scieasy.ai.agent.codex import CodexProvider
 
     providers: list[ProviderStatusItem] = []
-    for provider_cls in (ClaudeCodeProvider,):
+    for provider_cls in (ClaudeCodeProvider, CodexProvider):
         status = provider_cls.discover()
         providers.append(
             ProviderStatusItem(
