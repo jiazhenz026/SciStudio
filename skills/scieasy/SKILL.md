@@ -134,14 +134,6 @@ SciEasy semantics. For example, `list_blocks` beats `grep`;
    `update_block_config` on an existing artifact, briefly describe the diff
    or confirm it's the intended target.
 
-## Clarification questions
-
-When you need clarification from the user, ask the question **in plain text**
-as part of your assistant message. Do NOT use the `AskUserQuestion` native
-tool — the SciEasy chat surface does not render its interactive UI, and the
-call surfaces as a "Tool error" row. The user will reply in their next
-message.
-
 ## Examples
 
 See `examples/basic-image-workflow.yaml` for a minimal workflow that loads

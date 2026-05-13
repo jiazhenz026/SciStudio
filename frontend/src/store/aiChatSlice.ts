@@ -59,18 +59,6 @@ export interface AIChatSlice {
   providerName: string;
   /** Per-tool always-allow flags, keyed by tool name. */
   alwaysAllowedTools: Record<string, boolean>;
-  /**
-   * Issue #784 Bug 2: global expansion preference for condensed tool rows.
-   *
-   * `false` (default) → all `tool_use` / `tool_result` rows render collapsed
-   * to a single line. `true` → all expanded showing input + output. Toggled
-   * by the global Ctrl+O / Cmd+O hotkey. Individual rows still respond to
-   * click-to-toggle when this flag is `false` (per-row override).
-   *
-   * Persisted in localStorage via `loadToolRowsExpanded` /
-   * `persistToolRowsExpanded` on first slice instantiation.
-   */
-  toolRowsExpanded: boolean;
 
   setActiveChatId: (chatId: string | null) => void;
   appendEvent: (chatId: string, event: AgentEvent) => void;
@@ -83,33 +71,6 @@ export interface AIChatSlice {
   renameSession: (id: string, title: string) => void;
   removeSession: (id: string) => void;
   markSessionEnded: (id: string) => void;
-  /** Toggle the global tool-row expansion flag. Persists to localStorage. */
-  toggleToolRowsExpanded: () => void;
-  /** Explicitly set the global tool-row expansion flag. */
-  setToolRowsExpanded: (value: boolean) => void;
-}
-
-const TOOL_ROWS_LS_KEY = "scieasy.aichat.toolRowsExpanded";
-
-function loadToolRowsExpanded(): boolean {
-  // Safe in non-browser test environments (jsdom provides localStorage; node
-  // would not, but we are always in a DOM-shaped environment here).
-  try {
-    const raw = typeof window !== "undefined" ? window.localStorage?.getItem(TOOL_ROWS_LS_KEY) : null;
-    return raw === "true";
-  } catch {
-    return false;
-  }
-}
-
-function persistToolRowsExpanded(value: boolean): void {
-  try {
-    if (typeof window !== "undefined") {
-      window.localStorage?.setItem(TOOL_ROWS_LS_KEY, value ? "true" : "false");
-    }
-  } catch {
-    // ignore quota / disabled-storage errors — purely a UX preference
-  }
 }
 
 export const createAIChatSlice: StateCreator<AppStore, [], [], AIChatSlice> = (set) => ({
@@ -120,7 +81,6 @@ export const createAIChatSlice: StateCreator<AppStore, [], [], AIChatSlice> = (s
   permissionMode: "strict",
   providerName: "claude-code",
   alwaysAllowedTools: {},
-  toolRowsExpanded: loadToolRowsExpanded(),
 
   setActiveChatId: (chatId) => set({ activeChatId: chatId }),
 
@@ -206,17 +166,4 @@ export const createAIChatSlice: StateCreator<AppStore, [], [], AIChatSlice> = (s
     set((state) => ({
       sessions: state.sessions.map((s) => (s.id === id ? { ...s, ended: true } : s)),
     })),
-
-  toggleToolRowsExpanded: () =>
-    set((state) => {
-      const next = !state.toolRowsExpanded;
-      persistToolRowsExpanded(next);
-      return { toolRowsExpanded: next };
-    }),
-
-  setToolRowsExpanded: (value) =>
-    set(() => {
-      persistToolRowsExpanded(value);
-      return { toolRowsExpanded: value };
-    }),
 });

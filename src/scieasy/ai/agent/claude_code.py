@@ -76,58 +76,6 @@ _CLOSE_GRACE_SECONDS = 5.0
 _INSTALL_HINT = "Install the Claude Code CLI: see https://docs.claude.com/en/docs/claude-code/quickstart"
 
 
-# Issue #784 Bug 3: native tools whose UI the SciEasy chat surface does not
-# render. We disallow them on the CLI so claude does not even attempt the
-# call (the system-prompt instruction is the second layer of defence). Both
-# levers point at the same goal — eliminate "Tool error: AskUserQuestion"
-# rows in the chat.
-_DISALLOWED_NATIVE_TOOLS: tuple[str, ...] = ("AskUserQuestion",)
-
-# Issue #784 Bug 4: macOS Keychain service names that may hold the Claude
-# credentials. The actual name has shifted across CLI versions; we try both
-# in order. If either succeeds the user is considered logged in.
-_MACOS_KEYCHAIN_SERVICES: tuple[str, ...] = ("Claude Code-credentials", "claude-code")
-
-
-def _macos_keychain_has_claude() -> bool:
-    """Probe the macOS Keychain for a Claude Code credentials entry.
-
-    Issue #784 Bug 4: on macOS the Claude CLI stores credentials in the
-    Keychain rather than ``~/.claude/.credentials.json``, so the file-only
-    login probe in :meth:`ClaudeCodeProvider.discover` falsely reports
-    "not logged in" even when the user is fully authenticated and sessions
-    work. This helper extends the probe by querying ``security
-    find-generic-password`` for two candidate service names.
-
-    Returns ``False`` on non-Darwin platforms; ``True`` if any candidate
-    service is present in the Keychain.
-
-    The exact Keychain service name has not been confirmed against a real
-    Claude CLI install (the implementation agent runs on Windows). Two
-    plausible candidate names are tried in order; if neither is correct
-    the user will still see the "not logged in" banner — at which point we
-    can update :data:`_MACOS_KEYCHAIN_SERVICES`. The 2-second timeout per
-    probe matches :data:`_LOGIN_PROBE_TIMEOUT_SECONDS`.
-    """
-    if sys.platform != "darwin":
-        return False
-    for service in _MACOS_KEYCHAIN_SERVICES:
-        try:
-            result = subprocess.run(
-                ["security", "find-generic-password", "-s", service],
-                capture_output=True,
-                text=True,
-                timeout=_LOGIN_PROBE_TIMEOUT_SECONDS,
-                check=False,
-            )
-            if result.returncode == 0:
-                return True
-        except (subprocess.TimeoutExpired, OSError) as exc:
-            logger.debug("ClaudeCodeProvider: keychain probe for %r failed: %s", service, exc)
-            continue
-    return False
-
-
 async def _read_subprocess_stream(stream: asyncio.StreamReader) -> AsyncIterator[bytes]:
     """Adapt an :class:`asyncio.StreamReader` into an async byte-chunk iterator."""
     while True:
@@ -388,20 +336,12 @@ class ClaudeCodeProvider:
             # The previous probe `claude config get -g installMethod` broke in
             # claude 2.x — `config` is no longer a CLI subcommand and `-g`
             # is rejected as "unknown option". The credentials file is the
-            # canonical login witness on Linux + Windows.
-            #
-            # Issue #784 Bug 4: on macOS the Claude CLI stores credentials in
-            # the system Keychain instead of `~/.claude/.credentials.json`, so
-            # the file probe falsely returns False even when sessions work.
-            # Layer a Keychain probe via `security find-generic-password` on
-            # top of the file check.
+            # canonical login witness across all claude versions.
             cred_path = Path.home() / ".claude" / ".credentials.json"
             try:
-                file_logged_in = cred_path.is_file() and cred_path.stat().st_size > 0
+                logged_in = cred_path.is_file() and cred_path.stat().st_size > 0
             except OSError as exc:
                 logger.debug("ClaudeCodeProvider.discover: credentials probe failed: %s", exc)
-                file_logged_in = False
-            logged_in = file_logged_in or _macos_keychain_has_claude()
 
         logger.info(
             "ClaudeCodeProvider.discover: available=%s version=%s logged_in=%s path=%s",
@@ -493,13 +433,6 @@ class ClaudeCodeProvider:
         # into a --settings argument so claude does not see it.
         if permission_mode is PermissionMode.BYPASS:
             argv += ["--permission-mode", "bypassPermissions"]
-        # Issue #784 Bug 3: disallow native tools the SciEasy chat surface
-        # cannot render (currently just AskUserQuestion). Without this flag
-        # claude raises the interactive UI tool and surfaces a confusing
-        # "Tool error" row to the user. Backed up by an explicit system
-        # prompt instruction in `compose_system_prompt`.
-        if _DISALLOWED_NATIVE_TOOLS:
-            argv += ["--disallowedTools", ",".join(_DISALLOWED_NATIVE_TOOLS)]
         if resume_session_id is not None:
             argv += ["--resume", resume_session_id]
         if model is not None:

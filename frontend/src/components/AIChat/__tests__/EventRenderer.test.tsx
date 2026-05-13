@@ -19,52 +19,17 @@ describe("EventRenderer", () => {
     expect(screen.getByTestId("ev-init")).toHaveTextContent(/claude-sonnet-4/);
   });
 
-  it("renders an assistant text delta as markdown (issue #784)", () => {
+  it("renders an assistant text delta", () => {
     const ev: AgentEvent = {
       kind: "assistant_text_delta",
       raw: {},
-      delta: "hello **world**",
+      delta: "hello world",
     };
     render(<EventRenderer event={ev} />);
-    const row = screen.getByTestId("ev-text");
-    expect(row).toHaveTextContent("hello world");
-    // The bold marker should be rendered as a <strong>, not literal `**`.
-    expect(row.querySelector("strong")).not.toBeNull();
-    expect(row.textContent).not.toContain("**");
+    expect(screen.getByTestId("ev-text")).toHaveTextContent("hello world");
   });
 
-  it("renders markdown headings, code, and external links safely (issue #784)", () => {
-    const ev: AgentEvent = {
-      kind: "assistant_text_delta",
-      raw: {},
-      delta: "# Title\n\nSee [docs](https://example.com).\n\n```js\nlet a = 1;\n```",
-    };
-    render(<EventRenderer event={ev} />);
-    const row = screen.getByTestId("ev-text");
-    expect(row.querySelector("h1")).not.toBeNull();
-    const link = row.querySelector("a") as HTMLAnchorElement | null;
-    expect(link).not.toBeNull();
-    expect(link?.getAttribute("target")).toBe("_blank");
-    expect(link?.getAttribute("rel")).toBe("noopener noreferrer");
-    expect(row.querySelector("code")).not.toBeNull();
-  });
-
-  it("strips dangerous HTML from assistant text (sanitization, #784)", () => {
-    const ev: AgentEvent = {
-      kind: "assistant_text_delta",
-      raw: {},
-      delta: "before\n\n<script>alert('xss')</script>\n\nafter",
-    };
-    render(<EventRenderer event={ev} />);
-    const row = screen.getByTestId("ev-text");
-    // The <script> tag must not survive sanitization.
-    expect(row.querySelector("script")).toBeNull();
-    // The surrounding text must still be visible.
-    expect(row.textContent).toContain("before");
-    expect(row.textContent).toContain("after");
-  });
-
-  it("renders a tool_use event collapsed by default with tool name (issue #784)", () => {
+  it("renders a tool_use event with tool name", () => {
     const ev: AgentEvent = {
       kind: "tool_use",
       raw: {},
@@ -73,10 +38,7 @@ describe("EventRenderer", () => {
       tool_use_id: "tu-1",
     };
     render(<EventRenderer event={ev} />);
-    const row = screen.getByTestId("ev-tool-use");
-    expect(row).toHaveTextContent(/Edit/);
-    // Collapsed by default — no detail block rendered.
-    expect(row).toHaveAttribute("data-expanded", "false");
+    expect(screen.getByTestId("ev-tool-use")).toHaveTextContent(/Edit/);
   });
 
   it("renders a tool_result with error styling when is_error=true", () => {

@@ -80,10 +80,6 @@ T-ECA-105 is **blocking** for T-ECA-110 (permission backend implementation). If 
 
 **Resolution**: Spawn `<binary> config get -g installMethod` (Claude Code) or equivalent for Codex with a 2-second timeout. Exit code 0 ⇒ `logged_in=True`. Any non-zero or timeout ⇒ `logged_in=False`. If the user is wrong (we said True but they aren't), the first user message yields an `error` event from stream-json which we surface verbatim. Acceptably imperfect.
 
-**Update (issue #775)**: The `config get -g installMethod` probe broke in claude 2.x (`config` no longer a subcommand). Replaced with a filesystem check for a non-empty `~/.claude/.credentials.json` — the canonical login witness on Linux + Windows.
-
-**Update (issue #784 Bug 4)**: On macOS the Claude CLI stores credentials in the system Keychain instead of `~/.claude/.credentials.json`, so the file-only check falsely reports "not logged in" even when sessions work. `ClaudeCodeProvider.discover()` now additionally probes the Keychain via `security find-generic-password -s <service>` on Darwin (two candidate service names tried, 2-second timeout each). `logged_in` is `True` if either the file OR the Keychain says so.
-
 ### OQ5 — Stream-json schema versioning
 
 **Resolution**: Defensive parser. Unknown event kinds are routed to a generic `OtherEvent { kind, raw, display_class }` and logged at INFO level; the WebSocket forwards them transparently to the frontend. Unknown fields on known event kinds are accepted and ignored. Schema version is read from the `init` event if present and recorded in session metadata; otherwise it is `null`.

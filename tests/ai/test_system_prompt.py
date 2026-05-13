@@ -92,13 +92,3 @@ def test_prompt_does_not_contain_developer_discipline(tmp_path: Path) -> None:
     prompt = compose_system_prompt(tmp_path)
     for forbidden in ("gate.py", "conventional commit", "/speckit", "CHANGELOG.md", "git push"):
         assert forbidden.lower() not in prompt.lower(), f"forbidden phrase '{forbidden}' leaked into prompt"
-
-
-def test_prompt_bans_ask_user_question_tool(tmp_path: Path) -> None:
-    """Issue #784 Bug 3: the system prompt instructs the agent to ask
-    clarifying questions in plain text and explicitly forbids the
-    AskUserQuestion native tool, whose UI the SciEasy chat does not render.
-    """
-    prompt = compose_system_prompt(tmp_path)
-    assert "AskUserQuestion" in prompt
-    assert "plain text" in prompt.lower()
