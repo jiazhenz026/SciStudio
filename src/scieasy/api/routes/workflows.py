@@ -216,7 +216,7 @@ async def update_workflow(
 
     expected_revision = _parse_if_match(if_match)
     current = runtime.current_revision(workflow_id)
-    if expected_revision is not None and expected_revision < current:
+    if expected_revision is not None and expected_revision != current:
         # Stale write — return the latest payload so the client can rebase.
         try:
             latest = runtime.load_workflow(workflow_id)
