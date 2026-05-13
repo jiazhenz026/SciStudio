@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#723] AgentProvider.start_session now injects SCIEASY_CHAT_ID + SCIEASY_PROJECT_DIR into CC subprocess env; PreToolUse hook children inherit them so scieasy hook-bridge can route permission requests. Closes the audit P1 blocker from #722. (@claude, 2026-05-13, branch: fix/issue-723/hook-bridge-env, session: 20260512-215414-fix-723-inject-scieasy-chat-id-into-cc-s)
+
+### Fixed
+
 - [#728] CI Verify Workflow Compliance gate now skips dependabot PRs via `if: github.actor != 'dependabot[bot]'`. Unblocks #691 (fast-uri HIGH) and #686 (postcss). Substance CI checks still apply. (@claude, 2026-05-12, branch: ci/issue-728/exempt-dependabot, session: 20260512-213652-ci-exempt-dependabot-from-workflow-compl)
 
 ### Changed
