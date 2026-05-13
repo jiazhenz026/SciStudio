@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- [#728] CI Verify Workflow Compliance gate now skips dependabot PRs via `if: github.actor != 'dependabot[bot]'`. Unblocks #691 (fast-uri HIGH) and #686 (postcss). Substance CI checks still apply. (@claude, 2026-05-12, branch: ci/issue-728/exempt-dependabot, session: 20260512-213652-ci-exempt-dependabot-from-workflow-compl)
+
 ### Changed
 
 - [#712,#705] ADR-033 §3 D4.3 hook config example replaced with real Claude Code nested shape (top-level `hooks` key with per-matcher arrays); spec §10 dep graph updated to allow Phase 2 (MCP) and Phase 3 (Frontend) to run in parallel after Phase 1 audit closes. §9 dispatch protocol records the cross-phase parallelism rule. Phase 4 still gates on both. (@claude, 2026-05-12, branch: docs/issue-712/adr-033-spec-corrections, session: 20260512-190605-docs-adr-033-hook-config-spec-10-dep-gra)
