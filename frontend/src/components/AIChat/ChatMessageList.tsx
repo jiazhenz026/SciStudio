@@ -21,21 +21,27 @@ const EMPTY_EVENTS: ReadonlyArray<AgentEvent> = Object.freeze([]);
 
 export interface ChatMessageListProps {
   chatId: string;
+  /**
+   * Issue #782 Bug 2: when true, append a synthetic animated "Thinking…"
+   * row to the bottom of the list. The parent (AIChat) sets this between
+   * user message send and arrival of the first real agent event.
+   */
+  showThinkingIndicator?: boolean;
 }
 
-export function ChatMessageList({ chatId }: ChatMessageListProps) {
+export function ChatMessageList({ chatId, showThinkingIndicator = false }: ChatMessageListProps) {
   const events = useAppStore((s) => s.eventsByChat[chatId] ?? EMPTY_EVENTS);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
-  // Scroll to bottom whenever a new event arrives.
+  // Scroll to bottom whenever a new event arrives or the indicator toggles.
   useEffect(() => {
     const el = scrollerRef.current;
     if (el !== null) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [events.length]);
+  }, [events.length, showThinkingIndicator]);
 
-  if (events.length === 0) {
+  if (events.length === 0 && !showThinkingIndicator) {
     return (
       <div
         data-testid="chat-empty"
@@ -55,6 +61,20 @@ export function ChatMessageList({ chatId }: ChatMessageListProps) {
       {events.map((event, idx) => (
         <EventRenderer key={idx} event={event} />
       ))}
+      {showThinkingIndicator && (
+        <div
+          data-testid="aichat-inflight-indicator"
+          className="flex items-center gap-2 rounded border border-purple-200 bg-purple-50 px-2 py-1 text-sm text-purple-700"
+        >
+          <span
+            aria-hidden="true"
+            className="thinking-spinner inline-block font-mono"
+          >
+            ✻
+          </span>
+          <span>Thinking…</span>
+        </div>
+      )}
     </div>
   );
 }

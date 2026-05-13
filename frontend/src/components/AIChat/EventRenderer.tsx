@@ -32,20 +32,42 @@ export function EventRenderer({ event }: EventRendererProps) {
     );
   }
   // Issue #775 — Phase 5 follow-up: backend now emits `thinking` OtherEvents
-  // for claude's interleaved-thinking content blocks. Render as a folded
-  // <details> so the user can peek at the agent's reasoning without it
-  // overwhelming the chat feed.
-  if ((event.kind as string) === "thinking") {
-    const text = (raw as { text?: string } | undefined)?.text ?? "";
-    if (!text.trim()) return null;
+  // for claude's interleaved-thinking content blocks.
+  //
+  // Issue #782: also catch top-level wire frames where claude streams
+  // `{"type":"thinking",...}` directly (these get routed by
+  // stream_json._DISPATCH fallback to OtherEvent(kind="thinking")). And
+  // do NOT hide empty-text thinking frames — show the animated indicator
+  // regardless; signature-only frames are still meaningful "agent is
+  // thinking" signals. The thinking text only expands a folded preview
+  // when it actually has content.
+  const rawType = (raw as { type?: string } | undefined)?.type;
+  if ((event.kind as string) === "thinking" || rawType === "thinking") {
+    const text =
+      (raw as { thinking?: string; text?: string } | undefined)?.thinking ??
+      (raw as { text?: string } | undefined)?.text ??
+      "";
     return (
-      <details
+      <div
         data-testid="ev-thinking"
-        className="rounded border border-purple-200 bg-purple-50 px-2 py-1 text-sm"
+        className="flex items-center gap-2 rounded border border-purple-200 bg-purple-50 px-2 py-1 text-sm text-purple-700"
       >
-        <summary className="cursor-pointer text-purple-700">Thinking…</summary>
-        <pre className="mt-1 whitespace-pre-wrap text-xs text-purple-900">{text}</pre>
-      </details>
+        <span
+          aria-hidden="true"
+          data-testid="ev-thinking-spinner"
+          className="thinking-spinner inline-block font-mono"
+        >
+          ✻
+        </span>
+        {text.trim() ? (
+          <details className="flex-1">
+            <summary className="cursor-pointer">Thinking…</summary>
+            <pre className="mt-1 whitespace-pre-wrap text-xs text-purple-900">{text}</pre>
+          </details>
+        ) : (
+          <span>Thinking…</span>
+        )}
+      </div>
     );
   }
   switch (event.kind) {
