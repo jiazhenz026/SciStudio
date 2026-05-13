@@ -1,20 +1,15 @@
 """AI endpoints.
 
-ADR-033 Phase 4 (T-ECA-401) removed the legacy single-call endpoints
-(``POST /api/ai/generate-block``, ``POST /api/ai/suggest-workflow``,
-``POST /api/ai/optimize-params``) along with their backing modules under
-``scieasy.ai.{generation,synthesis,optimization,config}``. The embedded
-coding agent (Phase 1+) replaces them.
+Legacy (Phase 0) endpoints under ``POST /api/ai/{generate-block,suggest-workflow,optimize-params}``
+remain here untouched — they are slated for deletion in Phase 4 of the
+embedded coding agent rollout (ADR-033), not now.
 
-Endpoints exposed by this module:
+New (Phase 1 / ADR-033 / T-ECA-107) endpoints added in this module:
 
 * ``GET /api/ai/status`` — discovery results for every registered agent
-  provider (T-ECA-107).
+  provider.
 * ``WS /api/ai/chat/{chat_id}`` — bidirectional chat WebSocket carrying
-  the canonical :class:`scieasy.ai.agent.provider.AgentEvent` stream
-  (T-ECA-107).
-* ``POST /api/ai/permission-check`` / ``POST /api/ai/permission-decision``
-  — hook-bridge / frontend permission flow (T-ECA-110).
+  the canonical :class:`scieasy.ai.agent.provider.AgentEvent` stream.
 """
 
 from __future__ import annotations
@@ -41,13 +36,16 @@ from pydantic import ValidationError
 from scieasy.ai.agent import permission as permission_module
 from scieasy.api.deps import get_agent_session_manager
 from scieasy.api.schemas import (
-    AgentEventEnvelope,
+    AIGenerateBlockRequest,
+    AIGenerateBlockResponse,
+    AIOptimizeParamsRequest,
+    AIOptimizeParamsResponse,
+    AISuggestWorkflowRequest,
+    AISuggestWorkflowResponse,
     ChatClientMessage,
-    ErrorEnvelope,
     PermissionCheckRequest,
     PermissionCheckResponse,
     PermissionDecisionRequest,
-    PermissionRequestEnvelope,
     ProviderStatusItem,
     ProviderStatusResponse,
 )
@@ -115,6 +113,81 @@ def _resolve_project_key(project_dir: str | Path) -> Path:
             # drives (Windows) or when one is absolute and one relative.
             continue
     raise ValueError(f"project_dir must be under user home or system temp; got {candidate}")
+
+
+@router.post("/generate-block", response_model=AIGenerateBlockResponse)
+async def generate_block(body: AIGenerateBlockRequest) -> dict[str, Any]:
+    """Generate a block from a natural-language description.
+
+    Calls the AI block generator pipeline: category inference, prompt
+    construction, LLM call, code extraction, validation, and retry.
+
+    Returns
+    -------
+    dict
+        Generated code, block name, validation status, report, and category.
+
+    Raises
+    ------
+    HTTPException 503
+        When the AI optional dependencies are not installed.
+    HTTPException 500
+        On any other generation error.
+    """
+    try:
+        from scieasy.ai.generation.block_generator import generate_block as ai_generate_block
+
+        result = ai_generate_block(body.description, body.block_category)
+        return {
+            "code": result.code,
+            "block_name": result.block_name,
+            "validation_passed": result.validation_report.get("passed", False),
+            "validation_report": result.validation_report,
+            "category": result.category,
+        }
+    except ImportError as exc:
+        logger.warning("AI features unavailable: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="AI features require: pip install scieasy[ai]",
+        ) from exc
+    except Exception as exc:
+        logger.error("Block generation failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/suggest-workflow", response_model=AISuggestWorkflowResponse)
+async def suggest_workflow(body: AISuggestWorkflowRequest) -> dict[str, Any]:
+    """Return a clear Phase 9 placeholder for workflow suggestion.
+
+    The wired implementation lives in PR #245 and will replace this stub
+    once that PR merges.
+    """
+    raise HTTPException(status_code=501, detail="AI workflow suggestion will arrive in Phase 9.")
+
+
+@router.post("/optimize-params", response_model=AIOptimizeParamsResponse)
+async def optimize_params_endpoint(body: AIOptimizeParamsRequest) -> dict[str, Any]:
+    """Suggest improved parameter values for a block using AI.
+
+    Analyses intermediate results and the block's config schema to
+    propose parameter changes that may improve workflow outcomes.
+    """
+    try:
+        from scieasy.ai.optimization.param_optimizer import optimize_params
+
+        result = optimize_params(
+            block_id=body.block_id,
+            intermediate_results=body.intermediate_results,
+            search_space=body.search_space,
+        )
+        return result
+    except ImportError:
+        raise HTTPException(status_code=503, detail="AI dependencies not installed") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -196,7 +269,7 @@ async def chat_ws(
         project_key = _resolve_project_key(project_dir)
     except ValueError as exc:
         logger.warning("chat_ws: rejecting project_dir=%r: %s", project_dir, exc)
-        await websocket.send_json(ErrorEnvelope(message=str(exc)).model_dump())
+        await websocket.send_json({"type": "error", "message": str(exc)})
         await websocket.close(code=1008, reason="invalid project_dir")
         return
     project_path = project_key
@@ -208,33 +281,16 @@ async def chat_ws(
     pump_task: asyncio.Task[None] | None = None
 
     async def _pump_events(active_session: Any) -> None:
-        """Forward every canonical event from the session stream to the WebSocket.
-
-        T-ECA-106 closeout (#778): each event is also mirrored to the
-        session's :class:`TranscriptWriter` so the on-disk JSONL log
-        stays in sync with what the frontend sees. Transcript write
-        failures are deliberately swallowed (the writer itself logs
-        once and disables further attempts) — they MUST NEVER kill
-        the WS pump.
-        """
-        transcript = manager.get_transcript_writer(project_path, chat_id)
+        """Forward every canonical event from the session stream to the WebSocket."""
         try:
             async for event in active_session.stream_events():
-                if transcript is not None:
-                    try:
-                        await transcript.write_event(event)
-                    except Exception as exc:  # pragma: no cover - defensive belt
-                        logger.warning(
-                            "chat_ws.pump_events: transcript.write_event raised: %s",
-                            exc,
-                        )
-                await websocket.send_json(AgentEventEnvelope(event=_serialise_agent_event(event)).model_dump())
+                await websocket.send_json({"type": "agent_event", "event": _serialise_agent_event(event)})
         except (WebSocketDisconnect, asyncio.CancelledError):
             return
         except Exception as exc:  # pragma: no cover - defensive log
             logger.error("chat_ws.pump_events: %s", exc, exc_info=True)
             with contextlib.suppress(Exception):
-                await websocket.send_json(ErrorEnvelope(message=str(exc)).model_dump())
+                await websocket.send_json({"type": "error", "message": str(exc)})
 
     # Reattach flow: if a live session already exists for (project, chat_id),
     # start the event pump now so reconnecting clients receive ongoing /
@@ -253,7 +309,7 @@ async def chat_ws(
                 msg = ChatClientMessage.model_validate_json(raw)
             except ValidationError as exc:
                 logger.warning("chat_ws: invalid client message: %s", exc)
-                await websocket.send_json(ErrorEnvelope(message="invalid message").model_dump())
+                await websocket.send_json({"type": "error", "message": "invalid message"})
                 continue
 
             if msg.type == "user_message":
@@ -267,7 +323,7 @@ async def chat_ws(
                         )
                     except Exception as exc:
                         logger.error("chat_ws: start_session failed: %s", exc)
-                        await websocket.send_json(ErrorEnvelope(message=f"start_session failed: {exc}").model_dump())
+                        await websocket.send_json({"type": "error", "message": f"start_session failed: {exc}"})
                         break
                     pump_task = asyncio.create_task(_pump_events(session))
                 content = msg.content or ""
@@ -275,7 +331,7 @@ async def chat_ws(
                     await session.send_user_message(content)
                 except Exception as exc:
                     logger.error("chat_ws: send_user_message failed: %s", exc)
-                    await websocket.send_json(ErrorEnvelope(message=str(exc)).model_dump())
+                    await websocket.send_json({"type": "error", "message": str(exc)})
             elif msg.type == "cancel":
                 if session is not None:
                     await session.cancel()
@@ -285,11 +341,11 @@ async def chat_ws(
                 # the frontend may choose either path.
                 if msg.request_id is None or msg.decision is None:
                     await websocket.send_json(
-                        ErrorEnvelope(message="permission_decision requires request_id and decision").model_dump()
+                        {"type": "error", "message": "permission_decision requires request_id and decision"}
                     )
                 elif msg.decision not in ("approve", "deny"):
                     await websocket.send_json(
-                        ErrorEnvelope(message=f"invalid permission decision: {msg.decision!r}").model_dump()
+                        {"type": "error", "message": f"invalid permission decision: {msg.decision!r}"}
                     )
                 else:
                     ok = permission_module.signal_decision(
@@ -304,7 +360,6 @@ async def chat_ws(
                         )
             else:
                 logger.warning("chat_ws: unknown message type: %s", msg.type)
-                await websocket.send_json(ErrorEnvelope(message=f"unknown message type: {msg.type!r}").model_dump())
     finally:
         # Remove the socket first so an in-flight broadcast cannot try to
         # send to a closing connection.
@@ -314,15 +369,6 @@ async def chat_ws(
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await pump_task
         if session is not None:
-            # NOTE: :class:`SessionEndedEnvelope` exists in the protocol
-            # (the frontend renders it as a read-only banner) but is
-            # NOT emitted from this finally block. By the time we get
-            # here the client has typically disconnected, and racing a
-            # send against the closing handshake leaves the socket in
-            # a state that breaks subsequent ``close_session`` cleanup
-            # on Windows. End-of-session is instead derivable from the
-            # final ``done`` agent_event frame produced by the provider
-            # stream pump.
             try:
                 await manager.close_session(project_path, chat_id)
             except Exception as exc:  # pragma: no cover - defensive
@@ -434,13 +480,14 @@ async def permission_check(
         if ws is not None:
             try:
                 await ws.send_json(
-                    PermissionRequestEnvelope(
-                        request_id=request_id,
-                        tool={
+                    {
+                        "type": "permission_request",
+                        "request_id": request_id,
+                        "tool": {
                             "name": body.tool_name,
                             "input": body.tool_input,
                         },
-                    ).model_dump()
+                    }
                 )
             except Exception as exc:  # pragma: no cover - defensive
                 logger.warning(
