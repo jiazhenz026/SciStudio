@@ -64,7 +64,3 @@ src/scieasy/api/static/
 
 # Workflow gate state files (local per-developer)
 .workflow/active/
-
-# E2E harness run artefacts (transcripts, server logs, project workspaces).
-# Regenerated on every harness invocation; never committed.
-tests/e2e/runs/

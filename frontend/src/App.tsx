@@ -5,7 +5,7 @@ import { api } from "./lib/api";
 import { useLogStream } from "./hooks/useSSE";
 import { useWorkflowWebSocket, sendWebSocketMessage } from "./hooks/useWebSocket";
 import { useAppStore } from "./store";
-import type { ProjectResponse, WorkflowResponse } from "./types/api";
+import type { ChatMessage, ProjectResponse, WorkflowResponse } from "./types/api";
 import { DataRouterModal } from "./components/DataRouterModal";
 import { PairEditorModal } from "./components/PairEditorModal";
 import { BlockPalette } from "./components/BlockPalette";
@@ -101,6 +101,9 @@ export default function App() {
   const cachePreview = useAppStore((state) => state.cachePreview);
   const setPreviewLoading = useAppStore((state) => state.setPreviewLoading);
 
+  const chatMessages = useAppStore((state) => state.chatMessages);
+  const pushChatMessage = useAppStore((state) => state.pushChatMessage);
+
   const tabs = useAppStore((state) => state.tabs);
   const activeTabId = useAppStore((state) => state.activeTabId);
   const openTab = useAppStore((state) => state.openTab);
@@ -109,6 +112,8 @@ export default function App() {
   const syncActiveTab = useAppStore((state) => state.syncActiveTab);
 
   const [busy, setBusy] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [leftTab, setLeftTab] = useState<"blocks" | "project">("blocks");
   const bootedRef = useRef(false);
 
@@ -578,6 +583,58 @@ export default function App() {
     undoWorkflow,
   ]);
 
+  const onSendChat = useCallback(
+    async (message: string) => {
+      const userMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: message,
+        timestamp: new Date().toISOString(),
+      };
+      pushChatMessage(userMsg);
+      setAiLoading(true);
+      setAiError(null);
+
+      try {
+        const lowerMsg = message.toLowerCase();
+        let response: string;
+
+        if (lowerMsg.includes("generate") && lowerMsg.includes("block")) {
+          const result = await api.generateBlock({ description: message });
+          response = result.validation_passed
+            ? `Generated block \`${result.block_name}\`:\n\n\`\`\`python\n${result.code}\n\`\`\``
+            : `Block generation completed but validation failed. Code:\n\n\`\`\`python\n${result.code}\n\`\`\``;
+        } else if (
+          lowerMsg.includes("workflow") ||
+          lowerMsg.includes("pipeline") ||
+          lowerMsg.includes("suggest")
+        ) {
+          const result = await api.suggestWorkflow({
+            data_description: message,
+            goal: message,
+          });
+          response = `${result.explanation}\n\n\`\`\`json\n${JSON.stringify(result.workflow, null, 2)}\n\`\`\``;
+        } else {
+          response =
+            'I can help you **generate blocks** or **suggest workflows**. Try:\n- "Generate a block that filters images by intensity"\n- "Suggest a workflow for Raman spectral analysis"';
+        }
+
+        const assistantMsg: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: response,
+          timestamp: new Date().toISOString(),
+        };
+        pushChatMessage(assistantMsg);
+      } catch (err) {
+        setAiError(err instanceof Error ? err.message : "AI request failed");
+      } finally {
+        setAiLoading(false);
+      }
+    },
+    [pushChatMessage],
+  );
+
   return (
     <ReactFlowProvider>
       <TooltipProvider delayDuration={300}>
@@ -762,8 +819,12 @@ export default function App() {
                   <ResizablePanel defaultSize="30%" minSize="5%" collapsible collapsedSize="3%">
                     <BottomPanel
                       activeTab={activeBottomTab}
+                      aiError={aiError}
+                      aiLoading={aiLoading}
                       blockErrors={blockErrors}
+                      chatMessages={chatMessages}
                       logEntries={logEntries}
+                      onSendChat={onSendChat}
                       onTabChange={setActiveBottomTab}
                       onUpdateConfig={(patch) => {
                         if (selectedNodeId) {

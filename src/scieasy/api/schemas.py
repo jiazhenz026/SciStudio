@@ -36,28 +36,7 @@ class WorkflowCreate(BaseModel):
 
 
 class WorkflowResponse(WorkflowCreate):
-    """Response body returned when reading a workflow.
-
-    The ``revision`` field (#718 part a) is a monotonic integer tracked
-    in-memory by ``ApiRuntime`` to support optimistic concurrency on the
-    write path. It is distinct from the semver ``version`` string above
-    (which describes the schema version of the YAML payload).
-    """
-
-    revision: int = 0
-
-
-class WorkflowConflictResponse(BaseModel):
-    """Response body for ``HTTP 412 Precondition Failed`` from PUT (#718 part a).
-
-    Returned when the client's ``If-Match`` header is stale compared to the
-    server's current revision. ``workflow`` carries the full latest payload so
-    the client can rebase its local state without a second round-trip.
-    """
-
-    detail: str = "Workflow revision is stale"
-    current_revision: int
-    workflow: WorkflowResponse
+    """Response body returned when reading a workflow."""
 
 
 class WorkflowExecutionResponse(BaseModel):
@@ -225,6 +204,37 @@ class ProjectResponse(BaseModel):
     current_workflow_id: str | None = None
 
 
+class AIGenerateBlockRequest(BaseModel):
+    """Request body for AI block generation."""
+
+    description: str
+    block_category: str | None = None
+
+
+class AIGenerateBlockResponse(BaseModel):
+    """Response body after AI block generation."""
+
+    code: str
+    block_name: str
+    validation_passed: bool
+    validation_report: dict[str, Any] = Field(default_factory=dict)
+    category: str = ""
+
+
+class AISuggestWorkflowRequest(BaseModel):
+    """Request body for AI workflow suggestion."""
+
+    data_description: str
+    goal: str
+
+
+class AISuggestWorkflowResponse(BaseModel):
+    """Response body after AI workflow suggestion."""
+
+    workflow: dict[str, Any] = Field(default_factory=dict)
+    explanation: str = ""
+
+
 class CancelBlockRequest(BaseModel):
     """Request body for cancelling a single block."""
 
@@ -243,187 +253,23 @@ class CancelPropagationResponse(BaseModel):
     skip_reasons: dict[str, str] = Field(default_factory=dict)
 
 
+class AIOptimizeParamsRequest(BaseModel):
+    """Request body for AI parameter optimization."""
+
+    block_id: str
+    intermediate_results: dict[str, Any] = Field(default_factory=dict)
+    search_space: dict[str, Any] | None = None
+
+
+class AIOptimizeParamsResponse(BaseModel):
+    """Response body after AI parameter optimization."""
+
+    suggestions: dict[str, Any] = Field(default_factory=dict)
+    explanation: str = ""
+
+
 class ErrorResponse(BaseModel):
     """Standard error envelope returned by endpoints on failure."""
 
     detail: str
     error_code: str | None = None
-
-
-# ---------------------------------------------------------------------------
-# Embedded coding agent (ADR-033 / T-ECA-107) — schemas.
-# Legacy single-call AI schemas were removed in Phase 4 (T-ECA-401).
-# ---------------------------------------------------------------------------
-
-
-class ProviderStatusItem(BaseModel):
-    """One provider's discovery result, as returned by ``GET /api/ai/status``."""
-
-    name: str
-    available: bool
-    binary_path: str | None = None
-    version: str | None = None
-    logged_in: bool = False
-    install_hint: str | None = None
-
-
-class ProviderStatusResponse(BaseModel):
-    """Response body for ``GET /api/ai/status``."""
-
-    providers: list[ProviderStatusItem] = Field(default_factory=list)
-
-
-class ChatClientMessage(BaseModel):
-    """Inbound WebSocket message on ``/api/ai/chat/{chat_id}``.
-
-    The protocol mirrors ADR-033 §3 D5.2. ``user_message`` and
-    ``cancel`` are handled in Phase 1 (T-ECA-107);
-    ``permission_decision`` is wired in by T-ECA-110 and is accepted
-    here for forward compatibility only — Phase 1 routes ignore it.
-    """
-
-    type: str
-    content: str | None = None
-    request_id: str | None = None
-    decision: str | None = None
-
-
-class AgentEventEnvelope(BaseModel):
-    """Outbound WebSocket envelope wrapping a canonical ``AgentEvent``.
-
-    Server → client. Type discriminator: ``"agent_event"``. The ``event``
-    payload is the serialised :class:`scieasy.ai.agent.provider.AgentEvent`
-    dataclass (kind, raw, plus kind-specific fields).
-    """
-
-    type: str = "agent_event"
-    event: dict[str, Any] = Field(default_factory=dict)
-
-
-class PermissionRequestEnvelope(BaseModel):
-    """Outbound WebSocket envelope for a tool-permission prompt.
-
-    Server → client. Type discriminator: ``"permission_request"``. The
-    frontend renders a modal and replies with a ``permission_decision``
-    client message (or a REST POST to ``/permission-decision``).
-    """
-
-    type: str = "permission_request"
-    request_id: str
-    tool: dict[str, Any] = Field(default_factory=dict)
-
-
-class SessionEndedEnvelope(BaseModel):
-    """Outbound WebSocket envelope announcing terminal session state.
-
-    Server → client. Type discriminator: ``"session_ended"``. Emitted when
-    the agent subprocess exits (cleanly or with error) so the frontend
-    can transition the chat to a read-only state.
-    """
-
-    type: str = "session_ended"
-    reason: str = ""
-
-
-class ErrorEnvelope(BaseModel):
-    """Outbound WebSocket envelope for non-fatal server-side errors.
-
-    Server → client. Type discriminator: ``"error"``. Used for protocol
-    violations (invalid client message, unknown permission request_id)
-    and recoverable runtime failures (e.g. ``send_user_message`` raised).
-    """
-
-    type: str = "error"
-    message: str
-
-
-# ---------------------------------------------------------------------------
-# T-ECA-110 — permission backend schemas.
-# Both REST endpoints (``POST /api/ai/permission-check`` and
-# ``POST /api/ai/permission-decision``) use these. The WS
-# ``permission_decision`` message reuses :class:`ChatClientMessage`
-# above (which already carries ``request_id`` + ``decision`` fields).
-# ---------------------------------------------------------------------------
-
-
-class PermissionCheckRequest(BaseModel):
-    """Inbound payload for ``POST /api/ai/permission-check``.
-
-    The ``scieasy hook-bridge`` CLI forwards CC's PreToolUse hook input
-    here verbatim, plus the ``chat_id`` it inherits from the session's
-    env. Only the four fields below are read; any extras the hook
-    payload carries (``transcript_path``, ``permission_mode``, ...) are
-    ignored.
-    """
-
-    chat_id: str
-    tool_name: str
-    tool_input: dict[str, Any] = Field(default_factory=dict)
-    project_dir: str | None = None
-
-
-class PermissionCheckResponse(BaseModel):
-    """Outbound payload for ``POST /api/ai/permission-check``.
-
-    ``action`` is ``"approve"`` or ``"deny"``; ``reason`` is populated on
-    deny (e.g. ``"timed_out"``, ``"user_denied"``, free-form text the
-    bridge then prints to stderr).
-    """
-
-    action: str
-    reason: str | None = None
-    request_id: str | None = None
-
-
-class SessionListItem(BaseModel):
-    """One entry returned by ``GET /api/ai/sessions`` (#783).
-
-    Mirrors :class:`scieasy.ai.agent.session.SessionMetadata` projected
-    to a JSON-friendly shape. The frontend uses this to render the
-    sessions sidebar after a backend restart.
-    """
-
-    chat_id: str
-    title: str = ""
-    created: str
-    last_active: str
-    provider: str
-    model: str | None = None
-    session_id: str | None = None
-    bypass_mode: bool = False
-    total_turns: int = 0
-
-
-class SessionListResponse(BaseModel):
-    """Response body for ``GET /api/ai/sessions`` (#783)."""
-
-    sessions: list[SessionListItem] = Field(default_factory=list)
-
-
-class SlashCommandItem(BaseModel):
-    """One entry returned by ``GET /api/ai/slash_commands`` (#786)."""
-
-    name: str
-    description: str = ""
-    source: str  # "user-commands" | "user-skills" | "project" | "plugin"
-    path: str = ""
-
-
-class SlashCommandsResponse(BaseModel):
-    """Response body for ``GET /api/ai/slash_commands`` (#786)."""
-
-    commands: list[SlashCommandItem] = Field(default_factory=list)
-
-
-class PermissionDecisionRequest(BaseModel):
-    """Inbound payload for ``POST /api/ai/permission-decision``.
-
-    The frontend sends this when the user clicks Approve / Deny in the
-    permission UI. The WS ``permission_decision`` message has the same
-    semantic content but reuses :class:`ChatClientMessage`.
-    """
-
-    chat_id: str
-    request_id: str
-    decision: str  # "approve" | "deny"
-    reason: str | None = None

@@ -9,29 +9,9 @@ from scieasy.ai.agent.system_prompt import (
     SECTION_A_IDENTITY,
     SECTION_B_CORE_CONCEPTS,
     SECTION_D_WORKING_PRINCIPLES,
-    SECTION_E_USAGE_CHEATSHEET,
     compose_system_prompt,
     prompt_hash,
 )
-
-
-def test_compose_section_c_renders_full_signatures(tmp_path: Path) -> None:
-    """#789: Section C must render full parameter signatures so the agent
-    knows the correct parameter names on first call."""
-    prompt = compose_system_prompt(tmp_path)
-    # write_workflow(path: str, yaml: str)
-    assert "write_workflow(path: str, yaml: str)" in prompt
-    # run_workflow(path: str)
-    assert "run_workflow(path: str)" in prompt
-
-
-def test_compose_includes_section_e_cheatsheet(tmp_path: Path) -> None:
-    """#789: Section E (usage cheat-sheet) must be present."""
-    prompt = compose_system_prompt(tmp_path)
-    assert "Common usage patterns" in prompt
-    # Section E references key canonical tools.
-    assert "write_workflow" in SECTION_E_USAGE_CHEATSHEET
-    assert "preview_data" in SECTION_E_USAGE_CHEATSHEET
 
 
 def test_compose_contains_all_four_sections(tmp_path: Path) -> None:
@@ -112,13 +92,3 @@ def test_prompt_does_not_contain_developer_discipline(tmp_path: Path) -> None:
     prompt = compose_system_prompt(tmp_path)
     for forbidden in ("gate.py", "conventional commit", "/speckit", "CHANGELOG.md", "git push"):
         assert forbidden.lower() not in prompt.lower(), f"forbidden phrase '{forbidden}' leaked into prompt"
-
-
-def test_prompt_bans_ask_user_question_tool(tmp_path: Path) -> None:
-    """Issue #784 Bug 3: the system prompt instructs the agent to ask
-    clarifying questions in plain text and explicitly forbids the
-    AskUserQuestion native tool, whose UI the SciEasy chat does not render.
-    """
-    prompt = compose_system_prompt(tmp_path)
-    assert "AskUserQuestion" in prompt
-    assert "plain text" in prompt.lower()

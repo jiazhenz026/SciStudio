@@ -80,10 +80,6 @@ T-ECA-105 is **blocking** for T-ECA-110 (permission backend implementation). If 
 
 **Resolution**: Spawn `<binary> config get -g installMethod` (Claude Code) or equivalent for Codex with a 2-second timeout. Exit code 0 ⇒ `logged_in=True`. Any non-zero or timeout ⇒ `logged_in=False`. If the user is wrong (we said True but they aren't), the first user message yields an `error` event from stream-json which we surface verbatim. Acceptably imperfect.
 
-**Update (issue #775)**: The `config get -g installMethod` probe broke in claude 2.x (`config` no longer a subcommand). Replaced with a filesystem check for a non-empty `~/.claude/.credentials.json` — the canonical login witness on Linux + Windows.
-
-**Update (issue #784 Bug 4)**: On macOS the Claude CLI stores credentials in the system Keychain instead of `~/.claude/.credentials.json`, so the file-only check falsely reports "not logged in" even when sessions work. `ClaudeCodeProvider.discover()` now additionally probes the Keychain via `security find-generic-password -s <service>` on Darwin (two candidate service names tried, 2-second timeout each). `logged_in` is `True` if either the file OR the Keychain says so.
-
 ### OQ5 — Stream-json schema versioning
 
 **Resolution**: Defensive parser. Unknown event kinds are routed to a generic `OtherEvent { kind, raw, display_class }` and logged at INFO level; the WebSocket forwards them transparently to the frontend. Unknown fields on known event kinds are accepted and ignored. Schema version is read from the `init` event if present and recorded in session metadata; otherwise it is `null`.
@@ -421,18 +417,6 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
 
 **Dependencies**: T-ECA-104.
 
-**Closeout (2026-05-13, PR for #778)**: The Phase-1 implementation
-shipped `TranscriptWriter` as a standalone class but did not wire it
-into the WS event pump — sessions ran, but `transcript.jsonl` was
-never written. The closeout PR attaches a `TranscriptWriter` to each
-live session inside `AgentSessionManager` (lifecycle paired with
-`start_session` / `close_session`) and the WS pump in `routes/ai.py`
-now mirrors every emitted event to it. Write failures are swallowed
-by the writer and additionally guarded in the pump so they cannot
-kill the WebSocket. The integration test
-`tests/integration/test_phase1_end_to_end.py::test_phase1_demo_writes_transcript_jsonl`
-asserts the JSONL is populated end-to-end.
-
 ### T-ECA-107 — WebSocket chat route + status route (impl)
 
 **Agent role**: IMPLEMENTATION AGENT (sequential after T-ECA-106).
@@ -445,21 +429,12 @@ asserts the JSONL is populated end-to-end.
   - Query parameters:
     - `project_dir` (required): absolute path of the SciEasy project workspace; validated against an allow-list (user home or system temp).
     - `permission_mode` (issue #791, optional, default `"strict"`): `"strict"` (prompt for every tool) or `"bypass"` (auto-approve). Any other value triggers a WS close with `1008` invalid permission_mode. The mode is fixed at WS-open time; changing it requires a reconnect (the frontend Settings panel triggers this with a confirm dialog). The mode is recorded in `SessionMetadata.bypass_mode` and read back by `_resolve_policy` in the permission-check path.
-
-      **Known limitation — STRICT mode permission UI (issue #804 Bug 4)**: as of #797, the WS query parameter and backend `PermissionPolicy` are wired correctly, but the hook bridge that would actually route per-tool permission requests through the SciEasy GUI is not yet hooked into the spawned `claude` subprocess. The provider does NOT pass `--settings <claude-hooks.json>` to the `claude` CLI, so claude's own permission-rejection layer fires first and surfaces `tool_result.is_error=true` events instead of the SciEasy `permission_request` envelope. Consequence: in STRICT mode, MCP tool calls fail with a "Claude requested permissions" error inline in the chat, with no modal. **BYPASS mode is the supported acceptance-test path until the hook-bridge wiring lands.** Tracking issue: see the follow-up filed against `T-ECA-110` for full strict-mode hook-bridge integration.
   - Accepts client messages: `{ "type": "user_message", "content": str }`, `{ "type": "cancel" }`. (Permission decisions are handled in T-ECA-110.)
   - Forwards every canonical `AgentEvent` from the session's stream to the client as `{ "type": "agent_event", "event": {...} }`.
-  - **#783**: On client disconnect, the session stays alive (a background drain task continues to consume claude's stdout into the ring buffer + on-disk transcript). The session is reaped only on explicit `{"type": "cancel"}` or FastAPI lifespan shutdown.
-  - **#783**: On WS attach with no live session but on-disk metadata containing `session_id`, the route attempts `claude --resume <id>` automatically. On failure, surfaces a synthetic `info` event and falls back to a fresh session on the next `user_message`.
+  - On client disconnect: closes the session (does NOT delete metadata).
 - `GET /api/ai/status` route:
   - Returns `{ providers: [...ProviderStatus] }` for all registered providers (initially just Claude Code; Codex added in Phase 4).
-- `GET /api/ai/sessions?project_dir=<path>` (#783):
-  - Enumerates persisted `SessionMetadata` for the given project sorted by `last_active` descending. Drives the sessions sidebar so users can find and reopen chats after a backend restart.
-- `GET /api/ai/sessions/{chat_id}/transcript?project_dir=<path>` (#783):
-  - Streams the on-disk `transcript.jsonl` as NDJSON. Each line is one historical `AgentEvent` dict. The frontend prepends these events to the chat view via `prependHistoricalEvents`.
-- `GET /api/ai/slash_commands?project_dir=<path>` (#786):
-  - Synchronously walks `~/.claude/commands/`, `~/.claude/skills/<name>/SKILL.md` (or `skill.md`), `<project>/.claude/commands/`, `~/.claude/plugins/*/commands/` and returns `{ commands: [{name, description, source}] }`. No caching — newly added files appear on the next dropdown open.
-- New Pydantic schemas in `schemas.py`: `ProviderStatusResponse`, `ChatClientMessage`, `AgentEventEnvelope`, `SessionListItem`, `SessionListResponse`, `SlashCommandItem`, `SlashCommandsResponse`.
+- New Pydantic schemas in `schemas.py`: `ProviderStatusResponse`, `ChatClientMessage`, `AgentEventEnvelope`.
 
 **Tests**:
 
@@ -554,19 +529,6 @@ asserts the JSONL is populated end-to-end.
 - WS messages for permission requests don't block other agent events on the same connection.
 
 **Dependencies**: T-ECA-105 (spike), T-ECA-107 (WS infrastructure).
-
-**Closeout (2026-05-13, PR for #779)**: The Phase-1 ship of
-`PermissionPolicy` deferred MCP read-tool auto-approve with a
-"not implemented in v1" comment, on the theory the MCP server had
-not yet landed. With Phase 2's `TOOL_REGISTRY` in place, this leaves
-~21 read tools prompting the user on every call — unusable in
-practice. The closeout PR makes the policy recognise the
-`mcp__scieasy__` prefix, look up the bare tool name in
-`scieasy.ai.agent.mcp._registry.TOOL_REGISTRY`, and auto-approve
-entries with `mutation == "read"`. Unknown MCP names and tools
-from non-SciEasy MCP servers fail closed (still require user
-approval). The dispatcher and the policy share the same registry,
-so the read-vs-write classification cannot drift between them.
 
 ### Phase-1 audit ticket
 
@@ -731,8 +693,6 @@ Resolution rules:
 
 - Implement `compose_system_prompt(project_dir) -> str` that returns the three-tier concatenation per ADR-033 §3 D3.
 - The builtin content matches ADR-033 §3 D3.2 Sections A–D verbatim. Sections C and D are populated by enumerating the MCP tool registry at runtime so the prompt is always in sync with the actual tool set.
-- **#789**: Section C renders each tool's full signature (`name(arg: type, ...) [read|write]`) synthesised from `inspect.signature` + resolved type hints. A new Section E (`SECTION_E_USAGE_CHEATSHEET`) appends a hand-curated cheat-sheet of canonical agent flows (build/run/iterate). Section E is hand-maintained, NOT auto-generated — update when adding a new common tool.
-- **#789**: `MCPServer.dispatch` answers `tools/list` with the auto-generated `inputSchema` per tool (from `infer_tool_schema(handler)` in `mcp/_schema.py`) and validates `tools/call` arguments against the same schema, returning JSON-RPC `-32602` "missing required field X" on mismatch instead of an opaque `TypeError`.
 
 **Tests**:
 

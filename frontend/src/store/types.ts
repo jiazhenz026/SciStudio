@@ -1,6 +1,5 @@
 import type { BlockSchemaResponse, BlockSummary, ChatMessage, DataPreviewResponse, LogEntry, ProjectResponse, WorkflowEdge, WorkflowEventMessage, WorkflowNode, WorkflowResponse } from "../types/api";
 import type { BottomTab } from "../types/ui";
-import type { AIChatSlice } from "./aiChatSlice";
 
 export interface ProjectDialogState {
   mode: "new" | "open";
@@ -169,5 +168,4 @@ export type AppStore = ProjectSlice &
   PreviewSlice &
   PaletteSlice &
   ChatSlice &
-  TabSlice &
-  AIChatSlice;
+  TabSlice;

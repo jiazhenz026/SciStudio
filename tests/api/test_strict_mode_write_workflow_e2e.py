@@ -83,11 +83,8 @@ def _patch_start_with_mode(monkeypatch: pytest.MonkeyPatch) -> None:
         manager: Any,
         project_dir: Path,
         chat_id: str,
-        resume_session_id: str | None = None,
         permission_mode_str: str = "strict",
     ) -> Any:
-        # Issue #804: chat_ws now passes resume_session_id on every spawn
-        # (lazy-resume on each user_message), so the stub must accept it.
         mode = PermissionMode.BYPASS if permission_mode_str == "bypass" else PermissionMode.STRICT
         provider = ClaudeCodeProvider(binary_override=STUB_PATH)
         return await manager.start_session(
@@ -97,7 +94,6 @@ def _patch_start_with_mode(monkeypatch: pytest.MonkeyPatch) -> None:
             system_prompt="test",
             mcp_config={},
             permission_mode=mode,
-            resume_session_id=resume_session_id,
         )
 
     monkeypatch.setattr(ai_routes, "_start_default_session", _stub_start)

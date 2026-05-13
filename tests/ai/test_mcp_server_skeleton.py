@@ -250,29 +250,14 @@ def test_mcp_bridge_console_script_help() -> None:
         pytest.skip(f"module-form CLI unavailable: rc={result.returncode}")
 
 
-def test_mcp_bridge_run_returns_exit_code_2_when_socket_missing(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """When the MCP socket cannot be found, ``run()`` exits 2 so CC does
-    not treat an unreachable bridge as fail-open.
+def test_mcp_bridge_run_returns_exit_code_2() -> None:
+    """The scaffold's ``run()`` returns 2 so CC does not treat an
+    unimplemented bridge as fail-open."""
+    from scieasy.cli.mcp_bridge import run
 
-    T-ECA-205 implemented the bridge for real (issues #775, #777); the
-    original scaffold behaviour ("always returns 2") was replaced by an
-    actual async stdin↔socket pump. The 2 exit code is now only emitted
-    on the configuration-error path (no socket / port file missing).
-
-    We must point the home fallback at an empty temp dir for this test —
-    on developer machines the real ``~/.scieasy`` often contains a
-    running backend's port file, in which case the bridge would resolve,
-    connect, and exit 1 on stdin rather than 2.
-    """
-    from scieasy.cli import mcp_bridge
-
-    monkeypatch.setattr(mcp_bridge.Path, "home", staticmethod(lambda: tmp_path))
-    monkeypatch.delenv("SCIEASY_PROJECT_DIR", raising=False)
-
-    rc2 = mcp_bridge.run(str(tmp_path / "definitely-not-there.sock"))
+    rc = run(None)
+    assert rc == 2
+    rc2 = run("/tmp/whatever.sock")
     assert rc2 == 2
 
 
