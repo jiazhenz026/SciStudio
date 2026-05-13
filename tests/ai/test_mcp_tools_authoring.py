@@ -54,8 +54,9 @@ def test_read_block_source_unknown_raises(ctx: _StubRuntime) -> None:
 def test_list_block_examples_happy(ctx: _StubRuntime) -> None:
     examples = tools_authoring.list_block_examples("io")
     assert isinstance(examples, list)
-    # startswith rather than `in` to satisfy CodeQL py/incomplete-url-substring-sanitization (false positive: these are Python module paths, not URLs)
-    assert any(e["name"].startswith("scieasy.blocks.io") for e in examples)
+    # Compare structural module-path prefix as a tuple to avoid CodeQL
+    # py/incomplete-url-substring-sanitization (rule confuses .io suffix with TLD).
+    assert any(tuple(e["name"].split(".")[:3]) == ("scieasy", "blocks", "io") for e in examples)
 
 
 def test_list_block_examples_unknown_category_raises(ctx: _StubRuntime) -> None:
