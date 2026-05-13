@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- [#750] T-ECA-502+503 Phase 5 impl — e2e test harness (`tests/e2e/harness.py`), golden reference capture from the microplastics SRS notebook (`tests/e2e/microplastics/golden/*.csv`), and numerical comparator (`tests/e2e/microplastics/_compare.py`) with self-tests. The harness creates a fresh empty project workspace each run so the agent starts from a blank state per ADR-033 §8.5. (@claude, 2026-05-12, branch: feat/issue-750/eca-502-503-batch, session: dispatcher-takeover-from-agent-a91cbd6aa396e168b)
+
 ### Fixed
 
 - [#765] Wire `CodexProvider` into `_discover_providers()` in `src/scieasy/api/routes/ai.py`. T-ECA-410 audit found that `GET /api/ai/status` only reported Claude Code, violating spec §8 T-ECA-402's acceptance criterion ("returns both providers when both binaries are installed"). Regression test pins both names in the response. (@claude, 2026-05-12, branch: fix/issue-748/codex-provider-discovery, session: 20260512-231752-fix-765-t-eca-410-follow-up-wire-codexpr)
