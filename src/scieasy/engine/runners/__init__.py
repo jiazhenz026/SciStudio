@@ -13,8 +13,10 @@ from scieasy.engine.runners.process_handle import (
     spawn_block_process,
 )
 from scieasy.engine.runners.process_monitor import ProcessMonitor
+from scieasy.engine.runners.terminal_state import BlockTerminalStateReportedError
 
 __all__ = [
+    "BlockTerminalStateReportedError",
     "LocalRunner",
     "PlatformOps",
     "ProcessExitInfo",

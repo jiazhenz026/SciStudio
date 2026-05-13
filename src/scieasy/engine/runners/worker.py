@@ -31,6 +31,7 @@ Protocol:
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import json
 import logging
 import sys
@@ -226,10 +227,28 @@ def main() -> None:
         block_class_path: str = payload["block_class"]
         config: dict[str, Any] = payload.get("config", {})
         output_dir: str = payload.get("output_dir", "")
+        # #706: For Tier-1 drop-in blocks, the parent registry passes the
+        # absolute path of the source ``.py`` file. The synthetic module
+        # name (``_scieasy_dropin_<stem>_<mtime>``) only exists in the
+        # parent's ``sys.modules`` and is not importable here via
+        # ``importlib.import_module``. Reload it via spec_from_file_location
+        # and register under the same name so the class resolves.
+        block_file_path: str | None = payload.get("block_file_path")
 
         # Import block class.
         module_path, class_name = block_class_path.rsplit(".", 1)
-        module = importlib.import_module(module_path)
+        if block_file_path is not None:
+            spec = importlib.util.spec_from_file_location(module_path, block_file_path)
+            if spec is None or spec.loader is None:
+                raise ImportError(f"Cannot create module spec for {module_path!r} from file {block_file_path!r}")
+            module = importlib.util.module_from_spec(spec)
+            # Register before exec so any intra-module imports of the same
+            # name resolve to the in-flight module (matches importlib's
+            # standard import protocol).
+            sys.modules[module_path] = module
+            spec.loader.exec_module(module)
+        else:
+            module = importlib.import_module(module_path)
         block_cls = getattr(module, class_name)
 
         # Set output_dir BEFORE block.run() so IOBlock.run() can resolve it
@@ -259,6 +278,26 @@ def main() -> None:
         # Execute.
         outputs = block.run(inputs, block_config)
 
+        # #681: capture the block's terminal state if it transitioned to a
+        # non-DONE terminal state (CANCELLED / ERROR / SKIPPED) from inside
+        # ``run()``. ``Block.transition()`` only mutates ``self.state`` in
+        # the worker process; without this readback the orchestrator never
+        # observes the change. The envelope's ``final_state`` field is
+        # absent for the common case where the block ends in RUNNING/DONE,
+        # so existing blocks that do not call ``transition()`` from inside
+        # ``run()`` keep the previous "no field == DONE" semantics.
+        final_state: str | None = None
+        if hasattr(block, "state"):
+            from scieasy.blocks.base.state import BlockState
+
+            block_state = getattr(block, "state", None)
+            if isinstance(block_state, BlockState) and block_state in (
+                BlockState.CANCELLED,
+                BlockState.ERROR,
+                BlockState.SKIPPED,
+            ):
+                final_state = block_state.value
+
         # Capture environment inside subprocess for accurate lineage (issue #54).
         from scieasy.core.lineage.environment import EnvironmentSnapshot
 
@@ -267,7 +306,10 @@ def main() -> None:
         # Serialize outputs via the typed wire format.
         result = serialise_outputs(outputs, output_dir) if isinstance(outputs, dict) else {"_result": str(outputs)}
 
-        print(json.dumps({"outputs": result, "environment": env_snapshot.to_dict()}))
+        envelope: dict[str, Any] = {"outputs": result, "environment": env_snapshot.to_dict()}
+        if final_state is not None:
+            envelope["final_state"] = final_state
+        print(json.dumps(envelope))
     except Exception:
         print(json.dumps({"error": traceback.format_exc()}))
         sys.exit(1)

@@ -88,6 +88,11 @@ def validate_workflow(
        ``min_input_ports`` / ``max_input_ports`` / ``min_output_ports`` /
        ``max_output_ports`` limits declared on the ``BlockSpec`` (only when
        *registry* is provided).
+    8. **AppBlock duplicate output-port extensions** -- two output ports on
+       a single variadic-output block declaring the same file extension
+       (case-insensitive) would make extension-based binning ambiguous, so
+       such configurations are rejected at workflow save time
+       (issue #680).
 
     Parameters
     ----------
@@ -286,5 +291,50 @@ def validate_workflow(
                 errors.append(
                     f"Node '{node.id}': variadic output port count {n_out} exceeds maximum {spec.max_output_ports}"
                 )
+
+    # ------------------------------------------------------------------
+    # Check 8: AppBlock duplicate output-port extensions (issue #680)
+    # ------------------------------------------------------------------
+    # AppBlock subclasses route output files into ports by file extension.
+    # Two ports declaring the same extension would be ambiguous, so reject
+    # such configurations at save time. Case-insensitive comparison; ports
+    # that omit the ``extension`` field are skipped (the runtime binner
+    # will leave them empty / raise on its own if required).
+    #
+    # #690 audit fix: the frontend port editor writes ``output_ports`` under
+    # ``node.config["params"]["output_ports"]`` (mirroring the
+    # :class:`BlockConfig` two-tier layout used at runtime), so the original
+    # root-level read here never matched real configs and Check 8 silently
+    # passed every workflow. Read ``params.output_ports`` first; fall back
+    # to the root-level key so direct API callers and existing tests that
+    # construct configs without a ``params`` envelope still work.
+    for node in workflow.nodes:
+        spec = registry.get_spec(node.block_type)
+        if spec is None or not spec.variadic_outputs:
+            continue
+        params = node.config.get("params")
+        configured: Any = None
+        if isinstance(params, dict):
+            configured = params.get("output_ports")
+        if configured is None:
+            configured = node.config.get("output_ports")
+        if not isinstance(configured, list):
+            continue
+        ext_to_ports: dict[str, list[str]] = {}
+        for entry in configured:
+            if not isinstance(entry, dict):
+                continue
+            port_name = str(entry.get("name", "")).strip()
+            ext_raw = entry.get("extension")
+            if not port_name or ext_raw in (None, ""):
+                continue
+            ext = str(ext_raw).strip().lstrip(".").lower()
+            if not ext:
+                continue
+            ext_to_ports.setdefault(ext, []).append(port_name)
+        for ext, names in ext_to_ports.items():
+            if len(names) > 1:
+                joined = ", ".join(sorted(set(names)))
+                errors.append(f"Node '{node.id}': Duplicate extension {ext!r} across output ports {{{joined}}}")
 
     return errors

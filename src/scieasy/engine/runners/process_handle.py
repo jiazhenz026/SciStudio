@@ -147,26 +147,42 @@ def build_worker_payload(
     inputs_refs: dict[str, Any],
     config: dict[str, Any],
     output_dir: str | None = None,
+    block_file_path: str | None = None,
 ) -> bytes:
     """Build the JSON payload sent to the worker subprocess via stdin.
 
     Extracted from spawn_block_process() so that LocalRunner can use
     ``asyncio.create_subprocess_exec`` while reusing the same serialization
     logic (#483).
+
+    Parameters
+    ----------
+    block_file_path:
+        Optional absolute path to the ``.py`` file that defines the block
+        class. Used for Tier-1 drop-in blocks whose module name only exists
+        in the parent process's ``sys.modules`` (see #706). When provided,
+        the worker reloads the module via
+        ``importlib.util.spec_from_file_location`` before resolving the
+        class. When ``None`` (Tier-2 entry-point blocks / builtins), the
+        worker uses the standard ``importlib.import_module`` path.
     """
     if isinstance(block_class, str):
         block_class_path = block_class
     else:
         block_class_path = f"{block_class.__module__}.{block_class.__qualname__}"
 
-    payload = json.dumps(
-        {
-            "block_class": block_class_path,
-            "inputs": inputs_refs,
-            "config": config,
-            "output_dir": output_dir,
-        }
-    )
+    payload_dict: dict[str, Any] = {
+        "block_class": block_class_path,
+        "inputs": inputs_refs,
+        "config": config,
+        "output_dir": output_dir,
+    }
+    # #706: only include block_file_path when present, to keep the payload
+    # schema unchanged for the common Tier-2 / builtin case.
+    if block_file_path is not None:
+        payload_dict["block_file_path"] = block_file_path
+
+    payload = json.dumps(payload_dict)
     return payload.encode("utf-8")
 
 
@@ -220,6 +236,7 @@ def spawn_block_process(
     resource_request: Any | None = None,
     output_dir: str | None = None,
     job_handle: Any | None = None,
+    block_file_path: str | None = None,
 ) -> ProcessHandle:
     """Single entry point for ALL subprocess creation (ADR-017, ADR-019).
 
@@ -244,15 +261,18 @@ def spawn_block_process(
     else:
         block_class_path = f"{block_class.__module__}.{block_class.__qualname__}"
 
-    # Build payload for the worker subprocess
-    payload = json.dumps(
-        {
-            "block_class": block_class_path,
-            "inputs": inputs_refs,
-            "config": config,
-            "output_dir": output_dir,
-        }
-    )
+    # Build payload for the worker subprocess.
+    # #706: include block_file_path only when set so the worker can reload
+    # Tier-1 drop-in modules whose synthetic name is parent-process-local.
+    payload_dict: dict[str, Any] = {
+        "block_class": block_class_path,
+        "inputs": inputs_refs,
+        "config": config,
+        "output_dir": output_dir,
+    }
+    if block_file_path is not None:
+        payload_dict["block_file_path"] = block_file_path
+    payload = json.dumps(payload_dict)
 
     # Configure Popen kwargs with platform-specific process group
     popen_kwargs: dict[str, Any] = {

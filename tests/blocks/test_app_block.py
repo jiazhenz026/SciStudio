@@ -6,6 +6,7 @@ import os
 import time
 from pathlib import Path
 from threading import Thread
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -807,3 +808,286 @@ class TestAppBlockTempDirCleanup:
 
         # Even on error, temp dir should be cleaned up.
         assert not temp_dir.exists(), "Temp dir not cleaned up after error (#339)"
+
+
+# ---------------------------------------------------------------------------
+# Issue #680: AppBlock variadic ports + extension-based output binning
+# ---------------------------------------------------------------------------
+
+
+class TestAppBlockVariadicPorts:
+    """Issue #680: ``config.{input,output}_ports`` overrides ClassVar ports."""
+
+    def test_effective_input_ports_use_config_when_set(self) -> None:
+        from scieasy.blocks.app.app_block import AppBlock
+
+        block = AppBlock(
+            config={
+                "params": {
+                    "input_ports": [
+                        {"name": "alpha", "types": ["DataObject"]},
+                        {"name": "beta", "types": ["DataObject"]},
+                    ]
+                }
+            }
+        )
+
+        ports = block.get_effective_input_ports()
+        assert [p.name for p in ports] == ["alpha", "beta"]
+
+    def test_effective_output_ports_use_config_when_set(self) -> None:
+        from scieasy.blocks.app.app_block import AppBlock
+
+        block = AppBlock(
+            config={
+                "params": {
+                    "output_ports": [
+                        {"name": "tables", "types": ["DataObject"], "extension": "csv"},
+                    ]
+                }
+            }
+        )
+
+        ports = block.get_effective_output_ports()
+        assert [p.name for p in ports] == ["tables"]
+
+    def test_falls_back_to_classvar_when_config_unset(self) -> None:
+        from scieasy.blocks.app.app_block import AppBlock
+
+        block = AppBlock()
+        # ClassVar ports remain visible when no config override is given.
+        assert [p.name for p in block.get_effective_input_ports()] == ["data"]
+        assert [p.name for p in block.get_effective_output_ports()] == ["result"]
+
+
+class TestAppBlockExtensionBinner:
+    """Issue #680: ``_bin_outputs_by_extension`` routing rules."""
+
+    def _make_block_with_ports(self, port_dicts: list[dict[str, Any]]) -> Any:
+        from scieasy.blocks.app.app_block import AppBlock
+
+        return AppBlock(config={"params": {"output_ports": port_dicts}})
+
+    def test_routes_files_by_extension_case_insensitive(self, tmp_path: Path) -> None:
+        from scieasy.blocks.base.config import BlockConfig
+
+        f1 = tmp_path / "image.TIF"
+        f2 = tmp_path / "image2.tif"
+        f3 = tmp_path / "summary.csv"
+        for f in (f1, f2, f3):
+            f.write_text("x", encoding="utf-8")
+
+        block = self._make_block_with_ports(
+            [
+                {"name": "images", "types": ["DataObject"], "extension": "TIF"},
+                {"name": "tables", "types": ["DataObject"], "extension": "csv"},
+            ]
+        )
+        config = BlockConfig(
+            params={
+                "output_ports": [
+                    {"name": "images", "types": ["DataObject"], "extension": "TIF"},
+                    {"name": "tables", "types": ["DataObject"], "extension": "csv"},
+                ]
+            }
+        )
+
+        result = block._bin_outputs_by_extension([f1, f2, f3], config)
+
+        assert set(result.keys()) == {"images", "tables"}
+        assert result["images"].length == 2
+        assert result["tables"].length == 1
+
+    def test_required_port_with_no_files_raises(self, tmp_path: Path) -> None:
+        from scieasy.blocks.base.config import BlockConfig
+
+        f1 = tmp_path / "image.tif"
+        f1.write_text("x", encoding="utf-8")
+
+        block = self._make_block_with_ports(
+            [
+                {"name": "images", "types": ["DataObject"], "extension": "tif"},
+                {"name": "labels", "types": ["DataObject"], "extension": "png"},
+            ]
+        )
+        config = BlockConfig(
+            params={
+                "output_ports": [
+                    {"name": "images", "types": ["DataObject"], "extension": "tif"},
+                    {"name": "labels", "types": ["DataObject"], "extension": "png"},
+                ]
+            }
+        )
+
+        with pytest.raises(ValueError, match=r"Port 'labels' required, no '\.png' files"):
+            block._bin_outputs_by_extension([f1], config)
+
+    def test_unmatched_files_emit_warning_log(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        import logging
+
+        from scieasy.blocks.base.config import BlockConfig
+
+        f1 = tmp_path / "image.tif"
+        f2 = tmp_path / "stray.txt"
+        f1.write_text("x", encoding="utf-8")
+        f2.write_text("y", encoding="utf-8")
+
+        block = self._make_block_with_ports([{"name": "images", "types": ["DataObject"], "extension": "tif"}])
+        config = BlockConfig(
+            params={
+                "output_ports": [
+                    {"name": "images", "types": ["DataObject"], "extension": "tif"},
+                ]
+            }
+        )
+
+        with caplog.at_level(logging.WARNING, logger="scieasy.blocks.app.app_block"):
+            result = block._bin_outputs_by_extension([f1, f2], config)
+
+        assert result["images"].length == 1
+        assert any("Unmatched output file" in record.message for record in caplog.records)
+
+    def test_binner_constructs_typed_artifact_items(self, tmp_path: Path) -> None:
+        """#690 audit fix: when an output port declares an ``Artifact`` (or
+        subclass) type, the binner must construct items of that class so the
+        resulting ``Collection.item_type`` homogeneity check passes.
+
+        Previously the binner unconditionally instantiated ``Artifact``,
+        which would be rejected by a Collection whose declared ``item_type``
+        was a strict ``Artifact`` subclass.
+        """
+        from scieasy.blocks.base.config import BlockConfig
+        from scieasy.core.types.artifact import Artifact
+
+        f1 = tmp_path / "report.pdf"
+        f1.write_text("x", encoding="utf-8")
+
+        block = self._make_block_with_ports([{"name": "reports", "types": ["Artifact"], "extension": "pdf"}])
+        config = BlockConfig(
+            params={
+                "output_ports": [
+                    {"name": "reports", "types": ["Artifact"], "extension": "pdf"},
+                ]
+            }
+        )
+
+        result = block._bin_outputs_by_extension([f1], config)
+        coll = result["reports"]
+        assert coll.length == 1
+        assert coll.item_type is Artifact
+        assert isinstance(next(iter(coll)), Artifact)
+
+    def test_binner_falls_back_to_artifact_for_non_constructible_type(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """#690 audit fix: when the declared port type cannot be constructed
+        from a file path (e.g. ``Array`` / ``Image`` need axes), the binner
+        falls back to ``Artifact`` and logs a warning. The Collection's
+        ``item_type`` is then ``Artifact`` so homogeneity holds.
+        """
+        import logging
+
+        from scieasy.blocks.base.config import BlockConfig
+        from scieasy.core.types.artifact import Artifact
+
+        f1 = tmp_path / "image.tif"
+        f1.write_text("x", encoding="utf-8")
+
+        # "Array" is registered but not a subclass of Artifact and cannot be
+        # built from just a file path; the binner must fall back to Artifact.
+        block = self._make_block_with_ports([{"name": "imgs", "types": ["Array"], "extension": "tif"}])
+        config = BlockConfig(
+            params={
+                "output_ports": [
+                    {"name": "imgs", "types": ["Array"], "extension": "tif"},
+                ]
+            }
+        )
+
+        with caplog.at_level(logging.WARNING, logger="scieasy.blocks.app.app_block"):
+            result = block._bin_outputs_by_extension([f1], config)
+
+        coll = result["imgs"]
+        assert coll.length == 1
+        assert coll.item_type is Artifact
+        assert isinstance(next(iter(coll)), Artifact)
+        assert any("not constructible from a file path" in r.message for r in caplog.records)
+
+    def test_classvar_optional_port_with_no_files_returns_empty_collection(self) -> None:
+        """ClassVar-declared optional ports stay empty without raising.
+
+        Per issue #680, every port declared via the editor is required.
+        Optional ports only exist as ClassVar scaffolds on subclasses;
+        the binner honours their ``required=False`` flag.
+        """
+        from typing import ClassVar
+
+        from scieasy.blocks.app.app_block import AppBlock
+        from scieasy.blocks.base.config import BlockConfig
+        from scieasy.blocks.base.ports import OutputPort
+
+        class _OptionalPortBlock(AppBlock):
+            variadic_outputs: ClassVar[bool] = False
+            output_ports: ClassVar[list[OutputPort]] = [
+                OutputPort(name="optional_csv", accepted_types=[], required=False),
+            ]
+
+        block = _OptionalPortBlock()
+        # No runtime config['output_ports'] -> falls back to ClassVar.
+        result = block._bin_outputs_by_extension([], BlockConfig(params={}))
+        # ClassVar port has no extension declared, so it stays empty (not raised).
+        assert "optional_csv" in result
+        assert result["optional_csv"].length == 0
+
+    def test_run_uses_binner_when_output_ports_in_config(self, tmp_path: Path) -> None:
+        """End-to-end run() goes through the binner when ports are declared."""
+        from unittest.mock import MagicMock, patch
+
+        from scieasy.blocks.app.app_block import AppBlock
+        from scieasy.blocks.base.config import BlockConfig
+        from scieasy.blocks.base.state import BlockState
+
+        block = AppBlock()
+        block.transition(BlockState.READY)
+        block.transition(BlockState.RUNNING)
+
+        config = BlockConfig(
+            params={
+                "app_command": "echo hello",
+                "output_ports": [
+                    {"name": "tables", "types": ["DataObject"], "extension": "csv"},
+                ],
+            }
+        )
+
+        f1 = tmp_path / "result.csv"
+        f1.write_text("a,b\n1,2\n", encoding="utf-8")
+
+        with (
+            patch("scieasy.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
+            patch("scieasy.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
+            patch(
+                "scieasy.blocks.app.app_block.tempfile.mkdtemp",
+                return_value=str(tmp_path / "ex"),
+            ),
+        ):
+            mock_bridge = MagicMock()
+            mock_bridge_cls.return_value = mock_bridge
+            mock_proc = MagicMock()
+            mock_proc.poll.return_value = None
+            mock_proc.pid = 1
+            mock_proc.wait.return_value = 0
+            mock_bridge.launch.return_value = mock_proc
+
+            with patch("scieasy.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
+                mock_watcher = MagicMock()
+                mock_watcher_cls.return_value = mock_watcher
+                mock_watcher.wait_for_output.return_value = [f1]
+
+                result = block.run(inputs={}, config=config)
+
+            # bridge.collect should NOT be called because the binner ran.
+            mock_bridge.collect.assert_not_called()
+
+        assert "tables" in result
+        assert result["tables"].length == 1

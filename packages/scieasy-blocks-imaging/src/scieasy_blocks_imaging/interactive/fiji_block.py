@@ -10,7 +10,6 @@ from scieasy.blocks.base.ports import InputPort, OutputPort
 from scieasy.blocks.base.state import ExecutionMode
 from scieasy.core.types.collection import Collection
 from scieasy_blocks_imaging.interactive import (
-    _collect_outputs,
     _input_images,
     _prepare_image_exchange,
     _resolve_command,
@@ -82,14 +81,39 @@ class FijiBlock(AppBlock):
         if not macro_path:
             launch_args = [str(p) for p in staged_paths]
 
+        # Issue #680: when the user declares output ports (with extensions)
+        # via the editor, broaden the watcher patterns to include each
+        # declared extension so files of those types are not missed.
+        patterns = list(self.output_patterns)
+        configured_ports = config.get("output_ports") or []
+        if isinstance(configured_ports, list):
+            for entry in configured_ports:
+                if isinstance(entry, dict) and entry.get("extension"):
+                    ext = str(entry["extension"]).strip().lstrip(".").lower()
+                    if ext and f"*.{ext}" not in patterns:
+                        patterns.append(f"*.{ext}")
         output_files = _run_external_app(
             self,
             command=command,
             exchange_dir=exchange_dir,
-            patterns=self.output_patterns,
+            patterns=patterns,
             config=config,
             launch_args=launch_args,
         )
-        return _collect_outputs(
-            output_files, template_image=images[0] if images else None, allowed_ports={"image", "mask", "label"}
-        )
+        # Issue #680: route output files into user-declared ports by
+        # extension. Falls back to legacy single-Artifact-per-file behaviour
+        # only when no ports are declared in config (the ClassVar
+        # ``output_ports`` above is the default scaffold the user may
+        # override via the port editor).
+        if config.get("output_ports"):
+            return self._bin_outputs_by_extension(output_files, config)
+        # Backwards-compatible single-port fallback: emit every file as an
+        # Artifact under the "image" output port so existing graphs keep
+        # working until the user opens the port editor.
+        from scieasy.blocks.app.bridge import _guess_mime
+        from scieasy.core.types.artifact import Artifact
+
+        artifacts = [Artifact(file_path=p, mime_type=_guess_mime(p), description=p.name) for p in output_files]
+        if not artifacts:
+            return {}
+        return {"image": Collection(artifacts, item_type=Artifact)}

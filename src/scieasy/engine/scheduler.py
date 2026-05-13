@@ -28,6 +28,7 @@ from scieasy.engine.events import (
     EventBus,
 )
 from scieasy.engine.resources import ResourceRequest
+from scieasy.engine.runners.terminal_state import BlockTerminalStateReportedError
 from scieasy.workflow.definition import WorkflowDefinition
 
 if TYPE_CHECKING:
@@ -324,6 +325,77 @@ class DAGScheduler:
                 # pre-subprocess path). State transition to CANCELLED is
                 # handled by the caller; re-raise so asyncio can finalise.
                 raise
+            except BlockTerminalStateReportedError as terminal:
+                # #681: the worker subprocess observed that the block ended
+                # in a non-DONE terminal state (CANCELLED / ERROR / SKIPPED)
+                # via ``self.transition()`` inside ``run()``. Honour that
+                # state directly — do NOT overwrite it with ERROR like the
+                # generic ``except Exception`` branch below.
+                #
+                # #689 cancel-race guard: if ``_on_cancel_block`` already
+                # pre-set the block to CANCELLED while the worker was
+                # finalising its own terminal state (e.g. ERROR / SKIPPED),
+                # the CANCELLED state takes precedence. Mirror the generic
+                # ``except Exception`` branch's cancellation guard below —
+                # do not overwrite the state or emit a contradictory event
+                # sequence (BLOCK_CANCELLED followed by BLOCK_ERROR).
+                if self._block_states.get(node_id) == BlockState.CANCELLED:
+                    logger.info(
+                        "Block %s reported terminal state %s from worker "
+                        "but was already CANCELLED; preserving CANCELLED",
+                        node_id,
+                        terminal.state.value,
+                    )
+                    self.save_checkpoint(self._checkpoint_manager)
+                    return
+                logger.info(
+                    "Block %s reported terminal state %s from worker",
+                    node_id,
+                    terminal.state.value,
+                )
+                self._block_states[node_id] = terminal.state
+                # Persist any partial outputs the block returned alongside
+                # the terminal state, so downstream lineage and re-runs see
+                # the same view as the worker.
+                if terminal.outputs:
+                    self._block_outputs[node_id] = terminal.outputs
+                if terminal.state == BlockState.CANCELLED:
+                    await self._event_bus.emit(
+                        EngineEvent(
+                            event_type=BLOCK_CANCELLED,
+                            block_id=node_id,
+                            data={"workflow_id": self._workflow.id},
+                        )
+                    )
+                    await self._propagate_skip(node_id, "cancelled")
+                elif terminal.state == BlockState.ERROR:
+                    error_str = f"Block reported terminal state {terminal.state.value} from worker"
+                    await self._event_bus.emit(
+                        EngineEvent(
+                            event_type=BLOCK_ERROR,
+                            block_id=node_id,
+                            data={
+                                "workflow_id": self._workflow.id,
+                                "error": error_str,
+                                "error_summary": _extract_error_summary(error_str),
+                            },
+                        )
+                    )
+                    await self._propagate_skip(node_id, "error")
+                else:
+                    # SKIPPED: the block reported it cannot continue; emit
+                    # BLOCK_SKIPPED and propagate downstream.
+                    self.skip_reasons[node_id] = "block reported skipped"
+                    await self._event_bus.emit(
+                        EngineEvent(
+                            event_type=BLOCK_SKIPPED,
+                            block_id=node_id,
+                            data={"workflow_id": self._workflow.id},
+                        )
+                    )
+                    await self._propagate_skip(node_id, "skipped")
+                self.save_checkpoint(self._checkpoint_manager)
+                return
             except Exception as exc:
                 if self._block_states.get(node_id) == BlockState.CANCELLED:
                     logger.info("Block %s exited after cancellation", node_id)
