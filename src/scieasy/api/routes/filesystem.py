@@ -6,6 +6,7 @@ import os
 import platform
 import string
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Annotated
 
@@ -17,6 +18,51 @@ from scieasy.api.runtime import ApiRuntime
 
 router = APIRouter(tags=["filesystem"])
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
+
+
+# ---------------------------------------------------------------------------
+# Path sanitiser (CodeQL py/path-injection guard).
+#
+# Both the reveal and browse endpoints take a user-supplied path that flows
+# directly into filesystem operations (``Path.exists``, ``Path.iterdir``)
+# and into a native shell command (``explorer.exe`` / ``open`` / ``xdg-open``).
+# Without a sanitiser, a malicious client could ask the server to inspect
+# or open arbitrary filesystem locations (``/etc/shadow``, ``C:\\Windows``,
+# ...). Restrict accepted paths to the user's home tree and the system temp
+# tree — the two places SciEasy projects and pytest fixtures actually live.
+#
+# Implementation note: CodeQL ``py/path-injection`` recognises
+# ``os.path.realpath`` + ``os.path.commonpath`` as the canonical sanitiser
+# pattern, but does NOT recognise ``pathlib.Path.is_relative_to``. The two
+# are functionally equivalent; we use the form CodeQL accepts.
+# ---------------------------------------------------------------------------
+
+
+_SAFE_PATH_ALLOWED_ROOTS: tuple[str, ...] = (
+    os.path.realpath(os.path.expanduser("~")),
+    os.path.realpath(tempfile.gettempdir()),
+)
+
+
+def _resolve_safe_path(user_path: str | Path) -> Path:
+    """Resolve *user_path* and require it to live under an allowed root.
+
+    Raises
+    ------
+    ValueError
+        If the canonicalised path does not fall under any allowed root.
+        Callers translate this to HTTP 400.
+    """
+    candidate = os.path.realpath(os.fspath(user_path))
+    for root in _SAFE_PATH_ALLOWED_ROOTS:
+        try:
+            if os.path.commonpath([root, candidate]) == root:
+                return Path(candidate)
+        except ValueError:
+            # commonpath raises ValueError when paths are on different
+            # drives (Windows) or when one is absolute and one relative.
+            continue
+    raise ValueError(f"path must be under user home or system temp; got {candidate}")
 
 
 # ---------------------------------------------------------------------------
@@ -203,7 +249,10 @@ async def browse_filesystem(
 @router.post("/api/filesystem/reveal")
 async def reveal_in_explorer(body: RevealRequest) -> dict[str, str]:
     """Open the native file explorer and select/reveal the given path."""
-    target = Path(body.path).resolve()
+    try:
+        target = _resolve_safe_path(body.path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not target.exists():
         raise HTTPException(status_code=404, detail="Path does not exist")
 

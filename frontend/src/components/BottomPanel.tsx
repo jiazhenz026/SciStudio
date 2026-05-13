@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import type { BlockSchemaResponse, ChatMessage, LogEntry, WorkflowNode } from "../types/api";
+import type { BlockSchemaResponse, LogEntry, WorkflowNode } from "../types/api";
 import type { BottomTab } from "../types/ui";
 import { AIChat } from "./AIChat";
 import { type PortRow, PortEditorTable } from "./PortEditorTable";
@@ -10,14 +10,9 @@ interface BottomPanelProps {
   selectedNode: WorkflowNode | null;
   selectedSchema?: BlockSchemaResponse;
   blockErrors: Record<string, string>;
-  chatMessages: ChatMessage[];
   logEntries: LogEntry[];
-  aiLoading: boolean;
-  aiError: string | null;
   onTabChange: (tab: BottomTab) => void;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
-  onSendChat: (message: string) => void;
-  onApplyWorkflow?: (workflow: Record<string, unknown>) => void;
 }
 
 const TAB_LABELS: Record<BottomTab, string> = {
@@ -296,14 +291,9 @@ export function BottomPanel({
   selectedNode,
   selectedSchema,
   blockErrors,
-  chatMessages,
   logEntries,
-  aiLoading,
-  aiError,
   onTabChange,
   onUpdateConfig,
-  onSendChat,
-  onApplyWorkflow,
 }: BottomPanelProps) {
   return (
     <section className="flex h-full flex-col overflow-hidden bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(238,231,219,0.98))]">
@@ -325,13 +315,7 @@ export function BottomPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 scrollbar-thin">
         <div className="h-full rounded-[1.8rem] border border-stone-200 bg-white/80 p-4">
           {activeTab === "ai" ? (
-            <AIChat
-              error={aiError}
-              isLoading={aiLoading}
-              messages={chatMessages}
-              onApplyWorkflow={onApplyWorkflow}
-              onSendChat={onSendChat}
-            />
+            <AIChat />
           ) : activeTab === "config" ? (
             <ConfigPanel onUpdateConfig={onUpdateConfig} schema={selectedSchema} selectedNode={selectedNode} />
           ) : activeTab === "logs" ? (

@@ -19,12 +19,8 @@ describe("BottomPanel", () => {
     render(
       <BottomPanel
         activeTab="config"
-        aiError={null}
-        aiLoading={false}
         blockErrors={{}}
-        chatMessages={[]}
         logEntries={[]}
-        onSendChat={() => {}}
         onTabChange={() => {}}
         onUpdateConfig={onUpdateConfig}
         selectedNode={{
@@ -65,12 +61,8 @@ describe("BottomPanel", () => {
     render(
       <BottomPanel
         activeTab="config"
-        aiError={null}
-        aiLoading={false}
         blockErrors={{}}
-        chatMessages={[]}
         logEntries={[]}
-        onSendChat={() => {}}
         onTabChange={() => {}}
         onUpdateConfig={() => {}}
         selectedNode={{
