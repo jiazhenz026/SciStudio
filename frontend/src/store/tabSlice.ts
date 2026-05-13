@@ -46,10 +46,20 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
   tabs: [],
   activeTabId: null,
 
-  openTab: (workflow) => {
+  openTab: (workflow, displayName) => {
     const state = get();
-    // Check if this workflow is already open in a tab
-    const existing = state.tabs.find((t) => t.workflowId === workflow.id);
+    // #796: pick a non-empty display name. The backend's WorkflowModel.id has a
+    // default of "" — if a YAML omits the id field, workflow.id arrives empty
+    // and the tab label + top-left title render blank. Fall back to the caller-
+    // supplied displayName (typically the filename stem), then "Untitled".
+    const effectiveName = workflow.id || displayName || "Untitled";
+
+    // Use workflow.id when present for tab-de-duplication; otherwise fall back
+    // to the display name so two opens of the same blank-id file still de-dupe.
+    const dedupeKey = workflow.id || displayName || "";
+    const existing = dedupeKey
+      ? state.tabs.find((t) => t.workflowId === dedupeKey)
+      : undefined;
     if (existing) {
       // Switch to it instead of opening a duplicate
       state.switchTab(existing.id);
@@ -67,12 +77,14 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
       ? state.tabs.map((t) => (t.id === state.activeTabId ? captureTab(state) : t))
       : [...state.tabs];
 
-    // Create new tab
-    const tabId = `tab-${workflow.id}-${Date.now()}`;
+    // Create new tab. Use the effective name as the workflowId fallback so
+    // downstream API calls (save/run) have something to address.
+    const idForTab = workflow.id || displayName || "main";
+    const tabId = `tab-${idForTab}-${Date.now()}`;
     const newTab: TabState = {
       id: tabId,
-      workflowId: workflow.id,
-      workflowName: workflow.id,
+      workflowId: idForTab,
+      workflowName: effectiveName,
       workflowDescription: workflow.description,
       workflowVersion: workflow.version,
       workflowMetadata: workflow.metadata,

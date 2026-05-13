@@ -45,7 +45,11 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
   setWorkflow: (workflow) =>
     set({
       workflowId: workflow?.id ?? null,
-      workflowName: workflow?.id ?? "Untitled",
+      // #796: WorkflowModel.id has an empty-string default in the backend
+      // schema. A workflow YAML that omits the `id:` field round-trips through
+      // the API as ``id: ""`` and would render a blank top-left title here.
+      // Fall back to "Untitled" so the user always sees a label.
+      workflowName: (workflow?.id || "Untitled"),
       workflowDescription: workflow?.description ?? "",
       workflowVersion: workflow?.version ?? "1.0.0",
       workflowMetadata: workflow?.metadata ?? {},
