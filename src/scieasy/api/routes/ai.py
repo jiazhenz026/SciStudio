@@ -18,6 +18,7 @@ import asyncio
 import contextlib
 import dataclasses
 import logging
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -74,14 +75,38 @@ _SessionManagerDep = Depends(get_agent_session_manager)
 _active_chat_sockets: dict[tuple[Path, str], WebSocket] = {}
 
 
-def _resolve_project_key(project_dir: str | Path) -> Path:
-    """Normalise a project_dir into the registry key shape.
+_PROJECT_DIR_ALLOWED_ROOTS: tuple[Path, ...] = (
+    Path.home().resolve(),
+    Path(tempfile.gettempdir()).resolve(),
+)
 
-    Mirrors ``AgentSessionManager``'s ``.resolve()`` so the chat_ws
-    handler and the permission endpoint agree on the registry key for
-    a given path string.
+
+def _resolve_project_key(project_dir: str | Path) -> Path:
+    """Normalise a ``project_dir`` query argument into the registry key shape.
+
+    The value flows from a WebSocket query string straight into a
+    subprocess ``cwd`` (via ``AgentSessionManager.start_session``) and
+    into a process registry keyed by absolute path. Without a sanity
+    bound, a malicious client could ask the agent to spawn ``claude``
+    in arbitrary filesystem locations (``/etc``, ``C:\\Windows``, ...).
+
+    Sanitiser contract: resolve to an absolute path and require it to
+    fall under one of the trusted roots — the user's home directory
+    (where SciEasy projects live) or the system temp directory (where
+    ``pytest`` ``tmp_path`` fixtures land). Anything else is rejected
+    with ``ValueError``, which the route translates to a
+    ``WebSocketDisconnect`` / HTTP 400.
+
+    This is the sanitiser CodeQL ``py/path-injection`` expects.
     """
-    return Path(project_dir).resolve()
+    resolved = Path(project_dir).resolve()
+    for root in _PROJECT_DIR_ALLOWED_ROOTS:
+        try:
+            if resolved.is_relative_to(root):
+                return resolved
+        except ValueError:  # pragma: no cover - is_relative_to never raises on 3.11+
+            continue
+    raise ValueError(f"project_dir must be under user home or system temp; got {resolved}")
 
 
 @router.post("/generate-block", response_model=AIGenerateBlockResponse)
@@ -234,8 +259,14 @@ async def chat_ws(
     place).
     """
     await websocket.accept()
-    project_path = Path(project_dir)
-    project_key = _resolve_project_key(project_dir)
+    try:
+        project_key = _resolve_project_key(project_dir)
+    except ValueError as exc:
+        logger.warning("chat_ws: rejecting project_dir=%r: %s", project_dir, exc)
+        await websocket.send_json({"type": "error", "message": str(exc)})
+        await websocket.close(code=1008, reason="invalid project_dir")
+        return
+    project_path = project_key
     # T-ECA-110: register this socket so ``POST /api/ai/permission-check``
     # can broadcast ``permission_request`` frames to it. Removed in the
     # ``finally`` block below so dead sockets do not leak into broadcasts.
@@ -433,7 +464,12 @@ async def permission_check(
     # (e.g. POST /permission-decision driven by a test or admin tool)
     # are still viable, so we do not return early.
     if body.project_dir is not None:
-        key = (_resolve_project_key(body.project_dir), body.chat_id)
+        try:
+            key = (_resolve_project_key(body.project_dir), body.chat_id)
+        except ValueError as exc:
+            logger.warning("permission_check: rejecting project_dir=%r: %s", body.project_dir, exc)
+            permission_module.consume_pending_decision(request_id)
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         ws = _active_chat_sockets.get(key)
         if ws is not None:
             try:
