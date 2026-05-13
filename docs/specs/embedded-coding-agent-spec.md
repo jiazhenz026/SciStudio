@@ -426,6 +426,9 @@ asserts the JSONL is populated end-to-end.
 
 - `WS /api/ai/chat/{chat_id}` route:
   - On connect: ensures the chat session exists (start it if first connect, else attach).
+  - Query parameters:
+    - `project_dir` (required): absolute path of the SciEasy project workspace; validated against an allow-list (user home or system temp).
+    - `permission_mode` (issue #791, optional, default `"strict"`): `"strict"` (prompt for every tool) or `"bypass"` (auto-approve). Any other value triggers a WS close with `1008` invalid permission_mode. The mode is fixed at WS-open time; changing it requires a reconnect (the frontend Settings panel triggers this with a confirm dialog). The mode is recorded in `SessionMetadata.bypass_mode` and read back by `_resolve_policy` in the permission-check path.
   - Accepts client messages: `{ "type": "user_message", "content": str }`, `{ "type": "cancel" }`. (Permission decisions are handled in T-ECA-110.)
   - Forwards every canonical `AgentEvent` from the session's stream to the client as `{ "type": "agent_event", "event": {...} }`.
   - On client disconnect: closes the session (does NOT delete metadata).
@@ -613,6 +616,35 @@ so the read-vs-write classification cannot drift between them.
 | `run_workflow(path)` | `await scheduler.execute(workflow)` returning the assigned `run_id` immediately (do not wait for completion). |
 | `cancel_run(run_id)` | Emit `CANCEL_WORKFLOW_REQUEST` event. |
 | `get_run_status(run_id)` | Query the scheduler's in-memory run-state dict. |
+
+#### Path-resolution contract for path-accepting tools (issue #790)
+
+Every MCP tool that takes a user-supplied filesystem path argument
+(`write_workflow`, `get_workflow`, `validate_workflow` when called
+with a path, `update_block_config`, `get_block_config`, `run_workflow`,
+`scaffold_block`) **MUST** resolve that path against the active
+project root via `scieasy.ai.agent.mcp._context._resolve_project_path`.
+This helper composes `_resolve_project_root` (raises `RuntimeError`
+if no project is open) with `_safe_under` (rejects traversal outside
+the project).
+
+Resolution rules:
+
+* Relative paths are interpreted relative to `ctx.project_dir` —
+  **NOT** the backend process's CWD. The backend may run from any
+  directory; the project is the only meaningful root for agent-
+  supplied paths.
+* Absolute paths are accepted only if they already resolve under
+  `ctx.project_dir`. Anything else raises `PermissionError`. This
+  prevents the agent from writing to `/etc/passwd`,
+  `~/.ssh/authorized_keys`, or escaping via `../../`.
+* Resolution uses `os.path.realpath` (via `Path.resolve`) on both
+  sides of the `relative_to` check, which canonicalises macOS
+  `/tmp → /private/tmp` symlinks and NFD/NFC Unicode normalisation.
+* Response envelopes carry the **absolute resolved path** (the
+  `Path` returned by `_resolve_project_path`, stringified), not the
+  user-supplied input — so the agent knows exactly where its
+  artifact landed and can verify subsequent operations.
 
 **Tests**: one happy-path + one error-path per tool. 18 tests total.
 
