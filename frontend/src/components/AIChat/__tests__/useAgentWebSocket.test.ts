@@ -94,6 +94,35 @@ describe("useAgentWebSocket", () => {
     expect(useAppStore.getState().eventsByChat["chat-1"]).toHaveLength(1);
   });
 
+  it("sends selected provider and permission mode with user messages", () => {
+    useAppStore.setState({
+      providerName: "codex",
+      permissionMode: "bypass",
+    });
+    const { result } = renderHook(() => useAgentWebSocket("chat-send", "/tmp/proj"));
+    const ws = createdSockets[0];
+
+    act(() => {
+      ws.readyState = MockWebSocket.OPEN;
+      ws.onopen?.({} as Event);
+    });
+
+    let sent = false;
+    act(() => {
+      sent = result.current.sendMessage("hello codex");
+    });
+
+    expect(sent).toBe(true);
+    expect(ws.send).toHaveBeenCalledWith(
+      JSON.stringify({
+        type: "user_message",
+        content: "hello codex",
+        provider: "codex",
+        permission_mode: "bypass",
+      }),
+    );
+  });
+
   it("routes permission_request to pendingPermissions", () => {
     renderHook(() => useAgentWebSocket("chat-2", "/tmp/proj"));
     const ws = createdSockets[0];

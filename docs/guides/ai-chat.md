@@ -81,6 +81,11 @@ varies by platform; the canonical instructions live at
 that SciEasy expects from Codex are documented in
 [`docs/specs/eca-spike-codex-format.md`][spike].
 
+SciEasy uses Codex through `codex exec --json` and resumes later turns
+with `codex exec --json ... resume <thread_id> -`. Unlike Claude Code,
+Codex is spawned once per user turn rather than held open as one
+long-running stdin session.
+
 [spike]: ../specs/eca-spike-codex-format.md
 
 Verify the install:

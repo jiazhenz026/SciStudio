@@ -33,6 +33,7 @@ from scieasy.ai.agent.provider import (
     AgentProvider,
     AssistantTextDeltaEvent,
     DoneEvent,
+    ErrorEvent,
     InitEvent,
     PermissionMode,
     ToolResultEvent,
@@ -46,6 +47,15 @@ STUB_PATH = Path(__file__).resolve().parent.parent / "fixtures" / "stub_codex.py
 def project_dir(tmp_path: Path) -> Path:
     """Disposable project dir under pytest's tmp_path."""
     return tmp_path
+
+
+async def _collect_until_terminal(session: CodexSession) -> list[Any]:
+    events: list[Any] = []
+    async for event in session.stream_events():
+        events.append(event)
+        if isinstance(event, (DoneEvent, ErrorEvent)):
+            break
+    return events
 
 
 # ---------------------------------------------------------------------------
@@ -171,7 +181,7 @@ async def test_start_session_spawns_and_returns_session(project_dir: Path) -> No
     )
     try:
         assert isinstance(session, CodexSession)
-        assert session.pid > 0
+        assert session.pid == 0
         # Temp files were written.
         assert len(session.temp_files) == 2
         for path in session.temp_files:
@@ -213,13 +223,13 @@ async def test_session_stream_events_yields_canonical_taxonomy(project_dir: Path
     )
     try:
         await session.send_user_message("list files")
-        events = [event async for event in session.stream_events()]
+        events = await _collect_until_terminal(session)
     finally:
         await session.close()
 
     assert events, "stream produced no events"
     assert isinstance(events[0], InitEvent)
-    assert events[0].session_id.startswith("stub-codex-session-")
+    assert events[0].session_id.startswith("stub-codex-thread-")
     assert isinstance(events[-1], DoneEvent)
     # The canonical event taxonomy must be present.
     assert any(isinstance(e, AssistantTextDeltaEvent) for e in events)
@@ -227,7 +237,7 @@ async def test_session_stream_events_yields_canonical_taxonomy(project_dir: Path
     assert any(isinstance(e, ToolResultEvent) for e in events)
     # session_id was latched on the InitEvent.
     assert session.session_id is not None
-    assert session.session_id.startswith("stub-codex-session-")
+    assert session.session_id.startswith("stub-codex-thread-")
 
 
 @pytest.mark.asyncio
@@ -243,8 +253,11 @@ async def test_session_resume_echoes_session_id(project_dir: Path) -> None:
         permission_mode=PermissionMode.STRICT,
     )
     try:
+        argv = session._build_turn_argv()
+        assert argv.index("-C") < argv.index("resume")
+        assert argv.index("--sandbox") < argv.index("resume")
         await session.send_user_message("continue")
-        events = [event async for event in session.stream_events()]
+        events = await _collect_until_terminal(session)
     finally:
         await session.close()
     init_events = [e for e in events if isinstance(e, InitEvent)]
@@ -263,7 +276,7 @@ async def test_session_send_user_message_after_close_raises(project_dir: Path) -
         permission_mode=PermissionMode.STRICT,
     )
     await session.send_user_message("hi")
-    _ = [event async for event in session.stream_events()]
+    _ = await _collect_until_terminal(session)
     await session.close()
     with pytest.raises(AgentLaunchError):
         await session.send_user_message("after close")
@@ -316,15 +329,6 @@ async def test_session_close_timeout_uses_kill_process_tree(project_dir: Path, m
         permission_mode=PermissionMode.STRICT,
     )
 
-    wait_calls = {"n": 0}
-
-    async def _stubbed_wait() -> int:
-        wait_calls["n"] += 1
-        if wait_calls["n"] == 1:
-            await asyncio.sleep(3600)
-        return 0
-
-    monkeypatch.setattr(session._proc, "wait", _stubbed_wait)
     monkeypatch.setattr("scieasy.ai.agent.codex._CLOSE_GRACE_SECONDS", 0.1)
 
     calls: list[str] = []
@@ -333,7 +337,16 @@ async def test_session_close_timeout_uses_kill_process_tree(project_dir: Path, m
         calls.append(caller)
 
     monkeypatch.setattr(session, "_kill_process_tree", _spy_kill_tree)
-    monkeypatch.setattr(type(session._proc), "returncode", property(lambda self: None))
+
+    class _FakeProc:
+        pid = 1234
+        returncode = None
+
+        async def wait(self) -> int:
+            await asyncio.sleep(3600)
+            return 0
+
+    session._active_proc = _FakeProc()  # type: ignore[assignment]
 
     await session.close()
     assert calls == ["close"], f"close() should call _kill_process_tree(caller='close') exactly once, got {calls}"
@@ -351,6 +364,7 @@ async def test_session_cancel_kills_subprocess(project_dir: Path) -> None:
         permission_mode=PermissionMode.STRICT,
     )
     try:
+        await session.send_user_message("cancel me")
         await session.cancel()
         # Cancel is idempotent.
         await session.cancel()
@@ -399,7 +413,7 @@ def test_spawn_uses_windows_creation_flags(monkeypatch: pytest.MonkeyPatch) -> N
 
 @pytest.mark.asyncio
 async def test_session_stream_events_handles_stub_crash(project_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """When the stub crashes via STUB_CODEX_CRASH=1 the stream terminates cleanly."""
+    """When the stub crashes via STUB_CODEX_CRASH=1 an error event is surfaced."""
     monkeypatch.setenv("STUB_CODEX_CRASH", "1")
     provider = CodexProvider(binary_override=STUB_PATH)
     session = await provider.start_session(
@@ -411,8 +425,9 @@ async def test_session_stream_events_handles_stub_crash(project_dir: Path, monke
         permission_mode=PermissionMode.STRICT,
     )
     try:
-        events = [event async for event in session.stream_events()]
-        assert events == []
+        await session.send_user_message("boom")
+        events = await _collect_until_terminal(session)
+        assert isinstance(events[-1], ErrorEvent)
     finally:
         await session.close()
 
@@ -438,12 +453,25 @@ async def test_start_session_injects_chat_id_into_subprocess_env(
         captured["env"] = env
         captured["argv"] = argv
 
+        class _FakeStdin:
+            def write(self, _data: bytes) -> None:
+                return None
+
+            async def drain(self) -> None:
+                return None
+
+            def close(self) -> None:
+                return None
+
+            async def wait_closed(self) -> None:
+                return None
+
         class _FakeProc:
             pid = 4242
-            returncode = None
-            stdin = None
-            stdout = None
-            stderr = None
+            returncode = 0
+            stdin = _FakeStdin()
+            stdout = asyncio.StreamReader()
+            stderr = asyncio.StreamReader()
 
             async def wait(self) -> int:
                 return 0
@@ -461,6 +489,7 @@ async def test_start_session_injects_chat_id_into_subprocess_env(
         resume_session_id=None,
         permission_mode=PermissionMode.STRICT,
     )
+    await session.send_user_message("env")
     for path in session.temp_files:
         path.unlink(missing_ok=True)
 

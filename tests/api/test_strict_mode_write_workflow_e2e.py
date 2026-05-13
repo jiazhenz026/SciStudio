@@ -84,7 +84,15 @@ def _patch_start_with_mode(monkeypatch: pytest.MonkeyPatch) -> None:
         project_dir: Path,
         chat_id: str,
         permission_mode_str: str = "strict",
+        resume_session_id: str | None = None,
+        provider_name: str | None = None,
+        model: str | None = None,
     ) -> Any:
+        # Issue #801: extended signature to accept the provider/model
+        # kwargs the route now forwards. The strict-mode tests still
+        # exercise the Claude stub regardless of which provider the
+        # frontend selects.
+        del provider_name, model
         mode = PermissionMode.BYPASS if permission_mode_str == "bypass" else PermissionMode.STRICT
         provider = ClaudeCodeProvider(binary_override=STUB_PATH)
         return await manager.start_session(
@@ -94,6 +102,7 @@ def _patch_start_with_mode(monkeypatch: pytest.MonkeyPatch) -> None:
             system_prompt="test",
             mcp_config={},
             permission_mode=mode,
+            resume_session_id=resume_session_id,
         )
 
     monkeypatch.setattr(ai_routes, "_start_default_session", _stub_start)
