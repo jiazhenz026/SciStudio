@@ -78,7 +78,6 @@ def _try_read_one_line(timeout: float) -> str:
 def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument("--output-format", default=None)
-    parser.add_argument("--input-format", default=None)
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--append-system-prompt", default=None)
     parser.add_argument("--mcp-config", default=None)

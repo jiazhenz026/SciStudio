@@ -94,7 +94,7 @@ class Threshold(ProcessBlock):
         mask = Mask(
             axes=list(result.axes),
             shape=result.shape,
-            dtype=np.dtype(bool),  # #716 workaround: str(bool) == "<class 'bool'>" breaks wire
+            dtype=bool,
             chunk_shape=result.chunk_shape,
             framework=result.framework,
             meta=result.meta,

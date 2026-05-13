@@ -59,16 +59,7 @@ router = APIRouter(prefix="/api/ai", tags=["ai"])
 # Module-level singletons for ``Depends(...)`` and ``Query(...)`` defaults
 # — keeps the function signatures clean of B008 violations.
 _ProjectDirQuery = Query(..., description="Absolute path to the SciEasy project workspace")
-_PermissionModeQuery = Query(
-    "strict",
-    description="Permission policy for tool calls: 'strict' (prompt for every tool) or 'bypass' (auto-approve)",
-    pattern="^(strict|bypass)$",
-)
 _SessionManagerDep = Depends(get_agent_session_manager)
-
-
-# Issue #791: STRICT is the safe-by-default; BYPASS must be opted into.
-_VALID_PERMISSION_MODES: frozenset[str] = frozenset({"strict", "bypass"})
 
 
 # ---------------------------------------------------------------------------
@@ -181,18 +172,9 @@ async def chat_ws(
     websocket: WebSocket,
     chat_id: str,
     project_dir: str = _ProjectDirQuery,
-    permission_mode: str = _PermissionModeQuery,
     manager: Any = _SessionManagerDep,
 ) -> None:
     """Bidirectional chat WebSocket (ADR-033 §3 D5.2 / T-ECA-107).
-
-    Query parameters:
-        * ``project_dir`` — absolute path of the project workspace.
-        * ``permission_mode`` — ``"strict"`` (default; prompt for every
-          tool) or ``"bypass"`` (auto-approve). Issue #791: the previous
-          implementation hardcoded ``BYPASS`` regardless of the frontend
-          setting; the mode is now plumbed through from the WS query
-          string. STRICT is the safe-by-default.
 
     Inbound messages (client → server):
         * ``{"type": "user_message", "content": str}``
@@ -218,18 +200,6 @@ async def chat_ws(
         await websocket.send_json(ErrorEnvelope(message=str(exc)).model_dump())
         await websocket.close(code=1008, reason="invalid project_dir")
         return
-    # Issue #791: Defensive re-validation of permission_mode in case a
-    # caller bypasses FastAPI's pattern validation (e.g. older proxies
-    # that don't honour the regex constraint).
-    if permission_mode not in _VALID_PERMISSION_MODES:
-        logger.warning("chat_ws: rejecting permission_mode=%r", permission_mode)
-        await websocket.send_json(
-            ErrorEnvelope(
-                message=f"invalid permission_mode: {permission_mode!r} (expected 'strict' or 'bypass')"
-            ).model_dump()
-        )
-        await websocket.close(code=1008, reason="invalid permission_mode")
-        return
     project_path = project_key
     # T-ECA-110: register this socket so ``POST /api/ai/permission-check``
     # can broadcast ``permission_request`` frames to it. Removed in the
@@ -239,9 +209,26 @@ async def chat_ws(
     pump_task: asyncio.Task[None] | None = None
 
     async def _pump_events(active_session: Any) -> None:
-        """Forward every canonical event from the session stream to the WebSocket."""
+        """Forward every canonical event from the session stream to the WebSocket.
+
+        T-ECA-106 closeout (#778): each event is also mirrored to the
+        session's :class:`TranscriptWriter` so the on-disk JSONL log
+        stays in sync with what the frontend sees. Transcript write
+        failures are deliberately swallowed (the writer itself logs
+        once and disables further attempts) — they MUST NEVER kill
+        the WS pump.
+        """
+        transcript = manager.get_transcript_writer(project_path, chat_id)
         try:
             async for event in active_session.stream_events():
+                if transcript is not None:
+                    try:
+                        await transcript.write_event(event)
+                    except Exception as exc:  # pragma: no cover - defensive belt
+                        logger.warning(
+                            "chat_ws.pump_events: transcript.write_event raised: %s",
+                            exc,
+                        )
                 await websocket.send_json(AgentEventEnvelope(event=_serialise_agent_event(event)).model_dump())
         except (WebSocketDisconnect, asyncio.CancelledError):
             return
@@ -278,7 +265,6 @@ async def chat_ws(
                             manager=manager,
                             project_dir=project_path,
                             chat_id=chat_id,
-                            permission_mode_str=permission_mode,
                         )
                     except Exception as exc:
                         logger.error("chat_ws: start_session failed: %s", exc)
@@ -349,55 +335,25 @@ async def _start_default_session(
     manager: Any,
     project_dir: Path,
     chat_id: str,
-    permission_mode_str: str = "strict",
 ) -> Any:
-    """Spawn a Claude Code session with the real SciEasy system prompt + MCP config.
+    """Spawn a Claude Code session with placeholder system prompt + MCP config.
 
-    Issue #775: replaced Phase 1 placeholders with calls to the real
-    composers — without these the spawned agent has no idea what
-    SciEasy is and zero MCP tools to call (mcpServers was empty).
-
-    Issue #791: ``permission_mode_str`` is now plumbed in from the WS
-    query string (default ``"strict"``). The previous implementation
-    hardcoded :attr:`PermissionMode.BYPASS` regardless of the user's
-    frontend selection, which made STRICT mode unreachable.
+    Encapsulated so tests can monkey-patch it; the real composition lives
+    in T-ECA-204 (system prompt builder) and uses the static config-file
+    emitter (T-ECA-108). For Phase 1 a minimal placeholder is
+    sufficient.
     """
     from scieasy.ai.agent.claude_code import ClaudeCodeProvider
     from scieasy.ai.agent.provider import PermissionMode
-    from scieasy.ai.agent.system_prompt import compose_system_prompt
 
     provider = ClaudeCodeProvider()
-    # Re-run the trusted-root sanitiser so CodeQL's taint flow stops
-    # at this function boundary even though the WS route already
-    # validated the same value. ``os.path.realpath`` +
-    # ``os.path.commonpath`` is the pattern the ``py/path-injection``
-    # query recognises — ``Path.resolve()`` is not.
-    safe_project_dir = _resolve_project_key(project_dir)
-    # Resolve the real system prompt + MCP config. The system prompt
-    # contains tool documentation; the MCP config tells claude how to
-    # spawn `scieasy mcp-bridge` for the 25 SciEasy tools.
-    system_prompt = compose_system_prompt(safe_project_dir)
-    mcp_config: dict[str, Any] = {
-        "mcpServers": {
-            "scieasy": {
-                "command": "scieasy",
-                "args": ["mcp-bridge"],
-                "env": {
-                    "SCIEASY_CHAT_ID": chat_id,
-                    "SCIEASY_PROJECT_DIR": str(safe_project_dir),
-                },
-            }
-        }
-    }
-    # Map the wire-format string to the enum value.
-    permission_mode = PermissionMode.BYPASS if permission_mode_str == "bypass" else PermissionMode.STRICT
     return await manager.start_session(
         project_dir=project_dir,
         chat_id=chat_id,
         provider=provider,
-        system_prompt=system_prompt,
-        mcp_config=mcp_config,
-        permission_mode=permission_mode,
+        system_prompt="SciEasy agent (Phase 1 placeholder prompt).",
+        mcp_config={"mcpServers": {}},
+        permission_mode=PermissionMode.STRICT,
     )
 
 

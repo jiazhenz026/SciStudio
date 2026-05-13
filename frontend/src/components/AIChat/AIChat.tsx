@@ -31,7 +31,6 @@ export function AIChat() {
   const activeChatId = useAppStore((s) => s.activeChatId);
   const currentProject = useAppStore((s) => s.currentProject);
   const sessions = useAppStore((s) => s.sessions);
-  const appendEvent = useAppStore((s) => s.appendEvent);
   const projectDir = currentProject?.path ?? null;
 
   const activeSession =
@@ -50,12 +49,6 @@ export function AIChat() {
     if (!draft.trim() || !activeChatId) return;
     const ok = sendMessage(draft);
     if (ok) {
-      // Append a synthetic user_message event so the user's question
-      // is visible in the conversation feed (the WS doesn't echo it).
-      appendEvent(activeChatId, {
-        kind: "user_message",
-        raw: { content: draft },
-      } as unknown as Parameters<typeof appendEvent>[1]);
       setDraft("");
     }
   };
