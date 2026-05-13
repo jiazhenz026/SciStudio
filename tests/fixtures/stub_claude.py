@@ -13,17 +13,13 @@ stub_claude.py --output-format stream-json --verbose \
 
 Behaviour:
 
-* Reads JSON envelopes from stdin in a loop. For each user envelope
-  read, emits one canned stream. If stdin closes without sending any
-  message, we still emit the canned stream once so spawn-only tests
-  work.
-* Issue #804: multi-turn support — emits exactly one ``init`` event for
-  the lifetime of the subprocess (matching the real ``claude`` CLI in
-  ``--input-format stream-json`` mode where the subprocess stays alive
-  across user turns). Subsequent turns emit only assistant_text_delta
-  + tool_use + tool_result + done. This lets us test the
-  session-persistence invariant: \"two user_messages on one WS produce
-  exactly one ev-init\".
+* Reads one JSON envelope from stdin (the user message). If stdin
+  closes without sending a message, we still emit the canned stream so
+  spawn-only tests work.
+* Emits an ``init`` event (with synthetic session id, or the
+  ``--resume`` value if provided) followed by three
+  ``assistant_text_delta`` events, one ``tool_use``, one
+  ``tool_result``, and one ``done`` event.
 * Each event line is followed by a 50 ms sleep to simulate real
   streaming.
 * Exit code 0 on normal flow; exit code 2 if the
@@ -105,19 +101,8 @@ def _emit(event: dict[str, Any]) -> None:
     time.sleep(0.05)
 
 
-def _emit_init(session_id: str) -> None:
-    """Emit a single ``init`` event for the subprocess lifetime."""
+def _emit_canned_stream(*, session_id: str) -> None:
     _emit({"kind": "init", "session_id": session_id, "model": "stub-model"})
-
-
-def _emit_turn_stream() -> None:
-    """Emit one turn's worth of events (no ``init`` — that's lifetime-once).
-
-    Issue #804: split out from ``_emit_canned_stream`` so multi-turn
-    invocations don't keep re-emitting ``init``. The real claude CLI
-    emits ``init`` exactly once per subprocess lifetime in stream-json
-    input mode; the persistence test asserts the same invariant.
-    """
     for delta in ("Looking ", "at your ", "project."):
         _emit({"kind": "assistant_text_delta", "delta": delta})
     _emit(
@@ -139,12 +124,6 @@ def _emit_turn_stream() -> None:
     _emit({"kind": "done"})
 
 
-def _emit_canned_stream(*, session_id: str) -> None:
-    """Backwards-compatible single-turn emit (init + one turn)."""
-    _emit_init(session_id)
-    _emit_turn_stream()
-
-
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv if argv is not None else sys.argv[1:])
 
@@ -154,26 +133,15 @@ def main(argv: list[str] | None = None) -> int:
 
     session_id = args.resume or f"stub-session-{uuid.uuid4()}"
 
-    # Issue #804: multi-turn. Emit ``init`` once for the subprocess
-    # lifetime; then loop on stdin and emit one turn's stream per
-    # envelope. The first read uses a short timeout so spawn-only tests
-    # (which never send a message) still get the canned stream and the
-    # subprocess exits cleanly. Subsequent reads use the same bounded
-    # timeout — if stdin is silent for that long we assume no more
-    # turns are coming and exit.
-    _emit_init(session_id)
-    first_line = _try_read_one_line(timeout=_STDIN_READ_TIMEOUT_SECONDS)
-    _emit_turn_stream()
-    # If we never received a message (spawn-only test), exit now.
-    if not first_line:
-        return 0
-    # Multi-turn loop: each additional stdin line drives one more turn.
-    # Empty / EOF ends the loop.
-    while True:
-        line = _try_read_one_line(timeout=_STDIN_READ_TIMEOUT_SECONDS)
-        if not line:
-            break
-        _emit_turn_stream()
+    # Try to read one user message; tolerate stdin EOF / blocked pipe
+    # for spawn-only tests. Bounded wait keeps Windows tests from
+    # hanging when the parent's StreamWriter.close() does not deliver
+    # EOF synchronously.
+    line = _try_read_one_line(timeout=_STDIN_READ_TIMEOUT_SECONDS)
+    # Touch the variable so static analysers don't flag it as unused.
+    _ = line
+
+    _emit_canned_stream(session_id=session_id)
     return 0
 
 
