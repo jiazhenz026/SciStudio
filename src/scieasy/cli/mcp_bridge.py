@@ -90,11 +90,21 @@ async def _open_connection(
 
 
 async def _pump_stdin_to_socket(
-    stdin_reader: asyncio.StreamReader,
     sock_writer: asyncio.StreamWriter,
 ) -> None:
+    """Read stdin in a thread; forward chunks to socket.
+
+    We use ``run_in_executor`` instead of ``loop.connect_read_pipe`` because
+    on Windows the ProactorEventLoop's IOCP registration fails on real
+    stdin handles ([WinError 6] invalid handle) — both for terminal stdin
+    and for the anonymous pipe Claude Code attaches when spawning us as
+    an MCP server subprocess. Threaded blocking reads work on every
+    platform.
+    """
+    loop = asyncio.get_running_loop()
+    stdin_buf = sys.stdin.buffer
     while True:
-        chunk = await stdin_reader.read(65536)
+        chunk = await loop.run_in_executor(None, stdin_buf.read1, 65536)
         if not chunk:
             break
         sock_writer.write(chunk)
@@ -108,41 +118,29 @@ async def _pump_stdin_to_socket(
 
 async def _pump_socket_to_stdout(
     sock_reader: asyncio.StreamReader,
-    stdout_writer: asyncio.StreamWriter,
 ) -> None:
+    """Read socket chunks; write to stdout synchronously and flush.
+
+    Same rationale as :func:`_pump_stdin_to_socket` — we avoid
+    ``connect_write_pipe`` and just write to the underlying buffered
+    stream, flushing after every chunk so framed JSON-RPC frames don't
+    sit in Python's userspace buffer.
+    """
+    stdout_buf = sys.stdout.buffer
     while True:
         chunk = await sock_reader.read(65536)
         if not chunk:
             break
-        stdout_writer.write(chunk)
-        await stdout_writer.drain()
+        stdout_buf.write(chunk)
+        stdout_buf.flush()
 
 
 async def _serve(socket_path: Path) -> int:
     """Connect and pump bytes both directions until either side closes."""
     sock_reader, sock_writer = await _open_connection(socket_path)
 
-    # Wrap stdin/stdout as asyncio streams. On Windows we can't use
-    # ProactorEventLoop directly with file descriptors; fall back to a
-    # plain pipe-protocol approach via loop.connect_read_pipe.
-    loop = asyncio.get_running_loop()
-    stdin_reader = asyncio.StreamReader(loop=loop)
-    stdin_protocol = asyncio.StreamReaderProtocol(stdin_reader, loop=loop)
-    await loop.connect_read_pipe(lambda: stdin_protocol, sys.stdin.buffer)
-
-    stdout_transport, stdout_protocol = await loop.connect_write_pipe(
-        asyncio.streams.FlowControlMixin,  # type: ignore[arg-type]
-        sys.stdout.buffer,
-    )
-    stdout_writer = asyncio.StreamWriter(
-        stdout_transport,
-        stdout_protocol,
-        None,
-        loop,  # type: ignore[arg-type]
-    )
-
-    pump_in = asyncio.create_task(_pump_stdin_to_socket(stdin_reader, sock_writer))
-    pump_out = asyncio.create_task(_pump_socket_to_stdout(sock_reader, stdout_writer))
+    pump_in = asyncio.create_task(_pump_stdin_to_socket(sock_writer))
+    pump_out = asyncio.create_task(_pump_socket_to_stdout(sock_reader))
 
     done, pending = await asyncio.wait([pump_in, pump_out], return_when=asyncio.FIRST_COMPLETED)
     for task in pending:
