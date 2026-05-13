@@ -33,12 +33,46 @@ than Claude Code's wire ``type`` — the parser handles both.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
+import queue as _queue
 import sys
+import threading
 import time
 import uuid
 from typing import Any
+
+# Wall-clock budget for reading one line from stdin before we give up and
+# proceed to emit the canned stream. Windows asyncio Proactor pipes do not
+# propagate EOF synchronously when the parent calls StreamWriter.close(),
+# so sys.stdin.readline() can block indefinitely. The reader thread is a
+# daemon, so any never-returned read is reaped on process exit.
+_STDIN_READ_TIMEOUT_SECONDS = 1.0
+
+
+def _try_read_one_line(timeout: float) -> str:
+    """Read one line from stdin with a wall-clock timeout.
+
+    Returns the line on success, or an empty string on timeout / EOF /
+    read error. Avoids blocking forever on Windows pipes that never
+    deliver EOF.
+    """
+    q: _queue.Queue[str] = _queue.Queue(maxsize=1)
+
+    def _reader() -> None:
+        try:
+            line = sys.stdin.readline()
+        except (BrokenPipeError, OSError, ValueError):
+            line = ""
+        with contextlib.suppress(_queue.Full):
+            q.put_nowait(line)
+
+    threading.Thread(target=_reader, daemon=True).start()
+    try:
+        return q.get(timeout=timeout)
+    except _queue.Empty:
+        return ""
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
@@ -90,13 +124,13 @@ def main(argv: list[str] | None = None) -> int:
 
     session_id = args.resume or f"stub-session-{uuid.uuid4()}"
 
-    # Try to read one user message; tolerate stdin EOF for spawn-only tests.
-    try:
-        line = sys.stdin.readline()
-        # Touch the variable so static analysers don't flag it as unused.
-        _ = line
-    except (BrokenPipeError, OSError):
-        pass
+    # Try to read one user message; tolerate stdin EOF / blocked pipe
+    # for spawn-only tests. Bounded wait keeps Windows tests from
+    # hanging when the parent's StreamWriter.close() does not deliver
+    # EOF synchronously.
+    line = _try_read_one_line(timeout=_STDIN_READ_TIMEOUT_SECONDS)
+    # Touch the variable so static analysers don't flag it as unused.
+    _ = line
 
     _emit_canned_stream(session_id=session_id)
     return 0

@@ -212,6 +212,13 @@ class ClaudeCodeSession:
         if self._proc.stdin is not None and not self._proc.stdin.is_closing():
             with contextlib.suppress(OSError):
                 self._proc.stdin.close()
+            # Force the underlying FD to release before we await proc.wait().
+            # Required on Windows asyncio Proactor pipes — without this the
+            # child may never observe stdin EOF, blocking on readline()
+            # forever and forcing this close() through the grace-timeout
+            # kill path on every single session.
+            with contextlib.suppress(OSError, asyncio.CancelledError, AttributeError):
+                await self._proc.stdin.wait_closed()
 
         if self._proc.returncode is None:
             try:
