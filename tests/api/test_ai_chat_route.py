@@ -67,6 +67,22 @@ def test_status_endpoint_returns_provider_list(app: Any, monkeypatch: pytest.Mon
         assert item["logged_in"] is True
 
 
+def test_status_endpoint_reports_both_providers(app: Any) -> None:
+    """T-ECA-410 follow-up: both Claude Code and Codex must appear in /api/ai/status.
+
+    The spec §8 T-ECA-402 acceptance criterion requires that
+    ``GET /api/ai/status`` returns both providers when both binaries are
+    installed. Prior to issue #765, only Claude Code was wired into
+    ``_discover_providers()``.
+    """
+    with TestClient(app) as client:
+        response = client.get("/api/ai/status")
+        body = response.json()
+        names = {p["name"] for p in body["providers"]}
+        assert "claude-code" in names
+        assert "codex" in names
+
+
 def test_status_endpoint_reports_missing_binary(app: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     fake = ProviderStatus(
         name="claude-code",
