@@ -27,6 +27,7 @@ import { ChatMessageList } from "./ChatMessageList";
 import { PermissionPrompt } from "./PermissionPrompt";
 import { SessionSidebar } from "./SessionSidebar";
 import { SettingsPanel } from "./SettingsPanel";
+import { SlashCommandPicker } from "./SlashCommandPicker";
 
 // Issue #782: kinds that count as "real assistant content has arrived" and
 // should hide the synthetic in-flight Thinking… indicator. The agent's own
@@ -61,6 +62,9 @@ export function AIChat() {
 
   const [draft, setDraft] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // #786: slash-picker open while draft starts with "/" and not yet
+  // dismissed by Esc.
+  const [slashDismissed, setSlashDismissed] = useState(false);
   // Issue #782 Bug 2: synthetic Thinking… indicator visible from the
   // moment the user sends a message until the first real agent event
   // arrives. Keyed by chatId so switching chats does not leak state.
@@ -140,14 +144,38 @@ export function AIChat() {
             </div>
           )}
         </div>
-        <div className="border-t border-gray-200 bg-gray-50 p-2">
+        <div className="relative border-t border-gray-200 bg-gray-50 p-2">
+          {!slashDismissed && draft.startsWith("/") && (
+            <SlashCommandPicker
+              projectDir={projectDir}
+              inputValue={draft}
+              onPick={(name) => {
+                setDraft(`/${name} `);
+                setSlashDismissed(true);
+              }}
+              onClose={() => setSlashDismissed(true)}
+            />
+          )}
           <div className="flex gap-2">
             <textarea
               data-testid="aichat-input"
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                // Reopen picker when the user starts typing `/` afresh.
+                if (e.target.value.startsWith("/")) {
+                  setSlashDismissed(false);
+                }
+              }}
               onKeyDown={(e) => {
+                // #786: don't trigger Send if the slash picker is
+                // consuming the Enter/Tab key (it has its own listener
+                // that calls preventDefault first).
                 if (e.key === "Enter" && !e.shiftKey) {
+                  if (draft.startsWith("/") && !slashDismissed) {
+                    // Slash picker swallows Enter; do nothing here.
+                    return;
+                  }
                   e.preventDefault();
                   handleSend();
                 }

@@ -19,6 +19,8 @@ Implementation notes (spec §5 T-ECA-106):
 from __future__ import annotations
 
 import asyncio
+import collections
+import contextlib
 import datetime as _dt
 import hashlib
 import json
@@ -30,6 +32,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from scieasy.ai.agent.errors import AgentSessionError
 from scieasy.ai.agent.provider import (
+    AgentEvent,
     AgentProvider,
     AgentSession,
     PermissionMode,
@@ -37,6 +40,126 @@ from scieasy.ai.agent.provider import (
 from scieasy.ai.agent.transcript import TranscriptWriter
 
 logger = logging.getLogger(__name__)
+
+
+# #783 P1/P2 ring buffer cap. Bounded so a long agent run with WS
+# disconnected does not balloon memory. 500 events ≈ a typical multi-
+# turn conversation worth; the transcript file is the durable record.
+_RING_BUFFER_CAP: int = 500
+
+
+class _SessionRuntime:
+    """In-memory runtime state for one live session (#783).
+
+    Owns the background drain task that consumes ``stream_events()``
+    even when no WebSocket is attached. Events are mirrored to:
+
+    * the on-disk :class:`TranscriptWriter`, and
+    * a bounded :class:`collections.deque` ring buffer so a reattaching
+      WS can replay recent activity without re-reading the full
+      transcript file.
+
+    Single-consumer model: when a WS is attached, the WS pump calls
+    :meth:`attach_consumer` to take over event consumption from the
+    drain task. When the WS detaches, :meth:`detach_consumer` releases
+    the consumer slot and the drain task resumes (so claude's stdout
+    pipe never blocks).
+    """
+
+    def __init__(
+        self,
+        session: AgentSession,
+        transcript: TranscriptWriter,
+    ) -> None:
+        self.session = session
+        self.transcript = transcript
+        self.ring_buffer: collections.deque[AgentEvent] = collections.deque(
+            maxlen=_RING_BUFFER_CAP,
+        )
+        # Single async queue fed by the drain loop. Both the drain task
+        # (when no WS is attached) and any attached WS consumer read
+        # from this queue. To preserve the single-consumer invariant,
+        # only one of {drain_task, ws_consumer} is "draining" the queue
+        # at a time — the other simply produces.
+        self._stream_task: asyncio.Task[None] | None = None
+        self._ws_consumer_active: bool = False
+        # Event waiters for new buffer entries when the WS is detached.
+        # The drain loop sets this; WS consumers may consult it.
+        self._ws_attached_event: asyncio.Event = asyncio.Event()
+        self._closed: bool = False
+
+    def start(self) -> None:
+        """Spawn the background stream-consumer task (idempotent)."""
+        if self._stream_task is None:
+            self._stream_task = asyncio.create_task(self._drain_loop())
+
+    async def _drain_loop(self) -> None:
+        """Consume the session's event stream forever.
+
+        Every event is appended to the on-disk transcript and the
+        in-memory ring buffer. This loop is the single consumer of
+        ``stream_events()`` — WS pumps read from the ring buffer +
+        a subscriber fan-out rather than competing for the iterator.
+        """
+        try:
+            async for event in self.session.stream_events():
+                self.ring_buffer.append(event)
+                try:
+                    await self.transcript.write_event(event)
+                except Exception as exc:  # pragma: no cover - defensive
+                    logger.warning("drain_loop: transcript.write_event raised: %s", exc)
+                # Fan-out: notify any active WS subscriber.
+                self._notify_subscribers(event)
+        except (asyncio.CancelledError, GeneratorExit):
+            return
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error("drain_loop: terminating on error: %s", exc, exc_info=True)
+
+    # Subscriber fan-out for WS consumers. Each subscriber gets its own
+    # asyncio.Queue; the drain loop ``put_nowait``s every event to every
+    # subscriber. This preserves the single-consumer invariant on the
+    # underlying stream while allowing multiple readers.
+    def _get_subscribers(self) -> list[asyncio.Queue[AgentEvent]]:
+        if not hasattr(self, "_subscribers_list"):
+            self._subscribers_list: list[asyncio.Queue[AgentEvent]] = []
+        return self._subscribers_list
+
+    def subscribe(self) -> asyncio.Queue[AgentEvent]:
+        """Register a new WS subscriber and return its private queue."""
+        q: asyncio.Queue[AgentEvent] = asyncio.Queue()
+        self._get_subscribers().append(q)
+        return q
+
+    def unsubscribe(self, q: asyncio.Queue[AgentEvent]) -> None:
+        """Remove a WS subscriber's queue."""
+        subs = self._get_subscribers()
+        if q in subs:
+            subs.remove(q)
+
+    def _notify_subscribers(self, event: AgentEvent) -> None:
+        for q in list(self._get_subscribers()):
+            try:
+                q.put_nowait(event)
+            except asyncio.QueueFull:  # pragma: no cover - unbounded queues
+                logger.warning("drain_loop: subscriber queue full; dropping event")
+
+    def snapshot_buffer(self) -> list[AgentEvent]:
+        """Return a list copy of the ring buffer (oldest first)."""
+        return list(self.ring_buffer)
+
+    async def close(self) -> None:
+        """Cancel the drain task and close the transcript writer."""
+        self._closed = True
+        task = self._stream_task
+        self._stream_task = None
+        if task is not None and not task.done():
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await task
+        try:
+            self.transcript.close()
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("_SessionRuntime.close: transcript.close raised: %s", exc)
 
 
 def _utc_now_isoformat() -> str:
@@ -107,6 +230,8 @@ class AgentSessionManager:
     def __init__(self, *, concurrent_cap: int | None = None) -> None:
         self._sessions: dict[tuple[Path, str], AgentSession] = {}
         self._transcripts: dict[tuple[Path, str], TranscriptWriter] = {}
+        # #783: per-session runtime owning the drain task + ring buffer.
+        self._runtimes: dict[tuple[Path, str], _SessionRuntime] = {}
         self._cap: int = concurrent_cap or self.DEFAULT_CONCURRENT_CAP
 
     # ------------------------------------------------------------------
@@ -179,12 +304,26 @@ class AgentSessionManager:
         # Construction is cheap (no I/O until the first write); failures
         # to open are absorbed by the writer itself so they cannot leak
         # into ``start_session`` and abort the spawn.
-        self._transcripts[key] = TranscriptWriter(_transcript_path(resolved, chat_id))
+        transcript = TranscriptWriter(_transcript_path(resolved, chat_id))
+        self._transcripts[key] = transcript
+        # #783: spin up the per-session drain task so stdout flows even
+        # when no WS is attached.
+        runtime = _SessionRuntime(session, transcript)
+        runtime.start()
+        self._runtimes[key] = runtime
         return session
 
     def get_session(self, project_dir: Path, chat_id: str) -> AgentSession | None:
         """Return the live session for ``(project_dir, chat_id)`` or ``None``."""
         return self._sessions.get((project_dir.resolve(), chat_id))
+
+    def get_runtime(self, project_dir: Path, chat_id: str) -> _SessionRuntime | None:
+        """Return the :class:`_SessionRuntime` for ``(project_dir, chat_id)``.
+
+        #783: WS attach uses this to subscribe to live events and replay
+        the ring buffer. Returns ``None`` if no live session exists.
+        """
+        return self._runtimes.get((project_dir.resolve(), chat_id))
 
     def get_transcript_writer(self, project_dir: Path, chat_id: str) -> TranscriptWriter | None:
         """Return the :class:`TranscriptWriter` for ``(project_dir, chat_id)``.
@@ -205,7 +344,19 @@ class AgentSessionManager:
         # without a matching session (theoretically impossible, but
         # defensive) is still cleaned up.
         transcript = self._transcripts.pop(key, None)
-        if transcript is not None:
+        # #783: cancel the drain task before the session goes away so it
+        # cannot keep producing into a dead transcript.
+        runtime = self._runtimes.pop(key, None)
+        if runtime is not None:
+            try:
+                await runtime.close()
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning(
+                    "AgentSessionManager.close_session: runtime.close raised: %s",
+                    exc,
+                )
+        elif transcript is not None:
+            # No runtime (legacy code path); close the transcript directly.
             try:
                 transcript.close()
             except Exception as exc:  # pragma: no cover - close swallows internally
@@ -274,6 +425,61 @@ class AgentSessionManager:
         except (OSError, json.JSONDecodeError, ValueError) as exc:
             logger.warning("AgentSessionManager.load_metadata: failed to read %s: %s", path, exc)
             return None
+
+    def list_sessions(self, project_dir: Path) -> list[SessionMetadata]:
+        """Enumerate persisted session metadata for ``project_dir`` (#783).
+
+        Reads every ``<project>/.scieasy/sessions/<chat_id>.json`` file
+        and returns the parsed :class:`SessionMetadata`, sorted by
+        ``last_active`` descending. Malformed files are skipped with a
+        WARNING — they do not poison the listing.
+        """
+        sessions_dir = project_dir.resolve() / ".scieasy" / "sessions"
+        if not sessions_dir.is_dir():
+            return []
+        out: list[SessionMetadata] = []
+        for entry in sessions_dir.iterdir():
+            if not entry.is_file() or entry.suffix != ".json":
+                continue
+            try:
+                data = json.loads(entry.read_text(encoding="utf-8"))
+                out.append(SessionMetadata.model_validate(data))
+            except (OSError, json.JSONDecodeError, ValueError) as exc:
+                logger.warning(
+                    "AgentSessionManager.list_sessions: skipping %s: %s",
+                    entry,
+                    exc,
+                )
+        out.sort(key=lambda m: m.last_active, reverse=True)
+        return out
+
+    def iter_transcript_events(self, project_dir: Path, chat_id: str) -> collections.abc.Iterator[dict[str, Any]]:
+        """Stream the on-disk transcript line-by-line as decoded dicts (#783).
+
+        Yields one dict per JSON line; malformed lines are skipped. Used
+        by the ``GET /api/ai/sessions/{chat_id}/transcript`` route to
+        replay history without loading the whole file into memory.
+        """
+        path = _transcript_path(project_dir.resolve(), chat_id)
+        if not path.is_file():
+            return
+        try:
+            with path.open("r", encoding="utf-8") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        yield json.loads(line)
+                    except json.JSONDecodeError as exc:
+                        logger.warning(
+                            "iter_transcript_events: skipping malformed line in %s: %s",
+                            path,
+                            exc,
+                        )
+        except OSError as exc:
+            logger.warning("iter_transcript_events: read failure for %s: %s", path, exc)
+            return
 
 
 # ---------------------------------------------------------------------------
