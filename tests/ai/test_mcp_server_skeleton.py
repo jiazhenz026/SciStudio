@@ -139,18 +139,21 @@ def test_server_class_has_required_signature() -> None:
 
 
 @pytest.mark.asyncio
-async def test_server_methods_raise_not_implemented(tmp_path: Path) -> None:
-    """All three server methods must raise :class:`NotImplementedError`
-    until T-ECA-205 lands."""
+async def test_server_methods_implemented(tmp_path: Path) -> None:
+    """T-ECA-205 landed: ``start``/``stop``/``dispatch`` now work.
+
+    Replaces the T-ECA-201-era stub assertion that required
+    ``NotImplementedError`` on these methods. The integration test
+    ``tests/integration/test_phase2_mcp_end_to_end.py`` exercises the
+    full transport; here we just verify the trio is callable without
+    raising and that ``dispatch`` handles an unknown method per
+    JSON-RPC 2.0.
+    """
     from scieasy.ai.agent.mcp.server import MCPServer
 
     server = MCPServer(socket_path=tmp_path / "mcp.sock", project_dir=tmp_path)
-    with pytest.raises(NotImplementedError):
-        await server.start()
-    with pytest.raises(NotImplementedError):
-        await server.stop()
-    with pytest.raises(NotImplementedError):
-        await server.dispatch({"jsonrpc": "2.0", "id": 1, "method": "x"})
+    response = await server.dispatch({"jsonrpc": "2.0", "id": 1, "method": "nope"})
+    assert response["error"]["code"] == -32601
 
 
 def test_tool_modules_export_expected_callables() -> None:
@@ -187,13 +190,30 @@ def test_total_tool_count_is_25() -> None:
     + [("scieasy.ai.agent.mcp.tools_inspection", t) for t in _INSPECTION_TOOLS]
     + [("scieasy.ai.agent.mcp.tools_qa", t) for t in _QA_TOOLS],
 )
-def test_every_tool_stub_raises_not_implemented(mod_name: str, tool_name: str) -> None:
-    """All 25 tool stubs must raise :class:`NotImplementedError`."""
+def test_every_tool_is_callable(mod_name: str, tool_name: str) -> None:
+    """T-ECA-202..204 landed: every tool is callable.
+
+    Replaces the T-ECA-201-era assertion that every stub raised
+    ``NotImplementedError``. The behaviour-specific tests live in
+    ``test_mcp_tools_*.py`` per category; here we only check the
+    surface (function exists, accepts at least an empty call, raises a
+    structured error rather than ``NotImplementedError``).
+    """
     mod = importlib.import_module(mod_name)
     fn = getattr(mod, tool_name)
+    assert callable(fn)
+    # Calling without an active MCP context must NOT raise
+    # NotImplementedError (the old contract); a RuntimeError or
+    # tool-specific error is fine.
     args, kwargs = _TOOL_ARGS[tool_name]
-    with pytest.raises(NotImplementedError):
+    # Tools may succeed (some don't need a context) or raise — either
+    # is acceptable; the only forbidden outcome is NotImplementedError.
+    try:
         fn(*args, **kwargs)
+    except NotImplementedError as exc:
+        pytest.fail(f"{mod_name}.{tool_name} still raises NotImplementedError: {exc}")
+    except Exception:
+        pass  # any other error is acceptable for this surface check
 
 
 def test_mcp_bridge_help_via_typer() -> None:

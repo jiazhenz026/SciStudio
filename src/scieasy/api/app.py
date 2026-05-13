@@ -21,10 +21,69 @@ from scieasy.engine.runners.process_handle import ProcessRegistry
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Create and tear down the shared API runtime."""
+    """Create and tear down the shared API runtime.
+
+    T-ECA-205: also starts the in-process MCP server (Phase 2 of the
+    ADR-033 embedded coding agent cascade). The server listens on a
+    project-local socket (POSIX) or TCP loopback port (Windows); the
+    ``scieasy mcp-bridge`` subprocess proxies CC stdin/stdout into it.
+    Server start is best-effort — if it fails, we log ERROR but let
+    FastAPI come up so the rest of the app is usable.
+    """
     runtime = ApiRuntime()
     app.state.runtime = runtime
     app.state.registry = ProcessRegistry()
+
+    # ---- Phase 2: MCP server lifecycle ----
+    mcp_server: object | None = None
+    try:
+        from scieasy.ai.agent.mcp import _context as _mcp_context
+        from scieasy.ai.agent.mcp.server import MCPServer
+
+        # ApiRuntime structurally satisfies the MCPContext Protocol once
+        # we expose ``project_dir`` as a property — wrap it in a small
+        # adapter rather than touching ApiRuntime itself (the AI layer
+        # cannot import from ``api/`` and ``api/`` should not know about
+        # the MCP Protocol shape).
+        class _RuntimeAdapter:
+            def __init__(self, rt: ApiRuntime) -> None:
+                self._rt = rt
+
+            @property
+            def block_registry(self) -> object:
+                return self._rt.block_registry
+
+            @property
+            def type_registry(self) -> object:
+                return self._rt.type_registry
+
+            @property
+            def project_dir(self) -> Path | None:
+                return Path(self._rt.active_project.path) if self._rt.active_project else None
+
+            @property
+            def workflow_runs(self) -> object:
+                return self._rt.workflow_runs
+
+            def start_workflow(self, workflow_id: str) -> object:
+                return self._rt.start_workflow(workflow_id)
+
+        _mcp_context.set_context(_RuntimeAdapter(runtime))  # type: ignore[arg-type]
+        # Pick a per-process socket path. Without an active project we
+        # fall back to a temp-dir sentinel so the server still starts
+        # and can be inspected via tools/list.
+        project_dir = Path(runtime.active_project.path) if runtime.active_project else Path.home() / ".scieasy"
+        socket_path = project_dir / ".scieasy" / "mcp.sock"
+        mcp_server = MCPServer(socket_path=socket_path, project_dir=project_dir)
+        await mcp_server.start()  # type: ignore[attr-defined]
+        app.state.mcp_server = mcp_server
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).error("MCP server failed to start", exc_info=True)
+        mcp_server = None
+        app.state.mcp_server = None
+
     try:
         yield
     finally:
@@ -32,6 +91,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             if not run.task.done():
                 run.task.cancel()
         app.state.registry.terminate_all(grace_period_sec=5.0)
+        if mcp_server is not None:
+            try:
+                await mcp_server.stop()  # type: ignore[attr-defined]
+            except Exception:
+                import logging
+
+                logging.getLogger(__name__).warning("MCP server stop raised", exc_info=True)
+        # Clear the global context so a subsequent app instance starts clean.
+        try:
+            from scieasy.ai.agent.mcp import _context as _mcp_context
+
+            _mcp_context.set_context(None)
+        except Exception:
+            pass
 
 
 def create_app() -> FastAPI:

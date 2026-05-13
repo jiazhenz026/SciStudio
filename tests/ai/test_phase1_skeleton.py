@@ -157,8 +157,11 @@ def test_stubs_raise_not_implemented() -> None:
     with pytest.raises(AgentStreamError):
         parse_event(b"")
 
-    with pytest.raises(NotImplementedError):
-        compose_system_prompt(Path("/tmp"))
+    # T-ECA-204 has implemented `compose_system_prompt`; it returns the
+    # composed three-tier prompt as a string. Full coverage lives in
+    # tests/ai/test_system_prompt.py.
+    composed = compose_system_prompt(Path("/tmp"))
+    assert isinstance(composed, str) and composed.strip()
 
     # T-ECA-104 has implemented ``ClaudeCodeProvider.discover`` and
     # ``start_session``; discover now returns a real ``ProviderStatus``,
