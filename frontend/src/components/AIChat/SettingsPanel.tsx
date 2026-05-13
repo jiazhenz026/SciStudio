@@ -7,15 +7,46 @@
  *  - Future: concurrent-chat cap input
  *
  * Persisted via the central store's `partialize`.
+ *
+ * Issue #791: changing the permission mode while a chat session is
+ * active triggers a confirm dialog. Confirming the change updates the
+ * Zustand store, which causes ``useAgentWebSocket`` to tear down and
+ * reopen the WS with the new ``permission_mode`` query parameter (the
+ * backend reads it on connect and constructs a session with the
+ * corresponding ``PermissionMode``). Cancelling reverts the dropdown.
  */
 
 import { useAppStore } from "../../store";
+import type { PermissionMode } from "../../types/agentEvents";
 
 export function SettingsPanel() {
   const providerName = useAppStore((s) => s.providerName);
   const setProviderName = useAppStore((s) => s.setProviderName);
   const permissionMode = useAppStore((s) => s.permissionMode);
   const setPermissionMode = useAppStore((s) => s.setPermissionMode);
+  const activeChatId = useAppStore((s) => s.activeChatId);
+
+  const handlePermissionModeChange = (next: PermissionMode) => {
+    if (next === permissionMode) return;
+    // If no active session, the WS isn't open yet — just update.
+    if (activeChatId === null) {
+      setPermissionMode(next);
+      return;
+    }
+    // Issue #791: the permission mode is fixed at WS-open time. To
+    // change it mid-session we must reconnect, which from the user's
+    // perspective is a fresh chat lifecycle on the same chat_id.
+    const ok = window.confirm(
+      "Changing permission mode requires restarting the agent session.\n\n" +
+        `New mode: ${next === "strict" ? "Strict (prompt for every tool)" : "Bypass (auto-approve everything)"}\n\n` +
+        "Continue?",
+    );
+    if (ok) {
+      setPermissionMode(next);
+    }
+    // On cancel: do nothing; the <select> value is controlled by the
+    // store so the dropdown snaps back to its previous value.
+  };
 
   return (
     <div data-testid="settings-panel" className="flex flex-col gap-3 p-3 text-sm">
@@ -36,7 +67,7 @@ export function SettingsPanel() {
         <select
           data-testid="settings-permission-mode"
           value={permissionMode}
-          onChange={(e) => setPermissionMode(e.target.value as "strict" | "bypass")}
+          onChange={(e) => handlePermissionModeChange(e.target.value as PermissionMode)}
           className="rounded border border-gray-300 px-2 py-1"
         >
           <option value="strict">Strict (prompt for every tool)</option>

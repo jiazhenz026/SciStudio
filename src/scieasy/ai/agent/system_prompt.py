@@ -3,13 +3,20 @@
 T-ECA-204. The final ``--append-system-prompt`` passed to the provider
 CLI is the ordered concatenation of (spec / ADR-033 §3 D3):
 
-1. The builtin prompt (this module — Sections A / B / C / D from
-   ADR-033 §3 D3.2 verbatim, with Section C synthesised from the
-   actual registered MCP tool registry so the prompt cannot drift from
-   the dispatcher).
+1. The builtin prompt body. As of #787 this is sourced from the bundled
+   ``skills/scieasy/SKILL.md`` so the embedded GUI agent and any external
+   ``claude``/``codex`` consuming the same skill see identical content.
+   When the skill file is unavailable (e.g. wheel install without skill
+   data — see ``docs/cli-integration.md`` for the install path), we fall
+   back to the legacy inline sections so the GUI never goes dark.
 2. ``{project}/.scieasy/system_prompt.md`` if present.
 3. ``{project}/.scieasy/system_prompt.local.md`` if present
    (gitignored, for per-machine tweaks).
+
+Regardless of source, Section C (the tool catalog) is always
+re-synthesised from :mod:`scieasy.ai.agent.mcp._registry` so the prompt
+cannot drift from the dispatcher: if the skill file's static catalog
+disagrees with the live registry, the live registry wins.
 
 Same inputs (same project_dir, same overlay files, same tool registry)
 produce the same string — and therefore the same
@@ -25,7 +32,21 @@ discipline — are documented in ADR-033 §3 D3.3.
 from __future__ import annotations
 
 import hashlib
+import logging
+import re
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Legacy inline sections — fallback only.
+#
+# Kept verbatim so the contract pinned by tests/ai/test_system_prompt.py
+# (e.g. SECTION_A_IDENTITY.strip() non-empty) keeps working. When the
+# bundled SKILL.md is present, its body supersedes these; when it's
+# absent, these are concatenated together verbatim.
+# ---------------------------------------------------------------------------
 
 SECTION_A_IDENTITY: str = """\
 You are an AI assistant embedded inside SciEasy, an AI-native workflow runtime \
@@ -33,7 +54,7 @@ for multimodal scientific data. You help researchers design and run workflows, \
 write custom blocks, inspect run results, tune parameters, and answer questions \
 about their projects.
 """
-"""Section A — Identity & scope (ADR-033 §3 D3.2)."""
+"""Section A — Identity & scope (ADR-033 §3 D3.2). Fallback only."""
 
 
 SECTION_B_CORE_CONCEPTS: str = """\
@@ -51,7 +72,7 @@ source of truth; the GUI canvas is an editor and a viewer.
 - Lineage links artifacts via derived_from. Use get_lineage to trace inputs \
 back to their producing blocks.
 """
-"""Section B — SciEasy core concepts (ADR-033 §3 D3.2)."""
+"""Section B — SciEasy core concepts (ADR-033 §3 D3.2). Fallback only."""
 
 
 SECTION_D_WORKING_PRINCIPLES: str = """\
@@ -82,7 +103,7 @@ returns a thumbnail or first-N rows; that's enough for most reasoning.
 update_block_config on an existing artifact, briefly describe the diff or \
 confirm it's the intended target.
 """
-"""Section D — Working principles (ADR-033 §3 D3.2, full text from §4)."""
+"""Section D — Working principles (ADR-033 §3 D3.2, full text from §4). Fallback only."""
 
 
 # Section C is synthesised at composition time from the actual MCP tool
@@ -139,24 +160,79 @@ def _read_overlay(path: Path) -> str:
     return ""
 
 
-def compose_system_prompt(project_dir: Path) -> str:
-    """Build the final ``--append-system-prompt`` payload for a session.
+# ---------------------------------------------------------------------------
+# Skill-based body — primary source (#787).
+# ---------------------------------------------------------------------------
 
-    The composition is:
+# Frontmatter delimiter in SKILL.md (YAML-style).
+_FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 
-    1. Section A + Section B + Section C + Section D (the builtin).
-    2. ``{project}/.scieasy/system_prompt.md`` if present.
-    3. ``{project}/.scieasy/system_prompt.local.md`` if present.
+# Markers around the static tool catalog inside SKILL.md. The body
+# between these markers is replaced at runtime with the registry-driven
+# Section C so the embedded prompt cannot drift from the live tool list.
+_TOOL_CATALOG_BEGIN = "<!-- tool_catalog:begin -->"
+_TOOL_CATALOG_END = "<!-- tool_catalog:end -->"
 
-    Returns
-    -------
-    str
-        The composed prompt. Stable across calls with identical inputs
-        — :func:`prompt_hash` produces the same digest.
+
+def _find_skill_file() -> Path | None:
+    """Locate the bundled ``skills/scieasy/SKILL.md`` file.
+
+    Walks up from this module looking for a ``skills/scieasy/SKILL.md``
+    relative to a directory containing ``pyproject.toml`` (the repo
+    root in editable installs). Returns ``None`` when the file is not
+    present (wheel installs without packaged skill data).
     """
-    project_overlay = _read_overlay(project_dir / ".scieasy" / "system_prompt.md")
-    local_overlay = _read_overlay(project_dir / ".scieasy" / "system_prompt.local.md")
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        candidate = parent / "skills" / "scieasy" / "SKILL.md"
+        if candidate.is_file():
+            return candidate
+        if (parent / "pyproject.toml").is_file():
+            # Reached repo root without finding the skill file.
+            break
+    return None
 
+
+def _strip_frontmatter(text: str) -> str:
+    """Drop the YAML frontmatter block from a SKILL.md body."""
+    m = _FRONTMATTER_RE.match(text)
+    if m is None:
+        return text
+    return text[m.end() :]
+
+
+def _splice_live_tool_catalog(body: str) -> str:
+    """Replace the static tool catalog with the live registry rendering.
+
+    If markers are not found, leave the body untouched and append the
+    live catalog at the end so we never produce a prompt without
+    Section C content.
+    """
+    live = _build_section_c()
+    begin = body.find(_TOOL_CATALOG_BEGIN)
+    end = body.find(_TOOL_CATALOG_END)
+    if begin == -1 or end == -1 or end < begin:
+        return body.rstrip() + "\n\n" + live
+    # Preserve the marker comments so subsequent rebuilds stay
+    # idempotent (the embedded GUI prompt is rebuilt per session).
+    head = body[: begin + len(_TOOL_CATALOG_BEGIN)]
+    tail = body[end:]
+    return head + "\n" + live.rstrip() + "\n" + tail
+
+
+def _compose_from_skill(skill_path: Path) -> str | None:
+    """Build the builtin prompt body from a SKILL.md file, or ``None`` on error."""
+    try:
+        raw = skill_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        logger.warning("system_prompt: failed to read skill file %s: %s", skill_path, exc)
+        return None
+    body = _strip_frontmatter(raw)
+    return _splice_live_tool_catalog(body).rstrip() + "\n"
+
+
+def _compose_fallback() -> str:
+    """Build the legacy inline prompt body (used when SKILL.md is missing)."""
     parts: list[str] = [
         SECTION_A_IDENTITY.strip(),
         "",
@@ -166,6 +242,45 @@ def compose_system_prompt(project_dir: Path) -> str:
         "",
         SECTION_D_WORKING_PRINCIPLES.strip(),
     ]
+    return "\n".join(parts) + "\n"
+
+
+def _compose_builtin_body() -> str:
+    """Build the builtin prompt body — skill file preferred, fallback otherwise."""
+    skill_path = _find_skill_file()
+    if skill_path is not None:
+        body = _compose_from_skill(skill_path)
+        if body is not None:
+            return body
+    logger.warning(
+        "system_prompt: skills/scieasy/SKILL.md not found; using inline fallback. "
+        "Run 'pip install -e .' from the SciEasy repo, or `scieasy install --skill`, "
+        "to make the bundled skill discoverable."
+    )
+    return _compose_fallback()
+
+
+def compose_system_prompt(project_dir: Path) -> str:
+    """Build the final ``--append-system-prompt`` payload for a session.
+
+    The composition is:
+
+    1. The builtin body (skills/scieasy/SKILL.md, or the legacy
+       Sections A + B + C + D when the skill file is absent).
+    2. ``{project}/.scieasy/system_prompt.md`` if present.
+    3. ``{project}/.scieasy/system_prompt.local.md`` if present.
+
+    Returns
+    -------
+    str
+        The composed prompt. Stable across calls with identical inputs
+        — :func:`prompt_hash` produces the same digest.
+    """
+    builtin = _compose_builtin_body().rstrip()
+    project_overlay = _read_overlay(project_dir / ".scieasy" / "system_prompt.md")
+    local_overlay = _read_overlay(project_dir / ".scieasy" / "system_prompt.local.md")
+
+    parts: list[str] = [builtin]
     if project_overlay.strip():
         parts.extend(["", "--- Project overlay (.scieasy/system_prompt.md) ---", project_overlay.strip()])
     if local_overlay.strip():
