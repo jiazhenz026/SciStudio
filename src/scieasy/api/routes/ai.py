@@ -601,24 +601,23 @@ def _parse_slash_command_file(path: Path, *, default_name: str | None = None) ->
     return {"name": name, "description": description}
 
 
-def _discover_slash_commands(project_dir: Path) -> list[dict[str, str]]:
+def _discover_slash_commands(project_cmds: Path | None) -> list[dict[str, str]]:
     """Walk the 4 known slash-command roots and return a unified list.
 
     Sources (#786):
 
     * ``~/.claude/commands/*.md`` — user commands
     * ``~/.claude/skills/*/SKILL.md`` or ``skill.md`` — user skills
-    * ``<project>/.claude/commands/*.md`` — project commands
+    * ``<project>/.claude/commands/*.md`` — project commands (caller
+      passes the already-sanitised resolved path or ``None``)
     * ``~/.claude/plugins/*/commands/*.md`` — plugin commands
 
-    ``project_dir`` is re-validated through :func:`_resolve_project_key`
-    here so CodeQL's ``py/path-injection`` taint flow stops at this
-    function boundary even though the route handler already sanitised
-    the value. The sanitised result is stored in a fresh local
-    (``safe_project_dir``) so CodeQL does not re-taint the parameter
-    name on subsequent uses.
+    The caller is responsible for resolving ``<project>/.claude/commands/``
+    through the trusted-root sanitiser before passing it in; this keeps
+    CodeQL's ``py/path-injection`` taint flow at the route boundary
+    rather than inside this helper, which only takes pre-validated
+    Paths.
     """
-    safe_project_dir = _resolve_project_key(project_dir)
     home = Path.home()
     out: list[dict[str, str]] = []
 
@@ -650,25 +649,10 @@ def _discover_slash_commands(project_dir: Path) -> list[dict[str, str]]:
                     _add("user-skills", f, default_name=skill_dir.name)
                     break
 
-    # <project>/.claude/commands/*.md
-    # CodeQL: re-apply the explicit realpath + commonpath sanitiser
-    # inline here. The query does NOT track sanitisation through the
-    # ``_resolve_project_key`` helper call, so we inline the pattern at
-    # the path-join site to make the taint clearance visible.
-    candidate = os.path.realpath(os.fspath(safe_project_dir))
-    safe_root = None
-    for root in _PROJECT_DIR_ALLOWED_ROOTS:
-        try:
-            if os.path.commonpath([root, candidate]) == root:
-                safe_root = candidate
-                break
-        except ValueError:
-            continue
-    if safe_root is not None:
-        project_cmds = Path(safe_root) / ".claude" / "commands"
-        if project_cmds.is_dir():
-            for f in project_cmds.glob("*.md"):
-                _add("project", f)
+    # <project>/.claude/commands/*.md — caller has pre-sanitised this path
+    if project_cmds is not None and project_cmds.is_dir():
+        for f in project_cmds.glob("*.md"):
+            _add("project", f)
 
     # ~/.claude/plugins/*/commands/*.md
     plugins_root = home / ".claude" / "plugins"
@@ -695,7 +679,12 @@ async def list_slash_commands(
         safe_project_dir = _resolve_project_key(project_dir)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"commands": _discover_slash_commands(safe_project_dir)}
+    # Build the project-local commands path here so the realpath +
+    # commonpath sanitiser inside ``_resolve_project_key`` is the most
+    # recent operation on the value before CodeQL sees it joined with
+    # ``.claude/commands``. The helper takes pre-validated Paths only.
+    project_cmds = safe_project_dir / ".claude" / "commands"
+    return {"commands": _discover_slash_commands(project_cmds)}
 
 
 # ---------------------------------------------------------------------------
