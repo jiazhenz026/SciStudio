@@ -144,6 +144,7 @@ class TestImportAPIModules:
         assert dur.ref == "ref-1"
         assert dur.type_name == "Array"
 
+
 class TestImportWorkflowModules:
     """Workflow modules — import and instantiate dataclasses."""
 
