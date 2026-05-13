@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- [#765] Wire `CodexProvider` into `_discover_providers()` in `src/scieasy/api/routes/ai.py`. T-ECA-410 audit found that `GET /api/ai/status` only reported Claude Code, violating spec §8 T-ECA-402's acceptance criterion ("returns both providers when both binaries are installed"). Regression test pins both names in the response. (@claude, 2026-05-12, branch: fix/issue-748/codex-provider-discovery, session: 20260512-231752-fix-765-t-eca-410-follow-up-wire-codexpr)
+
 ### Removed
 
 - [#746] T-ECA-401 — Phase 4 scaffold: deleted legacy AI surfaces in line with ADR-033 §3 D9. Removed: `src/scieasy/ai/{generation,synthesis,optimization}/` (entire directories), `src/scieasy/ai/config.py`, the three legacy REST endpoints (`POST /api/ai/generate-block`, `POST /api/ai/suggest-workflow`, `POST /api/ai/optimize-params`) and their Pydantic schemas (`AIGenerateBlock*`, `AISuggestWorkflow*`, `AIOptimizeParams*`), plus all backing tests. AIBlock at `src/scieasy/blocks/ai/**` deliberately retained per ADR-033 §3 D9 narrow exception. (@claude, 2026-05-12, branch: feat/issue-746/eca-401-scaffold, session: dispatcher-takeover-from-agent-a1f17b717f01ee582)
