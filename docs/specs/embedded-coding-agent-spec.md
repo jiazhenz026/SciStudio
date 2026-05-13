@@ -899,6 +899,100 @@ Each stub exports the component / hook / slice with empty render / no-op body.
 
 ---
 
+## 8.5. Phase 5 — End-to-end acceptance test
+
+**Goal**: Empirically validate that the embedded coding agent can autonomously reproduce a real-world scientific analysis. The acceptance target is the microplastics SRS spectrum-extraction notebook at `{box}/Jiazhen Zhang/04 Data/microplastics/processed/scripts/sample.ipynb`. The SciEasy agent (post-Phase-4 stack) must read the ipynb, build a SciEasy workflow with built-in blocks (hot-loading custom Tier-1 blocks under `{project}/blocks/` if needed), and run it. The test passes when the workflow's outputs match the ipynb's reference numerical outputs within tolerance.
+
+**Hard operating constraint**: the dispatcher author (human or higher-level agent) is FORBIDDEN from touching the workflow canvas, editing the workflow YAML, writing or repairing custom blocks, or otherwise intervening in the agent's work product during the test. The only mutable input is the test prompt (T-ECA-504). If the agent fails despite prompt iteration, that is the test's signal that ADR-033's agent design has gaps — record gaps in the audit report.
+
+**Prerequisite**: Phase 4 complete (T-ECA-410 audit passed and merged to main).
+
+### T-ECA-501 — Phase 5 scaffold
+
+**Agent role**: SCAFFOLD AGENT for Phase 5.
+**Owned files**:
+
+- `tests/e2e/__init__.py` (new)
+- `tests/e2e/microplastics/__init__.py` (new)
+- `tests/e2e/microplastics/golden/.gitkeep` (placeholder for reference outputs)
+- `tests/e2e/microplastics/test_microplastics_e2e.py` (stub `pytest.mark.skip` integration test that future tickets fill in)
+- `tests/e2e/conftest.py` (e2e-specific fixtures; xdist + coverage exclusions)
+- `pyproject.toml` (extend pytest `addopts` or markers to register an `e2e` mark that's `-m "not e2e"` by default)
+
+**Acceptance criteria**:
+
+- Files exist; pytest collection sees `tests/e2e/` with `e2e` marker.
+- Default pytest run (`pytest`) does NOT pick up e2e tests.
+- `pytest -m e2e` collects the placeholder test and skips it with a clear reason.
+
+### T-ECA-502 — Test harness
+
+**Agent role**: IMPLEMENTATION AGENT (parallel with T-ECA-503).
+**Owned files**: `tests/e2e/harness.py`, `tests/e2e/test_microplastics_e2e.py` (replace stub).
+
+**Implementation requirements**:
+
+- Chrome automation: prefer the existing `claude-in-chrome` MCP tool registry (the dispatcher's session has it loaded; the harness can shell out to a small driver script that uses the same protocol). Fallback: Playwright + Chromium driven via Python subprocess.
+- Lifecycle: launch SciEasy backend (`scieasy serve`); open browser to `http://localhost:8000`; create a fresh project; open the chat tab; ensure CC is logged in (skip with informative message if not).
+- Send: the test prompt from T-ECA-504 into the chat input.
+- Capture: full stream-json transcript; final workflow YAML on canvas; project state after agent finishes; any errors.
+- Persist: timestamped output dir under `tests/e2e/runs/<timestamp>/` with transcript, workflow YAML, screenshots, run results.
+- Teardown: close browser; stop backend; preserve outputs.
+
+### T-ECA-503 — Golden reference
+
+**Agent role**: IMPLEMENTATION AGENT (parallel with T-ECA-502).
+**Owned files**: `tests/e2e/microplastics/golden/*` (CSVs, JSON, NPYs), `tests/e2e/microplastics/golden/README.md`.
+
+**Implementation requirements**:
+
+- Run the source ipynb manually (or via `papermill`) on the user's machine. Source path: `C:\Users\jiazh\Box\Jiazhen Zhang\04 Data\microplastics\processed\scripts\sample.ipynb` (or the user-confirmed equivalent).
+- Capture all intermediate dataframes, plot data, and final numerical outputs (peak tables, classification results, etc.) and serialise them deterministically (sort columns, round to 6 sig figs for float arrays where exact-equality is not meaningful).
+- Store under `tests/e2e/microplastics/golden/` with a `README.md` documenting each file's source cell in the ipynb.
+- Numerical comparator: write a small `assert_numerically_equal(actual, golden, rtol=1e-3, atol=1e-6)` helper in `tests/e2e/microplastics/_compare.py`. Document the per-field tolerance choices in the README.
+
+### T-ECA-504 — Test prompt
+
+**Agent role**: prompt design — written and tuned by the dispatcher author, not by an implementation agent.
+**Owned files**: `tests/e2e/microplastics/test_prompt.md`.
+
+**Content principles**:
+
+- Specific about the goal: ipynb path, expected output kinds, where to put the workflow YAML.
+- General about the method: NO mention of specific blocks, plugin packages, or implementation strategies. The agent decides.
+- Concrete about workspace: tells the agent the project workspace path, where input data lives, where outputs should land, how to invoke run_workflow.
+- Discipline reminders: agent must self-verify (call `get_run_status`, `inspect_data`, `preview_data`) before claiming success.
+- Conflict-resolution: if the agent gets stuck on a missing block, it should write a custom block under `{project}/blocks/` and call `reload_blocks` rather than ask the user.
+
+This file is the **load-bearing test contract**. Iterate on prompt failures, not on workflow or block code.
+
+### T-ECA-505 — Run + diff orchestration
+
+**Agent role**: IMPLEMENTATION AGENT (sequential after T-ECA-502, T-ECA-503, T-ECA-504 all merged).
+**Owned files**: `tests/e2e/microplastics/test_microplastics_e2e.py` (final form), maybe a `scieasy e2e` CLI subcommand for ad-hoc runs.
+
+**Implementation requirements**:
+
+- pytest test under `tests/e2e/microplastics/`. Marker: `@pytest.mark.e2e` + `@pytest.mark.skipif(no claude/codex/golden)`.
+- Test body: invokes harness with prompt; waits for agent to finish (with timeout — e.g. 30 minutes); captures workflow YAML and run outputs; runs `assert_numerically_equal` against each golden output.
+- On failure: produce a detailed diff report under `tests/e2e/runs/<timestamp>/diff.md` so the dispatcher author can iterate on the prompt.
+
+### T-ECA-510 — Phase 5 audit
+
+**Agent role**: AUDIT AGENT for Phase 5.
+
+**Audit checklist**:
+
+- [ ] T-ECA-501..505 each individually meet their acceptance criteria.
+- [ ] The test passes against the current main on at least one platform.
+- [ ] No code (workflow YAML, custom blocks) was manually edited by the dispatcher during the test run — verify via git history of the test artifact dir.
+- [ ] Codex auto-review comments on all 5 Phase 5 PRs reconciled (accept/defer/reject on the record).
+- [ ] If the test FAILED but T-ECA-505 logs explain why (prompt-correctable vs design-gap), this counts as audit-clean — the audit's job is to validate the test infrastructure, not the agent's product.
+
+**Dependencies**: T-ECA-501..505 all merged.
+
+---
+
 ## 9. Agent dispatch protocol
 
 For each phase the dispatching process is:
@@ -939,9 +1033,15 @@ Total agents per phase: **3** (1 scaffold + 2 implementation OR 1 scaffold + 1 i
               └─────┬─────┘
                     ▼  (both audits pass)
             Phase 4 (T-ECA-401..410)
+                    │
+                    ▼  (T-ECA-410 audit pass)
+            Phase 5 (T-ECA-501..510)
+                    │
+                    ▼  acceptance result recorded
+              ADR-033 cascade complete
 ```
 
-Phase 1 and Phase 4 are strict serialisation points. **Phase 2 and Phase 3 may run concurrently** after T-ECA-119 closes. The two phases own disjoint files:
+Phase 1, Phase 4, and Phase 5 are strict serialisation points. **Phase 2 and Phase 3 may run concurrently** after T-ECA-119 closes. The two phases own disjoint files:
 
 - Phase 2 owned files: `src/scieasy/ai/agent/mcp/*`, `src/scieasy/cli/mcp_bridge.py`, plus narrow edits to `src/scieasy/ai/agent/system_prompt.py` (T-ECA-204 fills in builtin content) and `src/scieasy/api/app.py` (T-ECA-205 adds the MCP-server lifespan hook).
 - Phase 3 owned files: `frontend/src/components/AIChat/*`, `frontend/src/hooks/*`, `frontend/src/stores/aiChatSlice.ts`, `frontend/src/types/agentEvents.ts`, plus edits to `src/scieasy/api/routes/ai.py` (event envelope additions) and `src/scieasy/api/schemas.py` (new Pydantic envelope models).
@@ -1044,3 +1144,9 @@ These are recognised but explicitly out of scope for this implementation cascade
 | T-ECA-402 | 4 | impl | Codex provider |
 | T-ECA-403 | 4 | impl | docs + spike |
 | T-ECA-410 | 4 | audit | Phase 4 audit |
+| T-ECA-501 | 5 | scaffold | E2E test directory skeleton + e2e pytest marker |
+| T-ECA-502 | 5 | impl | E2E test harness (Chrome automation, send prompt, capture outputs) |
+| T-ECA-503 | 5 | impl | Golden reference (manual ipynb run; numerical tolerance comparator) |
+| T-ECA-504 | 5 | dispatcher | Test prompt — the load-bearing test contract (written by dispatcher author) |
+| T-ECA-505 | 5 | impl | Run + diff orchestration (pytest e2e test under tests/e2e/microplastics/) |
+| T-ECA-510 | 5 | audit | Phase 5 audit |

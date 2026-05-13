@@ -150,6 +150,7 @@ class AgentSessionManager:
         )
         session = await provider.start_session(
             project_dir=resolved,
+            chat_id=chat_id,
             system_prompt=system_prompt,
             mcp_config=mcp_config,
             resume_session_id=resume_session_id,
