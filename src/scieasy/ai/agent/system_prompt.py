@@ -102,6 +102,12 @@ returns a thumbnail or first-N rows; that's enough for most reasoning.
 8. Never silently overwrite. Before write_workflow / Write / \
 update_block_config on an existing artifact, briefly describe the diff or \
 confirm it's the intended target.
+
+IMPORTANT — clarification questions. When you need clarification from the \
+user, ask the question in plain text as part of your assistant message. Do \
+NOT use the AskUserQuestion native tool — the SciEasy chat surface does not \
+render its interactive UI, and the call surfaces as an error. The user will \
+reply in their next message.
 """
 """Section D — Working principles (ADR-033 §3 D3.2, full text from §4). Fallback only."""
 
