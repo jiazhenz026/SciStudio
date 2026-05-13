@@ -36,28 +36,7 @@ class WorkflowCreate(BaseModel):
 
 
 class WorkflowResponse(WorkflowCreate):
-    """Response body returned when reading a workflow.
-
-    The ``revision`` field (#718 part a) is a monotonic integer tracked
-    in-memory by ``ApiRuntime`` to support optimistic concurrency on the
-    write path. It is distinct from the semver ``version`` string above
-    (which describes the schema version of the YAML payload).
-    """
-
-    revision: int = 0
-
-
-class WorkflowConflictResponse(BaseModel):
-    """Response body for ``HTTP 412 Precondition Failed`` from PUT (#718 part a).
-
-    Returned when the client's ``If-Match`` header is stale compared to the
-    server's current revision. ``workflow`` carries the full latest payload so
-    the client can rebase its local state without a second round-trip.
-    """
-
-    detail: str = "Workflow revision is stale"
-    current_revision: int
-    workflow: WorkflowResponse
+    """Response body returned when reading a workflow."""
 
 
 class WorkflowExecutionResponse(BaseModel):
@@ -225,6 +204,37 @@ class ProjectResponse(BaseModel):
     current_workflow_id: str | None = None
 
 
+class AIGenerateBlockRequest(BaseModel):
+    """Request body for AI block generation."""
+
+    description: str
+    block_category: str | None = None
+
+
+class AIGenerateBlockResponse(BaseModel):
+    """Response body after AI block generation."""
+
+    code: str
+    block_name: str
+    validation_passed: bool
+    validation_report: dict[str, Any] = Field(default_factory=dict)
+    category: str = ""
+
+
+class AISuggestWorkflowRequest(BaseModel):
+    """Request body for AI workflow suggestion."""
+
+    data_description: str
+    goal: str
+
+
+class AISuggestWorkflowResponse(BaseModel):
+    """Response body after AI workflow suggestion."""
+
+    workflow: dict[str, Any] = Field(default_factory=dict)
+    explanation: str = ""
+
+
 class CancelBlockRequest(BaseModel):
     """Request body for cancelling a single block."""
 
@@ -243,53 +253,23 @@ class CancelPropagationResponse(BaseModel):
     skip_reasons: dict[str, str] = Field(default_factory=dict)
 
 
+class AIOptimizeParamsRequest(BaseModel):
+    """Request body for AI parameter optimization."""
+
+    block_id: str
+    intermediate_results: dict[str, Any] = Field(default_factory=dict)
+    search_space: dict[str, Any] | None = None
+
+
+class AIOptimizeParamsResponse(BaseModel):
+    """Response body after AI parameter optimization."""
+
+    suggestions: dict[str, Any] = Field(default_factory=dict)
+    explanation: str = ""
+
+
 class ErrorResponse(BaseModel):
     """Standard error envelope returned by endpoints on failure."""
 
     detail: str
     error_code: str | None = None
-
-
-# ---------------------------------------------------------------------------
-# Embedded coding agent (ADR-033 / T-ECA-107) — schemas.
-# Legacy single-call AI schemas were removed in Phase 4 (T-ECA-401).
-# ---------------------------------------------------------------------------
-
-
-class ProviderStatusItem(BaseModel):
-    """One provider's discovery result, as returned by ``GET /api/ai/status``."""
-
-    name: str
-    available: bool
-    binary_path: str | None = None
-    version: str | None = None
-    logged_in: bool = False
-    install_hint: str | None = None
-
-
-class ProviderStatusResponse(BaseModel):
-    """Response body for ``GET /api/ai/status``."""
-
-    providers: list[ProviderStatusItem] = Field(default_factory=list)
-
-
-class ChatClientMessage(BaseModel):
-    """Inbound WebSocket message on ``/api/ai/chat/{chat_id}``.
-
-    The protocol mirrors ADR-033 §3 D5.2. ``user_message`` and
-    ``cancel`` are handled in Phase 1 (T-ECA-107);
-    ``permission_decision`` is wired in by T-ECA-110 and is accepted
-    here for forward compatibility only — Phase 1 routes ignore it.
-    """
-
-    type: str
-    content: str | None = None
-    request_id: str | None = None
-    decision: str | None = None
-
-
-class AgentEventEnvelope(BaseModel):
-    """Outbound WebSocket envelope wrapping a canonical ``AgentEvent``."""
-
-    type: str = "agent_event"
-    event: dict[str, Any] = Field(default_factory=dict)
