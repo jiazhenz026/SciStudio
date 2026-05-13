@@ -27,6 +27,8 @@ dependencies = [
     "httpx>=0.27",
     "pyyaml>=6.0",
     "psutil>=5.9",  # ADR-022: OS-level memory monitoring
+    "filelock>=3.13",  # ADR-033 OQ7: file-locked atomic writes for MCP write tools
+    "ruamel.yaml>=0.18",  # T-ECA-203: ruamel round-trip preserves comments/order in update_block_config
 ]
 
 [project.optional-dependencies]
