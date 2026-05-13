@@ -158,10 +158,40 @@ def _preview_array(path: Path) -> dict[str, Any]:
     if suffix in {".tif", ".tiff"}:
         import tifffile
 
-        # tifffile lazily memmaps; read just a 2D slice for thumbnailing.
+        # Per PR #744 Codex P1 (discussion_r3231046699): never call
+        # ``page.asarray()`` blindly — for a multi-GB single-IFD TIFF
+        # that materialises the full page into RAM long before the
+        # 8 MiB output cap is checked. Instead, prefer a memmap view
+        # when the file format supports it; fall back to a bounded
+        # read only when the page is small enough.
         with tifffile.TiffFile(str(path)) as tf:
             page = tf.pages[0]
-            arr = page.asarray()  # one IFD; modest size for ordinary images
+            try:
+                page_nbytes = int(page.size) * int(page.dtype.itemsize)
+            except (AttributeError, TypeError):
+                page_nbytes = 0
+            if page_nbytes and page_nbytes > _MAX_PREVIEW_BYTES:
+                # Try a zero-copy memmap so we can stride-read below
+                # without holding the whole IFD in RAM. tifffile.memmap
+                # only succeeds for uncompressed striped/tiled TIFFs.
+                try:
+                    arr = tifffile.memmap(str(path), page=0, mode="r")
+                except (ValueError, OSError, MemoryError):
+                    # Compressed or otherwise non-memmappable. Refuse
+                    # rather than blow up memory; the agent receives a
+                    # clear stub instead of a crash.
+                    return {
+                        "fmt": "skipped",
+                        "payload": {
+                            "reason": "tiff_page_exceeds_cap_and_not_memmappable",
+                            "page_nbytes": page_nbytes,
+                            "cap_bytes": _MAX_PREVIEW_BYTES,
+                            "shape": list(page.shape),
+                        },
+                        "truncated": True,
+                    }
+            else:
+                arr = page.asarray()
     elif suffix == ".zarr" or path.is_dir():
         import zarr
 

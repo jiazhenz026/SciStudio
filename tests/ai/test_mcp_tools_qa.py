@@ -68,6 +68,26 @@ def test_search_docs_scope(ctx: _StubRuntime) -> None:
     assert all("adr" in r["path"].lower() or r["path"].endswith(".md") for r in results)
 
 
+def test_search_docs_scope_rejects_traversal(ctx: _StubRuntime) -> None:
+    """Codex P1 regression — `scope` containing `..` must not escape docs/.
+
+    Previously a value like ``../../`` would silently resolve to a
+    path outside the docs tree and scan it. The guard now mirrors
+    ``get_doc``'s relative_to(root) check.
+    PR #744 discussion_r3231046696.
+    """
+    assert tools_qa.search_docs("anything", scope="../") == []
+    assert tools_qa.search_docs("anything", scope="../../") == []
+
+
+def test_search_docs_scope_rejects_absolute_path(ctx: _StubRuntime, tmp_path: Path) -> None:
+    """An absolute path that points outside the docs/ tree is rejected."""
+    outsider = tmp_path / "outsider"
+    outsider.mkdir()
+    (outsider / "f.md").write_text("workflow", encoding="utf-8")
+    assert tools_qa.search_docs("workflow", scope=str(outsider)) == []
+
+
 # --- get_doc ---------------------------------------------------------------
 
 

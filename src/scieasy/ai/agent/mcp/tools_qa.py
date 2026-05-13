@@ -53,8 +53,17 @@ def search_docs(query: str, scope: str | None = None) -> list[dict[str, Any]]:
     if not query:
         return []
     root = _docs_root()
+    root_resolved = root.resolve()
     if scope:
-        scoped = root / scope
+        # Validate that the resolved scope stays within docs/ — otherwise
+        # values like "../../" or absolute paths would silently scan
+        # outside the docs tree. Mirrors the guard in get_doc().
+        # Per PR #744 Codex P1 (discussion_r3231046696).
+        try:
+            scoped = (root / scope).resolve()
+            scoped.relative_to(root_resolved)
+        except (OSError, ValueError):
+            return []
         if not scoped.exists():
             return []
         search_root = scoped
