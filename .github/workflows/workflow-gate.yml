@@ -14,7 +14,12 @@ jobs:
     # claim the ticket on); failing its PRs on this check just blocks
     # security updates that are otherwise auto-greened by Lint / Tests /
     # Type Check / CodeQL. The substance gate (CI) still applies.
-    if: github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/')
+    # NOTE: actor-only check — NOT branch name. Branch names are
+    # user-controlled, so a human contributor could open a branch named
+    # "dependabot/..." and bypass the gate. The actor field is set by
+    # GitHub Actions itself based on who triggered the workflow and
+    # cannot be spoofed by a contributor. Per Codex P1 review on PR #729.
+    if: github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v6
         with:
