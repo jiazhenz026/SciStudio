@@ -24,9 +24,11 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import io
 import os
 import sys
 from pathlib import Path
+from typing import cast
 
 import typer
 
@@ -102,9 +104,18 @@ async def _pump_stdin_to_socket(
     platform.
     """
     loop = asyncio.get_running_loop()
+    # sys.stdin.buffer is typed as BinaryIO which lacks .read1; the actual
+    # runtime object is io.BufferedReader (or BufferedRWPair under -u). Use
+    # a small helper so mypy stops complaining and we still get the
+    # short-read semantics of read1.
     stdin_buf = sys.stdin.buffer
+
+    def _read_chunk() -> bytes:
+        reader = cast(io.BufferedReader, stdin_buf)
+        return reader.read1(65536)
+
     while True:
-        chunk = await loop.run_in_executor(None, stdin_buf.read1, 65536)
+        chunk = await loop.run_in_executor(None, _read_chunk)
         if not chunk:
             break
         sock_writer.write(chunk)
