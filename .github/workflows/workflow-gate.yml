@@ -9,6 +9,12 @@ jobs:
   workflow-gate:
     name: Verify Workflow Compliance
     runs-on: ubuntu-latest
+    # Exempt dependabot from the gate-workflow check. Dependabot does not
+    # run .workflow/gate.py and never will (it has no human author to
+    # claim the ticket on); failing its PRs on this check just blocks
+    # security updates that are otherwise auto-greened by Lint / Tests /
+    # Type Check / CodeQL. The substance gate (CI) still applies.
+    if: github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/')
     steps:
       - uses: actions/checkout@v6
         with:
