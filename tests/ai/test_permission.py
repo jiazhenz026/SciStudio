@@ -51,11 +51,45 @@ def test_policy_auto_approves_everything_in_bypass_mode(tool_name: str) -> None:
     assert policy.should_auto_approve(tool_name, {}) is True
 
 
-def test_policy_does_not_auto_approve_mcp_tools_in_strict_v1() -> None:
-    """Phase-1 v1: MCP tools always escalate. Phase 2 will refine."""
+def test_policy_auto_approves_mcp_read_tools_in_strict_mode() -> None:
+    """T-ECA-110 closeout (#779): SciEasy MCP read tools auto-approve."""
+    from scieasy.ai.agent.mcp._registry import TOOL_REGISTRY
+
     policy = PermissionPolicy(PermissionMode.STRICT)
-    assert policy.should_auto_approve("mcp__scieasy__read_workflow", {}) is False
-    assert policy.should_auto_approve("mcp__scieasy__write_workflow", {}) is False
+    read_tools = [entry for entry in TOOL_REGISTRY if entry.mutation == "read"]
+    assert read_tools, "expected at least one read-classified MCP tool"
+    for entry in read_tools:
+        prefixed = f"mcp__scieasy__{entry.name}"
+        assert policy.should_auto_approve(prefixed, {}) is True, f"expected MCP read tool {prefixed!r} to auto-approve"
+
+
+def test_policy_requires_approval_for_mcp_write_tools_in_strict_mode() -> None:
+    """T-ECA-110 closeout (#779): SciEasy MCP write tools still escalate."""
+    from scieasy.ai.agent.mcp._registry import TOOL_REGISTRY
+
+    policy = PermissionPolicy(PermissionMode.STRICT)
+    write_tools = [entry for entry in TOOL_REGISTRY if entry.mutation == "write"]
+    assert write_tools, "expected at least one write-classified MCP tool"
+    for entry in write_tools:
+        prefixed = f"mcp__scieasy__{entry.name}"
+        assert policy.should_auto_approve(prefixed, {}) is False, (
+            f"expected MCP write tool {prefixed!r} to require approval"
+        )
+
+
+def test_policy_fails_closed_for_unknown_mcp_tool() -> None:
+    """T-ECA-110 closeout (#779): unknown MCP tool name falls through to ask."""
+    policy = PermissionPolicy(PermissionMode.STRICT)
+    assert policy.should_auto_approve("mcp__scieasy__not_a_real_tool", {}) is False
+
+
+def test_policy_does_not_auto_approve_non_scieasy_mcp_tools() -> None:
+    """T-ECA-110 closeout (#779): MCP tools from third-party servers always escalate."""
+    policy = PermissionPolicy(PermissionMode.STRICT)
+    # Even if the bare name happens to match a SciEasy read tool, a
+    # different server prefix must still require approval — we have
+    # no contract with foreign MCP servers about read-vs-write.
+    assert policy.should_auto_approve("mcp__other__list_blocks", {}) is False
 
 
 # ---------------------------------------------------------------------------

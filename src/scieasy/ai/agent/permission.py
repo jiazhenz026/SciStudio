@@ -22,15 +22,15 @@ Design summary (spec §5 T-ECA-110):
   is explicitly single-user). For multi-process deployments the registry
   would need to move to Redis, but that is out of scope.
 
-Auto-approve policy (STRICT mode, v1):
+Auto-approve policy (STRICT mode):
 
 * Native CC tools in :data:`AUTO_APPROVE_NATIVE_TOOLS` always auto-approve.
-* MCP tools are NOT auto-approved in v1 — the SciEasy MCP server does
-  not ship until Phase 2, so there is nothing to classify yet. When
-  Phase 2 lands, MCP read tools (per ADR-033 §3 D2.2) should be added
-  to the policy. The frontend will ask for every MCP call until then.
-* Everything else (Edit, Write, Bash, WebFetch, etc.) requires user
-  approval.
+* SciEasy MCP read tools (name prefix :data:`MCP_TOOL_PREFIX`, mutation
+  classification ``"read"`` in the MCP :data:`TOOL_REGISTRY`)
+  auto-approve per ADR-033 §3 D2.2. SciEasy MCP write tools require
+  user approval. Unknown MCP names also require approval (fail-closed).
+* Everything else (Edit, Write, Bash, WebFetch, etc., and any non-SciEasy
+  MCP tools) requires user approval.
 
 In :attr:`PermissionMode.BYPASS` mode the policy returns ``True`` for
 every tool, matching ``--dangerously-skip-permissions`` semantics.
@@ -46,6 +46,23 @@ from typing import Any
 from scieasy.ai.agent.provider import PermissionMode
 
 logger = logging.getLogger(__name__)
+
+
+MCP_TOOL_PREFIX: str = "mcp__scieasy__"
+"""Prefix Claude Code applies to SciEasy MCP tool names.
+
+The MCP convention is ``mcp__<server>__<tool>`` (see
+``docs/specs/eca-spike-hook-protocol.md`` and the spec §3 D2.2). The
+SciEasy MCP server registers itself as ``scieasy`` in the static
+``mcp.json`` emitted by :func:`scieasy.ai.agent.config_files.write_mcp_config`,
+so SciEasy tool names always appear as ``mcp__scieasy__<tool>`` in
+the ``tool_use`` event. Stripping this prefix yields the bare tool
+name registered in :data:`scieasy.ai.agent.mcp._registry.TOOL_REGISTRY`.
+
+Non-SciEasy MCP servers (if a user wires one up via Claude Code's
+own MCP config) will not match this prefix and will fall through to
+user approval — the policy intentionally fails closed for them.
+"""
 
 
 AUTO_APPROVE_NATIVE_TOOLS: frozenset[str] = frozenset(
@@ -129,20 +146,37 @@ class PermissionPolicy:
 
         Notes
         -----
-        MCP read-tool auto-approve (per ADR-033 §3 D2.2) is **not**
-        implemented in v1. The SciEasy MCP server lands in Phase 2;
-        until then, classifying MCP tools as read-vs-write would either
-        be a moving target or require a hard-coded table that will be
-        wrong by the time the server ships. The frontend will prompt
-        for every non-native tool call until Phase 2 wires the
-        classifier.
+        MCP read-tool auto-approve (per ADR-033 §3 D2.2 / T-ECA-110) is
+        sourced from :func:`scieasy.ai.agent.mcp._registry.lookup` so the
+        permission policy and the MCP dispatcher share one source of
+        truth. Adding or removing a tool in the registry automatically
+        updates the auto-approve set — they cannot drift.
+
+        The lookup fails closed:
+
+        * Tool not present in the registry → require approval.
+        * Tool mutation classification is anything other than ``"read"`` →
+          require approval.
         """
         # ``tool_input`` is intentionally unused in v1 — see docstring.
         del tool_input
         if self.mode is PermissionMode.BYPASS:
             return True
         if self.mode is PermissionMode.STRICT:
-            return tool_name in AUTO_APPROVE_NATIVE_TOOLS
+            if tool_name in AUTO_APPROVE_NATIVE_TOOLS:
+                return True
+            if tool_name.startswith(MCP_TOOL_PREFIX):
+                # Import locally to avoid a top-level import cycle: the
+                # MCP registry imports from ``scieasy.ai.agent.mcp.tools_*``
+                # which transitively import scieasy.runtime, and we do
+                # not want to pay that cost at module import time.
+                from scieasy.ai.agent.mcp._registry import lookup
+
+                bare = tool_name[len(MCP_TOOL_PREFIX) :]
+                entry = lookup(bare)
+                if entry is not None and entry.mutation == "read":
+                    return True
+            return False
         # Defensive: PermissionMode is a closed enum but extending it
         # later should not silently auto-approve.
         return False

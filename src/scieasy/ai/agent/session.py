@@ -34,6 +34,7 @@ from scieasy.ai.agent.provider import (
     AgentSession,
     PermissionMode,
 )
+from scieasy.ai.agent.transcript import TranscriptWriter
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,19 @@ def _metadata_path(project_dir: Path, chat_id: str) -> Path:
     return project_dir.resolve() / ".scieasy" / "sessions" / f"{chat_id}.json"
 
 
+def _transcript_path(project_dir: Path, chat_id: str) -> Path:
+    """Return the canonical transcript path for ``(project_dir, chat_id)``.
+
+    Layout (spec §3 D7.1 / T-ECA-106):
+    ``{project_dir}/.scieasy/sessions/<chat_id>/transcript.jsonl``.
+
+    Note the directory name uses ``<chat_id>`` whereas the metadata file
+    is the sibling ``<chat_id>.json``; they cannot collide because the
+    metadata is a file and the transcript root is a directory.
+    """
+    return project_dir.resolve() / ".scieasy" / "sessions" / chat_id / "transcript.jsonl"
+
+
 def _hash_prompt(prompt: str) -> str:
     return hashlib.sha256(prompt.encode("utf-8")).hexdigest()
 
@@ -92,6 +106,7 @@ class AgentSessionManager:
 
     def __init__(self, *, concurrent_cap: int | None = None) -> None:
         self._sessions: dict[tuple[Path, str], AgentSession] = {}
+        self._transcripts: dict[tuple[Path, str], TranscriptWriter] = {}
         self._cap: int = concurrent_cap or self.DEFAULT_CONCURRENT_CAP
 
     # ------------------------------------------------------------------
@@ -158,16 +173,46 @@ class AgentSessionManager:
             model=model,
         )
         self._sessions[key] = session
+        # T-ECA-106 closeout (#778): attach a TranscriptWriter so the WS
+        # event pump in ``api/routes/ai.py`` can mirror every emitted
+        # event to ``.scieasy/sessions/<chat_id>/transcript.jsonl``.
+        # Construction is cheap (no I/O until the first write); failures
+        # to open are absorbed by the writer itself so they cannot leak
+        # into ``start_session`` and abort the spawn.
+        self._transcripts[key] = TranscriptWriter(_transcript_path(resolved, chat_id))
         return session
 
     def get_session(self, project_dir: Path, chat_id: str) -> AgentSession | None:
         """Return the live session for ``(project_dir, chat_id)`` or ``None``."""
         return self._sessions.get((project_dir.resolve(), chat_id))
 
+    def get_transcript_writer(self, project_dir: Path, chat_id: str) -> TranscriptWriter | None:
+        """Return the :class:`TranscriptWriter` for ``(project_dir, chat_id)``.
+
+        Returns ``None`` if no live session exists for that key. The
+        WS event pump in ``api/routes/ai.py`` calls this for every
+        emitted event so the on-disk JSONL mirror stays in sync with
+        what the frontend sees (spec §3 D7.1 / T-ECA-106).
+        """
+        return self._transcripts.get((project_dir.resolve(), chat_id))
+
     async def close_session(self, project_dir: Path, chat_id: str) -> None:
         """Close one session; leave its on-disk metadata in place."""
         key = (project_dir.resolve(), chat_id)
         session = self._sessions.pop(key, None)
+        # T-ECA-106 closeout (#778): close the transcript writer in lock
+        # step with the session. Pop unconditionally so a stray writer
+        # without a matching session (theoretically impossible, but
+        # defensive) is still cleaned up.
+        transcript = self._transcripts.pop(key, None)
+        if transcript is not None:
+            try:
+                transcript.close()
+            except Exception as exc:  # pragma: no cover - close swallows internally
+                logger.warning(
+                    "AgentSessionManager.close_session: transcript.close() raised: %s",
+                    exc,
+                )
         if session is None:
             return
         # Update last_active before closing.

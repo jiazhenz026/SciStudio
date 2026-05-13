@@ -209,9 +209,26 @@ async def chat_ws(
     pump_task: asyncio.Task[None] | None = None
 
     async def _pump_events(active_session: Any) -> None:
-        """Forward every canonical event from the session stream to the WebSocket."""
+        """Forward every canonical event from the session stream to the WebSocket.
+
+        T-ECA-106 closeout (#778): each event is also mirrored to the
+        session's :class:`TranscriptWriter` so the on-disk JSONL log
+        stays in sync with what the frontend sees. Transcript write
+        failures are deliberately swallowed (the writer itself logs
+        once and disables further attempts) — they MUST NEVER kill
+        the WS pump.
+        """
+        transcript = manager.get_transcript_writer(project_path, chat_id)
         try:
             async for event in active_session.stream_events():
+                if transcript is not None:
+                    try:
+                        await transcript.write_event(event)
+                    except Exception as exc:  # pragma: no cover - defensive belt
+                        logger.warning(
+                            "chat_ws.pump_events: transcript.write_event raised: %s",
+                            exc,
+                        )
                 await websocket.send_json(AgentEventEnvelope(event=_serialise_agent_event(event)).model_dump())
         except (WebSocketDisconnect, asyncio.CancelledError):
             return
