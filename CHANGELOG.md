@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- [#775] Fix Claude subprocess launch — three coordinated bugs that prevented the agent from responding at all: stdin envelope schema (now `{type:user, message:{role,content}}` per Anthropic shape), missing `--input-format stream-json`, and bogus `@path` prefix on `--append-system-prompt` and `--mcp-config` (claude doesn't support `@file` indirection on those flags). Verified live in Chrome: agent now emits system/init → assistant → result. (@claude, 2026-05-13, branch: fix/issue-775/claude-launch, session: 20260513-001646-fix-775-claude-subprocess-launch-envelop)
+
 ### Added
 
 - [#759] T-ECA-504 v2 — explicit blank-workspace clarification in the microplastics e2e test prompt draft. Per user instruction, the agent starts from a completely blank workspace (no pre-existing workflow, no custom blocks, no intermediate outputs) and must build everything itself using `list_blocks` + custom Tier-1 blocks. (@claude, 2026-05-12, branch: fix/issue-759/eca-504-prompt-v2, session: dispatcher-followup)

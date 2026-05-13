@@ -12,6 +12,42 @@ export interface EventRendererProps {
 }
 
 export function EventRenderer({ event }: EventRendererProps) {
+  // Issue #775 — filter out backend-marked auxiliary events (system/hook_*,
+  // user-turn echoes, rate-limit notices). They're noise in the chat view.
+  const raw = event.raw as Record<string, unknown> | undefined;
+  if (raw && raw._chat_hidden === true) {
+    return null;
+  }
+  // Synthetic user_message events injected by AIChat.handleSend so the
+  // user's own text shows up in the conversation feed.
+  if ((event.kind as string) === "user_message") {
+    const content = (raw as { content?: string } | undefined)?.content ?? "";
+    return (
+      <div
+        data-testid="ev-user"
+        className="self-end ml-auto max-w-[80%] whitespace-pre-wrap rounded bg-blue-100 px-2 py-1 text-right"
+      >
+        {content}
+      </div>
+    );
+  }
+  // Issue #775 — Phase 5 follow-up: backend now emits `thinking` OtherEvents
+  // for claude's interleaved-thinking content blocks. Render as a folded
+  // <details> so the user can peek at the agent's reasoning without it
+  // overwhelming the chat feed.
+  if ((event.kind as string) === "thinking") {
+    const text = (raw as { text?: string } | undefined)?.text ?? "";
+    if (!text.trim()) return null;
+    return (
+      <details
+        data-testid="ev-thinking"
+        className="rounded border border-purple-200 bg-purple-50 px-2 py-1 text-sm"
+      >
+        <summary className="cursor-pointer text-purple-700">Thinking…</summary>
+        <pre className="mt-1 whitespace-pre-wrap text-xs text-purple-900">{text}</pre>
+      </details>
+    );
+  }
   switch (event.kind) {
     case "init":
       return (
@@ -20,6 +56,9 @@ export function EventRenderer({ event }: EventRendererProps) {
         </div>
       );
     case "assistant_text_delta":
+      // Defensive: backend may still emit empty deltas on edge-case
+      // assistant frames. Skip rendering rather than show a blank bubble.
+      if (!event.delta) return null;
       return (
         <div data-testid="ev-text" className="whitespace-pre-wrap rounded bg-gray-50 px-2 py-1">
           {event.delta}

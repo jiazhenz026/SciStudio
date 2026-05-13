@@ -138,7 +138,16 @@ class ClaudeCodeSession:
         """
         if self._proc.stdin is None or self._proc.stdin.is_closing():
             raise AgentLaunchError("subprocess stdin is closed; cannot send_user_message")
-        envelope = json.dumps({"type": "user", "content": content})
+        # Claude Code stream-json input format: wrap content in a
+        # message.role+content envelope, matching the Anthropic SDK
+        # message shape. Issue (no number) — without the wrapper the
+        # subprocess silently ignores stdin and produces no output.
+        envelope = json.dumps(
+            {
+                "type": "user",
+                "message": {"role": "user", "content": content},
+            }
+        )
         logger.debug(
             "ClaudeCodeSession.send_user_message: writing %d bytes to stdin",
             len(envelope),
@@ -323,17 +332,16 @@ class ClaudeCodeProvider:
 
         logged_in = False
         if available:
+            # Probe by checking the credentials file written by `claude /login`.
+            # The previous probe `claude config get -g installMethod` broke in
+            # claude 2.x — `config` is no longer a CLI subcommand and `-g`
+            # is rejected as "unknown option". The credentials file is the
+            # canonical login witness across all claude versions.
+            cred_path = Path.home() / ".claude" / ".credentials.json"
             try:
-                completed = subprocess.run(
-                    [str(binary_path), "config", "get", "-g", "installMethod"],
-                    capture_output=True,
-                    text=True,
-                    timeout=_LOGIN_PROBE_TIMEOUT_SECONDS,
-                    check=False,
-                )
-                logged_in = completed.returncode == 0
-            except (subprocess.TimeoutExpired, OSError) as exc:
-                logger.debug("ClaudeCodeProvider.discover: login probe failed: %s", exc)
+                logged_in = cred_path.is_file() and cred_path.stat().st_size > 0
+            except OSError as exc:
+                logger.debug("ClaudeCodeProvider.discover: credentials probe failed: %s", exc)
 
         logger.info(
             "ClaudeCodeProvider.discover: available=%s version=%s logged_in=%s path=%s",
@@ -399,12 +407,32 @@ class ClaudeCodeProvider:
             *argv0,
             "--output-format",
             "stream-json",
+            # Tell claude that stdin will be stream-json envelopes too.
+            # Without this, claude treats stdin as a one-shot plain-text
+            # prompt and silently ignores the JSON envelopes we write,
+            # producing no events on stdout (manual verification, 2026-05-13).
+            "--input-format",
+            "stream-json",
             "--verbose",
+            # --append-system-prompt expects a literal string. We tried
+            # `@path` indirection but claude treats the `@` as part of
+            # the path. Read the file contents and pass them inline.
             "--append-system-prompt",
-            f"@{prompt_path}",
+            system_prompt,
+            # --mcp-config takes a file PATH (or inline JSON), no `@`.
             "--mcp-config",
-            f"@{mcp_path}",
+            str(mcp_path),
         ]
+        # Map SciEasy PermissionMode → claude --permission-mode.
+        # BYPASS lets the agent call tools without per-call approval —
+        # required for the Phase 5 acceptance test where there is no
+        # human in the loop to click "approve" on every list_blocks.
+        # STRICT leaves claude's default "ask" behaviour in place; the
+        # hook bridge is the long-term answer (T-ECA-110) but currently
+        # the hook config we emit at `claude-hooks.json` is not wired
+        # into a --settings argument so claude does not see it.
+        if permission_mode is PermissionMode.BYPASS:
+            argv += ["--permission-mode", "bypassPermissions"]
         if resume_session_id is not None:
             argv += ["--resume", resume_session_id]
         if model is not None:

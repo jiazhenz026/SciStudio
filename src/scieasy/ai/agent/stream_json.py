@@ -167,6 +167,156 @@ def _make_done(payload: dict[str, Any]) -> AgentEvent:
     return DoneEvent(kind="done", raw=payload)
 
 
+def _make_system(payload: dict[str, Any]) -> AgentEvent:
+    """Map claude's `{type:system, subtype:init|hook_*|...}` frames.
+
+    `init` carries session_id + model; surface as InitEvent. Other
+    subtypes (hook_started / hook_response / etc.) are infrastructural
+    and degrade to OtherEvent with a marker `_chat_hidden=true` in raw
+    so the frontend filter can suppress them from the conversation feed.
+    """
+    subtype = payload.get("subtype")
+    if subtype == "init":
+        return _make_init(payload)
+    hidden_raw = dict(payload)
+    hidden_raw["_chat_hidden"] = True
+    return OtherEvent(kind=f"system/{subtype}" if subtype else "system", raw=hidden_raw)
+
+
+def _make_assistant(payload: dict[str, Any]) -> AgentEvent | list[AgentEvent]:
+    """Map claude's `{type:assistant, message:{...}}` frame to one or more
+    canonical events.
+
+    The message.content can be a string or a list of content blocks. We
+    fan-out one canonical event per *content* block:
+
+    * ``text`` blocks → :class:`AssistantTextDeltaEvent` (only if the
+      text is non-empty; previously we always emitted an empty delta
+      event when the assistant turn carried only tool calls or thinking,
+      which produced rows of blank bubbles in the chat panel — #775
+      follow-up after live Phase 5 testing).
+    * ``tool_use`` blocks → :class:`ToolUseEvent` so the chat shows the
+      tool name + inputs collapsibly.
+    * ``thinking`` blocks → OtherEvent kind=``thinking`` carrying the
+      text in ``raw.text`` so the renderer can show a folded preview.
+
+    Returns a single event if exactly one was produced, a list if
+    multiple, or a hidden OtherEvent if nothing meaningful was found
+    (avoids the empty-text-bubble bug).
+    """
+    message = payload.get("message") or {}
+    content = message.get("content") if isinstance(message, dict) else None
+
+    events: list[AgentEvent] = []
+
+    if isinstance(content, str):
+        if content:
+            events.append(AssistantTextDeltaEvent(kind="assistant_text_delta", raw=payload, delta=content))
+    elif isinstance(content, list):
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            btype = block.get("type")
+            if btype == "text":
+                t = block.get("text")
+                if isinstance(t, str) and t:
+                    events.append(AssistantTextDeltaEvent(kind="assistant_text_delta", raw=payload, delta=t))
+            elif btype == "tool_use":
+                name = block.get("name")
+                tool_input = block.get("input")
+                tool_use_id = block.get("id")
+                if isinstance(name, str) and isinstance(tool_input, dict) and isinstance(tool_use_id, str):
+                    events.append(
+                        ToolUseEvent(
+                            kind="tool_use",
+                            raw=block,
+                            tool_name=name,
+                            tool_input=tool_input,
+                            tool_use_id=tool_use_id,
+                        )
+                    )
+            elif btype == "thinking":
+                t = block.get("thinking") or block.get("text")
+                events.append(
+                    OtherEvent(
+                        kind="thinking",
+                        raw={"text": t if isinstance(t, str) else "", **block},
+                    )
+                )
+            elif btype == "tool_result":
+                tool_use_id = block.get("tool_use_id")
+                output = block.get("content") or block.get("output")
+                is_error = bool(block.get("is_error"))
+                if isinstance(tool_use_id, str):
+                    events.append(
+                        ToolResultEvent(
+                            kind="tool_result",
+                            raw=block,
+                            tool_use_id=tool_use_id,
+                            output=output if output is not None else "",
+                            is_error=is_error,
+                        )
+                    )
+
+    if not events:
+        # Nothing renderable in this assistant turn (e.g. content was
+        # an empty list or a kind we don't yet know). Hide it from the
+        # chat feed rather than emit a blank delta.
+        hidden = {**payload, "_chat_hidden": True}
+        return OtherEvent(kind="assistant_empty", raw=hidden)
+    if len(events) == 1:
+        return events[0]
+    return events
+
+
+def _make_user_echo(payload: dict[str, Any]) -> AgentEvent | list[AgentEvent]:
+    """Map claude's `{type:user, message:{role:user, content:[...]}}` echo
+    frames into :class:`ToolResultEvent`s so the GUI can show each tool's
+    return value.
+
+    These ``user`` frames are how Claude Code re-injects tool_result blocks
+    after the agent has called an MCP tool. They are NOT chat input — the
+    user never typed anything; claude is just echoing the tool output back
+    to itself. We surface the tool_result content so the chat UI can show
+    a collapsible "Tool result" tile under each call.
+    """
+    message = payload.get("message") or {}
+    content = message.get("content") if isinstance(message, dict) else None
+    events: list[AgentEvent] = []
+    if isinstance(content, list):
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") == "tool_result":
+                tool_use_id = block.get("tool_use_id")
+                output = block.get("content") or block.get("output")
+                is_error = bool(block.get("is_error"))
+                if isinstance(tool_use_id, str):
+                    events.append(
+                        ToolResultEvent(
+                            kind="tool_result",
+                            raw=block,
+                            tool_use_id=tool_use_id,
+                            output=output if output is not None else "",
+                            is_error=is_error,
+                        )
+                    )
+    if not events:
+        return OtherEvent(kind="user_echo", raw={**payload, "_chat_hidden": True})
+    if len(events) == 1:
+        return events[0]
+    return events
+
+
+def _make_result(payload: dict[str, Any]) -> AgentEvent:
+    """Map claude's `{type:result, subtype:success|error|..., result, stop_reason}` frame to Done.
+
+    DoneEvent has no extra fields; we keep stop_reason / result in `raw`
+    for downstream consumers that want to inspect them.
+    """
+    return DoneEvent(kind="done", raw=payload)
+
+
 _DISPATCH: dict[str, Any] = {
     "init": _make_init,
     "assistant_text_delta": _make_assistant_text_delta,
@@ -175,11 +325,26 @@ _DISPATCH: dict[str, Any] = {
     "permission_request": _make_permission_request,
     "error": _make_error,
     "done": _make_done,
+    # Claude Code wire-format mappings (issue #775 follow-up):
+    "system": _make_system,
+    "assistant": _make_assistant,
+    "result": _make_result,
+    # `user` frames carry tool_result blocks the agent received. We
+    # extract them as ToolResultEvents so the GUI can show what each
+    # tool returned; if no tool_result is found we hide the echo.
+    "user": _make_user_echo,
+    "rate_limit_event": lambda p: OtherEvent(kind="rate_limit_event", raw={**p, "_chat_hidden": True}),
 }
 
 
-def parse_event(line: bytes) -> AgentEvent:
-    """Parse one NDJSON line into a canonical :class:`AgentEvent`.
+def parse_event(line: bytes) -> AgentEvent | list[AgentEvent]:
+    """Parse one NDJSON line into a canonical :class:`AgentEvent` or list.
+
+    Most kinds fan out 1:1, but some (notably claude's ``assistant``
+    frames carrying multiple content blocks — see :func:`_make_assistant`)
+    can emit multiple canonical events per line. Callers should treat the
+    return value uniformly via :func:`parse_stream`, which flattens the
+    list path.
 
     Parameters
     ----------
@@ -189,8 +354,8 @@ def parse_event(line: bytes) -> AgentEvent:
 
     Returns
     -------
-    AgentEvent
-        Canonical event. Unknown kinds yield :class:`OtherEvent`.
+    AgentEvent | list[AgentEvent]
+        Canonical event(s). Unknown kinds yield :class:`OtherEvent`.
 
     Raises
     ------
@@ -274,8 +439,18 @@ async def parse_stream(stream: AsyncIterator[bytes]) -> AsyncIterator[AgentEvent
             if not line.strip():
                 # Tolerate blank separator lines silently.
                 continue
-            yield parse_event(line)
+            parsed = parse_event(line)
+            if isinstance(parsed, list):
+                for ev in parsed:
+                    yield ev
+            else:
+                yield parsed
 
     if buffer.strip():
         # Stream ended without a trailing newline; flush the residual line.
-        yield parse_event(bytes(buffer))
+        parsed = parse_event(bytes(buffer))
+        if isinstance(parsed, list):
+            for ev in parsed:
+                yield ev
+        else:
+            yield parsed
