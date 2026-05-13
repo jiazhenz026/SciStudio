@@ -238,6 +238,11 @@ class ApiRuntime:
         self.active_project: KnownProject | None = None
         self.data_catalog: dict[str, DataRecord] = {}
         self.workflow_runs: dict[str, WorkflowRun] = {}
+        # #718 part (a): in-memory monotonic revision counter per workflow_id.
+        # Used for optimistic concurrency on the PUT /api/workflows/{id} path.
+        # Single-process, single-user scope (matches ADR-033 §3 D2.1); resets
+        # on server restart and is re-seeded to 0 on the next load.
+        self._workflow_revisions: dict[str, int] = {}
 
         self.event_bus = EventBus()
         self.resource_manager = ResourceManager(event_bus=self.event_bus)
@@ -428,6 +433,9 @@ class ApiRuntime:
         self._save_known_projects()
         self.active_project = candidate
         self.data_catalog = {}
+        # #718 part (a): revisions are project-scoped — reset on project switch
+        # so a workflow_id in the new project starts at revision 0.
+        self._workflow_revisions = {}
         self.refresh_block_registry()
         self._init_metadata_store(Path(candidate.path))
         return candidate
@@ -585,6 +593,31 @@ class ApiRuntime:
         path = self.workflow_path(workflow_id)
         if path.exists():
             path.unlink()
+        # #718 part (a): clear the in-memory revision so a future workflow
+        # with the same id starts fresh at 0.
+        self._workflow_revisions.pop(workflow_id, None)
+
+    # ------------------------------------------------------------------
+    # #718 part (a): in-memory workflow revision tracking.
+    # ------------------------------------------------------------------
+
+    def current_revision(self, workflow_id: str) -> int:
+        """Return the current monotonic revision for *workflow_id*.
+
+        Returns 0 when the workflow has never been written or has not been
+        observed in this process lifetime.
+        """
+        return self._workflow_revisions.get(workflow_id, 0)
+
+    def bump_revision(self, workflow_id: str) -> int:
+        """Increment and return the revision for *workflow_id*.
+
+        Called by the route layer after every successful write to the
+        workflow YAML (PUT, POST, import-path).
+        """
+        next_rev = self._workflow_revisions.get(workflow_id, 0) + 1
+        self._workflow_revisions[workflow_id] = next_rev
+        return next_rev
 
     def upload_file(self, filename: str, content: bytes) -> dict[str, Any]:
         project = self.require_active_project()

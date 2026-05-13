@@ -25,6 +25,7 @@ from scieasy.engine.events import (
     CANCEL_WORKFLOW_REQUEST,
     INTERACTIVE_COMPLETE,
     INTERACTIVE_PROMPT,
+    WORKFLOW_CHANGED,
     WORKFLOW_COMPLETED,
     WORKFLOW_STARTED,
     EngineEvent,
@@ -46,6 +47,11 @@ _OUTBOUND_EVENTS = frozenset(
         WORKFLOW_COMPLETED,
         WORKFLOW_STARTED,
         INTERACTIVE_PROMPT,
+        # #718 part (a): forward workflow.changed so connected clients can
+        # refresh their cached workflow view when an external writer (another
+        # tab, the embedded coding agent, or POST /import-path) mutates the
+        # workflow YAML.
+        WORKFLOW_CHANGED,
     }
 )
 
