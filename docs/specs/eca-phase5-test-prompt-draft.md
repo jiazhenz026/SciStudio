@@ -38,13 +38,8 @@ building and running a SciEasy workflow.
   `{golden_dir}`.
 
 The harness has already created the workspace at `{project_dir}` and
-launched the SciEasy backend. **The workspace is empty: no workflow,
-no custom blocks, no intermediate outputs.** You start from a blank
-canvas. Build everything you need yourself using the available
-built-in blocks (discoverable via `list_blocks`); if a step has no
-built-in equivalent, write your own Tier-1 custom block under
-`{project_dir}/blocks/` and call `reload_blocks`. You have full
-read/write access to the workspace via your MCP tools.
+launched the SciEasy backend. You have full read/write access to the
+workspace via your MCP tools.
 
 # Goal
 
@@ -143,7 +138,6 @@ Version history (append-only):
 |---------|------|---------|--------|
 | v0 | 2026-05-12 | initial draft | n/a |
 | v1 | 2026-05-12 | Codex P1+P2 review on PR #760 (issue #759) | (P1) Replaced `get_doc`/`read_block_source` notebook-read instruction with Claude Code's built-in `NotebookRead` tool — `get_doc` is scoped to `docs/` and `read_block_source` reads block class source by name, neither can reach the microplastics ipynb. (P2) Tightened `run_workflow` completion criterion: explicit polling on `get_run_status(run_id)` until terminal `completed`, not initial submit return. |
-| v2 | 2026-05-12 | User clarification during Phase 5 cascade | Explicitly stated that the workspace is blank: no pre-existing workflow, no custom blocks, no intermediate outputs. The agent starts from scratch. This was previously implicit (the harness creates a fresh tmp project per run); making it explicit removes any risk the agent assumes a pre-built workflow exists. |
 
 ## Why this prompt is the *only* mutable input
 
