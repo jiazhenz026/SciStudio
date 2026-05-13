@@ -17,37 +17,21 @@
  * shared `aiChatSlice` state.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 
 import { useAgentWebSocket } from "../../hooks/useAgentWebSocket";
 import { useAppStore } from "../../store";
-import type { AgentEvent } from "../../types/agentEvents";
 import { AgentStatusBanner } from "./AgentStatusBanner";
 import { ChatMessageList } from "./ChatMessageList";
 import { PermissionPrompt } from "./PermissionPrompt";
 import { SessionSidebar } from "./SessionSidebar";
 import { SettingsPanel } from "./SettingsPanel";
 
-// Issue #782: kinds that count as "real assistant content has arrived" and
-// should hide the synthetic in-flight Thinking… indicator. The agent's own
-// `thinking` content blocks do NOT count — the indicator is replaced by the
-// real thinking row in that case (both look similar; the user sees a
-// continuous "agent is reasoning" affordance).
-const RESPONSE_KINDS = new Set<string>([
-  "assistant_text_delta",
-  "tool_use",
-  "tool_result",
-  "thinking",
-  "done",
-  "error",
-]);
-
 export function AIChat() {
   const activeChatId = useAppStore((s) => s.activeChatId);
   const currentProject = useAppStore((s) => s.currentProject);
   const sessions = useAppStore((s) => s.sessions);
   const appendEvent = useAppStore((s) => s.appendEvent);
-  const eventsByChat = useAppStore((s) => s.eventsByChat);
   const projectDir = currentProject?.path ?? null;
 
   const activeSession =
@@ -61,37 +45,6 @@ export function AIChat() {
 
   const [draft, setDraft] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  // Issue #782 Bug 2: synthetic Thinking… indicator visible from the
-  // moment the user sends a message until the first real agent event
-  // arrives. Keyed by chatId so switching chats does not leak state.
-  const [awaitingResponse, setAwaitingResponse] = useState<Record<string, number>>({});
-
-  const activeEvents: ReadonlyArray<AgentEvent> = useMemo(() => {
-    return activeChatId !== null ? eventsByChat[activeChatId] ?? [] : [];
-  }, [activeChatId, eventsByChat]);
-
-  // Clear the synthetic indicator when any real assistant content has
-  // arrived AFTER the user's last send. We track the event-list length
-  // at send-time and look for any RESPONSE_KINDS event past that point.
-  useEffect(() => {
-    if (activeChatId === null) return;
-    const sinceIdx = awaitingResponse[activeChatId];
-    if (sinceIdx === undefined) return;
-    for (let i = sinceIdx; i < activeEvents.length; i += 1) {
-      const ev = activeEvents[i];
-      if (RESPONSE_KINDS.has(String(ev.kind))) {
-        setAwaitingResponse((prev) => {
-          const next = { ...prev };
-          delete next[activeChatId];
-          return next;
-        });
-        return;
-      }
-    }
-  }, [activeChatId, activeEvents, awaitingResponse]);
-
-  const isAwaiting =
-    activeChatId !== null && awaitingResponse[activeChatId] !== undefined;
 
   const handleSend = () => {
     if (!draft.trim() || !activeChatId) return;
@@ -103,11 +56,6 @@ export function AIChat() {
         kind: "user_message",
         raw: { content: draft },
       } as unknown as Parameters<typeof appendEvent>[1]);
-      // Mark the chat as awaiting first response; the indicator will
-      // show until a RESPONSE_KINDS event arrives past this index.
-      // +1 because we just appended the user_message itself.
-      const sinceIdx = (eventsByChat[activeChatId]?.length ?? 0) + 1;
-      setAwaitingResponse((prev) => ({ ...prev, [activeChatId]: sinceIdx }));
       setDraft("");
     }
   };
@@ -133,7 +81,7 @@ export function AIChat() {
         {settingsOpen && <SettingsPanel />}
         <div className="flex-1 overflow-hidden">
           {activeChatId !== null ? (
-            <ChatMessageList chatId={activeChatId} showThinkingIndicator={isAwaiting} />
+            <ChatMessageList chatId={activeChatId} />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-gray-500">
               Select or create a chat to start.
@@ -160,10 +108,7 @@ export function AIChat() {
                     : "Message the agent..."
               }
               disabled={activeChatId === null || sessionEnded}
-              // Issue #782 Bug 3: bound textarea growth — scroll inside
-              // the element past ~8 rows instead of expanding past the
-              // chat panel and pushing the Send button off-screen.
-              className="flex-1 max-h-[200px] resize-none overflow-y-auto rounded border border-gray-300 p-1 text-sm disabled:bg-gray-100"
+              className="flex-1 resize-none rounded border border-gray-300 p-1 text-sm disabled:bg-gray-100"
               rows={2}
             />
             <div className="flex flex-col gap-1">

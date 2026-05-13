@@ -101,27 +101,3 @@ select {
 .react-flow__minimap {
   z-index: 5;
 }
-
-/* Issue #782: AIChat "Thinking…" indicator animation. */
-@keyframes thinking-pulse {
-  0%,
-  100% {
-    opacity: 0.4;
-    transform: rotate(0deg);
-  }
-  50% {
-    opacity: 1;
-    transform: rotate(180deg);
-  }
-}
-
-.thinking-spinner {
-  animation: thinking-pulse 1.6s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .thinking-spinner {
-    animation: none;
-    opacity: 0.8;
-  }
-}
