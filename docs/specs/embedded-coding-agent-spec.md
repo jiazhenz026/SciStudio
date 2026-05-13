@@ -82,7 +82,19 @@ T-ECA-105 is **blocking** for T-ECA-110 (permission backend implementation). If 
 
 ### OQ5 — Stream-json schema versioning
 
-**Resolution**: Defensive parser. Unknown event kinds are routed to a generic `OtherEvent { kind, raw_json }` and logged at INFO level; the WebSocket forwards them transparently to the frontend, which renders unknown kinds as a small "(unknown event)" tag. Unknown fields on known event kinds are accepted and ignored. Schema version is read from the `init` event if present and recorded in session metadata; otherwise it is `null`.
+**Resolution**: Defensive parser. Unknown event kinds are routed to a generic `OtherEvent { kind, raw, display_class }` and logged at INFO level; the WebSocket forwards them transparently to the frontend. Unknown fields on known event kinds are accepted and ignored. Schema version is read from the `init` event if present and recorded in session metadata; otherwise it is `null`.
+
+**Generic UI display taxonomy (issue #788)**: every `OtherEvent` carries a `display_class` field computed at parse time by `scieasy.ai.agent.stream_json.classify_for_display(kind, payload)`. The five stable classes are:
+
+| class | criterion | UI |
+|---|---|---|
+| `hidden` | `_chat_hidden=True` marker; bookkeeping kinds (heartbeat, ping, stream_event, rate_limit_event, user_echo, assistant_empty) | not rendered |
+| `meta` | session metadata (system, system/<subtype>, result, model_info) | one-line muted `[meta] <kind>: <summary>` row with click-to-expand |
+| `text-like` | has a non-empty string `text` / `content` / `message` / `delta` / `thinking` | muted text bubble |
+| `tool-like` | has `tool_name` (or `name`) + `input` dict | uses the same condensed tool-row component as native `tool_use` events |
+| `raw` | none of the above | small `<kind>` chip with click-to-expand JSON |
+
+Adding a new event kind requires only adding a classification rule (one line in `_HIDDEN_KINDS`/`_META_KINDS` or relying on the structural heuristics). No frontend code change is required for the kind to render sensibly.
 
 ### OQ6 — Permission-decision UI latency
 
