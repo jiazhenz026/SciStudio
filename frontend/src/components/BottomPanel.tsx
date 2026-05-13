@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type { BlockSchemaResponse, ChatMessage, LogEntry, WorkflowNode } from "../types/api";
 import type { BottomTab } from "../types/ui";
@@ -30,6 +30,77 @@ const TAB_LABELS: Record<BottomTab, string> = {
 };
 
 const ALL_TABS: BottomTab[] = ["ai", "config", "logs", "lineage", "jobs", "problems"];
+
+// Controlled text input that preserves caret position across re-renders (#710).
+//
+// The standard React controlled-input pattern resets the browser caret to
+// the end of the value whenever the `value` prop is replaced by a non-
+// synchronous round-trip (e.g. onChange -> Zustand -> next render). This
+// component captures selectionStart/selectionEnd on each change and restores
+// them in a layout effect after the value prop has been applied.
+//
+// Audit follow-up (#710): only restore when the re-render originated from
+// this input's own onChange. Previously selectionRef stayed live across
+// renders, which meant any unrelated re-render while the field stayed
+// focused (e.g. user moves the caret with mouse/arrow keys, then a sibling
+// state update fires) would force the caret back to the stale post-edit
+// position. We now store the pending selection only between onChange and
+// the next layout effect, then null it out so subsequent renders are
+// no-ops unless another onChange refills the ref. The activeElement guard
+// still ensures we never steal selection from another input (the canvas
+// BlockNode renders the same field, bound to the same store).
+function CaretPreservingTextInput({
+  value,
+  onChange,
+  type,
+  className,
+  placeholder,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  type: "text" | "number";
+  className?: string;
+  placeholder?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const pendingSelectionRef = useRef<{ start: number; end: number } | null>(
+    null,
+  );
+  useLayoutEffect(() => {
+    const pending = pendingSelectionRef.current;
+    const el = inputRef.current;
+    if (pending && el && document.activeElement === el) {
+      try {
+        el.setSelectionRange(pending.start, pending.end);
+      } catch {
+        // setSelectionRange is not supported on type=number; ignore.
+      }
+    }
+    // Always clear after attempting restore so the next render does
+    // nothing unless another onChange refills the ref.
+    pendingSelectionRef.current = null;
+  });
+  return (
+    <input
+      ref={inputRef}
+      className={className}
+      onChange={(event) => {
+        // type=number does not expose selectionStart/selectionEnd in most
+        // browsers; values come back as null which we coalesce to 0. The
+        // activeElement guard above still gates the restore, so unfocused
+        // mirrors do not steal selection.
+        pendingSelectionRef.current = {
+          start: event.target.selectionStart ?? 0,
+          end: event.target.selectionEnd ?? 0,
+        };
+        onChange(event.target.value);
+      }}
+      placeholder={placeholder}
+      type={type}
+      value={value}
+    />
+  );
+}
 
 function ConfigPanel({
   selectedNode,
@@ -115,11 +186,11 @@ function ConfigPanel({
         return (
           <label className="grid gap-2 text-sm" key={key}>
             <span className="font-medium text-ink">{String(value.title ?? key)}</span>
-            <input
+            <CaretPreservingTextInput
               className="min-w-0 flex-1 rounded-2xl border border-stone-300 bg-white px-4 py-3"
-              onChange={(event) =>
+              onChange={(next) =>
                 onUpdateConfig({
-                  [key]: value.type === "number" ? Number(event.target.value) : event.target.value,
+                  [key]: value.type === "number" ? Number(next) : next,
                 })
               }
               placeholder={key === "path" ? "Type or paste file/directory path" : undefined}

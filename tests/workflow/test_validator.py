@@ -519,3 +519,159 @@ class TestValidatorVariadicCardinality:
         errors = validate_workflow(wf, registry=reg)
         cardinality_errors = [e for e in errors if "variadic" in e]
         assert cardinality_errors == []
+
+
+# ---------------------------------------------------------------------------
+# Issue #680: AppBlock duplicate output-port extension validation (Check 8)
+# ---------------------------------------------------------------------------
+
+
+class TestValidatorAppBlockDuplicateExtensions:
+    """Check 8: variadic-output blocks must not declare two ports with the same extension."""
+
+    def test_duplicate_extension_emits_error(self) -> None:
+        spec = BlockSpec(
+            name="app_block_test",
+            variadic_inputs=True,
+            variadic_outputs=True,
+            input_ports=[],
+            output_ports=[],
+        )
+        reg = _registry_from_specs(spec)
+
+        wf = WorkflowDefinition(
+            nodes=[
+                NodeDef(
+                    id="A",
+                    block_type="app_block_test",
+                    config={
+                        "output_ports": [
+                            {"name": "images", "types": ["DataObject"], "extension": "tif"},
+                            {"name": "masks", "types": ["DataObject"], "extension": "tif"},
+                        ]
+                    },
+                )
+            ],
+        )
+        errors = validate_workflow(wf, registry=reg)
+        dup_errors = [e for e in errors if "Duplicate extension" in e]
+        assert len(dup_errors) == 1
+        assert "'tif'" in dup_errors[0]
+        assert "images" in dup_errors[0]
+        assert "masks" in dup_errors[0]
+
+    def test_duplicate_extension_is_case_insensitive(self) -> None:
+        spec = BlockSpec(
+            name="app_block_case",
+            variadic_inputs=True,
+            variadic_outputs=True,
+        )
+        reg = _registry_from_specs(spec)
+
+        wf = WorkflowDefinition(
+            nodes=[
+                NodeDef(
+                    id="A",
+                    block_type="app_block_case",
+                    config={
+                        "output_ports": [
+                            {"name": "images", "types": ["DataObject"], "extension": "TIF"},
+                            {"name": "masks", "types": ["DataObject"], "extension": ".tif"},
+                        ]
+                    },
+                )
+            ],
+        )
+        errors = validate_workflow(wf, registry=reg)
+        dup_errors = [e for e in errors if "Duplicate extension" in e]
+        assert len(dup_errors) == 1
+
+    def test_distinct_extensions_pass(self) -> None:
+        spec = BlockSpec(
+            name="app_block_ok",
+            variadic_inputs=True,
+            variadic_outputs=True,
+        )
+        reg = _registry_from_specs(spec)
+
+        wf = WorkflowDefinition(
+            nodes=[
+                NodeDef(
+                    id="A",
+                    block_type="app_block_ok",
+                    config={
+                        "output_ports": [
+                            {"name": "images", "types": ["DataObject"], "extension": "tif"},
+                            {"name": "tables", "types": ["DataObject"], "extension": "csv"},
+                        ]
+                    },
+                )
+            ],
+        )
+        errors = validate_workflow(wf, registry=reg)
+        dup_errors = [e for e in errors if "Duplicate extension" in e]
+        assert dup_errors == []
+
+    def test_duplicate_extension_under_params_envelope(self) -> None:
+        """#690 audit fix: the frontend writes ``output_ports`` under
+        ``config.params.output_ports`` (the :class:`BlockConfig` two-tier
+        layout). Check 8 must read from that nested path so real configs
+        produced by the port editor are validated, not silently skipped.
+        """
+        spec = BlockSpec(
+            name="app_block_params",
+            variadic_inputs=True,
+            variadic_outputs=True,
+            input_ports=[],
+            output_ports=[],
+        )
+        reg = _registry_from_specs(spec)
+
+        wf = WorkflowDefinition(
+            nodes=[
+                NodeDef(
+                    id="A",
+                    block_type="app_block_params",
+                    config={
+                        "params": {
+                            "output_ports": [
+                                {"name": "images", "types": ["DataObject"], "extension": "tif"},
+                                {"name": "masks", "types": ["DataObject"], "extension": "tif"},
+                            ]
+                        }
+                    },
+                )
+            ],
+        )
+        errors = validate_workflow(wf, registry=reg)
+        dup_errors = [e for e in errors if "Duplicate extension" in e]
+        assert len(dup_errors) == 1
+        assert "'tif'" in dup_errors[0]
+        assert "images" in dup_errors[0]
+        assert "masks" in dup_errors[0]
+
+    def test_non_variadic_block_skips_extension_check(self) -> None:
+        spec = BlockSpec(
+            name="static_block",
+            variadic_inputs=False,
+            variadic_outputs=False,
+        )
+        reg = _registry_from_specs(spec)
+
+        wf = WorkflowDefinition(
+            nodes=[
+                NodeDef(
+                    id="A",
+                    block_type="static_block",
+                    config={
+                        "output_ports": [
+                            {"name": "a", "extension": "tif"},
+                            {"name": "b", "extension": "tif"},
+                        ]
+                    },
+                )
+            ],
+        )
+        errors = validate_workflow(wf, registry=reg)
+        dup_errors = [e for e in errors if "Duplicate extension" in e]
+        assert dup_errors == []

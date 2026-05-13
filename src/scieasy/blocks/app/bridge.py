@@ -102,9 +102,14 @@ class FileExchangeBridge:
         parts = validate_app_command(command)
         trailing = argv_override if argv_override is not None else [str(exchange_dir)]
         cmd = [*parts, *trailing]
-        # macOS .app bundles must be launched via `open -a` (#483).
+        # macOS .app bundles must be launched via `open` (#483).
+        # Use ``-W`` so ``open`` blocks until the launched .app exits — the
+        # returned ``Popen`` then tracks the .app's lifetime instead of the
+        # short-lived ``open`` launcher (#677). ``-n`` forces a fresh
+        # instance so the watcher is keyed to the new process and we do not
+        # accidentally wait on an unrelated existing window.
         if sys.platform == "darwin" and cmd[0].endswith(".app"):
-            cmd = ["open", "-a", cmd[0], "--args", *cmd[1:]]
+            cmd = ["open", "-W", "-n", "-a", cmd[0], "--args", *cmd[1:]]
         return subprocess.Popen(
             cmd,
             cwd=str(exchange_dir),

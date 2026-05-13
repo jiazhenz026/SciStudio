@@ -21,13 +21,31 @@ const JSON_HEADERS = {
   "Content-Type": "application/json",
 };
 
+/**
+ * Error thrown by `apiFetch` for non-2xx responses. Exposes the HTTP status
+ * code so callers can branch on it (e.g. fall back on 500 but not on 504).
+ * See issue #678.
+ */
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init);
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({ detail: response.statusText }))) as {
       detail?: string;
     };
-    throw new Error(payload.detail ?? `Request failed with ${response.status}`);
+    throw new ApiError(
+      payload.detail ?? `Request failed with ${response.status}`,
+      response.status,
+    );
   }
   if (response.status === 204) {
     return undefined as T;

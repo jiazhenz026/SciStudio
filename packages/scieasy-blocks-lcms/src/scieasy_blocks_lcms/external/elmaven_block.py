@@ -189,7 +189,13 @@ def _run_external_app(
 
 
 def _collect_elmaven_outputs(output_files: list[Path]) -> dict[str, Collection]:
-    """Classify and load exported files into typed output collections."""
+    """Classify and load exported files into typed output collections.
+
+    .. deprecated:: 2026-04 (issue #680)
+       Replaced by ``AppBlock._bin_outputs_by_extension``. The function is
+       retained as a deprecated import for backwards compatibility with
+       existing test imports; ``ElMAVENBlock.run()`` no longer calls it.
+    """
     peak_tables: list[PeakTable] = []
     mid_tables: list[MIDTable] = []
     for file_path in output_files:
@@ -217,6 +223,12 @@ def _classify_export(path: Path) -> str:
 
     Heuristic: MID tables have a column named ``C13`` or ``H2`` in the
     header row; peak tables typically have ``medMz`` / ``mz`` instead.
+
+    .. deprecated:: 2026-04 (issue #680)
+       Routing is now driven by user-declared port extensions on the
+       AppBlock; this column-header heuristic is no longer used by
+       ``ElMAVENBlock.run()``. Retained for backwards compatibility with
+       existing test imports.
     """
     import pandas as pd
 
@@ -332,14 +344,38 @@ class ElMAVENBlock(_LCMSBlockMixin, AppBlock):
 
         # 5. Launch and wait (shared helper manages state transitions).
         # Pass raw file paths as positional args so ElMAVEN loads them on launch.
+        # Issue #680: broaden watcher patterns to cover each declared extension.
+        patterns = list(self.output_patterns)
+        configured_ports = config.get("output_ports") or []
+        if isinstance(configured_ports, list):
+            for entry in configured_ports:
+                if isinstance(entry, dict) and entry.get("extension"):
+                    ext = str(entry["extension"]).strip().lstrip(".").lower()
+                    if ext and f"*.{ext}" not in patterns:
+                        patterns.append(f"*.{ext}")
         output_files = _run_external_app(
             self,
             command=command,
             exchange_dir=exchange_dir,
-            patterns=self.output_patterns,
+            patterns=patterns,
             config=config,
             launch_args=raw_paths,
         )
 
-        # 6. Classify and load outputs.
-        return _collect_elmaven_outputs(output_files)
+        # 6. Route output files into user-declared ports by extension
+        # (issue #680). The legacy column-header heuristic
+        # (``_collect_elmaven_outputs`` / ``_classify_export``) has been
+        # replaced by the generic binner — users declare peak_table vs
+        # mid_table ports with distinct extensions in the port editor.
+        if config.get("output_ports"):
+            return self._bin_outputs_by_extension(output_files, config)
+        # Backwards-compatible fallback: wrap every exported file as an
+        # Artifact under ``peak_table`` until the user opens the port
+        # editor and declares extensions.
+        from scieasy.blocks.app.bridge import _guess_mime
+        from scieasy.core.types.artifact import Artifact
+
+        artifacts = [Artifact(file_path=p, mime_type=_guess_mime(p), description=p.name) for p in output_files]
+        if not artifacts:
+            return {}
+        return {"peak_table": Collection(artifacts, item_type=Artifact)}

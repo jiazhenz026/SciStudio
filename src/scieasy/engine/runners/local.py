@@ -157,12 +157,20 @@ class LocalRunner:
         block_id = getattr(block, "id", block_class_path)
         output_dir = _derive_output_dir(block, config)
 
+        # #706: For Tier-1 drop-in blocks, the registry stamps the source
+        # ``.py`` file path on the class so the worker can reload the module
+        # (the synthetic ``_scieasy_dropin_*`` module name only exists in the
+        # parent process's ``sys.modules``). Tier-2 / builtin block classes
+        # do not have this attribute and use the normal import path.
+        block_file_path = getattr(block.__class__, "_scieasy_file_path", None)
+
         # Build the serialized payload for the worker subprocess.
         payload_bytes = build_worker_payload(
             block_class=block_class_path,
             inputs_refs=inputs,
             config=config,
             output_dir=output_dir,
+            block_file_path=block_file_path,
         )
 
         # Launch via asyncio.create_subprocess_exec to avoid os.fork()
@@ -218,10 +226,41 @@ class LocalRunner:
         if stdout:
             try:
                 parsed = json.loads(stdout.decode())
-                # Worker wraps outputs as {"outputs": {...}}. Unwrap the
-                # envelope so callers see port names at the top level.
+                # Worker wraps outputs as {"outputs": {...}, "environment": {...},
+                # "final_state": "<state>"?}. Unwrap the envelope so callers see
+                # port names at the top level.
                 if isinstance(parsed, dict) and "outputs" in parsed:
-                    return dict(parsed["outputs"])
+                    outputs_dict = dict(parsed["outputs"])
+                    # #681: when the worker reports a non-DONE terminal state
+                    # (block called ``self.transition()`` from inside ``run()``),
+                    # raise the typed exception so the scheduler's existing
+                    # exception path can finalise the block to that state.
+                    final_state_raw = parsed.get("final_state")
+                    if isinstance(final_state_raw, str):
+                        from scieasy.blocks.base.state import BlockState
+                        from scieasy.engine.runners.terminal_state import (
+                            BlockTerminalStateReportedError,
+                        )
+
+                        try:
+                            reported = BlockState(final_state_raw)
+                        except ValueError:
+                            logger.warning(
+                                "Worker reported unknown final_state %r for block %s",
+                                final_state_raw,
+                                block_id,
+                            )
+                        else:
+                            if reported in (
+                                BlockState.CANCELLED,
+                                BlockState.ERROR,
+                                BlockState.SKIPPED,
+                            ):
+                                raise BlockTerminalStateReportedError(
+                                    state=reported,
+                                    outputs=outputs_dict,
+                                )
+                    return outputs_dict
                 return dict(parsed)
             except (json.JSONDecodeError, UnicodeDecodeError) as exc:
                 raise RuntimeError(f"Failed to parse worker output: {exc}") from exc

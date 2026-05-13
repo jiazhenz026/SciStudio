@@ -255,24 +255,39 @@ scieasy/                               # ← repo root
 │       │
 │       │ ── Layer 4: AI Services ─────────────────────────────────
 │       │
-│       ├── ai/
+│       ├── ai/                         # Layer 4 — embedded coding agent (ADR-033)
 │       │   ├── __init__.py
 │       │   │
-│       │   ├── generation/             # AI-driven code generation
-│       │   │   ├── __init__.py
-│       │   │   ├── block_generator.py  # Generate any of the 5 block types from NL description
-│       │   │   ├── type_generator.py   # Generate new DataObject subtypes from NL description
-│       │   │   ├── validator.py        # Validation pipeline: static analysis → dry run →
-│       │   │   │                       #   port contract check → user review
-│       │   │   └── templates.py        # Prompt templates for each block/type category
-│       │   │
-│       │   ├── synthesis/              # Workflow synthesis
-│       │   │   ├── __init__.py
-│       │   │   └── workflow_planner.py # Given data description + goal → propose DAG
-│       │   │
-│       │   └── optimization/           # Runtime parameter optimization
+│       │   └── agent/                   # Subprocess-based agent runtime + MCP server
 │       │       ├── __init__.py
-│       │       └── param_optimizer.py  # Observe intermediate results → suggest/apply param changes
+│       │       ├── provider.py          # AgentProvider Protocol; ProviderStatus dataclass
+│       │       ├── claude_code.py       # ClaudeCodeProvider — wraps `claude` CLI
+│       │       ├── codex.py             # CodexProvider — wraps OpenAI `codex` CLI (Phase 4)
+│       │       ├── binary_discovery.py  # Cross-platform 8-fallback search (incl. Windows registry)
+│       │       ├── session.py           # AgentSession + SessionManager (cap=5 per project)
+│       │       ├── stream_json.py       # NDJSON parser for `--output-format stream-json`
+│       │       ├── system_prompt.py     # Three-tier prompt composition (builtin/project/local)
+│       │       ├── permission.py        # PreToolUse hook bridge — strict / bypass policy
+│       │       ├── transcript.py        # Write-through snapshot to {project}/.scieasy/sessions/
+│       │       └── mcp/                 # In-process MCP server (~25 tools, ADR-033 D2)
+│       │           ├── __init__.py
+│       │           ├── server.py        # Server scaffold + stdio transport
+│       │           ├── tools_workflow.py     # Category (a): list_blocks, get_block_schema,
+│       │           │                          #   list_types, get_workflow, validate_workflow,
+│       │           │                          #   write_workflow, run_workflow, cancel_run,
+│       │           │                          #   get_run_status
+│       │           ├── tools_authoring.py    # Category (b): read_block_source,
+│       │           │                          #   list_block_examples, scaffold_block,
+│       │           │                          #   reload_blocks, run_block_tests
+│       │           ├── tools_inspection.py   # Category (c): get_block_output, inspect_data,
+│       │           │                          #   preview_data, get_lineage, get_block_config,
+│       │           │                          #   update_block_config, get_block_logs
+│       │           └── tools_qa.py            # Category (d): search_docs, get_doc, list_data,
+│       │                                      #   get_project_info
+│       │
+│       │   # Deprecated by ADR-033 (deleted in Phase 4):
+│       │   #   generation/ synthesis/ optimization/ config.py
+│       │   # — single-call LLM pipelines superseded by the agent + MCP tools.
 │       │
 │       │
 │       │ ── Layer 5: API ─────────────────────────────────────────
@@ -295,7 +310,8 @@ scieasy/                               # ← repo root
 │       │   │   │                       #   + per-block cancel endpoint (ADR-018)
 │       │   │   ├── blocks.py           # GET /api/blocks (palette), validate-connection
 │       │   │   ├── data.py             # Upload, metadata, preview /api/data
-│       │   │   ├── ai.py               # POST /api/ai/generate-block, suggest-workflow, optimize
+│       │   │   ├── ai.py               # WS /api/ai/chat/{chat_id}, GET /api/ai/status,
+│       │   │   │                       #   POST /api/ai/permission-{check,decision} (ADR-033)
 │       │   │   └── projects.py         # Project CRUD, workspace management
 │       │   │
 │       │   ├── ws.py                   # WebSocket handler: bidirectional event routing (ADR-018)
@@ -489,10 +505,14 @@ scieasy/                               # ← repo root
 │   │   ├── test_process_monitor.py    # Death detection, event emission (ADR-019)
 │   │   └── test_events.py            # EventBus emit/subscribe, error isolation (ADR-018)
 │   │
-│   ├── ai/
-│   │   ├── test_block_generator.py    # Generate all 5 block types, validation pipeline
-│   │   ├── test_type_generator.py     # Generate DataObject subtypes, slot declarations
-│   │   └── test_workflow_planner.py   # Workflow synthesis from NL description
+│   ├── ai/                            # ADR-033 agent runtime + MCP server tests
+│   │   ├── test_agent_provider.py     # AgentProvider protocol, binary discovery, ProviderStatus
+│   │   ├── test_claude_code.py        # ClaudeCodeProvider — subprocess spawn, stream-json parse
+│   │   ├── test_session_manager.py    # SessionManager — concurrency cap, persistence
+│   │   ├── test_system_prompt.py      # Three-tier composition, builtin content sanity
+│   │   ├── test_permission.py         # Hook bridge — strict, bypass, ask flow
+│   │   ├── test_transcript.py         # Write-through snapshot semantics
+│   │   └── test_mcp_tools.py          # All ~25 MCP tools — happy path + error cases
 │   │
 │   ├── api/
 │   │   ├── test_workflow_routes.py    # REST CRUD, execute, pause, resume
@@ -676,7 +696,7 @@ srs = "scieasy_blocks_srs.types:get_types"     # → [SRSImage]
 | `core/` | 15 | Data types, Collection transport, storage, proxy, lineage |
 | `blocks/` | 30 | All block categories, IO loaders/savers (ADR-028), code runners, registry, lazy_list (process_mgr.py deleted per ADR-019, lazy_list.py added per ADR-020, io/adapters/ + adapter_registry.py deleted per ADR-028 §D2/§D4) |
 | `engine/` | 10 | Scheduler, resources, checkpoint, events, runners (worker, process_handle, process_monitor, platform) |
-| `ai/` | 6 | Generation, synthesis, optimization |
+| `ai/` | ~14 | Embedded coding agent — provider/session/stream-json/permission/transcript + in-process MCP server with ~25 tools (ADR-033). Old generation/synthesis/optimization modules deleted. |
 | `api/` | 10 | FastAPI routes, WebSocket, SSE, SPA fallback (ADR-024) |
 | `workflow/` | 4 | Definition, serialization, validation, layout |
 | `utils/` | 3 | Hashing, wrapping, logging |

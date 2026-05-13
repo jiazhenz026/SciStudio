@@ -273,3 +273,101 @@ class ErrorResponse(BaseModel):
 
     detail: str
     error_code: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Embedded coding agent (ADR-033 / T-ECA-107) — new schemas.
+# Added in addition to the legacy ``AIGenerateBlockRequest`` etc. above;
+# legacy POST endpoints are deleted in Phase 4, not here.
+# ---------------------------------------------------------------------------
+
+
+class ProviderStatusItem(BaseModel):
+    """One provider's discovery result, as returned by ``GET /api/ai/status``."""
+
+    name: str
+    available: bool
+    binary_path: str | None = None
+    version: str | None = None
+    logged_in: bool = False
+    install_hint: str | None = None
+
+
+class ProviderStatusResponse(BaseModel):
+    """Response body for ``GET /api/ai/status``."""
+
+    providers: list[ProviderStatusItem] = Field(default_factory=list)
+
+
+class ChatClientMessage(BaseModel):
+    """Inbound WebSocket message on ``/api/ai/chat/{chat_id}``.
+
+    The protocol mirrors ADR-033 §3 D5.2. ``user_message`` and
+    ``cancel`` are handled in Phase 1 (T-ECA-107);
+    ``permission_decision`` is wired in by T-ECA-110 and is accepted
+    here for forward compatibility only — Phase 1 routes ignore it.
+    """
+
+    type: str
+    content: str | None = None
+    request_id: str | None = None
+    decision: str | None = None
+
+
+class AgentEventEnvelope(BaseModel):
+    """Outbound WebSocket envelope wrapping a canonical ``AgentEvent``."""
+
+    type: str = "agent_event"
+    event: dict[str, Any] = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
+# T-ECA-110 — permission backend schemas.
+# Both REST endpoints (``POST /api/ai/permission-check`` and
+# ``POST /api/ai/permission-decision``) use these. The WS
+# ``permission_decision`` message reuses :class:`ChatClientMessage`
+# above (which already carries ``request_id`` + ``decision`` fields).
+# ---------------------------------------------------------------------------
+
+
+class PermissionCheckRequest(BaseModel):
+    """Inbound payload for ``POST /api/ai/permission-check``.
+
+    The ``scieasy hook-bridge`` CLI forwards CC's PreToolUse hook input
+    here verbatim, plus the ``chat_id`` it inherits from the session's
+    env. Only the four fields below are read; any extras the hook
+    payload carries (``transcript_path``, ``permission_mode``, ...) are
+    ignored.
+    """
+
+    chat_id: str
+    tool_name: str
+    tool_input: dict[str, Any] = Field(default_factory=dict)
+    project_dir: str | None = None
+
+
+class PermissionCheckResponse(BaseModel):
+    """Outbound payload for ``POST /api/ai/permission-check``.
+
+    ``action`` is ``"approve"`` or ``"deny"``; ``reason`` is populated on
+    deny (e.g. ``"timed_out"``, ``"user_denied"``, free-form text the
+    bridge then prints to stderr).
+    """
+
+    action: str
+    reason: str | None = None
+    request_id: str | None = None
+
+
+class PermissionDecisionRequest(BaseModel):
+    """Inbound payload for ``POST /api/ai/permission-decision``.
+
+    The frontend sends this when the user clicks Approve / Deny in the
+    permission UI. The WS ``permission_decision`` message has the same
+    semantic content but reuses :class:`ChatClientMessage`.
+    """
+
+    chat_id: str
+    request_id: str
+    decision: str  # "approve" | "deny"
+    reason: str | None = None

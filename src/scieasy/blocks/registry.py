@@ -8,6 +8,7 @@ workflow instances.
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import importlib.metadata
 import importlib.util
@@ -259,7 +260,29 @@ class BlockRegistry:
                             and issubclass(obj, Block)
                             and obj is not Block
                             and not inspect.isabstract(obj)
+                            # #706 audit: ``dir(module)`` also surfaces Block
+                            # subclasses *imported* from other modules (e.g.
+                            # ``from scieasy.blocks.code import CodeBlock``).
+                            # Stamping or re-registering those would make the
+                            # worker try to spec_from_file_location the wrong
+                            # source. Restrict the loop body to classes that
+                            # are actually defined in this drop-in file.
+                            and getattr(obj, "__module__", None) == module.__name__
                         ):
+                            # #706: stamp the source-file path on the class so the
+                            # worker subprocess can reload the synthetic module via
+                            # importlib.util.spec_from_file_location (the synthetic
+                            # mod_name only exists in the parent's sys.modules).
+                            # Only Tier-1 drop-in classes get this attribute;
+                            # Tier-2 entry-point blocks remain importable via the
+                            # normal importlib.import_module path.
+                            # Defensive: if the class disallows attribute
+                            # assignment (e.g. __slots__ without the slot),
+                            # fall through; the worker will then fail loudly
+                            # with the original ModuleNotFoundError rather
+                            # than silently mis-dispatching.
+                            with contextlib.suppress(AttributeError, TypeError):
+                                obj._scieasy_file_path = str(py_file)  # type: ignore[attr-defined]
                             block_spec = _spec_from_class(obj, source="tier1")
                             block_spec.file_path = str(py_file)
                             block_spec.file_mtime = mtime
@@ -487,6 +510,13 @@ class BlockRegistry:
             module = importlib.import_module(spec.module_path)
 
         cls = getattr(module, spec.class_name)
+        # #706: this is a *fresh* class object (re-imported from the file) so
+        # the stamp set during _scan_tier1 is on the prior class object. Re-
+        # stamp here so LocalRunner can read _scieasy_file_path from the class
+        # of the instance it is about to dispatch.
+        if spec.file_path:
+            with contextlib.suppress(AttributeError, TypeError):
+                cls._scieasy_file_path = spec.file_path
         return cls(config=config)
 
     def hot_reload(self) -> None:

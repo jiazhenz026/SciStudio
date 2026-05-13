@@ -85,7 +85,7 @@ class SplitBlock(ProcessBlock):
                 raise ValueError("Filter mode requires 'column' and 'value' in config")
             import pyarrow.compute as pc
 
-            mask = pc.equal(data.column(column), pa.scalar(value))
+            mask = pc.equal(data.column(column), pa.scalar(value))  # type: ignore[attr-defined]  # see #685
             filtered = data.filter(mask)
             result = _persist_arrow_result(filtered)
             return {"out": Collection([result], item_type=DataFrame)}

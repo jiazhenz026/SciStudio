@@ -1,4 +1,12 @@
-"""Tests for interactive imaging AppBlocks using fake external tools."""
+"""Tests for interactive imaging AppBlocks using fake external tools.
+
+Issue #680: per-plugin output classification heuristics
+(``_collect_outputs`` / ``_guess_output_port``) were removed in favour of
+the generic extension-based binner on ``AppBlock``. These tests now assert
+that output files are wrapped as :class:`Artifact` instances and routed
+into the user-declared output ports (or the fallback ``image`` port when
+no ports are declared).
+"""
 
 from __future__ import annotations
 
@@ -12,6 +20,7 @@ from scieasy_blocks_imaging.types import Image
 
 from scieasy.blocks.base.config import BlockConfig
 from scieasy.blocks.base.state import BlockState
+from scieasy.core.types.artifact import Artifact
 from scieasy.core.types.collection import Collection
 
 
@@ -59,7 +68,8 @@ shutil.copyfile(tiff_path, output_dir / "image_reviewed.tif")
 
     assert "image" in result
     assert result["image"].length == 1
-    assert result["image"][0].shape == image.shape
+    assert isinstance(result["image"][0], Artifact)
+    assert result["image"][0].file_path is not None
 
 
 def test_fiji_block_passes_staged_tiff_paths_to_fiji_when_no_macro(tmp_path: Path) -> None:
@@ -185,11 +195,12 @@ from pathlib import Path
 import shutil
 import sys
 
-exchange = Path(sys.argv[-1])
-source = next((exchange / "inputs").glob("*.tif"))
-target = exchange / "outputs" / "image_layer.tif"
-target.parent.mkdir(exist_ok=True)
-shutil.copyfile(source, target)
+# NapariBlock passes the staged TIFF path as the trailing arg
+# (consistent with FijiBlock #420).
+tiff_path = Path(sys.argv[-1])
+output_dir = tiff_path.parent.parent / "outputs"
+output_dir.mkdir(exist_ok=True)
+shutil.copyfile(tiff_path, output_dir / "image_layer.tif")
 """.strip(),
     )
     block = _make_running(NapariBlock())
@@ -202,4 +213,52 @@ shutil.copyfile(source, target)
 
     assert "image" in result
     assert result["image"].length == 1
-    assert result["image"][0].shape == image.shape
+    assert isinstance(result["image"][0], Artifact)
+    assert result["image"][0].file_path is not None
+
+
+def test_fiji_block_routes_outputs_into_user_declared_ports_by_extension(tmp_path: Path) -> None:
+    """Issue #680: when the user declares output_ports with extensions, the
+    binner routes saved files into those ports — bypassing the legacy
+    fallback path. Verify FijiBlock end-to-end with a user-defined port set.
+    """
+    script = _write_fake_tool(
+        tmp_path,
+        """
+from pathlib import Path
+import shutil
+import sys
+
+# Save a .tif AND a .csv to outputs/.
+tiff_path = Path(sys.argv[-1])
+out = tiff_path.parent.parent / "outputs"
+out.mkdir(exist_ok=True)
+shutil.copyfile(tiff_path, out / "result.tif")
+(out / "summary.csv").write_text("col\\n1\\n", encoding="utf-8")
+""".strip(),
+    )
+    block = _make_running(FijiBlock())
+    image = _make_image(np.arange(16, dtype=np.uint8).reshape(4, 4))
+
+    result = block.run(
+        {"image": Collection(items=[image], item_type=Image)},
+        BlockConfig(
+            params={
+                "app_command": [sys.executable, str(script)],
+                "watch_timeout": 5,
+                "output_patterns": ["*.tif", "*.csv"],
+                "output_ports": [
+                    {"name": "images", "types": ["DataObject"], "extension": "tif"},
+                    {"name": "tables", "types": ["DataObject"], "extension": "csv"},
+                ],
+            }
+        ),
+    )
+
+    assert set(result.keys()) == {"images", "tables"}
+    assert result["images"].length == 1
+    assert result["tables"].length == 1
+    assert isinstance(result["images"][0], Artifact)
+    assert result["images"][0].file_path is not None
+    assert result["images"][0].file_path.suffix.lower() == ".tif"
+    assert result["tables"][0].file_path.suffix.lower() == ".csv"

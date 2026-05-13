@@ -362,11 +362,13 @@ public static class FolderPicker {
             f"$d.InitialDirectory = '{initial_dir or ''}';"
             "if ($d.ShowDialog() -eq 'OK') { ($d.FileNames -join '|') } else { '' }"
         )
+    # No timeout: this is a desktop-local server and the user may legitimately
+    # spend an arbitrary amount of time browsing the dialog (#678).
     result = subprocess.run(
         ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=None,
     )
     selected = result.stdout.strip()
     if not selected:
@@ -402,11 +404,13 @@ def _native_dialog_macos(
             )
         else:
             script = 'choose file with prompt "Select File" with multiple selections allowed'
+    # No timeout: this is a desktop-local server and the user may legitimately
+    # spend an arbitrary amount of time browsing the dialog (#678).
     result = subprocess.run(
         ["osascript", "-e", script],
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=None,
     )
     selected = result.stdout.strip()
     if not selected:
@@ -454,7 +458,9 @@ def _native_dialog_linux(
         cmd.extend(["--separator", "|"])
     if initial_dir:
         cmd.extend(["--filename", initial_dir + "/"])
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    # No timeout: this is a desktop-local server and the user may legitimately
+    # spend an arbitrary amount of time browsing the dialog (#678).
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=None)
     selected = result.stdout.strip()
     if not selected:
         return []

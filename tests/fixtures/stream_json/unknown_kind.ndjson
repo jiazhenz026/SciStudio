@@ -1,0 +1,3 @@
+{"kind":"init","session_id":"sess-abc-002"}
+{"kind":"synthetic_unknown","payload":{"some":"data"}}
+{"kind":"done"}

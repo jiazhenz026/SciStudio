@@ -37,3 +37,61 @@ def test_launch_uses_argv_override_when_provided(tmp_path: Path) -> None:
     args_used = mock_popen.call_args[0][0]
     assert args_used[-2:] == override
     assert str(exchange) not in args_used
+
+
+def test_launch_macos_app_bundle_uses_open_w_and_n(tmp_path: Path) -> None:
+    """On darwin, launching a .app must use ``open -W -n -a`` (#677).
+
+    ``-W`` makes ``open`` block until the .app exits so the returned
+    ``Popen`` tracks the .app's lifetime (otherwise the watcher would
+    immediately see the launcher die and raise
+    ``ProcessExitedWithoutOutputError``). ``-n`` forces a new instance
+    so the launched process is the one the watcher is keyed to.
+    """
+    bridge = FileExchangeBridge()
+    exchange = tmp_path / "exchange"
+    exchange.mkdir()
+    fake_app = "/Applications/Fiji.app"
+
+    with (
+        patch.object(sys, "platform", "darwin"),
+        patch("scieasy.blocks.app.bridge.subprocess.Popen") as mock_popen,
+        # validate_app_command rejects nonexistent executables; bypass it
+        # so we can assert the macOS-specific argv rewrite in isolation.
+        patch("scieasy.blocks.app.command_validator.validate_app_command", return_value=[fake_app]),
+    ):
+        mock_popen.return_value = mock_popen
+        bridge.launch(fake_app, exchange)
+
+    args_used = mock_popen.call_args[0][0]
+    assert args_used[0] == "open"
+    assert "-W" in args_used, f"expected -W flag in argv: {args_used}"
+    assert "-n" in args_used, f"expected -n flag in argv: {args_used}"
+    # ``-a <app>`` must follow so ``open`` resolves the .app bundle.
+    assert "-a" in args_used
+    a_index = args_used.index("-a")
+    assert args_used[a_index + 1] == fake_app
+    # The .app path itself must not be the executable — that would
+    # bypass ``open`` and cause the regression in #677.
+    assert args_used[0] != fake_app
+
+
+def test_launch_non_darwin_does_not_inject_open(tmp_path: Path) -> None:
+    """On non-darwin platforms, the .app rewrite must not fire (#677)."""
+    bridge = FileExchangeBridge()
+    exchange = tmp_path / "exchange"
+    exchange.mkdir()
+    fake_app = "/some/path/Tool.app"
+
+    with (
+        patch.object(sys, "platform", "linux"),
+        patch("scieasy.blocks.app.bridge.subprocess.Popen") as mock_popen,
+        patch("scieasy.blocks.app.command_validator.validate_app_command", return_value=[fake_app]),
+    ):
+        mock_popen.return_value = mock_popen
+        bridge.launch(fake_app, exchange)
+
+    args_used = mock_popen.call_args[0][0]
+    assert args_used[0] == fake_app
+    assert "open" not in args_used
+    assert "-W" not in args_used

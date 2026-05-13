@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
-from scieasy.blocks.app.bridge import FileExchangeBridge
+from scieasy.blocks.app.bridge import FileExchangeBridge, _guess_mime
 from scieasy.blocks.app.command_validator import validate_app_command
 from scieasy.blocks.base.block import Block
 from scieasy.blocks.base.config import BlockConfig
@@ -17,6 +18,22 @@ from scieasy.blocks.base.state import BlockState, ExecutionMode
 from scieasy.core.types.artifact import Artifact
 from scieasy.core.types.base import DataObject
 from scieasy.core.types.collection import Collection
+
+logger = logging.getLogger(__name__)
+
+
+def _normalize_extension(raw: Any) -> str:
+    """Lowercase, strip leading dots, return ``""`` for null/empty inputs.
+
+    Used by both the binner and the duplicate-extension validator so the
+    matching rule is identical at config-save time and at runtime.
+    """
+    if raw is None:
+        return ""
+    text = str(raw).strip()
+    while text.startswith("."):
+        text = text[1:]
+    return text.lower()
 
 
 class _PopenProcessAdapter:
@@ -57,6 +74,13 @@ class AppBlock(Block):
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.EXTERNAL
     output_patterns: ClassVar[list[str]] = ["*"]
     terminate_grace_sec: ClassVar[float] = 10.0
+
+    # Issue #680: AppBlock ports are user-configurable via the port editor.
+    # The ClassVar values below act as default scaffolds — subclasses may
+    # override them, and any user can replace them at config time through
+    # the port editor (ADR-029).
+    variadic_inputs: ClassVar[bool] = True
+    variadic_outputs: ClassVar[bool] = True
 
     name: ClassVar[str] = "App Block"
     description: ClassVar[str] = "Delegate work to an external GUI application"
@@ -106,6 +130,9 @@ class AppBlock(Block):
                 "ui_widget": "port_editor",
                 "ui_priority": 10,
             },
+            # Issue #680: each output port entry carries an additional
+            # ``extension`` field (string, no leading dot, case-insensitive)
+            # that the runtime uses to bin saved files into ports.
             "output_ports": {
                 "type": "array",
                 "items": {
@@ -113,7 +140,9 @@ class AppBlock(Block):
                     "properties": {
                         "name": {"type": "string"},
                         "types": {"type": "array", "items": {"type": "string"}},
+                        "extension": {"type": "string"},
                     },
+                    "required": ["name", "extension"],
                 },
                 "default": [],
                 "title": "Output Ports",
@@ -124,12 +153,147 @@ class AppBlock(Block):
         "required": ["app_command"],
     }
 
+    # ------------------------------------------------------------------
+    # Issue #680: extension-based output binning
+    # ------------------------------------------------------------------
+
+    def _output_port_extensions(self, config: BlockConfig) -> dict[str, str]:
+        """Return ``{port_name: normalized_extension}`` from the configured output ports.
+
+        Reads ``config["output_ports"]`` (the user-edited list of port dicts),
+        normalises each ``extension`` value (lowercased, leading dots stripped)
+        and returns the resulting mapping.  Falls back to an empty dict when
+        the user has not declared any output ports — callers treat that as
+        "use legacy bridge.collect() behaviour".
+        """
+        configured = config.get("output_ports")
+        if not configured or not isinstance(configured, list):
+            return {}
+        mapping: dict[str, str] = {}
+        for entry in configured:
+            if not isinstance(entry, dict):
+                continue
+            name = str(entry.get("name", "")).strip()
+            if not name:
+                continue
+            mapping[name] = _normalize_extension(entry.get("extension"))
+        return mapping
+
+    def _bin_outputs_by_extension(
+        self,
+        output_files: list[Path],
+        config: BlockConfig,
+    ) -> dict[str, Collection]:
+        """Bin *output_files* into the configured output ports by file extension.
+
+        Issue #680 routing rules (case-insensitive):
+
+        - A file whose suffix matches a port's declared ``extension`` is
+          appended to that port's Collection (typed as the first entry of
+          ``port.accepted_types``).
+        - A required port that receives zero files raises ``ValueError``.
+        - A file whose extension matches no port emits a warning log and
+          is otherwise ignored.
+
+        Returns a dict mapping each declared port name (regardless of
+        whether it received any files — empty optional ports get an empty
+        Collection) to its Collection of :class:`Artifact` instances.
+
+        Effective output ports are resolved from *config* first (so that
+        run-time ``config["output_ports"]`` always wins) and only fall back
+        to ``self.get_effective_output_ports()`` when the runtime config
+        does not specify any.  This keeps the binner usable both from
+        scheduler-driven runs (where ``self.config`` mirrors the node
+        config) and from direct ``block.run(config=...)`` test harnesses.
+        """
+        from scieasy.blocks.base.ports import ports_from_config_dicts
+
+        config_ports = config.get("output_ports")
+        ports: list[OutputPort]
+        if config_ports and isinstance(config_ports, list):
+            # ports_from_config_dicts returns list[InputPort] | list[OutputPort];
+            # we requested direction="output" so the runtime type is list[OutputPort].
+            ports = cast(list[OutputPort], list(ports_from_config_dicts(config_ports, "output")))
+        else:
+            ports = self.get_effective_output_ports()
+        if not ports:
+            return {}
+
+        port_extensions = self._output_port_extensions(config)
+        ext_to_port: dict[str, OutputPort] = {}
+        for port in ports:
+            ext = port_extensions.get(port.name, "")
+            if not ext:
+                # Port was declared in the editor but its extension field is
+                # empty; treat it as unmatched. Required ports will raise
+                # below, optional ports stay empty.
+                continue
+            ext_to_port[ext] = port
+
+        # #690 audit fix: determine the typed item class per port up front so
+        # that constructed items satisfy ``Collection.item_type`` homogeneity.
+        # ``port.accepted_types`` holds resolved Python classes (see
+        # ``ports_from_config_dicts``). Only ``Artifact`` and its subclasses
+        # share the file-path constructor signature; for any other declared
+        # type (Array/Image/PeakTable/etc.) we fall back to ``Artifact`` and
+        # warn, because we cannot construct those from just a file path.
+        port_item_types: dict[str, type] = {}
+        for port in ports:
+            declared = port.accepted_types[0] if port.accepted_types else Artifact
+            if isinstance(declared, type) and issubclass(declared, Artifact):
+                port_item_types[port.name] = declared
+            else:
+                # Fall back to Artifact for types we cannot construct from
+                # only a file path (Array/Image require axes; plugin types
+                # generally need more than a path). The output is still
+                # "loadable but not yet structured" — downstream loader
+                # blocks can convert.
+                if declared is not Artifact:
+                    logger.warning(
+                        "Output port %r declared type %r is not constructible from a "
+                        "file path; falling back to Artifact",
+                        port.name,
+                        getattr(declared, "__name__", declared),
+                    )
+                port_item_types[port.name] = Artifact
+
+        grouped: dict[str, list[DataObject]] = {port.name: [] for port in ports}
+        unmatched: list[Path] = []
+        for path in output_files:
+            suffix = path.suffix.lstrip(".").lower()
+            target = ext_to_port.get(suffix)
+            if target is None:
+                unmatched.append(path)
+                continue
+            item_cls = port_item_types[target.name]
+            grouped[target.name].append(item_cls(file_path=path, mime_type=_guess_mime(path), description=path.name))
+
+        for path in unmatched:
+            logger.warning("Unmatched output file %r", path.name)
+
+        for port in ports:
+            if port.required and not grouped[port.name]:
+                ext = port_extensions.get(port.name, "")
+                raise ValueError(f"Port {port.name!r} required, no '.{ext}' files in output dir")
+
+        result: dict[str, Collection] = {}
+        for port in ports:
+            items = grouped[port.name]
+            # Collection.item_type must match the constructed items, not the
+            # originally-declared port type (we may have fallen back above).
+            result[port.name] = Collection(items, item_type=port_item_types[port.name])
+        return result
+
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
         """Prepare inputs, launch the external app, and collect outputs.
 
         ADR-018: Handles CANCELLED transitions when external process exits unexpectedly.
         ADR-019: Stores ProcessHandle from bridge for cancellation support.
         ADR-020: Accepts and returns Collection-wrapped data.
+
+        Issue #680: when the user has declared output ports via the port
+        editor, output files are binned by extension instead of being
+        passed through the legacy ``bridge.collect()`` path.
 
         Resource cleanup (#338, #339):
         - Subprocess is always waited on / terminated / killed in finally block.
@@ -215,6 +379,13 @@ class AppBlock(Block):
                 watcher.stop()
 
             # Step 4: Collect results.
+            # Issue #680: when the user has declared output ports via the
+            # port editor, route files into those ports by extension; the
+            # legacy ``bridge.collect()`` path (one Artifact per file,
+            # keyed by file stem) is only used when no ports are declared.
+            if config.get("output_ports"):
+                return self._bin_outputs_by_extension(output_files, config)
+
             results = bridge.collect(output_files)
 
             # ADR-020: Wrap output artifacts in Collection.

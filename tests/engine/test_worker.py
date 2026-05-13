@@ -240,3 +240,113 @@ class _StubBlock:
 
     def run(self, inputs: dict, config: object) -> dict:
         return {"result": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# main — final_state envelope field (#681)
+# ---------------------------------------------------------------------------
+
+
+class _CancellingStubBlock:
+    """Block stub that transitions to CANCELLED inside ``run()`` and returns ``{}``.
+
+    Mirrors the AppBlock cancellation pattern: when the block's internal
+    failure path fires (e.g. external app exited without producing output),
+    it calls ``self.transition(BlockState.CANCELLED)`` and returns an empty
+    outputs dict. Worker must forward the CANCELLED state via the envelope's
+    ``final_state`` field so the orchestrator records the block correctly.
+    """
+
+    def __init__(self) -> None:
+        from scieasy.blocks.base.state import BlockState
+
+        self.state = BlockState.IDLE
+
+    def transition(self, target: object) -> None:
+        # Mimic Block.transition() — direct assignment is enough for the
+        # worker's final-state readback contract.
+        self.state = target  # type: ignore[assignment]
+
+    def run(self, inputs: dict, config: object) -> dict:
+        from scieasy.blocks.base.state import BlockState
+
+        self.state = BlockState.CANCELLED
+        return {}
+
+
+class _ErroringStubBlock:
+    """Block stub that transitions to ERROR inside ``run()`` and returns ``{}``."""
+
+    def __init__(self) -> None:
+        from scieasy.blocks.base.state import BlockState
+
+        self.state = BlockState.IDLE
+
+    def run(self, inputs: dict, config: object) -> dict:
+        from scieasy.blocks.base.state import BlockState
+
+        self.state = BlockState.ERROR
+        return {}
+
+
+class TestWorkerFinalState:
+    """#681: worker must forward terminal non-DONE states via envelope.
+
+    These run the worker as a real subprocess and inspect the JSON envelope
+    on stdout. The synthetic block classes above transition to CANCELLED
+    or ERROR before returning ``{}``, simulating the AppBlock pattern.
+    """
+
+    def _run_worker(self, block_class_path: str) -> dict:
+        import json
+        import os
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        payload = json.dumps(
+            {
+                "block_class": block_class_path,
+                "inputs": {},
+                "config": {},
+                "output_dir": "",
+            }
+        )
+        # Ensure the subprocess imports the same ``scieasy`` source tree as
+        # this checkout's ``src/`` rather than any other editable install
+        # that may be active in the active interpreter. Walk up from this
+        # test file to find ``<repo>/src``. Required when the test runs in
+        # a git worktree whose ``src`` is not the editable-install target.
+        env = os.environ.copy()
+        repo_src = Path(__file__).resolve().parents[2] / "src"
+        if repo_src.is_dir():
+            env["PYTHONPATH"] = str(repo_src) + os.pathsep + env.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-m", "scieasy.engine.runners.worker"],
+            input=payload,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
+        )
+        return dict(json.loads(result.stdout))
+
+    def test_cancelled_block_emits_final_state_in_envelope(self) -> None:
+        parsed = self._run_worker("tests.engine.test_worker._CancellingStubBlock")
+        # The block ran successfully — no error envelope.
+        assert "error" not in parsed, parsed
+        assert parsed.get("outputs") == {}
+        assert parsed.get("final_state") == "cancelled"
+
+    def test_error_block_emits_final_state_in_envelope(self) -> None:
+        parsed = self._run_worker("tests.engine.test_worker._ErroringStubBlock")
+        assert "error" not in parsed, parsed
+        assert parsed.get("outputs") == {}
+        assert parsed.get("final_state") == "error"
+
+    def test_normal_block_omits_final_state_field(self) -> None:
+        # _StubBlock does not call ``transition()`` — it has no ``state``
+        # attribute, so the envelope must NOT include ``final_state``.
+        parsed = self._run_worker("tests.engine.test_worker._StubBlock")
+        assert "error" not in parsed, parsed
+        assert "final_state" not in parsed

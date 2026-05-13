@@ -1,0 +1,9 @@
+{"kind":"init","session_id":"sess-abc-001","schema_version":"1.0","model":"claude-sonnet-4"}
+{"kind":"assistant_text_delta","delta":"Hello"}
+{"kind":"assistant_text_delta","delta":", "}
+{"kind":"assistant_text_delta","delta":"world"}
+{"kind":"assistant_text_delta","delta":"!"}
+{"kind":"assistant_text_delta","delta":" Let me check that file."}
+{"kind":"tool_use","tool_name":"Read","tool_input":{"file_path":"/tmp/x.txt"},"tool_use_id":"tu-001"}
+{"kind":"tool_result","tool_use_id":"tu-001","output":"file contents here","is_error":false}
+{"kind":"done"}
