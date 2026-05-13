@@ -294,6 +294,32 @@ def test_unknown_kind_fixture_roundtrip() -> None:
     assert any(isinstance(e, OtherEvent) and e.kind == "synthetic_unknown" for e in events)
 
 
+def test_top_level_empty_thinking_frame_parses_as_thinking_other() -> None:
+    """Issue #804 / #9: empty signature-only thinking frames must NOT
+    fall through to ``kind='other'``.
+
+    Real claude streams ``{"type":"thinking","thinking":"","signature":"..."}``
+    at the top level (not nested in an assistant frame). The parser must
+    route this to ``OtherEvent(kind='thinking')`` so the renderer's
+    thinking branch handles it (showing the animated indicator) rather
+    than the legacy "Unrecognised event" raw fallback.
+    """
+    event = parse_event(
+        _line(
+            {
+                "type": "thinking",
+                "text": "",
+                "thinking": "",
+                "signature": "EtABcDeF",
+            }
+        )
+    )
+    assert isinstance(event, OtherEvent), f"expected OtherEvent, got {type(event).__name__}"
+    assert event.kind == "thinking", (
+        f"expected kind='thinking' for top-level thinking frame, got {event.kind!r}"
+    )
+
+
 def test_malformed_fixture_truncated_line_raises() -> None:
     lines = _read_lines(FIXTURES / "malformed.ndjson")
     # The truncated middle line should fail to parse.

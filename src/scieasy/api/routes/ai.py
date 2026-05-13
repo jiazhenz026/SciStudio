@@ -350,8 +350,31 @@ async def chat_ws(
                 try:
                     await session.send_user_message(content)
                 except Exception as exc:
+                    # Issue #804 Bug 1: when the agent subprocess dies
+                    # mid-conversation (broken stdin pipe), surface the
+                    # error AND reap the dead session from the manager
+                    # so the next user_message can cleanly spawn a fresh
+                    # one. Without this cleanup, the dead-but-still-
+                    # registered session keeps failing every subsequent
+                    # turn and the user is locked out until they hit
+                    # cancel. The replacement session WILL emit a new
+                    # ``init`` event, which is the correct signal to
+                    # the client that the conversation was restarted.
                     logger.error("chat_ws: send_user_message failed: %s", exc)
                     await websocket.send_json(ErrorEnvelope(message=str(exc)).model_dump())
+                    try:
+                        await manager.close_session(project_path, chat_id)
+                    except Exception as close_exc:  # pragma: no cover - defensive
+                        logger.warning(
+                            "chat_ws: close_session after send failure raised: %s",
+                            close_exc,
+                        )
+                    if pump_task is not None:
+                        pump_task.cancel()
+                        with contextlib.suppress(asyncio.CancelledError, Exception):
+                            await pump_task
+                        pump_task = None
+                    session = None
             elif msg.type == "cancel":
                 if session is not None:
                     # #783: ``cancel`` is the explicit teardown signal.
