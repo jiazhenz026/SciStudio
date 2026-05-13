@@ -341,9 +341,7 @@ class ClaudeCodeProvider:
             try:
                 logged_in = cred_path.is_file() and cred_path.stat().st_size > 0
             except OSError as exc:
-                logger.debug(
-                    "ClaudeCodeProvider.discover: credentials probe failed: %s", exc
-                )
+                logger.debug("ClaudeCodeProvider.discover: credentials probe failed: %s", exc)
 
         logger.info(
             "ClaudeCodeProvider.discover: available=%s version=%s logged_in=%s path=%s",
@@ -425,6 +423,16 @@ class ClaudeCodeProvider:
             "--mcp-config",
             str(mcp_path),
         ]
+        # Map SciEasy PermissionMode → claude --permission-mode.
+        # BYPASS lets the agent call tools without per-call approval —
+        # required for the Phase 5 acceptance test where there is no
+        # human in the loop to click "approve" on every list_blocks.
+        # STRICT leaves claude's default "ask" behaviour in place; the
+        # hook bridge is the long-term answer (T-ECA-110) but currently
+        # the hook config we emit at `claude-hooks.json` is not wired
+        # into a --settings argument so claude does not see it.
+        if permission_mode is PermissionMode.BYPASS:
+            argv += ["--permission-mode", "bypassPermissions"]
         if resume_session_id is not None:
             argv += ["--resume", resume_session_id]
         if model is not None:
