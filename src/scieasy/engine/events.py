@@ -36,6 +36,11 @@ WORKFLOW_COMPLETED = "workflow_completed"  # ADR-018
 CHECKPOINT_SAVED = "checkpoint_saved"  # ADR-018
 INTERACTIVE_PROMPT = "interactive_prompt"  # #591/#594: backend -> frontend interactive data
 INTERACTIVE_COMPLETE = "interactive_complete"  # #591/#594: frontend -> backend interactive response
+# #718 part (a): emitted after every successful workflow write so other clients
+# (e.g. a second browser tab, or the embedded coding agent's WS subscriber)
+# know to refresh their cached view. Payload:
+#   {"workflow_id": str, "revision": int, "changed_by": str | None}
+WORKFLOW_CHANGED = "workflow.changed"
 
 
 @dataclass
