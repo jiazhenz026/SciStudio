@@ -37,7 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - [#759] T-ECA-504 v0 — microplastics e2e test prompt draft at `docs/specs/eca-phase5-test-prompt-draft.md`. Dispatcher-authored per ADR-033 §8.5 (the prompt is the only mutable input to the Phase 5 e2e test). Will be migrated to `tests/e2e/microplastics/test_prompt.md` after T-ECA-501 (#749) lands. (@claude, 2026-05-12, branch: feat/issue-759/eca-504-test-prompt-draft, session: 20260512-223423-t-eca-504-draft-microplastics-e2e-test-p)
-- [#759] T-ECA-504 v1 — Codex P1+P2 fixes on the prompt draft: notebook-read instruction switched from `get_doc`/`read_block_source` (out of scope for ipynb path) to Claude Code's built-in `NotebookRead`; `run_workflow` completion criterion clarified to require explicit `get_run_status(run_id)` polling until terminal status, not submit-return. (@claude, 2026-05-12, branch: fix/issue-759/eca-504-prompt-v1, session: N/A — single-commit follow-up to merged PR #760)
 
 ### Fixed
 

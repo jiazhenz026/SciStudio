@@ -51,10 +51,7 @@ comparison (rtol=1e-3, atol=1e-6 for floats; exact equality for labels).
 
 # Method (you decide the details)
 
-- Read the source notebook using Claude Code's built-in `NotebookRead`
-  tool (the canonical reader for `.ipynb` files; lives outside the docs/
-  scope that the MCP `get_doc` tool covers). The notebook is the
-  reference for the analysis logic — read every cell.
+- Read the notebook with `get_doc` or `read_block_source` (it's just text).
 - Inspect the raw data with `inspect_data` and `preview_data` BEFORE
   designing any block. Confirm shapes, dtypes, axis conventions, and units
   match what the notebook assumes.
@@ -65,12 +62,9 @@ comparison (rtol=1e-3, atol=1e-6 for floats; exact equality for labels).
   block under `{project_dir}/blocks/`, then call `reload_blocks` to make
   it available in the registry. Document each custom block's purpose in
   its docstring; the audit will read these.
-- Submit the workflow with `run_workflow` — this returns a run id
-  *immediately*; it does NOT block until completion. Then poll
-  `get_run_status(run_id)` on a backoff (e.g. 2s → 8s → 30s) until the
-  status is a terminal value (`completed`, `failed`, or `cancelled`).
-  Treat any non-terminal status as "not done yet". Do not assume the
-  initial `run_workflow` response means the run is over.
+- Run the workflow with `run_workflow`. Poll `get_run_status` until
+  completion (success or terminal error). Do not assume success — read the
+  status.
 - For each output the notebook produces, read your run's equivalent with
   `inspect_data` + `preview_data` (or `get_block_output`) and verify
   shape/dtype/range look right BEFORE concluding the task is done.
@@ -96,9 +90,7 @@ comparison (rtol=1e-3, atol=1e-6 for floats; exact equality for labels).
 
 You are done when:
 
-1. `get_run_status(run_id)` reports a terminal `completed` status (NOT
-   merely that `run_workflow` returned without error — the submit call
-   returns immediately with a run id),
+1. `run_workflow` returned a successful terminal status,
 2. you have explicitly inspected (via `inspect_data` / `preview_data`)
    each output the notebook produces and confirmed it has the right
    shape, dtype, and order-of-magnitude,
@@ -137,7 +129,6 @@ Version history (append-only):
 | Version | Date | Trigger | Change |
 |---------|------|---------|--------|
 | v0 | 2026-05-12 | initial draft | n/a |
-| v1 | 2026-05-12 | Codex P1+P2 review on PR #760 (issue #759) | (P1) Replaced `get_doc`/`read_block_source` notebook-read instruction with Claude Code's built-in `NotebookRead` tool — `get_doc` is scoped to `docs/` and `read_block_source` reads block class source by name, neither can reach the microplastics ipynb. (P2) Tightened `run_workflow` completion criterion: explicit polling on `get_run_status(run_id)` until terminal `completed`, not initial submit return. |
 
 ## Why this prompt is the *only* mutable input
 
