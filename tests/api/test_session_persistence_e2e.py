@@ -138,9 +138,7 @@ def test_two_user_messages_share_conversation_via_resume(
 
     with (
         TestClient(app) as client,
-        client.websocket_connect(
-            f"/api/ai/chat/persist-multi?project_dir={tmp_path}"
-        ) as ws,
+        client.websocket_connect(f"/api/ai/chat/persist-multi?project_dir={tmp_path}") as ws,
     ):
         ws.send_text(json.dumps({"type": "user_message", "content": "hi"}))
         turn1 = _collect_events_until(ws, kind="done")
@@ -225,9 +223,7 @@ def test_resume_id_used_after_subprocess_death(
 
     with (
         TestClient(app) as client,
-        client.websocket_connect(
-            f"/api/ai/chat/resume-after-death?project_dir={tmp_path}"
-        ) as ws,
+        client.websocket_connect(f"/api/ai/chat/resume-after-death?project_dir={tmp_path}") as ws,
     ):
         ws.send_text(json.dumps({"type": "user_message", "content": "hi"}))
         _collect_events_until(ws, kind="done")
@@ -254,9 +250,7 @@ def test_two_user_messages_share_one_session(
 
     with (
         TestClient(app) as client,
-        client.websocket_connect(
-            f"/api/ai/chat/persist-count?project_dir={tmp_path}"
-        ) as ws,
+        client.websocket_connect(f"/api/ai/chat/persist-count?project_dir={tmp_path}") as ws,
     ):
         ws.send_text(json.dumps({"type": "user_message", "content": "hi"}))
         _collect_events_until(ws, kind="done")

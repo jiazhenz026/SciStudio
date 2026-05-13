@@ -315,9 +315,7 @@ def test_top_level_empty_thinking_frame_parses_as_thinking_other() -> None:
         )
     )
     assert isinstance(event, OtherEvent), f"expected OtherEvent, got {type(event).__name__}"
-    assert event.kind == "thinking", (
-        f"expected kind='thinking' for top-level thinking frame, got {event.kind!r}"
-    )
+    assert event.kind == "thinking", f"expected kind='thinking' for top-level thinking frame, got {event.kind!r}"
 
 
 def test_malformed_fixture_truncated_line_raises() -> None:
