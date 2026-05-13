@@ -373,6 +373,26 @@ The GitHub Actions CI pipeline runs on every PR:
 
 ---
 
+## Developer integrations
+
+Drive SciEasy projects from your own terminal CLI (`claude` or `codex`),
+outside the SciEasy GUI, with the full 25-tool MCP surface and a
+SciEasy-aware skill installed:
+
+```bash
+pip install scieasy
+scieasy install --all          # wires claude + codex + skill at user scope
+cd ~/work/my-project && claude # your CLI now has SciEasy tools
+```
+
+The bridge auto-detects whether a SciEasy backend is running and either
+shares its state (attached mode) or stands up an in-process MCP server
+itself (standalone mode). See [`docs/cli-integration.md`](docs/cli-integration.md)
+for the full guide, including project vs user scope, Codex caveats, and
+troubleshooting.
+
+---
+
 ## Contributing
 
 SciEasy follows a structured development workflow to ensure traceability and architectural consistency. Please read [`CLAUDE.md`](CLAUDE.md) for the full set of development rules, including:
