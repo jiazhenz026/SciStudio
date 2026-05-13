@@ -70,13 +70,58 @@ describe("EventRenderer", () => {
     expect(screen.getByTestId("ev-done")).toBeInTheDocument();
   });
 
-  it("falls back to OtherEvent for unknown kinds", () => {
-    const ev: AgentEvent = {
-      kind: "other",
+  it("renders OtherEvent with display_class='raw' as a compact <kind> chip (issue #788)", () => {
+    // The legacy "Unrecognised event: <json>" row is gone. Unknown
+    // kinds fall through to the display_class taxonomy; without an
+    // explicit class the renderer defaults to `raw`.
+    const ev = {
+      kind: "future_unknown",
       raw: { provider_specific: "thing" },
-    };
+      display_class: "raw" as const,
+    } as unknown as AgentEvent;
     render(<EventRenderer event={ev} />);
-    expect(screen.getByTestId("ev-other")).toHaveTextContent(/Unrecognised event/);
+    expect(screen.getByTestId("ev-raw")).toHaveTextContent("future_unknown");
+    expect(screen.queryByTestId("ev-other")).toBeNull();
+  });
+
+  it("dispatches display_class='hidden' to null (issue #788)", () => {
+    const ev = {
+      kind: "heartbeat",
+      raw: {},
+      display_class: "hidden" as const,
+    } as unknown as AgentEvent;
+    const { container } = render(<EventRenderer event={ev} />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("dispatches display_class='meta' to MetaEventRow (issue #788)", () => {
+    const ev = {
+      kind: "system/hook_started",
+      raw: { subtype: "hook_started" },
+      display_class: "meta" as const,
+    } as unknown as AgentEvent;
+    render(<EventRenderer event={ev} />);
+    expect(screen.getByTestId("ev-meta")).toHaveTextContent("system/hook_started");
+  });
+
+  it("dispatches display_class='text-like' to TextLikeRow (issue #788)", () => {
+    const ev = {
+      kind: "future_kind",
+      raw: { text: "hello there" },
+      display_class: "text-like" as const,
+    } as unknown as AgentEvent;
+    render(<EventRenderer event={ev} />);
+    expect(screen.getByTestId("ev-textlike")).toHaveTextContent("hello there");
+  });
+
+  it("dispatches display_class='tool-like' to ToolLikeRow (issue #788)", () => {
+    const ev = {
+      kind: "future_tool",
+      raw: { tool_name: "MagicTool", input: { x: 1 } },
+      display_class: "tool-like" as const,
+    } as unknown as AgentEvent;
+    render(<EventRenderer event={ev} />);
+    expect(screen.getByTestId("ev-toollike")).toHaveTextContent("MagicTool");
   });
 
   it("renders an animated Thinking… indicator for kind=thinking", () => {

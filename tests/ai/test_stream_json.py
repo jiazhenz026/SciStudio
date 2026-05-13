@@ -385,3 +385,83 @@ async def test_parse_stream_propagates_invalid_json() -> None:
     with pytest.raises(AgentStreamError, match="invalid JSON"):
         async for _ in parse_stream(_async_iter(chunks)):
             pass
+
+
+# ---------------------------------------------------------------------------
+# classify_for_display — issue #788 (display_class taxonomy)
+# ---------------------------------------------------------------------------
+
+
+def test_classify_hidden_via_chat_hidden_flag() -> None:
+    """The internal `_chat_hidden=True` marker always wins."""
+    from scieasy.ai.agent.stream_json import classify_for_display
+
+    assert classify_for_display("anything", {"_chat_hidden": True, "text": "irrelevant"}) == "hidden"
+
+
+def test_classify_hidden_via_kind_name() -> None:
+    from scieasy.ai.agent.stream_json import classify_for_display
+
+    assert classify_for_display("heartbeat", {}) == "hidden"
+    assert classify_for_display("ping", {}) == "hidden"
+    assert classify_for_display("rate_limit_event", {}) == "hidden"
+    assert classify_for_display("assistant_empty", {}) == "hidden"
+    assert classify_for_display("user_echo", {}) == "hidden"
+
+
+def test_classify_meta_via_kind_name() -> None:
+    from scieasy.ai.agent.stream_json import classify_for_display
+
+    assert classify_for_display("system", {}) == "meta"
+    assert classify_for_display("system/hook_started", {}) == "meta"
+    assert classify_for_display("result", {}) == "meta"
+    assert classify_for_display("model_info", {}) == "meta"
+
+
+def test_classify_text_like_when_payload_has_text() -> None:
+    from scieasy.ai.agent.stream_json import classify_for_display
+
+    assert classify_for_display("future_kind", {"text": "hello"}) == "text-like"
+    assert classify_for_display("future_kind", {"content": "hi there"}) == "text-like"
+    assert classify_for_display("future_kind", {"message": "greetings"}) == "text-like"
+    # Empty strings should not qualify
+    assert classify_for_display("future_kind", {"text": "   "}) == "raw"
+
+
+def test_classify_tool_like_when_payload_has_tool_shape() -> None:
+    from scieasy.ai.agent.stream_json import classify_for_display
+
+    assert classify_for_display("future_tool", {"tool_name": "Bash", "input": {"command": "ls"}}) == "tool-like"
+    assert classify_for_display("future_tool", {"name": "Edit", "input": {"file_path": "/a"}}) == "tool-like"
+    # Tool-name without input does NOT qualify as tool-like
+    assert classify_for_display("future_tool", {"tool_name": "Bash"}) == "raw"
+
+
+def test_classify_raw_default_fallback() -> None:
+    from scieasy.ai.agent.stream_json import classify_for_display
+
+    assert classify_for_display("future_unknown", {}) == "raw"
+    assert classify_for_display("future_unknown", {"random_field": 42}) == "raw"
+
+
+def test_unknown_kind_carries_display_class_on_other_event() -> None:
+    """`parse_event` on an unknown kind returns an OtherEvent with a classified
+    display_class — not the legacy unclassified default."""
+    event = parse_event(_line({"kind": "future_kind", "text": "hello"}))
+    assert isinstance(event, OtherEvent)
+    assert event.display_class == "text-like"
+
+
+def test_rate_limit_event_classified_hidden() -> None:
+    """The existing rate_limit_event lambda still produces a hidden OtherEvent."""
+    event = parse_event(_line({"kind": "rate_limit_event"}))
+    assert isinstance(event, OtherEvent)
+    assert event.display_class == "hidden"
+
+
+def test_system_hook_subtype_classified_meta() -> None:
+    """`system/hook_started` is meta (the _chat_hidden suppression is layered
+    on top by the existing dispatch — classification itself says meta)."""
+    from scieasy.ai.agent.stream_json import classify_for_display
+
+    assert classify_for_display("system/hook_started", {}) == "meta"
