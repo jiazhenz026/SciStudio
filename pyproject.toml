@@ -140,7 +140,7 @@ follow_imports = "skip"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra -q --cov=scieasy --cov-report=term-missing --cov-fail-under=85 -m 'not e2e'"
+addopts = "-ra -q --cov=scieasy --cov-report=term-missing --cov-fail-under=85"
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -151,7 +151,6 @@ markers = [
     "requires_imaging: marks tests that need scieasy-blocks-imaging installed (deselect with '-m \"not requires_imaging\"')",
     "requires_r: tests that need an R installation with Rscript on PATH",
     "requires_fiji: marks tests that need a local Fiji install at the master-plan §10 path (deselect with '-m \"not requires_fiji\"'). T-IMG-038 will migrate this marker to packages/scieasy-blocks-imaging/pyproject.toml.",
-    "e2e: end-to-end acceptance tests (ADR-033 §8.5; excluded from default runs via addopts -m 'not e2e'; opt in explicitly with 'pytest -m e2e').",
 ]
 
 [tool.importlinter]
