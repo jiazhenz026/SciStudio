@@ -66,7 +66,7 @@ def _format_annotation(annotation: Any) -> str:
     if annotation is None or annotation is type(None):
         return "None"
     if hasattr(annotation, "__name__"):
-        return annotation.__name__
+        return str(annotation.__name__)
     text = str(annotation)
     # Strip the ``typing.`` prefix for readability.
     return text.removeprefix("typing.")
