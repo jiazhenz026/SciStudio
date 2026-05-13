@@ -331,12 +331,32 @@ async def chat_ws(
 
             if msg.type == "user_message":
                 if session is None:
-                    # First user_message on this WS — spawn the session.
+                    # Spawn the session for this user_message. Issue #804
+                    # Bug 1: ``claude --output-format stream-json`` requires
+                    # ``-p/--print`` which is single-turn — the subprocess
+                    # exits after each ``result`` frame. To preserve the
+                    # conversation across turns we lazy-``--resume`` the
+                    # prior session_id (recorded in the on-disk metadata
+                    # by the previous ``close_session`` call). This means
+                    # the user does see a fresh ``init`` event per turn,
+                    # but the agent's memory of the conversation is
+                    # preserved because claude rehydrates the state from
+                    # the prior session_id.
+                    resume_id: str | None = None
+                    prior_metadata = manager.load_metadata(project_path, chat_id)
+                    if prior_metadata is not None and prior_metadata.session_id is not None:
+                        resume_id = prior_metadata.session_id
+                        logger.info(
+                            "chat_ws: lazy-resuming chat_id=%s with prior session_id=%s",
+                            chat_id,
+                            resume_id,
+                        )
                     try:
                         session = await _start_default_session(
                             manager=manager,
                             project_dir=project_path,
                             chat_id=chat_id,
+                            resume_session_id=resume_id,
                             permission_mode_str=permission_mode,
                         )
                     except Exception as exc:
