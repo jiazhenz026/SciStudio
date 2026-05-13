@@ -138,7 +138,16 @@ class ClaudeCodeSession:
         """
         if self._proc.stdin is None or self._proc.stdin.is_closing():
             raise AgentLaunchError("subprocess stdin is closed; cannot send_user_message")
-        envelope = json.dumps({"type": "user", "content": content})
+        # Claude Code stream-json input format: wrap content in a
+        # message.role+content envelope, matching the Anthropic SDK
+        # message shape. Issue (no number) — without the wrapper the
+        # subprocess silently ignores stdin and produces no output.
+        envelope = json.dumps(
+            {
+                "type": "user",
+                "message": {"role": "user", "content": content},
+            }
+        )
         logger.debug(
             "ClaudeCodeSession.send_user_message: writing %d bytes to stdin",
             len(envelope),
@@ -399,11 +408,21 @@ class ClaudeCodeProvider:
             *argv0,
             "--output-format",
             "stream-json",
+            # Tell claude that stdin will be stream-json envelopes too.
+            # Without this, claude treats stdin as a one-shot plain-text
+            # prompt and silently ignores the JSON envelopes we write,
+            # producing no events on stdout (manual verification, 2026-05-13).
+            "--input-format",
+            "stream-json",
             "--verbose",
+            # --append-system-prompt expects a literal string. We tried
+            # `@path` indirection but claude treats the `@` as part of
+            # the path. Read the file contents and pass them inline.
             "--append-system-prompt",
-            f"@{prompt_path}",
+            system_prompt,
+            # --mcp-config takes a file PATH (or inline JSON), no `@`.
             "--mcp-config",
-            f"@{mcp_path}",
+            str(mcp_path),
         ]
         if resume_session_id is not None:
             argv += ["--resume", resume_session_id]
