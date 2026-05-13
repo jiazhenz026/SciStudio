@@ -18,7 +18,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAppStore } from "../store";
-import type { AgentEvent, PermissionDecision } from "../types/agentEvents";
+import type { AgentEvent, PermissionDecision, PermissionMode } from "../types/agentEvents";
 
 /** WS connection state surfaced to UI. */
 export type WSConnectionState = "idle" | "connecting" | "open" | "closed" | "reconnecting";
@@ -53,6 +53,15 @@ const MAX_BACKOFF_MS = 8000;
  * @param chatId - active chat id; when null, no socket is opened.
  * @param projectDir - absolute path of the SciEasy project workspace; the
  *   backend validates this against an allow-list before spawning the agent.
+ *
+ * Permission mode (issue #791): the user-selected permission policy is
+ * read from the Zustand store and appended to the WS URL as
+ * ``permission_mode=strict|bypass``. The backend reads the query string
+ * and constructs the appropriate {@link PermissionMode} for the session.
+ * Changing the mode in the Settings panel updates the store; the
+ * effect's dependency array picks up the change and re-opens the WS
+ * with the new mode (one-shot reconnect handled by the SettingsPanel
+ * confirm dialog).
  */
 export function useAgentWebSocket(
   chatId: string | null,
@@ -61,6 +70,7 @@ export function useAgentWebSocket(
   const appendEvent = useAppStore((s) => s.appendEvent);
   const setPendingPermission = useAppStore((s) => s.setPendingPermission);
   const markSessionEnded = useAppStore((s) => s.markSessionEnded);
+  const permissionMode: PermissionMode = useAppStore((s) => s.permissionMode);
 
   const [state, setState] = useState<WSConnectionState>("idle");
   const socketRef = useRef<WebSocket | null>(null);
@@ -83,7 +93,12 @@ export function useAgentWebSocket(
     const connect = () => {
       if (cancelled) return;
       const proto = window.location.protocol === "https:" ? "wss" : "ws";
-      const qs = `project_dir=${encodeURIComponent(projectDir)}`;
+      // Issue #791: include the user-selected permission_mode so STRICT
+      // mode actually reaches the backend. Without this query parameter
+      // the backend would fall back to its own default (also STRICT).
+      const qs =
+        `project_dir=${encodeURIComponent(projectDir)}` +
+        `&permission_mode=${encodeURIComponent(permissionMode)}`;
       const url = `${proto}://${window.location.host}/api/ai/chat/${encodeURIComponent(chatId)}?${qs}`;
       const ws = new WebSocket(url);
       socketRef.current = ws;
@@ -182,7 +197,7 @@ export function useAgentWebSocket(
         ws.close();
       }
     };
-  }, [chatId, projectDir, appendEvent, setPendingPermission, markSessionEnded]);
+  }, [chatId, projectDir, permissionMode, appendEvent, setPendingPermission, markSessionEnded]);
 
   const send = useCallback((message: OutboundMessage): boolean => {
     const ws = socketRef.current;

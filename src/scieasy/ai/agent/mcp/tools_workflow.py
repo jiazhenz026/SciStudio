@@ -22,7 +22,7 @@ from typing import Any
 
 from filelock import FileLock, Timeout
 
-from scieasy.ai.agent.mcp._context import get_context
+from scieasy.ai.agent.mcp._context import _resolve_project_path, get_context
 
 logger = logging.getLogger(__name__)
 
@@ -184,18 +184,31 @@ def list_types() -> dict[str, Any]:
 def get_workflow(path: str) -> dict[str, Any]:
     """Load a workflow YAML and return its decoded representation.
 
+    The *path* argument is resolved against the active project root
+    (issue #790). Relative paths are interpreted relative to
+    ``ctx.project_dir``; absolute paths must already be under the
+    project root.
+
     Raises
     ------
     FileNotFoundError
-        If *path* does not exist.
+        If the resolved path does not exist.
+    PermissionError
+        If *path* escapes the project root.
+    RuntimeError
+        If no project is currently open.
     """
     from scieasy.workflow.serializer import load_yaml
 
-    p = Path(path)
+    p = _resolve_project_path(path)
     if not p.exists():
-        raise FileNotFoundError(f"Workflow file not found: {path}")
+        raise FileNotFoundError(f"Workflow file not found: {p}")
     definition = load_yaml(p)
-    return dataclasses.asdict(definition)
+    payload = dataclasses.asdict(definition)
+    # Issue #790: surface the absolute resolved path so the agent has
+    # unambiguous evidence of which file was read.
+    payload["path"] = str(p)
+    return payload
 
 
 # ---------------------------------------------------------------------------
@@ -217,6 +230,11 @@ def validate_workflow(yaml_or_path: str) -> dict[str, Any]:
     Heuristic: if *yaml_or_path* starts with ``name:`` / ``workflow:`` /
     ``id:`` / ``version:`` or contains ``nodes:`` *and* a newline, treat
     as inline YAML; otherwise treat as a filesystem path.
+
+    When *yaml_or_path* is a path, it is resolved against the active
+    project root (issue #790) — relative paths are interpreted relative
+    to ``ctx.project_dir``, and paths outside the project are rejected
+    with :class:`PermissionError`.
     """
     import yaml as _yaml
 
@@ -233,7 +251,8 @@ def validate_workflow(yaml_or_path: str) -> dict[str, Any]:
         else:
             from scieasy.workflow.serializer import load_yaml
 
-            definition = load_yaml(Path(yaml_or_path))
+            resolved = _resolve_project_path(yaml_or_path)
+            definition = load_yaml(resolved)
     except Exception as exc:
         return {"valid": False, "errors": [f"parse failure: {exc}"]}
 
@@ -252,6 +271,15 @@ def write_workflow(path: str, yaml: str) -> dict[str, Any]:
     File-locked atomic write per ADR-033 OQ7. Logs INFO with the diff
     summary. Write-class tool: subject to STRICT-mode approval.
 
+    Path handling (issue #790): the *path* argument is resolved against
+    the active project root via :func:`_resolve_project_path`. Relative
+    paths are interpreted relative to ``ctx.project_dir`` (NOT the
+    backend process's CWD). Absolute paths must already be under the
+    project root or :class:`PermissionError` is raised — this also
+    protects against ``../`` traversal escapes. The returned envelope
+    carries the **absolute resolved path**, never the user-supplied
+    input, so the agent can verify where its file actually landed.
+
     TODO(#732): once the workflow versioning agent's ``If-Match`` header
     lands on ``PUT /api/workflows/{id}``, the conflict-detect path here
     should call that endpoint instead of doing a raw filelock write, so
@@ -259,7 +287,7 @@ def write_workflow(path: str, yaml: str) -> dict[str, Any]:
     the same arbitration code path. Today the filelock alone is the
     arbitration mechanism.
     """
-    p = Path(path)
+    p = _resolve_project_path(path)
     lock_path = str(p) + ".lock"
     try:
         with FileLock(lock_path, timeout=_LOCK_TIMEOUT_SECONDS):
@@ -268,11 +296,10 @@ def write_workflow(path: str, yaml: str) -> dict[str, Any]:
             summary = _diff_summary(old, yaml)
     except Timeout as exc:
         raise TimeoutError(
-            f"write_workflow: could not acquire lock for {path} within "
-            f"{_LOCK_TIMEOUT_SECONDS}s (someone else is editing?)"
+            f"write_workflow: could not acquire lock for {p} within {_LOCK_TIMEOUT_SECONDS}s (someone else is editing?)"
         ) from exc
 
-    logger.info("write_workflow: wrote %s (%s)", path, summary)
+    logger.info("write_workflow: wrote %s (%s)", p, summary)
     return {"path": str(p), "bytes_written": bytes_written, "diff_summary": summary}
 
 
@@ -306,15 +333,21 @@ def run_workflow(path: str) -> dict[str, Any]:
     is observable via :func:`get_run_status`.
 
     Write-class tool: subject to STRICT-mode approval.
+
+    Path handling (issue #790): *path* is resolved against the active
+    project root; the runtime keys runs by ``workflow_id = file.stem``
+    so this also gives us the canonical id even when the agent passes
+    a project-relative path.
     """
     runtime = _get_workflow_runtime()
     # ApiRuntime keys runs by workflow_id (the file stem in
     # ``workflows/<id>.yaml``), so derive that from the path. We do not
     # mint a synthetic run_id — the runtime owns identity.
-    workflow_id = Path(path).stem
+    resolved = _resolve_project_path(path)
+    workflow_id = resolved.stem
     result = runtime.start_workflow(workflow_id)
     run_id = result.get("workflow_id", workflow_id)
-    logger.info("run_workflow: started run %s for %s", run_id, path)
+    logger.info("run_workflow: started run %s for %s", run_id, resolved)
     return {"run_id": str(run_id), "status": "queued"}
 
 
