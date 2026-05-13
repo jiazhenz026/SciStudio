@@ -50,6 +50,88 @@ MAX_LINE_BYTES = 1024 * 1024
 """Hard cap on the size of a single stream-json frame (1 MiB)."""
 
 
+# ---------------------------------------------------------------------------
+# Generic UI display-class taxonomy (issue #788)
+#
+# Every :class:`OtherEvent` constructed below carries a ``display_class``
+# derived from :func:`classify_for_display`. The frontend dispatches on this
+# field instead of maintaining per-kind switch cases.
+# ---------------------------------------------------------------------------
+
+_HIDDEN_KINDS = frozenset(
+    {
+        "heartbeat",
+        "ping",
+        "stream_event",
+        "assistant_empty",
+        "user_echo",
+        "rate_limit_event",
+    }
+)
+"""Event kinds that should never appear in the chat feed."""
+
+_META_KINDS = frozenset(
+    {
+        "system",
+        "result",
+        "model_info",
+    }
+)
+"""Event kinds that surface as one-line muted [meta] rows."""
+
+
+def classify_for_display(kind: str, payload: dict[str, Any]) -> str:
+    """Return the generic UI display class for an :class:`OtherEvent`.
+
+    The classification is structural — it looks at the payload shape, not
+    the kind value alone, so adding a new fictional kind that ships with
+    text/tool fields renders sensibly without any frontend code change.
+
+    Parameters
+    ----------
+    kind
+        Canonical kind string (after :func:`_extract_kind` normalisation).
+    payload
+        Parsed JSON payload. May include the SciEasy-internal
+        ``_chat_hidden`` marker — that always wins.
+
+    Returns
+    -------
+    str
+        One of ``"hidden"``, ``"meta"``, ``"text-like"``, ``"tool-like"``,
+        ``"raw"`` (see :data:`scieasy.ai.agent.provider.DisplayClass`).
+    """
+    if payload.get("_chat_hidden") is True:
+        return "hidden"
+    if kind in _HIDDEN_KINDS:
+        return "hidden"
+    # ``system/<subtype>`` kinds (synthesised by :func:`_make_system`) are
+    # carried with the ``system/`` prefix; treat the whole family as meta
+    # when not already hidden via ``_chat_hidden``.
+    if kind in _META_KINDS or kind.startswith("system/") or kind.startswith("result/"):
+        return "meta"
+    # Heuristic 1: has a primary non-empty string text field?
+    for field_name in ("text", "content", "message", "delta", "thinking"):
+        v = payload.get(field_name)
+        if isinstance(v, str) and v.strip():
+            return "text-like"
+    # Heuristic 2: looks like a tool invocation?
+    tool_name = payload.get("tool_name") or payload.get("name")
+    tool_input = payload.get("input") or payload.get("tool_input")
+    if isinstance(tool_name, str) and tool_name and isinstance(tool_input, dict):
+        return "tool-like"
+    return "raw"
+
+
+def _other(kind: str, payload: dict[str, Any]) -> OtherEvent:
+    """Construct an :class:`OtherEvent` with the computed display class."""
+    return OtherEvent(
+        kind=kind,
+        raw=payload,
+        display_class=classify_for_display(kind, payload),  # type: ignore[arg-type]
+    )
+
+
 def _extract_kind(payload: dict[str, Any]) -> str | None:
     """Return the canonical event kind from a parsed payload.
 
@@ -69,7 +151,7 @@ def _make_init(payload: dict[str, Any]) -> AgentEvent:
     session_id = payload.get("session_id")
     if not isinstance(session_id, str) or not session_id:
         logger.warning("stream_json: init event missing session_id; falling back to OtherEvent")
-        return OtherEvent(kind="init", raw=payload)
+        return _other("init", payload)
     schema_version = payload.get("schema_version")
     model = payload.get("model")
     return InitEvent(
@@ -87,7 +169,7 @@ def _make_assistant_text_delta(payload: dict[str, Any]) -> AgentEvent:
         delta = payload.get("text")
     if not isinstance(delta, str):
         logger.warning("stream_json: assistant_text_delta missing delta/text; OtherEvent")
-        return OtherEvent(kind="assistant_text_delta", raw=payload)
+        return _other("assistant_text_delta", payload)
     return AssistantTextDeltaEvent(kind="assistant_text_delta", raw=payload, delta=delta)
 
 
@@ -103,7 +185,7 @@ def _make_tool_use(payload: dict[str, Any]) -> AgentEvent:
         tool_use_id = payload.get("id") if isinstance(payload.get("id"), str) else None
     if tool_name is None or tool_input is None or tool_use_id is None:
         logger.warning("stream_json: tool_use missing required fields; OtherEvent")
-        return OtherEvent(kind="tool_use", raw=payload)
+        return _other("tool_use", payload)
     return ToolUseEvent(
         kind="tool_use",
         raw=payload,
@@ -117,7 +199,7 @@ def _make_tool_result(payload: dict[str, Any]) -> AgentEvent:
     tool_use_id = payload.get("tool_use_id")
     if not isinstance(tool_use_id, str) or not tool_use_id:
         logger.warning("stream_json: tool_result missing tool_use_id; OtherEvent")
-        return OtherEvent(kind="tool_result", raw=payload)
+        return _other("tool_result", payload)
     output = payload.get("output")
     if output is None:
         output = payload.get("content", "")
@@ -140,7 +222,7 @@ def _make_permission_request(payload: dict[str, Any]) -> AgentEvent:
     request_id = payload.get("request_id")
     if not isinstance(tool_name, str) or not isinstance(tool_input, dict) or not isinstance(request_id, str):
         logger.warning("stream_json: permission_request missing required fields; OtherEvent")
-        return OtherEvent(kind="permission_request", raw=payload)
+        return _other("permission_request", payload)
     return PermissionRequestEvent(
         kind="permission_request",
         raw=payload,
@@ -180,7 +262,7 @@ def _make_system(payload: dict[str, Any]) -> AgentEvent:
         return _make_init(payload)
     hidden_raw = dict(payload)
     hidden_raw["_chat_hidden"] = True
-    return OtherEvent(kind=f"system/{subtype}" if subtype else "system", raw=hidden_raw)
+    return _other(f"system/{subtype}" if subtype else "system", hidden_raw)
 
 
 def _make_assistant(payload: dict[str, Any]) -> AgentEvent | list[AgentEvent]:
@@ -237,12 +319,8 @@ def _make_assistant(payload: dict[str, Any]) -> AgentEvent | list[AgentEvent]:
                     )
             elif btype == "thinking":
                 t = block.get("thinking") or block.get("text")
-                events.append(
-                    OtherEvent(
-                        kind="thinking",
-                        raw={"text": t if isinstance(t, str) else "", **block},
-                    )
-                )
+                thinking_payload = {"text": t if isinstance(t, str) else "", **block}
+                events.append(_other("thinking", thinking_payload))
             elif btype == "tool_result":
                 tool_use_id = block.get("tool_use_id")
                 output = block.get("content") or block.get("output")
@@ -263,7 +341,7 @@ def _make_assistant(payload: dict[str, Any]) -> AgentEvent | list[AgentEvent]:
         # an empty list or a kind we don't yet know). Hide it from the
         # chat feed rather than emit a blank delta.
         hidden = {**payload, "_chat_hidden": True}
-        return OtherEvent(kind="assistant_empty", raw=hidden)
+        return _other("assistant_empty", hidden)
     if len(events) == 1:
         return events[0]
     return events
@@ -302,7 +380,7 @@ def _make_user_echo(payload: dict[str, Any]) -> AgentEvent | list[AgentEvent]:
                         )
                     )
     if not events:
-        return OtherEvent(kind="user_echo", raw={**payload, "_chat_hidden": True})
+        return _other("user_echo", {**payload, "_chat_hidden": True})
     if len(events) == 1:
         return events[0]
     return events
@@ -333,7 +411,7 @@ _DISPATCH: dict[str, Any] = {
     # extract them as ToolResultEvents so the GUI can show what each
     # tool returned; if no tool_result is found we hide the echo.
     "user": _make_user_echo,
-    "rate_limit_event": lambda p: OtherEvent(kind="rate_limit_event", raw={**p, "_chat_hidden": True}),
+    "rate_limit_event": lambda p: _other("rate_limit_event", {**p, "_chat_hidden": True}),
 }
 
 
@@ -386,12 +464,12 @@ def parse_event(line: bytes) -> AgentEvent | list[AgentEvent]:
     kind = _extract_kind(payload)
     if kind is None:
         logger.info("stream_json: payload missing kind/type; routing to OtherEvent")
-        return OtherEvent(kind="other", raw=payload)
+        return _other("other", payload)
 
     builder = _DISPATCH.get(kind)
     if builder is None:
         logger.info("stream_json: unknown event kind %r; routing to OtherEvent", kind)
-        return OtherEvent(kind=kind, raw=payload)
+        return _other(kind, payload)
 
     logger.debug("stream_json: parsed event kind=%s", kind)
     return builder(payload)  # type: ignore[no-any-return]

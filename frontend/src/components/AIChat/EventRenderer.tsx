@@ -5,7 +5,8 @@
  * to the `OtherEvent` branch (preserved verbatim from the raw payload).
  */
 
-import type { AgentEvent } from "../../types/agentEvents";
+import type { AgentEvent, OtherEvent } from "../../types/agentEvents";
+import { MetaEventRow, RawEventRow, TextLikeRow, ToolLikeRow } from "./genericRows";
 
 export interface EventRendererProps {
   event: AgentEvent;
@@ -139,14 +140,17 @@ export function EventRenderer({ event }: EventRendererProps) {
         </div>
       );
     case "other":
-    default:
-      // OtherEvent fallback — preserve forward compatibility for kinds
-      // the frontend does not yet recognise.
-      return (
-        <div data-testid="ev-other" className="text-xs italic text-gray-400">
-          Unrecognised event:{" "}
-          <code className="font-mono">{JSON.stringify(event.raw).slice(0, 80)}</code>
-        </div>
-      );
+    default: {
+      // Issue #788: dispatch on the backend-classified display_class so
+      // we never show the legacy "Unrecognised event: <json>" row. Any
+      // unknown future kind still produces a sensible compact rendering.
+      const other = event as OtherEvent;
+      const cls = other.display_class ?? "raw";
+      if (cls === "hidden") return null;
+      if (cls === "meta") return <MetaEventRow event={other} />;
+      if (cls === "text-like") return <TextLikeRow event={other} />;
+      if (cls === "tool-like") return <ToolLikeRow event={other} />;
+      return <RawEventRow event={other} />;
+    }
   }
 }

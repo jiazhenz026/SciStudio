@@ -1,0 +1,218 @@
+"""Tests for ``scieasy install`` (#787).
+
+Covers:
+
+* Idempotent install/remove against synthetic Claude (JSON) and Codex
+  (TOML) configs.
+* Merge preserves other entries.
+* Skill copy lands at the right location and removal is clean.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from scieasy.cli.install import (
+    MCP_SERVER_NAME,
+    _strip_codex_block,
+    perform_install,
+)
+
+
+@pytest.fixture
+def fake_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Redirect Path.home() so install never touches the real user dir."""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", lambda: home)
+    return home
+
+
+@pytest.fixture
+def fake_cwd(tmp_path: Path) -> Path:
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    return cwd
+
+
+# ---------------------------------------------------------------------------
+# Claude target
+# ---------------------------------------------------------------------------
+
+
+def test_install_claude_user_idempotent(fake_home: Path, fake_cwd: Path) -> None:
+    first = perform_install(target="claude", scope="user", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+    second = perform_install(target="claude", scope="user", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+
+    assert len(first) == 1 and first[0].action == "installed"
+    assert len(second) == 1 and second[0].action == "noop"
+
+    cfg = json.loads((fake_home / ".claude.json").read_text(encoding="utf-8"))
+    assert MCP_SERVER_NAME in cfg["mcpServers"]
+    entry = cfg["mcpServers"][MCP_SERVER_NAME]
+    assert entry["args"] == ["mcp-bridge"]
+    assert "command" in entry
+
+
+def test_install_claude_preserves_other_entries(fake_home: Path, fake_cwd: Path) -> None:
+    pre_existing = {
+        "numStartups": 1,
+        "mcpServers": {
+            "other-server": {"command": "other", "args": []},
+        },
+    }
+    config_path = fake_home / ".claude.json"
+    config_path.write_text(json.dumps(pre_existing), encoding="utf-8")
+
+    perform_install(target="claude", scope="user", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+
+    cfg = json.loads(config_path.read_text(encoding="utf-8"))
+    assert cfg["numStartups"] == 1
+    assert "other-server" in cfg["mcpServers"]
+    assert MCP_SERVER_NAME in cfg["mcpServers"]
+
+
+def test_remove_claude_user(fake_home: Path, fake_cwd: Path) -> None:
+    perform_install(target="claude", scope="user", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+    removed = perform_install(target="claude", scope="user", skill=False, do_all=False, remove=True, cwd=fake_cwd)
+    assert removed[0].action == "removed"
+
+    cfg = json.loads((fake_home / ".claude.json").read_text(encoding="utf-8"))
+    assert MCP_SERVER_NAME not in cfg.get("mcpServers", {})
+
+
+def test_install_claude_project_scope_uses_mcp_json(fake_home: Path, fake_cwd: Path) -> None:
+    perform_install(target="claude", scope="project", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+    project_cfg = fake_cwd / ".mcp.json"
+    assert project_cfg.is_file()
+    cfg = json.loads(project_cfg.read_text(encoding="utf-8"))
+    assert MCP_SERVER_NAME in cfg["mcpServers"]
+    # Project scope pins SCIEASY_PROJECT_DIR.
+    assert cfg["mcpServers"][MCP_SERVER_NAME]["env"]["SCIEASY_PROJECT_DIR"] == str(fake_cwd)
+
+
+# ---------------------------------------------------------------------------
+# Codex target
+# ---------------------------------------------------------------------------
+
+
+def test_install_codex_idempotent(fake_home: Path, fake_cwd: Path) -> None:
+    first = perform_install(target="codex", scope="user", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+    second = perform_install(target="codex", scope="user", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+    assert first[0].action == "installed"
+    assert second[0].action == "noop"
+
+    toml_text = (fake_home / ".codex" / "config.toml").read_text(encoding="utf-8")
+    assert f"[mcp_servers.{MCP_SERVER_NAME}]" in toml_text
+    assert 'args = ["mcp-bridge"]' in toml_text
+
+
+def test_install_codex_preserves_other_keys(fake_home: Path, fake_cwd: Path) -> None:
+    codex_dir = fake_home / ".codex"
+    codex_dir.mkdir()
+    cfg_path = codex_dir / "config.toml"
+    cfg_path.write_text(
+        'model = "gpt-5.4"\nmodel_reasoning_effort = "xhigh"\n\n[mcp_servers.other]\ncommand = "x"\nargs = []\n',
+        encoding="utf-8",
+    )
+
+    perform_install(target="codex", scope="user", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+    text = cfg_path.read_text(encoding="utf-8")
+    assert 'model = "gpt-5.4"' in text
+    assert "[mcp_servers.other]" in text
+    assert f"[mcp_servers.{MCP_SERVER_NAME}]" in text
+
+
+def test_remove_codex_round_trip(fake_home: Path, fake_cwd: Path) -> None:
+    perform_install(target="codex", scope="user", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+    perform_install(target="codex", scope="user", skill=False, do_all=False, remove=True, cwd=fake_cwd)
+
+    text = (fake_home / ".codex" / "config.toml").read_text(encoding="utf-8")
+    assert f"[mcp_servers.{MCP_SERVER_NAME}]" not in text
+
+
+def test_strip_codex_block_handles_nested_env() -> None:
+    src = (
+        "[mcp_servers.scieasy]\n"
+        'command = "scieasy"\n'
+        'args = ["mcp-bridge"]\n'
+        "\n"
+        "[mcp_servers.scieasy.env]\n"
+        'SCIEASY_PROJECT_DIR = "/tmp/proj"\n'
+        "\n"
+        "[other_section]\n"
+        'foo = "bar"\n'
+    )
+    stripped, removed = _strip_codex_block(src)
+    assert removed is True
+    assert "scieasy" not in stripped
+    assert "[other_section]" in stripped
+    assert 'foo = "bar"' in stripped
+
+
+# ---------------------------------------------------------------------------
+# Skill target
+# ---------------------------------------------------------------------------
+
+
+def test_install_skill_user_copies_dir(fake_home: Path, fake_cwd: Path) -> None:
+    results = perform_install(target=None, scope="user", skill=True, do_all=False, remove=False, cwd=fake_cwd)
+    assert results[0].target == "skill"
+    skill_dir = fake_home / ".claude" / "skills" / MCP_SERVER_NAME
+    assert (skill_dir / "SKILL.md").is_file()
+    # Examples directory rides along.
+    assert (skill_dir / "examples").is_dir()
+
+
+def test_install_skill_idempotent_replaces_dir(fake_home: Path, fake_cwd: Path) -> None:
+    perform_install(target=None, scope="user", skill=True, do_all=False, remove=False, cwd=fake_cwd)
+    second = perform_install(target=None, scope="user", skill=True, do_all=False, remove=False, cwd=fake_cwd)
+    assert second[0].action == "updated"
+
+
+def test_remove_skill(fake_home: Path, fake_cwd: Path) -> None:
+    perform_install(target=None, scope="user", skill=True, do_all=False, remove=False, cwd=fake_cwd)
+    removed = perform_install(target=None, scope="user", skill=True, do_all=False, remove=True, cwd=fake_cwd)
+    assert removed[0].action == "removed"
+    skill_dir = fake_home / ".claude" / "skills" / MCP_SERVER_NAME
+    assert not skill_dir.exists()
+
+
+def test_install_all_runs_claude_and_codex_and_skill(fake_home: Path, fake_cwd: Path) -> None:
+    results = perform_install(target=None, scope="user", skill=False, do_all=True, remove=False, cwd=fake_cwd)
+    targets = {r.target for r in results}
+    assert {"claude", "codex", "skill"} <= targets
+    # All three artefacts exist on disk.
+    assert (fake_home / ".claude.json").is_file()
+    assert (fake_home / ".codex" / "config.toml").is_file()
+    assert (fake_home / ".claude" / "skills" / MCP_SERVER_NAME / "SKILL.md").is_file()
+
+
+def test_missing_target_and_skill_raises(fake_home: Path, fake_cwd: Path) -> None:
+    with pytest.raises(ValueError):
+        perform_install(target=None, scope="user", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+
+
+def test_invalid_scope_raises(fake_home: Path, fake_cwd: Path) -> None:
+    with pytest.raises(ValueError):
+        perform_install(target="claude", scope="bogus", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+
+
+def test_codex_project_scope_falls_back_with_caveat(fake_home: Path, fake_cwd: Path) -> None:
+    """Codex has no project scope; install should still write user scope with a clarifying detail."""
+    results = perform_install(target="codex", scope="project", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+    assert len(results) == 1
+    assert "codex has no project-scope config file" in results[0].detail
+
+
+def test_install_skill_with_missing_source_raises_clearly(fake_home: Path, fake_cwd: Path) -> None:
+    """If the bundled skill is missing, surface a FileNotFoundError."""
+    with (
+        patch("scieasy.cli.install._find_skill_source", side_effect=FileNotFoundError("missing skill")),
+        pytest.raises(FileNotFoundError),
+    ):
+        perform_install(target=None, scope="user", skill=True, do_all=False, remove=False, cwd=fake_cwd)

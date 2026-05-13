@@ -19,7 +19,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, ClassVar, Protocol
+from typing import Any, ClassVar, Literal, Protocol
 
 
 class PermissionMode(Enum):
@@ -179,13 +179,46 @@ class DoneEvent(AgentEvent):
     """Terminal event marking the end of an agent turn."""
 
 
+DisplayClass = Literal["hidden", "meta", "text-like", "tool-like", "raw"]
+"""Generic UI rendering taxonomy carried on :class:`OtherEvent` (issue #788).
+
+The five classes are intentionally stable — they're chosen to cover any
+conceivable stream event without needing more.
+
+* ``hidden``    — bookkeeping noise (heartbeats, internal sync); not rendered.
+* ``meta``      — session metadata (rate-limit notices, system bookkeeping);
+                  one-line muted label with click-to-expand.
+* ``text-like`` — has a non-empty string ``text``/``content``/``message``;
+                  rendered as a muted text bubble.
+* ``tool-like`` — has ``tool_name`` (or ``name``) plus a structured ``input``
+                  dict; rendered with the same condensed tool-row component as
+                  native ``tool_use`` events.
+* ``raw``       — none of the above; small ``<kind>`` chip with click-to-expand
+                  pretty-printed JSON.
+
+The classification is computed at parse time by
+:func:`scieasy.ai.agent.stream_json.classify_for_display` and carried on
+``OtherEvent.display_class`` so the frontend has a single dispatch rule.
+"""
+
+
 @dataclass(kw_only=True)
 class OtherEvent(AgentEvent):
     """Catch-all for unknown event kinds (spec §3 OQ5).
 
     Unknown kinds are surfaced to the frontend transparently; the original
     payload lives in ``raw`` for forensic logging.
+
+    Attributes
+    ----------
+    display_class
+        Generic UI rendering taxonomy (issue #788) — see :data:`DisplayClass`.
+        Defaults to ``"raw"`` so legacy callers that construct ``OtherEvent``
+        without an explicit class still get a sensible compact rendering
+        rather than the legacy "Unrecognised event" fallback.
     """
+
+    display_class: DisplayClass = "raw"
 
 
 class AgentProvider(Protocol):
