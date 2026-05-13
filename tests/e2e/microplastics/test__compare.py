@@ -15,11 +15,16 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
 import pytest
 
-from tests.e2e.microplastics._compare import (
+# E2E-only test: pandas + numpy are not in the default dev environment.
+# Use importorskip so pytest collection succeeds (and just skips this
+# module) when the optional deps are absent. Without this the default
+# CI command `pytest -n auto -m 'not e2e'` fails at collection time.
+pd = pytest.importorskip("pandas")
+np = pytest.importorskip("numpy")
+
+from tests.e2e.microplastics._compare import (  # noqa: E402
     DEFAULT_ATOL,
     DEFAULT_RTOL,
     GoldenMismatch,
