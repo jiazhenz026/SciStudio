@@ -1,0 +1,362 @@
+## ADR-034: Embedded Coding Agent UI — PTY + Terminal Embed (supersedes most of ADR-033)
+
+**Status**: draft — proposed
+**Date**: 2026-05-13
+**Related**: ADR-033 (Embedded Coding Agent via Claude Code / Codex Subprocess), ADR-023 (frontend layout), #787 (dev CLI integration)
+**Supersedes (mostly)**: ADR-033 §4-§6 (stream-json IPC, agent runtime, frontend renderer, permission UI)
+
+---
+
+### 1. Purpose
+
+This ADR replaces the stream-json + custom-UI strategy in ADR-033 with **a PTY-backed embedded terminal** that runs the user's `claude` (or `codex`) CLI in **interactive TUI mode**. The custom frontend chat surface (`EventRenderer`, `SlashCommandPicker`, `SessionSidebar`, `AskUserQuestionPrompt`, `genericRows/*`) is removed; xterm.js renders the CLI's native UI directly.
+
+ADR-033's foundational decisions are **preserved**:
+- SciEasy MCP server + 25 tools (claude/codex still read `.mcp.json`)
+- System prompt via `SKILL.md` (`--append-system-prompt`)
+- `scieasy install` for dev CLI integration (#787)
+- Project-local state under `{project}/.scieasy/`
+- `AIBlock` (workflow LLM node) unchanged — separate subsystem from the embedded agent
+
+ADR-033's UI / IPC / session-lifecycle decisions are **superseded**:
+- stream-json bidirectional protocol → raw PTY bytes
+- Custom event renderer → claude/codex own TUI inside xterm.js
+- SciEasy session manager + drain task + ring buffer + transcript writer → claude/codex own session persistence
+- SciEasy permission policy + hook bridge → claude/codex own `Shift+Tab` / `/permissions`
+- SciEasy slash command picker → claude/codex own `/` autocomplete
+
+The strategic shift: **stop maintaining a shadow re-implementation of Claude Code's UI.** Embed the real UI.
+
+---
+
+### 2. Context
+
+#### 2.1 What went wrong with ADR-033's UI strategy
+
+After ADR-033 Phase 1-5 landed (PRs #776, #780, #781, #785, #792, #794, #795, #797, #798, #800), live Chrome smoke-testing of the merged code surfaced **7 wiring bugs** in features that had passed CI:
+
+| Feature (PR / Issue) | Live bug |
+|---|---|
+| Session persistence (#800 / #783) | `ev-init` fires every turn; claude `-p` is single-turn |
+| Markdown rendering (#795 / #784) | `react-markdown` imported but not wrapping deltas |
+| Slash command picker (#800 / #786) | Endpoint returns 137 commands; picker never mounts |
+| Permission approval modal (#797 / #791) | STRICT mode silently rejects with no modal |
+| Bypass mode switch (#797 / #791) | WS doesn't reconnect on mode change |
+| Tool collapse (#792 / #788) | `CondensedToolRow` exists but `<details>` still used |
+| Ctrl+O hotkey (#795 / #784) | No listener responds |
+
+PR #806 (#804 fixup) addressed Bug 1 + filed follow-up #805; Bugs 2/3/5/6/7 turned out to be stale Vite dev server pointing at a pre-#784/#788 worktree, but the structural problem remains: **each new feature in claude or codex requires a parallel SciEasy implementation that lags upstream and breaks on every cross-cutting merge.**
+
+#### 2.2 The `-p` billing exposure (Anthropic policy effective 2026-06-15)
+
+Anthropic's [Agent SDK billing policy](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan) (effective 2026-06-15) creates a separate per-user monthly Agent SDK credit for any `claude -p` use, distinct from regular interactive Pro/Max usage. Quoted limits:
+
+- Pro: $20 / month
+- Max 5x: $100 / month
+- Max 20x: $200 / month
+
+Even before 2026-06-15, [GitHub issue #43333](https://github.com/anthropics/claude-code/issues/43333) confirms `claude -p` with OAuth (no `ANTHROPIC_API_KEY`) **already** bills as API usage, silently bypassing the user's Max subscription.
+
+SciEasy's current invocation — `--input-format stream-json --output-format stream-json --append-system-prompt … --mcp-config …` — falls under the same policy: `claude --help` states "`--input-format` (only works with `--print`)" and "`--output-format` (only works with `--print`)" plus the docs note that `-p` semantics fire whenever stdout is not a TTY. We are de facto in `-p` mode.
+
+A heavy SciEasy user can exhaust their entire monthly Agent SDK credit on the embedded agent alone, even if they only use claude lightly elsewhere.
+
+#### 2.3 What we built that we should keep
+
+Independently of UI strategy, ADR-033 produced lasting value:
+
+- **`skills/scieasy/SKILL.md`** — the canonical system prompt source. Used by both the embedded agent and external CLI users via `scieasy install --skill`.
+- **`scieasy install`** (#787) — one-command MCP+skill registration for the user's local claude / codex. Works regardless of how the embedded agent surfaces it.
+- **25 MCP tools** + auto-generated `inputSchema` (#789). Claude/codex consume these via `.mcp.json`; the wire protocol is unaffected by our UI choice.
+- **`compose_system_prompt`** — reads SKILL.md, injects MCP tool catalog. Passed via `--append-system-prompt` in any invocation mode.
+- **`claude_code.py::discover` + macOS Keychain probe (#784 sub-bug 4)** — login detection and binary discovery still needed.
+- **All project-local conventions** — `{project}/.scieasy/workflows/*.yaml`, `{project}/.scieasy/mcp.json`, etc.
+
+These survive the UI pivot.
+
+---
+
+### 3. Decision
+
+#### 3.1 New runtime topology
+
+```
+SciEasy GUI
+  └─ AIChat panel
+       └─ Multi-tab terminal container
+            ├─ Tab 1: Setup screen → (Launch) → xterm.js + claude TUI
+            ├─ Tab 2: Setup screen → (Launch) → xterm.js + codex TUI
+            └─ Tab N: …
+
+SciEasy backend (FastAPI)
+  └─ /api/ai/pty/{tab_id}  WebSocket
+       └─ Per-tab PTY (pywinpty on Windows / pty.openpty on POSIX)
+            └─ spawned: claude / codex
+                 ├─ reads .mcp.json → connects to SciEasy MCP server (same as today)
+                 └─ reads --append-system-prompt → SKILL.md (same as today)
+
+SciEasy MCP server (in-process, unchanged from ADR-033)
+  └─ 25 tools (list_blocks, run_workflow, write_workflow, …)
+
+File watcher (new)
+  └─ watches {project}/.scieasy/workflows/*.yaml mtime
+       └─ emits canvas refresh event on change (replaces the deleted MCP-event-driven canvas update)
+```
+
+#### 3.2 UI: tabbed terminals with per-tab Setup screen
+
+Two-state UI per tab:
+
+**State A — Setup screen** (before Launch):
+
+```
+┌─────────────────────────────────────────────┐
+│ New chat — Setup                            │
+│                                             │
+│ Provider:    ( ) Claude Code                │
+│              ( ) Codex                      │
+│                                             │
+│ Permission:  ( ) Safe (default — claude/    │
+│                  codex prompt for tools)    │
+│              ( ) Dangerous (skip all        │
+│                  approvals — ephemeral       │
+│                  sandboxes only)            │
+│                                             │
+│ Working dir: <project_dir>  (auto-filled)   │
+│                                             │
+│           [ Cancel ]    [ Launch ▸ ]        │
+└─────────────────────────────────────────────┘
+```
+
+**State B — Terminal** (after Launch):
+
+```
+┌─ [ Setup ] [ Chat 1 ▪ ] [ Chat 2 ] [+] ─────┐
+│                                             │
+│  $ claude --append-system-prompt @… \       │
+│      --mcp-config /…/.scieasy/mcp.json      │
+│                                             │
+│  ✻ Welcome to Claude Code.                  │
+│  > _                                        │
+│                                             │
+└─────────────────────────────────────────────┘
+```
+
+Per-tab Setup state survives in localStorage (so a "Chat 3" the user pre-configured but didn't Launch survives reload). Active terminal state survives on disk through claude/codex's own session log (`~/.claude/projects/<encoded-cwd>/<session>.jsonl` or codex equivalent); on reconnect the backend offers `--continue` to resume.
+
+Tab behaviour mirrors Windows Terminal / PowerShell:
+- `[+]` opens a new Setup screen
+- Tab close button (with confirm if there's an active terminal)
+- Double-click tab title to rename
+- Drag-to-reorder (nice-to-have, not required for v1)
+- Keyboard: `Ctrl+T` new tab, `Ctrl+W` close tab (intercepted before browser default), `Ctrl+1..9` switch
+
+#### 3.3 Permission mode handling
+
+Based on actual CLI capabilities:
+
+| Mode | claude support | codex support | SciEasy Setup screen |
+|---|---|---|---|
+| Safe (default) | ✅ default; user uses `Shift+Tab` or `/permissions` mid-session for `acceptEdits` / `plan` / `dontAsk` | ✅ default; `/permissions` mid-session for `Read-Only` / `Auto` / `Full Access` | "Safe" option — no extra argv |
+| Bypass | Spawn-time only via `--permission-mode bypassPermissions` (a.k.a. `--dangerously-skip-permissions`); cannot toggle mid-session (open: [#15041](https://github.com/anthropics/claude-code/issues/15041), [#15407](https://github.com/anthropics/claude-code/issues/15407)) | Spawn-time only via `--dangerously-bypass-approvals-and-sandbox` | "Dangerous" option — passes the flag to spawn |
+
+Implication: **mid-session toggling is the CLI's responsibility**, not SciEasy's. Setup screen only chooses the spawn-time default. Once launched, `Shift+Tab` and `/permissions` work natively.
+
+This deletes SciEasy's current `_resolve_policy`, `permission_check` REST endpoint, `permission_request` event, `PermissionPrompt` modal, hook-bridge wiring (#805), and the bypass-mode-WS-reconnect flow (#791).
+
+#### 3.4 Codex integration: same architecture, different binary
+
+The Codex CLI also has an interactive TUI. The PTY architecture handles both binaries uniformly: the Setup screen's provider choice changes only the spawned executable + a few argv differences. PR #802's stream-json normalization work (~600 lines for Codex JSONL → SciEasy AgentEvent) is **no longer needed**; close that PR.
+
+What stays for codex:
+- `discover` (version, login)
+- `scieasy install --target codex` (#787)
+- Codex equivalents for system prompt + MCP injection (Codex uses `~/.codex/config.toml` MCP entries and a different system-prompt mechanism — to be verified in PoC)
+
+#### 3.5 AI Block: unaffected
+
+`scieasy/blocks/ai/ai_block.py` is a workflow-graph node that calls Anthropic / OpenAI Messages APIs directly using `scieasy.ai.config`. It is **independent** of the embedded chat agent's runtime. The PTY pivot does not touch AI Block.
+
+`scieasy.ai.config` (providers, model registry) stays. The embedded-agent-specific `scieasy.ai.agent.*` modules go (see §4).
+
+Issue #455 (decouple AIBlock from `scieasy.ai`) remains a separate concern.
+
+#### 3.6 Canvas auto-update via filesystem watcher
+
+ADR-033 wired canvas updates through MCP-tool-call events: when claude called `write_workflow`, the backend pushed a SciEasy-side event to refresh the canvas. PTY mode loses that hook (terminal output is opaque to us).
+
+Replacement: a **lightweight file watcher** on `{project}/.scieasy/workflows/*.yaml` mtime / inotify. When a YAML changes, emit a `workflow_changed` event over the existing main WS. Same UX, slightly different mechanism.
+
+Edge cases:
+- Coalesce rapid writes within 200ms
+- Ignore writes by the canvas itself (compare hash of in-memory model vs disk)
+
+#### 3.7 Session persistence
+
+claude maintains `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl` itself. On tab reopen, backend spawns with `claude --continue` (or `codex --continue` if supported; verify in PoC). User sees their previous conversation scrolled-back in the terminal.
+
+SciEasy-side persistence per chat_id needed only for tab metadata (provider, permission mode, custom title) — stored in `{project}/.scieasy/tabs.json` or localStorage. The current `{project}/.scieasy/sessions/<chat_id>.json` and `.../transcript.jsonl` infrastructure becomes redundant; delete.
+
+---
+
+### 4. Scope: what gets deleted vs kept
+
+#### Keep (PTY-compatible, unchanged)
+
+| Module | Purpose |
+|---|---|
+| `skills/scieasy/SKILL.md` + `compose_system_prompt` | Passed via `--append-system-prompt` |
+| `scieasy.ai.agent.mcp.*` (25 tools + server + `_schema`) | Claude/codex read via `.mcp.json` |
+| `scieasy.ai.agent.claude_code.discover` + Mac keychain probe | Binary detection + login state |
+| `scieasy.cli.{install,mcp_bridge}` | #787 dev CLI integration |
+| `scieasy.ai.config.*` | Used by AIBlock — independent |
+| `scieasy.blocks.ai.*` | Workflow LLM block — independent |
+| `frontend` Project Tree, canvas, Workflow YAML, Bottom Panel framing | Unrelated |
+
+#### Delete (subsumed by claude/codex native UI)
+
+Backend:
+- `scieasy.ai.agent.stream_json` (~500 lines NDJSON parser)
+- `scieasy.ai.agent.provider` AgentEvent dataclasses (init / text_delta / tool_use / tool_result / thinking / permission_request / done / error)
+- `scieasy.ai.agent.session` — `AgentSessionManager`, drain task, ring buffer, `SessionMetadata`
+- `scieasy.ai.agent.transcript` — `TranscriptWriter`
+- `scieasy.ai.agent.permission` — `PermissionPolicy`
+- Most of `scieasy.ai.agent.claude_code` — `ClaudeCodeSession`, `start_session`, argv builder (only `discover` survives)
+- `scieasy.api.routes.ai`:
+  - WS chat handler (`/api/ai/chat/{chat_id}`)
+  - `/api/ai/sessions`, `/api/ai/sessions/{chat_id}/transcript`, `/api/ai/slash_commands`
+  - `/api/ai/permission-check`, `/api/ai/permission-decision`
+  - Keep: `/api/ai/status` (provider discovery — still useful for Setup screen)
+
+Frontend:
+- `components/AIChat/EventRenderer.tsx`
+- `components/AIChat/AIChat.tsx` event-list rendering (gut to a thin terminal container)
+- `components/AIChat/SlashCommandPicker.tsx`
+- `components/AIChat/SessionSidebar.tsx`
+- `components/AIChat/AskUserQuestionPrompt.tsx` (issue #803 closes — claude TUI handles natively)
+- `components/AIChat/genericRows/*` (CondensedToolRow, MetaEventRow, TextLikeRow, RawEventRow, ToolLikeRow)
+- `hooks/useAgentWebSocket.ts`
+- `store/aiChatSlice.ts`
+- `types/agentEvents.ts`
+- All `__tests__` under `components/AIChat/`
+
+#### Add (new for PTY)
+
+Backend (~400 lines):
+- `scieasy.ai.agent.terminal` — PTY allocation (pywinpty / `pty.openpty` per platform), subprocess spawn with provider-specific argv, resize handling
+- `scieasy.api.routes.ai_pty` — `/api/ai/pty/{tab_id}` WS endpoint piping raw bytes both ways; `resize` control message
+- `scieasy.api.routes.workflow_watcher` — filesystem watcher emitting `workflow_changed` on the existing main WS
+
+Frontend (~300 lines):
+- `components/AIChat/TerminalTabs.tsx` — tab strip + add button + close + rename + keyboard shortcuts
+- `components/AIChat/TerminalTab.tsx` — single tab state machine (Setup / Running / Closed)
+- `components/AIChat/SetupScreen.tsx` — provider + permission radio + Launch button
+- `components/AIChat/TerminalView.tsx` — xterm.js wrapper, WS hookup, resize observer
+- `hooks/usePtyWebSocket.ts` — raw byte WS
+- `store/terminalTabsSlice.ts` — tab metadata persistence (localStorage)
+
+Net code: roughly **3000+ lines deleted, ~700 lines added**.
+
+---
+
+### 5. Alternatives considered
+
+1. **Status quo (continue ADR-033 trajectory)** — fix wiring bugs as they appear, ship custom UI for every new claude feature. **Rejected**: Anthropic's release cadence + billing policy + ongoing wiring-bug rate make this strategically untenable.
+
+2. **Headless mode + custom UI (current path)** — already chosen by ADR-033. Sections 2.1–2.2 above are the rejection.
+
+3. **Direct Anthropic Messages API + own agent loop** — bypass claude entirely; implement tool-loop, agent reasoning, prompt-cache strategy ourselves. **Rejected**: 10x the current maintenance burden; the entire value of claude/codex is the agent loop they already maintain.
+
+4. **Hybrid (PTY for default UX, headless for advanced workflows)** — keep both surfaces, let users choose. **Rejected for v1**: two surfaces = twice the code, twice the bug surface. The custom UI's bug rate has been unacceptable; abandoning it cleanly is preferable to a half-deprecated parallel path. Re-evaluate if PoC shows specific use cases that PTY can't cover.
+
+5. **Use the Claude Agent SDK (Python / TypeScript packages) instead of CLI** — Anthropic's support article explicitly notes the Agent SDK draws from the same monthly Agent SDK credit as `claude -p`. Same billing exposure; **rejected**.
+
+---
+
+### 6. Consequences
+
+#### 6.1 Wins
+
+- **Cost**: interactive TUI mode uses Pro/Max subscription as intended; no Agent SDK credit drawdown
+- **Maintenance**: ~3000 lines deleted, ~700 added — net 75% reduction in embedded-agent UI code
+- **Feature parity**: every claude / codex release automatically available — markdown, thinking display, AskUserQuestion, `/compact`, future features
+- **UX consistency**: users who already know Claude Code's TUI get the same experience inside SciEasy
+- **Setup tab persistence + multi-chat**: closer to a real terminal workflow (PowerShell-style tabs)
+- **Dev-CLI parity (#787)**: external claude users and embedded users see the same UI
+
+#### 6.2 Losses
+
+- **Native canvas-aware events**: replaced by filesystem watcher (200ms coalesce window) — minor lag
+- **SciEasy-styled permission modal**: gone; claude/codex own modal style instead
+- **SciEasy-tracked transcript at `{project}/.scieasy/sessions/`**: gone; claude/codex write to `~/.claude/projects/`. If a future feature needs project-local transcript copies, add a one-line tee in the PTY pipe
+- **Programmatic event inspection from tests**: terminal output is ANSI-laden. New tests can't assert on individual events. Mitigation: replace event-level unit tests with PTY-level integration tests that send keystrokes and assert on visible TUI state OR fall back to spawning claude with `--print --output-format stream-json` purely in test harness contexts
+- **Existing in-flight work obsolete**: PR #802 (Codex stream-json normalization), issue #803 (AskUserQuestion UI), issue #805 (STRICT permission hook bridge), much of issue #804 already-merged fixes — close these
+
+#### 6.3 Risk: PTY on Windows
+
+`pywinpty` is mature but more failure-prone than POSIX `pty.openpty`. PoC must verify:
+- Windows Terminal-class resize support
+- Unicode handling (claude TUI uses emoji + box-drawing chars)
+- Process-tree cleanup on tab close (avoid orphan `claude` processes)
+- Anti-virus / Defender false positives on the spawned subprocess
+
+If PoC reveals Windows-specific blockers, fall back to plan: ship PTY on macOS / Linux only for v1, keep current UI on Windows. Re-evaluate after PoC.
+
+---
+
+### 7. Phased migration
+
+**Phase 0 — Decision** (this ADR): user reviews + approves.
+
+**Phase 1 — PoC** (1 spike agent, isolated worktree, no merge target):
+- Windows + Linux validation of pywinpty / pty.openpty
+- xterm.js renders claude TUI cleanly
+- MCP tool invocation works inside the PTY
+- Login + billing tier confirmed via `~/.claude/.credentials.json` rate-limit-tier check
+- Codex parity check
+- Outcome: go / no-go decision
+
+**Phase 2 — Build new surface** (alongside old; old stays default):
+- New backend PTY endpoint + terminal module
+- New frontend SetupScreen + TerminalTab + TerminalTabs + TerminalView
+- File watcher for canvas updates
+- Tests for tab persistence + spawn lifecycle
+
+**Phase 3 — Switch default + cleanup**:
+- New surface becomes the default AIChat tab content
+- Old surface stays for 1 week as opt-in via Settings (for emergency rollback)
+- Close obsolete issues / PRs (#802, #803, #804 remaining, #805)
+
+**Phase 4 — Delete**:
+- After 1 week of stability, delete the entire stream-json + custom-UI tree per §4
+- Update ADR-033 status to "superseded in part by ADR-034"
+- Update `docs/specs/embedded-coding-agent-spec.md` to reflect new architecture
+
+Phases 2-4 are conventional implementation work; Phase 1 is the decisive go/no-go.
+
+---
+
+### 8. Open questions
+
+1. **Codex `--continue` semantics** — does codex support session resume from on-disk JSONL the same way as claude? Verify in PoC; if not, document the inconsistency.
+2. **xterm.js search / copy-paste UX** — out-of-the-box xterm.js search works (`Ctrl+F`-style) but UX is rougher than native terminals. May want xterm-addon-search + xterm-addon-fit. Decided in PoC.
+3. **Browser focus traps** — `Ctrl+W` / `Ctrl+T` / `Ctrl+1..9` are taken by browsers. Need to intercept inside xterm.js's focused state. Tested in PoC.
+4. **Multi-claude-process resource ceiling** — current ADR-033 has `DEFAULT_CONCURRENT_CAP` in `AgentSessionManager`. Need an equivalent for tabs to prevent the user from opening 50 chat tabs. Suggest soft cap (warning) at 8, hard cap at 16.
+5. **`scieasy install` invariant** — should running SciEasy auto-write the `mcp.json` to `{project}/.scieasy/` on every project open (so the embedded TUI's MCP config is always current)? Or rely on the user having run `scieasy install --scope project` once? Suggest: write on project open, idempotent.
+
+---
+
+### 9. Out of scope
+
+- Codex's `--config-file` mechanism vs claude's `--mcp-config` semantic differences (PoC will verify; not a decision point here)
+- Plugin / skill auto-discovery beyond what claude already does
+- Per-tab API key configuration (defer to a future "advanced settings" follow-up)
+- Multi-user / shared terminal sessions (no demand)
+
+---
+
+### 10. Decision summary
+
+**Pivot to PTY + xterm.js embedded terminal as the primary embedded-agent UI surface.** Delete the custom event-renderer / sidebar / permission UI / hook bridge stack. Keep MCP tools, SKILL.md, `scieasy install`, discover. Multi-tab with per-tab Setup screen (provider + permission mode + launch). Tab metadata persists in localStorage; conversation history via `claude --continue` from claude's on-disk JSONL.
+
+Phase 1 PoC is the next concrete step. Subsequent phases follow conventional implementation discipline (CLAUDE.md Appendix A workflow gates, Chrome smoke-test mandatory per `feedback_mandatory_chrome_smoke_test`).
