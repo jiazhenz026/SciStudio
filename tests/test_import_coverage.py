@@ -200,24 +200,6 @@ class TestImportWorkflowModules:
         assert li.zoom == 1.0
 
 
-class TestImportAIModules:
-    """AI modules — import coverage."""
-
-    def test_import_generation(self) -> None:
-        from scieasy.ai.generation import (
-            block_generator,  # noqa: F401
-            templates,  # noqa: F401
-            type_generator,  # noqa: F401
-            validator,  # noqa: F401
-        )
-
-    def test_import_optimization(self) -> None:
-        from scieasy.ai.optimization import param_optimizer  # noqa: F401
-
-    def test_import_synthesis(self) -> None:
-        from scieasy.ai.synthesis import workflow_planner  # noqa: F401
-
-
 class TestImportCLI:
     """CLI module — import coverage."""
 

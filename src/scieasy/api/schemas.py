@@ -225,37 +225,6 @@ class ProjectResponse(BaseModel):
     current_workflow_id: str | None = None
 
 
-class AIGenerateBlockRequest(BaseModel):
-    """Request body for AI block generation."""
-
-    description: str
-    block_category: str | None = None
-
-
-class AIGenerateBlockResponse(BaseModel):
-    """Response body after AI block generation."""
-
-    code: str
-    block_name: str
-    validation_passed: bool
-    validation_report: dict[str, Any] = Field(default_factory=dict)
-    category: str = ""
-
-
-class AISuggestWorkflowRequest(BaseModel):
-    """Request body for AI workflow suggestion."""
-
-    data_description: str
-    goal: str
-
-
-class AISuggestWorkflowResponse(BaseModel):
-    """Response body after AI workflow suggestion."""
-
-    workflow: dict[str, Any] = Field(default_factory=dict)
-    explanation: str = ""
-
-
 class CancelBlockRequest(BaseModel):
     """Request body for cancelling a single block."""
 
@@ -274,21 +243,6 @@ class CancelPropagationResponse(BaseModel):
     skip_reasons: dict[str, str] = Field(default_factory=dict)
 
 
-class AIOptimizeParamsRequest(BaseModel):
-    """Request body for AI parameter optimization."""
-
-    block_id: str
-    intermediate_results: dict[str, Any] = Field(default_factory=dict)
-    search_space: dict[str, Any] | None = None
-
-
-class AIOptimizeParamsResponse(BaseModel):
-    """Response body after AI parameter optimization."""
-
-    suggestions: dict[str, Any] = Field(default_factory=dict)
-    explanation: str = ""
-
-
 class ErrorResponse(BaseModel):
     """Standard error envelope returned by endpoints on failure."""
 
@@ -297,9 +251,8 @@ class ErrorResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Embedded coding agent (ADR-033 / T-ECA-107) — new schemas.
-# Added in addition to the legacy ``AIGenerateBlockRequest`` etc. above;
-# legacy POST endpoints are deleted in Phase 4, not here.
+# Embedded coding agent (ADR-033 / T-ECA-107) — schemas.
+# Legacy single-call AI schemas were removed in Phase 4 (T-ECA-401).
 # ---------------------------------------------------------------------------
 
 
