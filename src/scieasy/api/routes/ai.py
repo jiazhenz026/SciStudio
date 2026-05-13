@@ -651,10 +651,24 @@ def _discover_slash_commands(project_dir: Path) -> list[dict[str, str]]:
                     break
 
     # <project>/.claude/commands/*.md
-    project_cmds = safe_project_dir / ".claude" / "commands"
-    if project_cmds.is_dir():
-        for f in project_cmds.glob("*.md"):
-            _add("project", f)
+    # CodeQL: re-apply the explicit realpath + commonpath sanitiser
+    # inline here. The query does NOT track sanitisation through the
+    # ``_resolve_project_key`` helper call, so we inline the pattern at
+    # the path-join site to make the taint clearance visible.
+    candidate = os.path.realpath(os.fspath(safe_project_dir))
+    safe_root = None
+    for root in _PROJECT_DIR_ALLOWED_ROOTS:
+        try:
+            if os.path.commonpath([root, candidate]) == root:
+                safe_root = candidate
+                break
+        except ValueError:
+            continue
+    if safe_root is not None:
+        project_cmds = Path(safe_root) / ".claude" / "commands"
+        if project_cmds.is_dir():
+            for f in project_cmds.glob("*.md"):
+                _add("project", f)
 
     # ~/.claude/plugins/*/commands/*.md
     plugins_root = home / ".claude" / "plugins"
