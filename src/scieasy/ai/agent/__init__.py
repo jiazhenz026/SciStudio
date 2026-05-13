@@ -46,7 +46,11 @@ from scieasy.ai.agent.provider import (
     ToolResultEvent,
     ToolUseEvent,
 )
-from scieasy.ai.agent.session import AgentSessionManager
+from scieasy.ai.agent.session import (
+    AgentSessionManager,
+    SessionMetadata,
+    get_session_manager,
+)
 from scieasy.ai.agent.transcript import TranscriptWriter
 
 __all__ = [
@@ -64,8 +68,10 @@ __all__ = [
     "PermissionPolicy",
     "PermissionRequestEvent",
     "ProviderStatus",
+    "SessionMetadata",
     "ToolResultEvent",
     "ToolUseEvent",
     "TranscriptWriter",
     "errors",
+    "get_session_manager",
 ]

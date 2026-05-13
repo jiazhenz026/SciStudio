@@ -160,32 +160,35 @@ def test_stubs_raise_not_implemented() -> None:
     with pytest.raises(NotImplementedError):
         compose_system_prompt(Path("/tmp"))
 
-    with pytest.raises(NotImplementedError):
-        ClaudeCodeProvider.discover()
-
-    with pytest.raises(NotImplementedError):
-        ClaudeCodeProvider().start_session(
-            project_dir=Path("/tmp"),
-            system_prompt="",
-            mcp_config={},
-            resume_session_id=None,
-            permission_mode=PermissionMode.STRICT,
-        )
+    # T-ECA-104 has implemented ``ClaudeCodeProvider.discover`` and
+    # ``start_session``; discover now returns a real ``ProviderStatus``,
+    # and start_session is async. Full coverage lives in
+    # tests/ai/test_claude_code.py.
+    status = ClaudeCodeProvider.discover()
+    assert status.name == "claude-code"
+    # Construct the provider instance to keep the runtime witness for
+    # the (now async) start_session attribute.
+    _provider = ClaudeCodeProvider()
+    assert hasattr(_provider, "start_session")
 
     policy = PermissionPolicy(PermissionMode.STRICT)
     assert policy.mode is PermissionMode.STRICT
     with pytest.raises(NotImplementedError):
         policy.should_auto_approve("Read", {})
 
+    # T-ECA-106 has implemented ``AgentSessionManager``; ``get_session``
+    # now returns ``None`` for an unknown chat instead of raising.
+    # Full coverage lives in tests/ai/test_session_manager.py.
     manager = AgentSessionManager()
     assert AgentSessionManager.DEFAULT_CONCURRENT_CAP == 5
-    with pytest.raises(NotImplementedError):
-        manager.get_session(Path("/tmp"), "chat-1")
+    assert manager.get_session(Path("/tmp"), "chat-1") is None
 
+    # T-ECA-106 has implemented ``TranscriptWriter``; ``close`` is now an
+    # idempotent no-op. Full coverage lives in tests/ai/test_transcript.py.
     writer = TranscriptWriter(Path("/tmp/transcript.jsonl"))
     assert writer.path == Path("/tmp/transcript.jsonl")
-    with pytest.raises(NotImplementedError):
-        writer.close()
+    writer.close()
+    writer.close()  # idempotency check
 
 
 def test_no_third_party_sdk_imports() -> None:
