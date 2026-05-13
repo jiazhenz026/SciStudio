@@ -11,6 +11,14 @@ import yaml
 
 app = typer.Typer(name="scieasy", help="SciEasy -- AI-native scientific workflow runtime")
 
+# T-ECA-110: register ``scieasy hook-bridge`` as a subcommand on the
+# existing console script rather than adding a second [project.scripts]
+# entry (the spec asks for a single ``scieasy`` binary with all
+# subcommands attached to it).
+from scieasy.cli import hook_bridge as _hook_bridge  # noqa: E402
+
+_hook_bridge.register(app)
+
 
 # ---------------------------------------------------------------------------
 # Shared helpers for validate / run commands

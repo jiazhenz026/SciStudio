@@ -4,17 +4,49 @@ The policy decides, for each tool call the agent attempts, whether the
 hook bridge should auto-approve, auto-deny, or escalate to the user
 via the WebSocket prompt (spec §3 D4, OQ6).
 
-Phase 1 ships the stub :class:`PermissionPolicy` and the canonical
-:data:`AUTO_APPROVE_NATIVE_TOOLS` set that T-ECA-110 will consume; the
-runtime policy implementation (read-only-tool whitelist, MCP-read-tool
-classification, ``ask`` escalation) lands in T-ECA-110.
+T-ECA-110 ships the runtime policy (read-only-tool whitelist + bypass mode)
+and the **pending-decision registry** used by the permission-check
+endpoint to await the user's decision delivered over the chat WebSocket.
+
+Design summary (spec §5 T-ECA-110):
+
+* The hook fires on the CC subprocess side, but the user is in the
+  frontend. ``POST /api/ai/permission-check`` creates an
+  :class:`asyncio.Event` keyed by a fresh ``request_id`` and waits on it;
+  the frontend's ``POST /api/ai/permission-decision`` (or the
+  ``permission_decision`` WS message) calls
+  :func:`signal_decision`, which sets the Event and stores the decision
+  payload. The check endpoint then consumes the payload and returns it
+  to the bridge.
+* The registry is module-level (single FastAPI process; ADR-033 §3 D5.2
+  is explicitly single-user). For multi-process deployments the registry
+  would need to move to Redis, but that is out of scope.
+
+Auto-approve policy (STRICT mode, v1):
+
+* Native CC tools in :data:`AUTO_APPROVE_NATIVE_TOOLS` always auto-approve.
+* MCP tools are NOT auto-approved in v1 — the SciEasy MCP server does
+  not ship until Phase 2, so there is nothing to classify yet. When
+  Phase 2 lands, MCP read tools (per ADR-033 §3 D2.2) should be added
+  to the policy. The frontend will ask for every MCP call until then.
+* Everything else (Edit, Write, Bash, WebFetch, etc.) requires user
+  approval.
+
+In :attr:`PermissionMode.BYPASS` mode the policy returns ``True`` for
+every tool, matching ``--dangerously-skip-permissions`` semantics.
 """
 
 from __future__ import annotations
 
+import asyncio
+import logging
+import uuid
 from typing import Any
 
 from scieasy.ai.agent.provider import PermissionMode
+
+logger = logging.getLogger(__name__)
+
 
 AUTO_APPROVE_NATIVE_TOOLS: frozenset[str] = frozenset(
     {
@@ -32,38 +64,49 @@ AUTO_APPROVE_NATIVE_TOOLS: frozenset[str] = frozenset(
 
 These are the eight read-only / state-free natives identified in spec
 §5 T-ECA-110. Any tool name outside this set (and outside the
-read-only MCP tool subset) requires user approval in STRICT mode.
+read-only MCP tool subset, which Phase 2 will populate) requires user
+approval in STRICT mode.
 
 The set is exposed as a module-level constant so the permission policy
 and the audit tooling share a single source of truth.
 """
 
 
+# ---------------------------------------------------------------------------
+# Tunables.
+# Defined at module level so tests can monkeypatch them down to fractions
+# of a second without the production default being affected.
+# ---------------------------------------------------------------------------
+
+DECISION_TIMEOUT_SECONDS: float = 300.0
+"""Default soft timeout for a pending permission decision (spec §3 OQ6).
+
+After this many seconds with no user response, the permission-check
+endpoint resolves with ``{action: "deny", reason: "timed_out"}``. The
+constant is module-level so tests can monkeypatch it via
+``monkeypatch.setattr(permission, "DECISION_TIMEOUT_SECONDS", 0.5)``.
+"""
+
+
 class PermissionPolicy:
     """Decides whether a tool call should auto-approve, auto-deny, or ask.
 
-    The policy is initialised with a :class:`PermissionMode`:
+    Construct with a :class:`PermissionMode`:
 
     * :attr:`PermissionMode.STRICT` — only :data:`AUTO_APPROVE_NATIVE_TOOLS`
-      and read-class MCP tools auto-approve; everything else escalates.
+      auto-approve in v1; everything else escalates.
     * :attr:`PermissionMode.BYPASS` — every tool auto-approves.
 
     Invariants:
 
     * A policy instance is immutable for the lifetime of one session
       (mode changes take effect on the next session start).
-    * ``should_auto_approve`` is pure; it does not call out to the
+    * :meth:`should_auto_approve` is pure; it does not call out to the
       filesystem or network.
     """
 
     def __init__(self, mode: PermissionMode) -> None:
-        """Construct a policy for the given mode.
-
-        Parameters
-        ----------
-        mode
-            The session-level permission mode.
-        """
+        """Construct a policy for the given mode."""
         self.mode: PermissionMode = mode
 
     def should_auto_approve(self, tool_name: str, tool_input: dict[str, Any]) -> bool:
@@ -75,18 +118,141 @@ class PermissionPolicy:
             The tool identifier as it appears in the provider's
             ``tool_use`` event.
         tool_input
-            The tool's argument payload, used by future variants of
-            the policy that inspect, for example, target paths.
+            The tool's argument payload. Currently unused; reserved for
+            future variants of the policy that inspect target paths
+            (e.g. allow-list a sandbox subdir).
 
         Returns
         -------
         bool
-            ``True`` to auto-approve, ``False`` to escalate to the
-            user.
+            ``True`` to auto-approve, ``False`` to escalate.
 
-        Raises
-        ------
-        NotImplementedError
-            Always, in Phase 1. Implementation lands in T-ECA-110.
+        Notes
+        -----
+        MCP read-tool auto-approve (per ADR-033 §3 D2.2) is **not**
+        implemented in v1. The SciEasy MCP server lands in Phase 2;
+        until then, classifying MCP tools as read-vs-write would either
+        be a moving target or require a hard-coded table that will be
+        wrong by the time the server ships. The frontend will prompt
+        for every non-native tool call until Phase 2 wires the
+        classifier.
         """
-        raise NotImplementedError("PermissionPolicy.should_auto_approve is implemented in T-ECA-110")
+        # ``tool_input`` is intentionally unused in v1 — see docstring.
+        del tool_input
+        if self.mode is PermissionMode.BYPASS:
+            return True
+        if self.mode is PermissionMode.STRICT:
+            return tool_name in AUTO_APPROVE_NATIVE_TOOLS
+        # Defensive: PermissionMode is a closed enum but extending it
+        # later should not silently auto-approve.
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Pending-decision registry.
+#
+# Used by ``POST /api/ai/permission-check`` and signaled by
+# ``POST /api/ai/permission-decision`` (and the equivalent
+# ``permission_decision`` WS message). The registry is module-private to
+# enforce that the lifecycle goes through ``register`` / ``signal`` /
+# ``consume`` rather than direct dict manipulation.
+# ---------------------------------------------------------------------------
+
+
+_PendingEntry = tuple[asyncio.Event, dict[str, Any]]
+"""(event, decision_slot) per ``request_id``. ``decision_slot`` is empty
+until ``signal_decision`` fills it; ``consume_pending_decision`` pops it."""
+
+
+_pending_decisions: dict[str, _PendingEntry] = {}
+
+
+def register_pending_decision(request_id: str | None = None) -> tuple[str, asyncio.Event]:
+    """Create a fresh pending-decision entry and return ``(request_id, event)``.
+
+    Parameters
+    ----------
+    request_id
+        Optional pre-generated identifier. If ``None``, a UUID4 hex
+        string is used. Tests pass an explicit value for determinism;
+        the permission-check endpoint passes ``None`` so each call gets
+        a unique id.
+
+    Returns
+    -------
+    (str, asyncio.Event)
+        The id (callers must include it in the ``permission_request``
+        broadcast so the frontend can echo it back) and the Event the
+        caller awaits.
+    """
+    rid = request_id if request_id is not None else uuid.uuid4().hex
+    if rid in _pending_decisions:
+        # Re-using an id is a bug; warn loudly rather than silently
+        # overwrite the previous Event.
+        logger.warning("register_pending_decision: id %s already pending; overwriting", rid)
+    event = asyncio.Event()
+    _pending_decisions[rid] = (event, {})
+    return rid, event
+
+
+def signal_decision(
+    request_id: str,
+    decision: str,
+    reason: str | None = None,
+) -> bool:
+    """Mark the pending decision as resolved.
+
+    Parameters
+    ----------
+    request_id
+        The id returned by :func:`register_pending_decision`.
+    decision
+        Either ``"approve"`` or ``"deny"``. No other values are
+        accepted; the caller (the WS or REST handler) is responsible
+        for validating client input before calling.
+    reason
+        Optional human-readable reason for a deny; surfaced to the hook
+        bridge's stderr and ultimately to the user.
+
+    Returns
+    -------
+    bool
+        ``True`` if the id was known and the event was set, ``False``
+        if the id is unknown (e.g. already consumed or never
+        registered).
+    """
+    entry = _pending_decisions.get(request_id)
+    if entry is None:
+        logger.warning("signal_decision: unknown request_id %s", request_id)
+        return False
+    event, slot = entry
+    slot["decision"] = decision
+    if reason is not None:
+        slot["reason"] = reason
+    event.set()
+    logger.info("signal_decision: %s -> %s", request_id, decision)
+    return True
+
+
+def consume_pending_decision(request_id: str) -> dict[str, Any] | None:
+    """Pop and return the decision payload, or ``None`` if not registered.
+
+    Idempotent: a second call with the same ``request_id`` returns
+    ``None``. Callers should invoke this only after awaiting the Event
+    returned by :func:`register_pending_decision`.
+    """
+    entry = _pending_decisions.pop(request_id, None)
+    if entry is None:
+        return None
+    _, slot = entry
+    return dict(slot)
+
+
+def _reset_registry_for_tests() -> None:
+    """Clear all pending decisions. Test-only; not part of the public API.
+
+    Used by the ``test_permission`` test module to ensure a clean slate
+    between tests within the same pytest worker (the registry is
+    module-level and otherwise persists).
+    """
+    _pending_decisions.clear()

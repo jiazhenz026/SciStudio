@@ -173,8 +173,9 @@ def test_stubs_raise_not_implemented() -> None:
 
     policy = PermissionPolicy(PermissionMode.STRICT)
     assert policy.mode is PermissionMode.STRICT
-    with pytest.raises(NotImplementedError):
-        policy.should_auto_approve("Read", {})
+    # T-ECA-110 has implemented ``should_auto_approve``; it returns bool now
+    # instead of raising. Full coverage lives in tests/ai/test_permission.py.
+    assert isinstance(policy.should_auto_approve("Read", {}), bool)
 
     # T-ECA-106 has implemented ``AgentSessionManager``; ``get_session``
     # now returns ``None`` for an unknown chat instead of raising.
