@@ -226,6 +226,7 @@ class AgentProvider(Protocol):
         self,
         *,
         project_dir: Path,
+        chat_id: str,
         system_prompt: str,
         mcp_config: dict[str, Any],
         resume_session_id: str | None,
@@ -244,6 +245,11 @@ class AgentProvider(Protocol):
             Absolute path to the SciEasy project directory; used as the
             subprocess ``cwd`` and as the root for ``.scieasy/``
             artefacts (mcp.json, hook config, session metadata).
+        chat_id
+            SciEasy chat correlator. Injected into the agent
+            subprocess env as ``SCIEASY_CHAT_ID`` so PreToolUse hook
+            children (``scieasy hook-bridge``) can route permission
+            requests to the backend (T-ECA-110, issue #723).
         system_prompt
             Already-composed three-tier system prompt to pass via
             ``--append-system-prompt``.

@@ -355,6 +355,7 @@ class ClaudeCodeProvider:
         self,
         *,
         project_dir: Path,
+        chat_id: str,
         system_prompt: str,
         mcp_config: dict[str, Any],
         resume_session_id: str | None,
@@ -411,6 +412,11 @@ class ClaudeCodeProvider:
 
         env = os.environ.copy()
         env["SCIEASY_PERMISSION_MODE"] = permission_mode.value
+        # Required by `scieasy hook-bridge` (T-ECA-110): CC inherits this env
+        # into PreToolUse hook subprocesses, so the bridge can route the
+        # permission request to /api/ai/permission-check (issue #723).
+        env["SCIEASY_CHAT_ID"] = chat_id
+        env["SCIEASY_PROJECT_DIR"] = str(project_dir)
 
         creationflags = 0
         if sys.platform == "win32":

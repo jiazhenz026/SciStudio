@@ -125,6 +125,7 @@ async def test_start_session_spawns_and_returns_session(project_dir: Path) -> No
     provider = ClaudeCodeProvider(binary_override=STUB_PATH)
     session = await provider.start_session(
         project_dir=project_dir,
+        chat_id="test-chat",
         system_prompt="be helpful",
         mcp_config={"mcpServers": {}},
         resume_session_id=None,
@@ -148,6 +149,7 @@ async def test_start_session_raises_when_binary_missing(monkeypatch: pytest.Monk
     with pytest.raises(AgentNotInstalledError):
         await provider.start_session(
             project_dir=project_dir,
+            chat_id="test-chat",
             system_prompt="",
             mcp_config={},
             resume_session_id=None,
@@ -160,6 +162,7 @@ async def test_session_stream_events_yields_init_and_done(project_dir: Path) -> 
     provider = ClaudeCodeProvider(binary_override=STUB_PATH)
     session = await provider.start_session(
         project_dir=project_dir,
+        chat_id="test-chat",
         system_prompt="hi",
         mcp_config={"mcpServers": {}},
         resume_session_id=None,
@@ -190,6 +193,7 @@ async def test_session_resume_echoes_session_id(project_dir: Path) -> None:
     provider = ClaudeCodeProvider(binary_override=STUB_PATH)
     session = await provider.start_session(
         project_dir=project_dir,
+        chat_id="test-chat",
         system_prompt="",
         mcp_config={},
         resume_session_id="resumed-abc-123",
@@ -209,6 +213,7 @@ async def test_session_send_user_message_after_close_raises(project_dir: Path) -
     provider = ClaudeCodeProvider(binary_override=STUB_PATH)
     session = await provider.start_session(
         project_dir=project_dir,
+        chat_id="test-chat",
         system_prompt="",
         mcp_config={},
         resume_session_id=None,
@@ -227,6 +232,7 @@ async def test_session_close_cleans_up_temp_files(project_dir: Path) -> None:
     provider = ClaudeCodeProvider(binary_override=STUB_PATH)
     session = await provider.start_session(
         project_dir=project_dir,
+        chat_id="test-chat",
         system_prompt="cleanup-test",
         mcp_config={"mcpServers": {}},
         resume_session_id=None,
@@ -244,6 +250,7 @@ async def test_session_close_is_idempotent(project_dir: Path) -> None:
     provider = ClaudeCodeProvider(binary_override=STUB_PATH)
     session = await provider.start_session(
         project_dir=project_dir,
+        chat_id="test-chat",
         system_prompt="",
         mcp_config={},
         resume_session_id=None,
@@ -263,6 +270,7 @@ async def test_session_close_timeout_uses_kill_process_tree(project_dir: Path, m
     provider = ClaudeCodeProvider(binary_override=STUB_PATH)
     session = await provider.start_session(
         project_dir=project_dir,
+        chat_id="test-chat",
         system_prompt="",
         mcp_config={},
         resume_session_id=None,
@@ -304,6 +312,7 @@ async def test_session_cancel_kills_subprocess(project_dir: Path) -> None:
     provider = ClaudeCodeProvider(binary_override=STUB_PATH)
     session = await provider.start_session(
         project_dir=project_dir,
+        chat_id="test-chat",
         system_prompt="",
         mcp_config={},
         resume_session_id=None,
@@ -368,6 +377,7 @@ async def test_session_stream_events_handles_stub_crash(project_dir: Path, monke
     provider = ClaudeCodeProvider(binary_override=STUB_PATH)
     session = await provider.start_session(
         project_dir=project_dir,
+        chat_id="test-chat",
         system_prompt="",
         mcp_config={},
         resume_session_id=None,
@@ -379,3 +389,68 @@ async def test_session_stream_events_handles_stub_crash(project_dir: Path, monke
         assert events == []
     finally:
         await session.close()
+
+
+@pytest.mark.asyncio
+async def test_start_session_injects_chat_id_into_subprocess_env(
+    project_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression for issue #723.
+
+    ``ClaudeCodeProvider.start_session`` must inject ``SCIEASY_CHAT_ID``
+    and ``SCIEASY_PROJECT_DIR`` into the agent subprocess env so the
+    PreToolUse hook child (``scieasy hook-bridge``) can route the
+    permission request to ``/api/ai/permission-check`` instead of
+    failing closed.
+    """
+    from scieasy.ai.agent import claude_code as cc
+
+    captured: dict[str, Any] = {}
+
+    async def fake_spawn(
+        *,
+        argv: list[str],
+        cwd: Path,
+        env: dict[str, str],
+        creationflags: int,
+    ) -> Any:
+        captured["env"] = env
+        captured["argv"] = argv
+
+        class _FakeProc:
+            pid = 4242
+            returncode = None
+            stdin = None
+            stdout = None
+            stderr = None
+
+            async def wait(self) -> int:
+                return 0
+
+        return _FakeProc()
+
+    monkeypatch.setattr(cc, "_spawn", fake_spawn)
+
+    provider = ClaudeCodeProvider(binary_override=STUB_PATH)
+    session = await provider.start_session(
+        project_dir=project_dir,
+        chat_id="chat-abc-123",
+        system_prompt="env-injection test",
+        mcp_config={"mcpServers": {}},
+        resume_session_id=None,
+        permission_mode=PermissionMode.STRICT,
+    )
+    # No subprocess to clean up (fake); just clear temp files.
+    for path in session.temp_files:
+        path.unlink(missing_ok=True)
+
+    env = captured["env"]
+    assert env["SCIEASY_CHAT_ID"] == "chat-abc-123", (
+        "SCIEASY_CHAT_ID missing from CC subprocess env; hook-bridge would "
+        "fail-close on every non-auto-approved tool call (issue #723)."
+    )
+    assert env["SCIEASY_PROJECT_DIR"] == str(project_dir), (
+        "SCIEASY_PROJECT_DIR missing; backend cannot resolve session metadata for bypass-mode detection (issue #723)."
+    )
+    # Existing env vars are still set.
+    assert env["SCIEASY_PERMISSION_MODE"] == PermissionMode.STRICT.value
