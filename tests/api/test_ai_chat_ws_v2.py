@@ -63,7 +63,15 @@ def _override(app: Any, manager: AgentSessionManager) -> None:
 
 
 def _patch_start(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def _stub_start(*, manager: Any, project_dir: Path, chat_id: str) -> Any:
+    async def _stub_start(
+        *,
+        manager: Any,
+        project_dir: Path,
+        chat_id: str,
+        permission_mode_str: str = "strict",
+    ) -> Any:
+        # Issue #791: route now passes permission_mode_str through.
+        mode = PermissionMode.BYPASS if permission_mode_str == "bypass" else PermissionMode.STRICT
         provider = ClaudeCodeProvider(binary_override=STUB_PATH)
         return await manager.start_session(
             project_dir=project_dir,
@@ -71,7 +79,7 @@ def _patch_start(monkeypatch: pytest.MonkeyPatch) -> None:
             provider=provider,
             system_prompt="test",
             mcp_config={},
-            permission_mode=PermissionMode.STRICT,
+            permission_mode=mode,
         )
 
     monkeypatch.setattr(ai_routes, "_start_default_session", _stub_start)

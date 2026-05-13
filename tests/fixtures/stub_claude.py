@@ -84,6 +84,10 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--mcp-config", default=None)
     parser.add_argument("--resume", default=None)
     parser.add_argument("--model", default=None)
+    # Issue #791: ClaudeCodeProvider appends ``--permission-mode bypassPermissions``
+    # when the session is launched in BYPASS mode. The stub doesn't care
+    # about the value but must accept the flag or argparse will SystemExit.
+    parser.add_argument("--permission-mode", default=None)
     return parser.parse_args(argv)
 
 

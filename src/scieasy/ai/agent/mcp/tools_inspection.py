@@ -20,7 +20,7 @@ from typing import Any
 
 from filelock import FileLock, Timeout
 
-from scieasy.ai.agent.mcp._context import get_context
+from scieasy.ai.agent.mcp._context import _resolve_project_path, get_context
 from scieasy.core.storage.ref import StorageReference
 
 logger = logging.getLogger(__name__)
@@ -387,17 +387,28 @@ def get_lineage(ref: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_block_config(workflow_path: str, block_id: str) -> dict[str, Any]:
-    """Return the static configuration of one block in a workflow file."""
+    """Return the static configuration of one block in a workflow file.
+
+    Path handling (issue #790): *workflow_path* is resolved against the
+    active project root. Relative paths are interpreted relative to
+    ``ctx.project_dir``; absolute paths must already be under the
+    project root.
+    """
     from scieasy.workflow.serializer import load_yaml
 
-    p = Path(workflow_path)
+    p = _resolve_project_path(workflow_path)
     if not p.exists():
-        raise FileNotFoundError(f"Workflow file not found: {workflow_path}")
+        raise FileNotFoundError(f"Workflow file not found: {p}")
     definition = load_yaml(p)
     for node in definition.nodes:
         if node.id == block_id:
-            return {"block_id": block_id, "type": node.block_type, "params": dict(node.config)}
-    raise KeyError(f"Block '{block_id}' not found in workflow {workflow_path}")
+            return {
+                "block_id": block_id,
+                "type": node.block_type,
+                "params": dict(node.config),
+                "workflow_path": str(p),
+            }
+    raise KeyError(f"Block '{block_id}' not found in workflow {p}")
 
 
 # ---------------------------------------------------------------------------
@@ -415,6 +426,12 @@ def update_block_config(
     Uses ``ruamel.yaml`` to preserve comments and key order. Acquires
     the OQ7 file lock around the read-modify-write.
 
+    Path handling (issue #790): *workflow_path* is resolved against the
+    active project root. Relative paths are interpreted relative to
+    ``ctx.project_dir``; absolute paths must already be under the
+    project root or :class:`PermissionError` is raised. The returned
+    envelope carries the absolute resolved ``workflow_path``.
+
     TODO(#732): once the workflow versioning API ships, the same lock
     boundary should also send the version header to the runtime so the
     canvas's optimistic-concurrency model and the agent share one
@@ -422,9 +439,9 @@ def update_block_config(
     """
     from ruamel.yaml import YAML
 
-    p = Path(workflow_path)
+    p = _resolve_project_path(workflow_path)
     if not p.exists():
-        raise FileNotFoundError(f"Workflow file not found: {workflow_path}")
+        raise FileNotFoundError(f"Workflow file not found: {p}")
     lock_path = str(p) + ".lock"
     yaml_rt = YAML(typ="rt")
     yaml_rt.preserve_quotes = True
@@ -446,7 +463,7 @@ def update_block_config(
                     target = node
                     break
             if target is None:
-                raise KeyError(f"Block '{block_id}' not found in workflow {workflow_path}")
+                raise KeyError(f"Block '{block_id}' not found in workflow {p}")
             config_node = target.get("config")
             if not isinstance(config_node, dict):
                 target["config"] = dict(params)
@@ -466,12 +483,17 @@ def update_block_config(
                     os.unlink(tmp)
                 raise
     except Timeout as exc:
-        raise TimeoutError(f"update_block_config: could not acquire lock for {workflow_path}") from exc
+        raise TimeoutError(f"update_block_config: could not acquire lock for {p}") from exc
 
     new = p.read_text(encoding="utf-8")
     diff_summary = f"{len(new.encode('utf-8'))} bytes (was {len(old.encode('utf-8'))})"
-    logger.info("update_block_config: %s block=%s (%s)", workflow_path, block_id, diff_summary)
-    return {"block_id": block_id, "diff_summary": diff_summary, "bytes_written": bytes_written}
+    logger.info("update_block_config: %s block=%s (%s)", p, block_id, diff_summary)
+    return {
+        "block_id": block_id,
+        "diff_summary": diff_summary,
+        "bytes_written": bytes_written,
+        "workflow_path": str(p),
+    }
 
 
 # ---------------------------------------------------------------------------
