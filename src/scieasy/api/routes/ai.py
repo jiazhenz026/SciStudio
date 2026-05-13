@@ -36,6 +36,7 @@ from pydantic import ValidationError
 from scieasy.ai.agent import permission as permission_module
 from scieasy.api.deps import get_agent_session_manager
 from scieasy.api.schemas import (
+    AgentEventEnvelope,
     AIGenerateBlockRequest,
     AIGenerateBlockResponse,
     AIOptimizeParamsRequest,
@@ -43,9 +44,11 @@ from scieasy.api.schemas import (
     AISuggestWorkflowRequest,
     AISuggestWorkflowResponse,
     ChatClientMessage,
+    ErrorEnvelope,
     PermissionCheckRequest,
     PermissionCheckResponse,
     PermissionDecisionRequest,
+    PermissionRequestEnvelope,
     ProviderStatusItem,
     ProviderStatusResponse,
 )
@@ -269,7 +272,7 @@ async def chat_ws(
         project_key = _resolve_project_key(project_dir)
     except ValueError as exc:
         logger.warning("chat_ws: rejecting project_dir=%r: %s", project_dir, exc)
-        await websocket.send_json({"type": "error", "message": str(exc)})
+        await websocket.send_json(ErrorEnvelope(message=str(exc)).model_dump())
         await websocket.close(code=1008, reason="invalid project_dir")
         return
     project_path = project_key
@@ -284,13 +287,13 @@ async def chat_ws(
         """Forward every canonical event from the session stream to the WebSocket."""
         try:
             async for event in active_session.stream_events():
-                await websocket.send_json({"type": "agent_event", "event": _serialise_agent_event(event)})
+                await websocket.send_json(AgentEventEnvelope(event=_serialise_agent_event(event)).model_dump())
         except (WebSocketDisconnect, asyncio.CancelledError):
             return
         except Exception as exc:  # pragma: no cover - defensive log
             logger.error("chat_ws.pump_events: %s", exc, exc_info=True)
             with contextlib.suppress(Exception):
-                await websocket.send_json({"type": "error", "message": str(exc)})
+                await websocket.send_json(ErrorEnvelope(message=str(exc)).model_dump())
 
     # Reattach flow: if a live session already exists for (project, chat_id),
     # start the event pump now so reconnecting clients receive ongoing /
@@ -309,7 +312,7 @@ async def chat_ws(
                 msg = ChatClientMessage.model_validate_json(raw)
             except ValidationError as exc:
                 logger.warning("chat_ws: invalid client message: %s", exc)
-                await websocket.send_json({"type": "error", "message": "invalid message"})
+                await websocket.send_json(ErrorEnvelope(message="invalid message").model_dump())
                 continue
 
             if msg.type == "user_message":
@@ -323,7 +326,7 @@ async def chat_ws(
                         )
                     except Exception as exc:
                         logger.error("chat_ws: start_session failed: %s", exc)
-                        await websocket.send_json({"type": "error", "message": f"start_session failed: {exc}"})
+                        await websocket.send_json(ErrorEnvelope(message=f"start_session failed: {exc}").model_dump())
                         break
                     pump_task = asyncio.create_task(_pump_events(session))
                 content = msg.content or ""
@@ -331,7 +334,7 @@ async def chat_ws(
                     await session.send_user_message(content)
                 except Exception as exc:
                     logger.error("chat_ws: send_user_message failed: %s", exc)
-                    await websocket.send_json({"type": "error", "message": str(exc)})
+                    await websocket.send_json(ErrorEnvelope(message=str(exc)).model_dump())
             elif msg.type == "cancel":
                 if session is not None:
                     await session.cancel()
@@ -341,11 +344,11 @@ async def chat_ws(
                 # the frontend may choose either path.
                 if msg.request_id is None or msg.decision is None:
                     await websocket.send_json(
-                        {"type": "error", "message": "permission_decision requires request_id and decision"}
+                        ErrorEnvelope(message="permission_decision requires request_id and decision").model_dump()
                     )
                 elif msg.decision not in ("approve", "deny"):
                     await websocket.send_json(
-                        {"type": "error", "message": f"invalid permission decision: {msg.decision!r}"}
+                        ErrorEnvelope(message=f"invalid permission decision: {msg.decision!r}").model_dump()
                     )
                 else:
                     ok = permission_module.signal_decision(
@@ -360,6 +363,7 @@ async def chat_ws(
                         )
             else:
                 logger.warning("chat_ws: unknown message type: %s", msg.type)
+                await websocket.send_json(ErrorEnvelope(message=f"unknown message type: {msg.type!r}").model_dump())
     finally:
         # Remove the socket first so an in-flight broadcast cannot try to
         # send to a closing connection.
@@ -369,6 +373,15 @@ async def chat_ws(
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await pump_task
         if session is not None:
+            # NOTE: :class:`SessionEndedEnvelope` exists in the protocol
+            # (the frontend renders it as a read-only banner) but is
+            # NOT emitted from this finally block. By the time we get
+            # here the client has typically disconnected, and racing a
+            # send against the closing handshake leaves the socket in
+            # a state that breaks subsequent ``close_session`` cleanup
+            # on Windows. End-of-session is instead derivable from the
+            # final ``done`` agent_event frame produced by the provider
+            # stream pump.
             try:
                 await manager.close_session(project_path, chat_id)
             except Exception as exc:  # pragma: no cover - defensive
@@ -480,14 +493,13 @@ async def permission_check(
         if ws is not None:
             try:
                 await ws.send_json(
-                    {
-                        "type": "permission_request",
-                        "request_id": request_id,
-                        "tool": {
+                    PermissionRequestEnvelope(
+                        request_id=request_id,
+                        tool={
                             "name": body.tool_name,
                             "input": body.tool_input,
                         },
-                    }
+                    ).model_dump()
                 )
             except Exception as exc:  # pragma: no cover - defensive
                 logger.warning(

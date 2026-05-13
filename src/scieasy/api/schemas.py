@@ -336,10 +336,52 @@ class ChatClientMessage(BaseModel):
 
 
 class AgentEventEnvelope(BaseModel):
-    """Outbound WebSocket envelope wrapping a canonical ``AgentEvent``."""
+    """Outbound WebSocket envelope wrapping a canonical ``AgentEvent``.
+
+    Server → client. Type discriminator: ``"agent_event"``. The ``event``
+    payload is the serialised :class:`scieasy.ai.agent.provider.AgentEvent`
+    dataclass (kind, raw, plus kind-specific fields).
+    """
 
     type: str = "agent_event"
     event: dict[str, Any] = Field(default_factory=dict)
+
+
+class PermissionRequestEnvelope(BaseModel):
+    """Outbound WebSocket envelope for a tool-permission prompt.
+
+    Server → client. Type discriminator: ``"permission_request"``. The
+    frontend renders a modal and replies with a ``permission_decision``
+    client message (or a REST POST to ``/permission-decision``).
+    """
+
+    type: str = "permission_request"
+    request_id: str
+    tool: dict[str, Any] = Field(default_factory=dict)
+
+
+class SessionEndedEnvelope(BaseModel):
+    """Outbound WebSocket envelope announcing terminal session state.
+
+    Server → client. Type discriminator: ``"session_ended"``. Emitted when
+    the agent subprocess exits (cleanly or with error) so the frontend
+    can transition the chat to a read-only state.
+    """
+
+    type: str = "session_ended"
+    reason: str = ""
+
+
+class ErrorEnvelope(BaseModel):
+    """Outbound WebSocket envelope for non-fatal server-side errors.
+
+    Server → client. Type discriminator: ``"error"``. Used for protocol
+    violations (invalid client message, unknown permission request_id)
+    and recoverable runtime failures (e.g. ``send_user_message`` raised).
+    """
+
+    type: str = "error"
+    message: str
 
 
 # ---------------------------------------------------------------------------

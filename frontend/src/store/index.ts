@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import { createAIChatSlice } from "./aiChatSlice";
 import { createChatSlice } from "./chatSlice";
 import { createExecutionSlice } from "./executionSlice";
 import { createPaletteSlice } from "./paletteSlice";
@@ -22,6 +23,7 @@ export const useAppStore = create<AppStore>()(
       ...createPaletteSlice(...args),
       ...createChatSlice(...args),
       ...createTabSlice(...args),
+      ...createAIChatSlice(...args),
     }),
     {
       name: "scieasy-studio-ui",
@@ -32,6 +34,11 @@ export const useAppStore = create<AppStore>()(
         bottomPanelCollapsed: state.bottomPanelCollapsed,
         panelSizes: state.panelSizes,
         chatMessages: state.chatMessages,
+        // AIChat: persist only the user-tunable bits, not events or
+        // pending permissions (those are ephemeral per WS session).
+        permissionMode: state.permissionMode,
+        providerName: state.providerName,
+        alwaysAllowedTools: state.alwaysAllowedTools,
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
