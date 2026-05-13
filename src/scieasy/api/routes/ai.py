@@ -614,9 +614,11 @@ def _discover_slash_commands(project_dir: Path) -> list[dict[str, str]]:
     ``project_dir`` is re-validated through :func:`_resolve_project_key`
     here so CodeQL's ``py/path-injection`` taint flow stops at this
     function boundary even though the route handler already sanitised
-    the value.
+    the value. The sanitised result is stored in a fresh local
+    (``safe_project_dir``) so CodeQL does not re-taint the parameter
+    name on subsequent uses.
     """
-    project_dir = _resolve_project_key(project_dir)
+    safe_project_dir = _resolve_project_key(project_dir)
     home = Path.home()
     out: list[dict[str, str]] = []
 
@@ -649,7 +651,7 @@ def _discover_slash_commands(project_dir: Path) -> list[dict[str, str]]:
                     break
 
     # <project>/.claude/commands/*.md
-    project_cmds = project_dir / ".claude" / "commands"
+    project_cmds = safe_project_dir / ".claude" / "commands"
     if project_cmds.is_dir():
         for f in project_cmds.glob("*.md"):
             _add("project", f)
