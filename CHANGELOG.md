@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#759] T-ECA-504 v2 — explicit blank-workspace clarification in the microplastics e2e test prompt draft. Per user instruction, the agent starts from a completely blank workspace (no pre-existing workflow, no custom blocks, no intermediate outputs) and must build everything itself using `list_blocks` + custom Tier-1 blocks. (@claude, 2026-05-12, branch: fix/issue-759/eca-504-prompt-v2, session: dispatcher-followup)
 - [#750] T-ECA-502+503 Phase 5 impl — e2e test harness (`tests/e2e/harness.py`), golden reference capture from the microplastics SRS notebook (`tests/e2e/microplastics/golden/*.csv`), and numerical comparator (`tests/e2e/microplastics/_compare.py`) with self-tests. The harness creates a fresh empty project workspace each run so the agent starts from a blank state per ADR-033 §8.5. (@claude, 2026-05-12, branch: feat/issue-750/eca-502-503-batch, session: dispatcher-takeover-from-agent-a91cbd6aa396e168b)
 
 ### Fixed
