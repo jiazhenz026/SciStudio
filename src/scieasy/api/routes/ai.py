@@ -1,15 +1,20 @@
 """AI endpoints.
 
-Legacy (Phase 0) endpoints under ``POST /api/ai/{generate-block,suggest-workflow,optimize-params}``
-remain here untouched — they are slated for deletion in Phase 4 of the
-embedded coding agent rollout (ADR-033), not now.
+ADR-033 Phase 4 (T-ECA-401) removed the legacy single-call endpoints
+(``POST /api/ai/generate-block``, ``POST /api/ai/suggest-workflow``,
+``POST /api/ai/optimize-params``) along with their backing modules under
+``scieasy.ai.{generation,synthesis,optimization,config}``. The embedded
+coding agent (Phase 1+) replaces them.
 
-New (Phase 1 / ADR-033 / T-ECA-107) endpoints added in this module:
+Endpoints exposed by this module:
 
 * ``GET /api/ai/status`` — discovery results for every registered agent
-  provider.
+  provider (T-ECA-107).
 * ``WS /api/ai/chat/{chat_id}`` — bidirectional chat WebSocket carrying
-  the canonical :class:`scieasy.ai.agent.provider.AgentEvent` stream.
+  the canonical :class:`scieasy.ai.agent.provider.AgentEvent` stream
+  (T-ECA-107).
+* ``POST /api/ai/permission-check`` / ``POST /api/ai/permission-decision``
+  — hook-bridge / frontend permission flow (T-ECA-110).
 """
 
 from __future__ import annotations
@@ -37,12 +42,6 @@ from scieasy.ai.agent import permission as permission_module
 from scieasy.api.deps import get_agent_session_manager
 from scieasy.api.schemas import (
     AgentEventEnvelope,
-    AIGenerateBlockRequest,
-    AIGenerateBlockResponse,
-    AIOptimizeParamsRequest,
-    AIOptimizeParamsResponse,
-    AISuggestWorkflowRequest,
-    AISuggestWorkflowResponse,
     ChatClientMessage,
     ErrorEnvelope,
     PermissionCheckRequest,
@@ -116,81 +115,6 @@ def _resolve_project_key(project_dir: str | Path) -> Path:
             # drives (Windows) or when one is absolute and one relative.
             continue
     raise ValueError(f"project_dir must be under user home or system temp; got {candidate}")
-
-
-@router.post("/generate-block", response_model=AIGenerateBlockResponse)
-async def generate_block(body: AIGenerateBlockRequest) -> dict[str, Any]:
-    """Generate a block from a natural-language description.
-
-    Calls the AI block generator pipeline: category inference, prompt
-    construction, LLM call, code extraction, validation, and retry.
-
-    Returns
-    -------
-    dict
-        Generated code, block name, validation status, report, and category.
-
-    Raises
-    ------
-    HTTPException 503
-        When the AI optional dependencies are not installed.
-    HTTPException 500
-        On any other generation error.
-    """
-    try:
-        from scieasy.ai.generation.block_generator import generate_block as ai_generate_block
-
-        result = ai_generate_block(body.description, body.block_category)
-        return {
-            "code": result.code,
-            "block_name": result.block_name,
-            "validation_passed": result.validation_report.get("passed", False),
-            "validation_report": result.validation_report,
-            "category": result.category,
-        }
-    except ImportError as exc:
-        logger.warning("AI features unavailable: %s", exc)
-        raise HTTPException(
-            status_code=503,
-            detail="AI features require: pip install scieasy[ai]",
-        ) from exc
-    except Exception as exc:
-        logger.error("Block generation failed: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-
-@router.post("/suggest-workflow", response_model=AISuggestWorkflowResponse)
-async def suggest_workflow(body: AISuggestWorkflowRequest) -> dict[str, Any]:
-    """Return a clear Phase 9 placeholder for workflow suggestion.
-
-    The wired implementation lives in PR #245 and will replace this stub
-    once that PR merges.
-    """
-    raise HTTPException(status_code=501, detail="AI workflow suggestion will arrive in Phase 9.")
-
-
-@router.post("/optimize-params", response_model=AIOptimizeParamsResponse)
-async def optimize_params_endpoint(body: AIOptimizeParamsRequest) -> dict[str, Any]:
-    """Suggest improved parameter values for a block using AI.
-
-    Analyses intermediate results and the block's config schema to
-    propose parameter changes that may improve workflow outcomes.
-    """
-    try:
-        from scieasy.ai.optimization.param_optimizer import optimize_params
-
-        result = optimize_params(
-            block_id=body.block_id,
-            intermediate_results=body.intermediate_results,
-            search_space=body.search_space,
-        )
-        return result
-    except ImportError:
-        raise HTTPException(status_code=503, detail="AI dependencies not installed") from None
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------

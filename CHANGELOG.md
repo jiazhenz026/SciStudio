@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Removed
+
+- [#746] T-ECA-401 — Phase 4 scaffold: deleted legacy AI surfaces in line with ADR-033 §3 D9. Removed: `src/scieasy/ai/{generation,synthesis,optimization}/` (entire directories), `src/scieasy/ai/config.py`, the three legacy REST endpoints (`POST /api/ai/generate-block`, `POST /api/ai/suggest-workflow`, `POST /api/ai/optimize-params`) and their Pydantic schemas (`AIGenerateBlock*`, `AISuggestWorkflow*`, `AIOptimizeParams*`), plus all backing tests. AIBlock at `src/scieasy/blocks/ai/**` deliberately retained per ADR-033 §3 D9 narrow exception. (@claude, 2026-05-12, branch: feat/issue-746/eca-401-scaffold, session: dispatcher-takeover-from-agent-a1f17b717f01ee582)
+
 ### Added
 
 - [#759] T-ECA-504 v0 — microplastics e2e test prompt draft at `docs/specs/eca-phase5-test-prompt-draft.md`. Dispatcher-authored per ADR-033 §8.5 (the prompt is the only mutable input to the Phase 5 e2e test). Will be migrated to `tests/e2e/microplastics/test_prompt.md` after T-ECA-501 (#749) lands. (@claude, 2026-05-12, branch: feat/issue-759/eca-504-test-prompt-draft, session: 20260512-223423-t-eca-504-draft-microplastics-e2e-test-p)

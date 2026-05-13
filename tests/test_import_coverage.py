@@ -144,12 +144,6 @@ class TestImportAPIModules:
         assert dur.ref == "ref-1"
         assert dur.type_name == "Array"
 
-    def test_instantiate_ai_generate_request(self) -> None:
-        from scieasy.api.schemas import AIGenerateBlockRequest
-
-        req = AIGenerateBlockRequest(description="denoise block")
-        assert req.description == "denoise block"
-
 
 class TestImportWorkflowModules:
     """Workflow modules — import and instantiate dataclasses."""
@@ -198,24 +192,6 @@ class TestImportWorkflowModules:
         li = LayoutInfo(node_positions={"n1": {"x": 100.0, "y": 200.0}})
         assert li.node_positions["n1"]["x"] == 100.0
         assert li.zoom == 1.0
-
-
-class TestImportAIModules:
-    """AI modules — import coverage."""
-
-    def test_import_generation(self) -> None:
-        from scieasy.ai.generation import (
-            block_generator,  # noqa: F401
-            templates,  # noqa: F401
-            type_generator,  # noqa: F401
-            validator,  # noqa: F401
-        )
-
-    def test_import_optimization(self) -> None:
-        from scieasy.ai.optimization import param_optimizer  # noqa: F401
-
-    def test_import_synthesis(self) -> None:
-        from scieasy.ai.synthesis import workflow_planner  # noqa: F401
 
 
 class TestImportCLI:
