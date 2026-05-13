@@ -366,6 +366,16 @@ async def chat_ws(
                         await manager.close_session(project_path, chat_id)
                     except Exception as exc:  # pragma: no cover - defensive
                         logger.warning("chat_ws: close_session after cancel raised: %s", exc)
+                    # Codex P1: cancel + null the pump task too. Without
+                    # this, the next user_message on the same WS spawns
+                    # a fresh session + pump while the old pump is still
+                    # iterating the dead session's stream, leaking the
+                    # task and racing for the WebSocket send buffer.
+                    if pump_task is not None:
+                        pump_task.cancel()
+                        with contextlib.suppress(asyncio.CancelledError, Exception):
+                            await pump_task
+                        pump_task = None
                     session = None
             elif msg.type == "permission_decision":
                 # T-ECA-110: signal the pending Event for this request_id.
@@ -673,13 +683,16 @@ async def list_slash_commands(
     follow-up issue should land them via a workspace-id indirection
     rather than a raw filesystem path on the wire.
     """
-    # Validate the path (rejects out-of-bounds project_dirs early) even
-    # though we don't currently glob the project tree — keeps the route
-    # contract honest for the v2 project-local follow-up.
-    try:
-        _resolve_project_key(project_dir)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    # project_dir is accepted in the route signature for forward
+    # compatibility with the v2 project-local follow-up, but for v1 we
+    # do NOT call ``_resolve_project_key(project_dir)`` here: the value
+    # is never used (only ``Path.home()`` is touched), and routing the
+    # tainted string through the sanitiser-with-discarded-result pattern
+    # tripped CodeQL ``py/path-injection`` even though no project path
+    # is constructed. Once v2 actually globs ``<project>/.claude/commands/``,
+    # validation must be reinstated AND the safe path must flow into the
+    # glob site so CodeQL recognises the sanitisation.
+    del project_dir
     return {"commands": _discover_user_slash_commands()}
 
 

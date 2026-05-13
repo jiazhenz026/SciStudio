@@ -59,24 +59,30 @@ export function SessionSidebar() {
   }, [projectDir, createSession]);
 
   const handleSwitch = async (id: string) => {
-    setActiveChatId(id);
-    // #783: replay historical transcript before the WS attaches.
-    if (projectDir === null) return;
-    try {
-      const r = await fetch(
-        `/api/ai/sessions/${encodeURIComponent(id)}/transcript?project_dir=${encodeURIComponent(projectDir)}`,
-      );
-      if (!r.ok) return;
-      const text = await r.text();
-      const lines = text.split("\n").filter((l) => l.trim());
-      const events: AgentEvent[] = lines.map((line) => JSON.parse(line));
-      if (events.length > 0) {
-        prependHistoricalEvents(id, events);
+    // Codex P2: hydrate transcript BEFORE switching active chat. The
+    // setActiveChatId call is what triggers useAgentWebSocket to open
+    // the WS, which then replays the backend ring buffer. If we
+    // activated first and prepended after, those two streams would
+    // race and interleave non-deterministically.
+    if (projectDir !== null) {
+      try {
+        const r = await fetch(
+          `/api/ai/sessions/${encodeURIComponent(id)}/transcript?project_dir=${encodeURIComponent(projectDir)}`,
+        );
+        if (r.ok) {
+          const text = await r.text();
+          const lines = text.split("\n").filter((l) => l.trim());
+          const events: AgentEvent[] = lines.map((line) => JSON.parse(line));
+          if (events.length > 0) {
+            prependHistoricalEvents(id, events);
+          }
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn("SessionSidebar: transcript replay failed", err);
       }
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn("SessionSidebar: transcript replay failed", err);
     }
+    setActiveChatId(id);
   };
 
   const handleCreate = () => {
