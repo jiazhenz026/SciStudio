@@ -347,10 +347,16 @@ async def _start_default_session(
     from scieasy.ai.agent.system_prompt import compose_system_prompt
 
     provider = ClaudeCodeProvider()
+    # Re-run the trusted-root sanitiser so CodeQL's taint flow stops
+    # at this function boundary even though the WS route already
+    # validated the same value. ``os.path.realpath`` +
+    # ``os.path.commonpath`` is the pattern the ``py/path-injection``
+    # query recognises — ``Path.resolve()`` is not.
+    safe_project_dir = _resolve_project_key(project_dir)
     # Resolve the real system prompt + MCP config. The system prompt
     # contains tool documentation; the MCP config tells claude how to
     # spawn `scieasy mcp-bridge` for the 25 SciEasy tools.
-    system_prompt = compose_system_prompt(project_dir)
+    system_prompt = compose_system_prompt(safe_project_dir)
     mcp_config: dict[str, Any] = {
         "mcpServers": {
             "scieasy": {
@@ -358,7 +364,7 @@ async def _start_default_session(
                 "args": ["mcp-bridge"],
                 "env": {
                     "SCIEASY_CHAT_ID": chat_id,
-                    "SCIEASY_PROJECT_DIR": str(project_dir.resolve()),
+                    "SCIEASY_PROJECT_DIR": str(safe_project_dir),
                 },
             }
         }
