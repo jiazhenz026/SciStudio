@@ -68,14 +68,20 @@ def test_discover_returns_available_when_version_probe_succeeds(
     fake_bin.write_text("#!/bin/sh\n", encoding="utf-8")
     monkeypatch.setattr("scieasy.ai.agent.claude_code.find_binary", lambda _name: fake_bin)
 
+    # Issue #775: login probe is now a credentials-file check, not a
+    # subprocess invocation. Mock Path.home() to a sandbox with a
+    # plausible .credentials.json.
+    fake_home = tmp_path / "home"
+    (fake_home / ".claude").mkdir(parents=True)
+    (fake_home / ".claude" / ".credentials.json").write_text('{"access_token": "stub"}', encoding="utf-8")
+    monkeypatch.setattr("scieasy.ai.agent.claude_code.Path.home", lambda: fake_home)
+
     calls: list[list[str]] = []
 
     def fake_run(args: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[str]:
         calls.append(args)
         if args[1:] == ["--version"]:
             return subprocess.CompletedProcess(args, 0, stdout="0.99.0\n", stderr="")
-        if args[1:] == ["config", "get", "-g", "installMethod"]:
-            return subprocess.CompletedProcess(args, 0, stdout="npm-global\n", stderr="")
         raise AssertionError(f"unexpected args: {args}")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -85,9 +91,8 @@ def test_discover_returns_available_when_version_probe_succeeds(
     assert status.version == "0.99.0"
     assert status.logged_in is True
     assert status.install_hint is None
-    # Both probes ran.
+    # Only --version probe ran; login probe is now filesystem-only.
     assert any("--version" in c for c in calls)
-    assert any("installMethod" in " ".join(c) for c in calls)
 
 
 def test_discover_handles_version_timeout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

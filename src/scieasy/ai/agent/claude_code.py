@@ -332,17 +332,18 @@ class ClaudeCodeProvider:
 
         logged_in = False
         if available:
+            # Probe by checking the credentials file written by `claude /login`.
+            # The previous probe `claude config get -g installMethod` broke in
+            # claude 2.x — `config` is no longer a CLI subcommand and `-g`
+            # is rejected as "unknown option". The credentials file is the
+            # canonical login witness across all claude versions.
+            cred_path = Path.home() / ".claude" / ".credentials.json"
             try:
-                completed = subprocess.run(
-                    [str(binary_path), "config", "get", "-g", "installMethod"],
-                    capture_output=True,
-                    text=True,
-                    timeout=_LOGIN_PROBE_TIMEOUT_SECONDS,
-                    check=False,
+                logged_in = cred_path.is_file() and cred_path.stat().st_size > 0
+            except OSError as exc:
+                logger.debug(
+                    "ClaudeCodeProvider.discover: credentials probe failed: %s", exc
                 )
-                logged_in = completed.returncode == 0
-            except (subprocess.TimeoutExpired, OSError) as exc:
-                logger.debug("ClaudeCodeProvider.discover: login probe failed: %s", exc)
 
         logger.info(
             "ClaudeCodeProvider.discover: available=%s version=%s logged_in=%s path=%s",

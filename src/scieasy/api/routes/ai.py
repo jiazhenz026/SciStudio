@@ -319,23 +319,39 @@ async def _start_default_session(
     project_dir: Path,
     chat_id: str,
 ) -> Any:
-    """Spawn a Claude Code session with placeholder system prompt + MCP config.
+    """Spawn a Claude Code session with the real SciEasy system prompt + MCP config.
 
-    Encapsulated so tests can monkey-patch it; the real composition lives
-    in T-ECA-204 (system prompt builder) and uses the static config-file
-    emitter (T-ECA-108). For Phase 1 a minimal placeholder is
-    sufficient.
+    Issue #775: replaced Phase 1 placeholders with calls to the real
+    composers — without these the spawned agent has no idea what
+    SciEasy is and zero MCP tools to call (mcpServers was empty).
     """
     from scieasy.ai.agent.claude_code import ClaudeCodeProvider
     from scieasy.ai.agent.provider import PermissionMode
+    from scieasy.ai.agent.system_prompt import compose_system_prompt
 
     provider = ClaudeCodeProvider()
+    # Resolve the real system prompt + MCP config. The system prompt
+    # contains tool documentation; the MCP config tells claude how to
+    # spawn `scieasy mcp-bridge` for the 25 SciEasy tools.
+    system_prompt = compose_system_prompt(project_dir)
+    mcp_config: dict[str, Any] = {
+        "mcpServers": {
+            "scieasy": {
+                "command": "scieasy",
+                "args": ["mcp-bridge"],
+                "env": {
+                    "SCIEASY_CHAT_ID": chat_id,
+                    "SCIEASY_PROJECT_DIR": str(project_dir.resolve()),
+                },
+            }
+        }
+    }
     return await manager.start_session(
         project_dir=project_dir,
         chat_id=chat_id,
         provider=provider,
-        system_prompt="SciEasy agent (Phase 1 placeholder prompt).",
-        mcp_config={"mcpServers": {}},
+        system_prompt=system_prompt,
+        mcp_config=mcp_config,
         permission_mode=PermissionMode.STRICT,
     )
 

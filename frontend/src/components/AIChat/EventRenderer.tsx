@@ -12,6 +12,25 @@ export interface EventRendererProps {
 }
 
 export function EventRenderer({ event }: EventRendererProps) {
+  // Issue #775 — filter out backend-marked auxiliary events (system/hook_*,
+  // user-turn echoes, rate-limit notices). They're noise in the chat view.
+  const raw = event.raw as Record<string, unknown> | undefined;
+  if (raw && raw._chat_hidden === true) {
+    return null;
+  }
+  // Synthetic user_message events injected by AIChat.handleSend so the
+  // user's own text shows up in the conversation feed.
+  if ((event.kind as string) === "user_message") {
+    const content = (raw as { content?: string } | undefined)?.content ?? "";
+    return (
+      <div
+        data-testid="ev-user"
+        className="self-end ml-auto max-w-[80%] whitespace-pre-wrap rounded bg-blue-100 px-2 py-1 text-right"
+      >
+        {content}
+      </div>
+    );
+  }
   switch (event.kind) {
     case "init":
       return (

@@ -167,6 +167,55 @@ def _make_done(payload: dict[str, Any]) -> AgentEvent:
     return DoneEvent(kind="done", raw=payload)
 
 
+def _make_system(payload: dict[str, Any]) -> AgentEvent:
+    """Map claude's `{type:system, subtype:init|hook_*|...}` frames.
+
+    `init` carries session_id + model; surface as InitEvent. Other
+    subtypes (hook_started / hook_response / etc.) are infrastructural
+    and degrade to OtherEvent with a marker `_chat_hidden=true` in raw
+    so the frontend filter can suppress them from the conversation feed.
+    """
+    subtype = payload.get("subtype")
+    if subtype == "init":
+        return _make_init(payload)
+    hidden_raw = dict(payload)
+    hidden_raw["_chat_hidden"] = True
+    return OtherEvent(kind=f"system/{subtype}" if subtype else "system", raw=hidden_raw)
+
+
+def _make_assistant(payload: dict[str, Any]) -> AgentEvent:
+    """Map claude's `{type:assistant, message:{...}}` frame to a text delta.
+
+    The message.content can be a string or a list of content blocks
+    (text / tool_use). We extract concatenated text for the chat UI;
+    tool_use blocks emit a separate tool_use event in a subsequent
+    frame so we don't double-route them here.
+    """
+    message = payload.get("message") or {}
+    content = message.get("content") if isinstance(message, dict) else None
+    delta = ""
+    if isinstance(content, str):
+        delta = content
+    elif isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                t = block.get("text")
+                if isinstance(t, str):
+                    parts.append(t)
+        delta = "".join(parts)
+    return AssistantTextDeltaEvent(kind="assistant_text_delta", raw=payload, delta=delta)
+
+
+def _make_result(payload: dict[str, Any]) -> AgentEvent:
+    """Map claude's `{type:result, subtype:success|error|..., result, stop_reason}` frame to Done.
+
+    DoneEvent has no extra fields; we keep stop_reason / result in `raw`
+    for downstream consumers that want to inspect them.
+    """
+    return DoneEvent(kind="done", raw=payload)
+
+
 _DISPATCH: dict[str, Any] = {
     "init": _make_init,
     "assistant_text_delta": _make_assistant_text_delta,
@@ -175,6 +224,14 @@ _DISPATCH: dict[str, Any] = {
     "permission_request": _make_permission_request,
     "error": _make_error,
     "done": _make_done,
+    # Claude Code wire-format mappings (issue #775 follow-up):
+    "system": _make_system,
+    "assistant": _make_assistant,
+    "result": _make_result,
+    # `user` frames echo tool_result content the agent received; these
+    # are internal turn-tracking, not chat content. Mark hidden.
+    "user": lambda p: OtherEvent(kind="user_echo", raw={**p, "_chat_hidden": True}),
+    "rate_limit_event": lambda p: OtherEvent(kind="rate_limit_event", raw={**p, "_chat_hidden": True}),
 }
 
 
