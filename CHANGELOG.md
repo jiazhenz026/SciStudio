@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#742] Dependabot Verify Workflow Compliance exemption now checks PR author (`github.event.pull_request.user.login`) not `github.actor`. Without this, running `gh pr update-branch` on a dependabot PR as a human re-fires the workflow with the human as actor and reverts the exemption. (@claude, 2026-05-13, branch: fix/issue-742/dependabot-pr-author, session: 20260512-220337-fix-728-followup-gate-exemption-uses-pr)
 - [#728] CI Verify Workflow Compliance gate now skips dependabot PRs via `if: github.actor != 'dependabot[bot]'`. Unblocks #691 (fast-uri HIGH) and #686 (postcss). Substance CI checks still apply. (@claude, 2026-05-12, branch: ci/issue-728/exempt-dependabot, session: 20260512-213652-ci-exempt-dependabot-from-workflow-compl)
 
 ### Changed
