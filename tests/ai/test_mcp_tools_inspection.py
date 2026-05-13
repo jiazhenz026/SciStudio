@@ -142,17 +142,13 @@ def test_preview_data_tiff_oversize_does_not_load_full_page(
     # so when the page is "too large" the new code returns a structured
     # "skipped" stub rather than blindly calling `page.asarray()`.
     tif_path = tmp_path / "img.tif"
-    tifffile.imwrite(
-        str(tif_path), np.ones((64, 64), dtype="uint8"), compression="zlib"
-    )
+    tifffile.imwrite(str(tif_path), np.ones((64, 64), dtype="uint8"), compression="zlib")
     # Make the 4096-byte page look "oversized" relative to the cap so
     # the new branch executes. Keep the cap above PNG-output sizes for
     # any other tests that might fall through.
     monkeypatch.setattr(tools_inspection, "_MAX_PREVIEW_BYTES", 1000)
 
-    out = tools_inspection.preview_data(
-        {"backend": "filesystem", "path": str(tif_path)}, "png_base64"
-    )
+    out = tools_inspection.preview_data({"backend": "filesystem", "path": str(tif_path)}, "png_base64")
     # Forbidden outcome: the old path called `page.asarray()` blindly
     # and then raised RuntimeError after PNG encoding. We expect the
     # guard to return a structured "skipped" payload instead.
