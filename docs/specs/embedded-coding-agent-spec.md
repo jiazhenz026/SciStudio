@@ -428,10 +428,17 @@ asserts the JSONL is populated end-to-end.
   - On connect: ensures the chat session exists (start it if first connect, else attach).
   - Accepts client messages: `{ "type": "user_message", "content": str }`, `{ "type": "cancel" }`. (Permission decisions are handled in T-ECA-110.)
   - Forwards every canonical `AgentEvent` from the session's stream to the client as `{ "type": "agent_event", "event": {...} }`.
-  - On client disconnect: closes the session (does NOT delete metadata).
+  - **#783**: On client disconnect, the session stays alive (a background drain task continues to consume claude's stdout into the ring buffer + on-disk transcript). The session is reaped only on explicit `{"type": "cancel"}` or FastAPI lifespan shutdown.
+  - **#783**: On WS attach with no live session but on-disk metadata containing `session_id`, the route attempts `claude --resume <id>` automatically. On failure, surfaces a synthetic `info` event and falls back to a fresh session on the next `user_message`.
 - `GET /api/ai/status` route:
   - Returns `{ providers: [...ProviderStatus] }` for all registered providers (initially just Claude Code; Codex added in Phase 4).
-- New Pydantic schemas in `schemas.py`: `ProviderStatusResponse`, `ChatClientMessage`, `AgentEventEnvelope`.
+- `GET /api/ai/sessions?project_dir=<path>` (#783):
+  - Enumerates persisted `SessionMetadata` for the given project sorted by `last_active` descending. Drives the sessions sidebar so users can find and reopen chats after a backend restart.
+- `GET /api/ai/sessions/{chat_id}/transcript?project_dir=<path>` (#783):
+  - Streams the on-disk `transcript.jsonl` as NDJSON. Each line is one historical `AgentEvent` dict. The frontend prepends these events to the chat view via `prependHistoricalEvents`.
+- `GET /api/ai/slash_commands?project_dir=<path>` (#786):
+  - Synchronously walks `~/.claude/commands/`, `~/.claude/skills/<name>/SKILL.md` (or `skill.md`), `<project>/.claude/commands/`, `~/.claude/plugins/*/commands/` and returns `{ commands: [{name, description, source}] }`. No caching — newly added files appear on the next dropdown open.
+- New Pydantic schemas in `schemas.py`: `ProviderStatusResponse`, `ChatClientMessage`, `AgentEventEnvelope`, `SessionListItem`, `SessionListResponse`, `SlashCommandItem`, `SlashCommandsResponse`.
 
 **Tests**:
 
@@ -674,6 +681,8 @@ so the read-vs-write classification cannot drift between them.
 
 - Implement `compose_system_prompt(project_dir) -> str` that returns the three-tier concatenation per ADR-033 §3 D3.
 - The builtin content matches ADR-033 §3 D3.2 Sections A–D verbatim. Sections C and D are populated by enumerating the MCP tool registry at runtime so the prompt is always in sync with the actual tool set.
+- **#789**: Section C renders each tool's full signature (`name(arg: type, ...) [read|write]`) synthesised from `inspect.signature` + resolved type hints. A new Section E (`SECTION_E_USAGE_CHEATSHEET`) appends a hand-curated cheat-sheet of canonical agent flows (build/run/iterate). Section E is hand-maintained, NOT auto-generated — update when adding a new common tool.
+- **#789**: `MCPServer.dispatch` answers `tools/list` with the auto-generated `inputSchema` per tool (from `infer_tool_schema(handler)` in `mcp/_schema.py`) and validates `tools/call` arguments against the same schema, returning JSON-RPC `-32602` "missing required field X" on mismatch instead of an opaque `TypeError`.
 
 **Tests**:
 
