@@ -132,6 +132,10 @@ _CATEGORY_TITLES = {
 def _build_section_c() -> str:
     """Synthesise Section C from the MCP tool registry.
 
+    #789: each tool now renders its full signature
+    (``name(param: type, ...)``) so the agent can call tools with the
+    correct parameter names on the first try, rather than guessing.
+
     Imports lazily so this module remains importable when the MCP
     package has not been fully constructed (e.g. during test collection
     on an isolated module).
@@ -146,7 +150,9 @@ def _build_section_c() -> str:
         lines.append(_CATEGORY_TITLES[cat_key])
         for entry in grouped[cat_key]:
             tag = "[write]" if entry.mutation == "write" else "[read]"
-            lines.append(f"  - {entry.name} {tag} — {entry.description}")
+            sig = entry.signature_string
+            lines.append(f"  - {entry.name}{sig} {tag}")
+            lines.append(f"      {entry.description}")
         lines.append("")
     lines.append(
         "Claude Code native tools (Read, Write, Edit, Glob, Grep, Bash, "
@@ -154,6 +160,45 @@ def _build_section_c() -> str:
         "tools above when they apply — they understand SciEasy semantics."
     )
     return "\n".join(lines) + "\n"
+
+
+# #789: hand-curated canonical agent flow cheat-sheet. Lives next to the
+# dynamic Section C so the agent sees the *common* pattern alongside the
+# *complete* catalog. Update when adding a new common tool — this is
+# explicitly NOT auto-generated; the goal is curation, not exhaustiveness.
+SECTION_E_USAGE_CHEATSHEET: str = """\
+Common usage patterns (cheat sheet):
+
+# Build & run a workflow
+list_blocks()                              # discover what's available
+get_block_schema(type_name="threshold")    # check one block's ports/config
+write_workflow(path="workflows/main.yaml", yaml=<yaml-string>)
+validate_workflow(yaml_or_path="workflows/main.yaml")
+run_workflow(path="workflows/main.yaml")
+get_run_status(run_id=<id>)
+
+# Inspect a run's outputs
+get_block_output(run_id=<id>, block_id=<id>, port_name=<port>)
+inspect_data(ref=<ref-from-output>)        # metadata only
+preview_data(ref=<ref-from-output>, max_rows=50)  # bounded thumbnail
+
+# Iterate on parameters
+get_block_config(workflow_path="workflows/main.yaml", block_id="threshold_1")
+update_block_config(workflow_path="workflows/main.yaml",
+                    block_id="threshold_1",
+                    config={"method": "otsu"})
+
+# Q&A about the project
+list_data()
+search_docs(query="how do I write a custom block")
+
+Notes:
+- Always pass arguments by name. The MCP server validates required
+  fields and rejects unknown keys.
+- ``ref`` values come from earlier tool outputs — never invent them.
+- Write-class tools may require user approval in STRICT permission mode.
+"""
+"""Section E — Common usage cheat-sheet (ADR-033 §3 D3 addendum, #789)."""
 
 
 def _read_overlay(path: Path) -> str:
@@ -227,14 +272,21 @@ def _splice_live_tool_catalog(body: str) -> str:
 
 
 def _compose_from_skill(skill_path: Path) -> str | None:
-    """Build the builtin prompt body from a SKILL.md file, or ``None`` on error."""
+    """Build the builtin prompt body from a SKILL.md file, or ``None`` on error.
+
+    #789: appends :data:`SECTION_E_USAGE_CHEATSHEET` after the skill body
+    so the canonical agent-flow cheat-sheet survives the skill-first
+    composition path. The skill file owns Sections A/B/D; Section C is
+    spliced dynamically; Section E is curated here.
+    """
     try:
         raw = skill_path.read_text(encoding="utf-8")
     except OSError as exc:
         logger.warning("system_prompt: failed to read skill file %s: %s", skill_path, exc)
         return None
     body = _strip_frontmatter(raw)
-    return _splice_live_tool_catalog(body).rstrip() + "\n"
+    with_catalog = _splice_live_tool_catalog(body).rstrip()
+    return with_catalog + "\n\n" + SECTION_E_USAGE_CHEATSHEET.strip() + "\n"
 
 
 def _compose_fallback() -> str:
@@ -247,6 +299,8 @@ def _compose_fallback() -> str:
         _build_section_c().strip(),
         "",
         SECTION_D_WORKING_PRINCIPLES.strip(),
+        "",
+        SECTION_E_USAGE_CHEATSHEET.strip(),
     ]
     return "\n".join(parts) + "\n"
 

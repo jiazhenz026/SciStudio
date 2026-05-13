@@ -122,9 +122,11 @@ def _patch_start_default_session(monkeypatch: pytest.MonkeyPatch) -> None:
         project_dir: Path,
         chat_id: str,
         permission_mode_str: str = "strict",
+        resume_session_id: str | None = None,
     ) -> Any:
         # Issue #791: honour the wire-level permission_mode_str so STRICT
         # vs BYPASS routing is exercised end-to-end in WS tests.
+        # #783: also accept resume_session_id so lazy-resume tests work.
         mode = PermissionMode.BYPASS if permission_mode_str == "bypass" else PermissionMode.STRICT
         provider = ClaudeCodeProvider(binary_override=STUB_PATH)
         return await manager.start_session(
@@ -134,6 +136,7 @@ def _patch_start_default_session(monkeypatch: pytest.MonkeyPatch) -> None:
             system_prompt="test",
             mcp_config={},
             permission_mode=mode,
+            resume_session_id=resume_session_id,
         )
 
     monkeypatch.setattr(ai_routes, "_start_default_session", _stub_start)
@@ -190,19 +193,30 @@ def test_ws_chat_cancel_releases_session(
     assert fresh_manager.get_session(tmp_path, "chat-cancel") is None
 
 
-def test_ws_chat_disconnect_closes_session(
+def test_ws_chat_disconnect_keeps_session_alive(
     app: Any,
     fresh_manager: AgentSessionManager,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """#783 P1: WS disconnect MUST NOT kill the live session.
+
+    Reverses the prior ``test_ws_chat_disconnect_closes_session``
+    contract — the persistence redesign keeps the claude subprocess
+    alive across WS disconnects so the next attach can continue the
+    same conversation without a fresh init event.
+    """
     _override_with_stub(app, fresh_manager)
     _patch_start_default_session(monkeypatch)
     with TestClient(app) as client, client.websocket_connect(f"/api/ai/chat/chat-disco?project_dir={tmp_path}") as ws:
         ws.send_text('{"type": "user_message", "content": "go"}')
         _ = ws.receive_json()
-        # Connection scope exited -> finally block ran -> session released.
-    assert fresh_manager.get_session(tmp_path, "chat-disco") is None
+        # Connection scope exited -> WS pump cancelled, but session stays.
+    assert fresh_manager.get_session(tmp_path, "chat-disco") is not None
+    # Clean up so the worker doesn't leak a live subprocess.
+    import asyncio as _asyncio
+
+    _asyncio.run(fresh_manager.shutdown_all())
 
 
 def test_ws_chat_reattach_starts_pump_for_existing_session(
@@ -248,7 +262,28 @@ def test_ws_chat_reattach_starts_pump_for_existing_session(
 
     # Pre-populate manager registry to simulate a live reattachable session.
     key = (tmp_path.resolve(), "reattach-1")
-    fresh_manager._sessions[key] = _MockSession()  # type: ignore[assignment]
+    mock_session = _MockSession()
+    fresh_manager._sessions[key] = mock_session  # type: ignore[assignment]
+    # #783: the WS pump now reads from the runtime's subscriber queue,
+    # so we must pre-populate the runtime as well. The drain task is
+    # started inside the TestClient's event loop via the WS attach so we
+    # do NOT call ``runtime.start()`` here — that would create the task
+    # on the wrong loop. Instead we let the WS attach create a fresh
+    # runtime if needed.
+    from scieasy.ai.agent.session import _SessionRuntime
+    from scieasy.ai.agent.transcript import TranscriptWriter
+
+    transcript_writer = TranscriptWriter(tmp_path / ".scieasy" / "sessions" / "reattach-1" / "transcript.jsonl")
+    fresh_manager._transcripts[key] = transcript_writer
+    # Use a runtime that's already populated; the WS pump replays the
+    # ring buffer + subscribes for future events. To keep the test
+    # deterministic, prime the ring buffer with the init event.
+    rt = _SessionRuntime(mock_session, transcript_writer)  # type: ignore[arg-type]
+    rt.ring_buffer.append(init_event)
+    fresh_manager._runtimes[key] = rt
+    # Don't call rt.start() — it would consume MockSession.stream_events
+    # which is a generator we cannot share across loops. The ring buffer
+    # already contains the event we care about.
 
     with TestClient(app) as client, client.websocket_connect(f"/api/ai/chat/reattach-1?project_dir={tmp_path}") as ws:
         msg = ws.receive_json()

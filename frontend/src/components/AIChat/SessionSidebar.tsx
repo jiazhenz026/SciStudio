@@ -1,18 +1,25 @@
 /**
  * Sidebar listing known chat sessions for this project.
  *
- * NOTE on data source: the backend does not yet expose
- * `GET /api/projects/{id}/sessions` — that endpoint is deferred to
- * Phase 3 follow-up. For now the sidebar lists sessions tracked
- * in-memory in `aiChatSlice` (chats that have received at least one
- * event since the page loaded). This is documented in issue #741.
+ * #783: Now fetches persisted session metadata from
+ * `GET /api/ai/sessions?project_dir=...` on mount and project change,
+ * so chats survive a backend restart. Clicking a session also fetches
+ * its transcript and replays historical events into the chat view.
  *
  * Supports: create, rename, delete, switch.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useAppStore } from "../../store";
+import type { AgentEvent } from "../../types/agentEvents";
+
+interface PersistedSession {
+  chat_id: string;
+  title: string;
+  last_active: string;
+  total_turns: number;
+}
 
 export function SessionSidebar() {
   const sessions = useAppStore((s) => s.sessions);
@@ -21,9 +28,62 @@ export function SessionSidebar() {
   const createSession = useAppStore((s) => s.createSession);
   const renameSession = useAppStore((s) => s.renameSession);
   const removeSession = useAppStore((s) => s.removeSession);
+  const prependHistoricalEvents = useAppStore((s) => s.prependHistoricalEvents);
+  const currentProject = useAppStore((s) => s.currentProject);
+  const projectDir = currentProject?.path ?? null;
 
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+
+  // #783: fetch persisted sessions on mount / project change so chats
+  // survive a backend restart.
+  useEffect(() => {
+    if (projectDir === null) return;
+    let cancelled = false;
+    fetch(`/api/ai/sessions?project_dir=${encodeURIComponent(projectDir)}`)
+      .then((r) => r.json())
+      .then((body) => {
+        if (cancelled) return;
+        const items: PersistedSession[] = body.sessions ?? [];
+        for (const item of items) {
+          createSession(item.chat_id, item.title || item.chat_id);
+        }
+      })
+      .catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn("SessionSidebar: failed to load sessions", err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectDir, createSession]);
+
+  const handleSwitch = async (id: string) => {
+    // Codex P2: hydrate transcript BEFORE switching active chat. The
+    // setActiveChatId call is what triggers useAgentWebSocket to open
+    // the WS, which then replays the backend ring buffer. If we
+    // activated first and prepended after, those two streams would
+    // race and interleave non-deterministically.
+    if (projectDir !== null) {
+      try {
+        const r = await fetch(
+          `/api/ai/sessions/${encodeURIComponent(id)}/transcript?project_dir=${encodeURIComponent(projectDir)}`,
+        );
+        if (r.ok) {
+          const text = await r.text();
+          const lines = text.split("\n").filter((l) => l.trim());
+          const events: AgentEvent[] = lines.map((line) => JSON.parse(line));
+          if (events.length > 0) {
+            prependHistoricalEvents(id, events);
+          }
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn("SessionSidebar: transcript replay failed", err);
+      }
+    }
+    setActiveChatId(id);
+  };
 
   const handleCreate = () => {
     const id = `chat-${Date.now()}`;
@@ -88,7 +148,7 @@ export function SessionSidebar() {
                 <button
                   type="button"
                   className="flex-1 truncate text-left"
-                  onClick={() => setActiveChatId(s.id)}
+                  onClick={() => void handleSwitch(s.id)}
                   onDoubleClick={() => {
                     setRenameId(s.id);
                     setRenameDraft(s.title);
