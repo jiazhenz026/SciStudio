@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- [#759] T-ECA-504 v0 — microplastics e2e test prompt draft at `docs/specs/eca-phase5-test-prompt-draft.md`. Dispatcher-authored per ADR-033 §8.5 (the prompt is the only mutable input to the Phase 5 e2e test). Will be migrated to `tests/e2e/microplastics/test_prompt.md` after T-ECA-501 (#749) lands. (@claude, 2026-05-12, branch: feat/issue-759/eca-504-test-prompt-draft, session: 20260512-223423-t-eca-504-draft-microplastics-e2e-test-p)
+
 ### Fixed
 
 - [#742] Dependabot Verify Workflow Compliance exemption now checks PR author (`github.event.pull_request.user.login`) not `github.actor`. Without this, running `gh pr update-branch` on a dependabot PR as a human re-fires the workflow with the human as actor and reverts the exemption. (@claude, 2026-05-13, branch: fix/issue-742/dependabot-pr-author, session: 20260512-220337-fix-728-followup-gate-exemption-uses-pr)
