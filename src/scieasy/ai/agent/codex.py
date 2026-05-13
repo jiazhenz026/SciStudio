@@ -1,68 +1,15 @@
-"""Codex CLI provider implementation (T-ECA-402).
+"""Codex CLI provider implementation.
 
-Conforms to :class:`scieasy.ai.agent.provider.AgentProvider`; wraps the
-locally-installed ``codex`` CLI as a subprocess and exposes its
-stream-JSON output as canonical
-:class:`scieasy.ai.agent.provider.AgentEvent` instances.
+The real Codex CLI differs from Claude Code in two important ways:
 
-This provider deliberately mirrors :class:`scieasy.ai.agent.claude_code.ClaudeCodeProvider`:
+* non-interactive streaming is exposed through ``codex exec --json``;
+* conversation continuity is exposed by spawning a new process with
+  ``codex exec --json ... resume <thread_id> -``.
 
-* Same :class:`AgentProvider` Protocol surface.
-* Same canonical event taxonomy on the output side (``init``,
-  ``assistant_text_delta``, ``tool_use``, ``tool_result``,
-  ``permission_request``, ``done``, ``error``, ``other``).
-* Same subprocess lifecycle, cancellation strategy, and temp-file
-  cleanup contract.
-
-The differences are intentionally local:
-
-* ``name = "codex"``, ``binary_name = "codex"``.
-* The spawn flags follow the Codex CLI's flag surface as documented in
-  ``docs/specs/eca-spike-codex-format.md``. Where the Codex CLI lacks a
-  direct equivalent of a Claude Code flag, the spike doc records the
-  assumption and the provider degrades gracefully (e.g. by serialising
-  the system prompt + MCP config to temp files and pointing at them
-  through the closest Codex flag, or omitting the flag entirely if no
-  equivalent exists).
-* Stream-format normalisation goes through the same
-  :func:`scieasy.ai.agent.stream_json.parse_stream` parser. The parser
-  is already tolerant of both ``{"kind": ...}`` (ADR canonical) and
-  ``{"type": ...}`` (CC wire) framings, so it handles either Codex
-  framing without provider-specific code.
-
-Implementation notes (spec §8 T-ECA-402, ADR-033 §3 D1):
-
-* Discovery uses :func:`scieasy.ai.agent.binary_discovery.find_binary`
-  with ``binary_name = "codex"``, probes ``codex --version`` (5-second
-  timeout) for availability, and ``codex login status`` (2-second
-  timeout) for the login-state heuristic. If the login subcommand
-  returns non-zero we fall back to ``logged_in=False`` rather than
-  raising — exactly the same contract as Claude Code's
-  ``installMethod`` probe.
-* Session spawn flags mirror Claude Code's surface:
-  ``--output-format stream-json --append-system-prompt @<prompt_file>
-  --mcp-config @<mcp_file>`` plus ``--resume <id>`` if resuming and
-  ``--model <m>`` if specified. The actual Codex flag spellings are
-  documented in the spike addendum; the implementation here assumes
-  flag parity. If a real Codex CLI rejects a flag we observe the
-  failure in the ``codex --version`` probe (which becomes
-  ``logged_in=False`` and the user sees the install hint).
-* The subprocess is spawned via :func:`asyncio.create_subprocess_exec`
-  with stdin/stdout/stderr pipes and ``cwd=project_dir``. On Windows
-  the ``CREATE_NEW_PROCESS_GROUP`` flag is set; on POSIX
-  ``start_new_session=True`` produces an equivalent group-killable
-  subprocess tree.
-* Cancellation uses ``os.killpg`` on POSIX and ``taskkill /T /F /PID``
-  on Windows; both are idempotent.
-* :meth:`CodexSession.send_user_message` writes a JSON envelope to
-  stdin and flushes — stdin is NOT closed, so multi-turn sessions are
-  supported over one process (matches CC convention).
-
-The :class:`CodexProvider` constructor accepts a ``binary_override``
-keyword that points at a Python stub script (resolved as
-``[sys.executable, str(binary_override), ...]``) — used by the
-``tests/fixtures/stub_codex.py`` test fixture to exercise the spawn
-plumbing without a real Codex binary.
+This module adapts that per-turn process model to SciEasy's
+``AgentSession`` protocol. A ``CodexSession`` is a logical chat session;
+each user message starts one Codex subprocess and ``stream_events()``
+keeps waiting for subsequent turns until the SciEasy session is closed.
 """
 
 from __future__ import annotations
@@ -81,19 +28,21 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from scieasy.ai.agent.binary_discovery import find_binary
-from scieasy.ai.agent.errors import (
-    AgentLaunchError,
-    AgentNotInstalledError,
-)
+from scieasy.ai.agent.errors import AgentLaunchError, AgentNotInstalledError
 from scieasy.ai.agent.provider import (
     AgentEvent,
     AgentProvider,
     AgentSession,
+    AssistantTextDeltaEvent,
+    DoneEvent,
+    ErrorEvent,
     InitEvent,
+    OtherEvent,
     PermissionMode,
     ProviderStatus,
+    ToolResultEvent,
+    ToolUseEvent,
 )
-from scieasy.ai.agent.stream_json import parse_stream
 
 logger = logging.getLogger(__name__)
 
@@ -105,226 +54,313 @@ _CLOSE_GRACE_SECONDS = 5.0
 _INSTALL_HINT = "Install the Codex CLI: see https://github.com/openai/codex for installation and login instructions."
 
 
-async def _read_subprocess_stream(stream: asyncio.StreamReader) -> AsyncIterator[bytes]:
-    """Adapt an :class:`asyncio.StreamReader` into an async byte-chunk iterator."""
+def _toml_string(value: str) -> str:
+    """Return a TOML-compatible quoted string for ``codex -c`` overrides."""
+    return json.dumps(value)
+
+
+def _toml_array(values: list[str]) -> str:
+    return "[" + ", ".join(_toml_string(v) for v in values) + "]"
+
+
+async def _read_stderr(stream: asyncio.StreamReader | None) -> str:
+    if stream is None:
+        return ""
+    chunks: list[bytes] = []
     while True:
         chunk = await stream.read(4096)
         if not chunk:
+            break
+        chunks.append(chunk)
+    return b"".join(chunks).decode("utf-8", errors="replace")
+
+
+async def _read_stdout_lines(stream: asyncio.StreamReader) -> AsyncIterator[bytes]:
+    while True:
+        line = await stream.readline()
+        if not line:
             return
-        yield chunk
+        yield line
+
+
+def _normalise_codex_event(payload: dict[str, Any]) -> AgentEvent | list[AgentEvent]:
+    """Translate Codex JSONL frames to SciEasy's canonical event taxonomy."""
+    event_type = payload.get("type")
+
+    if event_type == "thread.started":
+        thread_id = payload.get("thread_id")
+        if isinstance(thread_id, str) and thread_id:
+            return InitEvent(kind="init", raw=payload, session_id=thread_id)
+        return OtherEvent(kind="thread.started", raw=payload)
+
+    if event_type == "turn.started":
+        return OtherEvent(kind="turn.started", raw={**payload, "_chat_hidden": True})
+
+    if event_type == "turn.completed":
+        return DoneEvent(kind="done", raw=payload)
+
+    if event_type in {"turn.failed", "error"}:
+        message = payload.get("message") or payload.get("error") or json.dumps(payload)
+        return ErrorEvent(kind="error", raw=payload, message=str(message), error_type=str(event_type))
+
+    if event_type in {"item.completed", "item.started", "item.updated"}:
+        item = payload.get("item")
+        if not isinstance(item, dict):
+            return OtherEvent(kind=str(event_type), raw=payload)
+        item_type = item.get("type")
+        if item_type == "agent_message":
+            text = item.get("text")
+            if isinstance(text, str) and text:
+                return AssistantTextDeltaEvent(kind="assistant_text_delta", raw=payload, delta=text)
+            return OtherEvent(kind="agent_message", raw={**payload, "_chat_hidden": True})
+        if item_type in {"function_call", "tool_call"}:
+            name = item.get("name") or item.get("tool_name")
+            arguments = item.get("arguments") or item.get("input") or item.get("tool_input") or {}
+            if isinstance(arguments, str):
+                try:
+                    parsed = json.loads(arguments)
+                    arguments = parsed if isinstance(parsed, dict) else {"arguments": parsed}
+                except json.JSONDecodeError:
+                    arguments = {"arguments": arguments}
+            call_id = item.get("call_id") or item.get("id")
+            if isinstance(name, str) and isinstance(arguments, dict) and isinstance(call_id, str):
+                return ToolUseEvent(
+                    kind="tool_use",
+                    raw=payload,
+                    tool_name=name,
+                    tool_input=arguments,
+                    tool_use_id=call_id,
+                )
+        if item_type in {"function_call_output", "tool_call_output"}:
+            call_id = item.get("call_id") or item.get("tool_use_id") or item.get("id")
+            output = item.get("output") or item.get("content") or ""
+            if isinstance(call_id, str):
+                return ToolResultEvent(
+                    kind="tool_result",
+                    raw=payload,
+                    tool_use_id=call_id,
+                    output=output,
+                    is_error=bool(item.get("is_error", False)),
+                )
+        return OtherEvent(kind=f"{event_type}/{item_type}" if item_type else str(event_type), raw=payload)
+
+    return OtherEvent(kind=str(event_type) if isinstance(event_type, str) else "other", raw=payload)
 
 
 class CodexSession:
-    """Live ``codex`` subprocess + IPC channels.
-
-    Conforms structurally to :class:`scieasy.ai.agent.provider.AgentSession`.
-
-    Invariants
-    ----------
-    * Exactly one OS subprocess per instance.
-    * ``send_user_message`` may be called repeatedly; stdin is held open
-      until :meth:`close` is invoked.
-    * :meth:`cancel` is idempotent; calling it twice is a no-op.
-    * Temp files written by the provider (system prompt, MCP config) are
-      released in :meth:`close`; failures during unlink are logged at
-      WARNING and swallowed.
-    """
+    """Logical Codex chat session backed by one subprocess per user turn."""
 
     def __init__(
         self,
         *,
-        proc: asyncio.subprocess.Process,
-        temp_files: list[Path],
+        argv0: list[str],
         project_dir: Path,
+        chat_id: str,
+        system_prompt: str,
+        mcp_config: dict[str, Any],
+        permission_mode: PermissionMode,
+        model: str | None,
+        resume_session_id: str | None,
+        temp_files: list[Path],
     ) -> None:
-        self._proc: asyncio.subprocess.Process = proc
-        self._temp_files: list[Path] = list(temp_files)
-        self._project_dir: Path = project_dir
-        self._closed: bool = False
-        self._cancelled: bool = False
+        self._argv0 = argv0
+        self._project_dir = project_dir
+        self._chat_id = chat_id
+        self._system_prompt = system_prompt
+        self._mcp_config = mcp_config
+        self._permission_mode = permission_mode
+        self._model = model
+        self._temp_files = list(temp_files)
+        self._turn_ready = asyncio.Event()
+        self._closed = False
+        self._cancelled = False
+        self._active_proc: asyncio.subprocess.Process | None = None
+        self._stderr_task: asyncio.Task[str] | None = None
 
-        # AgentSession Protocol public attributes.
-        self.session_id: str | None = None
-        self.pid: int = proc.pid
+        self.session_id: str | None = resume_session_id
+        self.pid: int = 0
 
     @property
     def temp_files(self) -> list[Path]:
-        """Tracked temp-file paths (read-only view); useful for tests."""
         return list(self._temp_files)
 
     async def send_user_message(self, content: str) -> None:
-        """Send a user-turn message to the agent subprocess.
+        if self._closed:
+            raise AgentLaunchError("codex session is closed; cannot send_user_message")
+        if self._active_proc is not None and self._active_proc.returncode is None:
+            raise AgentLaunchError("codex turn already in progress")
 
-        Writes a JSON envelope ``{"type": "user", "content": ...}`` to
-        stdin followed by a newline, then flushes. Stdin is NOT closed
-        — the Codex CLI is assumed to support multi-turn over one
-        process; if a future Codex CLI requires stdin EOF per turn the
-        provider can override this method without touching the wider
-        runtime.
+        argv = self._build_turn_argv()
+        env = os.environ.copy()
+        env["SCIEASY_PERMISSION_MODE"] = self._permission_mode.value
+        env["SCIEASY_CHAT_ID"] = self._chat_id
+        env["SCIEASY_PROJECT_DIR"] = str(self._project_dir)
 
-        Raises
-        ------
-        AgentLaunchError
-            If the subprocess has already exited or stdin was lost.
-        """
-        if self._proc.stdin is None or self._proc.stdin.is_closing():
-            raise AgentLaunchError("subprocess stdin is closed; cannot send_user_message")
-        envelope = json.dumps({"type": "user", "content": content})
-        logger.debug(
-            "CodexSession.send_user_message: writing %d bytes to stdin",
-            len(envelope),
-        )
-        self._proc.stdin.write(envelope.encode("utf-8") + b"\n")
+        creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0
+
+        logger.info("CodexSession.send_user_message: spawning argv=%r cwd=%s", argv, self._project_dir)
         try:
-            await self._proc.stdin.drain()
-        except (BrokenPipeError, ConnectionResetError) as exc:
-            raise AgentLaunchError(f"subprocess stdin write failed: {exc}") from exc
+            proc = await _spawn(argv=argv, cwd=self._project_dir, env=env, creationflags=creationflags)
+        except OSError as exc:
+            raise AgentLaunchError(f"failed to spawn codex subprocess: {exc}") from exc
+
+        self._active_proc = proc
+        self.pid = proc.pid
+        self._stderr_task = asyncio.create_task(_read_stderr(proc.stderr))
+
+        if proc.stdin is None:
+            raise AgentLaunchError("codex subprocess stdin is not piped")
+        proc.stdin.write(self._compose_prompt(content).encode("utf-8"))
+        with contextlib.suppress(BrokenPipeError, ConnectionResetError):
+            await proc.stdin.drain()
+        with contextlib.suppress(OSError):
+            proc.stdin.close()
+        with contextlib.suppress(OSError, asyncio.CancelledError, AttributeError):
+            await proc.stdin.wait_closed()
+        self._turn_ready.set()
 
     async def stream_events(self) -> AsyncIterator[AgentEvent]:
-        """Yield canonical :class:`AgentEvent`s from the subprocess stdout.
+        while True:
+            await self._turn_ready.wait()
+            if self._closed:
+                return
 
-        Latches ``self.session_id`` from the first :class:`InitEvent`.
-        The iterator terminates cleanly when stdout EOF is reached.
-        """
-        if self._proc.stdout is None:
-            raise AgentLaunchError("subprocess stdout is not piped")
+            proc = self._active_proc
+            if proc is None:
+                self._turn_ready.clear()
+                continue
+            if proc.stdout is None:
+                raise AgentLaunchError("codex subprocess stdout is not piped")
 
-        chunk_iter = _read_subprocess_stream(self._proc.stdout)
-        async for event in parse_stream(chunk_iter):
-            if isinstance(event, InitEvent) and self.session_id is None:
-                self.session_id = event.session_id
-                logger.info(
-                    "CodexSession: session_id latched as %s",
-                    event.session_id,
+            async for line in _read_stdout_lines(proc.stdout):
+                try:
+                    payload = json.loads(line.decode("utf-8", errors="replace"))
+                except json.JSONDecodeError as exc:
+                    logger.warning("CodexSession.stream_events: non-JSON stdout line ignored: %s", exc)
+                    continue
+                if not isinstance(payload, dict):
+                    yield OtherEvent(kind="other", raw={"payload": payload})
+                    continue
+                event_or_events = _normalise_codex_event(payload)
+                events = event_or_events if isinstance(event_or_events, list) else [event_or_events]
+                for event in events:
+                    if isinstance(event, InitEvent):
+                        self.session_id = event.session_id
+                    yield event
+
+            returncode = await proc.wait()
+            stderr = ""
+            if self._stderr_task is not None:
+                stderr = await self._stderr_task
+            self._active_proc = None
+            self._stderr_task = None
+            self._turn_ready.clear()
+
+            if returncode != 0 and not self._cancelled:
+                yield ErrorEvent(
+                    kind="error",
+                    raw={"returncode": returncode, "stderr": stderr},
+                    message=stderr.strip() or f"codex exited with status {returncode}",
+                    error_type="CodexExitError",
                 )
-            logger.debug("CodexSession.stream_events: yield kind=%s", event.kind)
-            yield event
+
+    def _build_turn_argv(self) -> list[str]:
+        argv = [*self._argv0, "exec"]
+        argv += ["--json", "--skip-git-repo-check", "-C", str(self._project_dir)]
+        if self._model is not None:
+            argv += ["--model", self._model]
+        if self._permission_mode is PermissionMode.BYPASS:
+            argv += ["--dangerously-bypass-approvals-and-sandbox"]
+        else:
+            argv += ["--sandbox", "read-only"]
+        argv += self._mcp_overrides()
+        if self.session_id is not None:
+            argv += ["resume", self.session_id, "-"]
+        else:
+            argv.append("-")
+        return argv
+
+    def _mcp_overrides(self) -> list[str]:
+        server = (self._mcp_config.get("mcpServers") or {}).get("scieasy")
+        if not isinstance(server, dict):
+            return []
+        command = server.get("command")
+        args = server.get("args", [])
+        env = server.get("env", {})
+        if not isinstance(command, str) or not isinstance(args, list):
+            return []
+
+        overrides = [
+            "-c",
+            f"mcp_servers.scieasy.command={_toml_string(command)}",
+            "-c",
+            f"mcp_servers.scieasy.args={_toml_array([str(arg) for arg in args])}",
+        ]
+        if isinstance(env, dict):
+            entries = [f"{key}={_toml_string(str(value))}" for key, value in sorted(env.items())]
+            if entries:
+                overrides += ["-c", "mcp_servers.scieasy.env={" + ", ".join(entries) + "}"]
+        return overrides
+
+    def _compose_prompt(self, content: str) -> str:
+        return (
+            "System instructions for this SciEasy embedded agent session:\n"
+            f"{self._system_prompt}\n\n"
+            "User message:\n"
+            f"{content}\n"
+        )
 
     def _kill_process_tree(self, *, caller: str) -> None:
-        """Tree-kill the subprocess group on POSIX, taskkill /T /F on Windows.
-
-        Used by both :meth:`cancel` and :meth:`close` (timeout path).
-        Without this, ``self._proc.kill()`` only signals the parent and
-        any tool children (long-running ``Bash`` commands) survive
-        teardown. POSIX sessions are spawned with
-        ``start_new_session=True`` so ``killpg`` reliably hits the whole
-        tree; Windows uses the existing CREATE_NEW_PROCESS_GROUP +
-        ``taskkill /T /F``.
-        """
+        proc = self._active_proc
+        if proc is None or proc.returncode is not None:
+            return
         if sys.platform == "win32":
-            try:
-                subprocess.run(
-                    ["taskkill", "/T", "/F", "/PID", str(self._proc.pid)],
-                    check=False,
-                    capture_output=True,
-                )
-                logger.info(
-                    "CodexSession.%s: taskkill /T /F issued for PID %s",
-                    caller,
-                    self._proc.pid,
-                )
-            except OSError as exc:  # pragma: no cover - taskkill rarely raises
-                logger.warning("CodexSession.%s: taskkill failed: %s", caller, exc)
+            with contextlib.suppress(OSError):
+                subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], check=False, capture_output=True)
         else:
-            try:
-                pgid = os.getpgid(self._proc.pid)
-                os.killpg(pgid, signal.SIGKILL)
-                logger.info("CodexSession.%s: SIGKILL sent to pgid %s", caller, pgid)
-            except (ProcessLookupError, PermissionError) as exc:
-                logger.warning("CodexSession.%s: killpg failed: %s", caller, exc)
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        logger.info("CodexSession.%s: killed active turn process pid=%s", caller, proc.pid)
 
     async def cancel(self) -> None:
-        """Cancel any in-flight agent turn by tree-killing the subprocess group.
-
-        Idempotent: calling ``cancel`` on an already-cancelled or
-        already-exited session is a no-op.
-
-        Uses SIGKILL via :meth:`_kill_process_tree` to guarantee child
-        tool processes (e.g. long-running Bash commands) are also
-        terminated. Cancellation is a user-driven hard abort; SIGTERM-
-        with-grace is not appropriate here because we cannot trust the
-        agent to honour it promptly.
-        """
-        if self._cancelled or self._proc.returncode is not None:
-            self._cancelled = True
-            return
         self._cancelled = True
         self._kill_process_tree(caller="cancel")
 
     async def close(self) -> None:
-        """Await subprocess exit (with grace) and release temp files.
-
-        Idempotent: calling ``close`` twice is a no-op.
-        """
         if self._closed:
             return
         self._closed = True
+        self._turn_ready.set()
 
-        if self._proc.stdin is not None and not self._proc.stdin.is_closing():
-            with contextlib.suppress(OSError):
-                self._proc.stdin.close()
-            # Force the underlying FD to release before we await proc.wait().
-            # Required on Windows asyncio Proactor pipes — without this the
-            # child may never observe stdin EOF, blocking on readline()
-            # forever and forcing this close() through the grace-timeout
-            # kill path on every single session.
-            with contextlib.suppress(OSError, asyncio.CancelledError, AttributeError):
-                await self._proc.stdin.wait_closed()
-
-        if self._proc.returncode is None:
+        proc = self._active_proc
+        if proc is not None and proc.returncode is None:
             try:
-                await asyncio.wait_for(self._proc.wait(), timeout=_CLOSE_GRACE_SECONDS)
+                await asyncio.wait_for(proc.wait(), timeout=_CLOSE_GRACE_SECONDS)
             except TimeoutError:
-                logger.warning(
-                    "CodexSession.close: subprocess did not exit in %.1fs; tree-killing",
-                    _CLOSE_GRACE_SECONDS,
-                )
                 self._kill_process_tree(caller="close")
                 with contextlib.suppress(TimeoutError):
-                    await asyncio.wait_for(self._proc.wait(), timeout=1.0)
-
+                    await asyncio.wait_for(proc.wait(), timeout=1.0)
+        if self._stderr_task is not None:
+            with contextlib.suppress(Exception):
+                await self._stderr_task
         for path in self._temp_files:
-            try:
+            with contextlib.suppress(OSError):
                 path.unlink(missing_ok=True)
-            except OSError as exc:
-                logger.warning("CodexSession.close: failed to unlink %s: %s", path, exc)
 
 
 class CodexProvider:
-    """Provider for the ``codex`` CLI.
-
-    Structural conformance with :class:`AgentProvider` (PEP 544) is
-    verified at the type level — see ``_PROTOCOL_CONFORMANCE`` at the
-    bottom of this module.
-
-    Parameters
-    ----------
-    binary_override
-        If provided, points at a Python script used in place of the real
-        ``codex`` binary. The session is spawned as
-        ``[sys.executable, str(binary_override), ...]``. Used by the
-        ``tests/fixtures/stub_codex.py`` test fixture.
-    """
+    """Provider for the real ``codex`` CLI."""
 
     name: ClassVar[str] = "codex"
     binary_name: ClassVar[str] = "codex"
 
     def __init__(self, *, binary_override: Path | None = None) -> None:
-        self._binary_override: Path | None = binary_override
+        self._binary_override = binary_override
 
     @classmethod
     def discover(cls) -> ProviderStatus:
-        """Locate the ``codex`` binary and probe version + login state.
-
-        The login-state probe runs ``codex login status``; if the
-        Codex CLI version installed lacks that subcommand the call
-        returns non-zero and we degrade to ``logged_in=False`` rather
-        than raising. This matches Claude Code's ``installMethod``
-        probe contract.
-        """
         binary_path = find_binary(cls.binary_name)
         if binary_path is None:
-            logger.info("CodexProvider.discover: codex binary not found")
             return ProviderStatus(
                 name=cls.name,
                 available=False,
@@ -347,12 +383,6 @@ class CodexProvider:
             if completed.returncode == 0:
                 version = (completed.stdout or completed.stderr or "").strip() or None
                 available = True
-            else:
-                logger.warning(
-                    "CodexProvider.discover: --version exited %d: %s",
-                    completed.returncode,
-                    (completed.stderr or "").strip(),
-                )
         except (subprocess.TimeoutExpired, OSError) as exc:
             logger.warning("CodexProvider.discover: --version probe failed: %s", exc)
 
@@ -370,13 +400,6 @@ class CodexProvider:
             except (subprocess.TimeoutExpired, OSError) as exc:
                 logger.debug("CodexProvider.discover: login probe failed: %s", exc)
 
-        logger.info(
-            "CodexProvider.discover: available=%s version=%s logged_in=%s path=%s",
-            available,
-            version,
-            logged_in,
-            binary_path,
-        )
         return ProviderStatus(
             name=cls.name,
             available=available,
@@ -397,19 +420,6 @@ class CodexProvider:
         permission_mode: PermissionMode,
         model: str | None = None,
     ) -> AgentSession:
-        """Spawn a ``codex`` subprocess and return a live session handle.
-
-        See :meth:`AgentProvider.start_session` for parameter semantics.
-
-        Raises
-        ------
-        AgentNotInstalledError
-            If no binary override is set and ``find_binary`` returns
-            ``None``.
-        AgentLaunchError
-            If :func:`asyncio.create_subprocess_exec` itself raises.
-        """
-        argv0: list[str]
         if self._binary_override is not None:
             argv0 = [sys.executable, str(self._binary_override)]
         else:
@@ -421,61 +431,20 @@ class CodexProvider:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".md", encoding="utf-8", delete=False) as prompt_handle:
             prompt_handle.write(system_prompt)
             prompt_path = Path(prompt_handle.name)
-
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", encoding="utf-8", delete=False) as mcp_handle:
             json.dump(mcp_config, mcp_handle)
             mcp_path = Path(mcp_handle.name)
 
-        temp_files = [prompt_path, mcp_path]
-
-        argv = [
-            *argv0,
-            "--output-format",
-            "stream-json",
-            "--append-system-prompt",
-            f"@{prompt_path}",
-            "--mcp-config",
-            f"@{mcp_path}",
-        ]
-        if resume_session_id is not None:
-            argv += ["--resume", resume_session_id]
-        if model is not None:
-            argv += ["--model", model]
-
-        env = os.environ.copy()
-        env["SCIEASY_PERMISSION_MODE"] = permission_mode.value
-        # Mirrors ClaudeCodeProvider env injection (issue #723): hook bridge
-        # subprocesses need SCIEASY_CHAT_ID and SCIEASY_PROJECT_DIR to route
-        # permission requests back to /api/ai/permission-check.
-        env["SCIEASY_CHAT_ID"] = chat_id
-        env["SCIEASY_PROJECT_DIR"] = str(project_dir)
-
-        creationflags = 0
-        if sys.platform == "win32":
-            creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
-
-        logger.info(
-            "CodexProvider.start_session: spawning argv=%r cwd=%s",
-            argv,
-            project_dir,
-        )
-        try:
-            proc = await _spawn(
-                argv=argv,
-                cwd=project_dir,
-                env=env,
-                creationflags=creationflags,
-            )
-        except OSError as exc:
-            for path in temp_files:
-                with contextlib.suppress(OSError):
-                    path.unlink(missing_ok=True)
-            raise AgentLaunchError(f"failed to spawn codex subprocess: {exc}") from exc
-
         return CodexSession(
-            proc=proc,
-            temp_files=temp_files,
+            argv0=argv0,
             project_dir=project_dir,
+            chat_id=chat_id,
+            system_prompt=system_prompt,
+            mcp_config=mcp_config,
+            permission_mode=permission_mode,
+            model=model,
+            resume_session_id=resume_session_id,
+            temp_files=[prompt_path, mcp_path],
         )
 
 
@@ -486,7 +455,6 @@ async def _spawn(
     env: dict[str, str],
     creationflags: int,
 ) -> asyncio.subprocess.Process:
-    """Thin wrapper around :func:`asyncio.create_subprocess_exec` for testability."""
     kwargs: dict[str, Any] = dict(
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
@@ -501,7 +469,4 @@ async def _spawn(
     return await asyncio.create_subprocess_exec(*argv, **kwargs)
 
 
-# Type-level conformance check: assigning the class to an
-# ``AgentProvider``-typed name catches Protocol drift at mypy time
-# without requiring runtime ``isinstance`` machinery.
 _PROTOCOL_CONFORMANCE: type[AgentProvider] = CodexProvider

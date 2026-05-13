@@ -23,7 +23,12 @@ import type { AgentEvent, PermissionDecision, PermissionMode } from "../types/ag
 /** WS connection state surfaced to UI. */
 export type WSConnectionState = "idle" | "connecting" | "open" | "closed" | "reconnecting";
 
-type OutboundUserMessage = { type: "user_message"; content: string };
+type OutboundUserMessage = {
+  type: "user_message";
+  content: string;
+  provider: string;
+  permission_mode: string;
+};
 type OutboundCancel = { type: "cancel" };
 type OutboundPermissionDecision = {
   type: "permission_decision";
@@ -71,6 +76,7 @@ export function useAgentWebSocket(
   const setPendingPermission = useAppStore((s) => s.setPendingPermission);
   const markSessionEnded = useAppStore((s) => s.markSessionEnded);
   const permissionMode: PermissionMode = useAppStore((s) => s.permissionMode);
+  const providerName = useAppStore((s) => s.providerName);
 
   const [state, setState] = useState<WSConnectionState>("idle");
   const socketRef = useRef<WebSocket | null>(null);
@@ -209,8 +215,14 @@ export function useAgentWebSocket(
   }, []);
 
   const sendMessage = useCallback(
-    (content: string): boolean => send({ type: "user_message", content }),
-    [send],
+    (content: string): boolean =>
+      send({
+        type: "user_message",
+        content,
+        provider: providerName,
+        permission_mode: permissionMode,
+      }),
+    [send, providerName, permissionMode],
   );
   const cancel = useCallback((): boolean => send({ type: "cancel" }), [send]);
   const sendPermissionDecision = useCallback(

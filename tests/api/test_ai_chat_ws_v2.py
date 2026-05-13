@@ -69,6 +69,8 @@ def _patch_start(monkeypatch: pytest.MonkeyPatch) -> None:
         project_dir: Path,
         chat_id: str,
         permission_mode_str: str = "strict",
+        provider_name: str | None = None,
+        model: str | None = None,
     ) -> Any:
         # Issue #791: route now passes permission_mode_str through.
         mode = PermissionMode.BYPASS if permission_mode_str == "bypass" else PermissionMode.STRICT

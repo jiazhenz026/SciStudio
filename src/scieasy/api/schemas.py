@@ -286,6 +286,9 @@ class ChatClientMessage(BaseModel):
     content: str | None = None
     request_id: str | None = None
     decision: str | None = None
+    provider: str | None = None
+    permission_mode: str | None = None
+    model: str | None = None
 
 
 class AgentEventEnvelope(BaseModel):

@@ -2,7 +2,7 @@
  * Agent settings panel.
  *
  * Provides:
- *  - Provider selector ("claude-code" / "codex"; codex lands Phase 4)
+ *  - Provider selector ("claude-code" / "codex")
  *  - Permission mode (strict / bypass)
  *  - Future: concurrent-chat cap input
  *
@@ -59,7 +59,7 @@ export function SettingsPanel() {
           className="rounded border border-gray-300 px-2 py-1"
         >
           <option value="claude-code">Claude Code</option>
-          <option value="codex">Codex (Phase 4)</option>
+          <option value="codex">Codex</option>
         </select>
       </label>
       <label className="flex items-center gap-2">

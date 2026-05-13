@@ -103,6 +103,44 @@ def test_status_endpoint_reports_missing_binary(app: Any, monkeypatch: pytest.Mo
         assert body["providers"][0]["install_hint"] == "install claude"
 
 
+@pytest.mark.asyncio
+async def test_start_default_session_uses_requested_provider_and_permission(tmp_path: Path) -> None:
+    captured: dict[str, Any] = {}
+
+    class _FakeManager:
+        async def start_session(self, **kwargs: Any) -> object:
+            captured.update(kwargs)
+            return object()
+
+    await ai_routes._start_default_session(
+        manager=_FakeManager(),
+        project_dir=tmp_path,
+        chat_id="chat-codex",
+        provider_name="codex",
+        permission_mode_str="strict",
+        model="gpt-test",
+    )
+
+    assert captured["provider"].name == "codex"
+    assert captured["permission_mode"] is PermissionMode.STRICT
+    assert captured["model"] == "gpt-test"
+
+
+@pytest.mark.asyncio
+async def test_start_default_session_rejects_unknown_provider(tmp_path: Path) -> None:
+    class _FakeManager:
+        async def start_session(self, **kwargs: Any) -> object:
+            return object()
+
+    with pytest.raises(ValueError, match="unknown agent provider"):
+        await ai_routes._start_default_session(
+            manager=_FakeManager(),
+            project_dir=tmp_path,
+            chat_id="chat-bad",
+            provider_name="not-a-provider",
+        )
+
+
 # ---------------------------------------------------------------------------
 # WS /api/ai/chat/{chat_id}
 # ---------------------------------------------------------------------------
@@ -122,6 +160,8 @@ def _patch_start_default_session(monkeypatch: pytest.MonkeyPatch) -> None:
         project_dir: Path,
         chat_id: str,
         permission_mode_str: str = "strict",
+        provider_name: str | None = None,
+        model: str | None = None,
     ) -> Any:
         # Issue #791: honour the wire-level permission_mode_str so STRICT
         # vs BYPASS routing is exercised end-to-end in WS tests.

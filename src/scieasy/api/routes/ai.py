@@ -295,7 +295,9 @@ async def chat_ws(
                             manager=manager,
                             project_dir=project_path,
                             chat_id=chat_id,
-                            permission_mode_str=permission_mode,
+                            provider_name=msg.provider,
+                            permission_mode_str=msg.permission_mode or permission_mode,
+                            model=msg.model,
                         )
                     except Exception as exc:
                         logger.error("chat_ws: start_session failed: %s", exc)
@@ -366,9 +368,11 @@ async def _start_default_session(
     manager: Any,
     project_dir: Path,
     chat_id: str,
+    provider_name: str | None = None,
     permission_mode_str: str = "strict",
+    model: str | None = None,
 ) -> Any:
-    """Spawn a Claude Code session with the real SciEasy system prompt + MCP config.
+    """Spawn the selected agent provider with the real SciEasy prompt + MCP config.
 
     Issue #775: replaced Phase 1 placeholders with calls to the real
     composers — without these the spawned agent has no idea what
@@ -380,10 +384,24 @@ async def _start_default_session(
     frontend selection, which made STRICT mode unreachable.
     """
     from scieasy.ai.agent.claude_code import ClaudeCodeProvider
+    from scieasy.ai.agent.codex import CodexProvider
     from scieasy.ai.agent.provider import PermissionMode
     from scieasy.ai.agent.system_prompt import compose_system_prompt
 
-    provider = ClaudeCodeProvider()
+    selected_provider = provider_name or ClaudeCodeProvider.name
+    provider_map = {
+        ClaudeCodeProvider.name: ClaudeCodeProvider,
+        CodexProvider.name: CodexProvider,
+    }
+    provider_cls = provider_map.get(selected_provider)
+    if provider_cls is None:
+        raise ValueError(f"unknown agent provider: {selected_provider!r}")
+    provider = provider_cls()
+
+    try:
+        selected_permission_mode = PermissionMode(permission_mode_str)
+    except ValueError as exc:
+        raise ValueError(f"unknown permission mode: {permission_mode_str!r}") from exc
     # Re-run the trusted-root sanitiser so CodeQL's taint flow stops
     # at this function boundary even though the WS route already
     # validated the same value. ``os.path.realpath`` +
@@ -406,15 +424,14 @@ async def _start_default_session(
             }
         }
     }
-    # Map the wire-format string to the enum value.
-    permission_mode = PermissionMode.BYPASS if permission_mode_str == "bypass" else PermissionMode.STRICT
     return await manager.start_session(
         project_dir=project_dir,
         chat_id=chat_id,
         provider=provider,
         system_prompt=system_prompt,
         mcp_config=mcp_config,
-        permission_mode=permission_mode,
+        permission_mode=selected_permission_mode,
+        model=model,
     )
 
 
