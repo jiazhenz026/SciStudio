@@ -8613,3 +8613,40 @@ The audit's summary:
 
 > SciEasy's transport layer is mostly reference-based now, but its load, processing, and export layers still contain widespread eager materialization, payload-loss edge cases, and multiple mismatches with the stated design philosophy.
 
+---
+
+## ADR-033: Embedded coding agent via Claude Code / Codex subprocess
+
+**Status**: accepted
+**Date**: 2026-05-12
+**Full text**: [`ADR-033-draft.md`](ADR-033-draft.md) (the "draft" filename is preserved for archival continuity; the decision is accepted as of T-ECA-403 / issue #747).
+**Related**: ADR-013 (AI as Layer 4), ADR-023 (frontend layout), ADR-025 (plugin entry-points), ADR-026 (Block SDK)
+**Supersedes**: parts of the original Phase 9 single-call AI service stack (`ai/generation/`, `ai/synthesis/`, `ai/optimization/` modules; `/api/ai/generate-block`, `/api/ai/suggest-workflow`, `/api/ai/optimize-params` routes; the keyword-routed `AIChat`). The per-block `AIBlock` (workflow LLM node) is retained.
+
+### Decision summary
+
+Replace SciEasy's single-call LLM architecture with an **embedded agent runtime** that wraps the user's locally installed Claude Code (or Codex) CLI as a subprocess. The decision covers eight surfaces:
+
+1. **Agent runtime** — `AgentProvider` protocol, `ClaudeCodeProvider` first, `CodexProvider` as a parallel implementation; binary discovery; subprocess lifecycle; stream-json IPC; session management.
+2. **SciEasy MCP server** — in-process tool exposure of `BlockRegistry`, `TypeRegistry`, workflow validation/execution, lineage, data inspection (~22 tools).
+3. **System prompt** — three-tier composition (builtin / user-override / project-override) under `{project}/.scieasy/`.
+4. **Permission model** — strict-by-default; opt-in BYPASS mode; implemented via Claude Code's `PreToolUse` hook and the SciEasy hook-bridge.
+5. **Frontend** — stream-json renderer, permission UI, session sidebar, login-state banner.
+6. **Project-local state** — sessions, transcripts, skills, memory all under `{project}/.scieasy/`.
+7. **Deprecations** — delete legacy AI service modules and routes per §7 of the draft; keep `AIBlock` for v1.
+8. **Phased implementation** — five phases, parallelizable across 2–4 agents.
+
+### Status of implementation
+
+Phases 1–4 have landed via the T-ECA-1xx through T-ECA-4xx ticket series. Phase 5 (end-to-end acceptance test on the microplastics SRS notebook) is pending — see `docs/roadmap/ROADMAP.md` §9.5.
+
+### Consequences
+
+- SciEasy users get a real, multi-turn, tool-using coding agent without SciEasy itself maintaining an agent loop, an OAuth flow, or a prompt-caching strategy. Those concerns are delegated to the upstream CLI.
+- Users bring their own model subscription (Anthropic / OpenAI) — SciEasy never proxies API credentials.
+- The agent's understanding of SciEasy's domain (blocks, ports, types, workflow graphs, lineage) flows through the in-process MCP server, not through prompt engineering.
+- Every write-class tool call is permission-gated. BYPASS mode is opt-in per session.
+- The previous Phase 9 single-call API surface is gone; consumers must migrate to the chat / MCP surface.
+
+For the full context, alternatives, and design rationale, read [`ADR-033-draft.md`](ADR-033-draft.md). The user-facing guide is [`docs/guides/ai-chat.md`](../guides/ai-chat.md) and the spec is [`docs/specs/embedded-coding-agent-spec.md`](../specs/embedded-coding-agent-spec.md).
+

@@ -47,8 +47,22 @@ Data objects hold references, not payloads. A 100 GB dataset stays on disk (Zarr
 | **ProcessBlock** | Deterministic data transformations (denoise, segment, merge, filter) |
 | **CodeBlock** | Run user-provided Python, R, or Julia scripts |
 | **AppBlock** | Bridge external GUI software (ElMAVEN, Fiji, napari, MestReNova) via file exchange |
-| **AIBlock** | LLM-powered classification, summarization, and parameter suggestion |
+| **AIBlock** | LLM-powered classification, summarization, and parameter suggestion (per-block, in-workflow) |
 | **SubWorkflowBlock** | Encapsulate an entire workflow as a single reusable block |
+
+### Embedded Coding Agent (AI Chat)
+
+Separate from `AIBlock`, SciEasy ships an **AI Chat** tab in the bottom panel that wraps a locally-installed coding-agent CLI -- either Anthropic's [Claude Code](https://docs.claude.com/en/docs/claude-code/quickstart) or OpenAI's [Codex](https://github.com/openai/codex) -- as a SciEasy subprocess. The agent understands SciEasy's domain (blocks, ports, types, workflow graphs, lineage) through the in-process SciEasy MCP server, and can read your project, propose workflow edits, generate new blocks, and run them on your data with your approval.
+
+Key properties:
+
+- **Bring your own model**: the agent runs as a subprocess on your machine, using your Anthropic / OpenAI subscription. SciEasy does not store or proxy your API credentials.
+- **Permission-gated**: every write-class tool call (Edit, Write, Bash, MCP write tools) requires explicit user approval by default. A `BYPASS` mode is opt-in per session.
+- **Project-local state**: conversation transcripts, custom skills, project memory, and the system-prompt override all live under `{project}/.scieasy/` and travel with the project.
+- **Three-tier system prompt**: builtin (ships with SciEasy) -> user-level (`~/.scieasy/system-prompt.md`) -> project-level (`{project}/.scieasy/system-prompt.md`), composed in order.
+- **Provider-neutral**: both Claude Code and Codex are first-class providers; a Provider dropdown in the chat tab lets you switch between them per session.
+
+For installation, login, basic usage, the permission policy, and troubleshooting, see [`docs/guides/ai-chat.md`](docs/guides/ai-chat.md). The architectural decision is recorded in [`docs/adr/ADR-033-draft.md`](docs/adr/ADR-033-draft.md).
 
 ### Manual Steps Are First-Class
 
@@ -87,7 +101,8 @@ SciEasy is organized into six horizontal layers, each depending only on the laye
 |  FastAPI REST, WebSocket, SSE, SPA fallback middleware      |
 +-------------------------------------------------------------+
 |  Layer 4: AI Services                                       |
-|  Block generation, workflow synthesis, param optimization   |
+|  Embedded coding agent (Claude Code / Codex via subprocess) |
+|  + SciEasy MCP server (domain tools); AIBlock (per-block)   |
 +-------------------------------------------------------------+
 |  Layer 3: Execution Engine                                  |
 |  DAG scheduler, process lifecycle, resource management      |
@@ -129,7 +144,7 @@ For the full architecture document, see [`docs/architecture/ARCHITECTURE.md`](do
 | UI toolkit | shadcn/ui + Tailwind CSS |
 | Data visualization | Plotly.js (inline previews) |
 | Build tool | Vite |
-| AI integration | Anthropic / OpenAI API |
+| AI integration | Local Claude Code / Codex CLI subprocess + in-process MCP server (chat agent); Anthropic / OpenAI API (AIBlock only) |
 | Package format | PyPI with `scieasy.*` entry-points |
 
 ---
