@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- [#788] Generic fallback renderer for AIChat — display_class taxonomy. Backend (`scieasy.ai.agent.stream_json.classify_for_display`) tags every `OtherEvent` with one of five stable classes (`hidden`, `meta`, `text-like`, `tool-like`, `raw`); frontend `EventRenderer` dispatches on the class instead of the legacy "Unrecognised event: <json>" fallback. New `genericRows/` folder with 4 small row components plus a reusable `<CondensedToolRow>` that #784 will also consume for native `tool_use` events. Adding a new claude stream-json kind now usually requires zero frontend changes — the structural heuristics (`text` / `content` / `tool_name+input`) handle it automatically. (@claude, 2026-05-13, branch: feat/issue-788/generic-fallback-renderer, session: 20260513-154519-implement-788-generic-fallback-renderer)
+
 ### Fixed
 
 - [#782] AIChat thinking + input UX — three related Phase 5 e2e bugs: (1) `thinking` events no longer fall through to the "Unrecognised event" branch — renderer now also catches wire frames with `raw.type === "thinking"` and shows an animated indicator (✻ Thinking…) even for empty-text / signature-only thinking frames; (2) new in-flight Thinking… indicator visible from user send until first real agent event (`assistant_text_delta` / `tool_use` / `tool_result` / `thinking` / `done` / `error`), so the chat no longer looks frozen while the agent is reasoning; (3) input textarea now bounded with `max-h-[200px] overflow-y-auto` so long messages scroll inside the textarea instead of pushing the Send button off-screen. Frontend-only fix; backend serialization already correct. Verified live in Chrome with claude-opus-4-7. (@claude, 2026-05-13, branch: fix/issue-782/aichat-thinking-and-input, session: 20260513-151107-fix-782-aichat-thinking-input-ux)
