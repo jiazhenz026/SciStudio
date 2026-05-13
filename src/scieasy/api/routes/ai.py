@@ -60,7 +60,16 @@ router = APIRouter(prefix="/api/ai", tags=["ai"])
 # Module-level singletons for ``Depends(...)`` and ``Query(...)`` defaults
 # — keeps the function signatures clean of B008 violations.
 _ProjectDirQuery = Query(..., description="Absolute path to the SciEasy project workspace")
+_PermissionModeQuery = Query(
+    "strict",
+    description="Permission policy for tool calls: 'strict' (prompt for every tool) or 'bypass' (auto-approve)",
+    pattern="^(strict|bypass)$",
+)
 _SessionManagerDep = Depends(get_agent_session_manager)
+
+
+# Issue #791: STRICT is the safe-by-default; BYPASS must be opted into.
+_VALID_PERMISSION_MODES: frozenset[str] = frozenset({"strict", "bypass"})
 
 
 # ---------------------------------------------------------------------------
@@ -173,9 +182,18 @@ async def chat_ws(
     websocket: WebSocket,
     chat_id: str,
     project_dir: str = _ProjectDirQuery,
+    permission_mode: str = _PermissionModeQuery,
     manager: Any = _SessionManagerDep,
 ) -> None:
     """Bidirectional chat WebSocket (ADR-033 §3 D5.2 / T-ECA-107).
+
+    Query parameters:
+        * ``project_dir`` — absolute path of the project workspace.
+        * ``permission_mode`` — ``"strict"`` (default; prompt for every
+          tool) or ``"bypass"`` (auto-approve). Issue #791: the previous
+          implementation hardcoded ``BYPASS`` regardless of the frontend
+          setting; the mode is now plumbed through from the WS query
+          string. STRICT is the safe-by-default.
 
     Inbound messages (client → server):
         * ``{"type": "user_message", "content": str}``
@@ -201,6 +219,18 @@ async def chat_ws(
         await websocket.send_json(ErrorEnvelope(message=str(exc)).model_dump())
         await websocket.close(code=1008, reason="invalid project_dir")
         return
+    # Issue #791: Defensive re-validation of permission_mode in case a
+    # caller bypasses FastAPI's pattern validation (e.g. older proxies
+    # that don't honour the regex constraint).
+    if permission_mode not in _VALID_PERMISSION_MODES:
+        logger.warning("chat_ws: rejecting permission_mode=%r", permission_mode)
+        await websocket.send_json(
+            ErrorEnvelope(
+                message=f"invalid permission_mode: {permission_mode!r} (expected 'strict' or 'bypass')"
+            ).model_dump()
+        )
+        await websocket.close(code=1008, reason="invalid permission_mode")
+        return
     project_path = project_key
     # T-ECA-110: register this socket so ``POST /api/ai/permission-check``
     # can broadcast ``permission_request`` frames to it. Removed in the
@@ -221,6 +251,7 @@ async def chat_ws(
                     project_dir=project_path,
                     chat_id=chat_id,
                     resume_session_id=metadata.session_id,
+                    permission_mode_str=permission_mode,
                 )
             except Exception as exc:
                 logger.warning(
@@ -306,6 +337,7 @@ async def chat_ws(
                             manager=manager,
                             project_dir=project_path,
                             chat_id=chat_id,
+                            permission_mode_str=permission_mode,
                         )
                     except Exception as exc:
                         logger.error("chat_ws: start_session failed: %s", exc)
@@ -387,6 +419,7 @@ async def _start_default_session(
     project_dir: Path,
     chat_id: str,
     resume_session_id: str | None = None,
+    permission_mode_str: str = "strict",
 ) -> Any:
     """Spawn a Claude Code session with the real SciEasy system prompt + MCP config.
 
@@ -396,6 +429,11 @@ async def _start_default_session(
 
     #783: added ``resume_session_id`` so the WS reattach path can
     rehydrate a prior conversation via ``claude --resume <id>``.
+
+    Issue #791: ``permission_mode_str`` is now plumbed in from the WS
+    query string (default ``"strict"``). The previous implementation
+    hardcoded :attr:`PermissionMode.BYPASS` regardless of the user's
+    frontend selection, which made STRICT mode unreachable.
     """
     from scieasy.ai.agent.claude_code import ClaudeCodeProvider
     from scieasy.ai.agent.provider import PermissionMode
@@ -424,13 +462,15 @@ async def _start_default_session(
             }
         }
     }
+    # Map the wire-format string to the enum value.
+    permission_mode = PermissionMode.BYPASS if permission_mode_str == "bypass" else PermissionMode.STRICT
     return await manager.start_session(
         project_dir=project_dir,
         chat_id=chat_id,
         provider=provider,
         system_prompt=system_prompt,
         mcp_config=mcp_config,
-        permission_mode=PermissionMode.BYPASS,
+        permission_mode=permission_mode,
         resume_session_id=resume_session_id,
     )
 

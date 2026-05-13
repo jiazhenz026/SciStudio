@@ -116,7 +116,18 @@ def _override_with_stub(app: Any, manager: AgentSessionManager) -> None:
 def _patch_start_default_session(monkeypatch: pytest.MonkeyPatch) -> None:
     """Force the route to use the stub binary instead of the real claude CLI."""
 
-    async def _stub_start(*, manager: Any, project_dir: Path, chat_id: str) -> Any:
+    async def _stub_start(
+        *,
+        manager: Any,
+        project_dir: Path,
+        chat_id: str,
+        permission_mode_str: str = "strict",
+        resume_session_id: str | None = None,
+    ) -> Any:
+        # Issue #791: honour the wire-level permission_mode_str so STRICT
+        # vs BYPASS routing is exercised end-to-end in WS tests.
+        # #783: also accept resume_session_id so lazy-resume tests work.
+        mode = PermissionMode.BYPASS if permission_mode_str == "bypass" else PermissionMode.STRICT
         provider = ClaudeCodeProvider(binary_override=STUB_PATH)
         return await manager.start_session(
             project_dir=project_dir,
@@ -124,7 +135,8 @@ def _patch_start_default_session(monkeypatch: pytest.MonkeyPatch) -> None:
             provider=provider,
             system_prompt="test",
             mcp_config={},
-            permission_mode=PermissionMode.STRICT,
+            permission_mode=mode,
+            resume_session_id=resume_session_id,
         )
 
     monkeypatch.setattr(ai_routes, "_start_default_session", _stub_start)

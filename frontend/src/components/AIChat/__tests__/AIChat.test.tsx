@@ -29,9 +29,44 @@ describe("AIChat — in-flight Thinking… indicator (#782 Bug 2)", () => {
       permissionMode: "strict",
       providerName: "claude-code",
       alwaysAllowedTools: {},
+      toolRowsExpanded: false,
     });
   });
   afterEach(() => cleanup());
+
+  it("Ctrl+O toggles the global tool-row expansion preference (#784 Bug 2)", () => {
+    render(<AIChat />);
+    expect(useAppStore.getState().toolRowsExpanded).toBe(false);
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "o", ctrlKey: true }));
+    });
+    expect(useAppStore.getState().toolRowsExpanded).toBe(true);
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "o", ctrlKey: true }));
+    });
+    expect(useAppStore.getState().toolRowsExpanded).toBe(false);
+
+    // Cmd+O on Mac should also work
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "o", metaKey: true }));
+    });
+    expect(useAppStore.getState().toolRowsExpanded).toBe(true);
+  });
+
+  it("Ctrl+O does NOT fire when focus is in the textarea (#784 Bug 2)", () => {
+    render(<AIChat />);
+    const ta = screen.getByTestId("aichat-input") as HTMLTextAreaElement;
+    expect(useAppStore.getState().toolRowsExpanded).toBe(false);
+
+    act(() => {
+      ta.focus();
+      // Dispatch the event with the textarea as target.
+      ta.dispatchEvent(new KeyboardEvent("keydown", { key: "o", ctrlKey: true, bubbles: true }));
+    });
+    expect(useAppStore.getState().toolRowsExpanded).toBe(false);
+  });
 
   it("textarea has max-height and overflow-y-auto to bound growth (#782 Bug 3)", () => {
     render(<AIChat />);

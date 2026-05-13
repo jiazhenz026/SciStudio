@@ -19,17 +19,52 @@ describe("EventRenderer", () => {
     expect(screen.getByTestId("ev-init")).toHaveTextContent(/claude-sonnet-4/);
   });
 
-  it("renders an assistant text delta", () => {
+  it("renders an assistant text delta as markdown (issue #784)", () => {
     const ev: AgentEvent = {
       kind: "assistant_text_delta",
       raw: {},
-      delta: "hello world",
+      delta: "hello **world**",
     };
     render(<EventRenderer event={ev} />);
-    expect(screen.getByTestId("ev-text")).toHaveTextContent("hello world");
+    const row = screen.getByTestId("ev-text");
+    expect(row).toHaveTextContent("hello world");
+    // The bold marker should be rendered as a <strong>, not literal `**`.
+    expect(row.querySelector("strong")).not.toBeNull();
+    expect(row.textContent).not.toContain("**");
   });
 
-  it("renders a tool_use event with tool name", () => {
+  it("renders markdown headings, code, and external links safely (issue #784)", () => {
+    const ev: AgentEvent = {
+      kind: "assistant_text_delta",
+      raw: {},
+      delta: "# Title\n\nSee [docs](https://example.com).\n\n```js\nlet a = 1;\n```",
+    };
+    render(<EventRenderer event={ev} />);
+    const row = screen.getByTestId("ev-text");
+    expect(row.querySelector("h1")).not.toBeNull();
+    const link = row.querySelector("a") as HTMLAnchorElement | null;
+    expect(link).not.toBeNull();
+    expect(link?.getAttribute("target")).toBe("_blank");
+    expect(link?.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(row.querySelector("code")).not.toBeNull();
+  });
+
+  it("strips dangerous HTML from assistant text (sanitization, #784)", () => {
+    const ev: AgentEvent = {
+      kind: "assistant_text_delta",
+      raw: {},
+      delta: "before\n\n<script>alert('xss')</script>\n\nafter",
+    };
+    render(<EventRenderer event={ev} />);
+    const row = screen.getByTestId("ev-text");
+    // The <script> tag must not survive sanitization.
+    expect(row.querySelector("script")).toBeNull();
+    // The surrounding text must still be visible.
+    expect(row.textContent).toContain("before");
+    expect(row.textContent).toContain("after");
+  });
+
+  it("renders a tool_use event collapsed by default with tool name (issue #784)", () => {
     const ev: AgentEvent = {
       kind: "tool_use",
       raw: {},
@@ -38,7 +73,10 @@ describe("EventRenderer", () => {
       tool_use_id: "tu-1",
     };
     render(<EventRenderer event={ev} />);
-    expect(screen.getByTestId("ev-tool-use")).toHaveTextContent(/Edit/);
+    const row = screen.getByTestId("ev-tool-use");
+    expect(row).toHaveTextContent(/Edit/);
+    // Collapsed by default — no detail block rendered.
+    expect(row).toHaveAttribute("data-expanded", "false");
   });
 
   it("renders a tool_result with error styling when is_error=true", () => {
@@ -70,13 +108,58 @@ describe("EventRenderer", () => {
     expect(screen.getByTestId("ev-done")).toBeInTheDocument();
   });
 
-  it("falls back to OtherEvent for unknown kinds", () => {
-    const ev: AgentEvent = {
-      kind: "other",
+  it("renders OtherEvent with display_class='raw' as a compact <kind> chip (issue #788)", () => {
+    // The legacy "Unrecognised event: <json>" row is gone. Unknown
+    // kinds fall through to the display_class taxonomy; without an
+    // explicit class the renderer defaults to `raw`.
+    const ev = {
+      kind: "future_unknown",
       raw: { provider_specific: "thing" },
-    };
+      display_class: "raw" as const,
+    } as unknown as AgentEvent;
     render(<EventRenderer event={ev} />);
-    expect(screen.getByTestId("ev-other")).toHaveTextContent(/Unrecognised event/);
+    expect(screen.getByTestId("ev-raw")).toHaveTextContent("future_unknown");
+    expect(screen.queryByTestId("ev-other")).toBeNull();
+  });
+
+  it("dispatches display_class='hidden' to null (issue #788)", () => {
+    const ev = {
+      kind: "heartbeat",
+      raw: {},
+      display_class: "hidden" as const,
+    } as unknown as AgentEvent;
+    const { container } = render(<EventRenderer event={ev} />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("dispatches display_class='meta' to MetaEventRow (issue #788)", () => {
+    const ev = {
+      kind: "system/hook_started",
+      raw: { subtype: "hook_started" },
+      display_class: "meta" as const,
+    } as unknown as AgentEvent;
+    render(<EventRenderer event={ev} />);
+    expect(screen.getByTestId("ev-meta")).toHaveTextContent("system/hook_started");
+  });
+
+  it("dispatches display_class='text-like' to TextLikeRow (issue #788)", () => {
+    const ev = {
+      kind: "future_kind",
+      raw: { text: "hello there" },
+      display_class: "text-like" as const,
+    } as unknown as AgentEvent;
+    render(<EventRenderer event={ev} />);
+    expect(screen.getByTestId("ev-textlike")).toHaveTextContent("hello there");
+  });
+
+  it("dispatches display_class='tool-like' to ToolLikeRow (issue #788)", () => {
+    const ev = {
+      kind: "future_tool",
+      raw: { tool_name: "MagicTool", input: { x: 1 } },
+      display_class: "tool-like" as const,
+    } as unknown as AgentEvent;
+    render(<EventRenderer event={ev} />);
+    expect(screen.getByTestId("ev-toollike")).toHaveTextContent("MagicTool");
   });
 
   it("renders an animated Thinking… indicator for kind=thinking", () => {

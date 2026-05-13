@@ -49,7 +49,31 @@ export function AIChat() {
   const sessions = useAppStore((s) => s.sessions);
   const appendEvent = useAppStore((s) => s.appendEvent);
   const eventsByChat = useAppStore((s) => s.eventsByChat);
+  const toggleToolRowsExpanded = useAppStore((s) => s.toggleToolRowsExpanded);
   const projectDir = currentProject?.path ?? null;
+
+  // Issue #784 Bug 2: global Ctrl+O / Cmd+O hotkey toggles the expansion
+  // state of all condensed tool rows on the current chat. Matches Claude
+  // Code's own UI hotkey. Preference is persisted in localStorage by the
+  // store, so it survives reload.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "o" && e.key !== "O") return;
+      // Skip when typing into an input/textarea/contenteditable so the
+      // hotkey doesn't fight with users typing the letter "o".
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
+      }
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      toggleToolRowsExpanded();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [toggleToolRowsExpanded]);
 
   const activeSession =
     activeChatId !== null ? sessions.find((s) => s.id === activeChatId) ?? null : null;

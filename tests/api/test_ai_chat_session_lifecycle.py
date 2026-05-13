@@ -52,6 +52,7 @@ def _patch_start_default_session(monkeypatch: pytest.MonkeyPatch) -> None:
         project_dir: Path,
         chat_id: str,
         resume_session_id: str | None = None,
+        permission_mode_str: str = "strict",
     ) -> Any:
         provider = ClaudeCodeProvider(binary_override=STUB_PATH)
         return await manager.start_session(
@@ -297,6 +298,7 @@ def test_lazy_resume_attempted_when_metadata_exists(
         project_dir: Path,
         chat_id: str,
         resume_session_id: str | None = None,
+        permission_mode_str: str = "strict",
     ) -> Any:
         seen["resume_session_id"] = resume_session_id
         provider = ClaudeCodeProvider(binary_override=STUB_PATH)

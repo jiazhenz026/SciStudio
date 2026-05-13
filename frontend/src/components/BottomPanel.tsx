@@ -13,6 +13,9 @@ interface BottomPanelProps {
   logEntries: LogEntry[];
   onTabChange: (tab: BottomTab) => void;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
+  /** #793: unread counts to render as badges next to the Logs/Problems tabs. */
+  unreadLogsCount?: number;
+  unreadProblemsCount?: number;
 }
 
 const TAB_LABELS: Record<BottomTab, string> = {
@@ -294,21 +297,43 @@ export function BottomPanel({
   logEntries,
   onTabChange,
   onUpdateConfig,
+  unreadLogsCount = 0,
+  unreadProblemsCount = 0,
 }: BottomPanelProps) {
+  // #793: render a small badge next to a tab label when there is unread content.
+  // The badge is only visible on tabs the user is NOT currently viewing; opening
+  // the tab clears the corresponding counter (handled in uiSlice.setActiveBottomTab).
+  const unreadFor = (tab: BottomTab): number => {
+    if (tab === "logs") return unreadLogsCount;
+    if (tab === "problems") return unreadProblemsCount;
+    return 0;
+  };
   return (
     <section className="flex h-full flex-col overflow-hidden bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(238,231,219,0.98))]">
       <div className="flex items-center gap-3 border-b border-stone-200 px-4 py-3">
         <div className="flex gap-2">
-          {ALL_TABS.map((tab) => (
-            <button
-              className={`rounded-full px-4 py-2 text-sm font-medium ${activeTab === tab ? "bg-ink text-white" : "bg-white text-stone-600"}`}
-              key={tab}
-              onClick={() => onTabChange(tab)}
-              type="button"
-            >
-              {TAB_LABELS[tab]}
-            </button>
-          ))}
+          {ALL_TABS.map((tab) => {
+            const count = unreadFor(tab);
+            return (
+              <button
+                className={`relative rounded-full px-4 py-2 text-sm font-medium ${activeTab === tab ? "bg-ink text-white" : "bg-white text-stone-600"}`}
+                key={tab}
+                onClick={() => onTabChange(tab)}
+                type="button"
+              >
+                {TAB_LABELS[tab]}
+                {count > 0 && activeTab !== tab ? (
+                  <span
+                    aria-label={`${count} unread`}
+                    className="ml-2 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-ember px-1.5 text-[10px] font-semibold leading-none text-white"
+                    data-testid={`unread-badge-${tab}`}
+                  >
+                    {count > 99 ? "99+" : count}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
       </div>
 

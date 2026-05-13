@@ -19,8 +19,9 @@ export function sendWebSocketMessage(message: Record<string, unknown>): boolean 
 export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
   const consumeEvent = useAppStore((state) => state.consumeEvent);
   const appendLog = useAppStore((state) => state.appendLog);
-  const setActiveBottomTab = useAppStore((state) => state.setActiveBottomTab);
   const setInteractivePrompt = useAppStore((state) => state.setInteractivePrompt);
+  const bumpUnreadLogs = useAppStore((state) => state.bumpUnreadLogs);
+  const bumpUnreadProblems = useAppStore((state) => state.bumpUnreadProblems);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
@@ -55,9 +56,15 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
       }
 
       consumeEvent(payload);
+
+      // #793: Do NOT force-switch the bottom panel to "logs" on engine events.
+      // The user's directive is "never auto-switch". Instead, bump an unread
+      // counter so the Logs / Problems tab gets a small badge while the user
+      // is on a different tab — they decide when to look.
       if (payload.type.startsWith("block_") || payload.type.startsWith("workflow_")) {
-        setActiveBottomTab("logs");
+        bumpUnreadLogs();
       }
+
       // Append a dedicated log entry for block_error events so the full error
       // text is visible in the Logs panel even if the user missed the node badge.
       if (payload.type === "block_error" && typeof payload.data.error === "string") {
@@ -68,6 +75,7 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
           workflow_id: payload.workflow_id ?? null,
           block_id: payload.block_id ?? null,
         });
+        bumpUnreadProblems();
       }
     };
 
@@ -75,7 +83,7 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
       socket.close();
       _activeSocket = null;
     };
-  }, [appendLog, consumeEvent, enabled, setActiveBottomTab, setInteractivePrompt]);
+  }, [appendLog, bumpUnreadLogs, bumpUnreadProblems, consumeEvent, enabled, setInteractivePrompt]);
 
   return { connected };
 }
