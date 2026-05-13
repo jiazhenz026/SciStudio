@@ -417,18 +417,6 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
 
 **Dependencies**: T-ECA-104.
 
-**Closeout (2026-05-13, PR for #778)**: The Phase-1 implementation
-shipped `TranscriptWriter` as a standalone class but did not wire it
-into the WS event pump — sessions ran, but `transcript.jsonl` was
-never written. The closeout PR attaches a `TranscriptWriter` to each
-live session inside `AgentSessionManager` (lifecycle paired with
-`start_session` / `close_session`) and the WS pump in `routes/ai.py`
-now mirrors every emitted event to it. Write failures are swallowed
-by the writer and additionally guarded in the pump so they cannot
-kill the WebSocket. The integration test
-`tests/integration/test_phase1_end_to_end.py::test_phase1_demo_writes_transcript_jsonl`
-asserts the JSONL is populated end-to-end.
-
 ### T-ECA-107 — WebSocket chat route + status route (impl)
 
 **Agent role**: IMPLEMENTATION AGENT (sequential after T-ECA-106).
@@ -541,19 +529,6 @@ asserts the JSONL is populated end-to-end.
 - WS messages for permission requests don't block other agent events on the same connection.
 
 **Dependencies**: T-ECA-105 (spike), T-ECA-107 (WS infrastructure).
-
-**Closeout (2026-05-13, PR for #779)**: The Phase-1 ship of
-`PermissionPolicy` deferred MCP read-tool auto-approve with a
-"not implemented in v1" comment, on the theory the MCP server had
-not yet landed. With Phase 2's `TOOL_REGISTRY` in place, this leaves
-~21 read tools prompting the user on every call — unusable in
-practice. The closeout PR makes the policy recognise the
-`mcp__scieasy__` prefix, look up the bare tool name in
-`scieasy.ai.agent.mcp._registry.TOOL_REGISTRY`, and auto-approve
-entries with `mutation == "read"`. Unknown MCP names and tools
-from non-SciEasy MCP servers fail closed (still require user
-approval). The dispatcher and the policy share the same registry,
-so the read-vs-write classification cannot drift between them.
 
 ### Phase-1 audit ticket
 
