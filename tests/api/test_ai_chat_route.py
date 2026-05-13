@@ -8,6 +8,7 @@ through a monkey-patched ``_start_default_session`` helper.
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -177,3 +178,55 @@ def test_ws_chat_disconnect_closes_session(
         _ = ws.receive_json()
         # Connection scope exited -> finally block ran -> session released.
     assert fresh_manager.get_session(tmp_path, "chat-disco") is None
+
+
+def test_ws_chat_reattach_starts_pump_for_existing_session(
+    app: Any,
+    fresh_manager: AgentSessionManager,
+    tmp_path: Path,
+) -> None:
+    """Regression for Codex P1: WS reconnect to an existing chat_id must
+    start the event pump immediately. Previously the pump was created
+    only inside the ``if session is None`` branch on the first
+    user_message, so reattach flows received zero ``agent_event`` frames.
+
+    Uses a synthetic ``MockSession`` rather than a real subprocess to
+    avoid cross-event-loop access between fixture setup and the
+    TestClient's loop. The route code path under test is identical.
+    """
+    from scieasy.ai.agent.provider import InitEvent
+
+    _override_with_stub(app, fresh_manager)
+
+    init_event = InitEvent(kind="init", session_id="mock-session", model="mock")
+
+    class _MockSession:
+        def __init__(self) -> None:
+            self.pid = 1
+            self.session_id: str | None = "mock-session"
+            self._closed = False
+
+        async def stream_events(self) -> Any:
+            yield init_event
+            # Stay open after emitting one event so the WS scope sees
+            # at least one frame before tearing down.
+            await asyncio.sleep(5.0)
+
+        async def send_user_message(self, content: str) -> None:
+            return None
+
+        async def cancel(self) -> None:
+            return None
+
+        async def close(self) -> None:
+            self._closed = True
+
+    # Pre-populate manager registry to simulate a live reattachable session.
+    key = (tmp_path.resolve(), "reattach-1")
+    fresh_manager._sessions[key] = _MockSession()  # type: ignore[assignment]
+
+    with TestClient(app) as client, client.websocket_connect(f"/api/ai/chat/reattach-1?project_dir={tmp_path}") as ws:
+        msg = ws.receive_json()
+        assert msg["type"] == "agent_event"
+        assert msg["event"]["kind"] == "init"
+        assert msg["event"]["session_id"] == "mock-session"

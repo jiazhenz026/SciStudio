@@ -230,6 +230,7 @@ class AgentProvider(Protocol):
         mcp_config: dict[str, Any],
         resume_session_id: str | None,
         permission_mode: PermissionMode,
+        model: str | None = None,
     ) -> AgentSession:
         """Spawn a new agent subprocess and return an active session handle.
 

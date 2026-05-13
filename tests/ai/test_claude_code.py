@@ -13,6 +13,7 @@ The tests bypass the real Claude Code CLI in two ways:
 
 from __future__ import annotations
 
+import asyncio
 import os
 import subprocess
 import sys
@@ -251,6 +252,51 @@ async def test_session_close_is_idempotent(project_dir: Path) -> None:
     await session.close()
     # Second close is a no-op (no exception, no double-unlink failure).
     await session.close()
+
+
+@pytest.mark.asyncio
+async def test_session_close_timeout_uses_kill_process_tree(project_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression for Codex P1: close() grace-timeout path must tree-kill,
+    not just send SIGKILL to the parent. Otherwise child tool processes
+    (e.g. Bash) survive on POSIX where the session uses start_new_session.
+    """
+    provider = ClaudeCodeProvider(binary_override=STUB_PATH)
+    session = await provider.start_session(
+        project_dir=project_dir,
+        system_prompt="",
+        mcp_config={},
+        resume_session_id=None,
+        permission_mode=PermissionMode.STRICT,
+    )
+
+    # Two-call wait stub: first call hangs (triggers timeout → kill
+    # path), second call (inside the post-kill 1s wait_for) returns
+    # immediately. _CLOSE_GRACE_SECONDS overridden to 0.1s for speed.
+    wait_calls = {"n": 0}
+
+    async def _stubbed_wait() -> int:
+        wait_calls["n"] += 1
+        if wait_calls["n"] == 1:
+            await asyncio.sleep(3600)
+        return 0
+
+    monkeypatch.setattr(session._proc, "wait", _stubbed_wait)
+    monkeypatch.setattr("scieasy.ai.agent.claude_code._CLOSE_GRACE_SECONDS", 0.1)
+
+    # Spy on _kill_process_tree so we can assert close() invokes it
+    # rather than the old `self._proc.kill()` parent-only path.
+    calls: list[str] = []
+
+    def _spy_kill_tree(*, caller: str) -> None:
+        calls.append(caller)
+
+    monkeypatch.setattr(session, "_kill_process_tree", _spy_kill_tree)
+
+    # Pretend returncode is unset so the grace branch is entered.
+    monkeypatch.setattr(type(session._proc), "returncode", property(lambda self: None))
+
+    await session.close()
+    assert calls == ["close"], f"close() should call _kill_process_tree(caller='close') exactly once, got {calls}"
 
 
 @pytest.mark.asyncio

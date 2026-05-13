@@ -194,3 +194,43 @@ def test_get_session_manager_returns_singleton() -> None:
     b = get_session_manager()
     assert a is b
     set_session_manager(None)
+
+
+@pytest.mark.asyncio
+async def test_start_session_forwards_model_to_provider(project_dir: Path) -> None:
+    """Regression for Codex P2: ``model`` kwarg must flow through to
+    ``provider.start_session``, not just into the metadata file.
+    """
+
+    captured: dict[str, object] = {}
+
+    class _SpyProvider:
+        name = "spy"
+
+        async def start_session(self, **kwargs: object) -> object:
+            captured.update(kwargs)
+
+            class _FakeSession:
+                pid = 1
+                session_id = None
+
+                async def close(self) -> None:
+                    return None
+
+            return _FakeSession()
+
+    manager = AgentSessionManager()
+    await manager.start_session(
+        project_dir=project_dir,
+        chat_id="model-pass-through",
+        provider=_SpyProvider(),  # type: ignore[arg-type]
+        system_prompt="p",
+        mcp_config={},
+        permission_mode=PermissionMode.STRICT,
+        model="claude-opus-4-7",
+    )
+
+    assert captured.get("model") == "claude-opus-4-7", (
+        "AgentSessionManager.start_session dropped the model kwarg before reaching the provider"
+    )
+    await manager.shutdown_all()

@@ -154,6 +154,7 @@ class AgentSessionManager:
             mcp_config=mcp_config,
             resume_session_id=resume_session_id,
             permission_mode=permission_mode,
+            model=model,
         )
         self._sessions[key] = session
         return session

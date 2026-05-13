@@ -169,16 +169,17 @@ class ClaudeCodeSession:
             logger.debug("ClaudeCodeSession.stream_events: yield kind=%s", event.kind)
             yield event
 
-    async def cancel(self) -> None:
-        """Cancel any in-flight agent turn by tree-killing the subprocess group.
+    def _kill_process_tree(self, *, caller: str) -> None:
+        """Tree-kill the subprocess group on POSIX, taskkill /T /F on Windows.
 
-        Idempotent: calling ``cancel`` on an already-cancelled or
-        already-exited session is a no-op.
+        Used by both :meth:`cancel` and :meth:`close` (timeout path).
+        Without this, ``self._proc.kill()`` only signals the parent and
+        any tool children (long-running ``Bash`` commands) survive
+        teardown. POSIX sessions are spawned with
+        ``start_new_session=True`` so ``killpg`` reliably hits the whole
+        tree; Windows uses the existing CREATE_NEW_PROCESS_GROUP +
+        ``taskkill /T /F``.
         """
-        if self._cancelled or self._proc.returncode is not None:
-            self._cancelled = True
-            return
-        self._cancelled = True
         if sys.platform == "win32":
             try:
                 subprocess.run(
@@ -187,18 +188,37 @@ class ClaudeCodeSession:
                     capture_output=True,
                 )
                 logger.info(
-                    "ClaudeCodeSession.cancel: taskkill issued for PID %s",
+                    "ClaudeCodeSession.%s: taskkill /T /F issued for PID %s",
+                    caller,
                     self._proc.pid,
                 )
             except OSError as exc:  # pragma: no cover - taskkill rarely raises
-                logger.warning("ClaudeCodeSession.cancel: taskkill failed: %s", exc)
+                logger.warning("ClaudeCodeSession.%s: taskkill failed: %s", caller, exc)
         else:
             try:
                 pgid = os.getpgid(self._proc.pid)
-                os.killpg(pgid, signal.SIGTERM)
-                logger.info("ClaudeCodeSession.cancel: SIGTERM sent to pgid %s", pgid)
+                os.killpg(pgid, signal.SIGKILL)
+                logger.info("ClaudeCodeSession.%s: SIGKILL sent to pgid %s", caller, pgid)
             except (ProcessLookupError, PermissionError) as exc:
-                logger.warning("ClaudeCodeSession.cancel: killpg failed: %s", exc)
+                logger.warning("ClaudeCodeSession.%s: killpg failed: %s", caller, exc)
+
+    async def cancel(self) -> None:
+        """Cancel any in-flight agent turn by tree-killing the subprocess group.
+
+        Idempotent: calling ``cancel`` on an already-cancelled or
+        already-exited session is a no-op.
+
+        Uses SIGKILL via :meth:`_kill_process_tree` to guarantee child
+        tool processes (e.g. long-running Bash commands) are also
+        terminated. Cancellation is a user-driven hard abort; SIGTERM-
+        with-grace is not appropriate here because we cannot trust the
+        agent to honour it promptly.
+        """
+        if self._cancelled or self._proc.returncode is not None:
+            self._cancelled = True
+            return
+        self._cancelled = True
+        self._kill_process_tree(caller="cancel")
 
     async def close(self) -> None:
         """Await subprocess exit (with grace) and release temp files.
@@ -225,11 +245,13 @@ class ClaudeCodeSession:
                 await asyncio.wait_for(self._proc.wait(), timeout=_CLOSE_GRACE_SECONDS)
             except TimeoutError:
                 logger.warning(
-                    "ClaudeCodeSession.close: subprocess did not exit in %.1fs; killing",
+                    "ClaudeCodeSession.close: subprocess did not exit in %.1fs; tree-killing",
                     _CLOSE_GRACE_SECONDS,
                 )
-                with contextlib.suppress(ProcessLookupError, OSError):
-                    self._proc.kill()
+                # Tree-kill — `self._proc.kill()` alone signals only the
+                # parent and leaves child tool processes alive on POSIX
+                # (and would not catch Windows process-group children).
+                self._kill_process_tree(caller="close")
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(self._proc.wait(), timeout=1.0)
 

@@ -220,6 +220,13 @@ async def chat_ws(
             with contextlib.suppress(Exception):
                 await websocket.send_json({"type": "error", "message": str(exc)})
 
+    # Reattach flow: if a live session already exists for (project, chat_id),
+    # start the event pump now so reconnecting clients receive ongoing /
+    # subsequent agent_event frames. Without this, the pump_task was only
+    # created on the first user_message path and reattach hung silently.
+    if session is not None:
+        pump_task = asyncio.create_task(_pump_events(session))
+
     try:
         while True:
             try:
