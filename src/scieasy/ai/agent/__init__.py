@@ -22,7 +22,6 @@ This package owns the agent runtime backbone:
   composition (T-ECA-204).
 * :mod:`scieasy.ai.agent.claude_code` — :class:`ClaudeCodeProvider`
   (T-ECA-104).
-* :mod:`scieasy.ai.agent.codex` — :class:`CodexProvider` (T-ECA-402).
 
 Phase 1 ships only signatures and stubs; behaviour is added by the
 follow-up implementation tickets listed above.
@@ -31,7 +30,6 @@ follow-up implementation tickets listed above.
 from __future__ import annotations
 
 from scieasy.ai.agent import errors
-from scieasy.ai.agent.codex import CodexProvider, CodexSession
 from scieasy.ai.agent.permission import AUTO_APPROVE_NATIVE_TOOLS, PermissionPolicy
 from scieasy.ai.agent.provider import (
     AgentEvent,
@@ -62,8 +60,6 @@ __all__ = [
     "AgentSession",
     "AgentSessionManager",
     "AssistantTextDeltaEvent",
-    "CodexProvider",
-    "CodexSession",
     "DoneEvent",
     "ErrorEvent",
     "InitEvent",

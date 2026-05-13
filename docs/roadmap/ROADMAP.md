@@ -697,60 +697,28 @@ cd frontend && npm run dev
 
 ---
 
-## Phase 9 — Embedded Coding Agent
+## Phase 9 — AI services
 
-**Goal**: SciEasy ships an embedded coding agent (Claude Code or Codex
-running locally as a subprocess) that understands the SciEasy domain
-through the in-process SciEasy MCP server. The AI Chat tab in the bottom
-panel provides the user-facing interface. The agent can generate blocks,
-propose workflow edits, and run them on the user's data — all
-permission-gated, all project-local.
+**Goal**: AI can generate blocks, propose workflows, and suggest parameters. AI Chat tab in bottom panel provides the user-facing interface.
 
-The decision and design surface are recorded in
-[ADR-033](../adr/ADR-033-draft.md) and the full task breakdown lives in
-[`docs/specs/embedded-coding-agent-spec.md`](../specs/embedded-coding-agent-spec.md).
-The previous Phase 9 plan (single-call `POST /api/ai/generate-block`,
-`/suggest-workflow`, `/optimize-params` endpoints) is **superseded** by
-ADR-033 §3 D9 and the deletion ticket T-ECA-401. The per-block `AIBlock`
-(LLM node embedded inside a workflow, distinct from the chat agent) is
-retained unchanged.
+### 9.1 Block and type generation
 
-### 9.1 Phase 1 — Agent runtime backbone (T-ECA-101..110)
+- [ ] Implement prompt templates for all five block categories + data types
+- [ ] Implement validation pipeline (static analysis → dry run → port contract check)
+- [ ] End-to-end: natural-language description → validated block in registry
+- [ ] Wire `POST /api/ai/generate-block` to generation pipeline
 
-- [x] `AgentProvider` / `AgentSession` Protocols and `ProviderStatus` dataclass
-- [x] Binary discovery (eight-fallback path search, cross-platform)
-- [x] Stream-JSON parser with canonical event taxonomy (`init`, `assistant_text_delta`, `tool_use`, `tool_result`, `permission_request`, `done`, `error`, `other`)
-- [x] `ClaudeCodeProvider` (subprocess lifecycle, cancellation, temp-file cleanup, hook-bridge env injection per issue #723)
-- [x] `AgentSessionManager` + `TranscriptWriter`
-- [x] `PermissionPolicy` (STRICT vs BYPASS, auto-approve list, hook bridge)
+### 9.2 Workflow synthesis
 
-### 9.2 Phase 2 — SciEasy MCP server (T-ECA-201..205)
+- [ ] Implement: data description + goal → proposed DAG (YAML)
+- [ ] Wire `POST /api/ai/suggest-workflow` to synthesis pipeline
+- [ ] AI Chat tab: user describes goal → AI proposes workflow → "Apply" button adds to canvas
 
-- [x] In-process MCP server skeleton
-- [x] ~22 tools across four categories (inspection, authoring, workflow, QA)
-- [x] Three-tier system-prompt composition (builtin / user / project)
-- [x] Static MCP + hook config emission on session start
+### 9.3 Parameter optimization
 
-### 9.3 Phase 3 — Frontend (T-ECA-301..303)
-
-- [x] WebSocket envelopes (server → client stream events; client → server commands)
-- [x] AI Chat tab implementation (stream-json renderer, tool-use cards, permission UI)
-- [x] Provider dropdown and session sidebar
-
-### 9.4 Phase 4 — Codex provider + deprecations (T-ECA-401..403)
-
-- [x] Delete legacy `ai/generation/`, `ai/synthesis/`, `ai/optimization/`, `/api/ai/generate-block|suggest-workflow|optimize-params` routes (T-ECA-401)
-- [x] `CodexProvider` (parity with Claude Code provider; same canonical event taxonomy) (T-ECA-402)
-- [x] Spike doc for Codex stream format; scientist-facing user guide
-      ([`docs/guides/ai-chat.md`](../guides/ai-chat.md)); README + roadmap + ADR
-      index updates (T-ECA-403)
-
-### 9.5 Phase 5 — End-to-end acceptance test
-
-- [ ] Microplastics SRS spectrum-extraction notebook reproduced autonomously
-      by the agent through SciEasy (T-ECA-501..504; the test prompt is
-      drafted in
-      [`docs/specs/eca-phase5-test-prompt-draft.md`](../specs/eca-phase5-test-prompt-draft.md))
+- [ ] Implement: observe intermediate results → suggest parameter changes
+- [ ] Wire `POST /api/ai/optimize-params` to optimization pipeline
+- [ ] AI Chat tab: user selects block → AI suggests parameter tweaks based on output preview
 
 ---
 
