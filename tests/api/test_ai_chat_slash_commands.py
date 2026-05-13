@@ -31,11 +31,12 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def test_slash_commands_lists_all_four_sources(
+def test_slash_commands_lists_three_home_sources(
     app: Any,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """v1: project-local commands deferred (see route docstring)."""
     fake_home = tmp_path / "home"
     fake_project = tmp_path / "project"
     fake_home.mkdir()
@@ -55,12 +56,7 @@ def test_slash_commands_lists_all_four_sources(
         fake_home / ".claude" / "skills" / "rdkit" / "skill.md",
         "# rdkit\nCheminformatics toolkit\n",
     )
-    # 3. <project>/.claude/commands/*.md
-    _write(
-        fake_project / ".claude" / "commands" / "deploy.md",
-        "---\ndescription: Deploy this project\n---\n",
-    )
-    # 4. ~/.claude/plugins/*/commands/*.md
+    # 3. ~/.claude/plugins/*/commands/*.md
     _write(
         fake_home / ".claude" / "plugins" / "p1" / "commands" / "p1cmd.md",
         "Plugin command body\n",
@@ -78,7 +74,6 @@ def test_slash_commands_lists_all_four_sources(
         assert "user_hello" in by_source.get("user-commands", [])
         assert "scanpy" in by_source.get("user-skills", [])
         assert "rdkit" in by_source.get("user-skills", [])
-        assert "deploy" in by_source.get("project", [])
         assert "p1cmd" in by_source.get("plugin", [])
 
 

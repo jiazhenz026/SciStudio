@@ -655,41 +655,6 @@ def _discover_user_slash_commands() -> list[dict[str, str]]:
     return out
 
 
-# Module-level scanner: CodeQL recognises the explicit realpath +
-# commonpath pattern inline in a route handler. Used by the
-# ``GET /api/ai/slash_commands`` route to safely enumerate
-# ``<project>/.claude/commands/*.md`` from a user-supplied path.
-def _scan_project_commands(project_dir_str: str) -> list[dict[str, str]]:
-    """Enumerate ``<sanitised project>/.claude/commands/*.md`` entries.
-
-    Applies the trusted-root sanitiser inline so CodeQL recognises the
-    barrier. Returns ``[]`` when the input fails the sanitiser or no
-    project-local commands directory exists.
-    """
-    candidate = os.path.realpath(os.fspath(project_dir_str))
-    safe: str | None = None
-    for root in _PROJECT_DIR_ALLOWED_ROOTS:
-        try:
-            if os.path.commonpath([root, candidate]) == root:
-                safe = candidate
-                break
-        except ValueError:
-            continue
-    if safe is None:
-        return []
-    project_cmds = Path(safe) / ".claude" / "commands"
-    out: list[dict[str, str]] = []
-    if project_cmds.is_dir():
-        for f in project_cmds.glob("*.md"):
-            try:
-                parsed = _parse_slash_command_file(f)
-            except Exception as exc:
-                logger.debug("slash command parse skipped %s: %s", f, exc)
-                continue
-            out.append({**parsed, "source": "project", "path": str(f)})
-    return out
-
-
 @router.get("/slash_commands")
 async def list_slash_commands(
     project_dir: str = _ProjectDirQuery,
@@ -698,14 +663,24 @@ async def list_slash_commands(
 
     Synchronous + cheap: reads filenames + frontmatter only. No caching
     so newly added files appear on the next dropdown open.
+
+    For v1 only the three home-rooted sources are listed
+    (``~/.claude/commands/``, ``~/.claude/skills/<name>/SKILL.md``,
+    ``~/.claude/plugins/*/commands/*.md``). Project-local commands at
+    ``<project>/.claude/commands/`` are deferred to a follow-up because
+    CodeQL's ``py/path-injection`` taint flow does not cleanly accept
+    any sanitised-Path pattern we have tried at the glob site —
+    follow-up issue should land them via a workspace-id indirection
+    rather than a raw filesystem path on the wire.
     """
+    # Validate the path (rejects out-of-bounds project_dirs early) even
+    # though we don't currently glob the project tree — keeps the route
+    # contract honest for the v2 project-local follow-up.
     try:
-        _resolve_project_key(project_dir)  # validate, raises on bad root
+        _resolve_project_key(project_dir)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    commands = _discover_user_slash_commands()
-    commands.extend(_scan_project_commands(project_dir))
-    return {"commands": commands}
+    return {"commands": _discover_user_slash_commands()}
 
 
 # ---------------------------------------------------------------------------
