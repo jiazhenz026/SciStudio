@@ -21,12 +21,13 @@ The bridge:
 
 Inputs from environment:
 
-* ``SCIEASY_CHAT_ID`` — required. Set by ``SessionManager`` when
-  emitting ``mcp.json`` / ``claude-hooks.json``. The bridge uses it as
-  the ``chat_id`` parameter to ``/permission-check``.
-* ``SCIEASY_PROJECT_DIR`` — optional but recommended. Passed through so
-  the backend can read the session metadata file for bypass-mode
-  detection.
+* ``SCIEASY_CHAT_ID`` — required. Injected into the Claude Code
+  subprocess env by :meth:`ClaudeCodeProvider.start_session` and
+  inherited by PreToolUse hook children (issue #723). The bridge uses
+  it as the ``chat_id`` parameter to ``/permission-check``.
+* ``SCIEASY_PROJECT_DIR`` — optional but recommended. Also injected by
+  the provider so the backend can read the session metadata file for
+  bypass-mode detection.
 * ``SCIEASY_API_BASE`` — optional, defaults to ``http://127.0.0.1:8000``.
   For non-default deployments (e.g. SciEasy on a non-loopback host).
 
