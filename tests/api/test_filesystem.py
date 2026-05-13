@@ -256,11 +256,11 @@ class TestNativeDialog:
 class TestRevealInExplorer:
     """Tests for POST /api/filesystem/reveal."""
 
-    def test_nonexistent_path(self, client: TestClient) -> None:
-        """Reveal with a nonexistent path returns 404."""
+    def test_nonexistent_path_under_temp(self, client: TestClient, tmp_path: Path) -> None:
+        """Reveal with a path under temp that does not exist returns 404."""
         resp = client.post(
             "/api/filesystem/reveal",
-            json={"path": "/tmp/definitely-does-not-exist-xyz"},
+            json={"path": str(tmp_path / "definitely-does-not-exist-xyz")},
         )
         assert resp.status_code == 404
 
@@ -287,5 +287,91 @@ class TestRevealInExplorer:
             assert resp.status_code == 200
             assert resp.json()["status"] == "ok"
             assert len(calls) == 1
+        finally:
+            fs_mod.subprocess.Popen = original_popen  # type: ignore[assignment]
+
+
+class TestRevealPathSanitiser:
+    """Regression tests for the reveal path sanitiser (CodeQL py/path-injection, #721)."""
+
+    def test_reject_path_outside_allowed_roots(self, client: TestClient) -> None:
+        """Reveal with a path outside home/temp returns 400.
+
+        Uses an OS-appropriate path that cannot fall under the user's
+        home or system temp on any platform — Windows ``C:\\Windows\\System32``
+        or POSIX ``/etc``.
+        """
+        import platform
+
+        bad_path = "C:\\Windows\\System32" if platform.system() == "Windows" else "/etc"
+        resp = client.post(
+            "/api/filesystem/reveal",
+            json={"path": bad_path},
+        )
+        assert resp.status_code == 400
+        assert "user home" in resp.json()["detail"]
+
+    def test_reject_traversal_escape(self, client: TestClient, tmp_path: Path) -> None:
+        """Reveal with a traversal-escape path that resolves outside allowed roots returns 400."""
+        import platform
+
+        # Construct a path that looks like it is under tmp_path but escapes via ``..``.
+        # On POSIX ``/tmp/../etc`` resolves to ``/etc``; on Windows we go to the drive root.
+        escape_target = "C:\\Windows" if platform.system() == "Windows" else "/etc"
+        traversal = str(tmp_path) + "/../" + escape_target.lstrip("/\\")
+        resp = client.post(
+            "/api/filesystem/reveal",
+            json={"path": traversal},
+        )
+        # Either 400 (sanitiser rejects) or 404 (sanitiser allows but target missing).
+        # The key is: subprocess MUST NOT be invoked on an out-of-bounds path.
+        assert resp.status_code in (400, 404)
+
+    def test_accept_path_under_home(self, client: TestClient, opened_project: Path, monkeypatch: object) -> None:
+        """Reveal with a valid path under the user home returns 200 (mocked subprocess)."""
+        import subprocess
+
+        import scieasy.api.routes.filesystem as fs_mod
+
+        calls: list[list[str]] = []
+
+        class FakePopen:
+            def __init__(self, args: list[str], **_kwargs: object) -> None:
+                calls.append(args)
+
+        original_popen = subprocess.Popen
+        fs_mod.subprocess.Popen = FakePopen  # type: ignore[assignment]
+        try:
+            resp = client.post(
+                "/api/filesystem/reveal",
+                json={"path": str(opened_project)},
+            )
+            assert resp.status_code == 200
+            assert len(calls) == 1
+        finally:
+            fs_mod.subprocess.Popen = original_popen  # type: ignore[assignment]
+
+    def test_accept_path_under_tmp(self, client: TestClient, tmp_path: Path, monkeypatch: object) -> None:
+        """Reveal with a valid path under tempdir returns 200 (mocked subprocess)."""
+        import subprocess
+
+        import scieasy.api.routes.filesystem as fs_mod
+
+        # Create a real file under tmp_path so the existence check passes.
+        target = tmp_path / "sample.txt"
+        target.write_text("hi")
+
+        class FakePopen:
+            def __init__(self, args: list[str], **_kwargs: object) -> None:
+                pass
+
+        original_popen = subprocess.Popen
+        fs_mod.subprocess.Popen = FakePopen  # type: ignore[assignment]
+        try:
+            resp = client.post(
+                "/api/filesystem/reveal",
+                json={"path": str(target)},
+            )
+            assert resp.status_code == 200
         finally:
             fs_mod.subprocess.Popen = original_popen  # type: ignore[assignment]

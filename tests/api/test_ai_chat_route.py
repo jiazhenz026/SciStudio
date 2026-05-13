@@ -417,3 +417,56 @@ def test_permission_decision_via_ws_rejects_invalid_payload(
         msg = ws.receive_json()
         assert msg["type"] == "error"
         assert "request_id" in msg["message"]
+
+
+# ---------------------------------------------------------------------------
+# CodeQL py/path-injection sanitiser regression (#721).
+#
+# ``_resolve_project_key`` was upgraded from ``Path.is_relative_to`` to
+# ``os.path.realpath`` + ``os.path.commonpath`` to satisfy the CodeQL
+# query. Functional behaviour must be preserved: accept paths under
+# user home / system temp, reject everything else.
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_project_key_accepts_path_under_temp(tmp_path: Path) -> None:
+    """``tmp_path`` lives under the system temp and must be accepted."""
+    resolved = ai_routes._resolve_project_key(str(tmp_path))
+    assert resolved == Path(tmp_path).resolve()
+
+
+def test_resolve_project_key_accepts_path_under_home() -> None:
+    """A path under the user home directory must be accepted."""
+    home = Path.home()
+    resolved = ai_routes._resolve_project_key(str(home))
+    # Both sides realpath-normalised; comparison via resolved Path.
+    assert resolved == Path(home).resolve()
+
+
+def test_resolve_project_key_rejects_path_outside_allowed_roots() -> None:
+    """A path outside both home and temp must be rejected with ValueError."""
+    import platform
+
+    bad = "C:\\Windows\\System32" if platform.system() == "Windows" else "/etc"
+    with pytest.raises(ValueError, match="user home or system temp"):
+        ai_routes._resolve_project_key(bad)
+
+
+def test_chat_ws_rejects_project_dir_outside_allowed_roots(
+    app: Any,
+    fresh_manager: AgentSessionManager,
+) -> None:
+    """A WebSocket connection with an out-of-bounds project_dir closes with code 1008."""
+    import platform
+
+    from starlette.websockets import WebSocketDisconnect
+
+    _override_with_stub(app, fresh_manager)
+    bad = "C:\\Windows\\System32" if platform.system() == "Windows" else "/etc"
+    with TestClient(app) as client, client.websocket_connect(f"/api/ai/chat/chat-bad?project_dir={bad}") as ws:
+        # Server sends an error frame then closes with policy violation code 1008.
+        err = ws.receive_json()
+        assert err["type"] == "error"
+        assert "user home" in err["message"]
+        with pytest.raises(WebSocketDisconnect):
+            ws.receive_text()

@@ -18,6 +18,7 @@ import asyncio
 import contextlib
 import dataclasses
 import logging
+import os
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -75,9 +76,9 @@ _SessionManagerDep = Depends(get_agent_session_manager)
 _active_chat_sockets: dict[tuple[Path, str], WebSocket] = {}
 
 
-_PROJECT_DIR_ALLOWED_ROOTS: tuple[Path, ...] = (
-    Path.home().resolve(),
-    Path(tempfile.gettempdir()).resolve(),
+_PROJECT_DIR_ALLOWED_ROOTS: tuple[str, ...] = (
+    os.path.realpath(os.path.expanduser("~")),
+    os.path.realpath(tempfile.gettempdir()),
 )
 
 
@@ -97,16 +98,21 @@ def _resolve_project_key(project_dir: str | Path) -> Path:
     with ``ValueError``, which the route translates to a
     ``WebSocketDisconnect`` / HTTP 400.
 
-    This is the sanitiser CodeQL ``py/path-injection`` expects.
+    Uses the ``os.path.realpath`` + ``os.path.commonpath`` pattern that
+    CodeQL ``py/path-injection`` recognises as a sanitiser.
+    ``pathlib.Path.is_relative_to`` is functionally equivalent but is
+    not recognised by the query.
     """
-    resolved = Path(project_dir).resolve()
+    candidate = os.path.realpath(os.fspath(project_dir))
     for root in _PROJECT_DIR_ALLOWED_ROOTS:
         try:
-            if resolved.is_relative_to(root):
-                return resolved
-        except ValueError:  # pragma: no cover - is_relative_to never raises on 3.11+
+            if os.path.commonpath([root, candidate]) == root:
+                return Path(candidate)
+        except ValueError:
+            # commonpath raises ValueError when paths are on different
+            # drives (Windows) or when one is absolute and one relative.
             continue
-    raise ValueError(f"project_dir must be under user home or system temp; got {resolved}")
+    raise ValueError(f"project_dir must be under user home or system temp; got {candidate}")
 
 
 @router.post("/generate-block", response_model=AIGenerateBlockResponse)
