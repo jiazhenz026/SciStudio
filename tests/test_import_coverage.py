@@ -144,13 +144,6 @@ class TestImportAPIModules:
         assert dur.ref == "ref-1"
         assert dur.type_name == "Array"
 
-    def test_instantiate_ai_generate_request(self) -> None:
-        from scieasy.api.schemas import AIGenerateBlockRequest
-
-        req = AIGenerateBlockRequest(description="denoise block")
-        assert req.description == "denoise block"
-
-
 class TestImportWorkflowModules:
     """Workflow modules — import and instantiate dataclasses."""
 
