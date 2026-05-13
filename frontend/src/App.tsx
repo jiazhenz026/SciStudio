@@ -76,6 +76,8 @@ export default function App() {
 
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
   const activeBottomTab = useAppStore((state) => state.activeBottomTab);
+  const unreadLogsCount = useAppStore((state) => state.unreadLogsCount);
+  const unreadProblemsCount = useAppStore((state) => state.unreadProblemsCount);
   const lastError = useAppStore((state) => state.lastError);
   const minimapVisible = useAppStore((state) => state.minimapVisible);
   const setSelectedNodeId = useAppStore((state) => state.setSelectedNodeId);
@@ -150,18 +152,21 @@ export default function App() {
   async function loadWorkflowForProject(project: ProjectResponse) {
     if (project.current_workflow_id) {
       const workflow = await api.getWorkflow(project.current_workflow_id);
-      openTab(workflow);
+      // #796: pass the workflow id as the displayName fallback so a YAML with
+      // an empty `id:` still gets a non-blank tab label.
+      openTab(workflow, project.current_workflow_id);
       return;
     }
     const workflow = emptyWorkflow("main");
-    openTab(workflow);
+    openTab(workflow, "main");
   }
 
-  async function loadWorkflowById(wfId: string) {
+  async function loadWorkflowById(wfId: string, displayName?: string) {
     try {
       const workflow = await api.getWorkflow(wfId);
-      // Open in a tab (or switch to existing tab for this workflow)
-      openTab(workflow);
+      // #796: pass the caller-supplied displayName through to openTab so it can
+      // fall back when workflow.id is empty (workflow YAML missing `id:`).
+      openTab(workflow, displayName ?? wfId);
       resetExecution();
       setLastError(null);
     } catch (error) {
@@ -351,10 +356,10 @@ export default function App() {
       const targetWorkflowId = workflowPayload.id;
       await api.executeWorkflow(targetWorkflowId);
       setLastError(null);
-      setActiveBottomTab("logs");
+      // #793: do NOT auto-switch to the Logs tab. Engine events bump an unread
+      // badge instead; the user navigates when they choose to.
     } catch (error) {
       setLastError((error as Error).message);
-      setActiveBottomTab("problems");
     }
   }
 
@@ -387,10 +392,9 @@ export default function App() {
       await saveWorkflow();
       await api.executeFrom(workflowId, selectedNodeId);
       setLastError(null);
-      setActiveBottomTab("logs");
+      // #793: no auto tab-switch.
     } catch (error) {
       setLastError((error as Error).message);
-      setActiveBottomTab("problems");
     }
   }
 
@@ -408,13 +412,12 @@ export default function App() {
         await saveWorkflow();
         await api.executeFrom(workflowId, blockId);
         setLastError(null);
-        setActiveBottomTab("logs");
+        // #793: no auto tab-switch.
       } catch (error) {
         setLastError((error as Error).message);
-        setActiveBottomTab("problems");
       }
     },
-    [saveWorkflow, setActiveBottomTab, setLastError, workflowId],
+    [saveWorkflow, setLastError, workflowId],
   );
 
   const handleRestartBlock = useCallback(
@@ -424,15 +427,16 @@ export default function App() {
         await saveWorkflow();
         await api.executeFrom(workflowId, blockId);
         setLastError(null);
-        setActiveBottomTab("logs");
+        // #793: no auto tab-switch.
       } catch (error) {
         setLastError((error as Error).message);
-        setActiveBottomTab("problems");
       }
     },
-    [saveWorkflow, setActiveBottomTab, setLastError, workflowId],
+    [saveWorkflow, setLastError, workflowId],
   );
 
+  // #793: handleNodeSelect intentionally keeps the "config" switch because
+  // selecting a node IS an explicit user request to see that node's config.
   const handleNodeSelect = useCallback(
     (nodeId: string | null) => {
       setSelectedNodeId(nodeId);
@@ -443,6 +447,8 @@ export default function App() {
     [setSelectedNodeId, setActiveBottomTab],
   );
 
+  // #793: clicking an error badge is an explicit "show me this error" action,
+  // so navigating to Problems is user-driven and stays.
   const handleErrorClick = useCallback(
     (blockId: string) => {
       setSelectedNodeId(blockId);
@@ -673,7 +679,7 @@ export default function App() {
                       <ProjectTree
                         projectId={currentProject.id}
                         projectPath={currentProject.path}
-                        onLoadWorkflow={(workflowId) => void loadWorkflowById(workflowId)}
+                        onLoadWorkflow={(workflowId, displayName) => void loadWorkflowById(workflowId, displayName)}
                         onReloadBlocks={() => void refreshBlocks()}
                       />
                     ) : (
@@ -766,6 +772,8 @@ export default function App() {
                       }}
                       selectedNode={selectedNode}
                       selectedSchema={selectedSchema}
+                      unreadLogsCount={unreadLogsCount}
+                      unreadProblemsCount={unreadProblemsCount}
                     />
                   </ResizablePanel>
                 </ResizablePanelGroup>

@@ -13,7 +13,13 @@ interface TreeNodeData extends TreeEntry {
 interface ProjectTreeProps {
   projectId: string;
   projectPath: string;
-  onLoadWorkflow: (filePath: string) => void;
+  /**
+   * #796: callback receives both the backend workflow id (filename stem) AND
+   * the user-facing display name. The display name acts as a fallback when the
+   * workflow YAML has an empty/missing `id:` field (e.g. on macOS where some
+   * older or hand-edited YAMLs omit it, leaving the tab + title blank).
+   */
+  onLoadWorkflow: (filePath: string, displayName: string) => void;
   onReloadBlocks: () => void;
 }
 
@@ -189,10 +195,17 @@ export function ProjectTree({
       if (node.type === "directory") return;
       const ext = node.name.split(".").pop()?.toLowerCase() ?? "";
 
-      // Double-click .yaml in workflows/ -> load workflow
+      // Double-click .yaml in workflows/ -> load workflow.
+      // #796: derive both the backend workflow id (filename stem) and a
+      // non-empty display-name fallback. node.name is the literal filename as
+      // reported by the backend FS scan, which is always non-empty for an
+      // entry returned by the project-tree API.
       if ((ext === "yaml" || ext === "yml") && node.path.startsWith("workflows/")) {
         const workflowId = node.name.replace(/\.(yaml|yml)$/, "");
-        onLoadWorkflow(workflowId);
+        // Fall back to the raw filename if the stem somehow ends up empty
+        // (e.g. a file literally named ".yaml" — unusual but defensible).
+        const displayName = workflowId || node.name;
+        onLoadWorkflow(workflowId, displayName);
         return;
       }
 
