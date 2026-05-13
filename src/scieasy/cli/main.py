@@ -16,8 +16,11 @@ app = typer.Typer(name="scieasy", help="SciEasy -- AI-native scientific workflow
 # entry (the spec asks for a single ``scieasy`` binary with all
 # subcommands attached to it).
 from scieasy.cli import hook_bridge as _hook_bridge  # noqa: E402
+from scieasy.cli import mcp_bridge as _mcp_bridge  # noqa: E402
 
 _hook_bridge.register(app)
+# T-ECA-201: same pattern for the MCP stdio proxy used by Claude Code.
+_mcp_bridge.register(app)
 
 
 # ---------------------------------------------------------------------------
