@@ -10,14 +10,21 @@
 import { useEffect, useRef } from "react";
 
 import { useAppStore } from "../../store";
+import type { AgentEvent } from "../../types/agentEvents";
 import { EventRenderer } from "./EventRenderer";
+
+// Issue #773 — module-level stable empty array. Zustand's useSyncExternalStore
+// requires getSnapshot to return a referentially stable value for unchanged
+// state; `?? []` creates a new array literal on every render and triggers
+// an infinite-render loop ("getSnapshot should be cached") in React 18.
+const EMPTY_EVENTS: ReadonlyArray<AgentEvent> = Object.freeze([]);
 
 export interface ChatMessageListProps {
   chatId: string;
 }
 
 export function ChatMessageList({ chatId }: ChatMessageListProps) {
-  const events = useAppStore((s) => s.eventsByChat[chatId] ?? []);
+  const events = useAppStore((s) => s.eventsByChat[chatId] ?? EMPTY_EVENTS);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
   // Scroll to bottom whenever a new event arrives.
