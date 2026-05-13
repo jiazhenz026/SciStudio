@@ -14,7 +14,7 @@ describe("PermissionPrompt", () => {
   afterEach(() => cleanup());
 
   it("renders nothing when no pending permission", () => {
-    const onDecide = vi.fn();
+    const onDecide = vi.fn().mockReturnValue(true);
     render(<PermissionPrompt chatId="c1" onDecide={onDecide} />);
     expect(screen.queryByTestId("permission-modal")).toBeNull();
   });
@@ -25,7 +25,7 @@ describe("PermissionPrompt", () => {
       toolName: "Edit",
       toolInput: { file_path: "/x" },
     });
-    render(<PermissionPrompt chatId="c1" onDecide={vi.fn()} />);
+    render(<PermissionPrompt chatId="c1" onDecide={vi.fn().mockReturnValue(true)} />);
     expect(screen.getByTestId("permission-modal")).toBeInTheDocument();
     expect(screen.getByText(/Edit/)).toBeInTheDocument();
   });
@@ -36,7 +36,7 @@ describe("PermissionPrompt", () => {
       toolName: "Read",
       toolInput: {},
     });
-    const onDecide = vi.fn();
+    const onDecide = vi.fn().mockReturnValue(true);
     render(<PermissionPrompt chatId="c1" onDecide={onDecide} />);
     fireEvent.click(screen.getByTestId("permission-allow-once"));
     expect(onDecide).toHaveBeenCalledWith("req-2", "approve");
@@ -49,7 +49,7 @@ describe("PermissionPrompt", () => {
       toolName: "Bash",
       toolInput: {},
     });
-    const onDecide = vi.fn();
+    const onDecide = vi.fn().mockReturnValue(true);
     render(<PermissionPrompt chatId="c1" onDecide={onDecide} />);
     fireEvent.click(screen.getByTestId("permission-deny"));
     expect(onDecide).toHaveBeenCalledWith("req-3", "deny");
@@ -61,10 +61,28 @@ describe("PermissionPrompt", () => {
       toolName: "Read",
       toolInput: {},
     });
-    const onDecide = vi.fn();
+    const onDecide = vi.fn().mockReturnValue(true);
     render(<PermissionPrompt chatId="c1" onDecide={onDecide} />);
     fireEvent.click(screen.getByTestId("permission-allow-always"));
     expect(onDecide).toHaveBeenCalledWith("req-4", "approve");
     expect(useAppStore.getState().alwaysAllowedTools["Read"]).toBe(true);
+  });
+
+  it("keeps modal open when onDecide returns false (WS reconnecting)", () => {
+    // Codex P1 regression test: previously the modal cleared
+    // unconditionally and the backend timed out waiting for the
+    // never-sent permission_decision frame.
+    useAppStore.getState().setPendingPermission("c1", {
+      requestId: "req-5",
+      toolName: "Edit",
+      toolInput: { file_path: "/x" },
+    });
+    const onDecide = vi.fn().mockReturnValue(false);
+    render(<PermissionPrompt chatId="c1" onDecide={onDecide} />);
+    fireEvent.click(screen.getByTestId("permission-allow-once"));
+    expect(onDecide).toHaveBeenCalledWith("req-5", "approve");
+    // Modal stays open — user can retry once the WS reconnects.
+    expect(useAppStore.getState().pendingPermissions["c1"]).not.toBeNull();
+    expect(screen.getByTestId("permission-modal")).toBeInTheDocument();
   });
 });

@@ -166,6 +166,40 @@ describe("useAgentWebSocket", () => {
     expect(createdSockets.length).toBeGreaterThanOrEqual(2);
   });
 
+  it("ignores stale onclose after chatId switch (no reconnect to old chat)", () => {
+    // Codex P1 regression test (PR #745 discussion_r3231068587):
+    // When chatId changes, the previous socket's close event may fire
+    // after the effect cleanup but before/around the new effect resets
+    // intentionalCloseRef. The stale onclose must NOT schedule a
+    // reconnect for the now-defunct chat.
+    const { rerender } = renderHook(
+      ({ chatId }: { chatId: string }) => useAgentWebSocket(chatId, "/tmp/proj"),
+      { initialProps: { chatId: "chat-old" } },
+    );
+    const ws1 = createdSockets[0];
+    act(() => {
+      ws1.readyState = MockWebSocket.OPEN;
+      ws1.onopen?.({} as Event);
+    });
+
+    // Switch to a new chat — cleanup fires, new effect creates new socket.
+    rerender({ chatId: "chat-new" });
+    const socketCountAfterSwitch = createdSockets.length;
+    expect(socketCountAfterSwitch).toBe(2);
+
+    // Now fire the OLD socket's onclose (delayed delivery from browser).
+    act(() => {
+      ws1.readyState = MockWebSocket.CLOSED;
+      ws1.onclose?.({} as CloseEvent);
+    });
+    // Advance past initial backoff — the stale onclose must NOT schedule
+    // a reconnect.
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(createdSockets).toHaveLength(socketCountAfterSwitch);
+  });
+
   it("does not reconnect on intentional close (unmount)", () => {
     const { unmount } = renderHook(() => useAgentWebSocket("chat-6", "/tmp/proj"));
     const ws = createdSockets[0];

@@ -16,7 +16,13 @@ import type { PermissionDecision } from "../../types/agentEvents";
 
 export interface PermissionPromptProps {
   chatId: string;
-  onDecide: (requestId: string, decision: PermissionDecision) => void;
+  /**
+   * Returns true if the decision was successfully sent. When false, the
+   * modal stays open so the user can retry once the WS reconnects.
+   * See PR #745 Codex P1 — clearing on send-failure left the backend
+   * waiting on a decision that was never delivered.
+   */
+  onDecide: (requestId: string, decision: PermissionDecision) => boolean;
 }
 
 export function PermissionPrompt({ chatId, onDecide }: PermissionPromptProps) {
@@ -29,11 +35,16 @@ export function PermissionPrompt({ chatId, onDecide }: PermissionPromptProps) {
   }
 
   const finalize = (decision: PermissionDecision) => {
-    onDecide(pending.requestId, decision);
-    setPendingPermission(chatId, null);
+    const sent = onDecide(pending.requestId, decision);
+    if (sent) {
+      setPendingPermission(chatId, null);
+    }
   };
 
   const finalizeAlwaysAllow = () => {
+    // Record the always-allow choice eagerly so that even if the send
+    // fails right now and the user retries later, the policy is already
+    // persisted. The modal only clears once the send succeeds.
     markAlwaysAllowed(pending.toolName);
     finalize("approve");
   };

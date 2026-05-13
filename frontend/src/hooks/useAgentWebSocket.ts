@@ -73,9 +73,15 @@ export function useAgentWebSocket(
       setState("idle");
       return undefined;
     }
+    // Per-effect cancellation flag. Captured by each WebSocket's onclose
+    // closure so that stale close events (from a socket whose effect has
+    // already been torn down by a chatId / projectDir change) cannot
+    // schedule a reconnect for the wrong chat. See PR #745 Codex P1.
+    let cancelled = false;
     intentionalCloseRef.current = false;
 
     const connect = () => {
+      if (cancelled) return;
       const proto = window.location.protocol === "https:" ? "wss" : "ws";
       const qs = `project_dir=${encodeURIComponent(projectDir)}`;
       const url = `${proto}://${window.location.host}/api/ai/chat/${encodeURIComponent(chatId)}?${qs}`;
@@ -143,7 +149,10 @@ export function useAgentWebSocket(
       };
       ws.onclose = () => {
         socketRef.current = null;
-        if (intentionalCloseRef.current) {
+        // If this effect has already been torn down (chatId / projectDir
+        // changed), this onclose is stale. Do not reconnect — the new
+        // effect owns the new socket.
+        if (cancelled || intentionalCloseRef.current) {
           setState("closed");
           return;
         }
@@ -152,6 +161,7 @@ export function useAgentWebSocket(
         backoffRef.current = Math.min(delay * 2, MAX_BACKOFF_MS);
         reconnectTimerRef.current = setTimeout(() => {
           reconnectTimerRef.current = null;
+          if (cancelled) return;
           connect();
         }, delay);
       };
@@ -160,6 +170,7 @@ export function useAgentWebSocket(
     connect();
 
     return () => {
+      cancelled = true;
       intentionalCloseRef.current = true;
       if (reconnectTimerRef.current !== null) {
         clearTimeout(reconnectTimerRef.current);
