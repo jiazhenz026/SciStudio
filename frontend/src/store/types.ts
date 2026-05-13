@@ -87,8 +87,14 @@ export interface UISlice {
   panelSizes: { palette: number; preview: number; bottom: number };
   minimapVisible: boolean;
   lastError: string | null;
+  /** #793: count of engine events seen since the user last visited the Logs tab. */
+  unreadLogsCount: number;
+  /** #793: count of error events seen since the user last visited the Problems tab. */
+  unreadProblemsCount: number;
   setSelectedNodeId: (nodeId: string | null) => void;
   setActiveBottomTab: (tab: BottomTab) => void;
+  bumpUnreadLogs: () => void;
+  bumpUnreadProblems: () => void;
   togglePalette: () => void;
   togglePreview: () => void;
   toggleBottomPanel: () => void;
@@ -140,8 +146,14 @@ export interface TabSlice {
   tabs: TabState[];
   /** ID of the currently active tab. */
   activeTabId: string | null;
-  /** Open (or switch to) a workflow in a tab. */
-  openTab: (workflow: WorkflowResponse) => void;
+  /**
+   * Open (or switch to) a workflow in a tab.
+   *
+   * #796: ``displayName`` is an optional fallback used when ``workflow.id`` is
+   * empty (e.g. a workflow YAML missing the ``id:`` field). Without it, the tab
+   * label and top-left title render as a blank string.
+   */
+  openTab: (workflow: WorkflowResponse, displayName?: string) => void;
   /** Switch to an existing tab. */
   switchTab: (tabId: string) => void;
   /** Close a tab by ID. Returns true if closed, false if cancelled. */
