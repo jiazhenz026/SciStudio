@@ -19,12 +19,8 @@ describe("BottomPanel", () => {
     render(
       <BottomPanel
         activeTab="config"
-        aiError={null}
-        aiLoading={false}
         blockErrors={{}}
-        chatMessages={[]}
         logEntries={[]}
-        onSendChat={() => {}}
         onTabChange={() => {}}
         onUpdateConfig={onUpdateConfig}
         selectedNode={{
@@ -68,12 +64,8 @@ describe("BottomPanel", () => {
     render(
       <BottomPanel
         activeTab="ai"
-        aiError={null}
-        aiLoading={false}
         blockErrors={{}}
-        chatMessages={[]}
         logEntries={[]}
-        onSendChat={() => {}}
         onTabChange={() => {}}
         onUpdateConfig={() => {}}
         selectedNode={null}
@@ -90,12 +82,8 @@ describe("BottomPanel", () => {
     render(
       <BottomPanel
         activeTab="logs"
-        aiError={null}
-        aiLoading={false}
         blockErrors={{}}
-        chatMessages={[]}
         logEntries={[]}
-        onSendChat={() => {}}
         onTabChange={() => {}}
         onUpdateConfig={() => {}}
         selectedNode={null}
@@ -114,12 +102,8 @@ describe("BottomPanel", () => {
     render(
       <BottomPanel
         activeTab="ai"
-        aiError={null}
-        aiLoading={false}
         blockErrors={{}}
-        chatMessages={[]}
         logEntries={[]}
-        onSendChat={() => {}}
         onTabChange={() => {}}
         onUpdateConfig={() => {}}
         selectedNode={null}
@@ -134,12 +118,8 @@ describe("BottomPanel", () => {
     render(
       <BottomPanel
         activeTab="config"
-        aiError={null}
-        aiLoading={false}
         blockErrors={{}}
-        chatMessages={[]}
         logEntries={[]}
-        onSendChat={() => {}}
         onTabChange={() => {}}
         onUpdateConfig={() => {}}
         selectedNode={{

@@ -124,6 +124,46 @@ export interface ChatSlice {
   clearChatMessages: () => void;
 }
 
+/**
+ * ADR-034 Phase 1.3: one PTY-backed terminal tab.
+ *
+ * State machine:
+ *   setup   — user picks provider + permission mode, no subprocess yet
+ *   running — subprocess + WebSocket alive
+ *   closed  — subprocess exited (real or synthesised after reload)
+ *
+ * On launch: provider + permissionMode are filled in.
+ * On exit: state -> closed, exitCode set (-1 means synthesised after reload
+ * because the PTY did not survive page unload).
+ */
+export interface TerminalTab {
+  id: string;
+  title: string;
+  provider: "claude-code" | "codex" | null;
+  permissionMode: "safe" | "dangerous" | null;
+  state: "setup" | "running" | "closed";
+  exitCode?: number;
+}
+
+export interface TerminalTabsSlice {
+  terminalTabs: TerminalTab[];
+  activeTerminalTabId: string | null;
+  /** Create a new tab in `setup` state and make it active. Returns its id. */
+  addTerminalTab: () => string;
+  closeTerminalTab: (id: string) => void;
+  renameTerminalTab: (id: string, title: string) => void;
+  launchTerminalTab: (
+    id: string,
+    provider: "claude-code" | "codex",
+    permissionMode: "safe" | "dangerous",
+  ) => void;
+  markTerminalTabExited: (id: string, code: number) => void;
+  reopenTerminalTab: (id: string) => void;
+  setActiveTerminalTab: (id: string) => void;
+  /** Internal: replace the entire slice (used by tests + rehydration helper). */
+  _replaceTerminalTabs: (tabs: TerminalTab[], activeId: string | null) => void;
+}
+
 /** Per-tab snapshot of workflow + UI state. */
 export interface TabState {
   id: string;
@@ -168,4 +208,5 @@ export type AppStore = ProjectSlice &
   PreviewSlice &
   PaletteSlice &
   ChatSlice &
-  TabSlice;
+  TabSlice &
+  TerminalTabsSlice;

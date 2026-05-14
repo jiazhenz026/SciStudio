@@ -7,6 +7,7 @@ import { createPaletteSlice } from "./paletteSlice";
 import { createPreviewSlice } from "./previewSlice";
 import { createProjectSlice } from "./projectSlice";
 import { createTabSlice } from "./tabSlice";
+import { createTerminalTabsSlice, rehydrateTerminalTabs } from "./terminalTabsSlice";
 import type { AppStore } from "./types";
 import { createUISlice } from "./uiSlice";
 import { createWorkflowSlice } from "./workflowSlice";
@@ -22,6 +23,7 @@ export const useAppStore = create<AppStore>()(
       ...createPaletteSlice(...args),
       ...createChatSlice(...args),
       ...createTabSlice(...args),
+      ...createTerminalTabsSlice(...args),
     }),
     {
       name: "scieasy-studio-ui",
@@ -32,6 +34,11 @@ export const useAppStore = create<AppStore>()(
         bottomPanelCollapsed: state.bottomPanelCollapsed,
         panelSizes: state.panelSizes,
         chatMessages: state.chatMessages,
+        // ADR-034 Phase 1.3: persist terminal tab metadata (NOT subprocess
+        // state). On rehydrate, any `running` tab is downgraded to `closed`
+        // with synthetic exit code -1 so the user sees the Reopen button.
+        terminalTabs: state.terminalTabs,
+        activeTerminalTabId: state.activeTerminalTabId,
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
@@ -50,6 +57,11 @@ export const useAppStore = create<AppStore>()(
           if (needsFix) {
             state.panelSizes = fixed;
           }
+        }
+        // Downgrade any "running" terminal tabs to "closed" — the PTY died
+        // when the page unloaded.
+        if (Array.isArray(state.terminalTabs)) {
+          state.terminalTabs = rehydrateTerminalTabs(state.terminalTabs);
         }
       },
     },
