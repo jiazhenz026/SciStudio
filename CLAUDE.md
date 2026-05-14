@@ -399,6 +399,56 @@ A task is done when:
 
 ---
 
+# 11.5 Hotfix Mode (live-debugging exception)
+
+Hotfix mode is a narrow exception to the gate workflow for live debugging
+sessions where the user is interactively guiding the fix.
+
+## When hotfix mode applies
+
+Hotfix mode applies **only when the user explicitly invokes it** ("hotfix
+this", "进入 hotfix 模式", "let's hotfix", or equivalent direct request).
+
+Claude must **not** auto-promote a normal bugfix to hotfix mode. If unsure,
+ask. Default to the standard 6-gate workflow.
+
+## What hotfix mode permits
+
+For the duration of a single hotfix round (one bug, or a small cluster of
+tightly-related bugs surfaced in the same debugging session):
+
+1. Create a `hotfix/<short-description>` branch off `main`.
+2. `git checkout` it.
+3. Open the user's Chrome (via Chrome MCP) and drive live test cases /
+   reproduce the user's reported bug interactively.
+4. Iterate code edits + live re-tests freely — **the gate workflow is
+   suspended** during the round; do not run `gate.py advance` per edit.
+5. Commit progress as you go (small commits are fine, gate enforcement is
+   off for this branch).
+
+## When the round ends
+
+A round ends when the user says it's done, or when the bug is fixed and
+verified live. At that point:
+
+1. Run the **full 6-gate workflow** retroactively in one batch:
+   `start → create_issue → write_change_plan → create_branch → update_docs
+   → update_changelog → submit_pr`.
+2. Open the PR against `main`.
+3. Wait for CI green, address Codex review, merge.
+
+## Constraints (still apply in hotfix mode)
+
+- Out-of-scope file rules from §7 still apply (no touching frozen core
+  contracts without an ADR).
+- Do not push directly to `main` — always go through PR at the end.
+- Hotfix mode does NOT extend to refactors, new features, or
+  architecture changes. Those still require the full process from the start.
+- Memory: log the hotfix round entry as a `feedback` or `project` memory if
+  the live debugging surfaced rules worth carrying forward.
+
+---
+
 # 12. Prohibited Shortcuts
 
 The following are discouraged or forbidden unless explicitly justified:
