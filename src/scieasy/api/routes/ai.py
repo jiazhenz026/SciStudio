@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException
 
@@ -87,7 +87,7 @@ async def optimize_params_endpoint(body: AIOptimizeParamsRequest) -> dict[str, A
             intermediate_results=body.intermediate_results,
             search_space=body.search_space,
         )
-        return result
+        return cast(dict[str, Any], result)
     except ImportError:
         raise HTTPException(status_code=503, detail="AI dependencies not installed") from None
     except ValueError as exc:
