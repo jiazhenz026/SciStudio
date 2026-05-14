@@ -9,15 +9,14 @@ interface BottomPanelProps {
   activeTab: BottomTab;
   selectedNode: WorkflowNode | null;
   selectedSchema?: BlockSchemaResponse;
-  blockErrors: Record<string, string>;
   logEntries: LogEntry[];
   onTabChange: (tab: BottomTab) => void;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
-  // ADR-034 Phase 0: App.tsx pipes unread counters here for the Logs and
-  // Problems tab badges. Default to 0 when undefined; render the badge
-  // only when > 0.
+  // Unread counter for the Logs tab badge. Defaults to 0; the badge
+  // renders only when > 0. (The Problems tab was removed — block errors
+  // are already represented by an inline badge on the BlockNode itself
+  // and by error-level rows in the Logs panel.)
   unreadLogsCount?: number;
-  unreadProblemsCount?: number;
 }
 
 const TAB_LABELS: Record<BottomTab, string> = {
@@ -26,10 +25,12 @@ const TAB_LABELS: Record<BottomTab, string> = {
   logs: "\u{1F4DC} Logs",
   lineage: "\u{1F517} Lineage",
   jobs: "\u{1F4CA} Jobs",
-  problems: "\u26A0 Problems",
 };
 
-const ALL_TABS: BottomTab[] = ["ai", "config", "logs", "lineage", "jobs", "problems"];
+// Problems was removed: it duplicated the block_error rows already in Logs
+// (filterable via LogViewer's level selector) plus the inline error badge
+// rendered on the BlockNode itself by WorkflowCanvas.
+const ALL_TABS: BottomTab[] = ["ai", "config", "logs", "lineage", "jobs"];
 
 // Controlled text input that preserves caret position across re-renders (#710).
 //
@@ -238,51 +239,6 @@ function LogViewer({ entries }: { entries: LogEntry[] }) {
   );
 }
 
-function ProblemsPanel({ blockErrors }: { blockErrors: Record<string, string> }) {
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const entries = Object.entries(blockErrors);
-
-  const copyToClipboard = (blockId: string, text: string) => {
-    void navigator.clipboard.writeText(text).then(() => {
-      setCopiedId(blockId);
-      setTimeout(() => setCopiedId(null), 2000);
-    });
-  };
-
-  if (entries.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-sm text-stone-400">No errors.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-full flex-col gap-3 overflow-y-auto">
-      {entries.map(([blockId, errorText]) => (
-        <div key={blockId} className="rounded-xl border border-red-200 bg-red-50/50 p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-semibold text-red-700">
-              Block: {blockId}
-            </span>
-            <button
-              type="button"
-              className="rounded px-2 py-1 text-xs text-red-600 transition-colors hover:bg-red-100"
-              onClick={() => copyToClipboard(blockId, errorText)}
-              title="Copy full error to clipboard"
-            >
-              {copiedId === blockId ? "Copied!" : "Copy"}
-            </button>
-          </div>
-          <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-red-900">
-            {errorText}
-          </pre>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function PlaceholderTab() {
   return (
     <div className="flex h-full items-center justify-center">
@@ -295,17 +251,14 @@ export function BottomPanel({
   activeTab,
   selectedNode,
   selectedSchema,
-  blockErrors,
   logEntries,
   onTabChange,
   onUpdateConfig,
   unreadLogsCount = 0,
-  unreadProblemsCount = 0,
 }: BottomPanelProps) {
   const badgeFor = (tab: BottomTab): number => {
     if (tab === activeTab) return 0;
     if (tab === "logs") return unreadLogsCount;
-    if (tab === "problems") return unreadProblemsCount;
     return 0;
   };
   const formatBadge = (n: number): string => (n > 99 ? "99+" : String(n));
@@ -350,8 +303,6 @@ export function BottomPanel({
             <ConfigPanel onUpdateConfig={onUpdateConfig} schema={selectedSchema} selectedNode={selectedNode} />
           ) : activeTab === "logs" ? (
             <LogViewer entries={logEntries} />
-          ) : activeTab === "problems" ? (
-            <ProblemsPanel blockErrors={blockErrors} />
           ) : activeTab !== "ai" ? (
             <PlaceholderTab />
           ) : null}

@@ -207,11 +207,28 @@ async def get_workflow(workflow_id: str, runtime: RuntimeDep) -> WorkflowRespons
 
     #718 part (a): the response includes the current ``revision`` so clients
     can pass it back as ``If-Match`` on the next ``PUT``.
+
+    A YAML on disk that fails pydantic validation (e.g. an agent wrote it
+    with the wrong edge shape) returns **422** with the structured
+    pydantic error list under ``detail.errors`` — NOT 500, which would
+    crash the canvas. The agent can then read the same payload via the
+    MCP ``get_workflow`` tool and self-correct. The schema itself stays
+    strict; we surface the error rather than papering over it.
     """
+    from pydantic import ValidationError
+
     try:
         definition = runtime.load_workflow(workflow_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": f"Workflow '{workflow_id}' on disk failed schema validation.",
+                "errors": exc.errors(),
+            },
+        ) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return _workflow_response(definition, revision=runtime.current_revision(workflow_id))

@@ -86,10 +86,8 @@ export interface UISlice {
   panelSizes: { palette: number; preview: number; bottom: number };
   minimapVisible: boolean;
   lastError: string | null;
-  /** #793: count of engine events seen since the user last visited the Logs tab. */
+  /** #793: count of unseen rows in the Logs panel since the user last viewed it. */
   unreadLogsCount: number;
-  /** #793: count of error events seen since the user last visited the Problems tab. */
-  unreadProblemsCount: number;
   /**
    * ADR-034: monotonically increased whenever the file-system watcher
    * reports a project-tree-relevant change. ``ProjectTree`` subscribes to
@@ -101,7 +99,6 @@ export interface UISlice {
   setSelectedNodeId: (nodeId: string | null) => void;
   setActiveBottomTab: (tab: BottomTab) => void;
   bumpUnreadLogs: () => void;
-  bumpUnreadProblems: () => void;
   bumpProjectTreeRefresh: () => void;
   togglePalette: () => void;
   togglePreview: () => void;

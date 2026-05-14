@@ -32,6 +32,85 @@ _LOCK_TIMEOUT_SECONDS = 10.0
 
 
 # ---------------------------------------------------------------------------
+# Run-level error capture
+#
+# The engine emits ``block_error`` events whose ``data["error"]`` is the full
+# Python traceback (the local runner re-raises ``RuntimeError(payload["error"])``
+# where ``payload["error"]`` was produced by ``traceback.format_exc()`` inside
+# the worker). The GUI's Logs panel already surfaces this verbatim. The MCP
+# layer needs the same data so the embedded agent can self-debug without the
+# user having to copy/paste from the GUI.
+#
+# We subscribe to BLOCK_ERROR on the runtime's event_bus the first time an
+# MCP call that cares about errors fires, and keep the captured records in
+# a process-wide dict keyed by (workflow_id, block_id). ``get_run_status``
+# reads this dict for the requested run when state="failed".
+# ---------------------------------------------------------------------------
+
+_run_block_errors: dict[tuple[str, str], dict[str, Any]] = {}
+"""``{(workflow_id, block_id): {"error": traceback, "summary": one_line}}``."""
+
+_error_subscriber_installed: bool = False
+"""Module-level latch — install the subscriber exactly once."""
+
+
+def _ensure_error_subscriber() -> None:
+    """Install a BLOCK_ERROR subscriber on the runtime's event_bus.
+
+    Idempotent + best-effort: if the context doesn't expose ``event_bus``
+    (e.g. an MCP standalone-mode runtime stub used by tests), this is a
+    no-op and ``get_run_status`` will simply return an empty ``errors``
+    list — same as before this hook existed.
+    """
+    global _error_subscriber_installed
+    if _error_subscriber_installed:
+        return
+    try:
+        ctx = get_context()
+    except Exception:
+        return
+    event_bus = getattr(ctx, "event_bus", None)
+    if event_bus is None or not hasattr(event_bus, "subscribe"):
+        return
+
+    async def _capture(event: Any) -> None:
+        data = getattr(event, "data", None) or {}
+        if not isinstance(data, dict):
+            return
+        workflow_id = data.get("workflow_id")
+        block_id = getattr(event, "block_id", None)
+        error = data.get("error")
+        summary = data.get("error_summary")
+        if not workflow_id or not block_id or error is None:
+            return
+        _run_block_errors[(str(workflow_id), str(block_id))] = {
+            "error": str(error),
+            "summary": str(summary) if summary else None,
+        }
+
+    try:
+        event_bus.subscribe("block_error", _capture)
+        _error_subscriber_installed = True
+        logger.info("MCP: installed block_error capture subscriber")
+    except Exception:
+        logger.warning("MCP: failed to install block_error capture", exc_info=True)
+
+
+def _collect_run_errors(run_id: str) -> list[dict[str, Any]]:
+    """Return the captured block errors for ``run_id`` (its workflow_id).
+
+    ``run_id`` is the workflow file stem in the current runtime contract
+    (see :func:`run_workflow`). Errors are keyed by ``(workflow_id, block_id)``,
+    so we filter on the workflow_id half.
+    """
+    return [
+        {"block_id": block_id, "error": record["error"], "summary": record["summary"]}
+        for (workflow_id, block_id), record in _run_block_errors.items()
+        if workflow_id == run_id
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -276,9 +355,18 @@ def write_workflow(path: str, yaml: str) -> dict[str, Any]:
     paths are interpreted relative to ``ctx.project_dir`` (NOT the
     backend process's CWD). Absolute paths must already be under the
     project root or :class:`PermissionError` is raised — this also
-    protects against ``../`` traversal escapes. The returned envelope
-    carries the **absolute resolved path**, never the user-supplied
-    input, so the agent can verify where its file actually landed.
+    protects against ``../`` traversal escapes.
+
+    **Schema validation BEFORE write.** Historically this tool wrote
+    whatever string the agent supplied, so a malformed YAML (e.g. edges
+    in a 4-field shape the schema rejects) landed on disk and the agent
+    received a success envelope. The GUI then 500'd hours later when it
+    tried to load the file. We now validate against
+    :class:`WorkflowFileModel` here. A failure raises :class:`ValueError`
+    with the structured pydantic error list embedded so MCP surfaces the
+    exact field + reason to the agent right away — the file is **not**
+    written. This is a deliberate strictness: engine + schema stay
+    immovable, agent feedback happens at the tool boundary.
 
     TODO(#732): once the workflow versioning agent's ``If-Match`` header
     lands on ``PUT /api/workflows/{id}``, the conflict-detect path here
@@ -287,6 +375,34 @@ def write_workflow(path: str, yaml: str) -> dict[str, Any]:
     the same arbitration code path. Today the filelock alone is the
     arbitration mechanism.
     """
+    import json
+
+    import yaml as yaml_module
+    from pydantic import ValidationError
+
+    from scieasy.workflow.schema import WorkflowFileModel
+
+    # Pre-write validation. Parse the YAML and run it through the same
+    # pydantic model the runtime + GET route use. A failure here is
+    # raised as a ValueError whose message includes the structured
+    # pydantic error list, so the MCP dispatcher serialises it back to
+    # the agent verbatim (see ``server.py`` error path).
+    try:
+        parsed = yaml_module.safe_load(yaml)
+    except yaml_module.YAMLError as exc:
+        raise ValueError(f"write_workflow: YAML parse failure: {exc}") from exc
+    try:
+        WorkflowFileModel.model_validate(parsed)
+    except ValidationError as exc:
+        # ``exc.errors()`` entries can carry non-JSON-serialisable
+        # values in ``ctx`` (e.g. the underlying ``ValueError`` object
+        # for a custom field validator). ``default=str`` coerces those
+        # to readable strings without losing information.
+        raise ValueError(
+            "write_workflow: refusing to write — workflow does not match "
+            "the SciEasy schema. Errors (JSON):\n" + json.dumps(exc.errors(), indent=2, default=str)
+        ) from exc
+
     p = _resolve_project_path(path)
     lock_path = str(p) + ".lock"
     try:
@@ -340,11 +456,19 @@ def run_workflow(path: str) -> dict[str, Any]:
     a project-relative path.
     """
     runtime = _get_workflow_runtime()
+    # Lazily install the BLOCK_ERROR capture subscriber so subsequent
+    # ``get_run_status`` calls can surface tracebacks. Idempotent.
+    _ensure_error_subscriber()
     # ApiRuntime keys runs by workflow_id (the file stem in
     # ``workflows/<id>.yaml``), so derive that from the path. We do not
     # mint a synthetic run_id — the runtime owns identity.
     resolved = _resolve_project_path(path)
     workflow_id = resolved.stem
+    # Clear any stale errors from a prior failed run with the same id so
+    # re-running a fixed workflow starts with a clean slate.
+    for key in list(_run_block_errors.keys()):
+        if key[0] == workflow_id:
+            del _run_block_errors[key]
     result = runtime.start_workflow(workflow_id)
     run_id = result.get("workflow_id", workflow_id)
     logger.info("run_workflow: started run %s for %s", run_id, resolved)
@@ -397,11 +521,23 @@ def cancel_run(run_id: str) -> dict[str, Any]:
 
 
 def get_run_status(run_id: str) -> dict[str, Any]:
-    """Return the current status of a workflow run."""
+    """Return the current status of a workflow run.
+
+    When the run failed, ``errors`` contains one entry per block that hit
+    BlockState.ERROR, each carrying the **full Python traceback** captured
+    from the engine's ``block_error`` event (same data the GUI's Logs panel
+    shows). If the scheduler task itself raised before any block error
+    was emitted, that exception's traceback is surfaced as a synthetic
+    ``block_id=__run__`` entry.
+    """
     runtime = _get_workflow_runtime()
     runs = getattr(runtime, "workflow_runs", None)
     if not isinstance(runs, dict) or run_id not in runs:
         raise KeyError(f"Unknown run: {run_id}")
+
+    # Make sure the capture subscriber is live (no-op if already installed
+    # or if the runtime doesn't expose event_bus).
+    _ensure_error_subscriber()
 
     run = runs[run_id]
     task = getattr(run, "task", None)
@@ -427,11 +563,31 @@ def get_run_status(run_id: str) -> dict[str, Any]:
             block_id: getattr(state_obj, "name", str(state_obj)) for block_id, state_obj in raw_states.items()
         }
 
+    errors: list[dict[str, Any]] = _collect_run_errors(run_id)
+    # If the scheduler task itself raised (e.g. DAG validation failure)
+    # without emitting a block_error, surface that as a run-level entry.
+    if state == "failed" and not errors and task is not None:
+        try:
+            exc = task.exception()
+        except Exception:
+            exc = None
+        if exc is not None:
+            import traceback
+
+            tb_str = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+            errors.append(
+                {
+                    "block_id": "__run__",
+                    "error": tb_str,
+                    "summary": str(exc) or type(exc).__name__,
+                }
+            )
+
     return {
         "run_id": run_id,
         "state": state,
         "progress": {"block_states": block_states},
-        "errors": [],
+        "errors": errors,
     }
 
 

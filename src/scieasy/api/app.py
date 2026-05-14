@@ -85,6 +85,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             def workflow_runs(self) -> object:
                 return self._rt.workflow_runs
 
+            @property
+            def event_bus(self) -> object:
+                # Exposed so MCP tools can subscribe to engine events
+                # (e.g. capture BLOCK_ERROR tracebacks for ``get_run_status``).
+                return self._rt.event_bus
+
             def start_workflow(self, workflow_id: str) -> object:
                 return self._rt.start_workflow(workflow_id)
 

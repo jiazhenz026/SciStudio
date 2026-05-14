@@ -21,8 +21,6 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
   const consumeEvent = useAppStore((state) => state.consumeEvent);
   const appendLog = useAppStore((state) => state.appendLog);
   const setInteractivePrompt = useAppStore((state) => state.setInteractivePrompt);
-  const bumpUnreadLogs = useAppStore((state) => state.bumpUnreadLogs);
-  const bumpUnreadProblems = useAppStore((state) => state.bumpUnreadProblems);
   const setWorkflow = useAppStore((state) => state.setWorkflow);
   const [connected, setConnected] = useState(false);
 
@@ -133,33 +131,18 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
 
       consumeEvent(payload);
 
-      // #793: Do NOT force-switch the bottom panel to "logs" on engine events.
-      // The user's directive is "never auto-switch". Instead, bump an unread
-      // counter so the Logs / Problems tab gets a small badge while the user
-      // is on a different tab — they decide when to look.
-      if (payload.type.startsWith("block_") || payload.type.startsWith("workflow_")) {
-        bumpUnreadLogs();
-      }
-
-      // Append a dedicated log entry for block_error events so the full error
-      // text is visible in the Logs panel even if the user missed the node badge.
-      if (payload.type === "block_error" && typeof payload.data.error === "string") {
-        appendLog({
-          timestamp: payload.timestamp,
-          level: "error",
-          message: `Block error [${payload.block_id ?? "unknown"}]: ${payload.data.error}`,
-          workflow_id: payload.workflow_id ?? null,
-          block_id: payload.block_id ?? null,
-        });
-        bumpUnreadProblems();
-      }
+      // The Logs unread badge is coupled to ``appendLog`` / ``consumeEvent``
+      // itself (executionSlice) so it tracks actual rendered rows. The
+      // Problems tab was removed in the same change set — block_error rows
+      // surface in the Logs panel (filterable via the level selector) and
+      // as the inline error badge on the BlockNode itself.
     };
 
     return () => {
       socket.close();
       _activeSocket = null;
     };
-  }, [appendLog, bumpUnreadLogs, bumpUnreadProblems, consumeEvent, enabled, setInteractivePrompt, setWorkflow]);
+  }, [appendLog, consumeEvent, enabled, setInteractivePrompt, setWorkflow]);
 
   return { connected };
 }

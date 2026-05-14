@@ -209,6 +209,21 @@ class _WorkflowFileHandler(FileSystemEventHandler):
         if isinstance(event, FileMovedEvent):
             kind = "created"
 
+        # Suppress spurious deletes that fire as part of an atomic
+        # replace (``os.replace(tmp, existing.yaml)`` on Windows emits a
+        # ``FileDeletedEvent(existing.yaml)`` immediately followed by a
+        # ``FileMovedEvent(tmp → existing.yaml)``). If the path still
+        # exists at this point, the rename has already completed and the
+        # delete event was a transient artifact of the atomic replace —
+        # forwarding it to the frontend would blank the canvas the user
+        # is currently editing.
+        if kind == "deleted" and path.exists():
+            logger.debug(
+                "workflow_watcher: suppressing transient delete (file still exists): %s",
+                path,
+            )
+            return
+
         normalised = _normalise(path)
 
         # Self-write suppression (only meaningful for events on existing

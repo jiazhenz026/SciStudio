@@ -2,7 +2,7 @@ import type { Node } from "@xyflow/react";
 
 import type { BlockPortResponse, BlockSchemaResponse, BlockSummary } from "./api";
 
-export type BottomTab = "ai" | "config" | "logs" | "lineage" | "jobs" | "problems";
+export type BottomTab = "ai" | "config" | "logs" | "lineage" | "jobs";
 
 export interface BlockNodeData extends Record<string, unknown> {
   label: string;
