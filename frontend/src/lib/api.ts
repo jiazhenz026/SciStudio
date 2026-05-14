@@ -217,6 +217,11 @@ export const api = {
         body: JSON.stringify({ content }),
       },
     ),
+  // ADR-036 §3.12 — block template scaffold endpoint (I36c).
+  getBlockTemplate: (kind: string = "basic") =>
+    apiFetch<{ kind: string; content: string; suggested_filename: string }>(
+      `/api/blocks/template?kind=${encodeURIComponent(kind)}`,
+    ),
   // ADR-036 §3.3 — server-side ruff lint endpoint.
   lintPython: (content: string, filename: string) =>
     apiFetch<{

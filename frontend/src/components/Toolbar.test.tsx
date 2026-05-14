@@ -9,7 +9,8 @@
  *     hidden; only New / Import / Save remain.
  */
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Toolbar } from "./Toolbar";
@@ -97,5 +98,94 @@ describe("Toolbar — ADR-036 §3.7 kind-swap", () => {
     expect(screen.queryByRole("button", { name: /^reload$/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /^note$/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /^group$/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /view source/i })).toBeNull();
+  });
+});
+
+describe("Toolbar — ADR-036 §3.7/§3.12 New menu (I36c)", () => {
+  // Radix's DropdownMenu opens on pointer events, which jsdom does not
+  // fire from a plain ``fireEvent.click``. ``userEvent`` correctly emits
+  // the pointerdown sequence Radix listens for. We also pin
+  // ``pointerEventsCheck`` off because jsdom reports ``pointer-events:
+  // none`` on portal-rendered nodes during the open transition.
+  function makeUser() {
+    return userEvent.setup({
+      pointerEventsCheck: 0,
+    });
+  }
+
+  it('clicking "New" opens a menu with workflow / custom block / note', async () => {
+    const onNewWorkflow = vi.fn();
+    const onNewCustomBlock = vi.fn();
+    const onNewNote = vi.fn();
+    const user = makeUser();
+    render(
+      <Toolbar
+        {...makeProps({ onNewWorkflow, onNewCustomBlock, onNewNote })}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /^new$/i }));
+    expect(await screen.findByRole("menuitem", { name: /new workflow/i })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /new custom block/i })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /new note/i })).toBeTruthy();
+  });
+
+  it('selecting "New workflow" calls onNewWorkflow', async () => {
+    const onNewWorkflow = vi.fn();
+    const user = makeUser();
+    render(<Toolbar {...makeProps({ onNewWorkflow })} />);
+    await user.click(screen.getByRole("button", { name: /^new$/i }));
+    await user.click(await screen.findByRole("menuitem", { name: /new workflow/i }));
+    expect(onNewWorkflow).toHaveBeenCalledTimes(1);
+  });
+
+  it('selecting "New custom block" calls onNewCustomBlock', async () => {
+    const onNewCustomBlock = vi.fn();
+    const user = makeUser();
+    render(<Toolbar {...makeProps({ onNewCustomBlock })} />);
+    await user.click(screen.getByRole("button", { name: /^new$/i }));
+    await user.click(await screen.findByRole("menuitem", { name: /new custom block/i }));
+    expect(onNewCustomBlock).toHaveBeenCalledTimes(1);
+  });
+
+  it('selecting "New note" calls onNewNote', async () => {
+    const onNewNote = vi.fn();
+    const user = makeUser();
+    render(<Toolbar {...makeProps({ onNewNote })} />);
+    await user.click(screen.getByRole("button", { name: /^new$/i }));
+    await user.click(await screen.findByRole("menuitem", { name: /new note/i }));
+    expect(onNewNote).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Toolbar — ADR-036 §3.4 View source button (I36c)", () => {
+  it("workflow tab: View source button is visible when onViewSource is provided", () => {
+    const onViewSource = vi.fn();
+    render(
+      <Toolbar {...makeProps({ activeTabKind: "workflow", onViewSource })} />,
+    );
+    expect(screen.getByRole("button", { name: /view source/i })).toBeTruthy();
+  });
+
+  it("workflow tab: View source button is hidden when onViewSource is omitted", () => {
+    render(<Toolbar {...makeProps({ activeTabKind: "workflow" })} />);
+    expect(screen.queryByRole("button", { name: /view source/i })).toBeNull();
+  });
+
+  it("clicking View source calls onViewSource", () => {
+    const onViewSource = vi.fn();
+    render(
+      <Toolbar {...makeProps({ activeTabKind: "workflow", onViewSource })} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /view source/i }));
+    expect(onViewSource).toHaveBeenCalledTimes(1);
+  });
+
+  it("file tab: View source button is hidden even when onViewSource is provided", () => {
+    const onViewSource = vi.fn();
+    render(
+      <Toolbar {...makeProps({ activeTabKind: "file", onViewSource })} />,
+    );
+    expect(screen.queryByRole("button", { name: /view source/i })).toBeNull();
   });
 });

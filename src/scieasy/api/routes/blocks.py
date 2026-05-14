@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib.resources as importlib_resources
+import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,6 +20,8 @@ from scieasy.api.schemas import (
     TypeHierarchyEntry,
 )
 from scieasy.blocks.base.ports import InputPort, OutputPort, validate_connection
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/blocks", tags=["blocks"])
 BlockRegistryDep = Annotated[Any, Depends(get_block_registry)]
@@ -126,6 +130,16 @@ class BlockTemplateResponse(BaseModel):
     suggested_filename: str
 
 
+# ADR-036 §3.12 — only "basic" is recognised in v1. Future kinds
+# (e.g. "io", "ai") add new template files but stay schema-compatible.
+# Kept module-level so tests + future template kinds can extend it
+# without re-defining inside the handler.
+_KNOWN_TEMPLATES: dict[str, tuple[str, str]] = {
+    # kind -> (resource filename, suggested user-facing filename)
+    "basic": ("block_base_template.py", "my_block.py"),
+}
+
+
 @router.get("/template", response_model=BlockTemplateResponse)
 async def get_block_template(kind: str = "basic") -> BlockTemplateResponse:
     """Serve a block-scaffolding template. (ADR-036 §3.12 — SKELETON)
@@ -159,7 +173,27 @@ async def get_block_template(kind: str = "basic") -> BlockTemplateResponse:
     References: ADR-036 §3.12; template file at
     ``src/scieasy/blocks/_templates/block_base_template.py``.
     """
-    raise NotImplementedError("ADR-036 skeleton — implementation phase I36c fills this in")
+    if kind not in _KNOWN_TEMPLATES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown template kind: {kind!r}. Known: {sorted(_KNOWN_TEMPLATES)}",
+        )
+
+    resource_name, suggested = _KNOWN_TEMPLATES[kind]
+    try:
+        template_dir = importlib_resources.files("scieasy.blocks._templates")
+        content = (template_dir / resource_name).read_text(encoding="utf-8")
+    except (FileNotFoundError, ModuleNotFoundError, OSError) as exc:
+        # Deployment bug: package was installed without the bundled
+        # template asset. Log + 500 with a stable message so operators can
+        # search for it.
+        logger.exception("ADR-036 §3.12: template asset %s missing", resource_name)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Template asset {resource_name!r} missing from package",
+        ) from exc
+
+    return BlockTemplateResponse(kind=kind, content=content, suggested_filename=suggested)
 
 
 @router.get("/{block_type}/schema", response_model=BlockSchemaResponse)

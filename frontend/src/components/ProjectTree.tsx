@@ -49,6 +49,10 @@ interface ContextMenuState {
   node: TreeNodeData;
 }
 
+// ADR-036 §3.5 (Phase 2C / I36c): file extensions the embedded Monaco editor
+// knows how to render. Anything outside this set is ignored on double-click.
+const EDITABLE_EXTENSIONS: readonly string[] = ["py", "txt", "md", "json", "csv"];
+
 function TreeNodeRow({
   node,
   depth,
@@ -222,36 +226,23 @@ export function ProjectTree({
         return;
       }
 
-      // Double-click .py in blocks/ -> hot-reload blocks
+      // ADR-036 §3.5 (I36c): .py under blocks/ both refreshes the palette
+      // (so the user sees the side-effect of the lint-gated reload) AND
+      // opens the file in the Monaco editor. Both behaviours fire on the
+      // same double-click — saving the file then triggers the backend
+      // hot-reload via PUT /api/projects/{id}/file.
       if (ext === "py" && node.path.startsWith("blocks/")) {
         onReloadBlocks();
-        // ADR-036 §3.5 SKELETON (S36): blocks/*.py double-click currently
-        // *only* triggers hot-reload. Phase 2C (I36c) will additionally
-        // open the file in the editor by calling
-        // ``useAppStore.getState().openFileTab(node.path)``. The reload
-        // call stays — both behaviours fire on the same double-click.
-        // TODO(ADR-036 I36c): wire openFileTab here.
+        useAppStore.getState().openFileTab(node.path);
         return;
       }
 
-      // ADR-036 §3.5 SKELETON (S36): editable file extensions outside
-      // ``blocks/`` and ``workflows/`` should open in the Monaco editor
-      // via ``openFileTab(node.path)``. Phase 2C (I36c) implements this
-      // branch — it currently no-ops so existing project-tree behaviour
-      // (no action on most file double-clicks) is preserved.
-      //
-      // Implementation plan (per ADR-036 §3.5):
-      //   const editable = ["py", "txt", "md", "json", "csv"];
-      //   if (editable.includes(ext)) {
-      //     useAppStore.getState().openFileTab(node.path);
-      //     return;
-      //   }
-      //
-      // Test plan (must be added by I36c):
-      //   - double-click scratch.py at project root -> openFileTab called
-      //     with "scratch.py"
-      //   - double-click NOTES.md anywhere -> openFileTab called
-      //   - double-click image.tiff -> NOT called (extension not in list)
+      // ADR-036 §3.5 (I36c): editable extensions anywhere in the project
+      // open in the Monaco editor.
+      if (EDITABLE_EXTENSIONS.includes(ext)) {
+        useAppStore.getState().openFileTab(node.path);
+        return;
+      }
     },
     [onLoadWorkflow, onReloadBlocks],
   );
