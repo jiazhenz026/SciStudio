@@ -31,72 +31,6 @@ async def list_projects(runtime: RuntimeDep) -> list[ProjectResponse]:
     return [ProjectResponse(**runtime.project_response(project)) for project in runtime.list_projects()]
 
 
-@router.get("/{project_id:path}", response_model=ProjectResponse)
-async def get_project(project_id: str, runtime: RuntimeDep) -> ProjectResponse:
-    """Retrieve and open a project by identifier or filesystem path."""
-    try:
-        project = runtime.open_project(project_id)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    # ADR-034 Phase 2: refresh the workflow filesystem watcher to point at
-    # the newly active project. ``start_for_project`` is idempotent — if the
-    # caller re-opens the same project it returns immediately without
-    # disturbing the existing observer.
-    _restart_workflow_watcher(project.path)
-    return ProjectResponse(**runtime.project_response(project))
-
-
-def _restart_workflow_watcher(project_path: str) -> None:
-    """Best-effort: point the global watcher at *project_path*'s workflows/.
-
-    Failure to start the observer is logged but does not affect the project
-    open response — the canvas continues to work without auto-refresh and
-    the user sees their workflow YAMLs the next time they reload manually.
-    """
-    import asyncio
-    import logging
-    from pathlib import Path
-
-    from scieasy.api.routes import workflow_watcher as watcher_module
-
-    watcher = watcher_module.get_active_watcher()
-    if watcher is None:
-        return
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        return
-    try:
-        watcher.start_for_project(Path(project_path), loop)
-    except Exception:
-        logging.getLogger(__name__).warning("workflow_watcher: restart for %s failed", project_path, exc_info=True)
-
-
-@router.put("/{project_id:path}", response_model=ProjectResponse)
-async def update_project(
-    project_id: str,
-    body: ProjectUpdate,
-    runtime: RuntimeDep,
-) -> ProjectResponse:
-    """Update project metadata."""
-    try:
-        project = runtime.update_project(project_id, name=body.name, description=body.description)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return ProjectResponse(**runtime.project_response(project))
-
-
-@router.delete("/{project_id:path}", status_code=204)
-async def delete_project(project_id: str, runtime: RuntimeDep) -> None:
-    """Delete a project and its associated resources."""
-    try:
-        runtime.delete_project(project_id)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
 # ---------------------------------------------------------------------------
 # ADR-036 §3.2 — File read/write endpoints (skeleton, returns 501)
 #
@@ -105,6 +39,14 @@ async def delete_project(project_id: str, runtime: RuntimeDep) -> None:
 # extension allowlist and a hard size cap. The PUT path coordinates with the
 # workflow filesystem watcher so the user's own save does not echo back as
 # an external-change event.
+#
+# IMPORTANT — route ordering:
+# These ``/{project_id:path}/file`` routes MUST be declared BEFORE the
+# greedy ``/{project_id:path}`` GET/PUT/DELETE handlers below. FastAPI
+# matches routes in declaration order, and ``{project_id:path}`` would
+# otherwise swallow ``/<id>/file`` requests (with ``project_id="<id>/file"``)
+# and never reach these handlers. See ADR-036 audit
+# (docs/audit/2026-05-14-adr-036-skeleton.md, finding P1-1) for details.
 #
 # Implementation phase agents (I36a) replace each ``raise NotImplementedError``
 # below with the real handler. Read the docstring + comment block above each
@@ -249,3 +191,76 @@ async def write_project_file(
     ``runtime.save_workflow``.
     """
     raise NotImplementedError("ADR-036 skeleton — implementation phase I36a fills this in")
+
+
+# ---------------------------------------------------------------------------
+# Greedy ``/{project_id:path}`` handlers — declared AFTER the more specific
+# ``/{project_id:path}/file`` routes above so FastAPI matches the file
+# routes first. See ADR-036 audit P1-1 for why this ordering matters.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{project_id:path}", response_model=ProjectResponse)
+async def get_project(project_id: str, runtime: RuntimeDep) -> ProjectResponse:
+    """Retrieve and open a project by identifier or filesystem path."""
+    try:
+        project = runtime.open_project(project_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    # ADR-034 Phase 2: refresh the workflow filesystem watcher to point at
+    # the newly active project. ``start_for_project`` is idempotent — if the
+    # caller re-opens the same project it returns immediately without
+    # disturbing the existing observer.
+    _restart_workflow_watcher(project.path)
+    return ProjectResponse(**runtime.project_response(project))
+
+
+def _restart_workflow_watcher(project_path: str) -> None:
+    """Best-effort: point the global watcher at *project_path*'s workflows/.
+
+    Failure to start the observer is logged but does not affect the project
+    open response — the canvas continues to work without auto-refresh and
+    the user sees their workflow YAMLs the next time they reload manually.
+    """
+    import asyncio
+    import logging
+    from pathlib import Path
+
+    from scieasy.api.routes import workflow_watcher as watcher_module
+
+    watcher = watcher_module.get_active_watcher()
+    if watcher is None:
+        return
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    try:
+        watcher.start_for_project(Path(project_path), loop)
+    except Exception:
+        logging.getLogger(__name__).warning("workflow_watcher: restart for %s failed", project_path, exc_info=True)
+
+
+@router.put("/{project_id:path}", response_model=ProjectResponse)
+async def update_project(
+    project_id: str,
+    body: ProjectUpdate,
+    runtime: RuntimeDep,
+) -> ProjectResponse:
+    """Update project metadata."""
+    try:
+        project = runtime.update_project(project_id, name=body.name, description=body.description)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return ProjectResponse(**runtime.project_response(project))
+
+
+@router.delete("/{project_id:path}", status_code=204)
+async def delete_project(project_id: str, runtime: RuntimeDep) -> None:
+    """Delete a project and its associated resources."""
+    try:
+        runtime.delete_project(project_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

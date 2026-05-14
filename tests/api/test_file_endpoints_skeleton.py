@@ -105,3 +105,67 @@ def test_write_file_403_traversal() -> None:
 def test_write_file_415_extension() -> None:
     """PUT to a .exe path returns 415."""
     raise NotImplementedError
+
+
+# ---------------------------------------------------------------------------
+# Regression tests — ADR-036 audit P1-1.
+#
+# These DO NOT depend on a real implementation. They assert the FastAPI
+# route table registers ``/{project_id:path}/file`` BEFORE the greedy
+# ``/{project_id:path}`` catch-all so that ``GET /api/projects/<id>/file``
+# resolves to the file handler, not the project handler. They must remain
+# passing through the implementation phase.
+# ---------------------------------------------------------------------------
+
+
+def test_file_route_registered_before_catch_all() -> None:
+    """``/{project_id:path}/file`` MUST appear before ``/{project_id:path}``.
+
+    FastAPI matches routes in declaration order. If this test fails,
+    requests to GET/PUT ``/api/projects/<id>/file`` are silently swallowed
+    by ``get_project`` / ``update_project`` with ``project_id="<id>/file"``
+    and the editor file endpoints become unreachable. See ADR-036 audit
+    finding P1-1.
+    """
+    from scieasy.api.routes.projects import router
+
+    paths_in_order = [r.path for r in router.routes]
+    file_get = paths_in_order.index("/api/projects/{project_id:path}/file")
+    catch_all_get = paths_in_order.index("/api/projects/{project_id:path}")
+    assert file_get < catch_all_get, (
+        "ADR-036 P1-1 regression: /file routes must precede "
+        "/{project_id:path} catch-all so FastAPI matches them first. "
+        f"Current order: {paths_in_order}"
+    )
+
+
+def test_file_route_resolves_to_file_handler_not_catch_all() -> None:
+    """A live ``GET /api/projects/<id>/file`` reaches ``read_project_file``.
+
+    Use the FastAPI router's ``url_path_for`` to confirm the file endpoint
+    name is mapped, then exercise the ASGI matcher to confirm a request
+    against the URL hits ``read_project_file`` (skeleton raises
+    NotImplementedError -> we surface that exception class as the proof).
+    """
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from scieasy.api.routes.projects import router
+
+    app = FastAPI()
+    app.include_router(router)
+    # Stub the runtime dependency so dependency resolution does not fail.
+    from scieasy.api.deps import get_runtime
+
+    app.dependency_overrides[get_runtime] = lambda: object()
+
+    client = TestClient(app, raise_server_exceptions=False)
+    # The skeleton handler raises NotImplementedError; FastAPI converts that
+    # into a 500. We assert we DID hit the file handler (not the catch-all
+    # which would 200 OK or 404), confirmed by the 500 surface.
+    response = client.get("/api/projects/some-id/file?path=blocks/foo.py")
+    assert response.status_code == 500, (
+        f"Expected 500 from skeleton NotImplementedError in read_project_file, got "
+        f"{response.status_code}: {response.text!r}. If this is 200/404, the "
+        "catch-all /{project_id:path} is intercepting the request — P1-1 regression."
+    )

@@ -104,7 +104,7 @@
 
 ### Audit & Fix (skeleton)
 - [ ] Audit-skeleton report posted on umbrella issue (Owner: A36-skeleton)
-- [ ] All P1 findings fixed (or explicitly justified deferral) (Owner: F36-skeleton, conditional)
+- [x] All P1 findings fixed (or explicitly justified deferral) (Owner: F36-skeleton, conditional) → fix PR (against `feat/issue-848/skeleton`)
 
 ### Audit & Fix (implementation)
 - [ ] Audit-implementation report posted on umbrella issue, includes Chrome smoke results (Owner: A36-impl)
