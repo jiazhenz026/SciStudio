@@ -54,19 +54,22 @@ export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice
 
       // Append a structured log entry for block_error so the Logs panel
       // shows the full error text alongside the standard log stream.
-      const nextLogs =
-        isBlockError && errorText != null
-          ? [
-              ...state.logEntries,
-              {
-                timestamp: event.timestamp,
-                level: "error",
-                message: errorText,
-                workflow_id: event.workflow_id ?? null,
-                block_id: event.block_id ?? null,
-              },
-            ].slice(-400)
-          : state.logEntries;
+      const addsLogRow = isBlockError && errorText != null;
+      const nextLogs = addsLogRow
+        ? [
+            ...state.logEntries,
+            {
+              timestamp: event.timestamp,
+              level: "error",
+              message: errorText,
+              workflow_id: event.workflow_id ?? null,
+              block_id: event.block_id ?? null,
+            },
+          ].slice(-400)
+        : state.logEntries;
+      // Mirror appendLog's badge-coupling: bump unread iff we actually
+      // produced a Logs-panel row AND the user isn't already looking.
+      const bumpUnread = addsLogRow && state.activeBottomTab !== "logs";
 
       return {
         blockStates: nextStates,
@@ -76,12 +79,25 @@ export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice
         logEntries: nextLogs,
         isRunning: nextIsRunning,
         executionMessages: [...state.executionMessages, `${event.type}:${event.block_id ?? "workflow"}`].slice(-100),
+        ...(bumpUnread ? { unreadLogsCount: state.unreadLogsCount + 1 } : {}),
       };
     }),
   appendLog: (entry) =>
-    set((state) => ({
-      logEntries: [...state.logEntries, entry].slice(-400),
-    })),
+    set((state) => {
+      // Coupling the unread badge with the actual append fixes the
+      // "8 unread but Logs panel is empty" mismatch: previously the WS
+      // handler bumped ``unreadLogsCount`` for every ``block_*`` /
+      // ``workflow_*`` event regardless of whether a log entry was
+      // produced. Now the badge increments exactly when a row is added,
+      // so badge count = unread rows.
+      const shouldBump = state.activeBottomTab !== "logs";
+      return {
+        logEntries: [...state.logEntries, entry].slice(-400),
+        ...(shouldBump
+          ? { unreadLogsCount: state.unreadLogsCount + 1 }
+          : {}),
+      };
+    }),
   resetExecution: () => set({ blockStates: {}, blockOutputs: {}, blockErrors: {}, blockErrorSummaries: {}, executionMessages: [], logEntries: [], isRunning: false, interactivePrompt: null }),
   setInteractivePrompt: (prompt) => set({ interactivePrompt: prompt }),
 });

@@ -108,7 +108,13 @@ describe("useWorkflowWebSocket (#793)", () => {
     expect(useAppStore.getState().activeBottomTab).toBe("ai");
   });
 
-  it("bumps unreadLogsCount on block_/workflow_ events while another tab is active", () => {
+  it("bumps unreadLogsCount only when a Logs-panel row is actually added", () => {
+    // Coupled-badge contract (fix for "8 unread but Logs empty" mismatch):
+    // ``unreadLogsCount`` tracks the number of unseen rows in the Logs
+    // panel, NOT the number of engine events seen. block_started /
+    // workflow_started don't produce a Logs row, so they don't bump.
+    // Only events that ``consumeEvent`` / ``appendLog`` actually
+    // materialise into ``logEntries`` (e.g. block_error) bump the badge.
     renderHook(() => useWorkflowWebSocket(true));
     useAppStore.setState({ activeBottomTab: "ai" });
 
@@ -126,7 +132,20 @@ describe("useWorkflowWebSocket (#793)", () => {
       data: {},
     });
 
-    expect(useAppStore.getState().unreadLogsCount).toBe(2);
+    expect(useAppStore.getState().unreadLogsCount).toBe(0);
+    expect(useAppStore.getState().logEntries).toHaveLength(0);
+
+    // A block_error DOES add a Logs row → badge bumps.
+    pushMessage({
+      type: "block_error",
+      block_id: "n1",
+      workflow_id: "wf",
+      timestamp: "2026-05-13T00:00:00Z",
+      data: { error: "boom" },
+    });
+
+    expect(useAppStore.getState().unreadLogsCount).toBe(1);
+    expect(useAppStore.getState().logEntries).toHaveLength(1);
     expect(useAppStore.getState().activeBottomTab).toBe("ai");
   });
 

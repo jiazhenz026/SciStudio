@@ -21,7 +21,6 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
   const consumeEvent = useAppStore((state) => state.consumeEvent);
   const appendLog = useAppStore((state) => state.appendLog);
   const setInteractivePrompt = useAppStore((state) => state.setInteractivePrompt);
-  const bumpUnreadLogs = useAppStore((state) => state.bumpUnreadLogs);
   const bumpUnreadProblems = useAppStore((state) => state.bumpUnreadProblems);
   const setWorkflow = useAppStore((state) => state.setWorkflow);
   const [connected, setConnected] = useState(false);
@@ -134,23 +133,15 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
       consumeEvent(payload);
 
       // #793: Do NOT force-switch the bottom panel to "logs" on engine events.
-      // The user's directive is "never auto-switch". Instead, bump an unread
-      // counter so the Logs / Problems tab gets a small badge while the user
-      // is on a different tab — they decide when to look.
-      if (payload.type.startsWith("block_") || payload.type.startsWith("workflow_")) {
-        bumpUnreadLogs();
-      }
-
-      // Append a dedicated log entry for block_error events so the full error
-      // text is visible in the Logs panel even if the user missed the node badge.
+      // The user's directive is "never auto-switch". The Logs unread badge
+      // is now coupled to ``appendLog`` itself (executionSlice) so it tracks
+      // actual rendered rows, not "any event the WS saw" — that previously
+      // produced the "N unread but Logs panel is empty" mismatch.
+      //
+      // Problems still tracks block_error specifically: it's a fault counter,
+      // not a log-row counter, and there's exactly one Problems row per
+      // block_error event.
       if (payload.type === "block_error" && typeof payload.data.error === "string") {
-        appendLog({
-          timestamp: payload.timestamp,
-          level: "error",
-          message: `Block error [${payload.block_id ?? "unknown"}]: ${payload.data.error}`,
-          workflow_id: payload.workflow_id ?? null,
-          block_id: payload.block_id ?? null,
-        });
         bumpUnreadProblems();
       }
     };
@@ -159,7 +150,7 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
       socket.close();
       _activeSocket = null;
     };
-  }, [appendLog, bumpUnreadLogs, bumpUnreadProblems, consumeEvent, enabled, setInteractivePrompt, setWorkflow]);
+  }, [appendLog, bumpUnreadProblems, consumeEvent, enabled, setInteractivePrompt, setWorkflow]);
 
   return { connected };
 }
