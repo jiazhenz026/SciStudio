@@ -98,6 +98,70 @@ async def list_blocks(registry: BlockRegistryDep) -> BlockListResponse:
     return BlockListResponse(blocks=blocks)
 
 
+# ---------------------------------------------------------------------------
+# ADR-036 §3.12 — block template endpoint (skeleton, returns 501)
+#
+# The "New custom block" toolbar action (see ADR-036 §3.7) needs a starter
+# template that already wires up imports, ports, and a placeholder ``run()``
+# body. Rather than ship the template content in the frontend, we ship it
+# next to the package (``src/scieasy/blocks/_templates/``) and serve it via
+# this endpoint so the template stays in lockstep with whatever
+# ``scieasy.blocks.base`` actually exports.
+#
+# IMPORTANT — route ordering:
+# ``/template`` MUST be declared BEFORE the greedy ``/{block_type}``
+# (and ``/{block_type}/schema``) routes below. FastAPI matches in
+# declaration order; otherwise ``/api/blocks/template`` is swallowed by
+# ``get_block_schema`` with ``block_type="template"`` and never reaches
+# this handler. See ADR-036 audit
+# (docs/audit/2026-05-14-adr-036-skeleton.md, finding P1-2) for details.
+# ---------------------------------------------------------------------------
+
+
+class BlockTemplateResponse(BaseModel):
+    """Skeleton — response shape for GET /api/blocks/template (per ADR-036 §3.12)."""
+
+    kind: str
+    content: str
+    suggested_filename: str
+
+
+@router.get("/template", response_model=BlockTemplateResponse)
+async def get_block_template(kind: str = "basic") -> BlockTemplateResponse:
+    """Serve a block-scaffolding template. (ADR-036 §3.12 — SKELETON)
+
+    Implementation plan (per ADR-036 §3.12):
+      1. Validate ``kind`` against a known set (initially just ``"basic"``).
+         Unknown kind -> HTTP 400.
+      2. Resolve the template file inside the package via
+         ``importlib.resources.files("scieasy.blocks._templates") /
+         "block_base_template.py"``.
+      3. Read with ``encoding="utf-8"`` and return content + suggested
+         filename (default ``"my_block.py"``).
+      4. The frontend pipes ``content`` to PUT /api/projects/{id}/file with
+         path ``"blocks/<user-supplied-name>.py"``, then opens an editor
+         tab on the new file. None of that orchestration belongs here —
+         this endpoint is content-only.
+
+    Edge cases:
+      - kind not in known set -> HTTP 400.
+      - Template file missing from package (deployment bug) -> HTTP 500
+        with a clear "template asset missing" message.
+
+    Test plan (must be added by I36c):
+      - test_template_basic_returns_python_with_correct_imports: response
+        content contains the literal string
+        ``"from scieasy.blocks.base import Block, BlockSpec, PortSpec"``.
+      - test_template_basic_has_run_marker: response content contains
+        ``"# >>> EDIT THIS <<<"``.
+      - test_template_unknown_kind_400.
+
+    References: ADR-036 §3.12; template file at
+    ``src/scieasy/blocks/_templates/block_base_template.py``.
+    """
+    raise NotImplementedError("ADR-036 skeleton — implementation phase I36c fills this in")
+
+
 @router.get("/{block_type}/schema", response_model=BlockSchemaResponse)
 @router.get("/{block_type}", response_model=BlockSchemaResponse, include_in_schema=False)
 async def get_block_schema(
@@ -161,59 +225,3 @@ async def validate_connection_route(
 
     compatible, reason = validate_connection(source_port, target_port)
     return ConnectionValidationResponse(compatible=compatible, reason=reason)
-
-
-# ---------------------------------------------------------------------------
-# ADR-036 §3.12 — block template endpoint (skeleton, returns 501)
-#
-# The "New custom block" toolbar action (see ADR-036 §3.7) needs a starter
-# template that already wires up imports, ports, and a placeholder ``run()``
-# body. Rather than ship the template content in the frontend, we ship it
-# next to the package (``src/scieasy/blocks/_templates/``) and serve it via
-# this endpoint so the template stays in lockstep with whatever
-# ``scieasy.blocks.base`` actually exports.
-# ---------------------------------------------------------------------------
-
-
-class BlockTemplateResponse(BaseModel):
-    """Skeleton — response shape for GET /api/blocks/template (per ADR-036 §3.12)."""
-
-    kind: str
-    content: str
-    suggested_filename: str
-
-
-@router.get("/template", response_model=BlockTemplateResponse)
-async def get_block_template(kind: str = "basic") -> BlockTemplateResponse:
-    """Serve a block-scaffolding template. (ADR-036 §3.12 — SKELETON)
-
-    Implementation plan (per ADR-036 §3.12):
-      1. Validate ``kind`` against a known set (initially just ``"basic"``).
-         Unknown kind -> HTTP 400.
-      2. Resolve the template file inside the package via
-         ``importlib.resources.files("scieasy.blocks._templates") /
-         "block_base_template.py"``.
-      3. Read with ``encoding="utf-8"`` and return content + suggested
-         filename (default ``"my_block.py"``).
-      4. The frontend pipes ``content`` to PUT /api/projects/{id}/file with
-         path ``"blocks/<user-supplied-name>.py"``, then opens an editor
-         tab on the new file. None of that orchestration belongs here —
-         this endpoint is content-only.
-
-    Edge cases:
-      - kind not in known set -> HTTP 400.
-      - Template file missing from package (deployment bug) -> HTTP 500
-        with a clear "template asset missing" message.
-
-    Test plan (must be added by I36c):
-      - test_template_basic_returns_python_with_correct_imports: response
-        content contains the literal string
-        ``"from scieasy.blocks.base import Block, BlockSpec, PortSpec"``.
-      - test_template_basic_has_run_marker: response content contains
-        ``"# >>> EDIT THIS <<<"``.
-      - test_template_unknown_kind_400.
-
-    References: ADR-036 §3.12; template file at
-    ``src/scieasy/blocks/_templates/block_base_template.py``.
-    """
-    raise NotImplementedError("ADR-036 skeleton — implementation phase I36c fills this in")
