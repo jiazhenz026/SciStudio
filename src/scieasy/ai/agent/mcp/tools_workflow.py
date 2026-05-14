@@ -400,8 +400,7 @@ def write_workflow(path: str, yaml: str) -> dict[str, Any]:
         # to readable strings without losing information.
         raise ValueError(
             "write_workflow: refusing to write — workflow does not match "
-            "the SciEasy schema. Errors (JSON):\n"
-            + json.dumps(exc.errors(), indent=2, default=str)
+            "the SciEasy schema. Errors (JSON):\n" + json.dumps(exc.errors(), indent=2, default=str)
         ) from exc
 
     p = _resolve_project_path(path)
