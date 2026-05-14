@@ -19,8 +19,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import pytest
-
 from scieasy.ai.agent.mcp import _context
 from scieasy.ai.agent.mcp.server import MCPServer
 from scieasy.blocks.registry import BlockRegistry
