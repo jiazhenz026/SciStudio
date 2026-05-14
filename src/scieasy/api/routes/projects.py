@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import logging
+import os
+import tempfile
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,6 +14,8 @@ from pydantic import BaseModel
 from scieasy.api.deps import get_runtime
 from scieasy.api.runtime import ApiRuntime
 from scieasy.api.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
@@ -99,45 +105,100 @@ class FileWriteResponse(BaseModel):
     size: int
 
 
+def _resolve_project_file(runtime: ApiRuntime, project_id: str, path: str) -> tuple[Path, Path]:
+    """Resolve ``project_id`` + relative ``path`` to a sandboxed absolute path.
+
+    Returns ``(project_root, target_absolute_path)``. Raises ``HTTPException``
+    with the appropriate status code on any rejection. This is the shared
+    sandbox check used by both GET and PUT — kept as a helper so both
+    endpoints enforce the rules identically.
+
+    Rejection codes (per ADR-036 §3.2):
+      - 404: project unknown
+      - 400: empty path / contains ``..`` segment / path is a directory
+      - 403: resolved path escapes project root (symlink, traversal)
+      - 415: extension not in :data:`ADR036_FILE_ALLOWLIST`
+
+    Size cap and existence/UTF-8 checks are done by the caller because
+    they apply differently to read vs. write.
+    """
+    project = runtime.known_projects.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+    if not path:
+        raise HTTPException(status_code=400, detail="path query parameter is required")
+    # Reject ``..`` segments early — same belt-and-braces as project_tree.
+    parts = path.replace("\\", "/").split("/")
+    if any(p == ".." for p in parts):
+        raise HTTPException(status_code=403, detail="Path traversal is not allowed")
+
+    project_root = Path(os.path.realpath(project.path))
+    candidate = os.path.realpath(os.path.join(str(project_root), path))
+    # CodeQL py/path-injection canonical sanitiser: realpath + commonpath.
+    try:
+        if os.path.commonpath([str(project_root), candidate]) != str(project_root):
+            raise HTTPException(status_code=403, detail="Path escapes project root")
+    except ValueError as exc:
+        # commonpath raises on different drives (Windows) — treat as escape.
+        raise HTTPException(status_code=403, detail="Path escapes project root") from exc
+
+    target = Path(candidate)
+    if target.suffix.lower() not in ADR036_FILE_ALLOWLIST:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Extension {target.suffix!r} not in editor allowlist",
+        )
+    return project_root, target
+
+
 @router.get("/{project_id:path}/file", response_model=FileReadResponse)
 async def read_project_file(
     project_id: str,
     runtime: RuntimeDep,
     path: str = "",
 ) -> FileReadResponse:
-    """Read a project-relative file as UTF-8 text. (ADR-036 §3.2 — SKELETON)
+    """Read a project-relative file as UTF-8 text. (ADR-036 §3.2)
 
-    Implementation plan (per ADR-036 §3.2):
-      1. Resolve ``project_id`` -> project root via ``runtime.known_projects``;
-         raise HTTPException(404) if unknown.
-      2. Resolve the supplied ``path`` against the project root using the
-         existing ``_resolve_safe_path`` helper at
-         ``src/scieasy/api/routes/filesystem.py:47-65`` (mirror the realpath +
-         commonpath sanitiser pattern). Reject path traversal with HTTP 403.
-      3. Validate extension is in ``ADR036_FILE_ALLOWLIST`` -> else HTTP 415.
-      4. Stat the file; reject size > ``ADR036_FILE_SIZE_CAP_BYTES`` with
-         HTTP 413.
-      5. ``open(target, encoding="utf-8")`` and return content + mtime + size.
-
-    Edge cases:
-      - File does not exist -> HTTP 404.
-      - File is a directory -> HTTP 400.
-      - File contains invalid UTF-8 -> HTTP 415 (binary file not editable).
-      - ``path`` is empty -> HTTP 400 (must specify a file).
-      - Symlink escapes project root after resolve -> HTTP 403.
-
-    Test plan (must be added by I36a):
-      - test_read_file_happy_path: existing .py file returns content + mtime.
-      - test_read_file_404_missing
-      - test_read_file_403_traversal: path="../../etc/passwd" rejected.
-      - test_read_file_415_extension: .exe rejected.
-      - test_read_file_413_size: file > 10 MB rejected.
-      - test_read_file_400_directory: path points at a directory.
-
-    References: ADR-036 §3.2; sanitiser at ``filesystem.py:47-65``;
-    similar project-scoped pattern at ``project_tree`` above.
+    Sandbox + allowlist + size cap per ADR-036 §3.2. The full rationale and
+    edge-case matrix lives in the ADR; the helper :func:`_resolve_project_file`
+    enforces sandbox + allowlist; size and UTF-8 checks happen here.
     """
-    raise NotImplementedError("ADR-036 skeleton — implementation phase I36a fills this in")
+    _, target = _resolve_project_file(runtime, project_id, path)
+
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    if target.is_dir():
+        raise HTTPException(status_code=400, detail="Path is a directory, not a file")
+
+    try:
+        stat = target.stat()
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"stat failed: {exc}") from exc
+
+    if stat.st_size > ADR036_FILE_SIZE_CAP_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=(f"File size {stat.st_size} exceeds editor cap {ADR036_FILE_SIZE_CAP_BYTES} bytes"),
+        )
+
+    try:
+        content = target.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        # Binary file flagged as text by extension — refuse rather than
+        # serve mojibake into Monaco.
+        raise HTTPException(
+            status_code=415,
+            detail=f"File is not valid UTF-8: {exc}",
+        ) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"read failed: {exc}") from exc
+
+    return FileReadResponse(
+        content=content,
+        mtime=stat.st_mtime,
+        size=stat.st_size,
+        encoding="utf-8",
+    )
 
 
 @router.put("/{project_id:path}/file", response_model=FileWriteResponse)
@@ -147,50 +208,95 @@ async def write_project_file(
     body: FileWriteRequest,
     path: str = "",
 ) -> FileWriteResponse:
-    """Write a project-relative file atomically. (ADR-036 §3.2 — SKELETON)
+    """Write a project-relative file atomically. (ADR-036 §3.2)
 
-    Implementation plan (per ADR-036 §3.2):
-      1. Same resolve/safe-path/allowlist/size-cap checks as GET. The size
-         cap applies to ``len(body.content.encode("utf-8"))`` BEFORE writing.
-      2. Atomic write: ``tempfile.NamedTemporaryFile(dir=target.parent,
-         delete=False)`` -> write -> ``os.replace(tmp, target)``. Never write
-         partial state into the destination file.
-      3. Coordinate with the workflow watcher: BEFORE the rename, call
-         ``mark_self_write(target)`` (see
-         ``src/scieasy/api/routes/workflow_watcher.py:415``) so the watcher
-         does not echo this write as an external-change event. The
-         coordination MUST be done before ``os.replace`` because the watcher
-         picks up the rename event near-instantaneously on most platforms.
-      4. ``stat`` the new file and return ``{mtime, size}``.
-      5. (Out of scope for this endpoint, owned by I36c) — Phase 2C wires
-         a follow-up: if path falls under ``<project>/blocks/`` and is .py,
-         trigger ``BlockRegistry.hot_reload()`` gated on lint pass. Do NOT
-         implement that here; just leave a TODO comment so I36c finds it.
+    Sandbox / allowlist / size cap per ADR-036 §3.2. Size cap is checked
+    BEFORE touching disk so 413 rejects never leave a partial tmpfile.
 
-    Edge cases:
-      - Parent directory does not exist -> HTTP 404 (we do not auto-create).
-      - File exists and is read-only -> HTTP 403.
-      - Disk full mid-write -> tempfile cleanup, HTTP 500.
-      - ``content`` decodes to > 10 MB -> HTTP 413 BEFORE touching disk.
-      - Concurrent PUT to the same path -> last writer wins; rename is atomic
-        so no torn writes.
+    Atomic write: ``tempfile.NamedTemporaryFile`` in the destination's
+    parent dir, write content, ``os.replace(tmp, target)``. The rename is
+    atomic on POSIX and Windows (``os.replace`` documentation guarantees
+    this). Any failure before the rename leaves the destination untouched.
 
-    Test plan (must be added by I36a):
-      - test_write_file_happy_path: roundtrips content + mtime advances.
-      - test_write_file_atomic: simulate failure mid-write, target file
-        remains old content (NEVER partial).
-      - test_write_file_self_write_suppression: install a fake watcher,
-        verify ``mark_self_write`` was called with the target path BEFORE
-        the file appeared on disk.
-      - test_write_file_413_size: 11 MB content rejected before write.
-      - test_write_file_403_traversal
-      - test_write_file_415_extension
-
-    References: ADR-036 §3.2; ``mark_self_write`` at
-    ``workflow_watcher.py:415``; existing self-write pattern in
-    ``runtime.save_workflow``.
+    Self-write suppression: BEFORE the rename, call ``mark_self_write``
+    on the workflow watcher with the destination path so the watcher's
+    debounce filter discards the immediately-following modify/move event.
+    Coordinated this way (mark, then rename) so the watcher's
+    ``(path, mtime, size)`` triple matches the freshly-renamed file.
     """
-    raise NotImplementedError("ADR-036 skeleton — implementation phase I36a fills this in")
+    from scieasy.api.routes.workflow_watcher import mark_self_write
+
+    _, target = _resolve_project_file(runtime, project_id, path)
+
+    encoded = body.content.encode("utf-8")
+    if len(encoded) > ADR036_FILE_SIZE_CAP_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=(f"Content size {len(encoded)} exceeds editor cap {ADR036_FILE_SIZE_CAP_BYTES} bytes"),
+        )
+
+    if not target.parent.exists():
+        # We do not auto-create directory trees; reject explicitly so the
+        # frontend can surface a clear error rather than silently inventing
+        # folders behind the user's back.
+        raise HTTPException(status_code=404, detail="Parent directory does not exist")
+    if target.exists() and target.is_dir():
+        raise HTTPException(status_code=400, detail="Path is a directory, not a file")
+
+    # Atomic write: tempfile in same dir + os.replace.
+    tmp_fd, tmp_path = tempfile.mkstemp(prefix=".__scieasy_write_", suffix=target.suffix, dir=str(target.parent))
+    try:
+        with os.fdopen(tmp_fd, "wb") as tmp_file:
+            tmp_file.write(encoded)
+            tmp_file.flush()
+            os.fsync(tmp_file.fileno())
+        # Mark self-write BEFORE the rename so the watcher's debounce
+        # filter sees the call land before the FS event fires. The watcher
+        # captures (path, mtime, size) lazily — calling it after writing
+        # the tmpfile but before the rename is fine because mark_self_write
+        # itself stats the destination path lazily on event match.
+        try:
+            mark_self_write(target)
+        except Exception:
+            # Self-write suppression is best-effort; failure here just
+            # means the watcher will echo a modify event the frontend
+            # then ignores via existing dedup.
+            logger.debug("mark_self_write raised", exc_info=True)
+        os.replace(tmp_path, target)
+        # Re-mark after the replace so the (path, mtime, size) triple
+        # matches the actual on-disk file the watcher will see.
+        try:
+            mark_self_write(target)
+        except Exception:
+            logger.debug("mark_self_write (post-replace) raised", exc_info=True)
+    except HTTPException:
+        # Clean up tmpfile, re-raise the HTTPException as-is.
+        try:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+    except OSError as exc:
+        # Disk full / permissions / simulated rename failures: clean up
+        # the tmpfile and surface a 500 instead of a raw traceback.
+        try:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise HTTPException(status_code=500, detail=f"write failed: {exc}") from exc
+
+    # TODO(I36c, ADR-036 §3.5): if target falls under ``<project>/blocks/``
+    # and target.suffix == ".py", trigger ``BlockRegistry.hot_reload()``
+    # gated on lint pass. Owned by Phase 2C.
+
+    try:
+        stat = target.stat()
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"post-write stat failed: {exc}") from exc
+
+    return FileWriteResponse(mtime=stat.st_mtime, size=stat.st_size)
 
 
 # ---------------------------------------------------------------------------

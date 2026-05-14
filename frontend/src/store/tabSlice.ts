@@ -1,12 +1,19 @@
 import type { StateCreator } from "zustand";
 
-import type { AppStore, TabSlice, TabState } from "./types";
+import { ApiError, api } from "../lib/api";
+import type { AppStore, FileTab, TabSlice, TabState, WorkflowTab } from "./types";
 
 /**
- * Capture the current workflow + UI state into a TabState snapshot.
+ * Capture the current workflow + UI state into a WorkflowTab snapshot.
+ *
+ * Phase 2A (I36a): only workflow tabs need their canvas state synced back
+ * from the live workflow slice. File tabs hold their own ``content`` /
+ * ``dirty`` directly on the FileTab record (no separate slice), so this
+ * helper is a no-op for them.
  */
-function captureTab(state: AppStore): TabState {
+function captureWorkflowTab(state: AppStore): WorkflowTab {
   return {
+    kind: "workflow",
     id: state.activeTabId ?? state.workflowId ?? "main",
     workflowId: state.workflowId ?? "main",
     workflowName: state.workflowName,
@@ -23,22 +30,70 @@ function captureTab(state: AppStore): TabState {
 }
 
 /**
- * Restore a tab snapshot into the main workflow + UI state fields.
+ * Sync the active tab back into the tabs array — workflow only. File tabs
+ * are stored in ``state.tabs`` directly and do not need a sync step.
+ */
+function captureActiveTab(state: AppStore, tab: TabState): TabState {
+  if (tab.kind === "workflow") {
+    return captureWorkflowTab(state);
+  }
+  return tab;
+}
+
+/**
+ * Restore a workflow tab snapshot into the live workflow slice fields.
+ *
+ * For file tabs we only update ``activeTabId`` — the canvas slice is left
+ * intact so toggling back to a workflow tab does not lose its state.
  */
 function restoreTab(tab: TabState): Partial<AppStore> {
+  if (tab.kind === "workflow") {
+    return {
+      workflowId: tab.workflowId,
+      workflowName: tab.workflowName,
+      workflowDescription: tab.workflowDescription,
+      workflowVersion: tab.workflowVersion,
+      workflowMetadata: tab.workflowMetadata,
+      workflowNodes: tab.workflowNodes,
+      workflowEdges: tab.workflowEdges,
+      workflowDirty: tab.workflowDirty,
+      workflowHistory: tab.workflowHistory,
+      workflowFuture: tab.workflowFuture,
+      selectedNodeId: tab.selectedNodeId,
+      activeTabId: tab.id,
+    };
+  }
+  return { activeTabId: tab.id };
+}
+
+/** Map a file extension to the Monaco language id used in FileTab.language. */
+function languageForPath(filePath: string): FileTab["language"] {
+  const lower = filePath.toLowerCase();
+  if (lower.endsWith(".py")) return "python";
+  if (lower.endsWith(".yaml") || lower.endsWith(".yml")) return "yaml";
+  if (lower.endsWith(".json")) return "json";
+  if (lower.endsWith(".md")) return "markdown";
+  return "text";
+}
+
+function basename(filePath: string): string {
+  const parts = filePath.replace(/\\/g, "/").split("/");
+  return parts[parts.length - 1] || filePath;
+}
+
+function fileTabIdFor(filePath: string, readOnly: boolean): string {
+  return readOnly ? `source:${filePath}` : `file:${filePath}`;
+}
+
+/**
+ * Replace the existing tab matching `id` and switch to it.
+ *
+ * Used after a file tab's content arrives from the backend and we need
+ * to replace the loading placeholder.
+ */
+function replaceTab(state: AppStore, id: string, next: TabState): Partial<AppStore> {
   return {
-    workflowId: tab.workflowId,
-    workflowName: tab.workflowName,
-    workflowDescription: tab.workflowDescription,
-    workflowVersion: tab.workflowVersion,
-    workflowMetadata: tab.workflowMetadata,
-    workflowNodes: tab.workflowNodes,
-    workflowEdges: tab.workflowEdges,
-    workflowDirty: tab.workflowDirty,
-    workflowHistory: tab.workflowHistory,
-    workflowFuture: tab.workflowFuture,
-    selectedNodeId: tab.selectedNodeId,
-    activeTabId: tab.id,
+    tabs: state.tabs.map((t) => (t.id === id ? next : t)),
   };
 }
 
@@ -58,7 +113,7 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
     // to the display name so two opens of the same blank-id file still de-dupe.
     const dedupeKey = workflow.id || displayName || "";
     const existing = dedupeKey
-      ? state.tabs.find((t) => t.workflowId === dedupeKey)
+      ? state.tabs.find((t) => t.kind === "workflow" && t.workflowId === dedupeKey)
       : undefined;
     if (existing) {
       // Switch to it instead of opening a duplicate
@@ -73,15 +128,17 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
     }
 
     // Save current tab state before switching
-    const updatedTabs = state.activeTabId
-      ? state.tabs.map((t) => (t.id === state.activeTabId ? captureTab(state) : t))
+    const currentActive = state.tabs.find((t) => t.id === state.activeTabId) ?? null;
+    const updatedTabs = currentActive
+      ? state.tabs.map((t) => (t.id === state.activeTabId ? captureActiveTab(state, t) : t))
       : [...state.tabs];
 
     // Create new tab. Use the effective name as the workflowId fallback so
     // downstream API calls (save/run) have something to address.
     const idForTab = workflow.id || displayName || "main";
     const tabId = `tab-${idForTab}-${Date.now()}`;
-    const newTab: TabState = {
+    const newTab: WorkflowTab = {
+      kind: "workflow",
       id: tabId,
       workflowId: idForTab,
       workflowName: effectiveName,
@@ -110,8 +167,9 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
     if (!target) return;
 
     // Save current tab state
-    const updatedTabs = state.activeTabId
-      ? state.tabs.map((t) => (t.id === state.activeTabId ? captureTab(state) : t))
+    const currentActive = state.tabs.find((t) => t.id === state.activeTabId) ?? null;
+    const updatedTabs = currentActive
+      ? state.tabs.map((t) => (t.id === state.activeTabId ? captureActiveTab(state, t) : t))
       : state.tabs;
 
     set({
@@ -126,11 +184,19 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
     if (!tab) return true;
 
     // If this is the active tab, check for the latest dirty state
-    const isDirty = tabId === state.activeTabId ? state.workflowDirty : tab.workflowDirty;
+    let isDirty: boolean;
+    let displayLabel: string;
+    if (tab.kind === "workflow") {
+      isDirty = tabId === state.activeTabId ? state.workflowDirty : tab.workflowDirty;
+      displayLabel = tab.workflowName;
+    } else {
+      isDirty = tab.dirty;
+      displayLabel = tab.displayName;
+    }
 
     if (isDirty) {
       const confirmed = window.confirm(
-        `"${tab.workflowName}" has unsaved changes. Close anyway?`,
+        `"${displayLabel}" has unsaved changes. Close anyway?`,
       );
       if (!confirmed) return false;
     }
@@ -176,7 +242,7 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
     if (!state.activeTabId) return;
     set({
       tabs: state.tabs.map((t) =>
-        t.id === state.activeTabId ? captureTab(state) : t,
+        t.id === state.activeTabId ? captureActiveTab(state, t) : t,
       ),
     });
   },
@@ -184,40 +250,149 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
   /**
    * ADR-036 §3.10 — open (or focus) a file editor tab.
    *
-   * SKELETON (S36): throws. See ``TabSlice.openFileTab`` docstring in
-   * ``types.ts`` for the implementation plan and test plan that
-   * Phase 2A (I36a) must execute.
+   * Dedup key:
+   *   readOnly=true  → "source:<filePath>"
+   *   readOnly=false → "file:<filePath>"
+   *
+   * If a tab with that id is already open, switch to it. Otherwise insert
+   * a placeholder FileTab in ``loading: true`` state immediately (so the
+   * UI can render the tab strip without waiting on the network), then
+   * fetch via GET /api/projects/{id}/file and replace the placeholder
+   * with the resolved content on success.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  openFileTab: (_filePath: string, _opts?: { readOnly?: boolean }) => {
-    throw new Error(
-      "ADR-036 skeleton — openFileTab not implemented (see TabSlice.openFileTab docstring)",
-    );
+  openFileTab: (filePath, opts) => {
+    const state = get();
+    const readOnly = Boolean(opts?.readOnly);
+    const id = fileTabIdFor(filePath, readOnly);
+
+    const existing = state.tabs.find((t) => t.id === id);
+    if (existing) {
+      state.switchTab(id);
+      return;
+    }
+
+    if (state.tabs.length >= 50) {
+      window.alert("Maximum 50 tabs reached.");
+      return;
+    }
+
+    const project = state.currentProject;
+    if (!project) {
+      window.alert("Open a project before opening files.");
+      return;
+    }
+
+    const language = languageForPath(filePath);
+    const display = basename(filePath) + (readOnly ? " (source)" : "");
+    const placeholder: FileTab = {
+      kind: "file",
+      id,
+      filePath,
+      displayName: display,
+      language,
+      content: "",
+      contentLoadedAt: 0,
+      dirty: false,
+      readOnly,
+      loading: true,
+    };
+
+    // Save the currently-active tab snapshot, then append the placeholder
+    // and switch to it.
+    const currentActive = state.tabs.find((t) => t.id === state.activeTabId) ?? null;
+    const updatedTabs = currentActive
+      ? state.tabs.map((t) => (t.id === state.activeTabId ? captureActiveTab(state, t) : t))
+      : [...state.tabs];
+
+    set({
+      tabs: [...updatedTabs, placeholder],
+      activeTabId: id,
+    });
+
+    // Fire the GET in the background; once it resolves, replace the
+    // placeholder with a populated FileTab. Keep the loading-state UI
+    // resilient to errors so the user can close the tab on failure.
+    api
+      .getProjectFile(project.id, filePath)
+      .then((response) => {
+        const populated: FileTab = {
+          ...placeholder,
+          content: response.content,
+          contentLoadedAt: response.mtime,
+          loading: false,
+        };
+        const after = get();
+        // Only replace if the tab still exists (user may have closed it).
+        if (!after.tabs.find((t) => t.id === id)) return;
+        set(replaceTab(after, id, populated));
+      })
+      .catch((err) => {
+        const message = err instanceof ApiError ? err.message : String(err);
+        window.alert(`Failed to open ${filePath}: ${message}`);
+        // Drop the placeholder so the user is not left with a broken tab.
+        const after = get();
+        const remaining = after.tabs.filter((t) => t.id !== id);
+        const fallback = remaining[remaining.length - 1] ?? null;
+        if (fallback) {
+          set({ tabs: remaining, ...restoreTab(fallback) });
+        } else {
+          set({ tabs: remaining, activeTabId: null });
+        }
+      });
   },
 
   /**
-   * ADR-036 §3.10 — save a file tab to disk via PUT /api/projects/{id}/file.
+   * ADR-036 §3.10 — save a file tab to disk.
    *
-   * SKELETON (S36): throws. See ``TabSlice.saveFileTab`` docstring in
-   * ``types.ts`` for the implementation plan.
+   * Read-only tabs are a no-op (source views must not be saved). On
+   * success, ``dirty`` clears and ``contentLoadedAt`` advances to the
+   * server's new mtime.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  saveFileTab: async (_id: string) => {
-    throw new Error(
-      "ADR-036 skeleton — saveFileTab not implemented (see TabSlice.saveFileTab docstring)",
-    );
+  saveFileTab: async (id) => {
+    const state = get();
+    const tab = state.tabs.find((t) => t.id === id);
+    if (!tab || tab.kind !== "file") return;
+    if (tab.readOnly) return;
+
+    const project = state.currentProject;
+    if (!project) return;
+
+    try {
+      const response = await api.putProjectFile(project.id, tab.filePath, tab.content);
+      const after = get();
+      const next: FileTab = {
+        ...tab,
+        dirty: false,
+        contentLoadedAt: response.mtime,
+      };
+      set(replaceTab(after, id, next));
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : String(err);
+      window.alert(`Failed to save ${tab.filePath}: ${message}`);
+      // Leave dirty=true so the user can retry.
+    }
   },
 
   /**
    * ADR-036 §3.10 — update a file tab's in-memory content + dirty flag.
    *
-   * SKELETON (S36): throws. See ``TabSlice.updateFileTabContent`` docstring
-   * in ``types.ts`` for the implementation plan.
+   * Read-only tabs ignore updates so accidental edits to a source view
+   * don't silently mark it dirty. The CodeEditor in Phase 2B (I36b)
+   * already passes ``readOnly`` into Monaco so this branch should only
+   * fire if a future caller bypasses the editor.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  updateFileTabContent: (_id: string, _content: string) => {
-    throw new Error(
-      "ADR-036 skeleton — updateFileTabContent not implemented (see TabSlice.updateFileTabContent docstring)",
-    );
+  updateFileTabContent: (id, content) => {
+    const state = get();
+    const tab = state.tabs.find((t) => t.id === id);
+    if (!tab || tab.kind !== "file") return;
+    if (tab.readOnly) return;
+    if (tab.content === content) return;
+
+    const next: FileTab = {
+      ...tab,
+      content,
+      dirty: true,
+    };
+    set({ tabs: state.tabs.map((t) => (t.id === id ? next : t)) });
   },
 });

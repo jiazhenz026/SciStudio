@@ -167,34 +167,21 @@ export interface TerminalTabsSlice {
 /**
  * Per-tab snapshot of workflow + UI state.
  *
- * ADR-036 §3.10: a tab can hold either a workflow (canvas) or a file
- * (Monaco editor). The legacy single-shape ``TabState`` is preserved
- * here as ``WorkflowTab`` for backward compatibility — every existing
- * consumer keeps working as long as it (eventually) type-guards on
- * ``tab.kind === "workflow"``. The Phase 2A implementation agent (I36a)
- * does that consumer migration; the skeleton phase (S36) only adds the
- * type definitions.
+ * ADR-036 §3.10 (Phase 2A — I36a migration complete): ``TabState`` is now
+ * the discriminated union ``WorkflowTab | FileTab`` and ``kind`` is a
+ * required literal on each variant. All consumers (App.tsx, TabBar.tsx,
+ * captureTab/restoreTab, useWebSocket.ts) type-guard on ``tab.kind ===
+ * "workflow"`` before reading the workflow-specific fields.
  *
- * For now, ``TabState`` is aliased to ``WorkflowTab`` so existing
- * `tab.workflowId` / `tab.workflowName` reads in App.tsx + tabSlice.ts
- * keep type-checking. Once the migration lands, ``TabState`` flips to
- * the discriminated union ``WorkflowTab | FileTab`` and the type
- * checker enumerates every site that needs a ``kind`` guard.
+ * Loading state: file tabs that are still being fetched (e.g. on
+ * rehydrate after a reload) carry ``loading: true`` until the GET
+ * resolves. The CodeEditor component (Phase 2B, I36b) renders a
+ * placeholder while ``loading`` is set.
  */
 
-/** ADR-036 §3.10 — workflow (canvas) tab.
- *
- * SKELETON NOTE (S36): the ``kind`` discriminator is currently OPTIONAL so
- * existing tabSlice.ts call sites that build ``TabState`` without ``kind``
- * keep type-checking. Phase 2A (I36a) will:
- *   1. Add ``kind: "workflow"`` literally everywhere a tab is constructed.
- *   2. Flip this field to required (``kind: "workflow"`` not ``kind?:``).
- *   3. Flip ``TabState`` from alias-of-WorkflowTab to ``WorkflowTab | FileTab``.
- *   4. Let the TS exhaustiveness checker surface every read site that needs
- *      a ``tab.kind === "workflow"`` guard.
- */
+/** ADR-036 §3.10 — workflow (canvas) tab. */
 export interface WorkflowTab {
-  kind?: "workflow";
+  kind: "workflow";
   id: string;
   workflowId: string;
   workflowName: string;
@@ -231,24 +218,25 @@ export interface FileTab {
   contentLoadedAt: number;
   dirty: boolean;
   readOnly: boolean;
+  /**
+   * ADR-036 §3.11: true while a rehydrated file tab is being re-fetched
+   * from the backend. The CodeEditor (Phase 2B) renders a placeholder
+   * while loading; once the GET resolves, ``loading`` flips to false and
+   * ``content`` is populated.
+   */
+  loading?: boolean;
 }
 
 /**
  * ADR-036 §3.10 — discriminated union of all tab kinds.
  *
- * SKELETON NOTE (S36): aliased to ``WorkflowTab`` for now to preserve
- * backward compatibility with un-migrated consumers. Phase 2A (I36a)
- * flips this to ``WorkflowTab | FileTab`` AFTER all consumer reads
- * have been guarded with ``if (tab.kind === "workflow")``.
+ * Phase 2A (I36a) migration: ``TabState`` is now ``WorkflowTab | FileTab``.
+ * ``AnyTab`` is retained as an alias for backward compatibility with any
+ * code that imported it during the transition; new code should use
+ * ``TabState`` directly.
  */
-export type TabState = WorkflowTab;
-
-/**
- * ADR-036 §3.10 — strict union form, available for new code that wants
- * to handle both kinds today. Once Phase 2A migration completes, the
- * ``TabState`` alias above becomes ``AnyTab`` and ``AnyTab`` goes away.
- */
-export type AnyTab = WorkflowTab | FileTab;
+export type TabState = WorkflowTab | FileTab;
+export type AnyTab = TabState;
 
 export interface TabSlice {
   /** All open tabs (order = display order). */
