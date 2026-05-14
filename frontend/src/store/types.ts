@@ -90,10 +90,19 @@ export interface UISlice {
   unreadLogsCount: number;
   /** #793: count of error events seen since the user last visited the Problems tab. */
   unreadProblemsCount: number;
+  /**
+   * ADR-034: monotonically increased whenever the file-system watcher
+   * reports a project-tree-relevant change. ``ProjectTree`` subscribes to
+   * this counter so external edits (e.g. ``write_workflow`` from the
+   * embedded agent) trigger an auto-refresh without the user clicking
+   * the Refresh button.
+   */
+  projectTreeRefreshCounter: number;
   setSelectedNodeId: (nodeId: string | null) => void;
   setActiveBottomTab: (tab: BottomTab) => void;
   bumpUnreadLogs: () => void;
   bumpUnreadProblems: () => void;
+  bumpProjectTreeRefresh: () => void;
   togglePalette: () => void;
   togglePreview: () => void;
   toggleBottomPanel: () => void;

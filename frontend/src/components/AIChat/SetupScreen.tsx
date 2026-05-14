@@ -193,11 +193,11 @@ export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
             className="mt-1"
           />
           <span>
-            <span className="font-medium">Safe</span> — default; the CLI prompts
+            <span className="font-medium">Ask</span> — default; the CLI prompts
             for tool use (Shift+Tab / /permissions).
           </span>
         </label>
-        <label className="flex items-start gap-2 rounded-2xl border border-red-200 px-3 py-2 text-sm text-red-700 hover:bg-red-50">
+        <label className="flex items-start gap-2 rounded-2xl border border-stone-300 px-3 py-2 text-sm text-ink hover:bg-stone-50">
           <input
             type="radio"
             name={`setup-permission-${tabId}`}
@@ -208,7 +208,7 @@ export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
             className="mt-1"
           />
           <span>
-            <span className="font-medium">Dangerous</span> — skips all approvals
+            <span className="font-medium">Bypass</span> — skips all approvals
             (--dangerously-skip-permissions / --dangerously-bypass-approvals-and-sandbox).
             <span className="block text-xs">
               Use only in ephemeral sandboxes. Cannot be toggled mid-session.

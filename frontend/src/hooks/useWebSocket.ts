@@ -68,6 +68,30 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
           (payload.data.workflow_id as string | undefined) ??
           null;
         const kind = (payload.data.kind as string | undefined) ?? "modified";
+        // Any workflow YAML touch on disk is also a project-tree change,
+        // so kick the ProjectTree's auto-refresh signal. The actual file
+        // tree refetch happens in ProjectTree's useEffect subscribed to
+        // ``projectTreeRefreshCounter``.
+        useAppStore.getState().bumpProjectTreeRefresh();
+        // ADR-034: agent-driven ``write_workflow`` (kind=created) for a
+        // workflow that isn't already open as a tab — auto-open it so
+        // the user can see what claude/codex just produced without
+        // having to navigate the file tree manually.
+        if (
+          changedId &&
+          kind === "created" &&
+          !useAppStore.getState().tabs.some((t) => t.workflowId === changedId)
+        ) {
+          api
+            .getWorkflow(changedId)
+            .then((fresh) => {
+              useAppStore.getState().openTab(fresh, changedId);
+            })
+            .catch(() => {
+              // best-effort; user can still open it via the file tree
+            });
+          return;
+        }
         const currentId = useAppStore.getState().workflowId;
         if (changedId && changedId === currentId) {
           if (kind === "deleted" || kind === "moved") {

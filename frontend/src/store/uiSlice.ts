@@ -19,6 +19,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   // arrives while the matching tab is hidden; cleared when the user opens it.
   unreadLogsCount: 0,
   unreadProblemsCount: 0,
+  projectTreeRefreshCounter: 0,
   setSelectedNodeId: (nodeId) => set({ selectedNodeId: nodeId }),
   setActiveBottomTab: (tab) => {
     // Clear the unread counter for whichever tab the user just opened.
@@ -36,6 +37,8 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
     if (get().activeBottomTab === "problems") return;
     set((state) => ({ unreadProblemsCount: state.unreadProblemsCount + 1 }));
   },
+  bumpProjectTreeRefresh: () =>
+    set((state) => ({ projectTreeRefreshCounter: state.projectTreeRefreshCounter + 1 })),
   togglePalette: () => set((state) => ({ paletteCollapsed: !state.paletteCollapsed })),
   togglePreview: () => set((state) => ({ previewCollapsed: !state.previewCollapsed })),
   toggleBottomPanel: () => set((state) => ({ bottomPanelCollapsed: !state.bottomPanelCollapsed })),
