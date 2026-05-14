@@ -1,8 +1,8 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import type { BlockSchemaResponse, ChatMessage, LogEntry, WorkflowNode } from "../types/api";
+import type { BlockSchemaResponse, LogEntry, WorkflowNode } from "../types/api";
 import type { BottomTab } from "../types/ui";
-import { AIChat } from "./AIChat";
+import { TerminalTabs } from "./AIChat/TerminalTabs";
 import { type PortRow, PortEditorTable } from "./PortEditorTable";
 
 interface BottomPanelProps {
@@ -10,19 +10,12 @@ interface BottomPanelProps {
   selectedNode: WorkflowNode | null;
   selectedSchema?: BlockSchemaResponse;
   blockErrors: Record<string, string>;
-  chatMessages: ChatMessage[];
   logEntries: LogEntry[];
-  aiLoading: boolean;
-  aiError: string | null;
   onTabChange: (tab: BottomTab) => void;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
-  onSendChat: (message: string) => void;
-  onApplyWorkflow?: (workflow: Record<string, unknown>) => void;
   // ADR-034 Phase 0: App.tsx pipes unread counters here for the Logs and
-  // Problems tab badges. The badge-driving logic in App was reverted by
-  // PR #808 so these arrive as 0 today; the props exist purely to keep
-  // the type check green until Phase 1 wires the new UI. Default to 0
-  // when undefined; render the badge only when > 0.
+  // Problems tab badges. Default to 0 when undefined; render the badge
+  // only when > 0.
   unreadLogsCount?: number;
   unreadProblemsCount?: number;
 }
@@ -303,14 +296,9 @@ export function BottomPanel({
   selectedNode,
   selectedSchema,
   blockErrors,
-  chatMessages,
   logEntries,
-  aiLoading,
-  aiError,
   onTabChange,
   onUpdateConfig,
-  onSendChat,
-  onApplyWorkflow,
   unreadLogsCount = 0,
   unreadProblemsCount = 0,
 }: BottomPanelProps) {
@@ -352,13 +340,7 @@ export function BottomPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 scrollbar-thin">
         <div className="h-full rounded-[1.8rem] border border-stone-200 bg-white/80 p-4">
           {activeTab === "ai" ? (
-            <AIChat
-              error={aiError}
-              isLoading={aiLoading}
-              messages={chatMessages}
-              onApplyWorkflow={onApplyWorkflow}
-              onSendChat={onSendChat}
-            />
+            <TerminalTabs />
           ) : activeTab === "config" ? (
             <ConfigPanel onUpdateConfig={onUpdateConfig} schema={selectedSchema} selectedNode={selectedNode} />
           ) : activeTab === "logs" ? (
