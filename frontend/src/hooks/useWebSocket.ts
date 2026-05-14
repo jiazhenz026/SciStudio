@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
+import {
+  handleBlockPtyClosed,
+  handleBlockPtyOpened,
+} from "../components/AIChat/blockPtyHandlers";
 import { api } from "../lib/api";
 import type { WorkflowEventMessage } from "../types/api";
 import { useAppStore } from "../store";
@@ -151,13 +155,80 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
       //
       // References: ADR-035 §3.10, §6.1
       if (payload.type === "block_pty_opened") {
-        // SKELETON: I35c will dispatch to handleBlockPtyOpened.
-        // See comment block above.
+        try {
+          // The wire payload may live at the top level OR nested under `data`,
+          // depending on which engine path emitted it. Tolerate both.
+          const src = (payload.data ?? {}) as Record<string, unknown>;
+          handleBlockPtyOpened({
+            tab_id:
+              ((payload as unknown as Record<string, unknown>).tab_id as string) ??
+              (src.tab_id as string),
+            block_run_id:
+              ((payload as unknown as Record<string, unknown>).block_run_id as string) ??
+              (src.block_run_id as string) ??
+              (payload.block_id ?? ""),
+            block_name: src.block_name as string | undefined,
+            title:
+              ((payload as unknown as Record<string, unknown>).title as string) ??
+              (src.title as string | undefined),
+            status: src.status as
+              | "running"
+              | "paused"
+              | "done"
+              | "error"
+              | "cancelled"
+              | undefined,
+            permission_mode: src.permission_mode as
+              | "safe"
+              | "bypass"
+              | "dangerous"
+              | undefined,
+          });
+          appendLog({
+            timestamp: payload.timestamp,
+            level: "info",
+            message: `[AI Block] tab opened: ${
+              (src.block_name as string) ??
+              ((payload as unknown as Record<string, unknown>).title as string) ??
+              "AI Block"
+            }`,
+            workflow_id: payload.workflow_id ?? null,
+            block_id: payload.block_id ?? null,
+          });
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn("[block_pty_opened] dispatch failed:", err, payload);
+        }
         return;
       }
       if (payload.type === "block_pty_closed") {
-        // SKELETON: I35c will dispatch to handleBlockPtyClosed.
-        // See comment block above.
+        try {
+          const src = (payload.data ?? {}) as Record<string, unknown>;
+          handleBlockPtyClosed({
+            tab_id:
+              ((payload as unknown as Record<string, unknown>).tab_id as string) ??
+              (src.tab_id as string),
+            block_run_id:
+              ((payload as unknown as Record<string, unknown>).block_run_id as string) ??
+              (src.block_run_id as string) ??
+              (payload.block_id ?? undefined),
+            status: src.status as "done" | "error" | "cancelled" | undefined,
+            result: src.result as "completed" | "cancelled" | "error" | undefined,
+            detail: src.detail as Record<string, unknown> | undefined,
+          });
+          const label =
+            (src.status as string) ?? (src.result as string) ?? "closed";
+          appendLog({
+            timestamp: payload.timestamp,
+            level: label === "error" ? "error" : "info",
+            message: `[AI Block] tab ${label}`,
+            workflow_id: payload.workflow_id ?? null,
+            block_id: payload.block_id ?? null,
+          });
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn("[block_pty_closed] dispatch failed:", err, payload);
+        }
         return;
       }
 
