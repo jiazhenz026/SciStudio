@@ -226,11 +226,12 @@ def _render_codex_block(project_dir: Path | None) -> str:
     writes — see :func:`scieasy.cli.install._verify_codex_format` in
     the tests for the round-trip check.
     """
-    command = _scieasy_command_for_env()
+    command, prefix_args = _scieasy_command_for_env()
+    args_literal = json.dumps([*prefix_args, "mcp-bridge"])
     lines = [
         f"[mcp_servers.{MCP_SERVER_NAME}]",
         f"command = {_format_toml_string(command)}",
-        'args = ["mcp-bridge"]',
+        f"args = {args_literal}",
     ]
     if project_dir is not None:
         lines.append("")

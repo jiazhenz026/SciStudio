@@ -124,8 +124,9 @@ def test_run_standalone_mode_returns_tools_list(tmp_path: Path, monkeypatch: pyt
     Verifies:
 
     * Bridge exits 0 (clean EOF).
-    * Stdout contains a JSON-RPC response with ``result.tools`` of 25
-      entries — the registered tool count.
+    * Stdout contains a JSON-RPC response with ``result.tools`` of 26
+      entries — the registered tool count (25 pre-ADR-035 +
+      ``finish_ai_block`` added by PR #861 / ADR-035 §3.5 path a).
     """
     project = _make_project(tmp_path)
     request = {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
@@ -142,7 +143,7 @@ def test_run_standalone_mode_returns_tools_list(tmp_path: Path, monkeypatch: pyt
     assert response.get("id") == 1
     tools = response.get("result", {}).get("tools")
     assert isinstance(tools, list), response
-    assert len(tools) == 25, f"expected 25 tools, got {len(tools)}"
+    assert len(tools) == 26, f"expected 26 tools (25 + finish_ai_block), got {len(tools)}"
 
 
 # ----------------------------------------------------------------------
@@ -209,7 +210,7 @@ def test_run_attached_mode_proxies_to_backend(tmp_path: Path, monkeypatch: pytes
         response = json.loads(lines[0].decode("utf-8"))
         assert response.get("id") == 99
         tools = response.get("result", {}).get("tools")
-        assert isinstance(tools, list) and len(tools) == 25
+        assert isinstance(tools, list) and len(tools) == 26  # ADR-035: +finish_ai_block
     finally:
         _shutdown.set()
         if server_thread is not None:

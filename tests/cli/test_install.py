@@ -54,7 +54,10 @@ def test_install_claude_user_idempotent(fake_home: Path, fake_cwd: Path) -> None
     cfg = json.loads((fake_home / ".claude.json").read_text(encoding="utf-8"))
     assert MCP_SERVER_NAME in cfg["mcpServers"]
     entry = cfg["mcpServers"][MCP_SERVER_NAME]
-    assert entry["args"] == ["mcp-bridge"]
+    # Hotfix #880: args now prepend ["-m", "scieasy"] so the bridge always
+    # invokes the same scieasy install as the engine (avoids stale-PATH bug).
+    assert entry["args"][-1] == "mcp-bridge"
+    assert "scieasy" in entry["args"]
     assert "command" in entry
 
 
@@ -108,7 +111,11 @@ def test_install_codex_idempotent(fake_home: Path, fake_cwd: Path) -> None:
 
     toml_text = (fake_home / ".codex" / "config.toml").read_text(encoding="utf-8")
     assert f"[mcp_servers.{MCP_SERVER_NAME}]" in toml_text
-    assert 'args = ["mcp-bridge"]' in toml_text
+    # Hotfix #880: args now prepend ["-m", "scieasy"] so the bridge always
+    # runs from the same interpreter as the engine instead of relying on PATH.
+    assert '"mcp-bridge"' in toml_text
+    assert '"-m"' in toml_text
+    assert '"scieasy"' in toml_text
 
 
 def test_install_codex_preserves_other_keys(fake_home: Path, fake_cwd: Path) -> None:
