@@ -86,9 +86,8 @@ def test_notify_swallows_ipc_failure() -> None:
 def test_notify_unknown_event_raises_value_error() -> None:
     """Type checker catches this; runtime defense raises ValueError.
 
-    This one CAN pass at skeleton time if the implementation defends
-    early. We mark it xfail until then.
+    Implementation (I35b, PR for #846) defends early. Skeleton imported
+    cleanly; the impl now raises ValueError for unknown event literals.
     """
-    with pytest.raises(NotImplementedError):
-        # Skeleton just checks the function imports cleanly.
-        notify_block_pty_event("rid", "completed")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="unknown event"):
+        notify_block_pty_event("rid", "bogus_event")  # type: ignore[arg-type]
