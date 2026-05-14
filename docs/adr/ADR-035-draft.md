@@ -1,0 +1,414 @@
+## ADR-035: AI Block as a PTY-tab variant of AppBlock (supersedes original AI Block design)
+
+**Status**: draft — proposed
+**Date**: 2026-05-13
+**Related**: ADR-004 (five block categories), ADR-006 (AppBlock file-exchange bridge), ADR-017 (subprocess isolation), ADR-018 (block cancellation + skip semantics), ADR-029 (variadic ports), ADR-031 (reference-only data contract), ADR-033 (embedded coding agent, partially superseded by ADR-034), ADR-034 (PTY + xterm.js terminal)
+**Supersedes**: the original single-call-LLM AI Block design in `src/scieasy/blocks/ai/ai_block.py`
+
+---
+
+### 1. Purpose
+
+Refactor `AIBlock` from a one-shot Messages-API call into a **workflow-graph node that spawns an interactive agent in an ADR-034 PTY tab**, using the same file-exchange protocol as `AppBlock`. The agent is told what inputs it has, what outputs the downstream workflow expects, runs autonomously (with user-visible TUI), and signals completion. The block then validates outputs, wraps them as typed `DataObject`s, and resumes the workflow.
+
+The driving intuition: an AI Block is structurally an `AppBlock` where the "app" happens to be claude/codex, and the "macro" is a natural-language prompt.
+
+---
+
+### 2. Context
+
+#### 2.1 What current AIBlock does
+
+`src/scieasy/blocks/ai/ai_block.py` is a `ProcessBlock` that calls `anthropic.Messages.create(...)` (or OpenAI equivalent) once per `process_item`, takes the response text, and returns it. It cannot:
+
+- chain multiple turns
+- call tools
+- read user files
+- write multiple typed outputs
+- be paused / resumed
+- expose its reasoning to the user
+
+This was acceptable when AI features were imagined as "summarise this text" widgets. It is not acceptable for the workflows ADR-034 enables: "look at these 200 `.czi` files, extract acquisition metadata from filenames + headers, build a manifest DataFrame for the downstream segmentation block."
+
+#### 2.2 Why piggy-back on ADR-034
+
+ADR-034 already delivers:
+
+- per-tab PTY allocation (`pywinpty` / `pty.openpty`)
+- `WS /api/ai/pty/{tab_id}` raw-byte transport
+- xterm.js terminal embed with full TUI fidelity
+- claude/codex spawn argv builder + binary discovery (`scieasy.ai.agent.claude_code.discover`)
+- 25 MCP tools + SKILL.md system prompt + `scieasy install`
+- session continuation via `claude --continue`
+
+An AI Block run is "one more tab" from the infrastructure's point of view. Building a separate agent runtime for the workflow path would duplicate every line of ADR-034.
+
+#### 2.3 Why not use `claude -p` headless mode
+
+Tempting: a workflow-graph node "should" run headless. But:
+
+- ADR-034 §2.2 documents the Anthropic billing exposure of `-p`: separate monthly Agent SDK credit, distinct from interactive Pro/Max usage. A typical multi-AI-Block workflow exhausts Pro's $20 cap in a single run.
+- Users running data processing want **visibility**: seeing the agent reason, intervening when it goes wrong, and reading the transcript afterwards. Hiding it behind a spinner is a worse UX.
+
+Decision: **AI Blocks always spawn a visible PTY tab**, never `-p`. This is non-negotiable in this ADR.
+
+---
+
+### 3. Decision
+
+#### 3.1 Block category mapping
+
+`AIBlock` becomes a subclass of `Block` with `execution_mode = ExecutionMode.EXTERNAL` (same as `AppBlock`). It is **not** a `ProcessBlock` — there is no per-item iteration; the entire Collection is presented to the agent at once.
+
+```python
+class AIBlock(Block):
+    execution_mode: ClassVar[ExecutionMode] = ExecutionMode.EXTERNAL
+    variadic_inputs:  ClassVar[bool] = True
+    variadic_outputs: ClassVar[bool] = True
+    allowed_input_types:  ClassVar[list[type]] = [DataObject]   # anything
+    allowed_output_types: ClassVar[list[type]] = [DataObject]
+    terminate_grace_sec:  ClassVar[float] = 10.0
+```
+
+Variadic ports reuse ADR-029 verbatim. Type allowlists are deliberately permissive — the agent can in principle produce any `DataObject` subtype.
+
+#### 3.2 Runtime topology
+
+```
+Engine process
+  └─ Scheduler decides AIBlock is ready
+       └─ Spawns block worker subprocess (ADR-017)
+            └─ AIBlock.run() in worker:
+                 1. Writes manifest.json + records its path under
+                    {project}/.scieasy/ai-block-runs/{run_id}/manifest.json
+                    (coordination dir for lineage — NOT a sandbox boundary)
+                 2. Sends control event to engine: request_pty_tab(spec=...)
+                 3. Engine calls existing PTY tab API → returns tab_id
+                 4. Engine spawns claude/codex via existing PTY route, with
+                    EXACTLY the same argv shape as an ADR-034 user-launched tab:
+                       --append-system-prompt   <SKILL.md + MCP catalog>
+                       --mcp-config             <project .mcp.json>
+                       --permission-mode        <per-block config; see §3.7>
+                       cwd                      <project_dir>
+                       initial stdin            <user prompt + manifest path>
+                    No --add-dir restriction, no chroot, no path filter.
+                    The agent has the same filesystem reach as ADR-034.
+                 5. Frontend opens new tab automatically (title = block name)
+                 6. Worker enters PAUSED, watches:
+                       - MCP call: finish_ai_block(outputs={...})
+                       - FileWatcher on declared output paths
+                       - User clicks "Mark done" in tab toolbar
+                       - User closes tab → CANCELLED
+                       - Workflow cancel → terminate process tree
+                 7. On completion signal: validate outputs, wrap as
+                    typed DataObjects via IOBlock loaders, return.
+                 8. Tab stays open (not read-only) — user can keep chatting.
+```
+
+**No sandboxing.** The agent runs with the project directory as cwd and full filesystem access — identical to ADR-034. Users are responsible for what they ask the agent to do. The `.scieasy/ai-block-runs/{run_id}/` directory exists only to hold the manifest, transcript copy, and lineage metadata; the agent is free to read and write anywhere else the user has access.
+
+Step 2 (worker → engine control event) is the only new transport. See §3.10.
+
+#### 3.3 Block-level UI: Setup screen embedded in block config
+
+The block config panel mirrors ADR-034's per-tab Setup screen, but the choices are stored in `block.config` (not localStorage) so they survive workflow save/load and become part of lineage:
+
+```
+┌─ AI Block: extract_metadata ─────────────────┐
+│ Provider:    ( ) Claude Code                 │
+│              ( ) Codex                       │
+│                                              │
+│ Permission:  (•) Safe   [default]            │
+│              ( ) Dangerous (skip prompts)    │
+│                                              │
+│ User prompt: [ multiline textbox ]           │
+│                                              │
+│ Input ports  [+]                             │
+│   • files     : Artifact                     │
+│   • template  : Text                         │
+│                                              │
+│ Output ports [+]                             │
+│   • metadata  : DataFrame                    │
+│       expected_path: outputs/metadata.csv    │
+│                                              │
+│ Timeout:    [ 1800 ] seconds                 │
+└──────────────────────────────────────────────┘
+```
+
+Default permission is **Safe** (not bypass). When the agent hits a tool call that needs approval, the user answers directly in the tab — same UX as ADR-034 interactive mode. There is no SciEasy-side modal.
+
+Per-port `expected_path` is the contract the file-watcher uses (§3.5). Relative paths resolve against the project directory (the agent's cwd), not against any internal scratch area. Users can point output paths anywhere — `./results/metadata.csv`, `/tmp/foo.csv`, `~/Desktop/out.csv` — and the watcher follows.
+
+#### 3.4 Input manifest
+
+The worker writes a single `manifest.json` to `{project}/.scieasy/ai-block-runs/{run_id}/manifest.json` before spawning the agent. The system prompt inlines this file's path; agents are instructed to read it first. **Input file paths are recorded verbatim** — whatever absolute or project-relative path the upstream Collection holds is what the agent sees. No symlinking, mounting, copying, or per-port directory rewriting.
+
+```json
+{
+  "block": {
+    "name": "extract_metadata",
+    "type": "AIBlock",
+    "run_id": "20260513-220045-extract_metadata-abc1234"
+  },
+  "user_prompt": "Extract acquisition date and condition from each .czi filename. Output a CSV at ./results/metadata.csv with columns: filename, date, condition.",
+  "inputs": {
+    "files": [
+      {
+        "path": "/Users/alice/data/sample_2026-04-01_ctrl.czi",
+        "type_chain": ["Artifact", "DataObject"],
+        "meta": {"mime_type": "application/octet-stream"}
+      },
+      ...
+    ]
+  },
+  "outputs": {
+    "metadata": {
+      "expected_path": "./results/metadata.csv",
+      "expected_type": "DataFrame",
+      "type_chain": ["DataFrame", "DataObject"],
+      "description": "Filename → metadata mapping"
+    }
+  },
+  "completion": {
+    "primary":   "Call mcp__scieasy__finish_ai_block(...) when all outputs are written.",
+    "fallback":  "Or write all expected_path files; the watcher will detect them.",
+    "deadline":  "2026-05-13T22:30:45Z"
+  }
+}
+```
+
+The user is responsible for declaring `expected_path` on each output port (defaults to `./{block_name}_outputs/{port}.{ext}` resolved against the project dir, but any path the user can write to is valid).
+
+#### 3.5 Completion signaling — three paths, all supported
+
+| Signal | Trigger | Decision |
+|---|---|---|
+| **(a) MCP tool** | Agent calls `mcp__scieasy__finish_ai_block(outputs={"metadata": "outputs/metadata.csv", ...})` | Primary path. Agent explicitly declares done + output paths. Worker transitions PAUSED → RUNNING → validation → DONE. |
+| **(b) File watcher** | All declared `expected_path` files exist and have been size-stable for 2s | Fallback. Covers agents that forget to call `finish_ai_block` or for non-MCP-aware clients. |
+| **(c) User button** | User clicks "Mark done" in the AI Block tab header | Escape hatch when the agent is confused but the user knows the outputs are good. |
+
+(a) is the only path with explicit output naming. (b) and (c) read from `expected_path` only.
+
+The new MCP tool `finish_ai_block` is added to `scieasy.ai.agent.mcp.tools_workflow` and registered like the other 25. It is a no-op outside an AI Block context (returns error envelope with `not_in_ai_block_context`).
+
+#### 3.6 Output validation and wrapping
+
+For each declared output port:
+
+1. Resolve final path (from `finish_ai_block` args or `expected_path`).
+2. Check file exists, size > 0, readable.
+3. Dispatch to the IOBlock loader registered for `expected_type` (CSV → `LoadDataFrame`, TIFF → `LoadImage`, etc.). Reuse the existing IOBlock plugin registry — do not reinvent type-specific loaders.
+4. Wrap returned object into a `Collection` keyed by the port name.
+5. If load fails (parse error, type mismatch, missing required slots for CompositeData) → `ERROR` state with `termination_detail` containing the loader exception + path to the offending file (preserved in sandbox so the user can inspect).
+
+Validation failures **do not delete the sandbox**. Lineage and `.scieasy/ai-block-runs/{run_id}/` persist for post-mortem.
+
+#### 3.7 Permission model
+
+Identical to ADR-034's per-tab Setup screen, lifted into block config:
+
+- Block-level `config.permission_mode` ∈ {`safe`, `bypass`}, defaults to `safe`.
+- `safe`: claude/codex's default behavior — agent prompts for sensitive tool use; user answers in the embedded TUI (`y` / `n`, or claude's `Shift+Tab` / `/permissions` for richer control). No SciEasy-side modal or approval flow.
+- `bypass`: pass `--permission-mode bypassPermissions` (claude) / `--dangerously-bypass-approvals-and-sandbox` (codex) at spawn. The agent will read, write, and execute anywhere the user's account can. **There is no SciEasy-side filesystem confinement.** This is identical to a user manually opening an ADR-034 tab and choosing "Dangerous" — the same operations are permitted in the same scope.
+
+Rationale: AI Block agents should have the same capability surface as a hand-launched ADR-034 agent. Restricting one but not the other creates two divergent mental models and frustrates the workflows users actually want (e.g., "go read these files spread across my project, write the output next to them"). Users who need confinement should run SciEasy itself inside a container or VM — the same advice applies to the embedded agent.
+
+#### 3.8 No-CLI fallback (three-tier error reporting)
+
+| Tier | When | Behavior |
+|---|---|---|
+| **Design-time** | User drags AI Block from palette | If neither claude nor codex is discoverable, the palette entry shows a warning badge with "Install required: see `scieasy install`". Block can still be added (so the workflow remains portable). |
+| **Validate-time** | `workflow validate` runs (pre-run) | If the workflow contains an AI Block and the configured provider is not installed, validate fails with actionable error including the exact `scieasy install` command. |
+| **Run-time** | Worker spawns agent | If discovery succeeds but spawn fails (binary deleted between validate and run, sandboxing failure, etc.) → `ERROR` with `termination_detail` containing the spawn exception. |
+
+No "user manually fills in answer" fallback. That changes block semantics and is out of scope.
+
+#### 3.9 State machine (unchanged from AppBlock)
+
+```
+IDLE → READY → RUNNING → PAUSED → DONE
+                  │         │
+                  └─ ERROR ◄┘
+                  │         │
+                  └─ CANCELLED
+```
+
+- `RUNNING → PAUSED`: emitted as soon as the agent process is spawned and the tab is opened. The bulk of execution time is in PAUSED.
+- `PAUSED → RUNNING`: any completion signal fires (§3.5).
+- `RUNNING → DONE`: output validation succeeds.
+- `* → CANCELLED`: user closes tab, user cancels workflow, or workflow timeout. PTY process tree is killed via `ProcessHandle.terminate()` (ADR-019); 10s grace period.
+- `* → ERROR`: validation fails, spawn fails, or agent exits non-zero before completion signal.
+
+On `DONE` or `ERROR`, the tab **stays open** and remains interactive. Users can keep chatting with the agent (e.g., to debug a failed output). The tab's title gets a status decoration (`✓ extract_metadata` for DONE, `✗ extract_metadata` for ERROR). The tab is **not** read-only.
+
+Closing a tab after DONE/ERROR is a normal tab close — no state change to the block (it has already terminated).
+
+#### 3.10 Engine ↔ worker ↔ tab protocol
+
+Worker → engine control event (new):
+
+```python
+# in worker subprocess
+self.engine.request_pty_tab(
+    title=f"🤖 {self.name}",
+    spawn_argv=[claude_path, "--append-system-prompt", skill_md_path,
+                "--mcp-config", mcp_json_path, "--add-dir", sandbox_dir, ...],
+    cwd=sandbox_dir,
+    initial_stdin=initial_prompt,
+    block_run_id=run_id,
+)
+# blocks until engine confirms tab spawned and returns tab_id, or raises
+```
+
+The engine side adds a new method to its IPC handler that:
+1. Calls the existing PTY allocation logic in `scieasy.ai.agent.terminal`.
+2. Pushes a `block_pty_opened` event to the frontend over the main workflow WS so the AIChat panel auto-switches to the new tab.
+3. Returns `tab_id` to the worker.
+
+Worker → engine completion notification (also new):
+
+```python
+# in worker, after detecting a completion signal
+self.engine.notify_block_pty_event(block_run_id=run_id, event="completed" | "cancelled_by_user_close" | "error", detail=...)
+```
+
+These two control events are the **only** new wire surface. Everything else is reuse.
+
+---
+
+### 4. Scope: what gets deleted vs kept
+
+#### Delete
+
+- `src/scieasy/blocks/ai/ai_block.py` — current single-call implementation.
+- Any tests pinning the single-call behavior.
+- The `scieasy.ai.config` provider-selection logic if it is *only* used by the old AIBlock. (It may also be used by the embedded agent; verify before deleting.)
+
+#### Add
+
+Backend (~500 lines):
+- `src/scieasy/blocks/ai/ai_block.py` (rewrite): `AIBlock(Block)` with EXTERNAL execution mode + run-dir setup + completion watcher dispatch + output validation.
+- `src/scieasy/blocks/ai/run_dir.py`: per-run coordination dir under `.scieasy/ai-block-runs/{run_id}/` holding manifest.json, transcript copy, and completion-signal scratch files. **Not a sandbox** — purely a lineage / coordination artifact.
+- `src/scieasy/blocks/ai/completion.py`: completion watcher combining MCP signal + FileWatcher + user-button event.
+- `src/scieasy/ai/agent/mcp/tools_workflow.py`: add `finish_ai_block` tool.
+- `src/scieasy/engine/pty_control.py`: worker-side `request_pty_tab` / `notify_block_pty_event` IPC helpers.
+- `src/scieasy/api/routes/ai_pty.py` (or wherever ADR-034 lands the PTY routes): add internal API for engine-initiated tab opens distinct from user-initiated Launch.
+
+Frontend (~250 lines):
+- `components/AIChat/TerminalTabs.tsx`: accept engine-initiated tab open events; auto-switch focus.
+- `components/AIChat/TerminalTab.tsx`: render block-name title with status badge; add "Mark done" button when tab is from an AI Block PAUSED state.
+- A new event in `useWebSocket` to handle `block_pty_opened` / `block_pty_closed`.
+
+#### Keep (unchanged)
+
+- ADR-034's entire PTY infrastructure.
+- `scieasy.ai.agent.mcp.*` (the 25 tools + server).
+- `scieasy.ai.agent.claude_code.discover`.
+- `scieasy install`.
+- `AppBlock` and its `FileExchangeBridge` / `FileWatcher` (AI Block reuses `FileWatcher` directly).
+
+---
+
+### 5. Alternatives considered
+
+1. **Keep AIBlock as one-shot Messages API call**. Rejected per §2.1: cannot do tool use, multi-turn, or file I/O. The single workflows that motivated AIBlock (extract metadata, classify text snippets) are not the workflows users actually want.
+
+2. **AIBlock with `claude -p` headless, no tab**. Rejected per §2.3: Anthropic billing + UX opacity. PTY visibility is a feature, not a cost.
+
+3. **AIBlock as a `CodeBlock` whose script is a prompt**. Rejected: blurs block category semantics (CodeBlock means user-provided code, not user-provided natural language). Would also require its own runtime separate from ADR-034.
+
+4. **Direct Anthropic Messages API + custom tool loop inside AIBlock**. Rejected: reproduces the maintenance burden ADR-034 §5.3 explicitly rejected for the embedded agent. If we don't trust ourselves to maintain a tool loop for the embedded agent, we shouldn't trust ourselves to maintain one for AI Block.
+
+5. **No AIBlock at all — let users open an embedded agent tab manually and tell it to write files**. Rejected: defeats the point of a workflow graph. The graph is the source of truth (CLAUDE.md §2.1); users need a block they can wire into the DAG with declared inputs and outputs.
+
+---
+
+### 6. Consequences
+
+#### 6.1 Wins
+
+- One agent runtime for both embedded and workflow paths — no second implementation.
+- AIBlock can finally do tool use, multi-turn reasoning, and structured file I/O.
+- Visibility: users see what the agent is doing in real time, mid-workflow.
+- Lineage: full transcript per block run, archived alongside the manifest.
+- Cost: PTY subscriptions, not Agent SDK billing.
+
+#### 6.2 Losses
+
+- An AI Block run is no longer "fire and forget" from the user's perspective — a tab opens. Workflows with many AI Blocks become tab-heavy. Mitigations: tab title shows block name + status; user can collapse the AIChat panel; concurrency cap from ADR-034 §8 applies.
+- Determinism: an AI Block run is not byte-reproducible. The same prompt + same inputs may produce different outputs across runs. Lineage records the transcript so audits work, but exact replay is impossible.
+- Test cost: real-agent tests are slow + spend tokens. Mitigation: `StubAgent` (see §8.3).
+
+#### 6.3 Risks
+
+- **Worker ↔ engine IPC for PTY control** is new wire surface. Wrong design here makes AI Block flaky. PoC must validate.
+- **Concurrency caps**: if a workflow has 10 AI Blocks running in parallel, the soft cap (8) from ADR-034 triggers. Behavior: scheduler queues AI Blocks beyond cap → they sit in `READY` waiting for a PTY slot. Document explicitly.
+- **No filesystem confinement**: an agent in bypass mode can delete or corrupt anything the user can. This is the explicit decision in §3.7 — the same risk exists for ADR-034's hand-launched agents. Users must understand the model. Documentation must surface this prominently in the AI Block UI and `docs/block-development/`.
+
+---
+
+### 7. Phased migration
+
+**Phase 0 — Decision** (this ADR): user reviews + approves.
+
+**Phase 1 — PoC** (1 spike agent, isolated worktree, no merge target):
+- One concrete AIBlock subclass: "extract metadata from filenames" — Artifact in, DataFrame out.
+- Worker ↔ engine PTY control event implemented end-to-end.
+- manifest.json + run dir creation on POSIX and Windows (no sandboxing — just file writes).
+- Agent spawned with project cwd, no `--add-dir` restriction, full filesystem access.
+- `finish_ai_block` MCP tool implemented + agent successfully calls it.
+- One DONE path + one CANCELLED path validated live.
+- Outcome: go / no-go on the IPC design.
+
+**Phase 2 — Build core** (depends on ADR-034 Phase 2 landing):
+- `AIBlock(Block)` rewrite.
+- All three completion signals (MCP + watcher + button).
+- Output validation via IOBlock loaders.
+- StubAgent for CI.
+- Variadic port editor integration (reuse ADR-029 plumbing).
+
+**Phase 3 — UI + UX polish**:
+- Setup screen embedded in block config panel.
+- Tab status badges + "Mark done" button.
+- Engine-initiated tab opens autoroute focus.
+- Permission mode selector.
+
+**Phase 4 — Cleanup**:
+- Delete the old single-call AIBlock.
+- Migrate any in-tree blocks that subclassed it (audit needed — `Grep "class.*AIBlock"`).
+- Update `docs/architecture/ARCHITECTURE.md` §5.3 AI Block category description.
+- Mark this ADR `accepted`; promote draft → numbered ADR in `ADR.md`.
+
+---
+
+### 8. Open questions
+
+1. **`finish_ai_block` semantics when called multiple times** — should it accumulate outputs, replace them, or error? Tentatively: error on second call. Decide in PoC.
+
+2. **What happens if the agent terminates cleanly (exit 0) without calling `finish_ai_block` and not all `expected_path` files exist?** Tentatively: ERROR with "agent exited without completing all outputs". Decide in PoC.
+
+3. **Subworkflow blocks (ADR-004 SubWorkflowBlock) containing AI Blocks** — does each AI Block in a SubWorkflow get its own tab, or does the SubWorkflow get one consolidated tab? Tentatively: one tab per AI Block (consistent with non-nested case). Revisit if UX is bad.
+
+4. **Resume after pause-then-cancel** — if a workflow is cancelled mid-AI-Block-run, then resumed, does the block re-spawn from scratch or attempt to reuse the existing sandbox + `claude --continue`? Tentatively: re-spawn (sandbox dir gets a new run_id). The old sandbox is preserved for inspection.
+
+5. **`scieasy install` invariant for AI Blocks** — should running an AI Block auto-write `mcp.json` to `{project}/.scieasy/` if missing, or refuse and instruct the user to run `scieasy install --scope project` first? Tentatively: refuse + actionable error. Auto-install is surprising side-effect.
+
+6. **Cost surfacing** — should the workflow validator estimate token cost for AI Blocks (e.g., based on input file size) and warn before run? Defer to a future "workflow cost preview" feature.
+
+7. **Should `finish_ai_block` accept structured payloads (e.g., inline DataFrame as JSON) in addition to file paths?** Tentatively: no — file path only. Forces the agent to use file I/O, which is the actual workflow primitive. Revisit if PoC reveals a clear use case.
+
+---
+
+### 9. Out of scope
+
+- Multi-agent collaboration within a single AI Block (one block = one agent).
+- Cost / quota tracking across AI Block runs (separate concern, future ADR).
+- Fine-tuning per-block models (the provider is claude or codex, full stop).
+- "User-manually-fills-in" fallback when no CLI is installed (changes block semantics).
+- Streaming partial outputs to downstream blocks before AI Block completes (the entire block transitions atomically).
+
+---
+
+### 10. Decision summary
+
+**AIBlock is rewritten as an EXTERNAL-mode block that spawns a claude/codex agent inside an ADR-034 PTY tab, presents inputs via a manifest.json, and accepts completion via MCP tool / file watcher / user button.** It reuses AppBlock's FileWatcher idiom, ADR-029 variadic ports, ADR-034's PTY infrastructure and full agent capabilities, and the existing MCP tool catalog (plus one new `finish_ai_block` tool). Always-visible tab; never `-p`. The agent has the same filesystem reach as a hand-launched ADR-034 tab — no sandboxing. Permission mode is per-block config, defaulting to safe. No-CLI fallback fails loudly at validate-time. Tab survives block completion and remains interactive.
