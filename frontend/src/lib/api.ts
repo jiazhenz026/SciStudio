@@ -203,4 +203,36 @@ export const api = {
       headers: JSON_HEADERS,
       body: JSON.stringify({ workflow_id: workflowId, path }),
     }),
+  // ADR-036 §3.2 — embedded code editor file R/W endpoints.
+  getProjectFile: (projectId: string, path: string) =>
+    apiFetch<{ content: string; mtime: number; size: number; encoding: string }>(
+      `/api/projects/${encodeURIComponent(projectId)}/file?path=${encodeURIComponent(path)}`,
+    ),
+  putProjectFile: (projectId: string, path: string, content: string) =>
+    apiFetch<{ mtime: number; size: number }>(
+      `/api/projects/${encodeURIComponent(projectId)}/file?path=${encodeURIComponent(path)}`,
+      {
+        method: "PUT",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ content }),
+      },
+    ),
+  // ADR-036 §3.3 — server-side ruff lint endpoint.
+  lintPython: (content: string, filename: string) =>
+    apiFetch<{
+      diagnostics: Array<{
+        line: number;
+        column: number;
+        end_line: number;
+        end_column: number;
+        code: string;
+        severity: string;
+        message: string;
+      }>;
+      note?: string;
+    }>("/api/lint/python", {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ content, filename }),
+    }),
 };

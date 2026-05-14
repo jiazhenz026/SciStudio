@@ -76,12 +76,12 @@
 - [x] `frontend/package.json` lists `@monaco-editor/react` (PR body flags this for user `npm install` in main checkout) → branch `feat/issue-848/skeleton`
 
 ### Phase 2A — TabState union + backend file/lint (Owner: I36a)
-- [ ] All `TabState` consumers migrated to type-guard on `tab.kind === "workflow"` [§3.10]
-- [ ] Store persistence updated: `FileTab` persists `{kind, id, filePath, displayName, language, readOnly}` only — content re-fetched on rehydrate [§3.11]
-- [ ] `GET /api/projects/{project_id}/file?path=<rel>` real impl: allowlist `.py .txt .md .yaml .yml .json .csv .log`, 10 MB cap, `_resolve_safe_path` enforcement [§3.2]
-- [ ] `PUT` real impl with atomic write (tempfile + rename) and `mark_self_write()` self-write suppression coordination with workflow_watcher [§3.2]
-- [ ] `POST /api/lint/python` real impl: shells `ruff check --stdin --output-format json`; soft-fails to empty diagnostics if ruff missing [§3.3, §6]
-- [ ] Backend tests: path traversal, allowlist, size cap, lint diagnostic shape, self-write suppression integration
+- [x] All `TabState` consumers migrated to type-guard on `tab.kind === "workflow"` [§3.10] → branch `feat/issue-849/tabstate-and-backend` (TabBar.tsx, useWebSocket.ts, tabSlice.ts capture/restore, tabSlice.test.ts)
+- [x] Store persistence updated: `FileTab` persists `{kind, id, filePath, displayName, language, readOnly}` only — content re-fetched on rehydrate [§3.11] → `frontend/src/store/index.ts` `partializeFileTab` + `onRehydrateStorage`
+- [x] `GET /api/projects/{project_id}/file?path=<rel>` real impl: allowlist `.py .txt .md .yaml .yml .json .csv .log`, 10 MB cap, sandbox enforcement [§3.2] → `_resolve_project_file` + `read_project_file` in `routes/projects.py`
+- [x] `PUT` real impl with atomic write (tempfile + rename) and `mark_self_write()` self-write suppression coordination with workflow_watcher [§3.2] → `write_project_file` in `routes/projects.py`
+- [x] `POST /api/lint/python` real impl: shells `ruff check --stdin --output-format json`; soft-fails to empty diagnostics if ruff missing [§3.3, §6] → `routes/lint.py` `lint_python` + registered in `api/app.py`
+- [x] Backend tests: path traversal, allowlist, size cap, lint diagnostic shape, self-write suppression integration → `tests/api/test_file_endpoints.py` (12) + `tests/api/test_lint_endpoint.py` (7); frontend `tabState.test.ts` (8) covers union exhaustiveness + dedup + persistence-stripping
 
 ### Phase 2B — CodeEditor component + Save UX (Owner: I36b)
 - [ ] `CodeEditor.tsx` Monaco wrapper, lazy-imported (mirror `TerminalView.tsx` xterm pattern at lines 76-88) [§3.1]

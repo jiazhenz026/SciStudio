@@ -1,19 +1,31 @@
-"""ADR-036 §3.3 — server-side Python lint endpoint (skeleton).
+"""ADR-036 §3.3 — server-side Python lint endpoint.
 
 Wraps ``ruff check --stdin --output-format json`` so the embedded Monaco
 editor can render diagnostics as squiggles via ``setModelMarkers``.
-
-Implementation phase agent (I36a) replaces each ``raise NotImplementedError``
-below with the real handler. This module is intentionally thin: there is a
-single endpoint and a single dataclass-shaped response.
 """
 
 from __future__ import annotations
 
+import json
+import logging
+import subprocess
+from typing import Any
+
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/lint", tags=["lint"])
+
+_RUFF_TIMEOUT_SECONDS: float = 10.0
+_RUFF_MISSING_NOTE: str = "ruff unavailable on server"
+_RUFF_TIMEOUT_NOTE: str = "ruff timed out"
+_RUFF_NON_JSON_NOTE: str = "ruff returned non-JSON"
+
+# Track whether we've already logged the "ruff missing" warning so the
+# server log isn't flooded on every keystroke.
+_ruff_missing_warned: bool = False
 
 
 class LintDiagnostic(BaseModel):
@@ -55,55 +67,79 @@ class LintResponse(BaseModel):
     )
 
 
+def _map_diagnostic(entry: dict[str, Any]) -> LintDiagnostic:
+    """Map a ruff JSON diagnostic to the stable :class:`LintDiagnostic` shape.
+
+    ruff's JSON shape:
+      ``{code, message, location: {row, column},
+         end_location: {row, column}, severity?}``
+
+    Pre-0.4 ruff omits ``severity`` — we default to ``"warning"`` so the
+    Monaco model markers still render with a sensible icon.
+    """
+    location = entry.get("location") or {}
+    end_location = entry.get("end_location") or location
+    severity = entry.get("severity") or "warning"
+    code = entry.get("code") or ""
+    return LintDiagnostic(
+        line=int(location.get("row", 1)),
+        column=int(location.get("column", 1)),
+        end_line=int(end_location.get("row", location.get("row", 1))),
+        end_column=int(end_location.get("column", location.get("column", 1))),
+        code=str(code) if code is not None else "",
+        severity=str(severity),
+        message=str(entry.get("message", "")),
+    )
+
+
 @router.post("/python", response_model=LintResponse)
 async def lint_python(body: LintRequest) -> LintResponse:
-    """Lint a Python source string with ruff. (ADR-036 §3.3 — SKELETON)
+    """Lint a Python source string with ruff. (ADR-036 §3.3)
 
-    Implementation plan (per ADR-036 §3.3):
-      1. Spawn ``ruff check --stdin-filename=<filename> --output-format
-         json -`` via ``subprocess.run`` (text=True, capture_output=True,
-         timeout=10s).
-      2. Pipe ``body.content`` to stdin.
-      3. Parse stdout as JSON. ruff returns a list of objects with keys
-         ``code``, ``message``, ``location: {row, column}``,
-         ``end_location: {row, column}``, ``severity`` (only newer ruff;
-         pre-0.4 returns severity-less; default to "warning").
-      4. Map each entry to ``LintDiagnostic`` (1-based row/column, no
-         conversion needed — Monaco is also 1-based).
-      5. Return ``LintResponse(diagnostics=[...])``.
-
-    Soft-fail behaviour (per ADR-036 §6 risk row 2):
-      - ``FileNotFoundError`` (ruff binary missing) -> return
-        ``LintResponse(diagnostics=[], note="ruff unavailable on server")``;
-        also log WARN once. The editor renders without squiggles; saves
-        still work.
-      - ``subprocess.TimeoutExpired`` -> same soft-fail with
-        ``note="ruff timed out"``.
-      - JSON decode error on ruff stdout -> soft-fail with
-        ``note="ruff returned non-JSON"``.
-
-    Edge cases:
-      - Empty content -> ruff returns ``[]`` -> empty diagnostics, no error.
-      - Content with non-ASCII bytes -> ruff handles UTF-8 via stdin; no
-        special handling needed.
-      - filename not ending in .py -> still works; ruff infers from the
-        ``--stdin-filename`` extension.
-      - content > 10 MB — accept. The lint pipeline is independent of the
-        file API's size cap; users may paste a large snippet.
-
-    Test plan (must be added by I36a):
-      - test_lint_clean_returns_empty: ``content="print('ok')\\n"``.
-      - test_lint_unused_import: returns one diagnostic with code starting
-        with "F401".
-      - test_lint_syntax_error: returns one diagnostic with code "E999".
-      - test_lint_ruff_missing: monkeypatch ``subprocess.run`` to raise
-        ``FileNotFoundError`` -> response has empty diagnostics + note.
-      - test_lint_ruff_timeout: monkeypatch to raise
-        ``subprocess.TimeoutExpired`` -> response has empty diagnostics
-        + note.
-      - test_lint_diagnostic_shape: asserts every field of one returned
-        diagnostic matches the contract above.
-
-    References: ADR-036 §3.3 + §6 risk row 2.
+    Soft-fails (per ADR-036 §6 risk row 2) when ruff is missing, times out,
+    or returns non-JSON — the editor renders without squiggles in those
+    cases and saves continue to work.
     """
-    raise NotImplementedError("ADR-036 skeleton — implementation phase I36a fills this in")
+    global _ruff_missing_warned
+
+    try:
+        completed = subprocess.run(
+            [
+                "ruff",
+                "check",
+                f"--stdin-filename={body.filename}",
+                "--output-format=json",
+                "--quiet",
+                "-",
+            ],
+            input=body.content,
+            capture_output=True,
+            text=True,
+            timeout=_RUFF_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except FileNotFoundError:
+        if not _ruff_missing_warned:
+            logger.warning("lint: ruff binary not found on PATH; lint endpoint will soft-fail")
+            _ruff_missing_warned = True
+        return LintResponse(diagnostics=[], note=_RUFF_MISSING_NOTE)
+    except subprocess.TimeoutExpired:
+        logger.warning("lint: ruff timed out after %ss", _RUFF_TIMEOUT_SECONDS)
+        return LintResponse(diagnostics=[], note=_RUFF_TIMEOUT_NOTE)
+
+    raw = completed.stdout or "[]"
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning(
+            "lint: ruff returned non-JSON (rc=%s, stderr=%r)",
+            completed.returncode,
+            (completed.stderr or "")[:200],
+        )
+        return LintResponse(diagnostics=[], note=_RUFF_NON_JSON_NOTE)
+
+    if not isinstance(parsed, list):
+        return LintResponse(diagnostics=[], note=_RUFF_NON_JSON_NOTE)
+
+    diagnostics = [_map_diagnostic(entry) for entry in parsed if isinstance(entry, dict)]
+    return LintResponse(diagnostics=diagnostics)

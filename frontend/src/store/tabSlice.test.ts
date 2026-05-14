@@ -1,7 +1,16 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { useAppStore } from "./index";
+import type { WorkflowTab } from "./types";
 import type { WorkflowResponse } from "../types/api";
+
+/** Narrow a tab to WorkflowTab for tests; throws if it's a file tab. */
+function asWorkflowTab(tab: { kind?: string }): WorkflowTab {
+  if (tab.kind !== "workflow") {
+    throw new Error(`expected workflow tab, got kind=${tab.kind}`);
+  }
+  return tab as WorkflowTab;
+}
 
 // Snapshot a clean store between tests so persisted state from one test does
 // not bleed into the next.
@@ -36,7 +45,7 @@ describe("tabSlice.openTab (#796 display-name fallback)", () => {
     useAppStore.getState().openTab(workflow("my-workflow"));
     const state = useAppStore.getState();
     expect(state.tabs).toHaveLength(1);
-    expect(state.tabs[0].workflowName).toBe("my-workflow");
+    expect(asWorkflowTab(state.tabs[0]).workflowName).toBe("my-workflow");
     expect(state.workflowName).toBe("my-workflow");
   });
 
@@ -48,14 +57,14 @@ describe("tabSlice.openTab (#796 display-name fallback)", () => {
     useAppStore.getState().openTab(workflow(""), "experiment-2");
     const state = useAppStore.getState();
     expect(state.tabs).toHaveLength(1);
-    expect(state.tabs[0].workflowName).toBe("experiment-2");
+    expect(asWorkflowTab(state.tabs[0]).workflowName).toBe("experiment-2");
     expect(state.workflowName).toBe("experiment-2");
   });
 
   it("falls back to 'Untitled' when both id and displayName are empty", () => {
     useAppStore.getState().openTab(workflow(""));
     const state = useAppStore.getState();
-    expect(state.tabs[0].workflowName).toBe("Untitled");
+    expect(asWorkflowTab(state.tabs[0]).workflowName).toBe("Untitled");
   });
 
   it("de-duplicates on displayName when id is empty (same blank-id file)", () => {
