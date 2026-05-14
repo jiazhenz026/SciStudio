@@ -46,6 +46,12 @@ interface ToolbarProps {
   wsConnected: boolean;
   sseConnected: boolean;
   recentProjects: ProjectResponse[];
+  /**
+   * ADR-036 §3.7 — discriminator that drives the toolbar's kind-swap.
+   * "workflow" (default) → existing canvas-oriented buttons.
+   * "file"              → file-tab toolbar (New / Import / Save only in v1).
+   */
+  activeTabKind?: "workflow" | "file";
   onNewProject: () => void;
   onOpenProject: () => void;
   onOpenRecent: (project: ProjectResponse) => void;
@@ -135,43 +141,12 @@ function ToolbarButton({
   );
 }
 
-/**
- * ADR-036 §3.7 — file-tab toolbar (skeleton).
- *
- * SKELETON (S36): not rendered yet. Phase 2B (I36b) will:
- *   1. Add an ``activeTabKind: "workflow" | "file"`` prop to ToolbarProps
- *      (or read it from the store directly).
- *   2. In ``Toolbar``: ``if (activeTabKind === "file") return <FileToolbar .../>;``
- *      BEFORE the existing return statement.
- *   3. ``FileToolbar`` shows only New / Import / Save in v1 per ADR-036
- *      §3.7 ("v1 simplification: file-tab toolbar shows only New / Import
- *      / Save"). Find / Format / Goto-line are reached via Monaco's
- *      built-in keybindings (Ctrl+F, Shift+Alt+F).
- *
- * Test plan (vitest, must be added by I36b):
- *   - render with activeTabKind="file" → only New / Import / Save visible
- *   - render with activeTabKind="workflow" → existing button set unchanged
- *
- * References: ADR-036 §3.7 toolbar matrix.
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function FileToolbar(_props: { onNew: () => void; onImport: () => void; onSave: () => void }) {
-  // TODO(ADR-036 I36b): render New / Import / Save only.
-  return null;
-}
-
 export function Toolbar(props: ToolbarProps) {
-  // ADR-036 §3.7 — kind-switch scaffolding (skeleton, not yet routed).
-  // Phase 2B (I36b) will read the active tab kind from the store and route
-  // here before the existing return below:
-  //
-  //   const activeTab = useAppStore(state => state.tabs.find(t => t.id === state.activeTabId));
-  //   if (activeTab?.kind === "file") {
-  //     return <FileToolbar onNew={...} onImport={props.onImport} onSave={props.onSave} />;
-  //   }
-  //
-  // Skeleton phase keeps existing buttons untouched per dispatch scope.
-
+  // ADR-036 §3.7 — kind-swap. When the active tab is a file (Monaco
+  // editor), most workflow-only buttons are hidden and only
+  // New / Import / Save remain. v1 simplification: Find / Format /
+  // Goto-line are reached via Monaco's built-in keybindings (Ctrl+F,
+  // Shift+Alt+F) without dedicated toolbar buttons.
   const {
     currentProject,
     workflowId,
@@ -181,6 +156,7 @@ export function Toolbar(props: ToolbarProps) {
     wsConnected,
     sseConnected,
     recentProjects,
+    activeTabKind = "workflow",
     onNewProject,
     onOpenProject,
     onOpenRecent,
@@ -201,6 +177,12 @@ export function Toolbar(props: ToolbarProps) {
     onAddGroup,
     isRunning,
   } = props;
+  // Reference to silence unused-var warnings for handlers reserved for
+  // workflow-only groups when the file toolbar is rendered. They remain
+  // typed as required props so App.tsx contracts don't change.
+  void onResume;
+  void onStartFromSelected;
+  const isFileTab = activeTabKind === "file";
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -278,8 +260,9 @@ export function Toolbar(props: ToolbarProps) {
 
         <Separator orientation="vertical" className="mx-1 h-8" />
 
-        {/* Group 2: Workflow File Operations */}
+        {/* Group 2: File Operations (shared across tab kinds) */}
         <div className="flex items-center gap-1">
+          {/* TODO(I36c): New menu — workflow / custom block / note. Replaces this single-button "New" with a DropdownMenu trigger per ADR-036 §3.7. */}
           <ToolbarButton
             icon={FilePlus2}
             label="New"
@@ -299,93 +282,110 @@ export function Toolbar(props: ToolbarProps) {
             disabled={!currentProject}
             onClick={onSave}
           />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="toolbar"
-                size="toolbar"
+          {/*
+           * Save-As dropdown: only meaningful for workflow tabs in v1.
+           * File tabs save to a fixed path (their `tab.filePath`); a "save
+           * to a different path" affordance is out of scope per ADR-036
+           * §3.9 ("rely on auto-save"). Hide for file tabs.
+           */}
+          {!isFileTab && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="toolbar"
+                  size="toolbar"
+                  disabled={!currentProject}
+                  type="button"
+                  className="px-1"
+                >
+                  <ChevronDown className="size-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={onSave}>
+                  <Save className="size-4" />
+                  Save
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onSaveAs}>
+                  <SaveAll className="size-4" />
+                  Save As...
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+
+        {/*
+         * Workflow-only groups (Run/Pause/Stop/Reset, Delete/Reload/Note/Group)
+         * are hidden when a file tab is active. ADR-036 §3.7 toolbar matrix.
+         */}
+        {!isFileTab && (
+          <>
+            <Separator orientation="vertical" className="mx-1 h-8" />
+
+            {/* Group 3: Execution Controls */}
+            <div className="flex items-center gap-1">
+              <ToolbarButton
+                icon={isRunning ? Loader2 : Play}
+                label={isRunning ? "Running" : "Run"}
+                shortcut="Ctrl+Enter"
+                variant="toolbar-dark"
+                disabled={!currentProject || isRunning}
+                iconClassName={isRunning ? "animate-spin" : undefined}
+                onClick={onRun}
+              />
+              <ToolbarButton
+                icon={Pause}
+                label="Pause"
+                disabled={!workflowId}
+                onClick={onPause}
+              />
+              <ToolbarButton
+                icon={Square}
+                label="Stop"
+                shortcut="Ctrl+."
+                disabled={!workflowId}
+                onClick={onStop}
+              />
+              <ToolbarButton
+                icon={RotateCcw}
+                label="Reset"
+                disabled={!workflowId}
+                onClick={onReset}
+              />
+            </div>
+
+            <Separator orientation="vertical" className="mx-1 h-8" />
+
+            {/* Group 4: Edit Operations */}
+            <div className="flex items-center gap-1">
+              <ToolbarButton
+                icon={Trash2}
+                label="Delete"
+                disabled={!selectedNodeId}
+                onClick={onDelete}
+              />
+              <ToolbarButton
+                icon={RefreshCw}
+                label="Reload"
+                onClick={onReloadBlocks}
+              />
+              <ToolbarButton
+                icon={StickyNote}
+                label="Note"
                 disabled={!currentProject}
-                type="button"
-                className="px-1"
-              >
-                <ChevronDown className="size-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={onSave}>
-                <Save className="size-4" />
-                Save
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onSaveAs}>
-                <SaveAll className="size-4" />
-                Save As...
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        <Separator orientation="vertical" className="mx-1 h-8" />
-
-        {/* Group 3: Execution Controls */}
-        <div className="flex items-center gap-1">
-          <ToolbarButton
-            icon={isRunning ? Loader2 : Play}
-            label={isRunning ? "Running" : "Run"}
-            shortcut="Ctrl+Enter"
-            variant="toolbar-dark"
-            disabled={!currentProject || isRunning}
-            iconClassName={isRunning ? "animate-spin" : undefined}
-            onClick={onRun}
-          />
-          <ToolbarButton
-            icon={Pause}
-            label="Pause"
-            disabled={!workflowId}
-            onClick={onPause}
-          />
-          <ToolbarButton
-            icon={Square}
-            label="Stop"
-            shortcut="Ctrl+."
-            disabled={!workflowId}
-            onClick={onStop}
-          />
-          <ToolbarButton
-            icon={RotateCcw}
-            label="Reset"
-            disabled={!workflowId}
-            onClick={onReset}
-          />
-        </div>
-
-        <Separator orientation="vertical" className="mx-1 h-8" />
-
-        {/* Group 4: Edit Operations */}
-        <div className="flex items-center gap-1">
-          <ToolbarButton
-            icon={Trash2}
-            label="Delete"
-            disabled={!selectedNodeId}
-            onClick={onDelete}
-          />
-          <ToolbarButton
-            icon={RefreshCw}
-            label="Reload"
-            onClick={onReloadBlocks}
-          />
-          <ToolbarButton
-            icon={StickyNote}
-            label="Note"
-            disabled={!currentProject}
-            onClick={onAddAnnotation}
-          />
-          <ToolbarButton
-            icon={BoxSelect}
-            label="Group"
-            disabled={!currentProject}
-            onClick={onAddGroup}
-          />
-        </div>
+                onClick={onAddAnnotation}
+              />
+              <ToolbarButton
+                icon={BoxSelect}
+                label="Group"
+                disabled={!currentProject}
+                onClick={onAddGroup}
+              />
+              {/* TODO(I36c): View source button on workflow-tab toolbar — opens a read-only kind=file tab with id "source:<workflow_id>" per ADR-036 §3.4. */}
+            </div>
+          </>
+        )}
 
         {/* Spacer */}
         <div className="flex-1" />

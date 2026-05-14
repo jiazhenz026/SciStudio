@@ -84,14 +84,14 @@
 - [x] Backend tests: path traversal, allowlist, size cap, lint diagnostic shape, self-write suppression integration → `tests/api/test_file_endpoints.py` (12) + `tests/api/test_lint_endpoint.py` (7); frontend `tabState.test.ts` (8) covers union exhaustiveness + dedup + persistence-stripping
 
 ### Phase 2B — CodeEditor component + Save UX (Owner: I36b)
-- [ ] `CodeEditor.tsx` Monaco wrapper, lazy-imported (mirror `TerminalView.tsx` xterm pattern at lines 76-88) [§3.1]
-- [ ] Props: `tab: FileTab`, `onContentChange`, `onSave`, diagnostics → `setModelMarkers`
-- [ ] Lint debounce (600 ms idle) → POST /api/lint/python → render markers
-- [ ] Save debounce (800 ms, same as canvas auto-save in App.tsx:478-487) [§3.9]
-- [ ] `App.tsx` content-area kind switch (active tab.kind === "workflow" → WorkflowCanvas, else CodeEditor)
-- [ ] Toolbar split per §3.7 (file-tab toolbar shows New / Import / Save only in v1)
-- [ ] Ctrl+S works for both tab kinds
-- [ ] Vitest tests: render Python tab, mock lint response, dirty-state propagation, save trigger
+- [x] `CodeEditor.tsx` Monaco wrapper, lazy-imported (mirror `TerminalView.tsx` xterm pattern at lines 76-88) [§3.1] → branch `feat/issue-850/code-editor`
+- [x] Props: `tab: FileTab`, `onContentChange`, `onSave`, diagnostics → `setModelMarkers` → branch `feat/issue-850/code-editor`
+- [x] Lint debounce (600 ms idle) → POST /api/lint/python → render markers → vitest `CodeEditor.test.tsx::debounces lint requests`
+- [x] Save debounce (800 ms, same as canvas auto-save in App.tsx:478-487) [§3.9] → App.tsx file-tab auto-save useEffect
+- [x] `App.tsx` content-area kind switch (active tab.kind === "workflow" → WorkflowCanvas, else CodeEditor) → branch `feat/issue-850/code-editor`
+- [x] Toolbar split per §3.7 (file-tab toolbar shows New / Import / Save only in v1) → vitest `Toolbar.test.tsx::file tab: only New / Import / Save are visible`
+- [x] Ctrl+S works for both tab kinds → App.tsx keydown listener routes by `activeFileTab`
+- [x] Vitest tests: render Python tab, mock lint response, dirty-state propagation, save trigger → `CodeEditor.test.tsx` (7 cases) + `Toolbar.test.tsx` (3 cases)
 
 ### Phase 2C — ProjectTree + View source + reload + template (Owner: I36c)
 - [ ] `ProjectTree.tsx` double-click on `.py / .txt / .md / .json / .csv` → `openFileTab(path)` [§3.5]
