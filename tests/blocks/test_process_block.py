@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import pyarrow as pa
 import pytest
 
@@ -152,3 +154,82 @@ class TestSplitBlockCollection:
 
         assert result["out"][0].row_count == 5
         assert result["remainder"][0].row_count == 5
+
+
+class TestProcessBlockOutputTypeInference:
+    """Regression tests for #876 — ProcessBlock output Collection type inference.
+
+    Before #876: ProcessBlock.run() pinned the output Collection's item_type
+    to the input Collection's item_type. When process_item returned a parent
+    type (valid by Liskov; valid by the bidirectional port-type check from
+    #601), Collection.__init__'s strict isinstance check raised TypeError.
+
+    After #876: output item_type is inferred from the actual results, so
+    parent-typed outputs round-trip cleanly. Empty results still preserve
+    the input type label so downstream port checks have a meaningful type.
+    """
+
+    def test_parent_type_output_accepted(self) -> None:
+        """process_item returning a parent type must not raise TypeError."""
+        from scieasy.blocks.base.ports import InputPort, OutputPort
+        from scieasy.blocks.process.process_block import ProcessBlock
+        from scieasy.core.types.base import DataObject
+        from scieasy.core.types.collection import Collection
+
+        class Parent(DataObject):
+            pass
+
+        class Child(Parent):
+            pass
+
+        class _DowncastBlock(ProcessBlock):
+            type_name = "_test.downcast"
+            input_ports: ClassVar = [InputPort(name="data", accepted_types=[Parent])]
+            output_ports: ClassVar = [OutputPort(name="out", accepted_types=[Parent])]
+
+            def process_item(self, item, config, state=None):  # type: ignore[no-untyped-def]
+                # Return a parent-type instance from a child-type input.
+                return Parent()
+
+        block = _DowncastBlock()
+        block.transition(BlockState.READY)
+        result = block.run({"data": Collection([Child(), Child()], item_type=Child)}, block.config)
+
+        assert isinstance(result["out"], Collection)
+        # item_type follows the actual results, not the input.
+        assert result["out"].item_type is Parent
+        assert result["out"].length == 2
+
+    def test_empty_input_preserves_input_type(self) -> None:
+        """Empty input Collection -> empty output Collection with same item_type label.
+
+        Exercises the fallback branch: when results list is empty after
+        iteration (because the input itself was empty), the output Collection
+        carries primary.item_type so downstream port checks remain meaningful.
+        """
+        from scieasy.blocks.base.ports import InputPort, OutputPort
+        from scieasy.blocks.process.process_block import ProcessBlock
+        from scieasy.core.types.base import DataObject
+        from scieasy.core.types.collection import Collection
+
+        class Parent(DataObject):
+            pass
+
+        class Child(Parent):
+            pass
+
+        class _PassthroughBlock(ProcessBlock):
+            type_name = "_test.passthrough"
+            input_ports: ClassVar = [InputPort(name="data", accepted_types=[Parent])]
+            output_ports: ClassVar = [OutputPort(name="out", accepted_types=[Parent])]
+
+            def process_item(self, item, config, state=None):  # type: ignore[no-untyped-def]
+                return item
+
+        block = _PassthroughBlock()
+        block.transition(BlockState.READY)
+        result = block.run({"data": Collection([], item_type=Child)}, block.config)
+
+        assert isinstance(result["out"], Collection)
+        assert result["out"].length == 0
+        assert result["out"].item_type is Child  # input type preserved
