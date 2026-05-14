@@ -112,6 +112,13 @@ class PtyProcess:
         self._cleanup_paths: list[Path] = list(cleanup_paths or [])
         self._closed = False
         self._lock = threading.Lock()
+        # ``_impl`` holds the winpty.PtyProcess handle on Windows (None on
+        # POSIX).  Typed as ``Any`` because pywinpty has no type stubs and
+        # because the attribute is only dereferenced on the platform that
+        # set it.
+        self._impl: Any = None
+        self._master_fd: int | None = None
+        self._popen: subprocess.Popen[bytes] | None = None
 
         if sys.platform == "win32":
             try:
@@ -123,14 +130,12 @@ class PtyProcess:
                     "platform-conditional dependency)."
                 ) from exc
 
-            self._impl: Any = winpty.PtyProcess.spawn(
+            self._impl = winpty.PtyProcess.spawn(
                 argv,
                 cwd=str(cwd),
                 dimensions=(rows, cols),
             )
             self._pid: int = self._impl.pid
-            self._master_fd: int | None = None
-            self._popen: subprocess.Popen[bytes] | None = None
         else:
             import fcntl
             import pty
@@ -151,7 +156,6 @@ class PtyProcess:
                 close_fds=True,
             )
             os.close(slave_fd)
-            self._impl = None
             self._popen = popen
             self._master_fd = master_fd
             self._pid = popen.pid
