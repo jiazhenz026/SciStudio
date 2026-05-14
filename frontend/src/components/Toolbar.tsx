@@ -135,7 +135,43 @@ function ToolbarButton({
   );
 }
 
+/**
+ * ADR-036 §3.7 — file-tab toolbar (skeleton).
+ *
+ * SKELETON (S36): not rendered yet. Phase 2B (I36b) will:
+ *   1. Add an ``activeTabKind: "workflow" | "file"`` prop to ToolbarProps
+ *      (or read it from the store directly).
+ *   2. In ``Toolbar``: ``if (activeTabKind === "file") return <FileToolbar .../>;``
+ *      BEFORE the existing return statement.
+ *   3. ``FileToolbar`` shows only New / Import / Save in v1 per ADR-036
+ *      §3.7 ("v1 simplification: file-tab toolbar shows only New / Import
+ *      / Save"). Find / Format / Goto-line are reached via Monaco's
+ *      built-in keybindings (Ctrl+F, Shift+Alt+F).
+ *
+ * Test plan (vitest, must be added by I36b):
+ *   - render with activeTabKind="file" → only New / Import / Save visible
+ *   - render with activeTabKind="workflow" → existing button set unchanged
+ *
+ * References: ADR-036 §3.7 toolbar matrix.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function FileToolbar(_props: { onNew: () => void; onImport: () => void; onSave: () => void }) {
+  // TODO(ADR-036 I36b): render New / Import / Save only.
+  return null;
+}
+
 export function Toolbar(props: ToolbarProps) {
+  // ADR-036 §3.7 — kind-switch scaffolding (skeleton, not yet routed).
+  // Phase 2B (I36b) will read the active tab kind from the store and route
+  // here before the existing return below:
+  //
+  //   const activeTab = useAppStore(state => state.tabs.find(t => t.id === state.activeTabId));
+  //   if (activeTab?.kind === "file") {
+  //     return <FileToolbar onNew={...} onImport={props.onImport} onSave={props.onSave} />;
+  //   }
+  //
+  // Skeleton phase keeps existing buttons untouched per dispatch scope.
+
   const {
     currentProject,
     workflowId,

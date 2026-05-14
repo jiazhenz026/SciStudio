@@ -225,7 +225,33 @@ export function ProjectTree({
       // Double-click .py in blocks/ -> hot-reload blocks
       if (ext === "py" && node.path.startsWith("blocks/")) {
         onReloadBlocks();
+        // ADR-036 §3.5 SKELETON (S36): blocks/*.py double-click currently
+        // *only* triggers hot-reload. Phase 2C (I36c) will additionally
+        // open the file in the editor by calling
+        // ``useAppStore.getState().openFileTab(node.path)``. The reload
+        // call stays — both behaviours fire on the same double-click.
+        // TODO(ADR-036 I36c): wire openFileTab here.
+        return;
       }
+
+      // ADR-036 §3.5 SKELETON (S36): editable file extensions outside
+      // ``blocks/`` and ``workflows/`` should open in the Monaco editor
+      // via ``openFileTab(node.path)``. Phase 2C (I36c) implements this
+      // branch — it currently no-ops so existing project-tree behaviour
+      // (no action on most file double-clicks) is preserved.
+      //
+      // Implementation plan (per ADR-036 §3.5):
+      //   const editable = ["py", "txt", "md", "json", "csv"];
+      //   if (editable.includes(ext)) {
+      //     useAppStore.getState().openFileTab(node.path);
+      //     return;
+      //   }
+      //
+      // Test plan (must be added by I36c):
+      //   - double-click scratch.py at project root -> openFileTab called
+      //     with "scratch.py"
+      //   - double-click NOTES.md anywhere -> openFileTab called
+      //   - double-click image.tiff -> NOT called (extension not in list)
     },
     [onLoadWorkflow, onReloadBlocks],
   );
