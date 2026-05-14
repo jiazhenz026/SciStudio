@@ -129,6 +129,38 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
         return;
       }
 
+      // ADR-035 §3.10 skeleton: engine-initiated PTY tab open/close events
+      // for AI Block runs. Implementation phase (I35c) wires these to the
+      // TerminalTabs component's `handleBlockPtyOpened` /
+      // `handleBlockPtyClosed` helpers, which create / update the tab in
+      // the Zustand `terminalTabsSlice`.
+      //
+      // Implementation plan (I35c):
+      //   1. Import handleBlockPtyOpened / handleBlockPtyClosed from
+      //      ../components/AIChat/TerminalTabs.
+      //   2. On `block_pty_opened`: validate payload shape, call handler.
+      //   3. On `block_pty_closed`: validate payload shape, call handler.
+      //   4. Both events should also append a Logs entry so the user sees
+      //      ``[AI Block: extract_metadata] tab opened`` / ``... completed``
+      //      in the Logs panel for traceability per ADR-035 §6.1 (lineage).
+      //
+      // Test plan (vitest):
+      //   - test_block_pty_opened_dispatches_to_handler
+      //   - test_block_pty_closed_dispatches_to_handler
+      //   - test_unknown_payload_shape_logs_warning_does_not_throw
+      //
+      // References: ADR-035 §3.10, §6.1
+      if (payload.type === "block_pty_opened") {
+        // SKELETON: I35c will dispatch to handleBlockPtyOpened.
+        // See comment block above.
+        return;
+      }
+      if (payload.type === "block_pty_closed") {
+        // SKELETON: I35c will dispatch to handleBlockPtyClosed.
+        // See comment block above.
+        return;
+      }
+
       consumeEvent(payload);
 
       // The Logs unread badge is coupled to ``appendLog`` / ``consumeEvent``

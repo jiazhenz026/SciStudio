@@ -593,3 +593,87 @@ def get_run_status(run_id: str) -> dict[str, Any]:
 
 # Synthesised module ID so logs can correlate even when called via dispatch.
 _TOOL_MODULE_ID = f"mcp-workflow-{uuid.uuid4().hex[:8]}"
+
+
+# ---------------------------------------------------------------------------
+# ADR-035 §3.5 — finish_ai_block MCP tool (skeleton).
+#
+# Added per ADR-035 §3.5 path (a). Registered in ``_registry.py`` as a
+# 26th ToolEntry alongside the existing 25 tools. Outside an AI Block
+# context the tool returns a ``not_in_ai_block_context`` error envelope
+# (per ADR-035 §3.5: "It is a no-op outside an AI Block context").
+#
+# Skeleton only — the real implementation is the I35b agent's job.
+# ---------------------------------------------------------------------------
+
+
+def finish_ai_block(outputs: dict[str, str] | None = None) -> dict[str, Any]:
+    """ADR-035 §3.5 path (a) — agent declares all outputs are written.
+
+    The agent calls this tool when it has finished writing all the
+    declared output files for the active AI Block. The tool writes
+    ``signals/finish_ai_block.json`` under the active run dir; the
+    :class:`scieasy.blocks.ai.completion.CompletionWatcher` polls for
+    that file and transitions the block from PAUSED → RUNNING for
+    output validation.
+
+    Parameters
+    ----------
+    outputs
+        ``{port_name: absolute_or_project_relative_path}``. The agent
+        SHOULD declare a path for every output port from the manifest;
+        missing ports surface as validation errors at
+        :meth:`AIBlock.run` validation stage (ADR-035 §3.6).
+
+    Returns
+    -------
+    dict
+        Success envelope: ``{"status": "ok", "signal_path": <path>}``
+        Error envelope when not in AI Block context:
+        ``{"status": "error", "code": "not_in_ai_block_context",
+           "message": "..."}``
+        Error envelope on second call:
+        ``{"status": "error", "code": "already_finished",
+           "message": "..."}``  (per ADR-035 §8 OQ-1; tentative — confirm in PoC)
+
+    Implementation plan (per ADR-035 §3.5 path (a)):
+        1. Read MCP context (from ``scieasy.ai.agent.mcp._context.get_context``)
+           to detect whether the current PTY tab is owned by an AI Block.
+           The engine sets a context attr ``ai_block_run_dir: Path | None``
+           when it spawns the tab via :func:`request_pty_tab`.
+        2. If ``ai_block_run_dir`` is None → return the
+           ``not_in_ai_block_context`` envelope.
+        3. Validate ``outputs`` shape:
+           - dict[str, str], all values strings
+           - empty dict allowed (signals "I'm done; trust expected_path")
+        4. Check ``signals/finish_ai_block.json`` does NOT already exist
+           under ``ai_block_run_dir`` — if it does, return
+           ``already_finished`` envelope (ADR-035 §8 OQ-1 tentative).
+        5. Atomically write the signal file:
+           ``json.dumps({"outputs": outputs, "timestamp": <iso>})`` →
+           tempfile → ``os.replace`` → ``signals/finish_ai_block.json``.
+        6. Return success envelope with the absolute signal path.
+
+    Edge cases:
+        * ``outputs`` is None → treat as ``{}`` (path (b) FileWatcher
+          will still drive validation from ``expected_path`` only).
+        * ``outputs`` contains relative path → preserved as-is in the
+          signal file. CompletionWatcher resolves against project_dir
+          per ADR-035 §3.3.
+        * Signal file write fails (disk full, permission denied) →
+          return generic ``error`` envelope with the OS exception text.
+
+    Test plan:
+        * test_finish_ai_block_outside_context_returns_error_envelope
+          (no ai_block_run_dir set on context)
+        * test_finish_ai_block_writes_signal_file (positive)
+        * test_finish_ai_block_second_call_rejected (per OQ-1)
+        * test_finish_ai_block_empty_outputs_allowed
+        * test_finish_ai_block_relative_paths_preserved_in_signal
+        * test_finish_ai_block_disk_error_returns_error_envelope
+
+    References:
+        ADR-035 §3.5 path (a), §8 OQ-1 (multi-call semantics);
+        scieasy.blocks.ai.run_dir.RunDir.mcp_signal_path()
+    """
+    raise NotImplementedError("see comment block above")
