@@ -49,6 +49,10 @@ interface ContextMenuState {
   node: TreeNodeData;
 }
 
+// ADR-036 §3.5 (Phase 2C / I36c): file extensions the embedded Monaco editor
+// knows how to render. Anything outside this set is ignored on double-click.
+const EDITABLE_EXTENSIONS: readonly string[] = ["py", "txt", "md", "json", "csv"];
+
 function TreeNodeRow({
   node,
   depth,
@@ -222,9 +226,22 @@ export function ProjectTree({
         return;
       }
 
-      // Double-click .py in blocks/ -> hot-reload blocks
+      // ADR-036 §3.5 (I36c): .py under blocks/ both refreshes the palette
+      // (so the user sees the side-effect of the lint-gated reload) AND
+      // opens the file in the Monaco editor. Both behaviours fire on the
+      // same double-click — saving the file then triggers the backend
+      // hot-reload via PUT /api/projects/{id}/file.
       if (ext === "py" && node.path.startsWith("blocks/")) {
         onReloadBlocks();
+        useAppStore.getState().openFileTab(node.path);
+        return;
+      }
+
+      // ADR-036 §3.5 (I36c): editable extensions anywhere in the project
+      // open in the Monaco editor.
+      if (EDITABLE_EXTENSIONS.includes(ext)) {
+        useAppStore.getState().openFileTab(node.path);
+        return;
       }
     },
     [onLoadWorkflow, onReloadBlocks],

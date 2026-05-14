@@ -12,7 +12,7 @@ from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
-from scieasy.api.routes import ai, ai_pty, blocks, data, filesystem, projects, workflows
+from scieasy.api.routes import ai, ai_pty, blocks, data, filesystem, lint, projects, workflows
 from scieasy.api.routes import workflow_watcher as workflow_watcher_module
 from scieasy.api.runtime import ApiRuntime
 from scieasy.api.spa import SPAStaticFiles
@@ -192,6 +192,8 @@ def create_app() -> FastAPI:
     app.include_router(projects.router)
     app.include_router(ai.router)
     app.include_router(ai_pty.router)
+    # ADR-036 §3.3 — server-side ruff lint endpoint for the embedded editor.
+    app.include_router(lint.router)
 
     @app.get("/api/logs/stream")
     async def logs_stream(request: Request) -> object:

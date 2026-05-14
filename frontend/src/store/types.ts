@@ -164,8 +164,24 @@ export interface TerminalTabsSlice {
   _replaceTerminalTabs: (tabs: TerminalTab[], activeId: string | null) => void;
 }
 
-/** Per-tab snapshot of workflow + UI state. */
-export interface TabState {
+/**
+ * Per-tab snapshot of workflow + UI state.
+ *
+ * ADR-036 §3.10 (Phase 2A — I36a migration complete): ``TabState`` is now
+ * the discriminated union ``WorkflowTab | FileTab`` and ``kind`` is a
+ * required literal on each variant. All consumers (App.tsx, TabBar.tsx,
+ * captureTab/restoreTab, useWebSocket.ts) type-guard on ``tab.kind ===
+ * "workflow"`` before reading the workflow-specific fields.
+ *
+ * Loading state: file tabs that are still being fetched (e.g. on
+ * rehydrate after a reload) carry ``loading: true`` until the GET
+ * resolves. The CodeEditor component (Phase 2B, I36b) renders a
+ * placeholder while ``loading`` is set.
+ */
+
+/** ADR-036 §3.10 — workflow (canvas) tab. */
+export interface WorkflowTab {
+  kind: "workflow";
   id: string;
   workflowId: string;
   workflowName: string;
@@ -179,6 +195,48 @@ export interface TabState {
   workflowFuture: WorkflowHistoryEntry[];
   selectedNodeId: string | null;
 }
+
+/**
+ * ADR-036 §3.10 — file (Monaco editor) tab.
+ *
+ * The id convention disambiguates editor sources:
+ *   "file:<path>"           — user opened a file via ProjectTree double-click
+ *   "source:<workflow_id>"  — read-only YAML source view of a workflow
+ *
+ * `contentLoadedAt` stores the server `mtime` at the most recent fetch so
+ * the implementation phase can detect "file changed externally" on save
+ * (not implemented in skeleton).
+ */
+export interface FileTab {
+  /** ADR-036 §3.10 — discriminator. Always "file" for editor tabs. */
+  kind: "file";
+  id: string;
+  filePath: string;
+  displayName: string;
+  language: "python" | "yaml" | "json" | "text" | "markdown";
+  content: string;
+  contentLoadedAt: number;
+  dirty: boolean;
+  readOnly: boolean;
+  /**
+   * ADR-036 §3.11: true while a rehydrated file tab is being re-fetched
+   * from the backend. The CodeEditor (Phase 2B) renders a placeholder
+   * while loading; once the GET resolves, ``loading`` flips to false and
+   * ``content`` is populated.
+   */
+  loading?: boolean;
+}
+
+/**
+ * ADR-036 §3.10 — discriminated union of all tab kinds.
+ *
+ * Phase 2A (I36a) migration: ``TabState`` is now ``WorkflowTab | FileTab``.
+ * ``AnyTab`` is retained as an alias for backward compatibility with any
+ * code that imported it during the transition; new code should use
+ * ``TabState`` directly.
+ */
+export type TabState = WorkflowTab | FileTab;
+export type AnyTab = TabState;
 
 export interface TabSlice {
   /** All open tabs (order = display order). */
@@ -199,6 +257,54 @@ export interface TabSlice {
   closeTab: (tabId: string) => boolean;
   /** Sync the active tab's snapshot from current workflow state. */
   syncActiveTab: () => void;
+  /**
+   * ADR-036 §3.10 — open (or focus) a file editor tab.
+   *
+   * SKELETON: throws. Phase 2A (I36a) implements:
+   *   1. Compute id = ``opts?.readOnly ? "source:" + filePath : "file:" + filePath``.
+   *   2. If a tab with that id exists, switch to it; return.
+   *   3. Otherwise GET /api/projects/{id}/file?path=<filePath>, derive
+   *      language from extension, build a FileTab, append to tabs, set active.
+   *
+   * Test plan:
+   *   - opens new tab on first call
+   *   - second call to same path focuses existing tab (no duplicate)
+   *   - "source:" id used when ``opts.readOnly`` is true
+   *   - sets ``language`` based on extension
+   */
+  openFileTab: (filePath: string, opts?: { readOnly?: boolean }) => void;
+  /**
+   * ADR-036 §3.10 — save a file tab's content to disk.
+   *
+   * SKELETON: throws. Phase 2A (I36a) implements:
+   *   1. Look up the tab by id.
+   *   2. PUT /api/projects/{id}/file?path=<tab.filePath> with body
+   *      ``{content: tab.content}``.
+   *   3. On success, set ``tab.dirty = false`` and update
+   *      ``contentLoadedAt`` from the response mtime.
+   *   4. On 4xx/5xx, surface a toast and leave dirty=true.
+   *
+   * Test plan:
+   *   - happy path clears dirty and updates mtime
+   *   - 413 surfaces a "file too large" toast
+   *   - read-only tab is a no-op (or throws — TBD by I36a)
+   */
+  saveFileTab: (id: string) => Promise<void>;
+  /**
+   * ADR-036 §3.10 — update the in-memory content for a file tab.
+   *
+   * SKELETON: throws. Phase 2A (I36a) implements:
+   *   1. Look up the tab by id.
+   *   2. Set ``tab.content = content``, ``tab.dirty = true``.
+   *   3. Auto-save debounce (800 ms) lives in the consumer (App.tsx),
+   *      mirroring the canvas auto-save loop at App.tsx:478-487.
+   *
+   * Test plan:
+   *   - flips dirty true on first edit
+   *   - subsequent edits keep dirty true
+   *   - read-only tab rejects updates (or no-ops — TBD by I36a)
+   */
+  updateFileTabContent: (id: string, content: string) => void;
 }
 
 export type AppStore = ProjectSlice &
