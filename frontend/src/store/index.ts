@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { createChatSlice } from "./chatSlice";
 import { createExecutionSlice } from "./executionSlice";
 import { createPaletteSlice } from "./paletteSlice";
 import { createPreviewSlice } from "./previewSlice";
@@ -21,7 +20,6 @@ export const useAppStore = create<AppStore>()(
       ...createUISlice(...args),
       ...createPreviewSlice(...args),
       ...createPaletteSlice(...args),
-      ...createChatSlice(...args),
       ...createTabSlice(...args),
       ...createTerminalTabsSlice(...args),
     }),
@@ -33,7 +31,6 @@ export const useAppStore = create<AppStore>()(
         previewCollapsed: state.previewCollapsed,
         bottomPanelCollapsed: state.bottomPanelCollapsed,
         panelSizes: state.panelSizes,
-        chatMessages: state.chatMessages,
         // ADR-034 Phase 1.3: persist terminal tab metadata (NOT subprocess
         // state). On rehydrate, any `running` tab is downgraded to `closed`
         // with synthetic exit code -1 so the user sees the Reopen button.

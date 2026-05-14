@@ -1,4 +1,13 @@
-"""AI block generation, workflow suggestion, param optimisation endpoints."""
+"""Provider discovery endpoint for the embedded coding agent.
+
+ADR-034 Phase 2 trimmed this module down to the single ``/api/ai/status``
+endpoint introduced in Phase 1.2. The legacy pre-ADR-033 single-call
+surfaces (``/api/ai/generate-block``, ``/api/ai/suggest-workflow``,
+``/api/ai/optimize-params``) and their associated request/response
+schemas were deleted along with ``scieasy.ai.generation`` and
+``scieasy.ai.optimization`` — they fed an AI workflow path that the
+PTY-tab embedded agent now replaces end-to-end.
+"""
 
 from __future__ import annotations
 
@@ -7,18 +16,9 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
-from fastapi import APIRouter, HTTPException
-
-from scieasy.api.schemas import (
-    AIGenerateBlockRequest,
-    AIGenerateBlockResponse,
-    AIOptimizeParamsRequest,
-    AIOptimizeParamsResponse,
-    AISuggestWorkflowRequest,
-    AISuggestWorkflowResponse,
-)
+from fastapi import APIRouter
 
 logger = logging.getLogger(__name__)
 
@@ -137,78 +137,3 @@ def _claude_logged_in() -> bool:
         if result.returncode == 0:
             return True
     return False
-
-
-@router.post("/generate-block", response_model=AIGenerateBlockResponse)
-async def generate_block(body: AIGenerateBlockRequest) -> dict[str, Any]:
-    """Generate a block from a natural-language description.
-
-    Calls the AI block generator pipeline: category inference, prompt
-    construction, LLM call, code extraction, validation, and retry.
-
-    Returns
-    -------
-    dict
-        Generated code, block name, validation status, report, and category.
-
-    Raises
-    ------
-    HTTPException 503
-        When the AI optional dependencies are not installed.
-    HTTPException 500
-        On any other generation error.
-    """
-    try:
-        from scieasy.ai.generation.block_generator import generate_block as ai_generate_block
-
-        result = ai_generate_block(body.description, body.block_category)
-        return {
-            "code": result.code,
-            "block_name": result.block_name,
-            "validation_passed": result.validation_report.get("passed", False),
-            "validation_report": result.validation_report,
-            "category": result.category,
-        }
-    except ImportError as exc:
-        logger.warning("AI features unavailable: %s", exc)
-        raise HTTPException(
-            status_code=503,
-            detail="AI features require: pip install scieasy[ai]",
-        ) from exc
-    except Exception as exc:
-        logger.error("Block generation failed: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-
-@router.post("/suggest-workflow", response_model=AISuggestWorkflowResponse)
-async def suggest_workflow(body: AISuggestWorkflowRequest) -> dict[str, Any]:
-    """Return a clear Phase 9 placeholder for workflow suggestion.
-
-    The wired implementation lives in PR #245 and will replace this stub
-    once that PR merges.
-    """
-    raise HTTPException(status_code=501, detail="AI workflow suggestion will arrive in Phase 9.")
-
-
-@router.post("/optimize-params", response_model=AIOptimizeParamsResponse)
-async def optimize_params_endpoint(body: AIOptimizeParamsRequest) -> dict[str, Any]:
-    """Suggest improved parameter values for a block using AI.
-
-    Analyses intermediate results and the block's config schema to
-    propose parameter changes that may improve workflow outcomes.
-    """
-    try:
-        from scieasy.ai.optimization.param_optimizer import optimize_params
-
-        result = optimize_params(
-            block_id=body.block_id,
-            intermediate_results=body.intermediate_results,
-            search_space=body.search_space,
-        )
-        return cast(dict[str, Any], result)
-    except ImportError:
-        raise HTTPException(status_code=503, detail="AI dependencies not installed") from None
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc

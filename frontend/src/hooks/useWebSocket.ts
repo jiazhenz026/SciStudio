@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
+import { api } from "../lib/api";
 import type { WorkflowEventMessage } from "../types/api";
 import { useAppStore } from "../store";
 
@@ -22,6 +23,7 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
   const setInteractivePrompt = useAppStore((state) => state.setInteractivePrompt);
   const bumpUnreadLogs = useAppStore((state) => state.bumpUnreadLogs);
   const bumpUnreadProblems = useAppStore((state) => state.bumpUnreadProblems);
+  const setWorkflow = useAppStore((state) => state.setWorkflow);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
@@ -55,6 +57,56 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
         return;
       }
 
+      // ADR-034 Phase 2: filesystem watcher emits ``workflow.changed`` when
+      // an external editor (or claude/codex via MCP) mutates a workflow YAML.
+      // If the change targets the workflow currently loaded in the canvas,
+      // refetch it and replace the in-memory state. If the file was deleted,
+      // clear the canvas and warn via the Logs panel.
+      if (payload.type === "workflow.changed") {
+        const changedId =
+          (payload.workflow_id as string | null | undefined) ??
+          (payload.data.workflow_id as string | undefined) ??
+          null;
+        const kind = (payload.data.kind as string | undefined) ?? "modified";
+        const currentId = useAppStore.getState().workflowId;
+        if (changedId && changedId === currentId) {
+          if (kind === "deleted" || kind === "moved") {
+            setWorkflow(null);
+            appendLog({
+              timestamp: payload.timestamp,
+              level: "warn",
+              message: `Workflow '${changedId}' was ${kind} on disk; canvas cleared.`,
+              workflow_id: changedId,
+              block_id: null,
+            });
+          } else {
+            // modified / created — refetch and replace.
+            api
+              .getWorkflow(changedId)
+              .then((fresh) => {
+                // Re-check inside the resolution: the user may have switched
+                // workflows while the fetch was in flight.
+                if (useAppStore.getState().workflowId === changedId) {
+                  setWorkflow(fresh);
+                }
+              })
+              .catch((err) => {
+                appendLog({
+                  timestamp: payload.timestamp,
+                  level: "error",
+                  message: `Failed to refresh workflow '${changedId}' after disk change: ${
+                    err instanceof Error ? err.message : String(err)
+                  }`,
+                  workflow_id: changedId,
+                  block_id: null,
+                });
+              });
+          }
+        }
+        // Mismatched id: ignore (workflow lives in another tab or is not loaded).
+        return;
+      }
+
       consumeEvent(payload);
 
       // #793: Do NOT force-switch the bottom panel to "logs" on engine events.
@@ -83,7 +135,7 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
       socket.close();
       _activeSocket = null;
     };
-  }, [appendLog, bumpUnreadLogs, bumpUnreadProblems, consumeEvent, enabled, setInteractivePrompt]);
+  }, [appendLog, bumpUnreadLogs, bumpUnreadProblems, consumeEvent, enabled, setInteractivePrompt, setWorkflow]);
 
   return { connected };
 }

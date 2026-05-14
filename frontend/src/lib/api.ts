@@ -1,7 +1,4 @@
 import type {
-  AIGenerateBlockResponse,
-  AIOptimizeParamsResponse,
-  AISuggestWorkflowResponse,
   BlockListResponse,
   BlockSchemaResponse,
   CancelPropagationResponse,
@@ -160,24 +157,6 @@ export const api = {
   getDataMetadata: (dataRef: string) => apiFetch<DataMetadataResponse>(`/api/data/${encodeURIComponent(dataRef)}`),
   getDataPreview: (dataRef: string) =>
     apiFetch<DataPreviewResponse>(`/api/data/${encodeURIComponent(dataRef)}/preview`),
-  generateBlock: (body: { description: string; block_category?: string }) =>
-    apiFetch<AIGenerateBlockResponse>("/api/ai/generate-block", {
-      method: "POST",
-      headers: JSON_HEADERS,
-      body: JSON.stringify(body),
-    }),
-  suggestWorkflow: (body: { data_description: string; goal: string }) =>
-    apiFetch<AISuggestWorkflowResponse>("/api/ai/suggest-workflow", {
-      method: "POST",
-      headers: JSON_HEADERS,
-      body: JSON.stringify(body),
-    }),
-  optimizeParams: (body: { block_id: string; intermediate_results: Record<string, unknown> }) =>
-    apiFetch<AIOptimizeParamsResponse>("/api/ai/optimize-params", {
-      method: "POST",
-      headers: JSON_HEADERS,
-      body: JSON.stringify(body),
-    }),
   browseFilesystem: (path: string) =>
     apiFetch<FilesystemBrowseResponse>(
       `/api/filesystem/browse?path=${encodeURIComponent(path)}`,

@@ -37,7 +37,38 @@ async def get_project(project_id: str, runtime: RuntimeDep) -> ProjectResponse:
         project = runtime.open_project(project_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    # ADR-034 Phase 2: refresh the workflow filesystem watcher to point at
+    # the newly active project. ``start_for_project`` is idempotent — if the
+    # caller re-opens the same project it returns immediately without
+    # disturbing the existing observer.
+    _restart_workflow_watcher(project.path)
     return ProjectResponse(**runtime.project_response(project))
+
+
+def _restart_workflow_watcher(project_path: str) -> None:
+    """Best-effort: point the global watcher at *project_path*'s workflows/.
+
+    Failure to start the observer is logged but does not affect the project
+    open response — the canvas continues to work without auto-refresh and
+    the user sees their workflow YAMLs the next time they reload manually.
+    """
+    import asyncio
+    import logging
+    from pathlib import Path
+
+    from scieasy.api.routes import workflow_watcher as watcher_module
+
+    watcher = watcher_module.get_active_watcher()
+    if watcher is None:
+        return
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    try:
+        watcher.start_for_project(Path(project_path), loop)
+    except Exception:
+        logging.getLogger(__name__).warning("workflow_watcher: restart for %s failed", project_path, exc_info=True)
 
 
 @router.put("/{project_id:path}", response_model=ProjectResponse)

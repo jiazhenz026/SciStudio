@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -12,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
 from scieasy.api.routes import ai, ai_pty, blocks, data, filesystem, projects, workflows
+from scieasy.api.routes import workflow_watcher as workflow_watcher_module
 from scieasy.api.runtime import ApiRuntime
 from scieasy.api.spa import SPAStaticFiles
 from scieasy.api.sse import sse_handler
@@ -33,6 +35,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     runtime = ApiRuntime()
     app.state.runtime = runtime
     app.state.registry = ProcessRegistry()
+
+    # ---- ADR-034 Phase 2: workflow filesystem watcher ----
+    # Watches the active project's ``workflows/`` directory and republishes
+    # YAML mtime/create/delete events as ``workflow.changed`` engine events.
+    # The existing ``/ws`` outbound loop forwards that event type, so the
+    # browser canvas auto-refetches whenever claude / codex / an external
+    # editor mutates a workflow on disk.
+    watcher = workflow_watcher_module.WorkflowWatcher(runtime.event_bus)
+    workflow_watcher_module.set_active_watcher(watcher)
+    app.state.workflow_watcher = watcher
+    if runtime.active_project is not None:
+        try:
+            loop = asyncio.get_running_loop()
+            watcher.start_for_project(Path(runtime.active_project.path), loop)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).warning("workflow_watcher: initial start failed", exc_info=True)
 
     # ---- Phase 2: MCP server lifecycle ----
     mcp_server: object | None = None
@@ -87,6 +107,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        # Stop the FS watcher first so its observer thread does not race
+        # against the rest of the teardown.
+        try:
+            watcher.stop()
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).warning("workflow_watcher: stop raised", exc_info=True)
+        workflow_watcher_module.set_active_watcher(None)
         for run in runtime.workflow_runs.values():
             if not run.task.done():
                 run.task.cancel()

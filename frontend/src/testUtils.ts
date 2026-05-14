@@ -33,6 +33,5 @@ export function resetAppStore() {
     blocks: [],
     blockSchemas: {},
     paletteSearch: "",
-    chatMessages: [],
   });
 }
