@@ -63,17 +63,17 @@
 ## ADR-036 — Embedded code editor (track/adr-036/code-editor)
 
 ### Skeleton (Owner: S36)
-- [ ] `frontend/src/store/types.ts` — `WorkflowTab` + `FileTab` discriminated union scaffolding (no consumer migration yet — types only) [§3.10]
-- [ ] `frontend/src/store/tabSlice.ts` — `openFileTab()` / `saveFileTab()` / `updateFileTabContent()` action stubs [§3.10]
-- [ ] `src/scieasy/api/routes/projects.py` — file GET/PUT route stubs returning 501 with implementation-plan docstrings [§3.2]
-- [ ] `src/scieasy/api/routes/lint.py` new module — `POST /api/lint/python` stub [§3.3]
-- [ ] `src/scieasy/api/routes/blocks.py` — `GET /api/blocks/template` stub [§3.12]
-- [ ] `src/scieasy/blocks/_templates/__init__.py` + `block_base_template.py` — placeholder template file [§3.12]
-- [ ] `frontend/src/components/CodeEditor.tsx` — empty component shell with Monaco lazy-import scaffolding marked TODO [§3.1]
-- [ ] `frontend/src/components/Toolbar.tsx` — kind-switch scaffolding marked TODO (existing buttons untouched) [§3.7]
-- [ ] `frontend/src/components/ProjectTree.tsx` — double-click handler stub marked TODO [§3.5]
-- [ ] Test stubs created with detailed test plan comments
-- [ ] `frontend/package.json` lists `@monaco-editor/react` (PR body flags this for user `npm install` in main checkout)
+- [x] `frontend/src/store/types.ts` — `WorkflowTab` + `FileTab` discriminated union scaffolding (no consumer migration yet — types only) [§3.10] → branch `feat/issue-848/skeleton`
+- [x] `frontend/src/store/tabSlice.ts` — `openFileTab()` / `saveFileTab()` / `updateFileTabContent()` action stubs [§3.10] → branch `feat/issue-848/skeleton`
+- [x] `src/scieasy/api/routes/projects.py` — file GET/PUT route stubs returning 501 with implementation-plan docstrings [§3.2] → branch `feat/issue-848/skeleton`
+- [x] `src/scieasy/api/routes/lint.py` new module — `POST /api/lint/python` stub [§3.3] → branch `feat/issue-848/skeleton`
+- [x] `src/scieasy/api/routes/blocks.py` — `GET /api/blocks/template` stub [§3.12] → branch `feat/issue-848/skeleton`
+- [x] `src/scieasy/blocks/_templates/__init__.py` + `block_base_template.py` — placeholder template file [§3.12] → branch `feat/issue-848/skeleton`
+- [x] `frontend/src/components/CodeEditor.tsx` — empty component shell with Monaco lazy-import scaffolding marked TODO [§3.1] → branch `feat/issue-848/skeleton`
+- [x] `frontend/src/components/Toolbar.tsx` — kind-switch scaffolding marked TODO (existing buttons untouched) [§3.7] → branch `feat/issue-848/skeleton`
+- [x] `frontend/src/components/ProjectTree.tsx` — double-click handler stub marked TODO [§3.5] → branch `feat/issue-848/skeleton`
+- [x] Test stubs created with detailed test plan comments → branch `feat/issue-848/skeleton` (3 pytest xfail files + 2 vitest skip files)
+- [x] `frontend/package.json` lists `@monaco-editor/react` (PR body flags this for user `npm install` in main checkout) → branch `feat/issue-848/skeleton`
 
 ### Phase 2A — TabState union + backend file/lint (Owner: I36a)
 - [ ] All `TabState` consumers migrated to type-guard on `tab.kind === "workflow"` [§3.10]
