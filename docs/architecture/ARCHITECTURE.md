@@ -2528,12 +2528,11 @@ Tabbed panel below the canvas, same width as the canvas area.
 
 | Tab | Content | Phase |
 |-----|---------|-------|
-| **💬 AI Chat** | Conversational AI assistant (block generation, workflow suggestions, parameter advice) | Phase 8 MVP |
+| **💬 AI Chat** | Embedded claude/codex TUI via PTY (ADR-034). Each chat tab is a live agent session. | ADR-034 |
 | **📋 Config** | Full parameter form for selected block (JSON Schema → auto-generated form) | Phase 8 MVP |
-| **📜 Logs** | Real-time execution log stream (SSE), block filter, severity filter, auto-scroll | Phase 8 MVP |
-| **🔗 Lineage** | Provenance chain for selected block output | Phase 8.5 |
-| **📊 Jobs** | Current/historical execution list | Phase 8.5 |
-| **⚠ Problems** | Validation errors and type mismatch warnings | Phase 8.5 |
+| **📜 Logs** | Real-time execution log stream (SSE), block filter, severity filter (incl. error-only). Replaces the standalone Problems tab as of PR #834. | Phase 8 MVP |
+| **🔗 Lineage** | Provenance chain for selected block output (still stubbed; backend `get_lineage` + `MetadataStore` ready — see follow-up issue #835) | Phase 8.5 |
+| **📊 Jobs** | Live + recently-completed workflow runs (still stubbed — see follow-up issue #835) | Phase 8.5 |
 
 **Tab interaction rules:**
 
@@ -2541,6 +2540,18 @@ Tabbed panel below the canvas, same width as the canvas area.
 - Starting execution → auto-switches to **Logs** tab and auto-expands bottom panel.
 - Clicking an ERROR badge → auto-switches to **Logs** filtered to that block.
 - AI Chat maintains conversation history across block selections.
+
+### 9.8a Main-area tab strip (ADR-036)
+
+A separate tab strip lives **above the canvas**, distinct from the bottom panel tabs. Each main-area tab hosts one of:
+
+- **Workflow canvas** (`kind: "workflow"`) — the original ReactFlow surface; one tab per open workflow YAML.
+- **Code editor** (`kind: "file"`) — Monaco-backed editor for project-local `.py / .txt / .md / .yaml / .yml / .json / .csv / .log` files. Server-side `ruff` lint surfaces as Monaco markers. Used to edit `blocks/*.py` (custom blocks), scratch scripts, configs.
+- **Workflow source view** (`kind: "file"` with `readOnly=true`, `tabId="source:<workflow_id>"`) — read-only YAML view alongside the canvas, opened by the "View source" toolbar button when a workflow tab is active.
+
+`TabState` is a discriminated union (`{kind: "workflow"} | {kind: "file"}`) — the kind drives which content component renders and which top-toolbar buttons are shown. Auto-save uses the same 800 ms debounce already in place for workflow tabs. The "New" button in the top toolbar is intentionally limited to **three options only** — new workflow, new custom block (`blocks/*.py` scaffolded from `src/scieasy/blocks/_templates/block_base_template.py`), or new note (`*.md`) — to keep users away from arbitrary file dumping. Reading other files (`requirements.txt` etc.) happens via the Project tree.
+
+See ADR-036 for the full decision record.
 
 ### 9.9 "Start from here" execution (ADR-023)
 

@@ -368,5 +368,5 @@ Then `validate_workflow` → `run_workflow` again.
 - `CLAUDE.md` at the repo root — non-negotiable project principles.
 - `docs/cli-integration.md` — installation of `scieasy install`.
 - `docs/specs/` — runtime, storage, and block-protocol contracts.
-- `docs/adr/ADR-034-draft.md` — current embedded-agent architecture
+- `docs/adr/ADR-034.md` — current embedded-agent architecture (accepted)
   (PTY + xterm.js + this skill).

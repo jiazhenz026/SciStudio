@@ -120,6 +120,16 @@ scieasy/                               # ← repo root
 │       │   │   │                       #   BatchMode/BatchErrorStrategy removed (ADR-020)
 │       │   │   └── result.py           # BlockResult (BatchResult removed per ADR-020)
 │       │   │
+│       │   ├── _templates/              # Built-in code templates served via
+│       │   │   │                        #   GET /api/blocks/template?kind=... (ADR-036 §3.12).
+│       │   │   │                        #   Frontend "New .py in blocks/" action scaffolds
+│       │   │   │                        #   from these into the project's blocks/ folder.
+│       │   │   └── block_base_template.py
+│       │   │                            # Minimal BlockBase + BlockSpec + named ports +
+│       │   │                            # config_schema + run() NotImplementedError stub.
+│       │   │                            # Comment marker `# >>> EDIT THIS <<<` highlights
+│       │   │                            # the run body so users find the right line.
+│       │   │
 │       │   ├── io/                     # IOBlock — data ingress / egress
 │       │   │   ├── __init__.py
 │       │   │   ├── io_block.py         # IOBlock: abstract base class with abstract
@@ -412,9 +422,13 @@ scieasy/                               # ← repo root
 │       │   ├── ProjectDialog.tsx       # New/Open project modal dialogs (ADR-023-Add1)
 │       │   ├── WelcomeScreen.tsx       # Welcome screen when no project is open (ADR-023-Add1)
 │       │   ├── BlockPalette.tsx        # Left column: searchable, categorised block list
-│       │   ├── BottomPanel.tsx         # 6-tab panel (AI Chat, Config, Logs, Lineage, Jobs, Problems)
+│       │   ├── BottomPanel.tsx         # Bottom panel: AI Chat / Config / Logs / Lineage / Jobs
 │       │   ├── DataPreview.tsx         # Right column: type-specific data preview
-│       │   ├── WorkflowCanvas.tsx      # ReactFlow instance, minimap, zoom, pan
+│       │   ├── TabBar.tsx              # Main-area tab strip — workflow tabs + file-editor tabs
+│       │   │                           #   (ADR-036 §3.10 discriminated TabState).
+│       │   ├── WorkflowCanvas.tsx      # ReactFlow instance, minimap, zoom, pan (kind=workflow tabs)
+│       │   ├── CodeEditor.tsx          # Monaco-backed editor for kind=file tabs (ADR-036).
+│       │   │                           #   Lazy-imported; lint via POST /api/lint/python.
 │       │   ├── TypedEdge.tsx           # Custom edge: color-coded by source port type
 │       │   │
 │       │   ├── nodes/                  # Custom ReactFlow node components
