@@ -185,10 +185,17 @@ class _WorkflowFileHandler(FileSystemEventHandler):
         if kind is None:
             return
 
-        # For move events we treat src_path as the canonical key (matches
-        # "this workflow at path X went away"); a paired Created event will
-        # cover the destination side if it lands inside the watched tree.
-        raw_path: bytes | str | None = event.src_path if hasattr(event, "src_path") else None
+        # For FileMovedEvent we want ``dest_path`` (the *new* name) — atomic
+        # writes on Windows + POSIX both materialise as ``tmp.XYZ`` →
+        # rename → final.yaml, so the only event whose path matches the
+        # final filename is the move's destination. For all other kinds
+        # ``src_path`` is the canonical key.
+        raw_path: bytes | str | None
+        if isinstance(event, FileMovedEvent):
+            dest = getattr(event, "dest_path", None)
+            raw_path = dest if dest else event.src_path
+        else:
+            raw_path = event.src_path if hasattr(event, "src_path") else None
         if not raw_path:
             return
         if isinstance(raw_path, bytes):
@@ -196,6 +203,11 @@ class _WorkflowFileHandler(FileSystemEventHandler):
         path = Path(raw_path)
         if not _is_yaml(path):
             return
+        # Promote a move-into-watched-tree to ``created`` semantically:
+        # what the canvas cares about is "a workflow YAML appeared", not
+        # the underlying atomic-write mechanics.
+        if isinstance(event, FileMovedEvent):
+            kind = "created"
 
         normalised = _normalise(path)
 
@@ -226,6 +238,7 @@ class _WorkflowFileHandler(FileSystemEventHandler):
             "workflow_id": normalised.stem,
             "changed_by": "watcher",
         }
+        logger.debug("workflow_watcher: emitting %s for %s", kind, payload["path"])
 
         if self._loop is None:
             # Synchronous broadcast path used by unit tests.

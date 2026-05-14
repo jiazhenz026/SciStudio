@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "../lib/api";
+import { useAppStore } from "../store";
 import type { TreeEntry } from "../types/api";
 
 interface TreeNodeData extends TreeEntry {
@@ -126,6 +127,18 @@ export function ProjectTree({
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // ADR-034: auto-refresh the tree when the filesystem watcher reports a
+  // project-relevant change (e.g. agent-driven ``write_workflow``).
+  // ``projectTreeRefreshCounter`` is bumped by the ``workflow.changed`` /
+  // future broader-fs-watcher handlers; subscribing to it via the store
+  // makes the tree reflect on-disk reality without the user clicking
+  // "Refresh".
+  const refreshCounter = useAppStore((s) => s.projectTreeRefreshCounter);
+  useEffect(() => {
+    if (refreshCounter === 0) return; // initial mount handled by [refresh] above
+    void refresh();
+  }, [refreshCounter, refresh]);
 
   // Close context menu on outside click
   useEffect(() => {

@@ -120,6 +120,24 @@ class PtyProcess:
         self._master_fd: int | None = None
         self._popen: subprocess.Popen[bytes] | None = None
 
+        # Build the child env. The PTY subprocess inherits the FastAPI
+        # server's environment by default, which on Windows typically
+        # lacks ``TERM``. Claude Code's TUI auto-detects safe defaults,
+        # but Codex's TUI is stricter: when ``TERM`` is missing/unknown
+        # it falls back to a "naive" rendering path that emits absolute
+        # cursor positions without the alt-screen / scroll-region
+        # handshake xterm.js expects, so scrolled-past content gets
+        # clipped or overwritten. Advertising ``xterm-256color`` (the
+        # de-facto modern terminal type that xterm.js fully implements)
+        # makes both CLIs use their proper full-featured render path.
+        child_env = os.environ.copy()
+        child_env["TERM"] = "xterm-256color"
+        child_env["COLORTERM"] = "truecolor"
+        # Some Node-based TUIs respect FORCE_COLOR for 24-bit output
+        # even when stdout is detected as not-a-tty during nested
+        # spawns. Harmless when ignored.
+        child_env.setdefault("FORCE_COLOR", "3")
+
         if sys.platform == "win32":
             try:
                 import winpty  # type: ignore
@@ -133,6 +151,7 @@ class PtyProcess:
             self._impl = winpty.PtyProcess.spawn(
                 argv,
                 cwd=str(cwd),
+                env=child_env,
                 dimensions=(rows, cols),
             )
             self._pid: int = self._impl.pid
@@ -149,6 +168,7 @@ class PtyProcess:
             popen = subprocess.Popen(
                 argv,
                 cwd=str(cwd),
+                env=child_env,
                 stdin=slave_fd,
                 stdout=slave_fd,
                 stderr=slave_fd,

@@ -222,16 +222,25 @@ def test_deleted_yaml_emits_event(tmp_path: Path) -> None:
 
 
 def test_moved_yaml_emits_event(tmp_path: Path) -> None:
+    """A FileMovedEvent should surface as ``created`` keyed on the destination.
+
+    Rationale: atomic writes on Windows + POSIX both materialise as
+    ``tmp.XYZ -> rename -> final.yaml``, so watchdog reports a
+    ``FileMovedEvent`` whose ``src_path`` is the tmp file (not yaml) and
+    ``dest_path`` is the final yaml. The canvas cares about "a workflow
+    YAML appeared at this path", so we promote moves into the watched
+    tree to ``created`` keyed on ``dest_path``.
+    """
     project = tmp_path / "proj"
-    src = project / "workflows" / "old.yaml"
+    src = project / "workflows" / "old.tmp.123"
     dst = project / "workflows" / "new.yaml"
 
     handler, captured = _make_handler(project)
     handler.on_any_event(FileMovedEvent(str(src), str(dst)))
 
     assert len(captured) == 1
-    assert captured[0]["kind"] == "moved"
-    assert captured[0]["workflow_id"] == "old"  # keyed on the source side
+    assert captured[0]["kind"] == "created"
+    assert captured[0]["workflow_id"] == "new"  # keyed on the destination side
 
 
 # ---------------------------------------------------------------------------
