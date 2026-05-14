@@ -18,6 +18,13 @@ interface BottomPanelProps {
   onUpdateConfig: (patch: Record<string, unknown>) => void;
   onSendChat: (message: string) => void;
   onApplyWorkflow?: (workflow: Record<string, unknown>) => void;
+  // ADR-034 Phase 0: App.tsx pipes unread counters here for the Logs and
+  // Problems tab badges. The badge-driving logic in App was reverted by
+  // PR #808 so these arrive as 0 today; the props exist purely to keep
+  // the type check green until Phase 1 wires the new UI. Default to 0
+  // when undefined; render the badge only when > 0.
+  unreadLogsCount?: number;
+  unreadProblemsCount?: number;
 }
 
 const TAB_LABELS: Record<BottomTab, string> = {
@@ -304,21 +311,41 @@ export function BottomPanel({
   onUpdateConfig,
   onSendChat,
   onApplyWorkflow,
+  unreadLogsCount = 0,
+  unreadProblemsCount = 0,
 }: BottomPanelProps) {
+  const badgeFor = (tab: BottomTab): number => {
+    if (tab === activeTab) return 0;
+    if (tab === "logs") return unreadLogsCount;
+    if (tab === "problems") return unreadProblemsCount;
+    return 0;
+  };
+  const formatBadge = (n: number): string => (n > 99 ? "99+" : String(n));
   return (
     <section className="flex h-full flex-col overflow-hidden bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(238,231,219,0.98))]">
       <div className="flex items-center gap-3 border-b border-stone-200 px-4 py-3">
         <div className="flex gap-2">
-          {ALL_TABS.map((tab) => (
-            <button
-              className={`rounded-full px-4 py-2 text-sm font-medium ${activeTab === tab ? "bg-ink text-white" : "bg-white text-stone-600"}`}
-              key={tab}
-              onClick={() => onTabChange(tab)}
-              type="button"
-            >
-              {TAB_LABELS[tab]}
-            </button>
-          ))}
+          {ALL_TABS.map((tab) => {
+            const badge = badgeFor(tab);
+            return (
+              <button
+                className={`rounded-full px-4 py-2 text-sm font-medium ${activeTab === tab ? "bg-ink text-white" : "bg-white text-stone-600"}`}
+                key={tab}
+                onClick={() => onTabChange(tab)}
+                type="button"
+              >
+                {TAB_LABELS[tab]}
+                {badge > 0 ? (
+                  <span
+                    className="ml-2 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-rose-500 px-1.5 text-xs font-semibold text-white"
+                    data-testid={`unread-badge-${tab}`}
+                  >
+                    {formatBadge(badge)}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
       </div>
 
