@@ -5,11 +5,13 @@ import { api } from "./lib/api";
 import { useLogStream } from "./hooks/useSSE";
 import { useWorkflowWebSocket, sendWebSocketMessage } from "./hooks/useWebSocket";
 import { useAppStore } from "./store";
+import type { AnyTab, FileTab } from "./store/types";
 import type { ProjectResponse, WorkflowResponse } from "./types/api";
 import { DataRouterModal } from "./components/DataRouterModal";
 import { PairEditorModal } from "./components/PairEditorModal";
 import { BlockPalette } from "./components/BlockPalette";
 import { BottomPanel } from "./components/BottomPanel";
+import { CodeEditor } from "./components/CodeEditor";
 import { DataPreview } from "./components/DataPreview";
 import { ProjectDialog } from "./components/ProjectDialog";
 import { ProjectTree } from "./components/ProjectTree";
@@ -106,6 +108,24 @@ export default function App() {
   const switchTab = useAppStore((state) => state.switchTab);
   const closeTab = useAppStore((state) => state.closeTab);
   const syncActiveTab = useAppStore((state) => state.syncActiveTab);
+  // ADR-036 §3.10 — file tab actions. Stubs throw in skeleton; the I36a
+  // implementation lands the real bodies. App.tsx wires the consumers
+  // here so they take effect transparently once I36a merges.
+  const saveFileTab = useAppStore((state) => state.saveFileTab);
+  const updateFileTabContent = useAppStore((state) => state.updateFileTabContent);
+
+  // ADR-036 §3.7 — derive the active tab + its kind for the toolbar swap
+  // and content-area kind switch. Note: tabs are typed as `TabState`
+  // (alias of WorkflowTab in the skeleton); cast through `AnyTab` so the
+  // narrowing is honest about the future discriminated-union form.
+  const activeTab = useMemo<AnyTab | null>(() => {
+    const found = (tabs as AnyTab[]).find((t) => t.id === activeTabId);
+    return found ?? null;
+  }, [tabs, activeTabId]);
+  const activeFileTab: FileTab | null =
+    activeTab && activeTab.kind === "file" ? activeTab : null;
+  const activeTabKind: "workflow" | "file" =
+    activeFileTab ? "file" : "workflow";
 
   const [busy, setBusy] = useState(false);
   const [leftTab, setLeftTab] = useState<"blocks" | "project">("blocks");
@@ -475,7 +495,7 @@ export default function App() {
     })();
   }, []);
 
-  // Auto-save on dirty
+  // Auto-save on dirty (workflow tabs)
   useEffect(() => {
     if (!currentProject || !workflowDirty) {
       return undefined;
@@ -485,6 +505,29 @@ export default function App() {
     }, 800);
     return () => window.clearTimeout(timeout);
   }, [currentProject, workflowDirty, workflowPayload]);
+
+  // ADR-036 §3.9 — auto-save loop for file tabs (mirrors the workflow
+  // auto-save above). Each dirty file tab gets an independent 800 ms
+  // debounce timer; editing one tab does not affect another. Inert
+  // when tabs is empty / no file tabs are dirty.
+  useEffect(() => {
+    if (!currentProject) return undefined;
+    const dirtyFileTabs = (tabs as AnyTab[]).filter(
+      (t) => t.kind === "file" && t.dirty && !t.readOnly,
+    ) as FileTab[];
+    if (dirtyFileTabs.length === 0) return undefined;
+    const timers = dirtyFileTabs.map((tab) =>
+      window.setTimeout(() => {
+        void saveFileTab(tab.id).catch((error) => {
+          // The skeleton stub throws synchronously; surface a soft error
+          // so we don't blow up the UI before I36a lands.
+          // eslint-disable-next-line no-console
+          console.warn(`saveFileTab(${tab.id}) failed:`, error);
+        });
+      }, 800),
+    );
+    return () => timers.forEach((id) => window.clearTimeout(id));
+  }, [currentProject, tabs, saveFileTab]);
 
   // Sync active tab snapshot when workflow state changes
   useEffect(() => {
@@ -508,17 +551,29 @@ export default function App() {
         return;
       }
 
-      // Ctrl+S always works
+      // Ctrl+S always works — routes to file save when a file tab is
+      // active (ADR-036 §3.7), workflow save otherwise.
       if (ctrl && key === "s" && !event.shiftKey) {
         event.preventDefault();
-        void saveWorkflow();
+        if (activeFileTab) {
+          if (!activeFileTab.readOnly) {
+            void saveFileTab(activeFileTab.id).catch((error) => {
+              // eslint-disable-next-line no-console
+              console.warn(`saveFileTab(${activeFileTab.id}) failed:`, error);
+            });
+          }
+        } else {
+          void saveWorkflow();
+        }
         return;
       }
 
-      // Ctrl+Shift+S: Save As
+      // Ctrl+Shift+S: Save As (workflow only — file tabs save in place)
       if (ctrl && key === "s" && event.shiftKey) {
         event.preventDefault();
-        void saveWorkflowAs();
+        if (!activeFileTab) {
+          void saveWorkflowAs();
+        }
         return;
       }
 
@@ -562,11 +617,13 @@ export default function App() {
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
   }, [
+    activeFileTab,
     cancelWorkflow,
     openProjectDialog,
     redoWorkflow,
     removeNode,
     runWorkflow,
+    saveFileTab,
     saveWorkflow,
     saveWorkflowAs,
     selectedNodeId,
@@ -595,6 +652,7 @@ export default function App() {
             wsConnected={wsConnected}
             sseConnected={sseConnected}
             recentProjects={recentProjects}
+            activeTabKind={activeTabKind}
             onNewProject={() => openProjectDialog("new", { path: projectDialog.path })}
             onOpenProject={() => openProjectDialog("open")}
             onOpenRecent={(project) => void openProject(project.id)}
@@ -604,7 +662,19 @@ export default function App() {
               resetExecution();
             }}
             onNewWorkflow={() => newWorkflow()}
-            onSave={() => void saveWorkflow()}
+            onSave={() => {
+              // ADR-036 §3.7 — route Save by active tab kind.
+              if (activeFileTab) {
+                if (!activeFileTab.readOnly) {
+                  void saveFileTab(activeFileTab.id).catch((error) => {
+                    // eslint-disable-next-line no-console
+                    console.warn(`saveFileTab(${activeFileTab.id}) failed:`, error);
+                  });
+                }
+              } else {
+                void saveWorkflow();
+              }
+            }}
             onSaveAs={() => void saveWorkflowAs()}
             onImport={() => void importWorkflow()}
             onRun={() => void runWorkflow()}
@@ -713,6 +783,35 @@ export default function App() {
                   }}
                 >
                   <ResizablePanel defaultSize="70%" minSize="20%">
+                    {activeFileTab ? (
+                      // ADR-036 §3.7 — file tab → Monaco editor.
+                      <CodeEditor
+                        tab={activeFileTab}
+                        onContentChange={(content) => {
+                          try {
+                            updateFileTabContent(activeFileTab.id, content);
+                          } catch (error) {
+                            // Skeleton stub throws; soft-warn so the UI
+                            // still works in dev mode pre-I36a-merge.
+                            // eslint-disable-next-line no-console
+                            console.warn(
+                              `updateFileTabContent(${activeFileTab.id}) failed:`,
+                              error,
+                            );
+                          }
+                        }}
+                        onSave={() => {
+                          if (activeFileTab.readOnly) return;
+                          void saveFileTab(activeFileTab.id).catch((error) => {
+                            // eslint-disable-next-line no-console
+                            console.warn(
+                              `saveFileTab(${activeFileTab.id}) failed:`,
+                              error,
+                            );
+                          });
+                        }}
+                      />
+                    ) : (
                     <WorkflowCanvas
                       blockStates={blockStates}
                       blockErrors={blockErrors}
@@ -761,6 +860,7 @@ export default function App() {
                       schemas={blockSchemas}
                       selectedNodeId={selectedNodeId}
                     />
+                    )}
                   </ResizablePanel>
                   <ResizableHandle withHandle />
                   <ResizablePanel defaultSize="30%" minSize="5%" collapsible collapsedSize="3%">
