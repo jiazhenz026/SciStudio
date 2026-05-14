@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
-from scieasy.api.routes import ai, blocks, data, filesystem, projects, workflows
+from scieasy.api.routes import ai, ai_pty, blocks, data, filesystem, projects, workflows
 from scieasy.api.runtime import ApiRuntime
 from scieasy.api.spa import SPAStaticFiles
 from scieasy.api.sse import sse_handler
@@ -153,6 +153,7 @@ def create_app() -> FastAPI:
     app.include_router(filesystem.router)
     app.include_router(projects.router)
     app.include_router(ai.router)
+    app.include_router(ai_pty.router)
 
     @app.get("/api/logs/stream")
     async def logs_stream(request: Request) -> object:
