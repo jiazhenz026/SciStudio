@@ -180,4 +180,44 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
       ),
     });
   },
+
+  /**
+   * ADR-036 §3.10 — open (or focus) a file editor tab.
+   *
+   * SKELETON (S36): throws. See ``TabSlice.openFileTab`` docstring in
+   * ``types.ts`` for the implementation plan and test plan that
+   * Phase 2A (I36a) must execute.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  openFileTab: (_filePath: string, _opts?: { readOnly?: boolean }) => {
+    throw new Error(
+      "ADR-036 skeleton — openFileTab not implemented (see TabSlice.openFileTab docstring)",
+    );
+  },
+
+  /**
+   * ADR-036 §3.10 — save a file tab to disk via PUT /api/projects/{id}/file.
+   *
+   * SKELETON (S36): throws. See ``TabSlice.saveFileTab`` docstring in
+   * ``types.ts`` for the implementation plan.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  saveFileTab: async (_id: string) => {
+    throw new Error(
+      "ADR-036 skeleton — saveFileTab not implemented (see TabSlice.saveFileTab docstring)",
+    );
+  },
+
+  /**
+   * ADR-036 §3.10 — update a file tab's in-memory content + dirty flag.
+   *
+   * SKELETON (S36): throws. See ``TabSlice.updateFileTabContent`` docstring
+   * in ``types.ts`` for the implementation plan.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  updateFileTabContent: (_id: string, _content: string) => {
+    throw new Error(
+      "ADR-036 skeleton — updateFileTabContent not implemented (see TabSlice.updateFileTabContent docstring)",
+    );
+  },
 });
