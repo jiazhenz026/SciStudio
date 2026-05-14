@@ -8,11 +8,86 @@
  *
  * Auto-creates a single setup tab when the panel mounts with zero tabs so
  * the user always sees the SetupScreen without having to click `+`.
+ *
+ * ADR-035 §3.10 skeleton extension:
+ *   - The component (via the `useWebSocket` hook) handles engine-initiated
+ *     `block_pty_opened` / `block_pty_closed` events: a new tab type with
+ *     `source === "ai-block"` is auto-created and focused. The tab joins
+ *     the existing user-launched WS route (the engine has pre-spawned the
+ *     PTY; the WS handshake reuses it by tab_id).
+ *   - See `handleBlockPtyOpened` / `handleBlockPtyClosed` stubs below.
  */
 import { useCallback, useEffect, useState } from "react";
 
 import { useAppStore } from "../../store";
 import { TerminalTab } from "./TerminalTab";
+
+/**
+ * ADR-035 §3.10 skeleton: handle the `block_pty_opened` WS event.
+ *
+ * Implementation plan (I35c):
+ *   1. The engine emits `{type: "block_pty_opened", tab_id, title,
+ *      block_run_id, permission_mode}` over the main workflow WS when
+ *      :func:`scieasy.api.routes.ai_pty.open_engine_initiated_tab` is
+ *      called by an AI Block worker.
+ *   2. This handler should call a new store action
+ *      `addAiBlockTerminalTab({tabId, title, blockRunId, permissionMode})`
+ *      that:
+ *         - Pushes a new TerminalTab object with state="running",
+ *           source="ai-block", aiBlockStatus="paused".
+ *         - Sets it as the active tab.
+ *         - The TerminalView mounts and connects to the existing
+ *           `/api/ai/pty/{tab_id}` route, which finds the pre-spawned
+ *           PTY in `_active_ptys` and bridges it.
+ *   3. No SetupScreen for AI-Block tabs — they go straight to "running".
+ *
+ * Test plan (vitest):
+ *   - test_handle_block_pty_opened_creates_tab
+ *   - test_handle_block_pty_opened_sets_active
+ *   - test_handle_block_pty_opened_skips_setup_screen
+ *
+ * References: ADR-035 §3.10
+ */
+export function handleBlockPtyOpened(_payload: {
+  tab_id: string;
+  title: string;
+  block_run_id: string;
+  permission_mode: "safe" | "bypass";
+}): void {
+  // SKELETON: I35c implements the store action + dispatch.
+  // See comment block above.
+  throw new Error("not implemented — see comment above");
+}
+
+/**
+ * ADR-035 §3.10 skeleton: handle the `block_pty_closed` WS event.
+ *
+ * Implementation plan (I35c):
+ *   1. Engine emits `{type: "block_pty_closed", tab_id, block_run_id,
+ *      result: "completed" | "cancelled" | "error", detail?: ...}` after
+ *      the worker calls :func:`notify_block_pty_event`.
+ *   2. Update the matching tab's `aiBlockStatus` to reflect result; the
+ *      TerminalView stays connected (per ADR-035 §3.9: tab survives
+ *      DONE/ERROR and remains interactive — user can keep chatting).
+ *   3. Decorate the tab title with ✓ / ✗ via the AiBlockStatusBadge.
+ *
+ * Test plan (vitest):
+ *   - test_handle_block_pty_closed_updates_status
+ *   - test_handle_block_pty_closed_keeps_tab_open
+ *   - test_handle_block_pty_closed_unknown_tab_id_is_noop
+ *
+ * References: ADR-035 §3.9, §3.10
+ */
+export function handleBlockPtyClosed(_payload: {
+  tab_id: string;
+  block_run_id: string;
+  result: "completed" | "cancelled" | "error";
+  detail?: Record<string, unknown>;
+}): void {
+  // SKELETON: I35c implements the store action.
+  // See comment block above.
+  throw new Error("not implemented — see comment above");
+}
 
 function ConfirmDialog({
   message,

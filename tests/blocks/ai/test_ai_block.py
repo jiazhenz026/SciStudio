@@ -1,4 +1,13 @@
-"""Tests for AIBlock MVP — run(), _serialize_input(), _describe_object()."""
+"""Tests for AIBlock MVP — run(), _serialize_input(), _describe_object().
+
+ADR-035 supersedes the single-call AIBlock implementation these tests pin.
+The whole module is marked xfail by ``pytestmark`` below until the
+implementation phase (I35a/I35b/I35c) decides whether to rewrite each test
+against the new PTY-tab runtime contract or delete them outright.
+
+See docs/adr/ADR-035.md §4 "Delete" and the dispatch prompt for the
+skeleton phase (#844).
+"""
 
 from __future__ import annotations
 
@@ -9,6 +18,12 @@ import pytest
 from scieasy.blocks.ai.ai_block import AIBlock
 from scieasy.blocks.base.config import BlockConfig
 from scieasy.core.types.text import Text
+
+pytestmark = pytest.mark.xfail(
+    reason="superseded by ADR-035 — old single-call AIBlock removed in skeleton phase",
+    strict=False,
+    run=False,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures

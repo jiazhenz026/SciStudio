@@ -14,16 +14,16 @@
 ## ADR-035 — AI Block on PTY (track/adr-035/ai-block-pty)
 
 ### Skeleton (Owner: S35)
-- [ ] `src/scieasy/blocks/ai/ai_block.py` rewrite stub: `AIBlock(Block)` with `execution_mode=EXTERNAL`, `variadic_inputs/outputs=True`; all methods `raise NotImplementedError` with detailed implementation comments [§3.1]
-- [ ] `src/scieasy/blocks/ai/run_dir.py` new module: `RunDir` class signature + per-run `.scieasy/ai-block-runs/{run_id}/` layout doc + manifest.json schema [§3.2, §3.4]
-- [ ] `src/scieasy/blocks/ai/completion.py` new module: three completion paths sketched (MCP / FileWatcher / button) [§3.5]
-- [ ] `src/scieasy/ai/agent/mcp/tools_workflow.py` add `finish_ai_block` ToolEntry stub returning `not_in_ai_block_context` envelope [§3.5]
-- [ ] `src/scieasy/engine/pty_control.py` new module: `request_pty_tab()` + `notify_block_pty_event()` IPC helpers stubbed [§3.10]
-- [ ] `src/scieasy/api/routes/ai_pty.py` add engine-initiated tab-open route stub (sibling to user-launched WS route — **do not modify** the existing route) [§3.10]
-- [ ] `frontend/src/components/AIChat/TerminalTabs.tsx` accept engine-initiated open events stub [§3.10]
-- [ ] `frontend/src/components/AIChat/TerminalTab.tsx` props extended for status badge + Mark-done button stubs [§3.9]
-- [ ] `frontend/src/hooks/useWebSocket.ts` `block_pty_opened` / `block_pty_closed` switch-case stubs [§3.10]
-- [ ] Test stubs created with detailed test plan comments
+- [x] `src/scieasy/blocks/ai/ai_block.py` rewrite stub: `AIBlock(Block)` with `execution_mode=EXTERNAL`, `variadic_inputs/outputs=True`; all methods `raise NotImplementedError` with detailed implementation comments [§3.1] → PR #844-skeleton (sha pending commit)
+- [x] `src/scieasy/blocks/ai/run_dir.py` new module: `RunDir` class signature + per-run `.scieasy/ai-block-runs/{run_id}/` layout doc + manifest.json schema [§3.2, §3.4] → PR #844-skeleton
+- [x] `src/scieasy/blocks/ai/completion.py` new module: three completion paths sketched (MCP / FileWatcher / button) [§3.5] → PR #844-skeleton
+- [x] `src/scieasy/ai/agent/mcp/tools_workflow.py` add `finish_ai_block` ToolEntry stub returning `not_in_ai_block_context` envelope [§3.5] → PR #844-skeleton (registry now exposes 26 tools)
+- [x] `src/scieasy/engine/pty_control.py` new module: `request_pty_tab()` + `notify_block_pty_event()` IPC helpers stubbed [§3.10] → PR #844-skeleton
+- [x] `src/scieasy/api/routes/ai_pty.py` add engine-initiated tab-open route stub (sibling to user-launched WS route — **do not modify** the existing route) [§3.10] → PR #844-skeleton (`open_engine_initiated_tab` added; lines 1-318 of existing route untouched)
+- [x] `frontend/src/components/AIChat/TerminalTabs.tsx` accept engine-initiated open events stub [§3.10] → PR #844-skeleton (`handleBlockPtyOpened` / `handleBlockPtyClosed` exports)
+- [x] `frontend/src/components/AIChat/TerminalTab.tsx` props extended for status badge + Mark-done button stubs [§3.9] → PR #844-skeleton (`AiBlockStatusBadge` / `MarkDoneButton` component stubs)
+- [x] `frontend/src/hooks/useWebSocket.ts` `block_pty_opened` / `block_pty_closed` switch-case stubs [§3.10] → PR #844-skeleton
+- [x] Test stubs created with detailed test plan comments → PR #844-skeleton (5 test files: `test_ai_block_skeleton.py`, `test_run_dir_skeleton.py`, `test_completion_skeleton.py`, `test_finish_ai_block_skeleton.py`, `test_pty_control_skeleton.py`, `TerminalTabs.skeleton.test.tsx`)
 
 ### Phase 2A — Backend block runtime (Owner: I35a)
 - [ ] `AIBlock.run()` real implementation: writes manifest, requests PTY tab, enters PAUSED, awaits completion signal

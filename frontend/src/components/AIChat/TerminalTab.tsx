@@ -6,6 +6,14 @@
  *   setup   -> <SetupScreen>
  *   running -> <TerminalView>
  *   closed  -> "Terminal exited (code N). [Reopen] [Close]"
+ *
+ * ADR-035 §3.9 skeleton extension:
+ *   - Tabs spawned by an AI Block (tab.source === "ai-block") render a
+ *     status badge (✓ DONE / ✗ ERROR / spinner PAUSED) inline with the
+ *     title, and a "Mark done" button when the block is PAUSED.
+ *   - Implementation phase (I35c) wires the badge + button to the
+ *     tab.aiBlockStatus field on the tab state and the
+ *     ``mark_done.json`` signal-write API.
  */
 import { useCallback } from "react";
 
@@ -15,6 +23,52 @@ import { TerminalView } from "./TerminalView";
 
 export interface TerminalTabProps {
   tabId: string;
+}
+
+/**
+ * ADR-035 §3.9 skeleton: status badge for AI-Block-spawned tabs.
+ *
+ * Implementation plan (I35c):
+ *   - Read `tab.source` and `tab.aiBlockStatus` from the store.
+ *   - Render one of: ✓ (DONE), ✗ (ERROR), ⏳ (PAUSED), nothing (RUNNING).
+ *   - Tailwind classes mirror the canvas BlockNode status pills so the
+ *     visual language is consistent.
+ *
+ * Test plan (vitest):
+ *   - test_renders_done_badge_when_status_done
+ *   - test_renders_error_badge_when_status_error
+ *   - test_renders_spinner_when_status_paused
+ *   - test_renders_nothing_when_source_not_ai_block
+ *
+ * References: ADR-035 §3.9
+ */
+export function AiBlockStatusBadge(_props: { tabId: string }): JSX.Element | null {
+  // SKELETON: returns null until I35c wires real status from the store.
+  // See comment block above.
+  return null;
+}
+
+/**
+ * ADR-035 §3.5 path (c) skeleton: "Mark done" escape-hatch button.
+ *
+ * Implementation plan (I35c):
+ *   - Visible when `tab.source === "ai-block"` && `tab.aiBlockStatus === "paused"`.
+ *   - On click, POST to `/api/blocks/ai/{block_run_id}/mark_done` (engine
+ *     route added in I35b) — engine writes the `mark_done.json` signal
+ *     file under the run_dir, the worker's CompletionWatcher picks it up.
+ *   - Button is disabled (with tooltip) outside paused state.
+ *
+ * Test plan (vitest):
+ *   - test_button_visible_when_ai_block_paused
+ *   - test_button_hidden_when_not_ai_block_tab
+ *   - test_button_click_calls_mark_done_api
+ *
+ * References: ADR-035 §3.5 path (c), §3.9
+ */
+export function MarkDoneButton(_props: { tabId: string }): JSX.Element | null {
+  // SKELETON: returns null until I35c wires the API call.
+  // See comment block above.
+  return null;
 }
 
 export function TerminalTab({ tabId }: TerminalTabProps) {

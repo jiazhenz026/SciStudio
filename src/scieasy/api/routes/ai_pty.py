@@ -315,3 +315,85 @@ def _spawn(*, provider: str, project_dir: Path, dangerous: bool) -> PtyProcess:
         return spawn_codex(project_dir=project_dir, dangerous=dangerous)
     # Defensive — guarded earlier in the route too.
     raise ValueError(f"Unknown provider {provider!r}")
+
+
+# ---------------------------------------------------------------------------
+# ADR-035 §3.10 — engine-initiated PTY tab open (skeleton).
+#
+# The existing ``WS /api/ai/pty/{tab_id}`` route at line 62 is the
+# **user-launched** path: the frontend connects, the route validates
+# query params, spawns the PTY, pumps bytes both ways. That route is
+# FROZEN per ADR-034 — do not modify.
+#
+# ADR-035 §3.10 adds a SECOND, engine-initiated path: the AI Block
+# worker calls :func:`scieasy.engine.pty_control.request_pty_tab` →
+# the engine consults this module to allocate a tab from the inside
+# (no incoming WS connection yet) and returns the ``tab_id`` to the
+# worker. The frontend then receives a ``block_pty_opened`` WS frame
+# on the main workflow WS and connects to the tab via the existing
+# user-launched route, just like it would for a hand-launched tab.
+#
+# Skeleton: signatures + comment-block plan only.
+# ---------------------------------------------------------------------------
+
+
+def open_engine_initiated_tab(
+    *,
+    title: str,
+    spawn_argv: list[str],
+    cwd: str,
+    initial_stdin: str,
+    block_run_id: str,
+    permission_mode: str,
+) -> str:
+    """Allocate a PTY tab from inside the engine (no incoming WS yet).
+
+    Called by the engine's IPC handler when an AI Block worker invokes
+    :func:`scieasy.engine.pty_control.request_pty_tab`. Returns the
+    ``tab_id`` so the worker can correlate completion events.
+
+    Implementation plan (per ADR-035 §3.10):
+        1. Generate a fresh ``tab_id`` (uuid hex, 12 chars — same
+           shape used by the existing user-launched route).
+        2. Acquire ``_active_lock``; bail with ``RuntimeError`` if
+           ``len(_active_ptys) >= MAX_ACTIVE_PTYS`` (ADR-034 §8 cap).
+        3. Spawn the PTY via the existing ``terminal.spawn_*`` factory.
+           Use ``spawn_argv`` shape-identical to a user-launched tab —
+           the agent must not be able to tell the tab was opened
+           server-side rather than user-side.
+        4. Register the spawned PTY in ``_active_ptys`` keyed by tab_id
+           (so a subsequent WS connection from the frontend's
+           ``block_pty_opened`` handler joins this PTY rather than
+           spawning a new one — implementation phase will need to
+           extend the existing route to look up an existing PTY for
+           this case; one more reason this is a sibling stub today).
+        5. Push a ``block_pty_opened`` WS message to the frontend's
+           main workflow WS so AIChat auto-creates the tab. Payload:
+           ``{"type": "block_pty_opened", "tab_id": ..., "title": ...,
+              "block_run_id": ..., "permission_mode": ...}``.
+        6. Return ``tab_id``.
+
+    Edge cases:
+        * MAX_ACTIVE_PTYS exceeded → ``RuntimeError`` with
+          ``"PTY cap (16) reached"``. Worker propagates as block ERROR
+          per ADR-035 §3.8 run-time tier.
+        * Spawn fails (binary deleted between validate and run) →
+          propagate the OS exception. Worker → block ERROR.
+        * WS push fails (frontend disconnected) → log warning, continue
+          (the tab still exists; the frontend reconnects and observes
+          via heartbeat / subsequent state poll).
+
+    Test plan:
+        * test_open_engine_initiated_tab_returns_tab_id
+        * test_open_engine_initiated_tab_registers_in_active_map
+        * test_open_engine_initiated_tab_emits_block_pty_opened_ws
+        * test_open_engine_initiated_tab_respects_pty_cap
+        * test_open_engine_initiated_tab_spawn_failure_propagates
+
+    References:
+        ADR-035 §3.10 (IPC contract);
+        ADR-034 §8 (MAX_ACTIVE_PTYS cap);
+        existing ``pty_endpoint`` route in this module (lines 62-226;
+        not modified — this is a sibling)
+    """
+    raise NotImplementedError("see comment block above")

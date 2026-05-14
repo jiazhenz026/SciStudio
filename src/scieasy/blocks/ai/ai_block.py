@@ -1,4 +1,22 @@
-"""AIBlock — LLM-driven processing with prompt templates."""
+"""AIBlock — PTY-tab agent runtime per ADR-035 (skeleton).
+
+This module supersedes the previous one-shot Anthropic Messages API
+``AIBlock`` (see ADR-035 §2.1, §4 "Delete"). Implementation phase agents
+fill in the bodies; this skeleton only nails down the public surface and
+documents the implementation plan inline.
+
+References:
+    docs/adr/ADR-035.md §3 (decision), §3.1 (block category),
+    §3.2 (runtime topology), §3.4 (manifest), §3.5 (completion paths),
+    §3.6 (output validation), §3.7 (permission), §3.9 (state machine),
+    §3.10 (engine ↔ worker IPC).
+
+Skeleton invariants (per docs/planning/agent-prompt-templates/skeleton-agent.md):
+    * Every method body raises ``NotImplementedError("see comment block above")``
+    * Every NotImplementedError is preceded by a docstring + structured
+      implementation-plan comment.
+    * No real logic — pure scaffolding.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +26,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from scieasy.blocks.base.block import Block
 from scieasy.blocks.base.config import BlockConfig
 from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.core.types.text import Text
+from scieasy.blocks.base.state import ExecutionMode
+from scieasy.core.types.base import DataObject
 
 if TYPE_CHECKING:
     from scieasy.core.types.collection import Collection
@@ -17,92 +36,124 @@ logger = logging.getLogger(__name__)
 
 
 class AIBlock(Block):
-    """Block that uses a large language model to process data.
+    """Workflow-graph node that spawns a claude/codex agent in an ADR-034 PTY tab.
 
-    *model* identifies the LLM backend; *prompt_template* holds the
-    template string that is rendered with block inputs before inference.
+    Per ADR-035 §3.1 the block is **EXTERNAL** mode (same family as
+    :class:`AppBlock`), not :class:`ProcessBlock`: the entire input
+    Collection is presented to the agent at once via a manifest, the
+    agent runs autonomously inside a visible PTY tab, and completion is
+    signalled via one of three paths (MCP tool, file watcher, user
+    button — see ADR-035 §3.5).
 
-    The MVP wires existing provider infrastructure (``AIConfig``,
-    ``get_provider()``) to a simple prompt-template workflow:
+    Variadic ports reuse ADR-029 verbatim. Type allowlists are
+    deliberately permissive — the agent can in principle produce any
+    ``DataObject`` subtype.
 
-    1. Serialize any input to a text representation.
-    2. Substitute into the user-provided prompt template (``{data}``).
-    3. Call the configured LLM provider.
-    4. Return the response as a ``Text`` DataObject.
+    Implementation plan (per ADR-035 §3.2 "Runtime topology"):
+        1. ``run()`` writes ``manifest.json`` under
+           ``{project}/.scieasy/ai-block-runs/{run_id}/`` (see :class:`RunDir`).
+        2. Worker → engine control event ``request_pty_tab(spec=...)``
+           opens an ADR-034 PTY tab with the same argv shape as a
+           hand-launched tab (no ``--add-dir`` restriction; full agent
+           capabilities; see ADR-035 §3.7).
+        3. Worker enters PAUSED, waits on the
+           :class:`scieasy.blocks.ai.completion.CompletionWatcher`.
+        4. On completion signal: validate outputs via the existing
+           IOBlock loader registry (ADR-035 §3.6), wrap as typed
+           ``DataObject``s keyed by output port name, return.
+        5. On cancellation: ``ProcessHandle.terminate()`` with
+           ``terminate_grace_sec`` grace, transition to CANCELLED.
+        6. Tab stays open and remains interactive after DONE/ERROR
+           (ADR-035 §3.9). Title gets a status decoration (✓ / ✗).
+
+    State machine (ADR-035 §3.9 — same as AppBlock):
+        IDLE → READY → RUNNING → PAUSED → DONE
+                                 ↓        ↑
+                                 ERROR / CANCELLED
+
+    References:
+        ADR-035 §3.1, §3.2, §3.5, §3.6, §3.9
+        src/scieasy/blocks/app/app_block.py (sibling EXTERNAL-mode block)
     """
 
-    type_name: ClassVar[str] = "ai.llm"
-    name: ClassVar[str] = "AI / LLM"
-    description: ClassVar[str] = "Process data with a large language model."
+    # -- ClassVar metadata -----------------------------------------------------
+
+    type_name: ClassVar[str] = "ai.agent"
+    name: ClassVar[str] = "AI Agent"
+    description: ClassVar[str] = "Spawn a claude/codex agent in a PTY tab to process inputs into typed outputs."
     subcategory: ClassVar[str] = "ai"
-    version: ClassVar[str] = "0.1.0"
+    version: ClassVar[str] = "0.2.0"
 
-    model: ClassVar[str] = ""
-    prompt_template: ClassVar[str] = ""
+    # ADR-035 §3.1 decision: EXTERNAL mode (same family as AppBlock).
+    execution_mode: ClassVar[ExecutionMode] = ExecutionMode.EXTERNAL
 
+    # ADR-035 §3.1 decision: variadic ports — user declares inputs/outputs at
+    # config time via the ADR-029 port editor.
+    variadic_inputs: ClassVar[bool] = True
+    variadic_outputs: ClassVar[bool] = True
+
+    # ADR-035 §3.1 decision: deliberately permissive type allowlists.
+    allowed_input_types: ClassVar[list[type]] = [DataObject]
+    allowed_output_types: ClassVar[list[type]] = [DataObject]
+
+    # ADR-035 §3.1: 10s grace period for ProcessHandle.terminate() on cancel.
+    terminate_grace_sec: ClassVar[float] = 10.0
+
+    # Default scaffold ports — replaced per-instance via the port editor when
+    # variadic flags are True. Kept as a hint for users dragging the block in
+    # from the palette.
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(
             name="data",
-            accepted_types=[],  # Any type
+            accepted_types=[DataObject],
             required=False,
             is_collection=True,
-            description="Input data to process (any type). Serialized to text for the LLM.",
+            description="Inputs handed to the agent via manifest.json (any DataObject).",
         ),
     ]
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(
             name="result",
-            accepted_types=[Text],
+            accepted_types=[DataObject],
             is_collection=False,
-            description="LLM response as Text.",
+            description="Output port; the agent writes a file at the configured expected_path.",
         ),
     ]
 
+    # ADR-035 §3.3 block-level UI. Choices stored in ``block.config`` so they
+    # survive workflow save/load and become part of lineage.
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {
-            "prompt": {
-                "type": "string",
-                "default": "",
-                "title": "Prompt",
-                "description": "Instructions for the LLM. Use {data} to reference the input.",
-                "ui_widget": "textarea",
-            },
             "provider": {
                 "type": "string",
-                "enum": ["anthropic", "openai"],
-                "default": "anthropic",
-                "title": "LLM Provider",
+                "enum": ["claude-code", "codex"],
+                "default": "claude-code",
+                "title": "Provider",
             },
-            "model": {
-                "type": ["string", "null"],
-                "default": None,
-                "title": "Model (leave empty for default)",
+            "permission_mode": {
+                "type": "string",
+                "enum": ["safe", "bypass"],
+                "default": "safe",
+                "title": "Permission mode",
+                "description": (
+                    "safe = agent prompts for sensitive tool use (default); "
+                    "bypass = full filesystem access — same as a hand-launched ADR-034 tab."
+                ),
             },
-            "temperature": {
-                "type": "number",
-                "default": 0.2,
-                "minimum": 0.0,
-                "maximum": 2.0,
+            "user_prompt": {
+                "type": "string",
+                "default": "",
+                "title": "User prompt",
+                "ui_widget": "textarea",
             },
-            "max_tokens": {
+            "timeout_sec": {
                 "type": "integer",
-                "default": 4096,
+                "default": 1800,
                 "minimum": 1,
-            },
-            "prompt_file": {
-                "type": ["string", "null"],
-                "default": None,
-                "title": "Load prompt from file (.md / .txt)",
-                "ui_widget": "file_browser",
-            },
-            "system_prompt": {
-                "type": ["string", "null"],
-                "default": None,
-                "title": "System prompt (optional)",
+                "title": "Timeout (seconds)",
             },
             # ADR-029 D12: port editor fields injected via MRO merge (ADR-030).
-            # Leaf subclasses inherit these automatically; no subclass changes needed.
             "input_ports": {
                 "type": "array",
                 "items": {
@@ -124,6 +175,7 @@ class AIBlock(Block):
                     "properties": {
                         "name": {"type": "string"},
                         "types": {"type": "array", "items": {"type": "string"}},
+                        "expected_path": {"type": "string"},
                     },
                 },
                 "default": [],
@@ -132,120 +184,152 @@ class AIBlock(Block):
                 "ui_priority": 11,
             },
         },
-        "required": ["prompt"],
+        "required": ["user_prompt"],
     }
 
+    # -- Lifecycle methods (all stubbed) --------------------------------------
+
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
-        """Run the LLM inference pipeline.
+        """Drive the AI Block's PTY-tab lifecycle end-to-end.
 
-        Steps:
-        1. Serialize input data to a text representation.
-        2. Build prompt from template (``{data}`` placeholder).
-        3. Configure and call the LLM via the provider infrastructure.
-        4. Return the response wrapped as ``Text``.
+        Implementation plan (per ADR-035 §3.2):
+            1. Allocate a :class:`RunDir` under
+               ``{project}/.scieasy/ai-block-runs/{run_id}/``.
+            2. Materialize input storage refs to absolute paths (no copy /
+               no symlink — paths are recorded verbatim per §3.4).
+            3. Write ``manifest.json`` with the schema in ADR-035 §3.4 via
+               :meth:`RunDir.write_manifest`.
+            4. Build the spawn argv via the existing
+               ``scieasy.ai.agent.terminal.spawn_claude/_codex`` builders;
+               include ``--append-system-prompt`` (SKILL.md), ``--mcp-config``
+               (project .mcp.json), and ``--permission-mode`` per
+               ``config["permission_mode"]``.
+            5. Call :func:`scieasy.engine.pty_control.request_pty_tab` to ask
+               the engine to open the tab. Block until ``tab_id`` returned.
+            6. Engine emits ``block_pty_opened`` to the frontend; the block
+               transitions RUNNING → PAUSED.
+            7. Construct a :class:`CompletionWatcher` covering all three
+               paths (MCP signal file in run_dir, FileWatcher on each
+               port's ``expected_path``, user "Mark done" event).
+            8. ``await watcher.wait(timeout=config["timeout_sec"])`` until
+               one signal fires (PAUSED → RUNNING).
+            9. Validate outputs: for each declared output port, resolve its
+               final path (from the MCP signal or ``expected_path``), check
+               existence + size, dispatch to the IOBlock loader registered
+               for the declared type. On any failure → ERROR with
+               ``termination_detail`` containing the loader exception
+               (ADR-035 §3.6). The run_dir is preserved for post-mortem.
+            10. Wrap each loaded ``DataObject`` into a single-element
+                :class:`Collection` keyed by port name. Return the dict.
+            11. Notify engine of completion via
+                :func:`scieasy.engine.pty_control.notify_block_pty_event`
+                with ``event="completed"``.
+            12. Tab stays open per ADR-035 §3.9 — caller (engine) does not
+                close it; user closes manually.
+
+        Edge cases:
+            * Spawn fails (binary deleted between validate and run, etc.)
+              → ERROR with ``termination_detail`` containing exception
+              (ADR-035 §3.8 run-time tier).
+            * Agent exits cleanly without ``finish_ai_block`` and not all
+              ``expected_path`` files exist → ERROR with
+              "agent exited without completing all outputs"
+              (ADR-035 §8 OQ-2; tentative — confirm in PoC).
+            * User closes tab → CANCELLED via worker's IPC subscription.
+            * Workflow cancel → :meth:`ProcessHandle.terminate()` with
+              :attr:`terminate_grace_sec` grace.
+            * Timeout exceeded → CANCELLED with
+              ``termination_detail="timeout"`` then graceful kill.
+            * ``finish_ai_block`` called twice → second call is rejected
+              by the MCP tool (ADR-035 §8 OQ-1; tentative error).
+
+        Test plan:
+            * test_run_writes_manifest_with_correct_shape (positive)
+            * test_run_request_pty_tab_with_safe_permission (positive)
+            * test_run_request_pty_tab_with_bypass_permission (positive)
+            * test_run_completion_via_mcp_finish_ai_block (positive)
+            * test_run_completion_via_file_watcher (positive — fallback path)
+            * test_run_completion_via_mark_done_button (positive — escape hatch)
+            * test_run_validation_fail_returns_error_state (negative)
+            * test_run_spawn_fail_returns_error (negative)
+            * test_run_user_close_tab_cancels (negative)
+            * test_run_timeout_cancels (negative)
+            * test_run_double_finish_call_rejected (edge — tentative per OQ-1)
+            * test_run_preserves_run_dir_on_validation_fail (edge)
+
+        References:
+            ADR-035 §3.2, §3.5, §3.6, §3.8, §3.9, §8 (open questions);
+            src/scieasy/blocks/app/app_block.py:: AppBlock.run() pattern.
         """
-        from scieasy.blocks.ai.providers import AnthropicProvider, OpenAIProvider
+        raise NotImplementedError("see comment block above")
 
-        # 1. Serialize input data to text representation.
-        raw_data = inputs.get("data")
-        data_text = self._serialize_input(raw_data)
+    def validate_config(self, config: BlockConfig) -> None:
+        """Validate-time config checks (ADR-035 §3.8 validate-time tier).
 
-        # 2. Build prompt from template.
-        # If prompt_file is set and non-empty, read its content as the prompt
-        # (overrides the textarea prompt field). Supported: .md, .txt.
-        prompt_file = config.get("prompt_file")
-        if prompt_file and str(prompt_file).strip():
-            from pathlib import Path
+        Distinct from :meth:`Block.validate` (which is run-time input
+        validation). This is invoked by the workflow validator before any
+        block runs, so a missing provider binary surfaces with an
+        actionable error rather than waiting until run-time.
 
-            pf = Path(str(prompt_file))
-            if not pf.exists():
-                raise FileNotFoundError(f"AIBlock: prompt_file not found: {pf}")
-            if pf.suffix.lower() not in {".md", ".txt"}:
-                raise ValueError(f"AIBlock: prompt_file must be .md or .txt, got {pf.suffix!r}")
-            prompt_template = pf.read_text(encoding="utf-8")
-        else:
-            prompt_template = str(config.get("prompt", ""))
-        if not prompt_template:
-            raise ValueError("AIBlock: 'prompt' config is required.")
+        Implementation plan:
+            1. (No super() call — this is a separate, AIBlock-specific hook.)
+            2. Resolve provider via ``config["provider"]``.
+            3. Call ``scieasy.ai.agent.claude_code.discover.discover_<provider>()``
+               (or codex variant). If binary not discoverable, raise
+               ``ValueError`` with the actionable message including the exact
+               ``scieasy install`` command per ADR-035 §3.8.
+            4. Validate ``config["user_prompt"]`` is a non-empty string.
+            5. Validate ``config["timeout_sec"] > 0``.
+            6. For each declared output port, validate ``expected_path`` is a
+               non-empty string. Defaults to
+               ``./{block_name}_outputs/{port}.{ext}`` per ADR-035 §3.3.
 
-        # Replace {data} placeholder with serialized input.
-        prompt = prompt_template.replace("{data}", data_text)
+        Edge cases:
+            * Provider == "claude-code" but only "codex" installed → fail with
+              the install hint for claude-code.
+            * Both installed → succeed silently.
+            * No output ports declared → succeed (degenerate; agent runs but
+              nothing to validate). The watcher will then only have the user
+              "Mark done" path.
 
-        # 3. Configure and call LLM.
-        provider_name = str(config.get("provider", "anthropic"))
-        model = config.get("model") or ""
-        temperature = float(config.get("temperature", 0.2))
-        max_tokens = int(config.get("max_tokens", 4096))
-        api_key = ""  # Falls back to provider-specific env var
+        Test plan:
+            * test_validate_succeeds_when_provider_installed
+            * test_validate_fails_with_install_hint_when_missing
+            * test_validate_rejects_empty_prompt
+            * test_validate_rejects_negative_timeout
 
-        provider: AnthropicProvider | OpenAIProvider
-        if provider_name == "anthropic":
-            provider = AnthropicProvider(api_key=api_key, model=model, max_tokens=max_tokens)
-        elif provider_name == "openai":
-            provider = OpenAIProvider(api_key=api_key, model=model, max_tokens=max_tokens)
-        else:
-            raise ValueError(f"AIBlock: unknown provider {provider_name!r}. Use 'anthropic' or 'openai'.")
+        References:
+            ADR-035 §3.8 "Validate-time"; src/scieasy/ai/agent/claude_code/discover.py
+        """
+        raise NotImplementedError("see comment block above")
 
-        system_prompt = config.get("system_prompt")
-        response = provider.generate(
-            prompt=prompt,
-            system=str(system_prompt) if system_prompt else "",
-            config={"temperature": temperature, "max_tokens": max_tokens},
-        )
+    def _build_spawn_argv(self, config: BlockConfig, manifest_path: str) -> list[str]:
+        """Compose the agent spawn argv.
 
-        # 4. Wrap response as Text.
-        result = Text(content=response, format="plain")
-        return {"result": result}  # type: ignore[dict-item]  # non-collection output port
+        Implementation plan (per ADR-035 §3.2 step 4):
+            1. Resolve provider binary via ``discover_<provider>()``.
+            2. Append ``--append-system-prompt <SKILL.md>`` (existing path).
+            3. Append ``--mcp-config <project .mcp.json>``.
+            4. Append ``--permission-mode <safe|bypass>`` (provider-specific
+               flag spelling: claude uses ``--permission-mode bypassPermissions``;
+               codex uses ``--dangerously-bypass-approvals-and-sandbox``).
+            5. Append the initial prompt via stdin or as positional — match
+               whatever the existing terminal builder uses for hand-launched
+               tabs (the goal is shape-identical argv per ADR-035 §3.2).
 
-    def _serialize_input(self, data: Any) -> str:
-        """Convert any input to a text representation for the LLM."""
-        if data is None:
-            return "(no input data)"
+        Edge cases:
+            * Provider unrecognized → ``ValueError`` (caller has already
+              validated; this is a defense-in-depth check).
 
-        from scieasy.core.types.base import DataObject
-        from scieasy.core.types.collection import Collection
+        Test plan:
+            * test_build_argv_claude_safe_mode
+            * test_build_argv_claude_bypass_mode_uses_bypassPermissions_flag
+            * test_build_argv_codex_safe_mode
+            * test_build_argv_codex_bypass_mode_uses_dangerously_bypass_flag
+            * test_build_argv_includes_skill_and_mcp_paths
 
-        if isinstance(data, Collection):
-            parts = []
-            for i, item in enumerate(data):
-                parts.append(f"[Item {i}]: {self._describe_object(item)}")
-            return "\n".join(parts)
-
-        if isinstance(data, DataObject):
-            return self._describe_object(data)
-
-        return str(data)
-
-    def _describe_object(self, obj: Any) -> str:
-        """Create a text description of a DataObject for LLM context."""
-        from scieasy.core.types.array import Array
-        from scieasy.core.types.dataframe import DataFrame
-        from scieasy.core.types.text import Text as TextType
-
-        type_name = type(obj).__name__
-        desc = f"Type: {type_name}"
-
-        if isinstance(obj, TextType):
-            content = obj.content if hasattr(obj, "content") else ""
-            return f"{desc}\nContent: {content}"
-
-        if isinstance(obj, Array):
-            desc += f", axes={obj.axes}, shape={obj.shape}, dtype={obj.dtype}"
-            # Don't send raw array data to LLM — too large.
-            return desc
-
-        if isinstance(obj, DataFrame):
-            desc += f", columns={obj.columns}, rows={obj.row_count}"
-            # Optionally include first few rows for context.
-            try:
-                table = obj.to_memory()
-                preview = table.slice(0, 5).to_pylist()
-                desc += f"\nFirst 5 rows: {preview}"
-            except Exception:
-                pass
-            return desc
-
-        # Generic fallback.
-        if hasattr(obj, "storage_ref") and obj.storage_ref:
-            desc += f", path={obj.storage_ref.path}"
-        return desc
+        References:
+            ADR-035 §3.2 step 4, §3.7 permission model;
+            src/scieasy/ai/agent/terminal.py spawn_claude/spawn_codex
+        """
+        raise NotImplementedError("see comment block above")
