@@ -252,9 +252,10 @@ Worker → engine control event (new):
 self.engine.request_pty_tab(
     title=f"🤖 {self.name}",
     spawn_argv=[claude_path, "--append-system-prompt", skill_md_path,
-                "--mcp-config", mcp_json_path, "--add-dir", sandbox_dir, ...],
-    cwd=sandbox_dir,
-    initial_stdin=initial_prompt,
+                "--mcp-config", mcp_json_path,
+                "--permission-mode", self.config["permission_mode"], ...],
+    cwd=project_dir,                   # § 3.2: project cwd, no --add-dir
+    initial_stdin=initial_prompt,      # references manifest path under .scieasy/ai-block-runs/{run_id}/
     block_run_id=run_id,
 )
 # blocks until engine confirms tab spawned and returns tab_id, or raises
