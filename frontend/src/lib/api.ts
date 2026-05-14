@@ -37,12 +37,21 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init);
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({ detail: response.statusText }))) as {
-      detail?: string;
+      detail?: string | { message?: string; errors?: unknown };
     };
-    throw new ApiError(
-      payload.detail ?? `Request failed with ${response.status}`,
-      response.status,
-    );
+    // ``detail`` can be a plain string (legacy + FastAPI default) OR a
+    // structured object like ``{message, errors}`` (used by the workflow
+    // GET route when a YAML fails pydantic validation — surfaces the
+    // exact field/reason list for the agent / GUI to display).
+    let message: string;
+    if (typeof payload.detail === "string") {
+      message = payload.detail;
+    } else if (payload.detail && typeof payload.detail.message === "string") {
+      message = payload.detail.message;
+    } else {
+      message = `Request failed with ${response.status}`;
+    }
+    throw new ApiError(message, response.status);
   }
   if (response.status === 204) {
     return undefined as T;

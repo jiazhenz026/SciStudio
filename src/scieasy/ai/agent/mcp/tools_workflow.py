@@ -355,9 +355,18 @@ def write_workflow(path: str, yaml: str) -> dict[str, Any]:
     paths are interpreted relative to ``ctx.project_dir`` (NOT the
     backend process's CWD). Absolute paths must already be under the
     project root or :class:`PermissionError` is raised — this also
-    protects against ``../`` traversal escapes. The returned envelope
-    carries the **absolute resolved path**, never the user-supplied
-    input, so the agent can verify where its file actually landed.
+    protects against ``../`` traversal escapes.
+
+    **Schema validation BEFORE write.** Historically this tool wrote
+    whatever string the agent supplied, so a malformed YAML (e.g. edges
+    in a 4-field shape the schema rejects) landed on disk and the agent
+    received a success envelope. The GUI then 500'd hours later when it
+    tried to load the file. We now validate against
+    :class:`WorkflowFileModel` here. A failure raises :class:`ValueError`
+    with the structured pydantic error list embedded so MCP surfaces the
+    exact field + reason to the agent right away — the file is **not**
+    written. This is a deliberate strictness: engine + schema stay
+    immovable, agent feedback happens at the tool boundary.
 
     TODO(#732): once the workflow versioning agent's ``If-Match`` header
     lands on ``PUT /api/workflows/{id}``, the conflict-detect path here
@@ -366,6 +375,35 @@ def write_workflow(path: str, yaml: str) -> dict[str, Any]:
     the same arbitration code path. Today the filelock alone is the
     arbitration mechanism.
     """
+    import json
+
+    import yaml as yaml_module
+    from pydantic import ValidationError
+
+    from scieasy.workflow.schema import WorkflowFileModel
+
+    # Pre-write validation. Parse the YAML and run it through the same
+    # pydantic model the runtime + GET route use. A failure here is
+    # raised as a ValueError whose message includes the structured
+    # pydantic error list, so the MCP dispatcher serialises it back to
+    # the agent verbatim (see ``server.py`` error path).
+    try:
+        parsed = yaml_module.safe_load(yaml)
+    except yaml_module.YAMLError as exc:
+        raise ValueError(f"write_workflow: YAML parse failure: {exc}") from exc
+    try:
+        WorkflowFileModel.model_validate(parsed)
+    except ValidationError as exc:
+        # ``exc.errors()`` entries can carry non-JSON-serialisable
+        # values in ``ctx`` (e.g. the underlying ``ValueError`` object
+        # for a custom field validator). ``default=str`` coerces those
+        # to readable strings without losing information.
+        raise ValueError(
+            "write_workflow: refusing to write — workflow does not match "
+            "the SciEasy schema. Errors (JSON):\n"
+            + json.dumps(exc.errors(), indent=2, default=str)
+        ) from exc
+
     p = _resolve_project_path(path)
     lock_path = str(p) + ".lock"
     try:

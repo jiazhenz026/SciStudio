@@ -106,9 +106,23 @@ workflow:                          # REQUIRED top-level key
   metadata: {}                     # optional free-form dict
 ```
 
-**Edge port format is `node_id:port_name`** — colon, not dot. Writing
-`"load.images"` or `"load/images"` fails validation. Find the port
-names by calling `get_block_schema` for each block type.
+**Edge port format is `node_id:port_name`** — colon, not dot, two
+strings only. Writing `"load.images"` / `"load/images"` fails
+validation. Do NOT split source/target into four fields like
+
+```yaml
+# WRONG — this shape will be rejected by write_workflow
+edges:
+  - source: load
+    source_port: images
+    target: cellpose
+    target_port: images
+```
+
+The 4-field shape belongs to a different API
+(`POST /api/blocks/validate-connection` — used by the canvas drag-to-
+connect interaction), not the workflow YAML. Keep them separate.
+Find the port names by calling `get_block_schema` for each block type.
 
 ## Happy path: write → validate → run → inspect
 
@@ -156,7 +170,11 @@ Write tools route through the permission flow (or run freely under
   structure, edges, and type compatibility. **Call before run.**
 - `write_workflow` [write] — Args: `path` (relative, under
   `workflows/`), `content` (YAML string conforming to the schema
-  above). Acquires a file lock; refuses paths outside the project.
+  above). **Validates against the SciEasy schema before writing** — a
+  malformed YAML (wrong edge shape, missing `workflow:` top-level key,
+  empty node id, etc.) is rejected with the pydantic error list and
+  the file is **not** touched. Read the error, fix the YAML, retry.
+  Acquires a file lock; refuses paths outside the project.
 - `run_workflow` [write] — Args: `path`. Submits a workflow; returns
   `{run_id}`. Polling via `get_run_status` is your responsibility.
 - `cancel_run` [write] — Args: `run_id`.
