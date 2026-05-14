@@ -29,6 +29,11 @@ The wire protocol is locked (frontend agent implements the same spec):
 The route enforces a hard cap of ``MAX_ACTIVE_PTYS`` concurrent
 terminals (default 16) — the 17th connection receives an ``error``
 frame and is closed before the PTY is spawned.
+
+ADR-035 (§3.10) extends this module — without modifying the existing
+``WS /api/ai/pty/{tab_id}`` handler — with an engine-initiated tab-open
+path. See :func:`open_engine_initiated_tab` and the
+``/api/ai/pty/internal/*`` routes near the bottom of the file.
 """
 
 from __future__ import annotations
@@ -36,10 +41,15 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
+import secrets
 import threading
+import uuid
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Annotated, Any
 
-from fastapi import APIRouter, WebSocket
+from fastapi import APIRouter, Body, Header, HTTPException, WebSocket
 from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from scieasy.ai.agent.mcp._context import _safe_under, get_optional_context
@@ -337,6 +347,83 @@ def _spawn(*, provider: str, project_dir: Path, dangerous: bool) -> PtyProcess:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# WS subscriber registry
+#
+# The existing ``/ws`` workflow WS (in ``scieasy.api.ws``) carries
+# EngineEvent traffic. ADR-035 needs to push two additional, NON-engine
+# messages — ``block_pty_opened`` and ``block_pty_closed`` — without
+# adding new EngineEvent types (per the dispatch's hard scope rule:
+# "MAY emit existing events but MAY NOT add new event types").
+#
+# Resolution: maintain a small subscriber registry HERE in ai_pty.py.
+# The workflow WS handler (``scieasy.api.ws``) registers a per-connection
+# callback on accept and unregisters on disconnect. Engine-initiated tab
+# opens / closes call :func:`broadcast_ai_pty_message` which fans out
+# the message dict to every live subscriber.
+#
+# This keeps engine/events.py untouched while still letting the engine
+# push these messages to all connected browsers.
+# ---------------------------------------------------------------------------
+
+
+_AiPtySubscriber = Callable[[dict[str, Any]], Awaitable[None] | None]
+"""Callable invoked with the message dict for every connected WS client."""
+
+_ai_pty_subscribers: set[_AiPtySubscriber] = set()
+_ai_pty_subscribers_lock = threading.Lock()
+
+
+def register_ai_pty_subscriber(callback: _AiPtySubscriber) -> None:
+    """Register a callback to receive ai_pty broadcast messages.
+
+    The workflow WS handler (``scieasy.api.ws.websocket_handler``)
+    registers one subscriber per active connection.
+
+    Idempotent — registering the same callback twice is a no-op.
+    """
+    with _ai_pty_subscribers_lock:
+        _ai_pty_subscribers.add(callback)
+
+
+def unregister_ai_pty_subscriber(callback: _AiPtySubscriber) -> None:
+    """Remove a previously registered subscriber.
+
+    Silently no-ops if the callback was not registered (cleanup paths
+    should never crash the WS teardown).
+    """
+    with _ai_pty_subscribers_lock:
+        _ai_pty_subscribers.discard(callback)
+
+
+async def broadcast_ai_pty_message(message: dict[str, Any]) -> None:
+    """Fan-out *message* to every registered WS subscriber.
+
+    Best-effort: subscriber exceptions are caught and logged so a single
+    flaky client cannot break the broadcast for everyone else. Coroutine
+    return values are awaited so async subscribers (the production WS
+    handler queues the message into an asyncio.Queue) work correctly.
+    """
+    with _ai_pty_subscribers_lock:
+        snapshot = list(_ai_pty_subscribers)
+    for cb in snapshot:
+        try:
+            result = cb(message)
+            if asyncio.iscoroutine(result):
+                await result
+        except Exception:
+            logger.warning("broadcast_ai_pty_message: subscriber raised", exc_info=True)
+
+
+# ---------------------------------------------------------------------------
+# Engine-initiated tab open
+# ---------------------------------------------------------------------------
+
+
+# Map tab_id → block_run_id so completion notifies can resolve back.
+_engine_tab_to_run: dict[str, str] = {}
+
+
 def open_engine_initiated_tab(
     *,
     title: str,
@@ -348,52 +435,233 @@ def open_engine_initiated_tab(
 ) -> str:
     """Allocate a PTY tab from inside the engine (no incoming WS yet).
 
-    Called by the engine's IPC handler when an AI Block worker invokes
-    :func:`scieasy.engine.pty_control.request_pty_tab`. Returns the
+    Called by the internal ``POST /api/ai/pty/internal/request-tab``
+    route handler (which the AI Block worker reaches via
+    :func:`scieasy.engine.pty_control.request_pty_tab`). Returns the
     ``tab_id`` so the worker can correlate completion events.
 
-    Implementation plan (per ADR-035 §3.10):
-        1. Generate a fresh ``tab_id`` (uuid hex, 12 chars — same
-           shape used by the existing user-launched route).
-        2. Acquire ``_active_lock``; bail with ``RuntimeError`` if
-           ``len(_active_ptys) >= MAX_ACTIVE_PTYS`` (ADR-034 §8 cap).
-        3. Spawn the PTY via the existing ``terminal.spawn_*`` factory.
-           Use ``spawn_argv`` shape-identical to a user-launched tab —
-           the agent must not be able to tell the tab was opened
-           server-side rather than user-side.
-        4. Register the spawned PTY in ``_active_ptys`` keyed by tab_id
-           (so a subsequent WS connection from the frontend's
-           ``block_pty_opened`` handler joins this PTY rather than
-           spawning a new one — implementation phase will need to
-           extend the existing route to look up an existing PTY for
-           this case; one more reason this is a sibling stub today).
-        5. Push a ``block_pty_opened`` WS message to the frontend's
-           main workflow WS so AIChat auto-creates the tab. Payload:
-           ``{"type": "block_pty_opened", "tab_id": ..., "title": ...,
-              "block_run_id": ..., "permission_mode": ...}``.
-        6. Return ``tab_id``.
+    Implementation per ADR-035 §3.10:
 
-    Edge cases:
-        * MAX_ACTIVE_PTYS exceeded → ``RuntimeError`` with
-          ``"PTY cap (16) reached"``. Worker propagates as block ERROR
-          per ADR-035 §3.8 run-time tier.
-        * Spawn fails (binary deleted between validate and run) →
-          propagate the OS exception. Worker → block ERROR.
-        * WS push fails (frontend disconnected) → log warning, continue
-          (the tab still exists; the frontend reconnects and observes
-          via heartbeat / subsequent state poll).
+      1. Generate a fresh ``tab_id`` (uuid hex, 12 chars — matches the
+         shape used by the user-launched route's frontend caller).
+      2. Bail with :class:`RuntimeError` if ``len(_active_ptys) >=
+         MAX_ACTIVE_PTYS`` (ADR-034 §8 cap).
+      3. Spawn the PTY via the existing ``spawn_claude/spawn_codex``
+         factories — the agent must not be able to tell the tab was
+         opened server-side rather than user-side. We honour
+         ``spawn_argv`` only as the source-of-truth for the binary
+         family (claude-code vs codex) and ``--dangerously-*`` flags;
+         the spawn helpers always re-derive the system-prompt /
+         mcp-config args internally so the engine-initiated path
+         lands an identical agent process.
+      4. Register the spawned PTY in ``_active_ptys`` keyed by the
+         fresh ``tab_id`` so the frontend's subsequent WS connect
+         (driven by the ``block_pty_opened`` event) can join the
+         existing PTY (the existing ``pty_endpoint`` already accepts
+         ``_spawn`` monkeypatching for this seam in tests; production
+         frontend → existing-PTY join is wired by I35c).
+      5. Push the ``block_pty_opened`` message via the
+         :func:`broadcast_ai_pty_message` registry (best-effort —
+         WS broadcast failures must NOT fail the tab spawn).
+      6. Return the ``tab_id``.
 
-    Test plan:
-        * test_open_engine_initiated_tab_returns_tab_id
-        * test_open_engine_initiated_tab_registers_in_active_map
-        * test_open_engine_initiated_tab_emits_block_pty_opened_ws
-        * test_open_engine_initiated_tab_respects_pty_cap
-        * test_open_engine_initiated_tab_spawn_failure_propagates
-
-    References:
-        ADR-035 §3.10 (IPC contract);
-        ADR-034 §8 (MAX_ACTIVE_PTYS cap);
-        existing ``pty_endpoint`` route in this module (lines 62-226;
-        not modified — this is a sibling)
+    The ``initial_stdin`` arg is recorded on a sentinel attribute on
+    the spawned :class:`PtyProcess` so the join-WS path can replay it
+    once the frontend connects (I35c will wire the consumer side).
     """
-    raise NotImplementedError("see comment block above")
+    cwd_path = Path(cwd)
+    if not cwd_path.is_absolute() or not cwd_path.is_dir():
+        raise RuntimeError(f"open_engine_initiated_tab: cwd must be an existing absolute dir, got {cwd!r}")
+
+    if permission_mode not in ("safe", "bypass"):
+        raise RuntimeError(
+            f"open_engine_initiated_tab: permission_mode must be 'safe'|'bypass', got {permission_mode!r}"
+        )
+
+    # Resolve provider from spawn_argv. argv[0] is the binary name.
+    provider = _provider_from_argv(spawn_argv)
+    dangerous = permission_mode == "bypass"
+
+    # Cap check — same lock as user-launched route, plain dict access
+    # is safe because we are not on the asyncio loop here.
+    if len(_active_ptys) >= MAX_ACTIVE_PTYS:
+        raise RuntimeError(f"open_engine_initiated_tab: PTY cap ({MAX_ACTIVE_PTYS}) reached")
+
+    pty = _spawn(provider=provider, project_dir=cwd_path, dangerous=dangerous)
+
+    # Stamp with engine-side metadata so the join-WS path (I35c) can
+    # tell this tab apart from a user-launched one and replay the
+    # initial prompt to the agent.
+    pty._engine_initial_stdin = initial_stdin  # type: ignore[attr-defined]
+    pty._engine_block_run_id = block_run_id  # type: ignore[attr-defined]
+
+    tab_id = uuid.uuid4().hex[:12]
+    _active_ptys[tab_id] = pty
+    _engine_tab_to_run[tab_id] = block_run_id
+
+    message = {
+        "type": "block_pty_opened",
+        "tab_id": tab_id,
+        "title": title,
+        "block_run_id": block_run_id,
+        "permission_mode": permission_mode,
+    }
+
+    # Best-effort WS broadcast. We schedule the broadcast onto the
+    # running event loop if there is one (production: the FastAPI
+    # request handler runs on the loop); otherwise log + skip (tests
+    # that drive this synchronously can call broadcast_ai_pty_message
+    # themselves).
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(broadcast_ai_pty_message(message))  # noqa: RUF006
+    except RuntimeError:
+        logger.debug("open_engine_initiated_tab: no running loop, broadcast skipped")
+
+    logger.info(
+        "open_engine_initiated_tab: tab_id=%s block_run_id=%s provider=%s permission=%s",
+        tab_id,
+        block_run_id,
+        provider,
+        permission_mode,
+    )
+    return tab_id
+
+
+def _provider_from_argv(spawn_argv: list[str]) -> str:
+    """Pick the provider key (claude-code | codex) from argv[0]."""
+    if not spawn_argv:
+        raise RuntimeError("open_engine_initiated_tab: spawn_argv is empty")
+    head = Path(spawn_argv[0]).name.lower()
+    if "codex" in head:
+        return "codex"
+    # Default to claude-code — matches the AI Block "Claude Code" provider.
+    return "claude-code"
+
+
+# ---------------------------------------------------------------------------
+# Internal HTTP routes — worker → engine IPC.
+#
+# These two endpoints are private to the engine process. The token comes
+# from the env var ``SCIEASY_ENGINE_IPC_TOKEN`` which the engine sets at
+# startup; child worker subprocesses inherit it via ``os.environ`` and
+# attach it on the ``X-SciEasy-IPC-Token`` request header.
+# ---------------------------------------------------------------------------
+
+
+def _ensure_ipc_token() -> str:
+    """Return the live IPC token, generating a per-process one if missing.
+
+    The first call sets ``SCIEASY_ENGINE_IPC_TOKEN`` if unset so a child
+    process can inherit the same value. Production engines that fork
+    workers BEFORE this is touched should call it eagerly during
+    startup; tests can rely on lazy generation.
+    """
+    tok = os.environ.get("SCIEASY_ENGINE_IPC_TOKEN")
+    if tok:
+        return tok
+    tok = secrets.token_urlsafe(24)
+    os.environ["SCIEASY_ENGINE_IPC_TOKEN"] = tok
+    return tok
+
+
+def _check_ipc_token(provided: str | None) -> None:
+    """Raise 401 if *provided* doesn't match the live IPC token."""
+    expected = os.environ.get("SCIEASY_ENGINE_IPC_TOKEN", "")
+    if not expected or not provided or not secrets.compare_digest(provided, expected):
+        raise HTTPException(status_code=401, detail="invalid SciEasy IPC token")
+
+
+_HeaderToken = Annotated[str | None, Header(alias="X-SciEasy-IPC-Token")]
+_BodyDict = Annotated[dict[str, Any], Body()]
+
+
+@router.post("/pty/internal/request-tab")
+async def _internal_request_tab(
+    payload: _BodyDict,
+    x_scieasy_ipc_token: _HeaderToken = None,
+) -> dict[str, Any]:
+    """Engine-internal endpoint: AI Block worker requests a new PTY tab.
+
+    Returns ``{"tab_id": str, "error": null}`` on success, or
+    ``{"tab_id": null, "error": <message>}`` on a soft failure such as
+    cap exceeded. Hard transport failures (auth, malformed body) raise
+    :class:`HTTPException` with the appropriate status.
+    """
+    _check_ipc_token(x_scieasy_ipc_token)
+
+    if payload.get("type") != "request_pty_tab":
+        raise HTTPException(status_code=400, detail="payload.type must be 'request_pty_tab'")
+    spec = payload.get("spec")
+    if not isinstance(spec, dict):
+        raise HTTPException(status_code=400, detail="payload.spec must be a dict")
+
+    try:
+        tab_id = open_engine_initiated_tab(
+            title=str(spec.get("title", "")),
+            spawn_argv=list(spec.get("spawn_argv", [])),
+            cwd=str(spec.get("cwd", "")),
+            initial_stdin=str(spec.get("initial_stdin", "")),
+            block_run_id=str(spec.get("block_run_id", "")),
+            permission_mode=str(spec.get("permission_mode", "safe")),
+        )
+    except RuntimeError as exc:
+        msg = str(exc)
+        if "cap" in msg.lower():
+            # 503 — soft failure surface that the worker can interpret
+            # as "queue and retry later" if it cared to.
+            raise HTTPException(status_code=503, detail=msg) from exc
+        return {"tab_id": None, "error": msg}
+    except Exception as exc:
+        logger.exception("internal_request_tab: spawn failed")
+        return {"tab_id": None, "error": str(exc)}
+
+    return {"tab_id": tab_id, "error": None}
+
+
+@router.post("/pty/internal/notify", status_code=204)
+async def _internal_notify(
+    payload: _BodyDict,
+    x_scieasy_ipc_token: _HeaderToken = None,
+) -> None:
+    """Engine-internal endpoint: AI Block worker reports completion.
+
+    Fire-and-forget on the worker side. We update the tab→run map and
+    broadcast a ``block_pty_closed`` frame so the frontend can decorate
+    the tab title with status ✓/✗ per ADR-035 §3.9. The PTY itself
+    stays open (per ADR-035 §3.9: "tab survives DONE/ERROR").
+    """
+    _check_ipc_token(x_scieasy_ipc_token)
+
+    if payload.get("type") != "notify_block_pty_event":
+        raise HTTPException(status_code=400, detail="payload.type must be 'notify_block_pty_event'")
+    block_run_id = payload.get("block_run_id")
+    event = payload.get("event")
+    if not isinstance(block_run_id, str) or not block_run_id:
+        raise HTTPException(status_code=400, detail="block_run_id must be a non-empty string")
+    if event not in ("completed", "cancelled_by_user_close", "error"):
+        raise HTTPException(status_code=400, detail=f"unknown event {event!r}")
+
+    # Resolve tab_id from the run_id — best effort; the broadcast still
+    # carries block_run_id so the frontend can match independently.
+    tab_id = None
+    for tid, rid in _engine_tab_to_run.items():
+        if rid == block_run_id:
+            tab_id = tid
+            break
+
+    detail = payload.get("detail") or {}
+    message = {
+        "type": "block_pty_closed",
+        "block_run_id": block_run_id,
+        "tab_id": tab_id,
+        "event": event,
+        "detail": detail if isinstance(detail, dict) else {},
+    }
+    await broadcast_ai_pty_message(message)
+    logger.info(
+        "internal_notify: block_run_id=%s event=%s tab_id=%s",
+        block_run_id,
+        event,
+        tab_id,
+    )

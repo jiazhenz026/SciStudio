@@ -73,7 +73,18 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
     ADR-018: Bidirectional protocol.
     - Inbound: client sends cancel_block, cancel_workflow, interactive_complete.
     - Outbound: server pushes all block state changes and workflow completion.
+
+    ADR-035 §3.10: also subscribes to the ai_pty broadcaster so engine-
+    initiated AI Block tab opens / closes (``block_pty_opened`` /
+    ``block_pty_closed``) flow over the same WS without introducing a
+    new EngineEvent type.
     """
+    # Imported lazily so the module-level circular import (ai_pty
+    # imports nothing from ws, ws imports nothing from ai_pty at module
+    # load) is sidestepped — and to keep the ws module's dep surface
+    # narrow.
+    from scieasy.api.routes import ai_pty as ai_pty_module
+
     await websocket.accept()
 
     outbound_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
@@ -82,9 +93,14 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
         """Callback for EventBus — enqueue event for outbound delivery."""
         outbound_queue.put_nowait(serialise_event(event))
 
+    def _on_ai_pty_message(message: dict[str, Any]) -> None:
+        """Callback for ai_pty broadcaster — enqueue raw dict frame."""
+        outbound_queue.put_nowait(message)
+
     # Subscribe to all outbound event types.
     for event_type in _OUTBOUND_EVENTS:
         event_bus.subscribe(event_type, _on_event)
+    ai_pty_module.register_ai_pty_subscriber(_on_ai_pty_message)
 
     async def _inbound_loop() -> None:
         """Read messages from the client and dispatch to EventBus."""
@@ -147,3 +163,4 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
     finally:
         for event_type in _OUTBOUND_EVENTS:
             event_bus.unsubscribe(event_type, _on_event)
+        ai_pty_module.unregister_ai_pty_subscriber(_on_ai_pty_message)

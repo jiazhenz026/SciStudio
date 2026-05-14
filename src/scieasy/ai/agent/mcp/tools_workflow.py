@@ -607,14 +607,47 @@ _TOOL_MODULE_ID = f"mcp-workflow-{uuid.uuid4().hex[:8]}"
 # ---------------------------------------------------------------------------
 
 
+def _resolve_ai_block_run_dir() -> Path | None:
+    """Locate the active AI Block run dir from MCP context or env var.
+
+    Resolution order (first hit wins):
+
+      1. ``MCPContext.ai_block_run_dir`` attribute, when present and
+         non-None (production path: the engine sets this on the runtime
+         adapter when it spawns the engine-initiated tab).
+      2. ``SCIEASY_AI_BLOCK_RUN_DIR`` environment variable, when set
+         and pointing at a real directory (fallback path used when the
+         claude / codex agent — and therefore this MCP tool call —
+         runs in a subprocess that inherits env but does NOT share the
+         parent's MCPContext).
+
+    Returns ``None`` when neither is configured. The tool then returns
+    the ``not_in_ai_block_context`` envelope per ADR-035 §3.5.
+    """
+    try:
+        ctx = get_context()
+    except Exception:
+        ctx = None
+    if ctx is not None:
+        run_dir = getattr(ctx, "ai_block_run_dir", None)
+        if run_dir is not None:
+            return Path(run_dir)
+    raw = os.environ.get("SCIEASY_AI_BLOCK_RUN_DIR")
+    if raw:
+        candidate = Path(raw)
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
 def finish_ai_block(outputs: dict[str, str] | None = None) -> dict[str, Any]:
     """ADR-035 §3.5 path (a) — agent declares all outputs are written.
 
     The agent calls this tool when it has finished writing all the
     declared output files for the active AI Block. The tool writes
     ``signals/finish_ai_block.json`` under the active run dir; the
-    :class:`scieasy.blocks.ai.completion.CompletionWatcher` polls for
-    that file and transitions the block from PAUSED → RUNNING for
+    :class:`scieasy.blocks.ai.completion.CompletionWatcher` (I35a) polls
+    for that file and transitions the block from PAUSED → RUNNING for
     output validation.
 
     Parameters
@@ -623,57 +656,98 @@ def finish_ai_block(outputs: dict[str, str] | None = None) -> dict[str, Any]:
         ``{port_name: absolute_or_project_relative_path}``. The agent
         SHOULD declare a path for every output port from the manifest;
         missing ports surface as validation errors at
-        :meth:`AIBlock.run` validation stage (ADR-035 §3.6).
+        :meth:`AIBlock.run` validation stage (ADR-035 §3.6). ``None`` is
+        accepted and treated as ``{}`` (the FileWatcher path (b) will
+        still drive validation from ``expected_path`` only).
 
     Returns
     -------
     dict
-        Success envelope: ``{"status": "ok", "signal_path": <path>}``
-        Error envelope when not in AI Block context:
-        ``{"status": "error", "code": "not_in_ai_block_context",
-           "message": "..."}``
-        Error envelope on second call:
-        ``{"status": "error", "code": "already_finished",
-           "message": "..."}``  (per ADR-035 §8 OQ-1; tentative — confirm in PoC)
+        Success: ``{"status": "ok", "signal_path": <abs path>}``.
+        Error envelopes:
 
-    Implementation plan (per ADR-035 §3.5 path (a)):
-        1. Read MCP context (from ``scieasy.ai.agent.mcp._context.get_context``)
-           to detect whether the current PTY tab is owned by an AI Block.
-           The engine sets a context attr ``ai_block_run_dir: Path | None``
-           when it spawns the tab via :func:`request_pty_tab`.
-        2. If ``ai_block_run_dir`` is None → return the
-           ``not_in_ai_block_context`` envelope.
-        3. Validate ``outputs`` shape:
-           - dict[str, str], all values strings
-           - empty dict allowed (signals "I'm done; trust expected_path")
-        4. Check ``signals/finish_ai_block.json`` does NOT already exist
-           under ``ai_block_run_dir`` — if it does, return
-           ``already_finished`` envelope (ADR-035 §8 OQ-1 tentative).
-        5. Atomically write the signal file:
-           ``json.dumps({"outputs": outputs, "timestamp": <iso>})`` →
-           tempfile → ``os.replace`` → ``signals/finish_ai_block.json``.
-        6. Return success envelope with the absolute signal path.
+        * ``{"status": "error", "code": "not_in_ai_block_context", ...}``
+          — no active AI Block context.
+        * ``{"status": "error", "code": "invalid_outputs", ...}`` —
+          ``outputs`` is not a dict[str, str].
+        * ``{"status": "error", "code": "already_finished", ...}`` —
+          a signal file already exists for this run (ADR-035 §8 OQ-1).
+        * ``{"status": "error", "code": "io_error", ...}`` — OS-level
+          write failure (disk full, permission denied, etc).
 
-    Edge cases:
-        * ``outputs`` is None → treat as ``{}`` (path (b) FileWatcher
-          will still drive validation from ``expected_path`` only).
-        * ``outputs`` contains relative path → preserved as-is in the
-          signal file. CompletionWatcher resolves against project_dir
-          per ADR-035 §3.3.
-        * Signal file write fails (disk full, permission denied) →
-          return generic ``error`` envelope with the OS exception text.
-
-    Test plan:
-        * test_finish_ai_block_outside_context_returns_error_envelope
-          (no ai_block_run_dir set on context)
-        * test_finish_ai_block_writes_signal_file (positive)
-        * test_finish_ai_block_second_call_rejected (per OQ-1)
-        * test_finish_ai_block_empty_outputs_allowed
-        * test_finish_ai_block_relative_paths_preserved_in_signal
-        * test_finish_ai_block_disk_error_returns_error_envelope
-
-    References:
-        ADR-035 §3.5 path (a), §8 OQ-1 (multi-call semantics);
-        scieasy.blocks.ai.run_dir.RunDir.mcp_signal_path()
+    Notes
+    -----
+    The signal file is written atomically (tempfile + ``os.replace``)
+    so a partial write cannot deceive the CompletionWatcher.
     """
-    raise NotImplementedError("see comment block above")
+    import datetime
+    import json
+
+    run_dir = _resolve_ai_block_run_dir()
+    if run_dir is None:
+        return {
+            "status": "error",
+            "code": "not_in_ai_block_context",
+            "message": (
+                "finish_ai_block can only be called from inside an AI Block. "
+                "No active AI Block run dir was found via MCPContext.ai_block_run_dir "
+                "or the SCIEASY_AI_BLOCK_RUN_DIR environment variable."
+            ),
+        }
+
+    # Normalise outputs and validate shape.
+    if outputs is None:
+        outputs_norm: dict[str, str] = {}
+    elif isinstance(outputs, dict):
+        bad = [(k, type(v).__name__) for k, v in outputs.items() if not isinstance(k, str) or not isinstance(v, str)]
+        if bad:
+            return {
+                "status": "error",
+                "code": "invalid_outputs",
+                "message": (f"finish_ai_block: outputs must be dict[str, str]. Bad entries (key, value-type): {bad}"),
+            }
+        outputs_norm = dict(outputs)
+    else:
+        return {
+            "status": "error",
+            "code": "invalid_outputs",
+            "message": (f"finish_ai_block: outputs must be a dict, got {type(outputs).__name__}"),
+        }
+
+    signals_dir = run_dir / "signals"
+    try:
+        signals_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        return {
+            "status": "error",
+            "code": "io_error",
+            "message": f"finish_ai_block: failed to create signals dir: {exc}",
+        }
+
+    signal_path = signals_dir / "finish_ai_block.json"
+    if signal_path.exists():
+        return {
+            "status": "error",
+            "code": "already_finished",
+            "message": (
+                f"finish_ai_block has already been called for this AI Block run. Existing signal: {signal_path}"
+            ),
+        }
+
+    payload = {
+        "outputs": outputs_norm,
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
+    }
+    body = json.dumps(payload, indent=2, sort_keys=True)
+    try:
+        # Atomic write — _atomic_write_text already handles tempfile + replace.
+        _atomic_write_text(signal_path, body)
+    except OSError as exc:
+        return {
+            "status": "error",
+            "code": "io_error",
+            "message": f"finish_ai_block: failed to write signal file: {exc}",
+        }
+
+    logger.info("finish_ai_block: wrote signal %s with %d output(s)", signal_path, len(outputs_norm))
+    return {"status": "ok", "signal_path": str(signal_path)}

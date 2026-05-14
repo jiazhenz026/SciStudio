@@ -34,13 +34,13 @@
 - [ ] Unit tests: manifest contents, completion-signal precedence, validation failures, all three completion paths
 
 ### Phase 2B — Engine PTY control + MCP (Owner: I35b)
-- [ ] `engine.request_pty_tab()` IPC: worker → engine sends spec, engine returns tab_id [§3.10]
-- [ ] `engine.notify_block_pty_event()` IPC: completion / cancellation events [§3.10]
-- [ ] `finish_ai_block` MCP tool real implementation: validates outputs dict, raises if not in AI Block context, writes signal file under `run_dir/`
-- [ ] Engine-side route handler that allocates tab via existing `terminal.spawn_claude/codex` builder
-- [ ] WS broadcast `block_pty_opened` to frontend
-- [ ] Permission mode passthrough (safe / bypass) per block config [§3.7]
-- [ ] Tests: IPC roundtrip with mock engine, finish_ai_block error envelope shapes, multi-call rejection
+- [x] `engine.request_pty_tab()` IPC: worker → engine sends spec, engine returns tab_id [§3.10] → src/scieasy/engine/pty_control.py (HTTP loopback + in-process test seam)
+- [x] `engine.notify_block_pty_event()` IPC: completion / cancellation events [§3.10] → src/scieasy/engine/pty_control.py
+- [x] `finish_ai_block` MCP tool real implementation: validates outputs dict, raises if not in AI Block context, writes signal file under `run_dir/` → src/scieasy/ai/agent/mcp/tools_workflow.py::finish_ai_block
+- [x] Engine-side route handler that allocates tab via existing `terminal.spawn_claude/codex` builder → src/scieasy/api/routes/ai_pty.py::open_engine_initiated_tab + POST /api/ai/pty/internal/request-tab
+- [x] WS broadcast `block_pty_opened` to frontend → register/unregister_ai_pty_subscriber in ai_pty.py + minimal subscribe hook in api/ws.py (no new EngineEvent type)
+- [x] Permission mode passthrough (safe / bypass) per block config [§3.7] → spawn_argv translates to dangerous=True/False inside open_engine_initiated_tab
+- [x] Tests: IPC roundtrip with mock engine, finish_ai_block error envelope shapes, multi-call rejection → tests/engine/test_pty_control.py (17), tests/ai/test_finish_ai_block.py (17), tests/api/test_ai_pty_engine_spawn.py (20)
 
 ### Phase 2C — Frontend tab integration (Owner: I35c)
 - [ ] `TerminalTabs.tsx` handles `block_pty_opened` event → auto-creates tab, switches focus
