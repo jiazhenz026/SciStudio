@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -54,6 +55,75 @@ _OUTBOUND_EVENTS = frozenset(
         WORKFLOW_CHANGED,
     }
 )
+
+
+def _handle_block_user_signal(
+    data: dict[str, Any],
+    *,
+    signal_filename: str,
+    signal_kind: str,
+) -> None:
+    """Write a JSON signal file under an AI Block run dir (ADR-035 §3.5 path c).
+
+    Resolves the run dir from ``block_run_id`` via the engine-side
+    registry maintained by ``ai_pty.open_engine_initiated_tab``. Best
+    effort: missing block_run_id, unknown run_id, or write failures are
+    logged and swallowed so they cannot crash the WS pump loop.
+
+    Args:
+        data: Raw inbound frame dict; reads ``block_run_id`` (required)
+            and ``tab_id`` (informational).
+        signal_filename: File name to write under ``<run_dir>/signals/``
+            (e.g. ``"mark_done.json"``).
+        signal_kind: Logical label persisted into the signal payload
+            (``"user_mark_done"`` or ``"user_cancel"``) so post-mortem
+            tooling can tell the two paths apart.
+    """
+    block_run_id = data.get("block_run_id")
+    tab_id = data.get("tab_id")
+    if not isinstance(block_run_id, str) or not block_run_id:
+        logger.warning("%s frame missing block_run_id; ignoring", signal_kind)
+        return
+    # Imported lazily — `ai_pty` already imports lazily from `ws.py` to
+    # break the module-level circular import; mirror the pattern here.
+    from scieasy.api.routes import ai_pty as ai_pty_module
+
+    run_dir = ai_pty_module.get_run_dir_for_block_run(block_run_id)
+    if run_dir is None:
+        logger.warning(
+            "%s: no run_dir registered for block_run_id=%s tab_id=%s",
+            signal_kind,
+            block_run_id,
+            tab_id,
+        )
+        return
+    signal_dir = run_dir / "signals"
+    try:
+        signal_dir.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "kind": signal_kind,
+            "block_run_id": block_run_id,
+            "tab_id": tab_id,
+            "ts": datetime.now(UTC).isoformat(),
+        }
+        (signal_dir / signal_filename).write_text(
+            json.dumps(payload),
+            encoding="utf-8",
+        )
+        logger.info(
+            "%s: wrote %s for block_run_id=%s",
+            signal_kind,
+            signal_filename,
+            block_run_id,
+        )
+    except OSError:
+        logger.warning(
+            "%s: failed to write %s under %s",
+            signal_kind,
+            signal_filename,
+            signal_dir,
+            exc_info=True,
+        )
 
 
 def serialise_event(event: EngineEvent) -> dict[str, Any]:
@@ -141,6 +211,32 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                             block_id=data.get("block_id"),
                             data=data.get("data", {}),
                         )
+                    )
+                elif msg_type == "block_user_marked_done":
+                    # Audit P1-E (Codex #866-3): ADR-035 §3.5 path (c) —
+                    # the user clicked "Mark done" in an AI Block tab.
+                    # Translate the WS frame into a ``mark_done.json`` signal
+                    # file under the run dir; the worker's CompletionWatcher
+                    # picks it up on its next poll tick (≤250ms) and
+                    # transitions the block to DONE.
+                    _handle_block_user_signal(
+                        data,
+                        signal_filename="mark_done.json",
+                        signal_kind="user_mark_done",
+                    )
+                elif msg_type == "block_user_cancel":
+                    # Audit P1-E (Codex #866-3): ADR-035 §3.9 — user closed
+                    # the AI Block tab while it was still running. Treat as
+                    # a user-initiated completion: write the same
+                    # ``mark_done.json`` signal so the worker can unblock
+                    # and tear down cleanly. (Full cancellation semantics —
+                    # CompletionWatcher.cancel() propagation across the
+                    # engine⇄worker boundary — is filed as a follow-up; this
+                    # restores the wire-level no-op the audit flagged.)
+                    _handle_block_user_signal(
+                        data,
+                        signal_filename="mark_done.json",
+                        signal_kind="user_cancel",
                     )
                 else:
                     logger.warning("Unknown WebSocket message type: %s", msg_type)

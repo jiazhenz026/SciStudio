@@ -159,18 +159,21 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
           // The wire payload may live at the top level OR nested under `data`,
           // depending on which engine path emitted it. Tolerate both.
           const src = (payload.data ?? {}) as Record<string, unknown>;
+          const top = payload as unknown as Record<string, unknown>;
+          // Audit P2-A (Codex #866-2): backend emits ``permission_mode`` at
+          // the top level of the message (see ``ai_pty.open_engine_initiated_tab``
+          // line 507). Reading from ``src.permission_mode`` always returned
+          // undefined, silently downgrading bypass-mode tabs to "safe".
+          // Mirror the resilience pattern used for tab_id / block_run_id —
+          // prefer the top-level field, fall back to nested for older paths.
           handleBlockPtyOpened({
-            tab_id:
-              ((payload as unknown as Record<string, unknown>).tab_id as string) ??
-              (src.tab_id as string),
+            tab_id: (top.tab_id as string) ?? (src.tab_id as string),
             block_run_id:
-              ((payload as unknown as Record<string, unknown>).block_run_id as string) ??
+              (top.block_run_id as string) ??
               (src.block_run_id as string) ??
               (payload.block_id ?? ""),
             block_name: src.block_name as string | undefined,
-            title:
-              ((payload as unknown as Record<string, unknown>).title as string) ??
-              (src.title as string | undefined),
+            title: (top.title as string) ?? (src.title as string | undefined),
             status: src.status as
               | "running"
               | "paused"
@@ -178,11 +181,9 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
               | "error"
               | "cancelled"
               | undefined,
-            permission_mode: src.permission_mode as
-              | "safe"
-              | "bypass"
-              | "dangerous"
-              | undefined,
+            permission_mode:
+              ((top.permission_mode as "safe" | "bypass" | "dangerous" | undefined) ??
+                (src.permission_mode as "safe" | "bypass" | "dangerous" | undefined)),
           });
           appendLog({
             timestamp: payload.timestamp,
@@ -204,20 +205,49 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
       if (payload.type === "block_pty_closed") {
         try {
           const src = (payload.data ?? {}) as Record<string, unknown>;
+          const top = payload as unknown as Record<string, unknown>;
+          // Audit P1-D (Codex #866-1): backend emits the outcome under the
+          // top-level ``event`` field (one of "completed" |
+          // "cancelled_by_user_close" | "error" — see
+          // ``ai_pty._internal_notify`` line 654-660). The previous code
+          // read ``src.status`` / ``src.result`` from the nested ``data``
+          // dict — neither exists on the wire, so every successful run
+          // fell through to the conservative "error" default and rendered
+          // as a red ✗ in the tab strip.
+          const eventField = top.event as
+            | "completed"
+            | "cancelled_by_user_close"
+            | "error"
+            | undefined;
+          let result: "completed" | "cancelled" | "error" | undefined;
+          if (eventField === "completed") {
+            result = "completed";
+          } else if (eventField === "cancelled_by_user_close") {
+            result = "cancelled";
+          } else if (eventField === "error") {
+            result = "error";
+          } else {
+            result = (src.result as "completed" | "cancelled" | "error" | undefined);
+          }
           handleBlockPtyClosed({
-            tab_id:
-              ((payload as unknown as Record<string, unknown>).tab_id as string) ??
-              (src.tab_id as string),
+            tab_id: (top.tab_id as string) ?? (src.tab_id as string),
             block_run_id:
-              ((payload as unknown as Record<string, unknown>).block_run_id as string) ??
+              (top.block_run_id as string) ??
               (src.block_run_id as string) ??
               (payload.block_id ?? undefined),
             status: src.status as "done" | "error" | "cancelled" | undefined,
-            result: src.result as "completed" | "cancelled" | "error" | undefined,
-            detail: src.detail as Record<string, unknown> | undefined,
+            result,
+            detail:
+              (top.detail as Record<string, unknown> | undefined) ??
+              (src.detail as Record<string, unknown> | undefined),
           });
+          // Prefer the top-level ``event`` for the log label so the user
+          // sees the actual lifecycle outcome rather than "closed".
           const label =
-            (src.status as string) ?? (src.result as string) ?? "closed";
+            (eventField as string | undefined) ??
+            (src.status as string) ??
+            (src.result as string) ??
+            "closed";
           appendLog({
             timestamp: payload.timestamp,
             level: label === "error" ? "error" : "info",

@@ -14,6 +14,9 @@ from scieasy.engine.pty_control import (
 def test_pty_tab_spec_has_expected_fields() -> None:
     """PtyTabSpec exposes the contract fields per ADR-035 §3.10."""
     fields = PtyTabSpec.__dataclass_fields__
+    # ``run_dir_path`` was added by the audit P1-E fix so user-mark-done /
+    # user-cancel WS frames can be translated into ``signals/mark_done.json``
+    # writes under the right run dir.
     assert set(fields) == {
         "title",
         "spawn_argv",
@@ -21,6 +24,7 @@ def test_pty_tab_spec_has_expected_fields() -> None:
         "initial_stdin",
         "block_run_id",
         "permission_mode",
+        "run_dir_path",
     }
 
 

@@ -237,6 +237,9 @@ def test_notify_http_swallows_transport_failure(monkeypatch: pytest.MonkeyPatch)
 
 def test_pty_tab_spec_fields() -> None:
     fields = PtyTabSpec.__dataclass_fields__
+    # ``run_dir_path`` was added by the audit P1-E fix so the engine can
+    # locate the AI Block run dir when handling ``block_user_marked_done``
+    # WS frames (ADR-035 §3.5 path c).
     assert set(fields) == {
         "title",
         "spawn_argv",
@@ -244,4 +247,5 @@ def test_pty_tab_spec_fields() -> None:
         "initial_stdin",
         "block_run_id",
         "permission_mode",
+        "run_dir_path",
     }

@@ -36,6 +36,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.runtime = runtime
     app.state.registry = ProcessRegistry()
 
+    # ---- ADR-035 §3.10 IPC token ----
+    # Audit P1-B (Codex #861-1): the engine must export
+    # ``SCIEASY_ENGINE_IPC_TOKEN`` BEFORE any AI Block worker is spawned so
+    # the worker subprocess inherits it via os.environ and can authenticate
+    # internal IPC calls. Without this, every
+    # ``POST /api/ai/pty/internal/*`` call returns 401 and the entire AI
+    # Block path is dead-on-arrival.
+    from scieasy.api.routes.ai_pty import _ensure_ipc_token
+
+    _ensure_ipc_token()
+
     # ---- ADR-034 Phase 2: workflow filesystem watcher ----
     # Watches the active project's ``workflows/`` directory and republishes
     # YAML mtime/create/delete events as ``workflow.changed`` engine events.

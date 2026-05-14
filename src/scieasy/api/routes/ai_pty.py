@@ -101,35 +101,61 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
 
     dangerous = dangerous_raw in {"true", "1", "yes"}
 
-    # ---- Resource cap ------------------------------------------------------
+    # ---- Engine-initiated tab join (ADR-035 §3.10) -------------------------
+    # Audit P1-C (Codex #861-2): if the engine pre-spawned a PTY for this
+    # tab_id (engine-initiated AI Block tab), JOIN that PTY instead of
+    # spawning a fresh one. Re-spawning would orphan the original agent
+    # process, drop the engine's _engine_initial_stdin / _engine_block_run_id
+    # metadata, and break the worker's completion-watcher correlation.
+    existing_pty: PtyProcess | None = None
     async with _active_lock:
-        if len(_active_ptys) >= MAX_ACTIVE_PTYS:
-            # Note: send + close while still holding the lock would
-            # serialise rejections; safe because send_json is fast and
-            # holding the lock guarantees the count snapshot we report.
-            await _send_error(
-                websocket,
-                f"max {MAX_ACTIVE_PTYS} active terminals — close an existing tab and retry.",
-            )
+        candidate = _active_ptys.get(tab_id)
+        if candidate is not None and getattr(candidate, "_engine_block_run_id", None):
+            existing_pty = candidate
+
+    if existing_pty is not None:
+        pty = existing_pty
+        # Replay the engine-supplied initial prompt to the agent, exactly
+        # once, on first WS connect. Stamped sentinel attribute prevents
+        # double-replay on a StrictMode dev re-mount or a reconnect.
+        initial_stdin = getattr(pty, "_engine_initial_stdin", None)
+        already_replayed = getattr(pty, "_engine_initial_stdin_sent", False)
+        if initial_stdin and not already_replayed:
+            try:
+                pty.write(initial_stdin.encode("utf-8", errors="replace"))
+            except Exception:  # pragma: no cover - PTY may have died
+                logger.warning("engine-initiated PTY: failed to flush initial stdin", exc_info=True)
+            pty._engine_initial_stdin_sent = True  # type: ignore[attr-defined]
+    else:
+        # ---- Resource cap --------------------------------------------------
+        async with _active_lock:
+            if len(_active_ptys) >= MAX_ACTIVE_PTYS:
+                # Note: send + close while still holding the lock would
+                # serialise rejections; safe because send_json is fast and
+                # holding the lock guarantees the count snapshot we report.
+                await _send_error(
+                    websocket,
+                    f"max {MAX_ACTIVE_PTYS} active terminals — close an existing tab and retry.",
+                )
+                await websocket.close()
+                return
+
+        # ---- Spawn PTY -----------------------------------------------------
+        try:
+            pty = _spawn(provider=provider, project_dir=project_dir, dangerous=dangerous)
+        except FileNotFoundError as exc:
+            # claude / codex binary missing on PATH — actionable error.
+            await _send_error(websocket, f"Provider binary not found: {exc}")
+            await websocket.close()
+            return
+        except Exception as exc:  # pragma: no cover - hard-to-trigger spawn failure
+            logger.error("PTY spawn failed", exc_info=True)
+            await _send_error(websocket, f"Failed to spawn PTY: {exc}")
             await websocket.close()
             return
 
-    # ---- Spawn PTY ---------------------------------------------------------
-    try:
-        pty = _spawn(provider=provider, project_dir=project_dir, dangerous=dangerous)
-    except FileNotFoundError as exc:
-        # claude / codex binary missing on PATH — actionable error.
-        await _send_error(websocket, f"Provider binary not found: {exc}")
-        await websocket.close()
-        return
-    except Exception as exc:  # pragma: no cover - hard-to-trigger spawn failure
-        logger.error("PTY spawn failed", exc_info=True)
-        await _send_error(websocket, f"Failed to spawn PTY: {exc}")
-        await websocket.close()
-        return
-
-    async with _active_lock:
-        _active_ptys[tab_id] = pty
+        async with _active_lock:
+            _active_ptys[tab_id] = pty
 
     # ---- Pump tasks --------------------------------------------------------
     loop = asyncio.get_running_loop()
@@ -206,6 +232,11 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
         # observe a torn-down PTY meaningfully (cap check + insertion
         # happen at accept time only, behind ``_active_lock``).
         _active_ptys.pop(tab_id, None)
+        # ADR-035: also drop the engine-side tab→run map entry so a
+        # subsequent run does not see a stale block_run_id pointer.
+        run_id_for_cleanup = _engine_tab_to_run.pop(tab_id, None)
+        if run_id_for_cleanup is not None:
+            _engine_run_to_run_dir.pop(run_id_for_cleanup, None)
         task_out.cancel()
         task_in.cancel()
 
@@ -423,6 +454,33 @@ async def broadcast_ai_pty_message(message: dict[str, Any]) -> None:
 # Map tab_id → block_run_id so completion notifies can resolve back.
 _engine_tab_to_run: dict[str, str] = {}
 
+# Map block_run_id → run_dir absolute path. Populated by
+# :func:`open_engine_initiated_tab` so user-driven control frames
+# (``block_user_marked_done`` per ADR-035 §3.5 path c) can locate the
+# right run dir to write the ``signals/mark_done.json`` signal file
+# without having to reach back into AIBlock or scan the filesystem.
+_engine_run_to_run_dir: dict[str, Path] = {}
+
+
+def get_run_dir_for_block_run(block_run_id: str) -> Path | None:
+    """Return the run_dir path registered for *block_run_id*, or None.
+
+    Used by ``scieasy.api.ws`` to handle the ``block_user_marked_done``
+    inbound WS frame (ADR-035 §3.5 path c) without bringing the AI Block
+    module into the WS layer's import surface.
+    """
+    return _engine_run_to_run_dir.get(block_run_id)
+
+
+def get_block_run_id_for_tab(tab_id: str) -> str | None:
+    """Return the block_run_id mapped to *tab_id*, or None.
+
+    Inverse of the implicit map written by :func:`open_engine_initiated_tab`;
+    used by ``scieasy.api.ws`` to translate ``block_user_cancel`` frames
+    addressed by tab_id into a CANCEL_BLOCK_REQUEST keyed by block_run_id.
+    """
+    return _engine_tab_to_run.get(tab_id)
+
 
 def open_engine_initiated_tab(
     *,
@@ -432,6 +490,7 @@ def open_engine_initiated_tab(
     initial_stdin: str,
     block_run_id: str,
     permission_mode: str,
+    run_dir_path: str | None = None,
 ) -> str:
     """Allocate a PTY tab from inside the engine (no incoming WS yet).
 
@@ -498,6 +557,8 @@ def open_engine_initiated_tab(
     tab_id = uuid.uuid4().hex[:12]
     _active_ptys[tab_id] = pty
     _engine_tab_to_run[tab_id] = block_run_id
+    if run_dir_path:
+        _engine_run_to_run_dir[block_run_id] = Path(run_dir_path)
 
     message = {
         "type": "block_pty_opened",
@@ -604,6 +665,7 @@ async def _internal_request_tab(
             initial_stdin=str(spec.get("initial_stdin", "")),
             block_run_id=str(spec.get("block_run_id", "")),
             permission_mode=str(spec.get("permission_mode", "safe")),
+            run_dir_path=(str(spec["run_dir_path"]) if spec.get("run_dir_path") else None),
         )
     except RuntimeError as exc:
         msg = str(exc)
