@@ -77,6 +77,14 @@ class PtyTabSpec:
     permission_mode
         ``"safe"`` or ``"bypass"``. Already encoded in ``spawn_argv``;
         kept here for the engine to label the tab UI badge.
+    run_dir_path
+        Absolute path to the AI Block run dir under
+        ``{project}/.scieasy/ai-block-runs/{run_id}/``. Optional for
+        backward compatibility with existing tests, but in production it
+        is always set so the engine WS handler can locate the right
+        directory when writing the ``signals/mark_done.json`` file in
+        response to the ``block_user_marked_done`` WS frame
+        (ADR-035 §3.5 path c).
     """
 
     title: str
@@ -85,6 +93,7 @@ class PtyTabSpec:
     initial_stdin: str
     block_run_id: str
     permission_mode: Literal["safe", "bypass"]
+    run_dir_path: str | None = None
 
 
 # ---------------------------------------------------------------------------

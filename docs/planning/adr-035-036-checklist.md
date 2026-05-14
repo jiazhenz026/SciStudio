@@ -43,20 +43,20 @@
 - [x] Tests: IPC roundtrip with mock engine, finish_ai_block error envelope shapes, multi-call rejection → tests/engine/test_pty_control.py (17), tests/ai/test_finish_ai_block.py (17), tests/api/test_ai_pty_engine_spawn.py (20)
 
 ### Phase 2C — Frontend tab integration (Owner: I35c)
-- [ ] `TerminalTabs.tsx` handles `block_pty_opened` event → auto-creates tab, switches focus
-- [ ] `TerminalTab.tsx` renders title with 🤖 prefix + block name + status badge (✓ / ✗ / spinner)
-- [ ] "Mark done" button visible when `tab.source === "ai-block"` and block is PAUSED
-- [ ] Tab close while AI Block running → confirmation modal → emit cancel
-- [ ] Tab survives DONE/ERROR (per ADR-035 §3.9)
-- [ ] Vitest tests for new tab-source path; RTL render of status badge variants
+- [x] `TerminalTabs.tsx` handles `block_pty_opened` event → auto-creates tab, switches focus → `frontend/src/components/AIChat/blockPtyHandlers.ts::handleBlockPtyOpened`
+- [x] `TerminalTab.tsx` renders title with 🤖 prefix + block name + status badge (✓ / ✗ / spinner) → `TerminalTab.tsx::AiBlockStatusBadge` (lines 45-105)
+- [x] "Mark done" button visible when `tab.source === "ai-block"` and block is PAUSED → `TerminalTab.tsx::MarkDoneButton` (lines 121-144)
+- [x] Tab close while AI Block running → confirmation modal → emit cancel → `TerminalTabs.tsx::ConfirmDialog` (lines 30-67) + `pendingClose` flow
+- [x] Tab survives DONE/ERROR (per ADR-035 §3.9) → render path always mounts `TerminalView` regardless of `blockStatus`
+- [x] Vitest tests for new tab-source path; RTL render of status badge variants → `__tests__/TerminalTab.test.tsx` (15 tests) + `TerminalTabs.test.tsx` (19 tests)
 
 ### Audit & Fix (skeleton)
-- [ ] Audit-skeleton report posted on umbrella issue (Owner: A35-skeleton)
+- [x] Audit-skeleton report posted on umbrella issue (Owner: A35-skeleton) → `docs/audit/2026-05-14-adr-035-skeleton.md` (PR #858)
 - [ ] All P1 findings fixed (or explicitly justified deferral) (Owner: F35-skeleton, conditional)
 
 ### Audit & Fix (implementation)
-- [ ] Audit-implementation report posted on umbrella issue, includes Chrome smoke results (Owner: A35-impl)
-- [ ] All P1 findings fixed; deferred Codex P1 explicitly overridden (Owner: F35-impl)
+- [x] Audit-implementation report posted on umbrella issue, includes Chrome smoke results (Owner: A35-impl) → `docs/audit/2026-05-14-1253-adr-035-implementation.md` (5 P1 + 1 P2 + 1 drift)
+- [x] All P1 findings fixed; deferred Codex P1 explicitly overridden (Owner: F35-impl) → fix PR `fix/adr-035-impl-audit-p1` (5 P1 + 1 P2 addressed in-PR per `audit_p1_override`)
 
 ---
 

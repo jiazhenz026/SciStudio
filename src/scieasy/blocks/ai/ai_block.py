@@ -285,6 +285,7 @@ class AIBlock(Block):
             initial_stdin=_compose_initial_stdin(str(config.get("user_prompt", "")), str(manifest_path)),
             block_run_id=run_id,
             permission_mode="bypass" if permission_mode == "bypass" else "safe",
+            run_dir_path=str(run_dir.path),
         )
         try:
             tab_id = _pty_control.request_pty_tab(spec)
@@ -412,16 +413,24 @@ class AIBlock(Block):
             try:
                 prompt_file = _write_system_prompt_tempfile(project_dir)
                 mcp_config = _ensure_mcp_config(project_dir)
-                argv.extend(
-                    [
-                        "--append-system-prompt",
-                        f"@{prompt_file}",
-                        "--mcp-config",
-                        str(mcp_config),
-                    ]
-                )
-            except Exception:  # pragma: no cover - depends on disk / MCP install
+            except Exception as exc:
+                # Audit P1-A (Codex #862-1): silently degrading argv produced a
+                # `claude` invocation without --append-system-prompt /
+                # --mcp-config so the worker could not call finish_ai_block and
+                # the user saw a hung block. Re-raise so AIBlock.run()
+                # transitions to ERROR with an actionable message.
                 logger.exception("AIBlock: failed to compose system prompt / MCP config")
+                raise RuntimeError(
+                    f"AIBlock bootstrap failed: cannot write system prompt or MCP config: {exc}"
+                ) from exc
+            argv.extend(
+                [
+                    "--append-system-prompt",
+                    f"@{prompt_file}",
+                    "--mcp-config",
+                    str(mcp_config),
+                ]
+            )
             if permission_mode == "bypass":
                 # Match ADR-035 §3.7: claude uses --permission-mode bypassPermissions.
                 argv.extend(_BYPASS_FLAG["claude-code"])
