@@ -212,14 +212,25 @@ export function TerminalTabs() {
       </div>
 
       <div className="min-h-0 flex-1">
-        {activeTabId ? (
-          <TerminalTab tabId={activeTabId} />
-        ) : (
+        {/* Render every tab and hide non-active ones via CSS. Conditional
+            rendering would unmount the inactive TerminalTab whenever the
+            user switches tabs, which tears down the WS and kills the PTY
+            subprocess — every tab switch would lose the conversation. */}
+        {tabs.map((tab) => (
+          <div
+            key={tab.id}
+            className={`h-full ${tab.id === activeTabId ? "" : "hidden"}`}
+            data-testid={`terminal-tab-host-${tab.id}`}
+          >
+            <TerminalTab tabId={tab.id} />
+          </div>
+        ))}
+        {tabs.length === 0 || !activeTabId ? (
           <div className="flex h-full items-center justify-center text-sm text-stone-400">
             No active tab. Press <kbd className="mx-1 rounded bg-stone-200 px-1">Ctrl</kbd>
             +<kbd className="mx-1 rounded bg-stone-200 px-1">T</kbd> to open one.
           </div>
-        )}
+        ) : null}
       </div>
 
       {pendingClose ? (
