@@ -281,9 +281,13 @@ def init_block_package(
 @app.command()
 def serve(host: str = "0.0.0.0", port: int = 8000) -> None:
     """Start the FastAPI server."""
+    import os
+
     import uvicorn
 
     typer.echo(f"Starting SciEasy server on {host}:{port}...")
+    # ADR-035 §3.10: see comment in `gui` for why this is needed.
+    os.environ.setdefault("SCIEASY_ENGINE_API_URL", f"http://127.0.0.1:{port}")
     uvicorn.run("scieasy.api.app:create_app", host=host, port=port, factory=True)
 
 
@@ -313,6 +317,11 @@ def gui(
 
     url = f"http://localhost:{port}"
     typer.echo(f"Starting SciEasy GUI on {url} ...")
+    # ADR-035 §3.10: workers spawned by the engine call back via this URL to
+    # request PTY tabs. The engine alone knows the bound port at startup, so
+    # export it here before uvicorn forks any worker. Companion to
+    # SCIEASY_ENGINE_IPC_TOKEN (set in api.app:lifespan).
+    os.environ.setdefault("SCIEASY_ENGINE_API_URL", f"http://127.0.0.1:{port}")
     if not no_browser:
         threading.Timer(1.5, webbrowser.open, args=[url]).start()
     uvicorn.run("scieasy.api.app:create_app", host="0.0.0.0", port=port, factory=True)

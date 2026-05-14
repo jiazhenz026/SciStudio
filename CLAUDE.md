@@ -412,6 +412,27 @@ this", "进入 hotfix 模式", "let's hotfix", or equivalent direct request).
 Claude must **not** auto-promote a normal bugfix to hotfix mode. If unsure,
 ask. Default to the standard 6-gate workflow.
 
+## On entering hotfix mode (MANDATORY)
+
+Before touching any code in a hotfix round, Claude MUST re-read the
+architectural artefacts that govern the bug being fixed:
+
+1. The relevant ADR(s) named in the bug report or apparent from the file
+   paths being touched (e.g. fixes under `src/scieasy/blocks/ai/` → ADR-035).
+2. `docs/architecture/ARCHITECTURE.md` and `docs/architecture/PROJECT_TREE.md`
+   for any change that crosses subsystem boundaries.
+3. CLAUDE.md §2 (non-negotiable principles) and §7 (coding boundaries).
+
+This is non-negotiable because hotfix mode suspends the gate workflow's
+"write a change plan first" step. Without that explicit checkpoint, Claude
+is prone to acting on a remembered (often hallucinated) version of the
+contract instead of the current spec — and small inline edits to a
+miscontract'd surface compound into design drift the rest of the team has
+to undo.
+
+Quote the section you read in your first edit-mode response so the user
+can see you grounded yourself.
+
 ## What hotfix mode permits
 
 For the duration of a single hotfix round (one bug, or a small cluster of
