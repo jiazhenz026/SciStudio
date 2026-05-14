@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- [#810][#811] Restore mcp-bridge run() impl + MCP-spec content blocks. `cli/mcp_bridge.py::run()` now implements both attached-mode (proxy stdin↔backend socket) and standalone-mode (spawn in-process MCPServer via `runtime.make_mcp_runtime`); `mcp/server.py:233` returns spec-compliant `{"type": "text", "text": json.dumps(...)}` instead of non-spec `{"type": "json", ...}`. Both regressions were introduced by PR #808's rollback over-correction. (@claude, 2026-05-13, branch: fix/issue-810-811/mcp-bridge-and-content-block, session: 20260513-200156-fix-810-811-mcp-bridge-run-mcp-content-b)
+
 ### Added
 
 - [#788] Generic fallback renderer for AIChat — display_class taxonomy. Backend (`scieasy.ai.agent.stream_json.classify_for_display`) tags every `OtherEvent` with one of five stable classes (`hidden`, `meta`, `text-like`, `tool-like`, `raw`); frontend `EventRenderer` dispatches on the class instead of the legacy "Unrecognised event: <json>" fallback. New `genericRows/` folder with 4 small row components plus a reusable `<CondensedToolRow>` that #784 will also consume for native `tool_use` events. Adding a new claude stream-json kind now usually requires zero frontend changes — the structural heuristics (`text` / `content` / `tool_name+input`) handle it automatically. (@claude, 2026-05-13, branch: feat/issue-788/generic-fallback-renderer, session: 20260513-154519-implement-788-generic-fallback-renderer)
