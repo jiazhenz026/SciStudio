@@ -26,12 +26,12 @@
 - [x] Test stubs created with detailed test plan comments → PR #844-skeleton (5 test files: `test_ai_block_skeleton.py`, `test_run_dir_skeleton.py`, `test_completion_skeleton.py`, `test_finish_ai_block_skeleton.py`, `test_pty_control_skeleton.py`, `TerminalTabs.skeleton.test.tsx`)
 
 ### Phase 2A — Backend block runtime (Owner: I35a)
-- [ ] `AIBlock.run()` real implementation: writes manifest, requests PTY tab, enters PAUSED, awaits completion signal
-- [ ] Manifest writer (path, type_chain, inputs, outputs, deadline) [§3.4]
-- [ ] Output validation via existing IOBlock loaders [§3.6]
-- [ ] State transitions IDLE→READY→RUNNING→PAUSED→DONE / ERROR / CANCELLED [§3.9]
-- [ ] StubAgent fixture for tests (does not spawn claude; simulates `finish_ai_block` call)
-- [ ] Unit tests: manifest contents, completion-signal precedence, validation failures, all three completion paths
+- [x] `AIBlock.run()` real implementation: writes manifest, requests PTY tab, enters PAUSED, awaits completion signal → `src/scieasy/blocks/ai/ai_block.py::AIBlock.run`
+- [x] Manifest writer (path, type_chain, inputs, outputs, deadline) [§3.4] → `src/scieasy/blocks/ai/run_dir.py::RunDir.write_manifest`
+- [x] Output validation via existing IOBlock loaders [§3.6] → `AIBlock._validate_and_load_outputs` (dispatches to `LoadData`)
+- [x] State transitions IDLE→READY→RUNNING→PAUSED→DONE / ERROR / CANCELLED [§3.9] → `AIBlock._safe_transition` calls in `run()`
+- [x] StubAgent fixture for tests (does not spawn claude; simulates `finish_ai_block` call) → `tests/blocks/ai/conftest.py::StubAgent`
+- [x] Unit tests: manifest contents, completion-signal precedence, validation failures, all three completion paths → 55 tests in `tests/blocks/ai/test_{ai_block,run_dir,completion}_skeleton.py` (skeleton xfails flipped green)
 
 ### Phase 2B — Engine PTY control + MCP (Owner: I35b)
 - [x] `engine.request_pty_tab()` IPC: worker → engine sends spec, engine returns tab_id [§3.10] → src/scieasy/engine/pty_control.py (HTTP loopback + in-process test seam)
