@@ -113,11 +113,20 @@ export function usePtyWebSocket(params: UsePtyWebSocketParams): UsePtyWebSocketR
     wsRef.current = ws;
     readyStateRef.current = ws.readyState;
 
+    // `disposed` guards against late-firing onerror/onclose after an
+    // intentional cleanup (StrictMode double-mount in dev, or any caller-
+    // triggered teardown). Without this guard, the browser's close-side
+    // `onerror` propagates upward as a fake "WebSocket error" frame and
+    // tears the user's tab into the closed state on every mount.
+    let disposed = false;
+
     ws.onopen = () => {
+      if (disposed) return;
       readyStateRef.current = ws.readyState;
       onOpenRef.current?.();
     };
     ws.onmessage = (ev) => {
+      if (disposed) return;
       // Server always sends JSON-encoded text frames. Anything else is a
       // protocol violation and surfaced as an error frame so the UI shows it.
       try {
@@ -133,17 +142,20 @@ export function usePtyWebSocket(params: UsePtyWebSocketParams): UsePtyWebSocketR
       }
     };
     ws.onerror = () => {
+      if (disposed) return;
       // The browser fires 'error' just before 'close'; report it as an error
       // frame so the terminal can surface it. The actual close handler will
       // also fire.
       onMessageRef.current({ type: "error", message: "WebSocket error" });
     };
     ws.onclose = (ev) => {
+      if (disposed) return;
       readyStateRef.current = ws.readyState;
       onCloseRef.current?.(ev);
     };
 
     return () => {
+      disposed = true;
       readyStateRef.current = WebSocket.CLOSING;
       try {
         ws.close();

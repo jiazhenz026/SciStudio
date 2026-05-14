@@ -133,7 +133,18 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
                 # ~100 ms which would stall the event loop otherwise.
                 data = await loop.run_in_executor(None, pty.read, 0.1)
                 if data:
-                    await websocket.send_json({"type": "stdout", "data": data.decode("utf-8", errors="replace")})
+                    if websocket.client_state != WebSocketState.CONNECTED:
+                        # Client closed already (StrictMode dev double-mount,
+                        # tab close, etc.) — abort cleanly instead of letting
+                        # send_json explode with "after websocket.close".
+                        break
+                    try:
+                        await websocket.send_json({"type": "stdout", "data": data.decode("utf-8", errors="replace")})
+                    except RuntimeError:
+                        # ASGI race: client_state can flip between the check
+                        # above and the send when uvicorn flushes a close
+                        # frame concurrently. Treat as a graceful end.
+                        break
                 if not pty.is_alive():
                     break
         except WebSocketDisconnect:

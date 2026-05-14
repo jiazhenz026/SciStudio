@@ -424,9 +424,27 @@ class Array(DataObject):
         ``cls`` (or a subclass).
         """
         assert isinstance(obj, Array), f"Expected Array, got {type(obj).__name__}"
+        # ``obj.dtype`` may be a numpy dtype, a python type (``bool``,
+        # ``int``), or a string.  ``str(bool)`` returns ``"<class 'bool'>"``
+        # which round-trips into ``np.dtype("<class 'bool'>")`` and fails
+        # with ``data type ... not understood``.  Normalise via
+        # ``np.dtype()`` first so the persisted string is always the
+        # canonical short form (``"bool"``, ``"uint8"``, ...).
+        import numpy as np
+
+        if obj.dtype is None:
+            dtype_str: str | None = None
+        else:
+            try:
+                dtype_str = str(np.dtype(obj.dtype))
+            except TypeError:
+                # Fall back to stringification if ``obj.dtype`` is something
+                # numpy cannot interpret (shouldn't happen for well-formed
+                # arrays; preserve old behaviour rather than crash here).
+                dtype_str = str(obj.dtype)
         return {
             "axes": list(obj.axes),
             "shape": list(obj.shape) if obj.shape is not None else None,
-            "dtype": str(obj.dtype) if obj.dtype is not None else None,
+            "dtype": dtype_str,
             "chunk_shape": list(obj.chunk_shape) if obj.chunk_shape is not None else None,
         }

@@ -12,6 +12,13 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      // PTY WebSocket — must match before the generic /api rule so the
+      // upgrade request is routed through a proxy with ws:true.
+      "/api/ai/pty": {
+        target: "ws://localhost:8000",
+        ws: true,
+        changeOrigin: true,
+      },
       "/api": {
         target: "http://localhost:8000",
         changeOrigin: true,

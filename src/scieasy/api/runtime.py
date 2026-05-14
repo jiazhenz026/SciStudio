@@ -238,6 +238,13 @@ class ApiRuntime:
         self.active_project: KnownProject | None = None
         self.data_catalog: dict[str, DataRecord] = {}
         self.workflow_runs: dict[str, WorkflowRun] = {}
+        # ADR-034: the MCP server's TCP/socket port is published into the
+        # active project's ``.scieasy/`` so the per-project ``mcp-bridge``
+        # subprocess can discover it. Held here so ``open_project`` can
+        # republish on project switch (otherwise the bridge keeps looking
+        # in the previous project and falls back to standalone mode,
+        # which has no ApiRuntime and breaks ``run_workflow``).
+        self._mcp_port: int | None = None
         # #718 part (a): in-memory monotonic revision counter per workflow_id.
         # Used for optimistic concurrency on the PUT /api/workflows/{id} path.
         # Single-process, single-user scope (matches ADR-033 §3 D2.1); resets
@@ -438,7 +445,46 @@ class ApiRuntime:
         self._workflow_revisions = {}
         self.refresh_block_registry()
         self._init_metadata_store(Path(candidate.path))
+        # ADR-034: republish the MCP server port file into the newly active
+        # project so the per-project ``mcp-bridge`` (spawned by the
+        # embedded claude/codex TUI for THIS project) can discover it.
+        self._publish_mcp_port(Path(candidate.path))
         return candidate
+
+    def set_mcp_port(self, port: int | None) -> None:
+        """Register the live MCP server port for publishing on project switch.
+
+        Called once from the FastAPI ``lifespan`` after ``MCPServer.start()``.
+        ``None`` clears the registration (used during shutdown).
+        """
+        self._mcp_port = port
+        if port is not None and self.active_project is not None:
+            self._publish_mcp_port(Path(self.active_project.path))
+
+    def _publish_mcp_port(self, project_dir: Path) -> None:
+        """Write the live MCP port into ``<project>/.scieasy/mcp.sock.port``.
+
+        Best-effort: failures are logged and swallowed (e.g. read-only
+        project root) so they cannot break ``open_project``. The file is
+        owned by the backend's MCP server lifecycle; ``MCPServer.stop``
+        cleans up its own home-fallback copy but not these per-project
+        copies, so we additionally clear stale ones on next start (see
+        the matching cleanup hook in ``app.lifespan``).
+        """
+        if self._mcp_port is None:
+            return
+        try:
+            target_dir = project_dir / ".scieasy"
+            target_dir.mkdir(parents=True, exist_ok=True)
+            (target_dir / "mcp.sock.port").write_text(str(self._mcp_port), encoding="utf-8")
+        except OSError:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "ApiRuntime: could not publish MCP port to %s/.scieasy/mcp.sock.port",
+                project_dir,
+                exc_info=True,
+            )
 
     def update_project(
         self, project_id_or_path: str, *, name: str | None = None, description: str | None = None

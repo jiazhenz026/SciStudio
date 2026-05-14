@@ -10,6 +10,8 @@
  * UTF-8 strings flow over the WS in both directions (xterm.js write() and
  * onData() use strings, never Buffers — confirmed by xterm docs).
  */
+import "@xterm/xterm/css/xterm.css";
+
 import { useEffect, useRef } from "react";
 
 import { usePtyWebSocket } from "./hooks/usePtyWebSocket";
