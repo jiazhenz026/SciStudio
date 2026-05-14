@@ -21,7 +21,6 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
   const consumeEvent = useAppStore((state) => state.consumeEvent);
   const appendLog = useAppStore((state) => state.appendLog);
   const setInteractivePrompt = useAppStore((state) => state.setInteractivePrompt);
-  const bumpUnreadProblems = useAppStore((state) => state.bumpUnreadProblems);
   const setWorkflow = useAppStore((state) => state.setWorkflow);
   const [connected, setConnected] = useState(false);
 
@@ -132,25 +131,18 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
 
       consumeEvent(payload);
 
-      // #793: Do NOT force-switch the bottom panel to "logs" on engine events.
-      // The user's directive is "never auto-switch". The Logs unread badge
-      // is now coupled to ``appendLog`` itself (executionSlice) so it tracks
-      // actual rendered rows, not "any event the WS saw" — that previously
-      // produced the "N unread but Logs panel is empty" mismatch.
-      //
-      // Problems still tracks block_error specifically: it's a fault counter,
-      // not a log-row counter, and there's exactly one Problems row per
-      // block_error event.
-      if (payload.type === "block_error" && typeof payload.data.error === "string") {
-        bumpUnreadProblems();
-      }
+      // The Logs unread badge is coupled to ``appendLog`` / ``consumeEvent``
+      // itself (executionSlice) so it tracks actual rendered rows. The
+      // Problems tab was removed in the same change set — block_error rows
+      // surface in the Logs panel (filterable via the level selector) and
+      // as the inline error badge on the BlockNode itself.
     };
 
     return () => {
       socket.close();
       _activeSocket = null;
     };
-  }, [appendLog, bumpUnreadProblems, consumeEvent, enabled, setInteractivePrompt, setWorkflow]);
+  }, [appendLog, consumeEvent, enabled, setInteractivePrompt, setWorkflow]);
 
   return { connected };
 }

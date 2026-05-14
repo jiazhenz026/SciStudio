@@ -77,7 +77,6 @@ export default function App() {
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
   const activeBottomTab = useAppStore((state) => state.activeBottomTab);
   const unreadLogsCount = useAppStore((state) => state.unreadLogsCount);
-  const unreadProblemsCount = useAppStore((state) => state.unreadProblemsCount);
   const lastError = useAppStore((state) => state.lastError);
   const minimapVisible = useAppStore((state) => state.minimapVisible);
   const setSelectedNodeId = useAppStore((state) => state.setSelectedNodeId);
@@ -447,12 +446,13 @@ export default function App() {
     [setSelectedNodeId, setActiveBottomTab],
   );
 
-  // #793: clicking an error badge is an explicit "show me this error" action,
-  // so navigating to Problems is user-driven and stays.
+  // Clicking an error badge on a block selects that node and opens the
+  // Logs tab — the same tab that now hosts the (filterable) error rows
+  // since the dedicated Problems tab was removed.
   const handleErrorClick = useCallback(
     (blockId: string) => {
       setSelectedNodeId(blockId);
-      setActiveBottomTab("problems");
+      setActiveBottomTab("logs");
     },
     [setSelectedNodeId, setActiveBottomTab],
   );
@@ -766,7 +766,6 @@ export default function App() {
                   <ResizablePanel defaultSize="30%" minSize="5%" collapsible collapsedSize="3%">
                     <BottomPanel
                       activeTab={activeBottomTab}
-                      blockErrors={blockErrors}
                       logEntries={logEntries}
                       onTabChange={setActiveBottomTab}
                       onUpdateConfig={(patch) => {
@@ -777,7 +776,6 @@ export default function App() {
                       selectedNode={selectedNode}
                       selectedSchema={selectedSchema}
                       unreadLogsCount={unreadLogsCount}
-                      unreadProblemsCount={unreadProblemsCount}
                     />
                   </ResizablePanel>
                 </ResizablePanelGroup>

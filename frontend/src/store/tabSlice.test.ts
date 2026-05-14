@@ -13,7 +13,6 @@ function resetStore(): void {
     workflowName: "Untitled",
     activeBottomTab: "config",
     unreadLogsCount: 0,
-    unreadProblemsCount: 0,
   });
 }
 
@@ -96,11 +95,6 @@ describe("uiSlice unread counters (#793 no auto-tab-switch)", () => {
     expect(useAppStore.getState().unreadLogsCount).toBe(0);
   });
 
-  it("bumpUnreadProblems behaves symmetrically", () => {
-    useAppStore.getState().setActiveBottomTab("ai");
-    useAppStore.getState().bumpUnreadProblems();
-    expect(useAppStore.getState().unreadProblemsCount).toBe(1);
-    useAppStore.getState().setActiveBottomTab("problems");
-    expect(useAppStore.getState().unreadProblemsCount).toBe(0);
-  });
+  // ``bumpUnreadProblems`` was removed alongside the Problems tab. The
+  // surviving Logs counter alone covers the unread-rendered-row contract.
 });

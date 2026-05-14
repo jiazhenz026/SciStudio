@@ -74,7 +74,6 @@ beforeEach(() => {
   useAppStore.setState({
     activeBottomTab: "ai",
     unreadLogsCount: 0,
-    unreadProblemsCount: 0,
     logEntries: [],
   });
 });
@@ -149,7 +148,10 @@ describe("useWorkflowWebSocket (#793)", () => {
     expect(useAppStore.getState().activeBottomTab).toBe("ai");
   });
 
-  it("bumps unreadProblemsCount on block_error events", () => {
+  it("block_error events surface as Logs rows (Problems tab was removed)", () => {
+    // The Problems tab was collapsed into the Logs panel's error filter.
+    // block_error events therefore land in ``logEntries`` (level=error)
+    // and bump the Logs unread badge — the only badge that remains.
     renderHook(() => useWorkflowWebSocket(true));
     useAppStore.setState({ activeBottomTab: "ai" });
 
@@ -161,7 +163,9 @@ describe("useWorkflowWebSocket (#793)", () => {
       data: { error: "boom" },
     });
 
-    expect(useAppStore.getState().unreadProblemsCount).toBe(1);
+    expect(useAppStore.getState().logEntries).toHaveLength(1);
+    expect(useAppStore.getState().logEntries[0].level).toBe("error");
+    expect(useAppStore.getState().unreadLogsCount).toBe(1);
     expect(useAppStore.getState().activeBottomTab).toBe("ai");
   });
 
