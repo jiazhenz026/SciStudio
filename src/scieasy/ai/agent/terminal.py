@@ -375,6 +375,26 @@ def _ensure_tmp_dir(project_dir: Path) -> Path:
     return tmp
 
 
+def _ensure_mcp_config(project_dir: Path) -> Path:
+    """Make sure ``<project>/.scieasy/mcp.json`` exists for ``--mcp-config``.
+
+    Without this file, claude exits immediately because it cannot load
+    the MCP bridge.  We write a project-scoped entry pointing at
+    ``scieasy mcp-bridge`` so the embedded TUI sees SciEasy's tools.
+    Idempotent: rewrites the file each call so a stale path / renamed
+    project picks up the current ``project_dir`` automatically.
+    """
+    import json
+
+    from scieasy.cli.install import MCP_SERVER_NAME, _mcp_entry_payload
+
+    config_path = project_dir / ".scieasy" / "mcp.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"mcpServers": {MCP_SERVER_NAME: _mcp_entry_payload(project_dir)}}
+    config_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return config_path
+
+
 def _write_system_prompt_tempfile(project_dir: Path) -> Path:
     """Render the system prompt and persist it to a temp file.
 
@@ -435,7 +455,7 @@ def spawn_claude(
         the real claude binary).  Production callers leave it ``None``.
     """
     prompt_path = _write_system_prompt_tempfile(project_dir)
-    mcp_config = project_dir / ".scieasy" / "mcp.json"
+    mcp_config = _ensure_mcp_config(project_dir)
 
     if _spawn_argv is not None:
         argv = list(_spawn_argv)
