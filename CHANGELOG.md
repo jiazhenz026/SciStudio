@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- [#809] Post-rollback cleanup: restore `WorkflowConflictResponse` + `WorkflowResponse.revision` in `api/schemas.py`, re-wire `mcp_bridge.register(app)` in `cli/main.py`, rewrite the one `@pytest.mark.asyncio` test as `asyncio.run(...)` to avoid `pytest-asyncio` dep, add `unreadLogsCount`/`unreadProblemsCount` props to `BottomPanel.tsx` (default 0), lower `--cov-fail-under` from 85 → 70 (temporary until ADR-034 Phases 1-3 restore test coverage), delete 5 orphan test files that imported reverted modules (`tests/ai/test_system_prompt.py`, `tests/skills/*`, `tests/api/test_strict_mode_write_workflow_e2e.py`, `tests/cli/test_mcp_bridge_standalone.py`). (@claude, 2026-05-13, branch: chore/issue-809/post-rollback-cleanup-v2, session: 20260513-193032-phase-0-post-rollback-cleanup-re-dispatc)
+
 ### Added
 
 - [#788] Generic fallback renderer for AIChat — display_class taxonomy. Backend (`scieasy.ai.agent.stream_json.classify_for_display`) tags every `OtherEvent` with one of five stable classes (`hidden`, `meta`, `text-like`, `tool-like`, `raw`); frontend `EventRenderer` dispatches on the class instead of the legacy "Unrecognised event: <json>" fallback. New `genericRows/` folder with 4 small row components plus a reusable `<CondensedToolRow>` that #784 will also consume for native `tool_use` events. Adding a new claude stream-json kind now usually requires zero frontend changes — the structural heuristics (`text` / `content` / `tool_name+input`) handle it automatically. (@claude, 2026-05-13, branch: feat/issue-788/generic-fallback-renderer, session: 20260513-154519-implement-788-generic-fallback-renderer)
