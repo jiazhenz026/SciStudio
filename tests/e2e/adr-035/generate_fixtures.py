@@ -25,9 +25,17 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
-import tifffile
+# numpy is in scieasy's runtime deps; pandas and tifffile are not. Import them
+# lazily with a clear error so a fresh contributor environment surfaces the
+# missing dep instead of an opaque ModuleNotFoundError at module load time.
+try:
+    import numpy as np
+    import pandas as pd
+    import tifffile
+except ModuleNotFoundError as exc:  # pragma: no cover — env diagnostic only
+    raise SystemExit(
+        f"missing dep `{exc.name}` for ADR-035 e2e fixture generator. install with: pip install numpy pandas tifffile"
+    ) from exc
 
 FILENAMES = ["A_01.tiff", "A_02.tiff", "B_01.tiff", "C_01.tiff"]
 RNG_SEED = 20260514

@@ -36,7 +36,7 @@ cd frontend && npm ci 2>&1 || npm install
 
 ## STEP 3 — scope OUT
 
-- `frontend/src/store/types.ts` — that's ADR-036 territory. Do NOT touch the `TabState` type. Carry block-tab state inside the existing `terminalTabs` slice with new optional fields (`source?: "user" | "ai-block"`, `blockRunId?: string`, `blockStatus?: "running" | "paused" | "done" | "error"`).
+- `frontend/src/store/types.ts` — that's ADR-036 territory. Do NOT touch the `TabState` type. Carry block-tab state inside the existing `terminalTabs` slice with new optional fields (`source?: "user" | "ai-block"`, `blockRunId?: string`, `blockStatus?: "running" | "paused" | "done" | "error" | "cancelled"`). Note `cancelled` MUST be in the union — terminal state when the user closes the tab while running OR when the workflow cancels mid-block (per ADR-035 §3.9).
 - App-level Toolbar / Canvas / WorkflowCanvas — out of scope.
 - `frontend/src/components/AIChat/TerminalView.tsx` — already handles xterm rendering; do NOT modify the xterm logic. You may add an optional `extraToolbar` prop slot for the Mark-done button if needed, but keep changes minimal.
 - All backend files — those are I35a/I35b's territories.
