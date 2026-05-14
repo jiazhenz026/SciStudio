@@ -160,9 +160,9 @@ Open SciEasy in Chrome via Chrome MCP. Take screenshots at each milestone for vi
 ---
 
 ## Acceptance criteria
-- [~] Pre-flight Phase 0 in progress; checklist doc + hook + memory entries created. Tracking branches + sub-issues + umbrella PRs pending. → see `docs/planning/adr-035-036-checklist.md` (this doc), `~/.claude/projects/.../memory/feedback_multi_agent_checklist_protocol.md`, `~/.claude/projects/.../memory/project_adr035_036_overnight_dispatch.md`, `scripts/hooks/remind-checklist-discipline.sh`
+- [x] Pre-flight Phase 0 complete (2026-05-14). → tracking branches `track/adr-035/ai-block-pty` + `track/adr-036/code-editor` (commits 36a61c0 + baa7471 + ef30417); umbrella issues #842 (ADR-035) + #843 (ADR-036); sub-issues #844-#851; umbrella `[DO NOT MERGE]` PRs #852 + #853; checklist doc + 4 templates + audit-output rule + discipline hook + agent-manager skill + 3 memory entries committed.
 - [ ] All 8 sub-issue PRs opened, audited, fixed, merged into their tracking branches
-- [ ] Both tracking-branch umbrella PRs remain `[DO NOT MERGE]` open
+- [ ] Both tracking-branch umbrella PRs remain `[DO NOT MERGE]` open → #852 (ADR-035), #853 (ADR-036)
 - [ ] Every checkbox in this document checked
 - [ ] ADR-035 e2e mask compare = identical
 - [ ] ADR-036 e2e custom-block mask compare = identical
