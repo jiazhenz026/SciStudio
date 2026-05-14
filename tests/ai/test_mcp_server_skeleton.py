@@ -156,6 +156,50 @@ async def test_server_methods_implemented(tmp_path: Path) -> None:
     assert response["error"]["code"] == -32601
 
 
+@pytest.mark.asyncio
+async def test_tools_call_returns_text_content_block(tmp_path: Path) -> None:
+    """tools/call result must be a spec-compliant text ContentBlock (#811).
+
+    The MCP spec's ContentBlock union is text/image/audio/resource. We
+    previously emitted ``{"type": "json", "data": ...}``, which strict
+    clients (including Claude Code's MCP client) reject with a schema
+    validation error. This test guards the regression: the response must
+    use ``type=text`` and the text must round-trip through ``json.loads``
+    back to the original tool result.
+    """
+    import json as _json
+
+    from scieasy.ai.agent.mcp import _context, _registry
+    from scieasy.ai.agent.mcp.runtime import make_mcp_runtime
+    from scieasy.ai.agent.mcp.server import MCPServer
+
+    runtime = make_mcp_runtime(tmp_path)
+    _context.set_context(runtime)
+    try:
+        server = MCPServer(socket_path=tmp_path / "mcp.sock", project_dir=tmp_path)
+        # Pick a tool that's known to succeed without further setup.
+        assert _registry.lookup("list_types") is not None
+        response = await server.dispatch(
+            {
+                "jsonrpc": "2.0",
+                "id": 7,
+                "method": "tools/call",
+                "params": {"name": "list_types", "arguments": {}},
+            }
+        )
+        assert "result" in response, response
+        content = response["result"]["content"]
+        assert isinstance(content, list) and len(content) == 1, content
+        block = content[0]
+        assert block["type"] == "text", f"non-spec content block type: {block}"
+        # Round-trip through json.loads; the original tool return value
+        # must be reconstructible from the text field.
+        decoded = _json.loads(block["text"])
+        assert isinstance(decoded, dict) and "count" in decoded, decoded
+    finally:
+        _context.set_context(None)
+
+
 def test_tool_modules_export_expected_callables() -> None:
     """Each ``tools_*`` module must expose its contracted tool callables."""
     for mod_name, tools in (
@@ -250,15 +294,25 @@ def test_mcp_bridge_console_script_help() -> None:
         pytest.skip(f"module-form CLI unavailable: rc={result.returncode}")
 
 
-def test_mcp_bridge_run_returns_exit_code_2() -> None:
-    """The scaffold's ``run()`` returns 2 so CC does not treat an
-    unimplemented bridge as fail-open."""
+def test_mcp_bridge_run_no_project_dir_returns_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When ``SCIEASY_PROJECT_DIR`` is unset and no explicit socket is
+    given, ``run()`` must exit 2 — a clear configuration error rather
+    than a silent fail-open. See #810 (regression from the PR #808
+    rollback) and the bridge's docstring for the rationale.
+    """
     from scieasy.cli.mcp_bridge import run
 
-    rc = run(None)
-    assert rc == 2
-    rc2 = run("/tmp/whatever.sock")
-    assert rc2 == 2
+    monkeypatch.delenv("SCIEASY_PROJECT_DIR", raising=False)
+    assert run(None) == 2
+
+
+def test_mcp_bridge_run_explicit_socket_unreachable_returns_2() -> None:
+    """An explicit ``--socket`` pointing at a non-existent path returns 2."""
+    from scieasy.cli.mcp_bridge import run
+
+    # Use a path under a non-existent dir so both POSIX (AF_UNIX) and
+    # Windows (port-file probe) reject it.
+    assert run("/nonexistent/scieasy-mcp-bridge-test.sock") == 2
 
 
 def test_no_third_party_sdk_imports_in_mcp_package() -> None:

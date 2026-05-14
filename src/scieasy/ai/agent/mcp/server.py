@@ -230,7 +230,12 @@ class MCPServer:
                     result = entry.handler(**arguments) if isinstance(arguments, dict) else entry.handler(*arguments)
                 except TypeError as exc:
                     return _error_response(req_id, _INVALID_PARAMS, f"bad arguments for {name}: {exc}")
-                return _ok(req_id, {"content": [{"type": "json", "data": result}]})
+                # MCP ContentBlock union is text/image/audio/resource — "json"
+                # is not valid. Wrap the result as a JSON-serialised text block
+                # so spec-strict clients (e.g. Claude Code's MCP client) accept
+                # it without schema-validation errors.
+                content_text = json.dumps(result, ensure_ascii=False, default=str)
+                return _ok(req_id, {"content": [{"type": "text", "text": content_text}]})
 
             return _error_response(req_id, _METHOD_NOT_FOUND, f"unknown method '{method}'")
         except Exception as exc:

@@ -88,8 +88,12 @@ async def test_mcp_server_initialize_tools_list_and_call(tmp_path: Path) -> None
             {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "list_types", "arguments": {}}},
         )
         assert "result" in called
-        # list_types returns {types, count}; surfaced under {content: [{type, data}]}
-        data = called["result"]["content"][0]["data"]
+        # list_types returns {types, count}; surfaced as a MCP-spec text
+        # ContentBlock — the previous {type: json, data: ...} envelope
+        # was non-compliant and rejected by strict clients (#811).
+        content_block = called["result"]["content"][0]
+        assert content_block["type"] == "text"
+        data = json.loads(content_block["text"])
         assert data["count"] >= 1
 
         # unknown tool
