@@ -11,6 +11,16 @@ import yaml
 
 app = typer.Typer(name="scieasy", help="SciEasy -- AI-native scientific workflow runtime")
 
+# Register subcommands provided by sibling modules.
+# These were dropped during the ADR-033 rollback (PR #808) but the
+# underlying modules (`install`, `mcp_bridge`) survived intact.
+# See PR #794 for original integration context.
+from scieasy.cli import install as _install_cli  # noqa: E402
+from scieasy.cli import mcp_bridge as _mcp_bridge_cli  # noqa: E402
+
+_install_cli.register(app)
+_mcp_bridge_cli.register(app)
+
 
 # ---------------------------------------------------------------------------
 # Shared helpers for validate / run commands

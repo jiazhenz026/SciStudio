@@ -138,8 +138,7 @@ def test_server_class_has_required_signature() -> None:
     assert dispatch_params == ["self", "request"], dispatch_params
 
 
-@pytest.mark.asyncio
-async def test_server_methods_implemented(tmp_path: Path) -> None:
+def test_server_methods_implemented(tmp_path: Path) -> None:
     """T-ECA-205 landed: ``start``/``stop``/``dispatch`` now work.
 
     Replaces the T-ECA-201-era stub assertion that required
@@ -148,11 +147,20 @@ async def test_server_methods_implemented(tmp_path: Path) -> None:
     full transport; here we just verify the trio is callable without
     raising and that ``dispatch`` handles an unknown method per
     JSON-RPC 2.0.
+
+    Uses ``asyncio.run`` rather than ``@pytest.mark.asyncio`` so we
+    don't need to add a ``pytest-asyncio`` dev dependency for this
+    single coroutine call.
     """
+    import asyncio
+
     from scieasy.ai.agent.mcp.server import MCPServer
 
-    server = MCPServer(socket_path=tmp_path / "mcp.sock", project_dir=tmp_path)
-    response = await server.dispatch({"jsonrpc": "2.0", "id": 1, "method": "nope"})
+    async def _run() -> dict[str, object]:
+        server = MCPServer(socket_path=tmp_path / "mcp.sock", project_dir=tmp_path)
+        return await server.dispatch({"jsonrpc": "2.0", "id": 1, "method": "nope"})
+
+    response = asyncio.run(_run())
     assert response["error"]["code"] == -32601
 
 
