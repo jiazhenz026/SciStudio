@@ -242,7 +242,16 @@ def run(socket: str | None) -> int:
         explicit_path = Path(socket)
         try:
             if sys.platform == "win32":
-                port_file = explicit_path.with_suffix(explicit_path.suffix + ".port")
+                # Accept either the socket sentinel (e.g. ``mcp.sock``, which
+                # has a sibling ``mcp.sock.port`` file holding the TCP port)
+                # OR a direct path to the ``.port`` file. Codex P2 review:
+                # always appending ``.port`` broke the documented direct-
+                # .port-path override form (``mcp.sock.port`` → looked for
+                # ``mcp.sock.port.port`` and failed).
+                if explicit_path.name.endswith(".port"):
+                    port_file = explicit_path
+                else:
+                    port_file = explicit_path.with_suffix(explicit_path.suffix + ".port")
                 if port_file.exists():
                     port = int(port_file.read_text(encoding="utf-8").strip())
                     sock_obj = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)

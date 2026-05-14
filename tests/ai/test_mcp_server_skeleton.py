@@ -16,6 +16,7 @@ Behavioural tests ship with T-ECA-202..205.
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 import inspect
 import subprocess
@@ -164,8 +165,7 @@ def test_server_methods_implemented(tmp_path: Path) -> None:
     assert response["error"]["code"] == -32601
 
 
-@pytest.mark.asyncio
-async def test_tools_call_returns_text_content_block(tmp_path: Path) -> None:
+def test_tools_call_returns_text_content_block(tmp_path: Path) -> None:
     """tools/call result must be a spec-compliant text ContentBlock (#811).
 
     The MCP spec's ContentBlock union is text/image/audio/resource. We
@@ -174,7 +174,15 @@ async def test_tools_call_returns_text_content_block(tmp_path: Path) -> None:
     validation error. This test guards the regression: the response must
     use ``type=text`` and the text must round-trip through ``json.loads``
     back to the original tool result.
+
+    Uses ``asyncio.run`` rather than ``@pytest.mark.asyncio`` so we don't
+    need the ``pytest-asyncio`` plugin (matches the project convention
+    for other async tests in this file).
     """
+    asyncio.run(_test_tools_call_returns_text_content_block(tmp_path))
+
+
+async def _test_tools_call_returns_text_content_block(tmp_path: Path) -> None:
     import json as _json
 
     from scieasy.ai.agent.mcp import _context, _registry
