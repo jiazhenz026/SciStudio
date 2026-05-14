@@ -59,8 +59,11 @@ async def _connect_and_call(server: MCPServer, request: dict[str, Any]) -> dict[
             await writer.wait_closed()
 
 
-@pytest.mark.asyncio
-async def test_mcp_server_initialize_tools_list_and_call(tmp_path: Path) -> None:
+def test_mcp_server_initialize_tools_list_and_call(tmp_path: Path) -> None:
+    asyncio.run(_test_mcp_server_initialize_tools_list_and_call(tmp_path))
+
+
+async def _test_mcp_server_initialize_tools_list_and_call(tmp_path: Path) -> None:
     runtime = _StubRuntime(_project_dir=tmp_path)
     runtime.type_registry.scan_builtins()
     _context.set_context(runtime)
@@ -106,8 +109,11 @@ async def test_mcp_server_initialize_tools_list_and_call(tmp_path: Path) -> None
             assert not socket_path.exists(), "socket file should be unlinked after stop()"
 
 
-@pytest.mark.asyncio
-async def test_mcp_server_start_is_idempotent(tmp_path: Path) -> None:
+def test_mcp_server_start_is_idempotent(tmp_path: Path) -> None:
+    asyncio.run(_test_mcp_server_start_is_idempotent(tmp_path))
+
+
+async def _test_mcp_server_start_is_idempotent(tmp_path: Path) -> None:
     runtime = _StubRuntime(_project_dir=tmp_path)
     _context.set_context(runtime)
     server = MCPServer(socket_path=tmp_path / "mcp.sock", project_dir=tmp_path)
@@ -119,8 +125,11 @@ async def test_mcp_server_start_is_idempotent(tmp_path: Path) -> None:
         _context.set_context(None)
 
 
-@pytest.mark.asyncio
-async def test_mcp_dispatch_parse_error_in_request(tmp_path: Path) -> None:
+def test_mcp_dispatch_parse_error_in_request(tmp_path: Path) -> None:
+    asyncio.run(_test_mcp_dispatch_parse_error_in_request(tmp_path))
+
+
+async def _test_mcp_dispatch_parse_error_in_request(tmp_path: Path) -> None:
     """Malformed JSON over the wire surfaces as a JSON-RPC parse error."""
     runtime = _StubRuntime(_project_dir=tmp_path)
     _context.set_context(runtime)
