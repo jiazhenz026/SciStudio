@@ -113,6 +113,10 @@ export default function App() {
   // here so they take effect transparently once I36a merges.
   const saveFileTab = useAppStore((state) => state.saveFileTab);
   const updateFileTabContent = useAppStore((state) => state.updateFileTabContent);
+  // ADR-036 §3.4 / §3.7 / §3.12 (I36c) — open editor tabs from the
+  // toolbar's "View source" button and the "New" menu's
+  // "New custom block" / "New note" actions.
+  const openFileTab = useAppStore((state) => state.openFileTab);
 
   // ADR-036 §3.7 — derive the active tab + its kind for the toolbar swap
   // and content-area kind switch. Note: tabs are typed as `TabState`
@@ -291,6 +295,79 @@ export default function App() {
     const workflow = emptyWorkflow(id);
     openTab(workflow);
     resetExecution();
+  }
+
+  /**
+   * ADR-036 §3.7 / §3.12 (I36c) — "New custom block".
+   *
+   * 1. Prompt for a stem (default ``my_block``); validate as a Python-friendly
+   *    identifier.
+   * 2. Fetch the server-hosted template via ``GET /api/blocks/template``.
+   * 3. PUT the template into ``blocks/<stem>.py``.
+   * 4. Open the new file in an editor tab via ``openFileTab``.
+   *
+   * Failures surface a passive ``window.alert`` rather than blocking — the
+   * tree refresh hook still picks up the new file on next refresh.
+   */
+  async function createNewCustomBlock(): Promise<void> {
+    if (!currentProject) return;
+    const stem = window.prompt("New custom block filename (without .py):", "my_block");
+    if (stem === null) return;
+    const trimmed = stem.trim();
+    if (!trimmed) {
+      window.alert("Filename must not be empty.");
+      return;
+    }
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmed)) {
+      window.alert("Filename must be a Python identifier (letters, digits, underscores).");
+      return;
+    }
+    const filePath = `blocks/${trimmed}.py`;
+    try {
+      const tpl = await api.getBlockTemplate("basic");
+      await api.putProjectFile(currentProject.id, filePath, tpl.content);
+      openFileTab(filePath);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      window.alert(`Failed to create custom block: ${message}`);
+    }
+  }
+
+  /**
+   * ADR-036 §3.7 / §3.12 (I36c) — "New note" (markdown).
+   *
+   * Creates an empty ``notes/<stem>.md`` (or ``<stem>.md`` at project root
+   * when ``notes/`` does not exist). No template content per the ADR —
+   * the user's first line is the title.
+   */
+  async function createNewNote(): Promise<void> {
+    if (!currentProject) return;
+    const stem = window.prompt("New note filename (without .md):", "note");
+    if (stem === null) return;
+    const trimmed = stem.trim();
+    if (!trimmed) {
+      window.alert("Filename must not be empty.");
+      return;
+    }
+    if (!/^[A-Za-z0-9._-]+$/.test(trimmed)) {
+      window.alert("Note filename may only contain letters, digits, underscores, dots, and hyphens.");
+      return;
+    }
+    // Prefer notes/ if it exists; fall back to project root. We probe via
+    // a directory-listing on notes/ — 404 means "no notes/ dir".
+    let filePath = `notes/${trimmed}.md`;
+    try {
+      await api.getProjectTree(currentProject.id, "notes");
+    } catch {
+      filePath = `${trimmed}.md`;
+    }
+    try {
+      await api.putProjectFile(currentProject.id, filePath, "");
+      openFileTab(filePath);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      window.alert(`Failed to create note: ${message}`);
+    }
   }
 
   async function importWorkflow() {
@@ -662,6 +739,27 @@ export default function App() {
               resetExecution();
             }}
             onNewWorkflow={() => newWorkflow()}
+            onNewCustomBlock={
+              currentProject
+                ? () => {
+                    void createNewCustomBlock();
+                  }
+                : undefined
+            }
+            onNewNote={
+              currentProject
+                ? () => {
+                    void createNewNote();
+                  }
+                : undefined
+            }
+            onViewSource={
+              currentProject && workflowId
+                ? () => {
+                    openFileTab(`workflows/${workflowId}.yaml`, { readOnly: true });
+                  }
+                : undefined
+            }
             onSave={() => {
               // ADR-036 §3.7 — route Save by active tab kind.
               if (activeFileTab) {

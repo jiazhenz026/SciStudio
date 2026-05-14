@@ -92,13 +92,16 @@ def _map_diagnostic(entry: dict[str, Any]) -> LintDiagnostic:
     )
 
 
-@router.post("/python", response_model=LintResponse)
-async def lint_python(body: LintRequest) -> LintResponse:
+def lint_python_source(content: str, filename: str = "snippet.py") -> LintResponse:
     """Lint a Python source string with ruff. (ADR-036 §3.3)
 
-    Soft-fails (per ADR-036 §6 risk row 2) when ruff is missing, times out,
-    or returns non-JSON — the editor renders without squiggles in those
-    cases and saves continue to work.
+    Public helper extracted from :func:`lint_python` so other backend
+    routes (e.g. the blocks-reload-on-save hook in ADR-036 §3.5) can
+    reuse the same diagnostics shape without going back through HTTP.
+
+    Soft-fails (per ADR-036 §6 risk row 2) when ruff is missing, times
+    out, or returns non-JSON — callers see an empty ``diagnostics`` list
+    and a non-empty ``note`` string.
     """
     global _ruff_missing_warned
 
@@ -107,12 +110,12 @@ async def lint_python(body: LintRequest) -> LintResponse:
             [
                 "ruff",
                 "check",
-                f"--stdin-filename={body.filename}",
+                f"--stdin-filename={filename}",
                 "--output-format=json",
                 "--quiet",
                 "-",
             ],
-            input=body.content,
+            input=content,
             capture_output=True,
             text=True,
             timeout=_RUFF_TIMEOUT_SECONDS,
@@ -143,3 +146,14 @@ async def lint_python(body: LintRequest) -> LintResponse:
 
     diagnostics = [_map_diagnostic(entry) for entry in parsed if isinstance(entry, dict)]
     return LintResponse(diagnostics=diagnostics)
+
+
+@router.post("/python", response_model=LintResponse)
+async def lint_python(body: LintRequest) -> LintResponse:
+    """Lint a Python source string with ruff. (ADR-036 §3.3)
+
+    Soft-fails (per ADR-036 §6 risk row 2) when ruff is missing, times out,
+    or returns non-JSON — the editor renders without squiggles in those
+    cases and saves continue to work.
+    """
+    return lint_python_source(body.content, body.filename)

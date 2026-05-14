@@ -94,13 +94,13 @@
 - [x] Vitest tests: render Python tab, mock lint response, dirty-state propagation, save trigger → `CodeEditor.test.tsx` (7 cases) + `Toolbar.test.tsx` (3 cases)
 
 ### Phase 2C — ProjectTree + View source + reload + template (Owner: I36c)
-- [ ] `ProjectTree.tsx` double-click on `.py / .txt / .md / .json / .csv` → `openFileTab(path)` [§3.5]
-- [ ] Workflow tab toolbar adds "View source" → opens `kind=file, readOnly=true` tab with id `source:<workflow_id>` (dedup by prefix) [§3.4]
-- [ ] On `blocks/*.py` PUT: backend triggers existing `BlockRegistry.hot_reload()` only when lint diagnostics empty [§3.5]
-- [ ] Backend `GET /api/blocks/template` real impl + serves `block_base_template.py` content [§3.12]
-- [ ] "New" toolbar menu: workflow / custom block / note (markdown) [§3.7, §3.12]
-- [ ] Frontend tests for double-click open, source-view dedup, "New" menu actions
-- [ ] Backend test: reload-gated-on-lint-pass
+- [x] `ProjectTree.tsx` double-click on `.py / .txt / .md / .json / .csv` → `openFileTab(path)` [§3.5] → branch `feat/issue-851/project-tree` (vitest `ProjectTree.test.tsx` 6 cases)
+- [x] Workflow tab toolbar adds "View source" → opens `kind=file, readOnly=true` tab with id `source:<workflow_id>` (dedup by prefix) [§3.4] → branch `feat/issue-851/project-tree` (vitest `Toolbar.test.tsx::View source` 4 cases)
+- [x] On `blocks/*.py` PUT: backend triggers existing `BlockRegistry.hot_reload()` only when lint diagnostics empty [§3.5] → branch `feat/issue-851/project-tree` (pytest `tests/api/test_reload_on_save.py` 4 cases)
+- [x] Backend `GET /api/blocks/template` real impl + serves `block_base_template.py` content [§3.12] → branch `feat/issue-851/project-tree` (pytest `tests/api/test_blocks_template.py` 4 cases)
+- [x] "New" toolbar menu: workflow / custom block / note (markdown) [§3.7, §3.12] → branch `feat/issue-851/project-tree` (vitest `Toolbar.test.tsx::New menu` 4 cases)
+- [x] Frontend tests for double-click open, source-view dedup, "New" menu actions → branch `feat/issue-851/project-tree` (vitest 14 cases across `ProjectTree.test.tsx` + `Toolbar.test.tsx`)
+- [x] Backend test: reload-gated-on-lint-pass → branch `feat/issue-851/project-tree` (`tests/api/test_reload_on_save.py::test_broken_block_save_does_not_reload_or_emit`)
 
 ### Audit & Fix (skeleton)
 - [x] Audit-skeleton report posted on umbrella issue (Owner: A36-skeleton) → audit-output PR #857; umbrella comment https://github.com/zjzcpj/SciEasy/issues/843#issuecomment-4448807888 ; verdict: pass-with-fixes (3 P1 Codex findings accepted)

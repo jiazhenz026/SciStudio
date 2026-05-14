@@ -16,6 +16,10 @@ import {
   FilePlus2,
   SaveAll,
   Loader2,
+  Eye,
+  FileCode2,
+  FileText,
+  Workflow,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -57,6 +61,22 @@ interface ToolbarProps {
   onOpenRecent: (project: ProjectResponse) => void;
   onCloseProject: () => void;
   onNewWorkflow: () => void;
+  /**
+   * ADR-036 §3.7 / §3.12 — "New custom block" menu action. Optional; when
+   * absent the menu item is disabled.
+   */
+  onNewCustomBlock?: () => void;
+  /**
+   * ADR-036 §3.7 / §3.12 — "New note" (markdown) menu action. Optional;
+   * when absent the menu item is disabled.
+   */
+  onNewNote?: () => void;
+  /**
+   * ADR-036 §3.4 — "View source" toolbar button on workflow tabs. Optional;
+   * when absent the button is hidden. Implementations should open a
+   * read-only ``kind=file`` tab on ``workflows/<workflowId>.yaml``.
+   */
+  onViewSource?: () => void;
   onSave: () => void;
   onSaveAs: () => void;
   onImport: () => void;
@@ -162,6 +182,9 @@ export function Toolbar(props: ToolbarProps) {
     onOpenRecent,
     onCloseProject,
     onNewWorkflow,
+    onNewCustomBlock,
+    onNewNote,
+    onViewSource,
     onSave,
     onSaveAs,
     onImport,
@@ -262,13 +285,46 @@ export function Toolbar(props: ToolbarProps) {
 
         {/* Group 2: File Operations (shared across tab kinds) */}
         <div className="flex items-center gap-1">
-          {/* TODO(I36c): New menu — workflow / custom block / note. Replaces this single-button "New" with a DropdownMenu trigger per ADR-036 §3.7. */}
-          <ToolbarButton
-            icon={FilePlus2}
-            label="New"
-            disabled={!currentProject}
-            onClick={onNewWorkflow}
-          />
+          {/*
+           * ADR-036 §3.7 / §3.12 (I36c) — "New" is a constrained
+           * three-item menu: workflow / custom block / note. No "New
+           * arbitrary file" entry; users with one-off needs use the
+           * project tree.
+           */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="toolbar"
+                size="toolbar"
+                disabled={!currentProject}
+                type="button"
+              >
+                <FilePlus2 className="size-3.5" />
+                New
+                <ChevronDown className="size-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={onNewWorkflow} disabled={!currentProject}>
+                <Workflow className="size-4" />
+                New workflow
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={onNewCustomBlock}
+                disabled={!currentProject || !onNewCustomBlock}
+              >
+                <FileCode2 className="size-4" />
+                New custom block
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={onNewNote}
+                disabled={!currentProject || !onNewNote}
+              >
+                <FileText className="size-4" />
+                New note
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <ToolbarButton
             icon={Import}
             label="Import"
@@ -382,7 +438,21 @@ export function Toolbar(props: ToolbarProps) {
                 disabled={!currentProject}
                 onClick={onAddGroup}
               />
-              {/* TODO(I36c): View source button on workflow-tab toolbar — opens a read-only kind=file tab with id "source:<workflow_id>" per ADR-036 §3.4. */}
+              {/*
+               * ADR-036 §3.4 (I36c) — "View source" opens a read-only
+               * Monaco tab on the active workflow's YAML. The tab id is
+               * prefixed ``source:`` so re-clicking focuses the existing
+               * source view instead of opening a duplicate (dedup by
+               * prefix lives in tabSlice.openFileTab).
+               */}
+              {onViewSource && workflowId ? (
+                <ToolbarButton
+                  icon={Eye}
+                  label="View source"
+                  disabled={!currentProject}
+                  onClick={onViewSource}
+                />
+              ) : null}
             </div>
           </>
         )}

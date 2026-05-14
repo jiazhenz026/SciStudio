@@ -1,42 +1,13 @@
-"""ADR-036 §3.12 — block template endpoint test stubs.
+"""ADR-036 §3.12 — block template endpoint regression tests.
 
-xfail markers will be removed by Phase 2C implementation agent (I36c).
+The xfail-marked stubs from the skeleton phase (S36) have been replaced
+by real integration tests in ``tests/api/test_blocks_template.py``
+(I36c). The two regression tests below remain because they assert
+FastAPI route ordering (audit finding P1-2) and do not depend on the
+handler's success path.
 """
 
 from __future__ import annotations
-
-import pytest
-
-
-@pytest.mark.xfail(reason="ADR-036 skeleton — implementation phase fills this in")
-def test_template_basic_returns_python_with_correct_imports() -> None:
-    """GET /api/blocks/template?kind=basic returns Python content with the right imports.
-
-    Assert the response body's ``content`` field contains the literal
-    string ``"from scieasy.blocks.base import"`` and references the
-    ``Block`` class. The exact import line may evolve (S36 used the
-    real exports, not the dispatch's literal ``BlockSpec, PortSpec``
-    spec — see comment at the top of
-    ``src/scieasy/blocks/_templates/block_base_template.py``).
-    """
-    raise NotImplementedError
-
-
-@pytest.mark.xfail(reason="ADR-036 skeleton — implementation phase fills this in")
-def test_template_basic_has_run_marker() -> None:
-    """The template content contains the ``# >>> EDIT THIS <<<`` marker.
-
-    This is the user-visible "start typing here" pointer. If it
-    disappears, the new-block UX silently regresses.
-    """
-    raise NotImplementedError
-
-
-@pytest.mark.xfail(reason="ADR-036 skeleton — implementation phase fills this in")
-def test_template_unknown_kind_400() -> None:
-    """GET with kind="frobnicator" returns HTTP 400."""
-    raise NotImplementedError
-
 
 # ---------------------------------------------------------------------------
 # Regression tests — ADR-036 audit P1-2.
@@ -70,7 +41,8 @@ def test_template_route_registered_before_block_type() -> None:
 def test_template_route_resolves_to_template_handler_not_schema() -> None:
     """A live ``GET /api/blocks/template`` reaches ``get_block_template``.
 
-    Skeleton raises NotImplementedError -> 500. If the catch-all is
+    The implementation lands in I36c, so a successful request returns
+    200 with a real Python template body. If the catch-all is
     intercepting, we instead see 404 ("Unknown block type: template").
     """
     from fastapi import FastAPI
@@ -89,9 +61,9 @@ def test_template_route_resolves_to_template_handler_not_schema() -> None:
 
     client = TestClient(app, raise_server_exceptions=False)
     response = client.get("/api/blocks/template?kind=basic")
-    assert response.status_code == 500, (
-        f"Expected 500 from skeleton NotImplementedError in get_block_template, got "
-        f"{response.status_code}: {response.text!r}. If this is 404 with detail "
+    assert response.status_code == 200, (
+        f"Expected 200 from get_block_template, got {response.status_code}: "
+        f"{response.text!r}. If this is 404 with detail "
         "'Unknown block type: template', the /{block_type} catch-all is "
         "intercepting — P1-2 regression."
     )

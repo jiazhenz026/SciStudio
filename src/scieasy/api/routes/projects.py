@@ -14,6 +14,13 @@ from pydantic import BaseModel
 from scieasy.api.deps import get_runtime
 from scieasy.api.runtime import ApiRuntime
 from scieasy.api.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
+from scieasy.engine.events import EngineEvent
+
+# ADR-036 §3.5 (I36c) — string event type for the WS-broadcast that fires
+# after a successful, lint-passing PUT to ``blocks/*.py``. Declared here
+# (not in scieasy.engine.events) because the events module is frozen by
+# the dispatch's hard-scope rules; subscribers can opt in by string.
+BLOCKS_RELOADED_EVENT_TYPE: str = "blocks.reloaded"
 
 logger = logging.getLogger(__name__)
 
@@ -287,9 +294,16 @@ async def write_project_file(
             pass
         raise HTTPException(status_code=500, detail=f"write failed: {exc}") from exc
 
-    # TODO(I36c, ADR-036 §3.5): if target falls under ``<project>/blocks/``
-    # and target.suffix == ".py", trigger ``BlockRegistry.hot_reload()``
-    # gated on lint pass. Owned by Phase 2C.
+    # ADR-036 §3.5 (I36c): if the saved file is a Python source file under
+    # ``<project>/blocks/`` and lint diagnostics are empty, hot-reload the
+    # block registry and broadcast a ``blocks.reloaded`` event so the
+    # frontend palette refreshes + a passive toast can fire.
+    #
+    # Lint failure (any diagnostic) keeps the registry stable per ADR-036
+    # §3.5 — the file is saved but not loaded. The frontend's lint panel
+    # already shows the diagnostics; suppressing the reload prevents a
+    # broken module from poisoning the palette.
+    await _maybe_reload_blocks_after_save(runtime, target, body.content)
 
     try:
         stat = target.stat()
@@ -297,6 +311,89 @@ async def write_project_file(
         raise HTTPException(status_code=500, detail=f"post-write stat failed: {exc}") from exc
 
     return FileWriteResponse(mtime=stat.st_mtime, size=stat.st_size)
+
+
+# ---------------------------------------------------------------------------
+# ADR-036 §3.5 (I36c) — blocks/*.py reload-on-save hook helper.
+# Kept module-level (not nested in the PUT handler) so tests can patch it.
+# ---------------------------------------------------------------------------
+
+
+def _is_under_project_blocks_dir(project_root: Path | None, target: Path) -> bool:
+    """True when ``target`` is a ``.py`` file inside ``<project>/blocks``.
+
+    Uses ``Path.relative_to`` to avoid string-prefix gotchas on Windows.
+    """
+    if project_root is None or target.suffix.lower() != ".py":
+        return False
+    try:
+        rel = target.relative_to(project_root)
+    except ValueError:
+        return False
+    parts = rel.parts
+    return len(parts) >= 2 and parts[0] == "blocks"
+
+
+async def _maybe_reload_blocks_after_save(runtime: ApiRuntime, target: Path, content: str) -> None:
+    """If ``target`` is a clean ``blocks/*.py``, hot-reload + broadcast.
+
+    "Clean" means lint returned zero diagnostics. Lint failure / ruff
+    unavailability is treated as a no-op so a broken file never poisons
+    the registry (ADR-036 §3.5). All exceptions in this hook are
+    swallowed because the file save itself already succeeded — losing the
+    palette refresh is annoying, surfacing a 500 to the user is worse.
+    """
+    active = runtime.active_project
+    project_root = Path(active.path) if active is not None else None
+    if not _is_under_project_blocks_dir(project_root, target):
+        return
+
+    # Import lazily to avoid pulling lint config into module import time.
+    from scieasy.api.routes.lint import lint_python_source
+
+    try:
+        lint_result = lint_python_source(content, filename=target.name)
+    except Exception:
+        logger.debug("blocks-reload hook: lint raised, skipping reload", exc_info=True)
+        return
+
+    if lint_result.diagnostics:
+        logger.info(
+            "blocks-reload hook: %s has %d lint diagnostic(s); skipping hot_reload",
+            target.name,
+            len(lint_result.diagnostics),
+        )
+        return
+
+    # ruff missing / timeout returns an empty diagnostics list with a
+    # non-empty ``note``. Treat that as "no errors observed" — same as the
+    # editor: no squiggles means no blocking issues.
+    before = set(runtime.block_registry.all_specs().keys())
+    try:
+        runtime.block_registry.hot_reload()
+    except Exception:
+        logger.exception("blocks-reload hook: hot_reload() raised")
+        return
+    after = set(runtime.block_registry.all_specs().keys())
+
+    added = sorted(after - before)
+    removed = sorted(before - after)
+    # We do not currently have per-spec staleness tracking, so the best
+    # signal for "reloaded but unchanged" is "in both sets". Surface the
+    # filename of the saved file as the canonical reloaded target so
+    # downstream consumers can scope the toast.
+    reloaded = [target.name]
+
+    payload = {
+        "added": added,
+        "removed": removed,
+        "reloaded": reloaded,
+        "path": str(target),
+    }
+    try:
+        await runtime.event_bus.emit(EngineEvent(event_type=BLOCKS_RELOADED_EVENT_TYPE, data=payload))
+    except Exception:
+        logger.exception("blocks-reload hook: event_bus.emit raised")
 
 
 # ---------------------------------------------------------------------------
