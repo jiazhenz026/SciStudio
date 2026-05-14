@@ -225,37 +225,6 @@ class ProjectResponse(BaseModel):
     current_workflow_id: str | None = None
 
 
-class AIGenerateBlockRequest(BaseModel):
-    """Request body for AI block generation."""
-
-    description: str
-    block_category: str | None = None
-
-
-class AIGenerateBlockResponse(BaseModel):
-    """Response body after AI block generation."""
-
-    code: str
-    block_name: str
-    validation_passed: bool
-    validation_report: dict[str, Any] = Field(default_factory=dict)
-    category: str = ""
-
-
-class AISuggestWorkflowRequest(BaseModel):
-    """Request body for AI workflow suggestion."""
-
-    data_description: str
-    goal: str
-
-
-class AISuggestWorkflowResponse(BaseModel):
-    """Response body after AI workflow suggestion."""
-
-    workflow: dict[str, Any] = Field(default_factory=dict)
-    explanation: str = ""
-
-
 class CancelBlockRequest(BaseModel):
     """Request body for cancelling a single block."""
 
@@ -272,21 +241,6 @@ class CancelPropagationResponse(BaseModel):
     cancelled_blocks: list[str] = Field(default_factory=list)
     skipped_blocks: list[str] = Field(default_factory=list)
     skip_reasons: dict[str, str] = Field(default_factory=dict)
-
-
-class AIOptimizeParamsRequest(BaseModel):
-    """Request body for AI parameter optimization."""
-
-    block_id: str
-    intermediate_results: dict[str, Any] = Field(default_factory=dict)
-    search_space: dict[str, Any] | None = None
-
-
-class AIOptimizeParamsResponse(BaseModel):
-    """Response body after AI parameter optimization."""
-
-    suggestions: dict[str, Any] = Field(default_factory=dict)
-    explanation: str = ""
 
 
 class ErrorResponse(BaseModel):

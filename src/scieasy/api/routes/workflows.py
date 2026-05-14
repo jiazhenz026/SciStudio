@@ -28,6 +28,25 @@ router = APIRouter(prefix="/api/workflows", tags=["workflows"])
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 
 
+def _mark_self_write(path: Path) -> None:
+    """ADR-034 Phase 2: tell the FS watcher this YAML write was canvas-originated.
+
+    Suppresses the next ``workflow.changed`` event for ``(path, mtime, size)``
+    so the watcher does not echo the canvas's own save back at the canvas.
+    Silent no-op when the watcher singleton has not been installed (e.g. in
+    pure-route unit tests).
+    """
+    try:
+        from scieasy.api.routes.workflow_watcher import mark_self_write as _mark
+
+        _mark(path)
+    except Exception:
+        # Watcher failures must not affect the user-facing save response.
+        import logging
+
+        logging.getLogger(__name__).debug("workflow_watcher: mark_self_write failed for %s", path, exc_info=True)
+
+
 def _workflow_response(definition: Any, revision: int = 0) -> WorkflowResponse:
     return WorkflowResponse(
         id=definition.id,
@@ -118,7 +137,9 @@ async def import_workflow(file: UploadFile, runtime: RuntimeDep) -> WorkflowResp
         finally:
             tmp_path.unlink(missing_ok=True)
 
-        save_yaml(definition, runtime.workflow_path(definition.id))
+        out_path = runtime.workflow_path(definition.id)
+        save_yaml(definition, out_path)
+        _mark_self_write(out_path)
     except HTTPException:
         raise
     except Exception as exc:
@@ -153,7 +174,9 @@ async def import_workflow_from_path(body: dict, runtime: RuntimeDep) -> Workflow
         from scieasy.workflow.serializer import load_yaml, save_yaml
 
         definition = load_yaml(path)
-        save_yaml(definition, runtime.workflow_path(definition.id))
+        out_path = runtime.workflow_path(definition.id)
+        save_yaml(definition, out_path)
+        _mark_self_write(out_path)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -271,6 +294,7 @@ async def export_workflow_to_path(body: dict, runtime: RuntimeDep) -> dict:
         save_yaml(definition, target)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _mark_self_write(target)
     return {"status": "ok", "path": str(target)}
 
 

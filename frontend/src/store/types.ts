@@ -1,4 +1,4 @@
-import type { BlockSchemaResponse, BlockSummary, ChatMessage, DataPreviewResponse, LogEntry, ProjectResponse, WorkflowEdge, WorkflowEventMessage, WorkflowNode, WorkflowResponse } from "../types/api";
+import type { BlockSchemaResponse, BlockSummary, DataPreviewResponse, LogEntry, ProjectResponse, WorkflowEdge, WorkflowEventMessage, WorkflowNode, WorkflowResponse } from "../types/api";
 import type { BottomTab } from "../types/ui";
 
 export interface ProjectDialogState {
@@ -118,12 +118,6 @@ export interface PaletteSlice {
   setPaletteSearch: (search: string) => void;
 }
 
-export interface ChatSlice {
-  chatMessages: ChatMessage[];
-  pushChatMessage: (message: ChatMessage) => void;
-  clearChatMessages: () => void;
-}
-
 /**
  * ADR-034 Phase 1.3: one PTY-backed terminal tab.
  *
@@ -207,6 +201,5 @@ export type AppStore = ProjectSlice &
   UISlice &
   PreviewSlice &
   PaletteSlice &
-  ChatSlice &
   TabSlice &
   TerminalTabsSlice;

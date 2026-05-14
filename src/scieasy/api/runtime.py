@@ -547,7 +547,16 @@ class ApiRuntime:
                 "; ".join(str(e) for e in errors),
             )
 
-        save_yaml(definition, self.workflow_path(definition.id))
+        path = self.workflow_path(definition.id)
+        save_yaml(definition, path)
+        # ADR-034 Phase 2: tell the FS watcher this write came from us so it
+        # does not echo a ``workflow.changed`` event back to the canvas.
+        try:
+            from scieasy.api.routes.workflow_watcher import mark_self_write
+
+            mark_self_write(path)
+        except Exception:
+            logger.warning("workflow_watcher: mark_self_write failed for %s", path, exc_info=True)
         return definition
 
     def load_workflow(self, workflow_id: str) -> WorkflowDefinition:
