@@ -357,12 +357,27 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
     const project = state.currentProject;
     if (!project) return;
 
+    // Snapshot the content we are about to PUT. After the await we will
+    // compare against the latest tab content; if it has diverged the user
+    // typed during the in-flight request and we MUST preserve their newer
+    // edits (mtime advances, dirty stays true so the next debounce saves
+    // again). See audit 2026-05-14 P1 #1.
+    const sentContent = tab.content;
+
     try {
-      const response = await api.putProjectFile(project.id, tab.filePath, tab.content);
+      const response = await api.putProjectFile(project.id, tab.filePath, sentContent);
       const after = get();
+      const latest = after.tabs.find((t) => t.id === id);
+      // Tab may have been closed during the await — drop the result.
+      if (!latest || latest.kind !== "file") return;
+
+      const contentChangedDuringSave = latest.content !== sentContent;
       const next: FileTab = {
-        ...tab,
-        dirty: false,
+        ...latest,
+        // Only clear dirty if the user did NOT edit during the in-flight
+        // PUT. Otherwise leave dirty=true so the autosave debounce picks
+        // up the newer content on its next tick.
+        dirty: contentChangedDuringSave ? true : false,
         contentLoadedAt: response.mtime,
       };
       set(replaceTab(after, id, next));

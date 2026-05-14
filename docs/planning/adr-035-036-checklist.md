@@ -107,8 +107,8 @@
 - [x] All P1 findings fixed (or explicitly justified deferral) (Owner: F36-skeleton, conditional) → fix PR #860 squash-merged into feat/issue-848/skeleton; route ordering + lockfile regen + atomic write coordination
 
 ### Audit & Fix (implementation)
-- [ ] Audit-implementation report posted on umbrella issue, includes Chrome smoke results (Owner: A36-impl)
-- [ ] All P1 findings fixed; deferred Codex P1 explicitly overridden (Owner: F36-impl)
+- [x] Audit-implementation report posted on umbrella issue, includes Chrome smoke results (Owner: A36-impl) → `docs/audit/2026-05-14-adr-036-implementation.md`; verdict: NEEDS-FIX (2 P1, 4 P2)
+- [x] All P1 findings fixed; deferred Codex P1 explicitly overridden (Owner: F36-impl) → fix branch `fix/adr-036-impl-audit-p1`; both P1s landed (saveFileTab race + new-block/note overwrite probe), P2 #6 (`createNewNote` 404 branch) fixed in-PR; P2 #3 / #4 / #5 deferred to backlog issues
 
 ---
 

@@ -245,4 +245,71 @@ describe("saveFileTab (ADR-036 §3.10)", () => {
     await useAppStore.getState().saveFileTab("source:workflows/foo.yaml");
     expect(putProjectFileMock).not.toHaveBeenCalled();
   });
+
+  // Audit 2026-05-14 P1 #1 — regression test.
+  // saveFileTab used to snapshot `tab` BEFORE the await, then write
+  // `dirty=false` + `contentLoadedAt` based on that stale snapshot
+  // post-await, silently overwriting any keystrokes the user made while
+  // the PUT was in flight. The fix re-reads the latest tab content after
+  // the await and only clears `dirty` if the content has not diverged.
+  it("preserves edits made during an in-flight PUT (data-loss race)", async () => {
+    getProjectFileMock.mockResolvedValue({
+      content: "x = 1\n",
+      mtime: 1,
+      size: 6,
+      encoding: "utf-8",
+    });
+
+    // Stall the PUT until we manually resolve it. This gives us a window
+    // to "type" between save start and save end.
+    let resolvePut: (value: { mtime: number; size: number }) => void = () => {};
+    putProjectFileMock.mockImplementation(
+      () => new Promise<{ mtime: number; size: number }>((resolve) => {
+        resolvePut = resolve;
+      }),
+    );
+
+    useAppStore.getState().openFileTab("a.py");
+    await new Promise((r) => setTimeout(r, 0));
+
+    // First edit triggers dirty.
+    useAppStore.getState().updateFileTabContent("file:a.py", "x = 22\n");
+    // Kick off the save (do NOT await it yet — it is mid-flight).
+    const savePromise = useAppStore.getState().saveFileTab("file:a.py");
+    // Simulate the user typing more while the PUT is in flight.
+    useAppStore.getState().updateFileTabContent("file:a.py", "x = 333\n");
+    // Now resolve the PUT and let saveFileTab finish.
+    resolvePut({ mtime: 99.5, size: 8 });
+    await savePromise;
+
+    const tab = useAppStore.getState().tabs[0];
+    if (tab.kind !== "file") throw new Error("expected file");
+    // The newer in-memory content MUST survive the save.
+    expect(tab.content).toBe("x = 333\n");
+    // mtime advances (we did successfully write the older content).
+    expect(tab.contentLoadedAt).toBe(99.5);
+    // dirty MUST stay true so the next debounce picks up the newer content.
+    expect(tab.dirty).toBe(true);
+  });
+
+  it("clears dirty when content was NOT touched during the PUT", async () => {
+    getProjectFileMock.mockResolvedValue({
+      content: "x = 1\n",
+      mtime: 1,
+      size: 6,
+      encoding: "utf-8",
+    });
+    putProjectFileMock.mockResolvedValue({ mtime: 42, size: 7 });
+
+    useAppStore.getState().openFileTab("b.py");
+    await new Promise((r) => setTimeout(r, 0));
+    useAppStore.getState().updateFileTabContent("file:b.py", "y = 2\n");
+    await useAppStore.getState().saveFileTab("file:b.py");
+
+    const tab = useAppStore.getState().tabs[0];
+    if (tab.kind !== "file") throw new Error("expected file");
+    expect(tab.content).toBe("y = 2\n");
+    expect(tab.dirty).toBe(false);
+    expect(tab.contentLoadedAt).toBe(42);
+  });
 });

@@ -1,7 +1,8 @@
 import { ReactFlowProvider } from "@xyflow/react";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { api } from "./lib/api";
+import { ApiError, api } from "./lib/api";
+import { probeProjectFileExistence } from "./lib/fileExistence";
 import { useLogStream } from "./hooks/useSSE";
 import { useWorkflowWebSocket, sendWebSocketMessage } from "./hooks/useWebSocket";
 import { useAppStore } from "./store";
@@ -323,6 +324,17 @@ export default function App() {
       return;
     }
     const filePath = `blocks/${trimmed}.py`;
+    // Audit 2026-05-14 P1 #2 — probe before PUT so we never silently
+    // overwrite an existing block file from a one-click toolbar action.
+    const probe = await probeProjectFileExistence(currentProject.id, filePath);
+    if (probe.kind === "exists") {
+      window.alert(`A custom block named "${trimmed}.py" already exists. Pick a different name.`);
+      return;
+    }
+    if (probe.kind === "unknown") {
+      window.alert(`Failed to check for existing block: ${probe.message}`);
+      return;
+    }
     try {
       const tpl = await api.getBlockTemplate("basic");
       await api.putProjectFile(currentProject.id, filePath, tpl.content);
@@ -354,12 +366,33 @@ export default function App() {
       return;
     }
     // Prefer notes/ if it exists; fall back to project root. We probe via
-    // a directory-listing on notes/ — 404 means "no notes/ dir".
+    // a directory-listing on notes/ — only a 404 means "no notes/ dir";
+    // other errors must NOT silently move the file to project root (audit
+    // 2026-05-14 P2 #6 — fixed in-PR alongside the P1 existence check).
     let filePath = `notes/${trimmed}.md`;
     try {
       await api.getProjectTree(currentProject.id, "notes");
-    } catch {
-      filePath = `${trimmed}.md`;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        filePath = `${trimmed}.md`;
+      } else {
+        const message = error instanceof Error ? error.message : String(error);
+        window.alert(`Failed to locate notes directory: ${message}`);
+        return;
+      }
+    }
+    // Audit 2026-05-14 P1 #2 — probe before PUT so we never silently
+    // overwrite an existing note from a one-click toolbar action.
+    const probe = await probeProjectFileExistence(currentProject.id, filePath);
+    if (probe.kind === "exists") {
+      window.alert(
+        `A note named "${trimmed}.md" already exists at ${filePath}. Pick a different name.`,
+      );
+      return;
+    }
+    if (probe.kind === "unknown") {
+      window.alert(`Failed to check for existing note: ${probe.message}`);
+      return;
     }
     try {
       await api.putProjectFile(currentProject.id, filePath, "");
