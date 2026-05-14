@@ -1,20 +1,24 @@
-"""Skeleton-phase tests for AIBlock (ADR-035 §3.1, §3.2, §3.5, §3.6, §3.9).
+"""Tests for AIBlock (ADR-035 §3.1, §3.2, §3.5, §3.6, §3.9) — Phase 2A.
 
-All tests are ``xfail`` with the test plan in their docstring. The
-implementation phase (I35a) flips each one to ``run=True`` once the
-behavior is implemented.
-
-References:
-    docs/adr/ADR-035.md §3
-    docs/planning/agent-prompt-templates/skeleton-agent.md §3
+Originally a skeleton (xfail) file; flipped to real tests by I35a per
+the test plan in ``ai_block.py``.
 """
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
-from scieasy.blocks.ai.ai_block import AIBlock
-from scieasy.blocks.base.state import ExecutionMode
+from scieasy.blocks.ai.ai_block import (
+    _BYPASS_FLAG,
+    AIBlock,
+    _output_path_overrides,
+)
+from scieasy.blocks.base.config import BlockConfig
+from scieasy.blocks.base.state import BlockState, ExecutionMode
+from tests.blocks.ai.conftest import StubAgent  # type: ignore[import-not-found]
 
 # ---------------------------------------------------------------------------
 # ClassVar contract — these can run today (no NotImplementedError).
@@ -38,7 +42,6 @@ def test_ai_block_terminate_grace_is_10s() -> None:
 
 
 def test_ai_block_config_schema_has_required_fields() -> None:
-    """Config schema must declare provider, permission_mode, user_prompt, timeout."""
     schema = AIBlock.config_schema
     props = schema["properties"]
     assert "provider" in props
@@ -49,158 +52,353 @@ def test_ai_block_config_schema_has_required_fields() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Behavioral tests — xfail until I35a implements run() / validate().
+# _build_spawn_argv
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(reason="skeleton — implementation phase fills in", run=False)
-def test_run_writes_manifest_with_correct_shape() -> None:
-    """ADR-035 §3.4 manifest schema.
+def _config(**kwargs: object) -> BlockConfig:
+    return BlockConfig(params=dict(kwargs))
 
-    Test plan:
-        1. Construct AIBlock with one input port "files" (Artifact list)
-           and one output port "metadata" (DataFrame, expected_path
-           "./out.csv").
-        2. Mock RunDir.write_manifest to capture its args.
-        3. Mock request_pty_tab to return a fake tab_id and immediately
-           write a finish_ai_block signal file.
-        4. Call AIBlock.run() with the inputs dict.
-        5. Assert RunDir.write_manifest was called with:
-           - block name + type matching the AIBlock instance
-           - inputs dict with verbatim file paths (no rewriting)
-           - outputs dict with the expected_path verbatim
-           - completion deadline as ISO-8601 UTC string
+
+def test_build_argv_claude_safe_mode(project_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Patch discovery so we don't need claude installed.
+    from scieasy.blocks.ai import ai_block as mod
+
+    monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/claude")
+    block = AIBlock()
+    cfg = _config(
+        provider="claude-code",
+        permission_mode="safe",
+        user_prompt="hi",
+        project_dir=str(project_dir),
+    )
+    argv = block._build_spawn_argv(cfg, "manifest.json")
+    assert argv[0] == "/fake/claude"
+    # Safe mode: no bypass flag.
+    assert "bypassPermissions" not in argv
+    assert "--permission-mode" not in argv or "bypassPermissions" not in argv
+
+
+def test_build_argv_claude_bypass_uses_bypass_permissions(project_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from scieasy.blocks.ai import ai_block as mod
+
+    monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/claude")
+    block = AIBlock()
+    cfg = _config(
+        provider="claude-code",
+        permission_mode="bypass",
+        user_prompt="hi",
+        project_dir=str(project_dir),
+    )
+    argv = block._build_spawn_argv(cfg, "manifest.json")
+    assert "--permission-mode" in argv
+    assert "bypassPermissions" in argv
+
+
+def test_build_argv_codex_bypass_uses_dangerously_bypass(project_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from scieasy.blocks.ai import ai_block as mod
+
+    monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/codex")
+    block = AIBlock()
+    cfg = _config(provider="codex", permission_mode="bypass", user_prompt="hi")
+    argv = block._build_spawn_argv(cfg, "manifest.json")
+    assert "--dangerously-bypass-approvals-and-sandbox" in argv
+
+
+def test_build_argv_unknown_provider_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    block = AIBlock()
+    cfg = _config(provider="grok", user_prompt="hi")
+    with pytest.raises(ValueError, match="unknown provider"):
+        block._build_spawn_argv(cfg, "m.json")
+
+
+def test_build_argv_missing_binary_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    from scieasy.blocks.ai import ai_block as mod
+
+    monkeypatch.setattr(mod, "_discover_provider", lambda _p: None)
+    block = AIBlock()
+    cfg = _config(provider="claude-code", user_prompt="hi")
+    with pytest.raises(ValueError, match="not discoverable"):
+        block._build_spawn_argv(cfg, "m.json")
+
+
+# ---------------------------------------------------------------------------
+# validate_config
+# ---------------------------------------------------------------------------
+
+
+def test_validate_succeeds_when_provider_installed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from scieasy.blocks.ai import ai_block as mod
+
+    monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/claude")
+    block = AIBlock()
+    block.validate_config(_config(provider="claude-code", user_prompt="hi"))
+
+
+def test_validate_fails_with_install_hint_when_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from scieasy.blocks.ai import ai_block as mod
+
+    monkeypatch.setattr(mod, "_discover_provider", lambda _p: None)
+    block = AIBlock()
+    with pytest.raises(ValueError, match="scieasy install"):
+        block.validate_config(_config(provider="claude-code", user_prompt="hi"))
+
+
+def test_validate_rejects_empty_prompt(monkeypatch: pytest.MonkeyPatch) -> None:
+    from scieasy.blocks.ai import ai_block as mod
+
+    monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/claude")
+    block = AIBlock()
+    with pytest.raises(ValueError, match="non-empty"):
+        block.validate_config(_config(provider="claude-code", user_prompt="   "))
+
+
+def test_validate_rejects_negative_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    from scieasy.blocks.ai import ai_block as mod
+
+    monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/claude")
+    block = AIBlock()
+    with pytest.raises(ValueError, match="positive integer"):
+        block.validate_config(_config(provider="claude-code", user_prompt="hi", timeout_sec=-1))
+
+
+# ---------------------------------------------------------------------------
+# run() — happy paths via StubAgent
+# ---------------------------------------------------------------------------
+
+
+def _prepared_block(
+    output_ports: list[dict[str, object]] | None = None,
+) -> AIBlock:
+    """Construct an AIBlock + drive its state through IDLE→READY→RUNNING.
+
+    Mirrors the AppBlock test fixture pattern (tests/blocks/app/...)
+    because ``Block.transition`` rejects IDLE→PAUSED directly.
     """
-    raise NotImplementedError("skeleton")
+    instance_config: dict[str, object] = {}
+    if output_ports is not None:
+        instance_config["output_ports"] = output_ports
+    block = AIBlock(config=instance_config)
+    block.transition(BlockState.READY)
+    block.transition(BlockState.RUNNING)
+    return block
 
 
-@pytest.mark.xfail(reason="skeleton — implementation phase fills in", run=False)
-def test_run_request_pty_tab_with_safe_permission() -> None:
-    """ADR-035 §3.7: safe mode passes default --permission-mode to spawn.
+def test_run_writes_manifest_with_correct_shape(project_dir: Path, stub_agent: StubAgent) -> None:
+    """Manifest contains block name, type, deadline, and declared output."""
+    stub_agent.outputs = {"metadata": ("results/metadata.csv", "a,b\n1,2\n")}
+    block = _prepared_block(
+        output_ports=[
+            {
+                "name": "metadata",
+                "types": ["DataFrame"],
+                "expected_path": "./results/metadata.csv",
+            }
+        ]
+    )
+    cfg = _config(
+        user_prompt="extract metadata",
+        provider="claude-code",
+        timeout_sec=30,
+        project_dir=str(project_dir),
+        block_id="extract_metadata",
+    )
+    block.run(inputs={}, config=cfg)
 
-    Test plan:
-        1. Configure AIBlock with permission_mode="safe".
-        2. Mock request_pty_tab; capture spawn_argv.
-        3. Run.
-        4. Assert spawn_argv contains "--permission-mode" with the
-           provider's safe-mode value (NOT "bypassPermissions").
-    """
-    raise NotImplementedError("skeleton")
-
-
-@pytest.mark.xfail(reason="skeleton — implementation phase fills in", run=False)
-def test_run_request_pty_tab_with_bypass_permission() -> None:
-    """ADR-035 §3.7: bypass mode passes the right flag per provider.
-
-    Test plan:
-        1. permission_mode="bypass", provider="claude-code".
-        2. Mock request_pty_tab.
-        3. Assert spawn_argv contains "--permission-mode" "bypassPermissions".
-        4. Repeat for provider="codex" → expect
-           "--dangerously-bypass-approvals-and-sandbox".
-    """
-    raise NotImplementedError("skeleton")
-
-
-@pytest.mark.xfail(reason="skeleton — implementation phase fills in", run=False)
-def test_run_completion_via_mcp_finish_ai_block() -> None:
-    """ADR-035 §3.5 path (a): MCP signal triggers validation+done.
-
-    Test plan:
-        1. Configure block with output port "metadata" (DataFrame, ./out.csv).
-        2. Pre-create ./out.csv with valid CSV content.
-        3. Mock request_pty_tab; immediately write
-           {"outputs": {"metadata": "./out.csv"}} to the MCP signal file.
-        4. Run.
-        5. Assert returned dict has key "metadata" wrapped in a Collection.
-        6. Assert the loaded DataFrame matches the file content.
-    """
-    raise NotImplementedError("skeleton")
+    # Find the run dir created by the block.
+    runs_root = project_dir / ".scieasy" / "ai-block-runs"
+    run_dirs = list(runs_root.iterdir())
+    assert len(run_dirs) == 1
+    manifest = json.loads((run_dirs[0] / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["block"]["name"] == "extract_metadata"
+    assert manifest["block"]["type"] == "AIBlock"
+    assert manifest["user_prompt"] == "extract metadata"
+    assert "metadata" in manifest["outputs"]
+    assert manifest["outputs"]["metadata"]["expected_path"] == "./results/metadata.csv"
+    # Deadline is ISO-8601 UTC.
+    assert manifest["completion"]["deadline"].endswith("+00:00")
 
 
-@pytest.mark.xfail(reason="skeleton — implementation phase fills in", run=False)
-def test_run_completion_via_file_watcher() -> None:
-    """ADR-035 §3.5 path (b): all expected_path files exist + stable for 2s.
-
-    Test plan:
-        1. Mock request_pty_tab; do NOT write the MCP signal.
-        2. Wait briefly, then create the expected_path file with valid content.
-        3. Wait 2.5s (> stability_period).
-        4. Assert run() returns successfully via FILE_WATCHER source.
-    """
-    raise NotImplementedError("skeleton")
-
-
-@pytest.mark.xfail(reason="skeleton — implementation phase fills in", run=False)
-def test_run_completion_via_mark_done_button() -> None:
-    """ADR-035 §3.5 path (c): user-button signal file triggers completion.
-
-    Test plan:
-        1. Pre-create expected_path file (so validation succeeds).
-        2. Mock request_pty_tab; write mark_done.json to signal dir.
-        3. Assert run() returns via USER_MARK_DONE source.
-    """
-    raise NotImplementedError("skeleton")
+def test_run_request_pty_tab_with_safe_permission(project_dir: Path, stub_agent: StubAgent) -> None:
+    stub_agent.outputs = {"out": ("out.csv", "x\n")}
+    block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
+    cfg = _config(
+        user_prompt="hi",
+        provider="claude-code",
+        permission_mode="safe",
+        project_dir=str(project_dir),
+        timeout_sec=10,
+    )
+    block.run(inputs={}, config=cfg)
+    assert len(stub_agent.request_calls) == 1
+    spec = stub_agent.request_calls[0]
+    assert spec.permission_mode == "safe"
+    assert "bypassPermissions" not in spec.spawn_argv
 
 
-@pytest.mark.xfail(reason="skeleton — implementation phase fills in", run=False)
-def test_run_validation_fail_returns_error_state() -> None:
-    """ADR-035 §3.6: loader exception → ERROR with termination_detail.
-
-    Test plan:
-        1. Configure output port type=DataFrame, expected_path "./bad.csv".
-        2. Pre-create ./bad.csv with malformed CSV.
-        3. Trigger MCP signal completion.
-        4. Assert run() raises (or returns ERROR per Block contract) with
-           the loader exception text and the path.
-        5. Assert the .scieasy/ai-block-runs/{run_id}/ dir is preserved.
-    """
-    raise NotImplementedError("skeleton")
-
-
-@pytest.mark.xfail(reason="skeleton — implementation phase fills in", run=False)
-def test_run_spawn_fail_returns_error() -> None:
-    """ADR-035 §3.8 run-time tier: spawn failure → ERROR.
-
-    Test plan:
-        1. Mock request_pty_tab to raise FileNotFoundError("claude binary").
-        2. Assert run() ERRORs with that exception in termination_detail.
-    """
-    raise NotImplementedError("skeleton")
+def test_run_request_pty_tab_with_bypass_permission(project_dir: Path, stub_agent: StubAgent) -> None:
+    stub_agent.outputs = {"out": ("out.csv", "x\n")}
+    block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
+    cfg = _config(
+        user_prompt="hi",
+        provider="claude-code",
+        permission_mode="bypass",
+        project_dir=str(project_dir),
+        timeout_sec=10,
+    )
+    block.run(inputs={}, config=cfg)
+    spec = stub_agent.request_calls[0]
+    assert spec.permission_mode == "bypass"
+    assert "bypassPermissions" in spec.spawn_argv
 
 
-@pytest.mark.xfail(reason="skeleton — implementation phase fills in", run=False)
-def test_run_user_close_tab_cancels() -> None:
-    """ADR-035 §3.9: user closes tab → CANCELLED.
-
-    Test plan:
-        1. Mock request_pty_tab; do NOT signal completion.
-        2. After short delay, simulate user-tab-close via worker IPC.
-        3. Assert block transitions to CANCELLED, no outputs returned.
-    """
-    raise NotImplementedError("skeleton")
-
-
-@pytest.mark.xfail(reason="skeleton — implementation phase fills in", run=False)
-def test_run_timeout_cancels() -> None:
-    """ADR-035 §3.9: timeout exceeded → CANCELLED with detail="timeout".
-
-    Test plan:
-        1. Configure timeout_sec=1.
-        2. Mock request_pty_tab; never signal completion.
-        3. Wait 1.5s.
-        4. Assert run() raises TimeoutError or returns CANCELLED.
-    """
-    raise NotImplementedError("skeleton")
+def test_run_completion_via_mcp_finish_ai_block(project_dir: Path, stub_agent: StubAgent) -> None:
+    stub_agent.outputs = {"metadata": ("metadata.csv", "name,value\nfoo,1\n")}
+    stub_agent.finish_via = "mcp"
+    block = _prepared_block(
+        output_ports=[
+            {
+                "name": "metadata",
+                "types": ["DataFrame"],
+                "expected_path": "./metadata.csv",
+            }
+        ]
+    )
+    cfg = _config(
+        user_prompt="hi",
+        provider="claude-code",
+        project_dir=str(project_dir),
+        timeout_sec=10,
+    )
+    result = block.run(inputs={}, config=cfg)
+    assert "metadata" in result
+    assert any(n[1] == "completed" for n in stub_agent.notifications)
 
 
-@pytest.mark.xfail(reason="skeleton — implementation phase fills in", run=False)
-def test_validate_fails_with_install_hint_when_missing() -> None:
-    """ADR-035 §3.8 validate-time tier.
+def test_run_completion_via_file_watcher(project_dir: Path, stub_agent: StubAgent) -> None:
+    stub_agent.outputs = {"out": ("out.csv", "a\n1\n")}
+    stub_agent.finish_via = "file_only"
+    block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
+    cfg = _config(
+        user_prompt="hi",
+        provider="claude-code",
+        project_dir=str(project_dir),
+        timeout_sec=15,
+    )
+    result = block.run(inputs={}, config=cfg)
+    assert "out" in result
 
-    Test plan:
-        1. Monkeypatch discover_claude_code() to return None.
-        2. AIBlock.validate(config) must raise ValueError whose message
-           contains the exact ``scieasy install`` invocation.
-    """
-    raise NotImplementedError("skeleton")
+
+def test_run_completion_via_mark_done_button(project_dir: Path, stub_agent: StubAgent) -> None:
+    # Pre-create the file (so validation passes).
+    out_path = project_dir / "out.csv"
+    out_path.write_text("a,b\n1,2\n", encoding="utf-8")
+    stub_agent.outputs = {}  # Don't write anything else.
+    stub_agent.finish_via = "mark_done"
+    block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
+    cfg = _config(
+        user_prompt="hi",
+        provider="claude-code",
+        project_dir=str(project_dir),
+        timeout_sec=10,
+    )
+    result = block.run(inputs={}, config=cfg)
+    assert "out" in result
+
+
+# ---------------------------------------------------------------------------
+# run() — error / cancellation paths
+# ---------------------------------------------------------------------------
+
+
+def test_run_validation_fail_returns_error_state(project_dir: Path, stub_agent: StubAgent) -> None:
+    """Loader exception → block transitions to ERROR; run_dir preserved."""
+    # Stub writes an empty file (size 0) → ValueError "is empty".
+    stub_agent.outputs = {"out": ("out.csv", "")}
+    stub_agent.finish_via = "mcp"
+    block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
+    cfg = _config(
+        user_prompt="hi",
+        provider="claude-code",
+        project_dir=str(project_dir),
+        timeout_sec=10,
+    )
+    with pytest.raises(ValueError, match="is empty"):
+        block.run(inputs={}, config=cfg)
+    assert block.state is BlockState.ERROR
+    # Run dir preserved.
+    runs_root = project_dir / ".scieasy" / "ai-block-runs"
+    assert any(p.is_dir() for p in runs_root.iterdir())
+
+
+def test_run_spawn_fail_returns_error(project_dir: Path, stub_agent: StubAgent) -> None:
+    stub_agent.spawn_error = FileNotFoundError("claude binary gone")
+    block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
+    cfg = _config(
+        user_prompt="hi",
+        provider="claude-code",
+        project_dir=str(project_dir),
+        timeout_sec=10,
+    )
+    with pytest.raises(RuntimeError, match="PTY spawn failed"):
+        block.run(inputs={}, config=cfg)
+    assert block.state is BlockState.ERROR
+
+
+def test_run_timeout_cancels(project_dir: Path, stub_agent: StubAgent) -> None:
+    stub_agent.finish_via = "close"  # Never signal.
+    block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./never.csv"}])
+    cfg = _config(
+        user_prompt="hi",
+        provider="claude-code",
+        project_dir=str(project_dir),
+        timeout_sec=1,
+    )
+    result = block.run(inputs={}, config=cfg)
+    assert result == {}
+    assert block.state is BlockState.CANCELLED
+    assert any("cancelled" in n[1] for n in stub_agent.notifications)
+
+
+def test_run_malformed_mcp_signal_errors(project_dir: Path, stub_agent: StubAgent) -> None:
+    stub_agent.finish_via = "error"
+    block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
+    cfg = _config(
+        user_prompt="hi",
+        provider="claude-code",
+        project_dir=str(project_dir),
+        timeout_sec=10,
+    )
+    with pytest.raises(ValueError, match="malformed MCP signal"):
+        block.run(inputs={}, config=cfg)
+    assert block.state is BlockState.ERROR
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def test_output_path_overrides_extracts_correctly() -> None:
+    cfg = BlockConfig(
+        params={
+            "output_ports": [
+                {"name": "a", "types": ["DataFrame"], "expected_path": "./a.csv"},
+                {"name": "b", "types": ["Text"]},  # no expected_path
+                "not a dict",  # ignored
+            ]
+        }
+    )
+    overrides = _output_path_overrides(cfg)
+    assert overrides == {"a": "./a.csv"}
+
+
+def test_bypass_flag_table_per_provider() -> None:
+    assert "claude-code" in _BYPASS_FLAG
+    assert "codex" in _BYPASS_FLAG
+    assert "bypassPermissions" in _BYPASS_FLAG["claude-code"]
+    assert "--dangerously-bypass-approvals-and-sandbox" in _BYPASS_FLAG["codex"]

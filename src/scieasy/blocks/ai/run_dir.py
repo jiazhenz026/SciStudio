@@ -1,22 +1,22 @@
-"""RunDir — per-run coordination directory for AI Block (skeleton).
+"""RunDir — per-run coordination directory for AI Block (ADR-035 §3.2, §3.4).
 
-ADR-035 §3.2, §3.4. The directory at ``{project}/.scieasy/ai-block-runs/{run_id}/``
-holds the manifest.json, transcript copy, and completion-signal scratch files
-for one AI Block run.
+The directory at ``{project}/.scieasy/ai-block-runs/{run_id}/`` holds the
+manifest.json, transcript copy, and completion-signal scratch files for one
+AI Block run.
 
 **This is NOT a sandbox.** The agent runs with the project directory as cwd
 and full filesystem access (ADR-035 §3.2, §3.7). The run dir exists only to
 hold lineage / coordination artifacts. The agent is free to read and write
 anywhere else the user has access.
-
-Skeleton invariants (per skeleton-agent.md):
-    * Every method body raises ``NotImplementedError``.
-    * Each one is preceded by a docstring + structured implementation plan.
 """
 
 from __future__ import annotations
 
+import json
 import logging
+import os
+import shutil
+import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -38,12 +38,9 @@ logger = logging.getLogger(__name__)
 #   "user_prompt": "...",
 #   "inputs": {
 #     "<port_name>": [
-#       {
-#         "path": "/abs/path/to/file.czi",
-#         "type_chain": ["Artifact", "DataObject"],
-#         "meta": {"mime_type": "application/octet-stream"}
-#       },
-#       ...
+#       {"path": "/abs/path/to/file.czi",
+#        "type_chain": ["Artifact", "DataObject"],
+#        "meta": {"mime_type": "application/octet-stream"}},
 #     ]
 #   },
 #   "outputs": {
@@ -60,14 +57,17 @@ logger = logging.getLogger(__name__)
 #     "deadline":  "<ISO-8601 UTC>"
 #   }
 # }
-#
-# Layout under {project}/.scieasy/ai-block-runs/{run_id}/:
-#   manifest.json       — written before agent spawn (this module)
-#   transcript.log      — copy of the PTY tab transcript (written on close)
-#   signals/            — completion-signal scratch files
-#     finish_ai_block.json    — written by the MCP tool (§3.5 path a)
-#     mark_done.json          — written by the engine on user-button (§3.5 path c)
 # ---------------------------------------------------------------------------
+
+
+def _type_chain(cls: type) -> list[str]:
+    """Return ``[<cls>, <bases>...]`` up to (but not including) object."""
+    chain: list[str] = []
+    for klass in cls.__mro__:
+        if klass is object:
+            break
+        chain.append(klass.__name__)
+    return chain
 
 
 class RunDir:
@@ -79,17 +79,6 @@ class RunDir:
     control on what the agent can do outside this dir — see module-level
     docstring.
 
-    Implementation plan (per ADR-035 §3.2, §3.4):
-        * Constructor: take ``project_dir: Path`` + ``run_id: str``,
-          compute ``self.path = project_dir / ".scieasy" / "ai-block-runs" / run_id``.
-        * :meth:`create()`: ``mkdir(parents=True, exist_ok=False)``;
-          create ``signals/`` subdir.
-        * :meth:`write_manifest()`: build the dict per ADR-035 §3.4,
-          write atomically (tempfile + rename in same directory).
-        * :meth:`mcp_signal_path()` / :meth:`mark_done_signal_path()`:
-          return absolute paths under ``signals/`` for the watcher.
-        * :meth:`copy_transcript()`: copy a transcript log into the dir.
-
     References:
         ADR-035 §3.2 (lineage/coordination role),
         ADR-035 §3.4 (manifest schema),
@@ -99,45 +88,32 @@ class RunDir:
     def __init__(self, project_dir: Path, run_id: str) -> None:
         """Initialize the run-dir handle.
 
-        Implementation plan:
-            1. Store ``self.project_dir = project_dir``, ``self.run_id = run_id``.
-            2. Compute ``self.path = project_dir / ".scieasy" / "ai-block-runs" / run_id``.
-            3. Do NOT create the directory yet — :meth:`create` is explicit.
+        Does NOT create the directory yet — :meth:`create` is explicit so
+        the caller can choose to deal with collisions.
 
-        Edge cases:
-            * ``run_id`` contains path separators → ``ValueError``.
-            * ``project_dir`` does not exist → defer; :meth:`create` will fail.
-
-        Test plan:
-            * test_init_computes_path_correctly
-            * test_init_rejects_run_id_with_separators
-
-        References: ADR-035 §3.4
+        Raises:
+            ValueError: if ``run_id`` contains a path separator (would
+                escape the run-dir scope).
         """
-        raise NotImplementedError("see comment block above")
+        if not run_id or os.sep in run_id or "/" in run_id or ".." in run_id.split(os.sep):
+            raise ValueError(f"run_id contains path separator(s): {run_id!r}")
+        self.project_dir = Path(project_dir)
+        self.run_id = run_id
+        self.path = self.project_dir / ".scieasy" / "ai-block-runs" / run_id
 
     def create(self) -> None:
         """Create the run dir and ``signals/`` subdir on disk.
 
-        Implementation plan:
-            1. ``self.path.mkdir(parents=True, exist_ok=False)`` — fail if
-               run_id collides (run_id encodes timestamp + nonce so this
-               should never happen; collision = bug).
-            2. ``(self.path / "signals").mkdir(exist_ok=True)``.
-
-        Edge cases:
-            * Path already exists → ``FileExistsError``. Caller chooses
-              whether to retry with a fresh run_id or escalate.
-            * Project dir not writable → ``PermissionError``. Caller surfaces
-              as ERROR with actionable message.
-
-        Test plan:
-            * test_create_makes_dir_and_signals_subdir
-            * test_create_raises_on_collision
-
-        References: ADR-035 §3.2
+        Raises:
+            FileExistsError: if ``self.path`` already exists. The run_id
+                is supposed to encode timestamp + nonce, so a collision
+                signals a bug — caller decides whether to retry or escalate.
+            PermissionError: if the project dir is not writable.
         """
-        raise NotImplementedError("see comment block above")
+        # parents=True so .scieasy and ai-block-runs are created if missing,
+        # but exist_ok=False so the per-run leaf collision is loud.
+        self.path.mkdir(parents=True, exist_ok=False)
+        (self.path / "signals").mkdir(exist_ok=True)
 
     def write_manifest(
         self,
@@ -147,105 +123,174 @@ class RunDir:
         inputs: dict[str, list[Any]],
         outputs: list[OutputPort],
         deadline_iso: str,
+        output_paths: dict[str, str] | None = None,
     ) -> Path:
         """Write ``manifest.json`` per the schema in ADR-035 §3.4.
 
         Returns the absolute path to the written manifest (suitable for
         injection into the agent's initial prompt).
 
-        Implementation plan:
-            1. Build the dict shape shown in the module-level comment block
-               (and the schema in ADR-035 §3.4).
-            2. For each input port, iterate the Collection items and emit
-               ``{"path": <abs path>, "type_chain": [...], "meta": {...}}``.
-               **Paths are recorded verbatim** (ADR-035 §3.4) — no symlinking,
-               no rewriting. If the input is in-memory only (no
-               ``storage_ref``), materialize first via the existing
-               ``DataObject.to_storage_ref()`` path.
-            3. For each output port, emit ``expected_path`` (defaulting to
-               ``./{block_name}_outputs/{port}.{ext}`` per §3.3),
-               ``expected_type``, ``type_chain``, ``description``.
-            4. Add ``completion`` block with the deadline and the standard
-               instructional strings from ADR-035 §3.4.
-            5. Write atomically: ``json.dumps`` to a tempfile in the same
-               directory, ``os.replace()`` to ``manifest.json``.
+        Args:
+            block_name: Name of the AIBlock instance.
+            block_type: Class name of the AIBlock subclass.
+            user_prompt: The natural-language prompt to drive the agent.
+            inputs: ``{port_name: [DataObject, ...]}`` — already iterated
+                from the input Collections by the caller. Each DataObject's
+                ``storage_ref.path`` (if set) or ``file_path`` (Artifact)
+                is recorded **verbatim** — no symlinking, no rewriting.
+            outputs: List of declared output ports (effective ports).
+            deadline_iso: ISO-8601 UTC deadline string.
+            output_paths: Optional ``{port_name: expected_path}`` overrides
+                from ``config["output_ports"]`` port-editor entries. When
+                missing, defaults to ``./{block_name}_outputs/{port}.{ext}``.
 
-        Edge cases:
-            * Input has no ``storage_ref`` → materialize via ``to_memory()``
-              + ``write_to_storage()``. If materialization fails, raise
-              the original exception (caller handles).
-            * Output port has no ``expected_path`` → apply default per §3.3.
-            * ``inputs[port_name]`` is empty list → emit ``"inputs": {"port_name": []}``
-              (the agent should still see the port declaration).
-
-        Test plan:
-            * test_write_manifest_basic_shape (one input, one output, JSON
-              matches ADR §3.4 example)
-            * test_write_manifest_records_paths_verbatim (no rewriting)
-            * test_write_manifest_atomic (kill mid-write — file is old or
-              new, never partial)
-            * test_write_manifest_inmemory_input_triggers_materialization
-            * test_write_manifest_default_expected_path
+        Atomically written (tempfile + ``os.replace``) so a crash mid-write
+        leaves either the old file or the new file, never a partial.
 
         References:
             ADR-035 §3.4 (schema), §3.3 (default expected_path),
-            src/scieasy/blocks/app/bridge.py:31-142 (similar atomic-write pattern)
+            src/scieasy/blocks/app/bridge.py (atomic-write idiom).
         """
-        raise NotImplementedError("see comment block above")
+        from scieasy.core.types.artifact import Artifact
+
+        # Inputs section ------------------------------------------------------
+        inputs_section: dict[str, list[dict[str, Any]]] = {}
+        for port_name, items in inputs.items():
+            inputs_section[port_name] = []
+            for obj in items:
+                # Materialize verbatim: prefer storage_ref, fall back to
+                # Artifact.file_path. If neither is present, ask the object
+                # to produce one via save() (best effort) — but we keep the
+                # caller path simple by relying on the engine's auto-flush
+                # already having run.
+                path: str | None = None
+                ref = getattr(obj, "storage_ref", None)
+                if ref is not None and getattr(ref, "path", None):
+                    path = str(ref.path)
+                elif isinstance(obj, Artifact) and obj.file_path is not None:
+                    path = str(obj.file_path)
+                else:
+                    # In-memory only — log and emit a placeholder; the agent
+                    # will see the type info but no path. Implementation
+                    # contracts upstream (ADR-031) say all inputs to EXTERNAL
+                    # blocks should be materialized; this branch is a
+                    # diagnostic.
+                    logger.warning(
+                        "AIBlock manifest: input %r item has no storage_ref or file_path; "
+                        "agent will see type info only.",
+                        port_name,
+                    )
+                meta_dict: dict[str, Any] = {}
+                if isinstance(obj, Artifact) and obj.mime_type:
+                    meta_dict["mime_type"] = obj.mime_type
+                inputs_section[port_name].append(
+                    {
+                        "path": path,
+                        "type_chain": _type_chain(type(obj)),
+                        "meta": meta_dict,
+                    }
+                )
+
+        # Outputs section -----------------------------------------------------
+        outputs_section: dict[str, dict[str, Any]] = {}
+        output_paths = output_paths or {}
+        for port in outputs:
+            expected_path = output_paths.get(port.name) or self._default_expected_path(block_name, port)
+            # First accepted type is the "expected" type; default to DataObject.
+            if port.accepted_types:
+                cls = port.accepted_types[0]
+                expected_type = cls.__name__
+                type_chain = _type_chain(cls)
+            else:
+                expected_type = "DataObject"
+                type_chain = ["DataObject"]
+            outputs_section[port.name] = {
+                "expected_path": expected_path,
+                "expected_type": expected_type,
+                "type_chain": type_chain,
+                "description": port.description or "",
+            }
+
+        manifest: dict[str, Any] = {
+            "block": {
+                "name": block_name,
+                "type": block_type,
+                "run_id": self.run_id,
+            },
+            "user_prompt": user_prompt,
+            "inputs": inputs_section,
+            "outputs": outputs_section,
+            "completion": {
+                "primary": "Call mcp__scieasy__finish_ai_block(outputs={...}) when all outputs are written.",
+                "fallback": "Or write all expected_path files; the watcher will detect them.",
+                "deadline": deadline_iso,
+            },
+        }
+
+        # Atomic write: tempfile in the same dir + os.replace.
+        manifest_path = self.path / "manifest.json"
+        # NamedTemporaryFile so we get a unique name; delete=False so we own
+        # the file's lifetime through replace().
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".json.tmp",
+            prefix="manifest-",
+            dir=str(self.path),
+            delete=False,
+            encoding="utf-8",
+        ) as handle:
+            json.dump(manifest, handle, indent=2)
+            tmp_name = handle.name
+        os.replace(tmp_name, manifest_path)
+        return manifest_path
+
+    @staticmethod
+    def _default_expected_path(block_name: str, port: OutputPort) -> str:
+        """Compute ``./{block_name}_outputs/{port.name}.{ext}`` per ADR-035 §3.3.
+
+        Picks an extension based on the first accepted type:
+            DataFrame  -> .csv
+            Series     -> .csv
+            Array      -> .npy
+            Text       -> .txt
+            Artifact   -> .bin
+            other      -> .dat
+        """
+        ext_map = {
+            "DataFrame": "csv",
+            "Series": "csv",
+            "Array": "npy",
+            "Text": "txt",
+            "Artifact": "bin",
+            "CompositeData": "json",
+        }
+        ext = ext_map.get(port.accepted_types[0].__name__, "dat") if port.accepted_types else "dat"
+        return f"./{block_name}_outputs/{port.name}.{ext}"
 
     def mcp_signal_path(self) -> Path:
-        """Return the absolute path the MCP tool writes to on
-        ``finish_ai_block``.
-
-        Implementation plan:
-            Return ``self.path / "signals" / "finish_ai_block.json"``.
-            The MCP tool writes ``{"outputs": {...}}`` to this path
-            atomically; the :class:`CompletionWatcher` polls for its
-            existence (see ``completion.py`` and ADR-035 §3.5 path a).
-
-        Test plan:
-            * test_mcp_signal_path_under_signals_dir
-
-        References: ADR-035 §3.5 path (a)
-        """
-        raise NotImplementedError("see comment block above")
+        """Path the MCP tool writes to on ``finish_ai_block`` (ADR-035 §3.5 path a)."""
+        return self.path / "signals" / "finish_ai_block.json"
 
     def mark_done_signal_path(self) -> Path:
-        """Return the absolute path the engine writes to on user "Mark done".
-
-        Implementation plan:
-            Return ``self.path / "signals" / "mark_done.json"``.
-            The engine writes ``{"timestamp": <iso>}`` when the user clicks
-            the "Mark done" button in the AI Block tab header (ADR-035 §3.5
-            path c). The :class:`CompletionWatcher` polls for its existence.
-
-        Test plan:
-            * test_mark_done_signal_path_under_signals_dir
-
-        References: ADR-035 §3.5 path (c)
-        """
-        raise NotImplementedError("see comment block above")
+        """Path the engine writes to on user "Mark done" (ADR-035 §3.5 path c)."""
+        return self.path / "signals" / "mark_done.json"
 
     def copy_transcript(self, source: Path) -> Path:
         """Copy the PTY tab's transcript log into the run dir.
 
-        Called by the engine on tab close (success, error, or cancel) to
-        preserve the conversation for lineage / post-mortem (ADR-035 §6.1).
+        Best-effort: if ``source`` does not exist, logs a warning and
+        returns the destination path unchanged (no copy). Disk-full and
+        other ``OSError`` propagate.
 
-        Implementation plan:
-            1. Validate ``source`` exists and is a regular file.
-            2. ``shutil.copy2(source, self.path / "transcript.log")``.
-            3. Return the destination path.
-
-        Edge cases:
-            * Source missing → log warning + return ``self.path / "transcript.log"``
-              (no copy; lineage is best-effort, not load-bearing).
-            * Disk full → propagate ``OSError`` to caller.
-
-        Test plan:
-            * test_copy_transcript_basic
-            * test_copy_transcript_missing_source_logs_warning
-
-        References: ADR-035 §6.1 "lineage / archived alongside the manifest"
+        References:
+            ADR-035 §6.1 (lineage / archived alongside the manifest).
         """
-        raise NotImplementedError("see comment block above")
+        dest = self.path / "transcript.log"
+        if not source.exists() or not source.is_file():
+            logger.warning(
+                "AIBlock transcript source missing: %s (lineage will be incomplete).",
+                source,
+            )
+            return dest
+        shutil.copy2(source, dest)
+        return dest
