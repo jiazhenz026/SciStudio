@@ -240,6 +240,16 @@ TOOL_REGISTRY: tuple[ToolEntry, ...] = (
         "Return high-level information about the active project.",
         tools_qa.get_project_info,
     ),
+    # ADR-035 §3.5 path (a): finish_ai_block — agent declares all outputs
+    # written so the AI Block can proceed to validation. Skeleton only;
+    # real impl is the I35b agent's job.
+    ToolEntry(
+        "finish_ai_block",
+        "workflow",
+        "write",
+        "Signal the active AI Block that all declared outputs have been written.",
+        tools_workflow.finish_ai_block,
+    ),
 )
 
 
@@ -252,7 +262,12 @@ def lookup(name: str) -> ToolEntry | None:
 
 
 def all_names() -> list[str]:
-    """Return the list of all 25 registered tool names in declaration order."""
+    """Return the list of all registered tool names in declaration order.
+
+    Note: 25 baseline tools + ``finish_ai_block`` added by ADR-035 §3.5
+    skeleton phase = 26 tools when the AI Block skeleton is present.
+    Implementation phase confirms count.
+    """
     return [entry.name for entry in TOOL_REGISTRY]
 
 

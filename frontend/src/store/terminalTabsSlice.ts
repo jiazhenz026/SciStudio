@@ -1,6 +1,6 @@
 import type { StateCreator } from "zustand";
 
-import type { AppStore, TerminalTab, TerminalTabsSlice } from "./types";
+import type { AiBlockStatus, AppStore, TerminalTab, TerminalTabsSlice } from "./types";
 
 /**
  * Generate a short random tab id without pulling in `nanoid` as a new dep.
@@ -106,6 +106,44 @@ export const createTerminalTabsSlice: StateCreator<AppStore, [], [], TerminalTab
 
   setActiveTerminalTab: (id) => set({ activeTerminalTabId: id }),
 
+  // ADR-035 §3.10 — engine-initiated AI Block tab.
+  // The engine has already spawned the PTY before sending block_pty_opened,
+  // so we skip the SetupScreen and go straight to "running".
+  addAiBlockTerminalTab: ({ tabId, title, blockRunId, permissionMode }) =>
+    set((state) => {
+      const existing = state.terminalTabs.findIndex((t) => t.id === tabId);
+      const tab: TerminalTab = {
+        id: tabId,
+        title,
+        provider: "claude-code", // engine spawns claude (codex equivalent in I35b)
+        permissionMode,
+        state: "running",
+        source: "ai-block",
+        blockRunId,
+        blockStatus: "paused",
+      };
+      if (existing >= 0) {
+        // Idempotent: replace the entry. Belt-and-braces in case the engine
+        // ever resends the open event (e.g. on reconnect).
+        const next = state.terminalTabs.slice();
+        next[existing] = { ...next[existing], ...tab };
+        return { terminalTabs: next, activeTerminalTabId: tabId };
+      }
+      return {
+        terminalTabs: [...state.terminalTabs, tab],
+        activeTerminalTabId: tabId,
+      };
+    }),
+
+  updateAiBlockStatus: (id: string, status: AiBlockStatus) =>
+    set((state) => {
+      const idx = state.terminalTabs.findIndex((t) => t.id === id);
+      if (idx === -1) return state;
+      const next = state.terminalTabs.slice();
+      next[idx] = { ...next[idx], blockStatus: status };
+      return { terminalTabs: next };
+    }),
+
   // Test helper / rehydration hook — replace the whole slice atomically.
   _replaceTerminalTabs: (tabs, activeId) =>
     set({ terminalTabs: tabs, activeTerminalTabId: activeId }),
@@ -120,9 +158,17 @@ export const createTerminalTabsSlice: StateCreator<AppStore, [], [], TerminalTab
  * `onRehydrateStorage`.
  */
 export function rehydrateTerminalTabs(tabs: TerminalTab[]): TerminalTab[] {
-  return tabs.map((t) =>
-    t.state === "running" ? { ...t, state: "closed" as const, exitCode: -1 } : t,
-  );
+  return tabs.map((t) => {
+    if (t.state !== "running") return t;
+    // PTY didn't survive page unload. AI-Block tabs additionally get their
+    // blockStatus downgraded to "cancelled" — the workflow run is gone too.
+    return {
+      ...t,
+      state: "closed" as const,
+      exitCode: -1,
+      ...(t.source === "ai-block" ? { blockStatus: "cancelled" as const } : {}),
+    };
+  });
 }
 
 // Re-export for convenience.

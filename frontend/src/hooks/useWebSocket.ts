@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
+import {
+  handleBlockPtyClosed,
+  handleBlockPtyOpened,
+} from "../components/AIChat/blockPtyHandlers";
 import { api } from "../lib/api";
 import type { WorkflowEventMessage } from "../types/api";
 import { useAppStore } from "../store";
@@ -128,6 +132,135 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
           }
         }
         // Mismatched id: ignore (workflow lives in another tab or is not loaded).
+        return;
+      }
+
+      // ADR-035 §3.10 skeleton: engine-initiated PTY tab open/close events
+      // for AI Block runs. Implementation phase (I35c) wires these to the
+      // TerminalTabs component's `handleBlockPtyOpened` /
+      // `handleBlockPtyClosed` helpers, which create / update the tab in
+      // the Zustand `terminalTabsSlice`.
+      //
+      // Implementation plan (I35c):
+      //   1. Import handleBlockPtyOpened / handleBlockPtyClosed from
+      //      ../components/AIChat/TerminalTabs.
+      //   2. On `block_pty_opened`: validate payload shape, call handler.
+      //   3. On `block_pty_closed`: validate payload shape, call handler.
+      //   4. Both events should also append a Logs entry so the user sees
+      //      ``[AI Block: extract_metadata] tab opened`` / ``... completed``
+      //      in the Logs panel for traceability per ADR-035 §6.1 (lineage).
+      //
+      // Test plan (vitest):
+      //   - test_block_pty_opened_dispatches_to_handler
+      //   - test_block_pty_closed_dispatches_to_handler
+      //   - test_unknown_payload_shape_logs_warning_does_not_throw
+      //
+      // References: ADR-035 §3.10, §6.1
+      if (payload.type === "block_pty_opened") {
+        try {
+          // The wire payload may live at the top level OR nested under `data`,
+          // depending on which engine path emitted it. Tolerate both.
+          const src = (payload.data ?? {}) as Record<string, unknown>;
+          const top = payload as unknown as Record<string, unknown>;
+          // Audit P2-A (Codex #866-2): backend emits ``permission_mode`` at
+          // the top level of the message (see ``ai_pty.open_engine_initiated_tab``
+          // line 507). Reading from ``src.permission_mode`` always returned
+          // undefined, silently downgrading bypass-mode tabs to "safe".
+          // Mirror the resilience pattern used for tab_id / block_run_id —
+          // prefer the top-level field, fall back to nested for older paths.
+          handleBlockPtyOpened({
+            tab_id: (top.tab_id as string) ?? (src.tab_id as string),
+            block_run_id:
+              (top.block_run_id as string) ??
+              (src.block_run_id as string) ??
+              (payload.block_id ?? ""),
+            block_name: src.block_name as string | undefined,
+            title: (top.title as string) ?? (src.title as string | undefined),
+            status: src.status as
+              | "running"
+              | "paused"
+              | "done"
+              | "error"
+              | "cancelled"
+              | undefined,
+            permission_mode:
+              ((top.permission_mode as "safe" | "bypass" | "dangerous" | undefined) ??
+                (src.permission_mode as "safe" | "bypass" | "dangerous" | undefined)),
+          });
+          appendLog({
+            timestamp: payload.timestamp,
+            level: "info",
+            message: `[AI Block] tab opened: ${
+              (src.block_name as string) ??
+              ((payload as unknown as Record<string, unknown>).title as string) ??
+              "AI Block"
+            }`,
+            workflow_id: payload.workflow_id ?? null,
+            block_id: payload.block_id ?? null,
+          });
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn("[block_pty_opened] dispatch failed:", err, payload);
+        }
+        return;
+      }
+      if (payload.type === "block_pty_closed") {
+        try {
+          const src = (payload.data ?? {}) as Record<string, unknown>;
+          const top = payload as unknown as Record<string, unknown>;
+          // Audit P1-D (Codex #866-1): backend emits the outcome under the
+          // top-level ``event`` field (one of "completed" |
+          // "cancelled_by_user_close" | "error" — see
+          // ``ai_pty._internal_notify`` line 654-660). The previous code
+          // read ``src.status`` / ``src.result`` from the nested ``data``
+          // dict — neither exists on the wire, so every successful run
+          // fell through to the conservative "error" default and rendered
+          // as a red ✗ in the tab strip.
+          const eventField = top.event as
+            | "completed"
+            | "cancelled_by_user_close"
+            | "error"
+            | undefined;
+          let result: "completed" | "cancelled" | "error" | undefined;
+          if (eventField === "completed") {
+            result = "completed";
+          } else if (eventField === "cancelled_by_user_close") {
+            result = "cancelled";
+          } else if (eventField === "error") {
+            result = "error";
+          } else {
+            result = (src.result as "completed" | "cancelled" | "error" | undefined);
+          }
+          handleBlockPtyClosed({
+            tab_id: (top.tab_id as string) ?? (src.tab_id as string),
+            block_run_id:
+              (top.block_run_id as string) ??
+              (src.block_run_id as string) ??
+              (payload.block_id ?? undefined),
+            status: src.status as "done" | "error" | "cancelled" | undefined,
+            result,
+            detail:
+              (top.detail as Record<string, unknown> | undefined) ??
+              (src.detail as Record<string, unknown> | undefined),
+          });
+          // Prefer the top-level ``event`` for the log label so the user
+          // sees the actual lifecycle outcome rather than "closed".
+          const label =
+            (eventField as string | undefined) ??
+            (src.status as string) ??
+            (src.result as string) ??
+            "closed";
+          appendLog({
+            timestamp: payload.timestamp,
+            level: label === "error" ? "error" : "info",
+            message: `[AI Block] tab ${label}`,
+            workflow_id: payload.workflow_id ?? null,
+            block_id: payload.block_id ?? null,
+          });
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn("[block_pty_closed] dispatch failed:", err, payload);
+        }
         return;
       }
 

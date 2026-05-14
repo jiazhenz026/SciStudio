@@ -8,11 +8,24 @@
  *
  * Auto-creates a single setup tab when the panel mounts with zero tabs so
  * the user always sees the SetupScreen without having to click `+`.
+ *
+ * ADR-035 §3.10 skeleton extension:
+ *   - The component (via the `useWebSocket` hook) handles engine-initiated
+ *     `block_pty_opened` / `block_pty_closed` events: a new tab type with
+ *     `source === "ai-block"` is auto-created and focused. The tab joins
+ *     the existing user-launched WS route (the engine has pre-spawned the
+ *     PTY; the WS handshake reuses it by tab_id).
+ *   - See `handleBlockPtyOpened` / `handleBlockPtyClosed` stubs below.
  */
 import { useCallback, useEffect, useState } from "react";
 
+import { sendWebSocketMessage } from "../../hooks/useWebSocket";
 import { useAppStore } from "../../store";
-import { TerminalTab } from "./TerminalTab";
+import { AiBlockStatusBadge, TerminalTab } from "./TerminalTab";
+
+// Re-export so existing imports / tests continue to work; canonical home is
+// blockPtyHandlers.ts (broken out to avoid the cycle with useWebSocket).
+export { handleBlockPtyClosed, handleBlockPtyOpened } from "./blockPtyHandlers";
 
 function ConfirmDialog({
   message,
@@ -177,7 +190,9 @@ export function TerminalTabs() {
                   data-testid={`terminal-tab-title-${tab.id}`}
                 >
                   {tab.title}
-                  {tab.state === "running" ? (
+                  {/* ADR-035 §3.9 — AI-Block status decoration on the tab strip. */}
+                  <AiBlockStatusBadge tabId={tab.id} />
+                  {tab.state === "running" && tab.source !== "ai-block" ? (
                     <span
                       className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"
                       aria-hidden
@@ -233,16 +248,36 @@ export function TerminalTabs() {
         ) : null}
       </div>
 
-      {pendingClose ? (
-        <ConfirmDialog
-          message="This terminal is still running. Closing will kill its subprocess."
-          onConfirm={() => {
-            closeTerminalTab(pendingClose);
-            setPendingClose(null);
-          }}
-          onCancel={() => setPendingClose(null)}
-        />
-      ) : null}
+      {pendingClose
+        ? (() => {
+            const closingTab = tabs.find((t) => t.id === pendingClose);
+            const isAiBlock = closingTab?.source === "ai-block";
+            return (
+              <ConfirmDialog
+                message={
+                  isAiBlock
+                    ? "This AI Block is still running. Closing will cancel the block run."
+                    : "This terminal is still running. Closing will kill its subprocess."
+                }
+                onConfirm={() => {
+                  // ADR-035 §3.9 — user-close-while-running emits cancel so the
+                  // engine can transition the block to CANCELLED and tear the
+                  // PTY down cleanly rather than leaking the process.
+                  if (isAiBlock && closingTab?.blockRunId) {
+                    sendWebSocketMessage({
+                      type: "block_user_cancel",
+                      block_run_id: closingTab.blockRunId,
+                      tab_id: closingTab.id,
+                    });
+                  }
+                  closeTerminalTab(pendingClose);
+                  setPendingClose(null);
+                }}
+                onCancel={() => setPendingClose(null)}
+              />
+            );
+          })()
+        : null}
     </div>
   );
 }

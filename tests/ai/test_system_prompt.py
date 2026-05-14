@@ -24,7 +24,8 @@ def test_compose_injects_full_tool_catalog(tmp_path: Path) -> None:
         # Match the rendered ``- `name` [mode] — description`` shape so
         # we know the splice happened (not just an unrelated mention).
         assert f"`{name}`" in prompt, f"tool {name!r} missing from rendered prompt"
-    assert len(TOOL_REGISTRY) == 25, "registry should expose 25 tools"
+    # ADR-035 §3.5 added ``finish_ai_block`` as the 26th tool.
+    assert len(TOOL_REGISTRY) == 26, "registry should expose 26 tools (25 + finish_ai_block)"
 
 
 def test_compose_is_idempotent(tmp_path: Path) -> None:

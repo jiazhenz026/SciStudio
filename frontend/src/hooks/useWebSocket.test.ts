@@ -234,6 +234,91 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
     expect(useAppStore.getState().workflowId).toBe("alpha");
   });
 
+  /** Audit P1-D regression: backend emits ``event`` (top level), not
+   * ``data.status``/``data.result``. Successful runs were rendering as red ✗. */
+  it("maps top-level `event=completed` to AiBlockStatus 'done' (#852 audit P1-D)", () => {
+    // Seed a tab so updateAiBlockStatus has a target.
+    const setStatus = vi.fn();
+    useAppStore.setState({
+      updateAiBlockStatus: setStatus,
+    });
+    renderHook(() => useWorkflowWebSocket(true));
+
+    pushMessage({
+      type: "block_pty_closed",
+      tab_id: "tab-1",
+      block_run_id: "rid-1",
+      event: "completed",
+      detail: {},
+      timestamp: "2026-05-14T00:00:00Z",
+    });
+
+    expect(setStatus).toHaveBeenCalledWith("tab-1", "done");
+  });
+
+  it("maps top-level `event=cancelled_by_user_close` to 'cancelled'", () => {
+    const setStatus = vi.fn();
+    useAppStore.setState({
+      updateAiBlockStatus: setStatus,
+    });
+    renderHook(() => useWorkflowWebSocket(true));
+
+    pushMessage({
+      type: "block_pty_closed",
+      tab_id: "tab-2",
+      block_run_id: "rid-2",
+      event: "cancelled_by_user_close",
+      detail: {},
+      timestamp: "2026-05-14T00:00:00Z",
+    });
+
+    expect(setStatus).toHaveBeenCalledWith("tab-2", "cancelled");
+  });
+
+  it("maps top-level `event=error` to 'error'", () => {
+    const setStatus = vi.fn();
+    useAppStore.setState({
+      updateAiBlockStatus: setStatus,
+    });
+    renderHook(() => useWorkflowWebSocket(true));
+
+    pushMessage({
+      type: "block_pty_closed",
+      tab_id: "tab-3",
+      block_run_id: "rid-3",
+      event: "error",
+      detail: { code: 1 },
+      timestamp: "2026-05-14T00:00:00Z",
+    });
+
+    expect(setStatus).toHaveBeenCalledWith("tab-3", "error");
+  });
+
+  /** Audit P2-A: backend emits ``permission_mode`` at top level, not nested. */
+  it("reads top-level `permission_mode=bypass` and registers as dangerous (audit P2-A)", () => {
+    const addAiBlockTab = vi.fn();
+    useAppStore.setState({
+      addAiBlockTerminalTab: addAiBlockTab,
+    });
+    renderHook(() => useWorkflowWebSocket(true));
+
+    pushMessage({
+      type: "block_pty_opened",
+      tab_id: "tab-bp",
+      block_run_id: "rid-bp",
+      title: "🤖 demo",
+      permission_mode: "bypass",
+      timestamp: "2026-05-14T00:00:00Z",
+    });
+
+    expect(addAiBlockTab).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tabId: "tab-bp",
+        permissionMode: "dangerous",
+      }),
+    );
+  });
+
   it("clears the canvas when the loaded workflow is deleted on disk", () => {
     useAppStore.setState({
       workflowId: "demo",

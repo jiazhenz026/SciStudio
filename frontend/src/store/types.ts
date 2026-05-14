@@ -136,6 +136,24 @@ export interface PaletteSlice {
  * On exit: state -> closed, exitCode set (-1 means synthesised after reload
  * because the PTY did not survive page unload).
  */
+/**
+ * ADR-035 §3.9 / §3.10 — block-tab status union.
+ *
+ * Tracks the lifecycle of an AI Block tab the engine spawned:
+ *   - "running"   — agent process is alive, no completion signal yet
+ *   - "paused"    — block is in PAUSED state (default after spawn);
+ *                   the Mark-done escape-hatch button shows in this state
+ *   - "done"      — completion signal received and outputs validated
+ *   - "error"     — completion failed validation OR agent exited error
+ *   - "cancelled" — user closed the tab while running OR workflow cancelled mid-block
+ *
+ * "cancelled" is a terminal state distinct from "error" so the UI can
+ * distinguish user intent (the user closed the tab) from agent failure
+ * (the agent crashed). Per ADR-035 §3.9, tabs survive done/error/cancelled
+ * transitions and remain interactive.
+ */
+export type AiBlockStatus = "running" | "paused" | "done" | "error" | "cancelled";
+
 export interface TerminalTab {
   id: string;
   title: string;
@@ -143,6 +161,24 @@ export interface TerminalTab {
   permissionMode: "safe" | "dangerous" | null;
   state: "setup" | "running" | "closed";
   exitCode?: number;
+  /**
+   * ADR-035 §3.10 — origin of the tab.
+   *   - "user"     (default) — user clicked the `+` button or Ctrl+T
+   *   - "ai-block" — engine spawned the tab on behalf of an AI Block worker
+   * Optional for backwards-compat with persisted tabs from before ADR-035.
+   */
+  source?: "user" | "ai-block";
+  /**
+   * ADR-035 §3.10 — id of the originating AI Block run (matches the
+   * worker-side `RunDir.run_id`). Used by the Mark-done button to address
+   * the right block when sending the `block_user_marked_done` WS message.
+   */
+  blockRunId?: string;
+  /**
+   * ADR-035 §3.9 — current status of the AI Block. Only meaningful when
+   * `source === "ai-block"`.
+   */
+  blockStatus?: AiBlockStatus;
 }
 
 export interface TerminalTabsSlice {
@@ -160,6 +196,27 @@ export interface TerminalTabsSlice {
   markTerminalTabExited: (id: string, code: number) => void;
   reopenTerminalTab: (id: string) => void;
   setActiveTerminalTab: (id: string) => void;
+  /**
+   * ADR-035 §3.10 — register an engine-initiated AI Block tab.
+   *
+   * Pre-allocates a `TerminalTab` with `source="ai-block"`, `state="running"`
+   * (skipping the SetupScreen — the engine has already spawned the PTY),
+   * `blockStatus="paused"` (the block is paused waiting for completion),
+   * and makes it the active tab. Idempotent on `tabId` — calling twice with
+   * the same id replaces the existing entry rather than duplicating it.
+   */
+  addAiBlockTerminalTab: (args: {
+    tabId: string;
+    title: string;
+    blockRunId: string;
+    permissionMode: "safe" | "dangerous";
+  }) => void;
+  /**
+   * ADR-035 §3.9 — update the AI Block status for a tab. No-op if the tab
+   * does not exist (engine may emit a `block_pty_closed` for a tab the
+   * frontend never received the open event for, e.g. after a page reload).
+   */
+  updateAiBlockStatus: (tabId: string, status: AiBlockStatus) => void;
   /** Internal: replace the entire slice (used by tests + rehydration helper). */
   _replaceTerminalTabs: (tabs: TerminalTab[], activeId: string | null) => void;
 }

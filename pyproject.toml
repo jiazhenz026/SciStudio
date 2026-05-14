@@ -164,6 +164,13 @@ name = "Blocks must not depend on engine, api, or ai services"
 type = "forbidden"
 source_modules = ["scieasy.blocks"]
 forbidden_modules = ["scieasy.engine", "scieasy.api", "scieasy.ai"]
+# ADR-035 §3.10 explicitly carves out scieasy.engine.pty_control as the
+# AI Block worker → engine IPC surface. AIBlock.run() must call back to
+# the engine to allocate a PTY tab and notify completion. Allow that one
+# import without weakening the broader boundary.
+ignore_imports = [
+    "scieasy.blocks.ai.ai_block -> scieasy.engine.pty_control",
+]
 
 [[tool.importlinter.contracts]]
 name = "Engine must not depend on api or ai services"
