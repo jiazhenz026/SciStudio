@@ -19,6 +19,7 @@ order-insensitive).
 
 Random seed is fixed so the TIFF bytes are reproducible across runs.
 """
+
 from __future__ import annotations
 
 import sys
