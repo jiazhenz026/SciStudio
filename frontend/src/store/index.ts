@@ -7,9 +7,36 @@ import { createPreviewSlice } from "./previewSlice";
 import { createProjectSlice } from "./projectSlice";
 import { createTabSlice } from "./tabSlice";
 import { createTerminalTabsSlice, rehydrateTerminalTabs } from "./terminalTabsSlice";
-import type { AppStore } from "./types";
+import type { AppStore, FileTab, TabState } from "./types";
 import { createUISlice } from "./uiSlice";
 import { createWorkflowSlice } from "./workflowSlice";
+
+/**
+ * ADR-036 §3.11 — file tab persistence whitelist.
+ *
+ * Only metadata is persisted; ``content`` is re-fetched on rehydrate
+ * (the FileTab is restored with ``loading: true`` so the editor renders
+ * a placeholder until the GET resolves).
+ */
+function partializeFileTab(tab: FileTab): FileTab {
+  return {
+    kind: "file",
+    id: tab.id,
+    filePath: tab.filePath,
+    displayName: tab.displayName,
+    language: tab.language,
+    readOnly: tab.readOnly,
+    // Reset volatile fields; CodeEditor refetches content on mount.
+    content: "",
+    contentLoadedAt: 0,
+    dirty: false,
+    loading: true,
+  };
+}
+
+function partializeTabs(tabs: TabState[]): TabState[] {
+  return tabs.map((tab) => (tab.kind === "file" ? partializeFileTab(tab) : tab));
+}
 
 export const useAppStore = create<AppStore>()(
   persist(
@@ -36,6 +63,11 @@ export const useAppStore = create<AppStore>()(
         // with synthetic exit code -1 so the user sees the Reopen button.
         terminalTabs: state.terminalTabs,
         activeTerminalTabId: state.activeTerminalTabId,
+        // ADR-036 §3.11: persist file-tab METADATA only (not content).
+        // Workflow tabs are NOT persisted here because their canvas state
+        // re-derives from project open + workflow load.
+        tabs: partializeTabs(state.tabs.filter((t) => t.kind === "file")),
+        activeTabId: state.activeTabId,
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
@@ -59,6 +91,22 @@ export const useAppStore = create<AppStore>()(
         // when the page unloaded.
         if (Array.isArray(state.terminalTabs)) {
           state.terminalTabs = rehydrateTerminalTabs(state.terminalTabs);
+        }
+        // ADR-036 §3.11: rehydrated file tabs come back with stripped
+        // ``content`` and ``loading: true``. CodeEditor mounts will
+        // re-fetch via ``openFileTab`` flow when the tab is activated.
+        if (Array.isArray(state.tabs)) {
+          state.tabs = state.tabs.map((tab) =>
+            tab.kind === "file"
+              ? {
+                  ...tab,
+                  content: "",
+                  contentLoadedAt: 0,
+                  dirty: false,
+                  loading: true,
+                }
+              : tab,
+          );
         }
       },
     },
