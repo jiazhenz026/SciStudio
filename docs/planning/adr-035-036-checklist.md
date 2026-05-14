@@ -103,8 +103,8 @@
 - [ ] Backend test: reload-gated-on-lint-pass
 
 ### Audit & Fix (skeleton)
-- [ ] Audit-skeleton report posted on umbrella issue (Owner: A36-skeleton)
-- [x] All P1 findings fixed (or explicitly justified deferral) (Owner: F36-skeleton, conditional) → fix PR (against `feat/issue-848/skeleton`)
+- [x] Audit-skeleton report posted on umbrella issue (Owner: A36-skeleton) → audit-output PR #857; umbrella comment https://github.com/zjzcpj/SciEasy/issues/843#issuecomment-4448807888 ; verdict: pass-with-fixes (3 P1 Codex findings accepted)
+- [x] All P1 findings fixed (or explicitly justified deferral) (Owner: F36-skeleton, conditional) → fix PR #860 squash-merged into feat/issue-848/skeleton; route ordering + lockfile regen + atomic write coordination
 
 ### Audit & Fix (implementation)
 - [ ] Audit-implementation report posted on umbrella issue, includes Chrome smoke results (Owner: A36-impl)
