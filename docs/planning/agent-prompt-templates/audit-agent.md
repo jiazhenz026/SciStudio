@@ -40,7 +40,21 @@ You are reviewing the merged work of one phase on one tracking branch. Your job 
    - Per memory `audit_p1_override`: if you call a Codex P1 "deferred" non-blocking, the dispatcher overrides and forces a fix-in-PR. Don't defer P1.
    - Per memory `audit_agent_codex_review`: silence on a Codex comment is drift.
 
-8. **Audit report format** — post as a comment on the umbrella issue:
+8. **Audit report MUST be saved as a markdown file under `docs/audit/`**, in addition to being posted as a comment on the umbrella issue. Filename convention:
+   ```
+   docs/audit/<YYYY-MM-DD>-adr-<NNN>-<phase>.md
+   ```
+   Examples:
+   - `docs/audit/2026-05-14-adr-035-skeleton.md`
+   - `docs/audit/2026-05-14-adr-035-implementation.md`
+   - `docs/audit/2026-05-14-adr-036-skeleton.md`
+   - `docs/audit/2026-05-14-adr-036-implementation.md`
+
+   Commit the file on a tiny `chore/audit-report-N` branch off the tracking branch and PR back. **Audit-output PRs are exempt** from the "no audit-PR" rule in the section below — they only add the report file, no code change. The PR body has `Closes #<umbrella>` and references the audit comment.
+
+   Why: a permanent searchable archive separate from GitHub issue comments (which scroll out of sight). The dispatcher and any future session reviewing this work goes here first.
+
+9. **Audit report format** — identical content for both the file and the umbrella-issue comment:
 
    ```markdown
    # Audit report — <phase> (track/adr-XXX/...)
@@ -72,11 +86,11 @@ You are reviewing the merged work of one phase on one tracking branch. Your job 
    <ordered list of fix tasks>
    ```
 
-9. **Set checklist Audit row to `[x]` with link to your report comment.** Do NOT tick anyone else's rows — even if the work looks done, the agent who owns the row ticks it.
+10. **Set checklist Audit row to `[x]`** with links to BOTH the `docs/audit/` file (commit hash) AND the umbrella-issue comment. Do NOT tick anyone else's rows — even if the work looks done, the agent who owns the row ticks it.
 
 ## PR vs comment
 
-Audit dispatch produces **NO PR** of its own (no code change). Output is the audit report comment + Codex reply comments + checklist Audit-row tick. If you find you need to push code, you've blurred into the Fix agent's role — STOP, post a recommendation in the audit report instead.
+Audit dispatch produces ONE small PR — the `docs/audit/<YYYY-MM-DD>-adr-<NNN>-<phase>.md` report file (per §8). Other than that one PR, output is comments (umbrella issue + Codex replies) + checklist Audit-row tick. If you find you need to push code beyond the report file, you've blurred into the Fix agent's role — STOP and post a recommendation in the audit report instead.
 
 ## Task content (filled in by dispatcher)
 
