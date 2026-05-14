@@ -84,27 +84,51 @@ def _probe_codex() -> dict[str, Any]:
 def _binary_status(name: str) -> tuple[bool, str | None]:
     """Return ``(available, version_string_or_None)`` for ``name``.
 
-    Available iff ``shutil.which`` finds the binary AND ``<name> --version``
-    completes within 2 s with non-empty stdout.  Version is the trimmed
-    stdout.
+    Available iff some resolution of ``name`` runs ``--version`` within
+    2 s with non-empty stdout.  Version is the trimmed stdout.
+
+    Windows wrinkle (regression in #820): ``shutil.which("codex")``
+    returns the *no-extension* npm wrapper script that ships next to
+    ``codex.cmd``.  Running the no-extension file with
+    ``subprocess.run`` raises ``WinError 193 ("%1 is not a valid Win32
+    application")`` because Windows can't exec a bare bash script.
+    We retry through ``PATHEXT`` so on Windows we end up finding the
+    ``.cmd`` wrapper that actually works.  POSIX unaffected — the
+    fallback list is empty there.
     """
-    binary = shutil.which(name)
-    if not binary:
+    candidates: list[str] = []
+    primary = shutil.which(name)
+    if primary:
+        candidates.append(primary)
+    if sys.platform == "win32":
+        # Try each PATHEXT-style suffix that's executable on Windows.
+        # ``shutil.which`` is already aware of PATHEXT but only returns
+        # the first match — when the bare name (no extension) wins, we
+        # need to fall back manually.
+        for suffix in (".cmd", ".bat", ".exe", ".com"):
+            resolved = shutil.which(name + suffix)
+            if resolved and resolved not in candidates:
+                candidates.append(resolved)
+    if not candidates:
         return False, None
-    try:
-        result = subprocess.run(
-            [binary, "--version"],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except (subprocess.TimeoutExpired, OSError):
-        return False, None
-    version = (result.stdout or result.stderr or "").strip()
-    if not version:
-        return False, None
-    return True, version
+
+    for binary in candidates:
+        try:
+            result = subprocess.run(
+                [binary, "--version"],
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=False,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            # OSError happens on Windows when ``binary`` is a Unix-style
+            # script (no .exe/.cmd) — fall through to the next candidate.
+            continue
+        version = (result.stdout or result.stderr or "").strip()
+        if version:
+            return True, version
+    return False, None
 
 
 def _claude_logged_in() -> bool:

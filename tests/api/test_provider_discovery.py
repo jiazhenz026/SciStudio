@@ -67,6 +67,42 @@ def test_status_version_timeout(client: TestClient, monkeypatch: pytest.MonkeyPa
         assert entry["version"] is None
 
 
+def test_status_windows_pathext_fallback(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: ``shutil.which("codex")`` on Windows can return the bare
+    npm wrapper (no .exe/.cmd) which raises ``WinError 193`` when run.
+    The probe must fall back through PATHEXT-style suffixes so the
+    ``.cmd`` wrapper is found instead. Without this, codex installed via
+    ``npm i -g`` shows up as ``available=False`` even though it works
+    perfectly in a shell.
+    """
+    monkeypatch.setattr(ai_routes.sys, "platform", "win32")
+
+    def fake_which(name: str) -> str | None:
+        # First call (no ext) returns the bash wrapper; .cmd variant
+        # returns the executable wrapper; everything else is missing.
+        if name in ("claude", "codex"):
+            return f"C:/fake/npm/{name}"
+        if name in ("claude.cmd", "codex.cmd"):
+            return f"C:/fake/npm/{name}"
+        return None
+
+    def fake_run(argv: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        # The bare wrapper raises just like Windows does for a Unix script;
+        # the .cmd variant succeeds and prints a version.
+        if argv[0].endswith(".cmd"):
+            return subprocess.CompletedProcess(argv, 0, stdout="codex-cli 0.130.0\n", stderr="")
+        raise OSError("[WinError 193] %1 is not a valid Win32 application")
+
+    monkeypatch.setattr(ai_routes.shutil, "which", fake_which)
+    monkeypatch.setattr(ai_routes.subprocess, "run", fake_run)
+
+    res = client.get("/api/ai/status")
+    body = res.json()
+    codex = next(p for p in body["providers"] if p["name"] == "codex")
+    assert codex["available"] is True, body
+    assert codex["version"] == "codex-cli 0.130.0"
+
+
 def test_status_claude_logged_in_via_credentials_file(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
