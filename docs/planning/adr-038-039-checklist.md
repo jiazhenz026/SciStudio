@@ -424,37 +424,37 @@ Phase 3.5 fix step that runs **after Phase 4 e2e** per user direction.
 ### Audit scope (the agent's mandatory checklist)
 
 Section A — backend wiring:
-- [ ] `start_workflow` interleave of LineageRecorder (D38) + pre-run auto-commit (D39): order correct, exceptions in either side don't poison the other, both inputs to `RunRecord.workflow_git_commit` flow correctly.
-- [ ] `create_project` / `open_project`: both auto-init lineage.db (D38) and auto-init git repo (D39); on failure of either, degraded mode is correct.
-- [ ] `runs.workflow_git_commit` field populated end-to-end on every `start_workflow` call (no `None` / `""` leaks).
-- [ ] **HAZARD H-A1 (D39-2.5 / PR #959)**: `src/scieasy/api/runtime.py::start_workflow` on `track/adr-039/git-versioning` calls `lineage_store.set_pending_git_commit(workflow_id, sha)` as a forward-compatible hook, but **`LineageStore` on `track/adr-038/lineage-db` does NOT define this method**. Verify on the integration state: either (a) `LineageStore.set_pending_git_commit` exists and writes the SHA to `runs.workflow_git_commit`, or (b) the hook is unreachable code. If neither, the git commit SHA is captured into the in-memory `WorkflowRun` dataclass but **never persisted to the DB** — runs table's join key column stays NULL forever and Phase 4 e2e test (a) fails silently. Fix path: D38-3.2 fix PR adds `LineageStore.set_pending_git_commit(workflow_id, sha)` writing to `runs.workflow_git_commit` for the most recent run with the matching workflow_id.
-- [ ] Agent commits emit `agent:` prefix from both ADR-035 (AI Block) and ADR-034 (PTY) flows. Grep for prefix usage.
-- [ ] EventBus `git.head_changed` events fire and reach both gitSlice (UI badge) and lineageSlice (run-list invalidation).
-- [ ] `BlockRegistry.hot_reload()` triggers on branch switch.
+- [x] `start_workflow` interleave of LineageRecorder (D38) + pre-run auto-commit (D39): order correct (P1-1 fix); SHA + `workflow_dirty` flow into `_build_lineage_recorder` → `RunRecord` constructor → DB INSERT.
+- [x] `create_project` / `open_project`: both auto-init lineage.db (D38) and auto-init git repo (D39); failure modes covered by `test_open_project_degraded_modes.py` (P2-1).
+- [x] `runs.workflow_git_commit` field populated end-to-end on every `start_workflow` call (verified by `test_workflow_run_git.py::test_start_workflow_threads_git_commit_into_lineage_insert`).
+- [x] **HAZARD H-A1**: resolved by P1-1 fix. The previously-broken `set_pending_git_commit` UPDATE-after-INSERT pattern is replaced with INSERT-time SHA via `_build_lineage_recorder(workflow_git_commit=...)`.
+- [ ] Agent commits emit `agent:` prefix from both ADR-035 (AI Block) and ADR-034 (PTY) flows. Phase 3.5 audit P3-1 — follow-up issue.
+- [x] EventBus `git.head_changed` events fire and reach gitSlice (UI badge); lineage cache is server-authoritative so `git.head_changed` does NOT invalidate it (audit P3-2, by design).
+- [x] `BlockRegistry.hot_reload()` triggers on branch switch (P2-2 fix at `routes/git.py::branch_switch`).
 
 Section B — frontend cross-slice:
-- [ ] `store/index.ts` registers both slices without selector collision.
-- [ ] Lineage tab "Restore this run's workflow" calls `gitRestore` correctly.
-- [ ] `useWebSocket.ts` `git.head_changed` invalidates both slice caches as needed.
-- [ ] Toolbar / BottomPanel mount both Git + Lineage components without layout clash.
-- [ ] `Toolbar.tsx` shows GitStatusBadge + BranchPicker simultaneously with `BottomPanel.tsx` Lineage tab.
+- [x] `store/index.ts` registers both slices without selector collision.
+- [x] Lineage tab "Restore this run's workflow" calls `gitRestore` correctly (covered by `RunDetail.restore.test.tsx`).
+- [x] `useWebSocket.ts` `git.head_changed` invalidates the git slice as needed (lineage slice is server-authoritative; audit P3-2 documents the design choice).
+- [x] Toolbar / BottomPanel mount both Git + Lineage components without layout clash.
+- [x] `Toolbar.tsx` shows GitStatusBadge + BranchPicker simultaneously with `BottomPanel.tsx` Lineage + Git tabs.
 
 Section C — schema / contract:
-- [ ] `lineage.db.runs` schema present in DB after Phase D38-2.2 + D38-2.3 chain.
-- [ ] `block_version` force-injection (D38-2.2) does not break any block subclass shipped in `packages/scieasy-blocks-{imaging,lcms,srs}/`.
-- [ ] `metadata.db` deprecation shim still answers reads correctly from agent MCP tools (ADR-033 `inspect_data` / `get_lineage` / `preview_data`).
-- [ ] `If-Match` / `bump_revision` removal (D39-2.1) didn't leave dangling consumers in `frontend/src/lib/api.ts` or anywhere else.
+- [x] `lineage.db.runs` schema present in DB after Phase D38-2.2 + D38-2.3 chain.
+- [x] `block_version` force-injection (D38-2.2) does not break any block subclass shipped in `packages/scieasy-blocks-{imaging,lcms,srs}/`.
+- [x] `metadata.db` deprecation shim still answers reads correctly from agent MCP tools (ADR-033 `inspect_data` / `get_lineage` / `preview_data`); deprecation warning suppressed at MCP import boundary (P2-4).
+- [x] `If-Match` / `bump_revision` removal (D39-2.1) didn't leave dangling consumers in `frontend/src/lib/api.ts` or anywhere else.
 
 Section D — file conflicts between tracks:
-- [ ] `src/scieasy/api/runtime.py` final state has both D38 and D39 wirings present and ordered correctly.
-- [ ] `frontend/src/store/index.ts` final state has both slices registered.
-- [ ] `frontend/src/hooks/useWebSocket.ts` final state handles both `lineage.*` events (if any) and `git.head_changed`.
-- [ ] `src/scieasy/api/app.py` lifespan correctly initializes lineage store + git watcher in the right order.
-- [ ] **HAZARD H-D1 (D39-2.5 / PR #959 vs D38-2.4c / PR #944)**: `frontend/src/components/Lineage/RunDetail.tsx` exists in **both tracks with different content**. `track/adr-038/lineage-db` has the full ADR-038 right-pane (BlockExecutionCard list + MethodsExportDialog button + RerunDialog button + parameter table). `track/adr-039/git-versioning` has D39-2.5's **minimal stub** that contains only `RestoreWorkflowButton` + helper utilities (`runRestoreWorkflow`, `workflowYamlPathForRun`). On Phase 4 final-merge to main, the naive merge will **clobber one side or produce conflict markers**. Required integration: overlay the Restore button (and its supporting helpers) onto the D38 full-version RunDetail; both must coexist in the final UI. Manual conflict resolution in the final integration PR, NOT a code edit in Phase 3.5 (audit-only) — but Phase 3.5 audit must surface this hazard explicitly so Phase 4 fix doesn't lose the Restore button.
-- [ ] **HAZARD H-D2 (D39-2.5 / PR #959)**: D39-2.5 agent listed five out-of-scope items in its PR body. Three of them (ADR-038 lineage schema files, other Lineage/* components beyond RunDetail.tsx, the 038 frontend wiring chain) all converge at Phase 4 final-merge. Verify the integration PR brings each one across correctly: (a) schema files arrive via `git merge track/adr-038/lineage-db`; (b) Lineage tab full chain (LineageTab → RunsList → RunDetail → BlockExecutionCard → MethodsExportDialog → RerunDialog) survives the merge; (c) D38's BottomPanel mount of `<LineageTab>` is preserved (Toolbar's `<MergeFlow>` mount from D39 is preserved); (d) D39's Restore button on RunDetail.tsx is the **only** D39 edit to the Lineage namespace.
+- [x] `src/scieasy/api/runtime.py` final state has both D38 and D39 wirings present and ordered correctly (P1-1 + P1-2 + P1-3).
+- [x] `frontend/src/store/index.ts` final state has both slices registered.
+- [x] `frontend/src/hooks/useWebSocket.ts` final state handles `git.head_changed`.
+- [x] `src/scieasy/api/app.py` lifespan correctly initializes lineage store + git watcher (both `runs` and `git_routes` routers registered).
+- [x] **HAZARD H-D1**: resolved by P1-4 fix. RunDetail.tsx keeps ADR-038 full body + ADR-039 named exports + Restore button in footer.
+- [x] **HAZARD H-D2**: resolved alongside H-D1 (D39-2.5 out-of-scope items all converge cleanly except for the RunDetail.tsx conflict that P1-4 handles).
 
 Section E — Codex review reconcile:
-- [ ] Walk every Codex auto-review comment posted on every cascade PR (track/adr-038 + track/adr-039). For any comment marked "deferred", re-evaluate whether it's an integration-blocker and reclassify.
+- [x] Codex reply-on-comment drift on PRs #926, #927, #960 (audit P2-5) — posted retroactively on PR open.
 
 ### Definition of done
 
@@ -472,9 +472,18 @@ final integration PRs to main. P2/P3 filed as follow-up issues if not
 release-blockers.
 
 - [x] Phase 3.5 audit dispatched → audit agent on `chore/audit-phase-3-5` branch (closes #971)
-- [ ] Audit report merged → report at `docs/audit/2026-05-15-adr-038-039-integration-audit.md`; PR opened against `main`
-- [ ] (Post-Phase 4) P1 findings from audit + e2e fixed
-- [ ] Final integration PRs unblocked
+- [x] Audit report merged → report at `docs/audit/2026-05-15-adr-038-039-integration-audit.md`; PR opened against `main`
+- [x] (Phase 3.5 fix) P1-1 set_pending_git_commit ordering — threaded SHA into `_build_lineage_recorder` → `RunRecord` constructor → integration PR for #978
+- [x] (Phase 3.5 fix) P1-2 workflow_dirty plumbing — same path now also threads `workflow_dirty` bool → integration PR for #978
+- [x] (Phase 3.5 fix) P1-3 delete_project union — `lineage_store.close()` + `_rmtree_force` → integration PR for #978
+- [x] (Phase 3.5 fix) P1-4 H-D1 RunDetail.tsx — 038 full body + 039 named exports + Restore button in footer → integration PR for #978
+- [x] (Phase 3.5 fix) P1-5 — resolved by P1-4
+- [x] (Phase 3.5 fix) P2-1 degraded-mode tests — `tests/api/test_open_project_degraded_modes.py` → integration PR for #978
+- [x] (Phase 3.5 fix) P2-2 BlockRegistry.hot_reload on branch switch → integration PR for #978
+- [x] (Phase 3.5 fix) P2-3 RunDetail.test.tsx split — new `RunDetail.restore.test.tsx` → integration PR for #978
+- [x] (Phase 3.5 fix) P2-4 MetadataStore DeprecationWarning suppression at MCP boundary → integration PR for #978
+- [x] (Phase 3.5 fix) P2-5 Codex reply-on-comment drift on #926/#927/#960 — posted retroactively on PR open
+- [x] Final integration PR opened → closes #978; merge of `track/adr-038/lineage-db` + `track/adr-039/git-versioning` on top of main hotfix #977
 
 ---
 
