@@ -106,12 +106,10 @@ export function resolveLaneColor(
   /** From a `LaneAssignment` row. */ colorIndex: number,
   /** From the same row. */ filteredOut: boolean,
 ): string {
-  void colorIndex;
-  void filteredOut;
-  throw new Error(
-    "TODO: D39-2.4b — implement lane→color resolution applying §3.5c " +
-      "filtered-grey rule. Trivial: `filteredOut ? FILTERED_COLOR : " +
-      "colorForIndex(colorIndex)`. Kept as TODO so the impl agent can " +
-      "decide whether to widen the signature before wiring.",
-  );
+  // D39-2.4b: applies the §3.5c filtered-grey rule. The signature is
+  // kept as-is from the skeleton; the simple `(colorIndex, filteredOut)`
+  // pair is sufficient because both fields live on every `LaneAssignment`
+  // row and edge rendering passes them independently.
+  if (filteredOut) return FILTERED_COLOR;
+  return colorForIndex(colorIndex);
 }

@@ -294,11 +294,11 @@
 
 ### Phase D39-2.4b — Conflict resolution + branch graph IMPL (Owner: ID39-4b, 1 agent) [ADR-039 §6 Phase 3 impl]
 
-- [ ] Sub-issue opened; depends on D39-2.4a merged
-- [ ] All skeleton bodies filled
-- [ ] Lane assignment unit tests on synthetic DAGs (linear, branch, merge, multi-merge fixtures)
-- [ ] Conflict-region detection tests against fixtures with `<<<<<<` markers
-- [ ] **Mandatory live Chrome smoke**: synthesize a merge conflict in a test project, open ConflictResolveView, click Accept Current / Accept Incoming / Accept Both / Manual edit, run `git status` to confirm git-state correctness, click Complete Merge
+- [x] Sub-issue opened; depends on D39-2.4a merged → #947
+- [x] All skeleton bodies filled → branch `feat/issue-947/d39-2-4b-conflict-graph-impl`
+- [x] Lane assignment unit tests on synthetic DAGs (linear, branch, merge, multi-merge fixtures) → `frontend/src/components/Git/GitGraph/__tests__/laneAssign.test.ts` (11 tests pass)
+- [x] Conflict-region detection tests against fixtures with `<<<<<<` markers → `frontend/src/components/Git/__tests__/ConflictResolveView.test.tsx` (18 tests pass incl. parser + text-splice + view)
+- [~] **Mandatory live Chrome smoke**: synthesize a merge conflict in a test project, open ConflictResolveView, click Accept Current / Accept Incoming / Accept Both / Manual edit, run `git status` to confirm git-state correctness, click Complete Merge
 - [ ] CI green; PR merged into tracking branch
 
 ### Phase D39-2.5 — Polish + ADR-038 integration (Owner: ID39-5, 1 agent, sequential) [ADR-039 §6 Phase 4]

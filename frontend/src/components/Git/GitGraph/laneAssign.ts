@@ -257,6 +257,8 @@
 
 import type { GitCommit } from "../../../types/api";
 
+import { PALETTE } from "./colorPalette";
+
 /**
  * Per-commit lane assignment produced by {@link assignLanes}.
  *
@@ -307,13 +309,57 @@ export interface LaneAssignment {
  *          `commits[i]`.
  */
 export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
-  // Reference commits so TypeScript doesn't flag the parameter as unused
-  // in the skeleton. The real implementation iterates it.
-  void commits;
-  throw new Error(
-    "TODO: D39-2.4b — implement lane assignment per ADR-039 §3.5b. " +
-      "Algorithm sketch is in the file-level docstring above.",
-  );
+  if (commits.length === 0) return [];
+
+  // `active_lanes[i]` is the SHA the lane is "waiting for" — set to the
+  // first parent of the last commit drawn in that lane. A `null` slot
+  // means the lane is free for reuse.
+  const active_lanes: (string | null)[] = [];
+  const out: LaneAssignment[] = new Array(commits.length);
+
+  for (let i = 0; i < commits.length; i++) {
+    const commit = commits[i];
+
+    // 1. PICK LANE — reuse a lane waiting for this SHA, else first free
+    //    slot, else extend.
+    let lane = active_lanes.findIndex((sha) => sha === commit.sha);
+    if (lane === -1) {
+      lane = active_lanes.findIndex((s) => s === null);
+      if (lane === -1) {
+        lane = active_lanes.length;
+        active_lanes.push(null);
+      }
+    }
+
+    // 3. FORWARD FIRST PARENT — null for root commits frees the lane.
+    const firstParent = commit.parents[0];
+    active_lanes[lane] = firstParent !== undefined ? firstParent : null;
+
+    // 4. FOLD EXTRA PARENTS (merge commits) — each extra parent gets a
+    //    new lane (first null slot, else extend).
+    const merge_lanes: number[] = [];
+    for (let p = 1; p < commit.parents.length; p++) {
+      const extra = commit.parents[p];
+      let new_lane = active_lanes.findIndex((s) => s === null);
+      if (new_lane === -1) {
+        new_lane = active_lanes.length;
+        active_lanes.push(null);
+      }
+      active_lanes[new_lane] = extra;
+      merge_lanes.push(new_lane);
+    }
+
+    // 5. ASSIGN COLOR — deterministic on lane mod palette length.
+    out[i] = {
+      sha: commit.sha,
+      lane,
+      merge_lanes,
+      color_index: lane % PALETTE.length,
+      filtered_out: false,
+    };
+  }
+
+  return out;
 }
 
 /**

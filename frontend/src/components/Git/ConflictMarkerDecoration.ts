@@ -306,6 +306,86 @@ export function parseConflictRegions(content: string): ConflictRegion[] {
  *                   to the model.
  * @returns A dispose function that removes all decorations + listeners.
  */
+/**
+ * Splice a `ConflictAction` into a Monaco model: replaces the conflict
+ * region (lines `region.startLine..region.incomingEndLine` inclusive)
+ * with the resolved text per `action.type`.
+ *
+ * Pure-ish helper: takes the raw model text, returns the rewritten text.
+ * The Monaco-aware version below applies the edit through Monaco's edit
+ * stack so undo works.
+ */
+export function resolveRegionText(
+  fullText: string,
+  region: ConflictRegion,
+  action: ConflictAction,
+): string {
+  const lines = fullText.split("\n");
+  // 1-based → 0-based slice indices.
+  const beforeLines = lines.slice(0, region.startLine - 1);
+  const afterLines = lines.slice(region.incomingEndLine);
+
+  // Extract the three (or two) text sections.
+  // 2-way:
+  //   startLine                            (marker `<<<<<<<`)
+  //   startLine+1 .. currentEndLine-1     (current section)
+  //   currentEndLine                       (marker `=======`)
+  //   currentEndLine+1 .. incomingEndLine-1 (incoming section)
+  //   incomingEndLine                      (marker `>>>>>>>`)
+  // diff3:
+  //   startLine                            (marker `<<<<<<<`)
+  //   startLine+1 .. currentEndLine-1     (current section)
+  //   currentEndLine                       (marker `|||||||`)
+  //   currentEndLine+1 .. baseEndLine-1   (base section)
+  //   baseEndLine                          (marker `=======`)
+  //   baseEndLine+1 .. incomingEndLine-1  (incoming section)
+  //   incomingEndLine                      (marker `>>>>>>>`)
+  const currentEnd = region.baseEndLine ?? region.currentEndLine;
+  const currentSection = lines.slice(region.startLine, currentEnd - 1);
+  const baseStart = region.baseEndLine !== null ? region.baseEndLine : null;
+  const incomingStart =
+    region.baseEndLine !== null ? region.baseEndLine : region.currentEndLine;
+  const incomingSection = lines.slice(incomingStart, region.incomingEndLine - 1);
+  void baseStart; // present for completeness; the impl never echoes base
+
+  let resolved: string[];
+  switch (action.type) {
+    case "accept_current":
+      resolved = currentSection;
+      break;
+    case "accept_incoming":
+      resolved = incomingSection;
+      break;
+    case "accept_both":
+      resolved = [...currentSection, ...incomingSection];
+      break;
+    case "manual_edit":
+      // No-op: leave the markers in place; the user wants to edit by hand.
+      return fullText;
+    default:
+      return fullText;
+  }
+
+  return [...beforeLines, ...resolved, ...afterLines].join("\n");
+}
+
+/**
+ * Register conflict-marker decorations + glyph-margin action widgets on
+ * a Monaco editor instance.
+ *
+ * Layered behavior:
+ *   1. Highlight the current section (green) + incoming section (blue)
+ *      via `editor.deltaDecorations`.
+ *   2. Mount one `IContentWidget` above each region with four buttons:
+ *      Accept Current / Accept Incoming / Accept Both / Manual edit.
+ *   3. On the editor's content-change event, re-parse and re-apply.
+ *   4. The returned dispose function clears decorations + widgets + the
+ *      change listener.
+ *
+ * The Monaco types are kept loose (`any`) to preserve the lazy-load
+ * boundary from ADR-036 §3.1 (we cannot statically import `monaco-editor`
+ * without breaking the bundle split).
+ */
 export function registerConflictDecorations(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   editor: any,
@@ -313,14 +393,219 @@ export function registerConflictDecorations(
   monaco: any,
   onAction: (action: ConflictAction, region: ConflictRegion) => void,
 ): () => void {
-  void editor;
-  void monaco;
-  void onAction;
-  throw new Error(
-    "TODO: D39-2.4b — implement Monaco decoration provider per ADR-039 " +
-      "§3.5a. Wire glyph-margin action buttons + line-range backgrounds. " +
-      "Use parseConflictRegions(model.getValue()) to derive regions. " +
-      "Return a dispose function that clears decorations and unregisters " +
-      "listeners.",
-  );
+  if (!editor || !monaco) {
+    return () => {};
+  }
+  const model = editor.getModel?.();
+  if (!model) {
+    return () => {};
+  }
+
+  let decorationIds: string[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const widgets: any[] = [];
+
+  function clearWidgets() {
+    for (const w of widgets) {
+      try {
+        editor.removeContentWidget(w);
+      } catch {
+        /* ignore */
+      }
+    }
+    widgets.length = 0;
+  }
+
+  function clearDecorations() {
+    try {
+      decorationIds = editor.deltaDecorations(decorationIds, []);
+    } catch {
+      decorationIds = [];
+    }
+  }
+
+  function buildWidget(region: ConflictRegion, indexLabel: string) {
+    const dom = document.createElement("div");
+    dom.className =
+      "conflict-action-widget flex gap-2 px-2 py-0.5 text-[11px] " +
+      "bg-stone-100 border border-stone-300 rounded shadow-sm";
+    dom.dataset.testid = `conflict-action-${region.startLine}`;
+    dom.setAttribute("aria-label", `Conflict region ${indexLabel}`);
+
+    const mkBtn = (
+      label: string,
+      type: ConflictAction["type"],
+      testid: string,
+    ) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = label;
+      b.dataset.testid = testid;
+      b.className =
+        "rounded border border-stone-400 bg-white px-1.5 py-0.5 " +
+        "hover:bg-stone-50";
+      b.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        onAction({ type }, region);
+      });
+      return b;
+    };
+
+    const label = document.createElement("span");
+    label.textContent = `Conflict ${indexLabel}`;
+    label.className = "mr-2 font-semibold text-stone-600";
+    dom.appendChild(label);
+    dom.appendChild(
+      mkBtn(
+        "Accept Current",
+        "accept_current",
+        `conflict-accept-current-${region.startLine}`,
+      ),
+    );
+    dom.appendChild(
+      mkBtn(
+        "Accept Incoming",
+        "accept_incoming",
+        `conflict-accept-incoming-${region.startLine}`,
+      ),
+    );
+    dom.appendChild(
+      mkBtn(
+        "Accept Both",
+        "accept_both",
+        `conflict-accept-both-${region.startLine}`,
+      ),
+    );
+    dom.appendChild(
+      mkBtn("Manual edit", "manual_edit", `conflict-manual-${region.startLine}`),
+    );
+
+    return {
+      getId: () => `conflict-widget-${region.startLine}`,
+      getDomNode: () => dom,
+      getPosition: () => ({
+        position: { lineNumber: region.startLine, column: 1 },
+        preference: [
+          // ABOVE — Monaco's enum value for ContentWidgetPositionPreference.ABOVE.
+          // The values are stable: ABOVE=1, BELOW=2, EXACT=0. Use the
+          // enum if available, else fall back to the numeric literal.
+          monaco.editor?.ContentWidgetPositionPreference?.ABOVE ?? 1,
+          monaco.editor?.ContentWidgetPositionPreference?.BELOW ?? 2,
+        ],
+      }),
+    };
+  }
+
+  function refresh() {
+    clearWidgets();
+    const text = model.getValue();
+    const regions = parseConflictRegions(text);
+
+    if (regions.length === 0) {
+      clearDecorations();
+      return;
+    }
+
+    // Build decorations. Use raw class names; CodeEditor consumers can
+    // theme via global CSS hooks `.conflict-current` / `.conflict-incoming`.
+    const decorations = regions.flatMap((region) => {
+      const out: Array<{
+        range: { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number };
+        options: Record<string, unknown>;
+      }> = [];
+      const currentEnd = region.baseEndLine ?? region.currentEndLine;
+      // current section: between `<<<<<<<` (exclusive) and ======= / |||||||  (exclusive)
+      if (currentEnd - 1 > region.startLine) {
+        out.push({
+          range: new monaco.Range(
+            region.startLine + 1,
+            1,
+            currentEnd - 1,
+            Number.MAX_SAFE_INTEGER,
+          ),
+          options: {
+            isWholeLine: true,
+            className: "conflict-current",
+            // Light green-ish; Monaco supports CSS classes via the theme.
+            inlineClassName: "conflict-current-inline",
+            hoverMessage: { value: `Current: ${region.currentLabel}` },
+          },
+        });
+      }
+      // incoming section
+      const incomingStart =
+        region.baseEndLine !== null ? region.baseEndLine : region.currentEndLine;
+      if (region.incomingEndLine - 1 > incomingStart) {
+        out.push({
+          range: new monaco.Range(
+            incomingStart + 1,
+            1,
+            region.incomingEndLine - 1,
+            Number.MAX_SAFE_INTEGER,
+          ),
+          options: {
+            isWholeLine: true,
+            className: "conflict-incoming",
+            inlineClassName: "conflict-incoming-inline",
+            hoverMessage: { value: `Incoming: ${region.incomingLabel}` },
+          },
+        });
+      }
+      // marker lines — number them in the gutter.
+      out.push({
+        range: new monaco.Range(
+          region.startLine,
+          1,
+          region.startLine,
+          Number.MAX_SAFE_INTEGER,
+        ),
+        options: {
+          isWholeLine: true,
+          glyphMarginClassName: "conflict-marker-glyph",
+        },
+      });
+      return out;
+    });
+
+    try {
+      decorationIds = editor.deltaDecorations(decorationIds, decorations);
+    } catch (err) {
+      console.warn("ConflictMarkerDecoration: failed to set decorations", err);
+    }
+
+    // Build widgets.
+    regions.forEach((region, i) => {
+      const widget = buildWidget(region, `${i + 1} of ${regions.length}`);
+      try {
+        editor.addContentWidget(widget);
+        widgets.push(widget);
+      } catch (err) {
+        console.warn("ConflictMarkerDecoration: failed to add widget", err);
+      }
+    });
+  }
+
+  // Listen for content changes so the decorations follow user edits.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let disposable: { dispose: () => void } | null = null;
+  try {
+    disposable = model.onDidChangeContent(() => {
+      refresh();
+    });
+  } catch {
+    disposable = null;
+  }
+
+  refresh();
+
+  return function dispose() {
+    try {
+      disposable?.dispose();
+    } catch {
+      /* ignore */
+    }
+    clearWidgets();
+    clearDecorations();
+  };
 }

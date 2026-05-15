@@ -234,6 +234,12 @@
 
 import type { GitCommit } from "../../../types/api";
 
+import {
+  LANE_PITCH,
+  LANE_X_OFFSET,
+  PALETTE,
+  ROW_HEIGHT,
+} from "./colorPalette";
 import type { LaneAssignment } from "./laneAssign";
 
 /**
@@ -284,13 +290,116 @@ export function routeEdges(
   assignments: LaneAssignment[],
   commits: GitCommit[],
 ): GraphEdge[] {
-  void assignments;
-  void commits;
-  throw new Error(
-    "TODO: D39-2.4b — implement bezier edge routing per ADR-039 §3.5b. " +
-      "Algorithm sketch + SVG coordinate system + bezier math are in the " +
-      "file-level docstring above.",
-  );
+  if (assignments.length === 0) return [];
+
+  const index = buildShaIndex(commits);
+  const out: GraphEdge[] = [];
+
+  for (let i = 0; i < commits.length; i++) {
+    const child = commits[i];
+    const childAssign = assignments[i];
+    if (!childAssign || childAssign.sha !== child.sha) {
+      // Defensive: the contract says assignments[i].sha === commits[i].sha.
+      // Skip silently rather than crash.
+      continue;
+    }
+    const childLane = childAssign.lane;
+
+    for (let p = 0; p < child.parents.length; p++) {
+      const parentSha = child.parents[p];
+      if (parentSha === child.sha) {
+        // Defensive: self-cycle never appears in real git output.
+        console.warn(
+          `edgeRouter: self-cycle on commit ${child.sha}; dropping edge.`,
+        );
+        continue;
+      }
+      const parentIdx = index.has(parentSha) ? index.get(parentSha)! : -1;
+
+      // Parent lane resolution:
+      //   - For parents[0]: the lane the parent eventually lands in. We
+      //     find it from `assignments[parentIdx].lane` when known. If the
+      //     parent is truncated (dangling), use the child lane as a stub.
+      //   - For parents[1..]: from `childAssign.merge_lanes[p-1]`. This is
+      //     the lane the merge fold-in "comes in" on; the parent SHA gets
+      //     written into `active_lanes[new_lane]` during assignLanes, so
+      //     when the parent is later drawn it WILL land in `merge_lanes[p-1]`.
+      let parentLane: number;
+      if (p === 0) {
+        if (parentIdx >= 0 && assignments[parentIdx]) {
+          parentLane = assignments[parentIdx].lane;
+        } else {
+          parentLane = childLane;
+        }
+      } else {
+        // merge_lanes is parallel to parents.slice(1)
+        const ml = childAssign.merge_lanes[p - 1];
+        parentLane = ml !== undefined ? ml : childLane;
+      }
+
+      const childCenter = centerOf(i, childLane);
+      const parentCenter =
+        parentIdx >= 0
+          ? centerOf(parentIdx, parentLane)
+          : // Dangling: stub goes half a row below the child.
+            { x: childCenter.x, y: childCenter.y + ROW_HEIGHT / 2 };
+
+      let path: string;
+      if (childLane === parentLane || parentIdx < 0) {
+        // Case 1 (or dangling stub): straight vertical.
+        path =
+          `M ${childCenter.x} ${childCenter.y} ` +
+          `L ${parentCenter.x} ${parentCenter.y}`;
+      } else {
+        // Case 2 / 3: S-curve. Control points are placed so the curve
+        // leaves the child vertically and arrives at the parent vertically.
+        const midY = (childCenter.y + parentCenter.y) / 2;
+        path =
+          `M ${childCenter.x} ${childCenter.y} ` +
+          `C ${childCenter.x} ${midY}, ${parentCenter.x} ${midY}, ` +
+          `${parentCenter.x} ${parentCenter.y}`;
+      }
+
+      // Color inheritance: primary edges follow the parent lane (the
+      // continuing branch's color); merge edges follow the child lane
+      // (the absorbing branch's color). Dangling edges follow child.
+      const colorBase =
+        p === 0
+          ? parentIdx >= 0
+            ? parentLane
+            : childLane
+          : childLane;
+      const colorIndex = ((colorBase % PALETTE.length) + PALETTE.length) % PALETTE.length;
+
+      out.push({
+        child_sha: child.sha,
+        parent_sha: parentSha,
+        child_idx: i,
+        parent_idx: parentIdx,
+        child_lane: childLane,
+        parent_lane: parentLane,
+        path,
+        color_index: colorIndex,
+        dangling: parentIdx < 0,
+      });
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Coordinate helper exposed for the renderer (`GraphSVG.tsx`) so it can
+ * place commit dots at the same anchor points the edges originate from.
+ */
+export function centerOf(
+  idx: number,
+  lane: number,
+): { x: number; y: number } {
+  return {
+    x: LANE_X_OFFSET + lane * LANE_PITCH,
+    y: idx * ROW_HEIGHT + ROW_HEIGHT / 2,
+  };
 }
 
 /**

@@ -13,6 +13,9 @@ import { useAppStore } from "../../store";
 import type { GitCommit, GitHistoryFilter } from "../../types/api";
 import { classifyPrefix, selectVisibleCommits } from "../../store/gitSlice";
 import { GitDiffModal } from "./GitDiffModal";
+import { GraphSVG } from "./GitGraph/GraphSVG";
+import { useGraphData } from "./GitGraph/integration";
+import { useGraphInteractions } from "./GitGraph/interactions";
 import { StashApplyDialog } from "./StashApplyDialog";
 
 const PREFIX_ICON: Record<string, string> = {
@@ -55,6 +58,8 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
   // Codex P2-A on PR #940: when restore auto-stashes, surface the
   // StashApplyDialog so the user can choose Apply / Keep / Discard.
   const [stashPrompt, setStashPrompt] = useState<string | null>(null);
+  // ADR-039 §3.5b / D39-2.4b — view toggle: list vs branch graph.
+  const [viewMode, setViewMode] = useState<"list" | "graph">("list");
 
   useEffect(() => {
     if (commits === null && !loading) {
@@ -157,10 +162,52 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
           >
             Refresh
           </button>
+          <div
+            data-testid="git-history-view-toggle"
+            className="ml-auto flex gap-1 rounded border border-stone-300 p-0.5 text-xs"
+          >
+            <button
+              type="button"
+              data-testid="git-history-view-list"
+              aria-pressed={viewMode === "list"}
+              onClick={() => setViewMode("list")}
+              className={`rounded px-2 py-0.5 ${
+                viewMode === "list" ? "bg-stone-200" : "hover:bg-stone-100"
+              }`}
+            >
+              List
+            </button>
+            <button
+              type="button"
+              data-testid="git-history-view-graph"
+              aria-pressed={viewMode === "graph"}
+              onClick={() => setViewMode("graph")}
+              className={`rounded px-2 py-0.5 ${
+                viewMode === "graph" ? "bg-stone-200" : "hover:bg-stone-100"
+              }`}
+            >
+              Graph
+            </button>
+          </div>
         </div>
       )}
 
-      {loading ? (
+      {viewMode === "graph" ? (
+        <GitGraphPane
+          onCommitClick={(sha) => {
+            // Diff: from commit's first parent → commit. For root commits,
+            // use git's empty-tree hash so the diff shows additions.
+            const commit = (commits ?? []).find((c) => c.sha === sha);
+            if (!commit) return;
+            const parent = commit.parents[0];
+            if (parent) setDiffOpen({ from: parent, to: commit.sha });
+            else {
+              const EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+              setDiffOpen({ from: EMPTY_TREE_SHA, to: commit.sha });
+            }
+          }}
+        />
+      ) : loading ? (
         <div
           data-testid="git-history-loading"
           className="px-3 py-4 text-xs text-stone-500"
@@ -272,6 +319,63 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
           onClose={() => setStashPrompt(null)}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * ADR-039 §3.5b — branch graph panel.
+ *
+ * Mounted by `GitHistoryList` when the user toggles to "Graph" mode.
+ * Pulls assignments / edges via `useGraphData()` and wires
+ * `useGraphInteractions` for scroll-driven virtualization + keyboard
+ * navigation.
+ */
+function GitGraphPane({
+  onCommitClick,
+}: {
+  onCommitClick: (sha: string) => void;
+}): JSX.Element {
+  const data = useGraphData();
+  const interactions = useGraphInteractions(data.commits.length, onCommitClick);
+
+  if (data.loading) {
+    return (
+      <div
+        data-testid="git-graph-loading"
+        className="flex flex-1 items-center justify-center px-3 py-4 text-xs text-stone-500"
+      >
+        Loading commit graph…
+      </div>
+    );
+  }
+  if (data.commits.length === 0) {
+    return (
+      <div
+        data-testid="git-graph-empty"
+        className="flex flex-1 items-center justify-center px-3 py-4 text-xs text-stone-500"
+      >
+        No commits to display.
+      </div>
+    );
+  }
+  return (
+    <div
+      ref={interactions.scrollContainerRef}
+      data-testid="git-graph-scroll"
+      className="min-h-0 flex-1 overflow-y-auto outline-none"
+      tabIndex={0}
+      onKeyDown={interactions.onCommitDotKeyDown}
+    >
+      <GraphSVG
+        assignments={data.assignments}
+        edges={data.edges}
+        commits={data.commits}
+        onCommitClick={interactions.onCommitClick}
+        visibleRange={interactions.visibleRange}
+        hoveredIdx={null}
+        focusedIdx={interactions.focusedRow}
+      />
     </div>
   );
 }
