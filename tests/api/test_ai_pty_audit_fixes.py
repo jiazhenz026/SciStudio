@@ -64,8 +64,14 @@ def _fake_spawn(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
             captured_writes.append(data)
             return super().write(data)
 
-    def fake(*, provider: str, project_dir: Path, dangerous: bool) -> PtyProcess:
-        return _RecordingPty(_echo_argv(), cwd=project_dir, cols=80, rows=24)
+    def fake(
+        *,
+        provider: str,
+        project_dir: Path,
+        dangerous: bool,
+        extra_env: dict[str, str] | None = None,
+    ) -> PtyProcess:
+        return _RecordingPty(_echo_argv(), cwd=project_dir, cols=80, rows=24, extra_env=extra_env)
 
     monkeypatch.setattr(ai_pty, "_spawn", fake)
     _active_ptys.clear()
