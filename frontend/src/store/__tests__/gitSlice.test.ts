@@ -1,15 +1,41 @@
 /**
- * Skeleton tests for gitSlice (ADR-039 §6 Phase 2).
+ * D39-2.3b — gitSlice tests.
  *
- * Pure-helper exports (classifyPrefix, selectVisibleCommits) are tested
- * for real here — they are safe to keep in the skeleton phase. The
- * mutation actions throw `Error("TODO: D39-2.3b — ...")` so the .skip
- * tests below remain skipped until D39-2.3b lands.
+ * Pure-helper exports (classifyPrefix, selectVisibleCommits) + mutation
+ * actions (loadBranches / loadLog / loadStatus / commit / ...). Mutation
+ * actions now go through `api.*`, which is mocked here so no real HTTP is
+ * issued. We exercise both success and failure paths.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { classifyPrefix, createGitSlice, selectVisibleCommits } from "../gitSlice";
 import type { GitCommit } from "../../types/api";
+
+vi.mock("../../lib/api", async () => {
+  const actual = await vi.importActual<typeof import("../../lib/api")>("../../lib/api");
+  return {
+    ...actual,
+    api: {
+      gitBranches: vi.fn().mockResolvedValue([
+        { name: "main", head_sha: "a".repeat(40), is_current: true },
+      ]),
+      gitLog: vi.fn().mockResolvedValue([]),
+      gitStatus: vi.fn().mockResolvedValue({
+        dirty: false,
+        modified: [],
+        staged: [],
+        untracked: [],
+        conflicted: [],
+      }),
+      gitStashList: vi.fn().mockResolvedValue([]),
+      gitCommit: vi.fn().mockResolvedValue({ commit_sha: "deadbee" }),
+      gitBranchSwitch: vi.fn().mockResolvedValue({ status: "ok", current_branch: "main" }),
+      gitBranchCreate: vi.fn().mockResolvedValue({ status: "ok", name: "x" }),
+      gitBranchDelete: vi.fn().mockResolvedValue({ status: "ok" }),
+      gitRestore: vi.fn().mockResolvedValue({ status: "ok" }),
+    },
+  };
+});
 
 function mk(subject: string, sha = "deadbeef"): GitCommit {
   return {
@@ -133,7 +159,7 @@ describe("gitSlice — default state shape (skeleton)", () => {
   });
 });
 
-describe("gitSlice — mutation actions (skeleton)", () => {
+describe("gitSlice — mutation actions", () => {
   function makeSlice() {
     let state: any = {};
     const set = (partial: any) => {
@@ -141,31 +167,91 @@ describe("gitSlice — mutation actions (skeleton)", () => {
     };
     const get = () => state;
     const slice = createGitSlice(set, get, {} as any);
-    return slice;
+    state = { ...state, ...slice };
+    return { slice, get };
   }
 
-  it.skip("loadBranches fetches /api/git/branches — D39-2.3b implements", () => {
-    /*
-     * Test plan:
-     *   1. Spy api.gitBranches; call slice.loadBranches().
-     *   2. Expect state.branches matches the mocked response.
-     */
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it.skip("commit POSTs /api/git/commit and refreshes log — D39-2.3b implements", () => {
-    /*
-     * Test plan:
-     *   1. Mock api.gitCommit + api.gitLog.
-     *   2. Call slice.commit("feat: x").
-     *   3. Expect gitCommit + gitLog both called; state.logCache invalidated.
-     */
+  afterEach(() => {
+    vi.clearAllMocks();
   });
 
-  it("mutation methods throw a TODO error during skeleton phase", async () => {
-    const slice = makeSlice();
-    await expect(slice.loadBranches()).rejects.toThrow(/D39-2.3b/);
-    await expect(slice.loadLog()).rejects.toThrow(/D39-2.3b/);
-    await expect(slice.commit("x")).rejects.toThrow(/D39-2.3b/);
-    await expect(slice.switchBranch("x")).rejects.toThrow(/D39-2.3b/);
+  it("loadBranches fetches /api/git/branches and populates state", async () => {
+    const { slice, get } = makeSlice();
+    await slice.loadBranches();
+    const { api } = await import("../../lib/api");
+    expect(api.gitBranches).toHaveBeenCalled();
+    expect(get().branches).toBeTruthy();
+    expect(get().currentBranch).toBe("main");
+  });
+
+  it("loadLog populates logCache under the branch key", async () => {
+    const { slice, get } = makeSlice();
+    const { api } = await import("../../lib/api");
+    (api.gitLog as any).mockResolvedValueOnce([{ sha: "x", short_sha: "x", parents: [], subject: "feat: y", body: "", author_name: "", author_email: "", author_date: "", branches: [] }]);
+    await slice.loadLog("main");
+    expect(get().logCache.main).toHaveLength(1);
+    expect(get().logLoading.main).toBe(false);
+  });
+
+  it("loadLog under <all> key when no branch supplied", async () => {
+    const { slice, get } = makeSlice();
+    const { api } = await import("../../lib/api");
+    (api.gitLog as any).mockResolvedValueOnce([]);
+    await slice.loadLog();
+    expect(get().logCache["<all>"]).toEqual([]);
+  });
+
+  it("loadStatus populates state.status", async () => {
+    const { slice, get } = makeSlice();
+    await slice.loadStatus();
+    expect(get().status).toBeTruthy();
+  });
+
+  it("commit POSTs /api/git/commit, returns sha, refreshes log", async () => {
+    const { slice, get } = makeSlice();
+    const sha = await slice.commit("feat: x", ["a.yaml"]);
+    expect(sha).toBe("deadbee");
+    // commit() clears the logCache then triggers a background refresh via
+    // loadLog(currentBranch) — assert the refresh actually fired (and the
+    // empty array landed under the <all> key because currentBranch is null
+    // in this isolated slice).
+    expect(get().lastError).toBeNull();
+    const { api } = await import("../../lib/api");
+    expect(api.gitCommit).toHaveBeenCalledWith({
+      message: "feat: x",
+      files: ["a.yaml"],
+    });
+    expect(api.gitLog).toHaveBeenCalled();
+  });
+
+  it("commit failure surfaces error in lastError and rejects", async () => {
+    const { slice, get } = makeSlice();
+    const { api } = await import("../../lib/api");
+    (api.gitCommit as any).mockRejectedValueOnce(new Error("boom"));
+    await expect(slice.commit("x")).rejects.toThrow(/boom/);
+    expect(get().lastError).toMatch(/boom/);
+  });
+
+  it("switchBranch invalidates caches and reloads", async () => {
+    const { slice, get } = makeSlice();
+    await slice.switchBranch("feature");
+    const { api } = await import("../../lib/api");
+    expect(api.gitBranchSwitch).toHaveBeenCalledWith("feature");
+    expect(get().lastError).toBeNull();
+  });
+
+  it("invalidateHistory clears log + status + branches", () => {
+    const { slice, get } = makeSlice();
+    // Pre-populate.
+    (slice as any).logCache = { main: [] };
+    (slice as any).status = { dirty: false, modified: [], staged: [], untracked: [], conflicted: [] };
+    slice.invalidateHistory();
+    expect(get().logCache).toEqual({});
+    expect(get().status).toBeNull();
+    expect(get().branches).toBeNull();
   });
 });

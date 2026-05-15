@@ -1,11 +1,12 @@
 /**
- * Skeleton tests for CommitDialog (ADR-039 §3.5 line 217).
+ * D39-2.3b — CommitDialog tests.
  *
- * D39-2.3b flips each `it.skip` into `it` after wiring the component to
- * gitSlice.commit + rendering the dialog markup described in the
- * CommitDialog.tsx top docstring.
+ * Verifies the dialog renders the template, file list, handles validation,
+ * and dispatches gitSlice.commit. Mirrors the data-testid contract baked
+ * into the component's top docstring.
  */
-import { describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   CommitDialog,
@@ -13,16 +14,46 @@ import {
   formatAutoDetectedFiles,
   stripCommentLines,
 } from "../CommitDialog";
+import { useAppStore } from "../../../store";
+import { ApiError } from "../../../lib/api";
+import type { GitStatus } from "../../../types/api";
 
-describe("ADR-039 §3.5 — CommitDialog (skeleton)", () => {
-  it("exports CommitDialog as a function", () => {
-    expect(typeof CommitDialog).toBe("function");
+const cleanStatus: GitStatus = {
+  dirty: false,
+  modified: [],
+  staged: [],
+  untracked: [],
+  conflicted: [],
+};
+
+const dirtyStatus: GitStatus = {
+  dirty: true,
+  modified: ["workflows/a.yaml"],
+  staged: ["blocks/b.py"],
+  untracked: ["notes/c.md"],
+  conflicted: [],
+};
+
+function seedStore(overrides: Partial<ReturnType<typeof useAppStore.getState>> = {}) {
+  useAppStore.setState({
+    status: dirtyStatus,
+    loadStatus: vi.fn().mockResolvedValue(undefined),
+    commit: vi.fn().mockResolvedValue("abcdef0"),
+    ...overrides,
   });
+}
 
+beforeEach(() => {
+  seedStore();
+});
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+
+describe("CommitDialog — pure helpers", () => {
   it("COMMIT_TEMPLATE matches ADR §3.5 line 230 shape (subject + comment list)", () => {
-    // The placeholder shown in the textarea begins with the one-line
-    // subject hint, then a `# What changed:` block — keep this assertion
-    // strict so D39-2.3b cannot silently drift from the ADR.
     expect(COMMIT_TEMPLATE.startsWith("<one-line subject>")).toBe(true);
     expect(COMMIT_TEMPLATE).toContain("# What changed:");
   });
@@ -46,70 +77,100 @@ describe("ADR-039 §3.5 — CommitDialog (skeleton)", () => {
   });
 
   it("formatAutoDetectedFiles emits per-file lines with M/S/A markers", () => {
-    const out = formatAutoDetectedFiles({
-      dirty: true,
-      modified: ["workflows/a.yaml"],
-      staged: ["blocks/b.py"],
-      untracked: ["notes/c.md"],
-      conflicted: [],
-    });
+    const out = formatAutoDetectedFiles(dirtyStatus);
     expect(out).toContain("M  workflows/a.yaml");
     expect(out).toContain("S  blocks/b.py");
     expect(out).toContain("A  notes/c.md");
   });
+});
 
-  it.skip("renders dialog with default template in textarea — D39-2.3b implements", () => {
-    /*
-     * Test plan:
-     *   1. Render <CommitDialog open={true} onClose={vi.fn()} />.
-     *   2. Query `[data-testid="commit-dialog-message"]`.
-     *   3. Expect its placeholder starts with COMMIT_TEMPLATE.
-     */
+describe("CommitDialog — UI", () => {
+  it("returns null when open=false", () => {
+    const { container } = render(<CommitDialog open={false} onClose={() => {}} />);
+    expect(container.firstChild).toBeNull();
   });
 
-  it.skip("renders auto-detected file list from gitSlice.status — D39-2.3b implements", () => {
-    /*
-     * Test plan:
-     *   1. Seed useAppStore with status = {dirty:true, modified:["a.yaml"], ...}.
-     *   2. Render the dialog.
-     *   3. Query `[data-testid="commit-dialog-files"]` and assert each file
-     *      appears once.
-     */
+  it("renders dialog and textarea placeholder starts with the template", () => {
+    render(<CommitDialog open={true} onClose={() => {}} />);
+    const ta = screen.getByTestId("commit-dialog-message") as HTMLTextAreaElement;
+    expect(ta.placeholder.startsWith("<one-line subject>")).toBe(true);
   });
 
-  it.skip("disables submit when stripped message is empty — D39-2.3b implements", () => {
-    /*
-     * Test plan:
-     *   1. Render dialog; query submit button.
-     *   2. Set textarea to comments-only.
-     *   3. Expect submit `disabled` attr is true.
-     */
+  it("renders the auto-detected file list from gitSlice.status", () => {
+    render(<CommitDialog open={true} onClose={() => {}} />);
+    const list = screen.getByTestId("commit-dialog-files");
+    expect(list.textContent).toContain("workflows/a.yaml");
+    expect(list.textContent).toContain("blocks/b.py");
+    expect(list.textContent).toContain("notes/c.md");
   });
 
-  it.skip("calls gitSlice.commit with stripped message + initialFiles — D39-2.3b implements", () => {
-    /*
-     * Test plan:
-     *   1. Mock useAppStore.commit = vi.fn().mockResolvedValue("sha");
-     *   2. Render with initialFiles=["x.yaml"]; type a message; click submit.
-     *   3. Expect commit() called with (strippedMessage, ["x.yaml"]).
-     */
+  it("disables Submit when status is clean (no changes to commit)", () => {
+    seedStore({ status: cleanStatus });
+    render(<CommitDialog open={true} onClose={() => {}} />);
+    const submit = screen.getByTestId("commit-dialog-submit") as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
   });
 
-  it.skip("keeps dialog open and shows server error on 409 — D39-2.3b implements", () => {
-    /*
-     * Test plan:
-     *   1. Mock commit() to reject with ApiError("nothing to commit", 409).
-     *   2. Click submit.
-     *   3. Expect dialog still rendered AND
-     *      `[data-testid="commit-dialog-error"]` contains "nothing to commit".
-     */
+  it("disables Submit when stripped message is empty", () => {
+    render(<CommitDialog open={true} onClose={() => {}} />);
+    const ta = screen.getByTestId("commit-dialog-message");
+    fireEvent.change(ta, { target: { value: "# only a comment\n\n" } });
+    const submit = screen.getByTestId("commit-dialog-submit") as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
   });
 
-  it.skip("Esc key closes dialog — D39-2.3b implements", () => {
-    // Type plan: press Escape; expect onClose called once.
+  it("calls gitSlice.commit with stripped message + initialFiles on submit", async () => {
+    const commit = vi.fn().mockResolvedValue("abcdef0");
+    seedStore({ commit });
+    const onClose = vi.fn();
+    render(
+      <CommitDialog
+        open={true}
+        onClose={onClose}
+        initialFiles={["workflows/a.yaml"]}
+      />,
+    );
+    fireEvent.change(screen.getByTestId("commit-dialog-message"), {
+      target: { value: "feat: x\n# comment\n" },
+    });
+    fireEvent.click(screen.getByTestId("commit-dialog-submit"));
+    await waitFor(() => expect(commit).toHaveBeenCalledWith("feat: x", ["workflows/a.yaml"]));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 
-  it.skip("Ctrl+Enter submits the dialog — D39-2.3b implements", () => {
-    // Type plan: focus textarea; press Ctrl+Enter; expect commit() called.
+  it("shows server error inline on commit failure and does not close", async () => {
+    const commit = vi.fn().mockRejectedValue(new ApiError("nothing to commit", 409));
+    seedStore({ commit });
+    const onClose = vi.fn();
+    render(<CommitDialog open={true} onClose={onClose} />);
+    fireEvent.change(screen.getByTestId("commit-dialog-message"), {
+      target: { value: "feat: x" },
+    });
+    fireEvent.click(screen.getByTestId("commit-dialog-submit"));
+    await waitFor(() => {
+      expect(screen.getByTestId("commit-dialog-error").textContent).toMatch(/nothing to commit/i);
+    });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("Cancel button calls onClose", () => {
+    const onClose = vi.fn();
+    render(<CommitDialog open={true} onClose={onClose} />);
+    fireEvent.click(screen.getByTestId("commit-dialog-cancel"));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("Ctrl+Enter on the dialog submits", async () => {
+    const commit = vi.fn().mockResolvedValue("abc");
+    seedStore({ commit });
+    render(<CommitDialog open={true} onClose={() => {}} />);
+    fireEvent.change(screen.getByTestId("commit-dialog-message"), {
+      target: { value: "feat: y" },
+    });
+    fireEvent.keyDown(screen.getByTestId("commit-dialog"), {
+      key: "Enter",
+      ctrlKey: true,
+    });
+    await waitFor(() => expect(commit).toHaveBeenCalled());
   });
 });

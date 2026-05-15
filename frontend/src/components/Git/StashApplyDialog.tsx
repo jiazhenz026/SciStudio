@@ -1,93 +1,17 @@
 /**
- * ADR-039 §3.6 — StashApplyDialog (SKELETON).
+ * ADR-039 §3.6 — StashApplyDialog.
  *
- * Purpose
- * -------
- * When the user restores a prior version while the working tree is dirty,
- * the backend auto-stashes the working changes (`git stash push -m
- * "auto-stash before restore"`) and returns the new `stash_id`. This
- * dialog then prompts:
- *
- *     "Your unsaved changes are stashed. Apply them?
- *      [Apply now] [Keep stashed] [Discard]"
- *
- * Per ADR §3.6 — the wording is part of the contract.
- *
- * Props
- * -----
- *   open:           boolean
- *   stashId:        string                 — passed from gitSlice.restore result
- *   onClose:        () => void
- *   onApplyNow:     (stashId) => Promise<void>  — defaults to gitSlice.stashApply
- *   onKeepStashed:  () => void              — defaults to onClose
- *   onDiscard:      (stashId) => Promise<void> — defaults to gitSlice.stashDrop
- *
- * Layout markup
- * -------------
- *   <Dialog open=...>
- *     <DialogContent data-testid="stash-apply-dialog">
- *       <DialogTitle>Your unsaved changes are stashed.</DialogTitle>
- *       <p data-testid="stash-apply-dialog-body">
- *         The restore put your previous edits into stash {stashId}.
- *         Apply them on top of the restored version?
- *       </p>
- *       <DialogFooter>
- *         <Button data-testid="stash-apply-discard" variant="destructive"
- *                 onClick={() => onDiscard(stashId).then(onClose)}>
- *           Discard
- *         </Button>
- *         <Button data-testid="stash-apply-keep"
- *                 variant="ghost"
- *                 onClick={onKeepStashed}>
- *           Keep stashed
- *         </Button>
- *         <Button data-testid="stash-apply-now"
- *                 variant="default"
- *                 onClick={() => onApplyNow(stashId).then(onClose)}>
- *           Apply now
- *         </Button>
- *       </DialogFooter>
- *     </DialogContent>
- *   </Dialog>
- *
- * Copy strings (LITERAL — matches ADR §3.6)
- * -----------------------------------------
- *   Title:           "Your unsaved changes are stashed."
- *   Body:            "The restore put your previous edits into stash
- *                     {stashId}. Apply them on top of the restored version?"
- *   Apply button:    "Apply now"
- *   Keep button:     "Keep stashed"
- *   Discard button:  "Discard"
- *   Discard confirm: "This permanently drops the stash. Continue?"
- *
- * Keyboard shortcuts
- * ------------------
- *   - Enter         → Apply now (default action)
- *   - Esc           → Keep stashed
- *   - Backspace+Del → no-op (don't make Discard the default destructive)
- *
- * Accessibility
- * -------------
- *   - Default-focused button on open: "Apply now" (matches Enter binding).
- *   - Destructive Discard button has aria-describedby pointing at a
- *     hidden helper region: "This permanently deletes the stash."
- *
- * Edge cases
- * ----------
- *   - stashApply returns {status: "conflict", conflicted_files}: dialog
- *     should NOT auto-close; it should hand off to MergeFlow (D39-2.4a).
- *     Skeleton documents this; impl phase wires the handoff.
- *   - User clicks Apply now while another stashApply is in flight:
- *     submitting flag disables all buttons; impl phase responsibility.
- *
- * Tests
- * -----
- *   - renders title + body with the stash id substituted
- *   - Apply now button calls onApplyNow with stashId
- *   - Discard button calls onDiscard with stashId after user confirm
- *   - Keep stashed button just closes the dialog
+ * Prompts the user after a restore-on-dirty-tree auto-stash. The three
+ * actions (Apply now / Keep stashed / Discard) map to gitSlice operations.
+ * Per ADR §3.6 the wording is part of the contract.
  */
+import { useCallback, useState } from "react";
 import type { JSX } from "react";
+
+import { Button } from "@/components/ui/button";
+
+import { api } from "../../lib/api";
+import { useAppStore } from "../../store";
 
 export interface StashApplyDialogProps {
   open: boolean;
@@ -98,8 +22,128 @@ export interface StashApplyDialogProps {
   onDiscard?: (stashId: string) => Promise<void>;
 }
 
-export function StashApplyDialog(_props: StashApplyDialogProps): JSX.Element {
-  // TODO: D39-2.3b — implement Dialog body + the three action handlers
-  // with their default gitSlice fallbacks.
-  throw new Error("TODO: D39-2.3b — implement StashApplyDialog body");
+export function StashApplyDialog(props: StashApplyDialogProps): JSX.Element | null {
+  const { open, stashId, onClose, onApplyNow, onKeepStashed, onDiscard } = props;
+  const loadStatus = useAppStore((s) => s.loadStatus);
+  const setLastError = useAppStore((s) => s.setLastError);
+  const [submitting, setSubmitting] = useState(false);
+
+  const defaultApplyNow = useCallback(
+    async (sid: string) => {
+      await api.gitStashApply(sid);
+      void loadStatus();
+    },
+    [loadStatus],
+  );
+
+  const defaultDiscard = useCallback(
+    async (sid: string) => {
+      await api.gitStashDrop(sid);
+    },
+    [],
+  );
+
+  const handleApply = useCallback(async () => {
+    setSubmitting(true);
+    try {
+      await (onApplyNow ?? defaultApplyNow)(stashId);
+      onClose();
+    } catch (err) {
+      setLastError(err instanceof Error ? err.message : "Stash apply failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [defaultApplyNow, onApplyNow, onClose, setLastError, stashId]);
+
+  const handleDiscard = useCallback(async () => {
+    const confirmed = window.confirm("This permanently drops the stash. Continue?");
+    if (!confirmed) return;
+    setSubmitting(true);
+    try {
+      await (onDiscard ?? defaultDiscard)(stashId);
+      onClose();
+    } catch (err) {
+      setLastError(err instanceof Error ? err.message : "Stash drop failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [defaultDiscard, onClose, onDiscard, setLastError, stashId]);
+
+  const handleKeep = useCallback(() => {
+    if (onKeepStashed) onKeepStashed();
+    else onClose();
+  }, [onClose, onKeepStashed]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="stash-apply-title"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          handleKeep();
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          void handleApply();
+        }
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleKeep();
+      }}
+    >
+      <div
+        data-testid="stash-apply-dialog"
+        className="w-full max-w-md rounded-lg bg-white p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="stash-apply-title" className="text-base font-semibold text-ink">
+          Your unsaved changes are stashed.
+        </h2>
+        <p
+          data-testid="stash-apply-dialog-body"
+          className="mt-2 text-sm text-stone-600"
+        >
+          The restore put your previous edits into stash {stashId}. Apply them on top of the restored version?
+        </p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button
+            data-testid="stash-apply-discard"
+            variant="toolbar"
+            size="toolbar"
+            type="button"
+            disabled={submitting}
+            onClick={() => void handleDiscard()}
+            className="!text-red-700"
+          >
+            Discard
+          </Button>
+          <Button
+            data-testid="stash-apply-keep"
+            variant="toolbar"
+            size="toolbar"
+            type="button"
+            disabled={submitting}
+            onClick={handleKeep}
+          >
+            Keep stashed
+          </Button>
+          <Button
+            data-testid="stash-apply-now"
+            variant="toolbar-dark"
+            size="toolbar"
+            type="button"
+            disabled={submitting}
+            onClick={() => void handleApply()}
+            autoFocus
+          >
+            Apply now
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }

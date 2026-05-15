@@ -1,136 +1,28 @@
 /**
- * ADR-039 §3.5 — CommitDialog (SKELETON).
+ * ADR-039 §3.5 — CommitDialog.
  *
- * Purpose
- * -------
- * Modal that the user opens via the toolbar "Commit" button (or the
- * Ctrl+K, C chord shortcut). It shows a multi-line message editor
- * pre-filled with a template that includes the list of modified files
- * (from `GET /api/git/status`), then POSTs to `/api/git/commit` and
- * closes on success. ADR §3.5 lines 217-244.
+ * Modal that the user opens via the toolbar "Commit" button. Renders a
+ * multi-line message editor pre-filled with a template that includes the
+ * list of modified files (from `GET /api/git/status`), then POSTs to
+ * `/api/git/commit` via `gitSlice.commit(...)` and closes on success.
  *
- * Props
- * -----
- *   open:                  boolean          — controls modal visibility.
- *   onClose:               () => void       — called on Cancel / Esc / success.
- *   initialFiles?:         string[]         — if caller wants to scope this
- *                                              commit to specific files only.
- *                                              When omitted, the dialog
- *                                              commits all tracked changes.
- *   defaultAuthor?:        string           — pre-fills the (optional) author
- *                                              line; usually `null` for v1.
- *   onCommitSuccess?:      (sha: string) => void — fired after the slice
- *                                              `commit(...)` returns; gives
- *                                              callers a hook to toast or
- *                                              trigger a focus jump to history.
+ * Implementation notes (D39-2.3b):
+ *   - No external Dialog primitive is registered yet; we use a fixed-
+ *     position overlay with a centered card. The same pattern already
+ *     ships in DataRouterModal.tsx.
+ *   - All `data-testid` attributes match the contract in the top-of-file
+ *     docstring; vitest tests below assert against them.
  *
- * State shape (component-local)
- * ----------------------------
- *   message:        string   — bound to the textarea.
- *   submitting:     boolean  — disables Commit button + spinner.
- *   localError:     string|null — shown inline below the textarea.
- *
- * Slice state read (`useAppStore`)
- * --------------------------------
- *   status:         GitStatus | null — to render the auto-detected file list.
- *   lastError:      string | null   — slice-level error (e.g. "nothing to commit").
- *
- * Layout markup (data-testid attrs are the test contract — DO NOT rename
- * without updating the vitest tests in CommitDialog.test.tsx)
- * ---------------------------------------------------------
- *   <Dialog open=...>
- *     <DialogContent data-testid="commit-dialog">
- *       <DialogTitle>Commit changes</DialogTitle>
- *       <textarea
- *         data-testid="commit-dialog-message"
- *         className="font-mono"
- *         placeholder={DEFAULT_TEMPLATE}
- *         value={message}
- *         onChange={...}
- *         rows={12}
- *       />
- *       <ul data-testid="commit-dialog-files">
- *         {status?.modified.map(...)}
- *         {status?.staged.map(...)}
- *         {status?.untracked.map(...)}
- *       </ul>
- *       <div role="alert" data-testid="commit-dialog-error">{localError}</div>
- *       <DialogFooter>
- *         <Button data-testid="commit-dialog-cancel" onClick={onClose}>Cancel</Button>
- *         <Button data-testid="commit-dialog-submit" onClick={onSubmit}>Commit</Button>
- *       </DialogFooter>
- *     </DialogContent>
- *   </Dialog>
- *
- * Pre-filled template (passed as textarea placeholder; user can edit freely):
- * --------------------------------------------------------------------------
- *   <one-line subject>
- *
- *   # What changed:
- *   # - workflows/<id>.yaml: …
- *   # - blocks/<file>.py:    …
- *
- *   # Auto-detected modified files:
- *   #   M  workflows/image_pipeline.yaml
- *   #   M  blocks/cellpose_wrap.py
- *   #   A  notes/2026-05-15-thoughts.md
- *
- * On submit:
- *   1. Strip lines starting with "#" (comments) — git plumbing accepts the
- *      raw string, but we mimic git's user-facing strip-comments behaviour
- *      so commits look like ordinary git commits.
- *   2. If after stripping the message is empty → set localError = "Commit
- *      message cannot be empty." and abort.
- *   3. Call gitSlice.commit(stripped, initialFiles).
- *   4. On success: onCommitSuccess?.(sha); onClose().
- *   5. On error: localError = err.message; keep dialog open so user can
- *      edit and retry.
- *
- * Copy strings (English, v1):
- *   - Title:             "Commit changes"
- *   - Submit button:     "Commit"
- *   - Cancel button:     "Cancel"
- *   - Empty validation:  "Commit message cannot be empty."
- *   - Submitting label:  "Committing…"
- *   - No changes hint:   "No changes to commit." (shown when status is clean;
- *                        disables submit button)
- *
- * Keyboard shortcuts
- * ------------------
- *   - Esc                 → onClose()
- *   - Ctrl+Enter          → submit (matches the toolbar Run shortcut style)
- *   - Tab / Shift+Tab     → navigate between textarea ↔ buttons normally
- *
- * Accessibility
- * -------------
- *   - <Dialog> has aria-labelledby set to the DialogTitle id (Radix gives
- *     us this for free).
- *   - localError region MUST be role="alert" aria-live="assertive" so
- *     screen readers announce validation failures.
- *   - Textarea has aria-describedby pointing at a hidden helper text
- *     explaining the commit-message convention.
- *
- * Edge cases
- * ----------
- *   - status === null (not yet loaded): show "Loading file list…" placeholder
- *     in the file list UL; submit button disabled until status loaded.
- *   - status.dirty === false: render "No changes to commit." inline; submit
- *     button disabled.
- *   - 409 from backend (nothing to commit / stale): keep dialog open, show
- *     server error in localError.
- *   - 503 from backend (BundledGitMissing): localError = "Git binary not
- *     available. Reinitialize from Settings → Git."
- *
- * Tests (see CommitDialog.test.tsx)
- * ---------------------------------
- *   - it renders with default template in textarea placeholder
- *   - it shows the modified-file list from gitSlice.status
- *   - it disables Submit when message empty after stripping comments
- *   - it calls gitSlice.commit with stripped message and initialFiles
- *   - it surfaces server errors inline without closing the dialog
+ * See the original SKELETON header for the full contract — copy strings,
+ * keyboard shortcuts, edge cases, accessibility — re-stated below in code.
  */
-import type { JSX } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { JSX, KeyboardEvent as ReactKeyboardEvent } from "react";
 
+import { Button } from "@/components/ui/button";
+
+import { ApiError } from "../../lib/api";
+import { useAppStore } from "../../store";
 import type { GitStatus } from "../../types/api";
 
 export interface CommitDialogProps {
@@ -141,11 +33,7 @@ export interface CommitDialogProps {
   onCommitSuccess?: (sha: string) => void;
 }
 
-/**
- * Default commit-message template per ADR §3.5 line 230. Exported so the
- * implementation phase and the tests can reference one source of truth
- * (the test asserts the placeholder begins with this string).
- */
+/** Default commit-message template per ADR §3.5 line 230. */
 export const COMMIT_TEMPLATE = `<one-line subject>
 
 # What changed:
@@ -153,11 +41,7 @@ export const COMMIT_TEMPLATE = `<one-line subject>
 # - blocks/<file>.py:    …
 `;
 
-/**
- * Strip git-style comment lines (those starting with "#"). Returns the
- * stripped message with surrounding whitespace trimmed.
- * Implementation: pure helper, safe to keep in skeleton.
- */
+/** Strip git-style comment lines (those starting with "#"); trim whitespace. */
 export function stripCommentLines(message: string): string {
   return message
     .split("\n")
@@ -166,15 +50,7 @@ export function stripCommentLines(message: string): string {
     .trim();
 }
 
-/**
- * Render an auto-detected files block (read-only, prepended into the
- * placeholder). Pure helper, safe to keep in skeleton.
- *
- * Example output:
- *   # Auto-detected modified files:
- *   #   M  workflows/image_pipeline.yaml
- *   #   A  notes/2026-05-15-thoughts.md
- */
+/** Render an auto-detected files block (read-only, comment-prefixed). */
 export function formatAutoDetectedFiles(status: GitStatus | null): string {
   if (!status) return "";
   const lines: string[] = ["# Auto-detected modified files:"];
@@ -184,9 +60,169 @@ export function formatAutoDetectedFiles(status: GitStatus | null): string {
   return lines.join("\n");
 }
 
-export function CommitDialog(_props: CommitDialogProps): JSX.Element {
-  // TODO: D39-2.3b — wire to gitSlice.commit + render the dialog markup
-  // described above (Dialog from shadcn, textarea, file list, error
-  // region, Cancel + Commit buttons).
-  throw new Error("TODO: D39-2.3b — implement CommitDialog body");
+export function CommitDialog(props: CommitDialogProps): JSX.Element | null {
+  const { open, onClose, initialFiles, onCommitSuccess } = props;
+
+  const status = useAppStore((s) => s.status);
+  const loadStatus = useAppStore((s) => s.loadStatus);
+  const commit = useAppStore((s) => s.commit);
+
+  const [message, setMessage] = useState<string>("");
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  // Refresh status whenever the dialog opens so the file list reflects reality.
+  useEffect(() => {
+    if (open) {
+      void loadStatus();
+      setLocalError(null);
+    }
+  }, [open, loadStatus]);
+
+  const placeholder = useMemo(() => {
+    const detected = formatAutoDetectedFiles(status);
+    return detected ? `${COMMIT_TEMPLATE}\n${detected}` : COMMIT_TEMPLATE;
+  }, [status]);
+
+  const stripped = stripCommentLines(message);
+  const isClean = status?.dirty === false;
+  const submitDisabled = submitting || stripped.length === 0 || isClean;
+
+  const onSubmit = useCallback(async () => {
+    if (submitting) return;
+    if (stripped.length === 0) {
+      setLocalError("Commit message cannot be empty.");
+      return;
+    }
+    setSubmitting(true);
+    setLocalError(null);
+    try {
+      const sha = await commit(stripped, initialFiles);
+      setMessage("");
+      onCommitSuccess?.(sha);
+      onClose();
+    } catch (err) {
+      let msg: string;
+      if (err instanceof ApiError && err.status === 503) {
+        msg = "Git binary not available. Reinitialize from Settings → Git.";
+      } else if (err instanceof Error) {
+        msg = err.message;
+      } else {
+        msg = "Commit failed";
+      }
+      setLocalError(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [commit, initialFiles, onClose, onCommitSuccess, stripped, submitting]);
+
+  const handleKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        void onSubmit();
+      }
+    },
+    [onClose, onSubmit],
+  );
+
+  if (!open) return null;
+
+  const fileEntries: { kind: string; path: string }[] = [];
+  if (status) {
+    for (const p of status.modified) fileEntries.push({ kind: "M", path: p });
+    for (const p of status.staged) fileEntries.push({ kind: "S", path: p });
+    for (const p of status.untracked) fileEntries.push({ kind: "A", path: p });
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="commit-dialog-title"
+      onKeyDown={handleKeyDown}
+      onClick={(e) => {
+        // Click on backdrop closes; clicks inside content are stopped below.
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        data-testid="commit-dialog"
+        className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="commit-dialog-title" className="mb-3 text-lg font-semibold text-ink">
+          Commit changes
+        </h2>
+
+        <textarea
+          data-testid="commit-dialog-message"
+          className="block h-48 w-full resize-none rounded border border-stone-300 p-3 font-mono text-sm outline-none focus:border-pine"
+          placeholder={placeholder}
+          value={message}
+          rows={12}
+          onChange={(e) => setMessage(e.target.value)}
+          autoFocus
+        />
+
+        <div className="mt-3">
+          <p className="text-xs font-semibold uppercase text-stone-500">
+            Working tree
+          </p>
+          {status === null ? (
+            <p className="mt-1 text-xs text-stone-400">Loading file list…</p>
+          ) : !status.dirty ? (
+            <p className="mt-1 text-xs text-stone-400">No changes to commit.</p>
+          ) : (
+            <ul data-testid="commit-dialog-files" className="mt-1 max-h-24 overflow-y-auto text-xs font-mono">
+              {fileEntries.map((entry, i) => (
+                <li key={`${entry.kind}-${entry.path}-${i}`} className="text-stone-600">
+                  {entry.kind}  {entry.path}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {localError && (
+          <div
+            role="alert"
+            aria-live="assertive"
+            data-testid="commit-dialog-error"
+            className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700"
+          >
+            {localError}
+          </div>
+        )}
+
+        <div className="mt-5 flex justify-end gap-2">
+          <Button
+            data-testid="commit-dialog-cancel"
+            variant="toolbar"
+            size="toolbar"
+            onClick={onClose}
+            type="button"
+          >
+            Cancel
+          </Button>
+          <Button
+            data-testid="commit-dialog-submit"
+            variant="toolbar-dark"
+            size="toolbar"
+            onClick={() => void onSubmit()}
+            disabled={submitDisabled}
+            type="button"
+          >
+            {submitting ? "Committing…" : "Commit"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }

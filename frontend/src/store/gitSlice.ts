@@ -99,6 +99,7 @@
  */
 import type { StateCreator } from "zustand";
 
+import { api, ApiError } from "../lib/api";
 import type {
   GitBranch,
   GitCommit,
@@ -108,6 +109,25 @@ import type {
   GitStatus,
 } from "../types/api";
 import type { AppStore } from "./types";
+
+const LOG_ALL_KEY = "<all>";
+
+function logKey(branch?: string): string {
+  return branch && branch.length > 0 ? branch : LOG_ALL_KEY;
+}
+
+function describeApiError(err: unknown, fallback: string): string {
+  if (err instanceof ApiError) {
+    if (err.status === 503) {
+      return "Git binary not available. Reinitialize from Settings → Git.";
+    }
+    return err.message || fallback;
+  }
+  if (err instanceof Error) {
+    return err.message || fallback;
+  }
+  return fallback;
+}
 
 // ---------------------------------------------------------------------------
 // State shape (exported separately so AppStore can union it in)
@@ -200,7 +220,7 @@ export function selectVisibleCommits(
 // Slice factory
 // ---------------------------------------------------------------------------
 
-export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set) => ({
+export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, get) => ({
   branches: null,
   currentBranch: null,
   logCache: {},
@@ -214,38 +234,120 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set) =>
   setHistoryFilter: (filter) => set({ historyFilter: filter }),
 
   invalidateHistory: () =>
-    // TODO: D39-2.3b — invalidate logCache, status, branches; trigger next
-    // fetch lazily on next consumer read.
-    set({ logCache: {}, status: null, branches: null }),
+    // Clear cached log / status / branch list so the next consumer render
+    // dispatches fresh fetches. Called from useWebSocket on `git.head_changed`.
+    set({ logCache: {}, status: null, branches: null, stashes: null }),
 
   setMergeInProgress: (state) => set({ mergeInProgress: state }),
   setLastError: (message) => set({ lastError: message }),
 
   loadBranches: async () => {
-    throw new Error("TODO: D39-2.3b — fetch /api/git/branches and populate state");
+    try {
+      const branches = await api.gitBranches();
+      const current = branches.find((b) => b.is_current)?.name ?? null;
+      set({ branches, currentBranch: current, lastError: null });
+    } catch (err) {
+      set({ lastError: describeApiError(err, "Failed to load branches") });
+    }
   },
-  loadLog: async (_branch?: string) => {
-    throw new Error("TODO: D39-2.3b — fetch /api/git/log and populate logCache");
+
+  loadLog: async (branch?: string) => {
+    const key = logKey(branch);
+    set((state) => ({ logLoading: { ...state.logLoading, [key]: true } }));
+    try {
+      const commits = await api.gitLog(branch ? { branch } : undefined);
+      set((state) => ({
+        logCache: { ...state.logCache, [key]: commits },
+        logLoading: { ...state.logLoading, [key]: false },
+        lastError: null,
+      }));
+    } catch (err) {
+      set((state) => ({
+        logLoading: { ...state.logLoading, [key]: false },
+        lastError: describeApiError(err, "Failed to load commit history"),
+      }));
+    }
   },
+
   loadStatus: async () => {
-    throw new Error("TODO: D39-2.3b — fetch /api/git/status and populate state.status");
+    try {
+      const status = await api.gitStatus();
+      set({ status, lastError: null });
+    } catch (err) {
+      set({ lastError: describeApiError(err, "Failed to load git status") });
+    }
   },
+
   loadStashes: async () => {
-    throw new Error("TODO: D39-2.3b — fetch /api/git/stash and populate state.stashes");
+    try {
+      const stashes = await api.gitStashList();
+      set({ stashes, lastError: null });
+    } catch (err) {
+      set({ lastError: describeApiError(err, "Failed to load stashes") });
+    }
   },
-  commit: async (_message: string, _files?: string[]) => {
-    throw new Error("TODO: D39-2.3b — POST /api/git/commit and refresh log");
+
+  commit: async (message: string, files?: string[]) => {
+    try {
+      const resp = await api.gitCommit({ message, files });
+      // Invalidate caches so the next render picks up the new commit + clean tree.
+      set({ logCache: {}, status: null, lastError: null });
+      // Best-effort refresh: status + log for the current branch.
+      const branch = get().currentBranch ?? undefined;
+      void get().loadStatus();
+      void get().loadLog(branch);
+      return resp.commit_sha;
+    } catch (err) {
+      const message = describeApiError(err, "Commit failed");
+      set({ lastError: message });
+      throw err instanceof Error ? err : new Error(message);
+    }
   },
-  switchBranch: async (_name: string) => {
-    throw new Error("TODO: D39-2.3b — POST /api/git/branch/switch and refresh");
+
+  switchBranch: async (name: string) => {
+    try {
+      await api.gitBranchSwitch(name);
+      // Clear all caches; HEAD moved.
+      set({ logCache: {}, status: null, branches: null, lastError: null });
+      await get().loadBranches();
+      void get().loadStatus();
+      void get().loadLog(name);
+    } catch (err) {
+      set({ lastError: describeApiError(err, `Failed to switch to '${name}'`) });
+      throw err;
+    }
   },
-  createBranch: async (_name: string, _baseSha?: string) => {
-    throw new Error("TODO: D39-2.3b — POST /api/git/branch/create and refresh");
+
+  createBranch: async (name: string, baseSha?: string) => {
+    try {
+      await api.gitBranchCreate({ name, base_sha: baseSha });
+      set({ branches: null, lastError: null });
+      await get().loadBranches();
+    } catch (err) {
+      set({ lastError: describeApiError(err, `Failed to create branch '${name}'`) });
+      throw err;
+    }
   },
-  deleteBranch: async (_name: string, _force?: boolean) => {
-    throw new Error("TODO: D39-2.3b — DELETE /api/git/branches/<name>");
+
+  deleteBranch: async (name: string, force = false) => {
+    try {
+      await api.gitBranchDelete(name, force);
+      set({ branches: null, lastError: null });
+      await get().loadBranches();
+    } catch (err) {
+      set({ lastError: describeApiError(err, `Failed to delete branch '${name}'`) });
+      throw err;
+    }
   },
-  restore: async (_commitSha: string, _files?: string[]) => {
-    throw new Error("TODO: D39-2.3b — POST /api/git/restore and refresh");
+
+  restore: async (commitSha: string, files?: string[]) => {
+    try {
+      await api.gitRestore({ commit_sha: commitSha, files });
+      set({ status: null, lastError: null });
+      void get().loadStatus();
+    } catch (err) {
+      set({ lastError: describeApiError(err, "Restore failed") });
+      throw err;
+    }
   },
 });

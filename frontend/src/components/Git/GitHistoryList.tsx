@@ -1,163 +1,31 @@
 /**
- * ADR-039 §3.5 + §3.4 + §3.4a + §3.5c — GitHistoryList (SKELETON).
+ * ADR-039 §3.5 + §3.4 + §3.4a + §3.5c — GitHistoryList.
  *
- * Purpose
- * -------
  * Reverse-chronological commit list with a header-level filter dropdown
- * (Manual / All / Auto / Agent). Click a row → opens GitDiffModal showing
- * `commit_sha^..commit_sha`. Each row also has a "Restore this version"
- * button that calls `gitSlice.restore({commit_sha})`.
- *
- * Lives in the "Git" tab inside the Bottom Panel (the cascade does NOT
- * register a new BottomTab in this phase — D39-2.3b decides whether to
- * add the tab to `BottomPanel.tsx` or whether the History list lives on
- * a side panel — that decision is documented in the BranchPicker
- * skeleton). For the SKELETON: this component renders standalone.
- *
- * Props
- * -----
- *   branch?:                   string         — null → log --all
- *   onCommitClick?:            (commit: GitCommit) => void
- *                                              Used when caller wants to
- *                                              intercept the diff modal (e.g.
- *                                              Lineage tab's "restore this
- *                                              run's workflow" flow).
- *   onRestoreClick?:           (commit: GitCommit) => void
- *                                              Defaults to gitSlice.restore.
- *   showFilterDropdown?:       boolean        — defaults true. The Graph view
- *                                              (D39-2.4a) shares the same
- *                                              filter so will pass false to
- *                                              avoid two dropdowns.
- *   className?:                string
- *
- * Slice state read (`useAppStore`)
- * --------------------------------
- *   logCache:        Record<string, GitCommit[]>
- *   logLoading:      Record<string, boolean>
- *   historyFilter:   GitHistoryFilter
- *   setHistoryFilter: (filter) => void
- *   loadLog:         (branch?) => Promise<void>
- *
- * Event flow (user → dispatches)
- * ------------------------------
- *   - mount / branch prop change → loadLog(branch)
- *   - click commit row → onCommitClick(commit) (or open GitDiffModal inline)
- *   - click row's restore button → onRestoreClick(commit) or gitSlice.restore
- *   - filter dropdown change → setHistoryFilter(filter)
- *
- * Layout markup with data-testids
- * -------------------------------
- *   <div data-testid="git-history-list" className="flex flex-col">
- *     <div className="flex items-center gap-2 px-3 py-2 border-b">
- *       <Select
- *         data-testid="git-history-filter"
- *         value={historyFilter}
- *         onChange={setHistoryFilter}
- *       >
- *         <option value="manual">Manual milestones</option>
- *         <option value="all">All (incl. auto)</option>
- *         <option value="auto">Auto only (debug)</option>
- *         <option value="agent">Agent only (debug)</option>
- *       </Select>
- *       <button data-testid="git-history-refresh" onClick={() => loadLog(branch)}>
- *         Refresh
- *       </button>
- *     </div>
- *     {logLoading[key] ? <Spinner data-testid="git-history-loading" /> :
- *       visibleCommits.length === 0 ? (
- *         <div data-testid="git-history-empty">No commits yet on this branch.</div>
- *       ) : (
- *         <ul data-testid="git-history-rows" role="list">
- *           {visibleCommits.map((commit) => (
- *             <li
- *               key={commit.sha}
- *               data-testid={`git-history-row-${commit.short_sha}`}
- *               data-commit-prefix={classifyPrefix(commit.subject)}  // "auto"|"agent"|"user"
- *               role="button"
- *               tabIndex={0}
- *               onClick={() => onCommitClick?.(commit)}
- *             >
- *               <span data-testid="git-history-row-icon">
- *                 {prefix === "agent" ? "🤖" : prefix === "auto" ? "·" : "👤"}
- *               </span>
- *               <span data-testid="git-history-row-short-sha">{commit.short_sha}</span>
- *               <span data-testid="git-history-row-subject">{commit.subject}</span>
- *               <span data-testid="git-history-row-author">{commit.author_name}</span>
- *               <time data-testid="git-history-row-date">{commit.author_date}</time>
- *               <button
- *                 data-testid={`git-history-row-restore-${commit.short_sha}`}
- *                 onClick={(e) => { e.stopPropagation(); onRestoreClick(commit); }}
- *               >
- *                 Restore this version
- *               </button>
- *             </li>
- *           ))}
- *         </ul>
- *       )}
- *   </div>
- *
- * Copy strings
- * ------------
- *   Filter options: "Manual milestones" / "All (incl. auto)" /
- *                   "Auto only (debug)" / "Agent only (debug)"
- *                   (must match ADR §3.4 line 181-184)
- *   Empty:          "No commits yet on this branch."
- *   Loading:        "Loading commit history…"
- *   Refresh:        "Refresh"
- *   Restore row:    "Restore this version"
- *   Restore tooltip: "Soft-restore: copy this commit's files into the working
- *                     tree without moving HEAD. (Hard restore lives in the
- *                     advanced menu.)"
- *
- * Keyboard shortcuts
- * ------------------
- *   - Up/Down arrow keys move focus between rows (custom keyhandler).
- *   - Enter on a focused row → onCommitClick(commit).
- *   - R on a focused row → onRestoreClick(commit) (confirm-once dialog
- *     deferred to D39-2.3b).
- *
- * Accessibility
- * -------------
- *   - <ul role="list"> with <li role="button" tabIndex={0}> — common
- *     focus-managed list pattern used by other SciEasy lists.
- *   - Filter dropdown uses native <select> for keyboard parity with the
- *     rest of the toolbar.
- *   - Time elements use ISO timestamps via <time dateTime={iso}>.
- *
- * Edge cases
- * ----------
- *   - logCache[key] missing → on mount, dispatch loadLog. Render
- *     "Loading commit history…" until logLoading[key] flips false.
- *   - All commits filtered out (e.g. "manual" filter but every commit is
- *     `auto:`) → show <div data-testid="git-history-empty-after-filter">
- *       "Only auto/agent commits exist on this branch.
- *        Switch the filter to All to see them."
- *   - Restore on dirty tree → backend auto-stashes (per ADR §3.6); the
- *     server responds with {status: "stashed", stash_id}. D39-2.3b is
- *     responsible for showing the StashApplyDialog when that response
- *     arrives.
- *
- * Virtualization plan (D39-2.3b)
- * ------------------------------
- *   - For <500 commits: no virtualization (modern browsers render 500
- *     DOM rows fine).
- *   - For 500-10000 commits: drop in `@tanstack/react-virtual` here.
- *   - Beyond 10000: server-side pagination via the `limit` query param;
- *     out of scope for v1.
- *
- * Tests (see GitHistoryList.test.tsx)
- * -----------------------------------
- *   - renders loading state when logLoading[branch] === true
- *   - renders empty state when logCache[branch] === []
- *   - renders one row per commit with short_sha + subject + author
- *   - filter dropdown defaulted to "manual" hides "auto:" rows
- *   - filter "all" reveals previously-hidden auto rows
- *   - clicking row dispatches onCommitClick
- *   - clicking restore button dispatches onRestoreClick
+ * (Manual / All / Auto / Agent). Click a row → onCommitClick (defaults to
+ * opening GitDiffModal). "Restore this version" button per row →
+ * gitSlice.restore.
  */
-import type { JSX } from "react";
+import { useCallback, useEffect, useState } from "react";
+import type { JSX, KeyboardEvent as ReactKeyboardEvent } from "react";
 
-import type { GitCommit } from "../../types/api";
+import { useAppStore } from "../../store";
+import type { GitCommit, GitHistoryFilter } from "../../types/api";
+import { classifyPrefix, selectVisibleCommits } from "../../store/gitSlice";
+import { GitDiffModal } from "./GitDiffModal";
+
+const PREFIX_ICON: Record<string, string> = {
+  auto: "·",
+  agent: "🤖",
+  user: "👤",
+};
+
+const FILTER_OPTIONS: { value: GitHistoryFilter; label: string }[] = [
+  { value: "manual", label: "Manual milestones" },
+  { value: "all", label: "All (incl. auto)" },
+  { value: "auto", label: "Auto only (debug)" },
+  { value: "agent", label: "Agent only (debug)" },
+];
 
 export interface GitHistoryListProps {
   branch?: string;
@@ -167,9 +35,213 @@ export interface GitHistoryListProps {
   className?: string;
 }
 
-export function GitHistoryList(_props: GitHistoryListProps): JSX.Element {
-  // TODO: D39-2.3b — implement the markup per the data-testid contract
-  // above, wire loadLog on mount + branch change, render rows via
-  // selectVisibleCommits(commits, historyFilter).
-  throw new Error("TODO: D39-2.3b — implement GitHistoryList body");
+export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
+  const { branch, onCommitClick, onRestoreClick, showFilterDropdown = true, className } = props;
+
+  const logCache = useAppStore((s) => s.logCache);
+  const logLoading = useAppStore((s) => s.logLoading);
+  const historyFilter = useAppStore((s) => s.historyFilter);
+  const setHistoryFilter = useAppStore((s) => s.setHistoryFilter);
+  const loadLog = useAppStore((s) => s.loadLog);
+  const restore = useAppStore((s) => s.restore);
+
+  const key = branch && branch.length > 0 ? branch : "<all>";
+  const commits = logCache[key] ?? null;
+  const loading = logLoading[key] === true;
+
+  // Internal diff modal state — opened by default if onCommitClick not given.
+  const [diffOpen, setDiffOpen] = useState<{ from: string; to?: string } | null>(null);
+
+  useEffect(() => {
+    if (commits === null && !loading) {
+      void loadLog(branch);
+    }
+  }, [branch, commits, loading, loadLog]);
+
+  const handleRowClick = useCallback(
+    (commit: GitCommit) => {
+      if (onCommitClick) {
+        onCommitClick(commit);
+      } else {
+        // Open the diff between this commit and its first parent.
+        const parent = commit.parents[0];
+        setDiffOpen({ from: parent ?? commit.sha, to: parent ? commit.sha : undefined });
+      }
+    },
+    [onCommitClick],
+  );
+
+  const handleRestore = useCallback(
+    (commit: GitCommit) => {
+      if (onRestoreClick) {
+        onRestoreClick(commit);
+        return;
+      }
+      const ok = window.confirm(
+        `Restore files from commit ${commit.short_sha}?\n\n${commit.subject}\n\nThis will overwrite the working tree (uncommitted changes will be auto-stashed).`,
+      );
+      if (!ok) return;
+      void restore(commit.sha).catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn("[GitHistoryList] restore failed:", err);
+      });
+    },
+    [onRestoreClick, restore],
+  );
+
+  const onKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLLIElement>, commit: GitCommit) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        handleRowClick(commit);
+      } else if (event.key.toLowerCase() === "r") {
+        event.preventDefault();
+        handleRestore(commit);
+      }
+    },
+    [handleRowClick, handleRestore],
+  );
+
+  const visibleCommits = commits ? selectVisibleCommits(commits, historyFilter) : [];
+
+  return (
+    <div
+      data-testid="git-history-list"
+      className={`flex h-full flex-col ${className ?? ""}`}
+    >
+      {showFilterDropdown && (
+        <div className="flex items-center gap-2 border-b border-stone-200 px-3 py-2">
+          <label htmlFor="git-history-filter-select" className="sr-only">
+            Filter commits
+          </label>
+          <select
+            id="git-history-filter-select"
+            data-testid="git-history-filter"
+            value={historyFilter}
+            onChange={(e) => setHistoryFilter(e.target.value as GitHistoryFilter)}
+            className="rounded border border-stone-300 px-2 py-1 text-xs"
+          >
+            {FILTER_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            data-testid="git-history-refresh"
+            onClick={() => void loadLog(branch)}
+            className="rounded border border-stone-300 px-2 py-1 text-xs hover:bg-stone-50"
+          >
+            Refresh
+          </button>
+        </div>
+      )}
+
+      {loading ? (
+        <div
+          data-testid="git-history-loading"
+          className="px-3 py-4 text-xs text-stone-500"
+        >
+          Loading commit history…
+        </div>
+      ) : commits === null ? (
+        <div
+          data-testid="git-history-loading"
+          className="px-3 py-4 text-xs text-stone-500"
+        >
+          Loading commit history…
+        </div>
+      ) : visibleCommits.length === 0 ? (
+        commits.length === 0 ? (
+          <div
+            data-testid="git-history-empty"
+            className="px-3 py-4 text-xs text-stone-500"
+          >
+            No commits yet on this branch.
+          </div>
+        ) : (
+          <div
+            data-testid="git-history-empty-after-filter"
+            className="px-3 py-4 text-xs text-stone-500"
+          >
+            Only auto/agent commits exist on this branch. Switch the filter to All to see them.
+          </div>
+        )
+      ) : (
+        <ul
+          data-testid="git-history-rows"
+          role="list"
+          className="min-h-0 flex-1 overflow-y-auto"
+        >
+          {visibleCommits.map((commit) => {
+            const prefix = classifyPrefix(commit.subject);
+            return (
+              <li
+                key={commit.sha}
+                data-testid={`git-history-row-${commit.short_sha}`}
+                data-commit-prefix={prefix}
+                role="button"
+                tabIndex={0}
+                onClick={() => handleRowClick(commit)}
+                onKeyDown={(e) => onKeyDown(e, commit)}
+                className="flex items-center gap-2 border-b border-stone-100 px-3 py-2 text-xs hover:bg-stone-50 focus:bg-stone-100 focus:outline-none"
+              >
+                <span data-testid="git-history-row-icon" aria-hidden>
+                  {PREFIX_ICON[prefix] ?? "·"}
+                </span>
+                <code
+                  data-testid="git-history-row-short-sha"
+                  className="font-mono text-stone-500"
+                >
+                  {commit.short_sha}
+                </code>
+                <span
+                  data-testid="git-history-row-subject"
+                  className="flex-1 truncate text-ink"
+                  title={commit.subject}
+                >
+                  {commit.subject}
+                </span>
+                <span
+                  data-testid="git-history-row-author"
+                  className="hidden text-stone-500 sm:inline"
+                >
+                  {commit.author_name}
+                </span>
+                <time
+                  data-testid="git-history-row-date"
+                  dateTime={commit.author_date}
+                  className="text-stone-400"
+                >
+                  {new Date(commit.author_date).toLocaleString()}
+                </time>
+                <button
+                  type="button"
+                  data-testid={`git-history-row-restore-${commit.short_sha}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRestore(commit);
+                  }}
+                  title="Soft-restore: copy this commit's files into the working tree without moving HEAD."
+                  className="ml-2 rounded border border-stone-300 px-2 py-0.5 text-[10px] hover:bg-stone-100"
+                >
+                  Restore this version
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {diffOpen && (
+        <GitDiffModal
+          open={true}
+          from={diffOpen.from}
+          to={diffOpen.to}
+          onClose={() => setDiffOpen(null)}
+        />
+      )}
+    </div>
+  );
 }

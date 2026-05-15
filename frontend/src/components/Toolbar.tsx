@@ -20,7 +20,10 @@ import {
   FileCode2,
   FileText,
   Workflow,
+  GitCommit,
+  Archive,
 } from "lucide-react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -40,6 +43,10 @@ import {
 } from "@/components/ui/tooltip";
 
 import type { ProjectResponse } from "../types/api";
+import { BranchPicker } from "./Git/BranchPicker";
+import { CommitDialog } from "./Git/CommitDialog";
+import { GitStatusBadge } from "./Git/GitStatusBadge";
+import { StashListPanel } from "./Git/StashListPanel";
 
 interface ToolbarProps {
   currentProject: ProjectResponse | null;
@@ -207,9 +214,20 @@ export function Toolbar(props: ToolbarProps) {
   void onStartFromSelected;
   const isFileTab = activeTabKind === "file";
 
+  // ADR-039 §3.5 — Git toolbar local state. Commit dialog + stash drawer.
+  const [commitOpen, setCommitOpen] = useState(false);
+  const [stashOpen, setStashOpen] = useState(false);
+  const gitToolbar = { setCommitOpen, setStashOpen };
+
   return (
     <TooltipProvider delayDuration={300}>
-      <header className="flex items-center gap-3 border-b border-stone-200 bg-white/85 px-5 py-3 backdrop-blur">
+      <header
+        // ADR-039 §3.5 — Git toolbar adds 4 items; on narrow viewports the
+        // toolbar overflows. Make the toolbar horizontally scrollable so
+        // every button is reachable. min-w-0 lets flex children shrink and
+        // overflow-x-auto provides the scrollbar when needed.
+        className="flex items-center gap-3 overflow-x-auto border-b border-stone-200 bg-white/85 px-5 py-3 backdrop-blur"
+      >
         {/* Logo + Project Header */}
         <div className="flex items-center gap-3">
           <div className="rounded-[1.4rem] bg-ink px-4 py-2.5 text-stone-50">
@@ -458,36 +476,56 @@ export function Toolbar(props: ToolbarProps) {
         )}
 
         {/*
-         * ADR-039 §3.5 — Git toolbar slot.
+         * ADR-039 §3.5 — Git toolbar group (D39-2.3b).
          *
-         * D39-2.3a (skeleton) leaves PLACEHOLDER slots here. The actual
-         * mounts of <BranchPicker/>, <GitStatusBadge/>, and the "Commit"
-         * button happen in D39-2.3b once the components have non-throwing
-         * implementations. Wiring them now would crash the toolbar on
-         * every render.
-         *
-         * Slot layout (post-D39-2.3b):
-         *   <Separator orientation="vertical" className="mx-1 h-8" />
-         *   <BranchPicker onMergeRequested={...} onCreateBranchRequested={...} />
-         *   <GitStatusBadge onClick={openCommitDialog} />
-         *   <ToolbarButton icon={GitCommit} label="Commit" shortcut="Ctrl+K, C"
-         *                  onClick={openCommitDialog} disabled={!currentProject}/>
+         * BranchPicker (branch list / switch / create / merge / cherry-pick) +
+         * GitStatusBadge (working-tree dirty/clean) + Commit button (opens
+         * CommitDialog) + Stashes button (opens the right-side StashListPanel).
+         * Mounted only when a project is open — the gitSlice fetches no-op
+         * without a project so the components render correctly but provide
+         * no surface for confusion.
          */}
-        <span
-          data-testid="git-toolbar-slot"
-          data-skeleton-phase="D39-2.3a"
-          className="hidden"
-        />
+        {currentProject && (
+          <>
+            <Separator orientation="vertical" className="mx-1 h-8" />
+            <div
+              data-testid="git-toolbar-slot"
+              className="flex shrink-0 items-center gap-1"
+            >
+              <BranchPicker />
+              <GitStatusBadge
+                onClick={() => gitToolbar.setCommitOpen(true)}
+              />
+              <ToolbarButton
+                icon={GitCommit}
+                label="Commit"
+                shortcut="Ctrl+K, C"
+                disabled={!currentProject}
+                onClick={() => gitToolbar.setCommitOpen(true)}
+              />
+              <ToolbarButton
+                icon={Archive}
+                label="Stashes"
+                disabled={!currentProject}
+                onClick={() => gitToolbar.setStashOpen(true)}
+              />
+            </div>
+          </>
+        )}
 
         {/* Spacer */}
         <div className="flex-1" />
 
         {/* Connection Status */}
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <StatusPill connected={wsConnected} label="WS" />
           <StatusPill connected={sseConnected} label="Logs" />
         </div>
       </header>
+
+      {/* ADR-039 §3.5 — Git dialogs (rendered outside header to avoid clipping) */}
+      <CommitDialog open={commitOpen} onClose={() => setCommitOpen(false)} />
+      <StashListPanel open={stashOpen} onClose={() => setStashOpen(false)} />
     </TooltipProvider>
   );
 }
