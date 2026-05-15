@@ -85,10 +85,10 @@
   - P2-3 (ADR-038 §5.1 LineageRecorder move clarification) → ADR-038.md
   - P2-4 (ADR-038 §5.2 app.py row dedup) → ADR-038.md
 - [x] P3 fixes applied (P3-1 Layer 1 caption, P3-3 §5.3 ADR.md file refs); P3-4 same root as P2-1 (resolved); P3-2 → out-of-scope issue
-- [ ] Out-of-scope findings: filed as individual GitHub issues; tracked in "Out-of-scope from docs audit" section below
-- [ ] Docs PR #905 opened against main → https://github.com/zjzcpj/SciEasy/pull/905
-- [ ] CI green
-- [ ] User-approved autonomous merge → main now has the refactored docs
+- [x] Out-of-scope findings filed as separate GitHub issues; tracked in "Out-of-scope from docs audit" section below (#908)
+- [x] Docs PR #905 opened against main → https://github.com/zjzcpj/SciEasy/pull/905
+- [ ] CI green on PR #905
+- [ ] User-approved autonomous merge → main has the refactored docs
 
 ---
 
@@ -426,7 +426,7 @@
 
 > Populated during Phase 0.75 from the docs-audit report. Each entry: audit excerpt → issue URL.
 
-(empty until Phase 0.5 audit lands)
+- **OOS-1** (P3-2 in audit): `PROJECT_TREE.md` line 83-84 still describes `core/proxy.py` as ViewProxy lazy-loading accessor, but ARCHITECTURE.md Appendix B (line 3256) marks ViewProxy eliminated by ADR-031. Pre-existing drift unrelated to ADR-038/039. → https://github.com/zjzcpj/SciEasy/issues/908
 
 ---
 
