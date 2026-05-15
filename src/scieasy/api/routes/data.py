@@ -43,11 +43,21 @@ async def get_data_metadata(data_ref: str, runtime: RuntimeDep) -> DataMetadataR
 
 
 @router.get("/{data_ref}/preview", response_model=DataPreviewResponse)
-async def preview_data(data_ref: str, runtime: RuntimeDep) -> DataPreviewResponse:
-    """Return a lightweight preview of a stored data object."""
+async def preview_data(
+    data_ref: str,
+    runtime: RuntimeDep,
+    slice: int = 0,
+) -> DataPreviewResponse:
+    """Return a lightweight preview of a stored data object.
+
+    #899 — accepts an optional ``slice`` query param that selects an index
+    along the auto-detected slider axis (the first non-(y, x) dim) for
+    3-D images. Out-of-range values are clamped server-side; non-image
+    previews ignore the parameter.
+    """
     try:
         record = runtime.get_data_record(data_ref)
-        preview = runtime.preview_data(data_ref)
+        preview = runtime.preview_data(data_ref, slice_index=slice)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return DataPreviewResponse(ref=record.id, type_name=record.type_name, preview=preview)

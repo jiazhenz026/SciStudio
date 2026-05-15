@@ -165,8 +165,13 @@ export const api = {
     });
   },
   getDataMetadata: (dataRef: string) => apiFetch<DataMetadataResponse>(`/api/data/${encodeURIComponent(dataRef)}`),
-  getDataPreview: (dataRef: string) =>
-    apiFetch<DataPreviewResponse>(`/api/data/${encodeURIComponent(dataRef)}/preview`),
+  getDataPreview: (dataRef: string, slice?: number) => {
+    // #899 — optional ``slice`` query param selects the index along the
+    // backend-detected slider axis for 3-D images. Out-of-range values are
+    // clamped server-side; 2-D images ignore the param.
+    const qs = slice === undefined ? "" : `?slice=${encodeURIComponent(slice)}`;
+    return apiFetch<DataPreviewResponse>(`/api/data/${encodeURIComponent(dataRef)}/preview${qs}`);
+  },
   browseFilesystem: (path: string) =>
     apiFetch<FilesystemBrowseResponse>(
       `/api/filesystem/browse?path=${encodeURIComponent(path)}`,

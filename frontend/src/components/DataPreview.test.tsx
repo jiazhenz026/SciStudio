@@ -151,6 +151,122 @@ describe("DataPreview", () => {
     expect(screen.getByText("6.7890")).toBeInTheDocument();
   });
 
+  // ---------------------------------------------------------------------
+  // #898 — pill labels show source filename
+  // ---------------------------------------------------------------------
+
+  it("pill label shows source filename when framework.source is set (#898)", () => {
+    render(
+      <DataPreview
+        blockOutputs={{
+          "load-1": {
+            images: {
+              kind: "collection",
+              items: [
+                {
+                  data_ref: "data-abcdef",
+                  metadata: {
+                    framework: { source: "C:/data/beads.tif" },
+                  },
+                },
+                {
+                  data_ref: "data-123456",
+                  metadata: {
+                    meta: { source_file: "/home/u/sample_002.tif" },
+                  },
+                },
+                {
+                  data_ref: "data-xyz789",
+                  // No source / source_file / file_path → fall back to slice(0,10).
+                  metadata: { framework: { source: "" } },
+                },
+              ],
+            },
+          },
+        }}
+        onCancelSelected={() => {}}
+        onLoadPreview={vi.fn(async () => {})}
+        onStartFromHere={() => {}}
+        previewCache={{}}
+        previewLoading={{}}
+        selectedNodeId="load-1"
+        selectedNodeLabel="Load Image"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "beads.tif" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "sample_002.tif" })).toBeInTheDocument();
+    // Fallback when no metadata source: truncated ref (today's behavior).
+    expect(screen.getByRole("button", { name: "data-xyz78" })).toBeInTheDocument();
+  });
+
+  // ---------------------------------------------------------------------
+  // #899 — single-slider 3D viewer
+  // ---------------------------------------------------------------------
+
+  it("renders slice slider when slice_axis_size > 1 (#899)", () => {
+    render(
+      <DataPreview
+        blockOutputs={{ "node-1": { output: { data_ref: "img-ref" } } }}
+        onCancelSelected={() => {}}
+        onLoadPreview={vi.fn(async () => {})}
+        onStartFromHere={() => {}}
+        previewCache={{
+          "img-ref": {
+            preview: {
+              kind: "image",
+              src: "data:image/png;base64,abc",
+              shape: [643, 1285, 3],
+              axes: ["y", "x", "c"],
+              slice_axis_name: "c",
+              slice_axis_size: 3,
+              slice_index: 0,
+            },
+          } as never,
+        }}
+        previewLoading={{}}
+        selectedNodeId="node-1"
+        selectedNodeLabel="plot_cal"
+      />,
+    );
+
+    const slider = screen.getByTestId("image-slice-slider") as HTMLInputElement;
+    expect(slider).toBeInTheDocument();
+    expect(slider.max).toBe("2");
+    expect(slider.value).toBe("0");
+    expect(screen.getByTestId("image-slice-slider-row")).toHaveTextContent(/c \(3\)/);
+    expect(screen.getByTestId("image-slice-slider-row")).toHaveTextContent(/1\/3/);
+  });
+
+  it("does NOT render slice slider for ndim=2 image (#899)", () => {
+    render(
+      <DataPreview
+        blockOutputs={{ "node-1": { output: { data_ref: "img-ref" } } }}
+        onCancelSelected={() => {}}
+        onLoadPreview={vi.fn(async () => {})}
+        onStartFromHere={() => {}}
+        previewCache={{
+          "img-ref": {
+            preview: {
+              kind: "image",
+              src: "data:image/png;base64,abc",
+              shape: [256, 256],
+              axes: ["y", "x"],
+              slice_axis_name: null,
+              slice_axis_size: null,
+              slice_index: null,
+            },
+          } as never,
+        }}
+        previewLoading={{}}
+        selectedNodeId="node-1"
+        selectedNodeLabel="2D Image"
+      />,
+    );
+
+    expect(screen.queryByTestId("image-slice-slider")).toBeNull();
+  });
+
   it("shows truncation label when 100+ rows", () => {
     const manyRows = Array.from({ length: 100 }, (_, i) => ({ A: i, B: i * 2 }));
 
