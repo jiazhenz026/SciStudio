@@ -278,18 +278,18 @@
 
 ### Phase D39-2.4a — Conflict resolution + branch graph SKELETON (Owner: SD39-4a, 1 agent — VERY detailed algorithm comments) [ADR-039 §6 Phase 3 skeleton]
 
-- [ ] Sub-issue opened, depends on D39-2.3b merged
-- [ ] `frontend/src/components/Git/MergeFlow.tsx` (NEW skeleton; comments cover FF/clean/conflict path orchestration per ADR §3.5a)
-- [ ] `frontend/src/components/Git/ConflictResolveView.tsx` (NEW skeleton; comments cover conflicted-file list, status badges, Mark Resolved / Complete Merge / Abort Merge buttons)
-- [ ] `frontend/src/components/Git/ConflictMarkerDecoration.ts` (NEW skeleton; comments cover Monaco decoration provider for `<<<<<< ====== >>>>>>` regions + inline action widgets per ADR §3.5a)
-- [ ] `frontend/src/components/Git/GitGraph/laneAssign.ts` (NEW skeleton; FULL pseudocode comments transcribing ADR §3.5b algorithm sketch)
-- [ ] `frontend/src/components/Git/GitGraph/edgeRouter.ts` (NEW skeleton; bezier curve math comments)
-- [ ] `frontend/src/components/Git/GitGraph/GraphSVG.tsx` (NEW skeleton; SVG rendering plan: dots, edges, labels, filter dimming)
-- [ ] `frontend/src/components/Git/GitGraph/colorPalette.ts` (NEW skeleton; branch color rotation)
-- [ ] `frontend/src/components/Git/GitGraph/interactions.ts` (NEW skeleton; hover preview, click→diff/checkout, virtualization with `@tanstack/react-virtual`)
-- [ ] `frontend/src/components/Git/GitGraph/integration.ts` (NEW skeleton; gitSlice consumption, filter-state integration, theme)
-- [ ] `frontend/src/components/CodeEditor.tsx` (ADR-036) — extend with ConflictMarkerDecoration registration when active file is in conflict state (skeleton stub)
-- [ ] Vitest skeleton tests for laneAssign / edgeRouter / conflict-region detection
+- [x] Sub-issue opened, depends on D39-2.3b merged → #941
+- [x] `frontend/src/components/Git/MergeFlow.tsx` (NEW skeleton; comments cover FF/clean/conflict path orchestration per ADR §3.5a) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/Git/ConflictResolveView.tsx` (NEW skeleton; comments cover conflicted-file list, status badges, Mark Resolved / Complete Merge / Abort Merge buttons) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/Git/ConflictMarkerDecoration.ts` (NEW skeleton; comments cover Monaco decoration provider for `<<<<<< ====== >>>>>>` regions + inline action widgets per ADR §3.5a; `parseConflictRegions` kept implemented as a pure helper) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/Git/GitGraph/laneAssign.ts` (NEW skeleton; FULL pseudocode comments transcribing ADR §3.5b algorithm sketch; `maxLane` kept implemented) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/Git/GitGraph/edgeRouter.ts` (NEW skeleton; bezier curve math comments; `buildShaIndex` kept implemented) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/Git/GitGraph/GraphSVG.tsx` (NEW skeleton; SVG rendering plan: dots, edges, labels, filter dimming) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/Git/GitGraph/colorPalette.ts` (NEW skeleton; branch color rotation + layout constants; PALETTE + colorForIndex implemented) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/Git/GitGraph/interactions.ts` (NEW skeleton; hover preview, click→diff/checkout, virtualization with `@tanstack/react-virtual`) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/Git/GitGraph/integration.ts` (NEW skeleton; gitSlice consumption, filter-state integration, theme) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/CodeEditor.tsx` (ADR-036) — extend with ConflictMarkerDecoration registration when active file is in conflict state (skeleton stub; subscribes to existing `gitSlice.mergeInProgress.conflicted_files` — no new slice field needed) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] Vitest skeleton tests for laneAssign / edgeRouter / conflict-region detection → 20 pure-helper assertions pass; 21 `it.skip` cases each carry detailed test-plan docstrings + fixture sketches for D39-2.4b
 - [ ] PR merged into tracking branch
 
 ### Phase D39-2.4b — Conflict resolution + branch graph IMPL (Owner: ID39-4b, 1 agent) [ADR-039 §6 Phase 3 impl]
