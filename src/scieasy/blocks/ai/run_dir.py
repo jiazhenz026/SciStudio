@@ -1,8 +1,24 @@
-"""RunDir — per-run coordination directory for AI Block (ADR-035 §3.2, §3.4).
+"""RunDir — per-block-execution coordination directory for AI Block (ADR-035 §3.2, §3.4).
 
-The directory at ``{project}/.scieasy/ai-block-runs/{run_id}/`` holds the
-manifest.json, transcript copy, and completion-signal scratch files for one
-AI Block run.
+The directory at ``{project}/.scieasy/ai-block-runs/{block_execution_id}/``
+holds the manifest.json, transcript copy, and completion-signal scratch
+files for one AI Block execution.
+
+**Naming note (ADR-038 §5.2)**: this identifier is **per block execution**
+— each invocation of one AI Block within a workflow gets a fresh one — so
+the ADR-038 cascade renamed the internal variable from ``run_id`` to
+``block_execution_id`` to disambiguate it from the workflow-level ``run_id``
+defined in the unified lineage store (ADR-038 §3.1, ``runs`` table).
+External surfaces that already shipped under the legacy spelling are
+preserved verbatim:
+
+* The manifest JSON key ``block.run_id`` (ADR-035 §3.4 schema) — agent
+  prompts in the wild reference this name.
+* ``PtyTabSpec.block_run_id`` (engine surface, ADR-034 freeze).
+* ``notify_block_pty_event(block_run_id, ...)`` (engine surface).
+
+Only the internal Python identifiers and the on-disk path component have
+been renamed.
 
 **This is NOT a sandbox.** The agent runs with the project directory as cwd
 and full filesystem access (ADR-035 §3.2, §3.7). The run dir exists only to
@@ -34,6 +50,9 @@ logger = logging.getLogger(__name__)
 #     "name": "extract_metadata",
 #     "type": "AIBlock",
 #     "run_id": "20260513-220045-extract_metadata-abc1234"
+#                # ^ kept as ``run_id`` to preserve the ADR-035 §3.4
+#                # public schema; the Python identifier was renamed to
+#                # ``block_execution_id`` per ADR-038 §5.2.
 #   },
 #   "user_prompt": "...",
 #   "inputs": {
@@ -71,43 +90,61 @@ def _type_chain(cls: type) -> list[str]:
 
 
 class RunDir:
-    """Per-run coordination directory for an AI Block run.
+    """Per-block-execution coordination directory for an AI Block.
 
-    Owns the lifecycle of ``{project}/.scieasy/ai-block-runs/{run_id}/``:
-    creates it, writes the manifest, exposes paths for completion-signal
-    files, copies the transcript on close. Does NOT enforce any access
-    control on what the agent can do outside this dir — see module-level
-    docstring.
+    Owns the lifecycle of
+    ``{project}/.scieasy/ai-block-runs/{block_execution_id}/``: creates it,
+    writes the manifest, exposes paths for completion-signal files, copies
+    the transcript on close. Does NOT enforce any access control on what
+    the agent can do outside this dir — see module-level docstring.
 
     References:
         ADR-035 §3.2 (lineage/coordination role),
         ADR-035 §3.4 (manifest schema),
-        ADR-035 §3.5 (completion signal file locations).
+        ADR-035 §3.5 (completion signal file locations),
+        ADR-038 §5.2 (rename rationale).
     """
 
-    def __init__(self, project_dir: Path, run_id: str) -> None:
+    def __init__(self, project_dir: Path, block_execution_id: str) -> None:
         """Initialize the run-dir handle.
 
         Does NOT create the directory yet — :meth:`create` is explicit so
         the caller can choose to deal with collisions.
 
+        Parameters
+        ----------
+        project_dir:
+            Project root. The coordination directory lives under
+            ``project_dir / ".scieasy" / "ai-block-runs"``.
+        block_execution_id:
+            Per-AI-Block execution identifier (one per invocation). Renamed
+            from ``run_id`` per ADR-038 §5.2 to avoid collision with the
+            workflow-level ``runs.run_id`` introduced by the unified
+            lineage store.
+
         Raises:
-            ValueError: if ``run_id`` contains a path separator (would
-                escape the run-dir scope).
+            ValueError: if ``block_execution_id`` contains a path
+                separator (would escape the run-dir scope).
         """
-        if not run_id or os.sep in run_id or "/" in run_id or ".." in run_id.split(os.sep):
-            raise ValueError(f"run_id contains path separator(s): {run_id!r}")
+        if (
+            not block_execution_id
+            or os.sep in block_execution_id
+            or "/" in block_execution_id
+            or ".." in block_execution_id.split(os.sep)
+        ):
+            raise ValueError(f"block_execution_id contains path separator(s): {block_execution_id!r}")
         self.project_dir = Path(project_dir)
-        self.run_id = run_id
-        self.path = self.project_dir / ".scieasy" / "ai-block-runs" / run_id
+        self.block_execution_id = block_execution_id
+        self.path = self.project_dir / ".scieasy" / "ai-block-runs" / block_execution_id
 
     def create(self) -> None:
         """Create the run dir and ``signals/`` subdir on disk.
 
         Raises:
-            FileExistsError: if ``self.path`` already exists. The run_id
-                is supposed to encode timestamp + nonce, so a collision
-                signals a bug — caller decides whether to retry or escalate.
+            FileExistsError: if ``self.path`` already exists. The
+                ``block_execution_id`` is supposed to encode timestamp +
+                nonce, so a collision signals a bug — caller decides
+                whether to retry or escalate.
             PermissionError: if the project dir is not writable.
         """
         # parents=True so .scieasy and ai-block-runs are created if missing,
@@ -149,6 +186,8 @@ class RunDir:
 
         References:
             ADR-035 §3.4 (schema), §3.3 (default expected_path),
+            ADR-038 §5.2 (manifest ``block.run_id`` key kept under its
+            legacy spelling — agent-facing contract),
             src/scieasy/blocks/app/bridge.py (atomic-write idiom).
         """
         from scieasy.core.types.artifact import Artifact
@@ -215,7 +254,10 @@ class RunDir:
             "block": {
                 "name": block_name,
                 "type": block_type,
-                "run_id": self.run_id,
+                # ADR-038 §5.2: the JSON key is kept as ``run_id`` to
+                # preserve the ADR-035 §3.4 agent-facing schema. The
+                # Python identifier is ``block_execution_id``.
+                "run_id": self.block_execution_id,
             },
             "user_prompt": user_prompt,
             "inputs": inputs_section,

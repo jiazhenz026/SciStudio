@@ -149,12 +149,12 @@
 
 ### Phase D38-2.4a — Backend REST + AIBlock rename (Owner: ID38-4a, 1 agent) [ADR-038 §6 Phase 3 backend]
 
-- [ ] Sub-issue opened; parallel with D38-2.4b
-- [ ] `src/scieasy/api/routes/runs.py` (NEW) — GET /api/runs, GET /api/runs/{run_id}, GET /api/runs/{run_id}/methods, POST /api/runs/{run_id}/rerun [ADR-038 §3.7, §3.8]
-- [ ] `src/scieasy/core/lineage/methods_export.py` (NEW) — markdown methods renderer [ADR-038 §5.1]
-- [ ] `src/scieasy/blocks/ai/ai_block.py` — rename internal `run_id` → `block_execution_id` [ADR-038 §5.2]
-- [ ] `src/scieasy/blocks/ai/run_dir.py` — rename path to use `block_execution_id` [ADR-038 §5.2]
-- [ ] Pytest covers all 4 routes (happy path + 404 + validation errors)
+- [x] Sub-issue opened; parallel with D38-2.4b → [#933](https://github.com/zjzcpj/SciEasy/issues/933)
+- [x] `src/scieasy/api/routes/runs.py` (NEW) — GET /api/runs, GET /api/runs/{run_id}, GET /api/runs/{run_id}/methods, POST /api/runs/{run_id}/rerun [ADR-038 §3.7, §3.8] → branch `feat/issue-933/d38-2-4a-backend-rest`
+- [x] `src/scieasy/core/lineage/methods_export.py` (NEW) — markdown methods renderer [ADR-038 §5.1] → branch `feat/issue-933/d38-2-4a-backend-rest`
+- [x] `src/scieasy/blocks/ai/ai_block.py` — rename internal `run_id` → `block_execution_id` [ADR-038 §5.2] → branch `feat/issue-933/d38-2-4a-backend-rest`
+- [x] `src/scieasy/blocks/ai/run_dir.py` — rename path to use `block_execution_id` [ADR-038 §5.2] → branch `feat/issue-933/d38-2-4a-backend-rest`
+- [x] Pytest covers all 4 routes (happy path + 404 + validation errors) → `tests/api/test_runs_routes.py` (20 tests) + `tests/core/test_methods_export.py` (10 tests)
 - [ ] CI green; PR merged into tracking branch
 
 ### Phase D38-2.4b — Frontend Lineage tab SKELETON (Owner: SD38-4b, 1 agent — VERY detailed comments) [ADR-038 §6 Phase 3 frontend skeleton]
