@@ -83,13 +83,34 @@ scieasy/                               # ← repo root
 │       │   ├── proxy.py                # ViewProxy: lazy-loading accessor (slice, iter_chunks,
 │       │   │                           #   to_memory, shape). Injected into block.run() inputs.
 │       │   │
-│       │   └── lineage/                # Provenance tracking
+│       │   ├── lineage/                # Unified run lineage (ADR-038; supersedes metadata.db
+│       │   │   │                       #   from ADR-032 + the dormant earlier lineage schema)
+│       │   │   ├── __init__.py
+│       │   │   ├── record.py           # RunRecord, BlockExecutionRecord, DataObjectRow,
+│       │   │   │                       #   BlockIORow dataclasses (4 normalized tables)
+│       │   │   ├── store.py            # LineageStore: SQLite WAL r/w for unified 4-table schema
+│       │   │   ├── recorder.py         # LineageRecorder: subscribes to EventBus, writes runs +
+│       │   │   │                       #   block_executions + data_objects + block_io rows;
+│       │   │   │                       #   moved from engine/lineage_recorder.py
+│       │   │   ├── environment.py      # EnvironmentSnapshot: full `uv pip freeze` by default
+│       │   │   ├── run_context.py      # Thread-local RunContext (run_id, block_execution_id)
+│       │   │   │                       #   for opt-in block access (ADR-038 §5.1)
+│       │   │   ├── methods_export.py   # Render markdown methods section from a run record
+│       │   │   └── graph.py            # Provenance graph queries (ancestors, diff, audit)
+│       │   │
+│       │   └── versioning/             # Source version control via bundled git CLI (ADR-039)
 │       │       ├── __init__.py
-│       │       ├── record.py           # LineageRecord dataclass (hashes, config, environment,
-│       │       │                       #   termination status, partial_output_refs; ADR-018)
-│       │       ├── environment.py      # EnvironmentSnapshot: python version, key_packages, freeze
-│       │       ├── store.py            # LineageStore: SQLite read/write for lineage records
-│       │       └── graph.py            # Provenance graph queries (ancestors, diff, audit)
+│       │       ├── git_engine.py       # Subprocess wrapper around bundled `git` binary:
+│       │       │                       #   commit / log / diff / restore / branches / status /
+│       │       │                       #   merge / cherry-pick / stash. Plumbing parsers
+│       │       │                       #   (--porcelain=v2, --format=...).
+│       │       ├── git_binary.py       # Locate bundled git executable across platforms
+│       │       │                       #   (resources/git/bin/git[.exe]). Falls back to system
+│       │       │                       #   git for `scieasy gui` developer CLI.
+│       │       ├── gitignore_template.py  # Default .gitignore content + write logic (ADR-039 §3.3)
+│       │       ├── status.py           # Working-tree status helpers (dirty flag, modified files)
+│       │       └── watcher.py          # Detect external git changes (HEAD / refs mtime;
+│       │                               #   feeds workflow_watcher's git.head_changed event)
 │       │
 │       │
 │       │ ── Layer 2: Block System ────────────────────────────────
@@ -318,11 +339,19 @@ scieasy/                               # ← repo root
 │       │   │   ├── __init__.py
 │       │   │   ├── workflows.py        # CRUD /api/workflows, execute, pause, resume, cancel
 │       │   │   │                       #   + per-block cancel endpoint (ADR-018)
+│       │   │   │                       #   bump_revision / If-Match ETag flow removed by ADR-039
+│       │   │   │                       #   (git SHA + working-tree dirty state replaces it)
 │       │   │   ├── blocks.py           # GET /api/blocks (palette), validate-connection
 │       │   │   ├── data.py             # Upload, metadata, preview /api/data
 │       │   │   ├── ai.py               # WS /api/ai/chat/{chat_id}, GET /api/ai/status,
 │       │   │   │                       #   POST /api/ai/permission-{check,decision} (ADR-033)
-│       │   │   └── projects.py         # Project CRUD, workspace management
+│       │   │   ├── runs.py             # GET /api/runs, /api/runs/{run_id}, /api/runs/{run_id}/methods,
+│       │   │   │                       #   POST /api/runs/{run_id}/rerun (ADR-038 §3.7-3.8)
+│       │   │   ├── git.py              # ~15 endpoints: commit / log / diff / restore /
+│       │   │   │                       #   branches CRUD / merge / cherry-pick / stash / status
+│       │   │   │                       #   (ADR-039 §3.5)
+│       │   │   └── projects.py         # Project CRUD, workspace management.
+│       │   │                           #   create_project / open_project auto-init git (ADR-039 §3.2)
 │       │   │
 │       │   ├── ws.py                   # WebSocket handler: bidirectional event routing (ADR-018)
 │       │   │                           #   Inbound: cancel_block, cancel_workflow, interactive_complete
@@ -419,17 +448,49 @@ scieasy/                               # ← repo root
 │       │
 │       ├── components/
 │       │   ├── Toolbar.tsx             # Projects dropdown, grouped buttons, shortcuts (ADR-023-Add1)
+│       │   │                           #   ADR-039: mounts BranchPicker + GitStatusBadge + Commit button
 │       │   ├── ProjectDialog.tsx       # New/Open project modal dialogs (ADR-023-Add1)
 │       │   ├── WelcomeScreen.tsx       # Welcome screen when no project is open (ADR-023-Add1)
 │       │   ├── BlockPalette.tsx        # Left column: searchable, categorised block list
-│       │   ├── BottomPanel.tsx         # Bottom panel: AI Chat / Config / Logs / Lineage / Jobs
+│       │   ├── BottomPanel.tsx         # Bottom panel: AI Chat / Config / Logs / Lineage
+│       │   │                           #   (Jobs tab removed by ADR-038 §3.8; subsumed into Lineage)
 │       │   ├── DataPreview.tsx         # Right column: type-specific data preview
 │       │   ├── TabBar.tsx              # Main-area tab strip — workflow tabs + file-editor tabs
 │       │   │                           #   (ADR-036 §3.10 discriminated TabState).
 │       │   ├── WorkflowCanvas.tsx      # ReactFlow instance, minimap, zoom, pan (kind=workflow tabs)
 │       │   ├── CodeEditor.tsx          # Monaco-backed editor for kind=file tabs (ADR-036).
 │       │   │                           #   Lazy-imported; lint via POST /api/lint/python.
+│       │   │                           #   ADR-039 §3.5a: registers ConflictMarkerDecoration when
+│       │   │                           #   the active file is in merge-conflict state.
 │       │   ├── TypedEdge.tsx           # Custom edge: color-coded by source port type
+│       │   ├── Lineage/                # Run lineage UI (ADR-038 §3.8)
+│       │   │   ├── LineageTab.tsx          # Two-pane layout: runs list + run detail
+│       │   │   ├── RunsList.tsx            # Left pane: reverse-chrono with live-updating "running" row
+│       │   │   ├── RunDetail.tsx           # Right pane: blocks, params, I/O DataObjects, actions
+│       │   │   ├── BlockExecutionCard.tsx  # Expandable per-block card (params + I/O)
+│       │   │   ├── MethodsExportDialog.tsx # Markdown methods preview + copy + download
+│       │   │   └── RerunDialog.tsx         # Input + env validation warnings + confirm (ADR-038 §3.6)
+│       │   ├── Git/                    # Source version control UI (ADR-039 §3.5, §3.5a, §3.5b)
+│       │   │   ├── CommitDialog.tsx        # Modal with pre-filled message template + Commit button
+│       │   │   ├── GitHistoryList.tsx      # Reverse-chrono commit list with filter dropdown
+│       │   │   │                           #   (Manual milestones / All / Auto only / Agent only)
+│       │   │   ├── GitDiffModal.tsx        # Wraps react-diff-viewer-continued for text diffs
+│       │   │   ├── BranchPicker.tsx        # Toolbar dropdown: list / create / switch / delete / merge / cherry-pick
+│       │   │   ├── GitStatusBadge.tsx      # Toolbar dirty/clean indicator
+│       │   │   ├── StashApplyDialog.tsx    # Stash-on-restore prompt
+│       │   │   ├── StashListPanel.tsx      # Stash drawer: list / save / apply / drop
+│       │   │   ├── MergeFlow.tsx           # FF / clean / conflict path orchestrator
+│       │   │   ├── ConflictResolveView.tsx # Conflicted-file list with Mark Resolved / Complete Merge / Abort
+│       │   │   ├── ConflictMarkerDecoration.ts  # Monaco decoration provider for <<<<<< ====== >>>>>>
+│       │   │   │                                #   regions + inline action widgets (Accept Current /
+│       │   │   │                                #   Accept Incoming / Accept Both / Manual edit)
+│       │   │   └── GitGraph/                # Clean-room branch graph viz (ADR-039 §3.5b)
+│       │   │       ├── laneAssign.ts        # DAG lane assignment via topo iteration + recycling
+│       │   │       ├── edgeRouter.ts        # Bezier connectors between commits and parents
+│       │   │       ├── GraphSVG.tsx         # SVG rendering: dots, edges, labels, filter dimming
+│       │   │       ├── colorPalette.ts      # Branch color rotation
+│       │   │       ├── interactions.ts      # Hover preview, click→diff/checkout, virtualization
+│       │   │       └── integration.ts       # gitSlice consumption, filter state, theme
 │       │   │
 │       │   ├── nodes/                  # Custom ReactFlow node components
 │       │   │   └── BlockNode.tsx       # 3-part node: header (icon+name+run/restart),
@@ -458,7 +519,10 @@ scieasy/                               # ← repo root
 │       │   ├── uiSlice.ts              # Panel widths, collapsed states, selected block, active tab
 │       │   ├── previewSlice.ts         # Cached preview data keyed by StorageReference
 │       │   ├── paletteSlice.ts         # Available blocks from registry, search filter
-│       │   └── chatSlice.ts            # AI chat message history
+│       │   ├── chatSlice.ts            # AI chat message history
+│       │   ├── lineageSlice.ts         # Run list + selected run cache (ADR-038)
+│       │   └── gitSlice.ts             # Branches, current branch, log cache, filter state,
+│       │                               #   mergeInProgress state (ADR-039)
 │       │
 │       ├── config/
 │       │   └── typeColorMap.ts         # Base type → colour hex mapping for port handles/edges
@@ -642,10 +706,11 @@ scieasy/                               # ← repo root
               │
               └──────────────┐
                              ▼
-                         core/types/     ← everything depends on this
+                         core/types/        ← everything depends on this
                          core/storage/
                          core/proxy.py
-                         core/lineage/
+                         core/lineage/      ← unified 4-table SQLite (ADR-038)
+                         core/versioning/   ← bundled git CLI engine (ADR-039)
 ```
 
 ## Key entry_points (pyproject.toml)
@@ -707,16 +772,24 @@ srs = "scieasy_blocks_srs.types:get_types"     # → [SRSImage]
 
 | Directory | Python files | Purpose |
 |---|---|---|
-| `core/` | 15 | Data types, Collection transport, storage, proxy, lineage |
+| `core/` | ~22 | Data types, Collection transport, storage, proxy, **unified lineage (ADR-038, 7 files)**, **versioning (ADR-039, 6 files)** |
 | `blocks/` | 30 | All block categories, IO loaders/savers (ADR-028), code runners, registry, lazy_list (process_mgr.py deleted per ADR-019, lazy_list.py added per ADR-020, io/adapters/ + adapter_registry.py deleted per ADR-028 §D2/§D4) |
-| `engine/` | 10 | Scheduler, resources, checkpoint, events, runners (worker, process_handle, process_monitor, platform) |
+| `engine/` | 9 | Scheduler, resources, checkpoint (relocated to `.scieasy/pause/`), events, runners. `engine/lineage_recorder.py` moved to `core/lineage/recorder.py` per ADR-038. |
 | `ai/` | ~14 | Embedded coding agent — provider/session/stream-json/permission/transcript + in-process MCP server with ~25 tools (ADR-033). Old generation/synthesis/optimization modules deleted. |
-| `api/` | 10 | FastAPI routes, WebSocket, SSE, SPA fallback (ADR-024) |
+| `api/` | 12 | FastAPI routes incl. **runs.py (ADR-038)** + **git.py (ADR-039)**, WebSocket, SSE, SPA fallback (ADR-024). `bump_revision` / `If-Match` ETag flow removed per ADR-039 (replaced by git SHA + working-tree dirty state). |
 | `workflow/` | 4 | Definition, serialization, validation, layout |
 | `utils/` | 3 | Hashing, wrapping, logging |
 | `testing/` | 2 | BlockTestHarness for external block developers (ADR-026) |
-| `cli/` | 3+5tpl | CLI entry point, scaffolding, templates (ADR-024, ADR-026) |
-| **Total backend** | **~87** | |
-| `frontend/src/` | ~34 `.tsx/.ts` | React components, hooks, stores, config, API client (ADR-023, ADR-023-Add1) |
+| `cli/` | 3+5tpl | CLI entry point (incl. git-init parity on `scieasy init` per ADR-039), scaffolding, templates |
+| **Total backend** | **~99** | |
+| `frontend/src/` | ~55 `.tsx/.ts` | React components incl. **Lineage/ (6 files, ADR-038)** + **Git/ + Git/GitGraph/ (~15 files, ADR-039)**, hooks, stores incl. lineageSlice + gitSlice, API client. |
 | `docs/block-development/` | 13 `.md` | Block SDK developer documentation (ADR-026) |
-| `tests/` | ~37 | Architecture enforcement, unit, integration, harness, CLI tests |
+| `desktop/scripts/` | 2 + electron-builder config | **fetch-git-portable.ps1 (Windows MinGit) + .sh (mac/Linux static)** per ADR-039 + ADR-037 |
+| `tests/` | ~50 | Architecture enforcement, unit, integration, harness, CLI tests, incl. **lineage 4-table schema tests** + **git engine subprocess tests** |
+
+**Removed by ADR-038/039 (2026-05-15):**
+- `src/scieasy/core/metadata_store.py` → 6-month deprecation shim re-exporting unified store + `DeprecationWarning` (function lives in `core/lineage/`)
+- `src/scieasy/engine/lineage_recorder.py` → moved to `core/lineage/recorder.py`
+- `ApiRuntime.bump_revision` / `current_revision` + workflow routes' `If-Match` handling
+- Top-level `<project>/metadata.db` and `<project>/checkpoints/` (replaced by `<project>/.scieasy/lineage.db` and `<project>/.scieasy/pause/`)
+- Frontend Jobs tab (subsumed by Lineage tab; `"jobs"` removed from `BottomTab` discriminated union)

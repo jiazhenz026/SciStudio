@@ -176,6 +176,39 @@ The install command tries to preserve other keys in
 block to a canonical layout. If you've heavily customised the file,
 inspect the diff before/after.
 
+## Git compatibility (ADR-039)
+
+SciEasy bundles a portable `git` binary at `<install>/resources/git/bin/git[.exe]`
+(MinGit on Windows, static-built `git` on macOS/Linux) for its own source
+version control operations. The bundled binary is used by the in-process
+`GitEngine` subprocess wrapper at `src/scieasy/core/versioning/git_engine.py`.
+
+External `git` interactions remain fully supported and unblocked:
+
+- SciEasy does **not** lock `.git/`. Users can run any external `git` CLI in
+  parallel from a terminal, GUI tool (GitHub Desktop, GitKraken, JetBrains
+  built-in git, VS Code), or AI agent's shell — and SciEasy's `workflow_watcher`
+  (ADR-034 Phase 2, extended by ADR-039 §3.8) detects the resulting
+  `.git/HEAD` change and refreshes its UI cache.
+- The `scieasy gui` developer CLI (non-desktop-bundled installs) falls back
+  to the user's system `git` if no bundled binary is present.
+
+### Commit-message prefix convention
+
+The GUI History panel filters commits by message prefix per ADR-039 §3.4 and
+§3.4a. External tools and CI should honor the same convention so the human +
+agent + auto layers stay visually distinguishable:
+
+| Prefix | Meaning | GUI default visibility | Icon |
+|---|---|---|---|
+| `auto:` | Pre-run squash commit emitted by SciEasy when the working tree is dirty at Run time | **Hidden** under default "Manual milestones" filter | small grey dot in graph |
+| `agent:` | Commit authored by an AI agent (ADR-034 embedded coding agent, ADR-035 AI Block, or any programmatic flow). Format: `agent: <summary> (session=<chat_or_block_run_id>)` | Visible | 🤖 |
+| *(no prefix)* | Manual user commit | Visible | 👤 |
+
+When an external tool or script makes commits inside a SciEasy project, prefer
+the no-prefix form for human-driven changes. Reserve `auto:` and `agent:` for
+their specific machine-driven contexts so the filter remains meaningful.
+
 ## Out of scope
 
 - A hosted / shared SciEasy backend across machines.
@@ -186,6 +219,8 @@ inspect the diff before/after.
 ## See also
 
 - `docs/adr/ADR.md` ADR-033 — embedded coding agent architecture.
+- `docs/adr/ADR-038.md` — unified run lineage database (supersedes ADR-032).
+- `docs/adr/ADR-039.md` — git-backed source version control.
 - `docs/specs/eca-spike-codex-format.md` — Codex provider parity notes.
 - `docs/guides/ai-chat.md` — user-facing AI chat guide for the GUI.
 - `CLAUDE.md` — non-negotiable project principles (repo root).
