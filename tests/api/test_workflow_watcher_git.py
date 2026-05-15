@@ -142,6 +142,37 @@ def test_nested_branch_path_emits_with_full_ref_name(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Codex P2-A: ref lockfiles must not emit
+# ---------------------------------------------------------------------------
+
+
+def test_ref_lockfile_in_refs_heads_is_ignored(tmp_path: Path) -> None:
+    """Git creates ``refs/heads/<branch>.lock`` transiently during ref updates.
+
+    Treating it as a real branch ref would emit duplicate events and bogus
+    ``ref=refs/heads/main.lock`` values that downstream consumers may
+    interpret as real branches.
+    """
+    git_dir = _make_git_dir(tmp_path)
+    lock_path = git_dir / "refs" / "heads" / "main.lock"
+    lock_path.write_text("f" * 40 + "\n", encoding="utf-8")
+    handler, captured = _make_handler(git_dir)
+    handler.on_any_event(FileCreatedEvent(str(lock_path)))
+    handler.on_any_event(FileModifiedEvent(str(lock_path)))
+    assert captured == []
+
+
+def test_head_lockfile_is_ignored(tmp_path: Path) -> None:
+    """``HEAD.lock`` is also a transient and must not produce an event."""
+    git_dir = _make_git_dir(tmp_path)
+    lock_path = git_dir / "HEAD.lock"
+    lock_path.write_text("ref: refs/heads/main\n", encoding="utf-8")
+    handler, captured = _make_handler(git_dir)
+    handler.on_any_event(FileCreatedEvent(str(lock_path)))
+    assert captured == []
+
+
+# ---------------------------------------------------------------------------
 # Internal git churn must not emit
 # ---------------------------------------------------------------------------
 
