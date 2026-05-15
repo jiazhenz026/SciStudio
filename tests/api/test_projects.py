@@ -85,6 +85,36 @@ def test_list_projects_sorted_by_last_opened(client: TestClient, project_parent:
     assert names.index("Newer") < names.index("Older")
 
 
+def test_create_project_scaffolds_empty_main_workflow(
+    client: TestClient, project_parent: Path
+) -> None:
+    """#879: ``POST /api/projects/`` must scaffold ``workflows/main.yaml``.
+
+    Without the scaffold the default ``main`` canvas tab is divorced from
+    disk until the user manually saves, which breaks View source (#878),
+    file-watcher rehydration, and agent introspection.
+    """
+    import yaml as yaml_mod
+
+    resp = client.post(
+        "/api/projects/",
+        json={"name": "WithMain", "description": "", "path": str(project_parent)},
+    )
+    assert resp.status_code == 200
+    project_path = Path(resp.json()["path"])
+
+    main_yaml = project_path / "workflows" / "main.yaml"
+    assert main_yaml.is_file(), "create_project should scaffold workflows/main.yaml"
+
+    loaded = yaml_mod.safe_load(main_yaml.read_text(encoding="utf-8"))
+    # The serializer wraps the workflow under a ``workflow`` key.
+    workflow = loaded.get("workflow") if isinstance(loaded, dict) else None
+    assert workflow is not None, "main.yaml should contain a ``workflow`` root key"
+    assert workflow.get("id") == "main"
+    assert workflow.get("nodes") in (None, [])
+    assert workflow.get("edges") in (None, [])
+
+
 def test_list_projects_prunes_deleted_directories(client: TestClient, project_parent: Path) -> None:
     """list_projects should prune entries whose project directory no longer exists."""
     resp = client.post(
