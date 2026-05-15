@@ -138,10 +138,10 @@ def test_list_projects_prunes_deleted_directories(client: TestClient, project_pa
 
     _rmtree_force(project_path)
     # Best-effort: force-unlink project.yaml if it lingers.
-    try:
+    import contextlib as _contextlib
+
+    with _contextlib.suppress(PermissionError, OSError):
         (project_path / "project.yaml").unlink(missing_ok=True)
-    except (PermissionError, OSError):
-        pass
 
     # Next listing should prune the stale entry
     listed2 = client.get("/api/projects/")
