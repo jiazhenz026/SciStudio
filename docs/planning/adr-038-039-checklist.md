@@ -55,13 +55,13 @@
 
 ### Phase 0 manager-driven gate workflow
 
-- [ ] `gate.py start` → task ID `20260515-052537-adr-038-039-cascade-phase-0-architecture` [done]
-- [ ] `gh issue create` (Phase 0 docs PR's tracking issue) → gate.py advance create_issue
-- [ ] Change Plan comment on the issue → gate.py advance write_change_plan
-- [ ] Branch `docs/adr-038-039/architecture-refactor` created locally [done]; commits pushed → gate.py advance create_branch
-- [ ] Doc updates committed → gate.py advance update_docs
-- [ ] CHANGELOG entry → gate.py advance update_changelog
-- [ ] `gh pr create` against main → gate.py advance submit_pr
+- [x] `gate.py start` → task ID `20260515-052537-adr-038-039-cascade-phase-0-architecture`
+- [x] `gh issue create` (Phase 0 docs PR's tracking issue) → gate.py advance create_issue → https://github.com/zjzcpj/SciEasy/issues/904
+- [x] Change Plan comment on the issue → gate.py advance write_change_plan → https://github.com/zjzcpj/SciEasy/issues/904#issuecomment-4459069604
+- [x] Branch `docs/adr-038-039/architecture-refactor` created and pushed; commits `e6776a7`, `22014b1`, `6dc0ad8`
+- [x] Doc updates committed → gate.py advance update_docs
+- [x] CHANGELOG entry → gate.py advance update_changelog
+- [x] `gh pr create` against main → gate.py advance submit_pr → https://github.com/zjzcpj/SciEasy/pull/905
 
 ---
 
