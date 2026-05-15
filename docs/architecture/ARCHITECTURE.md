@@ -2945,7 +2945,7 @@ A structured documentation set in `docs/block-development/` communicates the con
 | `collection-guide.md` | Working with Collections correctly |
 | `testing.md` | BlockTestHarness API reference |
 | `publishing.md` | PyPI packaging and distribution guide |
-| `examples/` | Complete walkthroughs: simple-transform, collection-processing, custom-io-adapter, multi-block-package |
+| `docs/block-development/examples/` | Complete walkthroughs: simple-transform, custom-io-loader, multi-block-package |
 
 Key developer-facing rules (translated from ADRs):
 

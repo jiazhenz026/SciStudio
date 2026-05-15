@@ -476,7 +476,7 @@ assert isinstance(result["smoothed"], Spectrum)
 
 ```python
 # This works end-to-end:
-workflow = load_yaml("examples/workflows/raman_preprocessing.yaml")
+workflow = load_yaml("<your_workflow.yaml>")
 scheduler = DAGScheduler(workflow)
 await scheduler.execute()
 # All blocks executed in correct order, results stored, lineage recorded

@@ -243,8 +243,8 @@ stack (CLI + API + frontend + lineage + checkpoints).
 
 ### 10.4.1 Demo workflow definitions
 
-Each demo workflow is a YAML file in `examples/workflows/` with accompanying
-documentation:
+Each demo workflow is a YAML file (location TBD — see Phase 10.4 deliverable)
+with accompanying documentation:
 
 - [ ] **Demo 1: Fluorescence Image Analysis**
   - Load TIFF -> Background Subtract -> Cellpose Segment -> Measure Regions -> Export CSV
@@ -280,7 +280,7 @@ documentation:
 
 For each demo workflow, verify:
 
-- [ ] CLI execution: `scieasy run examples/workflows/demo-N.yaml` completes successfully
+- [ ] CLI execution: `scieasy run <demo-N.yaml>` completes successfully
 - [ ] API execution: POST `/api/workflows/{id}/execute` triggers and completes
 - [ ] Frontend execution: load workflow in GUI -> Run -> see progress + results
 - [ ] Data preview: intermediate and final outputs visible in preview panel
