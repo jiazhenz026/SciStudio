@@ -256,3 +256,108 @@ def test_render_block_without_io_still_renders(store: LineageStore) -> None:
     assert "### `silent_block`" in body
     assert "**Inputs:**" not in body
     assert "**Outputs:**" not in body
+
+
+# ---------------------------------------------------------------------------
+# D38-2.5 polish — partial re-run banner + error detail formatting
+# ---------------------------------------------------------------------------
+
+
+def test_render_partial_rerun_banner_when_execute_from_and_parent_set(
+    store: LineageStore,
+) -> None:
+    """ADR-038 §3.6a: partial re-runs surface a banner naming the parent run."""
+    # parent_run_id is a FK into runs — seed the parent first.
+    _seed_run(store, run_id="run-prior")
+    run_id = _seed_run(
+        store,
+        run_id="run-partial",
+        execute_from_block_id="threshold_1",
+        parent_run_id="run-prior",
+    )
+    body = render_methods_markdown(store, run_id)
+    # Banner text is recognizable and names both the execute-from block and
+    # the parent run so the reader can navigate back to the source recipe.
+    assert "Partial re-run" in body
+    assert "threshold_1" in body
+    assert "run-prior" in body
+    assert "ADR-038 §3.6a" in body
+
+
+def test_render_no_partial_rerun_banner_when_full_run(store: LineageStore) -> None:
+    """A full run (no execute_from_block_id) MUST NOT show the partial banner."""
+    run_id = _seed_run(store)
+    body = render_methods_markdown(store, run_id)
+    assert "Partial re-run" not in body
+
+
+def test_render_error_termination_surfaces_detail_block(
+    store: LineageStore,
+) -> None:
+    """Failed blocks emit a fenced ``Error detail:`` section, not just a bullet."""
+    run_id = _seed_run(store)
+    be = BlockExecutionRecord(
+        block_execution_id="be-err",
+        run_id=run_id,
+        block_id="bad_block",
+        block_type="proc",
+        block_version="0.1.0",
+        block_config_resolved={},
+        started_at="2026-05-15T14:30:01Z",
+        finished_at="2026-05-15T14:30:02Z",
+        duration_ms=1000,
+        termination="error",
+        termination_detail="ValueError: bead size negative",
+    )
+    store.insert_block_execution(be)
+    body = render_methods_markdown(store, run_id)
+    # The detail is in its own fenced section, not appended to the bullet.
+    assert "**Error detail:**" in body
+    assert "ValueError: bead size negative" in body
+
+
+def test_render_cancelled_termination_surfaces_detail_block(
+    store: LineageStore,
+) -> None:
+    """Cancelled blocks surface their detail the same way as errors."""
+    run_id = _seed_run(store)
+    be = BlockExecutionRecord(
+        block_execution_id="be-cx",
+        run_id=run_id,
+        block_id="aborted_block",
+        block_type="proc",
+        block_version="0.1.0",
+        block_config_resolved={},
+        started_at="2026-05-15T14:30:01Z",
+        finished_at="2026-05-15T14:30:02Z",
+        duration_ms=1000,
+        termination="cancelled",
+        termination_detail="cancelled by user",
+    )
+    store.insert_block_execution(be)
+    body = render_methods_markdown(store, run_id)
+    assert "**Cancelled detail:**" in body
+    assert "cancelled by user" in body
+
+
+def test_render_completed_block_no_detail_section_even_if_field_set(
+    store: LineageStore,
+) -> None:
+    """Completed runs don't render a detail section even if the field is set."""
+    run_id = _seed_run(store)
+    be = BlockExecutionRecord(
+        block_execution_id="be-ok",
+        run_id=run_id,
+        block_id="ok_block",
+        block_type="proc",
+        block_version="0.1.0",
+        block_config_resolved={},
+        started_at="2026-05-15T14:30:01Z",
+        finished_at="2026-05-15T14:30:02Z",
+        duration_ms=1000,
+        termination="completed",
+        termination_detail="should-not-render",
+    )
+    store.insert_block_execution(be)
+    body = render_methods_markdown(store, run_id)
+    assert "should-not-render" not in body

@@ -184,9 +184,10 @@
 
 ### Phase D38-2.5 — Polish + status promotion (Owner: ID38-5, 1 agent) [ADR-038 §6 Phase 4]
 
-- [ ] Methods markdown template refinement; re-run chain visualization (`parent_run_id` linkage in UI)
-- [ ] ADR-038 status `proposed` → `accepted` (in `docs/adr/ADR-038.md`)
-- [ ] Verify ADR-032 status `superseded by ADR-038` (already done in Phase 0)
+- [x] Methods markdown template refinement — verified §3.7 Q1-Q4 coverage end-to-end; added a partial-rerun banner when `execute_from_block_id` + `parent_run_id` are both set (ADR §3.6a), and surfaced `error` / `cancelled` termination detail in a dedicated fenced section instead of trailing the bullet → branch `feat/issue-948/d38-2-5-polish` (`src/scieasy/core/lineage/methods_export.py`)
+- [x] Re-run chain visualization — `RunDetail.tsx` makes `parent_run_id` a clickable button that dispatches `selectRun(parent)`, and renders an amber banner when `execute_from_block_id` is set explaining upstream blocks were reused from the parent run (ADR §3.6a). Upstream-skipped blocks have no `block_executions` row per ADR §3.6a so the blocks list is intentionally partial; canvas DAG grey-out remains out of scope here. → branch `feat/issue-948/d38-2-5-polish` (`frontend/src/components/Lineage/RunDetail.tsx`)
+- [x] ADR-038 status `proposed` → `accepted` (in `docs/adr/ADR-038.md`) → branch `feat/issue-948/d38-2-5-polish`
+- [x] Verify ADR-032 status `superseded by ADR-038` (already done in Phase 0) → `docs/adr/ADR-032.md:15` reads `**Status**: **superseded by ADR-038**`
 - [ ] CI green; PR merged into tracking branch
 
 ### Phase D38-3.1a — Drift audit (Owner: AD38-3a, no-context agent)

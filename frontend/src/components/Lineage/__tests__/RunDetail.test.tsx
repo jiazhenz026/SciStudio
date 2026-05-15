@@ -210,6 +210,98 @@ describe("RunDetail", () => {
     expect(spy).toHaveBeenCalledWith("be-001");
   });
 
+  it("makes parent_run_id clickable to navigate to the parent run", () => {
+    const selectSpy = vi.fn();
+    useAppStore.setState({
+      selectedRunId: "r1",
+      runDetails: {
+        r1: makeDetail({
+          run: makeRun({ parent_run_id: "parent-run-abcd-1234" }),
+        }),
+      },
+      selectRun: selectSpy,
+    });
+    render(<RunDetail />);
+    const link = screen.getByTestId("run-detail-parent-link");
+    expect(link.tagName).toBe("BUTTON");
+    fireEvent.click(link);
+    expect(selectSpy).toHaveBeenCalledWith("parent-run-abcd-1234");
+  });
+
+  it("renders the partial re-run banner when execute_from_block_id is set", () => {
+    useAppStore.setState({
+      selectedRunId: "r1",
+      runDetails: {
+        r1: makeDetail({
+          run: makeRun({
+            execute_from_block_id: "threshold_1",
+            parent_run_id: "parent-abc-1234-5678",
+          }),
+        }),
+      },
+    });
+    render(<RunDetail />);
+    const banner = screen.getByTestId("run-detail-partial-rerun-banner");
+    expect(banner.textContent).toContain("Partial re-run");
+    expect(banner.textContent).toContain("threshold_1");
+    // The banner names the parent run id so the user can navigate back.
+    expect(
+      screen.getByTestId("run-detail-partial-rerun-parent-link"),
+    ).toBeInTheDocument();
+  });
+
+  it("does NOT render the partial banner for a full run", () => {
+    useAppStore.setState({
+      selectedRunId: "r1",
+      runDetails: { r1: makeDetail() },
+    });
+    render(<RunDetail />);
+    expect(
+      screen.queryByTestId("run-detail-partial-rerun-banner"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders the partial banner without a parent link when no parent_run_id", () => {
+    useAppStore.setState({
+      selectedRunId: "r1",
+      runDetails: {
+        r1: makeDetail({
+          run: makeRun({
+            execute_from_block_id: "threshold_1",
+            parent_run_id: null,
+          }),
+        }),
+      },
+    });
+    render(<RunDetail />);
+    const banner = screen.getByTestId("run-detail-partial-rerun-banner");
+    expect(banner.textContent).toContain("Partial re-run");
+    expect(
+      screen.queryByTestId("run-detail-partial-rerun-parent-link"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("partial banner parent link dispatches selectRun(parent_run_id)", () => {
+    const selectSpy = vi.fn();
+    useAppStore.setState({
+      selectedRunId: "r1",
+      runDetails: {
+        r1: makeDetail({
+          run: makeRun({
+            execute_from_block_id: "threshold_1",
+            parent_run_id: "parent-xyz-9999",
+          }),
+        }),
+      },
+      selectRun: selectSpy,
+    });
+    render(<RunDetail />);
+    fireEvent.click(
+      screen.getByTestId("run-detail-partial-rerun-parent-link"),
+    );
+    expect(selectSpy).toHaveBeenCalledWith("parent-xyz-9999");
+  });
+
   it("renders block error section when termination is 'error' and card expanded", () => {
     useAppStore.setState({
       selectedRunId: "r1",

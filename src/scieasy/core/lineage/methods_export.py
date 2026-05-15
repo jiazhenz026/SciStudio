@@ -96,6 +96,20 @@ def _render_run_header(run: dict[str, Any]) -> list[str]:
         lines.append(f"**Parent run**: `{parent_run}`  ")
     if execute_from:
         lines.append(f"**Execute-from block**: `{execute_from}`  ")
+    # ADR-038 §3.6a: partial re-runs (Run-from-here) reuse upstream outputs
+    # from the parent run; only blocks at-or-downstream of execute_from_block_id
+    # actually execute. Make that explicit so a methods reader understands the
+    # block list is intentionally partial.
+    if execute_from and parent_run:
+        lines.extend(
+            [
+                "",
+                "> Partial re-run — only blocks at or downstream of "
+                f"`{execute_from}` were executed in this run. Upstream block "
+                f"outputs were reused from parent run `{parent_run}` "
+                "(ADR-038 §3.6a).",
+            ]
+        )
     if run.get("user_notes"):
         lines.extend(["", "## Notes", "", str(run["user_notes"])])
     return lines
@@ -169,9 +183,22 @@ def _render_one_block(store: LineageStore, be: dict[str, Any]) -> list[str]:
         f"- **Started**: {started_at}",
         f"- **Finished**: {finished_at}",
         f"- **Duration**: {duration_str}",
-        f"- **Termination**: `{termination}`" + (f" — {termination_detail}" if termination_detail else ""),
+        f"- **Termination**: `{termination}`",
         "",
     ]
+    # Error / cancellation detail goes in its own block so the methods reader
+    # spots failed blocks immediately rather than scanning bullet tails.
+    if termination_detail and termination in {"error", "cancelled"}:
+        lines.extend(
+            [
+                f"**{termination.capitalize()} detail:**",
+                "",
+                "```",
+                str(termination_detail),
+                "```",
+                "",
+            ]
+        )
 
     # Q4a — block_config_resolved (the post-template-expansion config).
     config_raw = be.get("block_config_resolved")
