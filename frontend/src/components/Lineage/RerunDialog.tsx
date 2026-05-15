@@ -301,14 +301,27 @@ export function RerunDialog({
     setSubmitting(true);
     setSubmitError(null);
     try {
+      // Codex P1 (PR #944): the rerun side effect happens INSIDE rerunRun.
+      // If we let a downstream list-refresh failure bubble up through the
+      // same `try`, the dialog stays open and the user clicks Re-run again,
+      // accidentally launching a duplicate run. Treat rerun success and
+      // refresh as independent.
       await api.lineage.rerunRun(runId);
-      await fetchRuns();
-      onClose();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to re-run";
       setSubmitError(msg);
       setSubmitting(false);
+      return;
     }
+    // Refresh is best-effort; if it fails, the user can hit Retry on the
+    // tab's error banner. The rerun has already kicked off — close the
+    // dialog so they don't double-submit.
+    try {
+      await fetchRuns();
+    } catch {
+      // intentional swallow — list error banner is the surfacing channel
+    }
+    onClose();
   }
 
   const checking = detailLoading || validationLoading;

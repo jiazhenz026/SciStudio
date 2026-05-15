@@ -130,6 +130,15 @@ describe("RunsList", () => {
     expect(marker.textContent).toContain("threshold_1");
   });
 
+  it("omits the block count when block_count is null (Codex P2)", () => {
+    useAppStore.setState({
+      runs: [makeRun({ run_id: "r-null", block_count: null })],
+    });
+    render(<RunsList />);
+    const row = screen.getByTestId("runs-list-row-r-null");
+    expect(row.textContent).not.toMatch(/block\(s\)/);
+  });
+
   it("renders sr-only text for each status icon", () => {
     const statuses: LineageRunSummary["status"][] = [
       "completed",
