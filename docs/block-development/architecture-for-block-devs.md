@@ -217,7 +217,44 @@ class MyGPUBlock(ProcessBlock):
 - `requires_gpu` -- Hint that the block needs GPU access.
 - `cpu_cores` -- Requested CPU cores for parallel computation.
 - `key_dependencies` -- Python packages the block requires (displayed in
-  the palette UI for user guidance).
+  the palette UI for user guidance). **Note (ADR-038, 2026-05-15):** this
+  ClassVar is now strictly *block-author-facing palette metadata*. It is
+  **NOT** the runtime environment-snapshot mechanism — the engine captures
+  the full `uv pip freeze` per run in `lineage.db.runs.environment_snapshot`
+  per ADR-038 §3.1, regardless of what any individual block declares.
+  `key_dependencies` survives as documentation / palette UX, not as a
+  reproducibility contract.
+
+---
+
+## Custom blocks alongside git (ADR-039)
+
+Your custom block files at `<project>/blocks/*.py` are **git-tracked source like
+any other Python file**. There is nothing block-author-specific about how SciEasy
+treats them. When the user clicks Commit in the GUI, modified block files are
+staged and committed alongside workflow YAML and project notes. When the user
+switches branches via the BranchPicker, your block files are checked out to the
+new branch's content; the `BlockRegistry.hot_reload()` (ADR-036 §3.5) re-discovers
+blocks on save, so branch switching transparently rebuilds the palette.
+
+Two consequences worth knowing:
+
+1. **`block_version` is force-injected by the framework, not by your code.** Per
+   ADR-038 §3.3, `BlockRegistry.scan()` reads `importlib.metadata.version(distribution_name)`
+   at registration time and stamps it onto your `BlockSpec.version` field. If your
+   plugin package's `pyproject.toml` is missing a version, registration **fails
+   loudly** rather than defaulting. In-tree project blocks (`<project>/blocks/*.py`)
+   read `scieasy.__version__` as a uniform default; plugin blocks read their own
+   distribution version per ADR-037 D11. Test your plugin packages with
+   `BlockTestHarness.validate_package_info()` (ADR-026).
+
+2. **The framework records lineage externally — your block authoring contract is
+   unchanged.** You continue to write `Block.run(inputs, config) → outputs`. You
+   do **not** call into `LineageStore` directly. The engine observes your block's
+   execution and writes the appropriate rows into `<project>/.scieasy/lineage.db`
+   (4 normalized tables per ADR-038 §3.1) without any code on your side. If you
+   need to read past lineage for AI-driven parameter tuning or similar, query the
+   database via the MCP `get_lineage` tool (ADR-033) or directly via `sqlite3`.
 
 ---
 
@@ -232,3 +269,5 @@ class MyGPUBlock(ProcessBlock):
 | Tier 2 | Use `map_items` / `parallel_map` in a custom `run()` |
 | Tier 3 | Use `pack` / `unpack` in a fully custom `run()` |
 | Cancellation | Subprocess is killed; use atomic writes for safety |
+| Source control | Your block `.py` files are git-tracked (ADR-039); branch switch reloads the palette |
+| Lineage recording | Framework writes lineage rows externally; your `Block.run` contract is unchanged (ADR-038) |

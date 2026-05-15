@@ -1,7 +1,7 @@
 # SciEasy — Architecture Document
 
-> **Status**: Draft v0.2
-> **Last updated**: 2026-04-05
+> **Status**: Draft v0.3
+> **Last updated**: 2026-05-15 (ADR-038 unified lineage + ADR-039 git source control refactor)
 
 ---
 
@@ -59,6 +59,7 @@ The system is organised into six horizontal layers, from bottom to top. Each lay
 ├─────────────────────────────────────────────────────────────┤
 │  Layer 1: Data foundation                                   │
 │  Type hierarchy · storage backends · lazy loading · lineage │
+│                                  · versioning (bundled git) │
 ├─────────────────────────────────────────────────────────────┤
 │  Plugin ecosystem (cross-cutting; ADR-025, ADR-026)         │
 │  Entry-points protocol · PackageInfo · Block SDK ·          │
@@ -66,6 +67,29 @@ The system is organised into six horizontal layers, from bottom to top. Each lay
 │  BlockTestHarness · scieasy init-block-package scaffolding  │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### 3.1 Cross-cutting: history and versioning model (ADR-038, ADR-039)
+
+The system maintains **two independent history layers** that together satisfy the user's reproducibility requirements. Earlier drafts of this document conflated provenance, run tracking, and source version control under a single ambiguous "metadata" umbrella; the layers are now cleanly separated. They share exactly one join key.
+
+| Layer | Where it lives | What it records | Triggered by | ADR |
+|---|---|---|---|---|
+| **Source version control** | `<project>/.git/` | Workflow YAML, custom block `.py`, notes `.md` — every edit users want to recover | User clicks **Commit** (manual) or **Run** (pre-run auto-commit, ON by default) | ADR-039 |
+| **Run lineage** | `<project>/.scieasy/lineage.db` (SQLite, 4 normalized tables) | Every workflow execution: which workflow, which blocks, which params, which I/O DataObjects, which environment, against which source commit | User clicks **Run** (engine writes the row) | ADR-038 |
+
+**Single join key:** every row in `lineage.db.runs` carries a `workflow_git_commit` column pointing at the exact source commit the run executed against. From a run row, the user can `git checkout <sha>` to recover the source; from a source commit, the user can query `SELECT * FROM runs WHERE workflow_git_commit = ?` to see which runs ran against it.
+
+**Why two layers, not one unified store:**
+
+- Source files (YAML, Python, Markdown) want text-friendly diff / merge / branch semantics that git already provides perfectly after 40 years of stability — embedding git wins over reinventing.
+- Run records are immutable, append-only, queried via SQL by user questions ("what params did I use last Tuesday on the cellpose block?") — a SQLite store is the natural fit.
+- Conflating them in prior drafts produced the user-visible confusion documented in ADR-038 §2.2: the word "metadata" collided with `DataObject.meta` (typed scientific metadata), `DataObject.user` (annotations), plugin manifest metadata, and the workflow YAML `metadata:` block. The two-layer split ends that confusion.
+
+**What `lineage.db` is NOT:** it is **not** a content cache. Intermediate block outputs are overwritten freely by subsequent runs at their natural backend-managed paths (Zarr / Arrow / file). The recipe (workflow YAML snapshot + resolved params + environment + git commit SHA) survives indefinitely in `lineage.db.runs` and is sufficient to reproduce any historical run by re-execution. See §4.4 for the schema and write-flow.
+
+**What `.git/` is NOT:** it is **not** a snapshot of run data. The default `.gitignore` excludes `data/` (large binary inputs/outputs) and `.scieasy/` (per-machine runtime state including the lineage database itself). Two users cloning the same SciEasy project each generate their own local lineage when they run workflows; collaborative sharing of run lineage is a future ADR. The git CLI engine used to manage the repository is a **bundled portable git binary** (~25-30 MB shipped via the ADR-037 desktop bundle), not a Python library — see §4.6 for the source-version-control architecture.
+
+**AI agents may consume both layers:** an embedded agent (ADR-034) can `git log` and `git show` inside its PTY, and can `sqlite3 .scieasy/lineage.db "SELECT ..."` to answer reproducibility questions; no new MCP tools are required for either.
 
 ---
 
@@ -396,28 +420,114 @@ Laziness is enforced at two levels:
 
 **Exempt types**: `Text` holds its `content` string in memory (inherently small, ~KB). `Artifact` uses `file_path` as its transport mechanism and is exempt from auto-flush -- the file stays at its original path and is not copied into managed storage.
 
-### 4.4 Data lineage
+### 4.4 Data lineage (ADR-038)
 
-Every block execution produces a **lineage record**:
+Every workflow execution is recorded as a structured run in `<project>/.scieasy/lineage.db`, a single SQLite database (WAL mode) with four normalized tables. The schema unifies what were previously two disjoint subsystems (`metadata.db` per the now-superseded ADR-032 and a dormant `lineage.db` schema per the original ADR-007 §4.4) into one coherent run-history surface. The architectural intent: **separate source version control (git, ADR-039) from run tracking (this database)**; their only join key is `runs.workflow_git_commit`.
+
+```sql
+-- Table 1: runs — one row per workflow execution
+CREATE TABLE runs (
+    run_id                  TEXT PRIMARY KEY,         -- UUIDv4
+    workflow_id             TEXT NOT NULL,            -- logical name e.g. "image_pipeline"
+    workflow_git_commit     TEXT,                     -- SHA at run start (NULL if git unavailable)
+    workflow_yaml_snapshot  TEXT NOT NULL,            -- full YAML; safety net if git is lost
+    workflow_dirty          INTEGER NOT NULL,         -- 0/1 worktree-clean flag at run start
+    started_at              TEXT NOT NULL,
+    finished_at             TEXT,
+    status                  TEXT NOT NULL,            -- running | completed | failed | cancelled
+    environment_snapshot    TEXT NOT NULL,            -- JSON: full uv pip freeze
+    triggered_by            TEXT NOT NULL,            -- user | ai_block | execute_from
+    parent_run_id           TEXT REFERENCES runs(run_id),
+    execute_from_block_id   TEXT,                     -- which block "Run from here" started at (NULL = full DAG)
+    user_notes              TEXT
+);
+
+-- Table 2: block_executions — one row per block per run
+CREATE TABLE block_executions (
+    block_execution_id      TEXT PRIMARY KEY,         -- UUIDv4
+    run_id                  TEXT NOT NULL REFERENCES runs(run_id),
+    block_id                TEXT NOT NULL,            -- DAG node id
+    block_type              TEXT NOT NULL,            -- class name
+    block_version           TEXT NOT NULL,            -- auto-injected from importlib.metadata
+    block_config_resolved   TEXT NOT NULL,            -- JSON, post-template-expansion params
+    started_at              TEXT NOT NULL,
+    finished_at             TEXT,
+    duration_ms             INTEGER,
+    termination             TEXT NOT NULL,            -- completed | error | cancelled | skipped
+    termination_detail      TEXT,
+    UNIQUE (run_id, block_id)
+);
+
+-- Table 3: data_objects — DataObject identity catalog (subsumes the old metadata.db role)
+CREATE TABLE data_objects (
+    object_id               TEXT PRIMARY KEY,         -- FrameworkMeta UUID
+    type_name               TEXT NOT NULL,
+    backend                 TEXT,                     -- "zarr" / "arrow" / "file"
+    storage_path            TEXT,                     -- best-effort; may be stale after overwrite
+    size_bytes              INTEGER,
+    mtime_at_write          TEXT,
+    created_at              TEXT NOT NULL,
+    wire_payload            TEXT NOT NULL,            -- full wire-format JSON for reconstruction
+    derived_from            TEXT REFERENCES data_objects(object_id),
+    produced_by_execution   TEXT REFERENCES block_executions(block_execution_id)
+);
+
+-- Table 4: block_io — port-to-DataObject edges per execution
+CREATE TABLE block_io (
+    block_execution_id      TEXT NOT NULL REFERENCES block_executions(block_execution_id),
+    direction               TEXT NOT NULL,            -- 'input' | 'output'
+    port_name               TEXT NOT NULL,
+    object_id               TEXT NOT NULL REFERENCES data_objects(object_id),
+    position                INTEGER NOT NULL,         -- index within port (Collections unrolled)
+    PRIMARY KEY (block_execution_id, direction, port_name, position)
+);
+```
+
+**Write flow (engine-owned, block-transparent).** All writes happen in the engine process; worker subprocesses do not connect to the database. The block author contract (`Block.run(inputs, config) → outputs`) is unchanged.
 
 ```
-LineageRecord:
-    input_hashes:  [hash(input_0), hash(input_1), ...]
-    block_id:      "cellpose_segment_v2"
-    block_config:  { diameter: 30, model: "cyto2", ... }
-    block_version: "0.3.1"
-    output_hashes: [hash(output_0)]
-    timestamp:     "2026-04-02T14:32:00Z"
-    duration_ms:   4521
-    environment:   { python: "3.11.8", key_packages: { cellpose: "3.0.1", ... } }
-    termination:   "completed"              # "completed" | "cancelled" | "error" | "skipped"
-    partial_output_refs: null               # StorageReference list for partial outputs (if any)
-    termination_detail:  null               # human-readable reason (error message, skip reason, etc.)
+ApiRuntime.start_workflow(workflow_id):
+    run_id = uuid4()
+    yaml = read(workflows/<workflow_id>.yaml)
+    git_commit, dirty = git_engine.head_state()    # per ADR-039 (None if no git)
+    env = EnvironmentSnapshot.capture(full=True)   # full `uv pip freeze`
+    INSERT runs (...)
+    construct LineageRecorder(lineage_store); pass to DAGScheduler
+
+DAGScheduler._run_block(node_id, block, inputs, config):
+    block_execution_id = uuid4()
+    INSERT block_executions (started_at=now, ...)
+    for each input port + position:
+        INSERT OR IGNORE data_objects (wire_payload, ...)
+        INSERT block_io (direction='input', ...)
+    result = await runner.run(block, inputs, config)
+    for each output port + position:
+        INSERT data_objects (produced_by_execution=block_execution_id,
+                              derived_from=obj.framework.derived_from, ...)
+        INSERT block_io (direction='output', ...)
+    UPDATE block_executions SET finished_at=now, duration_ms, termination=...
 ```
 
-Records are stored in a local SQLite database within the project workspace. They form a provenance graph that supports reproducibility audits, debugging, and AI-driven parameter comparison.
+**Collection unrolling.** A `Collection[Image]` output with N items is unrolled into N `data_objects` rows + N `block_io` rows with `position` ordering. The `_collection: true` wire wrapper is not persisted; it is reconstructed at read time by grouping `block_io` rows for `(block_execution_id, direction, port_name)` ordered by `position`. A 1000-item Collection costs ~MB (reference-only `wire_payload` per ADR-031), not GB.
 
-Lineage records are written for **all terminal states**, not just successful completions. A cancelled block produces a record with `termination: "cancelled"` and `output_hashes: []`. A skipped block produces a record with `termination: "skipped"` and `termination_detail` pointing to the upstream block that caused the skip. This ensures the provenance graph is complete — every block execution attempt is traceable, including failures and cancellations.
+**No content hashing, no per-run data directories, no GC.** Intermediate block outputs land at their natural backend-managed paths and are **overwritten freely** by subsequent runs (matches the Fiji / ImageJ / GraphPad norm: "the recipe is the artifact"). `data_objects.storage_path` is best-effort — the UI marks runs whose intermediate data may have been overwritten and the affordance is **re-run with recorded settings**, not "browse old data". `wire_payload` preserves the full reference-only object (FrameworkMeta + meta + user + StorageReference) so methods export works even after raw data is overwritten.
+
+**Termination states.** `block_executions.termination` records all four terminal states: `completed`, `error`, `cancelled`, `skipped` (per ADR-018). Every block execution attempt is traceable, including failures and cancellations.
+
+**Force-injected `block_version`.** BlockRegistry resolves each entry-point to its source distribution and stamps `importlib.metadata.version(distribution_name)` onto the `BlockSpec.version` field at registration time. Registration fails loudly if version cannot be resolved — reproducibility hard requirement (ADR-038 §3.3).
+
+**Four user questions, one SQL query each** (see ADR-038 §3.7 for queries):
+
+1. Which run? — `SELECT * FROM runs WHERE run_id = ?`
+2. Which workflow was running? — `SELECT workflow_id, workflow_yaml_snapshot, workflow_git_commit FROM runs WHERE run_id = ?`
+3. Which blocks ran? — `SELECT block_id, block_type, block_version, duration_ms, termination FROM block_executions WHERE run_id = ?`
+4. Per-block params + I/O? — `SELECT block_config_resolved` plus a join through `block_io → data_objects`.
+
+Plus the reverse query (figure file → run that produced it + methods): join `data_objects.storage_path → block_executions → runs`. The lineage tab in the GUI surfaces all five through a two-pane runs-list + run-detail layout (ADR-038 §3.8).
+
+**Re-run validation.** When the user clicks "Re-run this run", the engine performs advisory (non-blocking) checks: input file size + mtime drift and environment package drift, surfaced as dismissible warnings. The new run gets a fresh `run_id` with `parent_run_id` linking back; re-run chains are queryable.
+
+**"Run from here" scope.** `execute_from_block_id` records which block the user clicked "Run from here" on. The intermediate data needed to start mid-DAG is preserved only in the ADR-012 single-slot checkpoint (`<project>/.scieasy/pause/`), so "Run from here" works against the **most recent** run only. To reproduce an older historical run, the user re-runs the **full workflow** from start with the recorded recipe (workflow_yaml_snapshot + block_config_resolved + environment_snapshot + workflow_git_commit). This is the deliberate price of the no-per-run-isolation decision.
 
 ### 4.5 Axis-iteration and broadcast utilities
 
@@ -544,6 +654,89 @@ class ApplyMaskToMSI(ProcessBlock):
 ```
 
 Both utilities are axis-name-aware (not position-based), integrate with `DataObject` storage-backed access methods for chunked iteration on large datasets, and raise clear errors when axes don't align. Neither is required -- they are conveniences for common patterns. Blocks that need finer control write manual loops over `Array.iter_over(axis)` or `Array.sel(**kwargs)` directly (both added by ADR-027 D4 with Level 1 laziness and metadata preservation).
+
+### 4.6 Source version control via bundled git (ADR-039)
+
+Every SciEasy project is also a git repository. Workflow YAML files, custom block `.py` files, project notes (`.md`), and `project.yaml` live under git management with standard semantics: commit, history, diff, restore, branch, merge, cherry-pick, stash. The engine is a **bundled portable `git` binary** invoked via subprocess — not pygit2, not gitpython, not dulwich.
+
+**Why bundled git CLI (decision reversed 2026-05-15 from initial pygit2 draft):**
+
+- Maximum cross-platform reliability across Windows / macOS / Linux including new OS versions and architectures (Windows ARM, pre-release distros). Binary distributions of git have been maintained for 25+ years.
+- 100% bug-for-bug compatibility with external git tools (VS Code, GitHub Desktop, terminal git CLI). Users who open the same project in another tool see identical behavior.
+- License-clean: shelling out and bundling the binary do not subject SciEasy to git's GPLv2 terms (VS Code, GitHub Desktop, GitKraken etc. all do this).
+- Stable wire format via plumbing commands (`git log --format=...`, `git status --porcelain=v2`, `git diff --raw`) parsed across versions.
+
+The ~25-30 MB bundle-size cost (vs ~3 MB for pygit2) is acceptable against ADR-037's ~250 MB total desktop bundle. See ADR-039 §3.1 for the full rationale.
+
+**Per-platform packaging:**
+
+| Platform | Binary | Source |
+|---|---|---|
+| Windows | MinGit (~30 MB) | Git for Windows portable distribution |
+| macOS | Static `git` (~25 MB) | Built from Git source release, universal2 arch |
+| Linux | Static `git` (~25 MB) | Built from Git source release with musl libc |
+
+Sourcing is automated by `desktop/scripts/fetch-git-portable.{ps1,sh}` in the ADR-037 packaging pipeline; the binary version is pinned per SciEasy release and refreshed quarterly for CVE updates.
+
+**Project lifecycle:**
+
+```
+Project opened:
+    if <project>/.git/ exists:
+        use as-is
+    else if <project>/.scieasy/no_git marker absent:
+        bundled_git init <project>
+        write default .gitignore
+        initial commit ("Initial commit (auto-generated by SciEasy)")
+    else:
+        operate without versioning (degraded mode; warn in UI)
+
+Workflow run:
+    if user has auto-commit ON (default):
+        if working tree dirty:
+            squash-commit dirty files with message "auto: pre-run @ <ts> (run=<short_id>, workflow=<id>)"
+        capture HEAD SHA → lineage.db.runs.workflow_git_commit
+    else:
+        capture HEAD SHA (may be older than current working state); set workflow_dirty=1
+        the inline workflow_yaml_snapshot is the reproducibility safety net
+
+Workflow saved (Ctrl+S):
+    file watcher updates canvas / editor (no git action unless user clicks Commit)
+```
+
+**Commit-message prefix convention** (filtered by the GUI History panel):
+
+- `auto:` — pre-run squash commit, hidden by default in the History panel ("Manual milestones" filter), rendered as small grey dots in the branch graph view for topology preservation.
+- `agent:` — agent-authored milestone (ADR-034 embedded coding agent, ADR-035 AI Block, or programmatic flows), visible with 🤖 icon.
+- *(no prefix)* — user-authored manual milestone, visible with 👤 icon.
+
+**v1 feature set:** commit, history (with filter), diff, restore, branch list/create/switch/delete, merge (FF + clean three-way + conflict path), cherry-pick, stash list/save/apply/drop, branch graph visualization (clean-room implementation; no vendored third-party library — see ADR-039 §3.5b). Conflict resolution UI reuses the ADR-036 Monaco editor with `<<<<<< / ====== / >>>>>>` marker decorations and inline action buttons (Accept Current / Accept Incoming / Accept Both / Manual edit) — no new editor, no 3-way merge component.
+
+**Default `.gitignore`** (auto-written on init; users may edit):
+
+```gitignore
+# Data files (not versioned — see ADR-038 for run lineage)
+data/
+
+# SciEasy runtime state (per-project, per-machine; not portable)
+.scieasy/
+
+# Python caches, plugin venvs, editor caches, OS noise
+__pycache__/
+*.py[cod]
+*-venv/
+*.venv/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+```
+
+The `.scieasy/lineage.db` is git-ignored by default (binary, no useful diff/merge; conceptually local to the machine). Users who explicitly want lineage shared with collaborators delete the `.scieasy/` line from `.gitignore`.
+
+**Out of scope for v1:** remote push/pull, git LFS, submodules, hook UI, tag UI, rebase UI, bisect UI — these are explicitly deferred to v2 (ADR-039 §3.10). The user can still invoke them via the bundled or system `git` CLI from a terminal; SciEasy does not lock `.git/`.
+
+**Why this replaces the previous ETag scheme:** the prior implementation used an in-memory `ApiRuntime.bump_revision` counter + `If-Match` header for optimistic concurrency on workflow saves. That counter reset on server restart and tracked only the active session, providing no historical recovery and no protection across restarts. Git is now the durable concurrency / history mechanism; the existing `workflow_watcher` (ADR-034 Phase 2) is extended to also detect external `.git/HEAD` changes so the GUI invalidates its cache and prompts to reload on external commits.
 
 ---
 
@@ -1742,7 +1935,9 @@ class WorkflowCheckpoint:
     skip_reasons: dict[str, str]                   # block_id → skip reason for SKIPPED blocks (ADR-018)
 ```
 
-Checkpoints are saved to `{project}/checkpoints/` as JSON + references to Zarr/Parquet data. Resuming a workflow loads the latest checkpoint, skips completed blocks, and continues from the pending block. The `CheckpointManager` subscribes to `BLOCK_DONE`, `BLOCK_ERROR`, `BLOCK_CANCELLED`, and `BLOCK_SKIPPED` events on the `EventBus` and saves a checkpoint after each state change.
+Checkpoints are saved to `{project}/.scieasy/pause/` (relocated from the prior `{project}/checkpoints/` path during the ADR-038 unification; see ADR-012 for the unchanged scope and ADR-038 §3.6a for the distinction from run lineage) as JSON + references to Zarr/Parquet data. Resuming a workflow loads the latest checkpoint, skips completed blocks, and continues from the pending block. The `CheckpointManager` subscribes to `BLOCK_DONE`, `BLOCK_ERROR`, `BLOCK_CANCELLED`, and `BLOCK_SKIPPED` events on the `EventBus` and saves a checkpoint after each state change.
+
+The checkpoint store is a **single-slot artifact** (one file per `workflow_id`, overwritten on every terminal event). It is distinct from `lineage.db` (§4.4): the checkpoint mirrors the on-disk state at the moment of the most recent terminal block event and powers pause/resume + "Run from here on the latest run"; `lineage.db` records the full history of every run as immutable rows but preserves no intermediate data. "Run from here" against an older historical run is therefore not supported — to reproduce an older run, re-execute the full workflow using the recipe stored in `lineage.db.runs` (workflow_yaml_snapshot + per-block resolved params + environment + git commit SHA).
 
 Checkpoint state values include `CANCELLED` and `SKIPPED` (ADR-018). When resuming from a checkpoint, blocks in these states are not re-executed. Users can reset individual blocks to `IDLE` to retry them in a new run.
 
@@ -2004,21 +2199,23 @@ If a block's subprocess crashes (segfault, OOM), all items in the Collection are
 
 Blocks using Tier 1 (`process_item`) get partial result preservation automatically — each processed item is flushed to storage before the next item begins. A crash on item 47 preserves items 1–46 in storage. Blocks using Tier 2/3 can achieve the same by calling `_auto_flush` or `flush_to_storage` after each item.
 
-### 6.7 Environment snapshots for reproducibility
+### 6.7 Environment snapshots for reproducibility (ADR-038)
 
-Lineage records (section 4.4) capture block version and config, but the same block version can produce different results under different package versions. Each lineage record includes an optional environment snapshot:
+Every `runs` row in `lineage.db` (§4.4) carries a JSON-serialised `EnvironmentSnapshot` capturing the full Python environment at run start. The dataclass:
 
 ```python
 @dataclass
 class EnvironmentSnapshot:
     python_version: str                         # "3.11.8"
     platform: str                               # "linux-x86_64"
-    key_packages: dict[str, str]                # {"scipy": "1.12.0", "cellpose": "3.0.1"}
-    full_freeze: str | None = None              # optional: pip freeze output
+    full_freeze: str                            # full `uv pip freeze` output (default)
+    key_packages: dict[str, str]                # derived from full_freeze: {"scipy": "...", "cellpose": "..."}
     conda_env: str | None = None                # optional: conda env export
 ```
 
-Blocks declare `key_dependencies: list[str]` — the package names whose versions matter for reproducibility. The engine auto-captures their versions at execution time. For strict reproducibility audits, the full pip freeze or conda environment can be attached.
+**Default scope changed by ADR-038**: prior drafts captured only 5 key packages declared per-block via `key_dependencies`. The unified lineage system now captures the **full `uv pip freeze`** at run start, with `key_packages` derived for fast equality checks but the full freeze always available. Rationale: a block's transitive dependencies (numpy, scipy, libraries used inside Cellpose, etc.) influence results far beyond what any single block author can predict; reproducibility-grade auditability requires the complete dependency closure. Storage cost: ~5-20 KB per run, negligible against any project's total `lineage.db` size.
+
+Re-run validation (§4.4) compares the historical run's environment to the current process environment and surfaces advisory warnings on drift (no blocking).
 
 ### 6.8 Remote execution interface (future)
 
@@ -2074,7 +2271,7 @@ Each `AgentSession` corresponds to one CLI subprocess with one `session_id`. The
 
 ### 7.2 SciEasy MCP server (ADR-033 D2)
 
-The MCP server runs **in-process with FastAPI** and exposes ~25 tools across four user-need categories. Tools share the same dependency-injection container as REST routes (BlockRegistry, TypeRegistry, scheduler, lineage, MetadataStore).
+The MCP server runs **in-process with FastAPI** and exposes ~25 tools across four user-need categories. Tools share the same dependency-injection container as REST routes (BlockRegistry, TypeRegistry, scheduler, the unified `LineageStore` per ADR-038, and the bundled `GitEngine` per ADR-039). Agents query `lineage.db` directly via SQL inside their PTY bash tool and run `git` via the bundled binary — neither requires a dedicated MCP tool.
 
 | Category | Tools | Read / Write |
 |---|---|---|
@@ -2531,8 +2728,9 @@ Tabbed panel below the canvas, same width as the canvas area.
 | **💬 AI Chat** | Embedded claude/codex TUI via PTY (ADR-034). Each chat tab is a live agent session. | ADR-034 |
 | **📋 Config** | Full parameter form for selected block (JSON Schema → auto-generated form) | Phase 8 MVP |
 | **📜 Logs** | Real-time execution log stream (SSE), block filter, severity filter (incl. error-only). Replaces the standalone Problems tab as of PR #834. | Phase 8 MVP |
-| **🔗 Lineage** | Provenance chain for selected block output (still stubbed; backend `get_lineage` + `MetadataStore` ready — see follow-up issue #835) | Phase 8.5 |
-| **📊 Jobs** | Live + recently-completed workflow runs (still stubbed — see follow-up issue #835) | Phase 8.5 |
+| **🔗 Lineage** | Two-pane runs-list + run-detail surface on the unified `lineage.db` per ADR-038 §3.8. Left pane: reverse-chronological run list (workflow, duration, block count, git commit). Right pane: clicked run's blocks, params, I/O DataObjects, `[Re-run]` + `[Export methods]` actions. | ADR-038 Phase 3 |
+
+**Jobs tab removed** (ADR-038 §3.8): the standalone Jobs tab was a placeholder for what the new Lineage tab now subsumes. Running and recently-completed workflow runs surface as live-updating rows at the top of the Lineage tab's run list.
 
 **Tab interaction rules:**
 
@@ -2658,24 +2856,31 @@ Each project is a self-contained directory:
 
 ```
 my_project/
-├── project.yaml              # Project metadata, default settings
-├── workflows/
+├── .git/                     # Auto-initialised by SciEasy on project open (ADR-039)
+├── .gitignore                # Auto-written; excludes data/ and .scieasy/ by default
+├── .scieasy/                 # Per-machine runtime state (gitignored by default)
+│   ├── lineage.db            # Unified SQLite run lineage (ADR-038, 4 normalized tables)
+│   ├── pause/                # Single-slot workflow checkpoints (ADR-012; relocated from checkpoints/)
+│   │   └── main_analysis/    #   Serialised workflow states for pause/resume
+│   ├── ai-block-runs/        # Per-AIBlock-execution runtime dirs (ADR-035)
+│   ├── sessions/             # ADR-034 chat session state
+│   └── git_author.json       # First-commit author cache (ADR-039 OQ-1)
+├── project.yaml              # Project metadata, default settings (git-tracked)
+├── workflows/                # Git-tracked workflow YAML files
 │   ├── main_analysis.yaml    # Workflow DAG definition (portable, version-controllable)
 │   └── preprocessing.yaml
-├── data/
+├── blocks/                   # Git-tracked custom blocks (Tier 1 drop-in)
+│   ├── raman_denoise.py      #   project-local blocks, version-controlled normally
+│   └── custom_merge.py
+├── types/                    # Git-tracked custom data types (Tier 1 drop-in)
+│   └── maldi_image.py
+├── notes/                    # Git-tracked project notes (ADR-036)
+│   └── thoughts.md
+├── data/                     # NOT git-tracked (large binary; see .gitignore)
 │   ├── raw/                  # Original uploaded files (read-only after import)
 │   ├── zarr/                 # Zarr stores for Array-type data
 │   ├── parquet/              # Parquet files for DataFrame-type data
 │   └── artifacts/            # PDFs, reports, images, other files
-├── blocks/                   # ← Tier 1 drop-in: .py files auto-discovered
-│   ├── raman_denoise.py      #   project-local blocks
-│   └── custom_merge.py
-├── types/                    # ← Tier 1 drop-in: .py files auto-discovered
-│   └── maldi_image.py        #   project-local data types
-├── checkpoints/
-│   └── main_analysis/        # Serialised workflow states for pause/resume
-├── lineage/
-│   └── lineage.db            # SQLite database of lineage records
 └── logs/
     └── execution.log         # Timestamped execution logs
 ```
@@ -2686,6 +2891,8 @@ User-global drop-in directory (shared across all projects):
 ├── blocks/                   # User-global custom blocks
 └── types/                    # User-global custom data types
 ```
+
+**Note on relocations (2026-05-15):** The pre-ADR-038/039 layout had top-level `checkpoints/` and `lineage/` directories and a `metadata.db` file at project root. These are gone: checkpoints moved into `.scieasy/pause/`, the lineage database is now `.scieasy/lineage.db` (with a refactored 4-table schema), and `metadata.db` is collapsed into the unified `lineage.db` per ADR-038. The unified store handles both DataObject identity (formerly `metadata.db`) and run history (formerly `lineage/lineage.db`); see §4.4.
 
 ### 10.1 Workflow definition format
 
@@ -2819,7 +3026,8 @@ workflow:
 | Data validation | Pydantic v2 | Config schemas, API models |
 | Array storage | Zarr v3 | Chunked, compressed, cloud-ready |
 | Tabular storage | Apache Arrow / Parquet | Via `pyarrow` |
-| Metadata DB | SQLite | Lineage records, project metadata |
+| Lineage DB | SQLite (WAL) | Unified run lineage (ADR-038, supersedes ADR-032): `runs` + `block_executions` + `data_objects` + `block_io` |
+| Source version control | bundled portable `git` CLI (MinGit on Windows ~30 MB; static `git` on mac/Linux ~25 MB) | Workflow YAML + custom blocks + notes per ADR-039; auto-init on project open; pre-run auto-commit |
 | Process lifecycle | ProcessHandle + ProcessRegistry + ProcessMonitor | Cross-platform: POSIX signals + process groups (Linux/macOS), Job Objects + TerminateProcess (Windows). Optional: `psutil` for convenience methods (ADR-019) |
 | Concurrency | `concurrent.futures` + `asyncio` | Block-internal parallelism, async scheduling |
 | System monitoring | `psutil` | OS memory usage for ResourceManager dispatch gating, process alive checks for ProcessHandle (ADR-022, ADR-019) |

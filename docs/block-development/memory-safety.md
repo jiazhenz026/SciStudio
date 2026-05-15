@@ -286,8 +286,13 @@ class HeavyBlock(ProcessBlock):
     key_dependencies: ClassVar[list[str]] = ["torch>=2.0"]
 ```
 
-These are advisory hints. The engine uses them for scheduling but does
-not enforce hard limits.
+These are advisory hints. The engine uses `requires_gpu` and `cpu_cores`
+for scheduling but does not enforce hard limits. **`key_dependencies`
+(ADR-038, 2026-05-15) is now palette / documentation metadata only** —
+the per-run environment-snapshot mechanism in `lineage.db.runs` captures
+the full `uv pip freeze` regardless of what any block declares; see
+ARCHITECTURE.md §6.7 + the "Resource Hints" section in
+`architecture-for-block-devs.md` for the contract split.
 
 ---
 

@@ -1,7 +1,14 @@
 # ADR-032 Implementation Roadmap
 
+> **⚠️ SUPERSEDED by ADR-038 (2026-05-15).** ADR-032 itself is superseded; the
+> `metadata.db` store described in this roadmap is collapsed into the unified
+> `<project>/.scieasy/lineage.db` (4 normalized tables). This roadmap is preserved
+> for historical context — actual implementation is tracked via the ADR-038/039
+> cascade checklist at `docs/planning/adr-038-039-checklist.md`.
+
 **Date**: 2026-04-12
-**Related issues**: #639, #640, #641
+**Status**: superseded by ADR-038 implementation cascade (2026-05-15)
+**Related issues**: #639, #640, #641 (closed as superseded; see ADR-038 sub-issues)
 
 ---
 

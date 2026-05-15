@@ -386,7 +386,7 @@ The engine serialises a `WorkflowCheckpoint` after every block completion:
 - ID of the pending block (if paused for interactive/external action).
 - Full config snapshot at checkpoint time.
 
-Checkpoints are saved to `{project}/checkpoints/` as JSON + references to Zarr/Parquet data. Resuming loads the latest checkpoint, skips completed blocks, and continues from the pending block.
+Checkpoints are saved to `{project}/.scieasy/pause/` (relocated 2026-05-15 from the prior `{project}/checkpoints/` path during the ADR-038 history-model unification) as JSON + references to Zarr/Parquet data. Resuming loads the latest checkpoint, skips completed blocks, and continues from the pending block.
 
 ### Alternatives considered
 
@@ -399,6 +399,14 @@ Checkpoints are saved to `{project}/checkpoints/` as JSON + references to Zarr/P
 - Crash recovery without re-running completed blocks.
 - Collaborative handoff: one person runs automated steps, saves checkpoint, another person does manual review.
 - Checkpoint files reference intermediate data by storage path — if underlying data is moved or deleted, checkpoint becomes invalid.
+
+### Scope clarification (ADR-038, 2026-05-15)
+
+The checkpoint described here is a **single-slot artifact**: one file per `workflow_id`, overwritten on every terminal block event. It powers pause/resume and "Run from here on the latest run" — and only on the latest run. It is **distinct from** the run lineage database described in ADR-038, which records every run's recipe as immutable rows but does **not** preserve intermediate data.
+
+Consequences for "Run from here":
+- Against the latest completed run → checkpoint resolves; works as today.
+- Against an older historical run → not supported. Re-run the full workflow from start using the recipe stored in `lineage.db.runs` (workflow YAML snapshot + per-block resolved params + environment + git commit SHA).
 
 ---
 
@@ -462,6 +470,10 @@ The framework needs a visual workflow editor (drag-drop blocks, wire connections
 - Two-language codebase (Python backend + TypeScript frontend). Manageable because the boundary is a well-defined API.
 - ReactFlow provides minimap, zoom, drag-drop, and connection validation out of the box.
 - WebSocket enables sub-second UI updates during workflow execution.
+
+### Project state model update (ADR-039, 2026-05-15)
+
+Per ADR-039, the project state model on disk now includes a `.git/` repository at the project root. The bundled portable git CLI (subprocess engine) handles source version control for workflow YAML / custom blocks / notes. The prior in-memory `ApiRuntime.bump_revision` counter + `If-Match` ETag flow for workflow-save optimistic concurrency is **removed** — git commit SHA + working-tree dirty state is the durable replacement. The frontend `workflow_watcher` (ADR-034 Phase 2) is extended to also detect external `.git/HEAD` changes so the GUI refreshes its cache on external commits. The `runs.workflow_git_commit` join key (ADR-038) ties every recorded run to the exact source commit it executed against.
 
 ---
 
@@ -1292,6 +1304,17 @@ async def _cancel_active_tasks_on_shutdown(self) -> None:
 - **No changes to ProcessHandle, ProcessRegistry, or spawn_block_process**. ADR-019 remains authoritative.
 - **No changes to Collection transport or block iteration model**. ADR-020 remains authoritative.
 - **No new block states, no new events**. This addendum is implementation-only.
+
+### Supersession note (ADR-038, 2026-05-15)
+
+The flat `LineageRecord` dataclass described in this ADR (with `input_hashes`, `output_hashes`, `block_config`, `environment`, `termination`, `termination_detail`, `partial_output_refs` fields) is superseded by the 4-table normalized schema in ADR-038 §3.1. The semantics carry forward as follows:
+
+- `LineageRecord.block_id` / `block_config` / `block_version` / `environment` → `block_executions` table + `runs.environment_snapshot`.
+- `LineageRecord.termination` / `termination_detail` → `block_executions.termination` and `block_executions.termination_detail` columns (preserved verbatim per ADR-038 §3.1).
+- `LineageRecord.input_hashes` / `output_hashes` → **removed**. Content hashing is no longer captured (rationale: ADR-038 §3.4). Identity is via `data_objects.object_id` (FrameworkMeta UUID) and `block_io` edges.
+- `LineageRecord.partial_output_refs` → folded into `data_objects.storage_path` for output rows where the block emitted partial results before erroring/cancelling.
+
+The `LineageRecorder` event subscription matrix described in this ADR remains authoritative — it still writes a row for each terminal block event (now into `block_executions` instead of the old flat `LineageRecord` store).
 
 ---
 
@@ -2276,6 +2299,10 @@ The following text in ADR-020 Decision section must be corrected:
 | `src/scieasy/blocks/base/ports.py` | `port_accepts_type` and `validate_connection` check Collection.item_type |
 | `tests/core/test_collection.py` | Test: `Collection([])` raises TypeError; `Collection([], item_type=Image)` OK |
 | `tests/blocks/test_ports.py` | Test: `Collection[DataFrame]` rejected by `accepted_types=[Image]` port |
+
+### Supersession note (ADR-038, 2026-05-15)
+
+The references to `core/lineage/record.py::LineageRecord.batch_info`, `core/lineage/store.py::_CREATE_TABLE` SQL, and the `batch_info TEXT` column in this ADR's deletion table describe the prior single-table lineage store. That store has been superseded by ADR-038's 4-table schema; `batch_info` is doubly removed (this ADR removed it from the old store; ADR-038 then replaced the old store entirely). The semantic conclusion — that Collections are an engine-level transport without per-item lineage rows — carries forward: each item in a Collection still becomes one `data_objects` row + one `block_io` row with a `position` index, but there is no separate `batch_info` JSON blob (ADR-038 §3.1).
 
 ---
 
@@ -4219,7 +4246,11 @@ class FrameworkMeta(BaseModel):
     created_at: datetime
     object_id: str
     source: str = ""           # free-form origin description
-    lineage_id: str | None = None   # links into LineageRecorder
+    lineage_id: str | None = None   # links into the unified lineage store: populated with
+                                    #   block_execution_id when constructed inside a run context
+                                    #   per ADR-038 §3.2 (was always None in pre-ADR-038 drafts;
+                                    #   now load-bearing for the data_objects.produced_by_execution
+                                    #   FK and for backward provenance traversal)
     derived_from: str | None = None # parent object_id for derived slices
 
 class DataObject:
