@@ -222,23 +222,23 @@
 
 ### Phase D39-2.2a — Backend engine + REST + auto-init SKELETON (Owner: SD39-2a, 1 agent, detailed comments) [ADR-039 §6 Phase 1 skeleton]
 
-- [ ] Sub-issue opened, branch off tracking branch
-- [ ] `src/scieasy/core/versioning/__init__.py` (NEW)
-- [ ] `src/scieasy/core/versioning/git_engine.py` (NEW skeleton; comments enumerate all subprocess wrappers: commit / log / diff / restore / branch ops / merge / cherry-pick / stash; plumbing-format parsing)
-- [ ] `src/scieasy/core/versioning/git_binary.py` (NEW skeleton; comments cover bundle path + system fallback for dev CLI)
-- [ ] `src/scieasy/core/versioning/gitignore_template.py` (NEW skeleton; comments give exact template per ADR §3.3)
-- [ ] `src/scieasy/core/versioning/status.py` (NEW skeleton; dirty/modified helpers)
-- [ ] `src/scieasy/core/versioning/watcher.py` (NEW skeleton; .git/HEAD + refs polling)
-- [ ] `src/scieasy/api/routes/git.py` (NEW skeleton; all ~15 endpoints stubbed with route + signature + docstring per ADR §3.5 table)
-- [ ] `desktop/scripts/fetch-git-portable.ps1` (NEW skeleton; build-step comments for Windows MinGit)
-- [ ] `desktop/scripts/fetch-git-portable.sh` (NEW skeleton; macOS universal2 + Linux musl static build comments)
-- [ ] `desktop/package.json` — add `desktop/resources/git/` to bundle assets
-- [ ] `src/scieasy/api/runtime.py::create_project` — auto-init call stub [ADR-039 §3.2]
-- [ ] `src/scieasy/api/runtime.py::open_project` (or equivalent project-switch path) — re-init stub
-- [ ] `src/scieasy/api/runtime.py::start_workflow` — pre-run auto-commit hook stub (TODO marker for D39-2.2b)
-- [ ] `src/scieasy/api/app.py` — register git router, watcher install in lifespan
-- [ ] `src/scieasy/cli/main.py::init` — CLI git-init parity stub
-- [ ] Pytest stubs (xfail) with test-plan docstrings for: commit/restore round-trip, auto-init idempotence, merge FF/clean/conflict, cherry-pick, stash CRUD
+- [x] Sub-issue opened, branch off tracking branch → https://github.com/zjzcpj/SciEasy/issues/921
+- [x] `src/scieasy/core/versioning/__init__.py` (NEW) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/core/versioning/git_engine.py` (NEW skeleton; comments enumerate all subprocess wrappers: commit / log / diff / restore / branch ops / merge / cherry-pick / stash; plumbing-format parsing) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/core/versioning/git_binary.py` (NEW skeleton; comments cover bundle path + system fallback for dev CLI) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/core/versioning/gitignore_template.py` (NEW skeleton; comments give exact template per ADR §3.3) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/core/versioning/status.py` (NEW skeleton; dirty/modified helpers) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/core/versioning/watcher.py` (NEW skeleton; .git/HEAD + refs polling) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/api/routes/git.py` (NEW skeleton; all ~15 endpoints stubbed with route + signature + docstring per ADR §3.5 table) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `desktop/scripts/fetch-git-portable.ps1` (NEW skeleton; build-step comments for Windows MinGit) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `desktop/scripts/fetch-git-portable.sh` (NEW skeleton; macOS universal2 + Linux musl static build comments) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [~] `desktop/package.json` — add `desktop/resources/git/` to bundle assets → DEFERRED: file does not exist yet (ADR-037 packaging pipeline pending); documented in `fetch-git-portable.sh` top-of-file note so ADR-037 implementer adds the asset list entry when bundler config lands
+- [x] `src/scieasy/api/runtime.py::create_project` — auto-init call stub [ADR-039 §3.2] → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/api/runtime.py::open_project` (or equivalent project-switch path) — re-init stub → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/api/runtime.py::start_workflow` — pre-run auto-commit hook stub (TODO marker for D39-2.2b) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/api/app.py` — register git router, watcher install in lifespan → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/cli/main.py::init` — CLI git-init parity stub → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] Pytest stubs (xfail) with test-plan docstrings for: commit/restore round-trip, auto-init idempotence, merge FF/clean/conflict, cherry-pick, stash CRUD → tests/core/test_git_engine.py (17 xfail) + tests/api/test_git_endpoints.py (21 xfail) + tests/cli/test_init_git_init.py (2 xfail); all xfail correctly under `pytest --timeout=60`
 - [ ] PR merged into tracking branch
 
 ### Phase D39-2.2b — Backend engine + REST + auto-init IMPL (Owner: ID39-2b, 1 agent) [ADR-039 §6 Phase 1 impl]
