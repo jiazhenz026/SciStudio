@@ -26,6 +26,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { registerConflictDecorations } from "./Git/ConflictMarkerDecoration";
+import { useAppStore } from "../store";
 import type { FileTab } from "../store/types";
 
 export interface CodeEditorProps {
@@ -73,6 +75,38 @@ function severityToMarkerSeverity(severity: string): number {
 
 export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // ADR-039 §3.5a — when this tab's file is in a git merge-conflict
+  // state, the Monaco instance needs `ConflictMarkerDecoration` registered
+  // so the user sees the in-editor highlight + glyph-margin action
+  // buttons over each `<<<<<<< ====== >>>>>>>` region.
+  //
+  // Skeleton scope (D39-2.4a):
+  //   - subscribe to `gitSlice.mergeInProgress.conflicted_files`
+  //   - the dispatch authorized adding a minimal `activeConflict` field;
+  //     we reuse the EXISTING `mergeInProgress` field (already present
+  //     after D39-2.3b — see `frontend/src/store/gitSlice.ts:141-150`)
+  //     to avoid widening the slice surface
+  //   - if `tab.filePath` is in that list, call
+  //     `registerConflictDecorations(editor, monaco, onAction)` after
+  //     mount; dispose on unmount or when file leaves conflict state
+  //   - the `onAction` callback is left as a TODO since wiring it
+  //     requires the dispose-aware Monaco-content-mutation API that
+  //     D39-2.4b will design alongside `ConflictResolveView.tsx`
+  //
+  // IMPL phase (D39-2.4b) MUST:
+  //   - implement `onAction` to splice text into the model based on
+  //     the parsed region
+  //   - tighten the `any` types if it can be done without violating
+  //     ADR-036's lazy-load boundary
+  //   - test interactively in Chrome: synthesize a merge conflict,
+  //     open the file, click each glyph button, verify git-state
+  //     correctness
+  const conflictedFiles = useAppStore(
+    (s) => s.mergeInProgress?.conflicted_files ?? null,
+  );
+  const isInConflict =
+    conflictedFiles !== null && conflictedFiles.includes(tab.filePath);
 
   // Lazy-loaded Monaco React module + the editor + monaco instances.
   // We hold them in refs so callback closures can reach the latest value
@@ -153,6 +187,48 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
       }
     };
   }, []);
+
+  // ADR-039 §3.5a — register / dispose the conflict-marker decoration
+  // provider when this tab enters / leaves conflict state.
+  //
+  // SKELETON (D39-2.4a): the effect is wired (effect runs, dispose fires
+  // on cleanup) but the `registerConflictDecorations` body throws — that
+  // throw is wrapped in a try/catch so accidental conflict-state entry
+  // during development DOES NOT crash the editor. D39-2.4b lifts the
+  // throw; the try/catch then becomes a real error path.
+  useEffect(() => {
+    if (!isInConflict) return;
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!editor || !monaco) return;
+    let dispose: (() => void) | null = null;
+    try {
+      dispose = registerConflictDecorations(editor, monaco, () => {
+        // D39-2.4b: dispatch the appropriate text mutation onto the
+        // Monaco model based on `action.type` + `region` extents.
+        throw new Error(
+          "TODO: D39-2.4b — implement ConflictAction handler. " +
+            "Should splice the chosen text into the Monaco model.",
+        );
+      });
+    } catch (err) {
+      // Expected during D39-2.4a skeleton phase. After D39-2.4b lifts
+      // the throw, this branch becomes a real error report.
+      console.warn(
+        "ConflictMarkerDecoration not registered (skeleton phase):",
+        err,
+      );
+    }
+    return () => {
+      if (dispose) {
+        try {
+          dispose();
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+  }, [isInConflict, tab.filePath]);
 
   // Schedule a debounced lint POST. Called from the editor's onChange.
   function scheduleLint(content: string, language: string) {
