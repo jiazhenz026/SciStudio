@@ -12,7 +12,19 @@ from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
-from scieasy.api.routes import ai, ai_pty, blocks, data, filesystem, lint, projects, workflows
+from scieasy.api.routes import (
+    ai,
+    ai_pty,
+    blocks,
+    data,
+    filesystem,
+    lint,
+    projects,
+    workflows,
+)
+from scieasy.api.routes import (
+    git as git_routes,
+)
 from scieasy.api.routes import workflow_watcher as workflow_watcher_module
 from scieasy.api.runtime import ApiRuntime
 from scieasy.api.spa import SPAStaticFiles
@@ -64,6 +76,28 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             import logging
 
             logging.getLogger(__name__).warning("workflow_watcher: initial start failed", exc_info=True)
+
+    # ---- ADR-039 §3.8: git-state watcher (D39-2.2a skeleton) ----
+    # Polls .git/HEAD + .git/refs/heads/* mtimes and emits the existing
+    # ``git.head_changed`` event (defined by D39-2.1) with a richer
+    # payload that includes branches_changed list. The frontend
+    # BranchPicker / GitHistoryList / GitGraph use this signal to
+    # invalidate their caches selectively.
+    #
+    # IMPLEMENTATION FOR D39-2.2b:
+    # ----------------------------
+    # 1. Lazy import inside lifespan:
+    #        from scieasy.core.versioning.watcher import GitChangeWatcher
+    # 2. Construct with an emit callback that publishes via
+    #    runtime.event_bus.publish(event_type, data) — same channel
+    #    workflow_watcher uses.
+    # 3. Call ``git_watcher.start_for_project(Path(runtime.active_project.path))``
+    #    if an active project exists.
+    # 4. In the finally block, ``await git_watcher.stop()``.
+    #
+    # Until D39-2.2b lands, we leave the slot None so the rest of the
+    # lifespan compiles cleanly.
+    app.state.git_watcher = None
 
     # ---- Phase 2: MCP server lifecycle ----
     mcp_server: object | None = None
@@ -205,6 +239,26 @@ def create_app() -> FastAPI:
     app.include_router(ai_pty.router)
     # ADR-036 §3.3 — server-side ruff lint endpoint for the embedded editor.
     app.include_router(lint.router)
+    # ADR-039 §3.5 — git endpoints (commit / log / diff / restore / branch
+    # ops / merge / cherry-pick / stash).
+    #
+    # SKELETON-PHASE FEATURE GATE (D39-2.2a + Codex P1 on PR #924):
+    # All handlers in ``routes/git.py`` currently raise
+    # ``NotImplementedError``. Exposing them via OpenAPI would mean a 500
+    # for any real client call, which the Codex auto-review flagged as a
+    # production-facing regression. We gate router registration behind an
+    # opt-in env var until D39-2.2b lands the implementations.
+    #
+    # - Default OFF in skeleton phase — OpenAPI / runtime sees nothing.
+    # - Set ``SCIEASY_ENABLE_GIT_ROUTER=1`` to surface the endpoints for
+    #   the frontend skeleton work in D39-2.3a (which will write against
+    #   the documented endpoint shapes from comment blocks, not against
+    #   live behaviour).
+    # - D39-2.2b removes this gate when handler bodies are filled and
+    #   the engine returns real data. Tracked via the cascade checklist
+    #   row for D39-2.2b.
+    if os.environ.get("SCIEASY_ENABLE_GIT_ROUTER", "").lower() in {"1", "true", "yes"}:
+        app.include_router(git_routes.router)
 
     @app.get("/api/logs/stream")
     async def logs_stream(request: Request) -> object:

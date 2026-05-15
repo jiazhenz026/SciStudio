@@ -407,6 +407,38 @@ class ApiRuntime:
 
         self.known_projects[project.id] = project
         self._save_known_projects()
+        # ------------------------------------------------------------------
+        # ADR-039 §3.2 auto-init hook (D39-2.2a skeleton)
+        # ------------------------------------------------------------------
+        # On project creation, initialize a git repository so source files
+        # (workflows/*.yaml, blocks/*.py, notes/*.md, project.yaml,
+        # README.md) are version-controlled from day one. The initial
+        # commit captures everything that already exists.
+        #
+        # IMPLEMENTATION FOR D39-2.2b:
+        # ----------------------------
+        # 1. Import lazily to avoid circular imports during module load:
+        #        from scieasy.core.versioning.git_engine import GitEngine
+        #        from scieasy.core.versioning.gitignore_template import (
+        #            write_default_gitignore,
+        #        )
+        # 2. Construct engine: ``engine = GitEngine(project_path)``.
+        # 3. Guard with ``if not engine.is_repository(project_path):``
+        #    (we just created the directory; should always pass — but
+        #    the guard makes the call idempotent for tests).
+        # 4. ``engine.init_repository(project_path)`` — performs git init
+        #    + writes .gitignore + initial commit per §3.2.
+        # 5. Best-effort: log at INFO; if init fails, log WARNING and
+        #    proceed. Project creation must succeed even if git init
+        #    fails (degraded mode per §3.9 line 384-388).
+        #
+        # TODO(D39-2.2b): wire the actual call. For the skeleton, just
+        # emit a debug log so we can grep for the placeholder during
+        # the impl phase.
+        logger.debug(
+            "ADR-039 auto-init placeholder (D39-2.2a skeleton): would init git at %s",
+            project_path,
+        )
         self.open_project(project.id)
         return project
 
@@ -458,6 +490,30 @@ class ApiRuntime:
         self.data_catalog = {}
         self.refresh_block_registry()
         self._init_metadata_store(Path(candidate.path))
+        # ------------------------------------------------------------------
+        # ADR-039 §3.2 re-init hook (D39-2.2a skeleton)
+        # ------------------------------------------------------------------
+        # If a project was created outside SciEasy (or .git/ was deleted
+        # by the user) AND no opt-out marker is present, auto-init now.
+        #
+        # IMPLEMENTATION FOR D39-2.2b:
+        # ----------------------------
+        # 1. ``candidate_path = Path(candidate.path)``
+        # 2. ``no_git_marker = candidate_path / ".scieasy" / "no_git"``
+        # 3. If ``no_git_marker.exists()``: skip (user opted out per §3.9
+        #    line 385).
+        # 4. Lazy import:
+        #        from scieasy.core.versioning.git_engine import GitEngine
+        # 5. ``engine = GitEngine(candidate_path)``
+        # 6. If not ``engine.is_repository(candidate_path)``:
+        #        engine.init_repository(candidate_path)
+        #        # logs at INFO: "Auto-initialized git repo at <path>"
+        # 7. Best-effort: catch BundledGitMissing / GitError, log WARNING,
+        #    proceed. The project must still open if git is unavailable.
+        logger.debug(
+            "ADR-039 re-init placeholder (D39-2.2a skeleton): would check git at %s",
+            candidate.path,
+        )
         # ADR-034: republish the MCP server port file into the newly active
         # project so the per-project ``mcp-bridge`` (spawned by the
         # embedded claude/codex TUI for THIS project) can discover it.
@@ -1014,6 +1070,55 @@ class ApiRuntime:
         return Path(project.path) / "checkpoints" / workflow_id
 
     def start_workflow(self, workflow_id: str, *, execute_from: str | None = None) -> dict[str, Any]:
+        # ------------------------------------------------------------------
+        # ADR-039 §3.4 pre-run auto-commit hook (D39-2.2a skeleton)
+        # ------------------------------------------------------------------
+        # Before scheduling, if auto-commit is enabled (default ON per
+        # §3.4 line 165) and the working tree is dirty, squash-commit
+        # all modified files with the canonical ``auto:`` prefix. Then
+        # capture HEAD SHA for the ADR-038 ``runs.workflow_git_commit``
+        # join key.
+        #
+        # IMPLEMENTATION FOR D39-2.2b — partial:
+        # --------------------------------------
+        # 1. Lazy import:
+        #        from scieasy.core.versioning.git_engine import GitEngine
+        # 2. ``if self.active_project is None: skip`` (defensive).
+        # 3. ``project_path = Path(self.active_project.path)``.
+        # 4. ``engine = GitEngine(project_path)``.
+        # 5. ``if not engine.is_repository(project_path): skip`` (degraded
+        #    mode per §3.9 — workflow still runs without versioning).
+        # 6. Settings check (TODO D39-5 once Settings model defined):
+        #    ``if not runtime.settings.git_auto_commit: skip`` — default
+        #    ON.
+        # 7. ``state = engine.head_state()``.
+        # 8. If state.dirty:
+        #        msg = (
+        #            f"auto: pre-run @ {datetime.now(UTC).isoformat()} "
+        #            f"(run=<short_id>, workflow={workflow_id})"
+        #        )
+        #        new_sha = engine.commit(msg, prefix="auto")
+        #        state = HeadState(new_sha, False)
+        # 9. Record ``state.commit_sha`` into the lineage row's
+        #    ``workflow_git_commit`` field. THIS PART IS WIRED IN
+        #    PHASE D39-2.5 (after D38-2.2 lineage schema lands on the
+        #    tracking branch); for skeleton, just log the captured SHA.
+        #
+        # CROSS-PHASE DEPENDENCY:
+        # -----------------------
+        # The final integration (step 9) requires the ADR-038 lineage
+        # schema to be on this tracking branch. Since the two ADRs are
+        # on parallel tracking branches, the actual wiring happens in
+        # Phase D39-2.5 ("Polish + ADR-038 integration") per the
+        # cascade checklist.
+        #
+        # TODO(D39-2.2b): implement steps 1-8 (the commit side).
+        # TODO(D39-2.5):  implement step 9 (the lineage-write side).
+        logger.debug(
+            "ADR-039 pre-run auto-commit placeholder (D39-2.2a skeleton): workflow_id=%s",
+            workflow_id,
+        )
+
         workflow = self.load_workflow(workflow_id)
         checkpoint_manager = CheckpointManager(self.checkpoint_dir_for(workflow_id))
         checkpoint = checkpoint_manager.load(workflow_id) if execute_from is not None else None
