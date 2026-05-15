@@ -291,6 +291,29 @@ def test_render_no_partial_rerun_banner_when_full_run(store: LineageStore) -> No
     assert "Partial re-run" not in body
 
 
+def test_render_partial_rerun_banner_without_parent_run(store: LineageStore) -> None:
+    """Codex P2 fix — banner fires when execute_from is set even without parent_run_id.
+
+    The production ``ApiRuntime._build_lineage_recorder`` path records
+    ``execute_from_block_id`` but does NOT yet populate ``parent_run_id``;
+    without this looser gate, real partial reruns would export methods with no
+    explanatory note. The banner degrades gracefully to "prior run's
+    checkpoint" wording when no parent is named.
+    """
+    run_id = _seed_run(
+        store,
+        run_id="run-partial-noparent",
+        execute_from_block_id="threshold_1",
+        # parent_run_id intentionally omitted (matches current runtime path).
+    )
+    body = render_methods_markdown(store, run_id)
+    assert "Partial re-run" in body
+    assert "threshold_1" in body
+    # Degrades gracefully — no parent SHA, references the checkpoint instead.
+    assert "prior run" in body or "checkpoint" in body
+    assert "ADR-038 §3.6a" in body
+
+
 def test_render_error_termination_surfaces_detail_block(
     store: LineageStore,
 ) -> None:
