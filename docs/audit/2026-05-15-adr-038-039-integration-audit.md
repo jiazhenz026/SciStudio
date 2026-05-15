@@ -21,14 +21,14 @@ The H-D1 hazard is **real and unresolved**: the two `RunDetail.tsx` files have *
 
 | File | Conflict shape | Resolution intent |
 |---|---|---|
-| `frontend/src/components/Lineage/RunDetail.tsx` | add/add (different file bodies) | **Manual reconcile**. Keep ADR-038 full body; overlay 039's `RestoreWorkflowButton` into the affordance row alongside Re-run / Export methods; re-export `RestoreWorkflowButton`, `runRestoreWorkflow`, `workflowYamlPathForRun` from the merged file so 039's test imports still resolve. See P1-2 below. |
-| `frontend/src/components/Lineage/__tests__/RunDetail.test.tsx` | add/add (different test bodies) | **Union** — two test suites with non-overlapping `describe` blocks. Either keep both files (rename one to `RunDetail.restore.test.tsx`) or merge into a single file. See P2-1. |
+| `frontend/src/components/Lineage/RunDetail.tsx` | add/add (different file bodies) | **Manual reconcile**. Keep ADR-038 full body; overlay 039's `RestoreWorkflowButton` into the affordance row alongside Re-run / Export methods; re-export `RestoreWorkflowButton`, `runRestoreWorkflow`, `workflowYamlPathForRun` from the merged file so 039's test imports still resolve. See **P1-4** below. |
+| `frontend/src/components/Lineage/__tests__/RunDetail.test.tsx` | add/add (different test bodies) | **Union** — two test suites with non-overlapping `describe` blocks. Either keep both files (rename one to `RunDetail.restore.test.tsx`) or merge into a single file. See **P2-3** below. |
 | `frontend/src/lib/api.ts` | content (`lineage.*` namespace vs flat `git*` methods) | **Union** — both blocks are non-overlapping methods on the `api` object literal. Simple concat. |
 | `frontend/src/store/index.ts` | content (import + slice spread for `createLineageSlice` vs `createGitSlice`) | **Union** — import both, spread both. |
 | `frontend/src/store/types.ts` | content (intersection chain ends in `LineageSlice` vs `GitSlice`) | **Union** — chain `& LineageSlice & GitSlice`. |
 | `frontend/tsconfig.tsbuildinfo` | generated build artifact | **Regenerate** — delete file or take either side; `tsc --build` rewrites it. Not a real conflict. |
 | `src/scieasy/api/app.py` | content (router imports + `app.include_router(runs.router)` vs `git_routes.router`) | **Union** — import both routers, include both. |
-| `src/scieasy/api/runtime.py` | content (three conflict regions: `open_project` lineage init vs git auto-init; `delete_project` store close + rmtree; `start_workflow` git auto-commit prepended) | **Union with reordering** — see findings P1-1 / P1-3 / P2-2 below for the required call order. |
+| `src/scieasy/api/runtime.py` | content (three conflict regions: `open_project` lineage init vs git auto-init; `delete_project` store close + rmtree; `start_workflow` git auto-commit prepended) | **Union with reordering** — see findings **P1-1** (start_workflow ordering), **P1-2** (workflow_dirty plumbing), **P1-3** (delete_project rmtree union), and **P2-1** (open_project degraded-mode tests) below. |
 
 Additional non-conflicting incoming files (clean merge): every `frontend/src/components/Git/**` skeleton + impl tree, every `src/scieasy/core/versioning/**`, `desktop/scripts/fetch-git-portable.*`, `docs/audit/2026-05-15-adr-039-*.md`. None of these collide with track/adr-038.
 
@@ -92,7 +92,7 @@ Better: thread the SHA through `_build_lineage_recorder`'s `RunRecord(workflow_g
 
 **Recommended fix:** Add `set_pending_workflow_dirty(workflow_id, dirty: bool)` to `LineageStore` (mirror of `set_pending_git_commit`), or — preferred — thread `workflow_dirty` into `_build_lineage_recorder`'s `RunRecord` constructor at the same time as `workflow_git_commit` (P1-1). Set `workflow_dirty=True` when 039 auto-commit failed AND the tree was dirty; `False` otherwise. `engine.head_state().dirty` carries the input.
 
-### P2-2 — `open_project` interleaves lineage init and git auto-init, but does not coordinate failure modes
+### P2-1 — `open_project` interleaves lineage init and git auto-init, but does not coordinate failure modes
 
 **File:** `src/scieasy/api/runtime.py:670-711` (post-merge state)
 
@@ -102,7 +102,7 @@ Better: thread the SHA through `_build_lineage_recorder`'s `RunRecord(workflow_g
 
 **Recommended fix:** Add a test `tests/api/test_open_project_degraded_modes.py` covering 2×2 of (lineage init fails, git init fails). For each, assert project opens, the missing subsystem is `None`/false, and `start_workflow` still runs (skipping the failed side).
 
-### P2-3 — Branch switch does NOT trigger `BlockRegistry.hot_reload()`
+### P2-2 — Branch switch does NOT trigger `BlockRegistry.hot_reload()`
 
 **File:** `src/scieasy/api/routes/git.py:208-216` (the `/branch/switch` endpoint)
 
@@ -140,7 +140,7 @@ Better: thread the SHA through `_build_lineage_recorder`'s `RunRecord(workflow_g
 
 ## Section B — Frontend cross-slice
 
-### P2-4 — `frontend/src/components/Lineage/__tests__/RunDetail.test.tsx` add/add conflict needs a deliberate split
+### P2-3 — `frontend/src/components/Lineage/__tests__/RunDetail.test.tsx` add/add conflict needs a deliberate split
 
 **Files:**
 
@@ -209,7 +209,7 @@ _rmtree_force(project_path)
 
 Drop the `MetadataStore.get_metadata_store()` block entirely — it's a no-op shim after D38-2.3.
 
-### P2-5 — `MetadataStore` shim deprecation-warning leaks into agent MCP tool calls
+### P2-4 — `MetadataStore` shim deprecation-warning leaks into agent MCP tool calls
 
 **File:** `src/scieasy/core/metadata_store.py` (D38-2.3 deprecation shim)
 
@@ -271,6 +271,8 @@ Drop the `MetadataStore.get_metadata_store()` block entirely — it's a no-op sh
 ## Section E — Codex review reconcile sweep
 
 Cross-track-relevant Codex auto-review comments on cascade PRs were swept. Findings:
+
+### P2-5 — Reply-on-comment drift across three cascade PRs
 
 - **PRs with all Codex P1s addressed by follow-up commits but no on-comment reply** (D-class drift, not release-blockers):
   - PR #926 (D38-2.2 wire-up): 2 Codex comments (1 P1 recorder-unsubscribe, 1 P2 collection wire-format), addressed in PR #967 D38-3.2. No on-comment reply was posted.
