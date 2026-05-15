@@ -58,16 +58,17 @@ class GitError(RuntimeError):
         Subprocess exit code from git.
     stderr : str
         Captured stderr (with ``LANG=C`` so wording is stable).
-    args : list[str]
+    git_args : list[str]
         The git args (after the binary) that produced the failure, for
-        debugging / bug reports.
+        debugging / bug reports. Named ``git_args`` (not ``args``) to
+        avoid shadowing :attr:`BaseException.args`.
     """
 
     def __init__(self, returncode: int, stderr: str, args: list[str]) -> None:
         super().__init__(f"git {' '.join(args)} → exit {returncode}: {stderr.strip()}")
         self.returncode = returncode
         self.stderr = stderr
-        self.args = args
+        self.git_args = args
 
 
 # ---------------------------------------------------------------------------
