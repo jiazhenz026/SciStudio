@@ -315,6 +315,37 @@ def test_watcher_start_is_idempotent_for_same_project(tmp_path: Path) -> None:
         loop.close()
 
 
+def test_watcher_start_idempotent_when_dotgit_is_a_file_worktree(tmp_path: Path) -> None:
+    """Codex P2-B regression: git worktrees carry ``.git`` as a gitlink *file*.
+
+    The scheduling path uses ``git_dir.is_dir()`` to decide whether to attach
+    the git-head watcher. The idempotency guard must mirror that or it
+    never matches when ``.git`` exists-but-isn't-a-dir, causing repeated
+    teardown + rebuild and the git watcher never attaches.
+    """
+    project = tmp_path / "proj"
+    (project / "workflows").mkdir(parents=True)
+    # Simulate a worktree: ``.git`` is a file containing "gitdir: <path>"
+    (project / ".git").write_text("gitdir: /var/repos/main.git/worktrees/proj\n", encoding="utf-8")
+
+    import asyncio
+
+    loop = asyncio.new_event_loop()
+    watcher = WorkflowWatcher(event_bus=MagicMock())
+    try:
+        watcher.start_for_project(project, loop)
+        first_obs = watcher._observer  # type: ignore[attr-defined]
+        watcher.start_for_project(project, loop)
+        # Observer must be retained — without the fix, the second call
+        # short-circuits the wrong way and stop()s + recreates.
+        assert watcher._observer is first_obs  # type: ignore[attr-defined]
+        # ``.git`` is a file, so no git watcher attached.
+        assert watcher.watched_git_dir is None
+    finally:
+        watcher.stop()
+        loop.close()
+
+
 def test_watcher_stop_clears_state(tmp_path: Path) -> None:
     project = tmp_path / "proj"
     (project / "workflows").mkdir(parents=True)

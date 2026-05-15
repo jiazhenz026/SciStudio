@@ -62,6 +62,39 @@ class TestLifespan:
 
         asyncio.run(_run())
 
+    def test_lifespan_no_separate_git_watcher_state(self) -> None:
+        """D39-3.2 (#968) P1-A: the standalone ``GitChangeWatcher`` was deleted.
+
+        The unified ``workflow_watcher`` covers the ``.git/`` surface now,
+        so no ``app.state.git_watcher`` slot is expected. This regression
+        test pins the collapse so a future re-introduction of a parallel
+        watcher trips CI.
+        """
+
+        async def _run() -> None:
+            app = FastAPI()
+            async with lifespan(app):
+                assert not hasattr(app.state, "git_watcher"), (
+                    "app.state.git_watcher should no longer exist after D39-3.2 "
+                    "dual-watcher collapse — the workflow_watcher covers the .git/ surface."
+                )
+                # The workflow watcher remains the single source of truth.
+                assert hasattr(app.state, "workflow_watcher")
+
+        asyncio.run(_run())
+
+    def test_git_change_watcher_no_longer_exported(self) -> None:
+        """D39-3.2 (#968) P1-A: ``core.versioning.GitChangeWatcher`` is gone.
+
+        Importing it must raise ImportError now that the polling watcher
+        was collapsed into ``workflow_watcher._GitHeadHandler``.
+        """
+        import scieasy.core.versioning as versioning_pkg
+
+        assert "GitChangeWatcher" not in versioning_pkg.__all__
+        with pytest.raises(ImportError):
+            from scieasy.core.versioning import GitChangeWatcher  # noqa: F401
+
     def test_lifespan_calls_terminate_all_on_shutdown(self) -> None:
         """Lifespan shutdown calls terminate_all on the registry."""
         called_with: dict[str, float] = {}

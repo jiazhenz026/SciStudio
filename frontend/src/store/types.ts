@@ -358,6 +358,11 @@ export interface TabSlice {
   updateFileTabContent: (id: string, content: string) => void;
 }
 
+// ADR-039 §6 Phase 2 — git versioning slice
+// (defined in ./gitSlice.ts; imported here so AppStore unions it in)
+export type { GitSlice } from "./gitSlice";
+import type { GitSlice } from "./gitSlice";
+
 export type AppStore = ProjectSlice &
   WorkflowSlice &
   ExecutionSlice &
@@ -366,6 +371,7 @@ export type AppStore = ProjectSlice &
   PaletteSlice &
   TabSlice &
   TerminalTabsSlice &
-  // ADR-038 §3.8 — Lineage tab client state (D38-2.4b skeleton; bodies
-  // populated by D38-2.4c IMPL).
-  LineageSlice;
+  // ADR-038 §3.8 — Lineage tab client state.
+  LineageSlice &
+  // ADR-039 §6 Phase 2 — git versioning slice.
+  GitSlice;

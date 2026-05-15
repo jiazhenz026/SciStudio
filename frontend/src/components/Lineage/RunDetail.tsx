@@ -190,8 +190,10 @@
  *   8. parent_run_id renders a "Parent run" dt/dd pair
  */
 
+import { useState } from "react";
 import type { ReactElement } from "react";
 
+import { api } from "../../lib/api";
 import { useAppStore } from "../../store";
 import type { LineageRunSummary } from "../../types/lineage";
 import { BlockExecutionCard } from "./BlockExecutionCard";
@@ -458,7 +460,149 @@ export function RunDetail(): ReactElement {
         >
           Export methods
         </button>
+        {/*
+         * ADR-039 §6 Phase 4 — Restore this run's workflow.
+         *
+         * Phase 3.5 integration: the Restore affordance is rendered in
+         * the RunDetail footer alongside Re-run and Export methods. The
+         * button issues a ``gitRestore`` call scoped to the run's
+         * workflow YAML at the captured ``workflow_git_commit`` SHA,
+         * implementing the soft-restore semantics from
+         * ADR-038 §3.8 / ADR-039 §6 Phase 4. Disabled when
+         * ``workflow_git_commit`` is null (degraded-mode run).
+         */}
+        <RestoreWorkflowButton run={run} />
       </footer>
     </section>
+  );
+}
+
+// ===========================================================================
+// ADR-039 §6 Phase 4 — Restore-this-run helpers
+// ===========================================================================
+//
+// Phase 3.5 integration audit P1-4 (H-D1): these helpers were authored on
+// `track/adr-039/git-versioning` and are now overlaid into the ADR-038
+// full-body `RunDetail.tsx` so both surfaces co-exist:
+//
+//   - The default ADR-038 `RunDetail` (named export above) renders the
+//     full right pane (header, blocks list, Re-run, Export methods,
+//     Restore — the latter mounted inline above via `<RestoreWorkflowButton run={run} />`).
+//   - These three named exports remain stable so the Phase 3.5 split
+//     `RunDetail.restore.test.tsx` (the ADR-039 test file moved out of
+//     the ADR-038 `RunDetail.test.tsx` per audit P2-3) keeps compiling.
+//
+// `RunRecordForRestore` is a STRUCTURAL SUBSET of `LineageRunSummary`
+// (run_id, workflow_id, workflow_git_commit are all present in the
+// ADR-038 wire type), so callers can pass either. We keep the narrow
+// interface so the helpers stay testable without pulling the full
+// lineage type graph.
+
+/**
+ * Minimal ``runs`` row shape — enough for the Restore button.
+ *
+ * ADR-038 §3.1 ``runs`` columns referenced:
+ * - ``run_id`` — opaque ID used by the Lineage list.
+ * - ``workflow_git_commit`` — ADR-039 join key (may be ``null`` for
+ *   degraded-mode runs that pre-date the auto-commit hook).
+ * - ``workflow_id`` — used to resolve the YAML file scope for restore.
+ */
+export interface RunRecordForRestore {
+  run_id: string;
+  workflow_id: string;
+  workflow_git_commit: string | null;
+}
+
+/**
+ * Resolve the on-disk workflow YAML path for a run.
+ *
+ * The path layout is fixed by ``ApiRuntime.workflow_path``:
+ * ``<project>/workflows/<workflow_id>.yaml``. The git engine works in
+ * project-relative paths, so the leading ``<project>/`` is dropped.
+ */
+export function workflowYamlPathForRun(run: { workflow_id: string }): string {
+  return `workflows/${run.workflow_id}.yaml`;
+}
+
+/**
+ * Issue the ``gitRestore`` call for a given run's workflow YAML.
+ *
+ * Exported separately so the integration test can verify the exact
+ * request body without rendering the React component. Failures bubble
+ * up to the caller — the button below catches them and renders a
+ * short error string.
+ */
+export async function runRestoreWorkflow(run: RunRecordForRestore): Promise<void> {
+  if (!run.workflow_git_commit) {
+    throw new Error(
+      "This run has no recorded git commit (degraded mode). Restore unavailable.",
+    );
+  }
+  await api.gitRestore({
+    commit_sha: run.workflow_git_commit,
+    files: [workflowYamlPathForRun(run)],
+  });
+}
+
+interface RestoreWorkflowButtonProps {
+  run: RunRecordForRestore;
+  /**
+   * Optional callback fired on successful restore so the parent
+   * (LineageTab / RunDetail consumer) can refresh the canvas + the
+   * GitStatusBadge. No-op by default.
+   */
+  onRestored?: () => void;
+}
+
+/**
+ * "Restore this run's workflow" button per ADR-038 §3.8 + ADR-039 §6
+ * Phase 4. Disabled when ``workflow_git_commit`` is null (auto-commit
+ * was off or pre-feature run).
+ */
+export function RestoreWorkflowButton({ run, onRestored }: RestoreWorkflowButtonProps) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const disabled = busy || !run.workflow_git_commit;
+
+  const handleClick = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      await runRestoreWorkflow(run);
+      onRestored?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="run-detail__restore" data-testid="run-detail-restore">
+      <button
+        type="button"
+        className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm text-ink disabled:opacity-50"
+        data-testid="run-detail-restore-button"
+        disabled={disabled}
+        onClick={handleClick}
+        title={
+          run.workflow_git_commit
+            ? `Restore workflow YAML to commit ${run.workflow_git_commit.slice(0, 7)}`
+            : "No recorded git commit for this run — restore unavailable"
+        }
+      >
+        {busy ? "Restoring..." : "Restore this run's workflow"}
+      </button>
+      {error && (
+        <div
+          className="run-detail__restore-error mt-1 text-xs text-rose-700"
+          role="alert"
+          data-testid="run-detail-restore-error"
+        >
+          {error}
+        </div>
+      )}
+    </div>
   );
 }

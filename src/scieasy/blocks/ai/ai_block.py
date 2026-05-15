@@ -8,11 +8,39 @@ inputs and expected outputs, and waits for one of three completion
 signals (MCP tool call, file watcher, user "Mark done" button) before
 validating outputs and resuming the workflow.
 
+ADR-039 §3.4a — agent commit convention
+---------------------------------------
+AIBlock does **not** itself invoke ``GitEngine.commit()``. When the
+spawned agent (claude / codex) makes a programmatic commit on the user's
+behalf, that commit MUST use the ``agent:`` prefix per ADR-039 §3.4a:
+
+    agent: <short summary> (session=<block_execution_id>)
+
+**Current enforcement (D39-3.2 / #968 truth check)** — there is no
+in-tree ``GitEngine``-mediated path that an agent can call to apply the
+prefix automatically. The convention is enforced **convention-by-prompt**:
+the agent's system prompt (and ``docs/cli-integration.md``) instructs
+claude / codex to prefix any ``git commit -m`` invocation it issues in
+its PTY shell with ``agent: ``. The History "Manual milestones" filter
+(ADR-039 §3.4) classifies commits by reading this prefix from the commit
+subject directly.
+
+A future enhancement may register an ``mcp__scieasy__git_commit`` MCP
+tool that wraps ``GitEngine.commit(prefix="agent")`` so the prefix is
+enforced server-side rather than by prompt. That tool does **not** exist
+today; the previous version of this docstring referenced it
+incorrectly.
+
+If a future direct commit path is added inside this module, it MUST
+pass ``prefix="agent"`` to keep the History filter classifying the
+result correctly.
+
 References:
     docs/adr/ADR-035.md §3 (decision), §3.1 (block category),
     §3.2 (runtime topology), §3.4 (manifest), §3.5 (completion paths),
     §3.6 (output validation), §3.7 (permission), §3.9 (state machine),
     §3.10 (engine ↔ worker IPC).
+    docs/adr/ADR-039.md §3.4a (``agent:`` commit prefix convention).
 """
 
 from __future__ import annotations

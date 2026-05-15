@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { createExecutionSlice } from "./executionSlice";
+import { createGitSlice } from "./gitSlice";
 import { createLineageSlice } from "./lineageSlice";
 import { createPaletteSlice } from "./paletteSlice";
 import { createPreviewSlice } from "./previewSlice";
@@ -50,8 +51,10 @@ export const useAppStore = create<AppStore>()(
       ...createPaletteSlice(...args),
       ...createTabSlice(...args),
       ...createTerminalTabsSlice(...args),
-      // ADR-038 §3.8 — Lineage tab state (D38-2.4b skeleton).
+      // ADR-038 §3.8 — Lineage tab state.
       ...createLineageSlice(...args),
+      // ADR-039 §6 Phase 2 — git versioning slice.
+      ...createGitSlice(...args),
     }),
     {
       name: "scieasy-studio-ui",
@@ -74,15 +77,26 @@ export const useAppStore = create<AppStore>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
-        // ADR-038 §3.8 / Codex P2 (PR #937): the "jobs" bottom tab was
-        // removed in this PR. Users with persisted state from before
-        // the upgrade may rehydrate into `activeBottomTab="jobs"`, which
-        // is no longer a valid BottomTab value. Normalize stale values
-        // to "lineage" (the closest semantic replacement — Jobs was a
-        // placeholder for the run-history surface that Lineage now owns).
-        // This guard is cheap; it also covers any future tab removals.
-        const validTabs = new Set(["ai", "config", "logs", "lineage"]);
-        if (state.activeBottomTab && !validTabs.has(state.activeBottomTab)) {
+        // ADR-038 §3.8 + ADR-039 §3.5 — `activeBottomTab` valid values
+        // after integration are exactly the BottomTab union members
+        // ("ai", "config", "logs", "lineage", "git"). The historical
+        // "jobs" placeholder was removed by ADR-038 §3.8 (run history
+        // now lives in Lineage). Older persisted snapshots may still
+        // carry "jobs", "problems", or other retired values; coerce
+        // anything not in the current union back to "lineage" — the
+        // semantic replacement for the run-history surface Jobs used
+        // to occupy. This also covers any future tab removals.
+        const validTabs = new Set<string>([
+          "ai",
+          "config",
+          "logs",
+          "lineage",
+          "git",
+        ]);
+        if (
+          typeof state.activeBottomTab !== "string" ||
+          !validTabs.has(state.activeBottomTab)
+        ) {
           state.activeBottomTab = "lineage";
         }
         const defaults = { palette: 15, preview: 22, bottom: 30 };

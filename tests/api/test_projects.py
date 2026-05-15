@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
 import time
 from pathlib import Path
 from urllib.parse import quote
@@ -129,8 +128,20 @@ def test_list_projects_prunes_deleted_directories(client: TestClient, project_pa
     ids = [entry["id"] for entry in listed.json()]
     assert resp.json()["id"] in ids
 
-    # Delete the project directory outside the API (simulate external deletion)
-    shutil.rmtree(project_path)
+    # Delete the project directory outside the API (simulate external deletion).
+    # ADR-039: auto-init creates ``.git/`` with read-only object files on
+    # Windows; the runtime's force-rmtree helper handles chmod + retries.
+    # The runtime's prune logic now keys on either ``is_dir()`` OR
+    # ``project.yaml.is_file()`` returning False, so partial cleanup
+    # (e.g. sqlite WAL residue) still triggers prune.
+    from scieasy.api.runtime import _rmtree_force
+
+    _rmtree_force(project_path)
+    # Best-effort: force-unlink project.yaml if it lingers.
+    import contextlib as _contextlib
+
+    with _contextlib.suppress(PermissionError, OSError):
+        (project_path / "project.yaml").unlink(missing_ok=True)
 
     # Next listing should prune the stale entry
     listed2 = client.get("/api/projects/")

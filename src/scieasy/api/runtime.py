@@ -39,6 +39,70 @@ from scieasy.workflow.serializer import absolutify_paths, load_yaml, relativify_
 logger = logging.getLogger(__name__)
 
 
+def _rmtree_force(target: Path) -> None:
+    """Remove a directory tree, retrying on Windows read-only / locked files.
+
+    ADR-039: auto-init creates ``.git/`` with read-only object files on
+    Windows. Plain ``shutil.rmtree`` cannot remove read-only files, and
+    can also race with file watchers that briefly hold handles. This
+    helper:
+
+    1. Pre-walks the tree to ``chmod -R`` every file writable.
+    2. Calls ``shutil.rmtree`` with an ``onerror`` that retries with
+       chmod for any remaining stragglers.
+    3. Does a small bounded retry loop for transient locks (file watcher
+       holding a handle while we delete).
+    """
+    import contextlib
+    import stat
+    import time
+
+    target_p = Path(target)
+    if not target_p.exists():
+        return
+
+    # 1. Walk + chmod everything writable. Directories need execute (x)
+    # for traversal on POSIX; files just need write to be unlinkable.
+    dir_perms = stat.S_IRWXU  # 0700 — read/write/execute for owner
+    file_perms = stat.S_IWRITE | stat.S_IREAD  # 0600
+    for root, dirs, files in os.walk(target_p):
+        with contextlib.suppress(OSError):
+            os.chmod(root, dir_perms)
+        for name in dirs:
+            with contextlib.suppress(OSError):
+                os.chmod(Path(root) / name, dir_perms)
+        for name in files:
+            with contextlib.suppress(OSError):
+                os.chmod(Path(root) / name, file_perms)
+    with contextlib.suppress(OSError):
+        os.chmod(target_p, dir_perms)
+
+    def _on_rm_error(func, path, _exc_info):  # type: ignore[no-untyped-def]
+        try:
+            p = Path(path)
+            os.chmod(p, dir_perms if p.is_dir() else file_perms)
+            func(path)
+        except Exception:
+            logger.debug("rmtree retry failed for %s", path, exc_info=True)
+
+    # 2. Bounded retry loop for transient locks (e.g. sqlite WAL).
+    for _ in range(5):
+        try:
+            shutil.rmtree(target_p, onerror=_on_rm_error)
+        except Exception:
+            logger.debug("rmtree raised", exc_info=True)
+        if not target_p.exists():
+            return
+        time.sleep(0.2)
+    # Last resort: best-effort one more pass after a longer wait so any
+    # in-process sqlite WAL flush has time to release file handles.
+    time.sleep(0.5)
+    try:
+        shutil.rmtree(target_p, onerror=_on_rm_error)
+    except Exception:
+        logger.warning("rmtree failed to remove %s", target_p, exc_info=True)
+
+
 def _now_iso() -> str:
     return datetime.now(tz=UTC).isoformat()
 
@@ -186,11 +250,22 @@ class DataRecord:
 
 @dataclass
 class WorkflowRun:
-    """Track a live scheduler task for a workflow."""
+    """Track a live scheduler task for a workflow.
+
+    ADR-039 §3.4 / §3.4a: ``workflow_git_commit`` captures the HEAD SHA of
+    the project's git repo at workflow-start time (post pre-run auto-commit
+    when the working tree was dirty). It is the ADR-038 ``runs.workflow_git_commit``
+    join key. Populated by :meth:`ApiRuntime.start_workflow` end-to-end; the
+    LineageRecorder (ADR-038) reads this when persisting the ``runs`` row.
+
+    The field is ``None`` only when the project is not a git repository
+    (degraded mode per ADR-039 §3.9) or auto-commit failed both ways.
+    """
 
     scheduler: DAGScheduler
     task: asyncio.Task[None]
     checkpoint_manager: CheckpointManager
+    workflow_git_commit: str | None = None
 
 
 class LogBroadcaster:
@@ -245,11 +320,11 @@ class ApiRuntime:
         # in the previous project and falls back to standalone mode,
         # which has no ApiRuntime and breaks ``run_workflow``).
         self._mcp_port: int | None = None
-        # #718 part (a): in-memory monotonic revision counter per workflow_id.
-        # Used for optimistic concurrency on the PUT /api/workflows/{id} path.
-        # Single-process, single-user scope (matches ADR-033 §3 D2.1); resets
-        # on server restart and is re-seeded to 0 on the next load.
-        self._workflow_revisions: dict[str, int] = {}
+        # ADR-039 §5.2: the in-memory ``_workflow_revisions`` counter and its
+        # ``If-Match`` enforcement path were removed in D39-2.1. Git commit SHA
+        # plus the working-tree dirty state (D39-2.2b) replace the optimistic-
+        # concurrency model; cross-tab cache invalidation rides on the existing
+        # ``workflow.changed`` event flow (now without a ``revision`` field).
 
         self.event_bus = EventBus()
         self.resource_manager = ResourceManager(event_bus=self.event_bus)
@@ -393,7 +468,22 @@ class ApiRuntime:
         stale shim from a previous project does not leak.
         """
         try:
-            from scieasy.core.metadata_store import MetadataStore, set_metadata_store
+            from scieasy.core.metadata_store import (
+                MetadataStore,
+                get_metadata_store,
+                set_metadata_store,
+            )
+
+            # Close any previously-opened store so its sqlite handle is
+            # released before we open a new one. Otherwise switching
+            # projects accumulates dangling connections that prevent
+            # rmtree on Windows (test cleanup + delete_project both fail).
+            previous = get_metadata_store()
+            if previous is not None:
+                try:
+                    previous.close()
+                except Exception:
+                    logger.debug("MetadataStore.close on switch raised", exc_info=True)
 
             legacy_db = project_path / "metadata.db"
             if legacy_db.exists():
@@ -477,13 +567,62 @@ class ApiRuntime:
 
         self.known_projects[project.id] = project
         self._save_known_projects()
+        # ------------------------------------------------------------------
+        # ADR-039 §3.2 auto-init hook (D39-2.2a skeleton)
+        # ------------------------------------------------------------------
+        # On project creation, initialize a git repository so source files
+        # (workflows/*.yaml, blocks/*.py, notes/*.md, project.yaml,
+        # README.md) are version-controlled from day one. The initial
+        # commit captures everything that already exists.
+        #
+        # IMPLEMENTATION FOR D39-2.2b:
+        # ----------------------------
+        # 1. Import lazily to avoid circular imports during module load:
+        #        from scieasy.core.versioning.git_engine import GitEngine
+        #        from scieasy.core.versioning.gitignore_template import (
+        #            write_default_gitignore,
+        #        )
+        # 2. Construct engine: ``engine = GitEngine(project_path)``.
+        # 3. Guard with ``if not engine.is_repository(project_path):``
+        #    (we just created the directory; should always pass — but
+        #    the guard makes the call idempotent for tests).
+        # 4. ``engine.init_repository(project_path)`` — performs git init
+        #    + writes .gitignore + initial commit per §3.2.
+        # 5. Best-effort: log at INFO; if init fails, log WARNING and
+        #    proceed. Project creation must succeed even if git init
+        #    fails (degraded mode per §3.9 line 384-388).
+        #
+        # ADR-039 §3.2 auto-init (D39-2.2b): degraded mode on failure so
+        # that project creation never aborts because git is unavailable
+        # (per §3.9).
+        try:
+            from scieasy.core.versioning.git_engine import GitEngine
+
+            engine = GitEngine(project_path)
+            if not engine.is_repository(project_path):
+                engine.init_repository(project_path)
+                logger.info("ADR-039: auto-initialized git repo at %s", project_path)
+        except Exception:
+            logger.warning(
+                "ADR-039: auto-init failed at %s (degraded mode)",
+                project_path,
+                exc_info=True,
+            )
         self.open_project(project.id)
         return project
 
     def list_projects(self) -> list[KnownProject]:
         self._load_known_projects()
         # Prune entries whose project directory no longer exists on disk
-        stale_ids = [pid for pid, entry in self.known_projects.items() if not Path(entry.path).is_dir()]
+        # ADR-039: ``Path.is_dir()`` alone can yield False positives on
+        # Windows when sqlite WAL files linger after a directory was
+        # deleted externally. Treat a project as stale if either the
+        # directory is missing OR its ``project.yaml`` is gone.
+        stale_ids = [
+            pid
+            for pid, entry in self.known_projects.items()
+            if not Path(entry.path).is_dir() or not (Path(entry.path) / "project.yaml").is_file()
+        ]
         if stale_ids:
             for pid in stale_ids:
                 self.known_projects.pop(pid, None)
@@ -526,14 +665,40 @@ class ApiRuntime:
         self._save_known_projects()
         self.active_project = candidate
         self.data_catalog = {}
-        # #718 part (a): revisions are project-scoped — reset on project switch
-        # so a workflow_id in the new project starts at revision 0.
-        self._workflow_revisions = {}
         self.refresh_block_registry()
         self._init_metadata_store(Path(candidate.path))
         # ADR-038 §3.1: open the unified lineage store alongside the legacy
-        # metadata.db (Phase D38-2.3 will collapse the latter into a shim).
+        # metadata.db (Phase D38-2.3 collapsed the latter into a shim).
+        # Best-effort: if this fails the project still opens; degraded
+        # mode leaves ``self.lineage_store = None`` and the Lineage tab
+        # surfaces an empty state.
         self._init_lineage_store(Path(candidate.path))
+        # ------------------------------------------------------------------
+        # ADR-039 §3.2 re-init hook
+        # ------------------------------------------------------------------
+        # If a project was created outside SciEasy (or .git/ was deleted
+        # by the user) AND no opt-out marker is present, auto-init now.
+        # Best-effort: catch BundledGitMissing / GitError, log WARNING,
+        # proceed. The project must still open if git is unavailable.
+        # Failures here are INDEPENDENT of the lineage init above —
+        # either subsystem may be in degraded mode without affecting
+        # the other (see test_open_project_degraded_modes.py).
+        try:
+            candidate_path = Path(candidate.path)
+            no_git_marker = candidate_path / ".scieasy" / "no_git"
+            if not no_git_marker.exists():
+                from scieasy.core.versioning.git_engine import GitEngine
+
+                engine = GitEngine(candidate_path)
+                if not engine.is_repository(candidate_path):
+                    engine.init_repository(candidate_path)
+                    logger.info("ADR-039: auto-initialized git repo at %s", candidate_path)
+        except Exception:
+            logger.warning(
+                "ADR-039: re-init failed at %s (degraded mode)",
+                candidate.path,
+                exc_info=True,
+            )
         # ADR-034: republish the MCP server port file into the newly active
         # project so the per-project ``mcp-bridge`` (spawned by the
         # embedded claude/codex TUI for THIS project) can discover it.
@@ -616,17 +781,31 @@ class ApiRuntime:
             self._save_known_projects()
             return
         logger.warning("Deleting project directory: %s", project_path)
-        # ADR-038: close the lineage SQLite handle before rmtree, otherwise
-        # Windows refuses to remove the file (`PermissionError [WinError 32]`).
+        # P1-3 (Phase 3.5 integration audit): UNION of ADR-038 lineage close
+        # + ADR-039 _rmtree_force. We MUST do both:
+        #
+        #   * ADR-038: close the lineage SQLite handle before rmtree,
+        #     otherwise Windows refuses to remove `.scieasy/lineage.db`
+        #     (PermissionError [WinError 32]).
+        #   * ADR-039: use `_rmtree_force` (not bare `shutil.rmtree`)
+        #     because `.git/` contains read-only refs / pack files that
+        #     plain rmtree cannot remove on Windows.
+        #
+        # The MetadataStore.get_metadata_store() block from the 039 source
+        # is dropped — D38-2.3 collapsed `MetadataStore` into a deprecation
+        # shim, so closing it is a no-op. The live store is `lineage_store`.
         if self.active_project is not None and self.active_project.id == project.id:
             store = getattr(self, "lineage_store", None)
             if store is not None:
                 try:
                     store.close()
                 except Exception:
-                    logger.debug("ApiRuntime: close lineage store before delete failed", exc_info=True)
+                    logger.debug(
+                        "ApiRuntime: close lineage store before delete failed",
+                        exc_info=True,
+                    )
                 self.lineage_store = None
-        shutil.rmtree(project_path)
+        _rmtree_force(project_path)
         self.known_projects.pop(project.id, None)
         if self.active_project is not None and self.active_project.id == project.id:
             self.active_project = None
@@ -747,31 +926,12 @@ class ApiRuntime:
         path = self.workflow_path(workflow_id)
         if path.exists():
             path.unlink()
-        # #718 part (a): clear the in-memory revision so a future workflow
-        # with the same id starts fresh at 0.
-        self._workflow_revisions.pop(workflow_id, None)
 
     # ------------------------------------------------------------------
-    # #718 part (a): in-memory workflow revision tracking.
+    # ADR-039 §5.2: ``current_revision`` / ``bump_revision`` removed in
+    # D39-2.1. Git commit SHA plus working-tree dirty state replace the
+    # optimistic-concurrency model.
     # ------------------------------------------------------------------
-
-    def current_revision(self, workflow_id: str) -> int:
-        """Return the current monotonic revision for *workflow_id*.
-
-        Returns 0 when the workflow has never been written or has not been
-        observed in this process lifetime.
-        """
-        return self._workflow_revisions.get(workflow_id, 0)
-
-    def bump_revision(self, workflow_id: str) -> int:
-        """Increment and return the revision for *workflow_id*.
-
-        Called by the route layer after every successful write to the
-        workflow YAML (PUT, POST, import-path).
-        """
-        next_rev = self._workflow_revisions.get(workflow_id, 0) + 1
-        self._workflow_revisions[workflow_id] = next_rev
-        return next_rev
 
     def upload_file(self, filename: str, content: bytes) -> dict[str, Any]:
         project = self.require_active_project()
@@ -1143,6 +1303,8 @@ class ApiRuntime:
         workflow: WorkflowDefinition,
         execute_from: str | None,
         parent_run_id: str | None = None,
+        workflow_git_commit: str | None = None,
+        workflow_dirty: bool = False,
     ) -> Any:
         """Construct a per-run :class:`LineageRecorder` and seed its ``runs`` row.
 
@@ -1153,6 +1315,17 @@ class ApiRuntime:
         D38-3.2 (closes D38-3.1a P2 / D38-3.1b P2-4): ``parent_run_id`` is
         threaded through from :meth:`start_workflow` so re-runs link back
         to the historical run per ADR §3.6. ``None`` for fresh runs.
+
+        Phase 3.5 integration audit P1-1 + P1-2: ``workflow_git_commit``
+        and ``workflow_dirty`` are now threaded into the ``RunRecord``
+        constructor at INSERT time. This is the audit-recommended fix —
+        previously the SHA was UPDATEd into the row by a separate
+        ``set_pending_git_commit`` call which (a) raced with the
+        scheduler's lineage init and could stamp the SHA onto the
+        PREVIOUS run, and (b) left ``workflow_dirty`` permanently 0 so
+        the "auto-commit failed → tree was dirty" safety net was dead.
+        Both fields now arrive on the same row as the rest of the
+        run metadata.
         """
         if self.lineage_store is None:
             return None
@@ -1179,6 +1352,8 @@ class ApiRuntime:
                 triggered_by=triggered_by,
                 execute_from_block_id=execute_from,
                 parent_run_id=parent_run_id,
+                workflow_git_commit=workflow_git_commit,
+                workflow_dirty=1 if workflow_dirty else 0,
             )
             recorder = LineageRecorder(self.event_bus, self.lineage_store, run_id=run_id)
             recorder.begin_run(run)
@@ -1247,7 +1422,88 @@ class ApiRuntime:
         is a new optional parameter used by the ``/api/runs/{run_id}/rerun``
         endpoint to stamp the new run's ``runs.parent_run_id`` column
         pointing at the historical run that triggered the rerun.
+
+        Phase 3.5 integration: also drives the ADR-039 §3.4 pre-run
+        auto-commit path. The captured SHA + the post-commit dirty
+        flag are threaded into :meth:`_build_lineage_recorder` so the
+        ADR-038 ``runs`` row carries ``workflow_git_commit`` /
+        ``workflow_dirty`` at INSERT time. This eliminates the
+        previous ``set_pending_git_commit`` UPDATE race (Phase 3.5
+        audit P1-1) and populates the previously-dead ``workflow_dirty``
+        field (audit P1-2).
         """
+        # ------------------------------------------------------------------
+        # ADR-039 §3.4 pre-run auto-commit
+        # ------------------------------------------------------------------
+        # Best-effort: if git is unavailable / not a repo, the workflow
+        # still runs without versioning (degraded mode per §3.9).
+        #
+        # The captured ``workflow_git_commit`` and ``workflow_dirty``
+        # values are passed into ``_build_lineage_recorder`` below so the
+        # ADR-038 ``runs`` row carries them on the INSERT for THIS run.
+        workflow_git_commit: str | None = None
+        workflow_dirty: bool = False
+        try:
+            if self.active_project is not None:
+                from datetime import datetime
+
+                from scieasy.core.versioning.git_engine import GitEngine
+
+                project_path = Path(self.active_project.path)
+                engine = GitEngine(project_path)
+                if engine.is_repository(project_path):
+                    state = engine.head_state()
+                    if state.dirty:
+                        short_id = uuid4().hex[:8]
+                        ts = datetime.now(UTC).isoformat()
+                        msg = f"pre-run @ {ts} (run={short_id}, workflow={workflow_id})"
+                        try:
+                            new_sha = engine.commit(msg, prefix="auto")
+                            workflow_git_commit = new_sha
+                            # Auto-commit succeeded; tree is clean post-commit.
+                            workflow_dirty = False
+                        except Exception:
+                            # Codex P1 on PR #959: when the dirty-tree
+                            # auto-commit fails we MUST NOT fall back to
+                            # the prior HEAD SHA. The workflow is about
+                            # to execute against an uncommitted working
+                            # tree, so the prior SHA does not represent
+                            # what actually ran — persisting it would
+                            # let "Restore this run's workflow" restore
+                            # the wrong revision and silently corrupt
+                            # reproducibility. Degrade to ``None`` so
+                            # the lineage row's ``workflow_dirty=1``
+                            # safety net (ADR-038 §3.1 + ADR-039 §3.4 +
+                            # Phase 3.5 audit P1-2) is the source of
+                            # truth instead.
+                            logger.warning(
+                                "ADR-039: pre-run auto-commit failed for %s — "
+                                "treating run as degraded (workflow_git_commit=None, "
+                                "workflow_dirty=1)",
+                                workflow_id,
+                                exc_info=True,
+                            )
+                            workflow_git_commit = None
+                            workflow_dirty = True
+                    else:
+                        workflow_git_commit = state.commit_sha or None
+                        workflow_dirty = False
+        except Exception:
+            logger.warning(
+                "ADR-039: pre-run auto-commit path errored for %s",
+                workflow_id,
+                exc_info=True,
+            )
+
+        if workflow_git_commit:
+            logger.debug(
+                "ADR-039: captured workflow_git_commit=%s for workflow %s "
+                "(workflow_dirty=%s)",
+                workflow_git_commit,
+                workflow_id,
+                workflow_dirty,
+            )
+
         workflow = self.load_workflow(workflow_id)
         checkpoint_manager = CheckpointManager(self.checkpoint_dir_for(workflow_id))
         checkpoint = checkpoint_manager.load(workflow_id) if execute_from is not None else None
@@ -1258,11 +1514,18 @@ class ApiRuntime:
         # pass it to the scheduler. Best-effort: when the lineage store is
         # unavailable (no project open in a test, init failure), the
         # recorder is None and the scheduler skips the lineage path.
+        #
+        # Phase 3.5 integration audit P1-1 + P1-2: ``workflow_git_commit`` and
+        # ``workflow_dirty`` are threaded through so the runs row carries
+        # them at INSERT time (not via a follow-up UPDATE that would race
+        # with the previous run).
         lineage_recorder = self._build_lineage_recorder(
             workflow_id=workflow_id,
             workflow=workflow,
             execute_from=execute_from,
             parent_run_id=parent_run_id,
+            workflow_git_commit=workflow_git_commit,
+            workflow_dirty=workflow_dirty,
         )
 
         scheduler = DAGScheduler(
@@ -1308,6 +1571,7 @@ class ApiRuntime:
             scheduler=scheduler,
             task=task,
             checkpoint_manager=checkpoint_manager,
+            workflow_git_commit=workflow_git_commit,
         )
 
         reused_blocks: list[str] = []
@@ -1315,6 +1579,12 @@ class ApiRuntime:
             reused_blocks = sorted(self._ancestors_of(workflow, execute_from))
 
         reset_blocks = sorted(set(node.id for node in workflow.nodes) - set(reused_blocks))
+        # ADR-039 §3.4 D39-2.5: the captured ``workflow_git_commit`` is
+        # carried on ``WorkflowRun.workflow_git_commit`` for the
+        # LineageRecorder (ADR-038) join. ``WorkflowExecutionResponse``
+        # remains schema-stable (no new field) — the Lineage tab reads
+        # the SHA from the ``runs.workflow_git_commit`` column once the
+        # lineage row lands, not from this start-response.
         return {
             "workflow_id": workflow_id,
             "status": "started",

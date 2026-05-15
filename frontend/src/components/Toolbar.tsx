@@ -41,6 +41,13 @@ import {
 
 import type { ProjectResponse } from "../types/api";
 
+// ADR-039 §3.5 (#972) — Git affordances (BranchPicker / GitStatusBadge /
+// CommitDialog / StashListPanel / MergeFlow) used to mount here. They now
+// live in the dedicated Git BottomPanel tab (`components/Git/GitTab.tsx`)
+// so the top toolbar no longer overflows on narrow viewports and
+// GitHistoryList is reachable. The Toolbar is back to its pre-D39-2.3b
+// non-Git shape.
+
 interface ToolbarProps {
   currentProject: ProjectResponse | null;
   workflowId: string | null;
@@ -209,7 +216,13 @@ export function Toolbar(props: ToolbarProps) {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <header className="flex items-center gap-3 border-b border-stone-200 bg-white/85 px-5 py-3 backdrop-blur">
+      <header
+        // ADR-039 §3.5 (#972) — Git affordances moved to the Git
+        // BottomPanel tab; the toolbar no longer overflows. Keep
+        // `overflow-x-auto` as a defensive fallback for future button
+        // additions but the normal case is a single non-scrolling row.
+        className="flex items-center gap-3 overflow-x-auto border-b border-stone-200 bg-white/85 px-5 py-3 backdrop-blur"
+      >
         {/* Logo + Project Header */}
         <div className="flex items-center gap-3">
           <div className="rounded-[1.4rem] bg-ink px-4 py-2.5 text-stone-50">
@@ -461,7 +474,7 @@ export function Toolbar(props: ToolbarProps) {
         <div className="flex-1" />
 
         {/* Connection Status */}
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <StatusPill connected={wsConnected} label="WS" />
           <StatusPill connected={sseConnected} label="Logs" />
         </div>

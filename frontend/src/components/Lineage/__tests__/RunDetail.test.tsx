@@ -1,5 +1,8 @@
 /**
  * RunDetail.test.tsx — D38-2.4c IMPL tests (covers BlockExecutionCard too).
+ *
+ * Phase 3.5 integration note: the ADR-039 Restore-button + helper tests
+ * have been split out to `RunDetail.restore.test.tsx` per audit P2-3.
  */
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";

@@ -317,50 +317,57 @@ P3 (file as follow-up issues; not blocking):
 
 ### Phase D39-2.4a — Conflict resolution + branch graph SKELETON (Owner: SD39-4a, 1 agent — VERY detailed algorithm comments) [ADR-039 §6 Phase 3 skeleton]
 
-- [ ] Sub-issue opened, depends on D39-2.3b merged
-- [ ] `frontend/src/components/Git/MergeFlow.tsx` (NEW skeleton; comments cover FF/clean/conflict path orchestration per ADR §3.5a)
-- [ ] `frontend/src/components/Git/ConflictResolveView.tsx` (NEW skeleton; comments cover conflicted-file list, status badges, Mark Resolved / Complete Merge / Abort Merge buttons)
-- [ ] `frontend/src/components/Git/ConflictMarkerDecoration.ts` (NEW skeleton; comments cover Monaco decoration provider for `<<<<<< ====== >>>>>>` regions + inline action widgets per ADR §3.5a)
-- [ ] `frontend/src/components/Git/GitGraph/laneAssign.ts` (NEW skeleton; FULL pseudocode comments transcribing ADR §3.5b algorithm sketch)
-- [ ] `frontend/src/components/Git/GitGraph/edgeRouter.ts` (NEW skeleton; bezier curve math comments)
-- [ ] `frontend/src/components/Git/GitGraph/GraphSVG.tsx` (NEW skeleton; SVG rendering plan: dots, edges, labels, filter dimming)
-- [ ] `frontend/src/components/Git/GitGraph/colorPalette.ts` (NEW skeleton; branch color rotation)
-- [ ] `frontend/src/components/Git/GitGraph/interactions.ts` (NEW skeleton; hover preview, click→diff/checkout, virtualization with `@tanstack/react-virtual`)
-- [ ] `frontend/src/components/Git/GitGraph/integration.ts` (NEW skeleton; gitSlice consumption, filter-state integration, theme)
-- [ ] `frontend/src/components/CodeEditor.tsx` (ADR-036) — extend with ConflictMarkerDecoration registration when active file is in conflict state (skeleton stub)
-- [ ] Vitest skeleton tests for laneAssign / edgeRouter / conflict-region detection
+- [x] Sub-issue opened, depends on D39-2.3b merged → #941
+- [x] `frontend/src/components/Git/MergeFlow.tsx` (NEW skeleton; comments cover FF/clean/conflict path orchestration per ADR §3.5a) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/Git/ConflictResolveView.tsx` (NEW skeleton; comments cover conflicted-file list, status badges, Mark Resolved / Complete Merge / Abort Merge buttons) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/Git/ConflictMarkerDecoration.ts` (NEW skeleton; comments cover Monaco decoration provider for `<<<<<< ====== >>>>>>` regions + inline action widgets per ADR §3.5a; `parseConflictRegions` kept implemented as a pure helper) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/Git/GitGraph/laneAssign.ts` (NEW skeleton; FULL pseudocode comments transcribing ADR §3.5b algorithm sketch; `maxLane` kept implemented) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/Git/GitGraph/edgeRouter.ts` (NEW skeleton; bezier curve math comments; `buildShaIndex` kept implemented) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/Git/GitGraph/GraphSVG.tsx` (NEW skeleton; SVG rendering plan: dots, edges, labels, filter dimming) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/Git/GitGraph/colorPalette.ts` (NEW skeleton; branch color rotation + layout constants; PALETTE + colorForIndex implemented) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/Git/GitGraph/interactions.ts` (NEW skeleton; hover preview, click→diff/checkout, virtualization with `@tanstack/react-virtual`) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/Git/GitGraph/integration.ts` (NEW skeleton; gitSlice consumption, filter-state integration, theme) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] `frontend/src/components/CodeEditor.tsx` (ADR-036) — extend with ConflictMarkerDecoration registration when active file is in conflict state (skeleton stub; subscribes to existing `gitSlice.mergeInProgress.conflicted_files` — no new slice field needed) → branch `feat/issue-941/d39-2-4a-conflict-graph-skeleton`
+- [x] Vitest skeleton tests for laneAssign / edgeRouter / conflict-region detection → 20 pure-helper assertions pass; 21 `it.skip` cases each carry detailed test-plan docstrings + fixture sketches for D39-2.4b
 - [ ] PR merged into tracking branch
 
 ### Phase D39-2.4b — Conflict resolution + branch graph IMPL (Owner: ID39-4b, 1 agent) [ADR-039 §6 Phase 3 impl]
 
-- [ ] Sub-issue opened; depends on D39-2.4a merged
-- [ ] All skeleton bodies filled
-- [ ] Lane assignment unit tests on synthetic DAGs (linear, branch, merge, multi-merge fixtures)
-- [ ] Conflict-region detection tests against fixtures with `<<<<<<` markers
-- [ ] **Mandatory live Chrome smoke**: synthesize a merge conflict in a test project, open ConflictResolveView, click Accept Current / Accept Incoming / Accept Both / Manual edit, run `git status` to confirm git-state correctness, click Complete Merge
+- [x] Sub-issue opened; depends on D39-2.4a merged → #947
+- [x] All skeleton bodies filled → branch `feat/issue-947/d39-2-4b-conflict-graph-impl`
+- [x] Lane assignment unit tests on synthetic DAGs (linear, branch, merge, multi-merge fixtures) → `frontend/src/components/Git/GitGraph/__tests__/laneAssign.test.ts` (11 tests pass)
+- [x] Conflict-region detection tests against fixtures with `<<<<<<` markers → `frontend/src/components/Git/__tests__/ConflictResolveView.test.tsx` (18 tests pass incl. parser + text-splice + view)
+- [~] **Mandatory live Chrome smoke**: synthesize a merge conflict in a test project, open ConflictResolveView, click Accept Current / Accept Incoming / Accept Both / Manual edit, run `git status` to confirm git-state correctness, click Complete Merge
 - [ ] CI green; PR merged into tracking branch
 
 ### Phase D39-2.5 — Polish + ADR-038 integration (Owner: ID39-5, 1 agent, sequential) [ADR-039 §6 Phase 4]
 
-- [ ] **Hard dependency**: D38-2.4c merged into `track/adr-038/lineage-db` AND D39-2.4b merged into `track/adr-039/git-versioning`
-- [ ] Wires `runs.workflow_git_commit` to `git_engine.head_state()` inside `start_workflow` (replaces D39-2.2b TODO)
-- [ ] "Restore this run's workflow" button on Lineage tab calls `gitRestore({commit_sha, files: [workflow_yaml_path]})`
-- [ ] Verifies ADR-035 AI Block / ADR-034 PTY agent flows emit commits with `agent:` prefix
-- [ ] Agent commit prefix convention documented in `docs/cli-integration.md`
-- [ ] ADR-039 status `proposed` → `accepted` (in `docs/adr/ADR-039.md`)
-- [ ] CI green; PR merged into tracking branch
+- [x] **Hard dependency**: D38-2.4c merged into `track/adr-038/lineage-db` AND D39-2.4b merged into `track/adr-039/git-versioning` → verified (commits 738dd11 + de9bdca)
+- [x] Wires `runs.workflow_git_commit` to `git_engine.head_state()` inside `start_workflow` (replaces D39-2.2b TODO) → branch `feat/issue-954/d39-2-5-polish-integration`: `WorkflowRun.workflow_git_commit` field + defensive `lineage_store.set_pending_git_commit` hook for the Phase 4 final-merge
+- [x] "Restore this run's workflow" button on Lineage tab calls `gitRestore({commit_sha, files: [workflow_yaml_path]})` → `frontend/src/components/Lineage/RunDetail.tsx` (NEW on 039 branch since 038's Lineage tab merges in at Phase 4); exports `RestoreWorkflowButton`, `runRestoreWorkflow`, `workflowYamlPathForRun`
+- [x] Verifies ADR-035 AI Block / ADR-034 PTY agent flows emit commits with `agent:` prefix → grep confirmed neither `blocks/ai/ai_block.py` nor `engine/pty_control.py` invokes `GitEngine.commit()` directly today (commits originate from the MCP server wrapper + the agent's own shell inside the PTY); convention now cross-referenced in both module docstrings
+- [x] Agent commit prefix convention documented in `docs/cli-integration.md` → already present from Phase 0 architecture refactor (CHANGELOG #904); module-level docstrings on `ai_block.py` + `pty_control.py` updated to cite ADR-039 §3.4a explicitly
+- [x] ADR-039 status `proposed` → `accepted` (in `docs/adr/ADR-039.md`) → flipped, references D39-2.5 (issue #954)
+- [ ] CI green; PR merged into tracking branch → PR pending
 
 ### Phase D39-3.1 — Combined audit (Owner: AD39-3, context-aware agent)
 
-- [ ] Single audit agent dispatched (has session context per user spec)
-- [ ] Verifies (a) skeleton-vs-ADR consistency, (b) impl-vs-design consistency, (c) wiring reliability
-- [ ] **Mandatory live Chrome smoke**: commit / branch / merge / conflict resolution / graph render
-- [ ] Codex auto-review reconciled for every D39 sub-issue PR
-- [ ] Report at `docs/audit/2026-05-15-adr-039-combined-audit.md`
+- [x] Single audit agent dispatched (has session context per user spec) → PR #966
+- [x] Verifies (a) skeleton-vs-ADR consistency, (b) impl-vs-design consistency, (c) wiring reliability → `docs/audit/2026-05-15-adr-039-combined-audit.md` (commit 902f341)
+- [!] **Mandatory live Chrome smoke**: commit / branch / merge / conflict resolution / graph render → DEFERRED (Chrome MCP interactive browser-pick incompatible with non-interactive agent dispatch). D39-3.2 fix dispatch MUST execute. See report §"Smoke test status".
+- [x] Codex auto-review reconciled for every D39 sub-issue PR → all 23 reviews across 10 PRs already reconciled in implementer-side follow-up commits; tabulated in report
+- [x] Report at `docs/audit/2026-05-15-adr-039-combined-audit.md` → PR #966 commit 902f341
 
 ### Phase D39-3.2 — Fix (Owner: FD39, 1 agent)
 
-- [ ] Manager classifies P1/P2; overrides auditor "defer" per overnight merge protocol
+- [x] Manager classifies P1/P2; overrides auditor "defer" per overnight merge protocol → #968 dispatch fix-agent on `fix/issue-968/d39-3-2-audit-fixes`
+- [x] **P1-A** dual git-watcher collapse → deleted `core/versioning/watcher.py`, removed `app.py:84-112` construction, removed `__init__.py` re-export; watchdog `_GitHeadHandler` is single source of truth emitting canonical `commit_sha`
+- [x] **P1-B** H-A1 defensive guard verified → `runtime.py:1333` `getattr`+`callable()` chain retained; 2 regression tests added in `tests/api/test_workflow_run_git.py` (no-hook + hook-raises). NO D38-side change in this PR (that's D38-3.2).
+- [x] **P2-A** AIBlock `agent:` prefix docstring corrected → removed stale reference to non-existent `mcp__scieasy__git_commit` MCP tool; documents actual enforcement (system-prompt + agent's own `git commit -m` in PTY)
+- [x] **P2-B** project-switch watcher restart → resolved for free by P1-A collapse (workflow_watcher's `start_for_project` is already invoked from `routes/projects.py::_restart_workflow_watcher`)
+- [x] **P2-C** `GitEngine.commit()` empty-repo edge → branches on `rev-parse --verify HEAD`; falls back to `ls-files --cached` when HEAD absent. Test added.
+- [x] **P3 nits** filed as follow-up issue #969 (is_repository worktree, merge FF heuristic, log parser empty-body)
+- [ ] **Mandatory live Chrome smoke** (11 scenarios deferred from D39-3.1) → GIF in PR body
 - [ ] Fix PR merged into `track/adr-039/git-versioning`; CI green
 
 ---
@@ -677,3 +684,5 @@ the audit phase, so #909 retires cleanly with the right rationale.
 **Owner.** D38-3.1b bug/wiring audit agent (context-aware, with Chrome
 smoke). The fix lands in the D38-3.2 fix PR alongside any other findings
 that audit surfaces.
+
+- 2026-05-15 — D39-2.3b (PR #932) mounted `BranchPicker` + `GitStatusBadge` + `CommitDialog` + `StashListPanel` + `MergeFlow` directly into `Toolbar.tsx`, causing horizontal overflow on narrow viewports, and shipped `GitHistoryList.tsx` (commit history + List/Graph view toggle) without mounting it anywhere in the production UI; the D39-3.1 combined audit (PR #948) deferred the Chrome smoke and did not catch the orphan. Resolved in #972 by moving every Git surface into a dedicated `Git` BottomPanel tab (`frontend/src/components/Git/GitTab.tsx`) that mounts `GitHistoryList`, restoring access to commit history + branch graph. → PR #972 (feat/issue-972/git-bottom-panel-tab)
