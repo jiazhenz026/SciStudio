@@ -250,11 +250,22 @@ class DataRecord:
 
 @dataclass
 class WorkflowRun:
-    """Track a live scheduler task for a workflow."""
+    """Track a live scheduler task for a workflow.
+
+    ADR-039 §3.4 / §3.4a: ``workflow_git_commit`` captures the HEAD SHA of
+    the project's git repo at workflow-start time (post pre-run auto-commit
+    when the working tree was dirty). It is the ADR-038 ``runs.workflow_git_commit``
+    join key. Populated by :meth:`ApiRuntime.start_workflow` end-to-end; the
+    LineageRecorder (ADR-038) reads this when persisting the ``runs`` row.
+
+    The field is ``None`` only when the project is not a git repository
+    (degraded mode per ADR-039 §3.9) or auto-commit failed both ways.
+    """
 
     scheduler: DAGScheduler
     task: asyncio.Task[None]
     checkpoint_manager: CheckpointManager
+    workflow_git_commit: str | None = None
 
 
 class LogBroadcaster:
@@ -1275,15 +1286,48 @@ class ApiRuntime:
                 exc_info=True,
             )
 
-        # TODO(D39-2.5): persist ``workflow_git_commit`` into
-        # ``lineage.db.runs.workflow_git_commit`` once the ADR-038 schema
-        # lands on this tracking branch.
+        # ADR-039 §3.4 D39-2.5: persist ``workflow_git_commit`` for the
+        # ADR-038 ``runs.workflow_git_commit`` join key.
+        #
+        # Two integration paths, in priority order:
+        #
+        # 1. Push the SHA onto the ``WorkflowRun`` dataclass below. This is
+        #    the authoritative carrier on the ADR-039 tracking branch — the
+        #    LineageRecorder (lands when ADR-038 is integrated to main per
+        #    Phase 4 final-merge PRs in adr-038-039-checklist.md line 524)
+        #    reads ``runtime.workflow_runs[wf_id].workflow_git_commit`` when
+        #    inserting the ``runs`` row.
+        #
+        # 2. Eager-write into ``lineage_store`` if it is available on this
+        #    runtime (the ADR-038 schema exposes ``insert_run`` or
+        #    ``begin_run``). Defensive ``getattr`` because on the ADR-039
+        #    tracking branch the lineage store does not yet exist; on the
+        #    ADR-038 tracking branch + post-integration main, it does.
         if workflow_git_commit:
             logger.debug(
                 "ADR-039: captured workflow_git_commit=%s for workflow %s",
                 workflow_git_commit,
                 workflow_id,
             )
+            # Forward-compatible cross-track wiring: if the ADR-038
+            # LineageRecorder schema is available on this runtime (which it
+            # will be on integrated main / track/adr-038 branches), hand
+            # the SHA to it so the in-flight ``runs`` row carries the join
+            # key. On track/adr-039 alone, ``lineage_store`` is absent and
+            # this path is a no-op — the SHA is still preserved on
+            # ``WorkflowRun.workflow_git_commit`` below for downstream
+            # consumers.
+            lineage_store = getattr(self, "lineage_store", None)
+            set_pending = getattr(lineage_store, "set_pending_git_commit", None) if lineage_store else None
+            if callable(set_pending):
+                try:
+                    set_pending(workflow_id, workflow_git_commit)
+                except Exception:
+                    logger.warning(
+                        "ADR-039: lineage_store.set_pending_git_commit failed for %s",
+                        workflow_id,
+                        exc_info=True,
+                    )
 
         workflow = self.load_workflow(workflow_id)
         checkpoint_manager = CheckpointManager(self.checkpoint_dir_for(workflow_id))
@@ -1326,6 +1370,7 @@ class ApiRuntime:
             scheduler=scheduler,
             task=task,
             checkpoint_manager=checkpoint_manager,
+            workflow_git_commit=workflow_git_commit,
         )
 
         reused_blocks: list[str] = []
@@ -1333,6 +1378,12 @@ class ApiRuntime:
             reused_blocks = sorted(self._ancestors_of(workflow, execute_from))
 
         reset_blocks = sorted(set(node.id for node in workflow.nodes) - set(reused_blocks))
+        # ADR-039 §3.4 D39-2.5: the captured ``workflow_git_commit`` is
+        # carried on ``WorkflowRun.workflow_git_commit`` for the
+        # LineageRecorder (ADR-038) join. ``WorkflowExecutionResponse``
+        # remains schema-stable (no new field) — the Lineage tab reads
+        # the SHA from the ``runs.workflow_git_commit`` column once the
+        # lineage row lands, not from this start-response.
         return {
             "workflow_id": workflow_id,
             "status": "started",

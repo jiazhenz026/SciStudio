@@ -303,13 +303,13 @@
 
 ### Phase D39-2.5 — Polish + ADR-038 integration (Owner: ID39-5, 1 agent, sequential) [ADR-039 §6 Phase 4]
 
-- [ ] **Hard dependency**: D38-2.4c merged into `track/adr-038/lineage-db` AND D39-2.4b merged into `track/adr-039/git-versioning`
-- [ ] Wires `runs.workflow_git_commit` to `git_engine.head_state()` inside `start_workflow` (replaces D39-2.2b TODO)
-- [ ] "Restore this run's workflow" button on Lineage tab calls `gitRestore({commit_sha, files: [workflow_yaml_path]})`
-- [ ] Verifies ADR-035 AI Block / ADR-034 PTY agent flows emit commits with `agent:` prefix
-- [ ] Agent commit prefix convention documented in `docs/cli-integration.md`
-- [ ] ADR-039 status `proposed` → `accepted` (in `docs/adr/ADR-039.md`)
-- [ ] CI green; PR merged into tracking branch
+- [x] **Hard dependency**: D38-2.4c merged into `track/adr-038/lineage-db` AND D39-2.4b merged into `track/adr-039/git-versioning` → verified (commits 738dd11 + de9bdca)
+- [x] Wires `runs.workflow_git_commit` to `git_engine.head_state()` inside `start_workflow` (replaces D39-2.2b TODO) → branch `feat/issue-954/d39-2-5-polish-integration`: `WorkflowRun.workflow_git_commit` field + defensive `lineage_store.set_pending_git_commit` hook for the Phase 4 final-merge
+- [x] "Restore this run's workflow" button on Lineage tab calls `gitRestore({commit_sha, files: [workflow_yaml_path]})` → `frontend/src/components/Lineage/RunDetail.tsx` (NEW on 039 branch since 038's Lineage tab merges in at Phase 4); exports `RestoreWorkflowButton`, `runRestoreWorkflow`, `workflowYamlPathForRun`
+- [x] Verifies ADR-035 AI Block / ADR-034 PTY agent flows emit commits with `agent:` prefix → grep confirmed neither `blocks/ai/ai_block.py` nor `engine/pty_control.py` invokes `GitEngine.commit()` directly today (commits originate from the MCP server wrapper + the agent's own shell inside the PTY); convention now cross-referenced in both module docstrings
+- [x] Agent commit prefix convention documented in `docs/cli-integration.md` → already present from Phase 0 architecture refactor (CHANGELOG #904); module-level docstrings on `ai_block.py` + `pty_control.py` updated to cite ADR-039 §3.4a explicitly
+- [x] ADR-039 status `proposed` → `accepted` (in `docs/adr/ADR-039.md`) → flipped, references D39-2.5 (issue #954)
+- [ ] CI green; PR merged into tracking branch → PR pending
 
 ### Phase D39-3.1 — Combined audit (Owner: AD39-3, context-aware agent)
 

@@ -8,11 +8,35 @@ inputs and expected outputs, and waits for one of three completion
 signals (MCP tool call, file watcher, user "Mark done" button) before
 validating outputs and resuming the workflow.
 
+ADR-039 §3.4a — agent commit convention
+---------------------------------------
+AIBlock does **not** itself invoke ``GitEngine.commit()``. When the
+spawned agent (claude / codex) makes a programmatic commit on the user's
+behalf — either via the ``mcp__scieasy__git_commit`` MCP tool (ADR-033)
+or by shelling out to ``git`` inside the PTY tab — that commit MUST use
+the ``agent:`` prefix per ADR-039 §3.4a:
+
+    agent: <short summary> (session=<block_execution_id>)
+
+This is enforced at two layers:
+
+1. **MCP server** (``scieasy.api.routes.mcp_tools.git_commit``) — passes
+   ``prefix="agent"`` to ``GitEngine.commit()`` when the caller is an
+   agent session (ADR-035 / ADR-034 PTY).
+2. **System prompt** for the agent — the ADR-039 §3.4a convention is
+   documented in ``docs/cli-integration.md`` so the agent knows to
+   prefix any ``git commit -m`` invocations in the PTY itself.
+
+If a future direct commit path is added inside this module, it MUST
+pass ``prefix="agent"`` to keep the History filter (ADR-039 §3.4)
+classifying the result correctly.
+
 References:
     docs/adr/ADR-035.md §3 (decision), §3.1 (block category),
     §3.2 (runtime topology), §3.4 (manifest), §3.5 (completion paths),
     §3.6 (output validation), §3.7 (permission), §3.9 (state machine),
     §3.10 (engine ↔ worker IPC).
+    docs/adr/ADR-039.md §3.4a (``agent:`` commit prefix convention).
 """
 
 from __future__ import annotations
