@@ -38,26 +38,11 @@ class WorkflowCreate(BaseModel):
 class WorkflowResponse(WorkflowCreate):
     """Response body returned when reading a workflow.
 
-    The ``revision`` field (#718 part a) is a monotonic integer tracked
-    in-memory by ``ApiRuntime`` to support optimistic concurrency on the
-    write path. It is distinct from the semver ``version`` string above
-    (which describes the schema version of the YAML payload).
+    The legacy ``revision`` field (#718 part a) was removed by ADR-039 §5.2
+    / D39-2.1; durable concurrency control lives in git now. The semver
+    ``version`` string above still describes the schema version of the
+    YAML payload.
     """
-
-    revision: int = 0
-
-
-class WorkflowConflictResponse(BaseModel):
-    """Response body for ``HTTP 412 Precondition Failed`` from PUT (#718 part a).
-
-    Returned when the client's ``If-Match`` header is stale compared to the
-    server's current revision. ``workflow`` carries the full latest payload so
-    the client can rebase its local state without a second round-trip.
-    """
-
-    detail: str = "Workflow revision is stale"
-    current_revision: int
-    workflow: WorkflowResponse
 
 
 class WorkflowExecutionResponse(BaseModel):

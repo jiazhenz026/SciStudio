@@ -135,6 +135,33 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
         return;
       }
 
+      // ADR-039 §3.8: HEAD or branch-tip moved on disk (CLI git, editor git
+      // plugin, or an agent running git inside the PTY). The Git tab and
+      // canvas must invalidate cached log / branch / status views.
+      //
+      // Stub for now: gitSlice does not exist yet — D39-2.3a will introduce
+      // ``frontend/src/store/gitSlice.ts`` with the proper invalidation
+      // surface. When that lands, replace the console.debug below with:
+      //   useAppStore.getState().gitSlice.invalidate({
+      //     commit_sha, ref, kind
+      //   });
+      //
+      // TODO(D39-2.3a): wire to gitSlice.invalidate() once the slice exists.
+      if (payload.type === "git.head_changed") {
+        const data = (payload.data ?? {}) as Record<string, unknown>;
+        const commitSha = (data.commit_sha as string | null | undefined) ?? null;
+        const ref = (data.ref as string | undefined) ?? "HEAD";
+        const kind = (data.kind as string | undefined) ?? "head";
+        // eslint-disable-next-line no-console
+        console.debug(
+          "[git.head_changed] commit=%s ref=%s kind=%s (gitSlice stub — wired in D39-2.3a)",
+          commitSha,
+          ref,
+          kind,
+        );
+        return;
+      }
+
       // ADR-035 §3.10 skeleton: engine-initiated PTY tab open/close events
       // for AI Block runs. Implementation phase (I35c) wires these to the
       // TerminalTabs component's `handleBlockPtyOpened` /

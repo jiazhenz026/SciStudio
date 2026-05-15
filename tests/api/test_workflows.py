@@ -143,143 +143,96 @@ def test_cancel_block_and_cancel_workflow_propagate_terminal_states(
 
 
 # ---------------------------------------------------------------------------
-# #718 part (a): workflow versioning + If-Match + workflow.changed
+# workflow.changed event flow (#718 part a, post ADR-039 §5.2)
+#
+# The legacy ``If-Match``/``revision`` optimistic-concurrency layer was removed
+# in D39-2.1; git commit SHA + working-tree dirty state replace it. The
+# ``workflow.changed`` event itself still fires after every successful write
+# so other browser tabs / the embedded agent's WS subscriber can invalidate
+# cached views. Last-write-wins on the file save is the same model as
+# VS Code and most editors.
 # ---------------------------------------------------------------------------
 
 
-def test_get_workflow_includes_current_revision(client: TestClient, opened_project: Path) -> None:
-    """``GET /api/workflows/{id}`` must surface the in-memory revision."""
-    payload = build_linear_workflow(opened_project, workflow_id="rev-get")
-    created = client.post("/api/workflows/", json=payload)
-    assert created.status_code == 200
-    # Create bumps revision once.
-    assert created.json()["revision"] == 1
+def test_put_no_longer_requires_if_match_header(client: TestClient, opened_project: Path) -> None:
+    """ADR-039 §5.2: PUT must succeed without any ``If-Match`` header."""
+    payload = build_linear_workflow(opened_project, workflow_id="no-ifmatch-put")
+    create = client.post("/api/workflows/", json=payload)
+    assert create.status_code == 200
 
-    fetched = client.get("/api/workflows/rev-get")
-    assert fetched.status_code == 200
-    assert fetched.json()["revision"] == 1
-
-
-def test_put_with_current_if_match_bumps_revision(client: TestClient, opened_project: Path) -> None:
-    """A PUT with the current If-Match must succeed and bump the revision."""
-    payload = build_linear_workflow(opened_project, workflow_id="rev-put")
-    create = client.post("/api/workflows/", json=payload).json()
-    rev = create["revision"]
-    assert rev == 1
-
-    payload["description"] = "first update"
-    updated = client.put("/api/workflows/rev-put", json=payload, headers={"If-Match": str(rev)})
+    payload["description"] = "updated"
+    updated = client.put("/api/workflows/no-ifmatch-put", json=payload)
     assert updated.status_code == 200
-    body = updated.json()
-    assert body["revision"] == rev + 1
-    assert body["description"] == "first update"
+    assert updated.json()["description"] == "updated"
 
 
-def test_put_with_stale_if_match_returns_412_and_latest_payload(client: TestClient, opened_project: Path) -> None:
-    """A stale If-Match must produce 412 with the latest workflow JSON."""
-    payload = build_linear_workflow(opened_project, workflow_id="rev-stale")
-    create = client.post("/api/workflows/", json=payload).json()
-    rev_initial = create["revision"]
+def test_put_ignores_if_match_header_for_legacy_clients(client: TestClient, opened_project: Path) -> None:
+    """ADR-039 §5.2: a stale ``If-Match`` is no longer rejected with 412.
 
-    # First writer advances the revision.
-    payload["description"] = "first writer"
-    first = client.put("/api/workflows/rev-stale", json=payload, headers={"If-Match": str(rev_initial)})
-    assert first.status_code == 200
-    current_revision = first.json()["revision"]
-    assert current_revision == rev_initial + 1
-
-    # Second writer is still on the original revision.
-    stale_payload = build_linear_workflow(opened_project, workflow_id="rev-stale")
-    stale_payload["description"] = "stale writer"
-    stale = client.put("/api/workflows/rev-stale", json=stale_payload, headers={"If-Match": str(rev_initial)})
-    assert stale.status_code == 412
-    body = stale.json()
-    assert body["current_revision"] == current_revision
-    # The latest payload is attached so the client can rebase.
-    assert body["workflow"]["id"] == "rev-stale"
-    assert body["workflow"]["description"] == "first writer"
-    assert body["workflow"]["revision"] == current_revision
-
-    # The on-disk content is the first writer's, not the stale writer's.
-    yaml_text = (opened_project / "workflows" / "rev-stale.yaml").read_text(encoding="utf-8")
-    assert "first writer" in yaml_text
-    assert "stale writer" not in yaml_text
-
-
-def test_put_without_if_match_is_accepted_for_backwards_compat(client: TestClient, opened_project: Path) -> None:
-    """Legacy clients that omit If-Match must continue to work (#718)."""
-    payload = build_linear_workflow(opened_project, workflow_id="rev-nomatch")
+    Legacy frontends still wired to send the header must not be broken;
+    the server simply ignores it now that git is the durable concurrency
+    mechanism. Last-write-wins on the file save.
+    """
+    payload = build_linear_workflow(opened_project, workflow_id="ignored-ifmatch")
     client.post("/api/workflows/", json=payload)
 
-    payload["description"] = "no header"
-    updated = client.put("/api/workflows/rev-nomatch", json=payload)
-    assert updated.status_code == 200
-    assert updated.json()["description"] == "no header"
-    # Revision still bumps so other clients see the change.
-    assert updated.json()["revision"] >= 2
-
-
-def test_put_with_malformed_if_match_returns_400(client: TestClient, opened_project: Path) -> None:
-    """A non-integer If-Match must be rejected rather than silently accepted."""
-    payload = build_linear_workflow(opened_project, workflow_id="rev-malformed")
-    client.post("/api/workflows/", json=payload)
-    response = client.put("/api/workflows/rev-malformed", json=payload, headers={"If-Match": "not-an-int"})
-    assert response.status_code == 400
-
-
-def test_two_concurrent_writers_second_is_rejected(client: TestClient, opened_project: Path) -> None:
-    """Two writers race; the one carrying the older revision is rejected."""
-    payload = build_linear_workflow(opened_project, workflow_id="rev-race")
-    rev0 = client.post("/api/workflows/", json=payload).json()["revision"]
-
-    # Both writers loaded the workflow at rev0 and now PUT with that header.
-    payload_a = build_linear_workflow(opened_project, workflow_id="rev-race")
-    payload_a["description"] = "writer A"
-    payload_b = build_linear_workflow(opened_project, workflow_id="rev-race")
-    payload_b["description"] = "writer B"
-
-    first = client.put("/api/workflows/rev-race", json=payload_a, headers={"If-Match": str(rev0)})
+    payload["description"] = "first"
+    first = client.put("/api/workflows/ignored-ifmatch", json=payload, headers={"If-Match": "1"})
     assert first.status_code == 200
-    second = client.put("/api/workflows/rev-race", json=payload_b, headers={"If-Match": str(rev0)})
-    assert second.status_code == 412
-    assert second.json()["workflow"]["description"] == "writer A"
+    # Second writer carries a "stale" header — must NOT receive 412.
+    payload["description"] = "second"
+    second = client.put("/api/workflows/ignored-ifmatch", json=payload, headers={"If-Match": "1"})
+    assert second.status_code == 200
+    assert second.json()["description"] == "second"
+
+
+def test_response_no_longer_carries_revision_field(client: TestClient, opened_project: Path) -> None:
+    """ADR-039 §5.2: WorkflowResponse must no longer expose ``revision``."""
+    payload = build_linear_workflow(opened_project, workflow_id="no-revision")
+    response = client.post("/api/workflows/", json=payload)
+    assert response.status_code == 200
+    assert "revision" not in response.json()
+    fetched = client.get("/api/workflows/no-revision")
+    assert "revision" not in fetched.json()
 
 
 def test_websocket_receives_workflow_changed_event_after_write(
     client: TestClient, runtime: ApiRuntime, opened_project: Path
 ) -> None:
-    """A successful write must emit ``workflow.changed`` to connected clients."""
-    payload = build_linear_workflow(opened_project, workflow_id="rev-ws")
+    """A successful write must still emit ``workflow.changed`` to connected clients.
+
+    The payload no longer carries ``revision`` post ADR-039 §5.2; ``workflow_id``
+    and ``changed_by`` are the surviving fields the frontend keys off.
+    """
+    payload = build_linear_workflow(opened_project, workflow_id="changed-ws")
     # POST happens before the WS connects — that emission is not observed.
-    create = client.post("/api/workflows/", json=payload).json()
-    rev = create["revision"]
+    client.post("/api/workflows/", json=payload)
 
     with client.websocket_connect("/ws") as websocket:
         payload["description"] = "ws-triggered"
-        response = client.put("/api/workflows/rev-ws", json=payload, headers={"If-Match": str(rev)})
+        response = client.put("/api/workflows/changed-ws", json=payload)
         assert response.status_code == 200
-        new_rev = response.json()["revision"]
         message = websocket.receive_json()
 
     assert message["type"] == WORKFLOW_CHANGED
-    assert message["data"]["workflow_id"] == "rev-ws"
-    assert message["data"]["revision"] == new_rev
+    assert message["data"]["workflow_id"] == "changed-ws"
     assert message["data"]["changed_by"] == "api"
+    # Field is gone, not silently zero.
+    assert "revision" not in message["data"]
 
 
-def test_import_path_bumps_revision_and_emits_event(
+def test_import_path_emits_workflow_changed_event(
     client: TestClient, runtime: ApiRuntime, opened_project: Path, tmp_path: Path
 ) -> None:
-    """``POST /import-path`` must bump the revision so frontend caches invalidate."""
-    payload = build_linear_workflow(opened_project, workflow_id="rev-import")
+    """``POST /import-path`` must emit ``workflow.changed`` so caches invalidate."""
+    payload = build_linear_workflow(opened_project, workflow_id="changed-import")
     client.post("/api/workflows/", json=payload)
-    rev_before = runtime.current_revision("rev-import")
 
     # Write a YAML to an external location and import it back.
     external = tmp_path / "external.yaml"
     from scieasy.workflow.serializer import load_yaml, save_yaml
 
-    definition = load_yaml(opened_project / "workflows" / "rev-import.yaml")
+    definition = load_yaml(opened_project / "workflows" / "changed-import.yaml")
     definition.description = "edited externally"
     save_yaml(definition, external)
 
@@ -288,29 +241,26 @@ def test_import_path_bumps_revision_and_emits_event(
 
     response = client.post("/api/workflows/import-path", json={"path": str(external)})
     assert response.status_code == 200
-    new_rev = response.json()["revision"]
-    assert new_rev == rev_before + 1
     wait_for_condition(lambda: len(seen) >= 1)
-    assert seen[-1].data["workflow_id"] == "rev-import"
-    assert seen[-1].data["revision"] == new_rev
+    assert seen[-1].data["workflow_id"] == "changed-import"
     assert seen[-1].data["changed_by"] == "import-path"
 
 
 def test_x_changed_by_header_propagates_to_workflow_changed_event(
     client: TestClient, runtime: ApiRuntime, opened_project: Path
 ) -> None:
-    """``X-Changed-By`` lets the MCP tool / agent self-identify on writes."""
-    payload = build_linear_workflow(opened_project, workflow_id="rev-tag")
-    rev = client.post("/api/workflows/", json=payload).json()["revision"]
+    """``X-Changed-By`` still lets the MCP tool / agent self-identify on writes."""
+    payload = build_linear_workflow(opened_project, workflow_id="changed-tag")
+    client.post("/api/workflows/", json=payload)
 
     seen: list[EngineEvent] = []
     runtime.event_bus.subscribe(WORKFLOW_CHANGED, lambda ev: seen.append(ev))
 
     payload["description"] = "agent edit"
     response = client.put(
-        "/api/workflows/rev-tag",
+        "/api/workflows/changed-tag",
         json=payload,
-        headers={"If-Match": str(rev), "X-Changed-By": "embedded-agent"},
+        headers={"X-Changed-By": "embedded-agent"},
     )
     assert response.status_code == 200
     wait_for_condition(lambda: len(seen) >= 1)
