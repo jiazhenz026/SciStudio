@@ -198,10 +198,10 @@
 
 ### Phase D38-3.1b — Bug / robustness / wiring audit (Owner: AD38-3b, context-aware agent)
 
-- [ ] Context-aware audit dispatched (session PRs + diffs + sub-issues)
-- [ ] **Mandatory live Chrome smoke** on Lineage tab + Run from here + Rerun dialog
-- [ ] Codex auto-review reconciled for every D38 sub-issue PR
-- [ ] Report at `docs/audit/2026-05-15-adr-038-bug-audit.md`
+- [x] Context-aware audit dispatched (session PRs + diffs + sub-issues) → PR #960
+- [x] **Mandatory live Chrome smoke** on Lineage tab + Run from here + Rerun dialog → `docs/audit/d38-3-1b-smoke.gif` (28 frames, 5.0 MB)
+- [x] Codex auto-review reconciled for every D38 sub-issue PR → audit report § "Codex reconciliation"
+- [x] Report at `docs/audit/2026-05-15-adr-038-bug-audit.md` → 3 P1 + 7 P2 + 4 P3 findings; PR #960
 
 ### Phase D38-3.2 — Fix (Owner: FD38, 1 agent)
 
