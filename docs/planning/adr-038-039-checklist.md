@@ -441,4 +441,4 @@
 
 > Format: `YYYY-MM-DD HH:MM — agent <name> on PR #<n> ticked "<row>" but artifact missing / out-of-scope file <path> modified. Action: <revert / required additional commit / escalation>.`
 
-(empty until first violation)
+- 2026-05-15 — D39-2.3b (PR #932) mounted `BranchPicker` + `GitStatusBadge` + `CommitDialog` + `StashListPanel` + `MergeFlow` directly into `Toolbar.tsx`, causing horizontal overflow on narrow viewports, and shipped `GitHistoryList.tsx` (commit history + List/Graph view toggle) without mounting it anywhere in the production UI; the D39-3.1 combined audit (PR #948) deferred the Chrome smoke and did not catch the orphan. Resolved in #972 by moving every Git surface into a dedicated `Git` BottomPanel tab (`frontend/src/components/Git/GitTab.tsx`) that mounts `GitHistoryList`, restoring access to commit history + branch graph. → PR #972 (feat/issue-972/git-bottom-panel-tab)
