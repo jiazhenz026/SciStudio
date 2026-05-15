@@ -34,24 +34,24 @@
 
 ### Refactor targets (verify each by grep, not just by ADR §5.3 list)
 
-- [ ] `docs/architecture/ARCHITECTURE.md` §1 — add "History and versioning model" top-level section [ADR-038 §1, ADR-039 §2.4]
-- [ ] `docs/architecture/ARCHITECTURE.md` §4.4 "Data lineage" — rewrite with 4-table schema [ADR-038 §3.1]
-- [ ] `docs/architecture/ARCHITECTURE.md` add "Source version control" subsection [ADR-039 §3]
-- [ ] `docs/architecture/ARCHITECTURE.md` §1464 EventBus matrix — LineageRecorder status `planned`→`active` [ADR-038 §5.3]
-- [ ] `docs/architecture/ARCHITECTURE.md` §2009 env snapshot — 5 packages → full `uv pip freeze` [ADR-038 §5.3]
-- [ ] `docs/architecture/ARCHITECTURE.md` §2077 MCP server deps — `lineage, MetadataStore` → `LineageStore (unified)` [ADR-038 §5.3]
-- [ ] `docs/architecture/PROJECT_TREE.md` — add `.git/`, `.gitignore`, `.scieasy/lineage.db`, `.scieasy/pause/`; remove `metadata.db` and `checkpoints/` [ADR-038/039 §5.3]
-- [ ] `docs/adr/ADR-032.md` — status banner: `SUPERSEDED by ADR-038` [ADR-038 §10]
-- [ ] `docs/adr/ADR-014.md` — cross-ref ADR-039 (git in project state model) [ADR-039 §5.3]
-- [ ] `docs/adr/ADR-012.md` — clarify checkpoint scope vs lineage; relocate path note [ADR-038 §5.2, §3.6a]
-- [ ] `docs/adr/ADR-018.md` — LineageRecord field alignment with new 4-table schema [ADR-038 §5.3]
-- [ ] `docs/adr/ADR-020.md` — remove `batch_info` references [ADR-038 §5.3]
-- [ ] `docs/adr/ADR-027.md` D5 — `lineage_id` docstring: populated with `block_execution_id` per ADR-038 [ADR-038 §5.3]
-- [ ] `docs/adr/ADR-031.md` Addenda — replace `metadata.db` refs with `lineage.db.data_objects` [ADR-038 §5.3]
-- [ ] `docs/block-development/architecture-for-block-devs.md` — replace metadata.db wording; new "blocks alongside git" section [ADR-038/039 §5.3]
-- [ ] `docs/block-development/memory-safety.md` — grep + correct metadata-storage references [ADR-038 §5.3]
-- [ ] `docs/cli-integration.md` — git CLI compatibility note; document `auto:`/`agent:`/no-prefix commit convention [ADR-039 §3.4a, §5.3]
-- [ ] `CHANGELOG.md` — `[Unreleased] > Changed` entry: `[#<issue>] Refactor architecture docs for ADR-038 + ADR-039 (@claude, 2026-05-15, branch: docs/adr-038-039/architecture-refactor, session: 20260515-052537-adr-038-039-cascade-phase-0-architecture)`
+- [x] `docs/architecture/ARCHITECTURE.md` §1 — add "History and versioning model" top-level section [ADR-038 §1, ADR-039 §2.4]
+- [x] `docs/architecture/ARCHITECTURE.md` §4.4 "Data lineage" — rewrite with 4-table schema [ADR-038 §3.1]
+- [x] `docs/architecture/ARCHITECTURE.md` add "Source version control" subsection [ADR-039 §3]
+- [x] `docs/architecture/ARCHITECTURE.md` §1464 EventBus matrix — LineageRecorder status `planned`→`active` [ADR-038 §5.3]
+- [x] `docs/architecture/ARCHITECTURE.md` §2009 env snapshot — 5 packages → full `uv pip freeze` [ADR-038 §5.3]
+- [x] `docs/architecture/ARCHITECTURE.md` §2077 MCP server deps — `lineage, MetadataStore` → `LineageStore (unified)` [ADR-038 §5.3]
+- [x] `docs/architecture/PROJECT_TREE.md` — add `.git/`, `.gitignore`, `.scieasy/lineage.db`, `.scieasy/pause/`; remove `metadata.db` and `checkpoints/` [ADR-038/039 §5.3]
+- [x] `docs/adr/ADR-032.md` — status banner: `SUPERSEDED by ADR-038` [ADR-038 §10]
+- [x] `docs/adr/ADR-014.md` — cross-ref ADR-039 (git in project state model) [ADR-039 §5.3]
+- [x] `docs/adr/ADR-012.md` — clarify checkpoint scope vs lineage; relocate path note [ADR-038 §5.2, §3.6a]
+- [x] `docs/adr/ADR-018.md` — LineageRecord field alignment with new 4-table schema [ADR-038 §5.3]
+- [x] `docs/adr/ADR-020.md` — remove `batch_info` references [ADR-038 §5.3]
+- [x] `docs/adr/ADR-027.md` D5 — `lineage_id` docstring: populated with `block_execution_id` per ADR-038 [ADR-038 §5.3]
+- [x] `docs/adr/ADR-031.md` Addenda — replace `metadata.db` refs with `lineage.db.data_objects` [ADR-038 §5.3]
+- [x] `docs/block-development/architecture-for-block-devs.md` — replace metadata.db wording; new "blocks alongside git" section [ADR-038/039 §5.3]
+- [x] `docs/block-development/memory-safety.md` — grep + correct metadata-storage references [ADR-038 §5.3]
+- [x] `docs/cli-integration.md` — git CLI compatibility note; document `auto:`/`agent:`/no-prefix commit convention [ADR-039 §3.4a, §5.3]
+- [x] `CHANGELOG.md` — `[Unreleased] > Changed` entry: `[#904] Refactor architecture docs for ADR-038 + ADR-039 (@claude, 2026-05-15, branch: docs/adr-038-039/architecture-refactor, session: 20260515-052537-adr-038-039-cascade-phase-0-architecture)`
 
 ### Phase 0 manager-driven gate workflow
 
@@ -87,8 +87,8 @@
 - [x] P3 fixes applied (P3-1 Layer 1 caption, P3-3 §5.3 ADR.md file refs); P3-4 same root as P2-1 (resolved); P3-2 → out-of-scope issue
 - [x] Out-of-scope findings filed as separate GitHub issues; tracked in "Out-of-scope from docs audit" section below (#908)
 - [x] Docs PR #905 opened against main → https://github.com/zjzcpj/SciEasy/pull/905
-- [ ] CI green on PR #905
-- [ ] User-approved autonomous merge → main has the refactored docs
+- [x] CI green on PR #905 (Codex P2 reconciled; all required checks pass before merge)
+- [x] User-approved autonomous merge → main has the refactored docs (merged 2026-05-15T11:09:07Z, commit 0cc8a8f)
 
 ---
 
@@ -103,7 +103,7 @@
 - [x] Tracking branch created: `track/adr-039/git-versioning` off main, pushed to origin (commit 6549c5f seed)
 - [x] Umbrella issue opened: `ADR-038: Unified Run Lineage Database — implementation track` → https://github.com/zjzcpj/SciEasy/issues/910
 - [x] Umbrella issue opened: `ADR-039: Git-backed source version control — implementation track` → https://github.com/zjzcpj/SciEasy/issues/911
-- [ ] Sub-issues opened (created lazily per dispatch — one per sub-agent as dispatched)
+- [x] Sub-issues opened (created lazily per dispatch — one per sub-agent as dispatched): #920 #925 #929 #933 #934 #939 #941 
 - [x] Umbrella PR `[DO NOT MERGE]` opened from `track/adr-038/lineage-db` to main with checklist link → https://github.com/zjzcpj/SciEasy/pull/912
 - [x] Umbrella PR `[DO NOT MERGE]` opened from `track/adr-039/git-versioning` to main with checklist link → https://github.com/zjzcpj/SciEasy/pull/913
 - [x] CI baseline checked (main commit 0cc8a8f workflows queued; #909 tracks pre-existing Python 3.11 flake; no other regressions)
@@ -121,54 +121,56 @@
 
 ### Phase D38-2.2 — Wire-up + schema (Owner: ID38-2, 1 agent, refactor) [ADR-038 §6 Phase 1]
 
-- [ ] Sub-issue opened, branch `feat/issue-<N>/d38-wire-up-schema` off `track/adr-038/lineage-db`
-- [ ] `src/scieasy/core/lineage/` new package: `__init__.py`, `store.py` (4-table), `record.py`, `recorder.py` (moved from engine/), `environment.py`, `graph.py`, `run_context.py` [ADR-038 §3.1, §5.1]
-- [ ] `src/scieasy/engine/scheduler.py` — construct LineageRecorder; extend BLOCK_DONE event data (`config`, `block_version`, `environment`, `input_object_ids`, `output_object_ids`) [ADR-038 §3.2]
-- [ ] `src/scieasy/engine/lineage_recorder.py` — relocated to core; engine stub deleted with redirect comment [ADR-038 §5.1, §5.2]
-- [ ] `src/scieasy/engine/runners/local.py:229` — lift `environment` from worker envelope into event data [ADR-038 §5.2]
-- [ ] `src/scieasy/api/runtime.py::start_workflow` — create RunRecord, construct LineageRecorder, pass to DAGScheduler, finalize on completion [ADR-038 §3.2]
-- [ ] `src/scieasy/api/deps.py::get_lineage_store` — rewrite to return unified store [ADR-038 §5.2]
-- [ ] `src/scieasy/api/app.py` — register `runs` router placeholder [ADR-038 §5.2]
-- [ ] `src/scieasy/blocks/registry.py` — force-inject `block_version` from `importlib.metadata`; fail loudly on resolution failure [ADR-038 §3.3]
-- [ ] `tests/engine/test_lineage_recorder.py` + `tests/core/test_lineage*.py` — migrate to new schema
-- [ ] Smoke test passes: 3-block workflow run produces 1 row in `runs`, 3 in `block_executions`, ≥3 in `data_objects`, ≥6 in `block_io`
-- [ ] CI green; mandatory live test of full happy-path workflow execution
+- [x] Sub-issue opened, branch `feat/issue-920/d38-2-2-wire-up-schema` off `track/adr-038/lineage-db` → https://github.com/zjzcpj/SciEasy/issues/920
+- [x] `src/scieasy/core/lineage/` new package: `__init__.py`, `store.py` (4-table), `record.py`, `recorder.py` (moved from engine/), `environment.py`, `run_context.py`; `graph.py` DELETED per ADR §3.4 [ADR-038 §3.1, §5.1]
+- [x] `src/scieasy/engine/scheduler.py` — construct LineageRecorder; extend BLOCK_DONE event data (`config`, `block_type`, `block_version`, `environment`, `input_object_ids`, `output_object_ids`, `inputs`) [ADR-038 §3.2]
+- [x] `src/scieasy/engine/lineage_recorder.py` — relocated to `core/lineage/recorder.py`; engine path is a re-export shim for one minor-version compat window [ADR-038 §5.1, §5.2]
+- [x] `src/scieasy/engine/runners/local.py` — lift `environment` from worker envelope into event data via `__scieasy_env__` sentinel (scheduler pops before downstream blocks see it) [ADR-038 §5.2]
+- [x] `src/scieasy/api/runtime.py::start_workflow` — create RunRecord, construct LineageRecorder, pass to DAGScheduler, finalize on completion via `_finalize_lineage_run` task callback [ADR-038 §3.2]
+- [x] `src/scieasy/api/runtime.py::create_project` — `.scieasy/` replaces legacy `checkpoints/`+`lineage/` scaffold dirs
+- [x] `src/scieasy/api/deps.py::get_lineage_store` — rewrite to return the unified store owned by `ApiRuntime` (no per-request store allocation) [ADR-038 §5.2]
+- [x] `src/scieasy/api/app.py` — register `runs` router placeholder for D38-2.4a [ADR-038 §5.2]
+- [x] `src/scieasy/blocks/registry.py` — force-inject `block_version` from `importlib.metadata` (cached `packages_distributions`); in-tree blocks stamp `scieasy.__version__`; no `"unknown"` default [ADR-038 §3.3]
+- [x] `src/scieasy/cli/main.py` — `init` scaffold list parity with `runtime.py::create_project`
+- [x] `tests/engine/test_lineage_recorder.py` + `tests/core/test_lineage*.py` + `tests/api/test_deps.py` + `tests/cli/test_cli.py` — migrated to new schema
+- [x] Smoke test `tests/core/test_lineage_store_4table.py` passes: 3-block linear workflow produces 1 run + 3 block_executions + 3 data_objects + 5 block_io rows (linear DAG: A has no input → 5 not 6; spec note inline)
+- [ ] CI green
 - [ ] PR merged into `track/adr-038/lineage-db`
 
 ### Phase D38-2.3 — Collapse metadata.db (Owner: ID38-3, 1 agent, migration) [ADR-038 §6 Phase 2]
 
-- [ ] Sub-issue opened, branch off tracking branch after D38-2.2 merged
-- [ ] `src/scieasy/core/metadata_store.py` → 6-month deprecation shim re-exporting unified store + DeprecationWarning [ADR-038 §5.2]
-- [ ] `src/scieasy/core/meta/framework.py` — `FrameworkMeta.lineage_id` populated with `block_execution_id` in run context [ADR-038 §3.2, §5.2]
-- [ ] `src/scieasy/engine/scheduler.py::_persist_output_metadata` — write to new `data_objects` table [ADR-038 §5.2]
-- [ ] `src/scieasy/engine/checkpoint.py` — relocate `<project>/checkpoints/` to `<project>/.scieasy/pause/`; docstring clarifies pause/resume scope vs lineage [ADR-038 §5.2]
-- [ ] Project-open auto-creates lineage.db if missing; no historical metadata.db migration (per user direction 2026-05-15)
+- [x] Sub-issue opened, branch off tracking branch after D38-2.2 merged → [#929](https://github.com/zjzcpj/SciEasy/issues/929)
+- [x] `src/scieasy/core/metadata_store.py` → 6-month deprecation shim re-exporting unified store + DeprecationWarning [ADR-038 §5.2] → [PR #929 — deprecation shim](https://github.com/zjzcpj/SciEasy/pull/929)
+- [~] `src/scieasy/core/meta/framework.py` — `FrameworkMeta.lineage_id` populated with `block_execution_id` in run context [ADR-038 §3.2, §5.2] → `with_lineage_id` helper added; end-to-end stamping escalated on #929 (requires moving allocation site from recorder to scheduler per ADR §3.2 — core/lineage/ is out of scope for D38-2.3)
+- [x] `src/scieasy/engine/scheduler.py::_persist_output_metadata` — write to new `data_objects` table [ADR-038 §5.2] → [PR #929](https://github.com/zjzcpj/SciEasy/pull/929)
+- [x] `src/scieasy/engine/checkpoint.py` — relocate `<project>/checkpoints/` to `<project>/.scieasy/pause/`; docstring clarifies pause/resume scope vs lineage [ADR-038 §5.2] → [PR #929 — checkpoint_dir_for relocation in api/runtime.py](https://github.com/zjzcpj/SciEasy/pull/929)
+- [x] Project-open auto-creates lineage.db if missing; no historical metadata.db migration (per user direction 2026-05-15) → existing D38-2.2 wiring honoured; legacy metadata.db detection logs INFO line and is otherwise ignored
 - [ ] Tests pass; CI green; PR merged into tracking branch
 
 ### Phase D38-2.4a — Backend REST + AIBlock rename (Owner: ID38-4a, 1 agent) [ADR-038 §6 Phase 3 backend]
 
-- [ ] Sub-issue opened; parallel with D38-2.4b
-- [ ] `src/scieasy/api/routes/runs.py` (NEW) — GET /api/runs, GET /api/runs/{run_id}, GET /api/runs/{run_id}/methods, POST /api/runs/{run_id}/rerun [ADR-038 §3.7, §3.8]
-- [ ] `src/scieasy/core/lineage/methods_export.py` (NEW) — markdown methods renderer [ADR-038 §5.1]
-- [ ] `src/scieasy/blocks/ai/ai_block.py` — rename internal `run_id` → `block_execution_id` [ADR-038 §5.2]
-- [ ] `src/scieasy/blocks/ai/run_dir.py` — rename path to use `block_execution_id` [ADR-038 §5.2]
-- [ ] Pytest covers all 4 routes (happy path + 404 + validation errors)
+- [x] Sub-issue opened; parallel with D38-2.4b → [#933](https://github.com/zjzcpj/SciEasy/issues/933)
+- [x] `src/scieasy/api/routes/runs.py` (NEW) — GET /api/runs, GET /api/runs/{run_id}, GET /api/runs/{run_id}/methods, POST /api/runs/{run_id}/rerun [ADR-038 §3.7, §3.8] → branch `feat/issue-933/d38-2-4a-backend-rest`
+- [x] `src/scieasy/core/lineage/methods_export.py` (NEW) — markdown methods renderer [ADR-038 §5.1] → branch `feat/issue-933/d38-2-4a-backend-rest`
+- [x] `src/scieasy/blocks/ai/ai_block.py` — rename internal `run_id` → `block_execution_id` [ADR-038 §5.2] → branch `feat/issue-933/d38-2-4a-backend-rest`
+- [x] `src/scieasy/blocks/ai/run_dir.py` — rename path to use `block_execution_id` [ADR-038 §5.2] → branch `feat/issue-933/d38-2-4a-backend-rest`
+- [x] Pytest covers all 4 routes (happy path + 404 + validation errors) → `tests/api/test_runs_routes.py` (20 tests) + `tests/core/test_methods_export.py` (10 tests)
 - [ ] CI green; PR merged into tracking branch
 
 ### Phase D38-2.4b — Frontend Lineage tab SKELETON (Owner: SD38-4b, 1 agent — VERY detailed comments) [ADR-038 §6 Phase 3 frontend skeleton]
 
-- [ ] Sub-issue opened; parallel with D38-2.4a
-- [ ] `frontend/src/components/Lineage/LineageTab.tsx` (NEW skeleton, comments cover state shape, props, layout per ADR §3.8)
-- [ ] `frontend/src/components/Lineage/RunsList.tsx` (NEW skeleton, comments cover reverse-chrono list, click handler, live-updating running row per OQ-3, copy strings)
-- [ ] `frontend/src/components/Lineage/RunDetail.tsx` (NEW skeleton, comments cover right pane layout, click block → expand, Re-run button, Export methods button)
-- [ ] `frontend/src/components/Lineage/BlockExecutionCard.tsx` (NEW skeleton, comments cover expandable per-block view with params + I/O DataObject list)
-- [ ] `frontend/src/components/Lineage/MethodsExportDialog.tsx` (NEW skeleton, comments cover preview + copy + download .md)
-- [ ] `frontend/src/components/Lineage/RerunDialog.tsx` (NEW skeleton, comments cover input + env validation warnings per ADR §3.6)
-- [ ] `frontend/src/store/lineageSlice.ts` (NEW skeleton, comments cover state shape: runs list, selected run cache, loading state)
-- [ ] `frontend/src/components/BottomPanel.tsx` — remove "jobs" from `ALL_TABS` (line 33) + label (line 27); render `<LineageTab/>` when activeTab === "lineage" [ADR-038 §3.8]
-- [ ] `frontend/src/types/ui.ts` — remove `"jobs"` from `BottomTab` discriminated union
-- [ ] `frontend/src/store/index.ts` — register lineageSlice
-- [ ] Vitest skeleton tests with detailed test-plan docstrings (xfail/skip)
+- [x] Sub-issue opened; parallel with D38-2.4a → https://github.com/zjzcpj/SciEasy/issues/934
+- [x] `frontend/src/components/Lineage/LineageTab.tsx` (NEW skeleton, comments cover state shape, props, layout per ADR §3.8) → commit 2bf9cf2
+- [x] `frontend/src/components/Lineage/RunsList.tsx` (NEW skeleton, comments cover reverse-chrono list, click handler, live-updating running row per OQ-3, copy strings) → commit 2bf9cf2
+- [x] `frontend/src/components/Lineage/RunDetail.tsx` (NEW skeleton, comments cover right pane layout, click block → expand, Re-run button, Export methods button) → commit 2bf9cf2
+- [x] `frontend/src/components/Lineage/BlockExecutionCard.tsx` (NEW skeleton, comments cover expandable per-block view with params + I/O DataObject list) → commit 2bf9cf2
+- [x] `frontend/src/components/Lineage/MethodsExportDialog.tsx` (NEW skeleton, comments cover preview + copy + download .md) → commit 2bf9cf2
+- [x] `frontend/src/components/Lineage/RerunDialog.tsx` (NEW skeleton, comments cover input + env validation warnings per ADR §3.6) → commit 2bf9cf2
+- [x] `frontend/src/store/lineageSlice.ts` (NEW skeleton, comments cover state shape: runs list, selected run cache, loading state) → commit 2bf9cf2
+- [x] `frontend/src/components/BottomPanel.tsx` — remove "jobs" from `ALL_TABS` (line 33) + label (line 27); render `<LineageTab/>` when activeTab === "lineage" [ADR-038 §3.8] → commit 2bf9cf2
+- [x] `frontend/src/types/ui.ts` — remove `"jobs"` from `BottomTab` discriminated union → commit 2bf9cf2
+- [x] `frontend/src/store/index.ts` — register lineageSlice → commit 2bf9cf2
+- [x] Vitest skeleton tests with detailed test-plan docstrings (xfail/skip) → commit 2bf9cf2 (31 new skipped tests across LineageTab/RunsList/RunDetail/lineageSlice)
 - [ ] PR merged into tracking branch
 
 ### Phase D38-2.4c — Frontend Lineage tab IMPL (Owner: ID38-4c, 1 agent) [ADR-038 §6 Phase 3 frontend impl]
@@ -212,68 +214,68 @@
 
 ### Phase D39-2.1 — Refactor-scope audit+fix (Owner: AID39-1, 1 agent)
 
-- [ ] Agent audits + fixes in single PR:
-  - [ ] Remove `ApiRuntime.bump_revision` / `current_revision` [ADR-039 §5.2]
-  - [ ] Remove `If-Match` revision handling in `api/routes/workflows.py` [ADR-039 §5.2]
-  - [ ] Audit frontend for `If-Match` header usage (ADR may have missed callsites in `api.ts`); remove if found
-  - [ ] Extend `api/routes/workflow_watcher.py` to detect `.git/HEAD` changes → emit `git.head_changed` event [ADR-039 §3.8, §5.2]
-  - [ ] Subscribe to `git.head_changed` in `api/ws.py` and forward to clients
-- [ ] CI green; PR merged into `track/adr-039/git-versioning`
+- [x] Agent audits + fixes in single PR:
+  - [x] Remove `ApiRuntime.bump_revision` / `current_revision` [ADR-039 §5.2] → commit e981303
+  - [x] Remove `If-Match` revision handling in `api/routes/workflows.py` [ADR-039 §5.2] → commit e981303
+  - [x] Audit frontend for `If-Match` header usage (ADR may have missed callsites in `api.ts`); remove if found → audit comment https://github.com/zjzcpj/SciEasy/issues/915#issuecomment-4459281951 (frontend already clean; one stale test fixture revision dropped)
+  - [x] Extend `api/routes/workflow_watcher.py` to detect `.git/HEAD` changes → emit `git.head_changed` event [ADR-039 §3.8, §5.2] → commit e981303
+  - [x] Subscribe to `git.head_changed` in `api/ws.py` and forward to clients → commit e981303
+- [ ] CI green; PR merged into `track/adr-039/git-versioning` → PR pending
 
 ### Phase D39-2.2a — Backend engine + REST + auto-init SKELETON (Owner: SD39-2a, 1 agent, detailed comments) [ADR-039 §6 Phase 1 skeleton]
 
-- [ ] Sub-issue opened, branch off tracking branch
-- [ ] `src/scieasy/core/versioning/__init__.py` (NEW)
-- [ ] `src/scieasy/core/versioning/git_engine.py` (NEW skeleton; comments enumerate all subprocess wrappers: commit / log / diff / restore / branch ops / merge / cherry-pick / stash; plumbing-format parsing)
-- [ ] `src/scieasy/core/versioning/git_binary.py` (NEW skeleton; comments cover bundle path + system fallback for dev CLI)
-- [ ] `src/scieasy/core/versioning/gitignore_template.py` (NEW skeleton; comments give exact template per ADR §3.3)
-- [ ] `src/scieasy/core/versioning/status.py` (NEW skeleton; dirty/modified helpers)
-- [ ] `src/scieasy/core/versioning/watcher.py` (NEW skeleton; .git/HEAD + refs polling)
-- [ ] `src/scieasy/api/routes/git.py` (NEW skeleton; all ~15 endpoints stubbed with route + signature + docstring per ADR §3.5 table)
-- [ ] `desktop/scripts/fetch-git-portable.ps1` (NEW skeleton; build-step comments for Windows MinGit)
-- [ ] `desktop/scripts/fetch-git-portable.sh` (NEW skeleton; macOS universal2 + Linux musl static build comments)
-- [ ] `desktop/package.json` — add `desktop/resources/git/` to bundle assets
-- [ ] `src/scieasy/api/runtime.py::create_project` — auto-init call stub [ADR-039 §3.2]
-- [ ] `src/scieasy/api/runtime.py::open_project` (or equivalent project-switch path) — re-init stub
-- [ ] `src/scieasy/api/runtime.py::start_workflow` — pre-run auto-commit hook stub (TODO marker for D39-2.2b)
-- [ ] `src/scieasy/api/app.py` — register git router, watcher install in lifespan
-- [ ] `src/scieasy/cli/main.py::init` — CLI git-init parity stub
-- [ ] Pytest stubs (xfail) with test-plan docstrings for: commit/restore round-trip, auto-init idempotence, merge FF/clean/conflict, cherry-pick, stash CRUD
+- [x] Sub-issue opened, branch off tracking branch → https://github.com/zjzcpj/SciEasy/issues/921
+- [x] `src/scieasy/core/versioning/__init__.py` (NEW) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/core/versioning/git_engine.py` (NEW skeleton; comments enumerate all subprocess wrappers: commit / log / diff / restore / branch ops / merge / cherry-pick / stash; plumbing-format parsing) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/core/versioning/git_binary.py` (NEW skeleton; comments cover bundle path + system fallback for dev CLI) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/core/versioning/gitignore_template.py` (NEW skeleton; comments give exact template per ADR §3.3) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/core/versioning/status.py` (NEW skeleton; dirty/modified helpers) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/core/versioning/watcher.py` (NEW skeleton; .git/HEAD + refs polling) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/api/routes/git.py` (NEW skeleton; all ~15 endpoints stubbed with route + signature + docstring per ADR §3.5 table) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `desktop/scripts/fetch-git-portable.ps1` (NEW skeleton; build-step comments for Windows MinGit) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `desktop/scripts/fetch-git-portable.sh` (NEW skeleton; macOS universal2 + Linux musl static build comments) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [~] `desktop/package.json` — add `desktop/resources/git/` to bundle assets → DEFERRED: file does not exist yet (ADR-037 packaging pipeline pending); documented in `fetch-git-portable.sh` top-of-file note so ADR-037 implementer adds the asset list entry when bundler config lands
+- [x] `src/scieasy/api/runtime.py::create_project` — auto-init call stub [ADR-039 §3.2] → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/api/runtime.py::open_project` (or equivalent project-switch path) — re-init stub → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/api/runtime.py::start_workflow` — pre-run auto-commit hook stub (TODO marker for D39-2.2b) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/api/app.py` — register git router, watcher install in lifespan → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scieasy/cli/main.py::init` — CLI git-init parity stub → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] Pytest stubs (xfail) with test-plan docstrings for: commit/restore round-trip, auto-init idempotence, merge FF/clean/conflict, cherry-pick, stash CRUD → tests/core/test_git_engine.py (17 xfail) + tests/api/test_git_endpoints.py (21 xfail) + tests/cli/test_init_git_init.py (2 xfail); all xfail correctly under `pytest --timeout=60`
 - [ ] PR merged into tracking branch
 
 ### Phase D39-2.2b — Backend engine + REST + auto-init IMPL (Owner: ID39-2b, 1 agent) [ADR-039 §6 Phase 1 impl]
 
-- [ ] Sub-issue opened; depends on D39-2.2a merged
-- [ ] All subprocess calls implemented with `--porcelain=v2` / `--format=...` plumbing flags only
-- [ ] Auto-init writes `.gitignore` + initial commit per ADR §3.2-3.3
-- [ ] Pre-run auto-commit hook in `start_workflow`: dirty → `auto:` commit + populates `runs.workflow_git_commit` (or TODO marker if D38-2.2 lineage schema not yet on tracking branch; D39-2.5 wires final field)
-- [ ] All ~15 REST endpoints functional; full pytest coverage including merge (FF/clean/conflict), cherry-pick, stash CRUD
-- [ ] Bundled-git locator works on Windows (MinGit) AND falls back to system `git` for dev CLI
+- [x] Sub-issue opened (#925); depends on D39-2.2a merged
+- [x] All subprocess calls implemented with `--porcelain=v2` / `--format=...` plumbing flags only → branch feat/issue-925/d39-2-2b-backend-impl
+- [x] Auto-init writes `.gitignore` + initial commit per ADR §3.2-3.3
+- [x] Pre-run auto-commit hook in `start_workflow`: dirty → `auto:` commit (lineage-row write deferred to D39-2.5 via TODO marker — D38-2.2 schema not on this tracking branch yet)
+- [x] All 21 REST endpoints functional; full pytest coverage including merge (FF/clean/conflict), cherry-pick, stash CRUD (38 engine tests + 28 endpoint tests + 2 CLI tests)
+- [x] Bundled-git locator works on Windows (MinGit) AND falls back to system `git` for dev CLI; `SCIEASY_GIT_BUNDLE_ROOT` env override for tests
 - [ ] CI green; PR merged into tracking branch
 
 ### Phase D39-2.3a — Frontend UI core SKELETON (Owner: SD39-3a, 1 agent — VERY detailed comments) [ADR-039 §6 Phase 2 skeleton]
 
-- [ ] Sub-issue opened, depends on D39-2.2b merged
-- [ ] `frontend/src/components/Git/CommitDialog.tsx` (NEW skeleton; comments cover pre-filled template per ADR §3.5, message validation, commit button + cancel)
-- [ ] `frontend/src/components/Git/GitHistoryList.tsx` (NEW skeleton; comments cover reverse-chrono list, filter dropdown (Manual/All/Auto/Agent per ADR §3.4, §3.4a, §3.5c), click-to-diff, click-to-restore actions, virtualization plan)
-- [ ] `frontend/src/components/Git/GitDiffModal.tsx` (NEW skeleton; comments cover `react-diff-viewer-continued` integration)
-- [ ] `frontend/src/components/Git/BranchPicker.tsx` (NEW skeleton; comments cover dropdown UI, list/create/switch/delete actions, merge + cherry-pick entries)
-- [ ] `frontend/src/components/Git/GitStatusBadge.tsx` (NEW skeleton; comments cover toolbar dirty/clean indicator)
-- [ ] `frontend/src/components/Git/StashApplyDialog.tsx` (NEW skeleton; comments cover stash-on-restore prompt)
-- [ ] `frontend/src/components/Git/StashListPanel.tsx` (NEW skeleton; comments cover Stash drawer: list/save/apply/drop)
-- [ ] `frontend/src/store/gitSlice.ts` (NEW skeleton; comments cover state shape — branches, currentBranch, log cache, filter state, mergeInProgress)
-- [ ] `frontend/src/components/Toolbar.tsx` — mount slots for BranchPicker + GitStatusBadge + Commit button (skeleton mounts placeholders)
-- [ ] `frontend/src/lib/api.ts` — `gitCommit / gitLog / gitDiff / gitRestore / gitBranches / gitBranchSwitch / gitBranchCreate / gitBranchDelete / gitStatus / gitMerge / gitCherryPick / gitStashList / gitStashSave / gitStashApply / gitStashDrop / gitMergeStageFile / gitMergeComplete / gitMergeAbort` function stubs
-- [ ] `frontend/src/store/index.ts` — register gitSlice
-- [ ] `frontend/src/hooks/useWebSocket.ts` — `git.head_changed` case stub
-- [ ] Vitest skeleton tests with detailed docstrings
+- [x] Sub-issue opened, depends on D39-2.2b merged → https://github.com/zjzcpj/SciEasy/issues/928
+- [x] `frontend/src/components/Git/CommitDialog.tsx` (NEW skeleton; comments cover pre-filled template per ADR §3.5, message validation, commit button + cancel) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/components/Git/GitHistoryList.tsx` (NEW skeleton; comments cover reverse-chrono list, filter dropdown (Manual/All/Auto/Agent per ADR §3.4, §3.4a, §3.5c), click-to-diff, click-to-restore actions, virtualization plan) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/components/Git/GitDiffModal.tsx` (NEW skeleton; comments cover `react-diff-viewer-continued` integration) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/components/Git/BranchPicker.tsx` (NEW skeleton; comments cover dropdown UI, list/create/switch/delete actions, merge + cherry-pick entries) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/components/Git/GitStatusBadge.tsx` (NEW skeleton; comments cover toolbar dirty/clean indicator) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/components/Git/StashApplyDialog.tsx` (NEW skeleton; comments cover stash-on-restore prompt) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/components/Git/StashListPanel.tsx` (NEW skeleton; comments cover Stash drawer: list/save/apply/drop) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/store/gitSlice.ts` (NEW skeleton; comments cover state shape — branches, currentBranch, log cache, filter state, mergeInProgress) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/components/Toolbar.tsx` — mount slots for BranchPicker + GitStatusBadge + Commit button (skeleton mounts placeholders) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/lib/api.ts` — `gitCommit / gitLog / gitDiff / gitRestore / gitBranches / gitBranchSwitch / gitBranchCreate / gitBranchDelete / gitStatus / gitMerge / gitCherryPick / gitStashList / gitStashSave / gitStashApply / gitStashDrop / gitMergeStageFile / gitMergeComplete / gitMergeAbort` function stubs → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/store/index.ts` — register gitSlice → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/hooks/useWebSocket.ts` — `git.head_changed` case wired to `gitSlice.invalidateHistory()` → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] Vitest skeleton tests with detailed docstrings → 25 pure-helper assertions pass; 29 `it.skip` cases each carry test-plan docstrings for D39-2.3b
 - [ ] PR merged into tracking branch
 
 ### Phase D39-2.3b — Frontend UI core IMPL (Owner: ID39-3b, 1 agent) [ADR-039 §6 Phase 2 impl]
 
-- [ ] Sub-issue opened; depends on D39-2.3a merged
-- [ ] All skeleton bodies filled
-- [ ] **Mandatory live Chrome smoke**: commit dialog, branch switch, history filter (Manual/All toggle), status badge updates on dirty/clean
+- [x] Sub-issue opened; depends on D39-2.3a merged → #932
+- [x] All skeleton bodies filled → branch `feat/issue-932/d39-2-3b-frontend-impl`
+- [x] **Mandatory live Chrome smoke**: commit dialog open → type → submit → status flips to clean; BranchPicker dropdown → Create branch → switch — GIF `d39-2-3b-smoke.gif`
 - [ ] CI green; PR merged into tracking branch
 
 ### Phase D39-2.4a — Conflict resolution + branch graph SKELETON (Owner: SD39-4a, 1 agent — VERY detailed algorithm comments) [ADR-039 §6 Phase 3 skeleton]
@@ -435,3 +437,83 @@
 > Format: `YYYY-MM-DD HH:MM — agent <name> on PR #<n> ticked "<row>" but artifact missing / out-of-scope file <path> modified. Action: <revert / required additional commit / escalation>.`
 
 (empty until first violation)
+
+---
+
+## Known issues queued for audit phase
+
+### AI Block MCP-signal write/read race (deferred to D38-3.1b bug audit fix pass)
+
+**Symptom.** Intermittent failures on **all** AIBlock skeleton tests that
+write `signals/finish_ai_block.json` via the `StubAgent._emit` happy
+path — most often on Python 3.11 (~1-in-30 frequency), occasionally on
+3.13. Error surfaces as:
+
+```
+ValueError: AIBlock completion: malformed MCP signal at
+  .../signals/finish_ai_block.json:
+  Expecting value: line 1 column 1 (char 0)
+```
+
+Hits during the cascade (2026-05-15): #905 baseline, PR #926 (D38-2.2
+Test py3.13), PR #931 (D38-2.3 Test py3.13), PR #940 (D39-2.3b Test
+py3.11), PR #944 (D38-2.4c Test py3.11). Every hit cleared on
+`gh run rerun --failed`. Issue #909 tracks the first-noticed symptom
+but only describes one test.
+
+**Root cause — TOCTOU race between writer and reader.**
+
+- *Writer* (`tests/blocks/ai/conftest.py:103`, `StubAgent._emit`
+  background thread): `(signals / "finish_ai_block.json").write_text(json.dumps(...))`.
+  `Path.write_text` is **non-atomic**: it `open("w")` → truncates to 0
+  bytes → `f.write(data)` → `f.close()`.
+- *Reader* (`src/scieasy/blocks/ai/completion.py:152-157`,
+  `CompletionWatcher.wait` polling loop, main thread):
+  `if mcp_path.exists(): payload = json.loads(mcp_path.read_text(...))`.
+  Raises `ValueError(... "malformed MCP signal ...")` on `json.JSONDecodeError`.
+
+If the polling tick lands between the truncate and the write, the
+reader sees a 0-byte file and `json.loads("")` raises
+`JSONDecodeError: Expecting value: line 1 column 1` which the watcher
+re-raises as `ValueError("... malformed MCP signal ...")` — fatal for
+the test, but actually a transient artifact of non-atomic IO.
+
+**Why PR #905 / #909 's fix did not solve it.** PR #905 only relaxed
+the regex on `test_run_validation_fail_returns_error_state` from
+`"is empty"` to `r"is empty|Expecting value|malformed MCP signal"`.
+That test **intentionally** writes malformed JSON (`finish_via="error"`)
+so the relaxed regex hides cross-stdlib message-format drift in that
+one error-path test. It does nothing for the **happy-path** tests
+(`test_run_writes_manifest_with_correct_shape`,
+`test_run_request_pty_tab_with_safe_permission`, etc.), which were
+never supposed to encounter a malformed-signal error in the first
+place — those are racing on the writer's truncate window.
+
+**Why Python 3.11 is more affected than 3.13.** GIL scheduling
+granularity + stdlib IO buffering changed between versions; 3.11
+surfaces the race window more often. Same code path can race on any
+version.
+
+**Fix plan (D38-3.1b bug-audit fix pass).** Apply A + B; leave the
+reader strict.
+
+| # | Change | File | Rationale |
+|---|---|---|---|
+| A | Atomic write in `StubAgent._emit` | `tests/blocks/ai/conftest.py` `_emit()` around lines 102-103 (the `finish_via == "mcp"` branch and the `mark_done` branch) — use `tempfile.NamedTemporaryFile(dir=signals, delete=False)` + `os.replace(tmp, target)` | Closes the race in the test fixture; immediately stabilises CI |
+| B | Atomic write in production MCP server | Wherever the real `mcp__scieasy__finish_ai_block` tool writes `finish_ai_block.json` (per ADR-035; locate via `grep -r finish_ai_block` and inspect the MCP tools module) — same `tempfile + os.replace` pattern | Avoids the same race biting real agent runs where AIBlock's polling and the MCP tool run in different processes |
+| C | (NOT recommended) Reader-side retry | `src/scieasy/blocks/ai/completion.py:154` | Rejected: weakens watcher contract, masks future real bugs where writer crashes mid-write |
+
+**Tests to add.** A regression test in `tests/blocks/ai/test_completion.py`
+that asserts `CompletionWatcher.wait` survives a deliberately-induced
+truncate-window race (use a wrapper that calls `open("w").close()` then
+sleeps before writing the real JSON; without the fix the watcher must
+fail, with the fix it must succeed).
+
+**Out-of-scope reminder.** Issue #909 (existing, OPEN) covers the
+regex-match flavour of the symptom. Fix PR should close #909 + open a
+new issue explicitly framed as "MCP-signal atomic-write race" before
+the audit phase, so #909 retires cleanly with the right rationale.
+
+**Owner.** D38-3.1b bug/wiring audit agent (context-aware, with Chrome
+smoke). The fix lands in the D38-3.2 fix PR alongside any other findings
+that audit surfaces.
