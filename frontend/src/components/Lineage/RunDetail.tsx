@@ -237,6 +237,7 @@ export function RunDetail(): ReactElement {
   );
   const openMethodsDialog = useAppStore((s) => s.openMethodsDialog);
   const openRerunDialog = useAppStore((s) => s.openRerunDialog);
+  const selectRun = useAppStore((s) => s.selectRun);
 
   if (selectedRunId === null) {
     return (
@@ -339,18 +340,80 @@ export function RunDetail(): ReactElement {
           {run.parent_run_id && (
             <>
               <dt className="text-stone-500">Parent run</dt>
-              <dd>{run.parent_run_id.slice(0, 8)}</dd>
+              <dd>
+                <button
+                  type="button"
+                  className="rounded text-ink underline decoration-dotted underline-offset-2 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  data-testid="run-detail-parent-link"
+                  title={`Open parent run ${run.parent_run_id}`}
+                  onClick={() =>
+                    run.parent_run_id && selectRun(run.parent_run_id)
+                  }
+                >
+                  {run.parent_run_id.slice(0, 8)}
+                </button>
+              </dd>
             </>
           )}
 
           {run.execute_from_block_id && (
             <>
               <dt className="text-stone-500">Run-from block</dt>
-              <dd>{run.execute_from_block_id}</dd>
+              <dd>
+                <code className="text-stone-700">
+                  {run.execute_from_block_id}
+                </code>
+              </dd>
             </>
           )}
         </dl>
       </header>
+
+      {/*
+       * ADR-038 §3.6a — Partial re-run banner.
+       *
+       * When this run started mid-DAG via "Run from here", only blocks at or
+       * downstream of execute_from_block_id actually executed. Upstream blocks
+       * were reused from the parent run's checkpoint and therefore have NO
+       * row in block_executions for this run. The banner makes that explicit
+       * so the user does not assume the blocks list is incomplete due to a
+       * bug.
+       *
+       * Per ADR §3.6a the canvas DAG renderer is the surface that greys out
+       * the skipped upstream blocks; here in the run-detail panel we surface
+       * the same information textually next to the blocks list header.
+       */}
+      {run.execute_from_block_id && (
+        <div
+          className="mx-4 mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+          data-testid="run-detail-partial-rerun-banner"
+          role="note"
+        >
+          <strong className="font-semibold">Partial re-run.</strong> Only
+          blocks at or downstream of{" "}
+          <code className="text-amber-900">{run.execute_from_block_id}</code>{" "}
+          executed in this run. Upstream block outputs were reused from
+          {run.parent_run_id ? (
+            <>
+              {" "}
+              parent run{" "}
+              <button
+                type="button"
+                className="underline decoration-dotted underline-offset-2 hover:text-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                data-testid="run-detail-partial-rerun-parent-link"
+                onClick={() =>
+                  run.parent_run_id && selectRun(run.parent_run_id)
+                }
+              >
+                {run.parent_run_id.slice(0, 8)}
+              </button>
+              .
+            </>
+          ) : (
+            " the previous run's checkpoint."
+          )}
+        </div>
+      )}
 
       <div
         className="min-h-0 flex-1 overflow-y-auto px-4 py-3"
