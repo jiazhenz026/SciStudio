@@ -258,6 +258,10 @@ class ApiRuntime:
         self.block_registry = BlockRegistry()
         self.type_registry = TypeRegistry()
         self.log_broadcaster = LogBroadcaster()
+        # ADR-038 §3.1: project-scoped unified lineage store. Opened on
+        # ``open_project`` and closed when switching projects. ``None`` when
+        # no project is open or when initialization failed (best-effort).
+        self.lineage_store: Any = None
 
         self._load_known_projects()
         self._configure_static_registries()
@@ -324,6 +328,35 @@ class ApiRuntime:
         registry.scan(include_monorepo=os.environ.get("SCIEASY_DEV") == "1")
         self.block_registry = registry
 
+    def _init_lineage_store(self, project_path: Path) -> None:
+        """Open the unified ADR-038 lineage store for the active project.
+
+        The DB lives at ``<project>/.scieasy/lineage.db``. Schema creation is
+        idempotent so first-time opens auto-bootstrap. Best-effort: a failure
+        is logged and the store is set to ``None``, which makes the lineage
+        recorder a no-op for this project.
+        """
+        # Close any previously open store before switching projects to avoid
+        # leaking a file handle on the prior project's DB.
+        prior = getattr(self, "lineage_store", None)
+        if prior is not None:
+            try:
+                prior.close()
+            except Exception:
+                logger.debug("ApiRuntime: closing prior LineageStore raised", exc_info=True)
+            self.lineage_store = None
+        try:
+            from scieasy.core.lineage.store import LineageStore
+
+            scieasy_dir = project_path / ".scieasy"
+            scieasy_dir.mkdir(parents=True, exist_ok=True)
+            db_path = scieasy_dir / "lineage.db"
+            self.lineage_store = LineageStore(db_path)
+            logger.info("ADR-038: LineageStore opened at %s", db_path)
+        except Exception:
+            logger.warning("ADR-038: Failed to initialize LineageStore (non-fatal)", exc_info=True)
+            self.lineage_store = None
+
     def _init_metadata_store(self, project_path: Path) -> None:
         """Initialize the project-level MetadataStore (ADR-032).
 
@@ -353,6 +386,12 @@ class ApiRuntime:
         if project_path.exists():
             raise FileExistsError(f"Project directory already exists: {project_path}")
 
+        # ADR-038 §3.5 / §5.2: run history lives at ``.scieasy/lineage.db``;
+        # the legacy ``lineage/`` and ``checkpoints/`` top-level dirs are
+        # retired in favour of ``.scieasy/`` (Phase D38-2.3 will relocate the
+        # checkpoint files themselves to ``.scieasy/pause/`` — until then the
+        # ``CheckpointManager`` continues to use whatever dir
+        # :meth:`checkpoint_dir_for` returns).
         for subdir in (
             "workflows",
             "data/raw",
@@ -362,8 +401,7 @@ class ApiRuntime:
             "data/exchange",
             "blocks",
             "types",
-            "checkpoints",
-            "lineage",
+            ".scieasy",
             "logs",
         ):
             (project_path / subdir).mkdir(parents=True, exist_ok=True)
@@ -461,6 +499,9 @@ class ApiRuntime:
         self._workflow_revisions = {}
         self.refresh_block_registry()
         self._init_metadata_store(Path(candidate.path))
+        # ADR-038 §3.1: open the unified lineage store alongside the legacy
+        # metadata.db (Phase D38-2.3 will collapse the latter into a shim).
+        self._init_lineage_store(Path(candidate.path))
         # ADR-034: republish the MCP server port file into the newly active
         # project so the per-project ``mcp-bridge`` (spawned by the
         # embedded claude/codex TUI for THIS project) can discover it.
@@ -543,6 +584,16 @@ class ApiRuntime:
             self._save_known_projects()
             return
         logger.warning("Deleting project directory: %s", project_path)
+        # ADR-038: close the lineage SQLite handle before rmtree, otherwise
+        # Windows refuses to remove the file (`PermissionError [WinError 32]`).
+        if self.active_project is not None and self.active_project.id == project.id:
+            store = getattr(self, "lineage_store", None)
+            if store is not None:
+                try:
+                    store.close()
+                except Exception:
+                    logger.debug("ApiRuntime: close lineage store before delete failed", exc_info=True)
+                self.lineage_store = None
         shutil.rmtree(project_path)
         self.known_projects.pop(project.id, None)
         if self.active_project is not None and self.active_project.id == project.id:
@@ -1035,12 +1086,104 @@ class ApiRuntime:
         project = self.require_active_project()
         return Path(project.path) / "checkpoints" / workflow_id
 
+    # ------------------------------------------------------------------
+    # ADR-038: per-run lineage construction
+    # ------------------------------------------------------------------
+
+    def _build_lineage_recorder(
+        self,
+        *,
+        workflow_id: str,
+        workflow: WorkflowDefinition,
+        execute_from: str | None,
+    ) -> Any:
+        """Construct a per-run :class:`LineageRecorder` and seed its ``runs`` row.
+
+        Returns ``None`` when the lineage store is unavailable. Failures during
+        construction or the initial ``insert_run`` are logged and swallowed
+        (best-effort per ADR-038 §3.2).
+        """
+        if self.lineage_store is None:
+            return None
+        try:
+            from scieasy.core.lineage.environment import EnvironmentSnapshot
+            from scieasy.core.lineage.record import RunRecord
+            from scieasy.core.lineage.recorder import LineageRecorder
+
+            run_id = uuid4().hex
+            workflow_yaml_snapshot = self._serialise_workflow_snapshot(workflow_id, workflow)
+            # Capture env without the full freeze for now — Phase D38-2.3
+            # / D39-2.5 may tune this; the freeze on every run is expensive
+            # for short workflows. The recorder schema mandates full=True
+            # per ADR-038 §5.2; we honour that here.
+            env_snapshot = EnvironmentSnapshot.capture(full=True).to_dict()
+            triggered_by = "execute_from" if execute_from is not None else "user"
+            run = RunRecord(
+                run_id=run_id,
+                workflow_id=workflow_id,
+                workflow_yaml_snapshot=workflow_yaml_snapshot,
+                started_at=_now_iso(),
+                status="running",
+                environment_snapshot=env_snapshot,
+                triggered_by=triggered_by,
+                execute_from_block_id=execute_from,
+            )
+            recorder = LineageRecorder(self.event_bus, self.lineage_store, run_id=run_id)
+            recorder.begin_run(run)
+            return recorder
+        except Exception:
+            logger.warning("ADR-038: failed to construct LineageRecorder (non-fatal)", exc_info=True)
+            return None
+
+    def _serialise_workflow_snapshot(self, workflow_id: str, workflow: WorkflowDefinition) -> str:
+        """Return the on-disk workflow YAML, falling back to a re-serialisation."""
+        try:
+            path = self.workflow_path(workflow_id)
+            if path.exists():
+                return path.read_text(encoding="utf-8")
+        except Exception:
+            logger.debug("ADR-038: workflow yaml snapshot disk read failed", exc_info=True)
+        try:
+            return yaml.safe_dump(
+                {
+                    "id": workflow.id,
+                    "nodes": [{"id": n.id, "block_type": n.block_type, "config": n.config} for n in workflow.nodes],
+                    "edges": [{"source": e.source, "target": e.target} for e in workflow.edges],
+                },
+                default_flow_style=False,
+                sort_keys=False,
+            )
+        except Exception:
+            return ""
+
+    def _finalize_lineage_run(self, recorder: Any, task: asyncio.Task[None]) -> None:
+        """Update the ``runs`` row when the workflow task finishes."""
+        try:
+            if task.cancelled():
+                status = "cancelled"
+            else:
+                exc = task.exception() if not task.cancelled() else None
+                status = "failed" if exc is not None else "completed"
+            recorder.finalize_run(status=status)
+        except Exception:
+            logger.debug("ADR-038: lineage run finalisation failed", exc_info=True)
+
     def start_workflow(self, workflow_id: str, *, execute_from: str | None = None) -> dict[str, Any]:
         workflow = self.load_workflow(workflow_id)
         checkpoint_manager = CheckpointManager(self.checkpoint_dir_for(workflow_id))
         checkpoint = checkpoint_manager.load(workflow_id) if execute_from is not None else None
         if execute_from is not None and checkpoint is None:
             raise ValueError("Run the full workflow at least once before using 'Run from here'")
+
+        # ADR-038 §3.2: create a ``runs`` row, build a LineageRecorder, and
+        # pass it to the scheduler. Best-effort: when the lineage store is
+        # unavailable (no project open in a test, init failure), the
+        # recorder is None and the scheduler skips the lineage path.
+        lineage_recorder = self._build_lineage_recorder(
+            workflow_id=workflow_id,
+            workflow=workflow,
+            execute_from=execute_from,
+        )
 
         scheduler = DAGScheduler(
             workflow=workflow,
@@ -1050,6 +1193,7 @@ class ApiRuntime:
             runner=self.runner,
             registry=self.block_registry,
             checkpoint_manager=checkpoint_manager,
+            lineage_recorder=lineage_recorder,
             project_dir=str(self.active_project.path) if self.active_project else None,
         )
 
@@ -1073,6 +1217,13 @@ class ApiRuntime:
         task.add_done_callback(
             lambda finished: asyncio.create_task(self._log_workflow_task_failure(workflow_id, finished))
         )
+        if lineage_recorder is not None:
+            recorder_for_callback = lineage_recorder
+
+            def _on_done(finished: asyncio.Task[None]) -> None:
+                self._finalize_lineage_run(recorder_for_callback, finished)
+
+            task.add_done_callback(_on_done)
         self.workflow_runs[workflow_id] = WorkflowRun(
             scheduler=scheduler,
             task=task,

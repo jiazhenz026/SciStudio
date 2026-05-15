@@ -1,35 +1,59 @@
-"""Tests for lineage: write record, query, ancestor trace (Phase 3.4).
+"""Tests for the ADR-038 unified 4-table lineage subsystem.
 
-Issue #55: Updated to use per-port dict format for input_hashes/output_hashes.
+Pre-ADR-038 this file exercised the single-table hash-keyed lineage store and
+the ``ProvenanceGraph`` helper. ADR-038 §3.4 explicitly removes content
+hashing; the graph helper is deleted and the store is rewritten with four
+tables (``runs``, ``block_executions``, ``data_objects``, ``block_io``). The
+tests below cover the new schema's read/write round-trip; the recorder side
+of the contract is exercised in ``tests/engine/test_lineage_recorder.py``
+and the end-to-end scheduler smoke test lives at
+``tests/core/test_lineage_store_4table.py``.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from scieasy.core.lineage.environment import EnvironmentSnapshot
-from scieasy.core.lineage.graph import ProvenanceGraph
-from scieasy.core.lineage.record import LineageRecord
+from scieasy.core.lineage.record import (
+    BlockExecutionRecord,
+    BlockIORow,
+    DataObjectRow,
+    RunRecord,
+)
 from scieasy.core.lineage.store import LineageStore
 
 
-def _make_record(
-    block_id: str,
-    input_hashes: dict[str, list[str]],
-    output_hashes: dict[str, list[str]],
-    timestamp: str = "2026-01-01T00:00:00",
-) -> LineageRecord:
-    """Helper to create a LineageRecord with minimal fields."""
-    return LineageRecord(
-        input_hashes=input_hashes,
+def _make_run(run_id: str = "run-1", workflow_id: str = "wf") -> RunRecord:
+    return RunRecord(
+        run_id=run_id,
+        workflow_id=workflow_id,
+        workflow_yaml_snapshot="id: wf\nnodes: []\n",
+        started_at="2026-05-15T00:00:00",
+        status="running",
+        environment_snapshot={"python_version": "3.13.0"},
+    )
+
+
+def _make_block_execution(
+    *,
+    block_execution_id: str,
+    run_id: str = "run-1",
+    block_id: str = "A",
+    block_type: str = "LoadData",
+    block_version: str = "0.1.0-dev",
+) -> BlockExecutionRecord:
+    return BlockExecutionRecord(
+        block_execution_id=block_execution_id,
+        run_id=run_id,
         block_id=block_id,
-        block_config={"param": 1},
-        block_version="1.0.0",
-        output_hashes=output_hashes,
-        timestamp=timestamp,
-        duration_ms=100,
+        block_type=block_type,
+        block_version=block_version,
+        block_config_resolved={"path": "/tmp/x"},
+        started_at="2026-05-15T00:00:01",
+        finished_at="2026-05-15T00:00:02",
+        duration_ms=1000,
+        termination="completed",
     )
 
 
@@ -37,46 +61,42 @@ class TestEnvironmentSnapshot:
     """Verify EnvironmentSnapshot.capture()."""
 
     def test_capture_basic(self) -> None:
-        snap = EnvironmentSnapshot.capture()
-        assert "3." in snap.python_version  # Python 3.x
+        snap = EnvironmentSnapshot.capture(full=False)
+        assert "3." in snap.python_version
         assert snap.platform != ""
         assert isinstance(snap.key_packages, dict)
 
     def test_capture_custom_deps(self) -> None:
-        snap = EnvironmentSnapshot.capture(key_dependencies=["numpy", "zarr"])
-        assert "numpy" in snap.key_packages
-        assert "zarr" in snap.key_packages
+        snap = EnvironmentSnapshot.capture(key_dependencies=["pydantic"], full=False)
+        # pydantic is a hard dep so it should resolve.
+        assert "pydantic" in snap.key_packages
 
     def test_capture_missing_package_skipped(self) -> None:
-        snap = EnvironmentSnapshot.capture(key_dependencies=["nonexistent_pkg_12345"])
+        snap = EnvironmentSnapshot.capture(key_dependencies=["nonexistent_pkg_12345"], full=False)
         assert "nonexistent_pkg_12345" not in snap.key_packages
+
+    def test_capture_full_attempts_freeze(self) -> None:
+        """``full=True`` makes a best-effort pip-freeze; result may be None on weird envs."""
+        snap = EnvironmentSnapshot.capture(full=True)
+        # full_freeze can be None if neither uv nor pip is available; we only
+        # assert the field exists in the right shape.
+        assert snap.full_freeze is None or isinstance(snap.full_freeze, str)
 
 
 class TestEnvironmentSnapshotSerialization:
-    """Verify to_dict / from_dict round-trip serialization (issue #54)."""
-
     def test_to_dict_round_trip(self) -> None:
-        """to_dict + from_dict preserves all fields."""
-        snapshot = EnvironmentSnapshot.capture()
+        snapshot = EnvironmentSnapshot.capture(full=False)
         data = snapshot.to_dict()
         restored = EnvironmentSnapshot.from_dict(data)
-        assert restored.python_version == snapshot.python_version
-        assert restored.platform == snapshot.platform
-        assert restored.key_packages == snapshot.key_packages
-        assert restored.full_freeze == snapshot.full_freeze
-        assert restored.conda_env == snapshot.conda_env
+        assert restored == snapshot
 
     def test_to_dict_is_json_serializable(self) -> None:
-        """to_dict output can be JSON-serialized."""
         import json
 
-        snapshot = EnvironmentSnapshot.capture()
-        data = snapshot.to_dict()
-        json_str = json.dumps(data)
-        assert isinstance(json_str, str)
+        snapshot = EnvironmentSnapshot.capture(full=False)
+        json.dumps(snapshot.to_dict())
 
     def test_from_dict_handles_missing_optional_fields(self) -> None:
-        """from_dict works with minimal required fields."""
         data = {"python_version": "3.11.0", "platform": "Linux"}
         snapshot = EnvironmentSnapshot.from_dict(data)
         assert snapshot.python_version == "3.11.0"
@@ -85,344 +105,103 @@ class TestEnvironmentSnapshotSerialization:
         assert snapshot.full_freeze is None
         assert snapshot.conda_env is None
 
-    def test_to_dict_includes_all_keys(self) -> None:
-        """to_dict output contains all expected keys."""
-        snapshot = EnvironmentSnapshot(
-            python_version="3.12.0",
-            platform="Linux-6.1",
-            key_packages={"numpy": "1.26.0"},
-            full_freeze="numpy==1.26.0\nzarr==2.18.0",
-            conda_env="name: sci\ndependencies:\n  - numpy",
+
+class TestLineageStoreRuns:
+    def test_insert_and_get(self) -> None:
+        store = LineageStore(":memory:")
+        store.insert_run(_make_run())
+        run = store.get_run("run-1")
+        assert run is not None
+        assert run["workflow_id"] == "wf"
+        assert run["status"] == "running"
+        store.close()
+
+    def test_finalize_updates_status(self) -> None:
+        store = LineageStore(":memory:")
+        store.insert_run(_make_run())
+        store.finalize_run("run-1", finished_at="2026-05-15T00:01:00", status="completed")
+        run = store.get_run("run-1")
+        assert run is not None
+        assert run["status"] == "completed"
+        assert run["finished_at"] == "2026-05-15T00:01:00"
+
+    def test_list_runs_reverse_chrono(self) -> None:
+        store = LineageStore(":memory:")
+        for i, ts in enumerate(["2026-05-15T00:00:00", "2026-05-15T00:00:01", "2026-05-15T00:00:02"]):
+            run = _make_run(run_id=f"run-{i}", workflow_id="wf")
+            run.started_at = ts
+            store.insert_run(run)
+        rows = store.list_runs(workflow_id="wf")
+        assert [r["run_id"] for r in rows] == ["run-2", "run-1", "run-0"]
+
+
+class TestLineageStoreBlockExecutions:
+    def test_insert_and_list(self) -> None:
+        store = LineageStore(":memory:")
+        store.insert_run(_make_run())
+        store.insert_block_execution(_make_block_execution(block_execution_id="be-1"))
+        store.insert_block_execution(_make_block_execution(block_execution_id="be-2", block_id="B"))
+        rows = store.list_block_executions("run-1")
+        assert len(rows) == 2
+        assert {r["block_id"] for r in rows} == {"A", "B"}
+
+
+class TestLineageStoreDataObjectsAndIO:
+    def test_data_object_upsert_is_idempotent(self) -> None:
+        store = LineageStore(":memory:")
+        store.insert_run(_make_run())
+        store.insert_block_execution(_make_block_execution(block_execution_id="be-1"))
+
+        row = DataObjectRow(
+            object_id="obj-1",
+            type_name="DataFrame",
+            wire_payload={"backend": "arrow", "path": "/tmp/x.parquet"},
+            created_at="2026-05-15T00:00:01",
+            produced_by_execution="be-1",
         )
-        data = snapshot.to_dict()
-        assert data == {
-            "python_version": "3.12.0",
-            "platform": "Linux-6.1",
-            "key_packages": {"numpy": "1.26.0"},
-            "full_freeze": "numpy==1.26.0\nzarr==2.18.0",
-            "conda_env": "name: sci\ndependencies:\n  - numpy",
-        }
-        restored = EnvironmentSnapshot.from_dict(data)
-        assert restored == snapshot
+        store.upsert_data_object(row)
+        # Second upsert with the same object_id must be a no-op.
+        store.upsert_data_object(row)
+        assert store.count("data_objects") == 1
 
-
-class TestLineageStore:
-    """Verify SQLite-backed LineageStore."""
-
-    def test_write_and_query(self) -> None:
+    def test_block_io_round_trip(self) -> None:
         store = LineageStore(":memory:")
-        record = _make_record(
-            "block_A",
-            {"in_port": ["hash_in_1"]},
-            {"out_port": ["hash_out_1"]},
-        )
-        store.write(record)
-
-        results = store.query(block_id="block_A")
-        assert len(results) == 1
-        assert results[0].block_id == "block_A"
-        assert results[0].input_hashes == {"in_port": ["hash_in_1"]}
-        assert results[0].output_hashes == {"out_port": ["hash_out_1"]}
-
-    def test_query_all(self) -> None:
-        store = LineageStore(":memory:")
-        store.write(_make_record("A", {"p": ["h1"]}, {"p": ["h2"]}))
-        store.write(_make_record("B", {"p": ["h2"]}, {"p": ["h3"]}))
-        results = store.query()
-        assert len(results) == 2
-
-    def test_query_nonexistent_block(self) -> None:
-        store = LineageStore(":memory:")
-        store.write(_make_record("A", {"p": ["h1"]}, {"p": ["h2"]}))
-        results = store.query(block_id="nonexistent")
-        assert len(results) == 0
-
-    def test_write_with_environment(self) -> None:
-        store = LineageStore(":memory:")
-        env = EnvironmentSnapshot.capture()
-        record = LineageRecord(
-            input_hashes={"data": ["in1"]},
-            block_id="env_block",
-            block_config={},
-            block_version="1.0",
-            output_hashes={"data": ["out1"]},
-            timestamp="2026-01-01T00:00:00",
-            duration_ms=50,
-            environment=env,
-        )
-        store.write(record)
-        results = store.query(block_id="env_block")
-        assert len(results) == 1
-        assert results[0].environment is not None
-        assert "3." in results[0].environment.python_version
-
-    def test_ancestors_linear_chain(self) -> None:
-        """A -> B -> C: ancestors of C's output should include B and A."""
-        store = LineageStore(":memory:")
-        store.write(_make_record("A", {"src": ["raw"]}, {"out": ["h1"]}, timestamp="2026-01-01T00:00:00"))
-        store.write(_make_record("B", {"in": ["h1"]}, {"out": ["h2"]}, timestamp="2026-01-01T00:01:00"))
-        store.write(_make_record("C", {"in": ["h2"]}, {"out": ["h3"]}, timestamp="2026-01-01T00:02:00"))
-
-        ancestors = store.ancestors("h3")
-        block_ids = [r.block_id for r in ancestors]
-        assert "C" in block_ids
-        assert "B" in block_ids
-        assert "A" in block_ids
-
-    def test_ancestors_no_match(self) -> None:
-        store = LineageStore(":memory:")
-        store.write(_make_record("A", {"p": ["h1"]}, {"p": ["h2"]}))
-        ancestors = store.ancestors("nonexistent")
-        assert ancestors == []
-
-    def test_store_ancestors_diamond_no_duplicates(self) -> None:
-        """LineageStore ancestors should deduplicate in diamond patterns."""
-        store = LineageStore(":memory:")
-        store.write(_make_record("A", {"src": ["raw"]}, {"out": ["h1", "h2"]}, timestamp="2026-01-01T00:00:00"))
-        store.write(_make_record("B", {"in": ["h1", "h2"]}, {"out": ["h3"]}, timestamp="2026-01-01T00:01:00"))
-        ancestors = store.ancestors("h3")
-        block_ids = [r.block_id for r in ancestors]
-        assert block_ids.count("A") == 1
-
-    def test_ancestors_multi_port(self) -> None:
-        """Ancestors traversal works across multiple input ports."""
-        store = LineageStore(":memory:")
-        store.write(_make_record("A", {"src": ["raw"]}, {"out": ["h1"]}, timestamp="2026-01-01T00:00:00"))
-        store.write(_make_record("B", {"src": ["raw"]}, {"out": ["h2"]}, timestamp="2026-01-01T00:00:00"))
-        store.write(
-            _make_record(
-                "C",
-                {"port_a": ["h1"], "port_b": ["h2"]},
-                {"out": ["h3"]},
-                timestamp="2026-01-01T00:01:00",
+        store.insert_run(_make_run())
+        store.insert_block_execution(_make_block_execution(block_execution_id="be-1"))
+        store.upsert_data_object(
+            DataObjectRow(
+                object_id="obj-1",
+                type_name="DataFrame",
+                wire_payload={},
+                created_at="2026-05-15T00:00:01",
             )
         )
-        ancestors = store.ancestors("h3")
-        block_ids = [r.block_id for r in ancestors]
-        assert "A" in block_ids
-        assert "B" in block_ids
-        assert "C" in block_ids
-
-    def test_backward_compat_list_format(self) -> None:
-        """Old-format (list) records stored as JSON are read back as dicts."""
-        import json
-
-        store = LineageStore(":memory:")
-        # Manually insert a row with old-format (flat list) hashes
-        store._conn.execute(
-            "INSERT INTO lineage (block_id, block_version, block_config, "
-            "input_hashes, output_hashes, timestamp, duration_ms, "
-            "termination, partial_output_refs, termination_detail) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                "old_block",
-                "0.9",
-                json.dumps({}),
-                json.dumps(["old_in_1", "old_in_2"]),
-                json.dumps(["old_out_1"]),
-                "2025-01-01T00:00:00",
-                50,
-                "completed",
-                json.dumps([]),
-                "",
-            ),
+        store.insert_block_io(
+            BlockIORow(
+                block_execution_id="be-1",
+                direction="output",
+                port_name="result",
+                object_id="obj-1",
+                position=0,
+            )
         )
-        store._conn.commit()
+        edges = store.list_block_io("be-1")
+        assert len(edges) == 1
+        assert edges[0]["object_id"] == "obj-1"
 
-        results = store.query(block_id="old_block")
-        assert len(results) == 1
-        assert results[0].input_hashes == {"default": ["old_in_1", "old_in_2"]}
-        assert results[0].output_hashes == {"default": ["old_out_1"]}
 
-    def test_default_path_persists(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        """LineageStore with default path persists records to disk."""
+class TestLineageStorePersistence:
+    def test_default_path_persists(self, tmp_path: Path, monkeypatch) -> None:
+        """``LineageStore()`` with no path defaults to ``.scieasy/lineage.db`` under cwd."""
         monkeypatch.chdir(tmp_path)
         store = LineageStore()
-        record = _make_record("persist_block", {"p": ["h_in"]}, {"p": ["h_out"]})
-        store.write(record)
+        store.insert_run(_make_run())
         store.close()
 
         store2 = LineageStore()
-        results = store2.query(block_id="persist_block")
-        assert len(results) == 1
-        assert results[0].output_hashes == {"p": ["h_out"]}
+        run = store2.get_run("run-1")
+        assert run is not None
+        assert run["workflow_id"] == "wf"
         store2.close()
-
-
-class TestProvenanceGraph:
-    """Verify in-memory ProvenanceGraph."""
-
-    def _build_linear_graph(self) -> tuple[ProvenanceGraph, list[LineageRecord]]:
-        """Build a simple linear A -> B -> C graph."""
-        records = [
-            _make_record("A", {"src": ["raw"]}, {"out": ["h1"]}, timestamp="2026-01-01T00:00:00"),
-            _make_record("B", {"in": ["h1"]}, {"out": ["h2"]}, timestamp="2026-01-01T00:01:00"),
-            _make_record("C", {"in": ["h2"]}, {"out": ["h3"]}, timestamp="2026-01-01T00:02:00"),
-        ]
-        graph = ProvenanceGraph()
-        graph.build(records)
-        return graph, records
-
-    def test_ancestors(self) -> None:
-        graph, _ = self._build_linear_graph()
-        ancestors = graph.ancestors("h3")
-        block_ids = [r.block_id for r in ancestors]
-        assert "C" in block_ids
-        assert "B" in block_ids
-        assert "A" in block_ids
-
-    def test_ancestors_partial(self) -> None:
-        graph, _ = self._build_linear_graph()
-        ancestors = graph.ancestors("h2")
-        block_ids = [r.block_id for r in ancestors]
-        assert "B" in block_ids
-        assert "A" in block_ids
-        assert "C" not in block_ids
-
-    def test_descendants(self) -> None:
-        graph, _ = self._build_linear_graph()
-        descendants = graph.descendants("h1")
-        block_ids = [r.block_id for r in descendants]
-        assert "B" in block_ids
-        assert "C" in block_ids
-
-    def test_audit_trail_ordered(self) -> None:
-        graph, _ = self._build_linear_graph()
-        trail = graph.audit_trail("h3")
-        block_ids = [r.block_id for r in trail]
-        assert block_ids == ["A", "B", "C"]
-
-    def test_descendants_diamond_no_duplicates(self) -> None:
-        """Diamond DAG: D should appear exactly once in descendants."""
-        records = [
-            _make_record("A", {"src": ["raw"]}, {"out": ["h1"]}, timestamp="2026-01-01T00:00:00"),
-            _make_record("B", {"in": ["h1"]}, {"out": ["h2"]}, timestamp="2026-01-01T00:01:00"),
-            _make_record("C", {"in": ["h1"]}, {"out": ["h3"]}, timestamp="2026-01-01T00:01:00"),
-            _make_record(
-                "D",
-                {"in_a": ["h2"], "in_b": ["h3"]},
-                {"out": ["h4"]},
-                timestamp="2026-01-01T00:02:00",
-            ),
-        ]
-        graph = ProvenanceGraph()
-        graph.build(records)
-        descendants = graph.descendants("h1")
-        block_ids = [r.block_id for r in descendants]
-        assert block_ids.count("D") == 1
-        assert set(block_ids) == {"B", "C", "D"}
-
-    def test_ancestors_multi_output_no_duplicates(self) -> None:
-        """Record with multiple outputs should appear once in ancestors."""
-        records = [
-            _make_record("A", {"src": ["raw"]}, {"out": ["h1", "h2"]}, timestamp="2026-01-01T00:00:00"),
-            _make_record("B", {"in": ["h1", "h2"]}, {"out": ["h3"]}, timestamp="2026-01-01T00:01:00"),
-        ]
-        graph = ProvenanceGraph()
-        graph.build(records)
-        ancestors = graph.ancestors("h3")
-        block_ids = [r.block_id for r in ancestors]
-        assert block_ids.count("A") == 1
-        assert set(block_ids) == {"A", "B"}
-
-    def test_diff(self) -> None:
-        """Build a diamond: A -> B, A -> C, B+C -> D."""
-        records = [
-            _make_record("A", {"src": ["raw"]}, {"out": ["h1"]}, timestamp="2026-01-01T00:00:00"),
-            _make_record("B", {"in": ["h1"]}, {"out": ["h2"]}, timestamp="2026-01-01T00:01:00"),
-            _make_record("C", {"in": ["h1"]}, {"out": ["h3"]}, timestamp="2026-01-01T00:01:00"),
-            _make_record(
-                "D",
-                {"in_a": ["h2"], "in_b": ["h3"]},
-                {"out": ["h4"]},
-                timestamp="2026-01-01T00:02:00",
-            ),
-        ]
-        graph = ProvenanceGraph()
-        graph.build(records)
-
-        diff = graph.diff("h2", "h4")
-        only_in_b_ids = {r.block_id for r in diff["only_in_b"]}
-        # h4's ancestry includes D and C (which are not in h2's ancestry)
-        assert "D" in only_in_b_ids
-        assert "C" in only_in_b_ids
-
-
-class TestLineageTerminationFields:
-    """ADR-018: termination, partial_output_refs, termination_detail fields."""
-
-    def test_default_termination_is_completed(self) -> None:
-        record = _make_record("block_A", {"p": ["in1"]}, {"p": ["out1"]})
-        assert record.termination == "completed"
-        assert record.partial_output_refs == []
-        assert record.termination_detail == ""
-
-    def test_cancelled_termination(self) -> None:
-        record = LineageRecord(
-            input_hashes={"data": ["in1"]},
-            block_id="block_B",
-            block_config={},
-            block_version="1.0",
-            output_hashes={},
-            timestamp="2026-01-01T00:00:00",
-            duration_ms=50,
-            termination="cancelled",
-            partial_output_refs=["partial_1"],
-            termination_detail="User cancelled via WebSocket",
-        )
-        assert record.termination == "cancelled"
-        assert record.partial_output_refs == ["partial_1"]
-        assert record.termination_detail == "User cancelled via WebSocket"
-
-    def test_skipped_termination(self) -> None:
-        record = LineageRecord(
-            input_hashes={},
-            block_id="block_C",
-            block_config={},
-            block_version="1.0",
-            output_hashes={},
-            timestamp="2026-01-01T00:00:00",
-            duration_ms=0,
-            termination="skipped",
-            termination_detail="upstream block_A error",
-        )
-        assert record.termination == "skipped"
-        assert record.termination_detail == "upstream block_A error"
-
-    def test_error_termination(self) -> None:
-        record = LineageRecord(
-            input_hashes={"data": ["in1"]},
-            block_id="block_D",
-            block_config={"param": 1},
-            block_version="1.0",
-            output_hashes={},
-            timestamp="2026-01-01T00:00:00",
-            duration_ms=200,
-            termination="error",
-            partial_output_refs=["partial_out1", "partial_out2"],
-            termination_detail="ZeroDivisionError in process_item",
-        )
-        assert record.termination == "error"
-        assert len(record.partial_output_refs) == 2
-
-    def test_store_round_trip_with_termination(self) -> None:
-        """Write a record with termination fields and read it back."""
-        store = LineageStore(":memory:")
-        record = LineageRecord(
-            input_hashes={"data": ["in"]},
-            block_id="store_test",
-            block_config={},
-            block_version="1.0",
-            output_hashes={"data": ["out"]},
-            timestamp="2026-01-01T00:00:00",
-            duration_ms=10,
-            termination="cancelled",
-            partial_output_refs=["p1"],
-            termination_detail="test cancel",
-        )
-        store.write(record)
-        results = store.query(block_id="store_test")
-        assert len(results) == 1
-        assert results[0].termination == "cancelled"
-        assert results[0].partial_output_refs == ["p1"]
-        assert results[0].termination_detail == "test cancel"
+        # File on disk lives under .scieasy/.
+        assert (tmp_path / ".scieasy" / "lineage.db").exists()

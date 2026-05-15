@@ -99,6 +99,9 @@ def init(name: str = typer.Argument("my_project", help="Project workspace name")
         raise typer.Exit(code=1)
 
     # Create directory structure per ARCHITECTURE.md Section 10.
+    # ADR-038 §3.5 / §5.2: lineage history lives at ``.scieasy/lineage.db``;
+    # the legacy ``lineage/`` and ``checkpoints/`` top-level dirs are retired
+    # in favour of ``.scieasy/``. Symmetric with ``api/runtime.py::create_project``.
     subdirs = [
         "workflows",
         "data/raw",
@@ -108,8 +111,7 @@ def init(name: str = typer.Argument("my_project", help="Project workspace name")
         "data/exchange",
         "blocks",
         "types",
-        "checkpoints",
-        "lineage",
+        ".scieasy",
         "logs",
     ]
     for subdir in subdirs:

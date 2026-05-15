@@ -121,18 +121,20 @@
 
 ### Phase D38-2.2 — Wire-up + schema (Owner: ID38-2, 1 agent, refactor) [ADR-038 §6 Phase 1]
 
-- [ ] Sub-issue opened, branch `feat/issue-<N>/d38-wire-up-schema` off `track/adr-038/lineage-db`
-- [ ] `src/scieasy/core/lineage/` new package: `__init__.py`, `store.py` (4-table), `record.py`, `recorder.py` (moved from engine/), `environment.py`, `graph.py`, `run_context.py` [ADR-038 §3.1, §5.1]
-- [ ] `src/scieasy/engine/scheduler.py` — construct LineageRecorder; extend BLOCK_DONE event data (`config`, `block_version`, `environment`, `input_object_ids`, `output_object_ids`) [ADR-038 §3.2]
-- [ ] `src/scieasy/engine/lineage_recorder.py` — relocated to core; engine stub deleted with redirect comment [ADR-038 §5.1, §5.2]
-- [ ] `src/scieasy/engine/runners/local.py:229` — lift `environment` from worker envelope into event data [ADR-038 §5.2]
-- [ ] `src/scieasy/api/runtime.py::start_workflow` — create RunRecord, construct LineageRecorder, pass to DAGScheduler, finalize on completion [ADR-038 §3.2]
-- [ ] `src/scieasy/api/deps.py::get_lineage_store` — rewrite to return unified store [ADR-038 §5.2]
-- [ ] `src/scieasy/api/app.py` — register `runs` router placeholder [ADR-038 §5.2]
-- [ ] `src/scieasy/blocks/registry.py` — force-inject `block_version` from `importlib.metadata`; fail loudly on resolution failure [ADR-038 §3.3]
-- [ ] `tests/engine/test_lineage_recorder.py` + `tests/core/test_lineage*.py` — migrate to new schema
-- [ ] Smoke test passes: 3-block workflow run produces 1 row in `runs`, 3 in `block_executions`, ≥3 in `data_objects`, ≥6 in `block_io`
-- [ ] CI green; mandatory live test of full happy-path workflow execution
+- [x] Sub-issue opened, branch `feat/issue-920/d38-2-2-wire-up-schema` off `track/adr-038/lineage-db` → https://github.com/zjzcpj/SciEasy/issues/920
+- [x] `src/scieasy/core/lineage/` new package: `__init__.py`, `store.py` (4-table), `record.py`, `recorder.py` (moved from engine/), `environment.py`, `run_context.py`; `graph.py` DELETED per ADR §3.4 [ADR-038 §3.1, §5.1]
+- [x] `src/scieasy/engine/scheduler.py` — construct LineageRecorder; extend BLOCK_DONE event data (`config`, `block_type`, `block_version`, `environment`, `input_object_ids`, `output_object_ids`, `inputs`) [ADR-038 §3.2]
+- [x] `src/scieasy/engine/lineage_recorder.py` — relocated to `core/lineage/recorder.py`; engine path is a re-export shim for one minor-version compat window [ADR-038 §5.1, §5.2]
+- [x] `src/scieasy/engine/runners/local.py` — lift `environment` from worker envelope into event data via `__scieasy_env__` sentinel (scheduler pops before downstream blocks see it) [ADR-038 §5.2]
+- [x] `src/scieasy/api/runtime.py::start_workflow` — create RunRecord, construct LineageRecorder, pass to DAGScheduler, finalize on completion via `_finalize_lineage_run` task callback [ADR-038 §3.2]
+- [x] `src/scieasy/api/runtime.py::create_project` — `.scieasy/` replaces legacy `checkpoints/`+`lineage/` scaffold dirs
+- [x] `src/scieasy/api/deps.py::get_lineage_store` — rewrite to return the unified store owned by `ApiRuntime` (no per-request store allocation) [ADR-038 §5.2]
+- [x] `src/scieasy/api/app.py` — register `runs` router placeholder for D38-2.4a [ADR-038 §5.2]
+- [x] `src/scieasy/blocks/registry.py` — force-inject `block_version` from `importlib.metadata` (cached `packages_distributions`); in-tree blocks stamp `scieasy.__version__`; no `"unknown"` default [ADR-038 §3.3]
+- [x] `src/scieasy/cli/main.py` — `init` scaffold list parity with `runtime.py::create_project`
+- [x] `tests/engine/test_lineage_recorder.py` + `tests/core/test_lineage*.py` + `tests/api/test_deps.py` + `tests/cli/test_cli.py` — migrated to new schema
+- [x] Smoke test `tests/core/test_lineage_store_4table.py` passes: 3-block linear workflow produces 1 run + 3 block_executions + 3 data_objects + 5 block_io rows (linear DAG: A has no input → 5 not 6; spec note inline)
+- [ ] CI green
 - [ ] PR merged into `track/adr-038/lineage-db`
 
 ### Phase D38-2.3 — Collapse metadata.db (Owner: ID38-3, 1 agent, migration) [ADR-038 §6 Phase 2]

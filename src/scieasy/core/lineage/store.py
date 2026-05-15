@@ -1,192 +1,335 @@
-"""LineageStore — SQLite-backed read/write for lineage records."""
+"""LineageStore — unified 4-table SQLite store for run lineage (ADR-038 §3.1).
+
+Tables:
+
+* ``runs``             — one row per workflow execution
+* ``block_executions`` — one row per block per run
+* ``data_objects``     — DataObject identity catalog
+* ``block_io``         — port-to-DataObject edges per execution
+
+All writes happen in the engine process. Worker subprocesses do NOT connect
+to this database. The store is best-effort: write failures are logged and
+swallowed by the recorder so a lineage outage never breaks the workflow.
+"""
 
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from pathlib import Path
 from typing import Any
 
-from scieasy.core.lineage.environment import EnvironmentSnapshot
-from scieasy.core.lineage.record import LineageRecord
+from scieasy.core.lineage.record import (
+    BlockExecutionRecord,
+    BlockIORow,
+    DataObjectRow,
+    RunRecord,
+)
 
-_CREATE_TABLE = """
-CREATE TABLE IF NOT EXISTS lineage (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    block_id TEXT NOT NULL,
-    block_version TEXT NOT NULL,
-    block_config TEXT NOT NULL,
-    input_hashes TEXT NOT NULL,
-    output_hashes TEXT NOT NULL,
-    timestamp TEXT NOT NULL,
-    duration_ms INTEGER NOT NULL,
-    environment TEXT,
-    termination TEXT NOT NULL DEFAULT 'completed',
-    partial_output_refs TEXT,
-    termination_detail TEXT
-);
-"""
-# ADR-018: Added termination, partial_output_refs, termination_detail.
-# ADR-020: Removed batch_info column.
+logger = logging.getLogger(__name__)
 
-_CREATE_INDEX_BLOCK = """
-CREATE INDEX IF NOT EXISTS idx_lineage_block_id ON lineage (block_id);
-"""
 
-_CREATE_INDEX_OUTPUT = """
-CREATE INDEX IF NOT EXISTS idx_lineage_output_hashes ON lineage (output_hashes);
-"""
+# ---------------------------------------------------------------------------
+# Schema (ADR-038 §3.1 verbatim)
+# ---------------------------------------------------------------------------
+
+_SCHEMA_STATEMENTS: list[str] = [
+    # Table 1: runs
+    """
+    CREATE TABLE IF NOT EXISTS runs (
+        run_id                  TEXT PRIMARY KEY,
+        workflow_id             TEXT NOT NULL,
+        workflow_git_commit     TEXT,
+        workflow_yaml_snapshot  TEXT NOT NULL,
+        workflow_dirty          INTEGER NOT NULL,
+        started_at              TEXT NOT NULL,
+        finished_at             TEXT,
+        status                  TEXT NOT NULL,
+        environment_snapshot    TEXT NOT NULL,
+        triggered_by            TEXT NOT NULL,
+        parent_run_id           TEXT REFERENCES runs(run_id),
+        execute_from_block_id   TEXT,
+        user_notes              TEXT
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_runs_workflow ON runs(workflow_id, started_at DESC)",
+    # Table 2: block_executions
+    """
+    CREATE TABLE IF NOT EXISTS block_executions (
+        block_execution_id      TEXT PRIMARY KEY,
+        run_id                  TEXT NOT NULL REFERENCES runs(run_id),
+        block_id                TEXT NOT NULL,
+        block_type              TEXT NOT NULL,
+        block_version           TEXT NOT NULL,
+        block_config_resolved   TEXT NOT NULL,
+        started_at              TEXT NOT NULL,
+        finished_at             TEXT,
+        duration_ms             INTEGER,
+        termination             TEXT NOT NULL,
+        termination_detail      TEXT,
+        UNIQUE (run_id, block_id)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_be_run ON block_executions(run_id)",
+    "CREATE INDEX IF NOT EXISTS idx_be_block ON block_executions(block_id)",
+    # Table 3: data_objects
+    """
+    CREATE TABLE IF NOT EXISTS data_objects (
+        object_id               TEXT PRIMARY KEY,
+        type_name               TEXT NOT NULL,
+        backend                 TEXT,
+        storage_path            TEXT,
+        size_bytes              INTEGER,
+        mtime_at_write          TEXT,
+        created_at              TEXT NOT NULL,
+        wire_payload            TEXT NOT NULL,
+        derived_from            TEXT REFERENCES data_objects(object_id),
+        produced_by_execution   TEXT REFERENCES block_executions(block_execution_id)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_do_storage ON data_objects(storage_path)",
+    "CREATE INDEX IF NOT EXISTS idx_do_derived ON data_objects(derived_from)",
+    "CREATE INDEX IF NOT EXISTS idx_do_producer ON data_objects(produced_by_execution)",
+    # Table 4: block_io
+    """
+    CREATE TABLE IF NOT EXISTS block_io (
+        block_execution_id      TEXT NOT NULL REFERENCES block_executions(block_execution_id),
+        direction               TEXT NOT NULL,
+        port_name               TEXT NOT NULL,
+        object_id               TEXT NOT NULL REFERENCES data_objects(object_id),
+        position                INTEGER NOT NULL,
+        PRIMARY KEY (block_execution_id, direction, port_name, position)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_io_object ON block_io(object_id)",
+]
 
 
 class LineageStore:
-    """Persistent SQLite-backed store for :class:`LineageRecord` instances."""
+    """SQLite-backed unified lineage store (ADR-038 §3.1).
+
+    Parameters
+    ----------
+    db_path:
+        Filesystem path to the SQLite database file. Pass ``":memory:"`` for
+        an in-process ephemeral store (used by tests).
+    """
 
     def __init__(self, db_path: str | Path | None = None) -> None:
         if db_path is None:
             default_dir = Path(".scieasy")
             default_dir.mkdir(parents=True, exist_ok=True)
             db_path = str(default_dir / "lineage.db")
+
         self._db_path = str(db_path)
-        self._conn = sqlite3.connect(self._db_path)
+        # ``check_same_thread=False`` because the engine emits events from
+        # asyncio tasks across the default loop's executor; SQLite is
+        # serialised internally and the recorder calls are single-flight.
+        self._conn = sqlite3.connect(self._db_path, check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.execute(_CREATE_TABLE)
-        self._conn.execute(_CREATE_INDEX_BLOCK)
-        self._conn.execute(_CREATE_INDEX_OUTPUT)
+        self._conn.execute("PRAGMA foreign_keys=ON")
+        for stmt in _SCHEMA_STATEMENTS:
+            self._conn.execute(stmt)
         self._conn.commit()
 
-    def close(self) -> None:
-        """Close the database connection."""
-        self._conn.close()
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
 
-    def write(self, record: LineageRecord) -> None:
-        """Persist a single :class:`LineageRecord`."""
-        env_json: str | None = None
-        if record.environment is not None:
-            env_json = json.dumps(
-                {
-                    "python_version": record.environment.python_version,
-                    "platform": record.environment.platform,
-                    "key_packages": record.environment.key_packages,
-                    "full_freeze": record.environment.full_freeze,
-                    "conda_env": record.environment.conda_env,
-                }
-            )
-        # ADR-018: persist termination, partial_output_refs, termination_detail.
-        # ADR-020: batch_info removed.
+    def close(self) -> None:
+        """Close the underlying connection. Idempotent."""
+        import contextlib
+
+        with contextlib.suppress(sqlite3.ProgrammingError):
+            self._conn.close()
+
+    # ------------------------------------------------------------------
+    # runs
+    # ------------------------------------------------------------------
+
+    def insert_run(self, run: RunRecord) -> None:
+        """Insert a row into ``runs``."""
         self._conn.execute(
-            "INSERT INTO lineage (block_id, block_version, block_config, "
-            "input_hashes, output_hashes, timestamp, duration_ms, environment, "
-            "termination, partial_output_refs, termination_detail) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            """
+            INSERT INTO runs (
+                run_id, workflow_id, workflow_git_commit, workflow_yaml_snapshot,
+                workflow_dirty, started_at, finished_at, status,
+                environment_snapshot, triggered_by, parent_run_id,
+                execute_from_block_id, user_notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
             (
-                record.block_id,
-                record.block_version,
-                json.dumps(record.block_config),
-                json.dumps(record.input_hashes),
-                json.dumps(record.output_hashes),
-                record.timestamp,
-                record.duration_ms,
-                env_json,
-                record.termination,
-                json.dumps(record.partial_output_refs),
-                record.termination_detail,
+                run.run_id,
+                run.workflow_id,
+                run.workflow_git_commit,
+                run.workflow_yaml_snapshot,
+                int(bool(run.workflow_dirty)),
+                run.started_at,
+                run.finished_at,
+                run.status,
+                json.dumps(run.environment_snapshot),
+                run.triggered_by,
+                run.parent_run_id,
+                run.execute_from_block_id,
+                run.user_notes,
             ),
         )
         self._conn.commit()
 
-    @staticmethod
-    def _normalize_hashes(raw: Any) -> dict[str, list[str]]:
-        """Normalize hash data from JSON, handling backward compatibility.
-
-        Old format (pre-#55): ``["hash1", "hash2"]`` -- wrapped as ``{"default": [...]}``.
-        New format (#55+): ``{"port_name": ["hash1", "hash2"]}``.
-        """
-        if isinstance(raw, list):
-            return {"default": raw}
-        result: dict[str, list[str]] = raw  # already a dict
-        return result
-
-    def _row_to_record(self, row: tuple[Any, ...]) -> LineageRecord:
-        """Convert a database row to a :class:`LineageRecord`.
-
-        ADR-018: Added termination, partial_output_refs, termination_detail.
-        ADR-020: Removed batch_info.
-        Issue #55: input_hashes/output_hashes are now per-port dicts.
-        """
-        env: EnvironmentSnapshot | None = None
-        if row[7] is not None:
-            env_data = json.loads(row[7])
-            env = EnvironmentSnapshot(**env_data)
-        return LineageRecord(
-            block_id=row[0],
-            block_version=row[1],
-            block_config=json.loads(row[2]),
-            input_hashes=self._normalize_hashes(json.loads(row[3])),
-            output_hashes=self._normalize_hashes(json.loads(row[4])),
-            timestamp=row[5],
-            duration_ms=row[6],
-            environment=env,
-            termination=row[8] if row[8] is not None else "completed",
-            partial_output_refs=json.loads(row[9]) if row[9] is not None else [],
-            termination_detail=row[10] if row[10] is not None else "",
+    def finalize_run(self, run_id: str, *, finished_at: str, status: str) -> None:
+        """Update terminal columns on a ``runs`` row."""
+        self._conn.execute(
+            "UPDATE runs SET finished_at = ?, status = ? WHERE run_id = ?",
+            (finished_at, status, run_id),
         )
+        self._conn.commit()
 
-    def query(
-        self,
-        block_id: str | None = None,
-        **filters: Any,
-    ) -> list[LineageRecord]:
-        """Query records, optionally filtered by *block_id*."""
-        if block_id is not None:
-            cursor = self._conn.execute(
-                "SELECT block_id, block_version, block_config, input_hashes, "
-                "output_hashes, timestamp, duration_ms, environment, "
-                "termination, partial_output_refs, termination_detail "
-                "FROM lineage WHERE block_id = ? ORDER BY id",
-                (block_id,),
-            )
+    def get_run(self, run_id: str) -> dict[str, Any] | None:
+        """Return a ``runs`` row as a dict, or ``None`` if absent."""
+        cur = self._conn.execute("SELECT * FROM runs WHERE run_id = ?", (run_id,))
+        row = cur.fetchone()
+        if row is None:
+            return None
+        columns = [d[0] for d in cur.description]
+        return dict(zip(columns, row, strict=False))
+
+    def list_runs(self, workflow_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
+        """Return runs in reverse-chronological order."""
+        if workflow_id is None:
+            cur = self._conn.execute("SELECT * FROM runs ORDER BY started_at DESC LIMIT ?", (limit,))
         else:
-            cursor = self._conn.execute(
-                "SELECT block_id, block_version, block_config, input_hashes, "
-                "output_hashes, timestamp, duration_ms, environment, "
-                "termination, partial_output_refs, termination_detail "
-                "FROM lineage ORDER BY id",
+            cur = self._conn.execute(
+                "SELECT * FROM runs WHERE workflow_id = ? ORDER BY started_at DESC LIMIT ?",
+                (workflow_id, limit),
             )
-        return [self._row_to_record(row) for row in cursor.fetchall()]
+        columns = [d[0] for d in cur.description]
+        return [dict(zip(columns, row, strict=False)) for row in cur.fetchall()]
 
-    def ancestors(self, output_hash: str) -> list[LineageRecord]:
-        """Return all records in the ancestor chain of *output_hash*.
+    # ------------------------------------------------------------------
+    # block_executions
+    # ------------------------------------------------------------------
 
-        Traces backwards: finds the record that produced *output_hash*,
-        then recursively finds records that produced each of its inputs.
+    def insert_block_execution(self, be: BlockExecutionRecord) -> None:
+        """Insert a row into ``block_executions``."""
+        self._conn.execute(
+            """
+            INSERT INTO block_executions (
+                block_execution_id, run_id, block_id, block_type, block_version,
+                block_config_resolved, started_at, finished_at, duration_ms,
+                termination, termination_detail
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                be.block_execution_id,
+                be.run_id,
+                be.block_id,
+                be.block_type,
+                be.block_version,
+                json.dumps(be.block_config_resolved, default=str),
+                be.started_at,
+                be.finished_at,
+                be.duration_ms,
+                be.termination,
+                be.termination_detail,
+            ),
+        )
+        self._conn.commit()
+
+    def list_block_executions(self, run_id: str) -> list[dict[str, Any]]:
+        """List blocks for a run ordered by start time."""
+        cur = self._conn.execute(
+            "SELECT * FROM block_executions WHERE run_id = ? ORDER BY started_at",
+            (run_id,),
+        )
+        columns = [d[0] for d in cur.description]
+        return [dict(zip(columns, row, strict=False)) for row in cur.fetchall()]
+
+    # ------------------------------------------------------------------
+    # data_objects
+    # ------------------------------------------------------------------
+
+    def upsert_data_object(self, row: DataObjectRow) -> None:
+        """Insert a ``data_objects`` row, or skip when already present.
+
+        ``object_id`` is a UUIDv4 produced by FrameworkMeta. Duplicate writes
+        of the same object_id are no-ops; we deliberately do NOT update
+        ``storage_path`` because subsequent runs may overwrite the path and
+        the stored value should reflect the producing run's state.
         """
-        visited: set[str] = set()
-        visited_records: set[tuple[str, str]] = set()
-        result: list[LineageRecord] = []
-        queue = [output_hash]
+        self._conn.execute(
+            """
+            INSERT OR IGNORE INTO data_objects (
+                object_id, type_name, backend, storage_path, size_bytes,
+                mtime_at_write, created_at, wire_payload, derived_from,
+                produced_by_execution
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                row.object_id,
+                row.type_name,
+                row.backend,
+                row.storage_path,
+                row.size_bytes,
+                row.mtime_at_write,
+                row.created_at,
+                json.dumps(row.wire_payload, default=str),
+                row.derived_from,
+                row.produced_by_execution,
+            ),
+        )
+        self._conn.commit()
 
-        while queue:
-            current_hash = queue.pop(0)
-            if current_hash in visited:
-                continue
-            visited.add(current_hash)
+    def get_data_object(self, object_id: str) -> dict[str, Any] | None:
+        cur = self._conn.execute("SELECT * FROM data_objects WHERE object_id = ?", (object_id,))
+        row = cur.fetchone()
+        if row is None:
+            return None
+        columns = [d[0] for d in cur.description]
+        return dict(zip(columns, row, strict=False))
 
-            cursor = self._conn.execute(
-                "SELECT block_id, block_version, block_config, input_hashes, "
-                "output_hashes, timestamp, duration_ms, environment, "
-                "termination, partial_output_refs, termination_detail "
-                "FROM lineage WHERE output_hashes LIKE ? ORDER BY id",
-                (f'%"{current_hash}"%',),
-            )
-            for row in cursor.fetchall():
-                record = self._row_to_record(row)
-                record_key = (record.block_id, record.timestamp)
-                if record_key not in visited_records:
-                    visited_records.add(record_key)
-                    result.append(record)
-                    for port_hashes in record.input_hashes.values():
-                        for inp in port_hashes:
-                            if inp not in visited:
-                                queue.append(inp)
+    # ------------------------------------------------------------------
+    # block_io
+    # ------------------------------------------------------------------
 
-        return result
+    def insert_block_io(self, edge: BlockIORow) -> None:
+        """Insert a ``block_io`` edge. Duplicate edges are silently skipped."""
+        self._conn.execute(
+            """
+            INSERT OR IGNORE INTO block_io (
+                block_execution_id, direction, port_name, object_id, position
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                edge.block_execution_id,
+                edge.direction,
+                edge.port_name,
+                edge.object_id,
+                edge.position,
+            ),
+        )
+        self._conn.commit()
+
+    def list_block_io(self, block_execution_id: str) -> list[dict[str, Any]]:
+        """Return all I/O edges for a block_execution, ordered for display."""
+        cur = self._conn.execute(
+            """
+            SELECT * FROM block_io
+            WHERE block_execution_id = ?
+            ORDER BY direction, port_name, position
+            """,
+            (block_execution_id,),
+        )
+        columns = [d[0] for d in cur.description]
+        return [dict(zip(columns, row, strict=False)) for row in cur.fetchall()]
+
+    # ------------------------------------------------------------------
+    # Test / introspection helpers
+    # ------------------------------------------------------------------
+
+    def count(self, table: str) -> int:
+        """Return ``SELECT COUNT(*)`` of a known table (used by tests)."""
+        if table not in {"runs", "block_executions", "data_objects", "block_io"}:
+            raise ValueError(f"unknown lineage table: {table}")
+        cur = self._conn.execute(f"SELECT COUNT(*) FROM {table}")  # table name allow-listed above
+        return int(cur.fetchone()[0])
