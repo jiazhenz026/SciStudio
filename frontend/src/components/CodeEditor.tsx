@@ -82,6 +82,11 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const monacoRef = useRef<any>(null);
   const lintTimerRef = useRef<number | null>(null);
+  // #871: monotonic request id; responses whose id is below the latest
+  // in-flight value are stale (a newer lint kicked off while we awaited)
+  // and must be discarded so out-of-order arrivals don't repaint stale
+  // markers.
+  const lintRequestIdRef = useRef(0);
 
   // Keep the most recent callbacks in refs so the editor's onChange /
   // onMount handlers (registered once at mount time) always see the
@@ -162,6 +167,7 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
   }
 
   async function runLint(content: string) {
+    const requestId = ++lintRequestIdRef.current;
     try {
       const response = await fetch("/api/lint/python", {
         method: "POST",
@@ -169,7 +175,12 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
         body: JSON.stringify({ content, filename: tab.filePath }),
       });
       if (!response.ok) return;
+      // #871: drop the response if a newer lint request has fired while we
+      // awaited. Without this guard, a slow response can repaint stale
+      // diagnostics over the latest ones.
+      if (requestId !== lintRequestIdRef.current) return;
       const payload = (await response.json()) as LintResponse;
+      if (requestId !== lintRequestIdRef.current) return;
       applyMarkers(payload.diagnostics ?? []);
     } catch {
       // Silent: lint is a best-effort UX affordance, not load-bearing.

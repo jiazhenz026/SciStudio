@@ -389,6 +389,22 @@ class ApiRuntime:
             yaml.safe_dump(metadata, default_flow_style=False, sort_keys=False),
             encoding="utf-8",
         )
+
+        # Issue #879: scaffold an empty ``workflows/main.yaml`` so the
+        # default ``main`` workflow tab has a real on-disk file from the
+        # moment the project is created. Without this, the in-memory
+        # canvas tab is divorced from the filesystem until the user
+        # presses Ctrl+S — breaking View source (#878), file-watcher
+        # rehydration, and any agent / MCP introspection of "what's in
+        # this project". Use the canonical serializer so the YAML schema
+        # matches what ``load_yaml`` expects.
+        try:
+            save_yaml(WorkflowDefinition(id="main"), project_path / "workflows" / "main.yaml")
+        except Exception:
+            # Best-effort: a scaffold-write failure must not block project
+            # creation. The user can still Ctrl+S manually to repair.
+            logger.warning("Failed to scaffold workflows/main.yaml for project %s", project.id, exc_info=True)
+
         self.known_projects[project.id] = project
         self._save_known_projects()
         self.open_project(project.id)
