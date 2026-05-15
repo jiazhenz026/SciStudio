@@ -243,6 +243,207 @@ def test_preview_data_supports_zarr_image_payloads(
     assert preview.json()["preview"]["src"].startswith("data:image/png;base64,")
 
 
+def _install_fake_zarr(monkeypatch: MonkeyPatch, matrix: np.ndarray) -> None:
+    """Helper: monkeypatch ``zarr`` so ``zarr.open()`` yields *matrix*.
+
+    Used by the #899 3-D viewer tests below. ``_FakeArray[...]`` returns
+    *matrix* so that ``_load_preview_matrix`` produces the numpy array
+    the test wants to slice through.
+    """
+    import sys
+    import types
+
+    class _FakeArray:
+        def __getitem__(self, key: object) -> np.ndarray:
+            return matrix
+
+    fake_zarr = types.ModuleType("zarr")
+    fake_zarr.Array = _FakeArray  # type: ignore[attr-defined]
+    fake_zarr.open = lambda path, mode="r": _FakeArray()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "zarr", fake_zarr)
+
+
+# ---------------------------------------------------------------------------
+# Tests for #899 — 3-D viewer single-slider preview
+# ---------------------------------------------------------------------------
+
+
+def test_preview_data_2d_image_has_no_slider_fields(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """ndim == 2: no slice_axis_* fields → frontend renders no slider."""
+    matrix = np.arange(256, dtype=np.float32).reshape(16, 16)
+    _install_fake_zarr(monkeypatch, matrix)
+
+    zarr_path = opened_project / "data" / "zarr" / "img2d.zarr"
+    zarr_path.mkdir(parents=True)
+    record = runtime.register_data_ref(
+        StorageReference(
+            backend="zarr",
+            path=str(zarr_path),
+            format="zarr",
+            metadata={
+                "type_chain": ["DataObject", "Array", "Image"],
+                "axes": ["y", "x"],
+                "shape": [16, 16],
+            },
+        ),
+        type_name="Image",
+    )
+
+    body = client.get(f"/api/data/{record.id}/preview").json()["preview"]
+    assert body["kind"] == "image"
+    assert body["shape"] == [16, 16]
+    assert body["axes"] == ["y", "x"]
+    assert body["slice_axis_name"] is None
+    assert body["slice_axis_size"] is None
+    assert body["slice_index"] is None
+
+
+def test_preview_data_3d_yxc_image_renders_slider_for_c_axis(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """(y, x, c) RGB plot: slider axis is 'c' with size 3."""
+    # Channels must differ in PIXEL DISTRIBUTION (not just scale) because
+    # ``_image_data_uri_from_matrix`` normalizes per-slab — three uniform
+    # channels would all become identical max-white PNGs.
+    base = np.arange(96, dtype=np.float32).reshape(8, 12)
+    matrix = np.stack([base, np.fliplr(base), np.flipud(base)], axis=-1)
+    assert matrix.shape == (8, 12, 3)
+    _install_fake_zarr(monkeypatch, matrix)
+
+    zarr_path = opened_project / "data" / "zarr" / "rgb.zarr"
+    zarr_path.mkdir(parents=True)
+    record = runtime.register_data_ref(
+        StorageReference(
+            backend="zarr",
+            path=str(zarr_path),
+            format="zarr",
+            metadata={
+                "type_chain": ["DataObject", "Array", "Image"],
+                "axes": ["y", "x", "c"],
+                "shape": [8, 12, 3],
+            },
+        ),
+        type_name="Image",
+    )
+
+    body = client.get(f"/api/data/{record.id}/preview").json()["preview"]
+    assert body["kind"] == "image"
+    # Original shape preserved.
+    assert body["shape"] == [8, 12, 3]
+    assert body["axes"] == ["y", "x", "c"]
+    assert body["slice_axis_name"] == "c"
+    assert body["slice_axis_size"] == 3
+    assert body["slice_index"] == 0
+
+    # Slider drag to channel 2 must change the rendered slab.
+    body2 = client.get(f"/api/data/{record.id}/preview?slice=2").json()["preview"]
+    assert body2["slice_index"] == 2
+    assert body2["src"] != body["src"]
+
+
+def test_preview_data_3d_zyx_image_picks_z_as_slider(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """(z, y, x) z-stack: axes-aware detection picks 'z' as slider axis."""
+    matrix = np.arange(5 * 4 * 6, dtype=np.float32).reshape(5, 4, 6)
+    _install_fake_zarr(monkeypatch, matrix)
+
+    zarr_path = opened_project / "data" / "zarr" / "zyx.zarr"
+    zarr_path.mkdir(parents=True)
+    record = runtime.register_data_ref(
+        StorageReference(
+            backend="zarr",
+            path=str(zarr_path),
+            format="zarr",
+            metadata={
+                "type_chain": ["DataObject", "Array", "Image"],
+                "axes": ["z", "y", "x"],
+                "shape": [5, 4, 6],
+            },
+        ),
+        type_name="Image",
+    )
+
+    body = client.get(f"/api/data/{record.id}/preview").json()["preview"]
+    assert body["shape"] == [5, 4, 6]
+    assert body["slice_axis_name"] == "z"
+    assert body["slice_axis_size"] == 5
+
+
+def test_preview_data_3d_no_axes_uses_axis0_fallback(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """No axes declared: last 2 dims = (y, x); first dim becomes slider 'axis 0'."""
+    matrix = np.zeros((7, 9, 11), dtype=np.float32)
+    _install_fake_zarr(monkeypatch, matrix)
+
+    zarr_path = opened_project / "data" / "zarr" / "noaxes.zarr"
+    zarr_path.mkdir(parents=True)
+    record = runtime.register_data_ref(
+        StorageReference(
+            backend="zarr",
+            path=str(zarr_path),
+            format="zarr",
+            metadata={"type_chain": ["DataObject", "Array"]},
+        ),
+        type_name="Array",
+    )
+
+    body = client.get(f"/api/data/{record.id}/preview").json()["preview"]
+    assert body["axes"] == []
+    assert body["slice_axis_name"] == "axis 0"
+    assert body["slice_axis_size"] == 7
+
+
+def test_preview_data_clamps_out_of_range_slice_query(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """?slice=999 on a 3-slice array clamps to 2 and returns 200, not 400."""
+    matrix = np.zeros((4, 5, 3), dtype=np.float32)
+    _install_fake_zarr(monkeypatch, matrix)
+
+    zarr_path = opened_project / "data" / "zarr" / "clamp.zarr"
+    zarr_path.mkdir(parents=True)
+    record = runtime.register_data_ref(
+        StorageReference(
+            backend="zarr",
+            path=str(zarr_path),
+            format="zarr",
+            metadata={
+                "type_chain": ["DataObject", "Array", "Image"],
+                "axes": ["y", "x", "c"],
+                "shape": [4, 5, 3],
+            },
+        ),
+        type_name="Image",
+    )
+
+    high = client.get(f"/api/data/{record.id}/preview?slice=999")
+    assert high.status_code == 200
+    assert high.json()["preview"]["slice_index"] == 2
+
+    low = client.get(f"/api/data/{record.id}/preview?slice=-5")
+    assert low.status_code == 200
+    assert low.json()["preview"]["slice_index"] == 0
+
+
 def test_preview_data_dispatches_plugin_spectrum_type_via_type_chain(
     client: TestClient,
     runtime: ApiRuntime,

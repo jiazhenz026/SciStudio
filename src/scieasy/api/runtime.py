@@ -821,7 +821,18 @@ class ApiRuntime:
         except Exception:
             return None
 
-    def preview_data(self, data_ref: str) -> dict[str, Any]:
+    def preview_data(self, data_ref: str, slice_index: int = 0) -> dict[str, Any]:
+        """Return a lightweight preview for a stored data object.
+
+        Parameters
+        ----------
+        data_ref:
+            Catalog identifier returned by ``register_data_ref``.
+        slice_index:
+            Index into the slider axis (3D viewer, #899). Clamped to
+            ``[0, slice_axis_size - 1]``. Ignored for 2D arrays / non-image
+            previews.
+        """
         record = self.get_data_record(data_ref)
         ref = record.ref
         path = Path(ref.path)
@@ -885,13 +896,62 @@ class ApiRuntime:
             # (T-IMG-002).
             try:
                 matrix = _load_preview_matrix(ref)
-                while getattr(matrix, "ndim", 0) > 2:
-                    matrix = matrix[0]
                 full_shape = list(matrix.shape)
-                thumbnail = _downsample_matrix(matrix)
+                # #899 — 3D viewer with single slider. Pick the (y, x) plane
+                # using the Array's declared axes (from
+                # ``_serialise_extra_metadata`` in core/types/array.py:410).
+                # When axes are unavailable, fall back to numpy convention
+                # (last two dims = (y, x)). The first remaining axis
+                # becomes the slider axis; anything beyond that peels
+                # ``[0]`` as a v1 ndim>3 fallback.
+                axes_raw = ref.metadata.get("axes") if ref.metadata else None
+                axes: list[str] = [str(a) for a in axes_raw] if isinstance(axes_raw, list) else []
+                ndim = matrix.ndim
+                if axes and "y" in axes and "x" in axes:
+                    y_idx = axes.index("y")
+                    x_idx = axes.index("x")
+                else:
+                    y_idx = max(0, ndim - 2)
+                    x_idx = max(0, ndim - 1)
+                # First non-(y, x) dim; None if 2-D.
+                extra_dims = [i for i in range(ndim) if i not in (y_idx, x_idx)]
+                slice_axis_idx: int | None = extra_dims[0] if extra_dims else None
+                slice_axis_size: int | None = full_shape[slice_axis_idx] if slice_axis_idx is not None else None
+                slice_axis_name: str | None
+                if slice_axis_idx is None:
+                    slice_axis_name = None
+                elif axes and slice_axis_idx < len(axes):
+                    slice_axis_name = axes[slice_axis_idx]
+                else:
+                    slice_axis_name = f"axis {slice_axis_idx}"
+                # Clamp slice request to valid range. Negative or
+                # out-of-range values become a valid slice rather than 400.
+                clamped_slice: int | None
+                if slice_axis_size is not None and slice_axis_size > 0:
+                    clamped_slice = max(0, min(int(slice_index), slice_axis_size - 1))
+                else:
+                    clamped_slice = None
+                # Extract a 2-D slab.
+                slab = matrix
+                if slice_axis_idx is not None and clamped_slice is not None:
+                    sel: list[Any] = [slice(None)] * slab.ndim
+                    sel[slice_axis_idx] = clamped_slice
+                    slab = slab[tuple(sel)]
+                # ndim > 3 fallback: peel further extra dims with [0].
+                while getattr(slab, "ndim", 0) > 2:
+                    slab = slab[0]
+                # If axes declared (x, y) instead of (y, x), transpose so
+                # the rendered image is right-side-up.
+                if axes and "y" in axes and "x" in axes and axes.index("y") > axes.index("x"):
+                    slab = slab.T
+                thumbnail = _downsample_matrix(slab)
                 return {
                     "kind": "image",
                     "shape": full_shape,
+                    "axes": axes,
+                    "slice_axis_name": slice_axis_name,
+                    "slice_axis_size": slice_axis_size,
+                    "slice_index": clamped_slice,
                     "thumbnail": thumbnail,
                     "src": _image_data_uri_from_matrix(thumbnail),
                 }
