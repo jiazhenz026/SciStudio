@@ -148,6 +148,16 @@ export interface GitSlice {
   stashes: GitStashEntry[] | null;
   mergeInProgress: GitMergeInProgress | null;
   lastError: string | null;
+  /**
+   * ADR-039 §3.5 (#972 — Codex P1 on PR #974) — branch the user clicked
+   * "Merge into current" on. Driving this from the slice (rather than
+   * local Git-tab state) keeps the MergeFlow modal mounted at the
+   * BottomPanel level so switching bottom tabs during an in-flight
+   * conflict resolution does NOT tear it down and orphan the merge
+   * (MergeFlow's close guard would otherwise be bypassed). `null` =
+   * modal hidden.
+   */
+  mergeFlowSource: string | null;
 
   // Actions — D39-2.3b fills bodies.
   setHistoryFilter: (filter: GitHistoryFilter) => void;
@@ -165,6 +175,7 @@ export interface GitSlice {
     files?: string[],
   ) => Promise<{ status: "ok" } | { status: "stashed"; stash_id: string }>;
   setMergeInProgress: (state: GitMergeInProgress | null) => void;
+  setMergeFlowSource: (source: string | null) => void;
   setLastError: (message: string | null) => void;
 }
 
@@ -232,6 +243,7 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
   status: null,
   stashes: null,
   mergeInProgress: null,
+  mergeFlowSource: null,
   lastError: null,
 
   setHistoryFilter: (filter) => set({ historyFilter: filter }),
@@ -242,6 +254,11 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
     set({ logCache: {}, status: null, branches: null, stashes: null }),
 
   setMergeInProgress: (state) => set({ mergeInProgress: state }),
+  // #972 (Codex P1 on PR #974) — UI-only field; setting null hides the
+  // MergeFlow modal. The modal itself is mounted at the BottomPanel level
+  // so it survives tab switches and its conflict-state close guard cannot
+  // be bypassed by switching away from the Git tab mid-resolution.
+  setMergeFlowSource: (source) => set({ mergeFlowSource: source }),
   setLastError: (message) => set({ lastError: message }),
 
   loadBranches: async () => {

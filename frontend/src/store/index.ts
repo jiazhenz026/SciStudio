@@ -75,6 +75,26 @@ export const useAppStore = create<AppStore>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
+        // ADR-039 §3.5 (#972) — `activeBottomTab` gained a `git` value
+        // when Git affordances moved into a bottom-panel tab. Old
+        // persisted snapshots may still carry retired values
+        // (e.g. `"problems"`) or future-removed tabs. Coerce anything
+        // not in the current BottomTab union back to `"config"` so the
+        // panel always renders something sensible.
+        const VALID_BOTTOM_TABS = new Set<string>([
+          "ai",
+          "config",
+          "logs",
+          "lineage",
+          "jobs",
+          "git",
+        ]);
+        if (
+          typeof state.activeBottomTab !== "string" ||
+          !VALID_BOTTOM_TABS.has(state.activeBottomTab)
+        ) {
+          state.activeBottomTab = "config";
+        }
         const defaults = { palette: 15, preview: 22, bottom: 30 };
         const mins = { palette: 4, preview: 4, bottom: 10 };
         const sizes = state.panelSizes;
