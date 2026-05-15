@@ -26,7 +26,10 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { registerConflictDecorations } from "./Git/ConflictMarkerDecoration";
+import {
+  registerConflictDecorations,
+  resolveRegionText,
+} from "./Git/ConflictMarkerDecoration";
 import { useAppStore } from "../store";
 import type { FileTab } from "../store/types";
 
@@ -218,19 +221,35 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
     if (!editor || !monaco) return;
     let dispose: (() => void) | null = null;
     try {
-      dispose = registerConflictDecorations(editor, monaco, () => {
-        // D39-2.4b: dispatch the appropriate text mutation onto the
-        // Monaco model based on `action.type` + `region` extents.
-        throw new Error(
-          "TODO: D39-2.4b — implement ConflictAction handler. " +
-            "Should splice the chosen text into the Monaco model.",
-        );
+      dispose = registerConflictDecorations(editor, monaco, (action, region) => {
+        // D39-2.4b: splice the chosen text into the Monaco model. Uses
+        // `pushEditOperations` so the change participates in Monaco's
+        // undo stack — the user can Ctrl+Z to revert a misclicked
+        // "Accept Both" without losing the conflict markers.
+        try {
+          const model = editor.getModel();
+          if (!model) return;
+          const fullText = model.getValue();
+          const next = resolveRegionText(fullText, region, action);
+          if (next === fullText) return;
+          const fullRange = model.getFullModelRange();
+          editor.executeEdits("conflict-resolution", [
+            {
+              range: fullRange,
+              text: next,
+              forceMoveMarkers: true,
+            },
+          ]);
+        } catch (err) {
+          console.warn(
+            "ConflictMarkerDecoration: failed to apply action",
+            err,
+          );
+        }
       });
     } catch (err) {
-      // Expected during D39-2.4a skeleton phase. After D39-2.4b lifts
-      // the throw, this branch becomes a real error report.
       console.warn(
-        "ConflictMarkerDecoration not registered (skeleton phase):",
+        "ConflictMarkerDecoration failed to register:",
         err,
       );
     }

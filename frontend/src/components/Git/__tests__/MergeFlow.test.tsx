@@ -1,22 +1,50 @@
 /**
- * D39-2.4a SKELETON tests for `MergeFlow.tsx`.
+ * D39-2.4b tests for `MergeFlow.tsx`.
  *
- * The full state-machine tests (idle → in_flight → conflict / clean /
- * fast-forward / error) are `it.skip(...)` until D39-2.4b lifts the
- * stub. Skeleton verifies the only thing the SKELETON renders: the
- * modal opens when `isOpen` is true and closes when false.
+ * Mocks `api.gitMerge` / `gitMergeComplete` / `gitMergeAbort` and asserts
+ * state-machine transitions: fast-forward / clean / conflict / error,
+ * plus the conflict → complete / abort branches.
  */
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MergeFlow } from "../MergeFlow";
+
+// Mock the api module before importing the component.
+vi.mock("../../../lib/api", async () => {
+  const actual = await vi.importActual<typeof import("../../../lib/api")>(
+    "../../../lib/api",
+  );
+  return {
+    ...actual,
+    api: {
+      gitMerge: vi.fn(),
+      gitMergeComplete: vi.fn(),
+      gitMergeAbort: vi.fn(),
+      gitMergeStageFile: vi.fn(),
+    },
+  };
+});
+
+// Mock window.confirm so the Abort flow proceeds without an interactive prompt.
+const confirmSpy = vi.fn();
+
+import { api } from "../../../lib/api";
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
 });
 
-describe("MergeFlow (SKELETON — full behaviour deferred to D39-2.4b)", () => {
+beforeEach(() => {
+  confirmSpy.mockReset();
+  confirmSpy.mockReturnValue(true);
+  // jsdom doesn't ship confirm by default in some setups; force it.
+  window.confirm = confirmSpy;
+});
+
+describe("MergeFlow (D39-2.4b)", () => {
   it("renders nothing when isOpen=false", () => {
     const { container } = render(
       <MergeFlow sourceBranch="feature-x" isOpen={false} onClose={() => {}} />,
@@ -24,83 +52,138 @@ describe("MergeFlow (SKELETON — full behaviour deferred to D39-2.4b)", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("renders the skeleton stub when isOpen=true", () => {
+  it("fast-forward path closes the modal after a brief toast", async () => {
+    vi.useFakeTimers();
+    (api.gitMerge as ReturnType<typeof vi.fn>).mockResolvedValue({
+      result: "fast-forward",
+      conflicted_files: [],
+    });
+    const onClose = vi.fn();
+    render(
+      <MergeFlow sourceBranch="feature-x" isOpen={true} onClose={onClose} />,
+    );
+    // In-flight phase appears first.
+    expect(screen.getByTestId("merge-flow-in-flight")).toBeDefined();
+    // Let the promise resolve.
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    // Success phase shown.
+    expect(screen.getByTestId("merge-flow-success")).toBeDefined();
+    // After the 1s toast, onClose fires.
+    await act(async () => {
+      vi.advanceTimersByTime(1100);
+    });
+    expect(onClose).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("clean three-way path closes the modal after a brief toast", async () => {
+    vi.useFakeTimers();
+    (api.gitMerge as ReturnType<typeof vi.fn>).mockResolvedValue({
+      result: "clean",
+      conflicted_files: [],
+    });
+    const onClose = vi.fn();
+    render(
+      <MergeFlow sourceBranch="feature-x" isOpen={true} onClose={onClose} />,
+    );
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(screen.getByTestId("merge-flow-success")).toBeDefined();
+    await act(async () => {
+      vi.advanceTimersByTime(1100);
+    });
+    expect(onClose).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("conflict path renders ConflictResolveView with the file list", async () => {
+    (api.gitMerge as ReturnType<typeof vi.fn>).mockResolvedValue({
+      result: "conflict",
+      conflicted_files: ["a.py", "b.py"],
+    });
     render(
       <MergeFlow sourceBranch="feature-x" isOpen={true} onClose={() => {}} />,
     );
-    expect(screen.getByTestId("merge-flow-skeleton")).toBeDefined();
+    await waitFor(() => {
+      expect(screen.getByTestId("merge-flow-conflict")).toBeDefined();
+    });
+    expect(screen.getByTestId("conflict-resolve-view")).toBeDefined();
+    expect(screen.getByText("a.py")).toBeDefined();
+    expect(screen.getByText("b.py")).toBeDefined();
   });
 
-  /*
-   * D39-2.4b test plan: cover every transition of the state machine
-   * documented in MergeFlow.tsx.
-   *
-   * ───── Phase: IDLE → IN_FLIGHT → SUCCESS (fast-forward) ─────
-   *   - Mock `api.gitMerge` to resolve with
-   *       { result: "fast-forward", conflicted_files: [] }
-   *   - Render MergeFlow with isOpen=true; assert the in-flight spinner.
-   *   - After resolve: assert `onClose` is called within 1s (toast
-   *     debounce) and `setMergeInProgress(null)` was dispatched.
-   */
-  it.skip("fast-forward path closes modal + clears mergeInProgress", () => {
-    // D39-2.4b: implement per docstring above.
+  it("conflict path: Complete Merge fires gitMergeComplete when all resolved", async () => {
+    const user = userEvent.setup();
+    (api.gitMerge as ReturnType<typeof vi.fn>).mockResolvedValue({
+      result: "conflict",
+      conflicted_files: ["a.py"],
+    });
+    (api.gitMergeStageFile as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "ok",
+    });
+    (api.gitMergeComplete as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "ok",
+      commit_sha: "abc1234",
+    });
+    const onClose = vi.fn();
+    render(
+      <MergeFlow sourceBranch="feature-x" isOpen={true} onClose={onClose} />,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("merge-flow-conflict")).toBeDefined();
+    });
+    // Mark a.py resolved.
+    await user.click(screen.getByTestId("conflict-mark-resolved-a.py"));
+    await waitFor(() => {
+      expect(api.gitMergeStageFile).toHaveBeenCalledWith("a.py");
+    });
+    // Now Complete is enabled.
+    const complete = screen.getByTestId("conflict-complete-button");
+    expect(complete.getAttribute("aria-disabled")).toBe("false");
+    await user.click(complete);
+    await waitFor(() => {
+      expect(api.gitMergeComplete).toHaveBeenCalled();
+    });
   });
 
-  /*
-   * ───── Phase: IDLE → IN_FLIGHT → SUCCESS (clean three-way) ─────
-   *   - Mock api.gitMerge → { result: "clean", conflicted_files: [] }
-   *   - Same close + clear assertions as above; toast copy differs.
-   */
-  it.skip("clean three-way path closes modal + clears mergeInProgress", () => {
-    // D39-2.4b: implement per docstring above.
+  it("conflict path: Abort Merge fires gitMergeAbort", async () => {
+    const user = userEvent.setup();
+    (api.gitMerge as ReturnType<typeof vi.fn>).mockResolvedValue({
+      result: "conflict",
+      conflicted_files: ["a.py"],
+    });
+    (api.gitMergeAbort as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "ok",
+    });
+    const onClose = vi.fn();
+    render(
+      <MergeFlow sourceBranch="feature-x" isOpen={true} onClose={onClose} />,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("merge-flow-conflict")).toBeDefined();
+    });
+    await user.click(screen.getByTestId("conflict-abort-button"));
+    expect(confirmSpy).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(api.gitMergeAbort).toHaveBeenCalled();
+    });
+    expect(onClose).toHaveBeenCalled();
   });
 
-  /*
-   * ───── Phase: IDLE → IN_FLIGHT → CONFLICT ─────
-   *   - Mock api.gitMerge → { result: "conflict",
-   *                            conflicted_files: ["a.py", "b.py"] }
-   *   - After resolve: assert ConflictResolveView is mounted and that
-   *     `setMergeInProgress({ source_branch: "feature-x",
-   *                           conflicted_files: ["a.py", "b.py"] })`
-   *     was dispatched.
-   *   - Assert modal-close is BLOCKED while in CONFLICT phase
-   *     (calling onClose should be a no-op).
-   */
-  it.skip("conflict path renders ConflictResolveView + sets mergeInProgress + blocks close", () => {
-    // D39-2.4b: implement per docstring above.
-  });
-
-  /*
-   * ───── Phase: CONFLICT → IN_FLIGHT_COMPLETE → SUCCESS ─────
-   *   - From conflict state, simulate ConflictResolveView's
-   *     `onResolveAll` callback firing.
-   *   - Mock api.gitMergeComplete → resolves.
-   *   - Assert: phase advances, `gitSlice.invalidateHistory` is called,
-   *     `setMergeInProgress(null)` is called, modal closes.
-   */
-  it.skip("conflict → complete fires gitMergeComplete and clears state", () => {
-    // D39-2.4b: implement per docstring above.
-  });
-
-  /*
-   * ───── Phase: CONFLICT → IN_FLIGHT_ABORT → CLOSE ─────
-   *   - Simulate `onAbort` callback firing.
-   *   - Mock api.gitMergeAbort → resolves.
-   *   - Assert: phase advances, `setMergeInProgress(null)` called, modal
-   *     closes WITHOUT calling invalidateHistory's commit-side branch
-   *     (no new commit was made; status invalidation still happens).
-   */
-  it.skip("conflict → abort fires gitMergeAbort and reverts state", () => {
-    // D39-2.4b: implement per docstring above.
-  });
-
-  /*
-   * ───── Phase: IN_FLIGHT → ERROR ─────
-   *   - Mock api.gitMerge → reject with ApiError("merge failed").
-   *   - Assert: phase=ERROR, error message visible, OK button closes
-   *     the modal, mergeInProgress stays null.
-   */
-  it.skip("error path surfaces the error and lets the user dismiss", () => {
-    // D39-2.4b: implement per docstring above.
+  it("error path: rejected gitMerge surfaces the error message", async () => {
+    (api.gitMerge as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("merge engine exploded"),
+    );
+    const onClose = vi.fn();
+    render(
+      <MergeFlow sourceBranch="feature-x" isOpen={true} onClose={onClose} />,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("merge-flow-error")).toBeDefined();
+    });
+    expect(screen.getByText(/merge engine exploded/)).toBeDefined();
   });
 });

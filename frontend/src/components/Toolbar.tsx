@@ -46,6 +46,7 @@ import type { ProjectResponse } from "../types/api";
 import { BranchPicker } from "./Git/BranchPicker";
 import { CommitDialog } from "./Git/CommitDialog";
 import { GitStatusBadge } from "./Git/GitStatusBadge";
+import { MergeFlow } from "./Git/MergeFlow";
 import { StashListPanel } from "./Git/StashListPanel";
 
 interface ToolbarProps {
@@ -217,6 +218,9 @@ export function Toolbar(props: ToolbarProps) {
   // ADR-039 §3.5 — Git toolbar local state. Commit dialog + stash drawer.
   const [commitOpen, setCommitOpen] = useState(false);
   const [stashOpen, setStashOpen] = useState(false);
+  // ADR-039 §3.5a / D39-2.4b — merge flow modal. `mergeSource` is the
+  // branch the user wants to merge INTO the current branch.
+  const [mergeSource, setMergeSource] = useState<string | null>(null);
   const gitToolbar = { setCommitOpen, setStashOpen };
 
   return (
@@ -492,7 +496,9 @@ export function Toolbar(props: ToolbarProps) {
               data-testid="git-toolbar-slot"
               className="flex shrink-0 items-center gap-1"
             >
-              <BranchPicker />
+              <BranchPicker
+                onMergeRequested={(sourceBranch) => setMergeSource(sourceBranch)}
+              />
               <GitStatusBadge
                 onClick={() => gitToolbar.setCommitOpen(true)}
               />
@@ -526,6 +532,11 @@ export function Toolbar(props: ToolbarProps) {
       {/* ADR-039 §3.5 — Git dialogs (rendered outside header to avoid clipping) */}
       <CommitDialog open={commitOpen} onClose={() => setCommitOpen(false)} />
       <StashListPanel open={stashOpen} onClose={() => setStashOpen(false)} />
+      <MergeFlow
+        sourceBranch={mergeSource ?? ""}
+        isOpen={mergeSource !== null}
+        onClose={() => setMergeSource(null)}
+      />
     </TooltipProvider>
   );
 }
