@@ -70,7 +70,7 @@
  *         <ul data-testid="git-history-rows" role="list">
  *           {visibleCommits.map((commit) => (
  *             <li
- *               key={commit.commit_sha}
+ *               key={commit.sha}
  *               data-testid={`git-history-row-${commit.short_sha}`}
  *               data-commit-prefix={classifyPrefix(commit.subject)}  // "auto"|"agent"|"user"
  *               role="button"

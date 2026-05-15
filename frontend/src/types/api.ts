@@ -259,14 +259,25 @@ export interface TreeResponse {
  * and the backend `GitEngine.log()` plumbing parser (commits are formatted
  * with `--format=...` so this is the stable wire contract).
  *
- * The `prefix` field is derived from the message in `gitSlice` (NOT sent
- * by the server) — see ADR-039 §3.4 / §3.4a for the legend:
- *   - "auto"   → message starts with `auto:`  (hidden by default filter)
- *   - "agent"  → message starts with `agent:` (visible with 🤖 icon)
+ * Wire shape per `src/scieasy/core/versioning/git_engine.py::log()`:
+ *   `{ sha, short_sha, parents, author_name, author_email, author_date,
+ *      subject, body, branches }`
+ *
+ * Note: the full SHA field is named `sha` on the wire (NOT `commit_sha`)
+ * — that mirrors what `git log --format=%H` produces. Other endpoints
+ * (`/api/git/commit` response, `head_state()` dataclass) DO use
+ * `commit_sha`. Consumers must respect the per-endpoint naming.
+ *
+ * The `prefix` legend is derived client-side from the subject in
+ * `gitSlice.classifyPrefix()` (NOT a wire field) — see ADR-039 §3.4 /
+ * §3.4a:
+ *   - "auto"   → subject starts with `auto:`  (hidden by default filter)
+ *   - "agent"  → subject starts with `agent:` (visible with 🤖 icon)
  *   - "user"   → no recognized prefix         (visible with 👤 icon)
  */
 export interface GitCommit {
-  commit_sha: string;
+  /** Full 40-char commit SHA. Backend wire field is `sha`, NOT `commit_sha`. */
+  sha: string;
   short_sha: string;
   parents: string[];
   author_name: string;
@@ -278,23 +289,37 @@ export interface GitCommit {
   branches: string[];
 }
 
-/** Local branch row from `GET /api/git/branches`. */
+/**
+ * Local branch row from `GET /api/git/branches`.
+ *
+ * Wire shape is `{ name, head_sha, is_current }` per
+ * `GitEngine.branches()` in `src/scieasy/core/versioning/git_engine.py`.
+ * Codex review on PR #930 flagged a draft `commit_sha` field that did
+ * not match the backend; fixed to mirror the actual payload.
+ */
 export interface GitBranch {
   name: string;
-  /** Tip commit sha. */
-  commit_sha: string;
+  /** Tip commit sha (backend field is `head_sha`, NOT `commit_sha`). */
+  head_sha: string;
   /** True if this branch is currently checked out. */
   is_current: boolean;
 }
 
-/** Stash entry from `GET /api/git/stash`. */
+/**
+ * Stash entry from `GET /api/git/stash`.
+ *
+ * Wire shape is `{ stash_id, message, date }` per
+ * `GitEngine.stash_list()` in `src/scieasy/core/versioning/git_engine.py`.
+ * No `index` or `created_at` field is sent — Codex review on PR #930
+ * flagged a draft contract mismatch; fixed to mirror the actual payload.
+ */
 export interface GitStashEntry {
   /** Stash identifier (e.g. `stash@{0}`). */
   stash_id: string;
-  /** Index in stash list (0 = most recent). */
-  index: number;
+  /** Stash message (the `%gs` field — git's stash log subject). */
   message: string;
-  created_at: string;
+  /** ISO-8601 date string (the `%ai` field — author/committer date). */
+  date: string;
 }
 
 /** Diff payload from `GET /api/git/diff`. */
@@ -313,13 +338,22 @@ export interface GitStatus {
 }
 
 /**
- * Result of `POST /api/git/merge` and `/cherry-pick`. The discriminated
- * union mirrors `GitEngine.merge()` return classification — the backend
- * normalizes git's exit code + stderr into one of these three shapes.
+ * Result of `POST /api/git/merge` and `/cherry-pick`.
+ *
+ * Wire shape is uniformly `{ result, conflicted_files }` for ALL three
+ * variants per `GitEngine.merge()` / `cherry_pick()` in
+ * `src/scieasy/core/versioning/git_engine.py`. Successful (FF / clean)
+ * results return `conflicted_files: []` and do NOT include a separate
+ * `commit_sha`; consumers that need the post-merge HEAD must call
+ * `GET /api/git/log?limit=1` (or wait for the `git.head_changed` WS
+ * event) after a successful merge.
+ *
+ * Codex review on PR #930 flagged a draft union that put `commit_sha`
+ * on the success variants; fixed to mirror the actual payload.
  */
 export type GitMergeResult =
-  | { result: "fast-forward"; commit_sha: string }
-  | { result: "clean"; commit_sha: string }
+  | { result: "fast-forward"; conflicted_files: [] }
+  | { result: "clean"; conflicted_files: [] }
   | { result: "conflict"; conflicted_files: string[] };
 
 /** Response shape for `POST /api/git/commit`. */

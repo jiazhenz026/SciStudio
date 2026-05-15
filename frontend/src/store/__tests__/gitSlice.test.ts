@@ -13,7 +13,7 @@ import type { GitCommit } from "../../types/api";
 
 function mk(subject: string, sha = "deadbeef"): GitCommit {
   return {
-    commit_sha: sha,
+    sha,
     short_sha: sha.slice(0, 7),
     parents: [],
     author_name: "Test",

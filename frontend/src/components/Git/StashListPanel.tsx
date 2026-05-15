@@ -42,21 +42,21 @@
  *        stashes.length === 0 ?
  *          <div data-testid="stash-list-empty">No stashes yet.</div> :
  *          <ul data-testid="stash-list-rows" role="list">
- *            {stashes.map(s => (
+ *            {stashes.map((s, i) => (
  *              <li
  *                key={s.stash_id}
- *                data-testid={`stash-row-${s.index}`}
+ *                data-testid={`stash-row-${i}`}
  *              >
  *                <div>
  *                  <span data-testid="stash-row-id">{s.stash_id}</span>
  *                  <span data-testid="stash-row-msg">{s.message}</span>
- *                  <time data-testid="stash-row-date">{s.created_at}</time>
+ *                  <time data-testid="stash-row-date">{s.date}</time>
  *                </div>
- *                <Button data-testid={`stash-row-apply-${s.index}`}
+ *                <Button data-testid={`stash-row-apply-${i}`}
  *                        onClick={() => onApply(s.stash_id)}>
  *                  Apply
  *                </Button>
- *                <Button data-testid={`stash-row-drop-${s.index}`}
+ *                <Button data-testid={`stash-row-drop-${i}`}
  *                        variant="destructive"
  *                        onClick={() => onDrop(s.stash_id)}>
  *                  Drop
