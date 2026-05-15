@@ -14,6 +14,7 @@ import { PairEditorModal } from "./components/PairEditorModal";
 import { BlockPalette } from "./components/BlockPalette";
 import { BottomPanel } from "./components/BottomPanel";
 import { CodeEditor } from "./components/CodeEditor";
+import { MergeFlow } from "./components/Git/MergeFlow";
 import { DataPreview } from "./components/DataPreview";
 import { ProjectDialog } from "./components/ProjectDialog";
 import { ProjectTree } from "./components/ProjectTree";
@@ -1222,8 +1223,44 @@ export default function App() {
           {busy ? (
             <div className="fixed bottom-4 right-4 rounded-full bg-ink px-4 py-2 text-sm text-white">Working…</div>
           ) : null}
+
+          {/* ADR-039 §3.5 (#975) — MergeFlow modal lives at App level so
+              it survives BOTH bottom-tab switches AND project close. If
+              we mounted it inside `BottomPanel.tsx` (the previous PR #974
+              fix), closing/switching the active project would unmount
+              BottomPanel and bypass MergeFlow's mid-conflict close-guard.
+              The modal is hidden via `isOpen={mergeFlowSource !== null}`
+              and reads the same gitSlice state regardless of project. */}
+          <AppLevelMergeFlow />
         </div>
       </TooltipProvider>
     </ReactFlowProvider>
+  );
+}
+
+/**
+ * App-level MergeFlow mount (ADR-039 §3.5, issue #975).
+ *
+ * Wraps the gitSlice subscription so the App component itself does not
+ * re-render on every `mergeFlowSource` / `openFileTab` change. Driven by
+ * `gitSlice.mergeFlowSource`: BranchPicker (inside GitTab inside
+ * BottomPanel) sets the source; this component clears it on
+ * close/abort/complete. Lives outside the `currentProject` conditional
+ * in App.tsx so it survives project-switch and project-close events
+ * during mid-conflict resolution.
+ */
+function AppLevelMergeFlow() {
+  const mergeFlowSource = useAppStore((s) => s.mergeFlowSource);
+  const setMergeFlowSource = useAppStore((s) => s.setMergeFlowSource);
+  const openFileTab = useAppStore((s) => s.openFileTab);
+  return (
+    <MergeFlow
+      sourceBranch={mergeFlowSource ?? ""}
+      isOpen={mergeFlowSource !== null}
+      onClose={() => setMergeFlowSource(null)}
+      onOpenFile={(path) => {
+        openFileTab(path);
+      }}
+    />
   );
 }

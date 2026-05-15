@@ -6,7 +6,6 @@ import type { BlockSchemaResponse, LogEntry, WorkflowNode } from "../types/api";
 import type { BottomTab } from "../types/ui";
 import { TerminalTabs } from "./AIChat/TerminalTabs";
 import { GitTab } from "./Git/GitTab";
-import { MergeFlow } from "./Git/MergeFlow";
 import { LineageTab } from "./Lineage/LineageTab";
 import { type PortRow, PortEditorTable } from "./PortEditorTable";
 
@@ -285,14 +284,12 @@ export function BottomPanel({
   };
   const formatBadge = (n: number): string => (n > 99 ? "99+" : String(n));
 
-  // ADR-039 §3.5 (#972 — Codex P1 on PR #974) — MergeFlow is mounted
-  // here (NOT inside GitTab) so a bottom-tab switch during a conflict
-  // resolution does not unmount the modal and bypass its close guard.
-  // Driven by `gitSlice.mergeFlowSource`: BranchPicker sets the source
-  // and the merge-flow setter clears it on success/abort/close.
-  const mergeFlowSource = useAppStore((s) => s.mergeFlowSource);
-  const setMergeFlowSource = useAppStore((s) => s.setMergeFlowSource);
-  const openFileTab = useAppStore((s) => s.openFileTab);
+  // ADR-039 §3.5 — MergeFlow modal is mounted at App.tsx level (NOT
+  // here) so it survives BOTH bottom-tab switches AND project close
+  // (Codex round-2 P1 on PR #974, follow-up issue #975). BottomPanel
+  // itself unmounts when `currentProject` becomes null, which would
+  // otherwise bypass MergeFlow's mid-conflict close-guard. See
+  // App.tsx for the current mount.
 
   return (
     <section className="flex h-full flex-col overflow-hidden bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(238,231,219,0.98))]">
@@ -370,19 +367,6 @@ export function BottomPanel({
           <PlaceholderTab />
         ) : null}
       </div>
-
-      {/* ADR-039 §3.5 (#972) — MergeFlow is rendered here so it survives
-          bottom-tab switches; its conflict-state close guard would
-          otherwise be bypassed if the Git tab unmounted mid-resolution
-          (Codex P1 on PR #974). */}
-      <MergeFlow
-        sourceBranch={mergeFlowSource ?? ""}
-        isOpen={mergeFlowSource !== null}
-        onClose={() => setMergeFlowSource(null)}
-        onOpenFile={(path) => {
-          openFileTab(path);
-        }}
-      />
     </section>
   );
 }
