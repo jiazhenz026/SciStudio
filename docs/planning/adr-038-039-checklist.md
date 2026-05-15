@@ -139,12 +139,12 @@
 
 ### Phase D38-2.3 — Collapse metadata.db (Owner: ID38-3, 1 agent, migration) [ADR-038 §6 Phase 2]
 
-- [ ] Sub-issue opened, branch off tracking branch after D38-2.2 merged
-- [ ] `src/scieasy/core/metadata_store.py` → 6-month deprecation shim re-exporting unified store + DeprecationWarning [ADR-038 §5.2]
-- [ ] `src/scieasy/core/meta/framework.py` — `FrameworkMeta.lineage_id` populated with `block_execution_id` in run context [ADR-038 §3.2, §5.2]
-- [ ] `src/scieasy/engine/scheduler.py::_persist_output_metadata` — write to new `data_objects` table [ADR-038 §5.2]
-- [ ] `src/scieasy/engine/checkpoint.py` — relocate `<project>/checkpoints/` to `<project>/.scieasy/pause/`; docstring clarifies pause/resume scope vs lineage [ADR-038 §5.2]
-- [ ] Project-open auto-creates lineage.db if missing; no historical metadata.db migration (per user direction 2026-05-15)
+- [x] Sub-issue opened, branch off tracking branch after D38-2.2 merged → [#929](https://github.com/zjzcpj/SciEasy/issues/929)
+- [x] `src/scieasy/core/metadata_store.py` → 6-month deprecation shim re-exporting unified store + DeprecationWarning [ADR-038 §5.2] → [PR #929 — deprecation shim](https://github.com/zjzcpj/SciEasy/pull/929)
+- [~] `src/scieasy/core/meta/framework.py` — `FrameworkMeta.lineage_id` populated with `block_execution_id` in run context [ADR-038 §3.2, §5.2] → `with_lineage_id` helper added; end-to-end stamping escalated on #929 (requires moving allocation site from recorder to scheduler per ADR §3.2 — core/lineage/ is out of scope for D38-2.3)
+- [x] `src/scieasy/engine/scheduler.py::_persist_output_metadata` — write to new `data_objects` table [ADR-038 §5.2] → [PR #929](https://github.com/zjzcpj/SciEasy/pull/929)
+- [x] `src/scieasy/engine/checkpoint.py` — relocate `<project>/checkpoints/` to `<project>/.scieasy/pause/`; docstring clarifies pause/resume scope vs lineage [ADR-038 §5.2] → [PR #929 — checkpoint_dir_for relocation in api/runtime.py](https://github.com/zjzcpj/SciEasy/pull/929)
+- [x] Project-open auto-creates lineage.db if missing; no historical metadata.db migration (per user direction 2026-05-15) → existing D38-2.2 wiring honoured; legacy metadata.db detection logs INFO line and is otherwise ignored
 - [ ] Tests pass; CI green; PR merged into tracking branch
 
 ### Phase D38-2.4a — Backend REST + AIBlock rename (Owner: ID38-4a, 1 agent) [ADR-038 §6 Phase 3 backend]

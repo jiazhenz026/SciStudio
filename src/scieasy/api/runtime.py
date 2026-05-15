@@ -356,26 +356,59 @@ class ApiRuntime:
         except Exception:
             logger.warning("ADR-038: Failed to initialize LineageStore (non-fatal)", exc_info=True)
             self.lineage_store = None
+        # ADR-038 §6 Phase 2 (D38-2.3): publish the active store for the
+        # deprecation-shim ``MetadataStore`` so legacy read-only callers
+        # (``ai/agent/mcp/tools_*``) delegate through to the unified
+        # ``data_objects`` table. None when init failed.
+        try:
+            from scieasy.core.metadata_store import _set_active_lineage_store
+
+            _set_active_lineage_store(self.lineage_store)
+        except Exception:
+            logger.debug(
+                "ADR-038: failed to publish lineage store to shim (non-fatal)",
+                exc_info=True,
+            )
 
     def _init_metadata_store(self, project_path: Path) -> None:
-        """Initialize the project-level MetadataStore (ADR-032).
+        """Install the deprecation-shim :class:`MetadataStore` (ADR-038 §6).
 
-        Creates or opens the SQLite database at ``<project>/metadata.db``
-        and sets the module-level singleton so that the engine scheduler
-        can persist DataObject metadata after block execution.
+        ADR-032's ``metadata.db`` was superseded by ADR-038's unified
+        ``lineage.db`` in Phase D38-2.3. This method:
 
-        Non-fatal: if initialization fails the store is set to None and
-        the system degrades to pre-ADR-032 behaviour (no metadata persistence).
+        * Detects an existing legacy ``<project>/metadata.db`` and logs
+          an ``INFO`` line — per ADR-038 §6 Phase 2 + the user direction
+          recorded 2026-05-15 the project is pre-release and no historical
+          data migration is performed. The file is left in place untouched
+          so a forensic user can still inspect it manually.
+        * Sets the module-level :class:`MetadataStore` shim singleton so
+          out-of-scope read-only callers (``ai/agent/mcp/tools_*``) keep
+          working against the unified store. Writes through the shim are
+          no-ops; the authoritative writer is the :class:`LineageRecorder`
+          wired by :meth:`start_workflow`.
+
+        Non-fatal: shim construction never raises in practice but we keep
+        the defensive ``try`` block for symmetry with the prior
+        implementation. On failure we explicitly clear the singleton so a
+        stale shim from a previous project does not leak.
         """
         try:
             from scieasy.core.metadata_store import MetadataStore, set_metadata_store
 
-            db_path = project_path / "metadata.db"
-            store = MetadataStore(db_path)
-            set_metadata_store(store)
-            logger.info("ADR-032: MetadataStore opened at %s", db_path)
+            legacy_db = project_path / "metadata.db"
+            if legacy_db.exists():
+                logger.info(
+                    "ADR-038: legacy metadata.db detected at %s; superseded by lineage.db (ignored, file retained)",
+                    legacy_db,
+                )
+
+            # The shim ignores ``db_path`` — pass it for repr clarity only.
+            set_metadata_store(MetadataStore(legacy_db))
         except Exception:
-            logger.warning("ADR-032: Failed to initialize MetadataStore (non-fatal)", exc_info=True)
+            logger.warning(
+                "ADR-038: Failed to install MetadataStore deprecation shim (non-fatal)",
+                exc_info=True,
+            )
             from scieasy.core.metadata_store import set_metadata_store
 
             set_metadata_store(None)
@@ -387,11 +420,10 @@ class ApiRuntime:
             raise FileExistsError(f"Project directory already exists: {project_path}")
 
         # ADR-038 §3.5 / §5.2: run history lives at ``.scieasy/lineage.db``;
-        # the legacy ``lineage/`` and ``checkpoints/`` top-level dirs are
-        # retired in favour of ``.scieasy/`` (Phase D38-2.3 will relocate the
-        # checkpoint files themselves to ``.scieasy/pause/`` — until then the
-        # ``CheckpointManager`` continues to use whatever dir
-        # :meth:`checkpoint_dir_for` returns).
+        # pause/resume checkpoints live at ``.scieasy/pause/<workflow_id>/``
+        # (Phase D38-2.3). The legacy top-level ``lineage/`` and
+        # ``checkpoints/`` dirs are retired — :meth:`checkpoint_dir_for`
+        # now returns the ``.scieasy/pause/`` location.
         for subdir in (
             "workflows",
             "data/raw",
@@ -1083,8 +1115,22 @@ class ApiRuntime:
         return visited
 
     def checkpoint_dir_for(self, workflow_id: str) -> Path:
+        """Return the per-workflow pause/resume checkpoint directory.
+
+        Per ADR-038 §5.2 (Phase D38-2.3) the checkpoint files relocate
+        from ``<project>/checkpoints/<workflow_id>/`` to
+        ``<project>/.scieasy/pause/<workflow_id>/``. The semantics
+        (single-slot, overwrite-on-terminal-event per ADR-012) are
+        unchanged — only the path moves so the user-visible top-level
+        project directory stays clean.
+
+        Backward compatibility: when a legacy ``checkpoints/<workflow_id>/``
+        directory exists from a pre-Phase 2 run it is **not** migrated
+        (per the ADR-038 §6 Phase 2 no-migration policy). The user can
+        delete it manually; new runs overwrite into the new location.
+        """
         project = self.require_active_project()
-        return Path(project.path) / "checkpoints" / workflow_id
+        return Path(project.path) / ".scieasy" / "pause" / workflow_id
 
     # ------------------------------------------------------------------
     # ADR-038: per-run lineage construction

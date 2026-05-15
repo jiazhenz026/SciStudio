@@ -105,3 +105,47 @@ class FrameworkMeta(BaseModel):
             derived_from=changes.pop("derived_from", self.object_id),
             **changes,
         )
+
+    def with_lineage_id(self, lineage_id: str) -> FrameworkMeta:
+        """Return a copy of this ``FrameworkMeta`` with ``lineage_id`` set.
+
+        Per ADR-038 §3.2 / ADR-027 D5 the framework slot's ``lineage_id``
+        field is a foreign key into the unified ``lineage.db`` —
+        specifically the ``block_executions.block_execution_id`` that
+        produced this DataObject.
+
+        Block authors do NOT call this helper. It is the engine's
+        post-execution stamping surface: the scheduler / lineage recorder
+        invokes it when materialising ``data_objects`` rows so the
+        persisted ``wire_payload`` carries the lineage join key. Because
+        :class:`FrameworkMeta` is ``frozen=True`` per ADR-027 D5, all
+        identity / provenance fields (``object_id``, ``derived_from``,
+        ``created_at``, ``source``) are preserved verbatim on the copy.
+
+        Phase D38-2.3 introduces this helper. The corresponding scheduler
+        wiring that calls it end-to-end is tracked separately because it
+        requires aligning the ``LineageRecorder.block_execution_id``
+        allocation site with ADR §3.2 (today the recorder allocates the
+        id at terminal-event time; per the ADR the scheduler should
+        allocate it pre-dispatch and propagate). See #929 escalation
+        comment for the cross-phase boundary.
+
+        Args:
+            lineage_id: The ``block_execution_id`` to stamp.
+
+        Returns:
+            A new ``FrameworkMeta`` with ``lineage_id`` set to the
+            supplied value and every other field unchanged.
+
+        Example:
+            >>> fm = FrameworkMeta(source="raw.tif")
+            >>> stamped = fm.with_lineage_id("be-abc123")
+            >>> stamped.lineage_id
+            'be-abc123'
+            >>> stamped.object_id == fm.object_id
+            True
+        """
+        # Pydantic v2 model_copy preserves immutability and re-validates
+        # the supplied override. ``deep=False`` is correct: every field is
+        # a scalar / datetime — no nested mutable structure to copy.
+        return self.model_copy(update={"lineage_id": lineage_id})

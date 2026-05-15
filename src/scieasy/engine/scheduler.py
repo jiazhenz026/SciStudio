@@ -466,7 +466,12 @@ class DAGScheduler:
                     env_payload = env_candidate
 
             self._block_outputs[node_id] = result
-            # ADR-032: persist DataObject metadata to project-level SQLite db.
+            # ADR-038 §5.2: persist DataObject identity to the unified
+            # ``data_objects`` table via :class:`LineageStore`. The
+            # LineageRecorder additionally writes ``block_io`` rows when
+            # it observes the BLOCK_DONE event emitted below — running
+            # this step first ensures the ``produced_by_execution`` FK
+            # on the recorder's ``block_io`` insert is already valid.
             self._persist_output_metadata(node_id, result, self._workflow.id)
             self._block_states[node_id] = BlockState.DONE
             await self._event_bus.emit(
@@ -606,7 +611,9 @@ class DAGScheduler:
                     env_payload = env_candidate
 
             self._block_outputs[node_id] = result
-            # ADR-032: persist DataObject metadata to project-level SQLite db.
+            # ADR-038 §5.2: persist DataObject identity to the unified
+            # ``data_objects`` table. See the parallel callsite in
+            # :meth:`_run_and_finalize` for the rationale.
             self._persist_output_metadata(node_id, result, self._workflow.id)
             self._block_states[node_id] = BlockState.DONE
             await self._event_bus.emit(
@@ -629,7 +636,7 @@ class DAGScheduler:
             self._active_tasks.pop(node_id, None)
             self._check_completion()
 
-    # -- ADR-032: Metadata persistence helpers --------------------------------
+    # -- ADR-038 §5.2: DataObject identity persistence -----------------------
 
     def _persist_output_metadata(
         self,
@@ -637,19 +644,31 @@ class DAGScheduler:
         result: dict[str, Any] | Any,
         workflow_id: str,
     ) -> None:
-        """Persist DataObject wire-format metadata to the project MetadataStore.
+        """Persist DataObject identity rows to the unified ``data_objects`` table.
 
-        Called in the engine process after receiving wire-format outputs from
-        a worker subprocess (ADR-032 Addendum 1).  Iterates the result dict
-        and calls ``put_wire()`` for each DataObject-shaped entry.
+        Phase D38-2.3 (ADR-038 §6 Phase 2): replaces the pre-ADR-038
+        ``metadata.db`` write path. Writes go to the active
+        :class:`~scieasy.core.lineage.LineageStore` so the ``data_objects``
+        catalog is populated even before the :class:`LineageRecorder`
+        observes the matching ``BLOCK_DONE`` event. Establishing the row
+        first satisfies the recorder's downstream ``block_io`` FK
+        invariant (each ``block_io.object_id`` must reference a known
+        ``data_objects.object_id``).
 
-        This method is **non-fatal**: any exception is logged as a warning
+        The method is **non-fatal**: any exception is logged as a warning
         and does not crash the workflow.
+
+        Locating the LineageStore:
+
+        * Prefer the recorder's already-bound store (the scheduler is
+          handed a ``lineage_recorder`` per ADR-038 §3.2 from
+          :meth:`ApiRuntime.start_workflow`).
+        * Fall back to the active :class:`ApiRuntime`'s ``lineage_store``
+          when the recorder is unset (unit-test runners that bypass the
+          recorder but still want lineage rows).
         """
         try:
-            from scieasy.core.metadata_store import get_metadata_store
-
-            store = get_metadata_store()
+            store = self._resolve_lineage_store()
             if store is None:
                 return
             if not isinstance(result, dict):
@@ -658,10 +677,31 @@ class DAGScheduler:
                 self._persist_single_output(store, value, workflow_id, node_id, port_name)
         except Exception:
             logger.warning(
-                "ADR-032: metadata persist failed for node %s (non-fatal)",
+                "ADR-038: data_objects persist failed for node %s (non-fatal)",
                 node_id,
                 exc_info=True,
             )
+
+    def _resolve_lineage_store(self) -> Any:
+        """Return the active :class:`LineageStore`, or ``None``.
+
+        Looks first at the lineage recorder bound to this scheduler, then
+        falls back to the deprecation shim's module-level handle which
+        :meth:`ApiRuntime._init_lineage_store` publishes on project open.
+        The lazy import keeps the scheduler usable outside the API server
+        (CLI / direct test invocation that bypasses :class:`ApiRuntime`).
+        """
+        recorder = self._lineage_recorder
+        if recorder is not None:
+            store = getattr(recorder, "_store", None)
+            if store is not None:
+                return store
+        try:
+            from scieasy.core.metadata_store import _active_lineage_store
+
+            return _active_lineage_store()
+        except Exception:
+            return None
 
     def _persist_single_output(
         self,
@@ -671,84 +711,105 @@ class DAGScheduler:
         node_id: str,
         port_name: str,
     ) -> None:
-        """Persist a single output value (scalar or collection) to the store."""
+        """Upsert one output port's wire payload(s) into ``data_objects``."""
         if not isinstance(value, dict):
             return
         # Collection: {"_collection": True, "items": [...], "item_type": "..."}
         if value.get("_collection"):
             for item in value.get("items", []):
                 if isinstance(item, dict) and "metadata" in item:
-                    try:
-                        store.put_wire(item, workflow_id=workflow_id, block_id=node_id, port_name=port_name)
-                    except Exception:
-                        logger.warning(
-                            "ADR-032: metadata persist failed for item in %s/%s (non-fatal)",
-                            node_id,
-                            port_name,
-                        )
+                    self._upsert_wire_row(store, item, node_id, port_name)
         elif "metadata" in value:
-            try:
-                store.put_wire(value, workflow_id=workflow_id, block_id=node_id, port_name=port_name)
-            except Exception:
-                logger.warning(
-                    "ADR-032: metadata persist failed for %s/%s (non-fatal)",
-                    node_id,
-                    port_name,
-                )
+            self._upsert_wire_row(store, value, node_id, port_name)
+
+    def _upsert_wire_row(
+        self,
+        store: Any,
+        wire_dict: dict[str, Any],
+        node_id: str,
+        port_name: str,
+    ) -> None:
+        """Materialise one ``DataObjectRow`` for a wire payload and upsert."""
+        try:
+            from datetime import datetime
+
+            from scieasy.core.lineage.record import DataObjectRow
+        except Exception:
+            logger.debug(
+                "ADR-038: lineage record import failed for %s/%s (non-fatal)",
+                node_id,
+                port_name,
+                exc_info=True,
+            )
+            return
+        metadata = wire_dict.get("metadata") or {}
+        framework = metadata.get("framework") or {}
+        object_id = framework.get("object_id") if isinstance(framework, dict) else None
+        if not isinstance(object_id, str) or not object_id:
+            return
+
+        type_chain = metadata.get("type_chain")
+        type_name = "DataObject"
+        if isinstance(type_chain, list) and type_chain:
+            leaf = type_chain[0]
+            if isinstance(leaf, str):
+                type_name = leaf
+        elif isinstance(wire_dict.get("type_name"), str):
+            type_name = wire_dict["type_name"]
+
+        created_at = framework.get("created_at") if isinstance(framework, dict) else None
+        if not isinstance(created_at, str) or not created_at:
+            created_at = datetime.now().isoformat()
+
+        row = DataObjectRow(
+            object_id=object_id,
+            type_name=type_name,
+            wire_payload=wire_dict,
+            created_at=created_at,
+            backend=wire_dict.get("backend") if isinstance(wire_dict.get("backend"), str) else None,
+            storage_path=wire_dict.get("path") if isinstance(wire_dict.get("path"), str) else None,
+            derived_from=framework.get("derived_from") if isinstance(framework, dict) else None,
+            # ``produced_by_execution`` is FK to ``block_executions``.
+            # The LineageRecorder owns that table and back-stamps the
+            # column from the BLOCK_DONE event handler. We leave it None
+            # here and rely on the recorder's INSERT OR IGNORE — but the
+            # recorder also re-inserts with ``produced_by_execution`` set
+            # for output direction, so the join key gets populated on the
+            # recorder's pass.
+            produced_by_execution=None,
+        )
+        try:
+            store.upsert_data_object(row)
+        except Exception:
+            logger.warning(
+                "ADR-038: upsert_data_object failed for %s/%s (non-fatal)",
+                node_id,
+                port_name,
+            )
 
     def _sync_checkpoint_to_store(self) -> None:
-        """Backfill metadata store from checkpoint data (ADR-032 Phase 2a).
+        """Backfill ``data_objects`` rows from checkpoint data on resume.
 
-        Called after loading checkpoint data into ``_block_outputs`` during
-        ``execute_from()``.  Only inserts entries that are not already in the
-        store (no overwrites).  Gracefully degrades when the store is
-        unavailable.
+        ADR-038 §5.2: when ``execute_from()`` reloads intermediate refs
+        from a checkpoint, the referenced DataObjects may not yet exist
+        in ``lineage.db`` (the checkpoint pre-dates the run). Iterate the
+        rehydrated outputs and upsert each one so downstream
+        ``block_io`` FK constraints succeed when the resumed run emits
+        BLOCK_DONE.
         """
         try:
-            from scieasy.core.metadata_store import get_metadata_store
-
-            store = get_metadata_store()
+            store = self._resolve_lineage_store()
             if store is None:
                 return
+            workflow_id = self._workflow.id
             for node_id, outputs in self._block_outputs.items():
                 if not isinstance(outputs, dict):
                     continue
                 for port_name, value in outputs.items():
-                    if not isinstance(value, dict):
-                        continue
-                    if value.get("_collection"):
-                        for item in value.get("items", []):
-                            if isinstance(item, dict) and "metadata" in item:
-                                try:
-                                    store.put_wire_if_missing(
-                                        item,
-                                        workflow_id=self._workflow.id,
-                                        block_id=node_id,
-                                        port_name=port_name,
-                                    )
-                                except Exception:
-                                    logger.warning(
-                                        "ADR-032: checkpoint sync failed for item in %s/%s (non-fatal)",
-                                        node_id,
-                                        port_name,
-                                    )
-                    elif "metadata" in value:
-                        try:
-                            store.put_wire_if_missing(
-                                value,
-                                workflow_id=self._workflow.id,
-                                block_id=node_id,
-                                port_name=port_name,
-                            )
-                        except Exception:
-                            logger.warning(
-                                "ADR-032: checkpoint sync failed for %s/%s (non-fatal)",
-                                node_id,
-                                port_name,
-                            )
+                    self._persist_single_output(store, value, workflow_id, node_id, port_name)
         except Exception:
             logger.warning(
-                "ADR-032: checkpoint-to-store sync failed (non-fatal)",
+                "ADR-038: checkpoint-to-store sync failed (non-fatal)",
                 exc_info=True,
             )
 
