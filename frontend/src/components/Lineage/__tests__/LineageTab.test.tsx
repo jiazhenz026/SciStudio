@@ -42,9 +42,20 @@
  *   };
  */
 
-import { describe, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+
+import { LineageTab } from "../LineageTab";
 
 describe("LineageTab", () => {
+  it("renders a non-throwing placeholder in the D38-2.4b skeleton phase", () => {
+    // Codex P1 (PR #937): the root component must render without
+    // throwing so users clicking the Lineage tab pre-IMPL do not crash
+    // the panel. D38-2.4c replaces the placeholder with the real layout.
+    render(<LineageTab />);
+    expect(screen.getByTestId("lineage-tab-placeholder")).toBeInTheDocument();
+  });
+
   it.skip("renders the two-pane layout", () => {
     /* IMPL D38-2.4c:
      *   1. Render <LineageTab /> with a mock store where runs has 1 entry.

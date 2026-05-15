@@ -155,7 +155,36 @@
 
 import type { ReactElement } from "react";
 
+/**
+ * D38-2.4b skeleton runtime stance — IMPORTANT
+ * --------------------------------------------
+ * Codex P1 (PR #937): leaf components in this skeleton all throw
+ * `new Error("TODO: D38-2.4c — ...")` to make the IMPL surface explicit.
+ * However, `BottomPanel.tsx` mounts THIS component when activeTab ===
+ * "lineage", which means a click on the Lineage tab would crash the
+ * panel before D38-2.4c lands. That is a functional regression from
+ * the prior PlaceholderTab behaviour.
+ *
+ * Resolution: the ROOT component renders a non-throwing placeholder
+ * ("Lineage tab — coming in D38-2.4c"), while the leaf components
+ * (RunsList, RunDetail, BlockExecutionCard, MethodsExportDialog,
+ * RerunDialog) keep their throw-stub bodies. The IMPL agent (D38-2.4c)
+ * replaces this placeholder + the leaf throws in one PR.
+ *
+ * The full IMPL contract for this component lives above this docstring
+ * (props, state, layout markup, copy strings, keyboard, a11y, tests).
+ */
 export function LineageTab(): ReactElement {
-  // TODO: D38-2.4c — implement per top-of-file contract.
-  throw new Error("TODO: D38-2.4c — implement LineageTab");
+  return (
+    <div
+      className="flex h-full items-center justify-center"
+      data-testid="lineage-tab-placeholder"
+      role="region"
+      aria-label="Run lineage"
+    >
+      <p className="text-sm text-stone-500">
+        Lineage tab — coming in D38-2.4c (ADR-038 §3.8)
+      </p>
+    </div>
+  );
 }

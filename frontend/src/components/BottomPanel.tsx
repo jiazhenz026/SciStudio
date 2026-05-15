@@ -308,10 +308,11 @@ export function BottomPanel({
             <LogViewer entries={logEntries} />
           ) : activeTab === "lineage" ? (
             // ADR-038 §3.8 — D38-2.4b skeleton mounts <LineageTab/>.
-            // The component body is a TODO until D38-2.4c IMPL. Until then
-            // the skeleton throws when this branch renders; the parent
-            // ErrorBoundary (if any) surfaces it. We keep the mount wired
-            // anyway so the skeleton compile-time integration is real.
+            // The root component renders a non-throwing placeholder until
+            // D38-2.4c IMPL fills the two-pane runs-list + run-detail view.
+            // Leaf components (RunsList, RunDetail, etc.) still throw
+            // their TODO stubs but they are not reached from this mount
+            // path. See Codex P1 thread on PR #937 for the rationale.
             <LineageTab />
           ) : activeTab !== "ai" ? (
             <PlaceholderTab />
