@@ -165,6 +165,50 @@ describe("resolveRegionText (text splice)", () => {
     const out = resolveRegionText(content, region, { type: "manual_edit" });
     expect(out).toBe(content);
   });
+
+  // Codex P1 on PR #952: diff3 sections must use the correct boundaries
+  // — current section ends at `|||||||`, NOT at `=======`.
+  describe("diff3 boundaries (Codex P1 #952)", () => {
+    const diff3 = [
+      "before",
+      "<<<<<<< HEAD",
+      "ours-1",
+      "ours-2",
+      "||||||| base",
+      "base-1",
+      "=======",
+      "theirs-1",
+      ">>>>>>> feature-x",
+      "after",
+    ].join("\n");
+    const region3 = parseConflictRegions(diff3)[0];
+
+    it("accept_current keeps ONLY the current section (no base, no markers)", () => {
+      const out = resolveRegionText(diff3, region3, { type: "accept_current" });
+      expect(out.split("\n")).toEqual([
+        "before",
+        "ours-1",
+        "ours-2",
+        "after",
+      ]);
+    });
+
+    it("accept_incoming keeps ONLY the incoming section (no base, no markers)", () => {
+      const out = resolveRegionText(diff3, region3, { type: "accept_incoming" });
+      expect(out.split("\n")).toEqual(["before", "theirs-1", "after"]);
+    });
+
+    it("accept_both concatenates current + incoming (no base, no markers)", () => {
+      const out = resolveRegionText(diff3, region3, { type: "accept_both" });
+      expect(out.split("\n")).toEqual([
+        "before",
+        "ours-1",
+        "ours-2",
+        "theirs-1",
+        "after",
+      ]);
+    });
+  });
 });
 
 describe("ConflictResolveView (D39-2.4b)", () => {

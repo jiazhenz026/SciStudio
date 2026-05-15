@@ -337,7 +337,11 @@ function GitGraphPane({
   onCommitClick: (sha: string) => void;
 }): JSX.Element {
   const data = useGraphData();
-  const interactions = useGraphInteractions(data.commits.length, onCommitClick);
+  const interactions = useGraphInteractions(
+    data.commits.length,
+    onCommitClick,
+    data.commits,
+  );
 
   if (data.loading) {
     return (

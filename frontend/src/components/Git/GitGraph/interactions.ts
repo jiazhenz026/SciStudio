@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 
 import { useAppStore } from "../../../store";
+import type { GitCommit } from "../../../types/api";
 
 import { ROW_HEIGHT } from "./colorPalette";
 
@@ -69,11 +70,18 @@ export function makeCommitClickHandler(
 export function useGraphInteractions(
   totalRows: number,
   onOpenDiff?: (sha: string) => void,
+  commits?: GitCommit[],
 ): GraphInteractionsApi {
   const setLastError = useAppStore((s) => s.setLastError);
 
   const [focusedRow, setFocusedRow] = useState<number | null>(null);
   const [hoveredSha, setHoveredSha] = useState<string | null>(null);
+
+  // Keep `commits` in a ref so the keyboard handler always sees the
+  // latest array without forcing the callback to recreate on every
+  // render.
+  const commitsRef = useRef<GitCommit[] | undefined>(commits);
+  commitsRef.current = commits;
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   // Initial range covers ~80 rows (a typical desktop viewport at ROW_HEIGHT=22).
@@ -134,14 +142,25 @@ export function useGraphInteractions(
           const next = cur === null ? 0 : Math.max(0, cur - 1);
           return next;
         });
-      } else if (event.key === "Enter") {
+      } else if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        // Caller-side: read commits[focusedRow].sha and forward. We can
-        // only signal that Enter was pressed via the click handler — the
-        // panel binds focusedRow → sha lookup.
+        // Codex P2 on PR #952: Enter (and Space) opens the diff for the
+        // currently focused row. Without this branch keyboard nav was
+        // a dead-end — arrow keys moved the cursor but the user could
+        // not "activate" it.
+        setFocusedRow((cur) => {
+          if (cur === null) return cur;
+          const commits = commitsRef.current;
+          const commit = commits && commits[cur];
+          if (commit) {
+            setLastError(null);
+            onOpenDiff?.(commit.sha);
+          }
+          return cur;
+        });
       }
     },
-    [totalRows],
+    [totalRows, onOpenDiff, setLastError],
   );
 
   return {

@@ -325,28 +325,37 @@ export function resolveRegionText(
   const beforeLines = lines.slice(0, region.startLine - 1);
   const afterLines = lines.slice(region.incomingEndLine);
 
-  // Extract the three (or two) text sections.
-  // 2-way:
-  //   startLine                            (marker `<<<<<<<`)
-  //   startLine+1 .. currentEndLine-1     (current section)
-  //   currentEndLine                       (marker `=======`)
+  // Section boundaries (1-based line numbers from the parser):
+  //
+  // 2-way style:
+  //   startLine                              (marker `<<<<<<<`)
+  //   startLine+1 .. currentEndLine-1       (current section)
+  //   currentEndLine                         (marker `=======`)
   //   currentEndLine+1 .. incomingEndLine-1 (incoming section)
-  //   incomingEndLine                      (marker `>>>>>>>`)
-  // diff3:
-  //   startLine                            (marker `<<<<<<<`)
-  //   startLine+1 .. currentEndLine-1     (current section)
-  //   currentEndLine                       (marker `|||||||`)
-  //   currentEndLine+1 .. baseEndLine-1   (base section)
-  //   baseEndLine                          (marker `=======`)
-  //   baseEndLine+1 .. incomingEndLine-1  (incoming section)
-  //   incomingEndLine                      (marker `>>>>>>>`)
-  const currentEnd = region.baseEndLine ?? region.currentEndLine;
-  const currentSection = lines.slice(region.startLine, currentEnd - 1);
-  const baseStart = region.baseEndLine !== null ? region.baseEndLine : null;
-  const incomingStart =
+  //   incomingEndLine                        (marker `>>>>>>>`)
+  //
+  // diff3 style:
+  //   startLine                              (marker `<<<<<<<`)
+  //   startLine+1 .. currentEndLine-1       (current section)
+  //   currentEndLine                         (marker `|||||||`)
+  //   currentEndLine+1 .. baseEndLine-1     (base section — not echoed)
+  //   baseEndLine                            (marker `=======`)
+  //   baseEndLine+1 .. incomingEndLine-1    (incoming section)
+  //   incomingEndLine                        (marker `>>>>>>>`)
+  //
+  // Codex P1 (PR #952): the current section ALWAYS ends at
+  // `currentEndLine` (whether that's `=======` in 2-way or `|||||||` in
+  // diff3). The previous impl conflated diff3's `=======` with the end
+  // of the current section, which caused `accept_current` /
+  // `accept_both` to splice the diff3 marker + base block into the
+  // resolved file — leaving malformed text that git refused to stage.
+  const currentSection = lines.slice(region.startLine, region.currentEndLine - 1);
+  // Incoming section starts after the `=======` marker:
+  //   - 2-way: that's `currentEndLine`
+  //   - diff3: that's `baseEndLine` (since `currentEndLine` is `|||||||`)
+  const incomingMarkerLine =
     region.baseEndLine !== null ? region.baseEndLine : region.currentEndLine;
-  const incomingSection = lines.slice(incomingStart, region.incomingEndLine - 1);
-  void baseStart; // present for completeness; the impl never echoes base
+  const incomingSection = lines.slice(incomingMarkerLine, region.incomingEndLine - 1);
 
   let resolved: string[];
   switch (action.type) {
