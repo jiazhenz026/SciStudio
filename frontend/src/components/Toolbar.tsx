@@ -42,6 +42,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+import { useAppStore } from "../store";
 import type { ProjectResponse } from "../types/api";
 import { BranchPicker } from "./Git/BranchPicker";
 import { CommitDialog } from "./Git/CommitDialog";
@@ -536,6 +537,13 @@ export function Toolbar(props: ToolbarProps) {
         sourceBranch={mergeSource ?? ""}
         isOpen={mergeSource !== null}
         onClose={() => setMergeSource(null)}
+        onOpenFile={(path) => {
+          // Codex P2 on PR #952: wire "Open in editor" to the existing
+          // tab-open slice action so users can jump directly from the
+          // conflict list into Monaco. Without this the button was a
+          // no-op in production.
+          useAppStore.getState().openFileTab(path);
+        }}
       />
     </TooltipProvider>
   );
