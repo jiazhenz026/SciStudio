@@ -3175,7 +3175,7 @@ Add a **Projects menu** to the toolbar, positioned before the file operations gr
 1. User clicks "New Project..." → modal dialog appears.
 2. User enters: project name, optional description, parent directory (with file browser).
 3. Frontend sends `POST /api/projects/` with `{ "name": "...", "description": "...", "path": "/path/to/parent" }`.
-4. Backend executes the equivalent of `scieasy init` — creates the workspace directory structure (`workflows/`, `data/raw/`, `data/zarr/`, `data/parquet/`, `data/artifacts/`, `blocks/`, `types/`, `checkpoints/`, `lineage/`, `logs/`) and writes `project.yaml`.
+4. Backend executes the equivalent of `scieasy init` — creates the workspace directory structure (`workflows/`, `data/raw/`, `data/zarr/`, `data/parquet/`, `data/artifacts/`, `blocks/`, `types/`, `.scieasy/pause/`, `.scieasy/lineage.db`, `logs/`) and writes `project.yaml`. (Per ADR-038/039: `.scieasy/pause/` replaces the legacy top-level `checkpoints/`; `.scieasy/lineage.db` replaces the legacy top-level `lineage/` and `metadata.db`.)
 5. Backend returns the project metadata including the workspace path.
 6. Frontend switches to the new project (empty canvas, palette refreshed for project-local blocks).
 
