@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import importlib.resources as importlib_resources
+import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from scieasy.api.deps import get_block_registry, get_type_registry
 from scieasy.api.schemas import (
@@ -17,6 +20,8 @@ from scieasy.api.schemas import (
     TypeHierarchyEntry,
 )
 from scieasy.blocks.base.ports import InputPort, OutputPort, validate_connection
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/blocks", tags=["blocks"])
 BlockRegistryDep = Annotated[Any, Depends(get_block_registry)]
@@ -95,6 +100,100 @@ async def list_blocks(registry: BlockRegistryDep) -> BlockListResponse:
     blocks = [_summary(spec) for spec in registry.all_specs().values()]
     blocks.sort(key=lambda item: (item.base_category, item.subcategory, item.name))
     return BlockListResponse(blocks=blocks)
+
+
+# ---------------------------------------------------------------------------
+# ADR-036 §3.12 — block template endpoint (skeleton, returns 501)
+#
+# The "New custom block" toolbar action (see ADR-036 §3.7) needs a starter
+# template that already wires up imports, ports, and a placeholder ``run()``
+# body. Rather than ship the template content in the frontend, we ship it
+# next to the package (``src/scieasy/blocks/_templates/``) and serve it via
+# this endpoint so the template stays in lockstep with whatever
+# ``scieasy.blocks.base`` actually exports.
+#
+# IMPORTANT — route ordering:
+# ``/template`` MUST be declared BEFORE the greedy ``/{block_type}``
+# (and ``/{block_type}/schema``) routes below. FastAPI matches in
+# declaration order; otherwise ``/api/blocks/template`` is swallowed by
+# ``get_block_schema`` with ``block_type="template"`` and never reaches
+# this handler. See ADR-036 audit
+# (docs/audit/2026-05-14-adr-036-skeleton.md, finding P1-2) for details.
+# ---------------------------------------------------------------------------
+
+
+class BlockTemplateResponse(BaseModel):
+    """Skeleton — response shape for GET /api/blocks/template (per ADR-036 §3.12)."""
+
+    kind: str
+    content: str
+    suggested_filename: str
+
+
+# ADR-036 §3.12 — only "basic" is recognised in v1. Future kinds
+# (e.g. "io", "ai") add new template files but stay schema-compatible.
+# Kept module-level so tests + future template kinds can extend it
+# without re-defining inside the handler.
+_KNOWN_TEMPLATES: dict[str, tuple[str, str]] = {
+    # kind -> (resource filename, suggested user-facing filename)
+    "basic": ("block_base_template.py", "my_block.py"),
+}
+
+
+@router.get("/template", response_model=BlockTemplateResponse)
+async def get_block_template(kind: str = "basic") -> BlockTemplateResponse:
+    """Serve a block-scaffolding template. (ADR-036 §3.12 — SKELETON)
+
+    Implementation plan (per ADR-036 §3.12):
+      1. Validate ``kind`` against a known set (initially just ``"basic"``).
+         Unknown kind -> HTTP 400.
+      2. Resolve the template file inside the package via
+         ``importlib.resources.files("scieasy.blocks._templates") /
+         "block_base_template.py"``.
+      3. Read with ``encoding="utf-8"`` and return content + suggested
+         filename (default ``"my_block.py"``).
+      4. The frontend pipes ``content`` to PUT /api/projects/{id}/file with
+         path ``"blocks/<user-supplied-name>.py"``, then opens an editor
+         tab on the new file. None of that orchestration belongs here —
+         this endpoint is content-only.
+
+    Edge cases:
+      - kind not in known set -> HTTP 400.
+      - Template file missing from package (deployment bug) -> HTTP 500
+        with a clear "template asset missing" message.
+
+    Test plan (must be added by I36c):
+      - test_template_basic_returns_python_with_correct_imports: response
+        content contains the literal string
+        ``"from scieasy.blocks.base import Block, BlockSpec, PortSpec"``.
+      - test_template_basic_has_run_marker: response content contains
+        ``"# >>> EDIT THIS <<<"``.
+      - test_template_unknown_kind_400.
+
+    References: ADR-036 §3.12; template file at
+    ``src/scieasy/blocks/_templates/block_base_template.py``.
+    """
+    if kind not in _KNOWN_TEMPLATES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown template kind: {kind!r}. Known: {sorted(_KNOWN_TEMPLATES)}",
+        )
+
+    resource_name, suggested = _KNOWN_TEMPLATES[kind]
+    try:
+        template_dir = importlib_resources.files("scieasy.blocks._templates")
+        content = (template_dir / resource_name).read_text(encoding="utf-8")
+    except (FileNotFoundError, ModuleNotFoundError, OSError) as exc:
+        # Deployment bug: package was installed without the bundled
+        # template asset. Log + 500 with a stable message so operators can
+        # search for it.
+        logger.exception("ADR-036 §3.12: template asset %s missing", resource_name)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Template asset {resource_name!r} missing from package",
+        ) from exc
+
+    return BlockTemplateResponse(kind=kind, content=content, suggested_filename=suggested)
 
 
 @router.get("/{block_type}/schema", response_model=BlockSchemaResponse)

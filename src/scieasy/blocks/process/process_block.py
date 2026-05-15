@@ -163,7 +163,13 @@ class ProcessBlock(Block):
                     result = self._auto_flush(result)
                     results.append(result)
                 output_name = effective_output_ports[0].name if effective_output_ports else "output"
-                return {output_name: Collection(results, item_type=primary.item_type)}
+                # #876: infer item_type from results so parent-typed outputs
+                # (e.g. SRSImage in -> Image out) are not rejected by
+                # Collection.__init__'s strict isinstance check. Fall back to
+                # primary.item_type only when results is empty so the empty
+                # Collection still carries a meaningful type label.
+                out_collection = Collection(results) if results else Collection([], item_type=primary.item_type)
+                return {output_name: out_collection}
 
             # Fallback for non-Collection inputs (backward compatibility).
             result = self.process_item(primary, config, state) if takes_state else self.process_item(primary, config)

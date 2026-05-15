@@ -82,7 +82,9 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
         if (
           changedId &&
           kind === "created" &&
-          !useAppStore.getState().tabs.some((t) => t.workflowId === changedId)
+          !useAppStore
+            .getState()
+            .tabs.some((t) => t.kind === "workflow" && t.workflowId === changedId)
         ) {
           api
             .getWorkflow(changedId)

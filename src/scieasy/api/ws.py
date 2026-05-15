@@ -35,6 +35,12 @@ from scieasy.engine.events import (
 
 logger = logging.getLogger(__name__)
 
+# ADR-036 §3.5 (I36c): outbound event type emitted after a successful
+# blocks/*.py save passes lint and hot_reload runs. Declared here as a
+# bare string (not a constant in scieasy.engine.events) because the
+# events module is frozen by ADR-035/036 hard-scope rules.
+BLOCKS_RELOADED = "blocks.reloaded"
+
 # Event types pushed to the client.
 _OUTBOUND_EVENTS = frozenset(
     {
@@ -53,6 +59,9 @@ _OUTBOUND_EVENTS = frozenset(
         # tab, the embedded coding agent, or POST /import-path) mutates the
         # workflow YAML.
         WORKFLOW_CHANGED,
+        # ADR-036 §3.5: forward blocks.reloaded so the palette can refresh +
+        # a passive toast can fire when the user saves a clean blocks/*.py.
+        BLOCKS_RELOADED,
     }
 )
 

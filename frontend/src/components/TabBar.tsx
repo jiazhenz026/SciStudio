@@ -19,6 +19,11 @@ export function TabBar({
     <div className="flex items-center gap-0 border-b border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] px-1">
       {tabs.map((tab) => {
         const isActive = tab.id === activeTabId;
+        // ADR-036 §3.10: discriminated-union read site. Workflow tabs
+        // surface the workflow name + workflowDirty; file tabs surface
+        // displayName + their own dirty flag.
+        const label = tab.kind === "workflow" ? tab.workflowName : tab.displayName;
+        const isDirty = tab.kind === "workflow" ? tab.workflowDirty : tab.dirty;
         return (
           <div
             key={tab.id}
@@ -31,10 +36,10 @@ export function TabBar({
             role="tab"
             aria-selected={isActive}
           >
-            <span className="min-w-0 flex-1 truncate" title={tab.workflowName}>
-              {tab.workflowName}
+            <span className="min-w-0 flex-1 truncate" title={label}>
+              {label}
             </span>
-            <span style={{ visibility: tab.workflowDirty ? "visible" : "hidden" }} className="shrink-0 text-[10px] text-amber-500" title="Unsaved changes">{" *"}</span>
+            <span style={{ visibility: isDirty ? "visible" : "hidden" }} className="shrink-0 text-[10px] text-amber-500" title="Unsaved changes">{" *"}</span>
             <button
               type="button"
               className="ml-1 shrink-0 rounded p-0.5 text-stone-400 opacity-0 transition-opacity hover:bg-stone-200 hover:text-stone-600 group-hover:opacity-100"

@@ -141,11 +141,24 @@ class AIBlock(Block):
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {
+            # Hotfix 2026-05-14 (#880): BlockNode shows the top-3 by ui_priority
+            # on canvas. Promote prompt + provider so users can author the agent
+            # task without opening the side panel; ports stay in the side panel
+            # (ui_priority unset → 999 → not in top-3) where the port editor has
+            # room to breathe.
+            "user_prompt": {
+                "type": "string",
+                "default": "",
+                "title": "User prompt",
+                "ui_widget": "textarea",
+                "ui_priority": 1,
+            },
             "provider": {
                 "type": "string",
                 "enum": ["claude-code", "codex"],
                 "default": "claude-code",
                 "title": "Provider",
+                "ui_priority": 2,
             },
             "permission_mode": {
                 "type": "string",
@@ -156,12 +169,7 @@ class AIBlock(Block):
                     "safe = agent prompts for sensitive tool use (default); "
                     "bypass = full filesystem access — same as a hand-launched ADR-034 tab."
                 ),
-            },
-            "user_prompt": {
-                "type": "string",
-                "default": "",
-                "title": "User prompt",
-                "ui_widget": "textarea",
+                "ui_priority": 3,
             },
             "timeout_sec": {
                 "type": "integer",
@@ -181,7 +189,6 @@ class AIBlock(Block):
                 "default": [],
                 "title": "Input Ports",
                 "ui_widget": "port_editor",
-                "ui_priority": 10,
             },
             "output_ports": {
                 "type": "array",
@@ -196,7 +203,6 @@ class AIBlock(Block):
                 "default": [],
                 "title": "Output Ports",
                 "ui_widget": "port_editor",
-                "ui_priority": 11,
             },
         },
         "required": ["user_prompt"],
