@@ -437,3 +437,83 @@
 > Format: `YYYY-MM-DD HH:MM — agent <name> on PR #<n> ticked "<row>" but artifact missing / out-of-scope file <path> modified. Action: <revert / required additional commit / escalation>.`
 
 (empty until first violation)
+
+---
+
+## Known issues queued for audit phase
+
+### AI Block MCP-signal write/read race (deferred to D38-3.1b bug audit fix pass)
+
+**Symptom.** Intermittent failures on **all** AIBlock skeleton tests that
+write `signals/finish_ai_block.json` via the `StubAgent._emit` happy
+path — most often on Python 3.11 (~1-in-30 frequency), occasionally on
+3.13. Error surfaces as:
+
+```
+ValueError: AIBlock completion: malformed MCP signal at
+  .../signals/finish_ai_block.json:
+  Expecting value: line 1 column 1 (char 0)
+```
+
+Hits during the cascade (2026-05-15): #905 baseline, PR #926 (D38-2.2
+Test py3.13), PR #931 (D38-2.3 Test py3.13), PR #940 (D39-2.3b Test
+py3.11), PR #944 (D38-2.4c Test py3.11). Every hit cleared on
+`gh run rerun --failed`. Issue #909 tracks the first-noticed symptom
+but only describes one test.
+
+**Root cause — TOCTOU race between writer and reader.**
+
+- *Writer* (`tests/blocks/ai/conftest.py:103`, `StubAgent._emit`
+  background thread): `(signals / "finish_ai_block.json").write_text(json.dumps(...))`.
+  `Path.write_text` is **non-atomic**: it `open("w")` → truncates to 0
+  bytes → `f.write(data)` → `f.close()`.
+- *Reader* (`src/scieasy/blocks/ai/completion.py:152-157`,
+  `CompletionWatcher.wait` polling loop, main thread):
+  `if mcp_path.exists(): payload = json.loads(mcp_path.read_text(...))`.
+  Raises `ValueError(... "malformed MCP signal ...")` on `json.JSONDecodeError`.
+
+If the polling tick lands between the truncate and the write, the
+reader sees a 0-byte file and `json.loads("")` raises
+`JSONDecodeError: Expecting value: line 1 column 1` which the watcher
+re-raises as `ValueError("... malformed MCP signal ...")` — fatal for
+the test, but actually a transient artifact of non-atomic IO.
+
+**Why PR #905 / #909 's fix did not solve it.** PR #905 only relaxed
+the regex on `test_run_validation_fail_returns_error_state` from
+`"is empty"` to `r"is empty|Expecting value|malformed MCP signal"`.
+That test **intentionally** writes malformed JSON (`finish_via="error"`)
+so the relaxed regex hides cross-stdlib message-format drift in that
+one error-path test. It does nothing for the **happy-path** tests
+(`test_run_writes_manifest_with_correct_shape`,
+`test_run_request_pty_tab_with_safe_permission`, etc.), which were
+never supposed to encounter a malformed-signal error in the first
+place — those are racing on the writer's truncate window.
+
+**Why Python 3.11 is more affected than 3.13.** GIL scheduling
+granularity + stdlib IO buffering changed between versions; 3.11
+surfaces the race window more often. Same code path can race on any
+version.
+
+**Fix plan (D38-3.1b bug-audit fix pass).** Apply A + B; leave the
+reader strict.
+
+| # | Change | File | Rationale |
+|---|---|---|---|
+| A | Atomic write in `StubAgent._emit` | `tests/blocks/ai/conftest.py` `_emit()` around lines 102-103 (the `finish_via == "mcp"` branch and the `mark_done` branch) — use `tempfile.NamedTemporaryFile(dir=signals, delete=False)` + `os.replace(tmp, target)` | Closes the race in the test fixture; immediately stabilises CI |
+| B | Atomic write in production MCP server | Wherever the real `mcp__scieasy__finish_ai_block` tool writes `finish_ai_block.json` (per ADR-035; locate via `grep -r finish_ai_block` and inspect the MCP tools module) — same `tempfile + os.replace` pattern | Avoids the same race biting real agent runs where AIBlock's polling and the MCP tool run in different processes |
+| C | (NOT recommended) Reader-side retry | `src/scieasy/blocks/ai/completion.py:154` | Rejected: weakens watcher contract, masks future real bugs where writer crashes mid-write |
+
+**Tests to add.** A regression test in `tests/blocks/ai/test_completion.py`
+that asserts `CompletionWatcher.wait` survives a deliberately-induced
+truncate-window race (use a wrapper that calls `open("w").close()` then
+sleeps before writing the real JSON; without the fix the watcher must
+fail, with the fix it must succeed).
+
+**Out-of-scope reminder.** Issue #909 (existing, OPEN) covers the
+regex-match flavour of the symptom. Fix PR should close #909 + open a
+new issue explicitly framed as "MCP-signal atomic-write race" before
+the audit phase, so #909 retires cleanly with the right rationale.
+
+**Owner.** D38-3.1b bug/wiring audit agent (context-aware, with Chrome
+smoke). The fix lands in the D38-3.2 fix PR alongside any other findings
+that audit surfaces.
