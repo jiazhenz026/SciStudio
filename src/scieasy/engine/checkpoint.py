@@ -4,6 +4,23 @@ ADR-018: Checkpoint must record all 8 block states including CANCELLED
 and SKIPPED.  The ``skip_reasons`` field captures why a block was
 cancelled or skipped so that resumed workflows can honour those
 decisions.
+
+ADR-038 §3.5 / §5.2 (Phase D38-2.3) — **scope clarification + path move**.
+The checkpoint subsystem owns *pause/resume* and the "Run from here on
+the most recent run" affordance only (ADR-012, unchanged). It is
+**distinct from** the unified run lineage database (``lineage.db``,
+ADR-038 §3.1), which records every run's recipe + I/O catalog but does
+**not** preserve intermediate data files. Concretely:
+
+* Checkpoint files now live at ``<project>/.scieasy/pause/<workflow_id>/``
+  (relocated from the legacy ``<project>/checkpoints/<workflow_id>/``).
+  The semantics are unchanged: single-slot per workflow, overwritten on
+  every terminal block event, restored only on the latest run.
+* Lineage rows persist at ``<project>/.scieasy/lineage.db`` and survive
+  across runs — but the on-disk intermediate data they reference may be
+  overwritten by subsequent runs (ADR-038 §3.5 "no per-run isolation").
+
+The two subsystems share a directory but no contract.
 """
 
 from __future__ import annotations
@@ -281,6 +298,12 @@ class CheckpointManager:
     events (``BLOCK_DONE``, ``BLOCK_ERROR``, ``BLOCK_CANCELLED``,
     ``BLOCK_SKIPPED``) so that a future scheduler integration can
     trigger auto-saves on state changes.
+
+    Path: per ADR-038 §5.2 (Phase D38-2.3), :class:`ApiRuntime` passes
+    ``<project>/.scieasy/pause/<workflow_id>/`` as the
+    ``checkpoint_dir`` argument. The class itself remains
+    location-agnostic — callers in tests / CLI may still pass a
+    ``tmp_path`` and the manager will create / use that directory.
     """
 
     def __init__(self, checkpoint_dir: str | Path, event_bus: Any = None) -> None:

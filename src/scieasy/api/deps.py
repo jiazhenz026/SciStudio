@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException, Request
@@ -32,16 +31,24 @@ def get_type_registry(request: Request) -> Any:
 
 
 def get_lineage_store(request: Request) -> Any:
-    """Return the lineage store for the active project."""
+    """Return the unified ADR-038 lineage store for the active project.
+
+    The store is owned by :class:`ApiRuntime` and shared across routes — the
+    previous per-call ``LineageStore(...)`` construction was an orphan that
+    opened a second SQLite handle per request. After ADR-038 the runtime
+    opens one store per project on ``open_project`` and routes acquire that
+    same instance here.
+    """
     runtime = get_runtime(request)
     try:
-        project = runtime.require_active_project()
+        runtime.require_active_project()
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    from scieasy.core.lineage.store import LineageStore
-
-    return LineageStore(Path(project.path) / "lineage" / "lineage.db")
+    store = runtime.lineage_store
+    if store is None:
+        raise HTTPException(status_code=503, detail="Lineage store not initialised for this project")
+    return store
 
 
 def get_process_registry(request: Request) -> ProcessRegistry:

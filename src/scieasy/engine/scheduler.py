@@ -33,7 +33,7 @@ from scieasy.workflow.definition import WorkflowDefinition
 
 if TYPE_CHECKING:
     from scieasy.blocks.registry import BlockRegistry
-    from scieasy.engine.lineage_recorder import LineageRecorder
+    from scieasy.core.lineage.recorder import LineageRecorder
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,43 @@ def _extract_error_summary(error_text: str) -> str:
     if len(summary) > _MAX_ERROR_SUMMARY_LEN:
         summary = summary[: _MAX_ERROR_SUMMARY_LEN - 1] + "\u2026"
     return summary
+
+
+def _collect_object_ids(payload: Any) -> dict[str, list[str]]:
+    """Extract ``{port_name: [object_id, ...]}`` from a wire-format dict.
+
+    ADR-038 §3.2 expects the scheduler to feed the LineageRecorder a
+    pre-computed object-id map so it can write ``block_io`` rows without
+    re-parsing the wire format. Scalars and Collection items are both
+    flattened to a list per port. Ports whose values are not DataObject
+    wire payloads (e.g. plain ints) are skipped silently.
+    """
+    if not isinstance(payload, dict):
+        return {}
+
+    result: dict[str, list[str]] = {}
+    for port_name, value in payload.items():
+        if port_name == "__scieasy_env__":
+            continue
+        ids = _object_ids_for_value(value)
+        if ids:
+            result[str(port_name)] = ids
+    return result
+
+
+def _object_ids_for_value(value: Any) -> list[str]:
+    """Recursively extract object_ids from a single wire-format port value."""
+    if isinstance(value, dict):
+        if value.get("_collection"):
+            ids: list[str] = []
+            for item in value.get("items", []) or []:
+                ids.extend(_object_ids_for_value(item))
+            return ids
+        framework = (value.get("metadata") or {}).get("framework") or {}
+        candidate = framework.get("object_id")
+        if isinstance(candidate, str) and candidate:
+            return [candidate]
+    return []
 
 
 @dataclass
@@ -232,11 +269,7 @@ class DAGScheduler:
                 EngineEvent(
                     event_type=BLOCK_ERROR,
                     block_id=node_id,
-                    data={
-                        "workflow_id": self._workflow.id,
-                        "error": error_str,
-                        "error_summary": _extract_error_summary(error_str),
-                    },
+                    data=self._build_block_terminal_data(node_id=node_id, error=error_str),
                 )
             )
             self.save_checkpoint(self._checkpoint_manager)
@@ -268,11 +301,7 @@ class DAGScheduler:
                     EngineEvent(
                         event_type=BLOCK_ERROR,
                         block_id=node_id,
-                        data={
-                            "workflow_id": self._workflow.id,
-                            "error": error_str,
-                            "error_summary": _extract_error_summary(error_str),
-                        },
+                        data=self._build_block_terminal_data(node_id=node_id, error=error_str),
                     )
                 )
                 self.save_checkpoint(self._checkpoint_manager)
@@ -364,7 +393,7 @@ class DAGScheduler:
                         EngineEvent(
                             event_type=BLOCK_CANCELLED,
                             block_id=node_id,
-                            data={"workflow_id": self._workflow.id},
+                            data=self._build_block_terminal_data(node_id=node_id),
                         )
                     )
                     await self._propagate_skip(node_id, "cancelled")
@@ -374,11 +403,7 @@ class DAGScheduler:
                         EngineEvent(
                             event_type=BLOCK_ERROR,
                             block_id=node_id,
-                            data={
-                                "workflow_id": self._workflow.id,
-                                "error": error_str,
-                                "error_summary": _extract_error_summary(error_str),
-                            },
+                            data=self._build_block_terminal_data(node_id=node_id, error=error_str),
                         )
                     )
                     await self._propagate_skip(node_id, "error")
@@ -390,7 +415,7 @@ class DAGScheduler:
                         EngineEvent(
                             event_type=BLOCK_SKIPPED,
                             block_id=node_id,
-                            data={"workflow_id": self._workflow.id},
+                            data=self._build_block_terminal_data(node_id=node_id),
                         )
                     )
                     await self._propagate_skip(node_id, "skipped")
@@ -408,25 +433,43 @@ class DAGScheduler:
                     EngineEvent(
                         event_type=BLOCK_ERROR,
                         block_id=node_id,
-                        data={
-                            "workflow_id": self._workflow.id,
-                            "error": error_str,
-                            "error_summary": _extract_error_summary(error_str),
-                        },
+                        data=self._build_block_terminal_data(node_id=node_id, error=error_str),
                     )
                 )
                 self.save_checkpoint(self._checkpoint_manager)
                 return
 
+            # ADR-038 §5.2: lift the per-block ``environment`` sidecar
+            # injected by ``runners/local.py`` into the BLOCK_DONE event data.
+            # Strip the sentinel key so downstream blocks never observe it on
+            # their input ports.
+            env_payload: dict[str, Any] | None = None
+            if isinstance(result, dict) and "__scieasy_env__" in result:
+                env_candidate = result.pop("__scieasy_env__")
+                if isinstance(env_candidate, dict):
+                    env_payload = env_candidate
+
             self._block_outputs[node_id] = result
-            # ADR-032: persist DataObject metadata to project-level SQLite db.
+            # ADR-038 §5.2: persist DataObject identity to the unified
+            # ``data_objects`` table via :class:`LineageStore`. The
+            # LineageRecorder additionally writes ``block_io`` rows when
+            # it observes the BLOCK_DONE event emitted below — running
+            # this step first ensures the ``produced_by_execution`` FK
+            # on the recorder's ``block_io`` insert is already valid.
             self._persist_output_metadata(node_id, result, self._workflow.id)
             self._block_states[node_id] = BlockState.DONE
             await self._event_bus.emit(
                 EngineEvent(
                     event_type=BLOCK_DONE,
                     block_id=node_id,
-                    data={"workflow_id": self._workflow.id, "outputs": result},
+                    data=self._build_block_done_data(
+                        node_id=node_id,
+                        block=block,
+                        inputs=inputs,
+                        config=config,
+                        outputs=result,
+                        environment=env_payload,
+                    ),
                 )
             )
             self.save_checkpoint(self._checkpoint_manager)
@@ -531,26 +574,40 @@ class DAGScheduler:
                     EngineEvent(
                         event_type=BLOCK_ERROR,
                         block_id=node_id,
-                        data={
-                            "workflow_id": self._workflow.id,
-                            "error": error_str,
-                            "error_summary": _extract_error_summary(error_str),
-                        },
+                        data=self._build_block_terminal_data(node_id=node_id, error=error_str),
                     )
                 )
                 self.save_checkpoint(self._checkpoint_manager)
                 return
 
             # Step 6: Transition to DONE.
+            # ADR-038 §5.2: interactive blocks run in-process so they have no
+            # worker-supplied environment sidecar; pass None and the recorder
+            # will fall back to inserting an empty environment for the row.
+            env_payload: dict[str, Any] | None = None
+            if isinstance(result, dict) and "__scieasy_env__" in result:
+                env_candidate = result.pop("__scieasy_env__")
+                if isinstance(env_candidate, dict):
+                    env_payload = env_candidate
+
             self._block_outputs[node_id] = result
-            # ADR-032: persist DataObject metadata to project-level SQLite db.
+            # ADR-038 §5.2: persist DataObject identity to the unified
+            # ``data_objects`` table. See the parallel callsite in
+            # :meth:`_run_and_finalize` for the rationale.
             self._persist_output_metadata(node_id, result, self._workflow.id)
             self._block_states[node_id] = BlockState.DONE
             await self._event_bus.emit(
                 EngineEvent(
                     event_type=BLOCK_DONE,
                     block_id=node_id,
-                    data={"workflow_id": self._workflow.id, "outputs": result},
+                    data=self._build_block_done_data(
+                        node_id=node_id,
+                        block=block,
+                        inputs=inputs,
+                        config=config,
+                        outputs=result,
+                        environment=env_payload,
+                    ),
                 )
             )
             self.save_checkpoint(self._checkpoint_manager)
@@ -559,7 +616,7 @@ class DAGScheduler:
             self._active_tasks.pop(node_id, None)
             self._check_completion()
 
-    # -- ADR-032: Metadata persistence helpers --------------------------------
+    # -- ADR-038 §5.2: DataObject identity persistence -----------------------
 
     def _persist_output_metadata(
         self,
@@ -567,19 +624,38 @@ class DAGScheduler:
         result: dict[str, Any] | Any,
         workflow_id: str,
     ) -> None:
-        """Persist DataObject wire-format metadata to the project MetadataStore.
+        """Persist DataObject identity rows to the unified ``data_objects`` table.
 
-        Called in the engine process after receiving wire-format outputs from
-        a worker subprocess (ADR-032 Addendum 1).  Iterates the result dict
-        and calls ``put_wire()`` for each DataObject-shaped entry.
+        Phase D38-2.3 (ADR-038 §6 Phase 2): replaces the pre-ADR-038
+        ``metadata.db`` write path. Writes go to the active
+        :class:`~scieasy.core.lineage.LineageStore`.
 
-        This method is **non-fatal**: any exception is logged as a warning
+        **Recorder-aware split (Codex P1 #931):** when a
+        :class:`LineageRecorder` is bound to this scheduler, the recorder
+        owns the authoritative write of every ``data_objects`` row from
+        its ``BLOCK_DONE`` handler. The recorder stamps the
+        ``produced_by_execution`` foreign key with the same
+        ``block_execution_id`` it writes to ``block_executions``. Letting
+        the scheduler also pre-write would call ``upsert_data_object()``
+        (which uses ``INSERT OR IGNORE``), permanently fixing the row's
+        ``produced_by_execution`` to ``NULL`` and breaking the ADR §3.7
+        Q4b join. So when a recorder is present this method is a no-op —
+        the recorder's pass writes the row with the correct producer.
+
+        When the scheduler is constructed *without* a recorder (CLI /
+        direct test runners that bypass :class:`ApiRuntime`), this method
+        is the only writer. In that mode the row's
+        ``produced_by_execution`` is legitimately ``NULL`` because no
+        ``block_executions`` row exists to reference.
+
+        The method is **non-fatal**: any exception is logged as a warning
         and does not crash the workflow.
         """
+        # Recorder owns the write path when bound — see docstring.
+        if self._lineage_recorder is not None:
+            return
         try:
-            from scieasy.core.metadata_store import get_metadata_store
-
-            store = get_metadata_store()
+            store = self._resolve_lineage_store()
             if store is None:
                 return
             if not isinstance(result, dict):
@@ -588,10 +664,31 @@ class DAGScheduler:
                 self._persist_single_output(store, value, workflow_id, node_id, port_name)
         except Exception:
             logger.warning(
-                "ADR-032: metadata persist failed for node %s (non-fatal)",
+                "ADR-038: data_objects persist failed for node %s (non-fatal)",
                 node_id,
                 exc_info=True,
             )
+
+    def _resolve_lineage_store(self) -> Any:
+        """Return the active :class:`LineageStore`, or ``None``.
+
+        Looks first at the lineage recorder bound to this scheduler, then
+        falls back to the deprecation shim's module-level handle which
+        :meth:`ApiRuntime._init_lineage_store` publishes on project open.
+        The lazy import keeps the scheduler usable outside the API server
+        (CLI / direct test invocation that bypasses :class:`ApiRuntime`).
+        """
+        recorder = self._lineage_recorder
+        if recorder is not None:
+            store = getattr(recorder, "_store", None)
+            if store is not None:
+                return store
+        try:
+            from scieasy.core.metadata_store import _active_lineage_store
+
+            return _active_lineage_store()
+        except Exception:
+            return None
 
     def _persist_single_output(
         self,
@@ -601,86 +698,254 @@ class DAGScheduler:
         node_id: str,
         port_name: str,
     ) -> None:
-        """Persist a single output value (scalar or collection) to the store."""
+        """Upsert one output port's wire payload(s) into ``data_objects``."""
         if not isinstance(value, dict):
             return
         # Collection: {"_collection": True, "items": [...], "item_type": "..."}
         if value.get("_collection"):
             for item in value.get("items", []):
                 if isinstance(item, dict) and "metadata" in item:
-                    try:
-                        store.put_wire(item, workflow_id=workflow_id, block_id=node_id, port_name=port_name)
-                    except Exception:
-                        logger.warning(
-                            "ADR-032: metadata persist failed for item in %s/%s (non-fatal)",
-                            node_id,
-                            port_name,
-                        )
+                    self._upsert_wire_row(store, item, node_id, port_name)
         elif "metadata" in value:
-            try:
-                store.put_wire(value, workflow_id=workflow_id, block_id=node_id, port_name=port_name)
-            except Exception:
-                logger.warning(
-                    "ADR-032: metadata persist failed for %s/%s (non-fatal)",
-                    node_id,
-                    port_name,
-                )
+            self._upsert_wire_row(store, value, node_id, port_name)
+
+    def _upsert_wire_row(
+        self,
+        store: Any,
+        wire_dict: dict[str, Any],
+        node_id: str,
+        port_name: str,
+    ) -> None:
+        """Materialise one ``DataObjectRow`` for a wire payload and upsert."""
+        try:
+            from datetime import datetime
+
+            from scieasy.core.lineage.record import DataObjectRow
+        except Exception:
+            logger.debug(
+                "ADR-038: lineage record import failed for %s/%s (non-fatal)",
+                node_id,
+                port_name,
+                exc_info=True,
+            )
+            return
+        metadata = wire_dict.get("metadata") or {}
+        framework = metadata.get("framework") or {}
+        object_id = framework.get("object_id") if isinstance(framework, dict) else None
+        if not isinstance(object_id, str) or not object_id:
+            return
+
+        type_chain = metadata.get("type_chain")
+        type_name = "DataObject"
+        if isinstance(type_chain, list) and type_chain:
+            leaf = type_chain[0]
+            if isinstance(leaf, str):
+                type_name = leaf
+        elif isinstance(wire_dict.get("type_name"), str):
+            type_name = wire_dict["type_name"]
+
+        created_at = framework.get("created_at") if isinstance(framework, dict) else None
+        if not isinstance(created_at, str) or not created_at:
+            created_at = datetime.now().isoformat()
+
+        row = DataObjectRow(
+            object_id=object_id,
+            type_name=type_name,
+            wire_payload=wire_dict,
+            created_at=created_at,
+            backend=wire_dict.get("backend") if isinstance(wire_dict.get("backend"), str) else None,
+            storage_path=wire_dict.get("path") if isinstance(wire_dict.get("path"), str) else None,
+            derived_from=framework.get("derived_from") if isinstance(framework, dict) else None,
+            # ``produced_by_execution`` is FK to ``block_executions``.
+            # The LineageRecorder owns that table and back-stamps the
+            # column from the BLOCK_DONE event handler. We leave it None
+            # here and rely on the recorder's INSERT OR IGNORE — but the
+            # recorder also re-inserts with ``produced_by_execution`` set
+            # for output direction, so the join key gets populated on the
+            # recorder's pass.
+            produced_by_execution=None,
+        )
+        try:
+            store.upsert_data_object(row)
+        except Exception:
+            logger.warning(
+                "ADR-038: upsert_data_object failed for %s/%s (non-fatal)",
+                node_id,
+                port_name,
+            )
 
     def _sync_checkpoint_to_store(self) -> None:
-        """Backfill metadata store from checkpoint data (ADR-032 Phase 2a).
+        """Backfill ``data_objects`` rows from checkpoint data on resume.
 
-        Called after loading checkpoint data into ``_block_outputs`` during
-        ``execute_from()``.  Only inserts entries that are not already in the
-        store (no overwrites).  Gracefully degrades when the store is
-        unavailable.
+        ADR-038 §5.2: when ``execute_from()`` reloads intermediate refs
+        from a checkpoint, the referenced DataObjects may not yet exist
+        in ``lineage.db`` (the checkpoint pre-dates the run). Iterate the
+        rehydrated outputs and upsert each one so downstream
+        ``block_io`` FK constraints succeed when the resumed run emits
+        BLOCK_DONE.
         """
         try:
-            from scieasy.core.metadata_store import get_metadata_store
-
-            store = get_metadata_store()
+            store = self._resolve_lineage_store()
             if store is None:
                 return
+            workflow_id = self._workflow.id
             for node_id, outputs in self._block_outputs.items():
                 if not isinstance(outputs, dict):
                     continue
                 for port_name, value in outputs.items():
-                    if not isinstance(value, dict):
-                        continue
-                    if value.get("_collection"):
-                        for item in value.get("items", []):
-                            if isinstance(item, dict) and "metadata" in item:
-                                try:
-                                    store.put_wire_if_missing(
-                                        item,
-                                        workflow_id=self._workflow.id,
-                                        block_id=node_id,
-                                        port_name=port_name,
-                                    )
-                                except Exception:
-                                    logger.warning(
-                                        "ADR-032: checkpoint sync failed for item in %s/%s (non-fatal)",
-                                        node_id,
-                                        port_name,
-                                    )
-                    elif "metadata" in value:
-                        try:
-                            store.put_wire_if_missing(
-                                value,
-                                workflow_id=self._workflow.id,
-                                block_id=node_id,
-                                port_name=port_name,
-                            )
-                        except Exception:
-                            logger.warning(
-                                "ADR-032: checkpoint sync failed for %s/%s (non-fatal)",
-                                node_id,
-                                port_name,
-                            )
+                    self._persist_single_output(store, value, workflow_id, node_id, port_name)
         except Exception:
             logger.warning(
-                "ADR-032: checkpoint-to-store sync failed (non-fatal)",
+                "ADR-038: checkpoint-to-store sync failed (non-fatal)",
                 exc_info=True,
             )
+
+    # -- ADR-038 §3.2: lineage event-data extension --------------------------
+
+    def _build_block_done_data(
+        self,
+        *,
+        node_id: str,
+        block: Any,
+        inputs: dict[str, Any],
+        config: dict[str, Any],
+        outputs: dict[str, Any] | Any,
+        environment: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """Assemble the BLOCK_DONE event payload (ADR-038 §3.2).
+
+        In addition to the legacy ``workflow_id`` + ``outputs`` keys this
+        emits the fields that :class:`LineageRecorder` needs to write the
+        ``block_executions`` / ``data_objects`` / ``block_io`` rows:
+
+        * ``config``               — resolved config dict (post-template expansion)
+        * ``block_type``           — registry type name for the block
+        * ``block_version``        — registry-resolved version per ADR-038 §3.3
+        * ``environment``          — full env snapshot from the worker
+        * ``input_object_ids``     — ``{port: [object_id, ...]}`` derived from inputs
+        * ``output_object_ids``    — same shape for outputs
+        * ``inputs``               — raw wire-format inputs (fallback for the recorder)
+        """
+        block_type = self._resolve_block_type(node_id, block)
+        block_version = self._resolve_block_version(block, block_type)
+        return {
+            "workflow_id": self._workflow.id,
+            "outputs": outputs,
+            "inputs": inputs,
+            "config": dict(config) if isinstance(config, dict) else {},
+            "block_type": block_type,
+            "block_version": block_version,
+            "environment": environment,
+            "input_object_ids": _collect_object_ids(inputs),
+            "output_object_ids": _collect_object_ids(outputs),
+        }
+
+    def _build_block_terminal_data(
+        self,
+        *,
+        node_id: str,
+        error: str | None = None,
+        extra: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Assemble the BLOCK_ERROR / BLOCK_CANCELLED / BLOCK_SKIPPED payload.
+
+        D38-3.2 (closes audit D38-3.1a P1-1 + D38-3.1b P1-3): all four
+        terminal events must carry the ADR-038 §3.2 metadata so the
+        recorder writes non-empty ``block_type`` / ``block_version`` /
+        ``block_config_resolved`` columns into ``block_executions``.
+        Without this, ADR §3.7 Q3 ("which blocks ran in run X") returns
+        empty strings for any non-completed block, breaking methods
+        export and downstream queries.
+
+        Best-effort: block instantiation may have failed *before* the
+        block object exists (the pre-dispatch error paths). In that
+        case the registry NodeDef still carries ``block_type``, so we
+        look up the version from the registry by type alone.
+        ``inputs`` is sampled at terminal time from ``_block_outputs``
+        of upstream nodes (read-only via ``_gather_inputs``); when that
+        sample fails (e.g. cancel during dispatch) we fall back to an
+        empty dict.
+        """
+        node = self._dag.nodes.get(node_id)
+        block_type = ""
+        if node is not None:
+            block_type = str(getattr(node, "block_type", "") or "")
+
+        block_version = ""
+        config: dict[str, Any] = {}
+        if node is not None:
+            cfg = getattr(node, "config", None)
+            if isinstance(cfg, dict):
+                config = dict(cfg)
+            # Registry-resolved version (ADR-038 §3.3 force-injection at
+            # scan time). When the registry isn't wired (mock-runner
+            # tests) fall back to a blank string — the recorder writes
+            # the empty string into the NOT NULL column without raising.
+            if self._registry is not None and block_type:
+                try:
+                    spec = self._registry.get_spec(block_type)
+                    if spec is not None and getattr(spec, "version", None):
+                        block_version = str(spec.version)
+                except Exception:
+                    logger.debug(
+                        "Block version registry lookup failed for terminal-event %s/%s",
+                        node_id,
+                        block_type,
+                    )
+
+        try:
+            inputs = self._gather_inputs(node_id)
+        except Exception:
+            inputs = {}
+
+        data: dict[str, Any] = {
+            "workflow_id": self._workflow.id,
+            "block_type": block_type,
+            "block_version": block_version,
+            "config": config,
+            "inputs": inputs,
+            "input_object_ids": _collect_object_ids(inputs),
+            "output_object_ids": {},
+        }
+        if error is not None:
+            data["error"] = error
+            data["error_summary"] = _extract_error_summary(error)
+        if extra:
+            data.update(extra)
+        return data
+
+    def _resolve_block_type(self, node_id: str, block: Any) -> str:
+        """Return the registry type name for ``block``, falling back to NodeDef."""
+        node = self._dag.nodes.get(node_id)
+        block_type = getattr(node, "block_type", None) if node is not None else None
+        if block_type:
+            return str(block_type)
+        return type(block).__name__
+
+    def _resolve_block_version(self, block: Any, block_type: str) -> str:
+        """Return the version stamped on the block spec at registry scan time.
+
+        Per ADR-038 §3.3 the registry force-injects this from
+        ``importlib.metadata`` at scan time. When the registry is not wired
+        up (mock-runner tests), fall back to the block class's ``version``
+        attribute and then to ``scieasy.__version__``.
+        """
+        if self._registry is not None:
+            try:
+                spec = self._registry.get_spec(block_type)
+                if spec is not None and getattr(spec, "version", None):
+                    return str(spec.version)
+            except Exception:
+                logger.debug("Block version registry lookup failed for %s", block_type)
+        explicit = getattr(block, "version", None)
+        if isinstance(explicit, str) and explicit:
+            return explicit
+        try:
+            from scieasy import __version__ as scieasy_version
+
+            return str(scieasy_version)
+        except Exception:
+            return "unknown"
 
     async def _on_interactive_complete(self, event: EngineEvent) -> None:
         """Handle an interactive_complete event from the frontend.
@@ -845,7 +1110,7 @@ class DAGScheduler:
             EngineEvent(
                 event_type=BLOCK_CANCELLED,
                 block_id=block_id,
-                data={"workflow_id": self._workflow.id},
+                data=self._build_block_terminal_data(node_id=block_id),
             )
         )
         await self._propagate_skip(block_id, "cancelled")
@@ -905,7 +1170,7 @@ class DAGScheduler:
                 EngineEvent(
                     event_type=BLOCK_CANCELLED,
                     block_id=block_id,
-                    data={"workflow_id": self._workflow.id},
+                    data=self._build_block_terminal_data(node_id=block_id),
                 )
             )
 
@@ -917,7 +1182,7 @@ class DAGScheduler:
                     EngineEvent(
                         event_type=BLOCK_SKIPPED,
                         block_id=block_id,
-                        data={"workflow_id": self._workflow.id},
+                        data=self._build_block_terminal_data(node_id=block_id),
                     )
                 )
 
@@ -973,11 +1238,7 @@ class DAGScheduler:
                 EngineEvent(
                     event_type=BLOCK_ERROR,
                     block_id=block_id,
-                    data={
-                        "workflow_id": self._workflow.id,
-                        "error": error_detail,
-                        "error_summary": _extract_error_summary(error_detail),
-                    },
+                    data=self._build_block_terminal_data(node_id=block_id, error=error_detail),
                 )
             )
             # Retry any READY blocks that were previously throttled and
@@ -1009,7 +1270,7 @@ class DAGScheduler:
                     EngineEvent(
                         event_type=BLOCK_SKIPPED,
                         block_id=node_id,
-                        data={"workflow_id": self._workflow.id},
+                        data=self._build_block_terminal_data(node_id=node_id),
                     )
                 )
                 queue.extend(self._dag.adjacency.get(node_id, []))
@@ -1380,8 +1641,9 @@ class DAGScheduler:
                 if node_id in checkpoint.intermediate_refs:
                     self._block_outputs[node_id] = checkpoint.intermediate_refs[node_id]
 
-        # ADR-032 Phase 2a: backfill metadata store from checkpoint data.
-        # Only inserts missing entries (no overwrites).
+        # ADR-038 §5.2 (supersedes ADR-032 Phase 2a): backfill lineage
+        # ``data_objects`` from checkpoint data on resume. Only inserts
+        # missing entries (no overwrites).
         self._sync_checkpoint_to_store()
 
         await self._event_bus.emit(

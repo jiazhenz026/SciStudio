@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { createExecutionSlice } from "./executionSlice";
+import { createLineageSlice } from "./lineageSlice";
 import { createPaletteSlice } from "./paletteSlice";
 import { createPreviewSlice } from "./previewSlice";
 import { createProjectSlice } from "./projectSlice";
@@ -49,6 +50,8 @@ export const useAppStore = create<AppStore>()(
       ...createPaletteSlice(...args),
       ...createTabSlice(...args),
       ...createTerminalTabsSlice(...args),
+      // ADR-038 §3.8 — Lineage tab state (D38-2.4b skeleton).
+      ...createLineageSlice(...args),
     }),
     {
       name: "scieasy-studio-ui",
@@ -71,6 +74,17 @@ export const useAppStore = create<AppStore>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
+        // ADR-038 §3.8 / Codex P2 (PR #937): the "jobs" bottom tab was
+        // removed in this PR. Users with persisted state from before
+        // the upgrade may rehydrate into `activeBottomTab="jobs"`, which
+        // is no longer a valid BottomTab value. Normalize stale values
+        // to "lineage" (the closest semantic replacement — Jobs was a
+        // placeholder for the run-history surface that Lineage now owns).
+        // This guard is cheap; it also covers any future tab removals.
+        const validTabs = new Set(["ai", "config", "logs", "lineage"]);
+        if (state.activeBottomTab && !validTabs.has(state.activeBottomTab)) {
+          state.activeBottomTab = "lineage";
+        }
         const defaults = { palette: 15, preview: 22, bottom: 30 };
         const mins = { palette: 4, preview: 4, bottom: 10 };
         const sizes = state.panelSizes;

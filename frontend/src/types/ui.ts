@@ -2,7 +2,13 @@ import type { Node } from "@xyflow/react";
 
 import type { BlockPortResponse, BlockSchemaResponse, BlockSummary } from "./api";
 
-export type BottomTab = "ai" | "config" | "logs" | "lineage" | "jobs";
+/**
+ * ADR-038 §3.8 — the Lineage tab is now a first-class entry rendered by
+ * `frontend/src/components/Lineage/LineageTab.tsx`. The "jobs" tab is
+ * removed: it was a placeholder for what ADR-038 now subsumes (run history
+ * lives in `<project>/.scieasy/lineage.db` and is surfaced in Lineage).
+ */
+export type BottomTab = "ai" | "config" | "logs" | "lineage";
 
 export interface BlockNodeData extends Record<string, unknown> {
   label: string;

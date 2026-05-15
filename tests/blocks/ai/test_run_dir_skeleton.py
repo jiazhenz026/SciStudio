@@ -27,11 +27,13 @@ def test_run_dir_class_imports() -> None:
 def test_init_computes_path_correctly(tmp_path: Path) -> None:
     rd = RunDir(tmp_path, "abc-123")
     assert rd.path == tmp_path / ".scieasy" / "ai-block-runs" / "abc-123"
-    assert rd.run_id == "abc-123"
+    # ADR-038 §5.2 rename: the Python attribute is ``block_execution_id``.
+    assert rd.block_execution_id == "abc-123"
     assert rd.project_dir == tmp_path
 
 
-def test_init_rejects_run_id_with_separators(tmp_path: Path) -> None:
+def test_init_rejects_block_execution_id_with_separators(tmp_path: Path) -> None:
+    """Renamed from ``test_init_rejects_run_id_with_separators`` per ADR-038 §5.2."""
     with pytest.raises(ValueError, match="path separator"):
         RunDir(tmp_path, "foo/bar")
     with pytest.raises(ValueError, match="path separator"):
