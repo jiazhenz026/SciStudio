@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,8 @@ from pydantic import BaseModel, Field
 
 from scieasy.core.versioning.git_binary import BundledGitMissing
 from scieasy.core.versioning.git_engine import GitEngine, GitError
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/git", tags=["git"])
 
@@ -207,12 +210,35 @@ async def branches(request: Request) -> list[dict[str, Any]]:
 
 @router.post("/branch/switch")
 async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str, str]:
-    """Switch to an existing branch."""
+    """Switch to an existing branch.
+
+    Phase 3.5 integration audit P2-2: after the branch switch lands,
+    refresh the in-process block registry so per-project custom blocks
+    that ship under ``<project>/blocks/`` (per ADR-039 §3.5b "blocks
+    alongside git") pick up the new on-disk source. Without this call,
+    the registry continues to serve the previous branch's block bodies
+    until the next ``open_project`` or process restart.
+
+    Best-effort: a refresh failure must not roll back the branch switch
+    (the branch is already committed in the working tree); we log and
+    proceed.
+    """
     engine = _engine_for_request(request)
     try:
         engine.branch_switch(body.branch_name)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
+    # ADR-039 §3.5b — refresh project-scoped block registry after the
+    # working tree changes.
+    runtime = getattr(request.app.state, "runtime", None)
+    if runtime is not None:
+        try:
+            runtime.refresh_block_registry()
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "branch_switch: refresh_block_registry failed (non-fatal)",
+                exc_info=True,
+            )
     return {"status": "ok", "current_branch": body.branch_name}
 
 

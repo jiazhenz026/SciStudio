@@ -111,10 +111,24 @@ def inspect_data(ref: dict[str, Any]) -> dict[str, Any]:
         out["framework"] = md.get("framework", {})
         out["user_metadata"] = {k: v for k, v in md.items() if k not in {"type_chain", "framework"}}
     # Try MetadataStore lookup for richer fields (ADR-032).
+    #
+    # Phase 3.5 integration audit P2-4: ``scieasy.core.metadata_store`` is
+    # a D38-2.3 deprecation shim that emits ``DeprecationWarning`` on
+    # import. MCP tool stderr is forwarded to the agent's PTY, where the
+    # warning would surface as noise on every call. Suppress just this
+    # warning at the import boundary.
     try:
-        from scieasy.core.metadata_store import get_metadata_store
+        import warnings
 
-        store = get_metadata_store()
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                category=DeprecationWarning,
+                module=r"scieasy\.core\.metadata_store",
+            )
+            from scieasy.core.metadata_store import get_metadata_store
+
+            store = get_metadata_store()
         if store is not None and sref.path:
             wire = store.get_wire_by_storage_path(sref.path) if hasattr(store, "get_wire_by_storage_path") else None
             if wire is not None:
@@ -355,9 +369,19 @@ def preview_data(ref: dict[str, Any], fmt: str) -> dict[str, Any]:
 
 def get_lineage(ref: dict[str, Any]) -> dict[str, Any]:
     """Return the transitive lineage ancestors of a data reference."""
-    from scieasy.core.metadata_store import get_metadata_store
+    # Phase 3.5 audit P2-4: suppress D38-2.3 deprecation-warning leak
+    # into MCP-tool stderr (see comment in inspect_data above).
+    import warnings
 
-    store = get_metadata_store()
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=DeprecationWarning,
+            module=r"scieasy\.core\.metadata_store",
+        )
+        from scieasy.core.metadata_store import get_metadata_store
+
+        store = get_metadata_store()
     if store is None:
         return {"nodes": [], "edges": [], "note": "no MetadataStore installed"}
 
