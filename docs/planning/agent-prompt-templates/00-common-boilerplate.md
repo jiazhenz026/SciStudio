@@ -1,30 +1,41 @@
-# [DISPATCH-COMMON-V1] Mandatory boilerplate for ADR-035/036 sub-agents
+# [DISPATCH-COMMON-V1] Mandatory boilerplate for cascade sub-agents
 
-> Every dispatch prompt for ADR-035 / ADR-036 work MUST start with the
+> Every dispatch prompt for a multi-agent cascade MUST start with the
 > role-specific marker (e.g. `[DISPATCH-TEMPLATE-V1: skeleton]`) and
 > include the rules below verbatim. The dispatch hook
 > (`scripts/hooks/check-agent-template.sh`) checks for these markers
 > on every `Agent` tool call.
+>
+> **Cascade context is injected per dispatch** — the dispatcher names the
+> active cascade (e.g. "ADR-038 + ADR-039"), the plan file path, the
+> checklist path, the tracking branch(es), and the hard out-of-scope file
+> list. Defaults below apply to the current ADR-038/039 cascade unless
+> overridden per dispatch.
 
 ## Identity & boundaries
 
-- You are working on the SciEasy repository, on a tracking branch for either ADR-035 (AI Block on PTY) or ADR-036 (embedded code editor) — your dispatch will tell you which.
-- The plan file is `~/.claude/plans/gentle-snuggling-ripple.md` (read-only context).
-- The single source of truth for what's done is `docs/planning/adr-035-036-checklist.md`. You **MUST** edit only the rows you own. You **MUST** append a `→ <PR-or-commit-link>` artifact to every box you tick. Drift is logged and reverted.
+- You are working on the SciEasy repository on a tracking branch for the active cascade — your dispatch will name the cascade and tracking branch.
+- The plan file is `~/.claude/plans/whimsical-soaring-pascal.md` (read-only context for the ADR-038/039 cascade; the dispatcher will override this path for other cascades).
+- The single source of truth for what's done is `docs/planning/adr-038-039-checklist.md` (or the cascade-specific checklist the dispatcher names). You **MUST** edit only the rows you own. You **MUST** append a `→ <PR-or-commit-link>` artifact to every box you tick. Drift is logged and reverted.
 - The dispatch tells you (a) which sub-issue (`#N`) you own, (b) which feature branch to create off the tracking branch, and (c) the exact list of files in your scope.
 
-## Hard scope rules — DO NOT MODIFY
+## Hard scope rules — DO NOT MODIFY (defaults for ADR-038/039 cascade)
 
-These directories / files are out of scope for ALL ADR-035/036 work, no exceptions. Touching one without explicit authorization in the dispatch = protocol violation. Stop, post on umbrella issue, exit.
+These directories / files are out of scope for ALL ADR-038/039 work, no exceptions. Touching one without explicit authorization in the dispatch = protocol violation. Stop, post on umbrella issue, exit.
 
-- `src/scieasy/core/` (entire core data-type system; ADR-027 D2 freezes the seven core types)
-- `src/scieasy/blocks/base/` (Block ABC, BlockSpec, PortSpec, state machine)
-- `src/scieasy/engine/runners/` (process_handle.py, scheduler.py)
-- `src/scieasy/engine/events.py` (EventBus contract — you may **subscribe**, may NOT add new event types)
-- `src/scieasy/blocks/registry.py` (BlockRegistry; call `hot_reload()`, do NOT modify)
-- `src/scieasy/api/routes/ai_pty.py` — the EXISTING `WS /api/ai/pty/{tab_id}` route is frozen. ADR-035 may add a sibling helper but must not modify the existing handler.
-- ANY ADR / spec / ROADMAP / changelog except where your dispatch explicitly authorizes
+- `src/scieasy/core/types/` (entire core data-type system; ADR-027 D2 freezes the seven core types)
+- `src/scieasy/core/storage/` (storage backends — Zarr / Arrow / filesystem / composite frozen)
+- `src/scieasy/core/proxy.py` (ViewProxy contract)
+- `src/scieasy/blocks/base/` (Block ABC, BlockSpec, PortSpec, state machine — except `blocks/registry.py` where ADR-038 §3.3 explicitly authorizes the `block_version` force-injection)
+- `src/scieasy/engine/runners/process_handle.py` + `process_monitor.py` + `platform.py` (ADR-019 process lifecycle)
+- `src/scieasy/engine/events.py` (EventBus contract — you may **subscribe**, may NOT add new event types EXCEPT `git.head_changed` per ADR-039 §3.8 + `blocks.reloaded` which already exists)
+- `src/scieasy/api/routes/ai_pty.py` — the EXISTING `WS /api/ai/pty/{tab_id}` route is frozen (ADR-034 freeze)
+- `src/scieasy/blocks/ai/` — frozen except for the AI Block `run_id` → `block_execution_id` rename in D38-2.4a
+- `src/scieasy/blocks/io/` + `blocks/process/` + `blocks/code/` + `blocks/app/` + `blocks/subworkflow/` — block subclasses untouched by ADR-038/039
+- ANY ADR / spec / changelog except where your dispatch explicitly authorizes (changelog entry for your own PR is the one exception)
 - ANY file owned by another agent in the same phase (avoid cross-agent collisions)
+
+The dispatcher may add cascade-specific or phase-specific entries to this list. **The dispatch prompt's per-agent owned-files whitelist is the authoritative scope** — the lists above are the safety net.
 
 If you genuinely believe your task requires touching one of these, STOP, post a comment on your umbrella issue describing why, and exit. The dispatcher escalates.
 
@@ -47,7 +58,7 @@ If you genuinely believe your task requires touching one of these, STOP, post a 
 8. **PR body MUST contain `Closes #N`** where N is your sub-issue number. After PR opens, verify the issue is linked. After merge, verify the issue actually closed.
 9. **GitHub CI MUST be green** before you report done. After PR opens, run `gh pr checks <N> --watch` and DO NOT exit until all checks pass. If CI fails: diagnose, push fix commit, repeat. A red PR is not done. (Per CLAUDE.md §6.4.)
 10. **Reconcile Codex auto-review**: after the first CI run, Codex posts review comments on the PR. Read each one and reply explicitly with one of `accepted (fixed in <commit>)`, `deferred (reason: ...)`, `rejected (reason: ...)`. Silence on a Codex P1 = drift.
-11. **Update the checklist** `docs/planning/adr-035-036-checklist.md` — tick the rows you complete, append `→ <PR/commit/test-link>`. Edit only your rows.
+11. **Update the cascade checklist** (the dispatcher names the file; default `docs/planning/adr-038-039-checklist.md`) — tick the rows you complete, append `→ <PR/commit/test-link>`. Edit only your rows.
 12. **Run the same checks CI runs** locally before push:
     - `ruff format --check .`
     - `ruff check .`
