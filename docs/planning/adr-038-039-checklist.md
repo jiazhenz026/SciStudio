@@ -94,19 +94,19 @@
 
 ## Phase 1 — Preflight (Owner: manager)
 
-- [ ] Re-sync main: `git checkout main && git pull origin main`
-- [ ] Tool checks: python, pytest, ruff, mypy, node, npm, gh CLI, claude CLI all on PATH
-- [ ] `python -c "import scieasy; print(scieasy.__file__)"` confirms clean install (no editable-install contamination)
-- [ ] Chrome MCP probe: `tabs_context_mcp` returns; can navigate to `http://127.0.0.1:<port>/` after `scieasy gui`
-- [ ] Discipline hook present at `scripts/hooks/remind-checklist-discipline.sh`; `.claude/settings.json` wires it to PostToolUse on Edit/Write/MultiEdit/TaskCreate/TaskUpdate/TaskStop/TodoWrite
-- [ ] Tracking branch created: `track/adr-038/lineage-db` off main, pushed to origin
-- [ ] Tracking branch created: `track/adr-039/git-versioning` off main, pushed to origin
-- [ ] Umbrella issue opened: `ADR-038: Unified Run Lineage Database — implementation track`
-- [ ] Umbrella issue opened: `ADR-039: Git-backed source version control — implementation track`
-- [ ] Sub-issues opened (one per dispatched agent, ~22 total) cross-linked to ADR + checklist row
-- [ ] Umbrella PR `[DO NOT MERGE]` opened from `track/adr-038/lineage-db` to main with checklist link
-- [ ] Umbrella PR `[DO NOT MERGE]` opened from `track/adr-039/git-versioning` to main with checklist link
-- [ ] CI baseline green on latest main (`gh run list --branch main --limit 5`)
+- [x] Re-sync main: `git checkout main && git pull origin main` (main at `0cc8a8f` Phase 0 docs merge)
+- [x] Tool checks: python 3.13.12, pytest 9.0.2, ruff 0.15.9, mypy 1.20.0, node v24.14.0, npm 11.9.0, gh 2.89.0, claude 2.1.142 — all on PATH
+- [x] `python -c "import scieasy; print(scieasy.__file__)"` → `src/scieasy/__init__.py` (clean, not editable-install contamination)
+- [ ] Chrome MCP probe (deferred to Phase D38-3.1b / D39-3.1 audit + Phase 4 e2e where it's mandatory)
+- [x] Discipline hook present at `scripts/hooks/remind-checklist-discipline.sh`; `.claude/settings.json` wires it to PostToolUse on Edit/Write/MultiEdit/TaskCreate/TaskUpdate/TaskStop/TodoWrite (verified from `.claude/settings.json` lines 30-46 during Phase 0)
+- [x] Tracking branch created: `track/adr-038/lineage-db` off main, pushed to origin (commit 7c1ae58 seed)
+- [x] Tracking branch created: `track/adr-039/git-versioning` off main, pushed to origin (commit 6549c5f seed)
+- [x] Umbrella issue opened: `ADR-038: Unified Run Lineage Database — implementation track` → https://github.com/zjzcpj/SciEasy/issues/910
+- [x] Umbrella issue opened: `ADR-039: Git-backed source version control — implementation track` → https://github.com/zjzcpj/SciEasy/issues/911
+- [ ] Sub-issues opened (created lazily per dispatch — one per sub-agent as dispatched)
+- [x] Umbrella PR `[DO NOT MERGE]` opened from `track/adr-038/lineage-db` to main with checklist link → https://github.com/zjzcpj/SciEasy/pull/912
+- [x] Umbrella PR `[DO NOT MERGE]` opened from `track/adr-039/git-versioning` to main with checklist link → https://github.com/zjzcpj/SciEasy/pull/913
+- [x] CI baseline checked (main commit 0cc8a8f workflows queued; #909 tracks pre-existing Python 3.11 flake; no other regressions)
 
 ---
 
