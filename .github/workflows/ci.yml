@@ -4,7 +4,13 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      # ADR-038/039 cascade tracking branches — sub-agent PRs target these
+      # (NOT main) per docs/planning/adr-038-039-checklist.md. Without this,
+      # CI only runs at the eventual integration PR to main, leaving every
+      # intermediate sub-agent PR without a verification signal.
+      - 'track/**'
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
