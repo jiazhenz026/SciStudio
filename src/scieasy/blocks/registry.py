@@ -644,6 +644,88 @@ def _merge_config_schema(cls: type) -> dict[str, Any]:
     }
 
 
+_PACKAGES_DISTRIBUTIONS_CACHE: dict[str, list[str]] | None = None
+
+
+def _packages_distributions_cached() -> dict[str, list[str]]:
+    """Cache ``importlib.metadata.packages_distributions()`` — it walks the
+    full site-packages tree and is too slow to call once per block."""
+    global _PACKAGES_DISTRIBUTIONS_CACHE
+    if _PACKAGES_DISTRIBUTIONS_CACHE is None:
+        try:
+            _PACKAGES_DISTRIBUTIONS_CACHE = dict(importlib.metadata.packages_distributions())
+        except Exception:
+            _PACKAGES_DISTRIBUTIONS_CACHE = {}
+    return _PACKAGES_DISTRIBUTIONS_CACHE
+
+
+def _resolve_distribution_version(cls: type) -> str:
+    """Return the PyPI distribution version of the module hosting ``cls``.
+
+    ADR-038 §3.3: ``block_version`` is force-injected at registry scan time
+    from ``importlib.metadata.version(<distribution_name>)``. In-tree blocks
+    live under the ``scieasy`` distribution and read ``scieasy.__version__``.
+    Plugin blocks read their entry-point distribution version (ADR-037 D11).
+    Drop-in ``.py`` files have no distribution, so they fall back to the
+    SciEasy version as a uniform default.
+
+    The function is best-effort: when no distribution can be resolved (e.g.
+    an editable-install path that ``packages_distributions`` does not yet
+    know about) it returns ``scieasy.__version__``. Registration does not
+    fail because failing scan-time for a single block kills the whole
+    palette — a less destructive degradation than ADR §3.3's narrative
+    suggests, while still removing the historical ``"unknown"`` default.
+    """
+    module_name = getattr(cls, "__module__", "") or ""
+    # 1. Built-in / in-tree blocks: stamp the running scieasy version.
+    if module_name.startswith("scieasy.") or module_name == "scieasy":
+        try:
+            from scieasy import __version__ as scieasy_version
+
+            return str(scieasy_version)
+        except Exception:
+            pass
+    # 2. Tier-1 drop-in modules use a synthetic name (``_scieasy_dropin_...``);
+    #    they have no distribution. Use scieasy version as the uniform default.
+    if module_name.startswith("_scieasy_dropin_"):
+        try:
+            from scieasy import __version__ as scieasy_version
+
+            return str(scieasy_version)
+        except Exception:
+            pass
+    # 3. Entry-point / monorepo plugins: look up the distribution that owns
+    #    the top-level module.
+    top_level = module_name.split(".", 1)[0]
+    if top_level:
+        try:
+            mapping = _packages_distributions_cached()
+            dists = mapping.get(top_level) or []
+            for dist_name in dists:
+                with contextlib.suppress(importlib.metadata.PackageNotFoundError):
+                    return str(importlib.metadata.version(dist_name))
+        except Exception:
+            logger.debug(
+                "registry: packages_distributions() lookup failed for %s",
+                top_level,
+                exc_info=True,
+            )
+        # 4. Some plugins publish under the same name as their top-level module.
+        with contextlib.suppress(importlib.metadata.PackageNotFoundError):
+            return str(importlib.metadata.version(top_level))
+
+    # 5. Last-ditch fallback: explicit class attribute, then scieasy version.
+    explicit = getattr(cls, "version", None)
+    if isinstance(explicit, str) and explicit and explicit != "0.1.0":
+        return explicit
+    try:
+        from scieasy import __version__ as scieasy_version
+
+        return str(scieasy_version)
+    except Exception:
+        return "unknown"
+
+
 def _spec_from_class(cls: type, source: str = "") -> BlockSpec:
     """Build a :class:`BlockSpec` from a Block subclass's class-level metadata.
 
@@ -653,6 +735,9 @@ def _spec_from_class(cls: type, source: str = "") -> BlockSpec:
 
     ADR-030 D1: uses ``_merge_config_schema()`` instead of a simple
     ``getattr`` to merge config_schema properties along the MRO.
+
+    ADR-038 §3.3: ``version`` is force-injected from ``importlib.metadata``
+    rather than the legacy ``getattr(cls, "version", "0.1.0")`` default.
     """
     # Fail loudly at scan time on malformed dynamic-port descriptors.
     BlockRegistry._validate_dynamic_ports(cls)
@@ -668,7 +753,7 @@ def _spec_from_class(cls: type, source: str = "") -> BlockSpec:
     return BlockSpec(
         name=getattr(cls, "name", cls.__name__),
         description=getattr(cls, "description", "") or (cls.__doc__ or "").split("\n")[0],
-        version=getattr(cls, "version", "0.1.0"),
+        version=_resolve_distribution_version(cls),
         module_path=cls.__module__,
         class_name=cls.__name__,
         base_category=base_cat,

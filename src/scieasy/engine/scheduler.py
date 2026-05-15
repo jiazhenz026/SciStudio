@@ -33,7 +33,7 @@ from scieasy.workflow.definition import WorkflowDefinition
 
 if TYPE_CHECKING:
     from scieasy.blocks.registry import BlockRegistry
-    from scieasy.engine.lineage_recorder import LineageRecorder
+    from scieasy.core.lineage.recorder import LineageRecorder
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,43 @@ def _extract_error_summary(error_text: str) -> str:
     if len(summary) > _MAX_ERROR_SUMMARY_LEN:
         summary = summary[: _MAX_ERROR_SUMMARY_LEN - 1] + "\u2026"
     return summary
+
+
+def _collect_object_ids(payload: Any) -> dict[str, list[str]]:
+    """Extract ``{port_name: [object_id, ...]}`` from a wire-format dict.
+
+    ADR-038 §3.2 expects the scheduler to feed the LineageRecorder a
+    pre-computed object-id map so it can write ``block_io`` rows without
+    re-parsing the wire format. Scalars and Collection items are both
+    flattened to a list per port. Ports whose values are not DataObject
+    wire payloads (e.g. plain ints) are skipped silently.
+    """
+    if not isinstance(payload, dict):
+        return {}
+
+    result: dict[str, list[str]] = {}
+    for port_name, value in payload.items():
+        if port_name == "__scieasy_env__":
+            continue
+        ids = _object_ids_for_value(value)
+        if ids:
+            result[str(port_name)] = ids
+    return result
+
+
+def _object_ids_for_value(value: Any) -> list[str]:
+    """Recursively extract object_ids from a single wire-format port value."""
+    if isinstance(value, dict):
+        if value.get("_collection"):
+            ids: list[str] = []
+            for item in value.get("items", []) or []:
+                ids.extend(_object_ids_for_value(item))
+            return ids
+        framework = (value.get("metadata") or {}).get("framework") or {}
+        candidate = framework.get("object_id")
+        if isinstance(candidate, str) and candidate:
+            return [candidate]
+    return []
 
 
 @dataclass
@@ -418,6 +455,16 @@ class DAGScheduler:
                 self.save_checkpoint(self._checkpoint_manager)
                 return
 
+            # ADR-038 §5.2: lift the per-block ``environment`` sidecar
+            # injected by ``runners/local.py`` into the BLOCK_DONE event data.
+            # Strip the sentinel key so downstream blocks never observe it on
+            # their input ports.
+            env_payload: dict[str, Any] | None = None
+            if isinstance(result, dict) and "__scieasy_env__" in result:
+                env_candidate = result.pop("__scieasy_env__")
+                if isinstance(env_candidate, dict):
+                    env_payload = env_candidate
+
             self._block_outputs[node_id] = result
             # ADR-032: persist DataObject metadata to project-level SQLite db.
             self._persist_output_metadata(node_id, result, self._workflow.id)
@@ -426,7 +473,14 @@ class DAGScheduler:
                 EngineEvent(
                     event_type=BLOCK_DONE,
                     block_id=node_id,
-                    data={"workflow_id": self._workflow.id, "outputs": result},
+                    data=self._build_block_done_data(
+                        node_id=node_id,
+                        block=block,
+                        inputs=inputs,
+                        config=config,
+                        outputs=result,
+                        environment=env_payload,
+                    ),
                 )
             )
             self.save_checkpoint(self._checkpoint_manager)
@@ -542,6 +596,15 @@ class DAGScheduler:
                 return
 
             # Step 6: Transition to DONE.
+            # ADR-038 §5.2: interactive blocks run in-process so they have no
+            # worker-supplied environment sidecar; pass None and the recorder
+            # will fall back to inserting an empty environment for the row.
+            env_payload: dict[str, Any] | None = None
+            if isinstance(result, dict) and "__scieasy_env__" in result:
+                env_candidate = result.pop("__scieasy_env__")
+                if isinstance(env_candidate, dict):
+                    env_payload = env_candidate
+
             self._block_outputs[node_id] = result
             # ADR-032: persist DataObject metadata to project-level SQLite db.
             self._persist_output_metadata(node_id, result, self._workflow.id)
@@ -550,7 +613,14 @@ class DAGScheduler:
                 EngineEvent(
                     event_type=BLOCK_DONE,
                     block_id=node_id,
-                    data={"workflow_id": self._workflow.id, "outputs": result},
+                    data=self._build_block_done_data(
+                        node_id=node_id,
+                        block=block,
+                        inputs=inputs,
+                        config=config,
+                        outputs=result,
+                        environment=env_payload,
+                    ),
                 )
             )
             self.save_checkpoint(self._checkpoint_manager)
@@ -681,6 +751,79 @@ class DAGScheduler:
                 "ADR-032: checkpoint-to-store sync failed (non-fatal)",
                 exc_info=True,
             )
+
+    # -- ADR-038 §3.2: lineage event-data extension --------------------------
+
+    def _build_block_done_data(
+        self,
+        *,
+        node_id: str,
+        block: Any,
+        inputs: dict[str, Any],
+        config: dict[str, Any],
+        outputs: dict[str, Any] | Any,
+        environment: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """Assemble the BLOCK_DONE event payload (ADR-038 §3.2).
+
+        In addition to the legacy ``workflow_id`` + ``outputs`` keys this
+        emits the fields that :class:`LineageRecorder` needs to write the
+        ``block_executions`` / ``data_objects`` / ``block_io`` rows:
+
+        * ``config``               — resolved config dict (post-template expansion)
+        * ``block_type``           — registry type name for the block
+        * ``block_version``        — registry-resolved version per ADR-038 §3.3
+        * ``environment``          — full env snapshot from the worker
+        * ``input_object_ids``     — ``{port: [object_id, ...]}`` derived from inputs
+        * ``output_object_ids``    — same shape for outputs
+        * ``inputs``               — raw wire-format inputs (fallback for the recorder)
+        """
+        block_type = self._resolve_block_type(node_id, block)
+        block_version = self._resolve_block_version(block, block_type)
+        return {
+            "workflow_id": self._workflow.id,
+            "outputs": outputs,
+            "inputs": inputs,
+            "config": dict(config) if isinstance(config, dict) else {},
+            "block_type": block_type,
+            "block_version": block_version,
+            "environment": environment,
+            "input_object_ids": _collect_object_ids(inputs),
+            "output_object_ids": _collect_object_ids(outputs),
+        }
+
+    def _resolve_block_type(self, node_id: str, block: Any) -> str:
+        """Return the registry type name for ``block``, falling back to NodeDef."""
+        node = self._dag.nodes.get(node_id)
+        block_type = getattr(node, "block_type", None) if node is not None else None
+        if block_type:
+            return str(block_type)
+        return type(block).__name__
+
+    def _resolve_block_version(self, block: Any, block_type: str) -> str:
+        """Return the version stamped on the block spec at registry scan time.
+
+        Per ADR-038 §3.3 the registry force-injects this from
+        ``importlib.metadata`` at scan time. When the registry is not wired
+        up (mock-runner tests), fall back to the block class's ``version``
+        attribute and then to ``scieasy.__version__``.
+        """
+        if self._registry is not None:
+            try:
+                spec = self._registry.get_spec(block_type)
+                if spec is not None and getattr(spec, "version", None):
+                    return str(spec.version)
+            except Exception:
+                logger.debug("Block version registry lookup failed for %s", block_type)
+        explicit = getattr(block, "version", None)
+        if isinstance(explicit, str) and explicit:
+            return explicit
+        try:
+            from scieasy import __version__ as scieasy_version
+
+            return str(scieasy_version)
+        except Exception:
+            return "unknown"
 
     async def _on_interactive_complete(self, event: EngineEvent) -> None:
         """Handle an interactive_complete event from the frontend.

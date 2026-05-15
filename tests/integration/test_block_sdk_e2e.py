@@ -273,7 +273,17 @@ class {class_name}(ProcessBlock):
         assert "run" in method_names
 
     def test_tier1_scan_discovers_scaffolded_block(self, tmp_path: Path) -> None:
-        """A scaffolded block file is discovered by Tier 1 scan."""
+        """A scaffolded block file is discovered by Tier 1 scan.
+
+        ADR-038 §3.3: ``block_version`` is force-injected at registry
+        scan time. Tier-1 drop-in modules have no PyPI distribution so
+        they fall back to ``scieasy.__version__`` — the class-level
+        ``version`` attribute on the scaffolded block is intentionally
+        overridden to remove the historical ``"unknown"`` default and
+        keep version provenance honest.
+        """
+        from scieasy import __version__ as scieasy_version
+
         self._write_block_file(tmp_path, "DiscoverBlock", "Discover Block")
 
         reg = BlockRegistry()
@@ -285,7 +295,7 @@ class {class_name}(ProcessBlock):
         spec = specs["Discover Block"]
         assert spec.source == "tier1"
         assert spec.base_category == "process"
-        assert spec.version == "0.2.0"
+        assert spec.version == scieasy_version
 
     def test_tier1_instantiate_and_run(self, tmp_path: Path) -> None:
         """A Tier 1 block can be instantiated and executed end-to-end."""

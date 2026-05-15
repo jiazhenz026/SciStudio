@@ -37,8 +37,9 @@ class TestCLIInit:
         assert (tmp_path / "test_proj" / "data" / "artifacts").is_dir()
         assert (tmp_path / "test_proj" / "blocks").is_dir()
         assert (tmp_path / "test_proj" / "types").is_dir()
-        assert (tmp_path / "test_proj" / "checkpoints").is_dir()
-        assert (tmp_path / "test_proj" / "lineage").is_dir()
+        # ADR-038 §3.5 / §5.2: lineage history lives under ``.scieasy/`` now;
+        # the legacy ``checkpoints/`` and ``lineage/`` top-level dirs are gone.
+        assert (tmp_path / "test_proj" / ".scieasy").is_dir()
         assert (tmp_path / "test_proj" / "logs").is_dir()
         assert (tmp_path / "test_proj" / "project.yaml").is_file()
 
