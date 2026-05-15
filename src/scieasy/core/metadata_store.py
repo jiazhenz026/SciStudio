@@ -1,101 +1,137 @@
-"""MetadataStore -- project-level SQLite persistent mirror of DataObject metadata.
+"""Deprecated: legacy ``metadata.db`` import surface — superseded by ADR-038.
 
-Implements ADR-032: a per-project SQLite database that stores the exact
-wire-format JSON produced by :func:`_serialise_one` for every DataObject
-that passes through the engine.  The database preserves framework
-identity, typed plugin metadata, and user annotations across project
-reopens, checkpoint restores, and cross-workflow data reuse.
+ADR-038 §3.1 collapses the pre-existing ``metadata.db`` (ADR-032) and the
+disjoint ``lineage.db`` schema into a single unified ``lineage.db`` with
+four normalized tables. Phase D38-2.3 (this module) retires the
+``metadata.db`` write path and converts this module into a thin
+deprecation shim:
 
-The store is **not** a replacement for storage backends (Zarr, Arrow,
-filesystem) -- those still store the data payloads.  This database
-stores only the DataObject identity and metadata envelope.
+* :class:`MetadataStore` is preserved as a public symbol with the same
+  ``put`` / ``put_wire`` / ``get`` / ``get_wire`` / ``get_by_storage_path``
+  / ``ancestors`` / ``descendants`` / ``list_by_type`` / ``list_by_workflow``
+  / ``vacuum`` / ``delete`` / ``close`` method surface so out-of-scope
+  callers (notably the MCP inspection / QA tools) keep working.
+* Writes (``put`` / ``put_wire`` / ``put_wire_if_missing``) are best-effort
+  no-ops that emit a one-time :class:`DeprecationWarning`. The new
+  authoritative writer is the :class:`scieasy.core.lineage.LineageRecorder`
+  wired by ``ApiRuntime.start_workflow`` (D38-2.2, #920).
+* Reads delegate to the unified
+  :class:`~scieasy.core.lineage.LineageStore`'s ``data_objects`` table
+  when the active project has one, returning ``None`` / ``[]`` otherwise.
 
-Per ADR-032 Addendum 1, writes happen in the **engine process** (not
-worker subprocesses) after the engine receives wire-format output dicts.
-The singleton accessor (:func:`get_metadata_store`) follows the same
-pattern as :mod:`scieasy.core.storage.flush_context`.
+Per ADR-038 §6 Phase 2 + the user direction recorded 2026-05-15 (project
+is pre-release), **no historical data migration** is performed. If a
+project directory contains a stale ``metadata.db`` from a pre-ADR-038
+run, :func:`ApiRuntime._init_metadata_store` logs an ``INFO`` line and
+leaves the file alone — it is never opened.
+
+Removal target: 6 months after merge of the parent ADR-038 cascade.
+The deprecation warning fires at most once per process to keep CI output
+clean while the cascade lands.
 """
 
 from __future__ import annotations
 
-import json
 import logging
-import sqlite3
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from scieasy.core.lineage.store import LineageStore
     from scieasy.core.types.base import DataObject
 
 logger = logging.getLogger(__name__)
 
+# Emit the DeprecationWarning at most once per process to keep test output
+# readable while the rest of the ADR-038 cascade rolls out. Once the
+# follow-up phases stop importing this module entirely we can drop the
+# guard and let the warning fire on every call.
+_WARNED: bool = False
+
+_DEPRECATION_MESSAGE = (
+    "scieasy.core.metadata_store is deprecated and superseded by ADR-038's "
+    "unified lineage store (scieasy.core.lineage.LineageStore). The "
+    "MetadataStore shim is retained for the 6-month deprecation window; "
+    "new code MUST use the unified store via scieasy.core.lineage."
+)
+
+
+def _emit_deprecation_warning() -> None:
+    """Fire the deprecation warning at most once per process."""
+    global _WARNED
+    if _WARNED:
+        return
+    _WARNED = True
+    warnings.warn(
+        _DEPRECATION_MESSAGE,
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
+# Module-level handle to the unified :class:`LineageStore` for the active
+# project. Set by :func:`ApiRuntime._init_metadata_store` so the shim's
+# delegated reads have a stable lookup point that does not require a
+# FastAPI request context. Tests inject directly via
+# :func:`_set_active_lineage_store`.
+_active_store: LineageStore | None = None
+
+
+def _set_active_lineage_store(store: LineageStore | None) -> None:
+    """Register (or clear) the active project's unified store.
+
+    Called by :class:`ApiRuntime` on project open / project switch. Tests
+    that fault-inject an in-memory store call this directly.
+    """
+    global _active_store
+    _active_store = store
+
+
+def _active_lineage_store() -> LineageStore | None:
+    """Look up the active project's unified :class:`LineageStore`.
+
+    Returns ``None`` when no project is open or the runtime has not yet
+    registered a store. Best-effort: never raises.
+    """
+    return _active_store
+
+
 # ---------------------------------------------------------------------------
-# Schema version -- bump when the table DDL changes.
-# ---------------------------------------------------------------------------
-_SCHEMA_VERSION = 1
-
-_CREATE_TABLE = """\
-CREATE TABLE IF NOT EXISTS data_objects (
-    object_id       TEXT PRIMARY KEY,
-    derived_from    TEXT,
-    type_name       TEXT NOT NULL,
-    backend         TEXT,
-    storage_path    TEXT,
-    created_at      TEXT NOT NULL,
-    wire_payload    TEXT NOT NULL,
-    workflow_id     TEXT,
-    block_id        TEXT,
-    port_name       TEXT
-);
-"""
-
-_CREATE_INDEXES = [
-    "CREATE INDEX IF NOT EXISTS idx_derived_from ON data_objects(derived_from);",
-    "CREATE INDEX IF NOT EXISTS idx_type_name ON data_objects(type_name);",
-    "CREATE INDEX IF NOT EXISTS idx_storage_path ON data_objects(storage_path);",
-    "CREATE INDEX IF NOT EXISTS idx_workflow_block ON data_objects(workflow_id, block_id);",
-]
-
-
-# ---------------------------------------------------------------------------
-# MetadataStore
+# Public deprecation shim
 # ---------------------------------------------------------------------------
 
 
 class MetadataStore:
-    """Project-level SQLite metadata store for DataObject identity and metadata.
+    """Deprecation shim — preserves the pre-ADR-038 ``metadata.db`` surface.
 
-    Each project directory contains one ``metadata.db`` file.  The database
-    mirrors the wire-format JSON produced by ``_serialise_one()``, with
-    extracted index columns for efficient queries.
+    The shim is constructed by :meth:`ApiRuntime._init_metadata_store` for
+    backwards compatibility with callers that import the legacy symbols.
+    Writes are silent no-ops (the unified :class:`LineageStore` is the
+    authoritative writer). Reads return ``None`` / ``[]`` because no
+    legacy data migration is performed per ADR-038 §6 Phase 2.
+
+    The ``db_path`` constructor argument is accepted for API compatibility
+    but is no longer used — the shim never opens a SQLite connection of
+    its own. The unified store lives at ``<project>/.scieasy/lineage.db``
+    and is owned by :class:`ApiRuntime`.
 
     Parameters
     ----------
     db_path:
-        Path to the SQLite database file.  Created if it does not exist.
+        Ignored (kept for backwards-compatible constructor signature).
     """
 
-    def __init__(self, db_path: str | Path) -> None:
-        self._db_path = Path(db_path)
-        self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(self._db_path))
-        self._conn.execute("PRAGMA journal_mode=WAL;")
-        self._conn.execute("PRAGMA foreign_keys=ON;")
-        self._init_schema()
+    def __init__(self, db_path: str | Path | None = None) -> None:
+        # Path is intentionally not stored — the shim is stateless.
+        # We capture it for ``__repr__`` only so debug output still names
+        # the legacy file location the caller asked for.
+        self._db_path = Path(db_path) if db_path is not None else None
+        _emit_deprecation_warning()
 
-    # -- Schema management --------------------------------------------------
-
-    def _init_schema(self) -> None:
-        """Create tables/indexes if absent and track schema version."""
-        current_version = self._conn.execute("PRAGMA user_version;").fetchone()[0]
-        if current_version < _SCHEMA_VERSION:
-            self._conn.execute(_CREATE_TABLE)
-            for idx_sql in _CREATE_INDEXES:
-                self._conn.execute(idx_sql)
-            self._conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION};")
-            self._conn.commit()
-
-    # -- Write methods ------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Write methods — no-ops with a one-time warning.
+    # ------------------------------------------------------------------
 
     def put(
         self,
@@ -104,15 +140,8 @@ class MetadataStore:
         block_id: str | None = None,
         port_name: str | None = None,
     ) -> None:
-        """Persist DataObject metadata.  Upsert by ``object_id``.
-
-        Serialises *obj* via ``_serialise_one()`` then delegates to
-        :meth:`put_wire`.
-        """
-        from scieasy.core.types.serialization import _serialise_one
-
-        wire_dict = _serialise_one(obj)
-        self.put_wire(wire_dict, workflow_id=workflow_id, block_id=block_id, port_name=port_name)
+        """No-op shim — the LineageRecorder owns writes per ADR-038 §3.2."""
+        _emit_deprecation_warning()
 
     def put_wire(
         self,
@@ -121,56 +150,8 @@ class MetadataStore:
         block_id: str | None = None,
         port_name: str | None = None,
     ) -> None:
-        """Persist a raw wire-format dict.  Upsert by ``object_id``.
-
-        Extracts index columns from the wire-format structure and performs
-        an ``INSERT OR REPLACE``.  If the dict has no ``object_id`` in its
-        ``metadata.framework`` sub-dict the call is silently ignored (cannot
-        store without identity).
-
-        Parameters
-        ----------
-        wire_dict:
-            The exact dict produced by ``_serialise_one()``.
-        workflow_id:
-            Optional workflow identifier for bookkeeping.
-        block_id:
-            Optional block identifier for bookkeeping.
-        port_name:
-            Optional output port name for bookkeeping.
-        """
-        md = wire_dict.get("metadata") or {}
-        if not isinstance(md, dict):
-            return
-        framework = md.get("framework") or {}
-        if not isinstance(framework, dict):
-            return
-        object_id = framework.get("object_id")
-        if not object_id:
-            return
-
-        type_chain = md.get("type_chain")
-        type_name = str(type_chain[-1]) if isinstance(type_chain, list) and type_chain else "DataObject"
-
-        self._conn.execute(
-            "INSERT OR REPLACE INTO data_objects "
-            "(object_id, derived_from, type_name, backend, storage_path, "
-            "created_at, wire_payload, workflow_id, block_id, port_name) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                object_id,
-                framework.get("derived_from"),
-                type_name,
-                wire_dict.get("backend"),
-                wire_dict.get("path"),
-                framework.get("created_at", ""),
-                json.dumps(wire_dict),
-                workflow_id,
-                block_id,
-                port_name,
-            ),
-        )
-        self._conn.commit()
+        """No-op shim — the LineageRecorder owns writes per ADR-038 §3.2."""
+        _emit_deprecation_warning()
 
     def put_wire_if_missing(
         self,
@@ -179,212 +160,282 @@ class MetadataStore:
         block_id: str | None = None,
         port_name: str | None = None,
     ) -> None:
-        """Insert wire-format dict only when the object_id is not already stored.
+        """No-op shim — the LineageRecorder owns writes per ADR-038 §3.2."""
+        _emit_deprecation_warning()
 
-        Used by checkpoint restore sync to avoid overwriting entries that
-        were written during a prior execution.
-        """
-        md = wire_dict.get("metadata") or {}
-        if not isinstance(md, dict):
-            return
-        framework = md.get("framework") or {}
-        if not isinstance(framework, dict):
-            return
-        object_id = framework.get("object_id")
-        if not object_id:
-            return
-
-        existing = self._conn.execute(
-            "SELECT 1 FROM data_objects WHERE object_id = ?",
-            (object_id,),
-        ).fetchone()
-        if existing is not None:
-            return
-
-        self.put_wire(wire_dict, workflow_id=workflow_id, block_id=block_id, port_name=port_name)
-
-    # -- Read methods -------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Read methods — delegate to the unified LineageStore where possible.
+    # ------------------------------------------------------------------
 
     def get(self, object_id: str) -> DataObject | None:
-        """Reconstruct a full DataObject from stored metadata.
+        """Reconstruct a :class:`DataObject` via the unified store.
 
-        Uses the same ``_reconstruct_one()`` path as the worker subprocess.
-        Returns ``None`` when *object_id* is not found.
+        Returns ``None`` when there is no active lineage store or the
+        object id is unknown. Reconstruction uses the same
+        :func:`_reconstruct_one` path as the worker subprocess, so a
+        successful return is byte-equivalent to the pre-ADR-038 result.
         """
+        _emit_deprecation_warning()
         wire = self.get_wire(object_id)
         if wire is None:
             return None
-        from scieasy.core.types.serialization import _reconstruct_one
+        try:
+            from scieasy.core.types.serialization import _reconstruct_one
 
-        return _reconstruct_one(wire)
+            return _reconstruct_one(wire)
+        except Exception:
+            logger.debug("MetadataStore shim: _reconstruct_one failed", exc_info=True)
+            return None
 
     def get_wire(self, object_id: str) -> dict[str, Any] | None:
-        """Return the raw wire-format dict for *object_id*, or ``None``."""
-        row = self._conn.execute(
-            "SELECT wire_payload FROM data_objects WHERE object_id = ?",
-            (object_id,),
-        ).fetchone()
+        """Return the raw wire payload stored for ``object_id``, or ``None``."""
+        _emit_deprecation_warning()
+        store = _active_lineage_store()
+        if store is None:
+            return None
+        try:
+            row = store.get_data_object(object_id)
+        except Exception:
+            logger.debug("MetadataStore shim: get_data_object failed", exc_info=True)
+            return None
         if row is None:
             return None
-        result: dict[str, Any] = json.loads(row[0])
-        return result
+        payload = row.get("wire_payload")
+        if not isinstance(payload, str):
+            return None
+        import json
+
+        try:
+            decoded = json.loads(payload)
+        except json.JSONDecodeError:
+            return None
+        return decoded if isinstance(decoded, dict) else None
+
+    def get_wire_by_storage_path(self, path: str) -> dict[str, Any] | None:
+        """Return the wire payload for the first row matching ``storage_path``.
+
+        New convenience accessor used by the MCP inspection tools — they
+        previously branched on ``hasattr(store, "get_wire_by_storage_path")``,
+        so the shim provides it explicitly for forward-compat clarity.
+        Returns ``None`` when no row matches or the store is unavailable.
+        """
+        _emit_deprecation_warning()
+        store = _active_lineage_store()
+        if store is None:
+            return None
+        try:
+            cur = store._conn.execute(  # type: ignore[attr-defined]
+                "SELECT wire_payload FROM data_objects WHERE storage_path = ? LIMIT 1",
+                (path,),
+            )
+            row = cur.fetchone()
+        except Exception:
+            logger.debug("MetadataStore shim: storage_path query failed", exc_info=True)
+            return None
+        if row is None:
+            return None
+        import json
+
+        try:
+            decoded = json.loads(row[0])
+        except (json.JSONDecodeError, TypeError):
+            return None
+        return decoded if isinstance(decoded, dict) else None
 
     def get_by_storage_path(self, path: str) -> DataObject | None:
-        """Look up metadata for a data file on disk.
+        """Look up a DataObject whose ``storage_path`` matches ``path``.
 
-        Returns the first matching DataObject, or ``None``.
+        Returns ``None`` when there is no match or reconstruction fails.
         """
-        row = self._conn.execute(
-            "SELECT wire_payload FROM data_objects WHERE storage_path = ? LIMIT 1",
-            (path,),
-        ).fetchone()
-        if row is None:
+        _emit_deprecation_warning()
+        wire = self.get_wire_by_storage_path(path)
+        if wire is None:
             return None
-        from scieasy.core.types.serialization import _reconstruct_one
+        try:
+            from scieasy.core.types.serialization import _reconstruct_one
 
-        return _reconstruct_one(json.loads(row[0]))
+            return _reconstruct_one(wire)
+        except Exception:
+            logger.debug("MetadataStore shim: _reconstruct_one failed", exc_info=True)
+            return None
 
-    # -- Lineage queries ----------------------------------------------------
+    # ------------------------------------------------------------------
+    # Lineage queries — delegate to the unified ``data_objects`` table.
+    # ------------------------------------------------------------------
 
     def ancestors(self, object_id: str) -> list[dict[str, Any]]:
-        """Return the full provenance chain (derived_from traversal).
+        """Return the provenance chain via the unified ``derived_from`` column.
 
-        Returns a list of dicts with ``object_id``, ``derived_from``,
-        ``type_name``, ``block_id`` for each ancestor, starting from the
-        given object and walking up through ``derived_from`` links.
-        The first element is the queried object itself.
+        The shim runs the same recursive CTE as the pre-ADR-038
+        implementation, against ``lineage.db.data_objects``. Empty list
+        when the lineage store is unavailable or the object id is
+        unknown. Each entry carries ``object_id``, ``derived_from``,
+        ``type_name`` and a synthetic ``block_id`` field for
+        backwards-compatible payload shape (the unified store does not
+        carry per-row ``block_id``; we surface ``None`` and let callers
+        cope).
         """
-        rows = self._conn.execute(
-            """
-            WITH RECURSIVE anc AS (
-                SELECT object_id, derived_from, type_name, block_id
-                FROM data_objects WHERE object_id = ?
-                UNION ALL
-                SELECT d.object_id, d.derived_from, d.type_name, d.block_id
-                FROM data_objects d
-                JOIN anc a ON d.object_id = a.derived_from
-            )
-            SELECT object_id, derived_from, type_name, block_id FROM anc;
-            """,
-            (object_id,),
-        ).fetchall()
-        return [{"object_id": r[0], "derived_from": r[1], "type_name": r[2], "block_id": r[3]} for r in rows]
+        _emit_deprecation_warning()
+        store = _active_lineage_store()
+        if store is None:
+            return []
+        try:
+            rows = store._conn.execute(  # type: ignore[attr-defined]
+                """
+                WITH RECURSIVE anc AS (
+                    SELECT object_id, derived_from, type_name
+                    FROM data_objects WHERE object_id = ?
+                    UNION ALL
+                    SELECT d.object_id, d.derived_from, d.type_name
+                    FROM data_objects d
+                    JOIN anc a ON d.object_id = a.derived_from
+                )
+                SELECT object_id, derived_from, type_name FROM anc;
+                """,
+                (object_id,),
+            ).fetchall()
+        except Exception:
+            logger.debug("MetadataStore shim: ancestors query failed", exc_info=True)
+            return []
+        return [{"object_id": r[0], "derived_from": r[1], "type_name": r[2], "block_id": None} for r in rows]
 
     def descendants(self, object_id: str) -> list[dict[str, Any]]:
-        """Return all objects derived from this one.
-
-        Returns a list of dicts with ``object_id``, ``derived_from``,
-        ``type_name``, ``block_id`` for each descendant.
-        The first element is the queried object itself.
-        """
-        rows = self._conn.execute(
-            """
-            WITH RECURSIVE desc AS (
-                SELECT object_id, derived_from, type_name, block_id
-                FROM data_objects WHERE object_id = ?
-                UNION ALL
-                SELECT d.object_id, d.derived_from, d.type_name, d.block_id
-                FROM data_objects d
-                JOIN desc a ON d.derived_from = a.object_id
-            )
-            SELECT object_id, derived_from, type_name, block_id FROM desc;
-            """,
-            (object_id,),
-        ).fetchall()
-        return [{"object_id": r[0], "derived_from": r[1], "type_name": r[2], "block_id": r[3]} for r in rows]
-
-    # -- Listing queries ----------------------------------------------------
+        """Return objects derived from ``object_id`` via the unified store."""
+        _emit_deprecation_warning()
+        store = _active_lineage_store()
+        if store is None:
+            return []
+        try:
+            rows = store._conn.execute(  # type: ignore[attr-defined]
+                """
+                WITH RECURSIVE desc_cte AS (
+                    SELECT object_id, derived_from, type_name
+                    FROM data_objects WHERE object_id = ?
+                    UNION ALL
+                    SELECT d.object_id, d.derived_from, d.type_name
+                    FROM data_objects d
+                    JOIN desc_cte a ON d.derived_from = a.object_id
+                )
+                SELECT object_id, derived_from, type_name FROM desc_cte;
+                """,
+                (object_id,),
+            ).fetchall()
+        except Exception:
+            logger.debug("MetadataStore shim: descendants query failed", exc_info=True)
+            return []
+        return [{"object_id": r[0], "derived_from": r[1], "type_name": r[2], "block_id": None} for r in rows]
 
     def list_by_type(self, type_name: str) -> list[dict[str, Any]]:
-        """List all objects of a given type (e.g. all Images)."""
-        rows = self._conn.execute(
-            "SELECT object_id, type_name, storage_path, workflow_id, block_id FROM data_objects WHERE type_name = ?",
-            (type_name,),
-        ).fetchall()
+        """List unified-store rows whose ``type_name`` equals ``type_name``."""
+        _emit_deprecation_warning()
+        store = _active_lineage_store()
+        if store is None:
+            return []
+        try:
+            rows = store._conn.execute(  # type: ignore[attr-defined]
+                "SELECT object_id, type_name, storage_path FROM data_objects WHERE type_name = ?",
+                (type_name,),
+            ).fetchall()
+        except Exception:
+            logger.debug("MetadataStore shim: list_by_type failed", exc_info=True)
+            return []
         return [
             {
                 "object_id": r[0],
                 "type_name": r[1],
                 "storage_path": r[2],
-                "workflow_id": r[3],
-                "block_id": r[4],
+                # ``workflow_id`` / ``block_id`` are not first-class
+                # columns on the unified ``data_objects`` table; callers
+                # that care should query the ``block_io`` join (Q4b in
+                # ADR §3.7). The shim returns ``None`` placeholders for
+                # signature compatibility.
+                "workflow_id": None,
+                "block_id": None,
             }
             for r in rows
         ]
 
     def list_by_workflow(self, workflow_id: str) -> list[dict[str, Any]]:
-        """List all objects produced by a workflow run."""
-        rows = self._conn.execute(
-            "SELECT object_id, type_name, storage_path, block_id, port_name FROM data_objects WHERE workflow_id = ?",
-            (workflow_id,),
-        ).fetchall()
+        """List unified-store rows produced by ``workflow_id``.
+
+        Joins ``data_objects`` ↔ ``block_io`` ↔ ``block_executions`` ↔
+        ``runs`` to find every output object produced by any run of the
+        given workflow. Empty list when the lineage store is unavailable
+        or the workflow has never executed.
+        """
+        _emit_deprecation_warning()
+        store = _active_lineage_store()
+        if store is None:
+            return []
+        try:
+            rows = store._conn.execute(  # type: ignore[attr-defined]
+                """
+                SELECT DISTINCT do.object_id, do.type_name, do.storage_path,
+                                bio.port_name, be.block_id
+                FROM data_objects do
+                JOIN block_io bio ON bio.object_id = do.object_id
+                JOIN block_executions be ON be.block_execution_id = bio.block_execution_id
+                JOIN runs r ON r.run_id = be.run_id
+                WHERE r.workflow_id = ? AND bio.direction = 'output'
+                """,
+                (workflow_id,),
+            ).fetchall()
+        except Exception:
+            logger.debug("MetadataStore shim: list_by_workflow failed", exc_info=True)
+            return []
         return [
             {
                 "object_id": r[0],
                 "type_name": r[1],
                 "storage_path": r[2],
-                "block_id": r[3],
-                "port_name": r[4],
+                "block_id": r[4],
+                "port_name": r[3],
             }
             for r in rows
         ]
 
-    # -- Maintenance --------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Maintenance — no-ops.
+    # ------------------------------------------------------------------
 
     def delete(self, object_id: str) -> None:
-        """Remove metadata entry (e.g. when data file is deleted)."""
-        self._conn.execute("DELETE FROM data_objects WHERE object_id = ?", (object_id,))
-        self._conn.commit()
+        """No-op — the unified store owns row lifecycle per ADR-038."""
+        _emit_deprecation_warning()
 
     def vacuum(self, existing_paths: set[str]) -> int:
-        """Remove entries whose ``storage_path`` no longer exists.
-
-        Parameters
-        ----------
-        existing_paths:
-            Set of storage paths that are known to exist on disk.
-
-        Returns
-        -------
-        int
-            Number of rows removed.
-        """
-        rows = self._conn.execute(
-            "SELECT object_id, storage_path FROM data_objects WHERE storage_path IS NOT NULL"
-        ).fetchall()
-        orphan_ids = [r[0] for r in rows if r[1] not in existing_paths]
-        if orphan_ids:
-            placeholders = ",".join("?" for _ in orphan_ids)
-            self._conn.execute(
-                f"DELETE FROM data_objects WHERE object_id IN ({placeholders})",
-                orphan_ids,
-            )
-            self._conn.commit()
-        return len(orphan_ids)
+        """No-op — returns 0 (rows are retained per ADR-038 §3.5)."""
+        _emit_deprecation_warning()
+        return 0
 
     def close(self) -> None:
-        """Close the database connection."""
-        self._conn.close()
+        """No-op — the shim does not own a SQLite handle."""
 
-    # -- Dunder -------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Dunder
+    # ------------------------------------------------------------------
 
     def __repr__(self) -> str:
-        return f"MetadataStore(db_path={self._db_path!r})"
+        return f"MetadataStore(deprecated_shim, db_path={self._db_path!r})"
 
 
 # ---------------------------------------------------------------------------
-# Module-level singleton (same pattern as flush_context.py)
+# Module-level singleton — preserved for backwards compatibility.
 # ---------------------------------------------------------------------------
 
 _store: MetadataStore | None = None
 
 
 def get_metadata_store() -> MetadataStore | None:
-    """Return the active MetadataStore, or ``None`` when no project context."""
+    """Return the active deprecated :class:`MetadataStore`, or ``None``.
+
+    The instance is the shim from this module — all writes are no-ops and
+    all reads delegate to :class:`~scieasy.core.lineage.LineageStore`. Use
+    the unified store directly for new code.
+    """
     return _store
 
 
 def set_metadata_store(store: MetadataStore | None) -> None:
-    """Set (or clear) the active MetadataStore singleton."""
+    """Set or clear the active deprecation-shim singleton."""
     global _store
     _store = store
