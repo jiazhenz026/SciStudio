@@ -13,8 +13,9 @@ The pre-ADR-038 ``ProvenanceGraph`` helper is removed (ADR-038 §3.4: no
 content hashing → no hash-keyed graph). Use SQL queries against the unified
 store instead — see ADR-038 §3.7 for the four canonical query patterns.
 
-For backwards compatibility, the legacy ``LineageRecord`` name is re-exported
-as a no-op shell (Phase D38-2.3 replaces it with a deprecation shim).
+The legacy pre-ADR-038 ``LineageRecord`` shell was removed in D38-3.2
+(closes audit D38-3.1a P1-4). Callers importing it will now ``ImportError``
+loudly — migrate to :class:`BlockExecutionRecord` + :class:`DataObjectRow`.
 """
 
 from __future__ import annotations
@@ -24,7 +25,6 @@ from scieasy.core.lineage.record import (
     BlockExecutionRecord,
     BlockIORow,
     DataObjectRow,
-    LineageRecord,
     RunRecord,
 )
 from scieasy.core.lineage.recorder import LineageRecorder
@@ -41,7 +41,6 @@ __all__ = [
     "BlockIORow",
     "DataObjectRow",
     "EnvironmentSnapshot",
-    "LineageRecord",
     "LineageRecorder",
     "LineageStore",
     "RunContext",

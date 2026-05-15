@@ -275,7 +275,14 @@ class TestScanTier2CallableProtocol:
     """Tests for _scan_tier2 callable protocol (ADR-025 Phase 2.2)."""
 
     def _make_mock_block_class(self, name: str = "MockBlock") -> type:
-        """Create a minimal mock Block subclass for testing."""
+        """Create a minimal mock Block subclass for testing.
+
+        D38-3.2: stamp ``__module__`` under the ``scieasy.*`` namespace so
+        :func:`_resolve_distribution_version` returns the real scieasy
+        version instead of raising :class:`BlockRegistrationError`. The
+        registry's strict-raise (ADR §3.3) is bypassed for in-tree
+        modules because they read ``scieasy.__version__``.
+        """
         from scieasy.blocks.base.block import Block
 
         cls = type(
@@ -291,6 +298,10 @@ class TestScanTier2CallableProtocol:
                 "run": lambda self, inputs, config: {},
             },
         )
+        # ``type()`` sets ``__module__`` to the caller's module (``abc``
+        # via ABCMeta.__new__), which ``_resolve_distribution_version``
+        # cannot resolve. Force it under the scieasy namespace.
+        cls.__module__ = "scieasy.blocks._mock_for_registry_tests"
         return cls
 
     def _make_mock_entry_point(self, name: str, load_return: object) -> MagicMock:

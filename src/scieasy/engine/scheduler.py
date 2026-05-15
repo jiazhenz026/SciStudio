@@ -269,11 +269,7 @@ class DAGScheduler:
                 EngineEvent(
                     event_type=BLOCK_ERROR,
                     block_id=node_id,
-                    data={
-                        "workflow_id": self._workflow.id,
-                        "error": error_str,
-                        "error_summary": _extract_error_summary(error_str),
-                    },
+                    data=self._build_block_terminal_data(node_id=node_id, error=error_str),
                 )
             )
             self.save_checkpoint(self._checkpoint_manager)
@@ -305,11 +301,7 @@ class DAGScheduler:
                     EngineEvent(
                         event_type=BLOCK_ERROR,
                         block_id=node_id,
-                        data={
-                            "workflow_id": self._workflow.id,
-                            "error": error_str,
-                            "error_summary": _extract_error_summary(error_str),
-                        },
+                        data=self._build_block_terminal_data(node_id=node_id, error=error_str),
                     )
                 )
                 self.save_checkpoint(self._checkpoint_manager)
@@ -401,7 +393,7 @@ class DAGScheduler:
                         EngineEvent(
                             event_type=BLOCK_CANCELLED,
                             block_id=node_id,
-                            data={"workflow_id": self._workflow.id},
+                            data=self._build_block_terminal_data(node_id=node_id),
                         )
                     )
                     await self._propagate_skip(node_id, "cancelled")
@@ -411,11 +403,7 @@ class DAGScheduler:
                         EngineEvent(
                             event_type=BLOCK_ERROR,
                             block_id=node_id,
-                            data={
-                                "workflow_id": self._workflow.id,
-                                "error": error_str,
-                                "error_summary": _extract_error_summary(error_str),
-                            },
+                            data=self._build_block_terminal_data(node_id=node_id, error=error_str),
                         )
                     )
                     await self._propagate_skip(node_id, "error")
@@ -427,7 +415,7 @@ class DAGScheduler:
                         EngineEvent(
                             event_type=BLOCK_SKIPPED,
                             block_id=node_id,
-                            data={"workflow_id": self._workflow.id},
+                            data=self._build_block_terminal_data(node_id=node_id),
                         )
                     )
                     await self._propagate_skip(node_id, "skipped")
@@ -445,11 +433,7 @@ class DAGScheduler:
                     EngineEvent(
                         event_type=BLOCK_ERROR,
                         block_id=node_id,
-                        data={
-                            "workflow_id": self._workflow.id,
-                            "error": error_str,
-                            "error_summary": _extract_error_summary(error_str),
-                        },
+                        data=self._build_block_terminal_data(node_id=node_id, error=error_str),
                     )
                 )
                 self.save_checkpoint(self._checkpoint_manager)
@@ -590,11 +574,7 @@ class DAGScheduler:
                     EngineEvent(
                         event_type=BLOCK_ERROR,
                         block_id=node_id,
-                        data={
-                            "workflow_id": self._workflow.id,
-                            "error": error_str,
-                            "error_summary": _extract_error_summary(error_str),
-                        },
+                        data=self._build_block_terminal_data(node_id=node_id, error=error_str),
                     )
                 )
                 self.save_checkpoint(self._checkpoint_manager)
@@ -860,6 +840,80 @@ class DAGScheduler:
             "output_object_ids": _collect_object_ids(outputs),
         }
 
+    def _build_block_terminal_data(
+        self,
+        *,
+        node_id: str,
+        error: str | None = None,
+        extra: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Assemble the BLOCK_ERROR / BLOCK_CANCELLED / BLOCK_SKIPPED payload.
+
+        D38-3.2 (closes audit D38-3.1a P1-1 + D38-3.1b P1-3): all four
+        terminal events must carry the ADR-038 §3.2 metadata so the
+        recorder writes non-empty ``block_type`` / ``block_version`` /
+        ``block_config_resolved`` columns into ``block_executions``.
+        Without this, ADR §3.7 Q3 ("which blocks ran in run X") returns
+        empty strings for any non-completed block, breaking methods
+        export and downstream queries.
+
+        Best-effort: block instantiation may have failed *before* the
+        block object exists (the pre-dispatch error paths). In that
+        case the registry NodeDef still carries ``block_type``, so we
+        look up the version from the registry by type alone.
+        ``inputs`` is sampled at terminal time from ``_block_outputs``
+        of upstream nodes (read-only via ``_gather_inputs``); when that
+        sample fails (e.g. cancel during dispatch) we fall back to an
+        empty dict.
+        """
+        node = self._dag.nodes.get(node_id)
+        block_type = ""
+        if node is not None:
+            block_type = str(getattr(node, "block_type", "") or "")
+
+        block_version = ""
+        config: dict[str, Any] = {}
+        if node is not None:
+            cfg = getattr(node, "config", None)
+            if isinstance(cfg, dict):
+                config = dict(cfg)
+            # Registry-resolved version (ADR-038 §3.3 force-injection at
+            # scan time). When the registry isn't wired (mock-runner
+            # tests) fall back to a blank string — the recorder writes
+            # the empty string into the NOT NULL column without raising.
+            if self._registry is not None and block_type:
+                try:
+                    spec = self._registry.get_spec(block_type)
+                    if spec is not None and getattr(spec, "version", None):
+                        block_version = str(spec.version)
+                except Exception:
+                    logger.debug(
+                        "Block version registry lookup failed for terminal-event %s/%s",
+                        node_id,
+                        block_type,
+                    )
+
+        try:
+            inputs = self._gather_inputs(node_id)
+        except Exception:
+            inputs = {}
+
+        data: dict[str, Any] = {
+            "workflow_id": self._workflow.id,
+            "block_type": block_type,
+            "block_version": block_version,
+            "config": config,
+            "inputs": inputs,
+            "input_object_ids": _collect_object_ids(inputs),
+            "output_object_ids": {},
+        }
+        if error is not None:
+            data["error"] = error
+            data["error_summary"] = _extract_error_summary(error)
+        if extra:
+            data.update(extra)
+        return data
+
     def _resolve_block_type(self, node_id: str, block: Any) -> str:
         """Return the registry type name for ``block``, falling back to NodeDef."""
         node = self._dag.nodes.get(node_id)
@@ -1056,7 +1110,7 @@ class DAGScheduler:
             EngineEvent(
                 event_type=BLOCK_CANCELLED,
                 block_id=block_id,
-                data={"workflow_id": self._workflow.id},
+                data=self._build_block_terminal_data(node_id=block_id),
             )
         )
         await self._propagate_skip(block_id, "cancelled")
@@ -1116,7 +1170,7 @@ class DAGScheduler:
                 EngineEvent(
                     event_type=BLOCK_CANCELLED,
                     block_id=block_id,
-                    data={"workflow_id": self._workflow.id},
+                    data=self._build_block_terminal_data(node_id=block_id),
                 )
             )
 
@@ -1128,7 +1182,7 @@ class DAGScheduler:
                     EngineEvent(
                         event_type=BLOCK_SKIPPED,
                         block_id=block_id,
-                        data={"workflow_id": self._workflow.id},
+                        data=self._build_block_terminal_data(node_id=block_id),
                     )
                 )
 
@@ -1184,11 +1238,7 @@ class DAGScheduler:
                 EngineEvent(
                     event_type=BLOCK_ERROR,
                     block_id=block_id,
-                    data={
-                        "workflow_id": self._workflow.id,
-                        "error": error_detail,
-                        "error_summary": _extract_error_summary(error_detail),
-                    },
+                    data=self._build_block_terminal_data(node_id=block_id, error=error_detail),
                 )
             )
             # Retry any READY blocks that were previously throttled and
@@ -1220,7 +1270,7 @@ class DAGScheduler:
                     EngineEvent(
                         event_type=BLOCK_SKIPPED,
                         block_id=node_id,
-                        data={"workflow_id": self._workflow.id},
+                        data=self._build_block_terminal_data(node_id=node_id),
                     )
                 )
                 queue.extend(self._dag.adjacency.get(node_id, []))
@@ -1591,8 +1641,9 @@ class DAGScheduler:
                 if node_id in checkpoint.intermediate_refs:
                     self._block_outputs[node_id] = checkpoint.intermediate_refs[node_id]
 
-        # ADR-032 Phase 2a: backfill metadata store from checkpoint data.
-        # Only inserts missing entries (no overwrites).
+        # ADR-038 §5.2 (supersedes ADR-032 Phase 2a): backfill lineage
+        # ``data_objects`` from checkpoint data on resume. Only inserts
+        # missing entries (no overwrites).
         self._sync_checkpoint_to_store()
 
         await self._event_bus.emit(

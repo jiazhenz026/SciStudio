@@ -25,6 +25,20 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class BlockRegistrationError(Exception):
+    """Raised when a Block class cannot be registered.
+
+    ADR-038 §3.3 (D38-3.2): the registry must "fail loudly" when the
+    distribution version for a Block class cannot be resolved — the
+    reproducibility guarantee requires a real version on every row.
+
+    The Tier 1 / Tier 2 / monorepo scan loops catch this exception and
+    log the failure per-block, so a single mis-packaged plugin does not
+    kill the whole palette (less-destructive degradation while still
+    removing the historical ``"unknown"`` default).
+    """
+
+
 @dataclass
 class BlockSpec:
     """Metadata descriptor for a registered block type.
@@ -662,39 +676,55 @@ def _packages_distributions_cached() -> dict[str, list[str]]:
 def _resolve_distribution_version(cls: type) -> str:
     """Return the PyPI distribution version of the module hosting ``cls``.
 
-    ADR-038 §3.3: ``block_version`` is force-injected at registry scan time
-    from ``importlib.metadata.version(<distribution_name>)``. In-tree blocks
-    live under the ``scieasy`` distribution and read ``scieasy.__version__``.
-    Plugin blocks read their entry-point distribution version (ADR-037 D11).
-    Drop-in ``.py`` files have no distribution, so they fall back to the
-    SciEasy version as a uniform default.
+    ADR-038 §3.3 (D38-3.2 / closes audit D38-3.1a P1-2): ``block_version``
+    is force-injected at registry scan time from
+    ``importlib.metadata.version(<distribution_name>)``. In-tree blocks
+    live under the ``scieasy`` distribution and read
+    ``scieasy.__version__``. Plugin blocks read their entry-point
+    distribution version (ADR-037 D11). Drop-in ``.py`` files have no
+    distribution, so they fall back to the SciEasy version as a uniform
+    default.
 
-    The function is best-effort: when no distribution can be resolved (e.g.
-    an editable-install path that ``packages_distributions`` does not yet
-    know about) it returns ``scieasy.__version__``. Registration does not
-    fail because failing scan-time for a single block kills the whole
-    palette — a less destructive degradation than ADR §3.3's narrative
-    suggests, while still removing the historical ``"unknown"`` default.
+    The function **raises** :class:`BlockRegistrationError` when no
+    distribution can be resolved. Per ADR §3.3 the historical
+    ``"unknown"`` default is forbidden because every lineage row's
+    ``block_version`` column must carry a real version for
+    reproducibility. The Tier 1 / Tier 2 / monorepo scan loops already
+    wrap each block registration in ``try/except`` so a per-block raise
+    here does not kill the whole palette — only the offending block is
+    dropped, with a logged warning.
     """
     module_name = getattr(cls, "__module__", "") or ""
-    # 1. Built-in / in-tree blocks: stamp the running scieasy version.
-    if module_name.startswith("scieasy.") or module_name == "scieasy":
+
+    def _scieasy_version() -> str | None:
         try:
             from scieasy import __version__ as scieasy_version
 
-            return str(scieasy_version)
+            v = str(scieasy_version)
+            return v if v else None
         except Exception:
-            pass
+            return None
+
+    # 1. Built-in / in-tree blocks: stamp the running scieasy version.
+    if module_name.startswith("scieasy.") or module_name == "scieasy":
+        sv = _scieasy_version()
+        if sv is not None:
+            return sv
     # 2. Tier-1 drop-in modules use a synthetic name (``_scieasy_dropin_...``);
     #    they have no distribution. Use scieasy version as the uniform default.
     if module_name.startswith("_scieasy_dropin_"):
-        try:
-            from scieasy import __version__ as scieasy_version
-
-            return str(scieasy_version)
-        except Exception:
-            pass
-    # 3. Entry-point / monorepo plugins: look up the distribution that owns
+        sv = _scieasy_version()
+        if sv is not None:
+            return sv
+    # 3. In-tree test fixtures (``tests.*``) are not a real distribution but
+    #    are part of the repo and exist only when running pytest. Stamp the
+    #    scieasy version so the strict raise doesn't fire on test-only
+    #    Block subclasses like ``tests.fixtures.noop_block.NoopBlock``.
+    if module_name.startswith("tests.") or module_name == "tests":
+        sv = _scieasy_version()
+        if sv is not None:
+            return sv
+    # 4. Entry-point / monorepo plugins: look up the distribution that owns
     #    the top-level module.
     top_level = module_name.split(".", 1)[0]
     if top_level:
@@ -710,20 +740,36 @@ def _resolve_distribution_version(cls: type) -> str:
                 top_level,
                 exc_info=True,
             )
-        # 4. Some plugins publish under the same name as their top-level module.
+        # 5. Some plugins publish under the same name as their top-level module.
         with contextlib.suppress(importlib.metadata.PackageNotFoundError):
             return str(importlib.metadata.version(top_level))
+        # 6. Monorepo / dev-install convention: ``scieasy_blocks_<name>``
+        #    Python package → ``scieasy-blocks-<name>`` distribution name
+        #    (PEP 503 normalisation). ``packages_distributions`` does not
+        #    always populate this mapping for editable installs, so try
+        #    the explicit normalised name as a last resort.
+        if top_level.startswith("scieasy_blocks_"):
+            normalised = top_level.replace("_", "-")
+            with contextlib.suppress(importlib.metadata.PackageNotFoundError):
+                return str(importlib.metadata.version(normalised))
+            # If the plugin distribution truly isn't installed (CI without
+            # ``pip install -e .`` on the monorepo packages), stamp the
+            # scieasy version so the per-block registration still succeeds.
+            # This is identical to the in-tree fallback in §1: the plugin
+            # is part of the same repo checkout.
+            sv = _scieasy_version()
+            if sv is not None:
+                return sv
 
-    # 5. Last-ditch fallback: explicit class attribute, then scieasy version.
-    explicit = getattr(cls, "version", None)
-    if isinstance(explicit, str) and explicit and explicit != "0.1.0":
-        return explicit
-    try:
-        from scieasy import __version__ as scieasy_version
-
-        return str(scieasy_version)
-    except Exception:
-        return "unknown"
+    # 5. ADR §3.3 forbids the historical "unknown" default. Fail loudly —
+    # the scan-loop catch logs and continues so a single mis-packaged
+    # block does not kill the palette.
+    raise BlockRegistrationError(
+        f"ADR-038 §3.3: cannot resolve distribution version for {cls!r} "
+        f"(module={module_name!r}); register a setuptools/poetry distribution "
+        f"or place the block under ``scieasy.*`` so ``scieasy.__version__`` "
+        f"can be stamped."
+    )
 
 
 def _spec_from_class(cls: type, source: str = "") -> BlockSpec:

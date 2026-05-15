@@ -1142,12 +1142,17 @@ class ApiRuntime:
         workflow_id: str,
         workflow: WorkflowDefinition,
         execute_from: str | None,
+        parent_run_id: str | None = None,
     ) -> Any:
         """Construct a per-run :class:`LineageRecorder` and seed its ``runs`` row.
 
         Returns ``None`` when the lineage store is unavailable. Failures during
         construction or the initial ``insert_run`` are logged and swallowed
         (best-effort per ADR-038 §3.2).
+
+        D38-3.2 (closes D38-3.1a P2 / D38-3.1b P2-4): ``parent_run_id`` is
+        threaded through from :meth:`start_workflow` so re-runs link back
+        to the historical run per ADR §3.6. ``None`` for fresh runs.
         """
         if self.lineage_store is None:
             return None
@@ -1173,6 +1178,7 @@ class ApiRuntime:
                 environment_snapshot=env_snapshot,
                 triggered_by=triggered_by,
                 execute_from_block_id=execute_from,
+                parent_run_id=parent_run_id,
             )
             recorder = LineageRecorder(self.event_bus, self.lineage_store, run_id=run_id)
             recorder.begin_run(run)
@@ -1203,7 +1209,15 @@ class ApiRuntime:
             return ""
 
     def _finalize_lineage_run(self, recorder: Any, task: asyncio.Task[None]) -> None:
-        """Update the ``runs`` row when the workflow task finishes."""
+        """Update the ``runs`` row when the workflow task finishes.
+
+        D38-3.2 (closes Codex P1 on PR #926 / D38-3.1b P1-2): also
+        ``dispose()`` the recorder so it unsubscribes from
+        :attr:`event_bus`. Without this, every successive
+        ``start_workflow`` call accumulates one more terminal-event
+        subscriber, polluting later runs' lineage rows with cross-run
+        callbacks. Dispose is idempotent and best-effort.
+        """
         try:
             if task.cancelled():
                 status = "cancelled"
@@ -1213,8 +1227,27 @@ class ApiRuntime:
             recorder.finalize_run(status=status)
         except Exception:
             logger.debug("ADR-038: lineage run finalisation failed", exc_info=True)
+        # Unsubscribe regardless of whether finalize succeeded — a leaked
+        # subscription is worse than a missing finished_at column.
+        try:
+            recorder.dispose()
+        except Exception:
+            logger.debug("ADR-038: lineage recorder dispose failed", exc_info=True)
 
-    def start_workflow(self, workflow_id: str, *, execute_from: str | None = None) -> dict[str, Any]:
+    def start_workflow(
+        self,
+        workflow_id: str,
+        *,
+        execute_from: str | None = None,
+        parent_run_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Schedule a workflow run.
+
+        D38-3.2 (closes D38-3.1a P2 / D38-3.1b P2-4): ``parent_run_id``
+        is a new optional parameter used by the ``/api/runs/{run_id}/rerun``
+        endpoint to stamp the new run's ``runs.parent_run_id`` column
+        pointing at the historical run that triggered the rerun.
+        """
         workflow = self.load_workflow(workflow_id)
         checkpoint_manager = CheckpointManager(self.checkpoint_dir_for(workflow_id))
         checkpoint = checkpoint_manager.load(workflow_id) if execute_from is not None else None
@@ -1229,6 +1262,7 @@ class ApiRuntime:
             workflow_id=workflow_id,
             workflow=workflow,
             execute_from=execute_from,
+            parent_run_id=parent_run_id,
         )
 
         scheduler = DAGScheduler(

@@ -222,8 +222,20 @@ class TestRerunRun:
         calls: list[dict[str, Any]] = []
         runtime = seeded_project["runtime"]
 
-        def _fake_start(self: Any, workflow_id: str, *, execute_from: str | None = None) -> dict[str, Any]:
-            calls.append({"workflow_id": workflow_id, "execute_from": execute_from})
+        def _fake_start(
+            self: Any,
+            workflow_id: str,
+            *,
+            execute_from: str | None = None,
+            parent_run_id: str | None = None,
+        ) -> dict[str, Any]:
+            calls.append(
+                {
+                    "workflow_id": workflow_id,
+                    "execute_from": execute_from,
+                    "parent_run_id": parent_run_id,
+                }
+            )
             return {
                 "workflow_id": workflow_id,
                 "status": "started",
@@ -245,7 +257,11 @@ class TestRerunRun:
         assert body["workflow_id"] == "image_pipeline"
         assert body["execute_from_block_id"] is None
         assert body["result"]["status"] == "started"
-        assert patch_start_workflow["calls"] == [{"workflow_id": "image_pipeline", "execute_from": None}]
+        # D38-3.2: rerun route stamps the historical run_id as the new
+        # run's parent_run_id (closes D38-3.1a P2 / D38-3.1b P2-4).
+        assert patch_start_workflow["calls"] == [
+            {"workflow_id": "image_pipeline", "execute_from": None, "parent_run_id": "run-A"}
+        ]
 
     def test_threads_execute_from_block_id(
         self, client: TestClient, seeded_project: dict[str, Any], patch_start_workflow: dict[str, Any]
@@ -255,7 +271,9 @@ class TestRerunRun:
             json={"execute_from_block_id": "preprocess"},
         )
         assert r.status_code == 200, r.text
-        assert patch_start_workflow["calls"] == [{"workflow_id": "image_pipeline", "execute_from": "preprocess"}]
+        assert patch_start_workflow["calls"] == [
+            {"workflow_id": "image_pipeline", "execute_from": "preprocess", "parent_run_id": "run-A"}
+        ]
 
     def test_unknown_run_returns_404(
         self, client: TestClient, seeded_project: dict[str, Any], patch_start_workflow: dict[str, Any]
@@ -272,7 +290,13 @@ class TestRerunRun:
         """``ApiRuntime.start_workflow`` raises ``ValueError`` when execute_from has no checkpoint."""
         runtime = seeded_project["runtime"]
 
-        def _raises(self: Any, workflow_id: str, *, execute_from: str | None = None) -> dict[str, Any]:
+        def _raises(
+            self: Any,
+            workflow_id: str,
+            *,
+            execute_from: str | None = None,
+            parent_run_id: str | None = None,
+        ) -> dict[str, Any]:
             raise ValueError("Run the full workflow at least once before using 'Run from here'")
 
         monkeypatch.setattr(type(runtime), "start_workflow", _raises)
@@ -288,7 +312,13 @@ class TestRerunRun:
     ) -> None:
         runtime = seeded_project["runtime"]
 
-        def _raises(self: Any, workflow_id: str, *, execute_from: str | None = None) -> dict[str, Any]:
+        def _raises(
+            self: Any,
+            workflow_id: str,
+            *,
+            execute_from: str | None = None,
+            parent_run_id: str | None = None,
+        ) -> dict[str, Any]:
             raise FileNotFoundError(f"workflow {workflow_id} not found")
 
         monkeypatch.setattr(type(runtime), "start_workflow", _raises)

@@ -224,16 +224,16 @@ class MetadataStore:
         if store is None:
             return None
         try:
-            cur = store._conn.execute(  # type: ignore[attr-defined]
+            rows = store.execute_query(
                 "SELECT wire_payload FROM data_objects WHERE storage_path = ? LIMIT 1",
                 (path,),
             )
-            row = cur.fetchone()
         except Exception:
             logger.debug("MetadataStore shim: storage_path query failed", exc_info=True)
             return None
-        if row is None:
+        if not rows:
             return None
+        row = rows[0]
         import json
 
         try:
@@ -280,7 +280,7 @@ class MetadataStore:
         if store is None:
             return []
         try:
-            rows = store._conn.execute(  # type: ignore[attr-defined]
+            rows = store.execute_query(
                 """
                 WITH RECURSIVE anc AS (
                     SELECT object_id, derived_from, type_name
@@ -293,7 +293,7 @@ class MetadataStore:
                 SELECT object_id, derived_from, type_name FROM anc;
                 """,
                 (object_id,),
-            ).fetchall()
+            )
         except Exception:
             logger.debug("MetadataStore shim: ancestors query failed", exc_info=True)
             return []
@@ -306,7 +306,7 @@ class MetadataStore:
         if store is None:
             return []
         try:
-            rows = store._conn.execute(  # type: ignore[attr-defined]
+            rows = store.execute_query(
                 """
                 WITH RECURSIVE desc_cte AS (
                     SELECT object_id, derived_from, type_name
@@ -319,7 +319,7 @@ class MetadataStore:
                 SELECT object_id, derived_from, type_name FROM desc_cte;
                 """,
                 (object_id,),
-            ).fetchall()
+            )
         except Exception:
             logger.debug("MetadataStore shim: descendants query failed", exc_info=True)
             return []
@@ -332,10 +332,10 @@ class MetadataStore:
         if store is None:
             return []
         try:
-            rows = store._conn.execute(  # type: ignore[attr-defined]
+            rows = store.execute_query(
                 "SELECT object_id, type_name, storage_path FROM data_objects WHERE type_name = ?",
                 (type_name,),
-            ).fetchall()
+            )
         except Exception:
             logger.debug("MetadataStore shim: list_by_type failed", exc_info=True)
             return []
@@ -368,7 +368,7 @@ class MetadataStore:
         if store is None:
             return []
         try:
-            rows = store._conn.execute(  # type: ignore[attr-defined]
+            rows = store.execute_query(
                 """
                 SELECT DISTINCT do.object_id, do.type_name, do.storage_path,
                                 bio.port_name, be.block_id
@@ -379,7 +379,7 @@ class MetadataStore:
                 WHERE r.workflow_id = ? AND bio.direction = 'output'
                 """,
                 (workflow_id,),
-            ).fetchall()
+            )
         except Exception:
             logger.debug("MetadataStore shim: list_by_workflow failed", exc_info=True)
             return []

@@ -7,15 +7,17 @@ Each dataclass mirrors one of the four normalized tables:
 * :class:`DataObjectRow`         ↔ ``data_objects``
 * :class:`BlockIORow`            ↔ ``block_io``
 
-The legacy single-table ``LineageRecord`` from pre-ADR-038 is removed; the
-``ProvenanceGraph`` helper that consumed it is also deleted per ADR §3.4
-(no content hashing → no hash-keyed graph). Phase D38-2.3 introduces the
-6-month deprecation shim for the old ``MetadataStore`` import surface.
+The legacy single-table ``LineageRecord`` from pre-ADR-038 is removed
+(D38-3.2 / closes audit D38-3.1a P1-4); the ``ProvenanceGraph`` helper
+that consumed it is also deleted per ADR §3.4 (no content hashing → no
+hash-keyed graph). The pre-ADR-038 ``input_hashes`` / ``output_hashes``
+/ ``partial_output_refs`` / ``environment`` fields are gone — content
+hashing is explicitly forbidden by the ADR.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -103,32 +105,10 @@ class BlockIORow:
     position: int = 0
 
 
-# ----------------------------------------------------------------------------
-# Backwards-compatible alias for downstream code that has not yet migrated.
-# Phase D38-2.3 will replace this with a deprecation shim that re-exports the
-# unified store. For now, keep ``LineageRecord`` resolvable from the package
-# import surface so existing tests that haven't been migrated can be flagged
-# explicitly rather than ImportError-ing during collection.
-# ----------------------------------------------------------------------------
-
-
-@dataclass
-class LineageRecord:
-    """Deprecated: pre-ADR-038 single-table lineage row.
-
-    Kept as a thin shell so that ``from scieasy.core.lineage import LineageRecord``
-    still resolves. New code MUST NOT use this; use :class:`BlockExecutionRecord`
-    plus :class:`DataObjectRow` / :class:`BlockIORow`.
-    """
-
-    block_id: str = ""
-    block_config: dict[str, Any] = field(default_factory=dict)
-    block_version: str = ""
-    input_hashes: dict[str, list[str]] = field(default_factory=dict)
-    output_hashes: dict[str, list[str]] = field(default_factory=dict)
-    timestamp: str = ""
-    duration_ms: int = 0
-    environment: Any = None
-    termination: str = "completed"
-    partial_output_refs: list[str] = field(default_factory=list)
-    termination_detail: str = ""
+# NOTE: The legacy pre-ADR-038 ``LineageRecord`` shell with
+# ``input_hashes`` / ``output_hashes`` / ``partial_output_refs`` /
+# ``environment`` fields was removed in D38-3.2 (closes audit
+# D38-3.1a P1-4). ADR §3.4 explicitly forbids content hashing; any
+# code still importing ``LineageRecord`` from this module must migrate
+# to :class:`BlockExecutionRecord` + :class:`DataObjectRow` /
+# :class:`BlockIORow`.
