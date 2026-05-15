@@ -39,6 +39,60 @@ from scieasy.workflow.serializer import absolutify_paths, load_yaml, relativify_
 logger = logging.getLogger(__name__)
 
 
+def _rmtree_force(target: Path) -> None:
+    """Remove a directory tree, retrying on Windows read-only / locked files.
+
+    ADR-039: auto-init creates ``.git/`` with read-only object files on
+    Windows. Plain ``shutil.rmtree`` cannot remove read-only files, and
+    can also race with file watchers that briefly hold handles. This
+    helper:
+
+    1. Pre-walks the tree to ``chmod -R`` every file writable.
+    2. Calls ``shutil.rmtree`` with an ``onerror`` that retries with
+       chmod for any remaining stragglers.
+    3. Does a small bounded retry loop for transient locks (file watcher
+       holding a handle while we delete).
+    """
+    import contextlib
+    import stat
+    import time
+
+    target_p = Path(target)
+    if not target_p.exists():
+        return
+
+    # 1. Walk + chmod everything writable.
+    for root, dirs, files in os.walk(target_p):
+        for name in dirs + files:
+            full = Path(root) / name
+            with contextlib.suppress(OSError):
+                os.chmod(full, stat.S_IWRITE | stat.S_IREAD)
+
+    def _on_rm_error(func, path, _exc_info):  # type: ignore[no-untyped-def]
+        try:
+            os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
+            func(path)
+        except Exception:
+            logger.debug("rmtree retry failed for %s", path, exc_info=True)
+
+    # 2. Bounded retry loop for transient locks (e.g. sqlite WAL).
+    for _ in range(5):
+        try:
+            shutil.rmtree(target_p, onerror=_on_rm_error)
+        except Exception:
+            logger.debug("rmtree raised", exc_info=True)
+        if not target_p.exists():
+            return
+        time.sleep(0.2)
+    # Last resort: best-effort one more pass after a longer wait so any
+    # in-process sqlite WAL flush has time to release file handles.
+    time.sleep(0.5)
+    try:
+        shutil.rmtree(target_p, onerror=_on_rm_error)
+    except Exception:
+        logger.warning("rmtree failed to remove %s", target_p, exc_info=True)
+
+
 def _now_iso() -> str:
     return datetime.now(tz=UTC).isoformat()
 
@@ -335,7 +389,22 @@ class ApiRuntime:
         the system degrades to pre-ADR-032 behaviour (no metadata persistence).
         """
         try:
-            from scieasy.core.metadata_store import MetadataStore, set_metadata_store
+            from scieasy.core.metadata_store import (
+                MetadataStore,
+                get_metadata_store,
+                set_metadata_store,
+            )
+
+            # Close any previously-opened store so its sqlite handle is
+            # released before we open a new one. Otherwise switching
+            # projects accumulates dangling connections that prevent
+            # rmtree on Windows (test cleanup + delete_project both fail).
+            previous = get_metadata_store()
+            if previous is not None:
+                try:
+                    previous.close()
+                except Exception:
+                    logger.debug("MetadataStore.close on switch raised", exc_info=True)
 
             db_path = project_path / "metadata.db"
             store = MetadataStore(db_path)
@@ -432,20 +501,37 @@ class ApiRuntime:
         #    proceed. Project creation must succeed even if git init
         #    fails (degraded mode per §3.9 line 384-388).
         #
-        # TODO(D39-2.2b): wire the actual call. For the skeleton, just
-        # emit a debug log so we can grep for the placeholder during
-        # the impl phase.
-        logger.debug(
-            "ADR-039 auto-init placeholder (D39-2.2a skeleton): would init git at %s",
-            project_path,
-        )
+        # ADR-039 §3.2 auto-init (D39-2.2b): degraded mode on failure so
+        # that project creation never aborts because git is unavailable
+        # (per §3.9).
+        try:
+            from scieasy.core.versioning.git_engine import GitEngine
+
+            engine = GitEngine(project_path)
+            if not engine.is_repository(project_path):
+                engine.init_repository(project_path)
+                logger.info("ADR-039: auto-initialized git repo at %s", project_path)
+        except Exception:
+            logger.warning(
+                "ADR-039: auto-init failed at %s (degraded mode)",
+                project_path,
+                exc_info=True,
+            )
         self.open_project(project.id)
         return project
 
     def list_projects(self) -> list[KnownProject]:
         self._load_known_projects()
         # Prune entries whose project directory no longer exists on disk
-        stale_ids = [pid for pid, entry in self.known_projects.items() if not Path(entry.path).is_dir()]
+        # ADR-039: ``Path.is_dir()`` alone can yield False positives on
+        # Windows when sqlite WAL files linger after a directory was
+        # deleted externally. Treat a project as stale if either the
+        # directory is missing OR its ``project.yaml`` is gone.
+        stale_ids = [
+            pid
+            for pid, entry in self.known_projects.items()
+            if not Path(entry.path).is_dir() or not (Path(entry.path) / "project.yaml").is_file()
+        ]
         if stale_ids:
             for pid in stale_ids:
                 self.known_projects.pop(pid, None)
@@ -510,10 +596,22 @@ class ApiRuntime:
         #        # logs at INFO: "Auto-initialized git repo at <path>"
         # 7. Best-effort: catch BundledGitMissing / GitError, log WARNING,
         #    proceed. The project must still open if git is unavailable.
-        logger.debug(
-            "ADR-039 re-init placeholder (D39-2.2a skeleton): would check git at %s",
-            candidate.path,
-        )
+        try:
+            candidate_path = Path(candidate.path)
+            no_git_marker = candidate_path / ".scieasy" / "no_git"
+            if not no_git_marker.exists():
+                from scieasy.core.versioning.git_engine import GitEngine
+
+                engine = GitEngine(candidate_path)
+                if not engine.is_repository(candidate_path):
+                    engine.init_repository(candidate_path)
+                    logger.info("ADR-039: auto-initialized git repo at %s", candidate_path)
+        except Exception:
+            logger.warning(
+                "ADR-039: re-init failed at %s (degraded mode)",
+                candidate.path,
+                exc_info=True,
+            )
         # ADR-034: republish the MCP server port file into the newly active
         # project so the per-project ``mcp-bridge`` (spawned by the
         # embedded claude/codex TUI for THIS project) can discover it.
@@ -596,7 +694,22 @@ class ApiRuntime:
             self._save_known_projects()
             return
         logger.warning("Deleting project directory: %s", project_path)
-        shutil.rmtree(project_path)
+        # Close the per-project MetadataStore (ADR-032) so its sqlite
+        # WAL handle is released before we rmtree — otherwise the
+        # ``metadata.db*`` files stay locked on Windows.
+        try:
+            from scieasy.core.metadata_store import get_metadata_store, set_metadata_store
+
+            store = get_metadata_store()
+            if store is not None:
+                try:
+                    store.close()
+                except Exception:
+                    logger.debug("MetadataStore close raised", exc_info=True)
+                set_metadata_store(None)
+        except Exception:
+            logger.debug("MetadataStore lookup raised", exc_info=True)
+        _rmtree_force(project_path)
         self.known_projects.pop(project.id, None)
         if self.active_project is not None and self.active_project.id == project.id:
             self.active_project = None
@@ -1112,12 +1225,55 @@ class ApiRuntime:
         # Phase D39-2.5 ("Polish + ADR-038 integration") per the
         # cascade checklist.
         #
-        # TODO(D39-2.2b): implement steps 1-8 (the commit side).
-        # TODO(D39-2.5):  implement step 9 (the lineage-write side).
-        logger.debug(
-            "ADR-039 pre-run auto-commit placeholder (D39-2.2a skeleton): workflow_id=%s",
-            workflow_id,
-        )
+        # ADR-039 §3.4 pre-run auto-commit (D39-2.2b implementation):
+        # commit the dirty working tree (with the canonical ``auto:``
+        # prefix) so the resulting HEAD SHA can be joined to the ADR-038
+        # lineage row. Step 9 (the lineage-row write) remains a TODO for
+        # D39-2.5 — it cannot be wired here without D38-2.2's schema
+        # being on this tracking branch.
+        workflow_git_commit: str | None = None
+        try:
+            if self.active_project is not None:
+                from datetime import datetime
+
+                from scieasy.core.versioning.git_engine import GitEngine
+
+                project_path = Path(self.active_project.path)
+                engine = GitEngine(project_path)
+                if engine.is_repository(project_path):
+                    state = engine.head_state()
+                    if state.dirty:
+                        short_id = uuid4().hex[:8]
+                        ts = datetime.now(UTC).isoformat()
+                        msg = f"pre-run @ {ts} (run={short_id}, workflow={workflow_id})"
+                        try:
+                            new_sha = engine.commit(msg, prefix="auto")
+                            workflow_git_commit = new_sha
+                        except Exception:
+                            logger.warning(
+                                "ADR-039: pre-run auto-commit failed for %s",
+                                workflow_id,
+                                exc_info=True,
+                            )
+                            workflow_git_commit = state.commit_sha or None
+                    else:
+                        workflow_git_commit = state.commit_sha or None
+        except Exception:
+            logger.warning(
+                "ADR-039: pre-run auto-commit path errored for %s",
+                workflow_id,
+                exc_info=True,
+            )
+
+        # TODO(D39-2.5): persist ``workflow_git_commit`` into
+        # ``lineage.db.runs.workflow_git_commit`` once the ADR-038 schema
+        # lands on this tracking branch.
+        if workflow_git_commit:
+            logger.debug(
+                "ADR-039: captured workflow_git_commit=%s for workflow %s",
+                workflow_git_commit,
+                workflow_id,
+            )
 
         workflow = self.load_workflow(workflow_id)
         checkpoint_manager = CheckpointManager(self.checkpoint_dir_for(workflow_id))

@@ -12,15 +12,18 @@ For the ``scieasy gui`` developer CLI (no desktop bundle), the locator
 falls back to a system ``git`` resolved via ``shutil.which``. The
 developer fallback is *not* used in packaged desktop builds — users do
 not need git installed.
-
-Skeleton phase: ``GitBinary.locate()`` raises ``NotImplementedError`` per
-the comment block. Impl agent (D39-2.2b) fills the body using the
-algorithm documented below.
 """
 
 from __future__ import annotations
 
+import logging
+import os
+import shutil
+import subprocess
+import sys
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class BundledGitMissing(RuntimeError):  # noqa: N818 — name part of public API surface
@@ -46,18 +49,26 @@ class GitBinary:
         Absolute path to the git executable. Existence is verified at
         ``locate()`` time but the path is not re-checked on every call —
         callers expect a long-lived ``GitBinary`` instance.
+    version : str | None
+        Cached ``git --version`` string (best-effort; ``None`` on
+        failure).
     """
 
     def __init__(self, path: Path) -> None:
-        # Implementation note for D39-2.2b:
-        # ---------------------------------
-        # 1. Store ``path`` as ``self.path`` (resolve() to canonical form).
-        # 2. Optionally cache ``self.version`` via a one-shot
-        #    ``git --version`` subprocess call so log messages can report
-        #    the bundled version. Failure here is non-fatal — log a
-        #    warning and leave ``self.version = None``.
-        # 3. No subprocess work in __init__ if it would slow app startup.
-        raise NotImplementedError("D39-2.2a skeleton — body filled by D39-2.2b")
+        self.path = Path(path).resolve()
+        self.version: str | None = None
+        # Best-effort version probe — log only.
+        try:
+            proc = subprocess.run(
+                [str(self.path), "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if proc.returncode == 0:
+                self.version = proc.stdout.strip()
+        except Exception:  # pragma: no cover — diagnostic only
+            logger.debug("git --version probe failed for %s", self.path, exc_info=True)
 
     # ------------------------------------------------------------------
     # Class methods — locator API used by GitEngine and the REST layer
@@ -67,82 +78,55 @@ class GitBinary:
     def locate(cls) -> GitBinary:
         """Find the bundled git binary, falling back to system git.
 
-        Purpose
-        -------
-        The single entry point for "give me a working git executable".
-        ``GitEngine.__init__`` calls this once and reuses the instance.
+        See module docstring + ADR-039 §3.1 lines 56-88.
 
-        Signature contract
-        ------------------
-        - Input: none (locator inspects the environment).
-        - Output: :class:`GitBinary` instance with a verified ``.path``.
-        - Errors: :class:`BundledGitMissing` if no executable found.
-
-        Implementation steps (for D39-2.2b)
-        -----------------------------------
-        1. Determine the bundle root:
-
-           a. If ``sys.frozen`` is set (PyInstaller / electron-builder
-              bundle), bundle root = ``Path(sys.executable).parent``.
-              On macOS app-bundle this may need adjustment to
-              ``Path(sys.executable).parent.parent / "Resources"``.
-              Verify exact layout against ADR-037 once that ADR's
-              packaging script lands.
-           b. Otherwise look for an env var override
-              ``SCIEASY_GIT_BUNDLE_ROOT`` (used by integration tests to
-              point at a fixture tree).
-           c. Otherwise treat the developer checkout as the bundle root
-              and check ``<repo>/desktop/resources/git/`` — this is
-              populated by ``desktop/scripts/fetch-git-portable.{ps1,sh}``
-              and may not exist in a fresh clone.
-
-        2. Compute the candidate binary path:
-
-              ``bundle_root / "resources" / "git" / "bin" / git_name``
-
-           where ``git_name = "git.exe"`` on Windows else ``"git"``.
-
-        3. If the candidate exists and is executable
-           (``os.access(path, os.X_OK)``), return ``cls(path)``.
-
-        4. Otherwise fall back to ``shutil.which("git")`` for the dev CLI
-           use case. Log at INFO level "Using system git at <path>" so
-           the user can see why their packaged build is not using the
-           pinned bundled version.
-
-        5. If neither path works, raise :class:`BundledGitMissing` with
-           a message listing every path tried.
-
-        Edge cases
-        ----------
-        - PyInstaller bundle: ``sys._MEIPASS`` is the temp extract dir;
-          prefer ``Path(sys.executable).parent`` over ``_MEIPASS`` so the
-          binary survives across runs (the temp dir is wiped on exit).
-        - macOS app bundle: paths inside ``.app/Contents/Resources/`` are
-          read-only but executable; that is fine — we never write to the
-          binary.
-        - Symlinks: do NOT resolve symlinks for the bundle root (the
-          electron-builder layout uses symlinks in dev builds). Resolve
-          the final binary path only.
-
-        Test plan (D39-2.2b → tests/core/test_git_engine.py)
-        ----------------------------------------------------
-        - ``test_locate_bundled_path_wins`` — env var points at a
-          tmpdir with a fake git executable; locator returns that path.
-        - ``test_locate_falls_back_to_system_git`` — bundle path absent
-          but ``shutil.which("git")`` resolves; locator returns system
-          path.
-        - ``test_locate_raises_when_nothing_found`` — both paths empty;
-          locator raises ``BundledGitMissing`` mentioning every tried
-          path.
-
-        ADR references
-        --------------
-        - §3.1 lines 56-88 (bundled-git-CLI engine decision + per-platform
-          packaging)
-        - §5.1 line 432 (`git_binary.py` new file row)
+        Raises :class:`BundledGitMissing` if no executable found.
         """
-        raise NotImplementedError("D39-2.2a skeleton — body filled by D39-2.2b")
+        tried: list[str] = []
+
+        # 1. Determine bundle root candidates.
+        bundle_roots: list[Path] = []
+        env_override = os.environ.get("SCIEASY_GIT_BUNDLE_ROOT")
+        if env_override:
+            bundle_roots.append(Path(env_override))
+
+        if getattr(sys, "frozen", False):  # PyInstaller / packaged build
+            exe_parent = Path(sys.executable).parent
+            bundle_roots.append(exe_parent)
+            # macOS app bundle layout
+            if sys.platform == "darwin":
+                bundle_roots.append(exe_parent.parent / "Resources")
+
+        # Developer checkout: walk up from this file to find <repo>/desktop/.
+        for parent in Path(__file__).resolve().parents:
+            candidate_dev = parent / "desktop"
+            if candidate_dev.is_dir():
+                bundle_roots.append(candidate_dev)
+                break
+
+        git_name = "git.exe" if sys.platform == "win32" else "git"
+
+        # 2. Try candidate paths inside each bundle root.
+        for root in bundle_roots:
+            for sub in (
+                Path("resources") / "git" / "bin" / git_name,
+                Path("resources") / "git" / "cmd" / git_name,
+                Path("resources") / "git" / "mingw64" / "bin" / git_name,
+            ):
+                candidate = root / sub
+                tried.append(str(candidate))
+                if candidate.is_file() and os.access(candidate, os.X_OK):
+                    logger.info("Using bundled git at %s", candidate)
+                    return cls(candidate)
+
+        # 3. Fall back to system git.
+        system_git = shutil.which("git")
+        if system_git:
+            tried.append(f"shutil.which('git') -> {system_git}")
+            logger.info("Using system git at %s", system_git)
+            return cls(Path(system_git))
+
+        raise BundledGitMissing("No git binary found. Tried:\n  " + "\n  ".join(tried))
 
     # ------------------------------------------------------------------
     # Convenience invocation helpers
@@ -157,63 +141,43 @@ class GitBinary:
         text: bool = True,
         env: dict[str, str] | None = None,
         timeout: float | None = None,
-    ) -> object:
-        """Invoke git with the given args; return the ``subprocess.CompletedProcess``.
+    ) -> subprocess.CompletedProcess[str]:
+        """Invoke git with the given args.
 
-        Purpose
-        -------
         Thin ``subprocess.run`` wrapper that prepends ``self.path`` and
-        injects a SciEasy-default environment (e.g. ``GIT_TERMINAL_PROMPT=0``
-        to refuse interactive auth, ``LANG=C`` for stable output).
+        injects SciEasy default env (``GIT_TERMINAL_PROMPT=0``,
+        ``LANG=C``, ``GIT_PAGER=cat``).
 
-        Signature contract
-        ------------------
-        - Input: ``args`` is the list of arguments AFTER the git binary
-          (e.g. ``["status", "--porcelain=v2"]``); ``cwd`` is the
-          repository working directory; ``check`` controls whether to
-          raise on non-zero exit; ``text``/``env``/``timeout`` mirror
-          ``subprocess.run``.
-        - Output: ``subprocess.CompletedProcess`` with stdout/stderr.
-        - Errors: :class:`GitError` (from ``git_engine``) if ``check`` and
-          exit != 0.
-
-        Implementation steps (for D39-2.2b)
-        -----------------------------------
-        1. Build the full argv: ``[str(self.path), *args]``.
-        2. Build the env: start from ``os.environ.copy()``, then overlay:
-           - ``GIT_TERMINAL_PROMPT = "0"`` (never prompt for credentials)
-           - ``GIT_PAGER = "cat"`` (defensive — never page output)
-           - ``LANG = "C"`` (stable porcelain wording)
-           - any caller-provided ``env`` overrides
-        3. Call ``subprocess.run`` with
-           ``capture_output=True, text=text, cwd=cwd, env=env, timeout=timeout``.
-        4. If ``check`` and ``returncode != 0``: raise
-           ``GitError(returncode, stderr, args)`` so the caller can render
-           a structured error envelope to the REST layer.
-        5. Return the ``CompletedProcess``.
-
-        Edge cases
-        ----------
-        - Long-running operations (e.g. clone large repo) — pass an
-          explicit ``timeout``; default is ``None`` (no timeout). v1
-          operations are all local and should complete in <30s.
-        - Windows path-separator quirks: pass ``cwd`` as a ``Path`` and
-          let subprocess handle quoting. Do not shell=True; git args may
-          contain user-provided messages that need no quoting.
-        - Binary output (rare; e.g. ``git show <sha>:image.png``): pass
-          ``text=False`` and decode the caller's way.
-
-        Test plan
-        ---------
-        - ``test_run_passes_args`` — args echo via a fake git stub.
-        - ``test_run_raises_on_nonzero`` — fake git returns 1; expect
-          GitError with stderr captured.
-        - ``test_run_respects_cwd`` — ``git rev-parse --show-toplevel``
-          returns the cwd repo path.
-
-        ADR references
-        --------------
-        - §7.3 risks — output parsing fragility; we mitigate by pinning
-          ``LANG=C`` here.
+        Raises :class:`GitError` (from ``git_engine``) when ``check`` and
+        exit != 0.
         """
-        raise NotImplementedError("D39-2.2a skeleton — body filled by D39-2.2b")
+        # Lazy import to avoid circular dependency (git_engine imports
+        # git_binary at module load time).
+        from scieasy.core.versioning.git_engine import GitError
+
+        argv = [str(self.path), *args]
+        full_env = os.environ.copy()
+        full_env.update(
+            {
+                "GIT_TERMINAL_PROMPT": "0",
+                "GIT_PAGER": "cat",
+                "LANG": "C",
+                "LC_ALL": "C",
+            }
+        )
+        if env:
+            full_env.update(env)
+
+        proc = subprocess.run(
+            argv,
+            capture_output=True,
+            text=text,
+            cwd=str(cwd) if cwd is not None else None,
+            env=full_env,
+            timeout=timeout,
+            check=False,
+        )
+        if check and proc.returncode != 0:
+            stderr = proc.stderr if isinstance(proc.stderr, str) else ""
+            raise GitError(proc.returncode, stderr, args)
+        return proc

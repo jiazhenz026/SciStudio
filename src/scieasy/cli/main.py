@@ -150,7 +150,26 @@ def init(name: str = typer.Argument("my_project", help="Project workspace name")
     #
     # The CLI must NOT abort on git failure — degraded-mode projects
     # (no .git/) are explicitly supported per ADR-039 §3.9.
-    typer.echo("(D39-2.2a skeleton: ADR-039 auto-init placeholder — wired by D39-2.2b)")
+    try:
+        from scieasy.core.versioning.git_binary import BundledGitMissing
+        from scieasy.core.versioning.git_engine import GitEngine, GitError
+
+        try:
+            engine = GitEngine(project_path)
+            engine.init_repository(project_path)
+            typer.echo("Initialized git repository.")
+        except BundledGitMissing as exc:
+            typer.echo(
+                f"WARNING: git binary unavailable ({exc}); project created without version control.",
+                err=True,
+            )
+        except GitError as exc:
+            typer.echo(f"WARNING: git init failed: {exc}", err=True)
+        except FileExistsError:
+            # .git already present — already a repo, that's fine.
+            pass
+    except Exception as exc:  # pragma: no cover — defensive
+        typer.echo(f"WARNING: git auto-init errored: {exc}", err=True)
 
     typer.echo(f"Created project workspace: {name}/")
 

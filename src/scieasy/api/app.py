@@ -77,27 +77,39 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
             logging.getLogger(__name__).warning("workflow_watcher: initial start failed", exc_info=True)
 
-    # ---- ADR-039 §3.8: git-state watcher (D39-2.2a skeleton) ----
+    # ---- ADR-039 §3.8: git-state watcher ----
     # Polls .git/HEAD + .git/refs/heads/* mtimes and emits the existing
     # ``git.head_changed`` event (defined by D39-2.1) with a richer
-    # payload that includes branches_changed list. The frontend
-    # BranchPicker / GitHistoryList / GitGraph use this signal to
-    # invalidate their caches selectively.
-    #
-    # IMPLEMENTATION FOR D39-2.2b:
-    # ----------------------------
-    # 1. Lazy import inside lifespan:
-    #        from scieasy.core.versioning.watcher import GitChangeWatcher
-    # 2. Construct with an emit callback that publishes via
-    #    runtime.event_bus.publish(event_type, data) — same channel
-    #    workflow_watcher uses.
-    # 3. Call ``git_watcher.start_for_project(Path(runtime.active_project.path))``
-    #    if an active project exists.
-    # 4. In the finally block, ``await git_watcher.stop()``.
-    #
-    # Until D39-2.2b lands, we leave the slot None so the rest of the
-    # lifespan compiles cleanly.
-    app.state.git_watcher = None
+    # payload that includes branches_changed list.
+    git_watcher: object | None = None
+    try:
+        from scieasy.core.versioning.watcher import GitChangeWatcher
+        from scieasy.engine.events import EngineEvent
+
+        async def _publish_git_event(event_type: str, data: dict[str, object]) -> None:
+            try:
+                await runtime.event_bus.emit(EngineEvent(event_type=event_type, data=dict(data)))
+            except Exception:
+                import logging
+
+                logging.getLogger(__name__).debug("git event publish failed", exc_info=True)
+
+        git_watcher = GitChangeWatcher(_publish_git_event)
+        if runtime.active_project is not None:
+            try:
+                project_path = Path(runtime.active_project.path)
+                if (project_path / ".git").exists():
+                    git_watcher.start_for_project(project_path)
+            except Exception:
+                import logging
+
+                logging.getLogger(__name__).warning("git_watcher: initial start failed", exc_info=True)
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).warning("git_watcher: construction failed", exc_info=True)
+        git_watcher = None
+    app.state.git_watcher = git_watcher
 
     # ---- Phase 2: MCP server lifecycle ----
     mcp_server: object | None = None
@@ -170,6 +182,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
             logging.getLogger(__name__).warning("workflow_watcher: stop raised", exc_info=True)
         workflow_watcher_module.set_active_watcher(None)
+        if git_watcher is not None:
+            try:
+                git_watcher.stop()  # type: ignore[attr-defined]
+            except Exception:
+                import logging
+
+                logging.getLogger(__name__).warning("git_watcher: stop raised", exc_info=True)
         for run in runtime.workflow_runs.values():
             if not run.task.done():
                 run.task.cancel()
@@ -186,6 +205,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             from scieasy.ai.agent.mcp import _context as _mcp_context
 
             _mcp_context.set_context(None)
+        except Exception:
+            pass
+        # ADR-039: drop the per-project MetadataStore reference so its
+        # sqlite handle is gc-eligible. We cannot call ``close()`` directly
+        # because sqlite3.Connection is thread-affine (opened in the
+        # FastAPI worker thread; this runs in the lifespan event-loop
+        # thread). Setting the module global to None + forcing a gc pass
+        # releases the connection on Windows ~99% of the time, which is
+        # sufficient for test cleanup.
+        try:
+            from scieasy.core.metadata_store import set_metadata_store
+
+            set_metadata_store(None)
+            import gc
+
+            gc.collect()
         except Exception:
             pass
 
@@ -240,25 +275,8 @@ def create_app() -> FastAPI:
     # ADR-036 §3.3 — server-side ruff lint endpoint for the embedded editor.
     app.include_router(lint.router)
     # ADR-039 §3.5 — git endpoints (commit / log / diff / restore / branch
-    # ops / merge / cherry-pick / stash).
-    #
-    # SKELETON-PHASE FEATURE GATE (D39-2.2a + Codex P1 on PR #924):
-    # All handlers in ``routes/git.py`` currently raise
-    # ``NotImplementedError``. Exposing them via OpenAPI would mean a 500
-    # for any real client call, which the Codex auto-review flagged as a
-    # production-facing regression. We gate router registration behind an
-    # opt-in env var until D39-2.2b lands the implementations.
-    #
-    # - Default OFF in skeleton phase — OpenAPI / runtime sees nothing.
-    # - Set ``SCIEASY_ENABLE_GIT_ROUTER=1`` to surface the endpoints for
-    #   the frontend skeleton work in D39-2.3a (which will write against
-    #   the documented endpoint shapes from comment blocks, not against
-    #   live behaviour).
-    # - D39-2.2b removes this gate when handler bodies are filled and
-    #   the engine returns real data. Tracked via the cascade checklist
-    #   row for D39-2.2b.
-    if os.environ.get("SCIEASY_ENABLE_GIT_ROUTER", "").lower() in {"1", "true", "yes"}:
-        app.include_router(git_routes.router)
+    # ops / merge / cherry-pick / stash). D39-2.2b made these live.
+    app.include_router(git_routes.router)
 
     @app.get("/api/logs/stream")
     async def logs_stream(request: Request) -> object:

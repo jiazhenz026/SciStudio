@@ -243,12 +243,12 @@
 
 ### Phase D39-2.2b — Backend engine + REST + auto-init IMPL (Owner: ID39-2b, 1 agent) [ADR-039 §6 Phase 1 impl]
 
-- [ ] Sub-issue opened; depends on D39-2.2a merged
-- [ ] All subprocess calls implemented with `--porcelain=v2` / `--format=...` plumbing flags only
-- [ ] Auto-init writes `.gitignore` + initial commit per ADR §3.2-3.3
-- [ ] Pre-run auto-commit hook in `start_workflow`: dirty → `auto:` commit + populates `runs.workflow_git_commit` (or TODO marker if D38-2.2 lineage schema not yet on tracking branch; D39-2.5 wires final field)
-- [ ] All ~15 REST endpoints functional; full pytest coverage including merge (FF/clean/conflict), cherry-pick, stash CRUD
-- [ ] Bundled-git locator works on Windows (MinGit) AND falls back to system `git` for dev CLI
+- [x] Sub-issue opened (#925); depends on D39-2.2a merged
+- [x] All subprocess calls implemented with `--porcelain=v2` / `--format=...` plumbing flags only → branch feat/issue-925/d39-2-2b-backend-impl
+- [x] Auto-init writes `.gitignore` + initial commit per ADR §3.2-3.3
+- [x] Pre-run auto-commit hook in `start_workflow`: dirty → `auto:` commit (lineage-row write deferred to D39-2.5 via TODO marker — D38-2.2 schema not on this tracking branch yet)
+- [x] All 21 REST endpoints functional; full pytest coverage including merge (FF/clean/conflict), cherry-pick, stash CRUD (38 engine tests + 28 endpoint tests + 2 CLI tests)
+- [x] Bundled-git locator works on Windows (MinGit) AND falls back to system `git` for dev CLI; `SCIEASY_GIT_BUNDLE_ROOT` env override for tests
 - [ ] CI green; PR merged into tracking branch
 
 ### Phase D39-2.3a — Frontend UI core SKELETON (Owner: SD39-3a, 1 agent — VERY detailed comments) [ADR-039 §6 Phase 2 skeleton]
