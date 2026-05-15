@@ -28,6 +28,25 @@ router = APIRouter(prefix="/api/workflows", tags=["workflows"])
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 
 
+def _mark_self_write(path: Path) -> None:
+    """ADR-034 Phase 2: tell the FS watcher this YAML write was canvas-originated.
+
+    Suppresses the next ``workflow.changed`` event for ``(path, mtime, size)``
+    so the watcher does not echo the canvas's own save back at the canvas.
+    Silent no-op when the watcher singleton has not been installed (e.g. in
+    pure-route unit tests).
+    """
+    try:
+        from scieasy.api.routes.workflow_watcher import mark_self_write as _mark
+
+        _mark(path)
+    except Exception:
+        # Watcher failures must not affect the user-facing save response.
+        import logging
+
+        logging.getLogger(__name__).debug("workflow_watcher: mark_self_write failed for %s", path, exc_info=True)
+
+
 def _workflow_response(definition: Any, revision: int = 0) -> WorkflowResponse:
     return WorkflowResponse(
         id=definition.id,
@@ -118,7 +137,9 @@ async def import_workflow(file: UploadFile, runtime: RuntimeDep) -> WorkflowResp
         finally:
             tmp_path.unlink(missing_ok=True)
 
-        save_yaml(definition, runtime.workflow_path(definition.id))
+        out_path = runtime.workflow_path(definition.id)
+        save_yaml(definition, out_path)
+        _mark_self_write(out_path)
     except HTTPException:
         raise
     except Exception as exc:
@@ -153,7 +174,9 @@ async def import_workflow_from_path(body: dict, runtime: RuntimeDep) -> Workflow
         from scieasy.workflow.serializer import load_yaml, save_yaml
 
         definition = load_yaml(path)
-        save_yaml(definition, runtime.workflow_path(definition.id))
+        out_path = runtime.workflow_path(definition.id)
+        save_yaml(definition, out_path)
+        _mark_self_write(out_path)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -184,11 +207,28 @@ async def get_workflow(workflow_id: str, runtime: RuntimeDep) -> WorkflowRespons
 
     #718 part (a): the response includes the current ``revision`` so clients
     can pass it back as ``If-Match`` on the next ``PUT``.
+
+    A YAML on disk that fails pydantic validation (e.g. an agent wrote it
+    with the wrong edge shape) returns **422** with the structured
+    pydantic error list under ``detail.errors`` — NOT 500, which would
+    crash the canvas. The agent can then read the same payload via the
+    MCP ``get_workflow`` tool and self-correct. The schema itself stays
+    strict; we surface the error rather than papering over it.
     """
+    from pydantic import ValidationError
+
     try:
         definition = runtime.load_workflow(workflow_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": f"Workflow '{workflow_id}' on disk failed schema validation.",
+                "errors": exc.errors(),
+            },
+        ) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return _workflow_response(definition, revision=runtime.current_revision(workflow_id))
@@ -271,6 +311,7 @@ async def export_workflow_to_path(body: dict, runtime: RuntimeDep) -> dict:
         save_yaml(definition, target)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _mark_self_write(target)
     return {"status": "ok", "path": str(target)}
 
 

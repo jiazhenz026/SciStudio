@@ -1,7 +1,4 @@
 import type {
-  AIGenerateBlockResponse,
-  AIOptimizeParamsResponse,
-  AISuggestWorkflowResponse,
   BlockListResponse,
   BlockSchemaResponse,
   CancelPropagationResponse,
@@ -40,12 +37,21 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init);
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({ detail: response.statusText }))) as {
-      detail?: string;
+      detail?: string | { message?: string; errors?: unknown };
     };
-    throw new ApiError(
-      payload.detail ?? `Request failed with ${response.status}`,
-      response.status,
-    );
+    // ``detail`` can be a plain string (legacy + FastAPI default) OR a
+    // structured object like ``{message, errors}`` (used by the workflow
+    // GET route when a YAML fails pydantic validation — surfaces the
+    // exact field/reason list for the agent / GUI to display).
+    let message: string;
+    if (typeof payload.detail === "string") {
+      message = payload.detail;
+    } else if (payload.detail && typeof payload.detail.message === "string") {
+      message = payload.detail.message;
+    } else {
+      message = `Request failed with ${response.status}`;
+    }
+    throw new ApiError(message, response.status);
   }
   if (response.status === 204) {
     return undefined as T;
@@ -99,6 +105,7 @@ export const api = {
   importWorkflowFromPath: async (filePath: string) => {
     // Read the file via fetch from the backend browse result, then re-upload
     // For now, use a dedicated endpoint that accepts a path
+    // TODO: replace the dedicated /api/workflows/import-path endpoint with a fetch-then-import flow that reuses /api/projects/{id}/file.
     return apiFetch<WorkflowResponse>("/api/workflows/import-path", {
       method: "POST",
       headers: JSON_HEADERS,
@@ -158,26 +165,13 @@ export const api = {
     });
   },
   getDataMetadata: (dataRef: string) => apiFetch<DataMetadataResponse>(`/api/data/${encodeURIComponent(dataRef)}`),
-  getDataPreview: (dataRef: string) =>
-    apiFetch<DataPreviewResponse>(`/api/data/${encodeURIComponent(dataRef)}/preview`),
-  generateBlock: (body: { description: string; block_category?: string }) =>
-    apiFetch<AIGenerateBlockResponse>("/api/ai/generate-block", {
-      method: "POST",
-      headers: JSON_HEADERS,
-      body: JSON.stringify(body),
-    }),
-  suggestWorkflow: (body: { data_description: string; goal: string }) =>
-    apiFetch<AISuggestWorkflowResponse>("/api/ai/suggest-workflow", {
-      method: "POST",
-      headers: JSON_HEADERS,
-      body: JSON.stringify(body),
-    }),
-  optimizeParams: (body: { block_id: string; intermediate_results: Record<string, unknown> }) =>
-    apiFetch<AIOptimizeParamsResponse>("/api/ai/optimize-params", {
-      method: "POST",
-      headers: JSON_HEADERS,
-      body: JSON.stringify(body),
-    }),
+  getDataPreview: (dataRef: string, slice?: number) => {
+    // #899 — optional ``slice`` query param selects the index along the
+    // backend-detected slider axis for 3-D images. Out-of-range values are
+    // clamped server-side; 2-D images ignore the param.
+    const qs = slice === undefined ? "" : `?slice=${encodeURIComponent(slice)}`;
+    return apiFetch<DataPreviewResponse>(`/api/data/${encodeURIComponent(dataRef)}/preview${qs}`);
+  },
   browseFilesystem: (path: string) =>
     apiFetch<FilesystemBrowseResponse>(
       `/api/filesystem/browse?path=${encodeURIComponent(path)}`,
@@ -214,5 +208,42 @@ export const api = {
       method: "POST",
       headers: JSON_HEADERS,
       body: JSON.stringify({ workflow_id: workflowId, path }),
+    }),
+  // ADR-036 §3.2 — embedded code editor file R/W endpoints.
+  getProjectFile: (projectId: string, path: string) =>
+    apiFetch<{ content: string; mtime: number; size: number; encoding: string }>(
+      `/api/projects/${encodeURIComponent(projectId)}/file?path=${encodeURIComponent(path)}`,
+    ),
+  putProjectFile: (projectId: string, path: string, content: string) =>
+    apiFetch<{ mtime: number; size: number }>(
+      `/api/projects/${encodeURIComponent(projectId)}/file?path=${encodeURIComponent(path)}`,
+      {
+        method: "PUT",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ content }),
+      },
+    ),
+  // ADR-036 §3.12 — block template scaffold endpoint (I36c).
+  getBlockTemplate: (kind: string = "basic") =>
+    apiFetch<{ kind: string; content: string; suggested_filename: string }>(
+      `/api/blocks/template?kind=${encodeURIComponent(kind)}`,
+    ),
+  // ADR-036 §3.3 — server-side ruff lint endpoint.
+  lintPython: (content: string, filename: string) =>
+    apiFetch<{
+      diagnostics: Array<{
+        line: number;
+        column: number;
+        end_line: number;
+        end_column: number;
+        code: string;
+        severity: string;
+        message: string;
+      }>;
+      note?: string;
+    }>("/api/lint/python", {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ content, filename }),
     }),
 };

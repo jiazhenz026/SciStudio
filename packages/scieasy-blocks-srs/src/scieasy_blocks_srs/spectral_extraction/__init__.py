@@ -1,1 +1,1 @@
-"""SRS spectral extraction blocks — Phase 11 skeleton placeholder."""
+"""SRS spectral extraction blocks (e.g. :class:`ExtractSpectrum`)."""

@@ -262,8 +262,14 @@ def main() -> None:
         # Reconstruct inputs as typed DataObject instances (ADR-027 Addendum 1).
         inputs = reconstruct_inputs(payload)
 
-        # Instantiate block.
-        block = block_cls()
+        # Instantiate block. Pass config to the constructor so ``self.config``
+        # is populated — variadic-port blocks (ADR-029 D1) read
+        # ``self.config["input_ports"]`` / ``self.config["output_ports"]``
+        # from ``get_effective_input_ports()`` / ``get_effective_output_ports()``
+        # to compute per-instance ports. Without this the AIBlock instance
+        # always falls back to the static class-level "result" port and the
+        # CompletionWatcher / validator look at the wrong file (#883).
+        block = block_cls(config=config)
 
         if hasattr(block, "transition"):
             from scieasy.blocks.base.state import BlockState

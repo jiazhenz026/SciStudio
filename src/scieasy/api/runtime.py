@@ -238,6 +238,13 @@ class ApiRuntime:
         self.active_project: KnownProject | None = None
         self.data_catalog: dict[str, DataRecord] = {}
         self.workflow_runs: dict[str, WorkflowRun] = {}
+        # ADR-034: the MCP server's TCP/socket port is published into the
+        # active project's ``.scieasy/`` so the per-project ``mcp-bridge``
+        # subprocess can discover it. Held here so ``open_project`` can
+        # republish on project switch (otherwise the bridge keeps looking
+        # in the previous project and falls back to standalone mode,
+        # which has no ApiRuntime and breaks ``run_workflow``).
+        self._mcp_port: int | None = None
         # #718 part (a): in-memory monotonic revision counter per workflow_id.
         # Used for optimistic concurrency on the PUT /api/workflows/{id} path.
         # Single-process, single-user scope (matches ADR-033 §3 D2.1); resets
@@ -382,6 +389,22 @@ class ApiRuntime:
             yaml.safe_dump(metadata, default_flow_style=False, sort_keys=False),
             encoding="utf-8",
         )
+
+        # Issue #879: scaffold an empty ``workflows/main.yaml`` so the
+        # default ``main`` workflow tab has a real on-disk file from the
+        # moment the project is created. Without this, the in-memory
+        # canvas tab is divorced from the filesystem until the user
+        # presses Ctrl+S — breaking View source (#878), file-watcher
+        # rehydration, and any agent / MCP introspection of "what's in
+        # this project". Use the canonical serializer so the YAML schema
+        # matches what ``load_yaml`` expects.
+        try:
+            save_yaml(WorkflowDefinition(id="main"), project_path / "workflows" / "main.yaml")
+        except Exception:
+            # Best-effort: a scaffold-write failure must not block project
+            # creation. The user can still Ctrl+S manually to repair.
+            logger.warning("Failed to scaffold workflows/main.yaml for project %s", project.id, exc_info=True)
+
         self.known_projects[project.id] = project
         self._save_known_projects()
         self.open_project(project.id)
@@ -438,7 +461,46 @@ class ApiRuntime:
         self._workflow_revisions = {}
         self.refresh_block_registry()
         self._init_metadata_store(Path(candidate.path))
+        # ADR-034: republish the MCP server port file into the newly active
+        # project so the per-project ``mcp-bridge`` (spawned by the
+        # embedded claude/codex TUI for THIS project) can discover it.
+        self._publish_mcp_port(Path(candidate.path))
         return candidate
+
+    def set_mcp_port(self, port: int | None) -> None:
+        """Register the live MCP server port for publishing on project switch.
+
+        Called once from the FastAPI ``lifespan`` after ``MCPServer.start()``.
+        ``None`` clears the registration (used during shutdown).
+        """
+        self._mcp_port = port
+        if port is not None and self.active_project is not None:
+            self._publish_mcp_port(Path(self.active_project.path))
+
+    def _publish_mcp_port(self, project_dir: Path) -> None:
+        """Write the live MCP port into ``<project>/.scieasy/mcp.sock.port``.
+
+        Best-effort: failures are logged and swallowed (e.g. read-only
+        project root) so they cannot break ``open_project``. The file is
+        owned by the backend's MCP server lifecycle; ``MCPServer.stop``
+        cleans up its own home-fallback copy but not these per-project
+        copies, so we additionally clear stale ones on next start (see
+        the matching cleanup hook in ``app.lifespan``).
+        """
+        if self._mcp_port is None:
+            return
+        try:
+            target_dir = project_dir / ".scieasy"
+            target_dir.mkdir(parents=True, exist_ok=True)
+            (target_dir / "mcp.sock.port").write_text(str(self._mcp_port), encoding="utf-8")
+        except OSError:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "ApiRuntime: could not publish MCP port to %s/.scieasy/mcp.sock.port",
+                project_dir,
+                exc_info=True,
+            )
 
     def update_project(
         self, project_id_or_path: str, *, name: str | None = None, description: str | None = None
@@ -547,7 +609,16 @@ class ApiRuntime:
                 "; ".join(str(e) for e in errors),
             )
 
-        save_yaml(definition, self.workflow_path(definition.id))
+        path = self.workflow_path(definition.id)
+        save_yaml(definition, path)
+        # ADR-034 Phase 2: tell the FS watcher this write came from us so it
+        # does not echo a ``workflow.changed`` event back to the canvas.
+        try:
+            from scieasy.api.routes.workflow_watcher import mark_self_write
+
+            mark_self_write(path)
+        except Exception:
+            logger.warning("workflow_watcher: mark_self_write failed for %s", path, exc_info=True)
         return definition
 
     def load_workflow(self, workflow_id: str) -> WorkflowDefinition:
@@ -750,7 +821,18 @@ class ApiRuntime:
         except Exception:
             return None
 
-    def preview_data(self, data_ref: str) -> dict[str, Any]:
+    def preview_data(self, data_ref: str, slice_index: int = 0) -> dict[str, Any]:
+        """Return a lightweight preview for a stored data object.
+
+        Parameters
+        ----------
+        data_ref:
+            Catalog identifier returned by ``register_data_ref``.
+        slice_index:
+            Index into the slider axis (3D viewer, #899). Clamped to
+            ``[0, slice_axis_size - 1]``. Ignored for 2D arrays / non-image
+            previews.
+        """
         record = self.get_data_record(data_ref)
         ref = record.ref
         path = Path(ref.path)
@@ -814,13 +896,62 @@ class ApiRuntime:
             # (T-IMG-002).
             try:
                 matrix = _load_preview_matrix(ref)
-                while getattr(matrix, "ndim", 0) > 2:
-                    matrix = matrix[0]
                 full_shape = list(matrix.shape)
-                thumbnail = _downsample_matrix(matrix)
+                # #899 — 3D viewer with single slider. Pick the (y, x) plane
+                # using the Array's declared axes (from
+                # ``_serialise_extra_metadata`` in core/types/array.py:410).
+                # When axes are unavailable, fall back to numpy convention
+                # (last two dims = (y, x)). The first remaining axis
+                # becomes the slider axis; anything beyond that peels
+                # ``[0]`` as a v1 ndim>3 fallback.
+                axes_raw = ref.metadata.get("axes") if ref.metadata else None
+                axes: list[str] = [str(a) for a in axes_raw] if isinstance(axes_raw, list) else []
+                ndim = matrix.ndim
+                if axes and "y" in axes and "x" in axes:
+                    y_idx = axes.index("y")
+                    x_idx = axes.index("x")
+                else:
+                    y_idx = max(0, ndim - 2)
+                    x_idx = max(0, ndim - 1)
+                # First non-(y, x) dim; None if 2-D.
+                extra_dims = [i for i in range(ndim) if i not in (y_idx, x_idx)]
+                slice_axis_idx: int | None = extra_dims[0] if extra_dims else None
+                slice_axis_size: int | None = full_shape[slice_axis_idx] if slice_axis_idx is not None else None
+                slice_axis_name: str | None
+                if slice_axis_idx is None:
+                    slice_axis_name = None
+                elif axes and slice_axis_idx < len(axes):
+                    slice_axis_name = axes[slice_axis_idx]
+                else:
+                    slice_axis_name = f"axis {slice_axis_idx}"
+                # Clamp slice request to valid range. Negative or
+                # out-of-range values become a valid slice rather than 400.
+                clamped_slice: int | None
+                if slice_axis_size is not None and slice_axis_size > 0:
+                    clamped_slice = max(0, min(int(slice_index), slice_axis_size - 1))
+                else:
+                    clamped_slice = None
+                # Extract a 2-D slab.
+                slab = matrix
+                if slice_axis_idx is not None and clamped_slice is not None:
+                    sel: list[Any] = [slice(None)] * slab.ndim
+                    sel[slice_axis_idx] = clamped_slice
+                    slab = slab[tuple(sel)]
+                # ndim > 3 fallback: peel further extra dims with [0].
+                while getattr(slab, "ndim", 0) > 2:
+                    slab = slab[0]
+                # If axes declared (x, y) instead of (y, x), transpose so
+                # the rendered image is right-side-up.
+                if axes and "y" in axes and "x" in axes and axes.index("y") > axes.index("x"):
+                    slab = slab.T
+                thumbnail = _downsample_matrix(slab)
                 return {
                     "kind": "image",
                     "shape": full_shape,
+                    "axes": axes,
+                    "slice_axis_name": slice_axis_name,
+                    "slice_axis_size": slice_axis_size,
+                    "slice_index": clamped_slice,
                     "thumbnail": thumbnail,
                     "src": _image_data_uri_from_matrix(thumbnail),
                 }

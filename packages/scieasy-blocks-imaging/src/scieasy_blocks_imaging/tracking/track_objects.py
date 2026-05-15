@@ -1,9 +1,9 @@
 """TrackObjects — Phase 12 placeholder for object tracking across time.
 
-Skeleton placeholder — T-IMG-023. The block is registered in the palette
-so users can discover it, but ``process_item`` raises ``NotImplementedError``
-until Phase 12 ships actual tracking algorithms (nearest-neighbour, trackpy,
-btrack). See ``docs/specs/phase11-imaging-block-spec.md`` §9 T-IMG-023.
+T-IMG-023. The block is registered in the palette so users can discover
+it, but ``process_item`` raises ``NotImplementedError`` until Phase 12
+ships actual tracking algorithms (nearest-neighbour, trackpy, btrack).
+See ``docs/specs/phase11-imaging-block-spec.md`` §9 T-IMG-023.
 """
 
 from __future__ import annotations
@@ -47,6 +47,7 @@ class TrackObjects(ProcessBlock):
     }
 
     def process_item(self, item: Label, config: BlockConfig, state: Any = None) -> Label:
+        # TODO: T-IMG-023 — implement object tracking across time (nearest-neighbour, trackpy, btrack backends) for Phase 12.
         raise NotImplementedError(
             "T-IMG-023: TrackObjects is planned for Phase 12 (skeleton continuation B). "
             "See docs/specs/phase11-imaging-block-spec.md §9 T-IMG-023."

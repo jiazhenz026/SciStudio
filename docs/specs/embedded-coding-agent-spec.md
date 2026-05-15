@@ -1,12 +1,55 @@
 ---
 title: Embedded coding agent — implementation spec & task decomposition
-status: draft
+status: superseded-by-adr-034
 issue: 697
 adr: 033
 date: 2026-05-12
 ---
 
 # Embedded coding agent implementation spec
+
+> **Status note (ADR-034 pivot — 2026-05-13).** The ADR-033 implementation
+> described below was rolled back in PR #808.  The replacement architecture
+> (PTY tab embedding claude / codex TUI via xterm.js) is tracked by
+> ADR-034.  This document is retained as historical reference until
+> Phase 3 of the ADR-034 cascade rewrites it.
+>
+> The locked API contracts shipped by **Phase 1.2** (issue #816) are:
+>
+> * `GET /api/ai/status` →
+>   `{providers: [{name, available, version, logged_in}, ...]}` for
+>   `name ∈ {"claude-code", "codex"}`.
+> * `WS /api/ai/pty/{tab_id}?project_dir=<abs>&provider=<claude-code|codex>&dangerous=<true|false>`
+>   carrying JSON frames:
+>     - client → server: `{type:"stdin",data}`, `{type:"resize",cols,rows}`
+>     - server → client: `{type:"stdout",data}`, `{type:"exit",code}`,
+>       `{type:"error",message}`
+> * Resource cap: max 16 concurrent PTY tabs per backend.
+>
+> Implementation: `src/scieasy/ai/agent/terminal.py`,
+> `src/scieasy/ai/agent/system_prompt.py`,
+> `src/scieasy/api/routes/ai_pty.py`,
+> `src/scieasy/api/routes/ai.py` (`provider_status`).
+>
+> **Phase 2 (issue #823, ADR-034 §3.6).** Canvas auto-update is delivered
+> by a filesystem watcher in `src/scieasy/api/routes/workflow_watcher.py`
+> rather than by intercepting `write_workflow` MCP tool calls (the PTY
+> mode is opaque to us). The watcher observes
+> `<active_project>/workflows/*.yaml` recursively, debounces per-path
+> at 200 ms, suppresses canvas-originated writes via a
+> `(normalised_path, mtime, size)` dedupe deque, and emits the existing
+> `workflow.changed` engine event so the standard `/ws` outbound loop
+> delivers it to the browser. The frontend hook routes the event to
+> refetch + replace the canvas state, or clear it on `kind="deleted"`.
+> Note: the ADR-034 §3.6 draft text says `<project>/.scieasy/workflows/`;
+> the implemented location is `<project>/workflows/` to match
+> `ApiRuntime.workflow_path`. Phase 3 will reconcile the ADR text.
+>
+> Phase 2 also deletes the pre-ADR-033 single-call AI surfaces —
+> `/api/ai/generate-block`, `/api/ai/suggest-workflow`,
+> `/api/ai/optimize-params`, their schemas, the orphan `AIChat.tsx`
+> component, the `chatSlice` Zustand slice, and the corresponding
+> TypeScript types/`lib/api` entries.
 
 ## 1. Purpose
 

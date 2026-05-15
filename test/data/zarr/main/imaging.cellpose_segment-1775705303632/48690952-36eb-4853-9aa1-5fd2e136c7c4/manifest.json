@@ -1,9 +1,0 @@
-{
-  "slots": {
-    "raster": {
-      "backend": "zarr",
-      "path": "C:/Users/jiazh/Desktop/workspace/SciEasy/test/data/zarr/main/imaging.cellpose_segment-1775705303632/48690952-36eb-4853-9aa1-5fd2e136c7c4/raster/data.zarr",
-      "format": null
-    }
-  }
-}

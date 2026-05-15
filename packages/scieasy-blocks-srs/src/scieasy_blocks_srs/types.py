@@ -16,9 +16,8 @@ from typing import Any, ClassVar
 
 from pydantic import ConfigDict
 
-# Cross-plugin import per standards doc §Q5. The imaging plugin lands its
-# real ``Image`` class in T-IMG-001 (Sprint C, parallel skeleton agent). At
-# skeleton time the symbol may be a placeholder; the impl agent revisits.
+# Cross-plugin import per standards doc §Q5. ``Image`` lives in the
+# imaging plugin (T-IMG-001).
 from scieasy_blocks_imaging.types import Image  # type: ignore[import-not-found]
 
 from scieasy.core.units import PhysicalQuantity

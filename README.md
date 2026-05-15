@@ -458,8 +458,6 @@ Development follows a phased plan. Completed phases:
 | 6 | Workflow serialization and CLI | Done |
 | 7-8 | API layer and frontend workflow editor | Done |
 
-See [`docs/roadmap/ROADMAP.md`](docs/roadmap/ROADMAP.md) for the full phased roadmap.
-
 ---
 
 ## License

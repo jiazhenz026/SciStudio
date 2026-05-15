@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -11,7 +12,8 @@ from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
-from scieasy.api.routes import ai, blocks, data, filesystem, projects, workflows
+from scieasy.api.routes import ai, ai_pty, blocks, data, filesystem, lint, projects, workflows
+from scieasy.api.routes import workflow_watcher as workflow_watcher_module
 from scieasy.api.runtime import ApiRuntime
 from scieasy.api.spa import SPAStaticFiles
 from scieasy.api.sse import sse_handler
@@ -33,6 +35,35 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     runtime = ApiRuntime()
     app.state.runtime = runtime
     app.state.registry = ProcessRegistry()
+
+    # ---- ADR-035 §3.10 IPC token ----
+    # Audit P1-B (Codex #861-1): the engine must export
+    # ``SCIEASY_ENGINE_IPC_TOKEN`` BEFORE any AI Block worker is spawned so
+    # the worker subprocess inherits it via os.environ and can authenticate
+    # internal IPC calls. Without this, every
+    # ``POST /api/ai/pty/internal/*`` call returns 401 and the entire AI
+    # Block path is dead-on-arrival.
+    from scieasy.api.routes.ai_pty import _ensure_ipc_token
+
+    _ensure_ipc_token()
+
+    # ---- ADR-034 Phase 2: workflow filesystem watcher ----
+    # Watches the active project's ``workflows/`` directory and republishes
+    # YAML mtime/create/delete events as ``workflow.changed`` engine events.
+    # The existing ``/ws`` outbound loop forwards that event type, so the
+    # browser canvas auto-refetches whenever claude / codex / an external
+    # editor mutates a workflow on disk.
+    watcher = workflow_watcher_module.WorkflowWatcher(runtime.event_bus)
+    workflow_watcher_module.set_active_watcher(watcher)
+    app.state.workflow_watcher = watcher
+    if runtime.active_project is not None:
+        try:
+            loop = asyncio.get_running_loop()
+            watcher.start_for_project(Path(runtime.active_project.path), loop)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).warning("workflow_watcher: initial start failed", exc_info=True)
 
     # ---- Phase 2: MCP server lifecycle ----
     mcp_server: object | None = None
@@ -65,6 +96,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             def workflow_runs(self) -> object:
                 return self._rt.workflow_runs
 
+            @property
+            def event_bus(self) -> object:
+                # Exposed so MCP tools can subscribe to engine events
+                # (e.g. capture BLOCK_ERROR tracebacks for ``get_run_status``).
+                return self._rt.event_bus
+
             def start_workflow(self, workflow_id: str) -> object:
                 return self._rt.start_workflow(workflow_id)
 
@@ -77,6 +114,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         mcp_server = MCPServer(socket_path=socket_path, project_dir=project_dir)
         await mcp_server.start()  # type: ignore[attr-defined]
         app.state.mcp_server = mcp_server
+        # ADR-034: publish the live MCP port into the active project's
+        # .scieasy/ so the per-project mcp-bridge can find it on (re)open.
+        runtime.set_mcp_port(mcp_server.port)
     except Exception:
         import logging
 
@@ -87,6 +127,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        # Stop the FS watcher first so its observer thread does not race
+        # against the rest of the teardown.
+        try:
+            watcher.stop()
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).warning("workflow_watcher: stop raised", exc_info=True)
+        workflow_watcher_module.set_active_watcher(None)
         for run in runtime.workflow_runs.values():
             if not run.task.done():
                 run.task.cancel()
@@ -153,6 +202,9 @@ def create_app() -> FastAPI:
     app.include_router(filesystem.router)
     app.include_router(projects.router)
     app.include_router(ai.router)
+    app.include_router(ai_pty.router)
+    # ADR-036 §3.3 — server-side ruff lint endpoint for the embedded editor.
+    app.include_router(lint.router)
 
     @app.get("/api/logs/stream")
     async def logs_stream(request: Request) -> object:

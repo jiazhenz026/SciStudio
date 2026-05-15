@@ -29,6 +29,7 @@ dependencies = [
     "psutil>=5.9",  # ADR-022: OS-level memory monitoring
     "filelock>=3.13",  # ADR-033 OQ7: file-locked atomic writes for MCP write tools
     "ruamel.yaml>=0.18",  # T-ECA-203: ruamel round-trip preserves comments/order in update_block_config
+    "pywinpty>=2.0; sys_platform == 'win32'",  # ADR-034 Phase 1.2: PTY-based terminal embedding for claude/codex TUIs
 ]
 
 [project.optional-dependencies]
@@ -163,6 +164,13 @@ name = "Blocks must not depend on engine, api, or ai services"
 type = "forbidden"
 source_modules = ["scieasy.blocks"]
 forbidden_modules = ["scieasy.engine", "scieasy.api", "scieasy.ai"]
+# ADR-035 §3.10 explicitly carves out scieasy.engine.pty_control as the
+# AI Block worker → engine IPC surface. AIBlock.run() must call back to
+# the engine to allocate a PTY tab and notify completion. Allow that one
+# import without weakening the broader boundary.
+ignore_imports = [
+    "scieasy.blocks.ai.ai_block -> scieasy.engine.pty_control",
+]
 
 [[tool.importlinter.contracts]]
 name = "Engine must not depend on api or ai services"

@@ -1,6 +1,5 @@
 """RegisterSeries — register a time-series or z-stack to a reference frame.
 
-Skeleton placeholder — T-IMG-029 implementation agent fills the body.
 See ``docs/specs/phase11-imaging-block-spec.md`` §9 T-IMG-029.
 """
 

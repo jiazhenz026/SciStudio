@@ -11,4 +11,5 @@ def wrap_as_dataobject(data: Any) -> Any:
     Handles numpy arrays -> Array, pandas DataFrames -> DataFrame,
     strings -> Text, etc.
     """
+    # TODO: implement type auto-detection and wrap raw values into the matching DataObject subclass.
     raise NotImplementedError

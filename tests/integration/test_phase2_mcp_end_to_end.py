@@ -4,7 +4,7 @@ Drives the JSON-RPC dispatcher over the actual transport (Unix socket
 on POSIX, TCP loopback on Windows). Verifies:
 
 * ``initialize`` handshake returns server info.
-* ``tools/list`` enumerates all 25 tools.
+* ``tools/list`` enumerates all 26 tools (25 baseline + finish_ai_block).
 * ``tools/call`` for a read-only tool (``list_types``) round-trips.
 * Graceful start / stop, no orphan socket files on POSIX.
 """
@@ -76,10 +76,10 @@ async def _test_mcp_server_initialize_tools_list_and_call(tmp_path: Path) -> Non
         assert "result" in init
         assert init["result"]["serverInfo"]["name"] == "scieasy-mcp"
 
-        # tools/list — expect all 25
+        # tools/list — expect all 26 (25 baseline + finish_ai_block from ADR-035)
         listed = await _connect_and_call(server, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
         tools = listed["result"]["tools"]
-        assert len(tools) == 25
+        assert len(tools) == 26
         names = {t["name"] for t in tools}
         assert "list_blocks" in names and "preview_data" in names and "search_docs" in names
 

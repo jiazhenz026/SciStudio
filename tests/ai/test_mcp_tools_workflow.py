@@ -167,6 +167,43 @@ def test_write_workflow_overwrites_existing(ctx: _StubRuntime, tmp_path: Path) -
     assert "# placeholder" not in target.read_text(encoding="utf-8")
 
 
+def test_write_workflow_rejects_malformed_yaml(ctx: _StubRuntime, tmp_path: Path) -> None:
+    """A YAML that fails ``WorkflowFileModel`` validation must NOT be written.
+
+    Regression for the agent → 4-field-edges → GUI 500 chain. With
+    pre-write validation in place, the agent now receives the structured
+    pydantic error immediately and the bad file never reaches disk.
+    """
+    target = tmp_path / "bad.yaml"
+    bad_yaml = """\
+workflow:
+  id: bad-edges
+  version: "1.0.0"
+  nodes:
+    - id: a
+      block_type: io_block
+    - id: b
+      block_type: process_block
+  edges:
+    - source: a
+      source_port: out
+      target: b
+      target_port: in
+"""
+    with pytest.raises(ValueError, match=r"refusing to write"):
+        tools_workflow.write_workflow(str(target), bad_yaml)
+    assert not target.exists(), "Malformed YAML must not be persisted"
+
+
+def test_write_workflow_rejects_unparseable_yaml(ctx: _StubRuntime, tmp_path: Path) -> None:
+    """A YAML that isn't even parseable produces a structured error,
+    not an opaque server exception."""
+    target = tmp_path / "broken.yaml"
+    with pytest.raises(ValueError, match=r"YAML parse failure"):
+        tools_workflow.write_workflow(str(target), "workflow:\n  id: [unterminated")
+    assert not target.exists()
+
+
 # --- run_workflow ----------------------------------------------------------
 
 

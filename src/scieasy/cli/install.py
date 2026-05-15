@@ -28,6 +28,7 @@ import json
 import logging
 import os
 import shutil
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -65,17 +66,26 @@ class InstallResult:
 # ---------------------------------------------------------------------------
 
 
-def _scieasy_command_for_env() -> str:
-    """Return the executable path Claude/Codex should invoke for the bridge.
+def _scieasy_command_for_env() -> tuple[str, list[str]]:
+    """Return ``(command, prefix_args)`` for Claude/Codex to invoke the bridge.
 
-    Prefer the resolved ``scieasy`` console script on PATH so the
-    install is robust against virtualenv changes.  Fall back to
-    ``"scieasy"`` (assume it's on PATH) when ``shutil.which`` doesn't
-    find it — Claude/Codex will surface a clear error on first use if
-    that turns out to be wrong.
+    Hotfix 2026-05-14: prior version returned the result of
+    ``shutil.which("scieasy")`` and the caller wrote that into
+    ``mcp.json`` as the ``command``. ``shutil.which`` searches PATH —
+    when the user has multiple scieasy installs on PATH (e.g. a stale
+    ``.venv-agent-test`` venv left over from a previous test run), the
+    wrong scieasy gets pinned into every project's ``.scieasy/mcp.json``
+    and claude's MCP bridge silently uses the stale install. The
+    user-visible symptom is "scieasy MCP server failed" inside the AI
+    Block PTY, which kills ADR-035 §3.5 path (a).
+
+    Now anchors at the **current interpreter's** scieasy via
+    ``{sys.executable} -m scieasy ...`` so the bridge always runs from
+    the same install as the engine that emitted the manifest. ``-m``
+    invocation is robust against renamed venvs, PATH order, and
+    Windows ``.exe`` shim differences.
     """
-    resolved = shutil.which("scieasy")
-    return resolved or "scieasy"
+    return sys.executable, ["-m", "scieasy"]
 
 
 def _mcp_entry_payload(project_dir: Path | None) -> dict[str, object]:
@@ -86,9 +96,10 @@ def _mcp_entry_payload(project_dir: Path | None) -> dict[str, object]:
     a project scope is in play, or leave it unset (the bridge falls
     back to ``cwd``) at user scope.
     """
+    command, prefix_args = _scieasy_command_for_env()
     entry: dict[str, object] = {
-        "command": _scieasy_command_for_env(),
-        "args": ["mcp-bridge"],
+        "command": command,
+        "args": [*prefix_args, "mcp-bridge"],
     }
     if project_dir is not None:
         entry["env"] = {"SCIEASY_PROJECT_DIR": str(project_dir)}
@@ -215,11 +226,12 @@ def _render_codex_block(project_dir: Path | None) -> str:
     writes — see :func:`scieasy.cli.install._verify_codex_format` in
     the tests for the round-trip check.
     """
-    command = _scieasy_command_for_env()
+    command, prefix_args = _scieasy_command_for_env()
+    args_literal = json.dumps([*prefix_args, "mcp-bridge"])
     lines = [
         f"[mcp_servers.{MCP_SERVER_NAME}]",
         f"command = {_format_toml_string(command)}",
-        'args = ["mcp-bridge"]',
+        f"args = {args_literal}",
     ]
     if project_dir is not None:
         lines.append("")
@@ -360,6 +372,10 @@ def _find_skill_source() -> Path:
     the source (the ``skills/`` directory at repo root is included via
     a future ``MANIFEST.in`` / ``pyproject`` data entry — for now
     editable-install only).
+
+    TODO: #824 — declare ``skills/`` as wheel package_data in
+    ``pyproject.toml`` so wheel installs can locate SKILL.md without
+    relying on a source checkout.
     """
     here = Path(__file__).resolve()
     for parent in here.parents:

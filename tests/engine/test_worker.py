@@ -238,6 +238,11 @@ class TestWorkerMain:
 class _StubBlock:
     """Minimal block stub for subprocess worker test."""
 
+    def __init__(self, config: object = None) -> None:
+        # Accept optional config so worker.py's ``block_cls(config=config)``
+        # call site (#883) succeeds; we don't use it here.
+        pass
+
     def run(self, inputs: dict, config: object) -> dict:
         return {"result": "ok"}
 
@@ -257,9 +262,11 @@ class _CancellingStubBlock:
     ``final_state`` field so the orchestrator records the block correctly.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, config: object = None) -> None:
         from scieasy.blocks.base.state import BlockState
 
+        # Accept optional config so worker.py's ``block_cls(config=config)``
+        # call site (#883) succeeds; the stub doesn't read it.
         self.state = BlockState.IDLE
 
     def transition(self, target: object) -> None:
@@ -277,9 +284,10 @@ class _CancellingStubBlock:
 class _ErroringStubBlock:
     """Block stub that transitions to ERROR inside ``run()`` and returns ``{}``."""
 
-    def __init__(self) -> None:
+    def __init__(self, config: object = None) -> None:
         from scieasy.blocks.base.state import BlockState
 
+        # Accept optional config (#883).
         self.state = BlockState.IDLE
 
     def run(self, inputs: dict, config: object) -> dict:

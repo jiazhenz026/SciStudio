@@ -1,15 +1,18 @@
 import { ReactFlowProvider } from "@xyflow/react";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { api } from "./lib/api";
+import { ApiError, api } from "./lib/api";
+import { probeProjectFileExistence } from "./lib/fileExistence";
 import { useLogStream } from "./hooks/useSSE";
 import { useWorkflowWebSocket, sendWebSocketMessage } from "./hooks/useWebSocket";
 import { useAppStore } from "./store";
-import type { ChatMessage, ProjectResponse, WorkflowResponse } from "./types/api";
+import type { AnyTab, FileTab } from "./store/types";
+import type { ProjectResponse, WorkflowResponse } from "./types/api";
 import { DataRouterModal } from "./components/DataRouterModal";
 import { PairEditorModal } from "./components/PairEditorModal";
 import { BlockPalette } from "./components/BlockPalette";
 import { BottomPanel } from "./components/BottomPanel";
+import { CodeEditor } from "./components/CodeEditor";
 import { DataPreview } from "./components/DataPreview";
 import { ProjectDialog } from "./components/ProjectDialog";
 import { ProjectTree } from "./components/ProjectTree";
@@ -77,7 +80,6 @@ export default function App() {
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
   const activeBottomTab = useAppStore((state) => state.activeBottomTab);
   const unreadLogsCount = useAppStore((state) => state.unreadLogsCount);
-  const unreadProblemsCount = useAppStore((state) => state.unreadProblemsCount);
   const lastError = useAppStore((state) => state.lastError);
   const minimapVisible = useAppStore((state) => state.minimapVisible);
   const setSelectedNodeId = useAppStore((state) => state.setSelectedNodeId);
@@ -101,19 +103,36 @@ export default function App() {
   const cachePreview = useAppStore((state) => state.cachePreview);
   const setPreviewLoading = useAppStore((state) => state.setPreviewLoading);
 
-  const chatMessages = useAppStore((state) => state.chatMessages);
-  const pushChatMessage = useAppStore((state) => state.pushChatMessage);
-
   const tabs = useAppStore((state) => state.tabs);
   const activeTabId = useAppStore((state) => state.activeTabId);
   const openTab = useAppStore((state) => state.openTab);
   const switchTab = useAppStore((state) => state.switchTab);
   const closeTab = useAppStore((state) => state.closeTab);
   const syncActiveTab = useAppStore((state) => state.syncActiveTab);
+  // ADR-036 §3.10 — file tab actions. Stubs throw in skeleton; the I36a
+  // implementation lands the real bodies. App.tsx wires the consumers
+  // here so they take effect transparently once I36a merges.
+  const saveFileTab = useAppStore((state) => state.saveFileTab);
+  const updateFileTabContent = useAppStore((state) => state.updateFileTabContent);
+  // ADR-036 §3.4 / §3.7 / §3.12 (I36c) — open editor tabs from the
+  // toolbar's "View source" button and the "New" menu's
+  // "New custom block" / "New note" actions.
+  const openFileTab = useAppStore((state) => state.openFileTab);
+
+  // ADR-036 §3.7 — derive the active tab + its kind for the toolbar swap
+  // and content-area kind switch. Note: tabs are typed as `TabState`
+  // (alias of WorkflowTab in the skeleton); cast through `AnyTab` so the
+  // narrowing is honest about the future discriminated-union form.
+  const activeTab = useMemo<AnyTab | null>(() => {
+    const found = (tabs as AnyTab[]).find((t) => t.id === activeTabId);
+    return found ?? null;
+  }, [tabs, activeTabId]);
+  const activeFileTab: FileTab | null =
+    activeTab && activeTab.kind === "file" ? activeTab : null;
+  const activeTabKind: "workflow" | "file" =
+    activeFileTab ? "file" : "workflow";
 
   const [busy, setBusy] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState<string | null>(null);
   const [leftTab, setLeftTab] = useState<"blocks" | "project">("blocks");
   const bootedRef = useRef(false);
 
@@ -277,6 +296,111 @@ export default function App() {
     const workflow = emptyWorkflow(id);
     openTab(workflow);
     resetExecution();
+  }
+
+  /**
+   * ADR-036 §3.7 / §3.12 (I36c) — "New custom block".
+   *
+   * 1. Prompt for a stem (default ``my_block``); validate as a Python-friendly
+   *    identifier.
+   * 2. Fetch the server-hosted template via ``GET /api/blocks/template``.
+   * 3. PUT the template into ``blocks/<stem>.py``.
+   * 4. Open the new file in an editor tab via ``openFileTab``.
+   *
+   * Failures surface a passive ``window.alert`` rather than blocking — the
+   * tree refresh hook still picks up the new file on next refresh.
+   */
+  async function createNewCustomBlock(): Promise<void> {
+    if (!currentProject) return;
+    const stem = window.prompt("New custom block filename (without .py):", "my_block");
+    if (stem === null) return;
+    const trimmed = stem.trim();
+    if (!trimmed) {
+      window.alert("Filename must not be empty.");
+      return;
+    }
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmed)) {
+      window.alert("Filename must be a Python identifier (letters, digits, underscores).");
+      return;
+    }
+    const filePath = `blocks/${trimmed}.py`;
+    // Audit 2026-05-14 P1 #2 — probe before PUT so we never silently
+    // overwrite an existing block file from a one-click toolbar action.
+    const probe = await probeProjectFileExistence(currentProject.id, filePath);
+    if (probe.kind === "exists") {
+      window.alert(`A custom block named "${trimmed}.py" already exists. Pick a different name.`);
+      return;
+    }
+    if (probe.kind === "unknown") {
+      window.alert(`Failed to check for existing block: ${probe.message}`);
+      return;
+    }
+    try {
+      const tpl = await api.getBlockTemplate("basic");
+      await api.putProjectFile(currentProject.id, filePath, tpl.content);
+      openFileTab(filePath);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      window.alert(`Failed to create custom block: ${message}`);
+    }
+  }
+
+  /**
+   * ADR-036 §3.7 / §3.12 (I36c) — "New note" (markdown).
+   *
+   * Creates an empty ``notes/<stem>.md`` (or ``<stem>.md`` at project root
+   * when ``notes/`` does not exist). No template content per the ADR —
+   * the user's first line is the title.
+   */
+  async function createNewNote(): Promise<void> {
+    if (!currentProject) return;
+    const stem = window.prompt("New note filename (without .md):", "note");
+    if (stem === null) return;
+    const trimmed = stem.trim();
+    if (!trimmed) {
+      window.alert("Filename must not be empty.");
+      return;
+    }
+    if (!/^[A-Za-z0-9._-]+$/.test(trimmed)) {
+      window.alert("Note filename may only contain letters, digits, underscores, dots, and hyphens.");
+      return;
+    }
+    // Prefer notes/ if it exists; fall back to project root. We probe via
+    // a directory-listing on notes/ — only a 404 means "no notes/ dir";
+    // other errors must NOT silently move the file to project root (audit
+    // 2026-05-14 P2 #6 — fixed in-PR alongside the P1 existence check).
+    let filePath = `notes/${trimmed}.md`;
+    try {
+      await api.getProjectTree(currentProject.id, "notes");
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        filePath = `${trimmed}.md`;
+      } else {
+        const message = error instanceof Error ? error.message : String(error);
+        window.alert(`Failed to locate notes directory: ${message}`);
+        return;
+      }
+    }
+    // Audit 2026-05-14 P1 #2 — probe before PUT so we never silently
+    // overwrite an existing note from a one-click toolbar action.
+    const probe = await probeProjectFileExistence(currentProject.id, filePath);
+    if (probe.kind === "exists") {
+      window.alert(
+        `A note named "${trimmed}.md" already exists at ${filePath}. Pick a different name.`,
+      );
+      return;
+    }
+    if (probe.kind === "unknown") {
+      window.alert(`Failed to check for existing note: ${probe.message}`);
+      return;
+    }
+    try {
+      await api.putProjectFile(currentProject.id, filePath, "");
+      openFileTab(filePath);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      window.alert(`Failed to create note: ${message}`);
+    }
   }
 
   async function importWorkflow() {
@@ -452,12 +576,13 @@ export default function App() {
     [setSelectedNodeId, setActiveBottomTab],
   );
 
-  // #793: clicking an error badge is an explicit "show me this error" action,
-  // so navigating to Problems is user-driven and stays.
+  // Clicking an error badge on a block selects that node and opens the
+  // Logs tab — the same tab that now hosts the (filterable) error rows
+  // since the dedicated Problems tab was removed.
   const handleErrorClick = useCallback(
     (blockId: string) => {
       setSelectedNodeId(blockId);
-      setActiveBottomTab("problems");
+      setActiveBottomTab("logs");
     },
     [setSelectedNodeId, setActiveBottomTab],
   );
@@ -480,7 +605,7 @@ export default function App() {
     })();
   }, []);
 
-  // Auto-save on dirty
+  // Auto-save on dirty (workflow tabs)
   useEffect(() => {
     if (!currentProject || !workflowDirty) {
       return undefined;
@@ -490,6 +615,70 @@ export default function App() {
     }, 800);
     return () => window.clearTimeout(timeout);
   }, [currentProject, workflowDirty, workflowPayload]);
+
+  // ADR-036 §3.9 — auto-save loop for file tabs (mirrors the workflow
+  // auto-save above). Each dirty file tab gets an independent 800 ms
+  // debounce timer; editing one tab does not affect another.
+  //
+  // #870: per-tab timer state must live OUTSIDE the effect closure. The
+  // naive `useEffect` cleanup pattern tears down every dirty tab's timer
+  // on every keystroke (because `tabs` changes identity each
+  // updateFileTabContent call), so editing tab A keeps cancelling
+  // tab B's debounce and B never autosaves. We track
+  // `{timerId, contentSnapshot}` per tab id in a ref so each tab's
+  // timer survives unrelated keystrokes.
+  const fileTabAutosaveTimers = useRef<Map<string, { timerId: number; contentSnapshot: string }>>(new Map());
+  useEffect(() => {
+    const timers = fileTabAutosaveTimers.current;
+    if (!currentProject) {
+      // Project closed — drop everything pending.
+      timers.forEach(({ timerId }) => window.clearTimeout(timerId));
+      timers.clear();
+      return undefined;
+    }
+    const dirtyFileTabs = (tabs as AnyTab[]).filter(
+      (t) => t.kind === "file" && t.dirty && !t.readOnly,
+    ) as FileTab[];
+    const dirtyIds = new Set(dirtyFileTabs.map((t) => t.id));
+
+    // Cancel timers for tabs no longer dirty / no longer present.
+    timers.forEach(({ timerId }, id) => {
+      if (!dirtyIds.has(id)) {
+        window.clearTimeout(timerId);
+        timers.delete(id);
+      }
+    });
+
+    // For each dirty tab, schedule (or reset only if content changed).
+    // Leaving an in-flight timer untouched when content is unchanged is
+    // the load-bearing part of the fix — that is what lets tab B's
+    // debounce reach 800 ms while the user keeps typing in tab A.
+    for (const tab of dirtyFileTabs) {
+      const existing = timers.get(tab.id);
+      if (existing && existing.contentSnapshot === tab.content) continue;
+      if (existing) window.clearTimeout(existing.timerId);
+      const timerId = window.setTimeout(() => {
+        timers.delete(tab.id);
+        void saveFileTab(tab.id).catch((error) => {
+          // eslint-disable-next-line no-console
+          console.warn(`saveFileTab(${tab.id}) failed:`, error);
+        });
+      }, 800);
+      timers.set(tab.id, { timerId, contentSnapshot: tab.content });
+    }
+    return undefined;
+  }, [currentProject, tabs, saveFileTab]);
+
+  // Defensive: cancel all pending file-tab autosaves on unmount so a
+  // timer cannot fire against a torn-down store. The ref Map is also
+  // intentionally not in any dep array elsewhere.
+  useEffect(() => {
+    const timers = fileTabAutosaveTimers.current;
+    return () => {
+      timers.forEach(({ timerId }) => window.clearTimeout(timerId));
+      timers.clear();
+    };
+  }, []);
 
   // Sync active tab snapshot when workflow state changes
   useEffect(() => {
@@ -513,17 +702,29 @@ export default function App() {
         return;
       }
 
-      // Ctrl+S always works
+      // Ctrl+S always works — routes to file save when a file tab is
+      // active (ADR-036 §3.7), workflow save otherwise.
       if (ctrl && key === "s" && !event.shiftKey) {
         event.preventDefault();
-        void saveWorkflow();
+        if (activeFileTab) {
+          if (!activeFileTab.readOnly) {
+            void saveFileTab(activeFileTab.id).catch((error) => {
+              // eslint-disable-next-line no-console
+              console.warn(`saveFileTab(${activeFileTab.id}) failed:`, error);
+            });
+          }
+        } else {
+          void saveWorkflow();
+        }
         return;
       }
 
-      // Ctrl+Shift+S: Save As
+      // Ctrl+Shift+S: Save As (workflow only — file tabs save in place)
       if (ctrl && key === "s" && event.shiftKey) {
         event.preventDefault();
-        void saveWorkflowAs();
+        if (!activeFileTab) {
+          void saveWorkflowAs();
+        }
         return;
       }
 
@@ -567,11 +768,13 @@ export default function App() {
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
   }, [
+    activeFileTab,
     cancelWorkflow,
     openProjectDialog,
     redoWorkflow,
     removeNode,
     runWorkflow,
+    saveFileTab,
     saveWorkflow,
     saveWorkflowAs,
     selectedNodeId,
@@ -583,57 +786,9 @@ export default function App() {
     undoWorkflow,
   ]);
 
-  const onSendChat = useCallback(
-    async (message: string) => {
-      const userMsg: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "user",
-        content: message,
-        timestamp: new Date().toISOString(),
-      };
-      pushChatMessage(userMsg);
-      setAiLoading(true);
-      setAiError(null);
-
-      try {
-        const lowerMsg = message.toLowerCase();
-        let response: string;
-
-        if (lowerMsg.includes("generate") && lowerMsg.includes("block")) {
-          const result = await api.generateBlock({ description: message });
-          response = result.validation_passed
-            ? `Generated block \`${result.block_name}\`:\n\n\`\`\`python\n${result.code}\n\`\`\``
-            : `Block generation completed but validation failed. Code:\n\n\`\`\`python\n${result.code}\n\`\`\``;
-        } else if (
-          lowerMsg.includes("workflow") ||
-          lowerMsg.includes("pipeline") ||
-          lowerMsg.includes("suggest")
-        ) {
-          const result = await api.suggestWorkflow({
-            data_description: message,
-            goal: message,
-          });
-          response = `${result.explanation}\n\n\`\`\`json\n${JSON.stringify(result.workflow, null, 2)}\n\`\`\``;
-        } else {
-          response =
-            'I can help you **generate blocks** or **suggest workflows**. Try:\n- "Generate a block that filters images by intensity"\n- "Suggest a workflow for Raman spectral analysis"';
-        }
-
-        const assistantMsg: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: response,
-          timestamp: new Date().toISOString(),
-        };
-        pushChatMessage(assistantMsg);
-      } catch (err) {
-        setAiError(err instanceof Error ? err.message : "AI request failed");
-      } finally {
-        setAiLoading(false);
-      }
-    },
-    [pushChatMessage],
-  );
+  // ADR-034 Phase 1.3: the legacy onSendChat / AIChat plumbing was removed.
+  // The AI Chat bottom tab now hosts <TerminalTabs/>, which manages its own
+  // PTY-backed sessions through `terminalTabsSlice`.
 
   return (
     <ReactFlowProvider>
@@ -648,6 +803,7 @@ export default function App() {
             wsConnected={wsConnected}
             sseConnected={sseConnected}
             recentProjects={recentProjects}
+            activeTabKind={activeTabKind}
             onNewProject={() => openProjectDialog("new", { path: projectDialog.path })}
             onOpenProject={() => openProjectDialog("open")}
             onOpenRecent={(project) => void openProject(project.id)}
@@ -657,7 +813,55 @@ export default function App() {
               resetExecution();
             }}
             onNewWorkflow={() => newWorkflow()}
-            onSave={() => void saveWorkflow()}
+            onNewCustomBlock={
+              currentProject
+                ? () => {
+                    void createNewCustomBlock();
+                  }
+                : undefined
+            }
+            onNewNote={
+              currentProject
+                ? () => {
+                    void createNewNote();
+                  }
+                : undefined
+            }
+            onViewSource={
+              currentProject && workflowId
+                ? async () => {
+                    // #878: ensure the workflow exists on disk before
+                    // trying to open its YAML — a freshly-created or
+                    // unsaved workflow has no backing file yet, so the
+                    // GET /api/projects/{id}/file returns 404 and the
+                    // user previously saw a native ``"<id> 不存在"``
+                    // alert. Save first; on failure the existing
+                    // saveWorkflow error UX surfaces and we abort the
+                    // view.
+                    try {
+                      await saveWorkflow();
+                    } catch (error) {
+                      // eslint-disable-next-line no-console
+                      console.warn("View source: saveWorkflow failed", error);
+                      return;
+                    }
+                    openFileTab(`workflows/${workflowId}.yaml`, { readOnly: true });
+                  }
+                : undefined
+            }
+            onSave={() => {
+              // ADR-036 §3.7 — route Save by active tab kind.
+              if (activeFileTab) {
+                if (!activeFileTab.readOnly) {
+                  void saveFileTab(activeFileTab.id).catch((error) => {
+                    // eslint-disable-next-line no-console
+                    console.warn(`saveFileTab(${activeFileTab.id}) failed:`, error);
+                  });
+                }
+              } else {
+                void saveWorkflow();
+              }
+            }}
             onSaveAs={() => void saveWorkflowAs()}
             onImport={() => void importWorkflow()}
             onRun={() => void runWorkflow()}
@@ -766,6 +970,35 @@ export default function App() {
                   }}
                 >
                   <ResizablePanel defaultSize="70%" minSize="20%">
+                    {activeFileTab ? (
+                      // ADR-036 §3.7 — file tab → Monaco editor.
+                      <CodeEditor
+                        tab={activeFileTab}
+                        onContentChange={(content) => {
+                          try {
+                            updateFileTabContent(activeFileTab.id, content);
+                          } catch (error) {
+                            // Skeleton stub throws; soft-warn so the UI
+                            // still works in dev mode pre-I36a-merge.
+                            // eslint-disable-next-line no-console
+                            console.warn(
+                              `updateFileTabContent(${activeFileTab.id}) failed:`,
+                              error,
+                            );
+                          }
+                        }}
+                        onSave={() => {
+                          if (activeFileTab.readOnly) return;
+                          void saveFileTab(activeFileTab.id).catch((error) => {
+                            // eslint-disable-next-line no-console
+                            console.warn(
+                              `saveFileTab(${activeFileTab.id}) failed:`,
+                              error,
+                            );
+                          });
+                        }}
+                      />
+                    ) : (
                     <WorkflowCanvas
                       blockStates={blockStates}
                       blockErrors={blockErrors}
@@ -814,17 +1047,13 @@ export default function App() {
                       schemas={blockSchemas}
                       selectedNodeId={selectedNodeId}
                     />
+                    )}
                   </ResizablePanel>
                   <ResizableHandle withHandle />
                   <ResizablePanel defaultSize="30%" minSize="5%" collapsible collapsedSize="3%">
                     <BottomPanel
                       activeTab={activeBottomTab}
-                      aiError={aiError}
-                      aiLoading={aiLoading}
-                      blockErrors={blockErrors}
-                      chatMessages={chatMessages}
                       logEntries={logEntries}
-                      onSendChat={onSendChat}
                       onTabChange={setActiveBottomTab}
                       onUpdateConfig={(patch) => {
                         if (selectedNodeId) {
@@ -834,7 +1063,6 @@ export default function App() {
                       selectedNode={selectedNode}
                       selectedSchema={selectedSchema}
                       unreadLogsCount={unreadLogsCount}
-                      unreadProblemsCount={unreadProblemsCount}
                     />
                   </ResizablePanel>
                 </ResizablePanelGroup>

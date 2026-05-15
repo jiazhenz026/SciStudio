@@ -9,8 +9,20 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { api } from "../lib/api";
 import { useAppStore } from "../store";
 import { useWorkflowWebSocket } from "./useWebSocket";
+
+vi.mock("../lib/api", async () => {
+  const actual = await vi.importActual<typeof import("../lib/api")>("../lib/api");
+  return {
+    ...actual,
+    api: {
+      ...actual.api,
+      getWorkflow: vi.fn(),
+    },
+  };
+});
 
 interface MockSocket {
   readyState: number;
@@ -62,7 +74,6 @@ beforeEach(() => {
   useAppStore.setState({
     activeBottomTab: "ai",
     unreadLogsCount: 0,
-    unreadProblemsCount: 0,
     logEntries: [],
   });
 });
@@ -96,7 +107,13 @@ describe("useWorkflowWebSocket (#793)", () => {
     expect(useAppStore.getState().activeBottomTab).toBe("ai");
   });
 
-  it("bumps unreadLogsCount on block_/workflow_ events while another tab is active", () => {
+  it("bumps unreadLogsCount only when a Logs-panel row is actually added", () => {
+    // Coupled-badge contract (fix for "8 unread but Logs empty" mismatch):
+    // ``unreadLogsCount`` tracks the number of unseen rows in the Logs
+    // panel, NOT the number of engine events seen. block_started /
+    // workflow_started don't produce a Logs row, so they don't bump.
+    // Only events that ``consumeEvent`` / ``appendLog`` actually
+    // materialise into ``logEntries`` (e.g. block_error) bump the badge.
     renderHook(() => useWorkflowWebSocket(true));
     useAppStore.setState({ activeBottomTab: "ai" });
 
@@ -114,11 +131,27 @@ describe("useWorkflowWebSocket (#793)", () => {
       data: {},
     });
 
-    expect(useAppStore.getState().unreadLogsCount).toBe(2);
+    expect(useAppStore.getState().unreadLogsCount).toBe(0);
+    expect(useAppStore.getState().logEntries).toHaveLength(0);
+
+    // A block_error DOES add a Logs row → badge bumps.
+    pushMessage({
+      type: "block_error",
+      block_id: "n1",
+      workflow_id: "wf",
+      timestamp: "2026-05-13T00:00:00Z",
+      data: { error: "boom" },
+    });
+
+    expect(useAppStore.getState().unreadLogsCount).toBe(1);
+    expect(useAppStore.getState().logEntries).toHaveLength(1);
     expect(useAppStore.getState().activeBottomTab).toBe("ai");
   });
 
-  it("bumps unreadProblemsCount on block_error events", () => {
+  it("block_error events surface as Logs rows (Problems tab was removed)", () => {
+    // The Problems tab was collapsed into the Logs panel's error filter.
+    // block_error events therefore land in ``logEntries`` (level=error)
+    // and bump the Logs unread badge — the only badge that remains.
     renderHook(() => useWorkflowWebSocket(true));
     useAppStore.setState({ activeBottomTab: "ai" });
 
@@ -130,7 +163,9 @@ describe("useWorkflowWebSocket (#793)", () => {
       data: { error: "boom" },
     });
 
-    expect(useAppStore.getState().unreadProblemsCount).toBe(1);
+    expect(useAppStore.getState().logEntries).toHaveLength(1);
+    expect(useAppStore.getState().logEntries[0].level).toBe("error");
+    expect(useAppStore.getState().unreadLogsCount).toBe(1);
     expect(useAppStore.getState().activeBottomTab).toBe("ai");
   });
 
@@ -147,5 +182,166 @@ describe("useWorkflowWebSocket (#793)", () => {
     });
 
     expect(useAppStore.getState().unreadLogsCount).toBe(0);
+  });
+});
+
+describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", () => {
+  beforeEach(() => {
+    vi.mocked(api.getWorkflow).mockReset();
+  });
+
+  it("refetches and replaces the workflow when the changed id matches", async () => {
+    // Seed the store with a currently-loaded workflow id.
+    useAppStore.setState({ workflowId: "demo", workflowName: "Demo" });
+    vi.mocked(api.getWorkflow).mockResolvedValueOnce({
+      id: "demo",
+      version: "1.0.0",
+      description: "refreshed",
+      revision: 7,
+      nodes: [],
+      edges: [],
+      metadata: {},
+    } as never);
+
+    renderHook(() => useWorkflowWebSocket(true));
+
+    pushMessage({
+      type: "workflow.changed",
+      workflow_id: "demo",
+      timestamp: "2026-05-13T00:00:00Z",
+      data: { workflow_id: "demo", path: "workflows/demo.yaml", kind: "modified", changed_by: "watcher" },
+    });
+
+    // Allow the awaited promise to flush.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(vi.mocked(api.getWorkflow)).toHaveBeenCalledWith("demo");
+    expect(useAppStore.getState().workflowDescription).toBe("refreshed");
+  });
+
+  it("ignores workflow.changed for a workflow that is not currently loaded", async () => {
+    useAppStore.setState({ workflowId: "alpha" });
+    renderHook(() => useWorkflowWebSocket(true));
+
+    pushMessage({
+      type: "workflow.changed",
+      workflow_id: "beta",
+      timestamp: "2026-05-13T00:00:00Z",
+      data: { workflow_id: "beta", path: "workflows/beta.yaml", kind: "modified", changed_by: "watcher" },
+    });
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(vi.mocked(api.getWorkflow)).not.toHaveBeenCalled();
+    expect(useAppStore.getState().workflowId).toBe("alpha");
+  });
+
+  /** Audit P1-D regression: backend emits ``event`` (top level), not
+   * ``data.status``/``data.result``. Successful runs were rendering as red ✗. */
+  it("maps top-level `event=completed` to AiBlockStatus 'done' (#852 audit P1-D)", () => {
+    // Seed a tab so updateAiBlockStatus has a target.
+    const setStatus = vi.fn();
+    useAppStore.setState({
+      updateAiBlockStatus: setStatus,
+    });
+    renderHook(() => useWorkflowWebSocket(true));
+
+    pushMessage({
+      type: "block_pty_closed",
+      tab_id: "tab-1",
+      block_run_id: "rid-1",
+      event: "completed",
+      detail: {},
+      timestamp: "2026-05-14T00:00:00Z",
+    });
+
+    expect(setStatus).toHaveBeenCalledWith("tab-1", "done");
+  });
+
+  it("maps top-level `event=cancelled_by_user_close` to 'cancelled'", () => {
+    const setStatus = vi.fn();
+    useAppStore.setState({
+      updateAiBlockStatus: setStatus,
+    });
+    renderHook(() => useWorkflowWebSocket(true));
+
+    pushMessage({
+      type: "block_pty_closed",
+      tab_id: "tab-2",
+      block_run_id: "rid-2",
+      event: "cancelled_by_user_close",
+      detail: {},
+      timestamp: "2026-05-14T00:00:00Z",
+    });
+
+    expect(setStatus).toHaveBeenCalledWith("tab-2", "cancelled");
+  });
+
+  it("maps top-level `event=error` to 'error'", () => {
+    const setStatus = vi.fn();
+    useAppStore.setState({
+      updateAiBlockStatus: setStatus,
+    });
+    renderHook(() => useWorkflowWebSocket(true));
+
+    pushMessage({
+      type: "block_pty_closed",
+      tab_id: "tab-3",
+      block_run_id: "rid-3",
+      event: "error",
+      detail: { code: 1 },
+      timestamp: "2026-05-14T00:00:00Z",
+    });
+
+    expect(setStatus).toHaveBeenCalledWith("tab-3", "error");
+  });
+
+  /** Audit P2-A: backend emits ``permission_mode`` at top level, not nested. */
+  it("reads top-level `permission_mode=bypass` and registers as dangerous (audit P2-A)", () => {
+    const addAiBlockTab = vi.fn();
+    useAppStore.setState({
+      addAiBlockTerminalTab: addAiBlockTab,
+    });
+    renderHook(() => useWorkflowWebSocket(true));
+
+    pushMessage({
+      type: "block_pty_opened",
+      tab_id: "tab-bp",
+      block_run_id: "rid-bp",
+      title: "🤖 demo",
+      permission_mode: "bypass",
+      timestamp: "2026-05-14T00:00:00Z",
+    });
+
+    expect(addAiBlockTab).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tabId: "tab-bp",
+        permissionMode: "dangerous",
+      }),
+    );
+  });
+
+  it("clears the canvas when the loaded workflow is deleted on disk", () => {
+    useAppStore.setState({
+      workflowId: "demo",
+      workflowName: "Demo",
+      workflowNodes: [
+        { id: "n", block_type: "Load", config: {}, execution_mode: null, layout: null },
+      ],
+    });
+    renderHook(() => useWorkflowWebSocket(true));
+
+    pushMessage({
+      type: "workflow.changed",
+      workflow_id: "demo",
+      timestamp: "2026-05-13T00:00:00Z",
+      data: { workflow_id: "demo", path: "workflows/demo.yaml", kind: "deleted", changed_by: "watcher" },
+    });
+
+    expect(useAppStore.getState().workflowId).toBeNull();
+    expect(useAppStore.getState().workflowNodes).toEqual([]);
+    // The delete event should also leave a log entry behind.
+    const logs = useAppStore.getState().logEntries;
+    expect(logs.some((entry) => entry.message.includes("demo") && entry.message.includes("deleted"))).toBe(
+      true,
+    );
   });
 });

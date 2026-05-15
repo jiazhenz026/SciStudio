@@ -1,6 +1,7 @@
 import Plot from "react-plotly.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { api } from "../lib/api";
 import type { DataPreviewResponse } from "../types/api";
 
 interface DataPreviewProps {
@@ -14,19 +15,62 @@ interface DataPreviewProps {
   onCancelSelected: () => void;
 }
 
-function extractDataRefs(payload: unknown): string[] {
+/**
+ * #898 — every output dict in ``blockOutputs[block_id]`` already carries
+ * ``metadata.framework.source`` (full source file path stamped by
+ * LoadImage and other IO blocks). Walk the payload and pair each
+ * ``data_ref`` with a human-friendly display name so the pill labels
+ * read e.g. ``beads.tif`` instead of ``data-873de``.
+ */
+export interface RefEntry {
+  ref: string;
+  displayName: string;
+}
+
+function basename(p: string): string {
+  const trimmed = p.replace(/[\\/]+$/, "");
+  const parts = trimmed.split(/[\\/]/);
+  return parts[parts.length - 1] || trimmed;
+}
+
+function deriveDisplayName(ref: string, dataItem: Record<string, unknown>): string {
+  const md = dataItem.metadata;
+  if (md && typeof md === "object") {
+    const mdRec = md as Record<string, unknown>;
+    // 1. framework.source — set by IO loaders (LoadImage etc.)
+    const framework = mdRec.framework;
+    if (framework && typeof framework === "object") {
+      const src = (framework as Record<string, unknown>).source;
+      if (typeof src === "string" && src) return basename(src);
+    }
+    // 2. meta.source_file — typed Image.Meta
+    const meta = mdRec.meta;
+    if (meta && typeof meta === "object") {
+      const sourceFile = (meta as Record<string, unknown>).source_file;
+      if (typeof sourceFile === "string" && sourceFile) return basename(sourceFile);
+      // 3. meta.file_path — Artifact
+      const filePath = (meta as Record<string, unknown>).file_path;
+      if (typeof filePath === "string" && filePath) return basename(filePath);
+    }
+  }
+  // 4. Fallback: truncated ref (today's behavior)
+  return ref.slice(0, 10);
+}
+
+export function extractRefEntries(payload: unknown): RefEntry[] {
   if (!payload || typeof payload !== "object") {
     return [];
   }
   const record = payload as Record<string, unknown>;
   if (typeof record.data_ref === "string") {
-    return [record.data_ref];
+    return [{ ref: record.data_ref, displayName: deriveDisplayName(record.data_ref, record) }];
   }
   if (record.kind === "collection" && Array.isArray(record.items)) {
-    return record.items.flatMap((item) => extractDataRefs(item));
+    return record.items.flatMap((item) => extractRefEntries(item));
   }
-  return Object.values(record).flatMap((value) => extractDataRefs(value));
+  return Object.values(record).flatMap((value) => extractRefEntries(value));
 }
+
 
 // ─── LUT Colormaps (canvas-based, matching OptEasy) ─────────────────────────
 
@@ -104,9 +148,28 @@ function applyLUTToImage(
 interface ImageViewerProps {
   src: string;
   shape?: number[];
+  /**
+   * #899 — when the underlying array is 3-D and a slider axis was
+   * detected by the backend, these props drive the horizontal slider
+   * shown below the image canvas. ``onSliceChange`` is called with the
+   * new integer index on every drag; the parent handles fetch +
+   * cache + debounce. Render no slider when ``sliceAxisSize`` is null
+   * or ``<= 1``.
+   */
+  sliceAxisName?: string | null;
+  sliceAxisSize?: number | null;
+  sliceIndex?: number | null;
+  onSliceChange?: (idx: number) => void;
 }
 
-function ImageViewer({ src, shape }: ImageViewerProps) {
+function ImageViewer({
+  src,
+  shape,
+  sliceAxisName,
+  sliceAxisSize,
+  sliceIndex,
+  onSliceChange,
+}: ImageViewerProps) {
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [lutName, setLutName] = useState("gray");
@@ -240,6 +303,36 @@ function ImageViewer({ src, shape }: ImageViewerProps) {
           fontSize: 10,
         }}
       >
+        {/*
+         * #899 — 3-D slice slider. Renders only when the backend
+         * reports a slider axis with > 1 entries. Slider position
+         * updates parent state immediately; parent handles 200 ms
+         * debounce + slice cache + fetch.
+         */}
+        {sliceAxisSize !== null && sliceAxisSize !== undefined && sliceAxisSize > 1 && onSliceChange ? (
+          <div
+            data-testid="image-slice-slider-row"
+            style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}
+          >
+            <span style={{ width: 70, color: "#78716c" }}>
+              {(sliceAxisName ?? "axis") + ` (${sliceAxisSize})`}
+            </span>
+            <input
+              aria-label={`Slice slider for ${sliceAxisName ?? "axis"}`}
+              data-testid="image-slice-slider"
+              type="range"
+              min={0}
+              max={sliceAxisSize - 1}
+              value={sliceIndex ?? 0}
+              onChange={(e) => onSliceChange(Number(e.target.value))}
+              style={{ flex: 1 }}
+            />
+            <span style={{ minWidth: 38, textAlign: "right", color: "#78716c" }}>
+              {(sliceIndex ?? 0) + 1}/{sliceAxisSize}
+            </span>
+          </div>
+        ) : null}
+
         {/* Zoom row */}
         <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6 }}>
           <button
@@ -417,7 +510,18 @@ function TableViewer({ columns, rows, rowCount }: TableViewerProps) {
   );
 }
 
-function PreviewRenderer({ preview }: { preview: Record<string, unknown> }) {
+interface PreviewRendererProps {
+  preview: Record<string, unknown>;
+  /**
+   * #899 — parent-driven slider position. Takes precedence over the
+   * backend-echoed ``preview.slice_index`` so the slider does not
+   * snap back to a stale value while a new slice is in flight.
+   */
+  currentSlice?: number;
+  onSliceChange?: (idx: number) => void;
+}
+
+function PreviewRenderer({ preview, currentSlice, onSliceChange }: PreviewRendererProps) {
   switch (preview.kind) {
     case "table":
       return (
@@ -427,13 +531,22 @@ function PreviewRenderer({ preview }: { preview: Record<string, unknown> }) {
           rowCount={typeof preview.row_count === "number" ? preview.row_count : undefined}
         />
       );
-    case "image":
+    case "image": {
+      // Slider position: prefer the live parent state so dragging never
+      // snaps back to the backend's last-rendered index.
+      const sliceIndex =
+        currentSlice ?? (preview.slice_index as number | null | undefined) ?? null;
       return (
         <ImageViewer
           shape={preview.shape as number[] | undefined}
           src={String(preview.src)}
+          sliceAxisName={(preview.slice_axis_name as string | null | undefined) ?? null}
+          sliceAxisSize={(preview.slice_axis_size as number | null | undefined) ?? null}
+          sliceIndex={sliceIndex}
+          onSliceChange={onSliceChange}
         />
       );
+    }
     case "chart":
       return (
         <Plot
@@ -493,24 +606,113 @@ export function DataPreview({
   onCancelSelected,
 }: DataPreviewProps) {
   const [activeRef, setActiveRef] = useState<string | null>(null);
-  const outputRefs = useMemo(() => {
-    if (!selectedNodeId) {
-      return [];
-    }
-    return extractDataRefs(blockOutputs[selectedNodeId] ?? {});
+  // #898 — pill labels become source filenames (with truncated-ref fallback).
+  const refEntries = useMemo(() => {
+    if (!selectedNodeId) return [];
+    return extractRefEntries(blockOutputs[selectedNodeId] ?? {});
   }, [blockOutputs, selectedNodeId]);
+  const outputRefs = useMemo(() => refEntries.map((e) => e.ref), [refEntries]);
+
+  // #899 — per-active-ref current slice index. Reset when activeRef changes.
+  const [currentSliceByRef, setCurrentSliceByRef] = useState<Record<string, number>>({});
+  // Local cache for non-zero slice variants. Slice 0 falls through to the
+  // store's ``previewCache`` so existing behavior is unchanged.
+  const sliceCacheRef = useRef<Map<string, DataPreviewResponse>>(new Map());
+  const [sliceCacheVersion, setSliceCacheVersion] = useState(0);
+  const sliceFetchingRef = useRef<Set<string>>(new Set());
+
+  const activeSlice = activeRef ? (currentSliceByRef[activeRef] ?? 0) : 0;
+  const activeSliceKey = activeRef ? `${activeRef}#${activeSlice}` : null;
 
   useEffect(() => {
     setActiveRef(outputRefs[0] ?? null);
   }, [outputRefs]);
 
+  // Slice 0 fetch through the store (preserves existing flow).
   useEffect(() => {
-    if (activeRef && !previewCache[activeRef] && !previewLoading[activeRef]) {
+    if (activeRef && activeSlice === 0 && !previewCache[activeRef] && !previewLoading[activeRef]) {
       void onLoadPreview(activeRef);
     }
-  }, [activeRef, onLoadPreview, previewCache, previewLoading]);
+  }, [activeRef, activeSlice, onLoadPreview, previewCache, previewLoading]);
 
-  const preview = activeRef ? previewCache[activeRef] : null;
+  // #899 — slice > 0 fetch with 200 ms debounce. Cache hit → instant (no
+  // timer). Cache miss → debounced fetch, last drag position wins.
+  useEffect(() => {
+    if (!activeRef || activeSlice === 0 || !activeSliceKey) return undefined;
+    if (sliceCacheRef.current.has(activeSliceKey)) return undefined;
+    if (sliceFetchingRef.current.has(activeSliceKey)) return undefined;
+    const timer = window.setTimeout(() => {
+      sliceFetchingRef.current.add(activeSliceKey);
+      void api
+        .getDataPreview(activeRef, activeSlice)
+        .then((resp) => {
+          sliceCacheRef.current.set(activeSliceKey, resp);
+          setSliceCacheVersion((v) => v + 1);
+        })
+        .catch((err) => {
+          // eslint-disable-next-line no-console
+          console.warn(`getDataPreview(${activeRef}, slice=${activeSlice}) failed:`, err);
+        })
+        .finally(() => {
+          sliceFetchingRef.current.delete(activeSliceKey);
+        });
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [activeRef, activeSlice, activeSliceKey]);
+
+  // Reset slice cache when activeRef changes — avoid stale entries piling up.
+  useEffect(() => {
+    if (!activeRef) return;
+    setCurrentSliceByRef((prev) => (activeRef in prev ? prev : { ...prev, [activeRef]: 0 }));
+  }, [activeRef]);
+
+  const handleSliceChange = useCallback(
+    (idx: number) => {
+      if (!activeRef) return;
+      setCurrentSliceByRef((cs) => ({ ...cs, [activeRef]: idx }));
+    },
+    [activeRef],
+  );
+
+  // Resolve the preview payload to render based on (activeRef, activeSlice).
+  //
+  // #899 — when the requested slice is still loading, fall back to ANY
+  // cached preview for this ref (slice 0 or the most recently-loaded
+  // slice). This keeps ``<ImageViewer>`` mounted across slice
+  // transitions, preserving its zoom/pan/LUT state. Without the
+  // fallback, the transient null between slider drag and fetch
+  // completion unmounts the component and resets all its useState.
+  const preview: DataPreviewResponse | null = useMemo(() => {
+    if (!activeRef) return null;
+    // Try the exact slice the user is requesting.
+    if (activeSlice === 0) {
+      const slice0 = previewCache[activeRef];
+      if (slice0) return slice0;
+    } else if (activeSliceKey) {
+      const sliceN = sliceCacheRef.current.get(activeSliceKey);
+      if (sliceN) return sliceN;
+    }
+    // Stale-fallback: anything we have for this ref keeps the viewer alive.
+    if (previewCache[activeRef]) return previewCache[activeRef];
+    for (const [key, value] of sliceCacheRef.current.entries()) {
+      if (key.startsWith(`${activeRef}#`)) return value;
+    }
+    return null;
+    // sliceCacheVersion is intentionally listed to invalidate the memo
+    // whenever a new slice lands in the local cache.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRef, activeSlice, activeSliceKey, previewCache, sliceCacheVersion]);
+
+  // Has any preview at all loaded for the current ref? Used to decide
+  // between the "Preview not loaded yet" placeholder and the viewer.
+  const hasAnyPreviewForRef = preview !== null;
+
+  const isLoadingActive =
+    !!activeRef &&
+    !hasAnyPreviewForRef &&
+    (activeSlice === 0
+      ? !!previewLoading[activeRef]
+      : !!activeSliceKey && sliceFetchingRef.current.has(activeSliceKey));
 
   return (
     <aside className="flex h-full flex-col overflow-hidden border-l border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(245,241,232,0.98))] p-4">
@@ -542,22 +744,27 @@ export function DataPreview({
       ) : (
         <>
           <div className="mt-5 flex flex-wrap gap-2">
-            {outputRefs.map((dataRef) => (
+            {refEntries.map((entry) => (
               <button
-                className={`rounded-full px-3 py-1 text-xs ${activeRef === dataRef ? "bg-ink text-white" : "bg-white text-stone-600"}`}
-                key={dataRef}
-                onClick={() => setActiveRef(dataRef)}
+                className={`rounded-full px-3 py-1 text-xs ${activeRef === entry.ref ? "bg-ink text-white" : "bg-white text-stone-600"}`}
+                key={entry.ref}
+                onClick={() => setActiveRef(entry.ref)}
+                title={entry.ref}
                 type="button"
               >
-                {dataRef.slice(0, 10)}
+                {entry.displayName}
               </button>
             ))}
           </div>
           <div className="mt-4 min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-            {activeRef && previewLoading[activeRef] ? (
+            {isLoadingActive ? (
               <div className="rounded-[1.6rem] border border-stone-200 bg-white p-4 text-sm text-stone-500">Loading preview…</div>
             ) : preview ? (
-              <PreviewRenderer preview={preview.preview} />
+              <PreviewRenderer
+                preview={preview.preview}
+                currentSlice={activeSlice}
+                onSliceChange={handleSliceChange}
+              />
             ) : (
               <div className="rounded-[1.6rem] border border-stone-200 bg-white p-4 text-sm text-stone-500">
                 Preview not loaded yet.

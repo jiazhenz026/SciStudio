@@ -257,3 +257,40 @@ def test_serialise_one_allows_artifact_without_storage_ref() -> None:
     wire = _serialise_one(art)
     assert wire["backend"] is None
     assert wire["path"] is None
+
+
+@pytest.mark.parametrize(
+    "dtype_input,expected_persisted",
+    [
+        (bool, "bool"),
+        (np.bool_, "bool"),
+        (np.dtype(bool), "bool"),
+        ("bool", "bool"),
+        (np.uint8, "uint8"),
+        (np.dtype("float32"), "float32"),
+    ],
+)
+def test_dtype_persisted_as_canonical_string(tmp_path: Path, dtype_input: Any, expected_persisted: str) -> None:
+    """Array dtype must serialise as the canonical numpy short form.
+
+    Regression: ``str(bool)`` returns ``"<class 'bool'>"`` which round-trips
+    into ``np.dtype("<class 'bool'>")`` and crashes Mask reconstruction with
+    ``data type ... not understood``.  ``_serialise_extra_metadata`` must
+    normalise via ``np.dtype()`` first so the persisted dtype is always a
+    string ``np.dtype()`` will accept on the reverse trip.
+    """
+    arr = Array(axes=["y", "x"], shape=(2, 2), dtype=dtype_input)
+    arr._data = np.zeros((2, 2), dtype=np.dtype(dtype_input))  # type: ignore[attr-defined]
+    arr.save(str(tmp_path / "arr.zarr"))
+
+    wire = _serialise_one(arr)
+    persisted = wire["metadata"]["dtype"]
+    assert persisted == expected_persisted, (
+        f"dtype={dtype_input!r} persisted as {persisted!r}, expected {expected_persisted!r}"
+    )
+    # Round trip back through np.dtype() must succeed.
+    assert np.dtype(persisted) == np.dtype(dtype_input)
+
+    # And the full reconstruct path must not raise.
+    reconstructed = _reconstruct_one(wire)
+    assert reconstructed is not None

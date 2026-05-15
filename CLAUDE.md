@@ -399,6 +399,77 @@ A task is done when:
 
 ---
 
+# 11.5 Hotfix Mode (live-debugging exception)
+
+Hotfix mode is a narrow exception to the gate workflow for live debugging
+sessions where the user is interactively guiding the fix.
+
+## When hotfix mode applies
+
+Hotfix mode applies **only when the user explicitly invokes it** ("hotfix
+this", "进入 hotfix 模式", "let's hotfix", or equivalent direct request).
+
+Claude must **not** auto-promote a normal bugfix to hotfix mode. If unsure,
+ask. Default to the standard 6-gate workflow.
+
+## On entering hotfix mode (MANDATORY)
+
+Before touching any code in a hotfix round, Claude MUST re-read the
+architectural artefacts that govern the bug being fixed:
+
+1. The relevant ADR(s) named in the bug report or apparent from the file
+   paths being touched (e.g. fixes under `src/scieasy/blocks/ai/` → ADR-035).
+2. `docs/architecture/ARCHITECTURE.md` and `docs/architecture/PROJECT_TREE.md`
+   for any change that crosses subsystem boundaries.
+3. CLAUDE.md §2 (non-negotiable principles) and §7 (coding boundaries).
+
+This is non-negotiable because hotfix mode suspends the gate workflow's
+"write a change plan first" step. Without that explicit checkpoint, Claude
+is prone to acting on a remembered (often hallucinated) version of the
+contract instead of the current spec — and small inline edits to a
+miscontract'd surface compound into design drift the rest of the team has
+to undo.
+
+Quote the section you read in your first edit-mode response so the user
+can see you grounded yourself.
+
+## What hotfix mode permits
+
+For the duration of a single hotfix round (one bug, or a small cluster of
+tightly-related bugs surfaced in the same debugging session):
+
+1. Create a `hotfix/<short-description>` branch off `main`.
+2. `git checkout` it.
+3. Open the user's Chrome (via Chrome MCP) and drive live test cases /
+   reproduce the user's reported bug interactively.
+4. Iterate code edits + live re-tests freely — **the gate workflow is
+   suspended** during the round; do not run `gate.py advance` per edit.
+5. Commit progress as you go (small commits are fine, gate enforcement is
+   off for this branch).
+
+## When the round ends
+
+A round ends when the user says it's done, or when the bug is fixed and
+verified live. At that point:
+
+1. Run the **full 6-gate workflow** retroactively in one batch:
+   `start → create_issue → write_change_plan → create_branch → update_docs
+   → update_changelog → submit_pr`.
+2. Open the PR against `main`.
+3. Wait for CI green, address Codex review, merge.
+
+## Constraints (still apply in hotfix mode)
+
+- Out-of-scope file rules from §7 still apply (no touching frozen core
+  contracts without an ADR).
+- Do not push directly to `main` — always go through PR at the end.
+- Hotfix mode does NOT extend to refactors, new features, or
+  architecture changes. Those still require the full process from the start.
+- Memory: log the hotfix round entry as a `feedback` or `project` memory if
+  the live debugging surfaced rules worth carrying forward.
+
+---
+
 # 12. Prohibited Shortcuts
 
 The following are discouraged or forbidden unless explicitly justified:
