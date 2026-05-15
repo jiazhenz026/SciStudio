@@ -266,13 +266,15 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
     const id = fileTabIdFor(filePath, readOnly);
 
     const existing = state.tabs.find((t) => t.id === id);
-    if (existing) {
+    // #869: if the tab exists but is stuck in loading state (e.g. after
+    // localStorage rehydrate strips ``content`` and sets ``loading: true``,
+    // per ADR-036 §3.11), fall through to refetch instead of just focusing
+    // a permanently-empty placeholder.
+    const needsRefetch = Boolean(
+      existing && existing.kind === "file" && existing.loading,
+    );
+    if (existing && !needsRefetch) {
       state.switchTab(id);
-      return;
-    }
-
-    if (state.tabs.length >= 50) {
-      window.alert("Maximum 50 tabs reached.");
       return;
     }
 
@@ -282,48 +284,63 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
       return;
     }
 
-    const language = languageForPath(filePath);
-    const display = basename(filePath) + (readOnly ? " (source)" : "");
-    const placeholder: FileTab = {
-      kind: "file",
-      id,
-      filePath,
-      displayName: display,
-      language,
-      content: "",
-      contentLoadedAt: 0,
-      dirty: false,
-      readOnly,
-      loading: true,
-    };
+    if (!existing) {
+      // Only enforce the tab cap when actually creating a new tab — a
+      // refetch reuses the existing placeholder slot.
+      if (state.tabs.length >= 50) {
+        window.alert("Maximum 50 tabs reached.");
+        return;
+      }
 
-    // Save the currently-active tab snapshot, then append the placeholder
-    // and switch to it.
-    const currentActive = state.tabs.find((t) => t.id === state.activeTabId) ?? null;
-    const updatedTabs = currentActive
-      ? state.tabs.map((t) => (t.id === state.activeTabId ? captureActiveTab(state, t) : t))
-      : [...state.tabs];
+      const language = languageForPath(filePath);
+      const display = basename(filePath) + (readOnly ? " (source)" : "");
+      const placeholder: FileTab = {
+        kind: "file",
+        id,
+        filePath,
+        displayName: display,
+        language,
+        content: "",
+        contentLoadedAt: 0,
+        dirty: false,
+        readOnly,
+        loading: true,
+      };
 
-    set({
-      tabs: [...updatedTabs, placeholder],
-      activeTabId: id,
-    });
+      // Save the currently-active tab snapshot, then append the placeholder
+      // and switch to it.
+      const currentActive = state.tabs.find((t) => t.id === state.activeTabId) ?? null;
+      const updatedTabs = currentActive
+        ? state.tabs.map((t) => (t.id === state.activeTabId ? captureActiveTab(state, t) : t))
+        : [...state.tabs];
+
+      set({
+        tabs: [...updatedTabs, placeholder],
+        activeTabId: id,
+      });
+    } else {
+      // #869 refetch path: focus the existing loading placeholder; the
+      // GET below will replace it with populated content on success.
+      state.switchTab(id);
+    }
 
     // Fire the GET in the background; once it resolves, replace the
-    // placeholder with a populated FileTab. Keep the loading-state UI
-    // resilient to errors so the user can close the tab on failure.
+    // placeholder (or stale rehydrated tab — #869) with a populated
+    // FileTab. Keep the loading-state UI resilient to errors so the user
+    // can close the tab on failure.
     api
       .getProjectFile(project.id, filePath)
       .then((response) => {
+        const after = get();
+        // Only replace if the tab still exists (user may have closed it).
+        const current = after.tabs.find((t) => t.id === id);
+        if (!current || current.kind !== "file") return;
         const populated: FileTab = {
-          ...placeholder,
+          ...current,
           content: response.content,
           contentLoadedAt: response.mtime,
           loading: false,
         };
-        const after = get();
-        // Only replace if the tab still exists (user may have closed it).
-        if (!after.tabs.find((t) => t.id === id)) return;
         set(replaceTab(after, id, populated));
       })
       .catch((err) => {
