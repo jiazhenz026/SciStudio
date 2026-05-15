@@ -50,11 +50,16 @@ export function BranchPicker(props: BranchPickerProps): JSX.Element {
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
 
+  // Reload branches whenever the active project changes (Codex P1-A on PR #940):
+  // the `branches` cache lives in a global slice and is not cleared by
+  // `setCurrentProject`, so a stale branch list would survive a project
+  // switch and let the picker dispatch actions against the previous repo.
+  // Keying on the project id guarantees a fresh fetch per project.
+  const currentProjectId = currentProject?.id ?? null;
   useEffect(() => {
-    if (currentProject && branches === null) {
-      void loadBranches();
-    }
-  }, [currentProject, branches, loadBranches]);
+    if (!currentProjectId) return;
+    void loadBranches();
+  }, [currentProjectId, loadBranches]);
 
   const handleSwitch = useCallback(
     (name: string) => {

@@ -160,7 +160,10 @@ export interface GitSlice {
   switchBranch: (name: string) => Promise<void>;
   createBranch: (name: string, baseSha?: string) => Promise<void>;
   deleteBranch: (name: string, force?: boolean) => Promise<void>;
-  restore: (commitSha: string, files?: string[]) => Promise<void>;
+  restore: (
+    commitSha: string,
+    files?: string[],
+  ) => Promise<{ status: "ok" } | { status: "stashed"; stash_id: string }>;
   setMergeInProgress: (state: GitMergeInProgress | null) => void;
   setLastError: (message: string | null) => void;
 }
@@ -342,9 +345,14 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
 
   restore: async (commitSha: string, files?: string[]) => {
     try {
-      await api.gitRestore({ commit_sha: commitSha, files });
+      // Codex P2-A on PR #940: forward the `{status,stash_id}` response so
+      // callers (GitHistoryList) can open StashApplyDialog when a dirty tree
+      // was auto-stashed. Dropping this payload made restore-on-dirty look
+      // like silent data disappearance.
+      const result = await api.gitRestore({ commit_sha: commitSha, files });
       set({ status: null, lastError: null });
       void get().loadStatus();
+      return result;
     } catch (err) {
       set({ lastError: describeApiError(err, "Restore failed") });
       throw err;

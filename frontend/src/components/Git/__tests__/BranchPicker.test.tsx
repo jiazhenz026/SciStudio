@@ -73,16 +73,16 @@ describe("BranchPicker", () => {
     expect(trigger.getAttribute("aria-label")).toBe("Current branch: experiment-1");
   });
 
-  it("dispatches loadBranches on mount when branches is null", async () => {
+  it("dispatches loadBranches on mount when a project is active (Codex P1-A)", async () => {
     const loadBranches = vi.fn().mockResolvedValue(undefined);
-    seedStore({ branches: null, loadBranches });
+    seedStore({ loadBranches });
     render(<BranchPicker />);
     await waitFor(() => expect(loadBranches).toHaveBeenCalledTimes(1));
   });
 
-  it("does not call loadBranches when branches is already populated", () => {
+  it("does not call loadBranches when no project is open", () => {
     const loadBranches = vi.fn();
-    seedStore({ loadBranches });
+    seedStore({ loadBranches, currentProject: null });
     render(<BranchPicker />);
     expect(loadBranches).not.toHaveBeenCalled();
   });

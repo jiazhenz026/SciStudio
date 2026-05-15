@@ -50,13 +50,16 @@ export function GitStatusBadge(props: GitStatusBadgeProps): JSX.Element | null {
   const loadStatus = useAppStore((s) => s.loadStatus);
   const currentProject = useAppStore((s) => s.currentProject);
 
+  // Refresh git status whenever the active project changes (Codex P1-B on PR
+  // #940): the `status` cache lives in a global slice and is not cleared by
+  // `setCurrentProject`, so a stale clean/dirty/conflict pill could survive a
+  // project switch and mislead the user about uncommitted changes. Keying on
+  // the project id guarantees a fresh fetch per project.
+  const currentProjectId = currentProject?.id ?? null;
   useEffect(() => {
-    if (!currentProject) return;
-    if (status === null) {
-      void loadStatus();
-    }
-    // Re-fetch when project changes.
-  }, [currentProject, loadStatus, status]);
+    if (!currentProjectId) return;
+    void loadStatus();
+  }, [currentProjectId, loadStatus]);
 
   // Hide entirely when no project is open.
   if (!currentProject) return null;

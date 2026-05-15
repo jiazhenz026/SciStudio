@@ -13,6 +13,7 @@ import { useAppStore } from "../../store";
 import type { GitCommit, GitHistoryFilter } from "../../types/api";
 import { classifyPrefix, selectVisibleCommits } from "../../store/gitSlice";
 import { GitDiffModal } from "./GitDiffModal";
+import { StashApplyDialog } from "./StashApplyDialog";
 
 const PREFIX_ICON: Record<string, string> = {
   auto: "·",
@@ -51,6 +52,9 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
 
   // Internal diff modal state — opened by default if onCommitClick not given.
   const [diffOpen, setDiffOpen] = useState<{ from: string; to?: string } | null>(null);
+  // Codex P2-A on PR #940: when restore auto-stashes, surface the
+  // StashApplyDialog so the user can choose Apply / Keep / Discard.
+  const [stashPrompt, setStashPrompt] = useState<string | null>(null);
 
   useEffect(() => {
     if (commits === null && !loading) {
@@ -63,9 +67,18 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
       if (onCommitClick) {
         onCommitClick(commit);
       } else {
-        // Open the diff between this commit and its first parent.
+        // Codex P2-B on PR #940: for a root commit (no parents), comparing
+        // `from=commit.sha` to working tree (the backend default for `to`)
+        // shows the inverse of the initial state rather than the commit's
+        // own patch. Use the empty-tree hash (well-known git constant) as the
+        // parent so the initial commit displays as additions of every file.
         const parent = commit.parents[0];
-        setDiffOpen({ from: parent ?? commit.sha, to: parent ? commit.sha : undefined });
+        if (parent) {
+          setDiffOpen({ from: parent, to: commit.sha });
+        } else {
+          const EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+          setDiffOpen({ from: EMPTY_TREE_SHA, to: commit.sha });
+        }
       }
     },
     [onCommitClick],
@@ -81,10 +94,19 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
         `Restore files from commit ${commit.short_sha}?\n\n${commit.subject}\n\nThis will overwrite the working tree (uncommitted changes will be auto-stashed).`,
       );
       if (!ok) return;
-      void restore(commit.sha).catch((err) => {
-        // eslint-disable-next-line no-console
-        console.warn("[GitHistoryList] restore failed:", err);
-      });
+      // Codex P2-A on PR #940: open StashApplyDialog when the backend
+      // auto-stashed the dirty tree (ADR-039 §3.6) so the user sees where
+      // their unsaved edits went.
+      void restore(commit.sha)
+        .then((result) => {
+          if (result && result.status === "stashed") {
+            setStashPrompt(result.stash_id);
+          }
+        })
+        .catch((err) => {
+          // eslint-disable-next-line no-console
+          console.warn("[GitHistoryList] restore failed:", err);
+        });
     },
     [onRestoreClick, restore],
   );
@@ -240,6 +262,14 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
           from={diffOpen.from}
           to={diffOpen.to}
           onClose={() => setDiffOpen(null)}
+        />
+      )}
+
+      {stashPrompt !== null && (
+        <StashApplyDialog
+          open={true}
+          stashId={stashPrompt}
+          onClose={() => setStashPrompt(null)}
         />
       )}
     </div>
