@@ -395,11 +395,18 @@ def _object_id_from_wire(wire: Any) -> str | None:
 
 
 def _extract_type_name(wire_dict: dict[str, Any]) -> str:
-    """Extract the leaf type name from a wire-format payload."""
+    """Extract the leaf type name from a wire-format payload.
+
+    ``type_chain`` is ordered from most general to most specific
+    (see ``scieasy.core.types.base.TypeIdentity``); the leaf — the
+    concrete output type that lineage queries / methods exports
+    expect — is the LAST element, not the first. Codex P1 reconcile
+    on PR #979.
+    """
     metadata = wire_dict.get("metadata") or {}
     type_chain = metadata.get("type_chain")
     if isinstance(type_chain, list) and type_chain:
-        leaf = type_chain[0]
+        leaf = type_chain[-1]
         if isinstance(leaf, str):
             return leaf
     explicit = wire_dict.get("type_name")

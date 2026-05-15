@@ -104,6 +104,9 @@ def _git_error_to_http(err: GitError) -> HTTPException:
         or "did not match any" in msg
         or "no such branch" in msg
         or "not found" in msg
+        # Codex P2 reconcile on PR #979: invalid merge target is a
+        # client/input error, not a server failure.
+        or "not something we can merge" in msg
     ):
         return HTTPException(404, detail)
     if (
