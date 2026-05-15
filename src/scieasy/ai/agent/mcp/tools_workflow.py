@@ -368,12 +368,11 @@ def write_workflow(path: str, yaml: str) -> dict[str, Any]:
     written. This is a deliberate strictness: engine + schema stay
     immovable, agent feedback happens at the tool boundary.
 
-    TODO(#732): once the workflow versioning agent's ``If-Match`` header
-    lands on ``PUT /api/workflows/{id}``, the conflict-detect path here
-    should call that endpoint instead of doing a raw filelock write, so
-    the canvas optimistic-concurrency model and the agent's writes share
-    the same arbitration code path. Today the filelock alone is the
-    arbitration mechanism.
+    Concurrency note (ADR-039): the in-memory ``If-Match`` revision flow
+    was removed in D39-2.1. Cross-actor concurrency is mediated by git
+    (durable history per ADR-039 §3) plus the existing filesystem watcher
+    that echoes external edits as ``workflow.changed`` events. The
+    filelock here remains the single in-process arbitration mechanism.
     """
     import json
 

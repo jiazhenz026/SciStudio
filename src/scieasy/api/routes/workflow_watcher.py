@@ -1,4 +1,5 @@
-"""Filesystem watcher that emits ``workflow.changed`` on canvas-relevant edits.
+"""Filesystem watcher that emits ``workflow.changed`` on canvas-relevant edits
+and ``git.head_changed`` on HEAD/ref tip movements (ADR-039 §3.8).
 
 ADR-034 Phase 2 §3.6 — when claude or codex (or any external editor) writes
 a workflow YAML in the active project's ``workflows/`` directory, the canvas
@@ -6,6 +7,14 @@ must refetch and refresh. PTY mode no longer carries the in-process
 ``write_workflow`` MCP-call hook ADR-033 relied on, so we observe the
 filesystem directly via :mod:`watchdog` and republish through the existing
 ``EventBus`` so the standard ``/ws`` outbound loop forwards the event.
+
+ADR-039 §3.8 — when an external actor (CLI ``git`` command, an editor's
+git plugin, an agent running git via the PTY) moves ``HEAD`` or a branch
+tip, the canvas and the Git tab (D39-2.3a-and-later) must invalidate their
+cached log/branch/status state. We extend the same watcher to observe
+``<project>/.git/HEAD`` and ``<project>/.git/refs/heads/*`` and publish a
+new ``git.head_changed`` engine event with payload
+``{commit_sha, ref, kind}``.
 
 Design constraints (kept narrow on purpose):
 
@@ -69,7 +78,7 @@ from watchdog.events import (
 )
 from watchdog.observers import Observer
 
-from scieasy.engine.events import WORKFLOW_CHANGED, EngineEvent, EventBus
+from scieasy.engine.events import GIT_HEAD_CHANGED, WORKFLOW_CHANGED, EngineEvent, EventBus
 
 logger = logging.getLogger(__name__)
 
@@ -280,17 +289,184 @@ class _WorkflowFileHandler(FileSystemEventHandler):
             logger.exception("workflow_watcher: broadcast failed for %s", payload.get("path"))
 
 
+class _GitHeadHandler(FileSystemEventHandler):
+    """Bridge watchdog events on ``<project>/.git/`` to ``GIT_HEAD_CHANGED``.
+
+    ADR-039 §3.8: the canvas and the (D39-2.3a-and-later) Git tab must
+    refresh their cached log / branch / status views when an external
+    actor (CLI ``git`` command, an editor's git plugin, an agent calling
+    git via the PTY) moves ``HEAD`` or a branch tip.
+
+    The handler observes two surfaces inside ``.git``:
+
+    * ``HEAD`` — a tiny file holding either a ``ref: refs/heads/<branch>``
+      symbolic reference or a detached-HEAD SHA. Modified on branch
+      switch, detach, and reset.
+    * ``refs/heads/*`` — one file per branch tip. Modified on commit,
+      reset, fast-forward, and merge.
+
+    Other ``.git`` traffic (index churn, packed-refs, reflog) is filtered
+    out because it does not change the user-visible HEAD/branch state and
+    would otherwise generate a flood of events on every git operation.
+
+    Event payload:
+        ``{"commit_sha": <new SHA or None>, "ref": "HEAD" | "refs/heads/<branch>", "kind": "head" | "refs"}``
+
+    The handler reuses the same 200ms-debounce window as the workflow
+    handler — bursts of git internal writes collapse to one event.
+    """
+
+    def __init__(
+        self,
+        git_dir: Path,
+        broadcast: Callable[[dict[str, Any]], Any],
+        loop: asyncio.AbstractEventLoop | None,
+    ) -> None:
+        super().__init__()
+        self._git_dir = _normalise(git_dir)
+        self._broadcast = broadcast
+        self._loop = loop
+        self._last_emit: dict[Path, float] = {}
+        self._lock = RLock()
+
+    # -- helpers -----------------------------------------------------------
+
+    def _read_head_sha(self, path: Path) -> str | None:
+        """Return the commit SHA at *path*.
+
+        For ``HEAD``: if it contains a ``ref: refs/heads/<branch>`` line,
+        resolve the SHA from that ref file; else treat the contents as a
+        raw SHA (detached HEAD).
+
+        For ``refs/heads/<branch>``: contents *are* the SHA.
+
+        Returns ``None`` if the file cannot be read or parsed — emission
+        proceeds without ``commit_sha`` so the frontend still invalidates
+        its cache even if we cannot pinpoint the new SHA.
+        """
+        try:
+            text = path.read_text(encoding="utf-8").strip()
+        except OSError:
+            return None
+        if not text:
+            return None
+        if text.startswith("ref:"):
+            # Symbolic ref → resolve the pointed-at file under the same .git.
+            target = text.split(":", 1)[1].strip()
+            try:
+                resolved = (self._git_dir / target).read_text(encoding="utf-8").strip()
+                return resolved or None
+            except OSError:
+                return None
+        # Sanity: a SHA is 40 hex chars (or 64 for sha256-objects repos).
+        # We accept anything non-empty here; the frontend treats commit_sha
+        # as opaque.
+        return text
+
+    def _classify(self, path: Path) -> tuple[str, str] | None:
+        """Return ``(ref, kind)`` for *path* inside ``.git``, else ``None``.
+
+        Only the HEAD file and ref files under ``refs/heads/`` are
+        treated as user-visible. ``packed-refs``, ``index``, ``logs/``,
+        ``ORIG_HEAD``, ``FETCH_HEAD``, ``MERGE_HEAD``, etc. are
+        deliberately ignored to keep the event surface narrow.
+        """
+        try:
+            rel = path.relative_to(self._git_dir)
+        except ValueError:
+            return None
+        parts = rel.parts
+        if len(parts) == 1 and parts[0] == "HEAD":
+            return ("HEAD", "head")
+        if len(parts) >= 3 and parts[0] == "refs" and parts[1] == "heads":
+            ref_name = "/".join(parts)  # e.g. "refs/heads/feature/x"
+            return (ref_name, "refs")
+        return None
+
+    # -- watchdog callback -------------------------------------------------
+
+    def on_any_event(self, event: FileSystemEvent) -> None:
+        if event.is_directory:
+            return
+        # We forward modified + created + moved (delete of HEAD is a torn
+        # repo, ignore). watchdog's event_type strings differ across
+        # platforms; keying off isinstance keeps it stable.
+        if not isinstance(event, FileModifiedEvent | FileCreatedEvent | FileMovedEvent):
+            return
+        raw_path: bytes | str | None
+        if isinstance(event, FileMovedEvent):
+            dest = getattr(event, "dest_path", None)
+            raw_path = dest if dest else event.src_path
+        else:
+            raw_path = event.src_path if hasattr(event, "src_path") else None
+        if not raw_path:
+            return
+        if isinstance(raw_path, bytes):
+            raw_path = raw_path.decode("utf-8", errors="replace")
+        path = Path(raw_path)
+        normalised = _normalise(path)
+
+        classified = self._classify(normalised)
+        if classified is None:
+            return
+        ref, kind = classified
+
+        now = time.monotonic()
+        with self._lock:
+            last = self._last_emit.get(normalised, 0.0)
+            if now - last < _DEBOUNCE_SECONDS:
+                return
+            self._last_emit[normalised] = now
+
+        commit_sha = self._read_head_sha(normalised)
+        payload: dict[str, Any] = {
+            "commit_sha": commit_sha,
+            "ref": ref,
+            "kind": kind,
+        }
+        logger.debug("git_head_watcher: emitting %s for ref=%s sha=%s", kind, ref, commit_sha)
+
+        if self._loop is None:
+            try:
+                self._broadcast(payload)
+            except Exception:
+                logger.exception("git_head_watcher: synchronous broadcast failed")
+            return
+
+        try:
+            asyncio.run_coroutine_threadsafe(self._dispatch(payload), self._loop)
+        except RuntimeError:
+            logger.warning("git_head_watcher: asyncio loop closed; dropping event")
+
+    async def _dispatch(self, payload: dict[str, Any]) -> None:
+        try:
+            result = self._broadcast(payload)
+            if asyncio.iscoroutine(result):
+                await result
+        except Exception:
+            logger.exception("git_head_watcher: broadcast failed for ref=%s", payload.get("ref"))
+
+
 class WorkflowWatcher:
-    """Lifecycle wrapper around a single :class:`watchdog.observers.Observer`.
+    """Lifecycle wrapper around the project's watchdog observers.
 
     One of these lives on ``app.state`` for the duration of the FastAPI
     lifespan. ``start_for_project`` is called whenever the active project
-    changes; calling it again is idempotent (it stops the previous observer
-    and replaces it).
+    changes; calling it again is idempotent (it stops the previous
+    observers and replaces them).
 
-    The watcher emits engine events on the supplied :class:`EventBus` —
-    not directly on the websocket — so per-event fan-out, error isolation,
-    and subscriber list semantics are uniform with the rest of the engine.
+    The watcher manages **two** schedules per project:
+
+    1. ``<project>/workflows/`` for canvas-relevant YAML edits (ADR-034).
+    2. ``<project>/.git/`` for HEAD + ``refs/heads/*`` movements
+       (ADR-039 §3.8). Silently skipped when the project is not a git
+       repo yet (no ``.git`` directory) — D39-2.2a/b's auto-init will
+       create it later.
+
+    Both surfaces emit engine events on the supplied :class:`EventBus` —
+    not directly on the websocket — so per-event fan-out, error
+    isolation, and subscriber list semantics are uniform with the rest
+    of the engine.
     """
 
     def __init__(self, event_bus: EventBus) -> None:
@@ -299,7 +475,9 @@ class WorkflowWatcher:
         # cannot use it as a type annotation. We store it as ``Any``.
         self._observer: Any = None
         self._handler: _WorkflowFileHandler | None = None
+        self._git_handler: _GitHeadHandler | None = None
         self._watched_dir: Path | None = None
+        self._watched_git_dir: Path | None = None
         self._lock = RLock()
 
     @property
@@ -307,19 +485,36 @@ class WorkflowWatcher:
         return self._watched_dir
 
     @property
+    def watched_git_dir(self) -> Path | None:
+        return self._watched_git_dir
+
+    @property
     def handler(self) -> _WorkflowFileHandler | None:
         return self._handler
 
-    def start_for_project(self, project_dir: Path, loop: asyncio.AbstractEventLoop) -> None:
-        """Begin watching ``<project_dir>/workflows/`` for YAML changes.
+    @property
+    def git_handler(self) -> _GitHeadHandler | None:
+        return self._git_handler
 
-        If a previous project was being observed, its observer is stopped
+    def start_for_project(self, project_dir: Path, loop: asyncio.AbstractEventLoop) -> None:
+        """Begin watching ``<project_dir>/workflows/`` for YAML changes and
+        ``<project_dir>/.git/`` for HEAD/ref movements (ADR-039 §3.8).
+
+        If a previous project was being observed, its observers are stopped
         first. If the workflows directory does not exist yet it is created
-        (best-effort) so the watcher attaches before the first save.
+        (best-effort) so the watcher attaches before the first save. The
+        ``.git/`` schedule is skipped silently when the project is not yet
+        a git repo — D39-2.2b auto-init populates it on first save and
+        ``start_for_project`` will catch up on the next project re-open.
         """
         workflows_dir = (project_dir / "workflows").resolve()
+        git_dir = (project_dir / ".git").resolve()
         with self._lock:
-            if self._observer is not None and self._watched_dir == workflows_dir:
+            if (
+                self._observer is not None
+                and self._watched_dir == workflows_dir
+                and self._watched_git_dir == (git_dir if git_dir.exists() else None)
+            ):
                 logger.debug("workflow_watcher: already watching %s", workflows_dir)
                 return
             self.stop()
@@ -342,14 +537,45 @@ class WorkflowWatcher:
             observer = Observer()
             try:
                 observer.schedule(handler, str(workflows_dir), recursive=True)
+                # ADR-039 §3.8: also watch the project's .git directory if
+                # one exists. The handler filters down to HEAD + refs/heads/
+                # internally so the schedule itself can stay recursive (we
+                # want to pick up new branches without restarting the
+                # observer).
+                git_handler: _GitHeadHandler | None = None
+                watched_git: Path | None = None
+                if git_dir.is_dir():
+                    git_handler = _GitHeadHandler(
+                        git_dir=git_dir,
+                        broadcast=self._broadcast_git_to_event_bus,
+                        loop=loop,
+                    )
+                    try:
+                        observer.schedule(git_handler, str(git_dir), recursive=True)
+                        watched_git = git_dir
+                    except Exception:
+                        # Failure to schedule the git surface must not
+                        # prevent the workflows surface from starting.
+                        logger.warning(
+                            "workflow_watcher: failed to schedule git watch for %s",
+                            git_dir,
+                            exc_info=True,
+                        )
+                        git_handler = None
                 observer.start()
             except Exception:
                 logger.exception("workflow_watcher: failed to start observer for %s", workflows_dir)
                 return
             self._observer = observer
             self._handler = handler
+            self._git_handler = git_handler
             self._watched_dir = workflows_dir
-            logger.info("workflow_watcher: watching %s", workflows_dir)
+            self._watched_git_dir = watched_git
+            logger.info(
+                "workflow_watcher: watching %s%s",
+                workflows_dir,
+                f" + git {watched_git}" if watched_git else "",
+            )
 
     def stop(self) -> None:
         """Stop the observer if running; no-op otherwise."""
@@ -357,7 +583,9 @@ class WorkflowWatcher:
             obs = self._observer
             self._observer = None
             self._handler = None
+            self._git_handler = None
             self._watched_dir = None
+            self._watched_git_dir = None
         if obs is None:
             return
         try:
@@ -383,6 +611,24 @@ class WorkflowWatcher:
                     "path": payload.get("path"),
                     "kind": payload.get("kind"),
                     "changed_by": payload.get("changed_by", "watcher"),
+                },
+            )
+        )
+
+    async def _broadcast_git_to_event_bus(self, payload: dict[str, Any]) -> None:
+        """Emit a ``git.head_changed`` EngineEvent so /ws forwards it.
+
+        ADR-039 §3.8: the canvas + Git tab subscribes to this event to
+        invalidate cached log/branch/status state when an external actor
+        moves HEAD or a branch tip.
+        """
+        await self._event_bus.emit(
+            EngineEvent(
+                event_type=GIT_HEAD_CHANGED,
+                data={
+                    "commit_sha": payload.get("commit_sha"),
+                    "ref": payload.get("ref"),
+                    "kind": payload.get("kind"),
                 },
             )
         )

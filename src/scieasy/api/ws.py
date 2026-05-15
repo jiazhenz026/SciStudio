@@ -24,6 +24,7 @@ from scieasy.engine.events import (
     BLOCK_SKIPPED,
     CANCEL_BLOCK_REQUEST,
     CANCEL_WORKFLOW_REQUEST,
+    GIT_HEAD_CHANGED,
     INTERACTIVE_COMPLETE,
     INTERACTIVE_PROMPT,
     WORKFLOW_CHANGED,
@@ -62,6 +63,10 @@ _OUTBOUND_EVENTS = frozenset(
         # ADR-036 §3.5: forward blocks.reloaded so the palette can refresh +
         # a passive toast can fire when the user saves a clean blocks/*.py.
         BLOCKS_RELOADED,
+        # ADR-039 §3.8: forward git.head_changed so the canvas + (future)
+        # Git tab invalidate cached log/branch/status state when an
+        # external actor moves HEAD or a branch tip.
+        GIT_HEAD_CHANGED,
     }
 )
 

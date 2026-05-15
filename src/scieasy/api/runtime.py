@@ -245,11 +245,11 @@ class ApiRuntime:
         # in the previous project and falls back to standalone mode,
         # which has no ApiRuntime and breaks ``run_workflow``).
         self._mcp_port: int | None = None
-        # #718 part (a): in-memory monotonic revision counter per workflow_id.
-        # Used for optimistic concurrency on the PUT /api/workflows/{id} path.
-        # Single-process, single-user scope (matches ADR-033 §3 D2.1); resets
-        # on server restart and is re-seeded to 0 on the next load.
-        self._workflow_revisions: dict[str, int] = {}
+        # ADR-039 §5.2: the in-memory ``_workflow_revisions`` counter and its
+        # ``If-Match`` enforcement path were removed in D39-2.1. Git commit SHA
+        # plus the working-tree dirty state (D39-2.2b) replace the optimistic-
+        # concurrency model; cross-tab cache invalidation rides on the existing
+        # ``workflow.changed`` event flow (now without a ``revision`` field).
 
         self.event_bus = EventBus()
         self.resource_manager = ResourceManager(event_bus=self.event_bus)
@@ -456,9 +456,6 @@ class ApiRuntime:
         self._save_known_projects()
         self.active_project = candidate
         self.data_catalog = {}
-        # #718 part (a): revisions are project-scoped — reset on project switch
-        # so a workflow_id in the new project starts at revision 0.
-        self._workflow_revisions = {}
         self.refresh_block_registry()
         self._init_metadata_store(Path(candidate.path))
         # ADR-034: republish the MCP server port file into the newly active
@@ -664,31 +661,12 @@ class ApiRuntime:
         path = self.workflow_path(workflow_id)
         if path.exists():
             path.unlink()
-        # #718 part (a): clear the in-memory revision so a future workflow
-        # with the same id starts fresh at 0.
-        self._workflow_revisions.pop(workflow_id, None)
 
     # ------------------------------------------------------------------
-    # #718 part (a): in-memory workflow revision tracking.
+    # ADR-039 §5.2: ``current_revision`` / ``bump_revision`` removed in
+    # D39-2.1. Git commit SHA plus working-tree dirty state replace the
+    # optimistic-concurrency model.
     # ------------------------------------------------------------------
-
-    def current_revision(self, workflow_id: str) -> int:
-        """Return the current monotonic revision for *workflow_id*.
-
-        Returns 0 when the workflow has never been written or has not been
-        observed in this process lifetime.
-        """
-        return self._workflow_revisions.get(workflow_id, 0)
-
-    def bump_revision(self, workflow_id: str) -> int:
-        """Increment and return the revision for *workflow_id*.
-
-        Called by the route layer after every successful write to the
-        workflow YAML (PUT, POST, import-path).
-        """
-        next_rev = self._workflow_revisions.get(workflow_id, 0) + 1
-        self._workflow_revisions[workflow_id] = next_rev
-        return next_rev
 
     def upload_file(self, filename: str, content: bytes) -> dict[str, Any]:
         project = self.require_active_project()
