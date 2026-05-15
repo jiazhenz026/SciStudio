@@ -240,12 +240,25 @@ def create_app() -> FastAPI:
     # ADR-036 §3.3 — server-side ruff lint endpoint for the embedded editor.
     app.include_router(lint.router)
     # ADR-039 §3.5 — git endpoints (commit / log / diff / restore / branch
-    # ops / merge / cherry-pick / stash). Skeleton phase: all handlers
-    # raise NotImplementedError; D39-2.2b fills bodies. Router is
-    # registered now so the impl phase doesn't need to touch app.py
-    # again (and so OpenAPI surfaces the endpoints for early frontend
-    # contract work in D39-2.3a).
-    app.include_router(git_routes.router)
+    # ops / merge / cherry-pick / stash).
+    #
+    # SKELETON-PHASE FEATURE GATE (D39-2.2a + Codex P1 on PR #924):
+    # All handlers in ``routes/git.py`` currently raise
+    # ``NotImplementedError``. Exposing them via OpenAPI would mean a 500
+    # for any real client call, which the Codex auto-review flagged as a
+    # production-facing regression. We gate router registration behind an
+    # opt-in env var until D39-2.2b lands the implementations.
+    #
+    # - Default OFF in skeleton phase — OpenAPI / runtime sees nothing.
+    # - Set ``SCIEASY_ENABLE_GIT_ROUTER=1`` to surface the endpoints for
+    #   the frontend skeleton work in D39-2.3a (which will write against
+    #   the documented endpoint shapes from comment blocks, not against
+    #   live behaviour).
+    # - D39-2.2b removes this gate when handler bodies are filled and
+    #   the engine returns real data. Tracked via the cascade checklist
+    #   row for D39-2.2b.
+    if os.environ.get("SCIEASY_ENABLE_GIT_ROUTER", "").lower() in {"1", "true", "yes"}:
+        app.include_router(git_routes.router)
 
     @app.get("/api/logs/stream")
     async def logs_stream(request: Request) -> object:
