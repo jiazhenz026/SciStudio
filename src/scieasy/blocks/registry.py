@@ -724,7 +724,7 @@ def _resolve_distribution_version(cls: type) -> str:
         sv = _scieasy_version()
         if sv is not None:
             return sv
-    # 3. Entry-point / monorepo plugins: look up the distribution that owns
+    # 4. Entry-point / monorepo plugins: look up the distribution that owns
     #    the top-level module.
     top_level = module_name.split(".", 1)[0]
     if top_level:
@@ -740,9 +740,26 @@ def _resolve_distribution_version(cls: type) -> str:
                 top_level,
                 exc_info=True,
             )
-        # 4. Some plugins publish under the same name as their top-level module.
+        # 5. Some plugins publish under the same name as their top-level module.
         with contextlib.suppress(importlib.metadata.PackageNotFoundError):
             return str(importlib.metadata.version(top_level))
+        # 6. Monorepo / dev-install convention: ``scieasy_blocks_<name>``
+        #    Python package → ``scieasy-blocks-<name>`` distribution name
+        #    (PEP 503 normalisation). ``packages_distributions`` does not
+        #    always populate this mapping for editable installs, so try
+        #    the explicit normalised name as a last resort.
+        if top_level.startswith("scieasy_blocks_"):
+            normalised = top_level.replace("_", "-")
+            with contextlib.suppress(importlib.metadata.PackageNotFoundError):
+                return str(importlib.metadata.version(normalised))
+            # If the plugin distribution truly isn't installed (CI without
+            # ``pip install -e .`` on the monorepo packages), stamp the
+            # scieasy version so the per-block registration still succeeds.
+            # This is identical to the in-tree fallback in §1: the plugin
+            # is part of the same repo checkout.
+            sv = _scieasy_version()
+            if sv is not None:
+                return sv
 
     # 5. ADR §3.3 forbids the historical "unknown" default. Fail loudly —
     # the scan-loop catch logs and continues so a single mis-packaged

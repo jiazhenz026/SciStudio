@@ -59,3 +59,21 @@ class TestStrictVersionResolution:
         cls = _make_block_with_module("")
         with pytest.raises(BlockRegistrationError):
             _resolve_distribution_version(cls)
+
+    def test_scieasy_blocks_monorepo_resolves_to_real_version(self) -> None:
+        """Monorepo plugins (`scieasy_blocks_*`) resolve to either the
+        plugin's own distribution version (when pip-installed) or fall
+        back to the scieasy version (when the editable install hasn't
+        populated ``packages_distributions``).
+
+        On CI the editable-install of `packages/scieasy-blocks-imaging`
+        may not populate ``importlib.metadata.packages_distributions``,
+        but the plugin source is in the same repo checkout as scieasy.
+        Either path must succeed — the strict raise must NOT fire.
+        """
+        cls = _make_block_with_module("scieasy_blocks_imaging.io.load_image")
+        # Must not raise.
+        version = _resolve_distribution_version(cls)
+        assert isinstance(version, str) and version
+        # Must not be the historical "unknown" sentinel.
+        assert version != "unknown"
