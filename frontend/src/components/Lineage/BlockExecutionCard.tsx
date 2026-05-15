@@ -159,13 +159,178 @@
 
 import type { ReactElement } from "react";
 
-import type { LineageBlockExecution } from "../../store/lineageSlice";
+import { useAppStore } from "../../store";
+import type {
+  LineageBlockExecution,
+  LineageBlockTermination,
+} from "../../store/lineageSlice";
 
 export interface BlockExecutionCardProps {
   execution: LineageBlockExecution;
 }
 
-export function BlockExecutionCard(_props: BlockExecutionCardProps): ReactElement {
-  // TODO: D38-2.4c — implement per top-of-file contract.
-  throw new Error("TODO: D38-2.4c — implement BlockExecutionCard");
+const TERMINATION_GLYPH: Record<LineageBlockTermination, string> = {
+  completed: "✓",
+  error: "✗",
+  cancelled: "⊘",
+  skipped: "—",
+};
+
+const TERMINATION_COLOR: Record<LineageBlockTermination, string> = {
+  completed: "text-emerald-600",
+  error: "text-rose-600",
+  cancelled: "text-stone-500",
+  skipped: "text-stone-400",
+};
+
+function TerminationIcon({
+  termination,
+}: {
+  termination: LineageBlockTermination;
+}): ReactElement {
+  return (
+    <>
+      <span aria-hidden="true" className={TERMINATION_COLOR[termination]}>
+        {TERMINATION_GLYPH[termination]}
+      </span>
+      <span className="sr-only">{termination}</span>
+    </>
+  );
+}
+
+function formatDuration(exec: LineageBlockExecution): string {
+  const ms = exec.duration_ms;
+  if (ms === null) return "—";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  const totalSeconds = Math.floor(ms / 1000);
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}m ${s}s`;
+}
+
+export function BlockExecutionCard({
+  execution: exec,
+}: BlockExecutionCardProps): ReactElement {
+  const expanded = useAppStore((s) =>
+    s.expandedBlockExecutionIds.includes(exec.block_execution_id),
+  );
+  const toggle = useAppStore((s) => s.toggleBlockExecutionExpanded);
+  const bodyId = `block-card-body-${exec.block_execution_id}`;
+
+  return (
+    <article
+      className="rounded-2xl border border-stone-200 bg-white"
+      data-testid={`block-execution-card-${exec.block_execution_id}`}
+    >
+      <button
+        type="button"
+        className="flex w-full items-center gap-3 px-4 py-3 text-left"
+        aria-expanded={expanded}
+        aria-controls={bodyId}
+        data-testid={`block-execution-card-toggle-${exec.block_execution_id}`}
+        onClick={() => toggle(exec.block_execution_id)}
+      >
+        <TerminationIcon termination={exec.termination} />
+        <span className="font-medium text-ink">{exec.block_id}</span>
+        <span className="text-xs text-stone-500">
+          {exec.block_type} · v{exec.block_version}
+        </span>
+        <span className="ml-auto text-xs text-stone-500">
+          {formatDuration(exec)}
+        </span>
+      </button>
+
+      {expanded && (
+        <div
+          className="border-t border-stone-200 px-4 py-3"
+          id={bodyId}
+          data-testid={`block-execution-card-body-${exec.block_execution_id}`}
+        >
+          <section data-testid="block-card-params">
+            <h5 className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Resolved parameters
+            </h5>
+            <pre className="mt-1 max-h-[160px] overflow-auto rounded bg-stone-50 p-2 text-[11px]">
+              {JSON.stringify(exec.block_config_resolved, null, 2)}
+            </pre>
+          </section>
+
+          <section className="mt-3" data-testid="block-card-inputs">
+            <h5 className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Inputs ({exec.inputs.length})
+            </h5>
+            {exec.inputs.length === 0 ? (
+              <p className="text-xs text-stone-500">(none)</p>
+            ) : (
+              <ul className="mt-1 space-y-1 text-xs">
+                {exec.inputs.map((io) => (
+                  <li
+                    key={`${io.port_name}-${io.position}-${io.object_id}`}
+                    className="flex items-center gap-2"
+                    data-testid={`block-card-input-${io.object_id}`}
+                  >
+                    <code className="text-stone-700">
+                      {io.port_name}[{io.position}]
+                    </code>
+                    <span className="text-stone-500">{io.type_name}</span>
+                    <code className="text-stone-500">
+                      {io.object_id.slice(0, 8)}
+                    </code>
+                    {io.storage_path && (
+                      <span className="ml-auto text-stone-500">
+                        {io.storage_path}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="mt-3" data-testid="block-card-outputs">
+            <h5 className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Outputs ({exec.outputs.length})
+            </h5>
+            {exec.outputs.length === 0 ? (
+              <p className="text-xs text-stone-500">(none)</p>
+            ) : (
+              <ul className="mt-1 space-y-1 text-xs">
+                {exec.outputs.map((io) => (
+                  <li
+                    key={`${io.port_name}-${io.position}-${io.object_id}`}
+                    className="flex items-center gap-2"
+                    data-testid={`block-card-output-${io.object_id}`}
+                  >
+                    <code className="text-stone-700">
+                      {io.port_name}[{io.position}]
+                    </code>
+                    <span className="text-stone-500">{io.type_name}</span>
+                    <code className="text-stone-500">
+                      {io.object_id.slice(0, 8)}
+                    </code>
+                    {io.storage_path && (
+                      <span className="ml-auto text-stone-500">
+                        {io.storage_path}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {exec.termination === "error" && exec.termination_detail && (
+            <section
+              className="mt-3 rounded bg-rose-50 p-2"
+              data-testid="block-card-error"
+            >
+              <h5 className="text-xs font-semibold text-rose-700">Error</h5>
+              <p className="text-xs text-rose-700">{exec.termination_detail}</p>
+            </section>
+          )}
+        </div>
+      )}
+    </article>
+  );
 }

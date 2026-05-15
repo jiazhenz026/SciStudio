@@ -175,10 +175,10 @@
 
 ### Phase D38-2.4c — Frontend Lineage tab IMPL (Owner: ID38-4c, 1 agent) [ADR-038 §6 Phase 3 frontend impl]
 
-- [ ] Sub-issue opened; depends on D38-2.4a + D38-2.4b merged
-- [ ] All skeleton bodies filled
-- [ ] `frontend/src/lib/api.ts` — `getRuns`, `getRun`, `getRunMethods`, `rerunRun` functions wired
-- [ ] Vitest xfail/skip flipped to passing
+- [x] Sub-issue opened; depends on D38-2.4a + D38-2.4b merged → #939
+- [x] All skeleton bodies filled → feat/issue-939/d38-2-4c-lineage-impl
+- [x] `frontend/src/lib/api.ts` — `getRuns`, `getRun`, `getRunMethods`, `rerunRun` functions wired → feat/issue-939/d38-2-4c-lineage-impl
+- [x] Vitest xfail/skip flipped to passing → 32/32 lineage tests green (4 files), full suite 230 passed
 - [ ] **Mandatory live Chrome smoke** on Lineage tab — open project, run 2 workflows, verify Lineage tab populates, click a run, click a block, click Re-run, click Export methods, verify each affordance
 - [ ] CI green; PR merged into tracking branch
 
