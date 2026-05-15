@@ -30,7 +30,14 @@ from scieasy.core.types.registry import TypeRegistry
 
 
 def _make_block_class(name: str = "MockBlock", algorithm: str = "mock") -> type:
-    """Create a minimal concrete Block subclass for testing."""
+    """Create a minimal concrete Block subclass for testing.
+
+    D38-3.2: stamp ``__module__`` under the ``scieasy.*`` namespace so
+    :func:`_resolve_distribution_version` returns the running scieasy
+    version instead of raising :class:`BlockRegistrationError` per
+    ADR-038 §3.3. The registry's strict-raise is bypassed for in-tree
+    modules because they read ``scieasy.__version__``.
+    """
     cls = type(
         name,
         (Block,),
@@ -45,6 +52,9 @@ def _make_block_class(name: str = "MockBlock", algorithm: str = "mock") -> type:
             "run": lambda self, inputs, config: {},
         },
     )
+    # ``type()`` sets ``__module__`` to ``abc`` (via ABCMeta), which
+    # the registry cannot resolve. Force it under the scieasy namespace.
+    cls.__module__ = "scieasy.blocks._mock_for_integration_tests"
     return cls
 
 
