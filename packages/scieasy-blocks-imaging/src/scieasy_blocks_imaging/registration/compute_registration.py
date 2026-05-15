@@ -1,6 +1,5 @@
 """ComputeRegistration — estimate a Transform aligning a moving Image to a fixed Image.
 
-Skeleton placeholder — T-IMG-027 implementation agent fills the body.
 See ``docs/specs/phase11-imaging-block-spec.md`` §9 T-IMG-027.
 """
 

@@ -1,9 +1,8 @@
 /**
  * ADR-036 §3.1 / §3.3 / §3.7 — Monaco-backed code editor for file tabs.
  *
- * Phase 2B (I36b) replaces the skeleton placeholder with a real Monaco
- * mount. The Monaco React module (~600 KB) is imported dynamically inside
- * an ``useEffect`` so that the workflow-canvas cold start is not affected
+ * The Monaco React module (~600 KB) is imported dynamically inside an
+ * ``useEffect`` so that the workflow-canvas cold start is not affected
  * — mirrors the xterm lazy-import pattern at ``TerminalView.tsx:76-88``.
  *
  * Lint pipeline:

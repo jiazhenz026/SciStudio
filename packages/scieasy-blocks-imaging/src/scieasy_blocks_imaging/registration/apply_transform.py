@@ -1,6 +1,5 @@
 """ApplyTransform — warp an Image using a Transform.
 
-Skeleton placeholder — T-IMG-028 implementation agent fills the body.
 See ``docs/specs/phase11-imaging-block-spec.md`` §9 T-IMG-028.
 """
 

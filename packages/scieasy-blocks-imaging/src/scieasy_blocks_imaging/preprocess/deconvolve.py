@@ -52,6 +52,7 @@ class Deconvolve(ProcessBlock):
 
     def process_item(self, item: Image, config: BlockConfig, state: Any = None) -> Image:
         """Deconvolve the image (Phase 12 — not implemented)."""
+        # TODO: T-IMG-011 — implement deconvolution algorithms (Richardson-Lucy, Wiener, Tikhonov) for Phase 12.
         raise NotImplementedError(
             "T-IMG-011 Deconvolve is planned for Phase 12. "
             "Currently a palette placeholder; see "
