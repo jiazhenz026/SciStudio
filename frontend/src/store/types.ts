@@ -261,8 +261,10 @@ export interface WorkflowTab {
  *   "source:<workflow_id>"  — read-only YAML source view of a workflow
  *
  * `contentLoadedAt` stores the server `mtime` at the most recent fetch so
- * the implementation phase can detect "file changed externally" on save
- * (not implemented in skeleton).
+ * the implementation phase can detect "file changed externally" on save.
+ *
+ * TODO: implement external-change detection — compare server mtime to
+ * `contentLoadedAt` before save and prompt the user on conflict.
  */
 export interface FileTab {
   /** ADR-036 §3.10 — discriminator. Always "file" for editor tabs. */
@@ -317,49 +319,32 @@ export interface TabSlice {
   /**
    * ADR-036 §3.10 — open (or focus) a file editor tab.
    *
-   * SKELETON: throws. Phase 2A (I36a) implements:
    *   1. Compute id = ``opts?.readOnly ? "source:" + filePath : "file:" + filePath``.
    *   2. If a tab with that id exists, switch to it; return.
    *   3. Otherwise GET /api/projects/{id}/file?path=<filePath>, derive
    *      language from extension, build a FileTab, append to tabs, set active.
-   *
-   * Test plan:
-   *   - opens new tab on first call
-   *   - second call to same path focuses existing tab (no duplicate)
-   *   - "source:" id used when ``opts.readOnly`` is true
-   *   - sets ``language`` based on extension
    */
   openFileTab: (filePath: string, opts?: { readOnly?: boolean }) => void;
   /**
    * ADR-036 §3.10 — save a file tab's content to disk.
    *
-   * SKELETON: throws. Phase 2A (I36a) implements:
    *   1. Look up the tab by id.
    *   2. PUT /api/projects/{id}/file?path=<tab.filePath> with body
    *      ``{content: tab.content}``.
    *   3. On success, set ``tab.dirty = false`` and update
    *      ``contentLoadedAt`` from the response mtime.
    *   4. On 4xx/5xx, surface a toast and leave dirty=true.
-   *
-   * Test plan:
-   *   - happy path clears dirty and updates mtime
-   *   - 413 surfaces a "file too large" toast
-   *   - read-only tab is a no-op (or throws — TBD by I36a)
+   *   5. Read-only tabs are a no-op.
    */
   saveFileTab: (id: string) => Promise<void>;
   /**
    * ADR-036 §3.10 — update the in-memory content for a file tab.
    *
-   * SKELETON: throws. Phase 2A (I36a) implements:
    *   1. Look up the tab by id.
    *   2. Set ``tab.content = content``, ``tab.dirty = true``.
    *   3. Auto-save debounce (800 ms) lives in the consumer (App.tsx),
    *      mirroring the canvas auto-save loop at App.tsx:478-487.
-   *
-   * Test plan:
-   *   - flips dirty true on first edit
-   *   - subsequent edits keep dirty true
-   *   - read-only tab rejects updates (or no-ops — TBD by I36a)
+   *   4. Read-only tabs ignore updates (no-op).
    */
   updateFileTabContent: (id: string, content: string) => void;
 }

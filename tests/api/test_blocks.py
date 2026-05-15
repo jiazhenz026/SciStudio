@@ -102,7 +102,6 @@ def test_imaging_io_schema_exposes_item_types_and_collection_flags(client: TestC
 # Stage 10.1 Part 2 — skipped test stubs authored by Agent A.
 #
 # Agent B will remove the skip markers and implement these in Part 2.
-# See docs/design/stage-10-1-palette.md §4.1 for the test plan.
 # ----------------------------------------------------------------------------
 
 

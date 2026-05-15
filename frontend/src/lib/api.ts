@@ -105,6 +105,7 @@ export const api = {
   importWorkflowFromPath: async (filePath: string) => {
     // Read the file via fetch from the backend browse result, then re-upload
     // For now, use a dedicated endpoint that accepts a path
+    // TODO: replace the dedicated /api/workflows/import-path endpoint with a fetch-then-import flow that reuses /api/projects/{id}/file.
     return apiFetch<WorkflowResponse>("/api/workflows/import-path", {
       method: "POST",
       headers: JSON_HEADERS,

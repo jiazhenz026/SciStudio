@@ -4,6 +4,10 @@ Uses a simple polling loop to detect new or modified files matching glob
 patterns.  A watchdog-based implementation can be added later for lower
 latency, but polling is reliable across all platforms and avoids adding
 watchdog as a hard runtime dependency for the watcher alone.
+
+TODO: add an optional ``watchdog``-based backend for lower-latency
+output detection on platforms where ``watchdog`` is already installed
+(fall back to polling otherwise).
 """
 
 from __future__ import annotations

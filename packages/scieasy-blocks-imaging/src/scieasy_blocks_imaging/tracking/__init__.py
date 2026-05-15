@@ -1,1 +1,1 @@
-"""Tracking blocks — Phase 11 skeleton placeholder."""
+"""Tracking blocks for the imaging plugin (e.g. :class:`TrackObjects`)."""

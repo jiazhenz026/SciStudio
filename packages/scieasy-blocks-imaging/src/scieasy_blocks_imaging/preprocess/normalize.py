@@ -86,6 +86,7 @@ class Normalize(ProcessBlock):
         if method not in _ALL_METHODS:
             raise ValueError(f"Normalize: unknown method {method!r}; expected one of {sorted(_ALL_METHODS)}")
         if method in _DEFERRED_METHODS:
+            # TODO: T-IMG-006 — implement histogram_match normalization (needs adding a reference-image input port to the block).
             raise NotImplementedError(
                 f"Normalize: method {method!r} is deferred from the T-IMG-006 "
                 "pilot (requires reference-image input port)."

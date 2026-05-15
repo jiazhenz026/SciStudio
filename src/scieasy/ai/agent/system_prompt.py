@@ -81,6 +81,10 @@ def _load_skill_md() -> str:
        that bundles SKILL.md into the wheel).  When that lands the path
        here will be ``Path(__file__).parent.parent.parent / 'skills' /
        'scieasy' / 'SKILL.md'``.
+
+    TODO: #824 — bundle ``skills/scieasy/SKILL.md`` into the wheel via
+    ``importlib.resources`` so non-dev installs (pip install scieasy)
+    find the skill without walking the source tree.
     """
     here = Path(__file__).resolve()
     # Walk up looking for the repo root (contains ``skills/scieasy``).

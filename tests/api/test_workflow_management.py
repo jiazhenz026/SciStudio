@@ -11,10 +11,11 @@ from tests.api.helpers import build_linear_workflow
 
 def test_list_workflows_returns_saved_ids(client: TestClient, opened_project: Path) -> None:
     """GET /api/workflows/list should return IDs of workflows saved in the project."""
-    # Initially empty
+    # #879: every project ships with the auto-scaffolded `main` workflow, so
+    # the initial list is `["main"]`, not empty.
     response = client.get("/api/workflows/list")
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == ["main"]
 
     # Create a workflow
     payload = build_linear_workflow(opened_project, workflow_id="list-test")

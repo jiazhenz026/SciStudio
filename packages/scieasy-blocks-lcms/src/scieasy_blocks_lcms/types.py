@@ -5,11 +5,6 @@ Per master plan §2.4 LC-MS PLUGIN types section and
 
 Forbidden by master plan: ``MSSpectrum(Series)`` and ``MSRun(Array)`` —
 scan-level data is handled externally by ElMAVEN.
-
-This file is the T-LCMS-002 skeleton (skeleton @ c08a885). The Pydantic
-``Meta`` shapes are spec-frozen; the ``raise NotImplementedError`` body
-on :func:`get_types` is filled in by the impl agent once the four
-classes are wired into the plugin entry-point group.
 """
 
 from __future__ import annotations
@@ -129,14 +124,8 @@ class SampleMetadata(DataFrame):
 def get_types() -> list[type]:
     """Entry-point function returning the four plugin types.
 
-    Wired into ``scieasy.types`` entry_points by the T-LCMS-021 impl
-    agent. Listed in the order
-    ``[MSRawFile, PeakTable, MIDTable, SampleMetadata]`` so the
-    TypeRegistry palette groups artifacts before frames.
-
-    The function body is finalised by the implementation cascade
-    (skeleton @ c08a885); for the skeleton it returns the four classes
-    so the smoke importer in ``tests/test_phase11_skeleton.py`` can
-    sanity-check the module.
+    Wired into ``scieasy.types`` entry_points (T-LCMS-021). Listed in
+    the order ``[MSRawFile, PeakTable, MIDTable, SampleMetadata]`` so
+    the TypeRegistry palette groups artifacts before frames.
     """
     return [MSRawFile, PeakTable, MIDTable, SampleMetadata]

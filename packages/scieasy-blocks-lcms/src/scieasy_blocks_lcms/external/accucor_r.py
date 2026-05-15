@@ -103,9 +103,6 @@ class AccuCorR(_LCMSBlockMixin, CodeBlock):
         Honours the ``accucor_script_path`` config override; otherwise
         falls back to the bundled ``external/scripts/accucor.R``
         loaded via :mod:`importlib.resources`.
-
-        Skeleton body raises ``NotImplementedError``; the impl agent
-        wires up the actual ``importlib.resources.as_file`` lookup.
         """
         override = config.get("accucor_script_path")
         if override:
