@@ -3,6 +3,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { BlockSchemaResponse, LogEntry, WorkflowNode } from "../types/api";
 import type { BottomTab } from "../types/ui";
 import { TerminalTabs } from "./AIChat/TerminalTabs";
+import { LineageTab } from "./Lineage/LineageTab";
 import { type PortRow, PortEditorTable } from "./PortEditorTable";
 
 interface BottomPanelProps {
@@ -23,14 +24,16 @@ const TAB_LABELS: Record<BottomTab, string> = {
   ai: "\u{1F4AC} AI Chat",
   config: "\u{1F4CB} Config",
   logs: "\u{1F4DC} Logs",
+  // ADR-038 §3.8 — Lineage tab promoted to a first-class entry; replaces
+  // the prior Jobs placeholder which is removed entirely.
   lineage: "\u{1F517} Lineage",
-  jobs: "\u{1F4CA} Jobs",
 };
 
 // Problems was removed: it duplicated the block_error rows already in Logs
 // (filterable via LogViewer's level selector) plus the inline error badge
 // rendered on the BlockNode itself by WorkflowCanvas.
-const ALL_TABS: BottomTab[] = ["ai", "config", "logs", "lineage", "jobs"];
+// ADR-038 §3.8 — Jobs tab removed (subsumed by Lineage).
+const ALL_TABS: BottomTab[] = ["ai", "config", "logs", "lineage"];
 
 // Controlled text input that preserves caret position across re-renders (#710).
 //
@@ -303,6 +306,14 @@ export function BottomPanel({
             <ConfigPanel onUpdateConfig={onUpdateConfig} schema={selectedSchema} selectedNode={selectedNode} />
           ) : activeTab === "logs" ? (
             <LogViewer entries={logEntries} />
+          ) : activeTab === "lineage" ? (
+            // ADR-038 §3.8 — D38-2.4b skeleton mounts <LineageTab/>.
+            // The root component renders a non-throwing placeholder until
+            // D38-2.4c IMPL fills the two-pane runs-list + run-detail view.
+            // Leaf components (RunsList, RunDetail, etc.) still throw
+            // their TODO stubs but they are not reached from this mount
+            // path. See Codex P1 thread on PR #937 for the rationale.
+            <LineageTab />
           ) : activeTab !== "ai" ? (
             <PlaceholderTab />
           ) : null}

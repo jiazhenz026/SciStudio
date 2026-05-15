@@ -1,5 +1,6 @@
 import type { BlockSchemaResponse, BlockSummary, DataPreviewResponse, LogEntry, ProjectResponse, WorkflowEdge, WorkflowEventMessage, WorkflowNode, WorkflowResponse } from "../types/api";
 import type { BottomTab } from "../types/ui";
+import type { LineageSlice } from "./lineageSlice";
 
 export interface ProjectDialogState {
   mode: "new" | "open";
@@ -356,4 +357,7 @@ export type AppStore = ProjectSlice &
   PreviewSlice &
   PaletteSlice &
   TabSlice &
-  TerminalTabsSlice;
+  TerminalTabsSlice &
+  // ADR-038 §3.8 — Lineage tab client state (D38-2.4b skeleton; bodies
+  // populated by D38-2.4c IMPL).
+  LineageSlice;

@@ -159,18 +159,18 @@
 
 ### Phase D38-2.4b — Frontend Lineage tab SKELETON (Owner: SD38-4b, 1 agent — VERY detailed comments) [ADR-038 §6 Phase 3 frontend skeleton]
 
-- [ ] Sub-issue opened; parallel with D38-2.4a
-- [ ] `frontend/src/components/Lineage/LineageTab.tsx` (NEW skeleton, comments cover state shape, props, layout per ADR §3.8)
-- [ ] `frontend/src/components/Lineage/RunsList.tsx` (NEW skeleton, comments cover reverse-chrono list, click handler, live-updating running row per OQ-3, copy strings)
-- [ ] `frontend/src/components/Lineage/RunDetail.tsx` (NEW skeleton, comments cover right pane layout, click block → expand, Re-run button, Export methods button)
-- [ ] `frontend/src/components/Lineage/BlockExecutionCard.tsx` (NEW skeleton, comments cover expandable per-block view with params + I/O DataObject list)
-- [ ] `frontend/src/components/Lineage/MethodsExportDialog.tsx` (NEW skeleton, comments cover preview + copy + download .md)
-- [ ] `frontend/src/components/Lineage/RerunDialog.tsx` (NEW skeleton, comments cover input + env validation warnings per ADR §3.6)
-- [ ] `frontend/src/store/lineageSlice.ts` (NEW skeleton, comments cover state shape: runs list, selected run cache, loading state)
-- [ ] `frontend/src/components/BottomPanel.tsx` — remove "jobs" from `ALL_TABS` (line 33) + label (line 27); render `<LineageTab/>` when activeTab === "lineage" [ADR-038 §3.8]
-- [ ] `frontend/src/types/ui.ts` — remove `"jobs"` from `BottomTab` discriminated union
-- [ ] `frontend/src/store/index.ts` — register lineageSlice
-- [ ] Vitest skeleton tests with detailed test-plan docstrings (xfail/skip)
+- [x] Sub-issue opened; parallel with D38-2.4a → https://github.com/zjzcpj/SciEasy/issues/934
+- [x] `frontend/src/components/Lineage/LineageTab.tsx` (NEW skeleton, comments cover state shape, props, layout per ADR §3.8) → commit 2bf9cf2
+- [x] `frontend/src/components/Lineage/RunsList.tsx` (NEW skeleton, comments cover reverse-chrono list, click handler, live-updating running row per OQ-3, copy strings) → commit 2bf9cf2
+- [x] `frontend/src/components/Lineage/RunDetail.tsx` (NEW skeleton, comments cover right pane layout, click block → expand, Re-run button, Export methods button) → commit 2bf9cf2
+- [x] `frontend/src/components/Lineage/BlockExecutionCard.tsx` (NEW skeleton, comments cover expandable per-block view with params + I/O DataObject list) → commit 2bf9cf2
+- [x] `frontend/src/components/Lineage/MethodsExportDialog.tsx` (NEW skeleton, comments cover preview + copy + download .md) → commit 2bf9cf2
+- [x] `frontend/src/components/Lineage/RerunDialog.tsx` (NEW skeleton, comments cover input + env validation warnings per ADR §3.6) → commit 2bf9cf2
+- [x] `frontend/src/store/lineageSlice.ts` (NEW skeleton, comments cover state shape: runs list, selected run cache, loading state) → commit 2bf9cf2
+- [x] `frontend/src/components/BottomPanel.tsx` — remove "jobs" from `ALL_TABS` (line 33) + label (line 27); render `<LineageTab/>` when activeTab === "lineage" [ADR-038 §3.8] → commit 2bf9cf2
+- [x] `frontend/src/types/ui.ts` — remove `"jobs"` from `BottomTab` discriminated union → commit 2bf9cf2
+- [x] `frontend/src/store/index.ts` — register lineageSlice → commit 2bf9cf2
+- [x] Vitest skeleton tests with detailed test-plan docstrings (xfail/skip) → commit 2bf9cf2 (31 new skipped tests across LineageTab/RunsList/RunDetail/lineageSlice)
 - [ ] PR merged into tracking branch
 
 ### Phase D38-2.4c — Frontend Lineage tab IMPL (Owner: ID38-4c, 1 agent) [ADR-038 §6 Phase 3 frontend impl]

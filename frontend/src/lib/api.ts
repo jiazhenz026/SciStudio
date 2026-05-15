@@ -13,6 +13,14 @@ import type {
   WorkflowExecutionResponse,
   WorkflowResponse,
 } from "../types/api";
+import type {
+  LineageGetRunsParams,
+  LineageGetRunsResponse,
+  LineageMethodsResponse,
+  LineageRerunResponse,
+  LineageRerunValidation,
+  LineageRunDetail,
+} from "../types/lineage";
 
 const JSON_HEADERS = {
   "Content-Type": "application/json",
@@ -246,4 +254,79 @@ export const api = {
       headers: JSON_HEADERS,
       body: JSON.stringify({ content, filename }),
     }),
+
+  // ---------------------------------------------------------------------
+  // ADR-038 §3.8 — Lineage REST surface (D38-2.4b skeleton).
+  //
+  // Function bodies throw new Error("TODO: D38-2.4c — ...") so the
+  // skeleton compiles + tests can mock these directly while the IMPL
+  // agent (D38-2.4c) wires them to real fetch calls.
+  //
+  // URL shapes match the backend stubs declared by D38-2.4a in
+  // `src/scieasy/api/routes/runs.py`. Both PRs target tracking branch
+  // `track/adr-038/lineage-db`; if either PR refines a path the other
+  // updates here.
+  //
+  // The namespace pattern (`api.lineage.getRuns(...)`) groups Lineage
+  // calls so callers do not collide with `api.list*` / `api.get*` from
+  // the existing surface. Mirrors how a future `api.git.*` namespace
+  // will land for ADR-039 in D39-2.3a (sibling tracking branch — out of
+  // scope here, mentioned only to avoid future merge surprises).
+  // ---------------------------------------------------------------------
+  lineage: {
+    /**
+     * GET /api/runs?workflow_id=...&limit=...
+     *
+     * IMPL D38-2.4c: build the querystring from params (omit absent
+     * fields), call apiFetch<LineageGetRunsResponse>, return runs.
+     */
+    getRuns: (_params?: LineageGetRunsParams): Promise<LineageGetRunsResponse> => {
+      throw new Error("TODO: D38-2.4c — implement api.lineage.getRuns");
+    },
+
+    /**
+     * GET /api/runs/{run_id}
+     *
+     * IMPL D38-2.4c: call apiFetch<LineageRunDetail>, surface 404 as
+     * ApiError(status=404). The lineageSlice fetchRunDetail handler maps
+     * 404 to "Run not found" per the slice contract.
+     */
+    getRun: (_runId: string): Promise<LineageRunDetail> => {
+      throw new Error("TODO: D38-2.4c — implement api.lineage.getRun");
+    },
+
+    /**
+     * GET /api/runs/{run_id}/methods
+     *
+     * IMPL D38-2.4c: returns rendered markdown for the methods section
+     * (server-side template owned by D38-2.4a in
+     * `core/lineage/methods_export.py`).
+     */
+    getRunMethods: (_runId: string): Promise<LineageMethodsResponse> => {
+      throw new Error("TODO: D38-2.4c — implement api.lineage.getRunMethods");
+    },
+
+    /**
+     * GET /api/runs/{run_id}/validate-rerun
+     *
+     * IMPL D38-2.4c: returns input + environment drift warnings per
+     * ADR-038 §3.6. Both lists may be empty (no drift detected).
+     */
+    validateRerun: (_runId: string): Promise<LineageRerunValidation> => {
+      throw new Error(
+        "TODO: D38-2.4c — implement api.lineage.validateRerun",
+      );
+    },
+
+    /**
+     * POST /api/runs/{run_id}/rerun
+     *
+     * IMPL D38-2.4c: triggers re-execution; returns the new run_id. The
+     * frontend caller (RerunDialog.handleConfirm) closes the dialog and
+     * refreshes the runs list on success.
+     */
+    rerunRun: (_runId: string): Promise<LineageRerunResponse> => {
+      throw new Error("TODO: D38-2.4c — implement api.lineage.rerunRun");
+    },
+  },
 };
