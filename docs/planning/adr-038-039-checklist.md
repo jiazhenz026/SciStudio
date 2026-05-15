@@ -271,9 +271,9 @@
 
 ### Phase D39-2.3b — Frontend UI core IMPL (Owner: ID39-3b, 1 agent) [ADR-039 §6 Phase 2 impl]
 
-- [ ] Sub-issue opened; depends on D39-2.3a merged
-- [ ] All skeleton bodies filled
-- [ ] **Mandatory live Chrome smoke**: commit dialog, branch switch, history filter (Manual/All toggle), status badge updates on dirty/clean
+- [x] Sub-issue opened; depends on D39-2.3a merged → #932
+- [x] All skeleton bodies filled → branch `feat/issue-932/d39-2-3b-frontend-impl`
+- [x] **Mandatory live Chrome smoke**: commit dialog open → type → submit → status flips to clean; BranchPicker dropdown → Create branch → switch — GIF `d39-2-3b-smoke.gif`
 - [ ] CI green; PR merged into tracking branch
 
 ### Phase D39-2.4a — Conflict resolution + branch graph SKELETON (Owner: SD39-4a, 1 agent — VERY detailed algorithm comments) [ADR-039 §6 Phase 3 skeleton]

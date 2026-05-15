@@ -1,90 +1,27 @@
 /**
- * ADR-039 §3.5 — GitDiffModal (SKELETON).
+ * ADR-039 §3.5 — GitDiffModal.
  *
- * Purpose
- * -------
- * Modal viewer for a unified diff returned by `GET /api/git/diff`. Renders
- * via `react-diff-viewer-continued` (already in the SciEasy dep tree —
- * D39-2.3b will add the import; the package is bundle-safe and tree-shakes
- * to ~30 KB). ADR §3.5 line 219.
+ * Modal viewer for the unified diff returned by `GET /api/git/diff`.
  *
- * Props
- * -----
- *   open:        boolean
- *   onClose:     () => void
- *   from:        string           — commit SHA, "HEAD", or branch name
- *   to?:         string           — defaults to "WORKING" (working tree)
- *   file?:       string           — restrict diff to a single file
- *   title?:      string           — override default title
- *
- * State (component-local)
- * -----------------------
- *   loading:     boolean
- *   diffText:    string | null
- *   error:       string | null
- *
- * Fetch flow
- * ----------
- *   useEffect on `open && from`:
- *     setLoading(true);
- *     api.gitDiff({from, to, file}).then(({diff}) => setDiffText(diff)).
- *       catch(err => setError(err.message)).finally(() => setLoading(false))
- *
- * Layout markup
- * -------------
- *   <Dialog open=...>
- *     <DialogContent data-testid="git-diff-modal" className="max-w-5xl">
- *       <DialogTitle>{title ?? `Diff ${from}…${to}`}</DialogTitle>
- *       {loading ? <Spinner data-testid="git-diff-loading"/> :
- *        error ? <div role="alert" data-testid="git-diff-error">{error}</div> :
- *        diffText === "" ?
- *          <div data-testid="git-diff-empty">No differences.</div> :
- *          <ReactDiffViewer
- *            data-testid="git-diff-viewer"
- *            // The library accepts unified-diff via splitText prop or
- *            // explicit oldValue/newValue. D39-2.3b parses the unified
- *            // diff (or uses the library's `compareMethod="diffWords"`
- *            // directly with parsed hunks). Implementation choice
- *            // documented in the test.
- *          />
- *       }
- *       <DialogFooter>
- *         <Button data-testid="git-diff-close" onClick={onClose}>Close</Button>
- *       </DialogFooter>
- *     </DialogContent>
- *   </Dialog>
- *
- * Copy strings
- * ------------
- *   - Title fallback:    "Diff {from} → {to}"
- *   - Empty:             "No differences."
- *   - Loading:           "Loading diff…"
- *   - Close button:      "Close"
- *
- * Keyboard shortcuts
- * ------------------
- *   - Esc → onClose()
- *
- * Accessibility
- * -------------
- *   - Dialog uses Radix's labelledby plumbing.
- *   - Error region role="alert".
- *
- * Edge cases
- * ----------
- *   - from === undefined or null: render error "No commit selected."
- *   - Backend 404 (unknown SHA): error region surfaces the server detail.
- *   - Large diffs (> 200 KB text): D39-2.3b should still render but may
- *     warn at the top: "Large diff — rendering may be slow."
- *     (Threshold tunable; out of scope for skeleton.)
- *
- * Tests (see vitest):
- *   - fetches /api/git/diff on open
- *   - renders loading state initially
- *   - renders error state on API failure
- *   - renders "No differences." when diff response is empty
+ * Implementation choice (D39-2.3b): the skeleton documented the option of
+ * pulling in `react-diff-viewer-continued`. We implement this v1 with a
+ * minimal in-tree renderer for the unified-diff output instead, because:
+ *   1. The backend `/api/git/diff` already returns unified-diff text — no
+ *      side-by-side split is needed for v1 (per ADR §3.5).
+ *   2. Adding a new frontend dep here would force the user to run
+ *      `npm install` in the main checkout; the cascade hygiene rules
+ *      discourage worktree dep changes (CLAUDE.md §6 cascade boilerplate).
+ *   3. Line-by-line colorization with monospaced `<pre>` matches the
+ *      existing aesthetics (CodeEditor, Logs panel) and is keyboard /
+ *      screen-reader friendly without third-party widgetry.
+ * D39-2.4a/b can upgrade to a richer diff viewer when MergeFlow lands.
  */
+import { useCallback, useEffect, useState } from "react";
 import type { JSX } from "react";
+
+import { Button } from "@/components/ui/button";
+
+import { api } from "../../lib/api";
 
 export interface GitDiffModalProps {
   open: boolean;
@@ -95,9 +32,131 @@ export interface GitDiffModalProps {
   title?: string;
 }
 
-export function GitDiffModal(_props: GitDiffModalProps): JSX.Element {
-  // TODO: D39-2.3b — implement markup + fetch flow + react-diff-viewer-continued
-  // integration. Add the npm dependency in package.json as part of the
-  // impl PR (skeleton avoids touching package.json).
-  throw new Error("TODO: D39-2.3b — implement GitDiffModal body");
+function classifyLine(line: string): {
+  cls: string;
+  marker: string;
+} {
+  if (line.startsWith("diff --git") || line.startsWith("index ")) {
+    return { cls: "text-stone-500 font-semibold", marker: "" };
+  }
+  if (line.startsWith("---") || line.startsWith("+++")) {
+    return { cls: "text-stone-600 font-semibold", marker: "" };
+  }
+  if (line.startsWith("@@")) {
+    return { cls: "text-blue-600", marker: "" };
+  }
+  if (line.startsWith("+")) {
+    return { cls: "bg-green-50 text-green-800", marker: "+" };
+  }
+  if (line.startsWith("-")) {
+    return { cls: "bg-red-50 text-red-800", marker: "-" };
+  }
+  return { cls: "text-stone-700", marker: " " };
+}
+
+export function GitDiffModal(props: GitDiffModalProps): JSX.Element | null {
+  const { open, onClose, from, to, file, title } = props;
+
+  const [loading, setLoading] = useState(false);
+  const [diffText, setDiffText] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !from) return;
+    setLoading(true);
+    setError(null);
+    setDiffText(null);
+    api
+      .gitDiff({ from, to, file })
+      .then((resp) => {
+        setDiffText(resp.diff);
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to load diff");
+      })
+      .finally(() => setLoading(false));
+  }, [open, from, to, file]);
+
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    },
+    [onClose],
+  );
+
+  if (!open) return null;
+
+  const headerTitle = title ?? `Diff ${from}${to ? ` → ${to}` : " → working"}`;
+  const lines = diffText !== null ? diffText.split("\n") : [];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="git-diff-title"
+      onKeyDown={handleKeyDown}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        data-testid="git-diff-modal"
+        className="flex max-h-[85vh] w-full max-w-5xl flex-col rounded-lg bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-stone-200 px-5 py-3">
+          <h2 id="git-diff-title" className="text-base font-semibold text-ink">
+            {headerTitle}
+          </h2>
+          <Button
+            data-testid="git-diff-close"
+            variant="toolbar"
+            size="toolbar"
+            type="button"
+            onClick={onClose}
+          >
+            Close
+          </Button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-auto px-2 py-2">
+          {loading ? (
+            <div data-testid="git-diff-loading" className="p-4 text-sm text-stone-500">
+              Loading diff…
+            </div>
+          ) : error ? (
+            <div
+              role="alert"
+              data-testid="git-diff-error"
+              className="p-4 text-sm text-red-700"
+            >
+              {error}
+            </div>
+          ) : diffText === "" ? (
+            <div data-testid="git-diff-empty" className="p-4 text-sm text-stone-500">
+              No differences.
+            </div>
+          ) : (
+            <pre
+              data-testid="git-diff-viewer"
+              className="font-mono text-xs leading-relaxed"
+            >
+              {lines.map((line, i) => {
+                const { cls } = classifyLine(line);
+                return (
+                  <div key={i} className={`whitespace-pre px-2 ${cls}`}>
+                    {line || " "}
+                  </div>
+                );
+              })}
+            </pre>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
