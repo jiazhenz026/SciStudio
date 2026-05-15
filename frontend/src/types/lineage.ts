@@ -47,7 +47,14 @@ export interface LineageRunSummary {
   triggered_by: "user" | "ai_block" | "execute_from";
   parent_run_id: string | null;
   execute_from_block_id: string | null;
-  block_count: number;
+  /**
+   * Number of ``block_executions`` rows for this run, or ``null`` when
+   * the backend list endpoint omits the column (it does today —
+   * ``GET /api/runs`` returns raw ``runs`` rows without a join).
+   * ``LineageRunDetail.blocks.length`` is the authoritative count once
+   * the detail loads; the frontend back-fills ``block_count`` from there.
+   */
+  block_count: number | null;
   duration_ms: number | null;
 }
 

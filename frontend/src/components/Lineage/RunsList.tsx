@@ -343,8 +343,8 @@ export function RunsList(): ReactElement {
               <span className="text-xs text-stone-500">{run.status}</span>
             </div>
             <p className="mt-1 text-xs text-stone-600">
-              {run.workflow_id} · {formatDuration(run, nowMs)} ·{" "}
-              {run.block_count} block(s)
+              {run.workflow_id} · {formatDuration(run, nowMs)}
+              {run.block_count !== null && ` · ${run.block_count} block(s)`}
             </p>
             {run.workflow_git_commit && (
               <p className="text-[11px] text-stone-500">

@@ -417,7 +417,12 @@ function adaptRunSummary(row: Record<string, unknown>): LineageRunSummary {
     parent_run_id: (row.parent_run_id as string | null) ?? null,
     execute_from_block_id:
       (row.execute_from_block_id as string | null) ?? null,
-    block_count: typeof row.block_count === "number" ? row.block_count : 0,
+    // Codex P2 (PR #944): backend's GET /api/runs returns raw runs-table
+    // rows and does NOT include a block_count column, so a static `0`
+    // default would silently misreport "0 block(s)" for every list row.
+    // Surface `null` ("unknown from this endpoint") instead; the detail
+    // endpoint backfills the true count when the user selects the run.
+    block_count: typeof row.block_count === "number" ? row.block_count : null,
     duration_ms: durationMs,
   };
 }
