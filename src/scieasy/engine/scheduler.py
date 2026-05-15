@@ -648,25 +648,32 @@ class DAGScheduler:
 
         Phase D38-2.3 (ADR-038 §6 Phase 2): replaces the pre-ADR-038
         ``metadata.db`` write path. Writes go to the active
-        :class:`~scieasy.core.lineage.LineageStore` so the ``data_objects``
-        catalog is populated even before the :class:`LineageRecorder`
-        observes the matching ``BLOCK_DONE`` event. Establishing the row
-        first satisfies the recorder's downstream ``block_io`` FK
-        invariant (each ``block_io.object_id`` must reference a known
-        ``data_objects.object_id``).
+        :class:`~scieasy.core.lineage.LineageStore`.
+
+        **Recorder-aware split (Codex P1 #931):** when a
+        :class:`LineageRecorder` is bound to this scheduler, the recorder
+        owns the authoritative write of every ``data_objects`` row from
+        its ``BLOCK_DONE`` handler. The recorder stamps the
+        ``produced_by_execution`` foreign key with the same
+        ``block_execution_id`` it writes to ``block_executions``. Letting
+        the scheduler also pre-write would call ``upsert_data_object()``
+        (which uses ``INSERT OR IGNORE``), permanently fixing the row's
+        ``produced_by_execution`` to ``NULL`` and breaking the ADR §3.7
+        Q4b join. So when a recorder is present this method is a no-op —
+        the recorder's pass writes the row with the correct producer.
+
+        When the scheduler is constructed *without* a recorder (CLI /
+        direct test runners that bypass :class:`ApiRuntime`), this method
+        is the only writer. In that mode the row's
+        ``produced_by_execution`` is legitimately ``NULL`` because no
+        ``block_executions`` row exists to reference.
 
         The method is **non-fatal**: any exception is logged as a warning
         and does not crash the workflow.
-
-        Locating the LineageStore:
-
-        * Prefer the recorder's already-bound store (the scheduler is
-          handed a ``lineage_recorder`` per ADR-038 §3.2 from
-          :meth:`ApiRuntime.start_workflow`).
-        * Fall back to the active :class:`ApiRuntime`'s ``lineage_store``
-          when the recorder is unset (unit-test runners that bypass the
-          recorder but still want lineage rows).
         """
+        # Recorder owns the write path when bound — see docstring.
+        if self._lineage_recorder is not None:
+            return
         try:
             store = self._resolve_lineage_store()
             if store is None:

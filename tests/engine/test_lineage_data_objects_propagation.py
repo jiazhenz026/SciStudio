@@ -134,7 +134,7 @@ class TestDataObjectsBlockIoPropagation:
 
         # ── data_objects ─────────────────────────────────────────────
         row = lineage_store.get_data_object("regression-obj-1")
-        assert row is not None, "scheduler must upsert a data_objects row"
+        assert row is not None, "recorder must upsert a data_objects row"
         assert row["type_name"] == "Image"
         assert row["storage_path"] == "/data/zarr/regression-obj-1.zarr"
 
@@ -147,10 +147,20 @@ class TestDataObjectsBlockIoPropagation:
         output_edges = [r for r in io_rows if r["direction"] == "output"]
         assert output_edges, "recorder must insert ≥1 output block_io row"
 
-        # block_io edge points at the same object_id we inserted into
-        # data_objects (FK invariant — block_io.object_id → data_objects.object_id).
+        # block_io edge points at the same object_id (FK invariant —
+        # block_io.object_id → data_objects.object_id).
         assert output_edges[0]["object_id"] == "regression-obj-1"
         assert output_edges[0]["port_name"] == "out"
+
+        # Codex P1 #931 regression: ``produced_by_execution`` must be the
+        # recorder-allocated ``block_execution_id`` (not NULL). The
+        # pre-Codex-fix bug pre-upserted with ``produced_by_execution=None``
+        # and ``INSERT OR IGNORE`` made the recorder's later write a no-op,
+        # leaving the producer FK permanently NULL.
+        assert row["produced_by_execution"] == block_execution_id, (
+            "data_objects.produced_by_execution must match the recorder-allocated "
+            "block_execution_id (regression for Codex P1 on #931)"
+        )
 
     def test_collection_outputs_unroll_into_multiple_rows(
         self,
