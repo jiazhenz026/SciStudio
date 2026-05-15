@@ -57,55 +57,19 @@ Thumbs.db
 def write_default_gitignore(project_path: Path) -> bool:
     """Write the default ``.gitignore`` if one does not already exist.
 
-    Purpose
-    -------
-    Called by :func:`GitEngine.init_repository` immediately after
-    ``git init`` so the very first commit captures the ignore rules.
-    Idempotent — running on a project that already has a ``.gitignore``
-    is a no-op (preserves user customizations).
+    See module docstring + ADR-039 §3.3 lines 99-138.
 
-    Signature contract
-    ------------------
-    - Input: ``project_path`` — the project directory (must exist; we do
-      NOT create it).
-    - Output: ``bool`` — ``True`` if a file was written, ``False`` if a
-      ``.gitignore`` was already present.
-    - Errors: ``FileNotFoundError`` if ``project_path`` does not exist;
-      ``OSError`` on disk failure.
-
-    Implementation steps (for D39-2.2b)
-    -----------------------------------
-    1. Compute ``target = project_path / ".gitignore"``.
-    2. If ``target.exists()``: return ``False``. (Do not raise; this is
-       the common case for repos opened a second time.)
-    3. Else: write :data:`DEFAULT_GITIGNORE` to ``target`` with
-       ``encoding="utf-8"`` and a trailing newline if not present.
-    4. Return ``True``.
-
-    Edge cases
-    ----------
-    - ``.gitignore`` exists but is empty — still treat as "user has a
-      file"; do not overwrite. (Empty file is a valid user choice.)
-    - Permission denied — propagate ``PermissionError`` to caller; the
-      REST layer surfaces this as a 500 with the project-path in the
-      error envelope.
-    - Race with another writer (rare) — if file appears between exist
-      check and write, accept ``FileExistsError`` and return ``False``.
-
-    Test plan (D39-2.2b → tests/core/test_git_engine.py)
-    ----------------------------------------------------
-    - ``test_write_default_gitignore_writes_template`` — tmpdir without
-      ``.gitignore``; call returns ``True``; file content matches
-      :data:`DEFAULT_GITIGNORE` exactly.
-    - ``test_write_default_gitignore_preserves_existing`` — tmpdir with a
-      user ``.gitignore`` containing ``"my_secrets.txt"``; call returns
-      ``False``; file content unchanged.
-    - ``test_write_default_gitignore_idempotent`` — call twice; second
-      call returns ``False``.
-
-    ADR references
-    --------------
-    - §3.3 lines 99-138 (default .gitignore template + lineage.db
-      trade-off discussion)
+    Returns ``True`` if a file was written, ``False`` if a
+    ``.gitignore`` was already present (preserves user customizations).
     """
-    raise NotImplementedError("D39-2.2a skeleton — body filled by D39-2.2b")
+    if not project_path.exists():
+        raise FileNotFoundError(f"Project path does not exist: {project_path}")
+    target = project_path / ".gitignore"
+    if target.exists():
+        return False
+    try:
+        target.write_text(DEFAULT_GITIGNORE, encoding="utf-8")
+    except FileExistsError:
+        # Race with another writer.
+        return False
+    return True

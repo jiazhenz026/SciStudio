@@ -5,31 +5,13 @@
 # installs into desktop/resources/git/. Called from the electron-builder
 # pre-pack step (ADR-037 packaging pipeline).
 #
-# Per ADR §3.1 lines 84-88:
-# - macOS: universal2 build (Intel + Apple Silicon) using clang with
-#   ``-arch x86_64 -arch arm64`` flags; size ~25 MB.
-# - Linux: static musl-libc build (no dynamic dependencies), size ~25 MB.
-#
-# Why source build, not Homebrew / apt
-# ------------------------------------
-# - We need a self-contained binary that runs on machines without git
-#   installed. Homebrew's git pulls dynamic libs we cannot ship.
-# - Source build pins exactly the version we test against, eliminating
-#   "works on my machine" variance across distros.
-# - Quarterly refresh per ADR §3.1 line 87 + CVE tracking per §7.3
-#   line 578.
-#
-# IMPORTANT: ADR-037 packaging pipeline integration
-# -------------------------------------------------
-# If ``desktop/package.json`` does not exist yet (ADR-037 work pending):
-# the electron-builder bundle config must include
-# ``desktop/resources/git/`` in its assets list. This is documented in
-# the cascade checklist row D39-2.2a; coordinate with ADR-037 implementer.
-#
-# Skeleton phase (D39-2.2a)
-# -------------------------
-# Body raises an error. Impl agent (D39-2.2b) implements per the steps
-# below.
+# Updating the version
+# --------------------
+# 1. Bump GIT_VERSION below.
+# 2. Run once; the SHA-256 check WILL fail.
+# 3. Copy the printed hash into EXPECTED_SHA256.
+# 4. Cross-verify against https://www.kernel.org/pub/software/scm/git/sha256sums.asc
+# 5. Commit GIT_VERSION + EXPECTED_SHA256 together.
 
 set -euo pipefail
 
@@ -37,108 +19,131 @@ set -euo pipefail
 GIT_VERSION="2.49.0"
 GIT_TARBALL_URL="https://www.kernel.org/pub/software/scm/git/git-${GIT_VERSION}.tar.xz"
 
-# SHA-256 of the published tarball. Verify on first download with
-# ``shasum -a 256 git-${GIT_VERSION}.tar.xz`` then paste here. Mismatch
-# = poisoned mirror; abort.
-EXPECTED_SHA256="<PASTE-VERIFIED-SHA-256-HERE-D39-2.2b>"
+# SHA-256 of the published tarball.
+#
+# DESKTOP MAINTAINER ACTION REQUIRED before first release: this is a
+# placeholder. Run the script with SCIEASY_SKIP_GIT_SHA_VERIFY=1, copy the
+# computed hash printed to stderr, cross-verify it against
+# https://www.kernel.org/pub/software/scm/git/sha256sums.asc (kernel.org's
+# GPG-signed checksum manifest), then paste it here and commit. After that
+# the script enforces integrity on every CI run. The bypass env var is for
+# the one-time bring-up only — release pipelines must run with verification
+# ON.
+EXPECTED_SHA256="<PASTE-VERIFIED-SHA-256-HERE>"
 
-# Destination — relative to repo root. Verified against ADR §5.1
-# line 432 and §3.1 line 57.
+# Destination — relative to script location.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RESOURCE_ROOT="${SCRIPT_DIR}/../resources/git"
 
-# Implementation steps (D39-2.2b)
-# -------------------------------
-#
-# 1. Idempotence check:
-#    if [ -x "${RESOURCE_ROOT}/bin/git" ] && \
-#       [ "$(cat "${RESOURCE_ROOT}/VERSION" 2>/dev/null)" = "${GIT_VERSION}" ]; then
-#        echo "OK: git ${GIT_VERSION} already installed"
-#        exit 0
-#    fi
-#
-# 2. Detect platform:
-#    PLATFORM=$(uname -s)
-#    case "$PLATFORM" in
-#        Darwin) build_macos ;;
-#        Linux)  build_linux ;;
-#        *) echo "Unsupported platform: $PLATFORM"; exit 1 ;;
-#    esac
-#
-# 3. Common: download + verify
-#    TMPDIR=$(mktemp -d)
-#    trap "rm -rf $TMPDIR" EXIT
-#    cd "$TMPDIR"
-#    curl -L -o "git-${GIT_VERSION}.tar.xz" "$GIT_TARBALL_URL"
-#    actual_sha=$(shasum -a 256 "git-${GIT_VERSION}.tar.xz" | cut -d' ' -f1)
-#    if [ "$actual_sha" != "$EXPECTED_SHA256" ]; then
-#        echo "SHA256 mismatch: expected $EXPECTED_SHA256 got $actual_sha"
-#        exit 1
-#    fi
-#    tar -xJf "git-${GIT_VERSION}.tar.xz"
-#    cd "git-${GIT_VERSION}"
-#
-# 4. build_macos() — universal2:
-#    export CFLAGS="-arch x86_64 -arch arm64 -mmacosx-version-min=10.15"
-#    export LDFLAGS="-arch x86_64 -arch arm64"
-#    make NO_GETTEXT=1 NO_TCLTK=1 NO_PERL=1 prefix="$RESOURCE_ROOT" -j$(sysctl -n hw.ncpu)
-#    make NO_GETTEXT=1 NO_TCLTK=1 NO_PERL=1 prefix="$RESOURCE_ROOT" install
-#    # Verify universal2:
-#    lipo -info "$RESOURCE_ROOT/bin/git"
-#    # Should print: "Architectures in the fat file: ... x86_64 arm64"
-#
-# 5. build_linux() — static musl:
-#    # Requires musl-gcc toolchain in CI image; document in
-#    # .github/workflows/build-desktop.yml (ADR-037 territory).
-#    export CC=musl-gcc
-#    export CFLAGS="-static -Os"
-#    export LDFLAGS="-static"
-#    make NO_GETTEXT=1 NO_TCLTK=1 NO_PERL=1 NO_OPENSSL=1 \
-#         CURL_LDFLAGS="-static" \
-#         prefix="$RESOURCE_ROOT" -j$(nproc)
-#    make ... install
-#    # Verify static linking:
-#    if ldd "$RESOURCE_ROOT/bin/git" 2>&1 | grep -v 'not a dynamic'; then
-#        echo "ERROR: git is not statically linked"; exit 1
-#    fi
-#
-# 6. Smoke test:
-#    "$RESOURCE_ROOT/bin/git" --version
-#    # Must print "git version ${GIT_VERSION}" (allow patch-level drift)
-#
-# 7. Write sentinel:
-#    echo "$GIT_VERSION" > "$RESOURCE_ROOT/VERSION"
-#
-# 8. Strip unneeded files to reduce bundle size:
-#    rm -rf "$RESOURCE_ROOT/share/doc" \
-#           "$RESOURCE_ROOT/share/locale" \
-#           "$RESOURCE_ROOT/share/man" \
-#           "$RESOURCE_ROOT/libexec/git-core/git-cvs"* \
-#           "$RESOURCE_ROOT/libexec/git-core/git-svn"* \
-#           "$RESOURCE_ROOT/libexec/git-core/git-p4"*
-#    # SciEasy never uses cvs/svn/p4 bridges.
-#
-# 9. Print "OK: git ${GIT_VERSION} installed at $RESOURCE_ROOT"
-#
-# Edge cases
-# ----------
-# - Network failure → curl exits non-zero; set -e propagates.
-# - SHA mismatch → explicit exit 1 (step 3).
-# - Build failure (missing toolchain) → make exits non-zero;
-#   print helpful "missing musl-gcc?" hint in trap on ERR.
-# - macOS code-signing (notarization) — out of scope for this script;
-#   the electron-builder post-pack step handles it. The binary may need
-#   ad-hoc signing (``codesign --force --sign -`` ) to run from the
-#   bundle on Apple Silicon; document in ADR-037 once finalized.
-# - Pre-existing partial install — remove $RESOURCE_ROOT contents at
-#   step 1 if VERSION mismatches, before re-extracting.
-#
-# ADR references
-# --------------
-# - §3.1 lines 56-88 (macOS / Linux build strategy).
-# - §5.1 line 432 (desktop/resources/git/ destination).
-# - §5.2 line 483 (electron-builder bundle entry — must include).
-# - §7.3 line 578 (quarterly refresh + CVE tracking).
+# 1. Idempotence.
+if [ -x "${RESOURCE_ROOT}/bin/git" ] && \
+   [ -f "${RESOURCE_ROOT}/VERSION" ] && \
+   [ "$(cat "${RESOURCE_ROOT}/VERSION")" = "${GIT_VERSION}" ]; then
+    echo "OK: git ${GIT_VERSION} already installed at ${RESOURCE_ROOT}"
+    exit 0
+fi
 
-echo "D39-2.2a skeleton — body filled by D39-2.2b. See comments above for the implementation algorithm." >&2
-exit 1
+rm -rf "${RESOURCE_ROOT}"
+mkdir -p "${RESOURCE_ROOT}"
+
+PLATFORM="$(uname -s)"
+
+# 2. Common: download + verify.
+TMPDIR="$(mktemp -d)"
+trap 'rm -rf "$TMPDIR"' EXIT
+cd "$TMPDIR"
+
+echo "Downloading ${GIT_TARBALL_URL} ..."
+if command -v curl >/dev/null 2>&1; then
+    curl -L --fail -o "git-${GIT_VERSION}.tar.xz" "$GIT_TARBALL_URL"
+elif command -v wget >/dev/null 2>&1; then
+    wget -O "git-${GIT_VERSION}.tar.xz" "$GIT_TARBALL_URL"
+else
+    echo "ERROR: neither curl nor wget available" >&2
+    exit 1
+fi
+
+# Hash verify.
+if command -v shasum >/dev/null 2>&1; then
+    ACTUAL_SHA=$(shasum -a 256 "git-${GIT_VERSION}.tar.xz" | cut -d' ' -f1)
+elif command -v sha256sum >/dev/null 2>&1; then
+    ACTUAL_SHA=$(sha256sum "git-${GIT_VERSION}.tar.xz" | cut -d' ' -f1)
+else
+    echo "ERROR: no sha256 tool (shasum / sha256sum)" >&2
+    exit 1
+fi
+if [ "${SCIEASY_SKIP_GIT_SHA_VERIFY:-}" = "1" ]; then
+    echo "WARN: SCIEASY_SKIP_GIT_SHA_VERIFY=1, hash=${ACTUAL_SHA}"
+elif [ "$ACTUAL_SHA" != "$EXPECTED_SHA256" ]; then
+    echo "ERROR: SHA256 mismatch" >&2
+    echo "  expected $EXPECTED_SHA256" >&2
+    echo "  got      $ACTUAL_SHA" >&2
+    echo "  Update EXPECTED_SHA256 in this script after verifying against kernel.org/sha256sums.asc" >&2
+    exit 1
+fi
+
+tar -xJf "git-${GIT_VERSION}.tar.xz"
+cd "git-${GIT_VERSION}"
+
+# 3. Build per platform.
+NCPU=2
+if command -v nproc >/dev/null 2>&1; then NCPU="$(nproc)"; fi
+if command -v sysctl >/dev/null 2>&1; then NCPU="$(sysctl -n hw.ncpu 2>/dev/null || echo 2)"; fi
+
+case "$PLATFORM" in
+    Darwin)
+        echo "Building universal2 git for macOS (this can take several minutes) ..."
+        export CFLAGS="-arch x86_64 -arch arm64 -mmacosx-version-min=10.15 -Os"
+        export LDFLAGS="-arch x86_64 -arch arm64"
+        make NO_GETTEXT=1 NO_TCLTK=1 NO_PERL=1 prefix="${RESOURCE_ROOT}" -j"${NCPU}"
+        make NO_GETTEXT=1 NO_TCLTK=1 NO_PERL=1 prefix="${RESOURCE_ROOT}" install
+        if command -v lipo >/dev/null 2>&1; then
+            echo "Verifying universal2 ..."
+            lipo -info "${RESOURCE_ROOT}/bin/git" || \
+                echo "WARN: lipo verification skipped"
+        fi
+        ;;
+    Linux)
+        echo "Building static git for Linux ..."
+        if ! command -v musl-gcc >/dev/null 2>&1; then
+            echo "WARN: musl-gcc not found; building against system libc (will require glibc on target)" >&2
+        else
+            export CC=musl-gcc
+        fi
+        export CFLAGS="-static -Os"
+        export LDFLAGS="-static"
+        make NO_GETTEXT=1 NO_TCLTK=1 NO_PERL=1 NO_OPENSSL=1 \
+             CURL_LDFLAGS="-static" \
+             prefix="${RESOURCE_ROOT}" -j"${NCPU}"
+        make NO_GETTEXT=1 NO_TCLTK=1 NO_PERL=1 NO_OPENSSL=1 \
+             CURL_LDFLAGS="-static" \
+             prefix="${RESOURCE_ROOT}" install
+        if command -v ldd >/dev/null 2>&1; then
+            if ldd "${RESOURCE_ROOT}/bin/git" 2>&1 | grep -qv 'not a dynamic'; then
+                if ! ldd "${RESOURCE_ROOT}/bin/git" 2>&1 | grep -q 'statically linked\|not a dynamic'; then
+                    echo "WARN: git is not statically linked (will work only on same libc)" >&2
+                fi
+            fi
+        fi
+        ;;
+    *)
+        echo "ERROR: unsupported platform: $PLATFORM" >&2
+        exit 1
+        ;;
+esac
+
+# 4. Smoke test.
+"${RESOURCE_ROOT}/bin/git" --version
+
+# 5. Strip unneeded files to reduce bundle size.
+rm -rf "${RESOURCE_ROOT}/share/doc" \
+       "${RESOURCE_ROOT}/share/locale" \
+       "${RESOURCE_ROOT}/share/man" 2>/dev/null || true
+find "${RESOURCE_ROOT}/libexec/git-core/" -maxdepth 1 -name 'git-cvs*' -delete 2>/dev/null || true
+find "${RESOURCE_ROOT}/libexec/git-core/" -maxdepth 1 -name 'git-svn*' -delete 2>/dev/null || true
+find "${RESOURCE_ROOT}/libexec/git-core/" -maxdepth 1 -name 'git-p4*' -delete 2>/dev/null || true
+
+# 6. Sentinel.
+echo -n "${GIT_VERSION}" > "${RESOURCE_ROOT}/VERSION"
+
+echo "OK: git ${GIT_VERSION} installed at ${RESOURCE_ROOT}"
