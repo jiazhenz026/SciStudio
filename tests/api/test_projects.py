@@ -38,7 +38,9 @@ def test_project_crud_and_path_opening(client: TestClient, project_parent: Path)
     listed = client.get("/api/projects/")
     assert listed.status_code == 200
     projects = {entry["name"]: entry for entry in listed.json()}
-    assert projects["Beta"]["workflow_count"] == 1
+    # #879: every project ships with the auto-scaffolded `main` workflow, so
+    # Beta sees its own `main` + the explicit `demo-workflow` created above.
+    assert projects["Beta"]["workflow_count"] == 2
 
     updated = client.put(
         f"/api/projects/{second_payload['id']}",
@@ -85,9 +87,7 @@ def test_list_projects_sorted_by_last_opened(client: TestClient, project_parent:
     assert names.index("Newer") < names.index("Older")
 
 
-def test_create_project_scaffolds_empty_main_workflow(
-    client: TestClient, project_parent: Path
-) -> None:
+def test_create_project_scaffolds_empty_main_workflow(client: TestClient, project_parent: Path) -> None:
     """#879: ``POST /api/projects/`` must scaffold ``workflows/main.yaml``.
 
     Without the scaffold the default ``main`` canvas tab is divorced from
