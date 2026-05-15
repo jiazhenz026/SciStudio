@@ -427,8 +427,8 @@ Phase 4 e2e findings into a single fix pass. P1 findings fixed before
 final integration PRs to main. P2/P3 filed as follow-up issues if not
 release-blockers.
 
-- [ ] Phase 3.5 audit dispatched
-- [ ] Audit report merged
+- [x] Phase 3.5 audit dispatched → audit agent on `chore/audit-phase-3-5` branch (closes #971)
+- [ ] Audit report merged → report at `docs/audit/2026-05-15-adr-038-039-integration-audit.md`; PR opened against `main`
 - [ ] (Post-Phase 4) P1 findings from audit + e2e fixed
 - [ ] Final integration PRs unblocked
 
