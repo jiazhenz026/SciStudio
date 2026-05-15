@@ -548,7 +548,24 @@ release-blockers.
 
 ## Known issues queued for audit phase
 
-### AI Block MCP-signal write/read race (deferred to D38-3.1b bug audit fix pass)
+### AI Block MCP-signal write/read race (RESOLVED — PR #962, 2026-05-15)
+
+**Status.** Resolved by PR `fix/issue-962/ai-block-atomic-signal-write`
+(closes #962 + #909). Fix A applied to `tests/blocks/ai/conftest.py`
+(`StubAgent._emit` now uses `tempfile.mkstemp` + `os.replace` for all
+three signal-file writes — `finish_ai_block.json` happy path,
+`finish_ai_block.json` deliberate-error path, and `mark_done.json`).
+Fix B was a no-op: production `mcp__scieasy__finish_ai_block`
+(`src/scieasy/ai/agent/mcp/tools_workflow.py:744`) already used
+`_atomic_write_text`. Regression locked by
+`tests/blocks/ai/test_completion_race.py` (two deterministic
+threading.Event-coordinated tests; without-fix mode raises the
+documented `ValueError`, with-fix mode returns `MCP_FINISH_TOOL`).
+
+- [x] Fix A — atomic write in `StubAgent._emit` (`tests/blocks/ai/conftest.py`)
+- [x] Fix B — production write site audited; already atomic via `_atomic_write_text`
+- [x] Regression test added (`tests/blocks/ai/test_completion_race.py`)
+- [x] Existing 57 AIBlock + AI tests still pass
 
 **Symptom.** Intermittent failures on **all** AIBlock skeleton tests that
 write `signals/finish_ai_block.json` via the `StubAgent._emit` happy
