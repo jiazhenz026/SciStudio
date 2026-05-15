@@ -1,9 +1,11 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import { useAppStore } from "../store";
 import type { BlockSchemaResponse, LogEntry, WorkflowNode } from "../types/api";
 import type { BottomTab } from "../types/ui";
 import { TerminalTabs } from "./AIChat/TerminalTabs";
 import { GitTab } from "./Git/GitTab";
+import { MergeFlow } from "./Git/MergeFlow";
 import { type PortRow, PortEditorTable } from "./PortEditorTable";
 
 interface BottomPanelProps {
@@ -268,6 +270,16 @@ export function BottomPanel({
     return 0;
   };
   const formatBadge = (n: number): string => (n > 99 ? "99+" : String(n));
+
+  // ADR-039 §3.5 (#972 — Codex P1 on PR #974) — MergeFlow is mounted
+  // here (NOT inside GitTab) so a bottom-tab switch during a conflict
+  // resolution does not unmount the modal and bypass its close guard.
+  // Driven by `gitSlice.mergeFlowSource`: BranchPicker sets the source
+  // and the merge-flow setter clears it on success/abort/close.
+  const mergeFlowSource = useAppStore((s) => s.mergeFlowSource);
+  const setMergeFlowSource = useAppStore((s) => s.setMergeFlowSource);
+  const openFileTab = useAppStore((s) => s.openFileTab);
+
   return (
     <section className="flex h-full flex-col overflow-hidden bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(238,231,219,0.98))]">
       <div className="flex items-center gap-3 border-b border-stone-200 px-4 py-3">
@@ -319,6 +331,19 @@ export function BottomPanel({
           ) : null}
         </div>
       </div>
+
+      {/* ADR-039 §3.5 (#972) — MergeFlow is rendered here so it survives
+          bottom-tab switches; its conflict-state close guard would
+          otherwise be bypassed if the Git tab unmounted mid-resolution
+          (Codex P1 on PR #974). */}
+      <MergeFlow
+        sourceBranch={mergeFlowSource ?? ""}
+        isOpen={mergeFlowSource !== null}
+        onClose={() => setMergeFlowSource(null)}
+        onOpenFile={(path) => {
+          openFileTab(path);
+        }}
+      />
     </section>
   );
 }

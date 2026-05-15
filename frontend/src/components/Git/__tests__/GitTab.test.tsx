@@ -59,6 +59,8 @@ function seedStore(
     deleteBranch: vi.fn().mockResolvedValue(undefined),
     commit: vi.fn().mockResolvedValue("abcdef0"),
     openFileTab: vi.fn(),
+    setMergeFlowSource: vi.fn(),
+    mergeFlowSource: null,
     ...overrides,
   });
 }

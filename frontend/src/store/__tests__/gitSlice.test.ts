@@ -153,6 +153,18 @@ describe("gitSlice — default state shape (skeleton)", () => {
     ).not.toThrow();
   });
 
+  it("defaults mergeFlowSource to null (#972 — Codex P1 on PR #974)", () => {
+    expect(makeSlice().slice.mergeFlowSource).toBeNull();
+  });
+
+  it("setMergeFlowSource updates the slice and round-trips to null", () => {
+    const { slice, get } = makeSlice();
+    slice.setMergeFlowSource("feature-x");
+    expect(get().mergeFlowSource).toBe("feature-x");
+    slice.setMergeFlowSource(null);
+    expect(get().mergeFlowSource).toBeNull();
+  });
+
   it("setLastError is callable (synchronous)", () => {
     const { slice } = makeSlice();
     expect(() => slice.setLastError("oops")).not.toThrow();

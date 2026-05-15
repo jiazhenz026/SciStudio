@@ -11,8 +11,15 @@
  * Layout:
  *   - Sticky top bar: BranchPicker · GitStatusBadge · Commit · Stashes.
  *   - Main area: GitHistoryList (which internally toggles List ↔ Graph).
- *   - Modals scoped to the tab: CommitDialog, StashListPanel, MergeFlow
- *     (which itself renders ConflictResolveView when a merge conflicts).
+ *   - Tab-scoped modals: CommitDialog, StashListPanel.
+ *
+ * MergeFlow is intentionally NOT rendered here — see Codex P1 on PR #974.
+ * Switching away from the Git tab would otherwise unmount it mid-conflict-
+ * resolution and bypass its "cannot close during conflict" guard, leaving
+ * the repository in a half-merged state with no visible recovery UI. The
+ * modal lives at the BottomPanel level instead (`<MergeFlow>` mounted
+ * unconditionally there) and is driven by `gitSlice.mergeFlowSource` so
+ * it survives every tab switch.
  *
  * Empty-state when no project is open — `gitSlice` no-ops without a
  * project, so we render a hint rather than a dead UI.
@@ -28,22 +35,18 @@ import { BranchPicker } from "./BranchPicker";
 import { CommitDialog } from "./CommitDialog";
 import { GitHistoryList } from "./GitHistoryList";
 import { GitStatusBadge } from "./GitStatusBadge";
-import { MergeFlow } from "./MergeFlow";
 import { StashListPanel } from "./StashListPanel";
 
 export function GitTab(): JSX.Element {
   const currentProject = useAppStore((s) => s.currentProject);
-  const openFileTab = useAppStore((s) => s.openFileTab);
+  // #972 (Codex P1 on PR #974) — drive MergeFlow via slice so it stays
+  // mounted at the BottomPanel level. Keep CommitDialog / StashListPanel
+  // local: their close guards are not similarly load-bearing (the user
+  // can always reopen), and tab-scoping keeps the slice surface tight.
+  const setMergeFlowSource = useAppStore((s) => s.setMergeFlowSource);
 
-  // ADR-039 §3.5 — local UI state for the dialog/drawer triggers. Kept
-  // local to this component (rather than in gitSlice) because every
-  // surface is short-lived and tab-scoped: unmounting the Git tab tears
-  // down the modal state automatically.
   const [commitOpen, setCommitOpen] = useState(false);
   const [stashOpen, setStashOpen] = useState(false);
-  // ADR-039 §3.5a / D39-2.4b — merge flow modal. `mergeSource` is the
-  // branch the user wants to merge INTO the current branch.
-  const [mergeSource, setMergeSource] = useState<string | null>(null);
 
   if (!currentProject) {
     return (
@@ -70,7 +73,7 @@ export function GitTab(): JSX.Element {
         className="flex shrink-0 items-center gap-2 border-b border-stone-200 bg-white/70 px-3 py-2"
       >
         <BranchPicker
-          onMergeRequested={(sourceBranch) => setMergeSource(sourceBranch)}
+          onMergeRequested={(sourceBranch) => setMergeFlowSource(sourceBranch)}
         />
         <GitStatusBadge onClick={() => setCommitOpen(true)} />
         <Button
@@ -101,21 +104,12 @@ export function GitTab(): JSX.Element {
         <GitHistoryList />
       </div>
 
-      {/* Modals scoped to the tab. Kept here so they un-mount with the
-          Git tab; they were previously rendered at the Toolbar level. */}
+      {/* Tab-scoped modals only. MergeFlow is mounted at the BottomPanel
+          level (driven by `gitSlice.mergeFlowSource`) so it survives a
+          bottom-tab switch during conflict resolution — see Codex P1 on
+          PR #974 and the file-top docstring. */}
       <CommitDialog open={commitOpen} onClose={() => setCommitOpen(false)} />
       <StashListPanel open={stashOpen} onClose={() => setStashOpen(false)} />
-      <MergeFlow
-        sourceBranch={mergeSource ?? ""}
-        isOpen={mergeSource !== null}
-        onClose={() => setMergeSource(null)}
-        onOpenFile={(path) => {
-          // Open conflicted file in a Monaco file tab so the user can
-          // resolve markers inline. Matches the original Toolbar wiring
-          // added in PR #952 (Codex P2 follow-up).
-          openFileTab(path);
-        }}
-      />
     </div>
   );
 }
