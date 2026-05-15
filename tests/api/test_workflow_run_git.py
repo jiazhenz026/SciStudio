@@ -216,3 +216,82 @@ def test_start_workflow_invokes_lineage_hook_when_present(
         assert received == [("main", run.workflow_git_commit)]
     finally:
         _cancel_run(runtime, "main")
+
+
+# ---------------------------------------------------------------------------
+# D39-3.2 (#968) P1-B: defensive guard for cross-track H-A1 hazard.
+#
+# The ``runtime.py::start_workflow`` hook calls
+# ``lineage_store.set_pending_git_commit(workflow_id, sha)`` when the
+# attribute is present. On the ADR-039 tracking branch the LineageStore
+# does NOT yet implement this method (it lands in D38-3.2). The hook
+# MUST stay defensive (``getattr`` + ``callable()`` check) so that:
+#   1. A lineage_store with no ``set_pending_git_commit`` does not crash.
+#   2. A lineage_store whose ``set_pending_git_commit`` raises does not
+#      propagate the exception up to the workflow execution path.
+# Without this defensive layer, integration with D38 would silently
+# break every workflow run on the integrated main branch.
+# ---------------------------------------------------------------------------
+
+
+def test_start_workflow_handles_lineage_store_without_hook(
+    client: TestClient, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A lineage_store that lacks ``set_pending_git_commit`` is a no-op.
+
+    Simulates the current state of ``track/adr-038/lineage-db`` before
+    D38-3.2 implements the method. The workflow must still start and the
+    captured SHA must still appear on ``WorkflowRun.workflow_git_commit``.
+    """
+    runtime: ApiRuntime = client.app.state.runtime
+    _commit_initial_workflow(opened_project, runtime)
+
+    (opened_project / "workflows" / "main.yaml").write_text(_DIRTY_YAML_VAR, encoding="utf-8")
+
+    class _StubLineageStoreNoHook:
+        """No ``set_pending_git_commit`` — pre-D38-3.2 reality."""
+
+        def some_other_method(self) -> None:  # pragma: no cover — never called
+            pass
+
+    monkeypatch.setattr(runtime, "lineage_store", _StubLineageStoreNoHook(), raising=False)
+
+    resp = client.post("/api/workflows/main/execute")
+    assert resp.status_code == 200, resp.text
+
+    run = runtime.workflow_runs["main"]
+    try:
+        # SHA still captured on the dataclass even though the lineage
+        # hook was absent.
+        assert run.workflow_git_commit is not None
+    finally:
+        _cancel_run(runtime, "main")
+
+
+def test_start_workflow_swallows_lineage_hook_exception(
+    client: TestClient, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If ``set_pending_git_commit`` raises, the workflow still starts.
+
+    The hook is best-effort — a misbehaving D38 implementation must not
+    take down the ADR-039 pre-run capture path.
+    """
+    runtime: ApiRuntime = client.app.state.runtime
+    _commit_initial_workflow(opened_project, runtime)
+
+    (opened_project / "workflows" / "main.yaml").write_text(_DIRTY_YAML_VAR, encoding="utf-8")
+
+    class _StubLineageStoreRaises:
+        def set_pending_git_commit(self, workflow_id: str, sha: str) -> None:
+            raise RuntimeError("simulated D38-side failure")
+
+    monkeypatch.setattr(runtime, "lineage_store", _StubLineageStoreRaises(), raising=False)
+
+    resp = client.post("/api/workflows/main/execute")
+    assert resp.status_code == 200, resp.text
+
+    run = runtime.workflow_runs["main"]
+    try:
+        assert run.workflow_git_commit is not None
+    finally:
+        _cancel_run(runtime, "main")

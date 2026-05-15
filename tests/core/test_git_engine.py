@@ -106,6 +106,67 @@ def test_commit_clean_tree_raises(tmp_path: Path) -> None:
         engine.commit("nothing to commit")
 
 
+# ---------------------------------------------------------------------------
+# D39-3.2 (#968) P2-C: empty-repo edge case for ``commit()``.
+#
+# When a repo has no HEAD (freshly ``git init``-ed, never committed), the
+# previous implementation used ``git diff --cached --quiet`` to detect an
+# empty tree. Against a missing HEAD this plumbing returns 0 (no diff
+# possible) even when the index has staged files — raising the
+# misleading "nothing to commit" GitError for what is actually a valid
+# initial commit. The fix branches on ``git rev-parse --verify HEAD`` and
+# falls back to ``ls-files --cached`` when HEAD is absent.
+# ---------------------------------------------------------------------------
+
+
+def test_commit_first_commit_against_no_head(tmp_path: Path) -> None:
+    """Initial commit on a freshly init'd repo (no HEAD yet) succeeds.
+
+    Simulates the path where some external tool ran ``git init`` but the
+    user clicks Run before SciEasy's auto-init has had a chance to seed
+    the initial commit.
+    """
+    from scieasy.core.versioning.git_binary import GitBinary
+
+    # Bare ``git init`` (no auto-gitignore, no initial commit). We can't
+    # use ``GitEngine.init_repository`` here because it already makes the
+    # initial commit.
+    binary = GitBinary.locate()
+    binary.run(["init", "--initial-branch=main", str(tmp_path)], cwd=tmp_path.parent)
+
+    engine = GitEngine(tmp_path)
+    # Stage a file so the index is non-empty.
+    (tmp_path / "first.txt").write_text("hello", encoding="utf-8")
+
+    # Pre-condition: there is no HEAD yet.
+    head_check = engine._run(["rev-parse", "--verify", "-q", "HEAD"], check=False)
+    assert head_check.returncode != 0, "expected no HEAD on fresh init"
+
+    # The initial commit must succeed (no false-positive "nothing to commit").
+    sha = engine.commit("first commit", prefix=None)
+    assert sha
+    log = engine.log()
+    assert len(log) == 1
+    assert log[0]["subject"] == "first commit"
+
+
+def test_commit_no_head_with_empty_index_still_raises(tmp_path: Path) -> None:
+    """No HEAD AND empty index → still raises ``nothing to commit``.
+
+    The empty-repo fix must not turn into a false negative on a truly
+    empty tree.
+    """
+    from scieasy.core.versioning.git_binary import GitBinary
+
+    binary = GitBinary.locate()
+    binary.run(["init", "--initial-branch=main", str(tmp_path)], cwd=tmp_path.parent)
+
+    engine = GitEngine(tmp_path)
+    # Don't write anything — index is empty.
+    with pytest.raises(GitError):
+        engine.commit("nothing here")
+
+
 def test_commit_invalid_prefix_raises(tmp_path: Path) -> None:
     engine = _init_engine(tmp_path)
     (tmp_path / "x.txt").write_text("x", encoding="utf-8")

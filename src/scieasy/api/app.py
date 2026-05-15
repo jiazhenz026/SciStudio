@@ -78,38 +78,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             logging.getLogger(__name__).warning("workflow_watcher: initial start failed", exc_info=True)
 
     # ---- ADR-039 §3.8: git-state watcher ----
-    # Polls .git/HEAD + .git/refs/heads/* mtimes and emits the existing
-    # ``git.head_changed`` event (defined by D39-2.1) with a richer
-    # payload that includes branches_changed list.
-    git_watcher: object | None = None
-    try:
-        from scieasy.core.versioning.watcher import GitChangeWatcher
-        from scieasy.engine.events import EngineEvent
-
-        async def _publish_git_event(event_type: str, data: dict[str, object]) -> None:
-            try:
-                await runtime.event_bus.emit(EngineEvent(event_type=event_type, data=dict(data)))
-            except Exception:
-                import logging
-
-                logging.getLogger(__name__).debug("git event publish failed", exc_info=True)
-
-        git_watcher = GitChangeWatcher(_publish_git_event)
-        if runtime.active_project is not None:
-            try:
-                project_path = Path(runtime.active_project.path)
-                if (project_path / ".git").exists():
-                    git_watcher.start_for_project(project_path)
-            except Exception:
-                import logging
-
-                logging.getLogger(__name__).warning("git_watcher: initial start failed", exc_info=True)
-    except Exception:
-        import logging
-
-        logging.getLogger(__name__).warning("git_watcher: construction failed", exc_info=True)
-        git_watcher = None
-    app.state.git_watcher = git_watcher
+    # NOTE: D39-3.2 (#968) collapsed the previously-separate
+    # ``core.versioning.watcher.GitChangeWatcher`` (asyncio-poll) into
+    # ``workflow_watcher._GitHeadHandler`` (watchdog Observer) above. The
+    # unified watcher attaches a second schedule to the project's
+    # ``.git/`` directory inside ``WorkflowWatcher.start_for_project`` and
+    # emits ``git.head_changed`` with the canonical ``commit_sha`` field
+    # the frontend reads (see ``frontend/src/hooks/useWebSocket.ts``).
+    # Project switch already restarts the watcher via
+    # ``routes/projects.py::_restart_workflow_watcher``, so a separate
+    # git-watcher lifecycle hook is no longer required.
 
     # ---- Phase 2: MCP server lifecycle ----
     mcp_server: object | None = None
@@ -182,13 +160,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
             logging.getLogger(__name__).warning("workflow_watcher: stop raised", exc_info=True)
         workflow_watcher_module.set_active_watcher(None)
-        if git_watcher is not None:
-            try:
-                git_watcher.stop()  # type: ignore[attr-defined]
-            except Exception:
-                import logging
-
-                logging.getLogger(__name__).warning("git_watcher: stop raised", exc_info=True)
+        # D39-3.2 (#968): the standalone git_watcher was deleted — its
+        # ``.git/`` surface is now covered by the unified workflow_watcher
+        # observer above. No separate teardown required.
         for run in runtime.workflow_runs.values():
             if not run.task.done():
                 run.task.cancel()

@@ -211,9 +211,28 @@ class GitEngine:
         else:
             self._run(["add", "--", *files])
 
-        # Detect empty tree.
-        proc = self._run(["diff", "--cached", "--quiet"], check=False)
-        if proc.returncode == 0:
+        # D39-3.2 (#968) P2-C: empty-repo edge case.
+        #
+        # ``git diff --cached --quiet`` against a missing HEAD (a freshly
+        # ``git init``-ed repo with no commits) historically returned 0
+        # even when the index was non-empty — making the empty-tree guard
+        # below raise ``nothing to commit`` for what is actually the
+        # repo's initial commit. Detect the no-HEAD case first via
+        # ``git rev-parse --verify HEAD`` (rc != 0). When HEAD is missing,
+        # fall back to ``git diff --cached --quiet HEAD`` against the
+        # empty-tree object so the staged-files check is correct.
+        head_check = self._run(["rev-parse", "--verify", "-q", "HEAD"], check=False)
+        has_head = head_check.returncode == 0
+        if has_head:
+            proc = self._run(["diff", "--cached", "--quiet"], check=False)
+            tree_is_empty = proc.returncode == 0
+        else:
+            # No HEAD: ask git directly whether the index has anything
+            # staged. ``ls-files --cached`` prints one line per staged
+            # entry; empty stdout means the index is empty.
+            ls_proc = self._run(["ls-files", "--cached"], check=False)
+            tree_is_empty = not (ls_proc.stdout or "").strip()
+        if tree_is_empty:
             raise GitError(1, "nothing to commit, working tree clean", ["commit"])
 
         # Build commit invocation with config-injected identity so
