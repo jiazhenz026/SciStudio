@@ -192,7 +192,210 @@
 
 import type { ReactElement } from "react";
 
+import { useAppStore } from "../../store";
+import type { LineageRunSummary } from "../../types/lineage";
+import { BlockExecutionCard } from "./BlockExecutionCard";
+
+function formatLocalDateTime(iso: string): string {
+  if (!iso) return "—";
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return iso;
+  return parsed.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
+function formatDuration(run: LineageRunSummary): string {
+  const ms = run.duration_ms;
+  if (ms === null) {
+    return run.status === "running" ? "in progress" : "—";
+  }
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  const totalSeconds = Math.floor(ms / 1000);
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}m ${s}s`;
+}
+
 export function RunDetail(): ReactElement {
-  // TODO: D38-2.4c — implement per top-of-file contract.
-  throw new Error("TODO: D38-2.4c — implement RunDetail");
+  const selectedRunId = useAppStore((s) => s.selectedRunId);
+  const detail = useAppStore((s) =>
+    selectedRunId ? s.runDetails[selectedRunId] : undefined,
+  );
+  const loading = useAppStore((s) =>
+    selectedRunId ? s.runDetailLoading[selectedRunId] : false,
+  );
+  const error = useAppStore((s) =>
+    selectedRunId ? s.runDetailError[selectedRunId] : null,
+  );
+  const openMethodsDialog = useAppStore((s) => s.openMethodsDialog);
+  const openRerunDialog = useAppStore((s) => s.openRerunDialog);
+
+  if (selectedRunId === null) {
+    return (
+      <div
+        className="flex h-full items-center justify-center"
+        data-testid="run-detail-empty"
+      >
+        <p className="text-sm text-stone-500">
+          Select a run on the left to see its detail.
+        </p>
+      </div>
+    );
+  }
+
+  if (loading && detail === undefined) {
+    return (
+      <div
+        className="flex h-full items-center justify-center"
+        data-testid="run-detail-loading"
+      >
+        <p className="text-sm text-stone-500">Loading run detail…</p>
+      </div>
+    );
+  }
+
+  if (error && detail === undefined) {
+    return (
+      <div
+        className="m-4 rounded-2xl border border-rose-200 bg-rose-50 p-4"
+        data-testid="run-detail-error"
+      >
+        <p className="text-sm text-rose-700">{error}</p>
+      </div>
+    );
+  }
+
+  if (detail === undefined) {
+    // Fallback: should not normally hit this state.
+    return (
+      <div
+        className="flex h-full items-center justify-center"
+        data-testid="run-detail-empty"
+      >
+        <p className="text-sm text-stone-500">
+          Select a run on the left to see its detail.
+        </p>
+      </div>
+    );
+  }
+
+  const run = detail.run;
+  const isRunning = run.status === "running";
+  const inlineError = error ?? null;
+
+  return (
+    <section
+      className="flex h-full flex-col"
+      data-testid="run-detail"
+      role="region"
+      aria-label={`Detail for run ${run.run_id}`}
+    >
+      <header className="border-b border-stone-200 px-4 py-3">
+        <h3 className="text-sm font-semibold text-ink">
+          Run {run.run_id.slice(0, 8)}
+        </h3>
+        {inlineError && (
+          <p
+            className="mt-1 text-xs text-rose-700"
+            data-testid="run-detail-stale-error"
+          >
+            {inlineError}
+          </p>
+        )}
+        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+          <dt className="text-stone-500">Workflow</dt>
+          <dd>{run.workflow_id}</dd>
+
+          <dt className="text-stone-500">Started</dt>
+          <dd>{formatLocalDateTime(run.started_at)}</dd>
+
+          <dt className="text-stone-500">Duration</dt>
+          <dd>{formatDuration(run)}</dd>
+
+          <dt className="text-stone-500">Status</dt>
+          <dd>{run.status}</dd>
+
+          <dt className="text-stone-500">Triggered by</dt>
+          <dd>{run.triggered_by}</dd>
+
+          {run.workflow_git_commit && (
+            <>
+              <dt className="text-stone-500">Git commit</dt>
+              <dd>
+                {run.workflow_git_commit.slice(0, 12)}
+                {run.workflow_dirty && " (dirty)"}
+              </dd>
+            </>
+          )}
+
+          {run.parent_run_id && (
+            <>
+              <dt className="text-stone-500">Parent run</dt>
+              <dd>{run.parent_run_id.slice(0, 8)}</dd>
+            </>
+          )}
+
+          {run.execute_from_block_id && (
+            <>
+              <dt className="text-stone-500">Run-from block</dt>
+              <dd>{run.execute_from_block_id}</dd>
+            </>
+          )}
+        </dl>
+      </header>
+
+      <div
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-3"
+        data-testid="run-detail-blocks"
+      >
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+          Blocks ({detail.blocks.length})
+        </h4>
+        {detail.blocks.length === 0 ? (
+          <p className="mt-2 text-xs text-stone-500">(No blocks executed)</p>
+        ) : (
+          <ul className="mt-2 space-y-2">
+            {detail.blocks.map((blk) => (
+              <li key={blk.block_execution_id}>
+                <BlockExecutionCard execution={blk} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <footer
+        className="flex items-center gap-2 border-t border-stone-200 px-4 py-3"
+        data-testid="run-detail-actions"
+      >
+        <button
+          type="button"
+          className="rounded-full bg-ink px-4 py-2 text-sm text-white disabled:bg-stone-400"
+          data-testid="run-detail-rerun-button"
+          aria-disabled={isRunning}
+          disabled={isRunning}
+          title={isRunning ? "Wait for run to finish" : undefined}
+          onClick={() => openRerunDialog(run.run_id)}
+        >
+          Re-run
+        </button>
+        <button
+          type="button"
+          className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm text-ink"
+          data-testid="run-detail-methods-button"
+          onClick={() => openMethodsDialog(run.run_id)}
+        >
+          Export methods
+        </button>
+      </footer>
+    </section>
+  );
 }

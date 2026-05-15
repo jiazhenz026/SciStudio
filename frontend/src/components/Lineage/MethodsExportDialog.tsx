@@ -179,16 +179,165 @@
  * dialog appears with the expected fetch).
  */
 
-import type { ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
+
+import { api } from "../../lib/api";
 
 export interface MethodsExportDialogProps {
   runId: string;
   onClose: () => void;
 }
 
-export function MethodsExportDialog(
-  _props: MethodsExportDialogProps,
-): ReactElement {
-  // TODO: D38-2.4c — implement per top-of-file contract.
-  throw new Error("TODO: D38-2.4c — implement MethodsExportDialog");
+export function MethodsExportDialog({
+  runId,
+  onClose,
+}: MethodsExportDialogProps): ReactElement {
+  const [markdown, setMarkdown] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [copyOk, setCopyOk] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setMarkdown(null);
+    api.lineage
+      .getRunMethods(runId)
+      .then((res) => {
+        if (cancelled) return;
+        setMarkdown(res.markdown);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const msg =
+          err instanceof Error ? err.message : "Failed to render methods";
+        setError(msg);
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [runId]);
+
+  // Esc closes the dialog.
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent): void {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  function handleCopy(): void {
+    if (!markdown) return;
+    if (!navigator.clipboard?.writeText) {
+      setError("Could not copy. Try Download.");
+      return;
+    }
+    navigator.clipboard
+      .writeText(markdown)
+      .then(() => {
+        setCopyOk(true);
+        window.setTimeout(() => setCopyOk(false), 2000);
+      })
+      .catch(() => {
+        setError("Could not copy. Try Download.");
+      });
+  }
+
+  function handleDownload(): void {
+    if (!markdown) return;
+    const blob = new Blob([markdown], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `methods-${runId.slice(0, 8)}.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="methods-export-title"
+        data-testid="methods-export-dialog"
+        className="w-[800px] max-w-[90vw] rounded-3xl bg-white p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex items-center gap-3">
+          <h2
+            id="methods-export-title"
+            className="text-lg font-semibold text-ink"
+          >
+            Methods · Run {runId.slice(0, 8)}
+          </h2>
+          <button
+            type="button"
+            className="ml-auto rounded-full p-2 hover:bg-stone-100"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </header>
+
+        <div
+          className="mt-3 max-h-[60vh] overflow-y-auto rounded-2xl border border-stone-200 bg-stone-50 p-4"
+          data-testid="methods-export-body"
+        >
+          {loading && <p className="text-sm text-stone-500">Generating methods…</p>}
+          {error && (
+            <p className="text-sm text-rose-700" aria-live="polite">
+              {error}
+            </p>
+          )}
+          {markdown !== null && (
+            <pre className="whitespace-pre-wrap font-mono text-xs text-ink">
+              {markdown}
+            </pre>
+          )}
+        </div>
+
+        <footer className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            className="rounded-full bg-ink px-4 py-2 text-sm text-white disabled:bg-stone-400"
+            disabled={!markdown}
+            data-testid="methods-export-copy"
+            onClick={handleCopy}
+          >
+            {copyOk ? "Copied ✓" : "Copy"}
+          </button>
+          <button
+            type="button"
+            className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm text-ink disabled:text-stone-400"
+            disabled={!markdown}
+            data-testid="methods-export-download"
+            onClick={handleDownload}
+          >
+            Download .md
+          </button>
+          <button
+            type="button"
+            className="ml-auto rounded-full px-4 py-2 text-sm text-stone-700"
+            onClick={onClose}
+          >
+            Close
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
 }

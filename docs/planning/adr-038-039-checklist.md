@@ -175,11 +175,11 @@
 
 ### Phase D38-2.4c — Frontend Lineage tab IMPL (Owner: ID38-4c, 1 agent) [ADR-038 §6 Phase 3 frontend impl]
 
-- [ ] Sub-issue opened; depends on D38-2.4a + D38-2.4b merged
-- [ ] All skeleton bodies filled
-- [ ] `frontend/src/lib/api.ts` — `getRuns`, `getRun`, `getRunMethods`, `rerunRun` functions wired
-- [ ] Vitest xfail/skip flipped to passing
-- [ ] **Mandatory live Chrome smoke** on Lineage tab — open project, run 2 workflows, verify Lineage tab populates, click a run, click a block, click Re-run, click Export methods, verify each affordance
+- [x] Sub-issue opened; depends on D38-2.4a + D38-2.4b merged → #939
+- [x] All skeleton bodies filled → feat/issue-939/d38-2-4c-lineage-impl
+- [x] `frontend/src/lib/api.ts` — `getRuns`, `getRun`, `getRunMethods`, `rerunRun` functions wired → feat/issue-939/d38-2-4c-lineage-impl
+- [x] Vitest xfail/skip flipped to passing → 32/32 lineage tests green (4 files), full suite 230 passed
+- [x] **Mandatory live Chrome smoke** on Lineage tab — open project, seed lineage.db with 3 runs (completed/failed/completed), verify Lineage tab shows "3 runs recorded" + three rows with correct status icons, click first row → RunDetail populates "Run cda6e7d1 / Workflow image_pipeline / Status completed" + 3 BlockExecutionCards, expand a card → resolved params JSON renders correctly, click Export methods → dialog renders full markdown (run id / environment / YAML / blocks sections), click Re-run → dialog renders green "No drift detected" banner + Re-run/Cancel buttons, click failed run → expand third block → error section renders "TypeError: division by zero". GIF: `C:/Users/jiazh/Downloads/d38-2-4c-lineage-smoke.gif`
 - [ ] CI green; PR merged into tracking branch
 
 ### Phase D38-2.5 — Polish + status promotion (Owner: ID38-5, 1 agent) [ADR-038 §6 Phase 4]

@@ -153,38 +153,168 @@
  *   7. Esc keypress closes the open dialog
  */
 
-import type { ReactElement } from "react";
+import { useEffect, useRef, type ReactElement } from "react";
 
-/**
- * D38-2.4b skeleton runtime stance — IMPORTANT
- * --------------------------------------------
- * Codex P1 (PR #937): leaf components in this skeleton all throw
- * `new Error("TODO: D38-2.4c — ...")` to make the IMPL surface explicit.
- * However, `BottomPanel.tsx` mounts THIS component when activeTab ===
- * "lineage", which means a click on the Lineage tab would crash the
- * panel before D38-2.4c lands. That is a functional regression from
- * the prior PlaceholderTab behaviour.
- *
- * Resolution: the ROOT component renders a non-throwing placeholder
- * ("Lineage tab — coming in D38-2.4c"), while the leaf components
- * (RunsList, RunDetail, BlockExecutionCard, MethodsExportDialog,
- * RerunDialog) keep their throw-stub bodies. The IMPL agent (D38-2.4c)
- * replaces this placeholder + the leaf throws in one PR.
- *
- * The full IMPL contract for this component lives above this docstring
- * (props, state, layout markup, copy strings, keyboard, a11y, tests).
- */
+import { useAppStore } from "../../store";
+import { MethodsExportDialog } from "./MethodsExportDialog";
+import { RerunDialog } from "./RerunDialog";
+import { RunDetail } from "./RunDetail";
+import { RunsList } from "./RunsList";
+
 export function LineageTab(): ReactElement {
+  const runs = useAppStore((s) => s.runs);
+  const runsLoading = useAppStore((s) => s.runsLoading);
+  const runsError = useAppStore((s) => s.runsError);
+  const selectedRunId = useAppStore((s) => s.selectedRunId);
+  const fetchRuns = useAppStore((s) => s.fetchRuns);
+  const clearLineage = useAppStore((s) => s.clearLineage);
+  const methodsDialogRunId = useAppStore((s) => s.methodsDialogRunId);
+  const rerunDialogRunId = useAppStore((s) => s.rerunDialogRunId);
+  const openMethodsDialog = useAppStore((s) => s.openMethodsDialog);
+  const openRerunDialog = useAppStore((s) => s.openRerunDialog);
+  const closeMethodsDialog = useAppStore((s) => s.closeMethodsDialog);
+  const closeRerunDialog = useAppStore((s) => s.closeRerunDialog);
+  const isRunning = useAppStore((s) => s.isRunning);
+  const currentProjectId = useAppStore((s) => s.currentProject?.id ?? null);
+
+  // First-mount fetch. Empty deps array per the contract.
+  useEffect(() => {
+    void fetchRuns();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Invalidate the cache on project switch. The slice contract says
+  // projectSlice.setCurrentProject should call clearLineage; doing it
+  // here instead avoids cross-cutting projectSlice (out of scope for
+  // D38-2.4c) while still honouring the contract.
+  const prevProjectId = useRef(currentProjectId);
+  useEffect(() => {
+    if (prevProjectId.current !== currentProjectId) {
+      clearLineage();
+      void fetchRuns();
+    }
+    prevProjectId.current = currentProjectId;
+  }, [currentProjectId, clearLineage, fetchRuns]);
+
+  // Refresh the list whenever a workflow execution completes.
+  // (No new event-bus type added; reuse the existing executionSlice
+  // isRunning flag which flips on workflow_completed.)
+  const prevIsRunning = useRef(isRunning);
+  useEffect(() => {
+    if (prevIsRunning.current && !isRunning) {
+      void fetchRuns();
+    }
+    prevIsRunning.current = isRunning;
+  }, [isRunning, fetchRuns]);
+
+  // Keyboard shortcuts: 'm' opens methods, 'r' opens rerun (when a run
+  // is selected and focus is not in a text field).
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent): void {
+      const target = document.activeElement;
+      if (
+        target instanceof HTMLElement &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (!selectedRunId) return;
+      if (e.key === "m") {
+        e.preventDefault();
+        openMethodsDialog(selectedRunId);
+      } else if (e.key === "r") {
+        e.preventDefault();
+        openRerunDialog(selectedRunId);
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [selectedRunId, openMethodsDialog, openRerunDialog]);
+
+  const showRefreshSpinner = runsLoading && runs.length > 0;
+
   return (
-    <div
-      className="flex h-full items-center justify-center"
-      data-testid="lineage-tab-placeholder"
+    <section
+      className="flex h-full flex-col"
+      data-testid="lineage-tab"
       role="region"
       aria-label="Run lineage"
     >
-      <p className="text-sm text-stone-500">
-        Lineage tab — coming in D38-2.4c (ADR-038 §3.8)
-      </p>
-    </div>
+      <header
+        className="border-b border-stone-200 px-4 py-3"
+        data-testid="lineage-tab-header"
+      >
+        <h2 className="text-sm font-semibold text-ink">Run history</h2>
+        <p className="text-xs text-stone-500">
+          {runs.length} {runs.length === 1 ? "run" : "runs"} recorded
+          {showRefreshSpinner && " · refreshing…"}
+        </p>
+      </header>
+
+      {runsError && (
+        <div
+          className="border-b border-rose-200 bg-rose-50 px-4 py-2"
+          data-testid="lineage-tab-error"
+        >
+          <p className="text-xs text-rose-700">
+            Could not load runs: {runsError}.{" "}
+            <button
+              type="button"
+              className="ml-1 underline"
+              data-testid="lineage-tab-error-retry"
+              onClick={() => {
+                void fetchRuns();
+              }}
+            >
+              Retry
+            </button>
+          </p>
+        </div>
+      )}
+
+      <div
+        className="flex min-h-0 flex-1"
+        data-testid="lineage-tab-body"
+      >
+        <div
+          className="w-[36%] min-w-[260px] border-r border-stone-200"
+          data-testid="lineage-tab-list-pane"
+        >
+          <RunsList />
+        </div>
+        <div
+          className="min-w-0 flex-1"
+          data-testid="lineage-tab-detail-pane"
+        >
+          {runs.length === 0 && !runsLoading && !selectedRunId ? (
+            <div
+              className="flex h-full items-center justify-center"
+              data-testid="lineage-tab-empty"
+            >
+              <p className="text-sm text-stone-500">
+                No runs yet. Run a workflow to populate this view.
+              </p>
+            </div>
+          ) : (
+            <RunDetail />
+          )}
+        </div>
+      </div>
+
+      {methodsDialogRunId !== null && (
+        <MethodsExportDialog
+          runId={methodsDialogRunId}
+          onClose={closeMethodsDialog}
+        />
+      )}
+      {rerunDialogRunId !== null && (
+        <RerunDialog
+          runId={rerunDialogRunId}
+          onClose={closeRerunDialog}
+        />
+      )}
+    </section>
   );
 }

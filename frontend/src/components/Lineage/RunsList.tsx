@@ -160,9 +160,211 @@
  *   7. running row updates duration once per second (use vi.useFakeTimers)
  */
 
-import type { ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
+
+import { useAppStore } from "../../store";
+import type {
+  LineageRunStatus,
+  LineageRunSummary,
+} from "../../types/lineage";
+
+const STATUS_LABEL: Record<LineageRunStatus, string> = {
+  completed: "completed",
+  failed: "failed",
+  cancelled: "cancelled",
+  running: "running",
+};
+
+const STATUS_GLYPH: Record<LineageRunStatus, string> = {
+  completed: "✓",
+  failed: "✗",
+  cancelled: "⊘",
+  running: "⟳",
+};
+
+const STATUS_COLOR: Record<LineageRunStatus, string> = {
+  completed: "text-emerald-600",
+  failed: "text-rose-600",
+  cancelled: "text-stone-500",
+  running: "text-amber-600",
+};
+
+function StatusIcon({ status }: { status: LineageRunStatus }): ReactElement {
+  return (
+    <>
+      <span aria-hidden="true" className={STATUS_COLOR[status]}>
+        {STATUS_GLYPH[status]}
+      </span>
+      <span className="sr-only">{STATUS_LABEL[status]}</span>
+    </>
+  );
+}
+
+function formatLocalDateTime(iso: string, now: Date): string {
+  if (!iso) return "—";
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return iso;
+  const sameDay =
+    parsed.getFullYear() === now.getFullYear() &&
+    parsed.getMonth() === now.getMonth() &&
+    parsed.getDate() === now.getDate();
+  if (sameDay) {
+    return parsed.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday =
+    parsed.getFullYear() === yesterday.getFullYear() &&
+    parsed.getMonth() === yesterday.getMonth() &&
+    parsed.getDate() === yesterday.getDate();
+  if (isYesterday) {
+    const time = parsed.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    return `yesterday ${time}`;
+  }
+  if (parsed.getFullYear() === now.getFullYear()) {
+    return parsed.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
+  const date = parsed.toISOString().slice(0, 10);
+  const time = parsed.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return `${date} ${time}`;
+}
+
+function formatDuration(
+  run: LineageRunSummary,
+  nowMs: number,
+): string {
+  let ms: number | null = run.duration_ms;
+  if (ms === null && run.status === "running" && run.started_at) {
+    const started = Date.parse(run.started_at);
+    if (!Number.isNaN(started)) {
+      ms = Math.max(0, nowMs - started);
+    }
+  }
+  if (ms === null) return "—";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  const totalSeconds = Math.floor(ms / 1000);
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}m ${s}s`;
+}
 
 export function RunsList(): ReactElement {
-  // TODO: D38-2.4c — implement per top-of-file contract.
-  throw new Error("TODO: D38-2.4c — implement RunsList");
+  const runs = useAppStore((s) => s.runs);
+  const runsLoading = useAppStore((s) => s.runsLoading);
+  const selectedRunId = useAppStore((s) => s.selectedRunId);
+  const selectRun = useAppStore((s) => s.selectRun);
+
+  // Live tick once per second while any row is running. Skip otherwise.
+  const hasRunning = runs.some((r) => r.status === "running");
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!hasRunning) return;
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [hasRunning]);
+  const now = new Date(nowMs);
+
+  if (runsLoading && runs.length === 0) {
+    return (
+      <p
+        className="px-4 py-3 text-xs text-stone-500"
+        data-testid="runs-list-loading"
+      >
+        Loading runs…
+      </p>
+    );
+  }
+
+  if (runs.length === 0) {
+    return (
+      <p
+        className="px-4 py-3 text-xs text-stone-500"
+        data-testid="runs-list-empty"
+      >
+        No runs yet. Run a workflow to populate this view.
+      </p>
+    );
+  }
+
+  return (
+    <ul
+      className="flex h-full flex-col overflow-y-auto"
+      role="listbox"
+      aria-label="Run history"
+      data-testid="runs-list"
+    >
+      {runs.map((run) => {
+        const selected = run.run_id === selectedRunId;
+        const rowClass = [
+          "cursor-pointer border-b border-stone-200 px-4 py-3",
+          selected ? "bg-stone-100" : "hover:bg-stone-50",
+        ].join(" ");
+        return (
+          <li
+            key={run.run_id}
+            role="option"
+            aria-selected={selected}
+            data-testid={`runs-list-row-${run.run_id}`}
+            className={rowClass}
+            onClick={() => selectRun(run.run_id)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                selectRun(run.run_id);
+              }
+            }}
+            tabIndex={0}
+          >
+            <div className="flex items-center gap-2">
+              <StatusIcon status={run.status} />
+              <span className="text-sm font-medium text-ink">
+                {formatLocalDateTime(run.started_at, now)}
+              </span>
+              <span className="text-xs text-stone-500">{run.status}</span>
+            </div>
+            <p className="mt-1 text-xs text-stone-600">
+              {run.workflow_id} · {formatDuration(run, nowMs)} ·{" "}
+              {run.block_count} block(s)
+            </p>
+            {run.workflow_git_commit && (
+              <p className="text-[11px] text-stone-500">
+                git: {run.workflow_git_commit.slice(0, 7)}
+                {run.workflow_dirty && " (dirty)"}
+              </p>
+            )}
+            {run.parent_run_id && (
+              <p
+                className="text-[11px] text-stone-500"
+                data-testid="rerun-marker"
+              >
+                ↳ Re-run of {run.parent_run_id.slice(0, 8)}
+                {run.execute_from_block_id &&
+                  ` (from ${run.execute_from_block_id})`}
+              </p>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
 }

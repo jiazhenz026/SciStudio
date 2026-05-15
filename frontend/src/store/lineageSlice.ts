@@ -201,12 +201,8 @@
 
 import type { StateCreator } from "zustand";
 
-import { api } from "../lib/api";
-import type {
-  LineageBlockExecution,
-  LineageRunDetail,
-  LineageRunSummary,
-} from "../types/lineage";
+import { ApiError, api } from "../lib/api";
+import type { LineageRunDetail, LineageRunSummary } from "../types/lineage";
 import type { AppStore } from "./types";
 
 // Re-export wire-shape types (single source: `types/lineage.ts`) so
@@ -248,67 +244,110 @@ export interface LineageSlice {
   clearLineage: () => void;
 }
 
-export const createLineageSlice: StateCreator<AppStore, [], [], LineageSlice> = (
-  _set,
-  _get,
-) => ({
-  runs: [],
+const INITIAL_LINEAGE_STATE = {
+  runs: [] as LineageRunSummary[],
   runsLoading: false,
-  runsError: null,
-  selectedRunId: null,
-  runDetails: {},
-  runDetailLoading: {},
-  runDetailError: {},
-  expandedBlockExecutionIds: [],
-  methodsDialogRunId: null,
-  rerunDialogRunId: null,
+  runsError: null as string | null,
+  selectedRunId: null as string | null,
+  runDetails: {} as Record<string, LineageRunDetail>,
+  runDetailLoading: {} as Record<string, boolean>,
+  runDetailError: {} as Record<string, string | null>,
+  expandedBlockExecutionIds: [] as string[],
+  methodsDialogRunId: null as string | null,
+  rerunDialogRunId: null as string | null,
+};
 
-  fetchRuns: async (_opts) => {
-    // TODO: D38-2.4c — call api.lineage.getRuns(opts), set runsLoading/error
-    // per the contract in this file's top-of-file comment.
-    void api;
-    throw new Error("TODO: D38-2.4c — implement fetchRuns");
+export const createLineageSlice: StateCreator<AppStore, [], [], LineageSlice> = (
+  set,
+  get,
+) => ({
+  ...INITIAL_LINEAGE_STATE,
+
+  fetchRuns: async (opts) => {
+    set({ runsLoading: true, runsError: null });
+    try {
+      const { runs } = await api.lineage.getRuns(opts);
+      set({ runs, runsLoading: false });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to load runs";
+      // Keep previously-loaded runs visible; only flip loading + error.
+      set({ runsLoading: false, runsError: message });
+    }
   },
 
-  fetchRunDetail: async (_runId) => {
-    // TODO: D38-2.4c — call api.lineage.getRun(runId); cache by run_id;
-    // map 404 to "Run not found".
-    throw new Error("TODO: D38-2.4c — implement fetchRunDetail");
+  fetchRunDetail: async (runId) => {
+    set((s) => ({
+      runDetailLoading: { ...s.runDetailLoading, [runId]: true },
+      runDetailError: { ...s.runDetailError, [runId]: null },
+    }));
+    try {
+      const detail = await api.lineage.getRun(runId);
+      set((s) => ({
+        runDetails: { ...s.runDetails, [runId]: detail },
+        runDetailLoading: { ...s.runDetailLoading, [runId]: false },
+        runDetailError: { ...s.runDetailError, [runId]: null },
+      }));
+    } catch (err) {
+      const isNotFound =
+        err instanceof ApiError && err.status === 404
+          ? "Run not found"
+          : null;
+      const message =
+        isNotFound ??
+        (err instanceof Error ? err.message : "Failed to load run detail");
+      set((s) => ({
+        runDetailLoading: { ...s.runDetailLoading, [runId]: false },
+        runDetailError: { ...s.runDetailError, [runId]: message },
+      }));
+    }
   },
 
-  selectRun: (_runId) => {
-    // TODO: D38-2.4c — set selectedRunId and trigger fetchRunDetail on
-    // cache miss (see contract above).
-    throw new Error("TODO: D38-2.4c — implement selectRun");
+  selectRun: (runId) => {
+    set({ selectedRunId: runId });
+    if (runId === null) return;
+    const state = get();
+    if (state.runDetails[runId] === undefined) {
+      void state.fetchRunDetail(runId);
+    }
   },
 
-  toggleBlockExecutionExpanded: (_blockExecutionId) => {
-    // TODO: D38-2.4c — flip presence in expandedBlockExecutionIds.
-    throw new Error("TODO: D38-2.4c — implement toggleBlockExecutionExpanded");
+  toggleBlockExecutionExpanded: (blockExecutionId) => {
+    set((s) => {
+      const present = s.expandedBlockExecutionIds.includes(blockExecutionId);
+      return {
+        expandedBlockExecutionIds: present
+          ? s.expandedBlockExecutionIds.filter((id) => id !== blockExecutionId)
+          : [...s.expandedBlockExecutionIds, blockExecutionId],
+      };
+    });
   },
 
-  openMethodsDialog: (_runId) => {
-    // TODO: D38-2.4c — set methodsDialogRunId; ensure runDetails cached.
-    throw new Error("TODO: D38-2.4c — implement openMethodsDialog");
+  openMethodsDialog: (runId) => {
+    set({ methodsDialogRunId: runId });
+    const state = get();
+    if (state.runDetails[runId] === undefined) {
+      void state.fetchRunDetail(runId);
+    }
   },
 
   closeMethodsDialog: () => {
-    // TODO: D38-2.4c — set methodsDialogRunId=null.
-    throw new Error("TODO: D38-2.4c — implement closeMethodsDialog");
+    set({ methodsDialogRunId: null });
   },
 
-  openRerunDialog: (_runId) => {
-    // TODO: D38-2.4c — set rerunDialogRunId; ensure runDetails cached.
-    throw new Error("TODO: D38-2.4c — implement openRerunDialog");
+  openRerunDialog: (runId) => {
+    set({ rerunDialogRunId: runId });
+    const state = get();
+    if (state.runDetails[runId] === undefined) {
+      void state.fetchRunDetail(runId);
+    }
   },
 
   closeRerunDialog: () => {
-    // TODO: D38-2.4c — set rerunDialogRunId=null.
-    throw new Error("TODO: D38-2.4c — implement closeRerunDialog");
+    set({ rerunDialogRunId: null });
   },
 
   clearLineage: () => {
-    // TODO: D38-2.4c — reset every field to initial value.
-    throw new Error("TODO: D38-2.4c — implement clearLineage");
+    set({ ...INITIAL_LINEAGE_STATE });
   },
 });
