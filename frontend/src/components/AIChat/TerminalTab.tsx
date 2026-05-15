@@ -175,6 +175,7 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
       // the message so the closed-screen can show it. We piggy-back on
       // exitCode -1 == reload / error; a richer model can ship later.
       // Surfaced via the console for now so smoke testers can see it.
+      // TODO: build a structured error model (separate exit-vs-error states, surface in tab UI instead of console).
       // eslint-disable-next-line no-console
       console.error(`[TerminalTab ${tabId}] WS error:`, message);
       markTerminalTabExited(tabId, -1);

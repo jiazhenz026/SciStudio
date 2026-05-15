@@ -7,7 +7,6 @@ Two related blocks:
   ``SelectChannel`` / ``CropTimeRange`` family; pick a single index
   along an arbitrary axis.
 
-Skeleton placeholder — T-IMG-030 implementation agent fills the bodies.
 See ``docs/specs/phase11-imaging-block-spec.md`` §9 T-IMG-030.
 """
 

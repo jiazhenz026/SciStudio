@@ -372,6 +372,10 @@ def _find_skill_source() -> Path:
     the source (the ``skills/`` directory at repo root is included via
     a future ``MANIFEST.in`` / ``pyproject`` data entry — for now
     editable-install only).
+
+    TODO: #824 — declare ``skills/`` as wheel package_data in
+    ``pyproject.toml`` so wheel installs can locate SKILL.md without
+    relying on a source checkout.
     """
     here = Path(__file__).resolve()
     for parent in here.parents:

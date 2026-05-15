@@ -98,6 +98,7 @@ class Denoise(ProcessBlock):
         if method not in _ALL_METHODS:
             raise ValueError(f"Denoise: unknown method {method!r}; expected one of {sorted(_ALL_METHODS)}")
         if method in _DEFERRED_METHODS:
+            # TODO: #356 — implement bilateral/nlmeans/wavelet denoising methods (deferred from T-IMG-004 pilot).
             raise NotImplementedError(
                 f"Denoise: method {method!r} is deferred from the T-IMG-004 pilot (see issue #356)."
             )

@@ -101,6 +101,7 @@ class FlatFieldCorrect(ProcessBlock):
                     "FlatFieldCorrect: method='BaSiC' requires the 'basicpy' "
                     "package. Install it with: pip install basicpy"
                 ) from exc
+            # TODO: T-IMG-007 — implement the BaSiC flat-field correction method (currently only the literal 'basic' formula is wired).
             raise NotImplementedError(
                 "FlatFieldCorrect: method='BaSiC' is deferred from the T-IMG-007 "
                 "pilot; use method='basic' for the literal formula."

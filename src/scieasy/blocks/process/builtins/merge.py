@@ -67,6 +67,7 @@ class MergeBlock(ProcessBlock):
         if how == "concat":
             merged = pa.concat_tables([left_data, right_data], promote_options="default")
         else:
+            # TODO: implement non-concat join strategies (e.g. inner/left/outer on a join key column).
             raise NotImplementedError(f"Join strategy '{how}' is not yet implemented; use 'concat'.")
 
         result = _persist_arrow_result(merged)

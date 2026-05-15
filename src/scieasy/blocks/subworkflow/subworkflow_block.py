@@ -34,6 +34,10 @@ class SubWorkflowBlock(Block):
         worker.py).  The ``_run_with_scheduler`` method currently delegates to
         ``_sequential_execute`` as a placeholder until the worker integration
         is complete.
+
+    TODO: #890 — wire ``_run_with_scheduler`` into a real async DAG run
+    via the engine's scheduler factory so SubWorkflowBlock stops falling
+    back to in-process sequential execution.
     """
 
     workflow_ref: ClassVar[str] = ""
