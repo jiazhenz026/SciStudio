@@ -108,6 +108,17 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
   const isInConflict =
     conflictedFiles !== null && conflictedFiles.includes(tab.filePath);
 
+  // Codex P1 (PR #945): the conflict-decoration effect below depends on
+  // `editorRef.current` / `monacoRef.current`, but refs don't trigger
+  // re-renders. If a file is opened with `isInConflict === true` BEFORE
+  // Monaco's lazy chunk finishes loading, the effect's first run bails
+  // out (refs are null) and never re-runs because its dep array only
+  // tracks `isInConflict` + `tab.filePath`. We use this `editorReady`
+  // state flag — flipped to `true` inside `handleEditorMount` — as the
+  // re-render trigger so the effect runs a second time once the editor
+  // is actually mounted.
+  const [editorReady, setEditorReady] = useState(false);
+
   // Lazy-loaded Monaco React module + the editor + monaco instances.
   // We hold them in refs so callback closures can reach the latest value
   // without re-rendering.
@@ -198,6 +209,10 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
   // throw; the try/catch then becomes a real error path.
   useEffect(() => {
     if (!isInConflict) return;
+    // Codex P1 (PR #945): re-run after Monaco mounts. `editorReady` is
+    // set inside `handleEditorMount`, which guarantees both refs are
+    // populated by the time this branch is reached.
+    if (!editorReady) return;
     const editor = editorRef.current;
     const monaco = monacoRef.current;
     if (!editor || !monaco) return;
@@ -228,7 +243,7 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
         }
       }
     };
-  }, [isInConflict, tab.filePath]);
+  }, [isInConflict, tab.filePath, editorReady]);
 
   // Schedule a debounced lint POST. Called from the editor's onChange.
   function scheduleLint(content: string, language: string) {
@@ -291,6 +306,12 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
   function handleEditorMount(editor: any, monaco: any) {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    // Codex P1 (PR #945): trigger the conflict-decoration effect to
+    // re-run now that the refs are populated. Without this flip, the
+    // effect's earlier render saw null refs and bailed; the effect
+    // would never re-run because `useRef` updates don't trigger
+    // re-renders.
+    setEditorReady(true);
     try {
       // Ctrl/Cmd + S → onSave
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
