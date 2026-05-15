@@ -139,22 +139,25 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
       // plugin, or an agent running git inside the PTY). The Git tab and
       // canvas must invalidate cached log / branch / status views.
       //
-      // Stub for now: gitSlice does not exist yet — D39-2.3a will introduce
-      // ``frontend/src/store/gitSlice.ts`` with the proper invalidation
-      // surface. When that lands, replace the console.debug below with:
-      //   useAppStore.getState().gitSlice.invalidate({
-      //     commit_sha, ref, kind
-      //   });
-      //
-      // TODO(D39-2.3a): wire to gitSlice.invalidate() once the slice exists.
+      // D39-2.3a (skeleton) wires this to `gitSlice.invalidateHistory()`,
+      // which clears `logCache` + `status` + `branches`. D39-2.3b will
+      // refine to be selective (e.g. only invalidate the affected branch's
+      // log when `ref` is a branch tip) — the full invalidation here is
+      // a correct conservative default in the skeleton phase.
       if (payload.type === "git.head_changed") {
         const data = (payload.data ?? {}) as Record<string, unknown>;
         const commitSha = (data.commit_sha as string | null | undefined) ?? null;
         const ref = (data.ref as string | undefined) ?? "HEAD";
         const kind = (data.kind as string | undefined) ?? "head";
+        try {
+          useAppStore.getState().invalidateHistory();
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn("[git.head_changed] invalidateHistory failed", err);
+        }
         // eslint-disable-next-line no-console
         console.debug(
-          "[git.head_changed] commit=%s ref=%s kind=%s (gitSlice stub — wired in D39-2.3a)",
+          "[git.head_changed] commit=%s ref=%s kind=%s (gitSlice invalidated)",
           commitSha,
           ref,
           kind,

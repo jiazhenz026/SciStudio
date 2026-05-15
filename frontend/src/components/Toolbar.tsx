@@ -457,6 +457,28 @@ export function Toolbar(props: ToolbarProps) {
           </>
         )}
 
+        {/*
+         * ADR-039 §3.5 — Git toolbar slot.
+         *
+         * D39-2.3a (skeleton) leaves PLACEHOLDER slots here. The actual
+         * mounts of <BranchPicker/>, <GitStatusBadge/>, and the "Commit"
+         * button happen in D39-2.3b once the components have non-throwing
+         * implementations. Wiring them now would crash the toolbar on
+         * every render.
+         *
+         * Slot layout (post-D39-2.3b):
+         *   <Separator orientation="vertical" className="mx-1 h-8" />
+         *   <BranchPicker onMergeRequested={...} onCreateBranchRequested={...} />
+         *   <GitStatusBadge onClick={openCommitDialog} />
+         *   <ToolbarButton icon={GitCommit} label="Commit" shortcut="Ctrl+K, C"
+         *                  onClick={openCommitDialog} disabled={!currentProject}/>
+         */}
+        <span
+          data-testid="git-toolbar-slot"
+          data-skeleton-phase="D39-2.3a"
+          className="hidden"
+        />
+
         {/* Spacer */}
         <div className="flex-1" />
 

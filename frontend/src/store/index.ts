@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { createExecutionSlice } from "./executionSlice";
+import { createGitSlice } from "./gitSlice";
 import { createPaletteSlice } from "./paletteSlice";
 import { createPreviewSlice } from "./previewSlice";
 import { createProjectSlice } from "./projectSlice";
@@ -49,6 +50,9 @@ export const useAppStore = create<AppStore>()(
       ...createPaletteSlice(...args),
       ...createTabSlice(...args),
       ...createTerminalTabsSlice(...args),
+      // ADR-039 §6 Phase 2 — git versioning slice (skeleton in D39-2.3a;
+      // mutation actions throw TODO until D39-2.3b implements them).
+      ...createGitSlice(...args),
     }),
     {
       name: "scieasy-studio-ui",
