@@ -212,13 +212,13 @@
 
 ### Phase D39-2.1 — Refactor-scope audit+fix (Owner: AID39-1, 1 agent)
 
-- [ ] Agent audits + fixes in single PR:
-  - [ ] Remove `ApiRuntime.bump_revision` / `current_revision` [ADR-039 §5.2]
-  - [ ] Remove `If-Match` revision handling in `api/routes/workflows.py` [ADR-039 §5.2]
-  - [ ] Audit frontend for `If-Match` header usage (ADR may have missed callsites in `api.ts`); remove if found
-  - [ ] Extend `api/routes/workflow_watcher.py` to detect `.git/HEAD` changes → emit `git.head_changed` event [ADR-039 §3.8, §5.2]
-  - [ ] Subscribe to `git.head_changed` in `api/ws.py` and forward to clients
-- [ ] CI green; PR merged into `track/adr-039/git-versioning`
+- [x] Agent audits + fixes in single PR:
+  - [x] Remove `ApiRuntime.bump_revision` / `current_revision` [ADR-039 §5.2] → commit e981303
+  - [x] Remove `If-Match` revision handling in `api/routes/workflows.py` [ADR-039 §5.2] → commit e981303
+  - [x] Audit frontend for `If-Match` header usage (ADR may have missed callsites in `api.ts`); remove if found → audit comment https://github.com/zjzcpj/SciEasy/issues/915#issuecomment-4459281951 (frontend already clean; one stale test fixture revision dropped)
+  - [x] Extend `api/routes/workflow_watcher.py` to detect `.git/HEAD` changes → emit `git.head_changed` event [ADR-039 §3.8, §5.2] → commit e981303
+  - [x] Subscribe to `git.head_changed` in `api/ws.py` and forward to clients → commit e981303
+- [ ] CI green; PR merged into `track/adr-039/git-versioning` → PR pending
 
 ### Phase D39-2.2a — Backend engine + REST + auto-init SKELETON (Owner: SD39-2a, 1 agent, detailed comments) [ADR-039 §6 Phase 1 skeleton]
 
