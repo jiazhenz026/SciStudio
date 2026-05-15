@@ -158,6 +158,14 @@ name = "Core must not depend on blocks, engine, api, ai, or workflow"
 type = "forbidden"
 source_modules = ["scieasy.core"]
 forbidden_modules = ["scieasy.blocks", "scieasy.engine", "scieasy.api", "scieasy.ai", "scieasy.workflow"]
+# ADR-038 §3.2: LineageRecorder lives in core/lineage/ but observes the
+# engine EventBus. The actual import is TYPE_CHECKING-only — event-name
+# strings are hardcoded in core to avoid runtime coupling, and runtime
+# objects (EventBus, EngineEvent) arrive via constructor injection. The
+# type-shape reference is unavoidable for the type checker.
+ignore_imports = [
+    "scieasy.core.lineage.recorder -> scieasy.engine.events",
+]
 
 [[tool.importlinter.contracts]]
 name = "Blocks must not depend on engine, api, or ai services"
