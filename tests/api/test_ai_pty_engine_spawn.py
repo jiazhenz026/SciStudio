@@ -54,8 +54,14 @@ def _echo_argv() -> list[str]:
 def _fake_spawn(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Replace _spawn with a tiny echo subprocess + reset state."""
 
-    def fake(*, provider: str, project_dir: Path, dangerous: bool) -> PtyProcess:
-        return PtyProcess(_echo_argv(), cwd=project_dir, cols=80, rows=24)
+    def fake(
+        *,
+        provider: str,
+        project_dir: Path,
+        dangerous: bool,
+        extra_env: dict[str, str] | None = None,
+    ) -> PtyProcess:
+        return PtyProcess(_echo_argv(), cwd=project_dir, cols=80, rows=24, extra_env=extra_env)
 
     monkeypatch.setattr(ai_pty, "_spawn", fake)
     _active_ptys.clear()
@@ -125,10 +131,16 @@ def test_open_engine_tab_rejects_unknown_permission_mode(tmp_path: Path) -> None
 def test_open_engine_tab_picks_codex_provider_from_argv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, Any] = {}
 
-    def fake(*, provider: str, project_dir: Path, dangerous: bool) -> PtyProcess:
+    def fake(
+        *,
+        provider: str,
+        project_dir: Path,
+        dangerous: bool,
+        extra_env: dict[str, str] | None = None,
+    ) -> PtyProcess:
         captured["provider"] = provider
         captured["dangerous"] = dangerous
-        return PtyProcess(_echo_argv(), cwd=project_dir, cols=80, rows=24)
+        return PtyProcess(_echo_argv(), cwd=project_dir, cols=80, rows=24, extra_env=extra_env)
 
     monkeypatch.setattr(ai_pty, "_spawn", fake)
     open_engine_initiated_tab(
@@ -151,7 +163,13 @@ def test_open_engine_tab_respects_pty_cap(tmp_path: Path, monkeypatch: pytest.Mo
 
 
 def test_open_engine_tab_spawn_failure_propagates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    def boom(*, provider: str, project_dir: Path, dangerous: bool) -> PtyProcess:
+    def boom(
+        *,
+        provider: str,
+        project_dir: Path,
+        dangerous: bool,
+        extra_env: dict[str, str] | None = None,
+    ) -> PtyProcess:
         raise FileNotFoundError("claude binary missing")
 
     monkeypatch.setattr(ai_pty, "_spawn", boom)

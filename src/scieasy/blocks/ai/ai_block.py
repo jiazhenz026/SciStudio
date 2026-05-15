@@ -141,11 +141,11 @@ class AIBlock(Block):
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {
-            # Hotfix 2026-05-14: BlockNode shows the top-3 by ui_priority on
-            # canvas. Promote prompt + provider so users can author the agent
-            # task without opening the side panel; ports stay in the side
-            # panel (ui_priority unset → 999 → not in top-3) where the port
-            # editor has room to breathe.
+            # Hotfix 2026-05-14 (#880): BlockNode shows the top-3 by ui_priority
+            # on canvas. Promote prompt + provider so users can author the agent
+            # task without opening the side panel; ports stay in the side panel
+            # (ui_priority unset → 999 → not in top-3) where the port editor has
+            # room to breathe.
             "user_prompt": {
                 "type": "string",
                 "default": "",

@@ -48,8 +48,14 @@ def _fake_spawn(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Non
     16-cap test is order-independent.
     """
 
-    def fake(*, provider: str, project_dir: Path, dangerous: bool) -> PtyProcess:
-        return PtyProcess(_echo_argv(), cwd=project_dir, cols=80, rows=24)
+    def fake(
+        *,
+        provider: str,
+        project_dir: Path,
+        dangerous: bool,
+        extra_env: dict[str, str] | None = None,
+    ) -> PtyProcess:
+        return PtyProcess(_echo_argv(), cwd=project_dir, cols=80, rows=24, extra_env=extra_env)
 
     monkeypatch.setattr(ai_pty, "_spawn", fake)
     _active_ptys.clear()
