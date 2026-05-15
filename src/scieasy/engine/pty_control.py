@@ -14,6 +14,21 @@ ADR-035 §3.10 introduces two control events that flow from the AI Block
 These are the **only** new wire-surface events introduced by ADR-035
 (per §3.10 "These two control events are the only new wire surface").
 
+ADR-039 §3.4a — agent commit convention
+---------------------------------------
+``pty_control`` does **not** itself invoke ``GitEngine.commit()``. The
+ADR-034 / ADR-035 PTY agent runs ``git`` inside the PTY tab (the
+agent's own shell session); for those CLI-level commits the convention
+``agent: <summary> (session=<block_execution_id>)`` is documented in
+``docs/cli-integration.md`` and the agent's system prompt. When the
+agent uses the ``mcp__scieasy__git_commit`` MCP tool instead, the MCP
+server-side wrapper passes ``prefix="agent"`` to
+:meth:`scieasy.core.versioning.git_engine.GitEngine.commit`.
+
+If a future programmatic commit path is added to this module — for
+example, an engine-driven auto-commit on PTY tab close — it MUST pass
+``prefix="agent"`` to keep ADR-039 §3.4 History filtering correct.
+
 Transport
 ---------
 The current worker→engine IPC channel is one-shot (stdin payload in,
