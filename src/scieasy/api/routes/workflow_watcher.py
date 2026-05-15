@@ -376,6 +376,12 @@ class _GitHeadHandler(FileSystemEventHandler):
         except ValueError:
             return None
         parts = rel.parts
+        # Codex P2-A: filter out ref lockfiles (e.g. ``refs/heads/main.lock``).
+        # Git creates these transiently during every ref update; emitting
+        # them produces duplicate events and bogus ``ref`` values that
+        # downstream consumers may interpret as real branch names.
+        if parts and parts[-1].endswith(".lock"):
+            return None
         if len(parts) == 1 and parts[0] == "HEAD":
             return ("HEAD", "head")
         if len(parts) >= 3 and parts[0] == "refs" and parts[1] == "heads":
@@ -509,11 +515,17 @@ class WorkflowWatcher:
         """
         workflows_dir = (project_dir / "workflows").resolve()
         git_dir = (project_dir / ".git").resolve()
+        # Codex P2-B: scheduling below uses ``git_dir.is_dir()`` (worktrees
+        # carry ``.git`` as a gitlink *file*, not a directory). The
+        # idempotency guard must mirror that or it never matches when
+        # ``.git`` exists-but-isn't-a-dir, causing repeated teardown +
+        # rebuild and the git watcher never attaches.
+        expected_git_dir = git_dir if git_dir.is_dir() else None
         with self._lock:
             if (
                 self._observer is not None
                 and self._watched_dir == workflows_dir
-                and self._watched_git_dir == (git_dir if git_dir.exists() else None)
+                and self._watched_git_dir == expected_git_dir
             ):
                 logger.debug("workflow_watcher: already watching %s", workflows_dir)
                 return
