@@ -61,16 +61,26 @@ def _rmtree_force(target: Path) -> None:
     if not target_p.exists():
         return
 
-    # 1. Walk + chmod everything writable.
+    # 1. Walk + chmod everything writable. Directories need execute (x)
+    # for traversal on POSIX; files just need write to be unlinkable.
+    dir_perms = stat.S_IRWXU  # 0700 — read/write/execute for owner
+    file_perms = stat.S_IWRITE | stat.S_IREAD  # 0600
     for root, dirs, files in os.walk(target_p):
-        for name in dirs + files:
-            full = Path(root) / name
+        with contextlib.suppress(OSError):
+            os.chmod(root, dir_perms)
+        for name in dirs:
             with contextlib.suppress(OSError):
-                os.chmod(full, stat.S_IWRITE | stat.S_IREAD)
+                os.chmod(Path(root) / name, dir_perms)
+        for name in files:
+            with contextlib.suppress(OSError):
+                os.chmod(Path(root) / name, file_perms)
+    with contextlib.suppress(OSError):
+        os.chmod(target_p, dir_perms)
 
     def _on_rm_error(func, path, _exc_info):  # type: ignore[no-untyped-def]
         try:
-            os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
+            p = Path(path)
+            os.chmod(p, dir_perms if p.is_dir() else file_perms)
             func(path)
         except Exception:
             logger.debug("rmtree retry failed for %s", path, exc_info=True)

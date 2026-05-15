@@ -131,15 +131,17 @@ def test_list_projects_prunes_deleted_directories(client: TestClient, project_pa
     # Delete the project directory outside the API (simulate external deletion).
     # ADR-039: auto-init creates ``.git/`` with read-only object files on
     # Windows; the runtime's force-rmtree helper handles chmod + retries.
-    # Some sqlite WAL files may linger if the FastAPI worker thread holds
-    # the connection, but the runtime's prune logic checks both
-    # ``is_dir()`` AND ``project.yaml.is_file()``, so a partial cleanup
-    # is still detected as stale.
+    # The runtime's prune logic now keys on either ``is_dir()`` OR
+    # ``project.yaml.is_file()`` returning False, so partial cleanup
+    # (e.g. sqlite WAL residue) still triggers prune.
     from scieasy.api.runtime import _rmtree_force
 
     _rmtree_force(project_path)
-    # Ensure project.yaml is gone so prune fires regardless of WAL residue.
-    (project_path / "project.yaml").unlink(missing_ok=True)
+    # Best-effort: force-unlink project.yaml if it lingers.
+    try:
+        (project_path / "project.yaml").unlink(missing_ok=True)
+    except (PermissionError, OSError):
+        pass
 
     # Next listing should prune the stale entry
     listed2 = client.get("/api/projects/")
