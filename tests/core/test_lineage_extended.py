@@ -1,6 +1,9 @@
-"""Extended tests for LineageStore and ProvenanceGraph edge cases.
+"""Smoke tests for the post-ADR-038 lineage package import surface.
 
-Issue #55: Updated to use per-port dict format for input_hashes/output_hashes.
+Pre-ADR-038 this file exercised the hash-keyed ``LineageRecord`` plus the
+in-memory ``ProvenanceGraph`` helper. ADR-038 §3.4 deletes content hashing
+and §5.1 deletes ``graph.py``; the assertions below survive only as a
+guard against the package import surface regressing.
 """
 
 from __future__ import annotations
@@ -9,95 +12,68 @@ import sqlite3
 
 import pytest
 
-from scieasy.core.lineage.graph import ProvenanceGraph
-from scieasy.core.lineage.record import LineageRecord
-from scieasy.core.lineage.store import LineageStore
+from scieasy.core.lineage import (
+    BlockExecutionRecord,
+    BlockIORow,
+    DataObjectRow,
+    EnvironmentSnapshot,
+    LineageRecorder,
+    LineageStore,
+    RunContext,
+    RunRecord,
+    get_run_context,
+    reset_run_context,
+    set_run_context,
+)
 
 
-class TestLineageStoreClose:
-    """LineageStore.close — resource cleanup."""
+class TestPublicImportSurface:
+    def test_all_new_names_resolve(self) -> None:
+        """Every name we promised at the package boundary is importable."""
+        assert RunRecord is not None
+        assert BlockExecutionRecord is not None
+        assert DataObjectRow is not None
+        assert BlockIORow is not None
+        assert LineageStore is not None
+        assert LineageRecorder is not None
+        assert EnvironmentSnapshot is not None
+        assert RunContext is not None
 
-    def test_close_then_query_raises(self) -> None:
+    def test_provenance_graph_removed(self) -> None:
+        """ADR-038 §3.4 + §5.1: ProvenanceGraph is gone."""
+        with pytest.raises(ImportError):
+            from scieasy.core.lineage import graph  # noqa: F401
+
+
+class TestLineageStoreLifecycle:
+    def test_close_is_idempotent(self) -> None:
+        store = LineageStore(":memory:")
+        store.close()
+        # Calling close() again on a closed connection must not raise.
+        store.close()
+
+    def test_count_rejects_unknown_table(self) -> None:
+        store = LineageStore(":memory:")
+        with pytest.raises(ValueError):
+            store.count("nope")
+        store.close()
+
+    def test_close_then_count_raises(self) -> None:
         store = LineageStore(":memory:")
         store.close()
         with pytest.raises(sqlite3.ProgrammingError):
-            store.query()
-
-    def test_file_based_store(self, tmp_path: pytest.TempPathFactory) -> None:
-        db_path = tmp_path / "lineage.db"  # type: ignore[operator]
-        store = LineageStore(db_path)
-        record = LineageRecord(
-            block_id="b1",
-            block_version="1.0",
-            block_config={},
-            input_hashes={"p": ["h1"]},
-            output_hashes={"p": ["h2"]},
-            timestamp="2026-01-01T00:00:00",
-            duration_ms=100,
-        )
-        store.write(record)
-        store.close()
-
-        # Re-open and verify data persists
-        store2 = LineageStore(db_path)
-        records = store2.query()
-        assert len(records) == 1
-        assert records[0].block_id == "b1"
-        store2.close()
-
-    # ADR-020: test_write_with_batch_info removed — batch_info field deleted.
-    # ADR-018: TODO: Add test for termination, partial_output_refs, termination_detail.
-    def test_write_with_termination_fields(self) -> None:
-        store = LineageStore(":memory:")
-        record = LineageRecord(
-            block_id="b1",
-            block_version="1.0",
-            block_config={"param": "value"},
-            input_hashes={"data": ["in1"]},
-            output_hashes={"data": ["out1"]},
-            timestamp="2026-01-01T00:00:00",
-            duration_ms=50,
-            termination="cancelled",
-            partial_output_refs=["partial_out1"],
-            termination_detail="User cancelled via UI",
-        )
-        store.write(record)
-        records = store.query()
-        assert len(records) == 1
-        assert records[0].termination == "cancelled"
-        assert records[0].partial_output_refs == ["partial_out1"]
-        assert records[0].termination_detail == "User cancelled via UI"
-        store.close()
+            store.count("runs")
 
 
-class TestProvenanceGraphEdgeCases:
-    """ProvenanceGraph — edge cases with empty or missing data."""
-
-    def test_empty_graph_ancestors(self) -> None:
-        graph = ProvenanceGraph()
-        graph.build([])
-        assert graph.ancestors("nonexistent") == []
-
-    def test_empty_graph_descendants(self) -> None:
-        graph = ProvenanceGraph()
-        graph.build([])
-        assert graph.descendants("nonexistent") == []
-
-    def test_empty_graph_audit_trail(self) -> None:
-        graph = ProvenanceGraph()
-        graph.build([])
-        assert graph.audit_trail("nonexistent") == []
-
-    def test_ancestors_nonexistent_hash(self) -> None:
-        record = LineageRecord(
-            block_id="b1",
-            block_version="1.0",
-            block_config={},
-            input_hashes={"p": ["in1"]},
-            output_hashes={"p": ["out1"]},
-            timestamp="2026-01-01T00:00:00",
-            duration_ms=10,
-        )
-        graph = ProvenanceGraph()
-        graph.build([record])
-        assert graph.ancestors("totally_missing") == []
+class TestRunContextHelpers:
+    def test_set_get_reset_roundtrip(self) -> None:
+        assert get_run_context() is None
+        token = set_run_context(RunContext(run_id="r1", block_execution_id="be1"))
+        try:
+            ctx = get_run_context()
+            assert ctx is not None
+            assert ctx.run_id == "r1"
+            assert ctx.block_execution_id == "be1"
+        finally:
+            reset_run_context(token)
+        assert get_run_context() is None

@@ -2,7 +2,17 @@ import type { Node } from "@xyflow/react";
 
 import type { BlockPortResponse, BlockSchemaResponse, BlockSummary } from "./api";
 
-export type BottomTab = "ai" | "config" | "logs" | "lineage" | "jobs";
+/**
+ * ADR-038 §3.8 + ADR-039 §3.5 — the Lineage tab (ADR-038) and Git tab
+ * (ADR-039, #972) are both first-class entries.
+ *
+ * The "jobs" placeholder was removed by ADR-038 §3.8 (run history now
+ * lives in `<project>/.scieasy/lineage.db` and is surfaced in Lineage).
+ * ADR-039 was developed in parallel and still referenced `"jobs"` on its
+ * track; the integration takes the ADR-038 removal and adds the ADR-039
+ * `"git"` tab on top.
+ */
+export type BottomTab = "ai" | "config" | "logs" | "lineage" | "git";
 
 export interface BlockNodeData extends Record<string, unknown> {
   label: string;

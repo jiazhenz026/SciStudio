@@ -236,3 +236,154 @@ export interface TreeEntry {
 export interface TreeResponse {
   entries: TreeEntry[];
 }
+
+// ---------------------------------------------------------------------------
+// ADR-039 — Git versioning API types
+// ---------------------------------------------------------------------------
+//
+// These mirror the JSON shapes returned by `src/scieasy/api/routes/git.py`
+// (merged in PR #927). When the backend GitEngine returns a `log()` row, a
+// branch listing, a stash entry, a status payload, or a merge result, the
+// FastAPI route emits it as JSON of one of the shapes below.
+//
+// Shapes intentionally mirror python keys (`commit_sha`, `short_sha`, etc.)
+// rather than camelCasing because:
+//   1. The values pass through `api.ts.apiFetch` unmodified.
+//   2. The diff viewer / history list show these raw fields in tooltips and
+//      it is useful to grep them across stack.
+// If TypeScript style ever requires camelCase, do that translation in the
+// `api` wrapper (gitLog → { commitSha, ... }), not by changing the wire shape.
+
+/**
+ * One commit row returned by `GET /api/git/log`. Shape per ADR-039 §3.5
+ * and the backend `GitEngine.log()` plumbing parser (commits are formatted
+ * with `--format=...` so this is the stable wire contract).
+ *
+ * Wire shape per `src/scieasy/core/versioning/git_engine.py::log()`:
+ *   `{ sha, short_sha, parents, author_name, author_email, author_date,
+ *      subject, body, branches }`
+ *
+ * Note: the full SHA field is named `sha` on the wire (NOT `commit_sha`)
+ * — that mirrors what `git log --format=%H` produces. Other endpoints
+ * (`/api/git/commit` response, `head_state()` dataclass) DO use
+ * `commit_sha`. Consumers must respect the per-endpoint naming.
+ *
+ * The `prefix` legend is derived client-side from the subject in
+ * `gitSlice.classifyPrefix()` (NOT a wire field) — see ADR-039 §3.4 /
+ * §3.4a:
+ *   - "auto"   → subject starts with `auto:`  (hidden by default filter)
+ *   - "agent"  → subject starts with `agent:` (visible with 🤖 icon)
+ *   - "user"   → no recognized prefix         (visible with 👤 icon)
+ */
+export interface GitCommit {
+  /** Full 40-char commit SHA. Backend wire field is `sha`, NOT `commit_sha`. */
+  sha: string;
+  short_sha: string;
+  parents: string[];
+  author_name: string;
+  author_email: string;
+  author_date: string;
+  subject: string;
+  body: string;
+  /** Branch names whose tip is this commit (zero, one, or many). */
+  branches: string[];
+}
+
+/**
+ * Local branch row from `GET /api/git/branches`.
+ *
+ * Wire shape is `{ name, head_sha, is_current }` per
+ * `GitEngine.branches()` in `src/scieasy/core/versioning/git_engine.py`.
+ * Codex review on PR #930 flagged a draft `commit_sha` field that did
+ * not match the backend; fixed to mirror the actual payload.
+ */
+export interface GitBranch {
+  name: string;
+  /** Tip commit sha (backend field is `head_sha`, NOT `commit_sha`). */
+  head_sha: string;
+  /** True if this branch is currently checked out. */
+  is_current: boolean;
+}
+
+/**
+ * Stash entry from `GET /api/git/stash`.
+ *
+ * Wire shape is `{ stash_id, message, date }` per
+ * `GitEngine.stash_list()` in `src/scieasy/core/versioning/git_engine.py`.
+ * No `index` or `created_at` field is sent — Codex review on PR #930
+ * flagged a draft contract mismatch; fixed to mirror the actual payload.
+ */
+export interface GitStashEntry {
+  /** Stash identifier (e.g. `stash@{0}`). */
+  stash_id: string;
+  /** Stash message (the `%gs` field — git's stash log subject). */
+  message: string;
+  /** ISO-8601 date string (the `%ai` field — author/committer date). */
+  date: string;
+}
+
+/** Diff payload from `GET /api/git/diff`. */
+export interface GitDiff {
+  /** Unified diff as a single string (consumer feeds it to react-diff-viewer-continued). */
+  diff: string;
+}
+
+/** Working-tree status from `GET /api/git/status`. */
+export interface GitStatus {
+  dirty: boolean;
+  modified: string[];
+  staged: string[];
+  untracked: string[];
+  conflicted: string[];
+}
+
+/**
+ * Result of `POST /api/git/merge` and `/cherry-pick`.
+ *
+ * Wire shape is uniformly `{ result, conflicted_files }` for ALL three
+ * variants per `GitEngine.merge()` / `cherry_pick()` in
+ * `src/scieasy/core/versioning/git_engine.py`. Successful (FF / clean)
+ * results return `conflicted_files: []` and do NOT include a separate
+ * `commit_sha`; consumers that need the post-merge HEAD must call
+ * `GET /api/git/log?limit=1` (or wait for the `git.head_changed` WS
+ * event) after a successful merge.
+ *
+ * Codex review on PR #930 flagged a draft union that put `commit_sha`
+ * on the success variants; fixed to mirror the actual payload.
+ */
+export type GitMergeResult =
+  | { result: "fast-forward"; conflicted_files: [] }
+  | { result: "clean"; conflicted_files: [] }
+  | { result: "conflict"; conflicted_files: string[] };
+
+/** Response shape for `POST /api/git/commit`. */
+export interface GitCommitResponse {
+  commit_sha: string;
+}
+
+/** Response shape for stash apply when there are conflicts. */
+export type GitStashApplyResult =
+  | { status: "ok" }
+  | { status: "conflict"; conflicted_files: string[] };
+
+/** Response shape for `/api/git/restore` (may return stash info). */
+export type GitRestoreResult =
+  | { status: "ok" }
+  | { status: "stashed"; stash_id: string };
+
+/**
+ * Filter modes for the History panel dropdown per ADR-039 §3.4 / §3.5c.
+ *
+ *   - "manual" (DEFAULT): hide `auto:` and `agent:` prefixed commits.
+ *   - "all":              show every commit.
+ *   - "auto":             show only `auto:` prefixed commits (debugging).
+ *   - "agent":            show only `agent:` prefixed commits (debugging).
+ */
+export type GitHistoryFilter = "manual" | "all" | "auto" | "agent";
+
+/**
+ * In-memory commit prefix classification. Computed client-side by
+ * `gitSlice.classifyPrefix(message)` — NOT a wire field. The History view
+ * and the GitGraph reference this to decide icon rendering (§3.4a).
+ */
+export type GitCommitPrefix = "auto" | "agent" | "user";

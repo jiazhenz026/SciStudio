@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { createExecutionSlice } from "./executionSlice";
+import { createGitSlice } from "./gitSlice";
+import { createLineageSlice } from "./lineageSlice";
 import { createPaletteSlice } from "./paletteSlice";
 import { createPreviewSlice } from "./previewSlice";
 import { createProjectSlice } from "./projectSlice";
@@ -49,6 +51,10 @@ export const useAppStore = create<AppStore>()(
       ...createPaletteSlice(...args),
       ...createTabSlice(...args),
       ...createTerminalTabsSlice(...args),
+      // ADR-038 §3.8 — Lineage tab state.
+      ...createLineageSlice(...args),
+      // ADR-039 §6 Phase 2 — git versioning slice.
+      ...createGitSlice(...args),
     }),
     {
       name: "scieasy-studio-ui",
@@ -71,6 +77,28 @@ export const useAppStore = create<AppStore>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
+        // ADR-038 §3.8 + ADR-039 §3.5 — `activeBottomTab` valid values
+        // after integration are exactly the BottomTab union members
+        // ("ai", "config", "logs", "lineage", "git"). The historical
+        // "jobs" placeholder was removed by ADR-038 §3.8 (run history
+        // now lives in Lineage). Older persisted snapshots may still
+        // carry "jobs", "problems", or other retired values; coerce
+        // anything not in the current union back to "lineage" — the
+        // semantic replacement for the run-history surface Jobs used
+        // to occupy. This also covers any future tab removals.
+        const validTabs = new Set<string>([
+          "ai",
+          "config",
+          "logs",
+          "lineage",
+          "git",
+        ]);
+        if (
+          typeof state.activeBottomTab !== "string" ||
+          !validTabs.has(state.activeBottomTab)
+        ) {
+          state.activeBottomTab = "lineage";
+        }
         const defaults = { palette: 15, preview: 22, bottom: 30 };
         const mins = { palette: 4, preview: 4, bottom: 10 };
         const sizes = state.panelSizes;

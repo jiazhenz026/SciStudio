@@ -12,7 +12,20 @@ from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
-from scieasy.api.routes import ai, ai_pty, blocks, data, filesystem, lint, projects, workflows
+from scieasy.api.routes import (
+    ai,
+    ai_pty,
+    blocks,
+    data,
+    filesystem,
+    lint,
+    projects,
+    runs,
+    workflows,
+)
+from scieasy.api.routes import (
+    git as git_routes,
+)
 from scieasy.api.routes import workflow_watcher as workflow_watcher_module
 from scieasy.api.runtime import ApiRuntime
 from scieasy.api.spa import SPAStaticFiles
@@ -64,6 +77,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             import logging
 
             logging.getLogger(__name__).warning("workflow_watcher: initial start failed", exc_info=True)
+
+    # ---- ADR-039 §3.8: git-state watcher ----
+    # NOTE: D39-3.2 (#968) collapsed the previously-separate
+    # ``core.versioning.watcher.GitChangeWatcher`` (asyncio-poll) into
+    # ``workflow_watcher._GitHeadHandler`` (watchdog Observer) above. The
+    # unified watcher attaches a second schedule to the project's
+    # ``.git/`` directory inside ``WorkflowWatcher.start_for_project`` and
+    # emits ``git.head_changed`` with the canonical ``commit_sha`` field
+    # the frontend reads (see ``frontend/src/hooks/useWebSocket.ts``).
+    # Project switch already restarts the watcher via
+    # ``routes/projects.py::_restart_workflow_watcher``, so a separate
+    # git-watcher lifecycle hook is no longer required.
 
     # ---- Phase 2: MCP server lifecycle ----
     mcp_server: object | None = None
@@ -136,6 +161,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
             logging.getLogger(__name__).warning("workflow_watcher: stop raised", exc_info=True)
         workflow_watcher_module.set_active_watcher(None)
+        # D39-3.2 (#968): the standalone git_watcher was deleted — its
+        # ``.git/`` surface is now covered by the unified workflow_watcher
+        # observer above. No separate teardown required.
         for run in runtime.workflow_runs.values():
             if not run.task.done():
                 run.task.cancel()
@@ -152,6 +180,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             from scieasy.ai.agent.mcp import _context as _mcp_context
 
             _mcp_context.set_context(None)
+        except Exception:
+            pass
+        # ADR-039: drop the per-project MetadataStore reference so its
+        # sqlite handle is gc-eligible. We cannot call ``close()`` directly
+        # because sqlite3.Connection is thread-affine (opened in the
+        # FastAPI worker thread; this runs in the lifespan event-loop
+        # thread). Setting the module global to None + forcing a gc pass
+        # releases the connection on Windows ~99% of the time, which is
+        # sufficient for test cleanup.
+        try:
+            from scieasy.core.metadata_store import set_metadata_store
+
+            set_metadata_store(None)
+            import gc
+
+            gc.collect()
         except Exception:
             pass
 
@@ -205,6 +249,11 @@ def create_app() -> FastAPI:
     app.include_router(ai_pty.router)
     # ADR-036 §3.3 — server-side ruff lint endpoint for the embedded editor.
     app.include_router(lint.router)
+    # ADR-038 §5.2 — ``runs`` router (lineage REST surface, D38-2.4a).
+    app.include_router(runs.router)
+    # ADR-039 §3.5 — git endpoints (commit / log / diff / restore / branch
+    # ops / merge / cherry-pick / stash). D39-2.2b made these live.
+    app.include_router(git_routes.router)
 
     @app.get("/api/logs/stream")
     async def logs_stream(request: Request) -> object:

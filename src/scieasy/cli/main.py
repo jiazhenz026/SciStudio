@@ -99,6 +99,9 @@ def init(name: str = typer.Argument("my_project", help="Project workspace name")
         raise typer.Exit(code=1)
 
     # Create directory structure per ARCHITECTURE.md Section 10.
+    # ADR-038 §3.5 / §5.2: lineage history lives at ``.scieasy/lineage.db``;
+    # the legacy ``lineage/`` and ``checkpoints/`` top-level dirs are retired
+    # in favour of ``.scieasy/``. Symmetric with ``api/runtime.py::create_project``.
     subdirs = [
         "workflows",
         "data/raw",
@@ -108,8 +111,7 @@ def init(name: str = typer.Argument("my_project", help="Project workspace name")
         "data/exchange",
         "blocks",
         "types",
-        "checkpoints",
-        "lineage",
+        ".scieasy",
         "logs",
     ]
     for subdir in subdirs:
@@ -123,6 +125,53 @@ def init(name: str = typer.Argument("my_project", help="Project workspace name")
         }
     }
     (project_path / "project.yaml").write_text(yaml.safe_dump(project_meta, default_flow_style=False, sort_keys=False))
+
+    # --------------------------------------------------------------
+    # ADR-039 §6 Phase 1 — CLI git-init parity (D39-2.2a skeleton)
+    # --------------------------------------------------------------
+    # Projects created via ``scieasy init`` must get the same auto-init
+    # treatment as those created via the GUI (``ApiRuntime.create_project``).
+    # Otherwise CLI-created projects open in the GUI without git history,
+    # confusing the ADR-038 lineage join.
+    #
+    # IMPLEMENTATION FOR D39-2.2b:
+    # ----------------------------
+    # 1. Lazy import (so ``scieasy init`` doesn't pay the import cost
+    #    of the versioning package until needed):
+    #        from scieasy.core.versioning.git_engine import GitEngine
+    # 2. ``engine = GitEngine(project_path)``
+    # 3. Best-effort:
+    #        try:
+    #            engine.init_repository(project_path)
+    #            typer.echo("Initialized git repository.")
+    #        except BundledGitMissing:
+    #            typer.echo("WARNING: git binary unavailable; project "
+    #                       "created without version control.", err=True)
+    #        except GitError as exc:
+    #            typer.echo(f"WARNING: git init failed: {exc}", err=True)
+    #
+    # The CLI must NOT abort on git failure — degraded-mode projects
+    # (no .git/) are explicitly supported per ADR-039 §3.9.
+    try:
+        from scieasy.core.versioning.git_binary import BundledGitMissing
+        from scieasy.core.versioning.git_engine import GitEngine, GitError
+
+        try:
+            engine = GitEngine(project_path)
+            engine.init_repository(project_path)
+            typer.echo("Initialized git repository.")
+        except BundledGitMissing as exc:
+            typer.echo(
+                f"WARNING: git binary unavailable ({exc}); project created without version control.",
+                err=True,
+            )
+        except GitError as exc:
+            typer.echo(f"WARNING: git init failed: {exc}", err=True)
+        except FileExistsError:
+            # .git already present — already a repo, that's fine.
+            pass
+    except Exception as exc:  # pragma: no cover — defensive
+        typer.echo(f"WARNING: git auto-init errored: {exc}", err=True)
 
     typer.echo(f"Created project workspace: {name}/")
 

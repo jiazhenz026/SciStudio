@@ -204,9 +204,19 @@ def get_project_info() -> dict[str, Any]:
 
     recent_runs: list[dict[str, Any]] = []
     try:
-        from scieasy.core.metadata_store import get_metadata_store
+        # Phase 3.5 audit P2-4: suppress D38-2.3 metadata_store
+        # deprecation warning at MCP boundary (see tools_inspection.py).
+        import warnings
 
-        store = get_metadata_store()
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                category=DeprecationWarning,
+                module=r"scieasy\.core\.metadata_store",
+            )
+            from scieasy.core.metadata_store import get_metadata_store
+
+            store = get_metadata_store()
         if store is not None:
             # Recent runs: derive workflow_ids from list_by_workflow if
             # the store supports an enumeration helper. Otherwise leave

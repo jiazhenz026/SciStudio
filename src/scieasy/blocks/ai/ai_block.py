@@ -8,11 +8,39 @@ inputs and expected outputs, and waits for one of three completion
 signals (MCP tool call, file watcher, user "Mark done" button) before
 validating outputs and resuming the workflow.
 
+ADR-039 §3.4a — agent commit convention
+---------------------------------------
+AIBlock does **not** itself invoke ``GitEngine.commit()``. When the
+spawned agent (claude / codex) makes a programmatic commit on the user's
+behalf, that commit MUST use the ``agent:`` prefix per ADR-039 §3.4a:
+
+    agent: <short summary> (session=<block_execution_id>)
+
+**Current enforcement (D39-3.2 / #968 truth check)** — there is no
+in-tree ``GitEngine``-mediated path that an agent can call to apply the
+prefix automatically. The convention is enforced **convention-by-prompt**:
+the agent's system prompt (and ``docs/cli-integration.md``) instructs
+claude / codex to prefix any ``git commit -m`` invocation it issues in
+its PTY shell with ``agent: ``. The History "Manual milestones" filter
+(ADR-039 §3.4) classifies commits by reading this prefix from the commit
+subject directly.
+
+A future enhancement may register an ``mcp__scieasy__git_commit`` MCP
+tool that wraps ``GitEngine.commit(prefix="agent")`` so the prefix is
+enforced server-side rather than by prompt. That tool does **not** exist
+today; the previous version of this docstring referenced it
+incorrectly.
+
+If a future direct commit path is added inside this module, it MUST
+pass ``prefix="agent"`` to keep the History filter classifying the
+result correctly.
+
 References:
     docs/adr/ADR-035.md §3 (decision), §3.1 (block category),
     §3.2 (runtime topology), §3.4 (manifest), §3.5 (completion paths),
     §3.6 (output validation), §3.7 (permission), §3.9 (state machine),
     §3.10 (engine ↔ worker IPC).
+    docs/adr/ADR-039.md §3.4a (``agent:`` commit prefix convention).
 """
 
 from __future__ import annotations
@@ -223,11 +251,18 @@ class AIBlock(Block):
         """
         from scieasy.core.types.collection import Collection
 
-        # 1. Resolve project_dir + run_id, allocate run_dir.
+        # 1. Resolve project_dir + block_execution_id, allocate run_dir.
+        # ADR-038 §5.2: this identifier is **per AI Block execution** (one
+        # per invocation of this block in a workflow run). It is NOT the
+        # workflow-level ``runs.run_id`` — see ADR-038 §3.1 for that table.
+        # The Python identifier was renamed in PR #933 to disambiguate the
+        # two layers; the on-the-wire ``PtyTabSpec.block_run_id`` and the
+        # manifest ``block.run_id`` JSON key keep their legacy spellings
+        # (engine-surface + agent-facing contracts respectively).
         project_dir_raw = config.get("project_dir") or os.getcwd()
         project_dir = _to_path(project_dir_raw)
-        run_id = _make_run_id(getattr(self, "_instance_name", None) or type(self).__name__)
-        run_dir = RunDir(project_dir, run_id)
+        block_execution_id = _make_block_execution_id(getattr(self, "_instance_name", None) or type(self).__name__)
+        run_dir = RunDir(project_dir, block_execution_id)
         try:
             run_dir.create()
         except (PermissionError, FileExistsError) as exc:
@@ -289,7 +324,10 @@ class AIBlock(Block):
             spawn_argv=spawn_argv,
             cwd=str(project_dir),
             initial_stdin=_compose_initial_stdin(str(config.get("user_prompt", "")), str(manifest_path)),
-            block_run_id=run_id,
+            # ``block_run_id`` is the engine-surface field name (ADR-034
+            # PtyTabSpec, kept for back-compat per ADR-038 §5.2). The
+            # value is the per-block-execution identifier.
+            block_run_id=block_execution_id,
             permission_mode="bypass" if permission_mode == "bypass" else "safe",
             run_dir_path=str(run_dir.path),
         )
@@ -298,7 +336,7 @@ class AIBlock(Block):
         except Exception as exc:
             self._safe_transition(BlockState.ERROR)
             raise RuntimeError(f"AIBlock: PTY spawn failed: {exc}") from exc
-        logger.info("AIBlock %s: PTY tab opened, tab_id=%s", run_id, tab_id)
+        logger.info("AIBlock %s: PTY tab opened, tab_id=%s", block_execution_id, tab_id)
 
         # 7. Transition to PAUSED while the agent works.
         self._safe_transition(BlockState.PAUSED)
@@ -324,18 +362,18 @@ class AIBlock(Block):
         except TimeoutError:
             self._safe_transition(BlockState.RUNNING)
             self._safe_transition(BlockState.CANCELLED)
-            _safe_notify(_pty_control, run_id, "cancelled_by_user_close", {"reason": "timeout"})
+            _safe_notify(_pty_control, block_execution_id, "cancelled_by_user_close", {"reason": "timeout"})
             return {}
         except WatcherCancelledError:
             self._safe_transition(BlockState.RUNNING)
             self._safe_transition(BlockState.CANCELLED)
-            _safe_notify(_pty_control, run_id, "cancelled_by_user_close", {"reason": "cancelled"})
+            _safe_notify(_pty_control, block_execution_id, "cancelled_by_user_close", {"reason": "cancelled"})
             return {}
         except ValueError as exc:
             # Malformed MCP signal — preserve run_dir, surface as ERROR.
             self._safe_transition(BlockState.RUNNING)
             self._safe_transition(BlockState.ERROR)
-            _safe_notify(_pty_control, run_id, "error", {"reason": str(exc)})
+            _safe_notify(_pty_control, block_execution_id, "error", {"reason": str(exc)})
             raise
 
         # 9. PAUSED → RUNNING for output validation.
@@ -348,13 +386,13 @@ class AIBlock(Block):
             )
         except Exception as exc:
             self._safe_transition(BlockState.ERROR)
-            _safe_notify(_pty_control, run_id, "error", {"reason": str(exc)})
+            _safe_notify(_pty_control, block_execution_id, "error", {"reason": str(exc)})
             raise
 
         # 11. Notify engine; return.
         _safe_notify(
             _pty_control,
-            run_id,
+            block_execution_id,
             "completed",
             {"source": event.source.value, "tab_id": tab_id},
         )
@@ -521,8 +559,13 @@ def _to_path(value: Any) -> Any:
     return value if isinstance(value, Path) else Path(str(value))
 
 
-def _make_run_id(block_name: str) -> str:
-    """``YYYYMMDD-HHMMSS-{name}-{nonce}`` per ADR-035 §3.4 example."""
+def _make_block_execution_id(block_name: str) -> str:
+    """``YYYYMMDD-HHMMSS-{name}-{nonce}`` per ADR-035 §3.4 example.
+
+    Renamed from ``_make_run_id`` per ADR-038 §5.2 — this identifier is
+    per AI Block execution, not per workflow run. Each invocation of one
+    AI Block within a workflow run produces a fresh value.
+    """
     safe_name = "".join(c if c.isalnum() or c in "._-" else "_" for c in block_name)[:48]
     ts = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
     nonce = uuid.uuid4().hex[:7]

@@ -39,8 +39,19 @@ INTERACTIVE_COMPLETE = "interactive_complete"  # #591/#594: frontend -> backend 
 # #718 part (a): emitted after every successful workflow write so other clients
 # (e.g. a second browser tab, or the embedded coding agent's WS subscriber)
 # know to refresh their cached view. Payload:
-#   {"workflow_id": str, "revision": int, "changed_by": str | None}
+#   {"workflow_id": str, "changed_by": str | None}
+# The legacy ``revision`` field was removed by ADR-039 §5.2; git commit SHA +
+# working-tree dirty state replaces the optimistic-concurrency counter.
 WORKFLOW_CHANGED = "workflow.changed"
+# ADR-039 §3.8: emitted when the project's git HEAD or any ref/branch tip
+# moves — used by the canvas + Git tab to invalidate cached log/diff views.
+# Payload:
+#   {"commit_sha": str | None, "ref": str, "kind": "head" | "refs"}
+# The constant is the one authorized addition to the EventBus contract per
+# the ADR-038/039 cascade boilerplate's hard-scope list. Emitted by the
+# extended ``workflow_watcher`` after ``.git/HEAD`` or ``.git/refs/heads/*``
+# mtime changes.
+GIT_HEAD_CHANGED = "git.head_changed"
 
 
 @dataclass

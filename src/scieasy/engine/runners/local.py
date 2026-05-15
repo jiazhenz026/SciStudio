@@ -229,8 +229,21 @@ class LocalRunner:
                 # Worker wraps outputs as {"outputs": {...}, "environment": {...},
                 # "final_state": "<state>"?}. Unwrap the envelope so callers see
                 # port names at the top level.
+                #
+                # ADR-038 §5.2: lift ``environment`` from the worker envelope into
+                # the returned dict under the sentinel key ``__scieasy_env__`` so
+                # the scheduler can extract it for the BLOCK_DONE event data and
+                # the LineageRecorder can attribute it to the run. The scheduler
+                # pops the key before storing outputs in ``_block_outputs``, so
+                # downstream blocks never observe it on their input ports.
                 if isinstance(parsed, dict) and "outputs" in parsed:
                     outputs_dict = dict(parsed["outputs"])
+                    env_payload = parsed.get("environment")
+                    # Only stamp the sidecar when the worker reported a
+                    # populated env — empty dicts are noise that breaks
+                    # backward-compat tests asserting exact output shapes.
+                    if isinstance(env_payload, dict) and env_payload:
+                        outputs_dict["__scieasy_env__"] = env_payload
                     # #681: when the worker reports a non-DONE terminal state
                     # (block called ``self.transition()`` from inside ``run()``),
                     # raise the typed exception so the scheduler's existing

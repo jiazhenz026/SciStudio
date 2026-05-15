@@ -1,9 +1,13 @@
 import { Pin, PinOff } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import { useAppStore } from "../store";
 import type { BlockSchemaResponse, LogEntry, WorkflowNode } from "../types/api";
 import type { BottomTab } from "../types/ui";
 import { TerminalTabs } from "./AIChat/TerminalTabs";
+import { GitTab } from "./Git/GitTab";
+import { MergeFlow } from "./Git/MergeFlow";
+import { LineageTab } from "./Lineage/LineageTab";
 import { type PortRow, PortEditorTable } from "./PortEditorTable";
 
 interface BottomPanelProps {
@@ -31,14 +35,22 @@ const TAB_LABELS: Record<BottomTab, string> = {
   ai: "\u{1F4AC} AI Chat",
   config: "\u{1F4CB} Config",
   logs: "\u{1F4DC} Logs",
+  // ADR-038 §3.8 — Lineage tab promoted to a first-class entry; replaces
+  // the prior Jobs placeholder which is removed entirely.
   lineage: "\u{1F517} Lineage",
-  jobs: "\u{1F4CA} Jobs",
+  // ADR-039 §3.5 (#972) — Git versioning surface moved out of the top
+  // Toolbar into a dedicated bottom-panel tab so the commit history /
+  // branch graph / merge flows are reachable without overflowing the
+  // toolbar on narrow viewports.
+  git: "\u{1F500} Git",
 };
 
 // Problems was removed: it duplicated the block_error rows already in Logs
 // (filterable via LogViewer's level selector) plus the inline error badge
 // rendered on the BlockNode itself by WorkflowCanvas.
-const ALL_TABS: BottomTab[] = ["ai", "config", "logs", "lineage", "jobs"];
+// ADR-038 §3.8 — Jobs tab removed (subsumed by Lineage).
+// ADR-039 §3.5 (#972) — Git tab added.
+const ALL_TABS: BottomTab[] = ["ai", "config", "logs", "lineage", "git"];
 
 // Controlled text input that preserves caret position across re-renders (#710).
 //
@@ -272,6 +284,16 @@ export function BottomPanel({
     return 0;
   };
   const formatBadge = (n: number): string => (n > 99 ? "99+" : String(n));
+
+  // ADR-039 §3.5 (#972 — Codex P1 on PR #974) — MergeFlow is mounted
+  // here (NOT inside GitTab) so a bottom-tab switch during a conflict
+  // resolution does not unmount the modal and bypass its close guard.
+  // Driven by `gitSlice.mergeFlowSource`: BranchPicker sets the source
+  // and the merge-flow setter clears it on success/abort/close.
+  const mergeFlowSource = useAppStore((s) => s.mergeFlowSource);
+  const setMergeFlowSource = useAppStore((s) => s.setMergeFlowSource);
+  const openFileTab = useAppStore((s) => s.openFileTab);
+
   return (
     <section className="flex h-full flex-col overflow-hidden bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(238,231,219,0.98))]">
       <div className="flex items-center gap-3 border-b border-stone-200 px-4 py-3">
@@ -319,7 +341,12 @@ export function BottomPanel({
         {/* TerminalTabs must stay MOUNTED across bottom-panel tab switches
             so the PTY subprocess survives (unmount fires the WS cleanup
             hook which kills the child process tree). Hide via CSS when
-            another tab is active. */}
+            another tab is active.
+
+            Hotfix #977: the inner white-card frame was removed so the
+            active-tab body fills the available space without a nested
+            scroll context. The lineage tab (ADR-038 §3.8) and git tab
+            (ADR-039 §3.5, #972) both render inside this flat container. */}
         <div className={`h-full ${activeTab === "ai" ? "" : "hidden"}`}>
           <TerminalTabs />
         </div>
@@ -327,10 +354,35 @@ export function BottomPanel({
           <ConfigPanel onUpdateConfig={onUpdateConfig} schema={selectedSchema} selectedNode={selectedNode} />
         ) : activeTab === "logs" ? (
           <LogViewer entries={logEntries} />
+        ) : activeTab === "lineage" ? (
+          // ADR-038 §3.8 — D38-2.4b skeleton mounts <LineageTab/>.
+          // The root component renders a non-throwing placeholder until
+          // D38-2.4c IMPL fills the two-pane runs-list + run-detail view.
+          <LineageTab />
+        ) : activeTab === "git" ? (
+          // ADR-039 §3.5 (#972) — Git tab. GitTab owns its own modals
+          // (CommitDialog / StashListPanel) so they unmount when the
+          // user switches away from this tab. MergeFlow is mounted
+          // separately below (its conflict-state close guard must
+          // survive bottom-tab switches; Codex P1 on PR #974).
+          <GitTab />
         ) : activeTab !== "ai" ? (
           <PlaceholderTab />
         ) : null}
       </div>
+
+      {/* ADR-039 §3.5 (#972) — MergeFlow is rendered here so it survives
+          bottom-tab switches; its conflict-state close guard would
+          otherwise be bypassed if the Git tab unmounted mid-resolution
+          (Codex P1 on PR #974). */}
+      <MergeFlow
+        sourceBranch={mergeFlowSource ?? ""}
+        isOpen={mergeFlowSource !== null}
+        onClose={() => setMergeFlowSource(null)}
+        onOpenFile={(path) => {
+          openFileTab(path);
+        }}
+      />
     </section>
   );
 }
