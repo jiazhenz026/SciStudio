@@ -83,6 +83,13 @@ export interface UISlice {
   paletteCollapsed: boolean;
   previewCollapsed: boolean;
   bottomPanelCollapsed: boolean;
+  /**
+   * When true, the bottom panel does not auto-collapse on canvas-pane
+   * clicks. Toggled via the pin button in the BottomPanel tab strip.
+   * Useful when the user is actively chatting in the AI Chat tab and
+   * doesn't want a stray canvas click to fold the panel closed.
+   */
+  bottomPanelPinned: boolean;
   panelSizes: { palette: number; preview: number; bottom: number };
   minimapVisible: boolean;
   lastError: string | null;
@@ -103,6 +110,7 @@ export interface UISlice {
   togglePalette: () => void;
   togglePreview: () => void;
   toggleBottomPanel: () => void;
+  toggleBottomPanelPinned: () => void;
   toggleMinimap: () => void;
   setPanelSize: (panel: "palette" | "preview" | "bottom", size: number) => void;
   setLastError: (message: string | null) => void;

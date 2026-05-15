@@ -87,6 +87,13 @@ interface WorkflowCanvasProps {
   onRunBlock: (blockId: string) => void;
   onRestartBlock: (blockId: string) => void;
   onErrorClick: (blockId: string) => void;
+  /**
+   * Fires when the user clicks empty canvas pane (not a node or edge).
+   * App.tsx wires this to ``bottomPanelRef.collapse()`` when the bottom
+   * panel is not pinned, so a stray click on empty canvas folds the
+   * panel down to its tab strip.
+   */
+  onPaneClick?: () => void;
 }
 
 export function WorkflowCanvas(props: WorkflowCanvasProps) {
@@ -105,6 +112,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     onDeleteEdge,
     onDeleteNode,
     onErrorClick,
+    onPaneClick,
     onRestartBlock,
     onRunBlock,
     onSelectNode,
@@ -182,6 +190,15 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
           id: node.id,
           type: "_annotation",
           position,
+          // ``initialWidth`` / ``initialHeight`` give the MiniMap a
+          // bounding box to draw before ReactFlow's ResizeObserver
+          // populates ``measured``. Our ``onNodesChange`` only forwards
+          // position changes (dimension changes are intentionally not
+          // round-tripped through the zustand store), so without these
+          // the minimap permanently sees ``measured === undefined`` and
+          // skips the node — see @xyflow/system ``nodeHasDimensions``.
+          initialWidth: 200,
+          initialHeight: 80,
           data: {
             text: (params.text as string) ?? "Note",
             onUpdateText: (text: string) => onUpdateNodeConfig(node.id, { text }),
@@ -192,14 +209,15 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
 
       // Group frame node
       if (node.block_type === "_group") {
+        const groupW = (node.config.style as Record<string, unknown> | undefined)?.width as number ?? 400;
+        const groupH = (node.config.style as Record<string, unknown> | undefined)?.height as number ?? 250;
         return {
           id: node.id,
           type: "_group",
           position,
-          style: {
-            width: (node.config.style as Record<string, unknown> | undefined)?.width as number ?? 400,
-            height: (node.config.style as Record<string, unknown> | undefined)?.height as number ?? 250,
-          },
+          initialWidth: groupW,
+          initialHeight: groupH,
+          style: { width: groupW, height: groupH },
           data: {
             title: (params.title as string) ?? "Group",
             note: (params.note as string) ?? "",
@@ -218,6 +236,13 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
         id: node.id,
         type: "block",
         position,
+        // Block nodes are fixed-width 280px (ARCHITECTURE §9.5). Height
+        // varies with inline params + ports; 180px is a reasonable
+        // average and is only used by the MiniMap until the real node
+        // mounts and ReactFlow measures it. See annotation comment
+        // above for why we need this.
+        initialWidth: 280,
+        initialHeight: 180,
         data: {
           label: resolveLabel(node, summary, schema),
           blockType: node.block_type,
@@ -337,7 +362,10 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
           });
         }}
         onNodesDelete={(deleted) => deleted.forEach((node) => onDeleteNode(node.id))}
-        onPaneClick={() => onSelectNode(null)}
+        onPaneClick={() => {
+          onSelectNode(null);
+          onPaneClick?.();
+        }}
         deleteKeyCode={["Backspace", "Delete"]}
         proOptions={{ hideAttribution: true }}
       >

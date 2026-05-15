@@ -2541,7 +2541,7 @@ Three resizable columns (Block Palette | Canvas + Bottom Panel | Data Preview) w
 |-------|---------|-----------------|
 | Block Palette | Toggle button or `Ctrl+B` | Icon-only mode (~48px) showing category icons |
 | Data Preview | Toggle button or `Ctrl+D` | Hidden (0px). Auto-shows when a block with output is selected. |
-| Bottom Panel | Toggle button or `Ctrl+J` | Tab bar only (~32px). Auto-expands when execution starts. |
+| Bottom Panel | Clicking the empty canvas pane (unless pinned), `Ctrl+J`, or the pin toggle in the tab strip | Collapses to ~8% of column height (~64–80px), leaving the tab strip fully visible. Clicking any tab button, selecting a block on the canvas, or clicking an error badge expands it again. A pin button at the right end of the tab strip disables canvas-pane-click auto-collapse — useful for keeping the panel open during AI Chat sessions. |
 
 ### 9.3 Toolbar
 
@@ -2599,12 +2599,9 @@ Each block on the canvas renders as a custom ReactFlow node with header, inline 
 ┌────────────────────────────────────┐
 │ 📦 Cellpose Segmentation   [▶][↻] │  ← Header: icon + name + run + start-from-here
 ├────────────────────────────────────┤
-│  Model:    [▼ cyto2       ]        │  ← Inline config (top 3 params by ui_priority)
-│  Diameter: [  30.0        ]        │
-│  Channels: [▼ [0,1]       ]        │
-│                                    │
-◯ images                     masks ◉ │  ← Ports: type-coloured handles
-◯ config                   errors  ◉ │
+◯  Model:    [▼ cyto2       ]   ◉   │  ← Inline config (top 3 by ui_priority);
+◯  Diameter: [  30.0        ]   ◉   │    ports align with config rows on each
+◯  Channels: [▼ [0,1]       ]   ◉   │    side (Issue #976 — first divider line)
 ├────────────────────────────────────┤
 │ ✅ Done · 3.2s · 47 items          │  ← State badge
 └────────────────────────────────────┘
@@ -2627,6 +2624,7 @@ Block nodes display the **top 3 parameters** by `ui_priority` (default: first 3 
 
 - Input ports on the **left** edge, output ports on the **right** edge.
 - Port handles are coloured by data type (Section 9.6).
+- Port row 1 starts ~14px below the header divider (Issue #976), so the handles visually align with the inline-config rows on each side. Subsequent ports stride 20px down the edge.
 - Hover tooltip: type name, constraint, connection status.
 - Drawing a connection triggers backend validation (`POST /api/blocks/validate-connection`). Invalid connections are visually rejected.
 
