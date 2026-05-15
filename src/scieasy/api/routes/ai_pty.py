@@ -343,17 +343,28 @@ def _validate_project_dir(raw: str) -> Path:
     return resolved
 
 
-def _spawn(*, provider: str, project_dir: Path, dangerous: bool) -> PtyProcess:
+def _spawn(
+    *,
+    provider: str,
+    project_dir: Path,
+    dangerous: bool,
+    extra_env: dict[str, str] | None = None,
+) -> PtyProcess:
     """Dispatch to the right factory for ``provider``.
 
     Test hook: callers may monkeypatch this function to inject a fake
     PTY that runs an echo subprocess instead of the real claude / codex
     binary (the WS integration tests rely on this seam).
+
+    ``extra_env`` lets engine-initiated callers thread per-AI-Block env
+    (e.g. ``SCIEASY_AI_BLOCK_RUN_DIR`` for ``finish_ai_block``, ADR-035
+    §3.5 path a) into the spawned PTY without polluting the engine's
+    global env.
     """
     if provider == "claude-code":
-        return spawn_claude(project_dir=project_dir, dangerous=dangerous)
+        return spawn_claude(project_dir=project_dir, dangerous=dangerous, extra_env=extra_env)
     if provider == "codex":
-        return spawn_codex(project_dir=project_dir, dangerous=dangerous)
+        return spawn_codex(project_dir=project_dir, dangerous=dangerous, extra_env=extra_env)
     # Defensive — guarded earlier in the route too.
     raise ValueError(f"Unknown provider {provider!r}")
 
@@ -546,7 +557,24 @@ def open_engine_initiated_tab(
     if len(_active_ptys) >= MAX_ACTIVE_PTYS:
         raise RuntimeError(f"open_engine_initiated_tab: PTY cap ({MAX_ACTIVE_PTYS}) reached")
 
-    pty = _spawn(provider=provider, project_dir=cwd_path, dangerous=dangerous)
+    # ADR-035 §3.5 path (a): export SCIEASY_AI_BLOCK_RUN_DIR into the PTY
+    # so the spawned mcp-bridge subprocess (which the agent invokes via
+    # --mcp-config <project>/.scieasy/mcp.json) can resolve the active
+    # AI Block run dir for ``finish_ai_block``. Without this, the tool
+    # always returns ``not_in_ai_block_context`` because no other layer
+    # propagates this context — workers' env is set by uvicorn and is
+    # not per-AI-Block; only the PTY-spawn site knows which block_run_id
+    # we are about to attach to.
+    extra_env: dict[str, str] = {}
+    if run_dir_path:
+        extra_env["SCIEASY_AI_BLOCK_RUN_DIR"] = str(run_dir_path)
+
+    pty = _spawn(
+        provider=provider,
+        project_dir=cwd_path,
+        dangerous=dangerous,
+        extra_env=extra_env or None,
+    )
 
     # Stamp with engine-side metadata so the join-WS path (I35c) can
     # tell this tab apart from a user-launched one and replay the

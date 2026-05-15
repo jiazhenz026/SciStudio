@@ -106,6 +106,7 @@ class PtyProcess:
         cols: int = 120,
         rows: int = 30,
         cleanup_paths: Iterable[Path] | None = None,
+        extra_env: dict[str, str] | None = None,
     ) -> None:
         self._argv = argv
         self._cwd = cwd
@@ -137,6 +138,14 @@ class PtyProcess:
         # even when stdout is detected as not-a-tty during nested
         # spawns. Harmless when ignored.
         child_env.setdefault("FORCE_COLOR", "3")
+        # Caller-supplied per-invocation env (e.g. SCIEASY_AI_BLOCK_RUN_DIR
+        # from open_engine_initiated_tab so the spawned mcp-bridge
+        # subprocess can resolve the active run dir for finish_ai_block,
+        # ADR-035 §3.5 path a). These override anything inherited above
+        # so each PTY gets the right per-block context without polluting
+        # the engine's global environment.
+        if extra_env:
+            child_env.update(extra_env)
 
         if sys.platform == "win32":
             try:
@@ -446,6 +455,7 @@ def spawn_claude(
     dangerous: bool,
     cols: int = 120,
     rows: int = 30,
+    extra_env: dict[str, str] | None = None,
     _spawn_argv: list[str] | None = None,
 ) -> PtyProcess:
     """Spawn ``claude`` inside a PTY, anchored at ``project_dir``.
@@ -496,6 +506,7 @@ def spawn_claude(
         cols=cols,
         rows=rows,
         cleanup_paths=[prompt_path],
+        extra_env=extra_env,
     )
 
 
@@ -505,6 +516,7 @@ def spawn_codex(
     dangerous: bool,
     cols: int = 120,
     rows: int = 30,
+    extra_env: dict[str, str] | None = None,
     _spawn_argv: list[str] | None = None,
 ) -> PtyProcess:
     """Spawn ``codex`` inside a PTY, anchored at ``project_dir``.
@@ -543,4 +555,5 @@ def spawn_codex(
         cols=cols,
         rows=rows,
         cleanup_paths=[],
+        extra_env=extra_env,
     )
