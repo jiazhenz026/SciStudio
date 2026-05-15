@@ -34,9 +34,18 @@ from scieasy.workflow.definition import NodeDef, WorkflowDefinition
 
 
 def _wire_dict(object_id: str, type_chain: list[str] | None = None) -> dict[str, Any]:
-    """Build a wire-format dict that mirrors the worker subprocess envelope."""
+    """Build a wire-format dict that mirrors the worker subprocess envelope.
+
+    Per ``scieasy.core.types.base.TypeSignature``, ``type_chain`` is ordered
+    from most general to most specific (e.g. ``["DataObject", "Array",
+    "FluorImage"]``). The leaf — the concrete type lineage queries care
+    about — is the LAST element. Phase 3.5 Codex P1 reconcile on PR #979
+    corrected ``_extract_type_name`` to read ``type_chain[-1]`` instead of
+    the previous ``type_chain[0]``; the fixture default below is now
+    aligned with production convention.
+    """
     if type_chain is None:
-        type_chain = ["Image", "Array", "DataObject"]
+        type_chain = ["DataObject", "Array", "Image"]
     return {
         "backend": "zarr",
         "path": f"/data/zarr/{object_id}.zarr",
