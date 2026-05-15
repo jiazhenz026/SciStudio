@@ -328,6 +328,109 @@
 
 ---
 
+## Phase 3.5 — Cross-track integration audit (Owner: A35 — 1 agent)
+
+> Added 2026-05-15 by user direction. Runs **after** D38-3.2 and D39-3.2
+> are merged into their respective tracking branches, **before** Phase 4
+> e2e. Catches integration-layer drift that the per-track audits
+> structurally cannot see.
+
+### Why this phase exists
+
+The Phase 3 audits (D38-3.1a / D38-3.1b / D39-3.1) scope each track
+independently. They cannot detect issues that only manifest at the
+integration boundary between ADR-038 and ADR-039:
+
+- `runs.workflow_git_commit` exists in the lineage schema (ADR-038) but
+  the git engine (ADR-039) is the only source of the SHA value — must
+  be wired through `start_workflow` (D39-2.5 owns this wiring).
+- `runs.workflow_dirty` flag depends on `git_engine.status().dirty` —
+  same wiring chain.
+- Lineage tab "Restore this run's workflow" button (ADR-038 §3.8) is
+  supposed to call `gitRestore({commit_sha: run.workflow_git_commit, files: [workflow_yaml_path]})` (ADR-039 §3.5) — frontend cross-slice
+  call.
+- Agent commit prefix `agent:` (ADR-039 §3.4a) must be emitted by the
+  AI Block flow (ADR-035) and the PTY embedded coding agent (ADR-034) —
+  verify on the real code paths.
+- `frontend/src/store/index.ts` registers both `lineageSlice` and
+  `gitSlice` — verify no naming collisions or selector overlap.
+- `src/scieasy/api/runtime.py::start_workflow` is touched by D38-2.2
+  (LineageRecorder wire) AND D39-2.2b (pre-run auto-commit hook) AND
+  D39-2.5 (the SHA-to-runs.workflow_git_commit field write). Verify
+  the call order, the error-handling interleave, and the on-failure
+  fallback semantics for each combination of (dirty tree, lineage
+  recorder available, git engine available).
+- `frontend/src/hooks/useWebSocket.ts` `git.head_changed` event handler
+  exists (D39-2.1) but should also invalidate the Lineage tab's runs
+  query (so external git commits surface in the UI). Verify the
+  handler reaches both slices.
+- `BlockRegistry.hot_reload()` should fire on git branch switch (per
+  ADR's "blocks alongside git" doc). Verify event wiring.
+
+### Owned files (whitelist — audit only, NO code modification)
+
+NEW audit output:
+- `docs/audit/2026-05-15-adr-038-039-integration-audit.md` — categorized
+  finding list (P1 must-fix-before-integration / P2 should-fix / P3 nit),
+  one row per integration concern, with file + line citations.
+
+The agent does NOT edit any source file — fix lands in the dedicated
+Phase 3.5 fix step that runs **after Phase 4 e2e** per user direction.
+
+### Audit scope (the agent's mandatory checklist)
+
+Section A — backend wiring:
+- [ ] `start_workflow` interleave of LineageRecorder (D38) + pre-run auto-commit (D39): order correct, exceptions in either side don't poison the other, both inputs to `RunRecord.workflow_git_commit` flow correctly.
+- [ ] `create_project` / `open_project`: both auto-init lineage.db (D38) and auto-init git repo (D39); on failure of either, degraded mode is correct.
+- [ ] `runs.workflow_git_commit` field populated end-to-end on every `start_workflow` call (no `None` / `""` leaks).
+- [ ] Agent commits emit `agent:` prefix from both ADR-035 (AI Block) and ADR-034 (PTY) flows. Grep for prefix usage.
+- [ ] EventBus `git.head_changed` events fire and reach both gitSlice (UI badge) and lineageSlice (run-list invalidation).
+- [ ] `BlockRegistry.hot_reload()` triggers on branch switch.
+
+Section B — frontend cross-slice:
+- [ ] `store/index.ts` registers both slices without selector collision.
+- [ ] Lineage tab "Restore this run's workflow" calls `gitRestore` correctly.
+- [ ] `useWebSocket.ts` `git.head_changed` invalidates both slice caches as needed.
+- [ ] Toolbar / BottomPanel mount both Git + Lineage components without layout clash.
+- [ ] `Toolbar.tsx` shows GitStatusBadge + BranchPicker simultaneously with `BottomPanel.tsx` Lineage tab.
+
+Section C — schema / contract:
+- [ ] `lineage.db.runs` schema present in DB after Phase D38-2.2 + D38-2.3 chain.
+- [ ] `block_version` force-injection (D38-2.2) does not break any block subclass shipped in `packages/scieasy-blocks-{imaging,lcms,srs}/`.
+- [ ] `metadata.db` deprecation shim still answers reads correctly from agent MCP tools (ADR-033 `inspect_data` / `get_lineage` / `preview_data`).
+- [ ] `If-Match` / `bump_revision` removal (D39-2.1) didn't leave dangling consumers in `frontend/src/lib/api.ts` or anywhere else.
+
+Section D — file conflicts between tracks:
+- [ ] `src/scieasy/api/runtime.py` final state has both D38 and D39 wirings present and ordered correctly.
+- [ ] `frontend/src/store/index.ts` final state has both slices registered.
+- [ ] `frontend/src/hooks/useWebSocket.ts` final state handles both `lineage.*` events (if any) and `git.head_changed`.
+- [ ] `src/scieasy/api/app.py` lifespan correctly initializes lineage store + git watcher in the right order.
+
+Section E — Codex review reconcile:
+- [ ] Walk every Codex auto-review comment posted on every cascade PR (track/adr-038 + track/adr-039). For any comment marked "deferred", re-evaluate whether it's an integration-blocker and reclassify.
+
+### Definition of done
+
+1. Audit report at `docs/audit/2026-05-15-adr-038-039-integration-audit.md`.
+2. P1/P2/P3 categorization per finding.
+3. PR opened against `main` titled `chore(audit): D3.5 integration audit for ADR-038/039 cascade` (audit-only PR, no code changes).
+4. All CI green.
+5. Codex reconciled.
+
+### Phase 3.5 fix (runs AFTER Phase 4 e2e per user direction)
+
+After Phase 4 e2e completes, manager folds Phase 3.5 audit findings +
+Phase 4 e2e findings into a single fix pass. P1 findings fixed before
+final integration PRs to main. P2/P3 filed as follow-up issues if not
+release-blockers.
+
+- [ ] Phase 3.5 audit dispatched
+- [ ] Audit report merged
+- [ ] (Post-Phase 4) P1 findings from audit + e2e fixed
+- [ ] Final integration PRs unblocked
+
+---
+
 ## Test phase checklist (e2e — manager runs in hotfix mode)
 
 ### Phase 4a — ADR-038 e2e (Chrome smoke)
