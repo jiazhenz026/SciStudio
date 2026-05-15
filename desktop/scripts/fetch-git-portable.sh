@@ -19,9 +19,16 @@ set -euo pipefail
 GIT_VERSION="2.49.0"
 GIT_TARBALL_URL="https://www.kernel.org/pub/software/scm/git/git-${GIT_VERSION}.tar.xz"
 
-# SHA-256 of the published tarball. Set the env var
-#   SCIEASY_SKIP_GIT_SHA_VERIFY=1
-# to bypass during initial bring-up (NOT for production).
+# SHA-256 of the published tarball.
+#
+# DESKTOP MAINTAINER ACTION REQUIRED before first release: this is a
+# placeholder. Run the script with SCIEASY_SKIP_GIT_SHA_VERIFY=1, copy the
+# computed hash printed to stderr, cross-verify it against
+# https://www.kernel.org/pub/software/scm/git/sha256sums.asc (kernel.org's
+# GPG-signed checksum manifest), then paste it here and commit. After that
+# the script enforces integrity on every CI run. The bypass env var is for
+# the one-time bring-up only — release pipelines must run with verification
+# ON.
 EXPECTED_SHA256="<PASTE-VERIFIED-SHA-256-HERE>"
 
 # Destination — relative to script location.

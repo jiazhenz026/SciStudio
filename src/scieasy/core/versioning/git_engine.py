@@ -563,11 +563,24 @@ class GitEngine:
             return {"result": "clean", "conflicted_files": []}
 
         if proc.returncode == 1:
+            # Exit 1 covers BOTH real conflicts AND non-conflict errors
+            # like "merge: <name> - not something we can merge". Use the
+            # ``status()`` ``conflicted`` bucket as the ground truth: if
+            # git did not put any files into conflict state, the exit
+            # was due to invalid input (or a different failure mode), so
+            # surface it as a structured GitError so the REST layer can
+            # return 404/400 instead of a misleading 200/"conflict".
             status = self.status()
-            return {
-                "result": "conflict",
-                "conflicted_files": status["conflicted"],
-            }
+            if status["conflicted"]:
+                return {
+                    "result": "conflict",
+                    "conflicted_files": status["conflicted"],
+                }
+            raise GitError(
+                proc.returncode,
+                proc.stderr or "",
+                ["merge", source_branch],
+            )
 
         raise GitError(
             proc.returncode,

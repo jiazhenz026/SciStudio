@@ -69,13 +69,23 @@ class MergeStageFileRequest(BaseModel):
 
 
 def _engine_for_request(request: Request) -> GitEngine:
-    """Construct a GitEngine for the active project."""
+    """Construct a GitEngine for the active project.
+
+    Resolves the bundled git binary eagerly here (the engine's
+    ``_git`` property is lazy) so a missing git surfaces as a
+    structured ``503`` before any endpoint handler runs, rather than
+    bubbling up as an uncaught 500 from the first subprocess call
+    inside a handler. Codex P1 on PR #927.
+    """
     runtime = request.app.state.runtime
     if runtime.active_project is None:
         raise HTTPException(status_code=409, detail="No active project")
     project_path = Path(runtime.active_project.path)
     try:
-        return GitEngine(project_path)
+        engine = GitEngine(project_path)
+        # Force lazy binary resolution so BundledGitMissing surfaces here.
+        _ = engine._git
+        return engine
     except BundledGitMissing as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 

@@ -258,6 +258,17 @@ def test_merge_clean_three_way(tmp_path: Path) -> None:
     assert result["conflicted_files"] == []
 
 
+def test_merge_invalid_source_raises(tmp_path: Path) -> None:
+    """merge() against a non-existent branch raises GitError, not conflict.
+
+    Regression test for Codex P1 on PR #927: previously any exit-1 was
+    misclassified as a conflict result.
+    """
+    engine = _init_engine(tmp_path)
+    with pytest.raises(GitError):
+        engine.merge("does-not-exist")
+
+
 def test_merge_conflict_path(tmp_path: Path) -> None:
     engine = _init_engine(tmp_path)
     target = tmp_path / "a.txt"

@@ -35,12 +35,15 @@ $ErrorActionPreference = "Stop"
 $GitVersion = "2.49.0"
 $BusyboxMinGitUrl = "https://github.com/git-for-windows/git/releases/download/v${GitVersion}.windows.1/MinGit-${GitVersion}-busybox-64-bit.zip"
 
-# SHA-256 of the published archive — copy from the failing run on first
-# version bump and from Git for Windows's published checksums.txt.gpg
-# verification.
-# To bypass the check during initial bring-up, set the env var
-#   SCIEASY_SKIP_GIT_SHA_VERIFY=1
-# (NOT recommended for production builds).
+# SHA-256 of the published archive.
+#
+# DESKTOP MAINTAINER ACTION REQUIRED before first release: this is a
+# placeholder. Run with $env:SCIEASY_SKIP_GIT_SHA_VERIFY = "1", copy the
+# computed hash printed to stderr, cross-verify against Git for Windows's
+# published checksums.txt.gpg, then paste it here and commit. After that
+# the script enforces integrity on every CI run. The bypass env var is for
+# the one-time bring-up only — release pipelines must run with verification
+# ON.
 $ExpectedSha256 = "<PASTE-VERIFIED-SHA-256-HERE>"
 
 # Destination — relative to script location.
