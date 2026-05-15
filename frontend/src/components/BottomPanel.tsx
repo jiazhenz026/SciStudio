@@ -3,6 +3,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { BlockSchemaResponse, LogEntry, WorkflowNode } from "../types/api";
 import type { BottomTab } from "../types/ui";
 import { TerminalTabs } from "./AIChat/TerminalTabs";
+import { LineageTab } from "./Lineage/LineageTab";
 import { type PortRow, PortEditorTable } from "./PortEditorTable";
 
 interface BottomPanelProps {
@@ -23,14 +24,16 @@ const TAB_LABELS: Record<BottomTab, string> = {
   ai: "\u{1F4AC} AI Chat",
   config: "\u{1F4CB} Config",
   logs: "\u{1F4DC} Logs",
+  // ADR-038 §3.8 — Lineage tab promoted to a first-class entry; replaces
+  // the prior Jobs placeholder which is removed entirely.
   lineage: "\u{1F517} Lineage",
-  jobs: "\u{1F4CA} Jobs",
 };
 
 // Problems was removed: it duplicated the block_error rows already in Logs
 // (filterable via LogViewer's level selector) plus the inline error badge
 // rendered on the BlockNode itself by WorkflowCanvas.
-const ALL_TABS: BottomTab[] = ["ai", "config", "logs", "lineage", "jobs"];
+// ADR-038 §3.8 — Jobs tab removed (subsumed by Lineage).
+const ALL_TABS: BottomTab[] = ["ai", "config", "logs", "lineage"];
 
 // Controlled text input that preserves caret position across re-renders (#710).
 //
@@ -303,6 +306,13 @@ export function BottomPanel({
             <ConfigPanel onUpdateConfig={onUpdateConfig} schema={selectedSchema} selectedNode={selectedNode} />
           ) : activeTab === "logs" ? (
             <LogViewer entries={logEntries} />
+          ) : activeTab === "lineage" ? (
+            // ADR-038 §3.8 — D38-2.4b skeleton mounts <LineageTab/>.
+            // The component body is a TODO until D38-2.4c IMPL. Until then
+            // the skeleton throws when this branch renders; the parent
+            // ErrorBoundary (if any) surfaces it. We keep the mount wired
+            // anyway so the skeleton compile-time integration is real.
+            <LineageTab />
           ) : activeTab !== "ai" ? (
             <PlaceholderTab />
           ) : null}

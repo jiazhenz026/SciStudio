@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { createExecutionSlice } from "./executionSlice";
+import { createLineageSlice } from "./lineageSlice";
 import { createPaletteSlice } from "./paletteSlice";
 import { createPreviewSlice } from "./previewSlice";
 import { createProjectSlice } from "./projectSlice";
@@ -49,6 +50,8 @@ export const useAppStore = create<AppStore>()(
       ...createPaletteSlice(...args),
       ...createTabSlice(...args),
       ...createTerminalTabsSlice(...args),
+      // ADR-038 §3.8 — Lineage tab state (D38-2.4b skeleton).
+      ...createLineageSlice(...args),
     }),
     {
       name: "scieasy-studio-ui",
