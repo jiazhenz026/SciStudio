@@ -716,6 +716,14 @@ def _resolve_distribution_version(cls: type) -> str:
         sv = _scieasy_version()
         if sv is not None:
             return sv
+    # 3. In-tree test fixtures (``tests.*``) are not a real distribution but
+    #    are part of the repo and exist only when running pytest. Stamp the
+    #    scieasy version so the strict raise doesn't fire on test-only
+    #    Block subclasses like ``tests.fixtures.noop_block.NoopBlock``.
+    if module_name.startswith("tests.") or module_name == "tests":
+        sv = _scieasy_version()
+        if sv is not None:
+            return sv
     # 3. Entry-point / monorepo plugins: look up the distribution that owns
     #    the top-level module.
     top_level = module_name.split(".", 1)[0]
