@@ -153,3 +153,156 @@ class TestLineageRecorder:
         assert run is not None
         assert run["status"] == "completed"
         assert run["finished_at"] is not None
+
+
+class TestLineageRecorderDispose:
+    """D38-3.2 (closes Codex P1 on PR #926 / D38-3.1b P1-2).
+
+    After a workflow run finalises, the recorder must unsubscribe from
+    the EventBus or successive ``start_workflow`` calls accumulate
+    callbacks and cross-pollinate later runs' lineage rows.
+    """
+
+    def test_dispose_unsubscribes_from_event_bus(self) -> None:
+        recorder, bus, store = _make_recorder()
+        assert store is not None
+
+        recorder.dispose()
+
+        # After dispose, BLOCK_DONE no longer writes to the store.
+        asyncio.run(bus.emit(EngineEvent(event_type=BLOCK_DONE, block_id="A", data={"outputs": {}})))
+
+        assert store.count("block_executions") == 0
+
+    def test_dispose_is_idempotent(self) -> None:
+        recorder, _bus, _store = _make_recorder()
+        recorder.dispose()
+        # Second call must not raise.
+        recorder.dispose()
+
+    def test_two_sequential_recorders_do_not_cross_pollinate(self) -> None:
+        """Two recorders for two different runs, with the first disposed,
+        must not cause the first to receive the second's events."""
+        bus = EventBus()
+        store_a = LineageStore(":memory:")
+        store_a.insert_run(
+            RunRecord(
+                run_id="run-A",
+                workflow_id="wf",
+                workflow_yaml_snapshot="",
+                started_at="2026-05-15T00:00:00",
+                status="running",
+                environment_snapshot={},
+            )
+        )
+        recorder_a = LineageRecorder(bus, lineage_store=store_a, run_id="run-A")
+        recorder_a.dispose()  # Simulate first run completing.
+
+        store_b = LineageStore(":memory:")
+        store_b.insert_run(
+            RunRecord(
+                run_id="run-B",
+                workflow_id="wf",
+                workflow_yaml_snapshot="",
+                started_at="2026-05-15T01:00:00",
+                status="running",
+                environment_snapshot={},
+            )
+        )
+        _recorder_b = LineageRecorder(bus, lineage_store=store_b, run_id="run-B")
+
+        asyncio.run(bus.emit(EngineEvent(event_type=BLOCK_DONE, block_id="X", data={"outputs": {}})))
+
+        # Run B sees the event; run A (disposed) does NOT.
+        assert store_a.count("block_executions") == 0
+        assert store_b.count("block_executions") == 1
+
+
+class TestLineageRecordRemoved:
+    """D38-3.2 closes D38-3.1a P1-4 — the legacy ``LineageRecord`` shell
+    must no longer be importable from the lineage package."""
+
+    def test_lineage_record_no_longer_exported(self) -> None:
+        import scieasy.core.lineage as lineage
+
+        assert not hasattr(lineage, "LineageRecord"), "Legacy LineageRecord shell must be removed per ADR §3.4"
+
+
+class TestTerminalEventFullPayload:
+    """D38-3.2 closes D38-3.1a P1-1 / D38-3.1b P1-3 — all four terminal
+    events must carry ``block_type`` / ``block_version`` so the recorder
+    writes non-empty columns."""
+
+    def test_block_error_with_full_payload(self) -> None:
+        _recorder, bus, store = _make_recorder()
+        assert store is not None
+
+        asyncio.run(
+            bus.emit(
+                EngineEvent(
+                    event_type=BLOCK_ERROR,
+                    block_id="B",
+                    data={
+                        "workflow_id": "wf",
+                        "block_type": "LoadData",
+                        "block_version": "1.2.3",
+                        "config": {"path": "/tmp/x"},
+                        "error": "boom",
+                    },
+                )
+            )
+        )
+
+        rows = store.list_block_executions("run-test")
+        assert len(rows) == 1
+        assert rows[0]["block_type"] == "LoadData"
+        assert rows[0]["block_version"] == "1.2.3"
+        assert rows[0]["termination_detail"] == "boom"
+
+    def test_block_cancelled_with_full_payload(self) -> None:
+        _recorder, bus, store = _make_recorder()
+        assert store is not None
+
+        asyncio.run(
+            bus.emit(
+                EngineEvent(
+                    event_type=BLOCK_CANCELLED,
+                    block_id="C",
+                    data={
+                        "workflow_id": "wf",
+                        "block_type": "SaveData",
+                        "block_version": "0.5.0",
+                        "config": {},
+                    },
+                )
+            )
+        )
+
+        rows = store.list_block_executions("run-test")
+        assert len(rows) == 1
+        assert rows[0]["block_type"] == "SaveData"
+        assert rows[0]["block_version"] == "0.5.0"
+
+    def test_block_skipped_with_full_payload(self) -> None:
+        _recorder, bus, store = _make_recorder()
+        assert store is not None
+
+        asyncio.run(
+            bus.emit(
+                EngineEvent(
+                    event_type=BLOCK_SKIPPED,
+                    block_id="D",
+                    data={
+                        "workflow_id": "wf",
+                        "block_type": "Threshold",
+                        "block_version": "2.0.0",
+                        "config": {},
+                    },
+                )
+            )
+        )
+
+        rows = store.list_block_executions("run-test")
+        assert len(rows) == 1
+        assert rows[0]["block_type"] == "Threshold"
+        assert rows[0]["block_version"] == "2.0.0"

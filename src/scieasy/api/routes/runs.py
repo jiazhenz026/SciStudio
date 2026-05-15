@@ -213,7 +213,14 @@ def rerun_run(
         )
 
     try:
-        result = runtime.start_workflow(workflow_id, execute_from=body.execute_from_block_id)
+        # D38-3.2 (closes D38-3.1a P2 / D38-3.1b P2-4): stamp the
+        # historical run id as ``parent_run_id`` on the new run so the
+        # rerun chain is queryable per ADR §3.6.
+        result = runtime.start_workflow(
+            workflow_id,
+            execute_from=body.execute_from_block_id,
+            parent_run_id=run_id,
+        )
     except FileNotFoundError as exc:
         # The historical workflow YAML may have been deleted since this run
         # was recorded. ADR-038 §3.6a's "reproduce from snapshot" is a future

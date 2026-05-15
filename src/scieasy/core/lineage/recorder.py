@@ -22,6 +22,7 @@ Phase D38-2.2 wires construction of this class inside
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -88,11 +89,15 @@ class LineageRecorder:
         # Map block_id → block_execution_id so we can correlate
         # data_objects / block_io rows for the same execution.
         self._exec_ids: dict[str, str] = {}
+        # D38-3.2 (closes Codex P1 on PR #926): track whether we are
+        # subscribed so ``dispose()`` is idempotent.
+        self._subscribed = False
 
         event_bus.subscribe(_BLOCK_DONE, self._on_terminal)
         event_bus.subscribe(_BLOCK_ERROR, self._on_terminal)
         event_bus.subscribe(_BLOCK_CANCELLED, self._on_terminal)
         event_bus.subscribe(_BLOCK_SKIPPED, self._on_terminal)
+        self._subscribed = True
 
     @property
     def run_id(self) -> str:
@@ -127,6 +132,30 @@ class LineageRecorder:
             )
         except Exception:
             logger.warning("LineageRecorder: finalize_run failed (non-fatal)", exc_info=True)
+
+    def dispose(self) -> None:
+        """Detach this recorder from its ``EventBus`` (D38-3.2).
+
+        Closes Codex P1 on PR #926: ``ApiRuntime._build_lineage_recorder``
+        constructs a new recorder for every ``start_workflow`` call but
+        the recorders were never unsubscribed. Each successive workflow
+        run added a fresh subscriber, so a single emit fanned out to
+        every prior run's recorder, writing duplicate (or wrong-run)
+        rows into ``block_executions`` / ``data_objects`` / ``block_io``.
+
+        Call this from :meth:`ApiRuntime._finalize_lineage_run` once the
+        run task is done (whether the run completed, errored, or was
+        cancelled) so the EventBus no longer holds a strong reference
+        to the recorder and its store handle.
+
+        Idempotent — repeated calls are no-ops.
+        """
+        if not self._subscribed:
+            return
+        for event_type in (_BLOCK_DONE, _BLOCK_ERROR, _BLOCK_CANCELLED, _BLOCK_SKIPPED):
+            with contextlib.suppress(Exception):
+                self._event_bus.unsubscribe(event_type, self._on_terminal)
+        self._subscribed = False
 
     # ------------------------------------------------------------------
     # Event handler
@@ -183,13 +212,13 @@ class LineageRecorder:
                 block_execution_id,
                 direction="input",
                 payload=data.get("input_object_ids"),
-                outputs=data.get("inputs"),
+                port_values=data.get("inputs"),
             )
             self._record_io(
                 block_execution_id,
                 direction="output",
                 payload=data.get("output_object_ids"),
-                outputs=data.get("outputs"),
+                port_values=data.get("outputs"),
             )
         except Exception:
             logger.warning(
@@ -208,7 +237,7 @@ class LineageRecorder:
         *,
         direction: str,
         payload: Any,
-        outputs: Any,
+        port_values: Any,
     ) -> None:
         """Insert data_objects + block_io for one direction.
 
@@ -216,18 +245,20 @@ class LineageRecorder:
 
         * ``payload`` — ``{port_name: [object_id, ...]}`` already unrolled for
           Collections; gives us the object_id we need on ``block_io``.
-        * ``outputs`` — the raw wire-format ``{port_name: <dict|list>}`` mapping
-          where each value carries the full FrameworkMeta + storage_path
-          metadata we need to upsert into ``data_objects``.
+        * ``port_values`` — the raw wire-format ``{port_name: <dict|list>}``
+          mapping where each value carries the full FrameworkMeta +
+          storage_path metadata we need to upsert into ``data_objects``.
+          Despite the historical name (``outputs=``), this carries inputs
+          when ``direction='input'`` — D38-3.2 renamed for clarity.
 
         We iterate over the union of both, preferring ``payload`` for ordering
-        and using ``outputs`` to materialise the matching ``data_objects``
+        and using ``port_values`` to materialise the matching ``data_objects``
         row when only an object_id string is available.
         """
         if self._store is None:
             return
 
-        outputs_by_port: dict[str, Any] = outputs if isinstance(outputs, dict) else {}
+        outputs_by_port: dict[str, Any] = port_values if isinstance(port_values, dict) else {}
 
         # Build the unified iteration list. Prefer payload form (its keys are
         # the authoritative port set the scheduler chose) but fall back to
