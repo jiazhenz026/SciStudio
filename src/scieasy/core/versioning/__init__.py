@@ -46,13 +46,18 @@ from scieasy.core.versioning.gitignore_template import (
     write_default_gitignore,
 )
 from scieasy.core.versioning.status import is_dirty, modified_files
-from scieasy.core.versioning.watcher import GitChangeWatcher
+
+# D39-3.2 (#968): the standalone asyncio-poll ``GitChangeWatcher`` was
+# collapsed into ``scieasy.api.routes.workflow_watcher._GitHeadHandler``
+# (watchdog Observer) which emits the canonical ``commit_sha`` field on
+# ``git.head_changed`` matching the frontend reader. Importers that
+# previously consumed ``GitChangeWatcher`` should use the unified
+# watcher's ``start_for_project`` API instead.
 
 __all__ = [
     "DEFAULT_GITIGNORE",
     "BundledGitMissing",
     "GitBinary",
-    "GitChangeWatcher",
     "GitEngine",
     "GitError",
     "is_dirty",

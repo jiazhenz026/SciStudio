@@ -321,7 +321,14 @@
 
 ### Phase D39-3.2 — Fix (Owner: FD39, 1 agent)
 
-- [ ] Manager classifies P1/P2; overrides auditor "defer" per overnight merge protocol
+- [x] Manager classifies P1/P2; overrides auditor "defer" per overnight merge protocol → #968 dispatch fix-agent on `fix/issue-968/d39-3-2-audit-fixes`
+- [x] **P1-A** dual git-watcher collapse → deleted `core/versioning/watcher.py`, removed `app.py:84-112` construction, removed `__init__.py` re-export; watchdog `_GitHeadHandler` is single source of truth emitting canonical `commit_sha`
+- [x] **P1-B** H-A1 defensive guard verified → `runtime.py:1333` `getattr`+`callable()` chain retained; 2 regression tests added in `tests/api/test_workflow_run_git.py` (no-hook + hook-raises). NO D38-side change in this PR (that's D38-3.2).
+- [x] **P2-A** AIBlock `agent:` prefix docstring corrected → removed stale reference to non-existent `mcp__scieasy__git_commit` MCP tool; documents actual enforcement (system-prompt + agent's own `git commit -m` in PTY)
+- [x] **P2-B** project-switch watcher restart → resolved for free by P1-A collapse (workflow_watcher's `start_for_project` is already invoked from `routes/projects.py::_restart_workflow_watcher`)
+- [x] **P2-C** `GitEngine.commit()` empty-repo edge → branches on `rev-parse --verify HEAD`; falls back to `ls-files --cached` when HEAD absent. Test added.
+- [x] **P3 nits** filed as follow-up issue #969 (is_repository worktree, merge FF heuristic, log parser empty-body)
+- [ ] **Mandatory live Chrome smoke** (11 scenarios deferred from D39-3.1) → GIF in PR body
 - [ ] Fix PR merged into `track/adr-039/git-versioning`; CI green
 
 ---

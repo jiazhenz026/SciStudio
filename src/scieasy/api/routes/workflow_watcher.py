@@ -1,6 +1,18 @@
 """Filesystem watcher that emits ``workflow.changed`` on canvas-relevant edits
 and ``git.head_changed`` on HEAD/ref tip movements (ADR-039 §3.8).
 
+D39-3.2 (#968): this is now the **single source of truth** for
+``git.head_changed`` events. The previous parallel
+``core.versioning.watcher.GitChangeWatcher`` asyncio-poll implementation
+was deleted because (a) it emitted with the wrong payload key
+(``head_sha`` vs the frontend's expected ``commit_sha``) and (b) its
+lifespan was not re-bound on project switch. The watchdog-based handler
+below already provides project-switch hot-reload via
+``WorkflowWatcher.start_for_project`` (invoked from
+``routes/projects.py::_restart_workflow_watcher``) and emits the
+canonical ``commit_sha`` field that ``frontend/src/hooks/useWebSocket.ts``
+reads.
+
 ADR-034 Phase 2 §3.6 — when claude or codex (or any external editor) writes
 a workflow YAML in the active project's ``workflows/`` directory, the canvas
 must refetch and refresh. PTY mode no longer carries the in-process
