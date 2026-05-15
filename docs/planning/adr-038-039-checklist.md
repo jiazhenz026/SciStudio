@@ -253,20 +253,20 @@
 
 ### Phase D39-2.3a — Frontend UI core SKELETON (Owner: SD39-3a, 1 agent — VERY detailed comments) [ADR-039 §6 Phase 2 skeleton]
 
-- [ ] Sub-issue opened, depends on D39-2.2b merged
-- [ ] `frontend/src/components/Git/CommitDialog.tsx` (NEW skeleton; comments cover pre-filled template per ADR §3.5, message validation, commit button + cancel)
-- [ ] `frontend/src/components/Git/GitHistoryList.tsx` (NEW skeleton; comments cover reverse-chrono list, filter dropdown (Manual/All/Auto/Agent per ADR §3.4, §3.4a, §3.5c), click-to-diff, click-to-restore actions, virtualization plan)
-- [ ] `frontend/src/components/Git/GitDiffModal.tsx` (NEW skeleton; comments cover `react-diff-viewer-continued` integration)
-- [ ] `frontend/src/components/Git/BranchPicker.tsx` (NEW skeleton; comments cover dropdown UI, list/create/switch/delete actions, merge + cherry-pick entries)
-- [ ] `frontend/src/components/Git/GitStatusBadge.tsx` (NEW skeleton; comments cover toolbar dirty/clean indicator)
-- [ ] `frontend/src/components/Git/StashApplyDialog.tsx` (NEW skeleton; comments cover stash-on-restore prompt)
-- [ ] `frontend/src/components/Git/StashListPanel.tsx` (NEW skeleton; comments cover Stash drawer: list/save/apply/drop)
-- [ ] `frontend/src/store/gitSlice.ts` (NEW skeleton; comments cover state shape — branches, currentBranch, log cache, filter state, mergeInProgress)
-- [ ] `frontend/src/components/Toolbar.tsx` — mount slots for BranchPicker + GitStatusBadge + Commit button (skeleton mounts placeholders)
-- [ ] `frontend/src/lib/api.ts` — `gitCommit / gitLog / gitDiff / gitRestore / gitBranches / gitBranchSwitch / gitBranchCreate / gitBranchDelete / gitStatus / gitMerge / gitCherryPick / gitStashList / gitStashSave / gitStashApply / gitStashDrop / gitMergeStageFile / gitMergeComplete / gitMergeAbort` function stubs
-- [ ] `frontend/src/store/index.ts` — register gitSlice
-- [ ] `frontend/src/hooks/useWebSocket.ts` — `git.head_changed` case stub
-- [ ] Vitest skeleton tests with detailed docstrings
+- [x] Sub-issue opened, depends on D39-2.2b merged → https://github.com/zjzcpj/SciEasy/issues/928
+- [x] `frontend/src/components/Git/CommitDialog.tsx` (NEW skeleton; comments cover pre-filled template per ADR §3.5, message validation, commit button + cancel) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/components/Git/GitHistoryList.tsx` (NEW skeleton; comments cover reverse-chrono list, filter dropdown (Manual/All/Auto/Agent per ADR §3.4, §3.4a, §3.5c), click-to-diff, click-to-restore actions, virtualization plan) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/components/Git/GitDiffModal.tsx` (NEW skeleton; comments cover `react-diff-viewer-continued` integration) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/components/Git/BranchPicker.tsx` (NEW skeleton; comments cover dropdown UI, list/create/switch/delete actions, merge + cherry-pick entries) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/components/Git/GitStatusBadge.tsx` (NEW skeleton; comments cover toolbar dirty/clean indicator) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/components/Git/StashApplyDialog.tsx` (NEW skeleton; comments cover stash-on-restore prompt) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/components/Git/StashListPanel.tsx` (NEW skeleton; comments cover Stash drawer: list/save/apply/drop) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/store/gitSlice.ts` (NEW skeleton; comments cover state shape — branches, currentBranch, log cache, filter state, mergeInProgress) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/components/Toolbar.tsx` — mount slots for BranchPicker + GitStatusBadge + Commit button (skeleton mounts placeholders) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/lib/api.ts` — `gitCommit / gitLog / gitDiff / gitRestore / gitBranches / gitBranchSwitch / gitBranchCreate / gitBranchDelete / gitStatus / gitMerge / gitCherryPick / gitStashList / gitStashSave / gitStashApply / gitStashDrop / gitMergeStageFile / gitMergeComplete / gitMergeAbort` function stubs → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/store/index.ts` — register gitSlice → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] `frontend/src/hooks/useWebSocket.ts` — `git.head_changed` case wired to `gitSlice.invalidateHistory()` → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
+- [x] Vitest skeleton tests with detailed docstrings → 25 pure-helper assertions pass; 29 `it.skip` cases each carry test-plan docstrings for D39-2.3b
 - [ ] PR merged into tracking branch
 
 ### Phase D39-2.3b — Frontend UI core IMPL (Owner: ID39-3b, 1 agent) [ADR-039 §6 Phase 2 impl]

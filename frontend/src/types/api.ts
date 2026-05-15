@@ -236,3 +236,120 @@ export interface TreeEntry {
 export interface TreeResponse {
   entries: TreeEntry[];
 }
+
+// ---------------------------------------------------------------------------
+// ADR-039 — Git versioning API types
+// ---------------------------------------------------------------------------
+//
+// These mirror the JSON shapes returned by `src/scieasy/api/routes/git.py`
+// (merged in PR #927). When the backend GitEngine returns a `log()` row, a
+// branch listing, a stash entry, a status payload, or a merge result, the
+// FastAPI route emits it as JSON of one of the shapes below.
+//
+// Shapes intentionally mirror python keys (`commit_sha`, `short_sha`, etc.)
+// rather than camelCasing because:
+//   1. The values pass through `api.ts.apiFetch` unmodified.
+//   2. The diff viewer / history list show these raw fields in tooltips and
+//      it is useful to grep them across stack.
+// If TypeScript style ever requires camelCase, do that translation in the
+// `api` wrapper (gitLog → { commitSha, ... }), not by changing the wire shape.
+
+/**
+ * One commit row returned by `GET /api/git/log`. Shape per ADR-039 §3.5
+ * and the backend `GitEngine.log()` plumbing parser (commits are formatted
+ * with `--format=...` so this is the stable wire contract).
+ *
+ * The `prefix` field is derived from the message in `gitSlice` (NOT sent
+ * by the server) — see ADR-039 §3.4 / §3.4a for the legend:
+ *   - "auto"   → message starts with `auto:`  (hidden by default filter)
+ *   - "agent"  → message starts with `agent:` (visible with 🤖 icon)
+ *   - "user"   → no recognized prefix         (visible with 👤 icon)
+ */
+export interface GitCommit {
+  commit_sha: string;
+  short_sha: string;
+  parents: string[];
+  author_name: string;
+  author_email: string;
+  author_date: string;
+  subject: string;
+  body: string;
+  /** Branch names whose tip is this commit (zero, one, or many). */
+  branches: string[];
+}
+
+/** Local branch row from `GET /api/git/branches`. */
+export interface GitBranch {
+  name: string;
+  /** Tip commit sha. */
+  commit_sha: string;
+  /** True if this branch is currently checked out. */
+  is_current: boolean;
+}
+
+/** Stash entry from `GET /api/git/stash`. */
+export interface GitStashEntry {
+  /** Stash identifier (e.g. `stash@{0}`). */
+  stash_id: string;
+  /** Index in stash list (0 = most recent). */
+  index: number;
+  message: string;
+  created_at: string;
+}
+
+/** Diff payload from `GET /api/git/diff`. */
+export interface GitDiff {
+  /** Unified diff as a single string (consumer feeds it to react-diff-viewer-continued). */
+  diff: string;
+}
+
+/** Working-tree status from `GET /api/git/status`. */
+export interface GitStatus {
+  dirty: boolean;
+  modified: string[];
+  staged: string[];
+  untracked: string[];
+  conflicted: string[];
+}
+
+/**
+ * Result of `POST /api/git/merge` and `/cherry-pick`. The discriminated
+ * union mirrors `GitEngine.merge()` return classification — the backend
+ * normalizes git's exit code + stderr into one of these three shapes.
+ */
+export type GitMergeResult =
+  | { result: "fast-forward"; commit_sha: string }
+  | { result: "clean"; commit_sha: string }
+  | { result: "conflict"; conflicted_files: string[] };
+
+/** Response shape for `POST /api/git/commit`. */
+export interface GitCommitResponse {
+  commit_sha: string;
+}
+
+/** Response shape for stash apply when there are conflicts. */
+export type GitStashApplyResult =
+  | { status: "ok" }
+  | { status: "conflict"; conflicted_files: string[] };
+
+/** Response shape for `/api/git/restore` (may return stash info). */
+export type GitRestoreResult =
+  | { status: "ok" }
+  | { status: "stashed"; stash_id: string };
+
+/**
+ * Filter modes for the History panel dropdown per ADR-039 §3.4 / §3.5c.
+ *
+ *   - "manual" (DEFAULT): hide `auto:` and `agent:` prefixed commits.
+ *   - "all":              show every commit.
+ *   - "auto":             show only `auto:` prefixed commits (debugging).
+ *   - "agent":            show only `agent:` prefixed commits (debugging).
+ */
+export type GitHistoryFilter = "manual" | "all" | "auto" | "agent";
+
+/**
+ * In-memory commit prefix classification. Computed client-side by
+ * `gitSlice.classifyPrefix(message)` — NOT a wire field. The History view
+ * and the GitGraph reference this to decide icon rendering (§3.4a).
+ */
+export type GitCommitPrefix = "auto" | "agent" | "user";
