@@ -85,21 +85,29 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv pip install --system -e ".[dev]"
+      - run: uv pip install --system -e ".[dev]" pytest-timeout
       - name: Run tests
         shell: bash {0}
         env:
           SCIEASY_DEV: "1"
+        # ``--timeout=60`` (pytest-timeout) hard-kills any test that hangs
+        # past 60 s and prints its traceback, so a stuck CI surfaces a
+        # diagnosable failure instead of timing out the whole job at 6 h.
+        # ``timeout 600`` is a belt-and-suspenders shell-level kill in
+        # case pytest-timeout itself wedges (xdist + pty edge cases).
         run: |
           if [ "${{ matrix.python-version }}" = "3.13" ]; then
-            pytest -n auto
+            timeout 600 pytest -n auto --timeout=60 --timeout-method=thread
           else
-            pytest -n auto --no-cov
+            timeout 600 pytest -n auto --no-cov --timeout=60 --timeout-method=thread
           fi
           rc=$?
           if [ $rc -eq 5 ]; then
             echo "No tests collected — skipping"
             exit 0
+          fi
+          if [ $rc -eq 124 ]; then
+            echo "::error::pytest exceeded 600s shell timeout (hang escaped --timeout=60)"
           fi
           exit $rc
 
