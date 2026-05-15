@@ -313,11 +313,11 @@
 
 ### Phase D39-3.1 — Combined audit (Owner: AD39-3, context-aware agent)
 
-- [ ] Single audit agent dispatched (has session context per user spec)
-- [ ] Verifies (a) skeleton-vs-ADR consistency, (b) impl-vs-design consistency, (c) wiring reliability
-- [ ] **Mandatory live Chrome smoke**: commit / branch / merge / conflict resolution / graph render
-- [ ] Codex auto-review reconciled for every D39 sub-issue PR
-- [ ] Report at `docs/audit/2026-05-15-adr-039-combined-audit.md`
+- [x] Single audit agent dispatched (has session context per user spec) → PR #966
+- [x] Verifies (a) skeleton-vs-ADR consistency, (b) impl-vs-design consistency, (c) wiring reliability → `docs/audit/2026-05-15-adr-039-combined-audit.md` (commit 902f341)
+- [!] **Mandatory live Chrome smoke**: commit / branch / merge / conflict resolution / graph render → DEFERRED (Chrome MCP interactive browser-pick incompatible with non-interactive agent dispatch). D39-3.2 fix dispatch MUST execute. See report §"Smoke test status".
+- [x] Codex auto-review reconciled for every D39 sub-issue PR → all 23 reviews across 10 PRs already reconciled in implementer-side follow-up commits; tabulated in report
+- [x] Report at `docs/audit/2026-05-15-adr-039-combined-audit.md` → PR #966 commit 902f341
 
 ### Phase D39-3.2 — Fix (Owner: FD39, 1 agent)
 
