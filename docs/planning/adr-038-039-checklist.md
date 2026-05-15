@@ -67,20 +67,28 @@
 
 ## Phase 0.5 — Docs audit (Owner: A0 — no-context agent)
 
-- [ ] 1 audit agent dispatched, no session context; inputs limited to ADR-038/039 + refactored docs
-- [ ] Audit report at `docs/audit/2026-05-15-adr-038-039-docs-audit.md` with P1/P2/P3 categorization
-- [ ] Agent commits audit report to its own audit-output branch + opens PR → manager merges to docs branch after review
+- [x] 1 audit agent dispatched, no session context; inputs limited to ADR-038/039 + refactored docs → agent ID `a83ab64ede13c85db`
+- [x] Audit report at `docs/audit/2026-05-15-adr-038-039-docs-audit.md` with P1/P2/P3 categorization (3 P1 + 4 P2 + 4 P3 + 1 OOS)
+- [x] Agent committed audit report to `audit-output-phase-0.5` branch + opened PR #907 → https://github.com/zjzcpj/SciEasy/pull/907
 
 ---
 
 ## Phase 0.75 — Docs fix + scope-out + docs PR (Owner: manager)
 
-- [ ] All P1 audit findings within ADR-038/039 scope: fixed on docs branch
-- [ ] All P2 audit findings within ADR-038/039 scope: fixed (or explicitly justified deferral)
+- [x] All P1 audit findings within ADR-038/039 scope: fixed on docs branch
+  - P1-1 (ADR-039 §10 pygit2 → bundled git CLI) → ADR-039.md:615
+  - P1-2 (ADR-038 §5.2 checkpoint/ → pause/) → ADR-038.md:384
+  - P1-3 (ARCHITECTURE.md §11 Metadata DB → Lineage DB) → ARCHITECTURE.md:3028
+- [x] All P2 audit findings within ADR-038/039 scope: fixed
+  - P2-1 (key_dependencies clarification) → block-development/{architecture-for-block-devs,memory-safety}.md
+  - P2-2 (ADR-031 ADR-038 cross-ref) → ADR-031.md Addendum 3
+  - P2-3 (ADR-038 §5.1 LineageRecorder move clarification) → ADR-038.md
+  - P2-4 (ADR-038 §5.2 app.py row dedup) → ADR-038.md
+- [x] P3 fixes applied (P3-1 Layer 1 caption, P3-3 §5.3 ADR.md file refs); P3-4 same root as P2-1 (resolved); P3-2 → out-of-scope issue
 - [ ] Out-of-scope findings: filed as individual GitHub issues; tracked in "Out-of-scope from docs audit" section below
-- [ ] Docs PR opened against main with title `docs(#<N>): refactor architecture for ADR-038 + ADR-039`
+- [ ] Docs PR #905 opened against main → https://github.com/zjzcpj/SciEasy/pull/905
 - [ ] CI green
-- [ ] User reviews + merges → main now has the refactored docs
+- [ ] User-approved autonomous merge → main now has the refactored docs
 
 ---
 

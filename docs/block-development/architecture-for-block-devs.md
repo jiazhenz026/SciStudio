@@ -217,7 +217,13 @@ class MyGPUBlock(ProcessBlock):
 - `requires_gpu` -- Hint that the block needs GPU access.
 - `cpu_cores` -- Requested CPU cores for parallel computation.
 - `key_dependencies` -- Python packages the block requires (displayed in
-  the palette UI for user guidance).
+  the palette UI for user guidance). **Note (ADR-038, 2026-05-15):** this
+  ClassVar is now strictly *block-author-facing palette metadata*. It is
+  **NOT** the runtime environment-snapshot mechanism — the engine captures
+  the full `uv pip freeze` per run in `lineage.db.runs.environment_snapshot`
+  per ADR-038 §3.1, regardless of what any individual block declares.
+  `key_dependencies` survives as documentation / palette UX, not as a
+  reproducibility contract.
 
 ---
 

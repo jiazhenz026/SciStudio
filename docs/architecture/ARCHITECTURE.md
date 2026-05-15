@@ -59,6 +59,7 @@ The system is organised into six horizontal layers, from bottom to top. Each lay
 ├─────────────────────────────────────────────────────────────┤
 │  Layer 1: Data foundation                                   │
 │  Type hierarchy · storage backends · lazy loading · lineage │
+│                                  · versioning (bundled git) │
 ├─────────────────────────────────────────────────────────────┤
 │  Plugin ecosystem (cross-cutting; ADR-025, ADR-026)         │
 │  Entry-points protocol · PackageInfo · Block SDK ·          │
@@ -3025,7 +3026,8 @@ workflow:
 | Data validation | Pydantic v2 | Config schemas, API models |
 | Array storage | Zarr v3 | Chunked, compressed, cloud-ready |
 | Tabular storage | Apache Arrow / Parquet | Via `pyarrow` |
-| Metadata DB | SQLite | Lineage records, project metadata |
+| Lineage DB | SQLite (WAL) | Unified run lineage (ADR-038, supersedes ADR-032): `runs` + `block_executions` + `data_objects` + `block_io` |
+| Source version control | bundled portable `git` CLI (MinGit on Windows ~30 MB; static `git` on mac/Linux ~25 MB) | Workflow YAML + custom blocks + notes per ADR-039; auto-init on project open; pre-run auto-commit |
 | Process lifecycle | ProcessHandle + ProcessRegistry + ProcessMonitor | Cross-platform: POSIX signals + process groups (Linux/macOS), Job Objects + TerminateProcess (Windows). Optional: `psutil` for convenience methods (ADR-019) |
 | Concurrency | `concurrent.futures` + `asyncio` | Block-internal parallelism, async scheduling |
 | System monitoring | `psutil` | OS memory usage for ResourceManager dispatch gating, process alive checks for ProcessHandle (ADR-022, ADR-019) |
