@@ -1,3 +1,4 @@
+import { Pin, PinOff } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type { BlockSchemaResponse, LogEntry, WorkflowNode } from "../types/api";
@@ -17,6 +18,13 @@ interface BottomPanelProps {
   // are already represented by an inline badge on the BlockNode itself
   // and by error-level rows in the Logs panel.)
   unreadLogsCount?: number;
+  /**
+   * When true, the bottom panel is "pinned" — App.tsx will skip the
+   * canvas-pane-click auto-collapse so AI Chat sessions stay open. The
+   * pin button in the tab strip toggles this via ``onTogglePin``.
+   */
+  pinned?: boolean;
+  onTogglePin?: () => void;
 }
 
 const TAB_LABELS: Record<BottomTab, string> = {
@@ -255,6 +263,8 @@ export function BottomPanel({
   onTabChange,
   onUpdateConfig,
   unreadLogsCount = 0,
+  pinned = false,
+  onTogglePin,
 }: BottomPanelProps) {
   const badgeFor = (tab: BottomTab): number => {
     if (tab === activeTab) return 0;
@@ -265,7 +275,7 @@ export function BottomPanel({
   return (
     <section className="flex h-full flex-col overflow-hidden bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(238,231,219,0.98))]">
       <div className="flex items-center gap-3 border-b border-stone-200 px-4 py-3">
-        <div className="flex gap-2">
+        <div className="flex flex-1 gap-2">
           {ALL_TABS.map((tab) => {
             const badge = badgeFor(tab);
             return (
@@ -288,25 +298,38 @@ export function BottomPanel({
             );
           })}
         </div>
+        {onTogglePin ? (
+          <button
+            aria-label={pinned ? "Unpin bottom panel" : "Pin bottom panel (disable canvas-click auto-collapse)"}
+            aria-pressed={pinned}
+            className={`inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+              pinned ? "bg-ember/15 text-ember" : "bg-white text-stone-500 hover:bg-stone-100"
+            }`}
+            data-testid="bottom-panel-pin-toggle"
+            onClick={onTogglePin}
+            title={pinned ? "Pinned — clicks on canvas won't fold the panel" : "Pin panel — clicks on canvas won't fold it"}
+            type="button"
+          >
+            {pinned ? <Pin className="h-4 w-4" /> : <PinOff className="h-4 w-4" />}
+          </button>
+        ) : null}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 scrollbar-thin">
-        <div className="h-full rounded-[1.8rem] border border-stone-200 bg-white/80 p-4">
-          {/* TerminalTabs must stay MOUNTED across bottom-panel tab switches
-              so the PTY subprocess survives (unmount fires the WS cleanup
-              hook which kills the child process tree). Hide via CSS when
-              another tab is active. */}
-          <div className={`h-full ${activeTab === "ai" ? "" : "hidden"}`}>
-            <TerminalTabs />
-          </div>
-          {activeTab === "config" ? (
-            <ConfigPanel onUpdateConfig={onUpdateConfig} schema={selectedSchema} selectedNode={selectedNode} />
-          ) : activeTab === "logs" ? (
-            <LogViewer entries={logEntries} />
-          ) : activeTab !== "ai" ? (
-            <PlaceholderTab />
-          ) : null}
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2 scrollbar-thin">
+        {/* TerminalTabs must stay MOUNTED across bottom-panel tab switches
+            so the PTY subprocess survives (unmount fires the WS cleanup
+            hook which kills the child process tree). Hide via CSS when
+            another tab is active. */}
+        <div className={`h-full ${activeTab === "ai" ? "" : "hidden"}`}>
+          <TerminalTabs />
         </div>
+        {activeTab === "config" ? (
+          <ConfigPanel onUpdateConfig={onUpdateConfig} schema={selectedSchema} selectedNode={selectedNode} />
+        ) : activeTab === "logs" ? (
+          <LogViewer entries={logEntries} />
+        ) : activeTab !== "ai" ? (
+          <PlaceholderTab />
+        ) : null}
       </div>
     </section>
   );

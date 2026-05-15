@@ -8,6 +8,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   paletteCollapsed: false,
   previewCollapsed: false,
   bottomPanelCollapsed: false,
+  bottomPanelPinned: false,
   minimapVisible: true,
   panelSizes: {
     palette: 15,
@@ -35,6 +36,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   togglePalette: () => set((state) => ({ paletteCollapsed: !state.paletteCollapsed })),
   togglePreview: () => set((state) => ({ previewCollapsed: !state.previewCollapsed })),
   toggleBottomPanel: () => set((state) => ({ bottomPanelCollapsed: !state.bottomPanelCollapsed })),
+  toggleBottomPanelPinned: () => set((state) => ({ bottomPanelPinned: !state.bottomPanelPinned })),
   toggleMinimap: () => set((state) => ({ minimapVisible: !state.minimapVisible })),
   setPanelSize: (panel, size) =>
     set((state) => ({

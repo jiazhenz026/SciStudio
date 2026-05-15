@@ -721,16 +721,34 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
     "output",
   );
 
-  // Measure the header + config section height to position port handles
-  // below the variable-height content instead of using a hardcoded offset.
+  // Measure the header height so port handles can hang off the LEFT/RIGHT
+  // edges starting just below the first horizontal divider (i.e. aligned
+  // with the inline-config rows) instead of being stacked below the entire
+  // config block. The previous "below config" layout left the lower half
+  // of the node empty when there were 1–3 ports, wasting vertical space.
+  // Ports stick into the block by only 7px (handle is positioned at
+  // ``left: -7`` / ``right: -7``) which sits inside the config rows'
+  // ``px-3`` padding margin without overlapping the input widgets.
+  //
+  // We measure the config section's ``offsetTop`` (= bottom edge of the
+  // header) and add 14px so port row 1 lands roughly on the vertical
+  // centre of the first inline-config field. Subsequent ports stride by
+  // 20px so 3 ports cover the typical 3-row inline-config strip.
+  //
+  // Variadic blocks (DataRouter etc.) usually have no inline-config rows
+  // and may render 5+ ports. Those ports cascade down from the top; if
+  // their count exceeds the natural block height, they extend past the
+  // footer just like they did under the previous layout — handle this in
+  // the PortEditor in the BottomPanel rather than dynamically resizing
+  // the node here.
   const configSectionRef = useRef<HTMLDivElement>(null);
-  const [portStartY, setPortStartY] = useState(80);
+  const [portStartY, setPortStartY] = useState(50);
   useLayoutEffect(() => {
     if (configSectionRef.current) {
-      // Use offsetTop + offsetHeight instead of getBoundingClientRect()
-      // because offset* properties are in the node's local coordinate
-      // system, unaffected by ReactFlow's CSS zoom transform.
-      const offset = configSectionRef.current.offsetTop + configSectionRef.current.offsetHeight + 8;
+      // ``offsetTop`` is the header-bottom Y in the node's local
+      // coordinate system (unaffected by ReactFlow's zoom transform).
+      // Add 14px to centre port row 1 on the first config row.
+      const offset = configSectionRef.current.offsetTop + 14;
       setPortStartY(offset);
     }
     // Re-measure only when config properties or port lists change, not on

@@ -1,4 +1,5 @@
 import { ReactFlowProvider } from "@xyflow/react";
+import type { PanelImperativeHandle } from "react-resizable-panels";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ApiError, api } from "./lib/api";
@@ -87,6 +88,8 @@ export default function App() {
   const togglePalette = useAppStore((state) => state.togglePalette);
   const togglePreview = useAppStore((state) => state.togglePreview);
   const toggleBottomPanel = useAppStore((state) => state.toggleBottomPanel);
+  const bottomPanelPinned = useAppStore((state) => state.bottomPanelPinned);
+  const toggleBottomPanelPinned = useAppStore((state) => state.toggleBottomPanelPinned);
   const toggleMinimap = useAppStore((state) => state.toggleMinimap);
   const setPanelSize = useAppStore((state) => state.setPanelSize);
   const setLastError = useAppStore((state) => state.setLastError);
@@ -135,6 +138,21 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [leftTab, setLeftTab] = useState<"blocks" | "project">("blocks");
   const bootedRef = useRef(false);
+  // Imperative handle into the bottom-panel ResizablePanel. We use
+  // react-resizable-panels' ``.collapse()`` / ``.expand()`` API so the
+  // panel can be folded by canvas clicks and re-expanded by tab / node
+  // clicks without driving the underlying size through React state. The
+  // existing ``bottomPanelCollapsed`` zustand flag is left untouched —
+  // another agent is currently debugging it; we route through the ref
+  // instead.
+  const bottomPanelRef = useRef<PanelImperativeHandle>(null);
+  const expandBottomPanel = useCallback(() => {
+    bottomPanelRef.current?.expand();
+  }, []);
+  const handleCanvasPaneClick = useCallback(() => {
+    if (bottomPanelPinned) return;
+    bottomPanelRef.current?.collapse();
+  }, [bottomPanelPinned]);
 
   const { connected: wsConnected } = useWorkflowWebSocket(Boolean(currentProject));
   const { connected: sseConnected } = useLogStream(workflowId, activeBottomTab === "logs" ? selectedNodeId : null);
@@ -566,25 +584,42 @@ export default function App() {
 
   // #793: handleNodeSelect intentionally keeps the "config" switch because
   // selecting a node IS an explicit user request to see that node's config.
+  // Selecting a node also re-expands the bottom panel — otherwise the
+  // implicit "config" tab switch is invisible while the panel is collapsed.
   const handleNodeSelect = useCallback(
     (nodeId: string | null) => {
       setSelectedNodeId(nodeId);
       if (nodeId) {
         setActiveBottomTab("config");
+        expandBottomPanel();
       }
     },
-    [setSelectedNodeId, setActiveBottomTab],
+    [expandBottomPanel, setSelectedNodeId, setActiveBottomTab],
   );
 
   // Clicking an error badge on a block selects that node and opens the
   // Logs tab — the same tab that now hosts the (filterable) error rows
-  // since the dedicated Problems tab was removed.
+  // since the dedicated Problems tab was removed. Also expand the bottom
+  // panel so the user sees the logs they were just routed to.
   const handleErrorClick = useCallback(
     (blockId: string) => {
       setSelectedNodeId(blockId);
       setActiveBottomTab("logs");
+      expandBottomPanel();
     },
-    [setSelectedNodeId, setActiveBottomTab],
+    [expandBottomPanel, setSelectedNodeId, setActiveBottomTab],
+  );
+
+  // Tab clicks in the BottomPanel always expand the panel — clicking a
+  // tab when the panel is collapsed is an explicit "open this" request.
+  // Expanding a non-collapsed panel is a no-op so this is safe to call
+  // unconditionally.
+  const handleBottomTabChange = useCallback(
+    (tab: typeof activeBottomTab) => {
+      setActiveBottomTab(tab);
+      expandBottomPanel();
+    },
+    [expandBottomPanel, setActiveBottomTab, activeBottomTab],
   );
 
   // Boot: load projects and blocks
@@ -1039,6 +1074,7 @@ export default function App() {
                       onDeleteEdge={removeEdge}
                       onDeleteNode={removeNode}
                       onErrorClick={handleErrorClick}
+                      onPaneClick={handleCanvasPaneClick}
                       onRunBlock={handleRunBlock}
                       onRestartBlock={handleRestartBlock}
                       onSelectNode={handleNodeSelect}
@@ -1050,16 +1086,29 @@ export default function App() {
                     )}
                   </ResizablePanel>
                   <ResizableHandle withHandle />
-                  <ResizablePanel defaultSize="30%" minSize="5%" collapsible collapsedSize="3%">
+                  <ResizablePanel
+                    panelRef={bottomPanelRef}
+                    // collapsedSize is in % of the canvas-column height.
+                    // 8% on a typical 800–1000px column ≈ 64–80px, which
+                    // accommodates the ~60px tab strip without clipping
+                    // it. The previous 3% (~24–30px) cut off the bottom
+                    // half of the tab buttons.
+                    collapsedSize="8%"
+                    collapsible
+                    defaultSize="30%"
+                    minSize="10%"
+                  >
                     <BottomPanel
                       activeTab={activeBottomTab}
                       logEntries={logEntries}
-                      onTabChange={setActiveBottomTab}
+                      onTabChange={handleBottomTabChange}
+                      onTogglePin={toggleBottomPanelPinned}
                       onUpdateConfig={(patch) => {
                         if (selectedNodeId) {
                           updateNodeConfig(selectedNodeId, patch);
                         }
                       }}
+                      pinned={bottomPanelPinned}
                       selectedNode={selectedNode}
                       selectedSchema={selectedSchema}
                       unreadLogsCount={unreadLogsCount}
