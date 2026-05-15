@@ -1497,8 +1497,7 @@ class ApiRuntime:
 
         if workflow_git_commit:
             logger.debug(
-                "ADR-039: captured workflow_git_commit=%s for workflow %s "
-                "(workflow_dirty=%s)",
+                "ADR-039: captured workflow_git_commit=%s for workflow %s (workflow_dirty=%s)",
                 workflow_git_commit,
                 workflow_id,
                 workflow_dirty,

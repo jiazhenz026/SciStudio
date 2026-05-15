@@ -182,9 +182,7 @@ def test_start_workflow_dirty_tree_commit_failure_degrades_to_none(
         _cancel_run(runtime, "main")
 
 
-def test_start_workflow_threads_git_commit_into_lineage_insert(
-    client: TestClient, opened_project: Path
-) -> None:
+def test_start_workflow_threads_git_commit_into_lineage_insert(client: TestClient, opened_project: Path) -> None:
     """The captured SHA is threaded into the lineage ``runs`` row at INSERT time.
 
     Phase 3.5 integration audit P1-1 + P1-2: previously the SHA was
@@ -273,6 +271,7 @@ def test_start_workflow_swallows_lineage_insert_exception(
 
     # Patch the live lineage store's insert_run to raise.
     if runtime.lineage_store is not None:
+
         def _boom(*_args, **_kwargs):
             raise RuntimeError("simulated lineage insert failure")
 

@@ -234,7 +234,7 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
     if runtime is not None:
         try:
             runtime.refresh_block_registry()
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.warning(
                 "branch_switch: refresh_block_registry failed (non-fatal)",
                 exc_info=True,
