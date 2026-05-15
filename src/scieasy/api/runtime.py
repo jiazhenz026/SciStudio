@@ -1271,12 +1271,25 @@ class ApiRuntime:
                             new_sha = engine.commit(msg, prefix="auto")
                             workflow_git_commit = new_sha
                         except Exception:
+                            # Codex P1 on PR #959: when the dirty-tree
+                            # auto-commit fails we MUST NOT fall back to
+                            # the prior HEAD SHA. The workflow is about
+                            # to execute against an uncommitted working
+                            # tree, so the prior SHA does not represent
+                            # what actually ran — persisting it would
+                            # let "Restore this run's workflow" restore
+                            # the wrong revision and silently corrupt
+                            # reproducibility. Degrade to ``None`` so
+                            # the lineage row's ``workflow_dirty=1``
+                            # safety net (ADR-038 §3.1 + ADR-039 §3.4)
+                            # is the source of truth instead.
                             logger.warning(
-                                "ADR-039: pre-run auto-commit failed for %s",
+                                "ADR-039: pre-run auto-commit failed for %s — "
+                                "treating run as degraded (workflow_git_commit=None)",
                                 workflow_id,
                                 exc_info=True,
                             )
-                            workflow_git_commit = state.commit_sha or None
+                            workflow_git_commit = None
                     else:
                         workflow_git_commit = state.commit_sha or None
         except Exception:

@@ -144,6 +144,44 @@ def test_start_workflow_degraded_mode_when_no_git_repo(client: TestClient, opene
         _cancel_run(runtime, "main")
 
 
+def test_start_workflow_dirty_tree_commit_failure_degrades_to_none(
+    client: TestClient, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Codex P1 on PR #959 — commit failure → workflow_git_commit = None.
+
+    When the dirty-tree pre-run auto-commit raises, the workflow is
+    about to execute against an uncommitted working tree. Persisting
+    the prior HEAD SHA in that case would let "Restore this run's
+    workflow" restore the wrong revision and silently corrupt
+    reproducibility. The right behaviour is to degrade to ``None`` so
+    the ADR-038 ``runs.workflow_dirty=1`` safety net takes over.
+    """
+    runtime: ApiRuntime = client.app.state.runtime
+    _commit_initial_workflow(opened_project, runtime)
+
+    # Force a dirty tree.
+    (opened_project / "workflows" / "main.yaml").write_text(_DIRTY_YAML, encoding="utf-8")
+
+    # Monkeypatch GitEngine.commit to raise, simulating a stuck index
+    # / locked .git / disk-full failure during auto-commit.
+    from scieasy.core.versioning.git_engine import GitEngine, GitError
+
+    def _fail_commit(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        raise GitError(1, "simulated auto-commit failure", ["commit"])
+
+    monkeypatch.setattr(GitEngine, "commit", _fail_commit)
+
+    resp = client.post("/api/workflows/main/execute")
+    assert resp.status_code == 200, resp.text
+
+    run = runtime.workflow_runs["main"]
+    try:
+        # The PRIOR HEAD must NOT be persisted — degraded mode wins.
+        assert run.workflow_git_commit is None
+    finally:
+        _cancel_run(runtime, "main")
+
+
 def test_start_workflow_invokes_lineage_hook_when_present(
     client: TestClient, opened_project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
