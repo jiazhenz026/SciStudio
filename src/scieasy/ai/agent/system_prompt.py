@@ -184,10 +184,7 @@ def _render_tool_catalog() -> str:
     # enumeration. Placeholder is intentionally short so spawned agents
     # see the missing-catalog state explicitly.
     """
-    return (
-        "<!-- tool_catalog: skeleton placeholder — I40a (#1012) "
-        "wires FastMCP list_tools() enumeration. -->\n"
-    )
+    return "<!-- tool_catalog: skeleton placeholder — I40a (#1012) wires FastMCP list_tools() enumeration. -->\n"
 
 
 def _render_project_context(project_dir: Path) -> str:

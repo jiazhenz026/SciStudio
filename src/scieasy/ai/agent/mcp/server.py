@@ -41,6 +41,7 @@ runtime use during the cascade is loud rather than silent.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any
@@ -180,9 +181,13 @@ class MCPServer:
         #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
         #   Followup: #1012.
         """
-        raise NotImplementedError(
-            "S40a skeleton — FastMCP server start() lands in I40a Phase 2a. "
-            "TODO(#1012): wire fastmcp.FastMCP.run_async / transport bind."
+        # Skeleton-phase hygiene (audit F1030-1): NotImplementedError leaked
+        # into api/app.py lifespan + standalone mcp-bridge subprocess, breaking
+        # backend boot. Behave as a no-op + warn so runtime stays alive; I40a
+        # wires the real FastMCP serve loop.
+        logger.warning(
+            "MCPServer.start() is a S40a skeleton no-op — FastMCP serve loop "
+            "lands in I40a Phase 2a per ADR-040 §3.1. TODO(#1012)."
         )
 
     async def stop(self) -> None:
@@ -198,9 +203,11 @@ class MCPServer:
         #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
         #   Followup: #1012.
         """
-        raise NotImplementedError(
-            "S40a skeleton — FastMCP server stop() lands in I40a Phase 2a. "
-            "TODO(#1012): wire fastmcp.FastMCP shutdown + transport cleanup."
+        # Skeleton-phase hygiene (audit F1030-1 companion): symmetric no-op
+        # so lifespan shutdown doesn't crash.
+        logger.warning(
+            "MCPServer.stop() is a S40a skeleton no-op — FastMCP shutdown "
+            "lands in I40a Phase 2a per ADR-040 §3.1. TODO(#1012)."
         )
 
     @property
@@ -231,7 +238,14 @@ class MCPServer:
         #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
         #   Followup: #1012.
         """
-        raise NotImplementedError(
-            "S40a skeleton — FastMCP server serve() lands in I40a Phase 2a. "
-            "TODO(#1012): wire blocking serve loop for the standalone bridge."
+        # Skeleton-phase hygiene (audit F1030-1 companion): the standalone
+        # mcp-bridge subprocess awaits serve() and would crash hard on
+        # NotImplementedError. Block forever returning no responses; bridge
+        # clients see a non-functional MCP but the process stays alive.
+        # I40a wires the real blocking serve loop.
+        logger.warning(
+            "MCPServer.serve() is a S40a skeleton no-op (sleeping forever) — "
+            "real FastMCP serve loop lands in I40a Phase 2a per ADR-040 §3.1. "
+            "TODO(#1012)."
         )
+        await asyncio.Event().wait()
