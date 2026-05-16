@@ -106,10 +106,33 @@ def _load_skill_md() -> str:
     #   ["_skills/scieasy/**/*.md"] entry in pyproject.toml (S40b owns
     #   that pyproject section — S40a only touches [project] deps).
     #   Out of scope per ADR-040 §3.4 / phase: 2a I40a. Followup: #1012.
+    #
+    # Skeleton-phase rule (agent-manager templates/skeleton-agent.md §5):
+    # "Skeleton must build — pytest --collect-only runs without errors."
+    # Several AIBlock runtime tests exercise compose_system_prompt →
+    # _load_skill_md transitively (see tests/blocks/ai/*). A bare
+    # NotImplementedError here leaks into those test runs (CI failure
+    # tracebacks at ai_block.py:467). Skeleton therefore preserves the
+    # legacy walk-up implementation verbatim until I40a switches it to
+    # importlib.resources. The body change is the implementation; the
+    # docstring above documents the planned switch.
     """
-    raise NotImplementedError(
-        "S40a skeleton — importlib.resources skill load lands in I40a Phase 2a. "
-        "TODO(#1012): wire files('scieasy') / '_skills' / 'scieasy' / 'SKILL.md'."
+    here = Path(__file__).resolve()
+    # Walk up looking for the repo root (contains ``skills/scieasy``).
+    for parent in here.parents:
+        candidate = parent / "skills" / "scieasy" / "SKILL.md"
+        if candidate.is_file():
+            return candidate.read_text(encoding="utf-8")
+        # Stop at repo root if pyproject.toml is found there.
+        if (parent / "pyproject.toml").is_file():
+            # Final probe inside the repo root before giving up.
+            if candidate.is_file():
+                return candidate.read_text(encoding="utf-8")
+            break
+    raise FileNotFoundError(
+        "skills/scieasy/SKILL.md was not found relative to "
+        f"{here}.  Reinstall SciEasy or run from a checkout that "
+        "includes the skills/ tree."
     )
 
 
