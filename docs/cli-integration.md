@@ -63,28 +63,39 @@ launch the backend first (`scieasy serve` or `scieasy gui`).
 A Typer subcommand that wires the MCP server into a CLI's config file.
 Targets and behaviours:
 
-| Target / scope            | File mutated                      |
-|---------------------------|-----------------------------------|
-| `claude` / `user`         | `~/.claude.json` (`mcpServers`)   |
-| `claude` / `project`      | `<cwd>/.mcp.json` (`mcpServers`)  |
-| `codex` / `user`          | `~/.codex/config.toml` (`[mcp_servers.scieasy]`) |
-| `skill` / `user`          | `~/.claude/skills/scieasy/`       |
-| `skill` / `project`       | `<cwd>/.claude/skills/scieasy/`   |
-| `--all` (user scope)      | All of the above                  |
+| Target / scope            | File(s) mutated                                                       |
+|---------------------------|-----------------------------------------------------------------------|
+| `claude` / `user`         | `~/.claude.json` (`mcpServers`)                                       |
+| `claude` / `project`      | `<cwd>/.mcp.json` (`mcpServers`)                                      |
+| `codex` / `user`          | `~/.codex/config.toml` (`[mcp_servers.scieasy]`)                      |
+| `codex` / `project`       | `<cwd>/.codex/config.toml` (`[mcp_servers.scieasy]`) — Codex 2026     |
+| `skill` / `user`          | `~/.claude/skills/scieasy/` AND `~/.agents/skills/scieasy/`           |
+| `skill` / `project`       | `<cwd>/.claude/skills/scieasy/` AND `<cwd>/.agents/skills/scieasy/`   |
+| `--all` (user scope)      | All of the above                                                       |
 
 All operations are **idempotent**; re-running produces a `noop` result.
 Use `--remove` to undo any install.
 
+The `--skill` flag **cross-installs** the SciEasy skill tree to both
+Claude (`.claude/skills/scieasy/`) and Codex (`.agents/skills/scieasy/`)
+providers in a single call — both CLIs use identical `SKILL.md` format
+(frontmatter + progressive-disclosure body), and the cross-install costs
+one extra `shutil.copytree` per scope (ADR-040 §3.9).
+
 Examples:
 
 ```bash
-# User-scope claude + skill, but skip codex.
+# User-scope claude + cross-installed skill (both providers).
 scieasy install --target claude --scope user --skill
 
 # Project-scope claude only (writes <cwd>/.mcp.json).
 scieasy install --target claude --scope project
 
-# Just the codex MCP entry.
+# Project-scope codex MCP entry — writes <cwd>/.codex/config.toml
+# (Codex 2026 walks from project root loading every .codex/config.toml).
+scieasy install --target codex --scope project
+
+# User-scope codex MCP entry.
 scieasy install --target codex
 
 # Convenience.
@@ -95,31 +106,45 @@ scieasy install --target claude --scope user --remove
 scieasy install --all --remove
 ```
 
-> **Codex caveat.** Codex CLI's MCP config is stored in
-> `~/.codex/config.toml` under `[mcp_servers.<name>]`, which is a
-> single-scope (user) facility — there's no Codex equivalent of
-> Claude's per-project `.mcp.json`. Passing `--scope project` together
-> with `--target codex` falls back to user scope and prints a
-> clarifying message.
+> **Codex 2026 project-scope support.** Codex 2026 introduced
+> `<project>/.codex/config.toml` discovery (Codex walks from the project
+> root loading every `.codex/config.toml` it finds). Older Codex
+> releases honoured only user-scope `~/.codex/config.toml`. Passing
+> `--target codex --scope project` writes a project-scope MCP entry
+> that takes effect once Codex is launched inside that project, with
+> `SCIEASY_PROJECT_DIR` pinned via the `[mcp_servers.scieasy.env]`
+> table. Codex's "trusted projects" model means the first open after
+> install may prompt for trust acceptance — one-time UX friction.
 
 ### 3. SciEasy skill
 
-A directory `skills/scieasy/` (bundled with the source distribution and
-installed by `scieasy install --skill`) containing:
+A packaged directory `src/scieasy/_skills/scieasy/` (per ADR-040 §3.4,
+bundled with the wheel and installed by `scieasy install --skill`)
+containing:
 
-- `SKILL.md` — frontmatter + body describing identity, core concepts,
-  the 25 tools, working principles, and pointers to project docs.
-- `examples/` — minimal workflow YAMLs the agent can cite as
-  structural references.
+- `SKILL.md` — base identity + thin pointer index to the 5 task-scoped
+  sub-skills.
+- `scieasy-build-workflow/SKILL.md`, `scieasy-write-block/SKILL.md`,
+  `scieasy-debug-run/SKILL.md`, `scieasy-inspect-data/SKILL.md`,
+  `scieasy-project-qa/SKILL.md` — JIT-loaded task skills with
+  progressive-disclosure semantics (frontmatter `description` triggers
+  body load on demand).
 
-Claude Code auto-discovers user-scope skills under
-`~/.claude/skills/<name>/SKILL.md` and surfaces them in the
-slash-command picker. The skill body is also the **single source of
-truth** for the embedded GUI agent's system prompt: at session start
-the GUI reads `skills/scieasy/SKILL.md` (with the tool catalog
-re-synthesised from the live registry) and uses it as the
-`--append-system-prompt` payload. If the skill file changes, both the
-GUI and any external claude see the change after a restart.
+Per ADR-040 §3.9, `scieasy install --skill` **cross-installs** the
+entire 6-file tree to both providers:
+
+- Claude Code reads `~/.claude/skills/scieasy/` (user) or
+  `<project>/.claude/skills/scieasy/` (project).
+- Codex reads `~/.agents/skills/scieasy/` (user) or
+  `<project>/.agents/skills/scieasy/` (project).
+
+Both providers auto-discover skills at session start and surface them
+in their respective slash-command pickers. The base `SKILL.md` body is
+also the **single source of truth** for the embedded GUI agent's system
+prompt: at session start the GUI reads the packaged tree (via
+`importlib.resources`) and uses it as the `--append-system-prompt`
+payload. If a skill file changes, both the GUI and any external
+claude/codex see the change after a restart.
 
 If the SKILL.md file is missing at runtime (e.g. a wheel install
 without packaged skill data), the GUI falls back to an inline copy of
@@ -171,10 +196,12 @@ note on stderr.
 
 **Codex MCP add removes my custom TOML formatting.**
 
-The install command tries to preserve other keys in
-`~/.codex/config.toml`, but it does normalise the `[mcp_servers.scieasy]`
-block to a canonical layout. If you've heavily customised the file,
-inspect the diff before/after.
+The install command tries to preserve other keys in the target file
+(either `~/.codex/config.toml` for user scope or
+`<cwd>/.codex/config.toml` for project scope per Codex 2026), but it
+does normalise the `[mcp_servers.scieasy]` block to a canonical
+layout. If you've heavily customised the file, inspect the diff
+before/after.
 
 ## Git compatibility (ADR-039)
 
