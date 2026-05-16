@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- [#1021] AC40: ADR-040 code-scope manifest at `docs/planning/adr-040-code-scope.md`. Per-track owner-file enumeration (FastMCP, Provisioning, Install-parity, Skills, cross-cutting) with verbatim line numbers, callsites, test impact, and out-of-scope file lists. Authored to let Phase 1 skeleton agents dispatch without re-grepping the codebase. Verified tool count = 26 (corrects checklist note that said 27). (@claude, 2026-05-16, branch: feat/issue-1021/ac40-code-scope-manifest, session: 20260516-175257-ac40-adr-040-code-scope-investigation)
+
 ### Fixed
 
 - [#1015] Wire backend-supplied per-block ``inputs`` / ``outputs`` through the frontend adapter. ``adaptBlockExecution`` (``frontend/src/lib/api.ts``) hardcoded ``inputs: []`` / ``outputs: []`` with a stale "future enhancement" comment from the D38-2.4c skeleton. #996 inlined the join server-side, so ``GET /api/runs/{id}`` already carried the data — but the frontend dropped it on the floor, and the Lineage block cards rendered "0 inputs / 0 outputs" even though the Methods export (which reads the recorder's joined SQL directly) showed the same DataObjects correctly. New ``adaptDataObjectRef`` maps each backend row's ``{direction, port_name, position, object_id, type_name, backend, storage_path, produced_by_execution}`` shape to the frontend's leaner ``LineageDataObjectRef`` (drops ``direction`` because the server-side bucket assignment already separated inputs from outputs, drops ``backend`` and ``produced_by_execution`` because the v1 card UI doesn't display them). 36/36 Lineage frontend tests pass. (@claude, 2026-05-16, branch: hotfix/issue-1004/graph-row-virtualization-spacer, session: n/a-hotfix-mode-§11.5)
