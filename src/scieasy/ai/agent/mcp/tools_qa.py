@@ -1,22 +1,92 @@
 """Category (d) MCP tools — documentation and project Q&A (4 tools).
 
-T-ECA-204. See ``docs/specs/embedded-coding-agent-spec.md`` §6 T-ECA-204.
+ADR-040 §3.1 FastMCP migration, S40a skeleton phase. All tool functions
+are decorated with ``@mcp.tool(name=...)`` and declare Pydantic result
+models. Bodies raise :class:`NotImplementedError` with a detailed
+``# TODO(#1012)`` comment block describing the impl approach for I40a
+Phase 2a.
+
+The 4 tools (all read-class) are:
+
+``search_docs``, ``get_doc``, ``list_data``, ``get_project_info``.
 """
 
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any
 
-from scieasy.ai.agent.mcp._context import _resolve_project_root, get_context
+from pydantic import BaseModel, Field
+
+from scieasy.ai.agent.mcp.server import mcp
 
 logger = logging.getLogger(__name__)
 
 
+# Constants preserved for I40a Phase 2a impl reference.
 _SEARCH_MAX_RESULTS = 20
 _SEARCH_SNIPPET_CHARS = 200
 _DATA_LIST_MAX_ENTRIES = 500
+
+
+# ---------------------------------------------------------------------------
+# Pydantic result models — ADR-040 §3.1 typed envelopes.
+# ---------------------------------------------------------------------------
+
+
+class SearchDocsHit(BaseModel):
+    """One result entry from ``search_docs``."""
+
+    path: str = Field(description="Path relative to the docs/ tree root.")
+    line: int = Field(description="Line number of first hit.")
+    snippet: str = Field(description="Snippet around the first hit (no newlines).")
+    score: float = Field(description="Count of hits within the file.")
+
+
+class GetDocResult(BaseModel):
+    """Result envelope for ``get_doc``."""
+
+    path: str = Field(description="Absolute resolved path of the doc.")
+    content: str = Field(description="Full text of the doc.")
+    bytes: int = Field(description="Byte length of content (utf-8 encoded).")
+
+
+class DataAssetEntry(BaseModel):
+    """One entry in ``list_data``."""
+
+    name: str
+    path: str
+    size_bytes: int = Field(default=0)
+    modified_at: float = Field(description="POSIX mtime as float.")
+    is_directory: bool
+
+
+class ListDataResult(BaseModel):
+    """Result envelope for ``list_data``."""
+
+    zarr: list[DataAssetEntry] = Field(default_factory=list)
+    parquet: list[DataAssetEntry] = Field(default_factory=list)
+    artifacts: list[DataAssetEntry] = Field(default_factory=list)
+
+
+class RecentRunEntry(BaseModel):
+    """One entry in ``get_project_info.recent_runs``."""
+
+    workflow_id: str
+    started_at: str
+    state: str
+
+
+class GetProjectInfoResult(BaseModel):
+    """Result envelope for ``get_project_info``."""
+
+    project: dict[str, Any] = Field(default_factory=dict, description="Top-level project.yaml::project section.")
+    path: str = Field(description="Absolute path of the project root.")
+    workflows: list[str] = Field(default_factory=list, description="Names (file stems) of workflows in workflows/.")
+    recent_runs: list[RecentRunEntry] = Field(
+        default_factory=list,
+        description="Best-effort recent run listing via MetadataStore.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -24,80 +94,38 @@ _DATA_LIST_MAX_ENTRIES = 500
 # ---------------------------------------------------------------------------
 
 
-def _docs_root() -> Path:
-    """Locate the ``docs/`` tree.
+@mcp.tool(name="search_docs")
+async def search_docs(
+    query: str = Field(description="Free-text search query (case-insensitive substring match)."),
+    scope: str | None = Field(
+        default=None,
+        description="Optional subdirectory under docs/ to restrict the search to (e.g. 'adr', 'specs').",
+    ),
+) -> list[SearchDocsHit]:
+    """Search the on-disk docs/ tree for matches to a free-text query.
 
-    Searches upward from the active project for a ``docs/`` directory,
-    falling back to the repo-level ``docs/`` when running against the
-    SciEasy source tree.
+    Use when:
+      - You need to find documentation for a feature/concept by keyword.
+      - You're looking up an ADR by topic.
+
+    Do NOT use to:
+      - Search code — this only walks docs/.
+      - Read a known doc — use ``get_doc`` directly.
+
+    Returns up to 20 results sorted by descending hit count.
     """
-    ctx = get_context()
-    if ctx.project_dir is not None:
-        candidate = ctx.project_dir / "docs"
-        if candidate.is_dir():
-            return candidate
-    # Fall back to repo-rooted docs/ relative to this file.
-    here = Path(__file__).resolve()
-    for parent in here.parents:
-        if (parent / "docs").is_dir():
-            return parent / "docs"
-    raise FileNotFoundError("No docs/ directory found")
-
-
-def search_docs(query: str, scope: str | None = None) -> list[dict[str, Any]]:
-    """Search the on-disk ``docs/`` tree for matches to a free-text query.
-
-    Substring match (case-insensitive). Returns up to 20 results sorted
-    by descending hit count within the file.
-    """
-    if not query:
-        return []
-    root = _docs_root()
-    root_resolved = root.resolve()
-    if scope:
-        # Validate that the resolved scope stays within docs/ — otherwise
-        # values like "../../" or absolute paths would silently scan
-        # outside the docs tree. Mirrors the guard in get_doc().
-        # Per PR #744 Codex P1 (discussion_r3231046696).
-        try:
-            scoped = (root / scope).resolve()
-            scoped.relative_to(root_resolved)
-        except (OSError, ValueError):
-            return []
-        if not scoped.exists():
-            return []
-        search_root = scoped
-    else:
-        search_root = root
-
-    q = query.lower()
-    results: list[dict[str, Any]] = []
-    for md_path in sorted(search_root.rglob("*.md")):
-        try:
-            text = md_path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
-        lower = text.lower()
-        idx = lower.find(q)
-        if idx == -1:
-            continue
-        # Compute line number of first hit + snippet around it.
-        line_no = text[:idx].count("\n") + 1
-        start = max(0, idx - 60)
-        end = min(len(text), idx + _SEARCH_SNIPPET_CHARS - 60)
-        snippet = text[start:end].replace("\n", " ")
-        results.append(
-            {
-                "path": str(md_path.relative_to(root.parent)) if md_path.is_relative_to(root.parent) else str(md_path),
-                "line": line_no,
-                "snippet": snippet,
-                "score": float(lower.count(q)),
-            }
-        )
-        if len(results) >= _SEARCH_MAX_RESULTS:
-            break
-    results.sort(key=lambda r: r["score"], reverse=True)
-    return results
+    # TODO(#1012): port from ADR-033-era impl preserving:
+    #   1. _docs_root() — project_dir/docs first, then walk up from
+    #      __file__ to find repo-level docs/.
+    #   2. PR #744 Codex P1 (discussion_r3231046696): validate scope
+    #      resolves within docs/ — otherwise "../../" or absolute paths
+    #      silently scan outside. Mirrors the guard in get_doc().
+    #   3. Substring match, case-insensitive.
+    #   4. Sort by score (count) descending; cap to _SEARCH_MAX_RESULTS=20.
+    #
+    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
+    #   Followup: #1012.
+    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
 
 
 # ---------------------------------------------------------------------------
@@ -105,39 +133,33 @@ def search_docs(query: str, scope: str | None = None) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
-def get_doc(path: str) -> dict[str, Any]:
+@mcp.tool(name="get_doc")
+async def get_doc(
+    path: str = Field(description="Path to the doc — either 'docs/foo.md' or 'foo.md' (resolved under docs/)."),
+) -> GetDocResult:
     """Return the full text of one documentation file.
 
-    Path validation: must resolve within the ``docs/`` tree.
-    """
-    root = _docs_root()
-    # Accept either ``docs/foo.md`` or ``foo.md`` (already inside docs).
-    p = Path(path)
-    candidates = [p, root / p, root.parent / p]
-    resolved: Path | None = None
-    for cand in candidates:
-        try:
-            r = cand.resolve()
-        except OSError:
-            continue
-        try:
-            r.relative_to(root.resolve())
-        except ValueError:
-            continue
-        if r.exists():
-            resolved = r
-            break
-    if resolved is None:
-        # Either escapes docs/ or doesn't exist.
-        try:
-            attempted = (root / p).resolve()
-            attempted.relative_to(root.resolve())
-        except ValueError as exc:
-            raise PermissionError(f"Path '{path}' escapes the docs/ tree") from exc
-        raise FileNotFoundError(f"Doc not found: {path}")
+    Use when:
+      - You have a doc path from ``search_docs`` and want the full text.
+      - You're reading a known ADR or spec by path.
 
-    content = resolved.read_text(encoding="utf-8", errors="replace")
-    return {"path": str(resolved), "content": content, "bytes": len(content.encode("utf-8"))}
+    Do NOT use to:
+      - Search docs — use ``search_docs``.
+
+    Path validation: must resolve within the docs/ tree. Raises
+    ``PermissionError`` for paths that escape (e.g. ``../../etc/passwd``).
+    """
+    # TODO(#1012): port from ADR-033-era impl preserving path-traversal
+    #   guard. Reference:
+    #   1. _docs_root() → root.
+    #   2. Try p, root / p, root.parent / p; for each: resolve, verify
+    #      relative_to(root.resolve()) succeeds.
+    #   3. PermissionError when none resolve under root; FileNotFoundError
+    #      when the resolved path doesn't exist.
+    #
+    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
+    #   Followup: #1012.
+    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
 
 
 # ---------------------------------------------------------------------------
@@ -145,39 +167,33 @@ def get_doc(path: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def list_data(project_dir: str) -> dict[str, Any]:
+@mcp.tool(name="list_data")
+async def list_data(
+    project_dir: str = Field(description="Absolute path to the project root."),
+) -> ListDataResult:
     """Enumerate data assets in the project workspace.
 
-    Walks ``data/zarr/``, ``data/parquet/``, ``data/artifacts/`` and
-    returns one entry per top-level dataset. Does not open the
-    datasets — payload reads stay in :func:`preview_data`.
-    """
-    root = Path(project_dir)
-    if not root.exists():
-        raise FileNotFoundError(f"Project directory not found: {project_dir}")
+    Use when:
+      - You need to know what data is available before referencing it.
+      - You're producing a data-availability summary for the user.
 
-    out: dict[str, list[dict[str, Any]]] = {"zarr": [], "parquet": [], "artifacts": []}
-    for kind, subdir in (("zarr", "data/zarr"), ("parquet", "data/parquet"), ("artifacts", "data/artifacts")):
-        dpath = root / subdir
-        if not dpath.is_dir():
-            continue
-        for entry in sorted(dpath.iterdir()):
-            try:
-                stat = entry.stat()
-            except OSError:
-                continue
-            out[kind].append(
-                {
-                    "name": entry.name,
-                    "path": str(entry),
-                    "size_bytes": stat.st_size if entry.is_file() else 0,
-                    "modified_at": stat.st_mtime,
-                    "is_directory": entry.is_dir(),
-                }
-            )
-            if sum(len(v) for v in out.values()) >= _DATA_LIST_MAX_ENTRIES:
-                return out
-    return out
+    Do NOT use to:
+      - Read data payloads — use ``inspect_data`` / ``preview_data``.
+
+    Walks data/zarr/, data/parquet/, data/artifacts/ and returns one
+    entry per top-level dataset. Does not open the datasets — payload
+    reads stay in ``preview_data``.
+    """
+    # TODO(#1012): port from ADR-033-era impl preserving:
+    #   1. _DATA_LIST_MAX_ENTRIES = 500 cap.
+    #   2. Walks (zarr, "data/zarr"), (parquet, "data/parquet"),
+    #      (artifacts, "data/artifacts").
+    #   3. Skips entries whose stat() raises OSError.
+    #   4. Returns ListDataResult with three lists.
+    #
+    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
+    #   Followup: #1012.
+    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
 
 
 # ---------------------------------------------------------------------------
@@ -185,49 +201,30 @@ def list_data(project_dir: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def get_project_info() -> dict[str, Any]:
-    """Return high-level information about the active project workspace."""
-    import yaml
+@mcp.tool(name="get_project_info")
+async def get_project_info() -> GetProjectInfoResult:
+    """Return high-level information about the active project workspace.
 
-    ctx = get_context()
-    root = _resolve_project_root(ctx)
-    project_file = root / "project.yaml"
-    if not project_file.exists():
-        raise FileNotFoundError(f"No project.yaml in {root}")
-    raw = yaml.safe_load(project_file.read_text(encoding="utf-8")) or {}
-    project_meta = raw.get("project", {}) if isinstance(raw, dict) else {}
+    Use when:
+      - You need an overview of the project (name, description,
+        workflows, recent runs).
+      - You're producing a project-status summary for the user.
 
-    workflows_dir = root / "workflows"
-    workflows: list[str] = []
-    if workflows_dir.is_dir():
-        workflows = sorted(p.stem for p in workflows_dir.glob("*.yaml"))
+    Do NOT use to:
+      - Enumerate data — use ``list_data``.
+      - List workflows in detail — use ``list_data`` or read individual
+        workflows via ``get_workflow``.
 
-    recent_runs: list[dict[str, Any]] = []
-    try:
-        # Phase 3.5 audit P2-4: suppress D38-2.3 metadata_store
-        # deprecation warning at MCP boundary (see tools_inspection.py).
-        import warnings
-
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                category=DeprecationWarning,
-                module=r"scieasy\.core\.metadata_store",
-            )
-            from scieasy.core.metadata_store import get_metadata_store
-
-            store = get_metadata_store()
-        if store is not None:
-            # Recent runs: derive workflow_ids from list_by_workflow if
-            # the store supports an enumeration helper. Otherwise leave
-            # empty — this is best-effort.
-            pass
-    except Exception:
-        logger.debug("get_project_info: MetadataStore lookup failed", exc_info=True)
-
-    return {
-        "project": project_meta,
-        "path": str(root),
-        "workflows": workflows,
-        "recent_runs": recent_runs,
-    }
+    Raises ``FileNotFoundError`` if project.yaml is missing.
+    """
+    # TODO(#1012): port from ADR-033-era impl. Reference:
+    #   1. _resolve_project_root(ctx) → root.
+    #   2. yaml.safe_load(project.yaml) → project_meta = raw.get("project", {}).
+    #   3. Enumerate workflows/*.yaml stems (sorted).
+    #   4. Best-effort recent_runs via get_metadata_store() with the
+    #      D38-2.3 deprecation-warning suppression dance.
+    #   5. Return GetProjectInfoResult.
+    #
+    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
+    #   Followup: #1012.
+    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")

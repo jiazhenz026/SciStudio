@@ -30,9 +30,17 @@ from typing import Any
 
 import pytest
 
-from scieasy.ai.agent.mcp import _context, tools_inspection, tools_workflow
-from scieasy.blocks.registry import BlockRegistry
-from scieasy.core.types.registry import TypeRegistry
+# TODO(#1012): module-level skip during ADR-040 §3.1 FastMCP skeleton
+#   phase. The MCP tool bodies are NotImplementedError stubs in S40a;
+#   I40a Phase 2a restores disk-level integration behavior. Out of scope
+#   per ADR-040 §3.1 / phase: 2a I40a. Followup: #1012.
+pytestmark = pytest.mark.skip(
+    reason="S40a skeleton — tool bodies are NotImplementedError stubs. TODO(#1012): I40a Phase 2a restores."
+)
+
+from scieasy.ai.agent.mcp import _context, tools_inspection, tools_workflow  # noqa: E402
+from scieasy.blocks.registry import BlockRegistry  # noqa: E402
+from scieasy.core.types.registry import TypeRegistry  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Test scaffolding.
