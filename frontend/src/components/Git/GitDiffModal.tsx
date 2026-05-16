@@ -123,7 +123,15 @@ export function GitDiffModal(props: GitDiffModalProps): JSX.Element | null {
           </Button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto px-2 py-2">
+        {/*
+          Hotfix #1007: `min-w-0` prevents this flex-1 child from being
+          sized to its intrinsic content width, which would push the
+          parent modal beyond its `max-w-5xl` cap when a diff line is
+          very long. With `min-w-0` the child can shrink below content
+          width and the `overflow-auto` actually creates a horizontal
+          scrollbar instead of stretching the modal.
+        */}
+        <div className="min-h-0 min-w-0 flex-1 overflow-auto px-2 py-2">
           {loading ? (
             <div data-testid="git-diff-loading" className="p-4 text-sm text-stone-500">
               Loading diff…

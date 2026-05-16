@@ -401,6 +401,52 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
     };
   }
 
+  // Hotfix #1006 (Plan B): pin the "trunk" — the longest lane that
+  // reaches the bottom of the log — to lane 0.
+  //
+  // The DFS+recycle algorithm (per #1002) walks first-parent edges from
+  // commits[0] (HEAD). In a complex history HEAD's first-parent chain
+  // may not reach the repo root: e.g. `git checkout feature; git merge
+  // main` produces a merge commit whose first parent is the feature
+  // branch tip, not main. The trunk's tip then gets allocated whatever
+  // lane was free when it was eventually reached — could be lane 3 or
+  // higher. Users expect "main is the leftmost line that runs end-to-
+  // end", matching every other git GUI.
+  //
+  // Post-process: find the lane that has the MOST rows assigned to it
+  // AND contains the bottom-most commit. If that lane outweighs lane 0
+  // (more rows) AND isn't lane 0 already, swap them across the entire
+  // output. The "outweighs" check protects multi-root / octopus
+  // fixtures where lane 0 is legitimately the trunk and the bottom-row
+  // commit is a sibling parent — those fixtures stay unswapped.
+  //
+  // Edge colors recompute downstream via `max(child_lane, parent_lane)`
+  // (#994), so colors naturally follow the swap. `merge_lanes` arrays
+  // also swap since they reference lane numbers directly.
+  if (out.length >= 2) {
+    const candidate = out[out.length - 1].lane;
+    if (candidate !== 0) {
+      let candidateRows = 0;
+      let laneZeroRows = 0;
+      for (const a of out) {
+        if (a.lane === candidate) candidateRows++;
+        else if (a.lane === 0) laneZeroRows++;
+      }
+      if (candidateRows > laneZeroRows) {
+        for (const a of out) {
+          if (a.lane === 0) a.lane = candidate;
+          else if (a.lane === candidate) a.lane = 0;
+          a.color_index = a.lane % PALETTE.length;
+          if (a.merge_lanes.length > 0) {
+            a.merge_lanes = a.merge_lanes.map((c) =>
+              c === 0 ? candidate : c === candidate ? 0 : c,
+            );
+          }
+        }
+      }
+    }
+  }
+
   return out;
 }
 
