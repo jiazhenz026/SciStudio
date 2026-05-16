@@ -454,9 +454,7 @@ class LineageStore:
             columns = [d[0] for d in cur.description]
             return [dict(zip(columns, row, strict=False)) for row in cur.fetchall()]
 
-    def list_block_io_with_objects(
-        self, run_id: str
-    ) -> list[dict[str, Any]]:
+    def list_block_io_with_objects(self, run_id: str) -> list[dict[str, Any]]:
         """Return all I/O edges joined with their ``data_objects`` row for a run.
 
         Hotfix #996: ADR-038 §3.7 Q4b "Per-block I/O DataObjects?" SQL

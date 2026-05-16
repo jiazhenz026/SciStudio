@@ -408,9 +408,7 @@ class GitEngine:
             args.append(".")
         self._run(args)
 
-    def _files_unchanged_vs_commit(
-        self, commit_sha: str, files: list[str]
-    ) -> bool:
+    def _files_unchanged_vs_commit(self, commit_sha: str, files: list[str]) -> bool:
         """Return True iff every file's worktree content equals its
         content at *commit_sha*.
 
