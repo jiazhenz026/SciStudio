@@ -206,6 +206,14 @@ def _remove_claude(scope: str, cwd: Path) -> InstallResult:
 
 
 def _codex_config_path() -> Path:
+    """Return the user-scope Codex config path.
+
+    TODO(#1014): I40d Phase 2a — widen to ``_codex_config_path(scope, cwd)``
+    returning either ``~/.codex/config.toml`` (user) or
+    ``<cwd>/.codex/config.toml`` (project, per ADR-040 §3.7 — Codex 2026
+    project-scope support).
+    Out of scope per ADR-040 §3.7 (skeleton phase). Followup: #1014.
+    """
     return Path.home() / ".codex" / "config.toml"
 
 
@@ -285,6 +293,26 @@ def _strip_codex_block(existing: str) -> tuple[str, bool]:
 
 
 def _install_codex(scope: str, cwd: Path) -> InstallResult:
+    """Write ``[mcp_servers.scieasy]`` block to Codex's config file.
+
+    Today (skeleton phase) always writes to the **user-scope** path
+    (``~/.codex/config.toml``) regardless of *scope* — the project-scope
+    branch is **deferred to I40d Phase 2a** per ADR-040 §3.7. The
+    ``perform_install`` orchestrator currently routes ``scope=="project"``
+    requests through the "force user-scope for codex" fallback at the
+    elif-codex branch below; I40d removes that fallback and routes
+    project-scope requests through this function directly.
+
+    Reuses ``_render_codex_block(project_dir)`` unchanged. After I40d,
+    only the destination path differs by scope; block content reuses
+    ``project_dir`` to emit the ``[mcp_servers.scieasy.env]`` table.
+
+    TODO(#1014): I40d Phase 2a — implement project-scope branch writing
+    ``<cwd>/.codex/config.toml`` (Codex 2026 supports project-scope
+    discovery per ADR-040 §3.7). Use ``_codex_config_path(scope, cwd)``
+    after that helper is widened. Out of scope per ADR-040 §3.7 (skeleton
+    phase). Followup: #1014.
+    """
     if scope == "user":
         project_dir: Path | None = None
     elif scope == "project":
@@ -292,6 +320,10 @@ def _install_codex(scope: str, cwd: Path) -> InstallResult:
     else:
         raise ValueError(f"unsupported scope for codex: {scope!r}")
 
+    # TODO(#1014): I40d Phase 2a — switch to ``_codex_config_path(scope, cwd)``
+    # so project-scope writes land in ``<cwd>/.codex/config.toml``. Today
+    # this always returns the user-scope path; the perform_install
+    # fallback below short-circuits project-scope to user-scope.
     path = _codex_config_path()
     existing = _read_text_or_empty(path)
     stripped, had_existing = _strip_codex_block(existing)
@@ -357,6 +389,17 @@ def _remove_codex(scope: str, cwd: Path) -> InstallResult:
 
 
 def _skill_dest(scope: str, cwd: Path) -> Path:
+    """Return the Claude-side skill destination for *scope*.
+
+    TODO(#1014): I40d Phase 2a — widen to return a tuple
+    ``(claude_path, codex_path)`` of both destinations per ADR-040 §3.9.
+    Codex destination layout:
+
+      user scope:    ``~/.agents/skills/scieasy/``
+      project scope: ``<cwd>/.agents/skills/scieasy/``
+
+    Out of scope per ADR-040 §3.9 (skeleton phase). Followup: #1014.
+    """
     if scope == "user":
         return Path.home() / ".claude" / "skills" / MCP_SERVER_NAME
     if scope == "project":
@@ -393,12 +436,41 @@ def _find_skill_source() -> Path:
     )
 
 
-def _install_skill(scope: str, cwd: Path) -> InstallResult:
-    """Copy the bundled skill directory into Claude's skills tree.
+def _install_skill(scope: str, cwd: Path) -> list[InstallResult]:
+    """Cross-install the SciEasy skill bundle to both Claude and Codex paths.
+
+    **Return type widened in S40d skeleton from ``InstallResult`` to
+    ``list[InstallResult]`` per ADR-040 §3.9**, because the post-impl
+    contract writes to TWO destinations per call:
+
+      user scope:    ``~/.claude/skills/scieasy/`` AND ``~/.agents/skills/scieasy/``
+      project scope: ``<cwd>/.claude/skills/scieasy/`` AND ``<cwd>/.agents/skills/scieasy/``
+
+    Today (skeleton phase) the body still writes the single legacy
+    Claude-side destination only — the second (Codex / ``.agents/skills/``)
+    destination is **deferred to I40d Phase 2a**. The list-of-one return
+    shape preserves call-site compatibility while widening the contract;
+    ``perform_install`` consumes via ``results.extend(...)``.
 
     Always copies (never symlinks) for Windows compatibility — symlinks
     require admin / developer mode on Windows.
+
+    TODO(#1014): I40d Phase 2a — implement cross-install per ADR-040 §3.9.
+      1. Update ``_skill_dest`` to return ``(claude_path, codex_path)``.
+      2. Walk all 6 task-scoped sub-skills produced by Phase 2c Skills
+         track (``scieasy-build-workflow``, ``scieasy-write-block``,
+         ``scieasy-debug-run``, ``scieasy-inspect-data``,
+         ``scieasy-project-qa``, plus the root index).
+      3. Use ``importlib.resources.files("scieasy") / "_skills" / "scieasy"``
+         as source path (post-Phase 2c relocation per ADR §3.4). Fall back
+         to the current ``_find_skill_source`` walk-up for dev checkouts
+         where the packaged tree is empty.
+      4. Return one ``InstallResult`` per destination (2 per call).
+      Out of scope per ADR-040 §3.9 (skeleton phase). Followup: #1014.
     """
+    # TODO(#1014): I40d replaces the body below with the full cross-install
+    # loop described above. Current body writes only the Claude-side path.
+    # Out of scope per ADR-040 §3.9 (skeleton phase). Followup: #1014.
     src = _find_skill_source()
     dest = _skill_dest(scope, cwd)
     action = "updated" if dest.is_dir() else "installed"
@@ -407,21 +479,40 @@ def _install_skill(scope: str, cwd: Path) -> InstallResult:
         shutil.rmtree(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(src, dest)
-    return InstallResult(
-        target="skill",
-        scope=scope,
-        path=dest,
-        action=action,
-        detail=f"copied {src} -> {dest}",
-    )
+    return [
+        InstallResult(
+            target="skill",
+            scope=scope,
+            path=dest,
+            action=action,
+            detail=f"copied {src} -> {dest}",
+        )
+    ]
 
 
-def _remove_skill(scope: str, cwd: Path) -> InstallResult:
+def _remove_skill(scope: str, cwd: Path) -> list[InstallResult]:
+    """Symmetric removal across both Claude and Codex skill trees.
+
+    **Return type widened in S40d skeleton from ``InstallResult`` to
+    ``list[InstallResult]`` per ADR-040 §3.9** to match ``_install_skill``.
+
+    Today (skeleton phase) the body removes only the legacy Claude-side
+    destination — the second (Codex / ``.agents/skills/``) destination is
+    deferred to I40d Phase 2a.
+
+    TODO(#1014): I40d Phase 2a — implement symmetric cross-removal per
+    ADR-040 §3.9. Each ``shutil.rmtree`` call yields one ``InstallResult``;
+    return both. Out of scope per ADR-040 §3.9 (skeleton phase).
+    Followup: #1014.
+    """
+    # TODO(#1014): I40d replaces with both-paths removal. Current body
+    # removes only the Claude-side path.
+    # Out of scope per ADR-040 §3.9 (skeleton phase). Followup: #1014.
     dest = _skill_dest(scope, cwd)
     if not dest.is_dir():
-        return InstallResult(target="skill", scope=scope, path=dest, action="noop", detail="not installed")
+        return [InstallResult(target="skill", scope=scope, path=dest, action="noop", detail="not installed")]
     shutil.rmtree(dest)
-    return InstallResult(target="skill", scope=scope, path=dest, action="removed", detail="directory removed")
+    return [InstallResult(target="skill", scope=scope, path=dest, action="removed", detail="directory removed")]
 
 
 # ---------------------------------------------------------------------------
@@ -484,6 +575,15 @@ def perform_install(
         if tgt == "claude":
             results.append(_remove_claude(scope, cwd) if remove else _install_claude(scope, cwd))
         elif tgt == "codex":
+            # TODO(#1014): I40d Phase 2a — replace this fallback block
+            # with a direct call to ``_install_codex(scope, cwd)`` /
+            # ``_remove_codex(scope, cwd)`` (which after impl handle
+            # project scope per ADR-040 §3.7). Codex 2026 supports
+            # project-scope ``.codex/config.toml`` so the "force
+            # user-scope" workaround is obsolete. The skeleton keeps
+            # the existing fallback inline to preserve test green.
+            # Out of scope per ADR-040 §3.9 (skeleton phase). Followup: #1014.
+            #
             # Codex has no project-scope config file; force user-scope
             # for codex even when the user picked --scope project for
             # claude. Surface that fact in the result's detail.
@@ -497,7 +597,12 @@ def perform_install(
                     detail=results[-1].detail + " (codex has no project-scope config file; wrote to user scope)",
                 )
     if do_skill:
-        results.append(_remove_skill(scope, cwd) if remove else _install_skill(scope, cwd))
+        # NOTE(S40d): ``_install_skill`` / ``_remove_skill`` return
+        # ``list[InstallResult]`` (widened in skeleton per ADR-040 §3.9)
+        # — use ``extend`` not ``append``. Currently each call yields a
+        # single-element list; I40d Phase 2a will yield two (Claude +
+        # Codex destinations). Followup: #1014.
+        results.extend(_remove_skill(scope, cwd) if remove else _install_skill(scope, cwd))
 
     return results
 

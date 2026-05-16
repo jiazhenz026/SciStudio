@@ -223,3 +223,57 @@ def test_install_skill_with_missing_source_raises_clearly(fake_home: Path, fake_
         pytest.raises(FileNotFoundError),
     ):
         perform_install(target=None, scope="user", skill=True, do_all=False, remove=False, cwd=fake_cwd)
+
+
+# ---------------------------------------------------------------------------
+# ADR-040 §3.7 / §3.9 — Skeleton stubs (S40d). Bodies land in I40d Phase 2a.
+# TODO(#1014): unskip these when I40d implementation lands.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skip(reason="S40d skeleton — I40d impl in Phase 2a. TODO(#1014)")
+def test_install_skill_cross_install_user_scope() -> None:
+    """ADR-040 §3.9: user-scope skill install writes both `.claude/skills/` AND `.agents/skills/`."""
+    # Expected after I40d: perform_install(skill=True, scope="user") yields
+    # two skill InstallResults — one with path ~/.claude/skills/scieasy/,
+    # one with path ~/.agents/skills/scieasy/. Both contain the 6 task
+    # skill files relocated to src/scieasy/_skills/scieasy/.
+    pass
+
+
+@pytest.mark.skip(reason="S40d skeleton — I40d impl in Phase 2a. TODO(#1014)")
+def test_install_skill_cross_install_project_scope() -> None:
+    """ADR-040 §3.9: project-scope writes both <cwd>/.claude/skills/ AND <cwd>/.agents/skills/."""
+    # Expected after I40d: perform_install(skill=True, scope="project")
+    # yields two skill InstallResults targeting fake_cwd/.claude/skills/
+    # and fake_cwd/.agents/skills/.
+    pass
+
+
+@pytest.mark.skip(reason="S40d skeleton — I40d impl in Phase 2a. TODO(#1014)")
+def test_remove_skill_cross_removal() -> None:
+    """ADR-040 §3.9: `_remove_skill` cleans both paths symmetrically."""
+    # Expected after I40d: install then --remove yields two `removed`
+    # results, and both .claude/skills/scieasy/ and .agents/skills/scieasy/
+    # are gone from disk.
+    pass
+
+
+@pytest.mark.skip(reason="S40d skeleton — I40d impl in Phase 2a. TODO(#1014)")
+def test_install_codex_project_scope_writes_local_config() -> None:
+    """ADR-040 §3.7: `scieasy install --target codex --scope project` writes <cwd>/.codex/config.toml."""
+    # Expected after I40d: perform_install(target="codex", scope="project")
+    # writes fake_cwd/.codex/config.toml containing the [mcp_servers.scieasy]
+    # block with SCIEASY_PROJECT_DIR pinned to str(fake_cwd). User-scope
+    # ~/.codex/config.toml is NOT touched.
+    pass
+
+
+@pytest.mark.skip(reason="S40d skeleton — I40d impl in Phase 2a. TODO(#1014)")
+def test_perform_install_codex_no_longer_forces_user_scope() -> None:
+    """ADR-040 §3.9: removed fallback — 'wrote to user scope' detail no longer surfaces when scope=project."""
+    # Expected after I40d: perform_install(target="codex", scope="project")
+    # yields a single InstallResult whose detail does NOT contain the
+    # legacy "codex has no project-scope config file; wrote to user
+    # scope" suffix.
+    pass
