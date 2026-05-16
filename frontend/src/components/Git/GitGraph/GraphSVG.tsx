@@ -162,24 +162,42 @@ export function GraphSVG(props: GraphSVGProps): JSX.Element {
               const commit = commits[idx];
               const isHovered = hoveredIdx === idx;
               const isFocused = focusedIdx === idx;
+              const effectiveR = isHovered || isFocused ? r + 1 : r;
+              // Hotfix #1008: render merge commits (parents.length > 1)
+              // as a double-ring (filled outer circle + small white-filled
+              // inner disc) so they visually pop out from linear commits.
+              // Standard idiom in vscode-git-graph, GitLens, GitKraken.
+              const isMerge = (commit?.parents.length ?? 0) > 1;
               return (
-                <circle
-                  key={a.sha}
-                  data-testid={`git-graph-dot-${commit?.short_sha ?? a.sha.slice(0, 7)}`}
-                  data-filtered={a.filtered_out ? "true" : "false"}
-                  cx={c.x}
-                  cy={c.y}
-                  r={isHovered || isFocused ? r + 1 : r}
-                  fill={fill}
-                  stroke={isFocused ? "#000" : "none"}
-                  strokeWidth={isFocused ? 1 : 0}
-                >
-                  <title>
-                    {commit
-                      ? `${commit.short_sha}  ${commit.subject}`
-                      : a.sha}
-                  </title>
-                </circle>
+                <g key={a.sha}>
+                  <circle
+                    data-testid={`git-graph-dot-${commit?.short_sha ?? a.sha.slice(0, 7)}`}
+                    data-filtered={a.filtered_out ? "true" : "false"}
+                    data-merge={isMerge ? "true" : "false"}
+                    cx={c.x}
+                    cy={c.y}
+                    r={effectiveR}
+                    fill={fill}
+                    stroke={isFocused ? "#000" : "none"}
+                    strokeWidth={isFocused ? 1 : 0}
+                  >
+                    <title>
+                      {commit
+                        ? `${commit.short_sha}  ${commit.subject}`
+                        : a.sha}
+                    </title>
+                  </circle>
+                  {isMerge && !a.filtered_out && (
+                    <circle
+                      cx={c.x}
+                      cy={c.y}
+                      r={Math.max(1, effectiveR - 2)}
+                      fill="#ffffff"
+                      pointerEvents="none"
+                      aria-hidden="true"
+                    />
+                  )}
+                </g>
               );
             })}
           </g>
