@@ -1,0 +1,18 @@
+# SciEasy project-scope Codex MCP config (ADR-040 §3.7)
+#
+# TODO(#1013): I40c Phase 2a — this template is a structural outline only.
+#   The real file is *rendered* at provisioning time by
+#   ``scieasy.cli.install._render_codex_block(project_dir)`` so the
+#   ``command`` field reflects the current sys.executable + args list and
+#   ``SCIEASY_PROJECT_DIR`` reflects the absolute project path. This
+#   template is kept only as a documentation reference for the expected
+#   TOML shape.
+#   Out of scope per ADR-040 §3.7 (S40c skeleton).
+#   Followup: https://github.com/zjzcpj/SciEasy/issues/1013.
+
+[mcp_servers.scieasy]
+command = "<sys.executable rendered at provisioning time>"
+args = ["-m", "scieasy", "mcp-bridge"]
+
+[mcp_servers.scieasy.env]
+SCIEASY_PROJECT_DIR = "<absolute project path rendered at provisioning time>"
