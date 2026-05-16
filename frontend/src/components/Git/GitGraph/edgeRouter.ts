@@ -395,13 +395,25 @@ export function routeEdges(
           `M ${childCenter.x} ${childCenter.y} ` +
           `L ${parentCenter.x} ${parentCenter.y}`;
       } else {
-        // Case 2 / 3: S-curve. Control points are placed so the curve
-        // leaves the child vertically and arrives at the parent vertically.
+        // Case 2 / 3 (hotfix #1005 — supersedes bezier S-curve): elbow
+        // path with three straight segments: vertical down from child to
+        // midY, horizontal to parent's lane x, vertical down to parent.
+        // The previous cubic Bézier produced visually twisted curves at
+        // the 16px lane pitch + 22px row height — at that resolution the
+        // curvature was tight enough that the bend at the middle of an
+        // S-curve looked asymmetric (the user described it as "两端弯
+        // 曲方向不相同"). Elbow paths are pixel-aligned and match the
+        // vscode-git-graph / GitLens visual idiom: clean 90° corners
+        // instead of stretched curves. Adjacent edges at the same midY
+        // will overlap horizontally — that's intentional, the parent
+        // dot draws on top and the result reads as a clean "branch
+        // merge" affordance.
         const midY = (childCenter.y + parentCenter.y) / 2;
         path =
           `M ${childCenter.x} ${childCenter.y} ` +
-          `C ${childCenter.x} ${midY}, ${parentCenter.x} ${midY}, ` +
-          `${parentCenter.x} ${parentCenter.y}`;
+          `L ${childCenter.x} ${midY} ` +
+          `L ${parentCenter.x} ${midY} ` +
+          `L ${parentCenter.x} ${parentCenter.y}`;
       }
 
       // Hotfix #994 (refines #990): edge color follows the side-branch

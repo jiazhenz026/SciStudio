@@ -91,12 +91,12 @@ describe("routeEdges (D39-2.4b)", () => {
       path: "M 12 11 L 12 33",
       dangling: false,
     });
-    // C3 → C2b: merge fold-in, bezier lane 0 → lane 1.
+    // C3 → C2b: merge fold-in, elbow lane 0 → lane 1.
     // child=centerOf(0,0)=(12,11), parent=centerOf(2,1)=(28,55), midY=33.
     expect(byPair("C3", "C2b")).toMatchObject({
       child_lane: 0,
       parent_lane: 1,
-      path: "M 12 11 C 12 33, 28 33, 28 55",
+      path: "M 12 11 L 12 33 L 28 33 L 28 55",
     });
     // Hotfix #994 (supersedes #990): color = max(child_lane, parent_lane).
     // C3(lane 0) → C2b(lane 1): max(0, 1) = 1 (side branch color).
@@ -107,12 +107,12 @@ describe("routeEdges (D39-2.4b)", () => {
       parent_lane: 0,
       path: "M 12 33 L 12 77",
     });
-    // C2b → C1: primary, bezier lane 1 → lane 0.
+    // C2b → C1: primary, elbow lane 1 → lane 0.
     // child=centerOf(2,1)=(28,55), parent=centerOf(3,0)=(12,77), midY=66.
     expect(byPair("C2b", "C1")).toMatchObject({
       child_lane: 1,
       parent_lane: 0,
-      path: "M 28 55 C 28 66, 12 66, 12 77",
+      path: "M 28 55 L 28 66 L 12 66 L 12 77",
     });
     // Hotfix #994 (#990 follow-up): fork primary edge child_lane=1,
     // parent_lane=0; max(1, 0) = 1 (side branch). Matches dot.
@@ -153,9 +153,9 @@ describe("routeEdges (D39-2.4b)", () => {
     expect(edges[0].path).toBe("M 12 11 L 12 33");
     // merge fold-ins: bezier
     expect(edges[1].parent_lane).toBe(1);
-    expect(edges[1].path).toMatch(/^M 12 11 C /);
+    expect(edges[1].path).toMatch(/^M 12 11 L /);
     expect(edges[2].parent_lane).toBe(2);
-    expect(edges[2].path).toMatch(/^M 12 11 C /);
+    expect(edges[2].path).toMatch(/^M 12 11 L /);
   });
 
   it("Fixture E: empty input returns []", () => {
