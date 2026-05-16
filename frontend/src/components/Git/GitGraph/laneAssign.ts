@@ -401,45 +401,65 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
     };
   }
 
-  // Hotfix #1006 (Plan B): pin the "trunk" — the longest lane that
-  // reaches the bottom of the log — to lane 0.
+  // Hotfix #1006 (Plan B): pin the "trunk" to lane 0 by following
+  // merge-parent continuations when the first-parent chain breaks.
   //
-  // The DFS+recycle algorithm (per #1002) walks first-parent edges from
-  // commits[0] (HEAD). In a complex history HEAD's first-parent chain
-  // may not reach the repo root: e.g. `git checkout feature; git merge
-  // main` produces a merge commit whose first parent is the feature
-  // branch tip, not main. The trunk's tip then gets allocated whatever
-  // lane was free when it was eventually reached — could be lane 3 or
-  // higher. Users expect "main is the leftmost line that runs end-to-
-  // end", matching every other git GUI.
+  // The DFS+recycle algorithm (per #1002) walks first-parent edges
+  // from commits[0] (HEAD). In a complex history HEAD's first-parent
+  // chain may end mid-log: e.g. `git checkout feature; git merge main`
+  // makes the merge commit's first parent the feature tip, not main,
+  // so the first-parent chain follows feature back to its origin
+  // (which is a root commit somewhere shallow), not the actual trunk.
+  // The actual trunk continues through the merge's SECOND parent.
   //
-  // Post-process: find the lane that has the MOST rows assigned to it
-  // AND contains the bottom-most commit. If that lane outweighs lane 0
-  // (more rows) AND isn't lane 0 already, swap them across the entire
-  // output. The "outweighs" check protects multi-root / octopus
-  // fixtures where lane 0 is legitimately the trunk and the bottom-row
-  // commit is a sibling parent — those fixtures stay unswapped.
+  // Detection: find the deepest-row commit on lane 0. If it's already
+  // the last row, no work to do. Else inspect its non-first parents
+  // (`parents[1..]`). If any of those parents lives in the log and is
+  // on a different lane, that lane is the "true trunk continuation"
+  // — swap it with lane 0.
   //
-  // Edge colors recompute downstream via `max(child_lane, parent_lane)`
-  // (#994), so colors naturally follow the swap. `merge_lanes` arrays
-  // also swap since they reference lane numbers directly.
+  // This protects octopus / disconnected-history fixtures where the
+  // deepest-lane-0 commit's parents are all unrooted (no continuation
+  // possible) — the swap is a no-op for them. Edge colors recompute
+  // downstream via `max(child_lane, parent_lane)` (#994). merge_lanes
+  // references swap with the lane numbers.
   if (out.length >= 2) {
-    const candidate = out[out.length - 1].lane;
-    if (candidate !== 0) {
-      let candidateRows = 0;
-      let laneZeroRows = 0;
-      for (const a of out) {
-        if (a.lane === candidate) candidateRows++;
-        else if (a.lane === 0) laneZeroRows++;
+    let laneZeroDeepestRow = -1;
+    for (let r = out.length - 1; r >= 0; r--) {
+      if (out[r].lane === 0) {
+        laneZeroDeepestRow = r;
+        break;
       }
-      if (candidateRows > laneZeroRows) {
+    }
+    if (
+      laneZeroDeepestRow >= 0 &&
+      laneZeroDeepestRow < out.length - 1
+    ) {
+      const lane0Tail = commits[laneZeroDeepestRow];
+      // Build a sha-to-row map once.
+      const shaToIdx = new Map<string, number>();
+      for (let i = 0; i < commits.length; i++) shaToIdx.set(commits[i].sha, i);
+      let trueTrunkLane: number | null = null;
+      for (let p = 1; p < lane0Tail.parents.length; p++) {
+        const pi = shaToIdx.get(lane0Tail.parents[p]);
+        if (
+          pi !== undefined &&
+          pi > laneZeroDeepestRow &&
+          out[pi].lane !== 0
+        ) {
+          trueTrunkLane = out[pi].lane;
+          break;
+        }
+      }
+      if (trueTrunkLane !== null) {
+        const target = trueTrunkLane;
         for (const a of out) {
-          if (a.lane === 0) a.lane = candidate;
-          else if (a.lane === candidate) a.lane = 0;
+          if (a.lane === 0) a.lane = target;
+          else if (a.lane === target) a.lane = 0;
           a.color_index = a.lane % PALETTE.length;
           if (a.merge_lanes.length > 0) {
             a.merge_lanes = a.merge_lanes.map((c) =>
-              c === 0 ? candidate : c === candidate ? 0 : c,
+              c === 0 ? target : c === target ? 0 : c,
             );
           }
         }
