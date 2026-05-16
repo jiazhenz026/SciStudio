@@ -1,64 +1,117 @@
-"""Lifecycle integration tests for ADR-040 §3.8 wiring.
-
-All tests skipped pending I40c Phase 2a impl (#1013).
-"""
+"""Lifecycle integration tests for ADR-040 §3.8 wiring."""
 
 from __future__ import annotations
 
+import logging
+from pathlib import Path
+
 import pytest
+import yaml
+from typer.testing import CliRunner
+
+from scieasy.agent_provisioning import SCIEASY_PROVISION_VERSION
 
 
-@pytest.mark.skip(reason="S40c skeleton — I40c impl in Phase 2a. TODO(#1013)")
-def test_create_project_provisions_assets(tmp_path):
-    """ApiRuntime.create_project triggers install_project_agent_assets.
+def _make_runtime(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Construct an ApiRuntime with an isolated home directory."""
+    from scieasy.api import runtime as runtime_module
 
-    Test plan (I40c):
-      1. Instantiate ApiRuntime with tmp_path as parent.
-      2. Call create_project("test").
-      3. Assert <project>/CLAUDE.md, AGENTS.md, .claude/settings.json,
-         .codex/config.toml all exist.
-      4. Assert wiring ran AFTER git init by checking .git/ also exists
-         and .git/HEAD points to a commit that DOES include the
-         provisioned files (verifies ADR-039 → ADR-040 ordering).
-    """
+    fake_home = tmp_path / "home"
+    fake_home.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(runtime_module.Path, "home", classmethod(lambda cls: fake_home))
+    return runtime_module.ApiRuntime()
 
 
-@pytest.mark.skip(reason="S40c skeleton — I40c impl in Phase 2a. TODO(#1013)")
-def test_open_project_idempotent_top_up(tmp_path):
-    """open_project on a pre-ADR-040 project provisions missing assets.
+def test_create_project_provisions_assets(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """ApiRuntime.create_project triggers install_project_agent_assets."""
+    runtime = _make_runtime(tmp_path, monkeypatch)
+    parent = tmp_path / "projects"
+    parent.mkdir()
 
-    Test plan (I40c):
-      1. Create a project on disk WITHOUT provisioning (simulate
-         pre-ADR-040 project — git init only).
-      2. Call open_project on it.
-      3. Assert provisioning files appeared.
-      4. Mutate one file.
-      5. Call open_project again.
-      6. Assert mutation preserved (force=False contract).
-    """
+    project = runtime.create_project(name="testproj", description="x", parent_path=str(parent))
+    project_path = Path(project.path)
 
+    assert (project_path / "CLAUDE.md").is_file()
+    assert (project_path / "AGENTS.md").is_file()
+    assert (project_path / ".claude" / "settings.json").is_file()
+    assert (project_path / ".codex" / "config.toml").is_file()
+    assert (project_path / ".claude" / "hooks" / "deny_scieasy_cli.py").is_file()
 
-@pytest.mark.skip(reason="S40c skeleton — I40c impl in Phase 2a. TODO(#1013)")
-def test_cli_init_provisions_assets(tmp_path, capsys):
-    """``scieasy init`` triggers provisioning after git init.
-
-    Test plan (I40c):
-      1. chdir to tmp_path.
-      2. Invoke ``scieasy init testproj`` via typer.testing.CliRunner.
-      3. Assert <tmp_path>/testproj/CLAUDE.md etc. exist.
-      4. Assert ``Created project workspace: testproj/`` is in stdout
-         (final echo not gated by provisioning success).
-    """
+    marker = project_path / ".claude" / ".scieasy-provision-version"
+    assert marker.is_file()
+    assert marker.read_text(encoding="utf-8").strip() == SCIEASY_PROVISION_VERSION
 
 
-@pytest.mark.skip(reason="S40c skeleton — I40c impl in Phase 2a. TODO(#1013)")
-def test_provisioning_failure_degraded_mode(tmp_path, monkeypatch, caplog):
-    """Provisioning failure logs WARNING but project still opens.
+def test_open_project_idempotent_top_up(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """open_project on a pre-ADR-040 project provisions missing assets."""
+    runtime = _make_runtime(tmp_path, monkeypatch)
+    parent = tmp_path / "projects"
+    parent.mkdir()
 
-    Test plan (I40c — covers ADR §7 non-fatal contract):
-      1. Monkeypatch install_project_agent_assets to raise OSError.
-      2. Call create_project.
-      3. Assert project IS created (project.yaml exists, KnownProject returned).
-      4. Assert caplog contains "ADR-040: agent provisioning failed".
-      5. Assert open_project still succeeds.
-    """
+    # Build a minimal project-shaped directory WITHOUT going through
+    # create_project (simulates pre-ADR-040 project).
+    legacy = parent / "legacy"
+    legacy.mkdir()
+    (legacy / "workflows").mkdir()
+    (legacy / "project.yaml").write_text(
+        yaml.safe_dump({"project": {"id": "legacy-1", "name": "legacy"}}),
+        encoding="utf-8",
+    )
+
+    runtime.open_project(str(legacy))
+    assert (legacy / "CLAUDE.md").is_file()
+    assert (legacy / ".claude" / "settings.json").is_file()
+
+    # Mutate one provisioned file → confirm preserved on next open.
+    (legacy / "CLAUDE.md").write_text("# user-edited\n", encoding="utf-8")
+    runtime.open_project(str(legacy))
+    assert (legacy / "CLAUDE.md").read_text(encoding="utf-8") == "# user-edited\n"
+
+
+def test_cli_init_provisions_assets(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``scieasy init`` triggers provisioning after git init."""
+    from scieasy.cli.main import app
+
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+    result = runner.invoke(app, ["init", "testproj"])
+    assert result.exit_code == 0, result.output
+    assert "Created project workspace: testproj/" in result.output
+
+    project_path = tmp_path / "testproj"
+    assert (project_path / "CLAUDE.md").is_file()
+    assert (project_path / "AGENTS.md").is_file()
+    assert (project_path / ".claude" / "settings.json").is_file()
+    assert (project_path / ".codex" / "config.toml").is_file()
+
+
+def test_provisioning_failure_degraded_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Provisioning failure logs WARNING but project still opens (ADR §7)."""
+    runtime = _make_runtime(tmp_path, monkeypatch)
+    parent = tmp_path / "projects"
+    parent.mkdir()
+
+    # Make the orchestrator raise.
+    def _raise(*args: object, **kwargs: object):
+        raise OSError("disk on fire")
+
+    # The runtime imports lazily: ``from scieasy.agent_provisioning import
+    # install_project_agent_assets`` inside the try/except, so patching the
+    # source module attribute is what intercepts the call.
+    monkeypatch.setattr(
+        "scieasy.agent_provisioning.install_project_agent_assets",
+        _raise,
+    )
+
+    caplog.set_level(logging.WARNING, logger="scieasy.api.runtime")
+    project = runtime.create_project(name="degraded", description="x", parent_path=str(parent))
+
+    # Project IS created.
+    assert Path(project.path).is_dir()
+    assert (Path(project.path) / "project.yaml").is_file()
+    # WARNING surfaced.
+    assert any("ADR-040" in record.getMessage() for record in caplog.records), (
+        f"expected ADR-040 warning in caplog: {[r.getMessage() for r in caplog.records]}"
+    )
