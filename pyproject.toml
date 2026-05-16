@@ -96,7 +96,18 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
-scieasy = ["api/static/**/*", "cli/templates/**/*.tpl", "_skills/scieasy/**/*.md"]
+scieasy = [
+    "api/static/**/*",
+    "cli/templates/**/*.tpl",
+    # ADR-040 §3.4: multi-skill source tree must ship in the wheel so
+    # ``scieasy install --target claude|codex`` and the agent_provisioning
+    # cross-installer can find canonical bodies.
+    "_skills/scieasy/**/*.md",
+    # ADR-040 §3.5-3.8: agent_provisioning template files (CLAUDE.md/AGENTS.md,
+    # codex_config.toml, 6 hook scripts) must ship with the wheel so
+    # ``scieasy init`` / ``ApiRuntime.create_project`` can install them.
+    "agent_provisioning/templates/**/*",
+]
 
 [tool.ruff]
 target-version = "py311"
