@@ -9,6 +9,8 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from scieasy.engine.events import WORKFLOW_CHANGED
+
 # ---------------------------------------------------------------------------
 # Commit / log / diff / restore
 # ---------------------------------------------------------------------------
@@ -132,10 +134,7 @@ def test_branch_switch_endpoint(client: TestClient, opened_project: Path) -> Non
 # ---------------------------------------------------------------------------
 
 
-from scieasy.engine.events import WORKFLOW_CHANGED
-
-
-def _subscribe_workflow_changed(runtime) -> list:  # noqa: ANN001 — test helper
+def _subscribe_workflow_changed(runtime) -> list:
     captured: list = []
     runtime.event_bus.subscribe(WORKFLOW_CHANGED, lambda ev: captured.append(ev))
     return captured
@@ -149,9 +148,7 @@ def test_branch_switch_emits_workflow_changed_per_modified_yaml(
     canvas kept showing the previous branch's YAML until manual reload.
     """
     main_yaml = opened_project / "workflows" / "main.yaml"
-    main_yaml.write_text(
-        "workflow:\n  id: main\n  nodes: []\n  edges: []\n", encoding="utf-8"
-    )
+    main_yaml.write_text("workflow:\n  id: main\n  nodes: []\n  edges: []\n", encoding="utf-8")
     client.post("/api/git/commit", json={"message": "main yaml v1"})
     client.post("/api/git/branch/create", json={"name": "feature"})
     client.post("/api/git/branch/switch", json={"branch_name": "feature"})
@@ -173,23 +170,17 @@ def test_branch_switch_emits_workflow_changed_per_modified_yaml(
     assert ("workflows/main.yaml", "modified") in paths
     # changed_by must be "git" so the frontend handler can disambiguate from
     # watcher-driven events if needed.
-    main_event = next(
-        ev for ev in captured if ev.data["path"] == "workflows/main.yaml"
-    )
+    main_event = next(ev for ev in captured if ev.data["path"] == "workflows/main.yaml")
     assert main_event.data["changed_by"] == "git"
     assert main_event.data["workflow_id"] == "main"
 
 
-def test_branch_switch_no_yaml_change_emits_nothing(
-    client: TestClient, opened_project: Path, runtime
-) -> None:
+def test_branch_switch_no_yaml_change_emits_nothing(client: TestClient, opened_project: Path, runtime) -> None:
     """Switching to a branch with the same YAML content emits nothing.
     Diff-based emission must be quiet for no-op switches.
     """
     main_yaml = opened_project / "workflows" / "main.yaml"
-    main_yaml.write_text(
-        "workflow:\n  id: main\n  nodes: []\n", encoding="utf-8"
-    )
+    main_yaml.write_text("workflow:\n  id: main\n  nodes: []\n", encoding="utf-8")
     client.post("/api/git/commit", json={"message": "v1"})
     client.post("/api/git/branch/create", json={"name": "twin"})
     # No edits on twin; immediately switch back.
@@ -198,9 +189,7 @@ def test_branch_switch_no_yaml_change_emits_nothing(
     assert captured == []
 
 
-def test_restore_endpoint_emits_workflow_changed(
-    client: TestClient, opened_project: Path, runtime
-) -> None:
+def test_restore_endpoint_emits_workflow_changed(client: TestClient, opened_project: Path, runtime) -> None:
     """``/api/git/restore`` rewrites a workflow YAML → workflow.changed."""
     target = opened_project / "workflows" / "main.yaml"
     target.write_text("workflow:\n  id: main\n  v: 1\n", encoding="utf-8")
@@ -218,9 +207,7 @@ def test_restore_endpoint_emits_workflow_changed(
     assert "workflows/main.yaml" in paths
 
 
-def test_branch_switch_emits_created_for_new_yaml(
-    client: TestClient, opened_project: Path, runtime
-) -> None:
+def test_branch_switch_emits_created_for_new_yaml(client: TestClient, opened_project: Path, runtime) -> None:
     """When the target branch has a workflow YAML that the source branch
     doesn't, the switch must emit ``kind=created`` so the frontend opens
     a new tab for it.
@@ -228,16 +215,12 @@ def test_branch_switch_emits_created_for_new_yaml(
     # Start on main; commit baseline (only main.yaml from project init).
     main_yaml = opened_project / "workflows" / "main.yaml"
     if not main_yaml.exists():
-        main_yaml.write_text(
-            "workflow:\n  id: main\n  nodes: []\n", encoding="utf-8"
-        )
+        main_yaml.write_text("workflow:\n  id: main\n  nodes: []\n", encoding="utf-8")
         client.post("/api/git/commit", json={"message": "init main"})
     client.post("/api/git/branch/create", json={"name": "feature"})
     client.post("/api/git/branch/switch", json={"branch_name": "feature"})
     extra = opened_project / "workflows" / "extra.yaml"
-    extra.write_text(
-        "workflow:\n  id: extra\n  nodes: []\n", encoding="utf-8"
-    )
+    extra.write_text("workflow:\n  id: extra\n  nodes: []\n", encoding="utf-8")
     client.post("/api/git/commit", json={"message": "add extra"})
 
     captured = _subscribe_workflow_changed(runtime)
