@@ -1,37 +1,50 @@
 #!/usr/bin/env python
 """hook_protect_workflow_yaml.py — PreToolUse / Edit|Write (ADR-040 §3.6).
 
-Purpose:
-  Block direct ``Edit`` / ``Write`` tool calls targeting
-  ``workflows/*.yaml`` so workflow edits flow through the schema-validated
-  MCP path (``write_workflow`` / ``update_block_config``). The latter
-  preserves YAML comments and triggers ADR-038 lineage updates; the
-  former does not.
-
-Hook contract:
-  - Stdin: JSON payload with ``tool_input.file_path`` for Edit/Write.
-  - Matcher (settings.json): ``"Edit|Write"``.
-  - Exit 2 = block; exit 0 = allow.
-
-Behavior to implement in I40c:
-  1. Read stdin JSON.
-  2. Extract ``tool_input.file_path``.
-  3. Regex ``workflows/.*\\.ya?ml$``.
-  4. On match: print to stderr
-       "workflows/*.yaml is managed by mcp__scieasy__write_workflow
-        (schema-validated) and mcp__scieasy__update_block_config
-        (preserves comments). Direct Edit/Write bypasses validation."
-     then ``sys.exit(2)``.
-  5. Otherwise ``sys.exit(0)``.
-
-S40c skeleton: exits 0 unconditionally.
-
-TODO(#1013): I40c Phase 2a — implement matcher + stderr message per
-  ADR §3.6. Out of scope per ADR-040 §3.6 (S40c skeleton).
-  Followup: https://github.com/zjzcpj/SciEasy/issues/1013.
+Blocks direct ``Edit`` / ``Write`` tool calls targeting
+``workflows/*.yaml`` so workflow edits flow through the schema-validated
+MCP path.
 """
 
+from __future__ import annotations
+
+import json
+import re
 import sys
 
-# TODO(#1013): regex matcher + exit 2.
-sys.exit(0)
+_YAML_RE = re.compile(r"workflows/.*\.ya?ml$", re.IGNORECASE)
+_MESSAGE = (
+    "workflows/*.yaml is managed by mcp__scieasy__write_workflow "
+    "(schema-validated) and mcp__scieasy__update_block_config "
+    "(preserves comments). Direct Edit/Write bypasses validation."
+)
+
+
+def _read_payload() -> dict:
+    try:
+        raw = sys.stdin.read()
+    except OSError:
+        return {}
+    if not raw.strip():
+        return {}
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+
+
+def main() -> int:
+    payload = _read_payload()
+    tool_input = payload.get("tool_input") or {}
+    if not isinstance(tool_input, dict):
+        return 0
+    file_path = str(tool_input.get("file_path") or "")
+    file_path_norm = file_path.replace("\\", "/")
+    if _YAML_RE.search(file_path_norm):
+        print(_MESSAGE, file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
