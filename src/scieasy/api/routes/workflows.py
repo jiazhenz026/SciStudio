@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -21,6 +22,8 @@ from scieasy.api.schemas import (
 )
 from scieasy.blocks.base.state import BlockState
 from scieasy.engine.events import WORKFLOW_CHANGED, EngineEvent
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/workflows", tags=["workflows"])
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
@@ -354,9 +357,39 @@ async def execute_from_workflow(
     body: ExecuteFromRequest,
     runtime: RuntimeDep,
 ) -> ExecuteFromResponse:
-    """Re-run a workflow from a specific block using checkpointed inputs."""
+    """Re-run a workflow from a specific block using checkpointed inputs.
+
+    Hotfix #992: stamp ``runs.parent_run_id`` on the new run to point at
+    the most-recent completed run of this workflow. Per ADR-038 §3.6a the
+    new run's ``parent_run_id`` "points at the historical run whose outputs
+    are reused"; the checkpoint mirrors the on-disk state at the most
+    recent terminal block event, so the most recent completed run is
+    semantically that parent. Previously the route called
+    ``start_workflow(execute_from=...)`` without forwarding a
+    ``parent_run_id``, leaving the column NULL — the Lineage tab had no
+    way to render the re-run chain link required by §3.8.
+    """
+    parent_run_id: str | None = None
+    lineage_store = getattr(runtime, "lineage_store", None)
+    if lineage_store is not None:
+        try:
+            recent = lineage_store.list_runs(workflow_id=workflow_id, limit=1)
+            if recent:
+                parent_run_id = recent[0].get("run_id")
+        except Exception:
+            # Best-effort: a lineage lookup failure must not block the
+            # actual re-run. The run will just have parent_run_id=NULL
+            # as the pre-#992 default did.
+            logger.warning(
+                "execute_from_workflow: parent_run_id lookup failed (non-fatal)",
+                exc_info=True,
+            )
     try:
-        result = runtime.start_workflow(workflow_id, execute_from=body.block_id)
+        result = runtime.start_workflow(
+            workflow_id,
+            execute_from=body.block_id,
+            parent_run_id=parent_run_id,
+        )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
