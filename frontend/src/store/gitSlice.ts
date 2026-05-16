@@ -269,10 +269,26 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
 
   setHistoryFilter: (filter) => set({ historyFilter: filter }),
 
-  invalidateHistory: () =>
-    // Clear cached log / status / branch list so the next consumer render
-    // dispatches fresh fetches. Called from useWebSocket on `git.head_changed`.
-    set({ logCache: {}, status: null, branches: null, stashes: null }),
+  invalidateHistory: () => {
+    // Clear cached log / status / branch list. Called from useWebSocket on
+    // `git.head_changed` and from any other action that needs to discard
+    // stale git state (commit, switch, restore, merge resolve, stash apply).
+    set({ logCache: {}, status: null, branches: null, stashes: null });
+    // #984 fix: actively re-fetch instead of waiting for "the next consumer
+    // render" — no consumer (BranchPicker, GitHistoryList, GitStatusBadge)
+    // is wired to re-fetch on state=null. They only call their respective
+    // loadXxx() inside a useEffect that depends on currentProjectId, which
+    // only fires once on mount and on project switch. Without this
+    // re-fetch, every git.head_changed event left the UI permanently
+    // stuck on "Loading branches…" / "git: loading…" until project close.
+    void get().loadBranches();
+    void get().loadStatus();
+    void get().loadLog();
+    // Stashes refetch is intentionally skipped — the stash panel runs
+    // its own useEffect and the cost of an always-on stash poll on
+    // every external git op outweighs the benefit on the small minority
+    // of sessions that have the stash drawer open mid-flow.
+  },
 
   setMergeInProgress: (state) => set({ mergeInProgress: state }),
   // #972 (Codex P1 on PR #974) — UI-only field; setting null hides the

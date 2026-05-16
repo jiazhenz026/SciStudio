@@ -523,3 +523,41 @@ def test_modified_files_status_helper(tmp_path: Path) -> None:
     files = modified_files(tmp_path)
     assert "a.txt" in files
     assert "b.txt" in files
+
+
+# ---------------------------------------------------------------------------
+# Hotfix #983: subprocess UTF-8 decode regression
+# ---------------------------------------------------------------------------
+
+
+def test_git_binary_run_pins_utf8_decode() -> None:
+    """Hotfix #983: ``GitBinary.run`` must pin ``encoding="utf-8"`` +
+    ``errors="replace"`` on every text-mode ``subprocess.run`` call so git's
+    UTF-8 stdout/stderr never gets decoded via the system locale (GBK on
+    Chinese Windows, etc.). Pre-fix, a single em dash / Chinese char / emoji
+    in a commit message crashed the subprocess reader thread with
+    ``UnicodeDecodeError`` and the History panel rendered "No commits yet"
+    on healthy repos.
+
+    Source-level regression check — reads ``git_binary.py`` from disk
+    directly. Mock-of-subprocess tests are unreliable under editable-install
+    pollution where the imported module may not match the worktree's source.
+    The contract being protected is "the kwargs we pass to ``subprocess.run``
+    pin UTF-8", and that contract lives in the source file regardless of
+    runtime import path.
+    """
+    # Read the source file from the worktree directly (not via import) so
+    # this test is deterministic under editable-install pollution where the
+    # imported module may not match the worktree's source on disk.
+    repo_root = Path(__file__).resolve().parents[2]
+    src_path = repo_root / "src" / "scieasy" / "core" / "versioning" / "git_binary.py"
+    src = src_path.read_text(encoding="utf-8")
+    assert 'encoding="utf-8" if text else None' in src, (
+        "GitBinary.run must pin encoding='utf-8' for text-mode subprocess "
+        "calls so non-GBK bytes in git output do not crash the reader "
+        "thread on Chinese Windows (hotfix #983)."
+    )
+    assert '"replace" if text else None' in src, (
+        "GitBinary.run must use errors='replace' as a defensive fallback "
+        "for any unexpected non-UTF-8 byte (hotfix #983)."
+    )

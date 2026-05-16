@@ -117,9 +117,26 @@ export function BranchPicker(props: BranchPickerProps): JSX.Element {
 
   const nonCurrent = (branches ?? []).filter((b) => !b.is_current);
 
+  // #984 Option A fix: re-fetch on dropdown open when the cache is null.
+  // The mount-time useEffect only fires on `currentProjectId` change, so any
+  // mid-session invalidation that doesn't go through `invalidateHistory`
+  // (which now refetches as of the sibling fix) plus the small window where
+  // a stale render shows branches=null between createBranch's reset and the
+  // awaited loadBranches resolving — both leave the dropdown stuck on
+  // "Loading branches…". Triggering loadBranches on every open-when-null is
+  // cheap (1 GET, ~200ms) and guarantees the dropdown is always live.
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (open && branches === null && currentProjectId) {
+        void loadBranches();
+      }
+    },
+    [branches, currentProjectId, loadBranches],
+  );
+
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu onOpenChange={handleOpenChange}>
         <DropdownMenuTrigger asChild>
           <Button
             variant="toolbar"
