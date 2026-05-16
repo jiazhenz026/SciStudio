@@ -1096,7 +1096,11 @@ export default function App() {
                     // half of the tab buttons.
                     collapsedSize="8%"
                     collapsible
-                    defaultSize="30%"
+                    // 45% gives Git / Lineage / Logs tabs enough vertical
+                    // room for their list + detail content out-of-the-box.
+                    // 30% (prior default) made the Git history list
+                    // unreadable on a 1080p canvas column.
+                    defaultSize="45%"
                     minSize="10%"
                   >
                     <BottomPanel
