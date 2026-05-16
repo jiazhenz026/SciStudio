@@ -394,34 +394,61 @@ export function routeEdges(
         path =
           `M ${childCenter.x} ${childCenter.y} ` +
           `L ${parentCenter.x} ${parentCenter.y}`;
-      } else {
-        // Case 2 / 3: S-curve. Control points are placed so the curve
-        // leaves the child vertically and arrives at the parent vertically.
-        const midY = (childCenter.y + parentCenter.y) / 2;
+      } else if (parentLane > childLane) {
+        // FORK-OUT (hotfix #1012 — supersedes #1005's mid-row corner):
+        // The parent lives on a side lane to the right of the child.
+        // This is a merge fold-in or new branch sprouting off the
+        // child's lane. Place the corner at the CHILD's row so the
+        // child dot draws on top of the corner — the horizontal
+        // segment extends RIGHT from the child dot, then drops
+        // vertically onto the parent's lane. Pre-#1012 the corner sat
+        // at midY (the empty space between two dot rows), which made
+        // the horizontal cross-cut OTHER lanes' vertical edges at
+        // mid-row coordinates — visually it looked like dangling
+        // lines because the horizontal segment overlapped main's
+        // vertical line without a dot to anchor it.
+        //   ●── (child, lane C)
+        //         │
+        //         │
+        //         ●  (parent, lane P > C)
         path =
           `M ${childCenter.x} ${childCenter.y} ` +
-          `C ${childCenter.x} ${midY}, ${parentCenter.x} ${midY}, ` +
-          `${parentCenter.x} ${parentCenter.y}`;
+          `L ${parentCenter.x} ${childCenter.y} ` +
+          `L ${parentCenter.x} ${parentCenter.y}`;
+      } else {
+        // FORK-BACK (hotfix #1012): the child lives on a side lane,
+        // the parent is on a lane to the left (typically main). This
+        // is a side branch terminating into the trunk. Place the
+        // corner at the PARENT's row so the parent dot draws on top —
+        // the line first drops vertically on the child's lane, then
+        // turns LEFT at the parent's row and ends inside the parent
+        // dot.
+        //         ●   (child, lane C)
+        //         │
+        //         │
+        //   ●─────┘   (parent, lane P < C)
+        path =
+          `M ${childCenter.x} ${childCenter.y} ` +
+          `L ${childCenter.x} ${parentCenter.y} ` +
+          `L ${parentCenter.x} ${parentCenter.y}`;
       }
 
-      // Hotfix #994 (refines #990): edge color follows the side-branch
-      // lane — i.e. `max(childLane, parentLane)`. Lane 0 is the trunk
-      // (HEAD's lane); higher indices are side branches. Picking the
-      // larger lane number guarantees:
-      //   - linear (child_lane === parent_lane): no visual difference
-      //   - fork (child on side, parent on trunk): edge = side color,
-      //     so the side branch stays one color tip-to-fork. (#990 case)
-      //   - merge / octopus / stash (child on trunk, parent on side):
-      //     edge = side color, so the side-branch dot and the curve
-      //     INTO it share a color. Pre-#994 the curve took the child's
-      //     (trunk) color, producing the "node and edge different colors"
-      //     mismatch visible on stash commits (Phase 4a Test 6 follow-up).
-      // This matches the IntelliJ rule (`max(layoutIndex)` in
-      // `PrintElementPresentationManagerImpl.getColorId`) and is
-      // equivalent to vscode-git-graph's "Branch.colour follows the
-      // outermost branch" convention.
-      const colorBase = Math.max(childLane, parentLane);
-      const colorIndex = ((colorBase % PALETTE.length) + PALETTE.length) % PALETTE.length;
+      // Hotfix #994: edge color follows the side-branch lane —
+      // `max(childLane, parentLane)`. This matches IntelliJ /
+      // vscode-git-graph: the OUTER branch's colour wins.
+      //
+      // Hotfix #1010: `color_index` is now per-branch (allocation order),
+      // not `lane % PALETTE.length`. So we look up the actual palette
+      // index from whichever endpoint sits on the larger lane, instead of
+      // recomputing from the lane number. For dangling parents fall back
+      // to the child's colour.
+      let colorIndex: number;
+      if (childLane >= parentLane || parentIdx < 0) {
+        colorIndex = childAssign.color_index;
+      } else {
+        colorIndex = assignments[parentIdx].color_index;
+      }
+      colorIndex = ((colorIndex % PALETTE.length) + PALETTE.length) % PALETTE.length;
 
       out.push({
         child_sha: child.sha,

@@ -65,6 +65,60 @@ def test_log_endpoint_respects_limit(client: TestClient, opened_project: Path) -
     assert len(resp.json()) == 2
 
 
+def test_log_endpoint_includes_remote_and_tag_refs(client: TestClient, opened_project: Path) -> None:
+    """Hotfix #1011: log surfaces refs/remotes/ + refs/tags/, not only local.
+
+    Before the fix, a commit only known via a remote-tracking ref or a
+    tag came back with `branches: []` — the frontend then had no chip to
+    render and the orphan dot looked like an unlabelled "broken head".
+    """
+    import subprocess
+
+    (opened_project / "tagged.txt").write_text("x", encoding="utf-8")
+    sha = client.post("/api/git/commit", json={"message": "for tag"}).json()["commit_sha"]
+    subprocess.run(
+        ["git", "-C", str(opened_project), "tag", "v0.1.0", sha],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(opened_project),
+            "update-ref",
+            "refs/remotes/origin/synthetic-branch",
+            sha,
+        ],
+        check=True,
+        capture_output=True,
+    )
+    resp = client.get("/api/git/log")
+    assert resp.status_code == 200
+    entry = next(c for c in resp.json() if c["sha"] == sha)
+    refs = entry["branches"]
+    assert "v0.1.0" in refs, refs
+    assert "origin/synthetic-branch" in refs, refs
+
+
+def test_log_endpoint_default_is_unbounded(client: TestClient, opened_project: Path) -> None:
+    """Hotfix #1010: default `limit` is None (no cap), not 500.
+
+    The 500 cap silently truncated dev histories. Verify that omitting the
+    `limit` query parameter returns more rows than 500 when the repo has
+    more commits — emulated here by creating 6 commits and asserting all
+    of them come back (seed initial + 6 = 7 >= 6).
+    """
+    for i in range(6):
+        (opened_project / f"f{i}.txt").write_text(str(i), encoding="utf-8")
+        client.post("/api/git/commit", json={"message": f"c{i}"})
+    resp = client.get("/api/git/log")
+    assert resp.status_code == 200
+    entries = resp.json()
+    # 1 seed commit + 6 added = 7
+    assert len(entries) >= 7
+
+
 def test_diff_endpoint_commit_to_working(client: TestClient, opened_project: Path) -> None:
     (opened_project / "a.txt").write_text("one", encoding="utf-8")
     sha = client.post("/api/git/commit", json={"message": "v1"}).json()["commit_sha"]

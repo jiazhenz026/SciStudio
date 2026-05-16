@@ -24,6 +24,7 @@ import type {
 } from "../types/api";
 import type {
   LineageBlockExecution,
+  LineageDataObjectRef,
   LineageGetRunsParams,
   LineageGetRunsResponse,
   LineageMethodsResponse,
@@ -554,6 +555,26 @@ function adaptRunSummary(row: Record<string, unknown>): LineageRunSummary {
 function adaptBlockExecution(
   row: Record<string, unknown>,
 ): LineageBlockExecution {
+  // Hotfix #1015: wire backend-supplied inputs/outputs through. Pre-fix
+  // this adapter unconditionally returned `inputs: []` / `outputs: []`
+  // with a "future enhancement" comment, but #996 already inlined the
+  // join server-side. The Lineage block cards therefore rendered "0
+  // inputs / 0 outputs" for every expanded block even though the
+  // /api/runs/{id} response carried the data and Methods export
+  // surfaced it correctly.
+  //
+  // Backend entry shape (see `src/scieasy/api/routes/runs.py::get_run`):
+  //   { direction, port_name, position, object_id, type_name, backend,
+  //     storage_path, produced_by_execution }
+  //
+  // The frontend type (`LineageDataObjectRef`) only carries the fields
+  // the UI consumes; `direction`, `backend`, `produced_by_execution`
+  // are dropped at this adapter boundary. The `direction` separator is
+  // already applied server-side (inputs vs outputs bucket), so the
+  // adapter just trusts the bucket assignment.
+  const rawInputs = (row.inputs as Record<string, unknown>[] | undefined) ?? [];
+  const rawOutputs =
+    (row.outputs as Record<string, unknown>[] | undefined) ?? [];
   return {
     block_execution_id: String(row.block_execution_id ?? ""),
     block_id: String(row.block_id ?? ""),
@@ -573,10 +594,20 @@ function adaptBlockExecution(
       (row.termination as LineageBlockExecution["termination"]) ?? "completed",
     termination_detail:
       (row.termination_detail as string | null | undefined) ?? null,
-    // Block I/O join is a future enhancement; v1 surfaces an empty list
-    // rather than fabricating partial data.
-    inputs: [],
-    outputs: [],
+    inputs: rawInputs.map(adaptDataObjectRef),
+    outputs: rawOutputs.map(adaptDataObjectRef),
+  };
+}
+
+function adaptDataObjectRef(
+  row: Record<string, unknown>,
+): LineageDataObjectRef {
+  return {
+    object_id: String(row.object_id ?? ""),
+    type_name: String(row.type_name ?? ""),
+    port_name: String(row.port_name ?? ""),
+    position: typeof row.position === "number" ? row.position : 0,
+    storage_path: (row.storage_path as string | null | undefined) ?? null,
   };
 }
 

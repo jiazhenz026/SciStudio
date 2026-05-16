@@ -27,9 +27,31 @@ SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "scieasy"
 
 
 def test_no_stray_files_in_package_root() -> None:
-    """Only ``__init__.py`` should exist directly in ``src/scieasy/``."""
+    """Only Python dunder bootstrap files may sit directly in ``src/scieasy/``.
+
+    The original rule was a hard-equals on ``["__init__.py"]`` to keep
+    drive-by ``foo.py`` from accumulating at the top level. Evolved
+    (#1014) to an allowlist set so the standard Python dunder pattern
+    ``__main__.py`` (PEP 338, 2005 — the canonical "this package is
+    runnable" marker) can ship alongside ``__init__.py`` without
+    bypassing the architecture rule.
+
+    Files allowed:
+
+    * ``__init__.py`` — package init (always required).
+    * ``__main__.py`` — enables ``python -m scieasy ...`` dispatch.
+      Every ``.scieasy/mcp.json`` invokes the bridge via
+      ``{sys.executable} -m scieasy mcp-bridge`` so the bridge always
+      runs from the same interpreter that emitted the manifest
+      (avoids the PATH-shadowed ``scieasy.EXE`` foot-gun the
+      2026-05-14 hotfix originally addressed).
+
+    Anything else stays in a subpackage.
+    """
+    allowed = {"__init__.py", "__main__.py"}
     py_files = sorted(f.name for f in SRC_ROOT.iterdir() if f.is_file() and f.suffix == ".py")
-    assert py_files == ["__init__.py"], f"Found unexpected files in package root: {py_files}"
+    stray = [f for f in py_files if f not in allowed]
+    assert not stray, f"Found unexpected files in package root: {stray}"
 
 
 def _all_py_files() -> list[Path]:

@@ -162,35 +162,76 @@ export function GraphSVG(props: GraphSVGProps): JSX.Element {
               const commit = commits[idx];
               const isHovered = hoveredIdx === idx;
               const isFocused = focusedIdx === idx;
+              const effectiveR = isHovered || isFocused ? r + 1 : r;
+              // Hotfix #1008: render merge commits (parents.length > 1)
+              // as a double-ring (filled outer circle + small white-filled
+              // inner disc) so they visually pop out from linear commits.
+              // Standard idiom in vscode-git-graph, GitLens, GitKraken.
+              const isMerge = (commit?.parents.length ?? 0) > 1;
               return (
-                <circle
-                  key={a.sha}
-                  data-testid={`git-graph-dot-${commit?.short_sha ?? a.sha.slice(0, 7)}`}
-                  data-filtered={a.filtered_out ? "true" : "false"}
-                  cx={c.x}
-                  cy={c.y}
-                  r={isHovered || isFocused ? r + 1 : r}
-                  fill={fill}
-                  stroke={isFocused ? "#000" : "none"}
-                  strokeWidth={isFocused ? 1 : 0}
-                >
-                  <title>
-                    {commit
-                      ? `${commit.short_sha}  ${commit.subject}`
-                      : a.sha}
-                  </title>
-                </circle>
+                <g key={a.sha}>
+                  <circle
+                    data-testid={`git-graph-dot-${commit?.short_sha ?? a.sha.slice(0, 7)}`}
+                    data-filtered={a.filtered_out ? "true" : "false"}
+                    data-merge={isMerge ? "true" : "false"}
+                    cx={c.x}
+                    cy={c.y}
+                    r={effectiveR}
+                    fill={fill}
+                    stroke={isFocused ? "#000" : "none"}
+                    strokeWidth={isFocused ? 1 : 0}
+                  >
+                    <title>
+                      {commit
+                        ? `${commit.short_sha}  ${commit.subject}`
+                        : a.sha}
+                    </title>
+                  </circle>
+                  {isMerge && !a.filtered_out && (
+                    <circle
+                      cx={c.x}
+                      cy={c.y}
+                      r={Math.max(1, effectiveR - 2)}
+                      fill="#ffffff"
+                      pointerEvents="none"
+                      aria-hidden="true"
+                    />
+                  )}
+                </g>
               );
             })}
           </g>
         </svg>
       </div>
+      {/*
+        Hotfix #1004: the UL spans the full `height` ( totalRows * ROW_HEIGHT)
+        but renders only the virtualization window's slice of LIs. Pre-fix,
+        those LIs were flow-laid-out at the UL's TOP (y=0..offsetPx),
+        leaving the rest of the UL blank — when the user scrolled past
+        offsetPx the right side went blank even though the SVG (which uses
+        absolute y-positioning per dot) correctly showed commits.
+
+        Push the slice down with a top spacer (height = visibleStart * ROW_HEIGHT)
+        so the visible LIs align vertically with their SVG dots.
+
+        D39-2.4b's row-virtualization shipped without this spacer. The bug
+        only surfaced on deep histories (500+ commits) once the spilled-
+        SVG-width regression from #1001 was fixed by #1002. Before that,
+        the SVG horizontal bloat hid the symptom.
+      */}
       <ul
         data-testid="git-graph-labels"
         role="list"
         className="min-h-0 flex-1 overflow-hidden"
         style={{ height: `${height}px` }}
       >
+        {visibleStart > 0 && (
+          <li
+            aria-hidden="true"
+            data-testid="git-graph-labels-spacer-top"
+            style={{ height: `${visibleStart * ROW_HEIGHT}px` }}
+          />
+        )}
         {assignments.slice(visibleStart, visibleEnd).map((a, offset) => {
           const idx = visibleStart + offset;
           const commit = commits[idx];
@@ -219,6 +260,42 @@ export function GraphSVG(props: GraphSVGProps): JSX.Element {
             >
               <span aria-hidden>{PREFIX_ICON[prefix] ?? "·"}</span>
               <code className="font-mono text-stone-500">{commit.short_sha}</code>
+              {/*
+                Hotfix #1011: render ref chips (local / remote / tag)
+                next to each commit that has refs pointing at it. Pre-fix
+                the renderer ignored `commit.branches` entirely, so the
+                tip of e.g. `origin/foo` appeared as an unlabelled
+                "orphan merge dot" with no children — visual "断头" the
+                user reported on 6b37e84. Backend (#1011 paired change)
+                now includes refs/remotes/ + refs/tags/ in the branches
+                list. Style per branch kind so users can tell local
+                (blue) vs remote (grey) vs tag (amber) at a glance.
+              */}
+              {commit.branches.length > 0 && (
+                <span
+                  className="flex shrink-0 items-center gap-1"
+                  data-testid={`git-graph-refs-${commit.short_sha}`}
+                >
+                  {commit.branches.map((ref) => {
+                    const isTag = ref.startsWith("tags/") || ref.startsWith("v");
+                    const isRemote = ref.includes("/") && !isTag;
+                    const cls = isTag
+                      ? "bg-amber-100 text-amber-800"
+                      : isRemote
+                        ? "bg-stone-100 text-stone-600"
+                        : "bg-blue-100 text-blue-800";
+                    return (
+                      <span
+                        key={ref}
+                        className={`rounded-sm px-1.5 py-px font-mono text-[10px] leading-none ${cls}`}
+                        title={ref}
+                      >
+                        {ref}
+                      </span>
+                    );
+                  })}
+                </span>
+              )}
               <span className="flex-1 truncate text-ink" title={commit.subject}>
                 {commit.subject}
               </span>

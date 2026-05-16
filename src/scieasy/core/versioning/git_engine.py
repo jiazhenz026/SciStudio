@@ -282,12 +282,23 @@ class GitEngine:
                 return []
             raise GitError(proc.returncode, proc.stderr or "", args)
 
-        # Build branch-tip map.
+        # Build ref-tip map. Hotfix #1011: include remote-tracking refs
+        # (refs/remotes/) and tags (refs/tags/) in addition to local
+        # branches (refs/heads/). Pre-fix, commits that were tips of a
+        # remote ref or a tag but had no children in the local history
+        # rendered with `branches: []` — the frontend graph then had no
+        # label to render next to the dot, producing the "断头" look
+        # (orphan merge dot with no incoming line and no name attached).
+        # Including all three scan paths gives the frontend a label set
+        # to anchor every orphan tip with a chip the way vscode-git-graph
+        # / GitLens do.
         ref_proc = self._run(
             [
                 "for-each-ref",
                 "--format=%(refname:short)\t%(objectname)",
                 "refs/heads/",
+                "refs/remotes/",
+                "refs/tags/",
             ],
             check=False,
         )
@@ -297,6 +308,11 @@ class GitEngine:
                 if "\t" not in line:
                     continue
                 name, sha = line.split("\t", 1)
+                # Skip the synthetic "origin/HEAD" symbolic ref which just
+                # mirrors the default branch — would render as a duplicate
+                # chip with no extra info.
+                if name.endswith("/HEAD"):
+                    continue
                 sha_to_branches.setdefault(sha, []).append(name)
 
         records = (proc.stdout or "").split(RS)

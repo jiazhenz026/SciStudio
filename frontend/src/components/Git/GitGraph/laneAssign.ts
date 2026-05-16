@@ -148,13 +148,25 @@ interface VertexState {
  */
 interface Branch {
   /**
-   * Color slot index — also the rendered lane index. Stable across the
-   * branch's lifetime so every vertex on the branch shares it.
+   * Lane index (x-position slot). Recycled when the branch ends — many
+   * short-lived branches in a dense PR-ladder repo can end up sharing the
+   * same slot over time.
    */
   colour: number;
   /**
+   * Palette index for stroke color. Hotfix #1010: assigned at allocation
+   * time from a monotonic counter (modulo palette length), NOT from the
+   * lane index. Decoupling color from lane means every newly-allocated
+   * branch gets the next color in the palette — so when a lane is recycled
+   * the new branch picks a different color than the one that just ended.
+   * Pre-#1010 this was always `lane % PALETTE.length`, which meant a
+   * PR-merge-heavy history with many short feature branches all recycling
+   * lane 3 rendered as a wall of yellow lines.
+   */
+  colorIndex: number;
+  /**
    * Row index of the last vertex on this branch. Updated as the DFS
-   * extends; used as the lower-bound when checking whether the color slot
+   * extends; used as the lower-bound when checking whether the lane slot
    * can be recycled for a later branch.
    */
   end: number;
@@ -190,24 +202,41 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
   const mergeLanes: number[][] = new Array(n);
   for (let i = 0; i < n; i++) mergeLanes[i] = [];
 
-  // availableColours[c] = last row index where color slot c was used.
-  // Color c is reusable starting at row r when r > availableColours[c].
+  // availableColours[c] = last row index where lane slot c was used.
+  // Lane c is reusable starting at row r when r > availableColours[c].
   const availableColours: number[] = [];
   const branches: Branch[] = [];
 
+  // Hotfix #1010: monotonic counter for stroke-color assignment.
+  // Each newly-allocated branch gets `colorSeq % PALETTE.length`. The lane
+  // slot is recycled separately by `getAvailableColour`, so dense
+  // PR-ladder histories no longer collapse onto the same palette colour
+  // every time the slot gets reused.
+  let colorSeq = 0;
+
   /**
-   * Find a color slot whose end-row is strictly less than `startAt`
-   * (meaning the branch on that slot has ended above us, so we can reuse
-   * the column). If none qualifies, allocate a new slot.
+   * Allocate a lane slot for a new branch starting at `startAt`. Returns
+   * both the lane (x-position) and a fresh palette colour drawn from the
+   * monotonic `colorSeq` counter.
    */
-  function getAvailableColour(startAt: number): number {
+  function allocateBranchSlot(startAt: number): {
+    lane: number;
+    colorIndex: number;
+  } {
+    let lane = -1;
     for (let c = 0; c < availableColours.length; c++) {
       if (startAt > availableColours[c]) {
-        return c;
+        lane = c;
+        break;
       }
     }
-    availableColours.push(0);
-    return availableColours.length - 1;
+    if (lane < 0) {
+      availableColours.push(0);
+      lane = availableColours.length - 1;
+    }
+    const colorIndex = colorSeq % PALETTE.length;
+    colorSeq++;
+    return { lane, colorIndex };
   }
 
   /**
@@ -237,8 +266,8 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
     // 1. Make sure the start vertex itself is on a branch.
     let branch = state[startAt].branch;
     if (branch === null) {
-      const colour = getAvailableColour(startAt);
-      branch = { colour, end: startAt };
+      const slot = allocateBranchSlot(startAt);
+      branch = { colour: slot.lane, colorIndex: slot.colorIndex, end: startAt };
       branches.push(branch);
       state[startAt].branch = branch;
     }
@@ -269,11 +298,15 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
         // Dangling parent for a merge fold-in: allocate a fresh lane
         // anchored at the merge commit's row so the renderer can still
         // draw a stub. The fold-in branch immediately ends.
-        const colour = getAvailableColour(startAt);
-        const foldBranch: Branch = { colour, end: startAt };
+        const slot = allocateBranchSlot(startAt);
+        const foldBranch: Branch = {
+          colour: slot.lane,
+          colorIndex: slot.colorIndex,
+          end: startAt,
+        };
         branches.push(foldBranch);
-        mergeLanes[startAt].push(colour);
-        availableColours[colour] = startAt;
+        mergeLanes[startAt].push(slot.lane);
+        availableColours[slot.lane] = startAt;
         return;
       }
 
@@ -287,17 +320,21 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
         return;
       }
 
-      // Parent is not yet on a branch — allocate a new color slot for the
+      // Parent is not yet on a branch — allocate a new lane slot for the
       // fold-in branch and assign the parent to it. The chain then walks
-      // down from the parent. The color slot is allocated against `startAt`
+      // down from the parent. The slot is allocated against `startAt`
       // (the merge commit's row), not the parent's row, because the
       // fold-in lane occupies the column from the merge commit DOWN to
       // wherever the fold-in branch ends — so the column is "in use"
       // starting at startAt.
-      const colour = getAvailableColour(startAt);
-      const foldBranch: Branch = { colour, end: parentIdx };
+      const slot = allocateBranchSlot(startAt);
+      const foldBranch: Branch = {
+        colour: slot.lane,
+        colorIndex: slot.colorIndex,
+        end: parentIdx,
+      };
       branches.push(foldBranch);
-      mergeLanes[startAt].push(colour);
+      mergeLanes[startAt].push(slot.lane);
       state[parentIdx].branch = foldBranch;
       // The parent's first-parent edge is now consumed by this fold-in
       // chain (we're walking down through it). Bump nextParentIdx.
@@ -322,11 +359,20 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
       while (parentIdx >= 0 && parentIdx < n) {
         if (state[parentIdx].branch !== null) {
           // Chain break: parent already belongs to a different branch.
-          // We don't claim this parent for our branch. The renderer's
-          // edge will still be drawn from curIdx to parentIdx because
-          // commits[curIdx].parents[0] === commits[parentIdx].sha.
+          // Hotfix #1013: the fork-back edge from curIdx down to
+          // parentIdx draws a vertical segment on THIS branch's lane
+          // from curIdx's row all the way to parentIdx's row (see
+          // edgeRouter's fork-back path `M cx cy L cx py L px py`).
+          // Pre-#1013 we marked the lane "available" at curIdx, so a
+          // new branch could be allocated to the same lane at curIdx+1
+          // and its vertical edges would overlap with this branch's
+          // still-rendering fork-back vertical between curIdx and
+          // parentIdx — the user saw a single vertical line whose
+          // colour changed mid-segment with no dot at the transition.
+          // Hold the lane until parentIdx so the recycler waits until
+          // the trailing edge actually ends.
           curBranch.end = curIdx;
-          availableColours[curBranch.colour] = curIdx;
+          availableColours[curBranch.colour] = parentIdx;
           return;
         }
         // Extend our branch onto parentIdx.
@@ -351,8 +397,11 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
       let parentIdx = parentRow(curIdx, 0);
       while (parentIdx >= 0 && parentIdx < n) {
         if (state[parentIdx].branch !== null) {
+          // Hotfix #1013: hold the lane until the fork-back edge ends
+          // at parentIdx. See twin comment in the startParentP === 0
+          // branch above.
           curBranch.end = curIdx;
-          availableColours[curBranch.colour] = curIdx;
+          availableColours[curBranch.colour] = parentIdx;
           return;
         }
         state[parentIdx].branch = curBranch;
@@ -392,13 +441,86 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
     // A vertex always has a branch by this point — determinePath ensures
     // it. Defensive fallback: lane 0 with a fresh color slot.
     const lane = branch !== null ? branch.colour : 0;
+    // Hotfix #1010: color_index follows the branch (allocation order)
+    // rather than the lane number. Defensive fallback uses lane 0's
+    // palette colour when no branch is recorded.
+    const colorIndex =
+      branch !== null ? branch.colorIndex : 0 % PALETTE.length;
     out[r] = {
       sha: commits[r].sha,
       lane,
       merge_lanes: mergeLanes[r],
-      color_index: lane % PALETTE.length,
+      color_index: colorIndex,
       filtered_out: false,
     };
+  }
+
+  // Hotfix #1006 (Plan B): pin the "trunk" to lane 0 by following
+  // merge-parent continuations when the first-parent chain breaks.
+  //
+  // The DFS+recycle algorithm (per #1002) walks first-parent edges
+  // from commits[0] (HEAD). In a complex history HEAD's first-parent
+  // chain may end mid-log: e.g. `git checkout feature; git merge main`
+  // makes the merge commit's first parent the feature tip, not main,
+  // so the first-parent chain follows feature back to its origin
+  // (which is a root commit somewhere shallow), not the actual trunk.
+  // The actual trunk continues through the merge's SECOND parent.
+  //
+  // Detection: find the deepest-row commit on lane 0. If it's already
+  // the last row, no work to do. Else inspect its non-first parents
+  // (`parents[1..]`). If any of those parents lives in the log and is
+  // on a different lane, that lane is the "true trunk continuation"
+  // — swap it with lane 0.
+  //
+  // This protects octopus / disconnected-history fixtures where the
+  // deepest-lane-0 commit's parents are all unrooted (no continuation
+  // possible) — the swap is a no-op for them. Edge colors recompute
+  // downstream via `max(child_lane, parent_lane)` (#994). merge_lanes
+  // references swap with the lane numbers.
+  if (out.length >= 2) {
+    let laneZeroDeepestRow = -1;
+    for (let r = out.length - 1; r >= 0; r--) {
+      if (out[r].lane === 0) {
+        laneZeroDeepestRow = r;
+        break;
+      }
+    }
+    if (
+      laneZeroDeepestRow >= 0 &&
+      laneZeroDeepestRow < out.length - 1
+    ) {
+      const lane0Tail = commits[laneZeroDeepestRow];
+      // Build a sha-to-row map once.
+      const shaToIdx = new Map<string, number>();
+      for (let i = 0; i < commits.length; i++) shaToIdx.set(commits[i].sha, i);
+      let trueTrunkLane: number | null = null;
+      for (let p = 1; p < lane0Tail.parents.length; p++) {
+        const pi = shaToIdx.get(lane0Tail.parents[p]);
+        if (
+          pi !== undefined &&
+          pi > laneZeroDeepestRow &&
+          out[pi].lane !== 0
+        ) {
+          trueTrunkLane = out[pi].lane;
+          break;
+        }
+      }
+      if (trueTrunkLane !== null) {
+        const target = trueTrunkLane;
+        // Hotfix #1010: color_index is per-branch (allocation order),
+        // not per-lane. Swap lane numbers but leave color_index alone —
+        // each branch carries its colour across the swap.
+        for (const a of out) {
+          if (a.lane === 0) a.lane = target;
+          else if (a.lane === target) a.lane = 0;
+          if (a.merge_lanes.length > 0) {
+            a.merge_lanes = a.merge_lanes.map((c) =>
+              c === 0 ? target : c === target ? 0 : c,
+            );
+          }
+        }
+      }
+    }
   }
 
   return out;
