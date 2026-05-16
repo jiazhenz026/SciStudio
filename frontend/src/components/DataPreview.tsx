@@ -11,8 +11,6 @@ interface DataPreviewProps {
   previewCache: Record<string, DataPreviewResponse>;
   previewLoading: Record<string, boolean>;
   onLoadPreview: (dataRef: string) => Promise<void>;
-  onStartFromHere: () => void;
-  onCancelSelected: () => void;
 }
 
 /**
@@ -602,8 +600,6 @@ export function DataPreview({
   previewCache,
   previewLoading,
   onLoadPreview,
-  onStartFromHere,
-  onCancelSelected,
 }: DataPreviewProps) {
   const [activeRef, setActiveRef] = useState<string | null>(null);
   // #898 — pill labels become source filenames (with truncated-ref fallback).
@@ -721,16 +717,6 @@ export function DataPreview({
           <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Preview</p>
           <h2 className="mt-2 font-display text-2xl text-ink">{selectedNodeId ? selectedNodeLabel : "Select a node"}</h2>
         </div>
-        {selectedNodeId ? (
-          <div className="flex gap-2">
-            <button className="toolbar-button" onClick={onStartFromHere} type="button">
-              Start Here
-            </button>
-            <button className="toolbar-button" onClick={onCancelSelected} type="button">
-              Cancel
-            </button>
-          </div>
-        ) : null}
       </div>
 
       {!selectedNodeId ? (

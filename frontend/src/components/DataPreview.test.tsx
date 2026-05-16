@@ -20,9 +20,7 @@ describe("DataPreview", () => {
             },
           },
         }}
-        onCancelSelected={() => {}}
         onLoadPreview={onLoadPreview}
-        onStartFromHere={() => {}}
         previewCache={{}}
         previewLoading={{}}
         selectedNodeId="node-1"
@@ -43,9 +41,7 @@ describe("DataPreview", () => {
             output: { data_ref: "img-ref" },
           },
         }}
-        onCancelSelected={() => {}}
         onLoadPreview={vi.fn(async () => {})}
-        onStartFromHere={() => {}}
         previewCache={{
           "img-ref": {
             preview: {
@@ -84,9 +80,7 @@ describe("DataPreview", () => {
     render(
       <DataPreview
         blockOutputs={{ "node-1": { output: { data_ref: "img-ref" } } }}
-        onCancelSelected={() => {}}
         onLoadPreview={vi.fn(async () => {})}
-        onStartFromHere={() => {}}
         previewCache={{
           "img-ref": {
             preview: { kind: "image", src: "data:image/png;base64,abc" },
@@ -114,9 +108,7 @@ describe("DataPreview", () => {
     render(
       <DataPreview
         blockOutputs={{ "node-1": { output: { data_ref: "tbl-ref" } } }}
-        onCancelSelected={() => {}}
         onLoadPreview={vi.fn(async () => {})}
-        onStartFromHere={() => {}}
         previewCache={{
           "tbl-ref": {
             preview: {
@@ -184,9 +176,7 @@ describe("DataPreview", () => {
             },
           },
         }}
-        onCancelSelected={() => {}}
         onLoadPreview={vi.fn(async () => {})}
-        onStartFromHere={() => {}}
         previewCache={{}}
         previewLoading={{}}
         selectedNodeId="load-1"
@@ -208,9 +198,7 @@ describe("DataPreview", () => {
     render(
       <DataPreview
         blockOutputs={{ "node-1": { output: { data_ref: "img-ref" } } }}
-        onCancelSelected={() => {}}
         onLoadPreview={vi.fn(async () => {})}
-        onStartFromHere={() => {}}
         previewCache={{
           "img-ref": {
             preview: {
@@ -242,9 +230,7 @@ describe("DataPreview", () => {
     render(
       <DataPreview
         blockOutputs={{ "node-1": { output: { data_ref: "img-ref" } } }}
-        onCancelSelected={() => {}}
         onLoadPreview={vi.fn(async () => {})}
-        onStartFromHere={() => {}}
         previewCache={{
           "img-ref": {
             preview: {
@@ -273,9 +259,7 @@ describe("DataPreview", () => {
     render(
       <DataPreview
         blockOutputs={{ "node-1": { output: { data_ref: "tbl-ref" } } }}
-        onCancelSelected={() => {}}
         onLoadPreview={vi.fn(async () => {})}
-        onStartFromHere={() => {}}
         previewCache={{
           "tbl-ref": {
             preview: {
