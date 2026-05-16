@@ -1,5 +1,5 @@
-import { Pin, PinOff } from "lucide-react";
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { GitBranch, Pin, PinOff } from "lucide-react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { useAppStore } from "../store";
 import type { BlockSchemaResponse, LogEntry, WorkflowNode } from "../types/api";
@@ -30,7 +30,11 @@ interface BottomPanelProps {
   onTogglePin?: () => void;
 }
 
-const TAB_LABELS: Record<BottomTab, string> = {
+// Tab labels: emoji + text for most tabs (matches existing visual style);
+// Git uses the Lucide `GitBranch` icon for a sharper, more on-brand glyph
+// rather than the U+1F500 shuffle emoji which reads as "random" and
+// renders inconsistently across OS font sets.
+const TAB_LABELS: Record<BottomTab, ReactNode> = {
   ai: "\u{1F4AC} AI Chat",
   config: "\u{1F4CB} Config",
   logs: "\u{1F4DC} Logs",
@@ -41,7 +45,12 @@ const TAB_LABELS: Record<BottomTab, string> = {
   // Toolbar into a dedicated bottom-panel tab so the commit history /
   // branch graph / merge flows are reachable without overflowing the
   // toolbar on narrow viewports.
-  git: "\u{1F500} Git",
+  git: (
+    <span className="inline-flex items-center gap-1.5">
+      <GitBranch className="h-4 w-4" aria-hidden="true" />
+      Git
+    </span>
+  ),
 };
 
 // Problems was removed: it duplicated the block_error rows already in Logs
