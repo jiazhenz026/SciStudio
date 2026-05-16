@@ -245,9 +245,17 @@ async def commit(request: Request, body: CommitRequest) -> CommitResponse:
 async def log(
     request: Request,
     branch: str | None = None,
-    limit: int | None = 500,
+    limit: int | None = None,
 ) -> list[dict[str, Any]]:
-    """Return commit history. ADR-039 §3.5 line 218."""
+    """Return commit history. ADR-039 §3.5 line 218.
+
+    Hotfix #1009: default to ``None`` (unbounded) rather than 500.
+    The frontend GitGraph uses row virtualisation (#1004), so a deep
+    history only costs lane-assignment time, not DOM nodes. The 500
+    cap silently truncated dev repos (e.g. SciEasy's own ~570-commit
+    history shown as "starts at fix572"). Clients that want a hard
+    cap can still pass ``?limit=N`` explicitly.
+    """
     engine = _engine_for_request(request)
     try:
         return engine.log(branch=branch, limit=limit)
