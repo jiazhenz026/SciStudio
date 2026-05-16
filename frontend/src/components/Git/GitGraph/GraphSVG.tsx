@@ -185,12 +185,35 @@ export function GraphSVG(props: GraphSVGProps): JSX.Element {
           </g>
         </svg>
       </div>
+      {/*
+        Hotfix #1004: the UL spans the full `height` ( totalRows * ROW_HEIGHT)
+        but renders only the virtualization window's slice of LIs. Pre-fix,
+        those LIs were flow-laid-out at the UL's TOP (y=0..offsetPx),
+        leaving the rest of the UL blank — when the user scrolled past
+        offsetPx the right side went blank even though the SVG (which uses
+        absolute y-positioning per dot) correctly showed commits.
+
+        Push the slice down with a top spacer (height = visibleStart * ROW_HEIGHT)
+        so the visible LIs align vertically with their SVG dots.
+
+        D39-2.4b's row-virtualization shipped without this spacer. The bug
+        only surfaced on deep histories (500+ commits) once the spilled-
+        SVG-width regression from #1001 was fixed by #1002. Before that,
+        the SVG horizontal bloat hid the symptom.
+      */}
       <ul
         data-testid="git-graph-labels"
         role="list"
         className="min-h-0 flex-1 overflow-hidden"
         style={{ height: `${height}px` }}
       >
+        {visibleStart > 0 && (
+          <li
+            aria-hidden="true"
+            data-testid="git-graph-labels-spacer-top"
+            style={{ height: `${visibleStart * ROW_HEIGHT}px` }}
+          />
+        )}
         {assignments.slice(visibleStart, visibleEnd).map((a, offset) => {
           const idx = visibleStart + offset;
           const commit = commits[idx];
