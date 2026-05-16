@@ -168,23 +168,23 @@ def test_strip_codex_block_handles_nested_env() -> None:
 
 def test_install_skill_user_copies_dir(fake_home: Path, fake_cwd: Path) -> None:
     results = perform_install(target=None, scope="user", skill=True, do_all=False, remove=False, cwd=fake_cwd)
-    assert results[0].target == "skill"
+    # ADR-040 §3.9: two cross-installed destinations.
+    assert all(r.target == "skill" for r in results)
     skill_dir = fake_home / ".claude" / "skills" / MCP_SERVER_NAME
     assert (skill_dir / "SKILL.md").is_file()
-    # Examples directory rides along.
-    assert (skill_dir / "examples").is_dir()
 
 
 def test_install_skill_idempotent_replaces_dir(fake_home: Path, fake_cwd: Path) -> None:
     perform_install(target=None, scope="user", skill=True, do_all=False, remove=False, cwd=fake_cwd)
     second = perform_install(target=None, scope="user", skill=True, do_all=False, remove=False, cwd=fake_cwd)
-    assert second[0].action == "updated"
+    # Both destinations get rewritten on the second run.
+    assert all(r.action == "updated" for r in second)
 
 
 def test_remove_skill(fake_home: Path, fake_cwd: Path) -> None:
     perform_install(target=None, scope="user", skill=True, do_all=False, remove=False, cwd=fake_cwd)
     removed = perform_install(target=None, scope="user", skill=True, do_all=False, remove=True, cwd=fake_cwd)
-    assert removed[0].action == "removed"
+    assert all(r.action == "removed" for r in removed)
     skill_dir = fake_home / ".claude" / "skills" / MCP_SERVER_NAME
     assert not skill_dir.exists()
 
@@ -209,13 +209,6 @@ def test_invalid_scope_raises(fake_home: Path, fake_cwd: Path) -> None:
         perform_install(target="claude", scope="bogus", skill=False, do_all=False, remove=False, cwd=fake_cwd)
 
 
-def test_codex_project_scope_falls_back_with_caveat(fake_home: Path, fake_cwd: Path) -> None:
-    """Codex has no project scope; install should still write user scope with a clarifying detail."""
-    results = perform_install(target="codex", scope="project", skill=False, do_all=False, remove=False, cwd=fake_cwd)
-    assert len(results) == 1
-    assert "codex has no project-scope config file" in results[0].detail
-
-
 def test_install_skill_with_missing_source_raises_clearly(fake_home: Path, fake_cwd: Path) -> None:
     """If the bundled skill is missing, surface a FileNotFoundError."""
     with (
@@ -226,54 +219,93 @@ def test_install_skill_with_missing_source_raises_clearly(fake_home: Path, fake_
 
 
 # ---------------------------------------------------------------------------
-# ADR-040 §3.7 / §3.9 — Skeleton stubs (S40d). Bodies land in I40d Phase 2a.
-# TODO(#1014): unskip these when I40d implementation lands.
+# ADR-040 §3.7 / §3.9 — I40d Phase 2a (#1014) implementation tests.
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skip(reason="S40d skeleton — I40d impl in Phase 2a. TODO(#1014)")
-def test_install_skill_cross_install_user_scope() -> None:
+def test_install_skill_cross_install_user_scope(fake_home: Path, fake_cwd: Path) -> None:
     """ADR-040 §3.9: user-scope skill install writes both `.claude/skills/` AND `.agents/skills/`."""
-    # Expected after I40d: perform_install(skill=True, scope="user") yields
-    # two skill InstallResults — one with path ~/.claude/skills/scieasy/,
-    # one with path ~/.agents/skills/scieasy/. Both contain the 6 task
-    # skill files relocated to src/scieasy/_skills/scieasy/.
-    pass
+    results = perform_install(target=None, scope="user", skill=True, do_all=False, remove=False, cwd=fake_cwd)
+    # Two destinations, both skill-target, both installed (fresh).
+    assert len(results) == 2
+    assert {r.target for r in results} == {"skill"}
+    assert {r.action for r in results} == {"installed"}
+
+    claude_skill = fake_home / ".claude" / "skills" / MCP_SERVER_NAME
+    codex_skill = fake_home / ".agents" / "skills" / MCP_SERVER_NAME
+    assert (claude_skill / "SKILL.md").is_file()
+    assert (codex_skill / "SKILL.md").is_file()
+    # InstallResult paths cover both destinations.
+    paths = {r.path for r in results}
+    assert claude_skill in paths
+    assert codex_skill in paths
 
 
-@pytest.mark.skip(reason="S40d skeleton — I40d impl in Phase 2a. TODO(#1014)")
-def test_install_skill_cross_install_project_scope() -> None:
+def test_install_skill_cross_install_project_scope(fake_home: Path, fake_cwd: Path) -> None:
     """ADR-040 §3.9: project-scope writes both <cwd>/.claude/skills/ AND <cwd>/.agents/skills/."""
-    # Expected after I40d: perform_install(skill=True, scope="project")
-    # yields two skill InstallResults targeting fake_cwd/.claude/skills/
-    # and fake_cwd/.agents/skills/.
-    pass
+    results = perform_install(target=None, scope="project", skill=True, do_all=False, remove=False, cwd=fake_cwd)
+    assert len(results) == 2
+
+    claude_skill = fake_cwd / ".claude" / "skills" / MCP_SERVER_NAME
+    codex_skill = fake_cwd / ".agents" / "skills" / MCP_SERVER_NAME
+    assert (claude_skill / "SKILL.md").is_file()
+    assert (codex_skill / "SKILL.md").is_file()
+    paths = {r.path for r in results}
+    assert claude_skill in paths
+    assert codex_skill in paths
+    # User-scope paths NOT touched.
+    assert not (fake_home / ".claude" / "skills" / MCP_SERVER_NAME).exists()
+    assert not (fake_home / ".agents" / "skills" / MCP_SERVER_NAME).exists()
 
 
-@pytest.mark.skip(reason="S40d skeleton — I40d impl in Phase 2a. TODO(#1014)")
-def test_remove_skill_cross_removal() -> None:
+def test_remove_skill_cross_removal(fake_home: Path, fake_cwd: Path) -> None:
     """ADR-040 §3.9: `_remove_skill` cleans both paths symmetrically."""
-    # Expected after I40d: install then --remove yields two `removed`
-    # results, and both .claude/skills/scieasy/ and .agents/skills/scieasy/
-    # are gone from disk.
-    pass
+    perform_install(target=None, scope="user", skill=True, do_all=False, remove=False, cwd=fake_cwd)
+    removed = perform_install(target=None, scope="user", skill=True, do_all=False, remove=True, cwd=fake_cwd)
+    assert len(removed) == 2
+    assert {r.action for r in removed} == {"removed"}
+    assert not (fake_home / ".claude" / "skills" / MCP_SERVER_NAME).exists()
+    assert not (fake_home / ".agents" / "skills" / MCP_SERVER_NAME).exists()
 
 
-@pytest.mark.skip(reason="S40d skeleton — I40d impl in Phase 2a. TODO(#1014)")
-def test_install_codex_project_scope_writes_local_config() -> None:
+def test_install_codex_project_scope_writes_local_config(fake_home: Path, fake_cwd: Path) -> None:
     """ADR-040 §3.7: `scieasy install --target codex --scope project` writes <cwd>/.codex/config.toml."""
-    # Expected after I40d: perform_install(target="codex", scope="project")
-    # writes fake_cwd/.codex/config.toml containing the [mcp_servers.scieasy]
-    # block with SCIEASY_PROJECT_DIR pinned to str(fake_cwd). User-scope
-    # ~/.codex/config.toml is NOT touched.
-    pass
+    results = perform_install(target="codex", scope="project", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+    assert len(results) == 1
+    assert results[0].target == "codex"
+    assert results[0].scope == "project"
+
+    project_cfg = fake_cwd / ".codex" / "config.toml"
+    assert project_cfg.is_file()
+    text = project_cfg.read_text(encoding="utf-8")
+    assert f"[mcp_servers.{MCP_SERVER_NAME}]" in text
+    # Project scope pins SCIEASY_PROJECT_DIR in the env table.
+    assert f"[mcp_servers.{MCP_SERVER_NAME}.env]" in text
+    assert "SCIEASY_PROJECT_DIR" in text
+    # _format_toml_string escapes backslashes; check the escaped form on
+    # Windows so the test is platform-agnostic.
+    assert str(fake_cwd).replace("\\", "\\\\") in text
+
+    # User-scope ~/.codex/config.toml MUST NOT be touched.
+    user_cfg = fake_home / ".codex" / "config.toml"
+    assert not user_cfg.exists()
 
 
-@pytest.mark.skip(reason="S40d skeleton — I40d impl in Phase 2a. TODO(#1014)")
-def test_perform_install_codex_no_longer_forces_user_scope() -> None:
-    """ADR-040 §3.9: removed fallback — 'wrote to user scope' detail no longer surfaces when scope=project."""
-    # Expected after I40d: perform_install(target="codex", scope="project")
-    # yields a single InstallResult whose detail does NOT contain the
-    # legacy "codex has no project-scope config file; wrote to user
-    # scope" suffix.
-    pass
+def test_perform_install_codex_no_longer_forces_user_scope(fake_home: Path, fake_cwd: Path) -> None:
+    """ADR-040 §3.9: legacy 'wrote to user scope' detail-suffix is gone."""
+    results = perform_install(target="codex", scope="project", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+    assert len(results) == 1
+    # The pre-I40d fallback added a parenthetical suffix to the detail.
+    assert "wrote to user scope" not in results[0].detail
+    assert "codex has no project-scope config file" not in results[0].detail
+
+
+def test_remove_codex_project_scope_round_trip(fake_home: Path, fake_cwd: Path) -> None:
+    """ADR-040 §3.7: install then --remove against project scope leaves the file clean."""
+    perform_install(target="codex", scope="project", skill=False, do_all=False, remove=False, cwd=fake_cwd)
+    perform_install(target="codex", scope="project", skill=False, do_all=False, remove=True, cwd=fake_cwd)
+
+    project_cfg = fake_cwd / ".codex" / "config.toml"
+    assert project_cfg.is_file()
+    text = project_cfg.read_text(encoding="utf-8")
+    assert f"[mcp_servers.{MCP_SERVER_NAME}]" not in text
