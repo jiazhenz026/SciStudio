@@ -279,6 +279,29 @@ Choose clarity first for the initial implementation of a subsystem, unless perfo
 
 Do not introduce temporary shortcuts that contradict the intended architecture unless they are explicitly documented as temporary and tracked by an issue.
 
+## 7.6 Out-of-scope work MUST leave a TODO in the repo
+
+If any piece of behavior, branch, error path, edge case, or follow-up cleanup is judged **out of scope** for the current implementation (or deferred to a later phase / v2 / a future ADR), it MUST be marked with an in-repo `TODO` comment AND linked to a tracking artifact (open issue number, ADR section reference, or follow-up ticket). Verbal "we'll do that later" is **not acceptable** — it creates silent tech debt.
+
+Required form:
+
+```python
+# TODO(#NNN): <one-line description of what's deferred and why>
+#   Out of scope per <ADR-XXX §Y / spec §Z / PR #M discussion>.
+#   Followup: <issue URL or "open as part of ADR-XXX Phase Z">.
+```
+
+Applies to:
+- v1 → v2 deferrals (e.g. "soft validation now, hard schema enforcement later")
+- ADR-explicit out-of-scope items (e.g. ADR-040 §3.10's Layer 7 ACL, BlockRegistry runtime validation)
+- "good enough for now" approximations (timeouts, heuristics, regex matchers with known gaps)
+- intentional `NotImplementedError` / placeholder branches
+- skipped tests with a known reason (must also have `@pytest.mark.skip(reason=...)`)
+
+A reviewer should be able to `grep -rn "TODO(#" src/` and see every known piece of deferred work with a tracking link. A `TODO` without a tracking link is itself a protocol violation — open the issue first, then write the TODO.
+
+This rule applies to **AI agents AND human contributors equally**. When dispatching a sub-agent, the dispatch prompt must restate this rule and list any known out-of-scope items the agent should TODO-tag (rather than silently implement, silently skip, or pretend doesn't exist).
+
 ---
 
 # 9. AI Assistant Operating Rules
