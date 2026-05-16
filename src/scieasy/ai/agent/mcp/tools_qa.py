@@ -152,6 +152,10 @@ async def search_docs(
 
     q = query.lower()
     results: list[SearchDocsHit] = []
+    # Codex P2 (PR #1053): walk the full tree, score every matching doc,
+    # then sort + cap. Pre-fix the loop broke at 20 raw traversal hits
+    # before sorting, so higher-scoring docs encountered later were
+    # discarded silently.
     for md_path in sorted(search_root.rglob("*.md")):
         try:
             text = md_path.read_text(encoding="utf-8", errors="replace")
@@ -174,10 +178,8 @@ async def search_docs(
                 score=float(lower.count(q)),
             )
         )
-        if len(results) >= _SEARCH_MAX_RESULTS:
-            break
     results.sort(key=lambda r: r.score, reverse=True)
-    return results
+    return results[:_SEARCH_MAX_RESULTS]
 
 
 # ---------------------------------------------------------------------------

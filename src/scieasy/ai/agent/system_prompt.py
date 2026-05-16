@@ -29,6 +29,7 @@ import subprocess
 import time
 from importlib.resources import files
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -154,14 +155,20 @@ def _render_tool_catalog() -> str:
         loop = None
 
     if loop is not None and loop.is_running():
-        # Called from inside an event loop — synchronous bridging would
-        # deadlock. Use run_coroutine_threadsafe equivalent via task.
-        # Practically compose_system_prompt is called from sync FastAPI
-        # startup or the spawn_codex prep path (no loop). Defensive.
-        future = asyncio.run_coroutine_threadsafe(mcp.list_tools(), loop)
-        tools = future.result(timeout=5.0)
+        # Called from inside an event loop (e.g. ai_pty websocket).
+        # ``run_coroutine_threadsafe(coro, this_same_loop)`` deadlocks
+        # because the coroutine schedules on the same loop the caller
+        # is blocking — Codex P1 (PR #1053 review). Spin a fresh event
+        # loop on a worker thread so the coroutine has somewhere to run.
+        import concurrent.futures
+
+        def _list_in_thread() -> Any:
+            return asyncio.run(mcp.list_tools())  # type: ignore[arg-type]
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            tools = pool.submit(_list_in_thread).result(timeout=5.0)
     else:
-        tools = asyncio.run(mcp.list_tools())
+        tools = asyncio.run(mcp.list_tools())  # type: ignore[arg-type]
 
     category_titles = {
         "workflow": "### (a) Workflow design & execution",

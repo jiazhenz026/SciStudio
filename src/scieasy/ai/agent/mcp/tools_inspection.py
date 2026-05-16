@@ -186,20 +186,75 @@ def _grayscale_png(matrix: Any) -> bytes:
 
 
 def _preview_dataframe(path: Path) -> dict[str, Any]:
+    """Read at most _DATAFRAME_PREVIEW_ROWS via streaming, never the full table.
+
+    Codex P1 (PR #1053): the previous ``pq.read_table().slice(...)`` /
+    ``pcsv.read_csv().slice(...)`` materialised the entire file before
+    slicing, defeating the 8 MiB preview cap for large datasets.
+    """
+    import pyarrow as pa
     import pyarrow.parquet as pq
 
-    if path.suffix.lower() == ".parquet":
-        table = pq.read_table(path).slice(0, _DATAFRAME_PREVIEW_ROWS)
-    elif path.suffix.lower() == ".csv":
+    suffix = path.suffix.lower()
+    if suffix == ".parquet":
+        # Iterate row-batches and concatenate just enough rows for the preview.
+        pf = pq.ParquetFile(path)
+        batches: list[pa.RecordBatch] = []
+        collected = 0
+        # batch_size hint to keep memory bounded even on huge files.
+        for batch in pf.iter_batches(batch_size=_DATAFRAME_PREVIEW_ROWS):
+            need = _DATAFRAME_PREVIEW_ROWS - collected
+            if need <= 0:
+                break
+            if batch.num_rows > need:
+                batch = batch.slice(0, need)
+            batches.append(batch)
+            collected += batch.num_rows
+            if collected >= _DATAFRAME_PREVIEW_ROWS:
+                break
+        if not batches:
+            return {
+                "fmt": "table",
+                "payload": {"columns": pf.schema_arrow.names, "rows": []},
+                "truncated": False,
+            }
+        table = pa.Table.from_batches(batches)
+        truncated = pf.metadata.num_rows > _DATAFRAME_PREVIEW_ROWS if pf.metadata else False
+    elif suffix == ".csv":
         import pyarrow.csv as pcsv
 
-        table = pcsv.read_csv(str(path)).slice(0, _DATAFRAME_PREVIEW_ROWS)
+        # open_csv yields batches incrementally — read only the first chunk
+        # that satisfies the preview, never the full file.
+        with pcsv.open_csv(str(path)) as reader:
+            batches = []
+            collected = 0
+            try:
+                while collected < _DATAFRAME_PREVIEW_ROWS:
+                    batch = reader.read_next_batch()
+                    need = _DATAFRAME_PREVIEW_ROWS - collected
+                    if batch.num_rows > need:
+                        batch = batch.slice(0, need)
+                    batches.append(batch)
+                    collected += batch.num_rows
+            except StopIteration:
+                pass
+            schema_names = reader.schema.names
+        if not batches:
+            return {
+                "fmt": "table",
+                "payload": {"columns": schema_names, "rows": []},
+                "truncated": False,
+            }
+        table = pa.Table.from_batches(batches)
+        # We can't cheaply know total CSV row count without reading the
+        # rest; assume truncated if we filled the buffer.
+        truncated = collected >= _DATAFRAME_PREVIEW_ROWS
     else:
         raise ValueError(f"Unsupported dataframe format: {path.suffix}")
     return {
         "fmt": "table",
         "payload": {"columns": table.column_names, "rows": table.to_pylist()},
-        "truncated": table.num_rows >= _DATAFRAME_PREVIEW_ROWS,
+        "truncated": truncated,
     }
 
 
