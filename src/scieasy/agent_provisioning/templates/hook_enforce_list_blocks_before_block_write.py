@@ -31,8 +31,12 @@ from pathlib import Path
 
 _BLOCK_FILE_RE = re.compile(r"(?:^|/)blocks/[^/]+\.py$", re.IGNORECASE)
 _BASH_WRITE_RE = re.compile(
-    # Captures: > blocks/x.py | >> blocks/x.py | tee blocks/x.py | cp ... blocks/x.py
-    r"(>>?|tee|cp\s+\S+)\s+\S*blocks/[^\s]+\.py",
+    # Captures: > blocks/x.py | >>blocks/x.py | tee blocks/x.py | cp ... blocks/x.py
+    # Codex P1 (PR #1047): allow ZERO whitespace between the redirect
+    # operator and the path so ``echo x >blocks/new.py`` is also blocked
+    # (valid shell syntax). ``tee`` / ``cp`` still require whitespace
+    # because they are commands, not punctuation.
+    r"(?:>>?\s*|\b(?:tee|cp\s+\S+)\s+)\S*blocks/\S+\.py",
     re.IGNORECASE,
 )
 _MESSAGE = (

@@ -45,6 +45,13 @@ def test_write_hooks_creates_settings_json(tmp_project_dir: Path) -> None:
         assert "$CLAUDE_PROJECT_DIR" in cmd
         assert ".claude/hooks/" in cmd
 
+    # Codex P1 (PR #1047): MultiEdit must be in every Edit|Write matcher
+    # so multi-edit operations are not a bypass path.
+    write_or_multi_matchers = [entry["matcher"] for entry in pre + post if "Edit" in entry["matcher"]]
+    assert write_or_multi_matchers, "expected at least one Edit|Write|... matcher"
+    for matcher in write_or_multi_matchers:
+        assert "MultiEdit" in matcher, f"matcher missing MultiEdit: {matcher!r}"
+
 
 def test_write_hooks_copies_six_scripts(tmp_project_dir: Path) -> None:
     """All 6 hook scripts land in .claude/hooks/."""
@@ -193,6 +200,30 @@ def test_hook_enforce_list_blocks_passes_non_block_path(tmp_project_dir: Path) -
         {"tool_name": "Write", "tool_input": {"file_path": "README.md"}, "session_id": "x"},
     )
     assert proc.returncode == 0
+
+
+def test_hook_enforce_list_blocks_bash_no_space_redirect_blocked(tmp_project_dir: Path) -> None:
+    """Codex P1 (PR #1047): no-space redirects like ``> blocks/new.py``.
+
+    The regex must accept zero whitespace between ``>``/``>>`` and the
+    target path, since ``echo x >blocks/foo.py`` is valid shell syntax.
+    """
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "enforce_list_blocks_before_block_write.py"
+    import os
+
+    env = os.environ.copy()
+    env["CLAUDE_PROJECT_DIR"] = str(tmp_project_dir)
+    proc = _run_hook(
+        script,
+        {
+            "tool_name": "Bash",
+            "tool_input": {"command": "echo foo >blocks/new_block.py"},
+            "session_id": "test-session-nospace",
+        },
+        env=env,
+    )
+    assert proc.returncode == 2
 
 
 def test_hook_enforce_list_blocks_bash_redirect_blocked(tmp_project_dir: Path) -> None:
