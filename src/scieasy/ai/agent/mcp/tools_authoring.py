@@ -1,10 +1,7 @@
 """Category (b) MCP tools — block authoring helpers (5 tools).
 
-ADR-040 §3.1 FastMCP migration, S40a skeleton phase. All tool functions
-are decorated with ``@mcp.tool(name=...)`` and declare Pydantic result
-models. Bodies raise :class:`NotImplementedError` with a detailed
-``# TODO(#1012)`` comment block describing the impl approach for I40a
-Phase 2a.
+ADR-040 §3.1 FastMCP migration. All tool functions are decorated with
+``@mcp.tool(name=...)`` and declare Pydantic result models.
 
 The 5 tools are:
 
@@ -13,18 +10,24 @@ Write-class (3): ``scaffold_block``, ``reload_blocks``, ``run_block_tests``.
 
 Per ADR-040 §3.2a, ``scaffold_block`` is widened from the ADR-033-era
 ``(name, category)`` signature to ``(name, category, input_ports,
-output_ports, ...)`` so the §3.2a ``warnings: list[str]`` soft-validation
+output_ports)`` so the §3.2a ``warnings: list[str]`` soft-validation
 logic has port specs to inspect. See manifest §8.6 for the design
 rationale.
 """
 
 from __future__ import annotations
 
+import importlib
+import inspect
 import logging
+import subprocess
+import sys
+from pathlib import Path
 from typing import Annotated, Any
 
 from pydantic import BaseModel, Field
 
+from scieasy.ai.agent.mcp._context import _resolve_project_root, get_context
 from scieasy.ai.agent.mcp.server import mcp
 
 logger = logging.getLogger(__name__)
@@ -56,12 +59,16 @@ class ScaffoldBlockResult(BaseModel):
 
     Per ADR-040 §3.2a, includes ``warnings: list[str]`` for soft
     validation (generic-DataObject port detection, unregistered type
-    detection). ``next_step`` points the agent at the post-scaffold
-    workflow.
+    detection).
     """
 
     path: str = Field(description="Absolute filesystem path of the scaffolded block file.")
     bytes_written: int = Field(description="Number of bytes written to disk.")
+    created: bool = Field(default=True, description="Whether the file was newly created.")
+    template_used: str = Field(
+        default="scieasy.ai.agent.mcp.tools_authoring:_SCAFFOLD_TEMPLATE",
+        description="Identifier of the template that produced the file.",
+    )
     warnings: list[str] = Field(
         default_factory=list,
         description=(
@@ -113,6 +120,104 @@ class RunBlockTestsResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Helpers.
+# ---------------------------------------------------------------------------
+
+
+_EXAMPLE_CURATION: dict[str, list[str]] = {
+    "io": ["scieasy.blocks.io.loaders.load_data", "scieasy.blocks.io.savers.save_data"],
+    "process": [
+        "scieasy.blocks.process.builtins.merge",
+        "scieasy.blocks.process.builtins.split",
+        "scieasy.blocks.process.builtins.data_router",
+    ],
+    "code": ["scieasy.blocks.code"],
+    "app": ["scieasy.blocks.app"],
+    "ai": ["scieasy.blocks.ai.ai_block"],
+    "subworkflow": ["scieasy.blocks.subworkflow.subworkflow_block"],
+}
+
+
+_SCAFFOLD_TEMPLATE = '''"""Block scaffolded by SciEasy MCP scaffold_block.
+
+Edit this file then call ``reload_blocks`` to register the change.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from scieasy.blocks.base.block import Block
+from scieasy.blocks.base.ports import InputPort, OutputPort
+
+
+class {class_name}(Block):
+    """TODO: describe what this block does."""
+
+    name = "{class_name}"
+    description = "TODO: one-line description"
+    version = "0.1.0"
+
+    input_ports = [
+{input_ports_lines}
+    ]
+    output_ports = [
+{output_ports_lines}
+    ]
+    config_schema: dict[str, Any] = {{
+        "type": "object",
+        "properties": {{}},
+        "required": [],
+    }}
+
+    def run(self, inputs: dict[str, Any]) -> dict[str, Any]:
+        """TODO: implement."""
+        raise NotImplementedError
+'''
+
+
+def _snake_to_camel(name: str) -> str:
+    return "".join(part.capitalize() for part in name.split("_") if part)
+
+
+def _render_port_lines(ports: dict[str, dict[str, Any]] | None, port_cls: str) -> str:
+    """Render port specs as Python source lines for the scaffold template."""
+    if not ports:
+        return f"        # {port_cls}(name='in', type=DataObject, required=True),"
+    lines: list[str] = []
+    for port_name, spec in ports.items():
+        type_name = spec.get("type", "DataObject")
+        required = bool(spec.get("required", False))
+        lines.append(f"        {port_cls}(name={port_name!r}, type={type_name}, required={required!r}),")
+    return "\n".join(lines)
+
+
+def _type_registered(ctx: Any, type_name: str) -> bool:
+    """Return True if ``type_name`` appears in the active TypeRegistry."""
+    if type_name == "DataObject":
+        # Root of the hierarchy — always considered registered for the
+        # purposes of soft validation (the §3.2a warning fires on
+        # DataObject for a different reason).
+        return True
+    type_registry = getattr(ctx, "type_registry", None)
+    if type_registry is None:
+        return False
+    has = getattr(type_registry, "has", None)
+    if callable(has):
+        try:
+            return bool(has(type_name))
+        except Exception:  # pragma: no cover - defensive
+            pass
+    all_types = getattr(type_registry, "all_types", None)
+    if callable(all_types):
+        try:
+            return type_name in all_types()
+        except Exception:  # pragma: no cover - defensive
+            pass
+    return False
+
+
+# ---------------------------------------------------------------------------
 # (b.1) read_block_source
 # ---------------------------------------------------------------------------
 
@@ -129,22 +234,36 @@ async def read_block_source(
       - You're diagnosing a block-level error and need to see the source.
 
     Do NOT use to:
-      - Edit a block — use ``Edit``/``Write`` on the path returned here
-        (the file is in the project's ``blocks/`` dir, which the
-        protect_workflow_yaml hook does NOT cover; direct edits are fine).
+      - Edit a block — use ``Edit``/``Write`` on the path returned here.
       - Discover example patterns — use ``list_block_examples``.
 
     Raises ``KeyError`` if the type is not registered.
     """
-    # TODO(#1012): port from ADR-033-era impl. Reference:
-    #   1. ctx.block_registry.get_spec(type_name); raise KeyError if None.
-    #   2. Prefer spec.file_path for Tier 1 blocks; fall back to
-    #      inspect.getfile(importlib.import_module(...)) for Tier 2.
-    #   3. Read path.read_text("utf-8") and return ReadBlockSourceResult.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    ctx = get_context()
+    spec = ctx.block_registry.get_spec(type_name)
+    if spec is None:
+        raise KeyError(f"Block type '{type_name}' is not registered")
+
+    if spec.file_path:
+        path = Path(spec.file_path)
+    else:
+        try:
+            module = ctx.block_registry.instantiate(type_name).__class__.__module__
+            mod = sys.modules.get(module)
+            if mod is None:
+                mod = importlib.import_module(module)
+            path = Path(inspect.getfile(mod))
+        except Exception as exc:
+            raise RuntimeError(f"Could not resolve source file for '{type_name}': {exc}") from exc
+
+    if not path.exists():
+        raise FileNotFoundError(f"Block source file not found: {path}")
+
+    return ReadBlockSourceResult(
+        path=str(path),
+        source=path.read_text(encoding="utf-8"),
+        language="python",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -168,28 +287,24 @@ async def list_block_examples(
 
     Raises ``KeyError`` if the category is not recognised.
     """
-    # TODO(#1012): port from ADR-033-era impl preserving the
-    #   _EXAMPLE_CURATION dict (io/process/code/app/ai/subworkflow).
-    #   Reference impl iterates the curation list, importlib.import_module
-    #   each, inspect.getfile to get the path, and reads the first line
-    #   of __doc__ for the description.
-    #
-    #   I40a notes:
-    #   - v2 should make the curation list configurable via project
-    #     settings (per ADR-033 §6 T-ECA-203). Out of scope for this
-    #     migration — keep the hardcoded dict.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    if category not in _EXAMPLE_CURATION:
+        raise KeyError(f"Unknown block category '{category}'. Known: {sorted(_EXAMPLE_CURATION)}")
+
+    out: list[BlockExampleEntry] = []
+    for mod_path in _EXAMPLE_CURATION[category]:
+        try:
+            mod = importlib.import_module(mod_path)
+            path = Path(inspect.getfile(mod))
+            description = (mod.__doc__ or "").strip().split("\n", 1)[0]
+        except Exception as exc:  # pragma: no cover - rare import failure
+            logger.warning("list_block_examples: could not import %s: %s", mod_path, exc)
+            continue
+        out.append(BlockExampleEntry(name=mod_path, path=str(path), description=description))
+    return out
 
 
 # ---------------------------------------------------------------------------
-# (b.3) scaffold_block  (write-class)
-#
-# ADR-040 §3.2a widens the signature to include input_ports + output_ports
-# so the §3.2a soft-validation `warnings` logic has port specs to inspect.
-# See manifest §8.6 for the contract-widening rationale.
+# (b.3) scaffold_block  (write-class, §3.2a)
 # ---------------------------------------------------------------------------
 
 
@@ -202,9 +317,9 @@ async def scaffold_block(
         Field(
             description=(
                 "Per-port input specs: {port_name: {'type': '<TypeName>', 'description': '...'}}. "
-                "Each inner dict requires at least 'type' (string); 'description' is optional. "
-                "ADR-040 §3.2a: 'DataObject' triggers a soft warning unless block is a generic "
-                "SubWorkflowBlock / AppBlock. None is normalised to {} inside the body."
+                "Each inner dict requires 'type' (string); 'description' is optional. "
+                "ADR-040 §3.2a: 'DataObject' triggers a soft warning unless block is generic. "
+                "None is normalised to {} inside the body."
             ),
         ),
     ] = None,
@@ -213,7 +328,7 @@ async def scaffold_block(
         Field(
             description=(
                 "Per-port output specs: {port_name: {'type': '<TypeName>', 'description': '...'}}. "
-                "Same shape and §3.2a soft-validation as input_ports. None is normalised to {} inside the body."
+                "Same shape and §3.2a soft-validation as input_ports."
             ),
         ),
     ] = None,
@@ -240,61 +355,68 @@ async def scaffold_block(
         intentional, otherwise pick a concrete type from
         ``list_types()``).
       - Ports referencing type names not registered in the active
-        ``TypeRegistry`` (register the new type via the
-        ``scieasy.types`` entry-point in your plugin).
+        ``TypeRegistry``.
 
     Both warnings are advisory; the file is still written. Raises
     ``FileExistsError`` if the target path already exists.
     """
-    # TODO(#1012): port + extend from ADR-033-era impl. Critical changes
-    #   from the prior shape:
-    #   1. Signature widened per ADR-040 §3.2a (manifest §8.6) — input_ports
-    #      and output_ports are now first-class args. Use them in the
-    #      scaffolded template's ports list (replace the commented-out
-    #      placeholder lines in _SCAFFOLD_TEMPLATE with real entries
-    #      derived from the dict).
-    #   2. Implement the §3.2a soft-validation logic:
-    #        warnings: list[str] = []
-    #        for port_name, spec in {**input_ports, **output_ports}.items():
-    #            type_name = spec.get("type", "")
-    #            if type_name == "DataObject":
-    #                warnings.append(
-    #                    f"Port '{port_name}' uses generic DataObject. Preview "
-    #                    "and edge-time type checking will degrade. Confirm "
-    #                    "intentional (e.g. SubWorkflowBlock or generic "
-    #                    "AppBlock); otherwise pick a concrete type from "
-    #                    "mcp__scieasy__list_types()."
-    #                )
-    #            elif not ctx.type_registry.has(type_name):
-    #                warnings.append(
-    #                    f"Port '{port_name}' references unregistered type "
-    #                    f"'{type_name}'. Either pick from list_types() or "
-    #                    "register the new type via the scieasy.types "
-    #                    "entry-point in this plugin."
-    #                )
-    #
-    #      TODO(#1016): the soft-validation here is the L4 layer; the L5
-    #      PostToolUse hook (enforce_concrete_port_types.py per ADR-040
-    #      §3.6) is the second-layer defense for the Edit/Write bypass
-    #      path. Hard BlockRegistry-level rejection (the L7 escalation)
-    #      is deferred to a future ADR.
-    #
-    #   3. Preserve ADR-033-era impl bones:
-    #      - _resolve_project_root(ctx) → blocks_dir = root / "blocks".
-    #      - blocks_dir.mkdir(parents=True, exist_ok=True).
-    #      - target = blocks_dir / f"{name}.py".
-    #      - if target.exists(): raise FileExistsError.
-    #      - class_name = _snake_to_camel(name) or "MyBlock".
-    #      - text = template.format(...) ; target.write_text(text, "utf-8").
-    #      - logger.info("scaffold_block: created %s (category=%s)", target, category).
-    #
-    #   4. ctx.type_registry.has(name) — verify this method exists on the
-    #      live TypeRegistry. If not, fall back to
-    #      ``name in ctx.type_registry.all_types()``.
-    #
-    #   Out of scope per ADR-040 §3.2a / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    ctx = get_context()
+    root = _resolve_project_root(ctx)
+    blocks_dir = root / "blocks"
+    blocks_dir.mkdir(parents=True, exist_ok=True)
+    target = blocks_dir / f"{name}.py"
+    if target.exists():
+        raise FileExistsError(f"{target} already exists")
+
+    inputs_norm: dict[str, dict[str, Any]] = dict(input_ports or {})
+    outputs_norm: dict[str, dict[str, Any]] = dict(output_ports or {})
+
+    # ADR-040 §3.2a soft-validation.
+    # TODO(#1016): the soft-validation here is the L4 layer; the L5
+    # PostToolUse hook (enforce_concrete_port_types.py per ADR-040 §3.6)
+    # is the second-layer defense for the Edit/Write bypass path. Hard
+    # BlockRegistry-level rejection (the L7 escalation) is deferred to a
+    # future ADR per ADR-040 §3.10.
+    warnings: list[str] = []
+    is_generic_block = category in {"subworkflow", "app"}
+    for direction, ports in (("input", inputs_norm), ("output", outputs_norm)):
+        for port_name, spec in ports.items():
+            type_name = str(spec.get("type", ""))
+            if type_name == "DataObject" and not is_generic_block:
+                warnings.append(
+                    f"{direction} port '{port_name}' uses generic DataObject. "
+                    "Preview and edge-time type checking will degrade. Confirm "
+                    "intentional (e.g. SubWorkflowBlock or generic AppBlock); "
+                    "otherwise pick a concrete type from mcp__scieasy__list_types()."
+                )
+            elif type_name and not _type_registered(ctx, type_name):
+                warnings.append(
+                    f"{direction} port '{port_name}' references unregistered type "
+                    f"'{type_name}'. Either pick from mcp__scieasy__list_types() or "
+                    "register the new type via the scieasy.types entry-point in "
+                    "this plugin."
+                )
+
+    class_name = _snake_to_camel(name) or "MyBlock"
+    text = _SCAFFOLD_TEMPLATE.format(
+        class_name=class_name,
+        input_ports_lines=_render_port_lines(inputs_norm, "InputPort"),
+        output_ports_lines=_render_port_lines(outputs_norm, "OutputPort"),
+    )
+    target.write_text(text, encoding="utf-8")
+    bytes_written = len(text.encode("utf-8"))
+    logger.info(
+        "scaffold_block: created %s (category=%s, warnings=%d)",
+        target,
+        category,
+        len(warnings),
+    )
+    return ScaffoldBlockResult(
+        path=str(target),
+        bytes_written=bytes_written,
+        created=True,
+        warnings=warnings,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -314,17 +436,14 @@ async def reload_blocks() -> ReloadBlocksResult:
       - Discover new entry-point blocks — pip installs require a
         backend restart; this only rescans the in-process registry.
     """
-    # TODO(#1012): port from ADR-033-era impl. Reference:
-    #     ctx = get_context()
-    #     before = set(ctx.block_registry.all_specs().keys())
-    #     ctx.block_registry.hot_reload()
-    #     after = set(ctx.block_registry.all_specs().keys())
-    #     added = sorted(after - before); removed = sorted(before - after)
-    #     return ReloadBlocksResult(reloaded=len(after), added=added, removed=removed)
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    ctx = get_context()
+    before = set(ctx.block_registry.all_specs().keys())
+    ctx.block_registry.hot_reload()
+    after = set(ctx.block_registry.all_specs().keys())
+    added = sorted(after - before)
+    removed = sorted(before - after)
+    logger.info("reload_blocks: added=%s removed=%s", added, removed)
+    return ReloadBlocksResult(reloaded=len(after), added=added, removed=removed)
 
 
 # ---------------------------------------------------------------------------
@@ -346,20 +465,30 @@ async def run_block_tests(
       - Run the full project test suite — this tool targets one block's
         tests only.
     """
-    # TODO(#1012): port from ADR-033-era impl. Reference:
-    #   1. test_path = root / "tests" / "blocks" / f"test_{type_name.lower()}.py".
-    #   2. If not test_path.exists() → return returncode=-1, found=False,
-    #      stderr=f"test file not found: {test_path}".
-    #   3. subprocess.run([sys.executable, "-m", "pytest", str(test_path),
-    #      "--tb=short", "-q"], capture_output=True, text=True,
-    #      cwd=str(root), timeout=300).
-    #   4. Return RunBlockTestsResult with returncode, stdout, stderr,
-    #      test_path, found=True.
-    #
-    #   I40a notes: pytest invocation should NOT inherit --timeout from
-    #   the parent pytest if any (clean env). Verify subprocess.run env
-    #   does not leak.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    ctx = get_context()
+    root = _resolve_project_root(ctx)
+    test_path = root / "tests" / "blocks" / f"test_{type_name.lower()}.py"
+    if not test_path.exists():
+        return RunBlockTestsResult(
+            returncode=-1,
+            stdout="",
+            stderr=f"test file not found: {test_path}",
+            test_path=str(test_path),
+            found=False,
+        )
+    proc = subprocess.run(
+        [sys.executable, "-m", "pytest", str(test_path), "--tb=short", "-q"],
+        capture_output=True,
+        text=True,
+        cwd=str(root),
+        timeout=300,
+        check=False,
+    )
+    logger.info("run_block_tests: %s rc=%d", test_path, proc.returncode)
+    return RunBlockTestsResult(
+        returncode=proc.returncode,
+        stdout=proc.stdout,
+        stderr=proc.stderr,
+        test_path=str(test_path),
+        found=True,
+    )

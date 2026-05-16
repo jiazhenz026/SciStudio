@@ -24,11 +24,12 @@ not import from ``scieasy.api`` (the import-linter contracts forbid
 that direction). We therefore build a thin local context class instead
 of re-using ``ApiRuntime``.
 
-ADR-040 note: S40a skeleton phase preserves the public surface
+ADR-040 §3.1 note: this module's public surface
 (``StandaloneMCPRuntime``, ``make_mcp_runtime``, ``start_inprocess_server``,
-``stop_inprocess_server``). The underlying :class:`MCPServer` is now a
-FastMCP wrapper whose ``start()``/``stop()`` raise ``NotImplementedError``;
-I40a Phase 2a wires the real FastMCP transport into ``start_inprocess_server``.
+``stop_inprocess_server``) is preserved unchanged. The underlying
+:class:`MCPServer` is now a FastMCP wrapper whose ``start()`` / ``stop()``
+manage a FastMCP HTTP-over-UDS (POSIX) or TCP-loopback (Windows)
+transport.
 """
 
 from __future__ import annotations
@@ -66,12 +67,10 @@ class StandaloneMCPRuntime:
     placeholder — the runtime-dependent ``run_workflow`` tool will
     surface a clear error if invoked here.
 
-    # TODO(#1012): I40a Phase 2a may need to add ``ai_block_run_dir``
-    #   here to satisfy the MCPContext Protocol surface that
-    #   tools_workflow.finish_ai_block reads. Today
-    #   ``_resolve_ai_block_run_dir`` falls back to the env var when the
-    #   attribute is absent, so this is a NICE-TO-HAVE not a blocker.
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a. Followup: #1012.
+    # NOTE: ``ai_block_run_dir`` is not exposed here; standalone
+    # runtimes don't spawn AI Blocks directly. ``finish_ai_block``
+    # falls back to the ``SCIEASY_AI_BLOCK_RUN_DIR`` env var which is
+    # set by the engine when it spawns the AI Block PTY subprocess.
     """
 
     block_registry: BlockRegistry

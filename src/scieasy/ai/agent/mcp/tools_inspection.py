@@ -1,10 +1,7 @@
 """Category (c) MCP tools — run and data inspection (7 tools).
 
-ADR-040 §3.1 FastMCP migration, S40a skeleton phase. All tool functions
-are decorated with ``@mcp.tool(name=...)`` and declare Pydantic result
-models. Bodies raise :class:`NotImplementedError` with a detailed
-``# TODO(#1012)`` comment block describing the impl approach for I40a
-Phase 2a.
+ADR-040 §3.1 FastMCP migration. All tool functions are decorated with
+``@mcp.tool(name=...)`` and declare Pydantic result models.
 
 The 7 tools are:
 
@@ -13,23 +10,30 @@ Read-class (6): ``get_block_output``, ``inspect_data``, ``preview_data``,
 Write-class (1): ``update_block_config``.
 
 Per the Phase 2 audit checklist, ``inspect_data`` and ``preview_data``
-must never load > 8 MiB into RAM. Preserving that contract is a hard
-invariant for I40a Phase 2a impl.
+never load > 8 MiB into RAM. Array previews use ``iter_chunks`` (zarr)
+or ``tifffile.memmap`` for TIFFs so a 4 GB array does not exhaust memory.
 """
 
 from __future__ import annotations
 
+import base64
+import contextlib
 import logging
+import os
+import tempfile
+from pathlib import Path
 from typing import Annotated, Any
 
+from filelock import FileLock, Timeout
 from pydantic import BaseModel, Field
 
+from scieasy.ai.agent.mcp._context import _resolve_project_path, get_context
 from scieasy.ai.agent.mcp.server import mcp
+from scieasy.core.storage.ref import StorageReference
 
 logger = logging.getLogger(__name__)
 
 
-# Constants preserved for I40a Phase 2a impl reference.
 _LOCK_TIMEOUT_SECONDS = 10.0  # ADR-033 OQ7
 _MAX_PREVIEW_BYTES = 8 * 1024 * 1024  # 8 MiB hard cap (Phase 2 audit)
 _THUMBNAIL_MAX_DIM = 256
@@ -40,7 +44,7 @@ _BLOCK_LOG_TRUNCATE_BYTES = 16 * 1024  # 16 KiB per stream
 
 
 # ---------------------------------------------------------------------------
-# Pydantic result models — ADR-040 §3.1 typed envelopes.
+# Pydantic result models.
 # ---------------------------------------------------------------------------
 
 
@@ -62,9 +66,9 @@ class GetBlockOutputResult(BaseModel):
 class InspectDataResult(BaseModel):
     """Result envelope for ``inspect_data`` — metadata only, no payload."""
 
-    backend: str = Field(description="Storage backend name (filesystem/zarr/parquet/...).")
+    backend: str = Field(description="Storage backend name.")
     path: str = Field(description="Storage path of the referenced object.")
-    format: str | None = Field(default=None, description="Format hint (csv/parquet/zarr/...).")
+    format: str | None = Field(default=None, description="Format hint.")
     size: int = Field(default=0, description="Byte size on disk; 0 if path is a directory.")
     type_chain: list[str] = Field(default_factory=list)
     framework: dict[str, Any] = Field(default_factory=dict)
@@ -76,19 +80,7 @@ class InspectDataResult(BaseModel):
 
 
 class PreviewDataResult(BaseModel):
-    """Result envelope for ``preview_data``.
-
-    The ``fmt`` field signals which preview shape was rendered:
-      - ``table`` — dataframe first-N rows.
-      - ``png_base64`` — array thumbnail.
-      - ``chart`` — series first-N points.
-      - ``text`` — text first-N chars.
-      - ``artifact`` — image data URI or just size metadata.
-      - ``scalar`` — degenerate 0-d array.
-      - ``empty`` — no data path.
-      - ``skipped`` — content exceeded the 8 MiB cap and was not safely
-        previewable (e.g. compressed multi-GB TIFF).
-    """
+    """Result envelope for ``preview_data``."""
 
     fmt: str = Field(description="Preview shape identifier.")
     payload: Any = Field(description="Shape-specific payload dict.")
@@ -113,7 +105,7 @@ class GetLineageResult(BaseModel):
     edges: list[LineageEdge] = Field(default_factory=list)
     note: str | None = Field(
         default=None,
-        description="Diagnostic note when no MetadataStore is installed or object_id is unresolvable.",
+        description="Diagnostic note when no MetadataStore or object_id is unresolvable.",
     )
 
 
@@ -122,7 +114,7 @@ class GetBlockConfigResult(BaseModel):
 
     block_id: str
     type: str = Field(description="Block type name.")
-    params: dict[str, Any] = Field(default_factory=dict, description="Static config params for the block.")
+    params: dict[str, Any] = Field(default_factory=dict)
     workflow_path: str = Field(description="Absolute resolved path of the workflow file.")
 
 
@@ -135,9 +127,10 @@ class UpdateBlockConfigResult(BaseModel):
     workflow_path: str
     next_step: str = Field(
         default=(
-            "Call mcp__scieasy__validate_workflow with the workflow_path to confirm the patched config "
-            "still satisfies the schema. If the block is in an active run, the change does NOT affect "
-            "the running scheduler — re-run via mcp__scieasy__run_workflow to apply."
+            "Call mcp__scieasy__validate_workflow with the workflow_path to confirm the "
+            "patched config still satisfies the schema. If the block is in an active run, "
+            "the change does NOT affect the running scheduler — re-run via "
+            "mcp__scieasy__run_workflow to apply."
         ),
         description="Suggested next MCP call after a config patch.",
     )
@@ -151,6 +144,183 @@ class GetBlockLogsResult(BaseModel):
     truncated: bool = Field(description="True if either stream was truncated.")
     started_at: str = Field(default="", description="ISO timestamp when the block started.")
     finished_at: str | None = Field(default=None, description="ISO timestamp when the block finished.")
+
+
+# ---------------------------------------------------------------------------
+# Helpers.
+# ---------------------------------------------------------------------------
+
+
+def _ref_from_dict(ref: dict[str, Any]) -> StorageReference:
+    """Build a :class:`StorageReference` from a JSON-safe dict envelope."""
+    return StorageReference(
+        backend=str(ref.get("backend", "filesystem")),
+        path=str(ref.get("path", "")),
+        format=ref.get("format"),
+        metadata=ref.get("metadata"),
+    )
+
+
+def _grayscale_png(matrix: Any) -> bytes:
+    """Encode a 2D numpy array as an 8-bit grayscale PNG (stdlib only)."""
+    import struct
+    import zlib
+
+    import numpy as np
+
+    arr = np.asarray(matrix, dtype=np.float64)
+    if arr.size == 0:
+        return b""
+    arr_min, arr_max = float(arr.min()), float(arr.max())
+    if arr_max == arr_min:
+        scaled = np.zeros_like(arr, dtype=np.uint8)
+    else:
+        scaled = ((arr - arr_min) / (arr_max - arr_min) * 255.0).clip(0, 255).astype(np.uint8)
+    h, w = scaled.shape
+    raw = b"".join(b"\x00" + scaled[row].tobytes() for row in range(h))
+
+    def _chunk(ctype: bytes, data: bytes) -> bytes:
+        body = ctype + data
+        return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
+
+    ihdr = struct.pack(">IIBBBBB", w, h, 8, 0, 0, 0, 0)
+    return b"\x89PNG\r\n\x1a\n" + _chunk(b"IHDR", ihdr) + _chunk(b"IDAT", zlib.compress(raw)) + _chunk(b"IEND", b"")
+
+
+def _preview_dataframe(path: Path) -> dict[str, Any]:
+    import pyarrow.parquet as pq
+
+    if path.suffix.lower() == ".parquet":
+        table = pq.read_table(path).slice(0, _DATAFRAME_PREVIEW_ROWS)
+    elif path.suffix.lower() == ".csv":
+        import pyarrow.csv as pcsv
+
+        table = pcsv.read_csv(str(path)).slice(0, _DATAFRAME_PREVIEW_ROWS)
+    else:
+        raise ValueError(f"Unsupported dataframe format: {path.suffix}")
+    return {
+        "fmt": "table",
+        "payload": {"columns": table.column_names, "rows": table.to_pylist()},
+        "truncated": table.num_rows >= _DATAFRAME_PREVIEW_ROWS,
+    }
+
+
+def _preview_array(path: Path) -> dict[str, Any]:
+    """Preview an array using chunked reads.
+
+    8 MiB cap honoured by checking page nbytes before any blind asarray()
+    call (PR #744 Codex P1).
+    """
+    import numpy as np
+
+    suffix = path.suffix.lower()
+    arr: Any
+    if suffix in {".tif", ".tiff"}:
+        import tifffile
+
+        with tifffile.TiffFile(str(path)) as tf:
+            page = tf.pages[0]
+            try:
+                dtype = page.dtype
+                page_nbytes = int(page.size) * int(dtype.itemsize) if dtype is not None else 0
+            except (AttributeError, TypeError):
+                page_nbytes = 0
+            if page_nbytes and page_nbytes > _MAX_PREVIEW_BYTES:
+                try:
+                    arr = tifffile.memmap(str(path), page=0, mode="r")
+                except (ValueError, OSError, MemoryError):
+                    return {
+                        "fmt": "skipped",
+                        "payload": {
+                            "reason": "tiff_page_exceeds_cap_and_not_memmappable",
+                            "page_nbytes": page_nbytes,
+                            "cap_bytes": _MAX_PREVIEW_BYTES,
+                            "shape": list(page.shape),
+                        },
+                        "truncated": True,
+                    }
+            else:
+                arr = page.asarray()
+    elif suffix == ".zarr" or path.is_dir():
+        import zarr
+
+        node: Any = zarr.open(str(path), mode="r")
+        if isinstance(node, zarr.Array):
+            arr = node
+        elif "data" in node:
+            arr = node["data"]
+        else:
+            raise ValueError(f"Zarr store at {path} has no top-level array or 'data' dataset")
+    else:
+        raise ValueError(f"Unsupported array format: {suffix}")
+
+    shape = tuple(int(d) for d in arr.shape)
+    while len(shape) > 2:
+        arr = arr[0]
+        shape = tuple(int(d) for d in arr.shape)
+    if not shape:
+        return {"fmt": "scalar", "payload": float(arr), "truncated": False}
+    h, w = shape[0], shape[1] if len(shape) > 1 else 1
+    step_h = max(1, h // _THUMBNAIL_MAX_DIM)
+    step_w = max(1, w // _THUMBNAIL_MAX_DIM)
+    if len(shape) == 1:
+        thumbnail = np.asarray(arr[::step_h], dtype=np.float64)[:_THUMBNAIL_MAX_DIM]
+        thumbnail = thumbnail[None, :]
+    else:
+        thumbnail = np.asarray(arr[::step_h, ::step_w], dtype=np.float64)
+        thumbnail = thumbnail[:_THUMBNAIL_MAX_DIM, :_THUMBNAIL_MAX_DIM]
+
+    png_bytes = _grayscale_png(thumbnail)
+    payload_b64 = base64.b64encode(png_bytes).decode("ascii")
+    if len(png_bytes) > _MAX_PREVIEW_BYTES:
+        raise RuntimeError(f"preview_data: thumbnail exceeds {_MAX_PREVIEW_BYTES}-byte cap")
+    return {
+        "fmt": "png_base64",
+        "payload": {
+            "data": payload_b64,
+            "shape": list(shape),
+            "thumbnail_shape": list(thumbnail.shape),
+        },
+        "truncated": list(shape) != list(thumbnail.shape),
+    }
+
+
+def _preview_series(path: Path, ref_md: dict[str, Any]) -> dict[str, Any]:
+    values = ref_md.get("values", []) if isinstance(ref_md, dict) else []
+    if not values and path.exists() and path.suffix.lower() == ".parquet":
+        import pyarrow.parquet as pq
+
+        table = pq.read_table(path)
+        if table.num_columns:
+            values = table.column(0).to_pylist()
+    points = [{"x": i, "y": v} for i, v in enumerate(values[:_SERIES_PREVIEW_POINTS])]
+    return {
+        "fmt": "chart",
+        "payload": {"points": points},
+        "truncated": len(values) > _SERIES_PREVIEW_POINTS,
+    }
+
+
+def _preview_text(path: Path) -> dict[str, Any]:
+    with path.open("rb") as fh:
+        raw = fh.read(_TEXT_PREVIEW_CHARS)
+    text = raw.decode("utf-8", errors="replace")
+    return {
+        "fmt": "text",
+        "payload": {"content": text},
+        "truncated": path.stat().st_size > _TEXT_PREVIEW_CHARS,
+    }
+
+
+def _preview_artifact(path: Path) -> dict[str, Any]:
+    size = path.stat().st_size if path.exists() else 0
+    payload: dict[str, Any] = {"path": str(path), "size_bytes": size}
+    if path.suffix.lower() in {".png", ".jpg", ".jpeg"} and size <= _MAX_PREVIEW_BYTES:
+        payload["data_uri"] = "data:image/{};base64,{}".format(
+            path.suffix.lower().lstrip("."),
+            base64.b64encode(path.read_bytes()).decode("ascii"),
+        )
+    return {"fmt": "artifact", "payload": payload, "truncated": False}
 
 
 # ---------------------------------------------------------------------------
@@ -177,15 +347,35 @@ async def get_block_output(
 
     Raises ``KeyError`` if the run, block, or port is unknown.
     """
-    # TODO(#1012): port from ADR-033-era impl. Reference:
-    #   1. runtime.workflow_runs[run_id] lookup → KeyError if absent.
-    #   2. run.scheduler._block_outputs[block_id] → dict[port, wire-format].
-    #   3. Extract type_chain from value["metadata"]["type_chain"] when present.
-    #   4. Return GetBlockOutputResult(ref=value, type=TypeChainInfo(...)).
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    ctx = get_context()
+    runs = getattr(ctx, "workflow_runs", None)
+    if not isinstance(runs, dict) or run_id not in runs:
+        raise KeyError(f"Unknown run: {run_id}")
+    run = runs[run_id]
+    outputs = getattr(run.scheduler, "_block_outputs", {})
+    block_payload = outputs.get(block_id)
+    if block_payload is None:
+        raise KeyError(f"No output recorded for block '{block_id}' in run '{run_id}'")
+    if isinstance(block_payload, dict) and port in block_payload:
+        value = block_payload[port]
+    else:
+        raise KeyError(f"Block '{block_id}' has no output port '{port}' in run '{run_id}'")
+
+    type_chain: list[str] = []
+    if isinstance(value, dict):
+        meta = value.get("metadata") or {}
+        if isinstance(meta, dict):
+            chain = meta.get("type_chain")
+            if isinstance(chain, list):
+                type_chain = [str(x) for x in chain]
+    return GetBlockOutputResult(
+        ref=value if isinstance(value, dict) else {"value": value},
+        type=TypeChainInfo(
+            type_chain=type_chain,
+            type_name=type_chain[-1] if type_chain else "",
+        ),
+        produced_at="",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -195,7 +385,10 @@ async def get_block_output(
 
 @mcp.tool(name="inspect_data")
 async def inspect_data(
-    ref: Annotated[dict[str, Any], Field(description="StorageReference wire-format dict (from get_block_output).")],
+    ref: Annotated[
+        dict[str, Any],
+        Field(description="StorageReference wire-format dict (from get_block_output)."),
+    ],
 ) -> InspectDataResult:
     """Return metadata about a stored data reference (no payload).
 
@@ -206,21 +399,43 @@ async def inspect_data(
       - Read the payload — use ``preview_data``.
 
     Honours the Phase 2 audit 8 MiB read-cap — this tool ONLY reads
-    metadata, never the payload. Cap-honouring is a hard invariant for
-    I40a Phase 2a impl.
+    metadata, never the payload.
     """
-    # TODO(#1012): port from ADR-033-era impl preserving the 8 MiB cap.
-    #   Reference:
-    #   1. _ref_from_dict(ref) → StorageReference.
-    #   2. path.stat().st_size for size.
-    #   3. Project ref["metadata"] into type_chain, framework, user_metadata.
-    #   4. Best-effort MetadataStore lookup via get_metadata_store() with
-    #      D38-2.3 deprecation-warning suppression at the import boundary
-    #      (warnings.filterwarnings ignore module=r"scieasy\.core\.metadata_store").
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    sref = _ref_from_dict(ref)
+    path = Path(sref.path) if sref.path else None
+    size = path.stat().st_size if path is not None and path.exists() and path.is_file() else 0
+    type_chain: list[str] = []
+    framework: dict[str, Any] = {}
+    user_metadata: dict[str, Any] = {}
+    md = ref.get("metadata") or {}
+    if isinstance(md, dict):
+        chain = md.get("type_chain", [])
+        type_chain = [str(x) for x in chain] if isinstance(chain, list) else []
+        framework = md.get("framework", {}) if isinstance(md.get("framework"), dict) else {}
+        user_metadata = {k: v for k, v in md.items() if k not in {"type_chain", "framework"}}
+
+    metadata_store: dict[str, Any] | None = None
+    try:
+        from scieasy.core.metadata_store import get_metadata_store
+
+        store = get_metadata_store()
+        if store is not None and sref.path and hasattr(store, "get_wire_by_storage_path"):
+            wire = store.get_wire_by_storage_path(sref.path)
+            if wire is not None and isinstance(wire, dict):
+                metadata_store = wire
+    except Exception:
+        logger.debug("inspect_data: MetadataStore lookup failed", exc_info=True)
+
+    return InspectDataResult(
+        backend=sref.backend,
+        path=sref.path,
+        format=sref.format,
+        size=size,
+        type_chain=type_chain,
+        framework=framework,
+        user_metadata=user_metadata,
+        metadata_store=metadata_store,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -230,11 +445,14 @@ async def inspect_data(
 
 @mcp.tool(name="preview_data")
 async def preview_data(
-    ref: Annotated[dict[str, Any], Field(description="StorageReference wire-format dict.")],
+    ref: Annotated[
+        dict[str, Any],
+        Field(description="StorageReference wire-format dict."),
+    ],
     fmt: str = Field(
         description=(
-            "Preferred preview format (advisory; the tool dispatches on "
-            "the ref's type_chain regardless): table / png_base64 / chart / text / artifact."
+            "Preferred preview format (advisory; the tool dispatches on the ref's "
+            "type_chain regardless): table / png_base64 / chart / text / artifact."
         ),
     ),
 ) -> PreviewDataResult:
@@ -246,7 +464,7 @@ async def preview_data(
 
     Do NOT use to:
       - Read full datasets — this tool is capped at 8 MiB per response
-        and uses chunked reads (zarr iter_chunks, tifffile memmap) to
+        and uses chunked reads (zarr step slicing, tifffile memmap) to
         avoid OOM on multi-GB inputs.
       - Inspect metadata only — use ``inspect_data``.
 
@@ -257,24 +475,33 @@ async def preview_data(
       - Text → first 4096 chars.
       - Artifact → size + (for images) base64 data URI under the cap.
     """
-    # TODO(#1012): port from ADR-033-era impl preserving:
-    #   1. _MAX_PREVIEW_BYTES = 8 MiB hard cap.
-    #   2. _THUMBNAIL_MAX_DIM = 256.
-    #   3. _DATAFRAME_PREVIEW_ROWS = 100, _SERIES_PREVIEW_POINTS = 200,
-    #      _TEXT_PREVIEW_CHARS = 4096.
-    #   4. Type-chain-first dispatch (DataFrame / Array / Image / Series /
-    #      Spectrum / Text) with suffix fallback (.csv/.parquet/.tif/...).
-    #   5. _preview_array uses tifffile.memmap for large uncompressed
-    #      TIFFs; refuses with fmt="skipped" for compressed multi-GB.
-    #   6. _grayscale_png stdlib-only encoder (zlib + struct).
-    #
-    #   PR #744 Codex P1 (discussion_r3231046699) MUST be preserved:
-    #   never call page.asarray() blindly — check page_nbytes vs cap
-    #   first, then memmap or skip.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    _ = fmt  # advisory; dispatch is type_chain-first.
+    sref = _ref_from_dict(ref)
+    if not sref.path:
+        return PreviewDataResult(fmt="empty", payload={}, truncated=False)
+    path = Path(sref.path)
+    if not path.exists():
+        raise FileNotFoundError(f"Data path does not exist: {sref.path}")
+
+    md = ref.get("metadata") or {}
+    type_chain = md.get("type_chain", []) if isinstance(md, dict) else []
+    top = type_chain[-1] if type_chain else ""
+    suffix = path.suffix.lower()
+
+    is_dataframe = top == "DataFrame" or suffix in {".csv", ".parquet"}
+    is_array = top in {"Array", "Image"} or suffix in {".tif", ".tiff", ".zarr"} or path.is_dir()
+    is_series = top in {"Series", "Spectrum"}
+    is_text = top == "Text" or suffix in {".txt", ".json", ".yaml", ".yml", ".md"}
+
+    if is_dataframe:
+        return PreviewDataResult(**_preview_dataframe(path))
+    if is_series:
+        return PreviewDataResult(**_preview_series(path, md if isinstance(md, dict) else {}))
+    if is_array:
+        return PreviewDataResult(**_preview_array(path))
+    if is_text:
+        return PreviewDataResult(**_preview_text(path))
+    return PreviewDataResult(**_preview_artifact(path))
 
 
 # ---------------------------------------------------------------------------
@@ -284,7 +511,10 @@ async def preview_data(
 
 @mcp.tool(name="get_lineage")
 async def get_lineage(
-    ref: Annotated[dict[str, Any], Field(description="StorageReference wire-format dict.")],
+    ref: Annotated[
+        dict[str, Any],
+        Field(description="StorageReference wire-format dict."),
+    ],
 ) -> GetLineageResult:
     """Return the transitive lineage ancestors of a data reference.
 
@@ -299,19 +529,40 @@ async def get_lineage(
     Returns empty nodes/edges with a diagnostic ``note`` when no
     MetadataStore is installed or object_id cannot be resolved.
     """
-    # TODO(#1012): port from ADR-033-era impl preserving the
-    #   D38-2.3 deprecation-warning suppression at the metadata_store
-    #   import boundary. Reference:
-    #   1. get_metadata_store() (with warnings suppressed).
-    #   2. Try ref["metadata"]["framework"]["object_id"] first.
-    #   3. Fall back to store.get_by_storage_path(sref.path).
-    #   4. store.ancestors(object_id) → list of {object_id, type_name,
-    #      block_id, derived_from} dicts.
-    #   5. Build nodes (LineageNode) + edges (LineageEdge).
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    from scieasy.core.metadata_store import get_metadata_store
+
+    store = get_metadata_store()
+    if store is None:
+        return GetLineageResult(nodes=[], edges=[], note="no MetadataStore installed")
+
+    md = ref.get("metadata") or {}
+    framework = md.get("framework") if isinstance(md, dict) else None
+    object_id = framework.get("object_id") if isinstance(framework, dict) else None
+    if not object_id:
+        sref = _ref_from_dict(ref)
+        if sref.path:
+            try:
+                obj = store.get_by_storage_path(sref.path)
+            except Exception:
+                obj = None
+            if obj is not None:
+                fmw = getattr(obj.metadata, "framework", None)
+                if fmw is not None:
+                    object_id = fmw.object_id
+    if not object_id:
+        return GetLineageResult(nodes=[], edges=[], note="could not resolve object_id")
+
+    ancestors = store.ancestors(object_id)
+    nodes = [
+        LineageNode(
+            object_id=a["object_id"],
+            type_name=a["type_name"],
+            block_id=a.get("block_id"),
+        )
+        for a in ancestors
+    ]
+    edges = [LineageEdge(source=a["derived_from"], target=a["object_id"]) for a in ancestors if a.get("derived_from")]
+    return GetLineageResult(nodes=nodes, edges=edges)
 
 
 # ---------------------------------------------------------------------------
@@ -336,16 +587,21 @@ async def get_block_config(
 
     Raises ``KeyError`` if the block_id is not in the workflow.
     """
-    # TODO(#1012): port from ADR-033-era impl. Reference:
-    #   1. _resolve_project_path(workflow_path) for issue #790 semantics.
-    #   2. load_yaml(p) → WorkflowDefinition.
-    #   3. Iterate definition.nodes; match node.id == block_id.
-    #   4. Return GetBlockConfigResult(block_id, type=node.block_type,
-    #      params=dict(node.config), workflow_path=str(p)).
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    from scieasy.workflow.serializer import load_yaml
+
+    p = _resolve_project_path(workflow_path)
+    if not p.exists():
+        raise FileNotFoundError(f"Workflow file not found: {p}")
+    definition = load_yaml(p)
+    for node in definition.nodes:
+        if node.id == block_id:
+            return GetBlockConfigResult(
+                block_id=block_id,
+                type=node.block_type,
+                params=dict(node.config),
+                workflow_path=str(p),
+            )
+    raise KeyError(f"Block '{block_id}' not found in workflow {p}")
 
 
 # ---------------------------------------------------------------------------
@@ -358,7 +614,8 @@ async def update_block_config(
     workflow_path: Annotated[str, Field(description="Project-relative path under workflows/.")],
     block_id: Annotated[str, Field(description="Block id within the workflow.")],
     params: Annotated[
-        dict[str, Any], Field(description="Dict of param keys to set or overwrite on the block's config.")
+        dict[str, Any],
+        Field(description="Dict of param keys to set or overwrite on the block's config."),
     ],
 ) -> UpdateBlockConfigResult:
     """Patch one block's configuration in a workflow YAML (preserves comments).
@@ -377,19 +634,63 @@ async def update_block_config(
 
     Uses ruamel.yaml round-trip mode to preserve formatting.
     """
-    # TODO(#1012): port from ADR-033-era impl preserving:
-    #   1. _resolve_project_path(workflow_path) for issue #790.
-    #   2. FileLock(lock_path, timeout=10.0) per ADR-033 OQ7.
-    #   3. YAML(typ="rt") + yaml_rt.preserve_quotes = True (ruamel).
-    #   4. Locate target node by id in doc["workflow"]["nodes"] or doc["nodes"].
-    #   5. Merge or replace config dict (preserves keys not in params).
-    #   6. Atomic write via tempfile + os.replace.
-    #
-    #   TODO(#732): once workflow versioning API ships, share the lock
-    #   boundary with the canvas's optimistic-concurrency model.
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    from ruamel.yaml import YAML
+
+    p = _resolve_project_path(workflow_path)
+    if not p.exists():
+        raise FileNotFoundError(f"Workflow file not found: {p}")
+    lock_path = str(p) + ".lock"
+    yaml_rt = YAML(typ="rt")
+    yaml_rt.preserve_quotes = True
+
+    try:
+        with FileLock(lock_path, timeout=_LOCK_TIMEOUT_SECONDS):
+            old = p.read_text(encoding="utf-8")
+            with p.open("r", encoding="utf-8") as fh:
+                doc = yaml_rt.load(fh)
+            if not isinstance(doc, dict):
+                raise ValueError(f"Workflow YAML at {p} is not a mapping")
+            wf_block = doc.get("workflow") or doc
+            nodes = wf_block.get("nodes")
+            if not isinstance(nodes, list):
+                raise ValueError(f"Workflow YAML at {p} has no nodes list")
+            target = None
+            for node in nodes:
+                if isinstance(node, dict) and node.get("id") == block_id:
+                    target = node
+                    break
+            if target is None:
+                raise KeyError(f"Block '{block_id}' not found in workflow {p}")
+            config_node = target.get("config")
+            if not isinstance(config_node, dict):
+                target["config"] = dict(params)
+            else:
+                for key, value in params.items():
+                    config_node[key] = value
+
+            # Atomic write.
+            fd, tmp = tempfile.mkstemp(prefix=p.name + ".", suffix=".tmp", dir=str(p.parent))
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as out_fh:
+                    yaml_rt.dump(doc, out_fh)
+                bytes_written = Path(tmp).stat().st_size
+                os.replace(tmp, p)
+            except Exception:
+                with contextlib.suppress(OSError):
+                    os.unlink(tmp)
+                raise
+    except Timeout as exc:
+        raise TimeoutError(f"update_block_config: could not acquire lock for {p}") from exc
+
+    new = p.read_text(encoding="utf-8")
+    diff_summary = f"{len(new.encode('utf-8'))} bytes (was {len(old.encode('utf-8'))})"
+    logger.info("update_block_config: %s block=%s (%s)", p, block_id, diff_summary)
+    return UpdateBlockConfigResult(
+        block_id=block_id,
+        diff_summary=diff_summary,
+        bytes_written=bytes_written,
+        workflow_path=str(p),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -415,12 +716,35 @@ async def get_block_logs(
 
     Tails are truncated to 16 KiB per stream to keep MCP frames small.
     """
-    # TODO(#1012): port from ADR-033-era impl. Reference:
-    #   1. project_dir = ctx.project_dir; raise RuntimeError if None.
-    #   2. log_root = project_dir / "logs" / run_id.
-    #   3. Read tail of {block_id}.stdout / .stderr (last 16 KiB).
-    #   4. Truncated flag set if either stream exceeds the cap.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    ctx = get_context()
+    project_dir = ctx.project_dir
+    if project_dir is None:
+        raise RuntimeError("No project is currently open")
+
+    log_root = project_dir / "logs" / run_id
+    stdout_path = log_root / f"{block_id}.stdout"
+    stderr_path = log_root / f"{block_id}.stderr"
+    if not log_root.exists():
+        raise KeyError(f"No log directory for run '{run_id}'")
+
+    def _read_tail(pth: Path) -> str:
+        if not pth.exists():
+            return ""
+        size = pth.stat().st_size
+        if size <= _BLOCK_LOG_TRUNCATE_BYTES:
+            return pth.read_text(encoding="utf-8", errors="replace")
+        with pth.open("rb") as fh:
+            fh.seek(size - _BLOCK_LOG_TRUNCATE_BYTES)
+            tail = fh.read()
+        return "...\n" + tail.decode("utf-8", errors="replace")
+
+    return GetBlockLogsResult(
+        stdout=_read_tail(stdout_path),
+        stderr=_read_tail(stderr_path),
+        truncated=(
+            (stdout_path.exists() and stdout_path.stat().st_size > _BLOCK_LOG_TRUNCATE_BYTES)
+            or (stderr_path.exists() and stderr_path.stat().st_size > _BLOCK_LOG_TRUNCATE_BYTES)
+        ),
+        started_at="",
+        finished_at=None,
+    )

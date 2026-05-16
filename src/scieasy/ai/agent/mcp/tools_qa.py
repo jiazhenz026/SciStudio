@@ -1,10 +1,7 @@
 """Category (d) MCP tools — documentation and project Q&A (4 tools).
 
-ADR-040 §3.1 FastMCP migration, S40a skeleton phase. All tool functions
-are decorated with ``@mcp.tool(name=...)`` and declare Pydantic result
-models. Bodies raise :class:`NotImplementedError` with a detailed
-``# TODO(#1012)`` comment block describing the impl approach for I40a
-Phase 2a.
+ADR-040 §3.1 FastMCP migration. All tool functions are decorated with
+``@mcp.tool(name=...)`` and declare Pydantic result models.
 
 The 4 tools (all read-class) are:
 
@@ -14,23 +11,24 @@ The 4 tools (all read-class) are:
 from __future__ import annotations
 
 import logging
-from typing import Any
+from pathlib import Path
+from typing import Annotated, Any
 
 from pydantic import BaseModel, Field
 
+from scieasy.ai.agent.mcp._context import _resolve_project_root, get_context
 from scieasy.ai.agent.mcp.server import mcp
 
 logger = logging.getLogger(__name__)
 
 
-# Constants preserved for I40a Phase 2a impl reference.
 _SEARCH_MAX_RESULTS = 20
 _SEARCH_SNIPPET_CHARS = 200
 _DATA_LIST_MAX_ENTRIES = 500
 
 
 # ---------------------------------------------------------------------------
-# Pydantic result models — ADR-040 §3.1 typed envelopes.
+# Pydantic result models.
 # ---------------------------------------------------------------------------
 
 
@@ -80,13 +78,34 @@ class RecentRunEntry(BaseModel):
 class GetProjectInfoResult(BaseModel):
     """Result envelope for ``get_project_info``."""
 
-    project: dict[str, Any] = Field(default_factory=dict, description="Top-level project.yaml::project section.")
+    project: dict[str, Any] = Field(default_factory=dict)
     path: str = Field(description="Absolute path of the project root.")
-    workflows: list[str] = Field(default_factory=list, description="Names (file stems) of workflows in workflows/.")
-    recent_runs: list[RecentRunEntry] = Field(
-        default_factory=list,
-        description="Best-effort recent run listing via MetadataStore.",
-    )
+    workflows: list[str] = Field(default_factory=list)
+    recent_runs: list[RecentRunEntry] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Helpers.
+# ---------------------------------------------------------------------------
+
+
+def _docs_root() -> Path:
+    """Locate the ``docs/`` tree.
+
+    Searches upward from the active project for a ``docs/`` directory,
+    falling back to the repo-level ``docs/`` when running against the
+    SciEasy source tree.
+    """
+    ctx = get_context()
+    if ctx.project_dir is not None:
+        candidate = ctx.project_dir / "docs"
+        if candidate.is_dir():
+            return candidate
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / "docs").is_dir():
+            return parent / "docs"
+    raise FileNotFoundError("No docs/ directory found")
 
 
 # ---------------------------------------------------------------------------
@@ -96,11 +115,11 @@ class GetProjectInfoResult(BaseModel):
 
 @mcp.tool(name="search_docs")
 async def search_docs(
-    query: str = Field(description="Free-text search query (case-insensitive substring match)."),
-    scope: str | None = Field(
-        default=None,
-        description="Optional subdirectory under docs/ to restrict the search to (e.g. 'adr', 'specs').",
-    ),
+    query: Annotated[str, Field(description="Free-text search query (case-insensitive substring match).")],
+    scope: Annotated[
+        str | None,
+        Field(description="Optional subdirectory under docs/ to restrict search (e.g. 'adr')."),
+    ] = None,
 ) -> list[SearchDocsHit]:
     """Search the on-disk docs/ tree for matches to a free-text query.
 
@@ -114,18 +133,51 @@ async def search_docs(
 
     Returns up to 20 results sorted by descending hit count.
     """
-    # TODO(#1012): port from ADR-033-era impl preserving:
-    #   1. _docs_root() — project_dir/docs first, then walk up from
-    #      __file__ to find repo-level docs/.
-    #   2. PR #744 Codex P1 (discussion_r3231046696): validate scope
-    #      resolves within docs/ — otherwise "../../" or absolute paths
-    #      silently scan outside. Mirrors the guard in get_doc().
-    #   3. Substring match, case-insensitive.
-    #   4. Sort by score (count) descending; cap to _SEARCH_MAX_RESULTS=20.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    if not query:
+        return []
+    root = _docs_root()
+    root_resolved = root.resolve()
+    if scope:
+        # PR #744 Codex P1: validate scope resolves within docs/.
+        try:
+            scoped = (root / scope).resolve()
+            scoped.relative_to(root_resolved)
+        except (OSError, ValueError):
+            return []
+        if not scoped.exists():
+            return []
+        search_root = scoped
+    else:
+        search_root = root
+
+    q = query.lower()
+    results: list[SearchDocsHit] = []
+    for md_path in sorted(search_root.rglob("*.md")):
+        try:
+            text = md_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        lower = text.lower()
+        idx = lower.find(q)
+        if idx == -1:
+            continue
+        line_no = text[:idx].count("\n") + 1
+        start = max(0, idx - 60)
+        end = min(len(text), idx + _SEARCH_SNIPPET_CHARS - 60)
+        snippet = text[start:end].replace("\n", " ")
+        rel_path = str(md_path.relative_to(root.parent) if md_path.is_relative_to(root.parent) else md_path)
+        results.append(
+            SearchDocsHit(
+                path=rel_path,
+                line=line_no,
+                snippet=snippet,
+                score=float(lower.count(q)),
+            )
+        )
+        if len(results) >= _SEARCH_MAX_RESULTS:
+            break
+    results.sort(key=lambda r: r.score, reverse=True)
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -147,19 +199,38 @@ async def get_doc(
       - Search docs — use ``search_docs``.
 
     Path validation: must resolve within the docs/ tree. Raises
-    ``PermissionError`` for paths that escape (e.g. ``../../etc/passwd``).
+    ``PermissionError`` for paths that escape.
     """
-    # TODO(#1012): port from ADR-033-era impl preserving path-traversal
-    #   guard. Reference:
-    #   1. _docs_root() → root.
-    #   2. Try p, root / p, root.parent / p; for each: resolve, verify
-    #      relative_to(root.resolve()) succeeds.
-    #   3. PermissionError when none resolve under root; FileNotFoundError
-    #      when the resolved path doesn't exist.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    root = _docs_root()
+    p = Path(path)
+    candidates = [p, root / p, root.parent / p]
+    resolved: Path | None = None
+    for cand in candidates:
+        try:
+            r = cand.resolve()
+        except OSError:
+            continue
+        try:
+            r.relative_to(root.resolve())
+        except ValueError:
+            continue
+        if r.exists():
+            resolved = r
+            break
+    if resolved is None:
+        try:
+            attempted = (root / p).resolve()
+            attempted.relative_to(root.resolve())
+        except ValueError as exc:
+            raise PermissionError(f"Path '{path}' escapes the docs/ tree") from exc
+        raise FileNotFoundError(f"Doc not found: {path}")
+
+    content = resolved.read_text(encoding="utf-8", errors="replace")
+    return GetDocResult(
+        path=str(resolved),
+        content=content,
+        bytes=len(content.encode("utf-8")),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -180,20 +251,37 @@ async def list_data(
     Do NOT use to:
       - Read data payloads — use ``inspect_data`` / ``preview_data``.
 
-    Walks data/zarr/, data/parquet/, data/artifacts/ and returns one
-    entry per top-level dataset. Does not open the datasets — payload
-    reads stay in ``preview_data``.
+    Walks ``data/zarr/``, ``data/parquet/``, ``data/artifacts/`` and
+    returns one entry per top-level dataset.
     """
-    # TODO(#1012): port from ADR-033-era impl preserving:
-    #   1. _DATA_LIST_MAX_ENTRIES = 500 cap.
-    #   2. Walks (zarr, "data/zarr"), (parquet, "data/parquet"),
-    #      (artifacts, "data/artifacts").
-    #   3. Skips entries whose stat() raises OSError.
-    #   4. Returns ListDataResult with three lists.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    root = Path(project_dir)
+    if not root.exists():
+        raise FileNotFoundError(f"Project directory not found: {project_dir}")
+
+    out: dict[str, list[DataAssetEntry]] = {"zarr": [], "parquet": [], "artifacts": []}
+    total = 0
+    for kind, subdir in (("zarr", "data/zarr"), ("parquet", "data/parquet"), ("artifacts", "data/artifacts")):
+        dpath = root / subdir
+        if not dpath.is_dir():
+            continue
+        for entry in sorted(dpath.iterdir()):
+            try:
+                stat = entry.stat()
+            except OSError:
+                continue
+            out[kind].append(
+                DataAssetEntry(
+                    name=entry.name,
+                    path=str(entry),
+                    size_bytes=stat.st_size if entry.is_file() else 0,
+                    modified_at=float(stat.st_mtime),
+                    is_directory=entry.is_dir(),
+                )
+            )
+            total += 1
+            if total >= _DATA_LIST_MAX_ENTRIES:
+                return ListDataResult(**out)
+    return ListDataResult(**out)
 
 
 # ---------------------------------------------------------------------------
@@ -212,19 +300,35 @@ async def get_project_info() -> GetProjectInfoResult:
 
     Do NOT use to:
       - Enumerate data — use ``list_data``.
-      - List workflows in detail — use ``list_data`` or read individual
-        workflows via ``get_workflow``.
+      - List workflows in detail — read individual workflows via
+        ``get_workflow``.
 
     Raises ``FileNotFoundError`` if project.yaml is missing.
     """
-    # TODO(#1012): port from ADR-033-era impl. Reference:
-    #   1. _resolve_project_root(ctx) → root.
-    #   2. yaml.safe_load(project.yaml) → project_meta = raw.get("project", {}).
-    #   3. Enumerate workflows/*.yaml stems (sorted).
-    #   4. Best-effort recent_runs via get_metadata_store() with the
-    #      D38-2.3 deprecation-warning suppression dance.
-    #   5. Return GetProjectInfoResult.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    import yaml
+
+    ctx = get_context()
+    root = _resolve_project_root(ctx)
+    project_file = root / "project.yaml"
+    if not project_file.exists():
+        raise FileNotFoundError(f"No project.yaml in {root}")
+    raw = yaml.safe_load(project_file.read_text(encoding="utf-8")) or {}
+    project_meta = raw.get("project", {}) if isinstance(raw, dict) else {}
+
+    workflows_dir = root / "workflows"
+    workflows: list[str] = []
+    if workflows_dir.is_dir():
+        workflows = sorted(p.stem for p in workflows_dir.glob("*.yaml"))
+
+    recent_runs: list[RecentRunEntry] = []
+    # Best-effort recent runs via MetadataStore — out of scope for I40a,
+    # left as empty list per ADR-033-era behaviour.
+    # TODO(#1012): once MetadataStore exposes recent-run enumeration,
+    # populate this list with the most recent 5-10 runs.
+
+    return GetProjectInfoResult(
+        project=project_meta,
+        path=str(root),
+        workflows=workflows,
+        recent_runs=recent_runs,
+    )

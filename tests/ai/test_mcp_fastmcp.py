@@ -1,76 +1,268 @@
-"""FastMCP parity scaffold (ADR-040 §3.1, S40a skeleton).
+"""FastMCP parity tests (ADR-040 §3.1).
 
 These tests assert the FastMCP-backed MCP server matches the ADR-040
-contract once I40a Phase 2a implementation lands. Every test is
-``@pytest.mark.skip(reason=...)`` in this skeleton phase — I40a flips
-each to running as the corresponding behavior is wired up.
-
-The scaffold pre-declares the parity properties the audit phase
-(A40-skel) will verify against:
-
-* 26 tools are discoverable via ``mcp.list_tools()``.
-* Every write-class tool's result model has a ``next_step: str`` field.
-* ``scaffold_block`` has the widened ADR-040 §3.2a signature with
-  ``input_ports`` + ``output_ports`` dict args and a ``warnings`` field.
-* ``inputSchema`` is FastMCP-generated (not the ADR-033-era
-  ``additionalProperties: true`` stub).
-* Soft-validation warnings fire on generic-``DataObject`` ports and
-  unregistered type names per §3.2a.
+contract: 26 tools, write-class tools carry ``next_step``,
+``scaffold_block`` carries the widened §3.2a signature, FastMCP-
+generated inputSchema rejects malformed calls, and ``finish_ai_block``
+returns a discriminated union.
 """
 
 from __future__ import annotations
 
-import pytest
+import asyncio
+import inspect
+
+# ---------------------------------------------------------------------------
+# 26-tool parity
+# ---------------------------------------------------------------------------
 
 
-@pytest.mark.skip(reason="S40a skeleton — I40a impl in Phase 2a. TODO(#1012): wire FastMCP list_tools().")
 def test_fastmcp_lists_26_tools() -> None:
     """ADR-040 §3.1: 26 tools discoverable via mcp.list_tools()."""
     from scieasy.ai.agent.mcp.server import mcp
 
-    tools = mcp.list_tools()
-    assert len(tools) == 26
+    tools = asyncio.run(mcp.list_tools())
+    assert len(tools) == 26, [t.name for t in tools]
 
 
-@pytest.mark.skip(reason="S40a skeleton — I40a impl in Phase 2a. TODO(#1012): write-class next_step parity.")
+def test_fastmcp_tool_names_match_expected_set() -> None:
+    """Spot-check that every expected tool name shows up."""
+    from scieasy.ai.agent.mcp.server import mcp
+
+    tools = asyncio.run(mcp.list_tools())
+    names = {t.name for t in tools}
+    expected = {
+        # workflow (10)
+        "list_blocks",
+        "get_block_schema",
+        "list_types",
+        "get_workflow",
+        "validate_workflow",
+        "write_workflow",
+        "run_workflow",
+        "cancel_run",
+        "get_run_status",
+        "finish_ai_block",
+        # authoring (5)
+        "read_block_source",
+        "list_block_examples",
+        "scaffold_block",
+        "reload_blocks",
+        "run_block_tests",
+        # inspection (7)
+        "get_block_output",
+        "inspect_data",
+        "preview_data",
+        "get_lineage",
+        "get_block_config",
+        "update_block_config",
+        "get_block_logs",
+        # qa (4)
+        "search_docs",
+        "get_doc",
+        "list_data",
+        "get_project_info",
+    }
+    assert names == expected, f"unexpected diff: {names ^ expected}"
+
+
+# ---------------------------------------------------------------------------
+# Write-class next_step parity
+# ---------------------------------------------------------------------------
+
+
 def test_write_class_tools_have_next_step() -> None:
     """ADR-040 §3.1: every write-class tool's result model has next_step: str."""
-    # Write-class tools: write_workflow, run_workflow, cancel_run,
-    # finish_ai_block, scaffold_block, reload_blocks, run_block_tests,
-    # update_block_config.
-    raise NotImplementedError("skeleton")
+    from scieasy.ai.agent.mcp import tools_authoring, tools_inspection, tools_workflow
+
+    write_class_results = [
+        tools_workflow.WriteWorkflowResult,
+        tools_workflow.RunWorkflowResult,
+        tools_workflow.CancelRunResult,
+        tools_workflow.FinishAIBlockOK,
+        tools_authoring.ScaffoldBlockResult,
+        tools_authoring.ReloadBlocksResult,
+        tools_authoring.RunBlockTestsResult,
+        tools_inspection.UpdateBlockConfigResult,
+    ]
+    for cls in write_class_results:
+        fields = cls.model_fields
+        assert "next_step" in fields, f"{cls.__name__} missing next_step"
+        assert fields["next_step"].annotation is str, (
+            f"{cls.__name__}.next_step must be str, got {fields['next_step'].annotation}"
+        )
 
 
-@pytest.mark.skip(reason="S40a skeleton — I40a impl in Phase 2a. TODO(#1012): §3.2a widened signature.")
+# ---------------------------------------------------------------------------
+# scaffold_block widened signature
+# ---------------------------------------------------------------------------
+
+
 def test_scaffold_block_signature_widened() -> None:
-    """ADR-040 §3.2a (manifest §8.6): scaffold_block accepts input_ports + output_ports dicts."""
+    """ADR-040 §3.2a (manifest §8.6): scaffold_block accepts input_ports + output_ports."""
     from scieasy.ai.agent.mcp.tools_authoring import scaffold_block
 
-    sig = scaffold_block.__signature__  # type: ignore[attr-defined]
+    sig = inspect.signature(scaffold_block)
     params = sig.parameters
     assert "input_ports" in params
     assert "output_ports" in params
 
 
-@pytest.mark.skip(reason="S40a skeleton — I40a impl in Phase 2a. TODO(#1012): §3.2a warnings on DataObject ports.")
-def test_scaffold_block_warns_on_generic_dataobject_port() -> None:
+# ---------------------------------------------------------------------------
+# §3.2a soft-validation warnings
+# ---------------------------------------------------------------------------
+
+
+def test_scaffold_block_warns_on_generic_dataobject_port(tmp_path, monkeypatch) -> None:
     """ADR-040 §3.2a: warning text fires when a port uses generic DataObject."""
-    raise NotImplementedError("skeleton")
+    from scieasy.ai.agent.mcp import _context, tools_authoring
+    from scieasy.blocks.registry import BlockRegistry
+    from scieasy.core.types.registry import TypeRegistry
+
+    class _Ctx:
+        block_registry = BlockRegistry()
+        type_registry = TypeRegistry()
+        project_dir = tmp_path
+
+    _context.set_context(_Ctx())
+    try:
+        result = asyncio.run(
+            tools_authoring.scaffold_block(
+                name="warn_generic",
+                category="process",
+                input_ports={"in": {"type": "DataObject"}},
+                output_ports={"out": {"type": "DataObject"}},
+            )
+        )
+        assert result.warnings, "expected soft-validation warnings"
+        assert any("DataObject" in w for w in result.warnings)
+    finally:
+        _context.set_context(None)
 
 
-@pytest.mark.skip(reason="S40a skeleton — I40a impl in Phase 2a. TODO(#1012): §3.2a warnings on unregistered type.")
-def test_scaffold_block_warns_on_unregistered_type() -> None:
-    """ADR-040 §3.2a: warning text fires when a port type isn't in TypeRegistry."""
-    raise NotImplementedError("skeleton")
+def test_scaffold_block_warns_on_unregistered_type(tmp_path) -> None:
+    """ADR-040 §3.2a: warning fires when a port type isn't in TypeRegistry."""
+    from scieasy.ai.agent.mcp import _context, tools_authoring
+    from scieasy.blocks.registry import BlockRegistry
+    from scieasy.core.types.registry import TypeRegistry
+
+    type_registry = TypeRegistry()
+    type_registry.scan_builtins()
+
+    class _Ctx:
+        block_registry = BlockRegistry()
+
+        @property
+        def project_dir(self):
+            return tmp_path
+
+    ctx = _Ctx()
+    ctx.type_registry = type_registry
+    _context.set_context(ctx)
+    try:
+        result = asyncio.run(
+            tools_authoring.scaffold_block(
+                name="warn_unreg",
+                category="process",
+                input_ports={"in": {"type": "DefinitelyNotRegisteredType"}},
+            )
+        )
+        assert any("unregistered type" in w.lower() for w in result.warnings), result.warnings
+    finally:
+        _context.set_context(None)
 
 
-@pytest.mark.skip(reason="S40a skeleton — I40a impl in Phase 2a. TODO(#1012): inputSchema rejects malformed args.")
+def test_scaffold_block_no_warnings_when_generic_block_uses_dataobject(tmp_path) -> None:
+    """SubWorkflowBlock / AppBlock are exempt from the DataObject warning."""
+    from scieasy.ai.agent.mcp import _context, tools_authoring
+    from scieasy.blocks.registry import BlockRegistry
+    from scieasy.core.types.registry import TypeRegistry
+
+    class _Ctx:
+        block_registry = BlockRegistry()
+        type_registry = TypeRegistry()
+        project_dir = tmp_path
+
+    _context.set_context(_Ctx())
+    try:
+        result = asyncio.run(
+            tools_authoring.scaffold_block(
+                name="generic_app",
+                category="app",
+                input_ports={"in": {"type": "DataObject"}},
+            )
+        )
+        # App category is generic — no DataObject warning fires.
+        do_warnings = [w for w in result.warnings if "DataObject" in w]
+        assert not do_warnings, do_warnings
+    finally:
+        _context.set_context(None)
+
+
+# ---------------------------------------------------------------------------
+# inputSchema rejection at MCP boundary
+# ---------------------------------------------------------------------------
+
+
 def test_input_schema_rejects_malformed_call() -> None:
     """ADR-040 §3.1: FastMCP-generated inputSchema rejects calls before reaching the tool body."""
-    raise NotImplementedError("skeleton")
+    from scieasy.ai.agent.mcp.server import mcp
+
+    async def _go():
+        # get_block_schema requires type_name: str — passing the wrong
+        # type should be rejected by FastMCP's input validation before
+        # the body ever runs.
+        try:
+            await mcp.call_tool("get_block_schema", {"type_name": 12345})
+        except Exception as exc:
+            return exc
+        return None
+
+    err = asyncio.run(_go())
+    assert err is not None, "FastMCP should reject malformed call"
 
 
-@pytest.mark.skip(reason="S40a skeleton — I40a impl in Phase 2a. TODO(#1012): finish_ai_block error union.")
+# ---------------------------------------------------------------------------
+# finish_ai_block union return
+# ---------------------------------------------------------------------------
+
+
 def test_finish_ai_block_returns_union_of_ok_or_error() -> None:
-    """ADR-035 §3.5 + ADR-040 §3.1: finish_ai_block returns FinishAIBlockOK | FinishAIBlockError discriminated union."""
-    raise NotImplementedError("skeleton")
+    """finish_ai_block returns FinishAIBlockOK | FinishAIBlockError discriminated union."""
+    from scieasy.ai.agent.mcp.tools_workflow import (
+        FinishAIBlockError,
+        FinishAIBlockOK,
+        finish_ai_block,
+    )
+
+    # Inspect the function's return annotation; FastMCP serialises Pydantic
+    # discriminated unions cleanly into MCP content blocks.
+    hints = inspect.get_annotations(finish_ai_block, eval_str=True)
+    ret = hints.get("return")
+    assert ret is not None
+    # The annotation is Union[FinishAIBlockOK, FinishAIBlockError]; check
+    # both members appear by name in the typed annotation.
+    args = getattr(ret, "__args__", ())
+    arg_names = {getattr(a, "__name__", "") for a in args}
+    assert "FinishAIBlockOK" in arg_names
+    assert "FinishAIBlockError" in arg_names
+    _ = FinishAIBlockOK, FinishAIBlockError
+
+
+# ---------------------------------------------------------------------------
+# Tool descriptions follow §3.2 style guide (imperative + "Use when …")
+# ---------------------------------------------------------------------------
+
+
+def test_every_tool_description_uses_imperative_first_line() -> None:
+    """ADR-040 §3.2: every tool's docstring opens with an imperative line."""
+    from scieasy.ai.agent.mcp.server import mcp
+
+    tools = asyncio.run(mcp.list_tools())
+    for tool in tools:
+        desc = (tool.description or "").strip()
+        assert desc, f"{tool.name} has empty description"
+        # Imperative verbs start the first line; rough heuristic — not "TODO" / "S40a skeleton".
+        first_line = desc.split("\n", 1)[0].lower()
+        assert "todo" not in first_line, f"{tool.name} description starts with TODO"
+        assert "skeleton" not in first_line, f"{tool.name} description still says skeleton"
