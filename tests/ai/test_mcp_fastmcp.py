@@ -224,3 +224,104 @@ def test_finish_ai_block_returns_union_of_ok_or_error(
     result = _run(tools_workflow.finish_ai_block({}))
     assert result.status == "error"
     assert result.code == "not_in_ai_block_context"
+
+
+# ---------------------------------------------------------------------------
+# Codex P1/P2 reconcile regressions (PR #1053).
+# ---------------------------------------------------------------------------
+
+
+def test_preview_dataframe_csv_streams_without_full_load(stub_ctx, tmp_path: Path) -> None:
+    """Codex P1 (PR #1053): _preview_dataframe must not load the full CSV.
+
+    Pre-fix: ``pcsv.read_csv(path).slice(0, 100)`` materialised the
+    whole file before slicing, defeating the 8 MiB cap on large CSVs.
+    Post-fix: ``pcsv.open_csv()`` + ``read_next_batch`` streams enough
+    rows to satisfy the preview.
+
+    Regression strategy: build a CSV with many more rows than the
+    preview cap (100). The preview must return ≤ 100 rows AND must
+    *not* be the full table.
+    """
+    from scieasy.ai.agent.mcp import tools_inspection
+    from scieasy.ai.agent.mcp.tools_inspection import _preview_dataframe
+
+    big_csv = tmp_path / "big.csv"
+    rows = 5000  # 50x the preview cap
+    with big_csv.open("w", encoding="utf-8") as fh:
+        fh.write("col_a,col_b\n")
+        for i in range(rows):
+            fh.write(f"{i},{i * 2}\n")
+
+    result = _preview_dataframe(big_csv)
+    assert result["fmt"] == "table"
+    assert len(result["payload"]["rows"]) <= tools_inspection._DATAFRAME_PREVIEW_ROWS, (
+        "preview must respect _DATAFRAME_PREVIEW_ROWS cap"
+    )
+    assert result["truncated"] is True, "5000-row CSV must report truncated=True"
+
+
+def test_preview_dataframe_parquet_streams_without_full_load(stub_ctx, tmp_path: Path) -> None:
+    """Codex P1 (PR #1053): _preview_dataframe must not load the full Parquet."""
+    from scieasy.ai.agent.mcp import tools_inspection
+    from scieasy.ai.agent.mcp.tools_inspection import _preview_dataframe
+
+    pa = pytest.importorskip("pyarrow")
+    pq = pytest.importorskip("pyarrow.parquet")
+
+    big_parquet = tmp_path / "big.parquet"
+    rows = 5000
+    table = pa.table({"col_a": list(range(rows)), "col_b": [i * 2 for i in range(rows)]})
+    pq.write_table(table, big_parquet)
+
+    result = _preview_dataframe(big_parquet)
+    assert result["fmt"] == "table"
+    assert len(result["payload"]["rows"]) <= tools_inspection._DATAFRAME_PREVIEW_ROWS
+    assert result["truncated"] is True
+
+
+def test_search_docs_top_n_from_full_corpus_not_first_20(stub_ctx, tmp_path: Path) -> None:
+    """Codex P2 (PR #1053): search_docs top-N must come from full corpus.
+
+    Pre-fix: the search loop broke at 20 raw traversal hits, then sorted
+    only that subset. In repositories with many matching docs, higher-
+    scoring files encountered later (alphabetically after the first 20)
+    were never considered.
+
+    Regression strategy:
+      - Create 25 docs, 20 with score 1 and 5 with score 10.
+      - The 5 high-score docs come *after* the first 20 alphabetically
+        (so they would be discarded under the broken break-at-20 logic).
+      - Assert the returned top-20 contains all 5 high-score docs.
+    """
+    from scieasy.ai.agent.mcp import _context, tools_qa
+
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+
+    # 20 low-score docs (a_doc_00 .. a_doc_19) — sorted alphabetically first.
+    for i in range(20):
+        (docs_dir / f"a_doc_{i:02d}.md").write_text("foo appears once\n", encoding="utf-8")
+    # 5 high-score docs (z_doc_0 .. z_doc_4) — alphabetically after the 20.
+    for i in range(5):
+        (docs_dir / f"z_doc_{i}.md").write_text(("foo " * 10) + "\n", encoding="utf-8")
+
+    # Point the QA context at this docs root.
+    runtime = _StubRuntime(_project_dir=tmp_path)
+    _context.set_context(runtime)
+    try:
+        results = _run(tools_qa.search_docs("foo", scope=None))
+    finally:
+        _context.set_context(stub_ctx)
+
+    assert len(results) <= 20
+    # All 5 high-score docs must be present in the top-N.
+    result_paths = {r.path for r in results}
+    for i in range(5):
+        assert any(f"z_doc_{i}.md" in p for p in result_paths), (
+            f"z_doc_{i}.md missing from top-20 results — search broke at first 20 traversal hits "
+            f"(pre-fix bug, PR #1053). Got: {result_paths}"
+        )
+    # And the top entries must be the high-score docs (score 10), not score 1.
+    top_scores = sorted((r.score for r in results), reverse=True)[:5]
+    assert all(s >= 10.0 for s in top_scores), f"top-5 scores expected >=10, got {top_scores}"
