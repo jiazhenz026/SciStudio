@@ -131,14 +131,40 @@
  *       `C ${C.x} ${midY}, ${P.x} ${midY}, ${P.x} ${P.y}`;
  *   }
  *
- * Edge color resolution:
- *   - PRIMARY EDGES (parents[0]): inherit from the parent's lane
- *     (the lane that "continues" through the parent).
- *   - MERGE EDGES (parents[1..]): inherit from the child's lane
- *     (the lane that is "absorbing" the merge).
- *   This mirrors the convention in GitLens and JetBrains; it makes the
- *   merge geometry read like "the merged-in branch ENDS at the merge
- *   commit", which is git's mental model.
+ * Edge color resolution (hotfix #990 — root-cause revision):
+ *   Every edge inherits the **CHILD lane's** color, regardless of whether
+ *   it is a primary (`parents[0]`) or merge (`parents[1..]`) edge.
+ *
+ *   The previous rule split: primary edges took the parent lane, merge
+ *   edges took the child lane. That sounded principled but produced a
+ *   visible inconsistency at fork points: a side-branch dot would render
+ *   in its lane's color (e.g. green) but the fork edge curving back to
+ *   the common-ancestor parent suddenly switched to the main lane's color
+ *   (blue) — breaking the "one branch is one color end-to-end" mental
+ *   model.
+ *
+ *   Surveyed industry implementations (2026-05-15 evidence collection):
+ *
+ *   - **VS Code Git Graph** (`mhutchie/vscode-git-graph`, `web/graph.ts`
+ *     `Branch.draw`) attaches every line segment to the `Branch` object
+ *     and strokes with `this.colour`, so a side branch's fork slant is
+ *     stroked with the **child** branch's color.
+ *   - **IntelliJ Platform / PyCharm** (`PrintElementPresentationManagerImpl.kt`
+ *     `getColorId`) picks the edge endpoint with the larger `layoutIndex`
+ *     for the color source. Side branches have larger indices than the
+ *     trunk they fork off, so the side branch's color wins.
+ *   - **GitLens / GitKraken** (`@gitkraken/gitkraken-components`, closed
+ *     source — observational only) paints each branch end-to-end with
+ *     one color including fork slants.
+ *   - **gitk** (`git.git/gitk-git/gitk` `proc drawparentlinks`) is the
+ *     only legacy outlier using parent color. SciEasy's old rule matched
+ *     gitk.
+ *
+ *   The new rule (child-lane for every edge) aligns SciEasy with every
+ *   modern git GUI and matches the user-stated mental model that "the
+ *   green branch should stay green". The geometry still reads "the merged-
+ *   in branch ENDS at the merge commit" because the dot renders on top of
+ *   the edge — only the edge stroke color flipped.
  *
  * ============================================================================
  * COMPLEXITY
@@ -360,15 +386,13 @@ export function routeEdges(
           `${parentCenter.x} ${parentCenter.y}`;
       }
 
-      // Color inheritance: primary edges follow the parent lane (the
-      // continuing branch's color); merge edges follow the child lane
-      // (the absorbing branch's color). Dangling edges follow child.
-      const colorBase =
-        p === 0
-          ? parentIdx >= 0
-            ? parentLane
-            : childLane
-          : childLane;
+      // Hotfix #990: every edge — primary, merge, dangling — inherits
+      // the CHILD lane's color. See the file-level docstring "Edge color
+      // resolution" section for the industry-standard evidence motivating
+      // this rule. The old "primary edges follow parent lane" rule made
+      // fork slants change color mid-stroke, which broke the user mental
+      // model "one branch is one color from tip to fork point".
+      const colorBase = childLane;
       const colorIndex = ((colorBase % PALETTE.length) + PALETTE.length) % PALETTE.length;
 
       out.push({
