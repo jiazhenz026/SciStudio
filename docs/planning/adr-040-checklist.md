@@ -230,7 +230,7 @@ See FastMCP track's A40-skel; covers all 4 skeleton PRs in one pass.
 - [x] `SCIEASY_PROVISION_VERSION = "0.1.0"`; marker file `<project>/.claude/.scieasy-provision-version` written → commit `f3c0f6f`
 - [ ] `.gitignore` default template: add `.scieasy/.session-state/` → **N/A**: `.scieasy/` rule already covers session-state (per ADR-039 `gitignore_template.py`)
 - [x] `docs/agent-provisioning.md` (new) — one-page operational doc per ADR §5.3 → commit `603487d`
-- [ ] `docs/architecture/ARCHITECTURE.md` — new subsection "Prod-env agent reliability stack" — **deferred**: cross-cutting overview better done after all ADR-040 tracks merge so it reflects the integrated whole. Track in #1011 followup.
+- [x] `docs/architecture/ARCHITECTURE.md` — new subsection §10.2 "Prod-env agent reliability stack (ADR-040)" added (~50 LOC; dev-vs-prod env boundary, idempotent top-up, non-fatal degraded mode, lifecycle ordering) → commit `1d0913a` (merge resolution carried forward in this round)
 - [x] Tests:
   - [x] All assets land at expected paths on fresh `create_project` → `test_install_project_agent_assets_fresh_project`
   - [x] `open_project` idempotent top-up: missing files restored, customized preserved → `test_install_project_agent_assets_idempotent` + `test_open_project_idempotent_top_up`
