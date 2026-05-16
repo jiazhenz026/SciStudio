@@ -260,6 +260,42 @@ export function GraphSVG(props: GraphSVGProps): JSX.Element {
             >
               <span aria-hidden>{PREFIX_ICON[prefix] ?? "·"}</span>
               <code className="font-mono text-stone-500">{commit.short_sha}</code>
+              {/*
+                Hotfix #1011: render ref chips (local / remote / tag)
+                next to each commit that has refs pointing at it. Pre-fix
+                the renderer ignored `commit.branches` entirely, so the
+                tip of e.g. `origin/foo` appeared as an unlabelled
+                "orphan merge dot" with no children — visual "断头" the
+                user reported on 6b37e84. Backend (#1011 paired change)
+                now includes refs/remotes/ + refs/tags/ in the branches
+                list. Style per branch kind so users can tell local
+                (blue) vs remote (grey) vs tag (amber) at a glance.
+              */}
+              {commit.branches.length > 0 && (
+                <span
+                  className="flex shrink-0 items-center gap-1"
+                  data-testid={`git-graph-refs-${commit.short_sha}`}
+                >
+                  {commit.branches.map((ref) => {
+                    const isTag = ref.startsWith("tags/") || ref.startsWith("v");
+                    const isRemote = ref.includes("/") && !isTag;
+                    const cls = isTag
+                      ? "bg-amber-100 text-amber-800"
+                      : isRemote
+                        ? "bg-stone-100 text-stone-600"
+                        : "bg-blue-100 text-blue-800";
+                    return (
+                      <span
+                        key={ref}
+                        className={`rounded-sm px-1.5 py-px font-mono text-[10px] leading-none ${cls}`}
+                        title={ref}
+                      >
+                        {ref}
+                      </span>
+                    );
+                  })}
+                </span>
+              )}
               <span className="flex-1 truncate text-ink" title={commit.subject}>
                 {commit.subject}
               </span>
