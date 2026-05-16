@@ -350,7 +350,40 @@ class GitEngine:
         """Soft restore (no HEAD move). See ADR-039 §3.6.
 
         Auto-stashes a dirty working tree first.
+
+        Hotfix #997: when every target file's content at ``commit_sha``
+        is byte-identical to its current working-tree content, restore
+        is a no-op — skip the actual ``git checkout`` AND skip the
+        auto-stash. Pre-fix, clicking "Restore this run's workflow" on
+        a run whose recorded commit happened to match the current
+        working tree still triggered ``git stash push -u`` if the tree
+        was dirty in *any* file (even unrelated ones), accumulating
+        stash refs that rendered as commit nodes in the graph and
+        confused users. The no-op short-circuit eliminates the false-
+        dirty cascade for the specific-files variant (the most common
+        Lineage tab path: ``files=['workflows/<id>.yaml']``).
+
+        The whole-tree variant (``files is None``) keeps the original
+        auto-stash + checkout semantics because comparing the entire
+        worktree is expensive and the user-facing whole-tree restore
+        path is rare (no UI affordance in v1).
         """
+        # Skip-if-unchanged short-circuit (files variant only).
+        if files:
+            try:
+                all_unchanged = self._files_unchanged_vs_commit(commit_sha, files)
+            except GitError:
+                # If we can't compare (commit doesn't exist, etc.) let
+                # the subsequent checkout produce the real error message.
+                all_unchanged = False
+            if all_unchanged:
+                logger.debug(
+                    "restore: %s @ %s already matches working tree; skipping checkout",
+                    files,
+                    commit_sha[:7],
+                )
+                return
+
         # Auto-stash if dirty.
         if self.status()["dirty"]:
             try:
@@ -374,6 +407,28 @@ class GitEngine:
         else:
             args.append(".")
         self._run(args)
+
+    def _files_unchanged_vs_commit(
+        self, commit_sha: str, files: list[str]
+    ) -> bool:
+        """Return True iff every file's worktree content equals its
+        content at *commit_sha*.
+
+        Uses ``git diff --quiet <commit> -- <files>``: rc 0 means no
+        diff, rc 1 means diff, rc other means error.
+
+        Helper for the hotfix #997 skip-if-unchanged short-circuit in
+        :meth:`restore`.
+        """
+        diff_args = ["diff", "--quiet", commit_sha, "--", *files]
+        proc = self._run(diff_args, check=False)
+        if proc.returncode == 0:
+            return True
+        if proc.returncode == 1:
+            return False
+        # Any other return code: treat as unable-to-determine; let the
+        # caller fall through to the normal checkout path.
+        raise GitError(proc.returncode, proc.stderr or "", diff_args)
 
     # ------------------------------------------------------------------
     # Branch operations
