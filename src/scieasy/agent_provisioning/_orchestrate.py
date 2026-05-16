@@ -9,25 +9,35 @@ The orchestrator coordinates per-project provisioning:
 
 A version-marker file at ``<project>/.claude/.scieasy-provision-version``
 governs upgrade behavior on later SciEasy releases (§9 OQ-1; design
-deferred to Phase 3, see #1013).
+deferred to Phase 3, see #1011).
 
 Per ADR §7, failures are NOT fatal — they log at WARNING and return a
 ``ProvisionResult`` summarizing what succeeded. Callers continue with
 project open / create flow regardless.
-
-S40c skeleton: all bodies raise NotImplementedError. I40c (#1013)
-implements the real flow in Phase 2a.
 """
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# TODO(#1011): bump SCIEASY_PROVISION_VERSION on the first real release.
-#   Out of scope per ADR-040 §3.8 / §9 OQ-1 (version-marker upgrade design
-#   deferred to Phase 3). Followup: open as part of ADR-040 Phase 3.
-SCIEASY_PROVISION_VERSION = "0.1.0-skeleton"
+from scieasy.agent_provisioning.claude_agents_md import write_claude_agents_md
+from scieasy.agent_provisioning.codex_config import write_codex_config
+from scieasy.agent_provisioning.hooks import write_hooks
+from scieasy.agent_provisioning.skills import write_skills
+
+logger = logging.getLogger(__name__)
+
+# I40c Phase 2a sets this to "0.1.0" — the first real cut.
+# TODO(#1011): version-marker UPGRADE flow (detect stale version + re-write
+#   only changed canonical files) is Phase 3 design.
+#   Out of scope per ADR-040 §3.8 / §9 OQ-1.
+#   Followup: https://github.com/zjzcpj/SciEasy/issues/1011.
+SCIEASY_PROVISION_VERSION = "0.1.0"
+
+_MARKER_REL_PATH = ".claude/.scieasy-provision-version"
 
 
 @dataclass
@@ -38,7 +48,7 @@ class ProvisionResult:
       written        — list of project-relative paths that were created.
       skipped        — list of project-relative paths that already existed
                        and were preserved (force=False).
-      failed         — list of ``(path, reason)`` tuples for sub-steps that
+      failed         — list of ``(label, reason)`` tuples for sub-steps that
                        errored. Surfacing failures here (instead of raising)
                        supports ADR §7 non-fatal degraded mode.
       version        — value written to the marker file
@@ -58,48 +68,97 @@ def install_project_agent_assets(
 ) -> ProvisionResult:
     """Install all prod-env agent assets into ``project_dir``.
 
-    Inputs:
-      project_dir : Path to the SciEasy project root (already exists).
-      force       : When True, overwrite existing files. Default False
-                    preserves user customizations on idempotent top-up
-                    paths (e.g. ``open_project`` re-entry).
-
-    Outputs (files written under ``project_dir``):
-      - CLAUDE.md           (§3.5; ~50-line guide)
-      - AGENTS.md           (§3.5; identical content; Codex mirror)
-      - .claude/settings.json   (§3.6; PreToolUse + PostToolUse hook config)
-      - .claude/hooks/*.py      (§3.6; 6 hook scripts — 3 PreToolUse, 3 PostToolUse)
-      - .claude/skills/scieasy/<6 dirs>/SKILL.md   (§3.4 + §3.8)
-      - .agents/skills/scieasy/<6 dirs>/SKILL.md   (§3.4 + §3.8; Codex mirror)
-      - .codex/config.toml      (§3.7; project-scope MCP)
-      - .claude/.scieasy-provision-version  (version marker; §3.8 + §9 OQ-1)
-
-    Returns:
-      ProvisionResult — summarizes written/skipped/failed paths plus the
-      version stamp. Never raises (per ADR §7 degraded-mode contract);
-      sub-step failures are recorded in ``ProvisionResult.failed`` and
-      surfaced upstream as logger.warning calls.
-
-    Idempotency:
-      With force=False (default), every sub-writer checks file existence
-      before writing. Already-present files are appended to
-      ``ProvisionResult.skipped``. This is the contract for the
-      open_project idempotent top-up path (ADR §3.8 third row).
-
-    Error handling:
-      The orchestrator catches per-step exceptions (claude_agents_md,
-      hooks, skills, codex_config), records them in ProvisionResult.failed,
-      and continues with the next sub-step. The caller in api/runtime.py /
-      cli/main.py only needs to wrap the whole call in its own try/except
-      defensive pattern.
-
-    Version marker:
-      The marker file ``.claude/.scieasy-provision-version`` is rewritten
-      on every run (its value is the constant ``SCIEASY_PROVISION_VERSION``).
-      Phase 3 design (deferred per #1011) decides whether to use the marker
-      to detect stale provisioning and re-write specific files.
+    See module docstring for the full contract. Sub-steps are isolated:
+    a failing sub-step is recorded in ``ProvisionResult.failed`` and
+    remaining sub-steps still run.
     """
-    # TODO(#1013): I40c Phase 2a — implement the orchestration per ADR
-    # §3.8. Out of scope per ADR-040 §3.8 (S40c skeleton).
-    # Followup: https://github.com/zjzcpj/SciEasy/issues/1013.
-    raise NotImplementedError("S40c skeleton — I40c impl in Phase 2a (#1013)")
+    project_dir = Path(project_dir)
+    result = ProvisionResult()
+
+    # Each sub-step: (label, callable, list-of-expected-paths-it-would-write).
+    # ``expected`` is used to compute the skipped delta when force=False.
+    steps: list[tuple[str, Callable[[], list[str]], list[str]]] = [
+        (
+            "claude_agents_md",
+            lambda: write_claude_agents_md(project_dir, force=force),
+            ["CLAUDE.md", "AGENTS.md"],
+        ),
+        (
+            "hooks",
+            lambda: write_hooks(project_dir, force=force),
+            [
+                ".claude/settings.json",
+                ".claude/hooks/deny_scieasy_cli.py",
+                ".claude/hooks/protect_workflow_yaml.py",
+                ".claude/hooks/enforce_list_blocks_before_block_write.py",
+                ".claude/hooks/remind_poll_status.py",
+                ".claude/hooks/mark_list_blocks_called.py",
+                ".claude/hooks/enforce_concrete_port_types.py",
+            ],
+        ),
+        (
+            "skills",
+            lambda: write_skills(project_dir, force=force),
+            _expected_skill_paths(),
+        ),
+        (
+            "codex_config",
+            lambda: write_codex_config(project_dir, force=force),
+            [".codex/config.toml"],
+        ),
+    ]
+
+    for label, fn, expected in steps:
+        try:
+            written = fn()
+        except Exception as exc:
+            logger.warning(
+                "ADR-040: sub-step %s failed at %s (non-fatal): %s",
+                label,
+                project_dir,
+                exc,
+            )
+            result.failed.append((label, f"{type(exc).__name__}: {exc}"))
+            continue
+
+        written_set = set(written)
+        result.written.extend(written)
+        for path in expected:
+            if path not in written_set:
+                result.skipped.append(path)
+
+    # Version marker write — best-effort; if .claude/ does not exist (e.g.
+    # hooks sub-step failed entirely), we still try to create the marker
+    # so a later run can detect progress.
+    try:
+        marker = project_dir / _MARKER_REL_PATH
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(SCIEASY_PROVISION_VERSION, encoding="utf-8")
+        if _MARKER_REL_PATH not in result.written:
+            result.written.append(_MARKER_REL_PATH)
+    except Exception as exc:
+        logger.warning(
+            "ADR-040: version marker write failed at %s (non-fatal): %s",
+            project_dir,
+            exc,
+        )
+        result.failed.append((_MARKER_REL_PATH, f"{type(exc).__name__}: {exc}"))
+
+    return result
+
+
+def _expected_skill_paths() -> list[str]:
+    """Return the 12 skill-file paths the skills sub-step is expected to write."""
+    names = [
+        "scieasy",
+        "scieasy-build-workflow",
+        "scieasy-write-block",
+        "scieasy-debug-run",
+        "scieasy-inspect-data",
+        "scieasy-project-qa",
+    ]
+    paths: list[str] = []
+    for tree in (".claude/skills/scieasy", ".agents/skills/scieasy"):
+        for name in names:
+            paths.append(f"{tree}/{name}/SKILL.md")
+    return paths

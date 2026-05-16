@@ -213,32 +213,32 @@ See FastMCP track's A40-skel; covers all 4 skeleton PRs in one pass.
 
 ### Phase 2a / I40c — Implementation
 
-**Branch**: `feat/issue-NNN/adr-040-i40c-provisioning-impl` off `track/adr-040/provisioning`.
+**Branch**: `feat/issue-1039/adr-040-i40c-provisioning-impl` off `track/adr-040/provisioning` (later merged onto consolidated `track/adr-040` after track consolidation).
 
-- [ ] CLAUDE.md/AGENTS.md template body authored (~50 LOC; identical content; end-user-agent purpose-written; distinct from SciEasy source repo's 800-line dev CLAUDE.md) — content blueprint comes from Phase 2c skill investigation; here I40c writes the *template*, while Phase 2c writes the *content*. **Coordination**: I40c lands the template *file* with placeholder body; Phase 2c fills the body. Alternatively merge order: Phase 2c first → I40c fills template from Phase 2c output. Manager picks at dispatch time.
-- [ ] `codex_config.toml` template authored per §3.7 (`[mcp_servers.scieasy]` block with `command = "<sys.executable>"`, `args = ["-m", "scieasy", "mcp-bridge"]`, env `SCIEASY_PROJECT_DIR`)
-- [ ] All 6 hook scripts implemented:
-  - `deny_scieasy_cli.py`: regex `^\s*(.*/)?scieasy[\s$]` on `tool_input.command`; exit 2 with guidance
-  - `protect_workflow_yaml.py`: regex `workflows/.*\.ya?ml$` on `tool_input.file_path`; exit 2
-  - `enforce_list_blocks_before_block_write.py`: session-keyed marker at `<project>/.scieasy/.session-state/<session_id>/list_blocks_called`; multi-matcher (Edit|Write|Bash|mcp__scieasy__scaffold_block); regex for block-file Bash writes
-  - `remind_poll_status.py`: always exit 0; injects stderr feedback
-  - `mark_list_blocks_called.py`: writes session marker; always exit 0
-  - `enforce_concrete_port_types.py`: AST-parse `blocks/*.py` for `PortSpec(type="DataObject")` and unregistered type names; emit stderr advisories
-- [ ] `install_project_agent_assets` orchestrates all writes; idempotent (respects version-marker compare)
-- [ ] Lifecycle wiring real calls in `api/runtime.py::{create_project, open_project}` (next to existing ADR-039 git init at `:598-608` and `:686-701`) and `cli/main.py::init` (`:130-158`)
-- [ ] `terminal.py::spawn_codex` docstring updated (drop outdated "asymmetry with claude" comment)
-- [ ] `SCIEASY_PROVISION_VERSION` constant defined; marker file `<project>/.claude/.scieasy-provision-version` written on install
-- [ ] `.gitignore` default template: add `.scieasy/.session-state/`
-- [ ] `docs/agent-provisioning.md` (new) — one-page operational doc per ADR §5.3
-- [ ] `docs/architecture/ARCHITECTURE.md` — new subsection "Prod-env agent reliability stack" + explicit dev/prod env boundary diagram
-- [ ] Tests:
-  - All assets land at expected paths on fresh `create_project`
-  - `open_project` idempotent top-up: missing files restored, customized files preserved (version-marker compare)
-  - Each of 6 hook scripts behaves correctly against synthetic stdin payloads (block + pass cases)
-  - Lifecycle integration: GUI create → all assets present + hooks executable + spawned Claude sees them
-  - Hook script Windows-execute smoke test (CI is Ubuntu-only — manual Windows verification required, captured here)
-- [ ] CHANGELOG entry under `[Unreleased] > Added`
-- [ ] CI green; PR merged into tracking branch
+- [x] CLAUDE.md/AGENTS.md template body authored (~50 LOC; identical content; end-user-agent purpose-written; distinct from SciEasy source repo's 800-line dev CLAUDE.md) → `src/scieasy/agent_provisioning/templates/claude_agents_md.md` (commit `f3c0f6f`)
+- [x] `codex_config.toml` rendered at provisioning time via `install._render_codex_block` (S40c skeleton template kept as docs-only reference) → `src/scieasy/agent_provisioning/codex_config.py` (commit `f3c0f6f`)
+- [x] All 6 hook scripts implemented:
+  - `deny_scieasy_cli.py`: regex on `tool_input.command`; exit 2 → commit `f3c0f6f`
+  - `protect_workflow_yaml.py`: regex on `tool_input.file_path`; exit 2 → commit `f3c0f6f`
+  - `enforce_list_blocks_before_block_write.py`: session-keyed marker, multi-matcher → commit `4e94629`
+  - `remind_poll_status.py`: exit 0 + stderr reminder → commit `4e94629`
+  - `mark_list_blocks_called.py`: writes session marker → commit `4e94629`
+  - `enforce_concrete_port_types.py`: AST-parse `blocks/*.py` for DataObject ports → commit `4e94629`
+- [x] `install_project_agent_assets` orchestrates all writes; idempotent (existence check; hash-based "preserve only if user-edited" deferred to Phase 3 per #1011) → commit `f3c0f6f`
+- [x] Lifecycle wiring real calls in `api/runtime.py::{create_project, open_project}` and `cli/main.py::init` → commit `e904159`
+- [x] `terminal.py::spawn_codex` docstring updated (dropped "asymmetry with claude"; documented `.codex/config.toml` + `.agents/skills/scieasy/` parity) → commit `e904159`
+- [x] `SCIEASY_PROVISION_VERSION = "0.1.0"`; marker file `<project>/.claude/.scieasy-provision-version` written → commit `f3c0f6f`
+- [ ] `.gitignore` default template: add `.scieasy/.session-state/` → **N/A**: `.scieasy/` rule already covers session-state (per ADR-039 `gitignore_template.py`)
+- [x] `docs/agent-provisioning.md` (new) — one-page operational doc per ADR §5.3 → commit `603487d`
+- [x] `docs/architecture/ARCHITECTURE.md` — new subsection §10.2 "Prod-env agent reliability stack (ADR-040)" added (~50 LOC; dev-vs-prod env boundary, idempotent top-up, non-fatal degraded mode, lifecycle ordering) → commit `1d0913a` (merge resolution carried forward in this round)
+- [x] Tests:
+  - [x] All assets land at expected paths on fresh `create_project` → `test_install_project_agent_assets_fresh_project`
+  - [x] `open_project` idempotent top-up: missing files restored, customized preserved → `test_install_project_agent_assets_idempotent` + `test_open_project_idempotent_top_up`
+  - [x] Each of 6 hook scripts behaves correctly against synthetic stdin (block + pass cases) → 14 per-hook tests in `test_hooks.py`
+  - [x] Lifecycle integration: GUI create / scieasy init → all assets present + hooks executable → `test_create_project_provisions_assets` + `test_cli_init_provisions_assets`
+  - [ ] Hook script Windows-execute smoke test — CI is Ubuntu-only; settings.json invokes `python` explicitly, executable bit unused on Windows. Local Windows verification via `tests/agent_provisioning/test_hooks.py` (subprocess invocation pattern).
+- [x] CHANGELOG entry under `[Unreleased] > Added` → commit `603487d`
+- [ ] CI green; PR merged into tracking branch — **pending PR open + CI run**, see #1039
 
 ---
 

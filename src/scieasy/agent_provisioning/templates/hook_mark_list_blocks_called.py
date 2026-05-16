@@ -1,43 +1,64 @@
 #!/usr/bin/env python
 """hook_mark_list_blocks_called.py — PostToolUse / list_blocks (ADR-040 §3.6).
 
-Purpose:
-  After ``mcp__scieasy__list_blocks`` returns, write a session-keyed
-  marker file the companion PreToolUse hook
-  (``hook_enforce_list_blocks_before_block_write.py``) reads to gate
-  block-authoring tool calls.
+After ``mcp__scieasy__list_blocks`` returns, write a session-keyed
+marker file the companion PreToolUse hook
+(``hook_enforce_list_blocks_before_block_write.py``) reads to gate
+block-authoring tool calls.
 
-Hook contract:
-  - Stdin: JSON payload. Must include ``session_id``.
-  - Matcher: ``"mcp__scieasy__list_blocks"``.
-  - Always exit 0 (PostToolUse cannot block).
+Marker layout: <project>/.scieasy/.session-state/<session_id>/list_blocks_called
 
-Behavior to implement in I40c:
-  1. Read stdin JSON; extract ``session_id``.
-  2. ``$CLAUDE_PROJECT_DIR`` is set by Claude Code; use it to compute
-     ``<project>/.scieasy/.session-state/<session_id>/``.
-  3. ``mkdir -p`` the directory (parents=True, exist_ok=True).
-  4. ``Path(dir / "list_blocks_called").touch()``.
-  5. sys.exit(0).
-
-Marker semantics:
-  - Session-keyed: a fresh chat tab gets a fresh session_id, so the
-    confirmation does not persist across sessions (intentional per
-    ADR §3.6).
-  - Directory cleanup: stale ``<session_id>`` directories older than
-    7 days are best-effort pruned on ``open_project`` — a Phase 3 task,
-    not S40c / I40c responsibility.
-  - Gitignored: ``.scieasy/`` is gitignored by ADR-039's default
-    .gitignore, so this marker tree never lands in git.
-
-S40c skeleton: exits 0 with no side effects.
-
-TODO(#1013): I40c Phase 2a — implement marker write per ADR §3.6.
-  Out of scope per ADR-040 §3.6 (S40c skeleton).
-  Followup: https://github.com/zjzcpj/SciEasy/issues/1013.
+The ``.scieasy/`` tree is gitignored by ADR-039's default .gitignore.
 """
 
-import sys
+from __future__ import annotations
 
-# TODO(#1013): read stdin, mkdir + touch marker, exit 0.
-sys.exit(0)
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+
+def _read_payload() -> dict:
+    try:
+        raw = sys.stdin.read()
+    except OSError:
+        return {}
+    if not raw.strip():
+        return {}
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else {}
+    except json.JSONDecodeError:
+        return {}
+
+
+def main() -> int:
+    payload = _read_payload()
+    session_id = str(payload.get("session_id") or "")
+    if not session_id:
+        # No session_id → cannot write a session-keyed marker. Exit 0 so
+        # the PostToolUse hook never blocks anything; the corresponding
+        # PreToolUse will just fail to find the marker (same fail-closed
+        # behavior as a fresh session).
+        return 0
+    if re.search(r"[\\/\x00]", session_id):
+        return 0
+
+    project_dir = os.environ.get("CLAUDE_PROJECT_DIR")
+    if not project_dir:
+        return 0
+
+    target_dir = Path(project_dir) / ".scieasy" / ".session-state" / session_id
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        (target_dir / "list_blocks_called").touch()
+    except OSError as exc:
+        # Best-effort; do not block the tool call on filesystem errors.
+        print(f"warning: could not write list_blocks marker: {exc}", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

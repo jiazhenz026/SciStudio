@@ -176,21 +176,19 @@ def init(name: str = typer.Argument("my_project", help="Project workspace name")
     # ------------------------------------------------------------------
     # ADR-040 §3.8 prod-env agent provisioning wiring (cli init).
     # ------------------------------------------------------------------
-    # Implementation lands in I40c Phase 2a (#1013). Skeleton no-op
-    # preserves the call site so ADR-039 git-init ordering is locked in
-    # by S40c. Failures are non-fatal per ADR §7 and surfaced via
+    # Runs AFTER git init so the initial commit is clean of provisioned
+    # files. Failures are non-fatal per ADR §7 and surfaced via
     # ``typer.echo`` on stderr, mirroring the ADR-039 degraded-mode
     # pattern above.
     try:
         from scieasy.agent_provisioning import install_project_agent_assets
 
-        install_project_agent_assets(project_path, force=False)
-    except NotImplementedError:
-        # TODO(#1013): I40c Phase 2a — remove this except branch once
-        #   install_project_agent_assets is implemented.
-        #   Out of scope per ADR-040 §3.8 (S40c skeleton).
-        #   Followup: https://github.com/zjzcpj/SciEasy/issues/1013.
-        pass
+        provision_result = install_project_agent_assets(project_path, force=False)
+        if provision_result.failed:
+            typer.echo(
+                f"WARNING: ADR-040 agent provisioning partial failure: {provision_result.failed}",
+                err=True,
+            )
     except Exception as exc:  # pragma: no cover — defensive
         typer.echo(
             f"WARNING: ADR-040 agent provisioning failed: {exc}",
