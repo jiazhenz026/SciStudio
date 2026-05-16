@@ -31,9 +31,9 @@ Source resolution (I40c):
     4. Legacy monolithic ``<repo>/skills/scieasy/SKILL.md`` is used for the
        base ``scieasy`` skill IF the multi-skill source is not yet present
        (Phase 2c relocates content into ``_skills/``).
-    5. Placeholder TODO-tagged body for any name that none of the above
-       resolves to. Each placeholder marks itself with a #1013 TODO
-       referencing the Phase 2c followup.
+    5. Placeholder body (marked with ``TODO(#1013)``) for any name that
+       none of the above resolves to. Each placeholder embeds a
+       reference to the Phase 2c followup.
 
 # TODO(#1013): post-cascade cleanup once Skills track merges to main:
 #   collapse fallback chain to importlib.resources-only. The dual-path
@@ -62,7 +62,7 @@ _DEST_TREES = (
 
 
 def _placeholder_skill_body(name: str) -> str:
-    """Generate a TODO-tagged placeholder for a skill not yet sourced.
+    """Generate a placeholder body (with ``TODO(#1013)`` marker) for a skill not yet sourced.
 
     Phase 2c (I40b) authors the real bodies and removes the need for this
     fallback (the importlib.resources path will resolve instead).
