@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - [#1026] S40d: install-parity skeleton — cross-install + codex project-scope signatures (@claude, 2026-05-16, branch: feat/issue-1026/adr-040-s40d-install-skeleton, session: 20260516-181020-s40d-adr-040-install-parity-skeleton)
+- [#1025] S40c: agent_provisioning module skeleton + lifecycle wiring stubs (@claude, 2026-05-16, branch: feat/issue-1025/adr-040-s40c-provisioning-skeleton, session: 20260516-180934-s40c-adr-040-provisioning-skeleton)
 
 ### Fixed
 
