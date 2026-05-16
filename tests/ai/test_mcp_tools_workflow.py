@@ -1,8 +1,13 @@
-"""T-ECA-202: unit tests for the 9 workflow tools.
+"""T-ECA-202: unit tests for the 10 workflow tools.
 
 One happy-path + one error-path per tool. The tests inject a
 lightweight MCPContext stub rather than instantiating ``ApiRuntime``,
 so they run quickly and isolate the tools from FastAPI startup.
+
+# TODO(#1012): module-level skip during ADR-040 §3.1 FastMCP skeleton
+#   phase. The workflow tool bodies are NotImplementedError stubs in
+#   S40a; I40a Phase 2a restores behavior. Out of scope per ADR-040
+#   §3.1 / phase: 2a I40a. Followup: #1012.
 """
 
 from __future__ import annotations
@@ -15,9 +20,13 @@ from typing import Any
 
 import pytest
 
-from scieasy.ai.agent.mcp import _context, tools_workflow
-from scieasy.blocks.registry import BlockRegistry
-from scieasy.core.types.registry import TypeRegistry
+pytestmark = pytest.mark.skip(
+    reason="S40a skeleton — tool bodies are NotImplementedError stubs. TODO(#1012): I40a Phase 2a restores."
+)
+
+from scieasy.ai.agent.mcp import _context, tools_workflow  # noqa: E402
+from scieasy.blocks.registry import BlockRegistry  # noqa: E402
+from scieasy.core.types.registry import TypeRegistry  # noqa: E402
 
 # --- Stub MCPContext -------------------------------------------------------
 

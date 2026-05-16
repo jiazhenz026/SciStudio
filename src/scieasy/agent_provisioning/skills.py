@@ -92,14 +92,26 @@ def _read_skill_source(name: str) -> str:
     common case (lets idempotent top-up proceed even before Skills track
     merges).
     """
-    try:
-        return (
-            importlib.resources.files(f"scieasy._skills.scieasy.{name}")
-            .joinpath("SKILL.md")
-            .read_text(encoding="utf-8")
-        )
-    except (FileNotFoundError, ModuleNotFoundError, NotADirectoryError):
-        pass
+    # The base "scieasy" skill lives at the top of the _skills/scieasy/
+    # package (no extra subdir); task-scoped skills live one level deeper.
+    if name == "scieasy":
+        try:
+            return (
+                importlib.resources.files("scieasy._skills.scieasy")
+                .joinpath("SKILL.md")
+                .read_text(encoding="utf-8")
+            )
+        except (FileNotFoundError, ModuleNotFoundError, NotADirectoryError):
+            pass
+    else:
+        try:
+            return (
+                importlib.resources.files(f"scieasy._skills.scieasy.{name}")
+                .joinpath("SKILL.md")
+                .read_text(encoding="utf-8")
+            )
+        except (FileNotFoundError, ModuleNotFoundError, NotADirectoryError):
+            pass
 
     here = Path(__file__).resolve()
     for parent in here.parents:
@@ -107,6 +119,15 @@ def _read_skill_source(name: str) -> str:
             parent / "_skills" / "scieasy" / name / "SKILL.md",
             parent / "src" / "scieasy" / "_skills" / "scieasy" / name / "SKILL.md",
         ]
+        # Skills track layout: the base "scieasy" skill lives directly at
+        # _skills/scieasy/SKILL.md (no extra "scieasy/" subdir).
+        if name == "scieasy":
+            candidates.extend(
+                [
+                    parent / "_skills" / "scieasy" / "SKILL.md",
+                    parent / "src" / "scieasy" / "_skills" / "scieasy" / "SKILL.md",
+                ]
+            )
         for candidate in candidates:
             if candidate.is_file():
                 return candidate.read_text(encoding="utf-8")
