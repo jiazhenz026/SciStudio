@@ -168,10 +168,26 @@ class GitBinary:
         if env:
             full_env.update(env)
 
+        # ADR-039 #983: pin stdout/stderr decode to UTF-8 (with replacement
+        # fallback) rather than the system locale. On Chinese Windows the
+        # default locale is GBK/cp936, and ``text=True`` makes Python
+        # auto-decode subprocess output using that locale. Git always emits
+        # UTF-8 (commit messages, author names, paths) regardless of the
+        # ``LANG=C`` / ``LC_ALL=C`` env we already inject, because those
+        # localize git's own error messages but do not affect repo data
+        # passed through. Any non-GBK byte (em dash, Chinese chars, emoji,
+        # any rare unicode in commit subjects) would crash the reader
+        # thread with ``UnicodeDecodeError``, leaving an empty stdout and
+        # the frontend rendering "No commits yet" even when the repo is
+        # healthy. ``errors='replace'`` is the defensive guard against any
+        # remaining edge case (binary blob slipping through, malformed
+        # input from an external tool). Only meaningful when ``text=True``.
         proc = subprocess.run(
             argv,
             capture_output=True,
             text=text,
+            encoding="utf-8" if text else None,
+            errors="replace" if text else None,
             cwd=str(cwd) if cwd is not None else None,
             env=full_env,
             timeout=timeout,
