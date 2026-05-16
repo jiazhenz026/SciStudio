@@ -160,22 +160,25 @@
 
 ### Phase 2a / I40a — Implementation
 
-**Branch**: `feat/issue-NNN/adr-040-i40a-fastmcp-impl` off `track/adr-040/fastmcp` (after S40a merged).
+**Branch**: `feat/issue-1046/adr-040-i40a-fastmcp-impl` off `track/adr-040` (after consolidation merge `174e3bd`).
 
-- [ ] All 27 `@mcp.tool()` functions implemented with Pydantic return models including `next_step: str` on write-class tools
-- [ ] `scaffold_block` returns `warnings: list[str]` per §3.2a (generic-`DataObject` port detection, unregistered type detection); both warnings carry `# TODO(#1016)` referencing the hard-validation followup
-- [ ] All 27 docstrings rewritten per §3.2 style guide (imperative first line; "Use when … Do NOT use to …"; `next_step` reasoning)
-- [ ] `_render_project_context` implemented per §3.3: git/non-git/empty-workflows handling, top-3-by-mtime workflow listing, BlockRegistry plugin enumeration, <100ms perf budget
-- [ ] FastMCP `serve()` wired into `runtime.py` adapter (standalone-bridge entry point preserved)
-- [ ] `_registry.py` fully deleted; no backward-compat shim per CLAUDE.md "no compat shims" guidance
-- [ ] `<!-- project_context:begin/end -->` marker present in skill base path (real splice in `compose_system_prompt`; placeholder marker added by S40b)
-- [ ] Tests:
-  - 27-tool parity (name/description/schema/next_step shape matches expected snapshots)
-  - `inputSchema` malformed-call rejection at MCP boundary
-  - `_render_project_context` across git/non-git/empty/1000-workflow scenarios + <100ms perf assertion
-  - Wheel-layout regression for `_load_skill_md` via `importlib.resources`
-- [ ] CHANGELOG entry: `[#1012] FastMCP migration + tool catalog rewrite + project_context injection (@claude, 2026-05-1X, branch: feat/issue-NNN/adr-040-i40a-fastmcp-impl, session: <task-id>)`
-- [ ] CI green; PR merged into tracking branch
+- [x] All 26 `@mcp.tool()` functions implemented with Pydantic return models including `next_step: str` on write-class tools → commit 1d2d805
+  - Note: actual count is 26 (25 baseline + `finish_ai_block` per ADR-035 §3.5), not 27 as initial checklist text said.
+- [x] `scaffold_block` returns `warnings: list[str]` per §3.2a (generic-`DataObject` port detection, unregistered type detection); soft-validation logic carries `TODO(#1016)` comment referencing the hard-validation followup → commit 1d2d805 (tools_authoring.py)
+- [x] All 26 docstrings rewritten per §3.2 style guide (imperative first line; "Use when … Do NOT use to …"; `next_step` reasoning) → commit 1d2d805
+- [x] `_render_project_context` implemented per §3.3: git/non-git/empty-workflows handling, top-3-by-mtime workflow listing, BlockRegistry plugin enumeration, <100ms perf budget (test asserts <250ms with 1000 workflows on CI runners) → commit 1d2d805 (system_prompt.py)
+- [x] FastMCP `serve()` wired into `server.py` (`MCPServer.start/stop/serve` manage FastMCP HTTP transport over UDS/TCP); `runtime.py` adapter docstring updated to reflect the FastMCP lifecycle → commit 1d2d805
+- [x] `_registry.py` fully deleted (was already done in S40a); no backward-compat shim. Stale "25 tools" docstring residue purged from `__init__.py` per AC40 manifest §8.1 + audit F1030-5 → commit 1d2d805
+- [x] `<!-- project_context:begin/end -->` marker present in skill base path (real splice in `compose_system_prompt`; tool_catalog marker block falls through to `_splice` end-append when the I40b base SKILL.md doesn't carry it yet, with a logged warning per the splice helper) → commit 1d2d805 (system_prompt.py)
+- [x] Tests:
+  - 26-tool parity (name/description/schema/next_step shape) — `tests/ai/test_mcp_fastmcp.py::test_fastmcp_lists_26_tools` + `test_fastmcp_tool_names_match_expected_set` + `test_write_class_tools_have_next_step`
+  - `inputSchema` malformed-call rejection at MCP boundary — `test_input_schema_rejects_malformed_call`
+  - `_render_project_context` across git/non-git/empty/1000-workflow scenarios + perf assertion — `tests/ai/test_system_prompt.py::test_compose_project_context_{handles_non_git_project,handles_empty_workflows,handles_git_project,meets_100ms_budget,top_3_by_mtime}`
+  - Wheel-layout regression for `_load_skill_md` via `importlib.resources` — `test_load_skill_md_via_importlib_resources`
+  - All module-level `pytest.mark.skip` decorators in `tests/ai/test_mcp_tools_*.py` re-narrowed per audit F1030-3 → commit 1d2d805
+- [x] CHANGELOG entry → see Phase 2a CHANGELOG update gate
+- [ ] PR opens against `track/adr-040`; CI green
+- [ ] Codex review reconciled
 
 ---
 

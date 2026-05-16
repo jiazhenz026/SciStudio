@@ -109,9 +109,12 @@ T-ECA-105 is **blocking** for T-ECA-110 (permission backend implementation). If 
 
 ### OQ2 — MCP transport
 
-**Resolution**: **stdio bridge subprocess**. The FastAPI process exposes the MCP server via a Unix domain socket (POSIX) or named pipe (Windows). A small `scieasy mcp-bridge` subprocess, spawned by CC per the `mcp.json` config, opens the socket and proxies JSON-RPC frames between CC (stdin/stdout) and the socket. Rationale:
+**Resolution**: **stdio bridge subprocess**. The FastAPI process exposes the MCP server via a Unix domain socket (POSIX) or TCP loopback (Windows). A small `scieasy mcp-bridge` subprocess, spawned by CC per the `mcp.json` config, opens the socket and proxies MCP frames between CC (stdin/stdout) and the socket. Rationale:
 
-- Pure-Python implementation; no extra non-stdlib runtime deps.
+- Backed by [FastMCP](https://gofastmcp.com) per ADR-040 §3.1; tools are
+  declared via `@mcp.tool()` decorators on the module-scope
+  `scieasy.ai.agent.mcp.server.mcp` instance. FastMCP owns the wire
+  format and `inputSchema` generation from Python type hints.
 - Survives CC restarts (the bridge dies, the FastAPI server keeps running).
 - Avoids the in-process MCP-server-as-asyncio-task pitfalls (event-loop blocking, contention with FastAPI request handlers).
 
@@ -223,7 +226,7 @@ All errors are HTTP-mapped at the API boundary (`api/routes/ai.py`):
 | `AgentLaunchError`, `AgentSessionError`, `AgentStreamError` | 500 |
 | `PermissionDeniedError` | (over WebSocket; not HTTP) |
 | `PermissionTimeoutError` | (over WebSocket) |
-| MCP errors | (MCP JSON-RPC error frames; not HTTP) |
+| MCP errors | (MCP error frames from the FastMCP transport; not HTTP) |
 
 ### 4.3 Testing conventions
 
@@ -758,7 +761,10 @@ Resolution rules:
 
 - FastAPI lifespan handler starts an MCP server bound to a local socket; teardown stops it.
 - `scieasy mcp-bridge --socket <path>` proxies stdin/stdout to/from that socket.
-- All 25 tools dispatched correctly via JSON-RPC.
+- All 26 tools (25 baseline + `finish_ai_block` per ADR-035 §3.5) are
+  declared via `@mcp.tool()` decorators on the module-scope FastMCP
+  instance per ADR-040 §3.1; the deleted `_registry.TOOL_REGISTRY`
+  tuple has been replaced by `mcp.list_tools()` enumeration.
 
 **Tests**:
 
