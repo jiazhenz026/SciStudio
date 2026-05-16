@@ -38,6 +38,10 @@ from scieasy.workflow.serializer import absolutify_paths, load_yaml, relativify_
 
 logger = logging.getLogger(__name__)
 
+# DataFrame preview paging — cap the per-request payload to keep the response
+# under a few hundred KB even with wide tables.
+MAX_TABLE_PAGE_SIZE = 200
+
 
 def _rmtree_force(target: Path) -> None:
     """Remove a directory tree, retrying on Windows read-only / locked files.
@@ -1064,7 +1068,15 @@ class ApiRuntime:
         except Exception:
             return None
 
-    def preview_data(self, data_ref: str, slice_index: int = 0) -> dict[str, Any]:
+    def preview_data(
+        self,
+        data_ref: str,
+        slice_index: int = 0,
+        page: int = 1,
+        page_size: int = 50,
+        sort_by: str | None = None,
+        sort_dir: str = "asc",
+    ) -> dict[str, Any]:
         """Return a lightweight preview for a stored data object.
 
         Parameters
@@ -1075,6 +1087,11 @@ class ApiRuntime:
             Index into the slider axis (3D viewer, #899). Clamped to
             ``[0, slice_axis_size - 1]``. Ignored for 2D arrays / non-image
             previews.
+        page, page_size, sort_by, sort_dir:
+            DataFrame paging + sort. Page is 1-based and clamped server-side;
+            ``page_size`` is capped at ``MAX_TABLE_PAGE_SIZE``. ``sort_by`` is
+            ignored when the column is missing. Non-table previews ignore
+            these.
         """
         record = self.get_data_record(data_ref)
         ref = record.ref
@@ -1093,18 +1110,51 @@ class ApiRuntime:
             resolved_cls is not None and issubclass(resolved_cls, DataFrame)
         )
         if is_dataframe or suffix in {".csv", ".parquet"}:
+            # Page bounds. ``page_size`` is capped to keep response
+            # payloads small. ``page`` is clamped after we know the total.
+            effective_page_size = max(1, min(int(page_size), MAX_TABLE_PAGE_SIZE))
+
+            # Full read: pyarrow ``sort_by`` requires an in-memory table, and
+            # csv has no random-access. For v1 we read the whole table per
+            # request — preview files are typically small. TODO(#NNN):
+            # add LRU cache keyed by (data_ref, sort_by, sort_dir) when
+            # users hit the obvious wall.
             if suffix == ".parquet":
-                table = pq.read_table(path).slice(0, 100)
+                table = pq.read_table(path)
             else:
                 import pyarrow.csv as pcsv
 
-                table = pcsv.read_csv(str(path)).slice(0, 100)
-            rows = table.to_pylist()
+                table = pcsv.read_csv(str(path))
+
+            total_rows = table.num_rows
+            columns = list(table.column_names)
+
+            effective_sort_by: str | None = None
+            effective_sort_dir = sort_dir if sort_dir in {"asc", "desc"} else "asc"
+            if sort_by and sort_by in columns:
+                effective_sort_by = sort_by
+                try:
+                    table = table.sort_by([(sort_by, "descending" if effective_sort_dir == "desc" else "ascending")])
+                except Exception:
+                    logger.debug("Sort failed on column %s; returning unsorted", sort_by, exc_info=True)
+                    effective_sort_by = None
+
+            total_pages = max(1, (total_rows + effective_page_size - 1) // effective_page_size)
+            effective_page = max(1, min(int(page), total_pages))
+            offset = (effective_page - 1) * effective_page_size
+            page_table = table.slice(offset, effective_page_size)
+            rows = page_table.to_pylist()
             return {
                 "kind": "table",
-                "columns": table.column_names,
+                "columns": columns,
                 "rows": rows,
-                "row_count": len(rows),
+                "total_rows": total_rows,
+                "row_count": total_rows,  # backward-compat alias
+                "page": effective_page,
+                "page_size": effective_page_size,
+                "total_pages": total_pages,
+                "sort_by": effective_sort_by,
+                "sort_dir": effective_sort_dir if effective_sort_by else None,
             }
 
         # ------------------------------------------------------------------

@@ -444,6 +444,80 @@ def test_preview_data_clamps_out_of_range_slice_query(
     assert low.json()["preview"]["slice_index"] == 0
 
 
+def test_preview_data_dataframe_pagination_and_sort(
+    client: TestClient,
+    opened_project: Path,
+) -> None:
+    """DataFrame preview supports page / page_size / sort_by / sort_dir."""
+    # Build a 137-row CSV with predictable values so sort is verifiable.
+    header = "idx,name,score\n"
+    body = "".join(f"{i},row_{i:03d},{(137 - i)}\n" for i in range(137))
+    upload = client.post(
+        "/api/data/upload",
+        files={"file": ("paged.csv", (header + body).encode(), "text/csv")},
+    )
+    assert upload.status_code == 200
+    ref = upload.json()["ref"]
+
+    # Default response advertises total_rows / page / page_size / total_pages.
+    default = client.get(f"/api/data/{ref}/preview").json()["preview"]
+    assert default["kind"] == "table"
+    assert default["total_rows"] == 137
+    assert default["row_count"] == 137  # backward-compat alias
+    assert default["page"] == 1
+    assert default["page_size"] == 50
+    assert default["total_pages"] == 3
+    assert default["sort_by"] is None
+    assert default["sort_dir"] is None
+    assert len(default["rows"]) == 50
+    assert default["rows"][0]["idx"] == 0
+
+    # Page 2 returns rows 50..99 in source order.
+    page2 = client.get(f"/api/data/{ref}/preview?page=2").json()["preview"]
+    assert page2["page"] == 2
+    assert page2["rows"][0]["idx"] == 50
+    assert len(page2["rows"]) == 50
+
+    # Page 3 is the trailing 37 rows.
+    page3 = client.get(f"/api/data/{ref}/preview?page=3").json()["preview"]
+    assert page3["page"] == 3
+    assert len(page3["rows"]) == 37
+    assert page3["rows"][-1]["idx"] == 136
+
+    # Over-range page clamps to the last page.
+    overrun = client.get(f"/api/data/{ref}/preview?page=999").json()["preview"]
+    assert overrun["page"] == 3
+
+    # Custom page size respects the cap.
+    paged = client.get(f"/api/data/{ref}/preview?page_size=10").json()["preview"]
+    assert paged["page_size"] == 10
+    assert paged["total_pages"] == 14
+    capped = client.get(f"/api/data/{ref}/preview?page_size=99999").json()["preview"]
+    assert capped["page_size"] == 200
+
+    # Sort by score descending — first row's score == max score (137).
+    sorted_desc = client.get(
+        f"/api/data/{ref}/preview?sort_by=score&sort_dir=desc"
+    ).json()["preview"]
+    assert sorted_desc["sort_by"] == "score"
+    assert sorted_desc["sort_dir"] == "desc"
+    assert sorted_desc["rows"][0]["score"] == 137
+
+    # Sort by score ascending — first row's score == min score (1).
+    sorted_asc = client.get(
+        f"/api/data/{ref}/preview?sort_by=score&sort_dir=asc"
+    ).json()["preview"]
+    assert sorted_asc["sort_by"] == "score"
+    assert sorted_asc["sort_dir"] == "asc"
+    assert sorted_asc["rows"][0]["score"] == 1
+
+    # Unknown column → sort silently ignored, page still served.
+    bogus = client.get(f"/api/data/{ref}/preview?sort_by=does_not_exist").json()["preview"]
+    assert bogus["sort_by"] is None
+    assert bogus["sort_dir"] is None
+    assert len(bogus["rows"]) == 50
+
+
 def test_preview_data_dispatches_plugin_spectrum_type_via_type_chain(
     client: TestClient,
     runtime: ApiRuntime,

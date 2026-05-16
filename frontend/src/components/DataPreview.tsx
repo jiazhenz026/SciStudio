@@ -416,10 +416,20 @@ function ImageViewer({
   );
 }
 
-interface TableViewerProps {
+interface TableViewerInitial {
   columns: string[];
   rows: Array<Record<string, unknown>>;
-  rowCount?: number;
+  totalRows: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  sortBy: string | null;
+  sortDir: "asc" | "desc" | null;
+}
+
+interface TableViewerProps {
+  dataRef: string;
+  initial: TableViewerInitial;
 }
 
 function formatCell(value: unknown): string {
@@ -430,9 +440,121 @@ function formatCell(value: unknown): string {
   return String(value);
 }
 
-function TableViewer({ columns, rows, rowCount }: TableViewerProps) {
-  const totalRows = rowCount ?? rows.length;
-  const isTruncated = totalRows > rows.length || rows.length >= 100;
+function readTablePayload(preview: Record<string, unknown>): TableViewerInitial {
+  const columns = (preview.columns as string[] | undefined) ?? [];
+  const rows = (preview.rows as Array<Record<string, unknown>> | undefined) ?? [];
+  const totalRows =
+    typeof preview.total_rows === "number"
+      ? preview.total_rows
+      : typeof preview.row_count === "number"
+        ? preview.row_count
+        : rows.length;
+  const pageSize = typeof preview.page_size === "number" ? preview.page_size : Math.max(rows.length, 1);
+  const totalPages =
+    typeof preview.total_pages === "number"
+      ? preview.total_pages
+      : Math.max(1, Math.ceil(totalRows / Math.max(pageSize, 1)));
+  const page = typeof preview.page === "number" ? preview.page : 1;
+  const sortByRaw = preview.sort_by;
+  const sortDirRaw = preview.sort_dir;
+  return {
+    columns,
+    rows,
+    totalRows,
+    page,
+    pageSize,
+    totalPages,
+    sortBy: typeof sortByRaw === "string" ? sortByRaw : null,
+    sortDir: sortDirRaw === "asc" || sortDirRaw === "desc" ? sortDirRaw : null,
+  };
+}
+
+function TableViewer({ dataRef, initial }: TableViewerProps) {
+  const [data, setData] = useState<TableViewerInitial>(initial);
+  const [loading, setLoading] = useState(false);
+  const [pageInput, setPageInput] = useState(String(initial.page));
+  // Track the (page, sortBy, sortDir) that ``data`` was loaded for so we know
+  // when the parent-supplied ``initial`` is what we already show. Refetches
+  // are scheduled when the user changes any of these.
+  const requestedRef = useRef({
+    page: initial.page,
+    sortBy: initial.sortBy,
+    sortDir: initial.sortDir,
+  });
+
+  // Track in-flight requests so a slow earlier response doesn't overwrite
+  // a faster later one.
+  const inflightRef = useRef(0);
+
+  useEffect(() => {
+    setPageInput(String(data.page));
+  }, [data.page]);
+
+  const requestPage = useCallback(
+    (page: number, sortBy: string | null, sortDir: "asc" | "desc" | null) => {
+      requestedRef.current = { page, sortBy, sortDir };
+      const ticket = ++inflightRef.current;
+      setLoading(true);
+      api
+        .getDataPreview(dataRef, {
+          page,
+          sortBy: sortBy ?? undefined,
+          sortDir: sortDir ?? undefined,
+        })
+        .then((resp) => {
+          if (ticket !== inflightRef.current) return;  // a newer request superseded us
+          setData(readTablePayload(resp.preview));
+        })
+        .catch((err) => {
+          // eslint-disable-next-line no-console
+          console.warn(`getDataPreview(${dataRef}) page=${page} sort=${sortBy} failed:`, err);
+        })
+        .finally(() => {
+          if (ticket === inflightRef.current) setLoading(false);
+        });
+    },
+    [dataRef],
+  );
+
+  const goToPage = useCallback(
+    (target: number) => {
+      const clamped = Math.max(1, Math.min(target, data.totalPages));
+      if (clamped === data.page) return;
+      requestPage(clamped, data.sortBy, data.sortDir);
+    },
+    [data.page, data.sortBy, data.sortDir, data.totalPages, requestPage],
+  );
+
+  const toggleSort = useCallback(
+    (column: string) => {
+      // Cycle: unsorted → asc → desc → unsorted
+      let nextSortBy: string | null;
+      let nextSortDir: "asc" | "desc" | null;
+      if (data.sortBy !== column) {
+        nextSortBy = column;
+        nextSortDir = "asc";
+      } else if (data.sortDir === "asc") {
+        nextSortBy = column;
+        nextSortDir = "desc";
+      } else {
+        nextSortBy = null;
+        nextSortDir = null;
+      }
+      requestPage(1, nextSortBy, nextSortDir);
+    },
+    [data.sortBy, data.sortDir, requestPage],
+  );
+
+  const commitPageInput = useCallback(() => {
+    const n = Number.parseInt(pageInput, 10);
+    if (Number.isNaN(n)) {
+      setPageInput(String(data.page));
+      return;
+    }
+    goToPage(n);
+  }, [data.page, goToPage, pageInput]);
+
+  const { columns, rows, totalRows, page, totalPages, sortBy, sortDir } = data;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
@@ -443,6 +565,8 @@ function TableViewer({ columns, rows, rowCount }: TableViewerProps) {
           border: "1px solid #e7e5e4",
           background: "#fff",
           maxHeight: "360px",
+          opacity: loading ? 0.6 : 1,
+          transition: "opacity 120ms ease",
         }}
       >
         <table
@@ -455,25 +579,35 @@ function TableViewer({ columns, rows, rowCount }: TableViewerProps) {
         >
           <thead>
             <tr>
-              {columns.map((column) => (
-                <th
-                  key={column}
-                  style={{
-                    whiteSpace: "nowrap",
-                    padding: "6px 10px",
-                    borderBottom: "1px solid #cbd5e1",
-                    fontWeight: 600,
-                    fontSize: 11,
-                    color: "#475569",
-                    background: "#fff",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
-                  }}
-                >
-                  {column}
-                </th>
-              ))}
+              {columns.map((column) => {
+                const isSorted = sortBy === column;
+                const indicator = isSorted ? (sortDir === "desc" ? " \u25bc" : " \u25b2") : "";
+                return (
+                  <th
+                    key={column}
+                    aria-sort={isSorted ? (sortDir === "desc" ? "descending" : "ascending") : "none"}
+                    onClick={() => toggleSort(column)}
+                    style={{
+                      whiteSpace: "nowrap",
+                      padding: "6px 10px",
+                      borderBottom: "1px solid #cbd5e1",
+                      fontWeight: 600,
+                      fontSize: 11,
+                      color: isSorted ? "#1c1917" : "#475569",
+                      background: "#fff",
+                      position: "sticky",
+                      top: 0,
+                      zIndex: 1,
+                      cursor: "pointer",
+                      userSelect: "none",
+                    }}
+                    title={isSorted ? `Sorted ${sortDir}; click to change` : "Click to sort"}
+                  >
+                    {column}
+                    <span style={{ fontSize: 9, color: "#a8a29e" }}>{indicator}</span>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -498,18 +632,109 @@ function TableViewer({ columns, rows, rowCount }: TableViewerProps) {
           </tbody>
         </table>
       </div>
-      <p style={{ fontSize: 10, color: "#78716c", padding: "6px 4px 0", margin: 0 }}>
-        {isTruncated
-          ? `Showing ${rows.length} of ${totalRows > rows.length ? totalRows : `${rows.length}+`} rows`
-          : `${rows.length} row${rows.length !== 1 ? "s" : ""}`}{" "}
-        {"\u00d7"} {columns.length} column{columns.length !== 1 ? "s" : ""}
-      </p>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 6,
+          padding: "6px 4px 0",
+          fontSize: 10,
+          color: "#78716c",
+        }}
+      >
+        <span>
+          {totalRows.toLocaleString()} row{totalRows !== 1 ? "s" : ""} {"\u00d7"} {columns.length} column
+          {columns.length !== 1 ? "s" : ""}
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <button
+            aria-label="First page"
+            disabled={loading || page <= 1}
+            onClick={() => goToPage(1)}
+            style={paginationButtonStyle(loading || page <= 1)}
+            type="button"
+          >
+            {"\u00ab"}
+          </button>
+          <button
+            aria-label="Previous page"
+            disabled={loading || page <= 1}
+            onClick={() => goToPage(page - 1)}
+            style={paginationButtonStyle(loading || page <= 1)}
+            type="button"
+          >
+            {"\u2039"}
+          </button>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+            Page
+            <input
+              aria-label="Jump to page"
+              disabled={loading}
+              onBlur={commitPageInput}
+              onChange={(e) => setPageInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitPageInput();
+                }
+              }}
+              style={{
+                width: 44,
+                padding: "1px 4px",
+                fontSize: 10,
+                border: "1px solid #d6d3d1",
+                borderRadius: 4,
+                textAlign: "center",
+              }}
+              type="text"
+              value={pageInput}
+            />
+            / {totalPages.toLocaleString()}
+          </span>
+          <button
+            aria-label="Next page"
+            disabled={loading || page >= totalPages}
+            onClick={() => goToPage(page + 1)}
+            style={paginationButtonStyle(loading || page >= totalPages)}
+            type="button"
+          >
+            {"\u203a"}
+          </button>
+          <button
+            aria-label="Last page"
+            disabled={loading || page >= totalPages}
+            onClick={() => goToPage(totalPages)}
+            style={paginationButtonStyle(loading || page >= totalPages)}
+            type="button"
+          >
+            {"\u00bb"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
+function paginationButtonStyle(disabled: boolean): React.CSSProperties {
+  return {
+    width: 22,
+    height: 20,
+    padding: 0,
+    border: "1px solid #d6d3d1",
+    borderRadius: 4,
+    background: disabled ? "#f5f5f4" : "#fff",
+    color: disabled ? "#a8a29e" : "#475569",
+    cursor: disabled ? "not-allowed" : "pointer",
+    fontSize: 10,
+    lineHeight: 1,
+  };
+}
+
 interface PreviewRendererProps {
   preview: Record<string, unknown>;
+  /** Backing data_ref — required for paginated/sortable lazy refetch (table). */
+  dataRef: string;
   /**
    * #899 — parent-driven slider position. Takes precedence over the
    * backend-echoed ``preview.slice_index`` so the slider does not
@@ -519,16 +744,10 @@ interface PreviewRendererProps {
   onSliceChange?: (idx: number) => void;
 }
 
-function PreviewRenderer({ preview, currentSlice, onSliceChange }: PreviewRendererProps) {
+function PreviewRenderer({ preview, dataRef, currentSlice, onSliceChange }: PreviewRendererProps) {
   switch (preview.kind) {
     case "table":
-      return (
-        <TableViewer
-          columns={(preview.columns as string[] | undefined) ?? []}
-          rows={(preview.rows as Array<Record<string, unknown>> | undefined) ?? []}
-          rowCount={typeof preview.row_count === "number" ? preview.row_count : undefined}
-        />
-      );
+      return <TableViewer key={dataRef} dataRef={dataRef} initial={readTablePayload(preview)} />;
     case "image": {
       // Slider position: prefer the live parent state so dragging never
       // snaps back to the backend's last-rendered index.
@@ -745,9 +964,10 @@ export function DataPreview({
           <div className="mt-4 min-h-0 flex-1 overflow-y-auto scrollbar-thin">
             {isLoadingActive ? (
               <div className="rounded-[1.6rem] border border-stone-200 bg-white p-4 text-sm text-stone-500">Loading preview…</div>
-            ) : preview ? (
+            ) : preview && activeRef ? (
               <PreviewRenderer
                 preview={preview.preview}
+                dataRef={activeRef}
                 currentSlice={activeSlice}
                 onSliceChange={handleSliceChange}
               />
