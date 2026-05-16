@@ -1,9 +1,5 @@
 /**
- * ADR-039 §3.5b / §6 Phase 3 — Branch-graph lane assignment (SKELETON).
- *
- * Status: SKELETON. All non-pure-helper code paths throw
- * `Error("TODO: D39-2.4b — ...")`. D39-2.4b (the IMPL phase) will replace
- * the throw with the algorithm body sketched below.
+ * ADR-039 §3.5b — Branch-graph lane assignment.
  *
  * ============================================================================
  * PURPOSE
@@ -20,239 +16,74 @@
  *                          ╱
  *   lane 2                ●             stash@{0}
  *
- * Lanes are recycled as branches end (their tip has no later commit that
- * needs the lane). Merge commits "fold" extra parents into new lanes. The
- * algorithm is the standard public-knowledge DAG lane-assignment problem;
- * see ADR-039 §3.5b for the line of provenance (textbook material; no
- * library code copied).
- *
  * ============================================================================
- * INPUT
+ * ALGORITHM — DFS chain + per-color row-recycle (#1002 hotfix)
  * ============================================================================
  *
- *   commits: GitCommit[]   — already in topological order (`git log` newest
- *                            first is the typical ordering). Each commit
- *                            knows its own `sha` and `parents: string[]`.
+ * The original §3.5b sketch used a row-indexed `active_lanes: (sha|null)[]`
+ * array where every active lane slot stayed open until the lane's "waiting"
+ * SHA was processed. In a deep history with many already-deleted feature
+ * branches (e.g. SciEasy dev repo: ~60 merged-and-deleted feature branches)
+ * those slots could remain open all the way to repo root, producing max
+ * lane index = 148 and SVG width = 2400px.
  *
- * Topological-order assumption: every commit MUST appear AFTER its children
- * in the array (i.e. children first, parents later). `git log --topo-order`
- * gives us this for free.
+ * Hotfix #1002 replaces that with the DFS-chain + per-color-recycle
+ * invariant used by every modern git GUI (vscode-git-graph `web/graph.ts`,
+ * JetBrains `PrintElementGenerator`, GitLens):
+ *
+ *   1. Maintain `availableColours[c]` = the LAST row index at which color
+ *      slot `c` was used. A color is reusable starting from `startAt` when
+ *      `startAt > availableColours[c]`.
+ *
+ *   2. For each unprocessed parent of each commit, walk a DFS chain along
+ *      first-parent edges. Every vertex on the chain joins the chain's
+ *      branch (gets the branch's color/lane).
+ *
+ *   3. The chain BREAKS the moment we hit a vertex that already belongs to
+ *      a different branch. The current branch records its end at the
+ *      previous row; its color slot becomes available for reuse by any
+ *      LATER commit (row > end).
+ *
+ * Net effect: max simultaneously-allocated color count = max number of
+ * *temporally overlapping* unfinished side branches, not the count of
+ * historical branches. For SciEasy dev repo this drops max lane from 148
+ * to roughly the count of branches alive in any one row's neighbourhood
+ * (typically <= 10).
+ *
+ * Reference: mhutchie/vscode-git-graph `web/graph.ts` — `determinePath`
+ * (lines 643-750 in develop branch), `getAvailableColour` (lines 719-726).
+ * Clean-room reimplementation per CLAUDE.md §2.4 — same invariant, fresh
+ * TypeScript, no code copied. ADR-039 §3.5b addendum documents the
+ * algorithm change.
  *
  * ============================================================================
- * OUTPUT
+ * INPUT / OUTPUT
  * ============================================================================
  *
- *   LaneAssignment[]
- *     [
- *       {
- *         sha:           string;
- *         lane:          number;            // primary lane the dot lives on
- *         merge_lanes:   number[];          // extra lanes for parents 2..N
- *                                           // (octopus merges may push N>2)
- *         color_index:   number;            // input to colorPalette.ts
- *         filtered_out:  boolean;           // does this commit pass the
- *                                           // current historyFilter? Dimmed
- *                                           // rendering iff false (§3.5c).
- *       },
- *       ...
- *     ]
+ *   commits: GitCommit[]   — already in topological order (children first,
+ *                            parents later). `git log --topo-order` gives
+ *                            us this for free.
  *
- * `lane` is a zero-based column index; the SVG layer multiplies by the
- * lane-pitch (likely 16px). `merge_lanes[i]` is the lane that parents[i+1]
- * comes IN on (parent[0] always continues `lane`). `color_index` is
- * deterministic on the lane number per ADR §3.5b "branch color rotation".
+ *   returns LaneAssignment[]   — parallel array; result[i] describes
+ *                                commits[i]. See {@link LaneAssignment}
+ *                                for field semantics.
  *
- * ============================================================================
- * ALGORITHM (per ADR-039 §3.5b sketch)
- * ============================================================================
- *
- * Maintain a sparse array `active_lanes: (string | null)[]` where the value
- * at slot `i` is the SHA the lane is "waiting for" — i.e. the next commit
- * that should land in lane `i` because some already-drawn child of it has
- * declared this lane as the home of its first parent. A `null` value means
- * the lane is currently free for reuse.
- *
- *   for each commit in topo-order:
- *     1. PICK LANE
- *        Try to reuse a lane: scan active_lanes for an entry === commit.sha.
- *          If found:  reuse that index → lane.
- *          If none:   first null slot, or push a new lane on the right.
- *
- *     2. RECORD LANE
- *        commit.lane = lane
- *
- *     3. FORWARD FIRST PARENT
- *        active_lanes[lane] = commit.parents[0] ?? null
- *          (null = orphan / root commit; lane becomes free immediately)
- *
- *     4. FOLD EXTRA PARENTS (merge commits)
- *        for extra in commit.parents.slice(1):
- *          new_lane := first null slot in active_lanes, or push new
- *          active_lanes[new_lane] = extra
- *          commit.merge_lanes.push(new_lane)
- *
- *     5. ASSIGN COLOR
- *        color_index = lane mod COLORS.length     (palette in colorPalette.ts)
- *
- * Reference pseudocode from ADR-039 §3.5b (verbatim):
- *
- *   function assignLanes(commits: GitCommit[]): GitCommit[] {
- *     const active_lanes: (string | null)[] = []
- *     for (const commit of commits) {
- *       let lane = active_lanes.findIndex(sha => sha === commit.sha)
- *       if (lane === -1) {
- *         lane = active_lanes.findIndex(s => s === null)
- *         if (lane === -1) lane = active_lanes.length, active_lanes.push(null)
- *       }
- *       commit.lane = lane
- *       active_lanes[lane] = commit.parents[0] ?? null
- *       for (const extra of commit.parents.slice(1)) {
- *         let new_lane = active_lanes.findIndex(s => s === null)
- *         if (new_lane === -1) new_lane = active_lanes.length, active_lanes.push(null)
- *         active_lanes[new_lane] = extra
- *         commit.merge_lanes ??= []
- *         commit.merge_lanes.push(new_lane)
- *       }
- *     }
- *     return commits
- *   }
- *
- * The D39-2.4b IMPL will translate the above into the LaneAssignment[]
- * output shape (the sketch mutates `commit` in place; our impl returns
- * a new array of `LaneAssignment` records to keep the input immutable
- * and make the function pure).
+ * Pure function: does NOT mutate its input.
  *
  * ============================================================================
  * COMPLEXITY
  * ============================================================================
  *
- *   Time:  O(C * L)  where C = #commits, L = max concurrent lanes.
- *          In practice L is small (~10 for typical scientific projects),
- *          so this is effectively O(C). The `findIndex` scans are the
- *          inner loop. For pathological repos with hundreds of concurrent
- *          branches, an auxiliary `Map<sha, lane>` reduces the SHA lookup
- *          to O(1) but trades memory; defer until profiling demands it.
- *   Space: O(L) for `active_lanes` + O(C) for output. The input is not
- *          mutated.
+ *   Time:  O(C * L_active)  where C = #commits, L_active = max number of
+ *          concurrently-alive branches. The inner findIndex over
+ *          `availableColours` is L_active long. In practice L_active is
+ *          small (<= 20 for typical scientific projects), so this is
+ *          effectively O(C).
+ *   Space: O(L_active) for `availableColours` + O(C) for output. The input
+ *          is not mutated.
  *
  * Performance target (ADR §3.5b): 1000 commits without virtualization,
  * 10000+ commits with virtualization.
- *
- * ============================================================================
- * EDGE CASES (cover in D39-2.4b tests)
- * ============================================================================
- *
- *   1. EMPTY INPUT
- *      → return [].
- *
- *   2. SINGLE COMMIT (initial commit)
- *      → parents = []; lane = 0; merge_lanes = [].
- *      → active_lanes ends as [null] (lane immediately freed).
- *
- *   3. ROOT COMMIT IN THE MIDDLE OF THE LOG
- *      → A commit with empty parents array that isn't the first. Happens
- *        when a repo has multiple disconnected root commits (e.g. a
- *        cherry-picked-from-nothing or grafted history). The lane the
- *        root commit occupies should free immediately
- *        (active_lanes[lane] = null) so a later concurrent branch can
- *        reuse it.
- *
- *   4. LINEAR HISTORY
- *      → All commits have exactly 1 parent. All lane = 0. merge_lanes = [].
- *
- *   5. SIMPLE TWO-WAY MERGE
- *      → A merge commit M has parents [P0, P1].
- *      → M.lane = lane(P0)  (reuses the lane left by P0)
- *      → M.merge_lanes = [lane(P1) or a new lane reserved for P1].
- *      → Edge router will draw a bezier from M down to P1.
- *
- *   6. OCTOPUS MERGE (parents.length > 2)
- *      → parents[2..N-1] each allocate their own lanes. merge_lanes will
- *        have length N-1.
- *      → ADR-039 does not call this out, but git allows octopus merges;
- *        the algorithm handles it naturally.
- *
- *   7. ORPHAN BRANCH (a tip whose first commit has no parents)
- *      → When the topo-order reaches it, no lane will be "waiting for"
- *        its SHA. Step 1 finds a free lane (or pushes new). Step 3 sets
- *        active_lanes[lane] = null. Effectively a new column for one
- *        commit, then the lane goes free.
- *
- *   8. ABANDONED BRANCH (lane never reused later)
- *      → Lane stays in active_lanes with value = parent_sha, but if no
- *        later commit references it, it'll stay until the end. That is
- *        fine for the layout — empty lanes between active ones are
- *        drawn as gaps. Optional: post-pass to collapse trailing null
- *        lanes, but not required for correctness.
- *
- *   9. AMENDED COMMIT (`git commit --amend`)
- *      → From the algorithm's view, an amended commit is just a commit
- *        with a different SHA. No special handling.
- *
- *  10. STALE / UNREACHABLE COMMITS (`git reflog`)
- *      → Not in `git log` output; therefore not in the input. Out of
- *        scope for v1.
- *
- *  11. FILTERED COMMITS (auto: / agent: per §3.5c)
- *      → Filter is applied OUTSIDE this function. We still draw EVERY
- *        commit in the graph (topology must be preserved). The renderer
- *        dims filtered commits to small grey dots. `filtered_out` in
- *        the output is a hint to the renderer; the layout itself is
- *        filter-independent. D39-2.4b: read `historyFilter` from
- *        `gitSlice` inside `integration.ts`, apply
- *        `selectVisibleCommits` to derive the bool per row, but do NOT
- *        omit commits from the lane-assignment input.
- *
- * ============================================================================
- * TEST FIXTURE SKETCH (D39-2.4b will codify these)
- * ============================================================================
- *
- *   Fixture A — linear:
- *     commits: [C3→C2, C2→C1, C1→ ]
- *     expected: all lane=0; merge_lanes=[] each
- *
- *   Fixture B — single merge:
- *     C3 (parents [C2a, C2b]) → C2a (parents [C1]) → C2b (parents [C1]) → C1
- *       (topo order: C3, C2a, C2b, C1)
- *     expected:
- *       C3.lane=0  C3.merge_lanes=[1]
- *       C2a.lane=0
- *       C2b.lane=1
- *       C1.lane=0  (C2b's lane recycled because C1 is C2b's only parent
- *                   AND it's also C2a's parent → first-parent wins; the
- *                   second occurrence of C1 in active_lanes after
- *                   processing C2b will recycle into C2a's slot when C1
- *                   is reached — exact reuse priority depends on the
- *                   findIndex order in the sketch).
- *
- *   Fixture C — octopus merge:
- *     C2 (parents [P0, P1, P2]) → P0 → P1 → P2
- *     expected:
- *       C2.lane=0  C2.merge_lanes=[1,2]
- *
- *   Fixture D — orphan root in the middle:
- *     C3 → C2 → C1 (parents []) ; plus a parallel C2'→C1' (parents [])
- *     expected: two simultaneously active lanes that both free at root.
- *
- *   Fixture E — abandoned tip:
- *     C5 → C4 → C3 → C2 → C1, plus a branch C3' → C2' off C2
- *     C3' lane stays open until end. Renderer treats it as a normal
- *     branch tip with no later commits.
- *
- * ============================================================================
- * INTEGRATION
- * ============================================================================
- *
- *   - Called by `integration.ts` once per `gitSlice.logCache[<all>]`
- *     refresh.
- *   - Result is memoised on the commit-list reference (referential
- *     equality) so re-renders of GraphSVG do not recompute. The
- *     integration layer is responsible for invalidating on
- *     `git.head_changed` (it already invalidates `logCache`).
- *   - Output passed to `edgeRouter.ts` to compute per-edge bezier
- *     paths.
- *
- * ============================================================================
  */
 
 import type { GitCommit } from "../../../types/api";
@@ -295,14 +126,43 @@ export interface LaneAssignment {
 }
 
 /**
- * Assign every commit to a graph lane per ADR-039 §3.5b.
+ * Internal: per-vertex bookkeeping during traversal.
  *
- * Pure function: does NOT mutate its input. Returns a parallel array of
- * {@link LaneAssignment} records in the same order as `commits`.
+ * `nextParentIdx` tracks which of this vertex's parents has been consumed
+ * by the outer loop. When a vertex is first visited via `determinePath`,
+ * its first parent is consumed; on a re-entry (merge commit with multiple
+ * parents), the next un-consumed parent is consumed.
  *
- * D39-2.4a SKELETON: throws — body is filled in D39-2.4b.
- * D39-2.4b IMPL contract: implement the algorithm in the comment block
- * above. The reference pseudocode is verbatim from ADR-039 §3.5b.
+ * `branch` is the {@link Branch} the vertex was assigned to (or null if
+ * not yet assigned — only true mid-traversal).
+ */
+interface VertexState {
+  nextParentIdx: number;
+  branch: Branch | null;
+}
+
+/**
+ * Internal: an active or completed branch in the lane allocator. Holds
+ * its color/lane number and the row at which its last vertex sits, so the
+ * recycle test (`startAt > end`) is O(1).
+ */
+interface Branch {
+  /**
+   * Color slot index — also the rendered lane index. Stable across the
+   * branch's lifetime so every vertex on the branch shares it.
+   */
+  colour: number;
+  /**
+   * Row index of the last vertex on this branch. Updated as the DFS
+   * extends; used as the lower-bound when checking whether the color slot
+   * can be recycled for a later branch.
+   */
+  end: number;
+}
+
+/**
+ * Assign every commit to a graph lane per ADR-039 §3.5b (hotfix #1002
+ * algorithm). Pure function: does NOT mutate its input.
  *
  * @param commits - Commits in topological order (children first).
  * @returns A parallel array of lane assignments; `result[i]` describes
@@ -311,49 +171,231 @@ export interface LaneAssignment {
 export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
   if (commits.length === 0) return [];
 
-  // `active_lanes[i]` is the SHA the lane is "waiting for" — set to the
-  // first parent of the last commit drawn in that lane. A `null` slot
-  // means the lane is free for reuse.
-  const active_lanes: (string | null)[] = [];
-  const out: LaneAssignment[] = new Array(commits.length);
+  const n = commits.length;
 
-  for (let i = 0; i < commits.length; i++) {
-    const commit = commits[i];
+  // Per-vertex traversal state. nextParentIdx starts at 0; bumped each
+  // time the outer loop "consumes" a parent edge into the DFS.
+  const state: VertexState[] = new Array(n);
+  for (let i = 0; i < n; i++) {
+    state[i] = { nextParentIdx: 0, branch: null };
+  }
 
-    // 1. PICK LANE — reuse a lane waiting for this SHA, else first free
-    //    slot, else extend.
-    let lane = active_lanes.findIndex((sha) => sha === commit.sha);
-    if (lane === -1) {
-      lane = active_lanes.findIndex((s) => s === null);
-      if (lane === -1) {
-        lane = active_lanes.length;
-        active_lanes.push(null);
+  // SHA → row index, for fast parent lookup.
+  const shaToIdx = new Map<string, number>();
+  for (let i = 0; i < n; i++) {
+    shaToIdx.set(commits[i].sha, i);
+  }
+
+  // Per-vertex merge_lanes accumulator (only populated for merge commits).
+  const mergeLanes: number[][] = new Array(n);
+  for (let i = 0; i < n; i++) mergeLanes[i] = [];
+
+  // availableColours[c] = last row index where color slot c was used.
+  // Color c is reusable starting at row r when r > availableColours[c].
+  const availableColours: number[] = [];
+  const branches: Branch[] = [];
+
+  /**
+   * Find a color slot whose end-row is strictly less than `startAt`
+   * (meaning the branch on that slot has ended above us, so we can reuse
+   * the column). If none qualifies, allocate a new slot.
+   */
+  function getAvailableColour(startAt: number): number {
+    for (let c = 0; c < availableColours.length; c++) {
+      if (startAt > availableColours[c]) {
+        return c;
       }
     }
+    availableColours.push(0);
+    return availableColours.length - 1;
+  }
 
-    // 3. FORWARD FIRST PARENT — null for root commits frees the lane.
-    const firstParent = commit.parents[0];
-    active_lanes[lane] = firstParent !== undefined ? firstParent : null;
+  /**
+   * Look up the parent's row index for the p-th parent of vertex `i`. The
+   * parent may be missing from the input (truncated `git log`), in which
+   * case we return -1 — the caller treats it as a chain termination.
+   */
+  function parentRow(i: number, p: number): number {
+    const parents = commits[i].parents;
+    if (p < 0 || p >= parents.length) return -1;
+    const idx = shaToIdx.get(parents[p]);
+    return idx === undefined ? -1 : idx;
+  }
 
-    // 4. FOLD EXTRA PARENTS (merge commits) — each extra parent gets a
-    //    new lane (first null slot, else extend).
-    const merge_lanes: number[] = [];
-    for (let p = 1; p < commit.parents.length; p++) {
-      const extra = commit.parents[p];
-      let new_lane = active_lanes.findIndex((s) => s === null);
-      if (new_lane === -1) {
-        new_lane = active_lanes.length;
-        active_lanes.push(null);
-      }
-      active_lanes[new_lane] = extra;
-      merge_lanes.push(new_lane);
+  /**
+   * The DFS-chain extension. Called when the outer loop wants vertex
+   * `startAt` to receive a branch (because it has no branch yet) or to
+   * have its next unprocessed parent consumed (merge case).
+   *
+   * If `startAt` itself has no branch, we allocate one with a recycled
+   * color slot. Then we follow first-parent edges down the chain, extending
+   * the branch to each parent vertex UNTIL we hit a vertex already
+   * assigned to a different branch — at that point the chain breaks
+   * (the parent keeps its own branch; we just record an end-of-chain).
+   */
+  function determinePath(startAt: number): void {
+    // 1. Make sure the start vertex itself is on a branch.
+    let branch = state[startAt].branch;
+    if (branch === null) {
+      const colour = getAvailableColour(startAt);
+      branch = { colour, end: startAt };
+      branches.push(branch);
+      state[startAt].branch = branch;
     }
 
-    // 5. ASSIGN COLOR — deterministic on lane mod palette length.
-    out[i] = {
-      sha: commit.sha,
+    // 2. Consume the next un-consumed parent of `startAt`.
+    const startParentP = state[startAt].nextParentIdx;
+    if (startParentP >= commits[startAt].parents.length) {
+      // No parents to consume (root commit, or we've exhausted them).
+      branch.end = startAt;
+      availableColours[branch.colour] = startAt;
+      return;
+    }
+    state[startAt].nextParentIdx++;
+
+    // For an extra parent of a merge commit (startParentP > 0), allocate
+    // a SEPARATE branch and slot for the fold-in. The fold-in branch
+    // starts at the parent's row, not at the merge commit's row.
+    let curIdx = startAt;
+    let curBranch: Branch;
+
+    if (startParentP === 0) {
+      // First-parent edge continues `startAt`'s branch.
+      curBranch = branch;
+    } else {
+      // Extra parent: allocate a new branch starting from the parent's row.
+      const parentIdx = parentRow(startAt, startParentP);
+      if (parentIdx < 0) {
+        // Dangling parent for a merge fold-in: allocate a fresh lane
+        // anchored at the merge commit's row so the renderer can still
+        // draw a stub. The fold-in branch immediately ends.
+        const colour = getAvailableColour(startAt);
+        const foldBranch: Branch = { colour, end: startAt };
+        branches.push(foldBranch);
+        mergeLanes[startAt].push(colour);
+        availableColours[colour] = startAt;
+        return;
+      }
+
+      // If the parent is already on a branch, the fold-in just records a
+      // merge_lanes entry pointing at that existing branch's lane. No new
+      // allocation, no chain extension — the edge router will draw the
+      // bezier from this merge commit straight to the parent's existing
+      // lane.
+      if (state[parentIdx].branch !== null) {
+        mergeLanes[startAt].push(state[parentIdx].branch!.colour);
+        return;
+      }
+
+      // Parent is not yet on a branch — allocate a new color slot for the
+      // fold-in branch and assign the parent to it. The chain then walks
+      // down from the parent. The color slot is allocated against `startAt`
+      // (the merge commit's row), not the parent's row, because the
+      // fold-in lane occupies the column from the merge commit DOWN to
+      // wherever the fold-in branch ends — so the column is "in use"
+      // starting at startAt.
+      const colour = getAvailableColour(startAt);
+      const foldBranch: Branch = { colour, end: parentIdx };
+      branches.push(foldBranch);
+      mergeLanes[startAt].push(colour);
+      state[parentIdx].branch = foldBranch;
+      // The parent's first-parent edge is now consumed by this fold-in
+      // chain (we're walking down through it). Bump nextParentIdx.
+      state[parentIdx].nextParentIdx++;
+      curIdx = parentIdx;
+      curBranch = foldBranch;
+      curBranch.end = parentIdx;
+      availableColours[curBranch.colour] = parentIdx;
+    }
+
+    if (startParentP === 0) {
+      // Walk down first-parent edges from startAt.
+      const firstParentIdx = parentRow(startAt, 0);
+      if (firstParentIdx < 0) {
+        // Root commit (or dangling first-parent) — branch ends here.
+        curBranch.end = startAt;
+        availableColours[curBranch.colour] = startAt;
+        return;
+      }
+
+      let parentIdx = firstParentIdx;
+      while (parentIdx >= 0 && parentIdx < n) {
+        if (state[parentIdx].branch !== null) {
+          // Chain break: parent already belongs to a different branch.
+          // We don't claim this parent for our branch. The renderer's
+          // edge will still be drawn from curIdx to parentIdx because
+          // commits[curIdx].parents[0] === commits[parentIdx].sha.
+          curBranch.end = curIdx;
+          availableColours[curBranch.colour] = curIdx;
+          return;
+        }
+        // Extend our branch onto parentIdx.
+        state[parentIdx].branch = curBranch;
+        state[parentIdx].nextParentIdx++;
+        curIdx = parentIdx;
+        curBranch.end = curIdx;
+        availableColours[curBranch.colour] = curIdx;
+
+        // Advance to the parent's first parent (if any).
+        const next = parentRow(parentIdx, 0);
+        if (next < 0) {
+          // Root or dangling.
+          return;
+        }
+        parentIdx = next;
+      }
+    } else {
+      // We've already advanced curIdx to the fold-in's parent row above
+      // and consumed its first-parent slot. Now continue walking down
+      // first-parent edges from curIdx.
+      let parentIdx = parentRow(curIdx, 0);
+      while (parentIdx >= 0 && parentIdx < n) {
+        if (state[parentIdx].branch !== null) {
+          curBranch.end = curIdx;
+          availableColours[curBranch.colour] = curIdx;
+          return;
+        }
+        state[parentIdx].branch = curBranch;
+        state[parentIdx].nextParentIdx++;
+        curIdx = parentIdx;
+        curBranch.end = curIdx;
+        availableColours[curBranch.colour] = curIdx;
+        const next = parentRow(parentIdx, 0);
+        if (next < 0) return;
+        parentIdx = next;
+      }
+    }
+  }
+
+  // Outer loop. Re-enters merge vertices until all parents are consumed.
+  let i = 0;
+  while (i < n) {
+    const hasMoreParents =
+      state[i].nextParentIdx < commits[i].parents.length;
+    if (state[i].branch === null || hasMoreParents) {
+      determinePath(i);
+      // Do NOT advance i: a merge commit with multiple parents needs to
+      // be re-entered. We advance only when the vertex has both a branch
+      // AND all its parents consumed.
+      if (state[i].nextParentIdx >= commits[i].parents.length) {
+        i++;
+      }
+    } else {
+      i++;
+    }
+  }
+
+  // Build the LaneAssignment output array.
+  const out: LaneAssignment[] = new Array(n);
+  for (let r = 0; r < n; r++) {
+    const branch = state[r].branch;
+    // A vertex always has a branch by this point — determinePath ensures
+    // it. Defensive fallback: lane 0 with a fresh color slot.
+    const lane = branch !== null ? branch.colour : 0;
+    out[r] = {
+      sha: commits[r].sha,
       lane,
-      merge_lanes,
+      merge_lanes: mergeLanes[r],
       color_index: lane % PALETTE.length,
       filtered_out: false,
     };
@@ -363,14 +405,9 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
 }
 
 /**
- * Helper exposed for unit tests in D39-2.4b: given a `LaneAssignment[]`
- * result, return the maximum lane index used (i.e. the graph width in
- * lanes). Pure; safe to keep as-is.
- *
- * D39-2.4a: a thin pure helper that operates on the OUTPUT of
- * {@link assignLanes}. We keep it filled out (not a TODO) because
- * (a) it has no dependencies on the unimplemented algorithm, and
- * (b) GraphSVG.tsx wants this in skeleton form to size the SVG viewBox.
+ * Helper exposed for unit tests and the renderer: given a
+ * `LaneAssignment[]` result, return the maximum lane index used (i.e. the
+ * graph width in lanes). Pure.
  *
  * Returns -1 for an empty input so the renderer can short-circuit.
  */
