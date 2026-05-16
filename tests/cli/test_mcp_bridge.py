@@ -85,10 +85,7 @@ def test_run_standalone_mode_returns_tools_list(tmp_path: Path, monkeypatch: pyt
 
 
 @pytest.mark.skip(
-    reason=(
-        "ADR-040 §3.1: attached-mode requires bridge ↔ FastMCP stdio "
-        "adapter. TODO(#1012): I40c+ revisits."
-    )
+    reason=("ADR-040 §3.1: attached-mode requires bridge ↔ FastMCP stdio adapter. TODO(#1012): I40c+ revisits.")
 )
 def test_run_attached_mode_proxies_to_backend(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Deferred — see module docstring."""
