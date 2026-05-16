@@ -9,6 +9,8 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from scieasy.engine.events import WORKFLOW_CHANGED
+
 # ---------------------------------------------------------------------------
 # Commit / log / diff / restore
 # ---------------------------------------------------------------------------
@@ -118,6 +120,114 @@ def test_branch_switch_endpoint(client: TestClient, opened_project: Path) -> Non
     branches = client.get("/api/git/branches").json()
     current = next(b for b in branches if b["is_current"])
     assert current["name"] == "feature"
+
+
+# ---------------------------------------------------------------------------
+# Hotfix #988: tree-mutating endpoints emit workflow.changed per file.
+#
+# Rationale (see ``_snapshot_workflows`` docstring in routes/git.py): the
+# filesystem watcher is unreliable for bulk file rewrites that a git op
+# completes inside a debounce window. The endpoints actively diff workflow
+# YAMLs pre/post-op and emit ``workflow.changed`` per changed file so the
+# frontend's existing ``workflow.changed`` handler reloads the canvas.
+# These tests pin the contract end-to-end via the runtime's event bus.
+# ---------------------------------------------------------------------------
+
+
+def _subscribe_workflow_changed(runtime) -> list:
+    captured: list = []
+    runtime.event_bus.subscribe(WORKFLOW_CHANGED, lambda ev: captured.append(ev))
+    return captured
+
+
+def test_branch_switch_emits_workflow_changed_per_modified_yaml(
+    client: TestClient, opened_project: Path, runtime
+) -> None:
+    """Hotfix #988: branch switch that rewrites workflows/main.yaml must emit
+    ``workflow.changed`` so the canvas reloads. Failure mode pre-fix: the
+    canvas kept showing the previous branch's YAML until manual reload.
+    """
+    main_yaml = opened_project / "workflows" / "main.yaml"
+    main_yaml.write_text("workflow:\n  id: main\n  nodes: []\n  edges: []\n", encoding="utf-8")
+    client.post("/api/git/commit", json={"message": "main yaml v1"})
+    client.post("/api/git/branch/create", json={"name": "feature"})
+    client.post("/api/git/branch/switch", json={"branch_name": "feature"})
+    # Diverge feature so a switch back to main actually rewrites the file.
+    main_yaml.write_text(
+        "workflow:\n  id: main\n  nodes: [{id: a}]\n  edges: []\n",
+        encoding="utf-8",
+    )
+    client.post("/api/git/commit", json={"message": "feature yaml v2"})
+
+    captured = _subscribe_workflow_changed(runtime)
+
+    resp = client.post("/api/git/branch/switch", json={"branch_name": "main"})
+    assert resp.status_code == 200
+
+    # At least one event for workflows/main.yaml (modified — both branches
+    # have the file but with different content).
+    paths = [(ev.data["path"], ev.data["kind"]) for ev in captured]
+    assert ("workflows/main.yaml", "modified") in paths
+    # changed_by must be "git" so the frontend handler can disambiguate from
+    # watcher-driven events if needed.
+    main_event = next(ev for ev in captured if ev.data["path"] == "workflows/main.yaml")
+    assert main_event.data["changed_by"] == "git"
+    assert main_event.data["workflow_id"] == "main"
+
+
+def test_branch_switch_no_yaml_change_emits_nothing(client: TestClient, opened_project: Path, runtime) -> None:
+    """Switching to a branch with the same YAML content emits nothing.
+    Diff-based emission must be quiet for no-op switches.
+    """
+    main_yaml = opened_project / "workflows" / "main.yaml"
+    main_yaml.write_text("workflow:\n  id: main\n  nodes: []\n", encoding="utf-8")
+    client.post("/api/git/commit", json={"message": "v1"})
+    client.post("/api/git/branch/create", json={"name": "twin"})
+    # No edits on twin; immediately switch back.
+    captured = _subscribe_workflow_changed(runtime)
+    client.post("/api/git/branch/switch", json={"branch_name": "twin"})
+    assert captured == []
+
+
+def test_restore_endpoint_emits_workflow_changed(client: TestClient, opened_project: Path, runtime) -> None:
+    """``/api/git/restore`` rewrites a workflow YAML → workflow.changed."""
+    target = opened_project / "workflows" / "main.yaml"
+    target.write_text("workflow:\n  id: main\n  v: 1\n", encoding="utf-8")
+    sha_a = client.post("/api/git/commit", json={"message": "A"}).json()["commit_sha"]
+    target.write_text("workflow:\n  id: main\n  v: 2\n", encoding="utf-8")
+    client.post("/api/git/commit", json={"message": "B"})
+
+    captured = _subscribe_workflow_changed(runtime)
+    resp = client.post(
+        "/api/git/restore",
+        json={"commit_sha": sha_a, "files": ["workflows/main.yaml"]},
+    )
+    assert resp.status_code == 200
+    paths = [ev.data["path"] for ev in captured]
+    assert "workflows/main.yaml" in paths
+
+
+def test_branch_switch_emits_created_for_new_yaml(client: TestClient, opened_project: Path, runtime) -> None:
+    """When the target branch has a workflow YAML that the source branch
+    doesn't, the switch must emit ``kind=created`` so the frontend opens
+    a new tab for it.
+    """
+    # Start on main; commit baseline (only main.yaml from project init).
+    main_yaml = opened_project / "workflows" / "main.yaml"
+    if not main_yaml.exists():
+        main_yaml.write_text("workflow:\n  id: main\n  nodes: []\n", encoding="utf-8")
+        client.post("/api/git/commit", json={"message": "init main"})
+    client.post("/api/git/branch/create", json={"name": "feature"})
+    client.post("/api/git/branch/switch", json={"branch_name": "feature"})
+    extra = opened_project / "workflows" / "extra.yaml"
+    extra.write_text("workflow:\n  id: extra\n  nodes: []\n", encoding="utf-8")
+    client.post("/api/git/commit", json={"message": "add extra"})
+
+    captured = _subscribe_workflow_changed(runtime)
+    client.post("/api/git/branch/switch", json={"branch_name": "main"})
+    # extra.yaml exists on feature but not main — switch to main = deleted.
+    events = {(ev.data["path"], ev.data["kind"]) for ev in captured}
+    assert ("workflows/extra.yaml", "deleted") in events
 
 
 def test_branch_delete_endpoint(client: TestClient, opened_project: Path) -> None:

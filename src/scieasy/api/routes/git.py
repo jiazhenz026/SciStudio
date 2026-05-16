@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from scieasy.core.versioning.git_binary import BundledGitMissing
 from scieasy.core.versioning.git_engine import GitEngine, GitError
+from scieasy.engine.events import WORKFLOW_CHANGED, EngineEvent
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +93,100 @@ def _engine_for_request(request: Request) -> GitEngine:
         return engine
     except BundledGitMissing as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+def _snapshot_workflows(project_dir: Path) -> dict[str, str | None]:
+    """Capture content hashes for every ``workflows/*.yaml`` under *project_dir*.
+
+    Hotfix #988: tree-mutating git operations (``branch_switch``, ``restore``,
+    ``merge``, ``cherry_pick``, ``stash_apply``) rewrite workflow YAML files on
+    disk so the canvas must reload them. The ADR-039 design relied on the
+    filesystem-level :class:`WorkflowWatcher` to fire ``workflow.changed``
+    events for any post-git modification — but watchdog event coalescing,
+    debounce windows, and Windows-specific atomic-replace ordering make that
+    signal unreliable for bulk file rewrites that complete inside a single
+    debounce slice. The canonical fix is for each git endpoint to **actively**
+    diff workflows pre/post-op and emit ``workflow.changed`` per file.
+
+    Returns a mapping of POSIX-style ``workflows/...`` paths to SHA-256 hex
+    digests (or ``None`` if the file vanished mid-snapshot). Files outside
+    ``workflows/`` are intentionally ignored — only those drive the canvas.
+    """
+    workflows_dir = project_dir / "workflows"
+    snapshot: dict[str, str | None] = {}
+    if not workflows_dir.is_dir():
+        return snapshot
+    for yaml_path in workflows_dir.rglob("*.yaml"):
+        try:
+            data = yaml_path.read_bytes()
+            digest = hashlib.sha256(data).hexdigest()
+        except OSError:
+            digest = None
+        relative = yaml_path.relative_to(project_dir).as_posix()
+        snapshot[relative] = digest
+    return snapshot
+
+
+async def _emit_workflow_diff(
+    event_bus: Any,
+    project_dir: Path,
+    before: dict[str, str | None],
+) -> None:
+    """Diff *before* against the current on-disk state, emit ``workflow.changed``
+    once per changed file.
+
+    This is the second half of the hotfix #988 pair: callers snapshot before
+    the git op, then call this helper after the op completes. The helper
+    re-snapshots, classifies each path as ``created`` / ``deleted`` /
+    ``modified`` (matching the schema the watcher uses so the existing
+    frontend handler at ``useWebSocket.ts:67`` treats backend-driven and
+    watcher-driven events identically), and emits one event per change.
+
+    ``workflow_id`` is derived from the file stem so the frontend's
+    "is this the active tab's workflow?" check (`state.workflowId ===
+    changedId`) keeps the same identity rules as a canvas save.
+
+    Best-effort: any emit failure is logged but never raised — the git op
+    has already committed to disk and rolling it back would be worse than
+    a stale-canvas-until-next-refresh fallback. The watcher is still
+    running as insurance.
+    """
+    after = _snapshot_workflows(project_dir)
+
+    all_paths = set(before.keys()) | set(after.keys())
+    for relative in sorted(all_paths):
+        prev = before.get(relative)
+        curr = after.get(relative)
+        if prev is None and curr is None:
+            # Both reads failed (rare); nothing meaningful to emit.
+            continue
+        if prev == curr:
+            continue
+        if prev is None:
+            kind = "created"
+        elif curr is None:
+            kind = "deleted"
+        else:
+            kind = "modified"
+        workflow_id = Path(relative).stem
+        try:
+            await event_bus.emit(
+                EngineEvent(
+                    event_type=WORKFLOW_CHANGED,
+                    data={
+                        "workflow_id": workflow_id,
+                        "path": relative,
+                        "kind": kind,
+                        "changed_by": "git",
+                    },
+                )
+            )
+        except Exception:
+            logger.exception(
+                "git endpoint: failed to emit workflow.changed for %s (%s)",
+                relative,
+                kind,
+            )
 
 
 def _git_error_to_http(err: GitError) -> HTTPException:
@@ -183,12 +279,17 @@ async def diff(
 async def restore(request: Request, body: RestoreRequest) -> dict[str, str]:
     """Soft-restore files from a prior commit. ADR-039 §3.5 line 220, §3.6."""
     engine = _engine_for_request(request)
+    runtime = request.app.state.runtime
+    project_dir = Path(runtime.active_project.path)
+    before = _snapshot_workflows(project_dir)
     was_dirty = False
     try:
         was_dirty = engine.status()["dirty"]
         engine.restore(body.commit_sha, files=body.files)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
+    # Hotfix #988: emit per-file workflow.changed so the canvas reloads.
+    await _emit_workflow_diff(runtime.event_bus, project_dir, before)
     if was_dirty:
         stashes = engine.stash_list()
         if stashes:
@@ -227,21 +328,27 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
     proceed.
     """
     engine = _engine_for_request(request)
+    runtime = request.app.state.runtime
+    project_dir = Path(runtime.active_project.path)
+    before = _snapshot_workflows(project_dir)
     try:
         engine.branch_switch(body.branch_name)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
     # ADR-039 §3.5b — refresh project-scoped block registry after the
     # working tree changes.
-    runtime = getattr(request.app.state, "runtime", None)
-    if runtime is not None:
-        try:
-            runtime.refresh_block_registry()
-        except Exception:
-            logger.warning(
-                "branch_switch: refresh_block_registry failed (non-fatal)",
-                exc_info=True,
-            )
+    try:
+        runtime.refresh_block_registry()
+    except Exception:
+        logger.warning(
+            "branch_switch: refresh_block_registry failed (non-fatal)",
+            exc_info=True,
+        )
+    # Hotfix #988: emit per-file workflow.changed so the canvas reloads
+    # each workflow YAML that the branch switch rewrote. See
+    # ``_snapshot_workflows`` docstring for why this can't rely on the
+    # filesystem watcher.
+    await _emit_workflow_diff(runtime.event_bus, project_dir, before)
     return {"status": "ok", "current_branch": body.branch_name}
 
 
@@ -297,20 +404,34 @@ async def status_endpoint(request: Request) -> dict[str, Any]:
 async def merge(request: Request, body: MergeRequest) -> dict[str, Any]:
     """Merge a branch into current."""
     engine = _engine_for_request(request)
+    runtime = request.app.state.runtime
+    project_dir = Path(runtime.active_project.path)
+    before = _snapshot_workflows(project_dir)
     try:
-        return engine.merge(body.source_branch)
+        result = engine.merge(body.source_branch)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
+    # Hotfix #988: FF / clean merges rewrite workflow YAMLs; emit per-file
+    # workflow.changed even when conflicted_files is non-empty so the user
+    # sees both the conflict UI AND the canvas reflecting the pre-conflict
+    # half of the merge that did apply.
+    await _emit_workflow_diff(runtime.event_bus, project_dir, before)
+    return result
 
 
 @router.post("/cherry-pick")
 async def cherry_pick(request: Request, body: CherryPickRequest) -> dict[str, Any]:
     """Cherry-pick a commit onto current branch."""
     engine = _engine_for_request(request)
+    runtime = request.app.state.runtime
+    project_dir = Path(runtime.active_project.path)
+    before = _snapshot_workflows(project_dir)
     try:
-        return engine.cherry_pick(body.commit_sha)
+        result = engine.cherry_pick(body.commit_sha)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
+    await _emit_workflow_diff(runtime.event_bus, project_dir, before)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -343,10 +464,14 @@ async def stash_save(request: Request, body: StashSaveRequest) -> dict[str, str]
 async def stash_apply(request: Request, body: StashApplyRequest) -> dict[str, Any]:
     """Apply a stash entry (without dropping it)."""
     engine = _engine_for_request(request)
+    runtime = request.app.state.runtime
+    project_dir = Path(runtime.active_project.path)
+    before = _snapshot_workflows(project_dir)
     try:
         engine.stash_apply(body.stash_id)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
+    await _emit_workflow_diff(runtime.event_bus, project_dir, before)
     status = engine.status()
     if status["conflicted"]:
         return {"status": "conflict", "conflicted_files": status["conflicted"]}
@@ -386,10 +511,17 @@ async def merge_stage_file(request: Request, body: MergeStageFileRequest) -> dic
 async def merge_complete(request: Request) -> dict[str, str]:
     """Finalize merge after all conflicts staged."""
     engine = _engine_for_request(request)
+    runtime = request.app.state.runtime
+    project_dir = Path(runtime.active_project.path)
+    before = _snapshot_workflows(project_dir)
     try:
         sha = engine.merge_complete()
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
+    # Merge-complete is the final write in a conflict-resolution flow:
+    # the staged conflict resolutions become the working tree. Emit so
+    # the canvas reflects the resolved YAML.
+    await _emit_workflow_diff(runtime.event_bus, project_dir, before)
     return {"status": "ok", "commit_sha": sha}
 
 
@@ -397,8 +529,14 @@ async def merge_complete(request: Request) -> dict[str, str]:
 async def merge_abort(request: Request) -> dict[str, str]:
     """Abort an in-progress merge or cherry-pick."""
     engine = _engine_for_request(request)
+    runtime = request.app.state.runtime
+    project_dir = Path(runtime.active_project.path)
+    before = _snapshot_workflows(project_dir)
     try:
         engine.merge_abort()
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
+    # Abort rewinds the working tree to the pre-merge state — workflow
+    # YAML files revert too.
+    await _emit_workflow_diff(runtime.event_bus, project_dir, before)
     return {"status": "ok"}
