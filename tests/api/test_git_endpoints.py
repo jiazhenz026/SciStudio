@@ -65,9 +65,7 @@ def test_log_endpoint_respects_limit(client: TestClient, opened_project: Path) -
     assert len(resp.json()) == 2
 
 
-def test_log_endpoint_includes_remote_and_tag_refs(
-    client: TestClient, opened_project: Path
-) -> None:
+def test_log_endpoint_includes_remote_and_tag_refs(client: TestClient, opened_project: Path) -> None:
     """Hotfix #1011: log surfaces refs/remotes/ + refs/tags/, not only local.
 
     Before the fix, a commit only known via a remote-tracking ref or a
@@ -77,9 +75,7 @@ def test_log_endpoint_includes_remote_and_tag_refs(
     import subprocess
 
     (opened_project / "tagged.txt").write_text("x", encoding="utf-8")
-    sha = client.post("/api/git/commit", json={"message": "for tag"}).json()[
-        "commit_sha"
-    ]
+    sha = client.post("/api/git/commit", json={"message": "for tag"}).json()["commit_sha"]
     subprocess.run(
         ["git", "-C", str(opened_project), "tag", "v0.1.0", sha],
         check=True,
