@@ -3,19 +3,21 @@
 Provisions ``<project>/.claude/settings.json`` and the 6 hook scripts at
 ``<project>/.claude/hooks/`` for Claude Code's hook system.
 
-Per ADR §3.6:
+Per ADR §3.6 (matcher list expanded with ``MultiEdit`` per Codex P1
+review on PR #1047 — Claude Code treats ``MultiEdit`` as a distinct
+tool name; omitting it leaves a bypass path):
 
   PreToolUse (3):
     - hook_deny_scieasy_cli.py                      (matcher: Bash)
-    - hook_protect_workflow_yaml.py                 (matcher: Edit|Write)
+    - hook_protect_workflow_yaml.py                 (matcher: Edit|Write|MultiEdit)
     - hook_enforce_list_blocks_before_block_write.py
-        (matcher: Edit|Write|Bash|mcp__scieasy__scaffold_block)
+        (matcher: Edit|Write|MultiEdit|Bash|mcp__scieasy__scaffold_block)
 
   PostToolUse (3):
     - hook_remind_poll_status.py                    (matcher: mcp__scieasy__run_workflow)
     - hook_mark_list_blocks_called.py               (matcher: mcp__scieasy__list_blocks)
     - hook_enforce_concrete_port_types.py
-        (matcher: Edit|Write|mcp__scieasy__scaffold_block)
+        (matcher: Edit|Write|MultiEdit|mcp__scieasy__scaffold_block)
 
 Hook scripts read JSON from stdin (Claude Code's hook stdin contract);
 exit code 2 blocks the tool call (PreToolUse only); exit code 0 passes.
@@ -71,18 +73,24 @@ def _build_settings_json(hooks_dir_rel: str) -> dict:
     project directory.
     """
     py = "python"  # interpreter resolved by PATH in the user's shell
+    # Codex P1 reconcile (PR #1047): include MultiEdit in every Edit|Write
+    # matcher so multi-edit operations are not a bypass path. Claude Code
+    # treats MultiEdit as a distinct tool name.
     pre = [
         ("Bash", "deny_scieasy_cli.py"),
-        ("Edit|Write", "protect_workflow_yaml.py"),
+        ("Edit|Write|MultiEdit", "protect_workflow_yaml.py"),
         (
-            "Edit|Write|Bash|mcp__scieasy__scaffold_block",
+            "Edit|Write|MultiEdit|Bash|mcp__scieasy__scaffold_block",
             "enforce_list_blocks_before_block_write.py",
         ),
     ]
     post = [
         ("mcp__scieasy__run_workflow", "remind_poll_status.py"),
         ("mcp__scieasy__list_blocks", "mark_list_blocks_called.py"),
-        ("Edit|Write|mcp__scieasy__scaffold_block", "enforce_concrete_port_types.py"),
+        (
+            "Edit|Write|MultiEdit|mcp__scieasy__scaffold_block",
+            "enforce_concrete_port_types.py",
+        ),
     ]
 
     def _entry(matcher: str, script: str) -> dict:
