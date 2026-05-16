@@ -42,3 +42,17 @@ def test_cli_init_degraded_mode_when_git_unavailable(tmp_path: Path, monkeypatch
     # which CliRunner captures via mix_stderr in default).
     combined = (result.output or "") + (result.stderr if hasattr(result, "stderr") else "")
     assert "WARNING" in combined or "git binary unavailable" in combined
+
+
+def test_cli_init_provisions_adr040_assets(tmp_path: Path, monkeypatch) -> None:
+    """ADR-040 §3.8: ``scieasy init`` provisions CLAUDE.md / hooks / codex config."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["init", "adr040_project"])
+    assert result.exit_code == 0, result.output
+
+    project = tmp_path / "adr040_project"
+    assert (project / "CLAUDE.md").is_file()
+    assert (project / "AGENTS.md").is_file()
+    assert (project / ".claude" / "settings.json").is_file()
+    assert (project / ".claude" / "hooks" / "deny_scieasy_cli.py").is_file()
+    assert (project / ".codex" / "config.toml").is_file()

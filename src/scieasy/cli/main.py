@@ -173,6 +173,28 @@ def init(name: str = typer.Argument("my_project", help="Project workspace name")
     except Exception as exc:  # pragma: no cover — defensive
         typer.echo(f"WARNING: git auto-init errored: {exc}", err=True)
 
+    # ------------------------------------------------------------------
+    # ADR-040 §3.8 prod-env agent provisioning wiring (cli init).
+    # ------------------------------------------------------------------
+    # Runs AFTER git init so the initial commit is clean of provisioned
+    # files. Failures are non-fatal per ADR §7 and surfaced via
+    # ``typer.echo`` on stderr, mirroring the ADR-039 degraded-mode
+    # pattern above.
+    try:
+        from scieasy.agent_provisioning import install_project_agent_assets
+
+        provision_result = install_project_agent_assets(project_path, force=False)
+        if provision_result.failed:
+            typer.echo(
+                f"WARNING: ADR-040 agent provisioning partial failure: {provision_result.failed}",
+                err=True,
+            )
+    except Exception as exc:  # pragma: no cover — defensive
+        typer.echo(
+            f"WARNING: ADR-040 agent provisioning failed: {exc}",
+            err=True,
+        )
+
     typer.echo(f"Created project workspace: {name}/")
 
 
