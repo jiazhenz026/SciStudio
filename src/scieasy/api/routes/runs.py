@@ -126,14 +126,66 @@ def get_run(run_id: str, store: Any = _LineageStoreDep) -> dict[str, Any]:
 
     Per ADR-038 §3.7 (Q3/Q4) we surface block_executions ordered by
     ``started_at`` so the UI can render the per-block timeline directly.
-    Block-level I/O DataObjects are NOT inlined here — clients fetch
-    them on demand via ``block_execution_id`` -> ``block_io`` -> ``data_objects``.
-    Inlining would balloon the payload for runs with many blocks.
+
+    Hotfix #996: per-block I/O DataObjects are now **inlined** as
+    ``block_executions[i].inputs`` / ``.outputs`` arrays. ADR-038 §3.7
+    Q4b "Per-block I/O DataObjects?" SQL is materialised via one
+    batched query (``LineageStore.list_block_io_with_objects(run_id)``)
+    and bucketed in Python. Pre-#996 the route returned a hand-waved
+    "clients fetch on demand" placeholder, but no separate endpoint was
+    ever wired up, so the Lineage tab block cards rendered "0 inputs /
+    0 outputs" for every block (Phase 4a finding).
+
+    Each I/O entry has shape::
+
+        {
+          "direction": "input" | "output",
+          "port_name": str,
+          "position": int,
+          "object_id": str,
+          "type_name": str,          # e.g. "Image" / "Mask"
+          "backend": str | None,     # e.g. "zarr"
+          "storage_path": str | None,
+          "produced_by_execution": str | None,  # FK to block_executions
+        }
+
+    ``wire_payload`` is intentionally excluded from the response — its
+    KB-scale per-object JSON would balloon the payload (ADR-038 §3.1
+    Collection unrolling note: ~1-2 KB per item × many items × many
+    blocks). Clients that need the full wire-format dict can query
+    ``GET /api/runs/{run_id}/data-objects/{object_id}`` (deferred to a
+    follow-up endpoint; v1 reference-by-id is sufficient for the tab).
     """
     run = store.get_run(run_id)
     if run is None:
         raise HTTPException(status_code=404, detail=f"run_id {run_id!r} not found")
     block_executions = store.list_block_executions(run_id)
+
+    # Bucket I/O rows into each block_execution. One batched query keeps
+    # the response O(rows) instead of O(blocks × round-trips).
+    io_rows = store.list_block_io_with_objects(run_id)
+    inputs_by_be: dict[str, list[dict[str, Any]]] = {}
+    outputs_by_be: dict[str, list[dict[str, Any]]] = {}
+    for row in io_rows:
+        be_id = row["block_execution_id"]
+        entry = {
+            "direction": row["direction"],
+            "port_name": row["port_name"],
+            "position": row["position"],
+            "object_id": row["object_id"],
+            "type_name": row["type_name"],
+            "backend": row["backend"],
+            "storage_path": row["storage_path"],
+            "produced_by_execution": row["produced_by_execution"],
+        }
+        bucket = inputs_by_be if row["direction"] == "input" else outputs_by_be
+        bucket.setdefault(be_id, []).append(entry)
+
+    for be in block_executions:
+        be_id = be["block_execution_id"]
+        be["inputs"] = inputs_by_be.get(be_id, [])
+        be["outputs"] = outputs_by_be.get(be_id, [])
+
     return {
         "run": run,
         "block_executions": block_executions,

@@ -454,6 +454,49 @@ class LineageStore:
             columns = [d[0] for d in cur.description]
             return [dict(zip(columns, row, strict=False)) for row in cur.fetchall()]
 
+    def list_block_io_with_objects(
+        self, run_id: str
+    ) -> list[dict[str, Any]]:
+        """Return all I/O edges joined with their ``data_objects`` row for a run.
+
+        Hotfix #996: ADR-038 §3.7 Q4b "Per-block I/O DataObjects?" SQL
+        rendered as a single batched query so ``GET /api/runs/{run_id}``
+        can inline inputs/outputs into each ``block_executions`` row
+        without N round-trips. Pre-#996 the route deferred the JOIN and
+        the frontend rendered "0 inputs / 0 outputs" on every block card
+        (Phase 4a finding).
+
+        Returned columns: ``block_execution_id``, ``direction``,
+        ``port_name``, ``position``, ``object_id``, ``type_name``,
+        ``backend``, ``storage_path``, ``wire_payload``,
+        ``produced_by_execution``. Rows are ordered by
+        ``(block_execution_id, direction, port_name, position)`` so
+        callers can stream-bucket them.
+        """
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT bio.block_execution_id,
+                       bio.direction,
+                       bio.port_name,
+                       bio.position,
+                       bio.object_id,
+                       do.type_name,
+                       do.backend,
+                       do.storage_path,
+                       do.wire_payload,
+                       do.produced_by_execution
+                FROM block_io bio
+                JOIN block_executions be ON bio.block_execution_id = be.block_execution_id
+                JOIN data_objects do ON bio.object_id = do.object_id
+                WHERE be.run_id = ?
+                ORDER BY bio.block_execution_id, bio.direction, bio.port_name, bio.position
+                """,
+                (run_id,),
+            )
+            columns = [d[0] for d in cur.description]
+            return [dict(zip(columns, row, strict=False)) for row in cur.fetchall()]
+
     # ------------------------------------------------------------------
     # Test / introspection helpers
     # ------------------------------------------------------------------
