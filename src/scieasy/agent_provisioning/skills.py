@@ -94,20 +94,11 @@ def _read_skill_source(name: str) -> str:
     """
     # The base "scieasy" skill lives at the top of the _skills/scieasy/
     # package (no extra subdir); task-scoped skills live one level deeper.
-    if name == "scieasy":
-        try:
-            return importlib.resources.files("scieasy._skills.scieasy").joinpath("SKILL.md").read_text(encoding="utf-8")
-        except (FileNotFoundError, ModuleNotFoundError, NotADirectoryError):
-            pass
-    else:
-        try:
-            return (
-                importlib.resources.files(f"scieasy._skills.scieasy.{name}")
-                .joinpath("SKILL.md")
-                .read_text(encoding="utf-8")
-            )
-        except (FileNotFoundError, ModuleNotFoundError, NotADirectoryError):
-            pass
+    package_path = "scieasy._skills.scieasy" if name == "scieasy" else f"scieasy._skills.scieasy.{name}"
+    try:
+        return importlib.resources.files(package_path).joinpath("SKILL.md").read_text(encoding="utf-8")
+    except (FileNotFoundError, ModuleNotFoundError, NotADirectoryError):
+        pass
 
     here = Path(__file__).resolve()
     for parent in here.parents:
