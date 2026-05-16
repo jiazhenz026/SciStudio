@@ -19,20 +19,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import pytest
-
-# TODO(#1012): module-level skip during ADR-040 §3.1 FastMCP skeleton
-#   phase. MCPServer.start / .stop are NotImplementedError stubs until
-#   I40a Phase 2a wires the FastMCP transport. Out of scope per
-#   ADR-040 §3.1 / phase: 2a I40a. Followup: #1012.
-pytestmark = pytest.mark.skip(
-    reason="S40a skeleton — MCPServer.start/.stop are NotImplementedError. TODO(#1012): I40a Phase 2a restores."
-)
-
-from scieasy.ai.agent.mcp import _context  # noqa: E402
-from scieasy.ai.agent.mcp.server import MCPServer  # noqa: E402
-from scieasy.blocks.registry import BlockRegistry  # noqa: E402
-from scieasy.core.types.registry import TypeRegistry  # noqa: E402
+from scieasy.ai.agent.mcp import _context
+from scieasy.ai.agent.mcp.server import MCPServer
+from scieasy.blocks.registry import BlockRegistry
+from scieasy.core.types.registry import TypeRegistry
 
 
 @dataclass
