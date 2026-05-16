@@ -1,118 +1,64 @@
-"""MCP server — FastMCP-backed implementation (ADR-040 §3.1, skeleton).
+"""MCP server — FastMCP-backed implementation (ADR-040 §3.1).
 
-S40a skeleton. The hand-rolled asyncio JSON-RPC 2.0 server that lived
-here in the ADR-033 era is gone (deleted in this PR). FastMCP 3.x owns
-the transport, framing, ``inputSchema`` generation, and dispatch.
+Owns the module-scope ``fastmcp.FastMCP`` instance the four
+``tools_*.py`` modules decorate their tool functions onto, plus the
+:class:`MCPServer` lifecycle wrapper preserved from the ADR-033 era so
+the FastAPI lifespan in :mod:`scieasy.api.app` and the standalone
+``scieasy mcp-bridge`` runtime can construct it by name.
 
-This module exposes:
-
-* :data:`mcp` — the module-scope :class:`fastmcp.FastMCP` instance that
-  ``tools_workflow.py`` / ``tools_authoring.py`` / ``tools_inspection.py``
-  / ``tools_qa.py`` decorate their tool functions onto.
-* :class:`MCPServer` — a thin lifecycle wrapper preserving the name +
-  shape the FastAPI lifespan and the standalone-bridge runtime already
-  call (``MCPServer(socket_path=..., project_dir=...)`` + ``await
-  server.start()`` / ``await server.stop()``).
-
-The wrapper is necessary because:
-
-1. The FastAPI ``lifespan`` in :mod:`scieasy.api.app` and the
-   standalone-bridge in :mod:`scieasy.ai.agent.mcp.runtime` both
-   construct an ``MCPServer`` by name; preserving the name avoids
-   cascading edits across the codebase.
-2. FastMCP's native ``serve()`` is blocking; the FastAPI lifespan needs
-   an async ``start()`` that returns after the listener is bound, plus a
-   non-blocking ``stop()`` for graceful shutdown. The wrapper provides
-   that lifecycle shape.
-
-Transport choice (preserved from the hand-rolled era):
+Transport (preserved from pre-FastMCP era so the bridge protocol does
+not move):
 
 * **POSIX** — Unix domain socket at the path provided by the caller
-  (default ``{project}/.scieasy/mcp.sock``).
-* **Windows** — TCP loopback (``127.0.0.1``, ephemeral port); the port
-  is written to ``<socket_path>.port`` next to the socket-path sentinel
-  so the bridge can discover it.
+  (default ``{project}/.scieasy/mcp.sock``). Line-delimited JSON-RPC.
+* **Windows** — TCP loopback on ``127.0.0.1`` with an ephemeral port;
+  the port is written to ``<socket_path>.port`` next to the sentinel
+  socket-path file so the bridge subprocess can discover it.
 
-I40a (Phase 2a) replaces ``serve()`` with the real FastMCP wiring,
-including JSON-RPC initialize / tools/list / tools/call. The S40a
-skeleton emits a clear :class:`NotImplementedError` so any accidental
-runtime use during the cascade is loud rather than silent.
+The wrapper bridges two impedance mismatches:
+
+1. FastMCP's native ``run_async`` blocks for the lifetime of the
+   server; the FastAPI lifespan wants ``start()``/``stop()`` that
+   return promptly while a background task owns the serve loop.
+2. The bridge subprocess wants a single blocking ``await server.serve()``
+   call. ``serve()`` is therefore the merge of ``start()`` + ``wait``.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import json
 import logging
+import os
+import sys
 from pathlib import Path
-from typing import Any
+
+from fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Module-scope FastMCP instance — placeholder for S40a.
-# ---------------------------------------------------------------------------
+# Module-scope FastMCP instance (ADR-040 §3.1).
 #
-# TODO(#1012): replace with the real FastMCP instance per ADR-040 §3.1.
-#   ```python
-#   from fastmcp import FastMCP
-#   mcp = FastMCP(name="scieasy-mcp", version="0.1.0")
-#   ```
-#   Tool modules (``tools_workflow.py`` etc.) import ``mcp`` from this
-#   module and decorate their functions with ``@mcp.tool(name=...)``.
-#   FastMCP auto-discovers them and exposes via ``mcp.list_tools()``
-#   (used by :mod:`scieasy.ai.agent.system_prompt`).
-#
-#   For S40a skeleton, we expose a sentinel placeholder that tool
-#   modules can use as the decorator target. The placeholder mimics the
-#   FastMCP decorator API surface so module import succeeds without the
-#   real dependency installed during early CI. I40a swaps this out.
-#
-#   Followup: open as part of ADR-040 Phase 2a I40a impl.
+# Tool modules (``tools_workflow.py`` etc.) import this and decorate their
+# functions with ``@mcp.tool(name=..., tags={...})``. FastMCP auto-discovers
+# them and exposes via ``await mcp.list_tools()`` (used by
+# :mod:`scieasy.ai.agent.system_prompt._render_tool_catalog`).
 # ---------------------------------------------------------------------------
 
-
-class _MCPPlaceholder:
-    """Skeleton stand-in for :class:`fastmcp.FastMCP`.
-
-    Provides the ``@mcp.tool(...)`` decorator API surface so tool
-    modules can be imported during S40a without a real FastMCP dep
-    install. The decorator records nothing — bodies raise
-    :class:`NotImplementedError` regardless.
-
-    # TODO(#1012): Replace with ``fastmcp.FastMCP(...)`` in I40a Phase 2a.
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    """
-
-    def tool(self, *args: Any, **kwargs: Any) -> Any:
-        """No-op decorator factory that returns the wrapped function unchanged."""
-
-        def _decorator(fn: Any) -> Any:
-            return fn
-
-        return _decorator
-
-    def list_tools(self) -> list[dict[str, Any]]:
-        """Placeholder for FastMCP's tools enumeration.
-
-        # TODO(#1012): I40a replaces this with the real
-        #   ``fastmcp.FastMCP.list_tools()`` surface. The renderer in
-        #   :mod:`scieasy.ai.agent.system_prompt` iterates the returned
-        #   shape and builds the catalogue block.
-        """
-        raise NotImplementedError(
-            "S40a skeleton — FastMCP list_tools() lands in I40a Phase 2a. "
-            "TODO(#1012): wire real fastmcp.FastMCP instance per ADR-040 §3.1."
-        )
+mcp: FastMCP = FastMCP(name="scieasy-mcp", version="0.1.0")
+"""Module-scope FastMCP instance (ADR-040 §3.1)."""
 
 
-mcp: Any = _MCPPlaceholder()
-"""Module-scope FastMCP instance (placeholder in S40a skeleton).
-
-Tool modules import this and decorate their functions:
-``@mcp.tool(name="list_blocks") async def list_blocks(...) -> ...``.
-"""
+# JSON-RPC 2.0 error codes preserved for the line-delimited transport
+# adapter below.
+_PARSE_ERROR = -32700
+_INVALID_REQUEST = -32600
+_METHOD_NOT_FOUND = -32601
+_INVALID_PARAMS = -32602
+_INTERNAL_ERROR = -32603
 
 
 # ---------------------------------------------------------------------------
@@ -123,26 +69,23 @@ Tool modules import this and decorate their functions:
 class MCPServer:
     """Thin lifecycle wrapper around the FastMCP server.
 
-    Constructed once per process by the FastAPI lifespan
-    (:mod:`scieasy.api.app`) and by the standalone-bridge runtime
-    (:mod:`scieasy.ai.agent.mcp.runtime`). Both callers expect:
+    Preserves the constructor signature + ``start``/``stop``/``serve``
+    surface the FastAPI lifespan (:mod:`scieasy.api.app`) and the
+    standalone-bridge runtime (:mod:`scieasy.ai.agent.mcp.runtime`)
+    already call, while delegating dispatch + ``inputSchema`` generation
+    to FastMCP.
 
-    * ``MCPServer(socket_path: Path, project_dir: Path)``
-    * ``await server.start()`` — bind transport, return after listener
-      is up.
-    * ``await server.stop()`` — graceful shutdown.
-    * ``server.port`` — bound TCP port on Windows transport, or
-      ``None`` on POSIX.
-
-    The FastMCP migration replaces the hand-rolled asyncio server here
-    with a FastMCP runtime, but the call-sites remain unchanged.
+    Transport stays line-delimited JSON-RPC over a Unix socket (POSIX)
+    or TCP loopback (Windows) so the existing bridge subprocess
+    (``scieasy mcp-bridge``) and Claude Code's MCP client implementation
+    keep working without protocol churn.
 
     Parameters
     ----------
     socket_path
         Filesystem path for the Unix domain socket (POSIX). On Windows
-        this is treated as a sibling sentinel file: the actual TCP
-        port is written to ``<socket_path>.port`` next to it.
+        this is treated as a sibling sentinel file: the actual TCP port
+        is written to ``<socket_path>.port`` next to it.
     project_dir
         Project workspace root. Threaded through to tool handlers via
         :func:`scieasy.ai.agent.mcp._context.set_context` so they can
@@ -155,60 +98,66 @@ class MCPServer:
     def __init__(self, socket_path: Path, project_dir: Path) -> None:
         self.socket_path = socket_path
         self.project_dir = project_dir
+        self._server: asyncio.AbstractServer | None = None
         self._port: int | None = None
 
     async def start(self) -> None:
-        """Bind the FastMCP transport and start accepting requests.
+        """Bind the transport and start accepting JSON-RPC requests.
 
-        Idempotent: a second call while already started must be a no-op.
+        Idempotent: a second call while already started is a no-op.
 
-        # TODO(#1012): wire fastmcp.FastMCP serve loop per ADR-040 §3.1.
-        #   Reference impl plan:
-        #     1. POSIX: ``mcp.run_async(transport='unix_socket', path=str(self.socket_path))``
-        #        (or equivalent FastMCP API once docs are confirmed).
-        #     2. Windows: TCP loopback fallback as in the ADR-033 era;
-        #        bind to 127.0.0.1:0, capture port from socket, write
-        #        ``<socket_path>.port`` sentinel for the bridge to read.
-        #     3. Update ``self._port`` for Windows.
-        #     4. Honour ``logger.info("MCPServer: listening on ...")``
-        #        for parity with existing operational logs.
-        #
-        #   Existing callsites:
-        #     - ``src/scieasy/api/app.py`` lifespan (FastAPI prod).
-        #     - ``src/scieasy/ai/agent/mcp/runtime.py::start_inprocess_server``
-        #       (standalone bridge).
-        #
-        #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-        #   Followup: #1012.
+        Returns after the listener is bound, so the FastAPI lifespan
+        can move on to other startup work while the accept loop runs
+        as a background asyncio task owned by the asyncio server.
         """
-        # Skeleton-phase hygiene (audit F1030-1): NotImplementedError leaked
-        # into api/app.py lifespan + standalone mcp-bridge subprocess, breaking
-        # backend boot. Behave as a no-op + warn so runtime stays alive; I40a
-        # wires the real FastMCP serve loop.
-        logger.warning(
-            "MCPServer.start() is a S40a skeleton no-op — FastMCP serve loop "
-            "lands in I40a Phase 2a per ADR-040 §3.1. TODO(#1012)."
+        if self._server is not None:
+            return
+        self.socket_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if sys.platform == "win32":
+            # TCP loopback fallback — asyncio's named-pipe API on
+            # Windows is partial and varies by Python build.
+            self._server = await asyncio.start_server(self._handle_client, host="127.0.0.1", port=0)
+            sockets = self._server.sockets or ()
+            if sockets:
+                self._port = int(sockets[0].getsockname()[1])
+                port_file = self.socket_path.with_suffix(self.socket_path.suffix + ".port")
+                port_file.parent.mkdir(parents=True, exist_ok=True)
+                port_file.write_text(str(self._port), encoding="utf-8")
+        else:
+            # Remove stale socket from a prior crashed run.
+            with contextlib.suppress(OSError):
+                if self.socket_path.exists():
+                    os.unlink(self.socket_path)
+            self._server = await asyncio.start_unix_server(self._handle_client, path=str(self.socket_path))
+
+        logger.info(
+            "MCPServer: listening on %s (project_dir=%s)",
+            self._port or self.socket_path,
+            self.project_dir,
         )
 
     async def stop(self) -> None:
-        """Stop accepting connections and tear down the FastMCP transport.
-
-        # TODO(#1012): wire fastmcp.FastMCP shutdown per ADR-040 §3.1.
-        #   Reference impl plan:
-        #     1. Cancel the FastMCP serve task.
-        #     2. POSIX: ``os.unlink(self.socket_path)`` if present.
-        #     3. Windows: remove ``<socket_path>.port`` sentinel.
-        #     4. Reset ``self._port`` to None.
-        #
-        #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-        #   Followup: #1012.
-        """
-        # Skeleton-phase hygiene (audit F1030-1 companion): symmetric no-op
-        # so lifespan shutdown doesn't crash.
-        logger.warning(
-            "MCPServer.stop() is a S40a skeleton no-op — FastMCP shutdown "
-            "lands in I40a Phase 2a per ADR-040 §3.1. TODO(#1012)."
-        )
+        """Stop accepting connections and tear down the transport."""
+        if self._server is None:
+            return
+        self._server.close()
+        try:
+            await self._server.wait_closed()
+        except Exception:  # pragma: no cover - defensive
+            logger.warning("MCPServer.stop: wait_closed raised", exc_info=True)
+        if sys.platform != "win32":
+            with contextlib.suppress(OSError):
+                if self.socket_path.exists():
+                    os.unlink(self.socket_path)
+        else:
+            port_file = self.socket_path.with_suffix(self.socket_path.suffix + ".port")
+            with contextlib.suppress(OSError):
+                if port_file.exists():
+                    os.unlink(port_file)
+        self._server = None
+        self._port = None
+        logger.info("MCPServer: stopped")
 
     @property
     def port(self) -> int | None:
@@ -216,36 +165,170 @@ class MCPServer:
         return self._port
 
     async def serve(self) -> None:
-        """Bind transport and block until shutdown (FastMCP-native).
+        """Bind transport and block until shutdown.
 
         Convenience entry point for the standalone-bridge ``mcp-bridge``
-        subprocess, which wants to block on a single ``await``. Equivalent
-        to ``await start()`` followed by waiting for the serve task to
-        exit.
-
-        # TODO(#1012): wire fastmcp.FastMCP.run_async per ADR-040 §3.1.
-        #   The standalone-bridge subprocess (``scieasy mcp-bridge``)
-        #   calls this. I40a wires it as:
-        #     ```python
-        #     await self.start()
-        #     await self._serve_task
-        #     ```
-        #   or directly:
-        #     ```python
-        #     await mcp.run_async(transport=...)
-        #     ```
-        #
-        #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-        #   Followup: #1012.
+        subprocess, which awaits a single coroutine for its lifetime.
+        Equivalent to ``await start()`` followed by waiting for the
+        server's accept loop to exit (which only happens via
+        ``stop()`` or process termination).
         """
-        # Skeleton-phase hygiene (audit F1030-1 companion): the standalone
-        # mcp-bridge subprocess awaits serve() and would crash hard on
-        # NotImplementedError. Block forever returning no responses; bridge
-        # clients see a non-functional MCP but the process stays alive.
-        # I40a wires the real blocking serve loop.
-        logger.warning(
-            "MCPServer.serve() is a S40a skeleton no-op (sleeping forever) — "
-            "real FastMCP serve loop lands in I40a Phase 2a per ADR-040 §3.1. "
-            "TODO(#1012)."
-        )
-        await asyncio.Event().wait()
+        await self.start()
+        if self._server is None:  # pragma: no cover - start always sets _server
+            return
+        try:
+            await self._server.serve_forever()
+        except asyncio.CancelledError:
+            raise
+        finally:
+            await self.stop()
+
+    # ------------------------------------------------------------------
+    # Per-connection accept loop — line-delimited JSON-RPC framing.
+    # ------------------------------------------------------------------
+
+    async def _handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        """Read line-delimited JSON-RPC frames and write responses."""
+        peer = writer.get_extra_info("peername") or writer.get_extra_info("sockname")
+        logger.debug("MCPServer: client connected: %s", peer)
+        try:
+            while True:
+                line = await reader.readline()
+                if not line:
+                    break
+                try:
+                    request = json.loads(line.decode("utf-8"))
+                except json.JSONDecodeError as exc:
+                    response = _error_response(None, _PARSE_ERROR, f"parse error: {exc}")
+                else:
+                    response = await self.dispatch(request)
+                writer.write((json.dumps(response) + "\n").encode("utf-8"))
+                await writer.drain()
+        except (asyncio.CancelledError, ConnectionResetError):
+            pass
+        except Exception:
+            logger.exception("MCPServer: per-client loop crashed")
+        finally:
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except Exception:
+                pass
+            logger.debug("MCPServer: client disconnected: %s", peer)
+
+    # ------------------------------------------------------------------
+    # Dispatch (the public surface tests exercise directly).
+    # ------------------------------------------------------------------
+
+    async def dispatch(self, request: dict) -> dict:
+        """Route one decoded JSON-RPC request through FastMCP.
+
+        Recognised methods:
+
+        * ``"initialize"`` — MCP handshake; returns server capabilities.
+        * ``"tools/list"`` — enumerates the registered tools.
+        * ``"tools/call"`` — invokes one tool by name + arguments.
+        """
+        req_id = request.get("id")
+        method = request.get("method")
+        params = request.get("params") or {}
+
+        if not isinstance(method, str):
+            return _error_response(req_id, _INVALID_REQUEST, "missing 'method'")
+
+        try:
+            if method == "initialize":
+                return _ok(
+                    req_id,
+                    {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {"tools": {"listChanged": False}},
+                        "serverInfo": {"name": "scieasy-mcp", "version": "0.1.0"},
+                    },
+                )
+            if method == "tools/list":
+                fastmcp_tools = await mcp.list_tools()
+                tools = []
+                for entry in fastmcp_tools:
+                    tags = set(entry.tags or set())
+                    category = next(
+                        (t.split(":", 1)[1] for t in tags if t.startswith("category:")),
+                        "uncategorised",
+                    )
+                    mutation = "write" if "write" in tags else "read"
+                    tools.append(
+                        {
+                            "name": entry.name,
+                            "description": entry.description or "",
+                            "inputSchema": entry.parameters,
+                            "_meta": {"category": category, "mutation": mutation},
+                        }
+                    )
+                return _ok(req_id, {"tools": tools})
+            if method == "tools/call":
+                name = params.get("name")
+                arguments = params.get("arguments") or {}
+                if not isinstance(name, str):
+                    return _error_response(req_id, _INVALID_PARAMS, "missing tool 'name'")
+                # Pre-check tool existence so the unknown-tool error
+                # surfaces as JSON-RPC METHOD_NOT_FOUND (-32601) rather
+                # than INVALID_PARAMS (-32602).
+                known_tools = await mcp.list_tools()
+                if name not in {t.name for t in known_tools}:
+                    return _error_response(req_id, _METHOD_NOT_FOUND, f"unknown tool '{name}'")
+                try:
+                    result = await mcp.call_tool(name, arguments)
+                except Exception as exc:
+                    return _error_response(
+                        req_id,
+                        _INVALID_PARAMS,
+                        f"call_tool failed for {name}: {type(exc).__name__}: {exc}",
+                    )
+                content_text = json.dumps(_serialise_result(result), default=str)
+                return _ok(
+                    req_id,
+                    {"content": [{"type": "text", "text": content_text}]},
+                )
+
+            return _error_response(req_id, _METHOD_NOT_FOUND, f"unknown method '{method}'")
+        except Exception as exc:
+            logger.exception("MCPServer.dispatch failed for method=%s", method)
+            return _error_response(req_id, _INTERNAL_ERROR, f"{type(exc).__name__}: {exc}")
+
+
+def _ok(req_id, result: dict) -> dict:
+    return {"jsonrpc": "2.0", "id": req_id, "result": result}
+
+
+def _error_response(req_id, code: int, message: str) -> dict:
+    return {"jsonrpc": "2.0", "id": req_id, "error": {"code": code, "message": message}}
+
+
+def _serialise_result(result) -> object:
+    """Coerce a FastMCP ToolResult-like object to a JSON-friendly value.
+
+    FastMCP's ``call_tool`` returns either a ``ToolResult`` (with
+    ``structured_content``) or already-coerced primitives depending on
+    version. We normalise to the most informative JSON value available.
+    """
+    structured = getattr(result, "structured_content", None)
+    if structured is not None:
+        return structured
+    content = getattr(result, "content", None)
+    if content is not None:
+        out = []
+        for block in content:
+            text = getattr(block, "text", None)
+            if text is not None:
+                try:
+                    out.append(json.loads(text))
+                except (json.JSONDecodeError, TypeError):
+                    out.append(text)
+            else:
+                model_dump = getattr(block, "model_dump", None)
+                out.append(model_dump() if callable(model_dump) else str(block))
+        return out[0] if len(out) == 1 else out
+    return result
+
+
+__all__ = ["MCPServer", "mcp"]

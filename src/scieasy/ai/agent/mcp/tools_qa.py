@@ -1,10 +1,6 @@
 """Category (d) MCP tools — documentation and project Q&A (4 tools).
 
-ADR-040 §3.1 FastMCP migration, S40a skeleton phase. All tool functions
-are decorated with ``@mcp.tool(name=...)`` and declare Pydantic result
-models. Bodies raise :class:`NotImplementedError` with a detailed
-``# TODO(#1012)`` comment block describing the impl approach for I40a
-Phase 2a.
+ADR-040 §3.1 FastMCP migration, I40a Phase 2a implementation.
 
 The 4 tools (all read-class) are:
 
@@ -14,23 +10,26 @@ The 4 tools (all read-class) are:
 from __future__ import annotations
 
 import logging
+import warnings
+from pathlib import Path
 from typing import Any
 
+import yaml as yaml_module
 from pydantic import BaseModel, Field
 
+from scieasy.ai.agent.mcp._context import _resolve_project_root, get_context
 from scieasy.ai.agent.mcp.server import mcp
 
 logger = logging.getLogger(__name__)
 
 
-# Constants preserved for I40a Phase 2a impl reference.
 _SEARCH_MAX_RESULTS = 20
 _SEARCH_SNIPPET_CHARS = 200
 _DATA_LIST_MAX_ENTRIES = 500
 
 
 # ---------------------------------------------------------------------------
-# Pydantic result models — ADR-040 §3.1 typed envelopes.
+# Pydantic result models.
 # ---------------------------------------------------------------------------
 
 
@@ -90,11 +89,30 @@ class GetProjectInfoResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _docs_root() -> Path:
+    """Locate the ``docs/`` tree."""
+    ctx = get_context()
+    if ctx.project_dir is not None:
+        candidate = ctx.project_dir / "docs"
+        if candidate.is_dir():
+            return candidate
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / "docs").is_dir():
+            return parent / "docs"
+    raise FileNotFoundError("No docs/ directory found")
+
+
+# ---------------------------------------------------------------------------
 # (d.1) search_docs
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(name="search_docs")
+@mcp.tool(name="search_docs", tags={"category:qa", "read"})
 async def search_docs(
     query: str = Field(description="Free-text search query (case-insensitive substring match)."),
     scope: str | None = Field(
@@ -114,18 +132,52 @@ async def search_docs(
 
     Returns up to 20 results sorted by descending hit count.
     """
-    # TODO(#1012): port from ADR-033-era impl preserving:
-    #   1. _docs_root() — project_dir/docs first, then walk up from
-    #      __file__ to find repo-level docs/.
-    #   2. PR #744 Codex P1 (discussion_r3231046696): validate scope
-    #      resolves within docs/ — otherwise "../../" or absolute paths
-    #      silently scan outside. Mirrors the guard in get_doc().
-    #   3. Substring match, case-insensitive.
-    #   4. Sort by score (count) descending; cap to _SEARCH_MAX_RESULTS=20.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    if not query:
+        return []
+    root = _docs_root()
+    root_resolved = root.resolve()
+    if scope:
+        # PR #744 Codex P1 (discussion_r3231046696): validate scope
+        # resolves within docs/ so "../../" etc. cannot silently escape.
+        try:
+            scoped = (root / scope).resolve()
+            scoped.relative_to(root_resolved)
+        except (OSError, ValueError):
+            return []
+        if not scoped.exists():
+            return []
+        search_root = scoped
+    else:
+        search_root = root
+
+    q = query.lower()
+    results: list[SearchDocsHit] = []
+    for md_path in sorted(search_root.rglob("*.md")):
+        try:
+            text = md_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        lower = text.lower()
+        idx = lower.find(q)
+        if idx == -1:
+            continue
+        line_no = text[:idx].count("\n") + 1
+        start = max(0, idx - 60)
+        end = min(len(text), idx + _SEARCH_SNIPPET_CHARS - 60)
+        snippet = text[start:end].replace("\n", " ")
+        path_str = str(md_path.relative_to(root.parent)) if md_path.is_relative_to(root.parent) else str(md_path)
+        results.append(
+            SearchDocsHit(
+                path=path_str,
+                line=line_no,
+                snippet=snippet,
+                score=float(lower.count(q)),
+            )
+        )
+        if len(results) >= _SEARCH_MAX_RESULTS:
+            break
+    results.sort(key=lambda r: r.score, reverse=True)
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -133,7 +185,7 @@ async def search_docs(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(name="get_doc")
+@mcp.tool(name="get_doc", tags={"category:qa", "read"})
 async def get_doc(
     path: str = Field(description="Path to the doc — either 'docs/foo.md' or 'foo.md' (resolved under docs/)."),
 ) -> GetDocResult:
@@ -147,19 +199,38 @@ async def get_doc(
       - Search docs — use ``search_docs``.
 
     Path validation: must resolve within the docs/ tree. Raises
-    ``PermissionError`` for paths that escape (e.g. ``../../etc/passwd``).
+    ``PermissionError`` for paths that escape.
     """
-    # TODO(#1012): port from ADR-033-era impl preserving path-traversal
-    #   guard. Reference:
-    #   1. _docs_root() → root.
-    #   2. Try p, root / p, root.parent / p; for each: resolve, verify
-    #      relative_to(root.resolve()) succeeds.
-    #   3. PermissionError when none resolve under root; FileNotFoundError
-    #      when the resolved path doesn't exist.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    root = _docs_root()
+    p = Path(path)
+    candidates = [p, root / p, root.parent / p]
+    resolved: Path | None = None
+    for cand in candidates:
+        try:
+            r = cand.resolve()
+        except OSError:
+            continue
+        try:
+            r.relative_to(root.resolve())
+        except ValueError:
+            continue
+        if r.exists():
+            resolved = r
+            break
+    if resolved is None:
+        try:
+            attempted = (root / p).resolve()
+            attempted.relative_to(root.resolve())
+        except ValueError as exc:
+            raise PermissionError(f"Path '{path}' escapes the docs/ tree") from exc
+        raise FileNotFoundError(f"Doc not found: {path}")
+
+    content = resolved.read_text(encoding="utf-8", errors="replace")
+    return GetDocResult(
+        path=str(resolved),
+        content=content,
+        bytes=len(content.encode("utf-8")),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -167,7 +238,7 @@ async def get_doc(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(name="list_data")
+@mcp.tool(name="list_data", tags={"category:qa", "read"})
 async def list_data(
     project_dir: str = Field(description="Absolute path to the project root."),
 ) -> ListDataResult:
@@ -184,16 +255,34 @@ async def list_data(
     entry per top-level dataset. Does not open the datasets — payload
     reads stay in ``preview_data``.
     """
-    # TODO(#1012): port from ADR-033-era impl preserving:
-    #   1. _DATA_LIST_MAX_ENTRIES = 500 cap.
-    #   2. Walks (zarr, "data/zarr"), (parquet, "data/parquet"),
-    #      (artifacts, "data/artifacts").
-    #   3. Skips entries whose stat() raises OSError.
-    #   4. Returns ListDataResult with three lists.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    root = Path(project_dir)
+    if not root.exists():
+        raise FileNotFoundError(f"Project directory not found: {project_dir}")
+
+    out: dict[str, list[DataAssetEntry]] = {"zarr": [], "parquet": [], "artifacts": []}
+    total_count = 0
+    for kind, subdir in (("zarr", "data/zarr"), ("parquet", "data/parquet"), ("artifacts", "data/artifacts")):
+        dpath = root / subdir
+        if not dpath.is_dir():
+            continue
+        for entry in sorted(dpath.iterdir()):
+            try:
+                stat = entry.stat()
+            except OSError:
+                continue
+            out[kind].append(
+                DataAssetEntry(
+                    name=entry.name,
+                    path=str(entry),
+                    size_bytes=stat.st_size if entry.is_file() else 0,
+                    modified_at=stat.st_mtime,
+                    is_directory=entry.is_dir(),
+                )
+            )
+            total_count += 1
+            if total_count >= _DATA_LIST_MAX_ENTRIES:
+                return ListDataResult(**out)
+    return ListDataResult(**out)
 
 
 # ---------------------------------------------------------------------------
@@ -201,7 +290,7 @@ async def list_data(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(name="get_project_info")
+@mcp.tool(name="get_project_info", tags={"category:qa", "read"})
 async def get_project_info() -> GetProjectInfoResult:
     """Return high-level information about the active project workspace.
 
@@ -217,14 +306,39 @@ async def get_project_info() -> GetProjectInfoResult:
 
     Raises ``FileNotFoundError`` if project.yaml is missing.
     """
-    # TODO(#1012): port from ADR-033-era impl. Reference:
-    #   1. _resolve_project_root(ctx) → root.
-    #   2. yaml.safe_load(project.yaml) → project_meta = raw.get("project", {}).
-    #   3. Enumerate workflows/*.yaml stems (sorted).
-    #   4. Best-effort recent_runs via get_metadata_store() with the
-    #      D38-2.3 deprecation-warning suppression dance.
-    #   5. Return GetProjectInfoResult.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    ctx = get_context()
+    root = _resolve_project_root(ctx)
+    project_file = root / "project.yaml"
+    if not project_file.exists():
+        raise FileNotFoundError(f"No project.yaml in {root}")
+    raw = yaml_module.safe_load(project_file.read_text(encoding="utf-8")) or {}
+    project_meta = raw.get("project", {}) if isinstance(raw, dict) else {}
+
+    workflows_dir = root / "workflows"
+    workflows: list[str] = []
+    if workflows_dir.is_dir():
+        workflows = sorted(p.stem for p in workflows_dir.glob("*.yaml"))
+
+    recent_runs: list[RecentRunEntry] = []
+    # Best-effort MetadataStore enumeration (D38-2.3 deprecation suppress).
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", module=r"scieasy\.core\.metadata_store")
+        try:
+            from scieasy.core.metadata_store import get_metadata_store
+
+            store = get_metadata_store()
+            if store is not None:
+                # Best-effort: leave empty if the store doesn't expose
+                # a recent_runs helper. Out of scope per ADR-040 §3.1.
+                # TODO(#1012): once MetadataStore grows a proper
+                # recent_runs() API, populate this list.
+                pass
+        except Exception:
+            logger.debug("get_project_info: MetadataStore lookup failed", exc_info=True)
+
+    return GetProjectInfoResult(
+        project=project_meta,
+        path=str(root),
+        workflows=workflows,
+        recent_runs=recent_runs,
+    )

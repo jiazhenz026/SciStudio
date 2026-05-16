@@ -1,10 +1,9 @@
 """Category (a) MCP tools — workflow inspection and execution (10 tools).
 
-ADR-040 §3.1 FastMCP migration, S40a skeleton phase. All tool functions
-are decorated with ``@mcp.tool(name=...)`` and declare Pydantic result
-models with ``next_step: str`` on write-class tools. Bodies raise
-:class:`NotImplementedError` with a detailed ``# TODO(#1012)`` comment
-block describing the impl approach for I40a Phase 2a.
+ADR-040 §3.1 FastMCP migration, I40a Phase 2a implementation. All tool
+functions are decorated with ``@mcp.tool(name=..., tags={...})`` and
+return Pydantic result models with ``next_step: str`` on write-class
+tools per ADR-040 §3.2.
 
 The 10 tools are:
 
@@ -22,14 +21,157 @@ pointing at the canonical follow-up tool.
 
 from __future__ import annotations
 
+import contextlib
+import dataclasses
+import datetime
+import json
 import logging
+import os
+import tempfile
+import traceback
+import uuid
+from pathlib import Path
 from typing import Annotated, Any
 
-from pydantic import BaseModel, Field
+import yaml as yaml_module
+from filelock import FileLock, Timeout
+from pydantic import BaseModel, Field, ValidationError
 
+from scieasy.ai.agent.mcp._context import _resolve_project_path, get_context
 from scieasy.ai.agent.mcp.server import mcp
 
 logger = logging.getLogger(__name__)
+
+
+_LOCK_TIMEOUT_SECONDS = 10.0
+"""ADR-033 OQ7: file lock timeout for atomic-write tools."""
+
+
+# ---------------------------------------------------------------------------
+# Run-level error capture
+#
+# The engine emits ``block_error`` events whose ``data["error"]`` is the full
+# Python traceback. The MCP layer surfaces it so the embedded agent can
+# self-debug without copy/paste from the GUI.
+# ---------------------------------------------------------------------------
+
+_run_block_errors: dict[tuple[str, str], dict[str, Any]] = {}
+"""``{(workflow_id, block_id): {"error": traceback, "summary": one_line}}``."""
+
+_error_subscriber_installed: bool = False
+
+
+def _ensure_error_subscriber() -> None:
+    """Install a BLOCK_ERROR subscriber on the runtime's event_bus.
+
+    Idempotent + best-effort: if the context doesn't expose ``event_bus``
+    (e.g. an MCP standalone-mode runtime stub used by tests), this is a
+    no-op and ``get_run_status`` will simply return an empty ``errors``
+    list.
+    """
+    global _error_subscriber_installed
+    if _error_subscriber_installed:
+        return
+    try:
+        ctx = get_context()
+    except Exception:
+        return
+    event_bus = getattr(ctx, "event_bus", None)
+    if event_bus is None or not hasattr(event_bus, "subscribe"):
+        return
+
+    async def _capture(event: Any) -> None:
+        data = getattr(event, "data", None) or {}
+        if not isinstance(data, dict):
+            return
+        workflow_id = data.get("workflow_id")
+        block_id = getattr(event, "block_id", None)
+        error = data.get("error")
+        summary = data.get("error_summary")
+        if not workflow_id or not block_id or error is None:
+            return
+        _run_block_errors[(str(workflow_id), str(block_id))] = {
+            "error": str(error),
+            "summary": str(summary) if summary else None,
+        }
+
+    try:
+        event_bus.subscribe("block_error", _capture)
+        _error_subscriber_installed = True
+        logger.info("MCP: installed block_error capture subscriber")
+    except Exception:
+        logger.warning("MCP: failed to install block_error capture", exc_info=True)
+
+
+def _collect_run_errors(run_id: str) -> list[dict[str, Any]]:
+    """Return the captured block errors for ``run_id`` (its workflow_id)."""
+    return [
+        {"block_id": block_id, "error": record["error"], "summary": record["summary"]}
+        for (workflow_id, block_id), record in _run_block_errors.items()
+        if workflow_id == run_id
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _spec_to_dict(spec: Any) -> dict[str, Any]:
+    """Serialise a :class:`BlockSpec` (dataclass) to a JSON-safe dict.
+
+    ``input_ports`` and ``output_ports`` carry :class:`Port` instances
+    that are not natively JSON-serialisable; we project them to a
+    minimal {name, type, required} envelope.
+    """
+    if dataclasses.is_dataclass(spec) and not isinstance(spec, type):
+        raw = dataclasses.asdict(spec)
+    else:  # pragma: no cover - non-dataclass spec
+        raw = dict(spec.__dict__)
+    raw["input_ports"] = [_port_to_dict(p) for p in (spec.input_ports or [])]
+    raw["output_ports"] = [_port_to_dict(p) for p in (spec.output_ports or [])]
+    return raw
+
+
+def _port_to_dict(port: Any) -> dict[str, Any]:
+    """Project a :class:`Port` to a JSON-safe dict."""
+    if isinstance(port, dict):
+        return port
+    type_obj = getattr(port, "type", None)
+    type_name = getattr(type_obj, "__name__", str(type_obj)) if type_obj is not None else ""
+    return {
+        "name": getattr(port, "name", ""),
+        "type": type_name,
+        "required": bool(getattr(port, "required", False)),
+    }
+
+
+def _atomic_write_text(path: Path, text: str) -> int:
+    """Write *text* to *path* via tempfile + rename. Returns bytes written."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(
+        prefix=path.name + ".",
+        suffix=".tmp",
+        dir=str(path.parent),
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+        os.replace(tmp, path)
+    except Exception:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
+    return len(text.encode("utf-8"))
+
+
+def _diff_summary(old: str, new: str) -> str:
+    """Compact diff summary used in INFO log + return envelope."""
+    old_lines = old.splitlines() if old else []
+    new_lines = new.splitlines()
+    added = max(0, len(new_lines) - len(old_lines))
+    removed = max(0, len(old_lines) - len(new_lines))
+    return f"+{added}/-{removed} lines, {len(new.encode('utf-8'))} bytes"
 
 
 # ---------------------------------------------------------------------------
@@ -38,13 +180,7 @@ logger = logging.getLogger(__name__)
 
 
 class BlockSpecEnvelope(BaseModel):
-    """JSON-safe projection of a :class:`BlockSpec`.
-
-    Mirrors what :func:`_spec_to_dict` produces in the ADR-033-era
-    implementation: name, base_category, subcategory, version,
-    description, input_ports, output_ports, config_schema. Ports are
-    serialised as ``{name, type, required}`` triples.
-    """
+    """JSON-safe projection of a :class:`BlockSpec`."""
 
     name: str = Field(description="Registered block type name.")
     base_category: str = Field(description="One of io/process/code/app/ai/subworkflow.")
@@ -63,6 +199,8 @@ class BlockSpecEnvelope(BaseModel):
         default_factory=dict,
         description="JSON Schema for the block's static config.",
     )
+
+    model_config = {"extra": "allow"}
 
 
 class BlockSchemaResult(BaseModel):
@@ -100,19 +238,14 @@ class ListTypesResult(BaseModel):
 
 
 class WorkflowDefinitionEnvelope(BaseModel):
-    """Decoded representation of a workflow YAML.
-
-    The shape mirrors :func:`dataclasses.asdict` on a
-    :class:`scieasy.workflow.schema.WorkflowDefinition` plus a top-level
-    ``path`` echoing the absolute resolved file path.
-    """
+    """Decoded representation of a workflow YAML."""
 
     path: str = Field(description="Absolute resolved file path the YAML was read from.")
     name: str | None = None
     nodes: list[dict[str, Any]] = Field(default_factory=list)
     edges: list[dict[str, Any]] = Field(default_factory=list)
-    # I40a may add ``metadata``, ``version``, etc. fields per
-    # WorkflowDefinition's actual shape.
+
+    model_config = {"extra": "allow"}
 
 
 class ValidateWorkflowResult(BaseModel):
@@ -123,11 +256,7 @@ class ValidateWorkflowResult(BaseModel):
 
 
 class WriteWorkflowResult(BaseModel):
-    """Result envelope for ``write_workflow``.
-
-    Carries ``next_step`` pointing at ``validate_workflow`` so the agent
-    knows the canonical post-write verification step.
-    """
+    """Result envelope for ``write_workflow``."""
 
     path: str = Field(description="Absolute resolved path of the written workflow.")
     bytes_written: int = Field(description="Number of bytes written to disk.")
@@ -139,11 +268,7 @@ class WriteWorkflowResult(BaseModel):
 
 
 class RunWorkflowResult(BaseModel):
-    """Result envelope for ``run_workflow``.
-
-    ``next_step`` points at ``get_run_status`` so the agent knows to
-    poll for completion.
-    """
+    """Result envelope for ``run_workflow``."""
 
     run_id: str = Field(description="Identifier of the queued workflow run.")
     status: str = Field(description="Initial status, typically 'queued'.")
@@ -203,14 +328,7 @@ class FinishAIBlockOK(BaseModel):
 
 
 class FinishAIBlockError(BaseModel):
-    """Error envelope for ``finish_ai_block``.
-
-    Codes per ADR-035 §3.5:
-      - ``not_in_ai_block_context`` — no active AI Block run dir.
-      - ``invalid_outputs`` — outputs is not dict[str, str].
-      - ``already_finished`` — signal file already present (ADR-035 §8 OQ-1).
-      - ``io_error`` — disk-level write failure.
-    """
+    """Error envelope for ``finish_ai_block``."""
 
     status: str = Field(default="error")
     code: str = Field(
@@ -224,7 +342,7 @@ class FinishAIBlockError(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(name="list_blocks")
+@mcp.tool(name="list_blocks", tags={"category:workflow", "read"})
 async def list_blocks() -> list[BlockSpecEnvelope]:
     """List every block type registered in the active block registry.
 
@@ -237,19 +355,9 @@ async def list_blocks() -> list[BlockSpecEnvelope]:
       - Inspect a specific block's full schema — call ``get_block_schema``.
       - Enumerate data types (use ``list_types``).
     """
-    # TODO(#1012): port the ADR-033-era impl from the prior file shape.
-    #   Reference impl (pre-FastMCP):
-    #     ctx = get_context()
-    #     specs = ctx.block_registry.all_specs()
-    #     return [_spec_to_dict(spec) for spec in specs.values()]
-    #
-    #   I40a Phase 2a fills in: replace the dict return with
-    #   ``[BlockSpecEnvelope(**_spec_to_dict(s)) for s in specs.values()]``
-    #   so the FastMCP-generated inputSchema is precise.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    ctx = get_context()
+    specs = ctx.block_registry.all_specs()
+    return [BlockSpecEnvelope.model_validate(_spec_to_dict(s)) for s in specs.values()]
 
 
 # ---------------------------------------------------------------------------
@@ -257,7 +365,7 @@ async def list_blocks() -> list[BlockSpecEnvelope]:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(name="get_block_schema")
+@mcp.tool(name="get_block_schema", tags={"category:workflow", "read"})
 async def get_block_schema(
     type_name: str = Field(description="Registered block type name (from list_blocks)."),
 ) -> BlockSchemaResult:
@@ -272,28 +380,24 @@ async def get_block_schema(
 
     Raises ``KeyError`` if the type is not registered.
     """
-    # TODO(#1012): port from ADR-033-era impl. Reference:
-    #     ctx = get_context()
-    #     spec = ctx.block_registry.get_spec(type_name)
-    #     if spec is None: raise KeyError(...)
-    #     return BlockSchemaResult(
-    #         type_name=spec.name,
-    #         ports={
-    #             "input": [_port_to_dict(p) for p in spec.input_ports or []],
-    #             "output": [_port_to_dict(p) for p in spec.output_ports or []],
-    #         },
-    #         config_schema=spec.config_schema or {"type": "object", "properties": {}},
-    #         metadata={
-    #             "description": spec.description,
-    #             "version": spec.version,
-    #             "base_category": spec.base_category,
-    #             "subcategory": spec.subcategory,
-    #         },
-    #     )
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    ctx = get_context()
+    spec = ctx.block_registry.get_spec(type_name)
+    if spec is None:
+        raise KeyError(f"Block type '{type_name}' is not registered")
+    return BlockSchemaResult(
+        type_name=spec.name,
+        ports={
+            "input": [_port_to_dict(p) for p in (spec.input_ports or [])],
+            "output": [_port_to_dict(p) for p in (spec.output_ports or [])],
+        },
+        config_schema=spec.config_schema or {"type": "object", "properties": {}},
+        metadata={
+            "description": spec.description,
+            "version": spec.version,
+            "base_category": spec.base_category,
+            "subcategory": spec.subcategory,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -301,7 +405,7 @@ async def get_block_schema(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(name="list_types")
+@mcp.tool(name="list_types", tags={"category:workflow", "read"})
 async def list_types() -> ListTypesResult:
     """Return the full data-type registry hierarchy.
 
@@ -313,27 +417,18 @@ async def list_types() -> ListTypesResult:
     Do NOT use to:
       - List block types (use ``list_blocks``).
     """
-    # TODO(#1012): port from ADR-033-era impl. Reference:
-    #     ctx = get_context()
-    #     types_map = ctx.type_registry.all_types()
-    #     entries = [
-    #         TypeEntry(
-    #             name=spec.name,
-    #             parent=spec.base_type,
-    #             description=spec.description,
-    #             module_path=spec.module_path,
-    #         )
-    #         for spec in types_map.values()
-    #     ]
-    #     return ListTypesResult(types=entries, count=len(entries))
-    #
-    #   I40a notes:
-    #   - This tool's output is the SOURCE for the §3.2a soft-validation
-    #     warning text on scaffold_block ("Otherwise pick from list_types()").
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    ctx = get_context()
+    types_map = ctx.type_registry.all_types()
+    entries = [
+        TypeEntry(
+            name=spec.name,
+            parent=spec.base_type,
+            description=spec.description,
+            module_path=spec.module_path,
+        )
+        for spec in types_map.values()
+    ]
+    return ListTypesResult(types=entries, count=len(entries))
 
 
 # ---------------------------------------------------------------------------
@@ -341,7 +436,7 @@ async def list_types() -> ListTypesResult:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(name="get_workflow")
+@mcp.tool(name="get_workflow", tags={"category:workflow", "read"})
 async def get_workflow(
     path: str = Field(description="Project-relative path under workflows/ (e.g. 'workflows/main.yaml')."),
 ) -> WorkflowDefinitionEnvelope:
@@ -360,22 +455,15 @@ async def get_workflow(
       - PermissionError: path escapes the project root.
       - RuntimeError: no project is currently open.
     """
-    # TODO(#1012): port from ADR-033-era impl. Reference:
-    #     from scieasy.workflow.serializer import load_yaml
-    #     p = _resolve_project_path(path)
-    #     if not p.exists(): raise FileNotFoundError(...)
-    #     definition = load_yaml(p)
-    #     payload = dataclasses.asdict(definition)
-    #     payload["path"] = str(p)  # issue #790
-    #     return WorkflowDefinitionEnvelope(**payload)
-    #
-    #   I40a notes:
-    #   - Preserve the issue #790 path-resolution semantics: project-relative
-    #     paths resolve under ctx.project_dir, not the backend's CWD.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    from scieasy.workflow.serializer import load_yaml
+
+    p = _resolve_project_path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"Workflow file not found: {p}")
+    definition = load_yaml(p)
+    payload = dataclasses.asdict(definition)
+    payload["path"] = str(p)
+    return WorkflowDefinitionEnvelope.model_validate(payload)
 
 
 # ---------------------------------------------------------------------------
@@ -383,7 +471,15 @@ async def get_workflow(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(name="validate_workflow")
+def _looks_like_inline_yaml(s: str) -> bool:
+    """Heuristic: starts with ``name:`` or contains ``nodes:`` ⇒ inline."""
+    stripped = s.lstrip()
+    if stripped.startswith(("name:", "workflow:", "id:", "version:")):
+        return True
+    return "nodes:" in s and "\n" in s
+
+
+@mcp.tool(name="validate_workflow", tags={"category:workflow", "read"})
 async def validate_workflow(
     yaml_or_path: str = Field(
         description=(
@@ -402,17 +498,26 @@ async def validate_workflow(
       - Persist a workflow — call ``write_workflow`` (which also validates).
       - Inspect a workflow's structure — call ``get_workflow``.
     """
-    # TODO(#1012): port from ADR-033-era impl including the
-    #   _looks_like_inline_yaml heuristic and the path-resolution
-    #   semantics (issue #790). Reference:
-    #     - Inline YAML: yaml.safe_load → WorkflowFileModel.model_validate
-    #       → definition.to_definition()
-    #     - Path mode: _resolve_project_path → load_yaml
-    #     - Run validator: _validate(definition, registry=ctx.block_registry)
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    from scieasy.workflow.schema import WorkflowFileModel
+    from scieasy.workflow.validator import validate_workflow as _validate
+
+    ctx = get_context()
+    inline = _looks_like_inline_yaml(yaml_or_path)
+    try:
+        if inline:
+            raw = yaml_module.safe_load(yaml_or_path)
+            validated = WorkflowFileModel.model_validate(raw)
+            definition = validated.workflow.to_definition()
+        else:
+            from scieasy.workflow.serializer import load_yaml
+
+            resolved = _resolve_project_path(yaml_or_path)
+            definition = load_yaml(resolved)
+    except Exception as exc:
+        return ValidateWorkflowResult(valid=False, errors=[f"parse failure: {exc}"])
+
+    errors = _validate(definition, registry=ctx.block_registry)
+    return ValidateWorkflowResult(valid=not errors, errors=list(errors))
 
 
 # ---------------------------------------------------------------------------
@@ -420,7 +525,7 @@ async def validate_workflow(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(name="write_workflow")
+@mcp.tool(name="write_workflow", tags={"category:workflow", "write"})
 async def write_workflow(
     path: str = Field(description="Project-relative path under workflows/."),
     yaml: str = Field(description="Full workflow YAML content; will be schema-validated before write."),
@@ -440,23 +545,37 @@ async def write_workflow(
     Returns ``WriteWorkflowResult`` with ``next_step`` pointing at
     ``validate_workflow`` for canonical post-write verification.
     """
-    # TODO(#1012): port from ADR-033-era impl preserving:
-    #   1. Pre-write schema validation via WorkflowFileModel.model_validate
-    #      (turns ValidationError into a ValueError with embedded JSON
-    #      error list so the agent gets actionable feedback).
-    #   2. _resolve_project_path for issue #790 path semantics.
-    #   3. FileLock with _LOCK_TIMEOUT_SECONDS = 10.0 per ADR-033 OQ7.
-    #   4. _atomic_write_text (tempfile + rename).
-    #   5. _diff_summary for the diff_summary field.
-    #   6. logger.info("write_workflow: wrote %s (%s)", p, summary).
-    #
-    #   Concurrency note (ADR-039): the in-memory If-Match revision flow
-    #   was removed in D39-2.1; filelock is the only in-process
-    #   arbitrator. Cross-actor concurrency is mediated by git.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    from scieasy.workflow.schema import WorkflowFileModel
+
+    # Pre-write validation: parse YAML and run through the same pydantic
+    # model the runtime + GET route use. Failure raises ValueError with
+    # JSON-embedded structured pydantic errors.
+    try:
+        parsed = yaml_module.safe_load(yaml)
+    except yaml_module.YAMLError as exc:
+        raise ValueError(f"write_workflow: YAML parse failure: {exc}") from exc
+    try:
+        WorkflowFileModel.model_validate(parsed)
+    except ValidationError as exc:
+        raise ValueError(
+            "write_workflow: refusing to write — workflow does not match "
+            "the SciEasy schema. Errors (JSON):\n" + json.dumps(exc.errors(), indent=2, default=str)
+        ) from exc
+
+    p = _resolve_project_path(path)
+    lock_path = str(p) + ".lock"
+    try:
+        with FileLock(lock_path, timeout=_LOCK_TIMEOUT_SECONDS):
+            old = p.read_text(encoding="utf-8") if p.exists() else ""
+            bytes_written = _atomic_write_text(p, yaml)
+            summary = _diff_summary(old, yaml)
+    except Timeout as exc:
+        raise TimeoutError(
+            f"write_workflow: could not acquire lock for {p} within {_LOCK_TIMEOUT_SECONDS}s (someone else is editing?)"
+        ) from exc
+
+    logger.info("write_workflow: wrote %s (%s)", p, summary)
+    return WriteWorkflowResult(path=str(p), bytes_written=bytes_written, diff_summary=summary)
 
 
 # ---------------------------------------------------------------------------
@@ -464,7 +583,17 @@ async def write_workflow(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(name="run_workflow")
+def _get_workflow_runtime() -> Any:
+    """Locate a runtime that knows how to start workflows."""
+    ctx = get_context()
+    if not hasattr(ctx, "start_workflow"):
+        raise RuntimeError(
+            "Active MCPContext does not expose start_workflow(); run_workflow requires a full ApiRuntime."
+        )
+    return ctx
+
+
+@mcp.tool(name="run_workflow", tags={"category:workflow", "write"})
 async def run_workflow(
     path: str = Field(description="Project-relative path to the workflow YAML to execute."),
 ) -> RunWorkflowResult:
@@ -483,17 +612,18 @@ async def run_workflow(
     Returns immediately with status='queued'. Progress is observable via
     ``get_run_status``.
     """
-    # TODO(#1012): port from ADR-033-era impl preserving:
-    #   1. _ensure_error_subscriber() — installs the BLOCK_ERROR capture
-    #      subscriber on first call so get_run_status surfaces tracebacks.
-    #   2. _resolve_project_path(path).stem → workflow_id (the runtime
-    #      keys runs by file stem).
-    #   3. Clear stale _run_block_errors entries for re-runs.
-    #   4. runtime.start_workflow(workflow_id) — runtime owns identity.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    runtime = _get_workflow_runtime()
+    _ensure_error_subscriber()
+    resolved = _resolve_project_path(path)
+    workflow_id = resolved.stem
+    # Clear stale errors from a prior failed run with the same id.
+    for key in list(_run_block_errors.keys()):
+        if key[0] == workflow_id:
+            del _run_block_errors[key]
+    result = runtime.start_workflow(workflow_id)
+    run_id = result.get("workflow_id", workflow_id) if isinstance(result, dict) else workflow_id
+    logger.info("run_workflow: started run %s for %s", run_id, resolved)
+    return RunWorkflowResult(run_id=str(run_id), status="queued")
 
 
 # ---------------------------------------------------------------------------
@@ -501,7 +631,7 @@ async def run_workflow(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(name="cancel_run")
+@mcp.tool(name="cancel_run", tags={"category:workflow", "write"})
 async def cancel_run(
     run_id: str = Field(description="Identifier returned by run_workflow."),
 ) -> CancelRunResult:
@@ -516,17 +646,32 @@ async def cancel_run(
 
     Raises ``KeyError`` if the run_id is unknown.
     """
-    # TODO(#1012): port from ADR-033-era impl. Reference impl uses:
-    #   1. runtime.workflow_runs[run_id] lookup, raise KeyError if absent.
-    #   2. event_bus.emit(EngineEvent(CANCEL_WORKFLOW_REQUEST, ...)) when
-    #      the scheduler exposes an event bus.
-    #   3. Best-effort fallback: run.task.cancel() if no event_bus.
-    #   4. asyncio.get_running_loop().create_task(...) for the emit coro,
-    #      keeping a reference on run._cancel_task to avoid RUF006 GC.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    import asyncio
+
+    from scieasy.engine.events import CANCEL_WORKFLOW_REQUEST, EngineEvent
+
+    runtime = _get_workflow_runtime()
+    runs = getattr(runtime, "workflow_runs", None)
+    if not isinstance(runs, dict) or run_id not in runs:
+        raise KeyError(f"Unknown run: {run_id}")
+
+    run = runs[run_id]
+    event_bus = getattr(run.scheduler, "_event_bus", None) if hasattr(run, "scheduler") else None
+    if event_bus is None:
+        if hasattr(run, "task") and not run.task.done():
+            run.task.cancel()
+        cancel_requested = True
+    else:
+        coro = event_bus.emit(EngineEvent(event_type=CANCEL_WORKFLOW_REQUEST, data={"workflow_id": run_id}))
+        try:
+            loop = asyncio.get_running_loop()
+            run._cancel_task = loop.create_task(coro)  # type: ignore[attr-defined]
+        except RuntimeError:
+            await coro
+        cancel_requested = True
+
+    logger.info("cancel_run: requested cancellation for %s", run_id)
+    return CancelRunResult(run_id=run_id, cancel_requested=cancel_requested)
 
 
 # ---------------------------------------------------------------------------
@@ -534,7 +679,7 @@ async def cancel_run(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(name="get_run_status")
+@mcp.tool(name="get_run_status", tags={"category:workflow", "read"})
 async def get_run_status(
     run_id: str = Field(description="Identifier returned by run_workflow."),
 ) -> GetRunStatusResult:
@@ -551,20 +696,61 @@ async def get_run_status(
 
     Raises ``KeyError`` if the run_id is unknown.
     """
-    # TODO(#1012): port from ADR-033-era impl. Reference impl surfaces:
-    #   1. State derived from task.done()/cancelled()/exception().
-    #   2. Per-block state map from scheduler._block_states.
-    #   3. _collect_run_errors(run_id) → captured block_error tracebacks.
-    #   4. Synthetic __run__ entry when the scheduler task itself raised
-    #      before any block_error was emitted (DAG validation failure).
-    #
-    #   I40a notes: this tool's `errors` list is the agent's primary
-    #   self-debug source; preserving the full traceback fidelity is
-    #   load-bearing for the production debugging UX.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    runtime = _get_workflow_runtime()
+    runs = getattr(runtime, "workflow_runs", None)
+    if not isinstance(runs, dict) or run_id not in runs:
+        raise KeyError(f"Unknown run: {run_id}")
+
+    _ensure_error_subscriber()
+
+    run = runs[run_id]
+    task = getattr(run, "task", None)
+    if task is None:
+        state = "unknown"
+    elif task.done():
+        if task.cancelled():
+            state = "cancelled"
+        elif task.exception() is not None:
+            state = "failed"
+        else:
+            state = "succeeded"
+    else:
+        state = "running"
+
+    block_states: dict[str, str] = {}
+    scheduler = getattr(run, "scheduler", None)
+    if scheduler is not None:
+        raw_states = getattr(scheduler, "_block_states", {})
+        block_states = {
+            block_id: getattr(state_obj, "name", str(state_obj)) for block_id, state_obj in raw_states.items()
+        }
+
+    raw_errors = _collect_run_errors(run_id)
+    if state == "failed" and not raw_errors and task is not None:
+        try:
+            exc = task.exception()
+        except Exception:
+            exc = None
+        if exc is not None:
+            tb_str = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+            raw_errors.append(
+                {
+                    "block_id": "__run__",
+                    "error": tb_str,
+                    "summary": str(exc) or type(exc).__name__,
+                }
+            )
+
+    return GetRunStatusResult(
+        run_id=run_id,
+        state=state,
+        progress={"block_states": block_states},
+        errors=[BlockErrorEntry(**e) for e in raw_errors],
+    )
+
+
+# Synthesised module ID for log correlation.
+_TOOL_MODULE_ID = f"mcp-workflow-{uuid.uuid4().hex[:8]}"
 
 
 # ---------------------------------------------------------------------------
@@ -572,7 +758,33 @@ async def get_run_status(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(name="finish_ai_block")
+def _resolve_ai_block_run_dir() -> Path | None:
+    """Locate the active AI Block run dir from MCP context or env var.
+
+    Resolution order (first hit wins):
+
+      1. ``MCPContext.ai_block_run_dir`` attribute, when present.
+      2. ``SCIEASY_AI_BLOCK_RUN_DIR`` environment variable.
+
+    Returns ``None`` when neither is configured.
+    """
+    try:
+        ctx = get_context()
+    except Exception:
+        ctx = None
+    if ctx is not None:
+        run_dir = getattr(ctx, "ai_block_run_dir", None)
+        if run_dir is not None:
+            return Path(run_dir)
+    raw = os.environ.get("SCIEASY_AI_BLOCK_RUN_DIR")
+    if raw:
+        candidate = Path(raw)
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
+@mcp.tool(name="finish_ai_block", tags={"category:workflow", "write"})
 async def finish_ai_block(
     outputs: Annotated[
         dict[str, str] | None,
@@ -598,10 +810,9 @@ async def finish_ai_block(
         ``not_in_ai_block_context`` error envelope per ADR-035 §3.5.
 
     The tool writes ``signals/finish_ai_block.json`` under the active
-    run dir; the CompletionWatcher (ADR-035 §3.5 path (a)) polls for
-    that file and transitions the block from PAUSED → RUNNING for
-    output validation. Atomic write (tempfile + os.replace) — partial
-    writes cannot deceive the watcher.
+    run dir; the CompletionWatcher polls for that file and transitions
+    the block from PAUSED → RUNNING for output validation. Atomic write
+    (tempfile + os.replace) — partial writes cannot deceive the watcher.
 
     Error codes:
       - ``not_in_ai_block_context`` — no active AI Block run dir.
@@ -609,25 +820,65 @@ async def finish_ai_block(
       - ``already_finished`` — signal file already exists for this run.
       - ``io_error`` — disk-level write failure.
     """
-    # TODO(#1012): port from ADR-033/ADR-035-era impl preserving all four
-    #   error codes + the atomic write semantic. Reference impl:
-    #   1. _resolve_ai_block_run_dir() — MCPContext.ai_block_run_dir OR
-    #      SCIEASY_AI_BLOCK_RUN_DIR env var fallback.
-    #   2. Normalise outputs (None → {}) + validate dict[str, str] shape.
-    #   3. signals_dir = run_dir / "signals"; mkdir parents=True, exist_ok=True.
-    #   4. Reject if signals/finish_ai_block.json already exists
-    #      (ADR-035 §8 OQ-1 — already_finished).
-    #   5. Build payload = {outputs, timestamp: datetime.utcnow().isoformat()}
-    #   6. _atomic_write_text(signal_path, json.dumps(payload, indent=2, sort_keys=True)).
-    #   7. Return FinishAIBlockOK(status="ok", signal_path=str(signal_path)).
-    #
-    #   I40a notes:
-    #   - This tool's category is "workflow" + mutation "write" (ADR-035
-    #     §3.5; see manifest §8.7 for the categorisation rationale).
-    #   - Return type is the Union FinishAIBlockOK | FinishAIBlockError;
-    #     FastMCP serialises Pydantic discriminated unions cleanly into
-    #     the MCP content text block.
-    #
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a.
-    #   Followup: #1012.
-    raise NotImplementedError("S40a skeleton — I40a impl in Phase 2a")
+    run_dir = _resolve_ai_block_run_dir()
+    if run_dir is None:
+        return FinishAIBlockError(
+            code="not_in_ai_block_context",
+            message=(
+                "finish_ai_block can only be called from inside an AI Block. "
+                "No active AI Block run dir was found via MCPContext.ai_block_run_dir "
+                "or the SCIEASY_AI_BLOCK_RUN_DIR environment variable."
+            ),
+        )
+
+    if outputs is None:
+        outputs_norm: dict[str, str] = {}
+    elif isinstance(outputs, dict):
+        bad = [(k, type(v).__name__) for k, v in outputs.items() if not isinstance(k, str) or not isinstance(v, str)]
+        if bad:
+            return FinishAIBlockError(
+                code="invalid_outputs",
+                message=(f"finish_ai_block: outputs must be dict[str, str]. Bad entries (key, value-type): {bad}"),
+            )
+        outputs_norm = dict(outputs)
+    else:
+        return FinishAIBlockError(
+            code="invalid_outputs",
+            message=(f"finish_ai_block: outputs must be a dict, got {type(outputs).__name__}"),
+        )
+
+    signals_dir = run_dir / "signals"
+    try:
+        signals_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        return FinishAIBlockError(
+            code="io_error",
+            message=f"finish_ai_block: failed to create signals dir: {exc}",
+        )
+
+    signal_path = signals_dir / "finish_ai_block.json"
+    if signal_path.exists():
+        return FinishAIBlockError(
+            code="already_finished",
+            message=(f"finish_ai_block has already been called for this AI Block run. Existing signal: {signal_path}"),
+        )
+
+    payload = {
+        "outputs": outputs_norm,
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
+    }
+    body = json.dumps(payload, indent=2, sort_keys=True)
+    try:
+        _atomic_write_text(signal_path, body)
+    except OSError as exc:
+        return FinishAIBlockError(
+            code="io_error",
+            message=f"finish_ai_block: failed to write signal file: {exc}",
+        )
+
+    logger.info(
+        "finish_ai_block: wrote signal %s with %d output(s)",
+        signal_path,
+        len(outputs_norm),
+    )
+    return FinishAIBlockOK(signal_path=str(signal_path))
