@@ -59,7 +59,9 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
   // StashApplyDialog so the user can choose Apply / Keep / Discard.
   const [stashPrompt, setStashPrompt] = useState<string | null>(null);
   // ADR-039 §3.5b / D39-2.4b — view toggle: list vs branch graph.
-  const [viewMode, setViewMode] = useState<"list" | "graph">("list");
+  // Hotfix #1000: default Git tab view is Graph (per Phase 4a feedback —
+  // graph is the primary affordance; List is a fallback for plain text).
+  const [viewMode, setViewMode] = useState<"list" | "graph">("graph");
 
   useEffect(() => {
     if (commits === null && !loading) {
@@ -162,21 +164,15 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
           >
             Refresh
           </button>
+          {/*
+            Hotfix #1000: Graph is the default and renders FIRST in the
+            toggle (left side) — matches "graph is the primary affordance"
+            feedback. List moves to the right as the fallback.
+          */}
           <div
             data-testid="git-history-view-toggle"
             className="ml-auto flex gap-1 rounded border border-stone-300 p-0.5 text-xs"
           >
-            <button
-              type="button"
-              data-testid="git-history-view-list"
-              aria-pressed={viewMode === "list"}
-              onClick={() => setViewMode("list")}
-              className={`rounded px-2 py-0.5 ${
-                viewMode === "list" ? "bg-stone-200" : "hover:bg-stone-100"
-              }`}
-            >
-              List
-            </button>
             <button
               type="button"
               data-testid="git-history-view-graph"
@@ -187,6 +183,17 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
               }`}
             >
               Graph
+            </button>
+            <button
+              type="button"
+              data-testid="git-history-view-list"
+              aria-pressed={viewMode === "list"}
+              onClick={() => setViewMode("list")}
+              className={`rounded px-2 py-0.5 ${
+                viewMode === "list" ? "bg-stone-200" : "hover:bg-stone-100"
+              }`}
+            >
+              List
             </button>
           </div>
         </div>

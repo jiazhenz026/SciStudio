@@ -301,8 +301,18 @@ export function RunDetail(): ReactElement {
       role="region"
       aria-label={`Detail for run ${run.run_id}`}
     >
-      <header className="border-b border-stone-200 px-4 py-3">
-        <h3 className="text-sm font-semibold text-ink">
+      {/*
+       * Hotfix #999: compact header so the blocks list — the primary
+       * content per ADR-038 §3.8 — keeps most of the vertical space.
+       * The 4-column auto/1fr/auto/1fr grid interleaves dt/dd pairs
+       * horizontally: 5-8 metadata fields collapse from 7 rows (current
+       * grid-cols-2) to ~3-4 rows. py-2 instead of py-3 + smaller heading
+       * line-height save another ~10px. The Blocks section uses
+       * `flex-1 overflow-y-auto` (line 421) so it absorbs the saved
+       * vertical pixels.
+       */}
+      <header className="border-b border-stone-200 px-4 py-2">
+        <h3 className="text-sm font-semibold leading-tight text-ink">
           Run {run.run_id.slice(0, 8)}
         </h3>
         {inlineError && (
@@ -313,7 +323,7 @@ export function RunDetail(): ReactElement {
             {inlineError}
           </p>
         )}
-        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        <dl className="mt-1.5 grid grid-cols-[auto_1fr_auto_1fr] gap-x-3 gap-y-0.5 text-xs">
           <dt className="text-stone-500">Workflow</dt>
           <dd>{run.workflow_id}</dd>
 
@@ -532,16 +542,25 @@ export function workflowYamlPathForRun(run: { workflow_id: string }): string {
  * up to the caller — the button below catches them and renders a
  * short error string.
  */
-export async function runRestoreWorkflow(run: RunRecordForRestore): Promise<void> {
+export async function runRestoreWorkflow(
+  run: RunRecordForRestore,
+): Promise<{ status: "ok" | "stashed"; stash_id?: string }> {
   if (!run.workflow_git_commit) {
     throw new Error(
       "This run has no recorded git commit (degraded mode). Restore unavailable.",
     );
   }
-  await api.gitRestore({
+  // Hotfix #997: forward the backend's `status` / `stash_id` so the UI
+  // can surface "Your unsaved changes were stashed as <id>" when the
+  // working tree was dirty. Pre-fix the helper returned `void` and the
+  // stash entry accumulated invisibly — repeat clicks under a dirty
+  // tree piled up stash refs that confused users with "lots of new
+  // commits" (stash refs render as commit nodes in the graph).
+  const result = await api.gitRestore({
     commit_sha: run.workflow_git_commit,
     files: [workflowYamlPathForRun(run)],
   });
+  return result;
 }
 
 interface RestoreWorkflowButtonProps {
@@ -562,14 +581,23 @@ interface RestoreWorkflowButtonProps {
 export function RestoreWorkflowButton({ run, onRestored }: RestoreWorkflowButtonProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Hotfix #997: surface backend's stash status so dirty-tree restores
+  // are not silent. The hint clears on the next click.
+  const [stashHint, setStashHint] = useState<string | null>(null);
 
   const disabled = busy || !run.workflow_git_commit;
 
   const handleClick = async () => {
     setError(null);
+    setStashHint(null);
     setBusy(true);
     try {
-      await runRestoreWorkflow(run);
+      const result = await runRestoreWorkflow(run);
+      if (result.status === "stashed" && result.stash_id) {
+        setStashHint(
+          `Your unsaved changes were stashed as ${result.stash_id} — recover via Git tab → Stashes.`,
+        );
+      }
       onRestored?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -601,6 +629,15 @@ export function RestoreWorkflowButton({ run, onRestored }: RestoreWorkflowButton
           data-testid="run-detail-restore-error"
         >
           {error}
+        </div>
+      )}
+      {stashHint && !error && (
+        <div
+          className="run-detail__restore-stash-hint mt-1 text-xs text-amber-700"
+          role="status"
+          data-testid="run-detail-restore-stash-hint"
+        >
+          {stashHint}
         </div>
       )}
     </div>

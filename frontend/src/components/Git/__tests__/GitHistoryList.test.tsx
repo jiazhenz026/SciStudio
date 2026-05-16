@@ -47,21 +47,34 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+/**
+ * Hotfix #1000: GitHistoryList now defaults to Graph view. These tests
+ * all assert on the LIST view's row testids; flip to list mode after
+ * render so the existing test contracts keep working.
+ */
+function flipToListView(): void {
+  const listBtn = screen.queryByTestId("git-history-view-list");
+  if (listBtn) fireEvent.click(listBtn);
+}
+
 describe("GitHistoryList", () => {
   it("renders loading state when logLoading[branch] === true", () => {
     seed("main", undefined, true);
     render(<GitHistoryList branch="main" />);
+    flipToListView();
     expect(screen.getByTestId("git-history-loading")).toBeTruthy();
   });
 
   it("renders empty state when logCache[branch] === []", () => {
     seed("main", []);
     render(<GitHistoryList branch="main" />);
+    flipToListView();
     expect(screen.getByTestId("git-history-empty")).toBeTruthy();
   });
 
   it("filter dropdown default 'manual' hides auto: and agent: rows", () => {
     render(<GitHistoryList branch="main" />);
+    flipToListView();
     const filter = screen.getByTestId("git-history-filter") as HTMLSelectElement;
     expect(filter.value).toBe("manual");
     expect(screen.queryByTestId(`git-history-row-${autoCommit.short_sha}`)).toBeNull();
@@ -71,6 +84,7 @@ describe("GitHistoryList", () => {
 
   it("changing filter to 'all' reveals auto + agent rows", () => {
     render(<GitHistoryList branch="main" />);
+    flipToListView();
     fireEvent.change(screen.getByTestId("git-history-filter"), {
       target: { value: "all" },
     });
@@ -81,6 +95,7 @@ describe("GitHistoryList", () => {
 
   it("filter 'agent' shows only agent rows", () => {
     render(<GitHistoryList branch="main" />);
+    flipToListView();
     fireEvent.change(screen.getByTestId("git-history-filter"), {
       target: { value: "agent" },
     });
@@ -91,12 +106,14 @@ describe("GitHistoryList", () => {
   it("shows empty-after-filter message when no commits match filter", () => {
     seed("main", [autoCommit]); // only auto: commits
     render(<GitHistoryList branch="main" />);
+    flipToListView();
     expect(screen.getByTestId("git-history-empty-after-filter")).toBeTruthy();
   });
 
   it("clicking a row dispatches onCommitClick", () => {
     const onCommitClick = vi.fn();
     render(<GitHistoryList branch="main" onCommitClick={onCommitClick} />);
+    flipToListView();
     fireEvent.click(screen.getByTestId(`git-history-row-${userCommit.short_sha}`));
     expect(onCommitClick).toHaveBeenCalledWith(expect.objectContaining({ sha: userCommit.sha }));
   });
@@ -111,6 +128,7 @@ describe("GitHistoryList", () => {
         onRestoreClick={onRestoreClick}
       />,
     );
+    flipToListView();
     fireEvent.click(screen.getByTestId(`git-history-row-restore-${userCommit.short_sha}`));
     expect(onRestoreClick).toHaveBeenCalledWith(
       expect.objectContaining({ sha: userCommit.sha }),
@@ -129,6 +147,7 @@ describe("GitHistoryList", () => {
     const loadLog = vi.fn().mockResolvedValue(undefined);
     useAppStore.setState({ loadLog });
     render(<GitHistoryList branch="main" />);
+    flipToListView();
     fireEvent.click(screen.getByTestId("git-history-refresh"));
     expect(loadLog).toHaveBeenCalledWith("main");
   });

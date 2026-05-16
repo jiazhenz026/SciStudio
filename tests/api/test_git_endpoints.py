@@ -92,6 +92,44 @@ def test_restore_endpoint_soft_restore(client: TestClient, opened_project: Path)
     assert target.read_text(encoding="utf-8") == "A"
 
 
+def test_restore_skips_when_file_unchanged(client: TestClient, opened_project: Path) -> None:
+    """Hotfix #997: restore is a no-op when the target file content
+    already matches the requested commit. Pre-fix, repeat clicks on
+    Restore (e.g. while a different file was dirty) accumulated
+    `auto-stash before restore` entries that showed up in the graph
+    as commit nodes and confused users.
+    """
+    target = opened_project / "file.yaml"
+    target.write_text("A", encoding="utf-8")
+    sha_a = client.post("/api/git/commit", json={"message": "A"}).json()["commit_sha"]
+
+    # File content already matches sha_a (no change since the commit).
+    # Pre-fix this would NOT have created a stash (status was clean),
+    # but to guarantee the no-op even with an unrelated dirty file we
+    # mark another file dirty and confirm Restore still doesn't stash.
+    other = opened_project / "other.txt"
+    other.write_text("dirty unrelated", encoding="utf-8")
+
+    # Snapshot stash count before.
+    before = client.get("/api/git/stash").json()
+    before_count = len(before)
+
+    resp = client.post(
+        "/api/git/restore",
+        json={"commit_sha": sha_a, "files": ["file.yaml"]},
+    )
+    assert resp.status_code == 200
+    # No stash should have been created because the target file is
+    # unchanged vs sha_a.
+    after = client.get("/api/git/stash").json()
+    assert len(after) == before_count, (
+        f"Restore should be a no-op when target file matches commit; "
+        f"stash count went from {before_count} to {len(after)}"
+    )
+    # File content unchanged.
+    assert target.read_text(encoding="utf-8") == "A"
+
+
 # ---------------------------------------------------------------------------
 # Branch endpoints
 # ---------------------------------------------------------------------------

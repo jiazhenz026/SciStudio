@@ -98,9 +98,9 @@ describe("routeEdges (D39-2.4b)", () => {
       parent_lane: 1,
       path: "M 12 11 C 12 33, 28 33, 28 55",
     });
-    // Hotfix #990: every edge — primary or merge — inherits the CHILD
-    // lane's color. For this merge edge child_lane=0 so color_index=0.
-    expect(byPair("C3", "C2b")!.color_index).toBe(0);
+    // Hotfix #994 (supersedes #990): color = max(child_lane, parent_lane).
+    // C3(lane 0) → C2b(lane 1): max(0, 1) = 1 (side branch color).
+    expect(byPair("C3", "C2b")!.color_index).toBe(1);
     // C2a → C1: primary, straight vertical lane 0 → lane 0.
     expect(byPair("C2a", "C1")).toMatchObject({
       child_lane: 0,
@@ -114,9 +114,8 @@ describe("routeEdges (D39-2.4b)", () => {
       parent_lane: 0,
       path: "M 28 55 C 28 66, 12 66, 12 77",
     });
-    // Hotfix #990: fork primary edge — child_lane=1 (the side branch),
-    // parent_lane=0 (main). Pre-#990 used parent_lane (0=blue); post-#990
-    // uses child_lane (1=green) so the side branch is one color end-to-end.
+    // Hotfix #994 (#990 follow-up): fork primary edge child_lane=1,
+    // parent_lane=0; max(1, 0) = 1 (side branch). Matches dot.
     expect(byPair("C2b", "C1")!.color_index).toBe(1);
   });
 
@@ -163,10 +162,9 @@ describe("routeEdges (D39-2.4b)", () => {
     expect(routeEdges([], [])).toEqual([]);
   });
 
-  it("Fixture F (hotfix #990): every edge inherits child_lane (primary AND merge)", () => {
-    // Build a fixture where the merge child sits on lane 0 and its
-    // merge parent sits on lane 1. Primary edge: lane 0 → lane 0;
-    // merge edge: lane 0 → lane 1. Both edges must take child_lane.
+  it("Fixture F (hotfix #994): every edge inherits max(child_lane, parent_lane)", () => {
+    // Merge child M on lane 0 with parents A (lane 0) and B (lane 1).
+    // Primary edge M→A: max(0,0)=0. Merge edge M→B: max(0,1)=1.
     const commits = [
       mk("M", ["A", "B"]),
       mk("A", []),
@@ -176,11 +174,38 @@ describe("routeEdges (D39-2.4b)", () => {
     const edges = routeEdges(assignments, commits);
     const primary = edges.find((e) => e.parent_sha === "A")!;
     const merge = edges.find((e) => e.parent_sha === "B")!;
-    expect(primary.color_index).toBe(primary.child_lane);
-    expect(merge.color_index).toBe(merge.child_lane);
+    expect(primary.color_index).toBe(Math.max(primary.child_lane, primary.parent_lane));
+    expect(merge.color_index).toBe(Math.max(merge.child_lane, merge.parent_lane));
   });
 
-  it("Fixture G (hotfix #990): fork edge takes child branch's color end-to-end", () => {
+  it("Fixture H (hotfix #994): octopus/stash — child on trunk, parents on side lanes", () => {
+    // Reproduces the Phase 4a Test 6 stash scenario: HEAD on lane 0
+    // (the stash commit) has 3 parents, one on each of lanes 0, 1, 2
+    // (HEAD-at-stash + index + untracked). Pre-#994 all three edges
+    // were stroked with the child's lane (lane 0, blue) — clashing
+    // with the lane-1/lane-2 destination dots' colors. Post-#994 each
+    // outgoing edge follows the parent's (side-branch) lane color, so
+    // dot + curve agree visually.
+    const commits = [
+      mk("STASH", ["P0", "P1", "P2"]),
+      mk("P0", []),
+      mk("P1", []),
+      mk("P2", []),
+    ];
+    const assignments = assignLanes(commits);
+    const edges = routeEdges(assignments, commits);
+    expect(edges).toHaveLength(3);
+    for (const e of edges) {
+      expect(e.color_index).toBe(Math.max(e.child_lane, e.parent_lane));
+    }
+    // Sanity: at least one edge crosses lanes (parent on side) and that
+    // edge's color is the parent's side-branch lane, not lane 0.
+    const crossLane = edges.find((e) => e.parent_lane > 0)!;
+    expect(crossLane.color_index).toBe(crossLane.parent_lane);
+    expect(crossLane.color_index).not.toBe(0);
+  });
+
+  it("Fixture G (hotfix #990/#994): fork edge takes side-branch color end-to-end", () => {
     // Worked example from PR #991: side-branch experiment-1 forks off the
     // main lane. The slant from the side-branch tip back to the common
     // ancestor must be stroked with the SIDE BRANCH's color, not the
@@ -196,15 +221,14 @@ describe("routeEdges (D39-2.4b)", () => {
     const sideFork = edges.find((e) => e.child_sha === "SIDE")!;
     const mainFork = edges.find((e) => e.child_sha === "MAIN")!;
     // At least one of the two forks must be a true cross-lane edge
-    // (otherwise the fixture isn't exercising the bug). Whichever fork
-    // is cross-lane, its color_index must equal child_lane (not
-    // parent_lane) — that's the hotfix #990 contract.
+    // (otherwise the fixture isn't exercising the bug). Per #994 each
+    // edge takes `max(child_lane, parent_lane)` — the side-branch lane.
     expect(
       sideFork.child_lane !== sideFork.parent_lane ||
         mainFork.child_lane !== mainFork.parent_lane,
     ).toBe(true);
-    expect(sideFork.color_index).toBe(sideFork.child_lane);
-    expect(mainFork.color_index).toBe(mainFork.child_lane);
+    expect(sideFork.color_index).toBe(Math.max(sideFork.child_lane, sideFork.parent_lane));
+    expect(mainFork.color_index).toBe(Math.max(mainFork.child_lane, mainFork.parent_lane));
   });
 
   it("self-cycle defensive: drops the edge with a console.warn", () => {

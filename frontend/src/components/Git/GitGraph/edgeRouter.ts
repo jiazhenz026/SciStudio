@@ -131,9 +131,9 @@
  *       `C ${C.x} ${midY}, ${P.x} ${midY}, ${P.x} ${P.y}`;
  *   }
  *
- * Edge color resolution (hotfix #990 — root-cause revision):
- *   Every edge inherits the **CHILD lane's** color, regardless of whether
- *   it is a primary (`parents[0]`) or merge (`parents[1..]`) edge.
+ * Edge color resolution (hotfix #994 supersedes #990):
+ *   Every edge inherits the color of `max(child_lane, parent_lane)` —
+ *   the side-branch lane, with lane 0 as the trunk.
  *
  *   The previous rule split: primary edges took the parent lane, merge
  *   edges took the child lane. That sounded principled but produced a
@@ -165,6 +165,24 @@
  *   green branch should stay green". The geometry still reads "the merged-
  *   in branch ENDS at the merge commit" because the dot renders on top of
  *   the edge — only the edge stroke color flipped.
+ *
+ *   **Refinement (hotfix #994, Phase 4a Test 6 follow-up)**: "child lane"
+ *   is the wrong invariant for octopus / stash / merge topologies where
+ *   the CHILD is on the trunk (lane 0) and parents fan out to side lanes.
+ *   In those cases #990's rule made the fork-out curve take the trunk's
+ *   color while the destination dot was a side-branch color, reintroducing
+ *   the same mismatch under a different topology.
+ *
+ *   #994 replaces "child lane" with `max(child_lane, parent_lane)`. This:
+ *
+ *   1. Preserves #990's fix for the fork case: child on lane 1, parent on
+ *      lane 0 → `max(1, 0) = 1` (side color).
+ *   2. Fixes the stash/octopus case: child on lane 0, parent on lane 2 →
+ *      `max(0, 2) = 2` (side color, matching the side-branch dot).
+ *   3. Linear case (`child_lane === parent_lane`) is a no-op.
+ *
+ *   This matches IntelliJ's `PrintElementPresentationManagerImpl.getColorId`
+ *   ("larger layoutIndex wins"; layoutIndex grows toward side branches).
  *
  * ============================================================================
  * COMPLEXITY
@@ -386,13 +404,23 @@ export function routeEdges(
           `${parentCenter.x} ${parentCenter.y}`;
       }
 
-      // Hotfix #990: every edge — primary, merge, dangling — inherits
-      // the CHILD lane's color. See the file-level docstring "Edge color
-      // resolution" section for the industry-standard evidence motivating
-      // this rule. The old "primary edges follow parent lane" rule made
-      // fork slants change color mid-stroke, which broke the user mental
-      // model "one branch is one color from tip to fork point".
-      const colorBase = childLane;
+      // Hotfix #994 (refines #990): edge color follows the side-branch
+      // lane — i.e. `max(childLane, parentLane)`. Lane 0 is the trunk
+      // (HEAD's lane); higher indices are side branches. Picking the
+      // larger lane number guarantees:
+      //   - linear (child_lane === parent_lane): no visual difference
+      //   - fork (child on side, parent on trunk): edge = side color,
+      //     so the side branch stays one color tip-to-fork. (#990 case)
+      //   - merge / octopus / stash (child on trunk, parent on side):
+      //     edge = side color, so the side-branch dot and the curve
+      //     INTO it share a color. Pre-#994 the curve took the child's
+      //     (trunk) color, producing the "node and edge different colors"
+      //     mismatch visible on stash commits (Phase 4a Test 6 follow-up).
+      // This matches the IntelliJ rule (`max(layoutIndex)` in
+      // `PrintElementPresentationManagerImpl.getColorId`) and is
+      // equivalent to vscode-git-graph's "Branch.colour follows the
+      // outermost branch" convention.
+      const colorBase = Math.max(childLane, parentLane);
       const colorIndex = ((colorBase % PALETTE.length) + PALETTE.length) % PALETTE.length;
 
       out.push({

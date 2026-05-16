@@ -153,6 +153,24 @@ class TestGetRun:
         assert len(body["block_executions"]) == 1
         assert body["block_executions"][0]["block_id"] == "loader"
 
+    def test_inlines_block_io_inputs_outputs(self, client: TestClient, seeded_project: dict[str, Any]) -> None:
+        """Hotfix #996: per-block I/O DataObjects must be inlined per ADR-038 §3.7 Q4b."""
+        r = client.get("/api/runs/run-A")
+        assert r.status_code == 200, r.text
+        be = r.json()["block_executions"][0]
+        # Both keys present (empty list if no rows).
+        assert "inputs" in be and "outputs" in be
+        # Seeded fixture has 1 output edge → "obj-1" / DataFrame.
+        assert be["inputs"] == []
+        assert len(be["outputs"]) == 1
+        out = be["outputs"][0]
+        assert out["port_name"] == "result"
+        assert out["object_id"] == "obj-1"
+        assert out["type_name"] == "DataFrame"
+        assert out["storage_path"] == "/proj/data/x.parquet"
+        # wire_payload is intentionally excluded from the response.
+        assert "wire_payload" not in out
+
     def test_unknown_run_id_returns_404(self, client: TestClient, seeded_project: dict[str, Any]) -> None:
         r = client.get("/api/runs/does-not-exist")
         assert r.status_code == 404

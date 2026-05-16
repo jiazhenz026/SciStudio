@@ -139,14 +139,22 @@ describe("RunsList", () => {
     expect(row.textContent).not.toMatch(/block\(s\)/);
   });
 
-  it("renders sr-only text for each status icon", () => {
-    const statuses: LineageRunSummary["status"][] = [
-      "completed",
-      "failed",
-      "cancelled",
-      "running",
+  it("renders a colored status pill for each status (hotfix #998)", () => {
+    /*
+     * Hotfix #998: the row's primary visual is now a colored pill
+     * carrying the status name as visible text (not sr-only). The
+     * `StatusIcon` glyph + sr-only pattern was removed from rows
+     * because the pill text is directly readable by screen readers.
+     * Assert that each status renders its pill with the right
+     * background-color class.
+     */
+    const expected: Array<[LineageRunSummary["status"], string]> = [
+      ["completed", "bg-emerald-600"],
+      ["failed", "bg-rose-600"],
+      ["cancelled", "bg-slate-500"],
+      ["running", "bg-amber-500"],
     ];
-    for (const status of statuses) {
+    for (const [status, bgClass] of expected) {
       useAppStore.setState({
         runs: [
           makeRun({
@@ -158,11 +166,10 @@ describe("RunsList", () => {
         ],
       });
       const { unmount } = render(<RunsList />);
-      const row = screen.getByTestId(`runs-list-row-s-${status}`);
-      const srOnly = within(row).getByText(status, {
-        selector: "span.sr-only",
-      });
-      expect(srOnly).toBeInTheDocument();
+      const pill = screen.getByTestId(`runs-list-row-s-${status}-status-pill`);
+      expect(pill).toBeInTheDocument();
+      expect(pill).toHaveTextContent(status);
+      expect(pill.className).toMatch(new RegExp(bgClass));
       unmount();
       cleanup();
     }
