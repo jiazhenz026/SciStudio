@@ -73,6 +73,21 @@ def test_workflow_execute_and_execute_from_reuses_cached_outputs(
     rerun_handle = wait_for_workflow_completion(runtime, "execute-flow")
     assert rerun_handle.scheduler.block_states()["final"] == BlockState.DONE
 
+    # Hotfix #992: the new run's `runs.parent_run_id` must point at the
+    # most-recent completed run of the same workflow per ADR-038 §3.6a.
+    # Pre-#992 the field was always NULL because the execute-from route
+    # didn't forward `parent_run_id` into `start_workflow`.
+    if runtime.lineage_store is not None:
+        rows = runtime.lineage_store.list_runs(workflow_id="execute-flow", limit=5)
+        # Most-recent first
+        assert len(rows) >= 2, rows
+        partial = rows[0]
+        parent = rows[1]
+        assert partial["execute_from_block_id"] == "final"
+        assert partial["parent_run_id"] == parent["run_id"], (
+            "parent_run_id should link the partial re-run back to the prior full run"
+        )
+
 
 def test_workflow_pause_and_resume_keeps_downstream_block_ready(
     client: TestClient,
