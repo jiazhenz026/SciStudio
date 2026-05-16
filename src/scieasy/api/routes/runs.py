@@ -2,12 +2,12 @@
 
 Endpoints (ADR-038 §3.7, §3.8):
 
-* ``GET  /api/runs``                       — list runs (reverse-chrono), optional ``workflow_id`` filter + pagination
-* ``GET  /api/runs/{run_id}``              — full run detail with joined block_executions
-* ``GET  /api/runs/{run_id}/methods``      — markdown methods export (``Content-Type: text/markdown``)
-* ``POST /api/runs/{run_id}/rerun``        — queue a new run from the recorded workflow snapshot
+* ``GET  /api/runs``                       -- list runs (reverse-chrono), optional ``workflow_id`` filter + pagination
+* ``GET  /api/runs/{run_id}``              -- full run detail with joined block_executions
+* ``GET  /api/runs/{run_id}/methods``      -- markdown methods export (``Content-Type: text/markdown``)
+* ``POST /api/runs/{run_id}/rerun``        -- queue a new run from the recorded workflow snapshot
 
-The lineage store is project-scoped — every endpoint requires an active
+The lineage store is project-scoped -- every endpoint requires an active
 project. Failures resolve to ``400 Bad Request`` (no active project) or
 ``404 Not Found`` (unknown run / unknown workflow).
 
@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/runs", tags=["runs"])
 
-# Module-level Depends() singletons — FastAPI / ruff B008 best practice.
+# Module-level Depends() singletons -- FastAPI / ruff B008 best practice.
 _LineageStoreDep = Depends(get_lineage_store)
 _RuntimeDep = Depends(get_runtime)
 
@@ -62,7 +62,7 @@ class RerunRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# GET /api/runs/_health — preserved from the D38-2.2 placeholder
+# GET /api/runs/_health -- preserved from the D38-2.2 placeholder
 # Must be declared BEFORE /{run_id} so the literal segment matches first.
 # ---------------------------------------------------------------------------
 
@@ -83,7 +83,7 @@ def runs_health(store: Any = _LineageStoreDep) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# GET /api/runs — list runs
+# GET /api/runs -- list runs
 # ---------------------------------------------------------------------------
 
 
@@ -116,7 +116,7 @@ def list_runs(
 
 
 # ---------------------------------------------------------------------------
-# GET /api/runs/{run_id} — full detail
+# GET /api/runs/{run_id} -- full detail
 # ---------------------------------------------------------------------------
 
 
@@ -149,9 +149,9 @@ def get_run(run_id: str, store: Any = _LineageStoreDep) -> dict[str, Any]:
           "produced_by_execution": str | None,  # FK to block_executions
         }
 
-    ``wire_payload`` is intentionally excluded from the response — its
+    ``wire_payload`` is intentionally excluded from the response -- its
     KB-scale per-object JSON would balloon the payload (ADR-038 §3.1
-    Collection unrolling note: ~1-2 KB per item × many items × many
+    Collection unrolling note: ~1-2 KB per item x many items x many
     blocks). Clients that need the full wire-format dict can query
     ``GET /api/runs/{run_id}/data-objects/{object_id}`` (deferred to a
     follow-up endpoint; v1 reference-by-id is sufficient for the tab).
@@ -162,7 +162,7 @@ def get_run(run_id: str, store: Any = _LineageStoreDep) -> dict[str, Any]:
     block_executions = store.list_block_executions(run_id)
 
     # Bucket I/O rows into each block_execution. One batched query keeps
-    # the response O(rows) instead of O(blocks × round-trips).
+    # the response O(rows) instead of O(blocks x round-trips).
     io_rows = store.list_block_io_with_objects(run_id)
     inputs_by_be: dict[str, list[dict[str, Any]]] = {}
     outputs_by_be: dict[str, list[dict[str, Any]]] = {}
@@ -193,7 +193,7 @@ def get_run(run_id: str, store: Any = _LineageStoreDep) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# GET /api/runs/{run_id}/methods — markdown export
+# GET /api/runs/{run_id}/methods -- markdown export
 # ---------------------------------------------------------------------------
 
 
@@ -213,7 +213,7 @@ def get_run_methods(run_id: str, store: Any = _LineageStoreDep) -> PlainTextResp
 
 
 # ---------------------------------------------------------------------------
-# POST /api/runs/{run_id}/rerun — queue a new run
+# POST /api/runs/{run_id}/rerun -- queue a new run
 # ---------------------------------------------------------------------------
 
 
@@ -236,7 +236,7 @@ def rerun_run(
     Per ADR-038 §3.6a, re-running with ``execute_from_block_id`` set
     requires the checkpoint to be present (the latest run's intermediate
     state). The runtime raises ``ValueError`` ("Run the full workflow at
-    least once …") when that precondition is not met — we surface it as
+    least once …") when that precondition is not met -- we surface it as
     a 400.
 
     Re-running an older historical run (one whose intermediate data has
@@ -276,7 +276,7 @@ def rerun_run(
     except FileNotFoundError as exc:
         # The historical workflow YAML may have been deleted since this run
         # was recorded. ADR-038 §3.6a's "reproduce from snapshot" is a future
-        # enhancement — at v1 we surface the missing-workflow case as 404.
+        # enhancement -- at v1 we surface the missing-workflow case as 404.
         raise HTTPException(
             status_code=404,
             detail=f"workflow {workflow_id!r} no longer exists on disk: {exc}",
