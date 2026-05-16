@@ -65,6 +65,24 @@ def test_log_endpoint_respects_limit(client: TestClient, opened_project: Path) -
     assert len(resp.json()) == 2
 
 
+def test_log_endpoint_default_is_unbounded(client: TestClient, opened_project: Path) -> None:
+    """Hotfix #1010: default `limit` is None (no cap), not 500.
+
+    The 500 cap silently truncated dev histories. Verify that omitting the
+    `limit` query parameter returns more rows than 500 when the repo has
+    more commits — emulated here by creating 6 commits and asserting all
+    of them come back (seed initial + 6 = 7 >= 6).
+    """
+    for i in range(6):
+        (opened_project / f"f{i}.txt").write_text(str(i), encoding="utf-8")
+        client.post("/api/git/commit", json={"message": f"c{i}"})
+    resp = client.get("/api/git/log")
+    assert resp.status_code == 200
+    entries = resp.json()
+    # 1 seed commit + 6 added = 7
+    assert len(entries) >= 7
+
+
 def test_diff_endpoint_commit_to_working(client: TestClient, opened_project: Path) -> None:
     (opened_project / "a.txt").write_text("one", encoding="utf-8")
     sha = client.post("/api/git/commit", json={"message": "v1"}).json()["commit_sha"]
