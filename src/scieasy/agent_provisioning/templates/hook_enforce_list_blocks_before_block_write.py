@@ -50,7 +50,8 @@ def _read_payload() -> dict:
     if not raw.strip():
         return {}
     try:
-        return json.loads(raw)
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else {}
     except json.JSONDecodeError:
         return {}
 
@@ -75,10 +76,7 @@ def _is_block_write(payload: dict) -> bool:
     # Bash: command contains a redirect/tee/cp writing into blocks/*.py
     command = str(tool_input.get("command") or "")
     command_norm = command.replace("\\", "/")
-    if _BASH_WRITE_RE.search(command_norm):
-        return True
-
-    return False
+    return bool(_BASH_WRITE_RE.search(command_norm))
 
 
 def _marker_path(payload: dict) -> Path | None:

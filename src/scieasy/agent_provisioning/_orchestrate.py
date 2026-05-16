@@ -111,7 +111,7 @@ def install_project_agent_assets(
     for label, fn, expected in steps:
         try:
             written = fn()
-        except Exception as exc:  # noqa: BLE001 — degraded-mode contract
+        except Exception as exc:
             logger.warning(
                 "ADR-040: sub-step %s failed at %s (non-fatal): %s",
                 label,
@@ -136,7 +136,7 @@ def install_project_agent_assets(
         marker.write_text(SCIEASY_PROVISION_VERSION, encoding="utf-8")
         if _MARKER_REL_PATH not in result.written:
             result.written.append(_MARKER_REL_PATH)
-    except Exception as exc:  # noqa: BLE001 — degraded-mode contract
+    except Exception as exc:
         logger.warning(
             "ADR-040: version marker write failed at %s (non-fatal): %s",
             project_dir,

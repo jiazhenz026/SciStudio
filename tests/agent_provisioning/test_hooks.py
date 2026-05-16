@@ -1,60 +1,304 @@
-"""Test scaffold for ``agent_provisioning.hooks`` (ADR-040 §3.6).
+"""Tests for ``agent_provisioning.hooks`` (ADR-040 §3.6).
 
-All tests skipped pending I40c Phase 2a impl (#1013).
+Covers settings.json shape, hook script provisioning, idempotency, and
+per-hook behavior smoke-tests against synthetic JSON stdin payloads.
 """
 
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 
+from scieasy.agent_provisioning.hooks import write_hooks
 
-@pytest.mark.skip(reason="S40c skeleton — I40c impl in Phase 2a. TODO(#1013)")
-def test_write_hooks_creates_settings_json(tmp_project_dir):
-    """``.claude/settings.json`` exists with PreToolUse + PostToolUse arrays.
-
-    Test plan (I40c):
-      1. Call write_hooks(tmp_project_dir).
-      2. Read <project>/.claude/settings.json.
-      3. Assert ``hooks.PreToolUse`` length == 3.
-      4. Assert ``hooks.PostToolUse`` length == 3.
-      5. Assert each entry references a python interpreter + hook script path.
-    """
+_HOOK_NAMES = (
+    "deny_scieasy_cli.py",
+    "protect_workflow_yaml.py",
+    "enforce_list_blocks_before_block_write.py",
+    "remind_poll_status.py",
+    "mark_list_blocks_called.py",
+    "enforce_concrete_port_types.py",
+)
 
 
-@pytest.mark.skip(reason="S40c skeleton — I40c impl in Phase 2a. TODO(#1013)")
-def test_write_hooks_copies_six_scripts(tmp_project_dir):
-    """All 6 hook scripts copied from templates to .claude/hooks/.
+def test_write_hooks_creates_settings_json(tmp_project_dir: Path) -> None:
+    """``.claude/settings.json`` exists with PreToolUse + PostToolUse arrays."""
+    written = write_hooks(tmp_project_dir, force=False)
+    assert ".claude/settings.json" in written
 
-    Test plan (I40c):
-      1. Call write_hooks.
-      2. For each of [deny_scieasy_cli, protect_workflow_yaml,
-         enforce_list_blocks_before_block_write, remind_poll_status,
-         mark_list_blocks_called, enforce_concrete_port_types],
-         assert <project>/.claude/hooks/<name>.py exists.
-      3. Assert content matches the template byte-for-byte (or up to
-         template substitution, if I40c introduces any).
-    """
+    raw = (tmp_project_dir / ".claude" / "settings.json").read_text(encoding="utf-8")
+    data = json.loads(raw)
+    assert "hooks" in data
+    pre = data["hooks"]["PreToolUse"]
+    post = data["hooks"]["PostToolUse"]
+    assert len(pre) == 3
+    assert len(post) == 3
 
-
-@pytest.mark.skip(reason="S40c skeleton — I40c impl in Phase 2a. TODO(#1013)")
-def test_write_hooks_idempotent_preserves_user_edits(tmp_project_dir):
-    """force=False does not overwrite user-customized settings.json.
-
-    Test plan (I40c):
-      1. Call write_hooks(force=False).
-      2. Append a custom hook entry to <project>/.claude/settings.json.
-      3. Call write_hooks(force=False) again.
-      4. Assert the custom entry is still present (no clobber).
-    """
+    # Every entry references a python interpreter and a hook script path.
+    for entry in pre + post:
+        cmd = entry["hooks"][0]["command"]
+        assert "python" in cmd
+        assert "$CLAUDE_PROJECT_DIR" in cmd
+        assert ".claude/hooks/" in cmd
 
 
-@pytest.mark.skip(reason="S40c skeleton — I40c impl in Phase 2a. TODO(#1013)")
-def test_hook_template_smoke_exit_zero(tmp_path):
-    """Each hook template, when invoked with empty JSON stdin, exits 0.
+def test_write_hooks_copies_six_scripts(tmp_project_dir: Path) -> None:
+    """All 6 hook scripts land in .claude/hooks/."""
+    write_hooks(tmp_project_dir, force=False)
+    hooks_dir = tmp_project_dir / ".claude" / "hooks"
+    for name in _HOOK_NAMES:
+        assert (hooks_dir / name).is_file(), f"missing hook: {name}"
 
-    Test plan (I40c — once real bodies land, expand to exit-2 cases too):
-      1. For each template name, invoke ``python <template_path>`` with
-         stdin '{}' via subprocess.run.
-      2. Assert returncode == 0 for the skeleton (since all are exit-0
-         stubs). I40c will replace this with full behavior tests.
-    """
+
+def test_write_hooks_idempotent_preserves_user_edits(tmp_project_dir: Path) -> None:
+    """force=False does not overwrite user-customized settings.json."""
+    write_hooks(tmp_project_dir, force=False)
+
+    custom = {"hooks": {"PreToolUse": [], "PostToolUse": [], "_custom": "user-added"}}
+    (tmp_project_dir / ".claude" / "settings.json").write_text(json.dumps(custom), encoding="utf-8")
+
+    written = write_hooks(tmp_project_dir, force=False)
+    assert ".claude/settings.json" not in written
+    data = json.loads((tmp_project_dir / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    assert data.get("hooks", {}).get("_custom") == "user-added"
+
+
+def test_write_hooks_force_overwrites_settings_json(tmp_project_dir: Path) -> None:
+    write_hooks(tmp_project_dir, force=False)
+    (tmp_project_dir / ".claude" / "settings.json").write_text("{}", encoding="utf-8")
+
+    written = write_hooks(tmp_project_dir, force=True)
+    assert ".claude/settings.json" in written
+    data = json.loads((tmp_project_dir / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    assert "PreToolUse" in data["hooks"]
+
+
+# ---------------------------------------------------------------------------
+# Hook script behavior — synthetic stdin
+# ---------------------------------------------------------------------------
+
+
+def _run_hook(script: Path, payload: dict, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(script)],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        timeout=15,
+        env=env,
+    )
+
+
+def test_hook_deny_scieasy_cli_blocks(tmp_project_dir: Path) -> None:
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "deny_scieasy_cli.py"
+    proc = _run_hook(script, {"tool_input": {"command": "scieasy run workflow.yaml"}})
+    assert proc.returncode == 2
+    assert "MCP" in proc.stderr or "mcp__scieasy" in proc.stderr
+
+
+def test_hook_deny_scieasy_cli_passes_safe(tmp_project_dir: Path) -> None:
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "deny_scieasy_cli.py"
+    proc = _run_hook(script, {"tool_input": {"command": "ls -la"}})
+    assert proc.returncode == 0
+
+
+def test_hook_deny_scieasy_cli_blocks_relative_path(tmp_project_dir: Path) -> None:
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "deny_scieasy_cli.py"
+    proc = _run_hook(script, {"tool_input": {"command": "./scieasy validate workflow.yaml"}})
+    assert proc.returncode == 2
+
+
+def test_hook_deny_scieasy_cli_empty_stdin(tmp_project_dir: Path) -> None:
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "deny_scieasy_cli.py"
+    proc = subprocess.run(
+        [sys.executable, str(script)],
+        input="",
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert proc.returncode == 0
+
+
+def test_hook_protect_workflow_yaml_blocks(tmp_project_dir: Path) -> None:
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "protect_workflow_yaml.py"
+    for fp in ("workflows/main.yaml", "workflows/sub/pipeline.yml", "/abs/workflows/x.yaml"):
+        proc = _run_hook(script, {"tool_input": {"file_path": fp}})
+        assert proc.returncode == 2, f"expected block for {fp}"
+
+
+def test_hook_protect_workflow_yaml_passes_other_paths(tmp_project_dir: Path) -> None:
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "protect_workflow_yaml.py"
+    for fp in ("README.md", "data/raw/file.csv", "workflows.yaml.bak"):
+        proc = _run_hook(script, {"tool_input": {"file_path": fp}})
+        assert proc.returncode == 0, f"expected pass for {fp}"
+
+
+def test_hook_enforce_list_blocks_blocks_without_marker(tmp_project_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "enforce_list_blocks_before_block_write.py"
+    import os
+
+    env = os.environ.copy()
+    env["CLAUDE_PROJECT_DIR"] = str(tmp_project_dir)
+    proc = _run_hook(
+        script,
+        {
+            "tool_name": "Write",
+            "tool_input": {"file_path": "blocks/my_block.py"},
+            "session_id": "test-session-1",
+        },
+        env=env,
+    )
+    assert proc.returncode == 2
+
+
+def test_hook_enforce_list_blocks_passes_with_marker(tmp_project_dir: Path) -> None:
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "enforce_list_blocks_before_block_write.py"
+    marker_dir = tmp_project_dir / ".scieasy" / ".session-state" / "test-session-2"
+    marker_dir.mkdir(parents=True, exist_ok=True)
+    (marker_dir / "list_blocks_called").touch()
+    import os
+
+    env = os.environ.copy()
+    env["CLAUDE_PROJECT_DIR"] = str(tmp_project_dir)
+    proc = _run_hook(
+        script,
+        {
+            "tool_name": "Write",
+            "tool_input": {"file_path": "blocks/my_block.py"},
+            "session_id": "test-session-2",
+        },
+        env=env,
+    )
+    assert proc.returncode == 0
+
+
+def test_hook_enforce_list_blocks_passes_non_block_path(tmp_project_dir: Path) -> None:
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "enforce_list_blocks_before_block_write.py"
+    proc = _run_hook(
+        script,
+        {"tool_name": "Write", "tool_input": {"file_path": "README.md"}, "session_id": "x"},
+    )
+    assert proc.returncode == 0
+
+
+def test_hook_enforce_list_blocks_bash_redirect_blocked(tmp_project_dir: Path) -> None:
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "enforce_list_blocks_before_block_write.py"
+    import os
+
+    env = os.environ.copy()
+    env["CLAUDE_PROJECT_DIR"] = str(tmp_project_dir)
+    proc = _run_hook(
+        script,
+        {
+            "tool_name": "Bash",
+            "tool_input": {"command": "echo 'foo' > blocks/new_block.py"},
+            "session_id": "test-session-3",
+        },
+        env=env,
+    )
+    assert proc.returncode == 2
+
+
+def test_hook_remind_poll_status_exits_zero_with_stderr(tmp_project_dir: Path) -> None:
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "remind_poll_status.py"
+    proc = _run_hook(script, {"tool_response": {"run_id": "run-abc"}})
+    assert proc.returncode == 0
+    assert "run-abc" in proc.stderr or "get_run_status" in proc.stderr
+
+
+def test_hook_mark_list_blocks_called_writes_marker(tmp_project_dir: Path) -> None:
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "mark_list_blocks_called.py"
+    import os
+
+    env = os.environ.copy()
+    env["CLAUDE_PROJECT_DIR"] = str(tmp_project_dir)
+    proc = _run_hook(script, {"session_id": "abc123"}, env=env)
+    assert proc.returncode == 0
+    marker = tmp_project_dir / ".scieasy" / ".session-state" / "abc123" / "list_blocks_called"
+    assert marker.is_file()
+
+
+def test_hook_mark_list_blocks_called_rejects_path_injection(tmp_project_dir: Path) -> None:
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "mark_list_blocks_called.py"
+    import os
+
+    env = os.environ.copy()
+    env["CLAUDE_PROJECT_DIR"] = str(tmp_project_dir)
+    # Path-traversal-y session_id; should not write outside .session-state/.
+    proc = _run_hook(script, {"session_id": "../escape"}, env=env)
+    assert proc.returncode == 0
+    assert not (tmp_project_dir.parent / "escape" / "list_blocks_called").exists()
+
+
+def test_hook_enforce_concrete_port_types_warns_on_dataobject(tmp_project_dir: Path) -> None:
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "enforce_concrete_port_types.py"
+    blocks = tmp_project_dir / "blocks"
+    blocks.mkdir(parents=True, exist_ok=True)
+    target = blocks / "demo_block.py"
+    target.write_text(
+        "from scieasy.blocks import PortSpec\nspec = PortSpec(name='x', type='DataObject')\n",
+        encoding="utf-8",
+    )
+    import os
+
+    env = os.environ.copy()
+    env["CLAUDE_PROJECT_DIR"] = str(tmp_project_dir)
+    proc = _run_hook(
+        script,
+        {"tool_name": "Write", "tool_input": {"file_path": str(target)}},
+        env=env,
+    )
+    assert proc.returncode == 0
+    assert "DataObject" in proc.stderr
+
+
+def test_hook_enforce_concrete_port_types_silent_on_concrete(tmp_project_dir: Path) -> None:
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "enforce_concrete_port_types.py"
+    blocks = tmp_project_dir / "blocks"
+    blocks.mkdir(parents=True, exist_ok=True)
+    target = blocks / "demo_block.py"
+    target.write_text(
+        "from scieasy.blocks import PortSpec\nspec = PortSpec(name='x', type='Image')\n",
+        encoding="utf-8",
+    )
+    proc = _run_hook(
+        script,
+        {"tool_name": "Write", "tool_input": {"file_path": str(target)}},
+    )
+    assert proc.returncode == 0
+    assert "DataObject" not in proc.stderr
+
+
+def test_hook_enforce_concrete_port_types_handles_syntax_error(tmp_project_dir: Path) -> None:
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "enforce_concrete_port_types.py"
+    blocks = tmp_project_dir / "blocks"
+    blocks.mkdir(parents=True, exist_ok=True)
+    target = blocks / "broken.py"
+    target.write_text("def(((\n", encoding="utf-8")
+    proc = _run_hook(
+        script,
+        {"tool_name": "Write", "tool_input": {"file_path": str(target)}},
+    )
+    # Always exit 0 (PostToolUse cannot block); syntax error just suppresses scan.
+    assert proc.returncode == 0

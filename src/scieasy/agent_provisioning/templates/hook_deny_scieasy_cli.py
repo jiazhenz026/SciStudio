@@ -33,7 +33,8 @@ def _read_payload() -> dict:
     if not raw.strip():
         return {}
     try:
-        return json.loads(raw)
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else {}
     except json.JSONDecodeError:
         return {}
 

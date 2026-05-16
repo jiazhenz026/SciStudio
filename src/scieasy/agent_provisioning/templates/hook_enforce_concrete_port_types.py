@@ -42,7 +42,8 @@ def _read_payload() -> dict:
     if not raw.strip():
         return {}
     try:
-        return json.loads(raw)
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else {}
     except json.JSONDecodeError:
         return {}
 
@@ -53,9 +54,8 @@ def _target_file(payload: dict) -> Path | None:
     tool_response = payload.get("tool_response") or {}
 
     candidate: str = ""
-    if tool_name == "mcp__scieasy__scaffold_block":
-        if isinstance(tool_response, dict):
-            candidate = str(tool_response.get("file_path") or tool_response.get("path") or "")
+    if tool_name == "mcp__scieasy__scaffold_block" and isinstance(tool_response, dict):
+        candidate = str(tool_response.get("file_path") or tool_response.get("path") or "")
     if not candidate and isinstance(tool_input, dict):
         candidate = str(tool_input.get("file_path") or "")
 
@@ -111,9 +111,9 @@ def _scan_for_generic_ports(source: str) -> list[tuple[int, str]]:
             continue
 
         is_generic = False
-        if isinstance(type_value, ast.Constant) and type_value.value == "DataObject":
-            is_generic = True
-        elif isinstance(type_value, ast.Name) and type_value.id == "DataObject":
+        if (isinstance(type_value, ast.Constant) and type_value.value == "DataObject") or (
+            isinstance(type_value, ast.Name) and type_value.id == "DataObject"
+        ):
             is_generic = True
 
         if is_generic:
