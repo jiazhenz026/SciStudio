@@ -262,19 +262,23 @@ See FastMCP track.
 
 ### Phase 2a / I40d — Implementation
 
-**Branch**: `feat/issue-NNN/adr-040-i40d-install-impl` off `track/adr-040/install-parity`.
+**Branch**: `feat/issue-1045/adr-040-i40d-install-impl` off `track/adr-040` (consolidated tracking branch).
 
-- [ ] `_install_skill` walks `src/scieasy/_skills/scieasy/` (post-FastMCP `importlib.resources` relocation), cross-installs to both `.claude/skills/` AND `.agents/skills/` trees (user or project scope)
-- [ ] `_remove_skill` symmetric removal across both providers
-- [ ] `_install_codex` project-scope branch writes `<cwd>/.codex/config.toml`; "force user-scope for codex" fallback at `install.py:489-498` removed
-- [ ] `perform_install` docstring updated (cross-install + project-scope codex now supported)
-- [ ] `docs/cli-integration.md` — update `--skill` cross-installs both providers; `--target codex --scope project` writes project config
-- [ ] Tests:
-  - Cross-install writes all 6 skill files to both `.claude/skills/scieasy/` and `.agents/skills/scieasy/`
-  - Remove cleans both trees
-  - Codex project-scope writes correct `[mcp_servers.scieasy]` TOML block
-- [ ] CHANGELOG entry
-- [ ] CI green; PR merged into tracking branch
+- [x] `_install_skill` walks `src/scieasy/_skills/scieasy/` via `importlib.resources` with walk-up fallback, cross-installs to both `.claude/skills/` AND `.agents/skills/` trees (user or project scope) → commit `6fc4aa7`
+- [x] `_remove_skill` symmetric removal across both providers → commit `6fc4aa7`
+- [x] `_install_codex` project-scope branch writes `<cwd>/.codex/config.toml`; "force user-scope for codex" fallback in `perform_install` removed; `_codex_config_path(scope, cwd)` widened → commit `6fc4aa7`
+- [x] `perform_install` docstring updated (cross-install + project-scope codex now supported) → commit `6fc4aa7`
+- [x] `docs/cli-integration.md` — updated: `--skill` cross-installs both providers; `--target codex --scope project` writes project config → docs commit
+- [x] Tests (21 pass, including 5 flipped from skip→pass + 1 new round-trip):
+  - `test_install_skill_cross_install_user_scope` — both `.claude/` + `.agents/` paths under `~`
+  - `test_install_skill_cross_install_project_scope` — both paths under `<cwd>`; user-scope paths untouched
+  - `test_remove_skill_cross_removal` — both trees removed
+  - `test_install_codex_project_scope_writes_local_config` — `<cwd>/.codex/config.toml` correct; user-scope untouched
+  - `test_perform_install_codex_no_longer_forces_user_scope` — legacy detail-suffix gone
+  - `test_remove_codex_project_scope_round_trip` — install + --remove round-trip clean
+  - Legacy `test_codex_project_scope_falls_back_with_caveat` deleted (asserted removed behavior)
+- [x] CHANGELOG entry → see commit on this PR
+- [ ] CI green; PR merged into tracking branch → pending
 
 ---
 

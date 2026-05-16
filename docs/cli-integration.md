@@ -63,17 +63,24 @@ launch the backend first (`scieasy serve` or `scieasy gui`).
 A Typer subcommand that wires the MCP server into a CLI's config file.
 Targets and behaviours:
 
-| Target / scope            | File mutated                      |
-|---------------------------|-----------------------------------|
-| `claude` / `user`         | `~/.claude.json` (`mcpServers`)   |
-| `claude` / `project`      | `<cwd>/.mcp.json` (`mcpServers`)  |
-| `codex` / `user`          | `~/.codex/config.toml` (`[mcp_servers.scieasy]`) |
-| `skill` / `user`          | `~/.claude/skills/scieasy/`       |
-| `skill` / `project`       | `<cwd>/.claude/skills/scieasy/`   |
-| `--all` (user scope)      | All of the above                  |
+| Target / scope            | File(s) mutated                                                            |
+|---------------------------|----------------------------------------------------------------------------|
+| `claude` / `user`         | `~/.claude.json` (`mcpServers`)                                            |
+| `claude` / `project`      | `<cwd>/.mcp.json` (`mcpServers`)                                           |
+| `codex` / `user`          | `~/.codex/config.toml` (`[mcp_servers.scieasy]`)                           |
+| `codex` / `project`       | `<cwd>/.codex/config.toml` (`[mcp_servers.scieasy]`, pins `SCIEASY_PROJECT_DIR`) |
+| `skill` / `user`          | `~/.claude/skills/scieasy/` AND `~/.agents/skills/scieasy/`                |
+| `skill` / `project`       | `<cwd>/.claude/skills/scieasy/` AND `<cwd>/.agents/skills/scieasy/`        |
+| `--all` (chosen scope)    | All of the above                                                           |
 
 All operations are **idempotent**; re-running produces a `noop` result.
 Use `--remove` to undo any install.
+
+`--skill` installs the bundle into BOTH provider trees (Claude
+`.claude/skills/` AND Codex `.agents/skills/`) under the chosen scope.
+This is per ADR-040 §3.9: a single `scieasy install --skill` call
+serves whichever CLI the user reaches for next without forcing them to
+pick a provider up front.
 
 Examples:
 
@@ -84,8 +91,9 @@ scieasy install --target claude --scope user --skill
 # Project-scope claude only (writes <cwd>/.mcp.json).
 scieasy install --target claude --scope project
 
-# Just the codex MCP entry.
-scieasy install --target codex
+# Project-scope codex (writes <cwd>/.codex/config.toml). Requires
+# Codex CLI 2026+ which discovers project-scope config files.
+scieasy install --target codex --scope project
 
 # Convenience.
 scieasy install --all
@@ -95,26 +103,30 @@ scieasy install --target claude --scope user --remove
 scieasy install --all --remove
 ```
 
-> **Codex caveat.** Codex CLI's MCP config is stored in
-> `~/.codex/config.toml` under `[mcp_servers.<name>]`, which is a
-> single-scope (user) facility — there's no Codex equivalent of
-> Claude's per-project `.mcp.json`. Passing `--scope project` together
-> with `--target codex` falls back to user scope and prints a
-> clarifying message.
+> **Codex project-scope requires Codex CLI 2026+.** Earlier Codex
+> versions only read `~/.codex/config.toml`. If you're on an older
+> Codex, use `--scope user` instead — the project's
+> `SCIEASY_PROJECT_DIR` is still pinned in the user-scope env table.
 
 ### 3. SciEasy skill
 
-A directory `skills/scieasy/` (bundled with the source distribution and
-installed by `scieasy install --skill`) containing:
+A directory `scieasy/_skills/scieasy/` (packaged with the wheel; see
+`pyproject.toml` `[tool.setuptools.package-data]`) containing:
 
 - `SKILL.md` — frontmatter + body describing identity, core concepts,
   the 25 tools, working principles, and pointers to project docs.
-- `examples/` — minimal workflow YAMLs the agent can cite as
-  structural references.
+- Task sub-skills (`scieasy-build-workflow/`, `scieasy-write-block/`,
+  `scieasy-debug-run/`, `scieasy-inspect-data/`, `scieasy-project-qa/`)
+  per ADR-040 §3.4.
 
-Claude Code auto-discovers user-scope skills under
-`~/.claude/skills/<name>/SKILL.md` and surfaces them in the
-slash-command picker. The skill body is also the **single source of
+`scieasy install --skill` cross-installs the bundle into BOTH provider
+trees so any compatible CLI sees the skill:
+
+- Claude Code auto-discovers `~/.claude/skills/<name>/SKILL.md`
+  (user) and `<cwd>/.claude/skills/<name>/SKILL.md` (project) and
+  surfaces them in the slash-command picker.
+- Codex auto-discovers `~/.agents/skills/<name>/SKILL.md` (user) and
+  `<cwd>/.agents/skills/<name>/SKILL.md` (project). The skill body is also the **single source of
 truth** for the embedded GUI agent's system prompt: at session start
 the GUI reads `skills/scieasy/SKILL.md` (with the tool catalog
 re-synthesised from the live registry) and uses it as the
