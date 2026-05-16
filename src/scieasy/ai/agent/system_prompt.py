@@ -177,10 +177,16 @@ def _render_tool_catalog() -> str:
     #   FastMCP either by tool annotations or a parallel category map.
     #   Decision deferred to I40a.
     #   Out of scope per ADR-040 §3.1 / phase: 2a I40a. Followup: #1012.
+    #
+    # Skeleton-phase hygiene (agent-manager templates/skeleton-agent.md §5):
+    # runtime callers (compose_system_prompt → AIBlock bootstrap) must not
+    # crash. Return placeholder text; I40a rewrites with real FastMCP
+    # enumeration. Placeholder is intentionally short so spawned agents
+    # see the missing-catalog state explicitly.
     """
-    raise NotImplementedError(
-        "S40a skeleton — FastMCP list_tools() iteration lands in I40a Phase 2a. "
-        "TODO(#1012): wire mcp.list_tools() enumeration + category grouping."
+    return (
+        "<!-- tool_catalog: skeleton placeholder — I40a (#1012) "
+        "wires FastMCP list_tools() enumeration. -->\n"
     )
 
 
@@ -229,10 +235,14 @@ def _render_project_context(project_dir: Path) -> str:
     #     entirely rather than rendering an empty list.
     #   - Non-git-repo handling: omit the "Git:" line.
     #   Out of scope per ADR-040 §3.3 / phase: 2a I40a. Followup: #1012.
+    #
+    # Skeleton-phase hygiene (agent-manager templates/skeleton-agent.md §5):
+    # runtime callers must not crash. Return placeholder text; I40a rewrites
+    # with the real per-project metadata renderer per ADR-040 §3.3 + #825.
     """
-    raise NotImplementedError(
-        "S40a skeleton — project_context rendering lands in I40a Phase 2a per ADR-040 §3.3. "
-        "TODO(#1012): implement field-source table + <100ms perf budget."
+    return (
+        "<!-- project_context: skeleton placeholder — I40a (#1012, closes #825) "
+        "implements per-project metadata injection. -->\n"
     )
 
 
