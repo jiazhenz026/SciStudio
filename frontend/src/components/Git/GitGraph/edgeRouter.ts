@@ -394,25 +394,42 @@ export function routeEdges(
         path =
           `M ${childCenter.x} ${childCenter.y} ` +
           `L ${parentCenter.x} ${parentCenter.y}`;
-      } else {
-        // Case 2 / 3 (hotfix #1005 — supersedes bezier S-curve): elbow
-        // path with three straight segments: vertical down from child to
-        // midY, horizontal to parent's lane x, vertical down to parent.
-        // The previous cubic Bézier produced visually twisted curves at
-        // the 16px lane pitch + 22px row height — at that resolution the
-        // curvature was tight enough that the bend at the middle of an
-        // S-curve looked asymmetric (the user described it as "两端弯
-        // 曲方向不相同"). Elbow paths are pixel-aligned and match the
-        // vscode-git-graph / GitLens visual idiom: clean 90° corners
-        // instead of stretched curves. Adjacent edges at the same midY
-        // will overlap horizontally — that's intentional, the parent
-        // dot draws on top and the result reads as a clean "branch
-        // merge" affordance.
-        const midY = (childCenter.y + parentCenter.y) / 2;
+      } else if (parentLane > childLane) {
+        // FORK-OUT (hotfix #1012 — supersedes #1005's mid-row corner):
+        // The parent lives on a side lane to the right of the child.
+        // This is a merge fold-in or new branch sprouting off the
+        // child's lane. Place the corner at the CHILD's row so the
+        // child dot draws on top of the corner — the horizontal
+        // segment extends RIGHT from the child dot, then drops
+        // vertically onto the parent's lane. Pre-#1012 the corner sat
+        // at midY (the empty space between two dot rows), which made
+        // the horizontal cross-cut OTHER lanes' vertical edges at
+        // mid-row coordinates — visually it looked like dangling
+        // lines because the horizontal segment overlapped main's
+        // vertical line without a dot to anchor it.
+        //   ●── (child, lane C)
+        //         │
+        //         │
+        //         ●  (parent, lane P > C)
         path =
           `M ${childCenter.x} ${childCenter.y} ` +
-          `L ${childCenter.x} ${midY} ` +
-          `L ${parentCenter.x} ${midY} ` +
+          `L ${parentCenter.x} ${childCenter.y} ` +
+          `L ${parentCenter.x} ${parentCenter.y}`;
+      } else {
+        // FORK-BACK (hotfix #1012): the child lives on a side lane,
+        // the parent is on a lane to the left (typically main). This
+        // is a side branch terminating into the trunk. Place the
+        // corner at the PARENT's row so the parent dot draws on top —
+        // the line first drops vertically on the child's lane, then
+        // turns LEFT at the parent's row and ends inside the parent
+        // dot.
+        //         ●   (child, lane C)
+        //         │
+        //         │
+        //   ●─────┘   (parent, lane P < C)
+        path =
+          `M ${childCenter.x} ${childCenter.y} ` +
+          `L ${childCenter.x} ${parentCenter.y} ` +
           `L ${parentCenter.x} ${parentCenter.y}`;
       }
 
