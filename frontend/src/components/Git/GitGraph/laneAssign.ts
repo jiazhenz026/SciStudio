@@ -359,11 +359,20 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
       while (parentIdx >= 0 && parentIdx < n) {
         if (state[parentIdx].branch !== null) {
           // Chain break: parent already belongs to a different branch.
-          // We don't claim this parent for our branch. The renderer's
-          // edge will still be drawn from curIdx to parentIdx because
-          // commits[curIdx].parents[0] === commits[parentIdx].sha.
+          // Hotfix #1013: the fork-back edge from curIdx down to
+          // parentIdx draws a vertical segment on THIS branch's lane
+          // from curIdx's row all the way to parentIdx's row (see
+          // edgeRouter's fork-back path `M cx cy L cx py L px py`).
+          // Pre-#1013 we marked the lane "available" at curIdx, so a
+          // new branch could be allocated to the same lane at curIdx+1
+          // and its vertical edges would overlap with this branch's
+          // still-rendering fork-back vertical between curIdx and
+          // parentIdx — the user saw a single vertical line whose
+          // colour changed mid-segment with no dot at the transition.
+          // Hold the lane until parentIdx so the recycler waits until
+          // the trailing edge actually ends.
           curBranch.end = curIdx;
-          availableColours[curBranch.colour] = curIdx;
+          availableColours[curBranch.colour] = parentIdx;
           return;
         }
         // Extend our branch onto parentIdx.
@@ -388,8 +397,11 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
       let parentIdx = parentRow(curIdx, 0);
       while (parentIdx >= 0 && parentIdx < n) {
         if (state[parentIdx].branch !== null) {
+          // Hotfix #1013: hold the lane until the fork-back edge ends
+          // at parentIdx. See twin comment in the startParentP === 0
+          // branch above.
           curBranch.end = curIdx;
-          availableColours[curBranch.colour] = curIdx;
+          availableColours[curBranch.colour] = parentIdx;
           return;
         }
         state[parentIdx].branch = curBranch;
