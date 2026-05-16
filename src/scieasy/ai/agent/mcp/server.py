@@ -296,15 +296,15 @@ class MCPServer:
             return _error_response(req_id, _INTERNAL_ERROR, f"{type(exc).__name__}: {exc}")
 
 
-def _ok(req_id, result: dict) -> dict:
+def _ok(req_id: int | str | None, result: dict) -> dict:
     return {"jsonrpc": "2.0", "id": req_id, "result": result}
 
 
-def _error_response(req_id, code: int, message: str) -> dict:
+def _error_response(req_id: int | str | None, code: int, message: str) -> dict:
     return {"jsonrpc": "2.0", "id": req_id, "error": {"code": code, "message": message}}
 
 
-def _serialise_result(result) -> object:
+def _serialise_result(result: object) -> object:
     """Coerce a FastMCP ToolResult-like object to a JSON-friendly value.
 
     FastMCP's ``call_tool`` returns either a ``ToolResult`` (with

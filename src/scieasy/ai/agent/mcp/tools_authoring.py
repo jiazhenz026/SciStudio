@@ -141,7 +141,7 @@ async def read_block_source(
         raise KeyError(f"Block type '{type_name}' is not registered")
 
     if getattr(spec, "file_path", None):
-        path = Path(spec.file_path)
+        path = Path(str(spec.file_path))
     else:
         try:
             module = ctx.block_registry.instantiate(type_name).__class__.__module__

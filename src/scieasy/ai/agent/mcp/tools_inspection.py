@@ -214,9 +214,10 @@ def _preview_array(path: Path) -> dict[str, Any]:
         with tifffile.TiffFile(str(path)) as tf:
             page = tf.pages[0]
             try:
-                page_nbytes = int(page.size) * int(page.dtype.itemsize)
+                page_nbytes = int(page.size) * int(page.dtype.itemsize) if page.dtype is not None else 0
             except (AttributeError, TypeError):
                 page_nbytes = 0
+            arr: Any
             if page_nbytes and page_nbytes > _MAX_PREVIEW_BYTES:
                 try:
                     arr = tifffile.memmap(str(path), page=0, mode="r")
