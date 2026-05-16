@@ -159,6 +159,18 @@ export interface GitSlice {
    */
   mergeFlowSource: string | null;
 
+  /**
+   * Project ID active when `mergeFlowSource` was set (#975 Codex P1 on
+   * PR #980). Used by the App-level `<AppLevelMergeFlow>` mount to
+   * gate visibility: the modal renders only when the current open
+   * project matches this id. Switching to a different project hides
+   * the modal (state preserved); switching back re-shows it. Without
+   * this gate, modal actions like `complete merge` / `abort merge`
+   * would run against the wrong backend project context. `null` when
+   * no merge is in flight.
+   */
+  mergeFlowProjectId: string | null;
+
   // Actions — D39-2.3b fills bodies.
   setHistoryFilter: (filter: GitHistoryFilter) => void;
   invalidateHistory: () => void;
@@ -175,7 +187,15 @@ export interface GitSlice {
     files?: string[],
   ) => Promise<{ status: "ok" } | { status: "stashed"; stash_id: string }>;
   setMergeInProgress: (state: GitMergeInProgress | null) => void;
-  setMergeFlowSource: (source: string | null) => void;
+  /**
+   * Open or close MergeFlow. `source` is the branch being merged into
+   * the current branch (or `null` to close). `projectId` is the
+   * current open project's id — stamped here so the App-level mount
+   * can gate visibility against project switches (#975 Codex P1 on
+   * PR #980). Pass `null` for `projectId` when closing (`source=null`)
+   * or when opening outside any project context (test fixtures).
+   */
+  setMergeFlowSource: (source: string | null, projectId?: string | null) => void;
   setLastError: (message: string | null) => void;
 }
 
@@ -244,6 +264,7 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
   stashes: null,
   mergeInProgress: null,
   mergeFlowSource: null,
+  mergeFlowProjectId: null,
   lastError: null,
 
   setHistoryFilter: (filter) => set({ historyFilter: filter }),
@@ -255,10 +276,17 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
 
   setMergeInProgress: (state) => set({ mergeInProgress: state }),
   // #972 (Codex P1 on PR #974) — UI-only field; setting null hides the
-  // MergeFlow modal. The modal itself is mounted at the BottomPanel level
-  // so it survives tab switches and its conflict-state close guard cannot
-  // be bypassed by switching away from the Git tab mid-resolution.
-  setMergeFlowSource: (source) => set({ mergeFlowSource: source }),
+  // MergeFlow modal. Mounted at App level (#975) so it survives bottom-
+  // tab switches AND project switch/close. `projectId` is stamped so
+  // App-level mount can hide the modal when user navigates to a
+  // different project mid-conflict (state preserved; comes back on
+  // returning to the original project) — prevents Complete/Abort
+  // operations from being routed to the wrong backend project context.
+  setMergeFlowSource: (source, projectId) =>
+    set({
+      mergeFlowSource: source,
+      mergeFlowProjectId: source === null ? null : (projectId ?? null),
+    }),
   setLastError: (message) => set({ lastError: message }),
 
   loadBranches: async () => {

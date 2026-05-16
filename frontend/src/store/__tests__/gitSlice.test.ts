@@ -157,12 +157,37 @@ describe("gitSlice — default state shape (skeleton)", () => {
     expect(makeSlice().slice.mergeFlowSource).toBeNull();
   });
 
+  it("defaults mergeFlowProjectId to null (#975 — Codex P1 on PR #980)", () => {
+    expect(makeSlice().slice.mergeFlowProjectId).toBeNull();
+  });
+
   it("setMergeFlowSource updates the slice and round-trips to null", () => {
     const { slice, get } = makeSlice();
     slice.setMergeFlowSource("feature-x");
     expect(get().mergeFlowSource).toBe("feature-x");
     slice.setMergeFlowSource(null);
     expect(get().mergeFlowSource).toBeNull();
+  });
+
+  it("setMergeFlowSource stamps mergeFlowProjectId from second arg (#975)", () => {
+    const { slice, get } = makeSlice();
+    slice.setMergeFlowSource("feature-x", "project-A");
+    expect(get().mergeFlowSource).toBe("feature-x");
+    expect(get().mergeFlowProjectId).toBe("project-A");
+  });
+
+  it("setMergeFlowSource(null) clears both mergeFlowSource and mergeFlowProjectId (#975)", () => {
+    const { slice, get } = makeSlice();
+    slice.setMergeFlowSource("feature-x", "project-A");
+    slice.setMergeFlowSource(null);
+    expect(get().mergeFlowSource).toBeNull();
+    expect(get().mergeFlowProjectId).toBeNull();
+  });
+
+  it("setMergeFlowSource(source) without projectId stamps null projectId (#975)", () => {
+    const { slice, get } = makeSlice();
+    slice.setMergeFlowSource("feature-x");
+    expect(get().mergeFlowProjectId).toBeNull();
   });
 
   it("setLastError is callable (synchronous)", () => {

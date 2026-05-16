@@ -73,7 +73,9 @@ export function GitTab(): JSX.Element {
         className="flex shrink-0 items-center gap-2 border-b border-stone-200 bg-white/70 px-3 py-2"
       >
         <BranchPicker
-          onMergeRequested={(sourceBranch) => setMergeFlowSource(sourceBranch)}
+          onMergeRequested={(sourceBranch) =>
+            setMergeFlowSource(sourceBranch, currentProject.id)
+          }
         />
         <GitStatusBadge onClick={() => setCommitOpen(true)} />
         <Button
