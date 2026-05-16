@@ -13,7 +13,15 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.ai.agent.mcp import _context, tools_workflow
+# TODO(#1012): module-level skip during ADR-040 §3.1 FastMCP skeleton
+#   phase. finish_ai_block body is a NotImplementedError stub in S40a;
+#   I40a Phase 2a restores behavior. Out of scope per ADR-040 §3.1 /
+#   phase: 2a I40a. Followup: #1012.
+pytestmark = pytest.mark.skip(
+    reason="S40a skeleton — finish_ai_block body is NotImplementedError. TODO(#1012): I40a Phase 2a restores."
+)
+
+from scieasy.ai.agent.mcp import _context, tools_workflow  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

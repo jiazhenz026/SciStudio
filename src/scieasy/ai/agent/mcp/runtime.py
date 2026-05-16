@@ -1,8 +1,9 @@
 """Reusable MCP runtime setup, shared by the FastAPI lifespan and the standalone bridge.
 
-T-ECA-205 + #787. The FastAPI process and the standalone
-``scieasy mcp-bridge`` (used by external CLIs like ``claude`` and
-``codex``) both need to:
+T-ECA-205 + #787; adapted for ADR-040 FastMCP migration (S40a skeleton).
+
+The FastAPI process and the standalone ``scieasy mcp-bridge`` (used by
+external CLIs like ``claude`` and ``codex``) both need to:
 
 1. Build a :class:`scieasy.blocks.registry.BlockRegistry` scoped to the
    active project (plus the user-wide ``~/.scieasy/blocks`` and the
@@ -10,9 +11,9 @@ T-ECA-205 + #787. The FastAPI process and the standalone
 2. Build a :class:`scieasy.core.types.registry.TypeRegistry` populated
    with builtins (and plugins).
 3. Install a :class:`MCPContext` against ``_context.set_context`` so the
-   25 MCP tools can reach those registries plus the project root.
-4. Stand up an :class:`MCPServer` listening on the project-local
-   socket.
+   26 MCP tools can reach those registries plus the project root.
+4. Stand up an :class:`MCPServer` (FastMCP-backed per ADR-040 §3.1)
+   listening on the project-local socket.
 
 Previously this lived inline inside ``api/app.py::lifespan``. Issue #787
 extracted it here so the standalone bridge can do exactly the same setup
@@ -22,6 +23,12 @@ Important layering note: this module sits inside the AI layer and must
 not import from ``scieasy.api`` (the import-linter contracts forbid
 that direction). We therefore build a thin local context class instead
 of re-using ``ApiRuntime``.
+
+ADR-040 note: S40a skeleton phase preserves the public surface
+(``StandaloneMCPRuntime``, ``make_mcp_runtime``, ``start_inprocess_server``,
+``stop_inprocess_server``). The underlying :class:`MCPServer` is now a
+FastMCP wrapper whose ``start()``/``stop()`` raise ``NotImplementedError``;
+I40a Phase 2a wires the real FastMCP transport into ``start_inprocess_server``.
 """
 
 from __future__ import annotations
@@ -58,6 +65,13 @@ class StandaloneMCPRuntime:
     drive execution from MCP tools, so we leave that as a no-op
     placeholder — the runtime-dependent ``run_workflow`` tool will
     surface a clear error if invoked here.
+
+    # TODO(#1012): I40a Phase 2a may need to add ``ai_block_run_dir``
+    #   here to satisfy the MCPContext Protocol surface that
+    #   tools_workflow.finish_ai_block reads. Today
+    #   ``_resolve_ai_block_run_dir`` falls back to the env var when the
+    #   attribute is absent, so this is a NICE-TO-HAVE not a blocker.
+    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a. Followup: #1012.
     """
 
     block_registry: BlockRegistry

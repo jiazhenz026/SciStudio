@@ -1,25 +1,26 @@
 """Compose the system prompt for the embedded agent.
 
-ADR-034 Phase 1.2.  PR #808 rolled back the previous
-``compose_system_prompt`` implementation (along with the rest of the
-Phase 5 e2e harness).  This module restores the helper in its
-PTY-architecture-appropriate shape:
+ADR-040 §3.3 evolves this module in three ways (S40a skeleton phase):
 
-* The prompt's narrative content lives in ``skills/scieasy/SKILL.md``
-  (single source of truth — the same file is also copied into
-  ``~/.claude/skills/scieasy/`` by ``scieasy install --skill`` so the
-  ambient claude shell sees it too).
-* The MCP tool catalogue is **not** stored statically inside SKILL.md.
-  Instead, SKILL.md ships a placeholder block delimited by
-  ``<!-- tool_catalog:begin -->`` / ``<!-- tool_catalog:end -->`` and
-  this module re-renders that block from the live
-  :data:`scieasy.ai.agent.mcp._registry.TOOL_REGISTRY` so the prompt
-  and the dispatcher can never drift.
+1. ``_load_skill_md`` switches from a walk-up-the-tree resolver to
+   ``importlib.resources``, fixing the #824 wheel-install bug. (See
+   ADR-040 §3.4 — the skill source relocates from repo-root
+   ``skills/scieasy/SKILL.md`` to ``src/scieasy/_skills/scieasy/SKILL.md``
+   in the Skills track, owned by S40b.)
+2. ``_render_tool_catalog`` switches from iterating the deleted
+   :data:`_registry.TOOL_REGISTRY` to enumerating FastMCP's
+   ``mcp.list_tools()`` surface.
+3. New :func:`_render_project_context` renders a per-project dynamic
+   section spliced into the base SKILL.md between
+   ``<!-- project_context:begin/end -->`` markers. Source fields
+   include: project_name, workflow_count, installed_plugins, git
+   branch/sha (best-effort), and recently-modified workflows. Closes
+   #825.
 
-The function is **pure** — same inputs produce the same string,
-byte-for-byte.  Hashing for SessionMetadata is no longer needed (the
-PTY architecture does not persist that field), so we just return a
-plain ``str``.
+All three bodies raise :class:`NotImplementedError` in this skeleton —
+I40a Phase 2a fills them in. The composer's high-level structure
+(splice catalog + splice project_context) is laid down here so the
+file's shape is the contract Phase 2a fills.
 """
 
 from __future__ import annotations
@@ -29,9 +30,11 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Markers in SKILL.md that delimit the rendered tool catalogue.
+# Markers in SKILL.md that delimit rendered insertion blocks.
 _TOOL_CATALOG_BEGIN = "<!-- tool_catalog:begin -->"
 _TOOL_CATALOG_END = "<!-- tool_catalog:end -->"
+_PROJECT_CONTEXT_BEGIN = "<!-- project_context:begin -->"
+_PROJECT_CONTEXT_END = "<!-- project_context:end -->"
 
 __all__ = ["compose_system_prompt"]
 
@@ -39,84 +42,88 @@ __all__ = ["compose_system_prompt"]
 def compose_system_prompt(project_dir: Path) -> str:
     """Return the system prompt string for ``project_dir``.
 
-    The ``project_dir`` argument is kept in the signature for forward
-    compatibility (future iterations may want to splice in project
-    metadata) but is currently used only as a deterministic input —
-    callers should *not* assume the returned string varies with it
-    today.
+    Per ADR-040 §3.3, the ``project_dir`` argument is now load-bearing:
+    a rendered project-context section is spliced into the SKILL.md
+    between ``<!-- project_context:begin -->`` and
+    ``<!-- project_context:end -->`` markers.
 
     Parameters
     ----------
     project_dir
-        Active project root.  Not currently woven into the prompt;
-        reserved for future use.
+        Active project root. Used to render the project_context section
+        (project name, workflow count, installed plugins, recent
+        workflows, git branch/sha when applicable). Closes #825.
 
     Returns
     -------
     str
-        The full system prompt — SKILL.md content with the tool
-        catalogue block re-rendered from :data:`TOOL_REGISTRY`.
+        The full system prompt — SKILL.md content with both the
+        tool_catalog and the project_context blocks re-rendered.
 
     Raises
     ------
     FileNotFoundError
-        When SKILL.md cannot be located.  This indicates a broken
-        install / worktree and should surface to the route layer as a
-        WebSocket error frame.
+        When SKILL.md cannot be located (broken install / worktree).
+
+    # TODO(#1012): wire real bodies once S40b lands the new base
+    #   SKILL.md at ``src/scieasy/_skills/scieasy/SKILL.md`` with both
+    #   the tool_catalog and project_context marker blocks.
+    #   Out of scope per ADR-040 §3.3 / phase: 2a I40a. Followup: #1012.
     """
     skill_md = _load_skill_md()
     catalog = _render_tool_catalog()
-    return _splice_catalog(skill_md, catalog)
+    project_context = _render_project_context(project_dir)
+    with_catalog = _splice(skill_md, _TOOL_CATALOG_BEGIN, _TOOL_CATALOG_END, catalog)
+    return _splice(with_catalog, _PROJECT_CONTEXT_BEGIN, _PROJECT_CONTEXT_END, project_context)
 
 
 def _load_skill_md() -> str:
-    """Locate and read ``skills/scieasy/SKILL.md``.
+    """Load the base SKILL.md via ``importlib.resources`` (ADR-040 §3.4).
 
-    Resolution order:
+    The legacy walk-up resolver broke for wheel installs (#824) because
+    ``skills/`` lived at repo-root, not inside ``src/scieasy/``. ADR-040
+    §3.4 relocates the skill tree to ``src/scieasy/_skills/scieasy/``
+    and switches both consumers (this module and
+    :func:`scieasy.cli.install._find_skill_source`) to use
+    ``importlib.resources.files``.
 
-    1. Walk up from this file (``src/scieasy/ai/agent/system_prompt.py``)
-       until we find a ``skills/scieasy/SKILL.md`` sibling.  This covers
-       editable installs and the worktree-PYTHONPATH dev loop.
-    2. Fall back to the wheel-packaged copy (planned for a later phase
-       that bundles SKILL.md into the wheel).  When that lands the path
-       here will be ``Path(__file__).parent.parent.parent / 'skills' /
-       'scieasy' / 'SKILL.md'``.
+    Reference impl plan for I40a:
 
-    TODO: #824 — bundle ``skills/scieasy/SKILL.md`` into the wheel via
-    ``importlib.resources`` so non-dev installs (pip install scieasy)
-    find the skill without walking the source tree.
+    ```python
+    from importlib.resources import files
+    def _load_skill_md() -> str:
+        return (files("scieasy") / "_skills" / "scieasy" / "SKILL.md").read_text("utf-8")
+    ```
+
+    Returns
+    -------
+    str
+        Full text of the base SKILL.md.
+
+    # TODO(#1012): switch to importlib.resources once S40b lands the
+    #   relocated SKILL.md at src/scieasy/_skills/scieasy/SKILL.md and
+    #   adds the [tool.setuptools.package-data] scieasy =
+    #   ["_skills/scieasy/**/*.md"] entry in pyproject.toml (S40b owns
+    #   that pyproject section — S40a only touches [project] deps).
+    #   Out of scope per ADR-040 §3.4 / phase: 2a I40a. Followup: #1012.
     """
-    here = Path(__file__).resolve()
-    # Walk up looking for the repo root (contains ``skills/scieasy``).
-    for parent in here.parents:
-        candidate = parent / "skills" / "scieasy" / "SKILL.md"
-        if candidate.is_file():
-            return candidate.read_text(encoding="utf-8")
-        # Stop at repo root if pyproject.toml is found there.
-        if (parent / "pyproject.toml").is_file():
-            # Final probe inside the repo root before giving up.
-            if candidate.is_file():
-                return candidate.read_text(encoding="utf-8")
-            break
-    raise FileNotFoundError(
-        "skills/scieasy/SKILL.md was not found relative to "
-        f"{here}.  Reinstall SciEasy or run from a checkout that "
-        "includes the skills/ tree."
+    raise NotImplementedError(
+        "S40a skeleton — importlib.resources skill load lands in I40a Phase 2a. "
+        "TODO(#1012): wire files('scieasy') / '_skills' / 'scieasy' / 'SKILL.md'."
     )
 
 
 def _render_tool_catalog() -> str:
-    """Build the ``<!-- tool_catalog -->`` block contents.
+    """Build the ``<!-- tool_catalog -->`` block contents from FastMCP.
 
-    Walks :data:`TOOL_REGISTRY` in declaration order, grouping by
-    category so the prompt remains readable.  Format mirrors what
-    SKILL.md ships as a static fallback so behavior is unchanged for
-    out-of-process readers.
-    """
-    # Local import keeps the ai.agent package import-light at module load.
-    from scieasy.ai.agent.mcp._registry import TOOL_REGISTRY
+    Replaces the ADR-033-era TOOL_REGISTRY iteration. The deleted
+    ``_registry.TOOL_REGISTRY`` is now ``mcp.list_tools()`` enumeration.
 
-    # Group by category in declaration order.
+    Reference impl plan for I40a (per ADR-040 §3.1 + §3.2):
+
+    ```python
+    from scieasy.ai.agent.mcp.server import mcp
+
     category_titles = {
         "workflow": "### (a) Workflow design & execution",
         "authoring": "### (b) Block authoring",
@@ -124,43 +131,110 @@ def _render_tool_catalog() -> str:
         "qa": "### (d) Project Q&A",
     }
     grouped: dict[str, list[str]] = {key: [] for key in category_titles}
-    for entry in TOOL_REGISTRY:
-        line = f"- `{entry.name}` [{entry.mutation}] — {entry.description}"
-        grouped.setdefault(entry.category, []).append(line)
+    for tool in mcp.list_tools():
+        # tool object exposes: .name, .description, .annotations (incl.
+        # mutation), .inputSchema (FastMCP-generated from type hints).
+        # Category source TBD — likely a custom annotation set when the
+        # tool is decorated. For S40a, we can derive from the tool's
+        # owning module via a small mapping.
+        ...
+    ```
 
-    lines: list[str] = []
-    for cat, title in category_titles.items():
-        if not grouped.get(cat):
-            continue
-        if lines:
-            lines.append("")  # blank between categories
-        lines.append(title)
-        lines.append("")
-        lines.extend(grouped[cat])
-    return "\n".join(lines)
+    Returns
+    -------
+    str
+        Multi-line markdown block listing every registered tool grouped
+        by category. Each line is
+        ``- `<name>` [<mutation>] — <description>``.
 
-
-def _splice_catalog(skill_md: str, catalog: str) -> str:
-    """Replace the marker block in SKILL.md with the rendered catalog.
-
-    Falls back to appending the catalogue at the end of the file when
-    the marker pair is missing — surfacing a warning so a stale SKILL.md
-    is easy to diagnose without breaking the agent.
+    # TODO(#1012): wire FastMCP list_tools() iteration once the real
+    #   FastMCP instance lands in server.py. The deleted
+    #   _registry.TOOL_REGISTRY had a clean (name, category, mutation,
+    #   description) shape; we need to recover equivalent metadata from
+    #   FastMCP either by tool annotations or a parallel category map.
+    #   Decision deferred to I40a.
+    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a. Followup: #1012.
     """
-    begin = skill_md.find(_TOOL_CATALOG_BEGIN)
-    end = skill_md.find(_TOOL_CATALOG_END)
+    raise NotImplementedError(
+        "S40a skeleton — FastMCP list_tools() iteration lands in I40a Phase 2a. "
+        "TODO(#1012): wire mcp.list_tools() enumeration + category grouping."
+    )
+
+
+def _render_project_context(project_dir: Path) -> str:
+    """Render the per-project dynamic context block (ADR-040 §3.3, closes #825).
+
+    Spliced between ``<!-- project_context:begin -->`` and
+    ``<!-- project_context:end -->`` markers in the base SKILL.md.
+    Renders project_name, workflow_count, installed_plugins, optional
+    git branch/sha, and top-3 recently-modified workflows.
+
+    Field sources per ADR-040 §3.3:
+
+    | Field | Source |
+    |---|---|
+    | ``project_name`` | ``project.yaml::project.name`` or ``project_dir.name`` fallback |
+    | ``workflow_count`` | ``len(list((project_dir / 'workflows').glob('*.yaml')))`` |
+    | ``installed_plugins`` | live BlockRegistry enumeration |
+    | ``branch``, ``sha`` | best-effort ``git -C <project_dir> rev-parse``; omit if not a git repo |
+    | ``recent_workflows`` | top 3 by ``Path.stat().st_mtime``, formatted as "N{h,d,w} ago" |
+
+    Performance budget: <100ms even at 1000 workflows (use os.scandir).
+    Composer is called once per PTY spawn; no caching needed.
+
+    Parameters
+    ----------
+    project_dir
+        Active project root.
+
+    Returns
+    -------
+    str
+        Markdown block with the rendered project context. When
+        ``project_dir`` is empty / missing / not a SciEasy project,
+        returns a minimal fallback noting the project state.
+
+    # TODO(#1012): implement per ADR-040 §3.3 field-source table.
+    #   Notes for I40a:
+    #   - Use os.scandir for performance; <100ms perf assertion test
+    #     should be added to test_system_prompt.py.
+    #   - Best-effort git rev-parse: catch subprocess errors silently.
+    #   - BlockRegistry enumeration: import live registry via the same
+    #     pathway tools use (scieasy.ai.agent.mcp._context.get_context)
+    #     OR fall back to project-local blocks/ scan when context is None.
+    #   - Empty-workflows handling: omit the "Recently-modified" section
+    #     entirely rather than rendering an empty list.
+    #   - Non-git-repo handling: omit the "Git:" line.
+    #   Out of scope per ADR-040 §3.3 / phase: 2a I40a. Followup: #1012.
+    """
+    raise NotImplementedError(
+        "S40a skeleton — project_context rendering lands in I40a Phase 2a per ADR-040 §3.3. "
+        "TODO(#1012): implement field-source table + <100ms perf budget."
+    )
+
+
+def _splice(text: str, begin_marker: str, end_marker: str, body: str) -> str:
+    """Replace the body between ``begin_marker`` and ``end_marker`` in ``text``.
+
+    Falls back to appending the marker block at the end of ``text``
+    when the marker pair is missing — surfacing a warning so a stale
+    SKILL.md is easy to diagnose without breaking the agent.
+
+    Used for both the tool_catalog and the project_context splices.
+    The function itself is intentionally NOT a NotImplementedError
+    stub — it's pure string manipulation with no skeleton/impl split,
+    and the test scaffolding in test_system_prompt.py exercises it
+    through ``compose_system_prompt``. I40a will use this verbatim
+    once the body-rendering helpers stop raising.
+    """
+    begin = text.find(begin_marker)
+    end = text.find(end_marker)
     if begin == -1 or end == -1 or end < begin:
         logger.warning(
-            "SKILL.md is missing the tool_catalog begin/end markers; appending the rendered catalogue at end of prompt."
+            "SKILL.md is missing the %s / %s markers; appending the rendered block at end.",
+            begin_marker,
+            end_marker,
         )
-        return f"{skill_md}\n\n{_TOOL_CATALOG_BEGIN}\n{catalog}\n{_TOOL_CATALOG_END}\n"
-
-    end_marker_end = end + len(_TOOL_CATALOG_END)
-    return (
-        skill_md[: begin + len(_TOOL_CATALOG_BEGIN)]
-        + "\n"
-        + catalog
-        + "\n"
-        + skill_md[end:end_marker_end]
-        + skill_md[end_marker_end:]
-    )
+        return f"{text}\n\n{begin_marker}\n{body}\n{end_marker}\n"
+    end_marker_end = end + len(end_marker)
+    return text[: begin + len(begin_marker)] + "\n" + body + "\n" + text[end:end_marker_end] + text[end_marker_end:]
