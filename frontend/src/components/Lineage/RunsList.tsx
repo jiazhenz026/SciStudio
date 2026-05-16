@@ -189,6 +189,20 @@ const STATUS_COLOR: Record<LineageRunStatus, string> = {
   running: "text-amber-600",
 };
 
+/**
+ * Hotfix #998: solid background pill colors for the RunsList status
+ * pill. The pill is the primary visual content of each row; timestamp
+ * is demoted to a small right-aligned label. The text-color variant
+ * (`STATUS_COLOR` above) is retained for RunDetail.tsx's header which
+ * uses StatusIcon's glyph + text-color pair.
+ */
+const STATUS_PILL_BG: Record<LineageRunStatus, string> = {
+  completed: "bg-emerald-600 text-white",
+  failed: "bg-rose-600 text-white",
+  cancelled: "bg-slate-500 text-white",
+  running: "bg-amber-500 text-white",
+};
+
 function StatusIcon({ status }: { status: LineageRunStatus }): ReactElement {
   return (
     <>
@@ -335,12 +349,28 @@ export function RunsList(): ReactElement {
             }}
             tabIndex={0}
           >
-            <div className="flex items-center gap-2">
-              <StatusIcon status={run.status} />
-              <span className="text-sm font-medium text-ink">
+            {/*
+              Hotfix #998: status pill becomes the row's primary visual
+              content. Timestamp moves to the right as a small grey
+              label. The pill carries the status text directly so
+              screen readers read e.g. "completed" without the icon
+              fallback.
+            */}
+            <div className="flex items-center justify-between gap-3">
+              <span
+                className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold tracking-wide ${
+                  STATUS_PILL_BG[run.status]
+                }`}
+                data-testid={`runs-list-row-${run.run_id}-status-pill`}
+              >
+                {STATUS_LABEL[run.status]}
+              </span>
+              <span
+                className="text-xs text-stone-500"
+                data-testid={`runs-list-row-${run.run_id}-timestamp`}
+              >
                 {formatLocalDateTime(run.started_at, now)}
               </span>
-              <span className="text-xs text-stone-500">{run.status}</span>
             </div>
             <p className="mt-1 text-xs text-stone-600">
               {run.workflow_id} · {formatDuration(run, nowMs)}

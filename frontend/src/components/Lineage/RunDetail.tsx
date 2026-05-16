@@ -301,8 +301,18 @@ export function RunDetail(): ReactElement {
       role="region"
       aria-label={`Detail for run ${run.run_id}`}
     >
-      <header className="border-b border-stone-200 px-4 py-3">
-        <h3 className="text-sm font-semibold text-ink">
+      {/*
+       * Hotfix #999: compact header so the blocks list — the primary
+       * content per ADR-038 §3.8 — keeps most of the vertical space.
+       * The 4-column auto/1fr/auto/1fr grid interleaves dt/dd pairs
+       * horizontally: 5-8 metadata fields collapse from 7 rows (current
+       * grid-cols-2) to ~3-4 rows. py-2 instead of py-3 + smaller heading
+       * line-height save another ~10px. The Blocks section uses
+       * `flex-1 overflow-y-auto` (line 421) so it absorbs the saved
+       * vertical pixels.
+       */}
+      <header className="border-b border-stone-200 px-4 py-2">
+        <h3 className="text-sm font-semibold leading-tight text-ink">
           Run {run.run_id.slice(0, 8)}
         </h3>
         {inlineError && (
@@ -313,7 +323,7 @@ export function RunDetail(): ReactElement {
             {inlineError}
           </p>
         )}
-        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        <dl className="mt-1.5 grid grid-cols-[auto_1fr_auto_1fr] gap-x-3 gap-y-0.5 text-xs">
           <dt className="text-stone-500">Workflow</dt>
           <dd>{run.workflow_id}</dd>
 
