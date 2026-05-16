@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#1039] I40c: agent_provisioning implementation — orchestrator + 4 sub-writers (CLAUDE.md/AGENTS.md template, .claude/settings.json + 6 hook scripts, multi-skill cross-install with dual-path fallback, .codex/config.toml via shared `install._render_codex_block`), lifecycle wiring (ApiRuntime.create_project + open_project, `scieasy init` CLI), version-marker file at `.claude/.scieasy-provision-version` (v0.1.0), degraded-mode contract per ADR-040 §7 (sub-step failures recorded in `ProvisionResult.failed`, project still opens), `docs/agent-provisioning.md` operational doc per ADR §5.3, terminal.py docstring updated to reflect project-scope `.codex/config.toml` + `.agents/skills/scieasy/` parity with Claude Code. 43 new pytest cases (0 skipped) covering orchestrator, each sub-writer, per-hook synthetic stdin behavior, lifecycle integration (create/open/cli), degraded-mode warning, idempotency, force-overwrite, partial-failure isolation. `pyproject.toml [tool.setuptools.package-data]` extended to ship `agent_provisioning/templates/**/*` in the wheel. (@claude, 2026-05-16, branch: feat/issue-1039/adr-040-i40c-provisioning-impl, session: 20260516-185331-i40c-adr-040-provisioning-impl-6-hooks-l)
 - [#1025] S40c: agent_provisioning module skeleton + lifecycle wiring stubs (@claude, 2026-05-16, branch: feat/issue-1025/adr-040-s40c-provisioning-skeleton, session: 20260516-180934-s40c-adr-040-provisioning-skeleton)
 
 ### Fixed
