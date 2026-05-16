@@ -611,21 +611,19 @@ class ApiRuntime:
         # ------------------------------------------------------------------
         # ADR-040 §3.8 prod-env agent provisioning wiring (create_project).
         # ------------------------------------------------------------------
-        # Implementation lands in I40c Phase 2a (#1013). Skeleton no-op
-        # preserves the call site so ADR-039 git-init ordering is locked
-        # in by S40c — the initial commit (above) precedes provisioning,
-        # and ``open_project`` (below) runs after. Failures are non-fatal
-        # per ADR §7; degraded mode keeps the project openable.
+        # Runs AFTER git init so the initial commit is clean of provisioned
+        # files (they land in a second commit on the user's first checkpoint).
+        # Failures are non-fatal per ADR §7; the project still opens.
         try:
             from scieasy.agent_provisioning import install_project_agent_assets
 
-            install_project_agent_assets(project_path, force=False)
-        except NotImplementedError:
-            # TODO(#1013): I40c Phase 2a — remove this except branch once
-            #   install_project_agent_assets is implemented.
-            #   Out of scope per ADR-040 §3.8 (S40c skeleton).
-            #   Followup: https://github.com/zjzcpj/SciEasy/issues/1013.
-            pass
+            provision_result = install_project_agent_assets(project_path, force=False)
+            if provision_result.failed:
+                logger.warning(
+                    "ADR-040: agent provisioning partial failure at %s: %s",
+                    project_path,
+                    provision_result.failed,
+                )
         except Exception:  # pragma: no cover — defensive
             logger.warning(
                 "ADR-040: agent provisioning failed at %s (non-fatal)",
@@ -730,17 +728,16 @@ class ApiRuntime:
         # user-edited files (CLAUDE.md tweaks, hook customizations) are
         # preserved on every project open. This is how alpha-stage
         # projects created before ADR-040 lands acquire the new assets.
-        # Implementation in I40c Phase 2a (#1013).
         try:
             from scieasy.agent_provisioning import install_project_agent_assets
 
-            install_project_agent_assets(Path(candidate.path), force=False)
-        except NotImplementedError:
-            # TODO(#1013): I40c Phase 2a — remove this except branch once
-            #   install_project_agent_assets is implemented.
-            #   Out of scope per ADR-040 §3.8 (S40c skeleton).
-            #   Followup: https://github.com/zjzcpj/SciEasy/issues/1013.
-            pass
+            provision_result = install_project_agent_assets(Path(candidate.path), force=False)
+            if provision_result.failed:
+                logger.warning(
+                    "ADR-040: agent provisioning top-up partial failure at %s: %s",
+                    candidate.path,
+                    provision_result.failed,
+                )
         except Exception:  # pragma: no cover — defensive
             logger.warning(
                 "ADR-040: agent provisioning top-up failed at %s (non-fatal)",
