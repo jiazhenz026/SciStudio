@@ -423,32 +423,59 @@ def _find_skill_source() -> Path:
        relocation, walk parents of this module looking for
        ``skills/scieasy/SKILL.md`` at the repo root.
 
-    TODO(#1011): Remove the walk-up fallback once Phase 2c (I40b)
-    relocates and fills the packaged skill content. After that, the
-    packaged path is the single source of truth. Followup: #1011.
+    Until I40b Phase 2c lands real skill bodies, the packaged tree
+    contains S40b's placeholder SKILL.md files (each body is literally
+    ``Body content deferred to Phase 2c per ADR-040 §3.4.``). To avoid
+    silently regressing dev checkouts — which still carry the populated
+    ``skills/scieasy/`` tree at the repo root — we detect those
+    placeholders and fall back to the walk-up source. Once Phase 2c
+    lands and the marker disappears, the packaged path becomes the
+    sole source of truth.
+
+    TODO(#1011): Remove the placeholder detection AND the walk-up
+    fallback once Phase 2c (I40b) lands real skill bodies. After that,
+    the packaged path is the single source of truth. Followup: #1011.
     """
+
+    def _is_placeholder(skill_md_path: Path) -> bool:
+        """Detect S40b's "Body content deferred" sentinel.
+
+        Returns True when the packaged ``SKILL.md`` is still S40b's
+        skeleton stub. Conservative: any read error returns False so
+        we don't accidentally treat a real-but-unreadable file as a
+        placeholder.
+        """
+        try:
+            head = skill_md_path.read_text(encoding="utf-8")
+        except OSError:
+            return False
+        return "Body content deferred" in head
+
     # 1. Packaged path via importlib.resources (works in both wheel and
-    #    editable installs).
+    #    editable installs). Used unless the packaged body is still
+    #    S40b's "Body content deferred" placeholder (#1011 Phase 2c).
     try:
         traversable = importlib.resources.files("scieasy") / "_skills" / MCP_SERVER_NAME
-        # ``Traversable`` doesn't expose ``Path`` directly; use ``as_file``
-        # only when we need to walk into it. Existence check first.
         skill_md = traversable / "SKILL.md"
         if skill_md.is_file():
             # On a real filesystem install ``traversable`` resolves to a
-            # ``PosixPath``/``WindowsPath`` already. Otherwise we'd need
-            # to materialise via ``as_file`` — but our package layout
-            # always lives on disk (no zip imports), so we can cast.
+            # ``PosixPath`` / ``WindowsPath`` already. We don't support
+            # zip-imported wheels for the skill bundle, so a direct
+            # ``Path(str(...))`` cast is safe here.
             candidate = Path(str(traversable))
-            if (candidate / "SKILL.md").is_file():
+            candidate_skill = candidate / "SKILL.md"
+            if candidate_skill.is_file() and not _is_placeholder(candidate_skill):
                 return candidate
+            # else: placeholder body — fall through to the walk-up
+            # fallback so dev checkouts keep getting the legacy
+            # populated ``skills/scieasy/`` tree until I40b lands.
     except (FileNotFoundError, AttributeError, ModuleNotFoundError):
         # importlib lookup failed (rare — only if the package itself is
         # missing). Fall through to walk-up fallback.
         pass
 
     # 2. Walk-up fallback for dev checkouts where the packaged tree is
-    #    empty / pre-relocation.
+    #    empty / placeholder / pre-relocation.
     # TODO(#1011): remove walk-up fallback once skill content (I40b Phase 2c)
     #   makes the relocated path canonical.
     here = Path(__file__).resolve()
@@ -461,6 +488,19 @@ def _find_skill_source() -> Path:
             if (candidate / "SKILL.md").is_file():
                 return candidate
             break
+
+    # 3. Last-resort: wheel install without a dev checkout AND the
+    #    packaged tree is still placeholder — surface the placeholder
+    #    location rather than raise. Frontmatter is valid even when
+    #    the body is empty, so Claude / Codex still register the skill;
+    #    the body just stays stub until #1011 Phase 2c.
+    try:
+        traversable = importlib.resources.files("scieasy") / "_skills" / MCP_SERVER_NAME
+        if (traversable / "SKILL.md").is_file():
+            return Path(str(traversable))
+    except (FileNotFoundError, AttributeError, ModuleNotFoundError):
+        pass
+
     raise FileNotFoundError(
         "Could not locate the bundled SciEasy skill (expected "
         "scieasy/_skills/scieasy/SKILL.md via importlib.resources, or "

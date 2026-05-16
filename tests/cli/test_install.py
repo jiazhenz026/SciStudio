@@ -218,6 +218,37 @@ def test_install_skill_with_missing_source_raises_clearly(fake_home: Path, fake_
         perform_install(target=None, scope="user", skill=True, do_all=False, remove=False, cwd=fake_cwd)
 
 
+def test_find_skill_source_prefers_real_walk_up_over_packaged_placeholder() -> None:
+    """ADR-040 §3.4 / Codex P1 review on PR #1048.
+
+    When the packaged ``_skills/scieasy/SKILL.md`` is still S40b's
+    placeholder (``Body content deferred``) we must fall back to the
+    walk-up ``skills/scieasy/SKILL.md`` at the repo root — not silently
+    install the empty stub and regress dev users' operational guidance.
+
+    Once #1011 Phase 2c lands real skill bodies the marker disappears
+    and the packaged path becomes canonical; this test will continue to
+    pass because the placeholder branch is no longer taken.
+    """
+    from scieasy.cli.install import _find_skill_source
+
+    src = _find_skill_source()
+    skill_md = src / "SKILL.md"
+    assert skill_md.is_file()
+    text = skill_md.read_text(encoding="utf-8")
+    # Either the packaged path has been populated by I40b (no marker),
+    # or we fell back to the walk-up which by construction is the
+    # populated legacy tree.
+    if "Body content deferred" in text:
+        # Packaged tree is still placeholder — we MUST have selected the
+        # walk-up tree, NOT returned the packaged placeholder.
+        # Walk-up source path ends with ``/skills/scieasy``; packaged ends
+        # with ``/_skills/scieasy``.
+        assert src.parent.name == "skills", (
+            f"placeholder packaged tree returned (src={src}); walk-up fallback should have been preferred"
+        )
+
+
 # ---------------------------------------------------------------------------
 # ADR-040 §3.7 / §3.9 — I40d Phase 2a (#1014) implementation tests.
 # ---------------------------------------------------------------------------
