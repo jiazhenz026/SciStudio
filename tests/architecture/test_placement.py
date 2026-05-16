@@ -27,18 +27,24 @@ SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "scieasy"
 
 
 def test_no_stray_files_in_package_root() -> None:
-    """Only Python dunder bootstrap files should sit in ``src/scieasy/``.
+    """Only Python dunder bootstrap files may sit directly in ``src/scieasy/``.
 
-    The package-root inventory is constrained to a tiny allowlist so a
-    drive-by ``foo.py`` doesn't accumulate at the top level. Files
-    allowed:
+    The original rule was a hard-equals on ``["__init__.py"]`` to keep
+    drive-by ``foo.py`` from accumulating at the top level. Evolved
+    (#1014) to an allowlist set so the standard Python dunder pattern
+    ``__main__.py`` (PEP 338, 2005 — the canonical "this package is
+    runnable" marker) can ship alongside ``__init__.py`` without
+    bypassing the architecture rule.
+
+    Files allowed:
 
     * ``__init__.py`` — package init (always required).
-    * ``__main__.py`` — enables ``python -m scieasy ...`` dispatch
-      (added in #1014 — every ``.scieasy/mcp.json`` invokes the
-      bridge via ``{sys.executable} -m scieasy mcp-bridge`` so the
-      bridge always runs from the same interpreter that emitted the
-      manifest).
+    * ``__main__.py`` — enables ``python -m scieasy ...`` dispatch.
+      Every ``.scieasy/mcp.json`` invokes the bridge via
+      ``{sys.executable} -m scieasy mcp-bridge`` so the bridge always
+      runs from the same interpreter that emitted the manifest
+      (avoids the PATH-shadowed ``scieasy.EXE`` foot-gun the
+      2026-05-14 hotfix originally addressed).
 
     Anything else stays in a subpackage.
     """
