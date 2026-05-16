@@ -96,11 +96,7 @@ def _read_skill_source(name: str) -> str:
     # package (no extra subdir); task-scoped skills live one level deeper.
     if name == "scieasy":
         try:
-            return (
-                importlib.resources.files("scieasy._skills.scieasy")
-                .joinpath("SKILL.md")
-                .read_text(encoding="utf-8")
-            )
+            return importlib.resources.files("scieasy._skills.scieasy").joinpath("SKILL.md").read_text(encoding="utf-8")
         except (FileNotFoundError, ModuleNotFoundError, NotADirectoryError):
             pass
     else:
