@@ -262,17 +262,18 @@ See FastMCP track.
 
 ### Phase 2a / I40d — Implementation
 
-**Branch**: `feat/issue-NNN/adr-040-i40d-install-impl` off `track/adr-040/install-parity`.
+**Branch**: `feat/issue-1035/adr-040-i40d-install-impl` off `track/adr-040` (consolidated; #1035, PR pending).
 
-- [ ] `_install_skill` walks `src/scieasy/_skills/scieasy/` (post-FastMCP `importlib.resources` relocation), cross-installs to both `.claude/skills/` AND `.agents/skills/` trees (user or project scope)
-- [ ] `_remove_skill` symmetric removal across both providers
-- [ ] `_install_codex` project-scope branch writes `<cwd>/.codex/config.toml`; "force user-scope for codex" fallback at `install.py:489-498` removed
-- [ ] `perform_install` docstring updated (cross-install + project-scope codex now supported)
-- [ ] `docs/cli-integration.md` — update `--skill` cross-installs both providers; `--target codex --scope project` writes project config
-- [ ] Tests:
-  - Cross-install writes all 6 skill files to both `.claude/skills/scieasy/` and `.agents/skills/scieasy/`
-  - Remove cleans both trees
-  - Codex project-scope writes correct `[mcp_servers.scieasy]` TOML block
+- [x] `_install_skill` resolves source via `importlib.resources.files("scieasy") / "_skills" / "scieasy"` (walk-up fallback retained for dev checkouts, TODO #1011), cross-installs to both `.claude/skills/` AND `.agents/skills/` trees (user or project scope) → commit `ebc123d`
+- [x] `_remove_skill` symmetric removal across both providers → commit `ebc123d`
+- [x] `_install_codex` project-scope branch writes `<cwd>/.codex/config.toml`; "force user-scope for codex" fallback in `perform_install` (was install.py:578-598) removed → commit `ebc123d`
+- [x] `perform_install` docstring updated (cross-install + project-scope codex now supported) → commit `ebc123d`
+- [x] `docs/cli-integration.md` — `--skill` cross-installs both providers; `--target codex --scope project` writes project config — PR commit
+- [x] Tests:
+  - Cross-install writes both `.claude/skills/scieasy/SKILL.md` and `.agents/skills/scieasy/SKILL.md` → `test_install_skill_cross_install_user_scope`, `test_install_skill_cross_install_project_scope`
+  - Remove cleans both trees → `test_remove_skill_cross_removal`
+  - Codex project-scope writes correct `[mcp_servers.scieasy]` TOML block → `test_install_codex_project_scope_writes_local_config`
+  - Legacy "wrote to user scope" caveat removed → `test_perform_install_codex_no_longer_forces_user_scope`
 - [ ] CHANGELOG entry
 - [ ] CI green; PR merged into tracking branch
 

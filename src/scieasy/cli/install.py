@@ -1,18 +1,20 @@
 """``scieasy install`` — wire SciEasy's MCP server + skill into external CLIs.
 
-Issue #787. Lets developers use their **own** ``claude`` or ``codex``
-CLI against SciEasy projects with the full 25-tool MCP surface and a
-SciEasy-aware skill installed.
+Issue #787; cross-install + project-scope codex landed in I40d (ADR-040 §3.7
++ §3.9, #1035). Lets developers use their **own** ``claude`` or ``codex`` CLI
+against SciEasy projects with the full 25-tool MCP surface and SciEasy-aware
+skills installed.
 
 Layout of supported targets:
 
-| Target | Scope     | File mutated                                     |
-|--------|-----------|--------------------------------------------------|
-| claude | user      | ``~/.claude.json`` (top-level ``mcpServers``)    |
-| claude | project   | ``<cwd>/.mcp.json`` (top-level ``mcpServers``)   |
-| codex  | user      | ``~/.codex/config.toml`` (``[mcp_servers.…]``)   |
-| skill  | user      | ``~/.claude/skills/scieasy/``                    |
-| skill  | project   | ``<cwd>/.claude/skills/scieasy/``                |
+| Target | Scope     | File(s) mutated                                                       |
+|--------|-----------|-----------------------------------------------------------------------|
+| claude | user      | ``~/.claude.json`` (top-level ``mcpServers``)                         |
+| claude | project   | ``<cwd>/.mcp.json`` (top-level ``mcpServers``)                        |
+| codex  | user      | ``~/.codex/config.toml`` (``[mcp_servers.…]``)                        |
+| codex  | project   | ``<cwd>/.codex/config.toml`` (``[mcp_servers.…]``) — Codex 2026       |
+| skill  | user      | ``~/.claude/skills/scieasy/`` AND ``~/.agents/skills/scieasy/``       |
+| skill  | project   | ``<cwd>/.claude/skills/scieasy/`` AND ``<cwd>/.agents/skills/scieasy/`` |
 
 All operations are idempotent. ``--remove`` reverses any install.
 
@@ -24,6 +26,7 @@ a top-level ``mcpServers`` map for user scope, and we ran
 
 from __future__ import annotations
 
+import importlib.resources as importlib_resources
 import json
 import logging
 import os
@@ -205,16 +208,25 @@ def _remove_claude(scope: str, cwd: Path) -> InstallResult:
 # ---------------------------------------------------------------------------
 
 
-def _codex_config_path() -> Path:
-    """Return the user-scope Codex config path.
+def _codex_config_path(scope: str = "user", cwd: Path | None = None) -> Path:
+    """Return the Codex config path for *scope*.
 
-    TODO(#1014): I40d Phase 2a — widen to ``_codex_config_path(scope, cwd)``
-    returning either ``~/.codex/config.toml`` (user) or
-    ``<cwd>/.codex/config.toml`` (project, per ADR-040 §3.7 — Codex 2026
-    project-scope support).
-    Out of scope per ADR-040 §3.7 (skeleton phase). Followup: #1014.
+    Per ADR-040 §3.7, Codex 2026 supports project-scope ``.codex/config.toml``:
+    Codex walks from project root to cwd loading every ``.codex/config.toml``
+    it finds. So we can write a project-scope MCP entry that takes effect
+    only when Codex is launched inside that project.
+
+    Scopes:
+
+    * ``user``:    ``~/.codex/config.toml``
+    * ``project``: ``<cwd>/.codex/config.toml`` (cwd defaults to ``Path.cwd()``)
     """
-    return Path.home() / ".codex" / "config.toml"
+    if scope == "user":
+        return Path.home() / ".codex" / "config.toml"
+    if scope == "project":
+        base = cwd if cwd is not None else Path.cwd()
+        return base / ".codex" / "config.toml"
+    raise ValueError(f"unsupported scope for codex: {scope!r}")
 
 
 def _format_toml_string(s: str) -> str:
@@ -295,23 +307,17 @@ def _strip_codex_block(existing: str) -> tuple[str, bool]:
 def _install_codex(scope: str, cwd: Path) -> InstallResult:
     """Write ``[mcp_servers.scieasy]`` block to Codex's config file.
 
-    Today (skeleton phase) always writes to the **user-scope** path
-    (``~/.codex/config.toml``) regardless of *scope* — the project-scope
-    branch is **deferred to I40d Phase 2a** per ADR-040 §3.7. The
-    ``perform_install`` orchestrator currently routes ``scope=="project"``
-    requests through the "force user-scope for codex" fallback at the
-    elif-codex branch below; I40d removes that fallback and routes
-    project-scope requests through this function directly.
+    Per ADR-040 §3.7 (Codex 2026 project-scope support):
 
-    Reuses ``_render_codex_block(project_dir)`` unchanged. After I40d,
-    only the destination path differs by scope; block content reuses
-    ``project_dir`` to emit the ``[mcp_servers.scieasy.env]`` table.
+    * ``scope="user"`` writes ``~/.codex/config.toml`` with no
+      ``SCIEASY_PROJECT_DIR`` env pin (the bridge resolves cwd dynamically).
+    * ``scope="project"`` writes ``<cwd>/.codex/config.toml`` with the
+      ``[mcp_servers.scieasy.env]`` table pinning ``SCIEASY_PROJECT_DIR``
+      to ``str(cwd)``.
 
-    TODO(#1014): I40d Phase 2a — implement project-scope branch writing
-    ``<cwd>/.codex/config.toml`` (Codex 2026 supports project-scope
-    discovery per ADR-040 §3.7). Use ``_codex_config_path(scope, cwd)``
-    after that helper is widened. Out of scope per ADR-040 §3.7 (skeleton
-    phase). Followup: #1014.
+    Reuses ``_render_codex_block(project_dir)`` unchanged — block content
+    differs only by whether ``project_dir`` is ``None`` (user) or ``cwd``
+    (project).
     """
     if scope == "user":
         project_dir: Path | None = None
@@ -320,11 +326,7 @@ def _install_codex(scope: str, cwd: Path) -> InstallResult:
     else:
         raise ValueError(f"unsupported scope for codex: {scope!r}")
 
-    # TODO(#1014): I40d Phase 2a — switch to ``_codex_config_path(scope, cwd)``
-    # so project-scope writes land in ``<cwd>/.codex/config.toml``. Today
-    # this always returns the user-scope path; the perform_install
-    # fallback below short-circuits project-scope to user-scope.
-    path = _codex_config_path()
+    path = _codex_config_path(scope, cwd)
     existing = _read_text_or_empty(path)
     stripped, had_existing = _strip_codex_block(existing)
     new_block = _render_codex_block(project_dir)
@@ -364,7 +366,13 @@ def _install_codex(scope: str, cwd: Path) -> InstallResult:
 
 
 def _remove_codex(scope: str, cwd: Path) -> InstallResult:
-    path = _codex_config_path()
+    """Remove the ``[mcp_servers.scieasy]`` block from Codex's config file.
+
+    Symmetric to :func:`_install_codex`: user scope edits
+    ``~/.codex/config.toml``; project scope edits ``<cwd>/.codex/config.toml``
+    (Codex 2026 project-scope support per ADR-040 §3.7).
+    """
+    path = _codex_config_path(scope, cwd)
     if not path.is_file():
         return InstallResult(target="codex", scope=scope, path=path, action="noop", detail="no config file")
     existing = path.read_text(encoding="utf-8")
@@ -388,38 +396,70 @@ def _remove_codex(scope: str, cwd: Path) -> InstallResult:
 # ---------------------------------------------------------------------------
 
 
-def _skill_dest(scope: str, cwd: Path) -> Path:
-    """Return the Claude-side skill destination for *scope*.
+def _skill_dest(scope: str, cwd: Path) -> tuple[Path, Path]:
+    """Return ``(claude_path, codex_path)`` skill destinations for *scope*.
 
-    TODO(#1014): I40d Phase 2a — widen to return a tuple
-    ``(claude_path, codex_path)`` of both destinations per ADR-040 §3.9.
-    Codex destination layout:
+    Per ADR-040 §3.9, the skill is cross-installed to both Claude Code and
+    Codex skill trees so end users get identical guidance regardless of
+    which CLI they launch:
 
-      user scope:    ``~/.agents/skills/scieasy/``
-      project scope: ``<cwd>/.agents/skills/scieasy/``
+    * user scope:    ``~/.claude/skills/scieasy/``   AND ``~/.agents/skills/scieasy/``
+    * project scope: ``<cwd>/.claude/skills/scieasy/`` AND ``<cwd>/.agents/skills/scieasy/``
 
-    Out of scope per ADR-040 §3.9 (skeleton phase). Followup: #1014.
+    Both providers use identical ``SKILL.md`` format (frontmatter +
+    progressive-disclosure body); only the on-disk path differs.
     """
     if scope == "user":
-        return Path.home() / ".claude" / "skills" / MCP_SERVER_NAME
-    if scope == "project":
-        return cwd / ".claude" / "skills" / MCP_SERVER_NAME
-    raise ValueError(f"unsupported scope for skill: {scope!r}")
+        base = Path.home()
+    elif scope == "project":
+        base = cwd
+    else:
+        raise ValueError(f"unsupported scope for skill: {scope!r}")
+    return (
+        base / ".claude" / "skills" / MCP_SERVER_NAME,
+        base / ".agents" / "skills" / MCP_SERVER_NAME,
+    )
 
 
 def _find_skill_source() -> Path:
-    """Locate the bundled ``skills/scieasy/`` directory.
+    """Locate the bundled ``scieasy`` skill tree.
 
-    For editable installs (development), walk up from this module to
-    the repo root.  For wheel installs we package the skill alongside
-    the source (the ``skills/`` directory at repo root is included via
-    a future ``MANIFEST.in`` / ``pyproject`` data entry — for now
-    editable-install only).
+    Resolution order per ADR-040 §3.4:
 
-    TODO: #824 — declare ``skills/`` as wheel package_data in
-    ``pyproject.toml`` so wheel installs can locate SKILL.md without
-    relying on a source checkout.
+    1. **Packaged location** (preferred): ``importlib.resources.files("scieasy")
+       / "_skills" / "scieasy"``. This is where the skill tree lives in both
+       editable installs (since the S40b relocation, ``src/scieasy/_skills/``)
+       and wheel installs (packaged as ``scieasy.data`` via setuptools).
+    2. **Repo-root walk-up fallback** (dev checkouts): walk up from this
+       module looking for ``<repo>/skills/scieasy/SKILL.md``. Retained because
+       some editable-install configurations keep an authoring tree at the
+       legacy repo-root path.
+
+    TODO(#1011): Once the packaged ``src/scieasy/_skills/`` tree is the
+    canonical source of truth across all install types (post-Phase 2c), the
+    walk-up fallback should be removed. Out of scope for I40d.
     """
+    # Path 1: importlib.resources (handles both editable and wheel installs)
+    try:
+        traversable = importlib_resources.files("scieasy") / "_skills" / MCP_SERVER_NAME
+        # For editable installs the traversable is a real filesystem path; for
+        # zipped wheels we'd materialise via as_file(). We only need to handle
+        # the directory case — bail to fallback if it's not a directory.
+        if traversable.is_dir():  # type: ignore[attr-defined]
+            # Convert to Path. For editable installs traversable is a PosixPath
+            # already; for resources-only zips we'd need as_file context, but
+            # SciEasy ships as a normal directory install today.
+            skill_path = Path(str(traversable))
+            if (skill_path / "SKILL.md").is_file():
+                return skill_path
+    except (FileNotFoundError, ModuleNotFoundError, AttributeError, TypeError):
+        # Fall through to walk-up fallback. The traversable.is_dir() guard
+        # above covers the "directory missing" case for editable installs;
+        # the except handles the "scieasy package not importable" /
+        # "_skills resource not registered" / "non-traversable backend" cases.
+        pass
+
+    # Path 2: walk-up fallback for dev checkouts that keep skills/ at repo root
     here = Path(__file__).resolve()
     for parent in here.parents:
         candidate = parent / "skills" / MCP_SERVER_NAME
@@ -427,92 +467,74 @@ def _find_skill_source() -> Path:
             return candidate
         if (parent / "pyproject.toml").is_file():
             # Reached repo root; if skill isn't here, abort cleanly.
-            if (candidate / "SKILL.md").is_file():
-                return candidate
             break
     raise FileNotFoundError(
-        "Could not locate the bundled SciEasy skill (expected skills/scieasy/SKILL.md). "
-        "Ensure you are running from a SciEasy source checkout or editable install."
+        "Could not locate the bundled SciEasy skill (expected "
+        "src/scieasy/_skills/scieasy/SKILL.md or <repo>/skills/scieasy/SKILL.md). "
+        "Ensure you are running from a SciEasy source checkout or installed wheel."
     )
 
 
 def _install_skill(scope: str, cwd: Path) -> list[InstallResult]:
     """Cross-install the SciEasy skill bundle to both Claude and Codex paths.
 
-    **Return type widened in S40d skeleton from ``InstallResult`` to
-    ``list[InstallResult]`` per ADR-040 §3.9**, because the post-impl
-    contract writes to TWO destinations per call:
+    Per ADR-040 §3.9, the skill is cross-installed to both providers:
 
-      user scope:    ``~/.claude/skills/scieasy/`` AND ``~/.agents/skills/scieasy/``
-      project scope: ``<cwd>/.claude/skills/scieasy/`` AND ``<cwd>/.agents/skills/scieasy/``
+    * user scope:    ``~/.claude/skills/scieasy/`` AND ``~/.agents/skills/scieasy/``
+    * project scope: ``<cwd>/.claude/skills/scieasy/`` AND ``<cwd>/.agents/skills/scieasy/``
 
-    Today (skeleton phase) the body still writes the single legacy
-    Claude-side destination only — the second (Codex / ``.agents/skills/``)
-    destination is **deferred to I40d Phase 2a**. The list-of-one return
-    shape preserves call-site compatibility while widening the contract;
-    ``perform_install`` consumes via ``results.extend(...)``.
+    Source is resolved via :func:`_find_skill_source` (preferring the packaged
+    ``src/scieasy/_skills/scieasy/`` tree, falling back to a repo-root
+    walk-up for dev checkouts). Both providers receive the full tree
+    including the base ``SKILL.md`` and all five task-scoped sub-skills
+    (``scieasy-build-workflow``, ``scieasy-write-block``,
+    ``scieasy-debug-run``, ``scieasy-inspect-data``, ``scieasy-project-qa``).
 
-    Always copies (never symlinks) for Windows compatibility — symlinks
-    require admin / developer mode on Windows.
-
-    TODO(#1014): I40d Phase 2a — implement cross-install per ADR-040 §3.9.
-      1. Update ``_skill_dest`` to return ``(claude_path, codex_path)``.
-      2. Walk all 6 task-scoped sub-skills produced by Phase 2c Skills
-         track (``scieasy-build-workflow``, ``scieasy-write-block``,
-         ``scieasy-debug-run``, ``scieasy-inspect-data``,
-         ``scieasy-project-qa``, plus the root index).
-      3. Use ``importlib.resources.files("scieasy") / "_skills" / "scieasy"``
-         as source path (post-Phase 2c relocation per ADR §3.4). Fall back
-         to the current ``_find_skill_source`` walk-up for dev checkouts
-         where the packaged tree is empty.
-      4. Return one ``InstallResult`` per destination (2 per call).
-      Out of scope per ADR-040 §3.9 (skeleton phase). Followup: #1014.
+    Returns one ``InstallResult`` per destination (two per call). Always
+    copies (never symlinks) for Windows compatibility — symlinks require
+    admin / developer mode on Windows.
     """
-    # TODO(#1014): I40d replaces the body below with the full cross-install
-    # loop described above. Current body writes only the Claude-side path.
-    # Out of scope per ADR-040 §3.9 (skeleton phase). Followup: #1014.
     src = _find_skill_source()
-    dest = _skill_dest(scope, cwd)
-    action = "updated" if dest.is_dir() else "installed"
-    if dest.is_dir():
-        # Wipe stale files so removed files in src don't linger.
-        shutil.rmtree(dest)
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(src, dest)
-    return [
-        InstallResult(
-            target="skill",
-            scope=scope,
-            path=dest,
-            action=action,
-            detail=f"copied {src} -> {dest}",
+    claude_dest, codex_dest = _skill_dest(scope, cwd)
+    results: list[InstallResult] = []
+    for dest in (claude_dest, codex_dest):
+        action = "updated" if dest.is_dir() else "installed"
+        if dest.is_dir():
+            # Wipe stale files so removed files in src don't linger.
+            shutil.rmtree(dest)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(src, dest)
+        results.append(
+            InstallResult(
+                target="skill",
+                scope=scope,
+                path=dest,
+                action=action,
+                detail=f"copied {src} -> {dest}",
+            )
         )
-    ]
+    return results
 
 
 def _remove_skill(scope: str, cwd: Path) -> list[InstallResult]:
     """Symmetric removal across both Claude and Codex skill trees.
 
-    **Return type widened in S40d skeleton from ``InstallResult`` to
-    ``list[InstallResult]`` per ADR-040 §3.9** to match ``_install_skill``.
-
-    Today (skeleton phase) the body removes only the legacy Claude-side
-    destination — the second (Codex / ``.agents/skills/``) destination is
-    deferred to I40d Phase 2a.
-
-    TODO(#1014): I40d Phase 2a — implement symmetric cross-removal per
-    ADR-040 §3.9. Each ``shutil.rmtree`` call yields one ``InstallResult``;
-    return both. Out of scope per ADR-040 §3.9 (skeleton phase).
-    Followup: #1014.
+    Per ADR-040 §3.9, mirrors :func:`_install_skill`: removes both
+    ``.claude/skills/scieasy/`` and ``.agents/skills/scieasy/`` at the
+    requested scope. Returns one ``InstallResult`` per destination
+    (``removed`` if the directory existed, ``noop`` otherwise).
     """
-    # TODO(#1014): I40d replaces with both-paths removal. Current body
-    # removes only the Claude-side path.
-    # Out of scope per ADR-040 §3.9 (skeleton phase). Followup: #1014.
-    dest = _skill_dest(scope, cwd)
-    if not dest.is_dir():
-        return [InstallResult(target="skill", scope=scope, path=dest, action="noop", detail="not installed")]
-    shutil.rmtree(dest)
-    return [InstallResult(target="skill", scope=scope, path=dest, action="removed", detail="directory removed")]
+    claude_dest, codex_dest = _skill_dest(scope, cwd)
+    results: list[InstallResult] = []
+    for dest in (claude_dest, codex_dest):
+        if not dest.is_dir():
+            results.append(InstallResult(target="skill", scope=scope, path=dest, action="noop", detail="not installed"))
+            continue
+        shutil.rmtree(dest)
+        results.append(
+            InstallResult(target="skill", scope=scope, path=dest, action="removed", detail="directory removed")
+        )
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -534,6 +556,11 @@ def perform_install(
     Encapsulates the install/remove logic in a callable form so tests
     (and any future programmatic caller) don't need to drive Typer.
 
+    Per ADR-040 §3.7 + §3.9, the ``--skill`` flag cross-installs to **both**
+    Claude (``~/.claude/skills/``) and Codex (``~/.agents/skills/``) trees,
+    and the ``--target codex --scope project`` combination now writes
+    ``<cwd>/.codex/config.toml`` (Codex 2026 project-scope support).
+
     Parameters
     ----------
     target
@@ -542,7 +569,7 @@ def perform_install(
     scope
         ``"user"`` or ``"project"``.
     skill
-        Install the SciEasy skill as well.
+        Cross-install the SciEasy skill to both providers' skill trees.
     do_all
         Convenience: target=claude + skill + codex (user scope).
     remove
@@ -575,33 +602,14 @@ def perform_install(
         if tgt == "claude":
             results.append(_remove_claude(scope, cwd) if remove else _install_claude(scope, cwd))
         elif tgt == "codex":
-            # TODO(#1014): I40d Phase 2a — replace this fallback block
-            # with a direct call to ``_install_codex(scope, cwd)`` /
-            # ``_remove_codex(scope, cwd)`` (which after impl handle
-            # project scope per ADR-040 §3.7). Codex 2026 supports
-            # project-scope ``.codex/config.toml`` so the "force
-            # user-scope" workaround is obsolete. The skeleton keeps
-            # the existing fallback inline to preserve test green.
-            # Out of scope per ADR-040 §3.9 (skeleton phase). Followup: #1014.
-            #
-            # Codex has no project-scope config file; force user-scope
-            # for codex even when the user picked --scope project for
-            # claude. Surface that fact in the result's detail.
-            results.append(_remove_codex("user", cwd) if remove else _install_codex("user", cwd))
-            if scope == "project":
-                results[-1] = InstallResult(
-                    target=results[-1].target,
-                    scope=results[-1].scope,
-                    path=results[-1].path,
-                    action=results[-1].action,
-                    detail=results[-1].detail + " (codex has no project-scope config file; wrote to user scope)",
-                )
+            # Per ADR-040 §3.7: Codex 2026 supports project-scope
+            # ``.codex/config.toml``, so we no longer force user-scope here.
+            # ``_install_codex`` / ``_remove_codex`` handle both scopes
+            # natively. The legacy "wrote to user scope" caveat is removed.
+            results.append(_remove_codex(scope, cwd) if remove else _install_codex(scope, cwd))
     if do_skill:
-        # NOTE(S40d): ``_install_skill`` / ``_remove_skill`` return
-        # ``list[InstallResult]`` (widened in skeleton per ADR-040 §3.9)
-        # — use ``extend`` not ``append``. Currently each call yields a
-        # single-element list; I40d Phase 2a will yield two (Claude +
-        # Codex destinations). Followup: #1014.
+        # ``_install_skill`` / ``_remove_skill`` return ``list[InstallResult]``
+        # — two entries per call (Claude + Codex skill trees) per ADR-040 §3.9.
         results.extend(_remove_skill(scope, cwd) if remove else _install_skill(scope, cwd))
 
     return results
@@ -630,12 +638,16 @@ def _typer_command(
         "user",
         "--scope",
         "-s",
-        help="'user' (~/.claude.json or ~/.codex/config.toml) or 'project' (<cwd>/.mcp.json).",
+        help=(
+            "'user' (~/.claude.json or ~/.codex/config.toml) or "
+            "'project' (<cwd>/.mcp.json or <cwd>/.codex/config.toml — "
+            "the latter requires Codex 2026)."
+        ),
     ),
     skill: bool = typer.Option(
         False,
         "--skill",
-        help="Also install the SciEasy skill into Claude's skills directory.",
+        help="Cross-install the SciEasy skill into both Claude's and Codex's skills directories.",
     ),
     do_all: bool = typer.Option(
         False,
