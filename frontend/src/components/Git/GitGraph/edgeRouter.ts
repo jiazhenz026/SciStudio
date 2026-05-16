@@ -416,24 +416,22 @@ export function routeEdges(
           `L ${parentCenter.x} ${parentCenter.y}`;
       }
 
-      // Hotfix #994 (refines #990): edge color follows the side-branch
-      // lane — i.e. `max(childLane, parentLane)`. Lane 0 is the trunk
-      // (HEAD's lane); higher indices are side branches. Picking the
-      // larger lane number guarantees:
-      //   - linear (child_lane === parent_lane): no visual difference
-      //   - fork (child on side, parent on trunk): edge = side color,
-      //     so the side branch stays one color tip-to-fork. (#990 case)
-      //   - merge / octopus / stash (child on trunk, parent on side):
-      //     edge = side color, so the side-branch dot and the curve
-      //     INTO it share a color. Pre-#994 the curve took the child's
-      //     (trunk) color, producing the "node and edge different colors"
-      //     mismatch visible on stash commits (Phase 4a Test 6 follow-up).
-      // This matches the IntelliJ rule (`max(layoutIndex)` in
-      // `PrintElementPresentationManagerImpl.getColorId`) and is
-      // equivalent to vscode-git-graph's "Branch.colour follows the
-      // outermost branch" convention.
-      const colorBase = Math.max(childLane, parentLane);
-      const colorIndex = ((colorBase % PALETTE.length) + PALETTE.length) % PALETTE.length;
+      // Hotfix #994: edge color follows the side-branch lane —
+      // `max(childLane, parentLane)`. This matches IntelliJ /
+      // vscode-git-graph: the OUTER branch's colour wins.
+      //
+      // Hotfix #1010: `color_index` is now per-branch (allocation order),
+      // not `lane % PALETTE.length`. So we look up the actual palette
+      // index from whichever endpoint sits on the larger lane, instead of
+      // recomputing from the lane number. For dangling parents fall back
+      // to the child's colour.
+      let colorIndex: number;
+      if (childLane >= parentLane || parentIdx < 0) {
+        colorIndex = childAssign.color_index;
+      } else {
+        colorIndex = assignments[parentIdx].color_index;
+      }
+      colorIndex = ((colorIndex % PALETTE.length) + PALETTE.length) % PALETTE.length;
 
       out.push({
         child_sha: child.sha,

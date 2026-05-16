@@ -148,13 +148,25 @@ interface VertexState {
  */
 interface Branch {
   /**
-   * Color slot index — also the rendered lane index. Stable across the
-   * branch's lifetime so every vertex on the branch shares it.
+   * Lane index (x-position slot). Recycled when the branch ends — many
+   * short-lived branches in a dense PR-ladder repo can end up sharing the
+   * same slot over time.
    */
   colour: number;
   /**
+   * Palette index for stroke color. Hotfix #1010: assigned at allocation
+   * time from a monotonic counter (modulo palette length), NOT from the
+   * lane index. Decoupling color from lane means every newly-allocated
+   * branch gets the next color in the palette — so when a lane is recycled
+   * the new branch picks a different color than the one that just ended.
+   * Pre-#1010 this was always `lane % PALETTE.length`, which meant a
+   * PR-merge-heavy history with many short feature branches all recycling
+   * lane 3 rendered as a wall of yellow lines.
+   */
+  colorIndex: number;
+  /**
    * Row index of the last vertex on this branch. Updated as the DFS
-   * extends; used as the lower-bound when checking whether the color slot
+   * extends; used as the lower-bound when checking whether the lane slot
    * can be recycled for a later branch.
    */
   end: number;
@@ -190,24 +202,41 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
   const mergeLanes: number[][] = new Array(n);
   for (let i = 0; i < n; i++) mergeLanes[i] = [];
 
-  // availableColours[c] = last row index where color slot c was used.
-  // Color c is reusable starting at row r when r > availableColours[c].
+  // availableColours[c] = last row index where lane slot c was used.
+  // Lane c is reusable starting at row r when r > availableColours[c].
   const availableColours: number[] = [];
   const branches: Branch[] = [];
 
+  // Hotfix #1010: monotonic counter for stroke-color assignment.
+  // Each newly-allocated branch gets `colorSeq % PALETTE.length`. The lane
+  // slot is recycled separately by `getAvailableColour`, so dense
+  // PR-ladder histories no longer collapse onto the same palette colour
+  // every time the slot gets reused.
+  let colorSeq = 0;
+
   /**
-   * Find a color slot whose end-row is strictly less than `startAt`
-   * (meaning the branch on that slot has ended above us, so we can reuse
-   * the column). If none qualifies, allocate a new slot.
+   * Allocate a lane slot for a new branch starting at `startAt`. Returns
+   * both the lane (x-position) and a fresh palette colour drawn from the
+   * monotonic `colorSeq` counter.
    */
-  function getAvailableColour(startAt: number): number {
+  function allocateBranchSlot(startAt: number): {
+    lane: number;
+    colorIndex: number;
+  } {
+    let lane = -1;
     for (let c = 0; c < availableColours.length; c++) {
       if (startAt > availableColours[c]) {
-        return c;
+        lane = c;
+        break;
       }
     }
-    availableColours.push(0);
-    return availableColours.length - 1;
+    if (lane < 0) {
+      availableColours.push(0);
+      lane = availableColours.length - 1;
+    }
+    const colorIndex = colorSeq % PALETTE.length;
+    colorSeq++;
+    return { lane, colorIndex };
   }
 
   /**
@@ -237,8 +266,8 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
     // 1. Make sure the start vertex itself is on a branch.
     let branch = state[startAt].branch;
     if (branch === null) {
-      const colour = getAvailableColour(startAt);
-      branch = { colour, end: startAt };
+      const slot = allocateBranchSlot(startAt);
+      branch = { colour: slot.lane, colorIndex: slot.colorIndex, end: startAt };
       branches.push(branch);
       state[startAt].branch = branch;
     }
@@ -269,11 +298,15 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
         // Dangling parent for a merge fold-in: allocate a fresh lane
         // anchored at the merge commit's row so the renderer can still
         // draw a stub. The fold-in branch immediately ends.
-        const colour = getAvailableColour(startAt);
-        const foldBranch: Branch = { colour, end: startAt };
+        const slot = allocateBranchSlot(startAt);
+        const foldBranch: Branch = {
+          colour: slot.lane,
+          colorIndex: slot.colorIndex,
+          end: startAt,
+        };
         branches.push(foldBranch);
-        mergeLanes[startAt].push(colour);
-        availableColours[colour] = startAt;
+        mergeLanes[startAt].push(slot.lane);
+        availableColours[slot.lane] = startAt;
         return;
       }
 
@@ -287,17 +320,21 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
         return;
       }
 
-      // Parent is not yet on a branch — allocate a new color slot for the
+      // Parent is not yet on a branch — allocate a new lane slot for the
       // fold-in branch and assign the parent to it. The chain then walks
-      // down from the parent. The color slot is allocated against `startAt`
+      // down from the parent. The slot is allocated against `startAt`
       // (the merge commit's row), not the parent's row, because the
       // fold-in lane occupies the column from the merge commit DOWN to
       // wherever the fold-in branch ends — so the column is "in use"
       // starting at startAt.
-      const colour = getAvailableColour(startAt);
-      const foldBranch: Branch = { colour, end: parentIdx };
+      const slot = allocateBranchSlot(startAt);
+      const foldBranch: Branch = {
+        colour: slot.lane,
+        colorIndex: slot.colorIndex,
+        end: parentIdx,
+      };
       branches.push(foldBranch);
-      mergeLanes[startAt].push(colour);
+      mergeLanes[startAt].push(slot.lane);
       state[parentIdx].branch = foldBranch;
       // The parent's first-parent edge is now consumed by this fold-in
       // chain (we're walking down through it). Bump nextParentIdx.
@@ -392,11 +429,16 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
     // A vertex always has a branch by this point — determinePath ensures
     // it. Defensive fallback: lane 0 with a fresh color slot.
     const lane = branch !== null ? branch.colour : 0;
+    // Hotfix #1010: color_index follows the branch (allocation order)
+    // rather than the lane number. Defensive fallback uses lane 0's
+    // palette colour when no branch is recorded.
+    const colorIndex =
+      branch !== null ? branch.colorIndex : 0 % PALETTE.length;
     out[r] = {
       sha: commits[r].sha,
       lane,
       merge_lanes: mergeLanes[r],
-      color_index: lane % PALETTE.length,
+      color_index: colorIndex,
       filtered_out: false,
     };
   }
@@ -453,10 +495,12 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
       }
       if (trueTrunkLane !== null) {
         const target = trueTrunkLane;
+        // Hotfix #1010: color_index is per-branch (allocation order),
+        // not per-lane. Swap lane numbers but leave color_index alone —
+        // each branch carries its colour across the swap.
         for (const a of out) {
           if (a.lane === 0) a.lane = target;
           else if (a.lane === target) a.lane = 0;
-          a.color_index = a.lane % PALETTE.length;
           if (a.merge_lanes.length > 0) {
             a.merge_lanes = a.merge_lanes.map((c) =>
               c === 0 ? target : c === target ? 0 : c,
