@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- [#1026] S40d: install-parity skeleton — cross-install + codex project-scope signatures (@claude, 2026-05-16, branch: feat/issue-1026/adr-040-s40d-install-skeleton, session: 20260516-181020-s40d-adr-040-install-parity-skeleton)
+
 ### Fixed
 
 - [#1015] Wire backend-supplied per-block ``inputs`` / ``outputs`` through the frontend adapter. ``adaptBlockExecution`` (``frontend/src/lib/api.ts``) hardcoded ``inputs: []`` / ``outputs: []`` with a stale "future enhancement" comment from the D38-2.4c skeleton. #996 inlined the join server-side, so ``GET /api/runs/{id}`` already carried the data — but the frontend dropped it on the floor, and the Lineage block cards rendered "0 inputs / 0 outputs" even though the Methods export (which reads the recorder's joined SQL directly) showed the same DataObjects correctly. New ``adaptDataObjectRef`` maps each backend row's ``{direction, port_name, position, object_id, type_name, backend, storage_path, produced_by_execution}`` shape to the frontend's leaner ``LineageDataObjectRef`` (drops ``direction`` because the server-side bucket assignment already separated inputs from outputs, drops ``backend`` and ``produced_by_execution`` because the v1 card UI doesn't display them). 36/36 Lineage frontend tests pass. (@claude, 2026-05-16, branch: hotfix/issue-1004/graph-row-virtualization-spacer, session: n/a-hotfix-mode-§11.5)
