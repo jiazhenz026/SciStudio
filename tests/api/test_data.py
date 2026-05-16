@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from fastapi.testclient import TestClient
@@ -516,6 +518,65 @@ def test_preview_data_dataframe_pagination_and_sort(
     assert bogus["sort_by"] is None
     assert bogus["sort_dir"] is None
     assert len(bogus["rows"]) == 50
+
+
+def test_preview_data_dataframe_cache_skips_repeat_disk_reads(
+    client: TestClient,
+    opened_project: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """LRU cache makes pagination + sort O(slice) after the first call.
+
+    The cache key is (path, mtime, sort_by, sort_dir). Sort-variant misses
+    reuse the unsorted base, so flipping sort columns / directions never
+    re-reads the file. Touching the file (mtime change) invalidates.
+    """
+    from scieasy.api import runtime as runtime_mod
+
+    # Build a small csv. The cache behavior we care about is invariant to size.
+    rows = "".join(f"{i},{i * 2}\n" for i in range(80))
+    upload = client.post(
+        "/api/data/upload",
+        files={"file": ("cached.csv", ("a,b\n" + rows).encode(), "text/csv")},
+    )
+    ref = upload.json()["ref"]
+
+    # Clear the cache so this test owns its lifecycle.
+    with runtime_mod._table_cache_lock:
+        runtime_mod._table_cache.clear()
+
+    # Wrap the disk reader to count parses.
+    reads: list[Path] = []
+    real_read = runtime_mod._read_preview_table_from_disk
+
+    def counting_read(path: Path) -> Any:  # type: ignore[no-untyped-def]
+        reads.append(path)
+        return real_read(path)
+
+    monkeypatch.setattr(runtime_mod, "_read_preview_table_from_disk", counting_read)
+
+    # 1. First request seeds the unsorted cache (1 read).
+    client.get(f"/api/data/{ref}/preview").raise_for_status()
+    assert len(reads) == 1
+
+    # 2. Page 2 of the same unsorted view hits the cache — no new read.
+    client.get(f"/api/data/{ref}/preview?page=2").raise_for_status()
+    assert len(reads) == 1
+
+    # 3. Sort asc — reuses the cached base, no disk hit.
+    client.get(f"/api/data/{ref}/preview?sort_by=b&sort_dir=asc").raise_for_status()
+    assert len(reads) == 1
+
+    # 4. Flip to desc — still reuses the base.
+    client.get(f"/api/data/{ref}/preview?sort_by=b&sort_dir=desc").raise_for_status()
+    assert len(reads) == 1
+
+    # 5. Touch the file (advance mtime). Next request must invalidate and re-read.
+    path = next(p for p in (opened_project / "data" / "raw").rglob("cached.csv"))
+    new_mtime_ns = path.stat().st_mtime_ns + 1_000_000_000  # +1 s
+    os.utime(path, ns=(new_mtime_ns, new_mtime_ns))
+    client.get(f"/api/data/{ref}/preview").raise_for_status()
+    assert len(reads) == 2
 
 
 def test_preview_data_dispatches_plugin_spectrum_type_via_type_chain(
