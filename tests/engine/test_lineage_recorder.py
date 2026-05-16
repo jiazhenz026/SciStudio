@@ -306,3 +306,42 @@ class TestTerminalEventFullPayload:
         assert len(rows) == 1
         assert rows[0]["block_type"] == "Threshold"
         assert rows[0]["block_version"] == "2.0.0"
+
+
+class TestExtractTypeNameCollection:
+    """Hotfix #995: `_extract_type_name` must handle Collection wrappers."""
+
+    def test_collection_returns_item_type(self) -> None:
+        from scieasy.core.lineage.recorder import _extract_type_name
+
+        wire = {
+            "kind": "collection",
+            "count": 3,
+            "item_type": "Image",
+            "items": [{"data_ref": f"d{i}", "type_name": "Image"} for i in range(3)],
+        }
+        assert _extract_type_name(wire) == "Image"
+
+    def test_collection_falls_back_to_items_metadata_type_chain(self) -> None:
+        from scieasy.core.lineage.recorder import _extract_type_name
+
+        # item_type missing — recurse into items[0].metadata.type_chain.
+        wire = {
+            "kind": "collection",
+            "items": [
+                {"metadata": {"type_chain": ["DataObject", "Array", "Mask"]}},
+            ],
+        }
+        assert _extract_type_name(wire) == "Mask"
+
+    def test_collection_falls_back_to_generic_when_empty(self) -> None:
+        from scieasy.core.lineage.recorder import _extract_type_name
+
+        assert _extract_type_name({"kind": "collection"}) == "DataObject"
+
+    def test_non_collection_unchanged(self) -> None:
+        """Existing root-level type_chain path still works (PR #979 regression)."""
+        from scieasy.core.lineage.recorder import _extract_type_name
+
+        wire = {"metadata": {"type_chain": ["DataObject", "DataFrame"]}}
+        assert _extract_type_name(wire) == "DataFrame"

@@ -402,7 +402,33 @@ def _extract_type_name(wire_dict: dict[str, Any]) -> str:
     concrete output type that lineage queries / methods exports
     expect — is the LAST element, not the first. Codex P1 reconcile
     on PR #979.
+
+    Hotfix #995: handle Collection wire-wrappers. When a block emits
+    ``Collection[T]`` the serialised wire-dict has shape
+    ``{"kind": "collection", "item_type": "T", "items": [<T-wire-dict>, ...]}``
+    and the root-level ``metadata`` is absent — the per-item type info
+    lives at ``items[i].metadata.type_chain``. Pre-#995 the helper
+    only inspected the root, so every Collection output landed in
+    ``data_objects.type_name`` as the literal ``"DataObject"`` fallback,
+    which surfaced in the Lineage tab Methods MD as
+    ``Type | DataObject`` instead of ``Image`` / ``Mask`` / etc. (Phase
+    4a finding).
+
+    The fix probes the Collection wrapper FIRST so the homogeneous
+    Collection invariant (per ADR-038 §3.1) is captured by a single
+    type-name read.
     """
+    # Hotfix #995: Collection wrapper short-circuit.
+    if wire_dict.get("kind") == "collection":
+        item_type = wire_dict.get("item_type")
+        if isinstance(item_type, str) and item_type:
+            return item_type
+        items = wire_dict.get("items")
+        if isinstance(items, list) and items and isinstance(items[0], dict):
+            nested = _extract_type_name(items[0])
+            if nested != "DataObject":
+                return nested
+
     metadata = wire_dict.get("metadata") or {}
     type_chain = metadata.get("type_chain")
     if isinstance(type_chain, list) and type_chain:
