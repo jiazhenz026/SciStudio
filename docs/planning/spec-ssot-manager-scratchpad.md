@@ -61,7 +61,21 @@
 
 (Empty when no agent in flight. Each entry: agent role, dispatch time, expected output path, `until` watcher pattern, current status.)
 
-Phase 2.5 + Phase 2 supplementary (4 parallel agents, dispatched 2026-05-17):
+Phase 4 (8 parallel pre-write auditors, dispatched 2026-05-17 — CLAUDE CODE side):
+- **A1** (id `a5cf2460ae3fb5f8f`) — block-abc + port-system → `docs/audit/2026-05-17-spec-ssot-p4-A1.md`
+- **A2** (id `a32c37f3ab81bb38f`) — data-types + storage-backends → `…-p4-A2.md`
+- **A3** (id `a5bbb341f5132febe`) — collection-transport + block-registry → `…-p4-A3.md`
+- **A4** (id `a123b203a14329a29`) — execution-engine solo → `…-p4-A4.md`
+- **A5** (id `a7412b30f4bc19764`) — lineage-db + versioning-git → `…-p4-A5.md`
+- **A6** (id `a42f48c646d7c76e1`) — rest-api + ws-sse-protocol → `…-p4-A6.md`
+- **A7** (id `a75e7387dd91f4704`) — mcp-tools + agent-provisioning → `…-p4-A7.md`
+- **AX** (id `ae252ebf510525cdb`) — cross-architecture (ARCH primary + ADRs supplementary) → `…-p4-AX.md`
+
+Watcher: poll all 8 reports. Each prompt embeds CLAUDECODE isolation rule (NEVER touch codex-tagged anything).
+
+### Earlier dispatches log
+
+Phase 2.5 + Phase 2 supplementary (4 parallel agents, completed 2026-05-17):
 
 **Consolidators (M1/M2, opus, full interface list)**:
 - **M1** (id `ab2e115d8e2abc932`) → `docs/audit/2026-05-17-spec-ssot-p2.5-M1.md`

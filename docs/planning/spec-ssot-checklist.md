@@ -151,18 +151,26 @@ code-has?  docs-has?  →  label
 
 ---
 
-## Phase 4 — Pre-write audit (Owners: A1..An, AX)
-### Per-module audit
-- [ ] A1: modules `<TBD>`, `<TBD>` → `docs/audit/2026-05-17-spec-ssot-p4-A1.md`
-- [ ] A2..An: ...
-### Cross-doc audit
-- [ ] AX: → `docs/audit/2026-05-17-spec-ssot-p4-AX.md`
+## Phase 4 — Pre-write audit (Owners: A1..A7, AX) — ALL DONE
+- [x] A1 (block-abc + port-system) — 6 P1, 7 P2, 5 P3
+- [x] A2 (data-types + storage-backends) — 3 P1, 4 P2, 5 P3
+- [x] A3 (collection-transport + block-registry) — 0 P1 (PASS), 2 P2
+- [x] A4 (execution-engine solo) — 5 P1, 5 P2
+- [x] A5 (lineage-db + versioning-git) — 1 P1, 2 P2
+- [x] A6 (rest-api + ws-sse-protocol) — 9 P1, 2 P2, +corrections + 3 NEW issues
+- [x] A7 (mcp-tools + agent-provisioning) — 2 P1, 2 P2
+- [x] AX (cross-architecture) — 9 P1 + 4 missing entries, 5 P2, 4 P3, 3 ADR conflicts log
+- [x] Aggregate: 39+ P1, ~29 P2, ~14 P3
 
 ---
 
-## Phase 5 — Manager fix
-- [ ] `docs/planning/spec-ssot-draft-v2.md` committed
-- [ ] Finding disposition log (per-finding accept/reject/escalate)
+## Phase 5 — Manager fix → draft v2 — DONE
+- [x] `docs/planning/spec-ssot-draft-v2.md` committed
+- [x] All P1 findings accepted (none rejected; some downgraded but logged)
+- [x] Selected P2 applied; rest deferred to Phase 7+
+- [x] 14 NEW `#TBD-*` issue placeholders surfaced beyond draft v1
+- [x] Aggregate count post-fix: ~195 interfaces (a~82, b~33, c~16, d~64)
+- [x] 10-point cross-cascade reconciliation checklist prepared
 
 ---
 
