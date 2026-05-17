@@ -1,0 +1,10 @@
+Claude Code side of dual-cascade SSOT run (#1090).
+Codex is running parallel cascade in its own isolated worktree with its own tracking branch + umbrella PR.
+Agents dispatched on this branch MUST NOT touch any 'codex'-tagged branch, PR, or worktree.
+Cross-cascade reconciliation happens at Phase 5/6 boundary (manager-driven).
+
+Tracking branch: track/spec-ssot (aliased as 'claudecode' side)
+Umbrella PR: #1091 [DO NOT MERGE] (Claude Code side)
+Manager worktree: scieasy-spec-ssot-mgr/
+Baseline SHA: a4b8b5f
+

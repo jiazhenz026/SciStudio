@@ -122,6 +122,13 @@ Watcher: poll all 9 worktrees `.claude/worktrees/agent-<id>/docs/audit/2026-05-1
 - **2026-05-17 — Phase 1.5 pre-flagged d-class candidates**: `versioning-git`, `agent-provisioning`, `pty_control` sub-surface, `workflow.yaml`/`project.yaml` Pydantic schemas, `metadata_store.py` legacy. These are HINTS for downstream agents, not pre-decisions — Phase 1.5 D1/X1 agents will independently surface them.
 - **2026-05-17 — User added I1/I2 issue-investigator agents**: K-agents couldn't see GitHub issues, missing c-class candidates (example: ADR-028 §D8 cluster). I1/I2 dispatched independently, both confirmed ~14 new entries each + 8-12 K-refinements. Biggest finding: ADR-028 §D8 cluster (5 chained issues #1073-#1078) = `IOBlock.supported_extensions`, `BlockRegistry.find_loader/find_saver/find_io_blocks_for_type`, `core.materialisation` — all c-impl, 0% implemented.
 - **2026-05-17 — CRITICAL CONSTRAINT (user direction)**: Codex is running the same Phase 0-5 in a parallel isolated worktree. **STOP before Phase 6.** Manager will provide Codex's draft v2 list for cross-cascade-manager comparison; Phase 6 SSOT-writing decision deferred until that cross-check. Implication: my Phase 3/4/5 outputs are the "Claude side" of a 2-manager parallel run.
+- **2026-05-17 — CLAUDECODE/CODEX isolation marker (user direction)**: 2 independent umbrellas exist — Claude Code side (us) + Codex side. Every future agent dispatch MUST:
+  - Target `track/spec-ssot` (our branch); never touch any `codex`-tagged branch/PR/worktree
+  - PR target = `track/spec-ssot` only
+  - Forbidden paths now include any worktree path containing "codex" in its name
+  - Added marker file `.claudecode-cascade` at tracking branch root
+  - Umbrella PR #1091 retitled to "[DO NOT MERGE] [Claude Code] track/spec-ssot — Interface SSOT cascade"
+- **2026-05-17 — M2 actually covered all 13 modules (138 interfaces)**: my earlier grep missed §12 and §13 due to awk range bug. Draft v1 corrected. Phase 4 A-agents for modules 12+13 cross-check M2 + C7.
 
 ---
 
