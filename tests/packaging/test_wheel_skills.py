@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from importlib.resources import files
 
-
 # Per ADR-040 §3.4, these 5 task skills MUST exist alongside the base.
 _TASK_SKILLS: tuple[str, ...] = (
     "scieasy-build-workflow",
@@ -39,9 +38,7 @@ def test_base_skill_loadable_via_importlib_resources() -> None:
     assert content.startswith("---\n"), "SKILL.md must start with YAML frontmatter."
     assert "name: scieasy" in content, "Base skill frontmatter must declare name: scieasy."
     # Body authored (not a skeleton stub).
-    assert "Body content deferred" not in content, (
-        "Base SKILL.md body must be authored in Phase 2c (I40b)."
-    )
+    assert "Body content deferred" not in content, "Base SKILL.md body must be authored in Phase 2c (I40b)."
     # Splice markers preserved (target of _render_project_context + _render_tool_catalog).
     assert "<!-- project_context:begin -->" in content
     assert "<!-- project_context:end -->" in content
@@ -55,12 +52,8 @@ def test_all_task_skills_loadable_via_importlib_resources() -> None:
     for task_skill in _TASK_SKILLS:
         skill_md = base_dir / task_skill / "SKILL.md"
         content = skill_md.read_text(encoding="utf-8")
-        assert content.startswith("---\n"), (
-            f"{task_skill}/SKILL.md must start with YAML frontmatter."
-        )
-        assert f"name: {task_skill}" in content, (
-            f"{task_skill}/SKILL.md frontmatter must declare name: {task_skill}."
-        )
+        assert content.startswith("---\n"), f"{task_skill}/SKILL.md must start with YAML frontmatter."
+        assert f"name: {task_skill}" in content, f"{task_skill}/SKILL.md frontmatter must declare name: {task_skill}."
         assert "Body content deferred" not in content, (
             f"{task_skill}/SKILL.md body must be authored in Phase 2c (I40b)."
         )
@@ -76,6 +69,4 @@ def test_base_skill_indexes_all_task_skills() -> None:
     base = files("scieasy") / "_skills" / "scieasy" / "SKILL.md"
     content = base.read_text(encoding="utf-8")
     for task_skill in _TASK_SKILLS:
-        assert task_skill in content, (
-            f"Base SKILL.md must reference {task_skill} in its skill index."
-        )
+        assert task_skill in content, f"Base SKILL.md must reference {task_skill} in its skill index."

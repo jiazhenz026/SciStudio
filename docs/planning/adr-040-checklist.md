@@ -316,23 +316,22 @@ See FastMCP track.
 
 **Branch**: `feat/issue-NNN/adr-040-i40b-skills` off `track/adr-040/skills`.
 
-- [ ] Sub-issue opened for I40b
-- [ ] `src/scieasy/_skills/scieasy/SKILL.md` thin base body authored (~50 LOC: identity, skill index, `<!-- project_context -->` marker, "available skills, when to use each")
-- [ ] 5 task skill bodies authored per Phase 2b blueprint:
-  - `scieasy-build-workflow`: YAML schema teaching + pitfalls + worked example + tool-call sequence
-  - `scieasy-write-block`: block-reuse rule (#875) + port-type selection rule (§3.2a + `list_types` mandate) + worked example
-  - `scieasy-debug-run`: lineage.db query patterns + log retrieval + common error signatures
-  - `scieasy-inspect-data`: data ref handling + preview semantics + lineage navigation
-  - `scieasy-project-qa`: meta-questions, docs lookup, project structure
-- [ ] `src/scieasy/agent_provisioning/templates/claude_agents_md.md` content authored (~50 LOC) — coordinates with I40c which authored the template skeleton
-- [ ] `skills/scieasy/SKILL.md` at repo root **DELETED** (canonical location is now packaged path)
-- [ ] Tests:
-  - Each skill frontmatter parses
-  - Base index references all 5
-  - CLAUDE.md/AGENTS.md template renders verbatim into both files
-  - `tests/packaging/test_wheel_skills.py` flipped from skip → pass: `pip install dist/*.whl && python -c "from importlib.resources import files; …"` returns content
-- [ ] CHANGELOG entry
-- [ ] CI green; PR merged into tracking branch
+- [x] Sub-issue opened for I40b → [#1057](https://github.com/zjzcpj/SciEasy/issues/1057)
+- [x] `src/scieasy/_skills/scieasy/SKILL.md` thin base body authored (~80 LOC: identity, 5-skill index, non-negotiable rules, `<!-- project_context -->` + `<!-- tool_catalog -->` markers) → commit `ced96fb`
+- [x] 5 task skill bodies authored per Phase 2b blueprint:
+  - `scieasy-build-workflow`: YAML schema teaching + 10 pitfalls + 3 worked examples (linear / fan-out / AI block) + tool-call sequence + when-validate-fails / when-run-fails recovery → commit `ced96fb`
+  - `scieasy-write-block`: #875 block-reuse rule (Layer 1 + hook backup) + Block ABC contract + ADR-040 §3.2a port-type narrowness rule (with `list_types` mandate + scaffold_block warnings rule) + ADR-030 config_schema MRO merge + ADR-025 entry points + 6-category taxonomy + worked thresholding-block example + 8 pitfalls → commit `ced96fb`
+  - `scieasy-debug-run`: canonical diagnostic sequence + `get_run_status` envelope + `get_block_logs` patterns + 8 common error signatures + ADR-038 lineage.db MCP-surface rule + AI block PTY + `finish_ai_block` contract + worked diagnostic example → commit `ced96fb`
+  - `scieasy-inspect-data`: ADR-031 reference-only contract + `inspect_data` / `preview_data` / `get_lineage` / `get_block_output` / `list_data` + worked threshold-mask example + lineage-walk example → commit `ced96fb`
+  - `scieasy-project-qa`: `get_project_info` / `search_docs` / `get_doc` / `list_data` + combining-tools recipes + worked plugin-list example → commit `ced96fb`
+- [x] `src/scieasy/agent_provisioning/templates/claude_agents_md.md` refined per Phase 2b §6 (I40c baseline upgraded with hook-by-file names, ADR §3.2a citation, next_step/warnings reading rule, mirrored non-negotiable rules block) → commit `ced96fb`
+- [x] `skills/scieasy/SKILL.md` at repo root **DELETED** (canonical location is now `src/scieasy/_skills/scieasy/SKILL.md`; examples subdir under `skills/scieasy/examples/` retained as out-of-scope) → commit `ced96fb`
+- [x] Tests:
+  - [x] `tests/packaging/test_wheel_skills.py` flipped from skip → 3 passing assertions: base SKILL.md loadable via importlib.resources + frontmatter + both splice markers; all 5 task skills loadable + authored; base indexes every task skill → commit `ced96fb`
+  - [x] `tests/agent_provisioning/test_claude_agents_md.py` extended with 2 content-refinement tests: template indexes all 5 task skills; template carries non-negotiable rules (MCP-tools-over-CLI, #875 list_blocks, ADR-040 §3.2a list_types/DataObject, workflow YAML via write_workflow) → commit `ced96fb`
+  - Local test run: 9/9 targeted tests pass; 61/61 across packaging/agent_provisioning/system_prompt
+- [ ] CHANGELOG entry → pending commit
+- [ ] CI green; PR merged into tracking branch → pending push + PR
 
 ### Phase 2c.5 / A40-skill — Skill content audit
 

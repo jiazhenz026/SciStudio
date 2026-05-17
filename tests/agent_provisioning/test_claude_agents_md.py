@@ -76,9 +76,7 @@ def test_template_indexes_all_five_task_skills(tmp_project_dir: Path) -> None:
         "scieasy-inspect-data",
         "scieasy-project-qa",
     ):
-        assert task_skill in body, (
-            f"CLAUDE.md/AGENTS.md template must reference {task_skill}."
-        )
+        assert task_skill in body, f"CLAUDE.md/AGENTS.md template must reference {task_skill}."
 
 
 def test_template_carries_non_negotiable_rules(tmp_project_dir: Path) -> None:
