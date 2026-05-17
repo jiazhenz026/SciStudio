@@ -27,9 +27,7 @@ def test_render_port_block_non_empty_uses_accepted_types() -> None:
     )
     assert "accepted_types=[Image]" in rendered
     # Old shape MUST be gone — this is the bug #1063 fixes
-    assert "type=DataObject" not in rendered, (
-        f"Stale type=DataObject kwarg still in template:\n{rendered}"
-    )
+    assert "type=DataObject" not in rendered, f"Stale type=DataObject kwarg still in template:\n{rendered}"
     assert "type=Image" not in rendered
 
 
