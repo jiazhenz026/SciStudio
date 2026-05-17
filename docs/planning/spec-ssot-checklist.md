@@ -135,10 +135,13 @@ code-has?  docs-has?  →  label
 
 ---
 
-## Phase 2.5 — Consolidation (Owners: M1, M2)
-- [ ] M1 draft landed
-- [ ] M2 draft landed
-- [ ] Manager populates `P2.5 M1/M2` column
+## Phase 2.5 — Consolidation (Owners: M1, M2) + Phase 2 supplementary (I1, I2)
+- [x] M1 (id `ab2e115d8e2abc932`, opus) — 36KB consolidated list
+- [x] M2 (id `a2b3f590d554d3cc2`, opus) — 129KB consolidated list (more detailed signatures)
+- [x] I1 (id `a753e02e1c61a72e2`, sonnet) — 98 issues scanned, 14 new entries + 12 refinements
+- [x] I2 (id `a0aa4eadb50393180`, sonnet) — 65 issues scanned, 14 new entries + 8 refinements
+- [x] Both I-agents independently identified ADR-028 §D8 cluster (5 chained issues #1073-#1078) as biggest miss (IOBlock.supported_extensions + BlockRegistry.find_loader/find_saver/find_io_blocks_for_type + core.materialisation — all c-impl 0% impl)
+- [x] Other major findings: iterate_over_axes O(slice) drift (#888), ResourceManager.acquire() zero callers (#887), SubWorkflowBlock._scheduler_factory undocumented (#890), ADR-041 placeholders #1015/#1016 c-defer
 
 ---
 
@@ -164,6 +167,12 @@ code-has?  docs-has?  →  label
 ---
 
 ## Phase 6 — Manager writes SSOT
+
+**🛑 BLOCKED on cross-cascade-manager reconciliation (user direction 2026-05-17)**: Codex is running the same Phase 0-5 in a parallel isolated worktree. Manager will provide Codex's draft v2 before Phase 6 begins. SSOT-writing must wait for the cross-check.
+
+- [ ] Receive Codex manager's draft v2 (blocked on user)
+- [ ] Cross-reference Claude draft v2 vs Codex draft v2
+- [ ] Resolve any cross-cascade divergence
 - [ ] `docs/specs/INTERFACE_SPEC.md` drafted
 - [ ] Grammar locked, `extract_spec.py` parses cleanly
 - [ ] All N modules covered

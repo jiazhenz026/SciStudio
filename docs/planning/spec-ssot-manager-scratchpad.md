@@ -61,12 +61,29 @@
 
 (Empty when no agent in flight. Each entry: agent role, dispatch time, expected output path, `until` watcher pattern, current status.)
 
+Phase 2.5 + Phase 2 supplementary (4 parallel agents, dispatched 2026-05-17):
+
+**Consolidators (M1/M2, opus, full interface list)**:
+- **M1** (id `ab2e115d8e2abc932`) → `docs/audit/2026-05-17-spec-ssot-p2.5-M1.md`
+- **M2** (id `a2b3f590d554d3cc2`) → `…-p2.5-M2.md`
+
+**Issue-investigators (I1/I2, sonnet, supplementary issue-driven entries)**:
+- **I1** (id `a753e02e1c61a72e2`) → `docs/audit/2026-05-17-spec-ssot-p2-issues-I1.md` (user-added 2026-05-17: K-agents couldn't see GitHub issues, missing c-class candidates like ADR-028 D8)
+- **I2** (id `a0aa4eadb50393180`) → `…-issues-I2.md`
+
+Watcher: poll all 4. Phase 3 (manager merge) now must reconcile:
+- M1 + M2 consolidated drafts (full interface list)
+- I1 + I2 issue-driven additions + K-refinements
+- Final draft v1 = M-merged + I-augmented.
+
+### Earlier dispatches log
+
+Phase 2 (3 K-classifiers, completed): K1=121 a52/b12/c2/d55, K2=152 b22/c2/d47, K3=143 a73/b18/c2/d50. Pattern: a-class dominates (~45%), d-class second (~40%), b (~10%), c (~2%).
+
 Phase 2 (3 parallel classifiers, dispatched 2026-05-17):
 - **K1** (id `a8b34ef7924fd14fc`) → `docs/audit/2026-05-17-spec-ssot-p2-K1.md`
 - **K2** (id `ac5390f3efdef6163`) → `…-p2-K2.md`
 - **K3** (id `af6dab94d72e8d308`) → `…-p2-K3.md`
-
-Watcher: poll all 3. Independent — manager tiebreaks Phase 2.5/3.
 
 ### Earlier dispatches log
 
@@ -103,6 +120,8 @@ Watcher: poll all 9 worktrees `.claude/worktrees/agent-<id>/docs/audit/2026-05-1
 - **2026-05-17 — Today's session scope = full 10-phase cascade.** Reason: user verbatim "全流程走完". Source: user clarification on session scope. Implication: marathon session, manager scratchpad usage will be critical for survival.
 - **2026-05-17 — N = 13 locked.** Source: S1-enumerate report `docs/audit/2026-05-17-spec-ssot-p1-modules.md`. Pairing accepted as recommended (C1..C7). Implication: Phase 1.5 dispatches 9 agents in parallel.
 - **2026-05-17 — Phase 1.5 pre-flagged d-class candidates**: `versioning-git`, `agent-provisioning`, `pty_control` sub-surface, `workflow.yaml`/`project.yaml` Pydantic schemas, `metadata_store.py` legacy. These are HINTS for downstream agents, not pre-decisions — Phase 1.5 D1/X1 agents will independently surface them.
+- **2026-05-17 — User added I1/I2 issue-investigator agents**: K-agents couldn't see GitHub issues, missing c-class candidates (example: ADR-028 §D8 cluster). I1/I2 dispatched independently, both confirmed ~14 new entries each + 8-12 K-refinements. Biggest finding: ADR-028 §D8 cluster (5 chained issues #1073-#1078) = `IOBlock.supported_extensions`, `BlockRegistry.find_loader/find_saver/find_io_blocks_for_type`, `core.materialisation` — all c-impl, 0% implemented.
+- **2026-05-17 — CRITICAL CONSTRAINT (user direction)**: Codex is running the same Phase 0-5 in a parallel isolated worktree. **STOP before Phase 6.** Manager will provide Codex's draft v2 list for cross-cascade-manager comparison; Phase 6 SSOT-writing decision deferred until that cross-check. Implication: my Phase 3/4/5 outputs are the "Claude side" of a 2-manager parallel run.
 
 ---
 
