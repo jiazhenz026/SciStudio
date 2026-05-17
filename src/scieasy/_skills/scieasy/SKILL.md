@@ -75,5 +75,39 @@ the live MCP tool catalog (26 tools across workflow / authoring /
 inspection / qa). Use tool names and descriptions from the rendered
 catalog; do not type from memory if uncertain.
 
+On Claude Code, `_render_tool_catalog` (see
+`scieasy.ai.agent.system_prompt`) splices the live catalog from
+FastMCP `list_tools()` between the markers below. On Codex, the file
+is read verbatim; the static fallback below is what you see. The
+static list names every tool but omits descriptions / parameter
+shapes — call `mcp__scieasy__<tool>` and read FastMCP's error
+envelope if you need the exact signature, or load the relevant task
+skill (`scieasy-build-workflow`, `scieasy-write-block`,
+`scieasy-debug-run`, `scieasy-inspect-data`, `scieasy-project-qa`)
+for the documented call sequence.
+
 <!-- tool_catalog:begin -->
+**Static fallback (26 tools — Codex sees this; Claude sees the live
+catalog re-spliced from FastMCP at compose time).**
+
+- **Workflow (10)** — `list_blocks`, `get_block_schema`, `list_types`,
+  `get_workflow`, `validate_workflow`, `write_workflow`,
+  `run_workflow`, `cancel_run`, `get_run_status`, `finish_ai_block`.
+  Read schemas and write/run workflow YAML; poll run status; close
+  out AI blocks.
+- **Authoring (5)** — `read_block_source`, `list_block_examples`,
+  `scaffold_block`, `reload_blocks`, `run_block_tests`. Author and
+  test new blocks under `<project>/blocks/`.
+- **Inspection (7)** — `inspect_data`, `preview_data`,
+  `get_block_output`, `get_lineage`, `get_block_logs`,
+  `list_block_runs`, `update_block_config`. Walk data refs, logs,
+  and ADR-038 lineage without materialising arrays.
+- **QA / project (4)** — `get_project_info`, `list_data`,
+  `search_docs`, `get_doc`. Project structure, raw-asset listing,
+  doc search.
+
+For each tool: every write-class result envelope carries `next_step`
+(read and follow it); `scaffold_block` additionally carries
+`warnings: list[str]` (read every entry before proceeding per
+ADR-040 §3.2a).
 <!-- tool_catalog:end -->

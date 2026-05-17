@@ -279,11 +279,15 @@ carries `next_step` pointing at `validate_workflow`. Always follow it.
 ## 6. When a run fails
 
 `get_run_status` returns
-`{state: "failed", block_states: {node_id: state, ...}, error: "..."}`
-when a block fails. Pivot to the **scieasy-debug-run** skill — it
-teaches the log-retrieval and lineage-navigation steps. Do not
-re-run the workflow without changing something; the failure mode will
-recur.
+`GetRunStatusResult(run_id, state, progress={"block_states": {node_id: state, ...}}, errors=[BlockErrorEntry(block_id, error, summary), ...])`
+when a block fails. The per-block state map is nested under
+`progress.block_states` (NOT at the top level); per-block tracebacks
+live in the top-level `errors` list (plural — multiple blocks may
+fail). Terminal states are `succeeded` / `failed` / `cancelled`;
+non-terminal states are `queued` / `running` / `unknown`. Pivot to
+the **scieasy-debug-run** skill — it teaches the log-retrieval and
+lineage-navigation steps. Do not re-run the workflow without
+changing something; the failure mode will recur.
 
 ## Mandatory rules
 

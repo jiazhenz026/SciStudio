@@ -100,3 +100,32 @@ def test_template_carries_non_negotiable_rules(tmp_project_dir: Path) -> None:
     # Workflow YAML protection
     assert "workflows/" in body
     assert "write_workflow" in body
+
+
+def test_template_distinguishes_claude_vs_codex_hook_safety_net(tmp_project_dir: Path) -> None:
+    """F40-integration F4: template must distinguish hook-backed (Claude)
+    vs no-safety-net (Codex) per ADR-040 §3.10.
+
+    Pre-F4 the template wrote "A PreToolUse hook blocks such calls" /
+    "A PostToolUse hook stderr-warns" unconditionally, which is FALSE
+    on Codex — Codex hook coverage is deferred per ADR §3.10. A Codex
+    agent reading the unfixed template believes hooks will catch
+    violations; they will not.
+
+    Post-F4 the template carries a top-level "Hook safety net — Claude
+    Code only" section and parenthetical (on Claude Code, …; on Codex,
+    no hook fires) clauses on each rule.
+    """
+    write_claude_agents_md(tmp_project_dir, force=False)
+    body = (tmp_project_dir / "CLAUDE.md").read_text(encoding="utf-8")
+    body_lower = body.lower()
+    # Top-level distinction section present.
+    assert "claude code only" in body_lower, (
+        "Template must carry a top-level 'Hook safety net — Claude Code only' "
+        "section so Codex agents see they have no backstop (F40-integration F4)."
+    )
+    # Codex explicitly named and self-police phrasing present.
+    assert "codex" in body_lower
+    assert "self-police" in body_lower or "no hook" in body_lower
+    # ADR §3.10 reference grounds the gap.
+    assert "3.10" in body or "ADR-040" in body
