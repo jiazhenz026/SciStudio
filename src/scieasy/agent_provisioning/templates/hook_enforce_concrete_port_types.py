@@ -107,11 +107,22 @@ def _is_port_ctor(func: ast.expr) -> bool:
     return False
 
 
-def _accepted_type_elements(value: ast.expr) -> list[ast.expr]:
-    """Return the element nodes of ``accepted_types=[...]`` (or empty list)."""
+def _accepted_type_elements(value: ast.expr) -> list[ast.expr] | None:
+    """Return the element nodes of literal ``accepted_types=[T, ...]``.
+
+    Returns:
+        - ``list[ast.expr]`` with element nodes for literal List/Tuple expressions.
+        - ``None`` for non-literal expressions (``accepted_types=MY_TYPES``,
+          ``accepted_types=build_types()``, etc.) — caller must NOT flag these
+          as generic/empty, since the runtime value is opaque to static AST
+          analysis.
+
+    Codex P2 fix (#1089): previously returned ``[]`` for non-literal, causing
+    false generic-port warnings on valid patterns like ``accepted_types=MY_TYPES``.
+    """
     if isinstance(value, (ast.List, ast.Tuple)):
         return list(value.elts)
-    return []
+    return None
 
 
 def _type_element_name(node: ast.expr) -> str | None:
@@ -166,6 +177,11 @@ def _scan_for_generic_ports(source: str) -> list[tuple[int, str, str]]:
             continue
 
         elements = _accepted_type_elements(accepted_value)
+        if elements is None:
+            # Non-literal expression (e.g. accepted_types=MY_TYPES,
+            # accepted_types=build_types()) — runtime value is opaque to
+            # static AST. Do NOT flag; let the author decide.
+            continue
         if not elements:
             findings.append((node.lineno, name_hint or "<unknown>", "empty"))
             continue

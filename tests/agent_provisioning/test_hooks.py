@@ -388,3 +388,36 @@ def test_hook_enforce_concrete_port_types_handles_syntax_error(tmp_project_dir: 
     )
     # Always exit 0 (PostToolUse cannot block); syntax error just suppresses scan.
     assert proc.returncode == 0
+
+
+def test_hook_enforce_concrete_port_types_non_literal_accepted_types_silent(
+    tmp_project_dir: Path,
+) -> None:
+    """Codex P2 fix (#1089): non-literal accepted_types (variable / call) is opaque,
+    must NOT be flagged as generic/empty.
+    """
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "enforce_concrete_port_types.py"
+    blocks = tmp_project_dir / "blocks"
+    blocks.mkdir(parents=True, exist_ok=True)
+    target = blocks / "non_literal_accepted.py"
+    target.write_text(
+        "from scieasy.blocks.base.ports import InputPort\n"
+        "MY_TYPES = [int]\n"
+        "p1 = InputPort(name='var_ref', accepted_types=MY_TYPES)\n"
+        "p2 = InputPort(name='call', accepted_types=list((int,)))\n",
+        encoding="utf-8",
+    )
+    proc = _run_hook(
+        script,
+        {"tool_name": "Write", "tool_input": {"file_path": str(target)}},
+    )
+    # Always exit 0
+    assert proc.returncode == 0
+    # MUST NOT flag — runtime value is opaque
+    assert "DataObject" not in proc.stderr, (
+        f"False generic-port warning on non-literal accepted_types:\n{proc.stderr}"
+    )
+    assert "empty" not in proc.stderr.lower(), (
+        f"False 'empty' warning on non-literal accepted_types:\n{proc.stderr}"
+    )
