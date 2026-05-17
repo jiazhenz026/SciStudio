@@ -258,8 +258,10 @@ result envelope with a `next_step: str` field. Read it and follow.
 
 ## 5. When validation fails
 
-`validate_workflow` returns `{ok: bool, errors: list[ValidationError],
-next_step: str}`. When `ok=False`:
+`validate_workflow` returns `ValidateWorkflowResult(valid: bool, errors:
+list[str])` — `valid=False` with a list of human-readable error strings.
+(Note: this read-class tool does not carry a `next_step` field; the
+canonical follow-up is documented here.) When `valid=False`:
 
 1. Read **every** error, not just the first. They are independent.
 2. If an error mentions a port name, call
@@ -270,6 +272,9 @@ next_step: str}`. When `ok=False`:
 4. Fix all issues in **one** rewrite, then re-call `validate_workflow`.
 5. Repeat at most three times. If still failing on the third attempt,
    stop and ask the user.
+
+`write_workflow` itself is the write-class tool; its result envelope
+carries `next_step` pointing at `validate_workflow`. Always follow it.
 
 ## 6. When a run fails
 
