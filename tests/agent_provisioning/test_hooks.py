@@ -415,9 +415,5 @@ def test_hook_enforce_concrete_port_types_non_literal_accepted_types_silent(
     # Always exit 0
     assert proc.returncode == 0
     # MUST NOT flag — runtime value is opaque
-    assert "DataObject" not in proc.stderr, (
-        f"False generic-port warning on non-literal accepted_types:\n{proc.stderr}"
-    )
-    assert "empty" not in proc.stderr.lower(), (
-        f"False 'empty' warning on non-literal accepted_types:\n{proc.stderr}"
-    )
+    assert "DataObject" not in proc.stderr, f"False generic-port warning on non-literal accepted_types:\n{proc.stderr}"
+    assert "empty" not in proc.stderr.lower(), f"False 'empty' warning on non-literal accepted_types:\n{proc.stderr}"
