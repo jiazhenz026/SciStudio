@@ -108,8 +108,7 @@ def test_build_workflow_skill_documents_validate_result_correctly() -> None:
     skill = files("scieasy") / "_skills" / "scieasy" / "scieasy-build-workflow" / "SKILL.md"
     content = skill.read_text(encoding="utf-8")
     assert "ValidateWorkflowResult" in content, (
-        "scieasy-build-workflow must document the real envelope name "
-        "ValidateWorkflowResult (Codex P2 on PR #1059)."
+        "scieasy-build-workflow must document the real envelope name ValidateWorkflowResult (Codex P2 on PR #1059)."
     )
     assert "valid=False" in content or "valid: bool" in content, (
         "scieasy-build-workflow must teach the `valid` field "
