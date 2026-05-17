@@ -498,17 +498,13 @@ def test_preview_data_dataframe_pagination_and_sort(
     assert capped["page_size"] == 200
 
     # Sort by score descending — first row's score == max score (137).
-    sorted_desc = client.get(
-        f"/api/data/{ref}/preview?sort_by=score&sort_dir=desc"
-    ).json()["preview"]
+    sorted_desc = client.get(f"/api/data/{ref}/preview?sort_by=score&sort_dir=desc").json()["preview"]
     assert sorted_desc["sort_by"] == "score"
     assert sorted_desc["sort_dir"] == "desc"
     assert sorted_desc["rows"][0]["score"] == 137
 
     # Sort by score ascending — first row's score == min score (1).
-    sorted_asc = client.get(
-        f"/api/data/{ref}/preview?sort_by=score&sort_dir=asc"
-    ).json()["preview"]
+    sorted_asc = client.get(f"/api/data/{ref}/preview?sort_by=score&sort_dir=asc").json()["preview"]
     assert sorted_asc["sort_by"] == "score"
     assert sorted_asc["sort_dir"] == "asc"
     assert sorted_asc["rows"][0]["score"] == 1
