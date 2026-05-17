@@ -16,7 +16,7 @@
 - **Manager worktree**: `C:\Users\jiazh\Desktop\workspace\scieasy-spec-ssot-mgr\` (worktree on track/spec-ssot)
 - **Main checkout** (user's primary, do NOT perturb): `C:\Users\jiazh\Desktop\workspace\SciEasy\` (currently on `track/adr-040`, has 10+ in-flight ADR-040 sub-worktrees)
 - **Baseline SHA (Phase 0.0)**: `a4b8b5f` — `feat(adr-040): production-environment agent reliability cascade (#1040)` — post-ADR-040 cascade merge
-- **N (locked Phase 1)**: TBD
+- **N (locked Phase 1)**: **13** (block-abc, port-system, data-types, storage-backends, collection-transport, block-registry, execution-engine, lineage-db, rest-api, ws-sse-protocol, mcp-tools, versioning-git, agent-provisioning)
 - **SSOT file path (final output)**: `docs/specs/INTERFACE_SPEC.md`
 - **Authority hierarchy**: ARCHITECTURE.md PRIMARY > ADR SUPPLEMENTARY > CLAUDE.md (conventions only). ARCHITECTURE wins on conflict. ADR↔ADR conflicts logged not reconciled.
 - **N halving rule**: if N>8, Phase 1.5.A and Phase 4.1 use ceil(N/2) agents, each owning 2 structurally-similar modules.
@@ -61,7 +61,10 @@
 
 (Empty when no agent in flight. Each entry: agent role, dispatch time, expected output path, `until` watcher pattern, current status.)
 
-(none currently)
+(none — Phase 1 done; Phase 1.5 dispatch pending)
+
+### Completed dispatches log
+- **S1-enumerate** (id `a3f5139605d1e5520`) — Phase 1 module taxonomy. ✅ Completed. N = 13. Report copied to manager worktree at `docs/audit/2026-05-17-spec-ssot-p1-modules.md`. Worktree branch `worktree-agent-a3f5139605d1e5520` (not pushed).
 
 ---
 
@@ -77,6 +80,8 @@
 - **2026-05-17 — Doc authority hierarchy: ARCHITECTURE.md PRIMARY, ADR SUPPLEMENTARY.** Reason: "ADR太多，里面有噪声和矛盾点". Source: user verbatim. Implication: embedded in every Phase 1.5.B / 1.5.C / 2 / 2.5 / 4.2 / 7 prompt; manager enforces in Phase 3 / 5 / 6 / 8.
 - **2026-05-17 — N>8 → halve agent count (1 agent / 2 modules).** Reason: token savings without quality drop. Source: user verbatim. Implication: With N≈11-14, Phase 1.5 = 6-7 code agents (not 11-14).
 - **2026-05-17 — Today's session scope = full 10-phase cascade.** Reason: user verbatim "全流程走完". Source: user clarification on session scope. Implication: marathon session, manager scratchpad usage will be critical for survival.
+- **2026-05-17 — N = 13 locked.** Source: S1-enumerate report `docs/audit/2026-05-17-spec-ssot-p1-modules.md`. Pairing accepted as recommended (C1..C7). Implication: Phase 1.5 dispatches 9 agents in parallel.
+- **2026-05-17 — Phase 1.5 pre-flagged d-class candidates**: `versioning-git`, `agent-provisioning`, `pty_control` sub-surface, `workflow.yaml`/`project.yaml` Pydantic schemas, `metadata_store.py` legacy. These are HINTS for downstream agents, not pre-decisions — Phase 1.5 D1/X1 agents will independently surface them.
 
 ---
 

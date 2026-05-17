@@ -88,10 +88,21 @@ code-has?  docs-has?  →  label
 ---
 
 ## Phase 1 — Module enumeration (Owner: S1-enumerate)
-- [ ] Single Explore agent dispatched
-- [ ] Output: `docs/audit/2026-05-17-spec-ssot-p1-modules.md`
-- [ ] N locked = **TBD**
-- [ ] Manager confirms N → halving rule applied → Phase 1.5 agent count finalized
+- [x] Agent dispatched (general-purpose, sonnet, agent id `a3f5139605d1e5520`)
+- [x] Output: `docs/audit/2026-05-17-spec-ssot-p1-modules.md` (18KB)
+- [x] **N locked = 13**
+- [x] Halving rule triggered (N>8): Phase 1.5 = **7 code agents** + 1 docs + 1 xcheck = **9 agents**
+- [x] Module list (13): `block-abc`, `port-system`, `data-types`, `storage-backends`, `collection-transport`, `block-registry`, `execution-engine`, `lineage-db`, `rest-api`, `ws-sse-protocol`, `mcp-tools`, `versioning-git`, `agent-provisioning`
+- [x] Pairing (agent recommendation, manager-approved):
+  - C1: block-abc + port-system (blocks/base/)
+  - C2: data-types + storage-backends (core/)
+  - C3: collection-transport + block-registry (horizontal)
+  - C4: execution-engine (solo, largest)
+  - C5: lineage-db + versioning-git (history/persistence)
+  - C6: rest-api + ws-sse-protocol (api/ layer)
+  - C7: mcp-tools + agent-provisioning (agent surfaces)
+- [x] d-class candidates pre-flagged: `versioning-git`, `agent-provisioning` (partial), `pty_control` (sub-surface)
+- [x] Orphan reference flagged: `src/scieasy/workflow/` raises NotImplementedError
 
 ---
 
