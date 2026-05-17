@@ -27,6 +27,38 @@ def test_compose_reads_skill_md(tmp_path: Path) -> None:
     assert "name: scieasy" in prompt or "# SciEasy" in prompt
 
 
+def test_compose_does_not_deadlock_inside_running_loop(tmp_path: Path) -> None:
+    """Codex P1 (PR #1053): compose_system_prompt called from inside a running event loop must not deadlock.
+
+    The ai_pty websocket flow (``api/routes/ai_pty.py``) spawns the
+    embedded agent from inside an asyncio loop and calls
+    ``compose_system_prompt`` synchronously via the runtime adapter.
+    Pre-fix, ``_render_tool_catalog`` used
+    ``run_coroutine_threadsafe(coro, current_loop)`` which scheduled the
+    coroutine on the very loop the caller was blocking — guaranteed
+    deadlock until the 5s timeout. The fix spins a fresh event loop on
+    a worker thread so the coroutine has somewhere to run.
+
+    Regression test: invoke ``compose_system_prompt`` from inside an
+    async function and assert it returns within 5 seconds with content.
+    """
+    import asyncio
+
+    from scieasy.ai.agent.system_prompt import compose_system_prompt
+
+    async def _runner() -> str:
+        # Note: compose_system_prompt is sync; calling it from inside an
+        # async context exercises the _render_tool_catalog branch that
+        # detects ``loop.is_running()``.
+        return compose_system_prompt(tmp_path)
+
+    prompt = asyncio.run(asyncio.wait_for(_runner(), timeout=10.0))
+    assert prompt, "compose_system_prompt returned empty string from inside running loop"
+    # Catalog must have been rendered (else the deadlock branch silently
+    # swallowed the result).
+    assert "`list_blocks`" in prompt
+
+
 def test_compose_injects_full_tool_catalog(tmp_path: Path) -> None:
     """Every registered tool name must appear in the rendered prompt."""
     from scieasy.ai.agent.system_prompt import compose_system_prompt
