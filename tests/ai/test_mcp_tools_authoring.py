@@ -1,9 +1,11 @@
 """T-ECA-203: unit tests for the 5 authoring tools.
 
-# TODO(#1012): module-level skip during ADR-040 §3.1 FastMCP skeleton
-#   phase. The authoring tool bodies are NotImplementedError stubs in
-#   S40a; I40a Phase 2a restores behavior. Out of scope per ADR-040
-#   §3.1 / phase: 2a I40a. Followup: #1012.
+# TODO(#1012): module-level skip restored — I40a Phase 2a (PR #1053)
+#   moved tool bodies to FastMCP async decorators, but this test file's
+#   call patterns (sync invocation) don't match the new shape. A separate
+#   rewrite ticket will port these tests. Scaffold-template regression
+#   for #1063 lives in tests/ai/test_scaffold_template_regression.py
+#   (separate file, NOT subject to this skip).
 """
 
 from __future__ import annotations
@@ -91,6 +93,38 @@ def test_scaffold_block_exists_raises(ctx: _StubRuntime, tmp_path: Path) -> None
     (tmp_path / "blocks" / "dup.py").write_text("# already here\n", encoding="utf-8")
     with pytest.raises(FileExistsError):
         tools_authoring.scaffold_block("dup", "process")
+
+
+def test_render_port_block_uses_accepted_types() -> None:
+    """Regression for #1063 — _render_port_block emits accepted_types=[T] not type=T.
+
+    InputPort and OutputPort in src/scieasy/blocks/base/ports.py take
+    ``accepted_types: list[type]`` (not a single ``type=`` kwarg). Blocks
+    scaffolded with the old template shape would raise ``TypeError`` at
+    registry load time.
+
+    Tested directly on the private helper (FastMCP-decorated public tool
+    has a different call surface).
+    """
+    rendered = tools_authoring._render_port_block(
+        {"in1": {"type": "DataObject"}, "in2": {"type": "Image"}},
+        "InputPort",
+    )
+    # New shape — accepted_types=[T]
+    assert "accepted_types=[DataObject]" in rendered, (
+        f"Expected accepted_types=[DataObject] in scaffold output, got:\n{rendered}"
+    )
+    assert "accepted_types=[Image]" in rendered
+    # Old shape MUST be gone — this is the bug
+    assert "type=DataObject" not in rendered, f"Stale type=DataObject kwarg still in template:\n{rendered}"
+    assert "type=Image" not in rendered
+
+
+def test_render_port_block_empty_uses_accepted_types_comment() -> None:
+    """Regression for #1063 — empty spec_map placeholder comment also fixed."""
+    rendered = tools_authoring._render_port_block(None, "OutputPort")
+    assert "accepted_types=[DataObject]" in rendered
+    assert "type=DataObject" not in rendered
 
 
 # --- reload_blocks ---------------------------------------------------------

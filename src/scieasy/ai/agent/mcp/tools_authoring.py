@@ -290,7 +290,12 @@ def _render_port_block(
         desc = spec.get("description", "")
         required_kw = ", required=True" if port_class == "InputPort" else ""
         comment = f"  # {desc}" if desc else ""
-        lines.append(f"        {port_class}(name={port_name!r}, accepted_types=[{type_name}]{required_kw}),{comment}\n")
+        # InputPort and OutputPort take ``accepted_types: list[type]`` per
+        # src/scieasy/blocks/base/ports.py:17 — not a single ``type=`` kwarg.
+        # InputPort additionally takes ``required`` (Port field, default True).
+        lines.append(
+            f"        {port_class}(name={port_name!r}, accepted_types=[{type_name}]{required_kw}),{comment}\n"
+        )
     return "".join(lines)
 
 
