@@ -20,9 +20,7 @@ describe("DataPreview", () => {
             },
           },
         }}
-        onCancelSelected={() => {}}
         onLoadPreview={onLoadPreview}
-        onStartFromHere={() => {}}
         previewCache={{}}
         previewLoading={{}}
         selectedNodeId="node-1"
@@ -43,9 +41,7 @@ describe("DataPreview", () => {
             output: { data_ref: "img-ref" },
           },
         }}
-        onCancelSelected={() => {}}
         onLoadPreview={vi.fn(async () => {})}
-        onStartFromHere={() => {}}
         previewCache={{
           "img-ref": {
             preview: {
@@ -84,9 +80,7 @@ describe("DataPreview", () => {
     render(
       <DataPreview
         blockOutputs={{ "node-1": { output: { data_ref: "img-ref" } } }}
-        onCancelSelected={() => {}}
         onLoadPreview={vi.fn(async () => {})}
-        onStartFromHere={() => {}}
         previewCache={{
           "img-ref": {
             preview: { kind: "image", src: "data:image/png;base64,abc" },
@@ -114,9 +108,7 @@ describe("DataPreview", () => {
     render(
       <DataPreview
         blockOutputs={{ "node-1": { output: { data_ref: "tbl-ref" } } }}
-        onCancelSelected={() => {}}
         onLoadPreview={vi.fn(async () => {})}
-        onStartFromHere={() => {}}
         previewCache={{
           "tbl-ref": {
             preview: {
@@ -184,9 +176,7 @@ describe("DataPreview", () => {
             },
           },
         }}
-        onCancelSelected={() => {}}
         onLoadPreview={vi.fn(async () => {})}
-        onStartFromHere={() => {}}
         previewCache={{}}
         previewLoading={{}}
         selectedNodeId="load-1"
@@ -208,9 +198,7 @@ describe("DataPreview", () => {
     render(
       <DataPreview
         blockOutputs={{ "node-1": { output: { data_ref: "img-ref" } } }}
-        onCancelSelected={() => {}}
         onLoadPreview={vi.fn(async () => {})}
-        onStartFromHere={() => {}}
         previewCache={{
           "img-ref": {
             preview: {
@@ -242,9 +230,7 @@ describe("DataPreview", () => {
     render(
       <DataPreview
         blockOutputs={{ "node-1": { output: { data_ref: "img-ref" } } }}
-        onCancelSelected={() => {}}
         onLoadPreview={vi.fn(async () => {})}
-        onStartFromHere={() => {}}
         previewCache={{
           "img-ref": {
             preview: {
@@ -267,22 +253,26 @@ describe("DataPreview", () => {
     expect(screen.queryByTestId("image-slice-slider")).toBeNull();
   });
 
-  it("shows truncation label when 100+ rows", () => {
-    const manyRows = Array.from({ length: 100 }, (_, i) => ({ A: i, B: i * 2 }));
+  it("renders paginated DataFrame with sortable headers, page input, and total row count", () => {
+    const manyRows = Array.from({ length: 50 }, (_, i) => ({ A: i, B: i * 2 }));
 
     render(
       <DataPreview
         blockOutputs={{ "node-1": { output: { data_ref: "tbl-ref" } } }}
-        onCancelSelected={() => {}}
         onLoadPreview={vi.fn(async () => {})}
-        onStartFromHere={() => {}}
         previewCache={{
           "tbl-ref": {
             preview: {
               kind: "table",
               columns: ["A", "B"],
               rows: manyRows,
-              row_count: 100,
+              total_rows: 523,
+              row_count: 523,
+              page: 1,
+              page_size: 50,
+              total_pages: 11,
+              sort_by: null,
+              sort_dir: null,
             },
           } as never,
         }}
@@ -292,7 +282,20 @@ describe("DataPreview", () => {
       />,
     );
 
-    // Should indicate truncation
-    expect(screen.getByText(/Showing 100 of 100\+/)).toBeInTheDocument();
+    // Footer shows the true total (not the page size).
+    expect(screen.getByText(/523 rows/)).toBeInTheDocument();
+    // Page input + total pages.
+    const pageInput = screen.getByLabelText("Jump to page") as HTMLInputElement;
+    expect(pageInput.value).toBe("1");
+    expect(screen.getByText(/\/ 11/)).toBeInTheDocument();
+    // Pagination buttons present.
+    expect(screen.getByLabelText("First page")).toBeInTheDocument();
+    expect(screen.getByLabelText("Previous page")).toBeInTheDocument();
+    expect(screen.getByLabelText("Next page")).toBeInTheDocument();
+    expect(screen.getByLabelText("Last page")).toBeInTheDocument();
+    // Headers are clickable for sort.
+    const headerA = screen.getByText("A").closest("th");
+    expect(headerA?.getAttribute("aria-sort")).toBe("none");
+    expect(headerA?.style.cursor).toBe("pointer");
   });
 });

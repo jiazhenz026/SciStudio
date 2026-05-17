@@ -194,6 +194,19 @@ export interface DataPreviewResponse {
   preview: Record<string, unknown>;
 }
 
+export interface DataPreviewQuery {
+  /** 3-D image slider position (#899). */
+  slice?: number;
+  /** DataFrame page, 1-based. Clamped server-side. */
+  page?: number;
+  /** Rows per page. Capped server-side at 200. */
+  pageSize?: number;
+  /** Column name to sort by. Missing column → no sort applied. */
+  sortBy?: string;
+  /** Sort direction. Default ``asc``. */
+  sortDir?: "asc" | "desc";
+}
+
 export interface CancelPropagationResponse {
   cancelled_blocks: string[];
   skipped_blocks: string[];
