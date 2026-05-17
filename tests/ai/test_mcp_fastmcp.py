@@ -398,11 +398,7 @@ def test_dispatch_silently_drops_notifications(tmp_path: Path) -> None:
     assert _run(server.dispatch({"jsonrpc": "2.0", "method": "notifications/initialized"})) is None
     # Another common notification (cancellation).
     assert (
-        _run(
-            server.dispatch(
-                {"jsonrpc": "2.0", "method": "notifications/cancelled", "params": {"requestId": "x"}}
-            )
-        )
+        _run(server.dispatch({"jsonrpc": "2.0", "method": "notifications/cancelled", "params": {"requestId": "x"}}))
         is None
     )
     # Notification with an unknown method also drops silently (not an error).

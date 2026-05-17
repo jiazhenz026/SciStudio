@@ -196,6 +196,7 @@ class MCPServer:
                 line = await reader.readline()
                 if not line:
                     break
+                response: dict | None
                 try:
                     request = json.loads(line.decode("utf-8"))
                 except json.JSONDecodeError as exc:

@@ -42,9 +42,9 @@ def test_install_project_agent_assets_fresh_project(tmp_project_dir: Path) -> No
 
     # 12 skill files (6 names, 2 trees) — flat layout per ADR-040 Addendum 1.
     skill_files = [
-        p for p in result.written
-        if (p.startswith(".claude/skills/") or p.startswith(".agents/skills/"))
-        and p.endswith("/SKILL.md")
+        p
+        for p in result.written
+        if (p.startswith(".claude/skills/") or p.startswith(".agents/skills/")) and p.endswith("/SKILL.md")
     ]
     assert len(skill_files) == 12, f"expected 12 skill files, got {len(skill_files)}: {skill_files}"
 
