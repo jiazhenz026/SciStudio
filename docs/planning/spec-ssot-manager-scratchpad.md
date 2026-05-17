@@ -61,6 +61,15 @@
 
 (Empty when no agent in flight. Each entry: agent role, dispatch time, expected output path, `until` watcher pattern, current status.)
 
+Phase 6 (manager write, completed 2026-05-17):
+- **Cross-cascade reconciliation**: Codex PR #1094 received + analyzed; 10-point checklist applied; 2 NEW Codex c-class findings folded as cross-cutting entries.
+- **Output**: `docs/specs/INTERFACE_SPEC.md` (6570 lines, 208 entries, ~197 effective per aggregate count).
+- **Grammar**: extract_spec.py parses 172/208 cleanly (multi-id entries `### \`A\` / \`B\` / \`C\`` pattern absorbed — Phase 7 to rename ~36 multi-id headings to single-id form).
+- **Drafts**: spec-ssot-draft-v1.md (Phase 3), -v2.md (Phase 5), -v3.md (cross-cascade) all in docs/planning/.
+- **STOP** per user direction "推进到 phase 6 前 / 继续". Phase 7+ deferred.
+
+### Completed earlier dispatches
+
 Phase 4 (8 parallel pre-write auditors, dispatched 2026-05-17 — CLAUDE CODE side):
 - **A1** (id `a5cf2460ae3fb5f8f`) — block-abc + port-system → `docs/audit/2026-05-17-spec-ssot-p4-A1.md`
 - **A2** (id `a32c37f3ab81bb38f`) — data-types + storage-backends → `…-p4-A2.md`

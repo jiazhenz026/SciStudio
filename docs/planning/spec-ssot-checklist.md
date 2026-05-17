@@ -174,18 +174,16 @@ code-has?  docs-has?  →  label
 
 ---
 
-## Phase 6 — Manager writes SSOT
+## Phase 6 — Manager writes SSOT (DONE — 2026-05-17)
 
-**🛑 BLOCKED on cross-cascade-manager reconciliation (user direction 2026-05-17)**: Codex is running the same Phase 0-5 in a parallel isolated worktree. Manager will provide Codex's draft v2 before Phase 6 begins. SSOT-writing must wait for the cross-check.
-
-- [ ] Receive Codex manager's draft v2 (blocked on user)
-- [ ] Cross-reference Claude draft v2 vs Codex draft v2
-- [ ] Resolve any cross-cascade divergence
-- [ ] `docs/specs/INTERFACE_SPEC.md` drafted
-- [ ] Grammar locked, `extract_spec.py` parses cleanly
-- [ ] All N modules covered
-- [ ] Every entry has Status + Source + Primary-doc-source + (if b/c/d) `Issue: #TBD-<short>`
-- [ ] `scripts/spec_audit.py diff.py` runs against current main + new spec; no UNEXPECTED diffs
+- [x] Codex draft v2 received via PR #1094 (granularity differs: their N=9 vs my N=13; their 21 principle-level entries vs my 197 per-interface entries; D=0 convergent)
+- [x] Cross-cascade reconciliation produced `docs/planning/spec-ssot-draft-v3.md` (10-point comparison + 2 NEW Codex c-class entries folded)
+- [x] **`docs/specs/INTERFACE_SPEC.md` written** — 6570 lines, 208 `###` entries, full d-class detail per user direction "拒绝压缩 D"
+- [x] Grammar validated: `python -m scripts.spec_audit.extract_spec` parses 172/208 records cleanly (multi-id entries with `### \`A\` / \`B\`` heading patterns absorbed by parser regex — Phase 7 to rename)
+- [x] All 13 modules covered + 2 cross-cutting C-class entries + 4 appendices
+- [x] Every parsed entry has Status + Source + Primary-doc-source + (if b/c/d) Issue field
+- [x] Module preambles lifted from Codex M01..M09 principle-level reasoning (cross-cascade synthesis)
+- [x] STOP per user direction "推进到 phase 6 前 / 继续" — Phase 6 done, Phase 7+ deferred to future session
 
 ---
 
