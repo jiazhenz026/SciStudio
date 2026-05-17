@@ -21,3 +21,5 @@ Purpose: preserve manager context across many parallel reports.
 - 2026-05-17: `skill-installer` curated list fetch failed with network proxy `403 Forbidden`; fallback is to request repo-accessible SKILL.md path or GitHub URL from user.
 
 - 2026-05-17: Phase 0 artifacts created (`preflight`, `hook-design`, `hook-policy`); P0.6 remains blocked pending accessible `agent-manager` skill source.
+
+- 2026-05-17: Phase 1.5 executed under user cost-control override: 6 agents total (4 code agents × 2 modules each + 1 docs-only + 1 diff). Reports collected under phase-1.5.

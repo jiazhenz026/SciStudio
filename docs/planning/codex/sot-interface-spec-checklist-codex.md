@@ -32,11 +32,11 @@
 
 | Status | Item | Owner | Authority | Artifact evidence |
 |---|---|---|---|---|
-| [ ] | P1.1 Dispatch isolated scope-audit agent (architecture + core code; no package repos) | Manager-codex | plan §Phase 1 | dispatch prompt + run log |
-| [ ] | P1.2 Accept module inventory `M={m1..mn}` only (no interface details allowed) | A1-scope | plan §Phase 1 | `docs/audit/codex/phase-1/<date>-A1-module-scope.md` |
-| [ ] | P1.3 Manager validates module list completeness and freezes `n` for Phase 1.5 | Manager-codex | checklist discipline | scratchpad decision entry |
-
-## Phase 1.5 — Concurrent deep audits (strict isolation)
+| [x] | P1.5.1 Spawn reduced set of code-only agents (2 modules/agent, no docs) concurrently | Manager-codex | user override (cost control) + plan §Phase 1.5 | → dispatched `A-code-1..4` for M01..M08 |
+| [x] | P1.5.2 Spawn 1 docs-only agent (all modules, no code) | Manager-codex | plan §Phase 1.5 | → `docs/audit/codex/phase-1.5/2026-05-17-A-docs-all-M01-M09.md` |
+| [x] | P1.5.3 Spawn 1 docs+code diff agent (no peer reports) | Manager-codex | plan §Phase 1.5 | → `docs/audit/codex/phase-1.5/2026-05-17-A-diff-all-M01-M09.md` |
+| [x] | P1.5.4 Collect all reports under phase-1.5 and verify isolation constraints | Manager-codex | rule catalog §3 | → collected 6 reports: A-code-1..4, A-docs, A-diff |
+| [x] | P1.5.5 Update manager master index from reports (append-only) | Manager-codex | user requirement | → scratchpad updated with Phase 1.5 execution summary |
 
 | Status | Item | Owner | Authority | Artifact evidence |
 |---|---|---|---|---|
