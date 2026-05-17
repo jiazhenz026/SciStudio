@@ -61,7 +61,16 @@
 
 (Empty when no agent in flight. Each entry: agent role, dispatch time, expected output path, `until` watcher pattern, current status.)
 
-Phase 1.5 (9 parallel agents, dispatched 2026-05-17):
+Phase 2 (3 parallel classifiers, dispatched 2026-05-17):
+- **K1** (id `a8b34ef7924fd14fc`) → `docs/audit/2026-05-17-spec-ssot-p2-K1.md`
+- **K2** (id `ac5390f3efdef6163`) → `…-p2-K2.md`
+- **K3** (id `af6dab94d72e8d308`) → `…-p2-K3.md`
+
+Watcher: poll all 3. Independent — manager tiebreaks Phase 2.5/3.
+
+### Earlier dispatches log
+
+Phase 1.5 (9 parallel agents, completed 2026-05-17):
 - **C1** (id `ac3eaa6035bae9f77`) — block-abc + port-system → `docs/audit/2026-05-17-spec-ssot-p1.5-code-C1.md`
 - **C2** (id `a3a9fb2e86595d933`) — data-types + storage-backends → `…-code-C2.md`
 - **C3** (id `aa7002049c9a4a4d6`) — collection-transport + block-registry → `…-code-C3.md`

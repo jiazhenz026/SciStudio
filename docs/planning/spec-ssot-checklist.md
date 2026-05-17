@@ -127,11 +127,11 @@ code-has?  docs-has?  →  label
 ---
 
 ## Phase 2 — Triple classification (Owners: K1, K2, K3)
-- [ ] K1 report landed
-- [ ] K2 report landed
-- [ ] K3 report landed
-- [ ] Disagreement count: **TBD**
-- [ ] Manager populates `P2 K1/K2/K3` column
+- [x] K1 (id `a8b34ef7924fd14fc`) — 121 ifaces: a=52, b=12, c=2, d=55
+- [x] K2 (id `ac5390f3efdef6163`) — ~152 ifaces (217 rows): b=22, c=2, d=47
+- [x] K3 (id `af6dab94d72e8d308`) — 143 ifaces: a=73, b=18, c=2, d=50
+- [x] Agreement pattern: ~40-50% a, ~10-15% b, 1-2% c, ~35-45% d across all 3. Top b-cluster = execution-engine (scheduler/runner sig drift). Top d-cluster = versioning-git (entirely d-class confirmed by all 3).
+- [x] Count variance K1=121 vs K2=152 vs K3=143 — de-duplication granularity differences. M1/M2 consolidators must reconcile.
 
 ---
 
