@@ -48,7 +48,7 @@ MAX_TABLE_PAGE_SIZE = 200
 # Empty sort_by means the unsorted base table; sorted variants reuse the
 # cached base on miss to avoid re-parsing the source file.
 #
-# Wide-table sorts (e.g. 5200 rows × 40 cols) cost ~200 ms per request when
+# Wide-table sorts (e.g. 5200 rows x 40 cols) cost ~200 ms per request when
 # we re-read + re-sort on every page click. The cache turns that into a
 # one-time cost per (column, direction) pair; subsequent pagination of the
 # same sort lands O(slice).
@@ -56,7 +56,7 @@ MAX_TABLE_PAGE_SIZE = 200
 # Cap is intentionally small — large enough to cover typical
 # unsorted+asc+desc trios per column but bounded by RAM.
 _TABLE_CACHE_MAX = 16
-_table_cache: "OrderedDict[tuple[str, int, str, str], Any]" = OrderedDict()
+_table_cache: OrderedDict[tuple[str, int, str, str], Any] = OrderedDict()
 _table_cache_lock = threading.Lock()
 
 
