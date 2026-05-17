@@ -134,3 +134,72 @@ def test_debug_run_skill_documents_get_run_status_envelope_correctly() -> None:
         "scieasy-debug-run must mention BlockErrorEntry "
         "(Codex P2 on PR #1059 — errors is list[BlockErrorEntry], not a str)."
     )
+
+
+# --- F40-integration regression pins ---------------------------------------
+
+
+def test_build_workflow_skill_run_failure_section_uses_live_envelope() -> None:
+    """F40-integration F3: §6 "When a run fails" teaches the live envelope.
+
+    Pre-F3 the section taught flat ``{state, block_states, error}`` —
+    matching the legacy pre-FastMCP shape. Post-F3 it teaches the live
+    ``progress.block_states`` + ``errors: list[BlockErrorEntry]`` shape.
+    """
+    skill = files("scieasy") / "_skills" / "scieasy" / "scieasy-build-workflow" / "SKILL.md"
+    content = skill.read_text(encoding="utf-8")
+    assert "GetRunStatusResult" in content, "scieasy-build-workflow §6 must reference the live envelope name."
+    assert "progress" in content and "block_states" in content
+    assert "BlockErrorEntry" in content, "scieasy-build-workflow §6 must document the BlockErrorEntry shape."
+
+
+def test_write_block_skill_frontmatter_disambiguates_add_block_to_workflow() -> None:
+    """F40-integration F5: frontmatter explicitly distinguishes file-authoring
+    vs adding-an-existing-block-as-a-workflow-node.
+
+    Pre-F5 the description triggered both ``scieasy-write-block`` AND
+    ``scieasy-build-workflow`` for a query like "add a new block to my
+    workflow" (block-authoring vs adding-a-node-to-yaml). Post-F5 the
+    description names the actual file path target and rejects the
+    YAML-add use case.
+    """
+    skill = files("scieasy") / "_skills" / "scieasy" / "scieasy-write-block" / "SKILL.md"
+    content = skill.read_text(encoding="utf-8")
+    # New disambiguator phrasing — capitalised so an agent skimming the
+    # frontmatter cannot miss it.
+    assert "NEW BLOCK FILE" in content or "blocks/<name>.py" in content, (
+        "scieasy-write-block frontmatter must name the file-path target "
+        "to disambiguate against scieasy-build-workflow (F40-integration F5)."
+    )
+    assert "EXISTING BLOCK TYPE" in content or "ADDING AN EXISTING" in content, (
+        "scieasy-write-block frontmatter must reject the 'add an existing "
+        "block as a workflow node' use case (F40-integration F5)."
+    )
+
+
+def test_base_skill_carries_static_tool_catalog_fallback_for_codex() -> None:
+    """F40-integration F6: base SKILL.md has non-empty static content between
+    ``<!-- tool_catalog:begin -->`` / ``<!-- tool_catalog:end -->`` markers.
+
+    On Claude Code, ``compose_system_prompt`` splices the live FastMCP
+    catalog over the static content (``_splice`` replaces ALL content
+    between markers). On Codex, the splice does not run and the file is
+    read verbatim; pre-F6 the markers wrapped empty space and Codex saw
+    nothing. Post-F6 the static fallback enumerates all 4 categories.
+    """
+    base = files("scieasy") / "_skills" / "scieasy" / "SKILL.md"
+    content = base.read_text(encoding="utf-8")
+    begin = content.find("<!-- tool_catalog:begin -->")
+    end = content.find("<!-- tool_catalog:end -->")
+    assert begin >= 0 and end > begin, "tool_catalog markers missing"
+    between = content[begin + len("<!-- tool_catalog:begin -->") : end].strip()
+    assert between, (
+        "Static tool catalog fallback must be non-empty so Codex agents "
+        "(who read the file verbatim, no splice) see something (F40-integration F6)."
+    )
+    # The 4 category labels are pinned so a future refactor that drops a
+    # category by accident gets flagged.
+    for category in ("Workflow", "Authoring", "Inspection"):
+        assert category in between, (
+            f"Static tool catalog must list the {category} category for Codex (F40-integration F6)."
+        )

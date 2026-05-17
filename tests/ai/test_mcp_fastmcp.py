@@ -181,6 +181,51 @@ def test_scaffold_block_warns_on_unregistered_type(stub_ctx, tmp_path: Path) -> 
     assert "unregistered" in joined or "thistypedoesnotexist_xyz" in joined
 
 
+def test_scaffold_block_emits_live_port_and_run_shape(stub_ctx, tmp_path: Path) -> None:
+    """F40-integration F2: scaffold template emits the live API shape.
+
+    The pre-F2 template emitted ``InputPort(name=..., type=Image)`` and
+    ``run(self, inputs)`` — the legacy 1-arg arity + the legacy ``type=``
+    kwarg that no longer exists on the ``Port`` dataclass. A scaffolded
+    block in that shape raised ``TypeError`` at ``reload_blocks``.
+
+    Post-F2 the scaffold template emits
+    ``InputPort(name=..., accepted_types=[Image], required=True)`` and
+    ``run(self, inputs: dict[str, Any], config: BlockConfig)`` — matching
+    ``Block.run`` ABC at ``src/scieasy/blocks/base/block.py`` and the
+    ``InputPort`` dataclass at ``src/scieasy/blocks/base/ports.py``.
+    """
+    result = _run(
+        tools_authoring.scaffold_block(
+            name="f2_shape_check",
+            category="process",
+            input_ports={"image": {"type": "Image", "description": "input image"}},
+            output_ports={"mask": {"type": "Mask"}},
+        )
+    )
+    body = Path(result.path).read_text(encoding="utf-8")
+
+    # Accepts the live accepted_types= kwarg, NOT the legacy type= kwarg.
+    assert "accepted_types=[Image]" in body, (
+        "scaffold template must emit InputPort(name=..., accepted_types=[Type]) — "
+        "the live Port API has no type= kwarg (F40-integration F2)."
+    )
+    assert "accepted_types=[Mask]" in body
+    assert "type=Image" not in body, (
+        "scaffold template MUST NOT emit the legacy ``type=`` kwarg — "
+        "it will raise TypeError at reload_blocks (F40-integration F2)."
+    )
+
+    # 2-arg run(self, inputs, config) — matches Block.run ABC.
+    assert "def run(self, inputs: dict[str, Any], config: BlockConfig)" in body, (
+        "scaffold template must emit the 2-arg run(self, inputs, config) signature "
+        "matching Block.run ABC (F40-integration F2). The 1-arg form is invalid."
+    )
+
+    # BlockConfig import is wired so the type annotation resolves.
+    assert "from scieasy.blocks.base.config import BlockConfig" in body
+
+
 # ---------------------------------------------------------------------------
 # inputSchema generation.
 # ---------------------------------------------------------------------------

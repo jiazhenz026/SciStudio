@@ -404,8 +404,8 @@ Reviews all 3 impl PRs (I40a + I40c + I40d) together.
 
 ## Phase 3.6 / F40-3 — Audit fix dispatch
 
-- [ ] Manager triages findings from A1+A2+A3+A_int; groups by file scope
-- [ ] Fix agents dispatched in parallel (1 per scope); each fix lands in the relevant tracking-branch PR (not new PRs unless cross-cutting)
+- [x] Manager triages findings from A1+A2+A3+A_int; groups by file scope → F40-integration dispatch covers consensus P1/P2 from A1 + A3
+- [x] Fix agents dispatched in parallel (1 per scope); each fix lands in the relevant tracking-branch PR (not new PRs unless cross-cutting) → F40-integration #1084 PR against `track/adr-040` covers 6 consensus P1/P2 findings (F1 dead hook, F2 scaffold arity+port shape, F3 build-workflow envelope drift, F4 Codex-vs-Claude hook safety net, F5 write-block frontmatter disambiguator, F6 Codex tool catalog static fallback)
 - [ ] Re-run CI on tracking branches after fix
 - [ ] Update drift log for non-trivial findings
 - [ ] All P1/P2 resolved; CI green on all tracking branches

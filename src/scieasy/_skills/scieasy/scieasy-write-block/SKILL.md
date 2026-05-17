@@ -1,12 +1,20 @@
 ---
 name: scieasy-write-block
 description: |
-  Use when the user wants to author a new custom block — a Python class
-  subclassing Block (or ProcessBlock / IOBlock / AppBlock / AIBlock) with
-  typed input/output ports and a config_schema. ALWAYS check if an
-  existing block satisfies the contract first (call list_blocks). NOT for
-  editing an existing block's config (use update_block_config) or for
-  writing a workflow (use scieasy-build-workflow).
+  Use when the user wants to author a NEW BLOCK FILE — Python source
+  code (a class subclassing Block / ProcessBlock / IOBlock / AppBlock /
+  AIBlock with typed ports and a config_schema) that goes in
+  ``<project>/blocks/<name>.py``. ALWAYS check if an existing block
+  satisfies the contract first (call list_blocks per #875).
+
+  NOT for ADDING AN EXISTING BLOCK TYPE AS A NODE in a workflow YAML —
+  that's scieasy-build-workflow ("add an imaging.threshold node to my
+  workflow"). NOT for editing an existing block's config
+  (update_block_config). NOT for writing the workflow YAML itself
+  (scieasy-build-workflow). NOT for changing port types or
+  config_schema on an existing block file via update_block_config
+  (which only patches the workflow node's config dict, not the block
+  source).
 ---
 
 # scieasy-write-block

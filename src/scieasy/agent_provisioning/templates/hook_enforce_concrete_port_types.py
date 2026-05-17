@@ -2,9 +2,28 @@
 """hook_enforce_concrete_port_types.py — PostToolUse (ADR-040 §3.6).
 
 After a write touched ``<project>/blocks/*.py``, AST-parse the file and
-scan for generic-typed ports (``PortSpec(type="DataObject")`` or the
-bare ``type=DataObject`` Name reference). Stderr-warn the agent so the
-next turn corrects the type.
+scan ``InputPort(...)`` / ``OutputPort(...)`` constructor calls for
+generic-``DataObject`` port types. Stderr-warn the agent so the next
+turn corrects the type.
+
+The live API on ``scieasy.blocks.base.ports`` is::
+
+    @dataclass(kw_only=True)
+    class Port:
+        name: str
+        accepted_types: list[type]
+        ...
+
+    class InputPort(Port): ...
+    class OutputPort(Port): ...
+
+A port is "generic" if ``accepted_types=[]`` (matches everything) or any
+element of ``accepted_types`` is the bare ``DataObject`` name (the
+top-of-tree root that defeats edge-time type checking).
+
+The previous incarnation of this hook scanned for ``PortSpec(type=...)``
+— a legacy shape that no longer exists in the live API. The mismatch
+was identified in A1 + A3 Phase 3 audits (ADR-040) as F1.
 
 Always exits 0 (PostToolUse cannot block).
 
@@ -15,10 +34,10 @@ Always exits 0 (PostToolUse cannot block).
 #   Followup: https://github.com/zjzcpj/SciEasy/issues/1016.
 
 # TODO(#1013): live TypeRegistry lookup (call mcp__scieasy__list_types
-#   out-of-band and validate every PortSpec(type=<X>) against the snapshot).
-#   The current implementation flags only the bare DataObject case;
-#   typo'd / unregistered type names are deferred until the hook can
-#   subprocess into the MCP layer safely.
+#   out-of-band and validate every accepted_types element against the
+#   snapshot). The current implementation flags only the bare DataObject
+#   case; typo'd / unregistered type names are deferred until the hook
+#   can subprocess into the MCP layer safely.
 #   Followup: https://github.com/zjzcpj/SciEasy/issues/1013.
 """
 
@@ -32,6 +51,10 @@ import sys
 from pathlib import Path
 
 _BLOCK_FILE_RE = re.compile(r"(?:^|/)blocks/[^/]+\.py$", re.IGNORECASE)
+
+# Names recognised as port-constructor calls.  Extending this set is
+# safe — extra entries simply broaden the hook's coverage.
+_PORT_CTOR_NAMES = frozenset({"InputPort", "OutputPort", "Port"})
 
 
 def _read_payload() -> dict:
@@ -75,9 +98,61 @@ def _target_file(payload: dict) -> Path | None:
     return path
 
 
-def _scan_for_generic_ports(source: str) -> list[tuple[int, str]]:
-    """Return list of (lineno, port_name_hint) tuples flagged as generic."""
-    findings: list[tuple[int, str]] = []
+def _is_port_ctor(func: ast.expr) -> bool:
+    """Match ``InputPort(...)`` / ``blocks.InputPort(...)`` / ``OutputPort(...)``."""
+    if isinstance(func, ast.Name):
+        return func.id in _PORT_CTOR_NAMES
+    if isinstance(func, ast.Attribute):
+        return func.attr in _PORT_CTOR_NAMES
+    return False
+
+
+def _accepted_type_elements(value: ast.expr) -> list[ast.expr] | None:
+    """Return the element nodes of literal ``accepted_types=[T, ...]``.
+
+    Returns:
+        - ``list[ast.expr]`` with element nodes for literal List/Tuple expressions.
+        - ``None`` for non-literal expressions (``accepted_types=MY_TYPES``,
+          ``accepted_types=build_types()``, etc.) — caller must NOT flag these
+          as generic/empty, since the runtime value is opaque to static AST
+          analysis.
+
+    Codex P2 fix (#1089): previously returned ``[]`` for non-literal, causing
+    false generic-port warnings on valid patterns like ``accepted_types=MY_TYPES``.
+    """
+    if isinstance(value, (ast.List, ast.Tuple)):
+        return list(value.elts)
+    return None
+
+
+def _type_element_name(node: ast.expr) -> str | None:
+    """Best-effort extract a type name from an ``accepted_types=[...]`` element.
+
+    Handles bare ``DataObject`` (``ast.Name``), attribute references
+    ``core.DataObject`` (``ast.Attribute``), and string forms
+    ``"DataObject"`` (``ast.Constant``).
+    Returns ``None`` for shapes we can't resolve statically.
+    """
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    return None
+
+
+def _scan_for_generic_ports(source: str) -> list[tuple[int, str, str]]:
+    """Return list of ``(lineno, port_name_hint, reason)`` tuples.
+
+    ``reason`` is one of:
+
+    - ``"empty"`` — ``accepted_types=[]`` (matches anything).
+    - ``"DataObject"`` — ``accepted_types`` contains the bare DataObject root.
+    - ``"missing"`` — port constructor is called without an ``accepted_types``
+      kwarg, which dataclass-validates at runtime but is worth flagging.
+    """
+    findings: list[tuple[int, str, str]] = []
     try:
         tree = ast.parse(source)
     except SyntaxError:
@@ -86,40 +161,68 @@ def _scan_for_generic_ports(source: str) -> list[tuple[int, str]]:
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
-        # Identify PortSpec(...) calls (by attribute name; covers both
-        # ``PortSpec(...)`` and ``blocks.PortSpec(...)``).
-        func = node.func
-        if isinstance(func, ast.Name):
-            if func.id != "PortSpec":
-                continue
-        elif isinstance(func, ast.Attribute):
-            if func.attr != "PortSpec":
-                continue
-        else:
+        if not _is_port_ctor(node.func):
             continue
 
-        # Extract the type= kwarg.
-        type_value: ast.expr | None = None
+        accepted_value: ast.expr | None = None
         name_hint = ""
         for kw in node.keywords:
-            if kw.arg == "type":
-                type_value = kw.value
+            if kw.arg == "accepted_types":
+                accepted_value = kw.value
             elif kw.arg == "name" and isinstance(kw.value, ast.Constant):
                 name_hint = str(kw.value.value)
 
-        if type_value is None:
+        if accepted_value is None:
+            findings.append((node.lineno, name_hint or "<unknown>", "missing"))
             continue
 
-        is_generic = False
-        if (isinstance(type_value, ast.Constant) and type_value.value == "DataObject") or (
-            isinstance(type_value, ast.Name) and type_value.id == "DataObject"
-        ):
-            is_generic = True
+        elements = _accepted_type_elements(accepted_value)
+        if elements is None:
+            # Non-literal expression (e.g. accepted_types=MY_TYPES,
+            # accepted_types=build_types()) — runtime value is opaque to
+            # static AST. Do NOT flag; let the author decide.
+            continue
+        if not elements:
+            findings.append((node.lineno, name_hint or "<unknown>", "empty"))
+            continue
 
-        if is_generic:
-            findings.append((node.lineno, name_hint or "<unknown>"))
+        for element in elements:
+            type_name = _type_element_name(element)
+            if type_name == "DataObject":
+                findings.append((node.lineno, name_hint or "<unknown>", "DataObject"))
+                break
 
     return findings
+
+
+def _format_message(target: Path, lineno: int, port_name: str, reason: str) -> str:
+    common = (
+        "DataObject is the type-tree root and reserved for genuinely "
+        "generic blocks (SubWorkflowBlock, load_data/save_data IOBlocks, "
+        "certain AppBlock patterns). Concrete types unlock preview "
+        "rendering, edge-time type checking, lineage navigation, and "
+        "AI-suggestion features."
+    )
+    if reason == "DataObject":
+        return (
+            f"Block at {target}:{lineno} declares port {port_name!r} with "
+            "accepted_types=[DataObject]. Pick a concrete subclass via "
+            "mcp__scieasy__list_types() (e.g. Image, DataFrame, Mask). "
+            f"{common}"
+        )
+    if reason == "empty":
+        return (
+            f"Block at {target}:{lineno} declares port {port_name!r} with "
+            "accepted_types=[] (matches anything — equivalent to DataObject). "
+            f"{common}"
+        )
+    # reason == "missing"
+    return (
+        f"Block at {target}:{lineno} declares port {port_name!r} without "
+        "an accepted_types kwarg. The Port dataclass requires it; this "
+        "will likely raise at class definition / reload_blocks time. Add "
+        "accepted_types=[<ConcreteType>]; pick from mcp__scieasy__list_types()."
+    )
 
 
 def main() -> int:
@@ -132,15 +235,8 @@ def main() -> int:
     except OSError:
         return 0
     findings = _scan_for_generic_ports(source)
-    for lineno, port_name in findings:
-        print(
-            f"Block at {target}:{lineno} declares port '{port_name}' with "
-            "generic DataObject. This degrades preview & edge-time "
-            "type-check. Call mcp__scieasy__list_types and pick a concrete "
-            "type; DataObject is reserved for SubWorkflowBlock and generic "
-            "AppBlock-class blocks.",
-            file=sys.stderr,
-        )
+    for lineno, port_name, reason in findings:
+        print(_format_message(target, lineno, port_name, reason), file=sys.stderr)
     return 0
 
 

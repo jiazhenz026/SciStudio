@@ -280,13 +280,23 @@ def test_hook_mark_list_blocks_called_rejects_path_injection(tmp_project_dir: Pa
 
 
 def test_hook_enforce_concrete_port_types_warns_on_dataobject(tmp_project_dir: Path) -> None:
+    """ADR-040 §3.6 (F1 rewrite): hook flags accepted_types=[DataObject] in live API.
+
+    Pre-F1 the hook scanned for the legacy ``PortSpec(type='DataObject')``
+    shape, which the live ``InputPort/OutputPort`` API does not emit;
+    every real block escaped. Post-F1 the hook scans
+    ``InputPort/OutputPort(accepted_types=[...])`` and flags
+    ``DataObject`` elements.
+    """
     write_hooks(tmp_project_dir, force=False)
     script = tmp_project_dir / ".claude" / "hooks" / "enforce_concrete_port_types.py"
     blocks = tmp_project_dir / "blocks"
     blocks.mkdir(parents=True, exist_ok=True)
     target = blocks / "demo_block.py"
     target.write_text(
-        "from scieasy.blocks import PortSpec\nspec = PortSpec(name='x', type='DataObject')\n",
+        "from scieasy.blocks.base.ports import InputPort\n"
+        "from scieasy.core.types.base import DataObject\n"
+        "p = InputPort(name='x', accepted_types=[DataObject], required=True)\n",
         encoding="utf-8",
     )
     import os
@@ -303,13 +313,17 @@ def test_hook_enforce_concrete_port_types_warns_on_dataobject(tmp_project_dir: P
 
 
 def test_hook_enforce_concrete_port_types_silent_on_concrete(tmp_project_dir: Path) -> None:
+    """Hook stays silent for concrete-typed ports."""
     write_hooks(tmp_project_dir, force=False)
     script = tmp_project_dir / ".claude" / "hooks" / "enforce_concrete_port_types.py"
     blocks = tmp_project_dir / "blocks"
     blocks.mkdir(parents=True, exist_ok=True)
     target = blocks / "demo_block.py"
     target.write_text(
-        "from scieasy.blocks import PortSpec\nspec = PortSpec(name='x', type='Image')\n",
+        "from scieasy.blocks.base.ports import InputPort, OutputPort\n"
+        "from scieasy_blocks_imaging.types import Image, Mask\n"
+        "in_p = InputPort(name='x', accepted_types=[Image], required=True)\n"
+        "out_p = OutputPort(name='y', accepted_types=[Mask])\n",
         encoding="utf-8",
     )
     proc = _run_hook(
@@ -318,6 +332,47 @@ def test_hook_enforce_concrete_port_types_silent_on_concrete(tmp_project_dir: Pa
     )
     assert proc.returncode == 0
     assert "DataObject" not in proc.stderr
+
+
+def test_hook_enforce_concrete_port_types_flags_empty_accepted_types(tmp_project_dir: Path) -> None:
+    """F1 rewrite: ``accepted_types=[]`` is semantically equivalent to DataObject."""
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "enforce_concrete_port_types.py"
+    blocks = tmp_project_dir / "blocks"
+    blocks.mkdir(parents=True, exist_ok=True)
+    target = blocks / "empty_accepted.py"
+    target.write_text(
+        "from scieasy.blocks.base.ports import InputPort\np = InputPort(name='x', accepted_types=[], required=True)\n",
+        encoding="utf-8",
+    )
+    proc = _run_hook(
+        script,
+        {"tool_name": "Write", "tool_input": {"file_path": str(target)}},
+    )
+    assert proc.returncode == 0
+    # Hook flags empty accepted_types lists with an "empty" message variant.
+    assert "matches anything" in proc.stderr or "accepted_types=[]" in proc.stderr
+
+
+def test_hook_enforce_concrete_port_types_flags_attribute_form(tmp_project_dir: Path) -> None:
+    """F1 rewrite: matches ``accepted_types=[core.DataObject]`` (Attribute form)."""
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "enforce_concrete_port_types.py"
+    blocks = tmp_project_dir / "blocks"
+    blocks.mkdir(parents=True, exist_ok=True)
+    target = blocks / "attr_form.py"
+    target.write_text(
+        "from scieasy.core.types import base as core\n"
+        "from scieasy.blocks.base.ports import InputPort\n"
+        "p = InputPort(name='x', accepted_types=[core.DataObject], required=True)\n",
+        encoding="utf-8",
+    )
+    proc = _run_hook(
+        script,
+        {"tool_name": "Write", "tool_input": {"file_path": str(target)}},
+    )
+    assert proc.returncode == 0
+    assert "DataObject" in proc.stderr
 
 
 def test_hook_enforce_concrete_port_types_handles_syntax_error(tmp_project_dir: Path) -> None:
@@ -333,3 +388,32 @@ def test_hook_enforce_concrete_port_types_handles_syntax_error(tmp_project_dir: 
     )
     # Always exit 0 (PostToolUse cannot block); syntax error just suppresses scan.
     assert proc.returncode == 0
+
+
+def test_hook_enforce_concrete_port_types_non_literal_accepted_types_silent(
+    tmp_project_dir: Path,
+) -> None:
+    """Codex P2 fix (#1089): non-literal accepted_types (variable / call) is opaque,
+    must NOT be flagged as generic/empty.
+    """
+    write_hooks(tmp_project_dir, force=False)
+    script = tmp_project_dir / ".claude" / "hooks" / "enforce_concrete_port_types.py"
+    blocks = tmp_project_dir / "blocks"
+    blocks.mkdir(parents=True, exist_ok=True)
+    target = blocks / "non_literal_accepted.py"
+    target.write_text(
+        "from scieasy.blocks.base.ports import InputPort\n"
+        "MY_TYPES = [int]\n"
+        "p1 = InputPort(name='var_ref', accepted_types=MY_TYPES)\n"
+        "p2 = InputPort(name='call', accepted_types=list((int,)))\n",
+        encoding="utf-8",
+    )
+    proc = _run_hook(
+        script,
+        {"tool_name": "Write", "tool_input": {"file_path": str(target)}},
+    )
+    # Always exit 0
+    assert proc.returncode == 0
+    # MUST NOT flag — runtime value is opaque
+    assert "DataObject" not in proc.stderr, f"False generic-port warning on non-literal accepted_types:\n{proc.stderr}"
+    assert "empty" not in proc.stderr.lower(), f"False 'empty' warning on non-literal accepted_types:\n{proc.stderr}"

@@ -232,7 +232,9 @@ from __future__ import annotations
 from typing import Any
 
 from scieasy.blocks.base.block import Block
+from scieasy.blocks.base.config import BlockConfig
 from scieasy.blocks.base.ports import InputPort, OutputPort
+from scieasy.core.types.base import DataObject
 
 
 class {class_name}(Block):
@@ -252,8 +254,12 @@ class {class_name}(Block):
         "required": [],
     }}
 
-    def run(self, inputs: dict[str, Any]) -> dict[str, Any]:
-        """TODO: implement."""
+    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
+        """TODO: implement.
+
+        Return a dict keyed by output port name. See Block.run ABC in
+        ``scieasy.blocks.base.block``.
+        """
         raise NotImplementedError
 '''
 
@@ -266,17 +272,28 @@ def _render_port_block(
     spec_map: dict[str, dict[str, Any]] | None,
     port_class: str,
 ) -> str:
-    """Render a list-of-ports body for the scaffold template."""
+    """Render a list-of-ports body for the scaffold template.
+
+    Emits the live ``InputPort(name=..., accepted_types=[Type], required=True)``
+    / ``OutputPort(name=..., accepted_types=[Type])`` shape per
+    ``scieasy.blocks.base.ports`` (ADR-040 §3.2a). Note: scaffolded files
+    do NOT import the specific concrete types — the agent is expected to
+    add the relevant ``from ... import <Type>`` import alongside editing
+    the body. ``DataObject`` is imported by the scaffold template so the
+    empty-spec hint is at least importable as-is.
+    """
     if not spec_map:
-        return f'        # {port_class}(name="...", accepted_types=[DataObject]),\n'
+        return f'        # {port_class}(name="...", accepted_types=[DataObject], required=True),\n'
     lines = []
     for port_name, spec in spec_map.items():
         type_name = spec.get("type", "DataObject")
         desc = spec.get("description", "")
+        required_kw = ", required=True" if port_class == "InputPort" else ""
         comment = f"  # {desc}" if desc else ""
         # InputPort and OutputPort take ``accepted_types: list[type]`` per
         # src/scieasy/blocks/base/ports.py:17 — not a single ``type=`` kwarg.
-        lines.append(f"        {port_class}(name={port_name!r}, accepted_types=[{type_name}]),{comment}\n")
+        # InputPort additionally takes ``required`` (Port field, default True).
+        lines.append(f"        {port_class}(name={port_name!r}, accepted_types=[{type_name}]{required_kw}),{comment}\n")
     return "".join(lines)
 
 
