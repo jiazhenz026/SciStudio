@@ -202,6 +202,9 @@ class MCPServer:
                     response = _error_response(None, _PARSE_ERROR, f"parse error: {exc}")
                 else:
                     response = await self.dispatch(request)
+                if response is None:
+                    # Notification — JSON-RPC 2.0 forbids a response.
+                    continue
                 writer.write((json.dumps(response) + "\n").encode("utf-8"))
                 await writer.drain()
         except (asyncio.CancelledError, ConnectionResetError):
@@ -220,7 +223,7 @@ class MCPServer:
     # Dispatch (the public surface tests exercise directly).
     # ------------------------------------------------------------------
 
-    async def dispatch(self, request: dict) -> dict:
+    async def dispatch(self, request: dict) -> dict | None:
         """Route one decoded JSON-RPC request through FastMCP.
 
         Recognised methods:
@@ -228,12 +231,22 @@ class MCPServer:
         * ``"initialize"`` — MCP handshake; returns server capabilities.
         * ``"tools/list"`` — enumerates the registered tools.
         * ``"tools/call"`` — invokes one tool by name + arguments.
+
+        Returns ``None`` for JSON-RPC notifications (no ``id`` field).
+        Per the JSON-RPC 2.0 spec the server MUST NOT respond to
+        notifications; the connection loop drops the frame instead of
+        writing a bogus error envelope. Strict MCP clients (Codex 2026)
+        treat an unexpected message on the transport as fatal and tear
+        down the connection — that's the path that surfaced this bug.
         """
         req_id = request.get("id")
         method = request.get("method")
         params = request.get("params") or {}
+        is_notification = "id" not in request
 
         if not isinstance(method, str):
+            if is_notification:
+                return None
             return _error_response(req_id, _INVALID_REQUEST, "missing 'method'")
 
         try:
@@ -290,9 +303,17 @@ class MCPServer:
                     {"content": [{"type": "text", "text": content_text}]},
                 )
 
+            # Notifications (no ``id``) like ``notifications/initialized``
+            # or ``notifications/cancelled`` must be silently accepted —
+            # the JSON-RPC 2.0 spec forbids responding to them. Unknown
+            # request methods still surface as METHOD_NOT_FOUND.
+            if is_notification:
+                return None
             return _error_response(req_id, _METHOD_NOT_FOUND, f"unknown method '{method}'")
         except Exception as exc:
             logger.exception("MCPServer.dispatch failed for method=%s", method)
+            if is_notification:
+                return None
             return _error_response(req_id, _INTERNAL_ERROR, f"{type(exc).__name__}: {exc}")
 
 

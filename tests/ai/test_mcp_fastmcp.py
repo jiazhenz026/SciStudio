@@ -370,3 +370,48 @@ def test_search_docs_top_n_from_full_corpus_not_first_20(stub_ctx, tmp_path: Pat
     # And the top entries must be the high-score docs (score 10), not score 1.
     top_scores = sorted((r.score for r in results), reverse=True)[:5]
     assert all(s >= 10.0 for s in top_scores), f"top-5 scores expected >=10, got {top_scores}"
+
+
+# ---------------------------------------------------------------------------
+# JSON-RPC notification handling (ADR-040 Addendum 3 hotfix).
+# ---------------------------------------------------------------------------
+
+
+def test_dispatch_silently_drops_notifications(tmp_path: Path) -> None:
+    """JSON-RPC notifications (no ``id``) MUST NOT receive a response.
+
+    Phase 4 e2e on Codex 2026 surfaced this: the pre-fix MCPServer.dispatch
+    returned ``{"error":{"code":-32601,"message":"unknown method
+    'notifications/initialized'"}}`` to every notification. Claude Code
+    tolerated the bogus error envelope, but Codex 2026's stricter MCP
+    transport treats an unexpected frame as fatal and closes the
+    connection — meaning the Codex provider got ZERO scieasy MCP tools.
+
+    Per JSON-RPC 2.0 § 4.1, notifications (requests without ``id``) MUST
+    NOT trigger a response — error or otherwise.
+    """
+    from scieasy.ai.agent.mcp.server import MCPServer
+
+    server = MCPServer(socket_path=tmp_path / "mcp.sock", project_dir=tmp_path)
+
+    # The MCP-mandatory client→server notification.
+    assert _run(server.dispatch({"jsonrpc": "2.0", "method": "notifications/initialized"})) is None
+    # Another common notification (cancellation).
+    assert (
+        _run(
+            server.dispatch(
+                {"jsonrpc": "2.0", "method": "notifications/cancelled", "params": {"requestId": "x"}}
+            )
+        )
+        is None
+    )
+    # Notification with an unknown method also drops silently (not an error).
+    assert _run(server.dispatch({"jsonrpc": "2.0", "method": "totally/unknown"})) is None
+    # Notification with missing/invalid method ALSO drops silently — spec
+    # says no response to notifications regardless of validity.
+    assert _run(server.dispatch({"jsonrpc": "2.0"})) is None
+
+    # Regression guard: an unknown method WITH an id is still an error.
+    resp = _run(server.dispatch({"jsonrpc": "2.0", "id": 7, "method": "totally/unknown"}))
+    assert resp is not None
+    assert resp.get("error", {}).get("code") == -32601
