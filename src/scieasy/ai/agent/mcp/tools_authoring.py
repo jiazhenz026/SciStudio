@@ -268,14 +268,15 @@ def _render_port_block(
 ) -> str:
     """Render a list-of-ports body for the scaffold template."""
     if not spec_map:
-        return f'        # {port_class}(name="...", type=DataObject, required=True),\n'
+        return f'        # {port_class}(name="...", accepted_types=[DataObject]),\n'
     lines = []
     for port_name, spec in spec_map.items():
         type_name = spec.get("type", "DataObject")
         desc = spec.get("description", "")
-        required_kw = ", required=True" if port_class == "InputPort" else ""
         comment = f"  # {desc}" if desc else ""
-        lines.append(f"        {port_class}(name={port_name!r}, type={type_name}{required_kw}),{comment}\n")
+        # InputPort and OutputPort take ``accepted_types: list[type]`` per
+        # src/scieasy/blocks/base/ports.py:17 — not a single ``type=`` kwarg.
+        lines.append(f"        {port_class}(name={port_name!r}, accepted_types=[{type_name}]),{comment}\n")
     return "".join(lines)
 
 
