@@ -11,7 +11,7 @@
 - **Cascade**: Interface SSOT (single-source-of-truth spec doc)
 - **Plan file**: `~/.claude/plans/single-source-of-truth-issue-issue-acce-wiggly-truffle.md`
 - **Umbrella issue**: **#1090** — https://github.com/zjzcpj/SciEasy/issues/1090
-- **Umbrella PR**: TBD (created in Phase 0.2 after first commit)
+- **Umbrella PR**: **#1091** (DRAFT, `[DO NOT MERGE]`) — https://github.com/zjzcpj/SciEasy/pull/1091
 - **Tracking branch**: `track/spec-ssot` (off origin/main, will never merge directly to main; final clean PR is separate)
 - **Manager worktree**: `C:\Users\jiazh\Desktop\workspace\scieasy-spec-ssot-mgr\` (worktree on track/spec-ssot)
 - **Main checkout** (user's primary, do NOT perturb): `C:\Users\jiazh\Desktop\workspace\SciEasy\` (currently on `track/adr-040`, has 10+ in-flight ADR-040 sub-worktrees)

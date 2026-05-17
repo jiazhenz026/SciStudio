@@ -67,21 +67,22 @@ code-has?  docs-has?  →  label
 ### 0.2 Issues + branch + umbrella PR
 - [x] Umbrella issue: **#1090** — "Interface SSOT cascade — INTERFACE_SPEC.md"
 - [x] Tracking branch `track/spec-ssot` created off origin/main
-- [ ] Branch pushed to origin → after first commit
-- [ ] Umbrella PR `[DO NOT MERGE]` opened
+- [x] Branch pushed to origin (commit `e11b0a3`)
+- [x] Umbrella PR `[DO NOT MERGE]` opened: **#1091** — https://github.com/zjzcpj/SciEasy/pull/1091
 - [x] Checklist: `docs/planning/spec-ssot-checklist.md` (this file)
-- [ ] Scratchpad: `docs/planning/spec-ssot-manager-scratchpad.md` with Pinned facts
+- [x] Scratchpad: `docs/planning/spec-ssot-manager-scratchpad.md` with Pinned facts
 
 ### 0.3 scripts/spec_audit.py implementation
-- [ ] `scripts/spec_audit/extract_code.py` — AST + Pydantic + FastAPI OpenAPI + FastMCP `list_tools()` + Typer + entry-points + WS messages
-- [ ] `scripts/spec_audit/extract_spec.py` — markdown grammar parser
-- [ ] `scripts/spec_audit/extract_docs.py` — grep + fence extraction across ARCHITECTURE.md + ADR + CLAUDE.md
-- [ ] `scripts/spec_audit/diff.py` — 4-way join + exit-code semantics
-- [ ] `scripts/spec_audit.py` — orchestrator
-- [ ] `scripts/hooks/check-spec-drift.sh` — pre-push + CI wrapper
-- [ ] 10-symbol smoke fixture under `tests/spec_audit/`
-- [ ] `pyproject.toml` dev deps: add `griffe>=0.45`, `markdown-it-py`
-- [ ] `.github/workflows/ci.yml` step added with `if: false` guard (enabled in Phase 8)
+- [x] `scripts/spec_audit/extract_code.py` — AST (ABC/Protocol/Pydantic) + FastAPI OpenAPI + Typer + entry-points. **TODO(#1090)**: MCP tool + WS message extractors deferred (need running-server / deeper AST inference) — manual entry into SSOT for V1
+- [x] `scripts/spec_audit/extract_spec.py` — markdown grammar parser with strict validation (Status/Source/Primary-doc-source/Issue required-iff-bcd)
+- [x] `scripts/spec_audit/extract_docs.py` — fence + backtick mention extraction across ARCHITECTURE.md + ADR + CLAUDE.md
+- [x] `scripts/spec_audit/diff.py` — 4-way join + 6 finding categories + 3 exit codes (0/1/2)
+- [x] `scripts/spec_audit.py` — orchestrator (chains 3 extractors + diff; `--baseline` mode skips spec parse)
+- [x] `scripts/hooks/check-spec-drift.sh` — pre-push + CI wrapper with `SCIEASY_SKIP_SPEC_AUDIT=1` escape
+- [x] Smoke fixture at `tests/spec_audit/test_extract_spec.py` — 6 tests, all green; validates grammar invariants
+- [ ] Deferred: `pyproject.toml` dev deps (griffe NOT needed — extract_code uses stdlib `ast`; markdown-it-py NOT needed — extract_spec uses regex)
+- [x] `.github/workflows/ci.yml` step added with `if: false` guard (enabled in Phase 8)
+- [x] **End-to-end smoke against real repo**: extract_code → 224 records (87 pydantic + 60 fastapi_route + 31 protocol + 20 abc + 17 entry_point + 9 typer_command); extract_docs → 4341 mentions across 100 interfaces; diff → 223 code-not-in-spec errors as expected (only 1 test entry in synthetic spec)
 - [ ] CLAUDE.md draft amendment ready (committed in Phase 8 only)
 
 ---

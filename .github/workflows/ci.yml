@@ -206,3 +206,25 @@ jobs:
         with:
           name: frontend-static
           path: src/scieasy/api/static/
+
+  spec-drift:
+    name: Interface SSOT Drift Check
+    runs-on: ubuntu-latest
+    # NOTE: disabled until Phase 8 of the Interface SSOT cascade (#1090).
+    # The hook exists + runs locally, but CI gating waits until
+    # docs/specs/INTERFACE_SPEC.md is ACCEPTED to avoid red CI during
+    # the cascade's own development phase.
+    if: false
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          cache: true
+          cache-dependency-path: pyproject.toml
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install scieasy + dev deps
+        run: uv pip install --system -e ".[dev]"
+      - name: Run spec_audit
+        run: bash scripts/hooks/check-spec-drift.sh
