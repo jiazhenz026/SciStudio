@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from fastapi.testclient import TestClient
@@ -442,6 +444,135 @@ def test_preview_data_clamps_out_of_range_slice_query(
     low = client.get(f"/api/data/{record.id}/preview?slice=-5")
     assert low.status_code == 200
     assert low.json()["preview"]["slice_index"] == 0
+
+
+def test_preview_data_dataframe_pagination_and_sort(
+    client: TestClient,
+    opened_project: Path,
+) -> None:
+    """DataFrame preview supports page / page_size / sort_by / sort_dir."""
+    # Build a 137-row CSV with predictable values so sort is verifiable.
+    header = "idx,name,score\n"
+    body = "".join(f"{i},row_{i:03d},{(137 - i)}\n" for i in range(137))
+    upload = client.post(
+        "/api/data/upload",
+        files={"file": ("paged.csv", (header + body).encode(), "text/csv")},
+    )
+    assert upload.status_code == 200
+    ref = upload.json()["ref"]
+
+    # Default response advertises total_rows / page / page_size / total_pages.
+    default = client.get(f"/api/data/{ref}/preview").json()["preview"]
+    assert default["kind"] == "table"
+    assert default["total_rows"] == 137
+    assert default["row_count"] == 137  # backward-compat alias
+    assert default["page"] == 1
+    assert default["page_size"] == 50
+    assert default["total_pages"] == 3
+    assert default["sort_by"] is None
+    assert default["sort_dir"] is None
+    assert len(default["rows"]) == 50
+    assert default["rows"][0]["idx"] == 0
+
+    # Page 2 returns rows 50..99 in source order.
+    page2 = client.get(f"/api/data/{ref}/preview?page=2").json()["preview"]
+    assert page2["page"] == 2
+    assert page2["rows"][0]["idx"] == 50
+    assert len(page2["rows"]) == 50
+
+    # Page 3 is the trailing 37 rows.
+    page3 = client.get(f"/api/data/{ref}/preview?page=3").json()["preview"]
+    assert page3["page"] == 3
+    assert len(page3["rows"]) == 37
+    assert page3["rows"][-1]["idx"] == 136
+
+    # Over-range page clamps to the last page.
+    overrun = client.get(f"/api/data/{ref}/preview?page=999").json()["preview"]
+    assert overrun["page"] == 3
+
+    # Custom page size respects the cap.
+    paged = client.get(f"/api/data/{ref}/preview?page_size=10").json()["preview"]
+    assert paged["page_size"] == 10
+    assert paged["total_pages"] == 14
+    capped = client.get(f"/api/data/{ref}/preview?page_size=99999").json()["preview"]
+    assert capped["page_size"] == 200
+
+    # Sort by score descending — first row's score == max score (137).
+    sorted_desc = client.get(f"/api/data/{ref}/preview?sort_by=score&sort_dir=desc").json()["preview"]
+    assert sorted_desc["sort_by"] == "score"
+    assert sorted_desc["sort_dir"] == "desc"
+    assert sorted_desc["rows"][0]["score"] == 137
+
+    # Sort by score ascending — first row's score == min score (1).
+    sorted_asc = client.get(f"/api/data/{ref}/preview?sort_by=score&sort_dir=asc").json()["preview"]
+    assert sorted_asc["sort_by"] == "score"
+    assert sorted_asc["sort_dir"] == "asc"
+    assert sorted_asc["rows"][0]["score"] == 1
+
+    # Unknown column → sort silently ignored, page still served.
+    bogus = client.get(f"/api/data/{ref}/preview?sort_by=does_not_exist").json()["preview"]
+    assert bogus["sort_by"] is None
+    assert bogus["sort_dir"] is None
+    assert len(bogus["rows"]) == 50
+
+
+def test_preview_data_dataframe_cache_skips_repeat_disk_reads(
+    client: TestClient,
+    opened_project: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """LRU cache makes pagination + sort O(slice) after the first call.
+
+    The cache key is (path, mtime, sort_by, sort_dir). Sort-variant misses
+    reuse the unsorted base, so flipping sort columns / directions never
+    re-reads the file. Touching the file (mtime change) invalidates.
+    """
+    from scieasy.api import runtime as runtime_mod
+
+    # Build a small csv. The cache behavior we care about is invariant to size.
+    rows = "".join(f"{i},{i * 2}\n" for i in range(80))
+    upload = client.post(
+        "/api/data/upload",
+        files={"file": ("cached.csv", ("a,b\n" + rows).encode(), "text/csv")},
+    )
+    ref = upload.json()["ref"]
+
+    # Clear the cache so this test owns its lifecycle.
+    with runtime_mod._table_cache_lock:
+        runtime_mod._table_cache.clear()
+
+    # Wrap the disk reader to count parses.
+    reads: list[Path] = []
+    real_read = runtime_mod._read_preview_table_from_disk
+
+    def counting_read(path: Path) -> Any:  # type: ignore[no-untyped-def]
+        reads.append(path)
+        return real_read(path)
+
+    monkeypatch.setattr(runtime_mod, "_read_preview_table_from_disk", counting_read)
+
+    # 1. First request seeds the unsorted cache (1 read).
+    client.get(f"/api/data/{ref}/preview").raise_for_status()
+    assert len(reads) == 1
+
+    # 2. Page 2 of the same unsorted view hits the cache — no new read.
+    client.get(f"/api/data/{ref}/preview?page=2").raise_for_status()
+    assert len(reads) == 1
+
+    # 3. Sort asc — reuses the cached base, no disk hit.
+    client.get(f"/api/data/{ref}/preview?sort_by=b&sort_dir=asc").raise_for_status()
+    assert len(reads) == 1
+
+    # 4. Flip to desc — still reuses the base.
+    client.get(f"/api/data/{ref}/preview?sort_by=b&sort_dir=desc").raise_for_status()
+    assert len(reads) == 1
+
+    # 5. Touch the file (advance mtime). Next request must invalidate and re-read.
+    path = next(p for p in (opened_project / "data" / "raw").rglob("cached.csv"))
+    new_mtime_ns = path.stat().st_mtime_ns + 1_000_000_000  # +1 s
+    os.utime(path, ns=(new_mtime_ns, new_mtime_ns))
+    client.get(f"/api/data/{ref}/preview").raise_for_status()
+    assert len(reads) == 2
 
 
 def test_preview_data_dispatches_plugin_spectrum_type_via_type_chain(

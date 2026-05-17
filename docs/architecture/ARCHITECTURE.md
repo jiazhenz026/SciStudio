@@ -2809,7 +2809,7 @@ Full-height right sidebar that displays the output of the currently selected blo
 
 | Type | Renderer |
 |------|----------|
-| `DataFrame`, `PeakTable` | Paginated table (first 100 rows, column sorting, search) |
+| `DataFrame`, `PeakTable` | Server-paginated table: 3-state click-to-sort headers (unsorted→asc→desc), prev/next/first/last buttons, jump-to-page input. Only the active page is fetched; backend caches parsed + sorted variants in a process-local LRU keyed by `(path, mtime, sort_by, sort_dir)` so disk IO is paid once per file. Query params: `page` (1-based), `page_size` (cap 200), `sort_by`, `sort_dir` (`asc`/`desc`). |
 | `Array`, `Image` | Zoomable image viewer (channel selector, brightness/contrast) |
 | `MSImage` | Image + click-to-spectrum overlay (Plotly) |
 | `Series`, `Spectrum` | Plotly line chart (zoom, pan, hover) |
