@@ -1128,9 +1128,7 @@ export default function App() {
               <ResizablePanel defaultSize="22%" minSize="15%" maxSize="42%" collapsible collapsedSize="0%">
                 <DataPreview
                   blockOutputs={blockOutputs}
-                  onCancelSelected={() => void cancelSelectedBlock()}
                   onLoadPreview={loadPreview}
-                  onStartFromHere={() => void startFromSelected()}
                   previewCache={previewCache}
                   previewLoading={previewLoading}
                   selectedNodeId={selectedNodeId}

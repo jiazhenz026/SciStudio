@@ -4,6 +4,7 @@ import type {
   CancelPropagationResponse,
   ConnectionValidationResponse,
   DataMetadataResponse,
+  DataPreviewQuery,
   DataPreviewResponse,
   DataUploadResponse,
   ExecuteFromResponse,
@@ -185,12 +186,19 @@ export const api = {
     });
   },
   getDataMetadata: (dataRef: string) => apiFetch<DataMetadataResponse>(`/api/data/${encodeURIComponent(dataRef)}`),
-  getDataPreview: (dataRef: string, slice?: number) => {
-    // #899 — optional ``slice`` query param selects the index along the
-    // backend-detected slider axis for 3-D images. Out-of-range values are
-    // clamped server-side; 2-D images ignore the param.
-    const qs = slice === undefined ? "" : `?slice=${encodeURIComponent(slice)}`;
-    return apiFetch<DataPreviewResponse>(`/api/data/${encodeURIComponent(dataRef)}/preview${qs}`);
+  getDataPreview: (dataRef: string, opts?: number | DataPreviewQuery) => {
+    // Backwards-compat: a bare number is interpreted as ``slice`` (image flow).
+    // Object form covers slice + DataFrame paging (page/page_size/sort_by/sort_dir).
+    const o: DataPreviewQuery = typeof opts === "number" ? { slice: opts } : (opts ?? {});
+    const params = new URLSearchParams();
+    if (o.slice !== undefined) params.set("slice", String(o.slice));
+    if (o.page !== undefined) params.set("page", String(o.page));
+    if (o.pageSize !== undefined) params.set("page_size", String(o.pageSize));
+    if (o.sortBy) params.set("sort_by", o.sortBy);
+    if (o.sortDir) params.set("sort_dir", o.sortDir);
+    const qs = params.toString();
+    const url = `/api/data/${encodeURIComponent(dataRef)}/preview${qs ? `?${qs}` : ""}`;
+    return apiFetch<DataPreviewResponse>(url);
   },
   browseFilesystem: (path: string) =>
     apiFetch<FilesystemBrowseResponse>(

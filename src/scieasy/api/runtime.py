@@ -8,6 +8,8 @@ import json
 import logging
 import os
 import shutil
+import threading
+from collections import OrderedDict
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -37,6 +39,90 @@ from scieasy.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
 from scieasy.workflow.serializer import absolutify_paths, load_yaml, relativify_paths, save_yaml
 
 logger = logging.getLogger(__name__)
+
+# DataFrame preview paging — cap the per-request payload to keep the response
+# under a few hundred KB even with wide tables.
+MAX_TABLE_PAGE_SIZE = 200
+
+# DataFrame preview cache — keyed by (path, mtime_ns, sort_by, sort_dir).
+# Empty sort_by means the unsorted base table; sorted variants reuse the
+# cached base on miss to avoid re-parsing the source file.
+#
+# Wide-table sorts (e.g. 5200 rows x 40 cols) cost ~200 ms per request when
+# we re-read + re-sort on every page click. The cache turns that into a
+# one-time cost per (column, direction) pair; subsequent pagination of the
+# same sort lands O(slice).
+#
+# Cap is intentionally small — large enough to cover typical
+# unsorted+asc+desc trios per column but bounded by RAM.
+_TABLE_CACHE_MAX = 16
+_table_cache: OrderedDict[tuple[str, int, str, str], Any] = OrderedDict()
+_table_cache_lock = threading.Lock()
+
+
+def _trim_table_cache_locked() -> None:
+    """Evict oldest entries until under the cap. Caller holds the lock."""
+    while len(_table_cache) > _TABLE_CACHE_MAX:
+        _table_cache.popitem(last=False)
+
+
+def _read_preview_table_from_disk(path: Path) -> Any:
+    """Read a csv/parquet file into a pyarrow Table — uncached."""
+    if path.suffix.lower() == ".parquet":
+        return pq.read_table(path)
+    import pyarrow.csv as pcsv
+
+    return pcsv.read_csv(str(path))
+
+
+def _get_preview_table(path: Path, sort_by: str | None, sort_dir: str) -> Any:
+    """Return a parsed (and optionally sorted) pyarrow Table for ``path``.
+
+    Cached by (path, mtime, sort_by, sort_dir). On sort-variant cache miss
+    we look up the unsorted base in the same cache to avoid re-reading the
+    file, sort that, then cache the sorted variant.
+    """
+    try:
+        mtime = path.stat().st_mtime_ns
+    except OSError:
+        mtime = 0
+    sort_key = sort_by or ""
+    dir_key = sort_dir if sort_key else ""
+    key = (str(path), mtime, sort_key, dir_key)
+
+    with _table_cache_lock:
+        cached = _table_cache.get(key)
+        if cached is not None:
+            _table_cache.move_to_end(key)
+            return cached
+
+    # Cache miss — try to reuse an already-parsed unsorted base, otherwise read disk.
+    base = None
+    if sort_key:
+        base_key = (str(path), mtime, "", "")
+        with _table_cache_lock:
+            base = _table_cache.get(base_key)
+            if base is not None:
+                _table_cache.move_to_end(base_key)
+    if base is None:
+        base = _read_preview_table_from_disk(path)
+        if sort_key:
+            # Persist the unsorted base too so the next sort change skips IO.
+            base_key = (str(path), mtime, "", "")
+            with _table_cache_lock:
+                _table_cache[base_key] = base
+                _trim_table_cache_locked()
+
+    if sort_key:
+        order = "descending" if dir_key == "desc" else "ascending"
+        table = base.sort_by([(sort_key, order)])
+    else:
+        table = base
+
+    with _table_cache_lock:
+        _table_cache[key] = table
+        _trim_table_cache_locked()
+    return table
 
 
 def _rmtree_force(target: Path) -> None:
@@ -1064,7 +1150,15 @@ class ApiRuntime:
         except Exception:
             return None
 
-    def preview_data(self, data_ref: str, slice_index: int = 0) -> dict[str, Any]:
+    def preview_data(
+        self,
+        data_ref: str,
+        slice_index: int = 0,
+        page: int = 1,
+        page_size: int = 50,
+        sort_by: str | None = None,
+        sort_dir: str = "asc",
+    ) -> dict[str, Any]:
         """Return a lightweight preview for a stored data object.
 
         Parameters
@@ -1075,6 +1169,11 @@ class ApiRuntime:
             Index into the slider axis (3D viewer, #899). Clamped to
             ``[0, slice_axis_size - 1]``. Ignored for 2D arrays / non-image
             previews.
+        page, page_size, sort_by, sort_dir:
+            DataFrame paging + sort. Page is 1-based and clamped server-side;
+            ``page_size`` is capped at ``MAX_TABLE_PAGE_SIZE``. ``sort_by`` is
+            ignored when the column is missing. Non-table previews ignore
+            these.
         """
         record = self.get_data_record(data_ref)
         ref = record.ref
@@ -1093,18 +1192,44 @@ class ApiRuntime:
             resolved_cls is not None and issubclass(resolved_cls, DataFrame)
         )
         if is_dataframe or suffix in {".csv", ".parquet"}:
-            if suffix == ".parquet":
-                table = pq.read_table(path).slice(0, 100)
-            else:
-                import pyarrow.csv as pcsv
+            # Page bounds. ``page_size`` is capped to keep response
+            # payloads small. ``page`` is clamped after we know the total.
+            effective_page_size = max(1, min(int(page_size), MAX_TABLE_PAGE_SIZE))
 
-                table = pcsv.read_csv(str(path)).slice(0, 100)
-            rows = table.to_pylist()
+            # Column-name validation has to happen on the unsorted base — we
+            # don't want a typo'd sort_by to force a useless read.
+            base = _get_preview_table(path, sort_by=None, sort_dir="asc")
+            columns = list(base.column_names)
+            total_rows = base.num_rows
+
+            effective_sort_dir = sort_dir if sort_dir in {"asc", "desc"} else "asc"
+            effective_sort_by: str | None = None
+            if sort_by and sort_by in columns:
+                try:
+                    table = _get_preview_table(path, sort_by=sort_by, sort_dir=effective_sort_dir)
+                    effective_sort_by = sort_by
+                except Exception:
+                    logger.debug("Sort failed on column %s; returning unsorted", sort_by, exc_info=True)
+                    table = base
+            else:
+                table = base
+
+            total_pages = max(1, (total_rows + effective_page_size - 1) // effective_page_size)
+            effective_page = max(1, min(int(page), total_pages))
+            offset = (effective_page - 1) * effective_page_size
+            page_table = table.slice(offset, effective_page_size)
+            rows = page_table.to_pylist()
             return {
                 "kind": "table",
-                "columns": table.column_names,
+                "columns": columns,
                 "rows": rows,
-                "row_count": len(rows),
+                "total_rows": total_rows,
+                "row_count": total_rows,  # backward-compat alias
+                "page": effective_page,
+                "page_size": effective_page_size,
+                "total_pages": total_pages,
+                "sort_by": effective_sort_by,
+                "sort_dir": effective_sort_dir if effective_sort_by else None,
             }
 
         # ------------------------------------------------------------------
