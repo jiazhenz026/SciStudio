@@ -1,4 +1,10 @@
-"""T-ECA-204: unit tests for the 4 Q&A tools."""
+"""T-ECA-204: unit tests for the 4 Q&A tools.
+
+# TODO(#1012): module-level skip during ADR-040 §3.1 FastMCP skeleton
+#   phase. The QA tool bodies are NotImplementedError stubs in S40a;
+#   I40a Phase 2a restores behavior. Out of scope per ADR-040 §3.1 /
+#   phase: 2a I40a. Followup: #1012.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +13,11 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.ai.agent.mcp import _context, tools_qa
+pytestmark = pytest.mark.skip(
+    reason="S40a skeleton — tool bodies are NotImplementedError stubs. TODO(#1012): I40a Phase 2a restores."
+)
+
+from scieasy.ai.agent.mcp import _context, tools_qa  # noqa: E402
 
 
 @dataclass

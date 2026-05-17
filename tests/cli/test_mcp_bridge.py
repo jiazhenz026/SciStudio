@@ -29,6 +29,9 @@ from pathlib import Path
 
 import pytest
 
+# Module-level skip removed — MCPServer start/stop now wired through
+# FastMCP in I40a Phase 2a (ADR-040 §3.1).
+
 
 def _make_project(tmp_path: Path) -> Path:
     """Create a minimal SciEasy project layout under *tmp_path*."""

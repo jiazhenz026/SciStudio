@@ -527,13 +527,18 @@ def spawn_codex(
         ``dangerous``.
 
     Note that codex does **not** accept ``--mcp-config`` — per spike
-    finding 6, it auto-reads ``~/.codex/config.toml`` which the user's
-    ``scieasy install --target codex`` populates with the SciEasy MCP
-    server entry.  This is an intentional asymmetry with claude.
+    finding 6, it walks from project root to cwd loading every
+    ``.codex/config.toml`` plus ``~/.codex/config.toml``. ADR-040 §3.7
+    auto-provisions ``<project>/.codex/config.toml`` with the SciEasy MCP
+    server entry; the user's ``scieasy install --target codex`` populates
+    the user-scope ``~/.codex/config.toml`` as a fallback. Both paths
+    converge on the same ``[mcp_servers.scieasy]`` block rendered by
+    ``scieasy.cli.install._render_codex_block``.
 
     Codex also does not accept ``--append-system-prompt``; the SciEasy
-    SKILL.md prompt is picked up via ``~/.codex/`` (also registered by
-    ``scieasy install``).
+    skill is picked up via the project-scope ``.agents/skills/scieasy/``
+    tree (auto-provisioned per ADR-040 §3.5 + §3.8) and falls back to
+    ``~/.agents/skills/scieasy/`` (registered by ``scieasy install``).
 
     Parameters
     ----------

@@ -3124,6 +3124,59 @@ workflow:
       target: "export_results:input_0"
 ```
 
+### 10.2 Prod-env agent reliability stack (ADR-040)
+
+When a project is created (`scieasy init` or `ApiRuntime.create_project`) or
+re-opened (`ApiRuntime.open_project`), SciEasy provisions a small set of
+**prod-env agent reliability files** into the project so end-user-facing
+Claude Code and Codex sessions running *inside that project* behave
+predictably:
+
+```
+my_project/
+├── CLAUDE.md                              # Identity + 4 core rules for Claude Code (~50 LOC)
+├── AGENTS.md                              # Identical content; Codex reads this name
+├── .claude/
+│   ├── settings.json                      # Hook matchers (PreToolUse / PostToolUse)
+│   ├── hooks/                             # 6 hook scripts (ADR-040 §3.6)
+│   │   ├── deny_scieasy_cli.py            #   Blocks `scieasy …` Bash invocations
+│   │   ├── protect_workflow_yaml.py       #   Blocks direct edits to workflows/*.yaml
+│   │   ├── enforce_list_blocks_before_block_write.py
+│   │   ├── remind_poll_status.py
+│   │   ├── mark_list_blocks_called.py
+│   │   └── enforce_concrete_port_types.py
+│   ├── skills/scieasy/{…6 skills…}        # Cross-installed to BOTH locations
+│   └── .scieasy-provision-version         # Version marker for idempotent top-up
+├── .agents/
+│   └── skills/scieasy/{…6 skills…}        # Codex reads from .agents/skills/
+└── .codex/
+    └── config.toml                        # [mcp_servers.scieasy] project-scope MCP wiring
+```
+
+Key properties:
+
+- **Idempotent**: `install_project_agent_assets(project_dir, force=False)` is
+  called on every `open_project`. Existing user-edited files are preserved
+  (per-file hash compare) and only missing files are top-up-written. This is
+  how alpha-stage projects retroactively acquire the new assets when SciEasy
+  is upgraded.
+- **Non-fatal**: per ADR-040 §7, provisioning failure is logged at WARNING
+  level and the project still opens. Degraded-mode tests
+  (`tests/api/test_open_project_degraded_modes.py`) cover this.
+- **Lifecycle ordering**: provisioning runs **after** ADR-039 git auto-init
+  so the initial commit is clean of provisioned files; they land in a second
+  commit on the user's first checkpoint.
+- **Dev vs prod env boundary**: this stack is for **end-user agent sessions
+  inside a SciEasy project**. The SciEasy source repository (`SciEasy/`
+  itself) has its own developer-facing CLAUDE.md, hooks, and skills that
+  follow a different — much larger — contract (see `CLAUDE.md` at the
+  repo root). The prod-env CLAUDE.md template is intentionally ~50 lines:
+  it tells end-user agents to use the MCP server (not `scieasy` CLI), to
+  call `list_blocks` before writing blocks, and to trust hook denials.
+
+See `docs/agent-provisioning.md` for the operational reference and
+ADR-040 for the architectural decision record.
+
 ---
 
 ## 11. Technology stack summary

@@ -213,32 +213,32 @@ See FastMCP track's A40-skel; covers all 4 skeleton PRs in one pass.
 
 ### Phase 2a / I40c — Implementation
 
-**Branch**: `feat/issue-NNN/adr-040-i40c-provisioning-impl` off `track/adr-040/provisioning`.
+**Branch**: `feat/issue-1039/adr-040-i40c-provisioning-impl` off `track/adr-040/provisioning` (later merged onto consolidated `track/adr-040` after track consolidation).
 
-- [ ] CLAUDE.md/AGENTS.md template body authored (~50 LOC; identical content; end-user-agent purpose-written; distinct from SciEasy source repo's 800-line dev CLAUDE.md) — content blueprint comes from Phase 2c skill investigation; here I40c writes the *template*, while Phase 2c writes the *content*. **Coordination**: I40c lands the template *file* with placeholder body; Phase 2c fills the body. Alternatively merge order: Phase 2c first → I40c fills template from Phase 2c output. Manager picks at dispatch time.
-- [ ] `codex_config.toml` template authored per §3.7 (`[mcp_servers.scieasy]` block with `command = "<sys.executable>"`, `args = ["-m", "scieasy", "mcp-bridge"]`, env `SCIEASY_PROJECT_DIR`)
-- [ ] All 6 hook scripts implemented:
-  - `deny_scieasy_cli.py`: regex `^\s*(.*/)?scieasy[\s$]` on `tool_input.command`; exit 2 with guidance
-  - `protect_workflow_yaml.py`: regex `workflows/.*\.ya?ml$` on `tool_input.file_path`; exit 2
-  - `enforce_list_blocks_before_block_write.py`: session-keyed marker at `<project>/.scieasy/.session-state/<session_id>/list_blocks_called`; multi-matcher (Edit|Write|Bash|mcp__scieasy__scaffold_block); regex for block-file Bash writes
-  - `remind_poll_status.py`: always exit 0; injects stderr feedback
-  - `mark_list_blocks_called.py`: writes session marker; always exit 0
-  - `enforce_concrete_port_types.py`: AST-parse `blocks/*.py` for `PortSpec(type="DataObject")` and unregistered type names; emit stderr advisories
-- [ ] `install_project_agent_assets` orchestrates all writes; idempotent (respects version-marker compare)
-- [ ] Lifecycle wiring real calls in `api/runtime.py::{create_project, open_project}` (next to existing ADR-039 git init at `:598-608` and `:686-701`) and `cli/main.py::init` (`:130-158`)
-- [ ] `terminal.py::spawn_codex` docstring updated (drop outdated "asymmetry with claude" comment)
-- [ ] `SCIEASY_PROVISION_VERSION` constant defined; marker file `<project>/.claude/.scieasy-provision-version` written on install
-- [ ] `.gitignore` default template: add `.scieasy/.session-state/`
-- [ ] `docs/agent-provisioning.md` (new) — one-page operational doc per ADR §5.3
-- [ ] `docs/architecture/ARCHITECTURE.md` — new subsection "Prod-env agent reliability stack" + explicit dev/prod env boundary diagram
-- [ ] Tests:
-  - All assets land at expected paths on fresh `create_project`
-  - `open_project` idempotent top-up: missing files restored, customized files preserved (version-marker compare)
-  - Each of 6 hook scripts behaves correctly against synthetic stdin payloads (block + pass cases)
-  - Lifecycle integration: GUI create → all assets present + hooks executable + spawned Claude sees them
-  - Hook script Windows-execute smoke test (CI is Ubuntu-only — manual Windows verification required, captured here)
-- [ ] CHANGELOG entry under `[Unreleased] > Added`
-- [ ] CI green; PR merged into tracking branch
+- [x] CLAUDE.md/AGENTS.md template body authored (~50 LOC; identical content; end-user-agent purpose-written; distinct from SciEasy source repo's 800-line dev CLAUDE.md) → `src/scieasy/agent_provisioning/templates/claude_agents_md.md` (commit `f3c0f6f`)
+- [x] `codex_config.toml` rendered at provisioning time via `install._render_codex_block` (S40c skeleton template kept as docs-only reference) → `src/scieasy/agent_provisioning/codex_config.py` (commit `f3c0f6f`)
+- [x] All 6 hook scripts implemented:
+  - `deny_scieasy_cli.py`: regex on `tool_input.command`; exit 2 → commit `f3c0f6f`
+  - `protect_workflow_yaml.py`: regex on `tool_input.file_path`; exit 2 → commit `f3c0f6f`
+  - `enforce_list_blocks_before_block_write.py`: session-keyed marker, multi-matcher → commit `4e94629`
+  - `remind_poll_status.py`: exit 0 + stderr reminder → commit `4e94629`
+  - `mark_list_blocks_called.py`: writes session marker → commit `4e94629`
+  - `enforce_concrete_port_types.py`: AST-parse `blocks/*.py` for DataObject ports → commit `4e94629`
+- [x] `install_project_agent_assets` orchestrates all writes; idempotent (existence check; hash-based "preserve only if user-edited" deferred to Phase 3 per #1011) → commit `f3c0f6f`
+- [x] Lifecycle wiring real calls in `api/runtime.py::{create_project, open_project}` and `cli/main.py::init` → commit `e904159`
+- [x] `terminal.py::spawn_codex` docstring updated (dropped "asymmetry with claude"; documented `.codex/config.toml` + `.agents/skills/scieasy/` parity) → commit `e904159`
+- [x] `SCIEASY_PROVISION_VERSION = "0.1.0"`; marker file `<project>/.claude/.scieasy-provision-version` written → commit `f3c0f6f`
+- [ ] `.gitignore` default template: add `.scieasy/.session-state/` → **N/A**: `.scieasy/` rule already covers session-state (per ADR-039 `gitignore_template.py`)
+- [x] `docs/agent-provisioning.md` (new) — one-page operational doc per ADR §5.3 → commit `603487d`
+- [x] `docs/architecture/ARCHITECTURE.md` — new subsection §10.2 "Prod-env agent reliability stack (ADR-040)" added (~50 LOC; dev-vs-prod env boundary, idempotent top-up, non-fatal degraded mode, lifecycle ordering) → commit `1d0913a` (merge resolution carried forward in this round)
+- [x] Tests:
+  - [x] All assets land at expected paths on fresh `create_project` → `test_install_project_agent_assets_fresh_project`
+  - [x] `open_project` idempotent top-up: missing files restored, customized preserved → `test_install_project_agent_assets_idempotent` + `test_open_project_idempotent_top_up`
+  - [x] Each of 6 hook scripts behaves correctly against synthetic stdin (block + pass cases) → 14 per-hook tests in `test_hooks.py`
+  - [x] Lifecycle integration: GUI create / scieasy init → all assets present + hooks executable → `test_create_project_provisions_assets` + `test_cli_init_provisions_assets`
+  - [ ] Hook script Windows-execute smoke test — CI is Ubuntu-only; settings.json invokes `python` explicitly, executable bit unused on Windows. Local Windows verification via `tests/agent_provisioning/test_hooks.py` (subprocess invocation pattern).
+- [x] CHANGELOG entry under `[Unreleased] > Added` → commit `603487d`
+- [ ] CI green; PR merged into tracking branch — **pending PR open + CI run**, see #1039
 
 ---
 
@@ -262,17 +262,18 @@ See FastMCP track.
 
 ### Phase 2a / I40d — Implementation
 
-**Branch**: `feat/issue-NNN/adr-040-i40d-install-impl` off `track/adr-040/install-parity`.
+**Branch**: `feat/issue-1035/adr-040-i40d-install-impl` off `track/adr-040` (consolidated; #1035, PR pending).
 
-- [ ] `_install_skill` walks `src/scieasy/_skills/scieasy/` (post-FastMCP `importlib.resources` relocation), cross-installs to both `.claude/skills/` AND `.agents/skills/` trees (user or project scope)
-- [ ] `_remove_skill` symmetric removal across both providers
-- [ ] `_install_codex` project-scope branch writes `<cwd>/.codex/config.toml`; "force user-scope for codex" fallback at `install.py:489-498` removed
-- [ ] `perform_install` docstring updated (cross-install + project-scope codex now supported)
-- [ ] `docs/cli-integration.md` — update `--skill` cross-installs both providers; `--target codex --scope project` writes project config
-- [ ] Tests:
-  - Cross-install writes all 6 skill files to both `.claude/skills/scieasy/` and `.agents/skills/scieasy/`
-  - Remove cleans both trees
-  - Codex project-scope writes correct `[mcp_servers.scieasy]` TOML block
+- [x] `_install_skill` resolves source via `importlib.resources.files("scieasy") / "_skills" / "scieasy"` (walk-up fallback retained for dev checkouts, TODO #1011), cross-installs to both `.claude/skills/` AND `.agents/skills/` trees (user or project scope) → commit `ebc123d`
+- [x] `_remove_skill` symmetric removal across both providers → commit `ebc123d`
+- [x] `_install_codex` project-scope branch writes `<cwd>/.codex/config.toml`; "force user-scope for codex" fallback in `perform_install` (was install.py:578-598) removed → commit `ebc123d`
+- [x] `perform_install` docstring updated (cross-install + project-scope codex now supported) → commit `ebc123d`
+- [x] `docs/cli-integration.md` — `--skill` cross-installs both providers; `--target codex --scope project` writes project config — PR commit
+- [x] Tests:
+  - Cross-install writes both `.claude/skills/scieasy/SKILL.md` and `.agents/skills/scieasy/SKILL.md` → `test_install_skill_cross_install_user_scope`, `test_install_skill_cross_install_project_scope`
+  - Remove cleans both trees → `test_remove_skill_cross_removal`
+  - Codex project-scope writes correct `[mcp_servers.scieasy]` TOML block → `test_install_codex_project_scope_writes_local_config`
+  - Legacy "wrote to user scope" caveat removed → `test_perform_install_codex_no_longer_forces_user_scope`
 - [ ] CHANGELOG entry
 - [ ] CI green; PR merged into tracking branch
 
@@ -315,23 +316,22 @@ See FastMCP track.
 
 **Branch**: `feat/issue-NNN/adr-040-i40b-skills` off `track/adr-040/skills`.
 
-- [ ] Sub-issue opened for I40b
-- [ ] `src/scieasy/_skills/scieasy/SKILL.md` thin base body authored (~50 LOC: identity, skill index, `<!-- project_context -->` marker, "available skills, when to use each")
-- [ ] 5 task skill bodies authored per Phase 2b blueprint:
-  - `scieasy-build-workflow`: YAML schema teaching + pitfalls + worked example + tool-call sequence
-  - `scieasy-write-block`: block-reuse rule (#875) + port-type selection rule (§3.2a + `list_types` mandate) + worked example
-  - `scieasy-debug-run`: lineage.db query patterns + log retrieval + common error signatures
-  - `scieasy-inspect-data`: data ref handling + preview semantics + lineage navigation
-  - `scieasy-project-qa`: meta-questions, docs lookup, project structure
-- [ ] `src/scieasy/agent_provisioning/templates/claude_agents_md.md` content authored (~50 LOC) — coordinates with I40c which authored the template skeleton
-- [ ] `skills/scieasy/SKILL.md` at repo root **DELETED** (canonical location is now packaged path)
-- [ ] Tests:
-  - Each skill frontmatter parses
-  - Base index references all 5
-  - CLAUDE.md/AGENTS.md template renders verbatim into both files
-  - `tests/packaging/test_wheel_skills.py` flipped from skip → pass: `pip install dist/*.whl && python -c "from importlib.resources import files; …"` returns content
-- [ ] CHANGELOG entry
-- [ ] CI green; PR merged into tracking branch
+- [x] Sub-issue opened for I40b → [#1057](https://github.com/zjzcpj/SciEasy/issues/1057)
+- [x] `src/scieasy/_skills/scieasy/SKILL.md` thin base body authored (~80 LOC: identity, 5-skill index, non-negotiable rules, `<!-- project_context -->` + `<!-- tool_catalog -->` markers) → commit `ced96fb`
+- [x] 5 task skill bodies authored per Phase 2b blueprint:
+  - `scieasy-build-workflow`: YAML schema teaching + 10 pitfalls + 3 worked examples (linear / fan-out / AI block) + tool-call sequence + when-validate-fails / when-run-fails recovery → commit `ced96fb`
+  - `scieasy-write-block`: #875 block-reuse rule (Layer 1 + hook backup) + Block ABC contract + ADR-040 §3.2a port-type narrowness rule (with `list_types` mandate + scaffold_block warnings rule) + ADR-030 config_schema MRO merge + ADR-025 entry points + 6-category taxonomy + worked thresholding-block example + 8 pitfalls → commit `ced96fb`
+  - `scieasy-debug-run`: canonical diagnostic sequence + `get_run_status` envelope + `get_block_logs` patterns + 8 common error signatures + ADR-038 lineage.db MCP-surface rule + AI block PTY + `finish_ai_block` contract + worked diagnostic example → commit `ced96fb`
+  - `scieasy-inspect-data`: ADR-031 reference-only contract + `inspect_data` / `preview_data` / `get_lineage` / `get_block_output` / `list_data` + worked threshold-mask example + lineage-walk example → commit `ced96fb`
+  - `scieasy-project-qa`: `get_project_info` / `search_docs` / `get_doc` / `list_data` + combining-tools recipes + worked plugin-list example → commit `ced96fb`
+- [x] `src/scieasy/agent_provisioning/templates/claude_agents_md.md` refined per Phase 2b §6 (I40c baseline upgraded with hook-by-file names, ADR §3.2a citation, next_step/warnings reading rule, mirrored non-negotiable rules block) → commit `ced96fb`
+- [x] `skills/scieasy/SKILL.md` at repo root **DELETED** (canonical location is now `src/scieasy/_skills/scieasy/SKILL.md`; examples subdir under `skills/scieasy/examples/` retained as out-of-scope) → commit `ced96fb`
+- [x] Tests:
+  - [x] `tests/packaging/test_wheel_skills.py` flipped from skip → 3 passing assertions: base SKILL.md loadable via importlib.resources + frontmatter + both splice markers; all 5 task skills loadable + authored; base indexes every task skill → commit `ced96fb`
+  - [x] `tests/agent_provisioning/test_claude_agents_md.py` extended with 2 content-refinement tests: template indexes all 5 task skills; template carries non-negotiable rules (MCP-tools-over-CLI, #875 list_blocks, ADR-040 §3.2a list_types/DataObject, workflow YAML via write_workflow) → commit `ced96fb`
+  - Local test run: 9/9 targeted tests pass; 61/61 across packaging/agent_provisioning/system_prompt
+- [ ] CHANGELOG entry → pending commit
+- [ ] CI green; PR merged into tracking branch → pending push + PR
 
 ### Phase 2c.5 / A40-skill — Skill content audit
 
@@ -404,8 +404,8 @@ Reviews all 3 impl PRs (I40a + I40c + I40d) together.
 
 ## Phase 3.6 / F40-3 — Audit fix dispatch
 
-- [ ] Manager triages findings from A1+A2+A3+A_int; groups by file scope
-- [ ] Fix agents dispatched in parallel (1 per scope); each fix lands in the relevant tracking-branch PR (not new PRs unless cross-cutting)
+- [x] Manager triages findings from A1+A2+A3+A_int; groups by file scope → F40-integration dispatch covers consensus P1/P2 from A1 + A3
+- [x] Fix agents dispatched in parallel (1 per scope); each fix lands in the relevant tracking-branch PR (not new PRs unless cross-cutting) → F40-integration #1084 PR against `track/adr-040` covers 6 consensus P1/P2 findings (F1 dead hook, F2 scaffold arity+port shape, F3 build-workflow envelope drift, F4 Codex-vs-Claude hook safety net, F5 write-block frontmatter disambiguator, F6 Codex tool catalog static fallback)
 - [ ] Re-run CI on tracking branches after fix
 - [ ] Update drift log for non-trivial findings
 - [ ] All P1/P2 resolved; CI green on all tracking branches
