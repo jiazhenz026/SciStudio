@@ -158,7 +158,7 @@ def _expected_skill_paths() -> list[str]:
         "scieasy-project-qa",
     ]
     paths: list[str] = []
-    for tree in (".claude/skills/scieasy", ".agents/skills/scieasy"):
+    for tree in (".claude/skills", ".agents/skills"):
         for name in names:
             paths.append(f"{tree}/{name}/SKILL.md")
     return paths

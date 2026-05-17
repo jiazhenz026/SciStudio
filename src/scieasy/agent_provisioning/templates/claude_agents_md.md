@@ -60,11 +60,30 @@ What this means in practice:
 - All workflow YAML changes are git-tracked (ADR-039). The user sees
   your diffs and can revert.
 
+## Git commits
+
+When you commit on the user's behalf, follow this convention so the
+user can scan history at a glance and tell apart their own work from
+agent-driven changes:
+
+- Subject prefix: `[agent] <imperative summary>` (e.g.
+  `[agent] add SimpleThreshold block`).
+- Include a `Co-Authored-By: <provider> <noreply@anthropic.com>`
+  trailer — `Co-Authored-By: Claude Code <noreply@anthropic.com>` on
+  Claude tabs, `Co-Authored-By: Codex <noreply@openai.com>` on Codex.
+- Group related files into one commit when scope is small. Do NOT
+  bundle unrelated changes; one commit per logical change keeps the
+  history reviewable.
+- The `auto: pre-run @ <timestamp>` commits you may see in `git log`
+  are SciEasy's ADR-039 lineage snapshots — leave them alone.
+
 ## Skills available
 
 Invoke the relevant skill before deep work in that area. Skills under
-`.claude/skills/scieasy/` (Claude Code) and `.agents/skills/scieasy/`
-(Codex) are mirrored — both providers see the same teaching surface.
+`.claude/skills/` (Claude Code) and `.agents/skills/` (Codex) are
+mirrored — both providers see the same teaching surface. Each skill
+lives at `<root>/<name>/SKILL.md` (the `scieasy` base skill is at
+`<root>/scieasy/`; the five task skills sit beside it).
 
 - `scieasy-build-workflow` — design a new workflow (YAML schema,
   validation, run lifecycle).

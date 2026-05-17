@@ -22,8 +22,8 @@ def test_write_skills_cross_installs_both_trees(tmp_project_dir: Path) -> None:
     assert len(written) == 12
 
     for name in _SKILL_NAMES:
-        claude = tmp_project_dir / ".claude" / "skills" / "scieasy" / name / "SKILL.md"
-        agents = tmp_project_dir / ".agents" / "skills" / "scieasy" / name / "SKILL.md"
+        claude = tmp_project_dir / ".claude" / "skills" / name / "SKILL.md"
+        agents = tmp_project_dir / ".agents" / "skills" / name / "SKILL.md"
         assert claude.is_file(), f"missing claude skill: {name}"
         assert agents.is_file(), f"missing agents skill: {name}"
         # Pair-wise content identity.
@@ -34,18 +34,18 @@ def test_write_skills_idempotent(tmp_project_dir: Path) -> None:
     """Second call preserves user-edited skill files."""
     write_skills(tmp_project_dir, force=False)
     user_marker = "# user-customized skill\n"
-    one_skill = tmp_project_dir / ".claude" / "skills" / "scieasy" / "scieasy-write-block" / "SKILL.md"
+    one_skill = tmp_project_dir / ".claude" / "skills" / "scieasy-write-block" / "SKILL.md"
     one_skill.write_text(user_marker, encoding="utf-8")
 
     written = write_skills(tmp_project_dir, force=False)
     # Skill paths that already exist are NOT in the written list on second call.
-    assert ".claude/skills/scieasy/scieasy-write-block/SKILL.md" not in written
+    assert ".claude/skills/scieasy-write-block/SKILL.md" not in written
     assert one_skill.read_text(encoding="utf-8") == user_marker
 
 
 def test_write_skills_force_overwrites(tmp_project_dir: Path) -> None:
     write_skills(tmp_project_dir, force=False)
-    target = tmp_project_dir / ".claude" / "skills" / "scieasy" / "scieasy" / "SKILL.md"
+    target = tmp_project_dir / ".claude" / "skills" / "scieasy" / "SKILL.md"
     target.write_text("# garbage\n", encoding="utf-8")
 
     write_skills(tmp_project_dir, force=True)
@@ -57,8 +57,8 @@ def test_write_skills_creates_parent_dirs(tmp_path: Path) -> None:
     """Both provider tree roots are created if absent."""
     target = tmp_path / "fresh"
     write_skills(target, force=False)
-    assert (target / ".claude" / "skills" / "scieasy" / "scieasy").is_dir()
-    assert (target / ".agents" / "skills" / "scieasy" / "scieasy").is_dir()
+    assert (target / ".claude" / "skills" / "scieasy").is_dir()
+    assert (target / ".agents" / "skills" / "scieasy").is_dir()
 
 
 def test_write_skills_placeholder_for_missing_source(tmp_project_dir: Path) -> None:
@@ -72,6 +72,6 @@ def test_write_skills_placeholder_for_missing_source(tmp_project_dir: Path) -> N
     write_skills(tmp_project_dir, force=False)
     # 5 task-scoped placeholders contain the TODO marker.
     for task_name in ("scieasy-build-workflow", "scieasy-debug-run"):
-        body = (tmp_project_dir / ".claude" / "skills" / "scieasy" / task_name / "SKILL.md").read_text(encoding="utf-8")
+        body = (tmp_project_dir / ".claude" / "skills" / task_name / "SKILL.md").read_text(encoding="utf-8")
         # Either the real Phase 2c body OR our placeholder — both are valid here.
         assert task_name in body or "placeholder" in body.lower() or "TODO" in body

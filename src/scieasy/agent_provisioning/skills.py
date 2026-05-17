@@ -4,8 +4,18 @@ Per ADR §3.4, the monolithic ``SKILL.md`` is split into 1 base index +
 5 task-scoped skills (6 total). Per ADR §3.8, all 6 are auto-installed
 under both:
 
-  - ``<project>/.claude/skills/scieasy/<name>/SKILL.md`` (Claude Code)
-  - ``<project>/.agents/skills/scieasy/<name>/SKILL.md`` (Codex)
+  - ``<project>/.claude/skills/<name>/SKILL.md`` (Claude Code)
+  - ``<project>/.agents/skills/<name>/SKILL.md`` (Codex)
+
+Skills land FLAT under ``skills/`` rather than nested under
+``skills/scieasy/`` because Claude Code's skill discovery
+(https://code.claude.com/docs/en/skills) and Codex Skills
+(https://developers.openai.com/codex/skills) both walk one level only.
+The skill named ``scieasy`` keeps its own ``scieasy/`` directory at this
+top level; task skills sit beside it as siblings. Discovered during
+ADR-040 Phase 4 e2e — the original ADR §3.5/§3.8 nested layout caused
+``Skill(scieasy-write-block) -> Unknown skill`` because the agent's
+skill registry never recursed into ``skills/scieasy/``.
 
 Skill names (per ADR §3.4):
 
@@ -56,8 +66,8 @@ _SKILL_NAMES = (
 )
 
 _DEST_TREES = (
-    ".claude/skills/scieasy",
-    ".agents/skills/scieasy",
+    ".claude/skills",
+    ".agents/skills",
 )
 
 
