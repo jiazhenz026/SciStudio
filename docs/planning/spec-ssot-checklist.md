@@ -110,19 +110,19 @@ code-has?  docs-has?  →  label
 > All agents dispatched in **one message** for true parallelism. Forbidden paths embedded verbatim in each prompt.
 
 ### Per agent
-- [ ] C1: modules `<TBD>`, `<TBD>` → `docs/audit/2026-05-17-spec-ssot-p1.5-code-C1.md`
-- [ ] C2: modules `<TBD>`, `<TBD>` → ...
-- [ ] C3: ...
-- [ ] C4: ...
-- [ ] C5: ...
-- [ ] C6: ... (if N≥12)
-- [ ] C7: ... (if N=14)
-- [ ] D1: all N modules → `docs/audit/2026-05-17-spec-ssot-p1.5-docs.md`
-- [ ] X1: inconsistencies → `docs/audit/2026-05-17-spec-ssot-p1.5-xcheck.md`
+- [x] C1 (id `ac3eaa6035bae9f77`): block-abc + port-system → `…-code-C1.md` (59KB, 41 ifaces)
+- [x] C2 (id `a3a9fb2e86595d933`): data-types + storage-backends → `…-code-C2.md` (41KB, 27 ifaces)
+- [x] C3 (id `aa7002049c9a4a4d6`): collection-transport + block-registry → `…-code-C3.md` (37KB)
+- [x] C4 (id `a7c0e6b7654798b80`): execution-engine solo → `…-code-C4.md` (53KB, 47 ifaces, 10 d-hints)
+- [x] C5 (id `a6af2868940d7df93`): lineage-db + versioning-git → `…-code-C5.md` (38KB) — versioning-git d-class **CONFIRMED**
+- [x] C6 (id `a9d84886e9dcc97cb`): rest-api + ws-sse-protocol → `…-code-C6.md` (64KB, 42 routes + 13 WS) — `src/scieasy/workflow/` is LIVE (S1 orphan flag wrong)
+- [x] C7 (id `a72a89f64dc2fd574`): mcp-tools + agent-provisioning → `…-code-C7.md` (66KB, 26 tools) — `list_block_runs` ghost in static catalog
+- [x] D1 (id `abf625b1c09b8bd9a`): all 13 modules → `…-docs.md` (102KB) — 5 ADR conflicts logged
+- [x] X1 (id `a704b0f099b05e7e2`): inconsistencies → `…-xcheck.md` (27KB) — 15 ARCH↔code + 2 ADR↔code + 3 ARCH↔ADR
 
 ### Manager post-phase
-- [ ] Read all reports
-- [ ] Populate "Interface rows" section (below) with one row per (module, interface)
+- [x] All 9 reports copied into spec-ssot worktree, main checkout cleaned (agents wrote outside worktree — TODO: review agent prompt for path discipline next cascade)
+- [ ] Populate "Interface rows" section (below) — done implicitly via Phase 2/2.5 consolidation
 
 ---
 

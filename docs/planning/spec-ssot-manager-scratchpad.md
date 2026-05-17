@@ -61,10 +61,22 @@
 
 (Empty when no agent in flight. Each entry: agent role, dispatch time, expected output path, `until` watcher pattern, current status.)
 
-(none — Phase 1 done; Phase 1.5 dispatch pending)
+Phase 1.5 (9 parallel agents, dispatched 2026-05-17):
+- **C1** (id `ac3eaa6035bae9f77`) — block-abc + port-system → `docs/audit/2026-05-17-spec-ssot-p1.5-code-C1.md`
+- **C2** (id `a3a9fb2e86595d933`) — data-types + storage-backends → `…-code-C2.md`
+- **C3** (id `aa7002049c9a4a4d6`) — collection-transport + block-registry → `…-code-C3.md`
+- **C4** (id `a7c0e6b7654798b80`) — execution-engine (solo) → `…-code-C4.md`
+- **C5** (id `a6af2868940d7df93`) — lineage-db + versioning-git → `…-code-C5.md`
+- **C6** (id `a9d84886e9dcc97cb`) — rest-api + ws-sse-protocol → `…-code-C6.md`
+- **C7** (id `a72a89f64dc2fd574`) — mcp-tools + agent-provisioning → `…-code-C7.md`
+- **D1** (id `abf625b1c09b8bd9a`) — docs-view all 13 modules → `…-docs.md`
+- **X1** (id `a704b0f099b05e7e2`) — cross-check inconsistencies → `…-xcheck.md`
+
+Watcher: poll all 9 worktrees `.claude/worktrees/agent-<id>/docs/audit/2026-05-17-spec-ssot-p1.5-*.md` until all 9 reports land.
 
 ### Completed dispatches log
-- **S1-enumerate** (id `a3f5139605d1e5520`) — Phase 1 module taxonomy. ✅ Completed. N = 13. Report copied to manager worktree at `docs/audit/2026-05-17-spec-ssot-p1-modules.md`. Worktree branch `worktree-agent-a3f5139605d1e5520` (not pushed).
+- **S1-enumerate** (id `a3f5139605d1e5520`) — Phase 1 module taxonomy. ✅ Completed. N = 13. Report copied to manager worktree at `docs/audit/2026-05-17-spec-ssot-p1-modules.md`.
+- **Phase 1.5 batch** (9 agents, dispatched + completed 2026-05-17): C1..C7 + D1 + X1 all ✅ completed. All 9 reports persisted to spec-ssot worktree at `docs/audit/2026-05-17-spec-ssot-p1.5-*.md`. **GOTCHA**: 7 of 9 agents wrote to MAIN checkout's `docs/audit/` instead of their isolated worktree (path resolution drift); cleaned post-hoc. Should be a prompt fix for next cascade: prefix output path with explicit worktree-relative resolver.
 
 ---
 
