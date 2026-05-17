@@ -261,9 +261,10 @@ mcp__scieasy__reload_blocks
 mcp__scieasy__list_blocks
 # Confirm imaging.threshold_simple now appears.
 
-mcp__scieasy__run_block_tests block_path=blocks/threshold_simple.py
-# Read the pytest output verbatim. If a test fails, do not retry
-# without changes — fix the issue first.
+mcp__scieasy__run_block_tests type_name="imaging.threshold_simple"
+# Targets tests/blocks/test_<type_name lowercased>.py. Read the pytest
+# output verbatim. If a test fails, do not retry without changes —
+# fix the issue first.
 ```
 
 ## 9. Common pitfalls
@@ -295,7 +296,8 @@ mcp__scieasy__run_block_tests block_path=blocks/threshold_simple.py
 - Do NOT set `base_category` as a ClassVar — it is inferred from the
   parent class.
 - Always `reload_blocks` after writing; verify with `list_blocks`.
-- Always `run_block_tests` before declaring the block done.
+- Always `run_block_tests` (with `type_name=<registered name>`) before
+  declaring the block done.
 - After every `scaffold_block` call, READ every entry in
   `warnings: list[str]`. Do not proceed with unaddressed warnings.
 
