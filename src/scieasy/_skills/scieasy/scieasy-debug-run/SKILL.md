@@ -35,19 +35,21 @@ upstream contamination.
 ## 2. `get_run_status` envelope shape
 
 ```
-{
-  state: "succeeded" | "failed" | "cancelled" | "running" | "pending",
-  block_states: {node_id: "succeeded" | "failed" | ...},
-  started_at: ISO-8601 timestamp,
-  finished_at: ISO-8601 timestamp | null,
-  error: str | null
-}
+GetRunStatusResult(
+  run_id: str,
+  state: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "unknown",
+  progress: {"block_states": {block_id: STATE_NAME, ...}},
+  errors: [BlockErrorEntry(block_id, error, summary), ...]
+)
 ```
 
-Read every field. The top-level `error` may be the engine-level
-diagnostic (e.g. "Block 'thr' raised"); per-block detail requires
-`get_block_logs`. The `block_states` dict tells you WHICH block(s)
-failed — start there.
+Read every field. The per-block state map lives at
+`progress.block_states` (not at the top level); captured block-level
+errors with full Python tracebacks live in the top-level `errors`
+list. The `summary` field (when present) is a one-line digest; the
+`error` field is the full traceback. Start by scanning
+`progress.block_states` for the first non-`succeeded` entry, then
+locate its matching `BlockErrorEntry` in `errors`.
 
 ## 3. `get_block_logs` patterns
 
@@ -160,8 +162,11 @@ User: "My segmentation workflow failed."
 ```
 # Step 1: full envelope
 get_run_status(run_id="r-abc123")
-# → {state: "failed", block_states: {load: "succeeded", thr: "failed"},
-#    error: "Block 'thr' raised: type mismatch"}
+# → GetRunStatusResult(state="failed",
+#     progress={"block_states": {"load": "succeeded", "thr": "failed"}},
+#     errors=[BlockErrorEntry(block_id="thr",
+#                             summary="Block 'thr' raised: type mismatch",
+#                             error="<full traceback>")])
 
 # Step 2: per-block logs
 get_block_logs(run_id="r-abc123", node_id="thr")
