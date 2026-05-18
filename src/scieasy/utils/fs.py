@@ -16,7 +16,7 @@ to call :func:`mount_pathlike` and fall back to a byte-copy
 (``shutil.copyfile`` / ``shutil.copytree``) on ``OSError``.
 
 ADR-028 §D8 / issue #1078: introduced for the
-``scieasy.core.materialisation`` pass-through optimisation. The
+``scieasy.engine.materialisation`` pass-through optimisation. The
 materialisation helper invokes :func:`mount_pathlike` when a source
 file already lives on disk in the target format, avoiding a redundant
 byte round-trip through the saver.

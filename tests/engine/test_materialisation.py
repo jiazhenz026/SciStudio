@@ -1,4 +1,4 @@
-"""Tests for :mod:`scieasy.core.materialisation`.
+"""Tests for :mod:`scieasy.engine.materialisation`.
 
 Covers the test plan from ``docs/planning/phase-minus-1-bugfix-plan.md``
 §3 (issue #1078):
@@ -28,10 +28,6 @@ from scieasy.blocks.io.io_block import IOBlock
 from scieasy.blocks.io.loaders.load_data import LoadData
 from scieasy.blocks.io.savers.save_data import SaveData
 from scieasy.blocks.registry import BlockRegistry, _spec_from_class
-from scieasy.core.materialisation import (
-    materialise_to_file,
-    reconstruct_from_file,
-)
 from scieasy.core.storage.ref import StorageReference
 from scieasy.core.types.array import Array
 from scieasy.core.types.artifact import Artifact
@@ -39,6 +35,10 @@ from scieasy.core.types.base import DataObject
 from scieasy.core.types.collection import Collection
 from scieasy.core.types.dataframe import DataFrame
 from scieasy.core.types.text import Text
+from scieasy.engine.materialisation import (
+    materialise_to_file,
+    reconstruct_from_file,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
