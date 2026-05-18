@@ -104,9 +104,7 @@ def test_extract_workflow_facts_stage_not_a_mapping(tmp_path: Path) -> None:
         extract_workflow_facts.extract(schema)
 
 
-def test_extract_workflow_facts_default_path_walks_up(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_extract_workflow_facts_default_path_walks_up(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Verify the walk-up default-path resolver."""
     (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
     (tmp_path / ".workflow").mkdir()
