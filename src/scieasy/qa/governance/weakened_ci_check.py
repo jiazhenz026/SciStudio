@@ -800,10 +800,24 @@ def _noqa_is_in_string_literal(line: str, noqa_pos: int) -> bool:
     prefix = line[:noqa_pos]
     triple_d = '"' * 3
     triple_s = "'" * 3
-    if triple_d in prefix or triple_s in prefix:
+    # Only treat triple-quote presence as "in string" when the triple-
+    # quote count is ODD (unterminated). A line like ``doc = """x"""
+    # # noqa: E501`` has TWO triple-double-quotes before the noqa — the
+    # string is closed and the noqa is a real directive. This addresses
+    # Codex P1 review on PR #1175: a single occurrence ANYWHERE in the
+    # prefix used to short-circuit as "in string", causing false
+    # negatives on real exemptions immediately after a closed triple-
+    # quoted string.
+    if prefix.count(triple_d) % 2 == 1 or prefix.count(triple_s) % 2 == 1:
         return True
-    # Strip escaped quotes so they don't bias the parity check.
-    prefix_no_esc = prefix.replace(r"\"", "").replace(r"\'", "")
+    # Strip escaped quotes and triple-quote runs (so they don't bias
+    # the single-quote parity check below).
+    prefix_no_esc = (
+        prefix.replace(r"\"", "")
+        .replace(r"\'", "")
+        .replace(triple_d, "")
+        .replace(triple_s, "")
+    )
     if prefix_no_esc.count('"') % 2 == 1 or prefix_no_esc.count("'") % 2 == 1:
         return True
     # Markdown / docstring code-span: ``noqa`` enclosed in backticks.

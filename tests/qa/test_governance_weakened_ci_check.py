@@ -434,6 +434,35 @@ def test_real_noqa_still_blocks_after_fix(repo: Path):
     assert WeakeningKind.EXPANDED_NOQA_USAGE in {f.kind for f in findings}
 
 
+def test_noqa_after_closed_triple_quoted_string_still_blocks(repo: Path):
+    """Codex P1 regression: a noqa appearing AFTER a closed triple-quoted
+    string on the same line is a real lint exemption and must be flagged.
+    The earlier heuristic incorrectly treated any triple-quote presence
+    in the prefix as ``inside a string,`` causing a false negative."""
+    _write(repo, "src/example.py", "x = 1\n")
+    _commit(repo, "add module")
+    _write(repo, "src/example.py", 'doc = """x"""  # noqa: E501\n')
+    _commit(repo, "noqa after closed triple-quoted")
+    findings = _diff_to_findings(repo)
+    assert WeakeningKind.EXPANDED_NOQA_USAGE in {f.kind for f in findings}
+
+
+def test_noqa_inside_unterminated_triple_quoted_string_ignored(repo: Path):
+    """Companion to the Codex P1 regression: the unterminated-triple-
+    quoted case (one set of triple quotes opened, not yet closed before
+    the noqa) IS a docstring context and must be skipped."""
+    _write(repo, "src/example.py", "x = 1\n")
+    _commit(repo, "add module")
+    _write(repo, "src/example.py", 'doc = """\n    Example: ``# noqa: E501``\n    """\nx = 1\n')
+    _commit(repo, "noqa inside docstring")
+    findings = _diff_to_findings(repo)
+    # The noqa text is on a line where the docstring is still open
+    # (the closing ``"""`` is on a later line). The earlier heuristic
+    # caught this via the leading-comment branch; the new triple-quote
+    # parity logic must continue to skip it.
+    assert WeakeningKind.EXPANDED_NOQA_USAGE not in {f.kind for f in findings}
+
+
 def test_detectors_callable_annotation_typechecks():
     """Regression for the post-merge mypy fix: ``_DETECTORS`` must use
     ``typing.Callable``, not the bare ``callable`` builtin. We verify by
