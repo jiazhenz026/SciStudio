@@ -1,0 +1,95 @@
+# Required-skill manifest (ADR-042 §17.3).
+#
+# This file is the single source of truth for the skills that MUST be
+# installed across every supported agent runtime before that agent may
+# commit to the repository.
+#
+# Loaded by:
+#   - scripts/audit/extract_skill_facts.py  -> SkillFacts.required_skills
+#   - src/scieasy/agent_provisioning/qa_skills.py -> installer
+#
+# Schema (consumed by both readers above):
+#   skills:
+#     - name: <kebab-case skill name>
+#       priority: P0|P1|P2          # ADR-042 §17.1
+#       kind: procedural|tool-wrapping|bootstrap-meta  # ADR-044 §11.3
+#       purpose: <one-line>
+#       pointer: <pointer-target, see ADR-044 §11.3 table>
+#
+# References:
+#   ADR-042 §17.1 — Required skill list.
+#   ADR-042 §17.2 — Installation paths per runtime.
+#   ADR-042 §17.3 — Cross-runtime installer.
+#   ADR-044 §11 — Skill-as-pointer template.
+
+version: 1
+
+skills:
+  # ---- P0 ----------------------------------------------------------------
+  - name: scieasy-skill-creator
+    priority: P0
+    kind: bootstrap-meta
+    purpose: Author and validate skills (frontmatter + ≤30 body lines).
+    pointer: docs/doc-guide/scieasy-skill-creator.md
+
+  - name: doc-drift-guard
+    priority: P0
+    kind: tool-wrapping
+    purpose: Run §9 doc-drift classifier; brief agent on current debt.
+    pointer: scieasy.qa.audit.doc_drift
+
+  - name: provenance-tagger
+    priority: P0
+    kind: tool-wrapping
+    purpose: Enforce Assisted-by/Fixes/ADR trailers via scripts/committer.py.
+    pointer: scripts/committer.py
+
+  - name: adr-router
+    priority: P0
+    kind: procedural
+    purpose: Refuse code change without an Accepted ADR reference.
+    pointer: docs/contributing/workflows/adr-router.md
+
+  # ---- P1 ----------------------------------------------------------------
+  - name: pr-maintainer
+    priority: P1
+    kind: procedural
+    purpose: Triage labels, dedup, RBP-gate enforcement.
+    pointer: docs/contributing/workflows/pr-maintainer.md
+
+  - name: mantis-proof
+    priority: P1
+    kind: tool-wrapping
+    purpose: Real-Behavior-Proof capture procedure.
+    pointer: docs/contributing/reference/mantis-proof.md
+
+  - name: session-logs
+    priority: P1
+    kind: tool-wrapping
+    purpose: Search local agent session JSONL for drift root-cause.
+    pointer: docs/contributing/reference/session-logs.md
+
+  - name: release-maintainer
+    priority: P1
+    kind: procedural
+    purpose: Version bump + CHANGELOG slice + tag.
+    pointer: docs/contributing/workflows/release-maintainer.md
+
+  # ---- P2 ----------------------------------------------------------------
+  - name: codemod-with-adr
+    priority: P2
+    kind: tool-wrapping
+    purpose: Run libCST codemods only when paired with an ADR ref.
+    pointer: scieasy.qa.codemods
+
+  - name: hallucination-guard
+    priority: P2
+    kind: tool-wrapping
+    purpose: Verify imported symbols and URLs exist.
+    pointer: scieasy.qa.audit.hallucination_guard
+
+  - name: maintainers-reverse
+    priority: P2
+    kind: tool-wrapping
+    purpose: Reverse-lookup MAINTAINERS for ownership before edit.
+    pointer: scieasy.qa.audit.maintainers_reverse

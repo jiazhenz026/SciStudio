@@ -13,6 +13,14 @@ Usage:
     python gate.py list                              # List all active workflows
     python gate.py validate <task_id> <stage_id>     # Check if stage is reachable
     python gate.py abort <task_id> [--reason TEXT]    # Abort a workflow
+
+Schema versioning (ADR-042 §19):
+    Add ``--schema-version v1|v2`` to any subcommand. v1 (default) is
+    the current 6-gate workflow. v2 is the 7-stage Workflow v2 defined
+    in `.workflow/schema-v2.yaml`. In Phase 1 of the ADR-042/043/044
+    cascade, v2 runs in **shadow mode**: events go to a parallel
+    `<task_id>.v2.jsonl` log, but v1 remains authoritative. Phase 2
+    (post-cascade) flips v2 to authoritative.
 """
 
 from __future__ import annotations
@@ -29,7 +37,14 @@ from typing import Any
 
 WORKFLOW_DIR = Path(__file__).parent
 SCHEMA_PATH = WORKFLOW_DIR / "schema.json"
+SCHEMA_V2_PATH = WORKFLOW_DIR / "schema-v2.yaml"
 ACTIVE_DIR = WORKFLOW_DIR / "active"
+
+# ─── Schema-version constants (ADR-042 §19) ─────────────────────────────────
+
+SCHEMA_VERSION_V1 = "v1"
+SCHEMA_VERSION_V2 = "v2"
+DEFAULT_SCHEMA_VERSION = SCHEMA_VERSION_V1
 
 
 # ─── Schema Loading ─────────────────────────────────────────────────────────
@@ -44,6 +59,44 @@ def load_schema() -> dict:
         return json.load(f)
 
 
+def load_schema_v2() -> dict:
+    """Load and validate the Workflow v2 schema (ADR-042 §19).
+
+    Imports PyYAML lazily so v1-only consumers don't pay the dep cost.
+    """
+    if not SCHEMA_V2_PATH.exists():
+        print(
+            f"ERROR: {SCHEMA_V2_PATH.name} not found (Workflow v2 schema).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    try:
+        import yaml  # type: ignore[import-not-found]
+    except ImportError as exc:  # pragma: no cover — pyyaml is in pyproject deps
+        print(f"ERROR: PyYAML required to load schema-v2.yaml: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    with open(SCHEMA_V2_PATH, encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    if not isinstance(data, dict) or "stages" not in data:
+        print(
+            f"ERROR: {SCHEMA_V2_PATH.name} malformed — top-level 'stages' missing.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if data.get("version", "").split(".")[0] != "2":
+        print(
+            f"ERROR: {SCHEMA_V2_PATH.name} version mismatch — expected '2.x.x', got {data.get('version')!r}.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    return data
+
+
 def get_stage_map(schema: dict) -> dict[str, dict]:
     """Build a lookup map of stage_id -> stage_definition."""
     return {s["id"]: s for s in schema["stages"]}
@@ -52,6 +105,148 @@ def get_stage_map(schema: dict) -> dict[str, dict]:
 def get_stage_order(schema: dict) -> list[str]:
     """Return ordered list of stage IDs."""
     return [s["id"] for s in schema["stages"]]
+
+
+# ─── Shadow-mode v2 event logging (ADR-042 §19) ─────────────────────────────
+
+
+def shadow_log_path(task_id: str) -> Path:
+    """Path to the per-task shadow-mode event log (one JSON object per line)."""
+    return ACTIVE_DIR / f"{task_id}.v2.jsonl"
+
+
+def append_shadow_event(task_id: str, event: dict) -> None:
+    """Append one event record to the shadow log.
+
+    The shadow log is intentionally append-only JSONL so v2 telemetry can
+    be inspected without parsing the full v1 state file. v1 remains the
+    authoritative source-of-truth during Phase 1 of the cascade.
+    """
+    ACTIVE_DIR.mkdir(parents=True, exist_ok=True)
+    path = shadow_log_path(task_id)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(event, ensure_ascii=False) + "\n")
+
+
+def run_v2_validators_shadow(
+    *,
+    task_id: str,
+    v1_stage_id: str,
+    artifacts: dict[str, Any],
+    branch: str | None = None,
+) -> list[dict]:
+    """Run v2 validators for the v1 stage ``v1_stage_id`` (shadow mode).
+
+    Map v1 → v2 stage IDs per ADR-042 §19.6. Validators that fail or
+    error do NOT block the v1 advance; results are written to the
+    shadow log for later analysis.
+
+    Returns the list of per-validator result records (also appended to
+    the shadow log).
+    """
+    # ADR-042 §19.6 migration mapping. Stages 1 (start_and_route) and
+    # 5 (implement_validate) have no v1 equivalent; they are skipped
+    # in shadow mode triggered from v1 advances.
+    v1_to_v2 = {
+        "create_issue": ["create_issue"],
+        "write_change_plan": ["change_plan"],
+        "create_branch": ["branch"],
+        # update_docs + update_changelog both map to v2 complete_artifacts
+        "update_docs": ["complete_artifacts"],
+        "update_changelog": ["complete_artifacts"],
+        "submit_pr": ["submit_reconcile"],
+    }
+    v2_stages = v1_to_v2.get(v1_stage_id, [])
+    if not v2_stages:
+        return []
+
+    # Lazy import the validators package; if it errors (e.g. import
+    # cycle, missing module), shadow mode swallows the exception and
+    # records it as a v2 error so the v1 path stays unaffected.
+    try:
+        from scieasy.qa.workflow.gate import StageContext
+        from scieasy.qa.workflow.validators import VALIDATORS
+    except Exception as exc:  # pragma: no cover — defensive
+        append_shadow_event(
+            task_id,
+            {
+                "event": "v2_import_error",
+                "v1_stage": v1_stage_id,
+                "error": repr(exc),
+                "timestamp": now_iso(),
+            },
+        )
+        return []
+
+    schema_v2 = load_schema_v2()
+    v2_stage_map = get_stage_map(schema_v2)
+
+    results: list[dict] = []
+    for v2_stage_id in v2_stages:
+        stage_def = v2_stage_map.get(v2_stage_id)
+        if not stage_def:
+            results.append(
+                {
+                    "v2_stage": v2_stage_id,
+                    "status": "error",
+                    "message": f"v2 stage {v2_stage_id} not in schema-v2.yaml",
+                }
+            )
+            continue
+
+        ctx = StageContext(
+            task_id=task_id,
+            stage_name=v2_stage_id,
+            repo_root=str(Path.cwd()),
+            pr_number=artifacts.get("pr_number") if isinstance(artifacts, dict) else None,
+            branch=branch or artifacts.get("branch_name", "") if isinstance(artifacts, dict) else "",
+            declared_data=artifacts if isinstance(artifacts, dict) else {},
+        )
+
+        for validator_id in stage_def.get("validations", []):
+            validator = VALIDATORS.get(validator_id)
+            if validator is None:
+                results.append(
+                    {
+                        "v2_stage": v2_stage_id,
+                        "validator_id": validator_id,
+                        "status": "error",
+                        "message": f"unknown validator_id {validator_id!r}",
+                    }
+                )
+                continue
+            try:
+                vr = validator(ctx)
+                results.append(
+                    {
+                        "v2_stage": v2_stage_id,
+                        "validator_id": vr.validator_id,
+                        "status": vr.status,
+                        "message": vr.message,
+                        "blocking": vr.blocking,
+                    }
+                )
+            except Exception as exc:  # pragma: no cover — defensive
+                results.append(
+                    {
+                        "v2_stage": v2_stage_id,
+                        "validator_id": validator_id,
+                        "status": "error",
+                        "message": f"validator raised: {exc!r}",
+                    }
+                )
+
+    append_shadow_event(
+        task_id,
+        {
+            "event": "v2_shadow_run",
+            "v1_stage": v1_stage_id,
+            "v2_stages": v2_stages,
+            "results": results,
+            "timestamp": now_iso(),
+        },
+    )
+    return results
 
 
 # ─── State File Operations ──────────────────────────────────────────────────
@@ -265,6 +460,36 @@ def cmd_advance(args: argparse.Namespace) -> None:
     save_state(args.task_id, state)
 
     print(f"[DONE] Stage '{stage_def['name']}' completed.")
+
+    # ── Workflow v2 shadow-mode run (ADR-042 §19, Phase 1 cascade) ─────────
+    # Opt-in via --schema-version v2. v1 behaviour above is untouched; this
+    # block only emits to the shadow log. Errors here MUST NOT affect v1.
+    if getattr(args, "schema_version", DEFAULT_SCHEMA_VERSION) == SCHEMA_VERSION_V2:
+        try:
+            shadow_results = run_v2_validators_shadow(
+                task_id=args.task_id,
+                v1_stage_id=target,
+                artifacts=artifacts,
+                branch=artifacts.get("branch_name") if isinstance(artifacts, dict) else None,
+            )
+            if shadow_results:
+                fails = [r for r in shadow_results if r["status"] == "fail"]
+                if fails:
+                    print(f"  [v2-shadow] {len(fails)} validator(s) FAILED (non-blocking; v1 advance succeeded):")
+                    for r in fails:
+                        print(f"    - {r['validator_id']}: {r['message']}")
+                else:
+                    print(
+                        f"  [v2-shadow] {len(shadow_results)} validator(s) ran "
+                        f"({sum(1 for r in shadow_results if r['status'] == 'pass')} pass, "
+                        f"{sum(1 for r in shadow_results if r['status'] == 'skip')} skip)."
+                    )
+        except Exception as exc:  # pragma: no cover — defensive
+            print(
+                f"  [v2-shadow] error during shadow run (ignored): {exc!r}",
+                file=sys.stderr,
+            )
+
     print()
 
     # Show what's next
@@ -347,6 +572,16 @@ def main():
     parser = argparse.ArgumentParser(
         description="SciEasy Workflow Gate",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--schema-version",
+        choices=[SCHEMA_VERSION_V1, SCHEMA_VERSION_V2],
+        default=DEFAULT_SCHEMA_VERSION,
+        help=(
+            "Workflow schema version. v1 (default) = current 6-gate workflow. "
+            "v2 = ADR-042 §19 7-stage Workflow v2, runs in shadow mode "
+            "during Phase 1 cascade."
+        ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
