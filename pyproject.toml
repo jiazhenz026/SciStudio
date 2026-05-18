@@ -16,6 +16,7 @@ classifiers = [
 ]
 dependencies = [
     "pydantic>=2.0",
+    "pydantic-settings>=2.5",  # ADR-042 §22.5: TranslationSettings env-var loader
     "fastapi>=0.110",
     "python-multipart>=0.0.9",
     "uvicorn[standard]>=0.29",
