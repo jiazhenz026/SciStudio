@@ -81,6 +81,11 @@ class BlockSpec:
     max_input_ports: int | None = None
     min_output_ports: int | None = None
     max_output_ports: int | None = None
+    # ADR-028 §D8 / #1077: cached copy of the class-level ``supported_extensions``
+    # ClassVar so :meth:`BlockRegistry.find_loader` / :meth:`find_saver` /
+    # :meth:`find_io_blocks_for_type` can dispatch by extension without
+    # re-importing the block class.
+    supported_extensions: dict[str, str] = field(default_factory=dict)
 
 
 class BlockRegistry:
@@ -574,6 +579,242 @@ class BlockRegistry:
         """Return a copy of the full registry mapping."""
         return dict(self._registry)
 
+    # ------------------------------------------------------------------
+    # ADR-028 §D8 / #1077: IO-block dispatch by (type, extension).
+    # ------------------------------------------------------------------
+
+    def find_loader(
+        self,
+        dtype: type | None,
+        extension: str,
+    ) -> type | None:
+        """Return the loader class whose ``supported_extensions`` contains *extension*
+        and whose first output port accepts *dtype*.
+
+        Extension matching is case-insensitive and runs against the same
+        compound-first lookup used by :meth:`IOBlock._detect_format` (so
+        a query for ``".OME.TIF"`` resolves a loader that declared
+        ``".ome.tif"``).
+
+        Type compatibility uses :meth:`TypeSignature.matches` (ADR-027):
+        a registered loader matches *dtype* when at least one of the
+        loader's declared ``output_ports[0].accepted_types`` produces a
+        signature that *dtype*'s signature is compatible with (i.e. the
+        loader's output IS-A *dtype*). A loader declaring ``Array`` output
+        is **not** a match when queried with ``Image`` because ``Array``
+        is not an ``Image`` subtype.
+
+        Disambiguation policy: if multiple loaders match, prefer the one
+        whose accepted-type signature has the longest type chain
+        (the most specific declaration). On chain-length ties,
+        **first-registered-wins** (insertion order into the registry).
+
+        When ``dtype is None`` the type filter is skipped and the first
+        loader (by registration order) whose ``supported_extensions``
+        contains *extension* is returned. Used by callers that only know
+        the file extension.
+
+        Returns ``None`` if no loader matches. Plugin modules that fail
+        to import at query time are dropped silently (matches the
+        existing tolerance in :meth:`scan`).
+        """
+        return self._find_io_block(direction="input", dtype=dtype, extension=extension)
+
+    def find_saver(
+        self,
+        dtype: type,
+        extension: str,
+    ) -> type | None:
+        """Return the saver class whose ``supported_extensions`` contains *extension*
+        and whose first input port accepts an instance of *dtype*.
+
+        Extension matching, type matching, and disambiguation follow the
+        same rules as :meth:`find_loader`, except the type check runs
+        against ``input_ports[0].accepted_types`` (the saver must accept
+        the requested type as input). Returns ``None`` if no saver
+        matches.
+        """
+        return self._find_io_block(direction="output", dtype=dtype, extension=extension)
+
+    def find_io_blocks_for_type(
+        self,
+        dtype: type,
+        direction: str,
+    ) -> list[type]:
+        """Enumerate every loader (``direction=\"input\"``) or saver
+        (``direction=\"output\"``) whose first port accepts *dtype*.
+
+        Returns the resolved class objects in registration order
+        (extension is not part of the filter). Intended for port-editor
+        UI code that populates a \"save as format\" dropdown for a given
+        DataObject type. Type compatibility uses the same
+        :meth:`TypeSignature.matches` rule as :meth:`find_loader` /
+        :meth:`find_saver`.
+
+        Raises ``ValueError`` for any *direction* other than
+        ``\"input\"`` or ``\"output\"``.
+        """
+        if direction not in ("input", "output"):
+            raise ValueError(f"direction must be 'input' or 'output', got {direction!r}")
+
+        results: list[type] = []
+        for spec in self._registry.values():
+            if spec.direction != direction:
+                continue
+            cls = self._resolve_class(spec)
+            if cls is None:
+                continue
+            if not self._class_accepts_dtype(cls, dtype, direction):
+                continue
+            results.append(cls)
+        return results
+
+    # --- helpers --------------------------------------------------------
+
+    def _find_io_block(
+        self,
+        *,
+        direction: str,
+        dtype: type | None,
+        extension: str,
+    ) -> type | None:
+        """Shared core for :meth:`find_loader` / :meth:`find_saver`."""
+        if not extension:
+            return None
+        normalized_ext = extension.lower()
+
+        # Collect (specificity_key, cls) for ranking. Specificity = length
+        # of the longest accepted-types signature chain that satisfies
+        # the type filter. Insertion order is preserved by iterating
+        # ``self._registry.values()`` (Python 3.7+ dict ordering).
+        matches: list[tuple[int, type]] = []
+        for spec in self._registry.values():
+            if spec.direction != direction:
+                continue
+            if not _ext_in_mapping(normalized_ext, spec.supported_extensions):
+                continue
+            cls = self._resolve_class(spec)
+            if cls is None:
+                continue
+            if dtype is not None:
+                specificity = self._best_specificity(cls, dtype, direction)
+                if specificity < 0:
+                    continue
+            else:
+                specificity = 0
+            matches.append((specificity, cls))
+
+        if not matches:
+            return None
+        # Sort by specificity DESC, preserving insertion order on ties
+        # (Python's sort is stable).
+        matches.sort(key=lambda pair: -pair[0])
+        return matches[0][1]
+
+    @staticmethod
+    def _resolve_class(spec: BlockSpec) -> type | None:
+        """Load the class referenced by *spec*. Returns ``None`` on import failure.
+
+        Mirrors :meth:`instantiate`'s import path (mtime-keyed reload for
+        Tier-1 drop-ins, normal ``import_module`` otherwise) but does
+        **not** instantiate the class — query methods only need the
+        ClassVars (``supported_extensions``, ports). On any import or
+        attribute error the method returns ``None`` so a single bad
+        plugin does not break dispatch for the rest.
+        """
+        try:
+            if spec.file_path:
+                path = Path(spec.file_path)
+                mtime = path.stat().st_mtime
+                mod_name = f"_scieasy_dropin_{path.stem}_{int(mtime)}"
+                mod_spec = importlib.util.spec_from_file_location(mod_name, path)
+                if mod_spec is None or mod_spec.loader is None:
+                    return None
+                module = importlib.util.module_from_spec(mod_spec)
+                mod_spec.loader.exec_module(module)
+            else:
+                module = importlib.import_module(spec.module_path)
+            cls = getattr(module, spec.class_name, None)
+            return cls if isinstance(cls, type) else None
+        except Exception:
+            logger.debug(
+                "registry.find_*: class import failed for %s.%s",
+                spec.module_path,
+                spec.class_name,
+                exc_info=True,
+            )
+            return None
+
+    @staticmethod
+    def _class_accepts_dtype(cls: type, dtype: type, direction: str) -> bool:
+        """Return True if *cls*'s first port is compatible with *dtype* (boolean form)."""
+        return BlockRegistry._best_specificity(cls, dtype, direction) >= 0
+
+    @staticmethod
+    def _best_specificity(cls: type, dtype: type, direction: str) -> int:
+        """Return the longest matching type-chain length, or ``-1`` if no match.
+
+        For ``direction == \"input\"`` the loader's ``output_ports[0]``
+        is checked: the loader's output type must be a subtype of *dtype*
+        (the loader produces something assignable to dtype).
+
+        For ``direction == \"output\"`` the saver's ``input_ports[0]``
+        is checked: the saver's input accepted-types must include a
+        supertype of *dtype* (the saver can accept an instance of dtype).
+        """
+        from scieasy.core.types.base import TypeSignature
+
+        if direction == "input":
+            ports = getattr(cls, "output_ports", None) or []
+        else:
+            ports = getattr(cls, "input_ports", None) or []
+        if not ports:
+            return -1
+        accepted_types = getattr(ports[0], "accepted_types", None) or []
+        if not accepted_types:
+            # Empty list means "accepts anything"; treat as the most-
+            # general match (chain length 1 — DataObject).
+            return 1
+
+        try:
+            dtype_sig = TypeSignature.from_type(dtype)
+        except Exception:
+            return -1
+
+        best = -1
+        for accepted in accepted_types:
+            try:
+                accepted_sig = TypeSignature.from_type(accepted)
+            except Exception:
+                continue
+            if direction == "input":
+                # Loader produces ``accepted`` — does that satisfy dtype?
+                # accepted IS-A dtype iff accepted's chain includes dtype
+                # as a prefix, i.e. dtype_sig is a prefix of accepted_sig,
+                # i.e. ``accepted_sig.matches(dtype_sig)`` is True.
+                if accepted_sig.matches(dtype_sig):
+                    best = max(best, len(accepted_sig.type_chain))
+            else:
+                # Saver accepts ``accepted`` — can it receive a dtype
+                # instance? Yes iff dtype IS-A accepted, i.e. accepted
+                # is a prefix of dtype.
+                if dtype_sig.matches(accepted_sig):
+                    best = max(best, len(accepted_sig.type_chain))
+        return best
+
+
+def _ext_in_mapping(extension_lower: str, mapping: dict[str, str]) -> bool:
+    """Case-insensitive membership check for ``supported_extensions``.
+
+    Accepts both forms ``".tif"`` and ``"tif"`` for *extension_lower*
+    (the leading dot is normalized). Returns True if any key in *mapping*
+    matches case-insensitively. Used by :meth:`BlockRegistry._find_io_block`.
+    """
+    if not mapping:
+        return False
+    candidate = extension_lower if extension_lower.startswith(".") else f".{extension_lower}"
+    return any(candidate == key.lower() for key in mapping)
+
 
 def _subclass_declares_field(cls: type, field_name: str) -> bool:
     """Return True if the leaf class's own ``config_schema`` declares *field_name*.
@@ -820,6 +1061,11 @@ def _spec_from_class(cls: type, source: str = "") -> BlockSpec:
         max_input_ports=getattr(cls, "max_input_ports", None),
         min_output_ports=getattr(cls, "min_output_ports", None),
         max_output_ports=getattr(cls, "max_output_ports", None),
+        # ADR-028 §D8 / #1077: cache the declared extensions for
+        # :meth:`BlockRegistry.find_loader` / :meth:`find_saver`. Default
+        # to an empty dict for non-IOBlock classes (or IOBlocks that have
+        # not yet declared the ClassVar — see #1074-#1076).
+        supported_extensions=dict(getattr(cls, "supported_extensions", {}) or {}),
     )
 
 
