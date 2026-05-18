@@ -1,1 +1,1 @@
-"""Tests for ``scieasy.qa`` — ADR-042/043/044 cascade."""
+"""Tests for the QA infrastructure subpackage (ADR-042/043/044)."""
