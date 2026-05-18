@@ -812,12 +812,7 @@ def _noqa_is_in_string_literal(line: str, noqa_pos: int) -> bool:
         return True
     # Strip escaped quotes and triple-quote runs (so they don't bias
     # the single-quote parity check below).
-    prefix_no_esc = (
-        prefix.replace(r"\"", "")
-        .replace(r"\'", "")
-        .replace(triple_d, "")
-        .replace(triple_s, "")
-    )
+    prefix_no_esc = prefix.replace(r"\"", "").replace(r"\'", "").replace(triple_d, "").replace(triple_s, "")
     if prefix_no_esc.count('"') % 2 == 1 or prefix_no_esc.count("'") % 2 == 1:
         return True
     # Markdown / docstring code-span: ``noqa`` enclosed in backticks.
