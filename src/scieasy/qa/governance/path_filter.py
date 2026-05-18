@@ -37,11 +37,49 @@ from pathlib import Path
 
 # Re-use mod_guard's path matcher so LOCAL hooks, CI verifier, AND the
 # §3.5 workflow agree on governance-path membership byte-for-byte.
-from .mod_guard import _glob_match, _load_governance_globs
+from .mod_guard import _glob_match
+
+
+class _DiffUnavailableError(RuntimeError):
+    """Raised when ``git diff`` fails — distinct from "diff returned empty".
+
+    Per Codex P1 review (PR #1166): the workflow must fail closed in this
+    case, not silently report ``touched=false`` (which would skip every
+    governance check on a genuinely-failed diff computation).
+    """
+
+
+def _load_globs_from(paths_yaml: Path) -> list[str]:
+    """Read ``governance_paths`` directly from the caller-supplied YAML.
+
+    Per Codex P2 review (PR #1166): the previous implementation read from
+    ``repo_root/.governance-paths.yaml`` regardless of ``paths_yaml``,
+    silently evaluating the wrong file when a caller passed a non-default
+    path. This helper honours the caller-provided file.
+
+    Returns ``[]`` if the file is missing, malformed, or has no
+    ``governance_paths`` key — the caller treats no-globs as the same
+    fail-open mode an empty registry would (we will still fail-closed on
+    *diff errors* in ``_changed_files``; that's a separate axis).
+    """
+    import yaml
+
+    if not paths_yaml.is_file():
+        return []
+    try:
+        raw = yaml.safe_load(paths_yaml.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        return []
+    return list(raw.get("governance_paths") or [])
 
 
 def _changed_files(repo_root: Path, base: str, head: str) -> list[str]:
-    """Return repo-relative POSIX paths changed between ``base`` and ``head``."""
+    """Return repo-relative POSIX paths changed between ``base`` and ``head``.
+
+    Raises :class:`_DiffUnavailableError` if the diff cannot be computed (git
+    missing, non-zero exit, etc.). The caller MUST translate this into
+    ``touched=true`` (fail-closed) per Codex P1 review.
+    """
     try:
         out = subprocess.run(
             ["git", "diff", "--name-only", f"{base}..{head}"],
@@ -50,10 +88,11 @@ def _changed_files(repo_root: Path, base: str, head: str) -> list[str]:
             text=True,
             check=False,
         )
-    except FileNotFoundError:
-        return []
+    except FileNotFoundError as exc:
+        raise _DiffUnavailableError(f"git executable not found: {exc}") from exc
     if out.returncode != 0:
-        return []
+        stderr_tail = (out.stderr or "")[:200].strip()
+        raise _DiffUnavailableError(f"git diff {base}..{head} exited {out.returncode}: {stderr_tail}")
     return [line.strip() for line in out.stdout.splitlines() if line.strip()]
 
 
@@ -81,16 +120,38 @@ def filter(
     repo_root:
         Repository root. Defaults to the parent of ``paths_yaml``.
 
+    Behaviour notes (Codex P1/P2 review fixes, PR #1166):
+      * **Fail-closed on diff errors**: if ``git diff`` can't run or
+        returns a non-zero exit code, we treat the PR as *touching*
+        governance (touched=true) so the workflow's downstream guard
+        steps still run. The alternative (silent touched=false) would
+        bypass enforcement whenever the diff computation breaks, which
+        is exactly the failure mode a hostile commit could exploit.
+      * **paths_yaml is honoured**: governance globs are loaded from
+        the caller-supplied YAML file, not from a hard-coded location
+        under ``repo_root``.
+
     Returns
     -------
     bool
-        ``True`` iff any governance path is touched.
+        ``True`` iff any governance path is touched, OR the diff
+        computation failed (fail-closed).
     """
     paths_yaml = paths_yaml.resolve()
     repo_root = (repo_root or paths_yaml.parent).resolve()
 
-    globs = _load_governance_globs(repo_root)
-    changed = _changed_files(repo_root, base, head)
+    globs = _load_globs_from(paths_yaml)
+    try:
+        changed = _changed_files(repo_root, base, head)
+    except _DiffUnavailableError as exc:
+        # Fail closed: surface the error reason in the output file so the
+        # workflow log makes the bypass-attempt visible.
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with output.open("a", encoding="utf-8") as fh:
+            fh.write("touched=true\n")
+            fh.write(f"path_filter_error={exc!s}\n")
+        return True
+
     touched = any(_glob_match(p, globs) for p in changed) if globs else False
 
     output.parent.mkdir(parents=True, exist_ok=True)

@@ -110,33 +110,72 @@ def test_returns_false_when_governance_yaml_missing(tmp_path: Path) -> None:
     assert touched is False
 
 
-def test_handles_git_unavailable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Patch subprocess.run to raise; filter() must still write touched=false."""
+def test_fails_closed_when_git_unavailable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Codex P1 fix: when git is missing the filter must fail-closed
+    (``touched=true``) so the workflow's downstream governance checks
+    still run instead of being silently skipped."""
     p = _seed_paths_yaml(tmp_path)
 
     import scieasy.qa.governance.path_filter as mod
 
     def _boom(*_a, **_kw):
-        raise FileNotFoundError
+        raise FileNotFoundError("simulated missing git")
 
     monkeypatch.setattr(mod.subprocess, "run", _boom)
     out = tmp_path / "github_output.txt"
     touched = path_filter_fn(p, "BASE", "HEAD", out, repo_root=tmp_path)
-    assert touched is False
-    assert "touched=false" in out.read_text(encoding="utf-8")
+    assert touched is True
+    body = out.read_text(encoding="utf-8")
+    assert "touched=true" in body
+    assert "path_filter_error=" in body  # error reason logged
 
 
-def test_handles_git_returns_nonzero(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_fails_closed_when_git_returns_nonzero(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Codex P1 fix: a non-zero git exit (e.g. unavailable base SHA in
+    the checkout) must fail-closed."""
     p = _seed_paths_yaml(tmp_path)
     import scieasy.qa.governance.path_filter as mod
 
     class _Out:
-        returncode = 1
+        returncode = 128
         stdout = ""
+        stderr = "fatal: bad revision 'BASE..HEAD'"
 
     monkeypatch.setattr(mod.subprocess, "run", lambda *a, **k: _Out())
     out = tmp_path / "github_output.txt"
     touched = path_filter_fn(p, "BASE", "HEAD", out, repo_root=tmp_path)
+    assert touched is True
+    assert "touched=true" in out.read_text(encoding="utf-8")
+
+
+def test_honours_caller_provided_paths_yaml(tmp_path: Path) -> None:
+    """Codex P2 fix: the caller-provided ``paths_yaml`` must be the
+    source of governance globs — NOT a hard-coded
+    ``repo_root/.governance-paths.yaml`` lookup."""
+    # Put a *different* registry at the caller-provided location and a
+    # broader (would-match) one at the repo-root default location.
+    caller_yaml = tmp_path / "custom" / "my-paths.yaml"
+    caller_yaml.parent.mkdir(parents=True)
+    caller_yaml.write_text(
+        'version: 1\ngovernance_paths:\n  - "ONLY_THIS.md"\nhoneypot_canaries: []\n',
+        encoding="utf-8",
+    )
+    # Default location declares the broader registry — if the impl reads
+    # this by mistake, the test will see a false touched=true.
+    (tmp_path / ".governance-paths.yaml").write_text(
+        'version: 1\ngovernance_paths:\n  - "**"\nhoneypot_canaries: []\n',
+        encoding="utf-8",
+    )
+    _git_init(tmp_path)
+    (tmp_path / "x.txt").write_text("v1\n", encoding="utf-8")
+    base = _commit(tmp_path, "base")
+    (tmp_path / "x.txt").write_text("v2\n", encoding="utf-8")
+    head = _commit(tmp_path, "head")
+
+    out = tmp_path / "github_output.txt"
+    touched = path_filter_fn(caller_yaml, base, head, out, repo_root=tmp_path)
+    # ``x.txt`` does NOT match ``ONLY_THIS.md``; if the impl were reading
+    # ``.governance-paths.yaml`` it would match the broader ``**``.
     assert touched is False
 
 
