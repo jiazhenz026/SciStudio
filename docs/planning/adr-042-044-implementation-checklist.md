@@ -29,7 +29,7 @@
 
 | ADR section | Status | Current owner | Branch / worktree | Merge status | Notes |
 |---|---:|---|---|---|---|
-| ADR-043 §2 Implementation Monitoring | [~] | §2 implementation agent | `local/adr043-s2-implementation` / `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-implementation` | Skeleton merged | Skeleton commit `e52d9fdf6993ca1e5cd221642c1194913c8b2b5d` merged as `a68f5cd7` |
+| ADR-043 §2 Implementation Monitoring | [~] | §2 implementation agent v2 | `local/adr043-s2-implementation-v2` / `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-implementation-v2` | Skeleton merged; phase gate removed | Skeleton commit `e52d9fdf6993ca1e5cd221642c1194913c8b2b5d` merged as `a68f5cd7`; phase-gate removal `84583a26` |
 | ADR-043 §5 CLAUDE.md / AGENTS.md Layered Design | [~] | §5 scaffold agent | `local/adr043-s5-layered-scaffold` / `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s5-layered` | Not merged | Owner approved safe parallel scaffold on 2026-05-18 |
 
 ## Deferred File Tracking
@@ -115,7 +115,10 @@ drift inventory hooks, and the initial tracker artifact.
 | Review skeleton commit and test result | [~] | Manager | Pending manager review / owner audit |
 | Merge skeleton into local umbrella | [x] | Manager | Merge commit `a68f5cd7`; no remote push |
 | Create second implementation worktree from approved skeleton | [x] | Manager | `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-implementation`, `local/adr043-s2-implementation` |
-| Complete remaining ADR-043 section 2 implementation | [~] | Implementation agent | Pending agent result |
+| Stop first §2 implementation agent after scope correction | [x] | Manager | Agent `019e3c7d-7cf6-70d3-8459-231863ca8e83` closed; old worktree has uncommitted non-phase-gate diff preserved |
+| Remove legacy phase-gate skeleton | [x] | Manager | Commit `84583a26`; owner will manually gate phase readiness |
+| Create second implementation v2 worktree | [x] | Manager | `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-implementation-v2`, `local/adr043-s2-implementation-v2` |
+| Complete remaining ADR-043 section 2 implementation | [~] | Implementation agent v2 | Pending agent result |
 | Owner audit | [ ] | Owner | No separate audit agent per owner instruction |
 | Merge approved branch into local umbrella | [ ] | Manager | Only after owner approval |
 
