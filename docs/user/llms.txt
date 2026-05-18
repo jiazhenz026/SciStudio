@@ -1,0 +1,1 @@
+# Placeholder for OpenClaw-pattern llms.txt — populated by scieasy.qa.docs.generators.llms_txt.generate at build time per ADR-044 §10.3
