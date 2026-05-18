@@ -231,3 +231,59 @@ def test_manifest_records_typed_entries(tmp_path: Path, registry_with_core_io: B
     assert blob_entry["extension"] == ".bin"
     assert blob_entry["format"] == "binary"
     assert Path(blob_entry["path"]).read_bytes() == b"\x00\x01"
+
+
+# ---------------------------------------------------------------------------
+# Codex review follow-ups (PR #1117)
+# ---------------------------------------------------------------------------
+
+
+def test_default_extension_only_matches_exact_core_type_name() -> None:
+    """Codex P1: ``_default_extension_for_obj`` must NOT walk the MRO.
+
+    The MRO-walking implementation would force ``.npy`` on every Array
+    subclass (a plugin ``Image`` whose saver declares ``.tif`` / ``.zarr``,
+    a plugin ``Mask`` whose saver declares ``.png``, etc.). The exact-name
+    lookup returns ``None`` for any subclass so the materialiser falls
+    back to the saver-declared default. This avoids the worst case where
+    a plugin type's saver does not support ``.npy`` and the forced
+    extension would raise ``LookupError``.
+    """
+    from scieasy.blocks.app.bridge import _default_extension_for_obj
+
+    class PluginArray(Array):
+        pass
+
+    # ADR-027 D1 requires axes for Array; the helper only inspects
+    # ``type(obj).__name__`` so any valid Array instance works.
+    plugin_arr = PluginArray(axes=["y", "x"], shape=(1, 1), dtype="uint8")
+    base_arr = Array(axes=["y", "x"], shape=(1, 1), dtype="uint8")
+
+    assert _default_extension_for_obj(plugin_arr) is None, (
+        "plugin Array subclass must NOT receive a forced core extension; "
+        "the materialiser must be free to defer to the plugin saver's default"
+    )
+    assert _default_extension_for_obj(base_arr) == ".npy"
+
+
+def test_empty_collection_preserves_declared_item_type(tmp_path: Path, registry_with_core_io: BlockRegistry) -> None:
+    """Codex P2: empty Collection's manifest entry must preserve the
+    declared ``item_type`` instead of dropping to ``"mixed"``.
+
+    ``Collection([], item_type=DataFrame)`` is a valid typed payload
+    (ADR-020 Add6 requires ``item_type`` when items is empty); the
+    bridge must surface it in the manifest so downstream consumers can
+    keep handling the typed-but-empty case correctly.
+    """
+    empty = Collection([], item_type=DataFrame)
+
+    bridge = FileExchangeBridge()
+    bridge.prepare({"frames": empty}, tmp_path, registry=registry_with_core_io)
+
+    manifest = json.loads((tmp_path / "manifest.json").read_text())
+    entry = manifest["frames"]
+    assert entry["type"] == "collection"
+    assert entry["item_type"] == "DataFrame", (
+        f"empty Collection with declared item_type must surface that name, got {entry['item_type']!r}"
+    )
+    assert entry["items"] == []

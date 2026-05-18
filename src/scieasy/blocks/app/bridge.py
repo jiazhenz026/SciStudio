@@ -96,9 +96,22 @@ class FileExchangeBridge:
                         )
                     )
                     item_types.add(type(item).__name__)
+                # Codex P2 (PR #1117): for empty Collections, prefer the
+                # declared item_type so the manifest does not drop type
+                # information on empty-but-typed payloads.
+                # ``Collection.item_type`` is guaranteed by ADR-020 Add6
+                # (Collection construction requires it when items is
+                # empty; inferred from items[0] otherwise).
+                if len(item_types) == 1:
+                    item_type_name = next(iter(item_types))
+                elif len(item_types) == 0:
+                    declared = getattr(value, "item_type", None)
+                    item_type_name = declared.__name__ if declared is not None else "mixed"
+                else:
+                    item_type_name = "mixed"
                 manifest[key] = {
                     "type": "collection",
-                    "item_type": next(iter(item_types)) if len(item_types) == 1 else "mixed",
+                    "item_type": item_type_name,
                     "items": item_entries,
                 }
                 continue
@@ -244,15 +257,20 @@ _CORE_TYPE_DEFAULT_EXTENSION: dict[str, str] = {
 def _default_extension_for_obj(obj: Any) -> str | None:
     """Return the bridge's preferred default extension for *obj*.
 
-    Walks ``type(obj).__mro__`` looking for a matching name in
-    :data:`_CORE_TYPE_DEFAULT_EXTENSION`. Returns ``None`` when no
-    core-type ancestor is registered — the materialiser then falls
-    back to the saver-declared default.
+    Looks up ``type(obj).__name__`` (exact match, not MRO walk) against
+    :data:`_CORE_TYPE_DEFAULT_EXTENSION`. Returns ``None`` for plugin
+    DataObject subclasses — the materialiser then falls back to the
+    plugin saver's own declared default extension via
+    :func:`scieasy.engine.materialisation._default_extension_for`.
+
+    Codex P1 (PR #1117): an earlier MRO-walking implementation forced a
+    core extension onto every subclass (e.g. ``.npy`` for every Array
+    subclass, including an imaging-plugin ``Image`` whose saver
+    declares ``.tif`` / ``.zarr``). The exact-name lookup preserves the
+    "core types stick to a deterministic extension, plugin types use
+    their plugin saver's default" contract.
     """
-    for base in type(obj).__mro__:
-        if base.__name__ in _CORE_TYPE_DEFAULT_EXTENSION:
-            return _CORE_TYPE_DEFAULT_EXTENSION[base.__name__]
-    return None
+    return _CORE_TYPE_DEFAULT_EXTENSION.get(type(obj).__name__)
 
 
 def _materialise_data_object(
