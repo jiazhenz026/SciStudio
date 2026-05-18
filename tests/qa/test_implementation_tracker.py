@@ -40,3 +40,64 @@ def test_implementation_check_reports_missing_tracker_without_traceback(tmp_path
     assert report.total_findings == 1
     assert findings[0].severity == Severity.ERROR
     assert findings[0].rule_id == "implementation-tracker.missing"
+
+
+def test_implementation_check_reports_missing_implemented_artifact(tmp_path: Path) -> None:
+    tracker_path = tmp_path / "docs/audit/adr-042-implementation-tracker.yaml"
+    tracker_path.parent.mkdir(parents=True)
+    tracker_path.write_text(
+        """
+adr: 42
+schema_version: 1
+sections:
+  - section: "ADR-043 test"
+    requires_artifacts:
+      files: ["missing.py"]
+      symbols: []
+      tests: []
+    verification_checks: []
+    status: implemented
+    implemented_in_pr: 1113
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python -c 'print(1)'"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    report = run(tmp_path)
+
+    assert [finding.rule_id for finding in report.runs[0].findings] == ["implementation-tracker.artifact-missing"]
+
+
+def test_implementation_check_runs_verified_command(tmp_path: Path) -> None:
+    tracker_path = tmp_path / "docs/audit/adr-042-implementation-tracker.yaml"
+    tracker_path.parent.mkdir(parents=True)
+    command = f"{sys.executable} -c \"import sys; sys.exit(3)\""
+    tracker_path.write_text(
+        f"""
+adr: 42
+schema_version: 1
+sections:
+  - section: "ADR-043 test"
+    requires_artifacts:
+      files: []
+      symbols: []
+      tests: []
+    verification_checks:
+      - id: "command"
+        description: "Command runs"
+    status: verified
+    implemented_in_pr: 1113
+    verified_at: "2026-05-18T00:00:00Z"
+    verifier_skill: null
+    verifier_command: {command!r}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    report = run(tmp_path)
+
+    assert [finding.rule_id for finding in report.runs[0].findings] == [
+        "implementation-tracker.verifier-command-failed"
+    ]
