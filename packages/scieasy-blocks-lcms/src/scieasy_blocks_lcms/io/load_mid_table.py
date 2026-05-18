@@ -80,6 +80,17 @@ class LoadMIDTable(_LCMSBlockMixin, IOBlock):
         "AccuCor output (CSV/TSV/XLSX) into a typed MIDTable."
     )
 
+    # ADR-028 §D8: declared extensions consumed by the base-class
+    # :meth:`IOBlock._detect_format` helper and (per #1077) by
+    # :meth:`BlockRegistry.find_loader`. ``.xls`` aliases to ``xlsx``
+    # because pandas reads both via ``read_excel``. Issue #1076.
+    supported_extensions: ClassVar[dict[str, str]] = {
+        ".csv": "csv",
+        ".tsv": "tsv",
+        ".xlsx": "xlsx",
+        ".xls": "xlsx",
+    }
+
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(
             name="mid_table",
@@ -142,7 +153,11 @@ class LoadMIDTable(_LCMSBlockMixin, IOBlock):
         for path in paths:
             if not path.exists():
                 raise FileNotFoundError(f"LoadMIDTable: source file not found: {path}")
-            frame = _read_table(path, sheet_name=config.get("sheet_name"))
+            # ADR-028 §D8 / #1076: resolve format via the declared ClassVar.
+            file_format = self._detect_format(path)
+            if file_format is None:
+                raise ValueError(f"LoadMIDTable: unsupported file format: {path.suffix}")
+            frame = _read_table(path, file_format=file_format, sheet_name=config.get("sheet_name"))
             compound_column = _find_compound_column(frame.columns)
             if compound_column is None:
                 raise ValueError("LoadMIDTable requires a 'Compound' or 'compound' column")
@@ -183,17 +198,18 @@ class LoadMIDTable(_LCMSBlockMixin, IOBlock):
         raise NotImplementedError("T-LCMS-005 LoadMIDTable is direction='input'; use SaveTable to write.")
 
 
-def _read_table(path: Path, *, sheet_name: str | int | None) -> pd.DataFrame:
+def _read_table(path: Path, *, file_format: str, sheet_name: str | int | None) -> pd.DataFrame:
+    """Read an MID table file using the format identifier resolved from
+    :attr:`LoadMIDTable.supported_extensions` (#1076)."""
     import pandas as pd
 
-    suffix = path.suffix.lower()
-    if suffix == ".csv":
+    if file_format == "csv":
         return pd.read_csv(path)
-    if suffix == ".tsv":
+    if file_format == "tsv":
         return pd.read_csv(path, sep="\t")
-    if suffix in {".xlsx", ".xls"}:
+    if file_format == "xlsx":
         return pd.read_excel(path, sheet_name=0 if sheet_name is None else sheet_name)
-    raise ValueError(f"LoadMIDTable: unsupported file format: {path.suffix}")
+    raise ValueError(f"LoadMIDTable: unsupported file format: {file_format}")
 
 
 def _find_compound_column(columns: pd.Index) -> str | None:
