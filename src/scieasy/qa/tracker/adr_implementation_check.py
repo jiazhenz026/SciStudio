@@ -179,7 +179,6 @@ def _check_entry(repo_root: Path, entry: TrackerEntry) -> list[Finding]:
                 "implementation-tracker.in-progress-no-artifact-change",
                 f"{entry.section} is in_progress but no declared artifact is changed locally.",
                 file=TRACKER_PATH,
-                severity=Severity.WARNING,
             )
         )
 

@@ -70,6 +70,38 @@ sections:
     assert [finding.rule_id for finding in report.runs[0].findings] == ["implementation-tracker.artifact-missing"]
 
 
+def test_in_progress_tracker_without_artifact_change_is_error(tmp_path: Path) -> None:
+    tracker_path = tmp_path / "docs/audit/adr-042-implementation-tracker.yaml"
+    tracker_path.parent.mkdir(parents=True)
+    tracker_path.write_text(
+        """
+adr: 42
+schema_version: 1
+sections:
+  - section: "ADR-043 test"
+    requires_artifacts:
+      files: ["src/scieasy/qa/schemas/tracker.py"]
+      symbols: []
+      tests: []
+    verification_checks: []
+    status: in_progress
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python -c 'print(1)'"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    report = run(tmp_path)
+    findings = report.runs[0].findings
+
+    assert report.runs[0].exit_status == "errors"
+    assert [(finding.rule_id, finding.severity) for finding in findings] == [
+        ("implementation-tracker.in-progress-no-artifact-change", Severity.ERROR)
+    ]
+
+
 def test_implementation_check_runs_verified_command(tmp_path: Path) -> None:
     tracker_path = tmp_path / "docs/audit/adr-042-implementation-tracker.yaml"
     tracker_path.parent.mkdir(parents=True)
