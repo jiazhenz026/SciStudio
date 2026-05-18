@@ -48,6 +48,31 @@ _CORE_TYPE_MAP: dict[str, type[DataObject]] = {
 }
 
 
+def _resolve_format(path: Path, block: LoadData | None) -> str | None:
+    """Resolve a path's format identifier via the active block, or fall
+    back to the :attr:`LoadData.supported_extensions` ClassVar.
+
+    Issue #1074: lets the module-level ``_load_*`` functions consume
+    the IOBlock ``_detect_format`` contract whether or not a concrete
+    ``LoadData`` instance is available at the call site.
+    """
+    if block is not None:
+        return block._detect_format(path)
+    # Walk Path.suffixes longest-first to support compound suffixes,
+    # mirroring IOBlock._detect_format. Lower-case keys + suffixes for
+    # case-insensitivity.
+    mapping = LoadData.supported_extensions
+    if not mapping:
+        return None
+    normalized = {k.lower(): v for k, v in mapping.items()}
+    suffixes = [s.lower() for s in path.suffixes]
+    for start in range(len(suffixes)):
+        candidate = "".join(suffixes[start:])
+        if candidate in normalized:
+            return normalized[candidate]
+    return None
+
+
 class LoadData(IOBlock):
     """Dynamic-port core IO loader covering the six core ``DataObject`` types.
 
@@ -70,6 +95,40 @@ class LoadData(IOBlock):
         "follows the configured core_type."
     )
     subcategory: ClassVar[str] = "io"
+
+    # ADR-028 §D8 / issue #1074: declarative mapping of every file
+    # extension this loader can handle to a stable format identifier.
+    # The union covers all six per-core-type dispatch tables (see the
+    # private ``_load_*`` functions below); ``_detect_format`` in the
+    # base class consults this mapping at runtime, and downstream
+    # ``BlockRegistry.find_loader`` (#1077) consumes it for extension-
+    # based dispatch. Note that Artifact is a catch-all sink — it can
+    # accept any extension, including ones not in this list — but the
+    # discoverable / registry-visible set is the union below.
+    supported_extensions: ClassVar[dict[str, str]] = {
+        # Array formats
+        ".npy": "npy",
+        ".npz": "npz",
+        ".zarr": "zarr",
+        ".parquet": "parquet",
+        ".pq": "parquet",
+        # Pickle (gated by allow_pickle)
+        ".pkl": "pickle",
+        ".pickle": "pickle",
+        # DataFrame / Series tabular formats
+        ".csv": "csv",
+        ".tsv": "tsv",
+        ".json": "json",
+        # Text formats
+        ".txt": "text",
+        ".log": "text",
+        ".md": "text",
+        ".html": "text",
+        ".xml": "text",
+        ".yaml": "text",
+        ".yml": "text",
+        ".toml": "text",
+    }
 
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="data", accepted_types=[DataObject]),
@@ -154,11 +213,14 @@ class LoadData(IOBlock):
         # ADR-031: dispatch table. Functions that don't need output_dir
         # are wrapped with lambdas to accept and ignore the parameter,
         # keeping a uniform (config, output_dir) call signature.
+        # Issue #1074: ``self`` is threaded into ``_load_text`` so the
+        # ClassVar-backed format dispatch resolves through the active
+        # block instance.
         dispatch: dict[str, Any] = {
             "Array": self._load_array_with_persist,
             "DataFrame": self._load_dataframe_with_persist,
             "Series": self._load_series_with_persist,
-            "Text": lambda cfg, od: _load_text(cfg),
+            "Text": lambda cfg, od: _load_text(cfg, block=self),
             "Artifact": lambda cfg, od: _load_artifact(cfg),
             "CompositeData": self._load_composite_with_persist,
         }
@@ -189,7 +251,7 @@ class LoadData(IOBlock):
         ADR-031 Addendum 1: uses :meth:`persist_array` to write the numpy
         array to storage and returns a reference-only Array.
         """
-        arr_obj = _load_array(config)
+        arr_obj = _load_array(config, block=self)
         # If the array already has a storage_ref (e.g. zarr source), skip persist.
         if arr_obj.storage_ref is not None:
             return arr_obj
@@ -207,7 +269,7 @@ class LoadData(IOBlock):
         ADR-031 D4: uses :meth:`persist_table` to write the arrow table
         to storage and returns a reference-only DataFrame.
         """
-        df = _load_dataframe(config)
+        df = _load_dataframe(config, block=self)
         # If the dataframe has an in-memory table, persist it.
         table = getattr(df, "_arrow_table", None)
         if table is not None and output_dir:
@@ -287,19 +349,24 @@ def _check_pickle_allowed(path: Path, config: BlockConfig) -> bool:
     return True
 
 
-def _load_array(config: BlockConfig) -> Array:
+def _load_array(config: BlockConfig, block: LoadData | None = None) -> Array:
     """Load Array from .npy / .npz / .zarr / .parquet (single column) / .pkl.
 
     .npy and .npz are loaded via :func:`numpy.load`. .zarr stores create a
     metadata-only :class:`Array` with a :class:`StorageReference` so the
     actual chunked data stays lazy. Single-column .parquet falls back to
     pyarrow. Pickle support honours :func:`_check_pickle_allowed`.
+
+    Issue #1074: format dispatch is routed through
+    :meth:`IOBlock._detect_format` via the ``LoadData.supported_extensions``
+    ClassVar, replacing the previous inline ``if suffix == ".npy"`` ladder.
     """
     path = _resolve_path(config)
     if not path.exists():
         raise FileNotFoundError(f"LoadData: array source not found: {path}")
 
-    suffix = path.suffix.lower()
+    # Resolve format via the IOBlock contract (ADR-028 §D8 / #1074).
+    fmt = _resolve_format(path, block)
 
     if _check_pickle_allowed(path, config):
         import pickle
@@ -319,7 +386,7 @@ def _load_array(config: BlockConfig) -> Array:
         result._data = arr  # type: ignore[attr-defined]
         return result
 
-    if suffix == ".npy":
+    if fmt == "npy":
         import numpy as np
 
         arr = np.load(path)
@@ -331,7 +398,7 @@ def _load_array(config: BlockConfig) -> Array:
         result._data = arr  # type: ignore[attr-defined]
         return result
 
-    if suffix == ".npz":
+    if fmt == "npz":
         import numpy as np
 
         with np.load(path) as npz:
@@ -347,7 +414,7 @@ def _load_array(config: BlockConfig) -> Array:
         result._data = arr  # type: ignore[attr-defined]
         return result
 
-    if suffix == ".zarr" or (path.is_dir() and ((path / ".zgroup").exists() or (path / ".zarray").exists())):
+    if fmt == "zarr" or (path.is_dir() and ((path / ".zgroup").exists() or (path / ".zarray").exists())):
         # Build a metadata-only Array with a StorageReference; chunked data
         # stays lazy and is materialised by ZarrBackend on access.
         from scieasy.core.storage.ref import StorageReference
@@ -372,7 +439,7 @@ def _load_array(config: BlockConfig) -> Array:
             storage_ref=ref,
         )
 
-    if suffix in {".parquet", ".pq"}:
+    if fmt == "parquet":
         import pyarrow.parquet as pq
 
         table = pq.read_table(str(path))
@@ -391,12 +458,13 @@ def _load_array(config: BlockConfig) -> Array:
         return result
 
     raise ValueError(
-        f"LoadData(core_type='Array') does not support extension {suffix!r}. "
-        f"Supported: .npy, .npz, .zarr, .parquet, .pq, .pkl/.pickle (with allow_pickle=True)."
+        f"LoadData(core_type='Array') does not support extension {path.suffix.lower()!r}. "
+        f"Supported extensions: {sorted(LoadData.supported_extensions.keys())} "
+        f"(.pkl/.pickle require allow_pickle=True)."
     )
 
 
-def _load_dataframe(config: BlockConfig) -> DataFrame:
+def _load_dataframe(config: BlockConfig, block: LoadData | None = None) -> DataFrame:
     """Load DataFrame from .csv / .tsv / .parquet / .json / .pkl / .pickle.
 
     Uses pyarrow for columnar formats (CSV / Parquet) and pyarrow's JSON
@@ -408,12 +476,16 @@ def _load_dataframe(config: BlockConfig) -> DataFrame:
     Table on the ``_arrow_table`` attribute (matching the deleted
     csv_adapter / parquet_adapter convention) so downstream blocks can
     materialise data without re-parsing the file.
+
+    Issue #1074: format dispatch is routed through
+    :meth:`IOBlock._detect_format` via the ``LoadData.supported_extensions``
+    ClassVar.
     """
     path = _resolve_path(config)
     if not path.exists():
         raise FileNotFoundError(f"LoadData: dataframe source not found: {path}")
 
-    suffix = path.suffix.lower()
+    fmt = _resolve_format(path, block)
 
     if _check_pickle_allowed(path, config):
         import pickle
@@ -427,10 +499,10 @@ def _load_dataframe(config: BlockConfig) -> DataFrame:
             f"{type(obj).__name__}, expected scieasy.core.types.dataframe.DataFrame"
         )
 
-    if suffix in {".csv", ".tsv"}:
+    if fmt in {"csv", "tsv"}:
         import pyarrow.csv as pcsv
 
-        delimiter = "\t" if suffix == ".tsv" else ","
+        delimiter = "\t" if fmt == "tsv" else ","
         parse_opts = pcsv.ParseOptions(delimiter=delimiter)
         table = pcsv.read_csv(str(path), parse_options=parse_opts)
         df = DataFrame(
@@ -440,7 +512,7 @@ def _load_dataframe(config: BlockConfig) -> DataFrame:
         df._arrow_table = table  # type: ignore[attr-defined]
         return df
 
-    if suffix in {".parquet", ".pq"}:
+    if fmt == "parquet":
         import pyarrow.parquet as pq
 
         table = pq.read_table(str(path))
@@ -451,7 +523,7 @@ def _load_dataframe(config: BlockConfig) -> DataFrame:
         df._arrow_table = table  # type: ignore[attr-defined]
         return df
 
-    if suffix == ".json":
+    if fmt == "json":
         # pyarrow.json expects newline-delimited JSON records. For the
         # common "single JSON document containing a list of records" or
         # "single JSON document containing a {column: [values]} dict"
@@ -479,8 +551,9 @@ def _load_dataframe(config: BlockConfig) -> DataFrame:
         return df
 
     raise ValueError(
-        f"LoadData(core_type='DataFrame') does not support extension {suffix!r}. "
-        f"Supported: .csv, .tsv, .parquet, .pq, .json, .pkl/.pickle (with allow_pickle=True)."
+        f"LoadData(core_type='DataFrame') does not support extension {path.suffix.lower()!r}. "
+        f"Supported extensions: {sorted(LoadData.supported_extensions.keys())} "
+        f"(.pkl/.pickle require allow_pickle=True)."
     )
 
 
@@ -500,7 +573,8 @@ def _load_series(config: BlockConfig, block: Any = None, output_dir: str = "") -
     if not path.exists():
         raise FileNotFoundError(f"LoadData: series source not found: {path}")
 
-    suffix = path.suffix.lower()
+    detector = block if isinstance(block, LoadData) else None
+    fmt = _resolve_format(path, detector)
 
     if _check_pickle_allowed(path, config):
         import pickle
@@ -514,9 +588,9 @@ def _load_series(config: BlockConfig, block: Any = None, output_dir: str = "") -
             f"{type(obj).__name__}, expected scieasy.core.types.series.Series"
         )
 
-    if suffix in {".csv", ".tsv", ".parquet", ".pq"}:
+    if fmt in {"csv", "tsv", "parquet"}:
         # Reuse the dataframe loader and assert a single column.
-        df = _load_dataframe(config)
+        df = _load_dataframe(config, block=detector)
         if df.columns is None or len(df.columns) != 1:
             raise ValueError(
                 f"LoadData(core_type='Series') expects a single-column tabular file, "
@@ -535,8 +609,9 @@ def _load_series(config: BlockConfig, block: Any = None, output_dir: str = "") -
         )
 
     raise ValueError(
-        f"LoadData(core_type='Series') does not support extension {suffix!r}. "
-        f"Supported: .csv, .tsv, .parquet, .pq, .pkl/.pickle (with allow_pickle=True)."
+        f"LoadData(core_type='Series') does not support extension {path.suffix.lower()!r}. "
+        f"Supported extensions: {sorted(LoadData.supported_extensions.keys())} "
+        f"(.pkl/.pickle require allow_pickle=True)."
     )
 
 
@@ -552,24 +627,33 @@ _TEXT_FORMAT_MAP: dict[str, str] = {
 }
 
 
-def _load_text(config: BlockConfig) -> Text:
+def _load_text(config: BlockConfig, block: LoadData | None = None) -> Text:
     """Load Text from .txt / .md / .html / .xml / .log / .yaml / .yml / .toml.
 
     Reads the file via :meth:`pathlib.Path.read_text` (UTF-8) and infers
     the ``format`` field from the extension via :data:`_TEXT_FORMAT_MAP`.
-    Unknown extensions still load (treated as ``"plain"``) -- this matches
-    the spirit of the deleted ``generic_adapter`` and avoids surprising
-    rejections.
+
+    Issue #1074: gate the suffix membership check against
+    :attr:`LoadData.supported_extensions` (via ``_detect_format``) so the
+    block-level ClassVar remains the single source of truth, and tie the
+    error message to ``sorted(self.supported_extensions.keys())``.
     """
     path = _resolve_path(config)
     if not path.exists():
         raise FileNotFoundError(f"LoadData: text source not found: {path}")
 
+    detector = block if isinstance(block, LoadData) else None
+    fmt = _resolve_format(path, detector)
     suffix = path.suffix.lower()
-    if suffix not in _TEXT_FORMAT_MAP:
+
+    # ``_detect_format`` reports any registered extension; for Text we also
+    # require the suffix to live in the text-specific format map (so e.g.
+    # a path with ``.npy`` cannot squeeze through as Text).
+    if fmt != "text" or suffix not in _TEXT_FORMAT_MAP:
         raise ValueError(
             f"LoadData(core_type='Text') does not support extension {suffix!r}. "
-            f"Supported: {sorted(_TEXT_FORMAT_MAP.keys())}."
+            f"Supported extensions: {sorted(LoadData.supported_extensions.keys())}; "
+            f"Text-specific subset: {sorted(_TEXT_FORMAT_MAP.keys())}."
         )
 
     content = path.read_text(encoding="utf-8")
