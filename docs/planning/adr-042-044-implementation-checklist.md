@@ -95,6 +95,21 @@ those updates in the Notes column when implemented.
 | Test | `vitest` | Frontend tests | `frontend/` config | [ ] | Pending |
 | Doc | `typedoc` | Frontend API docs with Python cross-links | `frontend/` config | [ ] | Pending |
 
+## CI Wiring Task List
+
+All ADR-042/043/044 QA checks are report-only until the owner explicitly flips
+them to hard-fail. This section tracks wiring tasks separately from tool
+implementation so final CI hookup can be done in one owner-reviewed pass.
+
+| Wiring task | Status | Current behavior | Future hard-fail trigger | Notes |
+|---|---:|---|---|---|
+| ADR-043 §2 report-only aggregate runner | [ ] | Not wired | N/A | Create a local script that runs §2 tools, captures reports, and exits 0 by default |
+| `adr_implementation_check` CI/pre-commit wiring | [ ] | Manual only | After tracker rows stop using transitional `in_progress` scaffolding | Should fail on schema/import/artifact errors; warning policy owner-defined |
+| `tool_self_test_runner all` CI wiring | [ ] | Manual only | After required `docs/audit/tool-self-test/*-on-adr-042.json` artifacts exist | Currently expected to report missing artifacts |
+| `governance_drift` CI wiring | [ ] | Manual only | After known ADR/config mismatches are resolved or explicitly baselined | Currently reports coverage 90-vs-70 drift |
+| `addendum_propagate` pre-commit/CI wiring | [ ] | Manual only | After tracker update workflow is owner-approved | Should start as report-only on ADR addendum diffs |
+| Hard-fail conversion plan | [ ] | Deferred | Owner final CI pass | Convert selected report-only tasks to required CI checks in one batch |
+
 ## Drift Log
 
 - 2026-05-18: Initial skeleton agent `019e3c62-7ed1-7c30-9c0a-0bd7fd5e1dc4` was interrupted/shutdown before producing worktree changes. Re-dispatched as `019e3c69-8976-77d2-b468-572a0be48766`.
