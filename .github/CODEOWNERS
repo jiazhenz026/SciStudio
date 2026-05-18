@@ -13,9 +13,9 @@ pyproject.toml @zjzcpj
 #
 # See ADR-043 §3.2 for the governance-path → CODEOWNERS contract.
 docs/adr/**                                       @jiazhenz026
-docs/spec/**                                      @jiazhenz026
+docs/specs/**                                     @jiazhenz026
 docs/adr/_template/**                             @jiazhenz026
-docs/spec/_template/**                            @jiazhenz026
+docs/specs/_template/**                           @jiazhenz026
 AGENTS.md                                         @jiazhenz026
 CLAUDE.md                                         @jiazhenz026
 CURSOR.md                                         @jiazhenz026

@@ -41,7 +41,7 @@ def test_governance_paths_validates() -> None:
     "expected_path",
     [
         "docs/adr/**",
-        "docs/spec/**",
+        "docs/specs/**",  # plural — see .governance-paths.yaml comment for rationale.
         "AGENTS.md",
         "CLAUDE.md",
         "pyproject.toml",

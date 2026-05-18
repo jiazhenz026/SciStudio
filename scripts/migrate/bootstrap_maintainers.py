@@ -4,7 +4,11 @@ This script is the Phase 1C one-shot migration that produces the
 initial ``MAINTAINERS`` file. It:
 
 1. Reads YAML frontmatter from every ADR in ``docs/adr/`` and every
-   spec in ``docs/spec/`` (Accepted or Proposed; phase != deprecated).
+   spec in ``docs/specs/`` (Accepted or Proposed; phase != deprecated).
+   Note: ADR-043 §3.2 sample uses ``docs/spec/`` (singular) but the
+   real on-disk path is ``docs/specs/`` (plural — see ADR-042 §22.4
+   etc.). Plural is canonical; singular form recorded as an ADR-043
+   §27.4 errata candidate.
 2. Extracts ``governs.modules`` and ``governs.files`` from each.
 3. Emits one ``MaintainersEntry`` per ADR/spec where:
    - ``path_glob`` = the module path expanded to a glob
@@ -72,7 +76,7 @@ def _load_frontmatter(adr_path: Path) -> dict[str, Any] | None:
 
 
 def _collect_governance(repo_root: Path) -> list[dict[str, Any]]:
-    """Walk ``docs/adr/`` and ``docs/spec/`` and collect governs entries.
+    """Walk ``docs/adr/`` and ``docs/specs/`` and collect governs entries.
 
     Returns a list of ``{adr: int, modules: list[str], files: list[str]}``
     dictionaries, one per ADR/spec with parseable frontmatter and a
@@ -112,7 +116,10 @@ def _collect_governance(repo_root: Path) -> list[dict[str, Any]]:
                 )
             )
 
-    spec_dir = repo_root / "docs" / "spec"
+    # ADR text uses "docs/spec/" (singular) in some places, but the
+    # on-disk directory is "docs/specs/" (plural). Plural is canonical
+    # — see ADR-042 §22.4, §3.6, §26.3.4, ADR-043 §3.6.4.
+    spec_dir = repo_root / "docs" / "specs"
     if spec_dir.exists():
         for spec_file in sorted(spec_dir.glob("*.md")):
             fm = _load_frontmatter(spec_file)

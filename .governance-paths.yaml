@@ -16,11 +16,19 @@
 
 version: 1
 governance_paths:
-  # ADRs and specs
+  # ADRs and specs.
+  #
+  # Note: the ADR-043 §3.2 sample uses ``docs/spec/**`` (singular), but
+  # the on-disk path is ``docs/specs/**`` (plural — see ADR-042 §22.4,
+  # §3.6, §26.3.4, ADR-043 §3.6.4 which all reference ``docs/specs/``).
+  # The plural form is therefore the canonical filesystem layout and
+  # what we register as governance. Recorded as an ADR-043 §27.4
+  # errata candidate (singular vs plural inconsistency within ADR-043
+  # itself).
   - "docs/adr/**"
-  - "docs/spec/**"
+  - "docs/specs/**"
   - "docs/adr/_template/**"
-  - "docs/spec/_template/**"
+  - "docs/specs/_template/**"
 
   # Agent-facing rule files
   - "AGENTS.md"
