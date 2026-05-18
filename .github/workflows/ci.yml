@@ -41,12 +41,14 @@ jobs:
       # Co-located inside the lint job so the decommission PR can remove
       # it surgically; see docs/planning/phase-0-5-temp-review-design.md §6.
       # temp_review.py piggybacks on mypy + lint-imports; once
-      # src/scieasy/qa/ contains Python files (Phase 1A and later) those
+      # src/scieasy/qa/ contains Python files (Phase 1A onwards), those
       # tools must be importable here or the piggyback returns env-error
       # exit 2. Installing the project's [dev] extra (which provides
       # mypy + import-linter) is the minimal CI unblocker; the legacy
       # Type Check / Import Contracts jobs continue to own the
-      # authoritative type / import checks.
+      # authoritative type / import checks. CI-unblocker per ADR-042 §26.1
+      # freeze-allowed work. First needed by TC-1A.1 (1A-a), surfaced
+      # again by TC-1D.9 with its own qa/translation/ subpackage.
       - run: uv pip install --system -e ".[dev]"
       - name: Phase -0.5 temporary review
         run: python -m scripts.audit.temp_review --ci
