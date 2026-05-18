@@ -1,0 +1,106 @@
+# .github/workflows/governance-modification.yml
+#
+# Recursive self-check for governance-path edits (ADR-043 §3.5).
+#
+# This workflow is the platform-level enforcement of the §3 layered
+# defenses (CODEOWNERS / mod_guard / mod_pr_check / monotonic_check /
+# honeypot / weakened_ci_check). Branch protection on `main` MUST mark
+# the ``recursive-self-check`` job as a required check.
+#
+# Path filtering is intentionally dynamic — there is NO hand-maintained
+# ``paths:`` list under ``on.pull_request``. The first step calls
+# ``scieasy.qa.governance.path_filter`` which reads
+# ``.governance-paths.yaml`` at runtime and writes ``touched=true|false``
+# into ``$GITHUB_OUTPUT``. Every subsequent step gates on that flag.
+# This is the audit fix iter-7 ITER-FRESH-002 design — see
+# ``scieasy.qa.governance.workflow_sync_check`` which would block any
+# attempt to reintroduce a static path list here.
+
+name: governance-modification-check
+
+on:
+  pull_request: {}
+
+jobs:
+  recursive-self-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # path_filter needs base..head diff.
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install scieasy (editable)
+        run: pip install -e . --no-deps
+
+      # ADR-043 §3.5 + audit fix iter-7 ITER-FRESH-002: derive matched
+      # paths dynamically from .governance-paths.yaml instead of a static
+      # YAML `paths:` list (which historically drifted).
+      - name: Determine governance-path matches in this PR
+        id: gov_paths
+        run: |
+          python -m scieasy.qa.governance.path_filter \
+            --paths-yaml .governance-paths.yaml \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}" \
+            --output "$GITHUB_OUTPUT"
+
+      - name: Skip if no governance paths touched
+        if: steps.gov_paths.outputs.touched != 'true'
+        run: echo "PR does not touch any .governance-paths.yaml entry; skipping recursive self-check."
+
+      # Defends against re-introduction of a hand-edited path list here.
+      # MUST run before every other governance step so a workflow regression
+      # is caught even when the static list would have skipped its callers.
+      - name: Workflow shadow-list sync check
+        if: steps.gov_paths.outputs.touched == 'true'
+        run: python -m scieasy.qa.governance.workflow_sync_check
+
+      # TODO(#1113): the dedicated contradiction-audit tool lands in
+      # Phase 1F/1G. Until then this step invokes the Phase -0.5
+      # temp_review CLI as a stand-in (verifies trailer + AST shape
+      # rules — does not yet re-run a true ADR contradiction audit).
+      # Out of scope per ADR-043 Phase 1E.
+      # Followup: open as part of ADR-043 Phase 1F/1G sub-issues under #1113.
+      - name: Contradiction audit (temp_review stand-in)
+        if: steps.gov_paths.outputs.touched == 'true'
+        run: python scripts/audit/temp_review.py --ci
+
+      - name: Monotonic check (no loosening without approval)
+        if: steps.gov_paths.outputs.touched == 'true'
+        run: |
+          python -m scieasy.qa.governance.monotonic_check \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}"
+
+      - name: Honeypot integrity check
+        if: steps.gov_paths.outputs.touched == 'true'
+        run: python -m scieasy.qa.governance.honeypot --check-all
+
+      - name: Weakened-CI block (§6.4)
+        if: steps.gov_paths.outputs.touched == 'true'
+        run: |
+          python -m scieasy.qa.governance.weakened_ci_check \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}"
+
+      - name: Governance-modification PR check (authoritative)
+        if: steps.gov_paths.outputs.touched == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python -m scieasy.qa.governance.mod_pr_check \
+            --pr "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --sibling "monotonic_check=true" \
+            --sibling "honeypot=true" \
+            --sibling "contradiction_audit=true" \
+            --sibling "weakened_ci_check=true"
