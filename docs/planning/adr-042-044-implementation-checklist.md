@@ -30,7 +30,7 @@
 | ADR section | Status | Current owner | Branch / worktree | Merge status | Notes |
 |---|---:|---|---|---|---|
 | ADR-043 §2 Implementation Monitoring | [~] | §2 implementation agent v2 | `local/adr043-s2-implementation-v2` / `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-implementation-v2` | Skeleton merged; phase gate removed | Skeleton commit `e52d9fdf6993ca1e5cd221642c1194913c8b2b5d` merged as `a68f5cd7`; phase-gate removal `84583a26` |
-| ADR-043 §5 CLAUDE.md / AGENTS.md Layered Design | [~] | §5 scaffold agent | `local/adr043-s5-layered-scaffold` / `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s5-layered` | Not merged | Owner approved safe parallel scaffold on 2026-05-18 |
+| ADR-043 §5 CLAUDE.md / AGENTS.md Layered Design | [~] | Agent Beauvoir | `local/adr043-s5-layered-scaffold` / `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s5-layered` | Awaiting owner audit | Commit `67d5f76aa0828e067d3cb93adb1d26f66aab4788`; high-impact root `AGENTS.md` reduction |
 
 ## Deferred File Tracking
 
@@ -181,8 +181,8 @@ path-scoped rule scaffold, pointer-style skill scaffold, and hook scaffold.
 |---|---:|---|---|
 | Owner approval for parallel §5 scaffold | [x] | Owner | Approved in chat on 2026-05-18 |
 | Create §5 worktree and branch | [x] | Manager | `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s5-layered`, `local/adr043-s5-layered-scaffold` |
-| Implement safe §5 scaffold | [~] | §5 agent | Must avoid deferred files listed above |
-| Run focused checks | [ ] | §5 agent | No full lint gate until §2/§6 foundations land |
+| Implement safe §5 scaffold | [x] | Agent Beauvoir | Commit `67d5f76aa0828e067d3cb93adb1d26f66aab4788`; no remote push |
+| Run focused checks | [x] | Agent Beauvoir | `git diff --check`, `bash -n scripts/hooks/*.sh`, line/body count check, and `pytest --timeout=60 --no-cov tests/qa/test_layered_agents_scaffold.py` passed |
 | Owner audit | [ ] | Owner | No separate audit agent |
 | Merge approved branch into local umbrella | [ ] | Manager | Only after owner approval |
 
@@ -190,28 +190,29 @@ path-scoped rule scaffold, pointer-style skill scaffold, and hook scaffold.
 
 | Path | Status | Notes |
 |---|---:|---|
-| `AGENTS.md` | [ ] | Root canonical policy scaffold; must not silently loosen current policy |
-| `CURSOR.md` | [ ] | Pointer to `AGENTS.md` if implemented as plain file |
-| `GEMINI.md` | [ ] | Pointer to `AGENTS.md` if implemented as plain file |
-| `.aiderrc` | [ ] | Pointer config if safe and minimal |
-| `src/scieasy/core/AGENTS.md` | [ ] | Frozen contract path-scope scaffold |
-| `src/scieasy/blocks/AGENTS.md` | [ ] | Block contract path-scope scaffold |
-| `src/scieasy/blocks/ai/AGENTS.md` | [ ] | ADR-035 pointer scaffold |
-| `src/scieasy/qa/AGENTS.md` | [ ] | ADR-042/043 QA scope scaffold |
-| `frontend/AGENTS.md` | [ ] | Frontend smoke-test pointer scaffold |
-| `.workflow/AGENTS.md` | [ ] | Workflow gate semantics scaffold |
-| `docs/AGENTS.md` | [ ] | Doc authoring rules scaffold |
-| `.github/AGENTS.md` | [ ] | CI/workflow rules scaffold |
-| `.claude/rules/*.md` | [ ] | Path-scoped rules from ADR-043 §5.3 |
-| `.claude/skills/*/SKILL.md` | [ ] | Pointer-style skills only; no long duplicated workflows |
-| `scripts/hooks/*.sh` | [ ] | Hook scaffolds from ADR-043 §5.3 |
+| `AGENTS.md` | [~] | Implemented in §5 branch; owner audit required before merge because it removes ~1100 legacy lines |
+| `CURSOR.md` | [x] | Implemented in §5 branch |
+| `GEMINI.md` | [x] | Implemented in §5 branch |
+| `.aiderrc` | [x] | Implemented in §5 branch |
+| `src/scieasy/core/AGENTS.md` | [x] | Implemented in §5 branch |
+| `src/scieasy/blocks/AGENTS.md` | [x] | Implemented in §5 branch |
+| `src/scieasy/blocks/ai/AGENTS.md` | [x] | Implemented in §5 branch |
+| `src/scieasy/qa/AGENTS.md` | [x] | Implemented in §5 branch |
+| `frontend/AGENTS.md` | [x] | Implemented in §5 branch |
+| `.workflow/AGENTS.md` | [x] | Implemented in §5 branch |
+| `docs/AGENTS.md` | [x] | Implemented in §5 branch |
+| `.github/AGENTS.md` | [x] | Implemented in §5 branch |
+| `.claude/rules/*.md` | [x] | Implemented in §5 branch |
+| `.claude/skills/*/SKILL.md` | [x] | Implemented in §5 branch |
+| `scripts/hooks/*.sh` | [x] | Implemented in §5 branch |
 
 ### Required Checks
 
 | Command | Status | Notes |
 |---|---:|---|
-| `git diff --check` | [ ] | Pending §5 agent |
-| Manual line-count check for root `AGENTS.md` / skill bodies | [ ] | Pending §5 agent; root target ≤200 lines, skills pointer-only |
+| `git diff --check` | [x] | Passed |
+| Manual line-count check for root `AGENTS.md` / skill bodies | [x] | Root `AGENTS.md` 138 lines; new skill bodies 14-16 lines |
+| `pytest --timeout=60 --no-cov tests/qa/test_layered_agents_scaffold.py` | [x] | 4 passed |
 
 ## Parallelization Assessment: ADR-043 Section 5
 
