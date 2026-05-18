@@ -14,7 +14,7 @@
       "name": "adr_implementation_check",
       "report_only": true,
       "stderr": "",
-      "stdout": "{\n  \"schema_version\": 1,\n  \"run_id\": \"adr_implementation_check-f67c5cd8-7900-4271-8773-0db520888c16\",\n  \"repo_sha\": \"28d3e3e78b54622ee5f6dd52ccf53532fcddd317\",\n  \"repo_branch\": \"local/adr043-report-only-wiring\",\n  \"pr_number\": null,\n  \"generated_at\": \"2026-05-18T19:41:50.828831Z\",\n  \"runs\": [\n    {\n      \"tool\": \"adr_implementation_check\",\n      \"version\": \"0.2\",\n      \"config_hash\": \"local\",\n      \"started_at\": \"2026-05-18T19:41:50.709148Z\",\n      \"completed_at\": \"2026-05-18T19:41:50.828831Z\",\n      \"exit_status\": \"warnings\",\n      \"findings\": [\n        {\n          \"rule_id\": \"implementation-tracker.in-progress-no-artifact-change\",\n          \"severity\": \"warning\",\n          \"drift_class\": null,\n          \"file\": \"docs/audit/adr-042-implementation-tracker.yaml\",\n          \"line\": null,\n          \"symbol\": null,\n          \"message\": \"ADR-043 section 2 Implementation Monitoring is in_progress but no declared artifact is changed locally.\",\n          \"suggested_fix\": null,\n          \"git_evidence\": null,\n          \"related_findings\": []\n        }\n      ]\n    }\n  ],\n  \"total_findings\": 1,\n  \"by_severity\": {\n    \"warning\": 1\n  },\n  \"by_drift_class\": {},\n  \"bidirectional_closure_ok\": true,\n  \"translation_ok\": true\n}\n"
+      "stdout": "{\n  \"schema_version\": 1,\n  \"run_id\": \"adr_implementation_check-12c8fc7e-daf9-4504-8acc-f30bc41566b4\",\n  \"repo_sha\": \"1281f7f19bdbe2091d6a177256c301501c047108\",\n  \"repo_branch\": \"umbrella/adr-042-044-implementation\",\n  \"pr_number\": null,\n  \"generated_at\": \"2026-05-18T19:45:12.562335Z\",\n  \"runs\": [\n    {\n      \"tool\": \"adr_implementation_check\",\n      \"version\": \"0.2\",\n      \"config_hash\": \"local\",\n      \"started_at\": \"2026-05-18T19:45:12.444437Z\",\n      \"completed_at\": \"2026-05-18T19:45:12.562335Z\",\n      \"exit_status\": \"warnings\",\n      \"findings\": [\n        {\n          \"rule_id\": \"implementation-tracker.in-progress-no-artifact-change\",\n          \"severity\": \"warning\",\n          \"drift_class\": null,\n          \"file\": \"docs/audit/adr-042-implementation-tracker.yaml\",\n          \"line\": null,\n          \"symbol\": null,\n          \"message\": \"ADR-043 section 2 Implementation Monitoring is in_progress but no declared artifact is changed locally.\",\n          \"suggested_fix\": null,\n          \"git_evidence\": null,\n          \"related_findings\": []\n        }\n      ]\n    }\n  ],\n  \"total_findings\": 1,\n  \"by_severity\": {\n    \"warning\": 1\n  },\n  \"by_drift_class\": {},\n  \"bidirectional_closure_ok\": true,\n  \"translation_ok\": true\n}\n"
     },
     {
       "classification": "finding",
@@ -61,12 +61,12 @@
       "stdout": "usage: addendum_propagate.py [-h] [--tracker TRACKER] addendum\n\nInsert implementation-tracker rows for ADR addendum frontmatter.\n\npositional arguments:\n  addendum\n\noptions:\n  -h, --help         show this help message and exit\n  --tracker TRACKER\n"
     }
   ],
-  "generated_at": "2026-05-18T19:41:51.567427+00:00",
+  "generated_at": "2026-05-18T19:45:13.337462+00:00",
   "hard_fail_later": "TODO(#1113): This aggregate remains report-only until the owner final CI pass selects which ADR-043 section 2 checks become required CI gates.",
-  "repo_branch": "local/adr043-report-only-wiring",
-  "repo_root": "C:\\Users\\jiazh\\Desktop\\workspace\\SciEasy-adr043-report-only-wiring",
-  "repo_sha": "28d3e3e78b54622ee5f6dd52ccf53532fcddd317",
+  "repo_branch": "umbrella/adr-042-044-implementation",
+  "repo_root": "C:\\Users\\jiazh\\Desktop\\workspace\\SciEasy-umbrella-adr-042-044",
+  "repo_sha": "1281f7f19bdbe2091d6a177256c301501c047108",
   "report_only": true,
-  "run_id": "adr043-section2-report-only-6050d5da-c553-416d-9048-02fa5b515579",
-  "started_at": "2026-05-18T19:41:50.489114+00:00"
+  "run_id": "adr043-section2-report-only-fc48f94a-2dc1-4893-9c59-adbf7f4af292",
+  "started_at": "2026-05-18T19:45:12.247458+00:00"
 }
