@@ -1,0 +1,94 @@
+schema_version: 1
+generated_at: '2026-05-18T11:05:54.599158Z'
+source_shas:
+  .workflow/schema-v2.yaml: 7a9a47475d84aee549ba0c1ccbfc0936f5aa7db8
+  pyproject.toml: 5169be101bfb6a875ba678376f5f042425b17f7e
+  .pre-commit-config.yaml: 4142dd9fcc8add9f789306780f7e9e803f83f11b
+  MAINTAINERS: ''
+  docs/skills/required.yaml: c86e64ae36001102376911b223a30d399a5055bc
+workflow:
+  stage_count: 7
+  stages:
+  - start_and_route
+  - create_issue
+  - change_plan
+  - branch
+  - implement_validate
+  - complete_artifacts
+  - submit_reconcile
+  blocking_validations:
+    start_and_route:
+    - start_and_route.shape
+    create_issue:
+    - create_issue.shape
+    change_plan:
+    - change_plan.shape
+    branch:
+    - branch.name_format
+    implement_validate:
+    - implement_validate.full_audit
+    complete_artifacts:
+    - complete_artifacts.check
+    submit_reconcile:
+    - submit_reconcile.shape
+tool:
+  python_version: '3.11'
+  min_coverage_percent: 70
+  lint_rules:
+  - E
+  - W
+  - F
+  - I
+  - N
+  - UP
+  - B
+  - SIM
+  - RUF
+  type_checkers:
+  - mypy
+  docs_engine: sphinx
+adr:
+  total_count: 14
+  by_status:
+    unknown: 11
+    Accepted: 3
+  latest_adr_number: 44
+maintainers:
+  entry_count: 0
+  human_count: 0
+  paths_covered_count: 0
+skill:
+  required_skills:
+  - scieasy-skill-creator
+  - doc-drift-guard
+  - provenance-tagger
+  - adr-router
+  - pr-maintainer
+  - mantis-proof
+  - session-logs
+  - release-maintainer
+  - codemod-with-adr
+  - hallucination-guard
+  - maintainers-reverse
+  installed_per_runtime:
+    claude:
+    - adr-router
+    - codemod-with-adr
+    - doc-drift-guard
+    - hallucination-guard
+    - maintainers-reverse
+    - mantis-proof
+    - pr-maintainer
+    - provenance-tagger
+    - release-maintainer
+    - scieasy-skill-creator
+    - session-logs
+    - speckit-analyze
+    - speckit-checklist
+    - speckit-clarify
+    - speckit-constitution
+    - speckit-implement
+    - speckit-plan
+    - speckit-specify
+    - speckit-tasks
+    - speckit-taskstoissues
