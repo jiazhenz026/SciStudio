@@ -191,12 +191,24 @@ name = "Blocks must not depend on engine, api, or ai services"
 type = "forbidden"
 source_modules = ["scieasy.blocks"]
 forbidden_modules = ["scieasy.engine", "scieasy.api", "scieasy.ai"]
-# ADR-035 §3.10 explicitly carves out scieasy.engine.pty_control as the
-# AI Block worker → engine IPC surface. AIBlock.run() must call back to
-# the engine to allocate a PTY tab and notify completion. Allow that one
-# import without weakening the broader boundary.
+# Narrow carve-outs for engine-layer dispatch surfaces that block-layer
+# code must call. Each entry cites the ADR that justifies the boundary
+# crossing.
+#
+# ADR-035 §3.10: AIBlock.run() must call back to the engine to allocate
+# a PTY tab and notify completion.
+#
+# ADR-028 §D8 (Phase -1 sprint, this PR + #1080): AppBlock's
+# `_bin_outputs_by_extension` dispatches to
+# `engine.materialisation.reconstruct_from_file` for typed DataObject
+# reconstruction. The helper lives in `engine/` because it consumes
+# `BlockRegistry` from `blocks/` (a `core/` placement would violate
+# Core ↔ Blocks per the first contract above). Both ignore entries
+# below are lazy function-body imports executed only inside the per-run
+# AppBlock dispatch path.
 ignore_imports = [
     "scieasy.blocks.ai.ai_block -> scieasy.engine.pty_control",
+    "scieasy.blocks.app.app_block -> scieasy.engine.materialisation",
 ]
 
 [[tool.importlinter.contracts]]
