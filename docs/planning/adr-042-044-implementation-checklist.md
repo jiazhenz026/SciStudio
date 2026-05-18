@@ -112,18 +112,81 @@ those updates in the Notes column when implemented.
 
 ## CI Wiring Task List
 
-All ADR-042/043/044 QA checks are report-only until the owner explicitly flips
-them to hard-fail. This section tracks wiring tasks separately from tool
-implementation so final CI hookup can be done in one owner-reviewed pass.
+This section tracks every known CI/pre-commit wiring target for the
+ADR-042/043/044 cascade. Status is about wiring, not implementation quality:
+`[x]` means the check currently runs in CI/pre-commit; `[~]` means local/manual
+tooling exists but CI wiring is incomplete; `[ ]` means not wired.
 
-| Wiring task | Status | Current behavior | Future hard-fail trigger | Notes |
+### Current GitHub Actions Wiring
+
+| Workflow / job | Status | Tooling covered | Hard-fail behavior | Notes |
 |---|---:|---|---|---|
-| ADR-043 §2 report-only aggregate runner | [x] | Local report-only script `scripts/audit/adr043_section2_report_only.py`; writes `docs/audit/report-only/adr043-section2-report-only.json`; exits 0 for underlying findings | Owner final CI pass | Verified with `pytest tests/qa/test_adr043_section2_report_only.py --timeout=60 --no-cov`, `ruff check scripts/audit/adr043_section2_report_only.py tests/qa/test_adr043_section2_report_only.py`, and one aggregate run |
-| `adr_implementation_check` CI/pre-commit wiring | [x] | CI job `ADR Implementation Tracker` runs `python scripts/audit/adr_implementation_check.py --json` with `PYTHONPATH=src`; current tracker violations are hard errors | Future owner pass may add PR-aware diff enforcement | Wired in `.github/workflows/ci.yml`; no editable install |
-| `tool_self_test_runner all` CI wiring | [ ] | Manual only | After required `docs/audit/tool-self-test/*-on-adr-042.json` artifacts exist | Currently expected to report missing artifacts |
-| `governance_drift` CI wiring | [ ] | Manual only | After known ADR/config mismatches are resolved or explicitly baselined | Currently reports coverage 90-vs-70 drift |
-| `addendum_propagate` pre-commit/CI wiring | [ ] | Manual only | After tracker update workflow is owner-approved | Should start as report-only on ADR addendum diffs |
-| Hard-fail conversion plan | [ ] | Deferred; report artifact records `TODO(#1113)` hard-fail-later notes | Owner final CI pass | Convert selected report-only tasks to required CI checks in one batch |
+| `.github/workflows/ci.yml` / `Lint & Format` | [x] | `ruff check .`, `ruff format --check .` | Hard-fail | Existing generic CI; ADR-042 target rule set still broader than current config |
+| `.github/workflows/ci.yml` / `Type Check` | [x] | `mypy src/scieasy/ --ignore-missing-imports` | Hard-fail | Existing generic CI; ADR-042 target is stricter than current config |
+| `.github/workflows/ci.yml` / `Architecture Tests` | [x] | `pytest tests/architecture/ -v --no-cov` | Hard-fail | Existing architecture placement/boundary tests |
+| `.github/workflows/ci.yml` / `ADR Implementation Tracker` | [x] | `python scripts/audit/adr_implementation_check.py --json` with `PYTHONPATH=src` | Hard-fail on tracker errors | No editable install; currently intentionally fails while tracker rows remain unmet |
+| `.github/workflows/ci.yml` / `Test` | [x] | `pytest -n auto`, `pytest-timeout`, `pytest-cov` on Python 3.13, `--no-cov` on Python 3.11 | Hard-fail | Existing generic test matrix |
+| `.github/workflows/ci.yml` / `Import Contracts` | [x] | `lint-imports` / `import-linter` | Hard-fail | Existing import-boundary CI |
+| `.github/workflows/ci.yml` / `Frontend` | [x] | `npm test` (`vitest`), `npm run build` (`tsc -b` + `vite build`), frontend/dist freshness | Hard-fail | Existing frontend CI; no standalone ESLint/Prettier/Typedoc job yet |
+| `.github/workflows/ci.yml` / `Build Frontend for Release` | [x] | release-tag frontend static packaging | Hard-fail on tag builds | Existing tag-only release job |
+| `.github/workflows/workflow-gate.yml` | [x] | issue link, workflow state warning, changelog/docs/tests checks | Hard-fail for selected policy checks | Existing workflow-gate CI |
+| `.github/workflows/ai-review.yml` | [x] | Codex PR review | Non-blocking | `continue-on-error: true` |
+| GitHub CodeQL | [x] | Code scanning | Hard-fail per GitHub settings | GitHub-managed workflow/status |
+
+### Generic ADR-042 Tool Stack Wiring
+
+| Tool / group | Status | Current behavior | Target wiring | Notes |
+|---|---:|---|---|---|
+| `ruff` lint/format | [x] | Direct CI hard-fail | Keep direct CI; expand rules/config to ADR target later | Existing config partial |
+| `mypy` | [x] | Direct CI hard-fail with `ignore_missing_imports` | Tighten toward ADR target later | Current config intentionally weaker |
+| `pytest` / `pytest-xdist` / `pytest-timeout` / `pytest-cov` | [x] | Direct CI hard-fail | Keep matrix; align coverage target later | Coverage currently 70, ADR target notes 90 drift |
+| `import-linter` | [x] | Direct CI hard-fail | Keep direct CI | Existing contracts partial |
+| `vitest` | [x] | Direct CI via `npm test` | Keep direct CI | Frontend package script |
+| `tsc` | [x] | Direct CI via `npm run build` (`tsc -b`) | Keep direct CI | Not a standalone type job |
+| `vite build` | [x] | Direct CI via `npm run build` | Keep direct CI | Frontend build |
+| `pre-commit` | [ ] | Installed in dev extras only | Add pre-commit CI job after hooks stabilize | Do not use as hidden aggregate until hooks are owner-approved |
+| `commitizen` | [ ] | Config exists | Add commit/PR-title lint if owner wants enforced convention | Current workflow gate checks PR body, not commit format |
+| `pyright` | [ ] | Not configured/wired | Add dedicated CI job | ADR-042 secondary type checker |
+| `interrogate` | [ ] | Not configured/wired | Add docs/docstring CI job | ADR-042 docstring coverage |
+| `pydoclint` | [ ] | Not configured/wired | Add docs/docstring CI job | ADR-042 docstring signature lint |
+| `griffe` / `griffe-pydantic` | [ ] | Not configured/wired | Add API surface CI job | ADR-042 API change detection |
+| `vulture` | [ ] | Not configured/wired | Add dead-code CI job | Needs baseline/allowlist |
+| `xenon` | [ ] | Not configured/wired | Add complexity CI job | Needs threshold config |
+| `pip-audit` | [ ] | Not wired | Add dependency audit job | Coordinate with existing Dependabot/security posture |
+| Sphinx docs build stack | [ ] | Not configured/wired | Add docs build CI | ADR-044 amends theme/tool list |
+| `markdownlint-cli2` | [ ] | Not configured/wired | Add docs lint CI | Needs `.markdownlint.yaml` |
+| `sphinx-lint` | [ ] | Not wired | Add docs lint CI | After Sphinx tree exists |
+| Sphinx `linkcheck` | [ ] | Not wired | Add scheduled/manual or PR docs CI | External URLs may need non-blocking baseline first |
+| `pytest-examples` | [ ] | Not wired | Add docs examples CI | After docs examples are stable |
+| `actionlint` | [ ] | Not installed/wired | Add workflow lint CI | Local fallback currently YAML parse only |
+| `zizmor` | [ ] | Not wired | Add workflow security CI | Needs baseline/allowed findings |
+| `codespell` | [ ] | Not configured/wired | Add spelling CI | Needs `.codespellrc` |
+| `yamllint` | [ ] | Not configured/wired | Add YAML lint CI | Needs `.yamllint` |
+| `pyproject-fmt` | [ ] | Not wired | Add config format CI | Should be isolated from semantic pyproject edits |
+| `libcst` codemod checks | [ ] | Library target only | Wire only when codemod tools exist | ADR-042 codemod support |
+| `pydantic-settings` schema/env contracts | [ ] | Not verified | Wire after settings schemas exist | `pydantic` itself is installed/used |
+| `eslint` / `eslint-plugin-tsdoc` / `eslint-plugin-jsdoc` | [ ] | Not configured/wired | Add frontend lint CI | Current frontend only has Vitest/build |
+| `prettier` | [ ] | Not configured/wired | Add frontend format CI | Current frontend has no Prettier job |
+| `typedoc` | [ ] | Not configured/wired | Add frontend docs CI | ADR-042/044 frontend API docs target |
+
+### SciEasy QA / Audit Tool Wiring
+
+| Tool / artifact | Status | Current behavior | Target wiring | Notes |
+|---|---:|---|---|---|
+| `adr_implementation_check` | [x] | CI hard-fail via `ADR Implementation Tracker` | Add PR-aware diff mode later | Current tracker errors intentionally fail CI |
+| `adr043_section2_report_only.py` | [x] | Local aggregate runner, not CI | Keep manual/report artifact unless owner wants a non-blocking summary job | Report-only helper, not a gate |
+| `tool_self_test_runner all` | [ ] | Manual only | CI hard-fail after `docs/audit/tool-self-test/*-on-adr-042.json` exists | Currently expected to fail missing artifacts |
+| `governance_drift.py` | [ ] | Manual only | CI hard-fail after known ADR/config drift is resolved or baselined | Current coverage 90-vs-70 drift is known |
+| `addendum_propagate.py` | [ ] | Manual mutating tool | Pre-commit/CI only after dry-run or owner-approved workflow exists | Do not run blindly in aggregate CI |
+| `generate_facts.py` + facts extractors | [ ] | Required by tracker; implementation in progress | CI regeneration + committed diff check | Owned by ADR-042 §7 followup agent |
+| `doc_drift` / `frontmatter_lint` / `fact_drift` / `closure` / `full_audit` | [ ] | Future ADR-042 audit tools | Add CI once implemented and baselined | These should likely feed `AuditReport` |
+| `trailer_lint` / `committer_enforce` | [ ] | Future ADR-042 commit/provenance tools | Add workflow/pre-commit after owner policy is final | Must respect human/agent trailer rules |
+| `complete_artifacts.check` | [ ] | Future ADR-042 audit tool | Add CI after tracker and facts are stable | Mentioned in ADR-042 frontmatter/contracts |
+| `contradiction_audit.run` | [ ] | Future ADR-042 self-audit tool | Add scheduled/manual CI first, then PR gate | Needs baseline and report artifact |
+| `classification_lint` | [ ] | Deferred | Add after ADR-043 §6 schema/lint implementation | Tracked in Deferred File Tracking |
+| Governance modification hard-block tools | [ ] | Hook scaffolds exist, not active CI gate | Add after ADR-043 §3 implementation | Includes governance paths, weakening/honeypot checks |
+| Test quality / mutation tooling | [ ] | Not wired | Add after ADR-043 §4 implementation and baseline | Mutation score likely staged rollout |
+| ADR-044 docs tools (`workflow_sync`, `auto_generated_lint`, `doc_length_lint`, `skill_pointer_sync`) | [ ] | Not wired | Add after ADR-044 doc skeleton/tool implementation | Depends on docs/contributing/user/prod-agent/doc-guide |
 
 ## Drift Log
 
