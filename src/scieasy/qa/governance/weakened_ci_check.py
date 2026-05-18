@@ -785,12 +785,17 @@ _NOQA_RE = re.compile(r"#\s*noqa(?::\s*[A-Z0-9, ]+)?(.*)$", re.IGNORECASE)
 
 
 def _noqa_is_in_string_literal(line: str, noqa_pos: int) -> bool:
-    """Heuristic: is the noqa at ``noqa_pos`` inside a Python string literal?
+    """Heuristic: is the noqa at ``noqa_pos`` a NON-real lint exemption?
 
-    Counts unescaped double-quote and single-quote chars to the left of
-    the noqa. If either count is odd, the noqa is mid-string. Triple-
-    quoted / docstring detection is approximated by checking for a
-    triple-double-quote or triple-single-quote on the line.
+    Returns ``True`` when the noqa is being **discussed** rather than
+    **applied** — i.e. inside a string literal, a backtick-quoted
+    markdown / docstring code span, a triple-quoted block, or a
+    documentation comment with prior prose content.
+
+    The heuristic is conservative: it favours false negatives (missing
+    a real weakening) over false positives (blocking a doc PR that
+    mentions ``# noqa`` in prose). The §3.5 recursive workflow runs
+    the full contradiction audit as a safety net.
     """
     prefix = line[:noqa_pos]
     triple_d = '"' * 3
@@ -799,7 +804,18 @@ def _noqa_is_in_string_literal(line: str, noqa_pos: int) -> bool:
         return True
     # Strip escaped quotes so they don't bias the parity check.
     prefix_no_esc = prefix.replace(r"\"", "").replace(r"\'", "")
-    return (prefix_no_esc.count('"') % 2 == 1) or (prefix_no_esc.count("'") % 2 == 1)
+    if prefix_no_esc.count('"') % 2 == 1 or prefix_no_esc.count("'") % 2 == 1:
+        return True
+    # Markdown / docstring code-span: ``noqa`` enclosed in backticks.
+    if "`" in prefix and "`" in line[noqa_pos:]:
+        # Backtick on both sides → code-span context, not a real directive.
+        return True
+    # Documentation comment / prose: the noqa lives inside a leading
+    # ``# ...`` line comment that already has prior text — the noqa is
+    # being talked about, not applied as a directive. A real noqa lives
+    # at the end of code, not inside a block-style comment.
+    stripped = prefix.lstrip()
+    return bool(stripped.startswith("#") and len(stripped) > 2)
 
 
 def _detect_expanded_noqa_usage(ctx: _Ctx) -> list[WeakeningFinding]:
