@@ -1,0 +1,186 @@
+# Workflow v2 schema (ADR-042 §19).
+#
+# This file is read by `.workflow/gate.py` when invoked with
+# `--schema-version v2`. In Phase 1 of the ADR-042/043/044 cascade, v2
+# runs in shadow mode: events are logged to `.workflow/active/<task_id>.v2.jsonl`
+# but v1 (schema.json) remains the authoritative source. Phase 2 flips
+# v2 to authoritative; Phase 3 deprecates v1.
+#
+# Each stage references validators by string ID. Validator implementations
+# live in `src/scieasy/qa/workflow/validators/`, registered via
+# `scieasy.qa.workflow.validators._registry.VALIDATORS`.
+#
+# References:
+#   ADR-042 §19.2 — the seven stages.
+#   ADR-042 §19.5 — stage definitions in code.
+#   ADR-042 §19.6 — migration from 6-gate.
+#
+# Validator-set membership is verified by tests/qa/test_workflow_v2_registry.py
+# (round-trip: every validator_id here exists in VALIDATORS, and vice versa).
+
+version: "2.0.0"
+description: |
+  SciEasy Workflow v2: 7-stage one-pass-quality gate (ADR-042 §19).
+  Currently in shadow mode (Phase 1 of ADR-042/043/044 cascade).
+
+stages:
+  - id: start_and_route
+    name: Start & Route
+    description: |
+      Task started + ADRs declared + MAINTAINERS resolved + codemod plan
+      (if contract change) + skill plan (if new skill).
+    requires: []
+    validations:
+      - start_and_route.shape
+    guidance_template: |
+      === Stage 1: start_and_route ===
+      You are starting task {{ task_id }}.
+
+      To advance, declare:
+        - Which ADRs apply (e.g. adrs: [42])
+        - Whether this introduces a contract change (contract_change: true|false)
+        - Whether this introduces a new skill (new_skills: [])
+
+      Run:
+        gate.py advance {{ task_id }} start_and_route \
+          --data '{"adrs": [42], "contract_change": false, "new_skills": []}'
+    auto_advance: false
+    sub_checklist:
+      - "ADR set declared"
+      - "MAINTAINERS coverage resolved"
+      - "Codemod plan (if contract_change=true)"
+      - "Skill plan (if new_skills non-empty)"
+
+  - id: create_issue
+    name: Create Issue
+    description: Issue created with strict v2 template.
+    requires: [start_and_route]
+    validations:
+      - create_issue.shape
+    guidance_template: |
+      === Stage 2: create_issue ===
+      Create the GitHub issue using the v2 template:
+        gh issue create --template feature-v2.yml
+
+      Then advance with the issue number and URL:
+        gate.py advance {{ task_id }} create_issue \
+          --data '{"issue_number": N, "issue_url": "https://..."}'
+    auto_advance: false
+    sub_checklist:
+      - "Issue uses strict v2 template"
+      - "Issue body declares ADR scope"
+
+  - id: change_plan
+    name: Change Plan
+    description: |
+      Plan posted as issue comment; files-in-plan within declared ADR
+      scope.
+    requires: [create_issue]
+    validations:
+      - change_plan.shape
+    guidance_template: |
+      === Stage 3: change_plan ===
+      Post the change plan as an issue comment:
+        gh issue comment {{ declared_data.issue_number }} --body-file plan.md
+
+      Then advance with the comment URL and modified-files list:
+        gate.py advance {{ task_id }} change_plan \
+          --data '{"change_plan_comment_url": "...", "files_to_modify": [...]}'
+    auto_advance: false
+    sub_checklist:
+      - "Plan posted as issue comment"
+      - "Every file in plan falls within an ADR's governs.files glob"
+
+  - id: branch
+    name: Branch
+    description: |
+      Branch from latest main; name <type>/issue-<N>/<adr>/<slug>.
+    requires: [change_plan]
+    validations:
+      - branch.name_format
+    guidance_template: |
+      === Stage 4: branch ===
+      Create the feature branch:
+        git fetch origin && git checkout -b {{ suggested_branch_name }}
+
+      Branch name format: <type>/issue-<N>/<adr>/<slug>
+      Example: feat/issue-1145/adr-042/workflow-v2-shadow
+    auto_advance: true
+    sub_checklist:
+      - "Branched from latest origin/main"
+      - "Branch name matches <type>/issue-<N>/<adr>/<slug>"
+
+  - id: implement_validate
+    name: Implement & Validate
+    description: |
+      Implementation complete;
+      `python -m scieasy.qa.audit.full_audit --pre-push` returns 0 errors;
+      all commits carry Assisted-by: if agent-authored.
+    requires: [branch]
+    validations:
+      - implement_validate.full_audit
+    guidance_template: |
+      === Stage 5: implement_validate ===
+      Iteratively implement until full_audit --pre-push returns 0 errors.
+      This gate auto-advances when the audit returns clean.
+
+      To check status:
+        python -m scieasy.qa.audit.full_audit --pre-push
+    auto_advance: true
+    sub_checklist:
+      - "All files in change_plan implemented"
+      - "Pre-push audit returns 0 errors"
+      - "All commits carry Assisted-by: trailer if agent-authored"
+
+  - id: complete_artifacts
+    name: Complete Artifacts
+    description: |
+      Docstrings + ADR governs updated + MAINTAINERS updated +
+      translation enqueued + CHANGELOG entry + codemod committed
+      (if contract change) + RBP attached + skills installed
+      cross-runtime.
+    requires: [implement_validate]
+    validations:
+      - complete_artifacts.check
+    guidance_template: |
+      === Stage 6: complete_artifacts ===
+      Verify all completion artifacts are present:
+        python -m scieasy.qa.audit.complete_artifacts --check
+
+      Required: docstrings, ADR governs update, MAINTAINERS update,
+      translation queue, CHANGELOG entry, codemod (if contract change),
+      RBP, cross-runtime skill install.
+    auto_advance: true
+    sub_checklist:
+      - "Docstrings present on new public symbols"
+      - "Each touched ADR's governs.* updated"
+      - "MAINTAINERS bidirectional closure verified"
+      - "Translation enqueued via translate_docs.py"
+      - "CHANGELOG entry added"
+      - "Codemod committed if contract_change=true"
+      - "RBP (Real-Behavior Proof) attached"
+      - "New skills installed via agent_provisioning"
+
+  - id: submit_reconcile
+    name: Submit & Reconcile
+    description: |
+      PR opened, CI all green, Codex review reconciled (all P0/P1
+      addressed).
+    requires: [complete_artifacts]
+    validations:
+      - submit_reconcile.shape
+    guidance_template: |
+      === Stage 7: submit_reconcile ===
+      Open the PR:
+        gh pr create --title "..." --body-file pr-body.md
+
+      After PR opens, auto-wait Codex review; reconcile every P0/P1
+      finding before recording this gate as DONE.
+
+      gate.py advance {{ task_id }} submit_reconcile \
+        --data '{"pr_number": N, "pr_url": "https://..."}'
+    auto_advance: false
+    sub_checklist:
+      - "PR opened with v2 template"
+      - "All CI checks green"
+      - "Codex review reconciled (every P0/P1 addressed)"
