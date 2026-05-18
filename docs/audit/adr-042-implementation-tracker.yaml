@@ -1,41 +1,6 @@
 adr: 42
 schema_version: 1
 sections:
-  - section: "ADR-043 section 2 Implementation Monitoring"
-    requires_artifacts:
-      files:
-        - "src/scieasy/qa/schemas/_common.py"
-        - "src/scieasy/qa/schemas/frontmatter.py"
-        - "src/scieasy/qa/schemas/report.py"
-        - "src/scieasy/qa/schemas/tracker.py"
-        - "src/scieasy/qa/tracker/adr_implementation_check.py"
-        - "src/scieasy/qa/tracker/tool_self_test_runner.py"
-        - "scripts/audit/adr_implementation_check.py"
-        - "scripts/audit/tool_self_test_runner.py"
-        - "scripts/audit/addendum_propagate.py"
-        - "scripts/audit/governance_drift.py"
-      symbols:
-        - "scieasy.qa.schemas.tracker.ImplementationTracker"
-        - "scieasy.qa.schemas.report.AuditReport"
-        - "scieasy.qa.schemas.report.Finding"
-        - "scieasy.qa.schemas.frontmatter.Phase"
-        - "scieasy.qa.tracker.adr_implementation_check.run"
-        - "scieasy.qa.tracker.tool_self_test_runner.run_self_test"
-      tests:
-        - "tests/qa/test_implementation_tracker.py"
-        - "tests/qa/test_tool_self_test_runner.py"
-        - "tests/qa/test_addendum_propagate.py"
-        - "tests/qa/test_governance_drift.py"
-    verification_checks:
-      - id: "schema-importable"
-        description: "ADR-043 section 2 skeleton schemas and tracker functions import."
-      - id: "minimal-tests-pass"
-        description: "Skeleton tests for tracker validation and self-test artifact detection pass."
-    status: in_progress
-    implemented_in_pr: null
-    verified_at: null
-    verifier_skill: null
-    verifier_command: "pytest --timeout=60 tests/qa/test_implementation_tracker.py tests/qa/test_tool_self_test_runner.py"
   - section: "ADR-042 section 5 Frontmatter Schema"
     requires_artifacts:
       files:
@@ -70,6 +35,7 @@ sections:
       files:
         - "src/scieasy/qa/schemas/_common.py"
         - "src/scieasy/qa/schemas/maintainers.py"
+        - "MAINTAINERS"
       symbols:
         - "scieasy.qa.schemas.maintainers.AgentRuntime"
         - "scieasy.qa.schemas.maintainers.MaintainersEntry"
@@ -93,6 +59,13 @@ sections:
       files:
         - "src/scieasy/qa/schemas/report.py"
         - "src/scieasy/qa/schemas/facts.py"
+        - "docs/facts/generated.yaml"
+        - "scripts/audit/extract_workflow_facts.py"
+        - "scripts/audit/extract_tool_facts.py"
+        - "scripts/audit/extract_adr_facts.py"
+        - "scripts/audit/extract_maintainers_facts.py"
+        - "scripts/audit/extract_skill_facts.py"
+        - "scripts/audit/generate_facts.py"
       symbols:
         - "scieasy.qa.schemas.report.DriftClass"
         - "scieasy.qa.schemas.report.Severity"
@@ -114,12 +87,12 @@ sections:
       - id: "audit-report-denormalized-counts"
         description: "AuditReport validates total findings, by_severity, and by_drift_class against embedded findings."
       - id: "facts-registry-schema"
-        description: "FactsRegistry and all namespace fact models implement ADR-042 section 7.5 fields, versioning, and constraints."
+        description: "FactsRegistry and all namespace fact models implement ADR-042 section 7.5 fields, versioning, generation, and constraints."
     status: not_started
     implemented_in_pr: null
     verified_at: null
     verifier_skill: null
-    verifier_command: "pytest --timeout=60 --no-cov tests/qa/test_report_schema.py tests/qa/test_facts_schema.py tests/qa/test_implementation_tracker.py"
+    verifier_command: "pytest --timeout=60 --no-cov tests/qa/test_report_schema.py tests/qa/test_facts_schema.py"
   - section: "ADR-042 section 8 Truth Model and Conflict Arbitration"
     requires_artifacts:
       files:
@@ -146,3 +119,1283 @@ sections:
     verified_at: null
     verifier_skill: null
     verifier_command: "pytest --timeout=60 --no-cov tests/qa/test_truth_schema.py"
+  - section: "ADR-042 section 9 Drift Classification"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/audit/doc_drift.py"
+        - "docs/adr/ADR-042/algorithms/doc_drift_pseudocode.md"
+        - "src/scieasy/qa/audit/frontmatter_lint.py"
+        - "src/scieasy/qa/audit/full_audit.py"
+        - "src/scieasy/qa/audit/trailer_lint.py"
+        - "src/scieasy/qa/audit/committer_enforce.py"
+        - "src/scieasy/qa/audit/contradiction_audit.py"
+        - "src/scieasy/qa/audit/complete_artifacts.py"
+        - "src/scieasy/qa/audit/codemod_lint.py"
+      symbols:
+        - "scieasy.qa.audit.doc_drift.classify_repo"
+        - "scieasy.qa.audit.frontmatter_lint.lint_file"
+        - "scieasy.qa.audit.full_audit.run"
+        - "scieasy.qa.audit.trailer_lint.run"
+        - "scieasy.qa.audit.committer_enforce.check"
+        - "scieasy.qa.audit.contradiction_audit.run"
+        - "scieasy.qa.audit.complete_artifacts.check"
+        - "scieasy.qa.audit.codemod_lint.parse"
+      tests:
+        - "tests/qa/test_doc_drift.py"
+        - "tests/qa/test_frontmatter_lint.py"
+        - "tests/qa/test_full_audit.py"
+        - "tests/qa/test_trailer_lint.py"
+        - "tests/qa/test_committer_enforce.py"
+        - "tests/qa/test_contradiction_audit.py"
+        - "tests/qa/test_complete_artifacts.py"
+        - "tests/qa/test_codemod_lint.py"
+    verification_checks:
+      - id: "abc-classification"
+        description: "doc_drift distinguishes a, b, c1, c2, c3, and d findings with git-history evidence for c-class unresolved symbols."
+      - id: "strict-signature-match"
+        description: "b-class matching compares parameter names, type annotations, return annotations, and documented raises."
+      - id: "entry-point-signatures"
+        description: "ADR-042 section 9.6 audit entry points exist with the documented signatures and return AuditReport or Finding collections."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-042 section 9\""
+  - section: "ADR-042 section 10 Fact Substitution Registry"
+    requires_artifacts:
+      files:
+        - "docs/facts/generated.yaml"
+        - "scripts/audit/generate_facts.py"
+        - "scripts/audit/extract_workflow_facts.py"
+        - "scripts/audit/extract_tool_facts.py"
+        - "scripts/audit/extract_adr_facts.py"
+        - "scripts/audit/extract_maintainers_facts.py"
+        - "scripts/audit/extract_skill_facts.py"
+        - "src/scieasy/qa/audit/fact_drift.py"
+        - "pyproject.toml"
+      symbols:
+        - "scieasy.qa.audit.fact_drift.check_substitutions"
+      tests:
+        - "tests/qa/test_fact_drift.py"
+        - "tests/qa/test_facts_generation.py"
+    verification_checks:
+      - id: "facts-generated"
+        description: "Canonical facts are extracted from code/config into docs/facts/generated.yaml and pydantic-validated."
+      - id: "hardcoded-fact-drift"
+        description: "fact_drift flags prose literals that should use {{ facts.X }} substitutions while ignoring existing substitutions and configured false positives."
+      - id: "phase4-todo-resolution"
+        description: "Phase 4 revalidation confirms transitional TODO substitutions have been resolved."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-042 section 10\""
+  - section: "ADR-042 section 11 Bidirectional Ownership Closure"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/audit/closure.py"
+        - "MAINTAINERS"
+      symbols:
+        - "scieasy.qa.audit.closure.check_bidirectional"
+        - "scieasy.qa.audit.closure._module_to_paths"
+      tests:
+        - "tests/qa/test_closure.py"
+    verification_checks:
+      - id: "adr-maintainers-symmetric-difference"
+        description: "Closure compares Accepted ADR governs modules/files against MAINTAINERS path coverage and emits closure.asymmetric errors."
+      - id: "module-glob-resolution"
+        description: "Dotted modules expand to source file globs and most-specific parent/child ADR ownership wins."
+      - id: "shared-governs-files"
+        description: "Shared governs.files ownership is additive unless semantic conflict requires a closure.multi-adr-conflict finding."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-042 section 11\""
+  - section: "ADR-042 section 12 AGENTS and Runtime Instruction Hierarchy"
+    requires_artifacts:
+      files:
+        - "AGENTS.md"
+        - "CLAUDE.md"
+        - "CURSOR.md"
+        - "GEMINI.md"
+        - ".aiderrc"
+        - "src/scieasy/AGENTS.md"
+        - "src/scieasy/core/AGENTS.md"
+        - "src/scieasy/blocks/AGENTS.md"
+        - "src/scieasy/qa/AGENTS.md"
+        - "frontend/AGENTS.md"
+        - "docs/AGENTS.md"
+        - ".github/AGENTS.md"
+      symbols: []
+      tests:
+        - "tests/qa/test_layered_agents_scaffold.py"
+    verification_checks:
+      - id: "root-pointer-equivalence"
+        description: "Runtime entry files resolve to the canonical root AGENTS.md or validated pointer/include fallback."
+      - id: "subtree-frontmatter"
+        description: "Per-subtree AGENTS.md files declare scope, parent, applies_to_agents, and governing ADRs."
+      - id: "agents-md-lint"
+        description: "A lint check validates hierarchy, runtime pointers, MAINTAINERS-driven subtree coverage, and duplicate root content."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "pytest --timeout=60 --no-cov tests/qa/test_layered_agents_scaffold.py"
+  - section: "ADR-042 section 13 Git Trailer Conventions"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/audit/trailer_lint.py"
+        - "tools/git-fixes-graph.py"
+        - "docs/identity/humans.yml"
+      symbols:
+        - "scieasy.qa.audit.trailer_lint.run"
+      tests:
+        - "tests/qa/test_trailer_lint.py"
+    verification_checks:
+      - id: "trailer-format-validation"
+        description: "commit-msg, pre-push, and CI trailer lint validate Signed-off-by, Assisted-by, Fixes, ADR, review, override, and coauthor trailers."
+      - id: "fixes-graph"
+        description: "tools/git-fixes-graph.py builds a defect-causality graph from Fixes trailers."
+      - id: "phase3-cutoff"
+        description: "Trailer lint applies requirements from the Phase 3 cutoff without backfilling historical commits."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-042 section 13\""
+  - section: "ADR-042 section 14 Real Behavior Proof Gate"
+    requires_artifacts:
+      files:
+        - ".github/pull_request_template.md"
+        - "docs/skills/required.yaml"
+      symbols: []
+      tests:
+        - "tests/qa/test_real_behavior_proof.py"
+    verification_checks:
+      - id: "pr-template-rbp-section"
+        description: "The PR template requires a Real Behavior Proof section and non-RBP declaration."
+      - id: "needs-rbp-label"
+        description: "CI applies a merge-blocking needs-rbp label for UI, runtime, API, CLI, or other user-observable surfaces."
+      - id: "mantis-proof-skill"
+        description: "The mantis-proof skill documents capture steps while preserving human review as the proof gate."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-042 section 14\""
+  - section: "ADR-042 section 15 docs-agent Path-Allowlisted Fixer"
+    requires_artifacts:
+      files:
+        - ".github/workflows/docs-agent.yml"
+        - ".github/agent-prompts/docs-agent.md"
+        - "scripts/audit/run_docs_agent.py"
+        - "scripts/audit/docs_agent_rate_limit.py"
+      symbols: []
+      tests:
+        - "tests/qa/test_docs_agent_workflow.py"
+    verification_checks:
+      - id: "docs-agent-pr-only"
+        description: "docs-agent runs after CI-green on main or manual dispatch and opens a PR rather than pushing directly."
+      - id: "three-tier-allowlist"
+        description: "Post-step guard checks unstaged, staged, and untracked paths and only allows docs, README, CHANGELOG, and docs/zh-CN edits."
+      - id: "fail-closed-prompt"
+        description: "docs-agent prompt prefers no edit with explanation when uncertain."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-042 section 15\""
+  - section: "ADR-042 section 16 Committer Hard Tooling"
+    requires_artifacts:
+      files:
+        - "scripts/committer.py"
+        - "docs/audit/commit-log.jsonl"
+        - "docs/identity/humans.yml"
+      symbols: []
+      tests:
+        - "tests/qa/test_committer.py"
+        - "tests/qa/test_committer_enforce.py"
+    verification_checks:
+      - id: "explicit-file-staging"
+        description: "committer.py rejects -A, -a, and dot-style staging and requires explicit file paths."
+      - id: "agent-runtime-detection"
+        description: "SCIEASY_AGENT_RUNTIME, SCIEASY_AGENT_MODEL, SCIEASY_HUMAN_OVERRIDE, and the human identity registry determine commit authority."
+      - id: "append-only-commit-log"
+        description: "Successful commits append metadata to docs/audit/commit-log.jsonl and committer_enforce reconciles it against git log."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-042 section 16\""
+  - section: "ADR-042 section 17 Required Skills and Cross-Runtime Installer"
+    requires_artifacts:
+      files:
+        - "docs/skills/required.yaml"
+        - "_skills/scieasy/scieasy-skill-creator/SKILL.md"
+        - "_skills/scieasy/doc-drift-guard/SKILL.md"
+        - "_skills/scieasy/provenance-tagger/SKILL.md"
+        - "_skills/scieasy/adr-router/SKILL.md"
+        - "_skills/scieasy/pr-maintainer/SKILL.md"
+        - "_skills/scieasy/mantis-proof/SKILL.md"
+        - "_skills/scieasy/session-logs/SKILL.md"
+        - "_skills/scieasy/release-maintainer/SKILL.md"
+        - "docs/audit/skill-install-report.json"
+      symbols: []
+      tests:
+        - "tests/qa/test_skill_installation_check.py"
+        - "tests/qa/test_required_skills_manifest.py"
+    verification_checks:
+      - id: "required-skill-manifest"
+        description: "docs/skills/required.yaml enumerates all required P0/P1/P2 skills and dependencies."
+      - id: "cross-runtime-install"
+        description: "agent_provisioning installs project-local skills into Claude, Codex, Cursor, Aider, and Gemini locations and emits an install report."
+      - id: "ci-skill-check"
+        description: "CI verifies at least one project-local runtime installation path exists and every skill passes frontmatter validation."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-042 section 17\""
+  - section: "ADR-042 section 19 Workflow v2"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/workflow/gate.py"
+        - ".workflow/schema-v2.yaml"
+        - "scripts/audit/extract_workflow_facts.py"
+        - "src/scieasy/qa/audit/complete_artifacts.py"
+      symbols:
+        - "scieasy.qa.workflow.gate.StageContext"
+        - "scieasy.qa.workflow.gate.ValidationResult"
+        - "scieasy.qa.workflow.gate.Validator"
+        - "scieasy.qa.workflow.gate.StageDefinition"
+        - "scieasy.qa.audit.complete_artifacts.check"
+      tests:
+        - "tests/qa/test_workflow_v2_gate.py"
+        - "tests/integration/test_phase_gate_e2e.py"
+    verification_checks:
+      - id: "seven-stage-schema"
+        description: ".workflow/schema-v2.yaml defines start_and_route, create_issue, change_plan, branch, implement_validate, complete_artifacts, and submit_reconcile."
+      - id: "auto-advance-validators"
+        description: "Gate validators provide machine-checkable definitions of done and --auto stage advancement."
+      - id: "v1-migration"
+        description: "Migration from the old 6-gate workflow maps old stages to Workflow v2 stages and deprecates v1 in Phase 2."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-042 section 19\""
+  - section: "ADR-042 section 20 libCST Codemods Discipline"
+    requires_artifacts:
+      files:
+        - "tools/codemods"
+        - "src/scieasy/qa/audit/codemod_lint.py"
+      symbols:
+        - "scieasy.qa.audit.codemod_lint.parse"
+      tests:
+        - "tests/qa/test_codemod_lint.py"
+        - "tests/codemods/test_adr_042_rename.py"
+    verification_checks:
+      - id: "codemod-metadata"
+        description: "Each ADR codemod carries pydantic-validated ADR, Description, Affects, and Tests metadata."
+      - id: "codemod-applied-check"
+        description: "CI applies every tools/codemods/adr-NNN-*.py codemod and fails if the resulting tree has a diff."
+      - id: "same-pr-discipline"
+        description: "Breaking contract changes include the ADR update, code change, codemod, and codemod idempotence test in the same PR."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-042 section 20\""
+  - section: "ADR-042 section 21 Tool Stack and CI Topology"
+    requires_artifacts:
+      files:
+        - "pyproject.toml"
+        - "pyrightconfig.json"
+        - ".pre-commit-config.yaml"
+        - ".codespellrc"
+        - ".yamllint"
+        - ".markdownlint.yaml"
+        - ".github/workflows/audit.yml"
+        - "docs/sphinx/conf.py"
+      symbols: []
+      tests:
+        - "tests/qa/test_ci_topology.py"
+    verification_checks:
+      - id: "tool-config-locations"
+        description: "Python, docs, workflow, spell, YAML, import-boundary, commit, coverage, and schema tools are configured at the documented paths."
+      - id: "pre-commit-topology"
+        description: "Local pre-commit hooks include fast formatting/linting plus frontmatter, fact-drift, doc-drift, trailer, and committer enforcement."
+      - id: "ci-aggregator"
+        description: "CI uses a single branch-protected check aggregator over lint, typecheck, docs-build, audit, test, frontend, docs-agent, and translation gates."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-042 section 21\""
+  - section: "ADR-042 section 22 Documentation Language Policy and Translator"
+    requires_artifacts:
+      files:
+        - "scripts/translate_docs.py"
+        - "src/scieasy/qa/translation/settings.py"
+        - ".github/workflows/translation.yml"
+        - "docs/zh-CN/adr/ADR-042.md"
+      symbols:
+        - "scieasy.qa.translation.settings.TranslationSettings"
+      tests:
+        - "tests/qa/test_translate_docs.py"
+        - "tests/qa/test_translation_settings.py"
+    verification_checks:
+      - id: "english-source-policy"
+        description: "Source docs enforce English prose while allowing scientific and typographic Unicode symbols."
+      - id: "incremental-translator"
+        description: "translate_docs.py supports provider selection, zh-CN mirror paths, source_sha incremental translation, and DeepL default config via env vars."
+      - id: "translation-workflow-pr"
+        description: "The translation workflow regenerates docs/zh-CN only, enforces the path allowlist across unstaged/staged/untracked files, and opens a PR."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-042 section 22\""
+  - section: "ADR-042 section 23 Docs Build and Cross-reference Enforcement"
+    requires_artifacts:
+      files:
+        - "docs/sphinx/conf.py"
+        - "tests/qa/test_doc_examples.py"
+        - "docs/adr/ADR-042/algorithms/doc_drift_pseudocode.md"
+        - "pyproject.toml"
+      symbols: []
+      tests:
+        - "tests/qa/test_doc_examples.py"
+    verification_checks:
+      - id: "sphinx-nitpicky"
+        description: "Sphinx builds with autoapi, myst-parser, sphinx-needs, furo, substitutions, intersphinx, and nitpicky cross-reference enforcement."
+      - id: "pytest-examples"
+        description: "ADR/spec/doc fenced Python examples execute or explicitly skip per fence-type discipline."
+      - id: "adr042-pseudocode-companion"
+        description: "ADR-042 doc_drift pseudocode lives in the companion file with pytest-examples skip markers."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-042 section 23\""
+  - section: "ADR-042 section 24 Audit Reports"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/audit/full_audit.py"
+        - "docs/audit/reports"
+        - "docs/audit/latest"
+        - "docs/audit/archive"
+        - "docs/audit/overrides.log"
+        - "docs/audit/commit-log.jsonl"
+      symbols:
+        - "scieasy.qa.audit.full_audit.run"
+      tests:
+        - "tests/qa/test_full_audit.py"
+        - "tests/qa/test_audit_reports.py"
+    verification_checks:
+      - id: "audit-generation-cadence"
+        description: "Pre-commit, pre-push, PR CI, weekly cron, and on-demand triggers generate or surface the documented audit outputs."
+      - id: "report-storage-retention"
+        description: "Reports are stored under committed date, latest, and archive locations with override and commit logs append-only."
+      - id: "consumer-outputs"
+        description: "CI annotator, doc-drift-guard, weekly summary, and human HTML browsing consume the report outputs."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-042 section 24\""
+  - section: "ADR-042 section 25 Human Developer Exemption Principle"
+    requires_artifacts:
+      files:
+        - "docs/identity/humans.yml"
+        - "src/scieasy/qa/schemas/identity.py"
+        - "scripts/committer.py"
+        - "docs/audit/overrides.log"
+      symbols:
+        - "scieasy.qa.schemas.identity.HumanTier"
+        - "scieasy.qa.schemas.identity.HumanIdentity"
+        - "scieasy.qa.schemas.identity.IdentityRegistry"
+      tests:
+        - "tests/qa/test_identity_schema.py"
+        - "tests/qa/test_human_exemptions.py"
+    verification_checks:
+      - id: "identity-registry"
+        description: "Human identity registry validates github, email, tier, signing_key, joined, notes, and lookup helpers."
+      - id: "tier-matrix-enforcement"
+        description: "Contributor kind detection and Tier 0/1/2 matrix distinguish process exemptions from quality-baseline requirements."
+      - id: "override-audit"
+        description: "Maintainer-Override, Reviewed-locally, Human-Override, and --trivial usages append to overrides.log and are summarized for review."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-042 section 25\""
+  - section: "ADR-043 section 1 Purpose and Relation to ADR-042"
+    requires_artifacts:
+      files:
+        - "docs/adr/ADR-043.md"
+      symbols: []
+      tests: []
+    verification_checks:
+      - id: "addendum-frontmatter-amends"
+        description: "ADR-043 frontmatter records extend-kind amendments to ADR-042 rather than relying on a global addendum-wins rule."
+      - id: "lifecycle-lockstep"
+        description: "ADR-043 lifecycle is coupled to ADR-042 and future evolution requires addendum or supersession."
+      - id: "out-of-scope-known-gaps"
+        description: "Deferred research/security items remain documented in ADR-043 section 11 rather than silently implemented."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 1\""
+  - section: "ADR-043 section 2 Implementation Monitoring"
+    requires_artifacts:
+      files:
+        - "docs/audit/adr-042-implementation-tracker.yaml"
+        - "src/scieasy/qa/schemas/tracker.py"
+        - "src/scieasy/qa/tracker/adr_implementation_check.py"
+        - "src/scieasy/qa/tracker/tool_self_test_runner.py"
+        - "scripts/audit/adr_implementation_check.py"
+        - "scripts/audit/phase_gate.py"
+        - "scripts/audit/tool_self_test_runner.py"
+        - "scripts/audit/governance_drift.py"
+        - "scripts/audit/addendum_propagate.py"
+        - ".github/workflows/adr-042-conformance.yml"
+      symbols:
+        - "scieasy.qa.schemas.tracker.ImplementationTracker"
+        - "scieasy.qa.schemas.tracker.TrackerEntry"
+        - "scieasy.qa.schemas.tracker.RequiredArtifacts"
+        - "scieasy.qa.schemas.tracker.VerificationCheck"
+        - "scieasy.qa.schemas.tracker.SectionStatus"
+        - "scieasy.qa.tracker.adr_implementation_check.run"
+        - "scieasy.qa.tracker.tool_self_test_runner.run_self_test"
+      tests:
+        - "tests/qa/test_implementation_tracker.py"
+        - "tests/qa/test_tool_self_test_runner.py"
+        - "tests/qa/test_governance_drift.py"
+        - "tests/qa/test_addendum_propagate.py"
+    verification_checks:
+      - id: "tracker-schema-validates"
+        description: "The implementation tracker YAML validates against the ImplementationTracker pydantic schema."
+      - id: "monitoring-tools-inventory"
+        description: "ADR-043 section 2 tool inventory scripts and wrappers exist with tests or report-only coverage."
+      - id: "weekly-conformance"
+        description: "adr-042-conformance workflow orchestrates tracker validation, phase gates, tool self-tests, governance drift, and addendum propagation."
+    status: in_progress
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --json"
+  - section: "ADR-043 section 2.1 Implementation Tracker"
+    requires_artifacts:
+      files:
+        - "docs/audit/adr-042-implementation-tracker.yaml"
+      symbols:
+        - "scieasy.qa.schemas.tracker.ImplementationTracker"
+      tests:
+        - "tests/qa/test_implementation_tracker.py"
+    verification_checks:
+      - id: "all-required-sections"
+        description: "Tracker entries cover ADR-042 implementation sections and every ADR-043 section or independently implementable subsection."
+      - id: "artifact-fields"
+        description: "Each tracker row declares required files, symbols, tests, verification checks, status, PR, verifier skill, and verifier command fields."
+    status: in_progress
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --json"
+  - section: "ADR-043 section 2.2 Tracker Pydantic Schema"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/schemas/tracker.py"
+      symbols:
+        - "scieasy.qa.schemas.tracker.SectionStatus"
+        - "scieasy.qa.schemas.tracker.RequiredArtifacts"
+        - "scieasy.qa.schemas.tracker.VerificationCheck"
+        - "scieasy.qa.schemas.tracker.TrackerEntry"
+        - "scieasy.qa.schemas.tracker.ImplementationTracker"
+      tests:
+        - "tests/qa/test_implementation_tracker.py"
+    verification_checks:
+      - id: "schema-fields"
+        description: "Tracker schema exposes section status, required artifacts, verification checks, tracker entries, and top-level tracker model with extra fields forbidden."
+      - id: "implemented-requires-pr"
+        description: "implemented and verified statuses require implemented_in_pr."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "pytest --timeout=60 --no-cov tests/qa/test_implementation_tracker.py"
+  - section: "ADR-043 section 2.3 Tracker State Transition Rules"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/tracker/adr_implementation_check.py"
+        - "scripts/audit/adr_implementation_check.py"
+        - "docs/audit/adr-042-implementation-tracker.yaml"
+      symbols:
+        - "scieasy.qa.tracker.adr_implementation_check.run"
+      tests:
+        - "tests/qa/test_implementation_tracker.py"
+    verification_checks:
+      - id: "monotonic-status"
+        description: "Tracker validation detects status regression against HEAD and requires implemented rows to cite a PR."
+      - id: "artifact-change-coupling"
+        description: "PR-aware mode reports artifact changes without a matching tracker update."
+      - id: "verified-runs-command"
+        description: "Verified rows require verification checks, verified_at, and a successful verifier command."
+    status: in_progress
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "pytest --timeout=60 --no-cov tests/qa/test_implementation_tracker.py"
+  - section: "ADR-043 section 2.4 QA Tool Self-Test Discipline"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/tracker/tool_self_test_runner.py"
+        - "scripts/audit/tool_self_test_runner.py"
+        - "docs/audit/tool-self-test/doc_drift-on-adr-042.json"
+        - "docs/audit/tool-self-test/frontmatter_lint-on-adr-042.json"
+        - "docs/audit/tool-self-test/fact_drift-on-adr-042.json"
+        - "docs/audit/tool-self-test/closure-on-adr-042.json"
+        - "docs/audit/tool-self-test/pytest_examples-on-adr-042.json"
+        - "docs/audit/tool-self-test/griffe-on-adr-042.json"
+        - "docs/audit/tool-self-test/interrogate-on-adr-042.json"
+        - "docs/audit/tool-self-test/pydoclint-on-adr-042.json"
+        - "docs/audit/tool-self-test/monotonic-on-adr-042.json"
+        - "docs/audit/tool-self-test/test_quality-on-adr-042.json"
+      symbols:
+        - "scieasy.qa.tracker.tool_self_test_runner.run_self_test"
+      tests:
+        - "tests/qa/test_tool_self_test_runner.py"
+    verification_checks:
+      - id: "self-test-artifacts"
+        description: "Each ADR-042/043 QA tool implementation PR includes the required self-test JSON output against ADR-042."
+      - id: "expected-output-diff"
+        description: "tool_self_test_runner compares current tool output against committed expected JSON."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "pytest --timeout=60 --no-cov tests/qa/test_tool_self_test_runner.py"
+  - section: "ADR-043 section 2.5 Phase Gate Validator"
+    requires_artifacts:
+      files:
+        - "scripts/audit/phase_gate.py"
+        - "src/scieasy/qa/tracker/phase_gate.py"
+      symbols:
+        - "scieasy.qa.tracker.phase_gate.check_phase_transition"
+      tests:
+        - "tests/qa/test_phase_gate.py"
+        - "tests/integration/test_phase_gate_e2e.py"
+    verification_checks:
+      - id: "phase-readiness"
+        description: "Phase transition validation blocks when prior phase tracker entries are not verified, tool self-test artifacts are missing or stale, PRs are unmerged, or tracker schema validation fails."
+      - id: "no-tier2-override"
+        description: "Phase gate cannot be bypassed by Tier-2 humans without publishing an addendum."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 2.5\""
+  - section: "ADR-043 section 2.6 Bidirectional ADR Implementation Monitoring"
+    requires_artifacts:
+      files:
+        - "scripts/audit/addendum_propagate.py"
+        - "src/scieasy/qa/audit/closure.py"
+        - "docs/audit/adr-042-implementation-tracker.yaml"
+      symbols:
+        - "scieasy.qa.audit.closure.check_bidirectional"
+      tests:
+        - "tests/qa/test_addendum_propagate.py"
+        - "tests/qa/test_closure.py"
+    verification_checks:
+      - id: "addendum-propagates-tracker"
+        description: "Addendum propagation parses addendum governs/contracts/files/tests and inserts not_started tracker entries with grace periods."
+      - id: "closure-consumes-tracker"
+        description: "Bidirectional closure also consumes the implementation tracker to catch code references unknown to the tracker."
+    status: in_progress
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "pytest --timeout=60 --no-cov tests/qa/test_addendum_propagate.py"
+  - section: "ADR-043 section 2.7 Tool Inventory"
+    requires_artifacts:
+      files:
+        - "scripts/audit/adr_implementation_check.py"
+        - "scripts/audit/phase_gate.py"
+        - "scripts/audit/tool_self_test_runner.py"
+        - "scripts/audit/governance_drift.py"
+        - "scripts/audit/addendum_propagate.py"
+        - ".github/workflows/adr-042-conformance.yml"
+      symbols: []
+      tests:
+        - "tests/qa/test_implementation_tracker.py"
+        - "tests/qa/test_tool_self_test_runner.py"
+        - "tests/qa/test_governance_drift.py"
+        - "tests/qa/test_addendum_propagate.py"
+    verification_checks:
+      - id: "tool-inventory-present"
+        description: "All ADR-043 section 2 inventory scripts exist and are orchestrated by the weekly conformance workflow."
+      - id: "trigger-coverage"
+        description: "Inventory tools are wired to pre-commit, CI, manual phase flip, per-tool PR, nightly, or weekly cron triggers as specified."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 2.7\""
+  - section: "ADR-043 section 3 Rule-Modification Hard Blocks"
+    requires_artifacts:
+      files:
+        - ".governance-paths.yaml"
+        - ".github/CODEOWNERS"
+        - ".github/workflows/governance-modification.yml"
+        - "src/scieasy/qa/schemas/governance.py"
+        - "scripts/audit/governance_mod_guard.py"
+        - "scripts/audit/governance_mod_pr_check.py"
+        - "scripts/audit/monotonic_check.py"
+        - "scripts/audit/honeypot_check.py"
+        - "scripts/audit/weakened_ci_check.py"
+        - "docs/audit/governance-changes.log"
+      symbols:
+        - "scieasy.qa.schemas.governance.GovernancePaths"
+        - "scieasy.qa.governance.mod_guard.check_governance_modification"
+        - "scieasy.qa.governance.mod_pr_check.verify_governance_pr"
+        - "scieasy.qa.governance.monotonic_check.verify_no_loosening"
+        - "scieasy.qa.governance.honeypot.check_canary_intact"
+        - "scieasy.qa.governance.weakened_ci_check.verify_no_weakening"
+      tests:
+        - "tests/qa/test_governance_mod_guard.py"
+        - "tests/qa/test_monotonic_check.py"
+        - "tests/qa/test_honeypot.py"
+        - "tests/qa/test_weakened_ci_check.py"
+        - "tests/integration/test_governance_modification_workflow.py"
+    verification_checks:
+      - id: "layered-hard-blocks"
+        description: "Governance path edits are protected by registry/CODEOWNERS, local and CI guards, monotonic checks, recursive self-validation, append-only logs, and honeypots."
+      - id: "tier2-approval"
+        description: "Loosening or governance edits require explicit Tier-2 sign-off and cannot rely on agent self-modification."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 3\""
+  - section: "ADR-043 section 3.2 Governance Paths Registry and CODEOWNERS"
+    requires_artifacts:
+      files:
+        - ".governance-paths.yaml"
+        - ".github/CODEOWNERS"
+        - "src/scieasy/qa/schemas/governance.py"
+      symbols:
+        - "scieasy.qa.schemas.governance.GovernancePaths"
+      tests:
+        - "tests/qa/test_governance_paths_schema.py"
+    verification_checks:
+      - id: "registry-schema"
+        description: ".governance-paths.yaml validates governance_paths and honeypot_canaries with a pydantic GovernancePaths schema."
+      - id: "codeowners-generated"
+        description: ".github/CODEOWNERS is generated from the registry and branch protection requires Code Owner review for governance paths."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 3.2\""
+  - section: "ADR-043 section 3.3 Governance Modification Guard"
+    requires_artifacts:
+      files:
+        - "scripts/audit/governance_mod_guard.py"
+        - "scripts/audit/governance_mod_pr_check.py"
+        - ".pre-commit-config.yaml"
+        - "docs/identity/humans.yml"
+      symbols:
+        - "scieasy.qa.governance.mod_guard.check_governance_modification"
+        - "scieasy.qa.governance.mod_pr_check.verify_governance_pr"
+      tests:
+        - "tests/qa/test_governance_mod_guard.py"
+        - "tests/integration/test_governance_modification_workflow.py"
+    verification_checks:
+      - id: "local-authority-limit"
+        description: "Local guard validates staged governance paths, trailer shape, contributor kind, symlink safety, and generated-file hand-edit rejection without claiming remote review authority."
+      - id: "ci-approval-verification"
+        description: "CI verifies cited Tier-2 approver, GitHub APPROVED state, CODEOWNERS coverage, and companion checks."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 3.3\""
+  - section: "ADR-043 section 3.4 Monotonic Strengthening"
+    requires_artifacts:
+      files:
+        - "scripts/audit/monotonic_check.py"
+        - "src/scieasy/qa/schemas/governance.py"
+      symbols:
+        - "scieasy.qa.schemas.governance.LoosenedAxis"
+        - "scieasy.qa.schemas.governance.MonotonicCheckResult"
+        - "scieasy.qa.governance.monotonic_check.verify_no_loosening"
+      tests:
+        - "tests/qa/test_monotonic_check.py"
+    verification_checks:
+      - id: "monotonic-axes"
+        description: "Monotonic check detects loosening across coverage, CI gates, hooks, ruff/mypy, timeouts, skills, editability, exemptions, canaries, runtimes, frontmatter, and code-implementation rigor."
+      - id: "loosening-protocol"
+        description: "Loosening requires approval and reason trailers, companion addendum, and clean contradiction audit."
+      - id: "schema-result"
+        description: "LoosenedAxis and MonotonicCheckResult capture before/after values, approval state, addendum PR, contradiction result, and blocking outcome."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 3.4\""
+  - section: "ADR-043 section 3.5 Recursive Self-Validation Workflow"
+    requires_artifacts:
+      files:
+        - ".github/workflows/governance-modification.yml"
+        - "src/scieasy/qa/governance/path_filter.py"
+        - "src/scieasy/qa/governance/workflow_sync_check.py"
+      symbols:
+        - "scieasy.qa.governance.path_filter.filter"
+        - "scieasy.qa.governance.workflow_sync_check.verify"
+      tests:
+        - "tests/integration/test_governance_modification_workflow.py"
+    verification_checks:
+      - id: "dynamic-path-filter"
+        description: "Workflow derives governance path matches at runtime from .governance-paths.yaml and avoids hand-maintained pull_request paths."
+      - id: "recursive-checks"
+        description: "Modified governance paths trigger full audit, contradiction audit, monotonic check, honeypot, tracker freshness, and weakened-CI checks."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 3.5\""
+  - section: "ADR-043 section 3.6 Governance Change Log and Honeypot"
+    requires_artifacts:
+      files:
+        - "docs/audit/governance-changes.log"
+        - ".governance-paths.yaml"
+        - "src/scieasy/qa/schemas/governance.py"
+        - "scripts/audit/honeypot_check.py"
+      symbols:
+        - "scieasy.qa.schemas.governance.GovernanceChangeLogEntry"
+        - "scieasy.qa.schemas.governance.HoneypotRule"
+        - "scieasy.qa.schemas.governance.HoneypotViolation"
+        - "scieasy.qa.governance.honeypot.check_canary_intact"
+      tests:
+        - "tests/qa/test_honeypot.py"
+    verification_checks:
+      - id: "append-only-log"
+        description: "Governance changes append JSONL entries with author, runtime, changed governance paths, approval, monotonic, contradiction, and honeypot results."
+      - id: "monthly-review"
+        description: "Scheduled review summarizes override clustering, loosening patterns, missing reviews, and bot or unknown governance edits."
+      - id: "canary-integrity"
+        description: "Honeypot canary markers in .governance-paths.yaml have no functional role and any modification blocks or triggers the documented response."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 3.6\""
+  - section: "ADR-043 section 3.7 ADR Self-Modification Exception"
+    requires_artifacts:
+      files:
+        - "docs/adr/ADR-042.md"
+        - "docs/adr/ADR-043.md"
+        - "scripts/audit/governance_mod_guard.py"
+        - "scripts/audit/monotonic_check.py"
+        - "scripts/audit/honeypot_check.py"
+        - "docs/audit/governance-changes.log"
+      symbols:
+        - "scieasy.qa.governance.mod_guard.check_governance_modification"
+        - "scieasy.qa.governance.monotonic_check.verify_no_loosening"
+        - "scieasy.qa.governance.honeypot.check_canary_intact"
+      tests:
+        - "tests/qa/test_governance_mod_guard.py"
+    verification_checks:
+      - id: "allowed-revision-mechanisms"
+        description: "Accepted ADR-042/043 body changes are limited to new addendum, supersession, or errata-only patches."
+      - id: "errata-only-rules"
+        description: "Errata-only patches require trailer, Tier-2 approval, 20-line cap, semantic no-op validation, and no bypass of CODEOWNERS, monotonic, honeypot, governance log, or tracker freshness."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 3.7\""
+  - section: "ADR-043 section 4 Test Quality Enforcement"
+    requires_artifacts:
+      files:
+        - "scripts/audit/test_quality.py"
+        - "scripts/audit/test_first_check.py"
+        - "src/scieasy/qa/schemas/test_quality.py"
+        - "src/scieasy/qa/test_quality/ast_lint.py"
+        - "src/scieasy/qa/test_quality/test_first_check.py"
+        - "src/scieasy/qa/test_quality/mutation_runner.py"
+        - ".github/pull_request_template.md"
+        - "docs/contributing/reference/mutation-testing.md"
+      symbols:
+        - "scieasy.qa.schemas.test_quality.TestQualityReport"
+        - "scieasy.qa.schemas.test_quality.MutationScoreResult"
+        - "scieasy.qa.schemas.test_quality.AntiPatternFinding"
+        - "scieasy.qa.schemas.test_quality.AntiPattern"
+        - "scieasy.qa.test_quality.ast_lint.check_test_file"
+        - "scieasy.qa.test_quality.test_first_check.verify_ordering"
+        - "scieasy.qa.test_quality.mutation_runner.run_targeted"
+      tests:
+        - "tests/qa/test_test_quality_ast.py"
+        - "tests/qa/test_test_first_check.py"
+        - "tests/qa/test_mutation_runner.py"
+        - "tests/integration/test_test_quality_pipeline.py"
+    verification_checks:
+      - id: "anti-test-theater"
+        description: "Tooling, AST checks, PR process, test-author skill, mutation targets, and M12 meta-compliance detect weak or self-confirming tests."
+      - id: "phase-enforcement"
+        description: "Mutation, hypothesis, dead fixture, randomized order, branch/path coverage, AST lint, and test-first checks follow their Phase 1/3 enforcement status."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 4\""
+  - section: "ADR-043 section 4.2 Test Quality AST Schema and Lint"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/schemas/test_quality.py"
+        - "src/scieasy/qa/test_quality/ast_lint.py"
+        - "scripts/audit/test_quality.py"
+      symbols:
+        - "scieasy.qa.schemas.test_quality.AntiPattern"
+        - "scieasy.qa.schemas.test_quality.AntiPatternFinding"
+        - "scieasy.qa.schemas.test_quality.MutationScoreResult"
+        - "scieasy.qa.schemas.test_quality.TestQualityReport"
+        - "scieasy.qa.test_quality.ast_lint.check_test_file"
+      tests:
+        - "tests/qa/test_test_quality_ast.py"
+    verification_checks:
+      - id: "anti-pattern-detection"
+        description: "AST lint flags no asserts, weak not-none assertions, subject mocking, mock-call-only tests, unexplained magic values, name/body mismatch, raises without match, unexplained snapshots, excessive mocks, and self-derived ground truth."
+      - id: "report-schema"
+        description: "TestQualityReport combines anti-pattern findings, mutation scores, dead fixtures, property test coverage, and overall result."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 4.2\""
+  - section: "ADR-043 section 4.3 Test Process Layer"
+    requires_artifacts:
+      files:
+        - ".github/pull_request_template.md"
+        - "scripts/audit/test_first_check.py"
+        - "src/scieasy/qa/test_quality/test_first_check.py"
+      symbols:
+        - "scieasy.qa.test_quality.test_first_check.verify_ordering"
+      tests:
+        - "tests/qa/test_test_first_check.py"
+    verification_checks:
+      - id: "tests-prove-what"
+        description: "PR template requires non-boilerplate Tests prove what content and a test discipline checklist."
+      - id: "test-first-ordering"
+        description: "Test-first checker maps new tests to implementation commits and verifies new tests failed at the parent commit unless Backfill-Test applies."
+      - id: "reviewer-checkbox"
+        description: "A non-author reviewer must verify meaningful assertions and necessary mocks for tests."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 4.3\""
+  - section: "ADR-043 section 4.4 test-author Skill"
+    requires_artifacts:
+      files:
+        - ".claude/skills/test-author/SKILL.md"
+        - "docs/skills/required.yaml"
+      symbols: []
+      tests:
+        - "tests/qa/test_required_skills_manifest.py"
+    verification_checks:
+      - id: "skill-installed"
+        description: "test-author is a P0 required skill installed into all supported runtimes by the cross-runtime installer."
+      - id: "meaningful-test-protocol"
+        description: "Skill requires contract identification, assertion-first test writing, failing-then-passing pytest, edge cases, property tests, forbidden patterns, and no-edit-with-explanation when uncertain."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 4.4\""
+  - section: "ADR-043 section 4.5 Mutation Score Targets"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/test_quality/mutation_runner.py"
+        - "docs/audit/test-quality-trends"
+        - "docs/contributing/reference/mutation-testing.md"
+      symbols:
+        - "scieasy.qa.test_quality.mutation_runner.run_targeted"
+      tests:
+        - "tests/qa/test_mutation_runner.py"
+    verification_checks:
+      - id: "path-targets"
+        description: "Mutation thresholds are path-scoped at 0.90 for QA, 0.85 core, 0.75 blocks/engine/api/workflow, 0.70 AI, and 0.85 for all new post-Phase-4 code."
+      - id: "linux-ci-only"
+        description: "Mutation testing platform constraints are documented and CI mutation runs on Linux runners only."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 4.5\""
+  - section: "ADR-043 section 4.6 Meta-Compliance M12"
+    requires_artifacts:
+      files:
+        - "docs/adr/ADR-042.md"
+        - "src/scieasy/qa/tracker/tool_self_test_runner.py"
+      symbols:
+        - "scieasy.qa.tracker.tool_self_test_runner.run_self_test"
+      tests:
+        - "tests/qa/test_tool_self_test_runner.py"
+    verification_checks:
+      - id: "m12-propagated"
+        description: "ADR-042 section 28.5 includes M12 requiring each ADR-042/043 QA tool to reach mutation score 0.90 and at least one property-based test by Phase 4 revalidation."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 4.6\""
+  - section: "ADR-043 section 4.7 Addendum Tool Entry-Point Signatures"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/tracker/adr_implementation_check.py"
+        - "src/scieasy/qa/tracker/phase_gate.py"
+        - "src/scieasy/qa/tracker/tool_self_test_runner.py"
+        - "src/scieasy/qa/governance/mod_guard.py"
+        - "src/scieasy/qa/governance/mod_pr_check.py"
+        - "src/scieasy/qa/governance/monotonic_check.py"
+        - "src/scieasy/qa/governance/honeypot.py"
+        - "src/scieasy/qa/governance/weakened_ci_check.py"
+        - "src/scieasy/qa/test_quality/ast_lint.py"
+        - "src/scieasy/qa/test_quality/test_first_check.py"
+        - "src/scieasy/qa/test_quality/mutation_runner.py"
+        - "src/scieasy/qa/classification/lint.py"
+        - "src/scieasy/qa/governance/path_filter.py"
+        - "src/scieasy/qa/governance/workflow_sync_check.py"
+      symbols:
+        - "scieasy.qa.tracker.adr_implementation_check.run"
+        - "scieasy.qa.tracker.phase_gate.check_phase_transition"
+        - "scieasy.qa.tracker.tool_self_test_runner.run_self_test"
+        - "scieasy.qa.governance.mod_guard.check_governance_modification"
+        - "scieasy.qa.governance.mod_pr_check.verify_governance_pr"
+        - "scieasy.qa.governance.monotonic_check.verify_no_loosening"
+        - "scieasy.qa.governance.honeypot.check_canary_intact"
+        - "scieasy.qa.governance.weakened_ci_check.verify_no_weakening"
+        - "scieasy.qa.test_quality.ast_lint.check_test_file"
+        - "scieasy.qa.test_quality.test_first_check.verify_ordering"
+        - "scieasy.qa.test_quality.mutation_runner.run_targeted"
+        - "scieasy.qa.classification.lint.check_data_classification_present"
+        - "scieasy.qa.classification.lint.check_assessment_rubric_present"
+        - "scieasy.qa.classification.lint.check_path_boundary_present"
+        - "scieasy.qa.governance.path_filter.filter"
+        - "scieasy.qa.governance.workflow_sync_check.verify"
+      tests:
+        - "tests/qa/test_implementation_tracker.py"
+        - "tests/qa/test_phase_gate.py"
+        - "tests/qa/test_tool_self_test_runner.py"
+        - "tests/qa/test_governance_mod_guard.py"
+        - "tests/qa/test_monotonic_check.py"
+        - "tests/qa/test_honeypot.py"
+        - "tests/qa/test_weakened_ci_check.py"
+        - "tests/qa/test_test_quality_ast.py"
+        - "tests/qa/test_test_first_check.py"
+        - "tests/qa/test_mutation_runner.py"
+        - "tests/qa/test_data_classification_lint.py"
+        - "tests/qa/test_assessment_rubric_lint.py"
+        - "tests/qa/test_path_boundary_lint.py"
+    verification_checks:
+      - id: "function-signatures"
+        description: "Each function contract listed in ADR-043 frontmatter exists with the documented signature so Sphinx nitpicky resolution and tracker validation have concrete targets."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 4.7\""
+  - section: "ADR-043 section 5 AGENTS Layered Design"
+    requires_artifacts:
+      files:
+        - "AGENTS.md"
+        - "CLAUDE.md"
+        - "CURSOR.md"
+        - "GEMINI.md"
+        - ".aiderrc"
+        - "src/scieasy/core/AGENTS.md"
+        - "src/scieasy/blocks/AGENTS.md"
+        - "src/scieasy/blocks/ai/AGENTS.md"
+        - "src/scieasy/qa/AGENTS.md"
+        - "frontend/AGENTS.md"
+        - ".workflow/AGENTS.md"
+        - "docs/AGENTS.md"
+        - ".github/AGENTS.md"
+        - ".claude/skills/test-author/SKILL.md"
+        - "scripts/audit/instructions_loaded_audit.py"
+        - "scripts/hooks/instructions-loaded-audit.sh"
+      symbols: []
+      tests:
+        - "tests/qa/test_layered_agents_scaffold.py"
+        - "tests/qa/test_instructions_loaded_audit.py"
+    verification_checks:
+      - id: "carrier-mapping"
+        description: "Rules are assigned to hook, git hook plus CI, path-scoped rule, skill, or always-loaded AGENTS.md carriers according to ADR-043 section 5.1 and 5.2."
+      - id: "migration-layout"
+        description: "Root AGENTS.md is reduced to the canonical always-loaded policy and current CLAUDE content migrates to subtree AGENTS, skills, rules, or deterministic hooks."
+      - id: "required-sections"
+        description: "Root and per-subtree AGENTS.md files contain identity/scope, policy, routing, data classification, assessment rubric, paths, and root out-of-scope sections."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "pytest --timeout=60 --no-cov tests/qa/test_layered_agents_scaffold.py"
+  - section: "ADR-043 section 5.5 InstructionsLoaded Audit"
+    requires_artifacts:
+      files:
+        - "scripts/hooks/instructions-loaded-audit.sh"
+        - "scripts/audit/instructions_loaded_audit.py"
+        - "docs/audit/instructions-loaded-trace"
+      symbols: []
+      tests:
+        - "tests/qa/test_instructions_loaded_audit.py"
+    verification_checks:
+      - id: "loaded-rule-trace"
+        description: "InstructionsLoaded hook records loaded rule files to JSONL for one week so over-broad, missing, and unused carriers can be analyzed."
+      - id: "temporary-overhead"
+        description: "The audit is disabled after the analysis cycle until the next audit period."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 5.5\""
+  - section: "ADR-043 section 5.6 Required AGENTS Sections"
+    requires_artifacts:
+      files:
+        - "AGENTS.md"
+        - "src/scieasy/qa/AGENTS.md"
+        - "scripts/audit/classification_lint.py"
+        - "src/scieasy/qa/classification/lint.py"
+      symbols:
+        - "scieasy.qa.classification.lint.check_data_classification_present"
+        - "scieasy.qa.classification.lint.check_assessment_rubric_present"
+        - "scieasy.qa.classification.lint.check_path_boundary_present"
+      tests:
+        - "tests/qa/test_data_classification_lint.py"
+        - "tests/qa/test_assessment_rubric_lint.py"
+        - "tests/qa/test_path_boundary_lint.py"
+    verification_checks:
+      - id: "section-presence"
+        description: "classification_lint verifies required AGENTS.md sections in the documented order, including root-only out-of-scope TODO format."
+      - id: "human-content-review"
+        description: "Lint verifies presence while humans review scoped content quality."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 5.6\""
+  - section: "ADR-043 section 6 2026 Convention Adoptions"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/schemas/classification.py"
+        - "src/scieasy/qa/classification/lint.py"
+        - "scripts/audit/classification_lint.py"
+        - "scripts/audit/weakened_ci_check.py"
+        - "src/scieasy/qa/schemas/governance.py"
+      symbols:
+        - "scieasy.qa.schemas.classification.DataClassification"
+        - "scieasy.qa.schemas.classification.AssessmentRubric"
+        - "scieasy.qa.schemas.classification.PathBoundary"
+        - "scieasy.qa.governance.weakened_ci_check.verify_no_weakening"
+      tests:
+        - "tests/qa/test_data_classification_lint.py"
+        - "tests/qa/test_assessment_rubric_lint.py"
+        - "tests/qa/test_path_boundary_lint.py"
+        - "tests/qa/test_weakened_ci_check.py"
+    verification_checks:
+      - id: "classification-rubric-boundary"
+        description: "Every AGENTS.md contains data classification, assessment rubric, and three-tier path boundary sections."
+      - id: "weakened-ci-block"
+        description: "Every PR runs weakened-CI detection independently of the broader monotonic governance check."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 6\""
+  - section: "ADR-043 section 6.1 Data Classification"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/schemas/classification.py"
+        - "src/scieasy/qa/classification/lint.py"
+        - "scripts/audit/classification_lint.py"
+        - "AGENTS.md"
+      symbols:
+        - "scieasy.qa.schemas.classification.DataClass"
+        - "scieasy.qa.schemas.classification.DataClassificationEntry"
+        - "scieasy.qa.schemas.classification.DataClassification"
+        - "scieasy.qa.classification.lint.check_data_classification_present"
+      tests:
+        - "tests/qa/test_data_classification_lint.py"
+    verification_checks:
+      - id: "classification-section"
+        description: "Every root and per-subtree AGENTS.md classifies governed paths by data kind and sensitivity."
+      - id: "consistent-coverage"
+        description: "Lint verifies every governed path is classified and overlapping root/subtree classifications do not conflict."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 6.1\""
+  - section: "ADR-043 section 6.2 Assessment Rubric"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/schemas/classification.py"
+        - "src/scieasy/qa/classification/lint.py"
+        - "scripts/audit/classification_lint.py"
+        - "AGENTS.md"
+      symbols:
+        - "scieasy.qa.schemas.classification.RubricCriterion"
+        - "scieasy.qa.schemas.classification.AssessmentRubric"
+        - "scieasy.qa.classification.lint.check_assessment_rubric_present"
+      tests:
+        - "tests/qa/test_assessment_rubric_lint.py"
+    verification_checks:
+      - id: "rubric-section"
+        description: "Every AGENTS.md has an assessment rubric with concrete agent-self-checkable criteria."
+      - id: "verification-command"
+        description: "Each criterion declares a verification command or explicitly null human-only check."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 6.2\""
+  - section: "ADR-043 section 6.3 Path Boundary"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/schemas/classification.py"
+        - "src/scieasy/qa/classification/lint.py"
+        - "scripts/audit/classification_lint.py"
+        - "AGENTS.md"
+      symbols:
+        - "scieasy.qa.schemas.classification.BoundaryLevel"
+        - "scieasy.qa.schemas.classification.PathBoundaryEntry"
+        - "scieasy.qa.schemas.classification.PathBoundary"
+        - "scieasy.qa.classification.lint.check_path_boundary_present"
+      tests:
+        - "tests/qa/test_path_boundary_lint.py"
+    verification_checks:
+      - id: "three-tier-markers"
+        description: "Every AGENTS.md contains a Paths section using the exact always, ask-first, and never markers from ADR-043 section 6.3."
+      - id: "maintainers-boundary-coverage"
+        description: "Every MAINTAINERS glob appears in at least one boundary entry and subtree files may tighten but not loosen root boundaries."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 6.3\""
+  - section: "ADR-043 section 6.4 Weakened CI Automatic Block"
+    requires_artifacts:
+      files:
+        - "scripts/audit/weakened_ci_check.py"
+        - "src/scieasy/qa/governance/weakened_ci_check.py"
+        - "src/scieasy/qa/schemas/governance.py"
+      symbols:
+        - "scieasy.qa.schemas.governance.WeakeningKind"
+        - "scieasy.qa.schemas.governance.WeakeningFinding"
+        - "scieasy.qa.governance.weakened_ci_check.verify_no_weakening"
+      tests:
+        - "tests/qa/test_weakened_ci_check.py"
+    verification_checks:
+      - id: "weakening-patterns"
+        description: "The checker detects deleted tests, removed tests, lower coverage/mutation thresholds, unjustified skip/xfail, disabled lint/type/pre-commit/CI, increased timeout, expanded exemptions/noqa, reduced skills, and reduced honeypots."
+      - id: "loosening-exception"
+        description: "Weakening only passes when Loosening-Approved, companion addendum, and clean contradiction audit are all present."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 6.4\""
+  - section: "ADR-043 section 7 Implementation Plan Adjustments"
+    requires_artifacts:
+      files:
+        - "docs/adr/ADR-043.md"
+      symbols: []
+      tests: []
+    verification_checks:
+      - id: "no-phase-assignment"
+        description: "ADR-043 records that implementation-plan phase assignments were cleared on 2026-05-18 pending owner replacement plan."
+      - id: "requirements-retained"
+        description: "The tracker still carries monitoring, governance, test-quality, and AGENTS design requirements without assigning unapproved phase numbers."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 7\""
+  - section: "ADR-043 section 8 Updated Meta-Compliance"
+    requires_artifacts:
+      files:
+        - "docs/adr/ADR-042.md"
+        - "docs/adr/ADR-043.md"
+        - "docs/audit/adr-042-implementation-tracker.yaml"
+        - "src/scieasy/qa/tracker/tool_self_test_runner.py"
+        - "src/scieasy/qa/classification/lint.py"
+      symbols:
+        - "scieasy.qa.tracker.tool_self_test_runner.run_self_test"
+        - "scieasy.qa.classification.lint.check_data_classification_present"
+      tests:
+        - "tests/qa/test_tool_self_test_runner.py"
+        - "tests/qa/test_data_classification_lint.py"
+    verification_checks:
+      - id: "m12-m15-tracked"
+        description: "M12-M15 meta-compliance requirements are represented in tracker rows for tool mutation/property tests, governance logs, tracker grace windows, and AGENTS required sections."
+      - id: "phase-status-preserved"
+        description: "Verification commands reflect future Phase 4/5 or CI-flip checks without prematurely marking rows implemented or verified."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 8\""
+  - section: "ADR-043 section 9 Frontmatter Additions to ADR-042"
+    requires_artifacts:
+      files:
+        - "docs/adr/ADR-042.md"
+        - "docs/adr/ADR-043.md"
+      symbols: []
+      tests:
+        - "tests/qa/test_doc_examples.py"
+    verification_checks:
+      - id: "applied-record"
+        description: "ADR-043 section 9 remains a historical record that prior frontmatter additions were applied to ADR-042, not an active implementation task."
+      - id: "frontmatter-reaudit"
+        description: "Frontmatter lint and doc example checks confirm the retained record does not contradict current ADR-042 frontmatter."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 9\""
+  - section: "ADR-043 section 10 Consequences"
+    requires_artifacts:
+      files:
+        - "docs/adr/ADR-043.md"
+      symbols: []
+      tests: []
+    verification_checks:
+      - id: "consequence-review"
+        description: "Human review confirms positive/negative consequences and alternatives remain accurate as implementation progresses."
+      - id: "tooling-scope-awareness"
+        description: "Tracker rows preserve the substantial tooling, CI latency, governance friction, and CLAUDE migration risks named in ADR-043 section 10."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 10\""
+  - section: "ADR-043 section 11 Known Gaps"
+    requires_artifacts:
+      files:
+        - "docs/adr/ADR-043.md"
+      symbols: []
+      tests: []
+    verification_checks:
+      - id: "gaps-deferred"
+        description: "Agent fingerprinting, prompt-injection sanitization, network egress allowlist, 2026 attack-pattern defenses, conference findings, and OpenSSF lifecycle-provenance work remain deferred to future addendums or ADRs."
+      - id: "no-speculation"
+        description: "Tracker does not invent implementation artifacts for known gaps that ADR-043 explicitly defers."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "python scripts/audit/adr_implementation_check.py --section \"ADR-043 section 11\""
