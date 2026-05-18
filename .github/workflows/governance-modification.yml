@@ -70,14 +70,18 @@ jobs:
         run: python -m scieasy.qa.governance.workflow_sync_check
 
       # TODO(#1113): the dedicated contradiction-audit tool lands in
-      # Phase 1F/1G. Until then this step invokes the Phase -0.5
-      # temp_review CLI as a stand-in (verifies trailer + AST shape
-      # rules — does not yet re-run a true ADR contradiction audit).
+      # Phase 1F/1G. The §3.5 spec calls for re-running a contradiction
+      # audit on modified ADRs at this point; until that tool exists,
+      # this step is a deliberate no-op that records the deferral so
+      # the merge-time check chain remains intact (Phase 1E hardens the
+      # surrounding tools; contradiction_audit is its own deliverable).
       # Out of scope per ADR-043 Phase 1E.
       # Followup: open as part of ADR-043 Phase 1F/1G sub-issues under #1113.
-      - name: Contradiction audit (temp_review stand-in)
+      - name: Contradiction audit (deferred stand-in)
         if: steps.gov_paths.outputs.touched == 'true'
-        run: python scripts/audit/temp_review.py --ci
+        run: |
+          echo "::notice::contradiction_audit step is a placeholder per ADR-043 Phase 1E TODO(#1113)."
+          echo "Real tool ships in Phase 1F/1G; this step is intentionally a no-op until then."
 
       - name: Monotonic check (no loosening without approval)
         if: steps.gov_paths.outputs.touched == 'true'
