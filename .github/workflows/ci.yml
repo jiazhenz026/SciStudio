@@ -75,6 +75,27 @@ jobs:
       - name: Run architecture tests
         run: pytest tests/architecture/ -v --no-cov
 
+  adr-implementation-tracker:
+    name: ADR Implementation Tracker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+        with:
+          cache: true
+          cache-dependency-path: pyproject.toml
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install tracker runtime dependencies
+        run: uv pip install --system pydantic pyyaml
+      - name: Validate ADR implementation tracker
+        env:
+          PYTHONPATH: src
+        run: python scripts/audit/adr_implementation_check.py --json
+
   test:
     name: Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
