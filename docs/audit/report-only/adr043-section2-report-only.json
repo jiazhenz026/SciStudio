@@ -1,0 +1,72 @@
+{
+  "classification": "finding",
+  "commands": [
+    {
+      "classification": "pass",
+      "command": [
+        "C:\\Users\\jiazh\\miniconda3\\python.exe",
+        "scripts/audit/adr_implementation_check.py",
+        "--json"
+      ],
+      "exit_code": 0,
+      "hard_fail_later": "TODO(#1113): Convert tracker schema/import/artifact errors to hard-fail during the owner final CI pass per ADR-043 section 2 and the checklist Hard-fail conversion plan.",
+      "manual_note": null,
+      "name": "adr_implementation_check",
+      "report_only": true,
+      "stderr": "",
+      "stdout": "{\n  \"schema_version\": 1,\n  \"run_id\": \"adr_implementation_check-f67c5cd8-7900-4271-8773-0db520888c16\",\n  \"repo_sha\": \"28d3e3e78b54622ee5f6dd52ccf53532fcddd317\",\n  \"repo_branch\": \"local/adr043-report-only-wiring\",\n  \"pr_number\": null,\n  \"generated_at\": \"2026-05-18T19:41:50.828831Z\",\n  \"runs\": [\n    {\n      \"tool\": \"adr_implementation_check\",\n      \"version\": \"0.2\",\n      \"config_hash\": \"local\",\n      \"started_at\": \"2026-05-18T19:41:50.709148Z\",\n      \"completed_at\": \"2026-05-18T19:41:50.828831Z\",\n      \"exit_status\": \"warnings\",\n      \"findings\": [\n        {\n          \"rule_id\": \"implementation-tracker.in-progress-no-artifact-change\",\n          \"severity\": \"warning\",\n          \"drift_class\": null,\n          \"file\": \"docs/audit/adr-042-implementation-tracker.yaml\",\n          \"line\": null,\n          \"symbol\": null,\n          \"message\": \"ADR-043 section 2 Implementation Monitoring is in_progress but no declared artifact is changed locally.\",\n          \"suggested_fix\": null,\n          \"git_evidence\": null,\n          \"related_findings\": []\n        }\n      ]\n    }\n  ],\n  \"total_findings\": 1,\n  \"by_severity\": {\n    \"warning\": 1\n  },\n  \"by_drift_class\": {},\n  \"bidirectional_closure_ok\": true,\n  \"translation_ok\": true\n}\n"
+    },
+    {
+      "classification": "finding",
+      "command": [
+        "C:\\Users\\jiazh\\miniconda3\\python.exe",
+        "scripts/audit/tool_self_test_runner.py",
+        "all"
+      ],
+      "exit_code": 1,
+      "hard_fail_later": "TODO(#1113): Convert missing/stale tool self-test artifacts to hard-fail after required docs/audit/tool-self-test artifacts exist per ADR-043 section 2.4.",
+      "manual_note": null,
+      "name": "tool_self_test_runner",
+      "report_only": true,
+      "stderr": "",
+      "stdout": "Tool self-test check found issues:\n  [error] tool-self-test.missing-artifact: doc_drift is missing mandatory ADR-042 self-test artifact: docs\\audit\\tool-self-test\\doc_drift-on-adr-042.json\n  [error] tool-self-test.missing-artifact: frontmatter_lint is missing mandatory ADR-042 self-test artifact: docs\\audit\\tool-self-test\\frontmatter_lint-on-adr-042.json\n  [error] tool-self-test.missing-artifact: fact_drift is missing mandatory ADR-042 self-test artifact: docs\\audit\\tool-self-test\\fact_drift-on-adr-042.json\n  [error] tool-self-test.missing-artifact: closure is missing mandatory ADR-042 self-test artifact: docs\\audit\\tool-self-test\\closure-on-adr-042.json\n  [error] tool-self-test.missing-artifact: pytest_examples is missing mandatory ADR-042 self-test artifact: docs\\audit\\tool-self-test\\pytest_examples-on-adr-042.json\n  [error] tool-self-test.missing-artifact: griffe is missing mandatory ADR-042 self-test artifact: docs\\audit\\tool-self-test\\griffe-on-adr-042.json\n  [error] tool-self-test.missing-artifact: interrogate is missing mandatory ADR-042 self-test artifact: docs\\audit\\tool-self-test\\interrogate-on-adr-042.json\n  [error] tool-self-test.missing-artifact: pydoclint is missing mandatory ADR-042 self-test artifact: docs\\audit\\tool-self-test\\pydoclint-on-adr-042.json\n  [error] tool-self-test.missing-artifact: monotonic is missing mandatory ADR-042 self-test artifact: docs\\audit\\tool-self-test\\monotonic-on-adr-042.json\n  [error] tool-self-test.missing-artifact: test_quality is missing mandatory ADR-042 self-test artifact: docs\\audit\\tool-self-test\\test_quality-on-adr-042.json\n"
+    },
+    {
+      "classification": "finding",
+      "command": [
+        "C:\\Users\\jiazh\\miniconda3\\python.exe",
+        "scripts/audit/governance_drift.py"
+      ],
+      "exit_code": 1,
+      "hard_fail_later": "TODO(#1113): Convert governance drift findings to hard-fail after known ADR/config mismatches are resolved or baselined per ADR-043 section 2.7.",
+      "manual_note": null,
+      "name": "governance_drift",
+      "report_only": true,
+      "stderr": "",
+      "stdout": "Governance drift check found issues:\n  [error] governance-drift.coverage-threshold-mismatch: ADR-042 claims --cov-fail-under=90, but pyproject.toml has [70, 70].\n"
+    },
+    {
+      "classification": "pass",
+      "command": [
+        "C:\\Users\\jiazh\\miniconda3\\python.exe",
+        "scripts/audit/addendum_propagate.py",
+        "--help"
+      ],
+      "exit_code": 0,
+      "hard_fail_later": "TODO(#1113): Wire addendum propagation as report-only or hard-fail only after the tracker update workflow is owner-approved per ADR-043 section 2.6.",
+      "manual_note": "Help-only probe: normal addendum_propagate execution writes tracker rows and is intentionally not run without an addendum target.",
+      "name": "addendum_propagate_help_probe",
+      "report_only": true,
+      "stderr": "",
+      "stdout": "usage: addendum_propagate.py [-h] [--tracker TRACKER] addendum\n\nInsert implementation-tracker rows for ADR addendum frontmatter.\n\npositional arguments:\n  addendum\n\noptions:\n  -h, --help         show this help message and exit\n  --tracker TRACKER\n"
+    }
+  ],
+  "generated_at": "2026-05-18T19:41:51.567427+00:00",
+  "hard_fail_later": "TODO(#1113): This aggregate remains report-only until the owner final CI pass selects which ADR-043 section 2 checks become required CI gates.",
+  "repo_branch": "local/adr043-report-only-wiring",
+  "repo_root": "C:\\Users\\jiazh\\Desktop\\workspace\\SciEasy-adr043-report-only-wiring",
+  "repo_sha": "28d3e3e78b54622ee5f6dd52ccf53532fcddd317",
+  "report_only": true,
+  "run_id": "adr043-section2-report-only-6050d5da-c553-416d-9048-02fa5b515579",
+  "started_at": "2026-05-18T19:41:50.489114+00:00"
+}

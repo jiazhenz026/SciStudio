@@ -103,12 +103,12 @@ implementation so final CI hookup can be done in one owner-reviewed pass.
 
 | Wiring task | Status | Current behavior | Future hard-fail trigger | Notes |
 |---|---:|---|---|---|
-| ADR-043 §2 report-only aggregate runner | [ ] | Not wired | N/A | Create a local script that runs §2 tools, captures reports, and exits 0 by default |
+| ADR-043 §2 report-only aggregate runner | [x] | Local report-only script `scripts/audit/adr043_section2_report_only.py`; writes `docs/audit/report-only/adr043-section2-report-only.json`; exits 0 for underlying findings | Owner final CI pass | Verified with `pytest tests/qa/test_adr043_section2_report_only.py --timeout=60 --no-cov`, `ruff check scripts/audit/adr043_section2_report_only.py tests/qa/test_adr043_section2_report_only.py`, and one aggregate run |
 | `adr_implementation_check` CI/pre-commit wiring | [ ] | Manual only | After tracker rows stop using transitional `in_progress` scaffolding | Should fail on schema/import/artifact errors; warning policy owner-defined |
 | `tool_self_test_runner all` CI wiring | [ ] | Manual only | After required `docs/audit/tool-self-test/*-on-adr-042.json` artifacts exist | Currently expected to report missing artifacts |
 | `governance_drift` CI wiring | [ ] | Manual only | After known ADR/config mismatches are resolved or explicitly baselined | Currently reports coverage 90-vs-70 drift |
 | `addendum_propagate` pre-commit/CI wiring | [ ] | Manual only | After tracker update workflow is owner-approved | Should start as report-only on ADR addendum diffs |
-| Hard-fail conversion plan | [ ] | Deferred | Owner final CI pass | Convert selected report-only tasks to required CI checks in one batch |
+| Hard-fail conversion plan | [ ] | Deferred; report artifact records `TODO(#1113)` hard-fail-later notes | Owner final CI pass | Convert selected report-only tasks to required CI checks in one batch |
 
 ## Drift Log
 
