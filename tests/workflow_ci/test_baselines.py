@@ -156,6 +156,26 @@ def test_read_per_file_bad_value_raises(tmp_path: Path) -> None:
         read_baseline("ruff", tmp_path)
 
 
+def test_read_rejects_mislabeled_tool(tmp_path: Path) -> None:
+    """Codex review (PR #1147): a baseline whose embedded `tool` field
+    disagrees with the requested tool must be rejected so the ratchet does
+    not silently compare against the wrong tool's totals."""
+    path = tmp_path / "ruff.json"
+    path.write_text(
+        json.dumps(
+            {
+                "tool": "mypy",  # mislabelled
+                "total_findings": 0,
+                "per_file": {},
+                "schema_version": BASELINE_SCHEMA_VERSION,
+            },
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(BaselineError, match=r"declares tool=.*requested under tool="):
+        read_baseline("ruff", tmp_path)
+
+
 def test_seed_baselines_on_disk_are_valid() -> None:
     """Every seed file shipped under docs/audit/baselines/ must validate."""
     seed_dir = Path("docs/audit/baselines")

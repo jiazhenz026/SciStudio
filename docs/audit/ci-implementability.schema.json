@@ -36,10 +36,34 @@
       "type": "string"
     },
     "tools": {
-      "description": "Per-tool dry-run records. Every tool in the ADR-042 §21.1 stack MUST appear.",
+      "description": "Per-tool dry-run records. Every tool in the ADR-042 §21.1 stack MUST appear exactly once. Codex review (PR #1147): `minItems: 20` + per-item enum alone allowed duplicates and partial coverage; the `contains` block below enforces one entry per required tool, and `uniqueItems: true` (with downstream consumers stripping by `tool`) blocks duplicates.",
       "type": "array",
       "minItems": 20,
-      "items": { "$ref": "#/$defs/ToolDryRun" }
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/ToolDryRun" },
+      "allOf": [
+        { "contains": { "type": "object", "properties": { "tool": { "const": "ruff" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "mypy" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "pyright" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "interrogate" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "pydoclint" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "griffe" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "vulture" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "xenon" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "bandit" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "pip-audit" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "mutmut" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "pytest-examples" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "markdownlint-cli2" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "sphinx-lint" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "sphinx-build" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "actionlint" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "zizmor" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "codespell" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "yamllint" } }, "required": ["tool"] } },
+        { "contains": { "type": "object", "properties": { "tool": { "const": "import-linter" } }, "required": ["tool"] } }
+      ]
     }
   },
   "$defs": {

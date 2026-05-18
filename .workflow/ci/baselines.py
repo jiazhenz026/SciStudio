@@ -59,6 +59,13 @@ def read_baseline(tool: str, base_dir: Path | None = None) -> dict[str, Any]:
     except json.JSONDecodeError as exc:
         raise BaselineError(f"baseline {path} is not valid JSON: {exc}") from exc
     _validate(data, path)
+    # Codex review (PR #1147): reject mislabeled / mis-copied baselines so the
+    # ratchet does not silently compare against the wrong tool's totals.
+    if data["tool"] != tool:
+        raise BaselineError(
+            f"baseline {path} declares tool={data['tool']!r} but was requested "
+            f"under tool={tool!r}; rename the file or fix the 'tool' field",
+        )
     return data
 
 
