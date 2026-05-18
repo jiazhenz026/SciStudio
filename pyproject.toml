@@ -195,8 +195,17 @@ forbidden_modules = ["scieasy.engine", "scieasy.api", "scieasy.ai"]
 # AI Block worker → engine IPC surface. AIBlock.run() must call back to
 # the engine to allocate a PTY tab and notify completion. Allow that one
 # import without weakening the broader boundary.
+#
+# ADR-028 §D8 / #1080 carves out scieasy.engine.materialisation as the
+# centralised DataObject → file dispatch surface. The helper lives in
+# engine/ because it consumes BlockRegistry (engine→blocks is allowed
+# under this same contract), but its primary consumer is
+# FileExchangeBridge.prepare() in blocks/app/. Without this carve-out
+# the bridge would have to duplicate ~60 lines of saver-resolution and
+# pass-through logic that the helper was created (#1078) to centralise.
 ignore_imports = [
     "scieasy.blocks.ai.ai_block -> scieasy.engine.pty_control",
+    "scieasy.blocks.app.bridge -> scieasy.engine.materialisation",
 ]
 
 [[tool.importlinter.contracts]]
