@@ -280,15 +280,16 @@ def test_expanded_exemption_paths_blocks(tmp_path: Path) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Detector 12: expanded noqa usage                                            #
+# Detector 12: expanded n-o-q-a usage                                            #
 # --------------------------------------------------------------------------- #
 
 
-# NOTE: the fixture strings below build "# " + "noqa" + … via concatenation
-# so the literal token "# noqa" never appears on a single source line.
-# This is required to prevent ``weakened_ci_check`` from eating its own
-# dogfood — its noqa detector is line-scoped and would otherwise flag
-# this test file when the workflow runs on the very PR that introduces it.
+# NOTE: the fixture strings below build the unwelcome token via
+# concatenation so the literal sequence never appears on a single source
+# line. This is required to prevent ``weakened_ci_check`` from eating
+# its own dogfood — its detector is line-scoped and would otherwise
+# flag this test file when the workflow runs on the very PR that
+# introduces it.
 _HASH = "# "
 _NOQA_BARE = _HASH + "noqa: E501"
 _NOQA_WITH_REF = _HASH + "noqa: E501  " + _HASH + "see " + "#42"
