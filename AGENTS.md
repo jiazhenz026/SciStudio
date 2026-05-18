@@ -1,5 +1,9 @@
 # AGENT.md
 
+> **⛔ FEATURE FREEZE IN EFFECT — ADR-042/043/044 cascade implementation (2026-05-18 → Phase 4 close)**
+>
+> Per ADR-042 §26.1, the repository is under a feature freeze for the duration of the QA Infrastructure Overhaul cascade. **ALLOWED**: Phase 1–3 cleanup-track work, bug fixes for shipped regressions, hotfixes per CLAUDE.md §11.5, CI/build unblockers, security fixes, ADR/spec/doc errata per ADR-042 §27.4. **BLOCKED**: new user-visible features, new ADRs unrelated to the cascade, refactors not driven by Phase 3 cleanup, performance optimisation without correctness motive. Freeze exceptions require Tier-2 sign-off and are logged in `docs/audit/freeze-exceptions.log`. Cascade umbrella: #1113.
+
 This file defines the working rules, architectural boundaries, and engineering standards for AI assistants and human contributors in this repository.
 
 The goal is to keep development standardized, traceable, extensible, and aligned with the project's long-term architecture.

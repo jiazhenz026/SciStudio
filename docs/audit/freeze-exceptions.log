@@ -1,0 +1,10 @@
+# Freeze exceptions log
+
+> Append-only log of `freeze-exception`-labeled work permitted during the
+> ADR-042/043/044 cascade feature freeze (2026-05-18 → Phase 4 close).
+>
+> Format (one entry per line):
+>
+>     YYYY-MM-DD | @approver-tier-2 | PR-or-issue | one-line rationale
+
+(empty — freeze started 2026-05-18; no exceptions granted yet)
