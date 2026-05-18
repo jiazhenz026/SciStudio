@@ -31,6 +31,19 @@
 |---|---:|---|---|---|---|
 | ADR-043 §2 Implementation Monitoring | [x] | Agent Bacon | merged from `local/adr043-s2-implementation-v2` | Merged locally | Agent commit `35831b5b925fce63b25fc9158e17359930befcd9`; merge commit `f4e73fa0`; no phase-gate files restored |
 | ADR-043 §5 CLAUDE.md / AGENTS.md Layered Design | [x] | Agent Beauvoir | merged from `local/adr043-s5-layered-scaffold` | Merged locally | Agent commit `67d5f76aa0828e067d3cb93adb1d26f66aab4788`; merge commit `4bc471c2` |
+| ADR-042 §5 Frontmatter Schema | [~] | TBD §5 agent | `local/adr042-s5-frontmatter` / `SciEasy-adr042-s5-frontmatter` | In progress | Owns `frontmatter.py` and focused frontmatter tests |
+| ADR-042 §6 MAINTAINERS Schema | [~] | TBD §6 agent | `local/adr042-s6-maintainers` / `SciEasy-adr042-s6-maintainers` | In progress | Owns `maintainers.py` and focused maintainers tests |
+| ADR-042 §7 Audit Report + Facts Registry Schema | [~] | TBD §7 agent | `local/adr042-s7-report-facts` / `SciEasy-adr042-s7-report-facts` | In progress | Owns `report.py`, `facts.py`, and focused report/facts tests |
+| ADR-042 §8 Truth Model & Conflict Arbitration Schema | [~] | TBD §8 agent | `local/adr042-s8-truth` / `SciEasy-adr042-s8-truth` | In progress | Owns `truth.py` and focused arbitration tests |
+
+## Active Round: ADR-042 §5-§8 Schema Modules
+
+| Section | Implementation plan | Agent branch | Scope guard |
+|---|---|---|---|
+| ADR-042 §5 | Complete `ADRFrontmatter` / `SpecFrontmatter` pydantic v2 models, lifecycle enums, governance/translation/amendment models, and validators for status dates, code implementation coverage, self-supersession, and `agent_editable=allowlist`. | `local/adr042-s5-frontmatter` | Do not implement frontmatter lint CLI or supersession bot. |
+| ADR-042 §6 | Complete `MaintainersEntry` / `Maintainers`, `AgentRuntime`, glob/exclude matching helpers, and deterministic most-specific resolution semantics. | `local/adr042-s6-maintainers` | Do not generate full repo `MAINTAINERS` coverage or CI closure checks. |
+| ADR-042 §7 | Keep the shared `AuditReport` envelope compatible with existing §2 tools, add `FactsRegistry` and namespace fact models, and validate denormalized report counts. | `local/adr042-s7-report-facts` | Do not implement facts generation scripts or report retention/archive jobs. |
+| ADR-042 §8 | Add a small truth/arbitration schema module for transitional vs permanent conflict rules, status-driven resolution, b-class conflict inputs, and multi-ADR conflict representation. | `local/adr042-s8-truth` | Do not implement the full drift classifier from ADR-042 §9. |
 
 ## Deferred File Tracking
 
