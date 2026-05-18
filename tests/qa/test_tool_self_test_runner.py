@@ -24,9 +24,72 @@ def test_self_test_artifact_valid_json_passes(tmp_path: Path) -> None:
     relative_path = TOOL_SELF_TEST_ARTIFACTS["frontmatter_lint"]
     artifact = tmp_path / relative_path
     artifact.parent.mkdir(parents=True)
-    artifact.write_text('{"tool": "frontmatter_lint", "target": "ADR-042"}', encoding="utf-8")
+    artifact.write_text(
+        '{"tool": "frontmatter_lint", "target": "docs/adr/ADR-042.md", "generated_at": "2026-05-18T00:00:00Z"}',
+        encoding="utf-8",
+    )
 
     assert run_self_test("frontmatter_lint", tmp_path) == []
+
+
+def test_self_test_artifact_missing_required_fields(tmp_path: Path) -> None:
+    relative_path = TOOL_SELF_TEST_ARTIFACTS["frontmatter_lint"]
+    artifact = tmp_path / relative_path
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text('{"tool": "frontmatter_lint"}', encoding="utf-8")
+
+    findings = run_self_test("frontmatter_lint", tmp_path)
+
+    assert {finding.rule_id for finding in findings} == {
+        "tool-self-test.missing-required-field",
+        "tool-self-test.target-mismatch",
+    }
+
+
+def test_self_test_compares_fresh_output(tmp_path: Path) -> None:
+    relative_path = TOOL_SELF_TEST_ARTIFACTS["frontmatter_lint"]
+    artifact = tmp_path / relative_path
+    fresh = tmp_path / "fresh.json"
+    artifact.parent.mkdir(parents=True)
+    fresh.write_text('{"findings": []}', encoding="utf-8")
+    artifact.write_text(
+        """
+{
+  "tool": "frontmatter_lint",
+  "target": "docs/adr/ADR-042.md",
+  "generated_at": "2026-05-18T00:00:00Z",
+  "fresh_output_path": "fresh.json",
+  "expected_output": {"findings": []}
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    assert run_self_test("frontmatter_lint", tmp_path) == []
+
+
+def test_self_test_compares_fresh_output_mismatch(tmp_path: Path) -> None:
+    relative_path = TOOL_SELF_TEST_ARTIFACTS["frontmatter_lint"]
+    artifact = tmp_path / relative_path
+    fresh = tmp_path / "fresh.json"
+    artifact.parent.mkdir(parents=True)
+    fresh.write_text('{"findings": ["new"]}', encoding="utf-8")
+    artifact.write_text(
+        """
+{
+  "tool": "frontmatter_lint",
+  "target": "docs/adr/ADR-042.md",
+  "generated_at": "2026-05-18T00:00:00Z",
+  "fresh_output_path": "fresh.json",
+  "expected_output": {"findings": []}
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    findings = run_self_test("frontmatter_lint", tmp_path)
+
+    assert [finding.rule_id for finding in findings] == ["tool-self-test.output-mismatch"]
 
 
 def test_self_test_cli_missing_artifact_has_clear_output(tmp_path: Path) -> None:

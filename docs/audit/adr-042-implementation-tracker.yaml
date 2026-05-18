@@ -12,6 +12,8 @@ sections:
         - "src/scieasy/qa/tracker/tool_self_test_runner.py"
         - "scripts/audit/adr_implementation_check.py"
         - "scripts/audit/tool_self_test_runner.py"
+        - "scripts/audit/addendum_propagate.py"
+        - "scripts/audit/governance_drift.py"
       symbols:
         - "scieasy.qa.schemas.tracker.ImplementationTracker"
         - "scieasy.qa.schemas.report.AuditReport"
@@ -22,6 +24,8 @@ sections:
       tests:
         - "tests/qa/test_implementation_tracker.py"
         - "tests/qa/test_tool_self_test_runner.py"
+        - "tests/qa/test_addendum_propagate.py"
+        - "tests/qa/test_governance_drift.py"
     verification_checks:
       - id: "schema-importable"
         description: "ADR-043 section 2 skeleton schemas and tracker functions import."
