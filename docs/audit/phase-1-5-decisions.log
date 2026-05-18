@@ -1,0 +1,12 @@
+# Phase 1.5 decisions log (append-only)
+
+> Per ADR-042 §26.3: the owner records the Phase 1.5 decision here. Until
+> a decision lands, Phase 2 (CI flip) is BLOCKED.
+>
+> Format (one entry per line):
+>
+>     YYYY-MM-DD | @approver | option(a|b|c|d) | one-line rationale | follow-up-items
+>
+> See `docs/audit/phase-1-5-brief.md` for the decision context.
+
+(empty — Phase 1 substantially complete 2026-05-18; awaiting owner decision)
