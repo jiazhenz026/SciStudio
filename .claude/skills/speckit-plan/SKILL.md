@@ -2,6 +2,7 @@
 name: speckit-plan
 description: Execute the implementation planning workflow using the plan template
   to generate design artifacts.
+kind: bootstrap-meta
 compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
   author: github-spec-kit

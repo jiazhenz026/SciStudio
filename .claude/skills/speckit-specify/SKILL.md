@@ -2,6 +2,7 @@
 name: speckit-specify
 description: Create or update the feature specification from a natural language feature
   description.
+kind: bootstrap-meta
 compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
   author: github-spec-kit
