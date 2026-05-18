@@ -16,6 +16,7 @@ classifiers = [
 ]
 dependencies = [
     "pydantic[email]>=2.0",  # [email] extra adds email-validator; ADR-042 §6 / TC-1A.5 HumanIdentity.EmailStr
+    "pydantic-settings>=2.5",  # ADR-042 §22.5: TranslationSettings env-var loader
     "fastapi>=0.110",
     "python-multipart>=0.0.9",
     "uvicorn[standard]>=0.29",
@@ -51,6 +52,28 @@ dev = [
     "pre-commit>=4.0",
     "hypothesis>=6.0",  # ADR-043 §4.1 — property-based test scaffolds (TC-1F.4)
     "mutmut>=2.4; sys_platform != 'win32'",  # ADR-043 §4.5 — mutation testing (TC-1F.3); Linux/macOS only (requires os.fork())
+]
+docs = [
+    # ADR-042 §23.1 + ADR-044 §10.4 Sphinx stack — TC-1D.1 / TC-1D.2.
+    # The docs extra is opt-in; CI installs it only for the docs-build job
+    # (added in 1D sub-PR 3+). Versions are floor-only; pinning happens in
+    # the dedicated docs lockfile when the CI workflow lands.
+    "sphinx>=7.3",
+    "sphinx-autoapi>=3.3",                    # ADR-042 §23.1 — autoapi.extension
+    "myst-parser>=3.0",                       # ADR-042 §23.1 — Markdown + RST
+    "sphinx-needs>=4.2",                      # ADR-042 §23.1 — requirement traceability
+    "sphinx-substitution-extensions>=2024.10",  # ADR-042 §23.1 — {{ facts.X }} substitution
+    "sphinxext-opengraph>=0.9",               # ADR-044 §10.4 — opengraph metadata
+    # ADR-044 §10.1 — 9 new Sphinx-ecosystem tools (TC-1D.2 deliverable):
+    "numpydoc>=1.7",                          # docstring grammar
+    "autodoc-pydantic>=2.2",                  # pydantic models → docs
+    "sphinx-click>=6.0",                      # click/typer CLIs → docs
+    "sphinxcontrib-openapi>=0.8",             # FastAPI OpenAPI → docs
+    "sphinx-gallery>=0.16",                   # executable .py examples
+    "sphinx-design>=0.6",                     # tabs/grids/cards
+    "sphinx-copybutton>=0.5",                 # copy-to-clipboard on code blocks
+    "sphinx-issues>=4.1",                     # GitHub issue/PR cross-link
+    "pydata-sphinx-theme>=0.16",              # theme (replaces furo per ADR-044 §10.4)
 ]
 
 [project.scripts]
