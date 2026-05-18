@@ -30,7 +30,7 @@
 | ADR section | Status | Current owner | Branch / worktree | Merge status | Notes |
 |---|---:|---|---|---|---|
 | ADR-043 §2 Implementation Monitoring | [~] | Agent Mendel | `local/adr043-s2-skeleton` / `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-skeleton` | Not merged | Skeleton + historical-code investigation in progress |
-| ADR-043 §5 CLAUDE.md / AGENTS.md Layered Design | [ ] | TBD | TBD | Not merged | Owner approved safe parallel scaffold on 2026-05-18 |
+| ADR-043 §5 CLAUDE.md / AGENTS.md Layered Design | [~] | §5 scaffold agent | `local/adr043-s5-layered-scaffold` / `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s5-layered` | Not merged | Owner approved safe parallel scaffold on 2026-05-18 |
 
 ## Deferred File Tracking
 
@@ -121,8 +121,8 @@ path-scoped rule scaffold, pointer-style skill scaffold, and hook scaffold.
 | Step | Status | Owner | Artifact / Notes |
 |---|---:|---|---|
 | Owner approval for parallel §5 scaffold | [x] | Owner | Approved in chat on 2026-05-18 |
-| Create §5 worktree and branch | [ ] | Manager | Pending |
-| Implement safe §5 scaffold | [ ] | §5 agent | Must avoid deferred files listed above |
+| Create §5 worktree and branch | [x] | Manager | `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s5-layered`, `local/adr043-s5-layered-scaffold` |
+| Implement safe §5 scaffold | [~] | §5 agent | Must avoid deferred files listed above |
 | Run focused checks | [ ] | §5 agent | No full lint gate until §2/§6 foundations land |
 | Owner audit | [ ] | Owner | No separate audit agent |
 | Merge approved branch into local umbrella | [ ] | Manager | Only after owner approval |
