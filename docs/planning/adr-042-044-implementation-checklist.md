@@ -88,6 +88,41 @@ drift inventory hooks, and the initial tracker artifact.
 | Implementation branch approved | [ ] | Pending |
 | Merged into local umbrella | [ ] | Pending |
 
+## Parallelization Assessment: ADR-043 Section 5
+
+### Question
+
+Can ADR-043 section 5 (`CLAUDE.md / AGENTS.md Layered Design`) run in
+parallel with Round 1 (`ADR-043 §2 Implementation Monitoring`)?
+
+### Decision
+
+| Item | Status | Notes |
+|---|---:|---|
+| Parallel with ADR-043 §2 | [~] | Safe only for disjoint scaffold/docs/rules work |
+| Full section 5 completion | [!] | Depends on ADR-044 doc set and §6 classification details |
+| Recommended merge order | [~] | Merge §2 skeleton/foundation before §5 lint/tool code |
+
+### Safe Parallel Slice
+
+| Path group | Status | Notes |
+|---|---:|---|
+| Root and subtree `AGENTS.md` scaffold | [ ] | Must not silently loosen current policy |
+| `.claude/rules/*.md` path-scoped rule scaffold | [ ] | New files; low conflict with §2 |
+| Pointer-style `.claude/skills/*/SKILL.md` scaffold | [ ] | Must honor ADR-044 §11 skill-as-pointer discipline |
+| `scripts/hooks/*` best-effort hook scaffold | [ ] | New hook files only; no destructive hook rewiring yet |
+| `scripts/hooks/instructions-loaded-audit.sh` | [ ] | Can scaffold, but runtime-specific enablement deferred |
+
+### Do Not Parallelize Yet
+
+| Path group | Status | Reason |
+|---|---:|---|
+| `src/scieasy/qa/schemas/__init__.py` edits | [!] | §2 skeleton is creating schema package foundations |
+| `src/scieasy/qa/schemas/report.py` edits | [!] | §5/§6 lint tools should consume §2's `Finding` model after it lands |
+| `scripts/audit/classification_lint.py` full implementation | [!] | §5.6 depends on ADR-043 §6.1-6.3 semantics and §2 report primitives |
+| Full skill-pointer closure | [!] | ADR-044 requires `docs/contributing/` targets, which do not exist yet |
+| Replacing `CLAUDE.md` with a symlink/pointer | [!] | High governance blast radius; owner should approve after scaffold review |
+
 ## Drift Log
 
 - 2026-05-18: Initial skeleton agent `019e3c62-7ed1-7c30-9c0a-0bd7fd5e1dc4` was interrupted/shutdown before producing worktree changes. Re-dispatched as `019e3c69-8976-77d2-b468-572a0be48766`.
