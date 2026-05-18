@@ -1,0 +1,87 @@
+# .governance-paths.yaml — Phase 1C seed (ADR-043 §3.2)
+#
+# Registry of every file/glob considered "governance" for the QA regime.
+# Consumed by:
+#   - scripts/audit/generate_codeowners.py (TC-1C.4)
+#   - scripts/audit/governance_mod_guard.py (ADR-043 §3.3, Phase 1B+)
+#   - scripts/audit/honeypot_check.py (ADR-043 §3.6.3, Phase 1B+)
+#
+# Validated by scieasy.qa.schemas.governance.GovernancePaths
+# (ADR-043 §3.2 lines 533-550). Schema is purely structural; semantic
+# constraints (canonical loosening axes, etc.) live at the tool layer.
+#
+# Edit policy: this file is itself a governance path (see entry below).
+# Modifying it requires a Loosening-Approved-By or Maintainer-Override
+# trailer once the §3.3 pre-commit guard ships (Phase 1B).
+
+version: 1
+governance_paths:
+  # ADRs and specs
+  - "docs/adr/**"
+  - "docs/spec/**"
+  - "docs/adr/_template/**"
+  - "docs/spec/_template/**"
+
+  # Agent-facing rule files
+  - "AGENTS.md"
+  - "CLAUDE.md"
+  - "CURSOR.md"
+  - "GEMINI.md"
+  - ".aiderrc"
+  - "**/AGENTS.md"
+
+  # Tool configuration
+  - "pyproject.toml"
+  - ".pre-commit-config.yaml"
+  - "pyrightconfig.json"
+  - ".markdownlint.yaml"
+  - ".yamllint"
+  - ".codespellrc"
+
+  # CI / workflows
+  - ".github/workflows/**"
+  - ".github/agent-prompts/**"
+  - ".github/CODEOWNERS"
+  - ".github/PULL_REQUEST_TEMPLATE.md"
+
+  # Workflow state machine
+  - ".workflow/**"
+
+  # QA implementation
+  - "src/scieasy/qa/**"
+  - "scripts/audit/**"
+  - "scripts/committer.py"
+
+  # Ownership / identity
+  - "MAINTAINERS"
+  - "docs/identity/humans.yml"
+
+  # Required-skill manifest
+  - "docs/skills/required.yaml"
+
+  # Generated facts (must be regenerated, not hand-edited)
+  - "docs/facts/generated.yaml"
+
+  # The governance registry itself (self-reference)
+  - ".governance-paths.yaml"
+
+  # Append-only audit logs
+  - "docs/audit/governance-changes.log"
+  - "docs/audit/baselines/**"
+  - "docs/audit/overrides.log"
+  - "docs/audit/commit-log.jsonl"
+
+  # Codemod surface
+  - "tools/codemods/**"
+
+honeypot_canaries:
+  # Tripwires per ADR-043 §3.6.3. The marker_pattern strings here are the
+  # CANARY lines that must remain byte-identical in the named files; any
+  # mutation produces a HoneypotViolation on the next audit run.
+  #
+  # SHA seeding (HoneypotRule.expected_sha256) is owned by TC-1B.7
+  # orchestrators — this file declares only the rule entries
+  # (HoneypotRuleEntry: path + marker_pattern). See ADR-043 §3.2
+  # GovernancePaths schema.
+  - path: ".governance-paths.yaml"
+    marker_pattern: "# CANARY-DO-NOT-MODIFY: TRIPWIRE-RULE"
