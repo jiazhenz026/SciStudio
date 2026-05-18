@@ -1,0 +1,30 @@
+# docs/identity/humans.yml — Phase 1C seed (ADR-042 §25.3)
+#
+# Registry of human contributors and maintainers. Consulted by:
+#   - scripts/committer.py (ADR-042 §16.2) — committer-only enforcement
+#   - scripts/audit/governance_mod_guard.py (ADR-043 §3.3) — Tier-2 sign-off
+#   - Any tier-discrimination check across the QA pipeline
+#
+# Validated by scieasy.qa.schemas.identity.IdentityRegistry
+# (ADR-042 §25.3 lines 2993-3010). Tier-2 humans SHOULD have a
+# signing_key registered (ADR-042 §25.4 tier matrix); enforcement of
+# that property is deferred to a Phase 1.5 file-validation layer per
+# the Phase 1 investigation SUMMARY Q1A.5 manager default — the schema
+# itself permits signing_key=null.
+#
+# Edit policy: this file is itself a governance path
+# (see .governance-paths.yaml entry). Adding/removing entries requires
+# Tier-2 review.
+
+version: 1
+humans:
+  - github: "@jiazhenz026"
+    email: "jiazhenz026@gmail.com"
+    tier: maintainer
+    # signing_key: null  # TODO(#1135): issue and register Tier-2 signing key.
+    #   Out of scope per ADR-042 §25.4 (operational onboarding task; schema
+    #   permits null at this layer; ADR-042 §25.3 docstring + Phase 1
+    #   investigation SUMMARY Q1A.5 manager default).
+    #   Followup: open a sibling sub-issue under #1113 before Phase 2 flip.
+    joined: 2026-01-01
+    notes: "Project owner. Bootstrap entry from Phase 1C (#1135)."

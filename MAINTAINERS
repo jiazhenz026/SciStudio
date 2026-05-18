@@ -1,0 +1,1601 @@
+# MAINTAINERS — Phase 1C bootstrap (ADR-042 §6 + Appendix A.3)
+#
+# Reverse-ownership registry: maps repo paths to the ADRs and humans
+# that govern them, plus the AI runtimes allowed to edit. Consumed by:
+#   - scripts/audit/closure.py (bidirectional MAINTAINERS <-> governs)
+#   - Agent authorization checks across the QA pipeline (Phase 1B+)
+#
+# Validated by scieasy.qa.schemas.maintainers.Maintainers
+# (ADR-042 §6.2 lines 949-982). Glob semantics: ADR-042 §6.4.
+# Multi-match resolution: ADR-042 §6.5 (most-specific wins; tie-break
+# by entry order).
+#
+# Re-bootstrap: ``python scripts/migrate/bootstrap_maintainers.py``.
+# Re-runs OVERWRITE this file; human-curated additions should live
+# in a separate review pass before the Phase 2 ratchet flips.
+version: 1
+entries:
+- path_glob: src/scieasy/qa/**
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: Module scieasy.qa. Bootstrapped from ADR-042.
+- path_glob: src/scieasy/qa/schemas/**
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: Module scieasy.qa.schemas. Bootstrapped from ADR-042.
+- path_glob: src/scieasy/qa/audit/**
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: Module scieasy.qa.audit. Bootstrapped from ADR-042.
+- path_glob: src/scieasy/qa/codemods/**
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: Module scieasy.qa.codemods. Bootstrapped from ADR-042.
+- path_glob: src/scieasy/qa/facts/**
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: Module scieasy.qa.facts. Bootstrapped from ADR-042.
+- path_glob: src/scieasy/qa/workflow/**
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: Module scieasy.qa.workflow. Bootstrapped from ADR-042.
+- path_glob: src/scieasy/qa/identity/**
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: Module scieasy.qa.identity. Bootstrapped from ADR-042.
+- path_glob: src/scieasy/qa/translation/**
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: Module scieasy.qa.translation. Bootstrapped from ADR-042.
+- path_glob: .github/workflows/audit.yml
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File .github/workflows/audit.yml. Bootstrapped from ADR-042.
+- path_glob: .github/workflows/docs-agent.yml
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File .github/workflows/docs-agent.yml. Bootstrapped from ADR-042.
+- path_glob: .github/workflows/translation.yml
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File .github/workflows/translation.yml. Bootstrapped from ADR-042.
+- path_glob: .github/agent-prompts/docs-agent.md
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File .github/agent-prompts/docs-agent.md. Bootstrapped from ADR-042.
+- path_glob: .pre-commit-config.yaml
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File .pre-commit-config.yaml. Bootstrapped from ADR-042.
+- path_glob: .workflow/schema-v2.yaml
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File .workflow/schema-v2.yaml. Bootstrapped from ADR-042.
+- path_glob: pyproject.toml
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File pyproject.toml. Bootstrapped from ADR-042.
+- path_glob: scripts/committer.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/committer.py. Bootstrapped from ADR-042.
+- path_glob: scripts/translate_docs.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/translate_docs.py. Bootstrapped from ADR-042.
+- path_glob: scripts/audit/amendment_lint.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/amendment_lint.py. Bootstrapped from ADR-042.
+- path_glob: scripts/audit/consolidate_cascade.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/consolidate_cascade.py. Bootstrapped from ADR-042.
+- path_glob: scripts/audit/extract_workflow_facts.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/extract_workflow_facts.py. Bootstrapped from ADR-042.
+- path_glob: scripts/audit/extract_tool_facts.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/extract_tool_facts.py. Bootstrapped from ADR-042.
+- path_glob: scripts/audit/extract_adr_facts.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/extract_adr_facts.py. Bootstrapped from ADR-042.
+- path_glob: scripts/audit/extract_maintainers_facts.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/extract_maintainers_facts.py. Bootstrapped from ADR-042.
+- path_glob: scripts/audit/extract_skill_facts.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/extract_skill_facts.py. Bootstrapped from ADR-042.
+- path_glob: scripts/audit/generate_facts.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/generate_facts.py. Bootstrapped from ADR-042.
+- path_glob: scripts/audit/run_docs_agent.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/run_docs_agent.py. Bootstrapped from ADR-042.
+- path_glob: scripts/audit/docs_agent_rate_limit.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/docs_agent_rate_limit.py. Bootstrapped from ADR-042.
+- path_glob: scripts/migrate/split_adr_md.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/migrate/split_adr_md.py. Bootstrapped from ADR-042.
+- path_glob: scripts/migrate/backfill_frontmatter.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/migrate/backfill_frontmatter.py. Bootstrapped from ADR-042.
+- path_glob: scripts/migrate/bootstrap_maintainers.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/migrate/bootstrap_maintainers.py. Bootstrapped from ADR-042.
+- path_glob: tools/git-fixes-graph.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File tools/git-fixes-graph.py. Bootstrapped from ADR-042.
+- path_glob: tools/codemods/**
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File tools/codemods/**. Bootstrapped from ADR-042.
+- path_glob: AGENTS.md
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File AGENTS.md. Bootstrapped from ADR-042.
+- path_glob: CLAUDE.md
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File CLAUDE.md. Bootstrapped from ADR-042.
+- path_glob: CURSOR.md
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File CURSOR.md. Bootstrapped from ADR-042.
+- path_glob: GEMINI.md
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File GEMINI.md. Bootstrapped from ADR-042.
+- path_glob: .aiderrc
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File .aiderrc. Bootstrapped from ADR-042.
+- path_glob: MAINTAINERS
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File MAINTAINERS. Bootstrapped from ADR-042.
+- path_glob: docs/identity/humans.yml
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/identity/humans.yml. Bootstrapped from ADR-042.
+- path_glob: docs/facts/generated.yaml
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/facts/generated.yaml. Bootstrapped from ADR-042.
+- path_glob: docs/skills/required.yaml
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/skills/required.yaml. Bootstrapped from ADR-042.
+- path_glob: docs/audit/overrides.log
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/audit/overrides.log. Bootstrapped from ADR-042.
+- path_glob: docs/audit/commit-log.jsonl
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/audit/commit-log.jsonl. Bootstrapped from ADR-042.
+- path_glob: docs/audit/reports/**
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/audit/reports/**. Bootstrapped from ADR-042.
+- path_glob: docs/audit/latest/**
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/audit/latest/**. Bootstrapped from ADR-042.
+- path_glob: docs/audit/archive/**
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/audit/archive/**. Bootstrapped from ADR-042.
+- path_glob: docs/audit/baselines/**
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/audit/baselines/**. Bootstrapped from ADR-042.
+- path_glob: docs/adr/_consolidated/cascade-current.md
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/adr/_consolidated/cascade-current.md. Bootstrapped from ADR-042.
+- path_glob: .workflow/ci/ratchet.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File .workflow/ci/ratchet.py. Bootstrapped from ADR-042.
+- path_glob: docs/adr/_template/ADR-template.md
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/adr/_template/ADR-template.md. Bootstrapped from ADR-042.
+- path_glob: docs/spec/_template/SPEC-template.md
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/spec/_template/SPEC-template.md. Bootstrapped from ADR-042.
+- path_glob: docs/adr/ADR-042/algorithms/doc_drift_pseudocode.md
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/adr/ADR-042/algorithms/doc_drift_pseudocode.md. Bootstrapped from ADR-042.
+- path_glob: docs/sphinx/conf.py
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/sphinx/conf.py. Bootstrapped from ADR-042.
+- path_glob: pyrightconfig.json
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File pyrightconfig.json. Bootstrapped from ADR-042.
+- path_glob: .codespellrc
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File .codespellrc. Bootstrapped from ADR-042.
+- path_glob: .yamllint
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File .yamllint. Bootstrapped from ADR-042.
+- path_glob: .markdownlint.yaml
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File .markdownlint.yaml. Bootstrapped from ADR-042.
+- path_glob: docs/zh-CN/adr/ADR-042.md
+  adrs:
+  - 42
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/zh-CN/adr/ADR-042.md. Bootstrapped from ADR-042.
+- path_glob: src/scieasy/qa/tracker/**
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: Module scieasy.qa.tracker. Bootstrapped from ADR-043.
+- path_glob: src/scieasy/qa/governance/**
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: Module scieasy.qa.governance. Bootstrapped from ADR-043.
+- path_glob: src/scieasy/qa/test_quality/**
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: Module scieasy.qa.test_quality. Bootstrapped from ADR-043.
+- path_glob: src/scieasy/qa/classification/**
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: Module scieasy.qa.classification. Bootstrapped from ADR-043.
+- path_glob: docs/audit/adr-042-implementation-tracker.yaml
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/audit/adr-042-implementation-tracker.yaml. Bootstrapped from ADR-043.
+- path_glob: .governance-paths.yaml
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File .governance-paths.yaml. Bootstrapped from ADR-043.
+- path_glob: .github/CODEOWNERS
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File .github/CODEOWNERS. Bootstrapped from ADR-043.
+- path_glob: .github/workflows/governance-modification.yml
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File .github/workflows/governance-modification.yml. Bootstrapped from ADR-043.
+- path_glob: .github/workflows/adr-042-conformance.yml
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File .github/workflows/adr-042-conformance.yml. Bootstrapped from ADR-043.
+- path_glob: .github/PULL_REQUEST_TEMPLATE.md
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File .github/PULL_REQUEST_TEMPLATE.md. Bootstrapped from ADR-043.
+- path_glob: scripts/audit/adr_implementation_check.py
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/adr_implementation_check.py. Bootstrapped from ADR-043.
+- path_glob: scripts/audit/phase_gate.py
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/phase_gate.py. Bootstrapped from ADR-043.
+- path_glob: scripts/audit/tool_self_test_runner.py
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/tool_self_test_runner.py. Bootstrapped from ADR-043.
+- path_glob: scripts/audit/governance_drift.py
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/governance_drift.py. Bootstrapped from ADR-043.
+- path_glob: scripts/audit/addendum_propagate.py
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/addendum_propagate.py. Bootstrapped from ADR-043.
+- path_glob: scripts/audit/governance_mod_guard.py
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/governance_mod_guard.py. Bootstrapped from ADR-043.
+- path_glob: scripts/audit/governance_mod_pr_check.py
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/governance_mod_pr_check.py. Bootstrapped from ADR-043.
+- path_glob: scripts/audit/monotonic_check.py
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/monotonic_check.py. Bootstrapped from ADR-043.
+- path_glob: scripts/audit/honeypot_check.py
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/honeypot_check.py. Bootstrapped from ADR-043.
+- path_glob: scripts/audit/test_quality.py
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/test_quality.py. Bootstrapped from ADR-043.
+- path_glob: scripts/audit/test_first_check.py
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/test_first_check.py. Bootstrapped from ADR-043.
+- path_glob: scripts/audit/weakened_ci_check.py
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/weakened_ci_check.py. Bootstrapped from ADR-043.
+- path_glob: scripts/audit/classification_lint.py
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/classification_lint.py. Bootstrapped from ADR-043.
+- path_glob: scripts/audit/instructions_loaded_audit.py
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File scripts/audit/instructions_loaded_audit.py. Bootstrapped from ADR-043.
+- path_glob: docs/audit/governance-changes.log
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/audit/governance-changes.log. Bootstrapped from ADR-043.
+- path_glob: docs/audit/test-quality-trends/**
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/audit/test-quality-trends/**. Bootstrapped from ADR-043.
+- path_glob: docs/zh-CN/adr/ADR-043.md
+  adrs:
+  - 43
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/zh-CN/adr/ADR-043.md. Bootstrapped from ADR-043.
+- path_glob: src/scieasy/qa/docs/**
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: Module scieasy.qa.docs. Bootstrapped from ADR-044.
+- path_glob: src/scieasy/qa/docs/schemas/**
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: Module scieasy.qa.docs.schemas. Bootstrapped from ADR-044.
+- path_glob: src/scieasy/qa/docs/directives/**
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: Module scieasy.qa.docs.directives. Bootstrapped from ADR-044.
+- path_glob: src/scieasy/qa/docs/generators/**
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: Module scieasy.qa.docs.generators. Bootstrapped from ADR-044.
+- path_glob: docs/contributing/index.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/contributing/index.md. Bootstrapped from ADR-044.
+- path_glob: docs/contributing/onboarding.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/contributing/onboarding.md. Bootstrapped from ADR-044.
+- path_glob: docs/contributing/first-pr.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/contributing/first-pr.md. Bootstrapped from ADR-044.
+- path_glob: docs/contributing/configuring-your-agent.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/contributing/configuring-your-agent.md. Bootstrapped from ADR-044.
+- path_glob: docs/contributing/workflows/_template.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/contributing/workflows/_template.md. Bootstrapped from ADR-044.
+- path_glob: docs/contributing/workflows/new-feature.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/contributing/workflows/new-feature.md. Bootstrapped from ADR-044.
+- path_glob: docs/contributing/workflows/bug-fix.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/contributing/workflows/bug-fix.md. Bootstrapped from ADR-044.
+- path_glob: docs/contributing/workflows/hotfix.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/contributing/workflows/hotfix.md. Bootstrapped from ADR-044.
+- path_glob: docs/contributing/workflows/file-adr-or-spec.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/contributing/workflows/file-adr-or-spec.md. Bootstrapped from ADR-044.
+- path_glob: docs/contributing/workflows/testing.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/contributing/workflows/testing.md. Bootstrapped from ADR-044.
+- path_glob: docs/contributing/workflows/agent-dispatch.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/contributing/workflows/agent-dispatch.md. Bootstrapped from ADR-044.
+- path_glob: docs/contributing/policy/ai-assistance.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/contributing/policy/ai-assistance.md. Bootstrapped from ADR-044.
+- path_glob: docs/contributing/reference/gate-cli.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/contributing/reference/gate-cli.md. Bootstrapped from ADR-044.
+- path_glob: docs/contributing/reference/trailer-conventions.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/contributing/reference/trailer-conventions.md. Bootstrapped from ADR-044.
+- path_glob: docs/contributing/handbooks/README.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/contributing/handbooks/README.md. Bootstrapped from ADR-044.
+- path_glob: docs/user/index.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/user/index.md. Bootstrapped from ADR-044.
+- path_glob: docs/user/install.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/user/install.md. Bootstrapped from ADR-044.
+- path_glob: docs/user/quickstart.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/user/quickstart.md. Bootstrapped from ADR-044.
+- path_glob: docs/user/user-guide/workflow-graph.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/user/user-guide/workflow-graph.md. Bootstrapped from ADR-044.
+- path_glob: docs/user/user-guide/blocks-and-contracts.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/user/user-guide/blocks-and-contracts.md. Bootstrapped from ADR-044.
+- path_glob: docs/user/user-guide/data-objects.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/user/user-guide/data-objects.md. Bootstrapped from ADR-044.
+- path_glob: docs/user/user-guide/execution-model.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/user/user-guide/execution-model.md. Bootstrapped from ADR-044.
+- path_glob: docs/user/user-guide/code-runners.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/user/user-guide/code-runners.md. Bootstrapped from ADR-044.
+- path_glob: docs/user/user-guide/ai-blocks.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/user/user-guide/ai-blocks.md. Bootstrapped from ADR-044.
+- path_glob: docs/user/tutorials/**
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/user/tutorials/**. Bootstrapped from ADR-044.
+- path_glob: docs/user/reference/**
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/user/reference/**. Bootstrapped from ADR-044.
+- path_glob: docs/user/plugin-authoring.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/user/plugin-authoring.md. Bootstrapped from ADR-044.
+- path_glob: docs/user/glossary.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/user/glossary.md. Bootstrapped from ADR-044.
+- path_glob: docs/user/faq.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/user/faq.md. Bootstrapped from ADR-044.
+- path_glob: docs/user/prod-env-artifacts.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/user/prod-env-artifacts.md. Bootstrapped from ADR-044.
+- path_glob: docs/user/llms.txt
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/user/llms.txt. Bootstrapped from ADR-044.
+- path_glob: docs/prod-agent/README.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/prod-agent/README.md. Bootstrapped from ADR-044.
+- path_glob: docs/doc-guide/how-to-write-a-doc.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/doc-guide/how-to-write-a-doc.md. Bootstrapped from ADR-044.
+- path_glob: docs/doc-guide/auto-vs-hand.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/doc-guide/auto-vs-hand.md. Bootstrapped from ADR-044.
+- path_glob: docs/doc-guide/ownership-and-review.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/doc-guide/ownership-and-review.md. Bootstrapped from ADR-044.
+- path_glob: docs/sphinx/conf.py
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/sphinx/conf.py. Bootstrapped from ADR-044.
+- path_glob: docs/sphinx/_ext/scieasy_directives.py
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/sphinx/_ext/scieasy_directives.py. Bootstrapped from ADR-044.
+- path_glob: docs/sphinx/_ext/llms_txt_builder.py
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/sphinx/_ext/llms_txt_builder.py. Bootstrapped from ADR-044.
+- path_glob: docs/zh-CN/contributing/**
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/zh-CN/contributing/**. Bootstrapped from ADR-044.
+- path_glob: docs/zh-CN/user/**
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/zh-CN/user/**. Bootstrapped from ADR-044.
+- path_glob: docs/zh-CN/prod-agent/**
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/zh-CN/prod-agent/**. Bootstrapped from ADR-044.
+- path_glob: docs/zh-CN/doc-guide/**
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/zh-CN/doc-guide/**. Bootstrapped from ADR-044.
+- path_glob: docs/zh-CN/adr/ADR-044.md
+  adrs:
+  - 44
+  humans:
+  - '@jiazhenz026'
+  agents_allowed:
+  - Claude
+  - Codex
+  - Cursor
+  - Aider
+  - Gemini
+  notes: File docs/zh-CN/adr/ADR-044.md. Bootstrapped from ADR-044.
