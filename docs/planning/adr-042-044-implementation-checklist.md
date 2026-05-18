@@ -25,6 +25,26 @@
 | Owner audit | [ ] | Owner will personally audit implementation rounds |
 | Feature freeze | [~] | Only ADR-042/043/044 cascade implementation work allowed |
 
+## Section Implementation Tracking
+
+| ADR section | Status | Current owner | Branch / worktree | Merge status | Notes |
+|---|---:|---|---|---|---|
+| ADR-043 §2 Implementation Monitoring | [~] | Agent Mendel | `local/adr043-s2-skeleton` / `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-skeleton` | Not merged | Skeleton + historical-code investigation in progress |
+| ADR-043 §5 CLAUDE.md / AGENTS.md Layered Design | [ ] | TBD | TBD | Not merged | Owner approved safe parallel scaffold on 2026-05-18 |
+
+## Deferred File Tracking
+
+| File / path | Status | Deferred reason | Implement when | Owner |
+|---|---:|---|---|---|
+| `src/scieasy/qa/schemas/__init__.py` | [!] | ADR-043 §2 skeleton owns QA schema package initialization; parallel §5 edits could conflict. | After §2 skeleton is merged into local umbrella. | §2 / later integration agent |
+| `src/scieasy/qa/schemas/report.py` | [!] | §5/§6 lint tools should consume the §2 `Finding` / `AuditReport` primitives rather than inventing a second report model. | After §2 skeleton defines report primitives. | §2 / §6 lint agent |
+| `src/scieasy/qa/schemas/classification.py` | [!] | Belongs to ADR-043 §6.1-6.3 data classification / rubric / path boundary schema, not §5 scaffold alone. | When ADR-043 §6 implementation starts. | §6 agent |
+| `src/scieasy/qa/classification/lint.py` | [!] | Depends on ADR-043 §6 semantics and §2 report primitives. | When ADR-043 §6 implementation starts after §2 schema foundation lands. | §6 agent |
+| `scripts/audit/classification_lint.py` | [!] | Full implementation needs ADR-043 §6.1-6.3 semantics and §2 report primitives. | When ADR-043 §6 implementation starts after §2 skeleton merge. | §6 agent |
+| `CLAUDE.md` symlink / full pointer replacement | [!] | High governance blast radius; current file carries active policy and should not be replaced without owner audit of the new root `AGENTS.md`. | After §5 scaffold is audited and owner explicitly approves the migration step. | Manager / owner-approved §5 followup |
+| `docs/contributing/**` workflow docs | [!] | ADR-044 owns the four-category doc set; skill-as-pointer closure needs real target docs that do not exist yet. | During ADR-044 documentation-set implementation. | ADR-044 docs agent |
+| Full skill-pointer closure enforcement | [!] | Depends on ADR-044 `docs/contributing/` targets and `skill_pointer_sync.py`. | After ADR-044 doc skeleton and §2 report primitives land. | ADR-044 / QA audit agent |
+
 ## Round 1: ADR-043 Section 2 Implementation Monitoring
 
 ### Scope
@@ -87,6 +107,52 @@ drift inventory hooks, and the initial tracker artifact.
 | Skeleton branch approved | [ ] | Pending |
 | Implementation branch approved | [ ] | Pending |
 | Merged into local umbrella | [ ] | Pending |
+
+## Round 2: ADR-043 Section 5 Layered Instructions Scaffold
+
+### Scope
+
+Implement the currently safe, parallelizable part of ADR-043 section 5:
+layered instruction-carrier scaffold, subtree `AGENTS.md` scaffold,
+path-scoped rule scaffold, pointer-style skill scaffold, and hook scaffold.
+
+### Plan
+
+| Step | Status | Owner | Artifact / Notes |
+|---|---:|---|---|
+| Owner approval for parallel §5 scaffold | [x] | Owner | Approved in chat on 2026-05-18 |
+| Create §5 worktree and branch | [ ] | Manager | Pending |
+| Implement safe §5 scaffold | [ ] | §5 agent | Must avoid deferred files listed above |
+| Run focused checks | [ ] | §5 agent | No full lint gate until §2/§6 foundations land |
+| Owner audit | [ ] | Owner | No separate audit agent |
+| Merge approved branch into local umbrella | [ ] | Manager | Only after owner approval |
+
+### Planned Files
+
+| Path | Status | Notes |
+|---|---:|---|
+| `AGENTS.md` | [ ] | Root canonical policy scaffold; must not silently loosen current policy |
+| `CURSOR.md` | [ ] | Pointer to `AGENTS.md` if implemented as plain file |
+| `GEMINI.md` | [ ] | Pointer to `AGENTS.md` if implemented as plain file |
+| `.aiderrc` | [ ] | Pointer config if safe and minimal |
+| `src/scieasy/core/AGENTS.md` | [ ] | Frozen contract path-scope scaffold |
+| `src/scieasy/blocks/AGENTS.md` | [ ] | Block contract path-scope scaffold |
+| `src/scieasy/blocks/ai/AGENTS.md` | [ ] | ADR-035 pointer scaffold |
+| `src/scieasy/qa/AGENTS.md` | [ ] | ADR-042/043 QA scope scaffold |
+| `frontend/AGENTS.md` | [ ] | Frontend smoke-test pointer scaffold |
+| `.workflow/AGENTS.md` | [ ] | Workflow gate semantics scaffold |
+| `docs/AGENTS.md` | [ ] | Doc authoring rules scaffold |
+| `.github/AGENTS.md` | [ ] | CI/workflow rules scaffold |
+| `.claude/rules/*.md` | [ ] | Path-scoped rules from ADR-043 §5.3 |
+| `.claude/skills/*/SKILL.md` | [ ] | Pointer-style skills only; no long duplicated workflows |
+| `scripts/hooks/*.sh` | [ ] | Hook scaffolds from ADR-043 §5.3 |
+
+### Required Checks
+
+| Command | Status | Notes |
+|---|---:|---|
+| `git diff --check` | [ ] | Pending §5 agent |
+| Manual line-count check for root `AGENTS.md` / skill bodies | [ ] | Pending §5 agent; root target ≤200 lines, skills pointer-only |
 
 ## Parallelization Assessment: ADR-043 Section 5
 
