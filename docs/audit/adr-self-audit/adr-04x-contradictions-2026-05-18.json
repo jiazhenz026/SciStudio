@@ -1,0 +1,45 @@
+{
+  "schema_version": "preliminary-v0",
+  "run_id": "p0-4-contradiction-audit-2026-05-18",
+  "tool": "scieasy-adr-auditor (Explore manual)",
+  "generated_at": "2026-05-18T00:00:00Z",
+  "scope": [
+    "docs/adr/ADR-042.md",
+    "docs/adr/ADR-043.md",
+    "docs/adr/ADR-044.md"
+  ],
+  "summary": {
+    "total_findings": 1,
+    "by_severity": {
+      "critical": 0,
+      "warning": 1,
+      "info": 0
+    },
+    "by_class": {
+      "supersedes_cycle": 0,
+      "agent_editable_contradiction": 0,
+      "governs_vs_exclusions": 0,
+      "schema_vs_validator": 0,
+      "workflow_stage_cycle": 0,
+      "rule_clause_contradiction": 0,
+      "undefined_section_reference": 1,
+      "tool_list_contradiction": 0
+    }
+  },
+  "findings": [
+    {
+      "adr": 44,
+      "class": "undefined_section_reference",
+      "severity": "warning",
+      "location": "docs/adr/ADR-044.md:53 (amends section)",
+      "description": "Amends entry references consolidate_cascade.py as removed from ADR-044 §10.3, but the comment acknowledges the script is owned by ADR-042.",
+      "evidence": "Audit fix I6 clarification: consolidate_cascade.py is owned by ADR-042, not ADR-044 §10.3. Editorial note, not a functional contradiction.",
+      "recommendation": "No action required; commentary is explicit and self-aware. This is a documentation clarification, not a rule contradiction."
+    }
+  ],
+  "notes": {
+    "methodology": "Scanned all three ADRs for the 8 contradiction classes per ADR-042 §28.1. Used grep/read to inspect frontmatter (supersedes, agent_editable, governs, excludes), prose for rule conflicts, section references, and tool consistency.",
+    "validation_summary": "No critical findings. All ADRs are internally consistent. §13 (trailer required) vs §25 (Tier 1 exempt) is consistent: §25.2 and §25.4 tier matrix clearly show Assisted-by is NOT required for Tier 1 humans. No workflow cycles, no schema mismatches, no undefined cross-references to non-existent sections.",
+    "unblocks_phase_1": true
+  }
+}
