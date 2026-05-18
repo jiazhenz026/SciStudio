@@ -48,6 +48,8 @@ dev = [
     "types-PyYAML>=6.0",
     "import-linter>=2.0",
     "pre-commit>=4.0",
+    "hypothesis>=6.0",  # ADR-043 §4.1 — property-based test scaffolds (TC-1F.4)
+    "mutmut>=2.4; sys_platform != 'win32'",  # ADR-043 §4.5 — mutation testing (TC-1F.3); Linux/macOS only (requires os.fork())
 ]
 
 [project.scripts]

@@ -19,9 +19,11 @@ The ``test-author`` skill at ``.claude/skills/test-author/SKILL.md``
 from __future__ import annotations
 
 from scieasy.qa.test_quality.ast_lint import check_test_file
+from scieasy.qa.test_quality.mutation_runner import run_targeted
 from scieasy.qa.test_quality.test_first_check import verify_ordering
 
 __all__ = [
     "check_test_file",
+    "run_targeted",
     "verify_ordering",
 ]
