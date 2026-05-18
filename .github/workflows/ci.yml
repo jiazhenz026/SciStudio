@@ -40,6 +40,14 @@ jobs:
       # Phase -0.5 temporary review gate (ADR-042/043/044 cascade).
       # Co-located inside the lint job so the decommission PR can remove
       # it surgically; see docs/planning/phase-0-5-temp-review-design.md §6.
+      # temp_review.py piggybacks on mypy + lint-imports; once
+      # src/scieasy/qa/ contains Python files (Phase 1A and later) those
+      # tools must be importable here or the piggyback returns env-error
+      # exit 2. Installing the project's [dev] extra (which provides
+      # mypy + import-linter) is the minimal CI unblocker; the legacy
+      # Type Check / Import Contracts jobs continue to own the
+      # authoritative type / import checks.
+      - run: uv pip install --system -e ".[dev]"
       - name: Phase -0.5 temporary review
         run: python -m scripts.audit.temp_review --ci
 
