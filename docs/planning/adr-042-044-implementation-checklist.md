@@ -1,8 +1,8 @@
 # ADR-042/043/044 Implementation Checklist
 
 > Mandatory local tracking document for the ADR-042/043/044 rewrite.
-> Each implementation round appends its plan, agent branches, test outcome,
-> approval state, and local merge state here.
+> Active implementation rounds list only what is needed for coordination.
+> Completed rounds are collapsed into the section tracker to keep this file short.
 
 ## Conventions
 
@@ -29,15 +29,13 @@
 
 | ADR section | Status | Current owner | Branch / worktree | Merge status | Notes |
 |---|---:|---|---|---|---|
-| ADR-043 §2 Implementation Monitoring | [~] | §2 implementation agent v2 | `local/adr043-s2-implementation-v2` / `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-implementation-v2` | Skeleton merged; phase gate removed | Skeleton commit `e52d9fdf6993ca1e5cd221642c1194913c8b2b5d` merged as `a68f5cd7`; phase-gate removal `84583a26` |
-| ADR-043 §5 CLAUDE.md / AGENTS.md Layered Design | [~] | Agent Beauvoir | `local/adr043-s5-layered-scaffold` / `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s5-layered` | Awaiting owner audit | Commit `67d5f76aa0828e067d3cb93adb1d26f66aab4788`; high-impact root `AGENTS.md` reduction |
+| ADR-043 §2 Implementation Monitoring | [~] | Agent Bacon | `local/adr043-s2-implementation-v2` / `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-implementation-v2` | Awaiting owner audit | Commit `35831b5b925fce63b25fc9158e17359930befcd9`; no phase-gate files restored |
+| ADR-043 §5 CLAUDE.md / AGENTS.md Layered Design | [x] | Agent Beauvoir | merged from `local/adr043-s5-layered-scaffold` | Merged locally | Agent commit `67d5f76aa0828e067d3cb93adb1d26f66aab4788`; merge commit `4bc471c2` |
 
 ## Deferred File Tracking
 
 | File / path | Status | Deferred reason | Implement when | Owner |
 |---|---:|---|---|---|
-| `src/scieasy/qa/schemas/__init__.py` | [!] | ADR-043 §2 skeleton owns QA schema package initialization; parallel §5 edits could conflict. | After §2 skeleton is merged into local umbrella. | §2 / later integration agent |
-| `src/scieasy/qa/schemas/report.py` | [!] | §5/§6 lint tools should consume the §2 `Finding` / `AuditReport` primitives rather than inventing a second report model. | After §2 skeleton defines report primitives. | §2 / §6 lint agent |
 | `src/scieasy/qa/schemas/classification.py` | [!] | Belongs to ADR-043 §6.1-6.3 data classification / rubric / path boundary schema, not §5 scaffold alone. | When ADR-043 §6 implementation starts. | §6 agent |
 | `src/scieasy/qa/classification/lint.py` | [!] | Depends on ADR-043 §6 semantics and §2 report primitives. | When ADR-043 §6 implementation starts after §2 schema foundation lands. | §6 agent |
 | `scripts/audit/classification_lint.py` | [!] | Full implementation needs ADR-043 §6.1-6.3 semantics and §2 report primitives. | When ADR-043 §6 implementation starts after §2 skeleton merge. | §6 agent |
@@ -102,8 +100,9 @@ those updates in the Notes column when implemented.
 ### Scope
 
 Implement ADR-043 section 2: implementation tracker, tracker schema,
-phase-gate validator, tool self-test runner, addendum propagation / governance
-drift inventory hooks, and the initial tracker artifact.
+tool self-test runner, addendum propagation / governance drift inventory hooks,
+and the initial tracker artifact. Temporary cascade phase-gate tooling is removed
+per owner instruction.
 
 ### Plan
 
@@ -118,7 +117,7 @@ drift inventory hooks, and the initial tracker artifact.
 | Stop first §2 implementation agent after scope correction | [x] | Manager | Agent `019e3c7d-7cf6-70d3-8459-231863ca8e83` closed; old worktree has uncommitted non-phase-gate diff preserved |
 | Remove legacy phase-gate skeleton | [x] | Manager | Commit `84583a26`; owner will manually gate phase readiness |
 | Create second implementation v2 worktree | [x] | Manager | `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-implementation-v2`, `local/adr043-s2-implementation-v2` |
-| Complete remaining ADR-043 section 2 implementation | [~] | Implementation agent v2 | Pending agent result |
+| Complete remaining ADR-043 section 2 implementation | [x] | Agent Bacon | Commit `35831b5b925fce63b25fc9158e17359930befcd9`; no remote push |
 | Owner audit | [ ] | Owner | No separate audit agent per owner instruction |
 | Merge approved branch into local umbrella | [ ] | Manager | Only after owner approval |
 
@@ -131,14 +130,11 @@ drift inventory hooks, and the initial tracker artifact.
 | `src/scieasy/qa/schemas/report.py` | [~] | Minimal `Finding` / `AuditReport` support |
 | `src/scieasy/qa/schemas/tracker.py` | [~] | ADR-043 section 2 tracker schema |
 | `src/scieasy/qa/tracker/adr_implementation_check.py` | [~] | Tracker-to-code validation |
-| `src/scieasy/qa/tracker/phase_gate.py` | [!] | Removed per owner instruction; manual owner gate replaces this local check |
 | `src/scieasy/qa/tracker/tool_self_test_runner.py` | [~] | QA tool self-test artifact validation |
 | `scripts/audit/adr_implementation_check.py` | [~] | CLI wrapper |
-| `scripts/audit/phase_gate.py` | [!] | Removed per owner instruction |
 | `scripts/audit/tool_self_test_runner.py` | [~] | CLI wrapper |
 | `docs/audit/adr-042-implementation-tracker.yaml` | [~] | Initial machine-readable tracker |
 | `tests/qa/test_implementation_tracker.py` | [~] | Schema and tracker validation |
-| `tests/qa/test_phase_gate.py` | [!] | Removed per owner instruction |
 | `tests/qa/test_tool_self_test_runner.py` | [~] | Missing artifact / diff behavior |
 
 ### Required Tests
@@ -148,7 +144,7 @@ drift inventory hooks, and the initial tracker artifact.
 | `pytest --timeout=60 tests/qa/test_implementation_tracker.py tests/qa/test_tool_self_test_runner.py` | [ ] | Not rerun because global coverage gate is known to fail focused QA runs |
 | `pytest --timeout=60 --no-cov tests/qa/test_implementation_tracker.py tests/qa/test_tool_self_test_runner.py` | [x] | 6 passed after phase-gate removal |
 | `ruff check src\scieasy\qa scripts\audit tests\qa` | [x] | Passed after phase-gate removal |
-| `ruff check src\scieasy\qa scripts\audit tests\qa` | [x] | Passed |
+| `pytest --timeout=60 --no-cov tests/qa/test_implementation_tracker.py tests/qa/test_tool_self_test_runner.py tests/qa/test_addendum_propagate.py tests/qa/test_governance_drift.py` | [x] | 15 passed in §2 implementation branch |
 
 ### Historical-Code Investigation
 
@@ -166,88 +162,6 @@ drift inventory hooks, and the initial tracker artifact.
 | Skeleton branch approved | [x] | Owner requested merge |
 | Implementation branch approved | [ ] | Pending |
 | Merged into local umbrella | [~] | Skeleton merged; implementation branch pending |
-
-## Round 2: ADR-043 Section 5 Layered Instructions Scaffold
-
-### Scope
-
-Implement the currently safe, parallelizable part of ADR-043 section 5:
-layered instruction-carrier scaffold, subtree `AGENTS.md` scaffold,
-path-scoped rule scaffold, pointer-style skill scaffold, and hook scaffold.
-
-### Plan
-
-| Step | Status | Owner | Artifact / Notes |
-|---|---:|---|---|
-| Owner approval for parallel §5 scaffold | [x] | Owner | Approved in chat on 2026-05-18 |
-| Create §5 worktree and branch | [x] | Manager | `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s5-layered`, `local/adr043-s5-layered-scaffold` |
-| Implement safe §5 scaffold | [x] | Agent Beauvoir | Commit `67d5f76aa0828e067d3cb93adb1d26f66aab4788`; no remote push |
-| Run focused checks | [x] | Agent Beauvoir | `git diff --check`, `bash -n scripts/hooks/*.sh`, line/body count check, and `pytest --timeout=60 --no-cov tests/qa/test_layered_agents_scaffold.py` passed |
-| Owner audit | [ ] | Owner | No separate audit agent |
-| Merge approved branch into local umbrella | [ ] | Manager | Only after owner approval |
-
-### Planned Files
-
-| Path | Status | Notes |
-|---|---:|---|
-| `AGENTS.md` | [~] | Implemented in §5 branch; owner audit required before merge because it removes ~1100 legacy lines |
-| `CURSOR.md` | [x] | Implemented in §5 branch |
-| `GEMINI.md` | [x] | Implemented in §5 branch |
-| `.aiderrc` | [x] | Implemented in §5 branch |
-| `src/scieasy/core/AGENTS.md` | [x] | Implemented in §5 branch |
-| `src/scieasy/blocks/AGENTS.md` | [x] | Implemented in §5 branch |
-| `src/scieasy/blocks/ai/AGENTS.md` | [x] | Implemented in §5 branch |
-| `src/scieasy/qa/AGENTS.md` | [x] | Implemented in §5 branch |
-| `frontend/AGENTS.md` | [x] | Implemented in §5 branch |
-| `.workflow/AGENTS.md` | [x] | Implemented in §5 branch |
-| `docs/AGENTS.md` | [x] | Implemented in §5 branch |
-| `.github/AGENTS.md` | [x] | Implemented in §5 branch |
-| `.claude/rules/*.md` | [x] | Implemented in §5 branch |
-| `.claude/skills/*/SKILL.md` | [x] | Implemented in §5 branch |
-| `scripts/hooks/*.sh` | [x] | Implemented in §5 branch |
-
-### Required Checks
-
-| Command | Status | Notes |
-|---|---:|---|
-| `git diff --check` | [x] | Passed |
-| Manual line-count check for root `AGENTS.md` / skill bodies | [x] | Root `AGENTS.md` 138 lines; new skill bodies 14-16 lines |
-| `pytest --timeout=60 --no-cov tests/qa/test_layered_agents_scaffold.py` | [x] | 4 passed |
-
-## Parallelization Assessment: ADR-043 Section 5
-
-### Question
-
-Can ADR-043 section 5 (`CLAUDE.md / AGENTS.md Layered Design`) run in
-parallel with Round 1 (`ADR-043 §2 Implementation Monitoring`)?
-
-### Decision
-
-| Item | Status | Notes |
-|---|---:|---|
-| Parallel with ADR-043 §2 | [~] | Safe only for disjoint scaffold/docs/rules work |
-| Full section 5 completion | [!] | Depends on ADR-044 doc set and §6 classification details |
-| Recommended merge order | [~] | Merge §2 skeleton/foundation before §5 lint/tool code |
-
-### Safe Parallel Slice
-
-| Path group | Status | Notes |
-|---|---:|---|
-| Root and subtree `AGENTS.md` scaffold | [ ] | Must not silently loosen current policy |
-| `.claude/rules/*.md` path-scoped rule scaffold | [ ] | New files; low conflict with §2 |
-| Pointer-style `.claude/skills/*/SKILL.md` scaffold | [ ] | Must honor ADR-044 §11 skill-as-pointer discipline |
-| `scripts/hooks/*` best-effort hook scaffold | [ ] | New hook files only; no destructive hook rewiring yet |
-| `scripts/hooks/instructions-loaded-audit.sh` | [ ] | Can scaffold, but runtime-specific enablement deferred |
-
-### Do Not Parallelize Yet
-
-| Path group | Status | Reason |
-|---|---:|---|
-| `src/scieasy/qa/schemas/__init__.py` edits | [!] | §2 skeleton is creating schema package foundations |
-| `src/scieasy/qa/schemas/report.py` edits | [!] | §5/§6 lint tools should consume §2's `Finding` model after it lands |
-| `scripts/audit/classification_lint.py` full implementation | [!] | §5.6 depends on ADR-043 §6.1-6.3 semantics and §2 report primitives |
-| Full skill-pointer closure | [!] | ADR-044 requires `docs/contributing/` targets, which do not exist yet |
-| Replacing `CLAUDE.md` with a symlink/pointer | [!] | High governance blast radius; owner should approve after scaffold review |
 
 ## Drift Log
 
