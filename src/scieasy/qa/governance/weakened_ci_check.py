@@ -92,7 +92,7 @@ import argparse
 import ast
 import re
 import subprocess
-from collections.abc import Iterable
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -121,12 +121,14 @@ def _git(repo_root: Path, *args: str) -> str:
             capture_output=True,
             text=True,
             check=False,
+            encoding="utf-8",
+            errors="replace",
         )
-    except FileNotFoundError:
+    except (FileNotFoundError, UnicodeDecodeError):
         return ""
     if out.returncode != 0:
         return ""
-    return out.stdout
+    return out.stdout or ""
 
 
 def _file_at_ref(repo_root: Path, ref: str, path: str) -> str:
@@ -782,6 +784,49 @@ def _detect_expanded_exemption_paths(ctx: _Ctx) -> list[WeakeningFinding]:
 _NOQA_RE = re.compile(r"#\s*noqa(?::\s*[A-Z0-9, ]+)?(.*)$", re.IGNORECASE)
 
 
+def _noqa_is_in_string_literal(line: str, noqa_pos: int) -> bool:
+    """Heuristic: is the noqa at ``noqa_pos`` a NON-real lint exemption?
+
+    Returns ``True`` when the noqa is being **discussed** rather than
+    **applied** — i.e. inside a string literal, a backtick-quoted
+    markdown / docstring code span, a triple-quoted block, or a
+    documentation comment with prior prose content.
+
+    The heuristic is conservative: it favours false negatives (missing
+    a real weakening) over false positives (blocking a doc PR that
+    mentions ``# noqa`` in prose). The §3.5 recursive workflow runs
+    the full contradiction audit as a safety net.
+    """
+    prefix = line[:noqa_pos]
+    triple_d = '"' * 3
+    triple_s = "'" * 3
+    # Only treat triple-quote presence as "in string" when the triple-
+    # quote count is ODD (unterminated). A line like ``doc = """x"""
+    # # noqa: E501`` has TWO triple-double-quotes before the noqa — the
+    # string is closed and the noqa is a real directive. This addresses
+    # Codex P1 review on PR #1175: a single occurrence ANYWHERE in the
+    # prefix used to short-circuit as "in string", causing false
+    # negatives on real exemptions immediately after a closed triple-
+    # quoted string.
+    if prefix.count(triple_d) % 2 == 1 or prefix.count(triple_s) % 2 == 1:
+        return True
+    # Strip escaped quotes and triple-quote runs (so they don't bias
+    # the single-quote parity check below).
+    prefix_no_esc = prefix.replace(r"\"", "").replace(r"\'", "").replace(triple_d, "").replace(triple_s, "")
+    if prefix_no_esc.count('"') % 2 == 1 or prefix_no_esc.count("'") % 2 == 1:
+        return True
+    # Markdown / docstring code-span: ``noqa`` enclosed in backticks.
+    if "`" in prefix and "`" in line[noqa_pos:]:
+        # Backtick on both sides → code-span context, not a real directive.
+        return True
+    # Documentation comment / prose: the noqa lives inside a leading
+    # ``# ...`` line comment that already has prior text — the noqa is
+    # being talked about, not applied as a directive. A real noqa lives
+    # at the end of code, not inside a block-style comment.
+    stripped = prefix.lstrip()
+    return bool(stripped.startswith("#"))
+
+
 def _detect_expanded_noqa_usage(ctx: _Ctx) -> list[WeakeningFinding]:
     findings: list[WeakeningFinding] = []
     diff = _git(ctx.repo_root, "diff", f"{ctx.base}..{ctx.head}", "--unified=0")
@@ -792,12 +837,21 @@ def _detect_expanded_noqa_usage(ctx: _Ctx) -> list[WeakeningFinding]:
             continue
         if not current_file:
             continue
+        # Scope to Python source — the noqa directive is a Python-lint
+        # exemption, so .md / .rst / .yaml etc. cannot legitimately
+        # suppress lint.
+        if not current_file.endswith(".py"):
+            continue
         # Only inspect added lines (start with '+' but not '+++')
         if not line.startswith("+") or line.startswith("+++"):
             continue
         added = line[1:]
         m = _NOQA_RE.search(added)
         if not m:
+            continue
+        # Skip false positives where the noqa directive appears inside
+        # a string literal (regex patterns, test fixture text, docstrings).
+        if _noqa_is_in_string_literal(added, m.start()):
             continue
         trailing = m.group(1) or ""
         if _ISSUE_REF_RE.search(trailing):
@@ -888,7 +942,7 @@ def _detect_reduced_honeypot_count(ctx: _Ctx) -> list[WeakeningFinding]:
 # Detector registry                                                           #
 # --------------------------------------------------------------------------- #
 
-_DETECTORS: list[tuple[WeakeningKind, callable]] = [  # type: ignore[type-arg]
+_DETECTORS: list[tuple[WeakeningKind, Callable[[_Ctx], list[WeakeningFinding]]]] = [
     (WeakeningKind.DELETED_TEST_FILE, _detect_deleted_test_file),
     (WeakeningKind.REMOVED_TEST_FUNCTION, _detect_removed_test_function),
     (WeakeningKind.LOWERED_COVERAGE_THRESHOLD, _detect_lowered_coverage),
@@ -995,7 +1049,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover — CLI entry-point
     raise SystemExit(main())
-
-
-# Quiet ``F401`` if Iterable becomes unused after future edits.
-_ = Iterable

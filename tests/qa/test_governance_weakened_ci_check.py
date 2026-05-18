@@ -393,6 +393,91 @@ def test_added_noqa_with_issue_ref_allowed(repo: Path):
 
 
 # --------------------------------------------------------------------------- #
+# Regression tests for the post-merge CI fixes (#1174)                        #
+# --------------------------------------------------------------------------- #
+
+
+def test_noqa_in_markdown_ignored(repo: Path):
+    """A .md file mentioning '# noqa' in prose is not a Python lint exemption."""
+    _write(repo, "docs/example.md", "Example: write `# noqa: E501` after the line.\n")
+    _commit(repo, "add doc")
+    findings = _diff_to_findings(repo)
+    # The change touches docs/example.md (a .md file). Even though the line
+    # contains the literal pattern `# noqa: E501`, this is NOT a lint
+    # exemption — the post-merge fix #1174 scoped the detector to .py only.
+    assert WeakeningKind.EXPANDED_NOQA_USAGE not in {f.kind for f in findings}
+
+
+def test_noqa_inside_python_string_literal_ignored(repo: Path):
+    """A `# noqa` inside a Python string literal (regex / docstring / fixture
+    text) is not a real lint exemption and must not be flagged."""
+    _write(
+        repo,
+        "src/example.py",
+        'PATTERN = "x = 1  # noqa: E501"\nprint(PATTERN)\n',
+    )
+    _commit(repo, "add module with noqa-in-string")
+    findings = _diff_to_findings(repo)
+    # The string content includes `# noqa: E501` but the noqa is mid-string,
+    # not a trailing inline-comment directive. Post-merge fix #1174 added
+    # the quote-parity heuristic that skips this case.
+    assert WeakeningKind.EXPANDED_NOQA_USAGE not in {f.kind for f in findings}
+
+
+def test_real_noqa_still_blocks_after_fix(repo: Path):
+    """The post-merge fix must NOT regress the real-positive case."""
+    _write(repo, "src/example.py", "x = 1\n")
+    _commit(repo, "add module")
+    _write(repo, "src/example.py", "x = 1  # noqa: E501\n")
+    _commit(repo, "add real noqa")
+    findings = _diff_to_findings(repo)
+    assert WeakeningKind.EXPANDED_NOQA_USAGE in {f.kind for f in findings}
+
+
+def test_noqa_after_closed_triple_quoted_string_still_blocks(repo: Path):
+    """Codex P1 regression: a noqa appearing AFTER a closed triple-quoted
+    string on the same line is a real lint exemption and must be flagged.
+    The earlier heuristic incorrectly treated any triple-quote presence
+    in the prefix as ``inside a string,`` causing a false negative."""
+    _write(repo, "src/example.py", "x = 1\n")
+    _commit(repo, "add module")
+    _write(repo, "src/example.py", 'doc = """x"""  # noqa: E501\n')
+    _commit(repo, "noqa after closed triple-quoted")
+    findings = _diff_to_findings(repo)
+    assert WeakeningKind.EXPANDED_NOQA_USAGE in {f.kind for f in findings}
+
+
+def test_noqa_inside_unterminated_triple_quoted_string_ignored(repo: Path):
+    """Companion to the Codex P1 regression: the unterminated-triple-
+    quoted case (one set of triple quotes opened, not yet closed before
+    the noqa) IS a docstring context and must be skipped."""
+    _write(repo, "src/example.py", "x = 1\n")
+    _commit(repo, "add module")
+    _write(repo, "src/example.py", 'doc = """\n    Example: ``# noqa: E501``\n    """\nx = 1\n')
+    _commit(repo, "noqa inside docstring")
+    findings = _diff_to_findings(repo)
+    # The noqa text is on a line where the docstring is still open
+    # (the closing ``"""`` is on a later line). The earlier heuristic
+    # caught this via the leading-comment branch; the new triple-quote
+    # parity logic must continue to skip it.
+    assert WeakeningKind.EXPANDED_NOQA_USAGE not in {f.kind for f in findings}
+
+
+def test_detectors_callable_annotation_typechecks():
+    """Regression for the post-merge mypy fix: ``_DETECTORS`` must use
+    ``typing.Callable``, not the bare ``callable`` builtin. We verify by
+    walking the registry and calling each entry — if the type annotation
+    were wrong, mypy --strict would have already failed; here we assert
+    runtime callability and the expected element shape."""
+    from scieasy.qa.governance.weakened_ci_check import _DETECTORS
+
+    assert len(_DETECTORS) == 14
+    for kind, fn in _DETECTORS:
+        assert callable(fn), f"{kind} maps to a non-callable detector"
+        assert isinstance(kind, WeakeningKind)
+
+
+# --------------------------------------------------------------------------- #
 # Pattern 13 — reduced-skill-list                                             #
 # --------------------------------------------------------------------------- #
 
