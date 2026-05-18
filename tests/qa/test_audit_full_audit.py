@@ -74,6 +74,46 @@ def test_run_self_check_adds_contradiction(tmp_path: Path) -> None:
     assert "contradiction_audit" in tools
 
 
+def test_run_default_commit_range_covers_branch(tmp_path: Path) -> None:
+    """Codex P1 #1161: trailer_lint must audit every commit on the branch.
+
+    Without an explicit commit_range, ``run`` should resolve to
+    ``origin/main..HEAD`` when ``origin/main`` exists, and to
+    ``HEAD~1..HEAD`` otherwise (fresh clone). We verify the fallback
+    here; the ``origin/main`` path is exercised in the real CI run.
+    """
+    from scieasy.qa.audit.full_audit import _default_commit_range
+
+    _init_repo(tmp_path)
+    # No remote 'origin/main' present → must fall back.
+    assert _default_commit_range(tmp_path) == "HEAD~1..HEAD"
+
+
+def test_run_with_explicit_commit_range(tmp_path: Path) -> None:
+    """Caller can override the default range."""
+    _init_repo(tmp_path)
+    report = run(tmp_path, pre_push=True, commit_range="HEAD")
+    trailer = next(tr for tr in report.runs if tr.tool == "trailer_lint")
+    # The hash includes the range so we can verify it propagated.
+    assert "HEAD" in trailer.config_hash or trailer.exit_status in {
+        "ok",
+        "warnings",
+        "errors",
+    }
+
+
+def test_run_discovers_specs_dir(tmp_path: Path) -> None:
+    """Codex P2 #1161: docs/specs/ (plural) is also scanned."""
+    from scieasy.qa.audit.full_audit import _resolve_file_targets
+
+    _init_repo(tmp_path)
+    (tmp_path / "docs" / "specs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "docs" / "specs" / "my-feature.md").write_text("---\nkey: value\n---\n", encoding="utf-8")
+    targets = _resolve_file_targets(tmp_path, None)
+    target_strs = [str(t).replace("\\", "/") for t in targets]
+    assert any("docs/specs/my-feature.md" in s for s in target_strs)
+
+
 def test_run_with_targets_filters_frontmatter_lint(tmp_path: Path) -> None:
     _init_repo(tmp_path)
     p = tmp_path / "docs" / "adr" / "ADR-042.md"

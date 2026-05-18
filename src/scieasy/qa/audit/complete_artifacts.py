@@ -253,15 +253,36 @@ def _pr_diff_files(repo_root: Path) -> set[str]:
     return {line.strip().replace("\\", "/") for line in out.stdout.splitlines() if line.strip()}
 
 
+#: Findings whose existence is independent of the PR diff scope. The
+#: stage-6 contract requires every change to ship a CHANGELOG entry
+#: (CLAUDE.md Appendix A step 5), so a "missing CHANGELOG" finding MUST
+#: survive diff filtering — otherwise a PR that simply forgets to touch
+#: ``CHANGELOG.md`` would pass stage 6 (the changelog isn't in its own
+#: diff, so the filter would drop the finding). Codex P1 fix on PR
+#: #1161.
+_DIFF_FILTER_BYPASS_RULE_IDS: frozenset[str] = frozenset(
+    {
+        "complete-artifacts.changelog-missing",
+        "complete-artifacts.changelog-no-entry",
+        "complete-artifacts.changelog-skipped",
+    }
+)
+
+
 def _filter_to_diff(findings: list[Finding], diff_files: set[str]) -> list[Finding]:
     """Return findings whose ``file`` matches the PR diff set.
 
     Findings whose ``file`` is a synthetic placeholder (``<PR body>``,
     ``docs/skills/required.yaml``, etc.) pass through unconditionally so
     stage-6 reporters can still surface the placeholder context.
+    Findings whose ``rule_id`` is in :data:`_DIFF_FILTER_BYPASS_RULE_IDS`
+    also bypass the filter — see the constant's docstring.
     """
     kept: list[Finding] = []
     for f in findings:
+        if f.rule_id in _DIFF_FILTER_BYPASS_RULE_IDS:
+            kept.append(f)
+            continue
         norm = f.file.replace("\\", "/")
         if norm.startswith("<") or norm.endswith("/"):
             kept.append(f)

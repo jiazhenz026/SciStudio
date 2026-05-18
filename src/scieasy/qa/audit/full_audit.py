@@ -66,6 +66,7 @@ def run(
     targets: list[Path] | None = None,
     pre_push: bool = False,
     self_check: bool = False,
+    commit_range: str | None = None,
 ) -> AuditReport:
     """Aggregate every audit tool into a single :class:`AuditReport`.
 
@@ -76,6 +77,13 @@ def run(
             "all ADRs + specs".
         pre_push: When ``True`` run only the fast subset (Q1B.7.1).
         self_check: When ``True`` target ADR-042 itself for §28.2.
+        commit_range: Git revision range passed to ``trailer_lint``.
+            ``None`` defaults to ``"origin/main..HEAD"`` so every commit
+            on the PR/branch is audited (Codex P1 fix — single-commit
+            ``HEAD~1..HEAD`` silently skips earlier commits on
+            multi-commit branches). Falls back to ``"HEAD~1..HEAD"`` when
+            ``origin/main`` cannot be resolved (fresh checkout / shallow
+            clone).
 
     Returns:
         Single :class:`AuditReport` carrying one :class:`ToolRun` per
@@ -91,8 +99,10 @@ def run(
 
     file_targets = _resolve_file_targets(root, targets)
 
+    resolved_range = commit_range or _default_commit_range(root)
+
     # ── Always-run tools (pre_push subset) ─────────────────────────────
-    runs.append(_run_trailer_lint(root))
+    runs.append(_run_trailer_lint(root, resolved_range))
     runs.append(_run_committer_enforce(root))
     runs.append(_run_frontmatter_lint(root, file_targets))
     runs.append(_run_closure(root))
@@ -133,19 +143,47 @@ def run(
 # ---------------------------------------------------------------------------
 
 
-def _run_trailer_lint(root: Path) -> ToolRun:
+def _run_trailer_lint(root: Path, commit_range: str) -> ToolRun:
     started = datetime.now(UTC)
-    findings = trailer_run(root)
+    findings = trailer_run(root, commit_range=commit_range)
     completed = datetime.now(UTC)
     return ToolRun(
         tool="trailer_lint",
         version="1",
-        config_hash=_hash(f"trailer_lint:{root}"),
+        config_hash=_hash(f"trailer_lint:{root}:{commit_range}"),
         started_at=started,
         completed_at=completed,
         exit_status=_exit_status(findings),
         findings=findings,
     )
+
+
+def _default_commit_range(root: Path) -> str:
+    """Return the broadest sensible default commit range for trailer lint.
+
+    Prefers ``origin/main..HEAD`` (every commit ahead of main, including
+    pre-rebase intermediates). Falls back to ``HEAD~1..HEAD`` when the
+    ``origin/main`` ref is not available (fresh clone, shallow CI checkout
+    that hasn't fetched main, or a brand-new repo). Codex P1 fix on PR
+    #1161 — the prior default silently skipped earlier commits on any
+    multi-commit branch.
+    """
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--verify", "origin/main"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return "HEAD~1..HEAD"
+    if out.returncode == 0 and out.stdout.strip():
+        return "origin/main..HEAD"
+    return "HEAD~1..HEAD"
 
 
 def _run_committer_enforce(root: Path) -> ToolRun:
@@ -253,16 +291,34 @@ def _run_contradiction(root: Path, targets: list[Path]) -> ToolRun:
 
 
 def _resolve_file_targets(root: Path, targets: list[Path] | None) -> list[Path]:
-    """Default to every ADR + every spec when ``targets`` is ``None``."""
+    """Default to every ADR + every spec when ``targets`` is ``None``.
+
+    Spec discovery checks BOTH ``docs/spec/`` (the singular form used by
+    ADR-042 §5.2 prose) and ``docs/specs/`` (the actual repo layout —
+    Codex P2 fix on PR #1161). All ``*.md`` files under either directory
+    are passed to frontmatter_lint; the linter's own ``select_schema``
+    decides which schema applies and emits a permissive fall-through
+    when none does.
+    """
     if targets is not None:
         return [t for t in targets if t.is_file()]
     out: list[Path] = []
     adr_dir = root / "docs" / "adr"
     if adr_dir.is_dir():
         out.extend(sorted(adr_dir.glob("ADR-*.md")))
-    spec_dir = root / "docs" / "spec"
-    if spec_dir.is_dir():
-        out.extend(sorted(spec_dir.glob("SPEC-*.md")))
+    for spec_dirname in ("spec", "specs"):
+        spec_dir = root / "docs" / spec_dirname
+        if not spec_dir.is_dir():
+            continue
+        # SPEC-prefixed files first (ADR-042 §5.7 spec frontmatter
+        # subset), then any other markdown under the dir.
+        spec_files = sorted(spec_dir.glob("SPEC-*.md"))
+        for f in spec_files:
+            if f not in out:
+                out.append(f)
+        for f in sorted(spec_dir.glob("*.md")):
+            if f not in out:
+                out.append(f)
     return out
 
 
