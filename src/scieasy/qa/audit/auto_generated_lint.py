@@ -144,11 +144,7 @@ def load_baseline(repo_root: Path) -> dict[str, str]:
         return {}
     if not isinstance(data, dict):
         return {}
-    return {
-        str(k): str(v)
-        for k, v in data.items()
-        if isinstance(k, str) and isinstance(v, str)
-    }
+    return {str(k): str(v) for k, v in data.items() if isinstance(k, str) and isinstance(v, str)}
 
 
 def compute_body_hash(path: Path) -> str:
