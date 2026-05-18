@@ -44,9 +44,9 @@
 | `CLAUDE.md` symlink / full pointer replacement | [!] | High governance blast radius; current file carries active policy and should not be replaced without owner audit of the new root `AGENTS.md`. | After §5 scaffold is audited and owner explicitly approves the migration step. | Manager / owner-approved §5 followup |
 | `docs/contributing/**` workflow docs | [!] | ADR-044 owns the four-category doc set; skill-as-pointer closure needs real target docs that do not exist yet. | During ADR-044 documentation-set implementation. | ADR-044 docs agent |
 | Full skill-pointer closure enforcement | [!] | Depends on ADR-044 `docs/contributing/` targets and `skill_pointer_sync.py`. | After ADR-044 doc skeleton and §2 report primitives land. | ADR-044 / QA audit agent |
-| `src/scieasy/qa/tracker/phase_gate.py` | [!] | Owner rejected the skeleton phase-gate logic as legacy/unneeded; phase readiness is owner-reviewed manually for this local cascade. | Only if owner later asks to reinstate a redesigned phase-gate tool. | Owner / future §2 followup |
-| `scripts/audit/phase_gate.py` | [!] | CLI shim removed with phase-gate implementation. | Only if owner later asks to reinstate a redesigned phase-gate tool. | Owner / future §2 followup |
-| `tests/qa/test_phase_gate.py` | [!] | Test removed with phase-gate implementation. | Only if owner later asks to reinstate a redesigned phase-gate tool. | Owner / future §2 followup |
+| `src/scieasy/qa/tracker/phase_gate.py` | [!] | Removed. This was a temporary ADR-042/043/044 cascade phase-readiness gate, not the repository `.workflow/gate.py`; owner now controls cascade phase readiness manually. | Only if owner later asks to reinstate a redesigned cascade phase-gate tool. | Owner / future §2 followup |
+| `scripts/audit/phase_gate.py` | [!] | Removed with the temporary cascade phase-gate implementation; do not recreate as part of ADR-043 §2 unless owner requests it. | Only if owner later asks to reinstate a redesigned cascade phase-gate tool. | Owner / future §2 followup |
+| `tests/qa/test_phase_gate.py` | [!] | Removed with the temporary cascade phase-gate implementation. | Only if owner later asks to reinstate a redesigned cascade phase-gate tool. | Owner / future §2 followup |
 
 ## Tool Stack Tracking
 
