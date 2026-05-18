@@ -19,7 +19,12 @@ from __future__ import annotations
 
 __all__ = [
     "closure",
+    "committer_enforce",
+    "complete_artifacts",
+    "contradiction_audit",
     "doc_drift",
     "fact_drift",
     "frontmatter_lint",
+    "full_audit",
+    "trailer_lint",
 ]
