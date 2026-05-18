@@ -1,0 +1,103 @@
+# Governance-modification recursive self-check (ADR-043 §3.5).
+#
+# Audit fix C2 — the previous design used a hand-maintained
+# on.pull_request.paths: list that drifted from .governance-paths.yaml
+# (covered only ~12 of ~30 governance paths). This workflow now derives
+# the path filter dynamically at runtime via the path_filter module,
+# and a separate workflow_sync_check static-parses this very file to
+# reject re-introductions of a shadow hand-list.
+#
+# Required-check name (branch protection): governance-modification-check
+name: governance-modification-check
+on:
+  pull_request: {}    # trigger on every PR; path-filter is done dynamically below
+
+jobs:
+  recursive-self-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      # Audit fix C2 — derive paths dynamically from .governance-paths.yaml
+      # at runtime instead of hand-maintaining a YAML `paths:` list that
+      # drifts. The previous hand-list covered only ~12 of ~30 governance
+      # paths, leaving CURSOR.md / GEMINI.md / .aiderrc / per-subtree
+      # AGENTS.md / audit logs / codemods / agent prompts unprotected.
+      - name: Determine governance-path matches in this PR
+        id: gov_paths
+        run: |
+          python -m scieasy.qa.governance.path_filter \
+            --paths-yaml .governance-paths.yaml \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}" \
+            --output "$GITHUB_OUTPUT"
+
+      - name: Skip if no governance paths touched
+        if: steps.gov_paths.outputs.touched == 'false'
+        run: echo "PR does not touch any .governance-paths.yaml entry; skipping recursive self-check."
+
+      # Static-parse THIS workflow file to assert it still uses the
+      # dynamic path_filter loader (no shadow hand-list of paths).
+      - name: Sync-check that the workflow uses the dynamic path filter
+        if: steps.gov_paths.outputs.touched == 'true'
+        run: python -m scieasy.qa.governance.workflow_sync_check
+
+      - name: Full audit on modified files
+        if: steps.gov_paths.outputs.touched == 'true'
+        run: python -m scieasy.qa.audit.full_audit --target-changed
+        continue-on-error: true
+        # TODO(#1113): full_audit ships in a later Phase 1 wave. Until
+        # then this step is intentionally a no-op (continue-on-error)
+        # so the workflow is forward-compatible.
+        #   Out of scope per ADR-043 §3.5 / current Phase 1E sub-PR 2.
+        #   Followup: open as part of ADR-043 Phase 1 sub-issues under #1113.
+
+      - name: Re-run contradiction audit on modified ADRs
+        if: steps.gov_paths.outputs.touched == 'true'
+        run: python -m scieasy.qa.audit.contradiction_audit --targets-changed
+        continue-on-error: true
+        # TODO(#1113): contradiction_audit re-run on PR-changed ADRs is
+        # not yet implemented as a Python module entry-point — the
+        # standalone audit lives under scripts/audit. Forward-compatible
+        # placeholder.
+        #   Out of scope per ADR-043 §3.5 / current Phase 1E sub-PR 2.
+        #   Followup: open as part of ADR-043 Phase 1 sub-issues under #1113.
+
+      - name: Monotonic check (no loosening without approval)
+        if: steps.gov_paths.outputs.touched == 'true'
+        run: |
+          python -m scieasy.qa.governance.monotonic_check \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}"
+
+      - name: Honeypot integrity check
+        if: steps.gov_paths.outputs.touched == 'true'
+        run: python -m scieasy.qa.governance.honeypot --check-all
+
+      - name: Implementation tracker freshness
+        if: steps.gov_paths.outputs.touched == 'true'
+        run: python -m scieasy.qa.tracker.adr_implementation_check --pr-aware
+        continue-on-error: true
+        # TODO(#1113): adr_implementation_check.--pr-aware ships in
+        # the 1A tracker Phase. Forward-compatible placeholder.
+        #   Out of scope per ADR-043 §3.5 / current Phase 1E sub-PR 2.
+        #   Followup: open as part of ADR-043 Phase 1 sub-issues under #1113.
+
+      - name: Weakened-CI block (§6.4)
+        if: steps.gov_paths.outputs.touched == 'true'
+        run: |
+          python -m scieasy.qa.governance.weakened_ci_check \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}"
