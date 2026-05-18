@@ -689,3 +689,84 @@ def test_workflow_file_deletion_treated_as_job_removal(repo: Path):
     findings = _diff_to_findings(repo)
     removed_jobs = [f for f in findings if f.kind == WeakeningKind.REMOVED_CI_JOB]
     assert removed_jobs
+
+
+# --------------------------------------------------------------------------- #
+# Three-dot diff regression — #1180                                           #
+# --------------------------------------------------------------------------- #
+
+
+def test_three_dot_diff_no_false_positive_for_base_only_commits(tmp_path: Path):
+    """Regression: weakened_ci_check must use three-dot diff to avoid false positives.
+
+    Build a diverged history:
+    - main: init → base-only-commit (coverage threshold LOWERED, a weakening)
+    - feature (branched from init): innocuous change only
+
+    With two-dot diff, the base-only lowering commit would appear in the diff
+    between main and feature_head and be falsely flagged. With three-dot diff,
+    only commits exclusive to feature are included, so NO weakening is detected.
+    """
+    _git_init(tmp_path)
+    _write(
+        tmp_path,
+        "pyproject.toml",
+        '[tool.pytest.ini_options]\naddopts = "--cov-fail-under=85"\ntimeout = 60\n'
+        "[tool.ruff.lint]\nselect = []\nignore = []\n"
+        "[tool.mypy]\nstrict = true\n",
+    )
+    _write(tmp_path, "tests/test_x.py", "def test_ok(): assert True\n")
+    _commit(tmp_path, "init")
+
+    # Create feature branch at init (feature diverges here)
+    subprocess.run(["git", "checkout", "-q", "-b", "feature"], cwd=tmp_path, check=True)
+    _write(tmp_path, "README.md", "feature change\n")
+    feature_head = _commit(tmp_path, "feature: innocuous README change")
+
+    # Back to main: add a weakening commit (coverage threshold lowered)
+    subprocess.run(["git", "checkout", "-q", "main"], cwd=tmp_path, check=True)
+    _write(
+        tmp_path,
+        "pyproject.toml",
+        '[tool.pytest.ini_options]\naddopts = "--cov-fail-under=50"\ntimeout = 60\n'
+        "[tool.ruff.lint]\nselect = []\nignore = []\n"
+        "[tool.mypy]\nstrict = true\n",
+    )
+    _commit(tmp_path, "main-only: lower coverage to 50 (should NOT be seen by feature branch)")
+
+    # Verify feature from main's perspective using three-dot diff.
+    # The lowering lives only on main; feature has no such change.
+    findings = verify_no_weakening("main", feature_head, repo_root=tmp_path)
+    lowering = [f for f in findings if f.kind == WeakeningKind.LOWERED_COVERAGE_THRESHOLD]
+    assert not lowering, (
+        "Three-dot diff should exclude the base-only lowering commit. "
+        "This failure means two-dot diff is being used (#1180)."
+    )
+
+
+def test_changed_files_uses_three_dot_syntax(tmp_path: Path):
+    """Direct check: _changed_files / _deleted_files must embed '...' not '..'."""
+    import unittest.mock as mock
+
+    from scieasy.qa.governance.weakened_ci_check import _changed_files, _deleted_files
+
+    captured: list[list[str]] = []
+
+    def spy(args, **kw):
+        captured.append(list(args))
+
+        class R:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return R()
+
+    with mock.patch("scieasy.qa.governance.weakened_ci_check.subprocess.run", side_effect=spy):
+        _changed_files(tmp_path, "main", "HEAD")
+        _deleted_files(tmp_path, "main", "HEAD")
+
+    for args in captured:
+        range_args = [a for a in args if ".." in a]
+        for ra in range_args:
+            assert "..." in ra, f"Expected three-dot range but got two-dot: {ra!r}"

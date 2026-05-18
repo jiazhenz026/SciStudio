@@ -1,19 +1,16 @@
-"""SciEasy custom Sphinx directives — shell module.
+"""SciEasy custom Sphinx directives — ADR-044 §10.2 (TC-1D.3/4).
 
-Per ADR-044 §10.2, this module hosts three directive classes:
+Per ADR-044 §10.2, this module registers three directive classes:
 
-- ``ScieasyBlockCatalog`` — per-block autosummary pages
+- ``ScieasyBlockCatalog`` — per-block autosummary pages (entry-points)
 - ``ScieasyRunnerCatalog`` — per-runner (Python / R / Julia) pages
 - ``ScieasyAIBlockCatalog`` — per-ADR-035 AI-block registry entry
 
-Phase 1D sub-PR 2 ships only the ``setup()`` shell so ``conf.py`` can
-list ``scieasy_directives`` in ``extensions`` without breaking the build.
-Directive bodies follow in 1D sub-PR 3+.
+The directive implementations live under
+``src/scieasy/qa/docs/directives/``; this module is the Sphinx-extension
+entry point that imports and registers them via ``setup()``.
 
-TODO(#1169-followup): implement directive bodies per ADR-044 §10.2.
-  Out of scope per ADR-044 §11.5 (Phase 1D deliverable, split across
-  multiple sub-PRs for review tractability).
-  Followup: open after 1D sub-PR 2 merges.
+Phase 1D sub-PR 3 (Track C, #1184) fills the bodies.
 """
 
 from __future__ import annotations
@@ -22,18 +19,24 @@ from typing import Any
 
 
 def setup(app: Any) -> dict[str, Any]:
-    """Sphinx extension entry point — shell.
+    """Sphinx extension entry point — registers the three catalog directives.
 
-    Returns the standard metadata dict so Sphinx accepts this as a valid
-    extension. Directive registration is intentionally omitted in 1D
-    sub-PR 2; subsequent sub-PRs will register the three catalogs.
+    Per ADR-044 §10.2::
+
+        app.add_directive("scieasy-block-catalog", ScieasyBlockCatalog)
+        app.add_directive("scieasy-runner-catalog", ScieasyRunnerCatalog)
+        app.add_directive("scieasy-ai-block-catalog", ScieasyAIBlockCatalog)
     """
-    # TODO(#1169-followup): register ScieasyBlockCatalog,
-    #   ScieasyRunnerCatalog, ScieasyAIBlockCatalog via
-    #   app.add_directive(...). Out of scope per ADR-044 §10.2.
-    #   Followup: open after 1D sub-PR 2 merges.
+    from scieasy.qa.docs.directives.scieasy_ai_block_catalog import ScieasyAIBlockCatalog
+    from scieasy.qa.docs.directives.scieasy_block_catalog import ScieasyBlockCatalog
+    from scieasy.qa.docs.directives.scieasy_runner_catalog import ScieasyRunnerCatalog
+
+    app.add_directive("scieasy-block-catalog", ScieasyBlockCatalog)
+    app.add_directive("scieasy-runner-catalog", ScieasyRunnerCatalog)
+    app.add_directive("scieasy-ai-block-catalog", ScieasyAIBlockCatalog)
+
     return {
-        "version": "0.1.0",
+        "version": "1.0.0",
         "parallel_read_safe": True,
         "parallel_write_safe": True,
     }

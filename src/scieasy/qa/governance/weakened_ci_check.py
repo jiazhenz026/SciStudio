@@ -137,12 +137,18 @@ def _file_at_ref(repo_root: Path, ref: str, path: str) -> str:
 
 
 def _changed_files(repo_root: Path, base: str, head: str, *filters: str) -> list[str]:
-    """Return files changed between ``base`` and ``head`` with optional filters.
+    """Return files changed between ``base...head`` (three-dot merge-base diff).
+
+    Uses ``git diff --name-only base...head`` (three dots) so only commits
+    reachable from *head* but not from *base* are included.  Two-dot diff
+    would include commits on *base* that are not in *head*'s ancestry, which
+    falsely flags out-of-date feature branches as touching governance paths
+    (#1180).
 
     ``filters`` is forwarded to ``git diff --diff-filter=...`` if any
     single-letter filter codes are present, else used as raw extra args.
     """
-    args: list[str] = ["diff", "--name-only", f"{base}..{head}"]
+    args: list[str] = ["diff", "--name-only", f"{base}...{head}"]
     for f in filters:
         args.append(f)
     out = _git(repo_root, *args)
@@ -150,13 +156,16 @@ def _changed_files(repo_root: Path, base: str, head: str, *filters: str) -> list
 
 
 def _deleted_files(repo_root: Path, base: str, head: str) -> list[str]:
-    """Return files deleted between ``base`` and ``head``."""
+    """Return files deleted between ``base...head`` (three-dot merge-base diff).
+
+    Uses three-dot syntax for the same reason as :func:`_changed_files` (#1180).
+    """
     out = _git(
         repo_root,
         "diff",
         "--name-only",
         "--diff-filter=D",
-        f"{base}..{head}",
+        f"{base}...{head}",
     )
     return [ln.strip() for ln in out.splitlines() if ln.strip()]
 
@@ -829,7 +838,7 @@ def _noqa_is_in_string_literal(line: str, noqa_pos: int) -> bool:
 
 def _detect_expanded_noqa_usage(ctx: _Ctx) -> list[WeakeningFinding]:
     findings: list[WeakeningFinding] = []
-    diff = _git(ctx.repo_root, "diff", f"{ctx.base}..{ctx.head}", "--unified=0")
+    diff = _git(ctx.repo_root, "diff", f"{ctx.base}...{ctx.head}", "--unified=0")
     current_file: str | None = None
     for line in diff.splitlines():
         if line.startswith("+++ b/"):

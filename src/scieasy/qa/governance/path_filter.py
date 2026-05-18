@@ -46,11 +46,32 @@ import yaml
 # --------------------------------------------------------------------------- #
 
 
+class _GitDiffError(RuntimeError):
+    """Raised when ``git diff`` cannot be executed or returns a non-zero exit code.
+
+    Callers that want fail-closed semantics (treat all paths as touched)
+    should catch this exception.  See ADR-043 §3.5 audit fix #1178.
+    """
+
+
 def _git_diff_names(repo_root: Path, base: str, head: str) -> list[str]:
-    """Return list of files changed between two refs (best-effort)."""
+    """Return list of files changed between ``base...head`` (three-dot merge-base diff).
+
+    Uses ``git diff --name-only base...head`` (three dots) so only commits
+    reachable from *head* but not from *base* are included.  The two-dot
+    form (``base..head``) includes commits on *base* that are not in
+    *head*'s ancestry, which falsely flags out-of-date feature branches as
+    touching governance paths (#1180).
+
+    Raises :class:`_GitDiffError` when git is not installed (``FileNotFoundError``)
+    or the subprocess exits non-zero.  The caller (:func:`filter`) catches
+    this exception and writes ``touched=true`` + a ``path_filter_error``
+    diagnostic line so downstream governance checks still run rather than
+    silently being skipped (#1178).
+    """
     try:
         out = subprocess.run(
-            ["git", "diff", "--name-only", f"{base}..{head}"],
+            ["git", "diff", "--name-only", f"{base}...{head}"],
             cwd=repo_root,
             capture_output=True,
             text=True,
@@ -58,10 +79,11 @@ def _git_diff_names(repo_root: Path, base: str, head: str) -> list[str]:
             encoding="utf-8",
             errors="replace",
         )
-    except (FileNotFoundError, UnicodeDecodeError):
-        return []
+    except FileNotFoundError as exc:
+        raise _GitDiffError(f"git not found: {exc}") from exc
     if out.returncode != 0:
-        return []
+        stderr = (out.stderr or "").strip()
+        raise _GitDiffError(f"git diff exited {out.returncode}: {stderr}")
     stdout = out.stdout or ""
     return [ln.strip().replace("\\", "/") for ln in stdout.splitlines() if ln.strip()]
 
@@ -153,16 +175,39 @@ def filter(
     if not globs:
         _emit(output, touched=False, matched=[])
         return False
-    changed = _git_diff_names(root, base, head)
+    try:
+        changed = _git_diff_names(root, base, head)
+    except _GitDiffError as exc:
+        # Fail-closed: if we cannot determine which files changed, treat
+        # the PR as touching governance paths so downstream checks still
+        # run rather than being silently skipped (#1178).
+        _emit(output, touched=True, matched=[], error=str(exc))
+        return True
     matched = sorted({f for f in changed if _matches_any(f, globs)})
     touched = bool(matched)
     _emit(output, touched=touched, matched=matched)
     return touched
 
 
-def _emit(output: Path, *, touched: bool, matched: list[str]) -> None:
-    """Append GITHUB_OUTPUT-format lines to ``output``."""
+def _emit(
+    output: Path,
+    *,
+    touched: bool,
+    matched: list[str],
+    error: str | None = None,
+) -> None:
+    """Append GITHUB_OUTPUT-format lines to ``output``.
+
+    When *error* is provided (fail-closed path, #1178) an additional
+    ``path_filter_error=<reason>`` line is written so workflow steps can
+    surface the diagnosis in the CI log.
+    """
     lines = [f"touched={'true' if touched else 'false'}\n"]
+    if error is not None:
+        # Single-line value — sanitize newlines so the Actions output
+        # parser does not misinterpret them as a heredoc boundary.
+        safe_error = error.replace("\n", " | ")
+        lines.append(f"path_filter_error={safe_error}\n")
     if matched:
         # Multi-line outputs use the ``name<<EOF\n...\nEOF`` heredoc syntax.
         lines.append("matched<<EOF_GOV\n")

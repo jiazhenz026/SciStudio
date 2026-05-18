@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 
 from scieasy.qa.governance.path_filter import (
+    _GitDiffError,
     _matches,
     _matches_any,
     main,
@@ -282,27 +283,174 @@ def test_emit_falls_back_to_stdout_on_oserror(repo: Path, capsys, monkeypatch):
     assert "touched=true" in captured.out
 
 
-def test_diff_helper_returns_empty_on_git_failure(tmp_path: Path, monkeypatch):
-    """_git_diff_names returns [] when the subprocess fails."""
+def test_diff_helper_raises_on_git_failure(tmp_path: Path, monkeypatch):
+    """_git_diff_names raises _GitDiffError when the subprocess returns non-zero.
+
+    #1178: fail-closed semantics — callers that want ``touched=true`` on
+    error catch this exception.
+    """
     from scieasy.qa.governance import path_filter as pf
 
     class _FakeResult:
         returncode = 1
         stdout = ""
+        stderr = "fatal: not a repo"
 
     def fake_run(*a, **kw):
         return _FakeResult()
 
     monkeypatch.setattr(pf.subprocess, "run", fake_run)
-    assert pf._git_diff_names(tmp_path, "a", "b") == []
+    with pytest.raises(_GitDiffError):
+        pf._git_diff_names(tmp_path, "a", "b")
 
 
-def test_diff_helper_returns_empty_when_git_missing(tmp_path: Path, monkeypatch):
-    """_git_diff_names returns [] when git is not installed."""
+def test_diff_helper_raises_when_git_missing(tmp_path: Path, monkeypatch):
+    """_git_diff_names raises _GitDiffError when git is not installed.
+
+    #1178: fail-closed semantics.
+    """
     from scieasy.qa.governance import path_filter as pf
 
     def fake_run(*a, **kw):
         raise FileNotFoundError("no git")
 
     monkeypatch.setattr(pf.subprocess, "run", fake_run)
-    assert pf._git_diff_names(tmp_path, "a", "b") == []
+    with pytest.raises(_GitDiffError):
+        pf._git_diff_names(tmp_path, "a", "b")
+
+
+def test_filter_fail_closed_when_git_not_found(repo: Path, tmp_path: Path, monkeypatch):
+    """filter() returns True and writes touched=true when git is unavailable (#1178).
+
+    Without fail-closed semantics a FileNotFoundError would silently skip all
+    downstream governance checks because filter() would write ``touched=false``.
+    """
+    from scieasy.qa.governance import path_filter as pf
+
+    def fake_run(*a, **kw):
+        raise FileNotFoundError("no git")
+
+    monkeypatch.setattr(pf.subprocess, "run", fake_run)
+    output = tmp_path / "gh.out"
+    touched = pf.filter(
+        repo / ".governance-paths.yaml",
+        base="main",
+        head="HEAD",
+        output=output,
+        repo_root=repo,
+    )
+    assert touched is True
+    body = output.read_text(encoding="utf-8")
+    assert "touched=true" in body
+    assert "path_filter_error=" in body
+
+
+def test_filter_fail_closed_on_nonzero_git_exit(repo: Path, tmp_path: Path, monkeypatch):
+    """filter() returns True and writes touched=true when git diff exits non-zero (#1178)."""
+    from scieasy.qa.governance import path_filter as pf
+
+    class _FakeResult:
+        returncode = 1
+        stdout = ""
+        stderr = "fatal: bad revision"
+
+    def fake_run(*a, **kw):
+        return _FakeResult()
+
+    monkeypatch.setattr(pf.subprocess, "run", fake_run)
+    output = tmp_path / "gh.out"
+    touched = pf.filter(
+        repo / ".governance-paths.yaml",
+        base="main",
+        head="HEAD",
+        output=output,
+        repo_root=repo,
+    )
+    assert touched is True
+    body = output.read_text(encoding="utf-8")
+    assert "touched=true" in body
+    assert "path_filter_error=" in body
+
+
+def test_filter_uses_three_dot_diff(repo: Path, tmp_path: Path):
+    """filter() must use 'git diff base...head' (three dots) not 'base..head'.
+
+    Three-dot diff computes changes from the merge-base of base and head,
+    so commits on base that are not in head's ancestry are excluded (#1180).
+
+    We verify the three-dot command is used by capturing the git subprocess args.
+    """
+    import unittest.mock as mock
+
+    from scieasy.qa.governance import path_filter as pf
+
+    captured_args: list[list[str]] = []
+    real_run = pf.subprocess.run
+
+    def spy_run(args, **kw):
+        captured_args.append(list(args))
+        return real_run(args, **kw)
+
+    with mock.patch("scieasy.qa.governance.path_filter.subprocess.run", side_effect=spy_run):
+        output = tmp_path / "gh.out"
+        pf.filter(
+            repo / ".governance-paths.yaml",
+            base="main",
+            head="HEAD",
+            output=output,
+            repo_root=repo,
+        )
+
+    diff_calls = [a for a in captured_args if "diff" in a]
+    assert diff_calls, "Expected at least one git diff call"
+    for args in diff_calls:
+        # Each diff call must use three-dot form
+        range_args = [a for a in args if ".." in a]
+        for ra in range_args:
+            assert "..." in ra, f"Expected three-dot diff but got: {ra}"
+
+
+def test_three_dot_diff_no_false_positive_for_base_only_commits(tmp_path: Path):
+    """Regression: base-only commits must NOT trigger governance findings.
+
+    This test builds a diverged history:
+    - main: init → extra-commit (modifying README.md only)
+    - feature (branched from init): commits touching ONLY non-governance files
+
+    With two-dot diff, extra-commit would be in the diff; with three-dot
+    diff it is excluded.  The feature branch must produce ``touched=false``.
+    """
+    # Initialise repo
+    _git_init(tmp_path)
+    _write(
+        tmp_path,
+        ".governance-paths.yaml",
+        "version: 1\ngovernance_paths:\n  - 'docs/adr/**'\n  - 'CLAUDE.md'\n",
+    )
+    _write(tmp_path, "README.md", "initial\n")
+    _commit(tmp_path, "init")
+
+    # Create feature branch at this point (feature diverges here)
+    subprocess.run(["git", "checkout", "-q", "-b", "feature"], cwd=tmp_path, check=True)
+    _write(tmp_path, "src/app.py", "x = 1\n")
+    feature_head = _commit(tmp_path, "add app.py (non-governance)")
+
+    # Back to main, add a commit that touches ONLY README.md (non-governance)
+    subprocess.run(["git", "checkout", "-q", "main"], cwd=tmp_path, check=True)
+    _write(tmp_path, "README.md", "updated by main\n")
+    _commit(tmp_path, "main-only: update README (non-governance)")
+
+    # Run filter from feature's perspective: base=main, head=feature_head.
+    # Three-dot diff: only changes between merge-base and feature_head.
+    # The main-only commit is NOT in feature's ancestry → excluded → touched=false.
+    output = tmp_path / "gh.out"
+    touched = path_filter_fn(
+        tmp_path / ".governance-paths.yaml",
+        base="main",
+        head=feature_head,
+        output=output,
+        repo_root=tmp_path,
+    )
+    assert touched is False, (
+        "Three-dot diff should exclude base-only commits; got touched=True which means two-dot diff is being used"
+    )

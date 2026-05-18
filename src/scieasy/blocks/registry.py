@@ -807,13 +807,44 @@ def _ext_in_mapping(extension_lower: str, mapping: dict[str, str]) -> bool:
     """Case-insensitive membership check for ``supported_extensions``.
 
     Accepts both forms ``".tif"`` and ``"tif"`` for *extension_lower*
-    (the leading dot is normalized). Returns True if any key in *mapping*
-    matches case-insensitively. Used by :meth:`BlockRegistry._find_io_block`.
+    (the leading dot is normalized).
+
+    Mirrors the compound-first suffix-walk algorithm used by
+    :meth:`IOBlock._detect_format` (#1109 audit finding): the query
+    string is split into dot-separated components and probed from longest
+    compound suffix to shortest single suffix.  This means a query for
+    ``".ome.tif"`` will first try ``.ome.tif`` (exact), then fall back to
+    ``.tif`` when the block only declares the short form.
+
+    Examples::
+
+        _ext_in_mapping(".tif", {".tif": "tiff"})     → True
+        _ext_in_mapping(".ome.tif", {".tif": "tiff"}) → True  (fallback)
+        _ext_in_mapping(".ome.tif", {".ome.tif": "ome-tiff", ".tif": "tiff"})
+            → True  (exact compound match)
+        _ext_in_mapping(".csv", {".tif": "tiff"})     → False
+
+    Used by :meth:`BlockRegistry._find_io_block`.
     """
     if not mapping:
         return False
-    candidate = extension_lower if extension_lower.startswith(".") else f".{extension_lower}"
-    return any(candidate == key.lower() for key in mapping)
+    # Normalize: ensure leading dot and lowercase (the caller usually passes
+    # an already-lowercased string, but we defensively lowercase here too so
+    # the function is safe to call with mixed-case input).
+    raw = extension_lower.lower()
+    normalized_candidate = raw if raw.startswith(".") else f".{raw}"
+    # Pre-compute lower-case keys once for the inner loop.
+    lower_keys = {k.lower() for k in mapping}
+    # Split into dot-separated parts and probe from longest to shortest,
+    # matching the IOBlock._detect_format compound-first algorithm.
+    # For ".ome.tif" → parts = ["", "ome", "tif"].
+    # Probe: start=1 → ".ome.tif"; start=2 → ".tif".
+    parts = normalized_candidate.split(".")
+    for start in range(1, len(parts)):
+        candidate = "." + ".".join(parts[start:])
+        if candidate in lower_keys:
+            return True
+    return False
 
 
 def _subclass_declares_field(cls: type, field_name: str) -> bool:

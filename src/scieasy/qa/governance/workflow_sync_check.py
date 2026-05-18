@@ -39,8 +39,9 @@ import argparse
 import re
 import sys
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
+import yaml
 from pydantic import BaseModel, ConfigDict
 
 _WORKFLOW_REL = ".github/workflows/governance-modification.yml"
@@ -143,7 +144,57 @@ def _block_has_filter(lines: list[str], start: int, end: int) -> dict[str, int]:
 
 
 def _has_step(text: str, signature: str) -> bool:
-    return signature in text
+    """Return ``True`` iff the ``recursive-self-check`` job has a step whose
+    ``run:`` command contains *signature* as a stripped line.
+
+    The check walks the parsed YAML structure
+    (``doc['jobs']['recursive-self-check']['steps']``) so that a *signature*
+    appearing only inside a YAML comment is **not** counted as a match
+    (#1179 audit finding).
+
+    Falls back to the raw-text substring search when YAML parsing fails (e.g.
+    the file is not valid YAML) so the caller still gets a useful signal.
+
+    Parameters
+    ----------
+    text:
+        Raw YAML text of the governance-modification workflow.
+    signature:
+        Module invocation string to look for (e.g.
+        ``"scieasy.qa.governance.path_filter"``).
+    """
+    try:
+        doc: Any = yaml.safe_load(text)
+    except yaml.YAMLError:
+        # Malformed YAML: fall back to substring search so we don't false-
+        # negative on workflows that are otherwise correct.
+        return signature in text
+
+    if not isinstance(doc, dict):
+        return signature in text
+
+    jobs = doc.get("jobs")
+    if not isinstance(jobs, dict):
+        return False
+
+    job = jobs.get("recursive-self-check")
+    if not isinstance(job, dict):
+        return False
+
+    steps = job.get("steps")
+    if not isinstance(steps, list):
+        return False
+
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        run_block = step.get("run", "")
+        if not isinstance(run_block, str):
+            continue
+        for line in run_block.splitlines():
+            if signature in line.strip():
+                return True
+    return False
 
 
 # --------------------------------------------------------------------------- #

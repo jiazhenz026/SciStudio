@@ -204,3 +204,111 @@ def test_cli_exit_1_on_shadow_paths(tmp_path: Path):
 def test_cli_exit_1_on_missing_workflow(tmp_path: Path):
     rc = main(["--repo-root", str(tmp_path)])
     assert rc == 1
+
+
+# --------------------------------------------------------------------------- #
+# YAML structural walk — #1179                                                #
+# --------------------------------------------------------------------------- #
+
+# A workflow where the required invocation appears ONLY inside a YAML comment;
+# there is no actual step calling the module.
+_COMMENT_ONLY_PATH_FILTER_WORKFLOW = """\
+name: governance-modification-check
+on:
+  pull_request: {}
+
+jobs:
+  recursive-self-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: note
+        # The next line is documentation ONLY — it mentions
+        # scieasy.qa.governance.path_filter but does NOT invoke it.
+        run: |
+          echo "See scieasy.qa.governance.workflow_sync_check for details"
+"""
+
+# A workflow where path_filter invocation is in another job (not recursive-self-check).
+_PATH_FILTER_WRONG_JOB_WORKFLOW = """\
+name: governance-modification-check
+on:
+  pull_request: {}
+
+jobs:
+  other-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: pf
+        run: python -m scieasy.qa.governance.path_filter
+      - name: ws
+        run: python -m scieasy.qa.governance.workflow_sync_check
+  recursive-self-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: unrelated
+        run: echo hello
+"""
+
+
+def test_yaml_comment_does_not_count_as_path_filter_step(tmp_path: Path):
+    """A signature that appears only in a YAML comment must NOT pass the step check (#1179).
+
+    The raw-text substring search (old implementation) would falsely pass here
+    because ``scieasy.qa.governance.workflow_sync_check`` appears in the workflow
+    text but not in an actual ``run:`` step.  The structural YAML walk must
+    correctly flag this as ``missing-path-filter-step``.
+    """
+    repo = _stage(tmp_path, _COMMENT_ONLY_PATH_FILTER_WORKFLOW)
+    findings = verify(repo)
+    kinds = {f.kind for f in findings}
+    # path_filter only appears as raw text (in the echo string), not as
+    # an actual invocation. The step check must flag it as missing.
+    assert "missing-path-filter-step" in kinds, f"Expected missing-path-filter-step in findings; got: {kinds}"
+
+
+def test_path_filter_in_wrong_job_is_not_sufficient(tmp_path: Path):
+    """An invocation in a job other than 'recursive-self-check' must not satisfy the check (#1179)."""
+    repo = _stage(tmp_path, _PATH_FILTER_WRONG_JOB_WORKFLOW)
+    findings = verify(repo)
+    kinds = {f.kind for f in findings}
+    # Neither path_filter nor workflow_sync_check runs inside recursive-self-check
+    assert "missing-path-filter-step" in kinds, f"Expected missing-path-filter-step; got {kinds}"
+
+
+def test_has_step_yaml_walk_ignores_yaml_comments():
+    """Direct unit test for _has_step: YAML comment must not match (#1179)."""
+    from scieasy.qa.governance.workflow_sync_check import _has_step
+
+    workflow = """\
+name: governance-modification-check
+on:
+  pull_request: {}
+jobs:
+  recursive-self-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: note
+        # scieasy.qa.governance.path_filter is mentioned here in a comment
+        run: echo done
+"""
+    assert not _has_step(workflow, "scieasy.qa.governance.path_filter"), (
+        "A YAML comment must not count as a matching step"
+    )
+
+
+def test_has_step_yaml_walk_matches_actual_run_line():
+    """Direct unit test for _has_step: actual run: step must match."""
+    from scieasy.qa.governance.workflow_sync_check import _has_step
+
+    workflow = """\
+name: governance-modification-check
+on:
+  pull_request: {}
+jobs:
+  recursive-self-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: pf
+        run: python -m scieasy.qa.governance.path_filter --paths-yaml x
+"""
+    assert _has_step(workflow, "scieasy.qa.governance.path_filter")

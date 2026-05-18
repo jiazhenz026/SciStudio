@@ -395,3 +395,41 @@ def test_main_returns_one_on_blocking_loosening(tmp_path: Path) -> None:
     payload = json.loads(buf.getvalue())
     assert payload["overall_blocking"] is True
     assert payload["loosened"]
+
+
+# --------------------------------------------------------------------------- #
+# Three-dot diff regression — #1180                                           #
+# --------------------------------------------------------------------------- #
+
+
+def test_monotonic_check_commit_log_uses_two_dot_syntax(tmp_path: Path) -> None:
+    """``git log base..head`` (two-dot) is correct for getting commit messages
+    between refs. monotonic_check must use two-dot for log, which is distinct
+    from the three-dot diff fix.  This test confirms the log call is not
+    accidentally switched to three-dot (which has different semantics for log).
+    """
+    import unittest.mock as mock
+
+    from scieasy.qa.governance.monotonic_check import _commit_message_between
+
+    captured: list[list[str]] = []
+
+    def spy(args, **kw):
+        captured.append(list(args))
+
+        class R:
+            returncode = 0
+            stdout = ""
+
+        return R()
+
+    with mock.patch("scieasy.qa.governance.monotonic_check.subprocess.run", side_effect=spy):
+        _commit_message_between(tmp_path, "main", "HEAD")
+
+    log_calls = [a for a in captured if "log" in a]
+    assert log_calls, "Expected at least one git log call"
+    for args in log_calls:
+        range_args = [a for a in args if ".." in a]
+        for ra in range_args:
+            # git log correctly uses two-dot (range) not three-dot (symmetric diff)
+            assert ra.count(".") == 2, f"Expected two-dot log range but got: {ra!r}"

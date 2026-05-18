@@ -259,3 +259,80 @@ class TestFindIoBlocksForType:
     def test_empty_result(self) -> None:
         reg = _build_registry(_LoaderCsv)
         assert reg.find_io_blocks_for_type(_FakeImage, "input") == []
+
+
+# ---------------------------------------------------------------------------
+# _ext_in_mapping — compound-extension fallback (#1109)
+# ---------------------------------------------------------------------------
+
+
+class TestExtInMapping:
+    """Unit tests for ``_ext_in_mapping`` compound-suffix walk (ADR-028 §D8 / #1109)."""
+
+    def setup_method(self) -> None:
+        from scieasy.blocks.registry import _ext_in_mapping
+
+        self._fn = _ext_in_mapping
+
+    def test_exact_single_extension(self) -> None:
+        assert self._fn(".tif", {".tif": "tiff"})
+
+    def test_exact_single_extension_no_leading_dot(self) -> None:
+        """Caller may pass 'tif' without leading dot; must still match."""
+        assert self._fn("tif", {".tif": "tiff"})
+
+    def test_case_insensitive_query(self) -> None:
+        """Query .TIFF must match a block declaring .tiff."""
+        assert self._fn(".TIFF", {".tiff": "tiff"})
+
+    def test_case_insensitive_key(self) -> None:
+        """Query .tif must match a block declaring .TIF."""
+        assert self._fn(".tif", {".TIF": "tiff"})
+
+    def test_empty_mapping_returns_false(self) -> None:
+        assert not self._fn(".tif", {})
+
+    def test_unrelated_extension_returns_false(self) -> None:
+        assert not self._fn(".csv", {".tif": "tiff"})
+
+    def test_compound_extension_fallback_to_single(self) -> None:
+        """'.ome.tif' must fall back to '.tif' when only '.tif' is registered (#1109).
+
+        Before the fix, ``_ext_in_mapping`` did an exact-key comparison so
+        the query ``.ome.tif`` would fail to match a block declaring only
+        ``.tif`` — the loader would not be found.
+        """
+        assert self._fn(".ome.tif", {".tif": "tiff"})
+
+    def test_compound_extension_exact_match_preferred(self) -> None:
+        """When both '.ome.tif' and '.tif' are declared, exact compound match is found."""
+        mapping = {".ome.tif": "ome-tiff", ".tif": "tiff"}
+        assert self._fn(".ome.tif", mapping)
+
+    def test_compound_extension_no_false_positive(self) -> None:
+        """'.ome.tif' must NOT match a block that only declares '.ome'."""
+        assert not self._fn(".ome.tif", {".ome": "ome"})
+
+    def test_triple_compound_extension_fallback(self) -> None:
+        """'.tar.gz.foo' must try '.tar.gz.foo', '.gz.foo', '.foo' in order."""
+        assert self._fn(".tar.gz.foo", {".foo": "foo"})
+        assert not self._fn(".tar.gz.foo", {".tar": "tar"})
+
+    def test_empty_extension_returns_false(self) -> None:
+        assert not self._fn("", {".tif": "tiff"})
+
+
+class TestFindLoaderCompoundExtension:
+    """Integration tests: find_loader respects compound-extension fallback (#1109)."""
+
+    def test_ome_tif_query_finds_tif_loader(self) -> None:
+        """Querying '.ome.tif' returns the loader that declares only '.tif' (#1109)."""
+        reg = _build_registry(_LoaderTif)
+        # _LoaderTif declares {".tif": "tiff", ".tiff": "tiff"}
+        result = reg.find_loader(_FakeImage, ".ome.tif")
+        assert result is _LoaderTif, "Expected _LoaderTif to match '.ome.tif' via compound-extension fallback"
+
+    def test_ome_tif_query_no_match_when_different_base(self) -> None:
+        """'.ome.csv' must NOT match a '.tif'-only loader."""
+        reg = _build_registry(_LoaderTif)
+        assert reg.find_loader(_FakeImage, ".ome.csv") is None
