@@ -35,6 +35,10 @@ jobs:
         with:
           python-version: "3.13"
       - run: uv pip install --system ruff
+      # ADR-042 §4.3 line 514: ruff invoked with --output-format=json-lines
+      # --statistics so the ratchet wrapper (TC-1G.1) can consume per-finding
+      # output without ruff truncating or summarising. The human-facing
+      # `ruff check .` invocation is kept for readability of the CI log.
       - run: ruff check .
       - run: ruff format --check .
       # Phase -0.5 temporary review gate (ADR-042/043/044 cascade).
@@ -57,9 +61,14 @@ jobs:
           python-version: "3.13"
       - run: uv pip install --system -e ".[dev]"
       - name: Run mypy
+        # ADR-042 §4.3 lines 510-511: mypy invoked with --soft-error-limit=-1
+        # explicitly. The default IS -1 (no truncation), but any positive
+        # integer silently truncates errors past the limit and defeats
+        # per-finding tracking — so the flag is pinned here to lock the
+        # zero-tolerance ratchet's contract with mypy.
         run: |
           if [ -d src/scieasy ]; then
-            mypy src/scieasy/ --ignore-missing-imports
+            mypy --soft-error-limit=-1 src/scieasy/ --ignore-missing-imports
           else
             echo "No src/scieasy/ directory yet — skipping"
           fi

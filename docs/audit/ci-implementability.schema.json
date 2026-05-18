@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scieasy.example.com/schemas/ci-implementability.schema.json",
+  "title": "ci-implementability.json",
+  "description": "Phase-1-end empirical dry-run verification artifact required by ADR-042 §4.3 (lines 523-526) before the Phase 2 CI flip is authorized. Records per-tool dry-run results across the 20 tools in the §21.1 stack. Empirical, not asserted.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "phase_1_end_sha",
+    "generated_at",
+    "tools"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "description": "Schema version; must match the version of this file.",
+      "type": "string",
+      "const": "1.0"
+    },
+    "phase_1_end_sha": {
+      "description": "Git SHA at which the dry-run was performed. Must be the merge commit of the Phase-1 closing PR.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$"
+    },
+    "generated_at": {
+      "description": "RFC 3339 UTC timestamp.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "branch": {
+      "description": "Branch name on which the dry-run executed.",
+      "type": "string"
+    },
+    "ci_runner": {
+      "description": "Identifier of the CI runner that produced the artifact (e.g. 'github-actions/ubuntu-latest').",
+      "type": "string"
+    },
+    "tools": {
+      "description": "Per-tool dry-run records. Every tool in the ADR-042 §21.1 stack MUST appear.",
+      "type": "array",
+      "minItems": 20,
+      "items": { "$ref": "#/$defs/ToolDryRun" }
+    }
+  },
+  "$defs": {
+    "ToolDryRun": {
+      "type": "object",
+      "required": [
+        "tool",
+        "version",
+        "ran_to_completion",
+        "exit_code",
+        "duration_seconds",
+        "total_findings",
+        "sarif_emitted",
+        "ratchet_decision"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "tool": {
+          "description": "Tool identifier; one of the 20 tools in the §21.1 stack.",
+          "type": "string",
+          "enum": [
+            "ruff",
+            "mypy",
+            "pyright",
+            "interrogate",
+            "pydoclint",
+            "griffe",
+            "vulture",
+            "xenon",
+            "bandit",
+            "pip-audit",
+            "mutmut",
+            "pytest-examples",
+            "markdownlint-cli2",
+            "sphinx-lint",
+            "sphinx-build",
+            "actionlint",
+            "zizmor",
+            "codespell",
+            "yamllint",
+            "import-linter"
+          ]
+        },
+        "version": {
+          "description": "Reported tool version string (whatever the tool prints to --version).",
+          "type": "string"
+        },
+        "command": {
+          "description": "Exact command line that was invoked.",
+          "type": "string"
+        },
+        "ran_to_completion": {
+          "description": "True iff the tool process exited within its budget AND produced its expected output file.",
+          "type": "boolean"
+        },
+        "exit_code": {
+          "description": "Process exit code. Conventionally 0 for clean, non-zero for findings.",
+          "type": "integer"
+        },
+        "duration_seconds": {
+          "description": "Wall-clock duration in seconds.",
+          "type": "number",
+          "minimum": 0
+        },
+        "total_findings": {
+          "description": "Empirical total finding count from the dry-run.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "sarif_emitted": {
+          "description": "True iff a SARIF log was produced (either natively or via the converter in .workflow/ci/sarif/).",
+          "type": "boolean"
+        },
+        "sarif_path": {
+          "description": "Repo-relative path to the emitted SARIF log when sarif_emitted is true.",
+          "type": "string"
+        },
+        "ratchet_decision": {
+          "description": "Decision the ratchet wrapper would emit if this run were compared against the seeded zero baseline.",
+          "type": "string",
+          "enum": ["success", "neutral", "failure"]
+        },
+        "notes": {
+          "description": "Free-form text capturing edge cases, e.g. tool-specific quirks.",
+          "type": "string"
+        }
+      }
+    }
+  }
+}
