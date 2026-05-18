@@ -371,10 +371,8 @@ class GoogleProvider:
         # Followup: open a dedicated issue if Google becomes a routine
         # CI provider.
         try:
-            from google.auth.transport.requests import (  # type: ignore[import-not-found]
-                Request,
-            )
-            from google.oauth2 import service_account  # type: ignore[import-not-found]
+            from google.auth.transport.requests import Request
+            from google.oauth2 import service_account
         except ImportError as exc:
             raise RuntimeError(
                 "GoogleProvider requires the optional 'google-auth' "
@@ -498,7 +496,7 @@ class TranslatorClient:
         settings = settings or TranslationSettings()
         if name not in ("deepl", "google", "azure", "manual"):
             raise ValueError(f"Unknown provider {name!r}. Expected one of: deepl, google, azure, manual.")
-        return cls(_build_provider(name, settings))  # type: ignore[arg-type]
+        return cls(_build_provider(name, settings))
 
     # ------------------------------------------------------------------
     # String / file translation
