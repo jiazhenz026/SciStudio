@@ -29,7 +29,7 @@
 
 | ADR section | Status | Current owner | Branch / worktree | Merge status | Notes |
 |---|---:|---|---|---|---|
-| ADR-043 §2 Implementation Monitoring | [~] | Agent Bacon | `local/adr043-s2-implementation-v2` / `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-implementation-v2` | Awaiting owner audit | Commit `35831b5b925fce63b25fc9158e17359930befcd9`; no phase-gate files restored |
+| ADR-043 §2 Implementation Monitoring | [x] | Agent Bacon | merged from `local/adr043-s2-implementation-v2` | Merged locally | Agent commit `35831b5b925fce63b25fc9158e17359930befcd9`; merge commit `f4e73fa0`; no phase-gate files restored |
 | ADR-043 §5 CLAUDE.md / AGENTS.md Layered Design | [x] | Agent Beauvoir | merged from `local/adr043-s5-layered-scaffold` | Merged locally | Agent commit `67d5f76aa0828e067d3cb93adb1d26f66aab4788`; merge commit `4bc471c2` |
 
 ## Deferred File Tracking
@@ -94,74 +94,6 @@ those updates in the Notes column when implemented.
 | Type | `tsc --noEmit` | TypeScript type checking | `frontend/` config | [ ] | Pending |
 | Test | `vitest` | Frontend tests | `frontend/` config | [ ] | Pending |
 | Doc | `typedoc` | Frontend API docs with Python cross-links | `frontend/` config | [ ] | Pending |
-
-## Round 1: ADR-043 Section 2 Implementation Monitoring
-
-### Scope
-
-Implement ADR-043 section 2: implementation tracker, tracker schema,
-tool self-test runner, addendum propagation / governance drift inventory hooks,
-and the initial tracker artifact. Temporary cascade phase-gate tooling is removed
-per owner instruction.
-
-### Plan
-
-| Step | Status | Owner | Artifact / Notes |
-|---|---:|---|---|
-| Read ADR-043 section 2 and supporting ADR-042 schema/report sections | [x] | Manager | Used for initial implementation plan |
-| Create skeleton worktree and local branch | [x] | Manager | `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-skeleton`, `local/adr043-s2-skeleton` |
-| Skeleton implementation and historical-code investigation | [x] | Agent Mendel | Commit `e52d9fdf6993ca1e5cd221642c1194913c8b2b5d`; no remote push |
-| Review skeleton commit and test result | [~] | Manager | Pending manager review / owner audit |
-| Merge skeleton into local umbrella | [x] | Manager | Merge commit `a68f5cd7`; no remote push |
-| Create second implementation worktree from approved skeleton | [x] | Manager | `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-implementation`, `local/adr043-s2-implementation` |
-| Stop first §2 implementation agent after scope correction | [x] | Manager | Agent `019e3c7d-7cf6-70d3-8459-231863ca8e83` closed; old worktree has uncommitted non-phase-gate diff preserved |
-| Remove legacy phase-gate skeleton | [x] | Manager | Commit `84583a26`; owner will manually gate phase readiness |
-| Create second implementation v2 worktree | [x] | Manager | `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-implementation-v2`, `local/adr043-s2-implementation-v2` |
-| Complete remaining ADR-043 section 2 implementation | [x] | Agent Bacon | Commit `35831b5b925fce63b25fc9158e17359930befcd9`; no remote push |
-| Owner audit | [ ] | Owner | No separate audit agent per owner instruction |
-| Merge approved branch into local umbrella | [ ] | Manager | Only after owner approval |
-
-### Planned Files
-
-| Path | Status | Notes |
-|---|---:|---|
-| `src/scieasy/qa/schemas/_common.py` | [~] | Minimal ADR-042 primitive types needed by section 2 |
-| `src/scieasy/qa/schemas/frontmatter.py` | [~] | Minimal `Phase` / frontmatter support needed by section 2 |
-| `src/scieasy/qa/schemas/report.py` | [~] | Minimal `Finding` / `AuditReport` support |
-| `src/scieasy/qa/schemas/tracker.py` | [~] | ADR-043 section 2 tracker schema |
-| `src/scieasy/qa/tracker/adr_implementation_check.py` | [~] | Tracker-to-code validation |
-| `src/scieasy/qa/tracker/tool_self_test_runner.py` | [~] | QA tool self-test artifact validation |
-| `scripts/audit/adr_implementation_check.py` | [~] | CLI wrapper |
-| `scripts/audit/tool_self_test_runner.py` | [~] | CLI wrapper |
-| `docs/audit/adr-042-implementation-tracker.yaml` | [~] | Initial machine-readable tracker |
-| `tests/qa/test_implementation_tracker.py` | [~] | Schema and tracker validation |
-| `tests/qa/test_tool_self_test_runner.py` | [~] | Missing artifact / diff behavior |
-
-### Required Tests
-
-| Command | Status | Notes |
-|---|---:|---|
-| `pytest --timeout=60 tests/qa/test_implementation_tracker.py tests/qa/test_tool_self_test_runner.py` | [ ] | Not rerun because global coverage gate is known to fail focused QA runs |
-| `pytest --timeout=60 --no-cov tests/qa/test_implementation_tracker.py tests/qa/test_tool_self_test_runner.py` | [x] | 6 passed after phase-gate removal |
-| `ruff check src\scieasy\qa scripts\audit tests\qa` | [x] | Passed after phase-gate removal |
-| `pytest --timeout=60 --no-cov tests/qa/test_implementation_tracker.py tests/qa/test_tool_self_test_runner.py tests/qa/test_addendum_propagate.py tests/qa/test_governance_drift.py` | [x] | 15 passed in §2 implementation branch |
-
-### Historical-Code Investigation
-
-| Candidate | Status | Decision |
-|---|---:|---|
-| Reverted ADR-042/043 tracker code in git history | [x] | Found candidates `78fdee31`, `368ec104`, `2d95fbd3`; reverted by `61cdc968` / `e514dc41` |
-| Old `src/scieasy/qa/schemas/tracker.py` if found | [x] | Schema fragments adapted; no whole-commit cherry-pick |
-| Old `src/scieasy/qa/tracker/*` if found | [x] | No prior committed runtime tool implementation found |
-| Old `docs/audit/adr-042-implementation-tracker.yaml` if found | [x] | New minimal tracker used; avoids overclaiming implemented status |
-
-### Owner Approval / Merge
-
-| Item | Status | Notes |
-|---|---:|---|
-| Skeleton branch approved | [x] | Owner requested merge |
-| Implementation branch approved | [ ] | Pending |
-| Merged into local umbrella | [~] | Skeleton merged; implementation branch pending |
 
 ## Drift Log
 
