@@ -22,6 +22,7 @@ Manager-default per Phase 1 investigation SUMMARY TC-1A.1.
 from . import (
     _common,
     classification,
+    codemod,
     facts,
     frontmatter,
     governance,
@@ -52,6 +53,7 @@ from .classification import (
     PathBoundaryEntry,
     RubricCriterion,
 )
+from .codemod import CodemodMeta
 from .facts import (
     ADRFacts,
     FactsRegistry,
@@ -132,6 +134,7 @@ __all__ = [
     "AssistedByLine",
     "AuditReport",
     "BoundaryLevel",
+    "CodemodMeta",
     "DataClass",
     "DataClassification",
     "DataClassificationEntry",
@@ -183,6 +186,7 @@ __all__ = [
     "WorkflowFacts",
     "_common",
     "classification",
+    "codemod",
     "facts",
     "frontmatter",
     "governance",
