@@ -59,6 +59,38 @@ def test_check_changelog_with_entry_passes(tmp_path: Path) -> None:
     assert "complete-artifacts.changelog-missing" not in rule_ids
 
 
+def test_filter_to_diff_preserves_changelog_findings(tmp_path: Path) -> None:
+    """Codex P1 #1161: missing-CHANGELOG findings must survive diff filtering.
+
+    A PR that forgets to touch ``CHANGELOG.md`` would have an empty
+    diff entry for that file. Without the bypass, ``_filter_to_diff``
+    would drop the ``changelog-missing`` / ``changelog-no-entry``
+    finding and stage 6 would pass incorrectly.
+    """
+    from scieasy.qa.audit.complete_artifacts import _filter_to_diff
+    from scieasy.qa.schemas.report import Finding, Severity
+
+    findings = [
+        Finding(
+            rule_id="complete-artifacts.changelog-missing",
+            severity=Severity.ERROR,
+            file="CHANGELOG.md",
+            message="missing",
+        ),
+        Finding(
+            rule_id="complete-artifacts.changelog-no-entry",
+            severity=Severity.ERROR,
+            file="CHANGELOG.md",
+            message="no entry",
+        ),
+    ]
+    # PR diff does NOT include CHANGELOG.md (the bug scenario).
+    kept = _filter_to_diff(findings, {"src/some_other_file.py"})
+    rule_ids = {f.rule_id for f in kept}
+    assert "complete-artifacts.changelog-missing" in rule_ids
+    assert "complete-artifacts.changelog-no-entry" in rule_ids
+
+
 def test_filter_to_diff_keeps_placeholders_and_matched(tmp_path: Path) -> None:
     from scieasy.qa.audit.complete_artifacts import _filter_to_diff
     from scieasy.qa.schemas.report import Finding, Severity
