@@ -55,12 +55,15 @@ def _git_diff_names(repo_root: Path, base: str, head: str) -> list[str]:
             capture_output=True,
             text=True,
             check=False,
+            encoding="utf-8",
+            errors="replace",
         )
-    except FileNotFoundError:
+    except (FileNotFoundError, UnicodeDecodeError):
         return []
     if out.returncode != 0:
         return []
-    return [ln.strip().replace("\\", "/") for ln in out.stdout.splitlines() if ln.strip()]
+    stdout = out.stdout or ""
+    return [ln.strip().replace("\\", "/") for ln in stdout.splitlines() if ln.strip()]
 
 
 def _load_governance_globs(paths_yaml: Path) -> list[str]:

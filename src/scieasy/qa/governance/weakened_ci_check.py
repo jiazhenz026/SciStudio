@@ -92,7 +92,7 @@ import argparse
 import ast
 import re
 import subprocess
-from collections.abc import Iterable
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -121,12 +121,14 @@ def _git(repo_root: Path, *args: str) -> str:
             capture_output=True,
             text=True,
             check=False,
+            encoding="utf-8",
+            errors="replace",
         )
-    except FileNotFoundError:
+    except (FileNotFoundError, UnicodeDecodeError):
         return ""
     if out.returncode != 0:
         return ""
-    return out.stdout
+    return out.stdout or ""
 
 
 def _file_at_ref(repo_root: Path, ref: str, path: str) -> str:
@@ -782,6 +784,24 @@ def _detect_expanded_exemption_paths(ctx: _Ctx) -> list[WeakeningFinding]:
 _NOQA_RE = re.compile(r"#\s*noqa(?::\s*[A-Z0-9, ]+)?(.*)$", re.IGNORECASE)
 
 
+def _noqa_is_in_string_literal(line: str, noqa_pos: int) -> bool:
+    """Heuristic: is the noqa at ``noqa_pos`` inside a Python string literal?
+
+    Counts unescaped double-quote and single-quote chars to the left of
+    the noqa. If either count is odd, the noqa is mid-string. Triple-
+    quoted / docstring detection is approximated by checking for a
+    triple-double-quote or triple-single-quote on the line.
+    """
+    prefix = line[:noqa_pos]
+    triple_d = '"' * 3
+    triple_s = "'" * 3
+    if triple_d in prefix or triple_s in prefix:
+        return True
+    # Strip escaped quotes so they don't bias the parity check.
+    prefix_no_esc = prefix.replace(r"\"", "").replace(r"\'", "")
+    return (prefix_no_esc.count('"') % 2 == 1) or (prefix_no_esc.count("'") % 2 == 1)
+
+
 def _detect_expanded_noqa_usage(ctx: _Ctx) -> list[WeakeningFinding]:
     findings: list[WeakeningFinding] = []
     diff = _git(ctx.repo_root, "diff", f"{ctx.base}..{ctx.head}", "--unified=0")
@@ -792,12 +812,21 @@ def _detect_expanded_noqa_usage(ctx: _Ctx) -> list[WeakeningFinding]:
             continue
         if not current_file:
             continue
+        # Scope to Python source — the noqa directive is a Python-lint
+        # exemption, so .md / .rst / .yaml etc. cannot legitimately
+        # suppress lint.
+        if not current_file.endswith(".py"):
+            continue
         # Only inspect added lines (start with '+' but not '+++')
         if not line.startswith("+") or line.startswith("+++"):
             continue
         added = line[1:]
         m = _NOQA_RE.search(added)
         if not m:
+            continue
+        # Skip false positives where the noqa directive appears inside
+        # a string literal (regex patterns, test fixture text, docstrings).
+        if _noqa_is_in_string_literal(added, m.start()):
             continue
         trailing = m.group(1) or ""
         if _ISSUE_REF_RE.search(trailing):
@@ -888,7 +917,7 @@ def _detect_reduced_honeypot_count(ctx: _Ctx) -> list[WeakeningFinding]:
 # Detector registry                                                           #
 # --------------------------------------------------------------------------- #
 
-_DETECTORS: list[tuple[WeakeningKind, callable]] = [  # type: ignore[type-arg]
+_DETECTORS: list[tuple[WeakeningKind, Callable[[_Ctx], list[WeakeningFinding]]]] = [
     (WeakeningKind.DELETED_TEST_FILE, _detect_deleted_test_file),
     (WeakeningKind.REMOVED_TEST_FUNCTION, _detect_removed_test_function),
     (WeakeningKind.LOWERED_COVERAGE_THRESHOLD, _detect_lowered_coverage),
@@ -995,7 +1024,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover — CLI entry-point
     raise SystemExit(main())
-
-
-# Quiet ``F401`` if Iterable becomes unused after future edits.
-_ = Iterable
