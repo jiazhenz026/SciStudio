@@ -45,6 +45,55 @@
 | `docs/contributing/**` workflow docs | [!] | ADR-044 owns the four-category doc set; skill-as-pointer closure needs real target docs that do not exist yet. | During ADR-044 documentation-set implementation. | ADR-044 docs agent |
 | Full skill-pointer closure enforcement | [!] | Depends on ADR-044 `docs/contributing/` targets and `skill_pointer_sync.py`. | After ADR-044 doc skeleton and §2 report primitives land. | ADR-044 / QA audit agent |
 
+## Tool Stack Tracking
+
+Source: ADR-042 §21.1 and §21.2. Status starts as `[ ]` until the tool is
+installed/configured, wired into pre-commit or CI where applicable, and covered
+by a focused verification command. ADR-044 may amend docs-build rows; record
+those updates in the Notes column when implemented.
+
+### Python / QA / Docs Tool Stack
+
+| Category | Tool | Purpose | Config location | Status | Owner / Notes |
+|---|---|---|---|---:|---|
+| Lint (Python) | `ruff` (E, W, F, I, N, UP, B, SIM, RUF, D, S, ANN, PTH, RET, PT, DOC) | All-in-one linter; includes pydocstyle and bandit subsets | `pyproject.toml [tool.ruff]` | [ ] | Existing config partial; ADR target unverified |
+| Format | `ruff format` | Code formatting | `pyproject.toml` | [ ] | Existing config partial; ADR target unverified |
+| Type | `mypy --strict` without `ignore_missing_imports` | Primary type checker | `pyproject.toml [tool.mypy]` | [ ] | Existing config is not ADR target |
+| Type | `pyright` | Secondary type checker | `pyrightconfig.json` | [ ] | Pending |
+| Docstring coverage | `interrogate` | Public docstring coverage target | `pyproject.toml [tool.interrogate]` | [ ] | Pending |
+| Docstring-signature | `pydoclint` | Docstring/signature consistency | `pyproject.toml [tool.pydoclint]` | [ ] | Pending |
+| API surface | `griffe` + `griffe-pydantic` | Public API change detection | `pyproject.toml [tool.griffe]` | [ ] | Pending |
+| Dead code | `vulture` | Unreachable/unused code | `pyproject.toml [tool.vulture]` | [ ] | Pending |
+| Complexity | `xenon` | McCabe complexity enforcement | `pyproject.toml [tool.xenon]` | [ ] | Pending |
+| Security | `pip-audit` | Dependency vulnerability audit | CLI only | [ ] | Pending |
+| Docs build | `sphinx` + `sphinx-autoapi` + `myst-parser` + `sphinx-needs` + `furo` + `sphinx-substitution-extensions` | API ref, cross-ref, theme, facts substitution | `docs/sphinx/conf.py` | [ ] | ADR-044 replaces `furo` with `pydata-sphinx-theme` |
+| Doc lint | `markdownlint-cli2` | Markdown style | `.markdownlint.yaml` | [ ] | Pending |
+| Doc lint | `sphinx-lint` | Sphinx-specific lint | CLI only | [ ] | Pending |
+| Link check | Sphinx `linkcheck` builder | External URL validation | `docs/sphinx/conf.py` | [ ] | Pending |
+| Doc examples | `pytest-examples` | Execute fenced code blocks in docs | `pyproject.toml` | [ ] | Pending |
+| Workflow lint | `actionlint` | GitHub Actions YAML lint | CLI only | [ ] | Pending |
+| Workflow security | `zizmor` | GitHub Actions security audit | CLI only | [ ] | Pending |
+| Spell check | `codespell` | Typo detection | `.codespellrc` | [ ] | Pending |
+| YAML | `yamllint` | YAML format | `.yamllint` | [ ] | Pending |
+| Config format | `pyproject-fmt` | `pyproject.toml` format | CLI only | [ ] | Pending |
+| Import boundaries | `import-linter` | Layer dependency contracts | `pyproject.toml [tool.importlinter]` | [ ] | Existing config partial; ADR target unverified |
+| Pre-commit | `pre-commit` | Hook framework | `.pre-commit-config.yaml` | [ ] | Pending |
+| Commit lint | `commitizen` | Conventional commit format | `pyproject.toml [tool.commitizen]` | [ ] | Pending |
+| Test | `pytest` + `pytest-xdist` + `pytest-timeout` + `pytest-randomly` + `pytest-examples` | Parallel, timeout, randomized order, doc examples | `pyproject.toml [tool.pytest.ini_options]` | [ ] | Existing config partial; ADR target unverified |
+| Coverage | `pytest-cov` + `coverage` | Coverage measurement | `pyproject.toml [tool.coverage.*]` | [ ] | Existing coverage config partial; ADR target unverified |
+| Codemod | `libcst` | Concrete-syntax-tree refactoring | Library | [ ] | Pending |
+| Schema | `pydantic v2` + `pydantic-settings` | Schema validation and env var contracts | Library | [ ] | `pydantic` exists; `pydantic-settings` unverified |
+
+### Frontend Tool Stack
+
+| Category | Tool | Purpose | Config location | Status | Owner / Notes |
+|---|---|---|---|---:|---|
+| Lint | `eslint` strict config + `eslint-plugin-tsdoc` + `eslint-plugin-jsdoc` | TypeScript lint and docs lint | `frontend/` config | [ ] | Pending |
+| Format | `prettier` | Frontend formatting | `frontend/` config | [ ] | Pending |
+| Type | `tsc --noEmit` | TypeScript type checking | `frontend/` config | [ ] | Pending |
+| Test | `vitest` | Frontend tests | `frontend/` config | [ ] | Pending |
+| Doc | `typedoc` | Frontend API docs with Python cross-links | `frontend/` config | [ ] | Pending |
+
 ## Round 1: ADR-043 Section 2 Implementation Monitoring
 
 ### Scope
@@ -59,8 +108,8 @@ drift inventory hooks, and the initial tracker artifact.
 |---|---:|---|---|
 | Read ADR-043 section 2 and supporting ADR-042 schema/report sections | [x] | Manager | Used for initial implementation plan |
 | Create skeleton worktree and local branch | [x] | Manager | `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-skeleton`, `local/adr043-s2-skeleton` |
-| Skeleton implementation and historical-code investigation | [~] | Agent Mendel | Agent id `019e3c69-8976-77d2-b468-572a0be48766`; no remote push |
-| Review skeleton commit and test result | [ ] | Manager | Pending agent completion |
+| Skeleton implementation and historical-code investigation | [x] | Agent Mendel | Commit `e52d9fdf6993ca1e5cd221642c1194913c8b2b5d`; no remote push |
+| Review skeleton commit and test result | [~] | Manager | Pending manager review / owner audit |
 | Create second implementation worktree from approved skeleton | [ ] | Manager | Branch name TBD after skeleton result |
 | Complete remaining ADR-043 section 2 implementation | [ ] | Implementation agent | Pending skeleton handoff |
 | Owner audit | [ ] | Owner | No separate audit agent per owner instruction |
@@ -89,16 +138,18 @@ drift inventory hooks, and the initial tracker artifact.
 
 | Command | Status | Notes |
 |---|---:|---|
-| `pytest --timeout=60 tests/qa/test_implementation_tracker.py tests/qa/test_phase_gate.py tests/qa/test_tool_self_test_runner.py` | [ ] | Pending skeleton agent |
+| `pytest --timeout=60 tests/qa/test_implementation_tracker.py tests/qa/test_phase_gate.py tests/qa/test_tool_self_test_runner.py` | [!] | 9 tests passed, but global coverage gate made pytest exit 1 at 3% total coverage |
+| `pytest --timeout=60 --no-cov tests/qa/test_implementation_tracker.py tests/qa/test_phase_gate.py tests/qa/test_tool_self_test_runner.py` | [x] | 9 passed |
+| `ruff check src\scieasy\qa scripts\audit tests\qa` | [x] | Passed |
 
 ### Historical-Code Investigation
 
 | Candidate | Status | Decision |
 |---|---:|---|
-| Reverted ADR-042/043 tracker code in git history | [~] | Skeleton agent investigating |
-| Old `src/scieasy/qa/schemas/tracker.py` if found | [~] | Cherry-pick only if current ADR-compliant |
-| Old `src/scieasy/qa/tracker/*` if found | [~] | Cherry-pick only small compliant fragments |
-| Old `docs/audit/adr-042-implementation-tracker.yaml` if found | [~] | Reuse only if it does not claim false implementation status |
+| Reverted ADR-042/043 tracker code in git history | [x] | Found candidates `78fdee31`, `368ec104`, `2d95fbd3`; reverted by `61cdc968` / `e514dc41` |
+| Old `src/scieasy/qa/schemas/tracker.py` if found | [x] | Schema fragments adapted; no whole-commit cherry-pick |
+| Old `src/scieasy/qa/tracker/*` if found | [x] | No prior committed runtime tool implementation found |
+| Old `docs/audit/adr-042-implementation-tracker.yaml` if found | [x] | New minimal tracker used; avoids overclaiming implemented status |
 
 ### Owner Approval / Merge
 
