@@ -16,8 +16,8 @@ Primitive object types, block contracts, runtime semantics, storage backends. Ch
 - This subtree is **⚠️ ask-first** for every edit. Open an ADR before changing any signature, field, or invariant.
 - No new public types or fields without an ADR.
 - Backward compatibility preserved unless ADR documents a major-version bump.
-- No domain logic; only contracts and primitives (CLAUDE.md root §2.3).
-- No deep inheritance; prefer composition (root §Policy item 3).
+- No domain logic; only contracts and primitives (root `AGENTS.md` §Policy item 3 — "Core stays small and stable").
+- No deep inheritance; prefer composition (root `AGENTS.md` §Policy item 3).
 - All primitive types use pydantic `model_config = ConfigDict(extra="forbid", frozen=True)` where lifecycle allows.
 - Subprocess / cancellation / memory invariants per ADR-017 through ADR-022.
 
