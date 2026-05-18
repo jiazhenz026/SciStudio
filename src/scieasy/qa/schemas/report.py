@@ -104,6 +104,37 @@ class ToolRun(BaseModel):
     findings: list[Finding] = Field(default_factory=list)
 
 
+class CommitLogEntry(BaseModel):
+    """One line of ``docs/audit/commit-log.jsonl`` (ADR-042 §16.5).
+
+    Written by ``scripts/committer.py`` (TC-1H.8, not yet shipped) on every
+    agent-authored commit. Consumed by
+    :func:`scieasy.qa.audit.committer_enforce.check` to verify that every
+    agent commit in ``git log`` is also present in the log file.
+
+    Co-located here per Phase 1 investigation default Q1B.6.1 (the
+    canonical schema lives next to the audit-report envelope so the
+    committer-enforce tool has a single import path). The pydantic model
+    enforces ``extra="forbid"`` so any field rename in
+    ``scripts/committer.py`` surfaces as a validation error rather than
+    silently dropped data.
+
+    References
+    ----------
+    ADR-042 §16.5 — JSONL shape (authoritative).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    sha: str = Field(min_length=7, max_length=64, pattern=r"^[0-9a-f]+$")
+    timestamp: datetime
+    author: str = Field(min_length=1)
+    runtime: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    files: list[str] = Field(default_factory=list)
+    message_first_line: str = Field(min_length=1)
+
+
 class AuditReport(BaseModel):
     """Top-level audit report envelope. Versioned by ``schema_version``.
 

@@ -3,6 +3,7 @@ name: speckit-clarify
 description: Identify underspecified areas in the current feature spec by asking up
   to 5 highly targeted clarification questions and encoding answers back into the
   spec.
+kind: bootstrap-meta
 compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
   author: github-spec-kit

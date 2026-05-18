@@ -2,6 +2,7 @@
 name: speckit-implement
 description: Execute the implementation plan by processing and executing all tasks
   defined in tasks.md
+kind: bootstrap-meta
 compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
   author: github-spec-kit
