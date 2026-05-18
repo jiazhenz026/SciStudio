@@ -45,7 +45,7 @@ class SearchDocsHit(BaseModel):
 class GetDocResult(BaseModel):
     """Result envelope for ``get_doc``."""
 
-    path: str = Field(description="Absolute resolved path of the doc.")
+    path: str = Field(description="Path of the doc relative to the docs/ tree root (POSIX-style).")
     content: str = Field(description="Full text of the doc.")
     bytes: int = Field(description="Byte length of content (utf-8 encoded).")
 
@@ -94,17 +94,43 @@ class GetProjectInfoResult(BaseModel):
 
 
 def _docs_root() -> Path:
-    """Locate the ``docs/`` tree."""
+    """Locate the ``docs/`` tree visible to the active MCP session.
+
+    The **only** docs root MCP tools ever resolve is
+    ``ctx.project_dir/docs``. If the active project has no ``docs/``
+    subdirectory this raises :class:`FileNotFoundError`.
+
+    Issue #1097 (P0 information-disclosure): prior to this change
+    ``_docs_root()`` fell back to walking ``__file__.parents`` looking
+    for any ``docs/`` directory. With SciEasy installed editable from a
+    developer checkout (as it commonly is during e2e testing), that walk
+    landed on the developer's source-tree docs/ — letting a production
+    embedded agent search and read SciEasy ADRs / specs / planning
+    documents and disclosing absolute developer-machine paths via MCP
+    responses. This violated the ADR-040 §2.1 dev/prod boundary.
+
+    **No env-var backdoor.** An earlier draft of this fix gated the
+    parents-walk behind ``SCIEASY_DEV=1``, mirroring the monorepo-scan
+    convention. That was rejected: any env-var-controlled escape into
+    "dev mode" is a soft attack surface — a compromised shell init, a
+    malicious launcher script, or a supply-chain dependency that sets
+    env vars could silently re-open the leak. The MCP docs surface is
+    therefore identical in production and development. Contributors
+    iterating on SciEasy itself should read source-tree docs through
+    their editor / filesystem tools, not through the production MCP
+    server.
+    """
     ctx = get_context()
     if ctx.project_dir is not None:
         candidate = ctx.project_dir / "docs"
         if candidate.is_dir():
             return candidate
-    here = Path(__file__).resolve()
-    for parent in here.parents:
-        if (parent / "docs").is_dir():
-            return parent / "docs"
-    raise FileNotFoundError("No docs/ directory found")
+    raise FileNotFoundError(
+        "No docs/ directory is visible to MCP docs tools. The MCP docs "
+        "surface is restricted to the active project's own docs/ tree "
+        "(see ADR-040 §2.1 / issue #1097). Source-repository docs are "
+        "not exposed in any mode."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -134,7 +160,12 @@ async def search_docs(
     """
     if not query:
         return []
-    root = _docs_root()
+    try:
+        root = _docs_root()
+    except FileNotFoundError:
+        # Issue #1097: no docs/ available in production mode — return an
+        # empty list rather than reaching into the developer source tree.
+        return []
     root_resolved = root.resolve()
     if scope:
         # PR #744 Codex P1 (discussion_r3231046696): validate scope
@@ -228,8 +259,15 @@ async def get_doc(
         raise FileNotFoundError(f"Doc not found: {path}")
 
     content = resolved.read_text(encoding="utf-8", errors="replace")
+    # Issue #1097: return a path relative to the docs/ tree root so MCP
+    # responses do not leak absolute developer-machine filesystem paths
+    # (e.g. ``C:\Users\<dev>\workspace\SciEasy\docs\adr\ADR-038.md``).
+    try:
+        rel_path = resolved.relative_to(root.resolve()).as_posix()
+    except ValueError:
+        rel_path = resolved.name
     return GetDocResult(
-        path=str(resolved),
+        path=rel_path,
         content=content,
         bytes=len(content.encode("utf-8")),
     )

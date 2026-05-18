@@ -373,6 +373,100 @@ def test_search_docs_top_n_from_full_corpus_not_first_20(stub_ctx, tmp_path: Pat
 
 
 # ---------------------------------------------------------------------------
+# Issue #1097 regression — production docs tools must not leak dev paths.
+# ---------------------------------------------------------------------------
+
+
+def test_docs_tools_no_dev_leak_when_no_project_docs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1097 P0: docs lookup must not reach the dev source tree, ever.
+
+    Pre-fix: ``_docs_root()`` unconditionally walked ``__file__.parents``
+    for any ``docs/`` directory. In an editable install of SciEasy
+    (the dev checkout), that walk landed on
+    ``C:\\Users\\<dev>\\workspace\\SciEasy\\docs`` and the embedded agent
+    could ``search_docs`` / ``get_doc`` its way into SciEasy development
+    ADRs — violating ADR-040 §2.1's dev/prod boundary and leaking
+    absolute developer-machine paths.
+
+    Post-fix: with the active project carrying no ``docs/``,
+    ``search_docs`` returns ``[]`` and ``get_doc`` raises
+    ``FileNotFoundError``. The source-tree parents-walk is gone.
+    """
+    from scieasy.ai.agent.mcp import _context, tools_qa
+
+    # Defensive: ensure no stale env override is in play.
+    monkeypatch.delenv("SCIEASY_DEV", raising=False)
+
+    # A project workspace with no docs/ subdirectory (matches the e2e
+    # report: fresh project at ``C:\\temp\\scieasy-e2e-adr-040\\...``).
+    runtime = _StubRuntime(_project_dir=tmp_path)
+    _context.set_context(runtime)
+    try:
+        results = _run(tools_qa.search_docs("ADR", scope=None))
+        assert results == [], f"search_docs must return [] when the project has no docs/. Got: {results!r}"
+        with pytest.raises(FileNotFoundError):
+            _run(tools_qa.get_doc("adr/ADR-040.md"))
+    finally:
+        _context.set_context(None)
+
+
+def test_docs_tools_no_env_var_backdoor_into_source_tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1097 P0 hardening: ``SCIEASY_DEV=1`` MUST NOT re-open the leak.
+
+    An earlier draft of the #1097 fix gated the parents-walk fallback
+    behind ``SCIEASY_DEV=1`` (mirroring the monorepo-scan convention).
+    That was rejected because any env-var-controlled escape into "dev
+    mode" is a soft attack surface: a compromised shell init, a
+    malicious launcher script, or a supply-chain dependency could set
+    ``SCIEASY_DEV=1`` and silently re-disclose developer source paths.
+
+    Regression guard: even with ``SCIEASY_DEV=1`` set and the active
+    project carrying no ``docs/``, the MCP docs tools must NOT reach
+    into the SciEasy source repository.
+    """
+    from scieasy.ai.agent.mcp import _context, tools_qa
+
+    monkeypatch.setenv("SCIEASY_DEV", "1")
+
+    runtime = _StubRuntime(_project_dir=tmp_path)  # no docs/ in the project
+    _context.set_context(runtime)
+    try:
+        results = _run(tools_qa.search_docs("ADR-040", scope=None))
+        assert results == [], (
+            f"SCIEASY_DEV=1 must NOT re-open the parents-walk into the source tree. Got non-empty results: {results!r}"
+        )
+        with pytest.raises(FileNotFoundError):
+            _run(tools_qa.get_doc("adr/ADR-040.md"))
+    finally:
+        _context.set_context(None)
+
+
+def test_get_doc_path_is_relative_not_absolute(stub_ctx, tmp_path: Path) -> None:
+    """#1097: ``GetDocResult.path`` must not leak absolute developer paths.
+
+    Pre-fix: ``path=str(resolved)`` exposed e.g.
+    ``C:\\Users\\<dev>\\workspace\\SciEasy\\docs\\adr\\ADR-038.md`` to
+    the agent. Post-fix the path is relative to the docs/ tree root.
+    """
+    from scieasy.ai.agent.mcp import tools_qa
+
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    (docs_dir / "guide.md").write_text("# Guide\n", encoding="utf-8")
+
+    result = _run(tools_qa.get_doc("guide.md"))
+    assert result.path == "guide.md", (
+        f"get_doc must return a path relative to docs/ root, not an absolute "
+        f"developer-machine path. Got: {result.path!r}"
+    )
+    # Hard guard: the response must not contain any absolute-path marker
+    # that could disclose the developer checkout location.
+    assert ":\\" not in result.path and not result.path.startswith("/"), (
+        f"get_doc.path leaked absolute path: {result.path!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # JSON-RPC notification handling (ADR-040 Addendum 3 hotfix).
 # ---------------------------------------------------------------------------
 
