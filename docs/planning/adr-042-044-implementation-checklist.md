@@ -39,7 +39,7 @@ drift inventory hooks, and the initial tracker artifact.
 |---|---:|---|---|
 | Read ADR-043 section 2 and supporting ADR-042 schema/report sections | [x] | Manager | Used for initial implementation plan |
 | Create skeleton worktree and local branch | [x] | Manager | `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-skeleton`, `local/adr043-s2-skeleton` |
-| Skeleton implementation and historical-code investigation | [~] | Agent Arendt | Agent id `019e3c62-7ed1-7c30-9c0a-0bd7fd5e1dc4`; no remote push |
+| Skeleton implementation and historical-code investigation | [~] | Agent Mendel | Agent id `019e3c69-8976-77d2-b468-572a0be48766`; no remote push |
 | Review skeleton commit and test result | [ ] | Manager | Pending agent completion |
 | Create second implementation worktree from approved skeleton | [ ] | Manager | Branch name TBD after skeleton result |
 | Complete remaining ADR-043 section 2 implementation | [ ] | Implementation agent | Pending skeleton handoff |
@@ -90,4 +90,4 @@ drift inventory hooks, and the initial tracker artifact.
 
 ## Drift Log
 
-No drift recorded yet.
+- 2026-05-18: Initial skeleton agent `019e3c62-7ed1-7c30-9c0a-0bd7fd5e1dc4` was interrupted/shutdown before producing worktree changes. Re-dispatched as `019e3c69-8976-77d2-b468-572a0be48766`.
