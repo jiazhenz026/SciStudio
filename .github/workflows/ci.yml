@@ -40,6 +40,14 @@ jobs:
       # Phase -0.5 temporary review gate (ADR-042/043/044 cascade).
       # Co-located inside the lint job so the decommission PR can remove
       # it surgically; see docs/planning/phase-0-5-temp-review-design.md §6.
+      #
+      # The temp_review tool runs mypy --strict on src/scieasy/qa/** and
+      # lint-imports against the project import contracts. Both tools
+      # need to be on PATH; the lint job only had ruff before src/scieasy/qa/**
+      # existed. With TC-1D.9 introducing the first qa/ code, install the
+      # dev extras so mypy + import-linter are available. CI-unblocker
+      # per ADR-042 §26.1 freeze-allowed work.
+      - run: uv pip install --system -e ".[dev]"
       - name: Phase -0.5 temporary review
         run: python -m scripts.audit.temp_review --ci
 
