@@ -30,3 +30,15 @@ repos:
     hooks:
       - id: commitizen
         stages: [commit-msg]
+
+  # Phase -0.5 temporary review gate (ADR-042/043/044 cascade).
+  # Decommissioned end of Phase 1 — see
+  # docs/planning/phase-0-5-temp-review-design.md §6.
+  - repo: local
+    hooks:
+      - id: temp-review
+        name: Phase -0.5 temporary review (decommissioned end of Phase 1)
+        entry: python -m scripts.audit.temp_review --changed-files-only
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]

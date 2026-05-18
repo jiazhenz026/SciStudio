@@ -37,6 +37,11 @@ jobs:
       - run: uv pip install --system ruff
       - run: ruff check .
       - run: ruff format --check .
+      # Phase -0.5 temporary review gate (ADR-042/043/044 cascade).
+      # Co-located inside the lint job so the decommission PR can remove
+      # it surgically; see docs/planning/phase-0-5-temp-review-design.md §6.
+      - name: Phase -0.5 temporary review
+        run: python -m scripts.audit.temp_review --ci
 
   typecheck:
     name: Type Check
