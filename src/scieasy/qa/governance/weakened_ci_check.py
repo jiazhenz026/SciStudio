@@ -824,7 +824,7 @@ def _noqa_is_in_string_literal(line: str, noqa_pos: int) -> bool:
     # being talked about, not applied as a directive. A real noqa lives
     # at the end of code, not inside a block-style comment.
     stripped = prefix.lstrip()
-    return bool(stripped.startswith("#") and len(stripped) > 2)
+    return bool(stripped.startswith("#"))
 
 
 def _detect_expanded_noqa_usage(ctx: _Ctx) -> list[WeakeningFinding]:
