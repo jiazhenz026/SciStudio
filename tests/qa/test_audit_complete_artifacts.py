@@ -80,16 +80,10 @@ def test_check_with_pr_number_invokes_diff_filter(tmp_path: Path) -> None:
 
     _minimal_repo(tmp_path)
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.org"], cwd=tmp_path, check=True
-    )
+    subprocess.run(["git", "config", "user.email", "test@example.org"], cwd=tmp_path, check=True)
     subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
-    subprocess.run(
-        ["git", "config", "commit.gpgsign", "false"], cwd=tmp_path, check=True
-    )
-    (tmp_path / "CHANGELOG.md").write_text(
-        "# Changelog\n\n## [Unreleased]\n- [#42] x\n", encoding="utf-8"
-    )
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], cwd=tmp_path, check=True)
+    (tmp_path / "CHANGELOG.md").write_text("# Changelog\n\n## [Unreleased]\n- [#42] x\n", encoding="utf-8")
     subprocess.run(["git", "add", "-A"], cwd=tmp_path, check=True)
     subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=tmp_path, check=True)
     # No origin/main → diff returns empty; the filter falls back to no-op.
