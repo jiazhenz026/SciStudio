@@ -38,8 +38,13 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install scieasy (editable)
-        run: pip install -e . --no-deps
+      - name: Install scieasy (editable, minimal deps)
+        # Install pyyaml + pydantic so the governance modules can import
+        # cleanly. The full project dep set is unnecessary here — the
+        # governance audit tools only touch yaml + pydantic + stdlib.
+        run: |
+          pip install pyyaml "pydantic[email]>=2.0"
+          pip install -e . --no-deps
 
       # ADR-043 §3.5 + audit fix iter-7 ITER-FRESH-002: derive matched
       # paths dynamically from .governance-paths.yaml instead of a static
