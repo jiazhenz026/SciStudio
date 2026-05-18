@@ -220,6 +220,28 @@ def test_files_added_in_commit_returns_empty_on_git_failure(
     assert tfc._files_added_in_commit("deadbeef") == []
 
 
+def test_build_test_impl_pairs_yields_one_entry_per_test_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Codex #1148 P1 fix — multiple test files for the same stem each get checked."""
+    commits = [
+        {"sha": "aaa1111", "message": "test: compliant first test"},
+        {"sha": "bbb2222", "message": "feat: implement normalize"},
+        {"sha": "ccc3333", "message": "test: later test for same stem"},
+    ]
+    files = {
+        "aaa1111": ["tests/test_normalize.py"],
+        "bbb2222": ["src/scieasy/util/normalize.py"],
+        "ccc3333": ["tests/integration/test_normalize.py"],
+    }
+    monkeypatch.setattr(tfc, "_run_capture", _stub_run_capture(commits, files))
+    findings = tfc.verify_ordering(42, "owner/repo")
+    # The first test (aaa1111) precedes impl (bbb2222) — compliant.
+    # The second test (ccc3333) comes AFTER impl — violation must be flagged.
+    assert len(findings) == 1
+    assert findings[0].file == "tests/integration/test_normalize.py"
+
+
 def test_run_capture_invokes_subprocess_with_safe_kwargs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -148,13 +148,19 @@ def _extract_src_stem(path: str) -> str | None:
 def _build_test_impl_pairs(
     commits: Sequence[dict[str, object]],
 ) -> list[tuple[int, int, str, str, str]]:
-    """Pair each new test stem with its earliest matching impl stem.
+    """Pair every new test file with its matching impl stem.
 
     Returns a list of ``(test_idx, impl_idx, stem, test_path, impl_path)``
     tuples where the indices are positions in ``commits`` (oldest = 0).
+
+    Each newly-added ``tests/**/test_<stem>.py`` produces one entry —
+    so multiple test files sharing a stem each get checked independently.
+    The impl side pairs against the earliest commit adding a matching
+    ``src/**/<stem>.py`` (Codex review #1148 P1 fix: previously only
+    the first test per stem was tracked, silently skipping later ones).
     """
-    # First pass: collect first-seen positions per stem for impl + test files.
-    first_test: dict[str, tuple[int, str]] = {}
+    # First pass: collect ALL test files per stem and the earliest impl per stem.
+    tests_per_stem: dict[str, list[tuple[int, str]]] = {}
     first_impl: dict[str, tuple[int, str]] = {}
     for idx, commit in enumerate(commits):
         sha = commit.get("sha")
@@ -163,18 +169,19 @@ def _build_test_impl_pairs(
         added = _files_added_in_commit(sha)
         for path in added:
             t_stem = _extract_test_stem(path)
-            if t_stem and t_stem not in first_test:
-                first_test[t_stem] = (idx, path)
+            if t_stem:
+                tests_per_stem.setdefault(t_stem, []).append((idx, path))
             s_stem = _extract_src_stem(path)
             if s_stem and s_stem not in first_impl:
                 first_impl[s_stem] = (idx, path)
     pairs: list[tuple[int, int, str, str, str]] = []
-    for stem, (test_idx, test_path) in first_test.items():
+    for stem, test_entries in tests_per_stem.items():
         impl_entry = first_impl.get(stem)
         if impl_entry is None:
             continue  # No impl pair → no order to check.
         impl_idx, impl_path = impl_entry
-        pairs.append((test_idx, impl_idx, stem, test_path, impl_path))
+        for test_idx, test_path in test_entries:
+            pairs.append((test_idx, impl_idx, stem, test_path, impl_path))
     return pairs
 
 

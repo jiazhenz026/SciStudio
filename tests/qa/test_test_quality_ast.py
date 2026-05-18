@@ -175,6 +175,23 @@ def test_asserts_on_mock_call_count_only_silent_when_behavior_also_asserted(
     assert AntiPattern.ASSERTS_ON_MOCK_CALL_ONLY.value not in _patterns(findings)
 
 
+@pytest.mark.parametrize(
+    "mock_method",
+    ["assert_any_call", "assert_has_calls", "assert_not_called"],
+)
+def test_asserts_on_mock_call_count_only_fires_for_all_mock_variants(tmp_path: Path, mock_method: str) -> None:
+    """Codex #1148 P1 fix — every mock-call assertion variant is recognised."""
+    findings = _lint_source(
+        f"""
+        def test_invokes_with_any_variant(mock_logger):
+            do_work(mock_logger)
+            mock_logger.{mock_method}()
+        """,
+        tmp_path,
+    )
+    assert AntiPattern.ASSERTS_ON_MOCK_CALL_ONLY.value in _patterns(findings)
+
+
 # --------------------------------------------------------------------------- #
 # 5. hardcoded-magic-without-comment                                          #
 # --------------------------------------------------------------------------- #
@@ -536,3 +553,68 @@ def test_qualified_name_handles_unknown_node() -> None:
     from scieasy.qa.test_quality.ast_lint import _qualified_name
 
     assert _qualified_name(_ast.Constant(value=1)) == ""
+
+
+def test_check_test_file_skips_nested_helper_named_test(tmp_path: Path) -> None:
+    """Codex #1148 P2 fix — helpers nested inside a non-test function aren't linted."""
+    findings = _lint_source(
+        """
+        def make_fixture():
+            def test_inner_helper():
+                # Looks like a test but pytest never collects it.
+                return 1
+            return test_inner_helper
+
+        def test_real():
+            assert make_fixture()() == 1
+        """,
+        tmp_path,
+    )
+    # The nested helper has no assert but must NOT be flagged — pytest never
+    # collects it. Only the real test is scanned.
+    nested = [f for f in findings if f.symbol == "test_inner_helper"]
+    assert nested == []
+
+
+def test_check_test_file_skips_methods_on_non_test_class(tmp_path: Path) -> None:
+    """Codex #1148 P2 fix — methods named ``test_*`` on a non-``Test*`` class are ignored."""
+    findings = _lint_source(
+        """
+        class Helper:
+            def test_silent_method(self):
+                # Pytest only collects methods on `class Test*`.
+                pass
+
+        def test_real():
+            assert Helper().test_silent_method() is None
+        """,
+        tmp_path,
+    )
+    skipped = [f for f in findings if f.symbol == "test_silent_method"]
+    assert skipped == []
+
+
+def test_iter_pytest_collectable_tests_returns_test_class_methods() -> None:
+    """Methods on ``class Test*`` are collected by the helper."""
+    import ast as _ast
+
+    from scieasy.qa.test_quality.ast_lint import _iter_pytest_collectable_tests
+
+    src = textwrap.dedent(
+        """
+        class TestNumbers:
+            def test_one(self):
+                assert 1 == 1
+            def helper(self):
+                pass
+
+        class Helper:
+            def test_hidden(self):
+                pass
+
+        def test_module_level():
+            assert True is True
+        """
+    )
+    tests = _iter_pytest_collectable_tests(_ast.parse(src))
+    assert sorted(t.name for t in tests) == ["test_module_level", "test_one"]

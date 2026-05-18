@@ -80,6 +80,22 @@ _EXCESSIVE_MOCKS_THRESHOLD = 6
 #: lack a ``match=`` keyword, trigger ``raises-without-match``.
 _RAISES_HELPERS: frozenset[str] = frozenset({"raises", "warns"})
 
+#: ``unittest.mock``-style call-count assertions. These are the variants the
+#: ``asserts-on-mock-call-count-only`` detector collects AND the ones it
+#: excludes from the "other meaningful assertions" check — the sets must
+#: match (Codex review #1148 P1 fix).
+_MOCK_CALL_ASSERT_NAMES: frozenset[str] = frozenset(
+    {
+        "assert_called",
+        "assert_called_once",
+        "assert_called_with",
+        "assert_called_once_with",
+        "assert_any_call",
+        "assert_has_calls",
+        "assert_not_called",
+    }
+)
+
 #: Substrings that mark a call/identifier as a mock object.
 _MOCK_NAME_TOKENS: tuple[str, ...] = ("mock", "Mock", "MagicMock", "AsyncMock")
 
@@ -135,6 +151,34 @@ def _is_test_function(node: ast.AST) -> bool:
     return isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name.startswith("test_")
 
 
+def _iter_pytest_collectable_tests(
+    tree: ast.Module,
+) -> list[ast.FunctionDef | ast.AsyncFunctionDef]:
+    """Yield only test functions pytest would actually collect.
+
+    Pytest's default collection rules:
+
+    * Module-level ``def test_*`` / ``async def test_*``.
+    * Methods on a ``class Test*`` (no ``__init__``).
+
+    Nested helpers (``def test_helper`` inside a non-test function) and
+    methods on non-``Test*`` classes are intentionally skipped — they
+    are not collected as tests so the AST detectors must not flag them.
+    Codex review #1148 P2 fix.
+    """
+    out: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
+    for node in tree.body:
+        if _is_test_function(node):
+            assert isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+            out.append(node)
+        elif isinstance(node, ast.ClassDef) and node.name.startswith("Test"):
+            for inner in node.body:
+                if _is_test_function(inner):
+                    assert isinstance(inner, ast.FunctionDef | ast.AsyncFunctionDef)
+                    out.append(inner)
+    return out
+
+
 def _qualified_name(expr: ast.AST) -> str:
     """Render a dotted attribute chain to a string (best-effort)."""
     if isinstance(expr, ast.Attribute):
@@ -166,14 +210,10 @@ def _is_assertion_node(node: ast.AST) -> bool:
     if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
         callee = _qualified_name(node.value.func)
         short = callee.rsplit(".", 1)[-1]
-        # unittest-style asserts: self.assertEqual, self.assertTrue, ...
-        if (
-            short.startswith("assert")
-            and short != "assert_called_once"
-            and short != "assert_called_once_with"
-            and short != "assert_called"
-            and short != "assert_called_with"
-        ):
+        # unittest-style asserts (self.assertEqual, self.assertTrue, …) count
+        # as meaningful; the mock-call-count variants do NOT — they are the
+        # ones the dedicated detector targets.
+        if short.startswith("assert") and short not in _MOCK_CALL_ASSERT_NAMES:
             return True
     return False
 
@@ -330,24 +370,18 @@ def _detect_asserts_on_mock_call_only(func: ast.FunctionDef | ast.AsyncFunctionD
     for call in _walk_calls(func):
         qn = _qualified_name(call.func)
         short = qn.rsplit(".", 1)[-1]
-        if short in {
-            "assert_called",
-            "assert_called_once",
-            "assert_called_with",
-            "assert_called_once_with",
-            "assert_any_call",
-            "assert_has_calls",
-            "assert_not_called",
-        }:
+        if short in _MOCK_CALL_ASSERT_NAMES:
             mock_call_asserts.append(call)
     if mock_call_asserts and not bare_asserts:
-        # Ensure no other meaningful assertions (raises/warns ctx) either.
+        # Ensure no other meaningful assertions (raises/warns ctx) either —
+        # i.e. an assertion that is NOT one of the mock-call asserts the
+        # detector is already counting.
         other = any(
             _is_assertion_node(n)
             and not (
                 isinstance(n, ast.Expr)
                 and isinstance(n.value, ast.Call)
-                and _qualified_name(n.value.func).rsplit(".", 1)[-1].startswith("assert_called")
+                and _qualified_name(n.value.func).rsplit(".", 1)[-1] in _MOCK_CALL_ASSERT_NAMES
             )
             for n in ast.walk(func)
         )
@@ -621,11 +655,7 @@ def check_test_file(path: Path) -> list[Finding]:
     file = str(path).replace("\\", "/")
     comments = _line_comment_map(source)
     findings: list[Finding] = []
-    for node in ast.walk(tree):
-        if not _is_test_function(node):
-            continue
-        # Type-narrowing for mypy / pyright.
-        assert isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+    for node in _iter_pytest_collectable_tests(tree):
         findings.extend(_detect_no_assert(node, file))
         findings.extend(_detect_assert_not_none_only(node, file))
         findings.extend(_detect_mocks_the_subject(node, file))
