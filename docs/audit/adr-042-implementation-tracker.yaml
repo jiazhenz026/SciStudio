@@ -36,3 +36,113 @@ sections:
     verified_at: null
     verifier_skill: null
     verifier_command: "pytest --timeout=60 tests/qa/test_implementation_tracker.py tests/qa/test_tool_self_test_runner.py"
+  - section: "ADR-042 section 5 Frontmatter Schema"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/schemas/_common.py"
+        - "src/scieasy/qa/schemas/frontmatter.py"
+      symbols:
+        - "scieasy.qa.schemas.frontmatter.Status"
+        - "scieasy.qa.schemas.frontmatter.AgentEditable"
+        - "scieasy.qa.schemas.frontmatter.Phase"
+        - "scieasy.qa.schemas.frontmatter.Governs"
+        - "scieasy.qa.schemas.frontmatter.Translation"
+        - "scieasy.qa.schemas.frontmatter.AmendmentKind"
+        - "scieasy.qa.schemas.frontmatter.Amendment"
+        - "scieasy.qa.schemas.frontmatter.ADRFrontmatter"
+        - "scieasy.qa.schemas.frontmatter.SpecFrontmatter"
+      tests:
+        - "tests/qa/test_frontmatter_schema.py"
+    verification_checks:
+      - id: "frontmatter-schema-complete"
+        description: "ADR and spec frontmatter models implement ADR-042 section 5 fields and enums."
+      - id: "frontmatter-cross-field-validation"
+        description: "Validators enforce allowlist pairing, lifecycle dates, code-implementation artifacts, and self-supersession rules."
+      - id: "frontmatter-extra-fields-forbidden"
+        description: "Unknown ADR/spec frontmatter fields are rejected by pydantic extra=forbid."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "pytest --timeout=60 --no-cov tests/qa/test_frontmatter_schema.py"
+  - section: "ADR-042 section 6 MAINTAINERS Schema"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/schemas/_common.py"
+        - "src/scieasy/qa/schemas/maintainers.py"
+      symbols:
+        - "scieasy.qa.schemas.maintainers.AgentRuntime"
+        - "scieasy.qa.schemas.maintainers.MaintainersEntry"
+        - "scieasy.qa.schemas.maintainers.Maintainers"
+      tests:
+        - "tests/qa/test_maintainers_schema.py"
+    verification_checks:
+      - id: "maintainers-schema-complete"
+        description: "MAINTAINERS models implement ADR-042 section 6 fields for path globs, ADR owners, humans, agents, excludes, and notes."
+      - id: "maintainers-resolution-semantics"
+        description: "Path resolution honors include globs, excludes, most-specific match, and entry-order tie breaking."
+      - id: "maintainers-extra-fields-forbidden"
+        description: "Unknown MAINTAINERS fields are rejected and the top-level entries list is non-empty."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "pytest --timeout=60 --no-cov tests/qa/test_maintainers_schema.py"
+  - section: "ADR-042 section 7 Audit Report and Facts Registry Schemas"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/schemas/report.py"
+        - "src/scieasy/qa/schemas/facts.py"
+      symbols:
+        - "scieasy.qa.schemas.report.DriftClass"
+        - "scieasy.qa.schemas.report.Severity"
+        - "scieasy.qa.schemas.report.Finding"
+        - "scieasy.qa.schemas.report.ToolRun"
+        - "scieasy.qa.schemas.report.AuditReport"
+        - "scieasy.qa.schemas.facts.WorkflowFacts"
+        - "scieasy.qa.schemas.facts.ToolFacts"
+        - "scieasy.qa.schemas.facts.ADRFacts"
+        - "scieasy.qa.schemas.facts.MaintainersFacts"
+        - "scieasy.qa.schemas.facts.SkillFacts"
+        - "scieasy.qa.schemas.facts.FactsRegistry"
+      tests:
+        - "tests/qa/test_report_schema.py"
+        - "tests/qa/test_facts_schema.py"
+    verification_checks:
+      - id: "audit-report-envelope"
+        description: "AuditReport, ToolRun, Finding, Severity, and DriftClass match ADR-042 section 7 and remain compatible with ADR-043 section 2 tools."
+      - id: "audit-report-denormalized-counts"
+        description: "AuditReport validates total findings, by_severity, and by_drift_class against embedded findings."
+      - id: "facts-registry-schema"
+        description: "FactsRegistry and all namespace fact models implement ADR-042 section 7.5 fields, versioning, and constraints."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "pytest --timeout=60 --no-cov tests/qa/test_report_schema.py tests/qa/test_facts_schema.py tests/qa/test_implementation_tracker.py"
+  - section: "ADR-042 section 8 Truth Model and Conflict Arbitration"
+    requires_artifacts:
+      files:
+        - "src/scieasy/qa/schemas/truth.py"
+      symbols:
+        - "scieasy.qa.schemas.truth.ArbitrationPhase"
+        - "scieasy.qa.schemas.truth.ADRStatus"
+        - "scieasy.qa.schemas.truth.ConflictResolution"
+        - "scieasy.qa.schemas.truth.ConflictInput"
+        - "scieasy.qa.schemas.truth.ArbitrationDecision"
+        - "scieasy.qa.schemas.truth.MultiADRConflict"
+        - "scieasy.qa.schemas.truth.resolve_conflict"
+      tests:
+        - "tests/qa/test_truth_schema.py"
+    verification_checks:
+      - id: "truth-phase-rules"
+        description: "Conflict arbitration implements transitional code-wins and Phase 5 status-driven rules from ADR-042 section 8."
+      - id: "truth-status-resolution"
+        description: "Accepted, Proposed, Draft, Superseded, Withdrawn, and Deprecated ADR statuses map to the documented resolution actions."
+      - id: "truth-multi-adr-conflict"
+        description: "Conflicting Accepted ADRs produce a blocking multi-ADR conflict record requiring supersession."
+    status: not_started
+    implemented_in_pr: null
+    verified_at: null
+    verifier_skill: null
+    verifier_command: "pytest --timeout=60 --no-cov tests/qa/test_truth_schema.py"
