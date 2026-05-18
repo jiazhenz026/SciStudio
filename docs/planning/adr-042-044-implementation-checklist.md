@@ -29,7 +29,7 @@
 
 | ADR section | Status | Current owner | Branch / worktree | Merge status | Notes |
 |---|---:|---|---|---|---|
-| ADR-043 §2 Implementation Monitoring | [~] | Agent Mendel | `local/adr043-s2-skeleton` / `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-skeleton` | Not merged | Skeleton + historical-code investigation in progress |
+| ADR-043 §2 Implementation Monitoring | [~] | Implementation agent TBD | TBD | Skeleton merged | Skeleton commit `e52d9fdf6993ca1e5cd221642c1194913c8b2b5d` merged as `a68f5cd7` |
 | ADR-043 §5 CLAUDE.md / AGENTS.md Layered Design | [~] | §5 scaffold agent | `local/adr043-s5-layered-scaffold` / `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s5-layered` | Not merged | Owner approved safe parallel scaffold on 2026-05-18 |
 
 ## Deferred File Tracking
@@ -110,8 +110,9 @@ drift inventory hooks, and the initial tracker artifact.
 | Create skeleton worktree and local branch | [x] | Manager | `C:\Users\jiazh\Desktop\workspace\SciEasy-adr043-s2-skeleton`, `local/adr043-s2-skeleton` |
 | Skeleton implementation and historical-code investigation | [x] | Agent Mendel | Commit `e52d9fdf6993ca1e5cd221642c1194913c8b2b5d`; no remote push |
 | Review skeleton commit and test result | [~] | Manager | Pending manager review / owner audit |
-| Create second implementation worktree from approved skeleton | [ ] | Manager | Branch name TBD after skeleton result |
-| Complete remaining ADR-043 section 2 implementation | [ ] | Implementation agent | Pending skeleton handoff |
+| Merge skeleton into local umbrella | [x] | Manager | Merge commit `a68f5cd7`; no remote push |
+| Create second implementation worktree from approved skeleton | [ ] | Manager | Branch name TBD |
+| Complete remaining ADR-043 section 2 implementation | [ ] | Implementation agent | Pending dispatch |
 | Owner audit | [ ] | Owner | No separate audit agent per owner instruction |
 | Merge approved branch into local umbrella | [ ] | Manager | Only after owner approval |
 
@@ -155,9 +156,9 @@ drift inventory hooks, and the initial tracker artifact.
 
 | Item | Status | Notes |
 |---|---:|---|
-| Skeleton branch approved | [ ] | Pending |
+| Skeleton branch approved | [x] | Owner requested merge |
 | Implementation branch approved | [ ] | Pending |
-| Merged into local umbrella | [ ] | Pending |
+| Merged into local umbrella | [~] | Skeleton merged; implementation branch pending |
 
 ## Round 2: ADR-043 Section 5 Layered Instructions Scaffold
 
