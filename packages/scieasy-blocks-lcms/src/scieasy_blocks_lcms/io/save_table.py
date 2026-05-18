@@ -54,6 +54,17 @@ class SaveTable(_LCMSBlockMixin, IOBlock):
     # Sink — produces no downstream artifacts.
     output_ports: ClassVar[list[Any]] = []
 
+    # ADR-028 §D8: declared extensions consumed by the base-class
+    # :meth:`IOBlock._detect_format` helper and (per #1077) by
+    # :meth:`BlockRegistry.find_saver`. The values double as the enum
+    # surfaced under ``config_schema["format"]`` below to avoid maintaining
+    # two parallel format lists. Issue #1076.
+    supported_extensions: ClassVar[dict[str, str]] = {
+        ".csv": "csv",
+        ".tsv": "tsv",
+        ".xlsx": "xlsx",
+    }
+
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {
@@ -62,7 +73,9 @@ class SaveTable(_LCMSBlockMixin, IOBlock):
             # fixing the incorrect file_browser that was declared here previously.
             "format": {
                 "type": "string",
-                "enum": ["csv", "tsv", "xlsx"],
+                # #1076: enum derived from supported_extensions to keep the
+                # save-side format list single-sourced.
+                "enum": sorted(set(supported_extensions.values())),
                 "default": "csv",
                 "title": "Format",
                 "ui_priority": 1,

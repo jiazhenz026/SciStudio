@@ -50,6 +50,18 @@ class LoadMzMLFiles(_LCMSBlockMixin, IOBlock):
         "Records paths and minimal header metadata; does not parse scan data."
     )
 
+    # ADR-028 §D8: declare every extension this loader accepts. The mapping
+    # values are the locked format identifiers persisted on
+    # :attr:`MSRawFile.Meta.format` and consumed by :func:`_mime_for` — do
+    # not change them without coordinating with downstream consumers.
+    # Issue #1076.
+    supported_extensions: ClassVar[dict[str, str]] = {
+        ".mzml": "mzML",
+        ".mzxml": "mzXML",
+        ".raw": "raw",
+        ".d": "d",
+    }
+
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(
             name="raw_files",
@@ -105,7 +117,13 @@ class LoadMzMLFiles(_LCMSBlockMixin, IOBlock):
         for path in paths:
             if not path.exists():
                 raise FileNotFoundError(f"LoadMzMLFiles: path does not exist: {path}")
-            meta = _probe_header(path)
+            # ADR-028 §D8 / #1076: use base-class extension lookup instead of
+            # a private module-level helper. ``self._detect_format`` returns
+            # ``None`` for paths whose suffix is not in
+            # :attr:`supported_extensions`; we fall back to "raw" to preserve
+            # the legacy "unknown vendor extension defaults to raw" behavior.
+            file_format = self._detect_format(path) or "raw"
+            meta = _probe_header(path, format_hint=file_format)
             items.append(
                 MSRawFile(
                     file_path=path,
@@ -122,8 +140,19 @@ class LoadMzMLFiles(_LCMSBlockMixin, IOBlock):
 
 
 def _probe_header(path: Path, *, format_hint: str | None = None) -> MSRawFile.Meta:
-    """Populate ``MSRawFile.Meta`` from the path and lightweight XML header sniffing."""
-    file_format = format_hint or _detect_format(path)
+    """Populate ``MSRawFile.Meta`` from the path and lightweight XML header sniffing.
+
+    *format_hint* is required in practice (callers in this module pass the
+    result of :meth:`IOBlock._detect_format` plus the legacy ``"raw"``
+    fallback). The ``or "raw"`` default below preserves the prior behavior
+    when callers omit the hint.
+
+    ADR-028 §D8 / #1076: the previous module-level ``_detect_format`` was
+    removed; the equivalent lookup now lives on
+    :attr:`LoadMzMLFiles.supported_extensions` and the base-class
+    :meth:`IOBlock._detect_format` helper.
+    """
+    file_format = format_hint or "raw"
     polarity: str | None = None
     instrument: str | None = None
     acquisition_date: datetime | None = None
@@ -155,21 +184,6 @@ def _probe_header(path: Path, *, format_hint: str | None = None) -> MSRawFile.Me
         acquisition_date=acquisition_date,
         sample_id=sample_id,
     )
-
-
-def _detect_format(path: Path) -> str:
-    """Infer the raw-file format from the suffix, preserving the locked enum values."""
-    if path.is_dir() and path.suffix.lower() == ".d":
-        return "d"
-
-    suffix = path.suffix.lower()
-    if suffix == ".mzml":
-        return "mzML"
-    if suffix == ".mzxml":
-        return "mzXML"
-    if suffix == ".raw":
-        return "raw"
-    return "raw"
 
 
 def _mime_for(file_format: str) -> str:
