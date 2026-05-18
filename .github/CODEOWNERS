@@ -5,3 +5,45 @@
 /.github/ @zjzcpj
 pyproject.toml @zjzcpj
 .pre-commit-config.yaml @zjzcpj
+
+# BEGIN auto-generated from .governance-paths.yaml
+# Source: .governance-paths.yaml (34 paths).
+# Edit policy: do not modify lines between BEGIN/END markers by hand.
+# Regenerate via: python scripts/audit/generate_codeowners.py
+#
+# See ADR-043 §3.2 for the governance-path → CODEOWNERS contract.
+docs/adr/**                                       @jiazhenz026
+docs/specs/**                                     @jiazhenz026
+docs/adr/_template/**                             @jiazhenz026
+docs/specs/_template/**                           @jiazhenz026
+AGENTS.md                                         @jiazhenz026
+CLAUDE.md                                         @jiazhenz026
+CURSOR.md                                         @jiazhenz026
+GEMINI.md                                         @jiazhenz026
+.aiderrc                                          @jiazhenz026
+**/AGENTS.md                                      @jiazhenz026
+pyproject.toml                                    @jiazhenz026
+.pre-commit-config.yaml                           @jiazhenz026
+pyrightconfig.json                                @jiazhenz026
+.markdownlint.yaml                                @jiazhenz026
+.yamllint                                         @jiazhenz026
+.codespellrc                                      @jiazhenz026
+.github/workflows/**                              @jiazhenz026
+.github/agent-prompts/**                          @jiazhenz026
+.github/CODEOWNERS                                @jiazhenz026
+.github/PULL_REQUEST_TEMPLATE.md                  @jiazhenz026
+.workflow/**                                      @jiazhenz026
+src/scieasy/qa/**                                 @jiazhenz026
+scripts/audit/**                                  @jiazhenz026
+scripts/committer.py                              @jiazhenz026
+MAINTAINERS                                       @jiazhenz026
+docs/identity/humans.yml                          @jiazhenz026
+docs/skills/required.yaml                         @jiazhenz026
+docs/facts/generated.yaml                         @jiazhenz026
+.governance-paths.yaml                            @jiazhenz026
+docs/audit/governance-changes.log                 @jiazhenz026
+docs/audit/baselines/**                           @jiazhenz026
+docs/audit/overrides.log                          @jiazhenz026
+docs/audit/commit-log.jsonl                       @jiazhenz026
+tools/codemods/**                                 @jiazhenz026
+# END auto-generated from .governance-paths.yaml
