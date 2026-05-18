@@ -29,6 +29,31 @@ def test_posix_creates_symlink(tmp_path: Path) -> None:
     assert dst.read_text(encoding="utf-8") == "hello"
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX symlink resolution only")
+def test_posix_symlink_resolves_relative_source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Codex P2 regression: a relative *src* must be resolved to an
+    absolute path before being passed to os.symlink, otherwise the
+    link target is relative to dst.parent and breaks when the link
+    is placed in a different directory than the CWD source."""
+    src = tmp_path / "src.txt"
+    src.write_text("hello", encoding="utf-8")
+
+    # Place the destination in a nested directory and pass *src* as a
+    # relative path from CWD. Pre-fix, os.symlink would store "src.txt"
+    # verbatim and the link in nested/ would resolve to nested/src.txt
+    # (which does not exist).
+    monkeypatch.chdir(tmp_path)
+    dst = tmp_path / "nested" / "linked.txt"
+
+    result = mount_pathlike("src.txt", dst)
+
+    assert result == dst
+    assert dst.is_symlink()
+    # Critical assertion: the link must be readable from its placement,
+    # not just from the original CWD.
+    assert dst.read_text(encoding="utf-8") == "hello"
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows hardlink path only")
 def test_windows_file_creates_hardlink(tmp_path: Path) -> None:
     """On Windows, a file mount produces a hardlink (no admin required)."""

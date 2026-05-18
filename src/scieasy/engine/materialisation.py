@@ -327,40 +327,57 @@ def reconstruct_from_file(
 
     reg = _get_registry(registry)
 
-    if extension is None:
-        # Walk Path.suffixes longest-first to match IOBlock._detect_format.
+    # Build the list of extension candidates to try, longest-first, to
+    # mirror :meth:`IOBlock._detect_format` (compound-suffix-first lookup
+    # with case-insensitive comparison). This matters for filenames with
+    # extra dots: ``sample.v1.csv`` produces candidates ``[".v1.csv",
+    # ".csv"]`` so a ``.csv`` loader is reached even when ``.v1.csv``
+    # has no registered handler.
+    extension_candidates: list[str]
+    if extension is not None:
+        if not extension.startswith("."):
+            extension = "." + extension
+        extension_candidates = [extension.lower()]
+    else:
         suffixes = [s.lower() for s in path.suffixes]
-        extension = "".join(suffixes) if suffixes else ""
+        extension_candidates = []
+        for start in range(len(suffixes)):
+            candidate = "".join(suffixes[start:])
+            if candidate:
+                extension_candidates.append(candidate)
+        if not extension_candidates:
+            extension_candidates = [""]
 
-    if extension and not extension.startswith("."):
-        extension = "." + extension
-
-    # First pass: exact type match. ``find_loader`` ranks loaders by
-    # specificity (loader's output IS-A target_type), so a plugin loader
-    # declaring DataFrame output will be returned ahead of the generic
-    # core ``LoadData`` (whose static output port is the most-general
-    # ``DataObject`` placeholder, used because the per-instance
-    # ``get_effective_output_ports`` resolves the concrete type from
-    # the ``core_type`` config field — see ADR-028 Addendum 1 §C5).
-    loader_cls = reg.find_loader(target_type, extension) if extension else None
-
-    # Second pass: dynamic-port fallback. The core ``LoadData`` declares
-    # ``output_ports[0].accepted_types=[DataObject]`` because the actual
-    # output type is decided per-instance from ``config['core_type']``.
-    # ``find_loader`` correctly rejects it for any concrete *target_type*
-    # other than ``DataObject`` itself (loader-output-IS-A-target rule),
-    # so when no specific loader matched we fall back to the most-
-    # general loader (``DataObject``) — provided the matched loader has
-    # ``core_type`` in its config schema. The downstream block code path
-    # then injects ``core_type=target_type.__name__`` so the loader
-    # produces the requested type.
-    if loader_cls is None and target_type is not DataObject and extension:
-        candidate = reg.find_loader(DataObject, extension)
-        if candidate is not None:
-            schema = getattr(candidate, "config_schema", {}) or {}
-            props = schema.get("properties", {}) if isinstance(schema, dict) else {}
-            if "core_type" in props and _resolve_core_type_param(target_type) is not None:
-                loader_cls = candidate
+    # Walk candidates longest-first. For each:
+    #   First pass: exact type match (loader's output IS-A target_type).
+    #   Second pass: dynamic-port fallback (find_loader(DataObject, ext))
+    #     when the candidate loader's config_schema declares ``core_type``
+    #     and ``target_type`` resolves to a known core-type enum value.
+    # The first candidate that resolves a loader wins; on no match across
+    # all candidates, ``loader_cls`` stays ``None`` and the Artifact /
+    # LookupError branches below take over. The chosen extension is
+    # captured for downstream error messages and ``config["path"]`` is
+    # always the original *path*.
+    loader_cls: type | None = None
+    resolved_extension: str = extension_candidates[0]
+    for cand in extension_candidates:
+        if not cand:
+            continue
+        first_pass = reg.find_loader(target_type, cand)
+        if first_pass is not None:
+            loader_cls = first_pass
+            resolved_extension = cand
+            break
+        if target_type is not DataObject:
+            candidate_cls = reg.find_loader(DataObject, cand)
+            if candidate_cls is not None:
+                schema = getattr(candidate_cls, "config_schema", {}) or {}
+                props = schema.get("properties", {}) if isinstance(schema, dict) else {}
+                if "core_type" in props and _resolve_core_type_param(target_type) is not None:
+                    loader_cls = candidate_cls
+                    resolved_extension = cand
+                    break
+    extension = resolved_extension
 
     if loader_cls is not None:
         config_params: dict[str, object] = {"path": str(path)}

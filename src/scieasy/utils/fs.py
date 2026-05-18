@@ -52,7 +52,13 @@ def mount_pathlike(src: str | os.PathLike[str], dst: str | os.PathLike[str]) -> 
         OSError: if no native primitive succeeded (caller should fall
             back to a byte copy).
     """
-    src_path = Path(src)
+    # ``Path.resolve()`` makes *src* absolute. This matters most on POSIX
+    # because :func:`os.symlink` stores the *target* string verbatim — a
+    # relative target is resolved relative to the link's directory at
+    # access time, so ``mount_pathlike("src.txt", "nested/link.txt")``
+    # would otherwise produce a broken link pointing at ``nested/src.txt``.
+    # Absolute sources make the link unambiguous regardless of caller CWD.
+    src_path = Path(src).resolve()
     dst_path = Path(dst)
 
     if not src_path.exists():
@@ -63,7 +69,7 @@ def mount_pathlike(src: str | os.PathLike[str], dst: str | os.PathLike[str]) -> 
     dst_path.parent.mkdir(parents=True, exist_ok=True)
 
     if sys.platform != "win32":
-        # POSIX (and macOS): plain symlink.
+        # POSIX (and macOS): plain symlink to the absolute source path.
         os.symlink(str(src_path), str(dst_path))
         return dst_path
 

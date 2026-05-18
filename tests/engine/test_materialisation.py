@@ -266,6 +266,28 @@ def test_materialise_raises_lookup_when_no_saver_for_extension(tmp_path: Path) -
         materialise_to_file(txt, tmp_path, extension=".unknownext", registry=reg)
 
 
+def test_reconstruct_handles_extra_dots_in_filename(tmp_path: Path) -> None:
+    """Codex P1 regression: filenames like ``sample.v1.csv`` should
+    resolve to a ``.csv`` loader by walking ``path.suffixes`` longest-
+    first (the ``.v1.csv`` candidate has no handler, ``.csv`` does).
+    Pre-fix, the helper joined all suffixes into ``.v1.csv`` and
+    raised LookupError despite a registered ``.csv`` loader."""
+    table = pa.table({"a": [1, 2, 3]})
+    df = DataFrame(columns=["a"], row_count=3)
+    df._arrow_table = table  # type: ignore[attr-defined]
+
+    src = tmp_path / "sample.v1.csv"
+    reg = _registry_with_core_io()
+    # Use materialise to seed a real CSV under the extra-dot name.
+    out = materialise_to_file(df, tmp_path, extension=".csv", filename_stem="sample.v1", registry=reg)
+    assert out == src
+    assert src.exists()
+
+    restored = reconstruct_from_file(src, DataFrame, registry=reg)
+    assert isinstance(restored, DataFrame)
+    assert restored.row_count == 3
+
+
 def test_materialise_normalises_extension_without_leading_dot(tmp_path: Path) -> None:
     """extension="csv" should be treated identically to extension=".csv"."""
     table = pa.table({"a": [1]})
