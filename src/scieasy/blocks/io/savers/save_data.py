@@ -67,6 +67,27 @@ _CORE_TYPE_MAP: dict[str, type[DataObject]] = {
 _PICKLE_EXTENSIONS: frozenset[str] = frozenset({".pkl", ".pickle"})
 
 
+def _resolve_save_format(path: Path) -> str | None:
+    """Resolve a path's format identifier via :attr:`SaveData.supported_extensions`.
+
+    Issue #1074: module-level mirror of :meth:`IOBlock._detect_format`
+    used by the private ``_save_*`` functions so they can route on the
+    ClassVar without holding a ``SaveData`` instance reference.
+    Compound-suffix-first, case-insensitive lookup matching
+    ``IOBlock._detect_format`` semantics.
+    """
+    mapping = SaveData.supported_extensions
+    if not mapping:
+        return None
+    normalized = {k.lower(): v for k, v in mapping.items()}
+    suffixes = [s.lower() for s in path.suffixes]
+    for start in range(len(suffixes)):
+        candidate = "".join(suffixes[start:])
+        if candidate in normalized:
+            return normalized[candidate]
+    return None
+
+
 def _require_path(config: BlockConfig) -> Path:
     """Return the configured ``path`` as a :class:`Path` or raise.
 
@@ -208,6 +229,40 @@ class SaveData(IOBlock):
         "Save a core DataObject (Array / DataFrame / Series / Text / Artifact / CompositeData) to disk."
     )
     subcategory: ClassVar[str] = "io"
+
+    # ADR-028 §D8 / issue #1074: declarative mapping of every file
+    # extension this saver can write to a stable format identifier.
+    # Mirrors :attr:`LoadData.supported_extensions` — same suffixes /
+    # format ids so a round-trip Load -> Save shares the same
+    # discoverable set. The Text branch's internal write set
+    # (``.markdown``, ``.htm``) is intentionally a superset of this
+    # ClassVar to preserve backward compatibility; the registry-visible
+    # set surfaces only the canonical mirror so consumers of #1077
+    # (BlockRegistry.find_saver) see a consistent menu.
+    supported_extensions: ClassVar[dict[str, str]] = {
+        # Array formats
+        ".npy": "npy",
+        ".npz": "npz",
+        ".zarr": "zarr",
+        ".parquet": "parquet",
+        ".pq": "parquet",
+        # Pickle (gated by allow_pickle)
+        ".pkl": "pickle",
+        ".pickle": "pickle",
+        # DataFrame / Series tabular formats
+        ".csv": "csv",
+        ".tsv": "tsv",
+        ".json": "json",
+        # Text formats
+        ".txt": "text",
+        ".log": "text",
+        ".md": "text",
+        ".html": "text",
+        ".xml": "text",
+        ".yaml": "text",
+        ".yml": "text",
+        ".toml": "text",
+    }
 
     # The ``data`` input port's accepted_types is a placeholder
     # ``[DataObject]`` here. The per-instance override in
@@ -375,7 +430,8 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
     """
     assert isinstance(obj, Array), f"Expected Array, got {type(obj).__name__}"
     path = _require_path(config)
-    suffix = path.suffix.lower()
+    # Issue #1074: format dispatch through ``SaveData.supported_extensions``.
+    fmt = _resolve_save_format(path)
 
     if _check_pickle_gate(path, config):
         data = obj.get_in_memory_data()
@@ -383,21 +439,21 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
             pickle.dump(data, fh)
         return
 
-    if suffix == ".npy":
+    if fmt == "npy":
         import numpy as np
 
         data = obj.get_in_memory_data()
         np.save(str(path), np.asarray(data))
         return
 
-    if suffix == ".npz":
+    if fmt == "npz":
         import numpy as np
 
         data = obj.get_in_memory_data()
         np.savez(str(path), data=np.asarray(data))
         return
 
-    if suffix == ".zarr":
+    if fmt == "zarr":
         try:
             import zarr  # type: ignore[import-not-found]
         except ImportError as exc:  # pragma: no cover - exercised when zarr missing
@@ -419,7 +475,7 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
         zarr.save(str(path), arr)  # type: ignore[arg-type]
         return
 
-    if suffix in (".parquet", ".pq"):
+    if fmt == "parquet":
         # Single-column Parquet round-trip for 1D arrays. Multi-dim
         # arrays do not have a natural columnar form and are rejected
         # to avoid silent data loss.
@@ -439,8 +495,9 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
         return
 
     raise ValueError(
-        f"Unsupported Array file extension {suffix!r}. Supported: "
-        ".npy, .npz, .zarr, .parquet, .pkl (with allow_pickle=True)."
+        f"Unsupported Array file extension {path.suffix.lower()!r}. "
+        f"Supported extensions: {sorted(SaveData.supported_extensions.keys())} "
+        f"(.pkl/.pickle require allow_pickle=True)."
     )
 
 
@@ -455,7 +512,8 @@ def _save_dataframe(obj: DataObject, config: BlockConfig) -> None:
     """
     assert isinstance(obj, DataFrame), f"Expected DataFrame, got {type(obj).__name__}"
     path = _require_path(config)
-    suffix = path.suffix.lower()
+    # Issue #1074: format dispatch through ``SaveData.supported_extensions``.
+    fmt = _resolve_save_format(path)
 
     if _check_pickle_gate(path, config):
         data = obj.get_in_memory_data()
@@ -465,19 +523,19 @@ def _save_dataframe(obj: DataObject, config: BlockConfig) -> None:
 
     # ADR-031 Phase 3: streaming paths for CSV/TSV/Parquet when
     # the source is arrow-backed.
-    if suffix == ".csv":
+    if fmt == "csv":
         _streaming_save_dataframe_csv(obj, path, delimiter=",")
         return
 
-    if suffix == ".tsv":
+    if fmt == "tsv":
         _streaming_save_dataframe_csv(obj, path, delimiter="\t")
         return
 
-    if suffix in (".parquet", ".pq"):
+    if fmt == "parquet":
         _streaming_save_dataframe_parquet(obj, path)
         return
 
-    if suffix == ".json":
+    if fmt == "json":
         # JSON export requires full materialisation — json.dump needs
         # the complete record list.
         table = _dataframe_to_arrow_table(obj)
@@ -487,8 +545,9 @@ def _save_dataframe(obj: DataObject, config: BlockConfig) -> None:
         return
 
     raise ValueError(
-        f"Unsupported DataFrame file extension {suffix!r}. Supported: "
-        ".csv, .tsv, .parquet, .json, .pkl (with allow_pickle=True)."
+        f"Unsupported DataFrame file extension {path.suffix.lower()!r}. "
+        f"Supported extensions: {sorted(SaveData.supported_extensions.keys())} "
+        f"(.pkl/.pickle require allow_pickle=True)."
     )
 
 
@@ -502,7 +561,8 @@ def _save_series(obj: DataObject, config: BlockConfig) -> None:
     """
     assert isinstance(obj, Series), f"Expected Series, got {type(obj).__name__}"
     path = _require_path(config)
-    suffix = path.suffix.lower()
+    # Issue #1074: format dispatch through ``SaveData.supported_extensions``.
+    fmt = _resolve_save_format(path)
 
     if _check_pickle_gate(path, config):
         data = obj.get_in_memory_data()
@@ -519,13 +579,13 @@ def _save_series(obj: DataObject, config: BlockConfig) -> None:
     # numpy; an existing Table is passed through verbatim.
     table = raw if isinstance(raw, pa.Table) else pa.table({column_name: pa.array(raw)})
 
-    if suffix == ".csv":
+    if fmt == "csv":
         import pyarrow.csv as pcsv
 
         pcsv.write_csv(table, str(path))
         return
 
-    if suffix == ".tsv":
+    if fmt == "tsv":
         import pyarrow.csv as pcsv
 
         pcsv.write_csv(
@@ -535,21 +595,22 @@ def _save_series(obj: DataObject, config: BlockConfig) -> None:
         )
         return
 
-    if suffix in (".parquet", ".pq"):
+    if fmt == "parquet":
         import pyarrow.parquet as pq
 
         pq.write_table(table, str(path))
         return
 
-    if suffix == ".json":
+    if fmt == "json":
         records = table.to_pylist()
         with path.open("w", encoding="utf-8") as fh:
             json.dump(records, fh, ensure_ascii=False, indent=2)
         return
 
     raise ValueError(
-        f"Unsupported Series file extension {suffix!r}. Supported: "
-        ".csv, .tsv, .parquet, .json, .pkl (with allow_pickle=True)."
+        f"Unsupported Series file extension {path.suffix.lower()!r}. "
+        f"Supported extensions: {sorted(SaveData.supported_extensions.keys())} "
+        f"(.pkl/.pickle require allow_pickle=True)."
     )
 
 
@@ -562,8 +623,13 @@ def _save_text(obj: DataObject, config: BlockConfig) -> None:
     """
     assert isinstance(obj, Text), f"Expected Text, got {type(obj).__name__}"
     path = _require_path(config)
+    # Issue #1074: cross-check via the SaveData ClassVar (the canonical
+    # registry-visible set). The internal ``supported`` frozenset below
+    # is a permissive superset retained for backward compatibility with
+    # callers that historically wrote ``.markdown`` / ``.htm``; the
+    # registry-visible error message references the ClassVar so the
+    # user-facing supported list stays consistent across blocks.
     suffix = path.suffix.lower()
-
     supported = {
         ".txt",
         ".md",
@@ -578,7 +644,11 @@ def _save_text(obj: DataObject, config: BlockConfig) -> None:
         ".json",
     }
     if suffix not in supported:
-        raise ValueError(f"Unsupported Text file extension {suffix!r}. Supported: {sorted(supported)}.")
+        raise ValueError(
+            f"Unsupported Text file extension {suffix!r}. "
+            f"Supported extensions: {sorted(SaveData.supported_extensions.keys())} "
+            f"(Text-specific superset: {sorted(supported)})."
+        )
 
     if obj.content is None:
         raise ValueError("Cannot save Text with content=None; populate Text.content first.")
