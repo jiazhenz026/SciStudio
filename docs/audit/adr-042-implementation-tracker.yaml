@@ -9,10 +9,8 @@ sections:
         - "src/scieasy/qa/schemas/report.py"
         - "src/scieasy/qa/schemas/tracker.py"
         - "src/scieasy/qa/tracker/adr_implementation_check.py"
-        - "src/scieasy/qa/tracker/phase_gate.py"
         - "src/scieasy/qa/tracker/tool_self_test_runner.py"
         - "scripts/audit/adr_implementation_check.py"
-        - "scripts/audit/phase_gate.py"
         - "scripts/audit/tool_self_test_runner.py"
       symbols:
         - "scieasy.qa.schemas.tracker.ImplementationTracker"
@@ -20,19 +18,17 @@ sections:
         - "scieasy.qa.schemas.report.Finding"
         - "scieasy.qa.schemas.frontmatter.Phase"
         - "scieasy.qa.tracker.adr_implementation_check.run"
-        - "scieasy.qa.tracker.phase_gate.check_phase_transition"
         - "scieasy.qa.tracker.tool_self_test_runner.run_self_test"
       tests:
         - "tests/qa/test_implementation_tracker.py"
-        - "tests/qa/test_phase_gate.py"
         - "tests/qa/test_tool_self_test_runner.py"
     verification_checks:
       - id: "schema-importable"
         description: "ADR-043 section 2 skeleton schemas and tracker functions import."
       - id: "minimal-tests-pass"
-        description: "Skeleton tests for tracker validation, phase gate blocking, and self-test artifact detection pass."
+        description: "Skeleton tests for tracker validation and self-test artifact detection pass."
     status: in_progress
     implemented_in_pr: null
     verified_at: null
     verifier_skill: null
-    verifier_command: "pytest --timeout=60 tests/qa/test_implementation_tracker.py tests/qa/test_phase_gate.py tests/qa/test_tool_self_test_runner.py"
+    verifier_command: "pytest --timeout=60 tests/qa/test_implementation_tracker.py tests/qa/test_tool_self_test_runner.py"

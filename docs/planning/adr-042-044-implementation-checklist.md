@@ -44,6 +44,9 @@
 | `CLAUDE.md` symlink / full pointer replacement | [!] | High governance blast radius; current file carries active policy and should not be replaced without owner audit of the new root `AGENTS.md`. | After §5 scaffold is audited and owner explicitly approves the migration step. | Manager / owner-approved §5 followup |
 | `docs/contributing/**` workflow docs | [!] | ADR-044 owns the four-category doc set; skill-as-pointer closure needs real target docs that do not exist yet. | During ADR-044 documentation-set implementation. | ADR-044 docs agent |
 | Full skill-pointer closure enforcement | [!] | Depends on ADR-044 `docs/contributing/` targets and `skill_pointer_sync.py`. | After ADR-044 doc skeleton and §2 report primitives land. | ADR-044 / QA audit agent |
+| `src/scieasy/qa/tracker/phase_gate.py` | [!] | Owner rejected the skeleton phase-gate logic as legacy/unneeded; phase readiness is owner-reviewed manually for this local cascade. | Only if owner later asks to reinstate a redesigned phase-gate tool. | Owner / future §2 followup |
+| `scripts/audit/phase_gate.py` | [!] | CLI shim removed with phase-gate implementation. | Only if owner later asks to reinstate a redesigned phase-gate tool. | Owner / future §2 followup |
+| `tests/qa/test_phase_gate.py` | [!] | Test removed with phase-gate implementation. | Only if owner later asks to reinstate a redesigned phase-gate tool. | Owner / future §2 followup |
 
 ## Tool Stack Tracking
 
@@ -125,22 +128,23 @@ drift inventory hooks, and the initial tracker artifact.
 | `src/scieasy/qa/schemas/report.py` | [~] | Minimal `Finding` / `AuditReport` support |
 | `src/scieasy/qa/schemas/tracker.py` | [~] | ADR-043 section 2 tracker schema |
 | `src/scieasy/qa/tracker/adr_implementation_check.py` | [~] | Tracker-to-code validation |
-| `src/scieasy/qa/tracker/phase_gate.py` | [~] | Phase transition readiness check |
+| `src/scieasy/qa/tracker/phase_gate.py` | [!] | Removed per owner instruction; manual owner gate replaces this local check |
 | `src/scieasy/qa/tracker/tool_self_test_runner.py` | [~] | QA tool self-test artifact validation |
 | `scripts/audit/adr_implementation_check.py` | [~] | CLI wrapper |
-| `scripts/audit/phase_gate.py` | [~] | CLI wrapper |
+| `scripts/audit/phase_gate.py` | [!] | Removed per owner instruction |
 | `scripts/audit/tool_self_test_runner.py` | [~] | CLI wrapper |
 | `docs/audit/adr-042-implementation-tracker.yaml` | [~] | Initial machine-readable tracker |
 | `tests/qa/test_implementation_tracker.py` | [~] | Schema and tracker validation |
-| `tests/qa/test_phase_gate.py` | [~] | Blocking behavior |
+| `tests/qa/test_phase_gate.py` | [!] | Removed per owner instruction |
 | `tests/qa/test_tool_self_test_runner.py` | [~] | Missing artifact / diff behavior |
 
 ### Required Tests
 
 | Command | Status | Notes |
 |---|---:|---|
-| `pytest --timeout=60 tests/qa/test_implementation_tracker.py tests/qa/test_phase_gate.py tests/qa/test_tool_self_test_runner.py` | [!] | 9 tests passed, but global coverage gate made pytest exit 1 at 3% total coverage |
-| `pytest --timeout=60 --no-cov tests/qa/test_implementation_tracker.py tests/qa/test_phase_gate.py tests/qa/test_tool_self_test_runner.py` | [x] | 9 passed |
+| `pytest --timeout=60 tests/qa/test_implementation_tracker.py tests/qa/test_tool_self_test_runner.py` | [ ] | Not rerun because global coverage gate is known to fail focused QA runs |
+| `pytest --timeout=60 --no-cov tests/qa/test_implementation_tracker.py tests/qa/test_tool_self_test_runner.py` | [x] | 6 passed after phase-gate removal |
+| `ruff check src\scieasy\qa scripts\audit tests\qa` | [x] | Passed after phase-gate removal |
 | `ruff check src\scieasy\qa scripts\audit tests\qa` | [x] | Passed |
 
 ### Historical-Code Investigation
