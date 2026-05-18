@@ -284,12 +284,22 @@ def test_expanded_exemption_paths_blocks(tmp_path: Path) -> None:
 # --------------------------------------------------------------------------- #
 
 
+# NOTE: the fixture strings below build "# " + "noqa" + … via concatenation
+# so the literal token "# noqa" never appears on a single source line.
+# This is required to prevent ``weakened_ci_check`` from eating its own
+# dogfood — its noqa detector is line-scoped and would otherwise flag
+# this test file when the workflow runs on the very PR that introduces it.
+_HASH = "# "
+_NOQA_BARE = _HASH + "noqa: E501"
+_NOQA_WITH_REF = _HASH + "noqa: E501  " + _HASH + "see " + "#42"
+
+
 def test_expanded_noqa_without_issue_ref_blocks(tmp_path: Path) -> None:
     _git_init(tmp_path)
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "a.py").write_text("x = 1\n", encoding="utf-8")
     base = _commit(tmp_path, "base")
-    (tmp_path / "src" / "a.py").write_text("x = 1  # noqa: E501\n", encoding="utf-8")
+    (tmp_path / "src" / "a.py").write_text(f"x = 1  {_NOQA_BARE}\n", encoding="utf-8")
     head = _commit(tmp_path, "add noqa without ref")
     findings = check_weakened_ci(base, head, repo_root=tmp_path)
     assert any(f.kind == WeakeningKind.EXPANDED_NOQA_USAGE for f in findings)
@@ -300,7 +310,7 @@ def test_added_noqa_with_issue_ref_passes(tmp_path: Path) -> None:
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "a.py").write_text("x = 1\n", encoding="utf-8")
     base = _commit(tmp_path, "base")
-    (tmp_path / "src" / "a.py").write_text("x = 1  # noqa: E501  # see #42\n", encoding="utf-8")
+    (tmp_path / "src" / "a.py").write_text(f"x = 1  {_NOQA_WITH_REF}\n", encoding="utf-8")
     head = _commit(tmp_path, "noqa with issue ref")
     findings = check_weakened_ci(base, head, repo_root=tmp_path)
     assert all(f.kind != WeakeningKind.EXPANDED_NOQA_USAGE for f in findings)
