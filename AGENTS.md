@@ -37,6 +37,11 @@ workflows, not informal pauses.
 - Create or use a non-main branch before editing. Never push directly to `main`,
   never merge into local `main`, and never use destructive git commands unless
   the human explicitly requests them.
+- Agents must never run `pip install -e .`, `python -m pip install -e .`, or an
+  equivalent editable install from any worktree. Use per-command source
+  isolation instead, for example PowerShell
+  `$env:PYTHONPATH=(Resolve-Path src).Path; pytest ...; Remove-Item Env:PYTHONPATH`.
+  Editable installs contaminate sibling worktrees and are a protocol violation.
 - Keep work scoped to the accepted issue, ADR, dispatch, or hotfix round. Do not
   silently broaden a bug fix into a feature, redesign, or unrelated cleanup.
 - Runtime contracts, storage behavior, API contracts, plugin contracts, major UI
@@ -98,6 +103,7 @@ scope:
 | R7 | No untracked out-of-scope deferral lacks `TODO(#...)` | `rg "TODO\\(#" <changed paths>` |
 | R8 | Local whitespace and scaffold checks pass | `git diff --check` |
 | R9 | Agent-authored commits use meaningful scoped messages and trailers when required | `git log -1 --pretty=full` |
+| R10 | No editable install pollution was introduced by agent work | `python -m pip show scieasy` should not report an editable project location unless owner explicitly permits it |
 
 ## Paths
 

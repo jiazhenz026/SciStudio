@@ -15,6 +15,8 @@
 - No agent pushes remote branches or opens PRs during local implementation.
 - Manager merges an agent branch back into the local umbrella branch only after owner approval.
 - Out-of-scope or deferred behavior must be tagged in repo with `TODO(#1113)` and an ADR section reference.
+- Agents must not run `pip install -e .`, `python -m pip install -e .`, or equivalent editable installs. Use per-command `PYTHONPATH` pointing at the agent worktree's `src` instead.
+- Dispatch prompts must restate the editable-install ban; a violation blocks automatic merge until the owner reviews the branch.
 
 ## Global State
 
@@ -126,3 +128,4 @@ implementation so final CI hookup can be done in one owner-reviewed pass.
 ## Drift Log
 
 - 2026-05-18: Initial skeleton agent `019e3c62-7ed1-7c30-9c0a-0bd7fd5e1dc4` was interrupted/shutdown before producing worktree changes. Re-dispatched as `019e3c69-8976-77d2-b468-572a0be48766`.
+- 2026-05-18: Agent Goodall (`019e3ca5-7c50-7fb2-b147-28ec305e1cdb`) ran `python -m pip install -e .` in `SciEasy-adr042-s6-maintainers`, which contaminated global `scieasy` imports. Environment was fixed by uninstalling the editable `scieasy` package; future agents must use per-command `PYTHONPATH`.
