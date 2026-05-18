@@ -1,0 +1,98 @@
+# Translation workflow — ADR-042 §22.7.
+#
+# Auto-translates English source docs to ``docs/zh-CN/**`` on every
+# push to ``main`` that touches ``docs/**`` (excluding the zh-CN
+# subtree itself). The translated output is opened as a PR rather than
+# direct-pushed because:
+#
+#   1. Branch protection on ``main`` forbids direct pushes.
+#   2. GITHUB_TOKEN pushes do not trigger workflows, so a direct push
+#      would skip CI on the translation commit.
+#
+# The path-allowlist enforcement (three-tier check covering unstaged,
+# staged, AND untracked files per ADR-042 §22.7 audit P0.2 fix) ensures
+# the translator workflow can only modify ``docs/zh-CN/`` — even if
+# ``translate_docs.py`` is bugged and emits writes elsewhere, the
+# workflow fails before opening the PR.
+
+name: translation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '!docs/zh-CN/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: translation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  translate:
+    name: Translate docs/** to docs/zh-CN/**
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+        with:
+          cache: true
+          cache-dependency-path: pyproject.toml
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install scieasy with translator deps
+        run: uv pip install --system -e .[dev]
+      - name: Run translator (incremental)
+        env:
+          SCIEASY_TRANSLATION_PROVIDER: deepl
+          SCIEASY_TRANSLATION_DEEPL_API_KEY: ${{ secrets.SCIEASY_TRANSLATION_DEEPL_API_KEY }}
+        run: python scripts/translate_docs.py --incremental --verbose
+      - name: Path-allowlist enforcement (three-tier check)
+        # Audit P0.2 fix: cover unstaged, staged, AND untracked translation
+        # files; pure `git diff --name-only HEAD~1` misses new files.
+        run: |
+          unstaged=$(git diff --name-only)
+          staged=$(git diff --cached --name-only)
+          untracked=$(git ls-files --others --exclude-standard)
+          all_changed=$(printf '%s\n%s\n%s\n' "$unstaged" "$staged" "$untracked" | sort -u)
+          for f in $all_changed; do
+            [ -z "$f" ] && continue
+            echo "$f" | grep -E '^docs/zh-CN/' || {
+              echo "FATAL: translation workflow modified $f outside docs/zh-CN/"; exit 1
+            }
+          done
+      - name: Stage zh-CN paths explicitly
+        run: git add -- docs/zh-CN/ 2>/dev/null || true
+      - name: Open or refresh translation PR
+        # PR-creating, not direct-push (same rationale as docs-agent §15.2):
+        # branch protection + GITHUB_TOKEN-push-does-not-trigger-workflows.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git diff --cached --quiet; then
+            echo "No translation changes; nothing to PR"
+            exit 0
+          fi
+          branch="translator/zh-CN-$(date +%Y%m%d-%H%M)"
+          git config user.name 'translator[bot]'
+          git config user.email 'translator@scieasy.dev'
+          git checkout -b "$branch"
+          git commit -m "$(cat <<'EOF'
+          docs(zh-CN): refresh translation
+
+          Assisted-by: translator:deepl-api-v2
+          EOF
+          )"
+          git push origin "$branch"
+          gh pr create \
+            --base main --head "$branch" \
+            --title "docs(zh-CN): refresh translation" \
+            --body "Auto-generated zh-CN translation refresh. Path-allowlisted to docs/zh-CN/ only. ADR-042 §22.7."

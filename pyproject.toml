@@ -16,6 +16,7 @@ classifiers = [
 ]
 dependencies = [
     "pydantic[email]>=2.0",  # [email] extra adds email-validator; ADR-042 §6 / TC-1A.5 HumanIdentity.EmailStr
+    "pydantic-settings>=2.5",  # ADR-042 §22.5: TranslationSettings env-var loader
     "fastapi>=0.110",
     "python-multipart>=0.0.9",
     "uvicorn[standard]>=0.29",
