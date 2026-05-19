@@ -198,20 +198,17 @@ forbidden_modules = ["scieasy.engine", "scieasy.api", "scieasy.ai"]
 # ADR-035 §3.10: AIBlock.run() must call back to the engine to allocate
 # a PTY tab and notify completion.
 #
-# ADR-028 §D8 (Phase -1 sprint, #1079 + #1080): the AppBlock dispatch
-# path consumes `engine.materialisation.{reconstruct_from_file,
-# materialise_to_file}` for typed DataObject ↔ file conversion:
-#   - app_block._bin_outputs_by_extension → reconstruct_from_file (#1079)
-#   - bridge.FileExchangeBridge.prepare    → materialise_to_file    (#1080)
-# The helpers live in `engine/` because they consume `BlockRegistry`
-# from `blocks/` (a `core/` placement would violate Core ↔ Blocks per
-# the first contract above). Both ignore entries below are lazy
-# function-body imports executed only inside the per-run AppBlock
-# dispatch path.
+# ADR-028 §D8 (Phase -1 sprint, this PR + #1080): AppBlock's
+# `_bin_outputs_by_extension` dispatches to
+# `engine.materialisation.reconstruct_from_file` for typed DataObject
+# reconstruction. The helper lives in `engine/` because it consumes
+# `BlockRegistry` from `blocks/` (a `core/` placement would violate
+# Core ↔ Blocks per the first contract above). Both ignore entries
+# below are lazy function-body imports executed only inside the per-run
+# AppBlock dispatch path.
 ignore_imports = [
     "scieasy.blocks.ai.ai_block -> scieasy.engine.pty_control",
     "scieasy.blocks.app.app_block -> scieasy.engine.materialisation",
-    "scieasy.blocks.app.bridge -> scieasy.engine.materialisation",
 ]
 
 [[tool.importlinter.contracts]]

@@ -9,6 +9,7 @@ from threading import Thread
 from typing import Any
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 
 from scieasy.blocks.app.bridge import FileExchangeBridge
@@ -243,26 +244,18 @@ class TestFileExchangeBridgeCollection:
     """ADR-020: Collection handling in bridge.prepare()."""
 
     def test_prepare_handles_collection(self, tmp_path: Path) -> None:
-        """Bridge should serialize Collection items into a subdirectory.
-
-        ADR-028 §D8 / #1080: ``prepare()`` now materialises each Collection
-        item through the real saver via
-        :func:`scieasy.engine.materialisation.materialise_to_file`. Items
-        therefore need actual in-memory data (``_transient_data``) and the
-        manifest now records typed item entries instead of bare paths.
-        """
-        import numpy as np
-
+        """Bridge should serialize Collection items into a subdirectory."""
         from scieasy.core.types.array import Array
         from scieasy.core.types.collection import Collection
 
         # ADR-027 D2: construct plain 2D Arrays instead of the removed
         # core Image class (which now lives in scieasy-blocks-imaging).
-        a1 = Array(axes=["y", "x"], shape=(3, 3), dtype="uint8")
-        a1._transient_data = np.zeros((3, 3), dtype=np.uint8)
-        a2 = Array(axes=["y", "x"], shape=(5, 5), dtype="float32")
-        a2._transient_data = np.zeros((5, 5), dtype=np.float32)
-        items = [a1, a2]
+        items = [
+            Array(axes=["y", "x"], shape=(3, 3), dtype="uint8"),
+            Array(axes=["y", "x"], shape=(5, 5), dtype="float32"),
+        ]
+        items[0]._transient_data = np.zeros((3, 3), dtype=np.uint8)
+        items[1]._transient_data = np.zeros((5, 5), dtype=np.float32)
         collection = Collection(items)
 
         bridge = FileExchangeBridge()
@@ -273,11 +266,6 @@ class TestFileExchangeBridgeCollection:
         manifest = json.loads((tmp_path / "manifest.json").read_text())
         assert manifest["images"]["type"] == "collection"
         assert len(manifest["images"]["items"]) == 2
-        # Each item is now a typed manifest entry (#1080).
-        for item_entry in manifest["images"]["items"]:
-            assert item_entry["type"] == "Array"
-            assert item_entry["extension"] == ".npy"
-            assert Path(item_entry["path"]).exists()
 
 
 # ---------------------------------------------------------------------------

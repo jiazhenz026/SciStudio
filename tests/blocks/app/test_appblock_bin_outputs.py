@@ -82,7 +82,14 @@ class TestTypedReconstruction:
         )
         assert not isinstance(item, Artifact), "Pre-#1079 silent downgrade to Artifact must not occur for typed ports"
         # The collection's item_type tracks the actual constructed item.
-        assert coll.item_type is DataFrame
+        # In rollback-composition builds additional plugin loaders (for
+        # example LCMS ``PeakTable``) may be more specific than the core
+        # ``DataFrame`` loader for ``.csv`` while still satisfying the
+        # typed-reconstruction contract. The key guarantee is "typed
+        # DataFrame-family object, not Artifact", and the collection
+        # should mirror the actual constructed subtype.
+        assert issubclass(coll.item_type, DataFrame)
+        assert coll.item_type is type(item)
 
     def test_no_warning_emitted_for_typed_reconstruction(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
