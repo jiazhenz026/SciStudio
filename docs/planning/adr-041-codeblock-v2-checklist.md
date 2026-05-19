@@ -83,9 +83,9 @@ Tasks:
 
 Exit Criteria:
 
-- [~] Track A PR targets `track/adr-041/codeblock-v2`. Pending PR creation after changelog gate; branch is `feat/issue-1223/adr041-config-interpreter-provenance`.
-- [ ] Track A CI is green.
-- [~] Checklist rows updated with PR/test evidence. Test evidence recorded above; PR/CI evidence will be added after PR creation.
+- [x] Track A PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1231](https://github.com/zjzcpj/SciEasy/pull/1231).
+- [x] Track A CI is green. Evidence: PR #1231 checks passed on 2026-05-19.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR #1231 plus focused pytest/Ruff evidence recorded above.
 
 ### Track B - Exchange Manifest Helpers (Owner: I41b / #1224)
 
