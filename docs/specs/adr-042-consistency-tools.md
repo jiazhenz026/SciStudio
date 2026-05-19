@@ -37,6 +37,8 @@ governs:
     - scieasy.qa.schemas.signatures.ExpectedSignature
     - scieasy.qa.schemas.signatures.ExpectedModelField
     - scieasy.qa.schemas.signatures.ExpectedCliCommand
+    - scieasy.qa.audit.griffe_facts.extract_symbol_facts
+    - scieasy.qa.audit.griffe_facts.generate_registry
     - scieasy.qa.audit.doc_drift.classify_repo
     - scieasy.qa.audit.fact_drift.check_substitutions
     - scieasy.qa.audit.closure.check_bidirectional
@@ -48,6 +50,7 @@ governs:
     - src/scieasy/qa/audit/fact_drift.py
     - src/scieasy/qa/audit/closure.py
     - src/scieasy/qa/audit/signature_drift.py
+    - src/scieasy/qa/audit/griffe_facts.py
     - src/scieasy/qa/audit/full_audit.py
     - scripts/audit/generate_facts.py
     - docs/facts/generated.yaml
@@ -57,6 +60,7 @@ governs:
     - tests/qa/test_schemas_report.py
     - tests/qa/test_schemas_facts.py
     - tests/qa/test_schemas_signatures.py
+    - tests/qa/test_griffe_facts.py
     - tests/qa/test_audit_doc_drift.py
     - tests/qa/test_audit_fact_drift.py
     - tests/qa/test_audit_closure.py
@@ -68,6 +72,7 @@ tests:
   - tests/qa/test_schemas_report.py
   - tests/qa/test_schemas_facts.py
   - tests/qa/test_schemas_signatures.py
+  - tests/qa/test_griffe_facts.py
   - tests/qa/test_audit_doc_drift.py
   - tests/qa/test_audit_fact_drift.py
   - tests/qa/test_audit_closure.py
