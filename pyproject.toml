@@ -47,6 +47,7 @@ dev = [
     "mypy>=1.15",
     "types-PyYAML>=6.0",
     "import-linter>=2.0",
+    "griffe>=1.7",
     "pre-commit>=4.0",
 ]
 
