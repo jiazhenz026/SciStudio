@@ -189,9 +189,7 @@ def test_default_extension_only_matches_exact_core_type_name() -> None:
     assert _default_extension_for_obj(base_arr) == ".npy"
 
 
-def test_empty_collection_preserves_declared_item_type(
-    tmp_path: Path, registry_with_core_io: BlockRegistry
-) -> None:
+def test_empty_collection_preserves_declared_item_type(tmp_path: Path, registry_with_core_io: BlockRegistry) -> None:
     """Empty typed Collections should preserve their declared item_type."""
     empty = Collection([], item_type=DataFrame)
 

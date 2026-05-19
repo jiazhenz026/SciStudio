@@ -245,10 +245,8 @@ def _materialise_data_object(
     registry: Any | None,
 ) -> dict[str, Any]:
     """Materialise *obj* and return a manifest entry."""
-    from scieasy.engine.materialisation import materialise_to_file
-
-    extension = _default_extension_for_obj(obj)
-    out_path = materialise_to_file(
+    extension = _bridge_default_extension_for(obj, registry=registry)
+    out_path = _bridge_materialise_to_file(
         obj,
         dest_dir,
         extension=extension,
@@ -283,3 +281,109 @@ def _resolve_format_for(
     exts: dict[str, str] = getattr(saver_cls, "supported_extensions", {}) or {}
     normalised = {k.lower(): v for k, v in exts.items()}
     return normalised.get(extension.lower())
+
+
+def _get_registry(registry: Any | None):
+    """Return *registry* or build/scan a fresh :class:`BlockRegistry`."""
+    from scieasy.blocks.registry import BlockRegistry
+
+    if registry is not None:
+        return registry
+    reg = BlockRegistry()
+    reg.scan()
+    return reg
+
+
+def _bridge_default_extension_for(obj: Any, *, registry: Any | None) -> str | None:
+    """Return the bridge's chosen extension for *obj*.
+
+    Core types use a deterministic mapping. Plugin types fall back to the
+    first extension declared by the first matching saver.
+    """
+    preferred = _default_extension_for_obj(obj)
+    if preferred is not None:
+        return preferred
+
+    reg = _get_registry(registry)
+    savers = reg.find_io_blocks_for_type(type(obj), direction="output")
+    for saver_cls in savers:
+        exts: dict[str, str] = getattr(saver_cls, "supported_extensions", {}) or {}
+        if exts:
+            return next(iter(exts.keys()))
+    return None
+
+
+def _resolve_core_type_param(obj_or_type: Any) -> str | None:
+    """Return the SaveData ``core_type`` enum value for a core DataObject."""
+    core_type_names = {"Array", "DataFrame", "Series", "Text", "Artifact", "CompositeData"}
+    cls = obj_or_type if isinstance(obj_or_type, type) else type(obj_or_type)
+    for base in cls.__mro__:
+        if base.__name__ in core_type_names:
+            return base.__name__
+    return None
+
+
+def _try_mount_existing_path(obj: Any, dest: Path, extension: str) -> bool:
+    """Link existing on-disk storage into *dest* when extensions already match."""
+    ref = getattr(obj, "storage_ref", None)
+    if ref is None:
+        return False
+    src_path_raw = getattr(ref, "path", None)
+    if not src_path_raw:
+        return False
+
+    src_path = Path(str(src_path_raw))
+    if not src_path.exists():
+        return False
+
+    target_ext = extension.lower()
+    if src_path.suffix.lower() != target_ext:
+        return False
+
+    from scieasy.utils.fs import mount_pathlike
+
+    try:
+        mount_pathlike(src_path, dest)
+    except (OSError, FileExistsError):
+        return False
+    return True
+
+
+def _bridge_materialise_to_file(
+    obj: Any,
+    dest_dir: Path,
+    *,
+    extension: str | None,
+    filename_stem: str,
+    registry: Any | None,
+) -> Path:
+    """Materialise *obj* through the saver layer without importing engine code."""
+    from scieasy.blocks.base.config import BlockConfig
+
+    reg = _get_registry(registry)
+
+    if extension is None:
+        extension = _bridge_default_extension_for(obj, registry=reg)
+        if extension is None:
+            raise LookupError(f"bridge.prepare: no saver/default extension registered for {type(obj).__name__}.")
+    if not extension.startswith("."):
+        extension = "." + extension
+
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / f"{filename_stem}{extension}"
+
+    if _try_mount_existing_path(obj, dest, extension):
+        return dest
+
+    saver_cls = reg.find_saver(type(obj), extension)
+    if saver_cls is None:
+        raise LookupError(f"bridge.prepare: no saver matches {type(obj).__name__} for extension {extension!r}.")
+
+    params: dict[str, Any] = {"path": str(dest)}
+    core_type = _resolve_core_type_param(obj)
+    if core_type is not None:
+        params["core_type"] = core_type
+
+    saver = saver_cls()
+    saver.save(obj, BlockConfig(params=params))
+    return dest
