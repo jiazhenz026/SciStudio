@@ -185,11 +185,11 @@ Scope:
 
 Tasks:
 
-- [ ] Add `.R` execution through `Rscript` when available.
-- [ ] Add `.Rmd` rendered-document support where R Markdown tooling is available.
-- [ ] Add `.qmd` execution/rendering support through Quarto where available.
-- [ ] Add deterministic command construction and exchange-directory environment passing.
-- [ ] Add tests for missing executable diagnostics, command construction, output collection, and optional dependency skip behavior.
+- [x] Add `.R` execution through `Rscript` when available. Evidence: commit `81c0c6c9`; focused R/Quarto pytest passed.
+- [x] Add `.Rmd` rendered-document support where R Markdown tooling is available. Evidence: commit `81c0c6c9`; tests cover R Markdown command construction and missing `rmarkdown` dependency diagnostics.
+- [x] Add `.qmd` execution/rendering support through Quarto where available. Evidence: commit `81c0c6c9`; tests cover Quarto command construction and declared output folder collection.
+- [x] Add deterministic command construction and exchange-directory environment passing. Evidence: commit `81c0c6c9`; tests assert argv, cwd, and `SCIEASY_*` exchange environment values.
+- [x] Add tests for missing executable diagnostics, command construction, output collection, and optional dependency skip behavior. Evidence: `PYTHONPATH=C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41r\src python -m pytest tests/blocks/code/test_codeblock_execution.py tests/blocks/code/test_codeblock_r_quarto.py --timeout=30 --no-cov` passed with 14 tests and 1 optional Rscript skip; Ruff passed for touched Python files.
 
 Exit Criteria:
 
@@ -337,7 +337,7 @@ Exit Criteria:
 - [x] I41b dispatched for #1224. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41b`, branch `feat/issue-1224/adr041-exchange-manifest`, gate session `20260519-182539-adr-041-track-b-codeblock-v2-exchange-ma`.
 - [x] I41c dispatched for #1225. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41c`, branch `feat/issue-1225/adr041-codeblock-python-execution`, gate session `20260519-185434-adr-041-track-c-codeblock-v2-python-exec`, PR #1239; retargeted on 2026-05-19 from Python-only MVP to shared runtime integration plus Python backend.
 - [ ] I41n dispatched for #1235.
-- [ ] I41r dispatched for #1238.
+- [x] I41r dispatched for #1238. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41r`, branch `feat/issue-1238/adr041-r-quarto-runtime`, gate session `20260519-195014-adr-041-track-c3-r-and-quarto-runtime-su`, commit `81c0c6c9`.
 - [ ] I41s dispatched for #1237.
 - [ ] I41m dispatched for #1236.
 - [ ] I41d dispatched for #1226.
