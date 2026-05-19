@@ -66,9 +66,7 @@ def test_outside_project_script_path_is_rejected(tmp_path: Path) -> None:
 
 
 def test_legacy_migration_diagnostics_are_explicit() -> None:
-    diagnostics = legacy_migration_diagnostics(
-        {"mode": "inline", "script": "result = data", "entry_function": "run"}
-    )
+    diagnostics = legacy_migration_diagnostics({"mode": "inline", "script": "result = data", "entry_function": "run"})
 
     assert [diagnostic.legacy_mode for diagnostic in diagnostics] == ["inline", "inline"]
     assert all(diagnostic.severity == "error" for diagnostic in diagnostics)
