@@ -90,6 +90,13 @@ The implementation must preserve ADR-043's boundaries:
 - Metadata promises are expressed as typed `meta` fidelity, not as runtime
   lineage metadata.
 
+Important migration consequence: after ADR-043 hard package validity is
+implemented, the currently shipped packages are expected to fail the final
+published-package standard until they are migrated. They rely on legacy
+`supported_extensions` declarations rather than explicit `FormatCapability`
+records with stable capability IDs, loader/saver pairing rules, and metadata
+fidelity claims. This package migration fallout is tracked by issue #1204.
+
 ## 2. User Scenarios & Testing
 
 ### User Story 1 - Aggregate IOBlocks keep the palette small (Priority: P1)
@@ -258,6 +265,10 @@ Acceptance Scenarios:
   changing runtime truth locally.
 - FR-020: The implementation MUST NOT add extension support to DataObject
   classes.
+- FR-027: Hard ADR-043 package validity MUST treat compatibility-synthesized
+  capabilities as migration scaffolding only. Existing published packages that
+  still rely on `supported_extensions` MUST be reported as non-compliant until
+  migrated under issue #1204.
 
 ### Metadata Fidelity Requirements
 
@@ -316,6 +327,13 @@ Compatibility with existing `supported_extensions` should be implemented as a
 migration layer. New package code should use explicit `FormatCapability`
 records or SimpleLoader/SimpleSaver.
 
+This migration layer is not the final published-package compliance mechanism.
+When hard ADR-043 validation is enabled, the current in-repository packages
+under `packages/scieasy-blocks-*` should be assumed non-compliant until their
+IO declarations are audited and migrated. That migration is intentionally
+tracked separately in issue #1204 so the registry implementation can land with
+clear compatibility semantics instead of silently certifying legacy packages.
+
 ### 4.2 Affected Files
 
 | File or glob | Action | Rationale |
@@ -373,7 +391,10 @@ migration layer while leaving explicit models in place.
 
 The second risk is breaking existing blocks that only define
 `supported_extensions`. Mitigate this with compatibility synthesis and focused
-tests before package migrations.
+tests before package migrations. This mitigation keeps workflows runnable
+during the transition; it does not make current published packages compliant
+with the final ADR-043 package standard. Full package migration is tracked by
+issue #1204.
 
 The third risk is confusing users with too many format details. Mitigate this
 by rendering one aggregate block and only surfacing ambiguity or metadata-loss
@@ -574,6 +595,9 @@ def validate_io_boundary_capabilities(
 - AC-008: The frontend persists `capability_id` when user selection is needed.
 - AC-009: Existing `supported_extensions` blocks continue to work during the
   migration phase through synthesized compatibility capabilities.
+- AC-010: The implementation documents that current published packages become
+  non-compliant once hard ADR-043 package validity is enabled, and links that
+  migration work to issue #1204.
 
 ## 6. Open Questions
 
