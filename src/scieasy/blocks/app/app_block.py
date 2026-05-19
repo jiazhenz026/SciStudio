@@ -123,6 +123,8 @@ class AppBlock(Block):
                     "properties": {
                         "name": {"type": "string"},
                         "types": {"type": "array", "items": {"type": "string"}},
+                        "extension": {"type": "string"},
+                        "capability_id": {"type": "string"},
                     },
                 },
                 "default": [],
@@ -141,6 +143,7 @@ class AppBlock(Block):
                         "name": {"type": "string"},
                         "types": {"type": "array", "items": {"type": "string"}},
                         "extension": {"type": "string"},
+                        "capability_id": {"type": "string"},
                     },
                     "required": ["name", "extension"],
                 },
@@ -179,6 +182,22 @@ class AppBlock(Block):
             mapping[name] = _normalize_extension(entry.get("extension"))
         return mapping
 
+    def _output_port_capability_ids(self, config: BlockConfig) -> dict[str, str]:
+        """Return ``{port_name: capability_id}`` from configured output ports."""
+
+        configured = config.get("output_ports")
+        if not configured or not isinstance(configured, list):
+            return {}
+        mapping: dict[str, str] = {}
+        for entry in configured:
+            if not isinstance(entry, dict):
+                continue
+            name = str(entry.get("name", "")).strip()
+            capability_id = str(entry.get("capability_id", "")).strip()
+            if name and capability_id:
+                mapping[name] = capability_id
+        return mapping
+
     def _bin_outputs_by_extension(
         self,
         output_files: list[Path],
@@ -195,7 +214,7 @@ class AppBlock(Block):
           is otherwise ignored.
 
         Issue #1079 (ADR-028 §D8): per-file item construction now goes
-        through :func:`scieasy.engine.materialisation.reconstruct_from_file`
+        through :func:`scieasy.blocks.io.materialisation.reconstruct_from_file`
         with ``target_type`` set to the port's declared first
         ``accepted_types`` entry. This replaces the previous silent
         downgrade of every non-Artifact declared port type to
@@ -227,7 +246,7 @@ class AppBlock(Block):
         harnesses.
         """
         from scieasy.blocks.base.ports import ports_from_config_dicts
-        from scieasy.engine.materialisation import reconstruct_from_file
+        from scieasy.blocks.io.materialisation import reconstruct_from_file
 
         config_ports = config.get("output_ports")
         ports: list[OutputPort]
@@ -241,6 +260,7 @@ class AppBlock(Block):
             return {}
 
         port_extensions = self._output_port_extensions(config)
+        port_capability_ids = self._output_port_capability_ids(config)
         ext_to_port: dict[str, OutputPort] = {}
         for port in ports:
             ext = port_extensions.get(port.name, "")
@@ -297,7 +317,12 @@ class AppBlock(Block):
             #   - no loader + concrete non-Artifact target -> LookupError
             # We pass the normalised extension (with leading dot) so the
             # candidate list matches what BlockRegistry.find_loader sees.
-            item = reconstruct_from_file(path, target_type=target_type, extension=f".{suffix}")
+            item = reconstruct_from_file(
+                path,
+                target_type=target_type,
+                extension=f".{suffix}",
+                capability_id=port_capability_ids.get(target.name),
+            )
             grouped[target.name].append(item)
 
         for path in unmatched:
@@ -372,7 +397,11 @@ class AppBlock(Block):
                 unpacked_inputs[key] = value
 
         # Step 1: Prepare inputs.
-        bridge.prepare(unpacked_inputs, exchange_dir)
+        bridge.prepare(
+            unpacked_inputs,
+            exchange_dir,
+            input_ports=config.get("input_ports"),
+        )
 
         # Issue #70: Validate command to prevent shell injection.
         try:
