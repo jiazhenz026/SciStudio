@@ -5,6 +5,8 @@ from pathlib import Path
 from scieasy.qa.audit.frontmatter_lint import lint_file
 from scieasy.qa.schemas.report import Severity
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 
 def _write(path: Path, body: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -135,3 +137,53 @@ language_source: en
     findings = lint_file(path)
 
     assert any(f.rule_id == "frontmatter.spec-first-h2" for f in findings)
+
+
+def test_spec_frontmatter_requires_at_least_one_owner(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path / "docs" / "specs" / "example.md",
+        """---
+spec_id: example
+title: "Example Spec"
+status: Draft
+feature_branch: feat/example
+created: 2026-05-19
+input: "manual"
+owners: []
+related_adrs: [42]
+related_specs: []
+scope:
+  in: ["x"]
+  out: []
+governs:
+  modules: []
+  contracts: []
+  entry_points: []
+  files: ["docs/specs/example.md"]
+  excludes: []
+tests: []
+acceptance_source: manual
+language_source: en
+---
+
+# Example Spec
+
+## 1. Change Summary
+""",
+    )
+
+    findings = lint_file(path)
+
+    assert findings[0].severity is Severity.ERROR
+    assert findings[0].rule_id == "frontmatter.validation"
+    assert "owners" in findings[0].message
+
+
+def test_adr042_governance_documents_pass_frontmatter_lint() -> None:
+    paths = [
+        REPO_ROOT / "docs" / "adr" / "ADR-042.md",
+        REPO_ROOT / "docs" / "specs" / "adr-042-consistency-tools.md",
+    ]
+
+    for path in paths:
+        assert lint_file(path) == []

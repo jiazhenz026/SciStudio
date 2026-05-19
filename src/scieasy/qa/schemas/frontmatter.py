@@ -142,7 +142,7 @@ class SpecFrontmatter(BaseModel):
     feature_branch: str
     created: date
     input: str
-    owners: list[str]
+    owners: list[str] = Field(min_length=1)
     related_adrs: list[int]
     related_specs: list[str]
     scope: SpecScope
@@ -150,3 +150,18 @@ class SpecFrontmatter(BaseModel):
     tests: list[str]
     acceptance_source: Literal["speckit", "issue", "adr", "manual"]
     language_source: Literal["en"] = "en"
+
+    @field_validator("owners")
+    @classmethod
+    def _owners_non_empty(cls, values: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for raw in values:
+            value = raw.strip()
+            if not value:
+                raise ValueError("spec owners must be non-empty strings")
+            if value in seen:
+                raise ValueError(f"duplicate spec owner: {value}")
+            seen.add(value)
+            cleaned.append(value)
+        return cleaned
