@@ -8,8 +8,39 @@ in T-TRK-007 per ADR-028 Addendum 1 §C5 / §C9. The concrete core saver
 
 from __future__ import annotations
 
+from scieasy.blocks.io.capabilities import (
+    CapabilityDirection,
+    CapabilityValidationError,
+    FormatCapability,
+    InvalidExtensionError,
+    InvalidFormatCapabilityError,
+    InvalidMetadataFidelityError,
+    MetadataFidelity,
+    MetadataFidelityLevel,
+    SimpleIODeclarationError,
+    normalize_extension,
+    normalize_extensions,
+)
 from scieasy.blocks.io.io_block import IOBlock
 from scieasy.blocks.io.loaders.load_data import LoadData
 from scieasy.blocks.io.savers.save_data import SaveData
+from scieasy.blocks.io.simple_io import SimpleLoader, SimpleSaver
 
-__all__ = ["IOBlock", "LoadData", "SaveData"]
+__all__ = [
+    "CapabilityDirection",
+    "CapabilityValidationError",
+    "FormatCapability",
+    "IOBlock",
+    "InvalidExtensionError",
+    "InvalidFormatCapabilityError",
+    "InvalidMetadataFidelityError",
+    "LoadData",
+    "MetadataFidelity",
+    "MetadataFidelityLevel",
+    "SaveData",
+    "SimpleIODeclarationError",
+    "SimpleLoader",
+    "SimpleSaver",
+    "normalize_extension",
+    "normalize_extensions",
+]
