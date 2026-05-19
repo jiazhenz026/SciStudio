@@ -36,7 +36,7 @@ def test_closure_accepts_module_governance(tmp_path: Path) -> None:
         """---
 spec_id: example
 title: "Example Spec"
-status: Draft
+status: Implemented
 feature_branch: feat/example
 created: 2026-05-19
 input: "manual"
@@ -77,6 +77,47 @@ language_source: en
             )
         ],
     )
+
+    report = check_bidirectional(tmp_path, facts)
+
+    assert report.status == AuditStatus.PASS
+
+
+def test_closure_skips_draft_future_governance(tmp_path: Path) -> None:
+    spec = tmp_path / "docs" / "specs" / "example.md"
+    spec.parent.mkdir(parents=True, exist_ok=True)
+    spec.write_text(
+        """---
+spec_id: example
+title: "Example Spec"
+status: Draft
+feature_branch: feat/example
+created: 2026-05-19
+input: "manual"
+owners: ["@owner"]
+related_adrs: [42]
+related_specs: []
+scope:
+  in: ["x"]
+  out: []
+governs:
+  modules: ["sample"]
+  contracts: []
+  entry_points: []
+  files: ["missing.py"]
+  excludes: []
+tests: []
+acceptance_source: manual
+language_source: en
+---
+
+# Example Spec
+
+## 1. Change Summary
+""",
+        encoding="utf-8",
+    )
+    facts = FactsRegistry(source_sha="abc123")
 
     report = check_bidirectional(tmp_path, facts)
 

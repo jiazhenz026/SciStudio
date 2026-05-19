@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import ast
 import re
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Literal
 
-from scieasy.qa.audit._util import load_spec_frontmatter, normalise_path
+from scieasy.qa.audit._util import git_tracked_relative_paths, is_tracked_path, load_spec_frontmatter, normalise_path
 from scieasy.qa.schemas.facts import Fact
 from scieasy.qa.schemas.signatures import ExpectedParameter, ExpectedSignature
 
@@ -66,12 +68,31 @@ def _parameters(args: ast.arguments) -> list[ExpectedParameter]:
     return parameters
 
 
+def _is_property(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    return any(isinstance(decorator, ast.Name) and decorator.id == "property" for decorator in node.decorator_list)
+
+
+def _qualify_subject(subject: str, contracts_by_leaf: dict[str, str]) -> str:
+    parts = subject.split(".")
+    leaf = parts[-1]
+    qualified = contracts_by_leaf.get(leaf)
+    if qualified is None:
+        return subject
+    if len(parts) == 1:
+        return qualified
+    return ".".join([*qualified.split(".")[:-1], *parts])
+
+
 def _signature_from_function(
-    node: ast.FunctionDef | ast.AsyncFunctionDef, source_path: str, line: int
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    source_path: str,
+    line: int,
+    contracts_by_leaf: dict[str, str],
 ) -> ExpectedSignature:
+    kind: Literal["function", "attribute"] = "attribute" if _is_property(node) else "function"
     return ExpectedSignature(
-        subject=node.name,
-        kind="function",
+        subject=_qualify_subject(node.name, contracts_by_leaf),
+        kind=kind,
         parameters=_parameters(node.args),
         return_annotation=_annotation(node.returns),
         source_path=source_path,
@@ -86,6 +107,7 @@ def _signature_facts_from_code(
     source_line: int,
     source_sha: str,
     owner: str | None,
+    contracts_by_leaf: dict[str, str],
 ) -> list[Fact]:
     try:
         tree = ast.parse(code)
@@ -97,7 +119,7 @@ def _signature_facts_from_code(
         if isinstance(node, ast.ClassDef):
             signatures.append(
                 ExpectedSignature(
-                    subject=node.name,
+                    subject=_qualify_subject(node.name, contracts_by_leaf),
                     kind="class",
                     source_path=source_path,
                     line=source_line + node.lineno - 1,
@@ -105,11 +127,11 @@ def _signature_facts_from_code(
             )
             for child in node.body:
                 if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
-                    signature = _signature_from_function(child, source_path, source_line)
-                    signature.subject = f"{node.name}.{child.name}"
+                    signature = _signature_from_function(child, source_path, source_line, contracts_by_leaf)
+                    signature.subject = f"{_qualify_subject(node.name, contracts_by_leaf)}.{child.name}"
                     signatures.append(signature)
         elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            signatures.append(_signature_from_function(node, source_path, source_line))
+            signatures.append(_signature_from_function(node, source_path, source_line, contracts_by_leaf))
 
     return [
         Fact(
@@ -144,8 +166,15 @@ def _signature_section_body(body: str) -> str:
     return "\n".join(lines[start:end])
 
 
+def _unique_contracts_by_leaf(contracts: list[str]) -> dict[str, str]:
+    grouped: dict[str, list[str]] = {}
+    for contract in contracts:
+        grouped.setdefault(contract.rsplit(".", 1)[-1], []).append(contract)
+    return {leaf: values[0] for leaf, values in grouped.items() if len(values) == 1}
+
+
 def extract_signature_contracts(
-    spec_paths: list[Path],
+    spec_paths: Sequence[Path],
     *,
     repo_root: Path,
     source_sha: str,
@@ -153,10 +182,16 @@ def extract_signature_contracts(
     """Extract expected signature facts from spec code blocks."""
 
     facts: list[Fact] = []
+    tracked_paths = git_tracked_relative_paths(repo_root)
     for path in sorted(spec_paths):
+        if not is_tracked_path(path, repo_root, tracked_paths):
+            continue
         spec, body, findings = load_spec_frontmatter(path)
         if spec is None or findings:
             continue
+        if spec.status not in {"Planned", "Implemented"}:
+            continue
+        contracts_by_leaf = _unique_contracts_by_leaf(spec.governs.contracts)
         section = _signature_section_body(body)
         if not section:
             continue
@@ -179,6 +214,7 @@ def extract_signature_contracts(
                         source_line=fence_start,
                         source_sha=source_sha,
                         owner=spec.owners[0] if spec.owners else None,
+                        contracts_by_leaf=contracts_by_leaf,
                     )
                 )
                 in_fence = False

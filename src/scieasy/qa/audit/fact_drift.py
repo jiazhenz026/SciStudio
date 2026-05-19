@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from pathlib import Path
 
-from scieasy.qa.audit._util import normalise_path
+from scieasy.qa.audit._util import git_tracked_relative_paths, is_tracked_path, normalise_path
 from scieasy.qa.audit.facts import DEFAULT_FACTS_PATH, load_facts
 from scieasy.qa.schemas.facts import FactsRegistry
 from scieasy.qa.schemas.report import AuditReport, AuditStatus, DriftClass, Finding, Severity
@@ -13,17 +14,20 @@ from scieasy.qa.schemas.report import AuditReport, AuditStatus, DriftClass, Find
 _SUBSTITUTION_RE = re.compile(r"\{\{\s*facts(?:\[['\"](?P<bracket>[^'\"]+)['\"]\]|\.(?P<dot>[A-Za-z0-9_.:-]+))\s*\}\}")
 
 
-def _target_docs(repo_root: Path, docs: list[Path] | None) -> list[Path]:
+def _target_docs(repo_root: Path, docs: Sequence[Path] | None) -> list[Path]:
     if docs is not None:
-        return docs
-    return sorted((repo_root / "docs").rglob("*.md"))
+        return list(docs)
+    tracked_paths = git_tracked_relative_paths(repo_root)
+    return sorted(
+        path for path in (repo_root / "docs").rglob("*.md") if is_tracked_path(path, repo_root, tracked_paths)
+    )
 
 
 def check_substitutions(
     repo_root: Path,
     facts: FactsRegistry,
     *,
-    docs: list[Path] | None = None,
+    docs: Sequence[Path] | None = None,
 ) -> AuditReport:
     """Validate fact substitutions against the current facts registry."""
 

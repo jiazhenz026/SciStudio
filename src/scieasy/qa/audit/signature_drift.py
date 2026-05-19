@@ -98,7 +98,7 @@ def _compare_expected_signature(expected_fact: Fact, symbols: dict[str, Fact]) -
                 symbol=actual.subject,
             )
         ]
-    if expected.kind == "class":
+    if expected.kind in {"class", "attribute"}:
         return []
 
     findings: list[Finding] = []

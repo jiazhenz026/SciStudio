@@ -13,7 +13,7 @@ def _write_spec(path: Path, *, contract: str, governed_file: str) -> None:
         f"""---
 spec_id: example
 title: "Example Spec"
-status: Draft
+status: Implemented
 feature_branch: feat/example
 created: 2026-05-19
 input: "manual"
@@ -76,5 +76,16 @@ def test_doc_drift_accepts_resolved_governed_contract_and_file(tmp_path: Path) -
     )
 
     report = classify_repo(tmp_path, facts)
+
+    assert report.status == AuditStatus.PASS
+
+
+def test_doc_drift_skips_draft_future_governance(tmp_path: Path) -> None:
+    spec = tmp_path / "docs" / "specs" / "example.md"
+    _write_spec(spec, contract="sample.future", governed_file="missing.py")
+    text = spec.read_text(encoding="utf-8").replace("status: Implemented", "status: Draft")
+    spec.write_text(text, encoding="utf-8")
+
+    report = classify_repo(tmp_path, FactsRegistry(source_sha="abc123"))
 
     assert report.status == AuditStatus.PASS

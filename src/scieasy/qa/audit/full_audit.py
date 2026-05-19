@@ -100,8 +100,9 @@ def _facts_report(
             summary={"facts_path": _display_path(path, repo_root)},
         )
 
-    findings = check_generated_facts(repo_root, facts_path=facts_path) if check_stale else []
-    status = AuditStatus.FAIL if any(finding.severity == Severity.ERROR for finding in findings) else AuditStatus.PASS
+    stale_report = check_generated_facts(repo_root, facts_path=facts_path) if check_stale else None
+    findings = stale_report.findings if stale_report is not None else []
+    status = AuditStatus.FAIL if stale_report is not None and stale_report.blocks_merge else AuditStatus.PASS
     return AuditReport(
         tool="generate_facts",
         status=status,

@@ -9,26 +9,26 @@ It is intended for human review; drift checks consume the YAML facts directly.
 
 - Status: `fail`
 - Blocks merge: `True`
-- Source hash: `6580a613a4d24a00caa2c2414e028764924b63f40ed712c7c51d3b7e600c6797`
+- Source hash: `960470d6e25392db06bdc28a5239845dd21eda3af11cc1273a5ea59e577601f0`
 - Facts file: `docs/facts/generated.yaml`
-- Total facts: `1765`
-- Symbol facts: `1656`
+- Total facts: `1720`
+- Symbol facts: `1689`
 
 ## 3. Fact Inventory
 
 | Fact kind | Count |
 |---|---:|
-| `expected-signature` | 109 |
-| `symbol` | 1656 |
+| `expected-signature` | 31 |
+| `symbol` | 1689 |
 
 ## 4. Symbol Inventory
 
 | Symbol kind | Count |
 |---|---:|
-| `attribute` | 797 |
-| `class` | 186 |
-| `function` | 503 |
-| `module` | 170 |
+| `attribute` | 821 |
+| `class` | 190 |
+| `function` | 506 |
+| `module` | 172 |
 
 ## 5. Largest Symbol Areas
 
@@ -37,8 +37,8 @@ It is intended for human review; drift checks consume the YAML facts directly.
 | `scieasy.blocks` | 421 |
 | `scieasy.api` | 391 |
 | `scieasy.core` | 335 |
+| `scieasy.qa` | 214 |
 | `scieasy.engine` | 198 |
-| `scieasy.qa` | 181 |
 | `scieasy.workflow` | 58 |
 | `scieasy.cli` | 27 |
 | `scieasy.utils` | 26 |
@@ -48,7 +48,7 @@ It is intended for human review; drift checks consume the YAML facts directly.
 
 ## 6. Findings
 
-Total error-severity findings: `1824`
+Total error-severity findings: `1513`
 
 - `doc-drift.invalid-frontmatter` at `docs/adr/ADR-031.md:1`: missing YAML frontmatter
 - `doc-drift.invalid-frontmatter` at `docs/adr/ADR-032.md:1`: missing YAML frontmatter
@@ -156,110 +156,6 @@ date
     For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
 - `doc-drift.invalid-frontmatter` at `docs/specs/phase11-lcms-block-spec.md:1`: missing YAML frontmatter
 - `doc-drift.invalid-frontmatter` at `docs/specs/phase11-srs-block-spec.md:1`: missing YAML frontmatter
-- `doc-drift.phantom-module` at `docs/adr/ADR-042.md`: governed module does not resolve to generated symbol facts: scieasy.qa.docs
-- `doc-drift.phantom-module` at `docs/adr/ADR-042.md`: governed module does not resolve to generated symbol facts: scieasy.qa.governance
-- `doc-drift.phantom-module` at `docs/adr/ADR-042.md`: governed module does not resolve to generated symbol facts: scieasy.qa.code_score
-- `doc-drift.phantom-module` at `docs/adr/ADR-042.md`: governed module does not resolve to generated symbol facts: scieasy.qa.test_quality
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.schemas.maintainers.Maintainers
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.schemas.signatures.ExpectedModelField
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.schemas.signatures.ExpectedCliCommand
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.audit.auto_generated_lint.check
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.audit.doc_length_lint.check
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.audit.skill_pointer_sync.check
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.audit.complete_artifacts.check
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.audit.codemod_lint.check
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.mod_guard.check
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.weakened_ci_check.verify_no_weakening
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.human_bypass_guard.check
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.local_gate.GateSession
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.local_gate.TaskKind
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.local_gate.record_stage
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.local_gate.check_pre_commit
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.local_gate.check_commit_msg
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.issue_link.resolve_or_create
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.docs_landing.check
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.persona_policy.check
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.pr_merge_guard.check
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.core_change_guard.check
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.code_score.score_module
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.code_score.score_changed_modules
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.test_quality.ast_lint.check_test_file
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.test_quality.test_first_check.verify_ordering
-- `doc-drift.phantom-contract` at `docs/adr/ADR-042.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.test_quality.mutation_runner.run_targeted
-- `doc-drift.phantom-file` at `docs/adr/ADR-042.md`: governed file path or glob does not resolve: MAINTAINERS
-- `doc-drift.phantom-file` at `docs/adr/ADR-042.md`: governed file path or glob does not resolve: pyrightconfig.json
-- `doc-drift.phantom-file` at `docs/adr/ADR-042.md`: governed file path or glob does not resolve: .github/workflows/docs-build.yml
-- `doc-drift.phantom-file` at `docs/adr/ADR-042.md`: governed file path or glob does not resolve: .agents/**
-- `doc-drift.phantom-file` at `docs/adr/ADR-042.md`: governed file path or glob does not resolve: .codex/**
-- `doc-drift.phantom-file` at `docs/adr/ADR-042.md`: governed file path or glob does not resolve: .gemini/**
-- `doc-drift.phantom-file` at `docs/adr/ADR-042.md`: governed file path or glob does not resolve: docs/sphinx/conf.py
-- `doc-drift.phantom-file` at `docs/adr/ADR-042.md`: governed file path or glob does not resolve: docs/contributing/**
-- `doc-drift.phantom-file` at `docs/adr/ADR-042.md`: governed file path or glob does not resolve: docs/user/**
-- `doc-drift.phantom-file` at `docs/adr/ADR-042.md`: governed file path or glob does not resolve: docs/prod-agent/**
-- `doc-drift.phantom-file` at `docs/adr/ADR-042.md`: governed file path or glob does not resolve: docs/doc-guide/**
-- `doc-drift.phantom-module` at `docs/specs/adr-042-ai-governance-tools.md`: governed module does not resolve to generated symbol facts: scieasy.qa.governance
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.local_gate.GateSession
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.local_gate.TaskKind
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.local_gate.record_stage
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.local_gate.check_pre_commit
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.local_gate.check_commit_msg
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.issue_link.resolve_or_create
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.docs_landing.check
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.persona_policy.check
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.human_bypass_guard.check
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.pr_merge_guard.check
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.core_change_guard.check
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.mod_guard.check
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.governance.weakened_ci_check.verify_no_weakening
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.audit.complete_artifacts.check
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.audit.codemod_lint.check
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.audit.trailer_lint.run
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.audit.committer_enforce.check
-- `doc-drift.phantom-file` at `docs/specs/adr-042-ai-governance-tools.md`: governed file path or glob does not resolve: src/scieasy/qa/audit/complete_artifacts.py
-- `doc-drift.phantom-file` at `docs/specs/adr-042-ai-governance-tools.md`: governed file path or glob does not resolve: src/scieasy/qa/audit/codemod_lint.py
-- `doc-drift.phantom-file` at `docs/specs/adr-042-ai-governance-tools.md`: governed file path or glob does not resolve: src/scieasy/qa/audit/trailer_lint.py
-- `doc-drift.phantom-file` at `docs/specs/adr-042-ai-governance-tools.md`: governed file path or glob does not resolve: src/scieasy/qa/audit/committer_enforce.py
-- `doc-drift.phantom-file` at `docs/specs/adr-042-ai-governance-tools.md`: governed file path or glob does not resolve: scripts/audit/instructions_loaded_audit.py
-- `doc-drift.phantom-file` at `docs/specs/adr-042-ai-governance-tools.md`: governed file path or glob does not resolve: .agents/**
-- `doc-drift.phantom-file` at `docs/specs/adr-042-ai-governance-tools.md`: governed file path or glob does not resolve: .codex/**
-- `doc-drift.phantom-file` at `docs/specs/adr-042-ai-governance-tools.md`: governed file path or glob does not resolve: .gemini/**
-- `doc-drift.phantom-file` at `docs/specs/adr-042-ai-governance-tools.md`: governed file path or glob does not resolve: docs/contributing/workflows/**
-- `doc-drift.phantom-module` at `docs/specs/adr-042-code-quality-tools.md`: governed module does not resolve to generated symbol facts: scieasy.qa.code_score
-- `doc-drift.phantom-module` at `docs/specs/adr-042-code-quality-tools.md`: governed module does not resolve to generated symbol facts: scieasy.qa.test_quality
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-code-quality-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.code_score.score_module
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-code-quality-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.code_score.score_changed_modules
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-code-quality-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.test_quality.ast_lint.check_test_file
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-code-quality-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.test_quality.test_first_check.verify_ordering
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-code-quality-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.test_quality.mutation_runner.run_targeted
-- `doc-drift.phantom-file` at `docs/specs/adr-042-code-quality-tools.md`: governed file path or glob does not resolve: src/scieasy/qa/code_score/**
-- `doc-drift.phantom-file` at `docs/specs/adr-042-code-quality-tools.md`: governed file path or glob does not resolve: tests/qa/test_code_score.py
-- `doc-drift.phantom-file` at `docs/specs/adr-042-code-quality-tools.md`: governed file path or glob does not resolve: tests/qa/test_test_quality_ast.py
-- `doc-drift.phantom-file` at `docs/specs/adr-042-code-quality-tools.md`: governed file path or glob does not resolve: tests/qa/test_test_quality_test_first.py
-- `doc-drift.phantom-file` at `docs/specs/adr-042-code-quality-tools.md`: governed file path or glob does not resolve: tests/qa/test_mutation_runner.py
-- `doc-drift.phantom-file` at `docs/specs/adr-042-code-quality-tools.md`: governed file path or glob does not resolve: docs/audit/code-score/**
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-consistency-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.schemas.maintainers.Maintainers
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-consistency-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.schemas.signatures.ExpectedModelField
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-consistency-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.schemas.signatures.ExpectedCliCommand
-- `doc-drift.phantom-file` at `docs/specs/adr-042-consistency-tools.md`: governed file path or glob does not resolve: tests/qa/test_schemas_frontmatter.py
-- `doc-drift.phantom-file` at `docs/specs/adr-042-consistency-tools.md`: governed file path or glob does not resolve: tests/qa/test_schemas_maintainers.py
-- `doc-drift.phantom-file` at `docs/specs/adr-042-consistency-tools.md`: governed file path or glob does not resolve: tests/qa/test_schemas_facts.py
-- `doc-drift.phantom-module` at `docs/specs/adr-042-documentation-tools.md`: governed module does not resolve to generated symbol facts: scieasy.qa.docs
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-documentation-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.audit.doc_length_lint.check
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-documentation-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.audit.auto_generated_lint.check
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-documentation-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.audit.skill_pointer_sync.check
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-documentation-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.docs.llms_txt.generate
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-documentation-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.docs.entry_point_catalog.generate
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-documentation-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.docs.cli_reference.generate
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-documentation-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.docs.openapi_reference.generate
-- `doc-drift.phantom-contract` at `docs/specs/adr-042-documentation-tools.md`: governed contract does not resolve to generated symbol facts: scieasy.qa.docs.schema_reference.generate
-- `doc-drift.phantom-file` at `docs/specs/adr-042-documentation-tools.md`: governed file path or glob does not resolve: src/scieasy/qa/audit/doc_length_lint.py
-- `doc-drift.phantom-file` at `docs/specs/adr-042-documentation-tools.md`: governed file path or glob does not resolve: src/scieasy/qa/audit/auto_generated_lint.py
-- `doc-drift.phantom-file` at `docs/specs/adr-042-documentation-tools.md`: governed file path or glob does not resolve: src/scieasy/qa/audit/skill_pointer_sync.py
-- `doc-drift.phantom-file` at `docs/specs/adr-042-documentation-tools.md`: governed file path or glob does not resolve: docs/user/reference/**
-- `doc-drift.phantom-file` at `docs/specs/adr-042-documentation-tools.md`: governed file path or glob does not resolve: docs/user/llms.txt
-- `doc-drift.phantom-file` at `docs/specs/adr-042-documentation-tools.md`: governed file path or glob does not resolve: docs/contributing/workflows/**
-- `doc-drift.phantom-file` at `docs/specs/adr-042-documentation-tools.md`: governed file path or glob does not resolve: docs/doc-guide/**
-- `doc-drift.phantom-file` at `docs/specs/adr-042-documentation-tools.md`: governed file path or glob does not resolve: docs/sphinx/conf.py
 - `closure.invalid-frontmatter` at `docs/adr/ADR-031.md:1`: missing YAML frontmatter
 - `closure.invalid-frontmatter` at `docs/adr/ADR-032.md:1`: missing YAML frontmatter
 - `closure.invalid-frontmatter` at `docs/adr/ADR-033.md:1`: missing YAML frontmatter
@@ -366,110 +262,6 @@ date
     For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
 - `closure.invalid-frontmatter` at `docs/specs/phase11-lcms-block-spec.md:1`: missing YAML frontmatter
 - `closure.invalid-frontmatter` at `docs/specs/phase11-srs-block-spec.md:1`: missing YAML frontmatter
-- `closure.unresolved-module-claim` at `docs/adr/ADR-042.md`: governed module claim does not resolve: scieasy.qa.docs
-- `closure.unresolved-module-claim` at `docs/adr/ADR-042.md`: governed module claim does not resolve: scieasy.qa.governance
-- `closure.unresolved-module-claim` at `docs/adr/ADR-042.md`: governed module claim does not resolve: scieasy.qa.code_score
-- `closure.unresolved-module-claim` at `docs/adr/ADR-042.md`: governed module claim does not resolve: scieasy.qa.test_quality
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.schemas.maintainers.Maintainers
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.schemas.signatures.ExpectedModelField
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.schemas.signatures.ExpectedCliCommand
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.audit.auto_generated_lint.check
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.audit.doc_length_lint.check
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.audit.skill_pointer_sync.check
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.audit.complete_artifacts.check
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.audit.codemod_lint.check
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.governance.mod_guard.check
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.governance.weakened_ci_check.verify_no_weakening
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.governance.human_bypass_guard.check
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.governance.local_gate.GateSession
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.governance.local_gate.TaskKind
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.governance.local_gate.record_stage
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.governance.local_gate.check_pre_commit
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.governance.local_gate.check_commit_msg
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.governance.issue_link.resolve_or_create
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.governance.docs_landing.check
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.governance.persona_policy.check
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.governance.pr_merge_guard.check
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.governance.core_change_guard.check
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.code_score.score_module
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.code_score.score_changed_modules
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.test_quality.ast_lint.check_test_file
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.test_quality.test_first_check.verify_ordering
-- `closure.unresolved-contract-claim` at `docs/adr/ADR-042.md`: governed contract claim does not resolve: scieasy.qa.test_quality.mutation_runner.run_targeted
-- `closure.unresolved-file-claim` at `docs/adr/ADR-042.md`: governed file claim does not resolve: MAINTAINERS
-- `closure.unresolved-file-claim` at `docs/adr/ADR-042.md`: governed file claim does not resolve: pyrightconfig.json
-- `closure.unresolved-file-claim` at `docs/adr/ADR-042.md`: governed file claim does not resolve: .github/workflows/docs-build.yml
-- `closure.unresolved-file-claim` at `docs/adr/ADR-042.md`: governed file claim does not resolve: .agents/**
-- `closure.unresolved-file-claim` at `docs/adr/ADR-042.md`: governed file claim does not resolve: .codex/**
-- `closure.unresolved-file-claim` at `docs/adr/ADR-042.md`: governed file claim does not resolve: .gemini/**
-- `closure.unresolved-file-claim` at `docs/adr/ADR-042.md`: governed file claim does not resolve: docs/sphinx/conf.py
-- `closure.unresolved-file-claim` at `docs/adr/ADR-042.md`: governed file claim does not resolve: docs/contributing/**
-- `closure.unresolved-file-claim` at `docs/adr/ADR-042.md`: governed file claim does not resolve: docs/user/**
-- `closure.unresolved-file-claim` at `docs/adr/ADR-042.md`: governed file claim does not resolve: docs/prod-agent/**
-- `closure.unresolved-file-claim` at `docs/adr/ADR-042.md`: governed file claim does not resolve: docs/doc-guide/**
-- `closure.unresolved-module-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed module claim does not resolve: scieasy.qa.governance
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract claim does not resolve: scieasy.qa.governance.local_gate.GateSession
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract claim does not resolve: scieasy.qa.governance.local_gate.TaskKind
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract claim does not resolve: scieasy.qa.governance.local_gate.record_stage
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract claim does not resolve: scieasy.qa.governance.local_gate.check_pre_commit
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract claim does not resolve: scieasy.qa.governance.local_gate.check_commit_msg
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract claim does not resolve: scieasy.qa.governance.issue_link.resolve_or_create
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract claim does not resolve: scieasy.qa.governance.docs_landing.check
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract claim does not resolve: scieasy.qa.governance.persona_policy.check
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract claim does not resolve: scieasy.qa.governance.human_bypass_guard.check
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract claim does not resolve: scieasy.qa.governance.pr_merge_guard.check
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract claim does not resolve: scieasy.qa.governance.core_change_guard.check
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract claim does not resolve: scieasy.qa.governance.mod_guard.check
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract claim does not resolve: scieasy.qa.governance.weakened_ci_check.verify_no_weakening
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract claim does not resolve: scieasy.qa.audit.complete_artifacts.check
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract claim does not resolve: scieasy.qa.audit.codemod_lint.check
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract claim does not resolve: scieasy.qa.audit.trailer_lint.run
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed contract claim does not resolve: scieasy.qa.audit.committer_enforce.check
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed file claim does not resolve: src/scieasy/qa/audit/complete_artifacts.py
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed file claim does not resolve: src/scieasy/qa/audit/codemod_lint.py
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed file claim does not resolve: src/scieasy/qa/audit/trailer_lint.py
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed file claim does not resolve: src/scieasy/qa/audit/committer_enforce.py
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed file claim does not resolve: scripts/audit/instructions_loaded_audit.py
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed file claim does not resolve: .agents/**
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed file claim does not resolve: .codex/**
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed file claim does not resolve: .gemini/**
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-ai-governance-tools.md`: governed file claim does not resolve: docs/contributing/workflows/**
-- `closure.unresolved-module-claim` at `docs/specs/adr-042-code-quality-tools.md`: governed module claim does not resolve: scieasy.qa.code_score
-- `closure.unresolved-module-claim` at `docs/specs/adr-042-code-quality-tools.md`: governed module claim does not resolve: scieasy.qa.test_quality
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-code-quality-tools.md`: governed contract claim does not resolve: scieasy.qa.code_score.score_module
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-code-quality-tools.md`: governed contract claim does not resolve: scieasy.qa.code_score.score_changed_modules
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-code-quality-tools.md`: governed contract claim does not resolve: scieasy.qa.test_quality.ast_lint.check_test_file
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-code-quality-tools.md`: governed contract claim does not resolve: scieasy.qa.test_quality.test_first_check.verify_ordering
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-code-quality-tools.md`: governed contract claim does not resolve: scieasy.qa.test_quality.mutation_runner.run_targeted
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-code-quality-tools.md`: governed file claim does not resolve: src/scieasy/qa/code_score/**
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-code-quality-tools.md`: governed file claim does not resolve: tests/qa/test_code_score.py
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-code-quality-tools.md`: governed file claim does not resolve: tests/qa/test_test_quality_ast.py
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-code-quality-tools.md`: governed file claim does not resolve: tests/qa/test_test_quality_test_first.py
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-code-quality-tools.md`: governed file claim does not resolve: tests/qa/test_mutation_runner.py
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-code-quality-tools.md`: governed file claim does not resolve: docs/audit/code-score/**
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-consistency-tools.md`: governed contract claim does not resolve: scieasy.qa.schemas.maintainers.Maintainers
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-consistency-tools.md`: governed contract claim does not resolve: scieasy.qa.schemas.signatures.ExpectedModelField
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-consistency-tools.md`: governed contract claim does not resolve: scieasy.qa.schemas.signatures.ExpectedCliCommand
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-consistency-tools.md`: governed file claim does not resolve: tests/qa/test_schemas_frontmatter.py
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-consistency-tools.md`: governed file claim does not resolve: tests/qa/test_schemas_maintainers.py
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-consistency-tools.md`: governed file claim does not resolve: tests/qa/test_schemas_facts.py
-- `closure.unresolved-module-claim` at `docs/specs/adr-042-documentation-tools.md`: governed module claim does not resolve: scieasy.qa.docs
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-documentation-tools.md`: governed contract claim does not resolve: scieasy.qa.audit.doc_length_lint.check
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-documentation-tools.md`: governed contract claim does not resolve: scieasy.qa.audit.auto_generated_lint.check
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-documentation-tools.md`: governed contract claim does not resolve: scieasy.qa.audit.skill_pointer_sync.check
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-documentation-tools.md`: governed contract claim does not resolve: scieasy.qa.docs.llms_txt.generate
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-documentation-tools.md`: governed contract claim does not resolve: scieasy.qa.docs.entry_point_catalog.generate
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-documentation-tools.md`: governed contract claim does not resolve: scieasy.qa.docs.cli_reference.generate
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-documentation-tools.md`: governed contract claim does not resolve: scieasy.qa.docs.openapi_reference.generate
-- `closure.unresolved-contract-claim` at `docs/specs/adr-042-documentation-tools.md`: governed contract claim does not resolve: scieasy.qa.docs.schema_reference.generate
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-documentation-tools.md`: governed file claim does not resolve: src/scieasy/qa/audit/doc_length_lint.py
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-documentation-tools.md`: governed file claim does not resolve: src/scieasy/qa/audit/auto_generated_lint.py
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-documentation-tools.md`: governed file claim does not resolve: src/scieasy/qa/audit/skill_pointer_sync.py
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-documentation-tools.md`: governed file claim does not resolve: docs/user/reference/**
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-documentation-tools.md`: governed file claim does not resolve: docs/user/llms.txt
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-documentation-tools.md`: governed file claim does not resolve: docs/contributing/workflows/**
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-documentation-tools.md`: governed file claim does not resolve: docs/doc-guide/**
-- `closure.unresolved-file-claim` at `docs/specs/adr-042-documentation-tools.md`: governed file claim does not resolve: docs/sphinx/conf.py
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.agent_provisioning
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.agent_provisioning.claude_agents_md
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.agent_provisioning.claude_agents_md.write_claude_agents_md
@@ -1945,116 +1737,13 @@ date
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.workflow.serializer.save_yaml
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.workflow.validator
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.workflow.validator.validate_workflow
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:27`: expected symbol is missing: GateScope
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:32`: expected symbol is missing: CheckResult
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:40`: expected symbol is missing: DocsLandingRecord
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:47`: expected symbol is missing: IssueRecord
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:54`: expected symbol is missing: GateSession
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:71`: expected symbol is missing: ActorPermission
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:76`: expected symbol is missing: AuthorizationSignal
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:91`: expected symbol is missing: PullRequestMetadata
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:107`: expected symbol is missing: start_session
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:119`: expected symbol is missing: load_session
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:126`: expected symbol is missing: save_session
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:128`: expected symbol is missing: record_stage
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:135`: expected symbol is missing: staged_files
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:137`: expected symbol is missing: check_pre_commit
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:144`: expected symbol is missing: check_commit_msg
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:154`: expected symbol is missing: IssueQuery
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:162`: expected symbol is missing: IssueClient
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:163`: expected symbol is missing: IssueClient.search_issues
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:165`: expected symbol is missing: IssueClient.create_issue
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:168`: expected symbol is missing: resolve_or_create
-- `signature-drift.parameters-mismatch` at `docs/specs/adr-042-ai-governance-tools.md:175`: parameter shape differs for scieasy.qa.audit.frontmatter_lint.check; expected [('repo_root', 'Path', True), ('session', 'GateSession', True), ('staged', 'Sequence[Path] | None', False)], actual [('repo_root', 'Path | None', False)]
-- `signature-drift.return-mismatch` at `docs/specs/adr-042-ai-governance-tools.md:175`: return annotation differs for scieasy.qa.audit.frontmatter_lint.check; expected AuditReport, actual list[Finding]
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:182`: expected symbol is missing: check_persona_policy
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:198`: expected symbol is missing: check_human_bypass
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:204`: expected symbol is missing: check_pr_merge
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:211`: expected symbol is missing: check_core_change
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:225`: expected symbol is missing: check_governance_modification
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:233`: expected symbol is missing: verify_no_weakening
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:254`: expected symbol is missing: check_complete_artifacts
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:262`: expected symbol is missing: check_codemod_lint
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:270`: expected symbol is missing: run_trailer_lint
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:277`: expected symbol is missing: check_committer_enforce
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-ai-governance-tools.md:284`: expected symbol is missing: audit_loaded_instructions
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:26`: expected symbol is missing: ToolSignal
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:36`: expected symbol is missing: CodeScoreFinding
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:47`: expected symbol is missing: AIAdvisoryScore
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:57`: expected symbol is missing: ModuleScore
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:65`: expected symbol is missing: CodeScoreReport
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:83`: expected symbol is missing: ToolReportBundle
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:88`: expected symbol is missing: collect_tool_reports
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:95`: expected symbol is missing: changed_modules
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:102`: expected symbol is missing: score_module
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:112`: expected symbol is missing: score_changed_modules
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:125`: expected symbol is missing: score_module_health
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:132`: expected symbol is missing: write_report
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:138`: expected symbol is missing: AIAdvisoryInput
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:145`: expected symbol is missing: run_ai_advisory
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:172`: expected symbol is missing: TestQualityFinding
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:181`: expected symbol is missing: MutationTarget
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:187`: expected symbol is missing: MutationReport
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:201`: expected symbol is missing: check_test_file
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:207`: expected symbol is missing: check_test_paths
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:213`: expected symbol is missing: verify_ordering
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-code-quality-tools.md:221`: expected symbol is missing: run_targeted
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-consistency-tools.md:50`: expected symbol is missing: AuditFinding
-- `signature-drift.kind-mismatch` at `docs/specs/adr-042-consistency-tools.md:75`: expected function but implementation fact is attribute
-- `signature-drift.return-mismatch` at `docs/specs/adr-042-consistency-tools.md:77`: return annotation differs for scieasy.qa.schemas.report.AuditReport.error_findings; expected list[AuditFinding], actual list[Finding]
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-consistency-tools.md:113`: expected symbol is missing: ParameterSpec
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-consistency-tools.md:136`: expected symbol is missing: ExpectedModelField
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-consistency-tools.md:146`: expected symbol is missing: ExpectedCliCommand
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-consistency-tools.md:217`: expected symbol is missing: MaintainerRule
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-consistency-tools.md:224`: expected symbol is missing: Maintainers
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-consistency-tools.md:232`: expected symbol is missing: load_adr_frontmatter
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-consistency-tools.md:234`: expected symbol is missing: load_spec_frontmatter
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-consistency-tools.md:236`: expected symbol is missing: load_maintainers
-- `signature-drift.parameters-mismatch` at `docs/specs/adr-042-consistency-tools.md:240`: parameter shape differs for scieasy.qa.audit.facts.generate_facts; expected [('repo_root', 'Path', True), ('source_sha', 'str | None', False), ('include_observed', 'bool', False), ('include_signature_contracts', 'bool', False)], actual [('repo_root', 'Path', True), ('source_sha', 'str | None', False), ('include_observed', 'bool', False), ('include_signature_contracts', 'bool', False), ('package', 'str', False), ('generated_at', 'datetime', False)]
-- `signature-drift.parameters-mismatch` at `docs/specs/adr-042-consistency-tools.md:250`: parameter shape differs for scieasy.qa.audit.facts.check_generated_facts; expected [('repo_root', 'Path', True), ('facts_path', 'Path', False), ('update', 'bool', False)], actual [('repo_root', 'Path', True), ('facts_path', 'Path', False), ('update', 'bool', False), ('package', 'str', False), ('source_sha', 'str | None', False), ('generated_at', 'datetime', False)]
-- `signature-drift.return-mismatch` at `docs/specs/adr-042-consistency-tools.md:250`: return annotation differs for scieasy.qa.audit.facts.check_generated_facts; expected AuditReport, actual list[Finding]
-- `signature-drift.parameters-mismatch` at `docs/specs/adr-042-consistency-tools.md:261`: parameter shape differs for scieasy.qa.audit.fact_drift.check_substitutions; expected [('repo_root', 'Path', True), ('facts', 'FactsRegistry', True), ('docs', 'Sequence[Path] | None', False)], actual [('repo_root', 'Path', True), ('facts', 'FactsRegistry', True), ('docs', 'list[Path] | None', False)]
-- `signature-drift.parameters-mismatch` at `docs/specs/adr-042-consistency-tools.md:268`: parameter shape differs for scieasy.qa.audit.doc_drift.classify_repo; expected [('repo_root', 'Path', True), ('facts', 'FactsRegistry', True), ('docs', 'Sequence[Path] | None', False)], actual [('repo_root', 'Path', True), ('facts', 'FactsRegistry', True), ('docs', 'list[Path] | None', False)]
-- `signature-drift.parameters-mismatch` at `docs/specs/adr-042-consistency-tools.md:275`: parameter shape differs for scieasy.qa.audit.closure.check_bidirectional; expected [('repo_root', 'Path', True), ('facts', 'FactsRegistry', True), ('maintainers', 'Maintainers | None', False)], actual [('repo_root', 'Path', True), ('facts', 'FactsRegistry', True), ('maintainers', 'object | None', False)]
-- `signature-drift.parameters-mismatch` at `docs/specs/adr-042-consistency-tools.md:282`: parameter shape differs for scieasy.qa.audit.signature_contracts.extract_signature_contracts; expected [('spec_paths', 'Sequence[Path]', True), ('repo_root', 'Path', True)], actual [('spec_paths', 'list[Path]', True), ('repo_root', 'Path', True), ('source_sha', 'str', True)]
-- `signature-drift.ambiguous-symbol` at `docs/specs/adr-042-consistency-tools.md:296`: expected symbol name resolves to multiple implementation symbols: run
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-documentation-tools.md:28`: expected symbol is missing: MarkdownHeading
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-documentation-tools.md:35`: expected symbol is missing: MarkdownDocument
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-documentation-tools.md:44`: expected symbol is missing: DocLengthProfile
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-documentation-tools.md:51`: expected symbol is missing: GeneratedDocManifestEntry
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-documentation-tools.md:60`: expected symbol is missing: GeneratedDocManifest
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-documentation-tools.md:65`: expected symbol is missing: GeneratorResult
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-documentation-tools.md:77`: expected symbol is missing: parse_markdown_document
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-documentation-tools.md:79`: expected symbol is missing: parse_markdown_text
-- `signature-drift.parameters-mismatch` at `docs/specs/adr-042-documentation-tools.md:86`: parameter shape differs for scieasy.qa.audit.frontmatter_lint.lint_file; expected [('path', 'Path', True), ('repo_root', 'Path', True), ('expected_kind', 'DocumentKind | None', False)], actual [('path', 'Path', True)]
-- `signature-drift.return-mismatch` at `docs/specs/adr-042-documentation-tools.md:86`: return annotation differs for scieasy.qa.audit.frontmatter_lint.lint_file; expected AuditReport, actual list[Finding]
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-documentation-tools.md:93`: expected symbol is missing: lint_paths
-- `signature-drift.parameters-mismatch` at `docs/specs/adr-042-documentation-tools.md:108`: parameter shape differs for scieasy.qa.audit.frontmatter_lint.check; expected [('paths', 'Sequence[Path] | None', False), ('repo_root', 'Path', True), ('profiles', 'Sequence[DocLengthProfile] | None', False)], actual [('repo_root', 'Path | None', False)]
-- `signature-drift.return-mismatch` at `docs/specs/adr-042-documentation-tools.md:108`: return annotation differs for scieasy.qa.audit.frontmatter_lint.check; expected AuditReport, actual list[Finding]
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-documentation-tools.md:115`: expected symbol is missing: load_manifest
-- `signature-drift.parameters-mismatch` at `docs/specs/adr-042-documentation-tools.md:117`: parameter shape differs for scieasy.blocks.ai.run_dir.RunDir.write_manifest; expected [('manifest', 'GeneratedDocManifest', True), ('path', 'Path', True)], actual [('block_name', 'str', True), ('block_type', 'str', True), ('user_prompt', 'str', True), ('inputs', 'dict[str, list[Any]]', True), ('outputs', 'list[OutputPort]', True), ('deadline_iso', 'str', True), ('output_paths', 'dict[str, str] | None', False)]
-- `signature-drift.return-mismatch` at `docs/specs/adr-042-documentation-tools.md:117`: return annotation differs for scieasy.blocks.ai.run_dir.RunDir.write_manifest; expected None, actual Path
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-documentation-tools.md:119`: expected symbol is missing: check_generated
-- `signature-drift.parameters-mismatch` at `docs/specs/adr-042-documentation-tools.md:132`: parameter shape differs for scieasy.qa.audit.frontmatter_lint.check; expected [('repo_root', 'Path', True), ('manifest_path', 'Path', False), ('update', 'bool', False), ('generators', 'Sequence[str] | None', False)], actual [('repo_root', 'Path | None', False)]
-- `signature-drift.return-mismatch` at `docs/specs/adr-042-documentation-tools.md:132`: return annotation differs for scieasy.qa.audit.frontmatter_lint.check; expected AuditReport, actual list[Finding]
-- `signature-drift.ambiguous-symbol` at `docs/specs/adr-042-documentation-tools.md:145`: expected symbol name resolves to multiple implementation symbols: generate
-- `signature-drift.ambiguous-symbol` at `docs/specs/adr-042-documentation-tools.md:153`: expected symbol name resolves to multiple implementation symbols: generate
-- `signature-drift.ambiguous-symbol` at `docs/specs/adr-042-documentation-tools.md:162`: expected symbol name resolves to multiple implementation symbols: generate
-- `signature-drift.ambiguous-symbol` at `docs/specs/adr-042-documentation-tools.md:171`: expected symbol name resolves to multiple implementation symbols: generate
-- `signature-drift.ambiguous-symbol` at `docs/specs/adr-042-documentation-tools.md:180`: expected symbol name resolves to multiple implementation symbols: generate
-- `signature-drift.ambiguous-symbol` at `docs/specs/adr-042-documentation-tools.md:189`: expected symbol name resolves to multiple implementation symbols: generate
-- `signature-drift.ambiguous-symbol` at `docs/specs/adr-042-documentation-tools.md:197`: expected symbol name resolves to multiple implementation symbols: generate
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-documentation-tools.md:207`: expected symbol is missing: SkillPointer
-- `signature-drift.missing-symbol` at `docs/specs/adr-042-documentation-tools.md:215`: expected symbol is missing: discover_skill_pointers
-- `signature-drift.parameters-mismatch` at `docs/specs/adr-042-documentation-tools.md:226`: parameter shape differs for scieasy.qa.audit.frontmatter_lint.check; expected [('repo_root', 'Path', True), ('runtime_roots', 'Sequence[Path] | None', False)], actual [('repo_root', 'Path | None', False)]
-- `signature-drift.return-mismatch` at `docs/specs/adr-042-documentation-tools.md:226`: return annotation differs for scieasy.qa.audit.frontmatter_lint.check; expected AuditReport, actual list[Finding]
 
 ## 7. Child Reports
 
 | Tool | Status | Errors | Summary |
 |---|---|---:|---|
-| `generate_facts` | `pass` | 0 | facts_path=docs/facts/generated.yaml, total_facts=1765, symbol_facts=1656 |
+| `generate_facts` | `pass` | 0 | facts_path=docs/facts/generated.yaml, total_facts=1720, symbol_facts=1689 |
 | `fact_drift` | `pass` | 0 | docs_checked=90, substitutions_checked=0 |
-| `doc_drift` | `fail` | 123 | governed_docs_checked=5, modules_checked=15, contracts_checked=95, files_checked=81 |
-| `closure` | `fail` | 1598 | governed_docs_checked=5, governed_modules=7, governed_contracts=51, symbols_checked=1656 |
-| `signature_drift` | `fail` | 103 | expected_signatures_checked=109, symbols_available=1656 |
+| `doc_drift` | `fail` | 19 | governed_docs_checked=5, modules_checked=5, contracts_checked=50, files_checked=39 |
+| `closure` | `fail` | 1494 | governed_docs_checked=5, governed_modules=3, governed_contracts=27, symbols_checked=1689 |
+| `signature_drift` | `pass` | 0 | expected_signatures_checked=31, symbols_available=1689 |

@@ -5,7 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from scieasy.qa.audit._util import load_adr_frontmatter, load_spec_frontmatter, normalise_path
+from scieasy.qa.audit._util import (
+    git_tracked_relative_paths,
+    is_tracked_path,
+    load_adr_frontmatter,
+    load_spec_frontmatter,
+    normalise_path,
+)
 from scieasy.qa.schemas.frontmatter import ADRFrontmatter, SpecFrontmatter
 from scieasy.qa.schemas.report import Finding
 
@@ -26,7 +32,10 @@ def load_governed_documents(repo_root: Path) -> tuple[list[GovernedDocument], li
 
     docs: list[GovernedDocument] = []
     findings: list[Finding] = []
+    tracked_paths = git_tracked_relative_paths(repo_root)
     for path in sorted((repo_root / "docs" / "adr").glob("ADR-*.md")):
+        if not is_tracked_path(path, repo_root, tracked_paths):
+            continue
         adr_frontmatter, _body, load_findings = load_adr_frontmatter(path)
         if adr_frontmatter is None:
             findings.extend(load_findings)
@@ -41,6 +50,8 @@ def load_governed_documents(repo_root: Path) -> tuple[list[GovernedDocument], li
             )
         )
     for path in sorted((repo_root / "docs" / "specs").glob("*.md")):
+        if not is_tracked_path(path, repo_root, tracked_paths):
+            continue
         spec_frontmatter, _body, load_findings = load_spec_frontmatter(path)
         if spec_frontmatter is None:
             findings.extend(load_findings)

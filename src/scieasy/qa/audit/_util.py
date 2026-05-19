@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,7 @@ import yaml
 from pydantic import ValidationError
 
 from scieasy.qa.schemas.frontmatter import ADRFrontmatter, SpecFrontmatter
+from scieasy.qa.schemas.maintainers import Maintainers
 from scieasy.qa.schemas.report import Finding, Severity
 
 
@@ -16,6 +18,34 @@ def normalise_path(path: Path | str) -> str:
     """Return a repository-style slash-separated path string."""
 
     return str(path).replace("\\", "/")
+
+
+def git_tracked_relative_paths(repo_root: Path) -> set[str] | None:
+    """Return git-indexed repo paths, or ``None`` outside a git worktree."""
+
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "-z"],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=False,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return {item.decode("utf-8").replace("\\", "/") for item in result.stdout.split(b"\0") if item}
+
+
+def is_tracked_path(path: Path, repo_root: Path, tracked_paths: set[str] | None) -> bool:
+    """Return true when ``path`` should participate in committed-state audits."""
+
+    if tracked_paths is None:
+        return True
+    try:
+        relative = normalise_path(path.resolve().relative_to(repo_root.resolve()))
+    except ValueError:
+        return False
+    return relative in tracked_paths
 
 
 def parse_frontmatter_block(path: Path) -> tuple[str | None, str]:
@@ -132,3 +162,9 @@ def load_spec_frontmatter(path: Path) -> tuple[SpecFrontmatter | None, str, list
                 )
             ],
         )
+
+
+def load_maintainers(path: Path) -> Maintainers:
+    """Load and validate a MAINTAINERS ownership registry."""
+
+    return Maintainers.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))

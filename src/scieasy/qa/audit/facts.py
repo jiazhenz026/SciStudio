@@ -10,19 +10,28 @@ from typing import Any
 import yaml
 from pydantic import ValidationError
 
-from scieasy.qa.audit._util import normalise_path
+from scieasy.qa.audit._util import git_tracked_relative_paths, normalise_path
 from scieasy.qa.audit.griffe_facts import generate_registry
 from scieasy.qa.audit.signature_contracts import extract_signature_contracts
 from scieasy.qa.schemas.facts import FactsRegistry
-from scieasy.qa.schemas.report import Finding, Severity
+from scieasy.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
 DEFAULT_FACTS_PATH = Path("docs/facts/generated.yaml")
 DEFAULT_GENERATED_AT = datetime(1970, 1, 1, tzinfo=UTC)
 
 
-def _hash_tree(digest: Any, root: Path, repo_root: Path, pattern: str = "**/*") -> None:
+def _hash_tree(
+    digest: Any,
+    root: Path,
+    repo_root: Path,
+    pattern: str = "**/*",
+    *,
+    tracked_paths: set[str] | None = None,
+) -> None:
     for path in sorted(candidate for candidate in root.glob(pattern) if candidate.is_file()):
         relative = path.relative_to(repo_root).as_posix()
+        if tracked_paths is not None and relative not in tracked_paths:
+            continue
         digest.update(relative.encode("utf-8"))
         digest.update(b"\0")
         digest.update(path.read_bytes())
@@ -33,6 +42,7 @@ def _source_tree_sha(repo_root: Path, package: str) -> str:
     """Return a stable content hash for fact-producing source inputs."""
 
     digest = hashlib.sha256()
+    tracked_paths = git_tracked_relative_paths(repo_root)
     for root, pattern in [
         (repo_root / "src" / package.replace(".", "/"), "**/*.py"),
         (repo_root / "docs" / "adr", "ADR-*.md"),
@@ -40,7 +50,7 @@ def _source_tree_sha(repo_root: Path, package: str) -> str:
         (repo_root / "scripts" / "audit", "*.py"),
     ]:
         if root.exists():
-            _hash_tree(digest, root, repo_root, pattern)
+            _hash_tree(digest, root, repo_root, pattern, tracked_paths=tracked_paths)
     return digest.hexdigest()
 
 
@@ -113,21 +123,29 @@ def check_generated_facts(
     package: str = "scieasy",
     source_sha: str | None = None,
     generated_at: datetime = DEFAULT_GENERATED_AT,
-) -> list[Finding]:
+) -> AuditReport:
     """Check whether the committed facts registry matches generated output."""
 
     expected = generate_facts(repo_root, package=package, source_sha=source_sha, generated_at=generated_at)
     expected_text = facts_to_yaml(expected)
     path = facts_path if facts_path.is_absolute() else repo_root / facts_path
+    findings: list[Finding] = []
 
     if update:
         write_facts(expected, path)
-        return []
+        return AuditReport(
+            tool="generate_facts",
+            status=AuditStatus.PASS,
+            generated_at=generated_at,
+            source_sha=expected.source_sha,
+            findings=[],
+            summary={"facts_path": normalise_path(path), "updated": True},
+        )
 
     try:
         current_text = path.read_text(encoding="utf-8")
     except OSError as exc:
-        return [
+        findings = [
             Finding(
                 rule_id="facts.generated-missing",
                 severity=Severity.ERROR,
@@ -136,11 +154,19 @@ def check_generated_facts(
                 message=f"generated facts registry is missing or unreadable: {exc}",
             )
         ]
+        return AuditReport(
+            tool="generate_facts",
+            status=AuditStatus.FAIL,
+            generated_at=generated_at,
+            source_sha=expected.source_sha,
+            findings=findings,
+            summary={"facts_path": normalise_path(path)},
+        )
 
     try:
         FactsRegistry.model_validate(yaml.safe_load(current_text))
     except (ValidationError, yaml.YAMLError) as exc:
-        return [
+        findings = [
             Finding(
                 rule_id="facts.generated-invalid",
                 severity=Severity.ERROR,
@@ -149,9 +175,17 @@ def check_generated_facts(
                 message=f"generated facts registry is invalid: {exc}",
             )
         ]
+        return AuditReport(
+            tool="generate_facts",
+            status=AuditStatus.FAIL,
+            generated_at=generated_at,
+            source_sha=expected.source_sha,
+            findings=findings,
+            summary={"facts_path": normalise_path(path)},
+        )
 
     if current_text != expected_text:
-        return [
+        findings = [
             Finding(
                 rule_id="facts.generated-stale",
                 severity=Severity.ERROR,
@@ -160,4 +194,11 @@ def check_generated_facts(
                 message="generated facts registry is stale; run scripts/audit/generate_facts.py --write",
             )
         ]
-    return []
+    return AuditReport(
+        tool="generate_facts",
+        status=AuditStatus.FAIL if findings else AuditStatus.PASS,
+        generated_at=generated_at,
+        source_sha=expected.source_sha,
+        findings=findings,
+        summary={"facts_path": normalise_path(path), "updated": False},
+    )

@@ -36,7 +36,7 @@ class AuditStatus(StrEnum):
     SKIPPED = "skipped"
 
 
-class Finding(BaseModel):
+class AuditFinding(BaseModel):
     """A single machine-readable governance finding."""
 
     model_config = ConfigDict(extra="forbid")
@@ -53,6 +53,9 @@ class Finding(BaseModel):
     related_findings: list[str] = Field(default_factory=list)
 
 
+Finding = AuditFinding
+
+
 class AuditReport(BaseModel):
     """Shared report envelope for ADR-042 audit tools."""
 
@@ -62,7 +65,7 @@ class AuditReport(BaseModel):
     status: AuditStatus
     generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     source_sha: str
-    findings: list[Finding] = Field(default_factory=list)
+    findings: list[AuditFinding] = Field(default_factory=list)
     summary: Mapping[str, Any] = Field(default_factory=dict)
     child_reports: list[AuditReport] = Field(default_factory=list)
 
@@ -76,7 +79,7 @@ class AuditReport(BaseModel):
             return True
         return any(child.blocks_merge for child in self.child_reports)
 
-    def error_findings(self) -> list[Finding]:
+    def error_findings(self) -> list[AuditFinding]:
         """Return all error-severity findings, including child reports."""
 
         errors = [finding for finding in self.findings if finding.severity == Severity.ERROR]

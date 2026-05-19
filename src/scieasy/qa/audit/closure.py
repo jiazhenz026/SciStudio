@@ -7,11 +7,18 @@ from pathlib import Path
 from scieasy.qa.audit.governed import display_path, governed_file_matches, load_governed_documents
 from scieasy.qa.schemas.facts import FactsRegistry
 from scieasy.qa.schemas.frontmatter import ADRFrontmatter, GovernedSurfaces, SpecFrontmatter
+from scieasy.qa.schemas.maintainers import Maintainers
 from scieasy.qa.schemas.report import AuditReport, AuditStatus, DriftClass, Finding, Severity
 
 
 def _governs(document: ADRFrontmatter | SpecFrontmatter) -> GovernedSurfaces:
     return document.governs
+
+
+def _active_governance(document: ADRFrontmatter | SpecFrontmatter) -> bool:
+    if isinstance(document, SpecFrontmatter):
+        return document.status in {"Planned", "Implemented"}
+    return True
 
 
 def _symbol_facts(facts: FactsRegistry) -> dict[str, str]:
@@ -30,7 +37,7 @@ def check_bidirectional(
     repo_root: Path,
     facts: FactsRegistry,
     *,
-    maintainers: object | None = None,
+    maintainers: Maintainers | None = None,
 ) -> AuditReport:
     """Verify governed claims resolve and public symbols have governance coverage."""
 
@@ -56,6 +63,8 @@ def check_bidirectional(
         )
 
     for document in governed_docs:
+        if not _active_governance(document.frontmatter):
+            continue
         governs = _governs(document.frontmatter)
         doc_path = display_path(document.path, root)
         modules.update(governs.modules)

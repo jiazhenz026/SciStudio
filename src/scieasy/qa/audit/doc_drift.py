@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 from scieasy.qa.audit.governed import display_path, governed_file_matches, load_governed_documents
@@ -26,11 +27,17 @@ def _governs(document: ADRFrontmatter | SpecFrontmatter) -> GovernedSurfaces:
     return document.governs
 
 
+def _active_governance(document: ADRFrontmatter | SpecFrontmatter) -> bool:
+    if isinstance(document, SpecFrontmatter):
+        return document.status in {"Planned", "Implemented"}
+    return True
+
+
 def classify_repo(
     repo_root: Path,
     facts: FactsRegistry,
     *,
-    docs: list[Path] | None = None,
+    docs: Sequence[Path] | None = None,
 ) -> AuditReport:
     """Check structured ADR/spec governed claims against repository facts."""
 
@@ -55,6 +62,8 @@ def classify_repo(
     checked_contracts = 0
     checked_files = 0
     for document in governed_docs:
+        if not _active_governance(document.frontmatter):
+            continue
         governs = _governs(document.frontmatter)
         doc_path = display_path(document.path, root)
         for module in governs.modules:

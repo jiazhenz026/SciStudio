@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from scieasy.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
+from scieasy.qa.schemas.report import AuditFinding, AuditReport, AuditStatus, Finding, Severity
 
 
 def test_audit_report_blocks_merge_on_error_finding() -> None:
@@ -20,6 +20,7 @@ def test_audit_report_blocks_merge_on_error_finding() -> None:
 
     assert report.blocks_merge
     assert [finding.rule_id for finding in report.error_findings()] == ["example.error"]
+    assert isinstance(report.error_findings()[0], AuditFinding)
 
 
 def test_audit_report_collects_child_error_findings() -> None:

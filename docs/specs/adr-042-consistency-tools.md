@@ -1,7 +1,7 @@
 ---
 spec_id: adr-042-consistency-tools
 title: "ADR-042 Code Documentation Consistency Tooling Specification"
-status: Draft
+status: Implemented
 feature_branch: docs/adr-042-repository-governance-v2
 created: 2026-05-18
 input: "Manual owner request to specify ADR-042 custom code-documentation cross-check tools."
@@ -31,9 +31,12 @@ governs:
   contracts:
     - scieasy.qa.schemas.frontmatter.ADRFrontmatter
     - scieasy.qa.schemas.frontmatter.SpecFrontmatter
+    - scieasy.qa.schemas.maintainers.MaintainerRule
     - scieasy.qa.schemas.maintainers.Maintainers
     - scieasy.qa.schemas.report.AuditReport
+    - scieasy.qa.schemas.report.AuditFinding
     - scieasy.qa.schemas.facts.FactsRegistry
+    - scieasy.qa.schemas.signatures.ParameterSpec
     - scieasy.qa.schemas.signatures.ExpectedSignature
     - scieasy.qa.schemas.signatures.ExpectedModelField
     - scieasy.qa.schemas.signatures.ExpectedCliCommand
@@ -51,6 +54,7 @@ governs:
     - scieasy.qa.audit.full_audit.render_markdown
   files:
     - src/scieasy/qa/schemas/**
+    - src/scieasy/qa/audit/loaders.py
     - src/scieasy/qa/audit/doc_drift.py
     - src/scieasy/qa/audit/fact_drift.py
     - src/scieasy/qa/audit/closure.py
@@ -63,10 +67,8 @@ governs:
     - scripts/audit/generate_facts.py
     - docs/facts/generated.yaml
     - docs/audit/**
-    - tests/qa/test_schemas_frontmatter.py
     - tests/qa/test_schemas_maintainers.py
     - tests/qa/test_schemas_report.py
-    - tests/qa/test_schemas_facts.py
     - tests/qa/test_schemas_signatures.py
     - tests/qa/test_griffe_facts.py
     - tests/qa/test_generate_facts_cli.py
@@ -76,10 +78,8 @@ governs:
     - tests/qa/test_audit_signature_drift.py
     - tests/qa/test_audit_full_audit.py
 tests:
-  - tests/qa/test_schemas_frontmatter.py
   - tests/qa/test_schemas_maintainers.py
   - tests/qa/test_schemas_report.py
-  - tests/qa/test_schemas_facts.py
   - tests/qa/test_schemas_signatures.py
   - tests/qa/test_griffe_facts.py
   - tests/qa/test_generate_facts_cli.py
@@ -570,6 +570,8 @@ def generate_facts(
     source_sha: str | None = None,
     include_observed: bool = False,
     include_signature_contracts: bool = True,
+    package: str = "scieasy",
+    generated_at: datetime = DEFAULT_GENERATED_AT,
 ) -> FactsRegistry: ...
 
 def write_facts(registry: FactsRegistry, path: Path) -> None: ...
@@ -579,6 +581,9 @@ def check_generated_facts(
     *,
     facts_path: Path = Path("docs/facts/generated.yaml"),
     update: bool = False,
+    package: str = "scieasy",
+    source_sha: str | None = None,
+    generated_at: datetime = DEFAULT_GENERATED_AT,
 ) -> AuditReport: ...
 ```
 
@@ -610,6 +615,7 @@ def extract_signature_contracts(
     spec_paths: Sequence[Path],
     *,
     repo_root: Path,
+    source_sha: str,
 ) -> list[Fact]: ...
 
 def check_expected_signatures(
@@ -624,6 +630,7 @@ def run(
     repo_root: Path,
     *,
     facts_path: Path = Path("docs/facts/generated.yaml"),
+    check_stale: bool = True,
     include_doc_drift: bool = True,
     include_fact_drift: bool = True,
     include_closure: bool = True,

@@ -15,7 +15,6 @@ from scieasy.qa.audit.facts import (
     generate_facts,
     write_facts,
 )
-from scieasy.qa.schemas.report import Severity
 
 
 def _parse_datetime(value: str) -> datetime:
@@ -56,16 +55,16 @@ def main() -> int:
             return 0
 
         if args.check:
-            findings = check_generated_facts(
+            report = check_generated_facts(
                 args.repo_root,
                 facts_path=facts_path,
                 package=args.package,
                 source_sha=args.source_sha,
                 generated_at=generated_at,
             )
-            for finding in findings:
+            for finding in report.findings:
                 print(f"{finding.severity}: {finding.file}: {finding.message}", file=sys.stderr)
-            return 1 if any(finding.severity == Severity.ERROR for finding in findings) else 0
+            return 1 if report.blocks_merge else 0
 
         registry = generate_facts(
             args.repo_root,
