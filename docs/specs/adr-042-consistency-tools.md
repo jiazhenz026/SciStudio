@@ -651,6 +651,7 @@ CLI exit codes are uniform across ADR-042 audit tools:
 - SC-006: `signature_drift` detects missing symbols, parameter mismatches,
   return mismatches, Pydantic field mismatches, missing CLI commands, and
   exit-code mismatches from signature-level spec facts.
+
 ## 6. Assumptions
 
 - Initial drift detection will focus on structured claims and explicit
