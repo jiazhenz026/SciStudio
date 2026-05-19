@@ -43,7 +43,7 @@ class FileExchangeBridge:
 
         ADR-028 §D8 / #1080: :class:`DataObject` inputs (including items
         inside a :class:`Collection`) are materialised to real files via
-        :func:`scieasy.engine.materialisation.materialise_to_file` —
+        :func:`scieasy.blocks.io.materialisation.materialise_to_file` —
         which routes through :meth:`BlockRegistry.find_saver` and
         prefers a :func:`scieasy.utils.fs.mount_pathlike` pass-through
         when ``storage_ref.path`` already matches the target extension.
@@ -414,7 +414,7 @@ def _bridge_materialise_to_file(
 ) -> Path:
     """Materialise *obj* through the canonical engine helper."""
 
-    from scieasy.engine.materialisation import materialise_to_file
+    from scieasy.blocks.io.materialisation import materialise_to_file
 
     return materialise_to_file(
         obj,

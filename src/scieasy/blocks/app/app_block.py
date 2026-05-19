@@ -214,7 +214,7 @@ class AppBlock(Block):
           is otherwise ignored.
 
         Issue #1079 (ADR-028 §D8): per-file item construction now goes
-        through :func:`scieasy.engine.materialisation.reconstruct_from_file`
+        through :func:`scieasy.blocks.io.materialisation.reconstruct_from_file`
         with ``target_type`` set to the port's declared first
         ``accepted_types`` entry. This replaces the previous silent
         downgrade of every non-Artifact declared port type to
@@ -246,7 +246,7 @@ class AppBlock(Block):
         harnesses.
         """
         from scieasy.blocks.base.ports import ports_from_config_dicts
-        from scieasy.engine.materialisation import reconstruct_from_file
+        from scieasy.blocks.io.materialisation import reconstruct_from_file
 
         config_ports = config.get("output_ports")
         ports: list[OutputPort]

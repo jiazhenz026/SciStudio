@@ -62,7 +62,7 @@ def test_appblock_output_binner_threads_capability_id(monkeypatch: Any, tmp_path
         calls.append({"path": path, **kwargs})
         return Text(content="payload")
 
-    monkeypatch.setattr("scieasy.engine.materialisation.reconstruct_from_file", _fake_reconstruct)
+    monkeypatch.setattr("scieasy.blocks.io.materialisation.reconstruct_from_file", _fake_reconstruct)
     block = AppBlock(
         config={
             "params": {
