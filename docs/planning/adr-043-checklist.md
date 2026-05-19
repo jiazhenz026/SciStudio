@@ -91,6 +91,25 @@
 - [x] Add or update cross-links among ADR-043, the implementation spec, block-development docs, and package docs. -> `docs/block-development/block-contract.md`
 - [x] Fix all ADR-043-related doc/fact audit failures found after implementation. -> local `full_audit` classification: 0 ADR-043-related findings remain; remaining failures are pre-existing legacy frontmatter / global closure baseline
 
+## Codex Auto-Review Audit (Manager investigation, issue #1207)
+
+> Source PRs: #1216, #1218, #1219, #1221, #1230, #1232, #1220.
+> This section records automated Codex review findings discovered after
+> integration. It is investigation-only; no implementation fixes were made in
+> this pass.
+
+- [ ] #1216 P2 `docs/adr/ADR-043.md`: Codex suggested changing `tracking_issue` from package fallout #1204 to manager issue #1207. Assessment: partially valid traceability concern, but not accepted as an implementation bug. ADR-043's locked frontmatter currently points at the long-lived package migration tracker #1204; #1207 is the cascade execution manager issue. Resolution: not changed; checklist and #1207 comment carry cascade traceability.
+- [ ] #1218 P1 `src/scieasy/blocks/io/capabilities.py`: reject scalar extension strings before normalizing. Assessment: valid. Final code still treats `extensions="tif"` as an iterable of characters. Resolution: not fixed yet.
+- [ ] #1218 P2 `src/scieasy/blocks/io/capabilities.py`: reject scalar metadata-field strings in fidelity declarations. Assessment: valid. Final code still treats `typed_meta_reads="pixel_size"` as per-character fields. Resolution: not fixed yet.
+- [ ] #1218 P2 `src/scieasy/blocks/io/simple_io.py`: validate `path` is a single path in SimpleLoader/SimpleSaver helpers. Assessment: valid. Final code still coerces list values through `Path(str(raw_path))`. Resolution: not fixed yet.
+- [x] #1219 P1 `docs/block-development/quickstart.md`: quickstart imported `SimpleLoader` before the core API existed in that standalone docs PR. Assessment: valid at the moment of PR #1219 review, but resolved by integration order once #1218 landed on the tracking branch. Resolution: fixed by integrated branch state.
+- [ ] #1221 P1 `src/scieasy/blocks/registry.py`: preserve legacy ordering when loader dtype is omitted. Assessment: valid. Final `find_loader(None, ext)` still enters capability ranking via `find_loader_capability(dtype or DataObject, extension)` before legacy fallback, so it can select a non-first registered capability. Resolution: not fixed yet.
+- [ ] #1221 P1 `src/scieasy/blocks/registry.py`: fall back when the resolved capability class fails to import. Assessment: valid. Final code resolves a single winning capability class and can return `None` instead of trying lower-ranked usable candidates. Resolution: not fixed yet.
+- [ ] #1230 P2 `frontend/src/components/BottomPanel.tsx`: avoid persisting empty `capability_id` from the placeholder option. Assessment: valid. Final selector still forwards `event.target.value`; selecting the placeholder can persist `capability_id: ""`. Resolution: not fixed yet.
+- [ ] #1232 P1 `src/scieasy/workflow/validator.py`: validate boundary outputs against the runtime-selected type. Assessment: valid. Final validator checks all configured output types, while AppBlock reconstruction still uses the first accepted type; unions such as `Artifact | Text` can be rejected even when runtime would use Artifact fallback. Resolution: not fixed yet.
+- [ ] #1232 P2 `src/scieasy/blocks/app/app_block.py`: treat null `capability_id` as unset on AppBlock outputs. Assessment: valid. Final AppBlock output mapping still uses `str(entry.get("capability_id", "")).strip()`, so JSON null becomes `"None"`. Resolution: not fixed yet.
+- [x] #1220 package capability pilot: no Codex auto-review findings were posted. Resolution: no action required.
+
 ## Acceptance Criteria
 
 - [x] Each sub-issue has an implementation PR targeting `track/adr-043/capability-registry`. -> PRs #1218, #1219, #1221, #1230, #1232, #1220
