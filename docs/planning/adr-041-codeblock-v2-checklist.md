@@ -240,9 +240,9 @@ Tasks:
 
 Exit Criteria:
 
-- [ ] Track C5 PR targets `track/adr-041/codeblock-v2`.
+- [x] Track C5 PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1247](https://github.com/zjzcpj/SciEasy/pull/1247).
 - [ ] Track C5 CI is green.
-- [ ] Checklist rows updated with PR/test evidence.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR #1247 plus focused pytest/Ruff evidence recorded above.
 
 ## Phase 3 - Validation and Migration Diagnostics
 
