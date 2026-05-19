@@ -74,11 +74,11 @@
 
 ### Audit
 
-- [ ] Run `python scripts/audit/generate_facts.py --check`.
-- [ ] Run `python -m scieasy.qa.audit.full_audit --format json`.
-- [ ] Classify failures as ADR-043-related vs pre-existing baseline.
-- [ ] Fix every ADR-043-related fail in a scoped branch/PR.
-- [ ] Post audit summary and fixes on #1207.
+- [x] Run `python scripts/audit/generate_facts.py --check`. -> local PASS after commit `ac875b87`
+- [x] Run `python -m scieasy.qa.audit.full_audit --format json`. -> local FAIL only on pre-existing legacy frontmatter / global closure baseline
+- [x] Classify failures as ADR-043-related vs pre-existing baseline. -> local classifier found `implementation_related_count: 0`
+- [x] Fix every ADR-043-related fail in a scoped branch/PR. -> commit `ac875b87`
+- [x] Post audit summary and fixes on #1207. -> https://github.com/zjzcpj/SciEasy/issues/1207#issuecomment-4492978957
 
 ## Track G - Architecture And Developer Docs (Owner: A43-docs, issue #1215)
 
@@ -89,16 +89,16 @@
 - [x] Bring edited architecture and block-development docs into ADR-042 compliance, including the currently non-compliant `docs/architecture/ARCHITECTURE.md`. -> local check `frontmatter_lint ADR-042/ADR-043/specs: 0 errors`
 - [x] Document that compatibility synthesis is migration scaffolding only, and link full package hard-validation migration to #1204. -> #1204
 - [x] Add or update cross-links among ADR-043, the implementation spec, block-development docs, and package docs. -> `docs/block-development/block-contract.md`
-- [x] Fix all ADR-043-related doc/fact audit failures found after implementation. -> local check `full_audit`: only pre-existing `facts.generated-stale` baseline
+- [x] Fix all ADR-043-related doc/fact audit failures found after implementation. -> local `full_audit` classification: 0 ADR-043-related findings remain; remaining failures are pre-existing legacy frontmatter / global closure baseline
 
 ## Acceptance Criteria
 
-- [ ] Each sub-issue has an implementation PR targeting `track/adr-043/capability-registry`.
-- [ ] Every agent used an independent worktree and independent branch.
-- [ ] All implementation PRs pass local tests and GitHub CI.
-- [ ] Architecture and block-development docs are updated as part of this cascade.
-- [ ] Fact audit has been run after implementation integration.
-- [ ] All ADR-043-related fact audit failures are fixed or explicitly escalated with evidence.
+- [x] Each sub-issue has an implementation PR targeting `track/adr-043/capability-registry`. -> PRs #1218, #1219, #1221, #1230, #1232, #1220
+- [x] Every agent used an independent worktree and independent branch. -> manager verified PR branches/worktrees during merge
+- [x] All implementation PRs pass local tests and GitHub CI. -> PR #1216 CI green after integration
+- [x] Architecture and block-development docs are updated as part of this cascade. -> PR #1219
+- [x] Fact audit has been run after implementation integration. -> local `generate_facts`, `full_audit`, and `lint-imports`
+- [x] All ADR-043-related fact audit failures are fixed or explicitly escalated with evidence. -> commit `ac875b87`
 
 ## Drift Log
 
