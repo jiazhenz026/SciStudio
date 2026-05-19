@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#1222] Add the ADR-041 CodeBlock v2 implementation cascade checklist, tracking branch plan, worker issue breakdown, ADR-043 conflict guardrails, and ADR-042 audit exit criteria. (@agent, 2026-05-19, branch: track/adr-041/codeblock-v2, session: 20260519-181608-adr-041-codeblock-v2-implementation-casc)
+
 - [#1208] Add an ADR-042-compliant implementation planning spec for ADR-041 CodeBlock v2, including user scenarios, functional requirements, affected files, implementation phases, signature-level contracts, verification plan, migration guidance, and regenerated ADR-042 facts. (@agent, 2026-05-19, branch: docs/issue-1208/adr-041-codeblock-v2-spec, session: 20260519-172454-adr-041-implementation-planning-spec-and)
 
 - [#1201] Add ADR-043 and an ADR-042-compliant implementation spec for IO format capability declarations, aggregate IOBlocks, SimpleLoader/SimpleSaver custom IO ergonomics, deterministic capability lookup, AppBlock/CodeBlock boundary validation, and typed `meta` fidelity levels. (@agent, 2026-05-19, branch: feat/issue-1113/frontmatter-griffe-facts-main, session: 20260519-152751-adr-043-io-format-capability-registry-do)
