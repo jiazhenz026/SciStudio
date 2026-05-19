@@ -33,12 +33,12 @@
 
 ### Implementation
 
-- [ ] Add capability storage to `BlockSpec` or an adjacent registry-owned index. [ADR-043 section 11.4]
-- [ ] Add `list_format_capabilities`, `find_loader_capability`, and `find_saver_capability`.
-- [ ] Implement deterministic lookup order: explicit ID, unique match, default, most-specific type, ambiguity error. [ADR-043 section 6]
-- [ ] Validate handler existence, extension normalization, package-qualified IDs, default conflicts, roundtrip groups, and typed meta fields where feasible. [ADR-043 section 9]
-- [ ] Preserve legacy `find_loader` / `find_saver` migration behavior where tests require it, but route semantics through capabilities.
-- [ ] Add registry tests for unique/default/explicit/missing/ambiguous cases.
+- [x] Add capability storage to `BlockSpec` or an adjacent registry-owned index. [ADR-043 section 11.4] -> commit `d97d5771`
+- [x] Add `list_format_capabilities`, `find_loader_capability`, and `find_saver_capability`. -> commit `d97d5771`
+- [x] Implement deterministic lookup order: explicit ID, unique match, default, most-specific type, ambiguity error. [ADR-043 section 6] -> commit `d97d5771`
+- [x] Validate handler existence, extension normalization, package-qualified IDs, default conflicts, roundtrip groups, and typed meta fields where feasible. [ADR-043 section 9] -> commit `d97d5771`
+- [x] Preserve legacy `find_loader` / `find_saver` migration behavior where tests require it, but route semantics through capabilities. -> commit `d97d5771`
+- [x] Add registry tests for unique/default/explicit/missing/ambiguous cases. -> local tests `pytest -q --timeout=60 --no-cov tests/blocks/test_block_registry_capabilities.py tests/blocks/test_registry.py`
 
 ## Track C - Boundary Runtime Validation (Owner: A43-boundary, issue #1211)
 
