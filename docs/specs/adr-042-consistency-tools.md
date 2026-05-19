@@ -147,6 +147,11 @@ Acceptance Scenarios:
    then it emits a stale-substitution finding.
 3. Given facts and prose that agree, when the check runs, then it emits `match`
    or no error finding.
+4. Given an implementation ADR governs a module that no active related spec
+   covers, when `doc_drift` runs, then it emits
+   `doc-drift.missing-spec-governance`.
+5. Given an active spec governs a module that its related ADR does not cover,
+   when `doc_drift` runs, then it emits `doc-drift.missing-adr-governance`.
 
 ### User Story 3 - Ownership coverage closes in both directions (Priority: P3)
 
@@ -239,6 +244,13 @@ Acceptance Scenarios:
   no hidden network dependency.
 - FR-017: Once wired into pre-commit or CI, non-`match` consistency findings
   MUST hard-fail immediately.
+- FR-018: `doc_drift` MUST compare active ADR/spec governed surfaces and report
+  active specs that point to missing ADRs.
+- FR-019: `doc_drift` MUST report ADR governed modules, contracts,
+  entry-points, and files that are not covered by any active related spec once
+  the ADR phase is `implementation`, `complete`, or `maintenance`.
+- FR-020: `doc_drift` MUST report active spec governed modules, contracts,
+  entry-points, and files that are not covered by their related ADRs.
 
 ### Key Entities
 
@@ -306,6 +318,8 @@ tooling in GitHub issues and owner review.
 - Validate facts registry required fields, enum values, and source SHA handling.
 - Test each fact extractor with minimal fixtures and stable output ordering.
 - Test each drift class with positive and negative fixtures.
+- Test ADR/spec governance alignment in both directions, including Draft spec
+  skipping and active specs linked to missing ADRs.
 - Test closure in both directions: missing owner and phantom governed claim.
 - Test signature fact extraction from signature-level specs.
 - Test signature drift for missing symbol, parameter mismatch, return mismatch,
@@ -673,6 +687,8 @@ CLI exit codes are uniform across ADR-042 audit tools:
 - SC-006: `signature_drift` detects missing symbols, parameter mismatches,
   return mismatches, Pydantic field mismatches, missing CLI commands, and
   exit-code mismatches from signature-level spec facts.
+- SC-007: `doc_drift` detects active ADR/spec governed-surface mismatches in
+  both directions and ignores Draft specs for current implementation closure.
 
 ## 6. Assumptions
 

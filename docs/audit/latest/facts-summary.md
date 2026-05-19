@@ -9,7 +9,7 @@ It is intended for human review; drift checks consume the YAML facts directly.
 
 - Status: `fail`
 - Blocks merge: `True`
-- Source hash: `960470d6e25392db06bdc28a5239845dd21eda3af11cc1273a5ea59e577601f0`
+- Source hash: `ec08b610296ecfa2acf5e596dc7075f8625ac1f278671637aebec45b8d8faa95`
 - Facts file: `docs/facts/generated.yaml`
 - Total facts: `1720`
 - Symbol facts: `1689`
@@ -48,7 +48,7 @@ It is intended for human review; drift checks consume the YAML facts directly.
 
 ## 6. Findings
 
-Total error-severity findings: `1513`
+Total error-severity findings: `1403`
 
 - `doc-drift.invalid-frontmatter` at `docs/adr/ADR-031.md:1`: missing YAML frontmatter
 - `doc-drift.invalid-frontmatter` at `docs/adr/ADR-032.md:1`: missing YAML frontmatter
@@ -156,6 +156,17 @@ date
     For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
 - `doc-drift.invalid-frontmatter` at `docs/specs/phase11-lcms-block-spec.md:1`: missing YAML frontmatter
 - `doc-drift.invalid-frontmatter` at `docs/specs/phase11-srs-block-spec.md:1`: missing YAML frontmatter
+- `doc-drift.phantom-module` at `docs/adr/ADR-043.md`: governed module does not resolve to generated symbol facts: scieasy.blocks.io.capabilities
+- `doc-drift.phantom-contract` at `docs/adr/ADR-043.md`: governed contract does not resolve to generated symbol facts: scieasy.blocks.io.simple_io.SimpleLoader
+- `doc-drift.phantom-contract` at `docs/adr/ADR-043.md`: governed contract does not resolve to generated symbol facts: scieasy.blocks.io.simple_io.SimpleSaver
+- `doc-drift.phantom-contract` at `docs/adr/ADR-043.md`: governed contract does not resolve to generated symbol facts: scieasy.blocks.io.capabilities.FormatCapability
+- `doc-drift.phantom-contract` at `docs/adr/ADR-043.md`: governed contract does not resolve to generated symbol facts: scieasy.blocks.io.capabilities.MetadataFidelity
+- `doc-drift.phantom-contract` at `docs/adr/ADR-043.md`: governed contract does not resolve to generated symbol facts: scieasy.blocks.registry.BlockRegistry.find_loader_capability
+- `doc-drift.phantom-contract` at `docs/adr/ADR-043.md`: governed contract does not resolve to generated symbol facts: scieasy.blocks.registry.BlockRegistry.find_saver_capability
+- `doc-drift.phantom-contract` at `docs/adr/ADR-043.md`: governed contract does not resolve to generated symbol facts: scieasy.blocks.registry.BlockRegistry.list_format_capabilities
+- `doc-drift.phantom-contract` at `docs/adr/ADR-043.md`: governed contract does not resolve to generated symbol facts: scieasy.blocks.app.app_block.AppBlock._bin_outputs_by_extension
+- `doc-drift.phantom-file` at `docs/adr/ADR-043.md`: governed file path or glob does not resolve: src/scieasy/blocks/io/capabilities.py
+- `doc-drift.phantom-file` at `docs/adr/ADR-043.md`: governed file path or glob does not resolve: src/scieasy/blocks/io/simple_io.py
 - `closure.invalid-frontmatter` at `docs/adr/ADR-031.md:1`: missing YAML frontmatter
 - `closure.invalid-frontmatter` at `docs/adr/ADR-032.md:1`: missing YAML frontmatter
 - `closure.invalid-frontmatter` at `docs/adr/ADR-033.md:1`: missing YAML frontmatter
@@ -262,6 +273,17 @@ date
     For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
 - `closure.invalid-frontmatter` at `docs/specs/phase11-lcms-block-spec.md:1`: missing YAML frontmatter
 - `closure.invalid-frontmatter` at `docs/specs/phase11-srs-block-spec.md:1`: missing YAML frontmatter
+- `closure.unresolved-module-claim` at `docs/adr/ADR-043.md`: governed module claim does not resolve: scieasy.blocks.io.capabilities
+- `closure.unresolved-contract-claim` at `docs/adr/ADR-043.md`: governed contract claim does not resolve: scieasy.blocks.io.simple_io.SimpleLoader
+- `closure.unresolved-contract-claim` at `docs/adr/ADR-043.md`: governed contract claim does not resolve: scieasy.blocks.io.simple_io.SimpleSaver
+- `closure.unresolved-contract-claim` at `docs/adr/ADR-043.md`: governed contract claim does not resolve: scieasy.blocks.io.capabilities.FormatCapability
+- `closure.unresolved-contract-claim` at `docs/adr/ADR-043.md`: governed contract claim does not resolve: scieasy.blocks.io.capabilities.MetadataFidelity
+- `closure.unresolved-contract-claim` at `docs/adr/ADR-043.md`: governed contract claim does not resolve: scieasy.blocks.registry.BlockRegistry.find_loader_capability
+- `closure.unresolved-contract-claim` at `docs/adr/ADR-043.md`: governed contract claim does not resolve: scieasy.blocks.registry.BlockRegistry.find_saver_capability
+- `closure.unresolved-contract-claim` at `docs/adr/ADR-043.md`: governed contract claim does not resolve: scieasy.blocks.registry.BlockRegistry.list_format_capabilities
+- `closure.unresolved-contract-claim` at `docs/adr/ADR-043.md`: governed contract claim does not resolve: scieasy.blocks.app.app_block.AppBlock._bin_outputs_by_extension
+- `closure.unresolved-file-claim` at `docs/adr/ADR-043.md`: governed file claim does not resolve: src/scieasy/blocks/io/capabilities.py
+- `closure.unresolved-file-claim` at `docs/adr/ADR-043.md`: governed file claim does not resolve: src/scieasy/blocks/io/simple_io.py
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.agent_provisioning
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.agent_provisioning.claude_agents_md
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.agent_provisioning.claude_agents_md.write_claude_agents_md
@@ -724,45 +746,6 @@ date
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.ai.run_dir.RunDir.project_dir
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.ai.run_dir.RunDir.write_manifest
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.ai.run_dir.logger
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.app_block
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.app_block.AppBlock
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.app_block.AppBlock.app_command
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.app_block.AppBlock.config_schema
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.app_block.AppBlock.description
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.app_block.AppBlock.execution_mode
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.app_block.AppBlock.input_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.app_block.AppBlock.name
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.app_block.AppBlock.output_patterns
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.app_block.AppBlock.output_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.app_block.AppBlock.run
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.app_block.AppBlock.terminate_grace_sec
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.app_block.AppBlock.variadic_inputs
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.app_block.AppBlock.variadic_outputs
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.app_block.logger
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.bridge
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.bridge.ExternalAppBridge
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.bridge.ExternalAppBridge.collect
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.bridge.ExternalAppBridge.launch
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.bridge.ExternalAppBridge.prepare
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.bridge.ExternalAppBridge.watch
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.bridge.FileExchangeBridge
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.bridge.FileExchangeBridge.collect
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.bridge.FileExchangeBridge.launch
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.bridge.FileExchangeBridge.prepare
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.bridge.FileExchangeBridge.watch
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.command_validator
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.command_validator.validate_app_command
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.watcher
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.watcher.FileWatcher
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.watcher.FileWatcher.directory
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.watcher.FileWatcher.patterns
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.watcher.FileWatcher.poll_interval
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.watcher.FileWatcher.start
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.watcher.FileWatcher.stop
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.watcher.FileWatcher.timeout
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.watcher.FileWatcher.wait_for_output
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.app.watcher.ProcessExitedWithoutOutputError
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.base
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.base.block
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.base.block.Block
@@ -887,52 +870,6 @@ date
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.code.runners.r_runner.RRunner
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.code.runners.r_runner.RRunner.execute_inline
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.code.runners.r_runner.RRunner.execute_script
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.io_block
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.io_block.IOBlock
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.io_block.IOBlock.config_schema
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.io_block.IOBlock.description
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.io_block.IOBlock.direction
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.io_block.IOBlock.input_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.io_block.IOBlock.load
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.io_block.IOBlock.name
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.io_block.IOBlock.output_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.io_block.IOBlock.run
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.io_block.IOBlock.save
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.io_block.IOBlock.subcategory
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.io_block.IOBlock.supported_extensions
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.loaders
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.loaders.load_data
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.loaders.load_data.LoadData
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.loaders.load_data.LoadData.config_schema
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.loaders.load_data.LoadData.description
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.loaders.load_data.LoadData.direction
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.loaders.load_data.LoadData.dynamic_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.loaders.load_data.LoadData.get_effective_output_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.loaders.load_data.LoadData.load
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.loaders.load_data.LoadData.name
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.loaders.load_data.LoadData.output_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.loaders.load_data.LoadData.save
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.loaders.load_data.LoadData.subcategory
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.loaders.load_data.LoadData.supported_extensions
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.loaders.load_data.LoadData.type_name
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.savers
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.savers.save_data
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.savers.save_data.SaveData
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.savers.save_data.SaveData.config_schema
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.savers.save_data.SaveData.description
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.savers.save_data.SaveData.direction
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.savers.save_data.SaveData.dynamic_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.savers.save_data.SaveData.get_effective_input_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.savers.save_data.SaveData.input_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.savers.save_data.SaveData.load
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.savers.save_data.SaveData.name
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.savers.save_data.SaveData.output_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.savers.save_data.SaveData.save
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.savers.save_data.SaveData.subcategory
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.savers.save_data.SaveData.supported_extensions
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.savers.save_data.SaveData.type_name
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.io.savers.save_data.logger
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.process
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.process.builtins
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.process.builtins.data_router
@@ -1029,48 +966,6 @@ date
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.process.process_block.ProcessBlock.teardown
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.process.utils
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.process.utils.to_arrow
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockRegistrationError
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockRegistry
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockRegistry.add_scan_dir
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockRegistry.all_specs
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockRegistry.find_io_blocks_for_type
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockRegistry.find_loader
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockRegistry.find_saver
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockRegistry.get_spec
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockRegistry.hot_reload
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockRegistry.instantiate
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockRegistry.packages
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockRegistry.scan
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockRegistry.specs_by_package
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.allowed_input_types
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.allowed_output_types
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.base_category
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.class_name
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.config_schema
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.description
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.direction
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.dynamic_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.file_mtime
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.file_path
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.input_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.max_input_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.max_output_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.min_input_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.min_output_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.module_path
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.name
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.output_ports
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.package_name
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.source
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.subcategory
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.supported_extensions
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.type_name
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.variadic_inputs
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.variadic_outputs
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.BlockSpec.version
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.registry.logger
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.subworkflow
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.subworkflow.subworkflow_block
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.blocks.subworkflow.subworkflow_block.SubWorkflowBlock
@@ -1508,9 +1403,6 @@ date
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.engine.events.WORKFLOW_STARTED
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.engine.events.logger
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.engine.lineage_recorder
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.engine.materialisation
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.engine.materialisation.materialise_to_file
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.engine.materialisation.reconstruct_from_file
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.engine.pty_control
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.engine.pty_control.PtyTabSpec
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.engine.pty_control.PtyTabSpec.block_run_id
@@ -1735,15 +1627,13 @@ date
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.workflow.serializer.load_yaml
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.workflow.serializer.relativify_paths
 - `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.workflow.serializer.save_yaml
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.workflow.validator
-- `closure.missing-symbol-governance` at `griffe`: public symbol has no governing ADR/spec module or contract claim: scieasy.workflow.validator.validate_workflow
 
 ## 7. Child Reports
 
 | Tool | Status | Errors | Summary |
 |---|---|---:|---|
 | `generate_facts` | `pass` | 0 | facts_path=docs/facts/generated.yaml, total_facts=1720, symbol_facts=1689 |
-| `fact_drift` | `pass` | 0 | docs_checked=90, substitutions_checked=0 |
-| `doc_drift` | `fail` | 19 | governed_docs_checked=5, modules_checked=5, contracts_checked=50, files_checked=39 |
-| `closure` | `fail` | 1494 | governed_docs_checked=5, governed_modules=3, governed_contracts=27, symbols_checked=1689 |
+| `fact_drift` | `pass` | 0 | docs_checked=92, substitutions_checked=0 |
+| `doc_drift` | `fail` | 30 | governed_docs_checked=7, modules_checked=11, contracts_checked=62, files_checked=52, adr_spec_alignment_findings=0, active_specs_checked=1, adr_spec_links_checked=1 |
+| `closure` | `fail` | 1373 | governed_docs_checked=7, governed_modules=9, governed_contracts=39, symbols_checked=1689 |
 | `signature_drift` | `pass` | 0 | expected_signatures_checked=31, symbols_available=1689 |

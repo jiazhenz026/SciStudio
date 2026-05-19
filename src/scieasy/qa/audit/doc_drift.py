@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from scieasy.qa.audit.governed import display_path, governed_file_matches, load_governed_documents
+from scieasy.qa.audit.governed import GovernedDocument, display_path, governed_file_matches, load_governed_documents
 from scieasy.qa.schemas.facts import FactsRegistry
 from scieasy.qa.schemas.frontmatter import ADRFrontmatter, GovernedSurfaces, SpecFrontmatter
 from scieasy.qa.schemas.report import AuditReport, AuditStatus, DriftClass, Finding, Severity
@@ -31,6 +31,146 @@ def _active_governance(document: ADRFrontmatter | SpecFrontmatter) -> bool:
     if isinstance(document, SpecFrontmatter):
         return document.status in {"Planned", "Implemented"}
     return True
+
+
+def _adr_requires_spec_alignment(adr: ADRFrontmatter) -> bool:
+    return adr.phase in {"implementation", "complete", "maintenance"}
+
+
+def _module_or_contract_covers(owner_claim: str, covered_claim: str) -> bool:
+    return covered_claim == owner_claim or covered_claim.startswith(f"{owner_claim}.")
+
+
+def _file_claim_covers(owner_claim: str, covered_claim: str) -> bool:
+    owner = owner_claim.replace("\\", "/")
+    covered = covered_claim.replace("\\", "/")
+    if owner == covered:
+        return True
+    if owner.endswith("/**"):
+        return covered.startswith(owner[:-3].rstrip("/") + "/")
+    return False
+
+
+def _covered_by_any(claim: str, candidates: set[str], *, file_claim: bool = False) -> bool:
+    covers = _file_claim_covers if file_claim else _module_or_contract_covers
+    return any(covers(candidate, claim) or covers(claim, candidate) for candidate in candidates)
+
+
+def _surface_values(governs: GovernedSurfaces, surface: str) -> list[str]:
+    return list(getattr(governs, surface))
+
+
+def _alignment_finding(
+    *,
+    rule_id: str,
+    file: str,
+    message: str,
+    symbol: str | None = None,
+) -> Finding:
+    return Finding(
+        rule_id=rule_id,
+        severity=Severity.ERROR,
+        file=file,
+        message=message,
+        symbol=symbol,
+        drift_class=DriftClass.BEHAVIOR_DRIFT,
+    )
+
+
+def _check_adr_spec_alignment(
+    governed_docs: Sequence[GovernedDocument],
+    repo_root: Path,
+) -> tuple[list[Finding], dict[str, int]]:
+    adrs = {
+        document.frontmatter.adr: document
+        for document in governed_docs
+        if isinstance(document.frontmatter, ADRFrontmatter)
+    }
+    active_specs = [
+        document
+        for document in governed_docs
+        if isinstance(document.frontmatter, SpecFrontmatter) and _active_governance(document.frontmatter)
+    ]
+    specs_by_adr: dict[int, list[GovernedDocument]] = {}
+    findings: list[Finding] = []
+
+    for spec_doc in active_specs:
+        spec = spec_doc.frontmatter
+        if not isinstance(spec, SpecFrontmatter):
+            continue
+        spec_path = display_path(spec_doc.path, repo_root)
+        for adr_number in spec.related_adrs:
+            adr_doc = adrs.get(adr_number)
+            if adr_doc is None:
+                findings.append(
+                    _alignment_finding(
+                        rule_id="doc-drift.unlinked-spec",
+                        file=spec_path,
+                        message=f"active spec references missing ADR-{adr_number:03d}",
+                    )
+                )
+                continue
+            specs_by_adr.setdefault(adr_number, []).append(spec_doc)
+            adr = adr_doc.frontmatter
+            if not isinstance(adr, ADRFrontmatter):
+                continue
+            adr_path = display_path(adr_doc.path, repo_root)
+            for surface in ("modules", "contracts", "entry_points", "files"):
+                adr_values = set(_surface_values(adr.governs, surface))
+                for claim in _surface_values(spec.governs, surface):
+                    if not _covered_by_any(claim, adr_values, file_claim=surface == "files"):
+                        findings.append(
+                            _alignment_finding(
+                                rule_id="doc-drift.missing-adr-governance",
+                                file=spec_path,
+                                message=(
+                                    f"active spec governs {surface[:-1]} {claim}, "
+                                    f"but related {Path(adr_path).name} does not cover it"
+                                ),
+                                symbol=claim if surface != "files" else None,
+                            )
+                        )
+
+    for adr_number, adr_doc in adrs.items():
+        adr = adr_doc.frontmatter
+        if not isinstance(adr, ADRFrontmatter) or not _adr_requires_spec_alignment(adr):
+            continue
+        adr_path = display_path(adr_doc.path, repo_root)
+        related_specs = specs_by_adr.get(adr_number, [])
+        if not related_specs:
+            findings.append(
+                _alignment_finding(
+                    rule_id="doc-drift.adr-without-implementation-spec",
+                    file=adr_path,
+                    message=f"ADR-{adr_number:03d} is in phase={adr.phase} but has no active related spec",
+                )
+            )
+            continue
+        spec_surfaces = {
+            surface: {
+                claim for spec_doc in related_specs for claim in _surface_values(spec_doc.frontmatter.governs, surface)
+            }
+            for surface in ("modules", "contracts", "entry_points", "files")
+        }
+        for surface in ("modules", "contracts", "entry_points", "files"):
+            for claim in _surface_values(adr.governs, surface):
+                if not _covered_by_any(claim, spec_surfaces[surface], file_claim=surface == "files"):
+                    findings.append(
+                        _alignment_finding(
+                            rule_id="doc-drift.missing-spec-governance",
+                            file=adr_path,
+                            message=(
+                                f"ADR-{adr_number:03d} governs {surface[:-1]} {claim}, "
+                                "but no active related spec covers it"
+                            ),
+                            symbol=claim if surface != "files" else None,
+                        )
+                    )
+
+    return findings, {
+        "active_specs_checked": len(active_specs),
+        "adr_spec_links_checked": sum(len(v) for v in specs_by_adr.values()),
+    }
 
 
 def classify_repo(
@@ -105,6 +245,9 @@ def classify_repo(
                     )
                 )
 
+    alignment_findings, alignment_summary = _check_adr_spec_alignment(governed_docs, root)
+    findings.extend(alignment_findings)
+
     return AuditReport(
         tool="doc_drift",
         status=AuditStatus.FAIL if findings else AuditStatus.PASS,
@@ -115,5 +258,7 @@ def classify_repo(
             "modules_checked": checked_modules,
             "contracts_checked": checked_contracts,
             "files_checked": checked_files,
+            "adr_spec_alignment_findings": len(alignment_findings),
+            **alignment_summary,
         },
     )
