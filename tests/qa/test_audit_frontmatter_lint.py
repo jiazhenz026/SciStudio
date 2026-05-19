@@ -126,3 +126,18 @@ def test_frontmatter_lint_path_filter(tmp_path: Path) -> None:
     _valid_adr(source)
     report = frontmatter_lint.lint_paths([source], repo_root=tmp_path)
     assert report.status == "passed"
+
+
+def test_frontmatter_lint_planning_docs_with_adr_in_name_are_not_adrs(tmp_path: Path) -> None:
+    source = tmp_path / "docs" / "planning" / "adr-042-tool-configuration-checklist.md"
+    _write_md(
+        source,
+        """# ADR-042 Tool Configuration Checklist
+
+## 1. Change Summary
+
+Tracks tool wiring.
+""",
+    )
+    report = frontmatter_lint.lint_file(source, repo_root=tmp_path)
+    assert report.status == "passed"

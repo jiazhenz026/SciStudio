@@ -299,7 +299,10 @@ jobs:
         with:
           python-version: "3.13"
       - run: uv pip install --system ".[dev]"
-      - run: pip-audit
+      - name: Run dependency audit
+        run: |
+          uv pip compile pyproject.toml --extra dev --no-emit-package scieasy --output-file /tmp/scieasy-audit-requirements.txt
+          pip-audit -r /tmp/scieasy-audit-requirements.txt
       - run: ruff check --select S src scripts tests
       - run: bandit -c pyproject.toml -r src/scieasy
 
@@ -308,7 +311,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: rhysd/actionlint@v1
       - uses: astral-sh/setup-uv@v7
         with:
           cache: true
@@ -317,6 +319,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: uv pip install --system ".[dev]"
+      - run: pre-commit run actionlint --all-files
       - run: zizmor .github/workflows
       - name: Run ADR-042 governance weakening checks
         env:

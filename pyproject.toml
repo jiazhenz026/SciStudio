@@ -1,171 +1,164 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [ "setuptools>=68", "setuptools-scm>=8" ]
+
 [project]
 name = "scieasy"
 version = "0.2.1"
 description = "AI-native, inclusive workflow runtime for multimodal scientific data"
 readme = "README.md"
-license = {text = "MIT"}
-requires-python = ">=3.11"
+license = { text = "MIT" }
 authors = [
-    {name = "Jiazhen Zhang"},
+  { name = "Jiazhen Zhang" },
 ]
+requires-python = ">=3.11"
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
+  "Development Status :: 2 - Pre-Alpha",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "pydantic>=2.0",
-    "fastapi>=0.110",
-    "python-multipart>=0.0.9",
-    "uvicorn[standard]>=0.29",
-    "zarr>=3.0",
-    "pyarrow>=15.0",
-    "watchdog>=4.0",
-    "typer>=0.12",
-    "xxhash>=3.4",
-    "httpx>=0.27",
-    "pyyaml>=6.0",
-    "psutil>=5.9",  # ADR-022: OS-level memory monitoring
-    "filelock>=3.13",  # ADR-033 OQ7: file-locked atomic writes for MCP write tools
-    "ruamel.yaml>=0.18",  # T-ECA-203: ruamel round-trip preserves comments/order in update_block_config
-    "pywinpty>=2.0; sys_platform == 'win32'",  # ADR-034 Phase 1.2: PTY-based terminal embedding for claude/codex TUIs
-    "fastmcp>=3.1,<4",  # ADR-040 §3.1: FastMCP migration — replaces hand-rolled JSON-RPC MCP server with FastMCP 3.x.
+  "fastapi>=0.110",
+  "fastmcp>=3.1,<4",                    # ADR-040 §3.1: FastMCP migration — replaces hand-rolled JSON-RPC MCP server with FastMCP 3.x.
+  "filelock>=3.13",                     # ADR-033 OQ7: file-locked atomic writes for MCP write tools
+  "httpx>=0.27",
+  "psutil>=5.9",                        # ADR-022: OS-level memory monitoring
+  "pyarrow>=15",
+  "pydantic>=2",
+  "python-multipart>=0.0.9",
+  "pywinpty>=2; sys_platform=='win32'", # ADR-034 Phase 1.2: PTY-based terminal embedding for claude/codex TUIs
+  "pyyaml>=6",
+  "ruamel-yaml>=0.18",                  # T-ECA-203: ruamel round-trip preserves comments/order in update_block_config
+  "typer>=0.12",
+  "uvicorn[standard]>=0.29",
+  "watchdog>=4",
+  "xxhash>=3.4",
+  "zarr>=3",
 ]
-
-[project.optional-dependencies]
-ai = [
-    "anthropic>=0.30",
-    "openai>=1.30",
+optional-dependencies.ai = [
+  "anthropic>=0.30",
+  "openai>=1.30",
 ]
-dev = [
-    "pytest>=8.0",
-    "pytest-cov>=6.0",
-    "pytest-xdist>=3.5",
-    "pytest-timeout>=2.3",  # ADR-040 preflight: hard wall-clock kill for hung tests (Windows subprocess/asyncio edge cases)
-    "pytest-randomly>=3.15",
-    "ruff>=0.11",
-    "mypy>=1.15",
-    "pyright>=1.1",
-    "types-PyYAML>=6.0",
-    "import-linter>=2.0",
-    "pre-commit>=4.0",
-    "codespell>=2.3",
-    "yamllint>=1.35",
-    "pyproject-fmt>=2.6",
-    "griffe>=1.5",
-    "griffe-pydantic>=1.0",
-    "interrogate>=1.7",
-    "pydoclint>=0.6",
-    "vulture>=2.13",
-    "xenon>=0.9",
-    "pip-audit>=2.7",
-    "bandit>=1.7",
-    "libcst>=1.4",
-    "mutmut>=3.2",
-    "pydantic-settings>=2.0",
-    "zizmor>=1.5",
+optional-dependencies.dev = [
+  "bandit>=1.7",
+  "codespell>=2.3",
+  "griffe>=1.5",
+  "griffe-pydantic>=1",
+  "import-linter>=2",
+  "interrogate>=1.7",
+  "libcst>=1.4",
+  "mutmut>=3.2",
+  "mypy>=1.15",
+  "pip-audit>=2.7",
+  "pre-commit>=4",
+  "pydantic-settings>=2",
+  "pydoclint>=0.6",
+  "pyproject-fmt>=2.6",
+  "pyright>=1.1",
+  "pytest>=8",
+  "pytest-cov>=6",
+  "pytest-randomly>=3.15",
+  "pytest-timeout>=2.3",   # ADR-040 preflight: hard wall-clock kill for hung tests (Windows subprocess/asyncio edge cases)
+  "pytest-xdist>=3.5",
+  "ruff>=0.11",
+  "types-pyyaml>=6",
+  "vulture>=2.13",
+  "xenon>=0.9",
+  "yamllint>=1.35",
+  "zizmor>=1.5",
 ]
-docs = [
-    "sphinx>=8.0",
-    "myst-parser>=4.0",
-    "sphinx-needs>=5.0",
-    "pydata-sphinx-theme>=0.16",
-    "sphinx-autoapi>=3.0",
-    "numpydoc>=1.8",
-    "autodoc-pydantic>=2.2",
-    "sphinx-click>=6.0",
-    "sphinxcontrib-openapi>=0.8",
-    "sphinx-gallery>=0.18",
-    "pytest-examples>=0.0.18",
-    "sphinx-design>=0.6",
-    "sphinx-copybutton>=0.5",
-    "sphinx-issues>=4.0",
-    "sphinx-lint>=1.0",
+optional-dependencies.docs = [
+  "autodoc-pydantic>=2.2",
+  "myst-parser>=4",
+  "numpydoc>=1.8",
+  "pydata-sphinx-theme>=0.16",
+  "pytest-examples>=0.0.18",
+  "sphinx>=8",
+  "sphinx-autoapi>=3",
+  "sphinx-click>=6",
+  "sphinx-copybutton>=0.5",
+  "sphinx-design>=0.6",
+  "sphinx-gallery>=0.18",
+  "sphinx-issues>=4",
+  "sphinx-lint>=1",
+  "sphinx-needs>=5",
+  "sphinxcontrib-openapi>=0.8",
 ]
-
-[project.scripts]
-scieasy = "scieasy.cli.main:app"
-
-[project.entry-points."scieasy.blocks"]
-load_data = "scieasy.blocks.io.loaders.load_data:LoadData"
-save_data = "scieasy.blocks.io.savers.save_data:SaveData"
-process_merge = "scieasy.blocks.process.builtins.merge:MergeBlock"
-process_split = "scieasy.blocks.process.builtins.split:SplitBlock"
-code_block = "scieasy.blocks.code:CodeBlock"
-app_block = "scieasy.blocks.app:AppBlock"
-ai_block = "scieasy.blocks.ai:AIBlock"
-subworkflow_block = "scieasy.blocks.subworkflow:SubWorkflowBlock"
-merge_collection = "scieasy.blocks.process.builtins.merge_collection:MergeCollection"
-split_collection = "scieasy.blocks.process.builtins.split_collection:SplitCollection"
-filter_collection = "scieasy.blocks.process.builtins.filter_collection:FilterCollection"
-slice_collection = "scieasy.blocks.process.builtins.slice_collection:SliceCollection"
-data_router = "scieasy.blocks.process.builtins.data_router:DataRouter"
-pair_editor = "scieasy.blocks.process.builtins.pair_editor:PairEditor"
-
+scripts.scieasy = "scieasy.cli.main:app"
+entry-points."scieasy.blocks".ai_block = "scieasy.blocks.ai:AIBlock"
+entry-points."scieasy.blocks".app_block = "scieasy.blocks.app:AppBlock"
+entry-points."scieasy.blocks".code_block = "scieasy.blocks.code:CodeBlock"
+entry-points."scieasy.blocks".data_router = "scieasy.blocks.process.builtins.data_router:DataRouter"
+entry-points."scieasy.blocks".filter_collection = "scieasy.blocks.process.builtins.filter_collection:FilterCollection"
+entry-points."scieasy.blocks".load_data = "scieasy.blocks.io.loaders.load_data:LoadData"
+entry-points."scieasy.blocks".merge_collection = "scieasy.blocks.process.builtins.merge_collection:MergeCollection"
+entry-points."scieasy.blocks".pair_editor = "scieasy.blocks.process.builtins.pair_editor:PairEditor"
+entry-points."scieasy.blocks".process_merge = "scieasy.blocks.process.builtins.merge:MergeBlock"
+entry-points."scieasy.blocks".process_split = "scieasy.blocks.process.builtins.split:SplitBlock"
+entry-points."scieasy.blocks".save_data = "scieasy.blocks.io.savers.save_data:SaveData"
+entry-points."scieasy.blocks".slice_collection = "scieasy.blocks.process.builtins.slice_collection:SliceCollection"
+entry-points."scieasy.blocks".split_collection = "scieasy.blocks.process.builtins.split_collection:SplitCollection"
+entry-points."scieasy.blocks".subworkflow_block = "scieasy.blocks.subworkflow:SubWorkflowBlock"
+entry-points."scieasy.runners".julia = "scieasy.blocks.code.runners.julia_runner:JuliaRunner"
 # T-TRK-004 / ADR-028 §D4: the ``scieasy.adapters`` entry-point group
 # has been removed. Plugin-owned IO blocks now register via the
 # ``scieasy.blocks`` entry-point group as ``IOBlock`` subclasses
 # (see ADR-028 §D1 + Addendum 1 §C). Core ``LoadData`` and ``SaveData``
 # entry-points will be added by T-TRK-007 / T-TRK-008.
-
 # T-008 / ADR-027 D2: the previous entry-points here pointed at
 # core ``Image``, ``Spectrum``, and ``PeakTable`` classes that were
 # removed in T-006 and T-007. The classes now live in plugin
 # packages (``scieasy-blocks-imaging``, ``scieasy-blocks-spectral``)
 # which declare their own ``scieasy.types`` entry-points. The core
 # repository contributes no built-in domain types via this group.
-[project.entry-points."scieasy.types"]
+entry-points."scieasy.runners".python = "scieasy.blocks.code.runners.python_runner:PythonRunner"
+entry-points."scieasy.runners".r = "scieasy.blocks.code.runners.r_runner:RRunner"
 
-[project.entry-points."scieasy.runners"]
-python = "scieasy.blocks.code.runners.python_runner:PythonRunner"
-r = "scieasy.blocks.code.runners.r_runner:RRunner"
-julia = "scieasy.blocks.code.runners.julia_runner:JuliaRunner"
-
-[build-system]
-requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-data]
-scieasy = [
-    "api/static/**/*",
-    "cli/templates/**/*.tpl",
-    # ADR-040 §3.4: multi-skill source tree must ship in the wheel so
-    # ``scieasy install --target claude|codex`` and the agent_provisioning
-    # cross-installer can find canonical bodies.
-    "_skills/scieasy/**/*.md",
-    # ADR-040 §3.5-3.8: agent_provisioning template files (CLAUDE.md/AGENTS.md,
-    # codex_config.toml, 6 hook scripts) must ship with the wheel so
-    # ``scieasy init`` / ``ApiRuntime.create_project`` can install them.
-    "agent_provisioning/templates/**/*",
+[tool.setuptools]
+package-data.scieasy = [
+  "api/static/**/*",
+  "cli/templates/**/*.tpl",
+  # ADR-040 §3.4: multi-skill source tree must ship in the wheel so
+  # ``scieasy install --target claude|codex`` and the agent_provisioning
+  # cross-installer can find canonical bodies.
+  "_skills/scieasy/**/*.md",
+  # ADR-040 §3.5-3.8: agent_provisioning template files (CLAUDE.md/AGENTS.md,
+  # codex_config.toml, 6 hook scripts) must ship with the wheel so
+  # ``scieasy init`` / ``ApiRuntime.create_project`` can install them.
+  "agent_provisioning/templates/**/*",
 ]
+packages.find.where = [ "src" ]
 
 [tool.ruff]
 target-version = "py311"
 line-length = 120
-src = ["src"]
-
-[tool.ruff.lint]
-select = [
+src = [ "src" ]
+lint.select = [
+  "B",   # flake8-bugbear
   "E",   # pycodestyle errors
-  "W",   # pycodestyle warnings
   "F",   # pyflakes
   "I",   # isort
   "N",   # pep8-naming
-  "UP",  # pyupgrade
-  "B",   # flake8-bugbear
-  "SIM", # flake8-simplify
   "RUF", # ruff-specific
+  "SIM", # flake8-simplify
+  "UP",  # pyupgrade
+  "W",   # pycodestyle warnings
 ]
-ignore = [
+lint.ignore = [
   "E501", # line too long (handled by formatter)
 ]
+lint.isort.known-first-party = [ "scieasy" ]
 
-[tool.ruff.lint.isort]
-known-first-party = ["scieasy"]
+[tool.pydoclint]
+style = "google"
+exclude = "\\.git|\\.venv|build|dist|frontend|tests"
+
+[tool.bandit]
+exclude_dirs = [ "tests", "frontend", "docs" ]
+skips = []
 
 [tool.mypy]
 python_version = "3.11"
@@ -174,15 +167,52 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
 mypy_path = "src"
-packages = ["scieasy"]
+packages = [ "scieasy" ]
+overrides = [
+  # zarr 3.2+ uses PEP 695 generic syntax (`class Foo[T]:`) which is only valid
+  # in Python 3.12+. Our mypy is pinned to python_version = "3.11", so it cannot
+  # parse zarr's source. Skip following imports into zarr to avoid syntax errors.
+  # See issue #693.
+  { module = [ "zarr", "zarr.*" ], follow_imports = "skip" },
+]
 
-# zarr 3.2+ uses PEP 695 generic syntax (`class Foo[T]:`) which is only valid
-# in Python 3.12+. Our mypy is pinned to python_version = "3.11", so it cannot
-# parse zarr's source. Skip following imports into zarr to avoid syntax errors.
-# See issue #693.
-[[tool.mypy.overrides]]
-module = ["zarr", "zarr.*"]
-follow_imports = "skip"
+[tool.pytest]
+ini_options.testpaths = [ "tests" ]
+# TEMP: lowered until ADR-034 Phase 1-3 restores test coverage. See PR #808 rollback context.
+ini_options.addopts = "-ra -q --cov=scieasy --cov-report=term-missing --cov-fail-under=70"
+# ADR-040 preflight: per-test 60s wall-clock kill via pytest-timeout. Without
+# this, hung tests (Windows subprocess pipe issues, deadlocked asyncio) hang
+# pytest forever which hangs agents forever. ``thread`` method works on Windows
+# (signal method requires SIGALRM, POSIX-only).
+ini_options.timeout = 60
+ini_options.timeout_method = "thread"
+ini_options.python_files = [ "test_*.py" ]
+ini_options.python_classes = [ "Test*" ]
+ini_options.python_functions = [ "test_*" ]
+ini_options.markers = [
+  "requires_imaging: marks tests that need scieasy-blocks-imaging installed (deselect with '-m \"not requires_imaging\"')",
+  "requires_r: tests that need an R installation with Rscript on PATH",
+  """\
+  requires_fiji: marks tests that need a local Fiji install at the master-plan §10 path (deselect with '-m \"not \
+  requires_fiji\"'). T-IMG-038 will migrate this marker to packages/scieasy-blocks-imaging/pyproject.toml.\
+  """,
+]
+
+[tool.coverage]
+run.omit = [
+  "*/__init__.py",
+  "*/tests/*",
+]
+run.source = [ "scieasy" ]
+report.exclude_lines = [
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+  "pragma: no cover",
+  "raise NotImplementedError",
+]
+# TEMP: lowered until ADR-034 Phase 1-3 restores test coverage. See PR #808 rollback context.
+report.fail_under = 70
+report.show_missing = true
 
 [tool.interrogate]
 fail-under = 0
@@ -193,68 +223,41 @@ ignore-module = false
 ignore-nested-functions = true
 ignore-private = false
 verbose = 1
-exclude = ["tests", "frontend", "docs", "packages"]
-
-[tool.pydoclint]
-style = "google"
-exclude = '\.git|\.venv|build|dist|frontend|tests'
+exclude = [ "tests", "frontend", "docs", "packages" ]
 
 [tool.vulture]
-paths = ["src", "scripts"]
-exclude = ["tests/", "frontend/", "docs/"]
+paths = [ "src", "scripts" ]
+exclude = [ "tests/", "frontend/", "docs/" ]
 min_confidence = 80
 sort_by_size = true
-
-[tool.bandit]
-exclude_dirs = ["tests", "frontend", "docs"]
-skips = []
 
 [tool.mutmut]
 paths_to_mutate = "src/scieasy"
 tests_dir = "tests"
 runner = "pytest"
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-# TEMP: lowered until ADR-034 Phase 1-3 restores test coverage. See PR #808 rollback context.
-addopts = "-ra -q --cov=scieasy --cov-report=term-missing --cov-fail-under=70"
-# ADR-040 preflight: per-test 60s wall-clock kill via pytest-timeout. Without
-# this, hung tests (Windows subprocess pipe issues, deadlocked asyncio) hang
-# pytest forever which hangs agents forever. ``thread`` method works on Windows
-# (signal method requires SIGALRM, POSIX-only).
-timeout = 60
-timeout_method = "thread"
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-markers = [
-    "requires_imaging: marks tests that need scieasy-blocks-imaging installed (deselect with '-m \"not requires_imaging\"')",
-    "requires_r: tests that need an R installation with Rscript on PATH",
-    "requires_fiji: marks tests that need a local Fiji install at the master-plan §10 path (deselect with '-m \"not requires_fiji\"'). T-IMG-038 will migrate this marker to packages/scieasy-blocks-imaging/pyproject.toml.",
-]
-
 [tool.importlinter]
-root_packages = ["scieasy"]
+root_packages = [ "scieasy" ]
 
 [[tool.importlinter.contracts]]
 name = "Core must not depend on blocks, engine, api, ai, or workflow"
 type = "forbidden"
-source_modules = ["scieasy.core"]
-forbidden_modules = ["scieasy.blocks", "scieasy.engine", "scieasy.api", "scieasy.ai", "scieasy.workflow"]
+source_modules = [ "scieasy.core" ]
+forbidden_modules = [ "scieasy.blocks", "scieasy.engine", "scieasy.api", "scieasy.ai", "scieasy.workflow" ]
 # ADR-038 §3.2: LineageRecorder lives in core/lineage/ but observes the
 # engine EventBus. The actual import is TYPE_CHECKING-only — event-name
 # strings are hardcoded in core to avoid runtime coupling, and runtime
 # objects (EventBus, EngineEvent) arrive via constructor injection. The
 # type-shape reference is unavoidable for the type checker.
 ignore_imports = [
-    "scieasy.core.lineage.recorder -> scieasy.engine.events",
+  "scieasy.core.lineage.recorder -> scieasy.engine.events",
 ]
 
 [[tool.importlinter.contracts]]
 name = "Blocks must not depend on engine, api, or ai services"
 type = "forbidden"
-source_modules = ["scieasy.blocks"]
-forbidden_modules = ["scieasy.engine", "scieasy.api", "scieasy.ai"]
+source_modules = [ "scieasy.blocks" ]
+forbidden_modules = [ "scieasy.engine", "scieasy.api", "scieasy.ai" ]
 # Narrow carve-outs for engine-layer dispatch surfaces that block-layer
 # code must call. Each entry cites the ADR that justifies the boundary
 # crossing.
@@ -273,36 +276,18 @@ forbidden_modules = ["scieasy.engine", "scieasy.api", "scieasy.ai"]
 # function-body imports executed only inside the per-run AppBlock
 # dispatch path.
 ignore_imports = [
-    "scieasy.blocks.ai.ai_block -> scieasy.engine.pty_control",
-    "scieasy.blocks.app.app_block -> scieasy.engine.materialisation",
-    "scieasy.blocks.app.bridge -> scieasy.engine.materialisation",
+  "scieasy.blocks.ai.ai_block -> scieasy.engine.pty_control",
+  "scieasy.blocks.app.app_block -> scieasy.engine.materialisation",
+  "scieasy.blocks.app.bridge -> scieasy.engine.materialisation",
 ]
 
 [[tool.importlinter.contracts]]
 name = "Engine must not depend on api or ai services"
 type = "forbidden"
-source_modules = ["scieasy.engine"]
-forbidden_modules = ["scieasy.api", "scieasy.ai"]
+source_modules = [ "scieasy.engine" ]
+forbidden_modules = [ "scieasy.api", "scieasy.ai" ]
 
 [tool.commitizen]
 name = "cz_conventional_commits"
 version = "0.2.1"
 tag_format = "v$version"
-
-[tool.coverage.run]
-source = ["scieasy"]
-omit = [
-    "*/tests/*",
-    "*/__init__.py",
-]
-
-[tool.coverage.report]
-# TEMP: lowered until ADR-034 Phase 1-3 restores test coverage. See PR #808 rollback context.
-fail_under = 70
-show_missing = true
-exclude_lines = [
-    "pragma: no cover",
-    "raise NotImplementedError",
-    "if TYPE_CHECKING:",
-    "if __name__ == .__main__.:",
-]

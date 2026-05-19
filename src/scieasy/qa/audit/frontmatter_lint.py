@@ -60,10 +60,8 @@ class MarkdownDocument:
 
 def _kind_from_path(path: Path) -> DocumentKind:
     posix_name = path.name.lower()
-    if posix_name.startswith("adr") and " " not in posix_name:
+    if re.fullmatch(r"adr-\d{3}\.md", posix_name):
         return "adr"
-    if posix_name.startswith("spec") and " " not in posix_name:
-        return "spec"
 
     posix = path.as_posix()
     if posix.startswith("docs/adr/"):
@@ -602,6 +600,17 @@ def _check_detailed_sections(path: Path, doc: MarkdownDocument, findings: list[A
                 finding_class="structure",
                 message="Spec first H2 must be '1. Change Summary'",
             )
+    else:
+        first = h2[0]
+        if first.text not in {"1. Change Summary", "1. Decision Summary"}:
+            _add_finding(
+                findings,
+                path=path,
+                line=first.line,
+                finding_id="frontmatter-structure-no-summary",
+                finding_class="structure",
+                message="Document first H2 must be '1. Change Summary' or '1. Decision Summary'",
+            )
 
 
 def lint_file(path: Path, *, repo_root: Path, expected_kind: DocumentKind | None = None) -> AuditReport:
@@ -609,6 +618,16 @@ def lint_file(path: Path, *, repo_root: Path, expected_kind: DocumentKind | None
     doc = parse_markdown_document(target, repo_root=repo_root)
     kind = expected_kind or doc.kind
     findings: list[AuditFinding] = []
+
+    if doc.frontmatter.get("__frontmatter_error__") == "invalid-yaml":
+        _add_finding(
+            findings,
+            path=target,
+            line=1,
+            finding_id="frontmatter-yaml-invalid",
+            finding_class="schema",
+            message="Invalid YAML in frontmatter",
+        )
 
     if kind == "adr":
         _validate_adr_frontmatter(target, doc.frontmatter, findings)
