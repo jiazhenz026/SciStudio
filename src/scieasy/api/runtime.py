@@ -1573,10 +1573,7 @@ class ApiRuntime:
         if exc is not None:
             return "failed"
 
-        state_values = {
-            str(getattr(state, "value", state))
-            for state in scheduler.block_states().values()
-        }
+        state_values = {str(getattr(state, "value", state)) for state in scheduler.block_states().values()}
         if "error" in state_values:
             return "failed"
         if "cancelled" in state_values:
