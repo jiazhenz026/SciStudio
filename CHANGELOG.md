@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#1236] Add ADR-041 CodeBlock v2 MATLAB/Octave runtime backend support for `.m` and `.mlx` scripts, including MATLAB-first executable selection, Octave fallback for `.m`, MATLAB-only `.mlx` diagnostics, deterministic process command construction, and optional live Octave test coverage. (@agent, 2026-05-19, branch: feat/issue-1236/adr041-matlab-octave-runtime, session: 20260519-195039-adr-041-track-c5-matlab-and-octave-runti)
+
 - [#1242] Add shared CodeBlock v2 interpreter family metadata for notebook, R, Quarto, shell, MATLAB, and Octave runtime backends so ADR-041 sibling tracks can implement complete runtime support without each modifying the shared interpreter type alias. (@agent, 2026-05-19, branch: track/adr-041/codeblock-v2, session: 20260519-194531-adr-041-shared-interpreter-family-litera)
 
 - [#1225] Integrate the ADR-041 CodeBlock v2 shared runtime layer with the Python `.py` backend, including exchange preparation, interpreter execution, typed output collection, provenance payload capture, timeout/nonzero diagnostics, and explicit legacy inline/function migration errors. (@agent, 2026-05-19, branch: feat/issue-1225/adr041-codeblock-python-execution, session: 20260519-185434-adr-041-track-c-codeblock-v2-python-exec)
