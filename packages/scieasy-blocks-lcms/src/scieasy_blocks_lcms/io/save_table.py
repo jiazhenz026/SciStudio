@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 from scieasy.blocks.base.config import BlockConfig
 from scieasy.blocks.base.ports import InputPort
+from scieasy.blocks.io.capabilities import FormatCapability, MetadataFidelity
 from scieasy.blocks.io.io_block import IOBlock
 from scieasy.core.types.base import DataObject
 from scieasy.core.types.collection import Collection
@@ -40,6 +41,54 @@ class SaveTable(_LCMSBlockMixin, IOBlock):
     subcategory: ClassVar[str] = "io"
     description: ClassVar[str] = (
         "Save any DataFrame (PeakTable / MIDTable / SampleMetadata / generic) to CSV, TSV, or XLSX."
+    )
+
+    format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
+        FormatCapability(
+            id="scieasy-blocks-lcms.table.csv.save",
+            direction="save",
+            data_type=DataFrame,
+            format_id="csv",
+            extensions=(".csv",),
+            label="Table CSV",
+            block_type="SaveTable",
+            handler="save",
+            is_default=True,
+            metadata_fidelity=MetadataFidelity(
+                level="pixel_only",
+                notes="Writes tabular payload only; typed metadata is not serialized into CSV.",
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-lcms.table.tsv.save",
+            direction="save",
+            data_type=DataFrame,
+            format_id="tsv",
+            extensions=(".tsv",),
+            label="Table TSV",
+            block_type="SaveTable",
+            handler="save",
+            is_default=True,
+            metadata_fidelity=MetadataFidelity(
+                level="pixel_only",
+                notes="Writes tabular payload only; typed metadata is not serialized into TSV.",
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-lcms.table.xlsx.save",
+            direction="save",
+            data_type=DataFrame,
+            format_id="xlsx",
+            extensions=(".xlsx",),
+            label="Table Excel",
+            block_type="SaveTable",
+            handler="save",
+            is_default=True,
+            metadata_fidelity=MetadataFidelity(
+                level="pixel_only",
+                notes="Writes tabular payload only; typed metadata is not serialized into XLSX.",
+            ),
+        ),
     )
 
     input_ports: ClassVar[list[InputPort]] = [
