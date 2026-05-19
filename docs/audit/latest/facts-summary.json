@@ -1,0 +1,64 @@
+{
+  "tool": "full_audit",
+  "status": "pass",
+  "generated_at": "1970-01-01T00:00:00Z",
+  "source_sha": "c0609aed0f74ca21b724e7d9608a30413776b8393f2e88c52d8c9ff48bd84507",
+  "findings": [],
+  "summary": {
+    "implemented_children": [
+      "generate_facts"
+    ],
+    "deferred_children": [
+      "fact_drift",
+      "doc_drift",
+      "closure",
+      "signature_drift"
+    ]
+  },
+  "child_reports": [
+    {
+      "tool": "generate_facts",
+      "status": "pass",
+      "generated_at": "1970-01-01T00:00:00Z",
+      "source_sha": "c0609aed0f74ca21b724e7d9608a30413776b8393f2e88c52d8c9ff48bd84507",
+      "findings": [],
+      "summary": {
+        "facts_path": "docs/facts/generated.yaml",
+        "total_facts": 1618,
+        "facts_by_kind": {
+          "symbol": 1618
+        },
+        "facts_by_source": {
+          "griffe": 1618
+        },
+        "facts_by_confidence": {
+          "generated": 1618
+        },
+        "facts_by_stability": {
+          "unknown": 1618
+        },
+        "symbol_facts": 1618,
+        "symbols_by_kind": {
+          "attribute": 779,
+          "class": 183,
+          "function": 493,
+          "module": 163
+        },
+        "top_symbol_packages": {
+          "scieasy.blocks": 421,
+          "scieasy.api": 391,
+          "scieasy.core": 335,
+          "scieasy.engine": 198,
+          "scieasy.qa": 143,
+          "scieasy.workflow": 58,
+          "scieasy.cli": 27,
+          "scieasy.utils": 26,
+          "scieasy.agent_provisioning": 9,
+          "scieasy.testing": 9,
+          "scieasy.ai": 1
+        }
+      },
+      "child_reports": []
+    }
+  ]
+}

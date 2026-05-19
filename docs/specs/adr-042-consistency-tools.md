@@ -47,6 +47,7 @@ governs:
     - scieasy.qa.audit.closure.check_bidirectional
     - scieasy.qa.audit.signature_drift.check_expected_signatures
     - scieasy.qa.audit.full_audit.run
+    - scieasy.qa.audit.full_audit.render_markdown
   files:
     - src/scieasy/qa/schemas/**
     - src/scieasy/qa/audit/doc_drift.py
