@@ -609,3 +609,36 @@ def validate_io_boundary_capabilities(
   paths against each type's `Meta` model?
 - Which frontend endpoint should expose capability metadata: block schema,
   registry schema, or a dedicated `/api/capabilities` endpoint?
+
+## Addendum 1: Implementation Surface Corrections (2026-05-19)
+
+The implementation keeps the ADR-043 requirements unchanged but records the
+audit-visible ownership corrections needed after the import-boundary fix:
+canonical materialisation lives in `scieasy.blocks.io.materialisation`, the
+engine module remains a compatibility export, and block palette schemas expose
+capability metadata for the frontend selector. This addendum amends only the
+ADR-042 governed-surface metadata for audit purposes.
+
+```yaml adr042-governance-amendment
+governs:
+  modules:
+    add:
+      - scieasy.blocks.io.materialisation
+      - scieasy.api.schemas.FormatCapabilityResponse
+      - scieasy.api.schemas.MetadataFidelityResponse
+    remove: []
+  contracts:
+    add:
+      - scieasy.blocks.io.materialisation.reconstruct_from_file
+      - scieasy.blocks.io.materialisation.materialise_to_file
+      - scieasy.api.schemas.BlockSummary.format_capabilities
+    remove:
+      - scieasy.engine.materialisation.reconstruct_from_file
+      - scieasy.engine.materialisation.materialise_to_file
+  files:
+    add:
+      - src/scieasy/blocks/io/materialisation.py
+      - src/scieasy/api/schemas.py
+      - src/scieasy/api/routes/blocks.py
+    remove: []
+```
