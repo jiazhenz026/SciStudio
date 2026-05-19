@@ -1,7 +1,31 @@
-# SciEasy — Architecture Document
+---
+doc_type: architecture
+title: "SciEasy Architecture Document"
+status: living
+owner: "@jiazhenz026"
+last_updated: 2026-05-19
+governed_by:
+  - ADR-042
+  - ADR-043
+related_adrs:
+  - 25
+  - 26
+  - 27
+  - 28
+  - 31
+  - 38
+  - 39
+  - 40
+  - 41
+  - 42
+  - 43
+summary: "Stable architecture overview for SciEasy runtime, data, block, registry, boundary IO, frontend, and extension layers."
+---
+
+# SciEasy Architecture Document
 
 > **Status**: Draft v0.3
-> **Last updated**: 2026-05-16 (§4.7 format handling: canonical zone vs boundary; closes #1081)
+> **Last updated**: 2026-05-19 (ADR-043 format capability registry and ADR-042 document metadata)
 
 ---
 
@@ -770,84 +794,144 @@ This section makes the format-handling model explicit. It was implicit in the in
 
 **Boundary**: the five points where format actually matters. The framework handles the canonical ↔ user-format translation only at these five edges:
 
-1. **Load** (a `Load*` block at the entry of a workflow): user's arbitrary-format file → canonical Zarr/Arrow. The loader knows its supported extensions via `supported_extensions: ClassVar[dict[str, str]]` (ADR-028 §D8). The persisted DataObject is reference-only per ADR-031 D4.
-2. **Save** (a `Save*` block at an exit): canonical Zarr/Arrow → user's chosen output format. Symmetric to Load.
-3. **AppBlock invocation**: prepare canonical data as a file in the external tool's expected format (`<exchange_dir>/inputs/<port>.<ext>`); collect output files back into typed DataObjects via the format dispatch. Per ADR-006.
-4. **CodeBlock invocation** (per ADR-041): same pattern; "external tool" is a script interpreter (`python`, `Rscript`, `papermill`, `quarto`, etc.).
-5. **AIBlock invocation** (per ADR-035): same pattern; "external tool" is `claude` / `codex` in a PTY.
+1. **Load** (a `Load*` block at the entry of a workflow): user file -> canonical Zarr/Arrow through a selected loader capability.
+2. **Save** (a `Save*` block at an exit): canonical Zarr/Arrow -> user file through a selected saver capability.
+3. **AppBlock invocation**: materialise canonical inputs through saver capabilities and reconstruct declared outputs through loader capabilities.
+4. **CodeBlock invocation** (per ADR-041): same boundary pattern for scripts and notebooks.
+5. **AIBlock invocation** (per ADR-035): same boundary pattern when an agent/tool session needs file exchange.
 
 #### 4.7.2 Where format authority lives
 
-**Per ADR-028 §D8** (`docs/adr/ADR.md:5704-5721`), format authority lives **on IOBlock subclasses** via the `supported_extensions` ClassVar, not on `DataObject` types. Engine queries `BlockRegistry.find_loader(type, ext)` / `find_saver(type, ext)` at boundaries to locate the right block.
+ADR-043 replaces extension-only dispatch with a structured IO format capability
+registry. Format authority lives on boundary blocks and registry declarations,
+not on DataObject classes.
 
-This is a deliberate choice (ADR-028 Alternative D rejected the type-centric path):
-- Plugin authors register both a new type AND its loader/saver in the same package. The two-place declaration is unavoidable; ADR-028 keeps format vocabulary on the IOBlock side to satisfy "core stays small" (CLAUDE.md §2.3) and to let plugins extend formats without touching type definitions.
-- Engine treats format strings as opaque dispatch keys — never as semantic labels — so engine knows nothing about `"tiff"` vs `"oir"`, only that "this saver claims to handle `.oir` for type Image".
-- Multiple savers/loaders may register for the same `(type, extension)` pair; resolution rule (defined at #1077 implementation time): prefer the most-specific type (longest MRO depth); ties broken by registration order.
+The owning surfaces are:
 
-#### 4.7.3 Format conversion is `Load + Save`, not a graph node
+- `IOBlock` classes and their `FormatCapability` records.
+- `SimpleLoader` and `SimpleSaver`, which synthesize conservative local
+  capabilities for one-off user IO.
+- `AppBlock` and `CodeBlock` port config, which may request a specific
+  `capability_id` when materialising inputs or reconstructing outputs.
+- `BlockRegistry`, which indexes capabilities and resolves them
+  deterministically.
 
-There is **no "format converter block" concept** in the framework. Converting OIR → TIFF is naturally:
+DataObject classes remain format-independent. There is no `TiffImage`,
+`PngImage`, `MzmlPeakTable`, or similar format subtype. A plugin-provided
+`Image` or `PeakTable` type describes semantic shape and typed `meta`; external
+formats are boundary representations.
 
+`FormatCapability` is the stable boundary contract. It records direction,
+target type, format id, extensions, handler, stable capability id,
+default/priority metadata, round-trip group, and typed `meta` fidelity. The
+workflow records `capability_id` when a boundary selection must be replayed
+exactly. Extension remains useful for filenames and human readability, but the
+capability id is the semantic replay key.
+
+Legacy `supported_extensions` declarations are compatibility synthesis only.
+They keep existing blocks runnable while packages migrate to explicit
+capability records. They do not make a published package compliant with the
+final ADR-043 package validity standard. Full published-package hard-validation
+migration is tracked by #1204.
+
+#### 4.7.3 Capability selection and ambiguity
+
+Boundary dispatch follows ADR-043's deterministic lookup order:
+
+1. Match by direction, target type, and extension or format id.
+2. Use an explicit `capability_id` when supplied.
+3. Otherwise accept a unique match.
+4. Otherwise prefer an explicitly declared default.
+5. Otherwise prefer the most-specific compatible type.
+6. If still tied, raise an ambiguity error.
+
+Registration order is display ordering, not semantic dispatch. The engine must
+not silently choose the first registered package when two installed packages
+claim the same `(direction, type, extension)` boundary.
+
+#### 4.7.4 Format conversion is `Load + Save`, not an internal edge
+
+There is no internal "format converter block" concept. Converting OIR to TIFF
+is naturally:
+
+```text
+Load Image (*.oir, capability_id=imaging.image.oir.load)
+  -> canonical Image
+  -> Save Image (*.tif, capability_id=imaging.image.tiff.save)
 ```
-LoadImage(my.oir)  ──canonical Image (storage_ref.format="zarr")──►  SaveImage(out.tif)
+
+The middle edge is type-only: `Image` flows through canonical storage. Format
+conversion happens only because the workflow explicitly contains a load
+boundary and a save boundary.
+
+For specialized external conversion tools such as Bio-Formats `bfconvert`, the
+right shape is an `AppBlock` that operates at file level. Its input and output
+ports declare type, extension, and, when needed, selected capability ids for
+materialisation/reconstruction. The AppBlock remains a boundary; it does not
+make canonical workflow edges format-aware.
+
+#### 4.7.5 Provenance, lineage, and typed `meta` fidelity
+
+ADR-043 separates three concerns that older prose often called "metadata":
+
+- `storage_ref.format` is the current storage backend key, such as `zarr`,
+  `arrow`, or `file`. It is not the original user format inside the canonical
+  zone.
+- Lineage records run state, block parameters, environment snapshots, and object
+  edges. It is execution provenance, not IO metadata fidelity.
+- `DataObject.meta` is the typed domain metadata surface. IO capability fidelity
+  only promises what a loader or saver reads or writes through this typed
+  surface, plus explicitly declared package sidecars for stronger
+  format-specific claims.
+
+A capability with `metadata_fidelity=MetadataFidelity(level="pixel_only")`
+promises only the primary payload and minimum structural fields. A capability
+with `typed_meta` must name typed `meta` fields such as `pixel_size`, `axes`,
+or `channels`. `format_specific` and `lossless` claims require explicit fields,
+sidecars, round-trip groups, and package tests.
+
+#### 4.7.6 What this is NOT
+
+- No engine-level format guessing or alias prediction. Packages declare the
+  extensions and format ids they support.
+- No automatic conversion inside canonical workflow edges. Between ordinary
+  blocks, compatibility remains type-only.
+- No format-as-subtype explosion. Formats belong to capabilities, not
+  DataObject classes.
+- No hidden metadata preservation claim. A saver writes only the typed `meta`
+  fields and format-specific fields declared by its selected capability.
+
+#### 4.7.7 Worked example
+
+User workflow: take a directory of `.oir` microscopy files, run segmentation,
+and save the masks as TIFFs.
+
+```text
+Load Image (*.oir, capability_id=imaging.image.oir.load)
+  -> Image(storage_ref.format="zarr", meta=Image.Meta(...))
+  -> Cellpose Segment (ProcessBlock; type-only canonical edge)
+  -> Label(storage_ref.format="zarr", meta=Label.Meta(...))
+  -> Save Image (*.tif, capability_id=imaging.label.tiff.save)
 ```
 
-The engine supports format conversion as a side effect of the standard Load/Save path — once `LoadImage` registers `.oir` in its `supported_extensions` and `SaveImage` registers `.tif` in its `supported_extensions`, any workflow combining them performs conversion automatically.
+Three boundary touches are format-aware:
 
-For specialised conversion tools (e.g. `bfconvert` from Bio-Formats for OIR → OME-TIFF with rich metadata preservation), the right shape is **an `AppBlock`** whose input and output ports both accept `Artifact` (file-path level), operating outside the canonical zone:
+1. `Load Image` resolves a loader capability for `Image + .oir`, invokes its
+   handler, writes canonical storage, and returns an `Image` object.
+2. `Cellpose Segment` operates only on canonical typed objects and their typed
+   `meta`; original file format is irrelevant.
+3. `Save Image` resolves a saver capability for `Label + .tif`, warns if the
+   chosen capability is lossy for populated typed `meta`, and writes TIFF.
 
-```python
-class BfconvertBlock(AppBlock):
-    app_command = "bfconvert"
-    input_ports  = [InputPort(name="input_file",  accepted_types=[Artifact])]
-    output_ports = [OutputPort(name="output_file", accepted_types=[Artifact])]
-    # ... watches outputs/ for the converted file
-```
+If no `Label + .tif` saver exists, or if two savers match without a selected
+capability id/default, validation fails before execution.
 
-This block invokes the external tool at the file level, doesn't engage the canonical zone, and produces an `Artifact` that downstream `LoadImage` can pick up.
+#### 4.7.8 Implementation status (as of 2026-05-19)
 
-#### 4.7.4 Provenance vs dispatch
-
-Two distinct concerns, both per-instance, both real, deliberately kept separate:
-
-- **`storage_ref.format`** — the **current** canonical format-key. Inside the canonical zone it is invariably `"zarr"` / `"arrow"` / `"file"`. At boundaries it transiently takes other values during materialisation to a tool's expected format. **Participates in dispatch.**
-- **`framework.source` (every DataObject) + plugin-specific provenance fields** (e.g. `Image.Meta.source_file`) — record where the data **originally** came from (file path, possibly file format inferred from extension). **Provenance string only; does NOT participate in dispatch.** Used for lineage queries, methods reporting, and debugging.
-
-Conflating these two leads to confusion: e.g. attempting to dispatch on "the data's original format" doesn't work because by the time downstream blocks see the DataObject, the original format identity has been replaced by the canonical Zarr/Arrow representation. The data is no longer in OIR form; it has been transcoded to Zarr. The provenance string still says "this came from `/path/to/my.oir`" for the user's information.
-
-#### 4.7.5 What this is NOT
-
-- **No engine-level auto-conversion.** The engine never silently re-formats data to satisfy a downstream port. If a workflow attempts to wire an OIR-format file into a port that only accepts TIFF, the validator reports the incompatibility and asks the user to insert a `LoadImage → SaveImage` chain (or an `AppBlock` converter). Conversion is always explicit in the graph.
-- **No "format-as-subtype" type explosion.** Subclasses like `OirImage`, `TiffImage`, `PngImage` do not exist. There is one `Image` class (per plugin); formats are extensions handled by IOBlock subclasses. Galaxy's `~200 datatypes` pattern is deliberately rejected.
-- **No edge-level format compatibility check inside the canonical zone.** Between any two ProcessBlocks, the engine only verifies type compatibility. Format compatibility is checked once at the boundary — at the IOBlock that owns the boundary.
-
-#### 4.7.6 Worked example
-
-User's workflow: take a directory of `.oir` microscopy files, run cellpose segmentation, save the resulting masks as TIFFs.
-
-```
-LoadImage(*.oir)
-   │ Image (storage_ref.format="zarr", Image.Meta.source_file="...oir")
-   ▼
-CellposeSegment (ProcessBlock — operates on canonical Zarr)
-   │ Mask (storage_ref.format="zarr")
-   ▼
-SaveImage(out_*.tif)
-```
-
-Three format-aware boundary touches:
-1. `LoadImage` looks up `.oir` in its `supported_extensions` → calls Bio-Formats reader → writes Zarr to `<project>/data/zarr/...` → returns `Image(storage_ref=...)`. (The plugin needs to register `.oir` in its supported extensions; if it doesn't, the workflow fails at load time with a clear "unsupported extension" message.)
-2. `CellposeSegment` operates purely on canonical Zarr; format is irrelevant. The Mask it returns is also Zarr-backed.
-3. `SaveImage` looks up `.tif` in its `supported_extensions` → reads canonical Zarr → writes TIFF via `tifffile`.
-
-If the user wanted to keep the original `.oir` data intact (rather than transcoding via Bio-Formats inside LoadImage), they'd insert a `BfconvertBlock` (AppBlock) before `LoadImage` and have it write `out.tif`, then `LoadImage(out.tif)` instead. That choice lives in the workflow graph, not in the framework.
-
-#### 4.7.7 Implementation status (as of 2026-05-16)
-
-ADR-028 §D8 (the `supported_extensions` ClassVar contract this section describes) is **specified but not yet implemented in code** — the audit on 2026-05-16 confirmed 0% implementation. Implementation is tracked in issue cluster **#1073–#1080** (one issue per IOBlock subclass + helpers + engine integration). ADR-041 (CodeBlock v2) depends on this cluster.
-
-Until the cluster lands, individual loaders/savers use ad-hoc inline `if suffix == ".x":` chains and module-level constants. The behavioral model described in this section is the **target** architecture; current code partially implements it through plugin-specific overrides (`FijiBlock._prepare_image_exchange()` is the canonical example of "boundary materialisation done correctly in plugin code, waiting for the framework default to land").
+ADR-043 is the active target architecture for IO format capability dispatch.
+The implementation is split across the ADR-043 cascade tracks. This document
+records the target architecture and developer contract; code, package, and UI
+tracks own the corresponding runtime implementation.
 
 ---
 
@@ -3217,8 +3301,8 @@ The framework is designed for community extensibility at every layer:
 | **Reusable sub-pipeline** | Build a workflow, then use it as a `SubWorkflowBlock` in other workflows. Publish as a shareable workflow YAML. |
 | **New storage backend** | Implement the `StorageBackend` protocol (read, write, slice, iter_chunks). Register for a data type. |
 | **New code runner** | Implement the `CodeRunner` protocol (execute script with namespace injection). Register for a language identifier via `scieasy.runners` entry-point. |
-| **New app bridge** | Configure `AppBlock` with the application's CLI, input/output formats, and watch patterns. |
-| **New IO block (loader / saver)** | Subclass `IOBlock` (ADR-028 §D2) and implement `load()` or `save()`. For one-class-many-types loaders, declare a `dynamic_ports: ClassVar` descriptor and override `get_effective_*_ports()` (ADR-028 Addendum 1 §C5). Register through the existing `scieasy.blocks` entry-point group; no separate `scieasy.adapters` group exists. |
+| **New app bridge** | Configure `AppBlock` with the application's CLI, declared type/extension ports, and capability-aware materialisation/reconstruction rules. |
+| **New IO block (loader / saver)** | For simple local IO, subclass `SimpleLoader` or `SimpleSaver`. For published packages or aggregate IO, declare explicit `FormatCapability` records with stable capability IDs, metadata fidelity, and default/priority policy. Register through the existing `scieasy.blocks` entry-point group; no separate `scieasy.adapters` group exists. |
 | **New block runner** | Implement the `BlockRunner` protocol for remote/cluster execution environments. |
 
 ### 12.1 Entry-point callable protocol (ADR-025, amended by ADR-028 §D4)
@@ -3423,7 +3507,7 @@ The Raman and LC-MS results are preserved. Only the IF-dependent subgraph is ski
 | **Lineage record** | An immutable log entry recording inputs, config, outputs, and environment of a single block execution. |
 | **Exchange directory** | A temporary folder where AppBlock writes input files and watches for output files. |
 | **Block registry** | The catalogue of all available blocks, populated from installed Python packages via entry_points. |
-| **Format adapter** | A plugin that converts between a file format and a DataObject subclass. |
+| **Format capability** | A stable IOBlock boundary declaration that converts between an external format and a DataObject type. Capability IDs are workflow replay keys. |
 | **SubWorkflowBlock** | A meta-block that encapsulates an entire workflow as a single reusable node in a parent workflow. |
 | **Collection** | A homogeneous, ordered container of DataObjects used as the transport wrapper between blocks. Not a data type — its type identity is determined by its contents. The engine treats Collections as opaque units (ADR-020). |
 | **ResourceManager** | Engine component that tracks GPU/CPU/memory availability and throttles parallel dispatch accordingly. |

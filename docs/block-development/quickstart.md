@@ -1,3 +1,15 @@
+---
+doc_type: block-development
+title: "Block Developer SDK Quickstart"
+status: living
+owner: "@jiazhenz026"
+last_updated: 2026-05-19
+governed_by:
+  - ADR-042
+  - ADR-043
+summary: "Five-minute block authoring guide with pointers to process blocks and simple local IO blocks."
+---
+
 # Block Developer SDK -- Quickstart
 
 Build your first SciEasy block in five minutes.
@@ -97,6 +109,38 @@ directory or `~/.scieasy/blocks/`. The runtime discovers it automatically.
 
 **Tier 2 (installable package):** Create a Python package with
 `pyproject.toml` and `scieasy.blocks` entry-points. See
+[Publishing](publishing.md).
+
+---
+
+## Loading or saving local files
+
+For a quick local loader or saver, use `SimpleLoader` or `SimpleSaver` instead
+of a full package capability declaration. The framework synthesizes a
+conservative `pixel_only` `FormatCapability` from the type, extension, format
+id, and handler method.
+
+```python
+from pathlib import Path
+from typing import Any, ClassVar
+
+from scieasy.blocks.io.simple_io import SimpleLoader
+from scieasy.core.types.array import Array
+
+
+class LoadNpy(SimpleLoader):
+    name: ClassVar[str] = "Load NPY"
+    output_type: ClassVar[type] = Array
+    extensions: ClassVar[list[str]] = [".npy"]
+    format_id: ClassVar[str] = "npy"
+
+    def load_file(self, path: Path, config: dict[str, Any]) -> Array:
+        ...
+```
+
+Published packages should use explicit `FormatCapability` records when they
+support multiple formats, need stable replay IDs, declare metadata fidelity, or
+may conflict with another package. See [Block Contract](block-contract.md) and
 [Publishing](publishing.md).
 
 ---
