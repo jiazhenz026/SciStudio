@@ -64,11 +64,11 @@
 
 ### Implementation
 
-- [ ] Add explicit imaging `LoadImage` / `SaveImage` TIFF/Zarr capabilities with stable IDs and fidelity declarations.
-- [ ] Add minimal LCMS table/raw IO capability declarations where low-risk and mark one-way formats explicitly.
-- [ ] Add package tests proving explicit declarations are used instead of compatibility synthesis for pilot IOBlocks.
-- [ ] Update package docs for capability IDs and metadata fidelity.
-- [ ] Mark full package hard-validation migration deferrals with `TODO(#1204)` where code knowingly remains legacy.
+- [x] Add explicit imaging `LoadImage` / `SaveImage` TIFF/Zarr capabilities with stable IDs and fidelity declarations. -> `pytest -q --timeout=60 --no-cov packages/scieasy-blocks-imaging/tests/test_format_capabilities.py`
+- [x] Add minimal LCMS table/raw IO capability declarations where low-risk and mark one-way formats explicitly. -> `pytest -q --timeout=60 --no-cov packages/scieasy-blocks-lcms/tests/test_io/test_format_capabilities.py`
+- [x] Add package tests proving explicit declarations are used instead of compatibility synthesis for pilot IOBlocks. -> focused capability tests passed, 5 tests
+- [x] Update package docs for capability IDs and metadata fidelity. -> package README updates
+- [x] Mark full package hard-validation migration deferrals with `TODO(#1204)` where code knowingly remains legacy. -> package README TODO markers
 
 ## Track F - Fact Audit And Fix (Owner: Manager/fix agent, issue #1214)
 
