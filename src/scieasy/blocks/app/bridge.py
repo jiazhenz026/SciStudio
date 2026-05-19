@@ -28,106 +28,35 @@ class FileExchangeBridge:
         and ProcessHandle integration (ADR-019) are handled by LocalRunner.
     """
 
-    def prepare(
-        self,
-        inputs: dict[str, Any],
-        exchange_dir: Path,
-        *,
-        registry: Any | None = None,
-    ) -> None:
-        """Serialise *inputs* into *exchange_dir*.
-
-        ADR-028 §D8 / #1080: :class:`DataObject` inputs (including items
-        inside a :class:`Collection`) are materialised to real files via
-        :func:`scieasy.engine.materialisation.materialise_to_file` —
-        which routes through :meth:`BlockRegistry.find_saver` and
-        prefers a :func:`scieasy.utils.fs.mount_pathlike` pass-through
-        when ``storage_ref.path`` already matches the target extension.
-        Scalar (``str``/``int``/``float``/``bool``), ``bytes``, and
-        otherwise-unknown inputs keep the legacy JSON / raw-bytes
-        serialisation paths.
-
-        The manifest format per port is now:
-
-        - DataObject:
-          ``{"type": <ClassName>, "path": <abspath>, "extension": ".csv",
-          "format": "csv"}``.
-        - Collection:
-          ``{"type": "collection", "item_type": <ClassName | "mixed">,
-          "items": [{"type": ..., "path": ..., "extension": ...,
-          "format": ...}, ...]}``.
-        - Scalar: ``{"type": "scalar", "value": <value>}``.
-        - Bytes: ``{"type": "file", "path": <abspath>}`` (extension
-          ``".bin"``).
-        - Fallback JSON: ``{"type": "json", "path": <abspath>,
-          "extension": ".json", "format": "json"}``.
-
-        The optional *registry* kwarg lets callers in hot paths
-        (FileExchangeBridge is normally instantiated once per AppBlock
-        execution) amortise the registry scan; when omitted,
-        :func:`materialise_to_file` builds and scans a fresh one.
-        """
-        # Imports are scoped to keep the bridge module's import-time
-        # footprint small (consistent with the rest of this file).
-        from scieasy.core.types.base import DataObject
-        from scieasy.core.types.collection import Collection
-
+    def prepare(self, inputs: dict[str, Any], exchange_dir: Path) -> None:
+        """Serialise *inputs* into *exchange_dir*."""
         exchange_dir.mkdir(parents=True, exist_ok=True)
         input_dir = exchange_dir / "inputs"
         input_dir.mkdir(exist_ok=True)
 
         manifest: dict[str, Any] = {}
         for key, value in inputs.items():
-            # ADR-020-Add2: iterate Collection items one at a time. We
-            # materialise each item independently so the external app
-            # receives one file per element under ``inputs/<key>/``.
+            # ADR-031 D2: ViewProxy eliminated. DataObject.to_memory()
+            # is called directly when data materialisation is needed.
+            from scieasy.core.types.base import DataObject
+
+            if isinstance(value, DataObject) and not hasattr(value, "__iter__"):
+                value = value.to_memory() if value.storage_ref is not None else value
+
+            # ADR-020-Add2: iterate Collection items one at a time.
+            from scieasy.core.types.collection import Collection
+
             if isinstance(value, Collection):
                 collection_dir = input_dir / key
                 collection_dir.mkdir(exist_ok=True)
-                item_entries: list[dict[str, Any]] = []
-                item_types: set[str] = set()
+                item_paths = []
                 for i, item in enumerate(value):
-                    item_entries.append(
-                        _materialise_data_object(
-                            item,
-                            collection_dir,
-                            filename_stem=f"item_{i:04d}",
-                            registry=registry,
-                        )
-                    )
-                    item_types.add(type(item).__name__)
-                # Codex P2 (PR #1117): for empty Collections, prefer the
-                # declared item_type so the manifest does not drop type
-                # information on empty-but-typed payloads.
-                # ``Collection.item_type`` is guaranteed by ADR-020 Add6
-                # (Collection construction requires it when items is
-                # empty; inferred from items[0] otherwise).
-                if len(item_types) == 1:
-                    item_type_name = next(iter(item_types))
-                elif len(item_types) == 0:
-                    declared = getattr(value, "item_type", None)
-                    item_type_name = declared.__name__ if declared is not None else "mixed"
-                else:
-                    item_type_name = "mixed"
-                manifest[key] = {
-                    "type": "collection",
-                    "item_type": item_type_name,
-                    "items": item_entries,
-                }
-                continue
-
-            # ADR-028 §D8 / #1080: type-dispatched materialisation
-            # for DataObject inputs. Replaces the legacy
-            # ``json.dumps(value.to_memory(), default=str)`` path,
-            # which produced a useless ``str(ndarray)`` repr for
-            # numpy-backed objects.
-            if isinstance(value, DataObject):
-                manifest[key] = _materialise_data_object(
-                    value,
-                    input_dir,
-                    filename_stem=key,
-                    registry=registry,
-                )
+                    # ADR-031: use to_memory() directly instead of .view().to_memory()
+                    data = item.to_memory() if item.storage_ref is not None else item.user
+                    item_path = collection_dir / f"item_{i:04d}.json"
+                    item_path.write_text(json.dumps(data, default=str), encoding="utf-8")
+                    item_paths.append(str(item_path))
+                manifest[key] = {"type": "collection", "items": item_paths}
                 continue
 
             if isinstance(value, (str, int, float, bool)):
@@ -135,32 +64,11 @@ class FileExchangeBridge:
             elif isinstance(value, bytes):
                 file_path = input_dir / f"{key}.bin"
                 file_path.write_bytes(value)
-                manifest[key] = {
-                    "type": "file",
-                    "path": str(file_path),
-                    "extension": ".bin",
-                    "format": "binary",
-                }
+                manifest[key] = {"type": "file", "path": str(file_path)}
             else:
-                # Last-resort fallback: anything else (e.g. a plain
-                # dict not tied to a DataObject) is JSON-serialised
-                # using ``default=str``. This preserves backward
-                # compatibility for AppBlock subclasses that pre-stage
-                # ad-hoc dict inputs without registering a DataObject
-                # type.
                 file_path = input_dir / f"{key}.json"
                 file_path.write_text(json.dumps(value, default=str), encoding="utf-8")
-                manifest[key] = {
-                    "type": "json",
-                    "path": str(file_path),
-                    "extension": ".json",
-                    "format": "json",
-                }
-
-        # silence: ``materialise_to_file`` deliberately raises ``LookupError``
-        # when no saver covers a type — bubble that to the caller so the
-        # AppBlock author sees a clear "no saver registered for X" error
-        # instead of a half-written manifest.
+                manifest[key] = {"type": "json", "path": str(file_path)}
 
         manifest_path = exchange_dir / "manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
@@ -232,118 +140,6 @@ class FileExchangeBridge:
             artifact = Artifact(file_path=fp, mime_type=_guess_mime(fp), description=fp.name)
             results[fp.stem] = artifact
         return results
-
-
-_CORE_TYPE_DEFAULT_EXTENSION: dict[str, str] = {
-    # ADR-028 §D8 / #1080: per-core-type default extension when
-    # ``materialise_to_file`` is called without an explicit extension.
-    # The canonical generic saver (``SaveData``) advertises a flat union
-    # of extensions across all core types via its ``supported_extensions``
-    # ClassVar, so the materialiser's "first-declared extension wins"
-    # default would pick ``.npy`` for everything (which the DataFrame
-    # branch then rejects). This per-type map gives the bridge a stable,
-    # type-appropriate default. Plugin types not listed here fall back
-    # to the materialiser's saver-declared default — which is correct
-    # for plugin savers that declare a type-specific extension set.
-    "DataFrame": ".csv",
-    "Series": ".csv",
-    "Array": ".npy",
-    "Text": ".txt",
-    "Artifact": ".bin",
-    "CompositeData": ".zarr",
-}
-
-
-def _default_extension_for_obj(obj: Any) -> str | None:
-    """Return the bridge's preferred default extension for *obj*.
-
-    Looks up ``type(obj).__name__`` (exact match, not MRO walk) against
-    :data:`_CORE_TYPE_DEFAULT_EXTENSION`. Returns ``None`` for plugin
-    DataObject subclasses — the materialiser then falls back to the
-    plugin saver's own declared default extension via
-    :func:`scieasy.engine.materialisation._default_extension_for`.
-
-    Codex P1 (PR #1117): an earlier MRO-walking implementation forced a
-    core extension onto every subclass (e.g. ``.npy`` for every Array
-    subclass, including an imaging-plugin ``Image`` whose saver
-    declares ``.tif`` / ``.zarr``). The exact-name lookup preserves the
-    "core types stick to a deterministic extension, plugin types use
-    their plugin saver's default" contract.
-    """
-    return _CORE_TYPE_DEFAULT_EXTENSION.get(type(obj).__name__)
-
-
-def _materialise_data_object(
-    obj: Any,
-    dest_dir: Path,
-    *,
-    filename_stem: str,
-    registry: Any | None,
-) -> dict[str, Any]:
-    """Materialise *obj* (a :class:`DataObject`) and return a manifest entry.
-
-    Routes through :func:`scieasy.engine.materialisation.materialise_to_file`,
-    which selects a saver via :meth:`BlockRegistry.find_saver` (#1077),
-    prefers a :func:`scieasy.utils.fs.mount_pathlike` pass-through when
-    ``obj.storage_ref.path`` already matches the chosen extension, and
-    falls back to the saver round-trip otherwise.
-
-    The returned manifest entry is:
-
-    ``{"type": <DataObject subclass name>, "path": <abspath>,
-    "extension": ".csv", "format": "csv"}``
-
-    where ``format`` comes from the resolved saver's
-    :attr:`supported_extensions` mapping (the same format identifier
-    surfaced by :meth:`IOBlock._detect_format`). When no saver declares
-    a format for the chosen extension, ``format`` is ``None``.
-    """
-    from scieasy.engine.materialisation import materialise_to_file
-
-    extension = _default_extension_for_obj(obj)
-    out_path = materialise_to_file(
-        obj,
-        dest_dir,
-        extension=extension,
-        filename_stem=filename_stem,
-        registry=registry,
-    )
-    resolved_extension = out_path.suffix
-    fmt = _resolve_format_for(type(obj), resolved_extension, registry=registry)
-    return {
-        "type": type(obj).__name__,
-        "path": str(out_path),
-        "extension": resolved_extension,
-        "format": fmt,
-    }
-
-
-def _resolve_format_for(
-    cls: type,
-    extension: str,
-    *,
-    registry: Any | None,
-) -> str | None:
-    """Return the format identifier the resolved saver uses for *extension*.
-
-    Mirrors :meth:`IOBlock._detect_format` lookup semantics: case-
-    insensitive trailing-suffix match against the saver's
-    :attr:`supported_extensions` mapping. Returns ``None`` when the
-    materialisation helper picked an extension via the pass-through
-    branch and no saver declares it (an edge case, since the
-    pass-through path is only taken when the same saver is available).
-    """
-    from scieasy.blocks.registry import BlockRegistry
-
-    reg = registry if registry is not None else BlockRegistry()
-    if registry is None:
-        reg.scan()
-    saver_cls = reg.find_saver(cls, extension)
-    if saver_cls is None:
-        return None
-    exts: dict[str, str] = getattr(saver_cls, "supported_extensions", {}) or {}
-    normalised = {k.lower(): v for k, v in exts.items()}
-    return normalised.get(extension.lower())
 
 
 def _guess_mime(path: Path) -> str:

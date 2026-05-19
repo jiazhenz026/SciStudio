@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, ClassVar, cast
 
-from scieasy.blocks.app.bridge import FileExchangeBridge
+from scieasy.blocks.app.bridge import FileExchangeBridge, _guess_mime
 from scieasy.blocks.app.command_validator import validate_app_command
 from scieasy.blocks.base.block import Block
 from scieasy.blocks.base.config import BlockConfig
@@ -189,45 +189,24 @@ class AppBlock(Block):
         Issue #680 routing rules (case-insensitive):
 
         - A file whose suffix matches a port's declared ``extension`` is
-          appended to that port's Collection.
+          appended to that port's Collection (typed as the first entry of
+          ``port.accepted_types``).
         - A required port that receives zero files raises ``ValueError``.
         - A file whose extension matches no port emits a warning log and
           is otherwise ignored.
 
-        Issue #1079 (ADR-028 §D8): per-file item construction now goes
-        through :func:`scieasy.engine.materialisation.reconstruct_from_file`
-        with ``target_type`` set to the port's declared first
-        ``accepted_types`` entry. This replaces the previous silent
-        downgrade of every non-Artifact declared port type to
-        ``Artifact``. ``reconstruct_from_file`` handles three outcomes:
-
-        - A loader is registered for ``(declared_type, extension)`` —
-          returns a typed :class:`DataObject` instance.
-        - No loader is registered but the declared type IS-A
-          :class:`Artifact` — returns an :class:`Artifact` (legacy
-          behavior preserved as an *intentional* fallback; no warning).
-        - No loader is registered and the declared type is a non-Artifact
-          concrete type — raises :class:`LookupError`, which propagates
-          out of this method. Upstream callers (``AppBlock.run``) treat
-          this as a contract violation: the declared port type cannot be
-          honored.
-
-        The Collection ``item_type`` is computed from the actual
-        constructed-item class (``Artifact`` when no typed loader
-        matched, the declared type otherwise) so the existing
-        ``Collection.item_type`` homogeneity guarantee from #690 still
-        holds.
+        Returns a dict mapping each declared port name (regardless of
+        whether it received any files — empty optional ports get an empty
+        Collection) to its Collection of :class:`Artifact` instances.
 
         Effective output ports are resolved from *config* first (so that
-        run-time ``config["output_ports"]`` always wins) and only fall
-        back to ``self.get_effective_output_ports()`` when the runtime
-        config does not specify any.  This keeps the binner usable both
-        from scheduler-driven runs (where ``self.config`` mirrors the
-        node config) and from direct ``block.run(config=...)`` test
-        harnesses.
+        run-time ``config["output_ports"]`` always wins) and only fall back
+        to ``self.get_effective_output_ports()`` when the runtime config
+        does not specify any.  This keeps the binner usable both from
+        scheduler-driven runs (where ``self.config`` mirrors the node
+        config) and from direct ``block.run(config=...)`` test harnesses.
         """
         from scieasy.blocks.base.ports import ports_from_config_dicts
-        from scieasy.engine.materialisation import reconstruct_from_file
 
         config_ports = config.get("output_ports")
         ports: list[OutputPort]
@@ -251,36 +230,32 @@ class AppBlock(Block):
                 continue
             ext_to_port[ext] = port
 
-        # Resolve the declared target type per port. ``accepted_types`` is a
-        # list of concrete classes (resolved by ``ports_from_config_dicts``);
-        # the first entry is the canonical type for the port. Empty
-        # accepted_types defaults to Artifact (the safest fallback,
-        # consistent with the bridge.collect() path).
-        #
-        # Note on the ``DataObject`` root: ``DataObject`` declared as a
-        # port target type is the "no specific type required" wildcard
-        # (it's the root of the type hierarchy, not a real domain type).
-        # ``reconstruct_from_file`` cannot perform typed dispatch against
-        # the root either — its dynamic-port fallback requires a
-        # *specific* core type and its Artifact fallback only applies to
-        # Artifact subclasses. We therefore map ``DataObject`` ->
-        # ``Artifact`` here so the binner keeps the legacy
-        # "wildcard-port-yields-Artifact" behavior that ports_from_config_dicts
-        # callers depend on, while still routing concrete declared types
-        # through reconstruct_from_file.
-        port_target_types: dict[str, type] = {}
+        # #690 audit fix: determine the typed item class per port up front so
+        # that constructed items satisfy ``Collection.item_type`` homogeneity.
+        # ``port.accepted_types`` holds resolved Python classes (see
+        # ``ports_from_config_dicts``). Only ``Artifact`` and its subclasses
+        # share the file-path constructor signature; for any other declared
+        # type (Array/Image/PeakTable/etc.) we fall back to ``Artifact`` and
+        # warn, because we cannot construct those from just a file path.
+        port_item_types: dict[str, type] = {}
         for port in ports:
             declared = port.accepted_types[0] if port.accepted_types else Artifact
-            # Empty/malformed declarations may yield a non-class; guard
-            # against that by falling back to Artifact.
-            if not (isinstance(declared, type) and issubclass(declared, DataObject)):
-                port_target_types[port.name] = Artifact
-            elif declared is DataObject:
-                # Wildcard port — fall back to Artifact, matching the
-                # legacy semantics of the pre-#1079 binner.
-                port_target_types[port.name] = Artifact
+            if isinstance(declared, type) and issubclass(declared, Artifact):
+                port_item_types[port.name] = declared
             else:
-                port_target_types[port.name] = declared
+                # Fall back to Artifact for types we cannot construct from
+                # only a file path (Array/Image require axes; plugin types
+                # generally need more than a path). The output is still
+                # "loadable but not yet structured" — downstream loader
+                # blocks can convert.
+                if declared is not Artifact:
+                    logger.warning(
+                        "Output port %r declared type %r is not constructible from a "
+                        "file path; falling back to Artifact",
+                        port.name,
+                        getattr(declared, "__name__", declared),
+                    )
+                port_item_types[port.name] = Artifact
 
         grouped: dict[str, list[DataObject]] = {port.name: [] for port in ports}
         unmatched: list[Path] = []
@@ -290,15 +265,8 @@ class AppBlock(Block):
             if target is None:
                 unmatched.append(path)
                 continue
-            target_type = port_target_types[target.name]
-            # reconstruct_from_file handles three outcomes:
-            #   - typed loader registered -> typed instance
-            #   - no loader + Artifact target -> Artifact fallback
-            #   - no loader + concrete non-Artifact target -> LookupError
-            # We pass the normalised extension (with leading dot) so the
-            # candidate list matches what BlockRegistry.find_loader sees.
-            item = reconstruct_from_file(path, target_type=target_type, extension=f".{suffix}")
-            grouped[target.name].append(item)
+            item_cls = port_item_types[target.name]
+            grouped[target.name].append(item_cls(file_path=path, mime_type=_guess_mime(path), description=path.name))
 
         for path in unmatched:
             logger.warning("Unmatched output file %r", path.name)
@@ -311,15 +279,9 @@ class AppBlock(Block):
         result: dict[str, Collection] = {}
         for port in ports:
             items = grouped[port.name]
-            # Compute the Collection's item_type from the actual
-            # constructed items, not the originally-declared port type:
-            # reconstruct_from_file may have returned Artifact via the
-            # documented fallback even when the port declared an Artifact
-            # subclass. For empty ports (optional, no matching files) fall
-            # back to the declared target type — Collection homogeneity is
-            # vacuous on the empty case.
-            item_type = type(items[0]) if items else port_target_types[port.name]
-            result[port.name] = Collection(items, item_type=item_type)
+            # Collection.item_type must match the constructed items, not the
+            # originally-declared port type (we may have fallen back above).
+            result[port.name] = Collection(items, item_type=port_item_types[port.name])
         return result
 
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:

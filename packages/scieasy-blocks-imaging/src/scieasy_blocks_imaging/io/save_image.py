@@ -24,12 +24,15 @@ from scieasy.core.types.base import DataObject
 from scieasy.core.types.collection import Collection
 from scieasy_blocks_imaging.types import Image
 
-# ADR-028 §D8 / issue #1075: module-level legacy constants
-# (``_TIFF_FORMAT`` / ``_ZARR_FORMAT`` / ``_SUPPORTED_FORMATS`` /
-# ``_EXT_TO_FORMAT``) were removed in favor of the per-class
-# :attr:`SaveImage.supported_extensions` ClassVar. Internal format
-# string literals ``"tiff"`` / ``"zarr"`` survive as the ClassVar's
-# values (the stable format identifier).
+_TIFF_FORMAT = "tiff"
+_ZARR_FORMAT = "zarr"
+_SUPPORTED_FORMATS = frozenset({_TIFF_FORMAT, _ZARR_FORMAT})
+
+_EXT_TO_FORMAT: dict[str, str] = {
+    ".tif": _TIFF_FORMAT,
+    ".tiff": _TIFF_FORMAT,
+    ".zarr": _ZARR_FORMAT,
+}
 
 
 def _materialise(image: Image) -> np.ndarray:
@@ -59,50 +62,25 @@ def _unwrap_image(obj: DataObject | Collection) -> Image:
     raise ValueError(f"SaveImage: expected Image or Collection[Image], got {type(obj).__name__}")
 
 
-def _resolve_format(path: Path, explicit: str | None, block: SaveImage | None = None) -> str:
+def _resolve_format(path: Path, explicit: str | None) -> str:
     """Resolve the output format from an explicit config value or the
-    path suffix.
-
-    Issue #1075: path-based resolution routes through
-    :meth:`IOBlock._detect_format` against the
-    :attr:`SaveImage.supported_extensions` ClassVar. Falls back to
-    walking the ClassVar directly when no block is in hand. The
-    ``explicit`` config-supplied format string is still cross-checked
-    against the ClassVar's set of registered format identifiers so
-    misspelled formats fail loudly. Raises :class:`ValueError` on
-    unknown values.
-    """
-    supported_format_ids = set(SaveImage.supported_extensions.values())
+    path suffix. Raises :class:`ValueError` on unknown values."""
     if explicit is not None:
         fmt = explicit.lower()
         if fmt == "tif":
-            fmt = "tiff"
-        if fmt not in supported_format_ids:
+            fmt = _TIFF_FORMAT
+        if fmt not in _SUPPORTED_FORMATS:
             raise ValueError(
-                f"SaveImage: unsupported format {explicit!r}; supported formats are {sorted(supported_format_ids)}"
+                f"SaveImage: unsupported format {explicit!r}; supported formats are {sorted(_SUPPORTED_FORMATS)}"
             )
         return fmt
-    if block is not None:
-        detected = block._detect_format(path)
-    else:
-        # Walk Path.suffixes longest-first to match IOBlock._detect_format
-        # semantics without needing an instance.
-        mapping = SaveImage.supported_extensions
-        normalized = {k.lower(): v for k, v in mapping.items()}
-        detected = None
-        suffixes = [s.lower() for s in path.suffixes]
-        for start in range(len(suffixes)):
-            candidate = "".join(suffixes[start:])
-            if candidate in normalized:
-                detected = normalized[candidate]
-                break
-    if detected is None:
-        ext = path.suffix.lower()
+    ext = path.suffix.lower()
+    if ext not in _EXT_TO_FORMAT:
         raise ValueError(
             f"SaveImage: cannot infer format from extension {ext!r}; "
-            f"pass config['format'] explicitly (one of {sorted(supported_format_ids)})"
+            f"pass config['format'] explicitly (one of {sorted(_SUPPORTED_FORMATS)})"
         )
-    return detected
+    return _EXT_TO_FORMAT[ext]
 
 
 def _write_tiff(image: Image, path: Path) -> None:
@@ -173,17 +151,6 @@ class SaveImage(IOBlock):
     description: ClassVar[str] = "Save an Image to a TIFF or Zarr store."
     subcategory: ClassVar[str] = "io"
 
-    # ADR-028 §D8 / issue #1075: mirror of
-    # :attr:`LoadImage.supported_extensions` — round-trip discoverability
-    # for the imaging plugin. ``_detect_format`` (inherited from IOBlock)
-    # consults this mapping; ``BlockRegistry.find_saver`` (#1077) queries
-    # it for extension-based dispatch.
-    supported_extensions: ClassVar[dict[str, str]] = {
-        ".tif": "tiff",
-        ".tiff": "tiff",
-        ".zarr": "zarr",
-    }
-
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="images", accepted_types=[Image], is_collection=True),
     ]
@@ -211,7 +178,7 @@ class SaveImage(IOBlock):
     def _write_single(self, image: Image, path: Path, fmt: str) -> None:
         """Write a single :class:`Image` to *path* in the given format."""
         path.parent.mkdir(parents=True, exist_ok=True)
-        if fmt == "tiff":
+        if fmt == _TIFF_FORMAT:
             _write_tiff(image, path)
         else:
             _write_zarr(image, path)
@@ -245,7 +212,7 @@ class SaveImage(IOBlock):
             if len(obj) == 1:
                 # Single-item collection: use path as-is
                 image = _unwrap_image(obj)
-                fmt = _resolve_format(path, fmt_cfg, block=self)
+                fmt = _resolve_format(path, fmt_cfg)
                 self._write_single(image, path, fmt)
                 return
 
@@ -253,7 +220,7 @@ class SaveImage(IOBlock):
             out_dir = path if path.suffix == "" else path.parent
             out_dir.mkdir(parents=True, exist_ok=True)
             ext = f".{fmt_cfg}" if fmt_cfg else ".tif"
-            fmt = _resolve_format(Path(f"dummy{ext}"), fmt_cfg, block=self)
+            fmt = _resolve_format(Path(f"dummy{ext}"), fmt_cfg)
             for i, item in enumerate(obj):
                 if not isinstance(item, Image):
                     raise ValueError(f"SaveImage: Collection item {i} is not an Image")
@@ -263,6 +230,6 @@ class SaveImage(IOBlock):
 
         # Single image (not in Collection)
         image = _unwrap_image(obj)
-        fmt = _resolve_format(path, fmt_cfg, block=self)
+        fmt = _resolve_format(path, fmt_cfg)
         path.parent.mkdir(parents=True, exist_ok=True)
         self._write_single(image, path, fmt)

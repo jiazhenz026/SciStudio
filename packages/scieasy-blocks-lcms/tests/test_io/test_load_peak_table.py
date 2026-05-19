@@ -81,19 +81,3 @@ def test_output_meta_polarity_optional(tmp_path: Path) -> None:
 
     result = LoadPeakTable().load(BlockConfig(params={"path": str(path), "polarity": "-"}))
     assert result[0].meta.polarity == "-"
-
-
-# ---------------------------------------------------------------------------
-# #1076: supported_extensions ClassVar.
-# ---------------------------------------------------------------------------
-
-
-def test_supported_extensions_declared() -> None:
-    """ADR-028 §D8: LoadPeakTable declares CSV / TSV / XLSX (with .xls
-    aliasing to xlsx because pandas reads both via read_excel)."""
-    assert LoadPeakTable.supported_extensions == {
-        ".csv": "csv",
-        ".tsv": "tsv",
-        ".xlsx": "xlsx",
-        ".xls": "xlsx",
-    }

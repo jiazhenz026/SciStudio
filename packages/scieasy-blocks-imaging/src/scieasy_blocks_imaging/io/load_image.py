@@ -24,11 +24,9 @@ from scieasy.core.types.base import DataObject
 from scieasy.core.types.collection import Collection
 from scieasy_blocks_imaging.types import Image
 
-# ADR-028 §D8 / issue #1075: module-level legacy constants
-# (``_TIFF_EXTS`` / ``_ZARR_EXTS`` / ``_SUPPORTED_EXTS``) were removed
-# in favor of the per-class :attr:`LoadImage.supported_extensions`
-# ClassVar declared on the block. Format dispatch routes through
-# :meth:`IOBlock._detect_format` (see ``LoadImage._load_single`` below).
+_TIFF_EXTS = frozenset({".tif", ".tiff"})
+_ZARR_EXTS = frozenset({".zarr"})
+_SUPPORTED_EXTS = _TIFF_EXTS | _ZARR_EXTS
 
 # Mapping from tifffile single-letter axis codes to the SciEasy axis
 # alphabet declared on :class:`Image`. ``S`` (samples) is treated as a
@@ -223,18 +221,6 @@ class LoadImage(IOBlock):
     description: ClassVar[str] = "Load a TIFF or Zarr image into an Image data object."
     subcategory: ClassVar[str] = "io"
 
-    # ADR-028 §D8 / issue #1075: declarative mapping of file extensions
-    # to a stable format identifier. ``_detect_format`` (inherited from
-    # IOBlock) consults this mapping; ``BlockRegistry.find_loader``
-    # (#1077) queries it for extension-based dispatch. The format ids
-    # are passed through unchanged to the per-format helper functions
-    # ``_load_tiff`` / ``_load_zarr`` in :meth:`_load_single`.
-    supported_extensions: ClassVar[dict[str, str]] = {
-        ".tif": "tiff",
-        ".tiff": "tiff",
-        ".zarr": "zarr",
-    }
-
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="images", accepted_types=[Image], is_collection=True),
     ]
@@ -312,23 +298,14 @@ class LoadImage(IOBlock):
         """
         if not path.exists():
             raise FileNotFoundError(f"LoadImage: no file at {path}")
-        # Issue #1075: route format dispatch through the IOBlock contract
-        # (ADR-028 §D8). ``_detect_format`` consults
-        # :attr:`LoadImage.supported_extensions`.
-        fmt = self._detect_format(path)
-        if fmt is None:
+        ext = path.suffix.lower()
+        if ext not in _SUPPORTED_EXTS:
             raise ValueError(
-                f"LoadImage: unsupported image format {path.suffix.lower()!r}; "
-                f"supported extensions are {sorted(LoadImage.supported_extensions.keys())}"
+                f"LoadImage: unsupported image format {ext!r}; supported extensions are {sorted(_SUPPORTED_EXTS)}"
             )
-        if fmt == "tiff":
+        if ext in _TIFF_EXTS:
             return _load_tiff(path, axes_override, block=self, output_dir=output_dir)
-        if fmt == "zarr":
-            return _load_zarr(path, axes_override)
-        # Defensive: the ClassVar declares only "tiff"/"zarr" today; this
-        # branch becomes a meaningful error if a future entry is added to
-        # the ClassVar without a matching dispatch arm here.
-        raise ValueError(f"LoadImage: format id {fmt!r} has no dispatch arm")
+        return _load_zarr(path, axes_override)
 
     def save(
         self,

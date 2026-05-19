@@ -22,7 +22,6 @@ that future IO tests in this directory can reuse it.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import ClassVar
 
 import pytest
@@ -208,67 +207,3 @@ class TestIOBlockSubclassDispatch:
 
         with pytest.raises(ValueError, match="requires 'data' input"):
             block.run({}, block.config)
-
-
-class TestDetectFormat:
-    """ADR-028 §D8: :meth:`IOBlock._detect_format` helper.
-
-    The helper consults the class-level :attr:`IOBlock.supported_extensions`
-    mapping. Lookup prefers compound suffixes (e.g. ``.ome.tif``) over single
-    suffixes (e.g. ``.tif``) and is case-insensitive. An empty mapping (the
-    base-class default) always returns ``None``.
-    """
-
-    def test_compound_suffix_resolves_to_compound_entry(self) -> None:
-        """``foo.ome.tif`` must resolve to the compound entry when present,
-        not silently fall back to the single ``.tif`` entry."""
-
-        class CompoundBlock(InMemoryIOBlock):
-            supported_extensions: ClassVar[dict[str, str]] = {
-                ".ome.tif": "ome_tiff",
-                ".tif": "tiff",
-            }
-
-        block = CompoundBlock(config={"params": {"path": "/tmp/x.ome.tif"}})
-        assert block._detect_format(Path("/tmp/x.ome.tif")) == "ome_tiff"
-
-    def test_single_suffix_resolves_to_single_entry(self) -> None:
-        """A plain ``.tif`` path resolves to the single entry even when a
-        compound entry is also registered."""
-
-        class CompoundBlock(InMemoryIOBlock):
-            supported_extensions: ClassVar[dict[str, str]] = {
-                ".ome.tif": "ome_tiff",
-                ".tif": "tiff",
-            }
-
-        block = CompoundBlock(config={"params": {"path": "/tmp/x.tif"}})
-        assert block._detect_format(Path("/tmp/x.tif")) == "tiff"
-
-    def test_case_insensitive_match(self) -> None:
-        """``.TIF`` must match a loader declaring ``.tif`` (case-insensitive
-        comparison on both sides of the lookup)."""
-
-        class CaseBlock(InMemoryIOBlock):
-            supported_extensions: ClassVar[dict[str, str]] = {".tif": "tiff"}
-
-        block = CaseBlock(config={"params": {"path": "/tmp/x.TIF"}})
-        assert block._detect_format(Path("/tmp/x.TIF")) == "tiff"
-
-    def test_unknown_extension_returns_none(self) -> None:
-        """A path whose suffix is not declared resolves to ``None``."""
-
-        class TiffBlock(InMemoryIOBlock):
-            supported_extensions: ClassVar[dict[str, str]] = {".tif": "tiff"}
-
-        block = TiffBlock(config={"params": {"path": "/tmp/x.unknown"}})
-        assert block._detect_format(Path("/tmp/x.unknown")) is None
-
-    def test_empty_supported_extensions_always_returns_none(self) -> None:
-        """The base-class default (empty mapping) returns ``None`` for any
-        path, including paths with otherwise plausible suffixes."""
-        block = InMemoryIOBlock(config={"params": {"path": "/tmp/x.tif"}})
-        assert block.supported_extensions == {}
-        assert block._detect_format(Path("/tmp/x.tif")) is None
-        assert block._detect_format(Path("/tmp/x.ome.tif")) is None
-        assert block._detect_format(Path("/tmp/x")) is None

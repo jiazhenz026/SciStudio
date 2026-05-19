@@ -85,30 +85,3 @@ def test_save_raises_on_unknown_format(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError):
         SaveTable().save(table, BlockConfig(params={"path": str(path), "format": "unknown"}))
-
-
-# ---------------------------------------------------------------------------
-# #1076: supported_extensions ClassVar + derived config_schema enum.
-# ---------------------------------------------------------------------------
-
-
-def test_supported_extensions_declared() -> None:
-    """ADR-028 §D8: SaveTable declares the writeable extensions (no .xls
-    because pandas only writes via to_excel which emits xlsx)."""
-    assert SaveTable.supported_extensions == {
-        ".csv": "csv",
-        ".tsv": "tsv",
-        ".xlsx": "xlsx",
-    }
-
-
-def test_config_schema_format_enum_derived_from_supported_extensions() -> None:
-    """#1076: ``config_schema['format']['enum']`` is derived from
-    :attr:`supported_extensions` to keep the save-side format list
-    single-sourced. The order is sorted for determinism."""
-    enum = SaveTable.config_schema["properties"]["format"]["enum"]
-    expected = sorted(set(SaveTable.supported_extensions.values()))
-    assert enum == expected
-    # Sanity check: every enum value also appears as a value in the
-    # ClassVar (no hardcoded duplication).
-    assert set(enum) <= set(SaveTable.supported_extensions.values())

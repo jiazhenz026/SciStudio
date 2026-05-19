@@ -40,17 +40,6 @@ class LoadSampleMetadata(_LCMSBlockMixin, IOBlock):
         "from CSV / TSV / XLSX into a typed SampleMetadata."
     )
 
-    # ADR-028 §D8: declared extensions consumed by the base-class
-    # :meth:`IOBlock._detect_format` helper and (per #1077) by
-    # :meth:`BlockRegistry.find_loader`. ``.xls`` aliases to ``xlsx``
-    # because pandas reads both via ``read_excel``. Issue #1076.
-    supported_extensions: ClassVar[dict[str, str]] = {
-        ".csv": "csv",
-        ".tsv": "tsv",
-        ".xlsx": "xlsx",
-        ".xls": "xlsx",
-    }
-
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(
             name="sample_metadata",
@@ -112,11 +101,7 @@ class LoadSampleMetadata(_LCMSBlockMixin, IOBlock):
         for path in paths:
             if not path.exists():
                 raise FileNotFoundError(f"LoadSampleMetadata: source file not found: {path}")
-            # ADR-028 §D8 / #1076: resolve format via the declared ClassVar.
-            file_format = self._detect_format(path)
-            if file_format is None:
-                raise ValueError(f"LoadSampleMetadata: unsupported file format: {path.suffix}")
-            frame = _read_table(path, file_format=file_format, sheet_name=config.get("sheet_name"))
+            frame = _read_table(path, sheet_name=config.get("sheet_name"))
             if sample_id_column not in frame.columns:
                 raise ValueError(f"LoadSampleMetadata requires column '{sample_id_column}'")
 
@@ -145,15 +130,14 @@ class LoadSampleMetadata(_LCMSBlockMixin, IOBlock):
         raise NotImplementedError("T-LCMS-006 LoadSampleMetadata is direction='input'; use SaveTable to write.")
 
 
-def _read_table(path: Path, *, file_format: str, sheet_name: str | int | None) -> pd.DataFrame:
-    """Read a metadata file using the format identifier resolved from
-    :attr:`LoadSampleMetadata.supported_extensions` (#1076)."""
+def _read_table(path: Path, *, sheet_name: str | int | None) -> pd.DataFrame:
     import pandas as pd
 
-    if file_format == "csv":
+    suffix = path.suffix.lower()
+    if suffix == ".csv":
         return pd.read_csv(path)
-    if file_format == "tsv":
+    if suffix == ".tsv":
         return pd.read_csv(path, sep="\t")
-    if file_format == "xlsx":
+    if suffix in {".xlsx", ".xls"}:
         return pd.read_excel(path, sheet_name=0 if sheet_name is None else sheet_name)
-    raise ValueError(f"LoadSampleMetadata: unsupported file format: {file_format}")
+    raise ValueError(f"LoadSampleMetadata: unsupported file format: {path.suffix}")

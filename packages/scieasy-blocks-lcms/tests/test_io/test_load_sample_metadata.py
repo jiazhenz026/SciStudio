@@ -52,19 +52,3 @@ def test_raises_on_missing_sample_id_column(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError):
         LoadSampleMetadata().load(BlockConfig(params={"path": str(path)}))
-
-
-# ---------------------------------------------------------------------------
-# #1076: supported_extensions ClassVar.
-# ---------------------------------------------------------------------------
-
-
-def test_supported_extensions_declared() -> None:
-    """ADR-028 §D8: LoadSampleMetadata declares CSV / TSV / XLSX (with
-    .xls aliasing to xlsx because pandas reads both via read_excel)."""
-    assert LoadSampleMetadata.supported_extensions == {
-        ".csv": "csv",
-        ".tsv": "tsv",
-        ".xlsx": "xlsx",
-        ".xls": "xlsx",
-    }

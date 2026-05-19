@@ -25,7 +25,6 @@ from __future__ import annotations
 import logging
 import tempfile
 from abc import abstractmethod
-from pathlib import Path
 from typing import Any, ClassVar
 
 from scieasy.blocks.base.block import Block
@@ -59,15 +58,6 @@ class IOBlock(Block):
 
     direction: ClassVar[str] = "input"
     subcategory: ClassVar[str] = "io"
-
-    # ADR-028 §D8: subclasses declare the file extensions they handle as a
-    # mapping from suffix (lower-case, leading dot, may be compound like
-    # ``".ome.tif"``) to a stable format identifier (e.g. ``"ome_tiff"``).
-    # The base default is empty; downstream issues #1074-#1076 populate it
-    # on the concrete IO subclasses. ``_detect_format`` consults this
-    # mapping at runtime; ``BlockRegistry.find_loader`` / ``find_saver``
-    # (#1077) query it for extension-based dispatch.
-    supported_extensions: ClassVar[dict[str, str]] = {}
 
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="data", accepted_types=[DataObject], required=False),
@@ -138,36 +128,6 @@ class IOBlock(Block):
         if not ports or self.__class__.output_ports is IOBlock.output_ports:
             return "path"
         return ports[0].name
-
-    def _detect_format(self, path: Path) -> str | None:
-        """Look up the format identifier for *path* in :attr:`supported_extensions`.
-
-        ADR-028 §D8: matching is case-insensitive and prefers compound
-        suffixes over single suffixes. For example, given a mapping that
-        contains both ``".ome.tif"`` and ``".tif"``, a path ending in
-        ``".ome.tif"`` resolves to the compound entry; a path ending in
-        ``".tif"`` alone resolves to the single entry; a path ending in
-        ``".TIF"`` resolves to either via case-insensitive comparison.
-
-        Returns the mapped format identifier, or ``None`` if the suffix
-        is not declared (including the base-class default of an empty
-        :attr:`supported_extensions` mapping).
-        """
-        if not self.supported_extensions:
-            return None
-        # Case-insensitive: normalize both the path suffixes and the keys.
-        # ``Path.suffixes`` returns ``[".ome", ".tif"]`` for ``foo.ome.tif``.
-        # We probe the longest compound suffix first, then fall back to the
-        # single trailing suffix. This avoids accidentally short-circuiting
-        # on a single suffix when a compound entry is registered.
-        normalized = {k.lower(): v for k, v in self.supported_extensions.items()}
-        suffixes = [s.lower() for s in path.suffixes]
-        # Try suffix combinations from longest to shortest (compound-first).
-        for start in range(len(suffixes)):
-            candidate = "".join(suffixes[start:])
-            if candidate in normalized:
-                return normalized[candidate]
-        return None
 
     # persist_array and persist_table are inherited from Block base class.
     # See Block.persist_array / Block.persist_table (ADR-031 Addendum 1).

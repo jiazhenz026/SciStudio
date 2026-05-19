@@ -243,26 +243,16 @@ class TestFileExchangeBridgeCollection:
     """ADR-020: Collection handling in bridge.prepare()."""
 
     def test_prepare_handles_collection(self, tmp_path: Path) -> None:
-        """Bridge should serialize Collection items into a subdirectory.
-
-        ADR-028 §D8 / #1080: ``prepare()`` now materialises each Collection
-        item through the real saver via
-        :func:`scieasy.engine.materialisation.materialise_to_file`. Items
-        therefore need actual in-memory data (``_transient_data``) and the
-        manifest now records typed item entries instead of bare paths.
-        """
-        import numpy as np
-
+        """Bridge should serialize Collection items into a subdirectory."""
         from scieasy.core.types.array import Array
         from scieasy.core.types.collection import Collection
 
         # ADR-027 D2: construct plain 2D Arrays instead of the removed
         # core Image class (which now lives in scieasy-blocks-imaging).
-        a1 = Array(axes=["y", "x"], shape=(3, 3), dtype="uint8")
-        a1._transient_data = np.zeros((3, 3), dtype=np.uint8)
-        a2 = Array(axes=["y", "x"], shape=(5, 5), dtype="float32")
-        a2._transient_data = np.zeros((5, 5), dtype=np.float32)
-        items = [a1, a2]
+        items = [
+            Array(axes=["y", "x"], shape=(3, 3), dtype="uint8"),
+            Array(axes=["y", "x"], shape=(5, 5), dtype="float32"),
+        ]
         collection = Collection(items)
 
         bridge = FileExchangeBridge()
@@ -273,11 +263,6 @@ class TestFileExchangeBridgeCollection:
         manifest = json.loads((tmp_path / "manifest.json").read_text())
         assert manifest["images"]["type"] == "collection"
         assert len(manifest["images"]["items"]) == 2
-        # Each item is now a typed manifest entry (#1080).
-        for item_entry in manifest["images"]["items"]:
-            assert item_entry["type"] == "Array"
-            assert item_entry["extension"] == ".npy"
-            assert Path(item_entry["path"]).exists()
 
 
 # ---------------------------------------------------------------------------
@@ -992,38 +977,41 @@ class TestAppBlockExtensionBinner:
         assert coll.item_type is Artifact
         assert isinstance(next(iter(coll)), Artifact)
 
-    def test_binner_raises_lookup_error_for_non_constructible_type(self, tmp_path: Path) -> None:
-        """#1079: when the declared port type is a non-Artifact concrete type
-        and no loader is registered for ``(declared_type, extension)``,
-        ``reconstruct_from_file`` raises ``LookupError`` and the binner
-        propagates it.
-
-        This replaces the pre-#1079 silent downgrade-to-Artifact behavior.
-        The old "declared type ... not constructible from a file path"
-        warning is gone — the new contract is: if you declare a concrete
-        non-Artifact type, the runtime requires a matching loader.
+    def test_binner_falls_back_to_artifact_for_non_constructible_type(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """#690 audit fix: when the declared port type cannot be constructed
+        from a file path (e.g. ``Array`` / ``Image`` need axes), the binner
+        falls back to ``Artifact`` and logs a warning. The Collection's
+        ``item_type`` is then ``Artifact`` so homogeneity holds.
         """
-        from scieasy.blocks.base.config import BlockConfig
+        import logging
 
-        f1 = tmp_path / "image.no_loader_for_array_here_xyz"
+        from scieasy.blocks.base.config import BlockConfig
+        from scieasy.core.types.artifact import Artifact
+
+        f1 = tmp_path / "image.tif"
         f1.write_text("x", encoding="utf-8")
 
-        # "Array" is registered but not a subclass of Artifact. No loader
-        # exists for (Array, .no_loader_for_array_here_xyz), so the binner
-        # must raise LookupError rather than silently downgrade.
-        block = self._make_block_with_ports(
-            [{"name": "imgs", "types": ["Array"], "extension": "no_loader_for_array_here_xyz"}]
-        )
+        # "Array" is registered but not a subclass of Artifact and cannot be
+        # built from just a file path; the binner must fall back to Artifact.
+        block = self._make_block_with_ports([{"name": "imgs", "types": ["Array"], "extension": "tif"}])
         config = BlockConfig(
             params={
                 "output_ports": [
-                    {"name": "imgs", "types": ["Array"], "extension": "no_loader_for_array_here_xyz"},
+                    {"name": "imgs", "types": ["Array"], "extension": "tif"},
                 ]
             }
         )
 
-        with pytest.raises(LookupError):
-            block._bin_outputs_by_extension([f1], config)
+        with caplog.at_level(logging.WARNING, logger="scieasy.blocks.app.app_block"):
+            result = block._bin_outputs_by_extension([f1], config)
+
+        coll = result["imgs"]
+        assert coll.length == 1
+        assert coll.item_type is Artifact
+        assert isinstance(next(iter(coll)), Artifact)
+        assert any("not constructible from a file path" in r.message for r in caplog.records)
 
     def test_classvar_optional_port_with_no_files_returns_empty_collection(self) -> None:
         """ClassVar-declared optional ports stay empty without raising.
