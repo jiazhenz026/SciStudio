@@ -4,10 +4,10 @@ This module encapsulates the two operations that ``AppBlock`` and the
 external-app file-exchange bridge (``blocks/app/bridge.py``) repeat
 ad-hoc today:
 
-- :func:`materialise_to_file` — write a :class:`DataObject` to a file
+- :func:`materialise_to_file` - write a :class:`DataObject` to a file
   using the saver class returned by
-  :meth:`BlockRegistry.find_saver` (ADR-028 §D8 / #1077).
-- :func:`reconstruct_from_file` — build a typed :class:`DataObject`
+  :meth:`BlockRegistry.find_saver` (ADR-028 D8 / #1077).
+- :func:`reconstruct_from_file` - build a typed :class:`DataObject`
   from a file path by routing through
   :meth:`BlockRegistry.find_loader`.
 
@@ -16,7 +16,7 @@ accepts an optional pre-built :class:`BlockRegistry` so callers in hot
 paths can amortise the registry scan; if omitted, the helper builds
 and scans one on demand.
 
-ADR-028 §D8 / issue #1078: introduced as the canonical materialisation
+ADR-028 D8 / issue #1078: introduced as the canonical materialisation
 surface so AppBlock binner and bridge prepare/restore (follow-up
 issues #1079 and #1080) stop reimplementing format dispatch.
 
@@ -45,7 +45,8 @@ import logging
 from pathlib import Path
 
 from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.registry import BlockRegistry
+from scieasy.blocks.io.capabilities import FormatCapability
+from scieasy.blocks.registry import BlockRegistry, MissingCapabilityError
 from scieasy.core.types.artifact import Artifact
 from scieasy.core.types.base import DataObject
 from scieasy.core.types.collection import Collection
@@ -61,7 +62,7 @@ def _get_registry(registry: BlockRegistry | None) -> BlockRegistry:
     The helpers expose ``registry`` as a kwarg primarily for tests
     (which build an isolated, hand-populated registry) and for hot-path
     callers that already maintain one. The on-demand path performs a
-    full scan (entry-points + drop-ins) — acceptable for the
+    full scan (entry-points + drop-ins) - acceptable for the
     AppBlock once-per-session prepare/restore workflow.
     """
     if registry is not None:
@@ -71,24 +72,27 @@ def _get_registry(registry: BlockRegistry | None) -> BlockRegistry:
     return reg
 
 
-def _default_extension_for(obj: DataObject, registry: BlockRegistry) -> str | None:
-    """Pick the first declared extension from any saver accepting *type(obj)*.
+def _default_saver_capability_for(
+    obj: DataObject,
+    registry: BlockRegistry,
+    *,
+    capability_id: str | None = None,
+) -> FormatCapability:
+    """Resolve the default saver capability for *obj* without extension input."""
 
-    Returns ``None`` if no saver matches *type(obj)* or every matching
-    saver has an empty :attr:`supported_extensions` map. Iterates in
-    registration order so the first saver registered for a given type
-    wins (matches the disambiguation policy in
-    :meth:`BlockRegistry.find_saver`).
-    """
-    savers = registry.find_io_blocks_for_type(type(obj), direction="output")
-    for saver_cls in savers:
-        exts: dict[str, str] = getattr(saver_cls, "supported_extensions", {}) or {}
-        if exts:
-            # ``dict.keys()`` is insertion-ordered in Python 3.7+; the
-            # first-registered extension on the first matching saver
-            # is the canonical default.
-            return next(iter(exts.keys()))
-    return None
+    return registry.find_saver_capability(type(obj), capability_id=capability_id)
+
+
+def _capability_block_class(registry: BlockRegistry, capability: FormatCapability) -> type:
+    """Return the block class that owns *capability* or raise ``LookupError``."""
+
+    block_cls = registry._resolve_capability_class(capability)
+    if block_cls is None:
+        raise LookupError(
+            f"materialisation: capability {capability.id!r} resolved but its block class "
+            f"{capability.block_type!r} could not be imported."
+        )
+    return block_cls
 
 
 def _resolve_core_type_param(obj_or_target: type | DataObject) -> str | None:
@@ -123,7 +127,7 @@ def _try_pass_through(
 
     Returns ``True`` when the link was created successfully (the caller
     can skip the saver round-trip), ``False`` otherwise. Failures are
-    intentionally swallowed at DEBUG level — the saver round-trip is
+    intentionally swallowed at DEBUG level - the saver round-trip is
     always a correct fallback.
     """
     ref = getattr(obj, "storage_ref", None)
@@ -183,6 +187,7 @@ def materialise_to_file(
     extension: str | None = None,
     *,
     filename_stem: str = "data",
+    capability_id: str | None = None,
     registry: BlockRegistry | None = None,
 ) -> Path:
     """Materialise *obj* to a file under *dest_dir* and return the path.
@@ -227,19 +232,31 @@ def materialise_to_file(
             of truth for write failures).
     """
     reg = _get_registry(registry)
+    capability: FormatCapability | None = None
 
     if extension is None:
-        chosen_ext = _default_extension_for(obj, reg)
-        if chosen_ext is None:
+        try:
+            capability = _default_saver_capability_for(obj, reg, capability_id=capability_id)
+        except MissingCapabilityError as exc:
             raise LookupError(
-                f"materialise_to_file: no default extension available — no saver "
+                f"materialise_to_file: no default extension available - no saver "
                 f"registered for {type(obj).__name__}. Pass extension= explicitly "
                 f"or register a saver."
-            )
-        extension = chosen_ext
+            ) from exc
+        extension = capability.extensions[0]
 
     if not extension.startswith("."):
         extension = "." + extension
+    if capability is None:
+        try:
+            capability = reg.find_saver_capability(type(obj), extension, capability_id=capability_id)
+        except MissingCapabilityError as exc:
+            raise LookupError(
+                f"materialise_to_file: no saver matches "
+                f"({type(obj).__name__}, {extension!r}). "
+                f"Registered savers for {type(obj).__name__}: "
+                f"{_format_supported_savers(obj, reg)}."
+            ) from exc
 
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / f"{filename_stem}{extension}"
@@ -249,24 +266,13 @@ def materialise_to_file(
     if _try_pass_through(obj, dest, extension):
         return dest
 
-    saver_cls = reg.find_saver(type(obj), extension)
-    # Dynamic-port fallback (symmetric with reconstruct_from_file): the
-    # core ``SaveData`` declares ``input_ports[0].accepted_types=[DataObject]``
-    # and resolves the concrete type per-instance from ``config['core_type']``.
-    # ``find_saver`` uses the contravariant direction (dtype IS-A
-    # accepted), so it would already return ``SaveData`` for any
-    # DataObject-derived type — but plugin savers with a more specific
-    # accepted-types declaration still win on specificity, which is the
-    # intended behavior.
-    if saver_cls is None:
-        raise LookupError(
-            f"materialise_to_file: no saver matches "
-            f"({type(obj).__name__}, {extension!r}). "
-            f"Registered savers for {type(obj).__name__}: "
-            f"{_format_supported_savers(obj, reg)}."
-        )
+    saver_cls = _capability_block_class(reg, capability)
 
-    config_params: dict[str, object] = {"path": str(dest)}
+    config_params: dict[str, object] = {
+        "path": str(dest),
+        "capability_id": capability.id,
+        "format_id": capability.format_id,
+    }
     core_type = _resolve_core_type_param(obj)
     # Only inject ``core_type`` when the saver's schema declares it
     # (LoadData / SaveData). Plugin savers without that field still
@@ -287,6 +293,7 @@ def reconstruct_from_file(
     target_type: type[DataObject],
     extension: str | None = None,
     *,
+    capability_id: str | None = None,
     registry: BlockRegistry | None = None,
 ) -> DataObject:
     """Build a *target_type* instance from *path*.
@@ -359,28 +366,50 @@ def reconstruct_from_file(
     # captured for downstream error messages and ``config["path"]`` is
     # always the original *path*.
     loader_cls: type | None = None
+    capability: FormatCapability | None = None
     resolved_extension: str = extension_candidates[0]
     for cand in extension_candidates:
         if not cand:
             continue
-        first_pass = reg.find_loader(target_type, cand)
+        try:
+            first_pass = reg.find_loader_capability(
+                target_type,
+                cand,
+                capability_id=capability_id,
+            )
+        except MissingCapabilityError:
+            first_pass = None
         if first_pass is not None:
-            loader_cls = first_pass
+            capability = first_pass
+            loader_cls = _capability_block_class(reg, first_pass)
             resolved_extension = cand
             break
         if target_type is not DataObject:
-            candidate_cls = reg.find_loader(DataObject, cand)
-            if candidate_cls is not None:
+            try:
+                candidate_capability = reg.find_loader_capability(
+                    DataObject,
+                    cand,
+                    capability_id=capability_id,
+                )
+            except MissingCapabilityError:
+                candidate_capability = None
+            if candidate_capability is not None:
+                candidate_cls = _capability_block_class(reg, candidate_capability)
                 schema = getattr(candidate_cls, "config_schema", {}) or {}
                 props = schema.get("properties", {}) if isinstance(schema, dict) else {}
                 if "core_type" in props and _resolve_core_type_param(target_type) is not None:
+                    capability = candidate_capability
                     loader_cls = candidate_cls
                     resolved_extension = cand
                     break
     extension = resolved_extension
 
-    if loader_cls is not None:
-        config_params: dict[str, object] = {"path": str(path)}
+    if loader_cls is not None and capability is not None:
+        config_params: dict[str, object] = {
+            "path": str(path),
+            "capability_id": capability.id,
+            "format_id": capability.format_id,
+        }
         core_type = _resolve_core_type_param(target_type)
         schema = getattr(loader_cls, "config_schema", {}) or {}
         props = schema.get("properties", {}) if isinstance(schema, dict) else {}
@@ -401,7 +430,7 @@ def reconstruct_from_file(
                 only = result[0]
                 assert isinstance(only, DataObject)
                 return only
-            # Multi-item collection — caller asked for a single typed
+            # Multi-item collection - caller asked for a single typed
             # object; surfacing a Collection here would silently widen
             # the contract. Raise so the caller can decide.
             raise LookupError(
@@ -424,5 +453,5 @@ def reconstruct_from_file(
     raise LookupError(
         f"reconstruct_from_file: no loader matches "
         f"({target_type.__name__}, {extension!r}) and {target_type.__name__} "
-        f"is not an Artifact subclass — cannot fall back to opaque-blob construction."
+        f"is not an Artifact subclass - cannot fall back to opaque-blob construction."
     )
