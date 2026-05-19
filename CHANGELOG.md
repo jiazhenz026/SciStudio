@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - [#1215] Align architecture and block-development docs with ADR-043 IO format capability registry semantics, including ADR-042 document metadata on edited docs, canonical-zone type-only edges, boundary capability ownership, `SimpleLoader`/`SimpleSaver` guidance, aggregate IOBlock authoring, capability IDs, typed `meta` fidelity, and #1204 package migration policy. (@agent, 2026-05-19, branch: docs/issue-1215/adr043-architecture-docs, session: 20260519-173259-adr-043-architecture-and-block-developme)
+- [#1209] Add ADR-043 core IO capability models, metadata fidelity validation helpers, SimpleLoader/SimpleSaver ergonomic bases, IOBlock `format_capabilities`, and legacy `supported_extensions` compatibility synthesis marked as migration scaffolding. (@agent, 2026-05-19, branch: feat/issue-1209/adr043-core-capabilities, session: 20260519-173220-adr-043-track-a-core-io-capability-model)
 
 - [#1201] Add ADR-043 and an ADR-042-compliant implementation spec for IO format capability declarations, aggregate IOBlocks, SimpleLoader/SimpleSaver custom IO ergonomics, deterministic capability lookup, AppBlock/CodeBlock boundary validation, and typed `meta` fidelity levels. (@agent, 2026-05-19, branch: feat/issue-1113/frontmatter-griffe-facts-main, session: 20260519-152751-adr-043-io-format-capability-registry-do)
 
