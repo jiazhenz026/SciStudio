@@ -33,12 +33,12 @@
 
 ### Implementation
 
-- [ ] Add capability storage to `BlockSpec` or an adjacent registry-owned index. [ADR-043 section 11.4]
-- [ ] Add `list_format_capabilities`, `find_loader_capability`, and `find_saver_capability`.
-- [ ] Implement deterministic lookup order: explicit ID, unique match, default, most-specific type, ambiguity error. [ADR-043 section 6]
-- [ ] Validate handler existence, extension normalization, package-qualified IDs, default conflicts, roundtrip groups, and typed meta fields where feasible. [ADR-043 section 9]
-- [ ] Preserve legacy `find_loader` / `find_saver` migration behavior where tests require it, but route semantics through capabilities.
-- [ ] Add registry tests for unique/default/explicit/missing/ambiguous cases.
+- [x] Add capability storage to `BlockSpec` or an adjacent registry-owned index. [ADR-043 section 11.4] -> commit `d97d5771`
+- [x] Add `list_format_capabilities`, `find_loader_capability`, and `find_saver_capability`. -> commit `d97d5771`
+- [x] Implement deterministic lookup order: explicit ID, unique match, default, most-specific type, ambiguity error. [ADR-043 section 6] -> commit `d97d5771`
+- [x] Validate handler existence, extension normalization, package-qualified IDs, default conflicts, roundtrip groups, and typed meta fields where feasible. [ADR-043 section 9] -> commit `d97d5771`
+- [x] Preserve legacy `find_loader` / `find_saver` migration behavior where tests require it, but route semantics through capabilities. -> commit `d97d5771`
+- [x] Add registry tests for unique/default/explicit/missing/ambiguous cases. -> local tests `pytest -q --timeout=60 --no-cov tests/blocks/test_block_registry_capabilities.py tests/blocks/test_registry.py`
 
 ## Track C - Boundary Runtime Validation (Owner: A43-boundary, issue #1211)
 
@@ -54,11 +54,11 @@
 
 ### Implementation
 
-- [ ] Expose serializable format capability metadata on block summary/schema without adding palette blocks. [ADR-043 section 3]
-- [ ] Update frontend API types for format capabilities and metadata fidelity.
-- [ ] Render capability-backed format choices in IO block config surfaces and persist selected `capability_id`.
-- [ ] Surface ambiguity and metadata-loss states as backend-derived warnings, not frontend runtime truth.
-- [ ] Add backend schema tests and frontend unit tests for capability list rendering and persisted selection.
+- [x] Expose serializable format capability metadata on block summary/schema without adding palette blocks. [ADR-043 section 3] -> commit `0b9b2f91`
+- [x] Update frontend API types for format capabilities and metadata fidelity. -> commit `0b9b2f91`
+- [x] Render capability-backed format choices in IO block config surfaces and persist selected `capability_id`. -> commit `0b9b2f91`
+- [x] Surface ambiguity and metadata-loss states as backend-derived warnings, not frontend runtime truth. -> commit `0b9b2f91`
+- [x] Add backend schema tests and frontend unit tests for capability list rendering and persisted selection. -> local tests `pytest -q --timeout=60 --no-cov tests/api/test_blocks.py`; `npx vitest run src/components/BottomPanel.test.tsx src/components/nodes/BlockNode.test.tsx`
 
 ## Track E - Package Capability Pilot (Owner: A43-packages, issue #1213)
 

@@ -19,6 +19,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from scieasy.blocks.io.capabilities import CapabilityDirection, FormatCapability, normalize_extension
+from scieasy.core.types.base import DataObject, TypeSignature
+
 if TYPE_CHECKING:
     from scieasy.blocks.base.package_info import PackageInfo
 
@@ -37,6 +40,41 @@ class BlockRegistrationError(Exception):
     kill the whole palette (less-destructive degradation while still
     removing the historical ``"unknown"`` default).
     """
+
+
+class CapabilityRegistrationError(BlockRegistrationError):
+    """Raised when an ADR-043 format capability cannot be indexed."""
+
+
+class CapabilityLookupError(LookupError):
+    """Base class for ADR-043 format capability lookup failures."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        direction: CapabilityDirection,
+        data_type: type[DataObject],
+        extension: str | None = None,
+        format_id: str | None = None,
+        capability_id: str | None = None,
+        candidates: tuple[FormatCapability, ...] = (),
+    ) -> None:
+        super().__init__(message)
+        self.direction = direction
+        self.data_type = data_type
+        self.extension = extension
+        self.format_id = format_id
+        self.capability_id = capability_id
+        self.candidates = candidates
+
+
+class MissingCapabilityError(CapabilityLookupError):
+    """Raised when no IO format capability matches a query."""
+
+
+class AmbiguousCapabilityError(CapabilityLookupError):
+    """Raised when a capability query has no deterministic winner."""
 
 
 @dataclass
@@ -86,6 +124,8 @@ class BlockSpec:
     # :meth:`find_io_blocks_for_type` can dispatch by extension without
     # re-importing the block class.
     supported_extensions: dict[str, str] = field(default_factory=dict)
+    # ADR-043: normalized IO format capability records captured at scan time.
+    format_capabilities: list[FormatCapability] = field(default_factory=list)
 
 
 class BlockRegistry:
@@ -118,9 +158,52 @@ class BlockRegistry:
 
     def _register_spec(self, spec: BlockSpec) -> None:
         """Register a spec under its display name and public type name."""
+        self._validate_capability_registration(spec)
         self._registry[spec.name] = spec
         if spec.type_name:
             self._aliases[spec.type_name] = spec.name
+
+    def _validate_capability_registration(self, spec: BlockSpec) -> None:
+        """Validate new capability rows against the already-indexed registry."""
+        seen_ids: set[str] = set()
+        for capability in spec.format_capabilities:
+            if capability.id in seen_ids:
+                raise CapabilityRegistrationError(
+                    f"{spec.class_name} declares duplicate capability id {capability.id!r}."
+                )
+            seen_ids.add(capability.id)
+            _validate_capability_id(capability)
+
+            for existing_capability, existing_spec in self._iter_capability_specs():
+                if existing_spec.name == spec.name:
+                    continue
+                if existing_capability.id == capability.id:
+                    raise CapabilityRegistrationError(
+                        "Duplicate capability id "
+                        f"{capability.id!r} on {spec.class_name}; already declared by {existing_spec.class_name}."
+                    )
+
+        default_index: dict[tuple[str, type[DataObject], str], tuple[FormatCapability, BlockSpec]] = {}
+        prospective_specs = [
+            existing_spec for existing_spec in self._registry.values() if existing_spec.name != spec.name
+        ]
+        prospective_specs.append(spec)
+        for candidate_spec in prospective_specs:
+            for capability in candidate_spec.format_capabilities:
+                if not capability.is_default:
+                    continue
+                for extension in capability.extensions:
+                    key = (capability.direction, capability.data_type, extension)
+                    previous = default_index.get(key)
+                    if previous is not None:
+                        previous_capability, previous_spec = previous
+                        raise CapabilityRegistrationError(
+                            "Conflicting default IO format capabilities for "
+                            f"({capability.direction}, {capability.data_type.__name__}, {extension}): "
+                            f"{previous_capability.id!r} on {previous_spec.class_name} and "
+                            f"{capability.id!r} on {candidate_spec.class_name}."
+                        )
+                    default_index[key] = (capability, candidate_spec)
 
     @staticmethod
     def _validate_dynamic_ports(cls: type) -> None:
@@ -336,7 +419,10 @@ class BlockRegistry:
             logger.warning("Failed to load entry_points for block discovery", exc_info=True)
             return
 
-        block_eps: Any = eps.select(group="scieasy.blocks") if hasattr(eps, "select") else eps.get("scieasy.blocks", [])
+        eps_any: Any = eps
+        block_eps: Any = (
+            eps_any.select(group="scieasy.blocks") if hasattr(eps_any, "select") else eps_any.get("scieasy.blocks", [])
+        )
 
         for ep in block_eps:
             try:
@@ -580,6 +666,226 @@ class BlockRegistry:
         return dict(self._registry)
 
     # ------------------------------------------------------------------
+    # ADR-043: IO format capability lookup.
+    # ------------------------------------------------------------------
+
+    def list_format_capabilities(
+        self,
+        *,
+        direction: CapabilityDirection | None = None,
+        data_type: type[DataObject] | None = None,
+        extension: str | None = None,
+        format_id: str | None = None,
+    ) -> list[FormatCapability]:
+        """List registered ADR-043 IO format capabilities matching filters."""
+        normalized_extension = normalize_extension(extension) if extension else None
+        normalized_format_id = format_id.strip().lower() if format_id else None
+
+        capabilities: list[FormatCapability] = []
+        for capability, _spec in self._iter_capability_specs():
+            if direction is not None and capability.direction != direction:
+                continue
+            if normalized_extension is not None and normalized_extension not in capability.extensions:
+                continue
+            if normalized_format_id is not None and capability.format_id != normalized_format_id:
+                continue
+            if data_type is not None and not _capability_matches_type(
+                capability,
+                data_type,
+                capability.direction,
+            ):
+                continue
+            capabilities.append(capability)
+        return capabilities
+
+    def find_loader_capability(
+        self,
+        data_type: type[DataObject],
+        extension: str | None = None,
+        *,
+        format_id: str | None = None,
+        capability_id: str | None = None,
+    ) -> FormatCapability:
+        """Resolve a load capability without falling back to registration order."""
+        return self._find_format_capability(
+            direction="load",
+            data_type=data_type,
+            extension=extension,
+            format_id=format_id,
+            capability_id=capability_id,
+        )
+
+    def find_saver_capability(
+        self,
+        data_type: type[DataObject],
+        extension: str | None = None,
+        *,
+        format_id: str | None = None,
+        capability_id: str | None = None,
+    ) -> FormatCapability:
+        """Resolve a save capability without falling back to registration order."""
+        return self._find_format_capability(
+            direction="save",
+            data_type=data_type,
+            extension=extension,
+            format_id=format_id,
+            capability_id=capability_id,
+        )
+
+    def _find_format_capability(
+        self,
+        *,
+        direction: CapabilityDirection,
+        data_type: type[DataObject],
+        extension: str | None,
+        format_id: str | None,
+        capability_id: str | None,
+    ) -> FormatCapability:
+        normalized_extension = normalize_extension(extension) if extension else None
+        normalized_format_id = format_id.strip().lower() if format_id else None
+
+        if capability_id is not None:
+            for capability, _spec in self._iter_capability_specs():
+                if capability.id != capability_id:
+                    continue
+                if self._capability_satisfies_query(
+                    capability,
+                    direction=direction,
+                    data_type=data_type,
+                    extension=normalized_extension,
+                    format_id=normalized_format_id,
+                ):
+                    return capability
+                raise MissingCapabilityError(
+                    _capability_error_message(
+                        "Capability id exists but does not satisfy the requested IO contract",
+                        direction=direction,
+                        data_type=data_type,
+                        extension=normalized_extension,
+                        format_id=normalized_format_id,
+                        capability_id=capability_id,
+                        candidates=(capability,),
+                    ),
+                    direction=direction,
+                    data_type=data_type,
+                    extension=normalized_extension,
+                    format_id=normalized_format_id,
+                    capability_id=capability_id,
+                    candidates=(capability,),
+                )
+            raise MissingCapabilityError(
+                _capability_error_message(
+                    "No IO format capability matches capability_id",
+                    direction=direction,
+                    data_type=data_type,
+                    extension=normalized_extension,
+                    format_id=normalized_format_id,
+                    capability_id=capability_id,
+                ),
+                direction=direction,
+                data_type=data_type,
+                extension=normalized_extension,
+                format_id=normalized_format_id,
+                capability_id=capability_id,
+            )
+
+        candidates = tuple(
+            capability
+            for capability in self.list_format_capabilities(
+                direction=direction,
+                data_type=data_type,
+                extension=normalized_extension,
+                format_id=normalized_format_id,
+            )
+        )
+        if not candidates:
+            raise MissingCapabilityError(
+                _capability_error_message(
+                    "No IO format capability matches the requested contract",
+                    direction=direction,
+                    data_type=data_type,
+                    extension=normalized_extension,
+                    format_id=normalized_format_id,
+                ),
+                direction=direction,
+                data_type=data_type,
+                extension=normalized_extension,
+                format_id=normalized_format_id,
+            )
+        if len(candidates) == 1:
+            return candidates[0]
+
+        default_candidates = tuple(candidate for candidate in candidates if candidate.is_default)
+        if len(default_candidates) == 1:
+            return default_candidates[0]
+        ranked_candidates = default_candidates or candidates
+
+        max_specificity = max(_capability_type_specificity(candidate) for candidate in ranked_candidates)
+        most_specific = tuple(
+            candidate for candidate in ranked_candidates if _capability_type_specificity(candidate) == max_specificity
+        )
+        if len(most_specific) == 1:
+            return most_specific[0]
+
+        max_priority = max(candidate.priority for candidate in most_specific)
+        highest_priority = tuple(candidate for candidate in most_specific if candidate.priority == max_priority)
+        if len(highest_priority) == 1:
+            return highest_priority[0]
+
+        raise AmbiguousCapabilityError(
+            _capability_error_message(
+                "Ambiguous IO format capability lookup",
+                direction=direction,
+                data_type=data_type,
+                extension=normalized_extension,
+                format_id=normalized_format_id,
+                candidates=highest_priority,
+            ),
+            direction=direction,
+            data_type=data_type,
+            extension=normalized_extension,
+            format_id=normalized_format_id,
+            candidates=highest_priority,
+        )
+
+    def _capability_satisfies_query(
+        self,
+        capability: FormatCapability,
+        *,
+        direction: CapabilityDirection,
+        data_type: type[DataObject],
+        extension: str | None,
+        format_id: str | None,
+    ) -> bool:
+        if capability.direction != direction:
+            return False
+        if extension is not None and extension not in capability.extensions:
+            return False
+        if format_id is not None and capability.format_id != format_id:
+            return False
+        return _capability_matches_type(capability, data_type, direction)
+
+    def _iter_capability_specs(self) -> list[tuple[FormatCapability, BlockSpec]]:
+        """Return capability/spec pairs in registry insertion order."""
+        return [(capability, spec) for spec in self._registry.values() for capability in spec.format_capabilities]
+
+    def _resolve_capability_class(self, capability: FormatCapability) -> type | None:
+        for candidate, spec in self._iter_capability_specs():
+            if candidate.id == capability.id:
+                return self._resolve_class(spec)
+        return None
+
+    def _resolve_first_capability_class(self, capabilities: tuple[FormatCapability, ...]) -> type | None:
+        candidate_ids = {capability.id for capability in capabilities}
+        for capability, spec in self._iter_capability_specs():
+            if capability.id not in candidate_ids:
+                continue
+            cls = self._resolve_class(spec)
+            if cls is not None:
+                return cls
+        return None
+
+    # ------------------------------------------------------------------
     # ADR-028 §D8 / #1077: IO-block dispatch by (type, extension).
     # ------------------------------------------------------------------
 
@@ -604,10 +910,13 @@ class BlockRegistry:
         is **not** a match when queried with ``Image`` because ``Array``
         is not an ``Image`` subtype.
 
-        Disambiguation policy: if multiple loaders match, prefer the one
-        whose accepted-type signature has the longest type chain
-        (the most specific declaration). On chain-length ties,
-        **first-registered-wins** (insertion order into the registry).
+        Migration policy: ADR-043 capability lookup is used whenever it can
+        resolve a deterministic winner. If a legacy caller hits a capability
+        ambiguity, this method falls back to the pre-ADR-043 compatibility
+        path so old extension-only callers continue to run during migration.
+        New runtime dispatch should use :meth:`find_loader_capability`, which
+        raises :class:`AmbiguousCapabilityError` instead of selecting by
+        registration order.
 
         When ``dtype is None`` the type filter is skipped and the first
         loader (by registration order) whose ``supported_extensions``
@@ -618,7 +927,16 @@ class BlockRegistry:
         to import at query time are dropped silently (matches the
         existing tolerance in :meth:`scan`).
         """
-        return self._find_io_block(direction="input", dtype=dtype, extension=extension)
+        if not extension:
+            return None
+        try:
+            capability = self.find_loader_capability(dtype or DataObject, extension)
+        except MissingCapabilityError:
+            return None
+        except AmbiguousCapabilityError as exc:
+            legacy_cls = self._resolve_first_capability_class(exc.candidates)
+            return legacy_cls or self._find_io_block(direction="input", dtype=dtype, extension=extension)
+        return self._resolve_capability_class(capability)
 
     def find_saver(
         self,
@@ -628,13 +946,20 @@ class BlockRegistry:
         """Return the saver class whose ``supported_extensions`` contains *extension*
         and whose first input port accepts an instance of *dtype*.
 
-        Extension matching, type matching, and disambiguation follow the
-        same rules as :meth:`find_loader`, except the type check runs
-        against ``input_ports[0].accepted_types`` (the saver must accept
-        the requested type as input). Returns ``None`` if no saver
-        matches.
+        Extension matching and type matching follow the same migration
+        behavior as :meth:`find_loader`. New runtime dispatch should use
+        :meth:`find_saver_capability` for explicit ambiguity errors.
         """
-        return self._find_io_block(direction="output", dtype=dtype, extension=extension)
+        if not extension:
+            return None
+        try:
+            capability = self.find_saver_capability(dtype, extension)
+        except MissingCapabilityError:
+            return None
+        except AmbiguousCapabilityError as exc:
+            legacy_cls = self._resolve_first_capability_class(exc.candidates)
+            return legacy_cls or self._find_io_block(direction="output", dtype=dtype, extension=extension)
+        return self._resolve_capability_class(capability)
 
     def find_io_blocks_for_type(
         self,
@@ -814,6 +1139,103 @@ def _ext_in_mapping(extension_lower: str, mapping: dict[str, str]) -> bool:
         return False
     candidate = extension_lower if extension_lower.startswith(".") else f".{extension_lower}"
     return any(candidate == key.lower() for key in mapping)
+
+
+def _capability_matches_type(
+    capability: FormatCapability,
+    data_type: type[DataObject],
+    direction: CapabilityDirection,
+) -> bool:
+    try:
+        capability_signature = TypeSignature.from_type(capability.data_type)
+        query_signature = TypeSignature.from_type(data_type)
+    except Exception:
+        return False
+
+    if direction == "load":
+        return capability_signature.matches(query_signature)
+    return query_signature.matches(capability_signature)
+
+
+def _capability_type_specificity(capability: FormatCapability) -> int:
+    try:
+        return len(TypeSignature.from_type(capability.data_type).type_chain)
+    except Exception:
+        return 0
+
+
+def _capability_error_message(
+    prefix: str,
+    *,
+    direction: CapabilityDirection,
+    data_type: type[DataObject],
+    extension: str | None = None,
+    format_id: str | None = None,
+    capability_id: str | None = None,
+    candidates: tuple[FormatCapability, ...] = (),
+) -> str:
+    candidate_ids = ", ".join(candidate.id for candidate in candidates) if candidates else "none"
+    return (
+        f"{prefix}: direction={direction!r}, data_type={data_type.__name__!r}, "
+        f"extension={extension!r}, format_id={format_id!r}, capability_id={capability_id!r}, "
+        f"candidates=[{candidate_ids}]"
+    )
+
+
+def _validate_capability_id(capability: FormatCapability) -> None:
+    parts = capability.id.split(".")
+    if len(parts) < 3 or any(not part for part in parts):
+        raise CapabilityRegistrationError(f"Capability id {capability.id!r} must be stable and package-qualified.")
+    if any(char.isspace() for char in capability.id):
+        raise CapabilityRegistrationError(f"Capability id {capability.id!r} must not contain whitespace.")
+
+
+def _format_capabilities_from_class(cls: type) -> list[FormatCapability]:
+    from scieasy.blocks.io.io_block import IOBlock
+
+    if not issubclass(cls, IOBlock):
+        return []
+
+    _validate_simple_extension_declaration(cls)
+    capabilities = list(cls.get_format_capabilities())
+    for capability in capabilities:
+        if not isinstance(capability, FormatCapability):
+            raise CapabilityRegistrationError(
+                f"{cls.__name__}.get_format_capabilities() returned {type(capability).__name__}, "
+                "expected FormatCapability."
+            )
+        _validate_class_capability(cls, capability)
+    return capabilities
+
+
+def _validate_simple_extension_declaration(cls: type) -> None:
+    if not hasattr(cls, "extensions"):
+        return
+    extensions = cls.extensions
+    if isinstance(extensions, str):
+        raise CapabilityRegistrationError(
+            f"{cls.__name__}.extensions must be an iterable of extension strings, not a scalar string."
+        )
+
+
+def _validate_class_capability(cls: type, capability: FormatCapability) -> None:
+    expected_direction: CapabilityDirection = "load" if getattr(cls, "direction", "") == "input" else "save"
+    if capability.direction != expected_direction:
+        raise CapabilityRegistrationError(
+            f"{cls.__name__} has IO direction {getattr(cls, 'direction', '')!r} but capability "
+            f"{capability.id!r} declares {capability.direction!r}."
+        )
+    if capability.block_type != cls.__name__:
+        raise CapabilityRegistrationError(
+            f"{cls.__name__} capability {capability.id!r} must declare block_type={cls.__name__!r}, "
+            f"got {capability.block_type!r}."
+        )
+    handler = getattr(cls, capability.handler, None)
+    if not callable(handler):
+        raise CapabilityRegistrationError(
+            f"{cls.__name__} capability {capability.id!r} references missing handler {capability.handler!r}."
+        )
+    _validate_capability_id(capability)
 
 
 def _subclass_declares_field(cls: type, field_name: str) -> bool:
@@ -1066,6 +1488,9 @@ def _spec_from_class(cls: type, source: str = "") -> BlockSpec:
         # to an empty dict for non-IOBlock classes (or IOBlocks that have
         # not yet declared the ClassVar — see #1074-#1076).
         supported_extensions=dict(getattr(cls, "supported_extensions", {}) or {}),
+        # ADR-043: capture normalized IO format capabilities at scan time so
+        # lookup does not need to re-import block classes for ordinary queries.
+        format_capabilities=_format_capabilities_from_class(cls),
     )
 
 
