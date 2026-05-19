@@ -58,6 +58,7 @@ ADR-043 is being implemented concurrently by another manager. ADR-041 agents mus
 - [x] ADR-043 active worktrees identified and conflict files excluded from first-wave scope.
 - [x] Umbrella PR opened as `[DO NOT MERGE]` -> [PR #1229](https://github.com/zjzcpj/SciEasy/pull/1229).
 - [x] Tracking branch pushed -> `origin/track/adr-041/codeblock-v2`.
+- [x] Shared interpreter family literals widened for C2-C5 runtime backends -> issue [#1242](https://github.com/zjzcpj/SciEasy/issues/1242).
 
 ## Phase 1 - First-Wave Backend Support Modules
 

@@ -7,6 +7,7 @@ import pytest
 
 from scieasy.blocks.code.interpreters import (
     InterpreterResolutionError,
+    ResolvedInterpreter,
     UnsupportedScriptExtensionError,
     resolve_script_interpreter,
 )
@@ -66,3 +67,15 @@ def test_unsupported_script_extension_fails_before_interpreter_lookup(tmp_path: 
 
     with pytest.raises(UnsupportedScriptExtensionError, match=r"supports \.py scripts only"):
         resolve_script_interpreter(script, project_dir=tmp_path)
+
+
+@pytest.mark.parametrize("family", ["python", "notebook", "r", "quarto", "shell", "matlab", "octave"])
+def test_resolved_interpreter_accepts_all_adr041_runtime_families(family: str) -> None:
+    resolved = ResolvedInterpreter(
+        family=family,
+        executable="runtime",
+        argv=["runtime", "script"],
+        working_directory=".",
+    )
+
+    assert resolved.family == family

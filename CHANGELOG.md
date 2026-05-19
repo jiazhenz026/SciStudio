@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#1242] Add shared CodeBlock v2 interpreter family metadata for notebook, R, Quarto, shell, MATLAB, and Octave runtime backends so ADR-041 sibling tracks can implement complete runtime support without each modifying the shared interpreter type alias. (@agent, 2026-05-19, branch: track/adr-041/codeblock-v2, session: 20260519-194531-adr-041-shared-interpreter-family-litera)
+
 - [#1225] Integrate the ADR-041 CodeBlock v2 shared runtime layer with the Python `.py` backend, including exchange preparation, interpreter execution, typed output collection, provenance payload capture, timeout/nonzero diagnostics, and explicit legacy inline/function migration errors. (@agent, 2026-05-19, branch: feat/issue-1225/adr041-codeblock-python-execution, session: 20260519-185434-adr-041-track-c-codeblock-v2-python-exec)
 
 - [#1234] Expand the ADR-041 CodeBlock v2 implementation cascade from a Python-first runtime track into a complete runtime module plan with explicit notebook, R/Quarto, shell, and MATLAB/Octave implementation tracks. (@agent, 2026-05-19, branch: track/adr-041/codeblock-v2, session: 20260519-190320-adr-041-complete-runtime-scope-expansion)

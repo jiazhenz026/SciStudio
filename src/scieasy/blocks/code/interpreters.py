@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from scieasy.blocks.code.config import InterpreterMode, resolve_project_path
 
-InterpreterFamily = Literal["python"]
+InterpreterFamily = Literal["python", "notebook", "r", "quarto", "shell", "matlab", "octave"]
 
 
 class InterpreterResolutionError(RuntimeError):
