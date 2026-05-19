@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#1225] Integrate the ADR-041 CodeBlock v2 shared runtime layer with the Python `.py` backend, including exchange preparation, interpreter execution, typed output collection, provenance payload capture, timeout/nonzero diagnostics, and explicit legacy inline/function migration errors. (@agent, 2026-05-19, branch: feat/issue-1225/adr041-codeblock-python-execution, session: 20260519-185434-adr-041-track-c-codeblock-v2-python-exec)
+
 - [#1234] Expand the ADR-041 CodeBlock v2 implementation cascade from a Python-first runtime track into a complete runtime module plan with explicit notebook, R/Quarto, shell, and MATLAB/Octave implementation tracks. (@agent, 2026-05-19, branch: track/adr-041/codeblock-v2, session: 20260519-190320-adr-041-complete-runtime-scope-expansion)
 
 - [#1224] Add CodeBlock v2 exchange-directory and manifest helpers for ADR-041 Track B, including per-run layout creation, deterministic input filename planning, collision-safe port folders, structured input/output manifest records, declared-output diagnostics, and injectable materialise/reconstruct adapter seams for later ADR-043 wiring. (@agent, 2026-05-19, branch: feat/issue-1224/adr041-exchange-manifest, session: 20260519-182539-adr-041-track-b-codeblock-v2-exchange-ma)
