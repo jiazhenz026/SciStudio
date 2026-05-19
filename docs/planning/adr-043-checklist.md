@@ -1,0 +1,93 @@
+# ADR-043 Implementation Checklist
+
+> Mandatory tracking doc for the ADR-043 implementation cascade.
+> Every agent edits only the rows it owns. Drift = protocol violation.
+
+## Conventions
+
+- `[ ]` not started
+- `[~]` in progress
+- `[x]` done
+- `[!]` blocked
+- Each checked row MUST append `-> <PR-or-commit-or-test-link>`.
+
+## Grounding
+
+- ADR: `docs/adr/ADR-043.md`
+- Spec: `docs/specs/adr-043-io-format-capability-registry.md`
+- Manager issue: #1207
+- Package migration fallout tracker: #1204
+- Tracking branch: `track/adr-043/capability-registry`
+
+## Track A - Core Capability Model (Owner: A43-core, issue #1209)
+
+### Implementation
+
+- [ ] Add `FormatCapability`, `MetadataFidelity`, direction/fidelity literals, typed validation errors, and normalization helpers. [ADR-043 sections 8, 11]
+- [ ] Add `SimpleLoader` and `SimpleSaver` ergonomic bases with conservative `pixel_only` synthesis. [ADR-043 section 4]
+- [ ] Extend `IOBlock.get_format_capabilities()` and legacy `supported_extensions` migration synthesis without final package-compliance claims. [ADR-043 sections 9, 13]
+- [ ] Export public simple/capability APIs from `scieasy.blocks.io`.
+- [ ] Add tests for valid/invalid capabilities, metadata fidelity, simple IO synthesis, and compatibility synthesis.
+
+## Track B - Registry Lookup (Owner: A43-registry, issue #1210)
+
+### Implementation
+
+- [ ] Add capability storage to `BlockSpec` or an adjacent registry-owned index. [ADR-043 section 11.4]
+- [ ] Add `list_format_capabilities`, `find_loader_capability`, and `find_saver_capability`.
+- [ ] Implement deterministic lookup order: explicit ID, unique match, default, most-specific type, ambiguity error. [ADR-043 section 6]
+- [ ] Validate handler existence, extension normalization, package-qualified IDs, default conflicts, roundtrip groups, and typed meta fields where feasible. [ADR-043 section 9]
+- [ ] Preserve legacy `find_loader` / `find_saver` migration behavior where tests require it, but route semantics through capabilities.
+- [ ] Add registry tests for unique/default/explicit/missing/ambiguous cases.
+
+## Track C - Boundary Runtime Validation (Owner: A43-boundary, issue #1211)
+
+### Implementation
+
+- [ ] Add `capability_id` parameters to `materialise_to_file` and `reconstruct_from_file` and dispatch through registry capability lookup. [ADR-043 section 11.5]
+- [ ] Preserve intentional Artifact fallback behavior only where the target type is Artifact-compatible.
+- [ ] Thread `capability_id` through `FileExchangeBridge.prepare()` manifest entries and AppBlock output reconstruction.
+- [ ] Validate AppBlock and CodeBlock boundary ports before execution when type + extension is declared. [ADR-043 sections 7, 10]
+- [ ] Add runtime, AppBlock, and workflow validator tests for missing, unique, ambiguous, and explicit capability IDs.
+
+## Track D - API And Frontend Capability Selection (Owner: A43-ui, issue #1212)
+
+### Implementation
+
+- [ ] Expose serializable format capability metadata on block summary/schema without adding palette blocks. [ADR-043 section 3]
+- [ ] Update frontend API types for format capabilities and metadata fidelity.
+- [ ] Render capability-backed format choices in IO block config surfaces and persist selected `capability_id`.
+- [ ] Surface ambiguity and metadata-loss states as backend-derived warnings, not frontend runtime truth.
+- [ ] Add backend schema tests and frontend unit tests for capability list rendering and persisted selection.
+
+## Track E - Package Capability Pilot (Owner: A43-packages, issue #1213)
+
+### Implementation
+
+- [ ] Add explicit imaging `LoadImage` / `SaveImage` TIFF/Zarr capabilities with stable IDs and fidelity declarations.
+- [ ] Add minimal LCMS table/raw IO capability declarations where low-risk and mark one-way formats explicitly.
+- [ ] Add package tests proving explicit declarations are used instead of compatibility synthesis for pilot IOBlocks.
+- [ ] Update package docs for capability IDs and metadata fidelity.
+- [ ] Mark full package hard-validation migration deferrals with `TODO(#1204)` where code knowingly remains legacy.
+
+## Track F - Fact Audit And Fix (Owner: Manager/fix agent, issue #1214)
+
+### Audit
+
+- [ ] Run `python scripts/audit/generate_facts.py --check`.
+- [ ] Run `python -m scieasy.qa.audit.full_audit --format json`.
+- [ ] Classify failures as ADR-043-related vs pre-existing baseline.
+- [ ] Fix every ADR-043-related fail in a scoped branch/PR.
+- [ ] Post audit summary and fixes on #1207.
+
+## Acceptance Criteria
+
+- [ ] Each sub-issue has an implementation PR targeting `track/adr-043/capability-registry`.
+- [ ] Every agent used an independent worktree and independent branch.
+- [ ] All implementation PRs pass local tests and GitHub CI.
+- [ ] Fact audit has been run after implementation integration.
+- [ ] All ADR-043-related fact audit failures are fixed or explicitly escalated with evidence.
+
+## Drift Log
+
+(empty until first violation)
