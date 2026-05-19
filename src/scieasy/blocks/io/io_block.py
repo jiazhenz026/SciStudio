@@ -31,7 +31,7 @@ from typing import Any, ClassVar
 from scieasy.blocks.base.block import Block
 from scieasy.blocks.base.config import BlockConfig
 from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.io.capabilities import FormatCapability, MetadataFidelity
+from scieasy.blocks.io.capabilities import CapabilityDirection, FormatCapability, MetadataFidelity
 from scieasy.core.types.base import DataObject
 from scieasy.core.types.collection import Collection
 from scieasy.core.types.text import Text
@@ -106,7 +106,7 @@ class IOBlock(Block):
         if not cls.supported_extensions:
             return ()
 
-        capability_direction = "load" if cls.direction == "input" else "save"
+        capability_direction: CapabilityDirection = "load" if cls.direction == "input" else "save"
         data_type = cls._legacy_capability_data_type(capability_direction)
         handler = "load" if capability_direction == "load" else "save"
         by_format: dict[str, list[str]] = {}
