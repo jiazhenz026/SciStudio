@@ -69,6 +69,19 @@ repos:
         pass_filenames: false
         stages: [pre-commit]
 
+      - id: adr042-local-gate
+        name: ADR-042 AI local gate
+        entry: python scripts/qa/run_adr042_check.py local-gate pre-commit
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: adr042-local-gate-commit-msg
+        name: ADR-042 AI commit trailers
+        entry: python scripts/qa/run_adr042_check.py local-gate commit-msg
+        language: system
+        stages: [commit-msg]
+
       - id: adr042-zizmor
         name: ADR-042 GitHub Actions security lint
         entry: python -m zizmor .github/workflows
@@ -122,3 +135,18 @@ repos:
         pass_filenames: false
         files: ^(\.claude/skills/|\.codex/skills/|docs/(contributing|doc-guide)/)
         stages: [pre-commit]
+
+      - id: adr042-generate-facts
+        name: ADR-042 generated facts freshness
+        entry: python scripts/audit/generate_facts.py --check
+        language: system
+        pass_filenames: false
+        files: ^(docs/(adr|specs)/|src/scieasy/qa/|pyproject\.toml|\.github/workflows/|\.pre-commit-config\.yaml|pyrightconfig\.json|MAINTAINERS)
+        stages: [pre-commit]
+
+      - id: adr042-trailer-lint
+        name: ADR-042 AI trailer lint
+        entry: python scripts/qa/run_adr042_check.py trailer-lint --range HEAD~1..HEAD
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

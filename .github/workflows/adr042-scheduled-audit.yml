@@ -34,6 +34,8 @@ jobs:
           python scripts/qa/run_adr042_check.py code-score --changed --full --base HEAD~1 --head HEAD --ai-advisory --ai-provider codex --format json --write "docs/audit/code-score/ai/${GITHUB_SHA}.json"
       - name: Run targeted mutation audit
         run: python -m scieasy.qa.test_quality.mutation_runner --changed --base HEAD~1 --head HEAD --format json
+      - name: Record loaded instruction diagnostics
+        run: python scripts/audit/instructions_loaded_audit.py --runtime codex --format json
       - uses: actions/upload-artifact@v4
         if: always()
         with:

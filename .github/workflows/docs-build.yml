@@ -37,6 +37,7 @@ jobs:
       - run: markdownlint-cli2 "docs/**/*.md"
       - run: python -m scieasy.qa.docs.generate_reference --target all --check
       - run: npm --prefix frontend run docs:api
+      - run: python scripts/audit/generate_facts.py --check
       - run: sphinx-lint docs
       - run: sphinx-build -b html -W --keep-going -n docs/sphinx docs/_build/html
       - run: sphinx-build -b linkcheck -W --keep-going docs/sphinx docs/_build/linkcheck

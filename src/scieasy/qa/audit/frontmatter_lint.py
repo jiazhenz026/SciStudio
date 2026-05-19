@@ -12,9 +12,11 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
+from pydantic import ValidationError
 
 from scieasy.qa._report_helpers import build_finding, build_report
 from scieasy.qa._shared import AuditFinding, AuditReport
+from scieasy.qa.schemas.frontmatter import ADRFrontmatter, SpecFrontmatter
 
 DocumentKind = Literal[
     "adr",
@@ -174,6 +176,9 @@ def _add_finding(
     finding_class: str,
     message: str,
     severity: Literal["info", "warning", "error"] = "error",
+    expected: object | None = None,
+    actual: object | None = None,
+    remediation: str | None = None,
     evidence: dict[str, Any] | None = None,
 ) -> None:
     findings.append(
@@ -185,6 +190,9 @@ def _add_finding(
             message=message,
             path=path,
             line=line,
+            expected=expected,
+            actual=actual,
+            remediation=remediation,
             evidence=evidence,
         )
     )
@@ -223,6 +231,17 @@ def _validate_required_fields(path: Path, fm: dict[str, Any], required: dict[str
                 finding_class="schema",
                 message=f"ADR frontmatter field '{field}' has invalid type",
             )
+
+
+def _serializable_validation_errors(exc: ValidationError) -> list[dict[str, object]]:
+    return [
+        {
+            "loc": [str(part) for part in error.get("loc", ())],
+            "msg": str(error.get("msg", "")),
+            "type": str(error.get("type", "")),
+        }
+        for error in exc.errors()
+    ]
 
 
 def _validate_adr_frontmatter(path: Path, fm: dict[str, Any], findings: list[Any]) -> None:
@@ -324,6 +343,35 @@ def _validate_adr_frontmatter(path: Path, fm: dict[str, Any], findings: list[Any
             message="ADR frontmatter governs must be a mapping",
         )
 
+    try:
+        parsed = ADRFrontmatter.model_validate(fm)
+    except ValidationError as exc:
+        _add_finding(
+            findings,
+            path=path,
+            line=None,
+            finding_id="frontmatter-schema-pydantic",
+            finding_class="schema",
+            message="ADR frontmatter does not validate against ADR-042 schema",
+            evidence={"errors": _serializable_validation_errors(exc)},
+        )
+        return
+
+    normalized = path.as_posix()
+    if "/docs/adr/" in normalized or path.name.startswith("ADR-"):
+        expected_name = f"ADR-{parsed.adr:03d}.md"
+        if path.name != expected_name:
+            _add_finding(
+                findings,
+                path=path,
+                line=None,
+                finding_id="frontmatter-adr-filename",
+                finding_class="schema",
+                message=f"ADR filename must be {expected_name}",
+                expected=expected_name,
+                actual=path.name,
+            )
+
 
 def _validate_spec_frontmatter(path: Path, fm: dict[str, Any], findings: list[Any]) -> None:
     if fm.get("__frontmatter_error__") == "invalid-yaml":
@@ -374,6 +422,19 @@ def _validate_spec_frontmatter(path: Path, fm: dict[str, Any], findings: list[An
             finding_id="frontmatter-spec-scope",
             finding_class="schema",
             message="Spec scope must include in/out",
+        )
+
+    try:
+        SpecFrontmatter.model_validate(fm)
+    except ValidationError as exc:
+        _add_finding(
+            findings,
+            path=path,
+            line=None,
+            finding_id="frontmatter-schema-pydantic",
+            finding_class="schema",
+            message="Spec frontmatter does not validate against ADR-042 schema",
+            evidence={"errors": _serializable_validation_errors(exc)},
         )
 
 

@@ -1,18 +1,19 @@
-"""Shared local models for documentation generators."""
+"""Shared models for documentation generators."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
-@dataclass
-class GeneratorResult:
+class GeneratorResult(BaseModel):
     generator_id: str
     target_path: str
     content: str
     source_paths: list[str]
-    warnings: list[str] = field(default_factory=list)
-    manifest_entry: dict | None = None
+    warnings: list[str] = Field(default_factory=list)
+    manifest_entry: dict[str, Any] | None = None
 
     @property
     def generated_marker(self) -> str:

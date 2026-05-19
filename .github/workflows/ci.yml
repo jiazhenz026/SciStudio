@@ -201,6 +201,14 @@ jobs:
           python scripts/qa/run_adr042_check.py doc-length-lint docs
           python scripts/qa/run_adr042_check.py auto-generated-lint
           python scripts/qa/run_adr042_check.py skill-pointer-sync
+      - name: Run ADR-042 consistency checks
+        run: |
+          python scripts/audit/generate_facts.py --check
+          python scripts/qa/run_adr042_check.py doc-drift --facts docs/facts/generated.yaml --format json
+          python scripts/qa/run_adr042_check.py fact-drift --facts docs/facts/generated.yaml --format json
+          python scripts/qa/run_adr042_check.py closure --facts docs/facts/generated.yaml --format json
+          python scripts/qa/run_adr042_check.py signature-drift --facts docs/facts/generated.yaml --format json
+          python scripts/qa/run_adr042_check.py full-audit --facts docs/facts/generated.yaml --format json
       - name: Run API and code health audit tools
         run: |
           griffe dump scieasy --search-path src
@@ -215,6 +223,12 @@ jobs:
           python -m scieasy.qa.test_quality.ast_lint tests --format json
           python -m scieasy.qa.test_quality.test_first_check --base "$BASE_REF" --head HEAD --format json
           python -m scieasy.qa.test_quality.mutation_runner --changed --base "$BASE_REF" --head HEAD --format json
+      - name: Run ADR-042 governed-change checks
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD~1' }}
+        run: |
+          python scripts/qa/run_adr042_check.py complete-artifacts --base "$BASE_REF" --head HEAD --format json
+          python scripts/qa/run_adr042_check.py codemod-lint --base "$BASE_REF" --head HEAD --format json
 
   code-score:
     name: Code Score
@@ -304,6 +318,18 @@ jobs:
           python-version: "3.13"
       - run: uv pip install --system ".[dev]"
       - run: zizmor .github/workflows
+      - name: Run ADR-042 governance weakening checks
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD~1' }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            python scripts/qa/run_adr042_check.py human-bypass --pr "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --format json
+          fi
+          python scripts/qa/run_adr042_check.py weakened-ci --base "$BASE_REF" --head HEAD --format json
+          python scripts/qa/run_adr042_check.py governance-mod-guard --base "$BASE_REF" --head HEAD --format json
+          python scripts/qa/run_adr042_check.py core-change-guard --base "$BASE_REF" --head HEAD --format json
+          python scripts/qa/run_adr042_check.py trailer-lint --range "$BASE_REF..HEAD" --format json
 
   build-frontend-release:
     name: Build Frontend for Release

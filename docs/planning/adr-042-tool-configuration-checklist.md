@@ -60,47 +60,50 @@ new failures as bugs to hide.
 | `pydata-sphinx-theme` / UX extensions | `docs/sphinx/conf.py` | `docs-build` | configured |
 | `typedoc` | `frontend/package.json` | `docs-build` | configured |
 
-## 4. Implemented Or Partial Custom Tools
+## 4. Custom Tools Implementation Status
 
-| Tool | Implemented state | Required configuration | Status |
+| Tool | ADR/spec gap found before this round | Required configuration | Status |
 |---|---|---|---|
-| `code_score --changed --fast` | partial | pre-commit hard-fail on F | configured |
-| `code_score --changed --full` | partial | PR CI hard-fail on F | configured |
-| `code_score --module-health` | partial | scheduled/manual audit | configured |
-| `test_quality.ast_lint` | partial | audit CI/manual check | configured |
-| `test_quality.test_first_check` | partial | audit CI/manual check | configured |
-| `test_quality.mutation_runner` | partial | manual/scheduled or targeted CI | configured |
-| `frontmatter_lint` | partial | pre-commit and docs/audit CI | configured |
-| `doc_length_lint` | partial | pre-commit and docs/audit CI | configured |
-| `auto_generated_lint` | partial | pre-commit and docs/audit CI | configured |
-| `skill_pointer_sync` | partial | pre-commit and docs/audit CI | configured |
-| docs generators | partial | docs-build generation/freshness step | configured |
+| shared schemas | Missing `scieasy.qa.schemas.*`; existing tools used local shims | schema tests and validators | implemented |
+| `code_score --changed --fast` | Used local report shim instead of shared schema | pre-commit hard-fail on F | implemented and configured |
+| `code_score --changed --full` | Used local report shim instead of shared schema | PR CI hard-fail on F | implemented and configured |
+| `code_score --module-health` | Needed scheduled/manual placement | scheduled/manual audit | implemented and configured |
+| `test_quality.ast_lint` | Needed shared report alignment | audit CI/manual check | implemented and configured |
+| `test_quality.test_first_check` | Needed shared report alignment | audit CI/manual check | implemented and configured |
+| `test_quality.mutation_runner` | Needed normalized report and scheduled/manual placement | manual/scheduled or targeted CI | implemented and configured |
+| `frontmatter_lint` | Did not validate with ADR/Spec Pydantic schemas | pre-commit and docs/audit CI | implemented and configured |
+| `doc_length_lint` | Already implemented; needed shared report compatibility | pre-commit and docs/audit CI | implemented and configured |
+| `auto_generated_lint` | Already implemented; needed generated manifest consistency in CI | pre-commit and docs/audit CI | implemented and configured |
+| `skill_pointer_sync` | Already implemented; needed CI/pre-commit placement | pre-commit and docs/audit CI | implemented and configured |
+| docs generators | Needed generated-doc freshness and Sphinx integration | docs-build generation/freshness step | implemented and configured |
+| `generate_facts` | Missing fact registry generator | `audit`, `docs-build`, pre-commit freshness | implemented and configured |
+| `doc_drift` | Missing explicit reference classifier | `audit` | implemented and configured |
+| `fact_drift` | Missing fact substitution checker | `audit` | implemented and configured |
+| `closure` | Missing bidirectional ownership/phantom check | `audit` | implemented and configured |
+| `signature_drift` | Missing signature-level spec checker | `audit` | implemented and configured |
+| `full_audit` | Missing consistency aggregate runner | `audit` | implemented and configured |
+| `local_gate` | Missing local AI gate state and commit trailer checks | pre-commit/commit-msg | implemented and configured |
+| `issue_link` | Missing issue resolution abstraction | workflow gate / AI local gate | implemented |
+| `docs_landing` | Missing docs/changelog/checklist landing validator | local gate / workflow gate | implemented |
+| `persona_policy` | Missing persona/runtime/constitution validator | local gate / workflow gate | implemented |
+| `human_bypass_guard` | Missing human-authored label provenance check and required `--pr` CLI | workflow-lint PR CI | implemented and configured |
+| `pr_merge_guard` | Missing AI merge guard | workflow gate/manual guard | implemented |
+| `core_change_guard` | Missing protected-core authorization check | workflow gate | implemented and configured |
+| `governance_mod_guard` | Missing governance modification guard | workflow gate | implemented and configured |
+| `weakened_ci_check` | Missing CI/test/lint weakening detector | workflow-lint | implemented and configured |
+| `complete_artifacts` | Missing governed-change artifact check | workflow gate / audit | implemented |
+| `codemod_lint` | Missing contract-migration metadata check | audit | implemented |
+| `trailer_lint` | Missing commit trailer range check | commit-msg / workflow gate | implemented and configured |
+| `committer_enforce` | Missing deferred committer check | deferred workflow gate | implemented as deferred/skipped unless configured |
+| `instructions_loaded_audit` | Missing report-only diagnostic | report-only audit | implemented |
 
-## 5. Unimplemented Custom Tools To Wire When Added
+## 5. Remaining Limitations To Review
 
-| Tool | Expected module or script | CI/pre-commit target | Status |
-|---|---|---|---|
-| shared schemas | `scieasy.qa.schemas.*` | audit/schema tests | missing implementation |
-| `generate_facts` | `scripts/audit/generate_facts.py` | `audit`, `docs-build` | missing implementation |
-| `doc_drift` | `scieasy.qa.audit.doc_drift` | `audit` | missing implementation |
-| `fact_drift` | `scieasy.qa.audit.fact_drift` | `audit` | missing implementation |
-| `closure` | `scieasy.qa.audit.closure` | `audit` | missing implementation |
-| `signature_drift` | `scieasy.qa.audit.signature_drift` | `audit` | missing implementation |
-| `full_audit` | `scieasy.qa.audit.full_audit` | `audit` | missing implementation |
-| `local_gate` | `scieasy.qa.governance.local_gate` | pre-commit/commit-msg | missing implementation |
-| `issue_link` | `scieasy.qa.governance.issue_link` | workflow gate / AI local gate | missing implementation |
-| `docs_landing` | `scieasy.qa.governance.docs_landing` | pre-commit | missing implementation |
-| `persona_policy` | `scieasy.qa.governance.persona_policy` | pre-commit / workflow gate | missing implementation |
-| `human_bypass_guard` | `scieasy.qa.governance.human_bypass_guard` | workflow gate | missing implementation |
-| `pr_merge_guard` | `scieasy.qa.governance.pr_merge_guard` | workflow gate/manual guard | missing implementation |
-| `core_change_guard` | `scieasy.qa.governance.core_change_guard` | workflow gate | missing implementation |
-| `governance_mod_guard` | `scieasy.qa.governance.mod_guard` | workflow gate | missing implementation |
-| `weakened_ci_check` | `scieasy.qa.governance.weakened_ci_check` | workflow-lint | missing implementation |
-| `complete_artifacts` | `scieasy.qa.audit.complete_artifacts` | workflow gate / audit | missing implementation |
-| `codemod_lint` | `scieasy.qa.audit.codemod_lint` | audit | missing implementation |
-| `trailer_lint` | `scieasy.qa.audit.trailer_lint` | commit-msg / workflow gate | missing implementation |
-| `committer_enforce` | `scieasy.qa.audit.committer_enforce` | deferred workflow gate | missing implementation |
-| `instructions_loaded_audit` | `scripts/audit/instructions_loaded_audit.py` | report-only audit | missing implementation |
+| Area | Status | Reason |
+|---|---|---|
+| Historical repository compliance | not fixed here | This task implements tools; existing ADR/docs/code drift should fail and be cleaned separately |
+| `committer_enforce` hard-fail | deferred by ADR | ADR-042 keeps it deferred until the owner defines approved AI commit paths |
+| GitHub live metadata fetching | implemented for human bypass only | Other guards still accept explicit PR metadata or local diff evidence; no hidden branch-name/prose inference is used |
 
 ## 6. Manual And Scheduled Tools
 
@@ -109,5 +112,5 @@ new failures as bugs to hide.
 | `code_score --module-health` | weekly scheduled workflow | configured |
 | `test_quality.mutation_runner` / `mutmut` | manual or scheduled targeted mutation | configured |
 | AI advisory score | optional pre-commit/CI when CLI is available | configured |
-| `instructions_loaded_audit` | report-only manual/CI diagnostic | missing implementation |
+| `instructions_loaded_audit` | report-only manual/CI diagnostic | implemented |
 | Sphinx `linkcheck` | scheduled/manual or docs-build once baseline exists | configured |

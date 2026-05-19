@@ -8,56 +8,14 @@ consistency branch in generated report metadata.
 
 from __future__ import annotations
 
-import importlib.util
 import subprocess
-from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from scieasy.qa.schemas.report import AuditFinding, AuditReport
 
-
-def _has_consistency_schemas() -> bool:
-    try:
-        return importlib.util.find_spec("scieasy.qa.schemas.report") is not None
-    except (ImportError, AttributeError, ValueError):
-        return False
-
-
-CONSISTENCY_SCHEMAS_AVAILABLE = _has_consistency_schemas()
-
-
-class AuditFinding(BaseModel):
-    id: str
-    tool: str
-    severity: Literal["info", "warning", "error"]
-    finding_class: str
-    message: str
-    path: str | None = None
-    line: int | None = None
-    subject: str | None = None
-    expected: Any | None = None
-    actual: Any | None = None
-    remediation: str | None = None
-    evidence: Mapping[str, Any] = Field(default_factory=dict)
-
-
-class AuditReport(BaseModel):
-    tool: str
-    status: Literal["passed", "failed", "skipped", "error"]
-    generated_at: datetime
-    source_sha: str
-    findings: list[AuditFinding] = Field(default_factory=list)
-    summary: Mapping[str, Any] = Field(default_factory=dict)
-    child_reports: list[AuditReport] = Field(default_factory=list)
-
-    @property
-    def blocks_merge(self) -> bool:
-        return self.status == "failed" and any(item.severity == "error" for item in self.findings)
-
-    def error_findings(self) -> list[AuditFinding]:
-        return [item for item in self.findings if item.severity == "error"]
+CONSISTENCY_SCHEMAS_AVAILABLE = True
 
 
 GradeAlias = Literal["A", "B", "C", "D", "F"]
@@ -120,6 +78,4 @@ def report_status(report: AuditReport) -> Literal["passed", "failed", "skipped",
 
 
 def schema_dependency_note() -> str:
-    if CONSISTENCY_SCHEMAS_AVAILABLE:
-        return "shared report schema is available"
-    return "compatibility shim in use; requires consistency branch schema"
+    return "shared report schema is available"

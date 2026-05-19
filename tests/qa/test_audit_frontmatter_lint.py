@@ -122,7 +122,7 @@ adr: [1, 2
 
 
 def test_frontmatter_lint_path_filter(tmp_path: Path) -> None:
-    source = tmp_path / "docs" / "adr" / "ADR-100.md"
+    source = tmp_path / "docs" / "adr" / "ADR-999.md"
     _valid_adr(source)
     report = frontmatter_lint.lint_paths([source], repo_root=tmp_path)
     assert report.status == "passed"
