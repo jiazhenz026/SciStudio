@@ -233,10 +233,10 @@ Scope:
 
 Tasks:
 
-- [ ] Add `.m` execution through MATLAB or Octave when available.
-- [ ] Add `.mlx` handling through MATLAB where available, with clear unsupported diagnostics when not available.
-- [ ] Add deterministic command construction, exchange-directory environment passing, and output collection.
-- [ ] Add tests for executable selection, missing executable diagnostics, command construction, and optional dependency skip behavior.
+- [x] Add `.m` execution through MATLAB or Octave when available. Evidence: commit `ce9ca4c8`; backend selects MATLAB first in auto mode and falls back to Octave for `.m`.
+- [x] Add `.mlx` handling through MATLAB where available, with clear unsupported diagnostics when not available. Evidence: commit `ce9ca4c8`; tests cover `.mlx` MATLAB requirement and Octave rejection.
+- [x] Add deterministic command construction, exchange-directory environment passing, and output collection. Evidence: commit `ce9ca4c8`; backend reuses shared CodeBlock process execution and tests assert argv/cwd/env/timeout handoff.
+- [x] Add tests for executable selection, missing executable diagnostics, command construction, and optional dependency skip behavior. Evidence: `PYTHONPATH=C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41m\src python -m pytest tests/blocks/code/test_codeblock_matlab.py --timeout=30 --no-cov` passed with 10 tests and 1 optional Octave skip; Ruff passed for touched Python files.
 
 Exit Criteria:
 
@@ -339,7 +339,7 @@ Exit Criteria:
 - [ ] I41n dispatched for #1235.
 - [ ] I41r dispatched for #1238.
 - [ ] I41s dispatched for #1237.
-- [ ] I41m dispatched for #1236.
+- [x] I41m dispatched for #1236. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41m`, branch `feat/issue-1236/adr041-matlab-octave-runtime`, gate session `20260519-195039-adr-041-track-c5-matlab-and-octave-runti`.
 - [ ] I41d dispatched for #1226.
 - [ ] I41e dispatched for #1227.
 - [ ] A41/F41 dispatched for #1228.
