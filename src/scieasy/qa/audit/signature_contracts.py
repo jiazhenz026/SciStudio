@@ -66,7 +66,9 @@ def _parameters(args: ast.arguments) -> list[ExpectedParameter]:
     return parameters
 
 
-def _signature_from_function(node: ast.FunctionDef | ast.AsyncFunctionDef, source_path: str, line: int) -> ExpectedSignature:
+def _signature_from_function(
+    node: ast.FunctionDef | ast.AsyncFunctionDef, source_path: str, line: int
+) -> ExpectedSignature:
     return ExpectedSignature(
         subject=node.name,
         kind="function",

@@ -2,7 +2,7 @@
   "tool": "full_audit",
   "status": "fail",
   "generated_at": "1970-01-01T00:00:00Z",
-  "source_sha": "f060d8ed922d260305957ad66316c7d836f8c561bf3a51a713c16e0879363abc",
+  "source_sha": "6580a613a4d24a00caa2c2414e028764924b63f40ed712c7c51d3b7e600c6797",
   "findings": [],
   "summary": {
     "implemented_children": [
@@ -19,7 +19,7 @@
       "tool": "generate_facts",
       "status": "pass",
       "generated_at": "1970-01-01T00:00:00Z",
-      "source_sha": "f060d8ed922d260305957ad66316c7d836f8c561bf3a51a713c16e0879363abc",
+      "source_sha": "6580a613a4d24a00caa2c2414e028764924b63f40ed712c7c51d3b7e600c6797",
       "findings": [],
       "summary": {
         "facts_path": "docs/facts/generated.yaml",
@@ -69,8 +69,8 @@
     {
       "tool": "fact_drift",
       "status": "pass",
-      "generated_at": "2026-05-19T18:34:37.192889Z",
-      "source_sha": "f060d8ed922d260305957ad66316c7d836f8c561bf3a51a713c16e0879363abc",
+      "generated_at": "2026-05-19T18:40:16.052947Z",
+      "source_sha": "6580a613a4d24a00caa2c2414e028764924b63f40ed712c7c51d3b7e600c6797",
       "findings": [],
       "summary": {
         "docs_checked": 90,
@@ -81,8 +81,8 @@
     {
       "tool": "doc_drift",
       "status": "fail",
-      "generated_at": "2026-05-19T18:34:51.572272Z",
-      "source_sha": "f060d8ed922d260305957ad66316c7d836f8c561bf3a51a713c16e0879363abc",
+      "generated_at": "2026-05-19T18:40:30.484850Z",
+      "source_sha": "6580a613a4d24a00caa2c2414e028764924b63f40ed712c7c51d3b7e600c6797",
       "findings": [
         {
           "rule_id": "doc-drift.invalid-frontmatter",
@@ -1572,8 +1572,8 @@
     {
       "tool": "closure",
       "status": "fail",
-      "generated_at": "2026-05-19T18:35:06.235925Z",
-      "source_sha": "f060d8ed922d260305957ad66316c7d836f8c561bf3a51a713c16e0879363abc",
+      "generated_at": "2026-05-19T18:40:45.039504Z",
+      "source_sha": "6580a613a4d24a00caa2c2414e028764924b63f40ed712c7c51d3b7e600c6797",
       "findings": [
         {
           "rule_id": "closure.invalid-frontmatter",
@@ -20763,8 +20763,8 @@
     {
       "tool": "signature_drift",
       "status": "fail",
-      "generated_at": "2026-05-19T18:35:06.246160Z",
-      "source_sha": "f060d8ed922d260305957ad66316c7d836f8c561bf3a51a713c16e0879363abc",
+      "generated_at": "2026-05-19T18:40:45.049231Z",
+      "source_sha": "6580a613a4d24a00caa2c2414e028764924b63f40ed712c7c51d3b7e600c6797",
       "findings": [
         {
           "rule_id": "signature-drift.missing-symbol",

@@ -10,9 +10,7 @@ from scieasy.qa.audit.facts import DEFAULT_FACTS_PATH, load_facts
 from scieasy.qa.schemas.facts import FactsRegistry
 from scieasy.qa.schemas.report import AuditReport, AuditStatus, DriftClass, Finding, Severity
 
-_SUBSTITUTION_RE = re.compile(
-    r"\{\{\s*facts(?:\[['\"](?P<bracket>[^'\"]+)['\"]\]|\.(?P<dot>[A-Za-z0-9_.:-]+))\s*\}\}"
-)
+_SUBSTITUTION_RE = re.compile(r"\{\{\s*facts(?:\[['\"](?P<bracket>[^'\"]+)['\"]\]|\.(?P<dot>[A-Za-z0-9_.:-]+))\s*\}\}")
 
 
 def _target_docs(repo_root: Path, docs: list[Path] | None) -> list[Path]:

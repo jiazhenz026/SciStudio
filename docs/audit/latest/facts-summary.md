@@ -9,7 +9,7 @@ It is intended for human review; drift checks consume the YAML facts directly.
 
 - Status: `fail`
 - Blocks merge: `True`
-- Source hash: `f060d8ed922d260305957ad66316c7d836f8c561bf3a51a713c16e0879363abc`
+- Source hash: `6580a613a4d24a00caa2c2414e028764924b63f40ed712c7c51d3b7e600c6797`
 - Facts file: `docs/facts/generated.yaml`
 - Total facts: `1765`
 - Symbol facts: `1656`

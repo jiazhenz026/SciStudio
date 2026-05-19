@@ -221,7 +221,9 @@ def render_markdown(report: AuditReport) -> str:
     lines.extend(["", "## 7. Child Reports", ""])
     lines.extend(["| Tool | Status | Errors | Summary |", "|---|---|---:|---|"])
     for child in report.child_reports:
-        child_summary = ", ".join(f"{key}={value}" for key, value in child.summary.items() if not isinstance(value, dict))
+        child_summary = ", ".join(
+            f"{key}={value}" for key, value in child.summary.items() if not isinstance(value, dict)
+        )
         lines.append(f"| `{child.tool}` | `{child.status}` | {len(child.error_findings())} | {child_summary} |")
     deferred = report.summary.get("deferred_children", [])
     if deferred:
