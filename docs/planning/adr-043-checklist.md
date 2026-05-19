@@ -44,11 +44,11 @@
 
 ### Implementation
 
-- [ ] Add `capability_id` parameters to `materialise_to_file` and `reconstruct_from_file` and dispatch through registry capability lookup. [ADR-043 section 11.5]
-- [ ] Preserve intentional Artifact fallback behavior only where the target type is Artifact-compatible.
-- [ ] Thread `capability_id` through `FileExchangeBridge.prepare()` manifest entries and AppBlock output reconstruction.
-- [ ] Validate AppBlock and CodeBlock boundary ports before execution when type + extension is declared. [ADR-043 sections 7, 10]
-- [ ] Add runtime, AppBlock, and workflow validator tests for missing, unique, ambiguous, and explicit capability IDs.
+- [x] Add `capability_id` parameters to `materialise_to_file` and `reconstruct_from_file` and dispatch through registry capability lookup. [ADR-043 section 11.5] -> local tests `pytest -q --timeout=60 --no-cov tests/engine/test_materialisation_capabilities.py`
+- [x] Preserve intentional Artifact fallback behavior only where the target type is Artifact-compatible. -> local test `test_reconstruct_artifact_fallback_only_for_artifact_compatible_type`
+- [x] Thread `capability_id` through `FileExchangeBridge.prepare()` manifest entries and AppBlock output reconstruction. -> local tests `tests/blocks/app/test_app_block_capabilities.py`
+- [x] Validate AppBlock and CodeBlock boundary ports before execution when type + extension is declared. [ADR-043 sections 7, 10] -> local tests `tests/workflow/test_io_boundary_validation.py`
+- [x] Add runtime, AppBlock, and workflow validator tests for missing, unique, ambiguous, and explicit capability IDs. -> local tests `pytest -q --timeout=60 --no-cov tests/engine/test_materialisation_capabilities.py tests/blocks/app/test_app_block_capabilities.py tests/workflow/test_io_boundary_validation.py`
 
 ## Track D - API And Frontend Capability Selection (Owner: A43-ui, issue #1212)
 

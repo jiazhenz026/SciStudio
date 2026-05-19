@@ -62,11 +62,25 @@ class TestTypedReconstruction:
         csv_path = tmp_path / "data.csv"
         csv_path.write_text("a,b\n1,2\n3,4\n", encoding="utf-8")
 
-        block = _make_block_with_ports([{"name": "tables", "types": ["DataFrame"], "extension": "csv"}])
+        block = _make_block_with_ports(
+            [
+                {
+                    "name": "tables",
+                    "types": ["DataFrame"],
+                    "extension": "csv",
+                    "capability_id": "scieasy.blocks.io.loaders.load_data.loaddata.load.csv",
+                }
+            ]
+        )
         config = BlockConfig(
             params={
                 "output_ports": [
-                    {"name": "tables", "types": ["DataFrame"], "extension": "csv"},
+                    {
+                        "name": "tables",
+                        "types": ["DataFrame"],
+                        "extension": "csv",
+                        "capability_id": "scieasy.blocks.io.loaders.load_data.loaddata.load.csv",
+                    },
                 ]
             }
         )
@@ -106,11 +120,25 @@ class TestTypedReconstruction:
         csv_path = tmp_path / "data.csv"
         csv_path.write_text("a,b\n1,2\n", encoding="utf-8")
 
-        block = _make_block_with_ports([{"name": "tables", "types": ["DataFrame"], "extension": "csv"}])
+        block = _make_block_with_ports(
+            [
+                {
+                    "name": "tables",
+                    "types": ["DataFrame"],
+                    "extension": "csv",
+                    "capability_id": "scieasy.blocks.io.loaders.load_data.loaddata.load.csv",
+                }
+            ]
+        )
         config = BlockConfig(
             params={
                 "output_ports": [
-                    {"name": "tables", "types": ["DataFrame"], "extension": "csv"},
+                    {
+                        "name": "tables",
+                        "types": ["DataFrame"],
+                        "extension": "csv",
+                        "capability_id": "scieasy.blocks.io.loaders.load_data.loaddata.load.csv",
+                    },
                 ]
             }
         )
