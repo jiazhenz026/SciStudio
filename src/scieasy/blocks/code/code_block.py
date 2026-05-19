@@ -21,7 +21,7 @@ import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar, Protocol
+from typing import Any, ClassVar, Protocol, cast
 
 from pydantic import ValidationError
 
@@ -551,7 +551,7 @@ def _materialise_adapter(registry: Any) -> Any:
         kwargs: dict[str, Any] = {"filename_stem": filename_stem, "registry": registry}
         if _accepts_keyword(materialise_to_file, "capability_id"):
             kwargs["capability_id"] = capability_id
-        return materialise_to_file(obj, dest_dir, extension, **kwargs)
+        return cast(Path, materialise_to_file(obj, dest_dir, extension, **kwargs))
 
     return adapter
 
@@ -570,7 +570,7 @@ def _reconstruct_adapter(registry: Any) -> Any:
         kwargs: dict[str, Any] = {"registry": registry}
         if _accepts_keyword(reconstruct_from_file, "capability_id"):
             kwargs["capability_id"] = capability_id
-        return reconstruct_from_file(path, target_type, extension, **kwargs)
+        return cast(DataObject, reconstruct_from_file(path, target_type, extension, **kwargs))
 
     return adapter
 

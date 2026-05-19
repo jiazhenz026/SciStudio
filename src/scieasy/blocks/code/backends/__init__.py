@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import importlib
 import pkgutil
-from collections.abc import Callable
 
 _LOADED_MODULES: set[str] = set()
 
@@ -27,7 +26,7 @@ def load_codeblock_backend_modules() -> tuple[str, ...]:
         module = importlib.import_module(module_name)
         register = getattr(module, "register", None)
         if register is not None:
-            if not isinstance(register, Callable):
+            if not callable(register):
                 raise TypeError(f"{module_name}.register must be callable")
             register()
         _LOADED_MODULES.add(module_name)
