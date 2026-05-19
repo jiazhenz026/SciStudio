@@ -130,20 +130,21 @@ Scope:
 
 Tasks:
 
-- [ ] Integrate v2 config parsing into `CodeBlock` without silently accepting ambiguous legacy config.
-- [ ] Define the shared CodeBlock v2 runtime integration surface used by all interpreter backends.
-- [ ] Use Track A interpreter/provenance helpers and Track B exchange helpers to run Python `.py` scripts through the file-exchange contract.
-- [ ] Preserve backend ownership of graph/runtime truth; frontend remains editor/viewer only.
-- [ ] Return declared outputs as typed runtime objects or structured diagnostics according to the planning spec.
-- [ ] Add tests for successful Python script execution, missing output failure, script non-zero exit failure, timeout, and provenance recording.
-- [ ] Add migration diagnostics for unsupported legacy inline/function mode.
-- [ ] Leave stable extension points for notebook, R/Quarto, shell, and MATLAB/Octave tracks without editing ADR-043-owned files.
+- [x] Integrate v2 config parsing into `CodeBlock` without silently accepting ambiguous legacy config. Evidence: commit `08cc5bc3`; focused pytest passed with 47 tests; Ruff passed.
+- [x] Define the shared CodeBlock v2 runtime integration surface used by all interpreter backends. Evidence: commit `08cc5bc3`; runtime uses shared config, exchange, process, output, and provenance seams.
+- [x] Use Track A interpreter/provenance helpers and Track B exchange helpers to run scripts through the shared file-exchange runtime, with Python `.py` as the first backend. Evidence: commit `08cc5bc3`; `test_codeblock_execution.py` covers exchange execution.
+- [x] Preserve backend ownership of graph/runtime truth; frontend remains editor/viewer only. Evidence: commit `08cc5bc3`; runtime state/provenance stay in backend `CodeBlock` surfaces.
+- [x] Return declared outputs as typed runtime objects or structured diagnostics according to the planning spec. Evidence: commit `08cc5bc3`; tests cover typed `Collection[Text]` output, missing output diagnostics, nonzero exit, and timeout.
+- [x] Add tests for successful Python script execution, missing output failure, script non-zero exit failure, timeout, and provenance recording. Evidence: `PYTHONPATH=C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41c\src python -m pytest tests/blocks/code/test_codeblock_v2_config.py tests/blocks/code/test_codeblock_interpreters.py tests/blocks/code/test_codeblock_provenance.py tests/blocks/code/test_codeblock_exchange.py tests/blocks/code/test_codeblock_execution.py tests/blocks/test_code_block.py tests/blocks/code/test_codeblock_python_integration.py tests/blocks/code/test_codeblock_r_integration.py --timeout=30 --no-cov` passed with 47 tests.
+- [x] Add migration diagnostics for unsupported legacy inline/function mode. Evidence: commit `08cc5bc3`; legacy CodeBlock tests now assert `CodeBlockMigrationError`.
+- [x] Leave stable extension points for notebook, R/Quarto, shell, and MATLAB/Octave tracks without editing ADR-043-owned files. Evidence: commit `08cc5bc3`; `_run_resolved_interpreter` and adapter seams keep runtime wiring separate from interpreter-family extensions.
+- [x] Do not mark ADR-041 runtime complete in Track C1; C2-C5 remain required sibling backend tracks. Evidence: checklist retains C2-C5 rows after rebase onto manager commit `9a8710dc`.
 
 Exit Criteria:
 
 - [ ] Track C1 PR targets `track/adr-041/codeblock-v2`.
 - [ ] Track C1 CI is green.
-- [ ] Checklist rows updated with PR/test evidence.
+- [~] Checklist rows updated with PR/test evidence. Evidence: C1 implementation/test evidence recorded; PR and CI evidence pending.
 
 ### Track C2 - Notebook Runtime and Executed Artifact Capture (Owner: I41n / #1235)
 
@@ -333,7 +334,7 @@ Exit Criteria:
 
 - [x] I41a dispatched for #1223. Worktree: `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41a`; branch: `feat/issue-1223/adr041-config-interpreter-provenance`.
 - [x] I41b dispatched for #1224. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41b`, branch `feat/issue-1224/adr041-exchange-manifest`, gate session `20260519-182539-adr-041-track-b-codeblock-v2-exchange-ma`.
-- [~] I41c dispatched for #1225. Retargeted on 2026-05-19 from Python-only MVP to shared runtime integration plus Python backend.
+- [~] I41c dispatched for #1225. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41c`, branch `feat/issue-1225/adr041-codeblock-python-execution`, gate session `20260519-185434-adr-041-track-c-codeblock-v2-python-exec`; retargeted on 2026-05-19 from Python-only MVP to shared runtime integration plus Python backend.
 - [ ] I41n dispatched for #1235.
 - [ ] I41r dispatched for #1238.
 - [ ] I41s dispatched for #1237.
