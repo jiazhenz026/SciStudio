@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#1241] Fix all accepted ADR-043 Codex auto-review findings: scalar capability iterables are rejected, SimpleIO requires a single path, legacy registry lookup preserves extension-only ordering and falls back past broken capability classes, frontend placeholder capability selection clears to `null`, AppBlock treats null output `capability_id` as unset, and boundary output validation now matches AppBlock's first-runtime-type behavior. (@agent, 2026-05-19, branch: fix/issue-1241/adr043-codex-audit, session: 20260519-193810-fix-adr-043-codex-auto-review-findings)
+
 - [#1214] Fix ADR-043 fact-audit fallout without editing locked ADR/spec frontmatter: add machine-readable ADR-042 governance addendum support, append ADR-041/ADR-043/spec addenda for materialisation/API capability surfaces, and refresh generated facts. (@agent, 2026-05-19, branch: track/adr-043/capability-registry, session: 20260519-172415-adr-043-implementation-cascade-managemen)
 
 - [#1200] Fix Lineage run status finalization so workflows with block-level `ERROR` now persist `runs.status="failed"` instead of `completed`; cancelled block states persist `cancelled`, and all-success runs remain `completed`. Adds regression coverage for the scheduler-normal-completion/block-error path that previously made the Lineage tab show failed runs as complete. (@agent, 2026-05-19, branch: hotfix/lineage-error-status, session: 20260519-152650-fix-lineage-run-status-for-block-errors)
