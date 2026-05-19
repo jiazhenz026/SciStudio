@@ -6,7 +6,10 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
+
+if TYPE_CHECKING:
+    from scieasy.blocks.registry import BlockRegistry
 
 
 @runtime_checkable
@@ -283,12 +286,12 @@ def _resolve_format_for(
     return normalised.get(extension.lower())
 
 
-def _get_registry(registry: Any | None):
+def _get_registry(registry: Any | None) -> BlockRegistry:
     """Return *registry* or build/scan a fresh :class:`BlockRegistry`."""
     from scieasy.blocks.registry import BlockRegistry
 
     if registry is not None:
-        return registry
+        return cast(BlockRegistry, registry)
     reg = BlockRegistry()
     reg.scan()
     return reg
