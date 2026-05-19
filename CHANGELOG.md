@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#1238] Add ADR-041 CodeBlock v2 R and Quarto runtime backend support for `.R`, `.Rmd`, and `.qmd` scripts, including deterministic command construction, exchange-directory environment variables, clear missing executable/dependency diagnostics, declared output folder collection coverage, and optional live Rscript execution coverage when available. (@agent, 2026-05-19, branch: feat/issue-1238/adr041-r-quarto-runtime, session: 20260519-195014-adr-041-track-c3-r-and-quarto-runtime-su)
+
 - [#1242] Add shared CodeBlock v2 interpreter family metadata for notebook, R, Quarto, shell, MATLAB, and Octave runtime backends so ADR-041 sibling tracks can implement complete runtime support without each modifying the shared interpreter type alias. (@agent, 2026-05-19, branch: track/adr-041/codeblock-v2, session: 20260519-194531-adr-041-shared-interpreter-family-litera)
 
 - [#1225] Integrate the ADR-041 CodeBlock v2 shared runtime layer with the Python `.py` backend, including exchange preparation, interpreter execution, typed output collection, provenance payload capture, timeout/nonzero diagnostics, and explicit legacy inline/function migration errors. (@agent, 2026-05-19, branch: feat/issue-1225/adr041-codeblock-python-execution, session: 20260519-185434-adr-041-track-c-codeblock-v2-python-exec)
