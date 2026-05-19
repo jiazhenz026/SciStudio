@@ -11,6 +11,8 @@ from pathlib import Path
 import yaml
 
 from scieasy.qa._report_helpers import build_finding, build_report
+from scieasy.qa._shared import AuditFinding, AuditReport
+from scieasy.qa.docs._models import GeneratorResult
 from scieasy.qa.docs.generate_reference import TARGETS, collect_results
 
 
@@ -95,7 +97,7 @@ def write_manifest(manifest: GeneratedDocManifest, path: Path) -> None:
     _write_manifest(manifest, path)
 
 
-def _result_map(results) -> dict[str, object]:
+def _result_map(results: Iterable[GeneratorResult]) -> dict[str, GeneratorResult]:
     return {_normalize_path(str(result.target_path), repo_root=None): result for result in results}
 
 
@@ -121,12 +123,12 @@ def check_generated(
     manifest_path: Path,
     update: bool = False,
     generators: Iterable[str] | None = None,
-) -> tuple[object, GeneratedDocManifest]:
+) -> tuple[AuditReport, GeneratedDocManifest]:
     manifest = load_manifest(manifest_path)
     selected = _iter_generators(generators)
     generated = collect_results(repo_root=repo_root, generators=selected)
     generated_map = _result_map(generated)
-    findings: list[object] = []
+    findings: list[AuditFinding] = []
 
     # filter to only manifest rows for selected generators.
     manifest_entries = [entry for entry in manifest.entries if (not selected or entry.generator_id in selected)]
@@ -156,7 +158,8 @@ def check_generated(
 
         current = target_path.read_text(encoding="utf-8")
         if result is not None:
-            fresh_source_sha = str(result.manifest_entry["source_sha"])  # type: ignore[index]
+            result_manifest = result.manifest_entry or {}
+            fresh_source_sha = str(result_manifest["source_sha"])
             if manifest_entry.source_sha and manifest_entry.source_sha != fresh_source_sha:
                 findings.append(
                     build_finding(
@@ -213,11 +216,11 @@ def check_generated(
         updated = [
             GeneratedDocManifestEntry(
                 target_path=str(result.target_path),
-                generator_id=str(result.manifest_entry["generator_id"]),  # type: ignore[index]
-                source_paths=[str(x) for x in result.manifest_entry["source_paths"]],  # type: ignore[index]
-                source_sha=str(result.manifest_entry["source_sha"]),  # type: ignore[index]
-                content_sha256=str(result.manifest_entry["content_sha256"]),  # type: ignore[index]
-                marker=str(result.manifest_entry["marker"]),  # type: ignore[index]
+                generator_id=str((result.manifest_entry or {})["generator_id"]),
+                source_paths=[str(x) for x in (result.manifest_entry or {})["source_paths"]],
+                source_sha=str((result.manifest_entry or {})["source_sha"]),
+                content_sha256=str((result.manifest_entry or {})["content_sha256"]),
+                marker=str((result.manifest_entry or {})["marker"]),
             )
             for result in generated
             if result.manifest_entry is not None
@@ -234,7 +237,7 @@ def check(
     manifest_path: Path = Path("docs/user/reference/generated-docs.yaml"),
     update: bool = False,
     generators: Iterable[str] | None = None,
-) -> object:
+) -> AuditReport:
     report, _manifest = check_generated(
         repo_root=repo_root,
         manifest_path=repo_root / manifest_path,
@@ -244,7 +247,7 @@ def check(
     return report
 
 
-def _serialize(report: object, as_json: bool) -> None:
+def _serialize(report: AuditReport, as_json: bool) -> None:
     if as_json:
         print(report.model_dump_json())
         return

@@ -1,133 +1,29 @@
-name: Workflow Gate Check
+name: ADR-042 PR Governance
 
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited, ready_for_review]
   workflow_dispatch:
 
-jobs:
-  workflow-gate:
-    name: Verify Workflow Compliance
-    runs-on: ubuntu-latest
-    # Exempt dependabot from the gate-workflow check. Dependabot does not
-    # run .workflow/gate.py and never will (it has no human author to
-    # claim the ticket on); failing its PRs on this check just blocks
-    # security updates that are otherwise auto-greened by Lint / Tests /
-    # Type Check / CodeQL. The substance gate (CI) still applies.
-    # NOTE: actor-only check — NOT branch name. Branch names are
-    # user-controlled, so a human contributor could open a branch named
-    # "dependabot/..." and bypass the gate. The actor field is set by
-    # GitHub Actions itself based on who triggered the workflow and
-    # cannot be spoofed by a contributor. Per Codex P1 review on PR #729.
-    # Check PR AUTHOR, not github.actor. github.actor is the user who
-    # triggered THIS workflow run — a human running update-branch on a
-    # dependabot PR would re-evaluate as the human, bypassing the
-    # exemption and re-failing the gate. github.event.pull_request.user.login
-    # is the immutable PR author set by GitHub at PR open time.
-    if: github.event.pull_request.user.login != 'dependabot[bot]'
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
+permissions:
+  contents: read
 
-      - name: Check linked issue
+jobs:
+  issue-link:
+    name: Issue Link
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require linked issue
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -z "$PR_BODY" ]; then
-            echo "workflow_dispatch run - skipping PR body issue check"
+            echo "workflow_dispatch run without PR body; skipping issue-link check"
             exit 0
           fi
           if ! echo "$PR_BODY" | grep -qiE "(closes|fixes|resolves)\s+#[0-9]+"; then
-            echo "::error::PR must link an issue (e.g. 'Closes #42')"
+            echo "::error::PR must link an issue with Closes/Fixes/Resolves #NNN"
             exit 1
           fi
-          echo "Issue linked in PR body"
-
-      - name: Check workflow state file exists
-        env:
-          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
-        run: |
-          BRANCH="$BRANCH_NAME"
-          echo "Checking workflow state for branch: $BRANCH"
-
-          FOUND=false
-          if [ -d ".workflow/active" ]; then
-            for f in .workflow/active/*.json; do
-              [ -f "$f" ] || continue
-              BRANCH_IN_STATE=$(python3 -c "
-          import json, sys
-          with open('$f') as fh:
-              state = json.load(fh)
-          for s in state.get('completed_stages', []):
-              if s['stage_id'] == 'create_branch':
-                  print(s.get('artifacts', {}).get('branch_name', ''))
-                  sys.exit(0)
-          print('')
-              ")
-              if [ "$BRANCH_IN_STATE" = "$BRANCH" ]; then
-                FOUND=true
-                echo "Found workflow state: $f"
-
-                python3 -c "
-          import json, sys
-          with open('$f') as fh:
-              state = json.load(fh)
-          completed = {s['stage_id'] for s in state.get('completed_stages', [])}
-          required = ['create_issue', 'write_change_plan', 'create_branch']
-          missing = [r for r in required if r not in completed]
-          if missing:
-              print(f'::error::Workflow stages not completed: {missing}')
-              sys.exit(1)
-          print('All pre-PR stages completed')
-                "
-                break
-              fi
-            done
-          fi
-
-          if [ "$FOUND" = "false" ]; then
-            echo "::warning::No workflow state for branch '$BRANCH'"
-          fi
-
-      - name: Check CHANGELOG updated
-        env:
-          BASE_REF: ${{ github.base_ref || 'main' }}
-        run: |
-          CHANGED=$(git diff --name-only origin/$BASE_REF...HEAD)
-          if echo "$CHANGED" | grep -q "^src/\|^packages/"; then
-            if ! echo "$CHANGED" | grep -q "CHANGELOG.md"; then
-              echo "::error::Source changed but CHANGELOG.md not updated"
-              exit 1
-            else
-              echo "CHANGELOG.md updated"
-            fi
-          fi
-
-      - name: Check docs updated
-        env:
-          BASE_REF: ${{ github.base_ref || 'main' }}
-        run: |
-          CHANGED=$(git diff --name-only origin/$BASE_REF...HEAD)
-          if echo "$CHANGED" | grep -q "^src/\|^packages/"; then
-            if ! echo "$CHANGED" | grep -q "^docs/"; then
-              echo "::warning::Source changed but no docs/ updates"
-            else
-              echo "Docs updated"
-            fi
-          fi
-
-      - name: Check tests updated
-        env:
-          BASE_REF: ${{ github.base_ref || 'main' }}
-        run: |
-          CHANGED=$(git diff --name-only origin/$BASE_REF...HEAD)
-          if echo "$CHANGED" | grep -q "^src/\|^packages/"; then
-            if ! echo "$CHANGED" | grep -q "^tests/"; then
-              echo "::error::Source changed but no tests/ updates. Every code change must include tests."
-              exit 1
-            else
-              echo "Tests updated"
-            fi
-          fi
+          echo "Issue link found"

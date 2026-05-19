@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Literal
 
 from scieasy.qa._shared import AuditFinding, AuditReport, git_sha, now_utc
 
@@ -28,7 +29,7 @@ def build_report(
     """Build an :class:`AuditReport` with status inferred from findings."""
 
     findings = findings or []
-    status = "passed"
+    status: Literal["passed", "failed", "skipped", "error"] = "passed"
     if findings:
         has_error = any(finding.severity == "error" for finding in findings)
         status = "failed" if has_error else "passed"
@@ -47,7 +48,7 @@ def build_finding(
     finding_id: str,
     tool: str,
     finding_class: str,
-    severity: str,
+    severity: Literal["info", "warning", "error"],
     message: str,
     path: Path | str | None = None,
     line: int | None = None,
@@ -60,7 +61,7 @@ def build_finding(
     return AuditFinding(
         id=finding_id,
         tool=tool,
-        severity=severity,  # type: ignore[arg-type]
+        severity=severity,
         finding_class=finding_class,
         message=message,
         path=str(path) if path is not None else None,

@@ -10,6 +10,7 @@ from pathlib import Path
 import yaml
 
 from scieasy.qa._report_helpers import build_finding, build_report
+from scieasy.qa._shared import AuditReport
 
 WORKFLOW_ROOT = "docs/contributing/workflows"
 
@@ -95,7 +96,7 @@ def check(
     *,
     repo_root: Path,
     runtime_roots: Sequence[Path] | None = None,
-) -> object:
+) -> AuditReport:
     pointers = discover_skill_pointers(repo_root=repo_root, runtime_roots=runtime_roots or ())
     findings = []
 
@@ -149,7 +150,7 @@ def check(
     return build_report(tool="skill_pointer_sync", repo_root=repo_root, findings=findings)
 
 
-def _serialize(report: object, as_json: bool) -> None:
+def _serialize(report: AuditReport, as_json: bool) -> None:
     if as_json:
         print(report.model_dump_json())
         return

@@ -84,6 +84,8 @@
 - scieasy.src.scieasy.blocks.base.config.BlockConfig
 - scieasy.src.scieasy.core.meta.channel.ChannelInfo
 - scieasy.src.scieasy.core.meta.framework.FrameworkMeta
+- scieasy.src.scieasy.qa._shared.AuditFinding
+- scieasy.src.scieasy.qa._shared.AuditReport
 - scieasy.src.scieasy.qa.code_score.AIAdvisoryInput
 - scieasy.src.scieasy.qa.code_score.AIAdvisoryScore
 - scieasy.src.scieasy.qa.code_score.CodeScoreFinding

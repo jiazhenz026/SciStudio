@@ -4,20 +4,22 @@ from __future__ import annotations
 
 from importlib import import_module
 from pathlib import Path
+from typing import Any
 
 from scieasy.qa.docs._helpers import build_result, join_markdown_lines
+from scieasy.qa.docs._models import GeneratorResult
 
 MARKER = "<!-- generated-by: cli_reference -->"
 DEFAULT_TARGET_PATH = Path("docs/user/reference/cli.md")
 
 
-def _import_command(command_import: str):
+def _import_command(command_import: str) -> Any:
     module_name, symbol = command_import.split(":", 1)
     module = import_module(module_name)
     return getattr(module, symbol)
 
 
-def _collect_commands(app) -> list[str]:
+def _collect_commands(app: Any) -> list[str]:
     commands: list[object] = []
 
     for attr in ("registered_commands", "commands", "_objects"):
@@ -30,7 +32,7 @@ def _collect_commands(app) -> list[str]:
                 break
             commands = list(value.values())
             break
-        if isinstance(value, (list, tuple)):
+        if isinstance(value, list | tuple):
             commands = list(value)
             break
 
@@ -54,7 +56,7 @@ def generate(
     *,
     output_path: Path = DEFAULT_TARGET_PATH,
     command_import: str = "scieasy.cli.main:app",
-) -> object:
+) -> GeneratorResult:
     app = _import_command(command_import)
     commands = _collect_commands(app)
     if not commands:

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import tomllib
+from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 from scieasy.qa.docs._models import GeneratorResult
 
 
-def source_sha_from_sources(repo_root: Path, source_paths: list[str] | list[Path]) -> str:
+def source_sha_from_sources(repo_root: Path, source_paths: Sequence[str | Path]) -> str:
     if not source_paths:
         return "no-sources"
     hasher = hashlib.sha256()
@@ -38,7 +40,13 @@ def parse_pyproject_groups(repo_root: Path) -> dict[str, object]:
         return {}
     with path.open("rb") as handle:
         data = tomllib.load(handle)
-    return data.get("project", {}).get("entry-points", {})
+    project = data.get("project", {})
+    if not isinstance(project, dict):
+        return {}
+    entry_points = project.get("entry-points", {})
+    if not isinstance(entry_points, dict):
+        return {}
+    return cast(dict[str, object], entry_points)
 
 
 def build_result(
@@ -46,7 +54,7 @@ def build_result(
     generator_id: str,
     repo_root: Path,
     target_path: Path,
-    source_paths: list[str] | list[Path],
+    source_paths: Sequence[str | Path],
     content: str,
     marker: str,
 ) -> GeneratorResult:

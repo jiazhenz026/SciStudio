@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from scieasy.qa.docs._helpers import build_result, join_markdown_lines, parse_pyproject_groups
+from scieasy.qa.docs._models import GeneratorResult
 
 MARKER = "<!-- generated-by: runner_catalog -->"
 
@@ -13,7 +14,7 @@ def generate(
     repo_root: Path,
     *,
     output_dir: Path = Path("docs/user/reference/runners"),
-) -> list:
+) -> list[GeneratorResult]:
     output_dir.mkdir(parents=True, exist_ok=True)
     entry_points = parse_pyproject_groups(repo_root)
     runners = entry_points.get("scieasy.runners", {}) if isinstance(entry_points, dict) else {}

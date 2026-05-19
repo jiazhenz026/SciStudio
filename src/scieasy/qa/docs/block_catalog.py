@@ -6,6 +6,7 @@ import ast
 from pathlib import Path
 
 from scieasy.qa.docs._helpers import build_result, join_markdown_lines
+from scieasy.qa.docs._models import GeneratorResult
 
 MARKER = "<!-- generated-by: block_catalog -->"
 
@@ -31,7 +32,7 @@ def generate(
     repo_root: Path,
     *,
     output_dir: Path = Path("docs/user/reference/blocks"),
-) -> list:
+) -> list[GeneratorResult]:
     blocks_root = repo_root / "src/scieasy/blocks"
     output_dir.mkdir(parents=True, exist_ok=True)
     lines = [MARKER, "# Block Catalog", ""]

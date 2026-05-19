@@ -14,6 +14,7 @@ from typing import Any, Literal
 import yaml
 
 from scieasy.qa._report_helpers import build_finding, build_report
+from scieasy.qa._shared import AuditFinding, AuditReport
 
 DocumentKind = Literal[
     "adr",
@@ -172,7 +173,7 @@ def _add_finding(
     finding_id: str,
     finding_class: str,
     message: str,
-    severity: str = "error",
+    severity: Literal["info", "warning", "error"] = "error",
     evidence: dict[str, Any] | None = None,
 ) -> None:
     findings.append(
@@ -542,11 +543,11 @@ def _check_detailed_sections(path: Path, doc: MarkdownDocument, findings: list[A
             )
 
 
-def lint_file(path: Path, *, repo_root: Path, expected_kind: DocumentKind | None = None):
+def lint_file(path: Path, *, repo_root: Path, expected_kind: DocumentKind | None = None) -> AuditReport:
     target = path if path.is_absolute() else repo_root / path
     doc = parse_markdown_document(target, repo_root=repo_root)
     kind = expected_kind or doc.kind
-    findings: list[Any] = []
+    findings: list[AuditFinding] = []
 
     if kind == "adr":
         _validate_adr_frontmatter(target, doc.frontmatter, findings)
@@ -557,8 +558,8 @@ def lint_file(path: Path, *, repo_root: Path, expected_kind: DocumentKind | None
     return build_report(tool="frontmatter_lint", repo_root=repo_root, findings=findings)
 
 
-def lint_paths(paths: Iterable[Path], *, repo_root: Path):
-    findings: list[Any] = []
+def lint_paths(paths: Iterable[Path], *, repo_root: Path) -> AuditReport:
+    findings: list[AuditFinding] = []
     for candidate in paths:
         target = candidate if candidate.is_absolute() else repo_root / candidate
         if target.is_dir():

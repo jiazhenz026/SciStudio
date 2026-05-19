@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from scieasy.qa.docs._helpers import build_result, join_markdown_lines
+from scieasy.qa.docs._models import GeneratorResult
 
 MARKER = "<!-- generated-by: llms_txt -->"
 DEFAULT_OUTPUT = Path("docs/user/llms.txt")
@@ -25,7 +26,7 @@ def generate(
     repo_root: Path,
     *,
     output_path: Path = DEFAULT_OUTPUT,
-) -> any:
+) -> GeneratorResult:
     items = [f"- {path.relative_to(repo_root)}" for path in _iter_markdown_paths(repo_root)]
     content = join_markdown_lines([MARKER, "# SciEasy Documentation Index", "", *items])
     return build_result(

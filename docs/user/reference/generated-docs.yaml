@@ -32,8 +32,8 @@ entries:
   generator_id: schema_reference
   source_paths:
   - src/scieasy
-  source_sha: a641ba42d3850ca4cca2239d92cf81287852d880a1ba3387715d2bafe1071792
-  content_sha256: 730d25234494075d2243b5b63fa0aa58a49be64d6442c2eccc3e1225c4f3c861
+  source_sha: 8a383e9a1e2c9eed3bb29eb9699d14811e5d9d66e1dad23173e1bc45436d64e5
+  content_sha256: 369383817d94232de907957381b9edcfcc22d7db72f31bf44c5194002078f4b3
   marker: '<!-- generated-by: schema_reference -->'
 - target_path: docs/user/reference/blocks/blocks.md
   generator_id: block_catalog

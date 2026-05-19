@@ -4,14 +4,16 @@ from __future__ import annotations
 
 from importlib import import_module
 from pathlib import Path
+from typing import Any
 
 from scieasy.qa.docs._helpers import build_result, join_markdown_lines
+from scieasy.qa.docs._models import GeneratorResult
 
 MARKER = "<!-- generated-by: openapi_reference -->"
 DEFAULT_TARGET_PATH = Path("docs/user/reference/server-api.md")
 
 
-def _import_app(import_path: str):
+def _import_app(import_path: str) -> Any:
     module_name, symbol = import_path.split(":", 1)
     module = import_module(module_name)
     target = getattr(module, symbol)
@@ -25,7 +27,7 @@ def generate(
     *,
     output_path: Path = DEFAULT_TARGET_PATH,
     app_import: str = "scieasy.api.app:create_app",
-) -> object:
+) -> GeneratorResult:
     app = _import_app(app_import)
     schema = app.openapi()
     lines = [MARKER, "# Server API", ""]

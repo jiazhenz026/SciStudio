@@ -6,6 +6,7 @@ import ast
 from pathlib import Path
 
 from scieasy.qa.docs._helpers import build_result, join_markdown_lines
+from scieasy.qa.docs._models import GeneratorResult
 
 MARKER = "<!-- generated-by: schema_reference -->"
 
@@ -53,8 +54,8 @@ def generate(
     *,
     output_dir: Path = Path("docs/user/reference/schemas"),
     package_prefixes: tuple[str, ...] = ("scieasy",),
-) -> list:
-    targets = []
+) -> list[GeneratorResult]:
+    targets: list[GeneratorResult] = []
     output_dir.mkdir(parents=True, exist_ok=True)
     for prefix in _class_for_prefix(package_prefixes):
         package_root = repo_root / "src" / prefix.replace(".", "/")

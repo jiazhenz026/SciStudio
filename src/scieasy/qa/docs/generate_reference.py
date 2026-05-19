@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
+from typing import cast
 
 from scieasy.qa.docs._models import GeneratorResult
 from scieasy.qa.docs.block_catalog import generate as generate_blocks
@@ -15,7 +16,7 @@ from scieasy.qa.docs.openapi_reference import generate as generate_openapi
 from scieasy.qa.docs.runner_catalog import generate as generate_runners
 from scieasy.qa.docs.schema_reference import generate as generate_schemas
 
-TARGETS = {
+TARGETS: dict[str, Callable[..., GeneratorResult | list[GeneratorResult]]] = {
     "llms_txt": generate_llms,
     "entry_point_catalog": generate_entry_points,
     "cli_reference": generate_cli,
@@ -28,8 +29,8 @@ TARGETS = {
 
 def _coerce_list(results: object) -> list[GeneratorResult]:
     if isinstance(results, list):
-        return list(results)
-    return [results] if results is not None else []
+        return cast(list[GeneratorResult], results)
+    return [cast(GeneratorResult, results)] if results is not None else []
 
 
 def collect_results(

@@ -144,6 +144,7 @@ def test_no_py_files_outside_known_packages() -> None:
         "workflow",
         "utils",
         "cli",
+        "qa",
         "testing",
         "agent_provisioning",  # ADR-040 §3.5-3.8: prod-env agent provisioning module
     }

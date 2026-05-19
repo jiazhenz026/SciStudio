@@ -138,7 +138,7 @@ def run_targeted(
     threshold = min((target.threshold for target in active), default=1.0)
 
     findings: list[AuditFinding] = []
-    status = "passed"
+    status: Literal["passed", "failed", "not-applicable", "error"] = "passed"
     if score < threshold:
         status = "failed"
         findings.append(

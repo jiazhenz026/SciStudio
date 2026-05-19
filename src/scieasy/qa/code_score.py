@@ -10,7 +10,7 @@ import subprocess
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field
 
@@ -109,8 +109,14 @@ _FATAL_TOOLS = {"syntax", "pytest", "mypy", "pyright", "import-linter", "pip-aud
 
 def _to_tool_status(value: Any) -> ToolStatus:
     if value in {"passed", "failed", "skipped", "missing"}:
-        return value
+        return cast(ToolStatus, value)
     return "passed"
+
+
+def _to_tool_severity(value: Any) -> ToolSeverity:
+    if value in {"info", "warning", "error"}:
+        return cast(ToolSeverity, value)
+    return "info"
 
 
 def _normalize_path(path: str | Path, repo_root: Path | None = None) -> str:
@@ -150,9 +156,7 @@ def _normalize_tool_payload(payload: Any, source: str) -> list[ToolSignal]:
                 ToolSignal(
                     tool=str(item.get("tool", source)),
                     status=_to_tool_status(item.get("status", "passed")),
-                    severity=str(item.get("severity", "info"))
-                    if str(item.get("severity", "info")) in {"info", "warning", "error"}
-                    else "info",
+                    severity=_to_tool_severity(item.get("severity", "info")),
                     path=str(item.get("path")) if item.get("path") else None,
                     subject=str(item.get("rule")) or str(item.get("source")) or None,
                     message=str(item.get("message", "tool finding")),
@@ -195,9 +199,7 @@ def _normalize_tool_payload(payload: Any, source: str) -> list[ToolSignal]:
                 ToolSignal(
                     tool=str(payload.get("tool", source)),
                     status=_to_tool_status(item.get("status", payload.get("status", "passed"))),
-                    severity=str(item.get("severity", "info"))
-                    if str(item.get("severity", "info")) in {"info", "warning", "error"}
-                    else "info",
+                    severity=_to_tool_severity(item.get("severity", "info")),
                     path=str(item.get("path")) if item.get("path") else None,
                     subject=str(item.get("subject", "")) or None,
                     message=str(item.get("message", "")),

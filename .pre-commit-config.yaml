@@ -22,7 +22,7 @@ repos:
     rev: v1.15.0
     hooks:
       - id: mypy
-        additional_dependencies: []
+        additional_dependencies: ["types-PyYAML>=6.0"]
         args: ["--ignore-missing-imports"]
 
   - repo: https://github.com/commitizen-tools/commitizen

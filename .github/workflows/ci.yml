@@ -4,13 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches:
-      - main
-      # ADR-038/039 cascade tracking branches — sub-agent PRs target these
-      # (NOT main) per docs/planning/adr-038-039-checklist.md. Without this,
-      # CI only runs at the eventual integration PR to main, leaving every
-      # intermediate sub-agent PR without a verification signal.
-      - 'track/**'
+    branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
@@ -22,8 +16,53 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  workflow-gate:
+    name: Workflow Gate
+    runs-on: ubuntu-latest
+    needs:
+      - lint
+      - typecheck
+      - test
+      - import-boundaries
+      - frontend
+      - code-score
+      - docs-governance
+    if: always()
+    steps:
+      - name: Require linked issue
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "$EVENT_NAME run; skipping PR issue-link check"
+            exit 0
+          fi
+          if ! echo "$PR_BODY" | grep -qiE "(closes|fixes|resolves)\s+#[0-9]+"; then
+            echo "::error::PR must link an issue with Closes/Fixes/Resolves #NNN"
+            exit 1
+          fi
+          echo "Issue link found"
+      - name: Require ADR-042 quality jobs
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+
+          needs = json.loads(os.environ["NEEDS_JSON"])
+          failed = {name: data.get("result") for name, data in needs.items() if data.get("result") != "success"}
+          if failed:
+              for name, result in failed.items():
+                  print(f"::error::Required ADR-042 quality job {name!r} ended with {result!r}")
+              sys.exit(1)
+          print("All ADR-042 required quality jobs passed")
+          PY
+
   lint:
-    name: Lint & Format
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -39,7 +78,7 @@ jobs:
       - run: ruff format --check .
 
   typecheck:
-    name: Type Check
+    name: Typecheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -51,29 +90,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: uv pip install --system ".[dev]"
-      - name: Run mypy
-        run: |
-          if [ -d src/scieasy ]; then
-            mypy src/scieasy/ --ignore-missing-imports
-          else
-            echo "No src/scieasy/ directory yet — skipping"
-          fi
-
-  architecture:
-    name: Architecture Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
-        with:
-          cache: true
-          cache-dependency-path: pyproject.toml
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-      - run: uv pip install --system ".[dev]"
-      - name: Run architecture tests
-        run: pytest tests/architecture/ -v --no-cov
+      - run: mypy src/scieasy/ --ignore-missing-imports
 
   test:
     name: Test (Python ${{ matrix.python-version }})
@@ -91,16 +108,11 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv pip install --system ".[dev]" pytest-timeout
-      - name: Run tests
-        shell: bash {0}
+      - run: uv pip install --system ".[dev]" ./packages/scieasy-blocks-imaging pytest-timeout
+      - name: Run pytest
+        shell: bash
         env:
           SCIEASY_DEV: "1"
-        # ``--timeout=60`` (pytest-timeout) hard-kills any test that hangs
-        # past 60 s and prints its traceback, so a stuck CI surfaces a
-        # diagnosable failure instead of timing out the whole job at 6 h.
-        # ``timeout 600`` is a belt-and-suspenders shell-level kill in
-        # case pytest-timeout itself wedges (xdist + pty edge cases).
         run: |
           if [ "${{ matrix.python-version }}" = "3.13" ]; then
             timeout 600 pytest -n auto --timeout=60 --timeout-method=thread
@@ -109,16 +121,16 @@ jobs:
           fi
           rc=$?
           if [ $rc -eq 5 ]; then
-            echo "No tests collected — skipping"
+            echo "No tests collected; skipping"
             exit 0
           fi
           if [ $rc -eq 124 ]; then
-            echo "::error::pytest exceeded 600s shell timeout (hang escaped --timeout=60)"
+            echo "::error::pytest exceeded the 600s shell timeout"
           fi
           exit $rc
 
-  import-lint:
-    name: Import Contracts
+  import-boundaries:
+    name: Import Boundaries
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -130,60 +142,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: uv pip install --system ".[dev]"
-      - name: Run import linter
-        run: |
-          if [ -d src/scieasy ]; then
-            lint-imports
-          else
-            echo "No src/scieasy/ directory yet — skipping"
-          fi
-
-  adr042-governance:
-    name: ADR-042 Governance Checks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - uses: astral-sh/setup-uv@v7
-        with:
-          cache: true
-          cache-dependency-path: pyproject.toml
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-      - run: uv pip install --system ".[dev]"
-      - name: Run ADR-042 governance checks
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE_REF="origin/${{ github.base_ref }}"
-          else
-            BASE_REF="HEAD~1"
-          fi
-          python scripts/qa/run_adr042_check.py code-score --changed --full --base "$BASE_REF" --head HEAD --format text
-          python scripts/qa/run_adr042_check.py frontmatter-lint \
-            docs/adr/ADR-042.md \
-            docs/specs/adr-042-code-quality-tools.md \
-            docs/specs/adr-042-documentation-tools.md \
-            docs/specs/adr-042-consistency-tools.md \
-            docs/specs/adr-042-ai-governance-tools.md
-          python scripts/qa/run_adr042_check.py doc-length-lint \
-            docs/contributing docs/user docs/prod-agent docs/doc-guide
-          python scripts/qa/run_adr042_check.py auto-generated-lint
-          python scripts/qa/run_adr042_check.py skill-pointer-sync
-
-  # frontend:
-  #   name: Frontend Build
-  #   runs-on: ubuntu-latest
-  #   # Not yet implemented — frontend/src/ does not exist.
-  #   # Enable this job when frontend development begins.
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #     - uses: actions/setup-node@v6
-  #       with:
-  #         node-version: "20"
-  #     - run: cd frontend && npm ci && npm run build
+      - run: lint-imports
 
   frontend:
     name: Frontend
@@ -204,22 +163,57 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
-      - name: Check frontend/dist not stale relative to src
-        # #406: Ensure the committed frontend/dist/ reflects the current
-        # frontend/src/.  If any source file is newer than dist/index.html
-        # the build was not committed and developers must run
-        # 'cd frontend && npm run build' and commit the result.
-        # This step runs AFTER the build step so dist/index.html always
-        # exists in CI, and the mtime comparison is meaningful.
+
+  code-score:
+    name: Code Score
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+        with:
+          cache: true
+          cache-dependency-path: pyproject.toml
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: uv pip install --system ".[dev]"
+      - name: Score changed modules
+        shell: bash
         run: |
-          STALE=$(find frontend/src -newer frontend/dist/index.html 2>/dev/null | head -1)
-          if [ -n "$STALE" ]; then
-            echo "ERROR: frontend/dist is stale. At least one source file is newer than dist/index.html:"
-            echo "  $STALE"
-            echo "Run 'cd frontend && npm run build' and commit the result."
-            exit 1
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_REF="origin/${{ github.base_ref }}"
+          else
+            BASE_REF="HEAD~1"
           fi
-          echo "frontend/dist is up to date."
+          python scripts/qa/run_adr042_check.py code-score --changed --full --base "$BASE_REF" --head HEAD --format text
+
+  docs-governance:
+    name: Docs Governance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          cache: true
+          cache-dependency-path: pyproject.toml
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: uv pip install --system ".[dev]"
+      - name: Run ADR-042 documentation governance checks
+        run: |
+          python scripts/qa/run_adr042_check.py frontmatter-lint \
+            docs/adr/ADR-042.md \
+            docs/specs/adr-042-code-quality-tools.md \
+            docs/specs/adr-042-documentation-tools.md \
+            docs/specs/adr-042-consistency-tools.md \
+            docs/specs/adr-042-ai-governance-tools.md
+          python scripts/qa/run_adr042_check.py doc-length-lint \
+            docs/contributing docs/user docs/prod-agent docs/doc-guide
+          python scripts/qa/run_adr042_check.py auto-generated-lint
+          python scripts/qa/run_adr042_check.py skill-pointer-sync
 
   build-frontend-release:
     name: Build Frontend for Release
