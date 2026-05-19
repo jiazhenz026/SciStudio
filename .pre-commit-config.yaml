@@ -30,3 +30,43 @@ repos:
     hooks:
       - id: commitizen
         stages: [commit-msg]
+
+  - repo: local
+    hooks:
+      - id: adr042-code-score
+        name: ADR-042 code score
+        entry: python scripts/qa/run_adr042_check.py code-score --changed --fast
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: adr042-frontmatter-lint
+        name: ADR-042 frontmatter lint
+        entry: python scripts/qa/run_adr042_check.py frontmatter-lint
+        language: system
+        files: ^docs/(adr|specs)/.*\.md$
+        exclude: ^docs/(adr|specs)/_template/
+        stages: [pre-commit]
+
+      - id: adr042-doc-length-lint
+        name: ADR-042 doc length lint
+        entry: python scripts/qa/run_adr042_check.py doc-length-lint
+        language: system
+        files: ^docs/(contributing|user|prod-agent|doc-guide)/.*\.md$
+        stages: [pre-commit]
+
+      - id: adr042-auto-generated-lint
+        name: ADR-042 generated docs freshness
+        entry: python scripts/qa/run_adr042_check.py auto-generated-lint
+        language: system
+        pass_filenames: false
+        files: ^(docs/user/llms\.txt|docs/user/reference/|src/scieasy/qa/docs/|src/scieasy/(api|blocks|cli)/|pyproject\.toml)
+        stages: [pre-commit]
+
+      - id: adr042-skill-pointer-sync
+        name: ADR-042 skill pointer sync
+        entry: python scripts/qa/run_adr042_check.py skill-pointer-sync
+        language: system
+        pass_filenames: false
+        files: ^(\.claude/skills/|\.codex/skills/|docs/(contributing|doc-guide)/)
+        stages: [pre-commit]

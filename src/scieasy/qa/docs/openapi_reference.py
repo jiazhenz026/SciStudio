@@ -5,7 +5,7 @@ from __future__ import annotations
 from importlib import import_module
 from pathlib import Path
 
-from scieasy.qa.docs._helpers import build_result
+from scieasy.qa.docs._helpers import build_result, join_markdown_lines
 
 MARKER = "<!-- generated-by: openapi_reference -->"
 DEFAULT_TARGET_PATH = Path("docs/user/reference/server-api.md")
@@ -31,7 +31,7 @@ def generate(
     lines = [MARKER, "# Server API", ""]
     if not schema:
         lines.append("No OpenAPI schema generated.")
-        content = "\n".join(lines) + "\n"
+        content = join_markdown_lines(lines)
         return build_result(
             generator_id="openapi_reference",
             repo_root=repo_root,
@@ -47,7 +47,7 @@ def generate(
             summary = details.get("summary", "")
             lines.append(f"- {method.upper()}: {summary}")
         lines.append("")
-    content = "\n".join(lines) + "\n"
+    content = join_markdown_lines(lines)
     return build_result(
         generator_id="openapi_reference",
         repo_root=repo_root,

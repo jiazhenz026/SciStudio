@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.qa.docs._helpers import build_result
+from scieasy.qa.docs._helpers import build_result, join_markdown_lines
 
 MARKER = "<!-- generated-by: llms_txt -->"
 DEFAULT_OUTPUT = Path("docs/user/llms.txt")
@@ -15,7 +15,9 @@ def _iter_markdown_paths(repo_root: Path) -> list[Path]:
     if not base.exists():
         return []
     return sorted(
-        path for path in base.rglob("*.md") if path.name != "generated-docs.yaml" and "site-packages" not in path.as_posix()
+        path
+        for path in base.rglob("*.md")
+        if path.name != "generated-docs.yaml" and "site-packages" not in path.as_posix()
     )
 
 
@@ -25,7 +27,7 @@ def generate(
     output_path: Path = DEFAULT_OUTPUT,
 ) -> any:
     items = [f"- {path.relative_to(repo_root)}" for path in _iter_markdown_paths(repo_root)]
-    content = "\n".join([MARKER, "# SciEasy Documentation Index", ""] + items) + "\n"
+    content = join_markdown_lines([MARKER, "# SciEasy Documentation Index", "", *items])
     return build_result(
         generator_id="llms_txt",
         repo_root=repo_root,

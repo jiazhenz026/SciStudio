@@ -79,12 +79,7 @@ def test_ast_lint_detects_broad_exception_and_untracked_skip(tmp_path: Path) -> 
     tracked_path = tmp_path / "tests" / "test_tracked_skip.py"
     _write(
         tracked_path,
-        (
-            "import pytest\n\n"
-            "@pytest.mark.skip(reason='tracked in GH-123')\n"
-            "def test_tracked_skip():\n"
-            "    assert True\n"
-        ),
+        ("import pytest\n\n@pytest.mark.skip(reason='tracked in GH-123')\ndef test_tracked_skip():\n    assert True\n"),
     )
     tracked_report = check_test_file(tracked_path)
     assert "untracked-skip" not in {item.finding_class for item in tracked_report.findings}

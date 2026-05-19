@@ -135,7 +135,9 @@ def _is_in_module(module: str, signal: ToolSignal, repo_root: Path) -> bool:
     normalized_signal = _normalize_path(signal.path, repo_root)
     if normalized_signal == normalized_module:
         return True
-    return normalized_signal.startswith(normalized_module + "/") or normalized_signal.startswith(normalized_module + ":")
+    return normalized_signal.startswith(normalized_module + "/") or normalized_signal.startswith(
+        normalized_module + ":"
+    )
 
 
 def _normalize_tool_payload(payload: Any, source: str) -> list[ToolSignal]:
@@ -431,7 +433,9 @@ def _build_audit_report(modules: list[ModuleScore], source_sha: str) -> AuditRep
                     subject=item.source_tool,
                 )
             )
-    status: Literal["passed", "failed", "skipped", "error"] = "failed" if any(finding.severity == "error" for finding in findings) else "passed"
+    status: Literal["passed", "failed", "skipped", "error"] = (
+        "failed" if any(finding.severity == "error" for finding in findings) else "passed"
+    )
     return AuditReport(
         tool="code_score",
         status=status,
@@ -524,7 +528,9 @@ def score_changed_modules(
     if ai_advisory:
         report.ai_advisory = run_ai_advisory(
             AIAdvisoryInput(
-                diff="\n".join(_split_diff_hunks(_load_diff(repo_root=repo_root, base_ref=base_ref, head_ref=head_ref))),
+                diff="\n".join(
+                    _split_diff_hunks(_load_diff(repo_root=repo_root, base_ref=base_ref, head_ref=head_ref))
+                ),
                 touched_files={module: "changed" for module in modules},
                 deterministic_report=report,
             ),
@@ -620,9 +626,7 @@ def score_module_health(
         modules = [
             str(path.relative_to(repo_root)).replace("\\", "/")
             for path in repo_root.rglob("*.py")
-            if "test" not in path.name.lower()
-            and not path.name.startswith("__")
-            and ".git/" not in str(path)
+            if "test" not in path.name.lower() and not path.name.startswith("__") and ".git/" not in str(path)
         ]
     reports = collect_tool_reports(repo_root=repo_root)
     scores = [
@@ -660,7 +664,22 @@ def write_report(report: CodeScoreReport, path: Path) -> None:
     output.write_text(report.model_dump_json(indent=2), encoding="utf-8")
 
 
-def _parse_args() -> argparse.Namespace:
+def _git_artifact_path(repo_root: Path, relative_path: str) -> Path:
+    proc = subprocess.run(
+        ["git", "rev-parse", "--git-dir"],
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    git_dir = proc.stdout.strip() if proc.returncode == 0 else ""
+    base = Path(git_dir)
+    if not base.is_absolute():
+        base = repo_root / base
+    return base / relative_path
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="ADR-042 code score CLI.")
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--changed", action="store_true", help="Run changed-module scoring.")
@@ -676,14 +695,15 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--ai-provider", choices=["codex", "claude"], default=None)
     parser.add_argument("--format", default="text", choices=["json", "text"])
     parser.add_argument("--repo-root", default=".")
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def _run_changed_cli(args: argparse.Namespace) -> CodeScoreReport:
     mode: Literal["fast", "full"] = "full" if args.full else "fast"
-    output = Path(args.write or ".git/scieasy/code-score/changed.json")
+    repo_root = Path(args.repo_root)
+    output = Path(args.write) if args.write else _git_artifact_path(repo_root, "scieasy/code-score/changed.json")
     return score_changed_modules(
-        repo_root=Path(args.repo_root),
+        repo_root=repo_root,
         base_ref=args.base,
         head_ref=args.head,
         mode=mode,

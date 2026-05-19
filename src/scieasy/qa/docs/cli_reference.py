@@ -5,7 +5,7 @@ from __future__ import annotations
 from importlib import import_module
 from pathlib import Path
 
-from scieasy.qa.docs._helpers import build_result
+from scieasy.qa.docs._helpers import build_result, join_markdown_lines
 
 MARKER = "<!-- generated-by: cli_reference -->"
 DEFAULT_TARGET_PATH = Path("docs/user/reference/cli.md")
@@ -53,14 +53,14 @@ def generate(
     repo_root: Path,
     *,
     output_path: Path = DEFAULT_TARGET_PATH,
-    command_import: str = "scieasy.cli:app",
+    command_import: str = "scieasy.cli.main:app",
 ) -> object:
     app = _import_command(command_import)
     commands = _collect_commands(app)
     if not commands:
         commands = ["No CLI commands found."]
 
-    content = "\n".join([MARKER, "# CLI Reference", "", "## Commands", *commands, ""]) + "\n"
+    content = join_markdown_lines([MARKER, "# CLI Reference", "", "## Commands", *commands])
     return build_result(
         generator_id="cli_reference",
         repo_root=repo_root,

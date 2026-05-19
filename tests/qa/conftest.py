@@ -32,7 +32,7 @@ class _FakeAuditReport(BaseModel):
     source_sha: str
     findings: list[_FakeAuditFinding] = Field(default_factory=list)
     summary: dict[str, object] = Field(default_factory=dict)
-    child_reports: list["_FakeAuditReport"] = Field(default_factory=list)
+    child_reports: list[_FakeAuditReport] = Field(default_factory=list)
 
     @property
     def blocks_merge(self) -> bool:

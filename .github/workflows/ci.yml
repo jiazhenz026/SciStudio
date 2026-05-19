@@ -50,7 +50,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      - run: uv pip install --system -e ".[dev]"
+      - run: uv pip install --system ".[dev]"
       - name: Run mypy
         run: |
           if [ -d src/scieasy ]; then
@@ -71,7 +71,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      - run: uv pip install --system -e ".[dev]"
+      - run: uv pip install --system ".[dev]"
       - name: Run architecture tests
         run: pytest tests/architecture/ -v --no-cov
 
@@ -91,7 +91,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv pip install --system -e ".[dev]" pytest-timeout
+      - run: uv pip install --system ".[dev]" pytest-timeout
       - name: Run tests
         shell: bash {0}
         env:
@@ -129,7 +129,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      - run: uv pip install --system -e ".[dev]"
+      - run: uv pip install --system ".[dev]"
       - name: Run import linter
         run: |
           if [ -d src/scieasy ]; then
@@ -137,6 +137,41 @@ jobs:
           else
             echo "No src/scieasy/ directory yet — skipping"
           fi
+
+  adr042-governance:
+    name: ADR-042 Governance Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+        with:
+          cache: true
+          cache-dependency-path: pyproject.toml
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: uv pip install --system ".[dev]"
+      - name: Run ADR-042 governance checks
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_REF="origin/${{ github.base_ref }}"
+          else
+            BASE_REF="HEAD~1"
+          fi
+          python scripts/qa/run_adr042_check.py code-score --changed --full --base "$BASE_REF" --head HEAD --format text
+          python scripts/qa/run_adr042_check.py frontmatter-lint \
+            docs/adr/ADR-042.md \
+            docs/specs/adr-042-code-quality-tools.md \
+            docs/specs/adr-042-documentation-tools.md \
+            docs/specs/adr-042-consistency-tools.md \
+            docs/specs/adr-042-ai-governance-tools.md
+          python scripts/qa/run_adr042_check.py doc-length-lint \
+            docs/contributing docs/user docs/prod-agent docs/doc-guide
+          python scripts/qa/run_adr042_check.py auto-generated-lint
+          python scripts/qa/run_adr042_check.py skill-pointer-sync
 
   # frontend:
   #   name: Frontend Build

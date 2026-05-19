@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.qa.docs._helpers import build_result, parse_pyproject_groups
+from scieasy.qa.docs._helpers import build_result, join_markdown_lines, parse_pyproject_groups
 
 MARKER = "<!-- generated-by: entry_point_catalog -->"
 DEFAULT_TARGET_PATH = Path("docs/user/reference/entry-points.md")
@@ -28,7 +28,7 @@ def generate(
             for name, target in sorted(entries.items()):
                 lines.append(f"- `{name}`: `{target}`")
             lines.append("")
-    content = "\n".join(lines) + "\n"
+    content = join_markdown_lines(lines)
     return build_result(
         generator_id="entry_point_catalog",
         repo_root=repo_root,

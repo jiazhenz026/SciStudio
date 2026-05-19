@@ -6,9 +6,10 @@ import argparse
 import fnmatch
 import re
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import yaml
 
@@ -93,7 +94,7 @@ def _count_prose_and_lines(path: Path) -> tuple[int, int]:
             continue
         if in_fence:
             continue
-        if not stripped or stripped.startswith("|") and stripped.endswith("|"):
+        if not stripped or (stripped.startswith("|") and stripped.endswith("|")):
             continue
         non_empty_lines += 1
         prose_words += len(re.findall(r"\b[\w-]+\b", stripped))

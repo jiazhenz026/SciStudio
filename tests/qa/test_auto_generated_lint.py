@@ -38,8 +38,8 @@ entries:
   - target_path: docs/user/reference/cli.md
     generator_id: cli_reference
     source_paths: [src/scieasy/cli.py]
-    source_sha: "{result.manifest_entry['source_sha']}"
-    content_sha256: "{result.manifest_entry['content_sha256']}"
+    source_sha: "{result.manifest_entry["source_sha"]}"
+    content_sha256: "{result.manifest_entry["content_sha256"]}"
     marker: "<!-- generated-by: cli_reference -->"
 """,
         encoding="utf-8",
@@ -56,6 +56,7 @@ def test_auto_generated_lint_reports_stale_or_edited(tmp_path: Path, monkeypatch
     generated.parent.mkdir(parents=True, exist_ok=True)
 
     result = _fake_results(tmp_path, "docs/user/reference/cli.md", "# cli\n", source_sha="source-new")
+    expected_hash = hashlib.sha256(b"# cli\n").hexdigest()
     generated.write_text("# cli\nmanually edited", encoding="utf-8")
 
     manifest_path = tmp_path / "docs/user/reference/generated-docs.yaml"
@@ -68,7 +69,7 @@ entries:
     generator_id: cli_reference
     source_paths: [src/scieasy/cli.py]
     source_sha: "source-old"
-    content_sha256: "{hashlib.sha256('# cli\\n'.encode('utf-8')).hexdigest()}"
+    content_sha256: "{expected_hash}"
     marker: "<!-- generated-by: cli_reference -->"
 """,
         encoding="utf-8",
@@ -84,7 +85,7 @@ entries:
 def test_auto_generated_lint_reports_missing_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     manifest_path = tmp_path / "docs/user/reference/generated-docs.yaml"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text("schema_version: \"1\"\nentries:\n", encoding="utf-8")
+    manifest_path.write_text('schema_version: "1"\nentries:\n', encoding="utf-8")
 
     result = _fake_results(tmp_path, "docs/user/reference/cli.md", "# cli\n", source_sha="source-a")
     monkeypatch.setattr(auto_generated_lint, "collect_results", lambda **_: [result])

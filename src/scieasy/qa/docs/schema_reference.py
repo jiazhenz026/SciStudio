@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from scieasy.qa.docs._helpers import build_result
+from scieasy.qa.docs._helpers import build_result, join_markdown_lines
 
 MARKER = "<!-- generated-by: schema_reference -->"
 
@@ -68,7 +68,7 @@ def generate(
         else:
             lines.append("No pydantic models discovered.")
         output = output_dir / f"{prefix.replace('.', '_')}_schemas.md"
-        content = "\n".join(lines) + "\n"
+        content = join_markdown_lines(lines)
         targets.append(
             build_result(
                 generator_id="schema_reference",

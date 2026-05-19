@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
+from scieasy.qa.docs._models import GeneratorResult
 from scieasy.qa.docs.block_catalog import generate as generate_blocks
 from scieasy.qa.docs.cli_reference import generate as generate_cli
 from scieasy.qa.docs.entry_point_catalog import generate as generate_entry_points
@@ -13,8 +14,6 @@ from scieasy.qa.docs.llms_txt import generate as generate_llms
 from scieasy.qa.docs.openapi_reference import generate as generate_openapi
 from scieasy.qa.docs.runner_catalog import generate as generate_runners
 from scieasy.qa.docs.schema_reference import generate as generate_schemas
-from scieasy.qa.docs._models import GeneratorResult
-
 
 TARGETS = {
     "llms_txt": generate_llms,
@@ -71,7 +70,7 @@ def run(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Generate ADR-042 docs reference artifacts.")
-    parser.add_argument("--target", default="all", choices=sorted(TARGETS.keys()) + ["all"])
+    parser.add_argument("--target", default="all", choices=[*sorted(TARGETS.keys()), "all"])
     parser.add_argument("--write", action="store_true")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args(argv)

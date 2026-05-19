@@ -22,11 +22,7 @@ def test_mutation_runner_not_applicable_without_targets(tmp_path: Path) -> None:
 
 
 def test_mutation_runner_records_failure_when_score_below_threshold(tmp_path: Path) -> None:
-    _write(tmp_path / "pkg" / "core.py", (
-        "MUTATION_SURVIVORS: 9\n"
-        "def add(a, b):\n"
-        "    return a + b\n"
-    ))
+    _write(tmp_path / "pkg" / "core.py", ("MUTATION_SURVIVORS: 9\ndef add(a, b):\n    return a + b\n"))
     config = {
         "targets": [
             {
@@ -45,11 +41,7 @@ def test_mutation_runner_records_failure_when_score_below_threshold(tmp_path: Pa
 
 
 def test_mutation_runner_passes_when_above_threshold(tmp_path: Path) -> None:
-    _write(tmp_path / "pkg" / "core.py", (
-        "MUTATION_SURVIVORS: 1\n"
-        "def add(a, b):\n"
-        "    return a + b\n"
-    ))
+    _write(tmp_path / "pkg" / "core.py", ("MUTATION_SURVIVORS: 1\ndef add(a, b):\n    return a + b\n"))
     config = {
         "targets": [
             {

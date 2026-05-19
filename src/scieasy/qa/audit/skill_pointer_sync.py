@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
 
 import yaml
 
 from scieasy.qa._report_helpers import build_finding, build_report
-
 
 WORKFLOW_ROOT = "docs/contributing/workflows"
 
@@ -91,6 +90,7 @@ def _is_canonical_workflow(path: Path, repo_root: Path) -> bool:
     expected_root = (repo_root / WORKFLOW_ROOT).resolve()
     return target.exists() and expected_root in target.parents
 
+
 def check(
     *,
     repo_root: Path,
@@ -127,9 +127,7 @@ def check(
                     tool="skill_pointer_sync",
                     finding_class="skill-pointer",
                     severity="error",
-                    message=(
-                        f"Skill {pointer.skill_path} points to missing workflow doc {pointer.workflow_doc}"
-                    ),
+                    message=(f"Skill {pointer.skill_path} points to missing workflow doc {pointer.workflow_doc}"),
                     path=repo_root / pointer.skill_path,
                     subject="pointer",
                 )
@@ -143,9 +141,7 @@ def check(
                     tool="skill_pointer_sync",
                     finding_class="skill-pointer",
                     severity="error",
-                    message=(
-                        f"Skill {pointer.skill_path} points to non-canonical workflow doc {pointer.workflow_doc}"
-                    ),
+                    message=(f"Skill {pointer.skill_path} points to non-canonical workflow doc {pointer.workflow_doc}"),
                     path=repo_root / pointer.skill_path,
                 )
             )

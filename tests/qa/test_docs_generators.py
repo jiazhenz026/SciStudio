@@ -1,7 +1,6 @@
 from pathlib import Path
 
-from scieasy.qa.docs import generate_reference
-from scieasy.qa.docs import entry_point_catalog
+from scieasy.qa.docs import entry_point_catalog, generate_reference
 
 
 def test_docs_generate_reference_collect_results_is_deterministic(tmp_path: Path) -> None:

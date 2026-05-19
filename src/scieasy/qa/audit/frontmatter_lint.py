@@ -5,10 +5,11 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any, Iterable, Literal
+from typing import Any, Literal
 
 import yaml
 
@@ -364,30 +365,29 @@ def _validate_spec_frontmatter(path: Path, fm: dict[str, Any], findings: list[An
         )
 
     scope = fm.get("scope")
-    if isinstance(scope, dict):
-        if "in" not in scope or "out" not in scope:
-            _add_finding(
-                findings,
-                path=path,
-                line=None,
-                finding_id="frontmatter-spec-scope",
-                finding_class="schema",
-                message="Spec scope must include in/out",
-            )
+    if isinstance(scope, dict) and ("in" not in scope or "out" not in scope):
+        _add_finding(
+            findings,
+            path=path,
+            line=None,
+            finding_id="frontmatter-spec-scope",
+            finding_class="schema",
+            message="Spec scope must include in/out",
+        )
 
 
 def _field_is_valid(value: Any, expected: Any) -> bool:
-    if expected == int:
+    if expected is int:
         return isinstance(value, int)
-    if expected == str:
+    if expected is str:
         return isinstance(value, str)
-    if expected == bool:
+    if expected is bool:
         return isinstance(value, bool)
-    if expected == list:
+    if expected is list:
         return isinstance(value, list)
-    if expected == dict:
+    if expected is dict:
         return isinstance(value, dict)
-    if expected == date:
+    if expected is date:
         if isinstance(value, date):
             return True
         if not isinstance(value, str):
@@ -407,6 +407,8 @@ def _extract_anchor_refs(row_text: str) -> set[str]:
     for value in re.findall(r"\s#([\w\-.]+)", row_text):
         refs.add(value.strip())
     for value in re.findall(r"`#([\w\-.]+)`", row_text):
+        refs.add(value.strip())
+    for value in re.findall(r"\bSection\s+([0-9]+(?:\.[0-9]+)*)\b", row_text, flags=re.IGNORECASE):
         refs.add(value.strip())
     return refs
 
@@ -460,6 +462,8 @@ def _check_detailed_sections(path: Path, doc: MarkdownDocument, findings: list[A
                 continue
             if not table_started:
                 continue
+            if line_text.startswith("### "):
+                break
             if line_text.startswith("## "):
                 break
             if not line_text.strip().startswith("|"):
@@ -475,7 +479,7 @@ def _check_detailed_sections(path: Path, doc: MarkdownDocument, findings: list[A
             refs = _extract_anchor_refs(details)
             if not refs:
                 lower_cols = [value.lower() for value in cols]
-                if lower_cols == ["problem", "impact", "category", "detailed section"]:
+                if lower_cols and lower_cols[0] == "problem" and lower_cols[-1] == "detailed section":
                     continue
                 _add_finding(
                     findings,
@@ -569,7 +573,7 @@ def lint_paths(paths: Iterable[Path], *, repo_root: Path):
 def _collect_paths(paths: list[str], repo_root: Path, recursive: bool) -> list[Path]:
     collected: list[Path] = []
     for raw in paths:
-        resolved = (Path(raw) if Path(raw).is_absolute() else repo_root / raw)
+        resolved = Path(raw) if Path(raw).is_absolute() else repo_root / raw
         if not resolved.exists():
             raise FileNotFoundError(resolved)
         if resolved.is_dir():

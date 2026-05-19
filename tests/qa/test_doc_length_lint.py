@@ -27,7 +27,7 @@ def test_doc_length_lint_exempts_generated_docs(tmp_path: Path) -> None:
     manifest = tmp_path / "docs/user/reference/generated-docs.yaml"
     manifest.parent.mkdir(parents=True, exist_ok=True)
     manifest.write_text(
-        "schema_version: \"1\"\nentries:\n  - target_path: docs/user/reference/cli.md\n    generator_id: cli_reference\n    source_paths: []\n    source_sha: \"x\"\n    content_sha256: \"\"\n    marker: \"<!-- generated-by: cli_reference -->\"\n",
+        'schema_version: "1"\nentries:\n  - target_path: docs/user/reference/cli.md\n    generator_id: cli_reference\n    source_paths: []\n    source_sha: "x"\n    content_sha256: ""\n    marker: "<!-- generated-by: cli_reference -->"\n',
         encoding="utf-8",
     )
 

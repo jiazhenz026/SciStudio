@@ -47,11 +47,7 @@ def verify_ordering(
     changed = _changed_paths(repo_root, base_ref=base_ref, head_ref=head_ref)
     changed_files = [path for path in changed if path.endswith(".py")]
     changed_tests = [path for path in changed_files if "/tests/" in ("/" + path) or path.startswith("tests/")]
-    changed_code = [
-        path
-        for path in changed_files
-        if "/tests/" not in ("/" + path) and not path.startswith("tests/")
-    ]
+    changed_code = [path for path in changed_files if "/tests/" not in ("/" + path) and not path.startswith("tests/")]
 
     if not changed_code:
         return AuditReport(

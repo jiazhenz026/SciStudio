@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.qa.docs._helpers import build_result, parse_pyproject_groups
+from scieasy.qa.docs._helpers import build_result, join_markdown_lines, parse_pyproject_groups
 
 MARKER = "<!-- generated-by: runner_catalog -->"
 
@@ -30,7 +30,7 @@ def generate(
             repo_root=repo_root,
             target_path=output,
             source_paths=[Path("pyproject.toml")],
-            content="\n".join(lines) + "\n",
+            content=join_markdown_lines(lines),
             marker=MARKER,
         )
     ]

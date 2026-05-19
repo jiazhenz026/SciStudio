@@ -1,0 +1,51 @@
+schema_version: '1'
+entries:
+- target_path: docs/user/llms.txt
+  generator_id: llms_txt
+  source_paths:
+  - docs
+  source_sha: 3b2183511c740c7959669ae58cc5c2846c460401eca87c703809ca47f628ff1d
+  content_sha256: a424379937370f1a75e333d156a4e886cff59f86e258644ef94422e0532aa9b7
+  marker: '<!-- generated-by: llms_txt -->'
+- target_path: docs/user/reference/entry-points.md
+  generator_id: entry_point_catalog
+  source_paths:
+  - pyproject.toml
+  source_sha: a819b0a24a66baac5bca469458f7b40d633229ae76bfa991576b4402d0d91c87
+  content_sha256: 394d21adeb79fd803635e2723943080066937b896bd30dc2ca87711cd52a9e0c
+  marker: '<!-- generated-by: entry_point_catalog -->'
+- target_path: docs/user/reference/cli.md
+  generator_id: cli_reference
+  source_paths:
+  - src/scieasy/cli/main.py
+  source_sha: f05117707ad3b8562a5815c450e53cbf8d57aab086d601a6d2bdc2aa969e8d31
+  content_sha256: 2b85400760caef7ed1b9d416b1107fe2601c81715c373ec97d4a64e5f5c585b6
+  marker: '<!-- generated-by: cli_reference -->'
+- target_path: docs/user/reference/server-api.md
+  generator_id: openapi_reference
+  source_paths:
+  - src/scieasy/api
+  source_sha: 5b6a56c6843f6a0698aa35606af557930a0efeca1c7d6fac39f30c912a563121
+  content_sha256: 7e579c905dd62909c77bcc8c22cc92efc0db1d0b32d3764d22c8928b9cbd7e01
+  marker: '<!-- generated-by: openapi_reference -->'
+- target_path: docs/user/reference/schemas/scieasy_schemas.md
+  generator_id: schema_reference
+  source_paths:
+  - src/scieasy
+  source_sha: a641ba42d3850ca4cca2239d92cf81287852d880a1ba3387715d2bafe1071792
+  content_sha256: 730d25234494075d2243b5b63fa0aa58a49be64d6442c2eccc3e1225c4f3c861
+  marker: '<!-- generated-by: schema_reference -->'
+- target_path: docs/user/reference/blocks/blocks.md
+  generator_id: block_catalog
+  source_paths:
+  - src/scieasy/blocks
+  source_sha: b2dea14a5dc989fafda50d7c72a5e32dd6f6d1e6014e6749dfedee1d56044b28
+  content_sha256: bf8756e48b3a740d3cf2b65326320c8f858bf7b580e0f005d50a6f89377fa171
+  marker: '<!-- generated-by: block_catalog -->'
+- target_path: docs/user/reference/runners/runners.md
+  generator_id: runner_catalog
+  source_paths:
+  - pyproject.toml
+  source_sha: a819b0a24a66baac5bca469458f7b40d633229ae76bfa991576b4402d0d91c87
+  content_sha256: 42fc68517251abbe8b88c14d8a6e40b90616451ab07eb366d85761b26c9f02c5
+  marker: '<!-- generated-by: runner_catalog -->'

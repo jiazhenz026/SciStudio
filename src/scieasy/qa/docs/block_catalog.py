@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from scieasy.qa.docs._helpers import build_result
+from scieasy.qa.docs._helpers import build_result, join_markdown_lines
 
 MARKER = "<!-- generated-by: block_catalog -->"
 
@@ -44,11 +44,11 @@ def generate(
     output_path = output_dir / "blocks.md"
     return [
         build_result(
-        generator_id="block_catalog",
-        repo_root=repo_root,
-        target_path=output_path,
-        source_paths=[Path("src/scieasy/blocks")],
-        content="\n".join(lines) + "\n",
-        marker=MARKER,
-    )
+            generator_id="block_catalog",
+            repo_root=repo_root,
+            target_path=output_path,
+            source_paths=[Path("src/scieasy/blocks")],
+            content=join_markdown_lines(lines),
+            marker=MARKER,
+        )
     ]

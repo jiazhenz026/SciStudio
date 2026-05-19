@@ -56,7 +56,7 @@ translations: []
 ## 2. Structure
 
 Lorem ipsum.
-"""
+""",
     )
 
 
@@ -88,7 +88,7 @@ language_source: en
 
 ## 2. Wrong start
 
-"""
+""",
     )
 
 

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 import yaml
 
@@ -133,7 +133,7 @@ def check_generated(
     manifest_map = {entry.target_path: entry for entry in manifest_entries}
 
     for target, manifest_entry in manifest_map.items():
-        target_path = (repo_root / target)
+        target_path = repo_root / target
         relative_target = _normalize_path(target, repo_root=repo_root)
         result = generated_map.get(relative_target)
         if result is None:
@@ -195,7 +195,7 @@ def check_generated(
                 )
             )
 
-    for target, result in generated_map.items():
+    for target in generated_map:
         if target not in manifest_map:
             findings.append(
                 build_finding(

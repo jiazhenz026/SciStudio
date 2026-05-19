@@ -82,25 +82,30 @@ def _collect_pytest_skip(node: ast.FunctionDef) -> tuple[bool, str | None]:
                 return True, reason
             if name == "mark" and dec.args and isinstance(dec.args[0], ast.Attribute) and dec.args[0].attr == "skip":
                 return True, reason
-        if isinstance(func, ast.Attribute) and func.attr == "skip" and isinstance(func.value, ast.Name) and func.value.id == "pytest":
-                for kw in dec.keywords:
+        if (
+            isinstance(func, ast.Attribute)
+            and func.attr == "skip"
+            and isinstance(func.value, ast.Name)
+            and func.value.id == "pytest"
+        ):
+            for kw in dec.keywords:
+                if kw.arg == "reason" and isinstance(kw.value, ast.Constant):
+                    reason = str(kw.value.value)
+            return True, reason
+
+    for inner in ast.walk(node):
+        if isinstance(inner, ast.Call):
+            callee = inner.func
+            if (
+                isinstance(callee, ast.Attribute)
+                and isinstance(callee.value, ast.Name)
+                and callee.value.id == "pytest"
+                and callee.attr == "skip"
+            ):
+                for kw in inner.keywords:
                     if kw.arg == "reason" and isinstance(kw.value, ast.Constant):
                         reason = str(kw.value.value)
                 return True, reason
-
-    for inner in ast.walk(node):
-            if isinstance(inner, ast.Call):
-                callee = inner.func
-                if (
-                    isinstance(callee, ast.Attribute)
-                    and isinstance(callee.value, ast.Name)
-                    and callee.value.id == "pytest"
-                    and callee.attr == "skip"
-                ):
-                    for kw in inner.keywords:
-                        if kw.arg == "reason" and isinstance(kw.value, ast.Constant):
-                            reason = str(kw.value.value)
-                    return True, reason
     return False, reason
 
 
@@ -119,7 +124,9 @@ def _is_broad_exception(handler: ast.ExceptHandler) -> bool:
         # If body only pass, return statements and docs are likely empty swallowing.
         if not handler.body:
             return True
-        non_noisy = [node for node in handler.body if not isinstance(node, (ast.Pass, ast.Expr, ast.ImportFrom, ast.Import))]
+        non_noisy = [
+            node for node in handler.body if not isinstance(node, (ast.Pass, ast.Expr, ast.ImportFrom, ast.Import))
+        ]
         return len(non_noisy) == 0
     return False
 
@@ -220,7 +227,11 @@ def check_test_file(
                     subject=str(file_path),
                 )
             ],
-            summary={"files": [_normalize_source_path(file_path)], "findings": 1, "schema_dependency": schema_dependency_note()},
+            summary={
+                "files": [_normalize_source_path(file_path)],
+                "findings": 1,
+                "schema_dependency": schema_dependency_note(),
+            },
         )
 
     findings: list[AuditFinding] = []
@@ -311,11 +322,7 @@ def check_test_paths(paths: Sequence[Path], *, repo_root: Path) -> AuditReport:
     for item in paths:
         candidate = (repo_root / item).resolve()
         if candidate.is_dir():
-            all_paths.extend(
-                p
-                for p in candidate.rglob("*.py")
-                if "test" in p.name.lower() and p.suffix == ".py"
-            )
+            all_paths.extend(p for p in candidate.rglob("*.py") if "test" in p.name.lower() and p.suffix == ".py")
         elif candidate.exists():
             all_paths.append(candidate)
 
@@ -333,7 +340,11 @@ def check_test_paths(paths: Sequence[Path], *, repo_root: Path) -> AuditReport:
         generated_at=now_utc(),
         source_sha=git_sha(repo_root),
         findings=findings,
-        summary={"files": [str(path) for path in all_paths], "findings": len(findings), "schema_dependency": schema_dependency_note()},
+        summary={
+            "files": [str(path) for path in all_paths],
+            "findings": len(findings),
+            "schema_dependency": schema_dependency_note(),
+        },
     )
 
 

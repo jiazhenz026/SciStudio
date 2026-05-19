@@ -28,6 +28,10 @@ def content_sha(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def join_markdown_lines(lines: list[str]) -> str:
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def parse_pyproject_groups(repo_root: Path) -> dict[str, object]:
     path = repo_root / "pyproject.toml"
     if not path.exists():
@@ -46,9 +50,10 @@ def build_result(
     content: str,
     marker: str,
 ) -> GeneratorResult:
-    source_strings = [str(path) for path in source_paths]
+    source_strings = [Path(path).as_posix() for path in source_paths]
+    target_string = target_path.as_posix()
     manifest_entry = {
-        "target_path": str(target_path),
+        "target_path": target_string,
         "generator_id": generator_id,
         "source_paths": source_strings,
         "source_sha": source_sha_from_sources(repo_root, source_strings),
@@ -57,7 +62,7 @@ def build_result(
     }
     return GeneratorResult(
         generator_id=generator_id,
-        target_path=str(target_path),
+        target_path=target_string,
         content=content,
         source_paths=source_strings,
         manifest_entry=manifest_entry,

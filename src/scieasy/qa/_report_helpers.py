@@ -2,46 +2,20 @@
 
 from __future__ import annotations
 
-import subprocess
 from collections import Counter
-from datetime import datetime
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from scieasy.qa.schemas.report import AuditFinding, AuditReport
-
-
-def _load_report_models() -> tuple[type["AuditFinding"], type["AuditReport"]]:
-    from importlib import import_module
-
-    try:
-        module = import_module("scieasy.qa.schemas.report")
-    except ModuleNotFoundError as exc:  # pragma: no cover - exercised via fixture in tests
-        raise RuntimeError(
-            "Missing dependency: scieasy.qa.schemas.report. "
-            "Documentation tools target this interface and require consistency schema branch to be merged."
-        ) from exc
-    return module.AuditFinding, module.AuditReport
+from scieasy.qa._shared import AuditFinding, AuditReport, git_sha, now_utc
 
 
 def source_sha_from_repo(repo_root: Path) -> str:
     """Best-effort source hash from git, or ``"unknown"``."""
 
     try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=str(repo_root),
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        return git_sha(repo_root)
     except Exception:
         return "unknown"
-
-    return result.stdout.strip()
 
 
 def build_report(
@@ -58,11 +32,10 @@ def build_report(
     if findings:
         has_error = any(finding.severity == "error" for finding in findings)
         status = "failed" if has_error else "passed"
-    _, AuditReport = _load_report_models()
     return AuditReport(
         tool=tool,
         status=status,
-        generated_at=datetime.utcnow(),
+        generated_at=now_utc(),
         source_sha=source_sha_from_repo(repo_root),
         findings=findings,
         summary=summary or {"error_count": Counter(f.severity for f in findings)},
@@ -84,7 +57,6 @@ def build_finding(
     remediation: str | None = None,
     evidence: dict[str, object] | None = None,
 ) -> AuditFinding:
-    AuditFinding, _ = _load_report_models()
     return AuditFinding(
         id=finding_id,
         tool=tool,
