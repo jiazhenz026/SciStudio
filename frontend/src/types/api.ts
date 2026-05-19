@@ -57,6 +57,38 @@ export interface BlockPortResponse {
   is_collection: boolean;
 }
 
+export type MetadataFidelityLevel =
+  | "pixel_only"
+  | "typed_meta"
+  | "format_specific"
+  | "lossless";
+
+export interface MetadataFidelityResponse {
+  level: MetadataFidelityLevel;
+  typed_meta_reads: string[];
+  typed_meta_writes: string[];
+  format_metadata_reads: string[];
+  format_metadata_writes: string[];
+  notes?: string | null;
+}
+
+export interface FormatCapabilityResponse {
+  id: string;
+  direction: "load" | "save";
+  data_type: string;
+  format_id: string;
+  extensions: string[];
+  label: string;
+  block_type: string;
+  handler: string;
+  is_default: boolean;
+  priority: number;
+  roundtrip_group?: string | null;
+  metadata_fidelity: MetadataFidelityResponse;
+  is_synthesized: boolean;
+  migration_scaffold: boolean;
+}
+
 export interface BlockSummary {
   name: string;
   type_name: string;
@@ -75,6 +107,8 @@ export interface BlockSummary {
   variadic_inputs?: boolean;
   /** ADR-029 D8: true when this block supports user-configurable output port count. */
   variadic_outputs?: boolean;
+  /** ADR-043: backend-owned IO format capabilities for aggregate IOBlocks. */
+  format_capabilities?: FormatCapabilityResponse[];
 }
 
 export interface TypeHierarchyEntry {
