@@ -9,6 +9,7 @@ from threading import Thread
 from typing import Any
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 
 from scieasy.blocks.app.bridge import FileExchangeBridge
@@ -253,6 +254,8 @@ class TestFileExchangeBridgeCollection:
             Array(axes=["y", "x"], shape=(3, 3), dtype="uint8"),
             Array(axes=["y", "x"], shape=(5, 5), dtype="float32"),
         ]
+        items[0]._transient_data = np.zeros((3, 3), dtype=np.uint8)
+        items[1]._transient_data = np.zeros((5, 5), dtype=np.float32)
         collection = Collection(items)
 
         bridge = FileExchangeBridge()

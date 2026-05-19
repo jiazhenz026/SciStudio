@@ -28,35 +28,90 @@ class FileExchangeBridge:
         and ProcessHandle integration (ADR-019) are handled by LocalRunner.
     """
 
-    def prepare(self, inputs: dict[str, Any], exchange_dir: Path) -> None:
-        """Serialise *inputs* into *exchange_dir*."""
+    def prepare(
+        self,
+        inputs: dict[str, Any],
+        exchange_dir: Path,
+        *,
+        registry: Any | None = None,
+    ) -> None:
+        """Serialise *inputs* into *exchange_dir*.
+
+        ADR-028 §D8 / #1080: :class:`DataObject` inputs (including items
+        inside a :class:`Collection`) are materialised to real files via
+        :func:`scieasy.engine.materialisation.materialise_to_file` —
+        which routes through :meth:`BlockRegistry.find_saver` and
+        prefers a :func:`scieasy.utils.fs.mount_pathlike` pass-through
+        when ``storage_ref.path`` already matches the target extension.
+        Scalar (``str``/``int``/``float``/``bool``), ``bytes``, and
+        otherwise-unknown inputs keep the legacy JSON / raw-bytes
+        serialisation paths.
+
+        The manifest format per port is now:
+
+        - DataObject:
+          ``{"type": <ClassName>, "path": <abspath>, "extension": ".csv",
+          "format": "csv"}``.
+        - Collection:
+          ``{"type": "collection", "item_type": <ClassName | "mixed">,
+          "items": [{"type": ..., "path": ..., "extension": ...,
+          "format": ...}, ...]}``.
+        - Scalar: ``{"type": "scalar", "value": <value>}``.
+        - Bytes: ``{"type": "file", "path": <abspath>}`` (extension
+          ``".bin"``).
+        - Fallback JSON: ``{"type": "json", "path": <abspath>,
+          "extension": ".json", "format": "json"}``.
+
+        The optional *registry* kwarg lets callers in hot paths
+        (FileExchangeBridge is normally instantiated once per AppBlock
+        execution) amortise the registry scan; when omitted,
+        :func:`materialise_to_file` builds and scans a fresh one.
+        """
+        from scieasy.core.types.base import DataObject
+        from scieasy.core.types.collection import Collection
+
         exchange_dir.mkdir(parents=True, exist_ok=True)
         input_dir = exchange_dir / "inputs"
         input_dir.mkdir(exist_ok=True)
 
         manifest: dict[str, Any] = {}
         for key, value in inputs.items():
-            # ADR-031 D2: ViewProxy eliminated. DataObject.to_memory()
-            # is called directly when data materialisation is needed.
-            from scieasy.core.types.base import DataObject
-
-            if isinstance(value, DataObject) and not hasattr(value, "__iter__"):
-                value = value.to_memory() if value.storage_ref is not None else value
-
-            # ADR-020-Add2: iterate Collection items one at a time.
-            from scieasy.core.types.collection import Collection
-
             if isinstance(value, Collection):
                 collection_dir = input_dir / key
                 collection_dir.mkdir(exist_ok=True)
-                item_paths = []
+                item_entries: list[dict[str, Any]] = []
+                item_types: set[str] = set()
                 for i, item in enumerate(value):
-                    # ADR-031: use to_memory() directly instead of .view().to_memory()
-                    data = item.to_memory() if item.storage_ref is not None else item.user
-                    item_path = collection_dir / f"item_{i:04d}.json"
-                    item_path.write_text(json.dumps(data, default=str), encoding="utf-8")
-                    item_paths.append(str(item_path))
-                manifest[key] = {"type": "collection", "items": item_paths}
+                    item_entries.append(
+                        _materialise_data_object(
+                            item,
+                            collection_dir,
+                            filename_stem=f"item_{i:04d}",
+                            registry=registry,
+                        )
+                    )
+                    item_types.add(type(item).__name__)
+                if len(item_types) == 1:
+                    item_type_name = next(iter(item_types))
+                elif len(item_types) == 0:
+                    declared = getattr(value, "item_type", None)
+                    item_type_name = declared.__name__ if declared is not None else "mixed"
+                else:
+                    item_type_name = "mixed"
+                manifest[key] = {
+                    "type": "collection",
+                    "item_type": item_type_name,
+                    "items": item_entries,
+                }
+                continue
+
+            if isinstance(value, DataObject):
+                manifest[key] = _materialise_data_object(
+                    value,
+                    input_dir,
+                    filename_stem=key,
+                    registry=registry,
+                )
                 continue
 
             if isinstance(value, (str, int, float, bool)):
@@ -64,11 +119,21 @@ class FileExchangeBridge:
             elif isinstance(value, bytes):
                 file_path = input_dir / f"{key}.bin"
                 file_path.write_bytes(value)
-                manifest[key] = {"type": "file", "path": str(file_path)}
+                manifest[key] = {
+                    "type": "file",
+                    "path": str(file_path),
+                    "extension": ".bin",
+                    "format": "binary",
+                }
             else:
                 file_path = input_dir / f"{key}.json"
                 file_path.write_text(json.dumps(value, default=str), encoding="utf-8")
-                manifest[key] = {"type": "json", "path": str(file_path)}
+                manifest[key] = {
+                    "type": "json",
+                    "path": str(file_path),
+                    "extension": ".json",
+                    "format": "json",
+                }
 
         manifest_path = exchange_dir / "manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
@@ -155,3 +220,66 @@ def _guess_mime(path: Path) -> str:
         ".pdf": "application/pdf",
     }
     return mapping.get(path.suffix.lower(), "application/octet-stream")
+
+
+_CORE_TYPE_DEFAULT_EXTENSION: dict[str, str] = {
+    "DataFrame": ".csv",
+    "Series": ".csv",
+    "Array": ".npy",
+    "Text": ".txt",
+    "Artifact": ".bin",
+    "CompositeData": ".zarr",
+}
+
+
+def _default_extension_for_obj(obj: Any) -> str | None:
+    """Return the bridge's preferred default extension for *obj*."""
+    return _CORE_TYPE_DEFAULT_EXTENSION.get(type(obj).__name__)
+
+
+def _materialise_data_object(
+    obj: Any,
+    dest_dir: Path,
+    *,
+    filename_stem: str,
+    registry: Any | None,
+) -> dict[str, Any]:
+    """Materialise *obj* and return a manifest entry."""
+    from scieasy.engine.materialisation import materialise_to_file
+
+    extension = _default_extension_for_obj(obj)
+    out_path = materialise_to_file(
+        obj,
+        dest_dir,
+        extension=extension,
+        filename_stem=filename_stem,
+        registry=registry,
+    )
+    resolved_extension = out_path.suffix
+    fmt = _resolve_format_for(type(obj), resolved_extension, registry=registry)
+    return {
+        "type": type(obj).__name__,
+        "path": str(out_path),
+        "extension": resolved_extension,
+        "format": fmt,
+    }
+
+
+def _resolve_format_for(
+    cls: type,
+    extension: str,
+    *,
+    registry: Any | None,
+) -> str | None:
+    """Return the format identifier the resolved saver uses for *extension*."""
+    from scieasy.blocks.registry import BlockRegistry
+
+    reg = registry if registry is not None else BlockRegistry()
+    if registry is None:
+        reg.scan()
+    saver_cls = reg.find_saver(cls, extension)
+    if saver_cls is None:
+        return None
+    exts: dict[str, str] = getattr(saver_cls, "supported_extensions", {}) or {}
+    normalised = {k.lower(): v for k, v in exts.items()}
+    return normalised.get(extension.lower())
