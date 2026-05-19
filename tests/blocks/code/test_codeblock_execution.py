@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -9,9 +10,14 @@ from scieasy.blocks.code.code_block import (
     CodeBlock,
     CodeBlockExecutionError,
     CodeBlockMigrationError,
+    CodeBlockRuntimeContext,
     CodeBlockTimeoutError,
+    list_codeblock_backends,
+    register_codeblock_backend,
+    unregister_codeblock_backend,
 )
 from scieasy.blocks.code.exchange import CodeBlockExchangeError
+from scieasy.blocks.code.interpreters import ResolvedInterpreter
 from scieasy.core.types.base import DataObject
 from scieasy.core.types.collection import Collection
 from scieasy.core.types.text import Text
@@ -178,3 +184,55 @@ def test_legacy_entry_function_script_reports_migration_error(tmp_path: Path) ->
         block.run({}, block.config)
 
     assert "does not call entry functions" in str(exc_info.value)
+
+
+def test_codeblock_dispatches_through_registered_backend(tmp_path: Path) -> None:
+    script = _write_script(tmp_path, "backend-owned script\n", name="script.dummy")
+
+    class DummyBackend:
+        name = "dummy"
+        extensions = frozenset({".dummy"})
+
+        def __init__(self) -> None:
+            self.context: CodeBlockRuntimeContext | None = None
+            self.ran = False
+
+        def supports(self, script_path: Path, config: object) -> bool:
+            return script_path.suffix == ".dummy"
+
+        def resolve(self, context: CodeBlockRuntimeContext) -> ResolvedInterpreter:
+            self.context = context
+            return ResolvedInterpreter(
+                family="python",
+                executable=sys.executable,
+                argv=[sys.executable, str(script)],
+                working_directory=context.exchange_dir.as_posix(),
+            )
+
+        def run(
+            self,
+            context: CodeBlockRuntimeContext,
+            interpreter: ResolvedInterpreter,
+        ) -> subprocess.CompletedProcess[str]:
+            self.ran = True
+            return subprocess.CompletedProcess(interpreter.argv, 0, stdout="ok", stderr="")
+
+    backend = DummyBackend()
+    register_codeblock_backend(backend)
+    try:
+        assert any(registered.name == "dummy" for registered in list_codeblock_backends())
+        block = CodeBlock(config=_block_config(tmp_path, "scripts/script.dummy"))
+
+        assert block.run({}, block.config) == {}
+        assert backend.ran is True
+        assert backend.context is not None
+        assert backend.context.exchange_dir.is_dir()
+    finally:
+        unregister_codeblock_backend("dummy")
+
+
+def test_codeblock_backend_loader_registers_python_backend() -> None:
+    backends = list_codeblock_backends()
+
+    python_backend = next(backend for backend in backends if backend.name == "python")
+    assert ".py" in python_backend.extensions

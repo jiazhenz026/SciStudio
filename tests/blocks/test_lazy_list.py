@@ -312,24 +312,24 @@ class TestCodeBlockRunIntegration:
     """CodeBlock.run() is now implemented — verify it dispatches to runners."""
 
     def test_run_inline_python(self) -> None:
-        """run() executes inline Python script and returns results."""
+        """run() rejects inline Python instead of silently treating it as v2."""
         from scieasy.blocks.base.state import BlockState
-        from scieasy.blocks.code.code_block import CodeBlock
+        from scieasy.blocks.code.code_block import CodeBlock, CodeBlockMigrationError
 
         block = CodeBlock(config={"params": {"script": "result = 42"}})
         block.transition(BlockState.READY)
-        outputs = block.run({}, block.config)
-        assert outputs["result"] == 42
+        with pytest.raises(CodeBlockMigrationError, match="Inline CodeBlock configs"):
+            block.run({}, block.config)
 
     def test_run_inline_with_inputs(self) -> None:
-        """run() passes inputs to the user script namespace."""
+        """run() rejects inline scripts even when legacy inputs are supplied."""
         from scieasy.blocks.base.state import BlockState
-        from scieasy.blocks.code.code_block import CodeBlock
+        from scieasy.blocks.code.code_block import CodeBlock, CodeBlockMigrationError
 
         block = CodeBlock(config={"params": {"script": "output = data * 2"}})
         block.transition(BlockState.READY)
-        outputs = block.run({"data": 10}, block.config)
-        assert outputs["output"] == 20
+        with pytest.raises(CodeBlockMigrationError, match="Inline CodeBlock configs"):
+            block.run({"data": 10}, block.config)
 
     def test_run_missing_script_raises(self) -> None:
         """run() with no script raises ValueError."""

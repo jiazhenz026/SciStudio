@@ -137,12 +137,12 @@ Tasks:
 - [x] Return declared outputs as typed runtime objects or structured diagnostics according to the planning spec. Evidence: commit `08cc5bc3`; tests cover typed `Collection[Text]` output, missing output diagnostics, nonzero exit, and timeout.
 - [x] Add tests for successful Python script execution, missing output failure, script non-zero exit failure, timeout, and provenance recording. Evidence: `PYTHONPATH=C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41c\src python -m pytest tests/blocks/code/test_codeblock_v2_config.py tests/blocks/code/test_codeblock_interpreters.py tests/blocks/code/test_codeblock_provenance.py tests/blocks/code/test_codeblock_exchange.py tests/blocks/code/test_codeblock_execution.py tests/blocks/test_code_block.py tests/blocks/code/test_codeblock_python_integration.py tests/blocks/code/test_codeblock_r_integration.py --timeout=30 --no-cov` passed with 47 tests.
 - [x] Add migration diagnostics for unsupported legacy inline/function mode. Evidence: commit `08cc5bc3`; legacy CodeBlock tests now assert `CodeBlockMigrationError`.
-- [x] Leave stable extension points for notebook, R/Quarto, shell, and MATLAB/Octave tracks without editing ADR-043-owned files. Evidence: commit `08cc5bc3`; `_run_resolved_interpreter` and adapter seams keep runtime wiring separate from interpreter-family extensions.
+- [x] Leave stable extension points for notebook, R/Quarto, shell, and MATLAB/Octave tracks without editing ADR-043-owned files. Evidence: PR #1239 adds `CodeBlockBackend`, `CodeBlockRuntimeContext`, register/list/resolve backend helpers, and a `src/scieasy/blocks/code/backends/` module loader so C2-C5 can add one backend module each without editing `CodeBlock` dispatch logic.
 - [x] Do not mark ADR-041 runtime complete in Track C1; C2-C5 remain required sibling backend tracks. Evidence: checklist retains C2-C5 rows after rebase onto manager commit `9a8710dc`.
 
 Exit Criteria:
 
-- [ ] Track C1 PR targets `track/adr-041/codeblock-v2`.
+- [x] Track C1 PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1239](https://github.com/zjzcpj/SciEasy/pull/1239).
 - [ ] Track C1 CI is green.
 - [~] Checklist rows updated with PR/test evidence. Evidence: C1 implementation/test evidence recorded; PR and CI evidence pending.
 
