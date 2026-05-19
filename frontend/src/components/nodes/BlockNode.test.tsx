@@ -9,6 +9,7 @@ import type {
   BlockPortResponse,
   BlockSchemaResponse,
   DynamicPortsConfig,
+  FormatCapabilityResponse,
 } from "../../types/api";
 import type { BlockNodeData } from "../../types/ui";
 
@@ -72,6 +73,35 @@ function makeSchema(
     type_hierarchy: [],
     dynamic_ports: null,
     direction: null,
+    ...overrides,
+  };
+}
+
+function makeCapability(
+  overrides: Partial<FormatCapabilityResponse> = {},
+): FormatCapabilityResponse {
+  return {
+    id: "imaging.image.tiff.load",
+    direction: "load",
+    data_type: "Image",
+    format_id: "tiff",
+    extensions: [".tif", ".tiff"],
+    label: "TIFF",
+    block_type: "LoadImage",
+    handler: "load",
+    is_default: false,
+    priority: 0,
+    roundtrip_group: null,
+    metadata_fidelity: {
+      level: "typed_meta",
+      typed_meta_reads: ["axes"],
+      typed_meta_writes: [],
+      format_metadata_reads: [],
+      format_metadata_writes: [],
+      notes: null,
+    },
+    is_synthesized: false,
+    migration_scaffold: false,
     ...overrides,
   };
 }
@@ -188,6 +218,66 @@ describe("BlockNode — Browse buttons removed (#467, tkinter crash on macOS)", 
     });
     expect(screen.queryByRole("button", { name: /Browse/i })).toBeNull();
     expect(screen.getByPlaceholderText("Type or paste path")).toBeDefined();
+  });
+});
+
+describe("BlockNode - ADR-043 format capabilities", () => {
+  it("renders backend capability choices and persists capability_id", () => {
+    const onUpdateConfig = vi.fn();
+    renderNode({
+      category: "io",
+      onUpdateConfig,
+      schema: makeSchema({
+        base_category: "io",
+        direction: "input",
+        format_capabilities: [
+          makeCapability({ id: "imaging.image.tiff.load", label: "TIFF" }),
+          makeCapability({
+            id: "imaging.image.png.load",
+            extensions: [".png"],
+            format_id: "png",
+            label: "PNG",
+          }),
+        ],
+      }),
+    });
+
+    const select = screen.getByRole("combobox");
+    fireEvent.change(select, { target: { value: "imaging.image.png.load" } });
+
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      capability_id: "imaging.image.png.load",
+    });
+  });
+
+  it("surfaces backend-derived metadata loss warnings", () => {
+    renderNode({
+      category: "io",
+      config: { capability_id: "imaging.image.png.save" },
+      schema: makeSchema({
+        base_category: "io",
+        direction: "output",
+        format_capabilities: [
+          makeCapability({
+            id: "imaging.image.png.save",
+            direction: "save",
+            extensions: [".png"],
+            format_id: "png",
+            label: "PNG",
+            metadata_fidelity: {
+              level: "pixel_only",
+              typed_meta_reads: [],
+              typed_meta_writes: [],
+              format_metadata_reads: [],
+              format_metadata_writes: [],
+              notes: null,
+            },
+          }),
+        ],
+      }),
+    });
+
+    expect(screen.getByText(/typed metadata may not be written/i)).toBeInTheDocument();
   });
 });
 
