@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from scieasy.blocks.base.state import BlockState
-from scieasy.blocks.code.code_block import CodeBlock
+from scieasy.blocks.code.code_block import CodeBlock, CodeBlockMigrationError
 from scieasy.blocks.code.introspect import introspect_script
 from scieasy.blocks.code.runners.python_runner import PythonRunner
 
@@ -71,32 +71,31 @@ class TestPythonRunnerScript:
 
 
 class TestCodeBlockInline:
-    """CodeBlock inline mode."""
+    """Legacy CodeBlock inline mode now reports ADR-041 migration diagnostics."""
 
-    def test_inline_execution(self) -> None:
+    def test_inline_execution_reports_migration(self) -> None:
         block = CodeBlock(config={"params": {"script": "result = 42"}})
         block.transition(BlockState.READY)
-        result = block.run({}, block.config)
-        assert result["result"] == 42
+        with pytest.raises(CodeBlockMigrationError, match="Inline CodeBlock configs are not valid"):
+            block.run({}, block.config)
 
-    def test_inline_with_input(self) -> None:
+    def test_inline_with_input_reports_migration(self) -> None:
         block = CodeBlock(config={"params": {"script": "output = data * 2"}})
         block.transition(BlockState.READY)
-        result = block.run({"data": 10}, block.config)
-        assert result["output"] == 20
+        with pytest.raises(CodeBlockMigrationError, match="Inline CodeBlock configs are not valid"):
+            block.run({"data": 10}, block.config)
 
 
 class TestCodeBlockScript:
-    """CodeBlock script mode."""
+    """Legacy CodeBlock entry-function script mode now reports migration diagnostics."""
 
-    def test_script_execution(self, tmp_path: Path) -> None:
+    def test_entry_function_script_reports_migration(self, tmp_path: Path) -> None:
         script = tmp_path / "block_script.py"
         script.write_text("def run(inputs, config):\n    return {'result': sum(inputs.get('values', []))}\n")
-        block = CodeBlock(config={"params": {"script_path": str(script)}})
-        block.mode = "script"
+        block = CodeBlock(config={"params": {"project_dir": str(tmp_path), "script_path": "block_script.py"}})
         block.transition(BlockState.READY)
-        result = block.run({"values": [1, 2, 3]}, block.config)
-        assert result["result"] == 6
+        with pytest.raises(CodeBlockMigrationError, match="does not call entry functions"):
+            block.run({}, block.config)
 
 
 # ADR-020: TestCodeBlockProxyMode and TestCodeBlockChunkedMode removed.
