@@ -19,7 +19,7 @@ scope:
     - Fact generation from docs, code, workflows, maintainers, skills, and tool configs.
     - Drift classification and bidirectional coverage closure.
     - Signature fact extraction and signature drift checks for spec-defined implementation contracts.
-    - Aggregate audit reporting and implementation tracking.
+    - Aggregate audit reporting.
   out:
     - Natural-language proof of arbitrary prose claims.
     - Automatic acceptance of implementation work without owner review.
@@ -52,7 +52,6 @@ governs:
     - scripts/audit/generate_facts.py
     - docs/facts/generated.yaml
     - docs/audit/**
-    - docs/implementation-tracker.yaml
     - tests/qa/test_schemas_frontmatter.py
     - tests/qa/test_schemas_maintainers.py
     - tests/qa/test_schemas_report.py
@@ -154,31 +153,30 @@ Acceptance Scenarios:
 3. Given a future-work record with a tracked issue and machine-readable status,
    when closure runs, then it treats the claim as tracked future work.
 
-### User Story 4 - Aggregate reports and tracker rows are trustworthy (Priority: P4)
+### User Story 4 - Aggregate reports are trustworthy (Priority: P4)
 
-As an agent manager, I need one aggregate audit envelope and an implementation
-tracker that fails only when claimed-complete artifacts are missing.
+As an agent manager, I need one aggregate audit envelope that preserves child
+tool evidence and fails when any required consistency child fails.
 
-Why this priority: ADR-042 Section 8.7 keeps `implementation_tracker` as a
-normal project management and CI guard tool, not as a self-iteration mechanism.
+Why this priority: ADR-042 Section 8.7 makes implementation order explicit, but
+owner review and GitHub issues remain the source of work tracking.
 
-Independent Test: Run `full_audit.run` and tracker validation fixtures with
-passing child reports, failing child reports, incomplete rows, and invalid
-complete rows.
+Independent Test: Run `full_audit.run` with passing child reports, failing child
+reports, skipped optional children, and malformed child reports.
 
 Acceptance Scenarios:
 
 1. Given any child consistency report with an error, when `full_audit` runs,
    then the aggregate `AuditReport` fails.
-2. Given a tracker row marked `complete` with a missing required test, when the
-   tracker validates, then it fails that row.
-3. Given a tracker row marked `in-progress`, when required artifacts are
-   missing, then the tracker reports status without forcing completion.
+2. Given optional child checks are disabled by explicit arguments, when
+   `full_audit` runs, then the aggregate report records the skipped child.
+3. Given a child tool emits malformed output, when `full_audit` runs, then it
+   emits an error-severity finding for that child.
 
 ### Edge Cases
 
 - Facts generated from a dirty working tree versus CI source SHA.
-- A prose reference is intentionally future work and has a valid tracker row.
+- A prose reference is intentionally future work and has a valid linked issue.
 - `MAINTAINERS` has overlapping ownership rules.
 - A generated doc exists for a private symbol that should not be public.
 - Sphinx finds a broken link that is already captured by a baseline.
@@ -222,13 +220,9 @@ Acceptance Scenarios:
 - FR-015: `signature_drift` MUST treat ADR-042 and signature-level specs as
   normative sources; implementation may satisfy or deliberately revise them, but
   may not silently diverge.
-- FR-016: `implementation_tracker` MUST fail rows that claim `complete` while
-  required files, symbols, tests, or CI/pre-commit placement are missing.
-- FR-017: `implementation_tracker` MUST NOT force all future ADR-042 sections to
-  be complete at once.
-- FR-018: All consistency tools MUST have deterministic inputs and outputs and
+- FR-016: All consistency tools MUST have deterministic inputs and outputs and
   no hidden network dependency.
-- FR-019: Once wired into pre-commit or CI, non-`match` consistency findings
+- FR-017: Once wired into pre-commit or CI, non-`match` consistency findings
   MUST hard-fail immediately.
 
 ### Key Entities
@@ -242,7 +236,6 @@ Acceptance Scenarios:
 | `DriftFinding` | Consistency-specific finding | drift class, source fact, document reference, owner action | Specialized `AuditFinding` |
 | `SignatureFact` | Expected implementation contract extracted from a spec | symbol or command, parameters, return annotation, model fields, exit codes, source spec | Stored as facts with kind `expected-signature`, `expected-model-field`, or `expected-cli-command` |
 | `SignatureDriftFinding` | Mismatch between expected signature fact and implementation | mismatch kind, expected shape, actual shape, source spec, implementation path | Specialized `AuditFinding` with class `signature-drift` |
-| `ImplementationTrackerRow` | ADR implementation tracking row | section, status, required artifacts, mode, owner, evidence | Fails only when `complete` claims are false |
 
 ## 4. Implementation Plan
 
@@ -255,9 +248,8 @@ type. Drift tools should consume only normalized facts and parsed docs, not raw
 tool-specific output.
 
 `full_audit` should run the consistency suite and preserve every child report
-inside a single `AuditReport` envelope. `implementation_tracker` remains a
-management guard: it checks claimed status against required artifacts but does
-not introduce self-iterating behavior.
+inside a single `AuditReport` envelope. Work tracking remains outside this
+tooling in GitHub issues and owner review.
 
 ### 4.2 Affected Files
 
@@ -273,7 +265,6 @@ not introduce self-iterating behavior.
 | `src/scieasy/qa/audit/closure.py` | create | Ownership and coverage closure checker |
 | `src/scieasy/qa/audit/full_audit.py` | create | Aggregate consistency runner |
 | `docs/facts/generated.yaml` | generate | Generated fact snapshot |
-| `docs/implementation-tracker.yaml` | modify | Tracker rows and claimed-complete validation |
 | `tests/qa/test_audit_*.py` | create | Focused fixtures for facts, drift, closure, and aggregate reports |
 
 ### 4.3 Implementation Sequence
@@ -292,8 +283,7 @@ not introduce self-iterating behavior.
 9. Implement `signature_drift` comparisons for expected versus actual public
    contracts.
 10. Implement `full_audit` as an aggregate runner with child report preservation.
-11. Wire tracker validation for `complete` rows only.
-12. Wire consistency checks directly to hard-fail after owner-approved wiring.
+11. Wire consistency checks directly to hard-fail after owner-approved wiring.
 
 ### 4.4 Verification Plan
 
@@ -308,8 +298,6 @@ not introduce self-iterating behavior.
 - Test future-work records with valid and invalid tracking evidence.
 - Test `full_audit` aggregation preserves child failures and fails on child
   errors.
-- Test `implementation_tracker` fails false `complete` rows and does not fail
-  legitimate in-progress rows.
 
 ### 4.5 Risks And Rollback
 
@@ -579,7 +567,7 @@ def check_generated_facts(
 ) -> AuditReport: ...
 ```
 
-Drift, closure, aggregate audit, and tracker validation:
+Drift, closure, and aggregate audit:
 
 ```python
 def check_substitutions(
@@ -626,12 +614,6 @@ def run(
     include_closure: bool = True,
     include_signature_drift: bool = True,
 ) -> AuditReport: ...
-
-def validate_tracker(
-    repo_root: Path,
-    *,
-    tracker_path: Path = Path("docs/implementation-tracker.yaml"),
-) -> AuditReport: ...
 ```
 
 Required CLI behavior:
@@ -669,15 +651,13 @@ CLI exit codes are uniform across ADR-042 audit tools:
 - SC-006: `signature_drift` detects missing symbols, parameter mismatches,
   return mismatches, Pydantic field mismatches, missing CLI commands, and
   exit-code mismatches from signature-level spec facts.
-- SC-007: Tracker validation fails only rows that falsely claim `complete`.
-
 ## 6. Assumptions
 
 - Initial drift detection will focus on structured claims and explicit
   references before attempting broader prose analysis.
 - Sphinx and griffe provide generated inputs, but SciEasy policy decisions stay
   in custom consistency tools.
-- Future-work records may live in the implementation tracker or issue-linked
-  structured TODOs as long as the checker can read them.
+- Future-work records must be issue-linked structured TODOs or explicit
+  owner-approved scope exclusions that the checker can read.
 - The owner will decide when each consistency checker is wired; once wired, it
   is an immediate hard-fail checker.
