@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from fnmatch import fnmatch
 from pathlib import Path
 
 from scieasy.qa.audit.governed import display_path, governed_file_matches, load_governed_documents
@@ -21,8 +22,13 @@ def _active_governance(document: ADRFrontmatter | SpecFrontmatter) -> bool:
     return True
 
 
-def _symbol_facts(facts: FactsRegistry) -> dict[str, str]:
-    return {fact.subject: fact.source for fact in facts.find(kind="symbol")}
+def _symbol_facts(facts: FactsRegistry) -> dict[str, tuple[str, str | None]]:
+    symbol_facts: dict[str, tuple[str, str | None]] = {}
+    for fact in facts.find(kind="symbol"):
+        value = fact.value if isinstance(fact.value, dict) else {}
+        filepath = value.get("filepath")
+        symbol_facts[fact.subject] = (fact.source, filepath if isinstance(filepath, str) else None)
+    return symbol_facts
 
 
 def _covered_by_governance(subject: str, modules: set[str], contracts: set[str]) -> bool:
@@ -33,6 +39,13 @@ def _module_resolves(module: str, symbol_subjects: set[str]) -> bool:
     return module in symbol_subjects or any(subject.startswith(f"{module}.") for subject in symbol_subjects)
 
 
+def _covered_by_maintainers(filepath: str | None, maintainers: Maintainers | None) -> bool:
+    if filepath is None or maintainers is None:
+        return False
+    normalized = filepath.replace("\\", "/")
+    return any(fnmatch(normalized, rule.pattern.replace("\\", "/")) for rule in maintainers.rules)
+
+
 def check_bidirectional(
     repo_root: Path,
     facts: FactsRegistry,
@@ -41,7 +54,6 @@ def check_bidirectional(
 ) -> AuditReport:
     """Verify governed claims resolve and public symbols have governance coverage."""
 
-    del maintainers
     root = repo_root.resolve()
     governed_docs, frontmatter_findings = load_governed_documents(root)
     symbols = _symbol_facts(facts)
@@ -105,14 +117,19 @@ def check_bidirectional(
                     )
                 )
 
+    maintainer_covered_symbols = 0
     for subject in sorted(symbol_subjects):
         if _covered_by_governance(subject, modules, contracts):
+            continue
+        source, filepath = symbols[subject]
+        if _covered_by_maintainers(filepath, maintainers):
+            maintainer_covered_symbols += 1
             continue
         findings.append(
             Finding(
                 rule_id="closure.missing-symbol-governance",
                 severity=Severity.ERROR,
-                file=symbols[subject],
+                file=filepath or source,
                 message=f"public symbol has no governing ADR/spec module or contract claim: {subject}",
                 symbol=subject,
                 drift_class=DriftClass.MISSING_DOCUMENTATION,
@@ -129,5 +146,7 @@ def check_bidirectional(
             "governed_modules": len(modules),
             "governed_contracts": len(contracts),
             "symbols_checked": len(symbol_subjects),
+            "maintainer_rules": len(maintainers.rules) if maintainers is not None else 0,
+            "maintainer_covered_symbols": maintainer_covered_symbols,
         },
     )
