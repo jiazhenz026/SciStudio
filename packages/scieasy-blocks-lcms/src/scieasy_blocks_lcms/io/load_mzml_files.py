@@ -60,7 +60,7 @@ class LoadMzMLFiles(_LCMSBlockMixin, IOBlock):
             extensions=(".mzml",),
             label="mzML raw file",
             block_type="LoadMzMLFiles",
-            handler="_probe_header",
+            handler="load",
             metadata_fidelity=MetadataFidelity(
                 level="typed_meta",
                 typed_meta_reads=("format", "polarity", "instrument", "acquisition_date", "sample_id"),
@@ -75,7 +75,7 @@ class LoadMzMLFiles(_LCMSBlockMixin, IOBlock):
             extensions=(".mzxml",),
             label="mzXML raw file",
             block_type="LoadMzMLFiles",
-            handler="_probe_header",
+            handler="load",
             metadata_fidelity=MetadataFidelity(
                 level="typed_meta",
                 typed_meta_reads=("format", "polarity", "instrument", "acquisition_date", "sample_id"),
@@ -90,7 +90,7 @@ class LoadMzMLFiles(_LCMSBlockMixin, IOBlock):
             extensions=(".raw",),
             label="Vendor RAW file",
             block_type="LoadMzMLFiles",
-            handler="_probe_header",
+            handler="load",
             metadata_fidelity=MetadataFidelity(
                 level="typed_meta",
                 typed_meta_reads=("format", "sample_id"),
@@ -105,7 +105,7 @@ class LoadMzMLFiles(_LCMSBlockMixin, IOBlock):
             extensions=(".d",),
             label="Vendor .d directory",
             block_type="LoadMzMLFiles",
-            handler="_probe_header",
+            handler="load",
             metadata_fidelity=MetadataFidelity(
                 level="typed_meta",
                 typed_meta_reads=("format", "sample_id"),
@@ -133,7 +133,6 @@ class LoadMzMLFiles(_LCMSBlockMixin, IOBlock):
             description="Collection of loaded raw file handles",
         ),
     ]
-
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {

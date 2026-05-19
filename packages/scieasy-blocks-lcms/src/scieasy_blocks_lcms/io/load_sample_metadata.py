@@ -50,7 +50,7 @@ class LoadSampleMetadata(_LCMSBlockMixin, IOBlock):
             extensions=(".csv",),
             label="Sample metadata CSV",
             block_type="LoadSampleMetadata",
-            handler="_read_table",
+            handler="load",
             is_default=True,
             metadata_fidelity=MetadataFidelity(
                 level="typed_meta",
@@ -66,7 +66,7 @@ class LoadSampleMetadata(_LCMSBlockMixin, IOBlock):
             extensions=(".tsv",),
             label="Sample metadata TSV",
             block_type="LoadSampleMetadata",
-            handler="_read_table",
+            handler="load",
             is_default=True,
             metadata_fidelity=MetadataFidelity(
                 level="typed_meta",
@@ -82,7 +82,7 @@ class LoadSampleMetadata(_LCMSBlockMixin, IOBlock):
             extensions=(".xlsx", ".xls"),
             label="Sample metadata Excel",
             block_type="LoadSampleMetadata",
-            handler="_read_table",
+            handler="load",
             is_default=True,
             metadata_fidelity=MetadataFidelity(
                 level="typed_meta",
@@ -110,7 +110,6 @@ class LoadSampleMetadata(_LCMSBlockMixin, IOBlock):
             description="Loaded per-sample metadata",
         ),
     ]
-
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {

@@ -90,7 +90,7 @@ class LoadMIDTable(_LCMSBlockMixin, IOBlock):
             extensions=(".csv",),
             label="MID table CSV",
             block_type="LoadMIDTable",
-            handler="_read_table",
+            handler="load",
             is_default=True,
             metadata_fidelity=MetadataFidelity(
                 level="typed_meta",
@@ -105,7 +105,7 @@ class LoadMIDTable(_LCMSBlockMixin, IOBlock):
             extensions=(".tsv",),
             label="MID table TSV",
             block_type="LoadMIDTable",
-            handler="_read_table",
+            handler="load",
             is_default=True,
             metadata_fidelity=MetadataFidelity(
                 level="typed_meta",
@@ -120,7 +120,7 @@ class LoadMIDTable(_LCMSBlockMixin, IOBlock):
             extensions=(".xlsx", ".xls"),
             label="MID table Excel",
             block_type="LoadMIDTable",
-            handler="_read_table",
+            handler="load",
             is_default=True,
             metadata_fidelity=MetadataFidelity(
                 level="typed_meta",
@@ -147,7 +147,6 @@ class LoadMIDTable(_LCMSBlockMixin, IOBlock):
             description="Loaded MID table with detected sample columns",
         ),
     ]
-
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {

@@ -62,7 +62,7 @@ class LoadPeakTable(_LCMSBlockMixin, IOBlock):
             extensions=(".csv",),
             label="Peak table CSV",
             block_type="LoadPeakTable",
-            handler="_read_table",
+            handler="load",
             is_default=True,
             metadata_fidelity=MetadataFidelity(
                 level="typed_meta",
@@ -78,7 +78,7 @@ class LoadPeakTable(_LCMSBlockMixin, IOBlock):
             extensions=(".tsv",),
             label="Peak table TSV",
             block_type="LoadPeakTable",
-            handler="_read_table",
+            handler="load",
             is_default=True,
             metadata_fidelity=MetadataFidelity(
                 level="typed_meta",
@@ -94,7 +94,7 @@ class LoadPeakTable(_LCMSBlockMixin, IOBlock):
             extensions=(".xlsx", ".xls"),
             label="Peak table Excel",
             block_type="LoadPeakTable",
-            handler="_read_table",
+            handler="load",
             is_default=True,
             metadata_fidelity=MetadataFidelity(
                 level="typed_meta",
@@ -122,7 +122,6 @@ class LoadPeakTable(_LCMSBlockMixin, IOBlock):
             description="Loaded peak table with source-tool tagged Meta",
         ),
     ]
-
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {
