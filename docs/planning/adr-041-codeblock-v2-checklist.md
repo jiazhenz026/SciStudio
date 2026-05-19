@@ -143,8 +143,8 @@ Tasks:
 Exit Criteria:
 
 - [x] Track C1 PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1239](https://github.com/zjzcpj/SciEasy/pull/1239).
-- [ ] Track C1 CI is green.
-- [~] Checklist rows updated with PR/test evidence. Evidence: C1 implementation/test evidence recorded; PR and CI evidence pending.
+- [x] Track C1 CI is green. Evidence: PR #1239 checks passed on 2026-05-19 after commit `fa42011e`.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR #1239, commits `08cc5bc3`, `653ca2c4`, and `fa42011e`, focused local tests, import contracts, ADR-042 facts check, and CI evidence recorded above.
 
 ### Track C2 - Notebook Runtime and Executed Artifact Capture (Owner: I41n / #1235)
 
@@ -334,7 +334,7 @@ Exit Criteria:
 
 - [x] I41a dispatched for #1223. Worktree: `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41a`; branch: `feat/issue-1223/adr041-config-interpreter-provenance`.
 - [x] I41b dispatched for #1224. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41b`, branch `feat/issue-1224/adr041-exchange-manifest`, gate session `20260519-182539-adr-041-track-b-codeblock-v2-exchange-ma`.
-- [~] I41c dispatched for #1225. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41c`, branch `feat/issue-1225/adr041-codeblock-python-execution`, gate session `20260519-185434-adr-041-track-c-codeblock-v2-python-exec`; retargeted on 2026-05-19 from Python-only MVP to shared runtime integration plus Python backend.
+- [x] I41c dispatched for #1225. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41c`, branch `feat/issue-1225/adr041-codeblock-python-execution`, gate session `20260519-185434-adr-041-track-c-codeblock-v2-python-exec`, PR #1239; retargeted on 2026-05-19 from Python-only MVP to shared runtime integration plus Python backend.
 - [ ] I41n dispatched for #1235.
 - [ ] I41r dispatched for #1238.
 - [ ] I41s dispatched for #1237.
