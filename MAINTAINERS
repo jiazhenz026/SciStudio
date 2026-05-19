@@ -1,0 +1,7 @@
+schema_version: "1"
+rules:
+  - pattern: "*"
+    owners:
+      - "@jiazhenz026"
+    required_reviewers: 1
+    protected: false

@@ -145,6 +145,7 @@ def test_no_py_files_outside_known_packages() -> None:
         "utils",
         "cli",
         "testing",
+        "qa",  # ADR-042: documentation/frontmatter/fact-registry audit tooling
         "agent_provisioning",  # ADR-040 §3.5-3.8: prod-env agent provisioning module
     }
     stray: list[str] = []

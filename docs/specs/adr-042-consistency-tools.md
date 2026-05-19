@@ -1,7 +1,7 @@
 ---
 spec_id: adr-042-consistency-tools
 title: "ADR-042 Code Documentation Consistency Tooling Specification"
-status: Draft
+status: Implemented
 feature_branch: docs/adr-042-repository-governance-v2
 created: 2026-05-18
 input: "Manual owner request to specify ADR-042 custom code-documentation cross-check tools."
@@ -31,43 +31,58 @@ governs:
   contracts:
     - scieasy.qa.schemas.frontmatter.ADRFrontmatter
     - scieasy.qa.schemas.frontmatter.SpecFrontmatter
+    - scieasy.qa.schemas.maintainers.MaintainerRule
     - scieasy.qa.schemas.maintainers.Maintainers
     - scieasy.qa.schemas.report.AuditReport
+    - scieasy.qa.schemas.report.AuditFinding
     - scieasy.qa.schemas.facts.FactsRegistry
+    - scieasy.qa.schemas.signatures.ParameterSpec
     - scieasy.qa.schemas.signatures.ExpectedSignature
     - scieasy.qa.schemas.signatures.ExpectedModelField
     - scieasy.qa.schemas.signatures.ExpectedCliCommand
+    - scieasy.qa.audit.facts.generate_facts
+    - scieasy.qa.audit.facts.write_facts
+    - scieasy.qa.audit.facts.check_generated_facts
+    - scieasy.qa.audit.griffe_facts.extract_symbol_facts
+    - scieasy.qa.audit.griffe_facts.generate_registry
+    - scieasy.qa.audit.signature_contracts.extract_signature_contracts
     - scieasy.qa.audit.doc_drift.classify_repo
     - scieasy.qa.audit.fact_drift.check_substitutions
     - scieasy.qa.audit.closure.check_bidirectional
     - scieasy.qa.audit.signature_drift.check_expected_signatures
     - scieasy.qa.audit.full_audit.run
+    - scieasy.qa.audit.full_audit.render_markdown
   files:
     - src/scieasy/qa/schemas/**
+    - src/scieasy/qa/audit/loaders.py
     - src/scieasy/qa/audit/doc_drift.py
     - src/scieasy/qa/audit/fact_drift.py
     - src/scieasy/qa/audit/closure.py
     - src/scieasy/qa/audit/signature_drift.py
+    - src/scieasy/qa/audit/facts.py
+    - src/scieasy/qa/audit/governed.py
+    - src/scieasy/qa/audit/griffe_facts.py
+    - src/scieasy/qa/audit/signature_contracts.py
     - src/scieasy/qa/audit/full_audit.py
     - scripts/audit/generate_facts.py
     - docs/facts/generated.yaml
     - docs/audit/**
-    - tests/qa/test_schemas_frontmatter.py
     - tests/qa/test_schemas_maintainers.py
     - tests/qa/test_schemas_report.py
-    - tests/qa/test_schemas_facts.py
     - tests/qa/test_schemas_signatures.py
+    - tests/qa/test_griffe_facts.py
+    - tests/qa/test_generate_facts_cli.py
     - tests/qa/test_audit_doc_drift.py
     - tests/qa/test_audit_fact_drift.py
     - tests/qa/test_audit_closure.py
     - tests/qa/test_audit_signature_drift.py
     - tests/qa/test_audit_full_audit.py
 tests:
-  - tests/qa/test_schemas_frontmatter.py
   - tests/qa/test_schemas_maintainers.py
   - tests/qa/test_schemas_report.py
-  - tests/qa/test_schemas_facts.py
   - tests/qa/test_schemas_signatures.py
+  - tests/qa/test_griffe_facts.py
+  - tests/qa/test_generate_facts_cli.py
   - tests/qa/test_audit_doc_drift.py
   - tests/qa/test_audit_fact_drift.py
   - tests/qa/test_audit_closure.py
@@ -132,6 +147,11 @@ Acceptance Scenarios:
    then it emits a stale-substitution finding.
 3. Given facts and prose that agree, when the check runs, then it emits `match`
    or no error finding.
+4. Given an implementation ADR governs a module that no active related spec
+   covers, when `doc_drift` runs, then it emits
+   `doc-drift.missing-spec-governance`.
+5. Given an active spec governs a module that its related ADR does not cover,
+   when `doc_drift` runs, then it emits `doc-drift.missing-adr-governance`.
 
 ### User Story 3 - Ownership coverage closes in both directions (Priority: P3)
 
@@ -224,6 +244,13 @@ Acceptance Scenarios:
   no hidden network dependency.
 - FR-017: Once wired into pre-commit or CI, non-`match` consistency findings
   MUST hard-fail immediately.
+- FR-018: `doc_drift` MUST compare active ADR/spec governed surfaces and report
+  active specs that point to missing ADRs.
+- FR-019: `doc_drift` MUST report ADR governed modules, contracts,
+  entry-points, and files that are not covered by any active related spec once
+  the ADR phase is `implementation`, `complete`, or `maintenance`.
+- FR-020: `doc_drift` MUST report active spec governed modules, contracts,
+  entry-points, and files that are not covered by their related ADRs.
 
 ### Key Entities
 
@@ -291,6 +318,8 @@ tooling in GitHub issues and owner review.
 - Validate facts registry required fields, enum values, and source SHA handling.
 - Test each fact extractor with minimal fixtures and stable output ordering.
 - Test each drift class with positive and negative fixtures.
+- Test ADR/spec governance alignment in both directions, including Draft spec
+  skipping and active specs linked to missing ADRs.
 - Test closure in both directions: missing owner and phantom governed claim.
 - Test signature fact extraction from signature-level specs.
 - Test signature drift for missing symbol, parameter mismatch, return mismatch,
@@ -555,6 +584,8 @@ def generate_facts(
     source_sha: str | None = None,
     include_observed: bool = False,
     include_signature_contracts: bool = True,
+    package: str = "scieasy",
+    generated_at: datetime = DEFAULT_GENERATED_AT,
 ) -> FactsRegistry: ...
 
 def write_facts(registry: FactsRegistry, path: Path) -> None: ...
@@ -564,6 +595,9 @@ def check_generated_facts(
     *,
     facts_path: Path = Path("docs/facts/generated.yaml"),
     update: bool = False,
+    package: str = "scieasy",
+    source_sha: str | None = None,
+    generated_at: datetime = DEFAULT_GENERATED_AT,
 ) -> AuditReport: ...
 ```
 
@@ -595,6 +629,7 @@ def extract_signature_contracts(
     spec_paths: Sequence[Path],
     *,
     repo_root: Path,
+    source_sha: str,
 ) -> list[Fact]: ...
 
 def check_expected_signatures(
@@ -609,6 +644,7 @@ def run(
     repo_root: Path,
     *,
     facts_path: Path = Path("docs/facts/generated.yaml"),
+    check_stale: bool = True,
     include_doc_drift: bool = True,
     include_fact_drift: bool = True,
     include_closure: bool = True,
@@ -651,6 +687,8 @@ CLI exit codes are uniform across ADR-042 audit tools:
 - SC-006: `signature_drift` detects missing symbols, parameter mismatches,
   return mismatches, Pydantic field mismatches, missing CLI commands, and
   exit-code mismatches from signature-level spec facts.
+- SC-007: `doc_drift` detects active ADR/spec governed-surface mismatches in
+  both directions and ignores Draft specs for current implementation closure.
 
 ## 6. Assumptions
 
