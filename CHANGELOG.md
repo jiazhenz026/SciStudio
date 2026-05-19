@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#1223] Add ADR-041 Track A CodeBlock v2 support modules for typed script configuration, Python interpreter resolution, script/interpreter/environment provenance payloads, and focused config/interpreter/provenance tests. (@agent, 2026-05-19, branch: feat/issue-1223/adr041-config-interpreter-provenance, session: 20260519-182537-adr-041-track-a-codeblock-v2-config-inte)
+
 - [#1222] Add the ADR-041 CodeBlock v2 implementation cascade checklist, tracking branch plan, worker issue breakdown, ADR-043 conflict guardrails, and ADR-042 audit exit criteria. (@agent, 2026-05-19, branch: track/adr-041/codeblock-v2, session: 20260519-181608-adr-041-codeblock-v2-implementation-casc)
 
 - [#1208] Add an ADR-042-compliant implementation planning spec for ADR-041 CodeBlock v2, including user scenarios, functional requirements, affected files, implementation phases, signature-level contracts, verification plan, migration guidance, and regenerated ADR-042 facts. (@agent, 2026-05-19, branch: docs/issue-1208/adr-041-codeblock-v2-spec, session: 20260519-172454-adr-041-implementation-planning-spec-and)

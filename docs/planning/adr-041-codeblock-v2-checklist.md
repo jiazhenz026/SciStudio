@@ -74,18 +74,18 @@ Scope:
 
 Tasks:
 
-- [ ] Define CodeBlock v2 config models for script path, inline code migration diagnostics, declared inputs, declared outputs, working directory, interpreter selection, environment variables, timeout, and exchange-directory policy.
-- [ ] Validate path-like fields without assuming the project fits in memory or that paths are local-only forever.
-- [ ] Implement Python interpreter resolution for `auto`, explicit executable path, and active environment fallback.
-- [ ] Implement provenance helpers that capture script path, content hash when available, interpreter identity, command argv, environment delta, and execution timestamps.
-- [ ] Add tests for valid config, invalid mixed inline/script config, missing script, interpreter resolution success/failure, and provenance payload stability.
-- [ ] Avoid `src/scieasy/blocks/code/code_block.py` in this track.
+- [x] Define CodeBlock v2 config models for script path, inline code migration diagnostics, declared inputs, declared outputs, working directory, interpreter selection, environment variables, timeout, and exchange-directory policy. Evidence: commit `2f72ae3b`.
+- [x] Validate path-like fields without assuming the project fits in memory or that paths are local-only forever. Evidence: commit `2f72ae3b`; focused config tests cover missing and outside-project scripts.
+- [x] Implement Python interpreter resolution for `auto`, explicit executable path, and active environment fallback. Evidence: commit `2f72ae3b`; focused interpreter tests cover auto, existing, missing, and unsupported extension paths.
+- [x] Implement provenance helpers that capture script path, content hash when available, interpreter identity, command argv, environment delta, and execution timestamps. Evidence: commit `2f72ae3b`; focused provenance tests cover hash/git state and stable payload shape.
+- [x] Add tests for valid config, invalid mixed inline/script config, missing script, interpreter resolution success/failure, and provenance payload stability. Evidence: `python -m pytest tests/blocks/code/test_codeblock_v2_config.py tests/blocks/code/test_codeblock_interpreters.py tests/blocks/code/test_codeblock_provenance.py --timeout=30 --no-cov` passed with 15 tests.
+- [x] Avoid `src/scieasy/blocks/code/code_block.py` in this track. Evidence: commit `2f72ae3b` touches only Track A support modules and tests.
 
 Exit Criteria:
 
-- [ ] Track A PR targets `track/adr-041/codeblock-v2`.
-- [ ] Track A CI is green.
-- [ ] Checklist rows updated with PR/test evidence.
+- [x] Track A PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1231](https://github.com/zjzcpj/SciEasy/pull/1231).
+- [x] Track A CI is green. Evidence: PR #1231 checks passed on 2026-05-19.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR #1231 plus focused pytest/Ruff evidence recorded above.
 
 ### Track B - Exchange Manifest Helpers (Owner: I41b / #1224)
 
@@ -227,7 +227,7 @@ Exit Criteria:
 
 ## Dispatch Log
 
-- [ ] I41a dispatched for #1223.
+- [x] I41a dispatched for #1223. Worktree: `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41a`; branch: `feat/issue-1223/adr041-config-interpreter-provenance`.
 - [ ] I41b dispatched for #1224.
 - [ ] I41c dispatched for #1225.
 - [ ] I41d dispatched for #1226.
