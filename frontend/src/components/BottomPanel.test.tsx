@@ -222,6 +222,52 @@ describe("BottomPanel", () => {
     });
   });
 
+  it("clears ADR-043 capability selection as null when the placeholder is selected", () => {
+    const onUpdateConfig = vi.fn();
+
+    render(
+      <BottomPanel
+        activeTab="config"
+        logEntries={[]}
+        onTabChange={() => {}}
+        onUpdateConfig={onUpdateConfig}
+        selectedNode={{
+          id: "save-1",
+          block_type: "imaging.save_image",
+          config: { params: { capability_id: "imaging.image.tiff.save" } },
+        }}
+        selectedSchema={{
+          name: "Save Image",
+          type_name: "imaging.save_image",
+          base_category: "io",
+          subcategory: "",
+          description: "",
+          version: "0.1.0",
+          input_ports: [],
+          output_ports: [],
+          direction: "output",
+          config_schema: { properties: {} },
+          type_hierarchy: [],
+          format_capabilities: [
+            makeCapability({ id: "imaging.image.tiff.save", label: "TIFF" }),
+            makeCapability({
+              id: "imaging.image.png.save",
+              extensions: [".png"],
+              format_id: "png",
+              label: "PNG",
+            }),
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("combobox"), {
+      target: { value: "" },
+    });
+
+    expect(onUpdateConfig).toHaveBeenCalledWith({ capability_id: null });
+  });
+
   it("shows backend-derived ADR-043 warnings for ambiguous lossy choices", () => {
     render(
       <BottomPanel
@@ -259,6 +305,8 @@ describe("BottomPanel", () => {
       />,
     );
 
-    expect(screen.getByText(/choose one to persist a stable capability_id/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/choose one to persist a stable capability_id/i),
+    ).toBeInTheDocument();
   });
 });

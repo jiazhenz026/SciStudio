@@ -65,6 +65,13 @@ def test_simple_loader_run_delegates_to_load_file(tmp_path: Path) -> None:
     assert loaded.user == {"path": str(path), "seen": "ok"}
 
 
+def test_simple_loader_rejects_multi_path_config(tmp_path: Path) -> None:
+    block = _LocalLoader(config={"params": {"path": [str(tmp_path / "a.tif"), str(tmp_path / "b.tif")]}})
+
+    with pytest.raises(ValueError, match="single path"):
+        block.run({}, block.config)
+
+
 def test_simple_saver_synthesizes_pixel_only_capability() -> None:
     (capability,) = _LocalSaver.get_format_capabilities()
 
@@ -86,6 +93,14 @@ def test_simple_saver_run_delegates_to_save_file(tmp_path: Path) -> None:
 
     assert block.saved == (obj, path, {"path": str(path), "marker": "save"})
     assert result["path"][0].content == str(path)
+
+
+def test_simple_saver_rejects_multi_path_config(tmp_path: Path) -> None:
+    obj = _SimpleObject()
+    block = _LocalSaver(config={"params": {"path": [str(tmp_path / "a.tif"), str(tmp_path / "b.tif")]}})
+
+    with pytest.raises(ValueError, match="single path"):
+        block.run({"data": Collection(items=[obj], item_type=_SimpleObject)}, block.config)
 
 
 def test_simple_saver_rejects_multi_object_collection(tmp_path: Path) -> None:

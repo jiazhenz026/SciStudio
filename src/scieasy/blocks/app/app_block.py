@@ -193,7 +193,10 @@ class AppBlock(Block):
             if not isinstance(entry, dict):
                 continue
             name = str(entry.get("name", "")).strip()
-            capability_id = str(entry.get("capability_id", "")).strip()
+            raw_capability_id = entry.get("capability_id")
+            if raw_capability_id in (None, ""):
+                continue
+            capability_id = str(raw_capability_id).strip()
             if name and capability_id:
                 mapping[name] = capability_id
         return mapping

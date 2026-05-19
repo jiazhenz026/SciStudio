@@ -162,6 +162,18 @@ def test_appblock_output_explicit_capability_id_validates() -> None:
     assert [error for error in errors if "output port 'out'" in error] == []
 
 
+def test_appblock_output_validation_uses_first_runtime_selected_type() -> None:
+    registry = _registry(_BoundaryTextSaver)
+    workflow = _workflow(
+        "boundary_app",
+        params={"output_ports": [{"name": "out", "types": ["Artifact", "Text"], "extension": "bound"}]},
+    )
+
+    errors = validate_workflow(workflow, registry=registry)
+
+    assert [error for error in errors if "output port 'out'" in error] == []
+
+
 def test_codeblock_input_missing_saver_reports_validation_error() -> None:
     registry = _registry(_BoundaryTextLoader)
     workflow = _workflow(
