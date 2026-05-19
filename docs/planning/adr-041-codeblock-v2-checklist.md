@@ -105,9 +105,9 @@ Tasks:
 
 Exit Criteria:
 
-- [ ] Track B PR targets `track/adr-041/codeblock-v2`.
-- [ ] Track B CI is green.
-- [ ] Checklist rows updated with PR/test evidence.
+- [x] Track B PR targets `track/adr-041/codeblock-v2`. Evidence: PR [#1233](https://github.com/zjzcpj/SciEasy/pull/1233).
+- [x] Track B CI is green. Evidence: PR [#1233](https://github.com/zjzcpj/SciEasy/pull/1233) checks green on 2026-05-19 before this checklist evidence update.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR [#1233](https://github.com/zjzcpj/SciEasy/pull/1233), commit `25104662`, focused pytest and Ruff commands recorded above.
 
 ## Phase 2 - CodeBlock Runtime Integration
 
