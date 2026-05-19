@@ -80,11 +80,23 @@
 - [ ] Fix every ADR-043-related fail in a scoped branch/PR.
 - [ ] Post audit summary and fixes on #1207.
 
+## Track G - Architecture And Developer Docs (Owner: A43-docs, issue #1215)
+
+### Implementation
+
+- [ ] Update `docs/architecture/ARCHITECTURE.md` for capability ownership, canonical-zone type/format separation, boundary validation, and metadata fidelity.
+- [ ] Update `docs/block-development/**` for `SimpleLoader`, `SimpleSaver`, explicit `FormatCapability` records, aggregate IOBlocks, and capability IDs.
+- [ ] Bring edited architecture and block-development docs into ADR-042 compliance, including the currently non-compliant `docs/architecture/ARCHITECTURE.md`.
+- [ ] Document that compatibility synthesis is migration scaffolding only, and link full package hard-validation migration to #1204.
+- [ ] Add or update cross-links among ADR-043, the implementation spec, block-development docs, and package docs.
+- [ ] Fix all ADR-043-related doc/fact audit failures found after implementation.
+
 ## Acceptance Criteria
 
 - [ ] Each sub-issue has an implementation PR targeting `track/adr-043/capability-registry`.
 - [ ] Every agent used an independent worktree and independent branch.
 - [ ] All implementation PRs pass local tests and GitHub CI.
+- [ ] Architecture and block-development docs are updated as part of this cascade.
 - [ ] Fact audit has been run after implementation integration.
 - [ ] All ADR-043-related fact audit failures are fixed or explicitly escalated with evidence.
 
