@@ -5,12 +5,14 @@ from __future__ import annotations
 import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import yaml
 from pydantic import ValidationError
 
 from scieasy.qa.audit._util import normalise_path
 from scieasy.qa.audit.griffe_facts import generate_registry
+from scieasy.qa.audit.signature_contracts import extract_signature_contracts
 from scieasy.qa.schemas.facts import FactsRegistry
 from scieasy.qa.schemas.report import Finding, Severity
 
@@ -18,17 +20,27 @@ DEFAULT_FACTS_PATH = Path("docs/facts/generated.yaml")
 DEFAULT_GENERATED_AT = datetime(1970, 1, 1, tzinfo=UTC)
 
 
-def _source_tree_sha(repo_root: Path, package: str) -> str:
-    """Return a stable content hash for the package source tree."""
-
-    package_root = repo_root / "src" / package.replace(".", "/")
-    digest = hashlib.sha256()
-    for path in sorted(package_root.rglob("*.py")):
+def _hash_tree(digest: Any, root: Path, repo_root: Path, pattern: str = "**/*") -> None:
+    for path in sorted(candidate for candidate in root.glob(pattern) if candidate.is_file()):
         relative = path.relative_to(repo_root).as_posix()
         digest.update(relative.encode("utf-8"))
         digest.update(b"\0")
         digest.update(path.read_bytes())
         digest.update(b"\0")
+
+
+def _source_tree_sha(repo_root: Path, package: str) -> str:
+    """Return a stable content hash for fact-producing source inputs."""
+
+    digest = hashlib.sha256()
+    for root, pattern in [
+        (repo_root / "src" / package.replace(".", "/"), "**/*.py"),
+        (repo_root / "docs" / "adr", "ADR-*.md"),
+        (repo_root / "docs" / "specs", "*.md"),
+        (repo_root / "scripts" / "audit", "*.py"),
+    ]:
+        if root.exists():
+            _hash_tree(digest, root, repo_root, pattern)
     return digest.hexdigest()
 
 
@@ -71,10 +83,18 @@ def generate_facts(
     Python symbol facts only.
     """
 
-    del include_observed, include_signature_contracts
+    del include_observed
     root = repo_root.resolve()
     sha = source_sha if source_sha is not None else _source_tree_sha(root, package)
     registry = generate_registry(root, package=package, source_sha=sha)
+    if include_signature_contracts:
+        registry.facts.extend(
+            extract_signature_contracts(
+                sorted((root / "docs" / "specs").glob("*.md")),
+                repo_root=root,
+                source_sha=sha,
+            )
+        )
     return _with_generated_metadata(registry, generated_at)
 
 

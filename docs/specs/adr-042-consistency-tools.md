@@ -42,6 +42,7 @@ governs:
     - scieasy.qa.audit.facts.check_generated_facts
     - scieasy.qa.audit.griffe_facts.extract_symbol_facts
     - scieasy.qa.audit.griffe_facts.generate_registry
+    - scieasy.qa.audit.signature_contracts.extract_signature_contracts
     - scieasy.qa.audit.doc_drift.classify_repo
     - scieasy.qa.audit.fact_drift.check_substitutions
     - scieasy.qa.audit.closure.check_bidirectional
@@ -55,7 +56,9 @@ governs:
     - src/scieasy/qa/audit/closure.py
     - src/scieasy/qa/audit/signature_drift.py
     - src/scieasy/qa/audit/facts.py
+    - src/scieasy/qa/audit/governed.py
     - src/scieasy/qa/audit/griffe_facts.py
+    - src/scieasy/qa/audit/signature_contracts.py
     - src/scieasy/qa/audit/full_audit.py
     - scripts/audit/generate_facts.py
     - docs/facts/generated.yaml

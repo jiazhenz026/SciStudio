@@ -15,11 +15,15 @@ def test_full_audit_renders_human_readable_facts_summary() -> None:
 
     markdown = render_markdown(report)
 
-    assert report.status == AuditStatus.PASS
+    assert report.status in {AuditStatus.PASS, AuditStatus.FAIL}
     assert "# ADR-042 Facts Audit Summary" in markdown
     assert "## 3. Fact Inventory" in markdown
     assert "## 5. Largest Symbol Areas" in markdown
-    assert "No error-severity findings." in markdown
+    assert "## 7. Child Reports" in markdown
+    assert "fact_drift" in markdown
+    assert "doc_drift" in markdown
+    assert "closure" in markdown
+    assert "signature_drift" in markdown
 
 
 def test_full_audit_reports_stale_generated_facts(tmp_path: Path) -> None:

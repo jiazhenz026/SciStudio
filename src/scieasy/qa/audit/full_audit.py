@@ -13,7 +13,11 @@ from pydantic import ValidationError
 from yaml import YAMLError
 
 from scieasy.qa.audit._util import normalise_path
+from scieasy.qa.audit.closure import check_bidirectional
+from scieasy.qa.audit.doc_drift import classify_repo
+from scieasy.qa.audit.fact_drift import check_substitutions
 from scieasy.qa.audit.facts import DEFAULT_FACTS_PATH, DEFAULT_GENERATED_AT, check_generated_facts, load_facts
+from scieasy.qa.audit.signature_drift import check_expected_signatures
 from scieasy.qa.schemas.facts import Fact, FactsRegistry
 from scieasy.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
@@ -113,12 +117,37 @@ def run(
     *,
     facts_path: Path = DEFAULT_FACTS_PATH,
     check_stale: bool = True,
+    include_doc_drift: bool = True,
+    include_fact_drift: bool = True,
+    include_closure: bool = True,
+    include_signature_drift: bool = True,
 ) -> AuditReport:
     """Run the currently implemented ADR-042 aggregate audit checks."""
 
     root = repo_root.resolve()
     facts_child = _facts_report(root, facts_path=facts_path, check_stale=check_stale)
-    status = AuditStatus.FAIL if facts_child.blocks_merge else AuditStatus.PASS
+    child_reports = [facts_child]
+    deferred_children: list[str] = []
+    if not facts_child.blocks_merge:
+        registry = load_facts(root / facts_path if not facts_path.is_absolute() else facts_path)
+        if include_fact_drift:
+            child_reports.append(check_substitutions(root, registry))
+        else:
+            deferred_children.append("fact_drift")
+        if include_doc_drift:
+            child_reports.append(classify_repo(root, registry))
+        else:
+            deferred_children.append("doc_drift")
+        if include_closure:
+            child_reports.append(check_bidirectional(root, registry))
+        else:
+            deferred_children.append("closure")
+        if include_signature_drift:
+            child_reports.append(check_expected_signatures(root, registry))
+        else:
+            deferred_children.append("signature_drift")
+
+    status = AuditStatus.FAIL if any(child.blocks_merge for child in child_reports) else AuditStatus.PASS
     return AuditReport(
         tool="full_audit",
         status=status,
@@ -126,10 +155,10 @@ def run(
         source_sha=facts_child.source_sha,
         findings=[],
         summary={
-            "implemented_children": ["generate_facts"],
-            "deferred_children": ["fact_drift", "doc_drift", "closure", "signature_drift"],
+            "implemented_children": [child.tool for child in child_reports],
+            "deferred_children": deferred_children,
         },
-        child_reports=[facts_child],
+        child_reports=child_reports,
     )
 
 
@@ -185,12 +214,20 @@ def render_markdown(report: AuditReport) -> str:
     if not findings:
         lines.append("No error-severity findings.")
     else:
+        lines.extend([f"Total error-severity findings: `{len(findings)}`", ""])
         for finding in findings:
             location = f"{finding.file}:{finding.line}" if finding.line is not None else finding.file
             lines.append(f"- `{finding.rule_id}` at `{location}`: {finding.message}")
-    lines.extend(["", "## 7. Deferred Checks", ""])
-    for child in report.summary.get("deferred_children", []):
-        lines.append(f"- `{child}`")
+    lines.extend(["", "## 7. Child Reports", ""])
+    lines.extend(["| Tool | Status | Errors | Summary |", "|---|---|---:|---|"])
+    for child in report.child_reports:
+        child_summary = ", ".join(f"{key}={value}" for key, value in child.summary.items() if not isinstance(value, dict))
+        lines.append(f"| `{child.tool}` | `{child.status}` | {len(child.error_findings())} | {child_summary} |")
+    deferred = report.summary.get("deferred_children", [])
+    if deferred:
+        lines.extend(["", "## 8. Deferred Checks", ""])
+        for child in deferred:
+            lines.append(f"- `{child}`")
     lines.append("")
     return "\n".join(lines)
 
@@ -202,10 +239,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--format", choices=["json", "markdown"], default="json")
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--no-stale-check", action="store_true")
+    parser.add_argument("--skip-doc-drift", action="store_true")
+    parser.add_argument("--skip-fact-drift", action="store_true")
+    parser.add_argument("--skip-closure", action="store_true")
+    parser.add_argument("--skip-signature-drift", action="store_true")
     args = parser.parse_args(argv)
 
     try:
-        report = run(args.repo_root, facts_path=args.facts, check_stale=not args.no_stale_check)
+        report = run(
+            args.repo_root,
+            facts_path=args.facts,
+            check_stale=not args.no_stale_check,
+            include_doc_drift=not args.skip_doc_drift,
+            include_fact_drift=not args.skip_fact_drift,
+            include_closure=not args.skip_closure,
+            include_signature_drift=not args.skip_signature_drift,
+        )
         text = report.model_dump_json(indent=2) + "\n" if args.format == "json" else render_markdown(report)
         if args.output is None:
             print(text, end="" if text.endswith("\n") else "\n")
