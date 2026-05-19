@@ -18,6 +18,7 @@ import numpy as np
 
 from scieasy.blocks.base.config import BlockConfig
 from scieasy.blocks.base.ports import OutputPort
+from scieasy.blocks.io.capabilities import FormatCapability, MetadataFidelity
 from scieasy.blocks.io.io_block import IOBlock
 from scieasy.core.meta.framework import FrameworkMeta
 from scieasy.core.types.base import DataObject
@@ -222,6 +223,41 @@ class LoadImage(IOBlock):
     name: ClassVar[str] = "Load Image"
     description: ClassVar[str] = "Load a TIFF or Zarr image into an Image data object."
     subcategory: ClassVar[str] = "io"
+
+    format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
+        FormatCapability(
+            id="scieasy-blocks-imaging.image.tiff.load",
+            direction="load",
+            data_type=Image,
+            format_id="tiff",
+            extensions=(".tif", ".tiff"),
+            label="TIFF image",
+            block_type="LoadImage",
+            handler="_load_tiff",
+            is_default=True,
+            roundtrip_group="scieasy-blocks-imaging.image.tiff",
+            metadata_fidelity=MetadataFidelity(
+                level="pixel_only",
+                notes="Loads image payload and structural axes; no typed Image.Meta domain metadata is promised.",
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-imaging.image.zarr.load",
+            direction="load",
+            data_type=Image,
+            format_id="zarr",
+            extensions=(".zarr",),
+            label="Zarr image",
+            block_type="LoadImage",
+            handler="_load_zarr",
+            is_default=True,
+            roundtrip_group="scieasy-blocks-imaging.image.zarr",
+            metadata_fidelity=MetadataFidelity(
+                level="pixel_only",
+                notes="Loads array payload and structural axes from the store when present.",
+            ),
+        ),
+    )
 
     # ADR-028 §D8 / issue #1075: declarative mapping of file extensions
     # to a stable format identifier. ``_detect_format`` (inherited from

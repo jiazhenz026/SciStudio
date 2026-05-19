@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 from scieasy.blocks.base.config import BlockConfig
 from scieasy.blocks.base.ports import OutputPort
+from scieasy.blocks.io.capabilities import FormatCapability, MetadataFidelity
 from scieasy.blocks.io.io_block import IOBlock
 from scieasy.core.types.base import DataObject
 from scieasy.core.types.collection import Collection
@@ -38,6 +39,57 @@ class LoadSampleMetadata(_LCMSBlockMixin, IOBlock):
     description: ClassVar[str] = (
         "Load per-sample metadata (group, timepoint, replicate, etc.) "
         "from CSV / TSV / XLSX into a typed SampleMetadata."
+    )
+
+    format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
+        FormatCapability(
+            id="scieasy-blocks-lcms.sample_metadata.csv.load",
+            direction="load",
+            data_type=SampleMetadata,
+            format_id="csv",
+            extensions=(".csv",),
+            label="Sample metadata CSV",
+            block_type="LoadSampleMetadata",
+            handler="_read_table",
+            is_default=True,
+            metadata_fidelity=MetadataFidelity(
+                level="typed_meta",
+                typed_meta_reads=("sample_id_column",),
+                notes="Records the configured sample id column used to interpret the table.",
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-lcms.sample_metadata.tsv.load",
+            direction="load",
+            data_type=SampleMetadata,
+            format_id="tsv",
+            extensions=(".tsv",),
+            label="Sample metadata TSV",
+            block_type="LoadSampleMetadata",
+            handler="_read_table",
+            is_default=True,
+            metadata_fidelity=MetadataFidelity(
+                level="typed_meta",
+                typed_meta_reads=("sample_id_column",),
+                notes="Records the configured sample id column used to interpret the table.",
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-lcms.sample_metadata.xlsx.load",
+            direction="load",
+            data_type=SampleMetadata,
+            format_id="xlsx",
+            extensions=(".xlsx", ".xls"),
+            label="Sample metadata Excel",
+            block_type="LoadSampleMetadata",
+            handler="_read_table",
+            is_default=True,
+            metadata_fidelity=MetadataFidelity(
+                level="typed_meta",
+                typed_meta_reads=("sample_id_column",),
+                notes="Records the configured sample id column used to interpret the table.",
+            ),
+        ),
     )
 
     # ADR-028 §D8: declared extensions consumed by the base-class

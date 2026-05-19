@@ -19,6 +19,7 @@ import numpy as np
 
 from scieasy.blocks.base.config import BlockConfig
 from scieasy.blocks.base.ports import InputPort
+from scieasy.blocks.io.capabilities import FormatCapability, MetadataFidelity
 from scieasy.blocks.io.io_block import IOBlock
 from scieasy.core.types.base import DataObject
 from scieasy.core.types.collection import Collection
@@ -172,6 +173,41 @@ class SaveImage(IOBlock):
     name: ClassVar[str] = "Save Image"
     description: ClassVar[str] = "Save an Image to a TIFF or Zarr store."
     subcategory: ClassVar[str] = "io"
+
+    format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
+        FormatCapability(
+            id="scieasy-blocks-imaging.image.tiff.save",
+            direction="save",
+            data_type=Image,
+            format_id="tiff",
+            extensions=(".tif", ".tiff"),
+            label="TIFF image",
+            block_type="SaveImage",
+            handler="_write_tiff",
+            is_default=True,
+            roundtrip_group="scieasy-blocks-imaging.image.tiff",
+            metadata_fidelity=MetadataFidelity(
+                level="pixel_only",
+                notes="Writes image payload and structural axes; typed Image.Meta fields are not promised.",
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-imaging.image.zarr.save",
+            direction="save",
+            data_type=Image,
+            format_id="zarr",
+            extensions=(".zarr",),
+            label="Zarr image",
+            block_type="SaveImage",
+            handler="_write_zarr",
+            is_default=True,
+            roundtrip_group="scieasy-blocks-imaging.image.zarr",
+            metadata_fidelity=MetadataFidelity(
+                level="pixel_only",
+                notes="Writes array payload and structural axes as store attributes.",
+            ),
+        ),
+    )
 
     # ADR-028 §D8 / issue #1075: mirror of
     # :attr:`LoadImage.supported_extensions` — round-trip discoverability
