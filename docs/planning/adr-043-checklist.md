@@ -23,11 +23,11 @@
 
 ### Implementation
 
-- [ ] Add `FormatCapability`, `MetadataFidelity`, direction/fidelity literals, typed validation errors, and normalization helpers. [ADR-043 sections 8, 11]
-- [ ] Add `SimpleLoader` and `SimpleSaver` ergonomic bases with conservative `pixel_only` synthesis. [ADR-043 section 4]
-- [ ] Extend `IOBlock.get_format_capabilities()` and legacy `supported_extensions` migration synthesis without final package-compliance claims. [ADR-043 sections 9, 13]
-- [ ] Export public simple/capability APIs from `scieasy.blocks.io`.
-- [ ] Add tests for valid/invalid capabilities, metadata fidelity, simple IO synthesis, and compatibility synthesis.
+- [x] Add `FormatCapability`, `MetadataFidelity`, direction/fidelity literals, typed validation errors, and normalization helpers. [ADR-043 sections 8, 11] -> commit `4110f6b4`
+- [x] Add `SimpleLoader` and `SimpleSaver` ergonomic bases with conservative `pixel_only` synthesis. [ADR-043 section 4] -> commit `4110f6b4`
+- [x] Extend `IOBlock.get_format_capabilities()` and legacy `supported_extensions` migration synthesis without final package-compliance claims. [ADR-043 sections 9, 13] -> commit `4110f6b4`
+- [x] Export public simple/capability APIs from `scieasy.blocks.io`. -> commit `4110f6b4`
+- [x] Add tests for valid/invalid capabilities, metadata fidelity, simple IO synthesis, and compatibility synthesis. -> local tests `pytest -q --timeout=60 --no-cov tests/blocks/io/test_format_capabilities.py tests/blocks/io/test_simple_io.py`
 
 ## Track B - Registry Lookup (Owner: A43-registry, issue #1210)
 
