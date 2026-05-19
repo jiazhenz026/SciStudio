@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#1213] Add ADR-043 explicit pilot `FormatCapability` declarations for shipped imaging TIFF/Zarr IO and LCMS table/raw IO, with package tests, README capability IDs, metadata fidelity notes, and #1204 full-migration deferral markers. (@agent, 2026-05-19, branch: feat/issue-1213/adr043-package-pilot, session: 20260519-175914-adr-043-package-capability-pilot)
 - [#1215] Align architecture and block-development docs with ADR-043 IO format capability registry semantics, including ADR-042 document metadata on edited docs, canonical-zone type-only edges, boundary capability ownership, `SimpleLoader`/`SimpleSaver` guidance, aggregate IOBlock authoring, capability IDs, typed `meta` fidelity, and #1204 package migration policy. (@agent, 2026-05-19, branch: docs/issue-1215/adr043-architecture-docs, session: 20260519-173259-adr-043-architecture-and-block-developme)
 - [#1209] Add ADR-043 core IO capability models, metadata fidelity validation helpers, SimpleLoader/SimpleSaver ergonomic bases, IOBlock `format_capabilities`, and legacy `supported_extensions` compatibility synthesis marked as migration scaffolding. (@agent, 2026-05-19, branch: feat/issue-1209/adr043-core-capabilities, session: 20260519-173220-adr-043-track-a-core-io-capability-model)
 
