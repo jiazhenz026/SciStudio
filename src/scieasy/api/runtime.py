@@ -1553,7 +1553,42 @@ class ApiRuntime:
         except Exception:
             return ""
 
-    def _finalize_lineage_run(self, recorder: Any, task: asyncio.Task[None]) -> None:
+    def _derive_lineage_run_status(
+        self,
+        scheduler: DAGScheduler,
+        task: asyncio.Task[None],
+    ) -> str:
+        """Return the ADR-038 ``runs.status`` for a finished workflow task.
+
+        ``DAGScheduler`` treats block-level failures as normal terminal
+        workflow completion: it records the failed block as ``ERROR``,
+        propagates ``SKIPPED`` downstream, and resolves the workflow task
+        without re-raising the block exception. Therefore task exception
+        state alone is insufficient for lineage run status.
+        """
+        if task.cancelled():
+            return "cancelled"
+
+        exc = task.exception()
+        if exc is not None:
+            return "failed"
+
+        state_values = {
+            str(getattr(state, "value", state))
+            for state in scheduler.block_states().values()
+        }
+        if "error" in state_values:
+            return "failed"
+        if "cancelled" in state_values:
+            return "cancelled"
+        return "completed"
+
+    def _finalize_lineage_run(
+        self,
+        recorder: Any,
+        task: asyncio.Task[None],
+        scheduler: DAGScheduler,
+    ) -> None:
         """Update the ``runs`` row when the workflow task finishes.
 
         D38-3.2 (closes Codex P1 on PR #926 / D38-3.1b P1-2): also
@@ -1564,11 +1599,7 @@ class ApiRuntime:
         callbacks. Dispose is idempotent and best-effort.
         """
         try:
-            if task.cancelled():
-                status = "cancelled"
-            else:
-                exc = task.exception() if not task.cancelled() else None
-                status = "failed" if exc is not None else "completed"
+            status = self._derive_lineage_run_status(scheduler, task)
             recorder.finalize_run(status=status)
         except Exception:
             logger.debug("ADR-038: lineage run finalisation failed", exc_info=True)
@@ -1733,7 +1764,7 @@ class ApiRuntime:
             recorder_for_callback = lineage_recorder
 
             def _on_done(finished: asyncio.Task[None]) -> None:
-                self._finalize_lineage_run(recorder_for_callback, finished)
+                self._finalize_lineage_run(recorder_for_callback, finished, scheduler)
 
             task.add_done_callback(_on_done)
         self.workflow_runs[workflow_id] = WorkflowRun(
