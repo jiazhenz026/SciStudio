@@ -13,14 +13,15 @@ jobs:
     name: Scheduled Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
+          persist-credentials: false
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9
         with:
-          cache: true
-          cache-dependency-path: pyproject.toml
-      - uses: actions/setup-python@v6
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: "3.13"
       - run: uv pip install --system ".[dev,docs]"
@@ -36,7 +37,7 @@ jobs:
         run: python -m scieasy.qa.test_quality.mutation_runner --changed --base HEAD~1 --head HEAD --format json
       - name: Record loaded instruction diagnostics
         run: python scripts/audit/instructions_loaded_audit.py --runtime codex --format json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: adr042-scheduled-audit
