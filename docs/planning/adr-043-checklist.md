@@ -84,12 +84,12 @@
 
 ### Implementation
 
-- [ ] Update `docs/architecture/ARCHITECTURE.md` for capability ownership, canonical-zone type/format separation, boundary validation, and metadata fidelity.
-- [ ] Update `docs/block-development/**` for `SimpleLoader`, `SimpleSaver`, explicit `FormatCapability` records, aggregate IOBlocks, and capability IDs.
-- [ ] Bring edited architecture and block-development docs into ADR-042 compliance, including the currently non-compliant `docs/architecture/ARCHITECTURE.md`.
-- [ ] Document that compatibility synthesis is migration scaffolding only, and link full package hard-validation migration to #1204.
-- [ ] Add or update cross-links among ADR-043, the implementation spec, block-development docs, and package docs.
-- [ ] Fix all ADR-043-related doc/fact audit failures found after implementation.
+- [x] Update `docs/architecture/ARCHITECTURE.md` for capability ownership, canonical-zone type/format separation, boundary validation, and metadata fidelity. -> local check `ruff format --check docs`
+- [x] Update `docs/block-development/**` for `SimpleLoader`, `SimpleSaver`, explicit `FormatCapability` records, aggregate IOBlocks, and capability IDs. -> local check `ruff format --check docs`
+- [x] Bring edited architecture and block-development docs into ADR-042 compliance, including the currently non-compliant `docs/architecture/ARCHITECTURE.md`. -> local check `frontmatter_lint ADR-042/ADR-043/specs: 0 errors`
+- [x] Document that compatibility synthesis is migration scaffolding only, and link full package hard-validation migration to #1204. -> #1204
+- [x] Add or update cross-links among ADR-043, the implementation spec, block-development docs, and package docs. -> `docs/block-development/block-contract.md`
+- [x] Fix all ADR-043-related doc/fact audit failures found after implementation. -> local check `full_audit`: only pre-existing `facts.generated-stale` baseline
 
 ## Acceptance Criteria
 
