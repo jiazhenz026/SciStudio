@@ -1,4 +1,4 @@
 [codespell]
-skip = .git,.venv,venv,node_modules,frontend/node_modules,frontend/dist,dist,build,*.lock,package-lock.json,frontend/package-lock.json,*.min.js
+skip = .git,.venv,venv,node_modules,frontend/node_modules,frontend/dist,dist,build,*.lock,package-lock.json,frontend/package-lock.json,src/scieasy/api/static/assets,*.min.js
 check-filenames =
-ignore-words-list = nd,fo,te,parm,ser
+ignore-words-list = nd,fo,te,parm,ser,als,hsa,notin,doubleclick,invokable,anc
