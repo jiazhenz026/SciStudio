@@ -274,6 +274,8 @@ class LoadImage(IOBlock):
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="images", accepted_types=[Image], is_collection=True),
     ]
+    _load_tiff = staticmethod(_load_tiff)
+    _load_zarr = staticmethod(_load_zarr)
 
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",

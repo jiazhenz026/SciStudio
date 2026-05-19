@@ -223,6 +223,8 @@ class SaveImage(IOBlock):
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="images", accepted_types=[Image], is_collection=True),
     ]
+    _write_tiff = staticmethod(_write_tiff)
+    _write_zarr = staticmethod(_write_zarr)
 
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
