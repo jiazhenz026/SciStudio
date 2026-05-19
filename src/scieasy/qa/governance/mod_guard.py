@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from scieasy.qa._report_helpers import build_finding, build_report
+from scieasy.qa._shared import AuditReport
 from scieasy.qa.audit._cli import exit_code, print_report
 from scieasy.qa.governance.local_gate import GateSession
 
@@ -31,6 +32,8 @@ def _changed(repo_root: Path, base_ref: str, head_ref: str) -> list[str]:
         cwd=str(repo_root),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     if proc.returncode != 0:
@@ -48,7 +51,7 @@ def check_governance_modification(
     head_ref: str,
     repo_root: Path,
     session: GateSession | None = None,
-):
+) -> AuditReport:
     findings = []
     authorized = bool(session and "admin-approved:governance" in session.admin_labels)
     for path in _changed(repo_root, base_ref, head_ref):
@@ -72,7 +75,7 @@ def check(
     head_ref: str,
     repo_root: Path,
     session: GateSession | None = None,
-):
+) -> AuditReport:
     return check_governance_modification(base_ref=base_ref, head_ref=head_ref, repo_root=repo_root, session=session)
 
 

@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 from scieasy.qa._report_helpers import build_finding, build_report
+from scieasy.qa._shared import AuditReport
 from scieasy.qa.audit._cli import exit_code, print_report
 from scieasy.qa.governance.local_gate import check_commit_msg
 
@@ -17,6 +18,8 @@ def _commits(repo_root: Path, rev_range: str) -> list[tuple[str, str]]:
         cwd=str(repo_root),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     if proc.returncode != 0:
@@ -36,7 +39,7 @@ def run_trailer_lint(
     repo_root: Path,
     rev_range: str,
     require_ai_trailers: bool,
-):
+) -> AuditReport:
     findings = []
     for sha, message in _commits(repo_root, rev_range):
         report = check_commit_msg(message, require_ai_trailers=require_ai_trailers)
@@ -54,7 +57,7 @@ def run_trailer_lint(
     return build_report(tool="trailer_lint", repo_root=repo_root, findings=findings)
 
 
-def run(*, repo_root: Path, rev_range: str, require_ai_trailers: bool = True):
+def run(*, repo_root: Path, rev_range: str, require_ai_trailers: bool = True) -> AuditReport:
     return run_trailer_lint(repo_root=repo_root, rev_range=rev_range, require_ai_trailers=require_ai_trailers)
 
 

@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from scieasy.qa._report_helpers import build_finding, build_report
+from scieasy.qa._shared import AuditReport
 from scieasy.qa.audit._cli import exit_code, print_report
 from scieasy.qa.schemas.facts import FactsRegistry, load_facts
 
@@ -37,7 +38,7 @@ def check_substitutions(
     facts: FactsRegistry,
     *,
     docs: Sequence[Path] | None = None,
-):
+) -> AuditReport:
     repo_root = repo_root.resolve()
     fact_map = facts.by_id()
     findings = []

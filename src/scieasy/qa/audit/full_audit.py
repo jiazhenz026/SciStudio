@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import Literal
 
 from scieasy.qa._report_helpers import build_finding
 from scieasy.qa._shared import AuditFinding, AuditReport, git_sha, now_utc
@@ -93,7 +94,7 @@ def run(
                     )
                 )
 
-    status = "failed" if findings else "passed"
+    status: Literal["passed", "failed"] = "failed" if findings else "passed"
     return AuditReport(
         tool="full_audit",
         status=status,

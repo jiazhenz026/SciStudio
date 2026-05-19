@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from scieasy.qa._report_helpers import build_finding, build_report
+from scieasy.qa._shared import AuditReport
 from scieasy.qa.audit._cli import exit_code, print_report
 from scieasy.qa.governance.local_gate import GateSession, load_session, staged_files
 
@@ -16,7 +17,7 @@ def check(
     repo_root: Path,
     session: GateSession,
     staged: Sequence[Path] | None = None,
-):
+) -> AuditReport:
     staged = staged if staged is not None else staged_files(repo_root)
     findings = []
     landing = session.docs_landing

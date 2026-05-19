@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from scieasy.qa._report_helpers import build_finding, build_report
+from scieasy.qa._shared import AuditReport
 from scieasy.qa.audit._cli import exit_code, print_report
 from scieasy.qa.governance._auth import has_label
 from scieasy.qa.governance.local_gate import PullRequestMetadata
@@ -19,6 +20,8 @@ def _changed(repo_root: Path, base: str, head: str) -> list[str]:
         cwd=str(repo_root),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     return (
@@ -42,7 +45,7 @@ def check_codemod_lint(
     changed_files: Sequence[str],
     pr: PullRequestMetadata | None = None,
     run_idempotence: bool = True,
-):
+) -> AuditReport:
     del run_idempotence
     if has_label(pr, "human-authored"):
         return build_report(tool="codemod_lint", repo_root=repo_root, findings=[], summary={"skipped_human": True})
@@ -68,7 +71,7 @@ def check(
     changed_files: Sequence[str],
     pr: PullRequestMetadata | None = None,
     run_idempotence: bool = True,
-):
+) -> AuditReport:
     return check_codemod_lint(
         repo_root=repo_root,
         changed_files=changed_files,

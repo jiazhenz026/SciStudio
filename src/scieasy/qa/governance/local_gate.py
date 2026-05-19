@@ -16,6 +16,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from scieasy.qa._report_helpers import build_finding, build_report
+from scieasy.qa._shared import AuditReport
 from scieasy.qa.audit._cli import exit_code, print_report
 
 TaskKind = Literal["hotfix", "bugfix", "feature", "docs", "maintenance", "manager"]
@@ -109,7 +110,15 @@ class PullRequestMetadata(BaseModel):
 
 
 def _git(repo_root: Path, *args: str) -> str:
-    proc = subprocess.run(["git", *args], cwd=str(repo_root), capture_output=True, text=True, check=False)
+    proc = subprocess.run(
+        ["git", *args],
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
     return proc.stdout.strip() if proc.returncode == 0 else ""
 
 
@@ -235,7 +244,7 @@ def check_pre_commit(
     *,
     session_id: str | None = None,
     staged: Sequence[Path] | None = None,
-):
+) -> AuditReport:
     repo_root = repo_root.resolve()
     session = load_session(repo_root, session_id=session_id)
     findings = []
@@ -351,7 +360,7 @@ def check_pre_commit(
     return build_report(tool="local_gate", repo_root=repo_root, findings=findings)
 
 
-def check_commit_msg(message: str, *, require_ai_trailers: bool = True):
+def check_commit_msg(message: str, *, require_ai_trailers: bool = True) -> AuditReport:
     findings = []
     required = ["Gate-Session", "Task-Kind", "Issue", "Assisted-by"] if require_ai_trailers else []
     for trailer in required:

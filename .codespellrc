@@ -1,4 +1,4 @@
 [codespell]
-skip = .git,.venv,venv,node_modules,frontend/node_modules,frontend/dist,dist,build,*.lock,*.min.js
+skip = .git,.venv,venv,node_modules,frontend/node_modules,frontend/dist,dist,build,*.lock,package-lock.json,frontend/package-lock.json,*.min.js
 check-filenames =
 ignore-words-list = nd,fo,te,parm,ser

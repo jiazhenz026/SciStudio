@@ -6,21 +6,26 @@ import argparse
 import json
 import subprocess
 import sys
+from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 from scieasy.qa._report_helpers import build_finding, build_report
+from scieasy.qa._shared import AuditReport
 from scieasy.qa.audit._cli import exit_code, print_report
 from scieasy.qa.governance._auth import has_authorized_signal, has_label, review_authorized
 from scieasy.qa.governance.local_gate import ActorPermission, AuthorizationSignal, PullRequestMetadata
+
+Permission = Literal["none", "read", "triage", "write", "maintain", "admin"]
+Operation = Literal["human-authored", "core-change", "merge", "ai-override"]
 
 
 def check_human_bypass(
     pr: PullRequestMetadata,
     *,
     required_label: str = "human-authored",
-):
+) -> AuditReport:
     findings = []
     if not has_label(pr, required_label):
         return build_report(tool="human_bypass_guard", repo_root=Path.cwd(), findings=[])
@@ -63,11 +68,11 @@ def check_human_bypass(
     return build_report(tool="human_bypass_guard", repo_root=Path.cwd(), findings=findings)
 
 
-def check(pr: PullRequestMetadata, *, required_label: str = "human-authored"):
+def check(pr: PullRequestMetadata, *, required_label: str = "human-authored") -> AuditReport:
     return check_human_bypass(pr, required_label=required_label)
 
 
-def _permission_from_association(association: str | None) -> str:
+def _permission_from_association(association: str | None) -> Permission:
     normalized = (association or "").upper()
     if normalized == "OWNER":
         return "admin"
@@ -83,6 +88,8 @@ def _permission_from_gh(repo: str, login: str) -> ActorPermission:
         ["gh", "api", f"repos/{repo}/collaborators/{login}/permission"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     if proc.returncode != 0:
@@ -93,11 +100,18 @@ def _permission_from_gh(repo: str, login: str) -> ActorPermission:
         permission = "none"
     if permission not in {"none", "read", "triage", "write", "maintain", "admin"}:
         permission = "none"
-    return ActorPermission(login=login, permission=permission)
+    return ActorPermission(login=login, permission=cast(Permission, permission))
 
 
 def _gh_json(args: list[str]) -> Any:
-    proc = subprocess.run(["gh", *args], capture_output=True, text=True, check=False)
+    proc = subprocess.run(
+        ["gh", *args],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or "gh command failed")
     return json.loads(proc.stdout or "null")
@@ -111,13 +125,14 @@ def _current_repo() -> str:
     return repo
 
 
-def _label_operation(label: str) -> str | None:
-    return {
+def _label_operation(label: str) -> Operation | None:
+    operations: dict[str, Operation] = {
         "human-authored": "human-authored",
         "admin-approved:core-change": "core-change",
         "admin-approved:merge": "merge",
         "admin-approved:ai-override": "ai-override",
-    }.get(label)
+    }
+    return operations.get(label)
 
 
 def _metadata_from_gh(pr_number: int, *, repo: str | None = None) -> PullRequestMetadata:
@@ -134,14 +149,14 @@ def _metadata_from_gh(pr_number: int, *, repo: str | None = None) -> PullRequest
         ]
     )
     labels = [str(label.get("name")) for label in pr.get("labels", []) if label.get("name")]
-    commits = [
+    commits: list[Mapping[str, Any]] = [
         {
             "oid": commit.get("oid") or commit.get("sha"),
             "message": commit.get("messageHeadline") or commit.get("message") or "",
         }
         for commit in pr.get("commits", [])
     ]
-    reviews = []
+    reviews: list[Mapping[str, Any]] = []
     actors: dict[str, ActorPermission] = {}
     for review in pr.get("reviews", []):
         author = review.get("author") or {}
@@ -157,7 +172,7 @@ def _metadata_from_gh(pr_number: int, *, repo: str | None = None) -> PullRequest
                 "actor_permission": permission,
             }
         )
-    signals = []
+    signals: list[AuthorizationSignal] = []
     try:
         timeline = _gh_json(
             [

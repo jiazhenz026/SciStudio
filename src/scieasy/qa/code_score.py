@@ -287,7 +287,15 @@ def changed_modules(
         command = ["git", "diff", "--name-only", head_ref]
     else:
         command = ["git", "diff", "--name-only", base_ref, head_ref]
-    proc = subprocess.run(command, cwd=str(repo_root), capture_output=True, text=True, check=False)
+    proc = subprocess.run(
+        command,
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
     if proc.returncode != 0:
         return []
 
@@ -454,7 +462,15 @@ def _build_audit_report(modules: list[ModuleScore], source_sha: str) -> AuditRep
 
 def _load_diff(repo_root: Path, base_ref: str | None, head_ref: str) -> str:
     command = ["git", "diff", head_ref] if base_ref is None else ["git", "diff", base_ref, head_ref]
-    proc = subprocess.run(command, cwd=str(repo_root), capture_output=True, text=True, check=False)
+    proc = subprocess.run(
+        command,
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
     return proc.stdout if proc.returncode == 0 else ""
 
 
@@ -587,6 +603,8 @@ def run_ai_advisory(
             input=payload if len(payload) <= advisory_input.max_chars else payload[: advisory_input.max_chars],
             text=True,
             capture_output=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout_seconds,
             check=False,
         )
@@ -672,6 +690,8 @@ def _git_artifact_path(repo_root: Path, relative_path: str) -> Path:
         cwd=str(repo_root),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     git_dir = proc.stdout.strip() if proc.returncode == 0 else ""

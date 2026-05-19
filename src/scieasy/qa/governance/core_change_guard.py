@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from scieasy.qa._report_helpers import build_finding, build_report
+from scieasy.qa._shared import AuditReport
 from scieasy.qa.audit._cli import exit_code, print_report
 from scieasy.qa.governance._auth import has_authorized_signal, review_authorized
 from scieasy.qa.governance.local_gate import GateSession, PullRequestMetadata
@@ -30,7 +31,7 @@ def check_core_change(
         "src/scieasy/workflow/**",
         "src/scieasy/utils/**",
     ),
-):
+) -> AuditReport:
     findings = []
     authorized = bool(session and "admin-approved:core-change" in session.admin_labels)
     authorized = (
@@ -64,7 +65,7 @@ def check(
     pr: PullRequestMetadata | None = None,
     changed_files: Sequence[str],
     session: GateSession | None = None,
-):
+) -> AuditReport:
     return check_core_change(pr=pr, changed_files=changed_files, session=session)
 
 
@@ -74,6 +75,8 @@ def _changed(repo_root: Path, base: str, head: str) -> list[str]:
         cwd=str(repo_root),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     return (

@@ -81,7 +81,7 @@ jobs:
       - run: uv pip install --system ".[dev]"
       - run: ruff check .
       - run: ruff format --check .
-      - run: pyproject-fmt --check pyproject.toml
+      - run: pyproject-fmt --check --expand-tables tool.mypy.overrides,tool.pytest.ini_options pyproject.toml
       - run: yamllint .
       - run: codespell --config .codespellrc .
 

@@ -12,6 +12,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from scieasy.qa._report_helpers import build_finding, build_report
+from scieasy.qa._shared import AuditFinding, AuditReport
 from scieasy.qa.audit._cli import exit_code, print_report
 from scieasy.qa.schemas.facts import Fact, FactsRegistry, load_facts
 from scieasy.qa.schemas.signatures import ExpectedCliCommand, ExpectedModelField, ExpectedSignature, ParameterSpec
@@ -97,7 +98,7 @@ def _fact_value(fact: Fact) -> dict[str, Any]:
     return fact.value if isinstance(fact.value, dict) else {}
 
 
-def _check_signature(repo_root: Path, fact: Fact, index: dict[str, list[str]]):
+def _check_signature(repo_root: Path, fact: Fact, index: dict[str, list[str]]) -> list[AuditFinding]:
     expected = ExpectedSignature.model_validate(_fact_value(fact))
     findings = []
     try:
@@ -168,7 +169,7 @@ def _check_signature(repo_root: Path, fact: Fact, index: dict[str, list[str]]):
     return findings
 
 
-def _check_model_field(fact: Fact, index: dict[str, list[str]]):
+def _check_model_field(fact: Fact, index: dict[str, list[str]]) -> list[AuditFinding]:
     expected = ExpectedModelField.model_validate(_fact_value(fact))
     try:
         model = _resolve_expected(expected.model_symbol, index)
@@ -204,7 +205,7 @@ def _check_model_field(fact: Fact, index: dict[str, list[str]]):
     return []
 
 
-def _check_cli(fact: Fact, *, check_cli: bool):
+def _check_cli(fact: Fact, *, check_cli: bool) -> list[AuditFinding]:
     if not check_cli:
         return []
     expected = ExpectedCliCommand.model_validate(_fact_value(fact))
@@ -235,7 +236,7 @@ def check_expected_signatures(
     *,
     check_cli: bool = True,
     cli_timeout_seconds: int = 10,
-):
+) -> AuditReport:
     del cli_timeout_seconds
     repo_root = repo_root.resolve()
     findings = []

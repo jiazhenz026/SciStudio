@@ -9,6 +9,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from scieasy.qa._report_helpers import build_finding, build_report
+from scieasy.qa._shared import AuditReport
 from scieasy.qa.audit._cli import exit_code, print_report
 from scieasy.qa.governance.local_gate import GateSession, load_session
 
@@ -71,7 +72,7 @@ def check_persona_policy(
     repo_root: Path,
     session: GateSession,
     runtime_roots: Sequence[Path] | None = None,
-):
+) -> AuditReport:
     repo_root = repo_root.resolve()
     findings = []
     if session.persona not in SUPPORTED_PERSONAS:
@@ -139,7 +140,7 @@ def check(
     repo_root: Path,
     session: GateSession | None = None,
     runtime_roots: Sequence[Path] | None = None,
-):
+) -> AuditReport:
     session = session or load_session(repo_root)
     if session is None:
         return build_report(

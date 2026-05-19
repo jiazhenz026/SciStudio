@@ -15,7 +15,7 @@ def check_committer_enforce(
     repo_root: Path,
     rev_range: str,
     approved_committers: Sequence[str],
-):
+) -> AuditReport:
     if not approved_committers:
         return AuditReport(
             tool="committer_enforce",
@@ -30,6 +30,8 @@ def check_committer_enforce(
         cwd=str(repo_root),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     findings = []
@@ -55,7 +57,7 @@ def check_committer_enforce(
     )
 
 
-def check(*, repo_root: Path, rev_range: str, approved_committers: Sequence[str]):
+def check(*, repo_root: Path, rev_range: str, approved_committers: Sequence[str]) -> AuditReport:
     return check_committer_enforce(
         repo_root=repo_root,
         rev_range=rev_range,

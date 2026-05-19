@@ -19,7 +19,15 @@ def _changed_paths(
         args = ["git", "diff", "--name-only", head_ref]
     else:
         args = ["git", "diff", "--name-only", base_ref, head_ref]
-    proc = subprocess.run(args, cwd=str(repo_root), capture_output=True, text=True, check=False)
+    proc = subprocess.run(
+        args,
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
     if proc.returncode != 0:
         return []
     return [line.strip().replace("\\", "/") for line in proc.stdout.splitlines() if line.strip()]

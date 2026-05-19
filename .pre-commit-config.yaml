@@ -41,7 +41,7 @@ repos:
     rev: v2.6.0
     hooks:
       - id: pyproject-fmt
-        args: ["--check"]
+        args: ["--check", "--expand-tables", "tool.mypy.overrides,tool.pytest.ini_options"]
 
   - repo: https://github.com/rhysd/actionlint
     rev: v1.7.7

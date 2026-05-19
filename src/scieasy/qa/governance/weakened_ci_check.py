@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from scieasy.qa._report_helpers import build_finding, build_report
+from scieasy.qa._shared import AuditReport
 from scieasy.qa.audit._cli import exit_code, print_report
 
 REQUIRED_CI_TOKENS = (
@@ -48,9 +49,13 @@ def _show(repo_root: Path, ref: str, path: str) -> str:
         cwd=str(repo_root),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
-    return proc.stdout if proc.returncode == 0 else ""
+    if proc.returncode != 0:
+        return ""
+    return proc.stdout or ""
 
 
 def _read_head(repo_root: Path, head_ref: str, path: str) -> str:
@@ -61,7 +66,7 @@ def _read_head(repo_root: Path, head_ref: str, path: str) -> str:
 
 
 def _thresholds(text: str) -> list[int]:
-    values = []
+    values: list[int] = []
     for pattern in [r"cov-fail-under[= ](\d+)", r"fail_under\s*=\s*(\d+)", r"fail-under\s*=\s*(\d+)"]:
         values.extend(int(match.group(1)) for match in re.finditer(pattern, text))
     return values
@@ -76,7 +81,7 @@ def verify_no_weakening(
     repo_root: Path,
     base_ref: str,
     head_ref: str,
-):
+) -> AuditReport:
     repo_root = repo_root.resolve()
     findings = []
     files = {

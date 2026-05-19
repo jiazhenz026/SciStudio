@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 from scieasy.qa._report_helpers import build_finding, build_report
+from scieasy.qa._shared import AuditReport
 from scieasy.qa.governance._auth import actor_authorized, has_authorized_signal, review_authorized
 from scieasy.qa.governance.local_gate import ActorPermission, PullRequestMetadata
 
@@ -15,7 +16,7 @@ def check_pr_merge(
     pr: PullRequestMetadata,
     actor: ActorPermission,
     intent: Literal["merge", "squash", "rebase", "enable-auto-merge"],
-):
+) -> AuditReport:
     findings = []
     authorized = has_authorized_signal(
         pr,
@@ -43,5 +44,5 @@ def check(
     pr: PullRequestMetadata,
     actor: ActorPermission,
     intent: Literal["merge", "squash", "rebase", "enable-auto-merge"],
-):
+) -> AuditReport:
     return check_pr_merge(pr=pr, actor=actor, intent=intent)

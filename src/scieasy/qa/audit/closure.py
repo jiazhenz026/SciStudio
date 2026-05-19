@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from scieasy.qa._report_helpers import build_finding, build_report
+from scieasy.qa._shared import AuditReport
 from scieasy.qa.audit._cli import exit_code, print_report
 from scieasy.qa.schemas.facts import Fact, FactsRegistry, load_facts
 from scieasy.qa.schemas.maintainers import Maintainers, load_maintainers
@@ -66,7 +67,7 @@ def check_bidirectional(
     facts: FactsRegistry,
     *,
     maintainers: Maintainers | None = None,
-):
+) -> AuditReport:
     repo_root = repo_root.resolve()
     maintainers = maintainers or load_maintainers(repo_root / "MAINTAINERS")
     findings = []

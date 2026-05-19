@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from scieasy.qa._report_helpers import build_finding, build_report
+from scieasy.qa._shared import AuditReport
 from scieasy.qa.audit._cli import exit_code, print_report
 from scieasy.qa.governance._auth import has_label
 from scieasy.qa.governance.local_gate import GateSession, PullRequestMetadata
@@ -19,6 +20,8 @@ def _changed(repo_root: Path, base: str, head: str) -> list[str]:
         cwd=str(repo_root),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     return (
@@ -38,7 +41,7 @@ def check_complete_artifacts(
     session: GateSession | None,
     pr: PullRequestMetadata | None = None,
     changed_files: Sequence[str] | None = None,
-):
+) -> AuditReport:
     repo_root = repo_root.resolve()
     changed = list(changed_files or [])
     findings = []
@@ -116,7 +119,7 @@ def check(
     session: GateSession | None,
     pr: PullRequestMetadata | None = None,
     changed_files: Sequence[str] | None = None,
-):
+) -> AuditReport:
     return check_complete_artifacts(repo_root=repo_root, session=session, pr=pr, changed_files=changed_files)
 
 
