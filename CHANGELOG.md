@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#1234] Expand the ADR-041 CodeBlock v2 implementation cascade from a Python-first runtime track into a complete runtime module plan with explicit notebook, R/Quarto, shell, and MATLAB/Octave implementation tracks. (@agent, 2026-05-19, branch: track/adr-041/codeblock-v2, session: 20260519-190320-adr-041-complete-runtime-scope-expansion)
+
 - [#1224] Add CodeBlock v2 exchange-directory and manifest helpers for ADR-041 Track B, including per-run layout creation, deterministic input filename planning, collision-safe port folders, structured input/output manifest records, declared-output diagnostics, and injectable materialise/reconstruct adapter seams for later ADR-043 wiring. (@agent, 2026-05-19, branch: feat/issue-1224/adr041-exchange-manifest, session: 20260519-182539-adr-041-track-b-codeblock-v2-exchange-ma)
 - [#1223] Add ADR-041 Track A CodeBlock v2 support modules for typed script configuration, Python interpreter resolution, script/interpreter/environment provenance payloads, and focused config/interpreter/provenance tests. (@agent, 2026-05-19, branch: feat/issue-1223/adr041-config-interpreter-provenance, session: 20260519-182537-adr-041-track-a-codeblock-v2-config-inte)
 

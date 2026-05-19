@@ -109,9 +109,13 @@ Exit Criteria:
 - [x] Track B CI is green. Evidence: PR [#1233](https://github.com/zjzcpj/SciEasy/pull/1233) checks green on 2026-05-19 before this checklist evidence update.
 - [x] Checklist rows updated with PR/test evidence. Evidence: PR [#1233](https://github.com/zjzcpj/SciEasy/pull/1233), commit `25104662`, focused pytest and Ruff commands recorded above.
 
-## Phase 2 - CodeBlock Runtime Integration
+## Phase 2 - Complete CodeBlock Runtime Module
 
-### Track C - Python MVP Execution (Owner: I41c / #1225)
+ADR-041 runtime completion requires every user-important script family named by
+the ADR. Python is the first backend lane because it proves the shared
+file-exchange lifecycle, but it is not the terminal scope.
+
+### Track C1 - Shared Runtime Integration and Python Backend (Owner: I41c / #1225)
 
 Dependencies:
 
@@ -127,16 +131,115 @@ Scope:
 Tasks:
 
 - [ ] Integrate v2 config parsing into `CodeBlock` without silently accepting ambiguous legacy config.
-- [ ] Use Track A interpreter/provenance helpers and Track B exchange helpers to run Python scripts through the file-exchange contract.
+- [ ] Define the shared CodeBlock v2 runtime integration surface used by all interpreter backends.
+- [ ] Use Track A interpreter/provenance helpers and Track B exchange helpers to run Python `.py` scripts through the file-exchange contract.
 - [ ] Preserve backend ownership of graph/runtime truth; frontend remains editor/viewer only.
 - [ ] Return declared outputs as typed runtime objects or structured diagnostics according to the planning spec.
 - [ ] Add tests for successful Python script execution, missing output failure, script non-zero exit failure, timeout, and provenance recording.
 - [ ] Add migration diagnostics for unsupported legacy inline/function mode.
+- [ ] Leave stable extension points for notebook, R/Quarto, shell, and MATLAB/Octave tracks without editing ADR-043-owned files.
 
 Exit Criteria:
 
-- [ ] Track C PR targets `track/adr-041/codeblock-v2`.
-- [ ] Track C CI is green.
+- [ ] Track C1 PR targets `track/adr-041/codeblock-v2`.
+- [ ] Track C1 CI is green.
+- [ ] Checklist rows updated with PR/test evidence.
+
+### Track C2 - Notebook Runtime and Executed Artifact Capture (Owner: I41n / #1235)
+
+Dependencies:
+
+- Track C1 shared runtime integration merged or stable enough for backend registration.
+
+Scope:
+
+- CodeBlock notebook interpreter backend files identified in the Track C2 change plan.
+- Notebook runtime tests under `tests/blocks/code/`.
+
+Tasks:
+
+- [ ] Add `.ipynb` runtime execution through nbconvert or a local Jupyter runner when available.
+- [ ] Capture the executed notebook as a framework-managed `_executed_notebook` `Artifact`.
+- [ ] Preserve typed output collection from declared output folders alongside notebook artifact capture.
+- [ ] Add tests for success, failure diagnostics, optional dependency skip behavior, and artifact retention where feasible.
+- [ ] Keep optional notebook dependencies out of the base runtime unless the existing project packaging already includes them.
+
+Exit Criteria:
+
+- [ ] Track C2 PR targets `track/adr-041/codeblock-v2`.
+- [ ] Track C2 CI is green.
+- [ ] Checklist rows updated with PR/test evidence.
+
+### Track C3 - R and Quarto Runtime Support (Owner: I41r / #1238)
+
+Dependencies:
+
+- Track C1 shared runtime integration merged or stable enough for backend registration.
+
+Scope:
+
+- CodeBlock R/Quarto interpreter backend files identified in the Track C3 change plan.
+- R/Quarto runtime tests under `tests/blocks/code/`.
+
+Tasks:
+
+- [ ] Add `.R` execution through `Rscript` when available.
+- [ ] Add `.Rmd` rendered-document support where R Markdown tooling is available.
+- [ ] Add `.qmd` execution/rendering support through Quarto where available.
+- [ ] Add deterministic command construction and exchange-directory environment passing.
+- [ ] Add tests for missing executable diagnostics, command construction, output collection, and optional dependency skip behavior.
+
+Exit Criteria:
+
+- [ ] Track C3 PR targets `track/adr-041/codeblock-v2`.
+- [ ] Track C3 CI is green.
+- [ ] Checklist rows updated with PR/test evidence.
+
+### Track C4 - Shell Runtime Support (Owner: I41s / #1237)
+
+Dependencies:
+
+- Track C1 shared runtime integration merged or stable enough for backend registration.
+
+Scope:
+
+- CodeBlock shell interpreter backend files identified in the Track C4 change plan.
+- Shell runtime tests under `tests/blocks/code/`.
+
+Tasks:
+
+- [ ] Add `.sh` execution through a compatible POSIX shell when available.
+- [ ] Pass exchange-directory context deterministically without adding hidden format semantics.
+- [ ] Add tests for successful output collection, nonzero exit diagnostics, missing shell diagnostics, and Windows compatibility behavior.
+
+Exit Criteria:
+
+- [ ] Track C4 PR targets `track/adr-041/codeblock-v2`.
+- [ ] Track C4 CI is green.
+- [ ] Checklist rows updated with PR/test evidence.
+
+### Track C5 - MATLAB and Octave Runtime Support (Owner: I41m / #1236)
+
+Dependencies:
+
+- Track C1 shared runtime integration merged or stable enough for backend registration.
+
+Scope:
+
+- CodeBlock MATLAB/Octave interpreter backend files identified in the Track C5 change plan.
+- MATLAB/Octave runtime tests under `tests/blocks/code/`.
+
+Tasks:
+
+- [ ] Add `.m` execution through MATLAB or Octave when available.
+- [ ] Add `.mlx` handling through MATLAB where available, with clear unsupported diagnostics when not available.
+- [ ] Add deterministic command construction, exchange-directory environment passing, and output collection.
+- [ ] Add tests for executable selection, missing executable diagnostics, command construction, and optional dependency skip behavior.
+
+Exit Criteria:
+
+- [ ] Track C5 PR targets `track/adr-041/codeblock-v2`.
+- [ ] Track C5 CI is green.
 - [ ] Checklist rows updated with PR/test evidence.
 
 ## Phase 3 - Validation and Migration Diagnostics
@@ -146,7 +249,8 @@ Exit Criteria:
 Dependencies:
 
 - Track A merged.
-- Track C contract stable enough for validator integration.
+- Track C1 contract stable enough for validator integration.
+- Runtime backend tracks C2-C5 define extension-specific diagnostics.
 
 Scope:
 
@@ -173,7 +277,7 @@ Exit Criteria:
 
 Dependencies:
 
-- Track C merged.
+- Tracks C1-C5 merged or frontend scope explicitly narrowed to available runtime families.
 - Track D merged if validator diagnostics are surfaced in UI.
 
 Scope:
@@ -229,7 +333,11 @@ Exit Criteria:
 
 - [x] I41a dispatched for #1223. Worktree: `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41a`; branch: `feat/issue-1223/adr041-config-interpreter-provenance`.
 - [x] I41b dispatched for #1224. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41b`, branch `feat/issue-1224/adr041-exchange-manifest`, gate session `20260519-182539-adr-041-track-b-codeblock-v2-exchange-ma`.
-- [ ] I41c dispatched for #1225.
+- [~] I41c dispatched for #1225. Retargeted on 2026-05-19 from Python-only MVP to shared runtime integration plus Python backend.
+- [ ] I41n dispatched for #1235.
+- [ ] I41r dispatched for #1238.
+- [ ] I41s dispatched for #1237.
+- [ ] I41m dispatched for #1236.
 - [ ] I41d dispatched for #1226.
 - [ ] I41e dispatched for #1227.
 - [ ] A41/F41 dispatched for #1228.
