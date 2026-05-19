@@ -1,0 +1,43 @@
+name: ADR-042 Scheduled Audit
+
+on:
+  schedule:
+    - cron: "17 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scheduled-audit:
+    name: Scheduled Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+        with:
+          cache: true
+          cache-dependency-path: pyproject.toml
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: uv pip install --system ".[dev,docs]"
+      - name: Run module health score
+        run: |
+          mkdir -p docs/audit/code-score/module-health
+          python scripts/qa/run_adr042_check.py code-score --module-health --format json --write docs/audit/code-score/module-health/latest.json
+      - name: Run optional AI advisory score
+        run: |
+          mkdir -p docs/audit/code-score/ai
+          python scripts/qa/run_adr042_check.py code-score --changed --full --base HEAD~1 --head HEAD --ai-advisory --ai-provider codex --format json --write "docs/audit/code-score/ai/${GITHUB_SHA}.json"
+      - name: Run targeted mutation audit
+        run: python -m scieasy.qa.test_quality.mutation_runner --changed --base HEAD~1 --head HEAD --format json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: adr042-scheduled-audit
+          path: |
+            docs/audit/code-score/module-health/latest.json
+            docs/audit/code-score/ai/*.json

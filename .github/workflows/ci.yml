@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -24,9 +25,12 @@ jobs:
       - typecheck
       - test
       - import-boundaries
-      - frontend
+      - docs-build
+      - audit
       - code-score
-      - docs-governance
+      - frontend
+      - security
+      - workflow-lint
     if: always()
     steps:
       - name: Require linked issue
@@ -43,6 +47,7 @@ jobs:
             exit 1
           fi
           echo "Issue link found"
+
       - name: Require ADR-042 quality jobs
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
@@ -73,9 +78,12 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      - run: uv pip install --system ruff
+      - run: uv pip install --system ".[dev]"
       - run: ruff check .
       - run: ruff format --check .
+      - run: pyproject-fmt --check pyproject.toml
+      - run: yamllint .
+      - run: codespell --config .codespellrc .
 
   typecheck:
     name: Typecheck
@@ -91,6 +99,7 @@ jobs:
           python-version: "3.13"
       - run: uv pip install --system ".[dev]"
       - run: mypy src/scieasy/ --ignore-missing-imports
+      - run: pyright
 
   test:
     name: Test (Python ${{ matrix.python-version }})
@@ -108,16 +117,16 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv pip install --system ".[dev]" ./packages/scieasy-blocks-imaging pytest-timeout
+      - run: uv pip install --system ".[dev]" ./packages/scieasy-blocks-imaging
       - name: Run pytest
         shell: bash
         env:
           SCIEASY_DEV: "1"
         run: |
           if [ "${{ matrix.python-version }}" = "3.13" ]; then
-            timeout 600 pytest -n auto --timeout=60 --timeout-method=thread
+            timeout 600 pytest -n auto --randomly-seed=42 --timeout=60 --timeout-method=thread
           else
-            timeout 600 pytest -n auto --no-cov --timeout=60 --timeout-method=thread
+            timeout 600 pytest -n auto --no-cov --randomly-seed=42 --timeout=60 --timeout-method=thread
           fi
           rc=$?
           if [ $rc -eq 5 ]; then
@@ -144,25 +153,68 @@ jobs:
       - run: uv pip install --system ".[dev]"
       - run: lint-imports
 
-  frontend:
-    name: Frontend
+  docs-build:
+    name: Docs Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          cache: true
+          cache-dependency-path: pyproject.toml
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
       - uses: actions/setup-node@v6
         with:
           node-version: "20"
           cache: "npm"
           cache-dependency-path: "frontend/package-lock.json"
-      - name: Install frontend deps
-        working-directory: frontend
-        run: npm ci
-      - name: Run frontend tests
-        working-directory: frontend
-        run: npm test
-      - name: Build frontend
-        working-directory: frontend
-        run: npm run build
+      - run: uv pip install --system ".[dev,docs]"
+      - run: npm --prefix frontend ci
+      - run: npm install -g markdownlint-cli2
+      - run: markdownlint-cli2 "docs/**/*.md"
+      - run: python -m scieasy.qa.docs.generate_reference --target all --check
+      - run: npm --prefix frontend run docs:api
+      - run: sphinx-lint docs
+      - run: sphinx-build -b html -W --keep-going -n docs/sphinx docs/_build/html
+      - run: sphinx-build -b linkcheck -W --keep-going docs/sphinx docs/_build/linkcheck
+
+  audit:
+    name: Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+        with:
+          cache: true
+          cache-dependency-path: pyproject.toml
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: uv pip install --system ".[dev,docs]"
+      - name: Run ADR-042 documentation governance checks
+        run: |
+          python scripts/qa/run_adr042_check.py frontmatter-lint docs --recursive
+          python scripts/qa/run_adr042_check.py doc-length-lint docs
+          python scripts/qa/run_adr042_check.py auto-generated-lint
+          python scripts/qa/run_adr042_check.py skill-pointer-sync
+      - name: Run API and code health audit tools
+        run: |
+          griffe dump scieasy --search-path src
+          interrogate src/scieasy
+          pydoclint src/scieasy
+          vulture src scripts
+          xenon --max-absolute B --max-modules B --max-average A src/scieasy
+      - name: Run ADR-042 test quality checks
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD~1' }}
+        run: |
+          python -m scieasy.qa.test_quality.ast_lint tests --format json
+          python -m scieasy.qa.test_quality.test_first_check --base "$BASE_REF" --head HEAD --format json
+          python -m scieasy.qa.test_quality.mutation_runner --changed --base "$BASE_REF" --head HEAD --format json
 
   code-score:
     name: Code Score
@@ -180,17 +232,48 @@ jobs:
           python-version: "3.13"
       - run: uv pip install --system ".[dev]"
       - name: Score changed modules
-        shell: bash
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD~1' }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE_REF="origin/${{ github.base_ref }}"
-          else
-            BASE_REF="HEAD~1"
-          fi
-          python scripts/qa/run_adr042_check.py code-score --changed --full --base "$BASE_REF" --head HEAD --format text
+          mkdir -p docs/audit/code-score/changes
+          python scripts/qa/run_adr042_check.py code-score --changed --full --base "$BASE_REF" --head HEAD --ai-advisory --ai-provider codex --format json --write "docs/audit/code-score/changes/${GITHUB_SHA}.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: code-score-report
+          path: docs/audit/code-score/changes/*.json
 
-  docs-governance:
-    name: Docs Governance
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "frontend/package-lock.json"
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+      - name: Run frontend lint
+        working-directory: frontend
+        run: npm run lint
+      - name: Check frontend format
+        working-directory: frontend
+        run: npm run format:check
+      - name: Run frontend typecheck
+        working-directory: frontend
+        run: npm run typecheck
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+  security:
+    name: Security
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -202,18 +285,25 @@ jobs:
         with:
           python-version: "3.13"
       - run: uv pip install --system ".[dev]"
-      - name: Run ADR-042 documentation governance checks
-        run: |
-          python scripts/qa/run_adr042_check.py frontmatter-lint \
-            docs/adr/ADR-042.md \
-            docs/specs/adr-042-code-quality-tools.md \
-            docs/specs/adr-042-documentation-tools.md \
-            docs/specs/adr-042-consistency-tools.md \
-            docs/specs/adr-042-ai-governance-tools.md
-          python scripts/qa/run_adr042_check.py doc-length-lint \
-            docs/contributing docs/user docs/prod-agent docs/doc-guide
-          python scripts/qa/run_adr042_check.py auto-generated-lint
-          python scripts/qa/run_adr042_check.py skill-pointer-sync
+      - run: pip-audit
+      - run: ruff check --select S src scripts tests
+      - run: bandit -c pyproject.toml -r src/scieasy
+
+  workflow-lint:
+    name: Workflow Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: rhysd/actionlint@v1
+      - uses: astral-sh/setup-uv@v7
+        with:
+          cache: true
+          cache-dependency-path: pyproject.toml
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: uv pip install --system ".[dev]"
+      - run: zizmor .github/workflows
 
   build-frontend-release:
     name: Build Frontend for Release
@@ -228,10 +318,12 @@ jobs:
           cache-dependency-path: "frontend/package-lock.json"
       - name: Build frontend for packaging
         working-directory: frontend
-        run: npm ci && npm run build
+        run: |
+          npm ci
+          npm run build
       - name: Copy build output to Python package
         run: cp -r frontend/dist/ src/scieasy/api/static/
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v4
         with:
           name: frontend-static
           path: src/scieasy/api/static/

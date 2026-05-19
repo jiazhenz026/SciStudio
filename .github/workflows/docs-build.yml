@@ -1,0 +1,42 @@
+name: Docs Build
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "src/scieasy/**"
+      - "pyproject.toml"
+      - ".github/workflows/docs-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docs-build:
+    name: Docs Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          cache: true
+          cache-dependency-path: pyproject.toml
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "frontend/package-lock.json"
+      - run: uv pip install --system ".[dev,docs]"
+      - run: npm --prefix frontend ci
+      - run: npm install -g markdownlint-cli2
+      - run: markdownlint-cli2 "docs/**/*.md"
+      - run: python -m scieasy.qa.docs.generate_reference --target all --check
+      - run: npm --prefix frontend run docs:api
+      - run: sphinx-lint docs
+      - run: sphinx-build -b html -W --keep-going -n docs/sphinx docs/_build/html
+      - run: sphinx-build -b linkcheck -W --keep-going docs/sphinx docs/_build/linkcheck

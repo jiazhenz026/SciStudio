@@ -1,0 +1,15 @@
+{
+  "include": ["src/scieasy"],
+  "exclude": [
+    "**/__pycache__",
+    ".venv",
+    "build",
+    "dist",
+    "frontend",
+    "tests"
+  ],
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "warning",
+  "reportMissingTypeStubs": "none"
+}

@@ -25,6 +25,35 @@ repos:
         additional_dependencies: ["types-PyYAML>=6.0"]
         args: ["--ignore-missing-imports"]
 
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+        args: ["--config", ".codespellrc"]
+
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.37.1
+    hooks:
+      - id: yamllint
+        args: ["-c", ".yamllint"]
+
+  - repo: https://github.com/tox-dev/pyproject-fmt
+    rev: v2.6.0
+    hooks:
+      - id: pyproject-fmt
+        args: ["--check"]
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.7
+    hooks:
+      - id: actionlint
+
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.18.1
+    hooks:
+      - id: markdownlint-cli2
+        files: ^docs/.*\.md$
+
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.4.1
     hooks:
@@ -40,19 +69,42 @@ repos:
         pass_filenames: false
         stages: [pre-commit]
 
+      - id: adr042-zizmor
+        name: ADR-042 GitHub Actions security lint
+        entry: python -m zizmor .github/workflows
+        language: system
+        pass_filenames: false
+        files: ^\.github/workflows/.*\.ya?ml$
+        stages: [pre-commit]
+
+      - id: frontend-eslint
+        name: Frontend ESLint
+        entry: npm --prefix frontend run lint --
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx)$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: frontend-prettier
+        name: Frontend Prettier check
+        entry: npm --prefix frontend run format:check --
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx|css|md|json)$
+        pass_filenames: false
+        stages: [pre-commit]
+
       - id: adr042-frontmatter-lint
         name: ADR-042 frontmatter lint
         entry: python scripts/qa/run_adr042_check.py frontmatter-lint
         language: system
-        files: ^docs/(adr|specs)/.*\.md$
-        exclude: ^docs/(adr|specs)/_template/
+        files: ^docs/.*\.md$
         stages: [pre-commit]
 
       - id: adr042-doc-length-lint
         name: ADR-042 doc length lint
         entry: python scripts/qa/run_adr042_check.py doc-length-lint
         language: system
-        files: ^docs/(contributing|user|prod-agent|doc-guide)/.*\.md$
+        files: ^docs/.*\.md$
         stages: [pre-commit]
 
       - id: adr042-auto-generated-lint
