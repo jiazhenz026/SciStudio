@@ -96,12 +96,12 @@ Scope:
 
 Tasks:
 
-- [ ] Create exchange-directory layout helpers for per-run input, output, manifest, log, and temp paths.
-- [ ] Implement deterministic input filename planning from port names, declared formats, and collision-safe suffixing.
-- [ ] Implement an exchange manifest shape that records port name, object type, exchange path, format hint, materialisation status, and warnings.
-- [ ] Implement declared-output discovery with missing-output and extra-output diagnostics.
-- [ ] Use injectable adapter callables for materialise/reconstruct seams so ADR-043 capability registry work can wire in later without editing `engine/materialisation.py` in this track.
-- [ ] Add tests for collision handling, manifest contents, declared output discovery, and diagnostics.
+- [x] Create exchange-directory layout helpers for per-run input, output, manifest, log, and temp paths. Evidence: commit `25104662`; `python -m pytest tests/blocks/code/test_codeblock_exchange.py --timeout=30 --no-cov`.
+- [x] Implement deterministic input filename planning from port names, declared formats, and collision-safe suffixing. Evidence: commit `25104662`; `python -m pytest tests/blocks/code/test_codeblock_exchange.py --timeout=30 --no-cov`.
+- [x] Implement an exchange manifest shape that records port name, object type, exchange path, format hint, materialisation status, and warnings. Evidence: commit `25104662`; `python -m pytest tests/blocks/code/test_codeblock_exchange.py --timeout=30 --no-cov`.
+- [x] Implement declared-output discovery with missing-output and extra-output diagnostics. Evidence: commit `25104662`; `python -m pytest tests/blocks/code/test_codeblock_exchange.py --timeout=30 --no-cov`.
+- [x] Use injectable adapter callables for materialise/reconstruct seams so ADR-043 capability registry work can wire in later without editing `engine/materialisation.py` in this track. Evidence: commit `25104662`; `python -m ruff check src/scieasy/blocks/code/exchange.py tests/blocks/code/test_codeblock_exchange.py`.
+- [x] Add tests for collision handling, manifest contents, declared output discovery, and diagnostics. Evidence: commit `25104662`; `python -m pytest tests/blocks/code/test_codeblock_exchange.py --timeout=30 --no-cov`.
 
 Exit Criteria:
 
@@ -228,7 +228,7 @@ Exit Criteria:
 ## Dispatch Log
 
 - [ ] I41a dispatched for #1223.
-- [ ] I41b dispatched for #1224.
+- [x] I41b dispatched for #1224. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41b`, branch `feat/issue-1224/adr041-exchange-manifest`, gate session `20260519-182539-adr-041-track-b-codeblock-v2-exchange-ma`.
 - [ ] I41c dispatched for #1225.
 - [ ] I41d dispatched for #1226.
 - [ ] I41e dispatched for #1227.
