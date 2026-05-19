@@ -54,11 +54,11 @@
 
 ### Implementation
 
-- [ ] Expose serializable format capability metadata on block summary/schema without adding palette blocks. [ADR-043 section 3]
-- [ ] Update frontend API types for format capabilities and metadata fidelity.
-- [ ] Render capability-backed format choices in IO block config surfaces and persist selected `capability_id`.
-- [ ] Surface ambiguity and metadata-loss states as backend-derived warnings, not frontend runtime truth.
-- [ ] Add backend schema tests and frontend unit tests for capability list rendering and persisted selection.
+- [x] Expose serializable format capability metadata on block summary/schema without adding palette blocks. [ADR-043 section 3] -> commit `0b9b2f91`
+- [x] Update frontend API types for format capabilities and metadata fidelity. -> commit `0b9b2f91`
+- [x] Render capability-backed format choices in IO block config surfaces and persist selected `capability_id`. -> commit `0b9b2f91`
+- [x] Surface ambiguity and metadata-loss states as backend-derived warnings, not frontend runtime truth. -> commit `0b9b2f91`
+- [x] Add backend schema tests and frontend unit tests for capability list rendering and persisted selection. -> local tests `pytest -q --timeout=60 --no-cov tests/api/test_blocks.py`; `npx vitest run src/components/BottomPanel.test.tsx src/components/nodes/BlockNode.test.tsx`
 
 ## Track E - Package Capability Pilot (Owner: A43-packages, issue #1213)
 
