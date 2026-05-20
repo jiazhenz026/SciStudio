@@ -85,8 +85,9 @@ governance:
 | D5. Free-tier honesty rule | Forbid claiming Sentrux Pro-only diagnostics or unchecked rules as completed gate evidence | Local hooks, CI, and review | Section 2 |
 | D6. Override-label consistency | Reuse ADR-042's administrator labels for human bypass, AI override, protected core changes, and merge automation | CI validates label provenance through ADR-042 guards | Section 5 |
 | D7. Implementation tests required | Require implementation-category tasks to add or modify tests as part of the PR | Local hooks and CI reject implementation work without test changes | Section 3 |
-| D8. Legacy CI gate replacement | Replace the old `.workflow/active` CI lookup with committed gate-record validation | Workflow-gate CI has one normative gate authority | Section 3 |
+| D8. Legacy gate removal | Delete `.workflow/gate.py` and replace the old `.workflow/active` CI lookup with committed gate-record validation | Workflow-gate CI has one normative gate authority | Section 3 |
 | D9. Conflict-prone generated artifacts | Ignore generated gate/audit artifacts and explicitly migrate any tracked workflow files before treating them as ignored | `.gitignore`, review, and gate implementation docs | Section 3 |
+| D10. AI gate CLI | Require agents to use the repository-owned gate-record CLI for each gate stage | Agent workflow, local hooks, and CI consume the same committed record | Section 3 |
 
 This addendum supersedes ADR-042 Section 7.2 only where that section defines
 gate state as local-only state under `.git/scieasy/gates/`. Local gate state may
@@ -106,8 +107,9 @@ still exist as a pre-commit helper, but it is not sufficient for delivery.
 | QA full audit evidence is not yet part of the gate | ADR-042 consistency tools can be skipped even when available | Require full-audit evidence, with temporary technical-debt handling before hard fail | Section 5 |
 | Override labels can drift between docs and implementation | Human bypass or admin approval checks can disagree about valid labels | Reuse one fixed label set from ADR-042 and validate it in CI | Section 5 |
 | Implementation tasks can claim tests were run without adding tests | Bug fixes and features can land without regression or behavior coverage | Require changed test files for implementation-category tasks | Section 3 |
-| The legacy CI gate can remain as a parallel source of truth | A PR can pass or fail against obsolete `.workflow/active` state instead of the committed record | Replace the legacy workflow-gate state lookup with gate-record validation | Section 3 |
+| The legacy CI gate can remain as a parallel source of truth | A PR can pass or fail against obsolete `.workflow/gate.py` or `.workflow/active` state instead of the committed record | Delete `.workflow/gate.py` and replace the legacy workflow-gate state lookup with gate-record validation | Section 3 |
 | Generated workflow artifacts cause noisy merge conflicts | Agents repeatedly resolve conflicts in files that should be local evidence, not canonical text | Ignore generated gate/audit artifacts and explicitly migrate any tracked canonical workflow files | Section 3 |
+| Agents need a concrete command surface | Agents otherwise treat the workflow as prose and skip durable state updates | Define a mandatory `gate_record` CLI for AI use | Section 3 |
 
 ## 2. Sentrux Free-Tier Integration
 
@@ -147,12 +149,12 @@ The canonical gate has six stages:
 | 5. Test And Checks | Required checks after docs landing, QA full audit evidence, command or tool id, exit code/status, timestamp, output path or compact result | Missing or failing required checks fail local hooks and CI, subject to temporary debt handling for known full-audit findings |
 | 6. Commit And Submit PR | Commit trailers, gate record path, closing issue link, PR URL or CI-discoverable PR association | Missing durable provenance or missing issue-closing keywords fails commit-msg hooks or CI |
 
-Existing `.workflow/gate.py` records may remain as a legacy helper during
-migration, but they are not the normative ADR-042 gate unless they produce the
-committed gate record described here and pass CI validation. The existing
-workflow-gate CI step that searches `.workflow/active` for local state must be
-replaced by committed gate-record validation; CI must not keep both checks as
-parallel authorities.
+Existing `.workflow/gate.py` records and commands are obsolete for ADR-042 gate
+compliance, and `.workflow/gate.py` must be deleted from the repository. Agents
+must not use `.workflow/gate.py` as the gate entry point, local evidence source,
+or CI evidence source. The existing workflow-gate CI step that searches
+`.workflow/active` for local state must be replaced by committed gate-record
+validation; CI must not keep both checks as parallel authorities.
 
 Generated gate and audit outputs that are not canonical repository
 documentation should be ignored to avoid recurring branch conflicts. If the
@@ -161,7 +163,72 @@ project decides that an already tracked canonical workflow file such as
 remove it from the Git index and update gate semantics; adding a tracked file
 to `.gitignore` alone is not sufficient.
 
-### 3.1 Required Agent Procedure
+### 3.1 Required AI Gate CLI
+
+AI agents must use the repository-owned gate-record CLI to create and update
+the committed gate record. The command surface is:
+
+```bash
+python -m scieasy.qa.governance.gate_record start \
+  --task-kind feature|bugfix|hotfix|refactor|docs|maintenance|manager \
+  --issue <number> \
+  --branch <branch> \
+  --owner-directive "<owner instruction>" \
+  --include <path-or-glob> \
+  --exclude <path-or-glob> \
+  --record .workflow/records/<issue>-<task-slug>.json
+
+python -m scieasy.qa.governance.gate_record plan \
+  --record .workflow/records/<issue>-<task-slug>.json \
+  --files <path-or-glob> \
+  --docs <path-or-na> \
+  --tests <path-or-na> \
+  --checks ruff,format,pytest,full_audit,sentrux
+
+python -m scieasy.qa.governance.gate_record amend \
+  --record .workflow/records/<issue>-<task-slug>.json \
+  --reason "<why scope changed>" \
+  --include <path-or-glob>
+
+python -m scieasy.qa.governance.gate_record docs \
+  --record .workflow/records/<issue>-<task-slug>.json \
+  --updated <path> \
+  --na <doc-class>:<reason>
+
+python -m scieasy.qa.governance.gate_record check \
+  --record .workflow/records/<issue>-<task-slug>.json \
+  --name <check-name> \
+  --command "<command or MCP tool id>" \
+  --status pass|fail|skipped \
+  --exit-code <code> \
+  --output <path-or-summary>
+
+python -m scieasy.qa.governance.gate_record sentrux \
+  --record .workflow/records/<issue>-<task-slug>.json \
+  --mode free-tier \
+  --status pass|fail|skipped \
+  --evidence <json-path-or-summary>
+
+python -m scieasy.qa.governance.gate_record finalize \
+  --record .workflow/records/<issue>-<task-slug>.json \
+  --commit <sha> \
+  --pr <url> \
+  --closes "#<issue>"
+
+python -m scieasy.qa.governance.gate_record pre-commit --staged
+python -m scieasy.qa.governance.gate_record commit-msg <commit-msg-file>
+python -m scieasy.qa.governance.gate_record ci \
+  --gate-record .workflow/records/<issue>-<task-slug>.json \
+  --base <base-ref> \
+  --head <head-ref> \
+  --pr-body <path-or-text>
+```
+
+The CLI may expose additional convenience aliases, but the commands above are
+the normative AI-facing interface. They must update the committed gate record or
+validate it; self-attestation in chat is not gate evidence.
+
+### 3.2 Required Agent Procedure
 
 Agents must execute the gate as an explicit sequence. Each step updates the
 committed gate record before moving to the next step.
@@ -170,7 +237,8 @@ committed gate record before moving to the next step.
 
 The agent must:
 
-1. Create or update `.workflow/records/<issue>-<task-slug>.json`.
+1. Create or update `.workflow/records/<issue>-<task-slug>.json` with
+   `python -m scieasy.qa.governance.gate_record start`.
 2. Record `task_kind`, `branch`, `owner_directive`, `scope.include`,
    `scope.exclude`, `governance_touch`, and expected artifact classes.
 3. Link an existing issue or create a new issue before implementation work is
@@ -195,7 +263,8 @@ No AI-authored PR is ready when the gate record lacks issue linkage.
 
 The agent must:
 
-1. Record planned files and directories.
+1. Record planned files and directories with
+   `python -m scieasy.qa.governance.gate_record plan`.
 2. Record expected docs, tests, changelog, ADR/spec/addendum, and checklist
    landing.
 3. Record required checks. At minimum, source or governance changes require:
@@ -216,8 +285,9 @@ agent stages or commits the extra files.
 The agent must:
 
 1. Keep changes within `scope.include` and outside `scope.exclude`.
-2. Update the gate record with amendments before touching newly discovered
-   files outside the original plan.
+2. Update the gate record with
+   `python -m scieasy.qa.governance.gate_record amend` before touching newly
+   discovered files outside the original plan.
 3. For implementation-category tasks, add or modify at least one test file in
    the same PR.
 4. Record deferred work only with tracked issues. Untracked TODOs or deferrals
@@ -234,7 +304,8 @@ is explicit rather than inferred after the fact.
 The agent must:
 
 1. Update required docs, specs, ADR addenda, changelog entries, and checklists.
-2. Record the updated paths in the gate record.
+2. Record the updated paths in the gate record with
+   `python -m scieasy.qa.governance.gate_record docs`.
 3. For each documentation class that is not required, record an explicit N/A
    rationale.
 4. Update the plan amendment if documentation work expands the file scope.
@@ -258,6 +329,10 @@ python -m scieasy.qa.audit.full_audit \
   --format json \
   --output docs/audit/full-audit-latest.json
 ```
+
+Each completed check must be recorded with
+`python -m scieasy.qa.governance.gate_record check`; Sentrux evidence must be
+recorded with `python -m scieasy.qa.governance.gate_record sentrux`.
 
 When generated facts are part of the change or full audit reports stale facts,
 the agent must also run:
@@ -312,10 +387,12 @@ Assisted-by: <runtime>:<model-or-agent-id>
 ```
 
 3. Push the branch and open the PR.
-4. Ensure the PR body names the gate record path and closes every issue listed
+4. Record final commit and PR evidence with
+   `python -m scieasy.qa.governance.gate_record finalize`.
+5. Ensure the PR body names the gate record path and closes every issue listed
    in the gate record using GitHub closing keywords: `Closes #N`, `Fixes #N`,
    or `Resolves #N`.
-5. Let CI re-run gate validation, QA full audit, and Sentrux checks. Local
+6. Let CI re-run gate validation, QA full audit, and Sentrux checks. Local
    evidence helps review; CI evidence is authoritative.
 
 Referencing an issue without a closing keyword is not sufficient. If a gate
