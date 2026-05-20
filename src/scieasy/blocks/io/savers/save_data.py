@@ -1,4 +1,4 @@
-"""SaveData — dynamic-port core IO saver (ADR-028 Addendum 1 §C5/§C9).
+"""SaveData — dynamic-port core IO saver (ADR-028 Addendum 1 §C5/§C9, ADR-043).
 
 The :class:`SaveData` block is the canonical core IO **output** block:
 one block class with a ``core_type`` enum that drives a per-instance
@@ -21,6 +21,14 @@ This block is symmetric with :class:`scieasy.blocks.io.loaders.LoadData`
 ``config_schema`` shape; the only differences are ``direction``,
 ``input_ports`` vs ``output_ports``, and ``input_port_mapping`` vs
 ``output_port_mapping`` in the ``dynamic_ports`` declaration.
+
+ADR-043 / spec ``adr-043-package-migration`` FR-002 / FR-003:
+``SaveData`` now declares explicit ``FormatCapability`` records via
+``format_capabilities`` (mirror of ``LoadData.format_capabilities`` with
+``direction="save"``). The legacy ``supported_extensions`` ClassVar has
+been removed; format dispatch is derived from the capability
+declarations via :func:`_legacy_save_extension_map`. Each save
+capability is paired with its load sibling via ``roundtrip_group``.
 """
 
 from __future__ import annotations
@@ -34,6 +42,7 @@ from typing import Any, ClassVar
 
 from scieasy.blocks.base.config import BlockConfig
 from scieasy.blocks.base.ports import InputPort, OutputPort
+from scieasy.blocks.io.capabilities import FormatCapability, MetadataFidelity
 from scieasy.blocks.io.io_block import IOBlock
 from scieasy.core.types.array import Array
 from scieasy.core.types.artifact import Artifact
@@ -67,24 +76,424 @@ _CORE_TYPE_MAP: dict[str, type[DataObject]] = {
 _PICKLE_EXTENSIONS: frozenset[str] = frozenset({".pkl", ".pickle"})
 
 
-def _resolve_save_format(path: Path) -> str | None:
-    """Resolve a path's format identifier via :attr:`SaveData.supported_extensions`.
+# ---------------------------------------------------------------------------
+# ADR-043 / spec ``adr-043-package-migration`` FR-002:
+# explicit ``FormatCapability`` declarations for the SaveData six-core-type
+# matrix. Capability id convention: ``core.{lower(type)}.{format_id}.save``.
+# Each capability is paired with its load sibling (declared in
+# ``scieasy.blocks.io.loaders.load_data``) via
+# ``roundtrip_group=core.{type}.{format}``.
+# ---------------------------------------------------------------------------
 
-    Issue #1074: module-level mirror of :meth:`IOBlock._detect_format`
-    used by the private ``_save_*`` functions so they can route on the
-    ClassVar without holding a ``SaveData`` instance reference.
-    Compound-suffix-first, case-insensitive lookup matching
-    ``IOBlock._detect_format`` semantics.
+
+_PICKLE_NOTE: str = "requires allow_pickle=True"
+
+
+def _save_capability(
+    *,
+    data_type: type[DataObject],
+    type_name: str,
+    format_id: str,
+    extensions: tuple[str, ...],
+    label: str,
+    handler: str,
+    notes: str | None = None,
+) -> FormatCapability:
+    """Build a single save-direction :class:`FormatCapability` record.
+
+    The capability id follows the spec FR-015 convention
+    ``core.{lower(type)}.{format_id}.save`` and the roundtrip group
+    mirrors the matching load capability so the registry can pair
+    load+save handlers via :attr:`FormatCapability.roundtrip_group`.
+
+    Core IO records are declared ``is_default=False`` so installed
+    package-specific savers (e.g. the LCMS package's
+    ``scieasy-blocks-lcms.table.csv.save`` for ``(DataFrame, .csv)``)
+    keep ownership of the default slot for their specialised data types
+    without triggering a registration-time conflict. When no package
+    declares a default for a given ``(data_type, extension)`` slot, the
+    registry returns the unique non-default core capability normally per
+    :meth:`BlockRegistry.find_saver_capability`.
     """
-    mapping = SaveData.supported_extensions
-    if not mapping:
+
+    lower_type = type_name.lower()
+    return FormatCapability(
+        id=f"core.{lower_type}.{format_id}.save",
+        direction="save",
+        data_type=data_type,
+        format_id=format_id,
+        extensions=extensions,
+        label=label,
+        block_type="SaveData",
+        handler=handler,
+        is_default=False,
+        roundtrip_group=f"core.{lower_type}.{format_id}",
+        metadata_fidelity=MetadataFidelity(level="pixel_only", notes=notes),
+        is_synthesized=False,
+    )
+
+
+_SAVE_CAPABILITIES: tuple[FormatCapability, ...] = (
+    # ----- Array -----------------------------------------------------------
+    _save_capability(
+        data_type=Array,
+        type_name="Array",
+        format_id="npy",
+        extensions=(".npy",),
+        label="NumPy NPY",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Array,
+        type_name="Array",
+        format_id="npz",
+        extensions=(".npz",),
+        label="NumPy NPZ",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Array,
+        type_name="Array",
+        format_id="zarr",
+        extensions=(".zarr",),
+        label="Zarr",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Array,
+        type_name="Array",
+        format_id="parquet",
+        extensions=(".parquet", ".pq"),
+        label="Parquet",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Array,
+        type_name="Array",
+        format_id="pickle",
+        extensions=(".pkl", ".pickle"),
+        label="Pickle",
+        handler="save",
+        notes=_PICKLE_NOTE,
+    ),
+    # ----- DataFrame -------------------------------------------------------
+    _save_capability(
+        data_type=DataFrame,
+        type_name="DataFrame",
+        format_id="csv",
+        extensions=(".csv",),
+        label="CSV",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=DataFrame,
+        type_name="DataFrame",
+        format_id="tsv",
+        extensions=(".tsv",),
+        label="TSV",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=DataFrame,
+        type_name="DataFrame",
+        format_id="parquet",
+        extensions=(".parquet", ".pq"),
+        label="Parquet",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=DataFrame,
+        type_name="DataFrame",
+        format_id="json",
+        extensions=(".json",),
+        label="JSON",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=DataFrame,
+        type_name="DataFrame",
+        format_id="pickle",
+        extensions=(".pkl", ".pickle"),
+        label="Pickle",
+        handler="save",
+        notes=_PICKLE_NOTE,
+    ),
+    # ----- Series ----------------------------------------------------------
+    _save_capability(
+        data_type=Series,
+        type_name="Series",
+        format_id="csv",
+        extensions=(".csv",),
+        label="CSV",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Series,
+        type_name="Series",
+        format_id="tsv",
+        extensions=(".tsv",),
+        label="TSV",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Series,
+        type_name="Series",
+        format_id="parquet",
+        extensions=(".parquet", ".pq"),
+        label="Parquet",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Series,
+        type_name="Series",
+        format_id="json",
+        extensions=(".json",),
+        label="JSON",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Series,
+        type_name="Series",
+        format_id="pickle",
+        extensions=(".pkl", ".pickle"),
+        label="Pickle",
+        handler="save",
+        notes=_PICKLE_NOTE,
+    ),
+    # ----- Text ------------------------------------------------------------
+    _save_capability(
+        data_type=Text,
+        type_name="Text",
+        format_id="text",
+        extensions=(
+            ".txt",
+            ".log",
+            ".md",
+            ".html",
+            ".xml",
+            ".yaml",
+            ".yml",
+            ".toml",
+        ),
+        label="Text",
+        handler="save",
+    ),
+    # Text + .json is a legacy save-only extension: ``_save_text`` writes
+    # JSON files happily (just dumps ``obj.content``) but LoadData's Text
+    # capability intentionally excludes ``.json`` because ``_load_text``
+    # does not parse JSON. Declared as a separate capability record with
+    # ``format_id="json"`` so ``find_saver_capability(Text, '.json')``
+    # resolves to a Text saver without conflicting with the Text +
+    # ``.json`` -> ``"text"`` mapping at the extension-map layer. Mirrors
+    # the Series + json save-only legacy branch and the P1 Codex-review
+    # finding on PR #1300.
+    _save_capability(
+        data_type=Text,
+        type_name="Text",
+        format_id="json",
+        extensions=(".json",),
+        label="Text as JSON",
+        handler="save",
+    ),
+    # ----- Artifact (opaque catch-all saver) ------------------------------
+    # ``_save_artifact`` accepts any extension at runtime — it copies bytes
+    # to the configured path. The capability records below cover the
+    # canonical MIME-mapped extensions AND every extension the typed core
+    # savers claim, so the AppBlock wildcard-port flow (which the binner
+    # maps to Artifact) can resolve a saver for the legacy
+    # supported-extension union without falling through to the
+    # registry's polymorphic fallback. Mirror of the corresponding
+    # ``Artifact``-as-opaque-loader records on the ``LoadData`` side.
+    _save_capability(
+        data_type=Artifact,
+        type_name="Artifact",
+        format_id="binary",
+        extensions=(".bin", ".dat"),
+        label="Binary",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Artifact,
+        type_name="Artifact",
+        format_id="pdf",
+        extensions=(".pdf",),
+        label="PDF",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Artifact,
+        type_name="Artifact",
+        format_id="png",
+        extensions=(".png",),
+        label="PNG",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Artifact,
+        type_name="Artifact",
+        format_id="jpeg",
+        extensions=(".jpg", ".jpeg"),
+        label="JPEG",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Artifact,
+        type_name="Artifact",
+        format_id="tiff",
+        extensions=(".tif", ".tiff"),
+        label="TIFF",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Artifact,
+        type_name="Artifact",
+        format_id="csv",
+        extensions=(".csv",),
+        label="CSV (opaque)",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Artifact,
+        type_name="Artifact",
+        format_id="tsv",
+        extensions=(".tsv",),
+        label="TSV (opaque)",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Artifact,
+        type_name="Artifact",
+        format_id="json",
+        extensions=(".json",),
+        label="JSON (opaque)",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Artifact,
+        type_name="Artifact",
+        format_id="parquet",
+        extensions=(".parquet", ".pq"),
+        label="Parquet (opaque)",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Artifact,
+        type_name="Artifact",
+        format_id="npy",
+        extensions=(".npy",),
+        label="NumPy NPY (opaque)",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Artifact,
+        type_name="Artifact",
+        format_id="npz",
+        extensions=(".npz",),
+        label="NumPy NPZ (opaque)",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Artifact,
+        type_name="Artifact",
+        format_id="zarr",
+        extensions=(".zarr",),
+        label="Zarr (opaque)",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Artifact,
+        type_name="Artifact",
+        format_id="text",
+        extensions=(
+            ".txt",
+            ".log",
+            ".md",
+            ".html",
+            ".xml",
+            ".yaml",
+            ".yml",
+            ".toml",
+        ),
+        label="Text (opaque)",
+        handler="save",
+    ),
+    _save_capability(
+        data_type=Artifact,
+        type_name="Artifact",
+        format_id="pickle",
+        extensions=(".pkl", ".pickle"),
+        label="Pickle (opaque)",
+        handler="save",
+        notes=_PICKLE_NOTE,
+    ),
+    # ----- CompositeData ---------------------------------------------------
+    _save_capability(
+        data_type=CompositeData,
+        type_name="CompositeData",
+        format_id="json",
+        extensions=(".json",),
+        label="Composite manifest (JSON)",
+        handler="save",
+    ),
+)
+
+
+def _legacy_save_extension_map(
+    capabilities: tuple[FormatCapability, ...],
+) -> dict[str, str]:
+    """Derive a legacy ``extension -> format_id`` mapping from capabilities.
+
+    Mirror of :func:`scieasy.blocks.io.loaders.load_data._legacy_extension_map`.
+    The same extension may appear on multiple types (e.g. ``.parquet`` on
+    Array, DataFrame, Series) but the ``format_id`` is identical across
+    types, so the dict is well-defined. Conflicting format_id values
+    raise :class:`RuntimeError` to surface misconfiguration.
+    """
+
+    mapping: dict[str, str] = {}
+    for capability in capabilities:
+        for extension in capability.extensions:
+            normalized = extension.lower()
+            existing = mapping.get(normalized)
+            if existing is not None and existing != capability.format_id:
+                raise RuntimeError(
+                    f"SaveData format_capabilities declare conflicting format_id "
+                    f"for extension {normalized!r}: {existing!r} vs {capability.format_id!r}"
+                )
+            mapping[normalized] = capability.format_id
+    return mapping
+
+
+_SAVE_EXTENSION_MAP: dict[str, str] = _legacy_save_extension_map(_SAVE_CAPABILITIES)
+
+
+def _supported_save_extensions() -> tuple[str, ...]:
+    """Return the sorted tuple of every extension declared by SaveData.
+
+    Replaces the legacy ``sorted(SaveData.supported_extensions.keys())``
+    call sites in user-facing error messages.
+    """
+
+    return tuple(sorted(_SAVE_EXTENSION_MAP.keys()))
+
+
+def _resolve_save_format(path: Path) -> str | None:
+    """Resolve a path's format identifier from the SaveData capability map.
+
+    ADR-043 / spec FR-003: format dispatch is now derived from explicit
+    :attr:`SaveData.format_capabilities` rather than the deleted
+    ``supported_extensions`` ClassVar. Compound-suffix-first,
+    case-insensitive lookup matching :meth:`IOBlock._detect_format`
+    semantics.
+    """
+
+    if not _SAVE_EXTENSION_MAP:
         return None
-    normalized = {k.lower(): v for k, v in mapping.items()}
     suffixes = [s.lower() for s in path.suffixes]
     for start in range(len(suffixes)):
         candidate = "".join(suffixes[start:])
-        if candidate in normalized:
-            return normalized[candidate]
+        if candidate in _SAVE_EXTENSION_MAP:
+            return _SAVE_EXTENSION_MAP[candidate]
     return None
 
 
@@ -230,39 +639,17 @@ class SaveData(IOBlock):
     )
     subcategory: ClassVar[str] = "io"
 
-    # ADR-028 §D8 / issue #1074: declarative mapping of every file
-    # extension this saver can write to a stable format identifier.
-    # Mirrors :attr:`LoadData.supported_extensions` — same suffixes /
-    # format ids so a round-trip Load -> Save shares the same
-    # discoverable set. The Text branch's internal write set
-    # (``.markdown``, ``.htm``) is intentionally a superset of this
-    # ClassVar to preserve backward compatibility; the registry-visible
-    # set surfaces only the canonical mirror so consumers of #1077
-    # (BlockRegistry.find_saver) see a consistent menu.
-    supported_extensions: ClassVar[dict[str, str]] = {
-        # Array formats
-        ".npy": "npy",
-        ".npz": "npz",
-        ".zarr": "zarr",
-        ".parquet": "parquet",
-        ".pq": "parquet",
-        # Pickle (gated by allow_pickle)
-        ".pkl": "pickle",
-        ".pickle": "pickle",
-        # DataFrame / Series tabular formats
-        ".csv": "csv",
-        ".tsv": "tsv",
-        ".json": "json",
-        # Text formats
-        ".txt": "text",
-        ".log": "text",
-        ".md": "text",
-        ".html": "text",
-        ".xml": "text",
-        ".yaml": "text",
-        ".yml": "text",
-        ".toml": "text",
-    }
+    # ADR-043 / spec ``adr-043-package-migration`` FR-002 / FR-003:
+    # explicit per-(type, format) capability records. Replaces the
+    # legacy ``supported_extensions`` ClassVar which has been removed.
+    # The capability id convention follows spec FR-015:
+    # ``core.{lower(type)}.{format_id}.save``. Each save capability is
+    # paired with its load sibling via ``roundtrip_group``. Pickle
+    # records carry ``notes="requires allow_pickle=True"``; the runtime
+    # gate is enforced by :func:`_check_pickle_gate`. Extension
+    # dispatch is derived from these records at module load time via
+    # :data:`_SAVE_EXTENSION_MAP`.
+    format_capabilities: ClassVar[tuple[FormatCapability, ...]] = _SAVE_CAPABILITIES
 
     # The ``data`` input port's accepted_types is a placeholder
     # ``[DataObject]`` here. The per-instance override in
@@ -315,6 +702,25 @@ class SaveData(IOBlock):
         },
         "required": ["core_type"],
     }
+
+    def _detect_format(self, path: Path) -> str | None:
+        """Resolve *path* to a stable format id via the capability map.
+
+        ADR-043 / spec FR-003: the legacy ``supported_extensions``
+        ClassVar has been removed; the per-instance ``_detect_format``
+        now consults :data:`_SAVE_EXTENSION_MAP`, which is derived from
+        :attr:`format_capabilities` at module load time. Compound-suffix
+        matching mirrors :meth:`IOBlock._detect_format`.
+        """
+
+        if not _SAVE_EXTENSION_MAP:
+            return None
+        suffixes = [s.lower() for s in path.suffixes]
+        for start in range(len(suffixes)):
+            candidate = "".join(suffixes[start:])
+            if candidate in _SAVE_EXTENSION_MAP:
+                return _SAVE_EXTENSION_MAP[candidate]
+        return None
 
     def get_effective_input_ports(self) -> list[InputPort]:
         """Return effective input ports tightened to the chosen ``core_type``.
@@ -430,7 +836,7 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
     """
     assert isinstance(obj, Array), f"Expected Array, got {type(obj).__name__}"
     path = _require_path(config)
-    # Issue #1074: format dispatch through ``SaveData.supported_extensions``.
+    # ADR-043 FR-003: format dispatch through SaveData.format_capabilities.
     fmt = _resolve_save_format(path)
 
     if _check_pickle_gate(path, config):
@@ -496,7 +902,7 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
 
     raise ValueError(
         f"Unsupported Array file extension {path.suffix.lower()!r}. "
-        f"Supported extensions: {sorted(SaveData.supported_extensions.keys())} "
+        f"Supported extensions: {list(_supported_save_extensions())} "
         f"(.pkl/.pickle require allow_pickle=True)."
     )
 
@@ -512,7 +918,7 @@ def _save_dataframe(obj: DataObject, config: BlockConfig) -> None:
     """
     assert isinstance(obj, DataFrame), f"Expected DataFrame, got {type(obj).__name__}"
     path = _require_path(config)
-    # Issue #1074: format dispatch through ``SaveData.supported_extensions``.
+    # ADR-043 FR-003: format dispatch through SaveData.format_capabilities.
     fmt = _resolve_save_format(path)
 
     if _check_pickle_gate(path, config):
@@ -546,7 +952,7 @@ def _save_dataframe(obj: DataObject, config: BlockConfig) -> None:
 
     raise ValueError(
         f"Unsupported DataFrame file extension {path.suffix.lower()!r}. "
-        f"Supported extensions: {sorted(SaveData.supported_extensions.keys())} "
+        f"Supported extensions: {list(_supported_save_extensions())} "
         f"(.pkl/.pickle require allow_pickle=True)."
     )
 
@@ -561,7 +967,7 @@ def _save_series(obj: DataObject, config: BlockConfig) -> None:
     """
     assert isinstance(obj, Series), f"Expected Series, got {type(obj).__name__}"
     path = _require_path(config)
-    # Issue #1074: format dispatch through ``SaveData.supported_extensions``.
+    # ADR-043 FR-003: format dispatch through SaveData.format_capabilities.
     fmt = _resolve_save_format(path)
 
     if _check_pickle_gate(path, config):
@@ -609,7 +1015,7 @@ def _save_series(obj: DataObject, config: BlockConfig) -> None:
 
     raise ValueError(
         f"Unsupported Series file extension {path.suffix.lower()!r}. "
-        f"Supported extensions: {sorted(SaveData.supported_extensions.keys())} "
+        f"Supported extensions: {list(_supported_save_extensions())} "
         f"(.pkl/.pickle require allow_pickle=True)."
     )
 
@@ -623,12 +1029,13 @@ def _save_text(obj: DataObject, config: BlockConfig) -> None:
     """
     assert isinstance(obj, Text), f"Expected Text, got {type(obj).__name__}"
     path = _require_path(config)
-    # Issue #1074: cross-check via the SaveData ClassVar (the canonical
-    # registry-visible set). The internal ``supported`` frozenset below
-    # is a permissive superset retained for backward compatibility with
-    # callers that historically wrote ``.markdown`` / ``.htm``; the
-    # registry-visible error message references the ClassVar so the
-    # user-facing supported list stays consistent across blocks.
+    # ADR-043 FR-003: cross-check via the SaveData capability map (the
+    # canonical registry-visible set). The internal ``supported`` frozenset
+    # below is a permissive superset retained for backward compatibility
+    # with callers that historically wrote ``.markdown`` / ``.htm``; the
+    # registry-visible error message references the capability-derived
+    # mapping so the user-facing supported list stays consistent across
+    # blocks.
     suffix = path.suffix.lower()
     supported = {
         ".txt",
@@ -646,7 +1053,7 @@ def _save_text(obj: DataObject, config: BlockConfig) -> None:
     if suffix not in supported:
         raise ValueError(
             f"Unsupported Text file extension {suffix!r}. "
-            f"Supported extensions: {sorted(SaveData.supported_extensions.keys())} "
+            f"Supported extensions: {list(_supported_save_extensions())} "
             f"(Text-specific superset: {sorted(supported)})."
         )
 

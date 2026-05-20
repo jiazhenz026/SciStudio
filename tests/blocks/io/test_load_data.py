@@ -664,41 +664,54 @@ def test_load_data_run_dispatches_to_load(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Issue #1074: supported_extensions ClassVar declaration + error message
-# now references sorted(self.supported_extensions.keys())
+# ADR-043 / spec ``adr-043-package-migration`` FR-003 (formerly issue #1074):
+# the legacy ``supported_extensions`` ClassVar has been deleted. Extension
+# dispatch is derived from ``LoadData.format_capabilities`` at module load
+# time and exposed via :data:`_LOAD_EXTENSION_MAP` and
+# :func:`_supported_load_extensions`. The tests below assert the
+# capability-derived contract.
 # ---------------------------------------------------------------------------
 
 
-class TestSupportedExtensionsClassVar:
-    """LoadData declares the canonical ``supported_extensions`` mapping
-    (ADR-028 §D8 / #1074) covering the union of every per-core-type
-    dispatch table. ``_detect_format`` (inherited from IOBlock) routes
-    suffix -> format identifier."""
+class TestCapabilityDerivedExtensionDispatch:
+    """LoadData derives the per-extension dispatch map from explicit
+    :attr:`LoadData.format_capabilities` records (ADR-043 FR-001 / FR-003)
+    instead of the deleted legacy ``supported_extensions`` ClassVar."""
 
-    def test_classvar_declared_and_populated(self) -> None:
-        """``LoadData.supported_extensions`` is a non-empty dict."""
-        assert isinstance(LoadData.supported_extensions, dict)
-        assert len(LoadData.supported_extensions) > 0
+    def test_extension_map_is_populated(self) -> None:
+        """``_LOAD_EXTENSION_MAP`` is a non-empty derived dict."""
+        from scieasy.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
 
-    def test_classvar_contains_array_extensions(self) -> None:
+        assert isinstance(_LOAD_EXTENSION_MAP, dict)
+        assert len(_LOAD_EXTENSION_MAP) > 0
+
+    def test_extension_map_contains_array_extensions(self) -> None:
         """Array dispatch suffixes (.npy/.npz/.zarr/.parquet/.pq) appear."""
+        from scieasy.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
+
         for ext in (".npy", ".npz", ".zarr", ".parquet", ".pq"):
-            assert ext in LoadData.supported_extensions, f"missing {ext!r}"
+            assert ext in _LOAD_EXTENSION_MAP, f"missing {ext!r}"
 
-    def test_classvar_contains_pickle_extensions(self) -> None:
+    def test_extension_map_contains_pickle_extensions(self) -> None:
         """Pickle suffixes appear (still gated by ``allow_pickle`` at runtime)."""
+        from scieasy.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
+
         for ext in (".pkl", ".pickle"):
-            assert ext in LoadData.supported_extensions, f"missing {ext!r}"
+            assert ext in _LOAD_EXTENSION_MAP, f"missing {ext!r}"
 
-    def test_classvar_contains_dataframe_extensions(self) -> None:
+    def test_extension_map_contains_dataframe_extensions(self) -> None:
         """DataFrame dispatch suffixes (.csv/.tsv/.json) appear."""
-        for ext in (".csv", ".tsv", ".json"):
-            assert ext in LoadData.supported_extensions, f"missing {ext!r}"
+        from scieasy.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
 
-    def test_classvar_contains_text_extensions(self) -> None:
+        for ext in (".csv", ".tsv", ".json"):
+            assert ext in _LOAD_EXTENSION_MAP, f"missing {ext!r}"
+
+    def test_extension_map_contains_text_extensions(self) -> None:
         """Text dispatch suffixes appear (subset of _TEXT_FORMAT_MAP)."""
+        from scieasy.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
+
         for ext in (".txt", ".md", ".html", ".xml", ".yaml", ".yml", ".toml", ".log"):
-            assert ext in LoadData.supported_extensions, f"missing {ext!r}"
+            assert ext in _LOAD_EXTENSION_MAP, f"missing {ext!r}"
 
     def test_detect_format_resolves_known_extensions(self, tmp_path: Path) -> None:
         """``_detect_format`` returns the registered identifier for a known suffix."""
@@ -707,10 +720,12 @@ class TestSupportedExtensionsClassVar:
         assert block._detect_format(tmp_path / "x.csv") == "csv"
         assert block._detect_format(tmp_path / "x.unknown") is None
 
-    def test_unknown_extension_error_message_references_classvar(self, tmp_path: Path) -> None:
-        """The ValueError raised on an unknown Array extension mentions the
-        sorted ClassVar keys, not a hardcoded substring."""
+    def test_unknown_extension_error_message_lists_supported_set(self, tmp_path: Path) -> None:
+        """The ValueError raised on an unknown Array extension lists the
+        sorted, capability-derived supported extension set."""
         import re
+
+        from scieasy.blocks.io.loaders.load_data import _supported_load_extensions
 
         bogus = tmp_path / "bogus.xyz"
         bogus.write_bytes(b"junk")
@@ -718,27 +733,33 @@ class TestSupportedExtensionsClassVar:
         with pytest.raises(ValueError) as excinfo:
             block.run(inputs={}, config=block.config)
         msg = str(excinfo.value)
-        # The error message includes the sorted list of registered suffixes.
-        for key in sorted(LoadData.supported_extensions.keys()):
+        for key in _supported_load_extensions():
             assert re.search(re.escape(repr(key)), msg), f"missing {key!r} in error: {msg}"
 
-    def test_unknown_extension_dataframe_error_references_classvar(self, tmp_path: Path) -> None:
-        """Same for DataFrame core_type — the error references the ClassVar."""
+    def test_unknown_extension_dataframe_error_lists_supported_set(self, tmp_path: Path) -> None:
+        """Same for DataFrame core_type — the error references the
+        capability-derived supported set."""
         bogus = tmp_path / "bogus.xyz"
         bogus.write_bytes(b"junk")
         block = LoadData(config={"params": {"core_type": "DataFrame", "path": str(bogus)}})
         with pytest.raises(ValueError) as excinfo:
             block.run(inputs={}, config=block.config)
         msg = str(excinfo.value)
-        # Spot-check a couple of keys present in the mirror.
+        # Spot-check a couple of keys present in the derived mirror.
         assert ".csv" in msg
         assert ".parquet" in msg
 
-    def test_classvar_is_inherited_from_ioblock(self) -> None:
-        """The ClassVar lives at class scope and is the canonical override
-        of the empty default declared on :class:`IOBlock`."""
+    def test_supported_extensions_inherits_empty_default_from_ioblock(self) -> None:
+        """Per ADR-043 FR-003, the legacy ``supported_extensions`` ClassVar
+        is removed from ``LoadData``; the base ``IOBlock`` default (empty
+        dict) is now what an MRO lookup returns. The capability-derived
+        mapping lives in :data:`_LOAD_EXTENSION_MAP` instead."""
         from scieasy.blocks.io.io_block import IOBlock
+        from scieasy.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
 
         assert IOBlock.supported_extensions == {}
-        # LoadData populates it; the override is not the empty base default.
-        assert LoadData.supported_extensions != IOBlock.supported_extensions
+        # LoadData no longer overrides the ClassVar — the override has been
+        # replaced by an explicit ``format_capabilities`` declaration.
+        assert LoadData.supported_extensions is IOBlock.supported_extensions
+        # The runtime dispatch map (derived from capabilities) is populated.
+        assert len(_LOAD_EXTENSION_MAP) > 0
