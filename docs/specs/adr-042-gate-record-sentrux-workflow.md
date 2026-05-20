@@ -16,6 +16,7 @@ related_specs:
 scope:
   in:
     - Standalone ADR addendum frontmatter and lint support.
+    - Architecture document frontmatter and lint support for `docs/architecture/ARCHITECTURE.md`.
     - Committed gate record schema and validator.
     - Orchestration of ADR-042 custom hard-fail guards already defined for issue linkage, docs landing, persona policy, governance protection, and CI weakening.
     - Human bypass guard integration and contributor-facing bypass procedure.
@@ -27,6 +28,7 @@ scope:
     - Local pre-commit, commit-msg, pre-push, and PR-create interception.
     - GitHub Actions workflow-gate updates.
     - `.gitignore` handling for generated gate/audit artifacts and any explicit migration away from conflict-prone tracked workflow files.
+    - Removal of obsolete `.workflow/gate.py` and replacement of current hook references with the gate-record CLI.
   out:
     - Requiring Sentrux Pro or Pro-only diagnostics.
     - Replacing normal CI, branch protection, owner review, or GitHub issue tracking.
@@ -49,6 +51,7 @@ governs:
     - scieasy.qa.governance.weakened_ci_check
   contracts:
     - scieasy.qa.schemas.frontmatter.ADRAddendumFrontmatter
+    - scieasy.qa.schemas.frontmatter.ArchitectureFrontmatter
     - scieasy.qa.audit.frontmatter_lint.lint_file
     - scieasy.qa.governance.gate_record.GateRecord
     - scieasy.qa.governance.gate_record.GateStage
@@ -72,6 +75,7 @@ governs:
   files:
     - docs/specs/adr-042-gate-record-sentrux-workflow.md
     - docs/adr/ADR-042-addendum1.md
+    - docs/architecture/ARCHITECTURE.md
     - src/scieasy/qa/schemas/frontmatter.py
     - src/scieasy/qa/audit/frontmatter_lint.py
     - src/scieasy/qa/audit/loaders.py
@@ -163,7 +167,9 @@ CI, specs, and contributor docs must use these exact strings.
 The implementation must also replace the legacy CI gate check. The old
 `.workflow/active` local-state lookup in `.github/workflows/workflow-gate.yml`
 must not remain as a parallel source of authority after committed gate records
-are implemented.
+are implemented. The old `.workflow/gate.py` command is obsolete and must be
+deleted from the repository; current hooks and contributor instructions must
+call `python -m scieasy.qa.governance.gate_record` instead.
 
 Generated or local workflow artifacts that cause recurring branch conflicts
 must be ignored where they are not canonical repository documentation. If an
@@ -208,6 +214,25 @@ Acceptance Scenarios:
    then it fails.
 3. Given an addendum without `## 1. Decision Summary` or
    `### 1.1 Problems Addressed`, when lint runs, then it fails.
+
+### User Story 2a - Architecture document frontmatter is audited (Priority: P1)
+
+As a maintainer, I need the top-level architecture document to participate in
+ADR-042 frontmatter audit so architecture metadata cannot drift outside the
+quality gate.
+
+Independent Test: Run `frontmatter_lint.lint_file` against
+`docs/architecture/ARCHITECTURE.md` and fixtures with invalid `doc_type`,
+missing owner, missing governed ADRs, and wrong H1.
+
+Acceptance Scenarios:
+
+1. Given `docs/architecture/ARCHITECTURE.md` with `doc_type: architecture`,
+   when frontmatter lint runs, then it passes architecture metadata validation.
+2. Given an architecture document without an owner, when lint runs, then it
+   fails.
+3. Given an architecture document whose H1 does not match the frontmatter title,
+   when lint runs, then it fails.
 
 ### User Story 3 - Existing ADR-042 guards remain hard-fail (Priority: P1)
 
@@ -364,6 +389,10 @@ Acceptance Scenarios:
 - FR-002: `frontmatter_lint` MUST validate addendum filenames, H1 titles,
   `## 1. Decision Summary`, `### 1.1 Problems Addressed`, and detailed-section
   references.
+- FR-002a: `frontmatter_lint` MUST validate
+  `docs/architecture/ARCHITECTURE.md` with an architecture frontmatter schema,
+  include it in repo-wide checks, and fail when architecture metadata or H1
+  structure is invalid.
 - FR-003: The implementation MUST define a Pydantic-backed `GateRecord` schema
   stored as JSON under `.workflow/records/`.
 - FR-004: Gate record validation MUST call or consume the existing ADR-042
@@ -396,8 +425,8 @@ Acceptance Scenarios:
   local evidence is not authoritative.
 - FR-017: Commit-message validation MUST require `Gate-Record`, `Task-Kind`,
   `Issue`, and `Assisted-by` trailers for AI-authored commits.
-- FR-018: Existing `.workflow/gate.py` MAY remain during migration but MUST NOT
-  be treated as sufficient unless it emits the committed gate record.
+- FR-018: Existing `.workflow/gate.py` MUST be deleted. No current hook, CI
+  workflow, or agent instruction may call it after this implementation.
 - FR-019: The implementation MUST add a human-facing bypass procedure under
   `docs/contributing/workflows/human-bypass.md`.
 - FR-020: Human bypass documentation MUST state that human maintainers may skip
@@ -415,6 +444,11 @@ Acceptance Scenarios:
 - FR-024: Changed-test-file enforcement MUST apply to feature, bugfix, hotfix,
   refactor, and maintenance tasks that touch source, package, frontend,
   workflow, gate, or governance implementation files.
+- FR-025: `gate_record` MUST expose the AI-facing CLI commands `start`, `plan`,
+  `amend`, `docs`, `check`, `sentrux`, `finalize`, `pre-commit`,
+  `commit-msg`, and `ci`.
+- FR-026: The push and PR hook wrappers MUST call the gate-record CLI and MUST
+  NOT inspect `.workflow/active` or call `.workflow/gate.py`.
 
 ## 4. Edge Cases
 
@@ -496,9 +530,10 @@ applicable changes rather than silently treating evidence as complete.
 | `src/scieasy/qa/governance/mod_guard.py` | use | Existing ADR-042 governance modification guard |
 | `src/scieasy/qa/governance/weakened_ci_check.py` | use | Existing ADR-042 CI weakening guard |
 | `src/scieasy/qa/schemas/frontmatter.py` | modify | Add standalone ADR addendum frontmatter schema support |
-| `src/scieasy/qa/audit/frontmatter_lint.py` | modify | Accept and validate `ADR-NNN-addendumM.md` |
-| `src/scieasy/qa/audit/loaders.py` | modify | Load addendum frontmatter for audit/facts tools |
+| `src/scieasy/qa/audit/frontmatter_lint.py` | modify | Accept and validate `ADR-NNN-addendumM.md` and `docs/architecture/ARCHITECTURE.md` |
+| `src/scieasy/qa/audit/loaders.py` | modify | Load addendum and architecture frontmatter for audit/facts tools |
 | `src/scieasy/qa/governance/__init__.py` | modify | Export gate-record public contracts |
+| `.workflow/gate.py` | delete | Remove obsolete local-only gate state machine |
 | `.workflow/gate-record.schema.json` | create | JSON Schema mirror for committed gate records |
 | `.workflow/records/.gitkeep` | create | Keep committed gate-record directory present |
 | `.gitignore` | modify | Ignore generated gate/audit artifacts and document tracked-file migration requirements |
@@ -660,16 +695,18 @@ sentrux check .
 6. Add override-label vocabulary and provenance tests.
 7. Add Sentrux evidence validation.
 8. Add full-audit evidence validation with known-debt classification support.
-9. Add CLI subcommands for `pre-commit`, `commit-msg`, and `ci`.
-10. Wire `.pre-commit-config.yaml` hooks.
-11. Update `.gitignore` for generated gate/audit artifacts and explicitly
+9. Add CLI subcommands for `start`, `plan`, `amend`, `docs`, `check`,
+   `sentrux`, `finalize`, `pre-commit`, `commit-msg`, and `ci`.
+10. Delete `.workflow/gate.py` and remove all current hook/CI references to it.
+11. Wire `.pre-commit-config.yaml` hooks.
+12. Update `.gitignore` for generated gate/audit artifacts and explicitly
     migrate any tracked canonical conflict-prone file before treating it as
     ignored.
-12. Update shell wrappers for push and PR creation.
-13. Replace the legacy GitHub Actions workflow-gate job with gate-record
+13. Update shell wrappers for push and PR creation.
+14. Replace the legacy GitHub Actions workflow-gate job with gate-record
     validation.
-14. Add `docs/contributing/workflows/human-bypass.md`.
-15. Add migration documentation in gate-record command help and PR template text
+15. Add `docs/contributing/workflows/human-bypass.md`.
+16. Add migration documentation in gate-record command help and PR template text
    if needed.
 
 ### 5.7 Verification Plan
@@ -709,7 +746,7 @@ sentrux check .
 | Gate records become stale boilerplate | CI compares records against PR diff and fails mismatches |
 | Agents forget to close issues | CI checks PR body closing keywords against gate-record issues |
 | Human maintainers bypass all hooks with `--no-verify` | Document that this is allowed for humans and make PR review plus CI the final quality decision |
-| Existing `.workflow/gate.py` conflicts with the new model | Keep it as legacy helper only until it emits committed gate records; remove old `.workflow/active` CI lookup |
+| Existing `.workflow/gate.py` conflicts with the new model | Delete `.workflow/gate.py`; current hooks and CI must call `gate_record` instead |
 | Conflict-prone generated artifacts create repeated merge conflicts | Ignore generated gate/audit artifacts; migrate already tracked canonical files explicitly before relying on ignore rules |
 
 Rollback is limited to disabling the new CI gate job while preserving normal
