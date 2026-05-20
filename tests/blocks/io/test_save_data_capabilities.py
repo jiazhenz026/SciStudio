@@ -118,12 +118,21 @@ class TestSaveDataFormatCapabilitiesShape:
         duplicates = [key for key, count in Counter(keys).items() if count > 1]
         assert not duplicates, f"duplicate (data_type, format_id) pairs: {duplicates}; FR-016 requires one per pair"
 
-    def test_every_capability_is_default(self) -> None:
-        """FR-002: ``is_default=True`` for the single-handler case (every
-        ``(type, format_id)`` pair has exactly one in-tree handler)."""
+    def test_no_capability_claims_default(self) -> None:
+        """FR-002 cross-package collision rule: core IO capabilities are
+        declared ``is_default=False`` so installed package-specific
+        savers (e.g. ``scieasy-blocks-lcms.table.csv.save`` for
+        ``(DataFrame, .csv)``) keep ownership of the default slot
+        without triggering a registration-time
+        :class:`CapabilityRegistrationError`. When no package declares a
+        default for a given ``(data_type, extension)`` slot, the
+        registry returns the unique non-default core capability via
+        :meth:`BlockRegistry.find_saver_capability`."""
         for capability in SaveData.format_capabilities:
-            assert capability.is_default is True, (
-                f"capability {capability.id!r} must be is_default=True (single-handler case)"
+            assert capability.is_default is False, (
+                f"capability {capability.id!r} must be is_default=False "
+                "to avoid cross-package default-slot conflicts (per A1 CI run "
+                "and ADR-043 §8 cross-package collision rule)"
             )
 
     def test_metadata_fidelity_is_pixel_only(self) -> None:
@@ -347,10 +356,13 @@ class TestRegistryAmbiguityForMultipleCapabilities:
     Two non-default candidates at the same slot trigger
     :class:`AmbiguousCapabilityError` at lookup time."""
 
-    def test_default_wins_when_alternate_is_non_default(self) -> None:
-        """SaveData declares ``core.dataframe.csv.save`` as ``is_default=True``
-        so it takes precedence over a non-default alternate at the same
-        ``(DataFrame, .csv)`` slot."""
+    def test_default_alternate_wins_over_non_default_core(self) -> None:
+        """SaveData's ``core.dataframe.csv.save`` is ``is_default=False``
+        (cross-package collision rule per A1 CI run). When a third-party
+        block declares the same slot with ``is_default=True``, the
+        default declaration wins. This mirrors the LCMS pilot pattern
+        where ``scieasy-blocks-lcms.table.csv.save`` claims default
+        ownership of ``(DataFrame, .csv)`` and SaveData yields."""
 
         class _AltDataFrameSaver(IOBlock):
             direction: ClassVar[str] = "output"
@@ -370,7 +382,7 @@ class TestRegistryAmbiguityForMultipleCapabilities:
                     label="Alt CSV saver",
                     block_type="_AltDataFrameSaver",
                     handler="save",
-                    is_default=False,
+                    is_default=True,
                     metadata_fidelity=MetadataFidelity(level="pixel_only"),
                     is_synthesized=False,
                 ),
@@ -386,7 +398,7 @@ class TestRegistryAmbiguityForMultipleCapabilities:
         registry._register_spec(_spec_from_class(SaveData, source="test"))
         registry._register_spec(_spec_from_class(_AltDataFrameSaver, source="test"))
         capability = registry.find_saver_capability(DataFrame, ".csv")
-        assert capability.block_type == "SaveData"
+        assert capability.block_type == "_AltDataFrameSaver"
 
     def test_two_non_default_capabilities_for_same_slot_raise_ambiguous_lookup(self) -> None:
         """Two ``is_default=False`` capabilities for the same slot trigger

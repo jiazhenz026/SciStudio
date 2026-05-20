@@ -116,12 +116,21 @@ class TestLoadDataFormatCapabilitiesShape:
         duplicates = [key for key, count in Counter(keys).items() if count > 1]
         assert not duplicates, f"duplicate (data_type, format_id) pairs: {duplicates}; FR-016 requires one per pair"
 
-    def test_every_capability_is_default(self) -> None:
-        """FR-001: ``is_default=True`` for the single-handler case (every
-        ``(type, format_id)`` pair has exactly one in-tree handler)."""
+    def test_no_capability_claims_default(self) -> None:
+        """FR-001 cross-package collision rule: core IO capabilities are
+        declared ``is_default=False`` so installed package-specific
+        loaders (e.g. ``scieasy-blocks-lcms.table.csv.load`` for
+        ``(DataFrame, .csv)``) keep ownership of the default slot
+        without triggering a registration-time
+        :class:`CapabilityRegistrationError`. When no package declares a
+        default for a given ``(data_type, extension)`` slot, the
+        registry returns the unique non-default core capability via
+        :meth:`BlockRegistry.find_loader_capability`."""
         for capability in LoadData.format_capabilities:
-            assert capability.is_default is True, (
-                f"capability {capability.id!r} must be is_default=True (single-handler case)"
+            assert capability.is_default is False, (
+                f"capability {capability.id!r} must be is_default=False "
+                "to avoid cross-package default-slot conflicts (per A1 CI run "
+                "and ADR-043 §8 cross-package collision rule)"
             )
 
     def test_metadata_fidelity_is_pixel_only(self) -> None:
@@ -324,7 +333,7 @@ class _AltDataFrameLoader(IOBlock):
             label="Alt CSV loader",
             block_type="_AltDataFrameLoader",
             handler="load",
-            is_default=False,
+            is_default=True,
             metadata_fidelity=MetadataFidelity(level="pixel_only"),
             is_synthesized=False,
         ),
@@ -343,15 +352,18 @@ class TestRegistryAmbiguityForMultipleCapabilities:
     is default (or both are), an :class:`AmbiguousCapabilityError` is
     raised."""
 
-    def test_default_wins_when_alternate_is_non_default(self) -> None:
-        """LoadData declares ``core.dataframe.csv.load`` as ``is_default=True``
-        so it takes precedence over a non-default alternate at the same
-        ``(DataFrame, .csv)`` slot."""
+    def test_default_alternate_wins_over_non_default_core(self) -> None:
+        """LoadData's ``core.dataframe.csv.load`` is ``is_default=False``
+        (cross-package collision rule per A1 CI run). When a third-party
+        block declares the same slot with ``is_default=True``, the
+        default declaration wins. This mirrors the LCMS pilot pattern
+        where ``scieasy-blocks-lcms.table.csv.load`` claims default
+        ownership of ``(DataFrame, .csv)`` and LoadData yields."""
         registry = BlockRegistry()
         registry._register_spec(_spec_from_class(LoadData, source="test"))
         registry._register_spec(_spec_from_class(_AltDataFrameLoader, source="test"))
         capability = registry.find_loader_capability(DataFrame, ".csv")
-        assert capability.block_type == "LoadData"
+        assert capability.block_type == "_AltDataFrameLoader"
 
     def test_two_non_default_capabilities_for_same_slot_raise_ambiguous_lookup(self) -> None:
         """When two capabilities are both ``is_default=False`` and share

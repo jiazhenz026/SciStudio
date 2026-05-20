@@ -83,6 +83,15 @@ def _load_capability(
     ``core.{lower(type)}.{format_id}.load`` and the roundtrip group
     mirrors the matching save capability so the registry can pair
     load+save handlers via :attr:`FormatCapability.roundtrip_group`.
+
+    Core IO records are declared ``is_default=False`` so installed
+    package-specific loaders (e.g. the LCMS package's
+    ``scieasy-blocks-lcms.table.csv.load`` for ``(DataFrame, .csv)``)
+    keep ownership of the default slot for their specialised data types
+    without triggering a registration-time conflict. When no package
+    declares a default for a given ``(data_type, extension)`` slot, the
+    registry returns the unique non-default core capability normally per
+    :meth:`BlockRegistry.find_loader_capability`.
     """
 
     lower_type = type_name.lower()
@@ -95,7 +104,7 @@ def _load_capability(
         label=label,
         block_type="LoadData",
         handler=handler,
-        is_default=True,
+        is_default=False,
         roundtrip_group=f"core.{lower_type}.{format_id}",
         metadata_fidelity=MetadataFidelity(level="pixel_only", notes=notes),
         is_synthesized=False,
