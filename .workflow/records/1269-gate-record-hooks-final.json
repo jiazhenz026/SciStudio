@@ -15,6 +15,15 @@
         "tests/qa/test_gate_record_hooks.py"
       ],
       "reason": "Add committed gate record and hook tests to final Track E scope."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/adr/ADR-042-addendum1.md",
+        "docs/specs/adr-042-gate-record-sentrux-workflow.md"
+      ],
+      "reason": "Synchronize addendum and spec hook semantics with final implementation."
     }
   ],
   "branch": "feat/issue-1269/gate-record-hooks-final",
@@ -25,7 +34,16 @@
   ],
   "check_results": [
     {
-      "command_or_tool": "ruff check scoped gate files",
+      "command_or_tool": "PYTHONPATH=src PYTEST_ADDOPTS=--no-cov pytest tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py --timeout=60",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff check .",
       "exit_code": 0,
       "name": "ruff",
       "output_path": null,
@@ -34,9 +52,18 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "PYTHONPATH=src PYTEST_ADDOPTS=--no-cov pytest tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py --timeout=60",
+      "command_or_tool": "ruff format --check .",
       "exit_code": 0,
-      "name": "pytest",
+      "name": "format",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src PYTEST_ADDOPTS=--no-cov pytest tests/qa --timeout=60",
+      "exit_code": 0,
+      "name": "pytest-qa",
       "output_path": null,
       "status": "pass",
       "summary": {},
@@ -60,6 +87,7 @@
     },
     "docs": {
       "paths": [
+        "docs/adr/ADR-042-addendum1.md",
         "docs/specs/adr-042-gate-record-sentrux-workflow.md"
       ]
     }

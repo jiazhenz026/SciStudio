@@ -441,18 +441,20 @@ Sentrux evidence must include at least:
 
 ## 5. Interception And CI Semantics
 
-Local hooks provide early feedback. CI is the final gate verifier.
+Local hooks provide early feedback. CI is the final gate verifier. Local
+pre-commit must not be the point where the full workflow is enforced, because
+AI agents and humans need to be able to iterate through commits before the final
+gate record is complete.
 
-Pre-commit should block AI-authored commits when:
+Pre-commit is a lightweight check:
 
-- no gate record exists for the branch;
-- staged files are outside `scope.include` or inside `scope.exclude`;
-- governance files are touched without `governance_touch=true`;
-- required checks, including applicable Sentrux evidence, are missing;
-- QA full audit evidence is missing when the tool is available;
-- architecture drift evidence is missing or failing when `docs/architecture/ARCHITECTURE.md`
-  is changed;
-- Sentrux free-tier checks fail for applicable changes.
+- if no gate record is present yet, it should not block the commit;
+- if a gate record is present, it should block staged files outside
+  `scope.include` or inside `scope.exclude`;
+- if a gate record is present, it should block governance files touched without
+  `governance_touch=true`;
+- it should not require QA full audit evidence, Sentrux evidence, changed-test
+  evidence, docs landing evidence, or all six stages to be complete.
 
 Commit-message hooks should require machine-readable trailers:
 
@@ -467,6 +469,7 @@ CI must re-read the committed gate record and compare it with the PR diff. CI
 fails when:
 
 - no gate record is present for AI-authored work;
+- any canonical stage is not marked `done`;
 - the record branch, issue, or changed files do not match the PR;
 - the PR body does not close every issue listed in the gate record;
 - changed files exceed scope without an amendment;
@@ -480,6 +483,12 @@ fails when:
 - Sentrux is applicable but missing or failing;
 - the record claims Pro-only Sentrux evidence;
 - governance or Sentrux rules are weakened without owner-approved scope.
+
+Pre-push and PR-readiness hooks are final local gates. They run the same
+final-evidence semantics as CI, except that CI remains authoritative and
+recomputes the result from repository and PR metadata. These hooks must not use
+branch-name special cases such as `hotfix/*`; task behavior is declared by
+`gate_record start --task-kind ...`.
 
 The valid administrator labels are exactly:
 

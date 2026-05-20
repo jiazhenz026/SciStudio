@@ -659,19 +659,29 @@ applicable changes rather than silently treating evidence as complete.
 - `scieasy-gate-record-commit-msg`: runs
   `python -m scieasy.qa.governance.gate_record commit-msg`.
 
-The pre-commit hook checks staged files, gate record existence, scope,
-governance touch, changed-test-file requirements for implementation-category
-tasks, docs landing presence, Sentrux evidence applicability, and QA full audit
-evidence presence.
+The pre-commit hook is intentionally lightweight. If no gate record is present
+yet, it reports a non-blocking skip so agents and humans can iterate through
+commits before the final gate record is complete. If a gate record is present,
+it validates staged files against `scope.include`, `scope.exclude`, and
+`governance_touch`. It does not require changed-test-file evidence, docs
+landing, Sentrux evidence, QA full audit evidence, or all six stages to be
+complete.
 
 The commit-msg hook checks `Gate-Record`, `Task-Kind`, `Issue`, and
 `Assisted-by` trailers.
 
-`scripts/hooks/check-gate-before-push.sh` must check that the gate record has
-completed Step 5 before allowing `git push` from AI-governed branches.
+`scripts/hooks/check-gate-before-push.sh` must call
+`python -m scieasy.qa.governance.gate_record pre-push` and enforce final gate
+semantics before allowing `git push`: a gate record must exist, all six stages
+must be complete, implementation-category work must include changed tests,
+required full audit and Sentrux evidence must be recorded, and changed files
+must remain in scope.
 
-`scripts/hooks/check-gate-before-pr.sh` must check that Step 6 evidence is
-ready, including closing issue text and gate record path.
+`scripts/hooks/check-gate-before-pr.sh` must call
+`python -m scieasy.qa.governance.gate_record pr-ready` and enforce the same
+final gate semantics, plus closing issue text and PR provenance. Hook behavior
+must not depend on branch-name special cases such as `hotfix/*`; task behavior
+is declared by `gate_record start --task-kind ...`.
 
 ### 5.5 CI Configuration
 
