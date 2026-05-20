@@ -2,4 +2,4 @@
 
 from __future__ import annotations
 
-__all__ = ["frontmatter_lint", "griffe_facts"]
+__all__ = ["architecture_drift", "frontmatter_lint", "griffe_facts"]

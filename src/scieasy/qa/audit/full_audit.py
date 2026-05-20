@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from yaml import YAMLError
 
 from scieasy.qa.audit._util import normalise_path
+from scieasy.qa.audit.architecture_drift import check as check_architecture_drift
 from scieasy.qa.audit.closure import check_bidirectional
 from scieasy.qa.audit.doc_drift import classify_repo
 from scieasy.qa.audit.fact_drift import check_substitutions
@@ -151,6 +152,7 @@ def run(
     include_fact_drift: bool = True,
     include_closure: bool = True,
     include_signature_drift: bool = True,
+    include_architecture_drift: bool = True,
 ) -> AuditReport:
     """Run the currently implemented ADR-042 aggregate audit checks."""
 
@@ -182,6 +184,10 @@ def run(
             child_reports.append(check_expected_signatures(root, registry))
         else:
             deferred_children.append("signature_drift")
+        if include_architecture_drift:
+            child_reports.append(check_architecture_drift(root, registry))
+        else:
+            deferred_children.append("architecture_drift")
 
     status = AuditStatus.FAIL if any(child.blocks_merge for child in child_reports) else AuditStatus.PASS
     return AuditReport(
@@ -282,6 +288,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--skip-fact-drift", action="store_true")
     parser.add_argument("--skip-closure", action="store_true")
     parser.add_argument("--skip-signature-drift", action="store_true")
+    parser.add_argument("--skip-architecture-drift", action="store_true")
     args = parser.parse_args(argv)
 
     try:
@@ -294,6 +301,7 @@ def main(argv: list[str] | None = None) -> int:
             include_fact_drift=not args.skip_fact_drift,
             include_closure=not args.skip_closure,
             include_signature_drift=not args.skip_signature_drift,
+            include_architecture_drift=not args.skip_architecture_drift,
         )
         text = report.model_dump_json(indent=2) + "\n" if args.format == "json" else render_markdown(report)
         if args.output is None:
