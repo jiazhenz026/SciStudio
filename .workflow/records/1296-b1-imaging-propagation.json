@@ -63,7 +63,7 @@
   "commit": {
     "gate_record_path": ".workflow/records/1296-b1-imaging-propagation.json",
     "shas": [
-      "9e1e60c635902b2a6847625c24220de3b07d87fa"
+      "e065ade4"
     ],
     "trailers": {}
   },
