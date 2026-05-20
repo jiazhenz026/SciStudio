@@ -25,6 +25,8 @@ scope:
     - Six-stage gate workflow from ADR-042 Addendum 1.
     - Sentrux free-tier evidence collection and CI verification.
     - ADR-042 QA full audit evidence and technical-debt classification.
+    - Architecture document truthfulness checks for code blocks, symbol names,
+      module paths, and signatures in `docs/architecture/ARCHITECTURE.md`.
     - Local pre-commit, commit-msg, pre-push, and PR-create interception.
     - GitHub Actions workflow-gate updates.
     - `.gitignore` handling for generated gate/audit artifacts and any explicit migration away from conflict-prone tracked workflow files.
@@ -39,6 +41,7 @@ governs:
     - scieasy.qa.governance
     - scieasy.qa.schemas.frontmatter
     - scieasy.qa.audit.frontmatter_lint
+    - scieasy.qa.audit.architecture_drift
     - scieasy.qa.governance.gate_record
     - scieasy.qa.governance.sentrux_gate
     - scieasy.qa.governance.issue_link
@@ -53,6 +56,7 @@ governs:
     - scieasy.qa.schemas.frontmatter.ADRAddendumFrontmatter
     - scieasy.qa.schemas.frontmatter.ArchitectureFrontmatter
     - scieasy.qa.audit.frontmatter_lint.lint_file
+    - scieasy.qa.audit.architecture_drift.check
     - scieasy.qa.governance.gate_record.GateRecord
     - scieasy.qa.governance.gate_record.GateStage
     - scieasy.qa.governance.gate_record.CheckEvidence
@@ -78,6 +82,7 @@ governs:
     - docs/architecture/ARCHITECTURE.md
     - src/scieasy/qa/schemas/frontmatter.py
     - src/scieasy/qa/audit/frontmatter_lint.py
+    - src/scieasy/qa/audit/architecture_drift.py
     - src/scieasy/qa/audit/loaders.py
     - src/scieasy/qa/governance/gate_record.py
     - src/scieasy/qa/governance/sentrux_gate.py
@@ -115,6 +120,7 @@ tests:
   - tests/qa/test_gate_record_ci.py
   - tests/qa/test_sentrux_gate.py
   - tests/qa/test_audit_frontmatter_lint.py
+  - tests/qa/test_architecture_drift.py
   - tests/qa/test_issue_link.py
   - tests/qa/test_docs_landing.py
   - tests/qa/test_persona_policy.py
@@ -233,6 +239,26 @@ Acceptance Scenarios:
    fails.
 3. Given an architecture document whose H1 does not match the frontmatter title,
    when lint runs, then it fails.
+
+### User Story 2b - Architecture document code truth is audited (Priority: P1)
+
+As a maintainer, I need `docs/architecture/ARCHITECTURE.md` to be accurate when
+it names repository modules, classes, functions, methods, or signatures.
+
+Independent Test: Modify architecture-doc fixtures with stale function names,
+wrong method signatures, missing modules, stale class names, and intentionally
+non-normative examples.
+
+Acceptance Scenarios:
+
+1. Given an architecture document that references an existing module path and
+   function signature, when architecture drift audit runs, then it passes.
+2. Given an architecture document that changes an actual function signature to
+   the wrong parameter list, when architecture drift audit runs, then it fails.
+3. Given an architecture document that names a missing repository class or
+   function in backticks or a code block, when audit runs, then it fails.
+4. Given an illustrative example explicitly marked non-normative, when audit
+   runs, then it is skipped.
 
 ### User Story 3 - Existing ADR-042 guards remain hard-fail (Priority: P1)
 
@@ -393,6 +419,16 @@ Acceptance Scenarios:
   `docs/architecture/ARCHITECTURE.md` with an architecture frontmatter schema,
   include it in repo-wide checks, and fail when architecture metadata or H1
   structure is invalid.
+- FR-002b: The implementation MUST add architecture drift checks for
+  `docs/architecture/ARCHITECTURE.md` that validate code blocks, referenced
+  repository module paths, class names, function names, method names, and
+  signatures against generated code facts.
+- FR-002c: Architecture examples are normative by default. The checker MAY skip
+  examples only when the surrounding prose or fence metadata explicitly marks
+  the example as non-normative, illustrative, or pseudocode.
+- FR-002d: Architecture drift findings MUST be included in full audit and MUST
+  block CI when `docs/architecture/ARCHITECTURE.md` changes unless classified as
+  known debt during the technical-debt phase.
 - FR-003: The implementation MUST define a Pydantic-backed `GateRecord` schema
   stored as JSON under `.workflow/records/`.
 - FR-004: Gate record validation MUST call or consume the existing ADR-042
@@ -531,6 +567,8 @@ applicable changes rather than silently treating evidence as complete.
 | `src/scieasy/qa/governance/weakened_ci_check.py` | use | Existing ADR-042 CI weakening guard |
 | `src/scieasy/qa/schemas/frontmatter.py` | modify | Add standalone ADR addendum frontmatter schema support |
 | `src/scieasy/qa/audit/frontmatter_lint.py` | modify | Accept and validate `ADR-NNN-addendumM.md` and `docs/architecture/ARCHITECTURE.md` |
+| `src/scieasy/qa/audit/architecture_drift.py` | create | Validate architecture code blocks, symbols, module paths, and signatures against repository facts |
+| `src/scieasy/qa/audit/full_audit.py` | modify | Include architecture drift as a child audit report |
 | `src/scieasy/qa/audit/loaders.py` | modify | Load addendum and architecture frontmatter for audit/facts tools |
 | `src/scieasy/qa/governance/__init__.py` | modify | Export gate-record public contracts |
 | `.workflow/gate.py` | delete | Remove obsolete local-only gate state machine |
@@ -546,6 +584,7 @@ applicable changes rather than silently treating evidence as complete.
 | `tests/qa/test_gate_record_ci.py` | create | PR body, issue closing, diff matching, technical-debt phase tests |
 | `tests/qa/test_sentrux_gate.py` | create | Free-tier Sentrux evidence tests |
 | `tests/qa/test_audit_frontmatter_lint.py` | modify | Add standalone ADR addendum lint cases |
+| `tests/qa/test_architecture_drift.py` | create | Architecture code truthfulness and skip-marker tests |
 | `tests/qa/test_issue_link.py` | use/complete if missing | Existing issue-link guard coverage |
 | `tests/qa/test_docs_landing.py` | use/complete if missing | Existing docs-landing guard coverage |
 | `tests/qa/test_persona_policy.py` | use/complete if missing | Existing persona-policy guard coverage |
