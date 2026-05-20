@@ -297,10 +297,7 @@ Tasks:
 - [x] Locate existing CodeBlock configuration UI and API adaptation points. Evidence: commit `911089ac` keeps the integration in `frontend/src/components/BottomPanel.tsx`, where the existing generic `ConfigPanel` adapts `selectedSchema.config_schema` to `onUpdateConfig` patches.
 - [x] Update UI controls for script path, interpreter mode, environment variables, declared inputs, declared outputs, timeout, and exchange-directory options. Evidence: commit `911089ac`; `npm test -- --run BottomPanel`; `npx vitest run src/components/BottomPanel.test.tsx`; `npm run build`.
 - [x] Avoid frontend-only execution semantics; UI writes the backend-owned config contract. Evidence: commit `911089ac` only patches persisted CodeBlock v2 params (`script_path`, `interpreter_mode`, `interpreter_path`, `working_directory`, `exchange_root`, `timeout_seconds`, `environment_variables`, `inputs`, `outputs`).
-- [x] Add frontend tests for config editing and validation-message display. Evidence: commit `911089ac` adds CodeBlock config editing coverage for core fields, environment variables, and declared input/output rows while preserving generic non-CodeBlock schema behavior.
-  TODO(#1226): Surface backend CodeBlock v2 validation diagnostics once Track D exposes an API path.
-    Out of scope per docs/specs/adr-041-codeblock-v2.md section 4.4 Phase 3 and the Track E dispatch constraint not to invent frontend-only validators.
-    Followup: https://github.com/zjzcpj/SciEasy/issues/1226.
+- [x] Add frontend tests for config editing and validation-message display. Evidence: commit `911089ac` adds CodeBlock config editing coverage for core fields, environment variables, and declared input/output rows while preserving generic non-CodeBlock schema behavior; Track D PR #1256 adds backend workflow validation diagnostics that surface through the existing backend validation path instead of a frontend-only validator.
 - [x] Run browser smoke only if a local frontend target is required and stable. Evidence: no browser smoke run because Track E is covered by component tests/build and the dispatch forbids long-lived `npm run dev`; `npm run build` passed.
 
 Exit Criteria:
@@ -327,16 +324,16 @@ Scope:
 
 Tasks:
 
-- [ ] Regenerate or check ADR-042 facts as required by the changed public symbols.
-- [ ] Run the ADR-042 audit suite for ADR-041-related docs and implementation facts.
-- [ ] Fix all ADR-041-related audit errors.
-- [ ] Record final audit report under `docs/audit/`.
-- [ ] Update changelog with implementation track summaries.
-- [ ] Confirm no ADR-043 conflict files were modified by ADR-041 tracks.
+- [x] Regenerate or check ADR-042 facts as required by the changed public symbols. Evidence: `python scripts/audit/generate_facts.py --write`; `python scripts/audit/generate_facts.py --check`.
+- [x] Run the ADR-042 audit suite for ADR-041-related docs and implementation facts. Evidence: `docs/audit/2026-05-20-adr-041-final-audit.md`.
+- [x] Fix all ADR-041-related audit errors. Evidence: facts stale finding fixed; final audit records no ADR-041-related remaining error findings.
+- [x] Record final audit report under `docs/audit/`. Evidence: `docs/audit/2026-05-20-adr-041-final-audit.md`.
+- [x] Update changelog with implementation track summaries. Evidence: changelog entry for #1228.
+- [x] Confirm no ADR-043 conflict files were modified by ADR-041 tracks. Evidence: final audit conflict check.
 
 Exit Criteria:
 
-- [ ] Audit passes.
+- [x] Audit passes. Evidence: ADR-041 scoped audit passes in `docs/audit/2026-05-20-adr-041-final-audit.md`; full aggregate residuals are unrelated to ADR-041 and listed there.
 - [ ] Umbrella PR body links child PRs, audit report, tests, and unresolved risks.
 - [ ] Umbrella PR is ready for review once child PRs are merged and CI is green.
 
@@ -350,5 +347,5 @@ Exit Criteria:
 - [x] I41s dispatched for #1237. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41s`, branch `feat/issue-1237/adr041-shell-runtime`, gate session `20260519-194957-adr-041-track-c4-shell-runtime-support`.
 - [x] I41m dispatched for #1236. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41m`, branch `feat/issue-1236/adr041-matlab-octave-runtime`, gate session `20260519-195039-adr-041-track-c5-matlab-and-octave-runti`.
 - [x] I41d dispatched for #1226. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41d`, branch `feat/issue-1226/adr041-codeblock-validation`, gate session `20260519-202734-adr-041-track-d-codeblock-v2-workflow-va`, PR #1256.
-- [ ] I41e dispatched for #1227.
-- [ ] A41/F41 dispatched for #1228.
+- [x] I41e dispatched for #1227. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41e`, branch `feat/issue-1227/adr041-codeblock-editor`, gate session `20260519-202747-adr-041-track-e-codeblock-v2-frontend-ed`, PR #1255.
+- [x] A41/F41 dispatched for #1228. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-F41`, branch `feat/issue-1228/adr041-final-audit`, gate session `20260519-205708-adr-041-final-docs-reconciliation-and-au`.
