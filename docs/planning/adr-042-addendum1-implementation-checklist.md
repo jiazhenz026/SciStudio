@@ -99,8 +99,8 @@ Sub-issue: #1269
 
 ### Phase 2 Implementation (Owner: I-E)
 
-- [ ] Replace the legacy `.github/workflows/workflow-gate.yml` local-state check with committed gate-record validation; do not keep the old CI gate as a second authority. [ADR-042 Addendum 1 Sections 3 and 5]
-- [ ] Update `.github/workflows/workflow-gate.yml` to validate committed gate records, PR closing keywords, hard-fail guards, full-audit evidence, Sentrux evidence, override labels, and changed tests. [ADR-042 Addendum 1 Sections 3 and 5]
+- [~] Replace the legacy `.github/workflows/workflow-gate.yml` local-state check with committed gate-record validation; do not keep the old CI gate as a second authority. Bootstrap removes `.workflow/active` as CI authority and probes `gate_record ci` only when Track B makes it available; final mandatory validation remains under #1269. Bootstrap PR: #1277; validation: YAML parse and `git diff --check` passed. [ADR-042 Addendum 1 Sections 3 and 5]
+- [!] Update `.github/workflows/workflow-gate.yml` to validate committed gate records, PR closing keywords, hard-fail guards, full-audit evidence, Sentrux evidence, override labels, and changed tests. Bootstrap preserves PR closing-keyword and changed-test checks, but full gate-record/guard/full-audit/Sentrux/label validation is blocked until Track B/C/D interfaces land; tracked by #1269. Bootstrap PR: #1277. [ADR-042 Addendum 1 Sections 3 and 5]
 - [ ] Update `.pre-commit-config.yaml` so gate interception calls `python -m scieasy.qa.governance.gate_record`, not `.workflow/gate.py`.
 - [ ] Replace `scripts/hooks/check-gate-before-push.sh` with a thin wrapper around `python -m scieasy.qa.governance.gate_record pre-push` or the closest implemented gate-record validation command.
 - [ ] Replace `scripts/hooks/check-gate-before-pr.sh` with a thin wrapper around `python -m scieasy.qa.governance.gate_record pr-ready` or the closest implemented gate-record validation command.
@@ -108,7 +108,7 @@ Sub-issue: #1269
 - [ ] Delete `.workflow/gate.py`.
 - [ ] Remove all current executable hook/CI references to `.workflow/gate.py`, `gate.py status/list/advance`, and `.workflow/active`.
 - [ ] Add tests in `tests/qa/test_gate_record_hooks.py` proving hook/wrapper behavior uses the gate-record CLI and does not require the deleted `gate.py`.
-- [ ] Update `.gitignore` for conflict-prone generated gate/audit artifacts and document any canonical tracked-file migration. If `CHANGELOG.md` itself is made untracked, the PR must use `git rm --cached CHANGELOG.md` and adjust changelog gate semantics; do not rely on `.gitignore` alone for already tracked files.
+- [~] Update `.gitignore` for conflict-prone generated gate/audit artifacts and document any canonical tracked-file migration. Bootstrap ignores generated audit outputs and local gate scratch files; `CHANGELOG.md` remains tracked because changing its canonical status requires a separate gate semantics migration under #1269. Bootstrap PR: #1277.
 - [ ] Preserve human `--no-verify` and documented skip-all behavior; CI remains final enforcement.
 
 ### Verification
