@@ -43,7 +43,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1296-b1-imaging-propagation.json",
+    "shas": [
+      "9e1e60c635902b2a6847625c24220de3b07d87fa"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -89,7 +95,11 @@
     "docs/audit/adr-043-imaging-propagation-audit.md",
     "CHANGELOG.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "number": null,
+    "url": null
+  },
   "record_path": ".workflow/records/1296-b1-imaging-propagation.json",
   "required_checks": [
     "pytest packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py --timeout=60",
@@ -162,7 +172,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
