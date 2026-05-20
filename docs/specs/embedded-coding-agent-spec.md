@@ -1,4 +1,41 @@
 ---
+spec_id: embedded-coding-agent-spec
+title: "Embedded Coding Agent Implementation Spec And Task Decomposition"
+status: Deprecated
+feature_branch: legacy/embedded-coding-agent
+created: 2026-05-12
+input: "Historical ADR-033 implementation decomposition retained after ADR-034 superseded the stream-json agent design."
+owners:
+  - "@jiazhenz026"
+related_adrs:
+  - 33
+  - 34
+related_specs:
+  - phase11-implementation-standards
+scope:
+  in:
+    - Historical ADR-033 decomposition and rollback notes retained for reference.
+  out:
+    - Active implementation planning for the PTY-based ADR-034 replacement.
+governs:
+  modules: []
+  contracts: []
+  entry_points: []
+  files: []
+  excludes: []
+tests: []
+acceptance_source: adr
+language_source: en
+---
+# Embedded Coding Agent Implementation Spec And Task Decomposition
+
+## 1. Change Summary
+
+This deprecated spec is retained as historical reference. Its original body is preserved below, but it is not an active implementation spec under ADR-042.
+
+## 2. Existing Historical Body
+
+---
 title: Embedded coding agent — implementation spec & task decomposition
 status: superseded-by-adr-034
 issue: 697

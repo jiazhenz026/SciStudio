@@ -1,3 +1,39 @@
+---
+spec_id: phase10-implementation-standards
+title: "Phase 10 Implementation Standards"
+status: Deprecated
+feature_branch: legacy/phase10-implementation-standards
+created: 2026-04-06
+input: "Historical Phase 10 task decomposition for core type system, scheduler, and worker subprocess refinements."
+owners:
+  - "@jiazhenz026"
+related_adrs:
+  - 18
+  - 27
+related_specs: []
+scope:
+  in:
+    - Historical Phase 10 task contracts retained for reference.
+  out:
+    - Active implementation planning.
+governs:
+  modules: []
+  contracts: []
+  entry_points: []
+  files: []
+  excludes: []
+tests: []
+acceptance_source: issue
+language_source: en
+---
+# Phase 10 Implementation Standards
+
+## 1. Change Summary
+
+This deprecated spec is retained as historical reference. Its original body is preserved below, but it is not an active implementation spec under ADR-042.
+
+## 2. Existing Historical Body
+
 # Phase 10 Implementation Standards
 
 **Status**: accepted

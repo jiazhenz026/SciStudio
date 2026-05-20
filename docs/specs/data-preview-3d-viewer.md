@@ -1,3 +1,40 @@
+---
+spec_id: data-preview-3d-viewer
+title: "Data Preview Source Filename And 3D Viewer V1"
+status: Deprecated
+feature_branch: legacy/data-preview-3d-viewer
+created: 2026-05-15
+input: "Historical implementation note for the data preview source filename and 3D viewer v1 work."
+owners:
+  - "@jiazhenz026"
+related_adrs:
+  - 27
+  - 31
+  - 32
+related_specs: []
+scope:
+  in:
+    - Historical data-preview behavior retained for reference.
+  out:
+    - Active implementation planning.
+governs:
+  modules: []
+  contracts: []
+  entry_points: []
+  files: []
+  excludes: []
+tests: []
+acceptance_source: issue
+language_source: en
+---
+# Data Preview Source Filename And 3D Viewer V1
+
+## 1. Change Summary
+
+This deprecated spec is retained as historical reference. Its original body is preserved below, but it is not an active implementation spec under ADR-042.
+
+## 2. Existing Historical Body
+
 # Spec: Data Preview Panel — Source Filename + 3D Viewer (v1)
 
 **Status**: implemented (PR for #898 + #899, 2026-05-15)

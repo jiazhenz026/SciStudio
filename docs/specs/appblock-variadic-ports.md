@@ -1,3 +1,39 @@
+---
+spec_id: appblock-variadic-ports
+title: "AppBlock Variadic Ports And Extension-Based Output Binning"
+status: Deprecated
+feature_branch: legacy/appblock-variadic-ports
+created: 2026-05-15
+input: "Historical implementation note for issue #680 covering AppBlock variadic ports and extension-based output binning."
+owners:
+  - "@jiazhenz026"
+related_adrs:
+  - 29
+  - 30
+related_specs: []
+scope:
+  in:
+    - Historical AppBlock output-port binning contract retained for reference.
+  out:
+    - Active implementation planning.
+governs:
+  modules: []
+  contracts: []
+  entry_points: []
+  files: []
+  excludes: []
+tests: []
+acceptance_source: issue
+language_source: en
+---
+# AppBlock Variadic Ports And Extension-Based Output Binning
+
+## 1. Change Summary
+
+This deprecated spec is retained as historical reference. Its original body is preserved below, but it is not an active implementation spec under ADR-042.
+
+## 2. Existing Historical Body
+
 # AppBlock Variadic Ports + Extension-Based Output Binning
 
 **Issue**: [#680](https://github.com/zjzcpj/SciEasy/issues/680)

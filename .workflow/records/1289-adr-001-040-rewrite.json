@@ -16,6 +16,22 @@
         "docs/audit/2026-05-20-adr-001-040-full-audit.md"
       ],
       "reason": "Owner requested generated audit report for ADR-001 through ADR-040 delivery; include committed markdown report as gate evidence."
+    },
+    {
+      "approved_by": "@jiazhenz026",
+      "exclude": [],
+      "include": [
+        "docs/specs/adr-042-gate-record-sentrux-workflow.md",
+        "docs/specs/appblock-variadic-ports.md",
+        "docs/specs/data-preview-3d-viewer.md",
+        "docs/specs/embedded-coding-agent-spec.md",
+        "docs/specs/phase10-implementation-standards.md",
+        "docs/specs/phase11-implementation-standards.md",
+        "docs/specs/phase11-imaging-block-spec.md",
+        "docs/specs/phase11-lcms-block-spec.md",
+        "docs/specs/phase11-srs-block-spec.md"
+      ],
+      "reason": "Owner approved resolving remaining docs audit category 1 by normalizing historical spec frontmatter and adding ADR-042 guidance for Deprecated historical specs."
     }
   ],
   "branch": "hotfix/rewrite-adr-001-040",
@@ -116,6 +132,15 @@
       "exit_code": 0,
       "name": "full_audit_adr_001_040_target",
       "output_path": "docs/audit/full-audit-latest.json; docs/audit/2026-05-20-adr-001-040-full-audit.md; ADR-001..040 findings=0 (overall full_audit exit=1 on non-target debt)",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scieasy.qa.audit.frontmatter_lint docs/specs/adr-042-gate-record-sentrux-workflow.md docs/specs/appblock-variadic-ports.md docs/specs/data-preview-3d-viewer.md docs/specs/embedded-coding-agent-spec.md docs/specs/phase10-implementation-standards.md docs/specs/phase11-implementation-standards.md docs/specs/phase11-imaging-block-spec.md docs/specs/phase11-lcms-block-spec.md docs/specs/phase11-srs-block-spec.md --format text",
+      "exit_code": 0,
+      "name": "frontmatter_lint_historical_specs",
+      "output_path": "9 target specs passed; full_audit frontmatter_lint findings=0",
       "status": "pass",
       "summary": {},
       "timestamp": null

@@ -1,4 +1,44 @@
 ---
+spec_id: phase11-implementation-standards
+title: "Phase 11 Implementation Standards Task Decomposition"
+status: Deprecated
+feature_branch: legacy/phase11-implementation-standards
+created: 2026-04-07
+input: "Historical Phase 11 task decomposition for plugin cascade work tracked by issue #306."
+owners:
+  - "@jiazhenz026"
+related_adrs:
+  - 27
+  - 28
+  - 29
+related_specs:
+  - phase11-imaging-block-spec
+  - phase11-srs-block-spec
+  - phase11-lcms-block-spec
+scope:
+  in:
+    - Historical Phase 11 dispatch and dependency plan retained for reference.
+  out:
+    - Active implementation planning.
+governs:
+  modules: []
+  contracts: []
+  entry_points: []
+  files: []
+  excludes: []
+tests: []
+acceptance_source: issue
+language_source: en
+---
+# Phase 11 Implementation Standards Task Decomposition
+
+## 1. Change Summary
+
+This deprecated spec is retained as historical reference. Its original body is preserved below, but it is not an active implementation spec under ADR-042.
+
+## 2. Existing Historical Body
+
+---
 title: Phase 11 implementation standards (task decomposition)
 status: in progress
 issue: 306 (closes #305)

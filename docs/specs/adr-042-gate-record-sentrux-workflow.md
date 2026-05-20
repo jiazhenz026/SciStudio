@@ -29,8 +29,8 @@ scope:
       module paths, and signatures in `docs/architecture/ARCHITECTURE.md`.
     - Local pre-commit, commit-msg, pre-push, and PR-create interception.
     - GitHub Actions workflow-gate updates.
-    - `.gitignore` handling for generated gate/audit artifacts and any explicit migration away from conflict-prone tracked workflow files.
-    - Removal of obsolete `.workflow/gate.py` and replacement of current hook references with the gate-record CLI.
+    - "`.gitignore` handling for generated gate/audit artifacts and any explicit migration away from conflict-prone tracked workflow files."
+    - "Removal of obsolete `.workflow/gate.py` and replacement of current hook references with the gate-record CLI."
   out:
     - Requiring Sentrux Pro or Pro-only diagnostics.
     - Replacing normal CI, branch protection, owner review, or GitHub issue tracking.
