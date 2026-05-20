@@ -159,7 +159,10 @@ jobs:
           echo "$HUMAN_BYPASS_STATUS" | sed -n '1,/^skipped-human$\|^admin-ai-override$\|^not_requested$/p'
           HUMAN_BYPASS_STATUS="$(printf '%s\n' "$HUMAN_BYPASS_STATUS" | tail -1)"
 
-          if [ -z "$RECORDS" ]; then
+          if [ "$HUMAN_BYPASS_STATUS" = "admin-ai-override" ]; then
+            echo "::notice::admin-approved:ai-override skips ADR-042 workflow-gate enforcement; repository CI/review still applies."
+            SKIP_GATE_RECORD=1
+          elif [ -z "$RECORDS" ]; then
             if [ "$HUMAN_BYPASS_STATUS" = "skipped-human" ]; then
               echo "::notice::human-authored PR skips ADR-042 workflow-gate enforcement; repository CI/review still applies."
               SKIP_GATE_RECORD=1
@@ -249,6 +252,10 @@ jobs:
               pr = {"labels": json.loads(os.environ.get("PR_LABELS_JSON", "[]")), "body": pr_body}
 
           human_report = human_bypass_guard.check(pr=pr, repo_root=Path("."))
+          if human_report.summary.get("bypass_status") == "admin-ai-override" and not human_report.blocks_merge:
+              print(json.dumps(human_report.model_dump(mode="json"), indent=2, sort_keys=True))
+              print("::notice::admin-approved:ai-override skips ADR-042 workflow-gate enforcement; repository CI/review still applies.")
+              raise SystemExit(0)
           if not record and human_report.summary.get("bypass_status") == "skipped-human" and not human_report.blocks_merge:
               print(json.dumps(human_report.model_dump(mode="json"), indent=2, sort_keys=True))
               print("::notice::human-authored PR skips ADR-042 workflow-gate enforcement; admin PR review controls merge.")
