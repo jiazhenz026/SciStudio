@@ -268,10 +268,10 @@ Scope:
 
 Tasks:
 
-- [ ] Add reusable validation routines for CodeBlock v2 config and declarations.
-- [ ] Wire validation into the existing workflow validation path without moving runtime truth to frontend state.
-- [ ] Add actionable diagnostics for legacy inline/function-style CodeBlock configs.
-- [ ] Add tests for valid v2 config, invalid path/config combinations, unsupported language modes, and legacy migration messages.
+- [x] Add reusable validation routines for CodeBlock v2 config and declarations. Evidence: commit `9ee6e971` adds `src/scieasy/blocks/code/validation.py`; focused validation pytest passed with 14 tests.
+- [x] Wire validation into the existing workflow validation path without moving runtime truth to frontend state. Evidence: commit `9ee6e971` wires `validate_workflow` to backend-owned CodeBlock config validation while preserving unknown-block fallback behavior.
+- [x] Add actionable diagnostics for legacy inline/function-style CodeBlock configs. Evidence: commit `9ee6e971`; tests cover inline `mode`/`code` migration diagnostics and legacy `language` field rejection.
+- [x] Add tests for valid v2 config, invalid path/config combinations, unsupported language modes, and legacy migration messages. Evidence: `PYTHONPATH=src python -m pytest tests/blocks/code/test_codeblock_validation.py tests/workflow/test_validator_codeblock_v2.py --timeout=60 --no-cov` passed with 14 tests; broader CodeBlock/workflow validator pytest passed with 111 tests and 7 optional runtime skips.
 
 Exit Criteria:
 
