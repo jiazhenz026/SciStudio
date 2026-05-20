@@ -1,6 +1,23 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1296-b1-imaging-propagation.json"
+      ],
+      "reason": "Include the gate-record JSON itself in the scope so the finalize-stage gate-record update commit (chore(#1296)) is within the include patterns. Standard ADR-042 Addendum 1 pattern \u2014 the record itself is part of the PR's evidence trail."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/planning/adr-043-package-migration-checklist.md"
+      ],
+      "reason": "Update \u00a76 dispatch matrix B1 row and \u00a710 Track B1 status rows per dispatch-prompt-permitted scope (manager checklist B1 rows). PR #1302 open."
+    }
+  ],
   "branch": "feat/issue-1296/adr043-b1-imaging-propagation",
   "changed_test_paths": [
     "packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py"
@@ -96,9 +113,11 @@
     "CHANGELOG.md"
   ],
   "pull_request": {
-    "body_closes_issues": [],
-    "number": null,
-    "url": null
+    "body_closes_issues": [
+      1296
+    ],
+    "number": 1302,
+    "url": "https://github.com/zjzcpj/SciEasy/pull/1302"
   },
   "record_path": ".workflow/records/1296-b1-imaging-propagation.json",
   "required_checks": [
@@ -154,7 +173,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
