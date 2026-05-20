@@ -26,6 +26,7 @@ scope:
     - ADR-042 QA full audit evidence and technical-debt classification.
     - Local pre-commit, commit-msg, pre-push, and PR-create interception.
     - GitHub Actions workflow-gate updates.
+    - `.gitignore` handling for generated gate/audit artifacts and any explicit migration away from conflict-prone tracked workflow files.
   out:
     - Requiring Sentrux Pro or Pro-only diagnostics.
     - Replacing normal CI, branch protection, owner review, or GitHub issue tracking.
@@ -98,6 +99,7 @@ governs:
     - tests/qa/test_pr_merge_guard.py
     - .workflow/records/.gitkeep
     - .workflow/gate-record.schema.json
+    - .gitignore
     - .pre-commit-config.yaml
     - .github/workflows/workflow-gate.yml
     - scripts/hooks/check-gate-before-pr.sh
@@ -157,6 +159,18 @@ The override label vocabulary is fixed by ADR-042 and ADR-042 Addendum 1:
 `human-authored`, `admin-approved:ai-override`,
 `admin-approved:core-change`, and `admin-approved:merge`. Implementation code,
 CI, specs, and contributor docs must use these exact strings.
+
+The implementation must also replace the legacy CI gate check. The old
+`.workflow/active` local-state lookup in `.github/workflows/workflow-gate.yml`
+must not remain as a parallel source of authority after committed gate records
+are implemented.
+
+Generated or local workflow artifacts that cause recurring branch conflicts
+must be ignored where they are not canonical repository documentation. If an
+already tracked canonical file such as `CHANGELOG.md` is intentionally moved out
+of version control, the implementation must remove it from the index with
+`git rm --cached` and update the gate semantics accordingly; adding an already
+tracked file to `.gitignore` alone is not sufficient.
 
 ## 2. User Scenarios & Testing
 
@@ -487,10 +501,11 @@ applicable changes rather than silently treating evidence as complete.
 | `src/scieasy/qa/governance/__init__.py` | modify | Export gate-record public contracts |
 | `.workflow/gate-record.schema.json` | create | JSON Schema mirror for committed gate records |
 | `.workflow/records/.gitkeep` | create | Keep committed gate-record directory present |
+| `.gitignore` | modify | Ignore generated gate/audit artifacts and document tracked-file migration requirements |
 | `.pre-commit-config.yaml` | modify | Add gate-record pre-commit and commit-msg hooks |
 | `scripts/hooks/check-gate-before-push.sh` | modify | Block push when gate record is incomplete |
 | `scripts/hooks/check-gate-before-pr.sh` | modify | Block PR creation when final gate evidence is incomplete |
-| `.github/workflows/workflow-gate.yml` | modify | Validate gate record, closing issues, full audit, Sentrux, and weakening checks |
+| `.github/workflows/workflow-gate.yml` | modify | Replace legacy local-state gate check with gate record, closing issue, full audit, Sentrux, and weakening validation |
 | `tests/qa/test_gate_record.py` | create | Schema and scope validation tests |
 | `tests/qa/test_gate_record_hooks.py` | create | Pre-commit and commit-msg behavior tests |
 | `tests/qa/test_gate_record_ci.py` | create | PR body, issue closing, diff matching, technical-debt phase tests |
@@ -588,12 +603,13 @@ ready, including closing issue text and gate record path.
 
 `.github/workflows/workflow-gate.yml` must add or replace steps with:
 
-1. Discover gate records changed in the PR.
-2. Validate exactly one primary gate record for AI-authored task branches unless
+1. Remove the legacy `.workflow/active` branch-state lookup as a CI authority.
+2. Discover gate records changed in the PR.
+3. Validate exactly one primary gate record for AI-authored task branches unless
    the PR is an approved human-authored bypass.
-3. Fetch PR changed files, PR body, labels, label actor provenance, and review
+4. Fetch PR changed files, PR body, labels, label actor provenance, and review
    approval metadata.
-4. Run:
+5. Run:
 
 ```bash
 python -m scieasy.qa.governance.gate_record ci \
@@ -603,7 +619,7 @@ python -m scieasy.qa.governance.gate_record ci \
   --pr-body "$PR_BODY"
 ```
 
-5. Run full audit and upload/report the output:
+6. Run full audit and upload/report the output:
 
 ```bash
 python -m scieasy.qa.audit.full_audit \
@@ -612,21 +628,21 @@ python -m scieasy.qa.audit.full_audit \
   --output docs/audit/full-audit-latest.json
 ```
 
-6. Run Sentrux free-tier checks for applicable changes:
+7. Run Sentrux free-tier checks for applicable changes:
 
 ```bash
 sentrux scan .
 sentrux check .
 ```
 
-7. Fail if Sentrux is applicable and the CLI is unavailable, unless the owner
+8. Fail if Sentrux is applicable and the CLI is unavailable, unless the owner
    explicitly marks the PR as part of the tool-install bootstrap issue.
-8. Fail if PR body does not close every gate-record issue.
-9. Fail if full audit evidence is missing, or if unclassified full-audit
+9. Fail if PR body does not close every gate-record issue.
+10. Fail if full audit evidence is missing, or if unclassified full-audit
    failures remain after the technical-debt handling phase.
-10. Fail if an implementation-category task changes implementation files
+11. Fail if an implementation-category task changes implementation files
     without changed test files.
-11. Fail if override labels are misspelled, missing, or applied by unauthorized
+12. Fail if override labels are misspelled, missing, or applied by unauthorized
     actors. The only valid override labels are `human-authored`,
     `admin-approved:ai-override`, `admin-approved:core-change`, and
     `admin-approved:merge`.
@@ -646,10 +662,14 @@ sentrux check .
 8. Add full-audit evidence validation with known-debt classification support.
 9. Add CLI subcommands for `pre-commit`, `commit-msg`, and `ci`.
 10. Wire `.pre-commit-config.yaml` hooks.
-11. Update shell wrappers for push and PR creation.
-12. Update GitHub Actions workflow-gate job.
-13. Add `docs/contributing/workflows/human-bypass.md`.
-14. Add migration documentation in gate-record command help and PR template text
+11. Update `.gitignore` for generated gate/audit artifacts and explicitly
+    migrate any tracked canonical conflict-prone file before treating it as
+    ignored.
+12. Update shell wrappers for push and PR creation.
+13. Replace the legacy GitHub Actions workflow-gate job with gate-record
+    validation.
+14. Add `docs/contributing/workflows/human-bypass.md`.
+15. Add migration documentation in gate-record command help and PR template text
    if needed.
 
 ### 5.7 Verification Plan
@@ -689,7 +709,8 @@ sentrux check .
 | Gate records become stale boilerplate | CI compares records against PR diff and fails mismatches |
 | Agents forget to close issues | CI checks PR body closing keywords against gate-record issues |
 | Human maintainers bypass all hooks with `--no-verify` | Document that this is allowed for humans and make PR review plus CI the final quality decision |
-| Existing `.workflow/gate.py` conflicts with the new model | Keep it as legacy helper only until it emits committed gate records |
+| Existing `.workflow/gate.py` conflicts with the new model | Keep it as legacy helper only until it emits committed gate records; remove old `.workflow/active` CI lookup |
+| Conflict-prone generated artifacts create repeated merge conflicts | Ignore generated gate/audit artifacts; migrate already tracked canonical files explicitly before relying on ignore rules |
 
 Rollback is limited to disabling the new CI gate job while preserving normal
 CI, branch protection, and owner review. Rollback must not remove the gate
