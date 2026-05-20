@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -9,9 +10,16 @@ from typing import Any
 import yaml
 from pydantic import ValidationError
 
-from scieasy.qa.schemas.frontmatter import ADRFrontmatter, ArchitectureFrontmatter, SpecFrontmatter
+from scieasy.qa.schemas.frontmatter import (
+    ADRAddendumFrontmatter,
+    ADRFrontmatter,
+    ArchitectureFrontmatter,
+    SpecFrontmatter,
+)
 from scieasy.qa.schemas.maintainers import Maintainers
 from scieasy.qa.schemas.report import Finding, Severity
+
+_ADR_ADDENDUM_RE = re.compile(r"^ADR-\d{3}-addendum")
 
 
 def normalise_path(path: Path | str) -> str:
@@ -232,8 +240,14 @@ def _apply_governance_amendments(
     return amended, findings
 
 
-def load_adr_frontmatter(path: Path) -> tuple[ADRFrontmatter | None, str, list[Finding]]:
-    """Load and validate ADR frontmatter."""
+def load_adr_frontmatter(
+    path: Path,
+) -> tuple[ADRFrontmatter | ADRAddendumFrontmatter | None, str, list[Finding]]:
+    """Load and validate ADR frontmatter.
+
+    Standalone ADR addendum files (``ADR-NNN-addendumM.md``) are validated against
+    :class:`ADRAddendumFrontmatter`, which extends :class:`ADRFrontmatter`.
+    """
 
     data, body, findings = parse_yaml_frontmatter(path)
     if data is None:
@@ -241,8 +255,9 @@ def load_adr_frontmatter(path: Path) -> tuple[ADRFrontmatter | None, str, list[F
     data, amendment_findings = _apply_governance_amendments(data, body, path=path)
     if amendment_findings:
         return None, body, amendment_findings
+    model = ADRAddendumFrontmatter if _ADR_ADDENDUM_RE.match(path.name) is not None else ADRFrontmatter
     try:
-        return ADRFrontmatter.model_validate(data), body, []
+        return model.model_validate(data), body, []
     except ValidationError as exc:
         return (
             None,

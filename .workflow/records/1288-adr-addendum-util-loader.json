@@ -1,0 +1,138 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1288-adr-addendum-util-loader.json"
+      ],
+      "reason": "Include the gate-record file itself (committed evidence per ADR-042 \u00a73.6)."
+    }
+  ],
+  "branch": "fix/1288-adr-addendum-util-loader",
+  "changed_test_paths": [
+    "tests/qa/test_audit_frontmatter_lint.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check src/scieasy/qa/audit/_util.py tests/qa/test_audit_frontmatter_lint.py",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check src/scieasy/qa/audit/_util.py tests/qa/test_audit_frontmatter_lint.py",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "2 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m pytest tests/qa/test_audit_frontmatter_lint.py tests/qa/test_audit_doc_drift.py tests/qa/test_audit_closure.py tests/qa/test_audit_full_audit.py --no-cov -q --timeout=60",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "38 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scieasy.qa.audit.full_audit --format json",
+      "exit_code": 1,
+      "name": "full_audit",
+      "output_path": "Status unchanged at fail (pre-existing drift in adr-042-consistency-tools.md + 19 ADRs/specs without frontmatter, tracked in #1287). Targeted item-B findings dropped from 2 to 0: doc_drift 37 -> 36, closure 22 -> 21. All other child counts unchanged on the same SHA.",
+      "status": "fail",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {},
+  "full_audit": null,
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1288,
+      "url": "https://github.com/zjzcpj/SciEasy/issues/1288"
+    }
+  ],
+  "owner_directive": "Per #1287 item B: route ADR addendum files through ADRAddendumFrontmatter in _util loader; investigation first, then 5-10 line fix + unit test.",
+  "planned_files": [
+    "src/scieasy/qa/audit/_util.py",
+    "tests/qa/test_audit_frontmatter_lint.py"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1288-adr-addendum-util-loader.json",
+  "required_checks": [
+    "ruff,format,pytest,full_audit,sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scieasy/qa/audit/_util.py",
+      "tests/qa/test_audit_frontmatter_lint.py"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "Sentrux MCP not available in this session; CI sentrux check will be the authoritative evidence on PR.",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1288-adr-addendum-util-loader",
+  "task_kind": "bugfix"
+}
