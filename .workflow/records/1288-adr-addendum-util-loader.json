@@ -60,7 +60,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1288-adr-addendum-util-loader.json",
+    "shas": [
+      "f5f06c8b"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "not_applicable": true,
@@ -99,7 +105,13 @@
     "src/scieasy/qa/audit/_util.py",
     "tests/qa/test_audit_frontmatter_lint.py"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1288
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciEasy/pull/1290"
+  },
   "record_path": ".workflow/records/1288-adr-addendum-util-loader.json",
   "required_checks": [
     "ruff,format,pytest,full_audit,sentrux"
@@ -159,7 +171,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
