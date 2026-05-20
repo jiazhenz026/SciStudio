@@ -1,5 +1,7 @@
 import type { TypeHierarchyEntry } from "../types/api";
 
+import { CapabilityDropdown } from "./PortEditor/CapabilityDropdown";
+
 export interface PortRow {
   name: string;
   types: string[];
@@ -7,6 +9,10 @@ export interface PortRow {
    *  AppBlock runtime to bin saved files into output ports. Only meaningful
    *  for output ports. */
   extension?: string;
+  /** ADR-043 FR-012: capability_id selected via the CapabilityDropdown.
+   *  Only meaningful when `showCapabilityDropdown` is true. Null/undefined
+   *  means "use the registry's default capability for this (type, extension)". */
+  capability_id?: string | null;
 }
 
 interface PortEditorTableProps {
@@ -24,6 +30,13 @@ interface PortEditorTableProps {
    *  Defaults to true for output direction. Input ports never show this
    *  column because they have no file context. */
   showExtensionColumn?: boolean;
+  /** ADR-043 FR-012: when true, render a CapabilityDropdown below each
+   *  port row so the user can pin a stable capability_id. Defaults to
+   *  true when `showExtensionColumn` is also true (output ports with a
+   *  file context); inputs / variadic-without-extension ports skip the
+   *  dropdown because the (direction, type, extension) tuple is not
+   *  fully specified. */
+  showCapabilityDropdown?: boolean;
 }
 
 /**
@@ -47,6 +60,7 @@ export function PortEditorTable({
   minPorts,
   maxPorts,
   showExtensionColumn,
+  showCapabilityDropdown,
 }: PortEditorTableProps) {
   const availableTypes =
     allowedTypes.length > 0
@@ -64,6 +78,14 @@ export function PortEditorTable({
   const renderExtension =
     direction === "output" && (showExtensionColumn ?? true);
 
+  // ADR-043 FR-012: only render the per-row CapabilityDropdown when the row
+  // also exposes an extension input — without an extension the (direction,
+  // type, extension) tuple cannot be resolved into a capability anyway.
+  // Defaults to `renderExtension` so existing callers opt in automatically
+  // and inputs / no-extension contexts opt out automatically.
+  const renderCapability =
+    renderExtension && (showCapabilityDropdown ?? true);
+
   function handleNameChange(index: number, name: string) {
     onChange(ports.map((p, i) => (i === index ? { ...p, name } : p)));
   }
@@ -76,6 +98,14 @@ export function PortEditorTable({
     onChange(
       ports.map((p, i) =>
         i === index ? { ...p, extension: normalizeExtension(extension) } : p,
+      ),
+    );
+  }
+
+  function handleCapabilityChange(index: number, capabilityId: string) {
+    onChange(
+      ports.map((p, i) =>
+        i === index ? { ...p, capability_id: capabilityId } : p,
       ),
     );
   }
@@ -103,46 +133,63 @@ export function PortEditorTable({
           // would remount the row on every keystroke in the name input
           // (since the controlled value changes), which drops focus after
           // a single character.
-          <div className="flex items-center gap-2" key={index}>
-            <input
-              className="w-32 rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-sm"
-              onChange={(e) => handleNameChange(index, e.target.value)}
-              placeholder="port name"
-              value={port.name}
-            />
-            <select
-              className="min-w-0 flex-1 rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-sm"
-              onChange={(e) => handleTypeChange(index, e.target.value)}
-              value={port.types[0] ?? defaultType}
-            >
-              {availableTypes.length > 0 ? (
-                availableTypes.map((t) => (
-                  <option key={t.name} value={t.name}>
-                    {t.name}
-                  </option>
-                ))
-              ) : (
-                <option value="DataObject">DataObject</option>
-              )}
-            </select>
-            {renderExtension && (
+          <div className="flex flex-col gap-1" key={index}>
+            <div className="flex items-center gap-2">
               <input
-                aria-label={`extension for ${port.name}`}
-                className="w-24 rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-sm"
-                onChange={(e) => handleExtensionChange(index, e.target.value)}
-                placeholder="ext (e.g. tif)"
-                value={port.extension ?? ""}
+                className="w-32 rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-sm"
+                onChange={(e) => handleNameChange(index, e.target.value)}
+                placeholder="port name"
+                value={port.name}
               />
+              <select
+                className="min-w-0 flex-1 rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-sm"
+                onChange={(e) => handleTypeChange(index, e.target.value)}
+                value={port.types[0] ?? defaultType}
+              >
+                {availableTypes.length > 0 ? (
+                  availableTypes.map((t) => (
+                    <option key={t.name} value={t.name}>
+                      {t.name}
+                    </option>
+                  ))
+                ) : (
+                  <option value="DataObject">DataObject</option>
+                )}
+              </select>
+              {renderExtension && (
+                <input
+                  aria-label={`extension for ${port.name}`}
+                  className="w-24 rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-sm"
+                  onChange={(e) => handleExtensionChange(index, e.target.value)}
+                  placeholder="ext (e.g. tif)"
+                  value={port.extension ?? ""}
+                />
+              )}
+              <button
+                className={`rounded-lg px-2 py-1 text-xs ${canRemove ? "text-stone-500 hover:bg-red-100 hover:text-red-700" : "cursor-not-allowed text-stone-300"}`}
+                disabled={!canRemove}
+                onClick={() => handleRemove(index)}
+                title={canRemove ? "Remove port" : `Minimum ${minPorts} port(s) required`}
+                type="button"
+              >
+                −
+              </button>
+            </div>
+            {renderCapability && (
+              <div className="pl-2">
+                <CapabilityDropdown
+                  direction={direction === "output" ? "save" : "load"}
+                  dataType={port.types[0] ?? defaultType}
+                  extension={port.extension ?? ""}
+                  value={port.capability_id ?? null}
+                  onChange={(capabilityId) =>
+                    handleCapabilityChange(index, capabilityId)
+                  }
+                  id={`${direction}-${port.name || index}`}
+                  typeHierarchy={typeHierarchy}
+                />
+              </div>
             )}
-            <button
-              className={`rounded-lg px-2 py-1 text-xs ${canRemove ? "text-stone-500 hover:bg-red-100 hover:text-red-700" : "cursor-not-allowed text-stone-300"}`}
-              disabled={!canRemove}
-              onClick={() => handleRemove(index)}
-              title={canRemove ? "Remove port" : `Minimum ${minPorts} port(s) required`}
-              type="button"
-            >
-              −
-            </button>
           </div>
         ))}
         {ports.length === 0 && (

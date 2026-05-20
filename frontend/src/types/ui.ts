@@ -37,6 +37,17 @@ export interface BlockNodeData extends Record<string, unknown> {
   onDelete?: () => void;
   onUpdateConfig?: (patch: Record<string, unknown>) => void;
   onErrorClick?: () => void;
+  /**
+   * ADR-043 FR-014 — Optional list of dotted OME field paths present on
+   * the upstream source object. When set on a Save-direction IO node with
+   * a selected capability whose `metadata_fidelity` cannot persist some
+   * of these fields, the node footer renders a `LossySaveWarning` chip.
+   *
+   * Left undefined for nodes that have no upstream connection, no OME
+   * metadata, or are not Save-direction IO blocks. Populated by the
+   * workflow editor when wiring node data — see WorkflowCanvas.tsx.
+   */
+  upstreamOmeFields?: string[];
 }
 
 export type BlockCanvasNode = Node<BlockNodeData>;
