@@ -1,6 +1,15 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": "CI-driven amendment",
+      "exclude": [],
+      "include": [
+        "tests/blocks/test_imaging_plugin_fixes.py"
+      ],
+      "reason": "Update stale tests in tests/blocks/test_imaging_plugin_fixes.py that asserted the old (pre-ADR-043) supported_extensions mapping. The core repo's cross-package integration tests reference the imaging plugin's ClassVar; expanding the imaging extension surface per FR-004/FR-005 breaks the old assertions. Also add Bio-Formats class-level lazy-import wrappers on LoadImage to satisfy the registry's scan-time handler-attribute validation when [bioformats] extras are not installed."
+    }
+  ],
   "branch": "feat/issue-1296/adr043-a2-imaging-io",
   "changed_test_paths": [
     "packages/scieasy-blocks-imaging/tests/test_format_capabilities.py",
@@ -119,7 +128,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {

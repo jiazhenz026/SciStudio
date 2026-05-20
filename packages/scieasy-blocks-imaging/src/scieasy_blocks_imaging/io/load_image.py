@@ -437,6 +437,45 @@ class LoadImage(IOBlock):
     _load_png = staticmethod(_load_png)
     _load_jpeg = staticmethod(_load_jpeg)
 
+    # ADR-043 / spec adr-043-package-migration FR-008: Bio-Formats handlers
+    # are bound as lazy-import wrappers on the class so the
+    # ``BlockRegistry`` capability validation (which checks
+    # ``hasattr(cls, capability.handler)`` at scan time) succeeds even
+    # when the optional ``[bioformats]`` extras are not installed.
+    # The wrappers defer the actual ``bioformats`` / ``javabridge`` /
+    # ``ome_types`` imports to dispatch time and raise the clear
+    # missing-extras :class:`ImportError` only when the user dispatches
+    # a Bio-Formats capability without the extras.
+    @staticmethod
+    def _load_czi(path: Path, axes_override: list[str] | None = None, **kwargs: Any) -> Image:
+        from scieasy_blocks_imaging.io import bioformats_handler
+
+        return bioformats_handler._load_czi(path, axes_override, **kwargs)
+
+    @staticmethod
+    def _load_nd2(path: Path, axes_override: list[str] | None = None, **kwargs: Any) -> Image:
+        from scieasy_blocks_imaging.io import bioformats_handler
+
+        return bioformats_handler._load_nd2(path, axes_override, **kwargs)
+
+    @staticmethod
+    def _load_lif(path: Path, axes_override: list[str] | None = None, **kwargs: Any) -> Image:
+        from scieasy_blocks_imaging.io import bioformats_handler
+
+        return bioformats_handler._load_lif(path, axes_override, **kwargs)
+
+    @staticmethod
+    def _load_oir(path: Path, axes_override: list[str] | None = None, **kwargs: Any) -> Image:
+        from scieasy_blocks_imaging.io import bioformats_handler
+
+        return bioformats_handler._load_oir(path, axes_override, **kwargs)
+
+    @staticmethod
+    def _load_oib(path: Path, axes_override: list[str] | None = None, **kwargs: Any) -> Image:
+        from scieasy_blocks_imaging.io import bioformats_handler
+
+        return bioformats_handler._load_oib(path, axes_override, **kwargs)
+
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {
@@ -528,13 +567,13 @@ class LoadImage(IOBlock):
         if fmt == "jpeg":
             return _load_jpeg(path, axes_override)
         if fmt in {"czi", "nd2", "lif", "oir", "oib"}:
-            # Lazy-import the Bio-Formats handler so this module stays
-            # importable when the [bioformats] extras aren't installed.
-            # The handler raises a clear ImportError naming the install
-            # command (FR-008) when the dependency / JVM is missing.
-            from scieasy_blocks_imaging.io import bioformats_handler
-
-            handler = getattr(bioformats_handler, f"_load_{fmt}")
+            # Dispatch through the class-level lazy-import wrapper
+            # (e.g. ``LoadImage._load_czi``) so the registry's scan-time
+            # handler-attribute validation matches the dispatch path.
+            # The wrapper raises a clear ImportError naming the install
+            # command (FR-008) when the [bioformats] extras or JVM are
+            # missing.
+            handler = getattr(LoadImage, f"_load_{fmt}")
             return handler(path, axes_override)
         # Defensive: every entry in :attr:`supported_extensions` is
         # expected to have a dispatch arm above; this branch becomes a

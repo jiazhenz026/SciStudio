@@ -199,20 +199,27 @@ def test_all_capabilities_are_format_capability_instances() -> None:
 
 def test_load_image_handlers_resolve_on_class() -> None:
     """The ``handler`` string on each capability resolves to a callable
-    on the class (or — for bioformats — points at a name that exists in
-    the lazily-imported module). This catches typos at declaration time."""
+    on the class. Bio-Formats handlers are bound on the class as lazy-
+    import wrappers (so the registry's scan-time
+    ``hasattr(cls, capability.handler)`` validation succeeds even when
+    the optional ``[bioformats]`` extras are not installed). This
+    catches typos at declaration time."""
     capabilities = _capabilities_by_id(LoadImage)
     for cap_id, cap in capabilities.items():
-        if cap_id in _BIOFORMATS_IDS:
-            # Lazy-import; just check the name exists on the module
-            # without forcing the JVM-backed dependency to actually load.
-            from scieasy_blocks_imaging.io import bioformats_handler
+        assert hasattr(LoadImage, cap.handler), (cap_id, cap.handler)
+        assert callable(getattr(LoadImage, cap.handler)), (cap_id, cap.handler)
 
-            assert hasattr(bioformats_handler, cap.handler), (cap_id, cap.handler)
-        else:
-            # PNG / JPEG / TIFF / zarr handlers are bound on the class
-            # itself via staticmethod() in load_image.py.
-            assert hasattr(LoadImage, cap.handler), (cap_id, cap.handler)
+
+def test_load_image_bioformats_handler_names_match_lazy_module() -> None:
+    """The Bio-Formats handler names declared on LoadImage delegate to
+    matching names in ``bioformats_handler``. The class-level wrappers
+    are lazy-import shims; this test pins the underlying name mapping."""
+    from scieasy_blocks_imaging.io import bioformats_handler
+
+    capabilities = _capabilities_by_id(LoadImage)
+    for cap_id in _BIOFORMATS_IDS:
+        handler_name = capabilities[cap_id].handler
+        assert hasattr(bioformats_handler, handler_name), (cap_id, handler_name)
 
 
 def test_save_image_handlers_resolve_on_class() -> None:
