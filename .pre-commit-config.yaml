@@ -1,4 +1,19 @@
 repos:
+  - repo: local
+    hooks:
+      - id: scieasy-governance-mod-guard
+        name: SciEasy governance modification guard
+        entry: python -m scieasy.qa.governance.mod_guard --staged
+        language: system
+        pass_filenames: false
+        files: ^(AGENTS\.md|\.workflow/|\.github/workflows/|\.pre-commit-config\.yaml|docs/adr/ADR-042\.md|docs/specs/adr-042-.*\.md|src/scieasy/qa/|tests/qa/)
+      - id: scieasy-weakened-ci-check
+        name: SciEasy weakened CI/pre-commit check
+        entry: python -m scieasy.qa.governance.weakened_ci_check --staged
+        language: system
+        pass_filenames: false
+        files: ^(\.github/workflows/|\.pre-commit-config\.yaml|pyproject\.toml)
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
