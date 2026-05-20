@@ -417,6 +417,48 @@ def test_mode_c_legitimate_drop_region_props_returns_dataframe() -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_mode_c_cellpose_collapses_non_spatial_ome_to_2d() -> None:
+    """CellposeSegment reduces non-2D input to a 2D ``(y, x)`` plane via
+    ``_center_spatial_slice``. The OME propagated into the output's
+    ``Label.Meta`` / ``Image.Meta`` MUST have ``size_t`` / ``size_z`` /
+    ``size_c`` collapsed to 1 so the carried metadata is consistent with
+    the 2D output raster. Reconciles Codex P1 on PR #1302 (2026-05-20).
+
+    Tests the propagation helper directly because CellposeSegment's
+    ``process_item`` requires the ``[cellpose]`` extra at runtime; the
+    helper is the load-bearing piece of the P1 fix.
+    """
+    from scieasy_blocks_imaging.segmentation.cellpose_segment import _collapse_non_spatial_ome_to_2d
+
+    ome = _make_ome(
+        physical_size_x=0.5,
+        physical_size_y=0.5,
+        size_x=128,
+        size_y=64,
+        size_c=3,
+        size_z=10,
+        size_t=4,
+    )
+    collapsed = _collapse_non_spatial_ome_to_2d(ome)
+    assert collapsed is not None
+    pixels = collapsed.images[0].pixels
+    # Non-spatial axes collapsed.
+    assert pixels.size_t == 1
+    assert pixels.size_z == 1
+    assert pixels.size_c == 1
+    # In-plane sampling preserved verbatim.
+    assert pixels.size_x == 128
+    assert pixels.size_y == 64
+    assert pixels.physical_size_x == 0.5
+    assert pixels.physical_size_y == 0.5
+    # Source OME untouched (deep-copy contract).
+    assert ome.images[0].pixels.size_t == 4
+    assert ome.images[0].pixels.size_z == 10
+    assert ome.images[0].pixels.size_c == 3
+    # None passes through unchanged.
+    assert _collapse_non_spatial_ome_to_2d(None) is None
+
+
 def test_mode_c_compute_registration_transform_has_no_ome_carrier() -> None:
     """ComputeRegistration outputs a ``Transform`` whose Meta schema has no
     ``ome`` field. The output represents an alignment between two images,
