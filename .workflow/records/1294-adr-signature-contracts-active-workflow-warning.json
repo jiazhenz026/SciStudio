@@ -72,7 +72,10 @@
       "not_applicable": true,
       "rationale": "Hotfix changes audit tooling, gate evidence, and ADR draft only; no release changelog entry."
     },
-    "checklist": {},
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "Owner-guided hotfix scope is tracked by issue #1294, gate record, and PR #1295; no separate planning checklist is required."
+    },
     "docs": {
       "paths": [
         "docs/adr/ADR-001.md"
