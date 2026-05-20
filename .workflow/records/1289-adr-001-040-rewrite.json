@@ -1,0 +1,208 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "hotfix/rewrite-adr-001-040",
+  "changed_test_paths": [
+    "tests/qa/test_audit_frontmatter_lint.py",
+    "tests/qa/test_audit_doc_drift.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "python -m ruff check src/scieasy/qa/schemas/frontmatter.py src/scieasy/qa/audit/doc_drift.py tests/qa/test_audit_frontmatter_lint.py tests/qa/test_audit_doc_drift.py",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed; ruff cache write warning due local cache permissions.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "src='src'; pytest --no-cov tests/qa/test_audit_frontmatter_lint.py tests/qa/test_audit_doc_drift.py",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "32 passed in 0.78s",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m ruff format --check src/scieasy/qa/schemas/frontmatter.py src/scieasy/qa/audit/doc_drift.py tests/qa/test_audit_frontmatter_lint.py tests/qa/test_audit_doc_drift.py",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "4 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "src='src'; python -m scieasy.qa.audit.frontmatter_lint docs/adr/ADR-042.md docs/specs/adr-042-consistency-tools.md docs/ai-developer/specific_rules/document-standards.md --format text",
+      "exit_code": 0,
+      "name": "frontmatter_lint_adr042_spec",
+      "output_path": "ADR-042 and spec frontmatter lint passed; document-standards.md warned as non-target",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scieasy.qa.audit.frontmatter_lint docs/adr/ADR-001.md docs/adr/ADR-002.md docs/adr/ADR-003.md docs/adr/ADR-004.md docs/adr/ADR-005.md docs/adr/ADR-006.md docs/adr/ADR-007.md docs/adr/ADR-008.md docs/adr/ADR-009.md docs/adr/ADR-010.md docs/adr/ADR-011.md docs/adr/ADR-012.md docs/adr/ADR-013.md docs/adr/ADR-014.md docs/adr/ADR-015.md docs/adr/ADR-016.md --format text",
+      "exit_code": 0,
+      "name": "frontmatter_lint_adr_001_016",
+      "output_path": "ADR-001 through ADR-016 frontmatter lint passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "ADR rewrite hotfix has no release-facing changelog yet; checklist and gate record track the owner-guided batch."
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/adr-001-040-rewrite-checklist.md"
+      ]
+    },
+    "docs": {
+      "paths": [
+        "docs/adr/ADR-001.md",
+        "docs/adr/ADR-002.md",
+        "docs/adr/ADR-003.md",
+        "docs/adr/ADR-004.md",
+        "docs/adr/ADR-005.md",
+        "docs/adr/ADR-006.md",
+        "docs/adr/ADR-007.md",
+        "docs/adr/ADR-008.md",
+        "docs/adr/ADR-009.md",
+        "docs/adr/ADR-010.md",
+        "docs/adr/ADR-011.md",
+        "docs/adr/ADR-012.md",
+        "docs/adr/ADR-013.md",
+        "docs/adr/ADR-014.md",
+        "docs/adr/ADR-015.md",
+        "docs/adr/ADR-016.md",
+        "docs/adr/ADR-042.md",
+        "docs/specs/adr-042-consistency-tools.md",
+        "docs/ai-developer/specific_rules/document-standards.md"
+      ]
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "PYTHONPATH=src python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 1,
+    "known_debt": [
+      "Latest run: ADR-001 through ADR-016 no longer emit doc-drift.adr-without-implementation-spec; remaining failures are pre-existing ADR-031..040/spec/architecture/signature debt."
+    ],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "fail",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1289,
+      "url": null
+    }
+  ],
+  "owner_directive": "Owner-guided hotfix to rewrite ADR-001 through ADR-040; owner authorized legacy ADR phase support in ADR-042, corresponding spec, schema, doc_drift, tests, and rewritten legacy ADR frontmatter.",
+  "planned_files": [
+    "docs/adr/ADR-001.md",
+    "docs/adr/ADR-002.md",
+    "docs/adr/ADR-003.md",
+    "docs/adr/ADR-004.md",
+    "docs/adr/ADR-005.md",
+    "docs/adr/ADR-006.md",
+    "docs/adr/ADR-007.md",
+    "docs/adr/ADR-008.md",
+    "docs/adr/ADR-009.md",
+    "docs/adr/ADR-010.md",
+    "docs/adr/ADR-011.md",
+    "docs/adr/ADR-012.md",
+    "docs/adr/ADR-013.md",
+    "docs/adr/ADR-014.md",
+    "docs/adr/ADR-015.md",
+    "docs/adr/ADR-016.md",
+    "docs/adr/ADR-042.md",
+    "docs/specs/adr-042-consistency-tools.md",
+    "docs/ai-developer/specific_rules/document-standards.md",
+    "docs/planning/adr-001-040-rewrite-checklist.md",
+    "src/scieasy/qa/schemas/frontmatter.py",
+    "src/scieasy/qa/audit/doc_drift.py",
+    "tests/qa/test_audit_frontmatter_lint.py",
+    "tests/qa/test_audit_doc_drift.py",
+    ".workflow/records/1289-adr-001-040-rewrite.json"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1289-adr-001-040-rewrite.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest",
+    "frontmatter_lint",
+    "full_audit"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      ".git/**"
+    ],
+    "include": [
+      "docs/adr/ADR-*.md",
+      "docs/adr/ADR.md",
+      "docs/planning/adr-001-040-rewrite-checklist.md",
+      "docs/specs/adr-042-consistency-tools.md",
+      "docs/ai-developer/specific_rules/document-standards.md",
+      "src/scieasy/qa/schemas/frontmatter.py",
+      "src/scieasy/qa/audit/doc_drift.py",
+      "tests/qa/test_audit_frontmatter_lint.py",
+      "tests/qa/test_audit_doc_drift.py",
+      ".workflow/records/1289-adr-001-040-rewrite.json"
+    ]
+  },
+  "sentrux": null,
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1289-adr-001-040-rewrite",
+  "task_kind": "hotfix"
+}

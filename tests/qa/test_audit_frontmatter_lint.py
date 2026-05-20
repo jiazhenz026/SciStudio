@@ -150,6 +150,19 @@ def test_valid_adr_frontmatter_and_structure_pass(tmp_path: Path) -> None:
     assert lint_file(path) == []
 
 
+def test_legacy_adr_phase_is_valid_frontmatter(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path / "docs" / "adr" / "ADR-123.md",
+        _valid_adr().replace("phase: planning", "phase: legacy"),
+    )
+
+    frontmatter = load_adr_frontmatter(path)
+
+    assert lint_file(path) == []
+    assert isinstance(frontmatter, ADRFrontmatter)
+    assert frontmatter.phase == "legacy"
+
+
 def test_frontmatter_lint_paths_returns_audit_report(tmp_path: Path) -> None:
     path = _write(tmp_path / "docs" / "adr" / "ADR-123.md", _valid_adr())
 

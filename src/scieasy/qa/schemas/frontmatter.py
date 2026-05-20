@@ -87,7 +87,7 @@ class ADRFrontmatter(BaseModel):
     tests: list[str]
     agent_editable: bool | Literal["owner-only"]
     assisted_by: list[str]
-    phase: Literal["planning", "implementation", "complete", "maintenance"]
+    phase: Literal["planning", "implementation", "complete", "maintenance", "legacy"]
     tags: list[str]
     owner: str
     co_authors: list[str]

@@ -275,6 +275,30 @@ def test_doc_drift_skips_adr_to_spec_alignment_for_planning_adr(tmp_path: Path) 
     assert "doc-drift.missing-spec-governance" not in {finding.rule_id for finding in report.findings}
 
 
+def test_doc_drift_skips_adr_to_spec_alignment_for_legacy_adr(tmp_path: Path) -> None:
+    _write_adr(tmp_path / "docs" / "adr" / "ADR-042.md", module="sample.expected", phase="legacy")
+    facts = FactsRegistry(
+        source_sha="abc123",
+        facts=[
+            Fact(
+                id="symbol:sample.expected",
+                kind="symbol",
+                source="griffe",
+                subject="sample.expected",
+                value={},
+                source_sha="abc123",
+                confidence="generated",
+            )
+        ],
+    )
+
+    report = classify_repo(tmp_path, facts)
+    rule_ids = {finding.rule_id for finding in report.findings}
+
+    assert "doc-drift.adr-without-implementation-spec" not in rule_ids
+    assert "doc-drift.missing-spec-governance" not in rule_ids
+
+
 def test_doc_drift_reports_active_spec_link_to_missing_adr(tmp_path: Path) -> None:
     _write_alignment_spec(
         tmp_path / "docs" / "specs" / "example.md",

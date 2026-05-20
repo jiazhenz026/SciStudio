@@ -257,7 +257,8 @@ Acceptance Scenarios:
   active specs that point to missing ADRs.
 - FR-019: `doc_drift` MUST report ADR governed modules, contracts,
   entry-points, and files that are not covered by any active related spec once
-  the ADR phase is `implementation`, `complete`, or `maintenance`.
+  the ADR phase is `implementation`, `complete`, or `maintenance`. It MUST NOT
+  require active spec coverage for ADRs with phase `legacy`.
 - FR-020: `doc_drift` MUST report active spec governed modules, contracts,
   entry-points, and files that are not covered by their related ADRs.
 
@@ -534,7 +535,7 @@ class ADRFrontmatter(BaseModel):
     tests: list[str]
     agent_editable: bool | Literal["owner-only"]
     assisted_by: list[str]
-    phase: Literal["planning", "implementation", "complete", "maintenance"]
+    phase: Literal["planning", "implementation", "complete", "maintenance", "legacy"]
     tags: list[str]
     owner: str
     co_authors: list[str]
@@ -709,3 +710,10 @@ CLI exit codes are uniform across ADR-042 audit tools:
   owner-approved scope exclusions that the checker can read.
 - The owner will decide when each consistency checker is wired; once wired, it
   is an immediate hard-fail checker.
+
+## 7. Appendix
+
+`legacy` is the ADR phase for historical decisions being preserved or
+normalized after their original implementation window. `doc_drift` still checks
+their governed symbols and files, but it does not require an active related
+implementation spec.

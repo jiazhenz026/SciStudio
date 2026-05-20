@@ -52,7 +52,7 @@ but the accepted field set and validation rules are normative.
 | `tests` | list[repo-path] | yes | Required when `is_code_implementation=true`; otherwise may be empty |
 | `agent_editable` | bool or enum | yes | `false` for governance ADRs unless owner explicitly allows edits |
 | `assisted_by` | list[string] | yes | AI/runtime assistance lines or empty list |
-| `phase` | enum | yes | `planning`, `implementation`, `complete`, `maintenance` |
+| `phase` | enum | yes | `planning`, `implementation`, `complete`, `maintenance`, `legacy` |
 | `tags` | list[string] | yes | Lowercase slugs |
 | `owner` | string | yes | GitHub handle or owner alias |
 | `co_authors` | list[string] | yes | Handles or empty list |

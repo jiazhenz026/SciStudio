@@ -10,6 +10,8 @@ from scieasy.qa.schemas.facts import FactsRegistry
 from scieasy.qa.schemas.frontmatter import ADRFrontmatter, GovernedSurfaces, SpecFrontmatter
 from scieasy.qa.schemas.report import AuditReport, AuditStatus, DriftClass, Finding, Severity
 
+SPEC_ALIGNED_ADR_PHASES = frozenset({"implementation", "complete", "maintenance"})
+
 
 def _symbol_subjects(facts: FactsRegistry) -> set[str]:
     return {fact.subject for fact in facts.find(kind="symbol")}
@@ -34,7 +36,7 @@ def _active_governance(document: ADRFrontmatter | SpecFrontmatter) -> bool:
 
 
 def _adr_requires_spec_alignment(adr: ADRFrontmatter) -> bool:
-    return adr.phase in {"implementation", "complete", "maintenance"}
+    return adr.phase in SPEC_ALIGNED_ADR_PHASES
 
 
 def _module_or_contract_covers(owner_claim: str, covered_claim: str) -> bool:
