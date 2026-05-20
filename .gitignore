@@ -25,6 +25,7 @@ htmlcov/
 
 # Generated QA facts (regenerate locally with scripts/audit/generate_facts.py)
 docs/facts/generated.yaml
+docs/audit/latest/facts-summary.md
 
 # IDE
 .idea/
