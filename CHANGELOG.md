@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- [#1257] Add canonical AI developer rules and persona skills, mirror those skills into `.claude`, `.codex`, and `.agents`, and make `CLAUDE.md` defer to `AGENTS.md`. (@agent, 2026-05-20, branch: docs/codex-skill-rules, session: 20260519-204036-add-ai-developer-rules-and-persona-skill)
+- [#1257] Add canonical AI developer rules and persona skills, mirror those skills into `.claude`, `.codex`, and `.agents`, condense `AGENTS.md` into a short rule index, and make `CLAUDE.md` defer to `AGENTS.md`. (@agent, 2026-05-20, branch: docs/codex-skill-rules, session: 20260519-204036-add-ai-developer-rules-and-persona-skill)
 
 - [#1213] Add ADR-043 explicit pilot `FormatCapability` declarations for shipped imaging TIFF/Zarr IO and LCMS table/raw IO, with package tests, README capability IDs, metadata fidelity notes, and #1204 full-migration deferral markers. (@agent, 2026-05-19, branch: feat/issue-1213/adr043-package-pilot, session: 20260519-175914-adr-043-package-capability-pilot)
 - [#1211] Add ADR-043 capability-aware materialisation and boundary validation: `materialise_to_file` / `reconstruct_from_file` now accept `capability_id`, AppBlock and FileExchangeBridge thread selected capability IDs through output reconstruction and input manifests, and workflow validation reports missing or ambiguous AppBlock/CodeBlock boundary IO capabilities before execution. (@agent, 2026-05-19, branch: feat/issue-1211/adr043-boundary-validation, session: 20260519-181904-adr-043-track-c-boundary-materialisation)
