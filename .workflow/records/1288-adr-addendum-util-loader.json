@@ -8,6 +8,14 @@
         ".workflow/records/1288-adr-addendum-util-loader.json"
       ],
       "reason": "Include the gate-record file itself (committed evidence per ADR-042 \u00a73.6)."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/audit/full-audit-latest.json"
+      ],
+      "reason": "Include refreshed full-audit evidence artifact."
     }
   ],
   "branch": "fix/1288-adr-addendum-util-loader",
@@ -53,8 +61,30 @@
     }
   ],
   "commit": null,
-  "docs_landing": {},
-  "full_audit": null,
+  "docs_landing": {
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "internal QA loader behaviour fix; no user-visible behavior change"
+    },
+    "checklist": {},
+    "docs": {},
+    "spec": {
+      "not_applicable": true,
+      "rationale": "fix matches existing ADRAddendumFrontmatter routing in loaders.py and frontmatter_lint.py; ADR-042 governance contract is unchanged"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "PYTHONPATH=src python -m scieasy.qa.audit.full_audit --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [
+      "Pre-existing repo-wide debt tracked under #1287: 19 ADR/spec files without ADR-042 frontmatter trigger frontmatter_lint (19) + doc_drift (36) + closure (21). signature_drift (98) and architecture_drift (135) are pre-existing facts vs adr-042-consistency-tools.md drift, tracked separately. This PR removes the 2 addendum1-specific findings (1 in doc_drift, 1 in closure) and touches no other surface."
+    ],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
   "governance_touch": true,
   "issues": [
     {
@@ -117,7 +147,7 @@
     {
       "completed_at": null,
       "stage": "update_docs",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
