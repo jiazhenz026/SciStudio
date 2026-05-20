@@ -100,14 +100,26 @@ class CellposeSegment(ProcessBlock):
                 label = self.process_item(image, config, state)
                 labels_list.append(cast(Label, self._auto_flush(label)))
 
-                # Extract raster data as standalone Image for masks port
+                # Extract raster data as standalone Image for masks port.
+                # ADR-043 / spec FR-009 Mode C: the mask image is
+                # shape-aligned with the source image's spatial axes
+                # (y, x), so ``ome`` is carried into the rebuilt
+                # ``Image.Meta`` per the propagation contract. Cellpose
+                # collapses every non-spatial axis (t, z, c, lambda) to
+                # a single center plane via ``_center_spatial_slice``,
+                # so the output's OME ``size_t``/``size_z``/``size_c``
+                # are collapsed to 1 to match the 2D label raster
+                # (Codex P1 reconciliation 2026-05-20).
                 raster_data = label.slots["raster"]._data  # type: ignore[attr-defined]
                 mask_img = Image(
                     axes=["y", "x"],
                     shape=tuple(raster_data.shape),
                     dtype=raster_data.dtype,
                     framework=image.framework.derive(),
-                    meta=Image.Meta(source_file=getattr(image.meta, "source_file", None)),
+                    meta=Image.Meta(
+                        source_file=getattr(image.meta, "source_file", None),
+                        ome=_collapse_non_spatial_ome_to_2d(getattr(image.meta, "ome", None)),
+                    ),
                     user=dict(image.user),
                 )
                 mask_img._data = raster_data  # type: ignore[attr-defined]
@@ -144,12 +156,20 @@ class CellposeSegment(ProcessBlock):
 
         raster = Array(axes=["y", "x"], shape=labels.shape, dtype=labels.dtype)
         raster._data = labels  # type: ignore[attr-defined]
+        # ADR-043 / spec FR-009 Mode C: Label output preserves the spatial
+        # coordinate system of the source Image (y, x raster), so ``ome``
+        # is carried into the rebuilt ``Label.Meta``. Cellpose collapses
+        # every non-spatial axis (t, z, c, lambda) to a single center
+        # plane via ``_center_spatial_slice``, so OME ``size_t`` /
+        # ``size_z`` / ``size_c`` are collapsed to 1 to match the 2D
+        # label raster (Codex P1 reconciliation 2026-05-20).
         return Label(
             slots={"raster": raster},
             framework=item.framework.derive(),
             meta=Label.Meta(
                 source_file=getattr(item.meta, "source_file", None),
                 n_objects=int(labels.max()) if labels.size else 0,
+                ome=_collapse_non_spatial_ome_to_2d(getattr(item.meta, "ome", None)),
             ),
             user=dict(item.user),
         )
@@ -224,6 +244,32 @@ def _center_spatial_slice(data: np.ndarray) -> np.ndarray:
         return data
     slicer = (*tuple(size // 2 for size in data.shape[:-2]), slice(None), slice(None))
     return np.asarray(data[slicer])
+
+
+def _collapse_non_spatial_ome_to_2d(ome: Any) -> Any:
+    """Return a deep-copied OME with ``size_t`` / ``size_z`` / ``size_c`` set to 1.
+
+    CellposeSegment reduces any non-2D input to a single center
+    ``(y, x)`` plane via :func:`_center_spatial_slice`. The output
+    Label / mask Image is 2D, so the propagated OME must reflect that
+    by collapsing every non-spatial axis to size 1. In-plane sampling
+    (``physical_size_x`` / ``physical_size_y`` / ``size_x`` /
+    ``size_y``) is preserved verbatim.
+
+    Reconciles Codex P1 review on PR #1302 (2026-05-20): "for inputs
+    with t/z/c dimensions greater than 1, the output label is 2D while
+    OME still advertises the original higher-dimensional sizes".
+    """
+    if ome is None:
+        return None
+    new_ome = ome.model_copy(deep=True)
+    if not new_ome.images:
+        return new_ome
+    pixels = new_ome.images[0].pixels
+    for attr in ("size_t", "size_z", "size_c"):
+        if hasattr(pixels, attr):
+            setattr(pixels, attr, 1)
+    return new_ome
 
 
 __all__ = ["CellposeSegment"]

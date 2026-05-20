@@ -222,7 +222,42 @@ def _split_meta(meta: Image.Meta | None, axis: str, index: int) -> Image.Meta | 
         updates["channels"] = [meta.channels[index]]
     if axis == "lambda" and meta.wavelengths_nm is not None and index < len(meta.wavelengths_nm):
         updates["wavelengths_nm"] = [meta.wavelengths_nm[index]]
+
+    # ADR-043 / spec FR-009 Mode B: split is a shape-changing same-type
+    # derivation. The per-split slice still represents the same physical
+    # sampling (a single channel/time/z plane), so OME pixel-size and
+    # other spatial-coordinate-system fields are preserved verbatim. We
+    # only collapse the split axis's size to 1 in the OME pixel record so
+    # downstream consumers can tell a slice happened. Deep-copied so the
+    # frozen source Meta is not mutated.
+    if meta.ome is not None:
+        updates["ome"] = _split_ome(meta.ome, axis)
+
     return cast(Image.Meta, meta.model_copy(update=updates))
+
+
+def _split_ome(ome: Any, axis: str) -> Any:
+    """Return a deep-copied OME with ``size_<axis>`` collapsed to 1.
+
+    For split-along-channel / split-along-time / split-along-z, each
+    output slice represents one position along the split axis, so OME's
+    size_<axis> is set to 1 and the rest of the structure (in-plane
+    pixel sizes, channels, instrument, etc.) is preserved.
+    """
+    new_ome = ome.model_copy(deep=True)
+    if not new_ome.images:
+        return new_ome
+    pixels = new_ome.images[0].pixels
+    axis_to_size_attr: dict[str, str] = {
+        "t": "size_t",
+        "z": "size_z",
+        "c": "size_c",
+        "lambda": "size_c",
+    }
+    size_attr = axis_to_size_attr.get(axis)
+    if size_attr is not None and hasattr(pixels, size_attr):
+        setattr(pixels, size_attr, 1)
+    return new_ome
 
 
 def _merge_meta(images: list[Image], axis: str) -> Image.Meta | None:

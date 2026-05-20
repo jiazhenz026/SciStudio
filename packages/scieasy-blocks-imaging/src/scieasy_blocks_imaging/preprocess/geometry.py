@@ -501,11 +501,48 @@ def _positive_float(value: object, name: str) -> float:
 def _resize_meta(meta: Image.Meta | None, old_shape: tuple[int, int], new_shape: tuple[int, int]) -> Image.Meta | None:
     if meta is None:
         return None
+    updates: dict[str, object] = {}
+
     pixel_size = getattr(meta, "pixel_size", None)
-    if pixel_size is None:
+    if pixel_size is not None:
+        updates["pixel_size"] = _scale_pixel_size(pixel_size, old_shape, new_shape)
+
+    # ADR-043 / spec FR-009 Mode B: resize is a shape-changing same-type
+    # derivation, so the helper MUST rewrite the OME pixel-size and
+    # spatial-dimension counts to match the new sampling. We deep-copy the
+    # source OME object so the frozen source Meta is not mutated; pydantic
+    # v2 ``model_copy(deep=True)`` is the idiomatic clone.
+    ome = getattr(meta, "ome", None)
+    if ome is not None:
+        updates["ome"] = _resize_ome(ome, old_shape, new_shape)
+
+    if not updates:
         return meta
-    scaled = _scale_pixel_size(pixel_size, old_shape, new_shape)
-    return meta.model_copy(update={"pixel_size": scaled})
+    return meta.model_copy(update=updates)
+
+
+def _resize_ome(ome: Any, old_shape: tuple[int, int], new_shape: tuple[int, int]) -> Any:
+    """Return a deep-copied OME with pixel_size + size_x/size_y rewritten.
+
+    - ``size_y`` / ``size_x`` are replaced with the new spatial extents.
+    - ``physical_size_y`` / ``physical_size_x`` are scaled by
+      ``old_extent / new_extent`` (smaller pixels when upsampling, larger
+      when downsampling — physical extent of the image is preserved).
+    """
+    new_y, new_x = new_shape
+    old_y, old_x = old_shape
+
+    new_ome = ome.model_copy(deep=True)
+    if not new_ome.images:
+        return new_ome
+    pixels = new_ome.images[0].pixels
+    pixels.size_y = int(new_y)
+    pixels.size_x = int(new_x)
+    if pixels.physical_size_y is not None and new_y > 0:
+        pixels.physical_size_y = float(pixels.physical_size_y) * (old_y / new_y)
+    if pixels.physical_size_x is not None and new_x > 0:
+        pixels.physical_size_x = float(pixels.physical_size_x) * (old_x / new_x)
+    return new_ome
 
 
 def _scale_pixel_size(pixel_size: object, old_shape: tuple[int, int], new_shape: tuple[int, int]) -> object:
