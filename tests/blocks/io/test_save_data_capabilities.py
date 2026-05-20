@@ -222,7 +222,11 @@ class TestSaveDataPerTypeCapabilityCoverage:
             # _save_series). LoadData does not — this asymmetry is
             # pre-existing and intentional.
             (Series, {"csv", "tsv", "parquet", "json", "pickle"}),
-            (Text, {"text"}),
+            # Text + .json is a legacy save-only extension declared as a
+            # separate Text capability with format_id="json" (Codex P1 on
+            # PR #1300); LoadData's Text capability still excludes .json
+            # because _load_text doesn't parse JSON.
+            (Text, {"text", "json"}),
             (CompositeData, {"json"}),
         ],
     )
@@ -263,13 +267,18 @@ class TestSaveLoadRoundtripPairing:
     def test_every_save_pairs_with_a_load_via_roundtrip_group(self) -> None:
         """Every save capability's roundtrip group MUST have at least one
         matching load capability (modulo legacy save-only edge cases like
-        ``core.series.json`` where the load side never implemented JSON)."""
+        ``core.series.json`` / ``core.text.json`` where the load side
+        never implemented JSON)."""
         load_groups = {c.roundtrip_group for c in LoadData.format_capabilities}
         save_groups = {c.roundtrip_group for c in SaveData.format_capabilities}
-        # Save-only legacy edge case: SaveData supports Series JSON via
-        # ``_save_series``'s json branch, but LoadData has never implemented
-        # JSON for Series. Document the asymmetry explicitly.
-        save_only_legacy = {"core.series.json"}
+        # Save-only legacy edge cases:
+        # - SaveData supports Series JSON via ``_save_series``'s json
+        #   branch, but LoadData has never implemented JSON for Series.
+        # - SaveData supports Text JSON via ``_save_text`` (just writes
+        #   obj.content to .json); LoadData's Text capability excludes
+        #   .json because _load_text doesn't parse JSON (Codex P1 on PR
+        #   #1300).
+        save_only_legacy = {"core.series.json", "core.text.json"}
         unpaired = save_groups - load_groups - save_only_legacy
         assert not unpaired, f"save capabilities without a matching load roundtrip_group: {unpaired}"
 

@@ -278,6 +278,23 @@ _SAVE_CAPABILITIES: tuple[FormatCapability, ...] = (
         label="Text",
         handler="save",
     ),
+    # Text + .json is a legacy save-only extension: ``_save_text`` writes
+    # JSON files happily (just dumps ``obj.content``) but LoadData's Text
+    # capability intentionally excludes ``.json`` because ``_load_text``
+    # does not parse JSON. Declared as a separate capability record with
+    # ``format_id="json"`` so ``find_saver_capability(Text, '.json')``
+    # resolves to a Text saver without conflicting with the Text +
+    # ``.json`` -> ``"text"`` mapping at the extension-map layer. Mirrors
+    # the Series + json save-only legacy branch and the P1 Codex-review
+    # finding on PR #1300.
+    _save_capability(
+        data_type=Text,
+        type_name="Text",
+        format_id="json",
+        extensions=(".json",),
+        label="Text as JSON",
+        handler="save",
+    ),
     # ----- Artifact (opaque catch-all saver) ------------------------------
     # ``_save_artifact`` accepts any extension at runtime — it copies bytes
     # to the configured path. The capability records below cover the
