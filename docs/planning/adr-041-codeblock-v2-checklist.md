@@ -268,16 +268,16 @@ Scope:
 
 Tasks:
 
-- [ ] Add reusable validation routines for CodeBlock v2 config and declarations.
-- [ ] Wire validation into the existing workflow validation path without moving runtime truth to frontend state.
-- [ ] Add actionable diagnostics for legacy inline/function-style CodeBlock configs.
-- [ ] Add tests for valid v2 config, invalid path/config combinations, unsupported language modes, and legacy migration messages.
+- [x] Add reusable validation routines for CodeBlock v2 config and declarations. Evidence: commit `9ee6e971` adds `src/scieasy/blocks/code/validation.py`; focused validation pytest passed with 14 tests.
+- [x] Wire validation into the existing workflow validation path without moving runtime truth to frontend state. Evidence: commit `9ee6e971` wires `validate_workflow` to backend-owned CodeBlock config validation while preserving unknown-block fallback behavior.
+- [x] Add actionable diagnostics for legacy inline/function-style CodeBlock configs. Evidence: commit `9ee6e971`; tests cover inline `mode`/`code` migration diagnostics and legacy `language` field rejection.
+- [x] Add tests for valid v2 config, invalid path/config combinations, unsupported language modes, and legacy migration messages. Evidence: `PYTHONPATH=src python -m pytest tests/blocks/code/test_codeblock_validation.py tests/workflow/test_validator_codeblock_v2.py --timeout=60 --no-cov` passed with 14 tests; broader CodeBlock/workflow validator pytest passed with 111 tests and 7 optional runtime skips.
 
 Exit Criteria:
 
-- [ ] Track D PR targets `track/adr-041/codeblock-v2`.
-- [ ] Track D CI is green.
-- [ ] Checklist rows updated with PR/test evidence.
+- [x] Track D PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1256](https://github.com/zjzcpj/SciEasy/pull/1256).
+- [x] Track D CI is green. Evidence: PR #1256 checks passed on 2026-05-20 after commit `b1408c38`.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR #1256, commits `9ee6e971`, `65b374dc`, `d0025cd0`, and `b1408c38`; Codex P1 review thread about uppercase backend extensions was fixed, replied to, and resolved.
 
 ## Phase 4 - Frontend Configuration
 
@@ -349,6 +349,6 @@ Exit Criteria:
 - [x] I41r dispatched for #1238. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41r`, branch `feat/issue-1238/adr041-r-quarto-runtime`, gate session `20260519-195014-adr-041-track-c3-r-and-quarto-runtime-su`, commit `81c0c6c9`.
 - [x] I41s dispatched for #1237. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41s`, branch `feat/issue-1237/adr041-shell-runtime`, gate session `20260519-194957-adr-041-track-c4-shell-runtime-support`.
 - [x] I41m dispatched for #1236. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41m`, branch `feat/issue-1236/adr041-matlab-octave-runtime`, gate session `20260519-195039-adr-041-track-c5-matlab-and-octave-runti`.
-- [ ] I41d dispatched for #1226.
+- [x] I41d dispatched for #1226. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41d`, branch `feat/issue-1226/adr041-codeblock-validation`, gate session `20260519-202734-adr-041-track-d-codeblock-v2-workflow-va`, PR #1256.
 - [ ] I41e dispatched for #1227.
 - [ ] A41/F41 dispatched for #1228.

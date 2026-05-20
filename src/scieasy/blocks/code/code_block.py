@@ -44,6 +44,10 @@ from scieasy.blocks.code.provenance import (
     capture_script_provenance,
     utc_now_iso,
 )
+from scieasy.blocks.code.validation import (
+    selected_codeblock_capabilities,
+    validate_codeblock_config,
+)
 from scieasy.core.types.array import Array
 from scieasy.core.types.artifact import Artifact
 from scieasy.core.types.base import DataObject
@@ -325,6 +329,15 @@ class CodeBlock(Block):
             raise ValueError(str(exc)) from exc
 
         project_dir = _project_dir(raw_config)
+        validation_diagnostics = validate_codeblock_config(
+            raw_config, project_dir=project_dir, registry=raw_config.get("registry")
+        )
+        validation_errors = [
+            diagnostic.render() for diagnostic in validation_diagnostics if diagnostic.severity == "error"
+        ]
+        if validation_errors:
+            raise ValueError("; ".join(validation_errors))
+
         script_path = code_config.resolve_script_path(project_dir)
         _raise_if_legacy_script_shape(script_path, code_config)
         exchange_root = code_config.resolve_exchange_root(project_dir)
@@ -389,7 +402,7 @@ class CodeBlock(Block):
                 environment=environment,
                 started_at=started_at,
                 completed_at=completed_at,
-                selected_capabilities=_selected_capabilities(ports),
+                selected_capabilities=_selected_capabilities(code_config),
                 exchange_manifest=manifest.to_dict(),
             )
             _write_manifest(manifest)
@@ -582,11 +595,8 @@ def _accepts_keyword(func: Any, name: str) -> bool:
         return False
 
 
-def _selected_capabilities(ports: list[CodeBlockExchangePort]) -> dict[str, str]:
-    # TODO(#1226): Validate declared CodeBlock capability IDs before interpreter launch.
-    #   Out of scope per docs/specs/adr-041-codeblock-v2.md section 4.4 Phase 3.
-    #   Followup: https://github.com/zjzcpj/SciEasy/issues/1226.
-    return {f"{port.direction}:{port.name}": port.capability_id for port in ports if port.capability_id is not None}
+def _selected_capabilities(config: CodeBlockConfig) -> dict[str, str]:
+    return selected_codeblock_capabilities(config)
 
 
 def _write_manifest(manifest: CodeBlockExchangeManifest) -> None:

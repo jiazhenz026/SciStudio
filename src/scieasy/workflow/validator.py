@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from scieasy.blocks.base.ports import InputPort, OutputPort, validate_connection
+from scieasy.blocks.code.validation import validate_codeblock_config
 from scieasy.blocks.registry import BlockRegistry, BlockSpec
 from scieasy.engine.dag import CycleError, build_dag, topological_sort
 from scieasy.workflow.definition import NodeDef, WorkflowDefinition
@@ -64,6 +66,30 @@ def _effective_ports_for_node(
         return list(spec.input_ports), list(spec.output_ports)
 
     return list(instance.get_effective_input_ports()), list(instance.get_effective_output_ports())
+
+
+def _is_codeblock_spec(spec: BlockSpec) -> bool:
+    """Return whether *spec* describes the ADR-041 CodeBlock runtime."""
+
+    return (
+        spec.name == "Code Block"
+        or spec.type_name == "code_block"
+        or spec.base_category == "code"
+        or (spec.module_path == "scieasy.blocks.code.code_block" and spec.class_name == "CodeBlock")
+    )
+
+
+def _project_dir_for_workflow(workflow: WorkflowDefinition, node: NodeDef) -> Path:
+    """Resolve workflow/node project directory metadata for CodeBlock validation."""
+
+    params = node.config.get("params")
+    if isinstance(params, dict) and params.get("project_dir"):
+        return Path(str(params["project_dir"])).resolve()
+    if node.config.get("project_dir"):
+        return Path(str(node.config["project_dir"])).resolve()
+    if workflow.metadata.get("project_dir"):
+        return Path(str(workflow.metadata["project_dir"])).resolve()
+    return Path.cwd().resolve()
 
 
 def validate_workflow(
@@ -336,5 +362,24 @@ def validate_workflow(
             if len(names) > 1:
                 joined = ", ".join(sorted(set(names)))
                 errors.append(f"Node '{node.id}': Duplicate extension {ext!r} across output ports {{{joined}}}")
+
+    # ------------------------------------------------------------------
+    # Check 9: CodeBlock v2 persisted config/declaration validation
+    # ------------------------------------------------------------------
+    # ADR-041 runtime truth belongs to backend/workflow validation. Keep
+    # this node-scoped and preserve the registry fallbacks above for unknown
+    # block types and spec-only fixtures.
+    for node in workflow.nodes:
+        spec = registry.get_spec(node.block_type)
+        if spec is None or not _is_codeblock_spec(spec):
+            continue
+        diagnostics = validate_codeblock_config(
+            node.config,
+            project_dir=_project_dir_for_workflow(workflow, node),
+            registry=registry,
+        )
+        errors.extend(
+            diagnostic.render(node_id=node.id) for diagnostic in diagnostics if diagnostic.severity == "error"
+        )
 
     return errors
