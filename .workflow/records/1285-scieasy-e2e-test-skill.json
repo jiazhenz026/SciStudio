@@ -35,7 +35,7 @@
   "commit": {
     "gate_record_path": ".workflow/records/1285-scieasy-e2e-test-skill.json",
     "shas": [
-      "928aa48deca72394866bd5c416b83a18a32b3e2b"
+      "7f7dc09a7aff63d9fcc211c5967a62f6da68220c"
     ],
     "trailers": {}
   },
@@ -117,8 +117,8 @@
     "body_closes_issues": [
       1285
     ],
-    "number": null,
-    "url": null
+    "number": 1286,
+    "url": "https://github.com/zjzcpj/SciEasy/pull/1286"
   },
   "record_path": ".workflow/records/1285-scieasy-e2e-test-skill.json",
   "required_checks": [
