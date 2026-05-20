@@ -61,20 +61,52 @@ def _unwrap_image(obj: DataObject | Collection) -> Image:
     raise ValueError(f"SaveImage: expected Image or Collection[Image], got {type(obj).__name__}")
 
 
+def _save_image_extension_map() -> dict[str, str]:
+    """Derive ``extension -> format_id`` mapping from SaveImage capabilities.
+
+    P2-03 / ADR-043 (Phase C1 audit follow-up, issue #1296): the
+    canonical source of truth for SaveImage's writable formats is
+    :attr:`SaveImage.format_capabilities`. Walking it here keeps
+    ``_resolve_format`` from drifting away from the declared capabilities
+    if a future contributor adds a writer record to ``format_capabilities``
+    without updating the legacy ``supported_extensions`` ClassVar. Mirror
+    of the A1 pattern in ``scieasy.blocks.io.savers.save_data
+    ._legacy_save_extension_map``.
+
+    Conflicting ``format_id`` for the same extension surfaces as
+    :class:`RuntimeError` so misconfiguration fails loudly at import.
+    """
+    mapping: dict[str, str] = {}
+    for capability in SaveImage.format_capabilities:
+        for extension in capability.extensions:
+            normalized = extension.lower()
+            existing = mapping.get(normalized)
+            if existing is not None and existing != capability.format_id:
+                raise RuntimeError(
+                    "SaveImage format_capabilities declare conflicting "
+                    f"format_id for extension {normalized!r}: "
+                    f"{existing!r} vs {capability.format_id!r}"
+                )
+            mapping[normalized] = capability.format_id
+    return mapping
+
+
 def _resolve_format(path: Path, explicit: str | None, block: SaveImage | None = None) -> str:
     """Resolve the output format from an explicit config value or the
     path suffix.
 
-    Issue #1075: path-based resolution routes through
-    :meth:`IOBlock._detect_format` against the
-    :attr:`SaveImage.supported_extensions` ClassVar. Falls back to
-    walking the ClassVar directly when no block is in hand. The
-    ``explicit`` config-supplied format string is still cross-checked
-    against the ClassVar's set of registered format identifiers so
-    misspelled formats fail loudly. Raises :class:`ValueError` on
-    unknown values.
+    P2-03 (Phase C1 audit, issue #1296) / ADR-043 FR-005: the
+    canonical source of truth for writable formats is
+    :attr:`SaveImage.format_capabilities`. Both extension dispatch and
+    the ``explicit`` config-string cross-check derive their inputs from
+    ``format_capabilities`` via :func:`_save_image_extension_map`. The
+    legacy ``SaveImage.supported_extensions`` mapping is left in place
+    as documented scaffolding for the wider migration (see P2-02 in the
+    Phase C1 audit report). Raises :class:`ValueError` on unknown
+    values.
     """
-    supported_format_ids = set(SaveImage.supported_extensions.values())
+    extension_map = _save_image_extension_map()
+    supported_format_ids = set(extension_map.values())
     if explicit is not None:
         fmt = explicit.lower()
         if fmt == "tif":
@@ -91,14 +123,12 @@ def _resolve_format(path: Path, explicit: str | None, block: SaveImage | None = 
     else:
         # Walk Path.suffixes longest-first to match IOBlock._detect_format
         # semantics without needing an instance.
-        mapping = SaveImage.supported_extensions
-        normalized = {k.lower(): v for k, v in mapping.items()}
         detected = None
         suffixes = [s.lower() for s in path.suffixes]
         for start in range(len(suffixes)):
             candidate = "".join(suffixes[start:])
-            if candidate in normalized:
-                detected = normalized[candidate]
+            if candidate in extension_map:
+                detected = extension_map[candidate]
                 break
     if detected is None:
         ext = path.suffix.lower()
@@ -109,6 +139,33 @@ def _resolve_format(path: Path, explicit: str | None, block: SaveImage | None = 
     return detected
 
 
+def _ome_xml_from_image(image: Image) -> str | None:
+    """Serialise ``image.meta.ome`` to OME-XML when populated.
+
+    P2-05 (Phase C1 audit, issue #1296) / ADR-043 FR-005 + SC-003: the
+    ``scieasy-blocks-imaging.image.tiff.save`` capability advertises
+    ``format_metadata_writes=("ome",)`` and the notes say "OME-XML
+    written to the ImageDescription tag when Image.Meta.ome is
+    populated". This helper produces the string that
+    :func:`tifffile.imwrite` writes to TIFF tag 270 via its
+    ``description=`` kwarg, so the advertised fidelity matches the
+    implementation and the SC-003 round-trip (CZI/.ome.tif source →
+    Resize Mode B → SaveImage(.ome.tif) → LoadImage → assert OME
+    preserved) closes end-to-end.
+
+    Returns ``None`` when there is no OME to write so callers can fall
+    back to ``tifffile``'s default ``axes``-only metadata.
+    """
+    meta = getattr(image, "meta", None)
+    ome = getattr(meta, "ome", None) if meta is not None else None
+    if ome is None:
+        return None
+    # Prefer the function form for stability across ome_types versions.
+    from ome_types import to_xml
+
+    return to_xml(ome)
+
+
 def _write_tiff(image: Image, path: Path) -> None:
     """Write an Image to TIFF.
 
@@ -116,11 +173,20 @@ def _write_tiff(image: Image, path: Path) -> None:
     z/t axis, writes page-by-page from zarr to avoid full
     materialisation. Falls back to full materialisation for non-zarr
     backends or 2D images.
+
+    P2-05 (Phase C1 audit, issue #1296) / ADR-043 FR-005 + SC-003: when
+    ``image.meta.ome`` is populated, the serialised OME-XML is written
+    to the TIFF ``ImageDescription`` tag via :func:`tifffile.imwrite`'s
+    ``description`` kwarg. ``tifffile.imread`` auto-detects an OME-XML
+    ``ImageDescription`` and exposes it on the resulting series; the
+    matching ``LoadImage`` capability parses it back through
+    :func:`ome_types.from_xml`.
     """
     import tifffile
 
     ref = getattr(image, "_storage_ref", None)
     axes_str = "".join(image.axes).upper()
+    ome_xml = _ome_xml_from_image(image)
 
     # Streaming path: zarr-backed images with 3+ dimensions.
     # Read one plane at a time from zarr and write as TIFF pages.
@@ -130,15 +196,27 @@ def _write_tiff(image: Image, path: Path) -> None:
         arr = zarr_lib.open_array(ref.path, mode="r")
         with tifffile.TiffWriter(str(path)) as tw:
             # Iterate over the first axis (typically z or t), writing
-            # each 2D+ plane as a separate TIFF page.
+            # each 2D+ plane as a separate TIFF page. The OME-XML
+            # description belongs only on page 0; subsequent pages get
+            # no separate description (tifffile would otherwise emit
+            # one ImageDescription per page).
             for i in range(arr.shape[0]):
                 plane = np.asarray(arr[i])
-                tw.write(plane, metadata={"axes": axes_str} if i == 0 else None)
+                if i == 0:
+                    write_kwargs: dict[str, Any] = {"metadata": {"axes": axes_str}}
+                    if ome_xml is not None:
+                        write_kwargs["description"] = ome_xml
+                    tw.write(plane, **write_kwargs)
+                else:
+                    tw.write(plane, metadata=None)
         return
 
     # Fallback: full materialisation for non-zarr or 2D images.
     data = _materialise(image)
-    tifffile.imwrite(str(path), data, metadata={"axes": axes_str})
+    write_kwargs: dict[str, Any] = {"metadata": {"axes": axes_str}}
+    if ome_xml is not None:
+        write_kwargs["description"] = ome_xml
+    tifffile.imwrite(str(path), data, **write_kwargs)
 
 
 def _write_zarr(image: Image, path: Path) -> None:

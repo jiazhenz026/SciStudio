@@ -1,0 +1,182 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/load_image.py"
+      ],
+      "reason": "Scope expansion required to satisfy SC-003 deliverable: the C1 dispatch prompt assumed LoadImage._load_tiff already parsed OME-XML from the TIFF ImageDescription tag and exposed it on Image.Meta.ome, but the committed code constructs Image.Meta(source_file=path) with no ome= field. Without read-side parsing the SC-003 round-trip test cannot demonstrate end-to-end OME preservation through SaveImage(.ome.tif) -> LoadImage. Added _ome_from_tiff helper and threaded the parsed OME through _load_tiff's two return paths (persisted + in-memory). The capability already advertises format_metadata_reads=(ome,) per FR-004, so this brings the implementation up to the advertised fidelity."
+    }
+  ],
+  "branch": "feat/issue-1296/adr043-c1-fixes",
+  "changed_test_paths": [
+    "packages/scieasy-blocks-imaging/tests/test_format_capabilities.py",
+    "packages/scieasy-blocks-imaging/tests/test_pillow_handler.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "pytest packages/scieasy-blocks-imaging/tests/test_format_capabilities.py --timeout=60",
+      "exit_code": 0,
+      "name": "pytest test_format_capabilities",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "pytest packages/scieasy-blocks-imaging/tests/test_pillow_handler.py --timeout=60",
+      "exit_code": 0,
+      "name": "pytest test_pillow_handler",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff check packages/scieasy-blocks-imaging/",
+      "exit_code": 0,
+      "name": "ruff check imaging",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check packages/scieasy-blocks-imaging/",
+      "exit_code": 0,
+      "name": "ruff format check imaging",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npx vitest run src/__tests__/CapabilityDropdown.test.tsx (10 consecutive runs)",
+      "exit_code": 0,
+      "name": "vitest CapabilityDropdown (x10)",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "changelog": {},
+    "checklist": {},
+    "docs": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "Spec amendments for FR-015 wording and FR-008 last sentence remain owner decisions per C1 audit \u00a710; deferred to manager escalation listed in PR body."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 1,
+    "known_debt": [
+      "311 pre-existing findings across frontmatter_lint/doc_drift/closure/signature_drift/architecture_drift; 0 PR-attributable findings (filtered on the 6 files this PR touches). Pre-existing repo debt is owner-acknowledged per the umbrella C1 audit \u00a73 P3-05 and the broader ADR-043 cascade baseline."
+    ],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "fail",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1296,
+      "url": null
+    }
+  ],
+  "owner_directive": "Phase C1 audit follow-up fixes: P1-01 flaky test + P2-01 pillow axes-override + P2-05 SaveImage TIFF OME-XML emission (unblocks SC-003) + P2-03 SaveImage._resolve_format consistency",
+  "planned_files": [
+    "frontend/src/__tests__/CapabilityDropdown.test.tsx",
+    "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/pillow_handler.py",
+    "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/save_image.py",
+    "packages/scieasy-blocks-imaging/tests/test_format_capabilities.py",
+    "packages/scieasy-blocks-imaging/tests/test_pillow_handler.py",
+    "CHANGELOG.md"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1296-c1-fixes.json",
+  "required_checks": [
+    "pytest packages/scieasy-blocks-imaging/tests/test_format_capabilities.py --timeout=60",
+    "pytest packages/scieasy-blocks-imaging/tests/test_pillow_handler.py --timeout=60",
+    "ruff check packages/scieasy-blocks-imaging/",
+    "ruff format --check packages/scieasy-blocks-imaging/"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/__tests__/CapabilityDropdown.test.tsx",
+      "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/pillow_handler.py",
+      "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/save_image.py",
+      "packages/scieasy-blocks-imaging/tests/test_format_capabilities.py",
+      "packages/scieasy-blocks-imaging/tests/test_pillow_handler.py",
+      "CHANGELOG.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux (skipped: CLI unavailable in dispatcher environment)",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": null,
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1296-c1-fixes",
+  "task_kind": "bugfix"
+}

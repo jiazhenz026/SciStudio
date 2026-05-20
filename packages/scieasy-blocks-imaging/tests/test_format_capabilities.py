@@ -226,3 +226,172 @@ def test_save_image_handlers_resolve_on_class() -> None:
     capabilities = _capabilities_by_id(SaveImage)
     for cap_id, cap in capabilities.items():
         assert hasattr(SaveImage, cap.handler), (cap_id, cap.handler)
+
+
+# ---------------------------------------------------------------------------
+# P2-03 (Phase C1 audit, issue #1296): SaveImage._resolve_format walks
+# format_capabilities, not the legacy supported_extensions ClassVar.
+# ---------------------------------------------------------------------------
+
+
+def test_save_image_extension_map_is_derived_from_format_capabilities() -> None:
+    """``_save_image_extension_map`` walks ``SaveImage.format_capabilities``.
+
+    P2-03 (Phase C1 audit, issue #1296) / ADR-043 FR-005: the canonical
+    source of truth for SaveImage's writable formats is
+    ``format_capabilities``. The map must contain exactly the extensions
+    declared by the capability records, mapped to their declared
+    ``format_id`` values.
+    """
+    from scieasy_blocks_imaging.io.save_image import _save_image_extension_map
+
+    mapping = _save_image_extension_map()
+    expected: dict[str, str] = {}
+    for capability in SaveImage.format_capabilities:
+        for ext in capability.extensions:
+            expected[ext.lower()] = capability.format_id
+    assert mapping == expected
+    # Spot-check a couple of well-known entries so regressions surface
+    # with a meaningful error rather than a long dict diff.
+    assert mapping[".tif"] == "tiff"
+    assert mapping[".tiff"] == "tiff"
+    assert mapping[".zarr"] == "zarr"
+    assert mapping[".png"] == "png"
+    assert mapping[".jpg"] == "jpeg"
+
+
+def test_save_image_resolve_format_uses_format_capabilities(tmp_path) -> None:
+    """``_resolve_format`` derives every recognised extension from
+    ``format_capabilities`` and rejects unknowns with the canonical
+    list of supported format ids."""
+    from scieasy_blocks_imaging.io.save_image import _resolve_format
+
+    assert _resolve_format(tmp_path / "a.tif", None) == "tiff"
+    assert _resolve_format(tmp_path / "a.TIFF", None) == "tiff"
+    assert _resolve_format(tmp_path / "a.zarr", None) == "zarr"
+    assert _resolve_format(tmp_path / "a.png", None) == "png"
+    assert _resolve_format(tmp_path / "a.jpg", None) == "jpeg"
+    assert _resolve_format(tmp_path / "a.jpeg", None) == "jpeg"
+
+    # Explicit format string is still cross-checked against
+    # format_capabilities (not the legacy supported_extensions ClassVar).
+    assert _resolve_format(tmp_path / "ignored.bin", "tiff") == "tiff"
+    assert _resolve_format(tmp_path / "ignored.bin", "tif") == "tiff"
+    assert _resolve_format(tmp_path / "ignored.bin", "jpg") == "jpeg"
+    with pytest.raises(ValueError, match="unsupported format"):
+        _resolve_format(tmp_path / "ignored.bin", "bogus")
+    with pytest.raises(ValueError, match="cannot infer format"):
+        _resolve_format(tmp_path / "a.unknown", None)
+
+
+# ---------------------------------------------------------------------------
+# P2-05 + SC-003 (Phase C1 audit, issue #1296): end-to-end OME-XML
+# round-trip through SaveImage TIFF → LoadImage TIFF preserves
+# Image.Meta.ome.images[0].pixels.physical_size_x.
+# ---------------------------------------------------------------------------
+
+
+def _ome_with_physical_size(physical_size_x: float, physical_size_y: float):
+    """Build a minimal OME object suitable for the SC-003 round-trip."""
+    from ome_types.model import OME, Pixels, PixelType
+    from ome_types.model import Image as OMEImage
+
+    return OME(
+        images=[
+            OMEImage(
+                pixels=Pixels(
+                    size_x=4,
+                    size_y=3,
+                    size_c=1,
+                    size_z=1,
+                    size_t=1,
+                    dimension_order="XYCZT",
+                    type=PixelType.UINT16,
+                    physical_size_x=physical_size_x,
+                    physical_size_y=physical_size_y,
+                )
+            )
+        ]
+    )
+
+
+def _ome_xml_round_trip_available() -> bool:
+    """Probe whether ``ome_types.to_xml`` + ``from_xml`` work in this env.
+
+    Python 3.14 + xsdata < some-future-release have a known
+    ``XmlContextError: Failed to detect the declared class for field
+    rights`` bug that breaks ome_types serialization. CI runs on Python
+    3.11/3.13 where the round-trip works; this probe lets the SC-003
+    regression test gracefully skip on broken local environments
+    without masking real regressions in CI.
+    """
+    try:
+        from ome_types import from_xml, to_xml
+    except Exception:
+        return False
+    try:
+        xml = to_xml(_ome_with_physical_size(0.5, 0.7))
+        recovered = from_xml(xml)
+    except Exception:
+        return False
+    return bool(getattr(recovered, "images", None))
+
+
+def test_sc_003_ome_metadata_survives_tiff_round_trip(tmp_path) -> None:
+    """SC-003 end-to-end: build Image with OME → SaveImage(.ome.tif) →
+    LoadImage → assert ``physical_size_x`` preserved.
+
+    P2-05 / ADR-043 FR-005 + SC-003 (Phase C1 audit, issue #1296): the
+    ``scieasy-blocks-imaging.image.tiff.save`` capability advertises
+    ``format_metadata_writes=("ome",)`` and the notes say "OME-XML
+    written to the ImageDescription tag when Image.Meta.ome is
+    populated". This test closes the previously broken link in the
+    SC-003 golden path: prior to the fix, ``_write_tiff`` wrote only
+    the axes string, so the saved TIFF lost OME on a round-trip.
+    """
+    import numpy as np
+    from scieasy_blocks_imaging.io.load_image import LoadImage
+    from scieasy_blocks_imaging.io.save_image import SaveImage
+
+    from scieasy.blocks.base.config import BlockConfig
+
+    if not _ome_xml_round_trip_available():
+        pytest.skip(
+            "ome_types.to_xml/from_xml round-trip is unavailable in this Python "
+            "environment (known xsdata bug on Python 3.14); CI on 3.11/3.13 "
+            "exercises this test path."
+        )
+
+    physical_size_x = 0.5
+    physical_size_y = 0.7
+    ome = _ome_with_physical_size(physical_size_x, physical_size_y)
+
+    arr = np.arange(12, dtype=np.uint16).reshape(3, 4)
+    img = Image(
+        axes=["y", "x"],
+        shape=arr.shape,
+        dtype=str(arr.dtype),
+        meta=Image.Meta(ome=ome),
+    )
+    img._data = arr  # type: ignore[attr-defined]
+
+    out_path = tmp_path / "out.ome.tif"
+    SaveImage().save(img, BlockConfig(params={"path": str(out_path)}))
+    assert out_path.is_file(), "SaveImage did not produce the TIFF file"
+
+    # Reload via LoadImage and assert the physical pixel sizes survived
+    # through the TIFF ImageDescription tag.
+    loaded = LoadImage().load(BlockConfig(params={"path": str(out_path)}))
+    reloaded = loaded[0] if hasattr(loaded, "__getitem__") else loaded
+    assert reloaded.meta is not None, "Reloaded Image has no Meta"
+    assert reloaded.meta.ome is not None, "Reloaded Image.Meta.ome is None — OME-XML was not persisted to TIFF"
+    assert reloaded.meta.ome.images, "Reloaded OME has no images entry"
+    reloaded_pixels = reloaded.meta.ome.images[0].pixels
+    assert reloaded_pixels.physical_size_x == pytest.approx(physical_size_x), (
+        f"physical_size_x changed across TIFF round-trip: "
+        f"source={physical_size_x}, reloaded={reloaded_pixels.physical_size_x}"
+    )
+    assert reloaded_pixels.physical_size_y == pytest.approx(physical_size_y), (
+        f"physical_size_y changed across TIFF round-trip: "
+        f"source={physical_size_y}, reloaded={reloaded_pixels.physical_size_y}"
+    )
