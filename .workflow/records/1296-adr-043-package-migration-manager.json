@@ -34,9 +34,7 @@
   ],
   "commit": {
     "gate_record_path": ".workflow/records/1296-adr-043-package-migration-manager.json",
-    "shas": [
-      "2712591002b3162695b3f84013efbcf7c00da1b8"
-    ],
+    "shas": [],
     "trailers": {}
   },
   "docs_landing": {
@@ -86,11 +84,9 @@
     "CHANGELOG.md"
   ],
   "pull_request": {
-    "body_closes_issues": [
-      1296
-    ],
-    "number": null,
-    "url": null
+    "body_closes_issues": [],
+    "number": 1297,
+    "url": "https://github.com/zjzcpj/SciEasy/pull/1297"
   },
   "record_path": ".workflow/records/1296-adr-043-package-migration-manager.json",
   "required_checks": [
