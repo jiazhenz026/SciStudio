@@ -52,14 +52,14 @@ Sub-issue: #1271
 
 ### Phase 2 Implementation (Owner: I-C)
 
-- [ ] Implement or complete ADR-042 guard modules without replacing their policy with gate-record-only checks: `issue_link`, `docs_landing`, `persona_policy`, `human_bypass_guard`, `core_change_guard`, and `pr_merge_guard`. [Spec User Stories 3, 7, 10]
-- [ ] Reuse exact override labels: `human-authored`, `admin-approved:ai-override`, `admin-approved:core-change`, `admin-approved:merge`.
-- [ ] Keep existing `mod_guard` and `weakened_ci_check` hard-fail semantics intact.
-- [ ] Add tests in `tests/qa/test_issue_link.py`, `tests/qa/test_docs_landing.py`, `tests/qa/test_persona_policy.py`, `tests/qa/test_human_bypass_guard.py`, `tests/qa/test_core_change_guard.py`, and `tests/qa/test_pr_merge_guard.py`.
+- [x] Implement or complete ADR-042 guard modules without replacing their policy with gate-record-only checks: `issue_link`, `docs_landing`, `persona_policy`, `human_bypass_guard`, `core_change_guard`, and `pr_merge_guard`. [Spec User Stories 3, 7, 10] Test result: Track C pytest 35 passed with `PYTHONPATH=src PYTEST_ADDOPTS=--no-cov`.
+- [x] Reuse exact override labels: `human-authored`, `admin-approved:ai-override`, `admin-approved:core-change`, `admin-approved:merge`. Test result: `ruff check` passed and `tests/qa/test_human_bypass_guard.py` passed in Track C suite.
+- [x] Keep existing `mod_guard` and `weakened_ci_check` hard-fail semantics intact. Test result: `tests/qa/test_governance_mod_guard.py` and `tests/qa/test_governance_weakened_ci_check.py` passed in Track C suite.
+- [x] Add tests in `tests/qa/test_issue_link.py`, `tests/qa/test_docs_landing.py`, `tests/qa/test_persona_policy.py`, `tests/qa/test_human_bypass_guard.py`, `tests/qa/test_core_change_guard.py`, and `tests/qa/test_pr_merge_guard.py`. Test result: Track C pytest 35 passed with `PYTHONPATH=src PYTEST_ADDOPTS=--no-cov`.
 
 ### Verification
 
-- [ ] `pytest tests/qa/test_issue_link.py tests/qa/test_docs_landing.py tests/qa/test_persona_policy.py tests/qa/test_human_bypass_guard.py tests/qa/test_core_change_guard.py tests/qa/test_pr_merge_guard.py tests/qa/test_governance_mod_guard.py tests/qa/test_governance_weakened_ci_check.py --timeout=60`
+- [x] `pytest tests/qa/test_issue_link.py tests/qa/test_docs_landing.py tests/qa/test_persona_policy.py tests/qa/test_human_bypass_guard.py tests/qa/test_core_change_guard.py tests/qa/test_pr_merge_guard.py tests/qa/test_governance_mod_guard.py tests/qa/test_governance_weakened_ci_check.py --timeout=60` - `PYTHONPATH=src PYTEST_ADDOPTS=--no-cov`: 35 passed. Exact sub-suite without `--no-cov` collected and passed 35 tests, then failed repository-wide coverage fail-under.
 
 ## Track D - Sentrux Free-Tier Gate
 
