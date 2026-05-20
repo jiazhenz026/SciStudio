@@ -4,6 +4,7 @@ from pathlib import Path
 
 from scieasy.qa.audit.closure import check_bidirectional
 from scieasy.qa.schemas.facts import Fact, FactsRegistry
+from scieasy.qa.schemas.maintainers import MaintainerRule, Maintainers
 from scieasy.qa.schemas.report import AuditStatus
 
 
@@ -27,6 +28,29 @@ def test_closure_reports_public_symbol_without_governance(tmp_path: Path) -> Non
 
     assert report.status == AuditStatus.FAIL
     assert report.findings[0].rule_id == "closure.missing-symbol-governance"
+
+
+def test_closure_accepts_maintainer_owned_public_symbol(tmp_path: Path) -> None:
+    facts = FactsRegistry(
+        source_sha="abc123",
+        facts=[
+            Fact(
+                id="symbol:sample.func",
+                kind="symbol",
+                source="griffe",
+                subject="sample.func",
+                value={"filepath": "src/sample.py"},
+                source_sha="abc123",
+                confidence="generated",
+            )
+        ],
+    )
+    maintainers = Maintainers(rules=[MaintainerRule(pattern="src/*.py", owners=["@owner"])])
+
+    report = check_bidirectional(tmp_path, facts, maintainers=maintainers)
+
+    assert report.status == AuditStatus.PASS
+    assert report.summary["maintainer_covered_symbols"] == 1
 
 
 def test_closure_accepts_module_governance(tmp_path: Path) -> None:

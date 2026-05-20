@@ -17,6 +17,8 @@ from scieasy.qa.audit.closure import check_bidirectional
 from scieasy.qa.audit.doc_drift import classify_repo
 from scieasy.qa.audit.fact_drift import check_substitutions
 from scieasy.qa.audit.facts import DEFAULT_FACTS_PATH, DEFAULT_GENERATED_AT, check_generated_facts, load_facts
+from scieasy.qa.audit.frontmatter_lint import check_report as check_frontmatter
+from scieasy.qa.audit.loaders import load_maintainers
 from scieasy.qa.audit.signature_drift import check_expected_signatures
 from scieasy.qa.schemas.facts import Fact, FactsRegistry
 from scieasy.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
@@ -118,6 +120,7 @@ def run(
     *,
     facts_path: Path = DEFAULT_FACTS_PATH,
     check_stale: bool = True,
+    include_frontmatter_lint: bool = True,
     include_doc_drift: bool = True,
     include_fact_drift: bool = True,
     include_closure: bool = True,
@@ -130,6 +133,10 @@ def run(
     child_reports = [facts_child]
     deferred_children: list[str] = []
     if not facts_child.blocks_merge:
+        if include_frontmatter_lint:
+            child_reports.append(check_frontmatter(root))
+        else:
+            deferred_children.append("frontmatter_lint")
         registry = load_facts(root / facts_path if not facts_path.is_absolute() else facts_path)
         if include_fact_drift:
             child_reports.append(check_substitutions(root, registry))
@@ -140,7 +147,9 @@ def run(
         else:
             deferred_children.append("doc_drift")
         if include_closure:
-            child_reports.append(check_bidirectional(root, registry))
+            maintainers_path = root / "MAINTAINERS"
+            maintainers = load_maintainers(maintainers_path) if maintainers_path.exists() else None
+            child_reports.append(check_bidirectional(root, registry, maintainers=maintainers))
         else:
             deferred_children.append("closure")
         if include_signature_drift:
@@ -242,6 +251,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--format", choices=["json", "markdown"], default="json")
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--no-stale-check", action="store_true")
+    parser.add_argument("--skip-frontmatter-lint", action="store_true")
     parser.add_argument("--skip-doc-drift", action="store_true")
     parser.add_argument("--skip-fact-drift", action="store_true")
     parser.add_argument("--skip-closure", action="store_true")
@@ -253,6 +263,7 @@ def main(argv: list[str] | None = None) -> int:
             args.repo_root,
             facts_path=args.facts,
             check_stale=not args.no_stale_check,
+            include_frontmatter_lint=not args.skip_frontmatter_lint,
             include_doc_drift=not args.skip_doc_drift,
             include_fact_drift=not args.skip_fact_drift,
             include_closure=not args.skip_closure,

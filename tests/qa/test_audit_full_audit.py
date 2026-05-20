@@ -20,6 +20,7 @@ def test_full_audit_renders_human_readable_facts_summary() -> None:
     assert "## 3. Fact Inventory" in markdown
     assert "## 5. Largest Symbol Areas" in markdown
     assert "## 7. Child Reports" in markdown
+    assert "frontmatter_lint" in markdown
     assert "fact_drift" in markdown
     assert "doc_drift" in markdown
     assert "closure" in markdown

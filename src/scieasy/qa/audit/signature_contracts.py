@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import ast
 import re
+import shlex
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
 
 from scieasy.qa.audit._util import git_tracked_relative_paths, is_tracked_path, load_spec_frontmatter, normalise_path
 from scieasy.qa.schemas.facts import Fact
-from scieasy.qa.schemas.signatures import ExpectedParameter, ExpectedSignature
+from scieasy.qa.schemas.signatures import ExpectedCliCommand, ExpectedModelField, ExpectedParameter, ExpectedSignature
 
 _FENCE_RE = re.compile(r"^```(?:python|py)\s*$")
+_BACKTICK_RE = re.compile(r"`([^`]+)`")
+_EXIT_CODE_RE = re.compile(r"\b([0-9]{1,3})\b")
 
 
 def _annotation(node: ast.AST | None) -> str | None:
@@ -100,6 +103,45 @@ def _signature_from_function(
     )
 
 
+def _model_field_facts_from_class(
+    node: ast.ClassDef,
+    *,
+    source_path: str,
+    source_line: int,
+    source_sha: str,
+    owner: str | None,
+    contracts_by_leaf: dict[str, str],
+) -> list[Fact]:
+    model_symbol = _qualify_subject(node.name, contracts_by_leaf)
+    facts: list[Fact] = []
+    for child in node.body:
+        if not isinstance(child, ast.AnnAssign) or not isinstance(child.target, ast.Name):
+            continue
+        field = ExpectedModelField(
+            model_symbol=model_symbol,
+            field_name=child.target.id,
+            annotation=_annotation(child.annotation) or "",
+            default=_default(child.value),
+            required=child.value is None,
+            source_spec=source_path,
+            source_line=source_line + child.lineno - 1,
+        )
+        facts.append(
+            Fact(
+                id=f"expected-model-field:{field.source_spec}:{field.source_line}:{field.model_symbol}.{field.field_name}",
+                kind="expected-model-field",
+                source=field.source_spec,
+                subject=f"{field.model_symbol}.{field.field_name}",
+                value=field.model_dump(mode="json"),
+                owner=owner,
+                source_sha=source_sha,
+                confidence="normative",
+                stability="stable",
+            )
+        )
+    return facts
+
+
 def _signature_facts_from_code(
     code: str,
     *,
@@ -115,6 +157,7 @@ def _signature_facts_from_code(
         return []
 
     signatures: list[ExpectedSignature] = []
+    model_field_facts: list[Fact] = []
     for node in tree.body:
         if isinstance(node, ast.ClassDef):
             signatures.append(
@@ -130,6 +173,16 @@ def _signature_facts_from_code(
                     signature = _signature_from_function(child, source_path, source_line, contracts_by_leaf)
                     signature.subject = f"{_qualify_subject(node.name, contracts_by_leaf)}.{child.name}"
                     signatures.append(signature)
+            model_field_facts.extend(
+                _model_field_facts_from_class(
+                    node,
+                    source_path=source_path,
+                    source_line=source_line,
+                    source_sha=source_sha,
+                    owner=owner,
+                    contracts_by_leaf=contracts_by_leaf,
+                )
+            )
         elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             signatures.append(_signature_from_function(node, source_path, source_line, contracts_by_leaf))
 
@@ -146,7 +199,7 @@ def _signature_facts_from_code(
             stability="stable",
         )
         for signature in signatures
-    ]
+    ] + model_field_facts
 
 
 def _signature_section_body(body: str) -> str:
@@ -173,6 +226,70 @@ def _unique_contracts_by_leaf(contracts: list[str]) -> dict[str, str]:
     return {leaf: values[0] for leaf, values in grouped.items() if len(values) == 1}
 
 
+def _table_cells(line: str) -> list[str]:
+    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+
+
+def _cli_command_facts_from_section(
+    section: str,
+    *,
+    source_path: str,
+    source_sha: str,
+    owner: str | None,
+) -> list[Fact]:
+    facts: list[Fact] = []
+    headers: list[str] | None = None
+    for line_no, line in enumerate(section.splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            headers = None
+            continue
+        cells = _table_cells(stripped)
+        lowered = [cell.lower() for cell in cells]
+        if any("command" in cell for cell in lowered):
+            headers = lowered
+            continue
+        if headers is None or set(stripped.replace("|", "").strip()) <= {"-", ":"}:
+            continue
+        command_index = next((idx for idx, header in enumerate(headers) if "command" in header), None)
+        if command_index is None or command_index >= len(cells):
+            continue
+        command_match = _BACKTICK_RE.search(cells[command_index])
+        if command_match is None:
+            continue
+        try:
+            command = shlex.split(command_match.group(1), posix=False)
+        except ValueError:
+            command = command_match.group(1).split()
+        exit_codes: dict[int, str] = {}
+        for idx, header in enumerate(headers):
+            if idx >= len(cells) or "exit" not in header:
+                continue
+            for match in _EXIT_CODE_RE.finditer(cells[idx]):
+                exit_codes[int(match.group(1))] = cells[idx]
+        cli = ExpectedCliCommand(
+            command=command,
+            expected_exit_codes=exit_codes,
+            source_spec=source_path,
+            source_line=line_no,
+        )
+        subject = " ".join(cli.command)
+        facts.append(
+            Fact(
+                id=f"expected-cli-command:{source_path}:{line_no}:{subject}",
+                kind="expected-cli-command",
+                source=source_path,
+                subject=subject,
+                value=cli.model_dump(mode="json"),
+                owner=owner,
+                source_sha=source_sha,
+                confidence="normative",
+                stability="stable",
+            )
+        )
+    return facts
+
+
 def extract_signature_contracts(
     spec_paths: Sequence[Path],
     *,
@@ -195,6 +312,15 @@ def extract_signature_contracts(
         section = _signature_section_body(body)
         if not section:
             continue
+        source_path = normalise_path(path.relative_to(repo_root))
+        facts.extend(
+            _cli_command_facts_from_section(
+                section,
+                source_path=source_path,
+                source_sha=source_sha,
+                owner=spec.owners[0] if spec.owners else None,
+            )
+        )
         section_lines = section.splitlines()
         in_fence = False
         fence_start = 0
@@ -206,7 +332,6 @@ def extract_signature_contracts(
                 buffer = []
                 continue
             if in_fence and line.strip() == "```":
-                source_path = normalise_path(path.relative_to(repo_root))
                 facts.extend(
                     _signature_facts_from_code(
                         "\n".join(buffer),
