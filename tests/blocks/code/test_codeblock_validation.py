@@ -126,6 +126,14 @@ def test_rejects_unsupported_script_extension_without_interpreter_check(tmp_path
     assert any("unsupported script extension" in message and ".unknown" in message for message in messages)
 
 
+def test_normalizes_backend_extensions_before_script_suffix_check(tmp_path: Path) -> None:
+    _script(tmp_path, "script.R")
+
+    messages = _messages(_config("scripts/script.R"), tmp_path)
+
+    assert not any("unsupported script extension" in message for message in messages)
+
+
 def test_rejects_legacy_language_mode() -> None:
     messages = _messages({"language": "python", "script_path": "scripts/script.py"}, Path.cwd())
 

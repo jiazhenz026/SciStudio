@@ -169,7 +169,7 @@ def _script_extension_diagnostics(
     from scieasy.blocks.code.code_block import list_codeblock_backends
 
     extension = script_path.suffix.lower()
-    supported = sorted({ext for backend in list_codeblock_backends() for ext in backend.extensions})
+    supported = sorted({ext.lower() for backend in list_codeblock_backends() for ext in backend.extensions})
     if extension in supported:
         return []
     return [
