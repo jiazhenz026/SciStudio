@@ -184,13 +184,13 @@ language_source: en
 
 ### 7.4 Audit
 
-- [ ] Codex auto-review consumed; P1/P2 reconciled with explicit decision per finding. -> pending CI run + Codex auto-review
+- [x] Codex auto-review consumed; P1/P2 reconciled with explicit decision per finding. -> One P1 finding ("Add `.json` to Text save capability extensions" at `src/scieasy/blocks/io/savers/save_data.py:277`, inline review id `3276517969`): **ACCEPTED**, fixed by adding a separate `core.text.json.save` capability (format_id="json", extensions=[".json"]) so `find_saver_capability(Text, '.json')` resolves instead of raising MissingCapabilityError. Reply posted as inline review id `3276633852`. Subsequent CI run (workflow_dispatch 26185256572 on commit `180a82d9`) is green on all 7 jobs (Type Check / Test 3.13 / Test 3.11 / Frontend / Import Contracts / Lint & Format / Architecture Tests).
 
 ### 7.5 Integration
 
-- [ ] Agent output reviewed by manager.
-- [ ] Scope compliance verified.
-- [ ] Track merged into umbrella branch.
+- [ ] Agent output reviewed by manager. -> Awaiting manager review of PR #1300.
+- [ ] Scope compliance verified. -> Self-attested: writes confined to A1 scope plus the direct-FR-003-consequence test updates documented in §7.3 and Drift Log row 1.
+- [ ] Track merged into umbrella branch. -> Pending manager merge.
 
 ## 8. Track: Phase A2 — Imaging IO + Image.Meta.ome + Bio-Formats
 
@@ -462,7 +462,9 @@ Append only.
 
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
-| `<YYYY-MM-DD>` | `<agent>` | `<what drifted>` | `<manager action>` | `<issue/TODO/N/A>` |
+| 2026-05-20 | A1 implementer | A1 dispatch write-set named only `load_data.py`/`save_data.py`/`test_load_data_capabilities.py`/`test_save_data_capabilities.py`/`CHANGELOG.md`/checklist row, but FR-003 (delete `supported_extensions` ClassVar) inherently breaks legacy ClassVar assertions in `tests/blocks/io/test_load_data.py`/`tests/blocks/io/test_save_data.py` (`TestSupportedExtensionsClassVar`) and the hard-coded synthesized capability_id in `tests/blocks/app/test_appblock_bin_outputs.py`. | Rewrote the broken legacy test classes to assert the capability-derived contract; updated the hard-coded capability_id string to the new `core.dataframe.csv.load` form. Logged the scope amendment via `python -m scieasy.qa.governance.gate_record amend` and re-included the three test files. Manager (in PR #1300 review) is the final adjudicator. | N/A; direct mechanical consequence of FR-003 per AGENTS.md §3.1. |
+| 2026-05-20 | A1 implementer | First CI run on PR #1300 failed with 200 `CapabilityRegistrationError: Conflicting default IO format capabilities for (save, DataFrame, .csv): 'core.dataframe.csv.save' on SaveData and 'scieasy-blocks-lcms.table.csv.save' on SaveTable.` The legacy synthesized capability used `data_type=DataObject` (never collided with concrete-type package capabilities); my explicit per-concrete-type declarations exposed this latent cross-package default-slot collision. | Re-declared every core LoadData/SaveData FormatCapability with `is_default=False`. Updated `test_no_capability_claims_default` (renamed from `_is_default`) and the alternate-wins test (renamed `_default_alternate_wins_over_non_default_core`) to assert the new ownership semantics. | N/A; documented in code/test docstrings. |
+| 2026-05-20 | A1 implementer | Codex auto-review P1 on PR #1300: my Text save capability omitted `.json` but `_save_text` writes JSON happily, causing a registry/runtime contract mismatch (`find_saver_capability(Text, '.json')` raised MissingCapabilityError). | Added a separate `core.text.json.save` capability (format_id="json") so Text+`.json` resolves at lookup. LoadData's Text capability still excludes `.json` because `_load_text` doesn't parse JSON (mirrors `core.series.json` save-only legacy branch). | N/A; documented inline in `_SAVE_CAPABILITIES` and `test_every_save_pairs_with_a_load_via_roundtrip_group.save_only_legacy`. |
 
 ## 17. Final Readiness
 
