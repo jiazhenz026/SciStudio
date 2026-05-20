@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import os
 import re
 import subprocess
 import sys
@@ -434,9 +435,43 @@ def _invalid_override_labels(labels: Iterable[str]) -> list[str]:
     for label in labels:
         if label in VALID_OVERRIDE_LABELS:
             continue
-        if label.startswith("admin-approved:") or label in known_human_typos:
+        if label.startswith("admin-approved") or label.startswith("human") or label in known_human_typos:
             invalid.append(label)
     return invalid
+
+
+def _split_labels(value: str) -> list[str]:
+    return [item.strip() for item in re.split(r"[\s,]+", value) if item.strip()]
+
+
+def _env_bypass_labels() -> list[str]:
+    return _split_labels(os.environ.get("SCIEASY_GATE_BYPASS_LABELS", ""))
+
+
+def _local_bypass_report(labels: Sequence[str]) -> AuditReport | None:
+    normalized = [label.strip() for label in labels if label.strip()]
+    invalid = _invalid_override_labels(normalized)
+    if invalid:
+        return _report(
+            [
+                _finding(
+                    "gate-record.override-label.invalid",
+                    f"invalid ADR-042 override label: {label}",
+                    evidence={"valid_labels": sorted(VALID_OVERRIDE_LABELS)},
+                )
+                for label in invalid
+            ]
+        )
+    valid = sorted(set(normalized) & VALID_OVERRIDE_LABELS)
+    if valid:
+        return _report(
+            [],
+            summary={
+                "skipped": "local ADR-042 hook bypassed by override label; CI/review remains authoritative",
+                "bypass_labels": valid,
+            },
+        )
+    return None
 
 
 def validate_gate_record(
@@ -447,6 +482,7 @@ def validate_gate_record(
     pr_labels: Sequence[str] = (),
     guard_reports: Sequence[AuditReport] = (),
     require_pr_body: bool = False,
+    require_final_evidence: bool = True,
 ) -> AuditReport:
     """Validate a gate record against optional PR or staged-file evidence."""
 
@@ -506,7 +542,7 @@ def validate_gate_record(
                     )
                 )
 
-        if parsed.task_kind in IMPLEMENTATION_TASK_KINDS:
+        if require_final_evidence and parsed.task_kind in IMPLEMENTATION_TASK_KINDS:
             implementation_paths = [path for path in normalized_changed if _is_implementation_path(path)]
             changed_tests = [path for path in normalized_changed if _is_test_path(path)]
             if implementation_paths and not parsed.changed_test_paths and not changed_tests:
@@ -527,7 +563,7 @@ def validate_gate_record(
                     )
                 )
 
-        if any(_sentrux_applies(path) for path in normalized_changed):
+        if require_final_evidence and any(_sentrux_applies(path) for path in normalized_changed):
             if parsed.sentrux is None:
                 findings.append(_finding("gate-record.sentrux.missing", "applicable changes require Sentrux evidence"))
             elif parsed.sentrux.status != "pass":
@@ -539,9 +575,20 @@ def validate_gate_record(
                     )
                 )
 
-    if parsed.full_audit is None:
+    if require_final_evidence:
+        for stage in parsed.stages:
+            if stage.status != "done":
+                findings.append(
+                    _finding(
+                        "gate-record.stage.not-done",
+                        f"gate stage must be done before PR readiness: {stage.stage.value}",
+                        evidence={"stage": stage.stage.value, "status": stage.status},
+                    )
+                )
+
+    if require_final_evidence and parsed.full_audit is None:
         findings.append(_finding("gate-record.full-audit.missing", "ADR-042 full audit evidence is required"))
-    else:
+    elif parsed.full_audit is not None:
         full_audit = parsed.full_audit
         if full_audit.unclassified_failures:
             findings.append(
@@ -631,24 +678,74 @@ def check_pre_commit(
     *,
     gate_record: Path | None = None,
     staged_files: Sequence[str] | None = None,
+    bypass_labels: Sequence[str] = (),
 ) -> AuditReport:
     """Validate staged files against the committed gate record."""
 
+    bypass = _local_bypass_report(bypass_labels)
+    if bypass is not None:
+        return bypass
     root = repo_root or Path.cwd()
     changed = list(staged_files) if staged_files is not None else _git_lines(root, ["diff", "--cached", "--name-only"])
     record_path = gate_record or _discover_gate_record(root, changed)
     if record_path is None:
-        return _report([_finding("gate-record.missing", "exactly one gate record is required for pre-commit checks")])
+        return _report([], summary={"skipped": "no gate record present yet; final push/PR/CI gate remains required"})
+    return validate_gate_record(record_path, changed_files=changed, require_final_evidence=False)
+
+
+def check_pre_push(
+    repo_root: Path | None = None,
+    *,
+    gate_record: Path | None = None,
+    base: str = "origin/main",
+    head: str = "HEAD",
+    bypass_labels: Sequence[str] = (),
+) -> AuditReport:
+    """Validate the current branch diff before push."""
+
+    bypass = _local_bypass_report(bypass_labels)
+    if bypass is not None:
+        return bypass
+    root = repo_root or Path.cwd()
+    changed = _git_lines(root, ["diff", "--name-only", "--diff-filter=ACMRTUXB", f"{base}...{head}"])
+    record_path = gate_record or _discover_gate_record(root, changed)
+    if record_path is None:
+        return _report([_finding("gate-record.missing", "exactly one gate record is required before push")])
     return validate_gate_record(record_path, changed_files=changed)
+
+
+def check_pr_ready(
+    repo_root: Path | None = None,
+    *,
+    gate_record: Path | None = None,
+    base: str = "origin/main",
+    head: str = "HEAD",
+    pr_body: str = "",
+    pr_labels: Sequence[str] = (),
+) -> AuditReport:
+    """Validate local PR readiness before opening a PR."""
+
+    bypass = _local_bypass_report(pr_labels)
+    if bypass is not None:
+        return bypass
+    root = repo_root or Path.cwd()
+    changed = _git_lines(root, ["diff", "--name-only", "--diff-filter=ACMRTUXB", f"{base}...{head}"])
+    record_path = gate_record or _discover_gate_record(root, changed)
+    if record_path is None:
+        return _report([_finding("gate-record.missing", "exactly one gate record is required before PR creation")])
+    return check_pr(record_path, changed_files=changed, pr_body=pr_body, pr_labels=pr_labels)
 
 
 def _trailers(commit_message: str) -> dict[str, str]:
     return {match.group("key"): match.group("value") for match in TRAILER_RE.finditer(commit_message)}
 
 
-def check_commit_msg(commit_message: str | Path) -> AuditReport:
+def check_commit_msg(commit_message: str | Path, *, bypass_labels: Sequence[str] = ()) -> AuditReport:
     """Validate ADR-042 commit trailers."""
 
+    bypass = _local_bypass_report(bypass_labels)
+    if bypass is not None:
+        return bypass
     text = commit_message.read_text(encoding="utf-8") if isinstance(commit_message, Path) else commit_message
     trailers = _trailers(text)
     findings: list[Finding] = []
@@ -789,10 +886,16 @@ def docs_record(
 
     record = _load_record(record_path)
     na_rationales = dict(_parse_key_values(na))
-    record.docs_landing = {
-        "updated": [_normalize_path(path) for path in updated],
-        "na": na_rationales,
+    docs_paths = [_normalize_path(path) for path in updated if not _normalize_path(path).startswith("docs/planning/")]
+    checklist_paths = [_normalize_path(path) for path in updated if _normalize_path(path).startswith("docs/planning/")]
+    landing: dict[str, Any] = {
+        "docs": {"paths": docs_paths} if docs_paths else {},
+        "checklist": {"paths": checklist_paths} if checklist_paths else {},
+        "changelog": {},
     }
+    for class_name, rationale in na_rationales.items():
+        landing[class_name] = {"not_applicable": True, "rationale": rationale}
+    record.docs_landing = landing
     _mark_stage(record, GateStage.UPDATE_DOCS)
     return _write_record(record_path, record)
 
@@ -894,11 +997,24 @@ def finalize_record(
 def _parse_key_values(values: Sequence[str]) -> list[tuple[str, str]]:
     pairs: list[tuple[str, str]] = []
     for item in values:
-        if "=" not in item:
+        if "=" in item:
+            key, value = item.split("=", 1)
+        elif ":" in item:
+            key, value = item.split(":", 1)
+        else:
             raise ValueError(f"expected KEY=VALUE item: {item}")
-        key, value = item.split("=", 1)
-        pairs.append((key, value))
+        pairs.append((key.strip(), value.strip()))
     return pairs
+
+
+def _parse_issue_numbers(values: Sequence[str]) -> list[int]:
+    numbers: list[int] = []
+    for value in values:
+        match = re.fullmatch(r"#?(\d+)", value.strip())
+        if match is None:
+            raise ValueError(f"expected issue number or #N item: {value}")
+        numbers.append(int(match.group(1)))
+    return numbers
 
 
 def _render_text(report: AuditReport) -> str:
@@ -928,9 +1044,10 @@ def main(argv: list[str] | None = None) -> int:
 
     plan = subparsers.add_parser("plan", help="record planned files, checks, and expected tests")
     plan.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
-    plan.add_argument("--planned-file", action="append", default=[])
-    plan.add_argument("--required-check", action="append", default=[])
-    plan.add_argument("--changed-test-path", action="append", default=[])
+    plan.add_argument("--planned-file", "--files", dest="planned_file", action="append", default=[])
+    plan.add_argument("--required-check", "--checks", dest="required_check", action="append", default=[])
+    plan.add_argument("--changed-test-path", "--tests", dest="changed_test_path", action="append", default=[])
+    plan.add_argument("--docs", action="append", default=[], help="planned documentation path or N/A rationale")
 
     amend = subparsers.add_parser("amend", help="append a scope amendment")
     amend.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
@@ -942,15 +1059,15 @@ def main(argv: list[str] | None = None) -> int:
     docs = subparsers.add_parser("docs", help="record documentation landing")
     docs.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
     docs.add_argument("--updated", action="append", default=[])
-    docs.add_argument("--na", action="append", default=[], help="N/A rationale as KEY=VALUE")
+    docs.add_argument("--na", action="append", default=[], help="N/A rationale as KEY=VALUE or KEY:VALUE")
 
     check = subparsers.add_parser("check", help="record a check result or full-audit evidence")
     check.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
     check.add_argument("--name", default="full_audit")
-    check.add_argument("--command-or-tool", required=True)
+    check.add_argument("--command-or-tool", "--command", dest="command_or_tool", required=True)
     check.add_argument("--status", choices=("pass", "fail", "skipped", "unknown"), required=True)
     check.add_argument("--exit-code", type=int)
-    check.add_argument("--output-path")
+    check.add_argument("--output-path", "--output", dest="output_path")
     check.add_argument("--full-audit", action="store_true")
     check.add_argument("--blocks-merge", action="store_true")
     check.add_argument("--known-debt", action="append", default=[])
@@ -958,8 +1075,10 @@ def main(argv: list[str] | None = None) -> int:
 
     sentrux = subparsers.add_parser("sentrux", help="record Sentrux free-tier evidence")
     sentrux.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
-    sentrux.add_argument("--command-or-tool", required=True)
+    sentrux.add_argument("--command-or-tool", "--command", dest="command_or_tool", default="sentrux check")
+    sentrux.add_argument("--mode", choices=("free-tier",), default="free-tier")
     sentrux.add_argument("--status", choices=("pass", "fail", "skipped", "unknown"), required=True)
+    sentrux.add_argument("--evidence", dest="output_path")
     sentrux.add_argument("--rules-checked", type=int)
     sentrux.add_argument("--total-rules-defined", type=int)
     sentrux.add_argument("--quality-signal", type=float)
@@ -968,18 +1087,20 @@ def main(argv: list[str] | None = None) -> int:
 
     finalize = subparsers.add_parser("finalize", help="record final commit and PR provenance")
     finalize.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
-    finalize.add_argument("--commit-sha", action="append", default=[])
+    finalize.add_argument("--commit-sha", "--commit", dest="commit_sha", action="append", default=[])
     finalize.add_argument("--pr-number", type=int)
-    finalize.add_argument("--pr-url")
-    finalize.add_argument("--body-closes-issue", type=int, action="append", default=[])
+    finalize.add_argument("--pr-url", "--pr", dest="pr_url")
+    finalize.add_argument("--body-closes-issue", "--closes", dest="body_closes_issue", action="append", default=[])
 
     pre_commit = subparsers.add_parser("pre-commit", help="validate staged files against a gate record")
     pre_commit.add_argument("--repo-root", type=Path, default=Path.cwd())
     pre_commit.add_argument("--gate-record", "--record", dest="gate_record", type=Path)
     pre_commit.add_argument("--staged", action="store_true", help="kept for hook compatibility")
+    pre_commit.add_argument("--bypass-label", action="append", default=[])
 
     commit_msg = subparsers.add_parser("commit-msg", help="validate commit-message trailers")
     commit_msg.add_argument("message_file", type=Path)
+    commit_msg.add_argument("--bypass-label", action="append", default=[])
 
     ci = subparsers.add_parser("ci", help="validate a committed gate record against PR metadata")
     ci.add_argument("--repo-root", type=Path, default=Path.cwd())
@@ -989,6 +1110,23 @@ def main(argv: list[str] | None = None) -> int:
     ci.add_argument("--pr-body", default="")
     ci.add_argument("--pr-label", action="append", default=[])
     ci.add_argument("--format", choices=("text", "json"), default="text")
+
+    pre_push = subparsers.add_parser("pre-push", help="validate local branch diff before push")
+    pre_push.add_argument("--repo-root", type=Path, default=Path.cwd())
+    pre_push.add_argument("--gate-record", "--record", dest="gate_record", type=Path)
+    pre_push.add_argument("--base", default="origin/main")
+    pre_push.add_argument("--head", default="HEAD")
+    pre_push.add_argument("--format", choices=("text", "json"), default="text")
+    pre_push.add_argument("--bypass-label", action="append", default=[])
+
+    pr_ready = subparsers.add_parser("pr-ready", help="validate local PR readiness before gh pr create")
+    pr_ready.add_argument("--repo-root", type=Path, default=Path.cwd())
+    pr_ready.add_argument("--gate-record", "--record", dest="gate_record", type=Path)
+    pr_ready.add_argument("--base", default="origin/main")
+    pr_ready.add_argument("--head", default="HEAD")
+    pr_ready.add_argument("--pr-body", default="")
+    pr_ready.add_argument("--pr-label", action="append", default=[])
+    pr_ready.add_argument("--format", choices=("text", "json"), default="text")
 
     args = parser.parse_args(argv)
     try:
@@ -1065,7 +1203,7 @@ def main(argv: list[str] | None = None) -> int:
                 commit_sha=args.commit_sha,
                 pr_number=args.pr_number,
                 pr_url=args.pr_url,
-                body_closes_issue=args.body_closes_issue,
+                body_closes_issue=_parse_issue_numbers(args.body_closes_issue),
             )
             print(_normalize_path(str(output_path)))
             return 0
@@ -1074,9 +1212,30 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.command == "pre-commit":
-        report = check_pre_commit(args.repo_root, gate_record=args.gate_record)
+        report = check_pre_commit(
+            args.repo_root,
+            gate_record=args.gate_record,
+            bypass_labels=[*args.bypass_label, *_env_bypass_labels()],
+        )
     elif args.command == "commit-msg":
-        report = check_commit_msg(args.message_file)
+        report = check_commit_msg(args.message_file, bypass_labels=[*args.bypass_label, *_env_bypass_labels()])
+    elif args.command == "pre-push":
+        report = check_pre_push(
+            args.repo_root,
+            gate_record=args.gate_record,
+            base=args.base,
+            head=args.head,
+            bypass_labels=[*args.bypass_label, *_env_bypass_labels()],
+        )
+    elif args.command == "pr-ready":
+        report = check_pr_ready(
+            args.repo_root,
+            gate_record=args.gate_record,
+            base=args.base,
+            head=args.head,
+            pr_body=args.pr_body,
+            pr_labels=[*args.pr_label, *_env_bypass_labels()],
+        )
     else:
         changed_files = _git_lines(
             args.repo_root, ["diff", "--name-only", "--diff-filter=ACMRTUXB", f"{args.base}...{args.head}"]

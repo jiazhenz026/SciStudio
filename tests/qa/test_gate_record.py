@@ -13,6 +13,9 @@ from scieasy.qa.governance.gate_record import (
     GateStage,
     SentruxEvidence,
     check_commit_msg,
+    check_pr_ready,
+    check_pre_commit,
+    check_pre_push,
     main,
     validate_gate_record,
 )
@@ -213,12 +216,14 @@ def test_ai_facing_cli_records_canonical_workflow(tmp_path: Path) -> None:
                 "plan",
                 "--record",
                 str(record_path),
-                "--planned-file",
+                "--files",
                 "src/scieasy/qa/governance/gate_record.py",
-                "--required-check",
+                "--checks",
                 "ruff check .",
-                "--changed-test-path",
+                "--tests",
                 "tests/qa/test_gate_record.py",
+                "--docs",
+                "docs/specs/adr-042-gate-record-sentrux-workflow.md",
             ]
         )
         == 0
@@ -230,7 +235,11 @@ def test_ai_facing_cli_records_canonical_workflow(tmp_path: Path) -> None:
                 "--record",
                 str(record_path),
                 "--updated",
-                "docs/specs/adr-042-addendum1-gate-record-implementation.md",
+                "docs/specs/adr-042-gate-record-sentrux-workflow.md",
+                "--updated",
+                "docs/planning/adr-042-addendum1-implementation-checklist.md",
+                "--na",
+                "changelog=Gate governance migration keeps CHANGELOG tracked.",
             ]
         )
         == 0
@@ -255,7 +264,7 @@ def test_ai_facing_cli_records_canonical_workflow(tmp_path: Path) -> None:
                 str(record_path),
                 "--name",
                 "pytest",
-                "--command-or-tool",
+                "--command",
                 "pytest tests/qa/test_gate_record.py --timeout=60",
                 "--status",
                 "pass",
@@ -272,7 +281,7 @@ def test_ai_facing_cli_records_canonical_workflow(tmp_path: Path) -> None:
                 "--record",
                 str(record_path),
                 "--full-audit",
-                "--command-or-tool",
+                "--command",
                 "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
                 "--status",
                 "pass",
@@ -294,6 +303,8 @@ def test_ai_facing_cli_records_canonical_workflow(tmp_path: Path) -> None:
                 "sentrux mcp check-rules",
                 "--status",
                 "pass",
+                "--mode",
+                "free-tier",
                 "--rules-checked",
                 "3",
                 "--total-rules-defined",
@@ -310,14 +321,14 @@ def test_ai_facing_cli_records_canonical_workflow(tmp_path: Path) -> None:
                 "finalize",
                 "--record",
                 str(record_path),
-                "--commit-sha",
+                "--commit",
                 "abc1234",
                 "--pr-number",
                 "1276",
-                "--pr-url",
+                "--pr",
                 "https://github.com/zjzcpj/SciEasy/pull/1276",
-                "--body-closes-issue",
-                "1267",
+                "--closes",
+                "#1267",
             ]
         )
         == 0
@@ -330,3 +341,95 @@ def test_ai_facing_cli_records_canonical_workflow(tmp_path: Path) -> None:
     assert record.full_audit is not None
     assert record.sentrux is not None
     assert record.commit is not None
+    assert record.docs_landing["docs"]["paths"] == ["docs/specs/adr-042-gate-record-sentrux-workflow.md"]
+    assert record.docs_landing["checklist"]["paths"] == ["docs/planning/adr-042-addendum1-implementation-checklist.md"]
+    assert record.docs_landing["changelog"]["not_applicable"] is True
+
+
+def test_start_cli_accepts_hotfix_task_kind(tmp_path: Path) -> None:
+    record_path = tmp_path / ".workflow" / "records" / "1300-hotfix-crash.json"
+
+    assert (
+        main(
+            [
+                "start",
+                "--repo-root",
+                str(tmp_path),
+                "--issue",
+                "1300",
+                "--slug",
+                "hotfix crash",
+                "--task-kind",
+                "hotfix",
+                "--branch",
+                "hotfix/crash",
+                "--owner-directive",
+                "Retroactively record the completed hotfix gate.",
+                "--include",
+                "src/scieasy/runtime/**",
+                "--include",
+                "tests/**",
+                "--record",
+                str(record_path),
+            ]
+        )
+        == 0
+    )
+
+    record = GateRecord.model_validate(json.loads(record_path.read_text(encoding="utf-8")))
+    assert record.task_kind == "hotfix"
+    assert record.branch == "hotfix/crash"
+
+
+def test_pre_commit_is_lightweight_until_final_gate(tmp_path: Path) -> None:
+    missing_record = check_pre_commit(tmp_path, staged_files=["src/scieasy/example.py"])
+    assert not missing_record.blocks_merge
+    assert missing_record.summary["skipped"] == "no gate record present yet; final push/PR/CI gate remains required"
+
+    data = _record(
+        full_audit=None,
+        sentrux=None,
+        changed_test_paths=[],
+        scope={"include": ["src/scieasy/**"], "exclude": []},
+    )
+    record_path = tmp_path / ".workflow" / "records" / "1267-gate-record-core.json"
+    record_path.parent.mkdir(parents=True)
+    record_path.write_text(json.dumps(data), encoding="utf-8")
+
+    report = check_pre_commit(tmp_path, gate_record=record_path, staged_files=["src/scieasy/example.py"])
+    assert not report.blocks_merge
+
+    outside_scope = check_pre_commit(tmp_path, gate_record=record_path, staged_files=["docs/adr/ADR-042.md"])
+    assert outside_scope.blocks_merge
+    assert "gate-record.scope.outside-include" in {finding.rule_id for finding in outside_scope.findings}
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        "human-authored",
+        "admin-approved:ai-override",
+        "admin-approved:core-change",
+        "admin-approved:merge",
+    ],
+)
+def test_override_labels_bypass_local_intermediate_hooks(tmp_path: Path, label: str) -> None:
+    pre_commit = check_pre_commit(
+        tmp_path,
+        staged_files=["docs/adr/ADR-042.md"],
+        bypass_labels=[label],
+    )
+    commit_msg = check_commit_msg("fix: missing trailers", bypass_labels=[label])
+    pre_push = check_pre_push(tmp_path, bypass_labels=[label])
+    pr_ready = check_pr_ready(tmp_path, pr_body="", pr_labels=[label])
+
+    for report in (pre_commit, commit_msg, pre_push, pr_ready):
+        assert not report.blocks_merge
+        assert report.summary["bypass_labels"] == [label]
+
+
+def test_invalid_override_label_does_not_bypass_local_hooks(tmp_path: Path) -> None:
+    report = check_pr_ready(tmp_path, pr_body="", pr_labels=["admin-approved-core-change"])
+
+    assert report.blocks_merge
+    assert "gate-record.override-label.invalid" in {finding.rule_id for finding in report.findings}
