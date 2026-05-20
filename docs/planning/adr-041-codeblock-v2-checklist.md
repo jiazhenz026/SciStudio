@@ -193,9 +193,9 @@ Tasks:
 
 Exit Criteria:
 
-- [ ] Track C3 PR targets `track/adr-041/codeblock-v2`.
-- [ ] Track C3 CI is green.
-- [ ] Checklist rows updated with PR/test evidence.
+- [x] Track C3 PR targets `track/adr-041/codeblock-v2`. Evidence: PR [#1250](https://github.com/zjzcpj/SciEasy/pull/1250).
+- [x] Track C3 CI is green. Evidence: PR [#1250](https://github.com/zjzcpj/SciEasy/pull/1250) checks passed on run `26133011732` after merging tracking commit `48596275`.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR [#1250](https://github.com/zjzcpj/SciEasy/pull/1250), commits `81c0c6c9`, `70dde9c9`, and focused pytest/Ruff evidence recorded above.
 
 ### Track C4 - Shell Runtime Support (Owner: I41s / #1237)
 
