@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.qa.audit.frontmatter_lint import lint_file, lint_paths
-from scieasy.qa.audit.loaders import load_adr_frontmatter
-from scieasy.qa.schemas.frontmatter import ADRAddendumFrontmatter
+from scieasy.qa.audit.frontmatter_lint import check, lint_file, lint_paths
+from scieasy.qa.audit.loaders import load_adr_frontmatter, load_architecture_frontmatter
+from scieasy.qa.schemas.frontmatter import ADRAddendumFrontmatter, ArchitectureFrontmatter
 from scieasy.qa.schemas.report import AuditStatus, Severity
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -121,6 +121,28 @@ translations: []
 """
 
 
+def _valid_architecture() -> str:
+    return """---
+doc_type: architecture
+title: "SciEasy Architecture Document"
+status: living
+owner: "@owner"
+last_updated: 2026-05-19
+governed_by:
+  - ADR-042
+  - ADR-043
+related_adrs:
+  - 42
+  - 43
+summary: "Stable architecture overview for SciEasy runtime and governance layers."
+---
+
+# SciEasy Architecture Document
+
+## 1. Problem statement
+"""
+
+
 def test_valid_adr_frontmatter_and_structure_pass(tmp_path: Path) -> None:
     path = _write(tmp_path / "docs" / "adr" / "ADR-123.md", _valid_adr())
 
@@ -211,6 +233,59 @@ def test_adr_addendum_loader_selects_addendum_schema(tmp_path: Path) -> None:
     assert isinstance(frontmatter, ADRAddendumFrontmatter)
     assert frontmatter.adr == 42
     assert frontmatter.addendum == 1
+
+
+def test_valid_architecture_frontmatter_and_h1_pass(tmp_path: Path) -> None:
+    path = _write(tmp_path / "docs" / "architecture" / "ARCHITECTURE.md", _valid_architecture())
+
+    assert lint_file(path) == []
+    frontmatter = load_architecture_frontmatter(path)
+    assert isinstance(frontmatter, ArchitectureFrontmatter)
+
+
+def test_architecture_frontmatter_rejects_invalid_doc_type(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path / "docs" / "architecture" / "ARCHITECTURE.md",
+        _valid_architecture().replace("doc_type: architecture", "doc_type: guide"),
+    )
+
+    findings = lint_file(path)
+
+    assert findings[0].severity is Severity.ERROR
+    assert findings[0].rule_id == "frontmatter.validation"
+    assert "doc_type" in findings[0].message
+
+
+def test_architecture_frontmatter_requires_owner(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path / "docs" / "architecture" / "ARCHITECTURE.md",
+        _valid_architecture().replace('owner: "@owner"\n', ""),
+    )
+
+    findings = lint_file(path)
+
+    assert findings[0].severity is Severity.ERROR
+    assert findings[0].rule_id == "frontmatter.validation"
+    assert "owner" in findings[0].message
+
+
+def test_architecture_h1_must_match_title(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path / "docs" / "architecture" / "ARCHITECTURE.md",
+        _valid_architecture().replace("# SciEasy Architecture Document", "# Wrong Architecture Title"),
+    )
+
+    findings = lint_file(path)
+
+    assert any(f.rule_id == "frontmatter.architecture-h1" for f in findings)
+
+
+def test_frontmatter_check_includes_architecture_doc(tmp_path: Path) -> None:
+    _write(tmp_path / "docs" / "architecture" / "ARCHITECTURE.md", _valid_architecture())
+
+    findings = check(tmp_path)
+
+    assert findings == []
 
 
 def test_adr_addendum_h1_must_match_title_and_number(tmp_path: Path) -> None:
@@ -325,3 +400,9 @@ def test_adr042_governance_documents_pass_frontmatter_lint() -> None:
 
     for path in paths:
         assert lint_file(path) == []
+
+
+def test_repo_architecture_document_passes_frontmatter_lint() -> None:
+    path = REPO_ROOT / "docs" / "architecture" / "ARCHITECTURE.md"
+
+    assert lint_file(path) == []

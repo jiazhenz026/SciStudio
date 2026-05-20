@@ -9,9 +9,15 @@ from pydantic import ValidationError
 
 from scieasy.qa.audit._util import _apply_governance_amendments, parse_yaml_frontmatter
 from scieasy.qa.audit._util import load_adr_frontmatter as _load_adr_frontmatter
+from scieasy.qa.audit._util import load_architecture_frontmatter as _load_architecture_frontmatter
 from scieasy.qa.audit._util import load_maintainers as _load_maintainers
 from scieasy.qa.audit._util import load_spec_frontmatter as _load_spec_frontmatter
-from scieasy.qa.schemas.frontmatter import ADRAddendumFrontmatter, ADRFrontmatter, SpecFrontmatter
+from scieasy.qa.schemas.frontmatter import (
+    ADRAddendumFrontmatter,
+    ADRFrontmatter,
+    ArchitectureFrontmatter,
+    SpecFrontmatter,
+)
 from scieasy.qa.schemas.maintainers import Maintainers
 
 _ADR_ADDENDUM_RE = re.compile(r"^ADR-\d{3}-addendum")
@@ -54,6 +60,15 @@ def load_spec_frontmatter(path: Path) -> SpecFrontmatter:
     frontmatter, _body, findings = _load_spec_frontmatter(path)
     if frontmatter is None:
         raise ValueError(f"invalid spec frontmatter in {path}: {findings}")
+    return frontmatter
+
+
+def load_architecture_frontmatter(path: Path) -> ArchitectureFrontmatter:
+    """Load and validate architecture document frontmatter, raising on invalid input."""
+
+    frontmatter, _body, findings = _load_architecture_frontmatter(path)
+    if frontmatter is None:
+        raise ValueError(f"invalid architecture frontmatter in {path}: {findings}")
     return frontmatter
 
 

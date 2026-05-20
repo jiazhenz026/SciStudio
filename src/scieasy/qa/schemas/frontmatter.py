@@ -128,6 +128,43 @@ class ADRAddendumFrontmatter(ADRFrontmatter):
     addendum: int = Field(gt=0)
 
 
+class ArchitectureFrontmatter(BaseModel):
+    """Architecture document frontmatter contract for repo-wide frontmatter lint."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    doc_type: Literal["architecture"]
+    title: str = Field(min_length=4, max_length=160)
+    status: Literal["living"]
+    owner: str = Field(min_length=1)
+    last_updated: date
+    governed_by: list[str] = Field(min_length=1)
+    related_adrs: list[int]
+    summary: str = Field(min_length=8, max_length=400)
+
+    @field_validator("owner")
+    @classmethod
+    def _owner_non_empty(cls, value: str) -> str:
+        if not value:
+            raise ValueError("architecture owner must be non-empty")
+        return value
+
+    @field_validator("governed_by")
+    @classmethod
+    def _governed_by_entries(cls, values: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for raw in values:
+            value = raw.strip()
+            if not value:
+                raise ValueError("governed_by entries must be non-empty strings")
+            if value in seen:
+                raise ValueError(f"duplicate governed_by entry: {value}")
+            seen.add(value)
+            cleaned.append(value)
+        return cleaned
+
+
 class SpecScope(BaseModel):
     """SpecKit-compatible scope record."""
 

@@ -26,12 +26,12 @@ Sub-issue: #1268
 - [x] Add `ADRAddendumFrontmatter` and loader support for standalone `ADR-NNN-addendumM.md` files. [ADR-042 Addendum 1 Section 3; Spec User Story 2] Result: `python -m scieasy.qa.audit.frontmatter_lint docs/adr/ADR-042-addendum1.md` passed with `PYTHONPATH=src`.
 - [x] Update `frontmatter_lint` filename/H1/Decision Summary checks for addenda without weakening ordinary ADR checks. [Spec FR-001..FR-003] Result: `pytest tests/qa/test_audit_frontmatter_lint.py --timeout=60 --no-cov` passed 15 tests with `PYTHONPATH=src`.
 - [x] Add or update tests in `tests/qa/test_audit_frontmatter_lint.py` for valid and invalid addenda. Result: valid addendum, malformed filename, mismatched addendum number, missing addendum number, wrong H1, unresolved detail section, and loader selection cases covered.
-- [ ] Add `ArchitectureFrontmatter` and include `docs/architecture/ARCHITECTURE.md` in repo-wide `frontmatter_lint` checks. [Spec User Story 2a; FR-002a]
-- [ ] Validate architecture document H1 against frontmatter title and reject missing owner/governed ADR metadata.
+- [x] Add `ArchitectureFrontmatter` and include `docs/architecture/ARCHITECTURE.md` in repo-wide `frontmatter_lint` checks. [Spec User Story 2a; FR-002a] Result: `PYTHONPATH=src python -m scieasy.qa.audit.frontmatter_lint docs/architecture/ARCHITECTURE.md` passed; repo-wide command now includes architecture but still reports pre-existing non-Track-A ADR/spec frontmatter debt.
+- [x] Validate architecture document H1 against frontmatter title and reject missing owner/governed ADR metadata. Result: architecture tests cover valid metadata, invalid `doc_type`, missing owner, wrong H1, repo `ARCHITECTURE.md`, and repo-wide `check()` inclusion.
 
 ### Verification
 
-- [!] `pytest tests/qa/test_audit_frontmatter_lint.py --timeout=60` Result: test assertions passed, but the repository global coverage fail-under rejected this targeted run at 9%; rerun with `PYTHONPATH=src` and `--no-cov` passed 15 tests.
+- [!] `pytest tests/qa/test_audit_frontmatter_lint.py --timeout=60` Result: test assertions passed, but the repository global coverage fail-under rejected this targeted run at 9%; rerun with `PYTHONPATH=src` and `--no-cov` passed 21 tests.
 
 ## Track B - Gate Record Core
 

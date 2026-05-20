@@ -9,7 +9,7 @@ from typing import Any
 import yaml
 from pydantic import ValidationError
 
-from scieasy.qa.schemas.frontmatter import ADRFrontmatter, SpecFrontmatter
+from scieasy.qa.schemas.frontmatter import ADRFrontmatter, ArchitectureFrontmatter, SpecFrontmatter
 from scieasy.qa.schemas.maintainers import Maintainers
 from scieasy.qa.schemas.report import Finding, Severity
 
@@ -281,6 +281,30 @@ def load_spec_frontmatter(path: Path) -> tuple[SpecFrontmatter | None, str, list
                     file=normalise_path(path),
                     line=1,
                     message=f"Spec frontmatter validation failed: {exc}",
+                )
+            ],
+        )
+
+
+def load_architecture_frontmatter(path: Path) -> tuple[ArchitectureFrontmatter | None, str, list[Finding]]:
+    """Load and validate architecture document frontmatter."""
+
+    data, body, findings = parse_yaml_frontmatter(path)
+    if data is None:
+        return None, body, findings
+    try:
+        return ArchitectureFrontmatter.model_validate(data), body, []
+    except ValidationError as exc:
+        return (
+            None,
+            body,
+            [
+                Finding(
+                    rule_id="frontmatter.validation",
+                    severity=Severity.ERROR,
+                    file=normalise_path(path),
+                    line=1,
+                    message=f"Architecture frontmatter validation failed: {exc}",
                 )
             ],
         )
