@@ -249,6 +249,11 @@ Acceptance Scenarios:
   or unauthorized changes to governance files.
 - FR-016: `weakened_ci_check.verify_no_weakening` MUST detect removed or
   weakened checks, tests, thresholds, and exemptions.
+- FR-016a: The initial P0 implementation MUST run both tools as scoped local
+  pre-commit hooks in staged-diff mode. `mod_guard` MAY accept the explicit
+  local override `SCIEASY_GOVERNANCE_CHANGE_APPROVED=1` only after maintainer
+  authorization; this is an escape hatch for legitimate governance edits, not
+  self-authorization by an AI agent.
 - FR-017: `instructions_loaded_audit` MUST record loaded instruction metadata as
   a report-only diagnostic unless owner policy later changes it.
 - FR-018: `trailer_lint.run` MUST validate AI provenance trailers across a
@@ -655,6 +660,8 @@ committer_enforce.check = check_committer_enforce
 Required CLI behavior:
 
 ```text
+python -m scieasy.qa.governance.mod_guard --base origin/main --head HEAD --format json
+python -m scieasy.qa.governance.mod_guard --staged
 python -m scieasy.qa.governance.local_gate start --kind docs --persona adr_author --scope docs/specs/**
 python -m scieasy.qa.governance.local_gate record --stage issue --issue 1113
 python -m scieasy.qa.governance.local_gate pre-commit
@@ -663,6 +670,7 @@ python -m scieasy.qa.governance.persona_policy --format json
 python -m scieasy.qa.governance.human_bypass_guard --pr 1195 --format json
 python -m scieasy.qa.governance.core_change_guard --base origin/main --head HEAD --format json
 python -m scieasy.qa.governance.weakened_ci_check --base origin/main --head HEAD --format json
+python -m scieasy.qa.governance.weakened_ci_check --staged
 python -m scieasy.qa.audit.complete_artifacts --base origin/main --head HEAD --format json
 python -m scieasy.qa.audit.codemod_lint --base origin/main --head HEAD --format json
 python -m scieasy.qa.audit.trailer_lint --range origin/main..HEAD --format json
