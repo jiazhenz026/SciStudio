@@ -12,7 +12,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
@@ -59,6 +59,7 @@ CLOSING_KEYWORD_RE = re.compile(
 )
 
 TRAILER_RE = re.compile(r"^(?P<key>[A-Za-z][A-Za-z-]*):\s*(?P<value>.+?)\s*$", re.MULTILINE)
+SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 
 class GateStage(StrEnum):
@@ -292,7 +293,10 @@ class GateRecord(BaseModel):
 
 
 def _normalize_path(path: str) -> str:
-    return path.replace("\\", "/").strip().lstrip("./")
+    normalized = path.replace("\\", "/").strip()
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized
 
 
 def _match_path(path: str, pattern: str) -> bool:
@@ -388,6 +392,36 @@ def _load_record(record: GateRecord | Mapping[str, Any] | str | Path) -> GateRec
         return GateRecord.model_validate(record)
     path = Path(record)
     return GateRecord.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+def _slugify(value: str) -> str:
+    slug = SLUG_RE.sub("-", value.lower()).strip("-")
+    return slug or "task"
+
+
+def _record_path(repo_root: Path, issue_number: int, slug: str, explicit: Path | None) -> Path:
+    if explicit is not None:
+        return explicit if explicit.is_absolute() else repo_root / explicit
+    return repo_root / ".workflow" / "records" / f"{issue_number}-{_slugify(slug)}.json"
+
+
+def _write_record(path: Path, record: GateRecord) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = record.model_dump(mode="json", exclude_none=False)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
+def _mark_stage(record: GateRecord, stage: GateStage) -> None:
+    for stage_evidence in record.stages:
+        if stage_evidence.stage == stage:
+            stage_evidence.status = "done"
+            return
+
+
+def _upsert_check(record: GateRecord, evidence: CheckEvidence) -> None:
+    record.check_results = [check for check in record.check_results if check.name != evidence.name]
+    record.check_results.append(evidence)
 
 
 def _closed_issue_numbers(pr_body: str) -> set[int]:
@@ -669,6 +703,204 @@ def check_pr(
     )
 
 
+def start_record(
+    *,
+    repo_root: Path,
+    issue_number: int,
+    slug: str,
+    task_kind: str,
+    branch: str,
+    owner_directive: str,
+    include: Sequence[str],
+    exclude: Sequence[str] = (),
+    issue_url: str | None = None,
+    governance_touch: bool = False,
+    record_path: Path | None = None,
+) -> Path:
+    """Create or deterministically replace a committed gate record."""
+
+    path = _record_path(repo_root, issue_number, slug, record_path)
+    rel_path = _normalize_path(str(path.relative_to(repo_root))) if path.is_relative_to(repo_root) else str(path)
+    record = GateRecord.model_validate(
+        {
+            "schema_version": "1",
+            "record_path": rel_path,
+            "task_id": f"{issue_number}-{_slugify(slug)}",
+            "task_kind": task_kind,
+            "branch": branch,
+            "owner_directive": owner_directive,
+            "issues": [{"number": issue_number, "url": issue_url}],
+            "scope": {"include": list(include), "exclude": list(exclude)},
+            "governance_touch": governance_touch,
+            "stages": [
+                {
+                    "stage": stage.value,
+                    "status": "done" if stage == GateStage.SCOPE_AND_ISSUE else "pending",
+                }
+                for stage in CANONICAL_STAGE_ORDER
+            ],
+        }
+    )
+    return _write_record(path, record)
+
+
+def plan_record(
+    record_path: Path,
+    *,
+    planned_files: Sequence[str] = (),
+    required_checks: Sequence[str] = (),
+    changed_test_paths: Sequence[str] = (),
+) -> Path:
+    """Update the Plan stage of a gate record."""
+
+    record = _load_record(record_path)
+    record.planned_files = [_normalize_path(path) for path in planned_files]
+    record.required_checks = list(required_checks)
+    record.changed_test_paths = [_normalize_path(path) for path in changed_test_paths]
+    _mark_stage(record, GateStage.PLAN)
+    return _write_record(record_path, record)
+
+
+def amend_record(
+    record_path: Path,
+    *,
+    reason: str,
+    include: Sequence[str] = (),
+    exclude: Sequence[str] = (),
+    approved_by: str | None = None,
+) -> Path:
+    """Append a scope amendment."""
+
+    record = _load_record(record_path)
+    record.amendments.append(
+        ScopeAmendment(reason=reason, include=list(include), exclude=list(exclude), approved_by=approved_by)
+    )
+    _mark_stage(record, GateStage.IMPLEMENT)
+    return _write_record(record_path, record)
+
+
+def docs_record(
+    record_path: Path,
+    *,
+    updated: Sequence[str] = (),
+    na: Sequence[str] = (),
+) -> Path:
+    """Record documentation landing evidence."""
+
+    record = _load_record(record_path)
+    na_rationales = dict(_parse_key_values(na))
+    record.docs_landing = {
+        "updated": [_normalize_path(path) for path in updated],
+        "na": na_rationales,
+    }
+    _mark_stage(record, GateStage.UPDATE_DOCS)
+    return _write_record(record_path, record)
+
+
+def check_record(
+    record_path: Path,
+    *,
+    name: str,
+    command_or_tool: str,
+    status: str,
+    exit_code: int | None = None,
+    output_path: str | None = None,
+    full_audit: bool = False,
+    blocks_merge: bool | None = None,
+    known_debt: Sequence[str] = (),
+    unclassified_failure: Sequence[str] = (),
+) -> Path:
+    """Record a command result or ADR-042 full-audit evidence."""
+
+    record = _load_record(record_path)
+    if full_audit:
+        if output_path is None:
+            raise ValueError("--output-path is required for --full-audit")
+        record.full_audit = FullAuditEvidence(
+            command=command_or_tool,
+            status=cast(Literal["pass", "fail", "skipped", "unknown"], status),
+            exit_code=exit_code,
+            output_path=output_path,
+            blocks_merge=blocks_merge,
+            known_debt=list(known_debt),
+            unclassified_failures=list(unclassified_failure),
+        )
+    else:
+        _upsert_check(
+            record,
+            CheckEvidence(
+                name=name,
+                command_or_tool=command_or_tool,
+                status=cast(Literal["pass", "fail", "skipped", "unknown"], status),
+                exit_code=exit_code,
+                output_path=output_path,
+            ),
+        )
+    _mark_stage(record, GateStage.TEST_AND_CHECKS)
+    return _write_record(record_path, record)
+
+
+def sentrux_record(
+    record_path: Path,
+    *,
+    command_or_tool: str,
+    status: str,
+    rules_checked: int | None = None,
+    total_rules_defined: int | None = None,
+    quality_signal: float | None = None,
+    threshold: Sequence[str] = (),
+    output_path: str | None = None,
+) -> Path:
+    """Record Sentrux free-tier evidence."""
+
+    record = _load_record(record_path)
+    record.sentrux = SentruxEvidence(
+        mode="free-tier",
+        command_or_tool=command_or_tool,
+        status=cast(Literal["pass", "fail", "skipped", "unknown"], status),
+        rules_checked=rules_checked,
+        total_rules_defined=total_rules_defined,
+        quality_signal=quality_signal,
+        thresholds=dict(_parse_key_values(threshold)),
+        pro_required=False,
+        output_path=output_path,
+    )
+    _mark_stage(record, GateStage.TEST_AND_CHECKS)
+    return _write_record(record_path, record)
+
+
+def finalize_record(
+    record_path: Path,
+    *,
+    commit_sha: Sequence[str] = (),
+    pr_number: int | None = None,
+    pr_url: str | None = None,
+    body_closes_issue: Sequence[int] = (),
+) -> Path:
+    """Record final commit and PR provenance."""
+
+    record = _load_record(record_path)
+    rel_path = record.record_path or _normalize_path(str(record_path))
+    record.commit = CommitEvidence(shas=list(commit_sha), gate_record_path=rel_path)
+    record.pull_request = PullRequestEvidence(
+        number=pr_number,
+        url=pr_url,
+        body_closes_issues=list(body_closes_issue),
+    )
+    _mark_stage(record, GateStage.COMMIT_AND_SUBMIT_PR)
+    return _write_record(record_path, record)
+
+
+def _parse_key_values(values: Sequence[str]) -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = []
+    for item in values:
+        if "=" not in item:
+            raise ValueError(f"expected KEY=VALUE item: {item}")
+        key, value = item.split("=", 1)
+        pairs.append((key, value))
+    return pairs
+
+
 def _render_text(report: AuditReport) -> str:
     if not report.findings:
         return "gate_record: pass"
@@ -681,9 +913,69 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    start = subparsers.add_parser("start", help="create or replace a committed gate record")
+    start.add_argument("--repo-root", type=Path, default=Path.cwd())
+    start.add_argument("--issue", type=int, required=True)
+    start.add_argument("--issue-url")
+    start.add_argument("--slug", required=True)
+    start.add_argument("--task-kind", required=True)
+    start.add_argument("--branch", required=True)
+    start.add_argument("--owner-directive", required=True)
+    start.add_argument("--include", action="append", default=[])
+    start.add_argument("--exclude", action="append", default=[])
+    start.add_argument("--governance-touch", action="store_true")
+    start.add_argument("--record-path", "--record", dest="record_path", type=Path)
+
+    plan = subparsers.add_parser("plan", help="record planned files, checks, and expected tests")
+    plan.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
+    plan.add_argument("--planned-file", action="append", default=[])
+    plan.add_argument("--required-check", action="append", default=[])
+    plan.add_argument("--changed-test-path", action="append", default=[])
+
+    amend = subparsers.add_parser("amend", help="append a scope amendment")
+    amend.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
+    amend.add_argument("--reason", required=True)
+    amend.add_argument("--include", action="append", default=[])
+    amend.add_argument("--exclude", action="append", default=[])
+    amend.add_argument("--approved-by")
+
+    docs = subparsers.add_parser("docs", help="record documentation landing")
+    docs.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
+    docs.add_argument("--updated", action="append", default=[])
+    docs.add_argument("--na", action="append", default=[], help="N/A rationale as KEY=VALUE")
+
+    check = subparsers.add_parser("check", help="record a check result or full-audit evidence")
+    check.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
+    check.add_argument("--name", default="full_audit")
+    check.add_argument("--command-or-tool", required=True)
+    check.add_argument("--status", choices=("pass", "fail", "skipped", "unknown"), required=True)
+    check.add_argument("--exit-code", type=int)
+    check.add_argument("--output-path")
+    check.add_argument("--full-audit", action="store_true")
+    check.add_argument("--blocks-merge", action="store_true")
+    check.add_argument("--known-debt", action="append", default=[])
+    check.add_argument("--unclassified-failure", action="append", default=[])
+
+    sentrux = subparsers.add_parser("sentrux", help="record Sentrux free-tier evidence")
+    sentrux.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
+    sentrux.add_argument("--command-or-tool", required=True)
+    sentrux.add_argument("--status", choices=("pass", "fail", "skipped", "unknown"), required=True)
+    sentrux.add_argument("--rules-checked", type=int)
+    sentrux.add_argument("--total-rules-defined", type=int)
+    sentrux.add_argument("--quality-signal", type=float)
+    sentrux.add_argument("--threshold", action="append", default=[], help="threshold as KEY=VALUE")
+    sentrux.add_argument("--output-path")
+
+    finalize = subparsers.add_parser("finalize", help="record final commit and PR provenance")
+    finalize.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
+    finalize.add_argument("--commit-sha", action="append", default=[])
+    finalize.add_argument("--pr-number", type=int)
+    finalize.add_argument("--pr-url")
+    finalize.add_argument("--body-closes-issue", type=int, action="append", default=[])
+
     pre_commit = subparsers.add_parser("pre-commit", help="validate staged files against a gate record")
     pre_commit.add_argument("--repo-root", type=Path, default=Path.cwd())
-    pre_commit.add_argument("--gate-record", type=Path)
+    pre_commit.add_argument("--gate-record", "--record", dest="gate_record", type=Path)
     pre_commit.add_argument("--staged", action="store_true", help="kept for hook compatibility")
 
     commit_msg = subparsers.add_parser("commit-msg", help="validate commit-message trailers")
@@ -691,7 +983,7 @@ def main(argv: list[str] | None = None) -> int:
 
     ci = subparsers.add_parser("ci", help="validate a committed gate record against PR metadata")
     ci.add_argument("--repo-root", type=Path, default=Path.cwd())
-    ci.add_argument("--gate-record", type=Path, required=True)
+    ci.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
     ci.add_argument("--base", default="origin/main")
     ci.add_argument("--head", default="HEAD")
     ci.add_argument("--pr-body", default="")
@@ -699,6 +991,88 @@ def main(argv: list[str] | None = None) -> int:
     ci.add_argument("--format", choices=("text", "json"), default="text")
 
     args = parser.parse_args(argv)
+    try:
+        if args.command == "start":
+            output_path = start_record(
+                repo_root=args.repo_root,
+                issue_number=args.issue,
+                issue_url=args.issue_url,
+                slug=args.slug,
+                task_kind=args.task_kind,
+                branch=args.branch,
+                owner_directive=args.owner_directive,
+                include=args.include,
+                exclude=args.exclude,
+                governance_touch=args.governance_touch,
+                record_path=args.record_path,
+            )
+            print(_normalize_path(str(output_path)))
+            return 0
+        if args.command == "plan":
+            output_path = plan_record(
+                args.gate_record,
+                planned_files=args.planned_file,
+                required_checks=args.required_check,
+                changed_test_paths=args.changed_test_path,
+            )
+            print(_normalize_path(str(output_path)))
+            return 0
+        if args.command == "amend":
+            output_path = amend_record(
+                args.gate_record,
+                reason=args.reason,
+                include=args.include,
+                exclude=args.exclude,
+                approved_by=args.approved_by,
+            )
+            print(_normalize_path(str(output_path)))
+            return 0
+        if args.command == "docs":
+            output_path = docs_record(args.gate_record, updated=args.updated, na=args.na)
+            print(_normalize_path(str(output_path)))
+            return 0
+        if args.command == "check":
+            output_path = check_record(
+                args.gate_record,
+                name=args.name,
+                command_or_tool=args.command_or_tool,
+                status=args.status,
+                exit_code=args.exit_code,
+                output_path=args.output_path,
+                full_audit=args.full_audit,
+                blocks_merge=args.blocks_merge if args.full_audit else None,
+                known_debt=args.known_debt,
+                unclassified_failure=args.unclassified_failure,
+            )
+            print(_normalize_path(str(output_path)))
+            return 0
+        if args.command == "sentrux":
+            output_path = sentrux_record(
+                args.gate_record,
+                command_or_tool=args.command_or_tool,
+                status=args.status,
+                rules_checked=args.rules_checked,
+                total_rules_defined=args.total_rules_defined,
+                quality_signal=args.quality_signal,
+                threshold=args.threshold,
+                output_path=args.output_path,
+            )
+            print(_normalize_path(str(output_path)))
+            return 0
+        if args.command == "finalize":
+            output_path = finalize_record(
+                args.gate_record,
+                commit_sha=args.commit_sha,
+                pr_number=args.pr_number,
+                pr_url=args.pr_url,
+                body_closes_issue=args.body_closes_issue,
+            )
+            print(_normalize_path(str(output_path)))
+            return 0
+    except (OSError, ValidationError, ValueError) as exc:
+        print(f"gate_record {args.command} failed: {exc}", file=sys.stderr)
+        return 1
+
     if args.command == "pre-commit":
         report = check_pre_commit(args.repo_root, gate_record=args.gate_record)
     elif args.command == "commit-msg":

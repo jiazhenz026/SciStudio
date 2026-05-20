@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
@@ -10,6 +13,7 @@ from scieasy.qa.governance.gate_record import (
     GateStage,
     SentruxEvidence,
     check_commit_msg,
+    main,
     validate_gate_record,
 )
 
@@ -169,3 +173,160 @@ Assisted-by: Codex:gpt-5
     missing = check_commit_msg("feat: no trailers\n")
     assert missing.blocks_merge
     assert "Gate-Record" in {finding.message.rsplit(" ", 1)[-1] for finding in missing.findings}
+
+
+def test_ai_facing_cli_records_canonical_workflow(tmp_path: Path) -> None:
+    record_path = tmp_path / ".workflow" / "records" / "1267-gate-record-core.json"
+
+    assert (
+        main(
+            [
+                "start",
+                "--repo-root",
+                str(tmp_path),
+                "--issue",
+                "1267",
+                "--issue-url",
+                "https://github.com/zjzcpj/SciEasy/issues/1267",
+                "--slug",
+                "Gate Record Core",
+                "--task-kind",
+                "feature",
+                "--branch",
+                "feat/issue-1267/gate-record-core",
+                "--owner-directive",
+                "Implement ADR-042 Addendum 1 Track B.",
+                "--include",
+                "src/scieasy/qa/governance/**",
+                "--include",
+                "tests/qa/test_gate_record*.py",
+                "--governance-touch",
+                "--record",
+                str(record_path),
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "plan",
+                "--record",
+                str(record_path),
+                "--planned-file",
+                "src/scieasy/qa/governance/gate_record.py",
+                "--required-check",
+                "ruff check .",
+                "--changed-test-path",
+                "tests/qa/test_gate_record.py",
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "docs",
+                "--record",
+                str(record_path),
+                "--updated",
+                "docs/specs/adr-042-addendum1-gate-record-implementation.md",
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "amend",
+                "--record",
+                str(record_path),
+                "--reason",
+                "Implementation confirmed within planned scope.",
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "check",
+                "--record",
+                str(record_path),
+                "--name",
+                "pytest",
+                "--command-or-tool",
+                "pytest tests/qa/test_gate_record.py --timeout=60",
+                "--status",
+                "pass",
+                "--exit-code",
+                "0",
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "check",
+                "--record",
+                str(record_path),
+                "--full-audit",
+                "--command-or-tool",
+                "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+                "--status",
+                "pass",
+                "--exit-code",
+                "0",
+                "--output-path",
+                "docs/audit/full-audit-latest.json",
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "sentrux",
+                "--record",
+                str(record_path),
+                "--command-or-tool",
+                "sentrux mcp check-rules",
+                "--status",
+                "pass",
+                "--rules-checked",
+                "3",
+                "--total-rules-defined",
+                "15",
+                "--threshold",
+                "max_cycles=0",
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "finalize",
+                "--record",
+                str(record_path),
+                "--commit-sha",
+                "abc1234",
+                "--pr-number",
+                "1276",
+                "--pr-url",
+                "https://github.com/zjzcpj/SciEasy/pull/1276",
+                "--body-closes-issue",
+                "1267",
+            ]
+        )
+        == 0
+    )
+
+    payload = json.loads(record_path.read_text(encoding="utf-8"))
+    record = GateRecord.model_validate(payload)
+    assert [stage.status for stage in record.stages] == ["done", "done", "done", "done", "done", "done"]
+    assert record.record_path == ".workflow/records/1267-gate-record-core.json"
+    assert record.full_audit is not None
+    assert record.sentrux is not None
+    assert record.commit is not None
