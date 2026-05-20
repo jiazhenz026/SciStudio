@@ -13,6 +13,17 @@ repos:
         language: system
         pass_filenames: false
         files: ^(\.github/workflows/|\.pre-commit-config\.yaml|pyproject\.toml)
+      - id: scieasy-gate-record-pre-commit
+        name: SciEasy ADR-042 gate record pre-commit
+        entry: python -m scieasy.qa.governance.gate_record pre-commit --staged
+        language: system
+        pass_filenames: false
+        files: ^(src/|packages/|frontend/|web/|tests/|\.workflow/records/|\.github/workflows/|\.pre-commit-config\.yaml|scripts/hooks/)
+      - id: scieasy-gate-record-commit-msg
+        name: SciEasy ADR-042 gate record commit message
+        entry: python -m scieasy.qa.governance.gate_record commit-msg
+        language: system
+        stages: [commit-msg]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0

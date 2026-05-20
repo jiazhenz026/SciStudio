@@ -100,21 +100,22 @@ Sub-issue: #1269
 
 ### Phase 2 Implementation (Owner: I-E)
 
-- [~] Replace the legacy `.github/workflows/workflow-gate.yml` local-state check with committed gate-record validation; do not keep the old CI gate as a second authority. Bootstrap removes `.workflow/active` as CI authority and probes `gate_record ci` only when Track B makes it available; final mandatory validation remains under #1269. Bootstrap PR: #1277; validation: YAML parse and `git diff --check` passed. [ADR-042 Addendum 1 Sections 3 and 5]
-- [!] Update `.github/workflows/workflow-gate.yml` to validate committed gate records, PR closing keywords, hard-fail guards, full-audit evidence, Sentrux evidence, override labels, and changed tests. Bootstrap preserves PR closing-keyword and changed-test checks, but full gate-record/guard/full-audit/Sentrux/label validation is blocked until Track B/C/D interfaces land; tracked by #1269. Bootstrap PR: #1277. [ADR-042 Addendum 1 Sections 3 and 5]
-- [ ] Update `.pre-commit-config.yaml` so gate interception calls `python -m scieasy.qa.governance.gate_record`, not `.workflow/gate.py`.
-- [ ] Replace `scripts/hooks/check-gate-before-push.sh` with a thin wrapper around `python -m scieasy.qa.governance.gate_record pre-push` or the closest implemented gate-record validation command.
-- [ ] Replace `scripts/hooks/check-gate-before-pr.sh` with a thin wrapper around `python -m scieasy.qa.governance.gate_record pr-ready` or the closest implemented gate-record validation command.
-- [ ] Replace or remove `.workflow/hooks/pre-commit`; it must not reference `.workflow/gate.py` and must not read `.workflow/active`.
-- [ ] Delete `.workflow/gate.py`.
-- [ ] Remove all current executable hook/CI references to `.workflow/gate.py`, `gate.py status/list/advance`, and `.workflow/active`.
-- [ ] Add tests in `tests/qa/test_gate_record_hooks.py` proving hook/wrapper behavior uses the gate-record CLI and does not require the deleted `gate.py`.
+- [x] Replace the legacy `.github/workflows/workflow-gate.yml` local-state check with committed gate-record validation; do not keep the old CI gate as a second authority. Final Track E workflow calls `gate_record ci`, orchestrates `issue_link`, `docs_landing`, `sentrux_gate`, `mod_guard`, and `weakened_ci_check`, and no longer probes `.workflow/active`. Local validation: YAML parse passed.
+- [x] Update `.github/workflows/workflow-gate.yml` to validate committed gate records, PR closing keywords, hard-fail guards, full-audit evidence, Sentrux evidence, override labels, and changed tests. Result: `gate_record ci` enforces full audit, Sentrux, changed tests, override label vocabulary, closing issues, and all six stages done.
+- [x] Update `.pre-commit-config.yaml` so gate interception calls `python -m scieasy.qa.governance.gate_record`, not `.workflow/gate.py`. Result: `tests/qa/test_gate_record_hooks.py` covers pre-commit and commit-msg hook entries.
+- [x] Replace `scripts/hooks/check-gate-before-push.sh` with a thin wrapper around `python -m scieasy.qa.governance.gate_record pre-push` or the closest implemented gate-record validation command. Result: wrapper calls `gate_record pre-push`.
+- [x] Replace `scripts/hooks/check-gate-before-pr.sh` with a thin wrapper around `python -m scieasy.qa.governance.gate_record pr-ready` or the closest implemented gate-record validation command. Result: wrapper calls `gate_record pr-ready` and requires PR closing keywords before PR creation.
+- [x] Replace or remove `.workflow/hooks/pre-commit`; it must not reference `.workflow/gate.py` and must not read `.workflow/active`. Result: wrapper now delegates to `gate_record pre-commit --staged`.
+- [x] Delete `.workflow/gate.py`. Result: `tests/qa/test_gate_record_hooks.py::test_legacy_gate_py_removed`.
+- [x] Remove all current executable hook/CI references to `.workflow/gate.py`, `gate.py status/list/advance`, and `.workflow/active`. Result: `rg` over `.github .workflow scripts tests src` finds only test assertions and unrelated `sentrux_gate.py` token.
+- [x] Add tests in `tests/qa/test_gate_record_hooks.py` proving hook/wrapper behavior uses the gate-record CLI and does not require the deleted `gate.py`. Result: `PYTHONPATH=src PYTEST_ADDOPTS=--no-cov pytest tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py --timeout=60` -> 25 passed.
 - [~] Update `.gitignore` for conflict-prone generated gate/audit artifacts and document any canonical tracked-file migration. Bootstrap ignores generated audit outputs and local gate scratch files; `CHANGELOG.md` remains tracked because changing its canonical status requires a separate gate semantics migration under #1269. Bootstrap PR: #1277.
-- [ ] Preserve human `--no-verify` and documented skip-all behavior; CI remains final enforcement.
+- [x] Preserve human `--no-verify` and documented skip-all behavior; CI remains final enforcement. Result: local pre-commit is lightweight and does not require a record before final push/PR; human `--no-verify` behavior remains documented in `docs/contributing/workflows/human-bypass.md`.
+- [x] Avoid branch-name special cases for hotfix or other task kinds. Result: task behavior is declared by `gate_record start --task-kind`; local commit is lightweight for all task kinds, while push/PR/CI enforce final gate evidence for every AI-authored task.
 
 ### Verification
 
-- [ ] `pytest tests/qa/test_gate_record_hooks.py --timeout=60`
+- [x] `PYTHONPATH=src PYTEST_ADDOPTS=--no-cov pytest tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py --timeout=60` -> 25 passed.
 
 ## Manager E2E Checklist
 

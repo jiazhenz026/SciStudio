@@ -64,6 +64,16 @@ def test_pr_body_must_close_every_gate_issue() -> None:
     assert not closed.blocks_merge
 
 
+def test_pr_readiness_requires_all_gate_stages_done() -> None:
+    stages = [{"stage": stage.value, "status": "done"} for stage in CANONICAL_STAGE_ORDER]
+    stages[-1]["status"] = "pending"
+
+    report = check_pr(_record(stages=stages), changed_files=_changed_files(), pr_body="Closes #1267")
+
+    assert report.blocks_merge
+    assert "gate-record.stage.not-done" in {finding.rule_id for finding in report.findings}
+
+
 def test_multiple_issues_must_all_close() -> None:
     record = _record(
         issues=[

@@ -1,0 +1,193 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Implementation completed within approved Track E final scope."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1269-gate-record-hooks-final.json",
+        "tests/qa/test_gate_record_hooks.py"
+      ],
+      "reason": "Add committed gate record and hook tests to final Track E scope."
+    }
+  ],
+  "branch": "feat/issue-1269/gate-record-hooks-final",
+  "changed_test_paths": [
+    "tests/qa/test_gate_record.py",
+    "tests/qa/test_gate_record_ci.py",
+    "tests/qa/test_gate_record_hooks.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check scoped gate files",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src PYTEST_ADDOPTS=--no-cov pytest tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py --timeout=60",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1269-gate-record-hooks-final.json",
+    "shas": [],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Gate governance migration keeps CHANGELOG tracked; generated artifacts are ignored separately."
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/adr-042-addendum1-implementation-checklist.md"
+      ]
+    },
+    "docs": {
+      "paths": [
+        "docs/specs/adr-042-gate-record-sentrux-workflow.md"
+      ]
+    }
+  },
+  "full_audit": {
+    "blocks_merge": true,
+    "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 1,
+    "known_debt": [
+      "pre-existing frontmatter/doc/signature/architecture drift findings captured during ADR-042 Addendum 1 rollout"
+    ],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "fail",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1269,
+      "url": "https://github.com/zjzcpj/SciEasy/issues/1269"
+    }
+  ],
+  "owner_directive": "Replace legacy gate.py hooks and CI with ADR-042 gate_record CLI enforcement.",
+  "planned_files": [
+    ".github/workflows/workflow-gate.yml",
+    ".pre-commit-config.yaml",
+    ".workflow/hooks/pre-commit",
+    "scripts/hooks/check-gate-before-pr.sh",
+    "scripts/hooks/check-gate-before-push.sh",
+    "src/scieasy/qa/governance/gate_record.py",
+    "src/scieasy/qa/governance/__init__.py",
+    "tests/qa/test_gate_record.py",
+    "tests/qa/test_gate_record_ci.py",
+    "tests/qa/test_gate_record_hooks.py",
+    "docs/planning/adr-042-addendum1-implementation-checklist.md",
+    ".workflow/records/1269-gate-record-hooks-final.json"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1269
+    ],
+    "number": 1,
+    "url": "https://github.com/zjzcpj/SciEasy/pull/TBD"
+  },
+  "record_path": ".workflow/records/1269-gate-record-hooks-final.json",
+  "required_checks": [
+    "ruff check .",
+    "ruff format --check .",
+    "pytest tests/qa --timeout=60",
+    "full_audit",
+    "sentrux free-tier"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "docs/adr/ADR-042.md"
+    ],
+    "include": [
+      ".github/workflows/workflow-gate.yml",
+      ".pre-commit-config.yaml",
+      ".workflow/gate.py",
+      ".workflow/hooks/pre-commit",
+      "scripts/hooks/check-gate-before-pr.sh",
+      "scripts/hooks/check-gate-before-push.sh",
+      "src/scieasy/qa/governance/gate_record.py",
+      "src/scieasy/qa/governance/__init__.py",
+      "tests/qa/test_gate_record.py",
+      "tests/qa/test_gate_record_ci.py",
+      "tests/qa/test_gate_record_hooks.py",
+      "docs/planning/adr-042-addendum1-implementation-checklist.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__sentrux__.check_rules",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": null,
+    "pro_required": false,
+    "quality_signal": 4161.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {
+      "total_rules_defined": "15"
+    },
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1269-gate-record-hooks-final",
+  "task_kind": "feature"
+}

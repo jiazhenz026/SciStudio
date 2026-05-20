@@ -1,52 +1,36 @@
 #!/bin/bash
-# Claude Code PreToolUse hook: check workflow gate before gh pr create
-# Ensures agents complete update_docs + update_changelog before creating PR.
+# Claude/Codex PreToolUse hook: validate ADR-042 gate record before gh pr create.
 
-set -e
+set -euo pipefail
 
 INPUT=$(cat)
 CMD=$(echo "$INPUT" | python -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('command',''))" 2>/dev/null || echo "")
 
-# Only intercept gh pr create commands
-if ! echo "$CMD" | grep -qE 'gh pr create'; then
+if ! echo "$CMD" | grep -qE '(^|[[:space:]])gh[[:space:]]+pr[[:space:]]+create([[:space:]]|$)'; then
   echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
   exit 0
 fi
 
-# Only enforce for branches that require gates (feat/, fix/, refactor/)
 BRANCH=$(git branch --show-current 2>/dev/null || echo "")
-if ! echo "$BRANCH" | grep -qE '^(feat|fix|refactor)/'; then
+if [ -z "$BRANCH" ] || ! echo "$BRANCH" | grep -qE '^(feat|fix|refactor|hotfix|track)/'; then
   echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
   exit 0
 fi
 
-# Check if there's an active workflow
-GATE_OUTPUT=$(python .workflow/gate.py list 2>/dev/null || echo "")
-
-if [ -z "$GATE_OUTPUT" ]; then
-  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
+if ! echo "$CMD" | grep -qiE '(closes|fixes|resolves)[[:space:]]+#?[0-9]+'; then
+  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"ADR-042 gate: gh pr create command must include a PR body with Closes/Fixes/Resolves #N."}}'
   exit 0
 fi
 
-ACTIVE=$(echo "$GATE_OUTPUT" | grep "active" | head -1)
-if [ -z "$ACTIVE" ]; then
-  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
+BASE_REF="${SCIEASY_GATE_BASE:-origin/main}"
+OUTPUT=$(PYTHONPATH=src python -m scieasy.qa.governance.gate_record pr-ready \
+  --repo-root . \
+  --base "$BASE_REF" \
+  --head HEAD \
+  --pr-body "$CMD" 2>&1) || {
+  REASON=$(printf '%s' "$OUTPUT" | python -c "import json,sys; print(json.dumps(sys.stdin.read()[:1800]))")
+  echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":$REASON}}"
   exit 0
-fi
+}
 
-TASK_ID=$(echo "$ACTIVE" | awk '{print $1}')
-STATUS=$(python .workflow/gate.py status "$TASK_ID" 2>/dev/null || echo "")
-
-# Check that update_changelog is DONE (gate 5 of 6, right before submit_pr)
-if echo "$STATUS" | grep -q "\[DONE\].*Update Changelog"; then
-  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
-  exit 0
-fi
-
-# Check which gates are missing
-MISSING=""
-echo "$STATUS" | grep -q "\[DONE\].*Update Documentation" || MISSING="update_docs "
-echo "$STATUS" | grep -q "\[DONE\].*Update Changelog" || MISSING="${MISSING}update_changelog"
-
-echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"WORKFLOW GATE: Missing stages before PR: ${MISSING}. Run: python .workflow/gate.py status $TASK_ID\"}}"
-exit 0
+echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'

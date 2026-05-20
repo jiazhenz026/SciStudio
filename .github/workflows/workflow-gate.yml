@@ -2,87 +2,50 @@ name: Workflow Gate Check
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, edited, ready_for_review]
+    types: [opened, synchronize, reopened, edited, ready_for_review, labeled, unlabeled]
   workflow_dispatch:
 
 jobs:
   workflow-gate:
     name: Verify Workflow Compliance
     runs-on: ubuntu-latest
-    # Exempt dependabot from the gate-workflow check. Dependabot does not
-    # run .workflow/gate.py and never will (it has no human author to
-    # claim the ticket on); failing its PRs on this check just blocks
-    # security updates that are otherwise auto-greened by Lint / Tests /
-    # Type Check / CodeQL. The substance gate (CI) still applies.
-    # NOTE: actor-only check, not branch name. Branch names are
-    # user-controlled, so a human contributor could open a branch named
-    # "dependabot/..." and bypass the gate. The actor field is set by
-    # GitHub Actions itself based on who triggered the workflow and
-    # cannot be spoofed by a contributor. Per Codex P1 review on PR #729.
-    # Check PR AUTHOR, not github.actor. github.actor is the user who
-    # triggered THIS workflow run; a human running update-branch on a
-    # dependabot PR would re-evaluate as the human, bypassing the
-    # exemption and re-failing the gate. github.event.pull_request.user.login
-    # is the immutable PR author set by GitHub at PR open time.
     if: github.event.pull_request.user.login != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Check PR closes linked issue
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          HEAD_REF: ${{ github.head_ref || github.ref_name }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: |
-          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -z "$PR_BODY" ]; then
-            echo "workflow_dispatch run - skipping PR body issue check"
-            exit 0
-          fi
-          if echo "$PR_BODY" | grep -qiE "(closes|fixes|resolves)[[:space:]]+#[0-9]+"; then
-            echo "Issue closing keyword found in PR body"
-            exit 0
-          fi
-          # TODO(#1269): Remove this single-branch bootstrap exception once
-          # Track E can close #1269 through the completed final CI gate.
-          #   Out of scope per ADR-042 Addendum 1 Track E0 bootstrap scope.
-          #   Followup: https://github.com/zjzcpj/SciEasy/issues/1269.
-          if [ "$HEAD_REF" = "feat/issue-1269/gate-ci-bootstrap" ] && echo "$PR_BODY" | grep -qiE "refs[[:space:]]+#1269"; then
-            echo "::notice::Track E0 bootstrap PR references #1269 without closing it because it does not complete all Track E rows."
-            exit 0
-          fi
-          echo "::error::PR must close an issue (e.g. 'Closes #42')"
-          exit 1
-
-      # TODO(#1269): Replace this bootstrap probe with mandatory committed
-      # gate-record validation once Track B's gate_record CI CLI lands.
-      #   Out of scope per ADR-042 Addendum 1 Track E0 bootstrap scope.
-      #   Followup: https://github.com/zjzcpj/SciEasy/issues/1269.
-      - name: Gate record validation bootstrap
+      - name: Validate committed gate records
         env:
           BASE_REF: ${{ github.base_ref || 'main' }}
           PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
         run: |
           set -euo pipefail
 
           CHANGED="$(git diff --name-only "origin/$BASE_REF...HEAD")"
           RECORDS="$(echo "$CHANGED" | grep -E '^\.workflow/records/[^/]+\.json$' || true)"
 
-          if ! PYTHONPATH=src python -c "import importlib.util; raise SystemExit(0 if importlib.util.find_spec('scieasy.qa.governance.gate_record') else 1)"; then
-            echo "::notice::gate_record module is not available yet; Track E0 intentionally skips final gate-record validation until Track B lands."
-            exit 0
-          fi
-
-          if ! PYTHONPATH=src python -m scieasy.qa.governance.gate_record ci --help >/dev/null 2>&1; then
-            echo "::notice::gate_record module exists but the ci subcommand is not available yet; skipping bootstrap validation."
-            exit 0
-          fi
-
           if [ -z "$RECORDS" ]; then
-            echo "::notice::gate_record ci is available but no changed gate records were found; final Track E will decide whether this is allowed."
-            exit 0
+            if python -c 'import json, os, sys; labels=set(json.loads(os.environ.get("PR_LABELS_JSON", "[]"))); sys.exit(0 if "human-authored" in labels else 1)'; then
+              echo "::notice::human-authored PR may skip AI-only gate-record evidence; repository CI/review still applies."
+              exit 0
+            fi
+            echo "::error::ADR-042 requires exactly one committed .workflow/records/*.json gate record for AI-authored PRs."
+            exit 1
           fi
+
+          if [ "$(echo "$RECORDS" | sed '/^$/d' | wc -l)" -ne 1 ]; then
+            echo "::error::ADR-042 expects exactly one committed gate record per PR."
+            echo "$RECORDS"
+            exit 1
+          fi
+
+          LABEL_ARGS=()
+          while IFS= read -r label; do
+            [ -n "$label" ] || continue
+            LABEL_ARGS+=(--pr-label "$label")
+          done < <(python -c 'import json, os; [print(label) for label in json.loads(os.environ.get("PR_LABELS_JSON", "[]"))]')
 
           while IFS= read -r record; do
             [ -n "$record" ] || continue
@@ -90,34 +53,53 @@ jobs:
               --gate-record "$record" \
               --base "origin/$BASE_REF" \
               --head HEAD \
-              --pr-body "$PR_BODY"
+              --pr-body "$PR_BODY" \
+              "${LABEL_ARGS[@]}"
           done <<EOF
           $RECORDS
           EOF
 
-      - name: Check docs updated
+      - name: Run ADR-042 guard orchestration
         env:
           BASE_REF: ${{ github.base_ref || 'main' }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          CHANGED=$(git diff --name-only origin/$BASE_REF...HEAD)
-          if echo "$CHANGED" | grep -q "^src/\|^packages/"; then
-            if ! echo "$CHANGED" | grep -q "^docs/"; then
-              echo "::warning::Source changed but no docs/ updates"
-            else
-              echo "Docs updated"
-            fi
+          set -euo pipefail
+          CHANGED="$(git diff --name-only "origin/$BASE_REF...HEAD")"
+          RECORD="$(echo "$CHANGED" | grep -E '^\.workflow/records/[^/]+\.json$' | head -1 || true)"
+          if [ -z "$RECORD" ]; then
+            echo "::notice::No AI gate record to orchestrate; skipped for human-authored/dependabot path."
+            exit 0
           fi
 
-      - name: Check tests updated
-        env:
-          BASE_REF: ${{ github.base_ref || 'main' }}
-        run: |
-          CHANGED=$(git diff --name-only origin/$BASE_REF...HEAD)
-          if echo "$CHANGED" | grep -q "^src/\|^packages/"; then
-            if ! echo "$CHANGED" | grep -q "^tests/"; then
-              echo "::error::Source changed but no tests/ updates. Every code change must include tests."
-              exit 1
-            else
-              echo "Tests updated"
-            fi
-          fi
+          PYTHONPATH=src python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          from scieasy.qa.governance import docs_landing, issue_link, mod_guard, sentrux_gate, weakened_ci_check
+
+          base = os.environ["BASE_REF"]
+          pr_body = os.environ.get("PR_BODY", "")
+          changed = subprocess.check_output(
+              ["git", "diff", "--name-only", f"origin/{base}...HEAD"],
+              text=True,
+          ).splitlines()
+          record_path = next(path for path in changed if path.startswith(".workflow/records/") and path.endswith(".json"))
+          record = json.loads(Path(record_path).read_text(encoding="utf-8"))
+
+          reports = [
+              issue_link.check(issues=record.get("issues", []), pr_body=pr_body, require_closing=True, repo_root=Path(".")),
+              docs_landing.check(changed_files=changed, docs_landing=record.get("docs_landing", {}), repo_root=Path(".")),
+              sentrux_gate.verify_free_tier_claims(record.get("sentrux"), changed_files=changed, repo_root=Path(".")),
+              mod_guard.check(Path("."), base_ref=f"origin/{base}", head_ref="HEAD", allow_governance_change=bool(record.get("governance_touch"))),
+              weakened_ci_check.verify_no_weakening(Path("."), base_ref=f"origin/{base}", head_ref="HEAD"),
+          ]
+          failed = False
+          for report in reports:
+              print(json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True))
+              failed = failed or report.blocks_merge
+          sys.exit(1 if failed else 0)
+          PY
