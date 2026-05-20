@@ -1,0 +1,165 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "track/adr-043/core-blocks-and-imaging",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "626 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+      "exit_code": 1,
+      "name": "full_audit",
+      "output_path": "docs/audit/full-audit-latest.json \u2014 0 findings touch the manager-track changed files (spec / checklist / gate record / CHANGELOG). All reported errors are pre-existing repo-wide debt unrelated to this PR: ADR-031.md frontmatter missing, signature_drift on adr-042-consistency-tools.md spec, architecture_drift on missing AnnData/SpatialData symbol references.",
+      "status": "fail",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1296-adr-043-package-migration-manager.json",
+    "shas": [
+      "2712591002b3162695b3f84013efbcf7c00da1b8"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {},
+    "checklist": {
+      "paths": [
+        "docs/planning/adr-043-package-migration-checklist.md"
+      ]
+    },
+    "docs": {
+      "paths": [
+        "docs/specs/adr-043-package-migration.md",
+        "CHANGELOG.md"
+      ]
+    },
+    "tests": {
+      "not_applicable": true,
+      "rationale": "Manager-track umbrella scaffolding (spec/checklist/gate-record/CHANGELOG) has no test deltas. Per-phase implementation tracks (A1/A2/A3/B1/B2) own their own tests per spec FR-016."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 1,
+    "known_debt": [
+      "owner-acknowledged"
+    ],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "fail",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1296,
+      "url": null
+    }
+  ],
+  "owner_directive": "Coordinate ADR-043 package migration umbrella: in-tree LoadData/SaveData + imaging (PNG/JPEG/Bio-Formats, Image.Meta.ome) + SRS ProcessBlock propagation audit + frontend UI. Final phase D = owner-authored e2e test cases. Spec at docs/specs/adr-043-package-migration.md.",
+  "planned_files": [
+    "docs/specs/adr-043-package-migration.md",
+    "docs/planning/adr-043-package-migration-checklist.md",
+    ".workflow/records/1296-adr-043-package-migration-manager.json",
+    "CHANGELOG.md"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1296
+    ],
+    "number": null,
+    "url": null
+  },
+  "record_path": ".workflow/records/1296-adr-043-package-migration-manager.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "docs/specs/adr-043-package-migration.md",
+      "docs/planning/adr-043-package-migration-checklist.md",
+      ".workflow/records/1296-adr-043-package-migration-manager.json",
+      "CHANGELOG.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "Manager-track umbrella PR adds only spec doc + checklist + gate record + CHANGELOG. No Python, no governance code, no architecture file changes. Per ADR-042 Addendum 1 \u00a72, Sentrux applies to source/workflow/architecture/governance file changes; this PR's surface is docs-only scaffolding for downstream tracks. Per-phase sub-PRs (A1/A2/A3/B1/B2) each own their Sentrux evidence.",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1296-adr-043-package-migration-manager",
+  "task_kind": "manager"
+}
