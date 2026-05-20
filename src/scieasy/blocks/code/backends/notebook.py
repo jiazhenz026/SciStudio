@@ -161,7 +161,11 @@ def _nbconvert_argv(
 
 
 def _probe_nbconvert_version(executable: str) -> tuple[str | None, list[str]]:
-    argv = [executable, "--version"] if "nbconvert" in Path(executable).name.lower() else [executable, "nbconvert", "--version"]
+    argv = (
+        [executable, "--version"]
+        if "nbconvert" in Path(executable).name.lower()
+        else [executable, "nbconvert", "--version"]
+    )
     try:
         completed = subprocess.run(
             argv,

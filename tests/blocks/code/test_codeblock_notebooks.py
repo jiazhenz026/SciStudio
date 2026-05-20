@@ -141,7 +141,9 @@ def test_notebook_backend_builds_inplace_nbconvert_command(tmp_path: Path) -> No
         environment_config={},
     )
     backend = NotebookCodeBlockBackend(
-        executable_locator=lambda executable: "C:/tools/jupyter-nbconvert.exe" if executable == "jupyter-nbconvert" else None
+        executable_locator=lambda executable: (
+            "C:/tools/jupyter-nbconvert.exe" if executable == "jupyter-nbconvert" else None
+        )
     )
 
     interpreter = backend.resolve(context)
