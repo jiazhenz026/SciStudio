@@ -5,7 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from scieasy.blocks.base.ports import InputPort, OutputPort, validate_connection
-from scieasy.blocks.registry import BlockRegistry, BlockSpec
+from scieasy.blocks.registry import BlockRegistry, BlockSpec, CapabilityLookupError
+from scieasy.core.types.artifact import Artifact
+from scieasy.core.types.base import DataObject
 from scieasy.engine.dag import CycleError, build_dag, topological_sort
 from scieasy.workflow.definition import NodeDef, WorkflowDefinition
 
@@ -64,6 +66,70 @@ def _effective_ports_for_node(
         return list(spec.input_ports), list(spec.output_ports)
 
     return list(instance.get_effective_input_ports()), list(instance.get_effective_output_ports())
+
+
+def _node_config_list(node: NodeDef, key: str) -> list[dict[str, Any]]:
+    params = node.config.get("params")
+    configured: Any = None
+    if isinstance(params, dict):
+        configured = params.get(key)
+    if configured is None:
+        configured = node.config.get(key)
+    if not isinstance(configured, list):
+        return []
+    return [entry for entry in configured if isinstance(entry, dict)]
+
+
+def _resolve_config_type(type_name: Any) -> type[DataObject] | None:
+    if not isinstance(type_name, str) or not type_name.strip():
+        return None
+    try:
+        from scieasy.core.types.serialization import _get_type_registry
+
+        cls = _get_type_registry().load_class(type_name.strip())
+    except Exception:
+        return None
+    if isinstance(cls, type) and issubclass(cls, DataObject):
+        return cls
+    return None
+
+
+def _boundary_config_types(entry: dict[str, Any]) -> list[type[DataObject]]:
+    raw_types = entry.get("types")
+    if not isinstance(raw_types, list):
+        return []
+    result: list[type[DataObject]] = []
+    for raw in raw_types:
+        resolved = _resolve_config_type(raw)
+        if resolved is not None and resolved is not DataObject:
+            result.append(resolved)
+    return result
+
+
+def _boundary_extension(entry: dict[str, Any]) -> str | None:
+    raw = entry.get("extension")
+    if raw in (None, ""):
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+    return text if text.startswith(".") else f".{text}"
+
+
+def _boundary_capability_id(entry: dict[str, Any]) -> str | None:
+    raw = entry.get("capability_id")
+    if raw in (None, ""):
+        return None
+    text = str(raw).strip()
+    return text or None
+
+
+def _is_boundary_block(spec: BlockSpec) -> bool:
+    if spec.base_category in {"app", "code"}:
+        return True
+    name = spec.name.lower()
+    class_name = spec.class_name.lower()
+    return "app block" in name or "code block" in name or class_name in {"appblock", "codeblock"}
 
 
 def validate_workflow(
@@ -336,5 +402,49 @@ def validate_workflow(
             if len(names) > 1:
                 joined = ", ".join(sorted(set(names)))
                 errors.append(f"Node '{node.id}': Duplicate extension {ext!r} across output ports {{{joined}}}")
+
+    # ------------------------------------------------------------------
+    # Check 9: ADR-043 boundary IO capabilities for AppBlock/CodeBlock.
+    # ------------------------------------------------------------------
+    for node in workflow.nodes:
+        spec = registry.get_spec(node.block_type)
+        if spec is None or not _is_boundary_block(spec):
+            continue
+
+        for entry in _node_config_list(node, "input_ports"):
+            extension = _boundary_extension(entry)
+            data_types = _boundary_config_types(entry)
+            if extension is None or not data_types:
+                continue
+            capability_id = _boundary_capability_id(entry)
+            port_name = str(entry.get("name", "")).strip() or "<unnamed>"
+            for data_type in data_types:
+                try:
+                    registry.find_saver_capability(
+                        data_type,
+                        extension,
+                        capability_id=capability_id,
+                    )
+                except CapabilityLookupError as exc:
+                    errors.append(f"Node '{node.id}' input port '{port_name}': {exc}")
+
+        for entry in _node_config_list(node, "output_ports"):
+            extension = _boundary_extension(entry)
+            data_types = _boundary_config_types(entry)
+            if extension is None or not data_types:
+                continue
+            capability_id = _boundary_capability_id(entry)
+            port_name = str(entry.get("name", "")).strip() or "<unnamed>"
+            data_type = data_types[0]
+            if capability_id is None and issubclass(data_type, Artifact):
+                continue
+            try:
+                registry.find_loader_capability(
+                    data_type,
+                    extension,
+                    capability_id=capability_id,
+                )
+            except CapabilityLookupError as exc:
+                errors.append(f"Node '{node.id}' output port '{port_name}': {exc}")
 
     return errors

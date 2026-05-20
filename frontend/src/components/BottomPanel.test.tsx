@@ -2,10 +2,40 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BottomPanel } from "./BottomPanel";
+import type { FormatCapabilityResponse } from "../types/api";
 
 vi.mock("../lib/api", () => ({
   api: {},
 }));
+
+function makeCapability(
+  overrides: Partial<FormatCapabilityResponse> = {},
+): FormatCapabilityResponse {
+  return {
+    id: "imaging.image.tiff.save",
+    direction: "save",
+    data_type: "Image",
+    format_id: "tiff",
+    extensions: [".tif", ".tiff"],
+    label: "TIFF",
+    block_type: "SaveImage",
+    handler: "save",
+    is_default: false,
+    priority: 0,
+    roundtrip_group: null,
+    metadata_fidelity: {
+      level: "pixel_only",
+      typed_meta_reads: [],
+      typed_meta_writes: [],
+      format_metadata_reads: [],
+      format_metadata_writes: [],
+      notes: null,
+    },
+    is_synthesized: false,
+    migration_scaffold: false,
+    ...overrides,
+  };
+}
 
 describe("BottomPanel", () => {
   afterEach(() => {
@@ -142,5 +172,141 @@ describe("BottomPanel", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Browse" })).toBeNull();
+  });
+
+  it("renders ADR-043 capability choices and persists capability_id", () => {
+    const onUpdateConfig = vi.fn();
+
+    render(
+      <BottomPanel
+        activeTab="config"
+        logEntries={[]}
+        onTabChange={() => {}}
+        onUpdateConfig={onUpdateConfig}
+        selectedNode={{
+          id: "save-1",
+          block_type: "imaging.save_image",
+          config: { params: {} },
+        }}
+        selectedSchema={{
+          name: "Save Image",
+          type_name: "imaging.save_image",
+          base_category: "io",
+          subcategory: "",
+          description: "",
+          version: "0.1.0",
+          input_ports: [],
+          output_ports: [],
+          direction: "output",
+          config_schema: { properties: {} },
+          type_hierarchy: [],
+          format_capabilities: [
+            makeCapability({ id: "imaging.image.tiff.save", label: "TIFF" }),
+            makeCapability({
+              id: "imaging.image.png.save",
+              extensions: [".png"],
+              format_id: "png",
+              label: "PNG",
+            }),
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("combobox"), {
+      target: { value: "imaging.image.png.save" },
+    });
+
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      capability_id: "imaging.image.png.save",
+    });
+  });
+
+  it("clears ADR-043 capability selection as null when the placeholder is selected", () => {
+    const onUpdateConfig = vi.fn();
+
+    render(
+      <BottomPanel
+        activeTab="config"
+        logEntries={[]}
+        onTabChange={() => {}}
+        onUpdateConfig={onUpdateConfig}
+        selectedNode={{
+          id: "save-1",
+          block_type: "imaging.save_image",
+          config: { params: { capability_id: "imaging.image.tiff.save" } },
+        }}
+        selectedSchema={{
+          name: "Save Image",
+          type_name: "imaging.save_image",
+          base_category: "io",
+          subcategory: "",
+          description: "",
+          version: "0.1.0",
+          input_ports: [],
+          output_ports: [],
+          direction: "output",
+          config_schema: { properties: {} },
+          type_hierarchy: [],
+          format_capabilities: [
+            makeCapability({ id: "imaging.image.tiff.save", label: "TIFF" }),
+            makeCapability({
+              id: "imaging.image.png.save",
+              extensions: [".png"],
+              format_id: "png",
+              label: "PNG",
+            }),
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("combobox"), {
+      target: { value: "" },
+    });
+
+    expect(onUpdateConfig).toHaveBeenCalledWith({ capability_id: null });
+  });
+
+  it("shows backend-derived ADR-043 warnings for ambiguous lossy choices", () => {
+    render(
+      <BottomPanel
+        activeTab="config"
+        logEntries={[]}
+        onTabChange={() => {}}
+        onUpdateConfig={() => {}}
+        selectedNode={{
+          id: "save-1",
+          block_type: "imaging.save_image",
+          config: { params: {} },
+        }}
+        selectedSchema={{
+          name: "Save Image",
+          type_name: "imaging.save_image",
+          base_category: "io",
+          subcategory: "",
+          description: "",
+          version: "0.1.0",
+          input_ports: [],
+          output_ports: [],
+          direction: "output",
+          config_schema: { properties: {} },
+          type_hierarchy: [],
+          format_capabilities: [
+            makeCapability({ id: "imaging.image.tiff.save", label: "TIFF" }),
+            makeCapability({
+              id: "imaging.image.png.save",
+              extensions: [".png"],
+              format_id: "png",
+              label: "PNG",
+            }),
+          ],
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText(/choose one to persist a stable capability_id/i),
+    ).toBeInTheDocument();
   });
 });

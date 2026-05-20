@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.qa.audit.frontmatter_lint import lint_file
-from scieasy.qa.schemas.report import Severity
+from scieasy.qa.audit.frontmatter_lint import lint_file, lint_paths
+from scieasy.qa.schemas.report import AuditStatus, Severity
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -68,6 +68,16 @@ def test_valid_adr_frontmatter_and_structure_pass(tmp_path: Path) -> None:
     path = _write(tmp_path / "docs" / "adr" / "ADR-123.md", _valid_adr())
 
     assert lint_file(path) == []
+
+
+def test_frontmatter_lint_paths_returns_audit_report(tmp_path: Path) -> None:
+    path = _write(tmp_path / "docs" / "adr" / "ADR-123.md", _valid_adr())
+
+    report = lint_paths([path], repo_root=tmp_path)
+
+    assert report.tool == "frontmatter_lint"
+    assert report.status == AuditStatus.PASS
+    assert not report.blocks_merge
 
 
 def test_adr_filename_must_match_number(tmp_path: Path) -> None:

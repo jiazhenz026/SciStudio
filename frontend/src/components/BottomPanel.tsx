@@ -1,8 +1,19 @@
 import { GitBranch, Pin, PinOff } from "lucide-react";
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { useAppStore } from "../store";
-import type { BlockSchemaResponse, LogEntry, WorkflowNode } from "../types/api";
+import type {
+  BlockSchemaResponse,
+  FormatCapabilityResponse,
+  LogEntry,
+  WorkflowNode,
+} from "../types/api";
 import type { BottomTab } from "../types/ui";
 import { TerminalTabs } from "./AIChat/TerminalTabs";
 import { GitTab } from "./Git/GitTab";
@@ -131,6 +142,107 @@ function CaretPreservingTextInput({
   );
 }
 
+function capabilityLabel(capability: FormatCapabilityResponse): string {
+  const extensions = capability.extensions.join(", ");
+  return extensions ? `${capability.label} (${extensions})` : capability.label;
+}
+
+function selectedCapability(
+  capabilities: FormatCapabilityResponse[],
+  capabilityId: unknown,
+): FormatCapabilityResponse | undefined {
+  if (typeof capabilityId === "string") {
+    const selected = capabilities.find(
+      (capability) => capability.id === capabilityId,
+    );
+    if (selected) return selected;
+  }
+  if (capabilities.length === 1) return capabilities[0];
+  return capabilities.find((capability) => capability.is_default);
+}
+
+function capabilityWarnings(
+  capabilities: FormatCapabilityResponse[],
+  capability?: FormatCapabilityResponse,
+): string[] {
+  const warnings: string[] = [];
+  if (capabilities.length > 1 && !capability) {
+    warnings.push(
+      "Multiple backend capabilities match this block; choose one to persist a stable capability_id.",
+    );
+  }
+  if (
+    capability?.direction === "save" &&
+    capability.metadata_fidelity.level === "pixel_only"
+  ) {
+    warnings.push(
+      "This saver is payload-only; typed metadata may not be written.",
+    );
+  }
+  if (capability?.migration_scaffold) {
+    warnings.push(
+      "This is a synthesized legacy capability kept for migration compatibility.",
+    );
+  }
+  return warnings;
+}
+
+function FormatCapabilityConfig({
+  capabilities,
+  value,
+  onChange,
+}: {
+  capabilities: FormatCapabilityResponse[];
+  value: unknown;
+  onChange: (capabilityId: string | null) => void;
+}) {
+  if (capabilities.length === 0) return null;
+  const capability = selectedCapability(capabilities, value);
+  const warnings = capabilityWarnings(capabilities, capability);
+  const selectValue =
+    typeof value === "string" ? value : (capability?.id ?? "");
+
+  return (
+    <div className="grid gap-2 text-sm">
+      <label className="grid gap-2">
+        <span className="font-medium text-ink">Format</span>
+        <select
+          className="rounded-2xl border border-stone-300 bg-white px-4 py-3"
+          disabled={capabilities.length === 1}
+          onChange={(event) => onChange(event.target.value || null)}
+          value={selectValue}
+        >
+          {capabilities.length > 1 ? (
+            <option value="">Select a format capability...</option>
+          ) : null}
+          {capabilities.map((option) => (
+            <option key={option.id} value={option.id}>
+              {capabilityLabel(option)}
+            </option>
+          ))}
+        </select>
+      </label>
+      {capability ? (
+        <div className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs text-stone-600">
+          <div className="font-medium text-stone-700">{capability.id}</div>
+          <div>
+            {capability.data_type} / {capability.format_id} /{" "}
+            {capability.metadata_fidelity.level}
+          </div>
+        </div>
+      ) : null}
+      {warnings.map((warning) => (
+        <div
+          className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+          key={warning}
+        >
+          {warning}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ConfigPanel({
   selectedNode,
   schema,
@@ -140,15 +252,23 @@ function ConfigPanel({
   schema?: BlockSchemaResponse;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
 }) {
-  const params = ((selectedNode?.config.params as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>;
+  const params = ((selectedNode?.config.params as
+    | Record<string, unknown>
+    | undefined) ?? {}) as Record<string, unknown>;
   const properties = schema?.config_schema.properties ?? {};
   const ordered = Object.entries(properties)
     .filter(([key, value]) => {
       // For io_block, hide "direction" — it is already determined by whether
       // the user dragged a Load Block or Save Block from the palette.
-      if ((schema?.direction || selectedNode?.block_type === "io_block") && key === "direction") return false;
+      if (
+        (schema?.direction || selectedNode?.block_type === "io_block") &&
+        key === "direction"
+      )
+        return false;
+      if (key === "capability_id") return false;
       // Skip port_editor fields — rendered separately as PortEditorTable below.
-      if ((value as Record<string, unknown>).ui_widget === "port_editor") return false;
+      if ((value as Record<string, unknown>).ui_widget === "port_editor")
+        return false;
       return true;
     })
     .sort(([, left], [, right]) => {
@@ -157,14 +277,23 @@ function ConfigPanel({
 
   const isVariadicInputs = schema?.variadic_inputs === true;
   const isVariadicOutputs = schema?.variadic_outputs === true;
-  const inputPorts = Array.isArray(params["input_ports"]) ? (params["input_ports"] as PortRow[]) : [];
-  const outputPorts = Array.isArray(params["output_ports"]) ? (params["output_ports"] as PortRow[]) : [];
+  const inputPorts = Array.isArray(params["input_ports"])
+    ? (params["input_ports"] as PortRow[])
+    : [];
+  const outputPorts = Array.isArray(params["output_ports"])
+    ? (params["output_ports"] as PortRow[])
+    : [];
   const typeHierarchy = schema?.type_hierarchy ?? [];
   const allowedInputTypes = schema?.allowed_input_types ?? [];
   const allowedOutputTypes = schema?.allowed_output_types ?? [];
+  const formatCapabilities = schema?.format_capabilities ?? [];
 
   if (!selectedNode || !schema) {
-    return <div className="text-sm text-stone-500">Select a node to edit its JSON-schema-driven configuration.</div>;
+    return (
+      <div className="text-sm text-stone-500">
+        Select a node to edit its JSON-schema-driven configuration.
+      </div>
+    );
   }
 
   return (
@@ -191,44 +320,65 @@ function ConfigPanel({
           typeHierarchy={typeHierarchy}
         />
       )}
+      {formatCapabilities.length > 0 ? (
+        <div className="mb-4 max-w-2xl">
+          <FormatCapabilityConfig
+            capabilities={formatCapabilities}
+            onChange={(capabilityId) =>
+              onUpdateConfig({ capability_id: capabilityId })
+            }
+            value={params.capability_id}
+          />
+        </div>
+      ) : null}
       <div className="grid gap-4 md:grid-cols-2">
-      {ordered.map(([key, value]) => {
-        const currentValue = params[key] ?? value.default ?? "";
-        if (Array.isArray(value.enum)) {
+        {ordered.map(([key, value]) => {
+          const currentValue = params[key] ?? value.default ?? "";
+          if (Array.isArray(value.enum)) {
+            return (
+              <label className="grid gap-2 text-sm" key={key}>
+                <span className="font-medium text-ink">
+                  {String(value.title ?? key)}
+                </span>
+                <select
+                  className="rounded-2xl border border-stone-300 bg-white px-4 py-3"
+                  onChange={(event) =>
+                    onUpdateConfig({ [key]: event.target.value })
+                  }
+                  value={String(currentValue)}
+                >
+                  {value.enum.map((option) => (
+                    <option key={String(option)} value={String(option)}>
+                      {String(option)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            );
+          }
           return (
             <label className="grid gap-2 text-sm" key={key}>
-              <span className="font-medium text-ink">{String(value.title ?? key)}</span>
-              <select
-                className="rounded-2xl border border-stone-300 bg-white px-4 py-3"
-                onChange={(event) => onUpdateConfig({ [key]: event.target.value })}
+              <span className="font-medium text-ink">
+                {String(value.title ?? key)}
+              </span>
+              <CaretPreservingTextInput
+                className="min-w-0 flex-1 rounded-2xl border border-stone-300 bg-white px-4 py-3"
+                onChange={(next) =>
+                  onUpdateConfig({
+                    [key]: value.type === "number" ? Number(next) : next,
+                  })
+                }
+                placeholder={
+                  key === "path"
+                    ? "Type or paste file/directory path"
+                    : undefined
+                }
+                type={value.type === "number" ? "number" : "text"}
                 value={String(currentValue)}
-              >
-                {value.enum.map((option) => (
-                  <option key={String(option)} value={String(option)}>
-                    {String(option)}
-                  </option>
-                ))}
-              </select>
+              />
             </label>
           );
-        }
-        return (
-          <label className="grid gap-2 text-sm" key={key}>
-            <span className="font-medium text-ink">{String(value.title ?? key)}</span>
-            <CaretPreservingTextInput
-              className="min-w-0 flex-1 rounded-2xl border border-stone-300 bg-white px-4 py-3"
-              onChange={(next) =>
-                onUpdateConfig({
-                  [key]: value.type === "number" ? Number(next) : next,
-                })
-              }
-              placeholder={key === "path" ? "Type or paste file/directory path" : undefined}
-              type={value.type === "number" ? "number" : "text"}
-              value={String(currentValue)}
-            />
-          </label>
-        );
-      })}
+        })}
       </div>
     </div>
   );
@@ -243,7 +393,11 @@ function LogViewer({ entries }: { entries: LogEntry[] }) {
   return (
     <div className="flex h-full flex-col">
       <div className="mb-4 flex items-center gap-3">
-        <select className="rounded-full border border-stone-300 bg-white px-3 py-2 text-sm" onChange={(event) => setLevel(event.target.value)} value={level}>
+        <select
+          className="rounded-full border border-stone-300 bg-white px-3 py-2 text-sm"
+          onChange={(event) => setLevel(event.target.value)}
+          value={level}
+        >
           <option value="all">All levels</option>
           <option value="info">Info</option>
           <option value="error">Error</option>
@@ -252,9 +406,13 @@ function LogViewer({ entries }: { entries: LogEntry[] }) {
       <div className="flex-1 overflow-auto rounded-[1.4rem] border border-stone-200 bg-stone-950 p-4">
         {filtered.length ? (
           filtered.map((entry, index) => (
-            <div className="border-b border-stone-800 py-2 text-sm text-stone-100" key={`${entry.timestamp}-${index}`}>
+            <div
+              className="border-b border-stone-800 py-2 text-sm text-stone-100"
+              key={`${entry.timestamp}-${index}`}
+            >
               <p className="text-[11px] uppercase tracking-[0.3em] text-stone-500">
-                {entry.level} · {entry.workflow_id ?? "workflow"} · {entry.block_id ?? "system"}
+                {entry.level} · {entry.workflow_id ?? "workflow"} ·{" "}
+                {entry.block_id ?? "system"}
               </p>
               <p className="mt-1">{entry.message}</p>
             </div>
@@ -328,17 +486,31 @@ export function BottomPanel({
         </div>
         {onTogglePin ? (
           <button
-            aria-label={pinned ? "Unpin bottom panel" : "Pin bottom panel (disable canvas-click auto-collapse)"}
+            aria-label={
+              pinned
+                ? "Unpin bottom panel"
+                : "Pin bottom panel (disable canvas-click auto-collapse)"
+            }
             aria-pressed={pinned}
             className={`inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-              pinned ? "bg-ember/15 text-ember" : "bg-white text-stone-500 hover:bg-stone-100"
+              pinned
+                ? "bg-ember/15 text-ember"
+                : "bg-white text-stone-500 hover:bg-stone-100"
             }`}
             data-testid="bottom-panel-pin-toggle"
             onClick={onTogglePin}
-            title={pinned ? "Pinned — clicks on canvas won't fold the panel" : "Pin panel — clicks on canvas won't fold it"}
+            title={
+              pinned
+                ? "Pinned — clicks on canvas won't fold the panel"
+                : "Pin panel — clicks on canvas won't fold it"
+            }
             type="button"
           >
-            {pinned ? <Pin className="h-4 w-4" /> : <PinOff className="h-4 w-4" />}
+            {pinned ? (
+              <Pin className="h-4 w-4" />
+            ) : (
+              <PinOff className="h-4 w-4" />
+            )}
           </button>
         ) : null}
       </div>
@@ -357,7 +529,11 @@ export function BottomPanel({
           <TerminalTabs />
         </div>
         {activeTab === "config" ? (
-          <ConfigPanel onUpdateConfig={onUpdateConfig} schema={selectedSchema} selectedNode={selectedNode} />
+          <ConfigPanel
+            onUpdateConfig={onUpdateConfig}
+            schema={selectedSchema}
+            selectedNode={selectedNode}
+          />
         ) : activeTab === "logs" ? (
           <LogViewer entries={logEntries} />
         ) : activeTab === "lineage" ? (

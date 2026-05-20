@@ -116,12 +116,131 @@ def parse_yaml_frontmatter(path: Path) -> tuple[dict[str, Any] | None, str, list
     return loaded, body, []
 
 
+def _iter_governance_amendment_blocks(body: str) -> list[str]:
+    blocks: list[str] = []
+    active = False
+    current: list[str] = []
+    for line in body.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            fence_info = stripped[3:].strip()
+            if active:
+                blocks.append("\n".join(current))
+                current = []
+                active = False
+                continue
+            if fence_info == "yaml adr042-governance-amendment":
+                active = True
+                current = []
+                continue
+        if active:
+            current.append(line)
+    return blocks
+
+
+def _merge_unique(existing: list[str], *, add: list[str], remove: list[str]) -> list[str]:
+    remove_set = set(remove)
+    merged = [item for item in existing if item not in remove_set]
+    seen = set(merged)
+    for item in add:
+        if item not in seen:
+            merged.append(item)
+            seen.add(item)
+    return merged
+
+
+def _apply_governance_amendments(
+    data: dict[str, Any],
+    body: str,
+    *,
+    path: Path,
+) -> tuple[dict[str, Any], list[Finding]]:
+    amendments = _iter_governance_amendment_blocks(body)
+    if not amendments:
+        return data, []
+
+    amended = dict(data)
+    governs = dict(amended.get("governs") or {})
+    findings: list[Finding] = []
+    for index, raw in enumerate(amendments, start=1):
+        try:
+            loaded = yaml.safe_load(raw) or {}
+        except yaml.YAMLError as exc:
+            findings.append(
+                Finding(
+                    rule_id="frontmatter.amendment-yaml",
+                    severity=Severity.ERROR,
+                    file=normalise_path(path),
+                    line=1,
+                    message=f"invalid ADR-042 governance amendment #{index}: {exc}",
+                )
+            )
+            continue
+        if not isinstance(loaded, dict):
+            findings.append(
+                Finding(
+                    rule_id="frontmatter.amendment-shape",
+                    severity=Severity.ERROR,
+                    file=normalise_path(path),
+                    line=1,
+                    message=f"ADR-042 governance amendment #{index} must be a mapping",
+                )
+            )
+            continue
+        amended_governs = loaded.get("governs", {})
+        if not isinstance(amended_governs, dict):
+            findings.append(
+                Finding(
+                    rule_id="frontmatter.amendment-shape",
+                    severity=Severity.ERROR,
+                    file=normalise_path(path),
+                    line=1,
+                    message=f"ADR-042 governance amendment #{index} governs must be a mapping",
+                )
+            )
+            continue
+        for surface in ("modules", "contracts", "entry_points", "files", "excludes"):
+            operations = amended_governs.get(surface)
+            if operations is None:
+                continue
+            if not isinstance(operations, dict):
+                findings.append(
+                    Finding(
+                        rule_id="frontmatter.amendment-shape",
+                        severity=Severity.ERROR,
+                        file=normalise_path(path),
+                        line=1,
+                        message=f"ADR-042 governance amendment #{index} {surface} must use add/remove lists",
+                    )
+                )
+                continue
+            add = operations.get("add", [])
+            remove = operations.get("remove", [])
+            if not isinstance(add, list) or not isinstance(remove, list):
+                findings.append(
+                    Finding(
+                        rule_id="frontmatter.amendment-shape",
+                        severity=Severity.ERROR,
+                        file=normalise_path(path),
+                        line=1,
+                        message=f"ADR-042 governance amendment #{index} {surface} add/remove must be lists",
+                    )
+                )
+                continue
+            governs[surface] = _merge_unique(list(governs.get(surface) or []), add=add, remove=remove)
+    amended["governs"] = governs
+    return amended, findings
+
+
 def load_adr_frontmatter(path: Path) -> tuple[ADRFrontmatter | None, str, list[Finding]]:
     """Load and validate ADR frontmatter."""
 
     data, body, findings = parse_yaml_frontmatter(path)
     if data is None:
         return None, body, findings
+    data, amendment_findings = _apply_governance_amendments(data, body, path=path)
+    if amendment_findings:
+        return None, body, amendment_findings
     try:
         return ADRFrontmatter.model_validate(data), body, []
     except ValidationError as exc:
@@ -146,6 +265,9 @@ def load_spec_frontmatter(path: Path) -> tuple[SpecFrontmatter | None, str, list
     data, body, findings = parse_yaml_frontmatter(path)
     if data is None:
         return None, body, findings
+    data, amendment_findings = _apply_governance_amendments(data, body, path=path)
+    if amendment_findings:
+        return None, body, amendment_findings
     try:
         return SpecFrontmatter.model_validate(data), body, []
     except ValidationError as exc:

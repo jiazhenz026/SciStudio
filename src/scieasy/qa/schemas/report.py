@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 
 class DriftClass(StrEnum):
@@ -39,18 +39,43 @@ class AuditStatus(StrEnum):
 class AuditFinding(BaseModel):
     """A single machine-readable governance finding."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     rule_id: str
     severity: Severity
-    file: str
+    file: str = Field(default="", validation_alias=AliasChoices("file", "path"))
     message: str
+    id: str | None = None
+    tool: str | None = None
+    finding_class: str | None = None
+    path: str | None = None
     line: int | None = None
     symbol: str | None = None
+    subject: str | None = None
+    expected: Any | None = None
+    actual: Any | None = None
     drift_class: DriftClass | None = None
+    remediation: str | None = None
+    evidence: Mapping[str, Any] = Field(default_factory=dict)
     suggested_fix: str | None = None
     git_evidence: str | None = None
     related_findings: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _fill_compatibility_fields(self) -> AuditFinding:
+        if self.path is None:
+            self.path = self.file
+        if not self.file and self.path:
+            self.file = self.path
+        if self.id is None:
+            self.id = self.rule_id
+        if self.finding_class is None:
+            self.finding_class = str(self.drift_class or self.rule_id.split(".", 1)[0])
+        if self.subject is None:
+            self.subject = self.symbol
+        if self.remediation is None:
+            self.remediation = self.suggested_fix
+        return self
 
 
 Finding = AuditFinding
