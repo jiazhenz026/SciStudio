@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#1208] Add an ADR-042-compliant implementation planning spec for ADR-041 CodeBlock v2, including user scenarios, functional requirements, affected files, implementation phases, signature-level contracts, verification plan, migration guidance, and regenerated ADR-042 facts. (@agent, 2026-05-19, branch: docs/issue-1208/adr-041-codeblock-v2-spec, session: 20260519-172454-adr-041-implementation-planning-spec-and)
 - [#1258] Stop tracking the generated full audit Markdown report by ignoring `docs/audit/latest/facts-summary.md` and removing it from the repository index. (@agent, 2026-05-19, branch: chore/issue-1258/ignore-generated-full-audit-report, session: 20260519-204622-ignore-generated-full-audit-report)
 - [#1262] Add conservative Sentrux architecture rules, document the layer/boundary model, and ignore the local `sentrux.exe` binary. (@agent, 2026-05-20, branch: feat/issue-1262/sentrux-rules, session: 20260519-212320-configure-sentrux-architecture-rules)
 
