@@ -101,12 +101,16 @@ class BlobDetect(ProcessBlock):
         labels = np.transpose(labelled, inverse_axes)
         raster = Array(axes=list(item.axes), shape=labels.shape, dtype=labels.dtype)
         raster._data = labels  # type: ignore[attr-defined]
+        # ADR-043 / spec FR-009 Mode C: Label output preserves the spatial
+        # coordinate system of the source Image (axes match item.axes),
+        # so ``ome`` MUST be carried into the rebuilt ``Label.Meta``.
         return Label(
             slots={"raster": raster},
             framework=item.framework.derive(),
             meta=Label.Meta(
                 source_file=getattr(item.meta, "source_file", None),
                 n_objects=next_label - 1,
+                ome=getattr(item.meta, "ome", None),
             ),
             user=dict(item.user),
         )

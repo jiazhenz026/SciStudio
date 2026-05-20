@@ -100,14 +100,21 @@ class CellposeSegment(ProcessBlock):
                 label = self.process_item(image, config, state)
                 labels_list.append(cast(Label, self._auto_flush(label)))
 
-                # Extract raster data as standalone Image for masks port
+                # Extract raster data as standalone Image for masks port.
+                # ADR-043 / spec FR-009 Mode C: the mask image is
+                # shape-aligned with the source image's spatial axes
+                # (y, x), so ``ome`` MUST be carried into the rebuilt
+                # ``Image.Meta`` per the propagation contract.
                 raster_data = label.slots["raster"]._data  # type: ignore[attr-defined]
                 mask_img = Image(
                     axes=["y", "x"],
                     shape=tuple(raster_data.shape),
                     dtype=raster_data.dtype,
                     framework=image.framework.derive(),
-                    meta=Image.Meta(source_file=getattr(image.meta, "source_file", None)),
+                    meta=Image.Meta(
+                        source_file=getattr(image.meta, "source_file", None),
+                        ome=getattr(image.meta, "ome", None),
+                    ),
                     user=dict(image.user),
                 )
                 mask_img._data = raster_data  # type: ignore[attr-defined]
@@ -144,12 +151,16 @@ class CellposeSegment(ProcessBlock):
 
         raster = Array(axes=["y", "x"], shape=labels.shape, dtype=labels.dtype)
         raster._data = labels  # type: ignore[attr-defined]
+        # ADR-043 / spec FR-009 Mode C: Label output preserves the spatial
+        # coordinate system of the source Image (y, x raster), so ``ome``
+        # MUST be carried into the rebuilt ``Label.Meta``.
         return Label(
             slots={"raster": raster},
             framework=item.framework.derive(),
             meta=Label.Meta(
                 source_file=getattr(item.meta, "source_file", None),
                 n_objects=int(labels.max()) if labels.size else 0,
+                ome=getattr(item.meta, "ome", None),
             ),
             user=dict(item.user),
         )
