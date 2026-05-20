@@ -23,8 +23,10 @@ governs:
     - scieasy.qa.governance.core_change_guard
     - scieasy.qa.governance.pr_merge_guard
     - scieasy.qa.schemas.frontmatter
+    - scieasy.qa.audit.architecture_drift
   contracts:
     - scieasy.qa.schemas.frontmatter.ArchitectureFrontmatter
+    - scieasy.qa.audit.architecture_drift.check
     - scieasy.qa.governance.gate_record.GateRecord
     - scieasy.qa.governance.gate_record.CheckEvidence
     - scieasy.qa.governance.gate_record.SentruxEvidence
@@ -61,6 +63,7 @@ tests:
   - tests/qa/test_core_change_guard.py
   - tests/qa/test_pr_merge_guard.py
   - tests/qa/test_audit_frontmatter_lint.py
+  - tests/qa/test_architecture_drift.py
 agent_editable: false
 assisted_by:
   - "Codex:gpt-5"
@@ -93,6 +96,7 @@ governance:
 | D9. Conflict-prone generated artifacts | Ignore generated gate/audit artifacts and explicitly migrate any tracked workflow files before treating them as ignored | `.gitignore`, review, and gate implementation docs | Section 3 |
 | D10. AI gate CLI | Require agents to use the repository-owned gate-record CLI for each gate stage | Agent workflow, local hooks, and CI consume the same committed record | Section 3 |
 | D11. Architecture frontmatter audit | Include `docs/architecture/ARCHITECTURE.md` in ADR-042 frontmatter audit coverage | Full audit and frontmatter lint fail invalid architecture metadata | Section 5 |
+| D12. Architecture truthfulness audit | Validate architecture-document code blocks and referenced function/class names against repository facts | Full audit fails architecture drift unless an example is explicitly non-normative | Section 5 |
 
 This addendum supersedes ADR-042 Section 7.2 only where that section defines
 gate state as local-only state under `.git/scieasy/gates/`. Local gate state may
@@ -116,6 +120,7 @@ still exist as a pre-commit helper, but it is not sufficient for delivery.
 | Generated workflow artifacts cause noisy merge conflicts | Agents repeatedly resolve conflicts in files that should be local evidence, not canonical text | Ignore generated gate/audit artifacts and explicitly migrate any tracked canonical workflow files | Section 3 |
 | Agents need a concrete command surface | Agents otherwise treat the workflow as prose and skip durable state updates | Define a mandatory `gate_record` CLI for AI use | Section 3 |
 | Architecture metadata can drift outside audit coverage | The top-level architecture document can become stale or ownerless despite having frontmatter | Validate architecture frontmatter in `frontmatter_lint` | Section 5 |
+| Architecture prose can lie about implementation | Function signatures, class names, module paths, or code examples can drift from the repo while frontmatter still passes | Add architecture drift checks for code blocks and symbol references | Section 5 |
 
 ## 2. Sentrux Free-Tier Integration
 
@@ -445,6 +450,8 @@ Pre-commit should block AI-authored commits when:
 - governance files are touched without `governance_touch=true`;
 - required checks, including applicable Sentrux evidence, are missing;
 - QA full audit evidence is missing when the tool is available;
+- architecture drift evidence is missing or failing when `docs/architecture/ARCHITECTURE.md`
+  is changed;
 - Sentrux free-tier checks fail for applicable changes.
 
 Commit-message hooks should require machine-readable trailers:
@@ -467,6 +474,9 @@ fails when:
   or modifying test files;
 - required docs, tests, changelog, or N/A rationales are missing;
 - QA full audit evidence is missing;
+- architecture drift checks find stale code blocks, stale function or class
+  names, stale module paths, or stale signatures in
+  `docs/architecture/ARCHITECTURE.md`;
 - Sentrux is applicable but missing or failing;
 - the record claims Pro-only Sentrux evidence;
 - governance or Sentrux rules are weakened without owner-approved scope.
@@ -488,6 +498,23 @@ repository findings without immediately blocking every PR. The gate record must
 still include the full-audit result, output path, and classification of any
 known debt. After the owner accepts the baseline or cleanup queue, missing full
 audit evidence or unclassified full-audit failures become CI-blocking.
+
+Architecture truthfulness checks are part of QA full audit. The audit must treat
+the architecture document as normative by default:
+
+- fenced code blocks that declare Python, shell, TOML, YAML, JSON, or no language
+  must be parsed when possible and checked against repository facts;
+- referenced Python module paths, class names, function names, and method names
+  in prose or backticks must resolve against generated code facts when they look
+  like repository symbols;
+- function or method signatures shown in the architecture document must match
+  the actual implementation signature;
+- examples that are intentionally illustrative or not tied to current code must
+  be explicitly marked non-normative in prose or fence metadata.
+
+Unmarked stale architecture references are drift findings. This rule is stricter
+than spec signature contracts because `docs/architecture/ARCHITECTURE.md` is the
+project-wide architecture source of truth.
 
 ## 6. Scope, Non-Goals, And Consequences
 
