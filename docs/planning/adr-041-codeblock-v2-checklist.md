@@ -305,9 +305,9 @@ Tasks:
 
 Exit Criteria:
 
-- [ ] Track E PR targets `track/adr-041/codeblock-v2`.
-- [ ] Track E CI is green.
-- [x] Checklist rows updated with PR/test evidence. Evidence: local test/build evidence recorded above; PR/CI evidence to be appended after PR creation.
+- [x] Track E PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1255](https://github.com/zjzcpj/SciEasy/pull/1255).
+- [x] Track E CI is green. Evidence: PR #1255 checks passed on 2026-05-20; `gh pr checks 1255 --watch`.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR #1255, commit `911089ac`, focused frontend tests, local build, and CI evidence recorded above.
 
 ## Phase 5 - Documentation, Facts, and Audit
 
