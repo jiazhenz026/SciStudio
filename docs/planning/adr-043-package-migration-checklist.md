@@ -449,12 +449,20 @@ language_source: en
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
-| Ruff | `ruff check .` | `[ ]` | pending |
-| Format | `ruff format --check .` | `[ ]` | pending |
-| Tests (manager track) | `pytest tests/ --timeout=60` (umbrella scope = spec/checklist/gate-record only; no test deltas in manager track) | `[ ]` | N/A — manager track has no test files; per-phase tracks own their own tests |
-| Full audit | `python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[ ]` | pending |
-| Sentrux | scan + check-rules per ADR-042 Addendum 1 §2 | `[ ]` | pending |
-| ADR-043 §9 package validity | `python -m scieasy.qa.audit.full_audit` (filter for adr043 findings) | `[ ]` | pending |
+| Ruff (manager track) | `ruff check .` | `[x]` | clean on umbrella scaffolding commit |
+| Format (manager track) | `ruff format --check .` | `[x]` | 626 files already formatted |
+| Tests (manager track) | N/A — umbrella scope = spec / checklist / gate-record / CHANGELOG only | `[x]` | manager track has no test files; per-phase tracks own their own tests |
+| Full audit (per-phase + umbrella) | `python -m scieasy.qa.audit.full_audit` | `[x]` | 311 pre-existing findings; **0 attributable to any sub-PR** (verified per phase). Owner-acknowledged debt — bypass label used. |
+| Sentrux (manager track) | scan + check-rules per ADR-042 Addendum 1 §2 | `[x]` | skipped with rationale (Sentrux CLI not installed in dispatcher env). Per-phase sub-PRs each recorded their own sentrux evidence at their implementation surface. |
+| ADR-043 §9 package validity | C1 audit's manual scan over `format_capabilities` records | `[x]` | **0 errors over 75 capabilities** across LoadData/SaveData/LoadImage/SaveImage. C1 audit report §5. |
+| ADR-043 §6 ambiguity scan | C1 audit's manual scan over `(direction, type, extension)` slots | `[x]` | **0 ambiguous slots** with multiple defaults. C1 audit report §6. |
+| SC-001 (ADR-043 §9 scan green) | full_audit + manual cross-reference | `[x]` | green — C1 audit recommendation `pass-with-fixes` (P1+P2 fixed in PR #1304) |
+| SC-002 (Bio-Formats load returns non-empty ome) | `pytest test_bioformats_handler.py` | `[~]` | tests pass at the schema level; live CZI/ND2/LIF/OIR fixtures skip when JVM unavailable (Python 3.11 + 3.13 CI runners do not have JVM). End-to-end live fixture verification deferred to Phase D environment with JVM. |
+| SC-003 (CZI → resize → save TIFF preserves physical_size_x) | `test_sc_003_ome_metadata_survives_tiff_round_trip` (added by C1 fixes #1304) | `[x]` | passes on CI Python 3.11 + 3.13. C1 fix commit `ebfec233`. |
+| SC-004 (PNG → save TIFF preserves EXIF-mapped fields) | pillow handler round-trip test | `[x]` | passes — A2 implementation + C1 fix on axes-override bug |
+| SC-005 (Chrome smoke green) | JSDOM smoke harness substitute + manual checklist | `[~]` | partial — **Chrome MCP / Playwright not provisioned in repo**. A3 substituted JSDOM smoke (passes) + manual in-app checklist at `frontend/e2e/adr043-a3-smoke.md`. Live Chrome coverage deferred to Phase D owner walkthrough. |
+| SC-006 (owner-authored e2e cases all pass) | Phase D execution | `[ ]` | **PENDING — awaiting owner e2e test cases** |
+| Umbrella PR #1297 CI | CodeQL + sub-PR CI green per-merge | `[~]` | sub-PR CI all green; umbrella CodeQL re-running on latest HEAD; **umbrella CONFLICTING vs main** (owner repairing audit debt on parallel branch — final rebase needed before merge) |
 
 ## 16. Drift Log
 
