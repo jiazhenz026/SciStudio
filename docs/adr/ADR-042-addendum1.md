@@ -22,7 +22,9 @@ governs:
     - scieasy.qa.governance.human_bypass_guard
     - scieasy.qa.governance.core_change_guard
     - scieasy.qa.governance.pr_merge_guard
+    - scieasy.qa.schemas.frontmatter
   contracts:
+    - scieasy.qa.schemas.frontmatter.ArchitectureFrontmatter
     - scieasy.qa.governance.gate_record.GateRecord
     - scieasy.qa.governance.gate_record.CheckEvidence
     - scieasy.qa.governance.gate_record.SentruxEvidence
@@ -40,6 +42,7 @@ governs:
     - docs/adr/ADR-042-addendum1.md
     - docs/specs/adr-042-gate-record-sentrux-workflow.md
     - docs/contributing/workflows/human-bypass.md
+    - docs/architecture/ARCHITECTURE.md
     - .workflow/**
     - .sentrux/rules.toml
     - .github/workflows/**
@@ -57,6 +60,7 @@ tests:
   - tests/qa/test_human_bypass_guard.py
   - tests/qa/test_core_change_guard.py
   - tests/qa/test_pr_merge_guard.py
+  - tests/qa/test_audit_frontmatter_lint.py
 agent_editable: false
 assisted_by:
   - "Codex:gpt-5"
@@ -88,6 +92,7 @@ governance:
 | D8. Legacy gate removal | Delete `.workflow/gate.py` and replace the old `.workflow/active` CI lookup with committed gate-record validation | Workflow-gate CI has one normative gate authority | Section 3 |
 | D9. Conflict-prone generated artifacts | Ignore generated gate/audit artifacts and explicitly migrate any tracked workflow files before treating them as ignored | `.gitignore`, review, and gate implementation docs | Section 3 |
 | D10. AI gate CLI | Require agents to use the repository-owned gate-record CLI for each gate stage | Agent workflow, local hooks, and CI consume the same committed record | Section 3 |
+| D11. Architecture frontmatter audit | Include `docs/architecture/ARCHITECTURE.md` in ADR-042 frontmatter audit coverage | Full audit and frontmatter lint fail invalid architecture metadata | Section 5 |
 
 This addendum supersedes ADR-042 Section 7.2 only where that section defines
 gate state as local-only state under `.git/scieasy/gates/`. Local gate state may
@@ -110,6 +115,7 @@ still exist as a pre-commit helper, but it is not sufficient for delivery.
 | The legacy CI gate can remain as a parallel source of truth | A PR can pass or fail against obsolete `.workflow/gate.py` or `.workflow/active` state instead of the committed record | Delete `.workflow/gate.py` and replace the legacy workflow-gate state lookup with gate-record validation | Section 3 |
 | Generated workflow artifacts cause noisy merge conflicts | Agents repeatedly resolve conflicts in files that should be local evidence, not canonical text | Ignore generated gate/audit artifacts and explicitly migrate any tracked canonical workflow files | Section 3 |
 | Agents need a concrete command surface | Agents otherwise treat the workflow as prose and skip durable state updates | Define a mandatory `gate_record` CLI for AI use | Section 3 |
+| Architecture metadata can drift outside audit coverage | The top-level architecture document can become stale or ownerless despite having frontmatter | Validate architecture frontmatter in `frontmatter_lint` | Section 5 |
 
 ## 2. Sentrux Free-Tier Integration
 
