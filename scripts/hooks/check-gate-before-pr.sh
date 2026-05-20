@@ -1,52 +1,102 @@
 #!/bin/bash
-# Claude Code PreToolUse hook: check workflow gate before gh pr create
-# Ensures agents complete update_docs + update_changelog before creating PR.
+# Claude/Codex PreToolUse hook: validate ADR-042 gate record before gh pr create.
 
-set -e
+set -euo pipefail
 
 INPUT=$(cat)
 CMD=$(echo "$INPUT" | python -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('command',''))" 2>/dev/null || echo "")
 
-# Only intercept gh pr create commands
-if ! echo "$CMD" | grep -qE 'gh pr create'; then
+if ! echo "$CMD" | grep -qE '(^|[[:space:]])gh[[:space:]]+pr[[:space:]]+create([[:space:]]|$)'; then
   echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
   exit 0
 fi
 
-# Only enforce for branches that require gates (feat/, fix/, refactor/)
 BRANCH=$(git branch --show-current 2>/dev/null || echo "")
-if ! echo "$BRANCH" | grep -qE '^(feat|fix|refactor)/'; then
+if [ -z "$BRANCH" ] || [ "$BRANCH" = "main" ] || [ "$BRANCH" = "HEAD" ]; then
   echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
   exit 0
 fi
 
-# Check if there's an active workflow
-GATE_OUTPUT=$(python .workflow/gate.py list 2>/dev/null || echo "")
+BYPASS_LABELS=$(SCIEASY_CMD="$CMD" python - <<'PY'
+import os
+import shlex
 
-if [ -z "$GATE_OUTPUT" ]; then
-  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
+valid = {
+    "human-authored",
+    "admin-approved:ai-override",
+    "admin-approved:core-change",
+    "admin-approved:merge",
+}
+labels: set[str] = set()
+for raw in os.environ.get("SCIEASY_GATE_BYPASS_LABELS", "").replace(",", " ").split():
+    labels.add(raw.strip())
+
+try:
+    tokens = shlex.split(os.environ.get("SCIEASY_CMD", ""))
+except ValueError:
+    tokens = []
+index = 0
+while index < len(tokens):
+    token = tokens[index]
+    value = None
+    if token in {"--label", "-l"} and index + 1 < len(tokens):
+        value = tokens[index + 1]
+        index += 1
+    elif token.startswith("--label="):
+        value = token.split("=", 1)[1]
+    elif token.startswith("-l="):
+        value = token.split("=", 1)[1]
+    if value is not None:
+        labels.update(item.strip() for item in value.split(",") if item.strip())
+    index += 1
+
+override_like = {
+    label
+    for label in labels
+    if label in valid or label.startswith("human") or label.startswith("admin-approved")
+}
+print("\n".join(sorted(override_like)))
+PY
+)
+
+BASE_REF="${SCIEASY_GATE_BASE:-origin/main}"
+LABEL_ARGS=()
+while IFS= read -r label; do
+  [ -n "$label" ] || continue
+  LABEL_ARGS+=(--pr-label "$label")
+done <<EOF
+$BYPASS_LABELS
+EOF
+
+if [ -n "$BYPASS_LABELS" ]; then
+  OUTPUT=$(PYTHONPATH=src python -m scieasy.qa.governance.gate_record pr-ready \
+    --repo-root . \
+    --base "$BASE_REF" \
+    --head HEAD \
+    --pr-body "$CMD" \
+    "${LABEL_ARGS[@]}" 2>&1) || {
+    REASON=$(printf '%s' "$OUTPUT" | python -c "import json,sys; print(json.dumps(sys.stdin.read()[:1800]))")
+    echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":$REASON}}"
+    exit 0
+  }
+  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"ADR-042 local gate bypassed by approved override label; CI/review still runs."}}'
   exit 0
 fi
 
-ACTIVE=$(echo "$GATE_OUTPUT" | grep "active" | head -1)
-if [ -z "$ACTIVE" ]; then
-  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
+if ! echo "$CMD" | grep -qiE '(closes|fixes|resolves)[[:space:]]+#?[0-9]+'; then
+  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"ADR-042 gate: gh pr create command must include a PR body with Closes/Fixes/Resolves #N."}}'
   exit 0
 fi
 
-TASK_ID=$(echo "$ACTIVE" | awk '{print $1}')
-STATUS=$(python .workflow/gate.py status "$TASK_ID" 2>/dev/null || echo "")
-
-# Check that update_changelog is DONE (gate 5 of 6, right before submit_pr)
-if echo "$STATUS" | grep -q "\[DONE\].*Update Changelog"; then
-  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
+OUTPUT=$(PYTHONPATH=src python -m scieasy.qa.governance.gate_record pr-ready \
+  --repo-root . \
+  --base "$BASE_REF" \
+  --head HEAD \
+  --pr-body "$CMD" \
+  "${LABEL_ARGS[@]}" 2>&1) || {
+  REASON=$(printf '%s' "$OUTPUT" | python -c "import json,sys; print(json.dumps(sys.stdin.read()[:1800]))")
+  echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":$REASON}}"
   exit 0
-fi
+}
 
-# Check which gates are missing
-MISSING=""
-echo "$STATUS" | grep -q "\[DONE\].*Update Documentation" || MISSING="update_docs "
-echo "$STATUS" | grep -q "\[DONE\].*Update Changelog" || MISSING="${MISSING}update_changelog"
-
-echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"WORKFLOW GATE: Missing stages before PR: ${MISSING}. Run: python .workflow/gate.py status $TASK_ID\"}}"
-exit 0
+echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'

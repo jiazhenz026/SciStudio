@@ -30,6 +30,11 @@ sentrux.exe
 docs/facts/generated.yaml
 docs/audit/latest/facts-summary.md
 
+# Generated QA audit outputs (local evidence; regenerate with full_audit)
+docs/audit/full-audit-latest.json
+docs/audit/*.local.json
+docs/audit/*.tmp.json
+
 # IDE
 .idea/
 .vscode/
@@ -77,3 +82,12 @@ src/scieasy/api/static/
 
 # Workflow gate state files (local per-developer)
 .workflow/active/
+
+# Workflow gate scratch files. Canonical gate records under
+# .workflow/records/*.json are intentionally not ignored.
+.workflow/local/
+.workflow/scratch/
+.workflow/tmp/
+.workflow/*.local.json
+.workflow/records/*.local.json
+.workflow/records/*-scratch.json

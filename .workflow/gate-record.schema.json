@@ -1,0 +1,440 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/zjzcpj/SciEasy/.workflow/gate-record.schema.json",
+  "title": "SciEasy ADR-042 Committed Gate Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "task_kind",
+    "branch",
+    "owner_directive",
+    "issues",
+    "scope",
+    "governance_touch",
+    "stages"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "record_path": {
+      "type": ["string", "null"]
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_kind": {
+      "enum": ["hotfix", "bugfix", "feature", "docs", "maintenance", "manager", "refactor"]
+    },
+    "branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "owner_directive": {
+      "type": "string",
+      "minLength": 1
+    },
+    "issues": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["number"],
+        "properties": {
+          "number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "url": {
+            "type": ["string", "null"]
+          },
+          "close_in_pr": {
+            "type": "boolean",
+            "default": true
+          },
+          "followup_rationale": {
+            "type": ["string", "null"]
+          }
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["include", "exclude"],
+      "properties": {
+        "include": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "governance_touch": {
+      "type": "boolean"
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/stage_scope_and_issue"
+        },
+        {
+          "$ref": "#/$defs/stage_plan"
+        },
+        {
+          "$ref": "#/$defs/stage_implement"
+        },
+        {
+          "$ref": "#/$defs/stage_update_docs"
+        },
+        {
+          "$ref": "#/$defs/stage_test_and_checks"
+        },
+        {
+          "$ref": "#/$defs/stage_commit_and_submit_pr"
+        }
+      ]
+    },
+    "planned_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "changed_test_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "admin_labels": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/admin_label"
+      }
+    },
+    "amendments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/amendment"
+      }
+    },
+    "docs_landing": {
+      "type": "object"
+    },
+    "required_checks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "check_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/check_evidence"
+      }
+    },
+    "sentrux": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/sentrux_evidence"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "full_audit": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/full_audit_evidence"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "commit": {
+      "type": ["object", "null"]
+    },
+    "pull_request": {
+      "type": ["object", "null"]
+    }
+  },
+  "$defs": {
+    "stage_base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage"],
+      "properties": {
+        "stage": {
+          "type": "string"
+        },
+        "status": {
+          "enum": ["pending", "done", "blocked", "skipped"],
+          "default": "pending"
+        },
+        "completed_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "summary": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "stage_scope_and_issue": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/stage_base"
+        },
+        {
+          "properties": {
+            "stage": {
+              "const": "scope_and_issue"
+            }
+          }
+        }
+      ]
+    },
+    "stage_plan": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/stage_base"
+        },
+        {
+          "properties": {
+            "stage": {
+              "const": "plan"
+            }
+          }
+        }
+      ]
+    },
+    "stage_implement": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/stage_base"
+        },
+        {
+          "properties": {
+            "stage": {
+              "const": "implement"
+            }
+          }
+        }
+      ]
+    },
+    "stage_update_docs": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/stage_base"
+        },
+        {
+          "properties": {
+            "stage": {
+              "const": "update_docs"
+            }
+          }
+        }
+      ]
+    },
+    "stage_test_and_checks": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/stage_base"
+        },
+        {
+          "properties": {
+            "stage": {
+              "const": "test_and_checks"
+            }
+          }
+        }
+      ]
+    },
+    "stage_commit_and_submit_pr": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/stage_base"
+        },
+        {
+          "properties": {
+            "stage": {
+              "const": "commit_and_submit_pr"
+            }
+          }
+        }
+      ]
+    },
+    "admin_label": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "enum": [
+            "human-authored",
+            "admin-approved:ai-override",
+            "admin-approved:core-change",
+            "admin-approved:merge"
+          ]
+        },
+        "applied_by": {
+          "type": ["string", "null"]
+        },
+        "applied_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      }
+    },
+    "amendment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason"],
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "include": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "approved_by": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "check_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "command_or_tool", "status"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "command_or_tool": {
+          "type": "string"
+        },
+        "status": {
+          "enum": ["pass", "fail", "skipped", "unknown"]
+        },
+        "exit_code": {
+          "type": ["integer", "null"]
+        },
+        "timestamp": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "output_path": {
+          "type": ["string", "null"]
+        },
+        "summary": {
+          "type": "object"
+        }
+      }
+    },
+    "sentrux_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "command_or_tool", "status", "pro_required"],
+      "properties": {
+        "name": {
+          "const": "sentrux.free_tier"
+        },
+        "mode": {
+          "const": "free-tier"
+        },
+        "command_or_tool": {
+          "type": "string"
+        },
+        "status": {
+          "enum": ["pass", "fail", "skipped", "unknown"]
+        },
+        "rules_checked": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "total_rules_defined": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "quality_signal": {
+          "type": ["number", "null"]
+        },
+        "thresholds": {
+          "type": "object"
+        },
+        "pro_required": {
+          "const": false
+        },
+        "output_path": {
+          "type": ["string", "null"]
+        },
+        "summary": {
+          "type": "object"
+        }
+      }
+    },
+    "full_audit_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "status", "output_path"],
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "status": {
+          "enum": ["pass", "fail", "skipped", "unknown"]
+        },
+        "exit_code": {
+          "type": ["integer", "null"]
+        },
+        "output_path": {
+          "type": "string"
+        },
+        "blocks_merge": {
+          "type": ["boolean", "null"]
+        },
+        "known_debt": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unclassified_failures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

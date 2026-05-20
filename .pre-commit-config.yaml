@@ -3,16 +3,27 @@ repos:
     hooks:
       - id: scieasy-governance-mod-guard
         name: SciEasy governance modification guard
-        entry: python -m scieasy.qa.governance.mod_guard --staged
+        entry: python scripts/hooks/run_python_module.py scieasy.qa.governance.mod_guard --staged
         language: system
         pass_filenames: false
         files: ^(AGENTS\.md|\.workflow/|\.github/workflows/|\.pre-commit-config\.yaml|docs/adr/ADR-042\.md|docs/specs/adr-042-.*\.md|src/scieasy/qa/|tests/qa/)
       - id: scieasy-weakened-ci-check
         name: SciEasy weakened CI/pre-commit check
-        entry: python -m scieasy.qa.governance.weakened_ci_check --staged
+        entry: python scripts/hooks/run_python_module.py scieasy.qa.governance.weakened_ci_check --staged
         language: system
         pass_filenames: false
         files: ^(\.github/workflows/|\.pre-commit-config\.yaml|pyproject\.toml)
+      - id: scieasy-gate-record-pre-commit
+        name: SciEasy ADR-042 gate record pre-commit
+        entry: python scripts/hooks/run_python_module.py scieasy.qa.governance.gate_record pre-commit --staged
+        language: system
+        pass_filenames: false
+        files: ^(src/|packages/|frontend/|web/|tests/|\.workflow/records/|\.github/workflows/|\.pre-commit-config\.yaml|scripts/hooks/)
+      - id: scieasy-gate-record-commit-msg
+        name: SciEasy ADR-042 gate record commit message
+        entry: python scripts/hooks/run_python_module.py scieasy.qa.governance.gate_record commit-msg
+        language: system
+        stages: [commit-msg]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0

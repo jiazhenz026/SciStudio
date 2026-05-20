@@ -1,79 +1,43 @@
 #!/usr/bin/env python3
-"""
-Git pre-commit hook: ensures commits happen only on branches with
-an active workflow that has reached at least the 'create_branch' stage.
+"""Git pre-commit hook wrapper for ADR-042 committed gate records."""
 
-Install: copy to .git/hooks/pre-commit and chmod +x
-Or: python .workflow/hooks/install.py
-"""
+from __future__ import annotations
 
-import json
 import subprocess
 import sys
 from pathlib import Path
 
 
-def get_current_branch() -> str:
+def _branch() -> str:
     result = subprocess.run(
         ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        capture_output=True, text=True
+        capture_output=True,
+        text=True,
+        check=False,
     )
     return result.stdout.strip()
 
 
-def main():
-    branch = get_current_branch()
+def main() -> int:
+    branch = _branch()
+    if branch in {"main", "develop", "HEAD"}:
+        return 0
 
-    # Skip for main/develop branches (they get changes via PR)
-    if branch in ("main", "develop", "HEAD"):
-        sys.exit(0)
-
-    # Look for an active workflow whose branch matches
-    repo_root = Path(
-        subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True
-        ).stdout.strip()
+    repo_root = Path(__file__).resolve().parents[2]
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(repo_root / "scripts" / "hooks" / "run_python_module.py"),
+            "scieasy.qa.governance.gate_record",
+            "pre-commit",
+            "--staged",
+        ],
+        text=True,
+        check=False,
+        cwd=repo_root,
     )
-    workflow_dir = repo_root / ".workflow" / "active"
-    if not workflow_dir.exists():
-        sys.exit(0)  # No workflow system yet — allow
-
-    for state_file in workflow_dir.glob("*.json"):
-        with open(state_file) as f:
-            state = json.load(f)
-
-        if state.get("status") != "active":
-            continue
-
-        completed_stages = {s["stage_id"] for s in state.get("completed_stages", [])}
-        branch_stage = next(
-            (s for s in state.get("completed_stages", [])
-             if s["stage_id"] == "create_branch"),
-            None,
-        )
-
-        if branch_stage and branch_stage.get("artifacts", {}).get("branch_name") == branch:
-            if "create_branch" in completed_stages:
-                sys.exit(0)  # All good
-            else:
-                print("=" * 60, file=sys.stderr)
-                print("  WORKFLOW GATE: COMMIT BLOCKED", file=sys.stderr)
-                print("=" * 60, file=sys.stderr)
-                print(f"  Branch '{branch}' has a workflow but hasn't", file=sys.stderr)
-                print(f"  completed the 'create_branch' stage yet.", file=sys.stderr)
-                print(f"  Task: {state['task_id']}", file=sys.stderr)
-                print("", file=sys.stderr)
-                print("  Complete prior stages first:", file=sys.stderr)
-                print(f"    python .workflow/gate.py status {state['task_id']}", file=sys.stderr)
-                print("=" * 60, file=sys.stderr)
-                sys.exit(1)
-
-    # No matching workflow found — warn but don't block
-    print(f"WARNING: No active workflow found for branch '{branch}'.", file=sys.stderr)
-    print(f"  Consider: python .workflow/gate.py start '<description>'", file=sys.stderr)
-    sys.exit(0)
+    return result.returncode
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

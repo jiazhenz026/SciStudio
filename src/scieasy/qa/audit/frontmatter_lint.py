@@ -6,12 +6,22 @@ import argparse
 import re
 from pathlib import Path
 
-from scieasy.qa.audit._util import load_adr_frontmatter, load_spec_frontmatter, normalise_path
-from scieasy.qa.schemas.frontmatter import ADRFrontmatter
+from pydantic import ValidationError
+
+from scieasy.qa.audit._util import (
+    _apply_governance_amendments,
+    load_adr_frontmatter,
+    load_architecture_frontmatter,
+    load_spec_frontmatter,
+    normalise_path,
+    parse_yaml_frontmatter,
+)
+from scieasy.qa.schemas.frontmatter import ADRAddendumFrontmatter, ADRFrontmatter, ArchitectureFrontmatter
 from scieasy.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 _DETAIL_SECTION_RE = re.compile(r"\bSection\s+(\d+(?:\.\d+)*)\b", re.IGNORECASE)
+_ADR_ADDENDUM_RE = re.compile(r"^ADR-\d{3}-addendum")
 
 
 def _is_adr(path: Path) -> bool:
@@ -19,9 +29,18 @@ def _is_adr(path: Path) -> bool:
     return "docs" in parts and "adr" in parts and path.name.startswith("ADR-")
 
 
+def _is_adr_addendum(path: Path) -> bool:
+    return _ADR_ADDENDUM_RE.match(path.name) is not None
+
+
 def _is_spec(path: Path) -> bool:
     parts = [part.lower() for part in path.parts]
     return "docs" in parts and "specs" in parts
+
+
+def _is_architecture(path: Path) -> bool:
+    parts = [part.lower() for part in path.parts]
+    return "docs" in parts and "architecture" in parts and path.name == "ARCHITECTURE.md"
 
 
 def _finding(path: Path, rule_id: str, message: str, *, line: int | None = None) -> Finding:
@@ -59,7 +78,45 @@ def _section_numbers(headings: list[tuple[int, str, int]]) -> set[str]:
     return numbers
 
 
-def _check_adr_filename(path: Path, fm: ADRFrontmatter) -> list[Finding]:
+def _load_adr_addendum_frontmatter(path: Path) -> tuple[ADRAddendumFrontmatter | None, str, list[Finding]]:
+    data, body, findings = parse_yaml_frontmatter(path)
+    if data is None:
+        return None, body, findings
+    data, amendment_findings = _apply_governance_amendments(data, body, path=path)
+    if amendment_findings:
+        return None, body, amendment_findings
+    try:
+        return ADRAddendumFrontmatter.model_validate(data), body, []
+    except ValidationError as exc:
+        return (
+            None,
+            body,
+            [
+                Finding(
+                    rule_id="frontmatter.validation",
+                    severity=Severity.ERROR,
+                    file=normalise_path(path),
+                    line=1,
+                    message=f"ADR addendum frontmatter validation failed: {exc}",
+                )
+            ],
+        )
+
+
+def _check_adr_filename(path: Path, fm: ADRFrontmatter | ADRAddendumFrontmatter) -> list[Finding]:
+    if isinstance(fm, ADRAddendumFrontmatter):
+        expected = f"ADR-{fm.adr:03d}-addendum{fm.addendum}.md"
+        if path.name != expected:
+            return [
+                _finding(
+                    path,
+                    "frontmatter.adr-addendum-filename",
+                    f"ADR addendum filename must be {expected} for adr={fm.adr} addendum={fm.addendum}",
+                    line=1,
+                )
+            ]
+        return []
+
     expected = f"ADR-{fm.adr:03d}.md"
     if path.name != expected:
         return [
@@ -73,11 +130,14 @@ def _check_adr_filename(path: Path, fm: ADRFrontmatter) -> list[Finding]:
     return []
 
 
-def _check_adr_body(path: Path, fm: ADRFrontmatter, body: str) -> list[Finding]:
+def _check_adr_body(path: Path, fm: ADRFrontmatter | ADRAddendumFrontmatter, body: str) -> list[Finding]:
     headings = _headings(body)
     findings: list[Finding] = []
 
-    expected_h1 = f"ADR-{fm.adr:03d}: {fm.title}"
+    if isinstance(fm, ADRAddendumFrontmatter):
+        expected_h1 = f"ADR-{fm.adr:03d} Addendum {fm.addendum}: {fm.title}"
+    else:
+        expected_h1 = f"ADR-{fm.adr:03d}: {fm.title}"
     if not headings or headings[0][0] != 1:
         findings.append(_finding(path, "frontmatter.adr-h1", "ADR body must start with an H1 title"))
     elif headings[0][1] != expected_h1:
@@ -160,14 +220,35 @@ def _check_spec_body(path: Path, body: str) -> list[Finding]:
     ]
 
 
+def _check_architecture_body(path: Path, fm: ArchitectureFrontmatter, body: str) -> list[Finding]:
+    headings = _headings(body)
+    expected_h1 = fm.title
+    if not headings or headings[0][0] != 1:
+        return [_finding(path, "frontmatter.architecture-h1", "architecture body must start with an H1 title")]
+    if headings[0][1] != expected_h1:
+        return [
+            _finding(
+                path,
+                "frontmatter.architecture-h1",
+                f"architecture H1 must be '# {expected_h1}'",
+                line=headings[0][2],
+            )
+        ]
+    return []
+
+
 def lint_file(path: Path) -> list[Finding]:
-    """Validate one ADR/spec file's frontmatter and required first section."""
+    """Validate one ADR/spec/architecture file's frontmatter and required first section."""
 
     if not path.exists():
         return [_finding(path, "frontmatter.file-missing", "file does not exist", line=1)]
 
     if _is_adr(path):
-        adr_fm, body, findings = load_adr_frontmatter(path)
+        adr_fm: ADRFrontmatter | ADRAddendumFrontmatter | None
+        if _is_adr_addendum(path):
+            adr_fm, body, findings = _load_adr_addendum_frontmatter(path)
+        else:
+            adr_fm, body, findings = load_adr_frontmatter(path)
         if adr_fm is None:
             return findings
         return findings + _check_adr_filename(path, adr_fm) + _check_adr_body(path, adr_fm, body)
@@ -178,19 +259,25 @@ def lint_file(path: Path) -> list[Finding]:
             return findings
         return findings + _check_spec_body(path, body)
 
+    if _is_architecture(path):
+        architecture_fm, body, findings = load_architecture_frontmatter(path)
+        if architecture_fm is None:
+            return findings
+        return findings + _check_architecture_body(path, architecture_fm, body)
+
     return [
         Finding(
             rule_id="frontmatter.unknown-kind",
             severity=Severity.WARNING,
             file=normalise_path(path),
             line=1,
-            message="not an ADR/spec target for frontmatter lint",
+            message="not an ADR/spec/architecture target for frontmatter lint",
         )
     ]
 
 
 def check(repo_root: Path | None = None) -> list[Finding]:
-    """Validate all ADR and spec Markdown files under ``repo_root``."""
+    """Validate all ADR, spec, and architecture Markdown files under ``repo_root``."""
 
     root = Path(repo_root or Path.cwd())
     findings: list[Finding] = []
@@ -198,6 +285,7 @@ def check(repo_root: Path | None = None) -> list[Finding]:
         findings.extend(lint_file(path))
     for path in sorted((root / "docs" / "specs").glob("*.md")):
         findings.extend(lint_file(path))
+    findings.extend(lint_file(root / "docs" / "architecture" / "ARCHITECTURE.md"))
     return findings
 
 
@@ -219,7 +307,7 @@ def lint_paths(paths: list[Path], *, repo_root: Path | None = None) -> AuditRepo
 
 
 def check_report(repo_root: Path | None = None) -> AuditReport:
-    """Validate all ADR and spec Markdown files under ``repo_root`` as an audit report."""
+    """Validate all ADR, spec, and architecture Markdown files under ``repo_root`` as an audit report."""
 
     root = Path(repo_root or Path.cwd())
     findings = check(root)
@@ -236,7 +324,7 @@ def main(argv: list[str] | None = None) -> int:
     """CLI entry point for ADR/spec frontmatter validation."""
 
     parser = argparse.ArgumentParser(description="Validate ADR-042 frontmatter and document structure")
-    parser.add_argument("paths", nargs="*", type=Path, help="ADR/spec files to validate")
+    parser.add_argument("paths", nargs="*", type=Path, help="ADR/spec/architecture files to validate")
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--format", choices=["text", "json"], default="text")
     args = parser.parse_args(argv)

@@ -467,8 +467,11 @@ Acceptance Scenarios:
   `docs/contributing/workflows/human-bypass.md`.
 - FR-020: Human bypass documentation MUST state that human maintainers may skip
   all local hooks, list the recommended human check set, explain how to request
-  the `human-authored` label, and state that final code quality is decided by PR
-  review and CI.
+  the `human-authored` label, and state that final code quality is decided by
+  ordinary PR review and repository CI. An authorized `human-authored` PR may
+  skip ADR-042 workflow-gate enforcement entirely because humans are allowed to
+  change rules, protected core, and governance files when administrators approve
+  the PR for merge.
 - FR-021: The implementation MUST use these exact override labels:
   `human-authored`, `admin-approved:ai-override`,
   `admin-approved:core-change`, and `admin-approved:merge`.
@@ -482,7 +485,7 @@ Acceptance Scenarios:
   workflow, gate, or governance implementation files.
 - FR-025: `gate_record` MUST expose the AI-facing CLI commands `start`, `plan`,
   `amend`, `docs`, `check`, `sentrux`, `finalize`, `pre-commit`,
-  `commit-msg`, and `ci`.
+  `commit-msg`, `pre-push`, `pr-ready`, and `ci`.
 - FR-026: The push and PR hook wrappers MUST call the gate-record CLI and MUST
   NOT inspect `.workflow/active` or call `.workflow/gate.py`.
 
@@ -500,8 +503,10 @@ Acceptance Scenarios:
   must classify it instead of omitting the audit.
 - EC-006: A PR that changes gate, CI, Sentrux, or governance rules must set
   `governance_touch=true` and pass weakening checks.
-- EC-007: Human-authored PR bypass semantics still follow ADR-042 Section 9;
-  repository quality checks still run.
+- EC-007: Human-authored PR bypass semantics still follow ADR-042 Section 9.
+  An administrator-applied `human-authored` label is a skip-all signal for
+  ADR-042 workflow-gate enforcement. Ordinary repository CI jobs and
+  administrator PR review still decide whether the PR may merge.
 - EC-008: If an existing ADR-042 guard has not yet been implemented, the gate
   implementation must record that as a tracked implementation gap instead of
   silently replacing the guard with weaker bespoke logic.
@@ -547,9 +552,9 @@ free-tier claim validation. This module does not implement Sentrux; it validates
 evidence produced by Sentrux MCP or CLI and rejects Pro-only claims.
 
 CI validates gate records in `.github/workflows/workflow-gate.yml` after
-checkout. The workflow also runs full audit and Sentrux free-tier checks where
-available. If a check cannot be installed or run, the job must fail for
-applicable changes rather than silently treating evidence as complete.
+checkout. The workflow validates full audit and Sentrux free-tier evidence
+recorded during the gate Test and Checks stage. It does not require CI to rerun
+local MCP sessions or Pro-only Sentrux diagnostics.
 
 ### 5.2 Affected Files
 
@@ -659,19 +664,39 @@ applicable changes rather than silently treating evidence as complete.
 - `scieasy-gate-record-commit-msg`: runs
   `python -m scieasy.qa.governance.gate_record commit-msg`.
 
-The pre-commit hook checks staged files, gate record existence, scope,
-governance touch, changed-test-file requirements for implementation-category
-tasks, docs landing presence, Sentrux evidence applicability, and QA full audit
-evidence presence.
+The pre-commit hook is intentionally lightweight. If no gate record is present
+yet, it reports a non-blocking skip so agents and humans can iterate through
+commits before the final gate record is complete. If a gate record is present,
+it validates staged files against `scope.include`, `scope.exclude`, and
+`governance_touch`. It does not require changed-test-file evidence, docs
+landing, Sentrux evidence, QA full audit evidence, or all six stages to be
+complete.
 
 The commit-msg hook checks `Gate-Record`, `Task-Kind`, `Issue`, and
 `Assisted-by` trailers.
 
-`scripts/hooks/check-gate-before-push.sh` must check that the gate record has
-completed Step 5 before allowing `git push` from AI-governed branches.
+`scripts/hooks/check-gate-before-push.sh` must call
+`python -m scieasy.qa.governance.gate_record pre-push` and enforce final gate
+semantics before allowing `git push`: a gate record must exist, all six stages
+must be complete, implementation-category work must include changed tests,
+required full audit and Sentrux evidence must be recorded, and changed files
+must remain in scope.
 
-`scripts/hooks/check-gate-before-pr.sh` must check that Step 6 evidence is
-ready, including closing issue text and gate record path.
+`scripts/hooks/check-gate-before-pr.sh` must call
+`python -m scieasy.qa.governance.gate_record pr-ready` and enforce the same
+final gate semantics, plus closing issue text and PR provenance. Hook behavior
+must not depend on branch-name special cases such as `hotfix/*`; task behavior
+is declared by `gate_record start --task-kind ...`.
+
+All local intermediate hooks that can block PR submission must accept the four
+ADR-042 override labels as local-only bypass inputs: `human-authored`,
+`admin-approved:ai-override`, `admin-approved:core-change`, and
+`admin-approved:merge`. The `gate_record` CLI must expose `--bypass-label` for
+`pre-commit`, `commit-msg`, and `pre-push`, and `--pr-label` for `pr-ready`.
+It must also read `SCIEASY_GATE_BYPASS_LABELS`. The pre-push wrapper should
+read labels from an existing PR with `gh pr view` when available; the PR-create
+wrapper should parse `gh pr create --label/-l`. These bypasses allow the PR to
+be submitted for review; CI still runs and remains authoritative.
 
 ### 5.5 CI Configuration
 
@@ -693,24 +718,14 @@ python -m scieasy.qa.governance.gate_record ci \
   --pr-body "$PR_BODY"
 ```
 
-6. Run full audit and upload/report the output:
-
-```bash
-python -m scieasy.qa.audit.full_audit \
-  --repo-root . \
-  --format json \
-  --output docs/audit/full-audit-latest.json
-```
-
-7. Run Sentrux free-tier checks for applicable changes:
-
-```bash
-sentrux scan .
-sentrux check .
-```
-
-8. Fail if Sentrux is applicable and the CLI is unavailable, unless the owner
-   explicitly marks the PR as part of the tool-install bootstrap issue.
+6. Validate that the gate record includes full audit evidence produced by:
+   `python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json`.
+7. Validate Sentrux free-tier evidence recorded from the applicable Sentrux
+   MCP/CLI check. CI does not require Sentrux Pro and must reject Pro-only
+   claims.
+8. Fail if Sentrux is applicable and no free-tier evidence is recorded, unless
+   the owner explicitly marks the PR as part of the tool-install bootstrap
+   issue.
 9. Fail if PR body does not close every gate-record issue.
 10. Fail if full audit evidence is missing, or if unclassified full-audit
    failures remain after the technical-debt handling phase.
