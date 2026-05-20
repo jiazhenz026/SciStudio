@@ -1039,6 +1039,7 @@ export default function App() {
                       blockStates={blockStates}
                       blockErrors={blockErrors}
                       blockErrorSummaries={blockErrorSummaries}
+                      blockOutputs={blockOutputs}
                       blocks={blocks.filter((block) => {
                         const value = `${block.name} ${block.description} ${block.subcategory || block.base_category}`.toLowerCase();
                         return value.includes(paletteSearch.toLowerCase());

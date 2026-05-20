@@ -137,11 +137,11 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| A1 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a1-core-io-prompt.md` | Core IO LoadData/SaveData migration (FR-001..003) | `feat/issue-1296/adr043-a1-core-io` | `.claude/worktrees/adr-043-a1-core-io/` | `src/scieasy/blocks/io/loaders/load_data.py`, `src/scieasy/blocks/io/savers/save_data.py`, `tests/blocks/io/test_load_data_capabilities.py`, `tests/blocks/io/test_save_data_capabilities.py`, `CHANGELOG.md` | imaging, srs, frontend, engine, registry, materialisation, IOBlock base | dispatched | `[~]` |
+| A1 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a1-core-io-prompt.md` | Core IO LoadData/SaveData migration (FR-001..003) | `feat/issue-1296/adr043-a1-core-io` | `.claude/worktrees/adr-043-a1-core-io/` | `src/scieasy/blocks/io/loaders/load_data.py`, `src/scieasy/blocks/io/savers/save_data.py`, `tests/blocks/io/test_load_data_capabilities.py`, `tests/blocks/io/test_save_data_capabilities.py`, `CHANGELOG.md`, plus in-scope cleanup of `tests/blocks/io/test_load_data.py` + `tests/blocks/io/test_save_data.py` (legacy ClassVar tests rewritten to capability-derived contract) and `tests/blocks/app/test_appblock_bin_outputs.py` capability_id strings (direct FR-003 consequences) | imaging, srs, frontend, engine, registry, materialisation, IOBlock base | PR #1300 | `[~]` (implementation complete; pending merge) |
 | A2 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a2-imaging-io-prompt.md` | imaging IO migration + Image.Meta.ome + Bio-Formats extras (FR-004..008, FR-017) | `feat/issue-1296/adr043-a2-imaging-io` (merged + deleted) | `.claude/worktrees/adr-043-a2-imaging/` (removed) | (see PR #1298 diff) | core IO, srs, frontend, ProcessBlock propagation, engine | PR #1298 merged 2026-05-20 | `[x]` |
-| A3 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a3-frontend-prompt.md` | Frontend UI: capability dropdown + OME browser + lossy-save warning (FR-012..014) | `feat/issue-1296/adr043-a3-frontend` | `.claude/worktrees/adr-043-a3-frontend/` | `frontend/src/components/PortEditor/CapabilityDropdown.tsx` (new), `frontend/src/components/OutputPreview/OMEMetadataPanel.tsx` (new), `frontend/src/components/WorkflowEditor/LossySaveWarning.tsx` (new), `frontend/src/api/capabilities.ts`, `frontend/src/__tests__/CapabilityDropdown.test.tsx` (new), `frontend/src/__tests__/OMEMetadataPanel.test.tsx` (new), `frontend/src/__tests__/LossySaveWarning.test.tsx` (new), `CHANGELOG.md` | backend code, ProcessBlock propagation | dispatched | `[~]` |
-| B1 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-b1-imaging-propagation-prompt.md` | imaging ProcessBlock propagation audit + fix (FR-009/010); A2 prerequisite merged | `feat/issue-1296/adr043-b1-imaging-propagation` | `.claude/worktrees/adr-043-b1-imaging-propagation/` | `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/geometry.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/axis_ops.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/projection/projection.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/math/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/registration/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/measurement/*.py`, `packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py`, `docs/audit/adr-043-imaging-propagation-audit.md`, `CHANGELOG.md` | imaging IO, types.py, core IO, srs, frontend, engine | PR #1302 open (targets umbrella) | `[~]` |
-| B2 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-b2-srs-propagation-prompt.md` | SRS ProcessBlock propagation audit + fix (FR-009/011); A2 prerequisite merged | `feat/issue-1296/adr043-b2-srs-propagation` | `.claude/worktrees/adr-043-b2-srs-propagation/` | `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/*.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/*.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/spectral_extraction/*.py`, `packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py`, `docs/audit/adr-043-srs-propagation-audit.md`, `CHANGELOG.md` | imaging, core IO, frontend, engine | dispatched | `[~]` |
+| A3 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a3-frontend-prompt.md` | Frontend UI: capability dropdown + OME browser + lossy-save warning (FR-012..014) | `feat/issue-1296/adr043-a3-frontend` | `.claude/worktrees/adr-043-a3-frontend/` | `frontend/src/components/PortEditor/CapabilityDropdown.tsx` (new), `frontend/src/components/OutputPreview/OMEMetadataPanel.tsx` (new), `frontend/src/components/WorkflowEditor/LossySaveWarning.tsx` (new), `frontend/src/api/capabilities.ts` (new), `frontend/src/__tests__/CapabilityDropdown.test.tsx` (new), `frontend/src/__tests__/OMEMetadataPanel.test.tsx` (new), `frontend/src/__tests__/LossySaveWarning.test.tsx` (new), `frontend/src/__tests__/adr043-a3-smoke.test.tsx` (new — JSDOM smoke harness), `frontend/e2e/adr043-a3-smoke.md` (new — manual in-app browser checklist), `frontend/src/components/PortEditorTable.tsx` (modified — per-row CapabilityDropdown wiring + `capability_id` PortRow field), `frontend/src/components/DataPreview.tsx` (modified — OME metadata button + panel toggle), `frontend/src/components/WorkflowCanvas.tsx` (modified — derive `upstreamOmeFields` from `blockOutputs`), `frontend/src/components/nodes/BlockNode.tsx` (modified — LossySaveWarning in save-IO footer), `frontend/src/types/ui.ts` (modified — `upstreamOmeFields?: string[]` on `BlockNodeData`), `frontend/src/App.tsx` (modified — pass `blockOutputs` to `WorkflowCanvas`), `CHANGELOG.md` | backend code, ProcessBlock propagation | PR #1299 | `[~]` (implementation complete; pending merge) |
+| B1 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-b1-imaging-propagation-prompt.md` | imaging ProcessBlock propagation audit + fix (FR-009/010); A2 prerequisite merged | `feat/issue-1296/adr043-b1-imaging-propagation` | `.claude/worktrees/adr-043-b1-imaging-propagation/` | `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/geometry.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/axis_ops.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/projection/projection.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/math/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/registration/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/measurement/*.py`, `packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py`, `docs/audit/adr-043-imaging-propagation-audit.md`, `CHANGELOG.md` | imaging IO, types.py, core IO, srs, frontend, engine | PR #1302 open (targets umbrella) | `[~]` (implementation complete; pending merge) |
+| B2 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-b2-srs-propagation-prompt.md` | SRS ProcessBlock propagation audit + fix (FR-009/011); A2 prerequisite merged | `feat/issue-1296/adr043-b2-srs-propagation` | `.claude/worktrees/adr-043-b2-srs-propagation/` | `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_baseline.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_spectral_denoise.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_calibrate.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_kmeans.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_pca.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_unmix.py`, `packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py`, `docs/audit/adr-043-srs-propagation-audit.md`, `CHANGELOG.md` | imaging, core IO, frontend, engine | impl complete; PR pending | `[~]` |
 | C1 | audit_reviewer | no-context | pending | No-context final audit (FR-001..017, SC-001..005); commit audit report | `track/adr-043/core-blocks-and-imaging/c1-audit` | `.claude/worktrees/adr-043-c1-audit/` | `docs/audit/adr-043-package-migration-final-audit-<sha>.md` | code changes; audit is read-only | TBD | `[ ]` |
 | D2 | implementer | N/A | pending after Phase D1 | Execute owner-authored e2e cases (SC-006) | `track/adr-043/core-blocks-and-imaging/d2-e2e` | `.claude/worktrees/adr-043-d2-e2e/` | `docs/audit/adr-043-package-migration-e2e-cases.md`, e2e test files as defined by owner cases | code changes outside what e2e cases require | TBD | `[ ]` |
 
@@ -167,30 +167,30 @@ language_source: en
 
 ### 7.2 Dispatch
 
-- [ ] Prompt file created or dispatch prompt recorded.
-- [ ] Correct prompt template selected (`agent-dispatch-prompt-template.md`).
-- [ ] Agent branch/worktree assigned.
-- [ ] Write set and out-of-scope paths included in prompt.
-- [ ] TODO rule included in prompt.
-- [ ] Required checks included in prompt.
+- [x] Prompt file created or dispatch prompt recorded. -> `docs/planning/dispatch-prompts/adr-043-a1-core-io-prompt.md`
+- [x] Correct prompt template selected (`agent-dispatch-prompt-template.md`). -> dispatch prompt header `[DISPATCH-TEMPLATE-V1: implementer]`
+- [x] Agent branch/worktree assigned. -> `feat/issue-1296/adr043-a1-core-io` on `.claude/worktrees/adr-043-a1-core-io/`
+- [x] Write set and out-of-scope paths included in prompt. -> dispatch prompt §Scope
+- [x] TODO rule included in prompt. -> dispatch prompt §"TODO And Deferral Rule"
+- [x] Required checks included in prompt. -> dispatch prompt §"Required Tests And Checks"
 
 ### 7.3 Implementation
 
-- [ ] `LoadData.format_capabilities` declared (FR-001) -> commit sha
-- [ ] `SaveData.format_capabilities` declared (FR-002) -> commit sha
-- [ ] `supported_extensions` ClassVars deleted; helpers rewired (FR-003) -> commit sha
-- [ ] Test files added (FR-016) -> commit sha
-- [ ] CHANGELOG entry added -> commit sha
+- [x] `LoadData.format_capabilities` declared (FR-001) -> `src/scieasy/blocks/io/loaders/load_data.py` (`_LOAD_CAPABILITIES`, 30 records covering Array/DataFrame/Series/Text/Artifact/CompositeData per ADR-043 FR-015 convention; Artifact records include both MIME-mapped and opaque-loader variants for the legacy supported-extension union)
+- [x] `SaveData.format_capabilities` declared (FR-002) -> `src/scieasy/blocks/io/savers/save_data.py` (`_SAVE_CAPABILITIES`, 31 records mirroring LoadData with `direction='save'` plus the legacy Series-json save-only branch; Artifact records mirror LoadData's opaque-saver set)
+- [x] `supported_extensions` ClassVars deleted; helpers rewired (FR-003) -> `_resolve_format`, `_resolve_save_format`, per-class `_detect_format` overrides now derive from `_LOAD_EXTENSION_MAP` / `_SAVE_EXTENSION_MAP`; user-facing error messages re-sourced via `_supported_load_extensions()` / `_supported_save_extensions()`
+- [x] Test files added (FR-016) -> `tests/blocks/io/test_load_data_capabilities.py` (47 tests) and `tests/blocks/io/test_save_data_capabilities.py` (50 tests); existing `tests/blocks/io/test_load_data.py` + `tests/blocks/io/test_save_data.py` ClassVar test classes rewritten to assert the capability-derived contract; `tests/blocks/app/test_appblock_bin_outputs.py` capability_id strings updated to the new `core.dataframe.csv.load` form (direct consequence of FR-003 deleting the synthesis fallback). Local pytest pass: 270 IO tests + 11 AppBlock binner tests green; remaining 15 fails are imaging/lcms `ModuleNotFoundError` (worktree-environment-only, not introduced by A1).
+- [x] CHANGELOG entry added -> CHANGELOG.md `[#1296]` entry under `## [Unreleased]` → `### Added`.
 
 ### 7.4 Audit
 
-- [ ] Codex auto-review consumed; P1/P2 reconciled with explicit decision per finding.
+- [x] Codex auto-review consumed; P1/P2 reconciled with explicit decision per finding. -> One P1 finding ("Add `.json` to Text save capability extensions" at `src/scieasy/blocks/io/savers/save_data.py:277`, inline review id `3276517969`): **ACCEPTED**, fixed by adding a separate `core.text.json.save` capability (format_id="json", extensions=[".json"]) so `find_saver_capability(Text, '.json')` resolves instead of raising MissingCapabilityError. Reply posted as inline review id `3276633852`. Subsequent CI run (workflow_dispatch 26185256572 on commit `180a82d9`) is green on all 7 jobs (Type Check / Test 3.13 / Test 3.11 / Frontend / Import Contracts / Lint & Format / Architecture Tests).
 
 ### 7.5 Integration
 
-- [ ] Agent output reviewed by manager.
-- [ ] Scope compliance verified.
-- [ ] Track merged into umbrella branch.
+- [ ] Agent output reviewed by manager. -> Awaiting manager review of PR #1300.
+- [ ] Scope compliance verified. -> Self-attested: writes confined to A1 scope plus the direct-FR-003-consequence test updates documented in §7.3 and Drift Log row 1.
+- [ ] Track merged into umbrella branch. -> Pending manager merge.
 
 ## 8. Track: Phase A2 — Imaging IO + Image.Meta.ome + Bio-Formats
 
@@ -265,28 +265,28 @@ language_source: en
 
 ### 9.2 Dispatch
 
-- [ ] Prompt file created.
-- [ ] Mandatory Chrome smoke test included in prompt.
-- [ ] Correct prompt template selected.
+- [x] Prompt file created — `docs/planning/dispatch-prompts/adr-043-a3-frontend-prompt.md`.
+- [x] Mandatory Chrome smoke test included in prompt — T-024 step + JSDOM-smoke fallback documented in `frontend/e2e/adr043-a3-smoke.md` (Chrome MCP / Playwright not provisioned in this repo per the dispatch prompt stop-condition; surfaced as a known gap in the report-back).
+- [x] Correct prompt template selected — `docs/ai-developer/templates/agent-dispatch-prompt-template.md` (DISPATCH-TEMPLATE-V1: implementer).
 
 ### 9.3 Implementation
 
-- [ ] `CapabilityDropdown.tsx` (FR-012) -> commit sha
-- [ ] `OMEMetadataPanel.tsx` (FR-013) -> commit sha
-- [ ] `LossySaveWarning.tsx` (FR-014) -> commit sha
-- [ ] API client `capabilities.ts` updates -> commit sha
-- [ ] Unit tests added -> commit sha
-- [ ] Chrome smoke test scripted + executed -> evidence path
-- [ ] CHANGELOG entry added -> commit sha
+- [x] `CapabilityDropdown.tsx` (FR-012) -> commit sha pending push
+- [x] `OMEMetadataPanel.tsx` (FR-013) -> commit sha pending push
+- [x] `LossySaveWarning.tsx` (FR-014) -> commit sha pending push
+- [x] API client `capabilities.ts` created (`listCapabilities`, `aggregateCapabilities`, `getOMEMetadata`, `extractOMEFromMetadata`, `lossyOmeFields`) -> commit sha pending push
+- [x] Unit tests added — `CapabilityDropdown.test.tsx` (6 tests), `OMEMetadataPanel.test.tsx` (13 tests), `LossySaveWarning.test.tsx` (11 tests) -> commit sha pending push
+- [x] Smoke test scripted + executed — JSDOM harness at `frontend/src/__tests__/adr043-a3-smoke.test.tsx` (6 tests, all pass) + manual checklist at `frontend/e2e/adr043-a3-smoke.md`; Chrome MCP/Playwright unavailable in this repo, so JSDOM is the committed evidence and the manual checklist is for the owner to run after umbrella merge.
+- [x] CHANGELOG entry added -> commit sha pending push
 
 ### 9.4 Audit
 
-- [ ] Codex auto-review consumed; P1/P2 reconciled.
+- [x] Codex auto-review consumed; P1/P2 reconciled — both findings fixed in commit bd899d0f and pinned by 6 new tests in `frontend/src/__tests__/capabilities.test.ts`. P1 (extension normalisation mismatch) addressed by `normalizeBackendExtension`; P2 (strict type equality) addressed by `ancestorTypeNames` + `typeHierarchy` forwarding through `CapabilityDropdown` and `PortEditorTable`. CI green after fix; no follow-up Codex round within the 5-min window per the saved discipline rule.
 
 ### 9.5 Integration
 
-- [ ] Agent output reviewed by manager.
-- [ ] Track merged into umbrella branch.
+- [ ] Agent output reviewed by manager — pending.
+- [ ] Track merged into umbrella branch — pending.
 
 ## 10. Track: Phase B1 — imaging ProcessBlock Propagation Audit + Fix
 
@@ -343,17 +343,17 @@ language_source: en
 
 ### 11.2 Dispatch
 
-- [ ] Prompt file created.
-- [ ] Spec FR-009/011 contract clearly cited in prompt.
+- [x] Prompt file created. (`docs/planning/dispatch-prompts/adr-043-b2-srs-propagation-prompt.md`)
+- [x] Spec FR-009/011 contract clearly cited in prompt.
 
 ### 11.3 Implementation
 
-- [ ] All SRS ProcessBlocks classified A/B/C -> audit doc entry
-- [ ] `srs_kmeans.py` Label output carries ome (FR-009/011) -> commit sha
-- [ ] `srs_pca.py` / `srs_unmix.py` deliberate-drop documented -> commit sha
-- [ ] `test_processblock_meta_propagation.py` added (FR-011, FR-016) -> commit sha
-- [ ] `docs/audit/adr-043-srs-propagation-audit.md` committed -> commit sha
-- [ ] CHANGELOG entry added -> commit sha
+- [x] All SRS ProcessBlocks classified A/B/C -> `docs/audit/adr-043-srs-propagation-audit.md` §3 (pending commit, this PR)
+- [x] `srs_kmeans.py` Label output carries ome (FR-009/011) -> pending commit (this PR)
+- [x] `srs_pca.py` / `srs_unmix.py` deliberate-drop documented -> pending commit (this PR)
+- [x] `test_processblock_meta_propagation.py` added (FR-011, FR-016) -> pending commit (this PR)
+- [x] `docs/audit/adr-043-srs-propagation-audit.md` committed -> pending commit (this PR)
+- [x] CHANGELOG entry added -> pending commit (this PR)
 
 ### 11.4 Audit
 
@@ -466,6 +466,9 @@ Append only.
 | 2026-05-20 | A2 implementer | Scope amendment: touched `tests/blocks/test_imaging_plugin_fixes.py` outside original write set to update stale `supported_extensions` assertions broken by FR-003. | Accepted via gate-record amend (recorded in A2's gate record `.workflow/records/1296-a2-imaging-io.json`). Mechanical migration cost — defensible. | N/A |
 | 2026-05-20 | A2 implementer | Added root `pyproject.toml [dev]` extras with `ome-types>=0.5,<0.6` to keep `tests/plugins/test_phase11_skeleton.py` passing in CI. Outside original write set. | Accepted via gate-record amend — necessary follow-on of FR-017 (ome-types is now a required dep of imaging). Defensible. | N/A |
 | 2026-05-20 | A3 implementer | **Chrome MCP / Playwright not provisioned in repo.** A3 substituted with JSDOM smoke harness (6 tests against real DOM via testing-library) + manual in-app checklist at `frontend/e2e/adr043-a3-smoke.md` for owner to run against `vite preview`. | Surface as KNOWN GAP for Phase D — owner's e2e cases can pick up live-click coverage. Manager flags this so future UI dispatches can request Chrome MCP setup separately. | Phase D follow-up |
+| 2026-05-20 | A1 implementer | A1 dispatch write-set named only `load_data.py`/`save_data.py`/`test_load_data_capabilities.py`/`test_save_data_capabilities.py`/`CHANGELOG.md`/checklist row, but FR-003 (delete `supported_extensions` ClassVar) inherently breaks legacy ClassVar assertions in `tests/blocks/io/test_load_data.py`/`tests/blocks/io/test_save_data.py` (`TestSupportedExtensionsClassVar`) and the hard-coded synthesized capability_id in `tests/blocks/app/test_appblock_bin_outputs.py`. | Rewrote the broken legacy test classes to assert the capability-derived contract; updated the hard-coded capability_id string to the new `core.dataframe.csv.load` form. Logged the scope amendment via `python -m scieasy.qa.governance.gate_record amend` and re-included the three test files. Manager (in PR #1300 review) is the final adjudicator. | N/A; direct mechanical consequence of FR-003 per AGENTS.md §3.1. |
+| 2026-05-20 | A1 implementer | First CI run on PR #1300 failed with 200 `CapabilityRegistrationError: Conflicting default IO format capabilities for (save, DataFrame, .csv): 'core.dataframe.csv.save' on SaveData and 'scieasy-blocks-lcms.table.csv.save' on SaveTable.` The legacy synthesized capability used `data_type=DataObject` (never collided with concrete-type package capabilities); my explicit per-concrete-type declarations exposed this latent cross-package default-slot collision. | Re-declared every core LoadData/SaveData FormatCapability with `is_default=False`. Updated `test_no_capability_claims_default` (renamed from `_is_default`) and the alternate-wins test (renamed `_default_alternate_wins_over_non_default_core`) to assert the new ownership semantics. | N/A; documented in code/test docstrings. |
+| 2026-05-20 | A1 implementer | Codex auto-review P1 on PR #1300: my Text save capability omitted `.json` but `_save_text` writes JSON happily, causing a registry/runtime contract mismatch (`find_saver_capability(Text, '.json')` raised MissingCapabilityError). | Added a separate `core.text.json.save` capability (format_id="json") so Text+`.json` resolves at lookup. LoadData's Text capability still excludes `.json` because `_load_text` doesn't parse JSON (mirrors `core.series.json` save-only legacy branch). | N/A; documented inline in `_SAVE_CAPABILITIES` and `test_every_save_pairs_with_a_load_via_roundtrip_group.save_only_legacy`. |
 
 ## 17. Final Readiness
 

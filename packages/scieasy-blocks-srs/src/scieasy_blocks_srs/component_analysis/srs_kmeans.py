@@ -115,12 +115,17 @@ class SRSKMeansCluster(ProcessBlock):
         )
         raster._data = labels_nd  # type: ignore[attr-defined]
 
+        # ADR-043 FR-009 Mode C — Image-domain → Label is a shape-preserving
+        # cross-type derivation (cluster assignments share the source's y/x
+        # spatial layout), so the source SRSImage's OME metadata MUST be
+        # propagated onto the Label output per spec FR-011.
         label_obj = Label(
             slots={"raster": raster},
             framework=item.framework.derive(),
             meta=Label.Meta(
                 source_file=getattr(item.meta, "source_file", None) if item.meta is not None else None,
                 n_objects=n_clusters,
+                ome=getattr(item.meta, "ome", None) if item.meta is not None else None,
             ),
             user=dict(item.user),
         )
