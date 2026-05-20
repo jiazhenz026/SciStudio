@@ -1,19 +1,7 @@
-import { GitBranch, Pin, PinOff } from "lucide-react";
-import {
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { GitBranch, Pin, PinOff, Plus, Trash2 } from "lucide-react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { useAppStore } from "../store";
-import type {
-  BlockSchemaResponse,
-  FormatCapabilityResponse,
-  LogEntry,
-  WorkflowNode,
-} from "../types/api";
+import type { BlockSchemaResponse, FormatCapabilityResponse, LogEntry, WorkflowNode } from "../types/api";
 import type { BottomTab } from "../types/ui";
 import { TerminalTabs } from "./AIChat/TerminalTabs";
 import { GitTab } from "./Git/GitTab";
@@ -152,9 +140,7 @@ function selectedCapability(
   capabilityId: unknown,
 ): FormatCapabilityResponse | undefined {
   if (typeof capabilityId === "string") {
-    const selected = capabilities.find(
-      (capability) => capability.id === capabilityId,
-    );
+    const selected = capabilities.find((capability) => capability.id === capabilityId);
     if (selected) return selected;
   }
   if (capabilities.length === 1) return capabilities[0];
@@ -167,22 +153,13 @@ function capabilityWarnings(
 ): string[] {
   const warnings: string[] = [];
   if (capabilities.length > 1 && !capability) {
-    warnings.push(
-      "Multiple backend capabilities match this block; choose one to persist a stable capability_id.",
-    );
+    warnings.push("Multiple backend capabilities match this block; choose one to persist a stable capability_id.");
   }
-  if (
-    capability?.direction === "save" &&
-    capability.metadata_fidelity.level === "pixel_only"
-  ) {
-    warnings.push(
-      "This saver is payload-only; typed metadata may not be written.",
-    );
+  if (capability?.direction === "save" && capability.metadata_fidelity.level === "pixel_only") {
+    warnings.push("This saver is payload-only; typed metadata may not be written.");
   }
   if (capability?.migration_scaffold) {
-    warnings.push(
-      "This is a synthesized legacy capability kept for migration compatibility.",
-    );
+    warnings.push("This is a synthesized legacy capability kept for migration compatibility.");
   }
   return warnings;
 }
@@ -199,8 +176,7 @@ function FormatCapabilityConfig({
   if (capabilities.length === 0) return null;
   const capability = selectedCapability(capabilities, value);
   const warnings = capabilityWarnings(capabilities, capability);
-  const selectValue =
-    typeof value === "string" ? value : (capability?.id ?? "");
+  const selectValue = typeof value === "string" ? value : (capability?.id ?? "");
 
   return (
     <div className="grid gap-2 text-sm">
@@ -212,9 +188,7 @@ function FormatCapabilityConfig({
           onChange={(event) => onChange(event.target.value || null)}
           value={selectValue}
         >
-          {capabilities.length > 1 ? (
-            <option value="">Select a format capability...</option>
-          ) : null}
+          {capabilities.length > 1 ? <option value="">Select a format capability...</option> : null}
           {capabilities.map((option) => (
             <option key={option.id} value={option.id}>
               {capabilityLabel(option)}
@@ -226,19 +200,428 @@ function FormatCapabilityConfig({
         <div className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs text-stone-600">
           <div className="font-medium text-stone-700">{capability.id}</div>
           <div>
-            {capability.data_type} / {capability.format_id} /{" "}
-            {capability.metadata_fidelity.level}
+            {capability.data_type} / {capability.format_id} / {capability.metadata_fidelity.level}
           </div>
         </div>
       ) : null}
       {warnings.map((warning) => (
-        <div
-          className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
-          key={warning}
-        >
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" key={warning}>
           {warning}
         </div>
       ))}
+    </div>
+  );
+}
+
+type CodeBlockPortDirection = "input" | "output";
+
+interface CodeBlockPortConfig {
+  name: string;
+  direction: CodeBlockPortDirection;
+  data_type: string;
+  extension: string;
+  capability_id?: string | null;
+  required: boolean;
+  exchange_folder: string;
+}
+
+const CODEBLOCK_DATA_TYPES = ["DataObject", "Array", "DataFrame", "Series", "Text", "Artifact", "CompositeData"];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isCodeBlockConfigTarget(selectedNode: WorkflowNode | null, schema?: BlockSchemaResponse): boolean {
+  const tokens = [selectedNode?.block_type, schema?.type_name, schema?.name]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.toLowerCase().replace(/[\s._-]+/g, ""));
+
+  return tokens.some((token) => token === "codeblock" || token.endsWith("codeblock"));
+}
+
+function codeBlockFolder(direction: CodeBlockPortDirection, name: string): string {
+  const safeName = name.trim() || "port";
+  return `${direction}s/${safeName}/`;
+}
+
+function nextCodeBlockPortName(direction: CodeBlockPortDirection, ports: CodeBlockPortConfig[]): string {
+  const existing = new Set(ports.map((port) => port.name));
+  let index = ports.length + 1;
+  let name = `${direction}_${index}`;
+  while (existing.has(name)) {
+    index += 1;
+    name = `${direction}_${index}`;
+  }
+  return name;
+}
+
+function normalizeCodeBlockPort(
+  value: unknown,
+  direction: CodeBlockPortDirection,
+  index: number,
+): CodeBlockPortConfig {
+  const row = isRecord(value) ? value : {};
+  const name = String(row.name ?? `${direction}_${index + 1}`);
+  const exchangeFolder = String(row.exchange_folder ?? codeBlockFolder(direction, name));
+
+  return {
+    name,
+    direction,
+    data_type: String(row.data_type ?? "DataObject"),
+    extension: String(row.extension ?? ".txt"),
+    capability_id: row.capability_id == null ? "" : String(row.capability_id),
+    required: typeof row.required === "boolean" ? row.required : true,
+    exchange_folder: exchangeFolder,
+  };
+}
+
+function codeBlockPorts(params: Record<string, unknown>, key: "inputs" | "outputs", direction: CodeBlockPortDirection) {
+  const rawPorts = Array.isArray(params[key]) ? params[key] : [];
+  return rawPorts.map((port, index) => normalizeCodeBlockPort(port, direction, index));
+}
+
+function persistCodeBlockPort(port: CodeBlockPortConfig, direction: CodeBlockPortDirection): Record<string, unknown> {
+  const name = port.name.trim();
+  const exchangeFolder = port.exchange_folder.trim() || codeBlockFolder(direction, name);
+
+  return {
+    name,
+    direction,
+    data_type: port.data_type.trim(),
+    extension: port.extension.trim(),
+    capability_id: port.capability_id?.trim() ? port.capability_id.trim() : null,
+    required: port.required,
+    exchange_folder: exchangeFolder,
+  };
+}
+
+function CodeBlockEnvironmentEditor({
+  value,
+  onUpdate,
+}: {
+  value: unknown;
+  onUpdate: (next: Record<string, string>) => void;
+}) {
+  const variables = isRecord(value) ? Object.entries(value).map(([key, envValue]) => [key, String(envValue)] as const) : [];
+
+  const updateEntry = (index: number, nextKey: string, nextValue: string) => {
+    const currentKey = variables[index]?.[0] ?? "";
+    const duplicateKey = nextKey !== currentKey && variables.some(([key], rowIndex) => rowIndex !== index && key === nextKey);
+    if (duplicateKey) {
+      onUpdate(Object.fromEntries(variables));
+      return;
+    }
+
+    const nextEntries = variables.map(([key, envValue], rowIndex) =>
+      rowIndex === index ? ([nextKey, nextValue] as const) : ([key, envValue] as const),
+    );
+    onUpdate(Object.fromEntries(nextEntries));
+  };
+
+  const addEntry = () => {
+    let index = variables.length + 1;
+    let key = `VAR_${index}`;
+    const existing = new Set(variables.map(([name]) => name));
+    while (existing.has(key)) {
+      index += 1;
+      key = `VAR_${index}`;
+    }
+    onUpdate({ ...Object.fromEntries(variables), [key]: "" });
+  };
+
+  const removeEntry = (index: number) => {
+    onUpdate(Object.fromEntries(variables.filter((_, rowIndex) => rowIndex !== index)));
+  };
+
+  return (
+    <section className="grid gap-3 border-t border-stone-200 pt-4">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-ink">Environment variables</h3>
+        <button
+          className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700"
+          onClick={addEntry}
+          type="button"
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Add variable
+        </button>
+      </div>
+      {variables.length ? (
+        <div className="grid gap-2">
+          {variables.map(([key, envValue], index) => (
+            <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]" key={`${key}-${index}`}>
+              <label className="grid gap-1 text-sm">
+                <span className="font-medium text-stone-700">Name</span>
+                <CaretPreservingTextInput
+                  className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
+                  onChange={(next) => updateEntry(index, next, envValue)}
+                  type="text"
+                  value={key}
+                />
+              </label>
+              <label className="grid gap-1 text-sm">
+                <span className="font-medium text-stone-700">Value</span>
+                <CaretPreservingTextInput
+                  className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
+                  onChange={(next) => updateEntry(index, key, next)}
+                  type="text"
+                  value={envValue}
+                />
+              </label>
+              <button
+                aria-label={`Remove environment variable ${key || index + 1}`}
+                className="self-end rounded-full border border-stone-300 bg-white p-3 text-stone-600"
+                onClick={() => removeEntry(index)}
+                type="button"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-stone-500">No environment variables configured.</p>
+      )}
+    </section>
+  );
+}
+
+function CodeBlockPortTable({
+  direction,
+  ports,
+  onChange,
+}: {
+  direction: CodeBlockPortDirection;
+  ports: CodeBlockPortConfig[];
+  onChange: (next: CodeBlockPortConfig[]) => void;
+}) {
+  const label = direction === "input" ? "Declared inputs" : "Declared outputs";
+
+  const updatePort = (index: number, patch: Partial<CodeBlockPortConfig>) => {
+    onChange(
+      ports.map((port, rowIndex) => {
+        if (rowIndex !== index) return port;
+        const next = { ...port, ...patch };
+        if (patch.name && !patch.exchange_folder) {
+          next.exchange_folder = codeBlockFolder(direction, patch.name);
+        }
+        return next;
+      }),
+    );
+  };
+
+  const addPort = () => {
+    const nextName = nextCodeBlockPortName(direction, ports);
+    onChange([
+      ...ports,
+      {
+        name: nextName,
+        direction,
+        data_type: "DataObject",
+        extension: ".txt",
+        capability_id: "",
+        required: true,
+        exchange_folder: codeBlockFolder(direction, nextName),
+      },
+    ]);
+  };
+
+  const removePort = (index: number) => {
+    onChange(ports.filter((_, rowIndex) => rowIndex !== index));
+  };
+
+  return (
+    <section className="grid gap-3 border-t border-stone-200 pt-4">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-ink">{label}</h3>
+        <button
+          className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700"
+          onClick={addPort}
+          type="button"
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Add {direction}
+        </button>
+      </div>
+      {ports.length ? (
+        <div className="grid gap-3">
+          {ports.map((port, index) => (
+            <div className="grid gap-3 rounded-2xl border border-stone-200 bg-white/70 p-3" key={`${direction}-${index}`}>
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.75fr)]">
+                <label className="grid gap-1 text-sm">
+                  <span className="font-medium text-stone-700">Name</span>
+                  <CaretPreservingTextInput
+                    className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
+                    onChange={(next) => updatePort(index, { name: next })}
+                    type="text"
+                    value={port.name}
+                  />
+                </label>
+                <label className="grid gap-1 text-sm">
+                  <span className="font-medium text-stone-700">Data type</span>
+                  <select
+                    className="rounded-2xl border border-stone-300 bg-white px-4 py-3"
+                    onChange={(event) => updatePort(index, { data_type: event.target.value })}
+                    value={port.data_type}
+                  >
+                    {Array.from(new Set([port.data_type, ...CODEBLOCK_DATA_TYPES])).map((typeName) => (
+                      <option key={typeName} value={typeName}>
+                        {typeName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1 text-sm">
+                  <span className="font-medium text-stone-700">Extension</span>
+                  <CaretPreservingTextInput
+                    className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
+                    onChange={(next) => updatePort(index, { extension: next })}
+                    type="text"
+                    value={port.extension}
+                  />
+                </label>
+              </div>
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]">
+                <label className="grid gap-1 text-sm">
+                  <span className="font-medium text-stone-700">Capability ID</span>
+                  <CaretPreservingTextInput
+                    className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
+                    onChange={(next) => updatePort(index, { capability_id: next })}
+                    type="text"
+                    value={port.capability_id ?? ""}
+                  />
+                </label>
+                <label className="grid gap-1 text-sm">
+                  <span className="font-medium text-stone-700">Exchange folder</span>
+                  <CaretPreservingTextInput
+                    className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
+                    onChange={(next) => updatePort(index, { exchange_folder: next })}
+                    type="text"
+                    value={port.exchange_folder}
+                  />
+                </label>
+                <label className="flex items-center gap-2 self-end rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm font-medium text-stone-700">
+                  <input
+                    checked={port.required}
+                    className="h-4 w-4"
+                    onChange={(event) => updatePort(index, { required: event.target.checked })}
+                    type="checkbox"
+                  />
+                  Required
+                </label>
+                <button
+                  aria-label={`Remove ${direction} ${port.name || index + 1}`}
+                  className="self-end rounded-full border border-stone-300 bg-white p-3 text-stone-600"
+                  onClick={() => removePort(index)}
+                  type="button"
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+              <p className="text-xs text-stone-500">
+                {direction === "input" ? "Read from" : "Save into"} <code>{port.exchange_folder}</code>
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-stone-500">No {direction} ports declared.</p>
+      )}
+    </section>
+  );
+}
+
+function CodeBlockConfigEditor({
+  params,
+  onUpdateConfig,
+}: {
+  params: Record<string, unknown>;
+  onUpdateConfig: (patch: Record<string, unknown>) => void;
+}) {
+  const inputs = codeBlockPorts(params, "inputs", "input");
+  const outputs = codeBlockPorts(params, "outputs", "output");
+
+  const updatePorts = (key: "inputs" | "outputs", direction: CodeBlockPortDirection, ports: CodeBlockPortConfig[]) => {
+    onUpdateConfig({ [key]: ports.map((port) => persistCodeBlockPort(port, direction)) });
+  };
+
+  return (
+    <div className="grid gap-5">
+      <div className="grid gap-4 md:grid-cols-2">
+        <label className="grid gap-2 text-sm md:col-span-2">
+          <span className="font-medium text-ink">Script path</span>
+          <CaretPreservingTextInput
+            className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
+            onChange={(next) => onUpdateConfig({ script_path: next })}
+            placeholder="scripts/analyze.py"
+            type="text"
+            value={String(params.script_path ?? "")}
+          />
+        </label>
+        <label className="grid gap-2 text-sm">
+          <span className="font-medium text-ink">Interpreter mode</span>
+          <select
+            className="rounded-2xl border border-stone-300 bg-white px-4 py-3"
+            onChange={(event) => onUpdateConfig({ interpreter_mode: event.target.value })}
+            value={String(params.interpreter_mode ?? "auto")}
+          >
+            <option value="auto">auto</option>
+            <option value="existing">existing</option>
+          </select>
+        </label>
+        <label className="grid gap-2 text-sm">
+          <span className="font-medium text-ink">Interpreter path</span>
+          <CaretPreservingTextInput
+            className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
+            onChange={(next) => onUpdateConfig({ interpreter_path: next })}
+            placeholder="python"
+            type="text"
+            value={String(params.interpreter_path ?? "")}
+          />
+        </label>
+        <label className="grid gap-2 text-sm">
+          <span className="font-medium text-ink">Working directory</span>
+          <CaretPreservingTextInput
+            className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
+            onChange={(next) => onUpdateConfig({ working_directory: next })}
+            type="text"
+            value={String(params.working_directory ?? ".")}
+          />
+        </label>
+        <label className="grid gap-2 text-sm">
+          <span className="font-medium text-ink">Exchange root</span>
+          <CaretPreservingTextInput
+            className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
+            onChange={(next) => onUpdateConfig({ exchange_root: next })}
+            type="text"
+            value={String(params.exchange_root ?? "exchange")}
+          />
+        </label>
+        <label className="grid gap-2 text-sm">
+          <span className="font-medium text-ink">Timeout seconds</span>
+          <CaretPreservingTextInput
+            className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
+            onChange={(next) => onUpdateConfig({ timeout_seconds: next === "" ? null : Number(next) })}
+            type="number"
+            value={params.timeout_seconds == null ? "" : String(params.timeout_seconds)}
+          />
+        </label>
+      </div>
+
+      <CodeBlockEnvironmentEditor
+        onUpdate={(next) => onUpdateConfig({ environment_variables: next })}
+        value={params.environment_variables}
+      />
+      <CodeBlockPortTable
+        direction="input"
+        onChange={(next) => updatePorts("inputs", "input", next)}
+        ports={inputs}
+      />
+      <CodeBlockPortTable
+        direction="output"
+        onChange={(next) => updatePorts("outputs", "output", next)}
+        ports={outputs}
+      />
     </div>
   );
 }
@@ -252,23 +635,16 @@ function ConfigPanel({
   schema?: BlockSchemaResponse;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
 }) {
-  const params = ((selectedNode?.config.params as
-    | Record<string, unknown>
-    | undefined) ?? {}) as Record<string, unknown>;
+  const params = ((selectedNode?.config.params as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>;
   const properties = schema?.config_schema.properties ?? {};
   const ordered = Object.entries(properties)
     .filter(([key, value]) => {
       // For io_block, hide "direction" — it is already determined by whether
       // the user dragged a Load Block or Save Block from the palette.
-      if (
-        (schema?.direction || selectedNode?.block_type === "io_block") &&
-        key === "direction"
-      )
-        return false;
+      if ((schema?.direction || selectedNode?.block_type === "io_block") && key === "direction") return false;
       if (key === "capability_id") return false;
       // Skip port_editor fields — rendered separately as PortEditorTable below.
-      if ((value as Record<string, unknown>).ui_widget === "port_editor")
-        return false;
+      if ((value as Record<string, unknown>).ui_widget === "port_editor") return false;
       return true;
     })
     .sort(([, left], [, right]) => {
@@ -277,23 +653,19 @@ function ConfigPanel({
 
   const isVariadicInputs = schema?.variadic_inputs === true;
   const isVariadicOutputs = schema?.variadic_outputs === true;
-  const inputPorts = Array.isArray(params["input_ports"])
-    ? (params["input_ports"] as PortRow[])
-    : [];
-  const outputPorts = Array.isArray(params["output_ports"])
-    ? (params["output_ports"] as PortRow[])
-    : [];
+  const inputPorts = Array.isArray(params["input_ports"]) ? (params["input_ports"] as PortRow[]) : [];
+  const outputPorts = Array.isArray(params["output_ports"]) ? (params["output_ports"] as PortRow[]) : [];
   const typeHierarchy = schema?.type_hierarchy ?? [];
   const allowedInputTypes = schema?.allowed_input_types ?? [];
   const allowedOutputTypes = schema?.allowed_output_types ?? [];
   const formatCapabilities = schema?.format_capabilities ?? [];
 
   if (!selectedNode || !schema) {
-    return (
-      <div className="text-sm text-stone-500">
-        Select a node to edit its JSON-schema-driven configuration.
-      </div>
-    );
+    return <div className="text-sm text-stone-500">Select a node to edit its JSON-schema-driven configuration.</div>;
+  }
+
+  if (isCodeBlockConfigTarget(selectedNode, schema)) {
+    return <CodeBlockConfigEditor onUpdateConfig={onUpdateConfig} params={params} />;
   }
 
   return (
@@ -324,61 +696,49 @@ function ConfigPanel({
         <div className="mb-4 max-w-2xl">
           <FormatCapabilityConfig
             capabilities={formatCapabilities}
-            onChange={(capabilityId) =>
-              onUpdateConfig({ capability_id: capabilityId })
-            }
+            onChange={(capabilityId) => onUpdateConfig({ capability_id: capabilityId })}
             value={params.capability_id}
           />
         </div>
       ) : null}
       <div className="grid gap-4 md:grid-cols-2">
-        {ordered.map(([key, value]) => {
-          const currentValue = params[key] ?? value.default ?? "";
-          if (Array.isArray(value.enum)) {
-            return (
-              <label className="grid gap-2 text-sm" key={key}>
-                <span className="font-medium text-ink">
-                  {String(value.title ?? key)}
-                </span>
-                <select
-                  className="rounded-2xl border border-stone-300 bg-white px-4 py-3"
-                  onChange={(event) =>
-                    onUpdateConfig({ [key]: event.target.value })
-                  }
-                  value={String(currentValue)}
-                >
-                  {value.enum.map((option) => (
-                    <option key={String(option)} value={String(option)}>
-                      {String(option)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            );
-          }
+      {ordered.map(([key, value]) => {
+        const currentValue = params[key] ?? value.default ?? "";
+        if (Array.isArray(value.enum)) {
           return (
             <label className="grid gap-2 text-sm" key={key}>
-              <span className="font-medium text-ink">
-                {String(value.title ?? key)}
-              </span>
-              <CaretPreservingTextInput
-                className="min-w-0 flex-1 rounded-2xl border border-stone-300 bg-white px-4 py-3"
-                onChange={(next) =>
-                  onUpdateConfig({
-                    [key]: value.type === "number" ? Number(next) : next,
-                  })
-                }
-                placeholder={
-                  key === "path"
-                    ? "Type or paste file/directory path"
-                    : undefined
-                }
-                type={value.type === "number" ? "number" : "text"}
+              <span className="font-medium text-ink">{String(value.title ?? key)}</span>
+              <select
+                className="rounded-2xl border border-stone-300 bg-white px-4 py-3"
+                onChange={(event) => onUpdateConfig({ [key]: event.target.value })}
                 value={String(currentValue)}
-              />
+              >
+                {value.enum.map((option) => (
+                  <option key={String(option)} value={String(option)}>
+                    {String(option)}
+                  </option>
+                ))}
+              </select>
             </label>
           );
-        })}
+        }
+        return (
+          <label className="grid gap-2 text-sm" key={key}>
+            <span className="font-medium text-ink">{String(value.title ?? key)}</span>
+            <CaretPreservingTextInput
+              className="min-w-0 flex-1 rounded-2xl border border-stone-300 bg-white px-4 py-3"
+              onChange={(next) =>
+                onUpdateConfig({
+                  [key]: value.type === "number" ? Number(next) : next,
+                })
+              }
+              placeholder={key === "path" ? "Type or paste file/directory path" : undefined}
+              type={value.type === "number" ? "number" : "text"}
+              value={String(currentValue)}
+            />
+          </label>
+        );
+      })}
       </div>
     </div>
   );
@@ -393,11 +753,7 @@ function LogViewer({ entries }: { entries: LogEntry[] }) {
   return (
     <div className="flex h-full flex-col">
       <div className="mb-4 flex items-center gap-3">
-        <select
-          className="rounded-full border border-stone-300 bg-white px-3 py-2 text-sm"
-          onChange={(event) => setLevel(event.target.value)}
-          value={level}
-        >
+        <select className="rounded-full border border-stone-300 bg-white px-3 py-2 text-sm" onChange={(event) => setLevel(event.target.value)} value={level}>
           <option value="all">All levels</option>
           <option value="info">Info</option>
           <option value="error">Error</option>
@@ -406,13 +762,9 @@ function LogViewer({ entries }: { entries: LogEntry[] }) {
       <div className="flex-1 overflow-auto rounded-[1.4rem] border border-stone-200 bg-stone-950 p-4">
         {filtered.length ? (
           filtered.map((entry, index) => (
-            <div
-              className="border-b border-stone-800 py-2 text-sm text-stone-100"
-              key={`${entry.timestamp}-${index}`}
-            >
+            <div className="border-b border-stone-800 py-2 text-sm text-stone-100" key={`${entry.timestamp}-${index}`}>
               <p className="text-[11px] uppercase tracking-[0.3em] text-stone-500">
-                {entry.level} · {entry.workflow_id ?? "workflow"} ·{" "}
-                {entry.block_id ?? "system"}
+                {entry.level} · {entry.workflow_id ?? "workflow"} · {entry.block_id ?? "system"}
               </p>
               <p className="mt-1">{entry.message}</p>
             </div>
@@ -486,31 +838,17 @@ export function BottomPanel({
         </div>
         {onTogglePin ? (
           <button
-            aria-label={
-              pinned
-                ? "Unpin bottom panel"
-                : "Pin bottom panel (disable canvas-click auto-collapse)"
-            }
+            aria-label={pinned ? "Unpin bottom panel" : "Pin bottom panel (disable canvas-click auto-collapse)"}
             aria-pressed={pinned}
             className={`inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-              pinned
-                ? "bg-ember/15 text-ember"
-                : "bg-white text-stone-500 hover:bg-stone-100"
+              pinned ? "bg-ember/15 text-ember" : "bg-white text-stone-500 hover:bg-stone-100"
             }`}
             data-testid="bottom-panel-pin-toggle"
             onClick={onTogglePin}
-            title={
-              pinned
-                ? "Pinned — clicks on canvas won't fold the panel"
-                : "Pin panel — clicks on canvas won't fold it"
-            }
+            title={pinned ? "Pinned — clicks on canvas won't fold the panel" : "Pin panel — clicks on canvas won't fold it"}
             type="button"
           >
-            {pinned ? (
-              <Pin className="h-4 w-4" />
-            ) : (
-              <PinOff className="h-4 w-4" />
-            )}
+            {pinned ? <Pin className="h-4 w-4" /> : <PinOff className="h-4 w-4" />}
           </button>
         ) : null}
       </div>
@@ -529,11 +867,7 @@ export function BottomPanel({
           <TerminalTabs />
         </div>
         {activeTab === "config" ? (
-          <ConfigPanel
-            onUpdateConfig={onUpdateConfig}
-            schema={selectedSchema}
-            selectedNode={selectedNode}
-          />
+          <ConfigPanel onUpdateConfig={onUpdateConfig} schema={selectedSchema} selectedNode={selectedNode} />
         ) : activeTab === "logs" ? (
           <LogViewer entries={logEntries} />
         ) : activeTab === "lineage" ? (

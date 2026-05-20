@@ -1,0 +1,351 @@
+# ADR-041 CodeBlock v2 Implementation Checklist
+
+> Mandatory tracking doc. Every agent edits the rows it owns and only those rows.
+> Drift is a protocol violation. The manager sweeps after every phase.
+
+## References
+
+- ADR: [ADR-041](../adr/ADR-041.md)
+- Planning spec: [ADR-041 CodeBlock v2](../specs/adr-041-codeblock-v2.md)
+- Documentation/audit standard: [ADR-042](../adr/ADR-042.md)
+- Umbrella issue: [#1222](https://github.com/zjzcpj/SciEasy/issues/1222)
+- Umbrella branch: `track/adr-041/codeblock-v2`
+- Baseline dependency: PR [#1217](https://github.com/zjzcpj/SciEasy/pull/1217)
+
+## Conventions
+
+- `[ ]` not started
+- `[~]` in progress
+- `[x]` done
+- `[!]` blocked
+- Owner labels map to GitHub issues and agent roles.
+- When a box is ticked, append a one-line note with PR, commit, audit report, or test evidence.
+- Worker PRs target `track/adr-041/codeblock-v2`, not `main`.
+- The umbrella PR targets `main` and remains `[DO NOT MERGE]` until child PRs land and the ADR-042 audit passes.
+
+## Manager Discipline
+
+1. Every implementation agent uses an independent git worktree.
+2. Every worker branch starts from `origin/track/adr-041/codeblock-v2`.
+3. Every worker PR includes `Closes #<track-issue>` and targets `track/adr-041/codeblock-v2`.
+4. Agents are not alone in the codebase: they must not revert edits made by others and must adjust to changes already present on the tracking branch.
+5. Tests use focused commands with timeouts. Do not run long-lived dev servers for backend-only work.
+6. ADR-042-governed docs edited by this cascade must preserve required frontmatter and first-section structure.
+7. Any code-level deferred work requires an in-repo `TODO(#NNN)` with a concrete tracking issue and ADR/spec reference.
+8. CI must be green before an agent reports a track as done.
+
+## Conflict Guardrails
+
+ADR-043 is being implemented concurrently by another manager. ADR-041 agents must avoid these files unless the manager opens a coordination issue and updates this checklist first:
+
+- `src/scieasy/blocks/io/capabilities.py`
+- `src/scieasy/blocks/io/simple_io.py`
+- `src/scieasy/blocks/io/io_block.py`
+- `src/scieasy/blocks/registry.py`
+- `src/scieasy/engine/materialisation.py`
+- `src/scieasy/blocks/app/app_block.py`
+- `src/scieasy/blocks/app/bridge.py`
+- `packages/scieasy-blocks-*`
+- `docs/adr/ADR-043.md`
+- `docs/specs/adr-043-*`
+
+## Phase 0 - Manager Preflight
+
+- [x] Independent manager worktree created at `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-manager`.
+- [x] Tracking branch created: `track/adr-041/codeblock-v2`.
+- [x] Umbrella issue opened: [#1222](https://github.com/zjzcpj/SciEasy/issues/1222).
+- [x] Gate workflow started: `20260519-181608-adr-041-codeblock-v2-implementation-casc`.
+- [x] ADR-043 active worktrees identified and conflict files excluded from first-wave scope.
+- [x] Umbrella PR opened as `[DO NOT MERGE]` -> [PR #1229](https://github.com/zjzcpj/SciEasy/pull/1229).
+- [x] Tracking branch pushed -> `origin/track/adr-041/codeblock-v2`.
+- [x] Shared interpreter family literals widened for C2-C5 runtime backends -> issue [#1242](https://github.com/zjzcpj/SciEasy/issues/1242).
+
+## Phase 1 - First-Wave Backend Support Modules
+
+### Track A - Config, Interpreter, Provenance (Owner: I41a / #1223)
+
+Scope:
+
+- `src/scieasy/blocks/code/config.py`
+- `src/scieasy/blocks/code/interpreters.py`
+- `src/scieasy/blocks/code/provenance.py`
+- `tests/blocks/code/test_codeblock_v2_config.py`
+- `tests/blocks/code/test_codeblock_interpreters.py`
+- `tests/blocks/code/test_codeblock_provenance.py`
+
+Tasks:
+
+- [x] Define CodeBlock v2 config models for script path, inline code migration diagnostics, declared inputs, declared outputs, working directory, interpreter selection, environment variables, timeout, and exchange-directory policy. Evidence: commit `2f72ae3b`.
+- [x] Validate path-like fields without assuming the project fits in memory or that paths are local-only forever. Evidence: commit `2f72ae3b`; focused config tests cover missing and outside-project scripts.
+- [x] Implement Python interpreter resolution for `auto`, explicit executable path, and active environment fallback. Evidence: commit `2f72ae3b`; focused interpreter tests cover auto, existing, missing, and unsupported extension paths.
+- [x] Implement provenance helpers that capture script path, content hash when available, interpreter identity, command argv, environment delta, and execution timestamps. Evidence: commit `2f72ae3b`; focused provenance tests cover hash/git state and stable payload shape.
+- [x] Add tests for valid config, invalid mixed inline/script config, missing script, interpreter resolution success/failure, and provenance payload stability. Evidence: `python -m pytest tests/blocks/code/test_codeblock_v2_config.py tests/blocks/code/test_codeblock_interpreters.py tests/blocks/code/test_codeblock_provenance.py --timeout=30 --no-cov` passed with 15 tests.
+- [x] Avoid `src/scieasy/blocks/code/code_block.py` in this track. Evidence: commit `2f72ae3b` touches only Track A support modules and tests.
+
+Exit Criteria:
+
+- [x] Track A PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1231](https://github.com/zjzcpj/SciEasy/pull/1231).
+- [x] Track A CI is green. Evidence: PR #1231 checks passed on 2026-05-19.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR #1231 plus focused pytest/Ruff evidence recorded above.
+
+### Track B - Exchange Manifest Helpers (Owner: I41b / #1224)
+
+Scope:
+
+- `src/scieasy/blocks/code/exchange.py`
+- `tests/blocks/code/test_codeblock_exchange.py`
+
+Tasks:
+
+- [x] Create exchange-directory layout helpers for per-run input, output, manifest, log, and temp paths. Evidence: commit `25104662`; `python -m pytest tests/blocks/code/test_codeblock_exchange.py --timeout=30 --no-cov`.
+- [x] Implement deterministic input filename planning from port names, declared formats, and collision-safe suffixing. Evidence: commit `25104662`; `python -m pytest tests/blocks/code/test_codeblock_exchange.py --timeout=30 --no-cov`.
+- [x] Implement an exchange manifest shape that records port name, object type, exchange path, format hint, materialisation status, and warnings. Evidence: commit `25104662`; `python -m pytest tests/blocks/code/test_codeblock_exchange.py --timeout=30 --no-cov`.
+- [x] Implement declared-output discovery with missing-output and extra-output diagnostics. Evidence: commit `25104662`; `python -m pytest tests/blocks/code/test_codeblock_exchange.py --timeout=30 --no-cov`.
+- [x] Use injectable adapter callables for materialise/reconstruct seams so ADR-043 capability registry work can wire in later without editing `engine/materialisation.py` in this track. Evidence: commit `25104662`; `python -m ruff check src/scieasy/blocks/code/exchange.py tests/blocks/code/test_codeblock_exchange.py`.
+- [x] Add tests for collision handling, manifest contents, declared output discovery, and diagnostics. Evidence: commit `25104662`; `python -m pytest tests/blocks/code/test_codeblock_exchange.py --timeout=30 --no-cov`.
+
+Exit Criteria:
+
+- [x] Track B PR targets `track/adr-041/codeblock-v2`. Evidence: PR [#1233](https://github.com/zjzcpj/SciEasy/pull/1233).
+- [x] Track B CI is green. Evidence: PR [#1233](https://github.com/zjzcpj/SciEasy/pull/1233) checks green on 2026-05-19 before this checklist evidence update.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR [#1233](https://github.com/zjzcpj/SciEasy/pull/1233), commit `25104662`, focused pytest and Ruff commands recorded above.
+
+## Phase 2 - Complete CodeBlock Runtime Module
+
+ADR-041 runtime completion requires every user-important script family named by
+the ADR. Python is the first backend lane because it proves the shared
+file-exchange lifecycle, but it is not the terminal scope.
+
+### Track C1 - Shared Runtime Integration and Python Backend (Owner: I41c / #1225)
+
+Dependencies:
+
+- Track A merged to tracking branch.
+- Track B merged to tracking branch.
+
+Scope:
+
+- `src/scieasy/blocks/code/code_block.py`
+- `src/scieasy/blocks/code/__init__.py` if needed
+- CodeBlock execution tests under `tests/blocks/code/`
+
+Tasks:
+
+- [x] Integrate v2 config parsing into `CodeBlock` without silently accepting ambiguous legacy config. Evidence: commit `08cc5bc3`; focused pytest passed with 47 tests; Ruff passed.
+- [x] Define the shared CodeBlock v2 runtime integration surface used by all interpreter backends. Evidence: commit `08cc5bc3`; runtime uses shared config, exchange, process, output, and provenance seams.
+- [x] Use Track A interpreter/provenance helpers and Track B exchange helpers to run scripts through the shared file-exchange runtime, with Python `.py` as the first backend. Evidence: commit `08cc5bc3`; `test_codeblock_execution.py` covers exchange execution.
+- [x] Preserve backend ownership of graph/runtime truth; frontend remains editor/viewer only. Evidence: commit `08cc5bc3`; runtime state/provenance stay in backend `CodeBlock` surfaces.
+- [x] Return declared outputs as typed runtime objects or structured diagnostics according to the planning spec. Evidence: commit `08cc5bc3`; tests cover typed `Collection[Text]` output, missing output diagnostics, nonzero exit, and timeout.
+- [x] Add tests for successful Python script execution, missing output failure, script non-zero exit failure, timeout, and provenance recording. Evidence: `PYTHONPATH=C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41c\src python -m pytest tests/blocks/code/test_codeblock_v2_config.py tests/blocks/code/test_codeblock_interpreters.py tests/blocks/code/test_codeblock_provenance.py tests/blocks/code/test_codeblock_exchange.py tests/blocks/code/test_codeblock_execution.py tests/blocks/test_code_block.py tests/blocks/code/test_codeblock_python_integration.py tests/blocks/code/test_codeblock_r_integration.py --timeout=30 --no-cov` passed with 47 tests.
+- [x] Add migration diagnostics for unsupported legacy inline/function mode. Evidence: commit `08cc5bc3`; legacy CodeBlock tests now assert `CodeBlockMigrationError`.
+- [x] Leave stable extension points for notebook, R/Quarto, shell, and MATLAB/Octave tracks without editing ADR-043-owned files. Evidence: PR #1239 adds `CodeBlockBackend`, `CodeBlockRuntimeContext`, register/list/resolve backend helpers, and a `src/scieasy/blocks/code/backends/` module loader so C2-C5 can add one backend module each without editing `CodeBlock` dispatch logic.
+- [x] Do not mark ADR-041 runtime complete in Track C1; C2-C5 remain required sibling backend tracks. Evidence: checklist retains C2-C5 rows after rebase onto manager commit `9a8710dc`.
+
+Exit Criteria:
+
+- [x] Track C1 PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1239](https://github.com/zjzcpj/SciEasy/pull/1239).
+- [x] Track C1 CI is green. Evidence: PR #1239 checks passed on 2026-05-19 after commit `fa42011e`.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR #1239, commits `08cc5bc3`, `653ca2c4`, and `fa42011e`, focused local tests, import contracts, ADR-042 facts check, and CI evidence recorded above.
+
+### Track C2 - Notebook Runtime and Executed Artifact Capture (Owner: I41n / #1235)
+
+Dependencies:
+
+- Track C1 shared runtime integration merged or stable enough for backend registration.
+
+Scope:
+
+- CodeBlock notebook interpreter backend files identified in the Track C2 change plan.
+- Notebook runtime tests under `tests/blocks/code/`.
+
+Tasks:
+
+- [x] Add `.ipynb` runtime execution through nbconvert or a local Jupyter runner when available. Evidence: local implementation in `src/scieasy/blocks/code/backends/notebook.py`; focused pytest passed with optional live execution skipped when Jupyter nbconvert was unavailable.
+- [x] Capture the executed notebook as a framework-managed `_executed_notebook` `Artifact`. Evidence: backend writes `outputs/_executed_notebook/<stem>.executed.ipynb`; returned through declared Artifact output collection when the shared runtime plans that port. Backend-managed auto-injection follow-up is tracked by [#1245](https://github.com/zjzcpj/SciEasy/issues/1245).
+- [x] Preserve typed output collection from declared output folders alongside notebook artifact capture. Evidence: `test_codeblock_runs_notebook_and_collects_typed_output_plus_executed_artifact` covers typed `Text` output plus executed `Artifact` when nbconvert is installed; collection path remains the shared CodeBlock output collector.
+- [x] Add tests for success, failure diagnostics, optional dependency skip behavior, and artifact retention where feasible. Evidence: `python -m pytest tests/blocks/code/test_codeblock_notebooks.py --timeout=30 --no-cov` passed with 3 passed / 3 skipped on 2026-05-19 due missing Jupyter nbconvert.
+- [x] Keep optional notebook dependencies out of the base runtime unless the existing project packaging already includes them. Evidence: implementation uses `shutil.which` discovery and raises `InterpreterResolutionError` with installation guidance; no packaging files changed.
+
+Exit Criteria:
+
+- [x] Track C2 PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1249](https://github.com/zjzcpj/SciEasy/pull/1249).
+- [x] Track C2 CI is green. Evidence: PR #1249 checks passed on 2026-05-20 before merge.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR #1249 plus local manager verification `python -m pytest tests/blocks/code --timeout=60 --no-cov` passed with 64 tests and 7 optional runtime skips.
+
+### Track C3 - R and Quarto Runtime Support (Owner: I41r / #1238)
+
+Dependencies:
+
+- Track C1 shared runtime integration merged or stable enough for backend registration.
+
+Scope:
+
+- CodeBlock R/Quarto interpreter backend files identified in the Track C3 change plan.
+- R/Quarto runtime tests under `tests/blocks/code/`.
+
+Tasks:
+
+- [x] Add `.R` execution through `Rscript` when available. Evidence: commit `81c0c6c9`; focused R/Quarto pytest passed.
+- [x] Add `.Rmd` rendered-document support where R Markdown tooling is available. Evidence: commit `81c0c6c9`; tests cover R Markdown command construction and missing `rmarkdown` dependency diagnostics.
+- [x] Add `.qmd` execution/rendering support through Quarto where available. Evidence: commit `81c0c6c9`; tests cover Quarto command construction and declared output folder collection.
+- [x] Add deterministic command construction and exchange-directory environment passing. Evidence: commit `81c0c6c9`; tests assert argv, cwd, and `SCIEASY_*` exchange environment values.
+- [x] Add tests for missing executable diagnostics, command construction, output collection, and optional dependency skip behavior. Evidence: `PYTHONPATH=C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41r\src python -m pytest tests/blocks/code/test_codeblock_execution.py tests/blocks/code/test_codeblock_r_quarto.py --timeout=30 --no-cov` passed with 14 tests and 1 optional Rscript skip; Ruff passed for touched Python files.
+
+Exit Criteria:
+
+- [x] Track C3 PR targets `track/adr-041/codeblock-v2`. Evidence: PR [#1250](https://github.com/zjzcpj/SciEasy/pull/1250).
+- [x] Track C3 CI is green. Evidence: PR [#1250](https://github.com/zjzcpj/SciEasy/pull/1250) checks passed on run `26133011732` after merging tracking commit `48596275`.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR [#1250](https://github.com/zjzcpj/SciEasy/pull/1250), commits `81c0c6c9`, `70dde9c9`, and focused pytest/Ruff evidence recorded above.
+
+### Track C4 - Shell Runtime Support (Owner: I41s / #1237)
+
+Dependencies:
+
+- Track C1 shared runtime integration merged or stable enough for backend registration.
+
+Scope:
+
+- CodeBlock shell interpreter backend files identified in the Track C4 change plan.
+- Shell runtime tests under `tests/blocks/code/`.
+
+Tasks:
+
+- [x] Add `.sh` execution through a compatible POSIX shell when available. Evidence: commit `1cd50925`; `python -m pytest tests/blocks/code/test_codeblock_shell.py --timeout=30 --no-cov`.
+- [x] Pass exchange-directory context deterministically without adding hidden format semantics. Evidence: commit `1cd50925`; shell backend sets sorted `SCIEASY_CODEBLOCK_*` environment context and delegates file collection to shared exchange helpers.
+- [x] Add tests for successful output collection, nonzero exit diagnostics, missing shell diagnostics, and Windows compatibility behavior. Evidence: `python -m pytest tests/blocks/code/test_codeblock_shell.py --timeout=30 --no-cov` passed with 4 tests and 2 Windows/no-shell skips; `python -m ruff check src/scieasy/blocks/code/backends/shell.py tests/blocks/code/test_codeblock_shell.py` passed.
+
+Exit Criteria:
+
+- [x] Track C4 PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1248](https://github.com/zjzcpj/SciEasy/pull/1248).
+- [x] Track C4 CI is green. Evidence: PR #1248 checks passed on 2026-05-19/2026-05-20 UTC.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR #1248, commit `1cd50925`, focused pytest/Ruff commands, and CI evidence recorded above.
+
+### Track C5 - MATLAB and Octave Runtime Support (Owner: I41m / #1236)
+
+Dependencies:
+
+- Track C1 shared runtime integration merged or stable enough for backend registration.
+
+Scope:
+
+- CodeBlock MATLAB/Octave interpreter backend files identified in the Track C5 change plan.
+- MATLAB/Octave runtime tests under `tests/blocks/code/`.
+
+Tasks:
+
+- [x] Add `.m` execution through MATLAB or Octave when available. Evidence: commit `ce9ca4c8`; backend selects MATLAB first in auto mode and falls back to Octave for `.m`.
+- [x] Add `.mlx` handling through MATLAB where available, with clear unsupported diagnostics when not available. Evidence: commit `ce9ca4c8`; tests cover `.mlx` MATLAB requirement and Octave rejection.
+- [x] Add deterministic command construction, exchange-directory environment passing, and output collection. Evidence: commit `ce9ca4c8`; backend reuses shared CodeBlock process execution and tests assert argv/cwd/env/timeout handoff.
+- [x] Add tests for executable selection, missing executable diagnostics, command construction, and optional dependency skip behavior. Evidence: `PYTHONPATH=C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41m\src python -m pytest tests/blocks/code/test_codeblock_matlab.py --timeout=30 --no-cov` passed with 10 tests and 1 optional Octave skip; Ruff passed for touched Python files.
+
+Exit Criteria:
+
+- [x] Track C5 PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1247](https://github.com/zjzcpj/SciEasy/pull/1247).
+- [x] Track C5 CI is green. Evidence: PR #1247 `Verify Workflow Compliance` passed on 2026-05-19.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR #1247 plus focused pytest/Ruff evidence recorded above.
+
+### Phase 2 Runtime Integration Sweep
+
+- [x] All runtime backend child PRs merged to `track/adr-041/codeblock-v2`. Evidence: PR #1239, #1249, #1250, #1248, and #1247 are merged.
+- [x] Full CodeBlock backend test package passes on the integrated tracking branch. Evidence: `PYTHONPATH=src python -m pytest tests/blocks/code --timeout=60 --no-cov` passed with 64 tests and 7 optional runtime skips on 2026-05-20.
+- [x] Full CodeBlock backend lint passes on the integrated tracking branch. Evidence: `python -m ruff check src/scieasy/blocks/code tests/blocks/code` passed on 2026-05-20.
+
+## Phase 3 - Validation and Migration Diagnostics
+
+### Track D - Workflow Validation (Owner: I41d / #1226)
+
+Dependencies:
+
+- Track A merged.
+- Track C1 contract stable enough for validator integration.
+- Runtime backend tracks C2-C5 define extension-specific diagnostics.
+
+Scope:
+
+- `src/scieasy/blocks/code/validation.py`
+- Workflow validation integration files identified in the track change plan
+- Validation tests under `tests/workflow/` or `tests/blocks/code/`
+
+Tasks:
+
+- [x] Add reusable validation routines for CodeBlock v2 config and declarations. Evidence: commit `9ee6e971` adds `src/scieasy/blocks/code/validation.py`; focused validation pytest passed with 14 tests.
+- [x] Wire validation into the existing workflow validation path without moving runtime truth to frontend state. Evidence: commit `9ee6e971` wires `validate_workflow` to backend-owned CodeBlock config validation while preserving unknown-block fallback behavior.
+- [x] Add actionable diagnostics for legacy inline/function-style CodeBlock configs. Evidence: commit `9ee6e971`; tests cover inline `mode`/`code` migration diagnostics and legacy `language` field rejection.
+- [x] Add tests for valid v2 config, invalid path/config combinations, unsupported language modes, and legacy migration messages. Evidence: `PYTHONPATH=src python -m pytest tests/blocks/code/test_codeblock_validation.py tests/workflow/test_validator_codeblock_v2.py --timeout=60 --no-cov` passed with 14 tests; broader CodeBlock/workflow validator pytest passed with 111 tests and 7 optional runtime skips.
+
+Exit Criteria:
+
+- [x] Track D PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1256](https://github.com/zjzcpj/SciEasy/pull/1256).
+- [x] Track D CI is green. Evidence: PR #1256 checks passed on 2026-05-20 after commit `b1408c38`.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR #1256, commits `9ee6e971`, `65b374dc`, `d0025cd0`, and `b1408c38`; Codex P1 review thread about uppercase backend extensions was fixed, replied to, and resolved.
+
+## Phase 4 - Frontend Configuration
+
+### Track E - CodeBlock v2 Editor (Owner: I41e / #1227)
+
+Dependencies:
+
+- Tracks C1-C5 merged or frontend scope explicitly narrowed to available runtime families.
+- Track D merged if validator diagnostics are surfaced in UI.
+
+Scope:
+
+- Frontend CodeBlock config components and API adapters identified in the Track E change plan before editing.
+
+Tasks:
+
+- [x] Locate existing CodeBlock configuration UI and API adaptation points. Evidence: commit `911089ac` keeps the integration in `frontend/src/components/BottomPanel.tsx`, where the existing generic `ConfigPanel` adapts `selectedSchema.config_schema` to `onUpdateConfig` patches.
+- [x] Update UI controls for script path, interpreter mode, environment variables, declared inputs, declared outputs, timeout, and exchange-directory options. Evidence: commit `911089ac`; `npm test -- --run BottomPanel`; `npx vitest run src/components/BottomPanel.test.tsx`; `npm run build`.
+- [x] Avoid frontend-only execution semantics; UI writes the backend-owned config contract. Evidence: commit `911089ac` only patches persisted CodeBlock v2 params (`script_path`, `interpreter_mode`, `interpreter_path`, `working_directory`, `exchange_root`, `timeout_seconds`, `environment_variables`, `inputs`, `outputs`).
+- [x] Add frontend tests for config editing and validation-message display. Evidence: commit `911089ac` adds CodeBlock config editing coverage for core fields, environment variables, and declared input/output rows while preserving generic non-CodeBlock schema behavior; Track D PR #1256 adds backend workflow validation diagnostics that surface through the existing backend validation path instead of a frontend-only validator.
+- [x] Run browser smoke only if a local frontend target is required and stable. Evidence: no browser smoke run because Track E is covered by component tests/build and the dispatch forbids long-lived `npm run dev`; `npm run build` passed.
+
+Exit Criteria:
+
+- [x] Track E PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1255](https://github.com/zjzcpj/SciEasy/pull/1255).
+- [x] Track E CI is green. Evidence: PR #1255 checks passed on 2026-05-20; `gh pr checks 1255 --watch`.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR #1255, commit `911089ac`, focused frontend tests, local build, and CI evidence recorded above.
+
+## Phase 5 - Documentation, Facts, and Audit
+
+### Track F - Final Docs/Audit (Owner: A41/F41 / #1228)
+
+Dependencies:
+
+- Backend implementation tracks merged.
+- Frontend track decision recorded.
+
+Scope:
+
+- `docs/specs/adr-041-codeblock-v2.md` only if implementation errata are needed.
+- `docs/audit/<YYYY-MM-DD>-adr-041-*.md`
+- `docs/facts/generated.yaml` if public code facts changed.
+- `CHANGELOG.md`
+
+Tasks:
+
+- [x] Regenerate or check ADR-042 facts as required by the changed public symbols. Evidence: `python scripts/audit/generate_facts.py --write`; `python scripts/audit/generate_facts.py --check`.
+- [x] Run the ADR-042 audit suite for ADR-041-related docs and implementation facts. Evidence: `docs/audit/2026-05-20-adr-041-final-audit.md`.
+- [x] Fix all ADR-041-related audit errors. Evidence: facts stale finding fixed; final audit records no ADR-041-related remaining error findings.
+- [x] Record final audit report under `docs/audit/`. Evidence: `docs/audit/2026-05-20-adr-041-final-audit.md`.
+- [x] Update changelog with implementation track summaries. Evidence: changelog entry for #1228.
+- [x] Confirm no ADR-043 conflict files were modified by ADR-041 tracks. Evidence: final audit conflict check.
+
+Exit Criteria:
+
+- [x] Audit passes. Evidence: ADR-041 scoped audit passes in `docs/audit/2026-05-20-adr-041-final-audit.md`; full aggregate residuals are unrelated to ADR-041 and listed there.
+- [x] Umbrella PR body links child PRs, audit report, tests, and unresolved risks. Evidence: [umbrella PR #1229](https://github.com/zjzcpj/SciEasy/pull/1229) body updated on 2026-05-20.
+- [x] Umbrella PR is ready for review once child PRs are merged and CI is green. Evidence: child PRs #1231, #1233, #1239, #1247, #1248, #1249, #1250, #1255, #1256, and #1261 were green before merge/readiness.
+
+## Dispatch Log
+
+- [x] I41a dispatched for #1223. Worktree: `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41a`; branch: `feat/issue-1223/adr041-config-interpreter-provenance`.
+- [x] I41b dispatched for #1224. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41b`, branch `feat/issue-1224/adr041-exchange-manifest`, gate session `20260519-182539-adr-041-track-b-codeblock-v2-exchange-ma`.
+- [x] I41c dispatched for #1225. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41c`, branch `feat/issue-1225/adr041-codeblock-python-execution`, gate session `20260519-185434-adr-041-track-c-codeblock-v2-python-exec`, PR #1239; retargeted on 2026-05-19 from Python-only MVP to shared runtime integration plus Python backend.
+- [x] I41n dispatched for #1235. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41n`, branch `feat/issue-1235/adr041-notebook-runtime`, gate session `20260519-195008-adr-041-track-c2-notebook-runtime-and-ex`.
+- [x] I41r dispatched for #1238. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41r`, branch `feat/issue-1238/adr041-r-quarto-runtime`, gate session `20260519-195014-adr-041-track-c3-r-and-quarto-runtime-su`, commit `81c0c6c9`.
+- [x] I41s dispatched for #1237. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41s`, branch `feat/issue-1237/adr041-shell-runtime`, gate session `20260519-194957-adr-041-track-c4-shell-runtime-support`.
+- [x] I41m dispatched for #1236. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41m`, branch `feat/issue-1236/adr041-matlab-octave-runtime`, gate session `20260519-195039-adr-041-track-c5-matlab-and-octave-runti`.
+- [x] I41d dispatched for #1226. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41d`, branch `feat/issue-1226/adr041-codeblock-validation`, gate session `20260519-202734-adr-041-track-d-codeblock-v2-workflow-va`, PR #1256.
+- [x] I41e dispatched for #1227. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41e`, branch `feat/issue-1227/adr041-codeblock-editor`, gate session `20260519-202747-adr-041-track-e-codeblock-v2-frontend-ed`, PR #1255.
+- [x] A41/F41 dispatched for #1228. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-F41`, branch `feat/issue-1228/adr041-final-audit`, gate session `20260519-205708-adr-041-final-docs-reconciliation-and-au`.
