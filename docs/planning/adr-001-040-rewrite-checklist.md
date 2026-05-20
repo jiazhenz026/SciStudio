@@ -217,26 +217,29 @@ rewrite and review.
 | ADR-028: IOBlock architectural refactor - plugin-owned IO pattern | `docs/adr/ADR_legacy.md` | `docs/adr/ADR-028.md` | `[x]` | `[x]` | Owner approved; Addendum 1 folded in and D3 supersession noted; frontmatter lint pass; targeted full-audit findings 0 |
 | ADR-029: Variadic port count and per-instance port editor | `docs/adr/ADR_legacy.md` | `docs/adr/ADR-029.md` | `[x]` | `[x]` | Owner approved; Addendum 1 port-count limits; frontmatter lint pass; targeted full-audit findings 0 |
 | ADR-030: config_schema MRO merge and base-class field injection | `docs/adr/ADR_legacy.md` | `docs/adr/ADR-030.md` | `[x]` | `[x]` | Owner approved; frontmatter lint pass; targeted full-audit findings 0 |
-| ADR-031: Data Object Reference-Only Contract, ViewProxy Elimination, and Lazy Loading Enforcement | standalone legacy file | `docs/adr/ADR-031.md` | `[ ]` | `[ ]` | Normalize frontmatter; preserve ADR-007/017/027 links |
-| ADR-032: Project-Level Metadata Store - SQLite Persistent Mirror of DataObject Metadata | standalone legacy file | `docs/adr/ADR-032.md` | `[ ]` | `[ ]` | Normalize frontmatter; check storage contracts |
-| ADR-033: Embedded Coding Agent via Claude Code / Codex Subprocess | standalone legacy file | `docs/adr/ADR-033.md` | `[ ]` | `[ ]` | Preserve supersession relationship with ADR-034 |
-| ADR-034: Embedded Coding Agent UI - PTY + Terminal Embed | standalone legacy file | `docs/adr/ADR-034.md` | `[ ]` | `[ ]` | Normalize PTY/UI contracts |
-| ADR-035: AI Block as a PTY-tab variant of AppBlock | standalone legacy file | `docs/adr/ADR-035.md` | `[ ]` | `[ ]` | Preserve proposed/accepted status accurately |
-| ADR-036: Embedded code editor for project files | standalone legacy file | `docs/adr/ADR-036.md` | `[ ]` | `[ ]` | Normalize editor scope and safety boundaries |
-| ADR-037: Desktop Application Packaging, Plugin Distribution, and First-Run Dependency Management | standalone legacy file | `docs/adr/ADR-037.md` | `[ ]` | `[ ]` | Check packaging contracts and external tool claims |
-| ADR-038: Unified Run Lineage Database - Reproducibility through Recipe, Not Storage | standalone legacy file | `docs/adr/ADR-038.md` | `[ ]` | `[ ]` | Normalize lineage schema contracts |
-| ADR-039: Git-Backed Source Version Control for SciEasy Projects | standalone legacy file | `docs/adr/ADR-039.md` | `[ ]` | `[ ]` | Normalize git/project boundary contracts |
-| ADR-040: Production-environment agent reliability | standalone legacy file | `docs/adr/ADR-040.md` | `[ ]` | `[ ]` | Normalize prod-agent contracts; keep dev/prod boundary explicit |
+| ADR-031: Data Object Reference-Only Contract, ViewProxy Elimination, and Lazy Loading Enforcement | standalone legacy file | `docs/adr/ADR-031.md` | `[x]` | `[ ]` | Frontmatter and short summary prepended only; original body preserved; frontmatter lint pass; targeted full-audit findings 0 |
+| ADR-032: Project-Level Metadata Store - SQLite Persistent Mirror of DataObject Metadata | standalone legacy file | `docs/adr/ADR-032.md` | `[x]` | `[ ]` | Frontmatter and short summary prepended only; superseded by ADR-038; frontmatter lint pass; targeted full-audit findings 0 |
+| ADR-033: Embedded Coding Agent via Claude Code / Codex Subprocess | standalone legacy file | `docs/adr/ADR-033.md` | `[x]` | `[ ]` | Frontmatter and short summary prepended only; superseded by ADR-034; frontmatter lint pass; targeted full-audit findings 0 |
+| ADR-034: Embedded Coding Agent UI - PTY + Terminal Embed | standalone legacy file | `docs/adr/ADR-034.md` | `[x]` | `[ ]` | Frontmatter and short summary prepended only; frontmatter lint pass; targeted full-audit findings 0 |
+| ADR-035: AI Block as a PTY-tab variant of AppBlock | standalone legacy file | `docs/adr/ADR-035.md` | `[x]` | `[ ]` | Frontmatter and short summary prepended only; preserved Proposed status; frontmatter lint pass; targeted full-audit findings 0 |
+| ADR-036: Embedded code editor for project files | standalone legacy file | `docs/adr/ADR-036.md` | `[x]` | `[ ]` | Frontmatter and short summary prepended only; frontmatter lint pass; targeted full-audit findings 0 |
+| ADR-037: Desktop Application Packaging, Plugin Distribution, and First-Run Dependency Management | standalone legacy file | `docs/adr/ADR-037.md` | `[x]` | `[ ]` | Frontmatter and short summary prepended only; preserved Proposed status; frontmatter lint pass; targeted full-audit findings 0 |
+| ADR-038: Unified Run Lineage Database - Reproducibility through Recipe, Not Storage | standalone legacy file | `docs/adr/ADR-038.md` | `[x]` | `[ ]` | Frontmatter and short summary prepended only; supersedes ADR-032; frontmatter lint pass; targeted full-audit findings 0 |
+| ADR-039: Git-Backed Source Version Control for SciEasy Projects | standalone legacy file | `docs/adr/ADR-039.md` | `[x]` | `[ ]` | Frontmatter and short summary prepended only; frontmatter lint pass; targeted full-audit findings 0 |
+| ADR-040: Production-environment agent reliability | standalone legacy file | `docs/adr/ADR-040.md` | `[x]` | `[ ]` | Frontmatter and short summary prepended only; owner clarified status is Accepted; frontmatter lint pass; targeted full-audit findings 0 |
 
 ## 10. Verification Evidence
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
 | Per-ADR frontmatter | `python -m scieasy.qa.audit.frontmatter_lint docs/adr/ADR-<NNN>.md --format text` | `[x]` | ADR-001 through ADR-016 passed after `phase: legacy` update |
-| Signature drift | `PYTHONPATH=src python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[!]` | Full audit still fails on known pre-existing ADR-031..040/spec/architecture/signature debt; ADR-001 through ADR-016 no longer emit `doc-drift.adr-without-implementation-spec` |
+| Signature drift | `PYTHONPATH=src python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[!]` | Full audit still fails on known non-target spec/architecture/signature debt; ADR-001 through ADR-016 no longer emit `doc-drift.adr-without-implementation-spec` |
 | Per-ADR frontmatter | `PYTHONPATH=src python -m scieasy.qa.audit.frontmatter_lint docs/adr/ADR-026.md docs/adr/ADR-027.md docs/adr/ADR-028.md docs/adr/ADR-029.md docs/adr/ADR-030.md --format text` | `[x]` | ADR-026 through ADR-030 passed |
 | Targeted full audit | `PYTHONPATH=src python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[!]` | ADR-026 through ADR-030 targeted findings 0; overall audit remains red on pre-existing ADR-031..040/spec/architecture debt |
 | Legacy source rename | `Test-Path docs/adr/ADR.md; Test-Path docs/adr/ADR_legacy.md` | `[x]` | `ADR.md` absent; `ADR_legacy.md` present as owner-approved detailed reference |
+| Per-ADR frontmatter | `PYTHONPATH=src python -m scieasy.qa.audit.frontmatter_lint docs/adr/ADR-031.md docs/adr/ADR-032.md docs/adr/ADR-033.md docs/adr/ADR-034.md docs/adr/ADR-035.md docs/adr/ADR-036.md docs/adr/ADR-037.md docs/adr/ADR-038.md docs/adr/ADR-039.md docs/adr/ADR-040.md --format text` | `[x]` | ADR-031 through ADR-040 passed |
+| Targeted full audit | `PYTHONPATH=src python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[x]` | ADR-001 through ADR-040 targeted findings 0; overall audit remains red on non-target spec/architecture/signature debt |
+| Generated audit report | `PYTHONPATH=src python -m scieasy.qa.audit.full_audit --repo-root . --format markdown --output docs/audit/2026-05-20-adr-001-040-full-audit.md` | `[x]` | Report generated at `docs/audit/2026-05-20-adr-001-040-full-audit.md`; report status is overall `fail` because remaining findings are outside ADR-001 through ADR-040 |
 | Sentrux | `mcp__sentrux__.rescan` plus `mcp__sentrux__.check_rules` | `[ ]` | pending or N/A if docs-only rules do not apply |
 | Link/closure audit | full audit closure check | `[ ]` | pending |
 | Gate record CI | `python -m scieasy.qa.governance.gate_record ci ...` | `[ ]` | pending |
@@ -253,11 +256,11 @@ Append only.
 
 ## 12. Final Readiness
 
-- [ ] All ADR-001 through ADR-030 sections have standalone files.
-- [ ] ADR-031 through ADR-040 are normalized to ADR-042 document standard.
+- [x] All ADR-001 through ADR-030 sections have standalone files.
+- [x] ADR-031 through ADR-040 are normalized to ADR-042 document standard.
 - [x] `docs/adr/ADR_legacy.md` is retained as detailed reference and no longer
       acts as the governing mega-document.
-- [ ] Every ADR with normative signatures has auditable `governs.contracts`
+- [x] Every ADR with normative signatures has auditable `governs.contracts`
       entries and a `Signature-Level Contracts` section.
 - [ ] Every ADR has owner review evidence.
 - [ ] Gate record includes issue, scope, plan, docs, checks, Sentrux evidence or
