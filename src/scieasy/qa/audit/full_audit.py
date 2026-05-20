@@ -16,7 +16,13 @@ from scieasy.qa.audit._util import normalise_path
 from scieasy.qa.audit.closure import check_bidirectional
 from scieasy.qa.audit.doc_drift import classify_repo
 from scieasy.qa.audit.fact_drift import check_substitutions
-from scieasy.qa.audit.facts import DEFAULT_FACTS_PATH, DEFAULT_GENERATED_AT, check_generated_facts, load_facts
+from scieasy.qa.audit.facts import (
+    DEFAULT_FACTS_PATH,
+    DEFAULT_GENERATED_AT,
+    check_generated_facts,
+    generate_facts,
+    load_facts,
+)
 from scieasy.qa.audit.frontmatter_lint import check_report as check_frontmatter
 from scieasy.qa.audit.loaders import load_maintainers
 from scieasy.qa.audit.signature_drift import check_expected_signatures
@@ -81,6 +87,20 @@ def _display_path(path: Path, repo_root: Path) -> str:
         return normalise_path(path)
 
 
+def _is_default_facts_path(path: Path, repo_root: Path) -> bool:
+    default_path = (repo_root / DEFAULT_FACTS_PATH).resolve()
+    return path.resolve() == default_path
+
+
+def _load_or_generate_facts(repo_root: Path, facts_path: Path) -> tuple[FactsRegistry, bool]:
+    path = facts_path if facts_path.is_absolute() else repo_root / facts_path
+    if path.exists():
+        return load_facts(path), False
+    if _is_default_facts_path(path, repo_root):
+        return generate_facts(repo_root), True
+    return load_facts(path), False
+
+
 def _facts_report(
     repo_root: Path,
     *,
@@ -90,7 +110,7 @@ def _facts_report(
     path = facts_path if facts_path.is_absolute() else repo_root / facts_path
     source_sha = ""
     try:
-        registry = load_facts(path)
+        registry, generated_in_memory = _load_or_generate_facts(repo_root, facts_path)
     except (OSError, ValidationError, YAMLError) as exc:
         finding = _finding("facts.generated-unreadable", path, f"cannot load generated facts registry: {exc}", line=1)
         return AuditReport(
@@ -102,7 +122,9 @@ def _facts_report(
             summary={"facts_path": _display_path(path, repo_root)},
         )
 
-    stale_report = check_generated_facts(repo_root, facts_path=facts_path) if check_stale else None
+    stale_report = (
+        check_generated_facts(repo_root, facts_path=facts_path) if check_stale and not generated_in_memory else None
+    )
     findings = stale_report.findings if stale_report is not None else []
     status = AuditStatus.FAIL if stale_report is not None and stale_report.blocks_merge else AuditStatus.PASS
     return AuditReport(
@@ -111,7 +133,11 @@ def _facts_report(
         generated_at=DEFAULT_GENERATED_AT,
         source_sha=registry.source_sha,
         findings=findings,
-        summary={"facts_path": _display_path(path, repo_root), **summarize_facts(registry)},
+        summary={
+            "facts_path": _display_path(path, repo_root),
+            "generated_in_memory": generated_in_memory,
+            **summarize_facts(registry),
+        },
     )
 
 
@@ -137,7 +163,7 @@ def run(
             child_reports.append(check_frontmatter(root))
         else:
             deferred_children.append("frontmatter_lint")
-        registry = load_facts(root / facts_path if not facts_path.is_absolute() else facts_path)
+        registry, _ = _load_or_generate_facts(root, facts_path)
         if include_fact_drift:
             child_reports.append(check_substitutions(root, registry))
         else:
