@@ -222,11 +222,24 @@ class TestSupportedExtensionsClassVar:
     removed in favor of routing through :meth:`IOBlock._detect_format`."""
 
     def test_classvar_equals_expected_mapping(self) -> None:
-        """LoadImage.supported_extensions exactly matches the spec."""
+        """LoadImage.supported_extensions exactly matches the spec.
+
+        ADR-043 / spec adr-043-package-migration FR-004 expanded the
+        loader to cover PNG/JPEG (Pillow) and Bio-Formats microscopy
+        vendor formats (CZI/ND2/LIF/OIR/OIB, load-only).
+        """
         assert LoadImage.supported_extensions == {
             ".tif": "tiff",
             ".tiff": "tiff",
             ".zarr": "zarr",
+            ".png": "png",
+            ".jpg": "jpeg",
+            ".jpeg": "jpeg",
+            ".czi": "czi",
+            ".nd2": "nd2",
+            ".lif": "lif",
+            ".oir": "oir",
+            ".oib": "oib",
         }
 
     def test_module_level_legacy_constants_removed(self) -> None:
