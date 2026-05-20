@@ -131,6 +131,14 @@ def _scores_to_image_collection(
     spatial_axes: list[str],
     framework: Any,
 ) -> Collection:
+    # ADR-043 FR-009 Mode C — legitimate ome drop.
+    # PC score maps are NOT spatially equivalent to the source SRSImage: the
+    # spectral (lambda) axis is replaced by a derived ``pc_id`` index, so
+    # OME pixel-axis ordering / channel descriptions / detector annotations
+    # no longer apply. Per spec adr-043-package-migration FR-009 Mode C, when
+    # the cross-type output drops spatial alignment with the source, leaving
+    # ``meta=None`` (or a Meta without ``ome``) is the documented behavior.
+    # This is reused by ``SRSICA`` for IC score maps for the same reason.
     n_components = scores.shape[1]
     cube = scores.reshape(*spatial_shape, n_components).astype(np.float32)
     maps: list[Image] = []
