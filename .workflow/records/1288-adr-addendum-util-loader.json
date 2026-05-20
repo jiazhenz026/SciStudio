@@ -71,7 +71,7 @@
   "commit": {
     "gate_record_path": ".workflow/records/1288-adr-addendum-util-loader.json",
     "shas": [
-      "f5f06c8b"
+      "c19797b1"
     ],
     "trailers": {}
   },
