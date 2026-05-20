@@ -6,17 +6,30 @@ import argparse
 import re
 from pathlib import Path
 
-from scieasy.qa.audit._util import load_adr_frontmatter, load_spec_frontmatter, normalise_path
-from scieasy.qa.schemas.frontmatter import ADRFrontmatter
+from pydantic import ValidationError
+
+from scieasy.qa.audit._util import (
+    _apply_governance_amendments,
+    load_adr_frontmatter,
+    load_spec_frontmatter,
+    normalise_path,
+    parse_yaml_frontmatter,
+)
+from scieasy.qa.schemas.frontmatter import ADRAddendumFrontmatter, ADRFrontmatter
 from scieasy.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 _DETAIL_SECTION_RE = re.compile(r"\bSection\s+(\d+(?:\.\d+)*)\b", re.IGNORECASE)
+_ADR_ADDENDUM_RE = re.compile(r"^ADR-\d{3}-addendum")
 
 
 def _is_adr(path: Path) -> bool:
     parts = [part.lower() for part in path.parts]
     return "docs" in parts and "adr" in parts and path.name.startswith("ADR-")
+
+
+def _is_adr_addendum(path: Path) -> bool:
+    return _ADR_ADDENDUM_RE.match(path.name) is not None
 
 
 def _is_spec(path: Path) -> bool:
@@ -59,7 +72,45 @@ def _section_numbers(headings: list[tuple[int, str, int]]) -> set[str]:
     return numbers
 
 
-def _check_adr_filename(path: Path, fm: ADRFrontmatter) -> list[Finding]:
+def _load_adr_addendum_frontmatter(path: Path) -> tuple[ADRAddendumFrontmatter | None, str, list[Finding]]:
+    data, body, findings = parse_yaml_frontmatter(path)
+    if data is None:
+        return None, body, findings
+    data, amendment_findings = _apply_governance_amendments(data, body, path=path)
+    if amendment_findings:
+        return None, body, amendment_findings
+    try:
+        return ADRAddendumFrontmatter.model_validate(data), body, []
+    except ValidationError as exc:
+        return (
+            None,
+            body,
+            [
+                Finding(
+                    rule_id="frontmatter.validation",
+                    severity=Severity.ERROR,
+                    file=normalise_path(path),
+                    line=1,
+                    message=f"ADR addendum frontmatter validation failed: {exc}",
+                )
+            ],
+        )
+
+
+def _check_adr_filename(path: Path, fm: ADRFrontmatter | ADRAddendumFrontmatter) -> list[Finding]:
+    if isinstance(fm, ADRAddendumFrontmatter):
+        expected = f"ADR-{fm.adr:03d}-addendum{fm.addendum}.md"
+        if path.name != expected:
+            return [
+                _finding(
+                    path,
+                    "frontmatter.adr-addendum-filename",
+                    f"ADR addendum filename must be {expected} for adr={fm.adr} addendum={fm.addendum}",
+                    line=1,
+                )
+            ]
+        return []
+
     expected = f"ADR-{fm.adr:03d}.md"
     if path.name != expected:
         return [
@@ -73,11 +124,14 @@ def _check_adr_filename(path: Path, fm: ADRFrontmatter) -> list[Finding]:
     return []
 
 
-def _check_adr_body(path: Path, fm: ADRFrontmatter, body: str) -> list[Finding]:
+def _check_adr_body(path: Path, fm: ADRFrontmatter | ADRAddendumFrontmatter, body: str) -> list[Finding]:
     headings = _headings(body)
     findings: list[Finding] = []
 
-    expected_h1 = f"ADR-{fm.adr:03d}: {fm.title}"
+    if isinstance(fm, ADRAddendumFrontmatter):
+        expected_h1 = f"ADR-{fm.adr:03d} Addendum {fm.addendum}: {fm.title}"
+    else:
+        expected_h1 = f"ADR-{fm.adr:03d}: {fm.title}"
     if not headings or headings[0][0] != 1:
         findings.append(_finding(path, "frontmatter.adr-h1", "ADR body must start with an H1 title"))
     elif headings[0][1] != expected_h1:
@@ -167,7 +221,11 @@ def lint_file(path: Path) -> list[Finding]:
         return [_finding(path, "frontmatter.file-missing", "file does not exist", line=1)]
 
     if _is_adr(path):
-        adr_fm, body, findings = load_adr_frontmatter(path)
+        adr_fm: ADRFrontmatter | ADRAddendumFrontmatter | None
+        if _is_adr_addendum(path):
+            adr_fm, body, findings = _load_adr_addendum_frontmatter(path)
+        else:
+            adr_fm, body, findings = load_adr_frontmatter(path)
         if adr_fm is None:
             return findings
         return findings + _check_adr_filename(path, adr_fm) + _check_adr_body(path, adr_fm, body)

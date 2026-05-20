@@ -115,11 +115,17 @@ class ADRFrontmatter(BaseModel):
     @model_validator(mode="after")
     def _implementation_expectations(self) -> ADRFrontmatter:
         if self.is_code_implementation:
-            if self.tracking_issue is None:
+            if getattr(self, "addendum", None) is None and self.tracking_issue is None:
                 raise ValueError("is_code_implementation=true requires tracking_issue")
             if not self.tests:
                 raise ValueError("is_code_implementation=true requires tests")
         return self
+
+
+class ADRAddendumFrontmatter(ADRFrontmatter):
+    """Standalone ADR addendum frontmatter contract from ADR-042 Addendum 1."""
+
+    addendum: int = Field(gt=0)
 
 
 class SpecScope(BaseModel):
