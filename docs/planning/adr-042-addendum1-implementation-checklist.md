@@ -39,7 +39,7 @@ Sub-issue: #1278
 
 ### Phase 2 Implementation (Owner: I-A2)
 
-- [x] Add `src/scieasy/qa/audit/architecture_drift.py` to validate `docs/architecture/ARCHITECTURE.md` code blocks, module paths, class names, function names, method names, and signatures against generated repository facts. [Spec User Story 2b; FR-002b; commit pending in Track A2; `PYTHONPATH=src PYTEST_ADDOPTS=--no-cov pytest tests/qa/test_architecture_drift.py tests/qa/test_audit_full_audit.py --timeout=60` -> 8 passed]
+- [x] Add `src/scieasy/qa/audit/architecture_drift.py` to validate `docs/architecture/ARCHITECTURE.md` code blocks, module paths, class names, function names, method names, and signatures against generated repository facts. [Spec User Story 2b; FR-002b; commit `763d52e1`; `PYTHONPATH=src PYTEST_ADDOPTS=--no-cov pytest tests/qa/test_architecture_drift.py tests/qa/test_audit_full_audit.py --timeout=60` -> 8 passed]
 - [x] Treat architecture examples as normative by default; skip only examples explicitly marked non-normative, illustrative, or pseudocode. [FR-002c; `tests/qa/test_architecture_drift.py::test_architecture_drift_skips_explicit_non_normative_examples`]
 - [x] Wire architecture drift into `src/scieasy/qa/audit/full_audit.py` as a child report. [FR-002d; `tests/qa/test_audit_full_audit.py` asserts child report rendering]
 - [x] Add tests in `tests/qa/test_architecture_drift.py` for stale signature, missing symbol, missing module, valid reference, and explicit non-normative skip. [`ruff check` and `ruff format --check` passed on A2 files]
