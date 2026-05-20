@@ -30,6 +30,7 @@ import {
 import type {
   FormatCapabilityResponse,
   MetadataFidelityLevel,
+  TypeHierarchyEntry,
 } from "../../types/api";
 
 export interface CapabilityDropdownProps {
@@ -55,6 +56,15 @@ export interface CapabilityDropdownProps {
   disabled?: boolean;
   /** Optional id for accessibility / test selectors. */
   id?: string;
+  /**
+   * Optional `BlockSchemaResponse.type_hierarchy` slice — when supplied,
+   * the dropdown's API filter walks the supertype chain so capabilities
+   * declared on a base type (e.g. `DataObject`) match subtype requests
+   * (Codex P2, PR #1299). When omitted, only the universal `DataObject`
+   * base is treated as polymorphic — still a strict improvement over
+   * exact-equality matching.
+   */
+  typeHierarchy?: TypeHierarchyEntry[];
 }
 
 const FIDELITY_BADGE: Record<MetadataFidelityLevel, { label: string; cls: string }> = {
@@ -105,6 +115,7 @@ export function CapabilityDropdown({
   loadCapabilities,
   disabled,
   id,
+  typeHierarchy,
 }: CapabilityDropdownProps) {
   const [capabilities, setCapabilities] = useState<FormatCapabilityResponse[]>(
     [],
@@ -133,6 +144,7 @@ export function CapabilityDropdown({
         direction,
         dataType: dataType || undefined,
         extension: extension || undefined,
+        typeHierarchy,
       }),
     )
       .then((next) => {
@@ -162,8 +174,10 @@ export function CapabilityDropdown({
       });
     // value is intentionally not a dep: we only react to filter changes
     // for fetch; the auto-select rule reads value at fetch-time.
+    // typeHierarchy is included so subtype-compatible matching refreshes
+    // when a schema arrives or the user switches blocks (Codex P2).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [direction, dataType, extension, loadCapabilities]);
+  }, [direction, dataType, extension, loadCapabilities, typeHierarchy]);
 
   const selected = capabilities.find((c) => c.id === value) ?? null;
   const ambiguous = capabilities.length > 1 && !selected;

@@ -27,18 +27,47 @@ import type {
   BlockListResponse,
   FormatCapabilityResponse,
   MetadataFidelityResponse,
+  TypeHierarchyEntry,
 } from "../types/api";
 
 export type CapabilityDirection = "load" | "save";
 
 /**
- * Normalise an extension string the same way the backend
- * (`scieasy.blocks.io.capabilities.normalize_extension`) does: lowercase,
- * strip any leading dots. Returns "" for empty input. Mirrors
- * `PortEditorTable.normalizeExtension` so the dropdown filter agrees with
- * how port-editor inputs are persisted.
+ * Normalise an extension string for the dropdown's USER-FACING input.
+ * Mirrors `PortEditorTable.normalizeExtension`: lowercase, strip any
+ * leading dots, empty-in / empty-out. The port-editor persists this
+ * dot-stripped form on `PortRow.extension`, so the dropdown receives
+ * `"tif"` (no dot) as its prop.
+ *
+ * NOTE: the *backend* normalises capability extensions WITH a leading
+ * dot (see `src/scieasy/blocks/io/capabilities.py::normalize_extension`),
+ * so when we compare user input against backend `cap.extensions` we must
+ * first re-dot the user value or strip dots from the backend values.
+ * `normalizeBackendExtension` handles the backend-side normalisation;
+ * `aggregateCapabilities` uses both so the user-facing "tif" matches the
+ * backend's ".tif" tuple entries (Codex P1, PR #1299).
  */
 export function normalizeExtension(raw: string | null | undefined): string {
+  if (!raw) return "";
+  let text = String(raw).trim();
+  while (text.startsWith(".")) {
+    text = text.slice(1);
+  }
+  return text.toLowerCase();
+}
+
+/**
+ * Normalise a backend-emitted extension into the user-facing form
+ * (lowercase, no leading dot). Backend capability records carry their
+ * extensions in canonical ".tif" / ".tiff" form per
+ * `scieasy.blocks.io.capabilities.normalize_extension`; the frontend
+ * compares them against the dot-stripped user input from PortEditorTable,
+ * so we strip the leading dot on the backend side at compare time. We
+ * keep the original tuple shape on the wire (no normalisation when the
+ * client returns FormatCapabilityResponse to consumers) so any UI that
+ * shows raw `cap.extensions` continues to see the canonical form.
+ */
+function normalizeBackendExtension(raw: string | null | undefined): string {
   if (!raw) return "";
   let text = String(raw).trim();
   while (text.startsWith(".")) {
@@ -54,11 +83,16 @@ export function normalizeExtension(raw: string | null | undefined): string {
  *   - direction: "load" | "save" — required for FR-012 (port editor never
  *     mixes directions).
  *   - dataType: DataObject subclass name, matched against
- *     `capability.data_type` (and inherited types if present in the
- *     `type_hierarchy`). Empty string disables the type filter.
- *   - extension: lowercase, no leading dot. Empty string disables the
- *     extension filter so the dropdown can show every capability for a
- *     type while the user is still typing the extension.
+ *     `capability.data_type` (and its supertype chain). Empty string
+ *     disables the type filter.
+ *   - extension: lowercase. Empty string disables the extension filter so
+ *     the dropdown can show every capability for a type while the user
+ *     is still typing the extension.
+ *   - typeHierarchy: optional `BlockSchemaResponse.type_hierarchy` for
+ *     subtype-compatible matching. When omitted, the filter still walks
+ *     the universal `DataObject` base so capabilities declared on
+ *     `DataObject` match any subtype request — matching how the backend's
+ *     `_capability_matches_type` does subtype dispatch (Codex P2, PR #1299).
  *
  * Returned capabilities are deduplicated by `id` (the same capability
  * record may be advertised by multiple aggregate IOBlocks in plugin packages
@@ -68,6 +102,7 @@ export interface ListCapabilitiesFilter {
   direction: CapabilityDirection;
   dataType?: string;
   extension?: string;
+  typeHierarchy?: TypeHierarchyEntry[];
 }
 
 /**
@@ -86,10 +121,51 @@ export async function listCapabilities(
 }
 
 /**
+ * Walk the type ancestry of `typeName` using the supplied `typeHierarchy`.
+ * Returns a set containing `typeName` plus every ancestor name reachable
+ * via `base_type` links. Stops at `DataObject` (the universal base) or
+ * when an entry has no base_type (root of the hierarchy).
+ *
+ * Even when `typeHierarchy` is not supplied, the universal `DataObject`
+ * base is included so capabilities declared on `DataObject` match any
+ * subtype request — that mirrors the backend's `_capability_matches_type`
+ * which treats `DataObject` as the polymorphic root.
+ */
+export function ancestorTypeNames(
+  typeName: string,
+  typeHierarchy?: TypeHierarchyEntry[],
+): Set<string> {
+  const ancestors = new Set<string>();
+  if (typeName) ancestors.add(typeName);
+  // The universal DataObject base is always implicit — handlers declared
+  // on it match every typed port, matching backend behaviour.
+  ancestors.add("DataObject");
+  if (!typeHierarchy || typeHierarchy.length === 0) return ancestors;
+  const index = new Map(typeHierarchy.map((entry) => [entry.name, entry]));
+  let current = index.get(typeName);
+  while (current?.base_type && !ancestors.has(current.base_type)) {
+    ancestors.add(current.base_type);
+    current = index.get(current.base_type);
+  }
+  return ancestors;
+}
+
+/**
  * Pure aggregation helper extracted so unit tests can exercise the filter
  * without mocking `fetch`. Returns a stable order: capabilities are sorted
  * by `(priority DESC, id ASC)` so the first option is the highest-priority
  * default — matches `BlockRegistry`'s sort in `_find_format_capability`.
+ *
+ * Implementation notes (Codex review #1299):
+ *  - P1: Extensions are compared after normalising BOTH sides — the user
+ *    input arrives dot-stripped (PortEditorTable), and backend records
+ *    arrive with leading dots (`.tif`). `normalizeBackendExtension` walks
+ *    `cap.extensions` so the two agree.
+ *  - P2: Type filter accepts subtype-compatible matches by walking the
+ *    `typeHierarchy` ancestry of the requested type. Capabilities
+ *    declared on a supertype (e.g. `DataObject`) match subtype requests
+ *    (e.g. `DataFrame`/`Image`), matching the backend's
+ *    `_capability_matches_type`.
  */
 export function aggregateCapabilities(
   blocks: BlockListResponse,
@@ -97,13 +173,19 @@ export function aggregateCapabilities(
 ): FormatCapabilityResponse[] {
   const wantedExt = normalizeExtension(filter.extension);
   const wantedType = filter.dataType?.trim() ?? "";
+  const ancestors = wantedType
+    ? ancestorTypeNames(wantedType, filter.typeHierarchy)
+    : null;
   const seen = new Map<string, FormatCapabilityResponse>();
 
   for (const block of blocks.blocks ?? []) {
     for (const cap of block.format_capabilities ?? []) {
       if (cap.direction !== filter.direction) continue;
-      if (wantedType && cap.data_type !== wantedType) continue;
-      if (wantedExt && !cap.extensions.includes(wantedExt)) continue;
+      if (ancestors && !ancestors.has(cap.data_type)) continue;
+      if (wantedExt) {
+        const normalized = cap.extensions.map(normalizeBackendExtension);
+        if (!normalized.includes(wantedExt)) continue;
+      }
       if (!seen.has(cap.id)) {
         seen.set(cap.id, cap);
       }

@@ -186,6 +186,7 @@ export function PortEditorTable({
                     handleCapabilityChange(index, capabilityId)
                   }
                   id={`${direction}-${port.name || index}`}
+                  typeHierarchy={typeHierarchy}
                 />
               </div>
             )}
