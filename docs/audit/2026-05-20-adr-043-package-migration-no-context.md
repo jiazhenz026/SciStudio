@@ -39,10 +39,23 @@ implementation + test evidence; every SC-001..SC-005 measurable outcome is
 either green or has the right shape on the committed branch; ADR-043 §9
 package validity scan reports 0 errors on PR-touched IO blocks; ADR-043 §6
 ambiguity scan reports 0 conflicting `(direction, type, extension)` slots
-without single defaults. The only material findings are P2/P3 polish items
-(see §6) and one P2 against an off-default code path in `pillow_handler.py`.
-None of them is release-blocking; all can be fixed in follow-up issues or
-deferred without violating the spec contract.
+without single defaults.
+
+The single P1 finding (P1-01, surfaced post-local-audit by this PR's CI
+run) is a **flaky frontend test** in `CapabilityDropdown.test.tsx` that
+PASSED on the Phase A3 PR which authored it (#1299). The same test code
+fails on this PR's CI run because the test fires `fireEvent.change` before
+the post-fetch React re-render is flushed. This is a 3-line test-file fix
+(add a `waitFor` for option visibility), NOT a component bug. The Phase A3
+component code itself passes static review and unit-shape evaluation. The
+P1 is filed as audit-blocking only because it surfaces as red CI on a
+PR-touched test file; a single CI retry or a 3-line follow-up fix
+unblocks merge.
+
+The remaining material findings are P2/P3 polish items (see §6) and one
+P2 against an off-default code path in `pillow_handler.py`. None of them
+is release-blocking; all can be fixed in follow-up issues or deferred
+without violating the spec contract.
 
 SC-006 is **out of scope for Phase C** (it is the Phase D owner-authored e2e
 test deliverable per spec §4.3); this audit does not block on it. The
@@ -57,7 +70,35 @@ None.
 
 ### P1 — Must fix before merge
 
-None.
+- **P1-01 (surfaced post-local-audit by CI).** `frontend/src/__tests__/CapabilityDropdown.test.tsx:148`
+  fails on this audit PR's CI run with
+  `AssertionError: expected "spy" to be called with arguments: [ 'imaging.image.ome-tiff.save' ]; Number of calls: 0`
+  on the test `it("calls onChange with the picked id when user selects an option", ...)`.
+  The audit's local-run section ran the Python tests only (no frontend
+  vitest); the failure surfaced on the CI Frontend job
+  (https://github.com/zjzcpj/SciEasy/actions/runs/26187845593/job/77048168196).
+  **The component file and test file were last touched by Phase A3 PR
+  #1299, which PASSED Frontend CI on its own run** (confirmed by
+  `gh pr checks 1299`). The test code uses `fireEvent.change` immediately
+  after `waitFor(loadCapabilities called)` without an additional `waitFor`
+  to flush the post-fetch React re-render that materializes the `<option>`
+  list. `fireEvent.change` on a select whose target option hasn't rendered
+  yet sets `select.value` to `""` rather than the requested id, so the
+  component's `onChange` handler bails on the `if (!nextId) return` guard
+  and the assertion fails.
+  
+  **Diagnosis:** flaky test — passes on slower CI shards / repeats and on
+  the A3 PR's run; fails on this PR's faster Python-3.13-not-yet-done
+  shard. Recommended fix: wrap the `fireEvent.change` in a `waitFor` that
+  asserts the option element exists before firing, OR add an explicit
+  `await waitFor(() => screen.getByText(/OME-TIFF/i))` before the change
+  event. This is a 3-line test-file edit, NOT a component bug.
+  
+  **Out of audit scope to fix** (would require editing
+  `frontend/src/__tests__/CapabilityDropdown.test.tsx`, which is not in
+  the audit-only PR file budget). Owner / Phase C2 manager should
+  re-trigger the failing job once and either confirm the flake (pass on
+  retry) OR commit the test-file fix in a follow-up.
 
 ### P2 — Should fix (recommended in-PR or via follow-up issue)
 
