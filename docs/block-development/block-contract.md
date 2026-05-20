@@ -1,3 +1,15 @@
+---
+doc_type: block-development
+title: "Block Contract"
+status: living
+owner: "@jiazhenz026"
+last_updated: 2026-05-19
+governed_by:
+  - ADR-042
+  - ADR-043
+summary: "Formal block authoring contract, including IO format capability declarations and boundary validation."
+---
+
 # Block Contract
 
 This document is the formal specification of the block contract. Every
@@ -14,10 +26,11 @@ block must satisfy these requirements to be valid in the SciEasy runtime.
 5. [Hooks: validate() and postprocess()](#hooks-validate-and-postprocess)
 6. [ProcessBlock Hooks](#processblock-hooks)
 7. [IOBlock Hooks](#ioblock-hooks)
-8. [Variadic Ports](#variadic-ports)
-9. [Dynamic Ports](#dynamic-ports)
-10. [Config Schema](#config-schema)
-11. [Port Constraints](#port-constraints)
+8. [IO Format Capabilities](#io-format-capabilities)
+9. [Variadic Ports](#variadic-ports)
+10. [Dynamic Ports](#dynamic-ports)
+11. [Config Schema](#config-schema)
+12. [Port Constraints](#port-constraints)
 
 ---
 
@@ -253,13 +266,18 @@ def teardown(self, state):
 ## IOBlock Hooks
 
 `IOBlock` (`scieasy.blocks.io.io_block.IOBlock`) provides the
-load/save dispatch.
+load/save dispatch. ADR-043 makes external file formats an IO boundary
+capability, not a DataObject property.
 
 ### ClassVars
 
 ```python
 direction: ClassVar[str] = "input"  # "input" for loaders, "output" for savers
 ```
+
+Published IO packages should also expose `format_capabilities` through
+`IOBlock.get_format_capabilities()`. Simple local loaders and savers may use
+`SimpleLoader` or `SimpleSaver` instead of writing full capability records.
 
 ### `load(self, config: BlockConfig, output_dir: str = "") -> DataObject | Collection`
 
@@ -319,6 +337,102 @@ Writes a `pyarrow.Table` to parquet storage. Returns a StorageReference.
 
 Called when `direction == "output"`. Persist the object to the configured
 path. The base class wraps the path in a `Text` Collection as a receipt.
+
+---
+
+## IO Format Capabilities
+
+ADR-043 defines a `FormatCapability` as one supported boundary conversion.
+Capabilities belong to IOBlock classes or package-level declarations scanned
+into the `BlockRegistry`. See [ADR-043](../adr/ADR-043.md) and the
+[implementation spec](../specs/adr-043-io-format-capability-registry.md) for
+the full runtime contract.
+
+```python
+from typing import ClassVar
+
+from scieasy.blocks.io.capabilities import FormatCapability, MetadataFidelity
+from scieasy.blocks.io.io_block import IOBlock
+from scieasy_blocks_imaging.types import Image
+
+
+class LoadImage(IOBlock):
+    direction: ClassVar[str] = "input"
+    name: ClassVar[str] = "Load Image"
+
+    format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
+        FormatCapability(
+            id="scieasy-blocks-imaging.image.tiff.load",
+            direction="load",
+            data_type=Image,
+            format_id="tiff",
+            extensions=(".tif", ".tiff"),
+            label="TIFF",
+            block_type="LoadImage",
+            handler="_load_tiff",
+            is_default=True,
+            metadata_fidelity=MetadataFidelity(
+                level="typed_meta",
+                typed_meta_reads=("axes", "pixel_size", "channels"),
+            ),
+        ),
+    )
+```
+
+Capability IDs are stable workflow replay keys. If more than one loader or
+saver can satisfy the same type and extension, the workflow must store the
+selected `capability_id` or the registry must have a unique/default answer.
+Registration order is not semantic dispatch.
+
+### Simple local IO
+
+For one-off local IO blocks, use `SimpleLoader` or `SimpleSaver`. These bases
+synthesize conservative `pixel_only` capabilities from a small declaration:
+
+```python
+from pathlib import Path
+from typing import Any, ClassVar
+
+from scieasy.blocks.io.simple_io import SimpleLoader
+from scieasy.core.types.array import Array
+
+
+class LoadNpy(SimpleLoader):
+    name: ClassVar[str] = "Load NPY"
+    output_type: ClassVar[type] = Array
+    extensions: ClassVar[list[str]] = [".npy"]
+    format_id: ClassVar[str] = "npy"
+
+    def load_file(self, path: Path, config: dict[str, Any]) -> Array:
+        ...
+```
+
+`SimpleSaver` mirrors this shape with `input_type`, `extensions`,
+`format_id`, and `save_file(obj, path, config)`.
+
+### Aggregate IOBlocks
+
+Package authors should not expose one palette block per file format when the
+user-facing operation is the same. Prefer one aggregate block, such as
+`Load Image`, with multiple capabilities and a format/capability selector in
+configuration. Internal handlers may remain one method per format.
+
+### Metadata fidelity
+
+`metadata_fidelity` describes typed `meta` preservation at the IO boundary.
+It does not describe lineage rows, runtime environment snapshots, workflow YAML
+metadata, or free-form `DataObject.user` annotations.
+
+Published packages should declare stronger than `pixel_only` only when tests
+cover the promised fields. A `typed_meta` capability must list typed `meta`
+fields it reads or writes; `lossless` must use a round-trip group.
+
+### Migration boundary
+
+Legacy `supported_extensions` compatibility synthesis is migration scaffolding
+only. It keeps existing blocks runnable while the package ecosystem moves to
+explicit capability records. Full published-package hard validation and cleanup
+are tracked by #1204.
 
 ---
 
@@ -467,27 +581,35 @@ with the `constraint_description` message.
 
 ---
 
-## AppBlock: variadic ports + extension-based output binning
+## AppBlock: variadic ports + capability-aware file exchange
 
 **Issue #680**: All AppBlock subclasses (Fiji, Napari, ElMAVEN, custom
 external-app blocks) inherit:
 
 - `variadic_inputs = True` and `variadic_outputs = True` — the user
   defines input and output ports via the standard ADR-029 port editor.
-- A required `extension` field on every output port entry. The runtime
-  uses this string (no leading dot, case-insensitive) to bin saved
-  files into ports.
+- A required `extension` field on every output port entry. ADR-043 treats this
+  as a boundary hint used with the declared type to resolve a loader
+  capability.
+- An optional `capability_id` field when more than one matching capability
+  exists or replay must use a specific package handler.
 - A generic binner method `_bin_outputs_by_extension(output_files,
   config)` that subclasses call after their watcher returns.
 
 ### Routing rules
 
+Before execution, workflow validation should check that declared AppBlock and
+CodeBlock boundary ports can resolve capabilities:
+
+- Input materialisation needs a saver capability for `type + extension`.
+- Output reconstruction needs a loader capability for `type + extension`.
+- Ambiguous matches require a selected `capability_id`.
+
 After the external app produces output files, the binner:
 
 1. For each port, finds files whose suffix (case-insensitively) matches
-   the port's declared extension and wraps them as
-   `Artifact(file_path=..., mime_type=..., description=...)` instances
-   in a `Collection(item_type=port.accepted_types[0])`.
+   the port's declared extension and reconstructs them through the selected
+   loader capability into `Collection(item_type=port.accepted_types[0])`.
 2. Raises `ValueError("Port 'X' required, no '.ext' files in output dir")`
    when a required port receives zero files.
 3. Logs `WARNING — Unmatched output file 'name.ext'` for files whose
@@ -503,7 +625,8 @@ extension (case-insensitive):
 Node 'A': Duplicate extension 'tif' across output ports {images, masks}
 ```
 
-This catches the only ambiguity in the routing model at save time,
+This catches duplicate file-binning ambiguity at save time. ADR-043 capability
+validation additionally catches missing or ambiguous loader/saver capabilities
 before the workflow runs.
 
 ### Subclass authoring
@@ -528,9 +651,8 @@ return {"image": Collection(artifacts, item_type=Artifact)} if artifacts else {}
 
 ### What the binner does NOT do
 
-- No file content inspection or type inference (the user is responsible
-  for saving the right kind of data into the declared extension).
-- No multi-extension ports (one extension per port — Collections are
-  homogeneous by type).
+- No file content inspection or type inference. Type plus extension must resolve
+  through the registry, and ambiguous choices require `capability_id`.
+- No multi-extension ports. Collections are homogeneous by type.
 - No per-port glob fields.
 - No automatic port creation based on saved content.

@@ -1,3 +1,15 @@
+---
+doc_type: block-development
+title: "Publishing Block Packages"
+status: living
+owner: "@jiazhenz026"
+last_updated: 2026-05-19
+governed_by:
+  - ADR-042
+  - ADR-043
+summary: "Packaging and distribution guide for SciEasy block packages, including published IO capability requirements."
+---
+
 # Publishing
 
 This document covers how to package and distribute SciEasy blocks as
@@ -13,9 +25,10 @@ installable Python packages (Tier 2 distribution).
 4. [Entry-Points](#entry-points)
 5. [PackageInfo Declaration](#packageinfo-declaration)
 6. [get_blocks() and get_types()](#get_blocks-and-get_types)
-7. [Testing Before Release](#testing-before-release)
-8. [Versioning](#versioning)
-9. [Optional Dependencies](#optional-dependencies)
+7. [Published IO Format Capabilities](#published-io-format-capabilities)
+8. [Testing Before Release](#testing-before-release)
+9. [Versioning](#versioning)
+10. [Optional Dependencies](#optional-dependencies)
 
 ---
 
@@ -194,6 +207,79 @@ def get_block_package() -> tuple[PackageInfo, list[type]]:
     """Return package metadata and blocks for scieasy.blocks entry-point."""
     return get_package_info(), get_blocks()
 ```
+
+---
+
+## Published IO Format Capabilities
+
+Published IO packages must treat file formats as boundary capabilities owned by
+IOBlocks, AppBlocks, CodeBlocks, and the registry. Do not put extension support
+on DataObject classes. The governing architecture is
+[ADR-043](../adr/ADR-043.md), with implementation requirements in
+[the ADR-043 spec](../specs/adr-043-io-format-capability-registry.md).
+
+Use explicit `FormatCapability` records when a package:
+
+- Supports multiple file formats behind one user-facing block.
+- Supports a format that another package may also claim.
+- Needs a stable capability ID for workflow replay.
+- Declares metadata fidelity stronger than `pixel_only`.
+- Claims a tested round-trip group.
+
+```python
+from typing import ClassVar
+
+from scieasy.blocks.io.capabilities import FormatCapability, MetadataFidelity
+from scieasy.blocks.io.io_block import IOBlock
+from my_blocks.types import MyImage
+
+
+class LoadMyImage(IOBlock):
+    name: ClassVar[str] = "Load My Image"
+    direction: ClassVar[str] = "input"
+
+    format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
+        FormatCapability(
+            id="my-blocks.image.ome-tiff.load",
+            direction="load",
+            data_type=MyImage,
+            format_id="ome-tiff",
+            extensions=(".ome.tif", ".ome.tiff"),
+            label="OME-TIFF",
+            block_type="LoadMyImage",
+            handler="_load_ome_tiff",
+            is_default=True,
+            metadata_fidelity=MetadataFidelity(
+                level="typed_meta",
+                typed_meta_reads=("axes", "pixel_size", "channels"),
+            ),
+        ),
+    )
+```
+
+Capability IDs should be package-qualified and stable. Changing a capability
+ID is a workflow compatibility break because saved workflows use it as the
+replay key when selection is ambiguous or user-chosen.
+
+### Aggregate IOBlocks
+
+Expose a compact palette. Many format handlers should remain one user-facing
+block, such as `Load Image`, with a format/capability selector. Internal
+handler methods can still be one method per format.
+
+### Metadata fidelity
+
+`metadata_fidelity` describes typed `meta` fields at the IO boundary. It does
+not describe lineage, run environment, execution parameters, or workflow YAML
+metadata. Declare `typed_meta`, `format_specific`, or `lossless` only when
+tests prove the promised fields or round-trip behavior.
+
+### Migration policy
+
+Compatibility synthesis from legacy `supported_extensions` is migration
+scaffolding only. It keeps existing blocks runnable while published packages
+migrate to explicit capability declarations. Full hard-validation migration for
+published packages is tracked by #1204.
 
 ---
 

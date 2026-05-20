@@ -1,3 +1,15 @@
+---
+doc_type: block-development
+title: "Architecture for Block Developers"
+status: living
+owner: "@jiazhenz026"
+last_updated: 2026-05-19
+governed_by:
+  - ADR-042
+  - ADR-043
+summary: "Execution model and data transport guidance for block authors, including canonical-zone and boundary IO rules."
+---
+
 # Architecture for Block Developers
 
 This document explains the execution model, data transport, and lifecycle
@@ -9,10 +21,11 @@ that block developers need to understand.
 
 1. [Subprocess Isolation](#subprocess-isolation)
 2. [Data Transport](#data-transport)
-3. [Block Lifecycle](#block-lifecycle)
-4. [Three Tiers of Collection Handling](#three-tiers-of-collection-handling)
-5. [Cancellation Semantics](#cancellation-semantics)
-6. [Resource Hints](#resource-hints)
+3. [Boundary Formats](#boundary-formats)
+4. [Block Lifecycle](#block-lifecycle)
+5. [Three Tiers of Collection Handling](#three-tiers-of-collection-handling)
+6. [Cancellation Semantics](#cancellation-semantics)
+7. [Resource Hints](#resource-hints)
 
 ---
 
@@ -76,6 +89,32 @@ special scalar path.
 Port matching uses `collection.item_type`, which is an `isinstance`-based
 check. A `Collection[FluorImage]` matches a port that accepts `Image`
 because `FluorImage` is a subclass of `Image`.
+
+---
+
+## Boundary Formats
+
+Inside the canonical workflow zone, block edges are type-only. A ProcessBlock
+should consume `Image`, `DataFrame`, `PeakTable`, or another DataObject type
+without caring whether the object originally came from TIFF, PNG, CSV, mzML,
+or Zarr.
+
+External file formats matter only at boundaries:
+
+- `IOBlock` load and save blocks.
+- `AppBlock` file exchange.
+- `CodeBlock` file exchange.
+- AI/tool sessions that materialise files for an external process.
+
+ADR-043 represents each boundary conversion as a `FormatCapability`. The
+registry resolves capabilities by direction, type, extension or format id, and
+optional stable `capability_id`. If multiple packages can handle the same
+boundary, the user or workflow must choose a capability id unless one package
+declares a valid default.
+
+Metadata fidelity is about typed `DataObject.meta` fields at the boundary.
+Lineage records, run parameters, and environment snapshots are runtime
+provenance; they are not IO metadata fidelity promises.
 
 ---
 

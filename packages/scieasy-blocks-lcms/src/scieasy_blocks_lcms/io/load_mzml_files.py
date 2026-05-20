@@ -21,6 +21,7 @@ from typing import Any, ClassVar, cast
 
 from scieasy.blocks.base.config import BlockConfig
 from scieasy.blocks.base.ports import OutputPort
+from scieasy.blocks.io.capabilities import FormatCapability, MetadataFidelity
 from scieasy.blocks.io.io_block import IOBlock
 from scieasy.core.types.base import DataObject
 from scieasy.core.types.collection import Collection
@@ -50,6 +51,69 @@ class LoadMzMLFiles(_LCMSBlockMixin, IOBlock):
         "Records paths and minimal header metadata; does not parse scan data."
     )
 
+    format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
+        FormatCapability(
+            id="scieasy-blocks-lcms.ms_raw.mzml.load",
+            direction="load",
+            data_type=MSRawFile,
+            format_id="mzml",
+            extensions=(".mzml",),
+            label="mzML raw file",
+            block_type="LoadMzMLFiles",
+            handler="load",
+            metadata_fidelity=MetadataFidelity(
+                level="typed_meta",
+                typed_meta_reads=("format", "polarity", "instrument", "acquisition_date", "sample_id"),
+                notes="Reads lightweight mzML header metadata only; scan data remains external.",
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-lcms.ms_raw.mzxml.load",
+            direction="load",
+            data_type=MSRawFile,
+            format_id="mzxml",
+            extensions=(".mzxml",),
+            label="mzXML raw file",
+            block_type="LoadMzMLFiles",
+            handler="load",
+            metadata_fidelity=MetadataFidelity(
+                level="typed_meta",
+                typed_meta_reads=("format", "polarity", "instrument", "acquisition_date", "sample_id"),
+                notes="Reads lightweight mzXML-compatible header metadata only; scan data remains external.",
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-lcms.ms_raw.raw.load",
+            direction="load",
+            data_type=MSRawFile,
+            format_id="raw",
+            extensions=(".raw",),
+            label="Vendor RAW file",
+            block_type="LoadMzMLFiles",
+            handler="load",
+            metadata_fidelity=MetadataFidelity(
+                level="typed_meta",
+                typed_meta_reads=("format", "sample_id"),
+                notes="Records path-derived metadata only; vendor RAW scan data remains external.",
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-lcms.ms_raw.d.load",
+            direction="load",
+            data_type=MSRawFile,
+            format_id="d",
+            extensions=(".d",),
+            label="Vendor .d directory",
+            block_type="LoadMzMLFiles",
+            handler="load",
+            metadata_fidelity=MetadataFidelity(
+                level="typed_meta",
+                typed_meta_reads=("format", "sample_id"),
+                notes="Records path-derived metadata only; vendor .d scan data remains external.",
+            ),
+        ),
+    )
+
     # ADR-028 §D8: declare every extension this loader accepts. The mapping
     # values are the locked format identifiers persisted on
     # :attr:`MSRawFile.Meta.format` and consumed by :func:`_mime_for` — do
@@ -69,7 +133,6 @@ class LoadMzMLFiles(_LCMSBlockMixin, IOBlock):
             description="Collection of loaded raw file handles",
         ),
     ]
-
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {

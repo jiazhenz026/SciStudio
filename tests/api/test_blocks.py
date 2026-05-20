@@ -98,6 +98,53 @@ def test_imaging_io_schema_exposes_item_types_and_collection_flags(client: TestC
     assert save_payload["input_ports"][0]["is_collection"] is True
 
 
+def test_block_schema_exposes_serializable_format_capabilities(client: TestClient) -> None:
+    """ADR-043 capability metadata is exposed on schema payloads."""
+    response = client.get("/api/blocks/imaging.load_image/schema")
+    assert response.status_code == 200
+    payload = response.json()
+
+    capabilities = payload["format_capabilities"]
+    assert capabilities
+    capability = capabilities[0]
+    assert {
+        "id",
+        "direction",
+        "data_type",
+        "format_id",
+        "extensions",
+        "label",
+        "block_type",
+        "handler",
+        "is_default",
+        "priority",
+        "roundtrip_group",
+        "metadata_fidelity",
+        "is_synthesized",
+        "migration_scaffold",
+    }.issubset(capability)
+    assert capability["direction"] == "load"
+    assert capability["data_type"] == "Image"
+    assert capability["extensions"]
+    assert capability["metadata_fidelity"]["level"] in {
+        "pixel_only",
+        "typed_meta",
+        "format_specific",
+        "lossless",
+    }
+
+
+def test_list_blocks_keeps_palette_compact_with_capability_metadata(client: TestClient) -> None:
+    """ADR-043 capabilities must not expand one aggregate IOBlock into many blocks."""
+    response = client.get("/api/blocks/")
+    assert response.status_code == 200
+    blocks = response.json()["blocks"]
+
+    load_image_blocks = [block for block in blocks if block["type_name"] == "imaging.load_image"]
+    assert len(load_image_blocks) == 1
+    assert load_image_blocks[0]["format_capabilities"]
+
+
 # ----------------------------------------------------------------------------
 # Stage 10.1 Part 2 — skipped test stubs authored by Agent A.
 #

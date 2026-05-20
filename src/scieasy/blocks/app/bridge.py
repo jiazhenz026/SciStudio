@@ -36,13 +36,14 @@ class FileExchangeBridge:
         inputs: dict[str, Any],
         exchange_dir: Path,
         *,
+        input_ports: list[dict[str, Any]] | None = None,
         registry: Any | None = None,
     ) -> None:
         """Serialise *inputs* into *exchange_dir*.
 
         ADR-028 §D8 / #1080: :class:`DataObject` inputs (including items
         inside a :class:`Collection`) are materialised to real files via
-        :func:`scieasy.engine.materialisation.materialise_to_file` —
+        :func:`scieasy.blocks.io.materialisation.materialise_to_file` —
         which routes through :meth:`BlockRegistry.find_saver` and
         prefers a :func:`scieasy.utils.fs.mount_pathlike` pass-through
         when ``storage_ref.path`` already matches the target extension.
@@ -77,8 +78,12 @@ class FileExchangeBridge:
         input_dir = exchange_dir / "inputs"
         input_dir.mkdir(exist_ok=True)
 
+        port_config = _port_config_by_name(input_ports)
         manifest: dict[str, Any] = {}
         for key, value in inputs.items():
+            selected = port_config.get(key, {})
+            extension = _normalise_config_extension(selected.get("extension"))
+            capability_id = _normalise_capability_id(selected.get("capability_id"))
             if isinstance(value, Collection):
                 collection_dir = input_dir / key
                 collection_dir.mkdir(exist_ok=True)
@@ -90,6 +95,8 @@ class FileExchangeBridge:
                             item,
                             collection_dir,
                             filename_stem=f"item_{i:04d}",
+                            extension=extension,
+                            capability_id=capability_id,
                             registry=registry,
                         )
                     )
@@ -113,6 +120,8 @@ class FileExchangeBridge:
                     value,
                     input_dir,
                     filename_stem=key,
+                    extension=extension,
+                    capability_id=capability_id,
                     registry=registry,
                 )
                 continue
@@ -240,50 +249,93 @@ def _default_extension_for_obj(obj: Any) -> str | None:
     return _CORE_TYPE_DEFAULT_EXTENSION.get(type(obj).__name__)
 
 
+def _normalise_config_extension(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return text if text.startswith(".") else f".{text}"
+
+
+def _normalise_capability_id(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _port_config_by_name(port_configs: list[dict[str, Any]] | None) -> dict[str, dict[str, Any]]:
+    if not isinstance(port_configs, list):
+        return {}
+    result: dict[str, dict[str, Any]] = {}
+    for entry in port_configs:
+        if not isinstance(entry, dict):
+            continue
+        name = str(entry.get("name", "")).strip()
+        if name:
+            result[name] = entry
+    return result
+
+
 def _materialise_data_object(
     obj: Any,
     dest_dir: Path,
     *,
     filename_stem: str,
+    extension: str | None = None,
+    capability_id: str | None = None,
     registry: Any | None,
 ) -> dict[str, Any]:
     """Materialise *obj* and return a manifest entry."""
-    extension = _bridge_default_extension_for(obj, registry=registry)
+    extension = (
+        extension
+        if extension is not None
+        else (None if capability_id else _bridge_default_extension_for(obj, registry=registry))
+    )
     out_path = _bridge_materialise_to_file(
         obj,
         dest_dir,
         extension=extension,
         filename_stem=filename_stem,
+        capability_id=capability_id,
         registry=registry,
     )
     resolved_extension = out_path.suffix
-    fmt = _resolve_format_for(type(obj), resolved_extension, registry=registry)
-    return {
+    capability = _resolve_saver_capability_for(
+        type(obj),
+        resolved_extension,
+        capability_id=capability_id,
+        registry=registry,
+    )
+    entry = {
         "type": type(obj).__name__,
         "path": str(out_path),
         "extension": resolved_extension,
-        "format": fmt,
+        "format": capability.format_id if capability is not None else None,
     }
+    if capability is not None:
+        entry["capability_id"] = capability.id
+    return entry
 
 
-def _resolve_format_for(
+def _resolve_saver_capability_for(
     cls: type,
     extension: str,
     *,
+    capability_id: str | None = None,
     registry: Any | None,
-) -> str | None:
-    """Return the format identifier the resolved saver uses for *extension*."""
+) -> Any | None:
+    """Return the saver capability used for *extension*."""
     from scieasy.blocks.registry import BlockRegistry
 
     reg = registry if registry is not None else BlockRegistry()
     if registry is None:
         reg.scan()
-    saver_cls = reg.find_saver(cls, extension)
-    if saver_cls is None:
+    try:
+        return reg.find_saver_capability(cls, extension, capability_id=capability_id)
+    except LookupError:
         return None
-    exts: dict[str, str] = getattr(saver_cls, "supported_extensions", {}) or {}
-    normalised = {k.lower(): v for k, v in exts.items()}
-    return normalised.get(extension.lower())
 
 
 def _get_registry(registry: Any | None) -> BlockRegistry:
@@ -308,12 +360,11 @@ def _bridge_default_extension_for(obj: Any, *, registry: Any | None) -> str | No
         return preferred
 
     reg = _get_registry(registry)
-    savers = reg.find_io_blocks_for_type(type(obj), direction="output")
-    for saver_cls in savers:
-        exts: dict[str, str] = getattr(saver_cls, "supported_extensions", {}) or {}
-        if exts:
-            return next(iter(exts.keys()))
-    return None
+    try:
+        capability = reg.find_saver_capability(type(obj))
+    except LookupError:
+        return None
+    return capability.extensions[0]
 
 
 def _resolve_core_type_param(obj_or_type: Any) -> str | None:
@@ -358,35 +409,18 @@ def _bridge_materialise_to_file(
     *,
     extension: str | None,
     filename_stem: str,
+    capability_id: str | None = None,
     registry: Any | None,
 ) -> Path:
-    """Materialise *obj* through the saver layer without importing engine code."""
-    from scieasy.blocks.base.config import BlockConfig
+    """Materialise *obj* through the canonical engine helper."""
 
-    reg = _get_registry(registry)
+    from scieasy.blocks.io.materialisation import materialise_to_file
 
-    if extension is None:
-        extension = _bridge_default_extension_for(obj, registry=reg)
-        if extension is None:
-            raise LookupError(f"bridge.prepare: no saver/default extension registered for {type(obj).__name__}.")
-    if not extension.startswith("."):
-        extension = "." + extension
-
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    dest = dest_dir / f"{filename_stem}{extension}"
-
-    if _try_mount_existing_path(obj, dest, extension):
-        return dest
-
-    saver_cls = reg.find_saver(type(obj), extension)
-    if saver_cls is None:
-        raise LookupError(f"bridge.prepare: no saver matches {type(obj).__name__} for extension {extension!r}.")
-
-    params: dict[str, Any] = {"path": str(dest)}
-    core_type = _resolve_core_type_param(obj)
-    if core_type is not None:
-        params["core_type"] = core_type
-
-    saver = saver_cls()
-    saver.save(obj, BlockConfig(params=params))
-    return dest
+    return materialise_to_file(
+        obj,
+        dest_dir,
+        extension=extension,
+        filename_stem=filename_stem,
+        capability_id=capability_id,
+        registry=_get_registry(registry),
+    )

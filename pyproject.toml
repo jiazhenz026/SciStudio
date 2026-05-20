@@ -209,7 +209,6 @@ forbidden_modules = ["scieasy.engine", "scieasy.api", "scieasy.ai"]
 # AppBlock dispatch path.
 ignore_imports = [
     "scieasy.blocks.ai.ai_block -> scieasy.engine.pty_control",
-    "scieasy.blocks.app.app_block -> scieasy.engine.materialisation",
 ]
 
 [[tool.importlinter.contracts]]
