@@ -205,6 +205,12 @@ If any item is missing, the task is not complete.
 - Use `docs/ai-developer/templates/agent-dispatch-audit-no-context-prompt-template.md`
   if you are dispatching an audit agent without current task context.
 
+- Use `docs/ai-developer/skills/scieasy-e2e-test/SKILL.md` if you are running
+  a live end-to-end SciEasy session from a scenario file under
+  `docs/ai-developer/e2e/` (PR readiness, hotfix repro, regression check).
+  Pair it with `docs/ai-developer/e2e/template.md` (the fill-in scenario
+  template) and `docs/ai-developer/e2e/README.md` (workflow + naming).
+
 - Use `.agents/rules/rules.md` if the runtime is generic agent tooling.
 
 - Use `.claude/rules/rules.md` if the runtime is Claude.

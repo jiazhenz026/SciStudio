@@ -1,0 +1,199 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1285-scieasy-e2e-test-skill.json"
+      ],
+      "reason": "include the gate record file itself in scope (the record commits alongside the work)"
+    }
+  ],
+  "branch": "feat/scieasy-e2e-skill",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "626 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1285-scieasy-e2e-test-skill.json",
+    "shas": [
+      "7f7dc09a7aff63d9fcc211c5967a62f6da68220c"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "not-required-for-docs-only-skill-addition-no-architecture-change"
+    },
+    "changelog": {},
+    "checklist": {},
+    "docs": {
+      "paths": [
+        "docs/ai-developer/e2e/template.md",
+        "docs/ai-developer/e2e/README.md",
+        "docs/ai-developer/skills/scieasy-e2e-test/SKILL.md",
+        "docs/ai-developer/skills/scieasy-e2e-test/references/chrome-mcp-recipes.md",
+        "docs/ai-developer/skills/scieasy-e2e-test/references/dev-server-lifecycle.md",
+        "docs/ai-developer/skills/scieasy-e2e-test/references/screenshot-recipes.md",
+        "docs/ai-developer/skills/scieasy-e2e-test/references/report-template.md",
+        "AGENTS.md",
+        ".claude/rules/rules.md",
+        ".agents/rules/rules.md",
+        ".codex/rules/rules.md",
+        ".claude/skills/scieasy-e2e-test/SKILL.md",
+        ".agents/skills/scieasy-e2e-test/SKILL.md",
+        ".codex/skills/scieasy-e2e-test/SKILL.md",
+        "CHANGELOG.md"
+      ]
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "not-required-skill-content-is-self-describing"
+    },
+    "tests": {
+      "not_applicable": true,
+      "rationale": "n/a-docs-only-no-runtime-behavior"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [
+      "all failing findings are pre-existing repo-wide debt (frontmatter/doc-drift/closure/signature-drift/architecture-drift on docs untouched by this PR: ADR-031..035, ADR-042 spec, architecture doc); this PR adds only .md files under docs/ai-developer/{e2e,skills/scieasy-e2e-test} plus pointer .md files, none of which appear in the failing findings"
+    ],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1285,
+      "url": null
+    }
+  ],
+  "owner_directive": "Add a scieasy-e2e-test skill and a fill-in e2e scenario template under docs/ai-developer/e2e/ (request from owner on 2026-05-20).",
+  "planned_files": [
+    "docs/ai-developer/skills/scieasy-e2e-test/SKILL.md",
+    "docs/ai-developer/skills/scieasy-e2e-test/references/chrome-mcp-recipes.md",
+    "docs/ai-developer/skills/scieasy-e2e-test/references/dev-server-lifecycle.md",
+    "docs/ai-developer/skills/scieasy-e2e-test/references/screenshot-recipes.md",
+    "docs/ai-developer/skills/scieasy-e2e-test/references/report-template.md",
+    "docs/ai-developer/e2e/template.md",
+    "docs/ai-developer/e2e/README.md",
+    ".claude/skills/scieasy-e2e-test/SKILL.md",
+    ".agents/skills/scieasy-e2e-test/SKILL.md",
+    ".codex/skills/scieasy-e2e-test/SKILL.md",
+    "AGENTS.md",
+    ".claude/rules/rules.md",
+    ".agents/rules/rules.md",
+    ".codex/rules/rules.md",
+    "CHANGELOG.md"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1285
+    ],
+    "number": 1286,
+    "url": "https://github.com/zjzcpj/SciEasy/pull/1286"
+  },
+  "record_path": ".workflow/records/1285-scieasy-e2e-test-skill.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "docs/ai-developer/skills/scieasy-e2e-test/**",
+      "docs/ai-developer/e2e/**",
+      ".claude/skills/scieasy-e2e-test/**",
+      ".agents/skills/scieasy-e2e-test/**",
+      ".codex/skills/scieasy-e2e-test/**",
+      "AGENTS.md",
+      ".claude/rules/rules.md",
+      ".agents/rules/rules.md",
+      ".codex/rules/rules.md",
+      "CHANGELOG.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules + health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "docs/audit/sentrux-evidence.local.json",
+    "pro_required": false,
+    "quality_signal": 4130.0,
+    "rules_checked": 3,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1285-scieasy-e2e-test-skill",
+  "task_kind": "docs"
+}
