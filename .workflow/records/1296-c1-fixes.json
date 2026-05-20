@@ -8,6 +8,15 @@
         "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/load_image.py"
       ],
       "reason": "Scope expansion required to satisfy SC-003 deliverable: the C1 dispatch prompt assumed LoadImage._load_tiff already parsed OME-XML from the TIFF ImageDescription tag and exposed it on Image.Meta.ome, but the committed code constructs Image.Meta(source_file=path) with no ome= field. Without read-side parsing the SC-003 round-trip test cannot demonstrate end-to-end OME preservation through SaveImage(.ome.tif) -> LoadImage. Added _ome_from_tiff helper and threaded the parsed OME through _load_tiff's two return paths (persisted + in-memory). The capability already advertises format_metadata_reads=(ome,) per FR-004, so this brings the implementation up to the advertised fidelity."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1296-c1-fixes.json",
+        "docs/audit/full-audit-latest.json"
+      ],
+      "reason": "Add gate-record self-reference and full-audit JSON artifact to scope include (always touched by gate-record CLI + python -m scieasy.qa.audit.full_audit)."
     }
   ],
   "branch": "feat/issue-1296/adr043-c1-fixes",
@@ -88,7 +97,7 @@
     "summary": {},
     "unclassified_failures": []
   },
-  "governance_touch": false,
+  "governance_touch": true,
   "issues": [
     {
       "close_in_pr": true,
