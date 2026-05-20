@@ -139,7 +139,7 @@ language_source: en
 |---|---|---|---|---|---|---|---|---|---|---|
 | A1 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a1-core-io-prompt.md` | Core IO LoadData/SaveData migration (FR-001..003) | `feat/issue-1296/adr043-a1-core-io` | `.claude/worktrees/adr-043-a1-core-io/` | `src/scieasy/blocks/io/loaders/load_data.py`, `src/scieasy/blocks/io/savers/save_data.py`, `tests/blocks/io/test_load_data_capabilities.py`, `tests/blocks/io/test_save_data_capabilities.py`, `CHANGELOG.md` | imaging, srs, frontend, engine, registry, materialisation, IOBlock base | dispatched | `[~]` |
 | A2 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a2-imaging-io-prompt.md` | imaging IO migration + Image.Meta.ome + Bio-Formats extras (FR-004..008, FR-017) | `feat/issue-1296/adr043-a2-imaging-io` | `.claude/worktrees/adr-043-a2-imaging/` | `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/types.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/load_image.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/save_image.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/pillow_handler.py` (new), `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/bioformats_handler.py` (new), `packages/scieasy-blocks-imaging/pyproject.toml`, `packages/scieasy-blocks-imaging/tests/test_format_capabilities.py`, `packages/scieasy-blocks-imaging/tests/test_image_meta_ome.py`, `packages/scieasy-blocks-imaging/tests/test_bioformats_handler.py`, `CHANGELOG.md` | core IO, srs, frontend, ProcessBlock propagation, engine | dispatched | `[~]` |
-| A3 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a3-frontend-prompt.md` | Frontend UI: capability dropdown + OME browser + lossy-save warning (FR-012..014) | `feat/issue-1296/adr043-a3-frontend` | `.claude/worktrees/adr-043-a3-frontend/` | `frontend/src/components/PortEditor/CapabilityDropdown.tsx` (new), `frontend/src/components/OutputPreview/OMEMetadataPanel.tsx` (new), `frontend/src/components/WorkflowEditor/LossySaveWarning.tsx` (new), `frontend/src/api/capabilities.ts`, `frontend/src/__tests__/CapabilityDropdown.test.tsx` (new), `frontend/src/__tests__/OMEMetadataPanel.test.tsx` (new), `frontend/src/__tests__/LossySaveWarning.test.tsx` (new), `CHANGELOG.md` | backend code, ProcessBlock propagation | dispatched | `[~]` |
+| A3 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a3-frontend-prompt.md` | Frontend UI: capability dropdown + OME browser + lossy-save warning (FR-012..014) | `feat/issue-1296/adr043-a3-frontend` | `.claude/worktrees/adr-043-a3-frontend/` | `frontend/src/components/PortEditor/CapabilityDropdown.tsx` (new), `frontend/src/components/OutputPreview/OMEMetadataPanel.tsx` (new), `frontend/src/components/WorkflowEditor/LossySaveWarning.tsx` (new), `frontend/src/api/capabilities.ts` (new), `frontend/src/__tests__/CapabilityDropdown.test.tsx` (new), `frontend/src/__tests__/OMEMetadataPanel.test.tsx` (new), `frontend/src/__tests__/LossySaveWarning.test.tsx` (new), `frontend/src/__tests__/adr043-a3-smoke.test.tsx` (new — JSDOM smoke harness), `frontend/e2e/adr043-a3-smoke.md` (new — manual in-app browser checklist), `frontend/src/components/PortEditorTable.tsx` (modified — per-row CapabilityDropdown wiring + `capability_id` PortRow field), `frontend/src/components/DataPreview.tsx` (modified — OME metadata button + panel toggle), `frontend/src/components/WorkflowCanvas.tsx` (modified — derive `upstreamOmeFields` from `blockOutputs`), `frontend/src/components/nodes/BlockNode.tsx` (modified — LossySaveWarning in save-IO footer), `frontend/src/types/ui.ts` (modified — `upstreamOmeFields?: string[]` on `BlockNodeData`), `frontend/src/App.tsx` (modified — pass `blockOutputs` to `WorkflowCanvas`), `CHANGELOG.md` | backend code, ProcessBlock propagation | done | `[x]` |
 | B1 | implementer | N/A | pending | imaging ProcessBlock propagation audit + fix (FR-010); depends on A2 merged | `track/adr-043/core-blocks-and-imaging/b1-imaging-propagation` | `.claude/worktrees/adr-043-b1-imaging-propagation/` | `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/geometry.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/axis_ops.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/projection/projection.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/math/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/registration/*.py`, `packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py`, `docs/audit/adr-043-imaging-propagation-audit.md`, `CHANGELOG.md` | imaging IO, core IO, srs, frontend, engine | TBD | `[ ]` |
 | B2 | implementer | N/A | pending | SRS ProcessBlock propagation audit + fix (FR-011); depends on A2 merged | `track/adr-043/core-blocks-and-imaging/b2-srs-propagation` | `.claude/worktrees/adr-043-b2-srs-propagation/` | `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/*.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/*.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/spectral_extraction/*.py`, `packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py`, `docs/audit/adr-043-srs-propagation-audit.md`, `CHANGELOG.md` | imaging, core IO, frontend, engine | TBD | `[ ]` |
 | C1 | audit_reviewer | no-context | pending | No-context final audit (FR-001..017, SC-001..005); commit audit report | `track/adr-043/core-blocks-and-imaging/c1-audit` | `.claude/worktrees/adr-043-c1-audit/` | `docs/audit/adr-043-package-migration-final-audit-<sha>.md` | code changes; audit is read-only | TBD | `[ ]` |
@@ -265,28 +265,28 @@ language_source: en
 
 ### 9.2 Dispatch
 
-- [ ] Prompt file created.
-- [ ] Mandatory Chrome smoke test included in prompt.
-- [ ] Correct prompt template selected.
+- [x] Prompt file created — `docs/planning/dispatch-prompts/adr-043-a3-frontend-prompt.md`.
+- [x] Mandatory Chrome smoke test included in prompt — T-024 step + JSDOM-smoke fallback documented in `frontend/e2e/adr043-a3-smoke.md` (Chrome MCP / Playwright not provisioned in this repo per the dispatch prompt stop-condition; surfaced as a known gap in the report-back).
+- [x] Correct prompt template selected — `docs/ai-developer/templates/agent-dispatch-prompt-template.md` (DISPATCH-TEMPLATE-V1: implementer).
 
 ### 9.3 Implementation
 
-- [ ] `CapabilityDropdown.tsx` (FR-012) -> commit sha
-- [ ] `OMEMetadataPanel.tsx` (FR-013) -> commit sha
-- [ ] `LossySaveWarning.tsx` (FR-014) -> commit sha
-- [ ] API client `capabilities.ts` updates -> commit sha
-- [ ] Unit tests added -> commit sha
-- [ ] Chrome smoke test scripted + executed -> evidence path
-- [ ] CHANGELOG entry added -> commit sha
+- [x] `CapabilityDropdown.tsx` (FR-012) -> commit sha pending push
+- [x] `OMEMetadataPanel.tsx` (FR-013) -> commit sha pending push
+- [x] `LossySaveWarning.tsx` (FR-014) -> commit sha pending push
+- [x] API client `capabilities.ts` created (`listCapabilities`, `aggregateCapabilities`, `getOMEMetadata`, `extractOMEFromMetadata`, `lossyOmeFields`) -> commit sha pending push
+- [x] Unit tests added — `CapabilityDropdown.test.tsx` (6 tests), `OMEMetadataPanel.test.tsx` (13 tests), `LossySaveWarning.test.tsx` (11 tests) -> commit sha pending push
+- [x] Smoke test scripted + executed — JSDOM harness at `frontend/src/__tests__/adr043-a3-smoke.test.tsx` (6 tests, all pass) + manual checklist at `frontend/e2e/adr043-a3-smoke.md`; Chrome MCP/Playwright unavailable in this repo, so JSDOM is the committed evidence and the manual checklist is for the owner to run after umbrella merge.
+- [x] CHANGELOG entry added -> commit sha pending push
 
 ### 9.4 Audit
 
-- [ ] Codex auto-review consumed; P1/P2 reconciled.
+- [ ] Codex auto-review consumed; P1/P2 reconciled — pending PR creation.
 
 ### 9.5 Integration
 
-- [ ] Agent output reviewed by manager.
-- [ ] Track merged into umbrella branch.
+- [ ] Agent output reviewed by manager — pending.
+- [ ] Track merged into umbrella branch — pending.
 
 ## 10. Track: Phase B1 — imaging ProcessBlock Propagation Audit + Fix
 

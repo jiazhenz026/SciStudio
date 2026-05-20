@@ -6,6 +6,7 @@ import { api, ApiError } from "../../lib/api";
 import type { FilesystemEntry, FormatCapabilityResponse } from "../../types/api";
 import type { BlockNodeData } from "../../types/ui";
 import { computeEffectivePorts } from "../../utils/computeEffectivePorts";
+import { LossySaveWarning } from "../WorkflowEditor/LossySaveWarning";
 
 // ---------------------------------------------------------------------------
 // Category icon map
@@ -1086,6 +1087,28 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
             <ErrorMessage message={data.errorSummary ?? data.errorMessage!} />
           ) : null}
         </div>
+        {/* ADR-043 FR-014 — lossy-save warning chip. Only rendered for
+            save-direction IO blocks where the parent has supplied
+            `upstreamOmeFields` AND a capability is selected whose
+            `metadata_fidelity` would drop any of those fields. The
+            LossySaveWarning component itself returns null when the
+            dropped-field set is empty, so this branch is cheap when
+            there is no warning to surface. */}
+        {data.category === "io" && (data.schema?.direction === "output" || data.schema?.direction === "save") && data.upstreamOmeFields && data.upstreamOmeFields.length > 0 && (() => {
+          const selectedId = data.config?.capability_id;
+          const selectedCap = formatCapabilities.find(
+            (c) => typeof selectedId === "string" && c.id === selectedId,
+          ) ?? (formatCapabilities.length === 1 ? formatCapabilities[0] : undefined);
+          if (!selectedCap) return null;
+          return (
+            <div className="mt-1">
+              <LossySaveWarning
+                sourceOmeFields={data.upstreamOmeFields}
+                targetCapabilityFidelity={selectedCap.metadata_fidelity}
+              />
+            </div>
+          );
+        })()}
         {data.status === "paused" && data.category === "app" && (
           <PausedToast outputDir={String(data.config?.output_dir ?? "")} />
         )}

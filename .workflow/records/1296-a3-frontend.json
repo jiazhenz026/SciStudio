@@ -1,0 +1,152 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "feat/issue-1296/adr043-a3-frontend",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "npm test",
+      "exit_code": 0,
+      "name": "vitest run",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npm run build",
+      "exit_code": 0,
+      "name": "tsc --noEmit",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npx vitest run src/__tests__/adr043-a3-smoke.test.tsx",
+      "exit_code": 0,
+      "name": "JSDOM smoke (frontend/src/__tests__/adr043-a3-smoke.test.tsx)",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "changelog": {},
+    "checklist": {},
+    "docs": {
+      "paths": [
+        "CHANGELOG.md",
+        "frontend/e2e/adr043-a3-smoke.md"
+      ]
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 1,
+    "known_debt": [
+      "All 311 findings (frontmatter_lint=19, doc_drift=37, closure=22, signature_drift=98, architecture_drift=135) are pre-existing repo debt under docs/adr/ + docs/specs/ + docs/architecture/. Programmatic verification (check_audit.py): zero findings cite any of the 16 files this PR touches (frontend/src/components/PortEditor/CapabilityDropdown.tsx, frontend/src/components/OutputPreview/OMEMetadataPanel.tsx, frontend/src/components/WorkflowEditor/LossySaveWarning.tsx, frontend/src/api/capabilities.ts, the four new test files, the four integration-touched components, frontend/src/types/ui.ts, frontend/src/App.tsx, CHANGELOG.md, frontend/e2e/adr043-a3-smoke.md). Owner acknowledged the baseline debt per the manager checklist (admin-approved:ai-override bypass label)."
+    ],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "fail",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1296,
+      "url": null
+    }
+  ],
+  "owner_directive": "Add frontend UI for ADR-043 capability selection (CapabilityDropdown on port editor), OME metadata browser panel on output preview, and lossy-save warning chip on SaveImage nodes.",
+  "planned_files": [
+    "frontend/src/components/PortEditor/CapabilityDropdown.tsx",
+    "frontend/src/components/OutputPreview/OMEMetadataPanel.tsx",
+    "frontend/src/components/WorkflowEditor/LossySaveWarning.tsx",
+    "frontend/src/api/capabilities.ts",
+    "frontend/src/__tests__/CapabilityDropdown.test.tsx",
+    "frontend/src/__tests__/OMEMetadataPanel.test.tsx",
+    "frontend/src/__tests__/LossySaveWarning.test.tsx",
+    "frontend/src/__tests__/adr043-a3-smoke.test.tsx",
+    "frontend/src/components/PortEditorTable.tsx",
+    "frontend/src/components/DataPreview.tsx",
+    "frontend/src/components/WorkflowCanvas.tsx",
+    "frontend/src/components/nodes/BlockNode.tsx",
+    "frontend/src/types/ui.ts",
+    "frontend/src/App.tsx",
+    "CHANGELOG.md",
+    "frontend/e2e/adr043-a3-smoke.md"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1296-a3-frontend.json",
+  "required_checks": [
+    "vitest run",
+    "tsc --noEmit",
+    "JSDOM smoke (frontend/src/__tests__/adr043-a3-smoke.test.tsx)",
+    "full_audit"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": []
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": null,
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": 0,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 0
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1296-a3-frontend",
+  "task_kind": "feature"
+}
