@@ -11,7 +11,7 @@
 - Umbrella PR: #1297 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/adr-043/core-blocks-and-imaging
-- Agent branch: track/adr-043/core-blocks-and-imaging/a2-imaging-io
+- Agent branch: feat/issue-1296/adr043-a2-imaging-io
 - Agent worktree: `.claude/worktrees/adr-043-a2-imaging/` (provided by manager)
 - Manager checklist: `docs/planning/adr-043-package-migration-checklist.md` (edit ONLY rows in §6 marked "A2" and §8 Track A2)
 - Spec: `docs/specs/adr-043-package-migration.md` (your work is Phase A2 / FR-004..FR-008, FR-017)

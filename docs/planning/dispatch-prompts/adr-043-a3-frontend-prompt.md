@@ -11,7 +11,7 @@
 - Umbrella PR: #1297 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/adr-043/core-blocks-and-imaging
-- Agent branch: track/adr-043/core-blocks-and-imaging/a3-frontend
+- Agent branch: feat/issue-1296/adr043-a3-frontend
 - Agent worktree: `.claude/worktrees/adr-043-a3-frontend/` (provided by manager)
 - Manager checklist: `docs/planning/adr-043-package-migration-checklist.md` (edit ONLY rows in §6 marked "A3" and §9 Track A3)
 - Spec: `docs/specs/adr-043-package-migration.md` (your work is Phase A3 / FR-012..FR-014)

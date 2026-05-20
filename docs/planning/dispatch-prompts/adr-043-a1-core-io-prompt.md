@@ -11,7 +11,7 @@
 - Umbrella PR: #1297 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/adr-043/core-blocks-and-imaging
-- Agent branch: track/adr-043/core-blocks-and-imaging/a1-core-io
+- Agent branch: feat/issue-1296/adr043-a1-core-io
 - Agent worktree: `.claude/worktrees/adr-043-a1-core-io/` (provided by manager)
 - Manager checklist: `docs/planning/adr-043-package-migration-checklist.md` (edit ONLY row in §6 Dispatch Matrix marked "A1" and §7 Track A1 rows)
 - Spec: `docs/specs/adr-043-package-migration.md` (your work is Phase A1 / FR-001..FR-003, FR-015, FR-016)
@@ -55,7 +55,7 @@ If you need an out-of-scope path, stop and report back. Do not edit it.
 ## Coordination
 
 - You are not alone. A2 (imaging) and A3 (frontend) are running in parallel — independent worktrees, independent file sets.
-- MUST work only on your assigned branch `track/adr-043/core-blocks-and-imaging/a1-core-io`.
+- MUST work only on your assigned branch `feat/issue-1296/adr043-a1-core-io`.
 - MUST work only in your assigned worktree.
 - MUST NOT use `pip install -e .`.
 - Do not revert or overwrite other agents' work.
@@ -112,7 +112,7 @@ Known deferred items:
 
 Use `python -m scieasy.qa.governance.gate_record` with your own record path.
 
-1. `start --task-kind refactor --issue 1296 --slug a1-core-io --branch track/adr-043/core-blocks-and-imaging/a1-core-io --owner-directive "Phase A1: migrate LoadData/SaveData to explicit ADR-043 FormatCapability per spec FR-001..FR-003" --include <each file> --record-path .workflow/records/1296-a1-core-io.json`
+1. `start --task-kind refactor --issue 1296 --slug a1-core-io --branch feat/issue-1296/adr043-a1-core-io --owner-directive "Phase A1: migrate LoadData/SaveData to explicit ADR-043 FormatCapability per spec FR-001..FR-003" --include <each file> --record-path .workflow/records/1296-a1-core-io.json`
 2. `plan --planned-file <each> --required-check ruff --required-check format --required-check pytest --required-check full_audit --docs "CHANGELOG.md"`
 3. `docs --updated CHANGELOG.md --na "docs:no docs-doc changes; spec already covers contract"`
 4. `check` once per check after running.
