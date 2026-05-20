@@ -52,7 +52,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1296-b2-srs-propagation.json",
+    "shas": [
+      "77e56850"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {
@@ -96,7 +102,13 @@
     "docs/planning/adr-043-package-migration-checklist.md",
     "CHANGELOG.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1296
+    ],
+    "number": 1301,
+    "url": "https://github.com/zjzcpj/SciEasy/pull/1301"
+  },
   "record_path": ".workflow/records/1296-b2-srs-propagation.json",
   "required_checks": [
     "pytest packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py --timeout=60",
@@ -171,7 +183,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
