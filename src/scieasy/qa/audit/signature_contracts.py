@@ -1,4 +1,4 @@
-"""Extract ADR-042 expected signature facts from structured spec sections."""
+"""Extract ADR-042 expected signature facts from governed documents."""
 
 from __future__ import annotations
 
@@ -9,7 +9,13 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
 
-from scieasy.qa.audit._util import git_tracked_relative_paths, is_tracked_path, load_spec_frontmatter, normalise_path
+from scieasy.qa.audit._util import (
+    git_tracked_relative_paths,
+    is_tracked_path,
+    load_adr_frontmatter,
+    load_spec_frontmatter,
+    normalise_path,
+)
 from scieasy.qa.schemas.facts import Fact
 from scieasy.qa.schemas.signatures import ExpectedCliCommand, ExpectedModelField, ExpectedParameter, ExpectedSignature
 
@@ -202,7 +208,19 @@ def _signature_facts_from_code(
     ] + model_field_facts
 
 
-def _signature_section_body(body: str) -> str:
+def _body_start_line(path: Path) -> int:
+    raw = path.read_text(encoding="utf-8")
+    if not raw.startswith("---\n") and not raw.startswith("---\r\n"):
+        return 1
+    marker = "\r\n---\r\n" if raw.startswith("---\r\n") else "\n---\n"
+    start = 5 if marker.startswith("\r\n") else 4
+    end = raw.find(marker, start)
+    if end < 0:
+        return 1
+    return raw[: end + len(marker)].count("\n") + 1
+
+
+def _signature_section_body(body: str, *, body_start_line: int) -> tuple[str, int]:
     lines = body.splitlines()
     start: int | None = None
     for index, line in enumerate(lines):
@@ -210,13 +228,13 @@ def _signature_section_body(body: str) -> str:
             start = index + 1
             break
     if start is None:
-        return ""
+        return "", 0
     end = len(lines)
     for index in range(start, len(lines)):
-        if lines[index].startswith("## "):
+        if lines[index].startswith("## ") or lines[index].startswith("### "):
             end = index
             break
-    return "\n".join(lines[start:end])
+    return "\n".join(lines[start:end]), body_start_line + start
 
 
 def _unique_contracts_by_leaf(contracts: list[str]) -> dict[str, str]:
@@ -233,6 +251,7 @@ def _table_cells(line: str) -> list[str]:
 def _cli_command_facts_from_section(
     section: str,
     *,
+    section_start_line: int,
     source_path: str,
     source_sha: str,
     owner: str | None,
@@ -271,12 +290,12 @@ def _cli_command_facts_from_section(
             command=command,
             expected_exit_codes=exit_codes,
             source_spec=source_path,
-            source_line=line_no,
+            source_line=section_start_line + line_no - 1,
         )
         subject = " ".join(cli.command)
         facts.append(
             Fact(
-                id=f"expected-cli-command:{source_path}:{line_no}:{subject}",
+                id=f"expected-cli-command:{source_path}:{cli.source_line}:{subject}",
                 kind="expected-cli-command",
                 source=source_path,
                 subject=subject,
@@ -287,6 +306,55 @@ def _cli_command_facts_from_section(
                 stability="stable",
             )
         )
+    return facts
+
+
+def _signature_contract_facts_from_document(
+    path: Path,
+    *,
+    body: str,
+    contracts: list[str],
+    owner: str | None,
+    repo_root: Path,
+    source_sha: str,
+) -> list[Fact]:
+    contracts_by_leaf = _unique_contracts_by_leaf(contracts)
+    section, section_start_line = _signature_section_body(body, body_start_line=_body_start_line(path))
+    if not section:
+        return []
+    source_path = normalise_path(path.relative_to(repo_root))
+    facts = _cli_command_facts_from_section(
+        section,
+        section_start_line=section_start_line,
+        source_path=source_path,
+        source_sha=source_sha,
+        owner=owner,
+    )
+    section_lines = section.splitlines()
+    in_fence = False
+    fence_start = 0
+    buffer: list[str] = []
+    for index, line in enumerate(section_lines, start=1):
+        if not in_fence and _FENCE_RE.match(line.strip()):
+            in_fence = True
+            fence_start = section_start_line + index
+            buffer = []
+            continue
+        if in_fence and line.strip() == "```":
+            facts.extend(
+                _signature_facts_from_code(
+                    "\n".join(buffer),
+                    source_path=source_path,
+                    source_line=fence_start,
+                    source_sha=source_sha,
+                    owner=owner,
+                    contracts_by_leaf=contracts_by_leaf,
+                )
+            )
+            in_fence = False
+            continue
+        if in_fence:
+            buffer.append(line)
     return facts
 
 
@@ -308,42 +376,66 @@ def extract_signature_contracts(
             continue
         if spec.status not in {"Planned", "Implemented"}:
             continue
-        contracts_by_leaf = _unique_contracts_by_leaf(spec.governs.contracts)
-        section = _signature_section_body(body)
-        if not section:
-            continue
-        source_path = normalise_path(path.relative_to(repo_root))
         facts.extend(
-            _cli_command_facts_from_section(
-                section,
-                source_path=source_path,
-                source_sha=source_sha,
+            _signature_contract_facts_from_document(
+                path,
+                body=body,
+                contracts=spec.governs.contracts,
                 owner=spec.owners[0] if spec.owners else None,
+                repo_root=repo_root,
+                source_sha=source_sha,
             )
         )
-        section_lines = section.splitlines()
-        in_fence = False
-        fence_start = 0
-        buffer: list[str] = []
-        for index, line in enumerate(section_lines, start=1):
-            if not in_fence and _FENCE_RE.match(line.strip()):
-                in_fence = True
-                fence_start = index + 1
-                buffer = []
-                continue
-            if in_fence and line.strip() == "```":
-                facts.extend(
-                    _signature_facts_from_code(
-                        "\n".join(buffer),
-                        source_path=source_path,
-                        source_line=fence_start,
-                        source_sha=source_sha,
-                        owner=spec.owners[0] if spec.owners else None,
-                        contracts_by_leaf=contracts_by_leaf,
-                    )
-                )
-                in_fence = False
-                continue
-            if in_fence:
-                buffer.append(line)
     return facts
+
+
+def extract_adr_signature_contracts(
+    adr_paths: Sequence[Path],
+    *,
+    repo_root: Path,
+    source_sha: str,
+) -> list[Fact]:
+    """Extract expected signature facts from ADR Signature-Level Contracts sections."""
+
+    facts: list[Fact] = []
+    tracked_paths = git_tracked_relative_paths(repo_root)
+    for path in sorted(adr_paths):
+        if not is_tracked_path(path, repo_root, tracked_paths):
+            continue
+        adr, body, findings = load_adr_frontmatter(path)
+        if adr is None or findings:
+            continue
+        if adr.status not in {"Accepted", "Proposed"}:
+            continue
+        facts.extend(
+            _signature_contract_facts_from_document(
+                path,
+                body=body,
+                contracts=adr.governs.contracts,
+                owner=adr.owner,
+                repo_root=repo_root,
+                source_sha=source_sha,
+            )
+        )
+    return facts
+
+
+def extract_governed_signature_contracts(
+    *,
+    repo_root: Path,
+    source_sha: str,
+) -> list[Fact]:
+    """Extract expected signature facts from active specs and ADRs."""
+
+    return [
+        *extract_signature_contracts(
+            sorted((repo_root / "docs" / "specs").glob("*.md")),
+            repo_root=repo_root,
+            source_sha=source_sha,
+        ),
+        *extract_adr_signature_contracts(
+            sorted((repo_root / "docs" / "adr").glob("ADR-*.md")),
+            repo_root=repo_root,
+            source_sha=source_sha,
+        ),
+    ]

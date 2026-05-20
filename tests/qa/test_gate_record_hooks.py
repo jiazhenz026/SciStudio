@@ -60,6 +60,10 @@ def test_legacy_gate_py_removed() -> None:
     assert not (REPO_ROOT / ".workflow" / "gate.py").exists()
 
 
+def test_legacy_active_workflow_state_removed() -> None:
+    assert not (REPO_ROOT / ".workflow" / "active").exists()
+
+
 def test_pre_commit_does_not_branch_match_hotfix() -> None:
     assert "hotfix/" not in _text(".workflow/hooks/pre-commit")
     assert "hotfix/" not in _text(".pre-commit-config.yaml")

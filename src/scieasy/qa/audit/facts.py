@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from scieasy.qa.audit._util import git_tracked_relative_paths, normalise_path
 from scieasy.qa.audit.griffe_facts import generate_registry
-from scieasy.qa.audit.signature_contracts import extract_signature_contracts
+from scieasy.qa.audit.signature_contracts import extract_governed_signature_contracts
 from scieasy.qa.schemas.facts import FactsRegistry
 from scieasy.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
@@ -99,8 +99,7 @@ def generate_facts(
     registry = generate_registry(root, package=package, source_sha=sha)
     if include_signature_contracts:
         registry.facts.extend(
-            extract_signature_contracts(
-                sorted((root / "docs" / "specs").glob("*.md")),
+            extract_governed_signature_contracts(
                 repo_root=root,
                 source_sha=sha,
             )

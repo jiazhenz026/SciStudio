@@ -1,0 +1,134 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "hotfix/rewrite-adr-001-040",
+  "changed_test_paths": [
+    "tests/qa/test_audit_signature_contracts.py",
+    "tests/qa/test_gate_record_hooks.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check src/scieasy/qa/audit/signature_contracts.py src/scieasy/qa/audit/facts.py src/scieasy/qa/audit/signature_drift.py tests/qa/test_audit_signature_contracts.py tests/qa/test_gate_record_hooks.py",
+      "exit_code": 0,
+      "name": "ruff-audit-signature-contracts-and-hooks",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest --no-cov tests/qa/test_gate_record_hooks.py",
+      "exit_code": 0,
+      "name": "pytest-gate-record-hooks",
+      "output_path": "9 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest --no-cov tests/qa/test_audit_signature_contracts.py tests/qa/test_audit_signature_drift.py tests/qa/test_generate_facts_cli.py",
+      "exit_code": 0,
+      "name": "pytest-signature-contracts-and-facts",
+      "output_path": "9 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scieasy.qa.audit.frontmatter_lint docs/adr/ADR-001.md --format text",
+      "exit_code": 0,
+      "name": "frontmatter-adr-001",
+      "output_path": "No findings",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {},
+  "full_audit": null,
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1294,
+      "url": "https://github.com/zjzcpj/SciEasy/issues/1294"
+    }
+  ],
+  "owner_directive": "Owner requested fixing legacy no-active-workflow warnings without touching another agent's worktree, and pushing this work as a PR from the current worktree. Include ADR signature-contract audit support needed before continuing ADR-001..040 split.",
+  "planned_files": [
+    "docs/adr/ADR.md",
+    "docs/adr/ADR-001.md",
+    "src/scieasy/qa/audit/signature_contracts.py",
+    "src/scieasy/qa/audit/signature_drift.py",
+    "src/scieasy/qa/audit/facts.py",
+    "tests/qa/test_audit_signature_contracts.py",
+    "tests/qa/test_gate_record_hooks.py",
+    ".workflow/active/20260408-191813-fix-fijiblock-passes-exchange-dir-instea.json"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1294-adr-signature-contracts-active-workflow-warning.json",
+  "required_checks": [
+    "ruff check src/scieasy/qa/audit/signature_contracts.py src/scieasy/qa/audit/facts.py src/scieasy/qa/audit/signature_drift.py tests/qa/test_audit_signature_contracts.py tests/qa/test_gate_record_hooks.py",
+    "PYTHONPATH=src pytest --no-cov tests/qa/test_gate_record_hooks.py",
+    "PYTHONPATH=src pytest --no-cov tests/qa/test_audit_signature_contracts.py tests/qa/test_audit_signature_drift.py tests/qa/test_generate_facts_cli.py",
+    "python -m scieasy.qa.audit.frontmatter_lint docs/adr/ADR-001.md --format text"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "docs/adr/ADR-*.md",
+      "docs/adr/ADR.md",
+      "src/scieasy/qa/audit/signature_contracts.py",
+      "src/scieasy/qa/audit/signature_drift.py",
+      "src/scieasy/qa/audit/facts.py",
+      "tests/qa/test_audit_signature_contracts.py",
+      "tests/qa/test_gate_record_hooks.py",
+      ".workflow/active/**",
+      ".workflow/records/1294-adr-signature-contracts-active-workflow-warning.json"
+    ]
+  },
+  "sentrux": null,
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1294-adr-signature-contracts-active-workflow-warning",
+  "task_kind": "hotfix"
+}
