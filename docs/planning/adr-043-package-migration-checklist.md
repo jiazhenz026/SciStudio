@@ -34,8 +34,8 @@ language_source: en
     umbrella branch.
 - Protected branch: `main`
 - Umbrella branch: `track/adr-043/core-blocks-and-imaging`
-- Umbrella PR: `pending`
-- Umbrella PR title: `[DO NOT MERGE] track/adr-043 core blocks, imaging, SRS migration umbrella`
+- Umbrella PR: `#1297` — https://github.com/zjzcpj/SciEasy/pull/1297
+- Umbrella PR title: `[DO NOT MERGE] track(#1296): ADR-043 in-tree + imaging + SRS migration umbrella`
 - Final PR target: `main`
 - Spec doc: `docs/specs/adr-043-package-migration.md`
 - Dispatch prompt templates:
@@ -99,35 +99,47 @@ language_source: en
       (`.workflow/records/1296-adr-043-package-migration-manager.json`).
 - [x] Scope include/exclude recorded in the gate record.
 - [x] Umbrella branch created.
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [ ] Protected branch and umbrella PR number recorded in this checklist.
+- [x] Umbrella PR opened (#1297).
+- [x] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Protected branch and umbrella PR number recorded in this checklist.
 - [x] No `pip install -e .` environment pollution found (manager worktree only
       runs gate-record CLI).
 - [x] Dispatch checklist copied from the template and committed (this file).
-- [ ] Dispatch prompts created from the correct prompt template and linked
-      below.
-- [ ] Sentrux baseline recorded, or N/A reason recorded.
+- [x] Dispatch prompts created from the correct prompt template and linked
+      below:
+      - A1: `docs/planning/dispatch-prompts/adr-043-a1-core-io-prompt.md`
+      - A2: `docs/planning/dispatch-prompts/adr-043-a2-imaging-io-prompt.md`
+      - A3: `docs/planning/dispatch-prompts/adr-043-a3-frontend-prompt.md`
+- [x] Sentrux baseline recorded: N/A. Manager-track umbrella PR carries only docs/planning/gate-record/CHANGELOG scaffolding; Sentrux CLI unavailable locally; per-phase sub-PRs (A1/A2/A3/B1/B2) each own their Sentrux evidence at implementation surface.
 
 ## 5. Local Gate Hook Bypass Evidence
 
-- Authorized bypass label: `N/A`
-- Owner authorization source: `N/A`
-- Reason: `N/A` — manager track follows normal gated workflow without bypass.
+- Authorized bypass label: `admin-approved:ai-override`
+- Owner authorization source: chat, 2026-05-20, manager session approving
+  umbrella PR creation past Sentrux + full-audit gates after owner confirmed
+  audit/CI gates are not yet enforced and the manager-track umbrella has no
+  Python / governance code / architecture-relevant changes (4 additive
+  scaffolding files only).
+- Reason: (a) Sentrux CLI not installed locally; per-phase sub-PRs carry their
+  own Sentrux evidence at their implementation surfaces. (b) Full-audit
+  reports pre-existing repository debt unrelated to this PR (ADR-031 missing
+  frontmatter, adr-042-consistency-tools.md signature drift, architecture-doc
+  AnnData/SpatialData refs) that the owner is repairing in parallel.
 
 | Hook | Command | Bypass label | Status | Evidence |
 |---|---|---|---|---|
-| Pre-commit | `python -m scieasy.qa.governance.gate_record pre-commit --staged` | `N/A` | `[ ]` | pending |
-| Commit message | `python -m scieasy.qa.governance.gate_record commit-msg <commit-msg-file>` | `N/A` | `[ ]` | pending |
-| Pre-push | `python -m scieasy.qa.governance.gate_record pre-push` | `N/A` | `[ ]` | pending |
+| Pre-commit | `python -m scieasy.qa.governance.gate_record pre-commit --staged` | `N/A` (no hook installed in this worktree) | `[x]` | manager-track files staged cleanly; no pre-commit hook in `.git/hooks/` |
+| Commit message | `python -m scieasy.qa.governance.gate_record commit-msg <commit-msg-file>` | `N/A` | `[x]` | Trailers present: `Gate-Record: ...`, `Task-Kind: manager`, `Issue: #1296`, `Assisted-by: claude-code:claude-opus-4-7` |
+| Pre-push | `python -m scieasy.qa.governance.gate_record pre-push` | `admin-approved:ai-override` | `[x]` | First push allowed; subsequent force-push allowed with `--force-with-lease` after gate record finalize (commit_and_submit_pr stage). Sentrux + full-audit gate failures classified as pre-existing repo debt + Sentrux CLI unavailable. |
+| PR-create (gh) | `gh pr create --label admin-approved:ai-override ...` | `admin-approved:ai-override` | `[x]` | PR #1297 created with override label; label provenance via chat authorization recorded above. |
 
 ## 6. Dispatch Matrix
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| A1 | implementer | N/A | pending | Core IO LoadData/SaveData migration (FR-001..003) | `track/adr-043/core-blocks-and-imaging/a1-core-io` | `.claude/worktrees/adr-043-a1-core-io/` | `src/scieasy/blocks/io/loaders/load_data.py`, `src/scieasy/blocks/io/savers/save_data.py`, `tests/blocks/io/test_load_data_capabilities.py`, `tests/blocks/io/test_save_data_capabilities.py`, `CHANGELOG.md` | imaging, srs, frontend, engine, registry, materialisation | TBD | `[ ]` |
-| A2 | implementer | N/A | pending | imaging IO migration + Image.Meta.ome + Bio-Formats extras (FR-004..008, FR-017) | `track/adr-043/core-blocks-and-imaging/a2-imaging-io` | `.claude/worktrees/adr-043-a2-imaging/` | `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/types.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/load_image.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/save_image.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/pillow_handler.py` (new), `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/bioformats_handler.py` (new), `packages/scieasy-blocks-imaging/pyproject.toml`, `packages/scieasy-blocks-imaging/tests/test_format_capabilities.py`, `packages/scieasy-blocks-imaging/tests/test_image_meta_ome.py`, `packages/scieasy-blocks-imaging/tests/test_bioformats_handler.py`, `CHANGELOG.md` | core IO, srs, frontend, ProcessBlock propagation, engine | TBD | `[ ]` |
-| A3 | implementer | N/A | pending | Frontend UI: capability dropdown + OME browser + lossy-save warning (FR-012..014) | `track/adr-043/core-blocks-and-imaging/a3-frontend` | `.claude/worktrees/adr-043-a3-frontend/` | `frontend/src/components/PortEditor/CapabilityDropdown.tsx` (new), `frontend/src/components/OutputPreview/OMEMetadataPanel.tsx` (new), `frontend/src/components/WorkflowEditor/LossySaveWarning.tsx` (new), `frontend/src/api/capabilities.ts`, `frontend/src/__tests__/CapabilityDropdown.test.tsx` (new), `frontend/src/__tests__/OMEMetadataPanel.test.tsx` (new), `frontend/src/__tests__/LossySaveWarning.test.tsx` (new), `CHANGELOG.md` | backend code, ProcessBlock propagation | TBD | `[ ]` |
+| A1 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a1-core-io-prompt.md` | Core IO LoadData/SaveData migration (FR-001..003) | `track/adr-043/core-blocks-and-imaging/a1-core-io` | `.claude/worktrees/adr-043-a1-core-io/` | `src/scieasy/blocks/io/loaders/load_data.py`, `src/scieasy/blocks/io/savers/save_data.py`, `tests/blocks/io/test_load_data_capabilities.py`, `tests/blocks/io/test_save_data_capabilities.py`, `CHANGELOG.md` | imaging, srs, frontend, engine, registry, materialisation, IOBlock base | dispatched | `[~]` |
+| A2 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a2-imaging-io-prompt.md` | imaging IO migration + Image.Meta.ome + Bio-Formats extras (FR-004..008, FR-017) | `track/adr-043/core-blocks-and-imaging/a2-imaging-io` | `.claude/worktrees/adr-043-a2-imaging/` | `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/types.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/load_image.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/save_image.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/pillow_handler.py` (new), `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/bioformats_handler.py` (new), `packages/scieasy-blocks-imaging/pyproject.toml`, `packages/scieasy-blocks-imaging/tests/test_format_capabilities.py`, `packages/scieasy-blocks-imaging/tests/test_image_meta_ome.py`, `packages/scieasy-blocks-imaging/tests/test_bioformats_handler.py`, `CHANGELOG.md` | core IO, srs, frontend, ProcessBlock propagation, engine | dispatched | `[~]` |
+| A3 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a3-frontend-prompt.md` | Frontend UI: capability dropdown + OME browser + lossy-save warning (FR-012..014) | `track/adr-043/core-blocks-and-imaging/a3-frontend` | `.claude/worktrees/adr-043-a3-frontend/` | `frontend/src/components/PortEditor/CapabilityDropdown.tsx` (new), `frontend/src/components/OutputPreview/OMEMetadataPanel.tsx` (new), `frontend/src/components/WorkflowEditor/LossySaveWarning.tsx` (new), `frontend/src/api/capabilities.ts`, `frontend/src/__tests__/CapabilityDropdown.test.tsx` (new), `frontend/src/__tests__/OMEMetadataPanel.test.tsx` (new), `frontend/src/__tests__/LossySaveWarning.test.tsx` (new), `CHANGELOG.md` | backend code, ProcessBlock propagation | dispatched | `[~]` |
 | B1 | implementer | N/A | pending | imaging ProcessBlock propagation audit + fix (FR-010); depends on A2 merged | `track/adr-043/core-blocks-and-imaging/b1-imaging-propagation` | `.claude/worktrees/adr-043-b1-imaging-propagation/` | `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/geometry.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/axis_ops.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/projection/projection.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/math/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/registration/*.py`, `packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py`, `docs/audit/adr-043-imaging-propagation-audit.md`, `CHANGELOG.md` | imaging IO, core IO, srs, frontend, engine | TBD | `[ ]` |
 | B2 | implementer | N/A | pending | SRS ProcessBlock propagation audit + fix (FR-011); depends on A2 merged | `track/adr-043/core-blocks-and-imaging/b2-srs-propagation` | `.claude/worktrees/adr-043-b2-srs-propagation/` | `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/*.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/*.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/spectral_extraction/*.py`, `packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py`, `docs/audit/adr-043-srs-propagation-audit.md`, `CHANGELOG.md` | imaging, core IO, frontend, engine | TBD | `[ ]` |
 | C1 | audit_reviewer | no-context | pending | No-context final audit (FR-001..017, SC-001..005); commit audit report | `track/adr-043/core-blocks-and-imaging/c1-audit` | `.claude/worktrees/adr-043-c1-audit/` | `docs/audit/adr-043-package-migration-final-audit-<sha>.md` | code changes; audit is read-only | TBD | `[ ]` |
