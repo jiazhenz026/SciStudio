@@ -58,7 +58,48 @@ row).
 
 ---
 
-### E2E-001 — _(example WF; replace with a real case)_
+### E2E-001 — Real microplastic SRS calibration pipeline reproduced as a SciEasy block graph
+
+- **Category**: WF
+- **Priority**: P1
+- **Related FR / SC**: FR-004, FR-006, FR-009, FR-010, FR-011, SC-001, SC-003
+- **Owner project**: `C:/Users/jiazh/Box/Jiazhen Zhang/04 Data/microplastics/processed/microplastic-size-calibration/` (a real SciEasy project with `project.yaml`, custom `blocks/`, and 12 SRS TIFF fixtures under `data/raw/`).
+- **Given**: the project's existing custom blocks (`microplastics.parse_metadata`, `melt_spectra`, `find_peaks`, `calibrate_size`) plus the ADR-043 + ADR-041 integrated umbrella's imaging + srs blocks.
+- **When**: workflow `workflows/microplastic-size-calibration-v3.yaml` (written for this case) is run via `python run_workflow.py workflows/microplastic-size-calibration-v3.yaml`. The graph is
+  `parse_metadata → imaging.load_image → srs.calibrate (scale=50000) → imaging.axis_projection (max along λ) → imaging.cellpose_segment (cyto3, diameter=8) → srs.extract_spectrum (3D stack + 2D labels) → microplastics.melt_spectra → find_peaks → calibrate_size → save_data`.
+- **Then**:
+  - Workflow runs to completion across all 12 TIFFs.
+  - Final outputs land under `data/parquet/calibration.parquet` + `data/artifacts/size_calibration.zarr`.
+  - The calibration's log-log slope/intercept matches the notebook within numerical tolerance.
+  - Every `Image` flowing through `imaging.axis_projection` and `imaging.cellpose_segment` preserves `meta.ome` through to the downstream consumer (FR-009 Mode B + Mode C propagation).
+- **Expected**: PASS — exercises the full ADR-043 capability dispatch + ADR-041 propagation contract on real data.
+- **Status**: `[ ]`
+- **Evidence (pass)**: `workflows/microplastic-size-calibration-v3.yaml` committed in the owner's Box project; run record under `lineage/` of that project.
+- **Issue (fail)**:
+
+---
+
+### E2E-002 — Same calibration notebook run end-to-end as a single ADR-041 CodeBlock v2 node
+
+- **Category**: WF (also exercises ADR-041 CodeBlock v2)
+- **Priority**: P1
+- **Related FR / SC**: FR-009 (propagation N/A — single node), ADR-041 §4 (Python + Jupyter notebook backend), ADR-041 §7 (auto-captured `_executed_notebook` artifact)
+- **Owner project**: same as E2E-001.
+- **Given**: the same project's `size_intensity_calibration_pipeline.ipynb` at the project root; CodeBlock v2 + Jupyter notebook backend integrated in the umbrella branch (ADR-041 Track C2 from PR #1235).
+- **When**: workflow `workflows/microplastic-codeblock-direct.yaml` (written for this case) is run. The graph is a single `code_block` node with `script_path: size_intensity_calibration_pipeline.ipynb`, `working_directory: "."`, `inputs: []`, `outputs: []`, `timeout_seconds: 1800`. The notebook reads `data/raw/*.tif` and writes `calibration_outputs/...` natively via project-cwd.
+- **Then**:
+  - CodeBlock launches `jupyter nbconvert --execute` (or equivalent) on the notebook.
+  - Notebook runs to completion against the project's `data/raw/` directory.
+  - `_executed_notebook` Artifact output is captured per ADR-041 §7 and visible in the run's lineage.
+  - On-disk outputs at `calibration_outputs/` are equivalent to the manual notebook run (existing `size_intensity_calibration_pipeline_executed.ipynb` is the reference baseline).
+- **Expected**: PASS — proves CodeBlock v2 can wrap an existing real-world notebook with zero source edits.
+- **Status**: `[ ]`
+- **Evidence (pass)**: workflow YAML committed in the owner's Box project; lineage entry for the run; size + content parity check between the auto-captured executed notebook and the reference `size_intensity_calibration_pipeline_executed.ipynb`.
+- **Issue (fail)**:
+
+---
+
+### E2E-003 — _(example WF; replace with a real case)_
 
 - **Category**: WF
 - **Priority**: P1
