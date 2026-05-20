@@ -334,8 +334,8 @@ Tasks:
 Exit Criteria:
 
 - [x] Audit passes. Evidence: ADR-041 scoped audit passes in `docs/audit/2026-05-20-adr-041-final-audit.md`; full aggregate residuals are unrelated to ADR-041 and listed there.
-- [ ] Umbrella PR body links child PRs, audit report, tests, and unresolved risks.
-- [ ] Umbrella PR is ready for review once child PRs are merged and CI is green.
+- [x] Umbrella PR body links child PRs, audit report, tests, and unresolved risks. Evidence: [umbrella PR #1229](https://github.com/zjzcpj/SciEasy/pull/1229) body updated on 2026-05-20.
+- [x] Umbrella PR is ready for review once child PRs are merged and CI is green. Evidence: child PRs #1231, #1233, #1239, #1247, #1248, #1249, #1250, #1255, #1256, and #1261 were green before merge/readiness.
 
 ## Dispatch Log
 
