@@ -4,6 +4,22 @@ This file defines the working rules, architectural boundaries, and engineering s
 
 The goal is to keep development standardized, traceable, extensible, and aligned with the project's long-term architecture.
 
+## Canonical AI Developer Assets
+
+This file is the root policy entry point. Detailed AI developer rules live in
+`ai_developers/rules/`, and canonical repository-development skills live in
+`ai_developers/skills/`.
+
+Runtime-specific skill directories are mirrors only:
+
+- `.claude/skills/`
+- `.codex/skills/`
+- `.agents/skills/`
+
+Update `ai_developers/skills/` first, then synchronize all runtime mirrors.
+The active workflow gate is documented in `ai_developers/rules/gate-workflow.md`.
+ADR-042 local gate sessions and other not-yet-implemented checks are not
+active until their tools and CI checks are implemented.
 ---
 
 # 1. Project Identity

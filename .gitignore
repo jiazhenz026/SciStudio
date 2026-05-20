@@ -41,10 +41,16 @@ Desktop.ini
 # Environment and auth (keys must be in GitHub Secrets, never committed)
 .env
 *.env.local
-.codex/
+.codex/*
+!.codex/skills/
+!.codex/skills/**/
+!.codex/skills/**/SKILL.md
 auth.json
 
-.claude/
+.claude/*
+!.claude/skills/
+!.claude/skills/**/
+!.claude/skills/**/SKILL.md
 
 # Data (local working data, not tracked)
 data/local/
