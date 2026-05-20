@@ -23,6 +23,7 @@ from scieasy.blocks.io.io_block import IOBlock
 from scieasy.core.meta.framework import FrameworkMeta
 from scieasy.core.types.base import DataObject
 from scieasy.core.types.collection import Collection
+from scieasy_blocks_imaging.io.pillow_handler import _load_jpeg, _load_png
 from scieasy_blocks_imaging.types import Image
 
 # ADR-028 §D8 / issue #1075: module-level legacy constants
@@ -224,6 +225,16 @@ class LoadImage(IOBlock):
     description: ClassVar[str] = "Load a TIFF or Zarr image into an Image data object."
     subcategory: ClassVar[str] = "io"
 
+    # ADR-043 / spec adr-043-package-migration FR-004: explicit per-format
+    # capability declarations covering TIFF, vanilla Zarr, Pillow PNG/JPEG,
+    # and the Bio-Formats vendor microscopy family (load-only). Every
+    # capability declares ``level="format_specific"`` with
+    # ``format_metadata_reads=("ome",)`` because the handlers populate
+    # :attr:`Image.Meta.ome` to varying fidelity (full OME-XML for TIFF /
+    # CZI / ND2 / LIF / OIR / OIB; EXIF DPI mapped to ome.physical_size_*
+    # for PNG / JPEG; minimal for vanilla zarr stores). ``typed_meta_reads``
+    # enumerates the typed ``Image.Meta`` fields the handler reliably
+    # populates beyond ``ome``.
     format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
         FormatCapability(
             id="scieasy-blocks-imaging.image.tiff.load",
@@ -237,8 +248,13 @@ class LoadImage(IOBlock):
             is_default=True,
             roundtrip_group="scieasy-blocks-imaging.image.tiff",
             metadata_fidelity=MetadataFidelity(
-                level="pixel_only",
-                notes="Loads image payload and structural axes; no typed Image.Meta domain metadata is promised.",
+                level="format_specific",
+                format_metadata_reads=("ome",),
+                typed_meta_reads=("source_file",),
+                notes=(
+                    "Loads image payload and structural axes; OME-TIFF metadata"
+                    " is detected inside the handler and populates Image.Meta.ome."
+                ),
             ),
         ),
         FormatCapability(
@@ -253,8 +269,139 @@ class LoadImage(IOBlock):
             is_default=True,
             roundtrip_group="scieasy-blocks-imaging.image.zarr",
             metadata_fidelity=MetadataFidelity(
-                level="pixel_only",
-                notes="Loads array payload and structural axes from the store when present.",
+                level="format_specific",
+                format_metadata_reads=("ome",),
+                typed_meta_reads=("source_file",),
+                notes=(
+                    "Loads array payload + axes from the store; vanilla zarr"
+                    " (OME-Zarr v0.4 first-class support is deferred)."
+                ),
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-imaging.image.png.load",
+            direction="load",
+            data_type=Image,
+            format_id="png",
+            extensions=(".png",),
+            label="PNG image",
+            block_type="LoadImage",
+            handler="_load_png",
+            is_default=True,
+            roundtrip_group="scieasy-blocks-imaging.image.png",
+            metadata_fidelity=MetadataFidelity(
+                level="format_specific",
+                format_metadata_reads=("ome",),
+                typed_meta_reads=("source_file",),
+                notes="Loads PNG via Pillow; EXIF DPI mapped onto Image.Meta.ome.",
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-imaging.image.jpeg.load",
+            direction="load",
+            data_type=Image,
+            format_id="jpeg",
+            extensions=(".jpg", ".jpeg"),
+            label="JPEG image",
+            block_type="LoadImage",
+            handler="_load_jpeg",
+            is_default=True,
+            roundtrip_group="scieasy-blocks-imaging.image.jpeg",
+            metadata_fidelity=MetadataFidelity(
+                level="format_specific",
+                format_metadata_reads=("ome",),
+                typed_meta_reads=("source_file",),
+                notes="Loads JPEG via Pillow; EXIF DPI mapped onto Image.Meta.ome.",
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-imaging.image.czi.load",
+            direction="load",
+            data_type=Image,
+            format_id="czi",
+            extensions=(".czi",),
+            label="Zeiss CZI image",
+            block_type="LoadImage",
+            handler="_load_czi",
+            is_default=True,
+            roundtrip_group="scieasy-blocks-imaging.image.czi",
+            metadata_fidelity=MetadataFidelity(
+                level="format_specific",
+                format_metadata_reads=("ome",),
+                typed_meta_reads=("source_file",),
+                notes="Loads Zeiss CZI via Bio-Formats; requires [bioformats] extras + JVM.",
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-imaging.image.nd2.load",
+            direction="load",
+            data_type=Image,
+            format_id="nd2",
+            extensions=(".nd2",),
+            label="Nikon ND2 image",
+            block_type="LoadImage",
+            handler="_load_nd2",
+            is_default=True,
+            roundtrip_group="scieasy-blocks-imaging.image.nd2",
+            metadata_fidelity=MetadataFidelity(
+                level="format_specific",
+                format_metadata_reads=("ome",),
+                typed_meta_reads=("source_file",),
+                notes="Loads Nikon ND2 via Bio-Formats; requires [bioformats] extras + JVM.",
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-imaging.image.lif.load",
+            direction="load",
+            data_type=Image,
+            format_id="lif",
+            extensions=(".lif",),
+            label="Leica LIF image",
+            block_type="LoadImage",
+            handler="_load_lif",
+            is_default=True,
+            roundtrip_group="scieasy-blocks-imaging.image.lif",
+            metadata_fidelity=MetadataFidelity(
+                level="format_specific",
+                format_metadata_reads=("ome",),
+                typed_meta_reads=("source_file",),
+                notes="Loads Leica LIF via Bio-Formats; requires [bioformats] extras + JVM.",
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-imaging.image.oir.load",
+            direction="load",
+            data_type=Image,
+            format_id="oir",
+            extensions=(".oir",),
+            label="Olympus OIR image",
+            block_type="LoadImage",
+            handler="_load_oir",
+            is_default=True,
+            roundtrip_group="scieasy-blocks-imaging.image.oir",
+            metadata_fidelity=MetadataFidelity(
+                level="format_specific",
+                format_metadata_reads=("ome",),
+                typed_meta_reads=("source_file",),
+                notes="Loads Olympus OIR via Bio-Formats; requires [bioformats] extras + JVM.",
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-imaging.image.oib.load",
+            direction="load",
+            data_type=Image,
+            format_id="oib",
+            extensions=(".oib",),
+            label="Olympus OIB image",
+            block_type="LoadImage",
+            handler="_load_oib",
+            is_default=True,
+            roundtrip_group="scieasy-blocks-imaging.image.oib",
+            metadata_fidelity=MetadataFidelity(
+                level="format_specific",
+                format_metadata_reads=("ome",),
+                typed_meta_reads=("source_file",),
+                notes="Loads Olympus OIB via Bio-Formats; requires [bioformats] extras + JVM.",
             ),
         ),
     )
@@ -263,12 +410,23 @@ class LoadImage(IOBlock):
     # to a stable format identifier. ``_detect_format`` (inherited from
     # IOBlock) consults this mapping; ``BlockRegistry.find_loader``
     # (#1077) queries it for extension-based dispatch. The format ids
-    # are passed through unchanged to the per-format helper functions
-    # ``_load_tiff`` / ``_load_zarr`` in :meth:`_load_single`.
+    # are passed through unchanged to the per-format dispatch arms in
+    # :meth:`_load_single`. Per ADR-043 the per-class
+    # ``format_capabilities`` declaration is authoritative; this mapping
+    # stays in sync so the inherited ``IOBlock._detect_format`` keeps
+    # working without recomputing capability lookups on every call.
     supported_extensions: ClassVar[dict[str, str]] = {
         ".tif": "tiff",
         ".tiff": "tiff",
         ".zarr": "zarr",
+        ".png": "png",
+        ".jpg": "jpeg",
+        ".jpeg": "jpeg",
+        ".czi": "czi",
+        ".nd2": "nd2",
+        ".lif": "lif",
+        ".oir": "oir",
+        ".oib": "oib",
     }
 
     output_ports: ClassVar[list[OutputPort]] = [
@@ -276,6 +434,47 @@ class LoadImage(IOBlock):
     ]
     _load_tiff = staticmethod(_load_tiff)
     _load_zarr = staticmethod(_load_zarr)
+    _load_png = staticmethod(_load_png)
+    _load_jpeg = staticmethod(_load_jpeg)
+
+    # ADR-043 / spec adr-043-package-migration FR-008: Bio-Formats handlers
+    # are bound as lazy-import wrappers on the class so the
+    # ``BlockRegistry`` capability validation (which checks
+    # ``hasattr(cls, capability.handler)`` at scan time) succeeds even
+    # when the optional ``[bioformats]`` extras are not installed.
+    # The wrappers defer the actual ``bioformats`` / ``javabridge`` /
+    # ``ome_types`` imports to dispatch time and raise the clear
+    # missing-extras :class:`ImportError` only when the user dispatches
+    # a Bio-Formats capability without the extras.
+    @staticmethod
+    def _load_czi(path: Path, axes_override: list[str] | None = None, **kwargs: Any) -> Image:
+        from scieasy_blocks_imaging.io import bioformats_handler
+
+        return bioformats_handler._load_czi(path, axes_override, **kwargs)
+
+    @staticmethod
+    def _load_nd2(path: Path, axes_override: list[str] | None = None, **kwargs: Any) -> Image:
+        from scieasy_blocks_imaging.io import bioformats_handler
+
+        return bioformats_handler._load_nd2(path, axes_override, **kwargs)
+
+    @staticmethod
+    def _load_lif(path: Path, axes_override: list[str] | None = None, **kwargs: Any) -> Image:
+        from scieasy_blocks_imaging.io import bioformats_handler
+
+        return bioformats_handler._load_lif(path, axes_override, **kwargs)
+
+    @staticmethod
+    def _load_oir(path: Path, axes_override: list[str] | None = None, **kwargs: Any) -> Image:
+        from scieasy_blocks_imaging.io import bioformats_handler
+
+        return bioformats_handler._load_oir(path, axes_override, **kwargs)
+
+    @staticmethod
+    def _load_oib(path: Path, axes_override: list[str] | None = None, **kwargs: Any) -> Image:
+        from scieasy_blocks_imaging.io import bioformats_handler
+
+        return bioformats_handler._load_oib(path, axes_override, **kwargs)
 
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
@@ -363,9 +562,23 @@ class LoadImage(IOBlock):
             return _load_tiff(path, axes_override, block=self, output_dir=output_dir)
         if fmt == "zarr":
             return _load_zarr(path, axes_override)
-        # Defensive: the ClassVar declares only "tiff"/"zarr" today; this
-        # branch becomes a meaningful error if a future entry is added to
-        # the ClassVar without a matching dispatch arm here.
+        if fmt == "png":
+            return _load_png(path, axes_override)
+        if fmt == "jpeg":
+            return _load_jpeg(path, axes_override)
+        if fmt in {"czi", "nd2", "lif", "oir", "oib"}:
+            # Dispatch through the class-level lazy-import wrapper
+            # (e.g. ``LoadImage._load_czi``) so the registry's scan-time
+            # handler-attribute validation matches the dispatch path.
+            # The wrapper raises a clear ImportError naming the install
+            # command (FR-008) when the [bioformats] extras or JVM are
+            # missing.
+            handler = getattr(LoadImage, f"_load_{fmt}")
+            return handler(path, axes_override)
+        # Defensive: every entry in :attr:`supported_extensions` is
+        # expected to have a dispatch arm above; this branch becomes a
+        # meaningful error if a future entry is added to the ClassVar
+        # without a matching arm here.
         raise ValueError(f"LoadImage: format id {fmt!r} has no dispatch arm")
 
     def save(

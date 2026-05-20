@@ -110,13 +110,18 @@ def test_save_unknown_extension_raises(tmp_path: Path) -> None:
 
 
 def test_save_invalid_format_value_raises(tmp_path: Path) -> None:
-    """An unsupported explicit format raises ValueError."""
+    """An unsupported explicit format raises ValueError.
+
+    ADR-043 / FR-005 expanded SaveImage to write PNG/JPEG via Pillow;
+    Bio-Formats vendor formats remain load-only and so are still
+    rejected on save.
+    """
     arr = np.zeros((2, 2), dtype=np.uint8)
     img = _make_image(arr, ["y", "x"])
     with pytest.raises(ValueError, match="unsupported format"):
         SaveImage().save(
             img,
-            BlockConfig(params={"path": str(tmp_path / "x.png"), "format": "png"}),
+            BlockConfig(params={"path": str(tmp_path / "x.czi"), "format": "czi"}),
         )
 
 
@@ -166,22 +171,42 @@ def test_save_creates_parent_directory(tmp_path: Path) -> None:
 
 class TestSupportedExtensionsClassVar:
     """SaveImage declares the canonical ``supported_extensions`` mapping
-    (ADR-028 §D8 / #1075). The set MUST mirror :attr:`LoadImage.supported_extensions`.
+    (ADR-028 §D8 / #1075). Per ADR-043 FR-005, SaveImage covers only
+    writable formats — TIFF / Zarr / PNG / JPEG — so the SaveImage set
+    is a STRICT SUBSET of :attr:`LoadImage.supported_extensions` (the
+    Bio-Formats vendor formats are load-only by library design).
     Module-level legacy constants (``_TIFF_FORMAT`` / ``_ZARR_FORMAT`` /
     ``_SUPPORTED_FORMATS`` / ``_EXT_TO_FORMAT``) have been removed in
     favor of routing through :meth:`IOBlock._detect_format`."""
 
     def test_classvar_equals_expected_mapping(self) -> None:
-        """SaveImage.supported_extensions exactly matches the spec."""
+        """SaveImage.supported_extensions exactly matches the spec.
+
+        Covers writable formats only (FR-005). Bio-Formats vendor
+        formats are intentionally absent because python-bioformats is
+        load-only.
+        """
         assert SaveImage.supported_extensions == {
             ".tif": "tiff",
             ".tiff": "tiff",
             ".zarr": "zarr",
+            ".png": "png",
+            ".jpg": "jpeg",
+            ".jpeg": "jpeg",
         }
 
-    def test_save_image_mirrors_load_image_extensions(self) -> None:
-        """SaveImage.supported_extensions == LoadImage.supported_extensions."""
-        assert SaveImage.supported_extensions == LoadImage.supported_extensions
+    def test_save_image_is_subset_of_load_image_extensions(self) -> None:
+        """SaveImage.supported_extensions ⊆ LoadImage.supported_extensions.
+
+        Save extensions are a STRICT subset: Bio-Formats vendor formats
+        (CZI/ND2/LIF/OIR/OIB) appear in LoadImage but not in SaveImage
+        because python-bioformats is load-only (FR-005).
+        """
+        save_exts = set(SaveImage.supported_extensions.keys())
+        load_exts = set(LoadImage.supported_extensions.keys())
+        assert save_exts.issubset(load_exts)
+        load_only = load_exts - save_exts
+        assert load_only == {".czi", ".nd2", ".lif", ".oir", ".oib"}
 
     def test_module_level_legacy_constants_removed(self) -> None:
         """Pre-#1075 module-level constants are gone from save_image."""

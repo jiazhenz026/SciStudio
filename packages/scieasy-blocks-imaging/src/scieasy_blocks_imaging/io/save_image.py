@@ -23,6 +23,7 @@ from scieasy.blocks.io.capabilities import FormatCapability, MetadataFidelity
 from scieasy.blocks.io.io_block import IOBlock
 from scieasy.core.types.base import DataObject
 from scieasy.core.types.collection import Collection
+from scieasy_blocks_imaging.io.pillow_handler import _save_jpeg, _save_png
 from scieasy_blocks_imaging.types import Image
 
 # ADR-028 §D8 / issue #1075: module-level legacy constants
@@ -78,6 +79,8 @@ def _resolve_format(path: Path, explicit: str | None, block: SaveImage | None = 
         fmt = explicit.lower()
         if fmt == "tif":
             fmt = "tiff"
+        elif fmt == "jpg":
+            fmt = "jpeg"
         if fmt not in supported_format_ids:
             raise ValueError(
                 f"SaveImage: unsupported format {explicit!r}; supported formats are {sorted(supported_format_ids)}"
@@ -174,6 +177,12 @@ class SaveImage(IOBlock):
     description: ClassVar[str] = "Save an Image to a TIFF or Zarr store."
     subcategory: ClassVar[str] = "io"
 
+    # ADR-043 / spec adr-043-package-migration FR-005: explicit per-format
+    # SAVE capabilities. Bio-Formats family (CZI/ND2/LIF/OIR/OIB) is
+    # intentionally absent — python-bioformats is load-only by library
+    # design. ``typed_meta_writes=("pixel_size", "channels")`` for
+    # PNG/JPEG (only EXIF-mappable fields land in the file); TIFF/zarr
+    # declare richer write fidelity.
     format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
         FormatCapability(
             id="scieasy-blocks-imaging.image.tiff.save",
@@ -187,8 +196,13 @@ class SaveImage(IOBlock):
             is_default=True,
             roundtrip_group="scieasy-blocks-imaging.image.tiff",
             metadata_fidelity=MetadataFidelity(
-                level="pixel_only",
-                notes="Writes image payload and structural axes; typed Image.Meta fields are not promised.",
+                level="format_specific",
+                format_metadata_writes=("ome",),
+                typed_meta_writes=("pixel_size", "z_spacing", "channels"),
+                notes=(
+                    "Writes image payload + axes; OME-XML written to the"
+                    " ImageDescription tag when Image.Meta.ome is populated."
+                ),
             ),
         ),
         FormatCapability(
@@ -203,21 +217,69 @@ class SaveImage(IOBlock):
             is_default=True,
             roundtrip_group="scieasy-blocks-imaging.image.zarr",
             metadata_fidelity=MetadataFidelity(
-                level="pixel_only",
-                notes="Writes array payload and structural axes as store attributes.",
+                level="format_specific",
+                format_metadata_writes=("ome",),
+                typed_meta_writes=("pixel_size", "z_spacing", "channels"),
+                notes=(
+                    "Writes array payload + axes as group attributes; vanilla"
+                    " zarr (OME-Zarr v0.4 first-class support is deferred)."
+                ),
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-imaging.image.png.save",
+            direction="save",
+            data_type=Image,
+            format_id="png",
+            extensions=(".png",),
+            label="PNG image",
+            block_type="SaveImage",
+            handler="_save_png",
+            is_default=True,
+            roundtrip_group="scieasy-blocks-imaging.image.png",
+            metadata_fidelity=MetadataFidelity(
+                level="format_specific",
+                format_metadata_writes=("ome",),
+                typed_meta_writes=("pixel_size", "channels"),
+                notes=("Writes PNG via Pillow; only EXIF-mappable OME fields (physical_size_x/y → DPI) are persisted."),
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-imaging.image.jpeg.save",
+            direction="save",
+            data_type=Image,
+            format_id="jpeg",
+            extensions=(".jpg", ".jpeg"),
+            label="JPEG image",
+            block_type="SaveImage",
+            handler="_save_jpeg",
+            is_default=True,
+            roundtrip_group="scieasy-blocks-imaging.image.jpeg",
+            metadata_fidelity=MetadataFidelity(
+                level="format_specific",
+                format_metadata_writes=("ome",),
+                typed_meta_writes=("pixel_size", "channels"),
+                notes=(
+                    "Writes JPEG via Pillow; only EXIF-mappable OME fields"
+                    " (physical_size_x/y → DPI) are persisted. Alpha is dropped."
+                ),
             ),
         ),
     )
 
     # ADR-028 §D8 / issue #1075: mirror of
-    # :attr:`LoadImage.supported_extensions` — round-trip discoverability
-    # for the imaging plugin. ``_detect_format`` (inherited from IOBlock)
-    # consults this mapping; ``BlockRegistry.find_saver`` (#1077) queries
-    # it for extension-based dispatch.
+    # :attr:`LoadImage.supported_extensions` for round-trip discoverability.
+    # ``_detect_format`` (inherited from IOBlock) consults this mapping;
+    # ``BlockRegistry.find_saver`` (#1077) queries it for extension-based
+    # dispatch. Per ADR-043 the per-class ``format_capabilities``
+    # declaration is authoritative; this mapping stays in sync.
     supported_extensions: ClassVar[dict[str, str]] = {
         ".tif": "tiff",
         ".tiff": "tiff",
         ".zarr": "zarr",
+        ".png": "png",
+        ".jpg": "jpeg",
+        ".jpeg": "jpeg",
     }
 
     input_ports: ClassVar[list[InputPort]] = [
@@ -225,6 +287,8 @@ class SaveImage(IOBlock):
     ]
     _write_tiff = staticmethod(_write_tiff)
     _write_zarr = staticmethod(_write_zarr)
+    _save_png = staticmethod(_save_png)
+    _save_jpeg = staticmethod(_save_jpeg)
 
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
@@ -233,7 +297,7 @@ class SaveImage(IOBlock):
             # Direction-aware post-processing auto-switches to directory_browser.
             "format": {
                 "type": "string",
-                "enum": ["tiff", "zarr"],
+                "enum": ["tiff", "zarr", "png", "jpeg"],
                 "ui_priority": 1,
             },
         },
@@ -251,8 +315,16 @@ class SaveImage(IOBlock):
         path.parent.mkdir(parents=True, exist_ok=True)
         if fmt == "tiff":
             _write_tiff(image, path)
-        else:
+        elif fmt == "zarr":
             _write_zarr(image, path)
+        elif fmt == "png":
+            _save_png(image, path)
+        elif fmt == "jpeg":
+            _save_jpeg(image, path)
+        else:
+            # Defensive: every format id in :attr:`supported_extensions`
+            # is expected to have a dispatch arm above.
+            raise ValueError(f"SaveImage: format id {fmt!r} has no dispatch arm")
 
     def save(self, obj: DataObject | Collection, config: BlockConfig) -> None:
         """Write *obj* to the configured path.
