@@ -44,7 +44,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1294-adr-signature-contracts-active-workflow-warning.json",
+    "shas": [
+      "d7e2fd1916cd0629eeef276e6093ccb3677fed45"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {},
   "full_audit": null,
   "governance_touch": true,
@@ -67,7 +73,13 @@
     "tests/qa/test_gate_record_hooks.py",
     ".workflow/active/20260408-191813-fix-fijiblock-passes-exchange-dir-instea.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1294
+    ],
+    "number": 1295,
+    "url": "https://github.com/zjzcpj/SciEasy/pull/1295"
+  },
   "record_path": ".workflow/records/1294-adr-signature-contracts-active-workflow-warning.json",
   "required_checks": [
     "ruff check src/scieasy/qa/audit/signature_contracts.py src/scieasy/qa/audit/facts.py src/scieasy/qa/audit/signature_drift.py tests/qa/test_audit_signature_contracts.py tests/qa/test_gate_record_hooks.py",
@@ -125,7 +137,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
