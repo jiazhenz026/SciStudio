@@ -141,7 +141,7 @@ language_source: en
 | A2 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a2-imaging-io-prompt.md` | imaging IO migration + Image.Meta.ome + Bio-Formats extras (FR-004..008, FR-017) | `feat/issue-1296/adr043-a2-imaging-io` (merged + deleted) | `.claude/worktrees/adr-043-a2-imaging/` (removed) | (see PR #1298 diff) | core IO, srs, frontend, ProcessBlock propagation, engine | PR #1298 merged 2026-05-20 | `[x]` |
 | A3 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a3-frontend-prompt.md` | Frontend UI: capability dropdown + OME browser + lossy-save warning (FR-012..014) | `feat/issue-1296/adr043-a3-frontend` | `.claude/worktrees/adr-043-a3-frontend/` | `frontend/src/components/PortEditor/CapabilityDropdown.tsx` (new), `frontend/src/components/OutputPreview/OMEMetadataPanel.tsx` (new), `frontend/src/components/WorkflowEditor/LossySaveWarning.tsx` (new), `frontend/src/api/capabilities.ts` (new), `frontend/src/__tests__/CapabilityDropdown.test.tsx` (new), `frontend/src/__tests__/OMEMetadataPanel.test.tsx` (new), `frontend/src/__tests__/LossySaveWarning.test.tsx` (new), `frontend/src/__tests__/adr043-a3-smoke.test.tsx` (new — JSDOM smoke harness), `frontend/e2e/adr043-a3-smoke.md` (new — manual in-app browser checklist), `frontend/src/components/PortEditorTable.tsx` (modified — per-row CapabilityDropdown wiring + `capability_id` PortRow field), `frontend/src/components/DataPreview.tsx` (modified — OME metadata button + panel toggle), `frontend/src/components/WorkflowCanvas.tsx` (modified — derive `upstreamOmeFields` from `blockOutputs`), `frontend/src/components/nodes/BlockNode.tsx` (modified — LossySaveWarning in save-IO footer), `frontend/src/types/ui.ts` (modified — `upstreamOmeFields?: string[]` on `BlockNodeData`), `frontend/src/App.tsx` (modified — pass `blockOutputs` to `WorkflowCanvas`), `CHANGELOG.md` | backend code, ProcessBlock propagation | PR #1299 | `[~]` (implementation complete; pending merge) |
 | B1 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-b1-imaging-propagation-prompt.md` | imaging ProcessBlock propagation audit + fix (FR-009/010); A2 prerequisite merged | `feat/issue-1296/adr043-b1-imaging-propagation` | `.claude/worktrees/adr-043-b1-imaging-propagation/` | `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/geometry.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/axis_ops.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/projection/projection.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/math/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/registration/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/measurement/*.py`, `packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py`, `docs/audit/adr-043-imaging-propagation-audit.md`, `CHANGELOG.md` | imaging IO, types.py, core IO, srs, frontend, engine | dispatched | `[~]` |
-| B2 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-b2-srs-propagation-prompt.md` | SRS ProcessBlock propagation audit + fix (FR-009/011); A2 prerequisite merged | `feat/issue-1296/adr043-b2-srs-propagation` | `.claude/worktrees/adr-043-b2-srs-propagation/` | `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/*.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/*.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/spectral_extraction/*.py`, `packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py`, `docs/audit/adr-043-srs-propagation-audit.md`, `CHANGELOG.md` | imaging, core IO, frontend, engine | dispatched | `[~]` |
+| B2 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-b2-srs-propagation-prompt.md` | SRS ProcessBlock propagation audit + fix (FR-009/011); A2 prerequisite merged | `feat/issue-1296/adr043-b2-srs-propagation` | `.claude/worktrees/adr-043-b2-srs-propagation/` | `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_baseline.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_spectral_denoise.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_calibrate.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_kmeans.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_pca.py`, `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_unmix.py`, `packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py`, `docs/audit/adr-043-srs-propagation-audit.md`, `CHANGELOG.md` | imaging, core IO, frontend, engine | impl complete; PR pending | `[~]` |
 | C1 | audit_reviewer | no-context | pending | No-context final audit (FR-001..017, SC-001..005); commit audit report | `track/adr-043/core-blocks-and-imaging/c1-audit` | `.claude/worktrees/adr-043-c1-audit/` | `docs/audit/adr-043-package-migration-final-audit-<sha>.md` | code changes; audit is read-only | TBD | `[ ]` |
 | D2 | implementer | N/A | pending after Phase D1 | Execute owner-authored e2e cases (SC-006) | `track/adr-043/core-blocks-and-imaging/d2-e2e` | `.claude/worktrees/adr-043-d2-e2e/` | `docs/audit/adr-043-package-migration-e2e-cases.md`, e2e test files as defined by owner cases | code changes outside what e2e cases require | TBD | `[ ]` |
 
@@ -343,17 +343,17 @@ language_source: en
 
 ### 11.2 Dispatch
 
-- [ ] Prompt file created.
-- [ ] Spec FR-009/011 contract clearly cited in prompt.
+- [x] Prompt file created. (`docs/planning/dispatch-prompts/adr-043-b2-srs-propagation-prompt.md`)
+- [x] Spec FR-009/011 contract clearly cited in prompt.
 
 ### 11.3 Implementation
 
-- [ ] All SRS ProcessBlocks classified A/B/C -> audit doc entry
-- [ ] `srs_kmeans.py` Label output carries ome (FR-009/011) -> commit sha
-- [ ] `srs_pca.py` / `srs_unmix.py` deliberate-drop documented -> commit sha
-- [ ] `test_processblock_meta_propagation.py` added (FR-011, FR-016) -> commit sha
-- [ ] `docs/audit/adr-043-srs-propagation-audit.md` committed -> commit sha
-- [ ] CHANGELOG entry added -> commit sha
+- [x] All SRS ProcessBlocks classified A/B/C -> `docs/audit/adr-043-srs-propagation-audit.md` §3 (pending commit, this PR)
+- [x] `srs_kmeans.py` Label output carries ome (FR-009/011) -> pending commit (this PR)
+- [x] `srs_pca.py` / `srs_unmix.py` deliberate-drop documented -> pending commit (this PR)
+- [x] `test_processblock_meta_propagation.py` added (FR-011, FR-016) -> pending commit (this PR)
+- [x] `docs/audit/adr-043-srs-propagation-audit.md` committed -> pending commit (this PR)
+- [x] CHANGELOG entry added -> pending commit (this PR)
 
 ### 11.4 Audit
 

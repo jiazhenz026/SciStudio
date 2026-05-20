@@ -194,6 +194,13 @@ class SRSUnmix(ProcessBlock):
         if len(spatial_shape) != len(spatial_axes):
             raise ValueError("SRSUnmix: internal shape/axes mismatch after moving lambda axis")
 
+        # ADR-043 FR-009 Mode C — legitimate ome drop.
+        # Endmember abundance maps share y/x with the source SRSImage, but
+        # the spectral (lambda) axis is replaced by a derived ``endmember_id``
+        # index — OME channel / pixel-dimension descriptions no longer apply
+        # to a per-endmember 2D map. Per spec adr-043-package-migration
+        # FR-009 Mode C, when the cross-type output drops spectral alignment
+        # with the source, leaving ``meta=None`` is the documented behavior.
         maps: list[Image] = []
         ab_cube = abundances.reshape(*spatial_shape, n_endmembers).astype(np.float32)
         for k in range(n_endmembers):
