@@ -7,7 +7,7 @@ import json
 import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError, field_validator
 
@@ -123,16 +123,26 @@ def _source_sha(repo_root: Path | None = None) -> str:
         return "unknown"
 
 
+def _ensure_mapping(value: Any) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ValueError("Sentrux evidence must be a JSON object")
+    return cast(Mapping[str, Any], value)
+
+
+def _load_json_mapping(value: str) -> Mapping[str, Any]:
+    return _ensure_mapping(json.loads(value))
+
+
 def _as_mapping(raw: Mapping[str, Any] | str | Path) -> Mapping[str, Any]:
     if isinstance(raw, Path):
-        return json.loads(raw.read_text(encoding="utf-8"))
+        return _load_json_mapping(raw.read_text(encoding="utf-8"))
     if isinstance(raw, str):
         stripped = raw.strip()
         if stripped.startswith(("{", "[")):
-            return json.loads(stripped)
+            return _load_json_mapping(stripped)
         if Path(stripped).exists():
-            return json.loads(Path(stripped).read_text(encoding="utf-8"))
-        return json.loads(stripped)
+            return _load_json_mapping(Path(stripped).read_text(encoding="utf-8"))
+        return _load_json_mapping(stripped)
     return raw
 
 
@@ -141,7 +151,7 @@ def _unwrap_payload(raw: Mapping[str, Any]) -> Mapping[str, Any]:
     for key in ("sentrux", "evidence", "result", "check_rules", "scan"):
         nested = payload.get(key)
         if isinstance(nested, Mapping):
-            payload = nested
+            payload = cast(Mapping[str, Any], nested)
     return payload
 
 
@@ -186,7 +196,8 @@ def parse_sentrux_result(raw: Mapping[str, Any] | str | Path) -> SentruxEvidence
 
     mapping = _as_mapping(raw)
     payload = _unwrap_payload(mapping)
-    summary = payload.get("summary") if isinstance(payload.get("summary"), Mapping) else {}
+    summary_raw = payload.get("summary")
+    summary = cast(Mapping[str, Any], summary_raw) if isinstance(summary_raw, Mapping) else {}
     merged: dict[str, Any] = {**dict(summary), **dict(payload)}
     if "status" not in merged:
         merged["status"] = _status_from_payload(payload)
