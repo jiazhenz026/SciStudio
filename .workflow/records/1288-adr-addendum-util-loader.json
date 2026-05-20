@@ -16,6 +16,14 @@
         "docs/audit/full-audit-latest.json"
       ],
       "reason": "Include refreshed full-audit evidence artifact."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/audit/full-audit-latest.json"
+      ],
+      "reason": "ADR-042 Addendum 1 D9 migration: remove docs/audit/full-audit-latest.json from the git index. .gitignore already lists it but the file was tracked from before; D9 explicitly requires  not just .gitignore."
     }
   ],
   "branch": "fix/1288-adr-addendum-util-loader",
