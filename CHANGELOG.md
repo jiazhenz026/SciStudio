@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#1258] Stop tracking the generated full audit Markdown report by ignoring `docs/audit/latest/facts-summary.md` and removing it from the repository index. (@agent, 2026-05-19, branch: chore/issue-1258/ignore-generated-full-audit-report, session: 20260519-204622-ignore-generated-full-audit-report)
+
 - [#1253] Stop tracking generated ADR-042 facts by ignoring `docs/facts/generated.yaml` and removing the generated snapshot from the repository index to avoid repeated merge conflicts. (@agent, 2026-05-19, branch: chore/issue-1253/ignore-generated-facts-yaml, session: 20260519-202639-ignore-generated-facts-yaml)
 
 - [#1213] Add ADR-043 explicit pilot `FormatCapability` declarations for shipped imaging TIFF/Zarr IO and LCMS table/raw IO, with package tests, README capability IDs, metadata fidelity notes, and #1204 full-migration deferral markers. (@agent, 2026-05-19, branch: feat/issue-1213/adr043-package-pilot, session: 20260519-175914-adr-043-package-capability-pilot)
