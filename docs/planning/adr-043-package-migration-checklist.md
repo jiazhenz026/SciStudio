@@ -281,7 +281,7 @@ language_source: en
 
 ### 9.4 Audit
 
-- [ ] Codex auto-review consumed; P1/P2 reconciled — pending PR creation.
+- [x] Codex auto-review consumed; P1/P2 reconciled — both findings fixed in commit bd899d0f and pinned by 6 new tests in `frontend/src/__tests__/capabilities.test.ts`. P1 (extension normalisation mismatch) addressed by `normalizeBackendExtension`; P2 (strict type equality) addressed by `ancestorTypeNames` + `typeHierarchy` forwarding through `CapabilityDropdown` and `PortEditorTable`. CI green after fix; no follow-up Codex round within the 5-min window per the saved discipline rule.
 
 ### 9.5 Integration
 
