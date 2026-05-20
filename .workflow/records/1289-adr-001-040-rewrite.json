@@ -144,6 +144,15 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+      "exit_code": 0,
+      "name": "full_audit_doc_closure_signature_clear",
+      "output_path": "doc_drift=0; closure=0; signature_drift=0; remaining full_audit exit=1 only for architecture_drift=135",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": {
@@ -155,26 +164,11 @@
   },
   "docs_landing": {
     "changelog": {},
-    "checklist": {
-      "paths": [
-        "docs/planning/adr-001-040-rewrite-checklist.md"
-      ]
-    },
+    "checklist": {},
     "docs": {
       "paths": [
-        "docs/adr/ADR-022.md",
-        "docs/adr/ADR-023.md",
-        "docs/adr/ADR-024.md",
-        "docs/adr/ADR-025.md",
-        "docs/adr/ADR-026.md",
-        "docs/adr/ADR-027.md",
-        "docs/adr/ADR-028.md",
-        "docs/adr/ADR-029.md",
-        "docs/adr/ADR-030.md",
-        "docs/adr/ADR-033.md",
-        "docs/adr/ADR-034.md",
-        "docs/adr/ADR-038.md",
-        "docs/adr/ADR-040.md",
+        "docs/adr/ADR-042.md",
+        "docs/specs/adr-042-consistency-tools.md",
         "docs/audit/2026-05-20-adr-001-040-full-audit.md"
       ]
     }
