@@ -7,6 +7,26 @@ vi.mock("../lib/api", () => ({
   api: {},
 }));
 
+const codeBlockSchema = {
+  name: "Code Block",
+  type_name: "code_block",
+  base_category: "code",
+  subcategory: "",
+  description: "",
+  version: "0.1.0",
+  input_ports: [],
+  output_ports: [],
+  config_schema: {
+    properties: {
+      script_path: { type: "string", title: "Project Script" },
+      interpreter_mode: { type: "string", enum: ["auto", "existing"] },
+      inputs: { type: "array" },
+      outputs: { type: "array" },
+    },
+  },
+  type_hierarchy: [],
+};
+
 describe("BottomPanel", () => {
   afterEach(() => {
     cleanup();
@@ -142,5 +162,333 @@ describe("BottomPanel", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Browse" })).toBeNull();
+  });
+
+  it("renders CodeBlock v2 core fields and emits backend config keys", () => {
+    const onUpdateConfig = vi.fn();
+
+    render(
+      <BottomPanel
+        activeTab="config"
+        logEntries={[]}
+        onTabChange={() => {}}
+        onUpdateConfig={onUpdateConfig}
+        selectedNode={{
+          id: "code-1",
+          block_type: "code_block",
+          config: {
+            params: {
+              script_path: "scripts/analyze.py",
+              interpreter_mode: "auto",
+              working_directory: ".",
+              exchange_root: "exchange",
+              timeout_seconds: 30,
+            },
+          },
+        }}
+        selectedSchema={codeBlockSchema}
+      />,
+    );
+
+    fireEvent.change(screen.getByDisplayValue("scripts/analyze.py"), { target: { value: "scripts/segment.py" } });
+    expect(onUpdateConfig).toHaveBeenCalledWith({ script_path: "scripts/segment.py" });
+
+    fireEvent.change(screen.getByDisplayValue("auto"), { target: { value: "existing" } });
+    expect(onUpdateConfig).toHaveBeenCalledWith({ interpreter_mode: "existing" });
+
+    fireEvent.change(screen.getByDisplayValue("30"), { target: { value: "60" } });
+    expect(onUpdateConfig).toHaveBeenCalledWith({ timeout_seconds: 60 });
+  });
+
+  it("edits CodeBlock v2 environment variables", () => {
+    const onUpdateConfig = vi.fn();
+
+    render(
+      <BottomPanel
+        activeTab="config"
+        logEntries={[]}
+        onTabChange={() => {}}
+        onUpdateConfig={onUpdateConfig}
+        selectedNode={{
+          id: "code-1",
+          block_type: "code_block",
+          config: {
+            params: {
+              script_path: "scripts/analyze.py",
+              environment_variables: { OMP_NUM_THREADS: "4" },
+            },
+          },
+        }}
+        selectedSchema={codeBlockSchema}
+      />,
+    );
+
+    fireEvent.change(screen.getByDisplayValue("4"), { target: { value: "8" } });
+    expect(onUpdateConfig).toHaveBeenCalledWith({ environment_variables: { OMP_NUM_THREADS: "8" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Add variable" }));
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      environment_variables: { OMP_NUM_THREADS: "4", VAR_2: "" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove environment variable OMP_NUM_THREADS" }));
+    expect(onUpdateConfig).toHaveBeenCalledWith({ environment_variables: {} });
+  });
+
+  it("keeps CodeBlock environment variables when a rename collides with another key", () => {
+    const onUpdateConfig = vi.fn();
+
+    render(
+      <BottomPanel
+        activeTab="config"
+        logEntries={[]}
+        onTabChange={() => {}}
+        onUpdateConfig={onUpdateConfig}
+        selectedNode={{
+          id: "code-1",
+          block_type: "code_block",
+          config: {
+            params: {
+              script_path: "scripts/analyze.py",
+              environment_variables: { EXISTING: "1", THREADS: "4" },
+            },
+          },
+        }}
+        selectedSchema={codeBlockSchema}
+      />,
+    );
+
+    fireEvent.change(screen.getByDisplayValue("THREADS"), { target: { value: "EXISTING" } });
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      environment_variables: { EXISTING: "1", THREADS: "4" },
+    });
+  });
+
+  it("edits and removes CodeBlock v2 declared input rows", () => {
+    const onUpdateConfig = vi.fn();
+
+    render(
+      <BottomPanel
+        activeTab="config"
+        logEntries={[]}
+        onTabChange={() => {}}
+        onUpdateConfig={onUpdateConfig}
+        selectedNode={{
+          id: "code-1",
+          block_type: "code_block",
+          config: {
+            params: {
+              script_path: "scripts/analyze.py",
+              inputs: [
+                {
+                  name: "image",
+                  direction: "input",
+                  data_type: "Image",
+                  extension: ".tif",
+                  capability_id: "imaging.image.tiff.save",
+                  required: true,
+                  exchange_folder: "inputs/image/",
+                },
+              ],
+            },
+          },
+        }}
+        selectedSchema={codeBlockSchema}
+      />,
+    );
+
+    fireEvent.change(screen.getByDisplayValue("image"), { target: { value: "raw_image" } });
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      inputs: [
+        {
+          name: "raw_image",
+          direction: "input",
+          data_type: "Image",
+          extension: ".tif",
+          capability_id: "imaging.image.tiff.save",
+          required: true,
+          exchange_folder: "inputs/raw_image/",
+        },
+      ],
+    });
+
+    fireEvent.change(screen.getByDisplayValue("Image"), { target: { value: "DataFrame" } });
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      inputs: [
+        {
+          name: "image",
+          direction: "input",
+          data_type: "DataFrame",
+          extension: ".tif",
+          capability_id: "imaging.image.tiff.save",
+          required: true,
+          exchange_folder: "inputs/image/",
+        },
+      ],
+    });
+
+    fireEvent.click(screen.getByLabelText("Required"));
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      inputs: [
+        {
+          name: "image",
+          direction: "input",
+          data_type: "Image",
+          extension: ".tif",
+          capability_id: "imaging.image.tiff.save",
+          required: false,
+          exchange_folder: "inputs/image/",
+        },
+      ],
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove input image" }));
+    expect(onUpdateConfig).toHaveBeenCalledWith({ inputs: [] });
+  });
+
+  it("adds and edits CodeBlock v2 declared output rows", () => {
+    const onUpdateConfig = vi.fn();
+
+    render(
+      <BottomPanel
+        activeTab="config"
+        logEntries={[]}
+        onTabChange={() => {}}
+        onUpdateConfig={onUpdateConfig}
+        selectedNode={{
+          id: "code-1",
+          block_type: "code_block",
+          config: {
+            params: {
+              script_path: "scripts/analyze.py",
+              outputs: [
+                {
+                  name: "table",
+                  direction: "output",
+                  data_type: "DataFrame",
+                  extension: ".csv",
+                  capability_id: "core.dataframe.csv.load",
+                  required: true,
+                  exchange_folder: "outputs/table/",
+                },
+              ],
+            },
+          },
+        }}
+        selectedSchema={codeBlockSchema}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add output" }));
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      outputs: [
+        {
+          name: "table",
+          direction: "output",
+          data_type: "DataFrame",
+          extension: ".csv",
+          capability_id: "core.dataframe.csv.load",
+          required: true,
+          exchange_folder: "outputs/table/",
+        },
+        {
+          name: "output_2",
+          direction: "output",
+          data_type: "DataObject",
+          extension: ".txt",
+          capability_id: null,
+          required: true,
+          exchange_folder: "outputs/output_2/",
+        },
+      ],
+    });
+
+    fireEvent.change(screen.getByDisplayValue(".csv"), { target: { value: ".tsv" } });
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      outputs: [
+        {
+          name: "table",
+          direction: "output",
+          data_type: "DataFrame",
+          extension: ".tsv",
+          capability_id: "core.dataframe.csv.load",
+          required: true,
+          exchange_folder: "outputs/table/",
+        },
+      ],
+    });
+
+    fireEvent.change(screen.getByDisplayValue("outputs/table/"), { target: { value: "outputs/results/" } });
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      outputs: [
+        {
+          name: "table",
+          direction: "output",
+          data_type: "DataFrame",
+          extension: ".csv",
+          capability_id: "core.dataframe.csv.load",
+          required: true,
+          exchange_folder: "outputs/results/",
+        },
+      ],
+    });
+  });
+
+  it("adds CodeBlock v2 output rows with non-colliding default names", () => {
+    const onUpdateConfig = vi.fn();
+
+    render(
+      <BottomPanel
+        activeTab="config"
+        logEntries={[]}
+        onTabChange={() => {}}
+        onUpdateConfig={onUpdateConfig}
+        selectedNode={{
+          id: "code-1",
+          block_type: "code_block",
+          config: {
+            params: {
+              script_path: "scripts/analyze.py",
+              outputs: [
+                {
+                  name: "output_2",
+                  direction: "output",
+                  data_type: "DataObject",
+                  extension: ".txt",
+                  capability_id: null,
+                  required: true,
+                  exchange_folder: "outputs/output_2/",
+                },
+              ],
+            },
+          },
+        }}
+        selectedSchema={codeBlockSchema}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add output" }));
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      outputs: [
+        {
+          name: "output_2",
+          direction: "output",
+          data_type: "DataObject",
+          extension: ".txt",
+          capability_id: null,
+          required: true,
+          exchange_folder: "outputs/output_2/",
+        },
+        {
+          name: "output_3",
+          direction: "output",
+          data_type: "DataObject",
+          extension: ".txt",
+          capability_id: null,
+          required: true,
+          exchange_folder: "outputs/output_3/",
+        },
+      ],
+    });
   });
 });

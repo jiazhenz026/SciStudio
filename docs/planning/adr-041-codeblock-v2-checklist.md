@@ -294,17 +294,20 @@ Scope:
 
 Tasks:
 
-- [ ] Locate existing CodeBlock configuration UI and API adaptation points.
-- [ ] Update UI controls for script path, interpreter mode, environment variables, declared inputs, declared outputs, timeout, and exchange-directory options.
-- [ ] Avoid frontend-only execution semantics; UI writes the backend-owned config contract.
-- [ ] Add frontend tests for config editing and validation-message display.
-- [ ] Run browser smoke only if a local frontend target is required and stable.
+- [x] Locate existing CodeBlock configuration UI and API adaptation points. Evidence: commit `911089ac` keeps the integration in `frontend/src/components/BottomPanel.tsx`, where the existing generic `ConfigPanel` adapts `selectedSchema.config_schema` to `onUpdateConfig` patches.
+- [x] Update UI controls for script path, interpreter mode, environment variables, declared inputs, declared outputs, timeout, and exchange-directory options. Evidence: commit `911089ac`; `npm test -- --run BottomPanel`; `npx vitest run src/components/BottomPanel.test.tsx`; `npm run build`.
+- [x] Avoid frontend-only execution semantics; UI writes the backend-owned config contract. Evidence: commit `911089ac` only patches persisted CodeBlock v2 params (`script_path`, `interpreter_mode`, `interpreter_path`, `working_directory`, `exchange_root`, `timeout_seconds`, `environment_variables`, `inputs`, `outputs`).
+- [x] Add frontend tests for config editing and validation-message display. Evidence: commit `911089ac` adds CodeBlock config editing coverage for core fields, environment variables, and declared input/output rows while preserving generic non-CodeBlock schema behavior.
+  TODO(#1226): Surface backend CodeBlock v2 validation diagnostics once Track D exposes an API path.
+    Out of scope per docs/specs/adr-041-codeblock-v2.md section 4.4 Phase 3 and the Track E dispatch constraint not to invent frontend-only validators.
+    Followup: https://github.com/zjzcpj/SciEasy/issues/1226.
+- [x] Run browser smoke only if a local frontend target is required and stable. Evidence: no browser smoke run because Track E is covered by component tests/build and the dispatch forbids long-lived `npm run dev`; `npm run build` passed.
 
 Exit Criteria:
 
-- [ ] Track E PR targets `track/adr-041/codeblock-v2`.
-- [ ] Track E CI is green.
-- [ ] Checklist rows updated with PR/test evidence.
+- [x] Track E PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1255](https://github.com/zjzcpj/SciEasy/pull/1255).
+- [x] Track E CI is green. Evidence: PR #1255 checks passed on 2026-05-20; `gh pr checks 1255 --watch`.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR #1255, commit `911089ac`, focused frontend tests, local build, and CI evidence recorded above.
 
 ## Phase 5 - Documentation, Facts, and Audit
 
