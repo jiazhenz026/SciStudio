@@ -235,6 +235,35 @@ describe("BottomPanel", () => {
     expect(onUpdateConfig).toHaveBeenCalledWith({ environment_variables: {} });
   });
 
+  it("keeps CodeBlock environment variables when a rename collides with another key", () => {
+    const onUpdateConfig = vi.fn();
+
+    render(
+      <BottomPanel
+        activeTab="config"
+        logEntries={[]}
+        onTabChange={() => {}}
+        onUpdateConfig={onUpdateConfig}
+        selectedNode={{
+          id: "code-1",
+          block_type: "code_block",
+          config: {
+            params: {
+              script_path: "scripts/analyze.py",
+              environment_variables: { EXISTING: "1", THREADS: "4" },
+            },
+          },
+        }}
+        selectedSchema={codeBlockSchema}
+      />,
+    );
+
+    fireEvent.change(screen.getByDisplayValue("THREADS"), { target: { value: "EXISTING" } });
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      environment_variables: { EXISTING: "1", THREADS: "4" },
+    });
+  });
+
   it("edits and removes CodeBlock v2 declared input rows", () => {
     const onUpdateConfig = vi.fn();
 
@@ -400,6 +429,64 @@ describe("BottomPanel", () => {
           capability_id: "core.dataframe.csv.load",
           required: true,
           exchange_folder: "outputs/results/",
+        },
+      ],
+    });
+  });
+
+  it("adds CodeBlock v2 output rows with non-colliding default names", () => {
+    const onUpdateConfig = vi.fn();
+
+    render(
+      <BottomPanel
+        activeTab="config"
+        logEntries={[]}
+        onTabChange={() => {}}
+        onUpdateConfig={onUpdateConfig}
+        selectedNode={{
+          id: "code-1",
+          block_type: "code_block",
+          config: {
+            params: {
+              script_path: "scripts/analyze.py",
+              outputs: [
+                {
+                  name: "output_2",
+                  direction: "output",
+                  data_type: "DataObject",
+                  extension: ".txt",
+                  capability_id: null,
+                  required: true,
+                  exchange_folder: "outputs/output_2/",
+                },
+              ],
+            },
+          },
+        }}
+        selectedSchema={codeBlockSchema}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add output" }));
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      outputs: [
+        {
+          name: "output_2",
+          direction: "output",
+          data_type: "DataObject",
+          extension: ".txt",
+          capability_id: null,
+          required: true,
+          exchange_folder: "outputs/output_2/",
+        },
+        {
+          name: "output_3",
+          direction: "output",
+          data_type: "DataObject",
+          extension: ".txt",
+          capability_id: null,
+          required: true,
+          exchange_folder: "outputs/output_3/",
         },
       ],
     });

@@ -162,6 +162,17 @@ function codeBlockFolder(direction: CodeBlockPortDirection, name: string): strin
   return `${direction}s/${safeName}/`;
 }
 
+function nextCodeBlockPortName(direction: CodeBlockPortDirection, ports: CodeBlockPortConfig[]): string {
+  const existing = new Set(ports.map((port) => port.name));
+  let index = ports.length + 1;
+  let name = `${direction}_${index}`;
+  while (existing.has(name)) {
+    index += 1;
+    name = `${direction}_${index}`;
+  }
+  return name;
+}
+
 function normalizeCodeBlockPort(
   value: unknown,
   direction: CodeBlockPortDirection,
@@ -212,6 +223,13 @@ function CodeBlockEnvironmentEditor({
   const variables = isRecord(value) ? Object.entries(value).map(([key, envValue]) => [key, String(envValue)] as const) : [];
 
   const updateEntry = (index: number, nextKey: string, nextValue: string) => {
+    const currentKey = variables[index]?.[0] ?? "";
+    const duplicateKey = nextKey !== currentKey && variables.some(([key], rowIndex) => rowIndex !== index && key === nextKey);
+    if (duplicateKey) {
+      onUpdate(Object.fromEntries(variables));
+      return;
+    }
+
     const nextEntries = variables.map(([key, envValue], rowIndex) =>
       rowIndex === index ? ([nextKey, nextValue] as const) : ([key, envValue] as const),
     );
@@ -311,7 +329,7 @@ function CodeBlockPortTable({
   };
 
   const addPort = () => {
-    const nextName = `${direction}_${ports.length + 1}`;
+    const nextName = nextCodeBlockPortName(direction, ports);
     onChange([
       ...ports,
       {
