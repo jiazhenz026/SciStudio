@@ -37,14 +37,14 @@ Sub-issue: #1267
 
 ### Phase 2 Implementation (Owner: I-B)
 
-- [ ] Add `.workflow/gate-record.schema.json` and `.workflow/records/.gitkeep`. [ADR-042 Addendum 1 Section 3]
-- [ ] Implement `src/scieasy/qa/governance/gate_record.py` models and validators for six-stage records, scope/diff matching, PR issue-closing checks, full-audit evidence, Sentrux evidence hooks, exact override labels, and changed-test-file enforcement. [Spec User Stories 1, 4, 6, 9, 10]
-- [ ] Export stable governance APIs from `src/scieasy/qa/governance/__init__.py`.
-- [ ] Add tests in `tests/qa/test_gate_record.py` and `tests/qa/test_gate_record_ci.py`.
+- [x] Add `.workflow/gate-record.schema.json` and `.workflow/records/.gitkeep`. [ADR-042 Addendum 1 Section 3] Local result: files added on `feat/issue-1267/gate-record-core`.
+- [x] Implement `src/scieasy/qa/governance/gate_record.py` models and validators for six-stage records, scope/diff matching, PR issue-closing checks, full-audit evidence, Sentrux evidence hooks, exact override labels, and changed-test-file enforcement. [Spec User Stories 1, 4, 6, 9, 10] Local result: `ruff check` passed for Track B files.
+- [x] Export stable governance APIs from `src/scieasy/qa/governance/__init__.py`. Local result: exports added for `GateRecord`, `GateStage`, evidence models, and validation entry points.
+- [x] Add tests in `tests/qa/test_gate_record.py` and `tests/qa/test_gate_record_ci.py`. Local result: `PYTHONPATH=src PYTEST_ADDOPTS=--no-cov pytest tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py --timeout=60` passed, 17 tests.
 
 ### Verification
 
-- [ ] `pytest tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py --timeout=60`
+- [!] `pytest tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py --timeout=60` executed with `PYTHONPATH=src`; tests passed but repository-wide coverage addopts failed the targeted run at 9% total coverage. Control run with `PYTEST_ADDOPTS=--no-cov` passed 17 tests.
 
 ## Track C - Existing Guard Orchestration
 
