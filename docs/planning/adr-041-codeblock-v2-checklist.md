@@ -216,9 +216,9 @@ Tasks:
 
 Exit Criteria:
 
-- [ ] Track C4 PR targets `track/adr-041/codeblock-v2`.
-- [ ] Track C4 CI is green.
-- [ ] Checklist rows updated with PR/test evidence.
+- [x] Track C4 PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1248](https://github.com/zjzcpj/SciEasy/pull/1248).
+- [x] Track C4 CI is green. Evidence: PR #1248 checks passed on 2026-05-19/2026-05-20 UTC.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR #1248, commit `1cd50925`, focused pytest/Ruff commands, and CI evidence recorded above.
 
 ### Track C5 - MATLAB and Octave Runtime Support (Owner: I41m / #1236)
 
