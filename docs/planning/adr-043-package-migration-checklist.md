@@ -217,22 +217,22 @@ language_source: en
 
 ### 8.2 Dispatch
 
-- [ ] Prompt file created.
-- [ ] Correct prompt template selected.
-- [ ] Agent branch/worktree assigned.
-- [ ] Write set, out-of-scope paths, TODO rule, required checks included.
+- [x] Prompt file created. (`docs/planning/dispatch-prompts/adr-043-a2-imaging-io-prompt.md`)
+- [x] Correct prompt template selected.
+- [x] Agent branch/worktree assigned. (`feat/issue-1296/adr043-a2-imaging-io` on `.claude/worktrees/adr-043-a2-imaging`)
+- [x] Write set, out-of-scope paths, TODO rule, required checks included.
 
 ### 8.3 Implementation
 
-- [ ] `Image.Meta.ome` field added (FR-006) -> commit sha
-- [ ] `Label.Meta.ome` field added (FR-007) -> commit sha
-- [ ] `LoadImage.format_capabilities` declared (FR-004) -> commit sha
-- [ ] `SaveImage.format_capabilities` declared (FR-005) -> commit sha
-- [ ] `pillow_handler.py` created -> commit sha
-- [ ] `bioformats_handler.py` created with lazy-import + clear missing-extras error (FR-008) -> commit sha
-- [ ] `pyproject.toml` updated with `bioformats` extras + `ome-types` required dep (FR-008, FR-017) -> commit sha
-- [ ] Capability + ome tests added (FR-016) -> commit sha
-- [ ] CHANGELOG entry added -> commit sha
+- [x] `Image.Meta.ome` field added (FR-006) -> pending commit (this PR)
+- [x] `Label.Meta.ome` field added (FR-007) -> pending commit (this PR)
+- [x] `LoadImage.format_capabilities` declared (FR-004) -> pending commit (this PR; 9 capabilities incl. PNG/JPEG/Bio-Formats family)
+- [x] `SaveImage.format_capabilities` declared (FR-005) -> pending commit (this PR; 4 writable capabilities; Bio-Formats family deliberately absent)
+- [x] `pillow_handler.py` created -> pending commit (this PR)
+- [x] `bioformats_handler.py` created with lazy-import + clear missing-extras error (FR-008) -> pending commit (this PR)
+- [x] `pyproject.toml` updated with `bioformats` extras + `ome-types` required dep (FR-008, FR-017) -> pending commit (this PR)
+- [x] Capability + ome tests added (FR-016) -> pending commit (test_format_capabilities.py + test_image_meta_ome.py + test_bioformats_handler.py)
+- [x] CHANGELOG entry added -> pending commit (this PR)
 
 ### 8.4 Audit
 
