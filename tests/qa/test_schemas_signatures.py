@@ -24,6 +24,22 @@ def test_expected_signature_schema_accepts_function_contract() -> None:
 
     assert signature.parameters[0].name == "value"
     assert isinstance(signature.parameters[0], ParameterSpec)
+    assert signature.symbol == "sample.func"
+    assert signature.source_spec == "docs/specs/example.md"
+    assert signature.source_line == 12
+
+
+def test_expected_signature_accepts_adr042_aliases() -> None:
+    signature = ExpectedSignature(
+        symbol="sample.func",
+        kind="method",
+        source_spec="docs/specs/example.md",
+        source_line=12,
+    )
+
+    assert signature.subject == "sample.func"
+    assert signature.source_path == "docs/specs/example.md"
+    assert signature.line == 12
 
 
 def test_expected_signature_rejects_empty_subject() -> None:

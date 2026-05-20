@@ -31,6 +31,7 @@ from typing import Any, ClassVar
 from scieasy.blocks.base.block import Block
 from scieasy.blocks.base.config import BlockConfig
 from scieasy.blocks.base.ports import InputPort, OutputPort
+from scieasy.blocks.io.capabilities import CapabilityDirection, FormatCapability, MetadataFidelity
 from scieasy.core.types.base import DataObject
 from scieasy.core.types.collection import Collection
 from scieasy.core.types.text import Text
@@ -68,6 +69,7 @@ class IOBlock(Block):
     # mapping at runtime; ``BlockRegistry.find_loader`` / ``find_saver``
     # (#1077) query it for extension-based dispatch.
     supported_extensions: ClassVar[dict[str, str]] = {}
+    format_capabilities: ClassVar[tuple[FormatCapability, ...]] = ()
 
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="data", accepted_types=[DataObject], required=False),
@@ -87,6 +89,60 @@ class IOBlock(Block):
         },
         "required": ["path"],
     }
+
+    @classmethod
+    def get_format_capabilities(cls) -> tuple[FormatCapability, ...]:
+        """Return explicit ADR-043 capabilities or legacy migration records.
+
+        ``supported_extensions`` synthesis exists only as migration
+        scaffolding while published packages move to explicit
+        ``FormatCapability`` records. Synthesized records are marked with
+        ``is_synthesized=True`` so registry/package validation can distinguish
+        them from final package-author declarations.
+        """
+
+        if cls.format_capabilities:
+            return tuple(cls.format_capabilities)
+        if not cls.supported_extensions:
+            return ()
+
+        capability_direction: CapabilityDirection = "load" if cls.direction == "input" else "save"
+        data_type = cls._legacy_capability_data_type(capability_direction)
+        handler = "load" if capability_direction == "load" else "save"
+        by_format: dict[str, list[str]] = {}
+        for extension, format_id in cls.supported_extensions.items():
+            by_format.setdefault(str(format_id), []).append(extension)
+
+        capabilities: list[FormatCapability] = []
+        module = cls.__module__
+        for format_id, extensions in sorted(by_format.items()):
+            normalized_format = format_id.strip().lower()
+            capabilities.append(
+                FormatCapability(
+                    id=f"{module}.{cls.__name__}.{capability_direction}.{normalized_format}".lower(),
+                    direction=capability_direction,
+                    data_type=data_type,
+                    format_id=normalized_format,
+                    extensions=tuple(extensions),
+                    label=normalized_format.replace("_", " ").replace("-", " ").upper(),
+                    block_type=cls.__name__,
+                    handler=handler,
+                    metadata_fidelity=MetadataFidelity(level="pixel_only"),
+                    is_synthesized=True,
+                )
+            )
+        return tuple(capabilities)
+
+    @classmethod
+    def _legacy_capability_data_type(cls, capability_direction: str) -> type[DataObject]:
+        ports = cls.output_ports if capability_direction == "load" else cls.input_ports
+        if ports:
+            accepted_types = getattr(ports[0], "accepted_types", None)
+            if accepted_types:
+                candidate = accepted_types[0]
+                if isinstance(candidate, type) and issubclass(candidate, DataObject):
+                    return candidate
+        return DataObject
 
     @abstractmethod
     def load(self, config: BlockConfig, output_dir: str = "") -> DataObject | Collection:

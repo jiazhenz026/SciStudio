@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 from scieasy.blocks.base.config import BlockConfig
 from scieasy.blocks.base.ports import OutputPort
+from scieasy.blocks.io.capabilities import FormatCapability, MetadataFidelity
 from scieasy.blocks.io.io_block import IOBlock
 from scieasy.core.types.base import DataObject
 from scieasy.core.types.collection import Collection
@@ -80,6 +81,54 @@ class LoadMIDTable(_LCMSBlockMixin, IOBlock):
         "AccuCor output (CSV/TSV/XLSX) into a typed MIDTable."
     )
 
+    format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
+        FormatCapability(
+            id="scieasy-blocks-lcms.mid_table.csv.load",
+            direction="load",
+            data_type=MIDTable,
+            format_id="csv",
+            extensions=(".csv",),
+            label="MID table CSV",
+            block_type="LoadMIDTable",
+            handler="load",
+            is_default=True,
+            metadata_fidelity=MetadataFidelity(
+                level="typed_meta",
+                typed_meta_reads=("tracer_atoms", "sample_columns", "corrected", "correction_tool"),
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-lcms.mid_table.tsv.load",
+            direction="load",
+            data_type=MIDTable,
+            format_id="tsv",
+            extensions=(".tsv",),
+            label="MID table TSV",
+            block_type="LoadMIDTable",
+            handler="load",
+            is_default=True,
+            metadata_fidelity=MetadataFidelity(
+                level="typed_meta",
+                typed_meta_reads=("tracer_atoms", "sample_columns", "corrected", "correction_tool"),
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-lcms.mid_table.xlsx.load",
+            direction="load",
+            data_type=MIDTable,
+            format_id="xlsx",
+            extensions=(".xlsx", ".xls"),
+            label="MID table Excel",
+            block_type="LoadMIDTable",
+            handler="load",
+            is_default=True,
+            metadata_fidelity=MetadataFidelity(
+                level="typed_meta",
+                typed_meta_reads=("tracer_atoms", "sample_columns", "corrected", "correction_tool"),
+            ),
+        ),
+    )
+
     # ADR-028 §D8: declared extensions consumed by the base-class
     # :meth:`IOBlock._detect_format` helper and (per #1077) by
     # :meth:`BlockRegistry.find_loader`. ``.xls`` aliases to ``xlsx``
@@ -98,7 +147,6 @@ class LoadMIDTable(_LCMSBlockMixin, IOBlock):
             description="Loaded MID table with detected sample columns",
         ),
     ]
-
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {

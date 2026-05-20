@@ -78,6 +78,36 @@ class BlockPortResponse(BaseModel):
     is_collection: bool = False
 
 
+class MetadataFidelityResponse(BaseModel):
+    """Serializable ADR-043 metadata-fidelity declaration."""
+
+    level: str = "pixel_only"
+    typed_meta_reads: list[str] = Field(default_factory=list)
+    typed_meta_writes: list[str] = Field(default_factory=list)
+    format_metadata_reads: list[str] = Field(default_factory=list)
+    format_metadata_writes: list[str] = Field(default_factory=list)
+    notes: str | None = None
+
+
+class FormatCapabilityResponse(BaseModel):
+    """Serializable ADR-043 IO format capability metadata."""
+
+    id: str
+    direction: str
+    data_type: str
+    format_id: str
+    extensions: list[str] = Field(default_factory=list)
+    label: str
+    block_type: str
+    handler: str
+    is_default: bool = False
+    priority: int = 0
+    roundtrip_group: str | None = None
+    metadata_fidelity: MetadataFidelityResponse = Field(default_factory=MetadataFidelityResponse)
+    is_synthesized: bool = False
+    migration_scaffold: bool = False
+
+
 class TypeHierarchyEntry(BaseModel):
     """Type hierarchy metadata for frontend color resolution."""
 
@@ -107,6 +137,9 @@ class BlockSummary(BaseModel):
     # affordances for variadic blocks even before the full schema is fetched.
     variadic_inputs: bool = False
     variadic_outputs: bool = False
+    # ADR-043: capabilities are metadata for aggregate IOBlocks, not separate
+    # palette entries. The frontend uses them for format selection only.
+    format_capabilities: list[FormatCapabilityResponse] = Field(default_factory=list)
 
 
 class BlockListResponse(BaseModel):

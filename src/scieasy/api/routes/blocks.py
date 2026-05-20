@@ -17,6 +17,8 @@ from scieasy.api.schemas import (
     BlockSchemaResponse,
     BlockSummary,
     ConnectionValidationResponse,
+    FormatCapabilityResponse,
+    MetadataFidelityResponse,
     TypeHierarchyEntry,
 )
 from scieasy.blocks.base.ports import InputPort, OutputPort, validate_connection
@@ -60,6 +62,33 @@ def _map_source(raw: str) -> str:
     return raw
 
 
+def _format_capability_response(capability: Any) -> FormatCapabilityResponse:
+    fidelity = capability.metadata_fidelity
+    return FormatCapabilityResponse(
+        id=capability.id,
+        direction=capability.direction,
+        data_type=capability.data_type.__name__,
+        format_id=capability.format_id,
+        extensions=list(capability.extensions),
+        label=capability.label,
+        block_type=capability.block_type,
+        handler=capability.handler,
+        is_default=capability.is_default,
+        priority=capability.priority,
+        roundtrip_group=capability.roundtrip_group,
+        metadata_fidelity=MetadataFidelityResponse(
+            level=fidelity.level,
+            typed_meta_reads=list(fidelity.typed_meta_reads),
+            typed_meta_writes=list(fidelity.typed_meta_writes),
+            format_metadata_reads=list(fidelity.format_metadata_reads),
+            format_metadata_writes=list(fidelity.format_metadata_writes),
+            notes=fidelity.notes,
+        ),
+        is_synthesized=capability.is_synthesized,
+        migration_scaffold=capability.migration_scaffold,
+    )
+
+
 def _is_plugin_package(name: str) -> bool:
     """Return True if *name* looks like an external plugin package.
 
@@ -91,6 +120,9 @@ def _summary(spec: Any) -> BlockSummary:
         package_name=package_name,
         variadic_inputs=bool(getattr(spec, "variadic_inputs", False)),
         variadic_outputs=bool(getattr(spec, "variadic_outputs", False)),
+        format_capabilities=[
+            _format_capability_response(capability) for capability in getattr(spec, "format_capabilities", [])
+        ],
     )
 
 
