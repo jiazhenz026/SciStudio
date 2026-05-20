@@ -86,13 +86,13 @@ Sub-issue: #1270
 
 ### Phase 2 Implementation (Owner: I-D)
 
-- [ ] Implement `src/scieasy/qa/governance/sentrux_gate.py` parsing and free-tier honesty validation. [ADR-042 Addendum 1 Section 2; Spec User Story 5]
-- [ ] Reject Pro-only or unchecked-rule claims even when free-tier check output is otherwise passing.
-- [ ] Add tests in `tests/qa/test_sentrux_gate.py`.
+- [x] Implement `src/scieasy/qa/governance/sentrux_gate.py` parsing and free-tier honesty validation. [ADR-042 Addendum 1 Section 2; Spec User Story 5] Test: `pytest tests/qa/test_sentrux_gate.py --timeout=60 --no-cov` -> 8 passed.
+- [x] Reject Pro-only or unchecked-rule claims even when free-tier check output is otherwise passing. Test: `pytest tests/qa/test_sentrux_gate.py --timeout=60 --no-cov` -> 8 passed.
+- [x] Add tests in `tests/qa/test_sentrux_gate.py`. Test: `ruff check src/scieasy/qa/governance/sentrux_gate.py tests/qa/test_sentrux_gate.py` -> passed.
 
 ### Verification
 
-- [ ] `pytest tests/qa/test_sentrux_gate.py --timeout=60`
+- [x] `pytest tests/qa/test_sentrux_gate.py --timeout=60` collected 8 passing tests, then failed repository-wide coverage fail-under from global pytest addopts; behavior verification rerun with `PYTEST_ADDOPTS=--no-cov` -> 8 passed.
 
 ## Track E - Hooks And CI
 
