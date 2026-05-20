@@ -168,9 +168,9 @@ Tasks:
 
 Exit Criteria:
 
-- [ ] Track C2 PR targets `track/adr-041/codeblock-v2`.
-- [ ] Track C2 CI is green.
-- [x] Checklist rows updated with PR/test evidence. Evidence: local implementation/test evidence recorded by I41n; PR/CI rows remain pending until publication and CI completion.
+- [x] Track C2 PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1249](https://github.com/zjzcpj/SciEasy/pull/1249).
+- [x] Track C2 CI is green. Evidence: PR #1249 checks passed on 2026-05-20 before merge.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR #1249 plus local manager verification `python -m pytest tests/blocks/code --timeout=60 --no-cov` passed with 64 tests and 7 optional runtime skips.
 
 ### Track C3 - R and Quarto Runtime Support (Owner: I41r / #1238)
 
@@ -243,6 +243,12 @@ Exit Criteria:
 - [x] Track C5 PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1247](https://github.com/zjzcpj/SciEasy/pull/1247).
 - [x] Track C5 CI is green. Evidence: PR #1247 `Verify Workflow Compliance` passed on 2026-05-19.
 - [x] Checklist rows updated with PR/test evidence. Evidence: PR #1247 plus focused pytest/Ruff evidence recorded above.
+
+### Phase 2 Runtime Integration Sweep
+
+- [x] All runtime backend child PRs merged to `track/adr-041/codeblock-v2`. Evidence: PR #1239, #1249, #1250, #1248, and #1247 are merged.
+- [x] Full CodeBlock backend test package passes on the integrated tracking branch. Evidence: `PYTHONPATH=src python -m pytest tests/blocks/code --timeout=60 --no-cov` passed with 64 tests and 7 optional runtime skips on 2026-05-20.
+- [x] Full CodeBlock backend lint passes on the integrated tracking branch. Evidence: `python -m ruff check src/scieasy/blocks/code tests/blocks/code` passed on 2026-05-20.
 
 ## Phase 3 - Validation and Migration Diagnostics
 
