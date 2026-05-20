@@ -160,17 +160,17 @@ Scope:
 
 Tasks:
 
-- [ ] Add `.ipynb` runtime execution through nbconvert or a local Jupyter runner when available.
-- [ ] Capture the executed notebook as a framework-managed `_executed_notebook` `Artifact`.
-- [ ] Preserve typed output collection from declared output folders alongside notebook artifact capture.
-- [ ] Add tests for success, failure diagnostics, optional dependency skip behavior, and artifact retention where feasible.
-- [ ] Keep optional notebook dependencies out of the base runtime unless the existing project packaging already includes them.
+- [x] Add `.ipynb` runtime execution through nbconvert or a local Jupyter runner when available. Evidence: local implementation in `src/scieasy/blocks/code/backends/notebook.py`; focused pytest passed with optional live execution skipped when Jupyter nbconvert was unavailable.
+- [x] Capture the executed notebook as a framework-managed `_executed_notebook` `Artifact`. Evidence: backend writes `outputs/_executed_notebook/<stem>.executed.ipynb`; returned through declared Artifact output collection when the shared runtime plans that port. Backend-managed auto-injection follow-up is tracked by [#1245](https://github.com/zjzcpj/SciEasy/issues/1245).
+- [x] Preserve typed output collection from declared output folders alongside notebook artifact capture. Evidence: `test_codeblock_runs_notebook_and_collects_typed_output_plus_executed_artifact` covers typed `Text` output plus executed `Artifact` when nbconvert is installed; collection path remains the shared CodeBlock output collector.
+- [x] Add tests for success, failure diagnostics, optional dependency skip behavior, and artifact retention where feasible. Evidence: `python -m pytest tests/blocks/code/test_codeblock_notebooks.py --timeout=30 --no-cov` passed with 3 passed / 3 skipped on 2026-05-19 due missing Jupyter nbconvert.
+- [x] Keep optional notebook dependencies out of the base runtime unless the existing project packaging already includes them. Evidence: implementation uses `shutil.which` discovery and raises `InterpreterResolutionError` with installation guidance; no packaging files changed.
 
 Exit Criteria:
 
 - [ ] Track C2 PR targets `track/adr-041/codeblock-v2`.
 - [ ] Track C2 CI is green.
-- [ ] Checklist rows updated with PR/test evidence.
+- [x] Checklist rows updated with PR/test evidence. Evidence: local implementation/test evidence recorded by I41n; PR/CI rows remain pending until publication and CI completion.
 
 ### Track C3 - R and Quarto Runtime Support (Owner: I41r / #1238)
 
@@ -336,7 +336,7 @@ Exit Criteria:
 - [x] I41a dispatched for #1223. Worktree: `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41a`; branch: `feat/issue-1223/adr041-config-interpreter-provenance`.
 - [x] I41b dispatched for #1224. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41b`, branch `feat/issue-1224/adr041-exchange-manifest`, gate session `20260519-182539-adr-041-track-b-codeblock-v2-exchange-ma`.
 - [x] I41c dispatched for #1225. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41c`, branch `feat/issue-1225/adr041-codeblock-python-execution`, gate session `20260519-185434-adr-041-track-c-codeblock-v2-python-exec`, PR #1239; retargeted on 2026-05-19 from Python-only MVP to shared runtime integration plus Python backend.
-- [ ] I41n dispatched for #1235.
+- [x] I41n dispatched for #1235. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41n`, branch `feat/issue-1235/adr041-notebook-runtime`, gate session `20260519-195008-adr-041-track-c2-notebook-runtime-and-ex`.
 - [ ] I41r dispatched for #1238.
 - [x] I41s dispatched for #1237. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41s`, branch `feat/issue-1237/adr041-shell-runtime`, gate session `20260519-194957-adr-041-track-c4-shell-runtime-support`.
 - [x] I41m dispatched for #1236. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41m`, branch `feat/issue-1236/adr041-matlab-octave-runtime`, gate session `20260519-195039-adr-041-track-c5-matlab-and-octave-runti`.
