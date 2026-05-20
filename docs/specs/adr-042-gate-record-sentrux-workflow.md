@@ -16,6 +16,7 @@ related_specs:
 scope:
   in:
     - Standalone ADR addendum frontmatter and lint support.
+    - Architecture document frontmatter and lint support for `docs/architecture/ARCHITECTURE.md`.
     - Committed gate record schema and validator.
     - Orchestration of ADR-042 custom hard-fail guards already defined for issue linkage, docs landing, persona policy, governance protection, and CI weakening.
     - Human bypass guard integration and contributor-facing bypass procedure.
@@ -50,6 +51,7 @@ governs:
     - scieasy.qa.governance.weakened_ci_check
   contracts:
     - scieasy.qa.schemas.frontmatter.ADRAddendumFrontmatter
+    - scieasy.qa.schemas.frontmatter.ArchitectureFrontmatter
     - scieasy.qa.audit.frontmatter_lint.lint_file
     - scieasy.qa.governance.gate_record.GateRecord
     - scieasy.qa.governance.gate_record.GateStage
@@ -73,6 +75,7 @@ governs:
   files:
     - docs/specs/adr-042-gate-record-sentrux-workflow.md
     - docs/adr/ADR-042-addendum1.md
+    - docs/architecture/ARCHITECTURE.md
     - src/scieasy/qa/schemas/frontmatter.py
     - src/scieasy/qa/audit/frontmatter_lint.py
     - src/scieasy/qa/audit/loaders.py
@@ -211,6 +214,25 @@ Acceptance Scenarios:
    then it fails.
 3. Given an addendum without `## 1. Decision Summary` or
    `### 1.1 Problems Addressed`, when lint runs, then it fails.
+
+### User Story 2a - Architecture document frontmatter is audited (Priority: P1)
+
+As a maintainer, I need the top-level architecture document to participate in
+ADR-042 frontmatter audit so architecture metadata cannot drift outside the
+quality gate.
+
+Independent Test: Run `frontmatter_lint.lint_file` against
+`docs/architecture/ARCHITECTURE.md` and fixtures with invalid `doc_type`,
+missing owner, missing governed ADRs, and wrong H1.
+
+Acceptance Scenarios:
+
+1. Given `docs/architecture/ARCHITECTURE.md` with `doc_type: architecture`,
+   when frontmatter lint runs, then it passes architecture metadata validation.
+2. Given an architecture document without an owner, when lint runs, then it
+   fails.
+3. Given an architecture document whose H1 does not match the frontmatter title,
+   when lint runs, then it fails.
 
 ### User Story 3 - Existing ADR-042 guards remain hard-fail (Priority: P1)
 
@@ -367,6 +389,10 @@ Acceptance Scenarios:
 - FR-002: `frontmatter_lint` MUST validate addendum filenames, H1 titles,
   `## 1. Decision Summary`, `### 1.1 Problems Addressed`, and detailed-section
   references.
+- FR-002a: `frontmatter_lint` MUST validate
+  `docs/architecture/ARCHITECTURE.md` with an architecture frontmatter schema,
+  include it in repo-wide checks, and fail when architecture metadata or H1
+  structure is invalid.
 - FR-003: The implementation MUST define a Pydantic-backed `GateRecord` schema
   stored as JSON under `.workflow/records/`.
 - FR-004: Gate record validation MUST call or consume the existing ADR-042
@@ -504,8 +530,8 @@ applicable changes rather than silently treating evidence as complete.
 | `src/scieasy/qa/governance/mod_guard.py` | use | Existing ADR-042 governance modification guard |
 | `src/scieasy/qa/governance/weakened_ci_check.py` | use | Existing ADR-042 CI weakening guard |
 | `src/scieasy/qa/schemas/frontmatter.py` | modify | Add standalone ADR addendum frontmatter schema support |
-| `src/scieasy/qa/audit/frontmatter_lint.py` | modify | Accept and validate `ADR-NNN-addendumM.md` |
-| `src/scieasy/qa/audit/loaders.py` | modify | Load addendum frontmatter for audit/facts tools |
+| `src/scieasy/qa/audit/frontmatter_lint.py` | modify | Accept and validate `ADR-NNN-addendumM.md` and `docs/architecture/ARCHITECTURE.md` |
+| `src/scieasy/qa/audit/loaders.py` | modify | Load addendum and architecture frontmatter for audit/facts tools |
 | `src/scieasy/qa/governance/__init__.py` | modify | Export gate-record public contracts |
 | `.workflow/gate.py` | delete | Remove obsolete local-only gate state machine |
 | `.workflow/gate-record.schema.json` | create | JSON Schema mirror for committed gate records |
