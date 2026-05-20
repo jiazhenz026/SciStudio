@@ -85,6 +85,8 @@ governance:
 | D5. Free-tier honesty rule | Forbid claiming Sentrux Pro-only diagnostics or unchecked rules as completed gate evidence | Local hooks, CI, and review | Section 2 |
 | D6. Override-label consistency | Reuse ADR-042's administrator labels for human bypass, AI override, protected core changes, and merge automation | CI validates label provenance through ADR-042 guards | Section 5 |
 | D7. Implementation tests required | Require implementation-category tasks to add or modify tests as part of the PR | Local hooks and CI reject implementation work without test changes | Section 3 |
+| D8. Legacy CI gate replacement | Replace the old `.workflow/active` CI lookup with committed gate-record validation | Workflow-gate CI has one normative gate authority | Section 3 |
+| D9. Conflict-prone generated artifacts | Ignore generated gate/audit artifacts and explicitly migrate any tracked workflow files before treating them as ignored | `.gitignore`, review, and gate implementation docs | Section 3 |
 
 This addendum supersedes ADR-042 Section 7.2 only where that section defines
 gate state as local-only state under `.git/scieasy/gates/`. Local gate state may
@@ -104,6 +106,8 @@ still exist as a pre-commit helper, but it is not sufficient for delivery.
 | QA full audit evidence is not yet part of the gate | ADR-042 consistency tools can be skipped even when available | Require full-audit evidence, with temporary technical-debt handling before hard fail | Section 5 |
 | Override labels can drift between docs and implementation | Human bypass or admin approval checks can disagree about valid labels | Reuse one fixed label set from ADR-042 and validate it in CI | Section 5 |
 | Implementation tasks can claim tests were run without adding tests | Bug fixes and features can land without regression or behavior coverage | Require changed test files for implementation-category tasks | Section 3 |
+| The legacy CI gate can remain as a parallel source of truth | A PR can pass or fail against obsolete `.workflow/active` state instead of the committed record | Replace the legacy workflow-gate state lookup with gate-record validation | Section 3 |
+| Generated workflow artifacts cause noisy merge conflicts | Agents repeatedly resolve conflicts in files that should be local evidence, not canonical text | Ignore generated gate/audit artifacts and explicitly migrate any tracked canonical workflow files | Section 3 |
 
 ## 2. Sentrux Free-Tier Integration
 
@@ -145,7 +149,17 @@ The canonical gate has six stages:
 
 Existing `.workflow/gate.py` records may remain as a legacy helper during
 migration, but they are not the normative ADR-042 gate unless they produce the
-committed gate record described here and pass CI validation.
+committed gate record described here and pass CI validation. The existing
+workflow-gate CI step that searches `.workflow/active` for local state must be
+replaced by committed gate-record validation; CI must not keep both checks as
+parallel authorities.
+
+Generated gate and audit outputs that are not canonical repository
+documentation should be ignored to avoid recurring branch conflicts. If the
+project decides that an already tracked canonical workflow file such as
+`CHANGELOG.md` should no longer be version-controlled, the implementation must
+remove it from the Git index and update gate semantics; adding a tracked file
+to `.gitignore` alone is not sufficient.
 
 ### 3.1 Required Agent Procedure
 
