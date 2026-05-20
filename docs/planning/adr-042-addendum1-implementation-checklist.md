@@ -39,6 +39,7 @@ Sub-issue: #1267
 
 - [ ] Add `.workflow/gate-record.schema.json` and `.workflow/records/.gitkeep`. [ADR-042 Addendum 1 Section 3]
 - [ ] Implement `src/scieasy/qa/governance/gate_record.py` models and validators for six-stage records, scope/diff matching, PR issue-closing checks, full-audit evidence, Sentrux evidence hooks, exact override labels, and changed-test-file enforcement. [Spec User Stories 1, 4, 6, 9, 10]
+- [ ] Implement the AI-facing CLI commands `start`, `plan`, `amend`, `docs`, `check`, `sentrux`, `finalize`, `pre-commit`, `commit-msg`, and `ci`. [ADR-042 Addendum 1 Section 3.1]
 - [ ] Export stable governance APIs from `src/scieasy/qa/governance/__init__.py`.
 - [ ] Add tests in `tests/qa/test_gate_record.py` and `tests/qa/test_gate_record_ci.py`.
 
@@ -84,6 +85,7 @@ Sub-issue: #1269
 - [ ] Replace the legacy `.github/workflows/workflow-gate.yml` local-state check with committed gate-record validation; do not keep the old CI gate as a second authority. [ADR-042 Addendum 1 Sections 3 and 5]
 - [ ] Update `.github/workflows/workflow-gate.yml` to validate committed gate records, PR closing keywords, hard-fail guards, full-audit evidence, Sentrux evidence, override labels, and changed tests. [ADR-042 Addendum 1 Sections 3 and 5]
 - [ ] Update `.pre-commit-config.yaml` and add `scripts/hooks/check-gate-before-push.sh` and `scripts/hooks/check-gate-before-pr.sh` wrappers.
+- [ ] Delete `.workflow/gate.py` and remove current hook/CI references to `.workflow/gate.py` or `.workflow/active`.
 - [ ] Update `.gitignore` for conflict-prone generated gate/audit artifacts and document any canonical tracked-file migration. If `CHANGELOG.md` itself is made untracked, the PR must use `git rm --cached CHANGELOG.md` and adjust changelog gate semantics; do not rely on `.gitignore` alone for already tracked files.
 - [ ] Add tests in `tests/qa/test_gate_record_hooks.py`.
 - [ ] Preserve human `--no-verify` and documented skip-all behavior; CI remains final enforcement.
