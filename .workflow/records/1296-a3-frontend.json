@@ -1,6 +1,13 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Implementation landed: 4 new components (CapabilityDropdown, OMEMetadataPanel, LossySaveWarning, capabilities API client) + 4 new test files + integration wiring into PortEditorTable/DataPreview/WorkflowCanvas/BlockNode + types/ui.ts + App.tsx + CHANGELOG + smoke harness. All 405 tests pass + tsc clean + vite build clean."
+    }
+  ],
   "branch": "feat/issue-1296/adr043-a3-frontend",
   "changed_test_paths": [],
   "check_results": [
@@ -93,8 +100,8 @@
     "body_closes_issues": [
       1296
     ],
-    "number": null,
-    "url": null
+    "number": 1299,
+    "url": "https://github.com/zjzcpj/SciEasy/pull/1299"
   },
   "record_path": ".workflow/records/1296-a3-frontend.json",
   "required_checks": [
@@ -137,7 +144,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
