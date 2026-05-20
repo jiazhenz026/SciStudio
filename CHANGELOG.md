@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#1262] Add conservative Sentrux architecture rules, document the layer/boundary model, and ignore the local `sentrux.exe` binary. (@agent, 2026-05-20, branch: feat/issue-1262/sentrux-rules, session: 20260519-212320-configure-sentrux-architecture-rules)
+
 - [#1251] Add ADR-042 P0 governance guards: `scieasy.qa.governance.mod_guard` blocks unauthorized governance-critical file changes, `scieasy.qa.governance.weakened_ci_check` detects high-signal CI/pre-commit weakening, and both run as scoped local pre-commit hooks for staged diffs. (@agent, 2026-05-19, branch: feat/issue-1251/adr042-p0-governance-guards, session: 20260519-200431-implement-adr-042-p0-governance-guards)
 - [#1253] Stop tracking generated ADR-042 facts by ignoring `docs/facts/generated.yaml` and removing the generated snapshot from the repository index to avoid repeated merge conflicts. (@agent, 2026-05-19, branch: chore/issue-1253/ignore-generated-facts-yaml, session: 20260519-202639-ignore-generated-facts-yaml)
 
