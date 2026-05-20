@@ -23,15 +23,15 @@ Sub-issue: #1268
 
 ### Phase 2 Implementation (Owner: I-A)
 
-- [ ] Add `ADRAddendumFrontmatter` and loader support for standalone `ADR-NNN-addendumM.md` files. [ADR-042 Addendum 1 Section 3; Spec User Story 2]
-- [ ] Update `frontmatter_lint` filename/H1/Decision Summary checks for addenda without weakening ordinary ADR checks. [Spec FR-001..FR-003]
-- [ ] Add `ArchitectureFrontmatter` and include `docs/architecture/ARCHITECTURE.md` in repo-wide `frontmatter_lint` checks. [Spec User Story 2a; FR-002a]
-- [ ] Validate architecture document H1 against frontmatter title and reject missing owner/governed ADR metadata.
-- [ ] Add or update tests in `tests/qa/test_audit_frontmatter_lint.py` for valid and invalid addenda.
+- [x] Add `ADRAddendumFrontmatter` and loader support for standalone `ADR-NNN-addendumM.md` files. [ADR-042 Addendum 1 Section 3; Spec User Story 2] Result: `python -m scieasy.qa.audit.frontmatter_lint docs/adr/ADR-042-addendum1.md` passed with `PYTHONPATH=src`.
+- [x] Update `frontmatter_lint` filename/H1/Decision Summary checks for addenda without weakening ordinary ADR checks. [Spec FR-001..FR-003] Result: `pytest tests/qa/test_audit_frontmatter_lint.py --timeout=60 --no-cov` passed 15 tests with `PYTHONPATH=src`.
+- [x] Add or update tests in `tests/qa/test_audit_frontmatter_lint.py` for valid and invalid addenda. Result: valid addendum, malformed filename, mismatched addendum number, missing addendum number, wrong H1, unresolved detail section, and loader selection cases covered.
+- [x] Add `ArchitectureFrontmatter` and include `docs/architecture/ARCHITECTURE.md` in repo-wide `frontmatter_lint` checks. [Spec User Story 2a; FR-002a] Result: `PYTHONPATH=src python -m scieasy.qa.audit.frontmatter_lint docs/architecture/ARCHITECTURE.md` passed; repo-wide command now includes architecture but still reports pre-existing non-Track-A ADR/spec frontmatter debt.
+- [x] Validate architecture document H1 against frontmatter title and reject missing owner/governed ADR metadata. Result: architecture tests cover valid metadata, invalid `doc_type`, missing owner, wrong H1, repo `ARCHITECTURE.md`, and repo-wide `check()` inclusion.
 
 ### Verification
 
-- [ ] `pytest tests/qa/test_audit_frontmatter_lint.py --timeout=60`
+- [!] `pytest tests/qa/test_audit_frontmatter_lint.py --timeout=60` Result: test assertions passed, but the repository global coverage fail-under rejected this targeted run at 9%; rerun with `PYTHONPATH=src` and `--no-cov` passed 21 tests.
 
 ## Track A2 - Architecture Drift Audit
 
@@ -71,14 +71,14 @@ Sub-issue: #1271
 
 ### Phase 2 Implementation (Owner: I-C)
 
-- [ ] Implement or complete ADR-042 guard modules without replacing their policy with gate-record-only checks: `issue_link`, `docs_landing`, `persona_policy`, `human_bypass_guard`, `core_change_guard`, and `pr_merge_guard`. [Spec User Stories 3, 7, 10]
-- [ ] Reuse exact override labels: `human-authored`, `admin-approved:ai-override`, `admin-approved:core-change`, `admin-approved:merge`.
-- [ ] Keep existing `mod_guard` and `weakened_ci_check` hard-fail semantics intact.
-- [ ] Add tests in `tests/qa/test_issue_link.py`, `tests/qa/test_docs_landing.py`, `tests/qa/test_persona_policy.py`, `tests/qa/test_human_bypass_guard.py`, `tests/qa/test_core_change_guard.py`, and `tests/qa/test_pr_merge_guard.py`.
+- [x] Implement or complete ADR-042 guard modules without replacing their policy with gate-record-only checks: `issue_link`, `docs_landing`, `persona_policy`, `human_bypass_guard`, `core_change_guard`, and `pr_merge_guard`. [Spec User Stories 3, 7, 10] Test result: Track C pytest 35 passed with `PYTHONPATH=src PYTEST_ADDOPTS=--no-cov`.
+- [x] Reuse exact override labels: `human-authored`, `admin-approved:ai-override`, `admin-approved:core-change`, `admin-approved:merge`. Test result: `ruff check` passed and `tests/qa/test_human_bypass_guard.py` passed in Track C suite.
+- [x] Keep existing `mod_guard` and `weakened_ci_check` hard-fail semantics intact. Test result: `tests/qa/test_governance_mod_guard.py` and `tests/qa/test_governance_weakened_ci_check.py` passed in Track C suite.
+- [x] Add tests in `tests/qa/test_issue_link.py`, `tests/qa/test_docs_landing.py`, `tests/qa/test_persona_policy.py`, `tests/qa/test_human_bypass_guard.py`, `tests/qa/test_core_change_guard.py`, and `tests/qa/test_pr_merge_guard.py`. Test result: Track C pytest 35 passed with `PYTHONPATH=src PYTEST_ADDOPTS=--no-cov`.
 
 ### Verification
 
-- [ ] `pytest tests/qa/test_issue_link.py tests/qa/test_docs_landing.py tests/qa/test_persona_policy.py tests/qa/test_human_bypass_guard.py tests/qa/test_core_change_guard.py tests/qa/test_pr_merge_guard.py tests/qa/test_governance_mod_guard.py tests/qa/test_governance_weakened_ci_check.py --timeout=60`
+- [x] `pytest tests/qa/test_issue_link.py tests/qa/test_docs_landing.py tests/qa/test_persona_policy.py tests/qa/test_human_bypass_guard.py tests/qa/test_core_change_guard.py tests/qa/test_pr_merge_guard.py tests/qa/test_governance_mod_guard.py tests/qa/test_governance_weakened_ci_check.py --timeout=60` - `PYTHONPATH=src PYTEST_ADDOPTS=--no-cov`: 35 passed. Exact sub-suite without `--no-cov` collected and passed 35 tests, then failed repository-wide coverage fail-under.
 
 ## Track D - Sentrux Free-Tier Gate
 
@@ -100,8 +100,8 @@ Sub-issue: #1269
 
 ### Phase 2 Implementation (Owner: I-E)
 
-- [ ] Replace the legacy `.github/workflows/workflow-gate.yml` local-state check with committed gate-record validation; do not keep the old CI gate as a second authority. [ADR-042 Addendum 1 Sections 3 and 5]
-- [ ] Update `.github/workflows/workflow-gate.yml` to validate committed gate records, PR closing keywords, hard-fail guards, full-audit evidence, Sentrux evidence, override labels, and changed tests. [ADR-042 Addendum 1 Sections 3 and 5]
+- [~] Replace the legacy `.github/workflows/workflow-gate.yml` local-state check with committed gate-record validation; do not keep the old CI gate as a second authority. Bootstrap removes `.workflow/active` as CI authority and probes `gate_record ci` only when Track B makes it available; final mandatory validation remains under #1269. Bootstrap PR: #1277; validation: YAML parse and `git diff --check` passed. [ADR-042 Addendum 1 Sections 3 and 5]
+- [!] Update `.github/workflows/workflow-gate.yml` to validate committed gate records, PR closing keywords, hard-fail guards, full-audit evidence, Sentrux evidence, override labels, and changed tests. Bootstrap preserves PR closing-keyword and changed-test checks, but full gate-record/guard/full-audit/Sentrux/label validation is blocked until Track B/C/D interfaces land; tracked by #1269. Bootstrap PR: #1277. [ADR-042 Addendum 1 Sections 3 and 5]
 - [ ] Update `.pre-commit-config.yaml` so gate interception calls `python -m scieasy.qa.governance.gate_record`, not `.workflow/gate.py`.
 - [ ] Replace `scripts/hooks/check-gate-before-push.sh` with a thin wrapper around `python -m scieasy.qa.governance.gate_record pre-push` or the closest implemented gate-record validation command.
 - [ ] Replace `scripts/hooks/check-gate-before-pr.sh` with a thin wrapper around `python -m scieasy.qa.governance.gate_record pr-ready` or the closest implemented gate-record validation command.
@@ -109,7 +109,7 @@ Sub-issue: #1269
 - [ ] Delete `.workflow/gate.py`.
 - [ ] Remove all current executable hook/CI references to `.workflow/gate.py`, `gate.py status/list/advance`, and `.workflow/active`.
 - [ ] Add tests in `tests/qa/test_gate_record_hooks.py` proving hook/wrapper behavior uses the gate-record CLI and does not require the deleted `gate.py`.
-- [ ] Update `.gitignore` for conflict-prone generated gate/audit artifacts and document any canonical tracked-file migration. If `CHANGELOG.md` itself is made untracked, the PR must use `git rm --cached CHANGELOG.md` and adjust changelog gate semantics; do not rely on `.gitignore` alone for already tracked files.
+- [~] Update `.gitignore` for conflict-prone generated gate/audit artifacts and document any canonical tracked-file migration. Bootstrap ignores generated audit outputs and local gate scratch files; `CHANGELOG.md` remains tracked because changing its canonical status requires a separate gate semantics migration under #1269. Bootstrap PR: #1277.
 - [ ] Preserve human `--no-verify` and documented skip-all behavior; CI remains final enforcement.
 
 ### Verification
