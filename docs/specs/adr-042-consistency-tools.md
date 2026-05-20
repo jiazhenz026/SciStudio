@@ -104,6 +104,15 @@ The consistency tools are the strictest ADR-042 category: once a consistency
 checker is wired, non-`match` findings hard-fail immediately. Existing drift is
 technical debt to fix or track explicitly, not debt to grandfather silently.
 
+Issue #1240 completes the existing consistency-tool implementation surface:
+`AuditFinding` accepts the ADR-042 report-field aliases while preserving
+existing callers, `frontmatter_lint` now has an `AuditReport` and CLI wrapper,
+signature contracts include model-field and CLI-command fact shapes, signature
+drift compares those facts when implementation evidence exists, closure uses
+`MAINTAINERS` ownership input, and `full_audit` preserves frontmatter lint as a
+child report. ADR-042 AI governance, code scoring, test-quality, and generated
+documentation tools remain separate implementation tasks.
+
 ## 2. User Scenarios & Testing
 
 ### User Story 1 - Repository facts are generated from authoritative sources (Priority: P1)

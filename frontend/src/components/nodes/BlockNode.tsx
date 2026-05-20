@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react
 
 import { resolveTypeColor, resolveRingColor, isAnyType, primaryTypeName } from "../../config/typeColorMap";
 import { api, ApiError } from "../../lib/api";
-import type { FilesystemEntry } from "../../types/api";
+import type { FilesystemEntry, FormatCapabilityResponse } from "../../types/api";
 import type { BlockNodeData } from "../../types/ui";
 import { computeEffectivePorts } from "../../utils/computeEffectivePorts";
 
@@ -331,6 +331,82 @@ function getTopConfigProperties(
       return pa - pb;
     })
     .slice(0, 3);
+}
+
+function capabilityLabel(capability: FormatCapabilityResponse): string {
+  const extensions = capability.extensions.join(", ");
+  return extensions ? `${capability.label} (${extensions})` : capability.label;
+}
+
+function selectedCapability(
+  capabilities: FormatCapabilityResponse[],
+  capabilityId: unknown,
+): FormatCapabilityResponse | undefined {
+  if (typeof capabilityId === "string") {
+    const selected = capabilities.find((capability) => capability.id === capabilityId);
+    if (selected) return selected;
+  }
+  if (capabilities.length === 1) return capabilities[0];
+  const defaultCapability = capabilities.find((capability) => capability.is_default);
+  return defaultCapability;
+}
+
+function capabilityWarning(
+  capabilities: FormatCapabilityResponse[],
+  capability?: FormatCapabilityResponse,
+): string | null {
+  if (capabilities.length > 1 && !capability) {
+    return "Choose a format capability";
+  }
+  if (!capability) return null;
+  if (capability.direction === "save" && capability.metadata_fidelity.level === "pixel_only") {
+    return "Payload only; typed metadata may not be written";
+  }
+  if (capability.migration_scaffold) {
+    return "Legacy synthesized capability";
+  }
+  return null;
+}
+
+function InlineCapabilitySelector({
+  capabilities,
+  value,
+  onChange,
+}: {
+  capabilities: FormatCapabilityResponse[];
+  value: unknown;
+  onChange: (capabilityId: string) => void;
+}) {
+  if (capabilities.length === 0) return null;
+  const capability = selectedCapability(capabilities, value);
+  const warning = capabilityWarning(capabilities, capability);
+  const selectValue = typeof value === "string" ? value : capability?.id ?? "";
+
+  return (
+    <label className="flex flex-col gap-1 text-xs">
+      <span className="flex items-center justify-between gap-2">
+        <span className="shrink-0 text-stone-500">Format</span>
+        <select
+          className="nodrag nowheel min-w-0 flex-1 truncate rounded border border-stone-200 bg-white px-2 py-1 text-xs text-ink focus:border-sea focus:outline-none"
+          disabled={capabilities.length === 1}
+          value={selectValue}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {capabilities.length > 1 && <option value="">Select format...</option>}
+          {capabilities.map((option) => (
+            <option key={option.id} value={option.id}>
+              {capabilityLabel(option)}
+            </option>
+          ))}
+        </select>
+      </span>
+      {warning ? (
+        <span className="truncate rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] text-amber-700">
+          {warning}
+        </span>
+      ) : null}
+    </label>
+  );
 }
 
 function InlineConfigField({
@@ -689,6 +765,7 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
   const configProps = getTopConfigProperties(data.schema?.config_schema).filter(
     (prop) => !(data.category === "io" && prop.key === "direction"),
   );
+  const formatCapabilities = data.schema?.format_capabilities ?? [];
   const typeHierarchy = data.schema?.type_hierarchy;
   const categoryIcon = categoryIcons[data.category] ?? categoryIcons.custom;
   // ADR-028 Addendum 1 §B fix #3 / §C8: read ``direction`` from the schema
@@ -860,8 +937,15 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
       {/* Inline config                                                     */}
       {/* ----------------------------------------------------------------- */}
       <div ref={configSectionRef} className="nodrag nowheel space-y-2 overflow-hidden border-b border-stone-100 px-3 py-2">
-        {configProps.length > 0 ? (
-          configProps.map((prop) => (
+        {formatCapabilities.length > 0 ? (
+          <InlineCapabilitySelector
+            capabilities={formatCapabilities}
+            value={data.config?.capability_id}
+            onChange={(capabilityId) => data.onUpdateConfig?.({ capability_id: capabilityId })}
+          />
+        ) : null}
+        {configProps.length > 0
+          ? configProps.map((prop) => (
             <InlineConfigField
               key={prop.key}
               prop={prop}
@@ -869,11 +953,11 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
               onChange={handleConfigChange}
             />
           ))
-        ) : (
+          : formatCapabilities.length === 0 ? (
           <p className="text-center text-[11px] italic text-stone-400">
             No parameters
           </p>
-        )}
+        ) : null}
       </div>
 
       {/* ----------------------------------------------------------------- */}

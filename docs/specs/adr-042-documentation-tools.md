@@ -75,6 +75,13 @@ four implementation specs. Sphinx, griffe, markdownlint, codespell, and
 linkcheck remain common tools. The custom tools only encode SciEasy-specific
 policy that those tools cannot decide by themselves.
 
+Issue #1240 completes the current `frontmatter_lint` slice by keeping the
+existing `lint_file(path) -> list[Finding]` compatibility API and adding
+`AuditReport`-returning path/repository wrappers plus a module CLI. The broader
+documentation-tooling stack in this spec, including `doc_length_lint`,
+`auto_generated_lint`, `skill_pointer_sync`, generated references, and Sphinx
+integration, remains out of scope for #1240.
+
 ## 2. User Scenarios & Testing
 
 ### User Story 1 - Governed documents validate their metadata and first section (Priority: P1)

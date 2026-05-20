@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import argparse
 import re
 from pathlib import Path
 
 from scieasy.qa.audit._util import load_adr_frontmatter, load_spec_frontmatter, normalise_path
 from scieasy.qa.schemas.frontmatter import ADRFrontmatter
-from scieasy.qa.schemas.report import Finding, Severity
+from scieasy.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 _DETAIL_SECTION_RE = re.compile(r"\bSection\s+(\d+(?:\.\d+)*)\b", re.IGNORECASE)
@@ -198,3 +199,57 @@ def check(repo_root: Path | None = None) -> list[Finding]:
     for path in sorted((root / "docs" / "specs").glob("*.md")):
         findings.extend(lint_file(path))
     return findings
+
+
+def lint_paths(paths: list[Path], *, repo_root: Path | None = None) -> AuditReport:
+    """Validate selected ADR/spec files and return a shared audit report."""
+
+    root = Path(repo_root or Path.cwd())
+    findings: list[Finding] = []
+    for path in paths:
+        target = path if path.is_absolute() else root / path
+        findings.extend(lint_file(target))
+    return AuditReport(
+        tool="frontmatter_lint",
+        status=AuditStatus.FAIL if any(f.severity == Severity.ERROR for f in findings) else AuditStatus.PASS,
+        source_sha="",
+        findings=findings,
+        summary={"paths_checked": len(paths)},
+    )
+
+
+def check_report(repo_root: Path | None = None) -> AuditReport:
+    """Validate all ADR and spec Markdown files under ``repo_root`` as an audit report."""
+
+    root = Path(repo_root or Path.cwd())
+    findings = check(root)
+    return AuditReport(
+        tool="frontmatter_lint",
+        status=AuditStatus.FAIL if any(f.severity == Severity.ERROR for f in findings) else AuditStatus.PASS,
+        source_sha="",
+        findings=findings,
+        summary={"repo_root": normalise_path(root), "findings": len(findings)},
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    """CLI entry point for ADR/spec frontmatter validation."""
+
+    parser = argparse.ArgumentParser(description="Validate ADR-042 frontmatter and document structure")
+    parser.add_argument("paths", nargs="*", type=Path, help="ADR/spec files to validate")
+    parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    parser.add_argument("--format", choices=["text", "json"], default="text")
+    args = parser.parse_args(argv)
+
+    report = lint_paths(args.paths, repo_root=args.repo_root) if args.paths else check_report(args.repo_root)
+    if args.format == "json":
+        print(report.model_dump_json(indent=2))
+    else:
+        for finding in report.findings:
+            location = f"{finding.file}:{finding.line}" if finding.line is not None else finding.file
+            print(f"{finding.severity}: {location}: {finding.message}")
+    return 1 if report.blocks_merge else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
