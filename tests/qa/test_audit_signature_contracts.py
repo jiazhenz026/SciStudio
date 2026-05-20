@@ -105,7 +105,9 @@ def test_extract_adr_signature_contracts_records_file_line_numbers(tmp_path: Pat
     expected_line = text.splitlines().index("def target(value: str) -> bool:") + 1
 
     facts = extract_adr_signature_contracts([adr_path], repo_root=tmp_path, source_sha="test-sha")
-    function_fact = next(fact for fact in facts if fact.kind == "expected-signature" and fact.subject.endswith(".target"))
+    function_fact = next(
+        fact for fact in facts if fact.kind == "expected-signature" and fact.subject.endswith(".target")
+    )
 
     assert function_fact.value["line"] == expected_line
 

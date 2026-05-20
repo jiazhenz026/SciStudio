@@ -1,6 +1,13 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": "owner-hotfix-session",
+      "exclude": [],
+      "include": [],
+      "reason": "Implementation landed within the approved hotfix scope; no scope expansion."
+    }
+  ],
   "branch": "hotfix/rewrite-adr-001-040",
   "changed_test_paths": [
     "tests/qa/test_audit_signature_contracts.py",
@@ -42,17 +49,50 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m ruff format --check src/scieasy/qa/audit/signature_contracts.py src/scieasy/qa/audit/facts.py src/scieasy/qa/audit/signature_drift.py tests/qa/test_audit_signature_contracts.py tests/qa/test_gate_record_hooks.py",
+      "exit_code": 0,
+      "name": "ruff-format-audit-signature-contracts-and-hooks",
+      "output_path": "5 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": {
     "gate_record_path": ".workflow/records/1294-adr-signature-contracts-active-workflow-warning.json",
     "shas": [
-      "d7e2fd1916cd0629eeef276e6093ccb3677fed45"
+      "17d81254a72242457dc30e024b2aa8cb46f2ab70"
     ],
     "trailers": {}
   },
-  "docs_landing": {},
-  "full_audit": null,
+  "docs_landing": {
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Hotfix changes audit tooling, gate evidence, and ADR draft only; no release changelog entry."
+    },
+    "checklist": {},
+    "docs": {
+      "paths": [
+        "docs/adr/ADR-001.md"
+      ]
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 1,
+    "known_debt": [
+      "Legacy ADR-031..040 frontmatter backlog is in the owner-guided ADR-001..040 rewrite track (#1289).",
+      "Existing ADR-042 consistency-tool signature drift remains transition debt outside this hotfix.",
+      "Existing architecture-drift and closure findings are transition debt outside this hotfix."
+    ],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "fail",
+    "summary": {},
+    "unclassified_failures": []
+  },
   "governance_touch": true,
   "issues": [
     {
@@ -102,7 +142,23 @@
       ".workflow/records/1294-adr-signature-contracts-active-workflow-warning.json"
     ]
   },
-  "sentrux": null,
+  "sentrux": {
+    "command_or_tool": "mcp__sentrux__.scan + check_rules after rebase onto origin/main",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "MCP check_rules: pass=true; violation_count=0; rules_checked=3; total_rules_defined=15",
+    "pro_required": false,
+    "quality_signal": 4130.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {
+      "max_cc": "100",
+      "max_cycles": "5",
+      "no_god_files": "false"
+    },
+    "total_rules_defined": 15
+  },
   "stages": [
     {
       "completed_at": null,
@@ -119,13 +175,13 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
       "completed_at": null,
       "stage": "update_docs",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
