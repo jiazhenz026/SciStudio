@@ -210,15 +210,15 @@ Scope:
 
 Tasks:
 
-- [ ] Add `.sh` execution through a compatible POSIX shell when available.
-- [ ] Pass exchange-directory context deterministically without adding hidden format semantics.
-- [ ] Add tests for successful output collection, nonzero exit diagnostics, missing shell diagnostics, and Windows compatibility behavior.
+- [x] Add `.sh` execution through a compatible POSIX shell when available. Evidence: commit `1cd50925`; `python -m pytest tests/blocks/code/test_codeblock_shell.py --timeout=30 --no-cov`.
+- [x] Pass exchange-directory context deterministically without adding hidden format semantics. Evidence: commit `1cd50925`; shell backend sets sorted `SCIEASY_CODEBLOCK_*` environment context and delegates file collection to shared exchange helpers.
+- [x] Add tests for successful output collection, nonzero exit diagnostics, missing shell diagnostics, and Windows compatibility behavior. Evidence: `python -m pytest tests/blocks/code/test_codeblock_shell.py --timeout=30 --no-cov` passed with 4 tests and 2 Windows/no-shell skips; `python -m ruff check src/scieasy/blocks/code/backends/shell.py tests/blocks/code/test_codeblock_shell.py` passed.
 
 Exit Criteria:
 
-- [ ] Track C4 PR targets `track/adr-041/codeblock-v2`.
-- [ ] Track C4 CI is green.
-- [ ] Checklist rows updated with PR/test evidence.
+- [x] Track C4 PR targets `track/adr-041/codeblock-v2`. Evidence: [PR #1248](https://github.com/zjzcpj/SciEasy/pull/1248).
+- [x] Track C4 CI is green. Evidence: PR #1248 checks passed on 2026-05-19/2026-05-20 UTC.
+- [x] Checklist rows updated with PR/test evidence. Evidence: PR #1248, commit `1cd50925`, focused pytest/Ruff commands, and CI evidence recorded above.
 
 ### Track C5 - MATLAB and Octave Runtime Support (Owner: I41m / #1236)
 
@@ -338,7 +338,7 @@ Exit Criteria:
 - [x] I41c dispatched for #1225. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41c`, branch `feat/issue-1225/adr041-codeblock-python-execution`, gate session `20260519-185434-adr-041-track-c-codeblock-v2-python-exec`, PR #1239; retargeted on 2026-05-19 from Python-only MVP to shared runtime integration plus Python backend.
 - [x] I41n dispatched for #1235. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41n`, branch `feat/issue-1235/adr041-notebook-runtime`, gate session `20260519-195008-adr-041-track-c2-notebook-runtime-and-ex`.
 - [ ] I41r dispatched for #1238.
-- [ ] I41s dispatched for #1237.
+- [x] I41s dispatched for #1237. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41s`, branch `feat/issue-1237/adr041-shell-runtime`, gate session `20260519-194957-adr-041-track-c4-shell-runtime-support`.
 - [x] I41m dispatched for #1236. Evidence: worktree `C:\Users\jiazh\Desktop\workspace\SciEasy-adr041-I41m`, branch `feat/issue-1236/adr041-matlab-octave-runtime`, gate session `20260519-195039-adr-041-track-c5-matlab-and-octave-runti`.
 - [ ] I41d dispatched for #1226.
 - [ ] I41e dispatched for #1227.
