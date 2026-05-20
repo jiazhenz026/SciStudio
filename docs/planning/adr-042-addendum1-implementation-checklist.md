@@ -33,6 +33,21 @@ Sub-issue: #1268
 
 - [ ] `pytest tests/qa/test_audit_frontmatter_lint.py --timeout=60`
 
+## Track A2 - Architecture Drift Audit
+
+Sub-issue: #1278
+
+### Phase 2 Implementation (Owner: I-A2)
+
+- [ ] Add `src/scieasy/qa/audit/architecture_drift.py` to validate `docs/architecture/ARCHITECTURE.md` code blocks, module paths, class names, function names, method names, and signatures against generated repository facts. [Spec User Story 2b; FR-002b]
+- [ ] Treat architecture examples as normative by default; skip only examples explicitly marked non-normative, illustrative, or pseudocode. [FR-002c]
+- [ ] Wire architecture drift into `src/scieasy/qa/audit/full_audit.py` as a child report. [FR-002d]
+- [ ] Add tests in `tests/qa/test_architecture_drift.py` for stale signature, missing symbol, missing module, valid reference, and explicit non-normative skip.
+
+### Verification
+
+- [ ] `pytest tests/qa/test_architecture_drift.py tests/qa/test_audit_full_audit.py --timeout=60`
+
 ## Track B - Gate Record Core
 
 Sub-issue: #1267
