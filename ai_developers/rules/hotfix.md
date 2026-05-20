@@ -13,6 +13,8 @@ Entry rules:
 - Before editing code, reread the ADRs and architecture docs that govern the
   touched subsystem.
 - Also reread `AGENTS.md` non-negotiable principles and coding boundaries.
+- Quote or summarize the governing rule you reread in the first edit-mode
+  response so the owner can see the work is grounded.
 
 During hotfix:
 
@@ -28,3 +30,6 @@ When the round ends:
 - Create or link issues for every fixed bug.
 - Record the change plan, docs landing, changelog entry, and PR.
 - Address CI before considering the PR ready.
+
+Hotfix mode does not apply to refactors, new features, or architecture changes.
+Those require the normal gate workflow from the start.

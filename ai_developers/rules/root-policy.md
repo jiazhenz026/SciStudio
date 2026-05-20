@@ -31,7 +31,27 @@ Coding boundaries:
   tracked issue.
 
 Out-of-scope work must be recorded in the repo with a tracked `TODO(#NNN)`
-comment before it is deferred.
+comment before it is deferred. Use this form:
+
+```python
+# TODO(#NNN): <one-line description of what is deferred and why>
+#   Out of scope per <ADR-XXX section Y / spec section Z / PR #M discussion>.
+#   Followup: <issue URL or "open as part of ADR-XXX Phase Z">.
+```
+
+This applies to v1-to-v2 deferrals, known edge cases, intentional
+`NotImplementedError` branches, skipped tests, heuristics with known gaps, and
+cleanup deliberately left outside the current scope. A `TODO` without a
+tracking issue is itself a rule violation.
+
+Task priorities:
+
+1. Preserve architecture correctness.
+2. Preserve traceability and maintainability.
+3. Preserve stable contracts.
+4. Preserve extensibility.
+5. Preserve clear developer experience.
+6. Prefer implementation speed only after the above are safe.
 
 Canonical entry points:
 

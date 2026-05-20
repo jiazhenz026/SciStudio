@@ -18,6 +18,17 @@ Documentation rules:
 - Keep hand-authored docs concise and structured.
 - Prefer explicit not-applicable rationale over silent omission.
 
+Docs landing by change type:
+
+- Behavior or contract change: update the relevant spec, user docs, or
+  architecture docs.
+- Architectural decision: update or create an ADR.
+- Developer workflow change: update `AGENTS.md` only if the root index changes,
+  and update the relevant `ai_developers/rules/` file for details.
+- Runtime skill behavior change: update `ai_developers/skills/` first, then
+  mirror into `.claude/skills/`, `.codex/skills/`, and `.agents/skills/`.
+- Meaningful user-visible or governance change: update `CHANGELOG.md`.
+
 ADR and spec direction:
 
 - New ADRs should follow ADR-042 frontmatter and section expectations where

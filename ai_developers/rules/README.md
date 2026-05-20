@@ -12,6 +12,7 @@ Active rule modules:
 - `personas.md`: AI developer personas and responsibility boundaries.
 - `branch-pr-ci.md`: branch, commit, PR, and CI discipline.
 - `docs-governance.md`: documentation and skill-pointer rules.
+- `spec-and-adr.md`: SpecKit, ADR/spec, and bugfix decision rules.
 - `code-quality.md`: current lint, type, test, docs, frontend, and security
   checks.
 - `protected-changes.md`: protected governance, workflow, and core paths.
