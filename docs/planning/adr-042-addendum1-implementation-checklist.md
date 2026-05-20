@@ -25,6 +25,8 @@ Sub-issue: #1268
 
 - [ ] Add `ADRAddendumFrontmatter` and loader support for standalone `ADR-NNN-addendumM.md` files. [ADR-042 Addendum 1 Section 3; Spec User Story 2]
 - [ ] Update `frontmatter_lint` filename/H1/Decision Summary checks for addenda without weakening ordinary ADR checks. [Spec FR-001..FR-003]
+- [ ] Add `ArchitectureFrontmatter` and include `docs/architecture/ARCHITECTURE.md` in repo-wide `frontmatter_lint` checks. [Spec User Story 2a; FR-002a]
+- [ ] Validate architecture document H1 against frontmatter title and reject missing owner/governed ADR metadata.
 - [ ] Add or update tests in `tests/qa/test_audit_frontmatter_lint.py` for valid and invalid addenda.
 
 ### Verification
