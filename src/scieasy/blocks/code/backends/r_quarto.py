@@ -152,8 +152,7 @@ def _ensure_rmarkdown_available(rscript_executable: str) -> None:
     detail = (completed.stderr or completed.stdout or "").strip()
     suffix = f" Details: {detail}" if detail else ""
     raise InterpreterResolutionError(
-        "R Markdown support requires the R package 'rmarkdown' to be installed and loadable."
-        f"{suffix}"
+        f"R Markdown support requires the R package 'rmarkdown' to be installed and loadable.{suffix}"
     )
 
 
