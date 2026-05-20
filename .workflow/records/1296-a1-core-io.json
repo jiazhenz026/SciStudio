@@ -1,0 +1,160 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "feat/issue-1296/adr043-a1-core-io",
+  "changed_test_paths": [
+    "tests/blocks/io/test_load_data_capabilities.py",
+    "tests/blocks/io/test_save_data_capabilities.py",
+    "tests/blocks/io/test_load_data.py",
+    "tests/blocks/io/test_save_data.py",
+    "tests/blocks/app/test_appblock_bin_outputs.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "python -m ruff check src/scieasy/blocks/io/loaders/ src/scieasy/blocks/io/savers/ tests/blocks/io/ tests/blocks/app/test_appblock_bin_outputs.py",
+      "exit_code": null,
+      "name": "ruff",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m ruff format --check src/scieasy/blocks/io/loaders/ src/scieasy/blocks/io/savers/ tests/blocks/io/ tests/blocks/app/test_appblock_bin_outputs.py",
+      "exit_code": null,
+      "name": "format",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m pytest tests/blocks/io/ tests/blocks/app/test_appblock_bin_outputs.py 'tests/blocks/test_app_block.py::TestAppBlockExtensionBinner' --timeout=60 --no-cov",
+      "exit_code": null,
+      "name": "pytest",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "changelog": {},
+    "checklist": {},
+    "docs": {
+      "not_applicable": true,
+      "rationale": "no docs-doc changes; spec at docs/specs/adr-043-package-migration.md already covers the FR-001/FR-002/FR-003/FR-015 contract"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": null,
+    "known_debt": [
+      "pre-existing repo-wide ADR-031/architecture/signature/closure debt unrelated to A1 changes; owner acknowledged at umbrella level (manager track 5.: admin-approved:ai-override). 0 of 311 reported findings touch the A1 write set."
+    ],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "fail",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1296,
+      "url": null
+    }
+  ],
+  "owner_directive": "Phase A1: migrate LoadData/SaveData to explicit ADR-043 FormatCapability per spec FR-001..FR-003",
+  "planned_files": [
+    "src/scieasy/blocks/io/loaders/load_data.py",
+    "src/scieasy/blocks/io/savers/save_data.py",
+    "tests/blocks/io/test_load_data_capabilities.py",
+    "tests/blocks/io/test_save_data_capabilities.py",
+    "tests/blocks/io/test_load_data.py",
+    "tests/blocks/io/test_save_data.py",
+    "tests/blocks/app/test_appblock_bin_outputs.py",
+    "docs/planning/adr-043-package-migration-checklist.md",
+    "CHANGELOG.md"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1296-a1-core-io.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest",
+    "full_audit"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scieasy/blocks/io/loaders/load_data.py",
+      "src/scieasy/blocks/io/savers/save_data.py",
+      "tests/blocks/io/test_load_data_capabilities.py",
+      "tests/blocks/io/test_save_data_capabilities.py",
+      "tests/blocks/io/test_load_data.py",
+      "tests/blocks/io/test_save_data.py",
+      "tests/blocks/app/test_appblock_bin_outputs.py",
+      "docs/planning/adr-043-package-migration-checklist.md",
+      ".workflow/records/1296-a1-core-io.json",
+      "CHANGELOG.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "Sentrux CLI unavailable in this worktree; tests + ruff + ruff format + full_audit cover the change surface and changes are scoped to canonical IO block declarations.",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1296-a1-core-io",
+  "task_kind": "refactor"
+}

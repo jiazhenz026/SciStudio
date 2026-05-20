@@ -137,7 +137,7 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| A1 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a1-core-io-prompt.md` | Core IO LoadData/SaveData migration (FR-001..003) | `feat/issue-1296/adr043-a1-core-io` | `.claude/worktrees/adr-043-a1-core-io/` | `src/scieasy/blocks/io/loaders/load_data.py`, `src/scieasy/blocks/io/savers/save_data.py`, `tests/blocks/io/test_load_data_capabilities.py`, `tests/blocks/io/test_save_data_capabilities.py`, `CHANGELOG.md` | imaging, srs, frontend, engine, registry, materialisation, IOBlock base | dispatched | `[~]` |
+| A1 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a1-core-io-prompt.md` | Core IO LoadData/SaveData migration (FR-001..003) | `feat/issue-1296/adr043-a1-core-io` | `.claude/worktrees/adr-043-a1-core-io/` | `src/scieasy/blocks/io/loaders/load_data.py`, `src/scieasy/blocks/io/savers/save_data.py`, `tests/blocks/io/test_load_data_capabilities.py`, `tests/blocks/io/test_save_data_capabilities.py`, `CHANGELOG.md`, plus in-scope cleanup of `tests/blocks/io/test_load_data.py` + `tests/blocks/io/test_save_data.py` (legacy ClassVar tests rewritten to capability-derived contract) and `tests/blocks/app/test_appblock_bin_outputs.py` capability_id strings (direct FR-003 consequences) | imaging, srs, frontend, engine, registry, materialisation, IOBlock base | implementation complete; PR pending | `[~]` |
 | A2 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a2-imaging-io-prompt.md` | imaging IO migration + Image.Meta.ome + Bio-Formats extras (FR-004..008, FR-017) | `feat/issue-1296/adr043-a2-imaging-io` | `.claude/worktrees/adr-043-a2-imaging/` | `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/types.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/load_image.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/save_image.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/pillow_handler.py` (new), `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/bioformats_handler.py` (new), `packages/scieasy-blocks-imaging/pyproject.toml`, `packages/scieasy-blocks-imaging/tests/test_format_capabilities.py`, `packages/scieasy-blocks-imaging/tests/test_image_meta_ome.py`, `packages/scieasy-blocks-imaging/tests/test_bioformats_handler.py`, `CHANGELOG.md` | core IO, srs, frontend, ProcessBlock propagation, engine | dispatched | `[~]` |
 | A3 | implementer | N/A | `docs/planning/dispatch-prompts/adr-043-a3-frontend-prompt.md` | Frontend UI: capability dropdown + OME browser + lossy-save warning (FR-012..014) | `feat/issue-1296/adr043-a3-frontend` | `.claude/worktrees/adr-043-a3-frontend/` | `frontend/src/components/PortEditor/CapabilityDropdown.tsx` (new), `frontend/src/components/OutputPreview/OMEMetadataPanel.tsx` (new), `frontend/src/components/WorkflowEditor/LossySaveWarning.tsx` (new), `frontend/src/api/capabilities.ts`, `frontend/src/__tests__/CapabilityDropdown.test.tsx` (new), `frontend/src/__tests__/OMEMetadataPanel.test.tsx` (new), `frontend/src/__tests__/LossySaveWarning.test.tsx` (new), `CHANGELOG.md` | backend code, ProcessBlock propagation | dispatched | `[~]` |
 | B1 | implementer | N/A | pending | imaging ProcessBlock propagation audit + fix (FR-010); depends on A2 merged | `track/adr-043/core-blocks-and-imaging/b1-imaging-propagation` | `.claude/worktrees/adr-043-b1-imaging-propagation/` | `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/geometry.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/axis_ops.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/projection/projection.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/math/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/*.py`, `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/registration/*.py`, `packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py`, `docs/audit/adr-043-imaging-propagation-audit.md`, `CHANGELOG.md` | imaging IO, core IO, srs, frontend, engine | TBD | `[ ]` |
@@ -167,24 +167,24 @@ language_source: en
 
 ### 7.2 Dispatch
 
-- [ ] Prompt file created or dispatch prompt recorded.
-- [ ] Correct prompt template selected (`agent-dispatch-prompt-template.md`).
-- [ ] Agent branch/worktree assigned.
-- [ ] Write set and out-of-scope paths included in prompt.
-- [ ] TODO rule included in prompt.
-- [ ] Required checks included in prompt.
+- [x] Prompt file created or dispatch prompt recorded. -> `docs/planning/dispatch-prompts/adr-043-a1-core-io-prompt.md`
+- [x] Correct prompt template selected (`agent-dispatch-prompt-template.md`). -> dispatch prompt header `[DISPATCH-TEMPLATE-V1: implementer]`
+- [x] Agent branch/worktree assigned. -> `feat/issue-1296/adr043-a1-core-io` on `.claude/worktrees/adr-043-a1-core-io/`
+- [x] Write set and out-of-scope paths included in prompt. -> dispatch prompt §Scope
+- [x] TODO rule included in prompt. -> dispatch prompt §"TODO And Deferral Rule"
+- [x] Required checks included in prompt. -> dispatch prompt §"Required Tests And Checks"
 
 ### 7.3 Implementation
 
-- [ ] `LoadData.format_capabilities` declared (FR-001) -> commit sha
-- [ ] `SaveData.format_capabilities` declared (FR-002) -> commit sha
-- [ ] `supported_extensions` ClassVars deleted; helpers rewired (FR-003) -> commit sha
-- [ ] Test files added (FR-016) -> commit sha
-- [ ] CHANGELOG entry added -> commit sha
+- [x] `LoadData.format_capabilities` declared (FR-001) -> `src/scieasy/blocks/io/loaders/load_data.py` (`_LOAD_CAPABILITIES`, 30 records covering Array/DataFrame/Series/Text/Artifact/CompositeData per ADR-043 FR-015 convention; Artifact records include both MIME-mapped and opaque-loader variants for the legacy supported-extension union)
+- [x] `SaveData.format_capabilities` declared (FR-002) -> `src/scieasy/blocks/io/savers/save_data.py` (`_SAVE_CAPABILITIES`, 31 records mirroring LoadData with `direction='save'` plus the legacy Series-json save-only branch; Artifact records mirror LoadData's opaque-saver set)
+- [x] `supported_extensions` ClassVars deleted; helpers rewired (FR-003) -> `_resolve_format`, `_resolve_save_format`, per-class `_detect_format` overrides now derive from `_LOAD_EXTENSION_MAP` / `_SAVE_EXTENSION_MAP`; user-facing error messages re-sourced via `_supported_load_extensions()` / `_supported_save_extensions()`
+- [x] Test files added (FR-016) -> `tests/blocks/io/test_load_data_capabilities.py` (47 tests) and `tests/blocks/io/test_save_data_capabilities.py` (50 tests); existing `tests/blocks/io/test_load_data.py` + `tests/blocks/io/test_save_data.py` ClassVar test classes rewritten to assert the capability-derived contract; `tests/blocks/app/test_appblock_bin_outputs.py` capability_id strings updated to the new `core.dataframe.csv.load` form (direct consequence of FR-003 deleting the synthesis fallback). Local pytest pass: 270 IO tests + 11 AppBlock binner tests green; remaining 15 fails are imaging/lcms `ModuleNotFoundError` (worktree-environment-only, not introduced by A1).
+- [x] CHANGELOG entry added -> CHANGELOG.md `[#1296]` entry under `## [Unreleased]` → `### Added`.
 
 ### 7.4 Audit
 
-- [ ] Codex auto-review consumed; P1/P2 reconciled with explicit decision per finding.
+- [ ] Codex auto-review consumed; P1/P2 reconciled with explicit decision per finding. -> pending CI run + Codex auto-review
 
 ### 7.5 Integration
 
