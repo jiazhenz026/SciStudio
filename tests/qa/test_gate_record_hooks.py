@@ -33,12 +33,27 @@ def test_pre_commit_config_exposes_gate_record_hooks() -> None:
     hooks = {hook["id"]: hook for hook in local_repo["hooks"]}
 
     assert hooks["scieasy-gate-record-pre-commit"]["entry"] == (
-        "python -m scieasy.qa.governance.gate_record pre-commit --staged"
+        "python scripts/hooks/run_python_module.py scieasy.qa.governance.gate_record pre-commit --staged"
     )
     assert hooks["scieasy-gate-record-commit-msg"]["entry"] == (
-        "python -m scieasy.qa.governance.gate_record commit-msg"
+        "python scripts/hooks/run_python_module.py scieasy.qa.governance.gate_record commit-msg"
     )
     assert hooks["scieasy-gate-record-commit-msg"]["stages"] == ["commit-msg"]
+
+
+def test_pre_commit_config_uses_src_layout_launcher_for_local_python_hooks() -> None:
+    config = yaml.safe_load(_text(".pre-commit-config.yaml"))
+    local_repo = next(repo for repo in config["repos"] if repo["repo"] == "local")
+
+    for hook in local_repo["hooks"]:
+        assert hook["entry"].startswith("python scripts/hooks/run_python_module.py ")
+
+
+def test_git_pre_commit_wrapper_uses_src_layout_launcher() -> None:
+    hook = _text(".workflow/hooks/pre-commit")
+
+    assert 'scripts" / "hooks" / "run_python_module.py' in hook
+    assert "scieasy.qa.governance.gate_record" in hook
 
 
 def test_legacy_gate_py_removed() -> None:

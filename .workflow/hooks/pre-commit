@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from pathlib import Path
 
 
 def _branch() -> str:
@@ -22,10 +23,18 @@ def main() -> int:
     if branch in {"main", "develop", "HEAD"}:
         return 0
 
+    repo_root = Path(__file__).resolve().parents[2]
     result = subprocess.run(
-        [sys.executable, "-m", "scieasy.qa.governance.gate_record", "pre-commit", "--staged"],
+        [
+            sys.executable,
+            str(repo_root / "scripts" / "hooks" / "run_python_module.py"),
+            "scieasy.qa.governance.gate_record",
+            "pre-commit",
+            "--staged",
+        ],
         text=True,
         check=False,
+        cwd=repo_root,
     )
     return result.returncode
 

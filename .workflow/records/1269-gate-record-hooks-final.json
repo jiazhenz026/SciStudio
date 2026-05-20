@@ -72,6 +72,17 @@
         "tests/qa/test_gate_record_hooks.py"
       ],
       "reason": "Fetch PR review metadata for protected-change approval and align ADR CI evidence wording."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "scripts/hooks/run_python_module.py",
+        ".workflow/hooks/pre-commit",
+        ".pre-commit-config.yaml",
+        "tests/qa/test_gate_record_hooks.py"
+      ],
+      "reason": "Use src-layout Python module launcher for local hook entrypoints so developers do not need editable installs."
     }
   ],
   "branch": "feat/issue-1269/gate-record-hooks-final",
