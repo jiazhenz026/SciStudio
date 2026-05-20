@@ -15,6 +15,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Install gate dependencies
+        run: uv pip install --system -e ".[dev]"
+
       - name: Validate committed gate records
         env:
           BASE_REF: ${{ github.base_ref || 'main' }}

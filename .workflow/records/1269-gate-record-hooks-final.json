@@ -24,6 +24,14 @@
         "docs/specs/adr-042-gate-record-sentrux-workflow.md"
       ],
       "reason": "Synchronize addendum and spec hook semantics with final implementation."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".github/workflows/workflow-gate.yml"
+      ],
+      "reason": "Install gate dependencies in workflow-gate before running Python gate validators."
     }
   ],
   "branch": "feat/issue-1269/gate-record-hooks-final",
@@ -64,6 +72,15 @@
       "command_or_tool": "PYTHONPATH=src PYTEST_ADDOPTS=--no-cov pytest tests/qa --timeout=60",
       "exit_code": 0,
       "name": "pytest-qa",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -c import yaml workflow-gate",
+      "exit_code": 0,
+      "name": "workflow-yaml",
       "output_path": null,
       "status": "pass",
       "summary": {},
