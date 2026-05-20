@@ -13,7 +13,13 @@
   "branch": "chore/1291-sentrux-baseline",
   "changed_test_paths": [],
   "check_results": [],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1291-sentrux-baseline.json",
+    "shas": [
+      "dd984762"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "not_applicable": true,
@@ -52,7 +58,13 @@
     ".sentrux/rules.toml",
     "docs/audit/sentrux-evidence.local.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1291
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciEasy/pull/1293"
+  },
   "record_path": ".workflow/records/1291-sentrux-baseline.json",
   "required_checks": [
     "sentrux,gate_record"
@@ -113,7 +125,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
