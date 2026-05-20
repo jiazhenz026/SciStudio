@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from scieasy.qa.audit import full_audit
 from scieasy.qa.audit.facts import write_facts
 from scieasy.qa.audit.full_audit import render_markdown, run
 from scieasy.qa.schemas.facts import FactsRegistry
@@ -20,6 +21,7 @@ def test_full_audit_renders_human_readable_facts_summary() -> None:
     assert "## 3. Fact Inventory" in markdown
     assert "## 5. Largest Symbol Areas" in markdown
     assert "## 7. Child Reports" in markdown
+    assert "frontmatter_lint" in markdown
     assert "fact_drift" in markdown
     assert "doc_drift" in markdown
     assert "closure" in markdown
@@ -35,3 +37,28 @@ def test_full_audit_reports_stale_generated_facts(tmp_path: Path) -> None:
     assert report.status == AuditStatus.FAIL
     assert report.blocks_merge
     assert [finding.rule_id for finding in report.error_findings()] == ["facts.generated-stale"]
+
+
+def test_full_audit_generates_default_facts_in_memory_when_snapshot_is_missing(tmp_path: Path, monkeypatch) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    monkeypatch.setattr(
+        full_audit,
+        "generate_facts",
+        lambda repo_root: FactsRegistry(source_sha="in-memory-sha"),
+    )
+
+    report = run(
+        repo_root,
+        check_stale=True,
+        include_frontmatter_lint=False,
+        include_fact_drift=False,
+        include_doc_drift=False,
+        include_closure=False,
+        include_signature_drift=False,
+    )
+
+    facts_report = report.child_reports[0]
+    assert facts_report.status == AuditStatus.PASS
+    assert facts_report.source_sha == "in-memory-sha"
+    assert facts_report.summary["generated_in_memory"] is True

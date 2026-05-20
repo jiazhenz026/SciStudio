@@ -41,3 +41,25 @@ def test_audit_report_collects_child_error_findings() -> None:
 
     assert parent.blocks_merge
     assert [finding.rule_id for finding in parent.error_findings()] == ["child.error"]
+
+
+def test_audit_finding_accepts_adr042_compatibility_fields() -> None:
+    finding = AuditFinding(
+        id="finding-1",
+        tool="example",
+        rule_id="example.error",
+        severity=Severity.ERROR,
+        path="docs/example.md",
+        subject="sample.Symbol",
+        finding_class="signature-drift",
+        message="example failure",
+        expected={"a": 1},
+        actual={"a": 2},
+        remediation="fix it",
+        evidence={"source": "fixture"},
+    )
+
+    assert finding.file == "docs/example.md"
+    assert finding.path == "docs/example.md"
+    assert finding.subject == "sample.Symbol"
+    assert finding.id == "finding-1"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 
 class ParameterSpec(BaseModel):
@@ -32,14 +32,14 @@ ExpectedParameter = ParameterSpec
 class ExpectedSignature(BaseModel):
     """Expected function, method, or class signature extracted from a spec."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    subject: str
-    kind: Literal["function", "class", "attribute"]
+    subject: str = Field(validation_alias=AliasChoices("subject", "symbol"))
+    kind: Literal["function", "class", "method", "attribute", "pydantic-model", "cli-command"]
     parameters: list[ParameterSpec] = Field(default_factory=list)
     return_annotation: str | None = None
-    source_path: str
-    line: int
+    source_path: str = Field(validation_alias=AliasChoices("source_path", "source_spec"))
+    line: int = Field(validation_alias=AliasChoices("line", "source_line"))
 
     @field_validator("subject", "source_path")
     @classmethod
@@ -47,6 +47,24 @@ class ExpectedSignature(BaseModel):
         if not value.strip():
             raise ValueError("signature fields must be non-empty")
         return value.strip()
+
+    @property
+    def symbol(self) -> str:
+        """ADR-042 compatibility alias for ``subject``."""
+
+        return self.subject
+
+    @property
+    def source_spec(self) -> str:
+        """ADR-042 compatibility alias for ``source_path``."""
+
+        return self.source_path
+
+    @property
+    def source_line(self) -> int:
+        """ADR-042 compatibility alias for ``line``."""
+
+        return self.line
 
 
 class ExpectedModelField(BaseModel):

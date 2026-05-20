@@ -21,6 +21,7 @@ ElMAVEN-specific logic preserved:
 
 from __future__ import annotations
 
+import csv
 import json
 import logging
 import subprocess
@@ -230,25 +231,36 @@ def _classify_export(path: Path) -> str:
        ``ElMAVENBlock.run()``. Retained for backwards compatibility with
        existing test imports.
     """
-    import pandas as pd
-
     suffix = path.suffix.lower()
     try:
         if suffix == ".csv":
-            columns = pd.read_csv(path, nrows=0).columns
+            columns = _read_delimited_header(path, delimiter=",")
         elif suffix == ".tsv":
-            columns = pd.read_csv(path, sep="\t", nrows=0).columns
+            columns = _read_delimited_header(path, delimiter="\t")
         elif suffix in {".xlsx", ".xls"}:
+            try:
+                import pandas as pd
+            except ModuleNotFoundError:
+                return "peak_table"
             columns = pd.read_excel(path, nrows=0).columns
         else:
             return "peak_table"
-    except (EmptyDataError, ValueError):
+    except (EmptyDataError, OSError, UnicodeDecodeError, ValueError):
         return "peak_table"
 
     names = {str(column) for column in columns}
     if {"C13", "H2"} & names:
         return "mid_table"
     return "peak_table"
+
+
+def _read_delimited_header(path: Path, *, delimiter: str) -> list[str]:
+    with path.open("r", encoding="utf-8", newline="") as file:
+        reader = csv.reader(file, delimiter=delimiter)
+        try:
+            return next(reader)
+        except StopIteration:
+            return []
 
 
 # ---------------------------------------------------------------------------

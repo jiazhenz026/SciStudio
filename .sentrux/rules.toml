@@ -1,0 +1,81 @@
+[constraints]
+# Lock the current baseline first, then ratchet down toward zero cycles.
+# Baseline observed by sentrux on 2026-05-20: cycles = 5.
+max_cycles = 5
+# Baseline observed by sentrux on 2026-05-20: highest function CC = 75.
+max_cc = 75
+no_god_files = false
+
+[[layers]]
+name = "frontend"
+paths = ["frontend/src/*"]
+order = 0
+
+[[layers]]
+name = "interfaces"
+paths = [
+  "src/scieasy/api/*",
+  "src/scieasy/cli/*",
+  "src/scieasy/ai/*",
+  "src/scieasy/agent_provisioning/*",
+]
+order = 1
+
+[[layers]]
+name = "extensions"
+paths = ["packages/*"]
+order = 2
+
+[[layers]]
+name = "runtime"
+paths = [
+  "src/scieasy/workflow/*",
+  "src/scieasy/engine/*",
+  "src/scieasy/blocks/*",
+]
+order = 3
+
+[[layers]]
+name = "core"
+paths = ["src/scieasy/core/*"]
+order = 4
+
+[[boundaries]]
+from = "src/scieasy/core/*"
+to = "src/scieasy/api/*"
+reason = "Core contracts must not depend on API or UI entrypoints."
+
+[[boundaries]]
+from = "src/scieasy/core/*"
+to = "src/scieasy/cli/*"
+reason = "Core contracts must not depend on CLI orchestration."
+
+[[boundaries]]
+from = "src/scieasy/core/*"
+to = "src/scieasy/ai/*"
+reason = "AI orchestration must not leak into core contracts."
+
+[[boundaries]]
+from = "src/scieasy/core/*"
+to = "src/scieasy/blocks/*"
+reason = "Core should define primitive contracts, not depend on block implementations."
+
+[[boundaries]]
+from = "src/scieasy/engine/*"
+to = "src/scieasy/api/*"
+reason = "Runtime execution must not depend on API presentation."
+
+[[boundaries]]
+from = "src/scieasy/engine/*"
+to = "src/scieasy/cli/*"
+reason = "Runtime execution must not depend on CLI entrypoints."
+
+[[boundaries]]
+from = "packages/*"
+to = "src/scieasy/api/*"
+reason = "Plugin packages should depend on runtime and block contracts, not API internals."
+
+[[boundaries]]
+from = "packages/*"
+to = "src/scieasy/cli/*"
+reason = "Plugin packages should not depend on CLI internals."

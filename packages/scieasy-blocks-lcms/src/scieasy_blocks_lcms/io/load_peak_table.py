@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
 from scieasy.blocks.base.config import BlockConfig
 from scieasy.blocks.base.ports import OutputPort
+from scieasy.blocks.io.capabilities import FormatCapability, MetadataFidelity
 from scieasy.blocks.io.io_block import IOBlock
 from scieasy.core.types.base import DataObject
 from scieasy.core.types.collection import Collection
@@ -52,6 +53,57 @@ class LoadPeakTable(_LCMSBlockMixin, IOBlock):
         "Auto-detects ElMAVEN / MZmine / XCMS column-name conventions."
     )
 
+    format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
+        FormatCapability(
+            id="scieasy-blocks-lcms.peak_table.csv.load",
+            direction="load",
+            data_type=PeakTable,
+            format_id="csv",
+            extensions=(".csv",),
+            label="Peak table CSV",
+            block_type="LoadPeakTable",
+            handler="load",
+            is_default=True,
+            metadata_fidelity=MetadataFidelity(
+                level="typed_meta",
+                typed_meta_reads=("source", "polarity"),
+                notes="Source is inferred from columns; polarity is user-provided when available.",
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-lcms.peak_table.tsv.load",
+            direction="load",
+            data_type=PeakTable,
+            format_id="tsv",
+            extensions=(".tsv",),
+            label="Peak table TSV",
+            block_type="LoadPeakTable",
+            handler="load",
+            is_default=True,
+            metadata_fidelity=MetadataFidelity(
+                level="typed_meta",
+                typed_meta_reads=("source", "polarity"),
+                notes="Source is inferred from columns; polarity is user-provided when available.",
+            ),
+        ),
+        FormatCapability(
+            id="scieasy-blocks-lcms.peak_table.xlsx.load",
+            direction="load",
+            data_type=PeakTable,
+            format_id="xlsx",
+            extensions=(".xlsx", ".xls"),
+            label="Peak table Excel",
+            block_type="LoadPeakTable",
+            handler="load",
+            is_default=True,
+            metadata_fidelity=MetadataFidelity(
+                level="typed_meta",
+                typed_meta_reads=("source", "polarity"),
+                notes="Source is inferred from columns; polarity is user-provided when available.",
+            ),
+        ),
+    )
+
     # ADR-028 §D8: declared extensions consumed by the base-class
     # :meth:`IOBlock._detect_format` helper and (per #1077) by
     # :meth:`BlockRegistry.find_loader`. ``.xls`` aliases to ``xlsx``
@@ -70,7 +122,6 @@ class LoadPeakTable(_LCMSBlockMixin, IOBlock):
             description="Loaded peak table with source-tool tagged Meta",
         ),
     ]
-
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {
