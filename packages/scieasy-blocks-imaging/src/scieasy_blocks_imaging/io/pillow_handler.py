@@ -171,9 +171,10 @@ def _load_pil(path: Path, *, format_label: str) -> Image:
 def _load_png(path: Path, axes_override: list[str] | None = None, **_: Any) -> Image:
     """Load a PNG file into an :class:`Image`.
 
-    ``axes_override`` is accepted for API parity with the TIFF/zarr
-    handlers but is ignored — PNG/JPEG axis labels are fixed by the
-    decoded array shape (2D → ``["y", "x"]``, 3D → ``["c", "y", "x"]``).
+    ``axes_override`` lets a caller overwrite the axis labels chosen by
+    the decoded array shape (default 2D → ``["y", "x"]``, 3D →
+    ``["c", "y", "x"]``). Length must match the array's ndim. The pixel
+    buffer is preserved unchanged — only the labels are rewritten.
     """
     img = _load_pil(path, format_label="PNG")
     if axes_override is not None and axes_override != img.axes:
@@ -183,6 +184,10 @@ def _load_png(path: Path, axes_override: list[str] | None = None, **_: Any) -> I
             raise ValueError(
                 f"_load_png: axes override {axes_override!r} does not match ndim={len(img.axes)} for {path}"
             )
+        # P2-01 (Phase C1 audit, issue #1296): capture the pixel buffer
+        # before reconstructing `img` so the rewritten-labels Image
+        # carries the decoded pixels rather than `np.asarray([])`.
+        source_data = img._data  # type: ignore[attr-defined]
         img = Image(
             axes=axes_override,
             shape=img.shape,
@@ -190,7 +195,7 @@ def _load_png(path: Path, axes_override: list[str] | None = None, **_: Any) -> I
             framework=img.framework,
             meta=img.meta,
         )
-        img._data = np.asarray(img._data if hasattr(img, "_data") else [])  # type: ignore[attr-defined]
+        img._data = source_data  # type: ignore[attr-defined]
     return img
 
 
@@ -202,6 +207,9 @@ def _load_jpeg(path: Path, axes_override: list[str] | None = None, **_: Any) -> 
             raise ValueError(
                 f"_load_jpeg: axes override {axes_override!r} does not match ndim={len(img.axes)} for {path}"
             )
+        # P2-01 (Phase C1 audit, issue #1296): preserve decoded pixels —
+        # see `_load_png` for context.
+        source_data = img._data  # type: ignore[attr-defined]
         img = Image(
             axes=axes_override,
             shape=img.shape,
@@ -209,7 +217,7 @@ def _load_jpeg(path: Path, axes_override: list[str] | None = None, **_: Any) -> 
             framework=img.framework,
             meta=img.meta,
         )
-        img._data = np.asarray(img._data if hasattr(img, "_data") else [])  # type: ignore[attr-defined]
+        img._data = source_data  # type: ignore[attr-defined]
     return img
 
 

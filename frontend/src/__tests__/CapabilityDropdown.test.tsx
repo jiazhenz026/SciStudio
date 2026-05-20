@@ -142,10 +142,26 @@ describe("CapabilityDropdown", () => {
       expect(loadCapabilities).toHaveBeenCalled();
     });
 
-    const select = screen.getByRole("combobox") as HTMLSelectElement;
+    // P1-01 (Phase C1 audit follow-up, issue #1296):
+    // The `loadCapabilities` mock resolves before React has flushed the
+    // post-fetch re-render that materialises the `<option>` children. If
+    // we fire `change` immediately, the requested option is not yet in
+    // the DOM and the synthetic event sets `select.value` to `""`,
+    // which the component's `onChange` handler ignores (early `if
+    // (!nextId) return` guard) — the assertion below then fails on
+    // faster CI shards even though the production code is correct.
+    // Wait for the option's visible label to render before firing.
+    const select = await waitFor(() => screen.getByRole("combobox") as HTMLSelectElement);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("option", { name: /imaging\.image\.ome-tiff\.save|OME-TIFF saver/i }),
+      ).toBeInTheDocument(),
+    );
     fireEvent.change(select, { target: { value: "imaging.image.ome-tiff.save" } });
 
-    expect(onChange).toHaveBeenCalledWith("imaging.image.ome-tiff.save");
+    await waitFor(() => {
+      expect(onChange).toHaveBeenCalledWith("imaging.image.ome-tiff.save");
+    });
   });
 
   it("disables the select while extension is empty", () => {

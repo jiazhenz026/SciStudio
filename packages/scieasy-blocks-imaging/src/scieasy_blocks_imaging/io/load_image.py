@@ -77,6 +77,35 @@ def _normalise_tiff_axes(tiff_axes: str, ndim: int) -> list[str]:
     return _default_axes_for_ndim(ndim)
 
 
+def _ome_from_tiff(tf: Any) -> Any | None:
+    """Parse the OME-XML ``ImageDescription`` tag from an open TIFF, if any.
+
+    P2-05 + SC-003 (Phase C1 audit, issue #1296) / ADR-043 FR-004: the
+    ``scieasy-blocks-imaging.image.tiff.load`` capability advertises
+    ``format_metadata_reads=("ome",)``. ``tifffile`` exposes the OME-XML
+    string via :attr:`TiffFile.ome_metadata` when it auto-detects an
+    OME-XML payload in the page-0 ``ImageDescription`` tag (270);
+    :func:`ome_types.from_xml` turns that into a typed
+    :class:`ome_types.model.OME` suitable for :attr:`Image.Meta.ome`.
+
+    Returns ``None`` when the TIFF has no OME-XML or when parsing fails,
+    so the caller can keep returning a minimal Image without OME rather
+    than failing the entire load.
+    """
+    xml = getattr(tf, "ome_metadata", None)
+    if not xml:
+        return None
+    try:
+        from ome_types import from_xml
+    except Exception:
+        return None
+    try:
+        return from_xml(xml)
+    except Exception:
+        # Malformed / future OME schema — keep the load path resilient.
+        return None
+
+
 def _load_tiff(path: Path, axes_override: list[str] | None, block: Any = None, output_dir: str = "") -> Image:
     """Load a TIFF file into an :class:`Image`.
 
@@ -85,6 +114,13 @@ def _load_tiff(path: Path, axes_override: list[str] | None, block: Any = None, o
     for constant-memory loading of large TIFFs. Falls back to eager
     in-memory loading (with base-class auto-flush) when no block is
     available.
+
+    P2-05 + SC-003 (Phase C1 audit, issue #1296) / ADR-043 FR-004: when
+    the TIFF carries an OME-XML ``ImageDescription`` tag (e.g. written
+    by :func:`scieasy_blocks_imaging.io.save_image._write_tiff`), the
+    XML is parsed and surfaced on ``Image.Meta.ome`` so callers see the
+    advertised ``format_metadata_reads=("ome",)`` fidelity. Closes the
+    SaveImage(.ome.tif) → LoadImage half of the SC-003 round-trip.
     """
     import tifffile
 
@@ -110,6 +146,8 @@ def _load_tiff(path: Path, axes_override: list[str] | None, block: Any = None, o
         if len(axes) != ndim:
             raise ValueError(f"LoadImage: axes override {axes!r} does not match array ndim={ndim} for {path}")
 
+        ome = _ome_from_tiff(tf)
+
         # ADR-031 D4 + Addendum 1: persist path for both multi-page and single-page.
         if block is not None and output_dir:
             if n_pages > 1:
@@ -128,7 +166,7 @@ def _load_tiff(path: Path, axes_override: list[str] | None, block: Any = None, o
                 shape=shape,
                 dtype=str(np.dtype(page_dtype)),
                 framework=FrameworkMeta(source=str(path)),
-                meta=Image.Meta(source_file=str(path)),
+                meta=Image.Meta(source_file=str(path), ome=ome),
                 storage_ref=ref,
             )
         else:
@@ -139,7 +177,7 @@ def _load_tiff(path: Path, axes_override: list[str] | None, block: Any = None, o
                 shape=tuple(data_arr.shape),
                 dtype=str(data_arr.dtype),
                 framework=FrameworkMeta(source=str(path)),
-                meta=Image.Meta(source_file=str(path)),
+                meta=Image.Meta(source_file=str(path), ome=ome),
             )
             img._data = data_arr  # type: ignore[attr-defined]
             return img
