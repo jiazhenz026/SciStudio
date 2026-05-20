@@ -885,6 +885,62 @@ class BlockRegistry:
                 return cls
         return None
 
+    def _matching_capabilities_for_legacy_io(
+        self,
+        *,
+        direction: CapabilityDirection,
+        dtype: type[DataObject] | None,
+        extension: str,
+        exclude_ids: set[str] | None = None,
+    ) -> tuple[FormatCapability, ...]:
+        normalized_extension = normalize_extension(extension) if extension else None
+        excluded = exclude_ids or set()
+        matches: list[FormatCapability] = []
+        for capability, _spec in self._iter_capability_specs():
+            if capability.id in excluded:
+                continue
+            if capability.direction != direction:
+                continue
+            if normalized_extension is not None and normalized_extension not in capability.extensions:
+                continue
+            if dtype is not None and not _capability_matches_type(capability, dtype, direction):
+                continue
+            matches.append(capability)
+        return tuple(matches)
+
+    def _resolve_legacy_capability_class(
+        self,
+        *,
+        direction: CapabilityDirection,
+        legacy_direction: str,
+        dtype: type[DataObject] | None,
+        extension: str,
+        capability: FormatCapability | None = None,
+        candidates: tuple[FormatCapability, ...] = (),
+    ) -> type | None:
+        if capability is not None:
+            cls = self._resolve_capability_class(capability)
+            if cls is not None:
+                return cls
+
+        excluded = {capability.id} if capability is not None else set()
+        if candidates:
+            cls = self._resolve_first_capability_class(candidates)
+            if cls is not None:
+                return cls
+            excluded.update(candidate.id for candidate in candidates)
+
+        fallback_capabilities = self._matching_capabilities_for_legacy_io(
+            direction=direction,
+            dtype=dtype,
+            extension=extension,
+            exclude_ids=excluded,
+        )
+        cls = self._resolve_first_capability_class(fallback_capabilities)
+        if cls is not None:
+            return cls
+        return self._find_io_block(direction=legacy_direction, dtype=dtype, extension=extension)
+
     # ------------------------------------------------------------------
     # ADR-028 §D8 / #1077: IO-block dispatch by (type, extension).
     # ------------------------------------------------------------------
@@ -929,14 +985,32 @@ class BlockRegistry:
         """
         if not extension:
             return None
+        if dtype is None:
+            return self._resolve_legacy_capability_class(
+                direction="load",
+                legacy_direction="input",
+                dtype=None,
+                extension=extension,
+            )
         try:
-            capability = self.find_loader_capability(dtype or DataObject, extension)
+            capability = self.find_loader_capability(dtype, extension)
         except MissingCapabilityError:
             return None
         except AmbiguousCapabilityError as exc:
-            legacy_cls = self._resolve_first_capability_class(exc.candidates)
-            return legacy_cls or self._find_io_block(direction="input", dtype=dtype, extension=extension)
-        return self._resolve_capability_class(capability)
+            return self._resolve_legacy_capability_class(
+                direction="load",
+                legacy_direction="input",
+                dtype=dtype,
+                extension=extension,
+                candidates=exc.candidates,
+            )
+        return self._resolve_legacy_capability_class(
+            direction="load",
+            legacy_direction="input",
+            dtype=dtype,
+            extension=extension,
+            capability=capability,
+        )
 
     def find_saver(
         self,
@@ -957,9 +1031,20 @@ class BlockRegistry:
         except MissingCapabilityError:
             return None
         except AmbiguousCapabilityError as exc:
-            legacy_cls = self._resolve_first_capability_class(exc.candidates)
-            return legacy_cls or self._find_io_block(direction="output", dtype=dtype, extension=extension)
-        return self._resolve_capability_class(capability)
+            return self._resolve_legacy_capability_class(
+                direction="save",
+                legacy_direction="output",
+                dtype=dtype,
+                extension=extension,
+                candidates=exc.candidates,
+            )
+        return self._resolve_legacy_capability_class(
+            direction="save",
+            legacy_direction="output",
+            dtype=dtype,
+            extension=extension,
+            capability=capability,
+        )
 
     def find_io_blocks_for_type(
         self,

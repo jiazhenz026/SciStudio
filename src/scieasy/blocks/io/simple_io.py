@@ -20,9 +20,14 @@ from scieasy.core.types.collection import Collection
 
 def _require_path(config: BlockConfig, *, base_name: str) -> Path:
     raw_path = config.get("path")
-    if raw_path is None or raw_path == "":
+    if raw_path is None or (isinstance(raw_path, str) and not raw_path.strip()):
         raise ValueError(f"{base_name} requires a non-empty 'path' in config.params.")
-    return Path(str(raw_path))
+    if isinstance(raw_path, (list, tuple, dict, set)):
+        raise ValueError(f"{base_name} requires a single path string or PathLike in config.params.")
+    try:
+        return Path(raw_path)
+    except TypeError as exc:
+        raise ValueError(f"{base_name} requires a single path string or PathLike in config.params.") from exc
 
 
 def _simple_capability_id(cls: type[IOBlock], direction: str, format_id: str) -> str:

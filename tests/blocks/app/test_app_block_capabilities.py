@@ -103,6 +103,35 @@ def test_appblock_output_binner_threads_capability_id(monkeypatch: Any, tmp_path
     ]
 
 
+def test_appblock_output_binner_treats_null_capability_id_as_unset(monkeypatch: Any, tmp_path: Path) -> None:
+    output = tmp_path / "result.special"
+    output.write_text("payload", encoding="utf-8")
+    calls: list[dict[str, Any]] = []
+
+    def _fake_reconstruct(path: Path, **kwargs: Any) -> Text:
+        calls.append({"path": path, **kwargs})
+        return Text(content="payload")
+
+    monkeypatch.setattr("scieasy.blocks.io.materialisation.reconstruct_from_file", _fake_reconstruct)
+    block = AppBlock(config={"params": {}})
+    config = BlockConfig(
+        params={
+            "output_ports": [
+                {
+                    "name": "result",
+                    "types": ["Text"],
+                    "extension": "special",
+                    "capability_id": None,
+                }
+            ]
+        }
+    )
+
+    block._bin_outputs_by_extension([output], config)
+
+    assert calls == [{"path": output, "target_type": Text, "extension": ".special", "capability_id": None}]
+
+
 def test_file_exchange_bridge_threads_input_capability_id_into_manifest(tmp_path: Path) -> None:
     registry = _registry(_BridgeTextSaver)
     bridge = FileExchangeBridge()

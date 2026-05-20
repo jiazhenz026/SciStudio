@@ -67,6 +67,8 @@ def normalize_extension(extension: str) -> str:
 def normalize_extensions(extensions: Iterable[str]) -> tuple[str, ...]:
     """Normalize an extension iterable into an ordered tuple without duplicates."""
 
+    if isinstance(extensions, str):
+        raise InvalidExtensionError("Extensions must be an iterable of strings, not a scalar string.")
     try:
         values = tuple(extensions)
     except TypeError as exc:
@@ -78,6 +80,8 @@ def normalize_extensions(extensions: Iterable[str]) -> tuple[str, ...]:
 
 
 def _normalize_string_tuple(values: Iterable[str], *, field_name: str) -> tuple[str, ...]:
+    if isinstance(values, str):
+        raise InvalidMetadataFidelityError(f"{field_name} must be an iterable of strings, not a scalar string.")
     try:
         items = tuple(values)
     except TypeError as exc:

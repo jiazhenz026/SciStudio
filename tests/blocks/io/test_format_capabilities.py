@@ -40,6 +40,8 @@ def test_normalize_extension_rejects_invalid_values() -> None:
         normalize_extension("")
     with pytest.raises(InvalidExtensionError, match="path separators"):
         normalize_extension("dir/file.tif")
+    with pytest.raises(InvalidExtensionError, match="scalar string"):
+        normalize_extensions("tif")  # type: ignore[arg-type]
 
 
 def test_format_capability_normalizes_explicit_declaration() -> None:
@@ -73,6 +75,11 @@ def test_metadata_fidelity_rejects_invalid_level() -> None:
 def test_typed_meta_fidelity_requires_declared_fields() -> None:
     with pytest.raises(InvalidMetadataFidelityError, match="must declare typed_meta"):
         MetadataFidelity(level="typed_meta")
+
+
+def test_metadata_field_lists_reject_scalar_strings() -> None:
+    with pytest.raises(InvalidMetadataFidelityError, match="scalar string"):
+        MetadataFidelity(level="typed_meta", typed_meta_reads="pixel_size")  # type: ignore[arg-type]
 
 
 def test_format_specific_fidelity_requires_format_metadata_declaration() -> None:

@@ -435,16 +435,16 @@ def validate_workflow(
                 continue
             capability_id = _boundary_capability_id(entry)
             port_name = str(entry.get("name", "")).strip() or "<unnamed>"
-            for data_type in data_types:
-                if capability_id is None and issubclass(data_type, Artifact):
-                    continue
-                try:
-                    registry.find_loader_capability(
-                        data_type,
-                        extension,
-                        capability_id=capability_id,
-                    )
-                except CapabilityLookupError as exc:
-                    errors.append(f"Node '{node.id}' output port '{port_name}': {exc}")
+            data_type = data_types[0]
+            if capability_id is None and issubclass(data_type, Artifact):
+                continue
+            try:
+                registry.find_loader_capability(
+                    data_type,
+                    extension,
+                    capability_id=capability_id,
+                )
+            except CapabilityLookupError as exc:
+                errors.append(f"Node '{node.id}' output port '{port_name}': {exc}")
 
     return errors
