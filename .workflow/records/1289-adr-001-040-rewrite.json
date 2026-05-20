@@ -121,7 +121,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1289-adr-001-040-rewrite.json",
+    "shas": [
+      "b5620163d735d76d3673b987bc3a193d39e2d187"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {
@@ -175,7 +181,13 @@
     "docs/planning/adr-001-040-rewrite-checklist.md",
     ".workflow/records/1289-adr-001-040-rewrite.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1289
+    ],
+    "number": 1295,
+    "url": "https://github.com/zjzcpj/SciEasy/pull/1295"
+  },
   "record_path": ".workflow/records/1289-adr-001-040-rewrite.json",
   "required_checks": [
     "frontmatter_lint",
@@ -234,7 +246,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
