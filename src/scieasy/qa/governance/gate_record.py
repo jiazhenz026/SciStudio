@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import os
 import re
 import subprocess
 import sys
@@ -434,9 +435,43 @@ def _invalid_override_labels(labels: Iterable[str]) -> list[str]:
     for label in labels:
         if label in VALID_OVERRIDE_LABELS:
             continue
-        if label.startswith("admin-approved:") or label in known_human_typos:
+        if label.startswith("admin-approved") or label.startswith("human") or label in known_human_typos:
             invalid.append(label)
     return invalid
+
+
+def _split_labels(value: str) -> list[str]:
+    return [item.strip() for item in re.split(r"[\s,]+", value) if item.strip()]
+
+
+def _env_bypass_labels() -> list[str]:
+    return _split_labels(os.environ.get("SCIEASY_GATE_BYPASS_LABELS", ""))
+
+
+def _local_bypass_report(labels: Sequence[str]) -> AuditReport | None:
+    normalized = [label.strip() for label in labels if label.strip()]
+    invalid = _invalid_override_labels(normalized)
+    if invalid:
+        return _report(
+            [
+                _finding(
+                    "gate-record.override-label.invalid",
+                    f"invalid ADR-042 override label: {label}",
+                    evidence={"valid_labels": sorted(VALID_OVERRIDE_LABELS)},
+                )
+                for label in invalid
+            ]
+        )
+    valid = sorted(set(normalized) & VALID_OVERRIDE_LABELS)
+    if valid:
+        return _report(
+            [],
+            summary={
+                "skipped": "local ADR-042 hook bypassed by override label; CI/review remains authoritative",
+                "bypass_labels": valid,
+            },
+        )
+    return None
 
 
 def validate_gate_record(
@@ -643,9 +678,13 @@ def check_pre_commit(
     *,
     gate_record: Path | None = None,
     staged_files: Sequence[str] | None = None,
+    bypass_labels: Sequence[str] = (),
 ) -> AuditReport:
     """Validate staged files against the committed gate record."""
 
+    bypass = _local_bypass_report(bypass_labels)
+    if bypass is not None:
+        return bypass
     root = repo_root or Path.cwd()
     changed = list(staged_files) if staged_files is not None else _git_lines(root, ["diff", "--cached", "--name-only"])
     record_path = gate_record or _discover_gate_record(root, changed)
@@ -660,9 +699,13 @@ def check_pre_push(
     gate_record: Path | None = None,
     base: str = "origin/main",
     head: str = "HEAD",
+    bypass_labels: Sequence[str] = (),
 ) -> AuditReport:
     """Validate the current branch diff before push."""
 
+    bypass = _local_bypass_report(bypass_labels)
+    if bypass is not None:
+        return bypass
     root = repo_root or Path.cwd()
     changed = _git_lines(root, ["diff", "--name-only", "--diff-filter=ACMRTUXB", f"{base}...{head}"])
     record_path = gate_record or _discover_gate_record(root, changed)
@@ -682,6 +725,9 @@ def check_pr_ready(
 ) -> AuditReport:
     """Validate local PR readiness before opening a PR."""
 
+    bypass = _local_bypass_report(pr_labels)
+    if bypass is not None:
+        return bypass
     root = repo_root or Path.cwd()
     changed = _git_lines(root, ["diff", "--name-only", "--diff-filter=ACMRTUXB", f"{base}...{head}"])
     record_path = gate_record or _discover_gate_record(root, changed)
@@ -694,9 +740,12 @@ def _trailers(commit_message: str) -> dict[str, str]:
     return {match.group("key"): match.group("value") for match in TRAILER_RE.finditer(commit_message)}
 
 
-def check_commit_msg(commit_message: str | Path) -> AuditReport:
+def check_commit_msg(commit_message: str | Path, *, bypass_labels: Sequence[str] = ()) -> AuditReport:
     """Validate ADR-042 commit trailers."""
 
+    bypass = _local_bypass_report(bypass_labels)
+    if bypass is not None:
+        return bypass
     text = commit_message.read_text(encoding="utf-8") if isinstance(commit_message, Path) else commit_message
     trailers = _trailers(text)
     findings: list[Finding] = []
@@ -1047,9 +1096,11 @@ def main(argv: list[str] | None = None) -> int:
     pre_commit.add_argument("--repo-root", type=Path, default=Path.cwd())
     pre_commit.add_argument("--gate-record", "--record", dest="gate_record", type=Path)
     pre_commit.add_argument("--staged", action="store_true", help="kept for hook compatibility")
+    pre_commit.add_argument("--bypass-label", action="append", default=[])
 
     commit_msg = subparsers.add_parser("commit-msg", help="validate commit-message trailers")
     commit_msg.add_argument("message_file", type=Path)
+    commit_msg.add_argument("--bypass-label", action="append", default=[])
 
     ci = subparsers.add_parser("ci", help="validate a committed gate record against PR metadata")
     ci.add_argument("--repo-root", type=Path, default=Path.cwd())
@@ -1066,6 +1117,7 @@ def main(argv: list[str] | None = None) -> int:
     pre_push.add_argument("--base", default="origin/main")
     pre_push.add_argument("--head", default="HEAD")
     pre_push.add_argument("--format", choices=("text", "json"), default="text")
+    pre_push.add_argument("--bypass-label", action="append", default=[])
 
     pr_ready = subparsers.add_parser("pr-ready", help="validate local PR readiness before gh pr create")
     pr_ready.add_argument("--repo-root", type=Path, default=Path.cwd())
@@ -1160,11 +1212,21 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.command == "pre-commit":
-        report = check_pre_commit(args.repo_root, gate_record=args.gate_record)
+        report = check_pre_commit(
+            args.repo_root,
+            gate_record=args.gate_record,
+            bypass_labels=[*args.bypass_label, *_env_bypass_labels()],
+        )
     elif args.command == "commit-msg":
-        report = check_commit_msg(args.message_file)
+        report = check_commit_msg(args.message_file, bypass_labels=[*args.bypass_label, *_env_bypass_labels()])
     elif args.command == "pre-push":
-        report = check_pre_push(args.repo_root, gate_record=args.gate_record, base=args.base, head=args.head)
+        report = check_pre_push(
+            args.repo_root,
+            gate_record=args.gate_record,
+            base=args.base,
+            head=args.head,
+            bypass_labels=[*args.bypass_label, *_env_bypass_labels()],
+        )
     elif args.command == "pr-ready":
         report = check_pr_ready(
             args.repo_root,
@@ -1172,7 +1234,7 @@ def main(argv: list[str] | None = None) -> int:
             base=args.base,
             head=args.head,
             pr_body=args.pr_body,
-            pr_labels=args.pr_label,
+            pr_labels=[*args.pr_label, *_env_bypass_labels()],
         )
     else:
         changed_files = _git_lines(

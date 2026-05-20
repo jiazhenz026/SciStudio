@@ -48,3 +48,35 @@ def test_legacy_gate_py_removed() -> None:
 def test_pre_commit_does_not_branch_match_hotfix() -> None:
     assert "hotfix/" not in _text(".workflow/hooks/pre-commit")
     assert "hotfix/" not in _text(".pre-commit-config.yaml")
+    assert "feat|fix|refactor|hotfix" not in _text("scripts/hooks/check-gate-before-push.sh")
+    assert "feat|fix|refactor|hotfix|track" not in _text("scripts/hooks/check-gate-before-pr.sh")
+
+
+def test_local_push_and_pr_hooks_accept_adr042_override_labels() -> None:
+    push_hook = _text("scripts/hooks/check-gate-before-push.sh")
+    pr_hook = _text("scripts/hooks/check-gate-before-pr.sh")
+
+    for hook in (push_hook, pr_hook):
+        assert "human-authored" in hook
+        assert "admin-approved:ai-override" in hook
+        assert "admin-approved:core-change" in hook
+        assert "admin-approved:merge" in hook
+        assert "SCIEASY_GATE_BYPASS_LABELS" in hook
+        assert "ADR-042 local gate bypassed by approved override label" in hook
+
+    assert "--label" in pr_hook
+    assert 'gh", "pr", "view"' in push_hook
+
+
+def test_workflow_orchestrates_adr042_governance_guards() -> None:
+    workflow = _text(".github/workflows/workflow-gate.yml")
+
+    assert "human_bypass_guard.check" in workflow
+    assert "core_change_guard.check" in workflow
+    assert "pr_merge_guard.check" in workflow
+    assert "collaborators/{actor}/permission" in workflow
+    assert "human-authored PR skips ADR-042 workflow-gate enforcement" in workflow
+    assert "protected_globs=mod_guard.PROTECTED_PATTERNS" in workflow
+    assert "allow_governance_change=not mod_approval_report.blocks_merge" in workflow
+    assert "allow_governance_change=not core_report.blocks_merge" not in workflow
+    assert "pulls/{pr_number}/reviews" in workflow

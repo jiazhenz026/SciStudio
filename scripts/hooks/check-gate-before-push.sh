@@ -12,19 +12,67 @@ if ! echo "$CMD" | grep -qE '^git push'; then
 fi
 
 BRANCH=$(git branch --show-current 2>/dev/null || echo "")
-if [ -z "$BRANCH" ] || ! echo "$BRANCH" | grep -qE '^(feat|fix|refactor|hotfix)/'; then
+if [ -z "$BRANCH" ] || [ "$BRANCH" = "main" ] || [ "$BRANCH" = "HEAD" ]; then
   echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
   exit 0
 fi
 
+BYPASS_LABELS=$(SCIEASY_CMD="$CMD" SCIEASY_BRANCH="$BRANCH" python - <<'PY'
+import os
+import subprocess
+
+valid = {
+    "human-authored",
+    "admin-approved:ai-override",
+    "admin-approved:core-change",
+    "admin-approved:merge",
+}
+labels: set[str] = set()
+for raw in os.environ.get("SCIEASY_GATE_BYPASS_LABELS", "").replace(",", " ").split():
+    labels.add(raw.strip())
+
+branch = os.environ.get("SCIEASY_BRANCH", "")
+if branch:
+    try:
+        output = subprocess.check_output(
+            ["gh", "pr", "view", branch, "--json", "labels", "--jq", ".labels[].name"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+        labels.update(line.strip() for line in output.splitlines() if line.strip())
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        pass
+
+override_like = {
+    label
+    for label in labels
+    if label in valid or label.startswith("human") or label.startswith("admin-approved")
+}
+print("\n".join(sorted(override_like)))
+PY
+)
+
 BASE_REF="${SCIEASY_GATE_BASE:-origin/main}"
+LABEL_ARGS=()
+while IFS= read -r label; do
+  [ -n "$label" ] || continue
+  LABEL_ARGS+=(--bypass-label "$label")
+done <<EOF
+$BYPASS_LABELS
+EOF
 OUTPUT=$(PYTHONPATH=src python -m scieasy.qa.governance.gate_record pre-push \
   --repo-root . \
   --base "$BASE_REF" \
-  --head HEAD 2>&1) || {
+  --head HEAD \
+  "${LABEL_ARGS[@]}" 2>&1) || {
   REASON=$(printf '%s' "$OUTPUT" | python -c "import json,sys; print(json.dumps(sys.stdin.read()[:1800]))")
   echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":$REASON}}"
   exit 0
 }
+
+if [ -n "$BYPASS_LABELS" ]; then
+  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"ADR-042 local gate bypassed by approved override label; CI/review still runs."}}'
+  exit 0
+fi
 
 echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'

@@ -183,6 +183,7 @@ the committed gate record. The command surface is:
 python -m scieasy.qa.governance.gate_record start \
   --task-kind feature|bugfix|hotfix|refactor|docs|maintenance|manager \
   --issue <number> \
+  --slug <task-slug> \
   --branch <branch> \
   --owner-directive "<owner instruction>" \
   --include <path-or-glob> \
@@ -192,9 +193,12 @@ python -m scieasy.qa.governance.gate_record start \
 python -m scieasy.qa.governance.gate_record plan \
   --record .workflow/records/<issue>-<task-slug>.json \
   --files <path-or-glob> \
-  --docs <path-or-na> \
-  --tests <path-or-na> \
-  --checks ruff,format,pytest,full_audit,sentrux
+  --tests <changed-test-path> \
+  --checks ruff \
+  --checks format \
+  --checks pytest \
+  --checks full_audit \
+  --checks sentrux
 
 python -m scieasy.qa.governance.gate_record amend \
   --record .workflow/records/<issue>-<task-slug>.json \
@@ -227,17 +231,31 @@ python -m scieasy.qa.governance.gate_record finalize \
   --closes "#<issue>"
 
 python -m scieasy.qa.governance.gate_record pre-commit --staged
-python -m scieasy.qa.governance.gate_record commit-msg <commit-msg-file>
+python -m scieasy.qa.governance.gate_record pre-commit \
+  --staged \
+  --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
+python -m scieasy.qa.governance.gate_record commit-msg <commit-msg-file> \
+  --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
+python -m scieasy.qa.governance.gate_record pre-push \
+  --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
+python -m scieasy.qa.governance.gate_record pr-ready \
+  --pr-body "<body>" \
+  --pr-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
 python -m scieasy.qa.governance.gate_record ci \
   --gate-record .workflow/records/<issue>-<task-slug>.json \
   --base <base-ref> \
   --head <head-ref> \
-  --pr-body <path-or-text>
+  --pr-body <body-text>
 ```
 
 The CLI may expose additional convenience aliases, but the commands above are
 the normative AI-facing interface. They must update the committed gate record or
 validate it; self-attestation in chat is not gate evidence.
+
+For local-only bypass, agents may also export `SCIEASY_GATE_BYPASS_LABELS` with
+one or more of the same four labels before running `git commit`, `git push`, or
+`gh pr create`. This local bypass permits PR submission for review; CI still
+runs and remains authoritative.
 
 ### 3.2 Required Agent Procedure
 
@@ -403,8 +421,9 @@ Assisted-by: <runtime>:<model-or-agent-id>
 5. Ensure the PR body names the gate record path and closes every issue listed
    in the gate record using GitHub closing keywords: `Closes #N`, `Fixes #N`,
    or `Resolves #N`.
-6. Let CI re-run gate validation, QA full audit, and Sentrux checks. Local
-   evidence helps review; CI evidence is authoritative.
+6. Let CI re-run gate validation and verify the recorded QA full audit and
+   Sentrux free-tier evidence. The gate record evidence helps review; CI
+   validation remains authoritative.
 
 Referencing an issue without a closing keyword is not sufficient. If a gate
 record lists multiple issues, the PR body must close all of them or explicitly
@@ -489,6 +508,33 @@ final-evidence semantics as CI, except that CI remains authoritative and
 recomputes the result from repository and PR metadata. These hooks must not use
 branch-name special cases such as `hotfix/*`; task behavior is declared by
 `gate_record start --task-kind ...`.
+
+Local intermediate hooks must allow the four ADR-042 override labels to bypass
+local-only gate enforcement so a PR can be opened for review. The supported
+labels are accepted through `SCIEASY_GATE_BYPASS_LABELS`, existing PR labels
+visible to `gh pr view` during pre-push, or `gh pr create --label/-l` during
+PR creation. This bypass applies to local hooks only. In CI, an authorized
+`human-authored` label is the skip-all signal for ADR-042 workflow-gate
+enforcement; ordinary repository CI jobs and administrator PR review remain the
+merge authority. AI-authored PRs and administrator AI overrides still use the
+gate record unless an administrator explicitly approves the relevant override.
+
+Examples:
+
+```bash
+SCIEASY_GATE_BYPASS_LABELS=admin-approved:ai-override git push -u origin HEAD
+
+python -m scieasy.qa.governance.gate_record pre-push \
+  --bypass-label admin-approved:ai-override
+
+python -m scieasy.qa.governance.gate_record pr-ready \
+  --pr-body "Closes #1266" \
+  --pr-label admin-approved:ai-override
+
+gh pr create \
+  --label admin-approved:ai-override \
+  --body "Closes #1266"
+```
 
 The valid administrator labels are exactly:
 

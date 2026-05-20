@@ -32,6 +32,46 @@
         ".github/workflows/workflow-gate.yml"
       ],
       "reason": "Install gate dependencies in workflow-gate before running Python gate validators."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "scripts/hooks/check-gate-before-pr.sh",
+        "scripts/hooks/check-gate-before-push.sh",
+        "src/scieasy/qa/governance/gate_record.py",
+        "tests/qa/test_gate_record.py",
+        "tests/qa/test_gate_record_hooks.py",
+        "docs/adr/ADR-042-addendum1.md",
+        "docs/specs/adr-042-gate-record-sentrux-workflow.md",
+        ".github/workflows/workflow-gate.yml"
+      ],
+      "reason": "Add ADR-042 local override-label bypass handling for pre-commit, commit-msg, pre-push, and PR-create hooks while keeping CI authoritative."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "src/scieasy/qa/governance/mod_guard.py",
+        "src/scieasy/qa/governance/weakened_ci_check.py",
+        "tests/qa/test_governance_mod_guard.py",
+        "tests/qa/test_governance_weakened_ci_check.py",
+        ".github/workflows/workflow-gate.yml",
+        "docs/adr/ADR-042-addendum1.md",
+        "docs/specs/adr-042-gate-record-sentrux-workflow.md",
+        "tests/qa/test_gate_record_hooks.py"
+      ],
+      "reason": "Align human-authored skip-all workflow-gate semantics and require explicit admin approval for AI protected governance/core changes."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".github/workflows/workflow-gate.yml",
+        "docs/adr/ADR-042-addendum1.md",
+        "tests/qa/test_gate_record_hooks.py"
+      ],
+      "reason": "Fetch PR review metadata for protected-change approval and align ADR CI evidence wording."
     }
   ],
   "branch": "feat/issue-1269/gate-record-hooks-final",

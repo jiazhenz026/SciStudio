@@ -13,7 +13,9 @@ from scieasy.qa.governance.gate_record import (
     GateStage,
     SentruxEvidence,
     check_commit_msg,
+    check_pr_ready,
     check_pre_commit,
+    check_pre_push,
     main,
     validate_gate_record,
 )
@@ -400,3 +402,34 @@ def test_pre_commit_is_lightweight_until_final_gate(tmp_path: Path) -> None:
     outside_scope = check_pre_commit(tmp_path, gate_record=record_path, staged_files=["docs/adr/ADR-042.md"])
     assert outside_scope.blocks_merge
     assert "gate-record.scope.outside-include" in {finding.rule_id for finding in outside_scope.findings}
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        "human-authored",
+        "admin-approved:ai-override",
+        "admin-approved:core-change",
+        "admin-approved:merge",
+    ],
+)
+def test_override_labels_bypass_local_intermediate_hooks(tmp_path: Path, label: str) -> None:
+    pre_commit = check_pre_commit(
+        tmp_path,
+        staged_files=["docs/adr/ADR-042.md"],
+        bypass_labels=[label],
+    )
+    commit_msg = check_commit_msg("fix: missing trailers", bypass_labels=[label])
+    pre_push = check_pre_push(tmp_path, bypass_labels=[label])
+    pr_ready = check_pr_ready(tmp_path, pr_body="", pr_labels=[label])
+
+    for report in (pre_commit, commit_msg, pre_push, pr_ready):
+        assert not report.blocks_merge
+        assert report.summary["bypass_labels"] == [label]
+
+
+def test_invalid_override_label_does_not_bypass_local_hooks(tmp_path: Path) -> None:
+    report = check_pr_ready(tmp_path, pr_body="", pr_labels=["admin-approved-core-change"])
+
+    assert report.blocks_merge
+    assert "gate-record.override-label.invalid" in {finding.rule_id for finding in report.findings}

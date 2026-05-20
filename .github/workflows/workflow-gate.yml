@@ -29,66 +29,210 @@ jobs:
           BASE_REF: ${{ github.base_ref || 'main' }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
           CHANGED="$(git diff --name-only "origin/$BASE_REF...HEAD")"
-          RECORDS="$(echo "$CHANGED" | grep -E '^\.workflow/records/[^/]+\.json$' || true)"
+          RECORDS="$(CHANGED="$CHANGED" python - <<'PY'
+          import os
+
+          for path in os.environ.get("CHANGED", "").splitlines():
+              if path.startswith(".workflow/records/") and path.endswith(".json"):
+                  print(path)
+          PY
+          )"
+          PR_METADATA="$(CHANGED="$CHANGED" RECORDS="$RECORDS" python - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          pr_number = os.environ.get("PR_NUMBER", "")
+          labels = sorted(set(json.loads(os.environ.get("PR_LABELS_JSON", "[]"))))
+          valid_override = {
+              "human-authored",
+              "admin-approved:ai-override",
+              "admin-approved:core-change",
+              "admin-approved:merge",
+          }
+          label_events = []
+          reviews = []
+          if pr_number:
+              try:
+                  raw_events = subprocess.check_output(
+                      ["gh", "api", f"repos/{repo}/issues/{pr_number}/events", "--paginate"],
+                      text=True,
+                      stderr=subprocess.DEVNULL,
+                  )
+                  events = json.loads(raw_events)
+              except (FileNotFoundError, subprocess.CalledProcessError, json.JSONDecodeError):
+                  events = []
+              for event in events:
+                  if event.get("event") != "labeled":
+                      continue
+                  label = (event.get("label") or {}).get("name")
+                  if label not in valid_override:
+                      continue
+                  actor = (event.get("actor") or {}).get("login")
+                  permission = str(event.get("author_association", "")).lower()
+                  if actor:
+                      try:
+                          raw_permission = subprocess.check_output(
+                              ["gh", "api", f"repos/{repo}/collaborators/{actor}/permission"],
+                              text=True,
+                              stderr=subprocess.DEVNULL,
+                          )
+                          permission = json.loads(raw_permission).get("permission", permission)
+                      except (FileNotFoundError, subprocess.CalledProcessError, json.JSONDecodeError):
+                          pass
+                  label_events.append({"label": label, "actor": actor, "permission": permission})
+              try:
+                  raw_reviews = subprocess.check_output(
+                      ["gh", "api", f"repos/{repo}/pulls/{pr_number}/reviews", "--paginate"],
+                      text=True,
+                      stderr=subprocess.DEVNULL,
+                  )
+                  review_events = json.loads(raw_reviews)
+              except (FileNotFoundError, subprocess.CalledProcessError, json.JSONDecodeError):
+                  review_events = []
+              for review in review_events:
+                  actor = (review.get("user") or {}).get("login")
+                  permission = str(review.get("author_association", "")).lower()
+                  if actor:
+                      try:
+                          raw_permission = subprocess.check_output(
+                              ["gh", "api", f"repos/{repo}/collaborators/{actor}/permission"],
+                              text=True,
+                              stderr=subprocess.DEVNULL,
+                          )
+                          permission = json.loads(raw_permission).get("permission", permission)
+                      except (FileNotFoundError, subprocess.CalledProcessError, json.JSONDecodeError):
+                          pass
+                  reviews.append(
+                      {
+                          "state": review.get("state"),
+                          "actor": actor,
+                          "permission": permission,
+                      }
+                  )
+          try:
+              commit_messages = subprocess.check_output(
+                  ["git", "log", f"origin/{os.environ['BASE_REF']}..HEAD", "--format=%B"],
+                  text=True,
+                  stderr=subprocess.DEVNULL,
+              )
+          except subprocess.CalledProcessError:
+              commit_messages = ""
+          pr_body = os.environ.get("PR_BODY", "")
+          has_ai_evidence = bool(os.environ.get("RECORDS", "").strip()) or any(
+              marker in f"{pr_body}\n{commit_messages}" for marker in ("Gate-Record:", "Assisted-by:")
+          )
+          print(json.dumps({
+              "labels": labels,
+              "label_events": label_events,
+              "reviews": reviews,
+              "body": pr_body,
+              "has_ai_evidence": has_ai_evidence,
+          }))
+          PY
+          )"
+          HUMAN_BYPASS_STATUS="$(PR_METADATA="$PR_METADATA" PYTHONPATH=src python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from scieasy.qa.governance import human_bypass_guard
+
+          report = human_bypass_guard.check(
+              pr=json.loads(os.environ["PR_METADATA"]),
+              repo_root=Path("."),
+          )
+          print(json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True))
+          if report.blocks_merge:
+              raise SystemExit(1)
+          Path(".workflow-pr-metadata.json").write_text(os.environ["PR_METADATA"], encoding="utf-8")
+          print(report.summary.get("bypass_status", "not_requested"))
+          PY
+          )"
+          echo "$HUMAN_BYPASS_STATUS" | sed -n '1,/^skipped-human$\|^admin-ai-override$\|^not_requested$/p'
+          HUMAN_BYPASS_STATUS="$(printf '%s\n' "$HUMAN_BYPASS_STATUS" | tail -1)"
 
           if [ -z "$RECORDS" ]; then
-            if python -c 'import json, os, sys; labels=set(json.loads(os.environ.get("PR_LABELS_JSON", "[]"))); sys.exit(0 if "human-authored" in labels else 1)'; then
-              echo "::notice::human-authored PR may skip AI-only gate-record evidence; repository CI/review still applies."
-              exit 0
+            if [ "$HUMAN_BYPASS_STATUS" = "skipped-human" ]; then
+              echo "::notice::human-authored PR skips ADR-042 workflow-gate enforcement; repository CI/review still applies."
+              SKIP_GATE_RECORD=1
+            else
+              echo "::error::ADR-042 requires exactly one committed .workflow/records/*.json gate record for AI-authored PRs."
+              exit 1
             fi
-            echo "::error::ADR-042 requires exactly one committed .workflow/records/*.json gate record for AI-authored PRs."
-            exit 1
+          else
+            SKIP_GATE_RECORD=0
           fi
 
-          if [ "$(echo "$RECORDS" | sed '/^$/d' | wc -l)" -ne 1 ]; then
-            echo "::error::ADR-042 expects exactly one committed gate record per PR."
-            echo "$RECORDS"
-            exit 1
-          fi
+          if [ "$SKIP_GATE_RECORD" -eq 0 ]; then
+            if [ "$(echo "$RECORDS" | sed '/^$/d' | wc -l)" -ne 1 ]; then
+              echo "::error::ADR-042 expects exactly one committed gate record per PR."
+              echo "$RECORDS"
+              exit 1
+            fi
 
-          LABEL_ARGS=()
-          while IFS= read -r label; do
-            [ -n "$label" ] || continue
-            LABEL_ARGS+=(--pr-label "$label")
-          done < <(python -c 'import json, os; [print(label) for label in json.loads(os.environ.get("PR_LABELS_JSON", "[]"))]')
+            LABEL_ARGS=()
+            while IFS= read -r label; do
+              [ -n "$label" ] || continue
+              LABEL_ARGS+=(--pr-label "$label")
+            done < <(python -c 'import json, os; [print(label) for label in json.loads(os.environ.get("PR_LABELS_JSON", "[]"))]')
 
-          while IFS= read -r record; do
-            [ -n "$record" ] || continue
-            PYTHONPATH=src python -m scieasy.qa.governance.gate_record ci \
-              --gate-record "$record" \
-              --base "origin/$BASE_REF" \
-              --head HEAD \
-              --pr-body "$PR_BODY" \
-              "${LABEL_ARGS[@]}"
-          done <<EOF
+            while IFS= read -r record; do
+              [ -n "$record" ] || continue
+              PYTHONPATH=src python -m scieasy.qa.governance.gate_record ci \
+                --gate-record "$record" \
+                --base "origin/$BASE_REF" \
+                --head HEAD \
+                --pr-body "$PR_BODY" \
+                "${LABEL_ARGS[@]}"
+            done <<EOF
           $RECORDS
           EOF
+          fi
+        shell: bash
 
       - name: Run ADR-042 guard orchestration
         env:
           BASE_REF: ${{ github.base_ref || 'main' }}
           PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           CHANGED="$(git diff --name-only "origin/$BASE_REF...HEAD")"
-          RECORD="$(echo "$CHANGED" | grep -E '^\.workflow/records/[^/]+\.json$' | head -1 || true)"
-          if [ -z "$RECORD" ]; then
-            echo "::notice::No AI gate record to orchestrate; skipped for human-authored/dependabot path."
-            exit 0
-          fi
+          RECORD="$(CHANGED="$CHANGED" python - <<'PY'
+          import os
 
-          PYTHONPATH=src python - <<'PY'
+          for path in os.environ.get("CHANGED", "").splitlines():
+              if path.startswith(".workflow/records/") and path.endswith(".json"):
+                  print(path)
+                  break
+          PY
+          )"
+          PYTHONPATH=src RECORD="$RECORD" python - <<'PY'
           import json
           import os
           import subprocess
-          import sys
           from pathlib import Path
 
-          from scieasy.qa.governance import docs_landing, issue_link, mod_guard, sentrux_gate, weakened_ci_check
+          from scieasy.qa.governance import (
+              core_change_guard,
+              docs_landing,
+              human_bypass_guard,
+              issue_link,
+              mod_guard,
+              pr_merge_guard,
+              sentrux_gate,
+              weakened_ci_check,
+          )
 
           base = os.environ["BASE_REF"]
           pr_body = os.environ.get("PR_BODY", "")
@@ -96,19 +240,71 @@ jobs:
               ["git", "diff", "--name-only", f"origin/{base}...HEAD"],
               text=True,
           ).splitlines()
-          record_path = next(path for path in changed if path.startswith(".workflow/records/") and path.endswith(".json"))
-          record = json.loads(Path(record_path).read_text(encoding="utf-8"))
+          record_path = os.environ.get("RECORD", "")
+          record = json.loads(Path(record_path).read_text(encoding="utf-8")) if record_path else {}
+          pr_metadata_path = Path(".workflow-pr-metadata.json")
+          if pr_metadata_path.exists():
+              pr = json.loads(pr_metadata_path.read_text(encoding="utf-8"))
+          else:
+              pr = {"labels": json.loads(os.environ.get("PR_LABELS_JSON", "[]")), "body": pr_body}
 
-          reports = [
-              issue_link.check(issues=record.get("issues", []), pr_body=pr_body, require_closing=True, repo_root=Path(".")),
-              docs_landing.check(changed_files=changed, docs_landing=record.get("docs_landing", {}), repo_root=Path(".")),
-              sentrux_gate.verify_free_tier_claims(record.get("sentrux"), changed_files=changed, repo_root=Path(".")),
-              mod_guard.check(Path("."), base_ref=f"origin/{base}", head_ref="HEAD", allow_governance_change=bool(record.get("governance_touch"))),
-              weakened_ci_check.verify_no_weakening(Path("."), base_ref=f"origin/{base}", head_ref="HEAD"),
-          ]
+          human_report = human_bypass_guard.check(pr=pr, repo_root=Path("."))
+          if not record and human_report.summary.get("bypass_status") == "skipped-human" and not human_report.blocks_merge:
+              print(json.dumps(human_report.model_dump(mode="json"), indent=2, sort_keys=True))
+              print("::notice::human-authored PR skips ADR-042 workflow-gate enforcement; admin PR review controls merge.")
+              raise SystemExit(0)
+
+          reports = []
+          if record:
+              reports.extend(
+                  [
+                      issue_link.check(
+                          issues=record.get("issues", []),
+                          pr_body=pr_body,
+                          require_closing=True,
+                          repo_root=Path("."),
+                      ),
+                      docs_landing.check(
+                          changed_files=changed,
+                          docs_landing=record.get("docs_landing", {}),
+                          repo_root=Path("."),
+                      ),
+                      sentrux_gate.verify_free_tier_claims(
+                          record.get("sentrux"),
+                          changed_files=changed,
+                          repo_root=Path("."),
+                      ),
+                  ]
+              )
+          else:
+              print("::notice::No AI gate record to orchestrate; running repository-level guards only.")
+
+          core_report = core_change_guard.check(changed_files=changed, pr=pr, repo_root=Path("."))
+          mod_approval_report = core_change_guard.check(
+              changed_files=changed,
+              pr=pr,
+              protected_globs=mod_guard.PROTECTED_PATTERNS,
+              repo_root=Path("."),
+          )
+          reports.extend(
+              [
+                  human_report,
+                  core_report,
+                  mod_approval_report,
+                  pr_merge_guard.check(pr=pr, actor={"is_ai": True}, intent="comment", repo_root=Path(".")),
+                  mod_guard.check(
+                      Path("."),
+                      base_ref=f"origin/{base}",
+                      head_ref="HEAD",
+                      allow_governance_change=not mod_approval_report.blocks_merge,
+                  ),
+                  weakened_ci_check.verify_no_weakening(Path("."), base_ref=f"origin/{base}", head_ref="HEAD"),
+              ]
+          )
           failed = False
           for report in reports:
               print(json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True))
               failed = failed or report.blocks_merge
-          sys.exit(1 if failed else 0)
+          if failed:
+              raise SystemExit(1)
           PY

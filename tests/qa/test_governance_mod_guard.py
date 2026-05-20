@@ -74,3 +74,27 @@ def test_mod_guard_allows_protected_change_with_environment_override(tmp_path: P
 
     assert report.status == AuditStatus.PASS
     assert os.environ[mod_guard.APPROVAL_ENV] == "1"
+
+
+def test_mod_guard_accepts_adr042_local_bypass_labels(tmp_path: Path, monkeypatch) -> None:
+    repo = _init_repo(tmp_path)
+    _write(repo, ".pre-commit-config.yaml", "repos:\n  - repo: local\n")
+    _git(repo, "add", ".")
+    monkeypatch.setenv("SCIEASY_GATE_BYPASS_LABELS", "admin-approved:ai-override")
+
+    report = mod_guard.check(repo, staged=True)
+
+    assert report.status == AuditStatus.PASS
+    assert report.summary["bypassed"] is True
+
+
+def test_mod_guard_rejects_invalid_adr042_local_bypass_label(tmp_path: Path, monkeypatch) -> None:
+    repo = _init_repo(tmp_path)
+    _write(repo, ".pre-commit-config.yaml", "repos:\n  - repo: local\n")
+    _git(repo, "add", ".")
+    monkeypatch.setenv("SCIEASY_GATE_BYPASS_LABELS", "admin-approved-core-change")
+
+    report = mod_guard.check(repo, staged=True)
+
+    assert report.status == AuditStatus.FAIL
+    assert "governance.mod_guard.invalid-override-label" in {finding.rule_id for finding in report.findings}

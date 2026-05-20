@@ -114,3 +114,29 @@ def test_weakened_ci_detects_removed_pre_commit_hook(tmp_path: Path) -> None:
 
     assert report.status == AuditStatus.FAIL
     assert "weakened-ci.removed-detect-private-key" in {finding.rule_id for finding in report.findings}
+
+
+def test_weakened_ci_accepts_adr042_local_bypass_label(tmp_path: Path, monkeypatch) -> None:
+    repo = _init_repo(tmp_path)
+    workflow = repo / ".github/workflows/ci.yml"
+    workflow.write_text(workflow.read_text(encoding="utf-8") + "    continue-on-error: true\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    monkeypatch.setenv("SCIEASY_GATE_BYPASS_LABELS", "admin-approved:ai-override")
+
+    report = weakened_ci_check.verify_no_weakening(repo, staged=True)
+
+    assert report.status == AuditStatus.PASS
+    assert report.summary["bypassed"] is True
+
+
+def test_weakened_ci_rejects_invalid_adr042_local_bypass_label(tmp_path: Path, monkeypatch) -> None:
+    repo = _init_repo(tmp_path)
+    workflow = repo / ".github/workflows/ci.yml"
+    workflow.write_text(workflow.read_text(encoding="utf-8") + "    continue-on-error: true\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    monkeypatch.setenv("SCIEASY_GATE_BYPASS_LABELS", "admin-approved-core-change")
+
+    report = weakened_ci_check.verify_no_weakening(repo, staged=True)
+
+    assert report.status == AuditStatus.FAIL
+    assert "weakened-ci.invalid-override-label" in {finding.rule_id for finding in report.findings}

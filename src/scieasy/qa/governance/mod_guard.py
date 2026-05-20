@@ -10,9 +10,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+from scieasy.qa.governance.human_bypass_guard import VALID_OVERRIDE_LABELS
 from scieasy.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
 APPROVAL_ENV = "SCIEASY_GOVERNANCE_CHANGE_APPROVED"
+BYPASS_ENV = "SCIEASY_GATE_BYPASS_LABELS"
 
 PROTECTED_PATTERNS: tuple[str, ...] = (
     "AGENTS.md",
@@ -57,6 +59,25 @@ def _approval_present(*, allow_governance_change: bool) -> bool:
     return allow_governance_change or os.environ.get(APPROVAL_ENV) == "1"
 
 
+def _local_bypass_findings() -> tuple[bool, list[Finding]]:
+    labels = {label.strip() for label in os.environ.get(BYPASS_ENV, "").replace(",", " ").split() if label.strip()}
+    invalid = sorted(
+        label
+        for label in labels
+        if label not in VALID_OVERRIDE_LABELS and (label.startswith("human") or label.startswith("admin-approved"))
+    )
+    findings = [
+        Finding(
+            rule_id="governance.mod_guard.invalid-override-label",
+            severity=Severity.ERROR,
+            message="override label is not part of the ADR-042 vocabulary",
+            evidence={"label": label, "valid_labels": sorted(VALID_OVERRIDE_LABELS)},
+        )
+        for label in invalid
+    ]
+    return bool(labels & VALID_OVERRIDE_LABELS), findings
+
+
 def check(
     repo_root: Path,
     *,
@@ -66,6 +87,28 @@ def check(
     allow_governance_change: bool = False,
 ) -> AuditReport:
     """Fail when governance-critical files changed without explicit approval."""
+
+    bypassed, bypass_findings = _local_bypass_findings()
+    if bypass_findings:
+        return AuditReport(
+            tool="governance_mod_guard",
+            status=AuditStatus.FAIL,
+            source_sha=_source_sha(repo_root),
+            findings=bypass_findings,
+            summary={"bypassed": False, "mode": "staged" if staged else "ref"},
+        )
+    if bypassed:
+        return AuditReport(
+            tool="governance_mod_guard",
+            status=AuditStatus.PASS,
+            source_sha=_source_sha(repo_root),
+            findings=[],
+            summary={
+                "bypassed": True,
+                "bypass_env": BYPASS_ENV,
+                "mode": "staged" if staged else "ref",
+            },
+        )
 
     protected = [
         path
