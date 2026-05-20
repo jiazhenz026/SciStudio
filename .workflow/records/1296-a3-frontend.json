@@ -32,7 +32,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1296-a3-frontend.json",
+    "shas": [
+      "f060c1354f2294aaed5d89d55c39118658a0bf95"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -83,7 +89,13 @@
     "CHANGELOG.md",
     "frontend/e2e/adr043-a3-smoke.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1296
+    ],
+    "number": null,
+    "url": null
+  },
   "record_path": ".workflow/records/1296-a3-frontend.json",
   "required_checks": [
     "vitest run",
@@ -143,7 +155,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
