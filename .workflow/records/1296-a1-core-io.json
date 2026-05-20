@@ -1,6 +1,13 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Implementation complete: explicit FormatCapability declarations on LoadData and SaveData, legacy supported_extensions ClassVar deleted, _detect_format overridden per class, error messages re-sourced from capability map. Legacy ClassVar tests rewritten and AppBlock binner capability_id updated as direct FR-003 consequences."
+    }
+  ],
   "branch": "feat/issue-1296/adr043-a1-core-io",
   "changed_test_paths": [
     "tests/blocks/io/test_load_data_capabilities.py",
@@ -133,7 +140,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
