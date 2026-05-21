@@ -1,0 +1,202 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Mark implement stage done after #902 reader-side hardening + #1369 SaveImage path config override land in this branch's working tree."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Codex P2 reconciliation: extend #1369 runtime to honour file-stem in batch SaveImage mode (avoid silent filename drop with file-picker UX)."
+    }
+  ],
+  "branch": "fix/issue-902-1369/completion-saveimg",
+  "changed_test_paths": [
+    "tests/blocks/ai/test_completion_skeleton.py",
+    "tests/blocks/ai/test_completion_race.py",
+    "packages/scistudio-blocks-imaging/tests/test_save_image_browse_mode.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "654 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "pytest tests/blocks/ai/test_completion_skeleton.py tests/blocks/ai/test_completion_race.py packages/scistudio-blocks-imaging/tests/test_save_image_browse_mode.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "26 passed (20 AI completion + 6 save image browse mode)",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/902-1369-completion-saveimg.json",
+    "shas": [
+      "1f4db3ffefeb0a22163f30344e025d8f34e4d7dc"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "no-architecture-change"
+    },
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/2026-05-21-bug-sweep-checklist.md"
+      ]
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "no-user-facing-docs-required"
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "no-public-contract-change"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 902,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/902"
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1369,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1369"
+    }
+  ],
+  "owner_directive": "Hardens CompletionWatcher against empty/mid-write JSON + fixes Save Image directory_browser misclassification",
+  "planned_files": [
+    "src/scistudio/blocks/ai/completion.py",
+    "tests/blocks/ai/test_completion_skeleton.py",
+    "tests/blocks/ai/test_completion_race.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py",
+    "packages/scistudio-blocks-imaging/tests/test_save_image_browse_mode.py",
+    "CHANGELOG.md",
+    "docs/planning/2026-05-21-bug-sweep-checklist.md",
+    ".workflow/records/902-1369-completion-saveimg.json"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      902,
+      1369
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1395"
+  },
+  "record_path": ".workflow/records/902-1369-completion-saveimg.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/blocks/ai/completion.py",
+      "tests/blocks/ai/test_completion_skeleton.py",
+      "tests/blocks/ai/test_completion_race.py",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py",
+      "packages/scistudio-blocks-imaging/tests/test_save_image_browse_mode.py",
+      "CHANGELOG.md",
+      "docs/planning/2026-05-21-bug-sweep-checklist.md",
+      ".workflow/records/902-1369-completion-saveimg.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__check_rules",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": null,
+    "pro_required": false,
+    "quality_signal": 4444.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "902-completion-saveimg",
+  "task_kind": "bugfix"
+}

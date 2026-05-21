@@ -1,30 +1,35 @@
-"""Regression test for TOCTOU race between MCP-signal writer and CompletionWatcher reader (#962 / #909).
+"""Regression test for TOCTOU race between MCP-signal writer and CompletionWatcher reader (#962 / #909 / #902).
 
 Background
 ----------
 Non-atomic ``Path.write_text`` opens the target with mode ``"w"`` which
 **truncates the file to 0 bytes before** the data is written. If a reader
-polls inside that truncate window it observes an empty file and
-``json.loads("")`` raises ``JSONDecodeError`` — which
-``CompletionWatcher.wait`` re-raises as
-``ValueError("... malformed MCP signal ...")``.
+polls inside that truncate window it observes an empty file.
 
-This was the documented root cause of intermittent CI flakes
-(see ``docs/planning/adr-038-039-checklist.md`` →
-"AI Block MCP-signal write/read race"). Fix: writers use ``tempfile``
-+ ``os.replace`` so readers see an all-or-nothing transition.
+Two complementary fixes harden the system:
+
+* **Writer side** (#962 / #909): production agents + the StubAgent
+  fixture use ``tempfile`` + ``os.replace`` so readers see an
+  all-or-nothing transition. See
+  ``tests/blocks/ai/conftest.py::_atomic_write_signal``.
+* **Reader side** (#902): ``CompletionWatcher.wait`` now treats empty
+  / whitespace-only content as "file mid-write" and retries on the
+  next poll instead of raising
+  ``ValueError("... malformed MCP signal ...")``. This guards against
+  third-party MCP writers that may not use atomic writes.
 
 The two tests below pin the contract:
 
-1. ``test_non_atomic_writer_loses_race`` — proves the race exists by
-   driving a deliberately non-atomic writer; ``CompletionWatcher.wait``
-   must raise ``ValueError`` referencing the truncate window. (Documents
-   why the fix is needed; would silently pass even on the buggy code.)
+1. ``test_non_atomic_writer_eventually_completes`` — drives a
+   deliberately non-atomic writer; ``CompletionWatcher.wait`` must
+   tolerate the truncate window and return a ``MCP_FINISH_TOOL`` event
+   once the JSON finally lands. (Fails on the pre-#902 reader that
+   raised ``ValueError`` inside the truncate window.)
 2. ``test_atomic_writer_wins_race`` — uses the same deliberately-induced
    race window but with the atomic temp+replace writer (matching the
-   fixture's new ``_atomic_write_signal``); ``CompletionWatcher.wait``
+   fixture's ``_atomic_write_signal``); ``CompletionWatcher.wait``
    must observe the signal cleanly and return a ``MCP_FINISH_TOOL``
-   event. **Fails without the fix.** This is the regression lock.
+   event. This is the writer-side regression lock from #962 / #909.
 
 Determinism — use ``threading.Event`` to hand off the "I have created the
 empty file" signal from writer thread to test thread, then sleep a small
@@ -42,8 +47,6 @@ import tempfile
 import threading
 import time
 from pathlib import Path
-
-import pytest
 
 from scistudio.blocks.ai.completion import (
     CompletionSource,
@@ -90,14 +93,20 @@ def _atomic_write(signal_path: Path, content: str) -> None:
         raise
 
 
-def test_non_atomic_writer_loses_race(tmp_path: Path) -> None:
-    """Driving a deliberately non-atomic writer must surface the race.
+def test_non_atomic_writer_eventually_completes(tmp_path: Path) -> None:
+    """Issue #902 reader-side hardening: non-atomic writer is now tolerated.
 
-    Documents WHY the fix is needed: ``open("w")`` → ``close()`` truncates
-    the file to 0 bytes, and the watcher reading inside that window must
-    raise ``ValueError`` because ``json.loads("")`` fails. This test
-    passes both before and after the fix — it pins the failure mode of
-    the *buggy* writer pattern, not the fixed one.
+    Drives a deliberately non-atomic writer that ``open("w")``s the
+    signal file (truncating to 0 bytes), holds the descriptor open
+    across the watcher's poll window, then writes the JSON. Before
+    #902 the watcher would read the empty file inside the truncate
+    window and raise ``ValueError("... malformed MCP signal ...")``.
+    After #902 the watcher treats empty content as "file mid-write",
+    retries on the next poll, and returns the ``MCP_FINISH_TOOL`` event
+    once the writer flushes the JSON.
+
+    This test FAILS on the pre-#902 watcher (the empty-read raises
+    inside the truncate window) and PASSES on the patched watcher.
     """
     _rd, watcher = _make_watcher(tmp_path)
     signal_path = watcher.run_dir.mcp_signal_path()
@@ -124,8 +133,9 @@ def test_non_atomic_writer_loses_race(tmp_path: Path) -> None:
     # state before the test even sets it up.
     assert truncated.wait(timeout=2.0), "writer thread never reached truncate window"
 
-    with pytest.raises(ValueError, match=r"malformed MCP signal|Expecting value"):
-        watcher.wait(timeout_sec=2.0)
+    event = watcher.wait(timeout_sec=2.0)
+    assert event.source is CompletionSource.MCP_FINISH_TOOL
+    assert event.detail["raw_payload"] == {"outputs": {}}
 
     writer.join(timeout=2.0)
 
