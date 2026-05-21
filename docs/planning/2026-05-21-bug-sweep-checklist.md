@@ -99,7 +99,7 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| W1 | implementer | N/A | inline | Tier 1 surgical batch | `fix/bug-sweep-2026-05-21/tier1-surgical` | `.claude/worktrees/agent-w1-tier1` | See §7.1 | See §7.1 | Closes #1110 #617 #1281 #1282 #1368 | `[ ]` |
+| W1 | implementer | N/A | inline | Tier 1 surgical batch | `fix/bug-sweep-2026-05-21/tier1-surgical` | `.claude/worktrees/agent-abd2b11eeda702937` | See §7.1 | See §7.1 | Closes #1110 #617 #1281 #1282 #1368 | `[~]` |
 | W2-A | implementer | N/A | inline | types path drop-in + worker | `fix/issue-1343-1365/types-registry` | `.claude/worktrees/agent-w2a-types` | See §7.2 | See §7.2 | Closes #1343 #1365 | `[ ]` |
 | W2-B | implementer | N/A | inline | imaging TIFF OME + capability metadata | `fix/issue-1306-1371/imaging-ome-fidelity` | `.claude/worktrees/agent-w2b-imaging` | See §7.3 | See §7.3 | PR #1388, Closes #1306 #1371 | `[x]` |
 | W3-A | implementer | N/A | inline | scheduler READY emit + interactive normalize | `fix/issue-1367-1370/scheduler-emit-normalize` | `.claude/worktrees/agent-w3a-scheduler` | See §7.4 | See §7.4 | Closes #1367 #1370 | `[ ]` |
@@ -112,21 +112,32 @@ language_source: en
 ### 7.1 W1 — Tier 1 surgical batch (#1110 #617 #1281 #1282 #1368)
 
 - Owner: W1 implementer
-- In scope:
-  - `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_data.py` (#1110) — verify exact package path
+- Branch: `fix/bug-sweep-2026-05-21/tier1-surgical` @ commit `<last-sha-after-finalize>`
+- PR: `<pending — opened after `gate_record ci` passes>`
+- Gate record: `.workflow/records/1110-617-1281-1282-1368-tier1-surgical-bug-sweep.json`
+- Status:
+  - [x] **#1110** — advertise `.markdown` / `.htm` on SaveData + LoadData Text capability (+ `_TEXT_FORMAT_MAP`); preserved ADR-043 FR-001 / FR-002 Load ↔ Save mirror invariant.
+  - [x] **#617** — `_ps_single_quote_escape` doubles `'` → `''`; applied to `initial_dir`, `default_filename`, `file_filter` in `_native_dialog_windows` save_file / file modes.
+  - [x] **#1281** — `CodeBlockExchangeManifest.ports` keyed by `(direction, name)` tuple; `to_dict()` serialises as `"<direction>:<name>"`; downstream test updated.
+  - [x] **#1282** — `_is_codeblock_spec` dropped the `base_category == "code"` branch; concrete CodeBlock identity required via `name`/`type_name`/module+class.
+  - [x] **#1368** — `_make_block()` replaced with bare `AppBlock()` per PR #1351's new lifecycle pattern; `BlockState` import dropped.
+- In scope (final, after gate-record amend):
+  - `src/scistudio/blocks/io/savers/save_data.py` (#1110) — `_SAVE_CAPABILITIES` Text + Artifact-text extensions tuple
+  - `src/scistudio/blocks/io/loaders/load_data.py` (#1110 mirror) — `_LOAD_CAPABILITIES` Text + Artifact-text extensions + `_TEXT_FORMAT_MAP`
   - `src/scistudio/api/routes/filesystem.py` (#617) — escape apostrophes in PowerShell strings
   - `src/scistudio/blocks/code/exchange.py` (#1281) — key manifest records by `(direction, name)`
   - `src/scistudio/workflow/validator.py` (#1282) — narrow `_is_codeblock_spec` to concrete class
   - `tests/blocks/app/test_appblock_fiji_integration.py` (#1368) — remove calls to deleted `Block.transition`
 - Out of scope:
   - All other source paths; no refactors; no docs unless directly tied to a fix
-- Required docs: ADR/spec untouched; CHANGELOG entry for the batch under `[Unreleased]`
-- Required tests:
-  - Tests asserting full key set for `SaveData.supported_extensions`
-  - Test that apostrophe in workflow name does not break PowerShell file dialog (mock subprocess.run + assert escaped form)
-  - Test that input+output ports of same name preserve both records in exchange manifest
-  - Test that non-CodeBlock spec with `base_category == 'code'` skips CodeBlock v2 validation
-  - For #1368: confirm Fiji integration test path either passes or skips for env reasons (no AttributeError)
+- Required docs: ADR/spec untouched; CHANGELOG entry for the batch under `[Unreleased]` — done.
+- Required tests (all added):
+  - `tests/blocks/io/test_save_data.py::TestRoundTripText` (parametrise `.markdown`/`.htm` + `test_text_capability_advertises_markdown_and_htm`)
+  - `tests/blocks/io/test_load_data.py::test_extension_map_contains_markdown_and_htm_for_text`
+  - `tests/api/test_filesystem_dialog.py` (6 cases — escape helper, save_file `initial_dir` / `default_filename` / `file_filter`, file-open `initial_dir`, `None` initial_dir)
+  - `tests/blocks/code/test_codeblock_exchange.py::test_initialise_manifest_keeps_same_named_input_and_output_ports` + `test_prepare_exchange_materialises_input_when_output_has_same_name`
+  - `tests/workflow/test_validator.py::TestIsCodeBlockSpecNarrowing` (4 cases)
+  - `tests/blocks/app/test_appblock_fiji_integration.py` — collection now succeeds (was raising `AttributeError` from `Block.transition`)
 
 ### 7.2 W2-A — Types path (#1343 + #1365)
 
@@ -247,11 +258,11 @@ language_source: en
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
-| Ruff | `ruff check .` | `[ ]` | `<output path or summary>` |
-| Format | `ruff format --check .` | `[ ]` | `<output path or summary>` |
-| Tests | `pytest <changed-test-paths-per-wave>` | `[ ]` | `<output path or summary>` |
-| Full audit | `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[ ]` | `<output path>` |
-| Sentrux | MCP `rescan`+`check_rules`+`health` or CLI `sentrux scan . && sentrux check .` | `[ ]` | `<evidence or N/A reason>` |
+| Ruff (W1) | `ruff check .` | `[x]` | "All checks passed!" (gate-record: ruff) |
+| Format (W1) | `ruff format --check .` | `[x]` | "651 files already formatted" (gate-record: format) |
+| Tests (W1) | `pytest tests/blocks/io/test_save_data.py tests/blocks/io/test_save_data_capabilities.py tests/blocks/io/test_load_data.py tests/blocks/io/test_load_data_capabilities.py tests/api/test_filesystem_dialog.py tests/blocks/code/test_codeblock_exchange.py tests/blocks/code/test_codeblock_execution.py tests/workflow/test_validator.py tests/workflow/test_validator_codeblock_v2.py --timeout=60` | `[x]` | 300 passed (gate-record: pytest) |
+| Full audit (W1) | `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[x]` | top status=pass, 8/8 children pass (generate_facts, frontmatter_lint, fact_drift, doc_drift, closure, signature_drift, architecture_drift, vulture) |
+| Sentrux (W1) | MCP `scan`+`check_rules`+`health` | `[x]` | pass=true, rules_checked=3/15, violation_count=0, quality_signal=4445, bottleneck=acyclicity, pro_required=false |
 
 #### W2-B verification (PR #1388)
 

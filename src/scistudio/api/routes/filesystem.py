@@ -329,9 +329,7 @@ def _native_dialog_windows(
     # interpolating into PowerShell single-quoted strings (#617).
     safe_initial_dir = _ps_single_quote_escape(initial_dir or "")
     safe_default_filename = _ps_single_quote_escape(default_filename or "")
-    safe_file_filter = _ps_single_quote_escape(
-        file_filter or "YAML files (*.yaml)|*.yaml|All files (*.*)|*.*"
-    )
+    safe_file_filter = _ps_single_quote_escape(file_filter or "YAML files (*.yaml)|*.yaml|All files (*.*)|*.*")
     if mode == "directory":
         # Use modern IFileOpenDialog COM with FOS_PICKFOLDERS for Vista+ style
         # instead of the legacy Win2000-era FolderBrowserDialog.
