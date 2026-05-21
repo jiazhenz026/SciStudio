@@ -803,6 +803,112 @@ class TestResetBlock:
 
 
 # ---------------------------------------------------------------------------
+# BLOCK_READY emission on lifecycle transitions (#1367)
+# ---------------------------------------------------------------------------
+
+
+class TestSchedulerLifecycleBlockReady:
+    """Regression #1367: BLOCK_READY emitted on resume/rerun/reset IDLE->READY.
+
+    #1327 fixed BLOCK_READY emission for execute() and execute_from(), but the
+    resume/rerun/reset paths still flipped ``BlockState.READY`` without calling
+    ``_emit_block_ready()``. Lifecycle subscribers (frontend WS, gate tooling)
+    therefore missed readiness events whenever the scheduler re-dispatched a
+    block outside of the initial execute path.
+    """
+
+    def test_resume_emits_block_ready_for_idle_to_ready_transition(self) -> None:
+        """resume() emits BLOCK_READY exactly once for each IDLE->READY block.
+
+        Mirrors :func:`TestSchedulerPauseResume.test_resume_dispatches_ready_blocks`:
+        a 2-node linear workflow with A already DONE has B start IDLE; resume()
+        must transition B to READY *and* fire BLOCK_READY before dispatching.
+        """
+        wf = _wf(
+            nodes=[("A", "proc"), ("B", "proc")],
+            edges=[("A:out", "B:in")],
+        )
+        scheduler, event_bus, _runner = _make_scheduler(wf)
+
+        scheduler._block_states["A"] = BlockState.DONE
+        scheduler._block_outputs["A"] = {"out": "data"}
+        scheduler._block_states["B"] = BlockState.IDLE
+
+        ready_block_ids: list[str] = []
+        event_bus.subscribe(BLOCK_READY, lambda e: ready_block_ids.append(e.block_id or ""))
+
+        asyncio.run(scheduler.resume())
+
+        # Only B transitioned IDLE->READY in this resume call; A was already
+        # DONE and never re-entered the READY state.
+        assert ready_block_ids == ["B"], (
+            f"resume() should emit BLOCK_READY exactly once for B; got {ready_block_ids}"
+        )
+
+    def test_rerun_block_emits_block_ready_on_ready_transition(self) -> None:
+        """rerun_block() emits BLOCK_READY when its single block transitions IDLE->READY.
+
+        ``rerun_block`` resets the target block to IDLE and dispatches if
+        ready. The IDLE->READY transition that precedes the dispatch must emit
+        BLOCK_READY so lifecycle subscribers observe the new readiness.
+        """
+        wf = _wf(nodes=[("A", "proc")])
+        scheduler, event_bus, _runner = _make_scheduler(wf)
+
+        # Pre-set state so the block is fully done and outputs are captured.
+        scheduler._block_states["A"] = BlockState.DONE
+        scheduler._block_outputs["A"] = {"out": "stale"}
+
+        ready_block_ids: list[str] = []
+        event_bus.subscribe(BLOCK_READY, lambda e: ready_block_ids.append(e.block_id or ""))
+
+        asyncio.run(scheduler.rerun_block("A"))
+
+        assert ready_block_ids == ["A"], (
+            f"rerun_block() should emit BLOCK_READY exactly once for A; got {ready_block_ids}"
+        )
+
+    def test_reset_block_emits_block_ready_for_each_ready_transition(self) -> None:
+        """reset_block() emits BLOCK_READY for every block that becomes READY.
+
+        After reset, the scheduler walks the topological order and transitions
+        every IDLE-with-DONE-predecessors block to READY. Each such transition
+        must emit BLOCK_READY exactly once. The target block (B in this
+        diamond) becomes READY because A is still DONE; D stays IDLE because
+        its predecessor B has not finished yet.
+        """
+        wf = _wf(
+            nodes=[("A", "proc"), ("B", "proc"), ("C", "proc"), ("D", "proc")],
+            edges=[("A:out", "B:in"), ("B:out", "C:in"), ("C:out", "D:in")],
+        )
+        scheduler, event_bus, _ = _make_scheduler(wf)
+        # Mock _dispatch so READY blocks stay READY and we can observe the
+        # transitional event without the dispatcher driving them to RUNNING.
+        scheduler._dispatch = AsyncMock()
+
+        scheduler._block_states["A"] = BlockState.DONE
+        scheduler._block_outputs["A"] = {"out": "data"}
+        scheduler._block_states["B"] = BlockState.ERROR
+        scheduler._block_states["C"] = BlockState.SKIPPED
+        scheduler.skip_reasons["C"] = "upstream B error"
+        scheduler._block_states["D"] = BlockState.SKIPPED
+        scheduler.skip_reasons["D"] = "upstream B error"
+
+        ready_block_ids: list[str] = []
+        event_bus.subscribe(BLOCK_READY, lambda e: ready_block_ids.append(e.block_id or ""))
+
+        asyncio.run(scheduler.reset_block("B"))
+
+        # Only B becomes READY: A was preserved DONE, C/D are reset to IDLE
+        # but their predecessor B is still READY (not DONE), so they do not
+        # transition. _dispatch was mocked so B stays READY without progressing.
+        assert ready_block_ids == ["B"], (
+            f"reset_block() should emit BLOCK_READY exactly once for B; got {ready_block_ids}"
+        )
+        assert scheduler._block_states["B"] == BlockState.READY
+
+
+# ---------------------------------------------------------------------------
 # PROCESS_EXITED handling (#163)
 # ---------------------------------------------------------------------------
 
