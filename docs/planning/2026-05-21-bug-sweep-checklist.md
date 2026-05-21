@@ -99,7 +99,7 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| W1 | implementer | N/A | inline | Tier 1 surgical batch | `fix/bug-sweep-2026-05-21/tier1-surgical` | `.claude/worktrees/agent-abd2b11eeda702937` | See §7.1 | See §7.1 | Closes #1110 #617 #1281 #1282 #1368 | `[~]` |
+| W1 | implementer | N/A | inline | Tier 1 surgical batch | `fix/bug-sweep-2026-05-21/tier1-surgical` | `.claude/worktrees/agent-abd2b11eeda702937` | See §7.1 | See §7.1 | PR #1379 — Closes #1110 #617 #1281 #1282 #1368 | `[x]` |
 | W2-A | implementer | N/A | inline | types path drop-in + worker | `fix/issue-1343-1365/types-registry` | `.claude/worktrees/agent-w2a-types` | See §7.2 | See §7.2 | Closes #1343 #1365 | `[ ]` |
 | W2-B | implementer | N/A | inline | imaging TIFF OME + capability metadata | `fix/issue-1306-1371/imaging-ome-fidelity` | `.claude/worktrees/agent-w2b-imaging` | See §7.3 | See §7.3 | PR #1388, Closes #1306 #1371 | `[x]` |
 | W3-A | implementer | N/A | inline | scheduler READY emit + interactive normalize | `fix/issue-1367-1370/scheduler-emit-normalize` | `.claude/worktrees/agent-w3a-scheduler` | See §7.4 | See §7.4 | Closes #1367 #1370 | `[ ]` |
@@ -112,8 +112,8 @@ language_source: en
 ### 7.1 W1 — Tier 1 surgical batch (#1110 #617 #1281 #1282 #1368)
 
 - Owner: W1 implementer
-- Branch: `fix/bug-sweep-2026-05-21/tier1-surgical` @ commit `<last-sha-after-finalize>`
-- PR: `<pending — opened after `gate_record ci` passes>`
+- Branch: `fix/bug-sweep-2026-05-21/tier1-surgical` (commit before finalize: `053ed418`; final commit after `finalize` adds the gate-record provenance)
+- PR: #1379 — https://github.com/zjzcpj/SciStudio/pull/1379
 - Gate record: `.workflow/records/1110-617-1281-1282-1368-tier1-surgical-bug-sweep.json`
 - Status:
   - [x] **#1110** — advertise `.markdown` / `.htm` on SaveData + LoadData Text capability (+ `_TEXT_FORMAT_MAP`); preserved ADR-043 FR-001 / FR-002 Load ↔ Save mirror invariant.
@@ -282,7 +282,10 @@ Append only.
 
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
-| (none yet) | — | — | — | — |
+| 2026-05-21 | W1 | #1110 scope was named SaveData only, but `test_save_extension_map_mirrors_load` enforces Load ↔ Save symmetry — Save-only fix breaks CI. | Gate-record amend: include `src/scistudio/blocks/io/loaders/load_data.py` + `tests/blocks/io/test_load_data.py`. Mirror `.markdown`/`.htm` to LoadData's Text capability + `_TEXT_FORMAT_MAP`. | None — invariant preserved. |
+| 2026-05-21 | W1 | Dispatch prompt named `tests/blocks/code/test_exchange.py` but the actual file is `test_codeblock_exchange.py`. | Gate-record amend: include the real path. Existing tests updated to new tuple-key shape; same-name regression test added. | None. |
+| 2026-05-21 | W1 | #1281 `to_dict()` JSON key shape change ("name" → "direction:name") broke one downstream test in `test_codeblock_execution.py`. | Gate-record amend: include `test_codeblock_execution.py`. Updated one assertion to use `"output:summary"`. | None — only one downstream JSON consumer. |
+| 2026-05-21 | W1 | `scripts/scistudio_pr_create.py` pre-flight runs `gate_record ci --base origin/main`, but this PR's base is `umbrella/2026-05-21-bug-sweep`. Pre-flight flagged the manager's own gate record (which exists on umbrella but not main) as out-of-scope. | Used `SCISTUDIO_SKIP_PREFLIGHT=1` for the umbrella sub-PR case (the chicken-and-egg the wrapper handles for main-targeted PRs does not apply cleanly to umbrella sub-PRs). CI runs the full guard suite against the actual base. | Wrapper enhancement: detect umbrella base and pass through to `gate_record ci --base origin/umbrella/...` — out of scope for this PR. |
 
 ## 10. Final Readiness
 
