@@ -1,6 +1,16 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "tests/blocks/test_lazy_list.py",
+        "tests/blocks/test_merge_split_extended.py"
+      ],
+      "reason": "post-CI-fix: include 2 boilerplate test files missed by initial grep paginate (test_lazy_list.py + test_merge_split_extended.py); both fail with AttributeError: 'CodeBlock'/'MergeBlock'/'SplitBlock' object has no attribute 'transition' after #1334 deletion"
+    }
+  ],
   "branch": "fix/issue-1334-vestigial-block-state",
   "changed_test_paths": [
     "tests/blocks/test_block_base.py",
@@ -65,8 +75,14 @@
       "not_applicable": true,
       "rationale": "ADR-018 already engine-authoritative; #1334 explicit: no ADR change needed"
     },
-    "changelog": {},
-    "checklist": {},
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "CHANGELOG.md [Unreleased] Fixed section updated in this PR (recorded under docs.paths; the docs CLI maps CHANGELOG.md there since it is not under docs/planning/)"
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "single-implementer PR (not manager-dispatched); no docs/planning checklist applies"
+    },
     "docs": {
       "paths": [
         "docs/architecture/ARCHITECTURE.md",
@@ -99,6 +115,12 @@
       "followup_rationale": null,
       "number": 1334,
       "url": null
+    },
+    {
+      "number": 560,
+      "url": null,
+      "close_in_pr": true,
+      "followup_rationale": null
     }
   ],
   "owner_directive": "Owner authorized Option B fix path in chat (2026-05-21): delete vestigial worker-side Block.state/transition machinery per #1334; closes #560 as side effect",
@@ -153,17 +175,17 @@
     ]
   },
   "sentrux": {
-    "command_or_tool": "sentrux check",
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules + health",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "{\"rules_checked\": 3, \"total_rules_defined\": 15, \"violation_count\": 0, \"pass\": true, \"quality_signal\": 4126, \"files\": 1081, \"import_edges\": 2602, \"pro_required\": false}",
+    "output_path": "rules_checked=3/15 (free tier cap; pro_required=false), violation_count=0, files=1081, import_edges=2602, quality_signal=4126",
     "pro_required": false,
-    "quality_signal": null,
-    "rules_checked": null,
+    "quality_signal": 4126.0,
+    "rules_checked": 3,
     "status": "pass",
     "summary": {},
     "thresholds": {},
-    "total_rules_defined": null
+    "total_rules_defined": 15
   },
   "stages": [
     {

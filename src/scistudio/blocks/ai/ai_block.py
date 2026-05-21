@@ -60,6 +60,7 @@ from scistudio.blocks.ai.completion import (
 from scistudio.blocks.ai.run_dir import RunDir
 from scistudio.blocks.base.block import Block
 from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.exceptions import BlockCancelledByAppError
 from scistudio.blocks.base.ports import InputPort, OutputPort
 from scistudio.blocks.base.state import ExecutionMode
 from scistudio.core.types.base import DataObject
@@ -351,12 +352,16 @@ class AIBlock(Block):
 
         try:
             event = watcher.wait(timeout_sec=float(timeout_sec))
-        except TimeoutError:
+        except TimeoutError as exc:
             _safe_notify(_pty_control, block_execution_id, "cancelled_by_user_close", {"reason": "timeout"})
-            return {}
-        except WatcherCancelledError:
+            # Signal cancellation through the worker envelope (#1334 P1
+            # from Codex review on PR #1351): a bare ``return {}`` would
+            # serialize as DONE because the worker now only emits
+            # ``final_state="cancelled"`` for ``BlockCancelledByAppError``.
+            raise BlockCancelledByAppError(f"AIBlock timeout after {timeout_sec}s") from exc
+        except WatcherCancelledError as exc:
             _safe_notify(_pty_control, block_execution_id, "cancelled_by_user_close", {"reason": "cancelled"})
-            return {}
+            raise BlockCancelledByAppError(f"AIBlock cancelled: {exc}") from exc
         except ValueError as exc:
             # Malformed MCP signal — preserve run_dir, surface as ERROR.
             _safe_notify(_pty_control, block_execution_id, "error", {"reason": str(exc)})

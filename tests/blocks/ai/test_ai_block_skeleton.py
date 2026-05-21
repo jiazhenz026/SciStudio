@@ -353,6 +353,8 @@ def test_run_spawn_fail_returns_error(project_dir: Path, stub_agent: StubAgent) 
 
 
 def test_run_timeout_cancels(project_dir: Path, stub_agent: StubAgent) -> None:
+    from scistudio.blocks.base.exceptions import BlockCancelledByAppError
+
     stub_agent.finish_via = "close"  # Never signal.
     block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./never.csv"}])
     cfg = _config(
@@ -361,8 +363,11 @@ def test_run_timeout_cancels(project_dir: Path, stub_agent: StubAgent) -> None:
         project_dir=str(project_dir),
         timeout_sec=1,
     )
-    result = block.run(inputs={}, config=cfg)
-    assert result == {}
+    # AIBlock now signals cancellation via BlockCancelledByAppError (#1334
+    # Codex P1) so the worker can forward `final_state="cancelled"` to the
+    # scheduler instead of misclassifying the run as DONE.
+    with pytest.raises(BlockCancelledByAppError, match="timeout"):
+        block.run(inputs={}, config=cfg)
     assert any("cancelled" in n[1] for n in stub_agent.notifications)
 
 
