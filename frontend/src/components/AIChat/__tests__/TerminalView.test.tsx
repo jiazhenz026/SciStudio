@@ -49,6 +49,9 @@ vi.mock("@xterm/addon-search", () => ({
 vi.mock("@xterm/addon-web-links", () => ({
   WebLinksAddon: class {},
 }));
+vi.mock("@xterm/addon-canvas", () => ({
+  CanvasAddon: class {},
+}));
 
 // --- WebSocket fake ---------------------------------------------------------
 class FakeWebSocket {
@@ -104,7 +107,7 @@ describe("TerminalView", () => {
     await waitFor(() => expect(xtermState.lastInstance).not.toBeNull());
   }
 
-  it("creates a Terminal and loads fit/search/web-links addons", async () => {
+  it("creates a Terminal and loads fit/search/web-links/canvas addons", async () => {
     render(
       <TerminalView
         tabId="t1"
@@ -117,7 +120,9 @@ describe("TerminalView", () => {
     );
     await waitForTerm();
     expect(xtermState.lastInstance).toBeInstanceOf(FakeTerm);
-    expect(xtermState.loadedAddons).toHaveLength(3);
+    // fit + search + web-links + canvas (hotfix #1320: canvas renderer
+    // replaces the default DOM renderer to fix alt-screen scroll ghosting).
+    expect(xtermState.loadedAddons).toHaveLength(4);
   });
 
   it("opens a PTY WebSocket with the right URL", async () => {

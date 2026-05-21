@@ -89,12 +89,14 @@ export function TerminalView({
       const fitMod = await import("@xterm/addon-fit");
       const searchMod = await import("@xterm/addon-search");
       const linksMod = await import("@xterm/addon-web-links");
+      const canvasMod = await import("@xterm/addon-canvas");
       if (cancelled) return;
 
       const TerminalCtor = (xtermMod as { Terminal: new (opts?: unknown) => typeof term }).Terminal;
       const FitAddon = (fitMod as { FitAddon: new () => { fit: () => void } }).FitAddon;
       const SearchAddon = (searchMod as { SearchAddon: new () => unknown }).SearchAddon;
       const WebLinksAddon = (linksMod as { WebLinksAddon: new () => unknown }).WebLinksAddon;
+      const CanvasAddon = (canvasMod as { CanvasAddon: new () => unknown }).CanvasAddon;
 
       term = new TerminalCtor({
         // xterm's default ANSI black is #2e3436 — nearly invisible on the
@@ -121,6 +123,7 @@ export function TerminalView({
       const fit = new FitAddon();
       const search = new SearchAddon();
       const links = new WebLinksAddon();
+      const canvas = new CanvasAddon();
       // Refs filled in for the onMessage closure.
       termRef.current = term;
       fitRef.current = fit;
@@ -128,7 +131,15 @@ export function TerminalView({
       term!.loadAddon(fit);
       term!.loadAddon(search);
       term!.loadAddon(links);
+      // Switch from xterm's default DOM renderer to the canvas renderer.
+      // The DOM renderer leaves cell-redraw artifacts when claude-code's
+      // alt-screen TUI scrolls (e.g. the startup banner ghosts when the
+      // user drags the scrollbar). Canvas owns the entire viewport pixel
+      // buffer so scroll always paints a clean frame. ``open()`` MUST run
+      // before ``loadAddon(canvas)`` — the addon attaches its <canvas>
+      // child to the terminal element, which only exists after open.
       term!.open(container);
+      term!.loadAddon(canvas);
       try {
         fit.fit();
       } catch {
