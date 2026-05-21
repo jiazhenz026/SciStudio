@@ -104,7 +104,7 @@ language_source: en
 | W2-B | implementer | N/A | inline | imaging TIFF OME + capability metadata | `fix/issue-1306-1371/imaging-ome-fidelity` | `.claude/worktrees/agent-w2b-imaging` | See §7.3 | See §7.3 | PR #1388, Closes #1306 #1371 | `[x]` |
 | W3-A | implementer | N/A | inline | scheduler READY emit + interactive normalize | `fix/issue-1367-1370/scheduler-emit-normalize` | `.claude/worktrees/agent-abd9f7afe3a3c4c66` | See §7.4 | See §7.4 | PR #1391, Closes #1367 #1370 | `[~]` |
 | W3-B | implementer | N/A | inline | block registry + code backends | `fix/issue-1109-1309/registry-codebackends` | `.claude/worktrees/agent-w3b-registry` | See §7.5 | See §7.5 | Closes #1109 #1309 | `[ ]` |
-| W4-A | implementer | N/A | inline | frontend port editor capability_id | `fix/issue-1366/port-capability-clear` | `.claude/worktrees/agent-w4a-porteditor` | See §7.6 | See §7.6 | Closes #1366 | `[ ]` |
+| W4-A | implementer | N/A | inline | frontend port editor capability_id | `fix/issue-1366/port-capability-clear` | `.claude/worktrees/agent-aadcf905402933469` | See §7.6 | See §7.6 | Closes #1366 (BLOCKED at pre-flight: #1389 vitest path classifier gap; precedent = `admin-approved:ai-override`) | `[!]` |
 | W4-B | implementer | N/A | inline | completion race + save-image dir picker | `fix/issue-902-1369/completion-saveimg` | `.claude/worktrees/agent-w4b-misc` | See §7.7 | See §7.7 | Closes #902 #1369 | `[ ]` |
 
 ## 7. Tracks
@@ -249,15 +249,39 @@ language_source: en
 ### 7.6 W4-A — Frontend PortEditor capability_id (#1366)
 
 - Owner: W4-A implementer
-- In scope:
-  - `frontend/src/components/PortEditorTable.tsx::handleTypeChange` + `handleExtensionChange` — clear `capability_id` (or recompute if still valid)
-  - Frontend tests for both change handlers
+- Branch: `fix/issue-1366/port-capability-clear`
+- Gate record: `.workflow/records/1366-port-capability-clear.json`
+- Status:
+  - [x] **#1366** — `handleTypeChange` and `handleExtensionChange` in `PortEditorTable.tsx` now set `capability_id = null` after updating their respective columns (Option A — clear); the row's `CapabilityDropdown` then re-renders empty and the user re-selects for the new tuple. One existing test (`normalises typed extensions…`) updated to reflect that the row carries `capability_id: null` after any extension edit.
+- In scope (final):
+  - `frontend/src/components/PortEditorTable.tsx::handleTypeChange` + `handleExtensionChange` — clear `capability_id` on either change (Option A)
+  - `frontend/src/components/PortEditorTable.test.tsx` — extended (co-located test file, the repo's existing convention — there is no `__tests__/` subdirectory under `components/`)
 - Out of scope:
   - Backend validation pathway
   - Other port editor functionality
-- Required docs: CHANGELOG entry
-- Required tests:
-  - `frontend/src/components/__tests__/PortEditorTable.test.tsx` (extend or add): changing `types` clears stale `capability_id`; changing `extension` likewise; backend validation accepts the resulting workflow
+  - Capability recompute-when-valid (Option B per dispatch — deliberately deferred; simpler clear-and-reselect chosen)
+- Required docs: CHANGELOG entry — `### Fixed [#1366]`
+- Required tests (added):
+  - `frontend/src/components/PortEditorTable.test.tsx::"clears a pinned capability_id when the user changes the port type (#1366)"`
+  - `frontend/src/components/PortEditorTable.test.tsx::"clears a pinned capability_id when the user changes the extension (#1366)"`
+- Pre-flight blocker (reported, awaiting manager decision):
+  - `gate_record ci` returns `gate-record.tests.changed-test-required` because
+    `_is_test_path` (`src/scistudio/qa/governance/gate_record.py`) does not
+    recognise vitest path conventions (`*.test.tsx`, `__tests__/`). Documented
+    as issue **#1389**.
+  - Precedent: every recent frontend-only PR hit the same wall and merged with
+    `admin-approved:ai-override` (e.g. **#1383** merged 2026-05-21, plus
+    **#1299** / **#1313** / **#1320**). The CI workflow short-circuits the
+    full `gate_record ci` invocation when that label is present
+    (`.github/workflows/workflow-gate.yml::SKIP_GATE_RECORD=1`).
+  - Branch + record state are clean and ready: 6/6 stages would be done
+    after `finalize`; full audit pass; sentrux pass (qs=4445, 0
+    violations); vitest 450 passed / 13 skipped including the two new
+    `#1366` regressions.
+  - Awaiting manager call: (a) apply `admin-approved:ai-override` and push,
+    or (b) wait for an in-flight #1389 fix to land, or (c) restructure the
+    test file (no shape currently satisfies `_is_test_path` per #1389
+    analysis).
 
 ### 7.7 W4-B — Completion race + Save Image dir picker (#902 + #1369)
 
