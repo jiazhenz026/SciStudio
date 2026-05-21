@@ -58,7 +58,7 @@
   "commit": {
     "gate_record_path": ".workflow/records/1306-1371-imaging-ome-fidelity.json",
     "shas": [
-      "5be0d8db1bdd49a69e12a23982ab12962252eb10"
+      "8206455d4f901c1c043eeb33799d239ef774a016"
     ],
     "trailers": {}
   },
@@ -72,8 +72,15 @@
         "CHANGELOG.md"
       ]
     },
-    "checklist": {},
-    "docs": {},
+    "checklist": {
+      "paths": [
+        "docs/planning/2026-05-21-bug-sweep-checklist.md"
+      ]
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "no-product-docs-required-impl-only-fix"
+    },
     "spec": {
       "not_applicable": true,
       "rationale": "impl-matches-existing-ADR-043-spec"
@@ -144,17 +151,17 @@
     ]
   },
   "sentrux": {
-    "command_or_tool": "sentrux check",
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "{\"rules_checked\": 3, \"total_rules_defined\": 15, \"violation_count\": 0, \"pro_required\": false, \"quality_signal\": 4445, \"files\": 1110, \"import_edges\": 2620, \"lines\": 284190}",
+    "output_path": "scan: files=1110, import_edges=2620, lines=284190; check_rules: pass, violations=0",
     "pro_required": false,
-    "quality_signal": null,
-    "rules_checked": null,
+    "quality_signal": 4445.0,
+    "rules_checked": 3,
     "status": "pass",
     "summary": {},
     "thresholds": {},
-    "total_rules_defined": null
+    "total_rules_defined": 15
   },
   "stages": [
     {
