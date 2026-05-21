@@ -1,6 +1,16 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": "agent-C-1356",
+      "exclude": [],
+      "include": [
+        ".workflow/records/1356-branch-delete-orphan-guard.json",
+        "docs/audit/smoke/2026-05-21-1356-branch-delete-orphan-guard-rest-smoke.md"
+      ],
+      "reason": "Add gate record self-path and smoke transcript to scope (gate record + audit transcript live alongside the implementation per ADR-042 \u00a73.7)"
+    }
+  ],
   "branch": "feat/issue-1356/branch-delete-orphan-guard",
   "changed_test_paths": [
     "tests/core/test_lineage_store.py",
@@ -18,7 +28,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1356-branch-delete-orphan-guard.json",
+    "shas": [
+      "02c2704d73cebb3c7d07baaf59274c1b09ab6eb6"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr_landing": {
       "not_applicable": true,
@@ -70,7 +86,13 @@
     "CHANGELOG.md",
     "docs/planning/adr-039-addendum-1-impl-checklist.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1356
+    ],
+    "number": 1381,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1381"
+  },
   "record_path": ".workflow/records/1356-branch-delete-orphan-guard.json",
   "required_checks": [
     "ruff check .",
@@ -123,7 +145,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
@@ -141,7 +163,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
