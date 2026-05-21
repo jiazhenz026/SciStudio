@@ -28,9 +28,10 @@ import argparse
 import io
 import re
 import sys
-from collections.abc import Sequence
+import tomllib
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from scistudio.qa.audit._util import normalise_path
 from scistudio.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
@@ -70,26 +71,72 @@ def _resolve_targets(repo_root: Path, paths: Sequence[str]) -> list[Path]:
     return resolved
 
 
+def _load_pyproject_vulture_config(repo_root: Path) -> Mapping[str, Any]:
+    """Return ``[tool.vulture]`` from ``pyproject.toml`` or an empty mapping.
+
+    Vulture's CLI reads ``[tool.vulture]`` automatically, but the in-process
+    API does not. Loading the same table here keeps the audit child report
+    consistent with ``vulture`` run from the command line, so config such as
+    ``ignore_decorators = ["@app.*", "@router.*", "@pytest.fixture"]`` and
+    ``exclude = ["src/scistudio/api/static/**"]`` actually applies and isn't
+    silent dead config (#1340).
+    """
+
+    pyproject = repo_root / "pyproject.toml"
+    if not pyproject.exists():
+        return {}
+    try:
+        with pyproject.open("rb") as handle:
+            data = tomllib.load(handle)
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+    tool_section = data.get("tool", {})
+    if not isinstance(tool_section, Mapping):
+        return {}
+    vulture_section = tool_section.get("vulture", {})
+    return vulture_section if isinstance(vulture_section, Mapping) else {}
+
+
+def _config_list(config: Mapping[str, Any], key: str) -> list[str]:
+    value = config.get(key)
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    return []
+
+
 def _run_vulture(
     repo_root: Path,
     targets: Sequence[Path],
     *,
     allowlist: Path | None,
     min_confidence: int,
+    pyproject_config: Mapping[str, Any] | None = None,
 ) -> str:
     """Run vulture in-process and return its captured stdout.
 
     Running in-process keeps the subprocess boundary out of the audit path
     (important on Windows where ``subprocess`` startup latency dominates).
+    The ``[tool.vulture]`` table from ``pyproject.toml`` is honored here so
+    ``exclude``, ``ignore_decorators``, and ``ignore_names`` from the repo
+    config match what the ``vulture`` CLI would do.
     """
 
     from vulture import Vulture
 
-    vulture: _VultureType = Vulture(verbose=False, ignore_decorators=[], ignore_names=[])
+    config = pyproject_config if pyproject_config is not None else _load_pyproject_vulture_config(repo_root)
+    ignore_decorators = _config_list(config, "ignore_decorators")
+    ignore_names = _config_list(config, "ignore_names")
+    excludes = _config_list(config, "exclude")
+
+    vulture: _VultureType = Vulture(
+        verbose=False,
+        ignore_decorators=ignore_decorators or None,
+        ignore_names=ignore_names or None,
+    )
     scan_paths: list[str] = [str(path) for path in targets]
     if allowlist is not None and allowlist.exists():
         scan_paths.append(str(allowlist))
-    vulture.scavenge(scan_paths)
+    vulture.scavenge(scan_paths, exclude=excludes or None)
 
     buf = io.StringIO()
     stdout, sys.stdout = sys.stdout, buf
@@ -183,7 +230,14 @@ def check(
         candidate = Path(allowlist)
         allowlist_path = candidate if candidate.is_absolute() else root / candidate
 
-    report_text = _run_vulture(root, targets, allowlist=allowlist_path, min_confidence=min_confidence)
+    pyproject_config = _load_pyproject_vulture_config(root)
+    report_text = _run_vulture(
+        root,
+        targets,
+        allowlist=allowlist_path,
+        min_confidence=min_confidence,
+        pyproject_config=pyproject_config,
+    )
     findings = _parse_findings(report_text, root)
 
     return AuditReport(
@@ -192,6 +246,11 @@ def check(
         source_sha="",
         findings=findings,
         summary={
+            "pyproject_config_honored": {
+                "ignore_decorators": _config_list(pyproject_config, "ignore_decorators"),
+                "ignore_names": _config_list(pyproject_config, "ignore_names"),
+                "exclude": _config_list(pyproject_config, "exclude"),
+            },
             "paths": list(paths),
             "min_confidence": min_confidence,
             "targets_resolved": len(targets),
