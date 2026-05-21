@@ -44,7 +44,7 @@
     "command": "manual self-audit",
     "exit_code": 0,
     "known_debt": [],
-    "output_path": ".workflow/audits/1327-full-audit.json",
+    "output_path": null,
     "status": "pass",
     "summary": {},
     "unclassified_failures": []
