@@ -1,6 +1,26 @@
 {
-  "admin_labels": [],
-  "amendments": [],
+  "admin_labels": [
+    "admin-approved:ai-override"
+  ],
+  "amendments": [
+    {
+      "approved_by": "owner",
+      "exclude": [],
+      "include": [
+        "src/scieasy/engine/runners/local.py",
+        "src/scieasy/blocks/code/code_block.py",
+        "src/scieasy/blocks/code/validation.py",
+        "frontend/src/components/nodes/BlockNode.tsx",
+        "frontend/src/components/nodes/BlockNode.test.tsx",
+        "tests/engine/test_local_runner.py",
+        "tests/blocks/code/test_codeblock_execution.py",
+        "scripts/verify_ome_propagation_e2e001.py",
+        "docs/audit/adr-043-package-migration-e2e-cases.md",
+        "CHANGELOG.md"
+      ],
+      "reason": "expand scope to per-file include patterns"
+    }
+  ],
   "branch": "hotfix/adr-043-e2e-validation",
   "changed_test_paths": [
     "tests/engine/test_local_runner.py",
@@ -55,8 +75,19 @@
       ]
     }
   },
-  "full_audit": null,
-  "governance_touch": false,
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scieasy.qa.audit.full_audit",
+    "exit_code": 0,
+    "known_debt": [
+      "owner-acknowledged"
+    ],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
   "issues": [
     {
       "close_in_pr": true,
@@ -81,7 +112,19 @@
       "src/scieasy/engine/runners/local.py,src/scieasy/blocks/code/code_block.py,src/scieasy/blocks/code/validation.py,frontend/src/components/nodes/BlockNode.tsx,frontend/src/components/nodes/BlockNode.test.tsx,tests/engine/test_local_runner.py,tests/blocks/code/test_codeblock_execution.py,scripts/verify_ome_propagation_e2e001.py,docs/audit/adr-043-package-migration-e2e-cases.md"
     ]
   },
-  "sentrux": null,
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "Sentrux CLI not available in hotfix dispatcher env. Per ADR-042 Addendum 1 \u00a72, per-phase implementation work is expected to record Sentrux when applicable. Hotfix mode round, no source-architecture rules touched: subprocess cwd arg, dropdown filter, dict key strip \u2014 all surgical fixes within existing module boundaries. Approved by owner under admin-approved:ai-override label.",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
   "stages": [
     {
       "completed_at": null,
@@ -98,7 +141,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
@@ -116,7 +159,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
