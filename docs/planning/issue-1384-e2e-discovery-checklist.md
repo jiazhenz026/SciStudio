@@ -114,9 +114,9 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| E2E-Harness | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-harness.md` | Playwright harness, service startup, fixtures, non-blocking CI | `feat/issue-1384/e2e-harness` | `../SciStudio-e2e-harness-1384` | `frontend/playwright.config.ts`, `frontend/e2e/support/**`, `frontend/e2e/fixtures/**`, `frontend/package.json`, `.github/workflows/e2e-discovery.yml` | specs under `frontend/e2e/specs/**` except scaffold placeholders | `#1384` / umbrella `#1387` | `[~]` |
-| E2E-GUI | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-gui.md` | GUI-001..015 specs | `feat/issue-1384/e2e-gui` | `../SciStudio-e2e-gui-1384` | `frontend/e2e/specs/gui/**` | harness, Git specs, workflow-refresh specs | `#1384` / umbrella `#1387` | `[~]` |
-| E2E-Git-WFR | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-git-wfr.md` | GIT-001..005 + WFR-001..006 specs against PR #1364 behavior | `feat/issue-1384/e2e-git-wfr` | `../SciStudio-e2e-git-wfr-1384` | `frontend/e2e/specs/git/**`, `frontend/e2e/specs/workflow-refresh/**` | harness, GUI specs | `#1384` / umbrella `#1387` | `[~]` |
+| E2E-Harness | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-harness.md` | Playwright harness, service startup, fixtures, non-blocking CI | `feat/issue-1384/e2e-harness` | `../SciStudio-e2e-harness-1384` | `frontend/playwright.config.ts`, `frontend/e2e/support/**`, `frontend/e2e/fixtures/**`, `frontend/package.json`, `.github/workflows/e2e-discovery.yml` | specs under `frontend/e2e/specs/**` except scaffold placeholders | `#1384` / umbrella `#1387` | `[x]` local checks pass; committed on branch |
+| E2E-GUI | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-gui.md` | GUI-001..015 specs | `feat/issue-1384/e2e-gui` | `../SciStudio-e2e-gui-1384` | `frontend/e2e/specs/gui/**` | harness, Git specs, workflow-refresh specs | `#1384` / umbrella `#1387` | `[~]` committed on branch; pending integration |
+| E2E-Git-WFR | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-git-wfr.md` | GIT-001..005 + WFR-001..006 specs against PR #1364 behavior | `feat/issue-1384/e2e-git-wfr` | `../SciStudio-e2e-git-wfr-1384` | `frontend/e2e/specs/git/**`, `frontend/e2e/specs/workflow-refresh/**` | harness, GUI specs | `#1384` / umbrella `#1387` | `[~]` committed on branch; pending integration |
 | E2E-Audit | audit_reviewer | with-context | `docs/planning/dispatch-prompts/issue-1384-e2e-audit.md` | Read-only audit of harness/spec correctness and no over-mocking | `audit/issue-1384/e2e-discovery` | `../SciStudio-e2e-audit-1384` | `docs/audit/2026-05-21-issue-1384-e2e-discovery-audit.md` | implementation files except read-only inspection | `#1384` / umbrella `#1387` | `[ ]` |
 
 ## 7. Track: Harness And CI
@@ -143,18 +143,35 @@ language_source: en
 ### 7.2 Dispatch
 
 - [x] Prompt file created.
+  Evidence: `docs/planning/dispatch-prompts/issue-1384-e2e-harness.md`.
 - [x] Correct prompt template selected.
+  Evidence: dispatch prompt names
+  `docs/ai-developer/templates/agent-dispatch-prompt-template.md`.
 - [x] Agent branch/worktree assigned.
+  Evidence: branch `feat/issue-1384/e2e-harness`, worktree
+  `../SciStudio-e2e-harness-1384`.
 - [x] Write set and out-of-scope paths included in prompt.
+  Evidence: `docs/planning/dispatch-prompts/issue-1384-e2e-harness.md`.
 - [x] TODO rule included in prompt.
+  Evidence: `docs/planning/dispatch-prompts/issue-1384-e2e-harness.md`.
 - [x] Required checks included in prompt.
+  Evidence: `docs/planning/dispatch-prompts/issue-1384-e2e-harness.md`.
 
 ### 7.3 Implementation
 
-- [ ] Playwright harness implemented -> pending.
-- [ ] Fixture image/workflow implemented -> pending.
-- [ ] CI workflow implemented non-blocking -> pending.
-- [ ] README written -> pending.
+- [x] Playwright harness implemented.
+  Evidence: `frontend/playwright.config.ts`,
+  `frontend/e2e/support/**`; `cd frontend && npm run test:e2e:smoke`
+  passed locally.
+- [x] Fixture image/workflow implemented.
+  Evidence: `frontend/e2e/fixtures/syntheticFluorescence.ts`,
+  `frontend/e2e/fixtures/minimalWorkflow.ts`;
+  `cd frontend && npm run test:e2e:smoke` passed locally.
+- [x] CI workflow implemented non-blocking.
+  Evidence: `.github/workflows/e2e-discovery.yml` captures E2E exit code,
+  uploads artifacts, and exits successfully for discovery failures.
+- [x] README written.
+  Evidence: `frontend/e2e/README.md`.
 
 ### 7.4 Audit
 
@@ -265,11 +282,11 @@ language_source: en
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
-| Ruff | `ruff check .` | `[ ]` | pending |
-| Format | `ruff format --check .` | `[ ]` | pending |
-| Frontend unit | `cd frontend && npm test` | `[ ]` | pending |
-| E2E smoke | `cd frontend && npm run test:e2e:smoke` | `[ ]` | pending; may fail product assertions but must produce artifacts |
-| E2E discovery | `cd frontend && npm run test:e2e` | `[ ]` | pending; non-blocking discovery |
+| Ruff | `ruff check .` | `[x]` | passed locally in `../SciStudio-e2e-harness-1384` |
+| Format | `ruff format --check .` | `[x]` | passed locally in `../SciStudio-e2e-harness-1384` |
+| Frontend unit | `cd frontend && npm test` | `[x]` | 43 files / 442 tests passed, 13 skipped |
+| E2E smoke | `cd frontend && npm run test:e2e:smoke` | `[x]` | 3 Chromium tests passed; artifacts in `frontend/.e2e-artifacts` |
+| E2E discovery | `cd frontend && npm run test:e2e` | `[x]` | 3 Chromium tests passed; non-blocking CI path added |
 | Full audit | `PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json` | `[ ]` | pending |
 | Sentrux | `sentrux check .` or MCP equivalent | `[ ]` | pending |
 
