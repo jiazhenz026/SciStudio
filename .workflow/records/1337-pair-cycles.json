@@ -18,6 +18,16 @@
         "src/scistudio/engine/runners/exit_info.py"
       ],
       "reason": "Rename _common.py to public names (errors.py for versioning, exit_info.py for runners) so griffe-based symbol facts can be generated. The audit's _is_public filter skips private modules so private _common.py modules are invisible to fact resolution and would block doc_drift, closure, and signature_drift checks. The dispatch brief's _common.py naming choice was wrong for audit-fact resolution; switching to public names matches the ADR governs.contracts surface treatment."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1337-pair-cycles-sentrux.json",
+        "docs/audit/full-audit-track-a.json",
+        "docs/planning/no-cycles-1335-1337-checklist.md"
+      ],
+      "reason": "Add sentrux evidence file, full-audit evidence file, and checklist row updates to scope (post-implementation auxiliary artifacts required by gate workflow + manager checklist contract)."
     }
   ],
   "branch": "fix/1337-pair-cycles",
@@ -82,7 +92,7 @@
     "summary": {},
     "unclassified_failures": []
   },
-  "governance_touch": false,
+  "governance_touch": true,
   "issues": [
     {
       "close_in_pr": true,
