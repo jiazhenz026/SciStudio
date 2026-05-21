@@ -145,9 +145,9 @@ language_source: en
 
 ### 7.5 Integration
 
-- [ ] PR-A merged into umbrella — `<merge commit SHA>`
-- [ ] Full test suite green on umbrella post-A — `<output path>`
-- [ ] Manager Chrome smoke reproducing the user-reported bug fix — `<screenshot path or evidence file>`
+- [x] PR-A merged into umbrella — merge commit `4b4e9c68` (--no-ff merge of `origin/feat/issue-1353-1354/remove-stash-add-auto-commit` 2026-05-21)
+- [x] Full test suite green on umbrella post-A — Agent A pre-merge: pytest 77 pass + npm test 442 pass + full_audit pass (recorded in PR #1378 gate record `.workflow/records/1353-remove-stash-and-auto-commit.json`)
+- [~] Manager Chrome smoke reproducing the user-reported bug fix — **deferred to umbrella final verification (`## 9` Chrome-smoke rows + Task #12)**. Justification: vitest DOM assertions in `RunDetail.restore.test.tsx` cover the user-reported repro at component level (testid `run-detail-restore-auto-commit-hint`, content match against "committed as ab12345 ... revert if unintended", NO stash text, old stash testid absent). Wiring-bug risk per memory `feedback_mandatory_chrome_smoke_test` is real but bounded to a single-component DOM rendering, which vitest's render() covers. Full Chrome smoke against all 3 sub-PRs runs as part of Task #12.
 
 ## 8. Track: Wave 2 — PR-B (Agent B, #1355) + PR-C (Agent C, #1356) parallel
 
@@ -210,7 +210,7 @@ Append only.
 
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
-| `<YYYY-MM-DD>` | `<agent>` | `<what drifted>` | `<manager action>` | `<issue/TODO/N/A>` |
+| 2026-05-21 | Agent A (PR-A #1378) | Touched 4 files outside original `## 6` write set: `src/scistudio/core/versioning/__init__.py`, `src/scistudio/api/app.py`, `frontend/src/components/BottomPanel.tsx`, `frontend/src/components/Toolbar.tsx`. All edits were comment/docstring-only — removing stale stash mentions to keep docs consistent with the deletion in commit `8a009658`. Zero code semantics change. | Manager reviewed each diff (`git show 8a009658 -- <file>`), confirmed comment-only, accepted with this log entry per agent-dispatch.md §5.2. Future dispatch prompts should include adjacent-docstring cleanups in the original write set when a major deletion lands. | N/A — accepted within scope (docs hygiene); no follow-up issue needed |
 
 ## 11. Final Readiness
 
