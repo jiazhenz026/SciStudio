@@ -1,0 +1,150 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "audit/adr-039-addendum-1-completeness",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff_check",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "ruff_format",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "pytest tests/core/test_git_engine.py tests/api/test_git_endpoints.py tests/core/test_lineage_store.py --timeout=60",
+      "exit_code": 0,
+      "name": "pytest_backend",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "grep -ri stash src/scistudio frontend/src tests",
+      "exit_code": null,
+      "name": "grep_guard",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "changelog": {},
+    "checklist": {},
+    "docs": {
+      "paths": [
+        "docs/audit/2026-05-21-adr-039-addendum-1-completeness-audit.md"
+      ]
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root .",
+    "exit_code": null,
+    "known_debt": [],
+    "output_path": ".workflow/records/audit-full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1352,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1352"
+    }
+  ],
+  "owner_directive": "Audit the ADR-039 Addendum 1 implementation across PR-A (#1378), PR-B (#1383), PR-C (#1381) for completeness, edge-case safety, scope discipline, drift-log accuracy, and CI cleanliness. Read-only audit; only the audit report and this gate record are written.",
+  "planned_files": [
+    "docs/audit/2026-05-21-adr-039-addendum-1-completeness-audit.md",
+    ".workflow/records/audit-1352-addendum-1-completeness.json"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/audit-1352-addendum-1-completeness.json",
+  "required_checks": [
+    "ruff_check",
+    "ruff_format",
+    "pytest_backend",
+    "full_audit",
+    "sentrux",
+    "grep_guard"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/2026-05-21-adr-039-addendum-1-completeness-audit.md",
+      ".workflow/records/audit-1352-addendum-1-completeness.json",
+      "docs/planning/adr-039-addendum-1-impl-checklist.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules + health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": null,
+    "pro_required": false,
+    "quality_signal": 4444.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1352-audit-1352-addendum-1-completeness",
+  "task_kind": "docs"
+}
