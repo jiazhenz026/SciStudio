@@ -1,0 +1,125 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "track/issue-1384-e2e-discovery",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.frontmatter_lint docs/planning/issue-1384-e2e-discovery-checklist.md docs/planning/dispatch-prompts/issue-1384-*.md",
+      "exit_code": 0,
+      "name": "frontmatter",
+      "output_path": "Warnings only: planning files are not ADR/spec/architecture frontmatter lint targets.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "No new architecture decision; this manager setup implements an E2E test plan for issue #1384."
+    },
+    "changelog": {},
+    "checklist": {
+      "paths": [
+        "docs/planning/issue-1384-e2e-discovery-checklist.md",
+        "docs/planning/dispatch-prompts/issue-1384-e2e-harness.md",
+        "docs/planning/dispatch-prompts/issue-1384-e2e-gui.md",
+        "docs/planning/dispatch-prompts/issue-1384-e2e-git-wfr.md",
+        "docs/planning/dispatch-prompts/issue-1384-e2e-audit.md"
+      ]
+    },
+    "docs": {},
+    "spec": {
+      "not_applicable": true,
+      "rationale": "No public runtime contract changed by manager setup."
+    }
+  },
+  "full_audit": null,
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1384,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1384"
+    }
+  ],
+  "owner_directive": "Manager-dispatched implementation of non-blocking automated Playwright GUI E2E discovery suite: GUI-001..015, GIT-001..005, workflow refresh contract tests, minimal load-image-threshold-save workflow fixture, and automatic non-blocking CI. Base behavior follows PR #1364 ADR-039 Addendum 1 git refactor.",
+  "planned_files": [
+    "docs/planning/issue-1384-e2e-discovery-checklist.md",
+    "docs/planning/dispatch-prompts/issue-1384-*.md",
+    "frontend/e2e/**",
+    "frontend/playwright.config.ts",
+    "frontend/package.json",
+    ".github/workflows/e2e-discovery.yml"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1384-e2e-discovery-manager.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "frontend-unit",
+    "e2e-smoke",
+    "e2e-discovery",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "frontend/node_modules/**"
+    ],
+    "include": [
+      "docs/planning/issue-1384-e2e-discovery-checklist.md",
+      "docs/planning/dispatch-prompts/issue-1384-*.md",
+      "frontend/e2e/**",
+      "frontend/playwright.config.ts",
+      "frontend/package.json",
+      ".github/workflows/e2e-discovery.yml",
+      ".workflow/records/1384-e2e-discovery-manager.json"
+    ]
+  },
+  "sentrux": null,
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1384-e2e-discovery-manager",
+  "task_kind": "manager"
+}
