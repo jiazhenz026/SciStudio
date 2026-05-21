@@ -15,6 +15,7 @@ from scistudio.engine.events import (
     BLOCK_DONE,
     BLOCK_ERROR,
     BLOCK_PAUSED,
+    BLOCK_READY,
     BLOCK_RUNNING,
     BLOCK_SKIPPED,
     CANCEL_BLOCK_REQUEST,
@@ -204,12 +205,35 @@ class DAGScheduler:
             for node_id in self._order:
                 if self._block_states[node_id] == BlockState.IDLE and self._check_readiness(node_id):
                     self._block_states[node_id] = BlockState.READY
+                    await self._emit_block_ready(node_id)
                     await self._dispatch(node_id)
             await self._completed_event.wait()
         finally:
             await self._cancel_active_tasks_on_shutdown()
 
         await self._event_bus.emit(EngineEvent(event_type=WORKFLOW_COMPLETED, data={"workflow_id": self._workflow.id}))
+
+    async def _emit_block_ready(self, node_id: str) -> None:
+        """Emit ``BLOCK_READY`` after a block's IDLE->READY transition.
+
+        ``BLOCK_READY`` is declared in :mod:`scistudio.engine.events`,
+        listed in ``scistudio.api.ws._OUTBOUND_EVENTS`` so the frontend
+        WS forwards it, and named in the event-routing table
+        (``events.py:69-72``) as a ``DAGScheduler``-emitted lifecycle
+        event. Prior to issue #1327 the scheduler transitioned blocks
+        to ``READY`` without ever emitting the event, breaking the
+        documented contract — frontend subscribers never fired.
+
+        The emit shape mirrors :data:`BLOCK_RUNNING` for consistency
+        with the rest of the lifecycle events.
+        """
+        await self._event_bus.emit(
+            EngineEvent(
+                event_type=BLOCK_READY,
+                block_id=node_id,
+                data={"workflow_id": self._workflow.id},
+            )
+        )
 
     async def _dispatch(self, node_id: str) -> None:
         """Synchronous prelude for dispatching a single block.
@@ -1024,6 +1048,7 @@ class DAGScheduler:
             state = self._block_states[node_id]
             if state == BlockState.IDLE and self._check_readiness(node_id):
                 self._block_states[node_id] = BlockState.READY
+                await self._emit_block_ready(node_id)
                 await self._dispatch(node_id)
             elif state == BlockState.READY and node_id not in self._active_tasks:
                 # Previously blocked by can_dispatch / paused; retry now.
@@ -1657,6 +1682,7 @@ class DAGScheduler:
             for node_id in self._order:
                 if self._block_states[node_id] == BlockState.IDLE and self._check_readiness(node_id):
                     self._block_states[node_id] = BlockState.READY
+                    await self._emit_block_ready(node_id)
                     await self._dispatch(node_id)
             await self._completed_event.wait()
         finally:
