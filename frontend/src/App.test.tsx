@@ -64,7 +64,11 @@ describe("App", () => {
 
     expect(await screen.findByText("New Project")).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByText("SciStudio")).toBeInTheDocument();
+      // After SciEasy → SciStudio rename both the Toolbar header and
+      // the WelcomeScreen subtitle render "SciStudio"; use
+      // getAllByText to assert "the brand is visible somewhere"
+      // without locking which surface renders it.
+      expect(screen.getAllByText("SciStudio").length).toBeGreaterThan(0);
     });
   });
 });
