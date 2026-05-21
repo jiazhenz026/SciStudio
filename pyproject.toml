@@ -58,7 +58,7 @@ dev = [
     # tests in ``tests/plugins/test_phase11_skeleton.py`` (which exercise
     # ``importlib.import_module(scistudio_blocks_imaging...)`` directly without
     # installing the plugin package) can succeed in CI.
-    "ome-types>=0.5,<0.6",
+    "ome-types>=0.5,<0.7",
 ]
 
 [project.scripts]
