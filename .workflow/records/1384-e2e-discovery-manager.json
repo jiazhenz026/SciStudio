@@ -98,7 +98,7 @@
   "commit": {
     "gate_record_path": ".workflow/records/1384-e2e-discovery-manager.json",
     "shas": [
-      "42284540a6c4fc4fc57f57d196bfcebcd084ab50"
+      "19f09c1e670a3322cd7eedfff2d3be5d7906ef0e"
     ],
     "trailers": {}
   },
