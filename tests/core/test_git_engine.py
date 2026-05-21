@@ -460,6 +460,38 @@ def test_tag_stays_out_of_refs_tags(tmp_path: Path) -> None:
     )
 
 
+def test_commits_reachable_only_from_disambiguates_branch_vs_tag(tmp_path: Path) -> None:
+    """Codex P1 on PR #1381 — fully-qualified ref form on rev-list target.
+
+    When a tag and a branch share the same short name, ``git rev-list
+    <short>`` can resolve to either ref. The implementation passes
+    ``refs/heads/<branch>`` explicitly to remove the ambiguity.
+    Without the fix, the orphan-candidate set computed against the tag
+    (which is reachable from main) would be empty, and the safety net
+    would silently skip pinning the real branch-only commits.
+    """
+    engine = _init_engine(tmp_path)
+    sha_b = _commit_file(engine, tmp_path, "shared.txt", "shared", "B shared")
+
+    # Create a tag at B (the shared commit), THEN create a branch with the
+    # same short name and add a unique commit on it.
+    engine._run(["tag", "collision", sha_b])
+    engine.branch_create("collision", base=sha_b)
+    engine.branch_switch("collision")
+    sha_d = _commit_file(engine, tmp_path, "branch_only.txt", "D", "D branch tip")
+    engine.branch_switch("main")
+
+    # The orphan set must be [sha_d] — the unique branch tip.
+    # Without the fully-qualified-ref fix, rev-list would resolve
+    # ``collision`` as the tag (at sha_b) and return [] because sha_b
+    # is also reachable via main.
+    orphans = engine.commits_reachable_only_from("collision")
+    assert orphans == [sha_d], (
+        f"Codex P1 regression: collision-named branch+tag returned {orphans!r}; "
+        f"expected [{sha_d!r}]. rev-list likely resolved 'collision' as the tag."
+    )
+
+
 def test_commits_reachable_only_from_lineage_ref_excludes_pinned_sha(tmp_path: Path) -> None:
     """After ``tag`` pins a SHA, ``commits_reachable_only_from`` no longer reports it.
 

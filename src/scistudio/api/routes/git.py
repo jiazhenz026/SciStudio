@@ -457,11 +457,25 @@ async def branch_delete(request: Request, name: str, force: bool = False) -> dic
     """Delete a local branch.
 
     ADR-039 Addendum 1 §11.4 row #1356 — silent auto-tag safety net.
-    Before the actual ``git branch -d|-D`` runs, scan for commits that
-    would become unreachable and pin the lineage-referenced subset
-    under ``refs/scistudio/lineage/<sha>``. Per owner decision
-    2026-05-21 this is intentionally silent: no warn / confirm dialog,
-    no response payload change.
+    The safety net is **two-phase**:
+
+    1. Compute orphan candidates and lineage-reference intersection
+       (read-only — does not mutate the repository).
+    2. Run ``git branch -d|-D``. If this raises (current-branch
+       check, unmerged + non-force, race with concurrent delete),
+       propagate the error and do NOT mutate refs.
+    3. Only if the delete succeeded, write ``refs/scistudio/lineage/
+       <sha>`` per intersection-set SHA.
+
+    This ordering means a failed request leaves the repository in
+    its original state — pins are never created without a successful
+    delete (Codex P2 on PR #1381). The window between delete success
+    and pin writes is microseconds; ``git gc`` does not run mid-call,
+    and the reflog keeps the formerly-branch SHA reachable until our
+    pin lands.
+
+    Per owner decision 2026-05-21 this is intentionally silent: no
+    warn / confirm dialog, no response payload change.
 
     TODO(#1380): cleanup mechanism for accumulated
     refs/scistudio/lineage/* refs.
@@ -471,22 +485,40 @@ async def branch_delete(request: Request, name: str, force: bool = False) -> dic
     engine = _engine_for_request(request)
     runtime = request.app.state.runtime
     lineage_store = getattr(runtime, "lineage_store", None)
+
+    # Phase 1: read-only orphan-candidate intersection. We compute
+    # this BEFORE the delete because afterwards the orphan SHAs are
+    # only reachable via the reflog, which our pin needs to capture
+    # before the reflog default 90-day window expires.
+    referenced_orphans: set[str] = set()
+    if lineage_store is not None:
+        orphan_candidates = engine.commits_reachable_only_from(name)
+        if orphan_candidates:
+            referenced_orphans = lineage_store.workflow_git_commits_in(list(orphan_candidates))
+
     try:
-        # Safety net (silent): pin any orphan-candidate SHAs that
-        # lineage references under refs/scistudio/lineage/<sha> so the
-        # branch delete cannot leave runs.workflow_git_commit pointing
-        # at unreachable commits. Skip when the lineage store has not
-        # been initialised for this project (best-effort like the rest
-        # of the lineage write path).
-        if lineage_store is not None:
-            orphan_candidates = engine.commits_reachable_only_from(name)
-            if orphan_candidates:
-                referenced = lineage_store.workflow_git_commits_in(list(orphan_candidates))
-                for sha in referenced:
-                    engine.tag(f"refs/scistudio/lineage/{sha}", sha)
+        # Phase 2: actual delete. Raises on current-branch / unmerged-
+        # without-force / unknown-branch. Pins are NOT created on
+        # failure path.
         engine.branch_delete(name, force=force)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
+
+    # Phase 3: pin the lineage-referenced orphan SHAs now that the
+    # delete succeeded. ``engine.tag`` is idempotent (update-ref
+    # overwrite-by-default) so partial failure here can be re-driven
+    # safely; we still log unexpected tag failures rather than
+    # surfacing them to the client because the delete already
+    # committed.
+    for sha in referenced_orphans:
+        try:
+            engine.tag(f"refs/scistudio/lineage/{sha}", sha)
+        except GitError:
+            logger.exception(
+                "branch_delete: failed to pin orphan SHA %s under refs/scistudio/lineage/",
+                sha,
+            )
+
     return {"status": "ok"}
 
 

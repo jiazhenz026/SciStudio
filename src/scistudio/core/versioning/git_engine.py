@@ -494,10 +494,18 @@ class GitEngine:
         """Return commits reachable from ``branch`` but no other ref.
 
         ADR-039 Addendum 1 §11.4 row #1356: feeds the branch-delete
-        safety net. ``git rev-list <branch> --not <all-other-refs>`` is
-        git's canonical "what would become unreachable" query — the
+        safety net. ``git rev-list refs/heads/<branch> --not <all-other-refs>``
+        is git's canonical "what would become unreachable" query — the
         same logic ``git branch -d`` uses internally to refuse a delete
         when the branch is not merged.
+
+        We use the fully-qualified ``refs/heads/<branch>`` form on the
+        target side of the rev-list so name resolution is unambiguous
+        when a tag and a branch share the same short name (Codex P1 on
+        PR #1381). Without this, ``git rev-list foo`` could resolve
+        ``foo`` as ``refs/tags/foo`` and compute orphan candidates
+        from the tag instead of the branch, causing the safety net to
+        skip pinning real branch-only commits.
 
         We enumerate "all other refs" via ``git for-each-ref`` rather
         than relying on ``--branches --tags --remotes`` shortcuts so the
@@ -517,10 +525,9 @@ class GitEngine:
             structured error from ``branch_delete`` if it really doesn't
             exist.
         """
-        # Enumerate all refs EXCEPT the target branch we are about to
-        # delete. We use the fully-qualified ``refs/heads/<branch>``
-        # form so the exclusion is precise (a branch named ``main``
-        # would otherwise collide with a tag named ``main``).
+        # Use the fully-qualified ref form on BOTH the include (target)
+        # side and the exclude side so name resolution cannot collide
+        # with a tag or remote-tracking ref of the same short name.
         target_ref = f"refs/heads/{branch}"
         ref_proc = self._run(
             ["for-each-ref", "--format=%(refname)"],
@@ -538,7 +545,7 @@ class GitEngine:
             # the safety net is meaningful only in multi-ref repos.
             return []
         proc = self._run(
-            ["rev-list", branch, "--not", *other_refs],
+            ["rev-list", target_ref, "--not", *other_refs],
             check=False,
         )
         if proc.returncode != 0:

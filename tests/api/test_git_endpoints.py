@@ -676,6 +676,84 @@ def test_branch_delete_current_409(client: TestClient, opened_project: Path) -> 
     assert resp.status_code == 409
 
 
+def test_branch_delete_failed_delete_creates_no_lineage_refs(client: TestClient, opened_project: Path) -> None:
+    """Codex P2 on PR #1381 — pins must NOT be created when delete fails.
+
+    Setup a divergent feature branch with a lineage-referenced tip, but
+    delete WITHOUT force=true. Git refuses to delete the unmerged branch
+    (returns 500 via GitError). The safety net must leave the repository
+    in its original state: no ``refs/scistudio/lineage/*`` refs created.
+    """
+    import subprocess
+
+    from scistudio.core.lineage.record import RunRecord
+
+    if client.get("/api/git/status").json()["dirty"]:
+        client.post("/api/git/commit", json={"message": "drain"})
+
+    client.post("/api/git/branch/create", json={"name": "unmerged-feature"})
+    client.post("/api/git/branch/switch", json={"branch_name": "unmerged-feature"})
+    (opened_project / "unmerged.txt").write_text("D", encoding="utf-8")
+    feature_tip_sha = client.post("/api/git/commit", json={"message": "feature tip"}).json()["commit_sha"]
+    client.post("/api/git/branch/switch", json={"branch_name": "main"})
+
+    runtime = client.app.state.runtime
+    runtime.lineage_store.insert_run(
+        RunRecord(
+            run_id="run-1356-p2",
+            workflow_id="wf-1356-p2",
+            workflow_git_commit=feature_tip_sha,
+            workflow_yaml_snapshot="id: wf-1356-p2\n",
+            workflow_dirty=False,
+            started_at="2026-05-21T00:00:00Z",
+            finished_at="2026-05-21T00:00:01Z",
+            status="completed",
+            environment_snapshot={
+                "python_version": "3.13.0",
+                "platform": "test",
+                "key_packages": {},
+            },
+            triggered_by="test",
+            parent_run_id=None,
+            execute_from_block_id=None,
+            user_notes=None,
+        )
+    )
+
+    # Delete WITHOUT force — git refuses unmerged branches.
+    resp = client.delete("/api/git/branches/unmerged-feature")
+    assert resp.status_code != 200, (
+        "Expected non-200 from unmerged delete without force; got 200 — the route may be silently force-deleting."
+    )
+
+    # The branch must still exist (delete failed).
+    names = [b["name"] for b in client.get("/api/git/branches").json()]
+    assert "unmerged-feature" in names
+
+    # NO refs/scistudio/lineage/* refs may have been created — Phase 1/2/3
+    # ordering guarantees we never pin without a successful delete.
+    proc = subprocess.run(
+        ["git", "-C", str(opened_project), "for-each-ref", "--format=%(refname)", "refs/scistudio/"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0
+    assert proc.stdout.strip() == "", f"safety net wrote refs even though branch_delete failed: {proc.stdout!r}"
+
+
+# NOTE: Codex P1 (PR #1381) "fully-qualified refname avoids tag/branch
+# collision" is unit-tested at the engine layer in
+# tests/core/test_git_engine.py::test_commits_reachable_only_from_disambiguates_branch_vs_tag.
+# A pre-existing engine.branches() short-form quirk (when a tag shares a
+# branch's short name, for-each-ref --format=%(refname:short) returns
+# "heads/<name>" instead of "<name>") makes the route-layer
+# branch_switch validation reject the colliding branch name as 404,
+# preventing this scenario from being exercised cleanly through the
+# REST surface in a single test. The engine-layer test is sufficient
+# because the route just delegates to engine.commits_reachable_only_from.
+
+
 # ---------------------------------------------------------------------------
 # Status
 # ---------------------------------------------------------------------------
