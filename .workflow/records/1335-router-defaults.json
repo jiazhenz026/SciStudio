@@ -50,7 +50,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1335-router-defaults.json",
+    "shas": [
+      "c278d1fed95d935a2a7a6cccaaf46f86ba31cbad"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -98,7 +104,13 @@
     "docs/audit/full-audit-track-b.json",
     "docs/planning/no-cycles-1335-1337-checklist.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1335
+    ],
+    "number": 1347,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1347"
+  },
   "record_path": ".workflow/records/1335-router-defaults.json",
   "required_checks": [
     "ruff",
@@ -167,7 +179,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
