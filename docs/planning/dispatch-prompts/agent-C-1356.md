@@ -8,7 +8,7 @@
 - Persona: implementer
 - Issue: #1356
 - Issue URL: https://github.com/zjzcpj/SciStudio/issues/1356
-- Umbrella PR: #<pending — see checklist `## 1`> `[DO NOT MERGE]`
+- Umbrella PR: [#1364](https://github.com/zjzcpj/SciStudio/pull/1364) `[DO NOT MERGE]` — target your sub-PR at the `umbrella/adr-039-addendum-1-impl` branch, NOT main
 - Protected branch: main
 - Umbrella branch: umbrella/adr-039-addendum-1-impl (rebase onto post-PR-A umbrella)
 - Agent branch: feat/issue-1356/branch-delete-orphan-guard
