@@ -14,6 +14,7 @@ from scistudio.qa.governance.gate_record import (
     SentruxEvidence,
     _discover_gate_record,
     _is_governance_path,
+    _is_test_path,
     check_commit_msg,
     check_pr_ready,
     check_pre_commit,
@@ -804,3 +805,104 @@ def test_invalid_override_label_does_not_bypass_local_hooks(tmp_path: Path) -> N
 
     assert report.blocks_merge
     assert "gate-record.override-label.invalid" in {finding.rule_id for finding in report.findings}
+
+
+class TestIsTestPathPytestConventions:
+    """Pre-#1389 behaviour: pytest conventions must keep classifying correctly."""
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "tests/qa/test_gate_record.py",
+            "tests/api/test_filesystem.py",
+            "tests/blocks/code/test_exchange.py",
+            "src/scistudio/utils/tests/test_paths.py",
+            "src/scistudio/foo/test_bar.py",
+            "src/scistudio/foo/bar_test.py",
+        ],
+    )
+    def test_pytest_conventions_classify_as_test(self, path: str) -> None:
+        assert _is_test_path(path) is True
+
+
+class TestIsTestPathVitestRecognition:
+    """#1389: vitest co-located test files must classify as test paths.
+
+    Pre-fix behaviour treated `frontend/src/components/Foo.test.tsx` as an
+    implementation file with no test change, forcing vitest-only PRs to
+    either restructure tests or burn an `admin-approved:ai-override` label
+    (PRs #1383, #1299, #1313, #1320). The classifier now recognises the
+    canonical vitest filename suffixes and the `__tests__/` directory
+    convention.
+    """
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "frontend/src/components/PortEditorTable.test.tsx",
+            "frontend/src/components/PortEditorTable.test.ts",
+            "frontend/src/api/capabilities.test.tsx",
+            "frontend/src/hooks/useSSE.spec.tsx",
+            "frontend/src/hooks/useSSE.spec.ts",
+            "frontend/src/utils/format.test.js",
+            "frontend/src/utils/format.spec.jsx",
+        ],
+    )
+    def test_vitest_filename_suffixes_classify_as_test(self, path: str) -> None:
+        assert _is_test_path(path) is True
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "frontend/src/__tests__/LossySaveWarning.test.tsx",
+            "frontend/src/components/__tests__/foo.tsx",
+            "packages/scistudio-blocks-imaging/__tests__/load.test.tsx",
+        ],
+    )
+    def test_underscore_tests_dir_classifies_as_test(self, path: str) -> None:
+        assert _is_test_path(path) is True
+
+
+class TestIsTestPathImplementationStays:
+    """Regression: implementation files must NOT be misclassified as tests."""
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "frontend/src/components/PortEditorTable.tsx",
+            "frontend/src/api/capabilities.ts",
+            "src/scistudio/qa/governance/gate_record.py",
+            "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py",
+            "scripts/scistudio_pr_create.py",
+            "docs/adr/ADR-042.md",
+            ".workflow/records/1267-gate-record-core.json",
+            "frontend/src/components/PortEditorTableHelper.ts",
+        ],
+    )
+    def test_non_test_paths_classify_as_non_test(self, path: str) -> None:
+        assert _is_test_path(path) is False
+
+
+class TestVitestChangedTestPathAccepted:
+    """End-to-end: GateRecord schema accepts vitest path in changed_test_paths."""
+
+    def test_schema_accepts_vitest_co_located_test(self) -> None:
+        payload = _record(
+            scope={
+                "include": [
+                    "frontend/src/components/PortEditorTable.tsx",
+                    "frontend/src/components/PortEditorTable.test.tsx",
+                ],
+                "exclude": [],
+            },
+            changed_test_paths=["frontend/src/components/PortEditorTable.test.tsx"],
+        )
+        record = GateRecord.model_validate(payload)
+        assert record.changed_test_paths == ["frontend/src/components/PortEditorTable.test.tsx"]
+
+    def test_schema_still_rejects_non_test_path_in_changed_test_paths(self) -> None:
+        payload = _record(
+            changed_test_paths=["frontend/src/components/PortEditorTable.tsx"],
+        )
+        with pytest.raises(ValidationError, match="non-test"):
+            GateRecord.model_validate(payload)

@@ -315,14 +315,33 @@ def _matches_any(path: str, patterns: Iterable[str]) -> bool:
     return any(_match_path(path, pattern) for pattern in patterns)
 
 
+_VITEST_NAME_SUFFIXES: tuple[str, ...] = (
+    ".test.ts",
+    ".test.tsx",
+    ".test.js",
+    ".test.jsx",
+    ".spec.ts",
+    ".spec.tsx",
+    ".spec.js",
+    ".spec.jsx",
+)
+"""Co-located vitest filename suffixes. Vitest discovers ``Foo.test.tsx``
+next to ``Foo.tsx`` rather than under a dedicated ``tests/`` tree, so the
+gate-record classifier must recognise these alongside the pytest
+conventions; otherwise a vitest-only PR is treated as touching an
+implementation file with no test change (#1389)."""
+
+
 def _is_test_path(path: str) -> bool:
     normalized = _normalize_path(path)
     name = Path(normalized).name
     return (
         normalized.startswith("tests/")
         or "/tests/" in normalized
+        or "/__tests__/" in normalized
         or name.startswith("test_")
         or name.endswith("_test.py")
+        or any(name.endswith(suffix) for suffix in _VITEST_NAME_SUFFIXES)
     )
 
 
