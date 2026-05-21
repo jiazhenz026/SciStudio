@@ -189,6 +189,15 @@ async def start_inprocess_server(
         else:
             socket_path = Path(tempfile.gettempdir()) / f"scistudio-mcp-bridge-{os.getpid()}.sock"
 
+        # AF_UNIX ``sun_path`` is capped at 108 bytes on Linux and 104 on
+        # macOS. Deep project paths (CI tmp dirs, NixOS profiles, nested
+        # pytest fixture trees) routinely overflow. Detect overflow and
+        # fall back to a guaranteed-short temp socket. Windows uses
+        # AF_INET sockets internally for ipython-style server channels
+        # so the path limit doesn't apply, but the check is harmless.
+        if len(str(socket_path).encode("utf-8")) > 100:
+            socket_path = Path(tempfile.gettempdir()) / f"mcp-{os.getpid()}.sock"
+
     server = MCPServer(
         socket_path=socket_path,
         project_dir=project_dir if project_dir is not None else Path.home() / ".scistudio",
