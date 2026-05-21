@@ -58,7 +58,7 @@
   "commit": {
     "gate_record_path": ".workflow/records/1109-1309-registry-codeblock-cwd.json",
     "shas": [
-      "5b707756b469039f1fc356c21d4edff84af969b5"
+      "0fdd2f82"
     ],
     "trailers": {}
   },
