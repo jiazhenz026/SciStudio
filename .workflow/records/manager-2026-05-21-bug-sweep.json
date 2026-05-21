@@ -6,6 +6,17 @@
       "exclude": [],
       "include": [],
       "reason": "Manager-coordination commit; checklist + gate record bootstrap counts as the manager implementation artifact. No scope change vs. original include set."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "src/scistudio/qa/governance/gate_record.py",
+        "tests/qa/test_gate_record.py",
+        "frontend/src/components/PortEditorTable.tsx",
+        "frontend/src/components/PortEditorTable.test.tsx"
+      ],
+      "reason": "Codex P2 reconcile for #1397 (no-op extension edit clears pin) and #1396 (top-level __tests__/ classification). PRs already merged into umbrella; fixes ride along to main."
     }
   ],
   "branch": "umbrella/2026-05-21-bug-sweep",
@@ -76,7 +87,7 @@
     "summary": {},
     "unclassified_failures": []
   },
-  "governance_touch": false,
+  "governance_touch": true,
   "issues": [
     {
       "close_in_pr": true,

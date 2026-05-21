@@ -208,4 +208,45 @@ describe("PortEditorTable", () => {
       },
     ]);
   });
+
+  it("keeps capability_id on no-op extension edits (Codex P2 from PR #1397)", () => {
+    // The normalizer strips leading dots and lowercases, so `.CSV` -> `csv`.
+    // If the row's extension is already `csv`, editing to `.CSV` should NOT
+    // drop the user's explicit capability pin; the (direction, type,
+    // extension) tuple is unchanged. Uses `direction="output"` because the
+    // extension input only renders for output ports (renderExtension guard).
+    const ports: PortRow[] = [
+      {
+        name: "out",
+        types: ["Table"],
+        extension: "csv",
+        capability_id: "table:csv:save:special",
+      },
+    ];
+    const onChange = vi.fn();
+    render(
+      <PortEditorTable
+        allowedTypes={[]}
+        direction="output"
+        onChange={onChange}
+        ports={ports}
+        typeHierarchy={TYPE_HIERARCHY}
+      />,
+    );
+
+    const extInput = screen.getByLabelText("extension for out");
+    fireEvent.change(extInput, { target: { value: ".CSV" } });
+
+    // Either no onChange call (preferred), or a call that preserves capability_id.
+    if (onChange.mock.calls.length > 0) {
+      expect(onChange.mock.calls[0][0]).toEqual([
+        {
+          name: "out",
+          types: ["Table"],
+          extension: "csv",
+          capability_id: "table:csv:save:special",
+        },
+      ]);
+    }
+  });
 });

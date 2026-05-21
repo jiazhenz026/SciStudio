@@ -103,19 +103,19 @@ export function PortEditorTable({
   }
 
   function handleExtensionChange(index: number, extension: string) {
-    // Issue #1366: same rationale as handleTypeChange — clear the pinned
-    // capability when the extension changes so a stale id cannot fail backend
-    // validation later.
+    // Issue #1366: clear the pinned capability when the *normalized* extension
+    // actually changes so a stale id cannot fail backend validation later.
+    // Codex P2 from PR #1397: guard the reset against no-op edits
+    // (e.g. typing `csv` then `.CSV` normalizes back to the same value) so the
+    // user's explicit pin is not silently dropped when the effective tuple did
+    // not change.
+    const normalized = normalizeExtension(extension);
     onChange(
-      ports.map((p, i) =>
-        i === index
-          ? {
-              ...p,
-              extension: normalizeExtension(extension),
-              capability_id: null,
-            }
-          : p,
-      ),
+      ports.map((p, i) => {
+        if (i !== index) return p;
+        if (p.extension === normalized) return p;
+        return { ...p, extension: normalized, capability_id: null };
+      }),
     );
   }
 

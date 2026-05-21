@@ -862,6 +862,19 @@ class TestIsTestPathVitestRecognition:
     def test_underscore_tests_dir_classifies_as_test(self, path: str) -> None:
         assert _is_test_path(path) is True
 
+    @pytest.mark.parametrize(
+        "path",
+        [
+            # Codex P2 from PR #1396: top-level `__tests__/` directory must
+            # classify even without a leading slash. Pre-fix `/__tests__/`
+            # substring check rejected these.
+            "__tests__/foo.tsx",
+            "__tests__/nested/bar.test.tsx",
+        ],
+    )
+    def test_top_level_underscore_tests_dir_classifies_as_test(self, path: str) -> None:
+        assert _is_test_path(path) is True
+
 
 class TestIsTestPathImplementationStays:
     """Regression: implementation files must NOT be misclassified as tests."""
