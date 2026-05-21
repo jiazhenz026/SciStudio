@@ -65,8 +65,17 @@ describe("PortEditorTable", () => {
     fireEvent.change(extInput, { target: { value: ".CSV" } });
 
     expect(onChange).toHaveBeenCalledTimes(1);
+    // #1366: handleExtensionChange also clears capability_id; the existing row
+    // had no capability pinned, so the resulting row carries `capability_id:
+    // null` even though the test's primary assertion is about extension
+    // normalisation.
     expect(onChange.mock.calls[0][0]).toEqual([
-      { name: "tables", types: ["DataObject"], extension: "csv" },
+      {
+        name: "tables",
+        types: ["DataObject"],
+        extension: "csv",
+        capability_id: null,
+      },
     ]);
   });
 
@@ -124,5 +133,79 @@ describe("PortEditorTable", () => {
     const next = onChange.mock.calls[0][0] as PortRow[];
     expect(next).toHaveLength(1);
     expect(next[0].extension).toBe("");
+  });
+
+  it("clears a pinned capability_id when the user changes the port type (#1366)", () => {
+    // Regression for #1366: handleTypeChange used to preserve `capability_id`
+    // even when the new type no longer registered that capability, letting
+    // the user save a workflow that then failed backend validation.
+    const ports: PortRow[] = [
+      {
+        name: "out",
+        types: ["DataObject"],
+        extension: "csv",
+        capability_id: "data:csv:save:default",
+      },
+    ];
+    const onChange = vi.fn();
+    render(
+      <PortEditorTable
+        allowedTypes={[]}
+        direction="output"
+        onChange={onChange}
+        ports={ports}
+        typeHierarchy={TYPE_HIERARCHY}
+      />,
+    );
+
+    const typeSelect = screen.getByDisplayValue("DataObject") as HTMLSelectElement;
+    fireEvent.change(typeSelect, { target: { value: "Image" } });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0]).toEqual([
+      {
+        name: "out",
+        types: ["Image"],
+        extension: "csv",
+        capability_id: null,
+      },
+    ]);
+  });
+
+  it("clears a pinned capability_id when the user changes the extension (#1366)", () => {
+    // Regression for #1366: handleExtensionChange used to preserve
+    // `capability_id` even though the (direction, type, extension) tuple
+    // changed and the previously pinned capability may no longer be valid.
+    const ports: PortRow[] = [
+      {
+        name: "out",
+        types: ["Image"],
+        extension: "tif",
+        capability_id: "imaging:tif:save:default",
+      },
+    ];
+    const onChange = vi.fn();
+    render(
+      <PortEditorTable
+        allowedTypes={[]}
+        direction="output"
+        onChange={onChange}
+        ports={ports}
+        typeHierarchy={TYPE_HIERARCHY}
+      />,
+    );
+
+    const extInput = screen.getByLabelText("extension for out");
+    fireEvent.change(extInput, { target: { value: "png" } });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0]).toEqual([
+      {
+        name: "out",
+        types: ["Image"],
+        extension: "png",
+        capability_id: null,
+      },
+    ]);
   });
 });

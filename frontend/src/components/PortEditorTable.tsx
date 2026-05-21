@@ -91,13 +91,30 @@ export function PortEditorTable({
   }
 
   function handleTypeChange(index: number, typeName: string) {
-    onChange(ports.map((p, i) => (i === index ? { ...p, types: [typeName] } : p)));
+    // Issue #1366: clearing `capability_id` on a type change prevents a stale
+    // capability (pinned for the previous (direction, type, extension) tuple)
+    // from surviving into a tuple where it is no longer registered. The user
+    // re-selects via the CapabilityDropdown for the new tuple.
+    onChange(
+      ports.map((p, i) =>
+        i === index ? { ...p, types: [typeName], capability_id: null } : p,
+      ),
+    );
   }
 
   function handleExtensionChange(index: number, extension: string) {
+    // Issue #1366: same rationale as handleTypeChange — clear the pinned
+    // capability when the extension changes so a stale id cannot fail backend
+    // validation later.
     onChange(
       ports.map((p, i) =>
-        i === index ? { ...p, extension: normalizeExtension(extension) } : p,
+        i === index
+          ? {
+              ...p,
+              extension: normalizeExtension(extension),
+              capability_id: null,
+            }
+          : p,
       ),
     );
   }
