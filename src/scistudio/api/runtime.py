@@ -432,7 +432,7 @@ class ApiRuntime:
         include_monorepo = os.environ.get("SCISTUDIO_DEV") == "1"
         if include_monorepo:
             logger.info("SCISTUDIO_DEV=1: monorepo package scan enabled")
-        self.type_registry.scan_all(include_monorepo=include_monorepo)
+        self.refresh_type_registry()
         self.refresh_block_registry()
 
     def _bind_event_logging(self) -> None:
@@ -488,6 +488,23 @@ class ApiRuntime:
             registry.add_scan_dir(Path.home() / ".scistudio" / "blocks")
         registry.scan(include_monorepo=os.environ.get("SCISTUDIO_DEV") == "1")
         self.block_registry = registry
+
+    def refresh_type_registry(self) -> None:
+        """Re-scan the TypeRegistry with the current active project's types dir.
+
+        Issue #1332 / ARCHITECTURE.md §10 + §10.5: mirrors
+        :meth:`refresh_block_registry` so a project switch picks up
+        ``<project>/types`` drop-in :class:`DataObject` subclasses and the
+        user-wide ``~/.scistudio/types`` dir. Always rebuilds from scratch
+        so a switch from project A to project B does not leak project A's
+        types into project B.
+        """
+        registry = TypeRegistry()
+        if self.active_project is not None:
+            registry.add_scan_dir(Path(self.active_project.path) / "types")
+        registry.add_scan_dir(Path.home() / ".scistudio" / "types")
+        registry.scan_all(include_monorepo=os.environ.get("SCISTUDIO_DEV") == "1")
+        self.type_registry = registry
 
     def _init_lineage_store(self, project_path: Path) -> None:
         """Open the unified ADR-038 lineage store for the active project.
@@ -773,6 +790,10 @@ class ApiRuntime:
         self._save_known_projects()
         self.active_project = candidate
         self.data_catalog = {}
+        # Issue #1332 / ARCHITECTURE.md §10 + §10.5: rescan TypeRegistry so
+        # the project's ``types/`` drop-in DataObject subclasses register,
+        # mirroring the block-registry refresh below.
+        self.refresh_type_registry()
         self.refresh_block_registry()
         self._init_metadata_store(Path(candidate.path))
         # ADR-038 §3.1: open the unified lineage store alongside the legacy
