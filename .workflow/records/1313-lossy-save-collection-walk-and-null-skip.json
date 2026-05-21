@@ -1,6 +1,8 @@
 {
   "admin_labels": [
     {
+      "applied_at": null,
+      "applied_by": null,
       "name": "admin-approved:ai-override"
     }
   ],
@@ -45,7 +47,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1313-lossy-save-collection-walk-and-null-skip.json",
+    "shas": [
+      "8aaae843b670d1ca0d034ab8e0c1915bb0614bd0"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "not_applicable": true,
@@ -81,7 +89,13 @@
   ],
   "owner_directive": "Fix 2 audit-surfaced bugs in LossySaveWarning OME flattening: (1) upstreamOmeFields didn't recurse into Collection payloads (LoadImage shape); (2) flattenOmeFields recorded null/undefined as present, inflating sourceOmeFields with model_dump None fields.",
   "planned_files": [],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1313
+    ],
+    "number": 1315,
+    "url": "https://github.com/zjzcpj/SciEasy/pull/1315"
+  },
   "record_path": ".workflow/records/1313-lossy-save-collection-walk-and-null-skip.json",
   "required_checks": [
     "vitest",
