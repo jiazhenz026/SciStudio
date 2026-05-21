@@ -110,15 +110,42 @@ describe("GitHistoryList", () => {
     expect(screen.getByTestId("git-history-empty-after-filter")).toBeTruthy();
   });
 
-  it("clicking a row dispatches onCommitClick", () => {
+  // ADR-039 Addendum 1 §11.3 (issue #1355): clicking the row no longer
+  // opens GitDiffModal. The row is focus-only; diff and restore actions
+  // are reached via the per-row `[Diff]` / `[Restore]` buttons or via
+  // the `d` / `r` hotkeys on the focused row.
+  it("clicking a row does NOT dispatch onCommitClick (row is focus-only)", () => {
     const onCommitClick = vi.fn();
     render(<GitHistoryList branch="main" onCommitClick={onCommitClick} />);
     flipToListView();
     fireEvent.click(screen.getByTestId(`git-history-row-${userCommit.short_sha}`));
-    expect(onCommitClick).toHaveBeenCalledWith(expect.objectContaining({ sha: userCommit.sha }));
+    expect(onCommitClick).not.toHaveBeenCalled();
   });
 
-  it("clicking restore dispatches onRestoreClick and stops propagation", () => {
+  it("clicking the inline [Diff] button dispatches onCommitClick and stops propagation", () => {
+    const onCommitClick = vi.fn();
+    render(<GitHistoryList branch="main" onCommitClick={onCommitClick} />);
+    flipToListView();
+    fireEvent.click(
+      screen.getByTestId(`git-history-row-diff-${userCommit.short_sha}`),
+    );
+    expect(onCommitClick).toHaveBeenCalledTimes(1);
+    expect(onCommitClick).toHaveBeenCalledWith(
+      expect.objectContaining({ sha: userCommit.sha }),
+    );
+  });
+
+  it("clicking the inline [Diff] button opens GitDiffModal when no onCommitClick prop is supplied", () => {
+    render(<GitHistoryList branch="main" />);
+    flipToListView();
+    expect(screen.queryByTestId("git-diff-modal")).toBeNull();
+    fireEvent.click(
+      screen.getByTestId(`git-history-row-diff-${userCommit.short_sha}`),
+    );
+    expect(screen.getByTestId("git-diff-modal")).toBeTruthy();
+  });
+
+  it("clicking [Restore] dispatches onRestoreClick, stops propagation, and does NOT open the diff modal", () => {
     const onCommitClick = vi.fn();
     const onRestoreClick = vi.fn();
     render(
@@ -134,6 +161,61 @@ describe("GitHistoryList", () => {
       expect.objectContaining({ sha: userCommit.sha }),
     );
     expect(onCommitClick).not.toHaveBeenCalled();
+  });
+
+  it("pressing the 'd' hotkey on a focused row dispatches onCommitClick (diff)", () => {
+    const onCommitClick = vi.fn();
+    render(<GitHistoryList branch="main" onCommitClick={onCommitClick} />);
+    flipToListView();
+    const row = screen.getByTestId(`git-history-row-${userCommit.short_sha}`);
+    fireEvent.keyDown(row, { key: "d" });
+    expect(onCommitClick).toHaveBeenCalledWith(
+      expect.objectContaining({ sha: userCommit.sha }),
+    );
+  });
+
+  it("pressing the 'r' hotkey on a focused row dispatches onRestoreClick", () => {
+    const onRestoreClick = vi.fn();
+    render(<GitHistoryList branch="main" onRestoreClick={onRestoreClick} />);
+    flipToListView();
+    const row = screen.getByTestId(`git-history-row-${userCommit.short_sha}`);
+    fireEvent.keyDown(row, { key: "r" });
+    expect(onRestoreClick).toHaveBeenCalledWith(
+      expect.objectContaining({ sha: userCommit.sha }),
+    );
+  });
+
+  it("pressing Enter on a focused row does nothing (no modal, no callback)", () => {
+    const onCommitClick = vi.fn();
+    const onRestoreClick = vi.fn();
+    render(
+      <GitHistoryList
+        branch="main"
+        onCommitClick={onCommitClick}
+        onRestoreClick={onRestoreClick}
+      />,
+    );
+    flipToListView();
+    const row = screen.getByTestId(`git-history-row-${userCommit.short_sha}`);
+    fireEvent.keyDown(row, { key: "Enter" });
+    expect(onCommitClick).not.toHaveBeenCalled();
+    expect(onRestoreClick).not.toHaveBeenCalled();
+  });
+
+  it("the inline [Diff] and [Restore] buttons are both keyboard-reachable on every row", () => {
+    render(<GitHistoryList branch="main" />);
+    flipToListView();
+    const diffBtn = screen.getByTestId(`git-history-row-diff-${userCommit.short_sha}`);
+    const restoreBtn = screen.getByTestId(
+      `git-history-row-restore-${userCommit.short_sha}`,
+    );
+    // tabIndex 0 (or unset on a native <button>) is keyboard-focusable.
+    expect(diffBtn.tagName).toBe("BUTTON");
+    expect(restoreBtn.tagName).toBe("BUTTON");
+    // Native <button> elements are inherently Tab-reachable; explicit
+    // tabIndex=-1 would break that. Assert it is not set to -1.
+    expect(diffBtn.getAttribute("tabindex")).not.toBe("-1");
+    expect(restoreBtn.getAttribute("tabindex")).not.toBe("-1");
   });
 
   it("dispatches loadLog on mount when logCache[branch] is missing", async () => {

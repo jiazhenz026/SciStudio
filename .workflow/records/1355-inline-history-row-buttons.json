@@ -1,0 +1,164 @@
+{
+  "admin_labels": [
+    {
+      "name": "admin-approved:ai-override"
+    }
+  ],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/audit/1355-chrome-smoke-list-view.png",
+        "docs/audit/1355-chrome-smoke-notes.md",
+        "docs/audit/full-audit-latest.json"
+      ],
+      "reason": "add chrome smoke evidence artifacts"
+    }
+  ],
+  "branch": "feat/issue-1355/inline-history-row-buttons",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "cd frontend && npx tsc --noEmit",
+      "exit_code": 0,
+      "name": "full_audit",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1355-inline-history-row-buttons.json",
+    "shas": [
+      "22e0daeb"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "ADR": {
+      "not_applicable": true,
+      "rationale": "already covered by ADR-039 Addendum 1 \u00a711.3 merged via #1358; this PR implements that addendum"
+    },
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {},
+    "docs": {},
+    "runbook": {
+      "not_applicable": true,
+      "rationale": "N/A \u2014 no runtime/operational changes"
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "N/A \u2014 frontend-only UI change, no schema/contract changes"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1355,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1355"
+    }
+  ],
+  "owner_directive": "Implement ADR-039 Addendum 1 \u00a711.3: remove row-click \u2192 modal from history list + graph dot; add explicit inline [Diff] button beside [Restore].",
+  "planned_files": [
+    "frontend/src/components/Git/GitHistoryList.tsx",
+    "frontend/src/components/Git/GitGraph/interactions.ts",
+    "frontend/src/components/Git/__tests__/GitHistoryList.test.tsx",
+    "CHANGELOG.md"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1355
+    ],
+    "number": 1383,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1383"
+  },
+  "record_path": ".workflow/records/1355-inline-history-row-buttons.json",
+  "required_checks": [
+    "ruff check .",
+    "cd frontend && npm test -- --run src/components/Git/__tests__/GitHistoryList.test.tsx",
+    "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "sentrux scan + check_rules + health + session_end",
+    "Chrome smoke (mandatory): list row click \u2192 no modal; [Diff] \u2192 modal; [Restore] \u2192 confirm; graph dot \u2192 focus only"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/components/Git/GitHistoryList.tsx",
+      "frontend/src/components/Git/GitGraph/interactions.ts",
+      "frontend/src/components/Git/__tests__/GitHistoryList.test.tsx",
+      "CHANGELOG.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux scan + check_rules + health + session_end (MCP)",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": null,
+    "pro_required": false,
+    "quality_signal": 4444.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1355-inline-history-row-buttons",
+  "task_kind": "feature"
+}
