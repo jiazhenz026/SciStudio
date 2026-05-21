@@ -17,6 +17,7 @@ from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from scistudio.qa.governance.paths import is_gate_record_path
 from scistudio.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
 VALID_OVERRIDE_LABELS: frozenset[str] = frozenset(
@@ -334,6 +335,12 @@ def _is_implementation_path(path: str) -> bool:
 
 def _sentrux_applies(path: str) -> bool:
     normalized = _normalize_path(path)
+    # Gate-record evidence files live under .workflow/ but are per-PR audit
+    # trail rows that every AI PR creates; they are not architectural
+    # surface and must not force Sentrux evidence on records-only changes
+    # (#1362, same pattern as core_change_guard / sentrux_gate / docs_landing).
+    if is_gate_record_path(normalized):
+        return False
     if normalized.startswith("docs/") and not normalized.startswith(("docs/adr/", "docs/specs/")):
         return False
     return _matches_any(
@@ -958,6 +965,16 @@ def amend_record(
     return _write_record(record_path, record)
 
 
+_CHANGELOG_PATHS: frozenset[str] = frozenset({"CHANGELOG.md"})
+"""Repo-relative paths that credit the gate record's ``changelog`` landing
+class. Previously the routing logic only knew about ``docs/`` and
+``docs/planning/`` prefixes, so passing ``--updated CHANGELOG.md`` silently
+routed it into the ``docs`` class and left ``changelog`` empty — every PR
+that genuinely updated the changelog still failed ``docs_landing.missing-
+changelog`` and had to either N/A the changelog (untruthful) or use
+``admin-approved:ai-override`` to bypass the whole workflow gate (#1362)."""
+
+
 def docs_record(
     record_path: Path,
     *,
@@ -968,12 +985,14 @@ def docs_record(
 
     record = _load_record(record_path)
     na_rationales = dict(_parse_key_values(na))
-    docs_paths = [_normalize_path(path) for path in updated if not _normalize_path(path).startswith("docs/planning/")]
-    checklist_paths = [_normalize_path(path) for path in updated if _normalize_path(path).startswith("docs/planning/")]
+    normalised = [_normalize_path(path) for path in updated]
+    changelog_paths = [path for path in normalised if path in _CHANGELOG_PATHS]
+    checklist_paths = [path for path in normalised if path.startswith("docs/planning/")]
+    docs_paths = [path for path in normalised if path not in _CHANGELOG_PATHS and not path.startswith("docs/planning/")]
     landing: dict[str, Any] = {
         "docs": {"paths": docs_paths} if docs_paths else {},
         "checklist": {"paths": checklist_paths} if checklist_paths else {},
-        "changelog": {},
+        "changelog": {"paths": changelog_paths} if changelog_paths else {},
     }
     for class_name, rationale in na_rationales.items():
         landing[class_name] = {"not_applicable": True, "rationale": rationale}

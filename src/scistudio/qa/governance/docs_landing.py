@@ -10,6 +10,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from scistudio.qa.governance.paths import is_gate_record_path
 from scistudio.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
 IMPLEMENTATION_PREFIXES = (
@@ -46,6 +47,12 @@ def _normalized(paths: Sequence[str | Path]) -> list[str]:
 def _requires_landing(changed_files: Sequence[str]) -> bool:
     for path in changed_files:
         if path == "CHANGELOG.md":
+            continue
+        # Gate-record evidence files live under .workflow/ but are per-PR
+        # audit trail, not implementation work; they must not force a
+        # docs/changelog/checklist landing requirement on records-only
+        # changes (#1362).
+        if is_gate_record_path(path):
             continue
         if path.startswith(IMPLEMENTATION_PREFIXES) or path.startswith(GOVERNANCE_PREFIXES):
             return True
