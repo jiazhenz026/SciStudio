@@ -85,7 +85,7 @@ jobs:
           status=$?
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           echo "E2E discovery exit code: $status" >> "$GITHUB_STEP_SUMMARY"
-          exit 0
+          exit "$status"
 
       - name: Upload E2E artifacts
         if: always()
