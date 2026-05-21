@@ -481,30 +481,6 @@ def test_cherry_pick_conflict_same_shape_as_merge(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Stash CRUD
-# ---------------------------------------------------------------------------
-
-
-def test_stash_save_apply_drop_cycle(tmp_path: Path) -> None:
-    engine = _init_engine(tmp_path)
-    (tmp_path / "a.txt").write_text("a", encoding="utf-8")
-    engine.commit("add a")
-    (tmp_path / "a.txt").write_text("dirty", encoding="utf-8")
-    stash_id = engine.stash_save("WIP")
-    assert engine.status()["dirty"] is False
-    engine.stash_apply(stash_id)
-    assert engine.status()["dirty"] is True
-    engine.stash_drop(stash_id)
-    assert engine.stash_list() == []
-
-
-def test_stash_save_clean_tree_raises(tmp_path: Path) -> None:
-    engine = _init_engine(tmp_path)
-    with pytest.raises(GitError):
-        engine.stash_save("WIP")
-
-
-# ---------------------------------------------------------------------------
 # Conflict-resolution finalization
 # ---------------------------------------------------------------------------
 

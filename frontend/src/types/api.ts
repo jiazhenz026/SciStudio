@@ -290,8 +290,8 @@ export interface TreeResponse {
 //
 // These mirror the JSON shapes returned by `src/scistudio/api/routes/git.py`
 // (merged in PR #927). When the backend GitEngine returns a `log()` row, a
-// branch listing, a stash entry, a status payload, or a merge result, the
-// FastAPI route emits it as JSON of one of the shapes below.
+// branch listing, a status payload, or a merge result, the FastAPI route
+// emits it as JSON of one of the shapes below.
 //
 // Shapes intentionally mirror python keys (`commit_sha`, `short_sha`, etc.)
 // rather than camelCasing because:
@@ -352,23 +352,6 @@ export interface GitBranch {
   is_current: boolean;
 }
 
-/**
- * Stash entry from `GET /api/git/stash`.
- *
- * Wire shape is `{ stash_id, message, date }` per
- * `GitEngine.stash_list()` in `src/scistudio/core/versioning/git_engine.py`.
- * No `index` or `created_at` field is sent — Codex review on PR #930
- * flagged a draft contract mismatch; fixed to mirror the actual payload.
- */
-export interface GitStashEntry {
-  /** Stash identifier (e.g. `stash@{0}`). */
-  stash_id: string;
-  /** Stash message (the `%gs` field — git's stash log subject). */
-  message: string;
-  /** ISO-8601 date string (the `%ai` field — author/committer date). */
-  date: string;
-}
-
 /** Diff payload from `GET /api/git/diff`. */
 export interface GitDiff {
   /** Unified diff as a single string (consumer feeds it to react-diff-viewer-continued). */
@@ -408,15 +391,8 @@ export interface GitCommitResponse {
   commit_sha: string;
 }
 
-/** Response shape for stash apply when there are conflicts. */
-export type GitStashApplyResult =
-  | { status: "ok" }
-  | { status: "conflict"; conflicted_files: string[] };
-
-/** Response shape for `/api/git/restore` (may return stash info). */
-export type GitRestoreResult =
-  | { status: "ok" }
-  | { status: "stashed"; stash_id: string };
+/** Response shape for `/api/git/restore`. */
+export type GitRestoreResult = { status: "ok" };
 
 /**
  * Filter modes for the History panel dropdown per ADR-039 §3.4 / §3.5c.

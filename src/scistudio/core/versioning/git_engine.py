@@ -366,24 +366,15 @@ class GitEngine:
     def restore(self, commit_sha: str, *, files: list[str] | None = None) -> None:
         """Soft restore (no HEAD move). See ADR-039 §3.6.
 
-        Auto-stashes a dirty working tree first.
-
         Hotfix #997: when every target file's content at ``commit_sha``
         is byte-identical to its current working-tree content, restore
-        is a no-op — skip the actual ``git checkout`` AND skip the
-        auto-stash. Pre-fix, clicking "Restore this run's workflow" on
-        a run whose recorded commit happened to match the current
-        working tree still triggered ``git stash push -u`` if the tree
-        was dirty in *any* file (even unrelated ones), accumulating
-        stash refs that rendered as commit nodes in the graph and
-        confused users. The no-op short-circuit eliminates the false-
-        dirty cascade for the specific-files variant (the most common
-        Lineage tab path: ``files=['workflows/<id>.yaml']``).
-
-        The whole-tree variant (``files is None``) keeps the original
-        auto-stash + checkout semantics because comparing the entire
-        worktree is expensive and the user-facing whole-tree restore
-        path is rare (no UI affordance in v1).
+        is a no-op — skip the actual ``git checkout``. Pre-fix, clicking
+        "Restore this run's workflow" on a run whose recorded commit
+        happened to match the current working tree still triggered an
+        auto-handler against a tree that was dirty in *any* file (even
+        unrelated ones). The no-op short-circuit eliminates that
+        false-dirty cascade for the specific-files variant (the most
+        common Lineage tab path: ``files=['workflows/<id>.yaml']``).
         """
         # Skip-if-unchanged short-circuit (files variant only).
         if files:
@@ -400,23 +391,6 @@ class GitEngine:
                     commit_sha[:7],
                 )
                 return
-
-        # Auto-stash if dirty.
-        if self.status()["dirty"]:
-            try:
-                self._run(
-                    [
-                        "stash",
-                        "push",
-                        "-u",
-                        "-m",
-                        "auto-stash before restore",
-                    ]
-                )
-            except GitError:
-                # If stash failed (e.g. nothing actually staged after
-                # untracked-only check), log and proceed.
-                logger.debug("auto-stash before restore failed", exc_info=True)
 
         args = ["checkout", commit_sha, "--"]
         if files:
@@ -713,53 +687,6 @@ class GitEngine:
             proc.stderr or "",
             ["cherry-pick", commit_sha],
         )
-
-    # ------------------------------------------------------------------
-    # Stash
-    # ------------------------------------------------------------------
-
-    def stash_list(self) -> list[dict[str, Any]]:
-        """List stashed changes. See ADR-039 §3.5 line 225."""
-        proc = self._run(
-            ["stash", "list", "--format=%gd\x1f%gs\x1f%ai"],
-            check=False,
-        )
-        if proc.returncode != 0:
-            return []
-        out: list[dict[str, Any]] = []
-        for line in (proc.stdout or "").splitlines():
-            if not line:
-                continue
-            parts = line.split("\x1f")
-            if len(parts) < 3:
-                continue
-            out.append({"stash_id": parts[0], "message": parts[1], "date": parts[2]})
-        return out
-
-    def stash_save(self, message: str | None = None) -> str:
-        """Save current changes to a new stash; return stash_id."""
-        args = ["stash", "push", "-u"]
-        if message:
-            args.extend(["-m", message])
-        proc = self._run(args, check=False)
-        if proc.returncode != 0:
-            raise GitError(proc.returncode, proc.stderr or "", args)
-        # "No local changes to save" exits 0 but stdout says so.
-        stdout = (proc.stdout or "").lower()
-        if "no local changes" in stdout:
-            raise GitError(1, "nothing to stash", args)
-        lst = self.stash_list()
-        if not lst:
-            raise GitError(1, "stash save returned no entry", args)
-        return str(lst[0]["stash_id"])
-
-    def stash_apply(self, stash_id: str) -> None:
-        """Apply a stash without dropping it."""
-        self._run(["stash", "apply", stash_id])
-
-    def stash_drop(self, stash_id: str) -> None:
-        """Drop a stash entry."""
-        self._run(["stash", "drop", stash_id])
 
     # ------------------------------------------------------------------
     # Conflict-resolution finalization

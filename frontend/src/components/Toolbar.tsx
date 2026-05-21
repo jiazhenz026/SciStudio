@@ -42,9 +42,9 @@ import {
 import type { ProjectResponse } from "../types/api";
 
 // ADR-039 §3.5 (#972) — Git affordances (BranchPicker / GitStatusBadge /
-// CommitDialog / StashListPanel / MergeFlow) used to mount here. They now
-// live in the dedicated Git BottomPanel tab (`components/Git/GitTab.tsx`)
-// so the top toolbar no longer overflows on narrow viewports and
+// CommitDialog / MergeFlow) used to mount here. They now live in the
+// dedicated Git BottomPanel tab (`components/Git/GitTab.tsx`) so the
+// top toolbar no longer overflows on narrow viewports and
 // GitHistoryList is reachable. The Toolbar is back to its pre-D39-2.3b
 // non-Git shape.
 

@@ -56,14 +56,6 @@ class CherryPickRequest(BaseModel):
     commit_sha: str
 
 
-class StashSaveRequest(BaseModel):
-    message: str | None = None
-
-
-class StashApplyRequest(BaseModel):
-    stash_id: str
-
-
 class MergeStageFileRequest(BaseModel):
     file: str
 
@@ -99,7 +91,7 @@ def _snapshot_workflows(project_dir: Path) -> dict[str, str | None]:
     """Capture content hashes for every ``workflows/*.yaml`` under *project_dir*.
 
     Hotfix #988: tree-mutating git operations (``branch_switch``, ``restore``,
-    ``merge``, ``cherry_pick``, ``stash_apply``) rewrite workflow YAML files on
+    ``merge``, ``cherry_pick``) rewrite workflow YAML files on
     disk so the canvas must reload them. The ADR-039 design relied on the
     filesystem-level :class:`WorkflowWatcher` to fire ``workflow.changed``
     events for any post-git modification — but watchdog event coalescing,
@@ -208,7 +200,6 @@ def _git_error_to_http(err: GitError) -> HTTPException:
     if (
         "nothing to commit" in msg
         or "no local changes" in msg
-        or "nothing to stash" in msg
         or "still has conflict markers" in msg
         or "would be overwritten" in msg
         or "your local changes" in msg
@@ -290,18 +281,12 @@ async def restore(request: Request, body: RestoreRequest) -> dict[str, str]:
     runtime = request.app.state.runtime
     project_dir = Path(runtime.active_project.path)
     before = _snapshot_workflows(project_dir)
-    was_dirty = False
     try:
-        was_dirty = engine.status()["dirty"]
         engine.restore(body.commit_sha, files=body.files)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
     # Hotfix #988: emit per-file workflow.changed so the canvas reloads.
     await _emit_workflow_diff(runtime.event_bus, project_dir, before)
-    if was_dirty:
-        stashes = engine.stash_list()
-        if stashes:
-            return {"status": "stashed", "stash_id": stashes[0]["stash_id"]}
     return {"status": "ok"}
 
 
@@ -440,61 +425,6 @@ async def cherry_pick(request: Request, body: CherryPickRequest) -> dict[str, An
         raise _git_error_to_http(exc) from exc
     await _emit_workflow_diff(runtime.event_bus, project_dir, before)
     return result
-
-
-# ---------------------------------------------------------------------------
-# Stash CRUD
-# ---------------------------------------------------------------------------
-
-
-@router.get("/stash")
-async def stash_list(request: Request) -> list[dict[str, Any]]:
-    """List stashed changes."""
-    engine = _engine_for_request(request)
-    try:
-        return engine.stash_list()
-    except GitError as exc:
-        raise _git_error_to_http(exc) from exc
-
-
-@router.post("/stash/save")
-async def stash_save(request: Request, body: StashSaveRequest) -> dict[str, str]:
-    """Save current changes to a new stash."""
-    engine = _engine_for_request(request)
-    try:
-        stash_id = engine.stash_save(message=body.message)
-    except GitError as exc:
-        raise _git_error_to_http(exc) from exc
-    return {"stash_id": stash_id}
-
-
-@router.post("/stash/apply")
-async def stash_apply(request: Request, body: StashApplyRequest) -> dict[str, Any]:
-    """Apply a stash entry (without dropping it)."""
-    engine = _engine_for_request(request)
-    runtime = request.app.state.runtime
-    project_dir = Path(runtime.active_project.path)
-    before = _snapshot_workflows(project_dir)
-    try:
-        engine.stash_apply(body.stash_id)
-    except GitError as exc:
-        raise _git_error_to_http(exc) from exc
-    await _emit_workflow_diff(runtime.event_bus, project_dir, before)
-    status = engine.status()
-    if status["conflicted"]:
-        return {"status": "conflict", "conflicted_files": status["conflicted"]}
-    return {"status": "ok"}
-
-
-@router.delete("/stash/{stash_id:path}")
-async def stash_drop(request: Request, stash_id: str) -> dict[str, str]:
-    """Drop a stash entry."""
-    engine = _engine_for_request(request)
-    try:
-        engine.stash_drop(stash_id)
-    except GitError as exc:
-        raise _git_error_to_http(exc) from exc
-    return {"status": "ok"}
 
 
 # ---------------------------------------------------------------------------

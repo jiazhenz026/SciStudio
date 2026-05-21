@@ -252,7 +252,8 @@ def create_app() -> FastAPI:
     # ADR-038 §5.2 — ``runs`` router (lineage REST surface, D38-2.4a).
     app.include_router(runs.router)
     # ADR-039 §3.5 — git endpoints (commit / log / diff / restore / branch
-    # ops / merge / cherry-pick / stash). D39-2.2b made these live.
+    # ops / merge / cherry-pick). D39-2.2b made these live. ADR-039 Addendum 1
+    # (#1352) removed the stash CRUD surface (#1353).
     app.include_router(git_routes.router)
 
     @app.get("/api/logs/stream")

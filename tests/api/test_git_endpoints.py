@@ -150,35 +150,37 @@ def test_restore_skips_when_file_unchanged(client: TestClient, opened_project: P
     """Hotfix #997: restore is a no-op when the target file content
     already matches the requested commit. Pre-fix, repeat clicks on
     Restore (e.g. while a different file was dirty) accumulated
-    `auto-stash before restore` entries that showed up in the graph
-    as commit nodes and confused users.
+    auto-handler entries that showed up in the graph as commit nodes
+    and confused users.
+
+    ADR-039 Addendum 1 (#1353): stash CRUD endpoints are gone, so the
+    "no stash created" check is replaced by a HEAD-stability check —
+    a no-op restore must not change HEAD.
     """
     target = opened_project / "file.yaml"
     target.write_text("A", encoding="utf-8")
     sha_a = client.post("/api/git/commit", json={"message": "A"}).json()["commit_sha"]
 
     # File content already matches sha_a (no change since the commit).
-    # Pre-fix this would NOT have created a stash (status was clean),
-    # but to guarantee the no-op even with an unrelated dirty file we
-    # mark another file dirty and confirm Restore still doesn't stash.
     other = opened_project / "other.txt"
     other.write_text("dirty unrelated", encoding="utf-8")
 
-    # Snapshot stash count before.
-    before = client.get("/api/git/stash").json()
-    before_count = len(before)
+    head_before = client.get(
+        "/api/git/log", params={"limit": 1}
+    ).json()[0]["sha"]
 
     resp = client.post(
         "/api/git/restore",
         json={"commit_sha": sha_a, "files": ["file.yaml"]},
     )
     assert resp.status_code == 200
-    # No stash should have been created because the target file is
-    # unchanged vs sha_a.
-    after = client.get("/api/git/stash").json()
-    assert len(after) == before_count, (
-        f"Restore should be a no-op when target file matches commit; "
-        f"stash count went from {before_count} to {len(after)}"
+
+    head_after = client.get(
+        "/api/git/log", params={"limit": 1}
+    ).json()[0]["sha"]
+    assert head_after == head_before, (
+        "Restore should be a no-op (no new commit) when target file "
+        "already matches the requested commit."
     )
     # File content unchanged.
     assert target.read_text(encoding="utf-8") == "A"
@@ -414,51 +416,6 @@ def test_cherry_pick_endpoint_clean(client: TestClient, opened_project: Path) ->
     resp = client.post("/api/git/cherry-pick", json={"commit_sha": feat_sha})
     assert resp.status_code == 200
     assert resp.json()["result"] == "clean"
-
-
-# ---------------------------------------------------------------------------
-# Stash CRUD
-# ---------------------------------------------------------------------------
-
-
-def test_stash_save_endpoint(client: TestClient, opened_project: Path) -> None:
-    _drain(client)
-    (opened_project / "wip.txt").write_text("x", encoding="utf-8")
-    resp = client.post("/api/git/stash/save", json={"message": "wip"})
-    assert resp.status_code == 200
-    assert resp.json()["stash_id"].startswith("stash@")
-
-
-def test_stash_list_endpoint(client: TestClient, opened_project: Path) -> None:
-    _drain(client)
-    (opened_project / "wip.txt").write_text("x", encoding="utf-8")
-    client.post("/api/git/stash/save", json={"message": "wip"})
-    resp = client.get("/api/git/stash")
-    assert resp.status_code == 200
-    assert len(resp.json()) >= 1
-
-
-def test_stash_apply_endpoint(client: TestClient, opened_project: Path) -> None:
-    _drain(client)
-    (opened_project / "wip.txt").write_text("x", encoding="utf-8")
-    stash_id = client.post("/api/git/stash/save", json={"message": "wip"}).json()["stash_id"]
-    resp = client.post("/api/git/stash/apply", json={"stash_id": stash_id})
-    assert resp.status_code == 200
-    assert resp.json()["status"] in ("ok", "conflict")
-
-
-def test_stash_drop_endpoint(client: TestClient, opened_project: Path) -> None:
-    _drain(client)
-    (opened_project / "wip.txt").write_text("x", encoding="utf-8")
-    stash_id = client.post("/api/git/stash/save", json={"message": "wip"}).json()["stash_id"]
-    resp = client.delete(f"/api/git/stash/{stash_id}")
-    assert resp.status_code == 200
-
-
-def test_stash_save_clean_409(client: TestClient, opened_project: Path) -> None:
-    _drain(client)
-    resp = client.post("/api/git/stash/save", json={"message": "nothing"})
-    assert resp.status_code == 409
 
 
 # ---------------------------------------------------------------------------

@@ -32,9 +32,6 @@
  *       Working-tree status from `GET /api/git/status`. Refreshed on
  *       `git.head_changed` events (via useWebSocket.ts → invalidateAll).
  *       The toolbar GitStatusBadge renders the `dirty` boolean.
- *   stashes:          GitStashEntry[] | null
- *       Cached from `GET /api/git/stash`. The StashListPanel consults this
- *       and `loadStashes()` refreshes.
  *   mergeInProgress:  { source_branch: string; conflicted_files: string[] } | null
  *       Set by `MergeFlow.tsx` (D39-2.4a, NOT THIS SKELETON) when a merge
  *       returns "conflict". `null` outside of a conflict resolution flow.
@@ -105,7 +102,6 @@ import type {
   GitCommit,
   GitCommitPrefix,
   GitHistoryFilter,
-  GitStashEntry,
   GitStatus,
 } from "../types/api";
 import type { AppStore } from "./types";
@@ -145,7 +141,6 @@ export interface GitSlice {
   logLoading: Record<string, boolean>;
   historyFilter: GitHistoryFilter;
   status: GitStatus | null;
-  stashes: GitStashEntry[] | null;
   mergeInProgress: GitMergeInProgress | null;
   lastError: string | null;
   /**
@@ -177,15 +172,11 @@ export interface GitSlice {
   loadBranches: () => Promise<void>;
   loadLog: (branch?: string) => Promise<void>;
   loadStatus: () => Promise<void>;
-  loadStashes: () => Promise<void>;
   commit: (message: string, files?: string[]) => Promise<string>;
   switchBranch: (name: string) => Promise<void>;
   createBranch: (name: string, baseSha?: string) => Promise<void>;
   deleteBranch: (name: string, force?: boolean) => Promise<void>;
-  restore: (
-    commitSha: string,
-    files?: string[],
-  ) => Promise<{ status: "ok" } | { status: "stashed"; stash_id: string }>;
+  restore: (commitSha: string, files?: string[]) => Promise<{ status: "ok" }>;
   setMergeInProgress: (state: GitMergeInProgress | null) => void;
   /**
    * Open or close MergeFlow. `source` is the branch being merged into
@@ -261,7 +252,6 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
   logLoading: {},
   historyFilter: "manual",
   status: null,
-  stashes: null,
   mergeInProgress: null,
   mergeFlowSource: null,
   mergeFlowProjectId: null,
@@ -272,8 +262,8 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
   invalidateHistory: () => {
     // Clear cached log / status / branch list. Called from useWebSocket on
     // `git.head_changed` and from any other action that needs to discard
-    // stale git state (commit, switch, restore, merge resolve, stash apply).
-    set({ logCache: {}, status: null, branches: null, stashes: null });
+    // stale git state (commit, switch, restore, merge resolve).
+    set({ logCache: {}, status: null, branches: null });
     // #984 fix: actively re-fetch instead of waiting for "the next consumer
     // render" — no consumer (BranchPicker, GitHistoryList, GitStatusBadge)
     // is wired to re-fetch on state=null. They only call their respective
@@ -284,10 +274,6 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
     void get().loadBranches();
     void get().loadStatus();
     void get().loadLog();
-    // Stashes refetch is intentionally skipped — the stash panel runs
-    // its own useEffect and the cost of an always-on stash poll on
-    // every external git op outweighs the benefit on the small minority
-    // of sessions that have the stash drawer open mid-flow.
   },
 
   setMergeInProgress: (state) => set({ mergeInProgress: state }),
@@ -339,15 +325,6 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
       set({ status, lastError: null });
     } catch (err) {
       set({ lastError: describeApiError(err, "Failed to load git status") });
-    }
-  },
-
-  loadStashes: async () => {
-    try {
-      const stashes = await api.gitStashList();
-      set({ stashes, lastError: null });
-    } catch (err) {
-      set({ lastError: describeApiError(err, "Failed to load stashes") });
     }
   },
 
@@ -406,10 +383,6 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
 
   restore: async (commitSha: string, files?: string[]) => {
     try {
-      // Codex P2-A on PR #940: forward the `{status,stash_id}` response so
-      // callers (GitHistoryList) can open StashApplyDialog when a dirty tree
-      // was auto-stashed. Dropping this payload made restore-on-dirty look
-      // like silent data disappearance.
       const result = await api.gitRestore({ commit_sha: commitSha, files });
       set({ status: null, lastError: null });
       void get().loadStatus();

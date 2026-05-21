@@ -27,7 +27,6 @@ vi.mock("../../lib/api", async () => {
         untracked: [],
         conflicted: [],
       }),
-      gitStashList: vi.fn().mockResolvedValue([]),
       gitCommit: vi.fn().mockResolvedValue({ commit_sha: "deadbee" }),
       gitBranchSwitch: vi.fn().mockResolvedValue({ status: "ok", current_branch: "main" }),
       gitBranchCreate: vi.fn().mockResolvedValue({ status: "ok", name: "x" }),
@@ -271,17 +270,6 @@ describe("gitSlice — mutation actions", () => {
     (api.gitCommit as any).mockRejectedValueOnce(new Error("boom"));
     await expect(slice.commit("x")).rejects.toThrow(/boom/);
     expect(get().lastError).toMatch(/boom/);
-  });
-
-  it("restore returns the backend payload including stash_id when stashed (Codex P2-A)", async () => {
-    const { slice } = makeSlice();
-    const { api } = await import("../../lib/api");
-    (api.gitRestore as any).mockResolvedValueOnce({
-      status: "stashed",
-      stash_id: "stash@{0}",
-    });
-    const result = await slice.restore("abc1234");
-    expect(result).toEqual({ status: "stashed", stash_id: "stash@{0}" });
   });
 
   it("switchBranch invalidates caches and reloads", async () => {

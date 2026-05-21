@@ -15,8 +15,6 @@ import type {
   GitDiff,
   GitMergeResult,
   GitRestoreResult,
-  GitStashApplyResult,
-  GitStashEntry,
   GitStatus,
   ProjectResponse,
   TreeResponse,
@@ -418,8 +416,7 @@ export const api = {
   // into store state.
   //
   // Wire contract reference: see `frontend/src/types/api.ts` for the
-  // GitCommit / GitBranch / GitStashEntry / GitStatus / GitMergeResult
-  // shapes.
+  // GitCommit / GitBranch / GitStatus / GitMergeResult shapes.
   // -------------------------------------------------------------------------
   gitCommit: (body: { message: string; author?: string; files?: string[] }) =>
     apiFetch<GitCommitResponse>("/api/git/commit", {
@@ -484,26 +481,6 @@ export const api = {
       headers: JSON_HEADERS,
       body: JSON.stringify({ commit_sha }),
     }),
-
-  // Stash CRUD
-  gitStashList: () => apiFetch<GitStashEntry[]>("/api/git/stash"),
-  gitStashSave: (message?: string) =>
-    apiFetch<{ stash_id: string }>("/api/git/stash/save", {
-      method: "POST",
-      headers: JSON_HEADERS,
-      body: JSON.stringify({ message }),
-    }),
-  gitStashApply: (stash_id: string) =>
-    apiFetch<GitStashApplyResult>("/api/git/stash/apply", {
-      method: "POST",
-      headers: JSON_HEADERS,
-      body: JSON.stringify({ stash_id }),
-    }),
-  gitStashDrop: (stash_id: string) =>
-    apiFetch<{ status: string }>(
-      `/api/git/stash/${encodeURIComponent(stash_id)}`,
-      { method: "DELETE" },
-    ),
 
   // Conflict-resolution finalization (consumed by MergeFlow in D39-2.4a)
   gitMergeStageFile: (file: string) =>
