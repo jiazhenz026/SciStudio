@@ -46,9 +46,38 @@ export function BranchPicker(props: BranchPickerProps): JSX.Element {
   const createBranch = useAppStore((s) => s.createBranch);
   const deleteBranch = useAppStore((s) => s.deleteBranch);
   const currentProject = useAppStore((s) => s.currentProject);
+  // ADR-039 Addendum 1 (#1354) — surface the safety auto-commit hint
+  // the slice stamps after a successful dirty-tree branch switch. We
+  // read `lastNotice` and clear it via `setLastNotice(null)` after
+  // the configured `BRANCH_AUTO_COMMIT_TOAST_MS` window.
+  const lastNotice = useAppStore((s) => s.lastNotice);
+  const setLastNotice = useAppStore((s) => s.setLastNotice);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
+  const [autoCommitToast, setAutoCommitToast] = useState<string | null>(null);
+
+  // Mirror `lastNotice` into a local timer so multiple consumers of
+  // `lastNotice` (RestoreWorkflowButton's hint slot is a sibling reader)
+  // don't fight over a single global clear.
+  useEffect(() => {
+    if (!lastNotice) {
+      setAutoCommitToast(null);
+      return;
+    }
+    // Only render the toast here if the notice actually came from a
+    // branch switch (heuristic: "before switching"); the restore path
+    // surfaces its own hint inline in RunDetail.
+    if (lastNotice.includes("before switching")) {
+      setAutoCommitToast(lastNotice);
+      const handle = window.setTimeout(() => {
+        setAutoCommitToast(null);
+        setLastNotice(null);
+      }, 6000);
+      return () => window.clearTimeout(handle);
+    }
+    return;
+  }, [lastNotice, setLastNotice]);
 
   // Reload branches whenever the active project changes (Codex P1-A on PR #940):
   // the `branches` cache lives in a global slice and is not cleared by
@@ -240,6 +269,18 @@ export function BranchPicker(props: BranchPickerProps): JSX.Element {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {autoCommitToast && createPortal(
+        <div
+          data-testid="branch-picker-auto-commit-toast"
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-4 right-4 z-50 max-w-md rounded-md border border-stone-300 bg-white px-4 py-3 text-xs text-ink shadow-lg"
+        >
+          {autoCommitToast}
+        </div>,
+        document.body,
+      )}
 
       {createOpen && createPortal(
         <div

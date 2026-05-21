@@ -366,6 +366,15 @@ class GitEngine:
     def restore(self, commit_sha: str, *, files: list[str] | None = None) -> None:
         """Soft restore (no HEAD move). See ADR-039 §3.6.
 
+        ADR-039 Addendum 1 (#1354): this engine method is now a pure
+        soft restore — the caller is responsible for auto-committing a
+        dirty working tree first (see ``routes/git.py::restore`` for
+        the route-layer auto-commit). Pre-addendum the engine itself
+        auto-stashed dirty state; that behavior was moved up so the
+        route layer can return ``auto_commit_sha`` in the response
+        and the frontend can surface a "committed as <sha>" hint
+        instead of stash drawer language.
+
         Hotfix #997: when every target file's content at ``commit_sha``
         is byte-identical to its current working-tree content, restore
         is a no-op — skip the actual ``git checkout``. Pre-fix, clicking

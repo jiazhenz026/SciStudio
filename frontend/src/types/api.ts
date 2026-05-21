@@ -391,8 +391,19 @@ export interface GitCommitResponse {
   commit_sha: string;
 }
 
-/** Response shape for `/api/git/restore`. */
-export type GitRestoreResult = { status: "ok" };
+/**
+ * Response shape for `/api/git/restore`.
+ *
+ * ADR-039 Addendum 1 (#1354): when the working tree was dirty before the
+ * restore, the backend auto-commits the dirty content first (prefix
+ * `auto`, message `pre-restore @ <iso-ts> (target=<short_sha>)`) and
+ * returns the new commit SHA in `auto_commit_sha`. When the tree was
+ * clean, `auto_commit_sha` is `null`.
+ */
+export type GitRestoreResult = {
+  status: "ok";
+  auto_commit_sha: string | null;
+};
 
 /**
  * Filter modes for the History panel dropdown per ADR-039 §3.4 / §3.5c.

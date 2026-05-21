@@ -28,10 +28,16 @@ vi.mock("../../lib/api", async () => {
         conflicted: [],
       }),
       gitCommit: vi.fn().mockResolvedValue({ commit_sha: "deadbee" }),
-      gitBranchSwitch: vi.fn().mockResolvedValue({ status: "ok", current_branch: "main" }),
+      gitBranchSwitch: vi.fn().mockResolvedValue({
+        status: "ok",
+        current_branch: "main",
+        auto_commit_sha: null,
+      }),
       gitBranchCreate: vi.fn().mockResolvedValue({ status: "ok", name: "x" }),
       gitBranchDelete: vi.fn().mockResolvedValue({ status: "ok" }),
-      gitRestore: vi.fn().mockResolvedValue({ status: "ok" } as const),
+      gitRestore: vi
+        .fn()
+        .mockResolvedValue({ status: "ok", auto_commit_sha: null }),
     },
   };
 });
@@ -278,6 +284,59 @@ describe("gitSlice — mutation actions", () => {
     const { api } = await import("../../lib/api");
     expect(api.gitBranchSwitch).toHaveBeenCalledWith("feature");
     expect(get().lastError).toBeNull();
+  });
+
+  it("switchBranch with clean tree returns auto_commit_sha=null and leaves lastNotice null (#1354)", async () => {
+    const { slice, get } = makeSlice();
+    const result = await slice.switchBranch("feature");
+    expect(result).toEqual({ auto_commit_sha: null });
+    expect(get().lastNotice).toBeNull();
+  });
+
+  it("switchBranch with dirty tree stamps lastNotice with the auto-commit SHA hint (#1354)", async () => {
+    let state: any = {};
+    const set = (partial: any) => {
+      state =
+        typeof partial === "function"
+          ? { ...state, ...partial(state) }
+          : { ...state, ...partial };
+    };
+    const get = () => state;
+    const slice = createGitSlice(set, get, {} as any);
+    // Seed: slice defaults first, then override currentBranch so the
+    // switchBranch handler reads "main" as the previous branch.
+    state = { ...slice, currentBranch: "main" };
+
+    const { api } = await import("../../lib/api");
+    (api.gitBranchSwitch as any).mockResolvedValueOnce({
+      status: "ok",
+      current_branch: "feature",
+      auto_commit_sha: "abc1234deadbeef" + "0".repeat(25),
+    });
+    const result = await slice.switchBranch("feature");
+    expect(result.auto_commit_sha).toContain("abc1234");
+    expect(get().lastNotice).toMatch(
+      /Auto-committed unsaved changes on main as abc1234 before switching to feature/,
+    );
+  });
+
+  it("restore returns auto_commit_sha (null on clean tree) (#1354)", async () => {
+    const { slice, get } = makeSlice();
+    const result = await slice.restore("abc1234");
+    expect(result.auto_commit_sha).toBeNull();
+    expect(get().lastNotice).toBeNull();
+  });
+
+  it("restore with dirty tree stamps lastNotice with the auto-commit hint (#1354)", async () => {
+    const { slice, get } = makeSlice();
+    const { api } = await import("../../lib/api");
+    (api.gitRestore as any).mockResolvedValueOnce({
+      status: "ok",
+      auto_commit_sha: "fedcba987" + "0".repeat(31),
+    });
+    const result = await slice.restore("abc1234");
+    expect(result.auto_commit_sha).toContain("fedcba9");
+    expect(get().lastNotice).toMatch(/Your unsaved changes were committed as fedcba9 before the restore/);
   });
 
   it("invalidateHistory clears log + status + branches", () => {

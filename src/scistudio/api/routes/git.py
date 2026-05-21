@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -181,6 +182,37 @@ async def _emit_workflow_diff(
             )
 
 
+def _auto_commit_if_dirty(engine: GitEngine, message: str) -> str | None:
+    """Auto-commit a dirty working tree with ``prefix="auto"``.
+
+    ADR-039 Addendum 1 §11.3 (#1354): the dirty-tree branch-switch and
+    restore paths used to call ``git stash``. They now auto-commit
+    instead so the user's prior state is one ``git checkout HEAD^``
+    away in History rather than buried in a stash drawer the user is
+    not expected to know about.
+
+    Returns the new HEAD SHA on success, ``None`` if the tree was
+    clean (no commit needed). Catches the engine's "nothing to commit"
+    error as a no-op — this is the race-window where ``status()`` saw
+    dirty but the staged diff was empty by the time ``commit()`` ran
+    (typically: untracked-only files plus a gitignore-filtered subset).
+    """
+    if not engine.status()["dirty"]:
+        return None
+    try:
+        return engine.commit(message, prefix="auto")
+    except GitError as exc:
+        stderr_lower = (exc.stderr or "").lower()
+        if "nothing to commit" in stderr_lower or "no local changes" in stderr_lower:
+            return None
+        raise
+
+
+def _iso_ts_now() -> str:
+    """Return the current UTC time as an ISO-8601 string (no microseconds)."""
+    return datetime.now(UTC).replace(microsecond=0).isoformat()
+
+
 def _git_error_to_http(err: GitError) -> HTTPException:
     """Translate GitError stderr patterns into the right HTTP status code."""
     msg = (err.stderr or "").lower()
@@ -275,19 +307,37 @@ async def diff(
 
 
 @router.post("/restore")
-async def restore(request: Request, body: RestoreRequest) -> dict[str, str]:
-    """Soft-restore files from a prior commit. ADR-039 §3.5 line 220, §3.6."""
+async def restore(request: Request, body: RestoreRequest) -> dict[str, Any]:
+    """Soft-restore files from a prior commit. ADR-039 §3.5 line 220, §3.6.
+
+    ADR-039 Addendum 1 (#1354): when the working tree is dirty, auto-
+    commit the dirty content first with ``prefix="auto"`` and
+    ``message="pre-restore @ <iso-ts> (target=<short_sha>)"`` so the
+    user's prior state is recoverable via a normal ``git checkout
+    HEAD^``. The response carries ``auto_commit_sha`` (string when an
+    auto-commit landed, otherwise ``null``); the frontend
+    ``RestoreWorkflowButton`` surfaces a "committed as <sha>" hint
+    when it is non-null.
+    """
     engine = _engine_for_request(request)
     runtime = request.app.state.runtime
     project_dir = Path(runtime.active_project.path)
     before = _snapshot_workflows(project_dir)
     try:
+        # ADR-039 Addendum 1 (#1354): auto-commit dirty tree BEFORE the
+        # checkout overlays the historical content. This protects the
+        # user's unsaved edits as a recoverable commit on the current
+        # branch — much friendlier than the previous stash-and-pray.
+        auto_sha = _auto_commit_if_dirty(
+            engine,
+            f"pre-restore @ {_iso_ts_now()} (target={body.commit_sha[:7]})",
+        )
         engine.restore(body.commit_sha, files=body.files)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
     # Hotfix #988: emit per-file workflow.changed so the canvas reloads.
     await _emit_workflow_diff(runtime.event_bus, project_dir, before)
-    return {"status": "ok"}
+    return {"status": "ok", "auto_commit_sha": auto_sha}
 
 
 # ---------------------------------------------------------------------------
@@ -306,8 +356,17 @@ async def branches(request: Request) -> list[dict[str, Any]]:
 
 
 @router.post("/branch/switch")
-async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str, str]:
+async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str, Any]:
     """Switch to an existing branch.
+
+    ADR-039 Addendum 1 (#1354): when the working tree is dirty, auto-
+    commit the dirty content first with ``prefix="auto"`` and
+    ``message="pre-switch @ <iso-ts> (from=<old>, to=<new>)"`` so the
+    raw "your local changes would be overwritten" error is replaced by
+    a safe, recoverable commit. The response carries
+    ``auto_commit_sha`` (string when an auto-commit landed, otherwise
+    ``null``); the frontend ``BranchPicker`` surfaces a transient
+    toast when it is non-null.
 
     Phase 3.5 integration audit P2-2: after the branch switch lands,
     refresh the in-process block registry so per-project custom blocks
@@ -324,7 +383,16 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
     runtime = request.app.state.runtime
     project_dir = Path(runtime.active_project.path)
     before = _snapshot_workflows(project_dir)
+    old_branch = engine.current_branch() or "(detached)"
     try:
+        # ADR-039 Addendum 1 (#1354): auto-commit dirty tree BEFORE the
+        # checkout so the user does not see a raw git "your local
+        # changes would be overwritten" error. The auto commit lands on
+        # ``old_branch`` and is recoverable via History.
+        auto_sha = _auto_commit_if_dirty(
+            engine,
+            f"pre-switch @ {_iso_ts_now()} (from={old_branch}, to={body.branch_name})",
+        )
         engine.branch_switch(body.branch_name)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
@@ -342,7 +410,11 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
     # ``_snapshot_workflows`` docstring for why this can't rely on the
     # filesystem watcher.
     await _emit_workflow_diff(runtime.event_bus, project_dir, before)
-    return {"status": "ok", "current_branch": body.branch_name}
+    return {
+        "status": "ok",
+        "current_branch": body.branch_name,
+        "auto_commit_sha": auto_sha,
+    }
 
 
 @router.post("/branch/create")

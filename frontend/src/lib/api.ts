@@ -448,7 +448,11 @@ export const api = {
   // Branches
   gitBranches: () => apiFetch<GitBranch[]>("/api/git/branches"),
   gitBranchSwitch: (branch_name: string) =>
-    apiFetch<{ status: string; current_branch: string }>("/api/git/branch/switch", {
+    apiFetch<{
+      status: string;
+      current_branch: string;
+      auto_commit_sha: string | null;
+    }>("/api/git/branch/switch", {
       method: "POST",
       headers: JSON_HEADERS,
       body: JSON.stringify({ branch_name }),
