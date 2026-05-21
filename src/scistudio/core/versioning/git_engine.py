@@ -490,6 +490,102 @@ class GitEngine:
         flag = "-D" if force else "-d"
         self._run(["branch", flag, name])
 
+    def commits_reachable_only_from(self, branch: str) -> list[str]:
+        """Return commits reachable from ``branch`` but no other ref.
+
+        ADR-039 Addendum 1 §11.4 row #1356: feeds the branch-delete
+        safety net. ``git rev-list refs/heads/<branch> --not <all-other-refs>``
+        is git's canonical "what would become unreachable" query — the
+        same logic ``git branch -d`` uses internally to refuse a delete
+        when the branch is not merged.
+
+        We use the fully-qualified ``refs/heads/<branch>`` form on the
+        target side of the rev-list so name resolution is unambiguous
+        when a tag and a branch share the same short name (Codex P1 on
+        PR #1381). Without this, ``git rev-list foo`` could resolve
+        ``foo`` as ``refs/tags/foo`` and compute orphan candidates
+        from the tag instead of the branch, causing the safety net to
+        skip pinning real branch-only commits.
+
+        We enumerate "all other refs" via ``git for-each-ref`` rather
+        than relying on ``--branches --tags --remotes`` shortcuts so the
+        result is robust to user-created refs (including the
+        ``refs/scistudio/lineage/*`` namespace this safety net writes
+        to — these MUST count as "other refs" so calling this method a
+        second time after a tag is created returns an empty list).
+
+        Returns
+        -------
+        list[str]
+            Full 40-char SHAs that are reachable only from ``branch``.
+            Empty list if every commit on the branch is also reachable
+            via at least one other ref. Returns ``[]`` on a non-existent
+            branch rather than raising — the caller (route layer) is
+            about to delete the branch anyway and will surface a
+            structured error from ``branch_delete`` if it really doesn't
+            exist.
+        """
+        # Use the fully-qualified ref form on BOTH the include (target)
+        # side and the exclude side so name resolution cannot collide
+        # with a tag or remote-tracking ref of the same short name.
+        target_ref = f"refs/heads/{branch}"
+        ref_proc = self._run(
+            ["for-each-ref", "--format=%(refname)"],
+            check=False,
+        )
+        if ref_proc.returncode != 0:
+            return []
+        other_refs = [
+            line.strip() for line in (ref_proc.stdout or "").splitlines() if line.strip() and line.strip() != target_ref
+        ]
+        if not other_refs:
+            # No other refs exist (single-branch repo); every commit on
+            # ``branch`` is technically only reachable from it. Return
+            # empty list rather than rev-list-ing without ``--not`` —
+            # the safety net is meaningful only in multi-ref repos.
+            return []
+        proc = self._run(
+            ["rev-list", target_ref, "--not", *other_refs],
+            check=False,
+        )
+        if proc.returncode != 0:
+            # rev-list on a missing branch returns non-zero. Treat as
+            # "no orphan candidates" — branch_delete will surface the
+            # real error.
+            return []
+        return [line.strip() for line in (proc.stdout or "").splitlines() if line.strip()]
+
+    def tag(self, name: str, target_sha: str, *, force: bool = False) -> None:
+        """Create (or overwrite) a ref ``name`` pointing to ``target_sha``.
+
+        ADR-039 Addendum 1 §11.4 row #1356: used by the branch-delete
+        safety net to pin lineage-referenced commits under
+        ``refs/scistudio/lineage/<sha>`` before deletion. Despite the
+        method name, this uses ``git update-ref`` rather than
+        ``git tag`` so the ref lands in the caller-specified namespace
+        (``refs/scistudio/lineage/*``) and stays out of the
+        ``refs/tags/*`` namespace where the History view's chip
+        renderer would otherwise pick it up.
+
+        Idempotent: ``update-ref`` overwrites by default, so re-running
+        the safety net on a branch whose orphan-set was already pinned
+        is a silent no-op.
+
+        Parameters
+        ----------
+        name:
+            Fully-qualified ref name (e.g. ``refs/scistudio/lineage/<sha>``).
+            Must start with ``refs/`` — git update-ref enforces this.
+        target_sha:
+            The commit SHA the ref should point to.
+        force:
+            Accepted for API symmetry with ``git tag``; ignored because
+            ``update-ref`` is already overwrite-by-default.
+        """
+        # ``force`` is intentionally unused — see docstring.
+        del force
+        self._run(["update-ref", name, target_sha])
+
     # ------------------------------------------------------------------
     # Working-tree status
     # ------------------------------------------------------------------

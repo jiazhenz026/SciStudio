@@ -361,6 +361,163 @@ def test_branches_current_first(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# commits_reachable_only_from / tag — ADR-039 Addendum 1 #1356
+# ---------------------------------------------------------------------------
+
+
+def _commit_file(engine: GitEngine, tmp_path: Path, name: str, content: str, message: str) -> str:
+    """Write *name* with *content*, stage, and commit. Returns commit SHA."""
+    (tmp_path / name).write_text(content, encoding="utf-8")
+    engine._run(["add", "--", name])
+    engine._run(
+        [
+            "-c",
+            "user.name=test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "-m",
+            message,
+        ]
+    )
+    return engine.head_state().commit_sha
+
+
+def test_commits_reachable_only_from_returns_branch_only_shas(tmp_path: Path) -> None:
+    """A-B-C on main, A-B-D on feature → feature-only delete candidate = [D]."""
+    engine = _init_engine(tmp_path)
+    # _init_engine already creates an initial commit on main → that's A.
+    sha_b = _commit_file(engine, tmp_path, "shared.txt", "shared", "B shared")
+    # Create feature off B and add D.
+    engine.branch_create("feature", base=sha_b)
+    # Add C on main.
+    _commit_file(engine, tmp_path, "main_only.txt", "C content", "C main")
+    # Switch to feature and add D.
+    engine.branch_switch("feature")
+    sha_d = _commit_file(engine, tmp_path, "feature_only.txt", "D content", "D feature")
+    # Switch back to main so feature can be deleted.
+    engine.branch_switch("main")
+
+    orphans = engine.commits_reachable_only_from("feature")
+
+    assert orphans == [sha_d], "Only D is reachable only from feature; A, B, C are reachable via main."
+
+
+def test_commits_reachable_only_from_merged_branch_returns_empty(tmp_path: Path) -> None:
+    """A fully merged branch has no orphan candidates."""
+    engine = _init_engine(tmp_path)
+    engine.branch_create("temp")
+    # No new commits on temp; HEAD is the same as main.
+    orphans = engine.commits_reachable_only_from("temp")
+    assert orphans == []
+
+
+def test_commits_reachable_only_from_unknown_branch_returns_empty(tmp_path: Path) -> None:
+    """A non-existent branch returns ``[]`` (caller handles delete error)."""
+    engine = _init_engine(tmp_path)
+    assert engine.commits_reachable_only_from("does-not-exist") == []
+
+
+def test_tag_creates_ref_under_specified_namespace(tmp_path: Path) -> None:
+    """``tag`` creates a ref under the caller-specified namespace via update-ref."""
+    engine = _init_engine(tmp_path)
+    sha = engine.head_state().commit_sha
+    ref_name = f"refs/scistudio/lineage/{sha}"
+
+    engine.tag(ref_name, sha)
+
+    # Verify the ref exists and points at the SHA.
+    proc = engine._run(["rev-parse", ref_name], check=False)
+    assert proc.returncode == 0
+    assert (proc.stdout or "").strip() == sha
+
+
+def test_tag_is_idempotent(tmp_path: Path) -> None:
+    """Re-running ``tag`` with the same name+SHA is a silent no-op."""
+    engine = _init_engine(tmp_path)
+    sha = engine.head_state().commit_sha
+    ref_name = f"refs/scistudio/lineage/{sha}"
+
+    engine.tag(ref_name, sha)
+    engine.tag(ref_name, sha)  # Must not raise.
+
+    proc = engine._run(["rev-parse", ref_name], check=False)
+    assert proc.returncode == 0
+    assert (proc.stdout or "").strip() == sha
+
+
+def test_tag_stays_out_of_refs_tags(tmp_path: Path) -> None:
+    """The ref namespace is hidden from ``refs/tags/`` so log chips don't show it."""
+    engine = _init_engine(tmp_path)
+    sha = engine.head_state().commit_sha
+    engine.tag(f"refs/scistudio/lineage/{sha}", sha)
+
+    # for-each-ref refs/tags/ must return nothing for the lineage ref.
+    proc = engine._run(["for-each-ref", "--format=%(refname)", "refs/tags/"], check=False)
+    tag_lines = (proc.stdout or "").strip().splitlines()
+    assert all("scistudio" not in line for line in tag_lines), (
+        f"refs/scistudio/lineage/* leaked into refs/tags/: {tag_lines}"
+    )
+
+
+def test_commits_reachable_only_from_disambiguates_branch_vs_tag(tmp_path: Path) -> None:
+    """Codex P1 on PR #1381 — fully-qualified ref form on rev-list target.
+
+    When a tag and a branch share the same short name, ``git rev-list
+    <short>`` can resolve to either ref. The implementation passes
+    ``refs/heads/<branch>`` explicitly to remove the ambiguity.
+    Without the fix, the orphan-candidate set computed against the tag
+    (which is reachable from main) would be empty, and the safety net
+    would silently skip pinning the real branch-only commits.
+    """
+    engine = _init_engine(tmp_path)
+    sha_b = _commit_file(engine, tmp_path, "shared.txt", "shared", "B shared")
+
+    # Create a tag at B (the shared commit), THEN create a branch with the
+    # same short name and add a unique commit on it.
+    engine._run(["tag", "collision", sha_b])
+    engine.branch_create("collision", base=sha_b)
+    engine.branch_switch("collision")
+    sha_d = _commit_file(engine, tmp_path, "branch_only.txt", "D", "D branch tip")
+    engine.branch_switch("main")
+
+    # The orphan set must be [sha_d] — the unique branch tip.
+    # Without the fully-qualified-ref fix, rev-list would resolve
+    # ``collision`` as the tag (at sha_b) and return [] because sha_b
+    # is also reachable via main.
+    orphans = engine.commits_reachable_only_from("collision")
+    assert orphans == [sha_d], (
+        f"Codex P1 regression: collision-named branch+tag returned {orphans!r}; "
+        f"expected [{sha_d!r}]. rev-list likely resolved 'collision' as the tag."
+    )
+
+
+def test_commits_reachable_only_from_lineage_ref_excludes_pinned_sha(tmp_path: Path) -> None:
+    """After ``tag`` pins a SHA, ``commits_reachable_only_from`` no longer reports it.
+
+    This guarantees the safety net is idempotent: re-running on a branch
+    whose orphans were already pinned returns ``[]`` so no duplicate
+    ``update-ref`` calls happen (also harmless if they did — `update-ref`
+    is overwrite-by-default).
+    """
+    engine = _init_engine(tmp_path)
+    sha_b = _commit_file(engine, tmp_path, "shared.txt", "shared", "B shared")
+    engine.branch_create("feature", base=sha_b)
+    engine.branch_switch("feature")
+    sha_d = _commit_file(engine, tmp_path, "feature_only.txt", "D", "D feature")
+    engine.branch_switch("main")
+
+    # First call — D is reported as orphan.
+    assert engine.commits_reachable_only_from("feature") == [sha_d]
+
+    # Pin D under the lineage ref namespace.
+    engine.tag(f"refs/scistudio/lineage/{sha_d}", sha_d)
+
+    # Second call — D is now reachable via the lineage ref, no longer reported.
+    assert engine.commits_reachable_only_from("feature") == []
+
+
+# ---------------------------------------------------------------------------
 # Status / head_state
 # ---------------------------------------------------------------------------
 
