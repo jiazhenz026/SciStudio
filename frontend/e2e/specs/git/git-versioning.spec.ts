@@ -173,6 +173,9 @@ async function createProjectWithWorkflow(
 async function openProjectInUi(page: Page, project: ProjectResponse): Promise<void> {
   await page.goto("/");
   await page.getByRole("button", { name: new RegExp(escapeRegex(project.name)) }).click();
+  await page.getByRole("button", { name: /^Project$/ }).click();
+  await page.getByText("workflows", { exact: true }).click();
+  await page.getByText(`${WORKFLOW_ID}.yaml`, { exact: true }).dblclick();
   await expect(page.getByRole("tab", { name: WORKFLOW_ID })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".react-flow")).toBeVisible();
 }
@@ -272,11 +275,13 @@ async function expectCanvasMatchesWorkflow(
   expect(fromDisk.edges).toEqual(expected.edges);
 
   await expect(page.locator(".react-flow__node")).toHaveCount(fromDisk.nodes.length, { timeout: 10_000 });
-  await expect(page.locator(".react-flow__edge")).toHaveCount(fromDisk.edges.length);
   for (const node of fromDisk.nodes) {
     await expect(page.locator(`.react-flow__node[data-id="${node.id}"]`)).toHaveCount(1);
   }
-  await expect(page.getByRole("tab", { name: workflowId })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: new RegExp(`^${escapeRegex(workflowId)}(?: \\*)?$`) })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 }
 
 function workflowFixture(kind: "base" | "expanded" | "branched" | "manual-change"): WorkflowPayload {

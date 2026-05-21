@@ -66,21 +66,23 @@ const baseNodes = [
     id: "load_image",
     block_type: "imaging.load_image",
     layout: { x: 80, y: 120 },
-    config: { path: "data/raw/synthetic-fluorescence.png" },
+    config: { params: { path: "data/raw/synthetic-fluorescence.tif" } },
   },
   {
     id: "threshold",
     block_type: "imaging.threshold",
     layout: { x: 360, y: 120 },
-    config: { method: "otsu" },
+    config: { params: { method: "otsu" } },
   },
   {
     id: "save_threshold",
     block_type: "imaging.save_image",
     layout: { x: 640, y: 120 },
     config: {
-      path: "data/artifacts/threshold-mask.png",
-      capability_id: "scistudio-blocks-imaging.image.png.save",
+      params: {
+        path: "data/artifacts/threshold-mask.tif",
+        capability_id: "scistudio-blocks-imaging.image.tiff.save",
+      },
     },
   },
 ];
@@ -93,7 +95,7 @@ const baseEdges = [
 export const minimalLoadThresholdSaveWorkflow: E2EWorkflow = {
   workflowId: "minimal-image-threshold-save",
   workflowPath: "workflows/minimal-image-threshold-save.yaml",
-  expectedOutputPath: "data/artifacts/threshold-mask.png",
+  expectedOutputPath: "data/artifacts/threshold-mask.tif",
   workflow: {
     id: "minimal-image-threshold-save",
     version: "1.0.0",
@@ -113,7 +115,7 @@ export const invalidThresholdWorkflow: E2EWorkflow = {
     id: "invalid-threshold",
     nodes: baseNodes.map((node) =>
       node.id === "threshold"
-        ? { ...node, config: { method: "not-a-real-threshold-method" } }
+        ? { ...node, config: { params: { method: "not-a-real-threshold-method" } } }
         : node,
     ),
   },
@@ -128,7 +130,7 @@ export const failingLoadImageWorkflow: E2EWorkflow = {
     id: "failing-load-image",
     nodes: baseNodes.map((node) =>
       node.id === "load_image"
-        ? { ...node, config: { path: "data/raw/missing-image.png" } }
+        ? { ...node, config: { params: { path: "data/raw/missing-image.tif" } } }
         : node,
     ),
   },

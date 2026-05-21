@@ -93,6 +93,7 @@ jobs:
         with:
           name: e2e-discovery-artifacts
           if-no-files-found: warn
+          include-hidden-files: true
           path: |
             frontend/.e2e-artifacts/**
 

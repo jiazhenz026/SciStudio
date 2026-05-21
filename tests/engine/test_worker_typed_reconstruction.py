@@ -815,6 +815,40 @@ class TestTypeRegistrySingleton:
         cls: Any = registry.resolve(["DataObject", "Array"])
         assert cls is Array
 
+    def test_singleton_scans_monorepo_types_in_dev_mode(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """SCISTUDIO_DEV=1 enables monorepo plugin type discovery in workers."""
+        from scistudio.core.types.registry import TypeRegistry
+
+        calls: list[bool] = []
+
+        def fake_scan(self: TypeRegistry) -> None:
+            calls.append(True)
+
+        _reset_registry_singleton()
+        monkeypatch.setenv("SCISTUDIO_DEV", "1")
+        monkeypatch.setattr(TypeRegistry, "_scan_monorepo_types", fake_scan)
+
+        _get_type_registry()
+
+        assert calls == [True]
+
+    def test_singleton_skips_monorepo_types_outside_dev_mode(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Worker registry keeps release entry-point behaviour when not in dev mode."""
+        from scistudio.core.types.registry import TypeRegistry
+
+        calls: list[bool] = []
+
+        def fake_scan(self: TypeRegistry) -> None:
+            calls.append(True)
+
+        _reset_registry_singleton()
+        monkeypatch.delenv("SCISTUDIO_DEV", raising=False)
+        monkeypatch.setattr(TypeRegistry, "_scan_monorepo_types", fake_scan)
+
+        _get_type_registry()
+
+        assert calls == []
+
 
 # ---------------------------------------------------------------------------
 # Construction failures are wrapped with class context

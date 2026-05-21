@@ -76,6 +76,7 @@ def _get_type_registry() -> TypeRegistry:
     ``_registry_instance`` to ``None``; the next call will re-scan.
     """
     import contextlib
+    import os
 
     from scistudio.core.types.registry import TypeRegistry
 
@@ -87,6 +88,13 @@ def _get_type_registry() -> TypeRegistry:
         # fail reconstruction because of a broken plugin entry-point.
         with contextlib.suppress(Exception):
             registry._scan_entrypoint_types()
+        if os.environ.get("SCISTUDIO_DEV") == "1":
+            # Match ApiRuntime's development-mode registry behaviour for
+            # worker subprocesses spawned from a source checkout. Without this
+            # path, monorepo plugin types such as imaging.Image degrade to
+            # their nearest registered core base class during reconstruction.
+            with contextlib.suppress(Exception):
+                registry._scan_monorepo_types()
         _registry_instance = registry
     return _registry_instance
 

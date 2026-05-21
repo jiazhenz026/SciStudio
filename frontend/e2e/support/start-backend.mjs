@@ -25,6 +25,7 @@ const env = {
   ...cleanEnv(process.env),
   PYTHONPATH: [...packagePaths, ...existingPythonPath].join(path.delimiter),
   SCISTUDIO_CORS_ORIGINS: process.env.SCISTUDIO_CORS_ORIGINS ?? "*",
+  SCISTUDIO_DEV: process.env.SCISTUDIO_DEV ?? "1",
   SCISTUDIO_ENGINE_API_URL: `http://127.0.0.1:${backendPort}`,
   SCISTUDIO_LOG_LEVEL: process.env.SCISTUDIO_LOG_LEVEL ?? "INFO",
 };

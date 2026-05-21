@@ -377,7 +377,7 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
     );
   });
 
-  it("clears the canvas when the loaded workflow is deleted on disk", () => {
+  it("clears the canvas when the loaded workflow is deleted on disk", async () => {
     useAppStore.setState({
       workflowId: "demo",
       workflowName: "Demo",
@@ -385,6 +385,7 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
         { id: "n", block_type: "Load", config: {}, execution_mode: null, layout: null },
       ],
     });
+    vi.mocked(api.getWorkflow).mockRejectedValueOnce(new Error("not found"));
     renderHook(() => useWorkflowWebSocket(true));
 
     pushMessage({
@@ -394,6 +395,7 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
       data: { workflow_id: "demo", path: "workflows/demo.yaml", kind: "deleted", changed_by: "watcher" },
     });
 
+    await new Promise((r) => setTimeout(r, 0));
     expect(useAppStore.getState().workflowId).toBeNull();
     expect(useAppStore.getState().workflowNodes).toEqual([]);
     // The delete event should also leave a log entry behind.

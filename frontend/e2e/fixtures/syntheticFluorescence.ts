@@ -72,3 +72,52 @@ export async function createSyntheticFluorescencePng(filePath: string, width = 6
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, png);
 }
+
+export async function createSyntheticFluorescenceTiff(filePath: string, width = 64, height = 64): Promise<void> {
+  const pixels = Buffer.alloc(width * height);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      pixels[y * width + x] = fluorescenceValue(x, y, width, height);
+    }
+  }
+
+  const entries = [
+    { tag: 256, type: 4, count: 1, value: width },
+    { tag: 257, type: 4, count: 1, value: height },
+    { tag: 258, type: 3, count: 1, value: 8 },
+    { tag: 259, type: 3, count: 1, value: 1 },
+    { tag: 262, type: 3, count: 1, value: 1 },
+    { tag: 273, type: 4, count: 1, value: 0 },
+    { tag: 277, type: 3, count: 1, value: 1 },
+    { tag: 278, type: 4, count: 1, value: height },
+    { tag: 279, type: 4, count: 1, value: pixels.length },
+    { tag: 284, type: 3, count: 1, value: 1 },
+  ].sort((left, right) => left.tag - right.tag);
+
+  const ifdLength = 2 + entries.length * 12 + 4;
+  const pixelOffset = 8 + ifdLength;
+  const tiff = Buffer.alloc(pixelOffset + pixels.length);
+  tiff.write("II", 0, "ascii");
+  tiff.writeUInt16LE(42, 2);
+  tiff.writeUInt32LE(8, 4);
+  tiff.writeUInt16LE(entries.length, 8);
+
+  entries.forEach((entry, index) => {
+    const offset = 10 + index * 12;
+    const value = entry.tag === 273 ? pixelOffset : entry.value;
+    tiff.writeUInt16LE(entry.tag, offset);
+    tiff.writeUInt16LE(entry.type, offset + 2);
+    tiff.writeUInt32LE(entry.count, offset + 4);
+    if (entry.type === 3 && entry.count === 1) {
+      tiff.writeUInt16LE(value, offset + 8);
+      tiff.writeUInt16LE(0, offset + 10);
+    } else {
+      tiff.writeUInt32LE(value, offset + 8);
+    }
+  });
+  tiff.writeUInt32LE(0, 10 + entries.length * 12);
+  pixels.copy(tiff, pixelOffset);
+
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, tiff);
+}

@@ -1,6 +1,28 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "frontend/src/components/Lineage/RunDetail.tsx",
+        "frontend/src/hooks/useWebSocket.ts",
+        "frontend/src/store/gitSlice.ts",
+        "frontend/src/store/workflowSlice.ts",
+        "src/scistudio/core/types/serialization.py",
+        "tests/engine/test_worker_typed_reconstruction.py"
+      ],
+      "reason": "E2E discovery exposed in-scope runtime refresh and worker TypeRegistry bugs required for minimal LoadImage->Threshold->Save workflow and workflow-refresh scenarios."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "frontend/src/hooks/useWebSocket.test.ts"
+      ],
+      "reason": "Frontend websocket refresh behavior test updated to match workflow.changed deleted/moved refetch semantics."
+    }
+  ],
   "branch": "track/issue-1384-e2e-discovery",
   "changed_test_paths": [],
   "check_results": [
@@ -90,6 +112,42 @@
       "exit_code": 0,
       "name": "sentrux_gate",
       "output_path": "local sentrux_gate verification passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "$env:PYTHONPATH='src'; python -m pytest tests/engine/test_worker_typed_reconstruction.py::TestTypeRegistrySingleton -q --no-cov",
+      "exit_code": 0,
+      "name": "worker-type-registry",
+      "output_path": "5 targeted TypeRegistry singleton tests passed; normal pytest run hit repository coverage threshold on partial selection.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend; npm run test:e2e -- --grep 'GUI-002|GUI-003|GUI-004|GUI-005'",
+      "exit_code": 0,
+      "name": "e2e-minimal-workflow",
+      "output_path": "4 Chromium tests passed for LoadImage -> Threshold -> Save, lineage, and preview scenarios.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend; npm test -- --run src/hooks/useWebSocket.test.ts src/components/Lineage/__tests__/RunDetail.test.tsx",
+      "exit_code": 0,
+      "name": "targeted-frontend-unit",
+      "output_path": "2 files / 28 tests passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "$env:PYTHONPATH='src'; python -m ruff check src/scistudio/core/types/serialization.py tests/engine/test_worker_typed_reconstruction.py",
+      "exit_code": 0,
+      "name": "targeted-ruff-worker",
+      "output_path": "All checks passed",
       "status": "pass",
       "summary": {},
       "timestamp": null

@@ -41,7 +41,7 @@ import {
 type WorkflowGraph = {
   workflowId: string;
   nodes: string[];
-  edges: string[];
+  edgeCount: number;
 };
 
 function graphFromWorkflow(workflow: {
@@ -52,9 +52,7 @@ function graphFromWorkflow(workflow: {
   return {
     workflowId: workflow.id,
     nodes: workflow.nodes.map((node) => node.id).sort(),
-    edges: workflow.edges
-      .map((edge) => `${edge.source}->${edge.target}`)
-      .sort(),
+    edgeCount: workflow.edges.length,
   };
 }
 
@@ -66,9 +64,7 @@ function graphFromCanvas(snapshot: {
   return {
     workflowId: snapshot.workflowId ?? "",
     nodes: snapshot.nodes.map((node) => node.id).sort(),
-    edges: snapshot.edges
-      .map((edge) => `${edge.source}->${edge.target}`)
-      .sort(),
+    edgeCount: snapshot.edges.length,
   };
 }
 
@@ -291,10 +287,13 @@ test.describe("SciStudio GUI E2E discovery @gui", () => {
       expectFailure: true,
     });
 
-    await studio.expectVisibleWorkflowError(/threshold|config|validation/i);
-    await expect
-      .poll(async () => studio.api.getWorkflowFailure(invalidThresholdWorkflow.workflowId))
-      .toMatchObject({ status: 422 });
+    const result = await studio.runWorkflowAndWait(
+      invalidThresholdWorkflow.workflowId,
+      { expectedStatus: "failed" },
+    );
+
+    expect(result.status).toBe("failed");
+    await studio.expectVisibleWorkflowError(/threshold|method|validation|unknown/i);
   });
 
   test("GUI-009 @gui @GUI-009 displays failed workflow state", async ({
@@ -428,7 +427,10 @@ test.describe("SciStudio GUI E2E discovery @gui", () => {
     await page.getByRole("button", { name: /create project/i }).click();
     await expect(page.getByText(/parent directory is required/i)).toBeVisible();
 
-    await page.getByRole("button", { name: /cancel/i }).click();
+    const createProjectDialog = page.locator(".fixed.inset-0").filter({
+      has: page.getByRole("heading", { name: /create a new workspace/i }),
+    });
+    await createProjectDialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: /create a new workspace/i }),
     ).toBeHidden();

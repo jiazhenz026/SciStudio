@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { expect, test as base, type APIRequestContext, type Page } from "@playwright/test";
 
-import { createSyntheticFluorescencePng } from "../fixtures/syntheticFluorescence";
+import { createSyntheticFluorescenceTiff } from "../fixtures/syntheticFluorescence";
 import {
   type E2EWorkflow,
   minimalLoadThresholdSaveWorkflow,
@@ -77,8 +77,6 @@ function createStudio(page: Page, request: APIRequestContext) {
 
   async function createProject({ namePrefix }: { namePrefix: string }): Promise<Project> {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), `${namePrefix}-`));
-    await fs.mkdir(path.join(root, "data", "raw"), { recursive: true });
-    await createSyntheticFluorescencePng(path.join(root, "data", "raw", "synthetic-fluorescence.png"));
     const project = await apiJson<Project>("/api/projects/", {
       method: "POST",
       data: {
@@ -87,6 +85,8 @@ function createStudio(page: Page, request: APIRequestContext) {
         path: root,
       },
     });
+    await fs.mkdir(path.join(project.path, "data", "raw"), { recursive: true });
+    await createSyntheticFluorescenceTiff(path.join(project.path, "data", "raw", "synthetic-fluorescence.tif"));
     activeProject = project;
     return project;
   }
@@ -96,9 +96,9 @@ function createStudio(page: Page, request: APIRequestContext) {
     await request.get(`/api/projects/${encodeURIComponent(project.path)}`);
     await page.goto("/");
     const projectButton = page.getByRole("button", { name: new RegExp(escapeRegex(project.name)) });
-    if (await projectButton.count()) {
-      await projectButton.first().click();
-    }
+    await expect(projectButton.first()).toBeVisible();
+    await projectButton.first().click();
+    await expect(page.getByRole("button", { name: /^Project$/i })).toBeVisible();
   }
 
   async function installWorkflowFixture(project: Project, fixture: E2EWorkflow): Promise<void> {
@@ -121,9 +121,19 @@ function createStudio(page: Page, request: APIRequestContext) {
     if (await projectTab.count()) {
       await projectTab.click();
     }
-    const treeItem = page.getByText(`${workflowId}.yaml`).first();
+    let treeItem = page.getByText(`${workflowId}.yaml`, { exact: true }).first();
+    if (!(await treeItem.isVisible().catch(() => false))) {
+      const workflowsDir = page.getByText("workflows", { exact: true }).first();
+      await expect(workflowsDir).toBeVisible();
+      await workflowsDir.click();
+      treeItem = page.getByText(`${workflowId}.yaml`, { exact: true }).first();
+    }
     await expect(treeItem).toBeVisible();
-    await treeItem.click();
+    await treeItem.dblclick();
+    await expect(page.getByRole("tab", { name: new RegExp(`^${escapeRegex(workflowId)}$`) })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   }
 
   async function canvasSnapshot(): Promise<{
@@ -256,7 +266,16 @@ function createStudio(page: Page, request: APIRequestContext) {
     openProject,
     openNewProjectDialog: async () => page.getByRole("button", { name: /new project|open project/i }).first().click(),
     openProjectDialogWithRecentProjects: async () => page.getByRole("button", { name: /open project/i }).first().click(),
-    clickDeleteRecentProject: async () => page.getByRole("button", { name: /delete|remove/i }).first().click(),
+    clickDeleteRecentProject: async (projectId: string) => {
+      const project = await apiJson<Project>(`/api/projects/${encodeURIComponent(projectId)}`);
+      let projectRow = page.getByRole("button", { name: new RegExp(escapeRegex(project.name)) });
+      if ((await projectRow.count()) === 0) {
+        await page.reload();
+        projectRow = page.getByRole("button", { name: new RegExp(escapeRegex(project.name)) });
+      }
+      await expect(projectRow).toBeVisible();
+      await projectRow.locator('[title="Delete project"]').click();
+    },
     captureNextConfirm: async (options: boolean | { accept?: boolean } = true) => {
       const accept = typeof options === "boolean" ? options : (options.accept ?? true);
       return new Promise<string>((resolve) => {
@@ -316,7 +335,7 @@ function createStudio(page: Page, request: APIRequestContext) {
     },
     cancelWorkflow: async (workflowId: string) => apiJson(`/api/workflows/${encodeURIComponent(workflowId)}/cancel`, { method: "POST" }),
     waitForWorkflowStatus,
-    openBottomTab: async (tab: string) => page.getByRole("button", { name: new RegExp(tab, "i") }).click(),
+    openBottomTab: async (tab: string) => page.getByRole("button", { name: new RegExp(tab, "i") }).last().click(),
     activeBottomTab: async () => page.locator("[aria-selected='true']").last().textContent(),
     selectLatestLineageRun: async ({ workflowId }: { workflowId: string }) => {
       const runs = await apiJson<{ runs: Array<{ run_id: string }> }>(`/api/runs?workflow_id=${workflowId}&limit=1`);
@@ -339,20 +358,55 @@ function createStudio(page: Page, request: APIRequestContext) {
       const workflowId = response.workflow_id ?? activeWorkflowId ?? "";
       return waitForWorkflowStatus(workflowId, options.expectedStatus ?? "completed");
     },
-    openOutputPreview: async (_nodeId?: string, options: { refFromRun?: { runId?: string } } = {}) => {
-      await page.getByText(/preview|artifact|output/i).first().click();
-      const runId = options.refFromRun?.runId ?? selectedRunId;
-      if (!runId) return { ref: "" };
-      const detail = await apiJson<any>(`/api/runs/${encodeURIComponent(runId)}`);
-      const output = detail.block_executions
-        ?.flatMap((block: any) => block.outputs ?? [])
-        ?.find((entry: any) => entry.object_id);
-      return { ref: output?.object_id ?? "" };
+    openOutputPreview: async (nodeId?: string) => {
+      if (nodeId) {
+        await page.locator(`.react-flow__node[data-id="${nodeId}"]`).first().click();
+      }
+      const directRefButton = page.locator("aside button[title^='data-']").first();
+      await expect(directRefButton).toBeVisible();
+      await directRefButton.click();
+      const ref = (await directRefButton.getAttribute("title")) ?? "";
+      await expect(page.getByRole("img", { name: /preview/i })).toBeVisible();
+      return { ref };
     },
-    expectProjectTreeContains: async (text: string) => expect(page.getByText(text).first()).toBeVisible(),
+    expectProjectTreeContains: async (text: string) => {
+      if (!text.includes("/")) {
+        await expect(page.getByText(text).first()).toBeVisible();
+        return;
+      }
+      if (!activeProject) throw new Error("No active project");
+      const absolutePath = path.join(activeProject.path, text);
+      await expect
+        .poll(async () => {
+          try {
+            await fs.stat(absolutePath);
+            return true;
+          } catch {
+            return false;
+          }
+        })
+        .toBe(true);
+
+      const projectTab = page.getByRole("button", { name: /^Project$/i });
+      if (await projectTab.count()) {
+        await projectTab.click();
+      }
+      const refresh = page.getByRole("button", { name: /^Refresh$/i });
+      if (await refresh.count()) {
+        await refresh.click();
+      }
+
+      const parts = text.split("/").filter(Boolean);
+      for (const dir of parts.slice(0, -1)) {
+        const row = page.getByRole("button", { name: new RegExp(escapeRegex(dir)) }).first();
+        await expect(row).toBeVisible();
+        await row.click();
+      }
+      await expect(page.getByText(parts[parts.length - 1], { exact: true }).first()).toBeVisible();
+    },
     expectProjectTreeNotContains: async (text: string) => expect(page.getByText(text)).toHaveCount(0),
     expectCanvasNodeStatus: async (nodeId: string, status: string) =>
-      expect(page.locator(".react-flow__node", { hasText: nodeId }).first()).toContainText(new RegExp(status, "i")),
+      expect(page.locator(`.react-flow__node[data-id="${nodeId}"]`).first()).toContainText(new RegExp(status, "i")),
     expectVisibleWorkflowError: async (pattern: RegExp) => expect(page.getByText(pattern).first()).toBeVisible(),
     disconnectWorkflowSocket: async () => page.evaluate(() => window.dispatchEvent(new Event("offline"))),
     reconnectWorkflowSocket: async () => page.evaluate(() => window.dispatchEvent(new Event("online"))),
@@ -364,7 +418,7 @@ async function selectedWorkflowTab(page: Page): Promise<string | null> {
   const selected = page.getByRole("tab", { selected: true }).first();
   if (!(await selected.count())) return null;
   const text = await selected.textContent();
-  return text?.trim() || null;
+  return text?.replace(/\s+\*$/, "").trim() || null;
 }
 
 function escapeRegex(value: string): string {
