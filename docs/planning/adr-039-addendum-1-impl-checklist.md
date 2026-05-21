@@ -28,7 +28,7 @@ language_source: en
   - Agent C (W2): `feat/issue-1356/branch-delete-orphan-guard` in `.claude/worktrees/agent-C-1356/`
 - Protected branch: `main`
 - Umbrella branch: `umbrella/adr-039-addendum-1-impl`
-- Umbrella PR: `#<pending>` (filled in by `## 4. Manager Preflight` row)
+- Umbrella PR: [#1364](https://github.com/zjzcpj/SciStudio/pull/1364)
 - Umbrella PR title: `[DO NOT MERGE] umbrella(#1352): ADR-039 Addendum 1 — stash removal + auto-commit + history UX + branch-delete safety`
 - Final PR target: `main` (umbrella → main, owner-authorized after all 3 sub-PRs land)
 - Dispatch prompt templates:
@@ -70,16 +70,16 @@ language_source: en
 
 - [x] Dedicated manager branch and worktree created — `umbrella/adr-039-addendum-1-impl` in `.claude/worktrees/manager-adr-039-addendum-1-impl/` (this commit)
 - [x] Existing issues linked: `#1353`, `#1354`, `#1355`, `#1356` — `#1352` closed by `#1358`
-- [ ] Manager gate record started — `.workflow/records/1352-adr-039-addendum-1-impl-manager.json`
-- [ ] Scope include/exclude recorded in the gate record
-- [x] Umbrella branch created — `umbrella/adr-039-addendum-1-impl` (this commit)
-- [ ] Umbrella PR opened — `#<pending>`
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`
-- [ ] Protected branch (`main`) and umbrella PR number recorded above in `## 1`
+- [x] Manager gate record started — `.workflow/records/1352-adr-039-addendum-1-impl-manager.json` (finalized for commit `a9358993` / PR #1364)
+- [x] Scope include/exclude recorded in the gate record
+- [x] Umbrella branch created — `umbrella/adr-039-addendum-1-impl` (commit `a9358993`)
+- [x] Umbrella PR opened — [#1364](https://github.com/zjzcpj/SciStudio/pull/1364)
+- [x] Umbrella PR title includes `[DO NOT MERGE]`
+- [x] Protected branch (`main`) and umbrella PR number recorded above in `## 1`
 - [x] No `pip install -e .` environment pollution found — manager runs against `PYTHONPATH=src` per existing pattern
-- [x] Dispatch checklist copied from the template and committed (this file)
-- [ ] Dispatch prompts created from the work template and linked in `## 6` rows below
-- [ ] Sentrux baseline recorded — `scan(.) + session_start()` from `.claude/worktrees/manager-adr-039-addendum-1-impl/`
+- [x] Dispatch checklist copied from the template and committed
+- [x] Dispatch prompts created from the work template and linked in `## 6` rows below
+- [x] Sentrux baseline recorded — `scan(.) + check_rules()` → quality_signal=4443, 3/3 rules pass
 
 ## 5. Local Gate Hook Bypass Evidence
 

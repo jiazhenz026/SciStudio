@@ -1,6 +1,13 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "manager-only dispatch setup: implementation = the checklist + 3 dispatch prompt files committed in this PR; sub-PRs carry their own code changes via their own gate records"
+    }
+  ],
   "branch": "umbrella/adr-039-addendum-1-impl",
   "changed_test_paths": [],
   "check_results": [
@@ -23,7 +30,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1352-adr-039-addendum-1-impl-manager.json",
+    "shas": [
+      "a93589930761310f490374b1d8a7ac79d6cd4c56"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -77,7 +90,13 @@
     "docs/planning/dispatch-prompts/agent-B-1355.md",
     "docs/planning/dispatch-prompts/agent-C-1356.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1352
+    ],
+    "number": 1364,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1364"
+  },
   "record_path": ".workflow/records/1352-adr-039-addendum-1-impl-manager.json",
   "required_checks": [
     "ruff",
@@ -123,7 +142,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
@@ -141,7 +160,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
