@@ -148,9 +148,7 @@ def test_save_unknown_capability_id_raises(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="capability_id"):
         SaveImage().save(
             img,
-            BlockConfig(
-                params={"path": str(out_path), "capability_id": "not.a.real.capability"}
-            ),
+            BlockConfig(params={"path": str(out_path), "capability_id": "not.a.real.capability"}),
         )
 
 

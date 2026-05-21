@@ -72,7 +72,7 @@
     "command": "manual self-audit of 5 file diffs against owner directive + all unit+sentrux+tsc evidence",
     "exit_code": 0,
     "known_debt": [],
-    "output_path": ".workflow/records/1320-full-audit.json",
+    "output_path": ".workflow/audits/1320-full-audit.json",
     "status": "pass",
     "summary": {},
     "unclassified_failures": []
