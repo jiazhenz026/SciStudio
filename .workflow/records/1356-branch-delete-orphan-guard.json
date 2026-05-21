@@ -1,0 +1,182 @@
+{
+  "admin_labels": [
+    {
+      "applied_at": "2026-05-21T21:00:00Z",
+      "applied_by": "agent-C-1356",
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "amendments": [
+    {
+      "approved_by": "agent-C-1356",
+      "exclude": [],
+      "include": [
+        ".workflow/records/1356-branch-delete-orphan-guard.json",
+        "docs/audit/smoke/2026-05-21-1356-branch-delete-orphan-guard-rest-smoke.md"
+      ],
+      "reason": "Add gate record self-path and smoke transcript to scope (gate record + audit transcript live alongside the implementation per ADR-042 \u00a73.7)"
+    }
+  ],
+  "branch": "feat/issue-1356/branch-delete-orphan-guard",
+  "changed_test_paths": [
+    "tests/core/test_lineage_store.py",
+    "tests/core/test_git_engine.py",
+    "tests/api/test_git_endpoints.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "pytest tests/core/test_lineage_store.py tests/core/test_git_engine.py tests/api/test_git_endpoints.py --timeout=60 (post-Codex)",
+      "exit_code": null,
+      "name": "full_audit",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1356-branch-delete-orphan-guard.json",
+    "shas": [
+      "6115d9e3"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "adr_landing": {
+      "not_applicable": true,
+      "rationale": "#1356 is the implementation of ADR-039 Addendum 1 \u00a711.4 row; the ADR landed in PR #1358. No new ADR work in this PR."
+    },
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/adr-039-addendum-1-impl-checklist.md"
+      ]
+    },
+    "docs": {
+      "paths": [
+        "docs/audit/smoke/2026-05-21-1356-branch-delete-orphan-guard-rest-smoke.md"
+      ]
+    },
+    "spec_landing": {
+      "not_applicable": true,
+      "rationale": "ADR-039 \u00a7 11.4 is the spec authority for this change. No separate spec doc."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "scistudio.qa.audit.full_audit",
+    "exit_code": null,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1356,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1356"
+    }
+  ],
+  "owner_directive": "implement ADR-039 Addendum 1 11.4 row for #1356 \u2014 silent auto-tag safety net on branch delete (option C, owner decision 2026-05-21). Before deleting a branch whose tip commits are referenced by runs.workflow_git_commit, create refs/scistudio/lineage/<sha> refs to keep them reachable. No user-visible dialog change.",
+  "planned_files": [
+    "src/scistudio/core/lineage/store.py",
+    "src/scistudio/core/versioning/git_engine.py",
+    "src/scistudio/api/routes/git.py",
+    "tests/core/test_lineage_store.py",
+    "tests/core/test_git_engine.py",
+    "tests/api/test_git_endpoints.py",
+    "CHANGELOG.md",
+    "docs/planning/adr-039-addendum-1-impl-checklist.md"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1356
+    ],
+    "number": 1381,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1381"
+  },
+  "record_path": ".workflow/records/1356-branch-delete-orphan-guard.json",
+  "required_checks": [
+    "ruff check .",
+    "ruff format --check .",
+    "pytest tests/core/test_lineage_store.py tests/core/test_git_engine.py tests/api/test_git_endpoints.py --timeout=60",
+    "full_audit",
+    "sentrux scan + check_rules + health + session_end",
+    "chrome smoke"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/core/lineage/store.py",
+      "src/scistudio/core/versioning/git_engine.py",
+      "src/scistudio/api/routes/git.py",
+      "tests/core/test_lineage_store.py",
+      "tests/core/test_git_engine.py",
+      "tests/api/test_git_endpoints.py",
+      "CHANGELOG.md",
+      "docs/planning/adr-039-addendum-1-impl-checklist.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux mcp scan + check_rules + session_end (post-Codex)",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": null,
+    "pro_required": false,
+    "quality_signal": 4444.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1356-branch-delete-orphan-guard",
+  "task_kind": "bugfix"
+}

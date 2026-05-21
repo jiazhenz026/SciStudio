@@ -2,9 +2,15 @@
  * ADR-039 §3.5 + §3.4 + §3.4a + §3.5c — GitHistoryList.
  *
  * Reverse-chronological commit list with a header-level filter dropdown
- * (Manual / All / Auto / Agent). Click a row → onCommitClick (defaults to
- * opening GitDiffModal). "Restore this version" button per row →
- * gitSlice.restore.
+ * (Manual / All / Auto / Agent). Each row exposes inline `[Diff]` and
+ * `[Restore]` buttons.
+ *
+ * ADR-039 Addendum 1 §11.3 (issue #1355): the previous row-click →
+ * `GitDiffModal` shortcut surprised users who clicked a row to "select"
+ * it. The whole-row click is now a focus-only affordance; the destructive
+ * (or modal-heavy) action is opt-in via the per-row `[Diff]` and
+ * `[Restore]` buttons. The `d` / `r` hotkeys on a focused row mirror the
+ * buttons.
  */
 import { useCallback, useEffect, useState } from "react";
 import type { JSX, KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -16,7 +22,6 @@ import { GitDiffModal } from "./GitDiffModal";
 import { GraphSVG } from "./GitGraph/GraphSVG";
 import { useGraphData } from "./GitGraph/integration";
 import { useGraphInteractions } from "./GitGraph/interactions";
-import { StashApplyDialog } from "./StashApplyDialog";
 
 const PREFIX_ICON: Record<string, string> = {
   auto: "·",
@@ -55,9 +60,6 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
 
   // Internal diff modal state — opened by default if onCommitClick not given.
   const [diffOpen, setDiffOpen] = useState<{ from: string; to?: string } | null>(null);
-  // Codex P2-A on PR #940: when restore auto-stashes, surface the
-  // StashApplyDialog so the user can choose Apply / Keep / Discard.
-  const [stashPrompt, setStashPrompt] = useState<string | null>(null);
   // ADR-039 §3.5b / D39-2.4b — view toggle: list vs branch graph.
   // Hotfix #1000: default Git tab view is Graph (per Phase 4a feedback —
   // graph is the primary affordance; List is a fallback for plain text).
@@ -69,23 +71,30 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
     }
   }, [branch, commits, loading, loadLog]);
 
-  const handleRowClick = useCallback(
+  // ADR-039 Addendum 1 §11.3 (issue #1355): opening the diff modal is no
+  // longer driven by row clicks. Both the per-row `[Diff]` button and the
+  // `d` hotkey go through `handleDiff`. The optional `onCommitClick` prop
+  // is preserved so embedders that still want a row-level selection
+  // callback (notification, telemetry) can opt in without re-introducing
+  // the modal.
+  const handleDiff = useCallback(
     (commit: GitCommit) => {
       if (onCommitClick) {
         onCommitClick(commit);
+        return;
+      }
+      // Codex P2-B on PR #940: for a root commit (no parents), comparing
+      // `from=commit.sha` to working tree (the backend default for `to`)
+      // shows the inverse of the initial state rather than the commit's
+      // own patch. Use the empty-tree hash (well-known git constant) as
+      // the parent so the initial commit displays as additions of every
+      // file.
+      const parent = commit.parents[0];
+      if (parent) {
+        setDiffOpen({ from: parent, to: commit.sha });
       } else {
-        // Codex P2-B on PR #940: for a root commit (no parents), comparing
-        // `from=commit.sha` to working tree (the backend default for `to`)
-        // shows the inverse of the initial state rather than the commit's
-        // own patch. Use the empty-tree hash (well-known git constant) as the
-        // parent so the initial commit displays as additions of every file.
-        const parent = commit.parents[0];
-        if (parent) {
-          setDiffOpen({ from: parent, to: commit.sha });
-        } else {
-          const EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
-          setDiffOpen({ from: EMPTY_TREE_SHA, to: commit.sha });
-        }
+        const EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+        setDiffOpen({ from: EMPTY_TREE_SHA, to: commit.sha });
       }
     },
     [onCommitClick],
@@ -98,37 +107,33 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
         return;
       }
       const ok = window.confirm(
-        `Restore files from commit ${commit.short_sha}?\n\n${commit.subject}\n\nThis will overwrite the working tree (uncommitted changes will be auto-stashed).`,
+        `Restore files from commit ${commit.short_sha}?\n\n${commit.subject}\n\nThis will overwrite the working tree.`,
       );
       if (!ok) return;
-      // Codex P2-A on PR #940: open StashApplyDialog when the backend
-      // auto-stashed the dirty tree (ADR-039 §3.6) so the user sees where
-      // their unsaved edits went.
-      void restore(commit.sha)
-        .then((result) => {
-          if (result && result.status === "stashed") {
-            setStashPrompt(result.stash_id);
-          }
-        })
-        .catch((err) => {
-          // eslint-disable-next-line no-console
-          console.warn("[GitHistoryList] restore failed:", err);
-        });
+      void restore(commit.sha).catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn("[GitHistoryList] restore failed:", err);
+      });
     },
     [onRestoreClick, restore],
   );
 
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLLIElement>, commit: GitCommit) => {
-      if (event.key === "Enter") {
+      // ADR-039 Addendum 1 §11.3 (issue #1355): Enter no longer opens the
+      // diff modal. The row remains keyboard-focusable so its inline
+      // buttons are Tab-reachable, but activation of the row itself is a
+      // no-op. `d` opens the diff, `r` triggers the restore confirm —
+      // mirroring the per-row buttons.
+      if (event.key.toLowerCase() === "d") {
         event.preventDefault();
-        handleRowClick(commit);
+        handleDiff(commit);
       } else if (event.key.toLowerCase() === "r") {
         event.preventDefault();
         handleRestore(commit);
       }
     },
-    [handleRowClick, handleRestore],
+    [handleDiff, handleRestore],
   );
 
   const visibleCommits = commits ? selectVisibleCommits(commits, historyFilter) : [];
@@ -200,20 +205,13 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
       )}
 
       {viewMode === "graph" ? (
-        <GitGraphPane
-          onCommitClick={(sha) => {
-            // Diff: from commit's first parent → commit. For root commits,
-            // use git's empty-tree hash so the diff shows additions.
-            const commit = (commits ?? []).find((c) => c.sha === sha);
-            if (!commit) return;
-            const parent = commit.parents[0];
-            if (parent) setDiffOpen({ from: parent, to: commit.sha });
-            else {
-              const EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
-              setDiffOpen({ from: EMPTY_TREE_SHA, to: commit.sha });
-            }
-          }}
-        />
+        // ADR-039 Addendum 1 §11.3 (issue #1355): the graph commit-dot
+        // click no longer opens GitDiffModal — the diff is now an
+        // opt-in action exposed by the per-row `[Diff]` button in the
+        // List view. Passing `undefined` here means the `interactions`
+        // hook still updates focus/lastError but does not open the
+        // modal.
+        <GitGraphPane />
       ) : loading ? (
         <div
           data-testid="git-history-loading"
@@ -252,14 +250,17 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
         >
           {visibleCommits.map((commit) => {
             const prefix = classifyPrefix(commit.subject);
+            // ADR-039 Addendum 1 §11.3 (issue #1355): the row is no
+            // longer a click-to-open-diff button. It stays focusable
+            // (Tab + arrow keys) so the per-row `[Diff]` / `[Restore]`
+            // buttons and the `d` / `r` hotkeys are reachable, but
+            // activating the row itself does nothing.
             return (
               <li
                 key={commit.sha}
                 data-testid={`git-history-row-${commit.short_sha}`}
                 data-commit-prefix={prefix}
-                role="button"
                 tabIndex={0}
-                onClick={() => handleRowClick(commit)}
                 onKeyDown={(e) => onKeyDown(e, commit)}
                 className="flex items-center gap-2 border-b border-stone-100 px-3 py-2 text-xs hover:bg-stone-50 focus:bg-stone-100 focus:outline-none"
               >
@@ -294,13 +295,25 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
                 </time>
                 <button
                   type="button"
+                  data-testid={`git-history-row-diff-${commit.short_sha}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDiff(commit);
+                  }}
+                  title="Show diff against parent commit."
+                  className="ml-2 rounded border border-stone-300 px-2 py-0.5 text-[10px] hover:bg-stone-100"
+                >
+                  Diff
+                </button>
+                <button
+                  type="button"
                   data-testid={`git-history-row-restore-${commit.short_sha}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleRestore(commit);
                   }}
                   title="Soft-restore: copy this commit's files into the working tree without moving HEAD."
-                  className="ml-2 rounded border border-stone-300 px-2 py-0.5 text-[10px] hover:bg-stone-100"
+                  className="ml-1 rounded border border-stone-300 px-2 py-0.5 text-[10px] hover:bg-stone-100"
                 >
                   Restore this version
                 </button>
@@ -318,14 +331,6 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
           onClose={() => setDiffOpen(null)}
         />
       )}
-
-      {stashPrompt !== null && (
-        <StashApplyDialog
-          open={true}
-          stashId={stashPrompt}
-          onClose={() => setStashPrompt(null)}
-        />
-      )}
     </div>
   );
 }
@@ -337,12 +342,18 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
  * Pulls assignments / edges via `useGraphData()` and wires
  * `useGraphInteractions` for scroll-driven virtualization + keyboard
  * navigation.
+ *
+ * ADR-039 Addendum 1 §11.3 (issue #1355): `onCommitClick` is now
+ * optional. Callers in this file omit it because the dot click is a
+ * focus-only affordance now; the diff modal is reached via the List
+ * view's per-row `[Diff]` button. Embedders that still want a custom
+ * click target (selection, telemetry) can pass one.
  */
 function GitGraphPane({
   onCommitClick,
 }: {
-  onCommitClick: (sha: string) => void;
-}): JSX.Element {
+  onCommitClick?: (sha: string) => void;
+} = {}): JSX.Element {
   const data = useGraphData();
   const interactions = useGraphInteractions(
     data.commits.length,

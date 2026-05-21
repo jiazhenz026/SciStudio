@@ -2,9 +2,9 @@
  * #972 — GitTab tests.
  *
  * GitTab is a thin composition container: it owns the modal-open local
- * state and renders BranchPicker / GitStatusBadge / Commit / Stashes
- * buttons in a sticky top bar above GitHistoryList. These tests assert
- * the wiring (empty-state, top-bar buttons, history list mount, button
+ * state and renders BranchPicker / GitStatusBadge / Commit buttons in
+ * a sticky top bar above GitHistoryList. These tests assert the
+ * wiring (empty-state, top-bar buttons, history list mount, button
  * → dialog open path) without re-exercising the children's internals
  * (covered by their own test files).
  */
@@ -85,17 +85,18 @@ describe("GitTab — empty state", () => {
 });
 
 describe("GitTab — composed surface", () => {
-  it("renders the top bar, the four action affordances, and the history list when a project is open", () => {
+  it("renders the top bar, the three action affordances, and the history list when a project is open", () => {
     render(<GitTab />);
 
     expect(screen.getByTestId("git-tab")).toBeTruthy();
     expect(screen.getByTestId("git-tab-top-bar")).toBeTruthy();
 
-    // BranchPicker, GitStatusBadge, Commit, Stashes — by their stable testids.
+    // BranchPicker, GitStatusBadge, Commit — by their stable testids.
+    // ADR-039 Addendum 1 (#1353): the Stashes button is gone.
     expect(screen.getByTestId("branch-picker-trigger")).toBeTruthy();
     expect(screen.getByTestId("git-status-badge")).toBeTruthy();
     expect(screen.getByTestId("git-tab-commit-button")).toBeTruthy();
-    expect(screen.getByTestId("git-tab-stashes-button")).toBeTruthy();
+    expect(screen.queryByTestId("git-tab-stashes-button")).toBeNull();
 
     // GitHistoryList mounts (previously orphaned — #972 reason for this PR).
     expect(screen.getByTestId("git-history-list")).toBeTruthy();
@@ -107,12 +108,5 @@ describe("GitTab — composed surface", () => {
     expect(screen.queryByTestId("commit-dialog")).toBeNull();
     fireEvent.click(screen.getByTestId("git-tab-commit-button"));
     expect(screen.getByTestId("commit-dialog")).toBeTruthy();
-  });
-
-  it("clicking Stashes opens the StashListPanel drawer", () => {
-    render(<GitTab />);
-    expect(screen.queryByTestId("stash-list-panel")).toBeNull();
-    fireEvent.click(screen.getByTestId("git-tab-stashes-button"));
-    expect(screen.getByTestId("stash-list-panel")).toBeTruthy();
   });
 });

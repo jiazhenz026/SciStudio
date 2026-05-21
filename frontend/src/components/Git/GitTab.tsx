@@ -9,9 +9,9 @@
  * the full feature set (#972).
  *
  * Layout:
- *   - Sticky top bar: BranchPicker · GitStatusBadge · Commit · Stashes.
+ *   - Sticky top bar: BranchPicker · GitStatusBadge · Commit.
  *   - Main area: GitHistoryList (which internally toggles List ↔ Graph).
- *   - Tab-scoped modals: CommitDialog, StashListPanel.
+ *   - Tab-scoped modals: CommitDialog.
  *
  * MergeFlow is intentionally NOT rendered here — see Codex P1 on PR #974.
  * Switching away from the Git tab would otherwise unmount it mid-conflict-
@@ -24,7 +24,7 @@
  * Empty-state when no project is open — `gitSlice` no-ops without a
  * project, so we render a hint rather than a dead UI.
  */
-import { Archive, GitCommit } from "lucide-react";
+import { GitCommit } from "lucide-react";
 import { useState } from "react";
 import type { JSX } from "react";
 
@@ -35,18 +35,16 @@ import { BranchPicker } from "./BranchPicker";
 import { CommitDialog } from "./CommitDialog";
 import { GitHistoryList } from "./GitHistoryList";
 import { GitStatusBadge } from "./GitStatusBadge";
-import { StashListPanel } from "./StashListPanel";
 
 export function GitTab(): JSX.Element {
   const currentProject = useAppStore((s) => s.currentProject);
   // #972 (Codex P1 on PR #974) — drive MergeFlow via slice so it stays
-  // mounted at the BottomPanel level. Keep CommitDialog / StashListPanel
-  // local: their close guards are not similarly load-bearing (the user
-  // can always reopen), and tab-scoping keeps the slice surface tight.
+  // mounted at the BottomPanel level. Keep CommitDialog local: its
+  // close guard is not load-bearing (the user can always reopen),
+  // and tab-scoping keeps the slice surface tight.
   const setMergeFlowSource = useAppStore((s) => s.setMergeFlowSource);
 
   const [commitOpen, setCommitOpen] = useState(false);
-  const [stashOpen, setStashOpen] = useState(false);
 
   if (!currentProject) {
     return (
@@ -88,16 +86,6 @@ export function GitTab(): JSX.Element {
           <GitCommit className="size-3.5" />
           Commit
         </Button>
-        <Button
-          data-testid="git-tab-stashes-button"
-          variant="toolbar"
-          size="toolbar"
-          type="button"
-          onClick={() => setStashOpen(true)}
-        >
-          <Archive className="size-3.5" />
-          Stashes
-        </Button>
       </div>
 
       {/* Main area: commit history with List/Graph toggle. Wrapper has
@@ -111,7 +99,6 @@ export function GitTab(): JSX.Element {
           bottom-tab switch during conflict resolution — see Codex P1 on
           PR #974 and the file-top docstring. */}
       <CommitDialog open={commitOpen} onClose={() => setCommitOpen(false)} />
-      <StashListPanel open={stashOpen} onClose={() => setStashOpen(false)} />
     </div>
   );
 }

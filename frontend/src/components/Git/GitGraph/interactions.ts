@@ -13,6 +13,13 @@
  * visible (plus an overscan of 10 rows on each side). This is sufficient
  * for the ADR §3.5b performance target (1000 commits without
  * virtualization, 10k with overscan trimming).
+ *
+ * ADR-039 Addendum 1 §11.3 (issue #1355): the graph commit-dot click no
+ * longer opens `GitDiffModal` directly. Instead it sets the focused-row
+ * index and the user activates `[Diff]` / `[Restore]` from the list
+ * view's inline per-row buttons (Tab back to list view if needed). Enter
+ * / Space on the focused dot is similarly a no-op for opening the
+ * modal; previously it would activate the diff.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
@@ -31,7 +38,13 @@ export interface GraphInteractionsApi {
   /** Currently hovered commit SHA (for the floating tooltip), null if none. */
   hoveredSha: string | null;
   setHoveredSha: (sha: string | null) => void;
-  /** Wired to `gitSlice` — opens GitDiffModal for the clicked commit. */
+  /**
+   * Graph commit-dot click handler. ADR-039 Addendum 1 §11.3 (issue
+   * #1355): this no longer opens GitDiffModal. It clears any stale
+   * `lastError`, sets the focused-row index to the clicked commit, and
+   * invokes `onOpenDiff` only if a consumer explicitly supplied one
+   * (call sites in scope of #1355 pass `undefined`).
+   */
   onCommitClick: (sha: string) => void;
   /**
    * Arrow-up / arrow-down moves focusedRow. Enter triggers click-equiv
@@ -122,6 +135,16 @@ export function useGraphInteractions(
     (sha: string) => {
       if (!sha) return;
       setLastError(null);
+      // ADR-039 Addendum 1 §11.3 (issue #1355): graph dot click sets
+      // focus on the matching commit's row but no longer opens
+      // GitDiffModal. The diff is reachable via the per-row `[Diff]`
+      // button after switching to list view, or via the `d` hotkey on
+      // the focused list row.
+      const commits = commitsRef.current;
+      if (commits) {
+        const idx = commits.findIndex((c) => c.sha === sha);
+        if (idx >= 0) setFocusedRow(idx);
+      }
       onOpenDiff?.(sha);
     },
     [onOpenDiff, setLastError],
@@ -144,10 +167,14 @@ export function useGraphInteractions(
         });
       } else if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        // Codex P2 on PR #952: Enter (and Space) opens the diff for the
-        // currently focused row. Without this branch keyboard nav was
-        // a dead-end — arrow keys moved the cursor but the user could
-        // not "activate" it.
+        // ADR-039 Addendum 1 §11.3 (issue #1355): Enter / Space on the
+        // focused graph dot no longer opens GitDiffModal. The previous
+        // PR #952 behavior is superseded — the diff is now an opt-in
+        // action available from the list view's `[Diff]` button or the
+        // `d` hotkey on a focused list row. We preserve `setLastError`
+        // for consistency with prior behavior and still forward to a
+        // caller-supplied `onOpenDiff` (in #1355 scope the consumer
+        // passes `undefined`, which means this becomes a no-op).
         setFocusedRow((cur) => {
           if (cur === null) return cur;
           const commits = commitsRef.current;

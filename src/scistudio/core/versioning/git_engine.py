@@ -366,24 +366,24 @@ class GitEngine:
     def restore(self, commit_sha: str, *, files: list[str] | None = None) -> None:
         """Soft restore (no HEAD move). See ADR-039 §3.6.
 
-        Auto-stashes a dirty working tree first.
+        ADR-039 Addendum 1 (#1354): this engine method is now a pure
+        soft restore — the caller is responsible for auto-committing a
+        dirty working tree first (see ``routes/git.py::restore`` for
+        the route-layer auto-commit). Pre-addendum the engine itself
+        auto-stashed dirty state; that behavior was moved up so the
+        route layer can return ``auto_commit_sha`` in the response
+        and the frontend can surface a "committed as <sha>" hint
+        instead of stash drawer language.
 
         Hotfix #997: when every target file's content at ``commit_sha``
         is byte-identical to its current working-tree content, restore
-        is a no-op — skip the actual ``git checkout`` AND skip the
-        auto-stash. Pre-fix, clicking "Restore this run's workflow" on
-        a run whose recorded commit happened to match the current
-        working tree still triggered ``git stash push -u`` if the tree
-        was dirty in *any* file (even unrelated ones), accumulating
-        stash refs that rendered as commit nodes in the graph and
-        confused users. The no-op short-circuit eliminates the false-
-        dirty cascade for the specific-files variant (the most common
-        Lineage tab path: ``files=['workflows/<id>.yaml']``).
-
-        The whole-tree variant (``files is None``) keeps the original
-        auto-stash + checkout semantics because comparing the entire
-        worktree is expensive and the user-facing whole-tree restore
-        path is rare (no UI affordance in v1).
+        is a no-op — skip the actual ``git checkout``. Pre-fix, clicking
+        "Restore this run's workflow" on a run whose recorded commit
+        happened to match the current working tree still triggered an
+        auto-handler against a tree that was dirty in *any* file (even
+        unrelated ones). The no-op short-circuit eliminates that
+        false-dirty cascade for the specific-files variant (the most
+        common Lineage tab path: ``files=['workflows/<id>.yaml']``).
         """
         # Skip-if-unchanged short-circuit (files variant only).
         if files:
@@ -400,23 +400,6 @@ class GitEngine:
                     commit_sha[:7],
                 )
                 return
-
-        # Auto-stash if dirty.
-        if self.status()["dirty"]:
-            try:
-                self._run(
-                    [
-                        "stash",
-                        "push",
-                        "-u",
-                        "-m",
-                        "auto-stash before restore",
-                    ]
-                )
-            except GitError:
-                # If stash failed (e.g. nothing actually staged after
-                # untracked-only check), log and proceed.
-                logger.debug("auto-stash before restore failed", exc_info=True)
 
         args = ["checkout", commit_sha, "--"]
         if files:
@@ -506,6 +489,102 @@ class GitEngine:
             )
         flag = "-D" if force else "-d"
         self._run(["branch", flag, name])
+
+    def commits_reachable_only_from(self, branch: str) -> list[str]:
+        """Return commits reachable from ``branch`` but no other ref.
+
+        ADR-039 Addendum 1 §11.4 row #1356: feeds the branch-delete
+        safety net. ``git rev-list refs/heads/<branch> --not <all-other-refs>``
+        is git's canonical "what would become unreachable" query — the
+        same logic ``git branch -d`` uses internally to refuse a delete
+        when the branch is not merged.
+
+        We use the fully-qualified ``refs/heads/<branch>`` form on the
+        target side of the rev-list so name resolution is unambiguous
+        when a tag and a branch share the same short name (Codex P1 on
+        PR #1381). Without this, ``git rev-list foo`` could resolve
+        ``foo`` as ``refs/tags/foo`` and compute orphan candidates
+        from the tag instead of the branch, causing the safety net to
+        skip pinning real branch-only commits.
+
+        We enumerate "all other refs" via ``git for-each-ref`` rather
+        than relying on ``--branches --tags --remotes`` shortcuts so the
+        result is robust to user-created refs (including the
+        ``refs/scistudio/lineage/*`` namespace this safety net writes
+        to — these MUST count as "other refs" so calling this method a
+        second time after a tag is created returns an empty list).
+
+        Returns
+        -------
+        list[str]
+            Full 40-char SHAs that are reachable only from ``branch``.
+            Empty list if every commit on the branch is also reachable
+            via at least one other ref. Returns ``[]`` on a non-existent
+            branch rather than raising — the caller (route layer) is
+            about to delete the branch anyway and will surface a
+            structured error from ``branch_delete`` if it really doesn't
+            exist.
+        """
+        # Use the fully-qualified ref form on BOTH the include (target)
+        # side and the exclude side so name resolution cannot collide
+        # with a tag or remote-tracking ref of the same short name.
+        target_ref = f"refs/heads/{branch}"
+        ref_proc = self._run(
+            ["for-each-ref", "--format=%(refname)"],
+            check=False,
+        )
+        if ref_proc.returncode != 0:
+            return []
+        other_refs = [
+            line.strip() for line in (ref_proc.stdout or "").splitlines() if line.strip() and line.strip() != target_ref
+        ]
+        if not other_refs:
+            # No other refs exist (single-branch repo); every commit on
+            # ``branch`` is technically only reachable from it. Return
+            # empty list rather than rev-list-ing without ``--not`` —
+            # the safety net is meaningful only in multi-ref repos.
+            return []
+        proc = self._run(
+            ["rev-list", target_ref, "--not", *other_refs],
+            check=False,
+        )
+        if proc.returncode != 0:
+            # rev-list on a missing branch returns non-zero. Treat as
+            # "no orphan candidates" — branch_delete will surface the
+            # real error.
+            return []
+        return [line.strip() for line in (proc.stdout or "").splitlines() if line.strip()]
+
+    def tag(self, name: str, target_sha: str, *, force: bool = False) -> None:
+        """Create (or overwrite) a ref ``name`` pointing to ``target_sha``.
+
+        ADR-039 Addendum 1 §11.4 row #1356: used by the branch-delete
+        safety net to pin lineage-referenced commits under
+        ``refs/scistudio/lineage/<sha>`` before deletion. Despite the
+        method name, this uses ``git update-ref`` rather than
+        ``git tag`` so the ref lands in the caller-specified namespace
+        (``refs/scistudio/lineage/*``) and stays out of the
+        ``refs/tags/*`` namespace where the History view's chip
+        renderer would otherwise pick it up.
+
+        Idempotent: ``update-ref`` overwrites by default, so re-running
+        the safety net on a branch whose orphan-set was already pinned
+        is a silent no-op.
+
+        Parameters
+        ----------
+        name:
+            Fully-qualified ref name (e.g. ``refs/scistudio/lineage/<sha>``).
+            Must start with ``refs/`` — git update-ref enforces this.
+        target_sha:
+            The commit SHA the ref should point to.
+        force:
+            Accepted for API symmetry with ``git tag``; ignored because
+            ``update-ref`` is already overwrite-by-default.
+        """
+        # ``force`` is intentionally unused — see docstring.
+        del force
+        self._run(["update-ref", name, target_sha])
 
     # ------------------------------------------------------------------
     # Working-tree status
@@ -713,53 +792,6 @@ class GitEngine:
             proc.stderr or "",
             ["cherry-pick", commit_sha],
         )
-
-    # ------------------------------------------------------------------
-    # Stash
-    # ------------------------------------------------------------------
-
-    def stash_list(self) -> list[dict[str, Any]]:
-        """List stashed changes. See ADR-039 §3.5 line 225."""
-        proc = self._run(
-            ["stash", "list", "--format=%gd\x1f%gs\x1f%ai"],
-            check=False,
-        )
-        if proc.returncode != 0:
-            return []
-        out: list[dict[str, Any]] = []
-        for line in (proc.stdout or "").splitlines():
-            if not line:
-                continue
-            parts = line.split("\x1f")
-            if len(parts) < 3:
-                continue
-            out.append({"stash_id": parts[0], "message": parts[1], "date": parts[2]})
-        return out
-
-    def stash_save(self, message: str | None = None) -> str:
-        """Save current changes to a new stash; return stash_id."""
-        args = ["stash", "push", "-u"]
-        if message:
-            args.extend(["-m", message])
-        proc = self._run(args, check=False)
-        if proc.returncode != 0:
-            raise GitError(proc.returncode, proc.stderr or "", args)
-        # "No local changes to save" exits 0 but stdout says so.
-        stdout = (proc.stdout or "").lower()
-        if "no local changes" in stdout:
-            raise GitError(1, "nothing to stash", args)
-        lst = self.stash_list()
-        if not lst:
-            raise GitError(1, "stash save returned no entry", args)
-        return str(lst[0]["stash_id"])
-
-    def stash_apply(self, stash_id: str) -> None:
-        """Apply a stash without dropping it."""
-        self._run(["stash", "apply", stash_id])
-
-    def stash_drop(self, stash_id: str) -> None:
-        """Drop a stash entry."""
-        self._run(["stash", "drop", stash_id])
 
     # ------------------------------------------------------------------
     # Conflict-resolution finalization
