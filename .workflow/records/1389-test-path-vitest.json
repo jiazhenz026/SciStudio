@@ -41,7 +41,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1389-test-path-vitest.json",
+    "shas": [
+      "0bb251f434e684737cf5be6703bc201d0fff6955"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -90,7 +96,13 @@
     "tests/qa/test_gate_record.py",
     "CHANGELOG.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1389
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1396"
+  },
   "record_path": ".workflow/records/1389-test-path-vitest.json",
   "required_checks": [
     "ruff",
@@ -156,7 +168,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
