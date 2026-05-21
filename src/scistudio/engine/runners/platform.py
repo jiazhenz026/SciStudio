@@ -13,10 +13,9 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
+from typing import Any, Protocol, cast, runtime_checkable
 
-if TYPE_CHECKING:
-    from scistudio.engine.runners.process_handle import ProcessExitInfo
+from scistudio.engine.runners.exit_info import ProcessExitInfo
 
 logger = logging.getLogger(__name__)
 
@@ -85,8 +84,6 @@ class PosixOps:
         import os
         import signal
 
-        from scistudio.engine.runners.process_handle import ProcessExitInfo
-
         getpgid = cast(Callable[[int], int], os.getpgid)  # type: ignore[attr-defined]
         killpg = cast(Callable[[int, int], None], os.killpg)  # type: ignore[attr-defined]
         sigkill = cast(int, signal.SIGKILL)  # type: ignore[attr-defined]
@@ -144,8 +141,6 @@ class PosixOps:
         import os
         import signal
 
-        from scistudio.engine.runners.process_handle import ProcessExitInfo
-
         getpgid = cast(Callable[[int], int], os.getpgid)  # type: ignore[attr-defined]
         killpg = cast(Callable[[int, int], None], os.killpg)  # type: ignore[attr-defined]
         sigkill = cast(int, signal.SIGKILL)  # type: ignore[attr-defined]
@@ -193,8 +188,6 @@ class PosixOps:
         """
         import os
         import signal as signal_mod
-
-        from scistudio.engine.runners.process_handle import ProcessExitInfo
 
         waitpid = cast(Callable[[int, int], tuple[int, int]], os.waitpid)  # type: ignore[attr-defined]
         wnohang = cast(int, os.WNOHANG)  # type: ignore[attr-defined]
@@ -265,8 +258,6 @@ class WindowsOps:
         """Terminate process tree via psutil with grace period, then kill."""
         import psutil
 
-        from scistudio.engine.runners.process_handle import ProcessExitInfo
-
         try:
             parent = psutil.Process(pid)
         except psutil.NoSuchProcess:
@@ -312,8 +303,6 @@ class WindowsOps:
         """Immediately kill entire process tree via psutil."""
         import psutil
 
-        from scistudio.engine.runners.process_handle import ProcessExitInfo
-
         try:
             parent = psutil.Process(pid)
         except psutil.NoSuchProcess:
@@ -351,8 +340,6 @@ class WindowsOps:
         Returns ProcessExitInfo if exited, None if still alive.
         """
         import psutil
-
-        from scistudio.engine.runners.process_handle import ProcessExitInfo
 
         if psutil.pid_exists(pid):
             try:
