@@ -683,13 +683,13 @@ class BlockRegistry:
         normalized_extension = normalize_extension(extension) if extension else None
         normalized_format_id = format_id.strip().lower() if format_id else None
 
-        capabilities: list[FormatCapability] = []
+        # Filter by every dimension EXCEPT extension first, then handle
+        # the compound-to-single fallback at the candidate-set level
+        # so a compound-specific registration wins over a single-suffix
+        # one when both apply (ADR-028 §D8 + ``IOBlock._detect_format``).
+        non_extension_filtered: list[FormatCapability] = []
         for capability, _spec in self._iter_capability_specs():
             if direction is not None and capability.direction != direction:
-                continue
-            if normalized_extension is not None and not _extension_matches_capability(
-                normalized_extension, capability.extensions
-            ):
                 continue
             if normalized_format_id is not None and capability.format_id != normalized_format_id:
                 continue
@@ -699,8 +699,20 @@ class BlockRegistry:
                 capability.direction,
             ):
                 continue
-            capabilities.append(capability)
-        return capabilities
+            non_extension_filtered.append(capability)
+
+        if normalized_extension is None:
+            return non_extension_filtered
+        # Walk compound→single; return the candidates whose extensions
+        # contain the longest matching suffix. ``_detect_format`` returns
+        # the first match; the registry's caller wants the candidate set
+        # for ambiguity / specificity resolution, so we collect all
+        # capabilities matching the FIRST non-empty suffix length.
+        for candidate_ext in _iter_compound_to_single_suffix(normalized_extension):
+            matched = [cap for cap in non_extension_filtered if candidate_ext in cap.extensions]
+            if matched:
+                return matched
+        return []
 
     def find_loader_capability(
         self,
@@ -863,8 +875,16 @@ class BlockRegistry:
     ) -> bool:
         if capability.direction != direction:
             return False
-        if extension is not None and not _extension_matches_capability(extension, capability.extensions):
-            return False
+        if extension is not None:
+            # ADR-028 §D8: a compound query like ``.ome.tif`` satisfies a
+            # capability declaring only ``.tif`` (compound-to-single
+            # fallback). Used only when the caller passed an explicit
+            # ``capability_id`` and we're verifying that capability — not
+            # selecting among many — so a simple membership-style suffix
+            # walk is the right shape here.
+            capability_extensions = set(capability.extensions)
+            if not any(candidate in capability_extensions for candidate in _iter_compound_to_single_suffix(extension)):
+                return False
         if format_id is not None and capability.format_id != format_id:
             return False
         return _capability_matches_type(capability, data_type, direction)
@@ -899,20 +919,27 @@ class BlockRegistry:
     ) -> tuple[FormatCapability, ...]:
         normalized_extension = normalize_extension(extension) if extension else None
         excluded = exclude_ids or set()
-        matches: list[FormatCapability] = []
+        # Filter by every dimension except extension; then apply the
+        # compound-to-single suffix walk at the candidate-set level so
+        # compound-specific declarations are preferred over the single
+        # suffix when both apply (ADR-028 §D8).
+        non_extension_filtered: list[FormatCapability] = []
         for capability, _spec in self._iter_capability_specs():
             if capability.id in excluded:
                 continue
             if capability.direction != direction:
                 continue
-            if normalized_extension is not None and not _extension_matches_capability(
-                normalized_extension, capability.extensions
-            ):
-                continue
             if dtype is not None and not _capability_matches_type(capability, dtype, direction):
                 continue
-            matches.append(capability)
-        return tuple(matches)
+            non_extension_filtered.append(capability)
+
+        if normalized_extension is None:
+            return tuple(non_extension_filtered)
+        for candidate_ext in _iter_compound_to_single_suffix(normalized_extension):
+            matched = [cap for cap in non_extension_filtered if candidate_ext in cap.extensions]
+            if matched:
+                return tuple(matched)
+        return ()
 
     def _resolve_legacy_capability_class(
         self,
@@ -1094,38 +1121,48 @@ class BlockRegistry:
         dtype: type | None,
         extension: str,
     ) -> type | None:
-        """Shared core for :meth:`find_loader` / :meth:`find_saver`."""
+        """Shared core for :meth:`find_loader` / :meth:`find_saver`.
+
+        ADR-028 §D8 compound-first contract: probe the suffix chain
+        from longest (compound) to shortest (single) and return the
+        best match for the FIRST suffix length where any registered
+        spec matches. So a query for ``.ome.tif`` resolves an
+        ``.ome.tif`` spec when one exists; only when no compound spec
+        matches does the lookup fall back to ``.tif``. Mirrors
+        :meth:`IOBlock._detect_format`'s probe order exactly.
+        """
         if not extension:
             return None
         normalized_ext = extension.lower()
 
-        # Collect (specificity_key, cls) for ranking. Specificity = length
-        # of the longest accepted-types signature chain that satisfies
-        # the type filter. Insertion order is preserved by iterating
-        # ``self._registry.values()`` (Python 3.7+ dict ordering).
-        matches: list[tuple[int, type]] = []
-        for spec in self._registry.values():
-            if spec.direction != direction:
-                continue
-            if not _ext_in_mapping(normalized_ext, spec.supported_extensions):
-                continue
-            cls = self._resolve_class(spec)
-            if cls is None:
-                continue
-            if dtype is not None:
-                specificity = self._best_specificity(cls, dtype, direction)
-                if specificity < 0:
+        for candidate_ext in _iter_compound_to_single_suffix(normalized_ext):
+            # Collect (specificity_key, cls) for ranking. Specificity = length
+            # of the longest accepted-types signature chain that satisfies
+            # the type filter. Insertion order is preserved by iterating
+            # ``self._registry.values()`` (Python 3.7+ dict ordering).
+            matches: list[tuple[int, type]] = []
+            for spec in self._registry.values():
+                if spec.direction != direction:
                     continue
-            else:
-                specificity = 0
-            matches.append((specificity, cls))
+                if not _exact_ext_in_mapping(candidate_ext, spec.supported_extensions):
+                    continue
+                cls = self._resolve_class(spec)
+                if cls is None:
+                    continue
+                if dtype is not None:
+                    specificity = self._best_specificity(cls, dtype, direction)
+                    if specificity < 0:
+                        continue
+                else:
+                    specificity = 0
+                matches.append((specificity, cls))
 
-        if not matches:
-            return None
-        # Sort by specificity DESC, preserving insertion order on ties
-        # (Python's sort is stable).
-        matches.sort(key=lambda pair: -pair[0])
-        return matches[0][1]
+            if matches:
+                # Sort by specificity DESC, preserving insertion order on ties
+                # (Python's sort is stable).
+                matches.sort(key=lambda pair: -pair[0])
+                return matches[0][1]
+        return None
 
     @staticmethod
     def _resolve_class(spec: BlockSpec) -> type | None:
@@ -1247,36 +1284,37 @@ def _iter_compound_to_single_suffix(extension: str) -> list[str]:
     return chain
 
 
-def _ext_in_mapping(extension_lower: str, mapping: dict[str, str]) -> bool:
-    """Case-insensitive membership check for ``supported_extensions``.
+def _exact_ext_in_mapping(extension_lower: str, mapping: dict[str, str]) -> bool:
+    """Case-insensitive exact-match check for ``supported_extensions``.
 
-    Accepts both forms ``".tif"`` and ``"tif"`` for *extension_lower*
-    (the leading dot is normalized). Returns True if any key in *mapping*
-    matches case-insensitively against any suffix in the compound-to-single
-    chain produced by :func:`_iter_compound_to_single_suffix`. So a query
-    for ``".ome.tif"`` matches a mapping that declares only ``".tif"`` —
-    the same fallback behaviour as :meth:`IOBlock._detect_format`. Used by
-    :meth:`BlockRegistry._find_io_block`.
+    Accepts both forms ``".tif"`` and ``"tif"`` for *extension_lower``
+    (leading dot normalized). Used by :meth:`BlockRegistry._find_io_block`
+    inside the suffix-chain outer loop: that loop probes each candidate
+    suffix (from compound to single) and exact-matches it against every
+    spec's declared extensions, returning the first non-empty match set —
+    so the longest declared compound suffix wins over a shorter single
+    suffix when both are registered. Mirrors :meth:`IOBlock._detect_format`.
     """
     if not mapping:
         return False
-    normalized_keys = {key.lower() for key in mapping}
-    return any(candidate in normalized_keys for candidate in _iter_compound_to_single_suffix(extension_lower))
+    candidate = extension_lower if extension_lower.startswith(".") else f".{extension_lower}"
+    return any(candidate == key.lower() for key in mapping)
 
 
-def _extension_matches_capability(extension_lower: str, capability_extensions: tuple[str, ...]) -> bool:
-    """Return True if *extension_lower* matches *capability_extensions*.
+def _ext_in_mapping(extension_lower: str, mapping: dict[str, str]) -> bool:
+    """Backward-compatible membership check including compound-to-single fallback.
 
-    Walks the same compound-to-single suffix chain as :func:`_ext_in_mapping`,
-    so :class:`FormatCapability` lookups honour the ADR-028 §D8 fallback
-    contract documented on :meth:`BlockRegistry.find_loader` and
-    :meth:`BlockRegistry.find_saver`. ``capability_extensions`` entries are
-    already lower-case per :func:`normalize_extension`.
+    Kept for callers that only need a boolean "does this extension reach
+    any declared key (exact or compound-fallback)?" check. Internal
+    registry dispatch should use :func:`_exact_ext_in_mapping` inside an
+    outer loop over :func:`_iter_compound_to_single_suffix` so the
+    "longest declared suffix wins" tie-break stays deterministic.
     """
-    if not capability_extensions:
+    if not mapping:
         return False
-    capability_set = set(capability_extensions)
-    return any(candidate in capability_set for candidate in _iter_compound_to_single_suffix(extension_lower))
+    return any(
+        _exact_ext_in_mapping(candidate, mapping) for candidate in _iter_compound_to_single_suffix(extension_lower)
+    )
 
 
 def _capability_matches_type(
