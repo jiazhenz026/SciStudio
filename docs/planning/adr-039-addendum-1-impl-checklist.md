@@ -99,7 +99,7 @@ language_source: en
 |---|---|---|---|---|---|---|---|---|---|---|
 | A (W1) | `implementer` | `N/A` | `docs/planning/dispatch-prompts/agent-A-1353-1354.md` | Combined stash removal + auto-commit replacement | `feat/issue-1353-1354/remove-stash-and-auto-commit` | `.claude/worktrees/agent-A-1353-1354/` | `git_engine.py` (stash methods + restore auto-commit), `routes/git.py` (stash endpoints + restore/switch auto-commit), `app.py` (verify mounts), `StashListPanel.tsx`, `StashApplyDialog.tsx`, `GitTab.tsx`, `GitHistoryList.tsx` (stash slots + handleRestore), `BranchPicker.tsx` (auto-commit toast in switch), `gitSlice.ts`, `lib/api.ts`, `types/api.ts`, `RunDetail.tsx` (hint text), 5 test files | `GitHistoryList.tsx` row layout + buttons (B owns), `GitGraph/interactions.ts` (B owns), `branch_delete` route (C owns), `BranchPicker.tsx::handleDelete` (C owns), `lineage/store.py` (C owns) | `#1353 + #1354` / [PR-A #1378](https://github.com/zjzcpj/SciStudio/pull/1378) | `[x]` |
 | B (W2) | `implementer` | `N/A` | `docs/planning/dispatch-prompts/agent-B-1355.md` | Inline `[Diff]` `[Restore]` buttons + remove row-click → modal | `feat/issue-1355/inline-history-row-buttons` | `.claude/worktrees/agent-B-1355/` | `GitHistoryList.tsx` (handleRowClick + row layout), `GitGraph/interactions.ts` (onCommitClick), `GitHistoryList.test.tsx` | Everything Agent A owns; everything Agent C owns; do not touch stash code (A handles it) | `#1355` / PR-B | `[ ]` |
-| C (W2) | `implementer` | `N/A` | `docs/planning/dispatch-prompts/agent-C-1356.md` | Silent auto-tag safety net on branch delete | `feat/issue-1356/branch-delete-orphan-guard` | `.claude/worktrees/agent-C-1356/` | `lineage/store.py` (new `workflow_git_commits_in`), `git_engine.py` (new `commits_reachable_only_from` + `tag` helpers — distinct from A's modifications), `routes/git.py::branch_delete` only, related test files | All of A's scope; all of B's scope; no UI dialog changes (silent per owner C) | `#1356` / PR-C | `[~]` impl + tests + audit done; PR open; cleanup follow-up #1380 filed |
+| C (W2) | `implementer` | `N/A` | `docs/planning/dispatch-prompts/agent-C-1356.md` | Silent auto-tag safety net on branch delete | `feat/issue-1356/branch-delete-orphan-guard` | `.claude/worktrees/agent-C-1356/` | `lineage/store.py` (new `workflow_git_commits_in`), `git_engine.py` (new `commits_reachable_only_from` + `tag` helpers — distinct from A's modifications), `routes/git.py::branch_delete` only, related test files | All of A's scope; all of B's scope; no UI dialog changes (silent per owner C) | `#1356` / [PR #1381](https://github.com/zjzcpj/SciStudio/pull/1381) (head `a46fc50d`); cleanup follow-up [#1380](https://github.com/zjzcpj/SciStudio/issues/1380) | `[~]` impl + tests + audit + REST smoke done; awaiting CI green + Codex |
 
 ## 7. Track: Wave 1 — PR-A (Agent A, #1353 + #1354 combined)
 
@@ -184,13 +184,16 @@ language_source: en
 
 ### 8.2.1 PR-C Implementation Evidence
 
-- Backend: `LineageStore.workflow_git_commits_in` (lineage/store.py line ~328), `GitEngine.commits_reachable_only_from` + `GitEngine.tag` (versioning/git_engine.py after `branch_delete`), `routes/git.py::branch_delete` wired with safety net (silent — no response payload change)
+- Backend: `LineageStore.workflow_git_commits_in` (lineage/store.py line ~328), `GitEngine.commits_reachable_only_from` + `GitEngine.tag` (versioning/git_engine.py after `branch_delete`), `routes/git.py::branch_delete` wired with safety net (silent — no response payload change).
 - Tests: 6 new in `tests/core/test_lineage_store.py`, 6 new in `tests/core/test_git_engine.py`, 3 new in `tests/api/test_git_endpoints.py` (test_branch_delete_endpoint rewritten + 2 negative cases). All 92 scope tests pass.
 - CHANGELOG `### Fixed` entry citing #1356 + #1380 (follow-up).
 - Follow-up issue #1380 opened for `refs/scistudio/lineage/*` cleanup mechanism; TODO comment in `routes/git.py::branch_delete` cites it.
 - Sentrux: scan + check_rules pass (3/15 rules, 0 violations); session_end signal delta = 0 (4444 → 4444).
 - Ruff `check` + `format --check` clean.
 - full_audit `pass`, `docs/audit/full-audit-latest.json`.
+- REST smoke evidence: `docs/audit/smoke/2026-05-21-1356-branch-delete-orphan-guard-rest-smoke.md` (full end-to-end: feature branch → divergent commit → lineage row → branch delete → `refs/scistudio/lineage/<sha>` exists → SHA reachable → Lineage Restore still works → no lineage-ref leak into BranchPicker or History chip labels).
+- Chrome MCP smoke intentionally skipped — change is backend-only (zero frontend lines changed), no UI behavior change; REST smoke proves the response-payload-unchanged invariant. Chrome MCP `list_connected_browsers` would require user-confirmation handshake unavailable in background dispatch.
+- Commits: `02c2704d` (implementation + tests + docs), `a46fc50d` (gate record finalize + smoke transcript).
 
 ### 8.5 Integration
 
