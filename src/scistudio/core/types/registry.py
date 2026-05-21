@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.metadata
+import importlib.util
 import logging
 import sys
 from dataclasses import dataclass
@@ -80,6 +81,32 @@ class TypeRegistry:
 
     def __init__(self) -> None:
         self._registry: dict[str, TypeSpec] = {}
+        # Issue #1332 / ARCHITECTURE.md §10 + §10.5: filesystem scan dirs for
+        # project-local (``<project>/types``) and user-wide
+        # (``~/.scistudio/types``) custom DataObject subclasses. Mirrors
+        # :attr:`BlockRegistry._scan_dirs`. Populated via :meth:`add_scan_dir`
+        # and consumed by :meth:`scan_all` (after entry-points / monorepo).
+        self._scan_dirs: list[Path] = []
+
+    def add_scan_dir(self, directory: str | Path) -> None:
+        """Add a directory to the filesystem scan path (issue #1332).
+
+        Mirrors :meth:`BlockRegistry.add_scan_dir`. Each registered
+        directory is walked by :meth:`scan_all` after the entry-point and
+        monorepo passes; any top-level :class:`DataObject` subclass
+        defined in a ``.py`` file under *directory* is registered.
+
+        ``directory`` may be a :class:`pathlib.Path` or a string. The
+        path is stored as-is (not eagerly resolved) so a not-yet-created
+        ``<project>/types`` or ``~/.scistudio/types`` dir is silently
+        skipped at scan time rather than raising at registration time.
+
+        ARCHITECTURE.md §10 (project layout) and §10.5 (user-wide
+        extension paths) document the two intended call sites; runtime
+        wiring in :class:`scistudio.api.runtime.ApiRuntime` issues these
+        calls before invoking :meth:`scan_all`.
+        """
+        self._scan_dirs.append(Path(directory))
 
     def register(self, name: str, spec: TypeSpec) -> None:
         """Register *spec* under *name*."""
@@ -424,11 +451,114 @@ class TypeRegistry:
                 logger.info("Registered external type '%s' from entry-point '%s'", cls.__name__, ep.name)
 
     def scan_all(self, *, include_monorepo: bool = False) -> None:
-        """Register built-in types and then scan entry-points for external types."""
+        """Register built-in types and then scan entry-points for external types.
+
+        Issue #1332 / ARCHITECTURE.md §10 + §10.5: after the entry-point and
+        monorepo passes, this also walks every directory registered via
+        :meth:`add_scan_dir` and registers any drop-in :class:`DataObject`
+        subclass found in a ``.py`` file there. Entry-point and monorepo
+        registrations win on duplicates (this matches
+        :meth:`BlockRegistry.scan`'s ordering).
+        """
         self.scan_builtins()
         self._scan_entrypoint_types()
         if include_monorepo:
             self._scan_monorepo_types()
+        self._scan_filesystem_dirs()
+
+    def _scan_filesystem_dirs(self) -> None:
+        """Walk each registered scan directory and register drop-in types.
+
+        Issue #1332 / ARCHITECTURE.md §10 + §10.5. Mirrors
+        :meth:`BlockRegistry._scan_tier1` for the type-registration path.
+
+        For each registered directory (see :meth:`add_scan_dir`):
+
+        - Silently skip if the directory does not exist (the
+          ``<project>/types`` dir is created on project init but a
+          freshly-cloned project or a user without ``~/.scistudio/types``
+          must not crash registry startup).
+        - Import every ``.py`` file via
+          :func:`importlib.util.spec_from_file_location`. Files whose
+          names start with ``_`` are skipped (private / dunder modules).
+        - Any top-level :class:`DataObject` subclass that is defined in
+          the loaded module (not merely re-exported from another module)
+          is registered under its ``__name__`` via
+          :meth:`register_class`. Names already in the registry (from
+          built-ins, entry-points, or monorepo passes) are left alone —
+          plugin and built-in registrations win on duplicates.
+        - Import failures and Meta-validation failures are logged as
+          warnings; the offending file is skipped and scanning
+          continues. A single broken drop-in must never kill the
+          registry.
+        """
+        if not self._scan_dirs:
+            return
+
+        from scistudio.core.types.base import DataObject
+
+        for scan_dir in self._scan_dirs:
+            if not scan_dir.is_dir():
+                logger.debug("TypeRegistry: scan dir %s does not exist; skipping", scan_dir)
+                continue
+            for py_file in scan_dir.glob("*.py"):
+                if py_file.name.startswith("_"):
+                    continue
+                try:
+                    mtime = py_file.stat().st_mtime
+                    mod_name = f"_scistudio_type_dropin_{py_file.stem}_{int(mtime)}"
+                    spec = importlib.util.spec_from_file_location(mod_name, py_file)
+                    if spec is None or spec.loader is None:
+                        continue
+                    module = importlib.util.module_from_spec(spec)
+                    # Register in sys.modules BEFORE exec_module so that the
+                    # synthetic mod_name (``_scistudio_type_dropin_*``) is
+                    # importable later — TypeSpec records ``obj.__module__``
+                    # and downstream :meth:`load_class` / ``resolve(type_chain)``
+                    # do ``importlib.import_module(spec.module_path)``. Without
+                    # this insert every drop-in type is registerable but
+                    # un-loadable (Codex P1 finding on PR #1339).
+                    sys.modules[spec.name] = module
+                    spec.loader.exec_module(module)
+                except Exception:
+                    logger.warning(
+                        "TypeRegistry: failed to import type drop-in from %s",
+                        py_file,
+                        exc_info=True,
+                    )
+                    continue
+
+                for attr_name in dir(module):
+                    obj = getattr(module, attr_name, None)
+                    if not (
+                        isinstance(obj, type)
+                        and issubclass(obj, DataObject)
+                        and obj is not DataObject
+                        # Skip re-exports — only register classes actually
+                        # defined in this drop-in file. Matches the #706
+                        # guard in :meth:`BlockRegistry._scan_tier1`.
+                        and getattr(obj, "__module__", None) == module.__name__
+                    ):
+                        continue
+                    if obj.__name__ in self._registry:
+                        # Built-ins / entry-points / monorepo plugins win
+                        # on duplicates; the drop-in path is the last
+                        # tier and must not silently shadow them.
+                        continue
+                    try:
+                        self.register_class(obj)
+                        logger.info(
+                            "TypeRegistry: registered drop-in type %r from %s",
+                            obj.__name__,
+                            py_file,
+                        )
+                    except Exception:
+                        logger.warning(
+                            "TypeRegistry: failed to register drop-in type %r from %s",
+                            obj.__name__,
+                            py_file,
+                            exc_info=True,
+                        )
 
     def _scan_monorepo_types(self) -> None:
         """Development fallback for plugin type discovery in the monorepo.

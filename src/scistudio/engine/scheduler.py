@@ -473,6 +473,22 @@ class DAGScheduler:
                 if isinstance(env_candidate, dict):
                     env_payload = env_candidate
 
+            # #1330: ADR-020 §3 contract enforcement at the in-process
+            # boundary. Subprocess execution already normalises inside
+            # ``worker.py`` before ``serialise_outputs``; this second call
+            # site is a belt-and-suspenders no-op for the wire-format
+            # dict path and a meaningful wrap for any future runner that
+            # returns raw Python DataObjects directly (e.g. in-process
+            # path or partial outputs from BlockTerminalStateReportedError).
+            if isinstance(result, dict):
+                from scistudio.engine.runners.worker import _normalize_outputs
+
+                try:
+                    effective_output_ports = block.get_effective_output_ports()
+                except AttributeError:
+                    effective_output_ports = list(getattr(type(block), "output_ports", []))
+                _normalize_outputs(result, effective_output_ports)
+
             self._block_outputs[node_id] = result
             # ADR-038 §5.2: persist DataObject identity to the unified
             # ``data_objects`` table via :class:`LineageStore`. The

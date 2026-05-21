@@ -91,6 +91,104 @@ def reconstruct_inputs(payload: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _normalize_outputs(
+    outputs: dict[str, Any],
+    output_ports: list[Any],
+) -> dict[str, Any]:
+    """Normalize block outputs to satisfy the ADR-020 §3 transport contract.
+
+    ADR-020 §3 makes a hard contract claim: every value crossing a block
+    boundary is represented as a :class:`Collection`. A single item is a
+    length-one Collection; a multi-file or multi-object input is a longer
+    Collection. The engine, not the block, is responsible for honouring
+    that contract — block authors who follow the docs and return a bare
+    :class:`DataObject` on a port with ``is_collection=True`` would
+    otherwise silently produce a wire-format mismatch at the downstream
+    port (#1330).
+
+    For each ``(port_name, value)`` pair:
+
+    1. Look up the matching :class:`OutputPort` by name. If the port name
+       is not declared (e.g. sentinels like ``__scistudio_env__``), leave
+       the value unchanged.
+    2. If ``port.is_collection=True`` and ``value`` is a bare
+       :class:`DataObject` (not already a :class:`Collection`), wrap it as
+       ``Collection([value], item_type=type(value))``. The ``type(value)``
+       strategy matches the precedent in
+       :mod:`scistudio.blocks.ai.ai_block` (``ai_block.py:532``) and is
+       stable under Add6's ``port_accepts_type`` check.
+    3. If ``port.is_collection=True`` and ``value`` is a bare ``list`` of
+       :class:`DataObject` items (every element is a DataObject and the
+       list is non-empty), pack it as
+       ``Collection(value, item_type=type(value[0]))``. Catches the
+       ADR-020 §3 "multi-file → longer Collection" case where a block
+       returned a native list without packing — without this, the bare
+       list would either fall through unwrapped or be wrapped as a single
+       1-item Collection containing the list (which violates Collection's
+       homogeneity invariant).
+    4. For all other shapes (already-wrapped Collection, non-Collection
+       port, scalar/dict/None, wire-format dict from a serialised payload,
+       mixed-type lists, empty lists), leave the value untouched and let
+       the existing serialisation / validation layer surface a clear
+       error.
+
+    The helper is idempotent: calling it twice on the same dict yields
+    the same result. It is safe to invoke on both raw-Python outputs
+    (subprocess pre-``serialise_outputs``) and wire-format dicts
+    (in-process post-runner), because plain ``dict`` values never satisfy
+    the ``isinstance(value, DataObject)`` guard.
+
+    Parameters
+    ----------
+    outputs:
+        Mapping of port names to output values. Mutated in-place.
+    output_ports:
+        Effective output ports for the block (typically obtained via
+        :meth:`Block.get_effective_output_ports`).
+
+    Returns
+    -------
+    dict[str, Any]
+        The same ``outputs`` dict, mutated in-place and returned for
+        chainability.
+    """
+    from scistudio.core.types.base import DataObject
+    from scistudio.core.types.collection import Collection
+
+    port_map = {port.name: port for port in output_ports}
+
+    for port_name, value in list(outputs.items()):
+        port = port_map.get(port_name)
+        if port is None:
+            # Unknown port name (e.g. ``__scistudio_env__`` sentinel) —
+            # leave it alone.
+            continue
+        if not getattr(port, "is_collection", False):
+            continue
+        if isinstance(value, Collection):
+            continue
+        if isinstance(value, list) and value and all(isinstance(item, DataObject) for item in value):
+            # Bare ``list[DataObject]`` on a Collection port — pack with
+            # the first item's runtime type. ADR-020 §3 "multi-object
+            # input is a longer Collection"; without this branch, the
+            # list would either fall through unwrapped or hit the bare
+            # DataObject branch below (which would wrap the list as a
+            # single 1-item Collection containing the list itself and
+            # then fail Collection's homogeneity check).
+            outputs[port_name] = Collection(value, item_type=type(value[0]))
+            continue
+        if not isinstance(value, DataObject):
+            # Bare scalar / dict / None / wire-format payload / mixed
+            # or empty list — the contract only covers DataObject values
+            # (and homogeneous lists of them, handled above).
+            # ``serialise_outputs`` already handles non-DataObject
+            # pass-through.
+            continue
+        outputs[port_name] = Collection([value], item_type=type(value))
+
+    return outputs
+
+
 def serialise_outputs(outputs: dict[str, Any], output_dir: str) -> dict[str, Any]:
     """Serialize block outputs to JSON-compatible wire format.
 
@@ -283,6 +381,19 @@ def main() -> None:
 
         # Execute.
         outputs = block.run(inputs, block_config)
+
+        # #1330: enforce ADR-020 §3 transport contract — wrap bare
+        # DataObject values on ``is_collection=True`` ports into length-one
+        # Collections at the engine boundary. Idempotent and a no-op for
+        # blocks that already self-wrap (six concrete blocks in
+        # blocks/process|code|app|ai). Skipped when ``run`` returned a
+        # non-dict (handled below by the ``_result`` fallback).
+        if isinstance(outputs, dict):
+            try:
+                effective_output_ports = block.get_effective_output_ports()
+            except AttributeError:
+                effective_output_ports = list(getattr(type(block), "output_ports", []))
+            _normalize_outputs(outputs, effective_output_ports)
 
         # #681: capture the block's terminal state if it transitioned to a
         # non-DONE terminal state (CANCELLED / ERROR / SKIPPED) from inside
