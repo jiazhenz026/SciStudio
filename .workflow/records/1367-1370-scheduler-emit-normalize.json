@@ -51,7 +51,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1367-1370-scheduler-emit-normalize.json",
+    "shas": [
+      "7b75f44e"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -110,7 +116,14 @@
     "docs/planning/2026-05-21-bug-sweep-checklist.md",
     ".workflow/records/1367-1370-scheduler-emit-normalize.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1367,
+      1370
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1391"
+  },
   "record_path": ".workflow/records/1367-1370-scheduler-emit-normalize.json",
   "required_checks": [
     "ruff",
@@ -178,7 +191,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
