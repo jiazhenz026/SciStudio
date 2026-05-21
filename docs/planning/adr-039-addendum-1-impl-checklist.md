@@ -239,3 +239,20 @@ Append only.
 - [x] CI passed on umbrella — Verify Workflow Compliance SUCCESS on each sub-PR pre-merge; manager-level umbrella checks (ruff/format/backend pytest/full_audit/sentrux/grep guard) all green per §9
 - [x] Checklist final state matches umbrella PR diff and gate record
 - [ ] **Owner spot-check Chrome smoke + authorize `[DO NOT MERGE]` removal on umbrella PR #1364** — see §9 deferred-to-owner rows for the 3 Chrome smoke scenarios still pending (Lineage Restore hint, branch switch toast, silent auto-tag); inline buttons smoke already covered by Agent B's evidence
+
+## 12. External Audit
+
+- Audit dispatched 2026-05-21 (post-W2 merge). Read-only audit of the umbrella implementation across PR-A / PR-B / PR-C against the §11.3 / §11.4 contract + 28 enumerated edge cases.
+- Audit branch: `audit/adr-039-addendum-1-completeness`
+- Audit report: [docs/audit/2026-05-21-adr-039-addendum-1-completeness-audit.md](../audit/2026-05-21-adr-039-addendum-1-completeness-audit.md)
+- Audit PR: [#1393](https://github.com/zjzcpj/SciStudio/pull/1393) (against `umbrella/adr-039-addendum-1-impl`)
+- Audit gate record: `.workflow/records/audit-1352-addendum-1-completeness.json`
+- Recommendation: **pass-with-fixes** — one P1 blocker (manager-side metadata fix to umbrella gate record `scope.include`, not a code fix); zero P2; four P3 polish nits documented as follow-ups.
+- P1-1 (NEW for manager): umbrella PR #1364 has 2 FAILED `Verify Workflow Compliance` CI runs; the manager gate record's `scope.include` does not cover sub-PR file paths. Manager action required before umbrella → `main` merge. Choose either: widen `scope.include` to enumerate all sub-PR paths and re-finalize, OR apply `admin-approved:ai-override` label to PR #1364 with rationale that this is a meta-PR composed of 3 already-gated sub-PRs.
+- Per-claim verification: all 4 claims PASS.
+- Per-edge-case verification: 26/28 covered or N/A; 2 deferred to follow-up (graph-dot scrollIntoView, same-branch dirty switch phantom commit).
+- Drift log: 4/4 entries verified accurate.
+- Follow-up issues #1380 / #1389 / #1390: 3/3 verified accurate.
+- Codex auto-review reconciliation: complete on all 3 PRs.
+
+§11 Final Readiness row 5 ("CI passed on umbrella") is partially accurate — true for the **sub-PR** Verify Workflow Compliance + manager-local checks, but **NOT** for the umbrella PR's own Verify Workflow Compliance. Recommend correcting that row's claim before umbrella → main merge.
