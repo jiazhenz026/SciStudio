@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -190,6 +191,19 @@ class LocalRunner:
         #   Followup: https://github.com/zjzcpj/SciEasy/issues/1305
         project_dir = config.get("project_dir")
         worker_cwd = str(project_dir) if isinstance(project_dir, str) and project_dir else None
+        # When we change the worker cwd away from the parent process cwd,
+        # the parent's implicit ``sys.path[0]=''`` no longer resolves to
+        # the same directory in the worker. Tests + dev workflows that
+        # imported modules relative to the launcher cwd (e.g. tests'
+        # ``tests.fixtures.noop_io_block``) would then fail with
+        # ``ModuleNotFoundError``. Preserve that import surface by adding
+        # the parent's cwd to the worker's ``PYTHONPATH``.
+        worker_env: dict[str, str] | None = None
+        if worker_cwd is not None:
+            worker_env = dict(os.environ)
+            parent_cwd = os.getcwd()
+            existing_pp = worker_env.get("PYTHONPATH", "")
+            worker_env["PYTHONPATH"] = f"{parent_cwd}{os.pathsep}{existing_pp}" if existing_pp else parent_cwd
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             "-m",
@@ -199,6 +213,7 @@ class LocalRunner:
             stderr=asyncio.subprocess.PIPE,
             start_new_session=True,
             cwd=worker_cwd,
+            env=worker_env,
         )
 
         # Register the process in the ProcessRegistry for lifecycle tracking.

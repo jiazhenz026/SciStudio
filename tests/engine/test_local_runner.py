@@ -640,3 +640,43 @@ class TestLocalRunnerWorkerCwd:
 
         call_kwargs = mock_create_sub.call_args.kwargs
         assert call_kwargs.get("cwd") is None
+
+    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    def test_worker_env_prepends_parent_cwd_to_pythonpath(self, mock_create_sub: AsyncMock, tmp_path: Path) -> None:
+        """When worker cwd is overridden to project_dir, the parent process
+        cwd MUST be added to PYTHONPATH so imports that previously resolved
+        via ``sys.path[0]=''`` (e.g. ``tests.fixtures.noop_io_block``) still
+        work. Regression for CI failure in PR #1310 first run."""
+        import os
+
+        mock_create_sub.return_value = self._make_async_proc(b"{}", b"", 0, pid=203)
+        runner = LocalRunner()
+
+        class FakeBlock:
+            pass
+
+        project_dir = tmp_path / "project-root"
+        project_dir.mkdir()
+        parent_cwd_before = os.getcwd()
+        asyncio.run(runner.run(FakeBlock(), {}, {"project_dir": str(project_dir)}))
+
+        call_kwargs = mock_create_sub.call_args.kwargs
+        env = call_kwargs.get("env")
+        assert env is not None, "worker env must be set when cwd is overridden"
+        pp = env.get("PYTHONPATH", "")
+        assert parent_cwd_before in pp.split(os.pathsep)
+
+    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    def test_worker_env_is_none_when_no_active_project(self, mock_create_sub: AsyncMock) -> None:
+        """When no project is active (CLI standalone runs), env is None so
+        the worker inherits the parent env unchanged."""
+        mock_create_sub.return_value = self._make_async_proc(b"{}", b"", 0, pid=204)
+        runner = LocalRunner()
+
+        class FakeBlock:
+            pass
+
+        asyncio.run(runner.run(FakeBlock(), {}, {}))
+
+        call_kwargs = mock_create_sub.call_args.kwargs
+        assert call_kwargs.get("env") is None
