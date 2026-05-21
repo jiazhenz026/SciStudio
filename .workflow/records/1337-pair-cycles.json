@@ -1,0 +1,187 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/adr/ADR-039.md",
+        "docs/adr/ADR-019.md"
+      ],
+      "reason": "ADR-039 and ADR-019 governs.contracts must be updated to track the new canonical location of GitError and ProcessExitInfo after the _common.py extraction. The audit (doc_drift, closure, signature_drift) treats the re-exports as aliases and rejects the original contract paths. Adding the two ADR files to scope so the audit resolves."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "src/scistudio/core/versioning/errors.py",
+        "src/scistudio/engine/runners/exit_info.py"
+      ],
+      "reason": "Rename _common.py to public names (errors.py for versioning, exit_info.py for runners) so griffe-based symbol facts can be generated. The audit's _is_public filter skips private modules so private _common.py modules are invisible to fact resolution and would block doc_drift, closure, and signature_drift checks. The dispatch brief's _common.py naming choice was wrong for audit-fact resolution; switching to public names matches the ADR governs.contracts surface treatment."
+    }
+  ],
+  "branch": "fix/1337-pair-cycles",
+  "changed_test_paths": [
+    "tests/core/test_git_engine.py",
+    "tests/engine/test_process_handle.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff check src/scistudio/core/versioning src/scistudio/engine/runners tests/core tests/engine",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff format --check src/scistudio/core/versioning src/scistudio/engine/runners tests/core tests/engine",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m pytest tests/core/test_git_engine.py tests/engine/ tests/blocks/test_tier1_dropin_subprocess.py tests/api/test_workflow_run_git.py tests/blocks/test_auto_flush_composite.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "C:/Users/jiazh/AppData/Local/Temp/pytest-out.txt",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "refactor preserves public surface; new errors.py + exit_info.py are pair-cycle-breaking shims and are documented in the ADR governs.contracts as the canonical location of the symbol fact. No user-visible behavior changes."
+    },
+    "checklist": {},
+    "docs": {
+      "paths": [
+        "docs/adr/ADR-039.md",
+        "docs/adr/ADR-019.md"
+      ]
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "no spec governs the affected modules; ADR-019 and ADR-039 govern them and have been updated."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-track-a.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-track-a.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1337,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1337"
+    }
+  ],
+  "owner_directive": "Break engine.runners and core.versioning pairwise cycles via _common.py extractions",
+  "planned_files": [
+    "src/scistudio/core/versioning/_common.py",
+    "src/scistudio/core/versioning/git_binary.py",
+    "src/scistudio/core/versioning/git_engine.py",
+    "src/scistudio/core/versioning/__init__.py",
+    "src/scistudio/engine/runners/_common.py",
+    "src/scistudio/engine/runners/platform.py",
+    "src/scistudio/engine/runners/process_handle.py",
+    "src/scistudio/engine/runners/__init__.py",
+    "tests/core/test_git_engine.py",
+    "tests/engine/test_process_handle.py",
+    ".workflow/records/1337-pair-cycles.json"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1337-pair-cycles.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest",
+    "sentrux",
+    "full_audit"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/core/versioning/_common.py",
+      "src/scistudio/core/versioning/git_binary.py",
+      "src/scistudio/core/versioning/git_engine.py",
+      "src/scistudio/core/versioning/__init__.py",
+      "src/scistudio/engine/runners/_common.py",
+      "src/scistudio/engine/runners/platform.py",
+      "src/scistudio/engine/runners/process_handle.py",
+      "src/scistudio/engine/runners/__init__.py",
+      "tests/core/test_git_engine.py",
+      "tests/engine/test_process_handle.py",
+      ".workflow/records/1337-pair-cycles.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__rescan + dsm + health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": ".workflow/records/1337-pair-cycles-sentrux.json",
+    "pro_required": false,
+    "quality_signal": 4472.0,
+    "rules_checked": null,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1337-pair-cycles",
+  "task_kind": "refactor"
+}

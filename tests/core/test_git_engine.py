@@ -5,6 +5,9 @@ Phase D39-2.2b — bodies filled, xfail flipped to passing.
 
 from __future__ import annotations
 
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -16,6 +19,53 @@ def _init_engine(tmp_path: Path) -> GitEngine:
     engine = GitEngine(tmp_path)
     engine.init_repository(tmp_path)
     return engine
+
+
+# ---------------------------------------------------------------------------
+# Regression: pair-cycle is gone (#1337)
+# ---------------------------------------------------------------------------
+
+
+def test_no_circular_import() -> None:
+    """git_binary ↔ git_engine no longer have a circular dependency.
+
+    Regression for #1337 (PR #1344): the pair previously relied on a lazy
+    ``from scistudio.core.versioning.git_engine import GitError`` inside
+    ``GitBinary.run`` AND a lazy ``from .git_binary import GitBinary``
+    inside ``GitEngine._git``. The fix extracts ``GitError`` into
+    ``scistudio.core.versioning.errors`` so both modules can use
+    module-top imports. This test spawns a fresh interpreter and imports
+    each module first (in either order) to prove the cycle is gone.
+    """
+    script = textwrap.dedent(
+        """
+        import importlib
+        import sys
+
+        order = sys.argv[1]
+        if order == "binary-first":
+            importlib.import_module("scistudio.core.versioning.git_binary")
+            importlib.import_module("scistudio.core.versioning.git_engine")
+        else:
+            importlib.import_module("scistudio.core.versioning.git_engine")
+            importlib.import_module("scistudio.core.versioning.git_binary")
+
+        # Smoke test the re-export contract: ``GitError`` must still resolve
+        # via ``git_engine`` (the public surface used by api.routes.git).
+        from scistudio.core.versioning.git_engine import GitError as _E
+        assert _E.__module__ == "scistudio.core.versioning.errors", _E.__module__
+        print("OK")
+        """
+    )
+    for order in ("binary-first", "engine-first"):
+        proc = subprocess.run(
+            [sys.executable, "-c", script, order],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert proc.returncode == 0, f"order={order} stderr={proc.stderr!r} stdout={proc.stdout!r}"
+        assert "OK" in proc.stdout
 
 
 # ---------------------------------------------------------------------------

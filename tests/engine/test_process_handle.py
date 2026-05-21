@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import subprocess
 import sys
+import textwrap
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -23,6 +24,54 @@ from scistudio.engine.runners.process_handle import (
     ProcessRegistry,
     spawn_block_process,
 )
+
+# ---------------------------------------------------------------------------
+# Regression: pair-cycle is gone (#1337)
+# ---------------------------------------------------------------------------
+
+
+def test_no_circular_import() -> None:
+    """platform ↔ process_handle no longer have a circular dependency.
+
+    Regression for #1337 (PR #1344): the pair previously relied on a
+    ``TYPE_CHECKING`` import + six in-function lazy imports of
+    ``ProcessExitInfo`` inside ``platform.py``. The fix extracts
+    ``ProcessExitInfo`` into ``scistudio.engine.runners.exit_info`` so
+    both modules can use module-top imports. This test spawns a fresh
+    interpreter and imports each module first (in either order) to prove
+    the cycle is gone.
+    """
+    script = textwrap.dedent(
+        """
+        import importlib
+        import sys
+
+        order = sys.argv[1]
+        if order == "platform-first":
+            importlib.import_module("scistudio.engine.runners.platform")
+            importlib.import_module("scistudio.engine.runners.process_handle")
+        else:
+            importlib.import_module("scistudio.engine.runners.process_handle")
+            importlib.import_module("scistudio.engine.runners.platform")
+
+        # Smoke test the re-export contract: ``ProcessExitInfo`` must still
+        # resolve via ``process_handle`` (the public surface used by
+        # ``engine.runners.__init__`` and downstream callers).
+        from scistudio.engine.runners.process_handle import ProcessExitInfo as _PEI
+        assert _PEI.__module__ == "scistudio.engine.runners.exit_info", _PEI.__module__
+        print("OK")
+        """
+    )
+    for order in ("platform-first", "process-handle-first"):
+        proc = subprocess.run(
+            [sys.executable, "-c", script, order],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert proc.returncode == 0, f"order={order} stderr={proc.stderr!r} stdout={proc.stdout!r}"
+        assert "OK" in proc.stdout
+
 
 # ---------------------------------------------------------------------------
 # ProcessExitInfo

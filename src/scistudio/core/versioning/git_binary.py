@@ -23,6 +23,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from scistudio.core.versioning.errors import GitError
+
 logger = logging.getLogger(__name__)
 
 
@@ -148,13 +150,9 @@ class GitBinary:
         injects SciStudio default env (``GIT_TERMINAL_PROMPT=0``,
         ``LANG=C``, ``GIT_PAGER=cat``).
 
-        Raises :class:`GitError` (from ``git_engine``) when ``check`` and
-        exit != 0.
+        Raises :class:`GitError` (re-exported via ``git_engine``) when
+        ``check`` and exit != 0.
         """
-        # Lazy import to avoid circular dependency (git_engine imports
-        # git_binary at module load time).
-        from scistudio.core.versioning.git_engine import GitError
-
         argv = [str(self.path), *args]
         full_env = os.environ.copy()
         full_env.update(
