@@ -204,6 +204,19 @@ class LocalRunner:
             parent_cwd = os.getcwd()
             existing_pp = worker_env.get("PYTHONPATH", "")
             worker_env["PYTHONPATH"] = f"{parent_cwd}{os.pathsep}{existing_pp}" if existing_pp else parent_cwd
+        # #1365: propagate ``SCISTUDIO_PROJECT_DIR`` to the worker so the
+        # worker-side :func:`scistudio.core.types.serialization._get_type_registry`
+        # registers ``<project>/types`` as a TypeRegistry scan dir before the
+        # first :func:`reconstruct_inputs` call. Without this the API-side
+        # registry sees project drop-in :class:`DataObject` types but the
+        # worker singleton falls back to base ``DataObject``. We always
+        # rebuild ``worker_env`` when ``project_dir`` is known so the env
+        # var lands on the subprocess even when ``worker_cwd`` itself was
+        # already configured above.
+        if isinstance(project_dir, str) and project_dir:
+            if worker_env is None:
+                worker_env = dict(os.environ)
+            worker_env["SCISTUDIO_PROJECT_DIR"] = project_dir
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             "-m",
