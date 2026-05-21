@@ -51,6 +51,71 @@ class TestEngineWrapsBareDataObject:
         assert wrapped.item_type is Array
 
 
+class TestEngineUnpacksBareListOfDataObjects:
+    """Bare ``list[DataObject]`` on an ``is_collection=True`` port is packed."""
+
+    def test_engine_packs_bare_list_of_dataobjects_into_collection(self) -> None:
+        """Block returns ``{"out": [a, b, c]}`` (native Python list) for an
+        ``is_collection=True`` port; post-normalize value is
+        ``Collection([a, b, c], item_type=Array)``.
+
+        ADR-020 §3 says "multi-file or multi-object input is represented
+        as a longer Collection" — bare lists must be packed by engine so
+        the block can return native shapes without doing the wrap itself.
+        Without this branch the list would fall through unwrapped or be
+        wrapped as a single 1-item Collection containing the list itself
+        (which fails Collection's homogeneity check). Owner directive
+        2026-05-21 option (a).
+        """
+        a, b, c = _make_array(), _make_array(), _make_array()
+        ports = [
+            OutputPort(name="out", accepted_types=[Array], is_collection=True),
+        ]
+        outputs: dict = {"out": [a, b, c]}
+
+        _normalize_outputs(outputs, ports)
+
+        packed = outputs["out"]
+        assert isinstance(packed, Collection)
+        assert len(packed) == 3
+        assert packed[0] is a
+        assert packed[1] is b
+        assert packed[2] is c
+        assert packed.item_type is Array
+
+    def test_engine_leaves_empty_list_alone(self) -> None:
+        """Empty list cannot infer item_type from its first element. ADR-020
+        Add6 forbids empty Collection without explicit item_type. The
+        engine must NOT silently invent an item_type from the port; let
+        the existing serialisation/validation layer surface a clear error.
+        """
+        ports = [
+            OutputPort(name="out", accepted_types=[Array], is_collection=True),
+        ]
+        outputs: dict = {"out": []}
+
+        _normalize_outputs(outputs, ports)
+
+        assert outputs["out"] == []
+
+    def test_engine_leaves_mixed_list_alone(self) -> None:
+        """A list containing a non-DataObject element does not match the
+        bare-list-of-DataObject pattern. Leave it alone so downstream
+        validation can produce a clear error rather than masking the
+        intent with a partial wrap.
+        """
+        bare = _make_array()
+        ports = [
+            OutputPort(name="out", accepted_types=[Array], is_collection=True),
+        ]
+        outputs: dict = {"out": [bare, "not a DataObject"]}
+
+        _normalize_outputs(outputs, ports)
+
+        # Pass through — not packed into a Collection
+        assert outputs["out"] == [bare, "not a DataObject"]
+
+
 class TestEngineDoesNotDoubleWrap:
     """Existing Collection passes through unchanged (identity preserved)."""
 

@@ -29,6 +29,14 @@
         "docs/audit/full-audit-latest.json"
       ],
       "reason": "Include docs/audit/full-audit-latest.json (audit evidence file). Standard ADR-042 audit output path."
+    },
+    {
+      "approved_by": "owner",
+      "exclude": [],
+      "include": [
+        "src/scistudio/blocks/code/code_block.py"
+      ],
+      "reason": "Integration cleanup commit: 3 Codex audit findings (checklist drift + Track B sys.modules + worker.py list-unpack extension per owner option-a). Adds src/scistudio/blocks/code/code_block.py for the TODO marker on the legacy _repack_outputs (now redundant with engine list-unpack; cleanup deferred to #1330 follow-up PR per existing scope)."
     }
   ],
   "branch": "umbrella/arch-drift-and-collection-wrap",
@@ -40,6 +48,15 @@
       "name": "manager-coordination-only",
       "output_path": null,
       "status": "skipped",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m pytest tests/engine/ tests/core/test_type_registry_scan_dirs.py --timeout=60",
+      "exit_code": 0,
+      "name": "pytest engine + types regression (after audit cleanup)",
+      "output_path": null,
+      "status": "pass",
       "summary": {},
       "timestamp": null
     }

@@ -422,7 +422,18 @@ class CodeBlock(Block):
         return unpacked
 
     def _repack_outputs(self, outputs: Mapping[str, Any]) -> dict[str, Any]:
-        """Legacy helper retained while inline execution migrates to v2 exchange."""
+        """Legacy helper retained while inline execution migrates to v2 exchange.
+
+        TODO(#1330): redundant once engine ``_normalize_outputs`` list-unpack
+            soaks (the engine-side helper at
+            ``scistudio.engine.runners.worker._normalize_outputs`` now
+            handles both bare DataObject and bare list[DataObject] at the
+            output boundary, per ADR-020 §3). Kept as explicit intent
+            during the soak window and to preserve legacy-inline-execution
+            shape. Cleanup PR removes this helper together with the six
+            similar manual wraps in concrete blocks.
+            Followup: #1330 follow-up cleanup PR.
+        """
 
         repacked: dict[str, Any] = {}
         for name, value in outputs.items():

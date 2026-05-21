@@ -77,7 +77,7 @@ language_source: en
 ## 4. Manager Preflight
 
 - [x] Dedicated manager branch and worktree created. → `umbrella/arch-drift-and-collection-wrap` at `.claude/worktrees/umbrella-arch-drift`
-- [x] Existing issues linked. → #1330, #1331, #1332, #887
+- [x] Existing issues linked. → #1330 (Track A), #1332 (Track B). Deferred (open standalone, NOT closed by this umbrella): #1331 (P1-1), #887 (P1-2).
 - [x] Gate record started. → `.workflow/records/1330-umbrella-arch-drift.json`
 - [x] Scope include/exclude recorded in the gate record.
 - [x] Umbrella branch created.
@@ -161,32 +161,32 @@ language_source: en
 - [ ] Manager reviewed scope compliance.
 - [ ] Track-A merged into umbrella.
 
-### 7.B Track B: ARCHITECTURE.md Drift Fixes (Closes #1331, #1332; references #887)
+### 7.B Track B: TypeRegistry Filesystem Scan Impl (Closes #1332)
+
+> **Scope revised 2026-05-21**: owner directive narrowed this track from "ARCHITECTURE.md drift docs" to a focused impl for #1332. #1331 (P1-1 interactive subprocess) and #887 (P1-2 resource gating) deferred from this umbrella — both stay open as standalone issues. ARCHITECTURE.md NOT touched (owner directive: doc is the final commitment).
 
 #### 7.B.1 Track Scope
 
 - Owner: Track-B agent
 - In scope:
-  - **§5.3 (line 771-786)**: Add explicit interactive-blocks-in-process exception. Cite [scheduler.py:341-344](src/scistudio/engine/scheduler.py#L341) comment + #591/#594 design rationale. The unqualified "Block logic runs outside the engine process" claim becomes "Non-interactive block logic runs outside the engine process" with a new paragraph describing the interactive exception.
-  - **§6 (lines around 963, 1075, 1088)**: Revise resource-gating language. Current text claims block-declared CPU/GPU dispatch gating; actual behavior is OS memory watermark only (psutil L2). Update to describe the L2 watermark behavior as the current production gate, with L1 (block-declared resources) marked as planned. Reference [#887](https://github.com/zjzcpj/SciStudio/issues/887) as the impl tracker.
-  - **§10 (line 1763)**: Mark `types/` row as "Planned. TypeRegistry currently scans built-ins and `scistudio.types` entry-points only; project-local `types/` filesystem scan is not implemented. See #1332."
-  - **§10.5 (lines 1855-1864)**: Similarly mark user-wide `~/.scistudio/types/` scan as planned, referencing #1332.
+  - Add `TypeRegistry.add_scan_dir(path)` mirroring BlockRegistry's existing pattern in `src/scistudio/blocks/registry.py`
+  - Integrate the new scan path into `TypeRegistry.scan_all` after `_scan_entrypoint_types()` / `_scan_monorepo_types()` — walk Python files via `importlib.util.spec_from_file_location`, register DataObject subclasses, tolerate ImportError with warning (no crash)
+  - Wire 2 scan dirs in `src/scistudio/api/runtime.py` near the existing BlockRegistry `add_scan_dir` calls: `Path(self.active_project.path) / "types"` (when project active) and `Path.home() / ".scistudio" / "types"` (always)
+  - Tests under `tests/core/test_type_registry_scan_dirs.py`
 - Out of scope:
-  - All source code under `src/`
-  - All tests under `tests/`
-  - Other architecture sections beyond §5.3, §6, §10, §10.5
-  - ADR-020 or ADR-018 text (no ADR changes needed)
-  - Implementing TypeRegistry.add_scan_dir (defer to follow-up issue if owner demand surfaces)
+  - `docs/architecture/ARCHITECTURE.md` (owner directive: doc is final commitment)
+  - `src/scistudio/engine/` (Track A owns)
+  - Refactoring BlockRegistry itself (read-only reference)
 - Required docs:
-  - The change IS the docs update — primary artifact.
+  - N/A across all classes — ARCHITECTURE.md §10/§10.5 already describes the intended scan paths; this PR catches impl up. Record explicit N/A in gate record.
 - Required tests:
-  - N/A — docs-only task. Record N/A rationale in gate record `tests` stage. (Implementation-category test requirement does NOT apply to `docs` task-kind per [gated-workflow.md §3.4](docs/ai-developer/specific_rules/gated-workflow.md).)
+  - `tests/core/test_type_registry_scan_dirs.py` — at minimum: scan picks up a fresh DataObject subclass, nonexistent dir is silently skipped, ImportError in a scan file warns but does not crash, integration test that ApiRuntime wires both project + user types dirs.
 
 #### 7.B.2 Dispatch
 
-- [ ] Prompt inline below (`§7.B.5`)
+- [x] Prompt inline below (`§7.B.5`)
 - [x] Correct prompt template selected: `agent-dispatch-prompt-template.md`
-- [x] Agent branch/worktree assigned: `docs/issue-1331-1332-arch-drift` at `.claude/worktrees/track-b-arch-drift-docs`
+- [x] Agent branch/worktree assigned: `fix/issue-1332-types-scan` at agent isolation worktree
 - [x] Write set and out-of-scope paths included in prompt.
 - [x] TODO rule included in prompt.
 - [x] Required checks included in prompt.
@@ -235,8 +235,7 @@ Append only.
 - [ ] All dispatched agents have final outputs.
 - [ ] Manager reviewed every changed file.
 - [ ] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux evidence when needed, commit, and PR evidence.
-- [ ] Umbrella PR closes #1330, #1331, #1332 (with closing keywords).
-- [ ] Umbrella PR references #887 with non-closing rationale.
+- [x] Umbrella PR closes #1330, #1332 (with closing keywords). #1331 and #887 are explicitly deferred — they MUST NOT appear with closing keywords and stay open as standalone issues.
 - [ ] CI passed on umbrella PR.
 - [ ] Checklist final state matches PR and gate record.
 - [ ] Owner notified for `[DO NOT MERGE]` removal.

@@ -117,9 +117,20 @@ def _normalize_outputs(
        strategy matches the precedent in
        :mod:`scistudio.blocks.ai.ai_block` (``ai_block.py:532``) and is
        stable under Add6's ``port_accepts_type`` check.
-    3. For all other shapes (already-wrapped Collection, non-Collection
-       port, scalar/dict/None, wire-format dict from a serialised payload),
-       leave the value untouched.
+    3. If ``port.is_collection=True`` and ``value`` is a bare ``list`` of
+       :class:`DataObject` items (every element is a DataObject and the
+       list is non-empty), pack it as
+       ``Collection(value, item_type=type(value[0]))``. Catches the
+       ADR-020 §3 "multi-file → longer Collection" case where a block
+       returned a native list without packing — without this, the bare
+       list would either fall through unwrapped or be wrapped as a single
+       1-item Collection containing the list (which violates Collection's
+       homogeneity invariant).
+    4. For all other shapes (already-wrapped Collection, non-Collection
+       port, scalar/dict/None, wire-format dict from a serialised payload,
+       mixed-type lists, empty lists), leave the value untouched and let
+       the existing serialisation / validation layer surface a clear
+       error.
 
     The helper is idempotent: calling it twice on the same dict yields
     the same result. It is safe to invoke on both raw-Python outputs
@@ -156,10 +167,22 @@ def _normalize_outputs(
             continue
         if isinstance(value, Collection):
             continue
+        if isinstance(value, list) and value and all(isinstance(item, DataObject) for item in value):
+            # Bare ``list[DataObject]`` on a Collection port — pack with
+            # the first item's runtime type. ADR-020 §3 "multi-object
+            # input is a longer Collection"; without this branch, the
+            # list would either fall through unwrapped or hit the bare
+            # DataObject branch below (which would wrap the list as a
+            # single 1-item Collection containing the list itself and
+            # then fail Collection's homogeneity check).
+            outputs[port_name] = Collection(value, item_type=type(value[0]))
+            continue
         if not isinstance(value, DataObject):
-            # Bare scalar / dict / None / wire-format payload — the
-            # contract only covers DataObject values. ``serialise_outputs``
-            # already handles non-DataObject pass-through.
+            # Bare scalar / dict / None / wire-format payload / mixed
+            # or empty list — the contract only covers DataObject values
+            # (and homogeneous lists of them, handled above).
+            # ``serialise_outputs`` already handles non-DataObject
+            # pass-through.
             continue
         outputs[port_name] = Collection([value], item_type=type(value))
 

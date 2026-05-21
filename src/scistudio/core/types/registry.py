@@ -511,6 +511,14 @@ class TypeRegistry:
                     if spec is None or spec.loader is None:
                         continue
                     module = importlib.util.module_from_spec(spec)
+                    # Register in sys.modules BEFORE exec_module so that the
+                    # synthetic mod_name (``_scistudio_type_dropin_*``) is
+                    # importable later — TypeSpec records ``obj.__module__``
+                    # and downstream :meth:`load_class` / ``resolve(type_chain)``
+                    # do ``importlib.import_module(spec.module_path)``. Without
+                    # this insert every drop-in type is registerable but
+                    # un-loadable (Codex P1 finding on PR #1339).
+                    sys.modules[spec.name] = module
                     spec.loader.exec_module(module)
                 except Exception:
                     logger.warning(
