@@ -52,8 +52,15 @@
         "CHANGELOG.md"
       ]
     },
-    "checklist": {},
-    "docs": {},
+    "checklist": {
+      "paths": [
+        "docs/planning/2026-05-21-bug-sweep-checklist.md"
+      ]
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "behavior-restoring-bugfix-CHANGELOG-only-no-implementation-docs-need-update"
+    },
     "spec": {
       "not_applicable": true,
       "rationale": "behavior-restoring-bugfix-no-public-contract-change"
@@ -75,13 +82,13 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1343,
-      "url": null
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1343"
     },
     {
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1365,
-      "url": null
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1365"
     }
   ],
   "owner_directive": "Root-cause fix: drop-in sys.modules registration + worker reconstruction scan-dir visibility",
