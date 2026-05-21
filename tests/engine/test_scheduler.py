@@ -11,6 +11,7 @@ from scistudio.blocks.base.state import BlockState
 from scistudio.engine.events import (
     BLOCK_DONE,
     BLOCK_ERROR,
+    BLOCK_READY,
     CANCEL_BLOCK_REQUEST,
     CANCEL_WORKFLOW_REQUEST,
     WORKFLOW_COMPLETED,
@@ -85,6 +86,34 @@ class TestSchedulerLinear:
         assert scheduler._block_states["A"] == BlockState.DONE
         assert scheduler._block_states["B"] == BlockState.DONE
         assert scheduler._block_states["C"] == BlockState.DONE
+
+    def test_scheduler_emits_block_ready_on_idle_to_ready(self) -> None:
+        """Regression #1327: BLOCK_READY fires for every IDLE->READY transition.
+
+        The event is declared in :mod:`scistudio.engine.events`, listed
+        in :data:`scistudio.api.ws._OUTBOUND_EVENTS` (so the frontend WS
+        forwards it), and the event-routing table in ``events.py``
+        names ``DAGScheduler`` as the emitter. Prior to this fix the
+        scheduler transitioned blocks to ``READY`` without emitting,
+        breaking the documented lifecycle contract.
+        """
+        wf = _wf(
+            nodes=[("A", "proc"), ("B", "proc"), ("C", "proc")],
+            edges=[("A:out", "B:in"), ("B:out", "C:in")],
+        )
+        scheduler, event_bus, _runner = _make_scheduler(wf)
+
+        ready_block_ids: list[str] = []
+        event_bus.subscribe(BLOCK_READY, lambda e: ready_block_ids.append(e.block_id or ""))
+
+        asyncio.run(scheduler.execute())
+
+        # Every block in topo order must have produced exactly one
+        # BLOCK_READY event. Order matters: A becomes ready at initial
+        # dispatch; B and C become ready as their predecessors finish.
+        assert ready_block_ids == ["A", "B", "C"], (
+            f"expected BLOCK_READY for A, B, C in topo order; got {ready_block_ids}"
+        )
 
     def test_scheduler_linear_execution_order(self) -> None:
         """A->B->C: runner.run() called in correct order."""
