@@ -20,7 +20,7 @@
 
 import { useState } from "react";
 
-import { lossyOmeFields } from "../../api/capabilities";
+import { extractOMEFromMetadata, lossyOmeFields } from "../../api/capabilities";
 import type { MetadataFidelityResponse } from "../../types/api";
 
 export interface LossySaveWarningProps {
@@ -112,12 +112,19 @@ export function flattenOmeFields(
   const out: string[] = [];
   for (const [key, value] of Object.entries(tree)) {
     const path = prefix ? `${prefix}.${key}` : key;
+    // Fix #1313 bug 2: backend serializes Pydantic OME via
+    // ``model_dump(mode='json')`` which includes None-valued fields by
+    // default. Treating null/undefined as "present" inflated
+    // sourceOmeFields and produced false-positive lossy warnings for
+    // fields that were never populated. Skip null/undefined here so
+    // only actually-set fields enter the comparison set.
     if (value === null || value === undefined) {
-      out.push(path);
+      continue;
     } else if (Array.isArray(value)) {
       value.forEach((item, idx) => {
+        if (item === null || item === undefined) return;
         const arrPath = `${path}.${idx}`;
-        if (item && typeof item === "object" && !Array.isArray(item)) {
+        if (typeof item === "object" && !Array.isArray(item)) {
           out.push(...flattenOmeFields(item as Record<string, unknown>, arrPath));
         } else {
           out.push(arrPath);
@@ -130,4 +137,50 @@ export function flattenOmeFields(
     }
   }
   return out;
+}
+
+/**
+ * Fix #1313 bug 1 helper. Walks a block's cached outputs (the shape
+ * `blockOutputs[sourceId]`) and returns the union of OME field paths
+ * reachable from any nested `metadata` payload. Many imaging blocks
+ * (notably `LoadImage`) emit `{ kind: "collection", items: [...] }`
+ * payloads where `metadata` lives under `items[*].metadata`; the
+ * previous flat `Object.values` walk in WorkflowCanvas never saw those,
+ * so LossySaveWarning silently suppressed.
+ *
+ * Mirrors `extractRefEntries` (DataPreview.tsx) in shape:
+ *   - If `value.metadata` is set, parse OME from it.
+ *   - If `value.kind === "collection"` and `value.items` is an array,
+ *     recurse into each item.
+ *   - Otherwise (other nested objects), recurse into the values so
+ *     wrappers like `{ output: { metadata: ... } }` still surface OME.
+ *   - Arrays of non-collection-shaped scalars are not entered.
+ */
+export function collectUpstreamOmeFields(
+  outputs: Record<string, unknown> | null | undefined,
+): string[] {
+  if (!outputs || typeof outputs !== "object") return [];
+  const collected = new Set<string>();
+  const visit = (value: unknown): void => {
+    if (!value || typeof value !== "object") return;
+    const record = value as Record<string, unknown>;
+    const meta = record.metadata;
+    if (meta && typeof meta === "object") {
+      const ome = extractOMEFromMetadata(meta as Record<string, unknown>);
+      if (ome) {
+        for (const field of flattenOmeFields(ome)) collected.add(field);
+      }
+    }
+    if (record.kind === "collection" && Array.isArray(record.items)) {
+      for (const item of record.items) visit(item);
+      return;
+    }
+    for (const v of Object.values(record)) {
+      if (v && typeof v === "object" && !Array.isArray(v) && v !== meta) {
+        visit(v);
+      }
+    }
+  };
+  for (const value of Object.values(outputs)) visit(value);
+  return Array.from(collected);
 }
