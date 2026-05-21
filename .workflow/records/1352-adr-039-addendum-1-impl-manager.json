@@ -28,6 +28,42 @@
       "status": "skipped",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "umbrella_ruff",
+      "output_path": "all checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "umbrella_format",
+      "output_path": "651 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "pytest tests/core/test_git_engine.py tests/api/test_git_endpoints.py tests/core/test_lineage_store.py -v --timeout=60",
+      "exit_code": 0,
+      "name": "umbrella_backend_tests",
+      "output_path": "94 passed in 57.06s",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "grep -ri --include='*.{py,ts,tsx}' stash src/scistudio frontend/src tests packages",
+      "exit_code": 0,
+      "name": "umbrella_grep_guard",
+      "output_path": "all remaining matches are legitimate comments/negative-test-assertions/false-positives (axis_iter loop var, GitGraph local var)",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": {
@@ -66,10 +102,10 @@
   },
   "full_audit": {
     "blocks_merge": false,
-    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output ./.workflow/records/full-audit-manager-1352.json",
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output ./.workflow/records/full-audit-umbrella-final.json",
     "exit_code": 0,
     "known_debt": [],
-    "output_path": ".workflow/records/full-audit-manager-1352.json",
+    "output_path": ".workflow/records/full-audit-umbrella-final.json",
     "status": "pass",
     "summary": {},
     "unclassified_failures": []
@@ -114,12 +150,12 @@
     ]
   },
   "sentrux": {
-    "command_or_tool": "mcp__plugin_sentrux_sentrux__{scan,check_rules}",
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__{rescan,check_rules,health}",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "scan:{files:1102,import_edges:2613,quality_signal:4443} check_rules:{pass:true,violations:0,rules_checked:3,total_rules_defined:15}",
+    "output_path": "rescan:{files:1118,quality_signal:4444} check_rules:{pass:true,violations:0,rules_checked:3,total_rules_defined:15} health:{bottleneck:acyclicity,quality_signal:4444}; delta vs baseline 4443: +1 (stable)",
     "pro_required": false,
-    "quality_signal": 4443.0,
+    "quality_signal": 4444.0,
     "rules_checked": 3,
     "status": "pass",
     "summary": {},
