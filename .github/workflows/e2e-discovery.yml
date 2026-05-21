@@ -71,7 +71,7 @@ jobs:
 
       - name: Install Playwright Chromium
         working-directory: frontend
-        run: npm exec --yes --package @playwright/test@1.57.0 -- node e2e/support/run-playwright.mjs install --with-deps chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Run non-blocking E2E discovery
         id: e2e

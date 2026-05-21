@@ -12,7 +12,7 @@ const frontendUrl = `http://127.0.0.1:${frontendPort}`;
 
 export default {
   testDir: path.join(frontendDir, "e2e"),
-  testMatch: ["**/*.e2e.ts"],
+  testMatch: ["**/*.e2e.ts", "**/*.spec.ts"],
   outputDir: path.join(artifactDir, "test-results"),
   fullyParallel: false,
   workers: 1,

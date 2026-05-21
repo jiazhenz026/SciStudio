@@ -12,14 +12,12 @@ npm run test:e2e:smoke
 npm run test:e2e
 ```
 
-The scripts use `npm exec --package @playwright/test` through
-`e2e/support/run-playwright.mjs` so the harness can land
-without changing `frontend/package-lock.json`. For local runs, install the
-browser once if Playwright asks for it:
+The scripts use the repository-pinned `@playwright/test` dev dependency. For
+local runs, install the browser once if Playwright asks for it:
 
 ```bash
 cd frontend
-npm exec --yes --package @playwright/test@1.57.0 -- node e2e/support/run-playwright.mjs install chromium
+npx playwright install chromium
 ```
 
 ## Artifacts

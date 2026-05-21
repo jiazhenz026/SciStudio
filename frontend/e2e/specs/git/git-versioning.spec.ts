@@ -57,7 +57,7 @@ test.describe("Git E2E discovery @git", () => {
     const stashRequests = trackStashRequests(page);
 
     await openProjectInUi(page, project);
-    await page.getByRole("button", { name: "Note" }).click();
+    await putWorkflow(request, workflowFixture("manual-change"));
     await openGitTab(page);
 
     await expect(page.getByTestId("git-status-badge")).toHaveAttribute("data-status", "dirty");

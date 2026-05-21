@@ -140,8 +140,8 @@ test.describe("SciStudio GUI E2E discovery @gui", () => {
       namePrefix: "gui-empty",
     });
 
-    await expect(page.getByText(project.name)).toBeVisible();
-    await expect(page.getByText("Project")).toBeVisible();
+    await expect(page.getByText(project.name).first()).toBeVisible();
+    await expect(page.getByText("Project").first()).toBeVisible();
     await studio.expectProjectTreeContains("workflows");
 
     await expect
