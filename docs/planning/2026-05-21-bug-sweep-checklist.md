@@ -101,7 +101,7 @@ language_source: en
 |---|---|---|---|---|---|---|---|---|---|---|
 | W1 | implementer | N/A | inline | Tier 1 surgical batch | `fix/bug-sweep-2026-05-21/tier1-surgical` | `.claude/worktrees/agent-w1-tier1` | See §7.1 | See §7.1 | Closes #1110 #617 #1281 #1282 #1368 | `[ ]` |
 | W2-A | implementer | N/A | inline | types path drop-in + worker | `fix/issue-1343-1365/types-registry` | `.claude/worktrees/agent-w2a-types` | See §7.2 | See §7.2 | Closes #1343 #1365 | `[ ]` |
-| W2-B | implementer | N/A | inline | imaging TIFF OME + capability metadata | `fix/issue-1306-1371/imaging-ome-fidelity` | `.claude/worktrees/agent-w2b-imaging` | See §7.3 | See §7.3 | Closes #1306 #1371 | `[ ]` |
+| W2-B | implementer | N/A | inline | imaging TIFF OME + capability metadata | `fix/issue-1306-1371/imaging-ome-fidelity` | `.claude/worktrees/agent-w2b-imaging` | See §7.3 | See §7.3 | Closes #1306 #1371 | `[~]` |
 | W3-A | implementer | N/A | inline | scheduler READY emit + interactive normalize | `fix/issue-1367-1370/scheduler-emit-normalize` | `.claude/worktrees/agent-w3a-scheduler` | See §7.4 | See §7.4 | Closes #1367 #1370 | `[ ]` |
 | W3-B | implementer | N/A | inline | block registry + code backends | `fix/issue-1109-1309/registry-codebackends` | `.claude/worktrees/agent-w3b-registry` | See §7.5 | See §7.5 | Closes #1109 #1309 | `[ ]` |
 | W4-A | implementer | N/A | inline | frontend port editor capability_id | `fix/issue-1366/port-capability-clear` | `.claude/worktrees/agent-w4a-porteditor` | See §7.6 | See §7.6 | Closes #1366 | `[ ]` |
@@ -160,6 +160,28 @@ language_source: en
   - Load fixture OME-TIFF → assert `image.meta.ome.images[0].pixels.physical_size_x`
   - Zarr round-trip → assert capability declaration matches behavior (`meta.ome is None` for zarr today; or implement zarr OME if narrow enough)
   - `lossyOmeFields()` unit test: flattened field `images.0.pixels.physical_size_x` correctly matched against broad declaration `ome`
+
+#### W2-B status (2026-05-21)
+
+- Implementation summary:
+  - #1306 — `_load_tiff` already parsed OME-XML via `_ome_from_tiff` (PR #1304's P2-05 unblocker). This PR adds the externally-authored-OME-TIFF regression in `packages/scistudio-blocks-imaging/tests/test_load_image_ome.py` (3 cases: positive OME-TIFF, plain TIFF returns `meta.ome is None`, malformed OME-XML defensive fallback). No source change needed for #1306.
+  - #1371 backend — zarr load/save capabilities drop to `level="pixel_only"` (zero OME or typed Meta survives); PNG/JPEG declarations narrow to hierarchical `("ome.pixels.physical_size_x", "ome.pixels.physical_size_y")` (the only fields Pillow's EXIF DPI round-trips); TIFF keeps the broad `"ome"` token (genuinely writes full OME-XML via `ome_types.to_xml` into ImageDescription).
+  - #1371 frontend — `lossyOmeFields` now treats `"ome"` as a prefix covering every OME source path and strips `ome.` from hierarchical declarations before comparing source paths. Fixes false positives on broad declarations and false negatives once narrowed declarations land.
+- Scope amendments:
+  - 2026-05-21 — added `frontend/src/__tests__/adr043-a3-smoke.test.tsx` + `frontend/src/__tests__/LossySaveWarning.test.tsx` to gate record (`gate_record amend`) — both pre-existing tests pinned the old buggy `lossyOmeFields` exact-match semantics and needed updating to the new prefix-matching contract.
+- Files touched:
+  - `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py` (zarr → pixel_only, png/jpeg → narrow paths)
+  - `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py` (zarr → pixel_only, png/jpeg → narrow paths, docstrings)
+  - `frontend/src/api/capabilities.ts` (`lossyOmeFields` prefix matcher)
+  - `packages/scistudio-blocks-imaging/tests/test_load_image_ome.py` (new, 3 cases)
+  - `packages/scistudio-blocks-imaging/tests/test_save_image_capabilities.py` (new, 7 cases)
+  - `packages/scistudio-blocks-imaging/tests/test_format_capabilities.py` (5 assertions updated to new fidelity)
+  - `frontend/src/__tests__/LossySaveWarning.test.tsx` (5 new cases)
+  - `frontend/src/__tests__/adr043-a3-smoke.test.tsx` (FR-014 smoke test updated)
+  - `CHANGELOG.md`
+  - `.workflow/records/1306-1371-imaging-ome-fidelity.json`
+- Tests: pytest 35 pass / 0 fail (0.89s); vitest 444 pass / 13 skipped / 0 fail (4.85s, 43 files).
+- Gate record: `.workflow/records/1306-1371-imaging-ome-fidelity.json`
 
 ### 7.4 W3-A — Scheduler (#1367 + #1370)
 

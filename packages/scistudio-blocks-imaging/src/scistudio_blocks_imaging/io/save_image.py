@@ -244,6 +244,14 @@ def _write_tiff(image: Image, path: Path) -> None:
 
 
 def _write_zarr(image: Image, path: Path) -> None:
+    """Write an Image to a Zarr store.
+
+    Persists array data plus ``axes`` as a group attribute. No OME
+    metadata or typed ``Image.Meta`` fields are written — the matching
+    capability declaration in :attr:`SaveImage.format_capabilities` uses
+    ``level="pixel_only"`` to reflect that (issue #1371). OME-Zarr v0.4
+    first-class support is deferred.
+    """
     import zarr
 
     data = _materialise(image)
@@ -282,9 +290,23 @@ class SaveImage(IOBlock):
     # ADR-043 / spec adr-043-package-migration FR-005: explicit per-format
     # SAVE capabilities. Bio-Formats family (CZI/ND2/LIF/OIR/OIB) is
     # intentionally absent — python-bioformats is load-only by library
-    # design. ``typed_meta_writes=("pixel_size", "channels")`` for
-    # PNG/JPEG (only EXIF-mappable fields land in the file); TIFF/zarr
-    # declare richer write fidelity.
+    # design.
+    #
+    # Capability metadata fidelity must match what each writer actually
+    # persists. Issue #1371 narrowed previously broad
+    # ``format_metadata_writes=("ome",)`` declarations to the subset each
+    # writer really preserves:
+    #
+    # * TIFF — ``_write_tiff`` serialises full OME-XML via
+    #   :func:`ome_types.to_xml` and writes it to the ``ImageDescription``
+    #   tag, so ``format_metadata_writes=("ome",)`` is honest.
+    # * Zarr — ``_write_zarr`` writes array data + ``attrs["axes"]`` only;
+    #   no OME or typed Meta field is persisted. The capability drops to
+    #   ``level="pixel_only"`` to match that behaviour.
+    # * PNG / JPEG — Pillow writes only EXIF DPI on save, which is the
+    #   OME ``physical_size_x`` / ``physical_size_y`` round-trip. The
+    #   declaration uses hierarchical OME field paths so downstream
+    #   lossy-save warnings (``lossyOmeFields``) report the truth.
     format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
         FormatCapability(
             id="scistudio-blocks-imaging.image.tiff.save",
@@ -318,13 +340,15 @@ class SaveImage(IOBlock):
             handler="_write_zarr",
             is_default=True,
             roundtrip_group="scistudio-blocks-imaging.image.zarr",
+            # Issue #1371: ``_write_zarr`` writes array data and the
+            # ``axes`` group attribute only; no OME or typed Meta field
+            # is persisted. ``pixel_only`` advertises that honestly.
             metadata_fidelity=MetadataFidelity(
-                level="format_specific",
-                format_metadata_writes=("ome",),
-                typed_meta_writes=("pixel_size", "z_spacing", "channels"),
+                level="pixel_only",
                 notes=(
-                    "Writes array payload + axes as group attributes; vanilla"
-                    " zarr (OME-Zarr v0.4 first-class support is deferred)."
+                    "Writes array payload + axes group attribute; vanilla"
+                    " zarr carries no OME or typed Image.Meta fields (OME-"
+                    "Zarr v0.4 first-class support is deferred)."
                 ),
             ),
         ),
@@ -339,11 +363,19 @@ class SaveImage(IOBlock):
             handler="_save_png",
             is_default=True,
             roundtrip_group="scistudio-blocks-imaging.image.png",
+            # Issue #1371: PNG writer persists only EXIF DPI via Pillow,
+            # i.e. ``ome.images[0].pixels.physical_size_x`` /
+            # ``physical_size_y``. Declaring the precise field paths
+            # prevents the lossy-save warning chip from claiming broad
+            # OME write support.
             metadata_fidelity=MetadataFidelity(
                 level="format_specific",
-                format_metadata_writes=("ome",),
+                format_metadata_writes=(
+                    "ome.pixels.physical_size_x",
+                    "ome.pixels.physical_size_y",
+                ),
                 typed_meta_writes=("pixel_size", "channels"),
-                notes=("Writes PNG via Pillow; only EXIF-mappable OME fields (physical_size_x/y → DPI) are persisted."),
+                notes=("Writes PNG via Pillow; only EXIF DPI (OME physical_size_x/y) is persisted."),
             ),
         ),
         FormatCapability(
@@ -357,14 +389,16 @@ class SaveImage(IOBlock):
             handler="_save_jpeg",
             is_default=True,
             roundtrip_group="scistudio-blocks-imaging.image.jpeg",
+            # Issue #1371: JPEG writer persists only EXIF DPI. See PNG
+            # note above for the field-path rationale.
             metadata_fidelity=MetadataFidelity(
                 level="format_specific",
-                format_metadata_writes=("ome",),
-                typed_meta_writes=("pixel_size", "channels"),
-                notes=(
-                    "Writes JPEG via Pillow; only EXIF-mappable OME fields"
-                    " (physical_size_x/y → DPI) are persisted. Alpha is dropped."
+                format_metadata_writes=(
+                    "ome.pixels.physical_size_x",
+                    "ome.pixels.physical_size_y",
                 ),
+                typed_meta_writes=("pixel_size", "channels"),
+                notes=("Writes JPEG via Pillow; only EXIF DPI (OME physical_size_x/y) is persisted. Alpha is dropped."),
             ),
         ),
     )
