@@ -213,10 +213,19 @@ class LocalRunner:
         # rebuild ``worker_env`` when ``project_dir`` is known so the env
         # var lands on the subprocess even when ``worker_cwd`` itself was
         # already configured above.
+        #
+        # Codex P2 on PR #1386: absolutify before exporting. The worker
+        # subprocess starts with ``cwd=worker_cwd=project_dir`` (the few
+        # lines above), so a relative ``project_dir`` would have
+        # :func:`_get_type_registry` resolve ``Path(project_dir_env) /
+        # "types"`` against the new cwd, producing
+        # ``<project>/<project>/types`` and missing every drop-in.
+        # ``Path(...).resolve()`` makes the env var an absolute path the
+        # worker can interpret without depending on its own cwd.
         if isinstance(project_dir, str) and project_dir:
             if worker_env is None:
                 worker_env = dict(os.environ)
-            worker_env["SCISTUDIO_PROJECT_DIR"] = project_dir
+            worker_env["SCISTUDIO_PROJECT_DIR"] = str(Path(project_dir).resolve())
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             "-m",
