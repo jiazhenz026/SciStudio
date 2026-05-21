@@ -1,0 +1,186 @@
+{
+  "admin_labels": [
+    {
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:ai-override"
+    }
+  ],
+  "amendments": [
+    {
+      "approved_by": "owner",
+      "exclude": [],
+      "include": [
+        "src/scieasy/engine/runners/local.py",
+        "src/scieasy/blocks/code/code_block.py",
+        "src/scieasy/blocks/code/validation.py",
+        "frontend/src/components/nodes/BlockNode.tsx",
+        "frontend/src/components/nodes/BlockNode.test.tsx",
+        "tests/engine/test_local_runner.py",
+        "tests/blocks/code/test_codeblock_execution.py",
+        "scripts/verify_ome_propagation_e2e001.py",
+        "docs/audit/adr-043-package-migration-e2e-cases.md",
+        "CHANGELOG.md"
+      ],
+      "reason": "expand scope to per-file include patterns"
+    }
+  ],
+  "branch": "hotfix/adr-043-e2e-validation",
+  "changed_test_paths": [
+    "tests/engine/test_local_runner.py",
+    "tests/blocks/code/test_codeblock_execution.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "files formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "pytest tests/engine/test_local_runner.py tests/blocks/code/test_codeblock_execution.py",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "40 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npx vitest run src/components/nodes/BlockNode.test.tsx",
+      "exit_code": 0,
+      "name": "vitest",
+      "output_path": "28 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1305-adr-043-phase-d-hotfix.json",
+    "shas": [
+      "4361329c4ecc2ebf295657b0caf117373c903583"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {},
+    "checklist": {},
+    "docs": {
+      "paths": [
+        "docs/audit/adr-043-package-migration-e2e-cases.md",
+        "CHANGELOG.md"
+      ]
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scieasy.qa.audit.full_audit",
+    "exit_code": 0,
+    "known_debt": [
+      "owner-acknowledged"
+    ],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1305,
+      "url": "https://github.com/zjzcpj/SciEasy/issues/1305"
+    }
+  ],
+  "owner_directive": "ADR-043 Phase D E2E hotfix round: owner explicitly authorized hotfix mode 2026-05-20 for E2E-001+E2E-002 execution. Round surfaced and fixed framework bugs #1305 (subprocess cwd), #1307 (SaveData format dropdown filter), #1308 (CodeBlock workflow_id strip). Also filed #1306 (TIFF OME-detection) and #1309 (CodeBlock cwd semantics) as deferred design follow-ups. Phase D evidence committed in docs/audit/adr-043-package-migration-e2e-cases.md.",
+  "planned_files": [],
+  "pull_request": {
+    "body_closes_issues": [
+      1305,
+      1307,
+      1308
+    ],
+    "number": 1310,
+    "url": "https://github.com/zjzcpj/SciEasy/pull/1310"
+  },
+  "record_path": ".workflow/records/1305-adr-043-phase-d-hotfix.json",
+  "required_checks": [
+    "pytest",
+    "ruff",
+    "vitest"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scieasy/engine/runners/local.py,src/scieasy/blocks/code/code_block.py,src/scieasy/blocks/code/validation.py,frontend/src/components/nodes/BlockNode.tsx,frontend/src/components/nodes/BlockNode.test.tsx,tests/engine/test_local_runner.py,tests/blocks/code/test_codeblock_execution.py,scripts/verify_ome_propagation_e2e001.py,docs/audit/adr-043-package-migration-e2e-cases.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "Sentrux CLI not available in hotfix dispatcher env. Per ADR-042 Addendum 1 \u00a72, per-phase implementation work is expected to record Sentrux when applicable. Hotfix mode round, no source-architecture rules touched: subprocess cwd arg, dropdown filter, dict key strip \u2014 all surgical fixes within existing module boundaries. Approved by owner under admin-approved:ai-override label.",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1305-adr-043-phase-d-hotfix",
+  "task_kind": "hotfix"
+}

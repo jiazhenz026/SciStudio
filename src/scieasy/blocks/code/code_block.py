@@ -443,9 +443,14 @@ def _config_mapping(config: BlockConfig) -> dict[str, Any]:
 
 
 def _persisted_codeblock_config(raw_config: Mapping[str, Any]) -> dict[str, Any]:
+    # Fix #1308: ``workflow_id`` is injected by ``DAGScheduler`` alongside
+    # ``block_id`` / ``project_dir`` and MUST be stripped here, otherwise
+    # ``CodeBlockConfig(extra="forbid")`` rejects it and every CodeBlock run
+    # inside a workflow fails with ``extra_forbidden``.
     runtime_only = {
         "project_dir",
         "block_id",
+        "workflow_id",
         "run_id",
         "registry",
         "materialise_adapter",

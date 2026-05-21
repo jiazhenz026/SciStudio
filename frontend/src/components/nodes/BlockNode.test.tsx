@@ -282,6 +282,100 @@ describe("BlockNode - ADR-043 format capabilities", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Fix #1307: format dropdown must filter by core_type
+// ---------------------------------------------------------------------------
+
+describe("BlockNode - Fix #1307 format dropdown filters by core_type", () => {
+  const mixedCapabilities = [
+    makeCapability({
+      id: "core.dataframe.csv.save",
+      direction: "save",
+      data_type: "DataFrame",
+      format_id: "csv",
+      extensions: [".csv"],
+      label: "CSV (DataFrame)",
+    }),
+    makeCapability({
+      id: "core.dataframe.parquet.save",
+      direction: "save",
+      data_type: "DataFrame",
+      format_id: "parquet",
+      extensions: [".parquet"],
+      label: "Parquet (DataFrame)",
+    }),
+    makeCapability({
+      id: "core.series.csv.save",
+      direction: "save",
+      data_type: "Series",
+      format_id: "csv",
+      extensions: [".csv"],
+      label: "CSV (Series)",
+    }),
+    makeCapability({
+      id: "core.array.npy.save",
+      direction: "save",
+      data_type: "Array",
+      format_id: "npy",
+      extensions: [".npy"],
+      label: "NumPy NPY",
+    }),
+  ];
+
+  it("filters the dropdown to DataFrame capabilities when core_type=DataFrame", () => {
+    renderNode({
+      category: "io",
+      config: { core_type: "DataFrame" },
+      schema: makeSchema({
+        base_category: "io",
+        direction: "output",
+        format_capabilities: mixedCapabilities,
+      }),
+    });
+    const select = screen.getByRole("combobox") as HTMLSelectElement;
+    const optionValues = Array.from(select.options).map((o) => o.value).filter((v) => v);
+    expect(optionValues).toEqual([
+      "core.dataframe.csv.save",
+      "core.dataframe.parquet.save",
+    ]);
+  });
+
+  it("filters the dropdown to Series capabilities when core_type=Series", () => {
+    renderNode({
+      category: "io",
+      config: { core_type: "Series" },
+      schema: makeSchema({
+        base_category: "io",
+        direction: "output",
+        format_capabilities: mixedCapabilities,
+      }),
+    });
+    const select = screen.getByRole("combobox") as HTMLSelectElement;
+    const optionValues = Array.from(select.options).map((o) => o.value).filter((v) => v);
+    expect(optionValues).toEqual(["core.series.csv.save"]);
+  });
+
+  it("shows all capabilities when no core_type is set (no-op for non-IO blocks)", () => {
+    renderNode({
+      category: "io",
+      config: {},
+      schema: makeSchema({
+        base_category: "io",
+        direction: "output",
+        format_capabilities: mixedCapabilities,
+      }),
+    });
+    const select = screen.getByRole("combobox") as HTMLSelectElement;
+    const optionValues = Array.from(select.options).map((o) => o.value).filter((v) => v);
+    expect(optionValues).toEqual([
+      "core.dataframe.csv.save",
+      "core.dataframe.parquet.save",
+      "core.series.csv.save",
+      "core.array.npy.save",
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Discriminator behavior #2: hidden direction field on category === "io"
 // ---------------------------------------------------------------------------
 

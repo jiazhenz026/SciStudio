@@ -766,7 +766,19 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
   const configProps = getTopConfigProperties(data.schema?.config_schema).filter(
     (prop) => !(data.category === "io" && prop.key === "direction"),
   );
-  const formatCapabilities = data.schema?.format_capabilities ?? [];
+  // Fix #1307: when the block has a ``core_type`` driving config (LoadData /
+  // SaveData), the inline Format dropdown MUST only show capabilities whose
+  // ``data_type`` matches the active core_type, otherwise the user can pick
+  // illegal combinations (e.g. core_type=Series + capability_id=
+  // ``core.dataframe.csv.save``) that produce undefined runtime behaviour.
+  // Blocks without a ``core_type`` field (e.g. imaging.threshold) are
+  // unaffected because the filter is a no-op when ``coreType`` is null.
+  const allFormatCapabilities = data.schema?.format_capabilities ?? [];
+  const coreType =
+    typeof data.config?.core_type === "string" ? data.config.core_type : null;
+  const formatCapabilities = coreType
+    ? allFormatCapabilities.filter((cap) => cap.data_type === coreType)
+    : allFormatCapabilities;
   const typeHierarchy = data.schema?.type_hierarchy;
   const categoryIcon = categoryIcons[data.category] ?? categoryIcons.custom;
   // ADR-028 Addendum 1 §B fix #3 / §C8: read ``direction`` from the schema
