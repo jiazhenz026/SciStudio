@@ -677,16 +677,26 @@ The commit-msg hook checks `Gate-Record`, `Task-Kind`, `Issue`, and
 
 `scripts/hooks/check-gate-before-push.sh` must call
 `python -m scistudio.qa.governance.gate_record pre-push` and enforce final gate
-semantics before allowing `git push`: a gate record must exist, all six stages
-must be complete, implementation-category work must include changed tests,
-required full audit and Sentrux evidence must be recorded, and changed files
-must remain in scope.
+semantics before allowing `git push`: a gate record must exist, every gate
+stage except `commit_and_submit_pr` must be complete,
+implementation-category work must include changed tests, required full audit
+and Sentrux evidence must be recorded, and changed files must remain in scope.
 
 `scripts/hooks/check-gate-before-pr.sh` must call
 `python -m scistudio.qa.governance.gate_record pr-ready` and enforce the same
-final gate semantics, plus closing issue text and PR provenance. Hook behavior
-must not depend on branch-name special cases such as `hotfix/*`; task behavior
-is declared by `gate_record start --task-kind ...`.
+final gate semantics (every gate stage except `commit_and_submit_pr` complete,
+full audit and Sentrux evidence recorded, changed files in scope), plus
+closing issue text and PR provenance. Hook behavior must not depend on
+branch-name special cases such as `hotfix/*`; task behavior is declared by
+`gate_record start --task-kind ...`.
+
+The `commit_and_submit_pr` stage is intentionally excluded from `pre-push` and
+`pr-ready` because it is only set to `done` by `gate_record finalize`, which
+requires a commit SHA and PR URL. The PR URL exists only after `gh pr create`,
+which is itself gated by `pr-ready`; requiring the stage at `pre-push` or
+`pr-ready` would create an unsolvable chicken-and-egg loop. CI runs after the
+PR exists and `finalize` should have been called, so CI continues to require
+every stage to be `done` including `commit_and_submit_pr`.
 
 All local intermediate hooks that can block PR submission must accept the four
 ADR-042 override labels as local-only bypass inputs: `human-authored`,

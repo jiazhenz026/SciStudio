@@ -27,6 +27,7 @@ def test_full_audit_renders_human_readable_facts_summary() -> None:
     assert "closure" in markdown
     assert "signature_drift" in markdown
     assert "architecture_drift" in markdown
+    assert "vulture" in markdown
 
 
 def test_full_audit_reports_stale_generated_facts(tmp_path: Path) -> None:
@@ -58,6 +59,7 @@ def test_full_audit_generates_default_facts_in_memory_when_snapshot_is_missing(t
         include_closure=False,
         include_signature_drift=False,
         include_architecture_drift=False,
+        include_vulture=False,
     )
 
     facts_report = report.child_reports[0]

@@ -675,6 +675,7 @@ def run(
     include_closure: bool = True,
     include_signature_drift: bool = True,
     include_architecture_drift: bool = True,
+    include_vulture: bool = True,
 ) -> AuditReport: ...
 ```
 
