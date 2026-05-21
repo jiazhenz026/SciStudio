@@ -46,7 +46,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1109-1309-registry-codeblock-cwd.json",
+    "shas": [
+      "5b707756b469039f1fc356c21d4edff84af969b5"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -102,7 +108,14 @@
     "src/scistudio/blocks/code/backends/notebook.py",
     "src/scistudio/blocks/code/backends/python.py"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1109,
+      1309
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1392"
+  },
   "record_path": ".workflow/records/1109-1309-registry-codeblock-cwd.json",
   "required_checks": [
     "ruff",
