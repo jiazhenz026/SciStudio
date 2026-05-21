@@ -59,6 +59,43 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
         return;
       }
 
+      // When an agent kicks off a run via the MCP ``run_workflow`` tool, the
+      // scheduler emits ``workflow_started`` for the existing YAML — no
+      // ``workflow.changed`` event fires because the YAML is not modified.
+      // Mirror the ``workflow.changed`` ``kind=created`` auto-open path so
+      // the user can watch progress on the canvas without having to navigate
+      // to the file tree and click the workflow manually.
+      if (payload.type === "workflow_started") {
+        const startedId = (payload.workflow_id as string | null | undefined) ?? null;
+        if (
+          startedId &&
+          !useAppStore
+            .getState()
+            .tabs.some((t) => t.kind === "workflow" && t.workflowId === startedId)
+        ) {
+          // Defensive: ``api.getWorkflow`` may be vi.mocked and return
+          // undefined when this hook runs in unrelated unit tests. Skip
+          // the auto-open in that case rather than throwing on .then.
+          const fetchPromise = api.getWorkflow(startedId);
+          if (fetchPromise && typeof fetchPromise.then === "function") {
+            fetchPromise
+              .then((fresh) => {
+                // The user may have opened the tab themselves between
+                // the event arriving and the fetch resolving — re-check
+                // before mutating store state.
+                const tabs = useAppStore.getState().tabs;
+                if (!tabs.some((t) => t.kind === "workflow" && t.workflowId === startedId)) {
+                  useAppStore.getState().openTab(fresh, startedId);
+                }
+              })
+              .catch(() => {
+                // best-effort; user can still open it via the file tree
+              });
+          }
+        }
+        // Fall through so executionSlice still gets the event for isRunning.
+      }
+
       // ADR-034 Phase 2: filesystem watcher emits ``workflow.changed`` when
       // an external editor (or claude/codex via MCP) mutates a workflow YAML.
       // If the change targets the workflow currently loaded in the canvas,

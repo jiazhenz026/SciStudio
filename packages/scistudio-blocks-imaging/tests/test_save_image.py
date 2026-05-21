@@ -109,6 +109,91 @@ def test_save_unknown_extension_raises(tmp_path: Path) -> None:
         SaveImage().save(img, BlockConfig(params={"path": str(tmp_path / "mystery.xyz")}))
 
 
+def test_save_capability_id_resolves_format(tmp_path: Path) -> None:
+    """The ADR-043 ``capability_id`` selector resolves to its declared
+    ``format_id`` when ``config['format']`` is absent.
+
+    Hotfix scope: the legacy ``format`` enum was removed from
+    :attr:`SaveImage.config_schema` so the UI no longer shows two
+    parallel format selectors. The Format dropdown
+    (``FormatCapabilityConfig``) writes ``capability_id`` into the
+    block config; the backend must therefore look it up to pick the
+    right writer arm.
+    """
+    arr = np.zeros((2, 2), dtype=np.uint8)
+    img = _make_image(arr, ["y", "x"])
+    out_path = tmp_path / "from_capability.dat"
+    SaveImage().save(
+        img,
+        BlockConfig(
+            params={
+                "path": str(out_path),
+                "capability_id": "scistudio-blocks-imaging.image.tiff.save",
+            }
+        ),
+    )
+    assert out_path.is_file()
+    import tifffile
+
+    back = tifffile.imread(str(out_path))
+    assert np.array_equal(back, arr)
+
+
+def test_save_unknown_capability_id_raises(tmp_path: Path) -> None:
+    """An unknown ``capability_id`` surfaces a clear error rather than
+    silently falling through to extension dispatch."""
+    arr = np.zeros((2, 2), dtype=np.uint8)
+    img = _make_image(arr, ["y", "x"])
+    out_path = tmp_path / "mystery.dat"
+    with pytest.raises(ValueError, match="capability_id"):
+        SaveImage().save(
+            img,
+            BlockConfig(
+                params={"path": str(out_path), "capability_id": "not.a.real.capability"}
+            ),
+        )
+
+
+def test_save_explicit_format_wins_over_capability_id(tmp_path: Path) -> None:
+    """When both ``format`` and ``capability_id`` are set, the legacy
+    ``format`` field wins for backward compatibility with workflow
+    YAMLs that pinned the format directly before the ADR-043 wiring."""
+    arr = np.zeros((2, 2), dtype=np.uint8)
+    img = _make_image(arr, ["y", "x"])
+    out_path = tmp_path / "explicit_wins.dat"
+    SaveImage().save(
+        img,
+        BlockConfig(
+            params={
+                "path": str(out_path),
+                "format": "tiff",
+                # Deliberate mismatch: capability points at zarr but the
+                # legacy ``format`` says tiff. Backward-compat order
+                # means the file is written as tiff.
+                "capability_id": "scistudio-blocks-imaging.image.zarr.save",
+            }
+        ),
+    )
+    assert out_path.is_file()
+    import tifffile
+
+    back = tifffile.imread(str(out_path))
+    assert np.array_equal(back, arr)
+
+
+def test_save_format_removed_from_config_schema() -> None:
+    """``format`` is no longer surfaced as a schema-driven UI field —
+    the Format dropdown now writes ``capability_id`` instead. Workflow
+    YAMLs that set ``config['format']`` continue to load because the
+    backend honours the value at runtime; this test guards against the
+    field being re-added to the UI surface."""
+    properties = SaveImage.config_schema.get("properties", {})
+    assert "format" not in properties, (
+        "SaveImage.config_schema must not surface a 'format' field — "
+        "the Format selector is delivered via capability_id (ADR-043)."
+    )
+
+
 def test_save_invalid_format_value_raises(tmp_path: Path) -> None:
     """An unsupported explicit format raises ValueError.
 

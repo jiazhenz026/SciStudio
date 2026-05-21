@@ -299,6 +299,54 @@ class TestRerunRun:
         r = client.post("/api/runs/no-such/rerun", json={})
         assert r.status_code == 404
 
+    def test_route_runs_on_event_loop(
+        self,
+        client: TestClient,
+        seeded_project: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Regression: the rerun handler must run on the asyncio event loop.
+
+        ``ApiRuntime.start_workflow`` schedules the run via
+        :func:`asyncio.create_task`, which requires a running loop. If the
+        route were a sync ``def`` handler, FastAPI would dispatch it onto a
+        threadpool worker where ``get_running_loop`` raises and the lineage
+        ``runs`` row is left stranded in ``running`` state (the row is
+        inserted before ``create_task`` is reached).
+        """
+        import asyncio
+
+        runtime = seeded_project["runtime"]
+        observed: dict[str, Any] = {"on_loop": None}
+
+        def _check_loop(
+            self: Any,
+            workflow_id: str,
+            *,
+            execute_from: str | None = None,
+            parent_run_id: str | None = None,
+        ) -> dict[str, Any]:
+            try:
+                asyncio.get_running_loop()
+                observed["on_loop"] = True
+            except RuntimeError:
+                observed["on_loop"] = False
+            return {
+                "workflow_id": workflow_id,
+                "status": "started",
+                "message": "stubbed",
+                "reused_blocks": [],
+                "reset_blocks": [],
+            }
+
+        monkeypatch.setattr(type(runtime), "start_workflow", _check_loop)
+        r = client.post("/api/runs/run-A/rerun", json={})
+        assert r.status_code == 200, r.text
+        assert observed["on_loop"] is True, (
+            "rerun handler executed in threadpool (sync def) — asyncio.create_task "
+            "in start_workflow would raise 'no running event loop' here"
+        )
+
     def test_value_error_surfaces_as_400(
         self,
         client: TestClient,

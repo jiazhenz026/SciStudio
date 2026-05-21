@@ -1,6 +1,7 @@
 import { GitBranch, Pin, PinOff, Plus, Trash2 } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { api } from "../lib/api";
 import type { BlockSchemaResponse, FormatCapabilityResponse, LogEntry, WorkflowNode } from "../types/api";
 import type { BottomTab } from "../types/ui";
 import { TerminalTabs } from "./AIChat/TerminalTabs";
@@ -183,10 +184,11 @@ function FormatCapabilityConfig({
       <label className="grid gap-2">
         <span className="font-medium text-ink">Format</span>
         <select
-          className="rounded-2xl border border-stone-300 bg-white px-4 py-3"
+          className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3"
           disabled={capabilities.length === 1}
           onChange={(event) => onChange(event.target.value || null)}
           value={selectValue}
+          title={capability?.id}
         >
           {capabilities.length > 1 ? <option value="">Select a format capability...</option> : null}
           {capabilities.map((option) => (
@@ -198,7 +200,10 @@ function FormatCapabilityConfig({
       </label>
       {capability ? (
         <div className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs text-stone-600">
-          <div className="font-medium text-stone-700">{capability.id}</div>
+          {/* Verbose ``capability.id`` (e.g. ``scistudio-blocks-imaging.image.tiff.load``)
+              is exposed via the select's ``title`` tooltip above. Keep only the
+              structural triple here so the panel does not duplicate the dropdown
+              label in a long-form id row. */}
           <div>
             {capability.data_type} / {capability.format_id} / {capability.metadata_fidelity.level}
           </div>
@@ -722,20 +727,73 @@ function ConfigPanel({
             </label>
           );
         }
+        const uiWidget = (value as Record<string, unknown>).ui_widget as string | undefined;
+        const browseMode: "file" | "directory" | null =
+          uiWidget === "file_browser"
+            ? "file"
+            : uiWidget === "directory_browser"
+              ? "directory"
+              : null;
         return (
           <label className="grid gap-2 text-sm" key={key}>
             <span className="font-medium text-ink">{String(value.title ?? key)}</span>
-            <CaretPreservingTextInput
-              className="min-w-0 flex-1 rounded-2xl border border-stone-300 bg-white px-4 py-3"
-              onChange={(next) =>
-                onUpdateConfig({
-                  [key]: value.type === "number" ? Number(next) : next,
-                })
-              }
-              placeholder={key === "path" ? "Type or paste file/directory path" : undefined}
-              type={value.type === "number" ? "number" : "text"}
-              value={String(currentValue)}
-            />
+            <div className="flex w-full min-w-0 items-stretch gap-2">
+              <CaretPreservingTextInput
+                className="min-w-0 flex-1 rounded-2xl border border-stone-300 bg-white px-4 py-3"
+                onChange={(next) =>
+                  onUpdateConfig({
+                    [key]: value.type === "number" ? Number(next) : next,
+                  })
+                }
+                placeholder={key === "path" ? "Type or paste file/directory path" : undefined}
+                type={value.type === "number" ? "number" : "text"}
+                value={String(currentValue)}
+              />
+              {browseMode && (
+                <button
+                  type="button"
+                  className="shrink-0 rounded-2xl border border-stone-300 bg-white px-3 text-sm text-stone-600 hover:bg-stone-50"
+                  title="Browse filesystem"
+                  onClick={async () => {
+                    // Mirror BlockNode's inline browse pattern (#484): use the
+                    // backend's native dialog so the user gets their OS file
+                    // picker. Failure surfaces in console; the text field
+                    // remains usable as the manual fallback.
+                    const current = String(currentValue ?? "");
+                    let initialDir: string | undefined;
+                    if (current) {
+                      const sep = current.includes("\\") ? "\\" : "/";
+                      const parts = current.split(sep);
+                      if (browseMode === "file" && parts.length > 1 && parts[parts.length - 1].includes(".")) {
+                        initialDir = parts.slice(0, -1).join(sep);
+                      } else {
+                        initialDir = current;
+                      }
+                    }
+                    try {
+                      const result = await api.openNativeDialog(browseMode, initialDir);
+                      if (result.paths.length > 0) {
+                        const schemaType = (value as Record<string, unknown>).type;
+                        const supportsArray = Array.isArray(schemaType)
+                          ? schemaType.includes("array")
+                          : schemaType === "array";
+                        onUpdateConfig({
+                          [key]:
+                            supportsArray && result.paths.length > 1
+                              ? result.paths
+                              : result.paths[0],
+                        });
+                      }
+                    } catch (err) {
+                      // eslint-disable-next-line no-console
+                      console.error("BottomPanel: native file dialog failed", err);
+                    }
+                  }}
+                >
+                  ...
+                </button>
+              )}
+            </div>
           </label>
         );
       })}

@@ -38,6 +38,11 @@ export function TerminalView({
   // closure can reach them without re-rendering.
   const termRef = useRef<unknown>(null);
   const fitRef = useRef<{ fit: () => void } | null>(null);
+  // Buffer stdout that arrives before xterm finishes its async dynamic-import
+  // bootstrap. Without this, the PTY's startup banner (claude-code prints
+  // several KB immediately on spawn) gets silently dropped, leaving the TUI
+  // mid-render with no prior screen state.
+  const pendingWritesRef = useRef<string[]>([]);
 
   // Keep callbacks fresh without re-mounting the WS (which would tear down
   // the PTY subprocess).
@@ -54,7 +59,11 @@ export function TerminalView({
     onMessage: (frame) => {
       if (frame.type === "stdout") {
         const t = termRef.current as { write?: (data: string) => void } | null;
-        t?.write?.(frame.data);
+        if (t?.write) {
+          t.write(frame.data);
+        } else {
+          pendingWritesRef.current.push(frame.data);
+        }
       } else if (frame.type === "exit") {
         onExitRef.current(frame.code);
       } else if (frame.type === "error") {
@@ -88,7 +97,21 @@ export function TerminalView({
       const WebLinksAddon = (linksMod as { WebLinksAddon: new () => unknown }).WebLinksAddon;
 
       term = new TerminalCtor({
-        theme: { background: "#1e1e1e" },
+        // xterm's default ANSI black is #2e3436 — nearly invisible on the
+        // #1e1e1e background. Codex occasionally emits ANSI color 0 (black)
+        // for foreground text, which then renders as unreadable dark-on-dark.
+        // Mirror the VS Code dark+ approach: brighten "black" to a readable
+        // grey so colored output stays visible regardless of which palette
+        // index the agent picks. Explicit foreground/cursor guarantees the
+        // default text colour is the brighter one users expect.
+        theme: {
+          background: "#1e1e1e",
+          foreground: "#e6e6e6",
+          cursor: "#ffffff",
+          cursorAccent: "#1e1e1e",
+          black: "#666666",
+          brightBlack: "#7f7f7f",
+        },
         fontFamily: "Consolas, Menlo, monospace",
         fontSize: 14,
         cursorBlink: true,
@@ -111,6 +134,20 @@ export function TerminalView({
       } catch {
         // fit can throw if the container has zero dims; ignore — the resize
         // observer will fire once layout settles.
+      }
+
+      // Flush stdout that arrived during the async xterm bootstrap, then
+      // notify the PTY of the post-fit viewport so subsequent output is
+      // laid out against the real cols/rows rather than the 120x30 default.
+      const pending = pendingWritesRef.current;
+      if (pending.length > 0) {
+        for (const chunk of pending) {
+          term!.write(chunk);
+        }
+        pendingWritesRef.current = [];
+      }
+      if (term!.cols > 0 && term!.rows > 0) {
+        send({ type: "resize", cols: term!.cols, rows: term!.rows });
       }
 
       onDataDisposable = term!.onData((data: string) => {

@@ -1,0 +1,146 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "hotfix/gui-bugs-20260521",
+  "changed_test_paths": [
+    "tests/api/test_runs_routes.py",
+    "packages/scistudio-blocks-imaging/tests/test_save_image.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "python -m pytest tests/api/test_runs_routes.py",
+      "exit_code": 0,
+      "name": "pytest tests/api/test_runs_routes.py",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m pytest packages/scistudio-blocks-imaging/tests/test_save_image.py -k 'capability_id or removed_from_config_schema or explicit_format_wins or test_save_format_override or test_save_invalid_format_value or test_save_batch_collection_with_format'",
+      "exit_code": 0,
+      "name": "pytest packages/scistudio-blocks-imaging/tests/test_save_image.py (bug8 new tests + related)",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "vitest run src/hooks/useWebSocket.test.ts",
+      "exit_code": 0,
+      "name": "vitest src/hooks/useWebSocket.test.ts",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "tsc --noEmit -p tsconfig.json",
+      "exit_code": 0,
+      "name": "frontend tsc",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "changelog": {},
+    "checklist": {},
+    "docs": {},
+    "hotfix": {
+      "not_applicable": true,
+      "rationale": "5 small bug fixes (terminal rendering, rerun event loop, config UX, format consolidation, MCP auto-open); no public-API or schema changes that require user-facing docs. Save Image schema removal of lowercase format is UI-only \u2014 workflow YAMLs continue to load via backward-compat path in _resolve_format."
+    }
+  },
+  "full_audit": null,
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1320,
+      "url": null
+    }
+  ],
+  "owner_directive": "hotfix mode authorized by owner; fix AIChat terminal rendering, lineage rerun event loop, Load Image config UX, Save Image format consolidation, MCP run_workflow auto-open canvas",
+  "planned_files": [
+    "frontend/src/components/AIChat/TerminalView.tsx",
+    "src/scistudio/api/routes/runs.py",
+    "tests/api/test_runs_routes.py",
+    "frontend/src/components/BottomPanel.tsx",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py",
+    "packages/scistudio-blocks-imaging/tests/test_save_image.py",
+    "frontend/src/hooks/useWebSocket.ts",
+    "frontend/src/hooks/useWebSocket.test.ts"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1320-gui-bugs-20260521.json",
+  "required_checks": [
+    "frontend tsc",
+    "pytest tests/api/test_runs_routes.py",
+    "pytest packages/scistudio-blocks-imaging/tests/test_save_image.py",
+    "vitest src/hooks/useWebSocket.test.ts"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": []
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": null,
+    "pro_required": false,
+    "quality_signal": 4125.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {
+      "complexity": "70"
+    },
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1320-gui-bugs-20260521",
+  "task_kind": "hotfix"
+}
