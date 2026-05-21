@@ -887,12 +887,16 @@ tracks the gap, and the stub is not used by any production workflow YAML.
 
 **Planned state (ADR-044, accepted 2026-05-21).** `SubWorkflowBlock` becomes
 an authoring-only container. A node in a workflow YAML carries only a
-reference to an external subworkflow file (`config.ref.path`). At workflow
-load time (both editor open and run start), a parser-layer flattener
+reference to an external subworkflow file (`config.ref.path`). At run start
+(`ApiRuntime.start_workflow`), a parser-layer flattener
 (`WorkflowDefinition.flatten_subworkflows`) replaces every `SubWorkflowBlock`
-node with a prefixed copy of the referenced subworkflow's blocks and edges.
-The scheduler always receives a flat DAG and never observes a
-`SubWorkflowBlock` at runtime. The lineage record's
+node with a prefixed copy of the referenced subworkflow's blocks and edges
+before scheduler dispatch. The editor sees the authored graph (with
+`SubWorkflowBlock` containers intact) so that subsequent saves preserve the
+on-disk YAML; per-node port handles and dangling-edge detection in the
+editor use the existing dynamic-ports mechanism on `SubWorkflowBlock`, not
+whole-graph flattening. The scheduler always receives a flat DAG and never
+observes a `SubWorkflowBlock` at runtime. The lineage record's
 `workflow_yaml_snapshot` captures the flattened YAML, so reproducibility of
 past runs is preserved automatically. Per-reference reproducibility against
 future edits is delegated to git (branches or tags), not embedded in the

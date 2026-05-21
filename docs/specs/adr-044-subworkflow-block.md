@@ -82,9 +82,16 @@ The core requirements are:
 - A pure `WorkflowDefinition.flatten_subworkflows` function replaces every
   `SubWorkflowBlock` node with its referenced subworkflow's inner blocks
   and edges, using `<sw_id>__` id prefixes.
-- Both the editor-open path (`ApiRuntime.load_workflow`) and the run-start
-  path (`ApiRuntime.start_workflow`) call this function. The run-start path
-  captures the flattened YAML as the per-run lineage snapshot.
+- `ApiRuntime.start_workflow` is the single call site for this function;
+  it runs the flattener immediately before scheduler dispatch and writes
+  the result to `RunRecord.workflow_yaml_snapshot`.
+- `ApiRuntime.load_workflow` returns the authored graph unchanged.
+  Flattening is run-time-only so that saving from the editor preserves
+  every `SubWorkflowBlock` container in the on-disk YAML. The editor
+  resolves each `SubWorkflowBlock` node's port surface via the dynamic-
+  ports mechanism (FR-004) — a per-node lookup into the referenced
+  subworkflow's `exposed_ports`, not whole-graph flattening (rationale:
+  Codex P1 on PR #1359).
 - `SubWorkflowBlock` retains only dynamic-port derivation from the referenced
   subworkflow's `exposed_ports`. The existing scheduler-injection scaffold
   (`_scheduler_factory`, `_cleanup_callback`, `_sequential_execute`) is
@@ -284,11 +291,16 @@ Acceptance Scenarios:
 - **FR-001:** `WorkflowDefinition.flatten_subworkflows(self) -> WorkflowDefinition`
   exists as a pure function that returns a new definition whose blocks/edges
   contain no `SubWorkflowBlock` nodes.
-- **FR-002:** `ApiRuntime.load_workflow` calls `flatten_subworkflows` before
-  returning the definition; the returned definition is the editor's view.
-- **FR-003:** `ApiRuntime.start_workflow` calls `flatten_subworkflows` before
-  scheduler dispatch and writes the flattened YAML to
-  `RunRecord.workflow_yaml_snapshot`.
+- **FR-002:** `ApiRuntime.load_workflow` returns the authored workflow
+  definition with every `SubWorkflowBlock` node intact. It does **not**
+  invoke `flatten_subworkflows`; the editor consumes the authored graph
+  so that subsequent saves preserve each `SubWorkflowBlock` container
+  byte-for-byte in the on-disk YAML. The editor obtains each node's port
+  surface via FR-004 (dynamic ports), not by flattening.
+- **FR-003:** `ApiRuntime.start_workflow` calls `flatten_subworkflows`
+  before scheduler dispatch and writes the flattened YAML to
+  `RunRecord.workflow_yaml_snapshot`. This is the sole call site for the
+  flattener.
 - **FR-004:** `SubWorkflowBlock.get_effective_input_ports` and
   `get_effective_output_ports` derive the port set from the referenced
   subworkflow's `exposed_ports`, with port `accepted_types` inherited from
@@ -349,7 +361,10 @@ Acceptance Scenarios:
 
 - A pure parser-layer flattener (`WorkflowDefinition.flatten_subworkflows`)
   is the single boundary between authoring-layer concepts and runtime
-  concepts. It is invoked at two sites only: editor open and run start.
+  concepts. It is invoked at exactly one site:
+  `ApiRuntime.start_workflow`, immediately before scheduler dispatch.
+  `ApiRuntime.load_workflow` returns the authored graph unchanged so the
+  editor never sees the flattened form (preserves the save round-trip).
 - The flattener is purely functional over on-disk YAML inputs (no
   randomness, no caller-supplied context). The same YAML inputs always
   produce the same flat DAG. This is required so the lineage snapshot
@@ -378,7 +393,7 @@ Acceptance Scenarios:
 | `src/scistudio/workflow/schema.py` | modify | Add optional top-level `exposed_ports` field for workflow YAML schema. |
 | `src/scistudio/workflow/validator.py` | modify | Validate `SubWorkflowBroken` placeholders fail at run start; validate post-flatten DAG. |
 | `src/scistudio/workflow/serializer.py` | modify | Ensure `exposed_ports` round-trips through serialise/deserialise. |
-| `src/scistudio/api/runtime.py` | modify | Call `flatten_subworkflows` in `load_workflow` and `start_workflow`. |
+| `src/scistudio/api/runtime.py` | modify | Call `flatten_subworkflows` in `start_workflow` only. `load_workflow` returns the authored graph unchanged. |
 | `src/scistudio/core/lineage/recorder.py` | modify | Ensure the flattened YAML is what reaches `workflow_yaml_snapshot`. |
 | `src/scistudio/engine/runners/**` | modify | Remove `_scheduler_factory` injection of `SubWorkflowBlock`. |
 | `src/scistudio/engine/scheduler.py` | modify | Remove any path that recognises `SubWorkflowBlock` (none should remain after flattening). |
@@ -394,7 +409,7 @@ Acceptance Scenarios:
 | ID | Title | Story | Files | Depends on | Verification |
 |---|---|---|---|---|---|
 | T-001 | Implement `flatten_subworkflows` with cycle detection | US 2, US 4 | `workflow/definition.py`, `workflow/schema.py` | — | `tests/workflow/test_flatten_subworkflows.py` |
-| T-002 | Wire flatten into `ApiRuntime.load_workflow` | US 1, US 3 | `api/runtime.py` | T-001 | unit + manual editor open |
+| T-002 | Confirm `ApiRuntime.load_workflow` returns the authored graph unchanged; wire per-`SubWorkflowBlock` dynamic-ports resolution + dangling-edge detection via FR-004 | US 1, US 3, US 6 | `api/runtime.py`, `blocks/subworkflow/subworkflow_block.py` | T-001 | unit + manual editor open |
 | T-003 | Wire flatten into `ApiRuntime.start_workflow` + lineage snapshot | US 2, US 3 | `api/runtime.py`, `core/lineage/recorder.py` | T-001 | `tests/integration/test_subworkflow_lineage.py` |
 | T-004 | Rewrite `SubWorkflowBlock` as authoring-only with dynamic ports | US 1 | `blocks/subworkflow/subworkflow_block.py`, `tests/blocks/test_subworkflow.py` | T-001 | unit |
 | T-005 | Validator updates for broken-ref placeholders | US 6 | `workflow/validator.py` | T-001 | unit |
