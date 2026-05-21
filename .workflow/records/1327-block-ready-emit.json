@@ -23,7 +23,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1327-block-ready-emit.json",
+    "shas": [
+      "621978f73cede9eb78e89fb2c6fa73016667a93d"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -57,7 +63,13 @@
     "src/scistudio/engine/scheduler.py",
     "tests/engine/test_scheduler.py"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1327
+    ],
+    "number": 1328,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1328"
+  },
   "record_path": ".workflow/records/1327-block-ready-emit.json",
   "required_checks": [
     "pytest tests/engine/test_scheduler.py"
@@ -116,7 +128,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
