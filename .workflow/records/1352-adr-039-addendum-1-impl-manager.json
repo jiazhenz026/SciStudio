@@ -1,0 +1,150 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "umbrella/adr-039-addendum-1-impl",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.frontmatter_lint docs/planning/adr-039-addendum-1-impl-checklist.md",
+      "exit_code": 0,
+      "name": "frontmatter",
+      "output_path": "checklist not in ADR/spec/architecture lint target; rc=0",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff check (N/A - no python files in scope)",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "manager-only setup commit; no python source files in scope",
+      "status": "skipped",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "ADR-039 \u00a711 Addendum 1 already merged via #1358; manager dispatch references it but does not edit it"
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "will land in each sub-PR's CHANGELOG entry; manager-only setup commit has no user-visible behavior change"
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/adr-039-addendum-1-impl-checklist.md",
+        "docs/planning/dispatch-prompts/agent-A-1353-1354.md",
+        "docs/planning/dispatch-prompts/agent-B-1355.md",
+        "docs/planning/dispatch-prompts/agent-C-1356.md"
+      ]
+    },
+    "docs": {},
+    "spec": {
+      "not_applicable": true,
+      "rationale": "no docs/specs/ for ADR-039 GUI surface; addendum lives inline per existing convention"
+    },
+    "tests": {
+      "not_applicable": true,
+      "rationale": "manager-only setup commit; sub-PRs (A/B/C) carry their own test changes"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output ./.workflow/records/full-audit-manager-1352.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": ".workflow/records/full-audit-manager-1352.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1352,
+      "url": null
+    }
+  ],
+  "owner_directive": "Per owner 2026-05-21 plan approval: implement ADR-039 Addendum 1 in 3 PRs (PR-A combines #1353+#1354 as 2 atomic commits; PR-B = #1355 inline [Diff][Restore]; PR-C = #1356 silent auto-tag option C). Phase PRs merge into umbrella; final umbrella->main merge is owner-authorized.",
+  "planned_files": [
+    "docs/planning/adr-039-addendum-1-impl-checklist.md",
+    "docs/planning/dispatch-prompts/agent-A-1353-1354.md",
+    "docs/planning/dispatch-prompts/agent-B-1355.md",
+    "docs/planning/dispatch-prompts/agent-C-1356.md"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1352-adr-039-addendum-1-impl-manager.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "docs/planning/adr-039-addendum-1-impl-checklist.md",
+      "docs/planning/dispatch-prompts/**",
+      ".workflow/records/1352-adr-039-addendum-1-impl-manager.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__{scan,check_rules}",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "scan:{files:1102,import_edges:2613,quality_signal:4443} check_rules:{pass:true,violations:0,rules_checked:3,total_rules_defined:15}",
+    "pro_required": false,
+    "quality_signal": 4443.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1352-adr-039-addendum-1-impl-manager",
+  "task_kind": "manager"
+}
