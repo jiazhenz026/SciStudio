@@ -41,7 +41,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1362-governance-records-helper.json",
+    "shas": [
+      "ba320932"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "paths": [
@@ -86,7 +92,13 @@
     "tests/qa/test_governance_paths.py",
     "CHANGELOG.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1362
+    ],
+    "number": 1363,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1363"
+  },
   "record_path": ".workflow/records/1362-governance-records-helper.json",
   "required_checks": [
     "ruff",
@@ -156,7 +168,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
