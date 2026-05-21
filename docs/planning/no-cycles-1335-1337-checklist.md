@@ -116,8 +116,8 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `A-1337` | `implementer` | `N/A` | [`docs/planning/dispatch-prompts/fix-1337-pair-cycles.md`](docs/planning/dispatch-prompts/fix-1337-pair-cycles.md) | Break git_binary↔git_engine + platform↔process_handle pairs via `_common.py` extractions | `fix/1337-pair-cycles` | `.claude/worktrees/fix-1337` | `core/versioning/_common.py` (new), `core/versioning/git_binary.py`, `core/versioning/git_engine.py`, `core/versioning/__init__.py`, `engine/runners/_common.py` (new), `engine/runners/platform.py`, `engine/runners/process_handle.py`, `engine/runners/__init__.py`, `tests/core/test_git_engine.py`, `tests/engine/test_process_handle.py`, own gate record | `.sentrux/rules.toml`, `pyproject.toml`, `core/types/`, `core/storage/`, `blocks/`, `ai/`, `frontend/` | `#1337` / `#<pending>` (umbrella target: #1344) | `[ ]` |
-| `A-1335` | `implementer` | `N/A` | [`docs/planning/dispatch-prompts/fix-1335-router-defaults.md`](docs/planning/dispatch-prompts/fix-1335-router-defaults.md) | Extract `core/storage/_defaults.py` to break core.types ↔ backend_router cycle; insert `TODO(#1342)` at lazy-import site | `fix/1335-router-defaults` | `.claude/worktrees/fix-1335` | `core/storage/_defaults.py` (new), `core/storage/backend_router.py`, `core/storage/__init__.py` (only if needed), `tests/core/test_backend_router.py`, own gate record | `core/types/*.py`, `tests/blocks/test_auto_flush_composite.py`, `.sentrux/rules.toml`, `pyproject.toml`, `core/versioning/`, `engine/runners/`, `blocks/`, `ai/`, `frontend/` | `#1335` / `#<pending>` (umbrella target: #1344) | `[ ]` |
+| `A-1337` | `implementer` | `N/A` | [`docs/planning/dispatch-prompts/fix-1337-pair-cycles.md`](docs/planning/dispatch-prompts/fix-1337-pair-cycles.md) | Break git_binary↔git_engine + platform↔process_handle pairs via shared-types extractions (`errors.py`, `exit_info.py`; brief said `_common.py` — see gate-record amendment) | `fix/1337-pair-cycles` | `.claude/worktrees/fix-1337` | `core/versioning/errors.py` (new), `core/versioning/git_binary.py`, `core/versioning/git_engine.py`, `engine/runners/exit_info.py` (new), `engine/runners/platform.py`, `engine/runners/process_handle.py`, `tests/core/test_git_engine.py`, `tests/engine/test_process_handle.py`, `docs/adr/ADR-039.md`, `docs/adr/ADR-019.md` (governs.contracts), own gate record | `.sentrux/rules.toml`, `pyproject.toml`, `core/types/`, `core/storage/`, `blocks/`, `ai/`, `frontend/` | `#1337` / [`#1348`](https://github.com/zjzcpj/SciStudio/pull/1348) (merged into umbrella) | `[x]` |
+| `A-1335` | `implementer` | `N/A` | [`docs/planning/dispatch-prompts/fix-1335-router-defaults.md`](docs/planning/dispatch-prompts/fix-1335-router-defaults.md) | Extract `core/storage/_defaults.py` to break core.types ↔ backend_router cycle; insert `TODO(#1342)` at lazy-import site | `fix/1335-router-defaults` | `.claude/worktrees/fix-1335` | `core/storage/_defaults.py` (new), `core/storage/backend_router.py`, `core/storage/__init__.py` (only if needed), `tests/core/test_backend_router.py`, own gate record | `core/types/*.py`, `tests/blocks/test_auto_flush_composite.py`, `.sentrux/rules.toml`, `pyproject.toml`, `core/versioning/`, `engine/runners/`, `blocks/`, `ai/`, `frontend/` | `#1335` / [`#1347`](https://github.com/zjzcpj/SciStudio/pull/1347) (merged into umbrella) | `[x]` |
 
 ## 7. Track A — Fix #1337 (pair D + pair E)
 
@@ -141,26 +141,27 @@ language_source: en
 
 ### 7.2 Dispatch
 
-- [ ] Prompt file created at `docs/planning/dispatch-prompts/fix-1337-pair-cycles.md`.
-- [ ] Correct prompt template selected (`agent-dispatch-prompt-template.md`).
-- [ ] Audit mode recorded when persona is `audit_reviewer`. → N/A (implementer)
-- [ ] Agent branch/worktree assigned. → `fix/1337-pair-cycles` / `.claude/worktrees/fix-1337`
-- [ ] Write set and out-of-scope paths included in prompt.
-- [ ] TODO rule included in prompt.
-- [ ] Required checks included in prompt.
+- [x] Prompt file created at `docs/planning/dispatch-prompts/fix-1337-pair-cycles.md`. → committed by manager preflight
+- [x] Correct prompt template selected (`agent-dispatch-prompt-template.md`). → verified at top of dispatch prompt
+- [x] Audit mode recorded when persona is `audit_reviewer`. → N/A (implementer)
+- [x] Agent branch/worktree assigned. → `fix/1337-pair-cycles` / `.claude/worktrees/fix-1337`
+- [x] Write set and out-of-scope paths included in prompt. → §Scope section of prompt
+- [x] TODO rule included in prompt. → §TODO And Deferral Rule of prompt
+- [x] Required checks included in prompt. → §Required Tests And Checks of prompt
 
 ### 7.3 Implementation
 
-- [ ] Create `src/scistudio/core/versioning/_common.py` with `GitError`. → `<commit>`
-- [ ] `git_engine.py`: replace `class GitError` with `from ._common import GitError`; convert lazy `from .git_binary import GitBinary` (line ~91) to module-top. → `<commit>`
-- [ ] `git_binary.py`: replace lazy `from .git_engine import GitError` (line ~156) with module-top `from ._common import GitError`. → `<commit>`
-- [ ] `core/versioning/__init__.py`: verify `GitError` re-export still resolves. → `<commit>`
-- [ ] Create `src/scistudio/engine/runners/_common.py` with `ProcessExitInfo`. → `<commit>`
-- [ ] `process_handle.py`: replace `ProcessExitInfo` definition with import from `_common`; keep `from .platform import PlatformOps, get_platform_ops`. → `<commit>`
-- [ ] `platform.py`: delete TYPE_CHECKING import (line ~19) + 6 lazy imports (lines ~88,147,197,268,315,355); add single module-top `from ._common import ProcessExitInfo`. → `<commit>`
-- [ ] `engine/runners/__init__.py`: verify `ProcessExitInfo` re-export still resolves. → `<commit>`
-- [ ] Add `test_no_circular_import` regression test in each pair. → `<commit>`
-- [ ] Run targeted pytest + ruff + sentrux MCP rescan locally; expected `clusters` drops to 3. → `<output>`
+- [x] Create `src/scistudio/core/versioning/errors.py` with `GitError`. (Brief said `_common.py`; renamed to public `errors.py` so griffe-based audit fact resolution picks up the symbol — gate record amended with rationale.) → see commit on `fix/1337-pair-cycles`
+- [x] `git_engine.py`: replace `class GitError` with `from .errors import GitError`; convert lazy `from .git_binary import GitBinary` (line ~91) to module-top. → see commit
+- [x] `git_binary.py`: replace lazy `from .git_engine import GitError` (line ~156) with module-top `from .errors import GitError`. → see commit
+- [x] `core/versioning/__init__.py`: verify `GitError` re-export still resolves. → existing re-export `from scistudio.core.versioning.git_engine import GitEngine, GitError` unchanged; runtime smoke test in regression `test_no_circular_import` confirms `git_engine.GitError.__module__ == "scistudio.core.versioning.errors"` and `__init__.GitError` is the same object.
+- [x] Create `src/scistudio/engine/runners/exit_info.py` with `ProcessExitInfo`. (Brief said `_common.py`; renamed to public `exit_info.py` for same audit-fact reason.) → see commit
+- [x] `process_handle.py`: replace `ProcessExitInfo` definition with import from `exit_info`; keep `from .platform import PlatformOps, get_platform_ops`. → see commit
+- [x] `platform.py`: delete TYPE_CHECKING import (line ~19) + 6 lazy imports (lines ~88,147,197,268,315,355); add single module-top `from .exit_info import ProcessExitInfo`. → see commit
+- [x] `engine/runners/__init__.py`: verify `ProcessExitInfo` re-export still resolves. → existing re-export `from scistudio.engine.runners.process_handle import ProcessExitInfo` unchanged; runtime smoke test in regression `test_no_circular_import` confirms `ProcessExitInfo.__module__ == "scistudio.engine.runners.exit_info"` and `engine.runners.ProcessExitInfo` is the same object.
+- [x] Add `test_no_circular_import` regression test in each pair. → `tests/core/test_git_engine.py::test_no_circular_import` + `tests/engine/test_process_handle.py::test_no_circular_import`
+- [x] Run targeted pytest + ruff + sentrux MCP rescan locally; expected `clusters` drops to 3. → 434 passed / 5 skipped / 8 xfailed; sentrux clusters: 5 → 3 (Pair D + Pair E gone); evidence in `docs/audit/2026-05-21-track-a-1337-sentrux.json`
+- [x] Update ADR-039 `governs.contracts` and ADR-019 `governs.contracts` (+ ADR-019 `governs.files`) to point at the new canonical contract locations (`errors.GitError`, `exit_info.ProcessExitInfo`). Required for `doc_drift.phantom-contract`, `closure.unresolved-contract-claim`, `signature_drift.missing-symbol` to pass — gate record amended with rationale. → see commit
 
 ### 7.4 Audit
 
@@ -203,21 +204,21 @@ language_source: en
 
 ### 8.2 Dispatch
 
-- [ ] Prompt file created at `docs/planning/dispatch-prompts/fix-1335-router-defaults.md`.
-- [ ] Correct prompt template selected (`agent-dispatch-prompt-template.md`).
-- [ ] Audit mode recorded when persona is `audit_reviewer`. → N/A (implementer)
-- [ ] Agent branch/worktree assigned. → `fix/1335-router-defaults` / `.claude/worktrees/fix-1335`
-- [ ] Write set and out-of-scope paths included in prompt.
-- [ ] TODO rule included in prompt (`TODO(#1342)` at lazy-import site).
-- [ ] Required checks included in prompt.
+- [x] Prompt file created at `docs/planning/dispatch-prompts/fix-1335-router-defaults.md`.
+- [x] Correct prompt template selected (`agent-dispatch-prompt-template.md`).
+- [x] Audit mode recorded when persona is `audit_reviewer`. → N/A (implementer)
+- [x] Agent branch/worktree assigned. → `fix/1335-router-defaults` / `.claude/worktrees/fix-1335`
+- [x] Write set and out-of-scope paths included in prompt.
+- [x] TODO rule included in prompt (`TODO(#1342)` at lazy-import site).
+- [x] Required checks included in prompt.
 
 ### 8.3 Implementation
 
-- [ ] Create `src/scistudio/core/storage/_defaults.py` with `build_default()` (moves body of `_build_default_router()`). → `<commit>`
-- [ ] `backend_router.py`: delete `_build_default_router()` + 6 lazy type imports (lines 53-78); rewrite `get_router()` as lazy-singleton + add `TODO(#1342)` comment. → `<commit>`
-- [ ] `core/storage/__init__.py`: verify `get_router` re-export still works. → `<commit>`
-- [ ] Add `test_no_circular_import` + `test_singleton_identity` regression tests. → `<commit>`
-- [ ] Run targeted pytest + ruff + sentrux MCP rescan locally; expected `clusters` drops to 4 (after this fix alone) or 2 (after Track A also lands). → `<output>`
+- [x] Create `src/scistudio/core/storage/_defaults.py` with `build_default()` (moves body of `_build_default_router()`). → commit `c278d1fe` (PR #1347)
+- [x] `backend_router.py`: delete `_build_default_router()` + 6 lazy type imports (lines 53-78); rewrite `get_router()` as lazy-singleton + add `TODO(#1342)` comment. → commit `c278d1fe` (PR #1347)
+- [x] `core/storage/__init__.py`: verify `get_router` re-export still works. → no change required; smoke-tested via `from scistudio.core.storage import get_router` resolving correctly post-fix.
+- [x] Add `test_no_circular_import` + `test_singleton_identity` regression tests. Also added `test_backend_router_has_no_types_top_level_import` (locks cycle-free state). → commit `c278d1fe` (PR #1347)
+- [x] Run targeted pytest + ruff + sentrux MCP rescan locally; expected `clusters` drops to 4 (after this fix alone) or 2 (after Track A also lands). → sentrux clusters 5→4 (10-module SCC at level 9 removed; post-finalize re-scan shows 3 clusters); pytest 17/17 green on `tests/core/test_backend_router.py` + `tests/blocks/test_auto_flush_composite.py`; ruff + format clean; full_audit pass (`docs/audit/full-audit-track-b.json`).
 
 ### 8.4 Audit
 

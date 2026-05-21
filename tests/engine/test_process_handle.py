@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import subprocess
 import sys
+import textwrap
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -23,6 +24,103 @@ from scistudio.engine.runners.process_handle import (
     ProcessRegistry,
     spawn_block_process,
 )
+
+# ---------------------------------------------------------------------------
+# Regression: pair-cycle is gone (#1337)
+# ---------------------------------------------------------------------------
+
+
+def test_no_circular_import() -> None:
+    """platform ↔ process_handle no longer have a circular dependency.
+
+    Regression for #1337 (PR #1344): the pair previously relied on a
+    ``TYPE_CHECKING`` import + six in-function lazy imports of
+    ``ProcessExitInfo`` inside ``platform.py``. The fix extracts
+    ``ProcessExitInfo`` into ``scistudio.engine.runners.exit_info`` so
+    both modules can use module-top imports.
+
+    The test spawns a fresh interpreter and pre-registers a no-op shim
+    in ``sys.modules`` for ``scistudio.engine.runners`` (with a real
+    ``__path__`` so sibling submodules still resolve via the normal
+    import system) BEFORE importing either cycle-pair submodule. This
+    guarantees that the chosen "first" submodule really is the first one
+    Python parses — otherwise a plain
+    ``importlib.import_module("scistudio.engine.runners.<sub>")`` would
+    trigger the real ``__init__.py`` first, which itself imports
+    ``platform`` then ``process_handle`` in a fixed order and would
+    collapse both branches into the same effective test (Codex P2 audit
+    on PR #1348).
+    """
+    from pathlib import Path
+
+    script = textwrap.dedent(
+        """
+        import importlib
+        import sys
+        import types
+        from pathlib import Path
+
+        order = sys.argv[1]
+        package_dir = Path(sys.argv[2])
+
+        # Pre-register a NO-OP package shim for scistudio.engine.runners
+        # so that loading a submodule from its .py file does NOT trigger
+        # the real scistudio/engine/runners/__init__.py (which imports
+        # platform BEFORE process_handle and would defeat the order test).
+        # We give the shim a __path__ pointing at the package dir so
+        # Python's import machinery can still resolve sibling submodules
+        # via the normal ``from .sibling import ...`` syntax inside each
+        # module body.
+        for parent_name, parent_path in [
+            ("scistudio", None),
+            ("scistudio.engine", None),
+            ("scistudio.engine.runners", str(package_dir)),
+        ]:
+            if parent_name not in sys.modules:
+                shim = types.ModuleType(parent_name)
+                if parent_path:
+                    shim.__path__ = [parent_path]
+                else:
+                    shim.__path__ = []
+                sys.modules[parent_name] = shim
+
+        # exit_info.py is the shared shim.  Pre-load it so the two cycle-
+        # pair modules have an explicit dependency they can resolve via
+        # the normal import system before we touch them.
+        importlib.import_module("scistudio.engine.runners.exit_info")
+
+        # The TRUE test of "no cycle" is whether platform can be loaded
+        # without process_handle AND vice versa.  We load them in the
+        # order requested.
+        if order == "platform-first":
+            importlib.import_module("scistudio.engine.runners.platform")
+            importlib.import_module("scistudio.engine.runners.process_handle")
+        else:
+            importlib.import_module("scistudio.engine.runners.process_handle")
+            importlib.import_module("scistudio.engine.runners.platform")
+
+        # Smoke test the re-export contract: ``ProcessExitInfo`` must still
+        # resolve via ``process_handle`` (the public surface used by
+        # ``engine.runners.__init__`` and downstream callers).
+        _PEI = sys.modules["scistudio.engine.runners.process_handle"].ProcessExitInfo
+        assert _PEI.__module__ == "scistudio.engine.runners.exit_info", _PEI.__module__
+        print("OK")
+        """
+    )
+    # Locate the source files for the submodule .py paths.
+    import scistudio.engine.runners as _runners_pkg
+
+    package_dir = Path(_runners_pkg.__file__).parent
+    for order in ("platform-first", "process-handle-first"):
+        proc = subprocess.run(
+            [sys.executable, "-c", script, order, str(package_dir)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert proc.returncode == 0, f"order={order} stderr={proc.stderr!r} stdout={proc.stdout!r}"
+        assert "OK" in proc.stdout
+
 
 # ---------------------------------------------------------------------------
 # ProcessExitInfo

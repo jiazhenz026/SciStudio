@@ -50,37 +50,16 @@ _BACKEND_EXTENSIONS: dict[str, str] = {
 _default_router: BackendRouter | None = None
 
 
-def _build_default_router() -> BackendRouter:
-    """Build router with standard type -> backend mappings."""
-    from scistudio.core.storage.arrow_backend import ArrowBackend
-    from scistudio.core.storage.composite_store import CompositeStore
-    from scistudio.core.storage.filesystem import FilesystemBackend
-    from scistudio.core.storage.zarr_backend import ZarrBackend
-    from scistudio.core.types.array import Array
-    from scistudio.core.types.artifact import Artifact
-    from scistudio.core.types.composite import CompositeData
-    from scistudio.core.types.dataframe import DataFrame
-    from scistudio.core.types.series import Series
-    from scistudio.core.types.text import Text
-
-    router = BackendRouter()
-    zarr = ZarrBackend()
-    arrow = ArrowBackend()
-    fs = FilesystemBackend()
-    composite = CompositeStore()
-
-    router.register(Array, "zarr", zarr)
-    router.register(Series, "zarr", zarr)
-    router.register(DataFrame, "arrow", arrow)
-    router.register(Text, "filesystem", fs)
-    router.register(Artifact, "filesystem", fs)
-    router.register(CompositeData, "composite", composite)
-    return router
-
-
 def get_router() -> BackendRouter:
-    """Return the default singleton BackendRouter, building it on first access."""
+    """Return the default singleton ``BackendRouter``, building it on first access."""
     global _default_router
     if _default_router is None:
-        _default_router = _build_default_router()
+        # TODO(#1342): lazy import preserves the public symbol path
+        # `scistudio.core.storage.backend_router.get_router` and the test
+        # monkeypatch target at tests/blocks/test_auto_flush_composite.py:49,72.
+        # Out of scope per #1335 surgical-extraction plan.
+        # Followup: https://github.com/zjzcpj/SciStudio/issues/1342
+        from scistudio.core.storage._defaults import build_default
+
+        _default_router = build_default()
     return _default_router
