@@ -77,7 +77,10 @@
         "docs/planning/no-cycles-1335-1337-checklist.md"
       ]
     },
-    "docs": {},
+    "docs": {
+      "not_applicable": true,
+      "rationale": "Internal refactor preserving public symbol path; no user-visible docs change required. Implementation details documented in PR body and gate record."
+    },
     "spec": {
       "not_applicable": true,
       "rationale": "No spec change \u2014 public symbol path scistudio.core.storage.backend_router.get_router is preserved verbatim."
@@ -142,14 +145,17 @@
     "command_or_tool": "sentrux check",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "clusters drop 5->4: pre-fix 10-module SCC (level 9) removed; remaining clusters: [files=3 level=2, files=2 level=10, files=2 level=2, files=2 level=1]. quality_signal 4125->4188.",
+    "output_path": "mcp__plugin_sentrux_sentrux__check_rules: pass (3 rules checked, 0 violations). Cluster delta: pre-fix 5 -> post-fix 4 (10-module SCC at level 9 removed); post-Track-A integration expected 4 -> 2.",
     "pro_required": false,
-    "quality_signal": null,
-    "rules_checked": null,
+    "quality_signal": 4474.0,
+    "rules_checked": 3,
     "status": "pass",
     "summary": {},
-    "thresholds": {},
-    "total_rules_defined": null
+    "thresholds": {
+      "max_cc": "100",
+      "max_cycles": "5"
+    },
+    "total_rules_defined": 15
   },
   "stages": [
     {
