@@ -82,13 +82,17 @@
   "docs_landing": {
     "changelog": {
       "not_applicable": true,
-      "rationale": "refactor preserves public surface; new errors.py + exit_info.py are pair-cycle-breaking shims and are documented in the ADR governs.contracts as the canonical location of the symbol fact. No user-visible behavior changes."
+      "rationale": "refactor preserves public surface; new errors.py + exit_info.py are pair-cycle-breaking shims documented in the ADR governs.contracts as the canonical location of the symbol fact; no user-visible behavior changes."
     },
-    "checklist": {},
+    "checklist": {
+      "paths": [
+        "docs/planning/no-cycles-1335-1337-checklist.md"
+      ]
+    },
     "docs": {
       "paths": [
-        "docs/adr/ADR-039.md",
-        "docs/adr/ADR-019.md"
+        "docs/adr/ADR-019.md",
+        "docs/adr/ADR-039.md"
       ]
     },
     "spec": {
@@ -168,11 +172,14 @@
     "output_path": "docs/audit/2026-05-21-track-a-1337-sentrux.json",
     "pro_required": false,
     "quality_signal": 4472.0,
-    "rules_checked": null,
+    "rules_checked": 3,
     "status": "pass",
     "summary": {},
-    "thresholds": {},
-    "total_rules_defined": null
+    "thresholds": {
+      "max_cc": "100",
+      "max_cycles": "5"
+    },
+    "total_rules_defined": 3
   },
   "stages": [
     {
