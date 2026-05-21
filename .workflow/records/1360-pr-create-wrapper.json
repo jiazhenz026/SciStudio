@@ -32,7 +32,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1360-pr-create-wrapper.json",
+    "shas": [
+      "27c092ddf61aea60c1c9ea5a3c2a68ee988da8ff"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -82,7 +88,13 @@
   ],
   "owner_directive": "Owner authorized 2026-05-21 in chat (post-#1351 retrospective): wrapper to pre-flight gate_record ci before gh pr create; filter PR-state guards (core_change_guard/pr_merge_guard/human_bypass_guard) as CI's authoritative domain; do NOT modify gate_record CLI itself (separate protected-core scope)",
   "planned_files": [],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1360
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1361"
+  },
   "record_path": ".workflow/records/1360-pr-create-wrapper.json",
   "required_checks": [],
   "schema_version": "1",
@@ -144,7 +156,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
