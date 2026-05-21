@@ -1,0 +1,172 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1352-adr-039-addendum-1-gui-downscope.json"
+      ],
+      "reason": "Include the gate record itself in scope (CI gate validation cross-check)"
+    }
+  ],
+  "branch": "feat/adr-039-addendum-2/gui-downscope",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check docs/adr/ADR-039.md CHANGELOG.md",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "no python files in scope; ruff reports no findings",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check docs/adr/ADR-039.md CHANGELOG.md",
+      "exit_code": 2,
+      "name": "format",
+      "output_path": "ruff format on markdown is experimental and not part of repo gate; docs-only PR has no python files in scope",
+      "status": "skipped",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.frontmatter_lint docs/adr/ADR-039.md",
+      "exit_code": 0,
+      "name": "frontmatter",
+      "output_path": "frontmatter validates",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1352-adr-039-addendum-1-gui-downscope.json",
+    "shas": [
+      "3ae7136a6153236e4956387a8e609c4bfd23f4d6"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {},
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "single-PR docs change, no umbrella checklist required"
+    },
+    "docs": {
+      "paths": [
+        "docs/adr/ADR-039.md",
+        "CHANGELOG.md"
+      ]
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "no docs/specs/ entry for ADR-039 GUI surface; addendum lives inline per existing convention (\u00a73.5b addenda #988/#990/#1002)"
+    },
+    "tests": {
+      "not_applicable": true,
+      "rationale": "docs-only addendum, no executable changes; implementation tests land with #1353/#1354/#1355/#1356"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output ./.workflow/records/full-audit-1352.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": ".workflow/records/full-audit-1352.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1352,
+      "url": null
+    }
+  ],
+  "owner_directive": "Per owner 2026-05-21: users only use 4 git ops (commit/checkout/restore/merge). Remove stash GUI; auto-commit on branch switch + restore; inline [Diff][Restore] on history rows. Addendum 1 records decisions; 4 implementation issues track work.",
+  "planned_files": [
+    "docs/adr/ADR-039.md",
+    "CHANGELOG.md"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1352
+    ],
+    "number": 1358,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1358"
+  },
+  "record_path": ".workflow/records/1352-adr-039-addendum-1-gui-downscope.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "full_audit",
+    "sentrux",
+    "frontmatter"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "docs/adr/ADR-039.md",
+      "CHANGELOG.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__{scan,check_rules,health}",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "scan:{files:1081,import_edges:2612,lines:278564,quality_signal:4126} check_rules:{pass:true,rules_checked:3,total_rules_defined:15,violations:0} health:{quality_signal:4126,bottleneck:acyclicity}",
+    "pro_required": false,
+    "quality_signal": 4126.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1352-adr-039-addendum-1-gui-downscope",
+  "task_kind": "docs"
+}
