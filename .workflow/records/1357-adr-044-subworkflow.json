@@ -1,0 +1,131 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "docs/issue-1357/adr-044-subworkflow-spec",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+      "exit_code": 0,
+      "name": "full_audit",
+      "output_path": "docs/audit/full-audit-latest.json",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.full_audit (child: frontmatter_lint)",
+      "exit_code": 0,
+      "name": "frontmatter_lint",
+      "output_path": "docs/audit/full-audit-latest.json",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "docs-only ADR + spec authoring; no user-visible behavior change; implementation tracked separately"
+    },
+    "checklist": {},
+    "docs": {
+      "paths": [
+        "docs/adr/ADR-044.md",
+        "docs/specs/adr-044-subworkflow-block.md",
+        "docs/architecture/ARCHITECTURE.md"
+      ]
+    },
+    "tests": {
+      "not_applicable": true,
+      "rationale": "docs-only; tests listed in spec for implementation PR"
+    }
+  },
+  "full_audit": null,
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1357,
+      "url": null
+    }
+  ],
+  "owner_directive": "Authoring-only SubWorkflowBlock; inline flattening at load; ref-only; no kind discriminator; cycle detection; delete stub; close #890 in impl PR; reproducibility via lineage snapshot + git",
+  "planned_files": [
+    "docs/adr/ADR-044.md",
+    "docs/specs/adr-044-subworkflow-block.md",
+    "docs/architecture/ARCHITECTURE.md"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1357-adr-044-subworkflow.json",
+  "required_checks": [
+    "frontmatter_lint",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "docs/adr/ADR-044.md",
+      "docs/specs/adr-044-subworkflow-block.md",
+      "docs/architecture/ARCHITECTURE.md",
+      ".workflow/records/1357-adr-044-subworkflow.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux.exe check .",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "11/11 rules pass; Quality=4126; docs-only diff (ADR-044 + spec + ARCHITECTURE.md \u00a75.4.7); no source files changed",
+    "pro_required": false,
+    "quality_signal": 4126.0,
+    "rules_checked": 11,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 11
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1357-adr-044-subworkflow",
+  "task_kind": "docs"
+}
