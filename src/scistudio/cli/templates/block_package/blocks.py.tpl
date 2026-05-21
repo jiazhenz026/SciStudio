@@ -1,6 +1,6 @@
 """Example block implementation for {package_name}.
 
-This module demonstrates a minimal SciEasy block following the
+This module demonstrates a minimal SciStudio block following the
 block contract (ADR-017). Blocks extend ``ProcessBlock`` for
 data transformations, or ``Block`` directly for custom logic.
 
@@ -17,11 +17,11 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from scieasy.blocks.base.block import Block
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.base.state import ExecutionMode
-from scieasy.blocks.process.process_block import ProcessBlock
+from scistudio.blocks.base.block import Block
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.base.state import ExecutionMode
+from scistudio.blocks.process.process_block import ProcessBlock
 
 
 class ExampleBlock(ProcessBlock):

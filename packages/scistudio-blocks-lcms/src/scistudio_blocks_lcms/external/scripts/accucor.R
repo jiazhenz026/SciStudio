@@ -1,4 +1,4 @@
-# Default AccuCor driver shipped with scieasy-blocks-lcms.
+# Default AccuCor driver shipped with scistudio-blocks-lcms.
 # Upstream package: https://github.com/lparsons/accucor (v0.3.1)
 # License: MIT (see project-level third-party notices handled by packaging work).
 #

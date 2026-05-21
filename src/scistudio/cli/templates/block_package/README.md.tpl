@@ -8,15 +8,15 @@
 pip install -e .
 ```
 
-After installation, SciEasy will automatically discover the blocks in this
-package via the `scieasy.blocks` entry-point.
+After installation, SciStudio will automatically discover the blocks in this
+package via the `scistudio.blocks` entry-point.
 
 ## Usage
 
 Verify the blocks are registered:
 
 ```bash
-scieasy blocks
+scistudio blocks
 ```
 
 You should see **{display_name} Example** in the block list.
@@ -49,5 +49,5 @@ ruff check . && ruff format --check .
 - **Tier 2**: Override `run()` and use `map_items()` or `parallel_map()`.
 - **Tier 3**: Override `run()` with full manual Collection handling.
 
-See the [SciEasy block development docs](https://github.com/zjzcpj/SciEasy)
+See the [SciStudio block development docs](https://github.com/zjzcpj/SciStudio)
 for more details.

@@ -9,7 +9,7 @@ authors = [
     {{name = "{author}"}},
 ]
 dependencies = [
-    "scieasy>=0.1.0",
+    "scistudio>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -18,7 +18,7 @@ dev = [
     "ruff>=0.11",
 ]
 
-[project.entry-points."scieasy.blocks"]
+[project.entry-points."scistudio.blocks"]
 {entry_point_name} = "{module_name}:get_blocks"
 
 [build-system]

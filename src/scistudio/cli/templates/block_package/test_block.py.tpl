@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from {module_name} import get_blocks
 from {module_name}.blocks import ExampleBlock
-from scieasy.blocks.base.package_info import PackageInfo
+from scistudio.blocks.base.package_info import PackageInfo
 
 
 class TestEntryPoint:
