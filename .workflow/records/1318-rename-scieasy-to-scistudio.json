@@ -1,6 +1,8 @@
 {
   "admin_labels": [
     {
+      "applied_at": null,
+      "applied_by": null,
       "name": "admin-approved:ai-override"
     }
   ],
@@ -36,7 +38,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1318-rename-scieasy-to-scistudio.json",
+    "shas": [
+      "74c6843c2230318ecf4ef000669f601e57bf7a05"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -69,7 +77,13 @@
   ],
   "owner_directive": "Pre-alpha brand rename SciEasy -> SciStudio. Three case-sensitive sed passes + 12 git mv directory renames. No user migration scripts. PyPI + GitHub repo rename deferred.",
   "planned_files": [],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1318
+    ],
+    "number": 1319,
+    "url": "https://github.com/zjzcpj/SciEasy/pull/1319"
+  },
   "record_path": ".workflow/records/1318-rename-scieasy-to-scistudio.json",
   "required_checks": [
     "ruff",
