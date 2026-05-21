@@ -95,7 +95,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1340-wire-vulture.json",
+    "shas": [
+      "1054b40fab07fb62cd77e66344d6437c099f430a"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -135,7 +141,13 @@
     "docs/planning/adr-042-documentation-generation-checklist.md",
     "CHANGELOG.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1340
+    ],
+    "number": 1346,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1346"
+  },
   "record_path": ".workflow/records/1340-wire-vulture.json",
   "required_checks": [
     "ruff",
@@ -210,7 +222,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
