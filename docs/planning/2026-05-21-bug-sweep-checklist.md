@@ -101,7 +101,7 @@ language_source: en
 |---|---|---|---|---|---|---|---|---|---|---|
 | W1 | implementer | N/A | inline | Tier 1 surgical batch | `fix/bug-sweep-2026-05-21/tier1-surgical` | `.claude/worktrees/agent-w1-tier1` | See §7.1 | See §7.1 | Closes #1110 #617 #1281 #1282 #1368 | `[ ]` |
 | W2-A | implementer | N/A | inline | types path drop-in + worker | `fix/issue-1343-1365/types-registry` | `.claude/worktrees/agent-w2a-types` | See §7.2 | See §7.2 | Closes #1343 #1365 | `[ ]` |
-| W2-B | implementer | N/A | inline | imaging TIFF OME + capability metadata | `fix/issue-1306-1371/imaging-ome-fidelity` | `.claude/worktrees/agent-w2b-imaging` | See §7.3 | See §7.3 | Closes #1306 #1371 | `[~]` |
+| W2-B | implementer | N/A | inline | imaging TIFF OME + capability metadata | `fix/issue-1306-1371/imaging-ome-fidelity` | `.claude/worktrees/agent-w2b-imaging` | See §7.3 | See §7.3 | PR #1388, Closes #1306 #1371 | `[x]` |
 | W3-A | implementer | N/A | inline | scheduler READY emit + interactive normalize | `fix/issue-1367-1370/scheduler-emit-normalize` | `.claude/worktrees/agent-w3a-scheduler` | See §7.4 | See §7.4 | Closes #1367 #1370 | `[ ]` |
 | W3-B | implementer | N/A | inline | block registry + code backends | `fix/issue-1109-1309/registry-codebackends` | `.claude/worktrees/agent-w3b-registry` | See §7.5 | See §7.5 | Closes #1109 #1309 | `[ ]` |
 | W4-A | implementer | N/A | inline | frontend port editor capability_id | `fix/issue-1366/port-capability-clear` | `.claude/worktrees/agent-w4a-porteditor` | See §7.6 | See §7.6 | Closes #1366 | `[ ]` |
@@ -163,6 +163,9 @@ language_source: en
 
 #### W2-B status (2026-05-21)
 
+- PR: [#1388](https://github.com/zjzcpj/SciStudio/pull/1388) — `MERGEABLE`, CI `Verify Workflow Compliance` pass.
+- Final commit: `b7c505b8210987a1bd6d59c0b392f33797cc0c26` (Codex P1 reconciliation).
+- Codex auto-review: 1 P1 (lossyOmeFields `images.<index>.` normalisation) addressed in b7c505b8 + reply on `pulls/comments/3284325380`.
 - Implementation summary:
   - #1306 — `_load_tiff` already parsed OME-XML via `_ome_from_tiff` (PR #1304's P2-05 unblocker). This PR adds the externally-authored-OME-TIFF regression in `packages/scistudio-blocks-imaging/tests/test_load_image_ome.py` (3 cases: positive OME-TIFF, plain TIFF returns `meta.ome is None`, malformed OME-XML defensive fallback). No source change needed for #1306.
   - #1371 backend — zarr load/save capabilities drop to `level="pixel_only"` (zero OME or typed Meta survives); PNG/JPEG declarations narrow to hierarchical `("ome.pixels.physical_size_x", "ome.pixels.physical_size_y")` (the only fields Pillow's EXIF DPI round-trips); TIFF keeps the broad `"ome"` token (genuinely writes full OME-XML via `ome_types.to_xml` into ImageDescription).
@@ -249,6 +252,18 @@ language_source: en
 | Tests | `pytest <changed-test-paths-per-wave>` | `[ ]` | `<output path or summary>` |
 | Full audit | `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[ ]` | `<output path>` |
 | Sentrux | MCP `rescan`+`check_rules`+`health` or CLI `sentrux scan . && sentrux check .` | `[ ]` | `<evidence or N/A reason>` |
+
+#### W2-B verification (PR #1388)
+
+| Check | Command or tool | Status | Evidence |
+|---|---|---|---|
+| Ruff | `ruff check .` | `[x]` | `All checks passed!` |
+| Format | `ruff format --check .` | `[x]` | `652 files already formatted` |
+| Pytest | `pytest packages/scistudio-blocks-imaging/tests/{test_load_image_ome,test_save_image_capabilities,test_format_capabilities}.py --timeout=60` | `[x]` | `35 passed in 0.89s` |
+| Vitest | `npx vitest run` (frontend) | `[x]` | `448 passed, 13 skipped (43 files) in 5.51s` |
+| Full audit | `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[x]` | `status=pass, 0 findings, vulture child 6 informational` |
+| Sentrux | MCP `scan` + `check_rules` | `[x]` | `pass, rules_checked=3/15, violation_count=0, quality_signal=4445, files=1110` |
+| CI | `Verify Workflow Compliance` | `[x]` | https://github.com/zjzcpj/SciStudio/actions/runs/26252955593 (1m6s) |
 
 ## 9. Drift Log
 
