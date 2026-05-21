@@ -13,14 +13,14 @@ from typing import Any
 
 import pytest
 
-from scieasy.core.lineage.methods_export import render_methods_markdown
-from scieasy.core.lineage.record import (
+from scistudio.core.lineage.methods_export import render_methods_markdown
+from scistudio.core.lineage.record import (
     BlockExecutionRecord,
     BlockIORow,
     DataObjectRow,
     RunRecord,
 )
-from scieasy.core.lineage.store import LineageStore
+from scistudio.core.lineage.store import LineageStore
 
 
 def _seed_run(store: LineageStore, **overrides: Any) -> str:

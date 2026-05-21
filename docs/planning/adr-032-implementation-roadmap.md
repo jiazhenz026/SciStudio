@@ -2,7 +2,7 @@
 
 > **⚠️ SUPERSEDED by ADR-038 (2026-05-15).** ADR-032 itself is superseded; the
 > `metadata.db` store described in this roadmap is collapsed into the unified
-> `<project>/.scieasy/lineage.db` (4 normalized tables). This roadmap is preserved
+> `<project>/.scistudio/lineage.db` (4 normalized tables). This roadmap is preserved
 > for historical context — actual implementation is tracked via the ADR-038/039
 > cascade checklist at `docs/planning/adr-038-039-checklist.md`.
 
@@ -33,7 +33,7 @@ Engine process:
 
 ## Phase 1a: Core MetadataStore (#639)
 
-**New file**: `src/scieasy/core/metadata_store.py`
+**New file**: `src/scistudio/core/metadata_store.py`
 
 ### MetadataStore class
 
@@ -146,16 +146,16 @@ def put_wire(self, wire_dict, workflow_id=None, block_id=None, port_name=None):
 
 ### Initialize MetadataStore
 
-In `src/scieasy/api/runtime.py`, `open_project()` or equivalent:
+In `src/scistudio/api/runtime.py`, `open_project()` or equivalent:
 ```python
-from scieasy.core.metadata_store import MetadataStore, set_metadata_store
+from scistudio.core.metadata_store import MetadataStore, set_metadata_store
 store = MetadataStore(Path(project_dir) / "metadata.db")
 set_metadata_store(store)
 ```
 
 ### Primary write path
 
-In `src/scieasy/engine/scheduler.py`, `_run_and_finalize()` after storing outputs:
+In `src/scistudio/engine/scheduler.py`, `_run_and_finalize()` after storing outputs:
 
 ```python
 def _persist_output_metadata(self, node_id, result, workflow_id):

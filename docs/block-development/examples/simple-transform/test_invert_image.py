@@ -5,9 +5,9 @@ from __future__ import annotations
 import numpy as np
 from invert_image import InvertImage
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.core.types.array import Array
-from scieasy.testing import BlockTestHarness
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.core.types.array import Array
+from scistudio.testing import BlockTestHarness
 
 
 class TestInvertImageContract:

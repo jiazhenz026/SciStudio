@@ -5,15 +5,15 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from scieasy.api.routes.blocks import _is_plugin_package
+from scistudio.api.routes.blocks import _is_plugin_package
 
 
 @pytest.mark.parametrize(
     ("name", "expected"),
     [
-        ("scieasy-blocks-imaging", True),
-        ("scieasy-blocks-lcms", True),
-        ("scieasy-blocks-srs", True),
+        ("scistudio-blocks-imaging", True),
+        ("scistudio-blocks-lcms", True),
+        ("scistudio-blocks-srs", True),
         ("ai_block", False),
         ("code_block", False),
         ("load_data", False),
@@ -191,14 +191,14 @@ def test_core_blocks_have_empty_package_name(client: TestClient) -> None:
 
 
 def test_plugin_blocks_retain_package_name(client: TestClient) -> None:
-    """Plugin blocks (scieasy-blocks-*) should retain their package_name."""
+    """Plugin blocks (scistudio-blocks-*) should retain their package_name."""
     response = client.get("/api/blocks/")
     assert response.status_code == 200
     blocks = response.json()["blocks"]
-    pkg_blocks = [b for b in blocks if b["package_name"].startswith("scieasy-blocks-")]
+    pkg_blocks = [b for b in blocks if b["package_name"].startswith("scistudio-blocks-")]
     # The imaging package is always installed in tests
-    assert any(b["package_name"] == "scieasy-blocks-imaging" for b in pkg_blocks), (
-        "Expected at least one block from scieasy-blocks-imaging"
+    assert any(b["package_name"] == "scistudio-blocks-imaging" for b in pkg_blocks), (
+        "Expected at least one block from scistudio-blocks-imaging"
     )
 
 
@@ -207,8 +207,8 @@ def test_lcms_srs_blocks_have_domain_prefix(client: TestClient) -> None:
     response = client.get("/api/blocks/")
     assert response.status_code == 200
     blocks = response.json()["blocks"]
-    lcms_blocks = [b for b in blocks if b.get("package_name") == "scieasy-blocks-lcms"]
-    srs_blocks = [b for b in blocks if b.get("package_name") == "scieasy-blocks-srs"]
+    lcms_blocks = [b for b in blocks if b.get("package_name") == "scistudio-blocks-lcms"]
+    srs_blocks = [b for b in blocks if b.get("package_name") == "scistudio-blocks-srs"]
     for block in lcms_blocks:
         assert block["type_name"].startswith("lcms."), (
             f"LCMS block {block['name']} missing 'lcms.' prefix: {block['type_name']}"

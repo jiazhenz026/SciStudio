@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.core.storage.flush_context import clear, set_output_dir
+from scistudio.core.storage.flush_context import clear, set_output_dir
 
 
 @pytest.fixture(autouse=True)
@@ -39,9 +39,9 @@ def _flush_context(tmp_path):
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _PLUGIN_SRC_DIRS = [
-    _REPO_ROOT / "packages" / "scieasy-blocks-imaging" / "src",
-    _REPO_ROOT / "packages" / "scieasy-blocks-srs" / "src",
-    _REPO_ROOT / "packages" / "scieasy-blocks-lcms" / "src",
+    _REPO_ROOT / "packages" / "scistudio-blocks-imaging" / "src",
+    _REPO_ROOT / "packages" / "scistudio-blocks-srs" / "src",
+    _REPO_ROOT / "packages" / "scistudio-blocks-lcms" / "src",
 ]
 for _src in _PLUGIN_SRC_DIRS:
     _src_str = str(_src)
@@ -51,84 +51,84 @@ for _src in _PLUGIN_SRC_DIRS:
 
 PLUGIN_MODULES: list[str] = [
     # ── imaging ─────────────────────────────────────────────────────
-    "scieasy_blocks_imaging",
-    "scieasy_blocks_imaging.types",
-    "scieasy_blocks_imaging.io",
-    "scieasy_blocks_imaging.io.load_image",
-    "scieasy_blocks_imaging.io.save_image",
-    "scieasy_blocks_imaging.preprocess",
-    "scieasy_blocks_imaging.preprocess.denoise",
-    "scieasy_blocks_imaging.preprocess.background_subtract",
-    "scieasy_blocks_imaging.preprocess.normalize",
-    "scieasy_blocks_imaging.preprocess.flat_field_correct",
-    "scieasy_blocks_imaging.preprocess.geometry",
-    "scieasy_blocks_imaging.preprocess.convert_dtype",
-    "scieasy_blocks_imaging.preprocess.axis_ops",
-    "scieasy_blocks_imaging.preprocess.deconvolve",
-    "scieasy_blocks_imaging.morphology",
-    "scieasy_blocks_imaging.morphology.morphology_op",
-    "scieasy_blocks_imaging.morphology.edge_detect",
-    "scieasy_blocks_imaging.morphology.ridge_filter",
-    "scieasy_blocks_imaging.morphology.sharpen",
-    "scieasy_blocks_imaging.morphology.fft_filter",
-    "scieasy_blocks_imaging.segmentation",
-    "scieasy_blocks_imaging.segmentation.threshold",
-    "scieasy_blocks_imaging.segmentation.watershed",
-    "scieasy_blocks_imaging.segmentation.cellpose_segment",
-    "scieasy_blocks_imaging.segmentation.blob_detect",
-    "scieasy_blocks_imaging.segmentation.connected_components",
-    "scieasy_blocks_imaging.segmentation.cleanup",
-    "scieasy_blocks_imaging.tracking",
-    "scieasy_blocks_imaging.tracking.track_objects",
-    "scieasy_blocks_imaging.measurement",
-    "scieasy_blocks_imaging.measurement.region_props",
-    "scieasy_blocks_imaging.measurement.pairwise_distance",
-    "scieasy_blocks_imaging.measurement.colocalization",
-    "scieasy_blocks_imaging.registration",
-    "scieasy_blocks_imaging.registration.compute_registration",
-    "scieasy_blocks_imaging.registration.apply_transform",
-    "scieasy_blocks_imaging.registration.register_series",
-    "scieasy_blocks_imaging.projection",
-    "scieasy_blocks_imaging.projection.projection",
-    "scieasy_blocks_imaging.math",
-    "scieasy_blocks_imaging.math.scalar_ops",
-    "scieasy_blocks_imaging.math.image_calculator",
-    "scieasy_blocks_imaging.visualization",
-    "scieasy_blocks_imaging.visualization.render",
-    "scieasy_blocks_imaging.interactive",
-    "scieasy_blocks_imaging.interactive.fiji_block",
-    "scieasy_blocks_imaging.interactive.napari_block",
+    "scistudio_blocks_imaging",
+    "scistudio_blocks_imaging.types",
+    "scistudio_blocks_imaging.io",
+    "scistudio_blocks_imaging.io.load_image",
+    "scistudio_blocks_imaging.io.save_image",
+    "scistudio_blocks_imaging.preprocess",
+    "scistudio_blocks_imaging.preprocess.denoise",
+    "scistudio_blocks_imaging.preprocess.background_subtract",
+    "scistudio_blocks_imaging.preprocess.normalize",
+    "scistudio_blocks_imaging.preprocess.flat_field_correct",
+    "scistudio_blocks_imaging.preprocess.geometry",
+    "scistudio_blocks_imaging.preprocess.convert_dtype",
+    "scistudio_blocks_imaging.preprocess.axis_ops",
+    "scistudio_blocks_imaging.preprocess.deconvolve",
+    "scistudio_blocks_imaging.morphology",
+    "scistudio_blocks_imaging.morphology.morphology_op",
+    "scistudio_blocks_imaging.morphology.edge_detect",
+    "scistudio_blocks_imaging.morphology.ridge_filter",
+    "scistudio_blocks_imaging.morphology.sharpen",
+    "scistudio_blocks_imaging.morphology.fft_filter",
+    "scistudio_blocks_imaging.segmentation",
+    "scistudio_blocks_imaging.segmentation.threshold",
+    "scistudio_blocks_imaging.segmentation.watershed",
+    "scistudio_blocks_imaging.segmentation.cellpose_segment",
+    "scistudio_blocks_imaging.segmentation.blob_detect",
+    "scistudio_blocks_imaging.segmentation.connected_components",
+    "scistudio_blocks_imaging.segmentation.cleanup",
+    "scistudio_blocks_imaging.tracking",
+    "scistudio_blocks_imaging.tracking.track_objects",
+    "scistudio_blocks_imaging.measurement",
+    "scistudio_blocks_imaging.measurement.region_props",
+    "scistudio_blocks_imaging.measurement.pairwise_distance",
+    "scistudio_blocks_imaging.measurement.colocalization",
+    "scistudio_blocks_imaging.registration",
+    "scistudio_blocks_imaging.registration.compute_registration",
+    "scistudio_blocks_imaging.registration.apply_transform",
+    "scistudio_blocks_imaging.registration.register_series",
+    "scistudio_blocks_imaging.projection",
+    "scistudio_blocks_imaging.projection.projection",
+    "scistudio_blocks_imaging.math",
+    "scistudio_blocks_imaging.math.scalar_ops",
+    "scistudio_blocks_imaging.math.image_calculator",
+    "scistudio_blocks_imaging.visualization",
+    "scistudio_blocks_imaging.visualization.render",
+    "scistudio_blocks_imaging.interactive",
+    "scistudio_blocks_imaging.interactive.fiji_block",
+    "scistudio_blocks_imaging.interactive.napari_block",
     # ── SRS ─────────────────────────────────────────────────────────
-    "scieasy_blocks_srs",
-    "scieasy_blocks_srs.types",
-    "scieasy_blocks_srs.preprocess",
-    "scieasy_blocks_srs.preprocess.srs_calibrate",
-    "scieasy_blocks_srs.preprocess.srs_baseline",
-    "scieasy_blocks_srs.preprocess.srs_spectral_denoise",
-    "scieasy_blocks_srs.component_analysis",
-    "scieasy_blocks_srs.component_analysis.srs_vca",
-    "scieasy_blocks_srs.component_analysis.srs_unmix",
-    "scieasy_blocks_srs.component_analysis.srs_pca",
-    "scieasy_blocks_srs.component_analysis.srs_ica",
-    "scieasy_blocks_srs.component_analysis.srs_kmeans",
-    "scieasy_blocks_srs.spectral_extraction",
-    "scieasy_blocks_srs.spectral_extraction.extract_spectrum",
+    "scistudio_blocks_srs",
+    "scistudio_blocks_srs.types",
+    "scistudio_blocks_srs.preprocess",
+    "scistudio_blocks_srs.preprocess.srs_calibrate",
+    "scistudio_blocks_srs.preprocess.srs_baseline",
+    "scistudio_blocks_srs.preprocess.srs_spectral_denoise",
+    "scistudio_blocks_srs.component_analysis",
+    "scistudio_blocks_srs.component_analysis.srs_vca",
+    "scistudio_blocks_srs.component_analysis.srs_unmix",
+    "scistudio_blocks_srs.component_analysis.srs_pca",
+    "scistudio_blocks_srs.component_analysis.srs_ica",
+    "scistudio_blocks_srs.component_analysis.srs_kmeans",
+    "scistudio_blocks_srs.spectral_extraction",
+    "scistudio_blocks_srs.spectral_extraction.extract_spectrum",
     # ── LC-MS ───────────────────────────────────────────────────────
-    "scieasy_blocks_lcms",
-    "scieasy_blocks_lcms.types",
-    "scieasy_blocks_lcms.io",
-    "scieasy_blocks_lcms.io.load_mzml_files",
-    "scieasy_blocks_lcms.io.load_peak_table",
-    "scieasy_blocks_lcms.io.load_mid_table",
-    "scieasy_blocks_lcms.io.load_sample_metadata",
-    "scieasy_blocks_lcms.io.save_table",
-    "scieasy_blocks_lcms.external",
-    "scieasy_blocks_lcms.external.elmaven_block",
-    "scieasy_blocks_lcms.external.accucor_r",
-    "scieasy_blocks_lcms.isotope_tracing",
-    "scieasy_blocks_lcms.isotope_tracing.flux_estimate",
-    "scieasy_blocks_lcms.isotope_tracing.pool_size_normalize",
-    "scieasy_blocks_lcms.analysis",
+    "scistudio_blocks_lcms",
+    "scistudio_blocks_lcms.types",
+    "scistudio_blocks_lcms.io",
+    "scistudio_blocks_lcms.io.load_mzml_files",
+    "scistudio_blocks_lcms.io.load_peak_table",
+    "scistudio_blocks_lcms.io.load_mid_table",
+    "scistudio_blocks_lcms.io.load_sample_metadata",
+    "scistudio_blocks_lcms.io.save_table",
+    "scistudio_blocks_lcms.external",
+    "scistudio_blocks_lcms.external.elmaven_block",
+    "scistudio_blocks_lcms.external.accucor_r",
+    "scistudio_blocks_lcms.isotope_tracing",
+    "scistudio_blocks_lcms.isotope_tracing.flux_estimate",
+    "scistudio_blocks_lcms.isotope_tracing.pool_size_normalize",
+    "scistudio_blocks_lcms.analysis",
 ]
 
 
@@ -145,25 +145,25 @@ def test_skeleton_module_importable(module_name: str) -> None:
 # bodies). The parametrized test below pins the contract: every module
 # must remain importable after the impl agent fills the bodies in.
 _CONTINUATION_A_MODULES: list[str] = [
-    "scieasy_blocks_imaging.io.load_image",
-    "scieasy_blocks_imaging.io.save_image",
-    "scieasy_blocks_imaging.preprocess.denoise",
-    "scieasy_blocks_imaging.preprocess.background_subtract",
-    "scieasy_blocks_imaging.preprocess.normalize",
-    "scieasy_blocks_imaging.preprocess.flat_field_correct",
-    "scieasy_blocks_imaging.preprocess.geometry",
-    "scieasy_blocks_imaging.preprocess.convert_dtype",
-    "scieasy_blocks_imaging.preprocess.axis_ops",
-    "scieasy_blocks_imaging.preprocess.deconvolve",
-    "scieasy_blocks_imaging.morphology.morphology_op",
-    "scieasy_blocks_imaging.morphology.edge_detect",
-    "scieasy_blocks_imaging.morphology.ridge_filter",
-    "scieasy_blocks_imaging.morphology.sharpen",
-    "scieasy_blocks_imaging.morphology.fft_filter",
-    "scieasy_blocks_imaging.segmentation.threshold",
-    "scieasy_blocks_imaging.segmentation.watershed",
-    "scieasy_blocks_imaging.segmentation.cellpose_segment",
-    "scieasy_blocks_imaging.segmentation.blob_detect",
+    "scistudio_blocks_imaging.io.load_image",
+    "scistudio_blocks_imaging.io.save_image",
+    "scistudio_blocks_imaging.preprocess.denoise",
+    "scistudio_blocks_imaging.preprocess.background_subtract",
+    "scistudio_blocks_imaging.preprocess.normalize",
+    "scistudio_blocks_imaging.preprocess.flat_field_correct",
+    "scistudio_blocks_imaging.preprocess.geometry",
+    "scistudio_blocks_imaging.preprocess.convert_dtype",
+    "scistudio_blocks_imaging.preprocess.axis_ops",
+    "scistudio_blocks_imaging.preprocess.deconvolve",
+    "scistudio_blocks_imaging.morphology.morphology_op",
+    "scistudio_blocks_imaging.morphology.edge_detect",
+    "scistudio_blocks_imaging.morphology.ridge_filter",
+    "scistudio_blocks_imaging.morphology.sharpen",
+    "scistudio_blocks_imaging.morphology.fft_filter",
+    "scistudio_blocks_imaging.segmentation.threshold",
+    "scistudio_blocks_imaging.segmentation.watershed",
+    "scistudio_blocks_imaging.segmentation.cellpose_segment",
+    "scistudio_blocks_imaging.segmentation.blob_detect",
 ]
 
 
@@ -181,24 +181,24 @@ def test_image_placeholder_raises() -> None:
     The Sprint C imaging skeleton agent has now upgraded T-IMG-001 to a
     proper ``Image(Array)`` skeleton with `required_axes`, `Meta` model,
     and validators. The new behavior is verified by the dedicated test
-    file at ``packages/scieasy-blocks-imaging/tests/test_types.py``.
+    file at ``packages/scistudio-blocks-imaging/tests/test_types.py``.
 
     Per CLAUDE.md §6.7 (tests are part of the change), this smoke-test
     function is preserved as a marker that T-IMG-001 reached "skeleton
     complete" status. Construction is now skipped here — the per-plugin
     test file is the authoritative coverage.
     """
-    pytest.skip("T-IMG-001 skeleton landed; coverage moved to packages/scieasy-blocks-imaging/tests/test_types.py")
+    pytest.skip("T-IMG-001 skeleton landed; coverage moved to packages/scistudio-blocks-imaging/tests/test_types.py")
 
 
 def test_srs_image_placeholder_raises() -> None:
     """Representative: instantiating T-SRS-001 SRSImage raises NotImplementedError."""
-    pytest.skip("T-SRS-001 skeleton landed; coverage moved to packages/scieasy-blocks-srs/tests/test_types.py")
+    pytest.skip("T-SRS-001 skeleton landed; coverage moved to packages/scistudio-blocks-srs/tests/test_types.py")
 
 
 def test_lcms_types_placeholder_raises() -> None:
     """Representative: T-LCMS-002 get_types() is now concrete."""
-    from scieasy_blocks_lcms.types import get_types
+    from scistudio_blocks_lcms.types import get_types
 
     names = [cls.__name__ for cls in get_types()]
     assert names == ["MSRawFile", "PeakTable", "MIDTable", "SampleMetadata"]
@@ -207,14 +207,14 @@ def test_lcms_types_placeholder_raises() -> None:
 def test_lcms_foundation_chunk1_impl_smoke(tmp_path: Path) -> None:
     """Smoke test that LCMS foundation chunk 1 bodies are concrete."""
     pytest.importorskip("pandas")
-    from scieasy_blocks_lcms.external.accucor_r import AccuCorR
-    from scieasy_blocks_lcms.io.load_mid_table import LoadMIDTable
-    from scieasy_blocks_lcms.io.load_mzml_files import LoadMzMLFiles
-    from scieasy_blocks_lcms.io.load_peak_table import LoadPeakTable
-    from scieasy_blocks_lcms.io.load_sample_metadata import LoadSampleMetadata
-    from scieasy_blocks_lcms.types import MSRawFile
+    from scistudio_blocks_lcms.external.accucor_r import AccuCorR
+    from scistudio_blocks_lcms.io.load_mid_table import LoadMIDTable
+    from scistudio_blocks_lcms.io.load_mzml_files import LoadMzMLFiles
+    from scistudio_blocks_lcms.io.load_peak_table import LoadPeakTable
+    from scistudio_blocks_lcms.io.load_sample_metadata import LoadSampleMetadata
+    from scistudio_blocks_lcms.types import MSRawFile
 
-    from scieasy.blocks.base.config import BlockConfig
+    from scistudio.blocks.base.config import BlockConfig
 
     mzml_path = tmp_path / "sample.mzML"
     mzml_path.write_text(
@@ -245,21 +245,21 @@ def test_lcms_foundation_chunk1_impl_smoke(tmp_path: Path) -> None:
 
 
 _CONTINUATION_B_MODULES = [
-    "scieasy_blocks_imaging.segmentation.connected_components",
-    "scieasy_blocks_imaging.segmentation.cleanup",
-    "scieasy_blocks_imaging.tracking.track_objects",
-    "scieasy_blocks_imaging.measurement.region_props",
-    "scieasy_blocks_imaging.measurement.pairwise_distance",
-    "scieasy_blocks_imaging.measurement.colocalization",
-    "scieasy_blocks_imaging.registration.compute_registration",
-    "scieasy_blocks_imaging.registration.apply_transform",
-    "scieasy_blocks_imaging.registration.register_series",
-    "scieasy_blocks_imaging.projection.projection",
-    "scieasy_blocks_imaging.math.scalar_ops",
-    "scieasy_blocks_imaging.math.image_calculator",
-    "scieasy_blocks_imaging.visualization.render",
-    "scieasy_blocks_imaging.interactive.fiji_block",
-    "scieasy_blocks_imaging.interactive.napari_block",
+    "scistudio_blocks_imaging.segmentation.connected_components",
+    "scistudio_blocks_imaging.segmentation.cleanup",
+    "scistudio_blocks_imaging.tracking.track_objects",
+    "scistudio_blocks_imaging.measurement.region_props",
+    "scistudio_blocks_imaging.measurement.pairwise_distance",
+    "scistudio_blocks_imaging.measurement.colocalization",
+    "scistudio_blocks_imaging.registration.compute_registration",
+    "scistudio_blocks_imaging.registration.apply_transform",
+    "scistudio_blocks_imaging.registration.register_series",
+    "scistudio_blocks_imaging.projection.projection",
+    "scistudio_blocks_imaging.math.scalar_ops",
+    "scistudio_blocks_imaging.math.image_calculator",
+    "scistudio_blocks_imaging.visualization.render",
+    "scistudio_blocks_imaging.interactive.fiji_block",
+    "scistudio_blocks_imaging.interactive.napari_block",
 ]
 
 
@@ -283,23 +283,23 @@ def test_lcms_block_skeletons_inherit_real_bases() -> None:
     ``AppBlock`` / ``CodeBlock``). Each entry below pairs a block
     class with the lowest-level real base it must subclass.
     """
-    from scieasy_blocks_lcms.external import AccuCorR, ElMAVENBlock
-    from scieasy_blocks_lcms.io import (
+    from scistudio_blocks_lcms.external import AccuCorR, ElMAVENBlock
+    from scistudio_blocks_lcms.io import (
         LoadMIDTable,
         LoadMzMLFiles,
         LoadPeakTable,
         LoadSampleMetadata,
         SaveTable,
     )
-    from scieasy_blocks_lcms.isotope_tracing import (
+    from scistudio_blocks_lcms.isotope_tracing import (
         FluxEstimate,
         PoolSizeNormalize,
     )
 
-    from scieasy.blocks.app.app_block import AppBlock
-    from scieasy.blocks.code.code_block import CodeBlock
-    from scieasy.blocks.io.io_block import IOBlock
-    from scieasy.blocks.process.process_block import ProcessBlock
+    from scistudio.blocks.app.app_block import AppBlock
+    from scistudio.blocks.code.code_block import CodeBlock
+    from scistudio.blocks.io.io_block import IOBlock
+    from scistudio.blocks.process.process_block import ProcessBlock
 
     expected: list[tuple[type, type]] = [
         (LoadMzMLFiles, IOBlock),
@@ -327,12 +327,12 @@ def test_imaging_io_impl_smoke(tmp_path: Path) -> None:
     """
     pytest.importorskip("tifffile")
     import numpy as np
-    from scieasy_blocks_imaging.io.load_image import LoadImage
-    from scieasy_blocks_imaging.io.save_image import SaveImage
-    from scieasy_blocks_imaging.types import Image
+    from scistudio_blocks_imaging.io.load_image import LoadImage
+    from scistudio_blocks_imaging.io.save_image import SaveImage
+    from scistudio_blocks_imaging.types import Image
 
-    from scieasy.blocks.base.config import BlockConfig
-    from scieasy.core.types.collection import Collection
+    from scistudio.blocks.base.config import BlockConfig
+    from scistudio.core.types.collection import Collection
 
     arr = np.arange(6, dtype=np.uint8).reshape(2, 3)
     img = Image(axes=["y", "x"], shape=arr.shape, dtype=arr.dtype)
@@ -358,14 +358,14 @@ def test_imaging_preprocess_a_impl_smoke() -> None:
     """
     pytest.importorskip("skimage")
     import numpy as np
-    from scieasy_blocks_imaging.preprocess.background_subtract import BackgroundSubtract
-    from scieasy_blocks_imaging.preprocess.denoise import Denoise
-    from scieasy_blocks_imaging.preprocess.flat_field_correct import FlatFieldCorrect
-    from scieasy_blocks_imaging.preprocess.normalize import Normalize
-    from scieasy_blocks_imaging.types import Image
+    from scistudio_blocks_imaging.preprocess.background_subtract import BackgroundSubtract
+    from scistudio_blocks_imaging.preprocess.denoise import Denoise
+    from scistudio_blocks_imaging.preprocess.flat_field_correct import FlatFieldCorrect
+    from scistudio_blocks_imaging.preprocess.normalize import Normalize
+    from scistudio_blocks_imaging.types import Image
 
-    from scieasy.blocks.base.config import BlockConfig
-    from scieasy.core.types.collection import Collection
+    from scistudio.blocks.base.config import BlockConfig
+    from scistudio.core.types.collection import Collection
 
     def _img(arr: np.ndarray) -> Image:
         out = Image(axes=["y", "x"], shape=arr.shape, dtype=arr.dtype)
@@ -407,13 +407,13 @@ def test_imaging_preprocess_a_impl_smoke() -> None:
 def test_imaging_preprocess_b_impl_smoke() -> None:
     """Smoke test that T-IMG-008..010 bodies are concrete."""
     import numpy as np
-    from scieasy_blocks_imaging.preprocess.axis_ops import AxisMerge, AxisSplit
-    from scieasy_blocks_imaging.preprocess.convert_dtype import ConvertDType
-    from scieasy_blocks_imaging.preprocess.geometry import Rotate
-    from scieasy_blocks_imaging.types import Image
+    from scistudio_blocks_imaging.preprocess.axis_ops import AxisMerge, AxisSplit
+    from scistudio_blocks_imaging.preprocess.convert_dtype import ConvertDType
+    from scistudio_blocks_imaging.preprocess.geometry import Rotate
+    from scistudio_blocks_imaging.types import Image
 
-    from scieasy.blocks.base.config import BlockConfig
-    from scieasy.core.types.collection import Collection
+    from scistudio.blocks.base.config import BlockConfig
+    from scistudio.core.types.collection import Collection
 
     def _img(arr: np.ndarray, axes: list[str]) -> Image:
         out = Image(axes=axes, shape=arr.shape, dtype=arr.dtype)
@@ -440,14 +440,14 @@ def test_imaging_morphology_impl_smoke() -> None:
     """Smoke test that T-IMG-012..016 bodies are concrete."""
     pytest.importorskip("skimage")
     import numpy as np
-    from scieasy_blocks_imaging.morphology.edge_detect import EdgeDetect
-    from scieasy_blocks_imaging.morphology.fft_filter import FFTFilter
-    from scieasy_blocks_imaging.morphology.morphology_op import MorphologyOp
-    from scieasy_blocks_imaging.morphology.ridge_filter import RidgeFilter
-    from scieasy_blocks_imaging.morphology.sharpen import Sharpen
-    from scieasy_blocks_imaging.types import Image
+    from scistudio_blocks_imaging.morphology.edge_detect import EdgeDetect
+    from scistudio_blocks_imaging.morphology.fft_filter import FFTFilter
+    from scistudio_blocks_imaging.morphology.morphology_op import MorphologyOp
+    from scistudio_blocks_imaging.morphology.ridge_filter import RidgeFilter
+    from scistudio_blocks_imaging.morphology.sharpen import Sharpen
+    from scistudio_blocks_imaging.types import Image
 
-    from scieasy.blocks.base.config import BlockConfig
+    from scistudio.blocks.base.config import BlockConfig
 
     def _img(arr: np.ndarray) -> Image:
         out = Image(axes=["y", "x"], shape=arr.shape, dtype=arr.dtype)
@@ -482,9 +482,9 @@ def test_imaging_morphology_impl_smoke() -> None:
 def test_imaging_types_impl_smoke() -> None:
     """Smoke test that T-IMG-001 type classes are concrete."""
     import numpy as np
-    from scieasy_blocks_imaging.types import Image, Label, Mask, Transform
+    from scistudio_blocks_imaging.types import Image, Label, Mask, Transform
 
-    from scieasy.core.types.array import Array
+    from scistudio.core.types.array import Array
 
     image = Image(axes=["y", "x"], shape=(4, 4), dtype=np.float32)
     mask = Mask(axes=["y", "x"], shape=(4, 4), dtype=bool)
@@ -504,11 +504,11 @@ def test_imaging_cellpose_impl_smoke(monkeypatch: pytest.MonkeyPatch) -> None:
     from types import SimpleNamespace
 
     import numpy as np
-    from scieasy_blocks_imaging import CellposeSegment, get_blocks
-    from scieasy_blocks_imaging.types import Image, Label
+    from scistudio_blocks_imaging import CellposeSegment, get_blocks
+    from scistudio_blocks_imaging.types import Image, Label
 
-    from scieasy.blocks.base.config import BlockConfig
-    from scieasy.core.types.collection import Collection
+    from scistudio.blocks.base.config import BlockConfig
+    from scistudio.core.types.collection import Collection
 
     class _FakeModel:
         def __init__(self, *, gpu: bool = False) -> None:
@@ -520,7 +520,7 @@ def test_imaging_cellpose_impl_smoke(monkeypatch: pytest.MonkeyPatch) -> None:
             return labels, None, None, None
 
     monkeypatch.setattr(
-        "scieasy_blocks_imaging.segmentation.cellpose_segment._import_cellpose_models",
+        "scistudio_blocks_imaging.segmentation.cellpose_segment._import_cellpose_models",
         lambda: SimpleNamespace(
             Cellpose=lambda *, model_type, gpu: _FakeModel(gpu=gpu),
             CellposeModel=lambda *, pretrained_model, gpu: _FakeModel(gpu=gpu),
@@ -540,11 +540,11 @@ def test_imaging_cellpose_v3_api_fallback_smoke(monkeypatch: pytest.MonkeyPatch)
     from types import SimpleNamespace
 
     import numpy as np
-    from scieasy_blocks_imaging import CellposeSegment
-    from scieasy_blocks_imaging.types import Image, Label
+    from scistudio_blocks_imaging import CellposeSegment
+    from scistudio_blocks_imaging.types import Image, Label
 
-    from scieasy.blocks.base.config import BlockConfig
-    from scieasy.core.types.collection import Collection
+    from scistudio.blocks.base.config import BlockConfig
+    from scistudio.core.types.collection import Collection
 
     class _FakeModel:
         def __init__(self, *, model_type: str, gpu: bool = False) -> None:
@@ -557,7 +557,7 @@ def test_imaging_cellpose_v3_api_fallback_smoke(monkeypatch: pytest.MonkeyPatch)
 
     # Simulate cellpose v3+: no Cellpose wrapper, only CellposeModel.
     monkeypatch.setattr(
-        "scieasy_blocks_imaging.segmentation.cellpose_segment._import_cellpose_models",
+        "scistudio_blocks_imaging.segmentation.cellpose_segment._import_cellpose_models",
         lambda: SimpleNamespace(
             CellposeModel=lambda *, model_type, gpu: _FakeModel(model_type=model_type, gpu=gpu),
         ),
@@ -576,9 +576,9 @@ def test_imaging_cellpose_v3_api_fallback_smoke(monkeypatch: pytest.MonkeyPatch)
 def test_srs_types_impl_smoke() -> None:
     """Smoke test that T-SRS-001 SRSImage is concrete."""
     import numpy as np
-    from scieasy_blocks_srs import SRSImage, get_types
+    from scistudio_blocks_srs import SRSImage, get_types
 
-    from scieasy.core.units import PhysicalQuantity
+    from scistudio.core.units import PhysicalQuantity
 
     img = SRSImage(
         axes=["lambda", "y", "x"],
@@ -600,10 +600,10 @@ def test_srs_preprocess_impl_smoke() -> None:
     """Smoke test that SRS preprocess bodies are concrete."""
     pytest.importorskip("scipy")
     import numpy as np
-    from scieasy_blocks_imaging.types import Image
-    from scieasy_blocks_srs import SRSBaseline, SRSCalibrate, SRSImage, SRSSpectralDenoise
+    from scistudio_blocks_imaging.types import Image
+    from scistudio_blocks_srs import SRSBaseline, SRSCalibrate, SRSImage, SRSSpectralDenoise
 
-    from scieasy.blocks.base.config import BlockConfig
+    from scistudio.blocks.base.config import BlockConfig
 
     raw_arr = np.arange(2 * 2 * 6, dtype=np.uint16).reshape(2, 2, 6)
     raw = Image(axes=["y", "x", "lambda"], shape=raw_arr.shape, dtype=raw_arr.dtype)
@@ -627,11 +627,11 @@ def test_imaging_segmentation_core_impl_smoke() -> None:
     pytest.importorskip("skimage")
     pytest.importorskip("scipy")
     import numpy as np
-    from scieasy_blocks_imaging import ConnectedComponents, RemoveSmallObjects, Threshold, Watershed, get_blocks
-    from scieasy_blocks_imaging.types import Image, Label, Mask
+    from scistudio_blocks_imaging import ConnectedComponents, RemoveSmallObjects, Threshold, Watershed, get_blocks
+    from scistudio_blocks_imaging.types import Image, Label, Mask
 
-    from scieasy.blocks.base.config import BlockConfig
-    from scieasy.core.types.collection import Collection
+    from scistudio.blocks.base.config import BlockConfig
+    from scistudio.core.types.collection import Collection
 
     image = Image(axes=["y", "x"], shape=(16, 16), dtype=np.float32)
     arr = np.zeros((16, 16), dtype=np.float32)
@@ -661,11 +661,11 @@ def test_imaging_measurement_impl_smoke() -> None:
     """Smoke test that the measurement bundle is wired into the imaging plugin surface."""
     pytest.importorskip("skimage")
     import numpy as np
-    from scieasy_blocks_imaging import Colocalization, PairwiseDistance, RegionProps, get_blocks
-    from scieasy_blocks_imaging.types import Image, Label
+    from scistudio_blocks_imaging import Colocalization, PairwiseDistance, RegionProps, get_blocks
+    from scistudio_blocks_imaging.types import Image, Label
 
-    from scieasy.blocks.base.config import BlockConfig
-    from scieasy.core.types.array import Array
+    from scistudio.blocks.base.config import BlockConfig
+    from scistudio.core.types.array import Array
 
     label_arr = np.zeros((4, 4), dtype=np.int32)
     label_arr[1:3, 1:3] = 1
@@ -699,7 +699,7 @@ def test_imaging_measurement_impl_smoke() -> None:
 def test_imaging_finish_impl_smoke() -> None:
     """Smoke test the final Phase 11 imaging package surface."""
     pytest.importorskip("skimage")
-    from scieasy_blocks_imaging import (
+    from scistudio_blocks_imaging import (
         AxisProjection,
         ComputeRegistration,
         ConvertDType,
@@ -709,14 +709,14 @@ def test_imaging_finish_impl_smoke() -> None:
         get_blocks,
         get_types,
     )
-    from scieasy_blocks_imaging.types import Image, Label, Mask, Transform
+    from scistudio_blocks_imaging.types import Image, Label, Mask, Transform
 
-    from scieasy.blocks.base.package_info import PackageInfo
+    from scistudio.blocks.base.package_info import PackageInfo
 
     info, blocks = get_block_package()
 
     assert isinstance(info, PackageInfo)
-    assert info.name == "scieasy-blocks-imaging"
+    assert info.name == "scistudio-blocks-imaging"
     assert get_types() == [Image, Mask, Label, Transform]
     assert ConvertDType in get_blocks()
     assert ComputeRegistration in blocks
@@ -741,16 +741,16 @@ def test_srs_component_analysis_impl_smoke() -> None:
     pytest.importorskip("sklearn")
     pytest.importorskip("scipy")
     import numpy as np
-    from scieasy_blocks_srs.component_analysis.srs_ica import SRSICA
-    from scieasy_blocks_srs.component_analysis.srs_kmeans import SRSKMeansCluster
-    from scieasy_blocks_srs.component_analysis.srs_pca import SRSPCA
-    from scieasy_blocks_srs.component_analysis.srs_unmix import SRSUnmix
-    from scieasy_blocks_srs.component_analysis.srs_vca import SRSVCA
-    from scieasy_blocks_srs.types import SRSImage
+    from scistudio_blocks_srs.component_analysis.srs_ica import SRSICA
+    from scistudio_blocks_srs.component_analysis.srs_kmeans import SRSKMeansCluster
+    from scistudio_blocks_srs.component_analysis.srs_pca import SRSPCA
+    from scistudio_blocks_srs.component_analysis.srs_unmix import SRSUnmix
+    from scistudio_blocks_srs.component_analysis.srs_vca import SRSVCA
+    from scistudio_blocks_srs.types import SRSImage
 
-    from scieasy.blocks.base.config import BlockConfig
-    from scieasy.core.types.collection import Collection
-    from scieasy.core.types.dataframe import DataFrame
+    from scistudio.blocks.base.config import BlockConfig
+    from scistudio.core.types.collection import Collection
+    from scistudio.core.types.dataframe import DataFrame
 
     rng = np.random.default_rng(0)
     cube = rng.random((6, 6, 8)).astype(np.float64)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from scieasy.blocks.base.ports import (
+from scistudio.blocks.base.ports import (
     InputPort,
     OutputPort,
     port_accepts_signature,
@@ -13,11 +13,11 @@ from scieasy.blocks.base.ports import (
     validate_connection,
     validate_port_constraint,
 )
-from scieasy.core.types.array import Array
-from scieasy.core.types.base import DataObject, TypeSignature
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.series import Series
+from scistudio.core.types.array import Array
+from scistudio.core.types.base import DataObject, TypeSignature
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.series import Series
 
 # ---------------------------------------------------------------------------
 # Local test fixtures.
@@ -223,7 +223,7 @@ class TestCollectionTransparency:
 
     def test_collection_image_matches_image_port(self) -> None:
         """Collection[Image] should be accepted by a port accepting Image."""
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         port = InputPort(name="in", accepted_types=[Image])
         img = Image(shape=(5, 5), ndim=2, dtype="uint8")
@@ -233,8 +233,8 @@ class TestCollectionTransparency:
 
     def test_collection_dataframe_rejected_by_image_port(self) -> None:
         """ADR-020-Add6: Collection[DataFrame] should NOT match Image port."""
-        from scieasy.core.types.collection import Collection
-        from scieasy.core.types.dataframe import DataFrame
+        from scistudio.core.types.collection import Collection
+        from scistudio.core.types.dataframe import DataFrame
 
         port = InputPort(name="in", accepted_types=[Image])
         df = DataFrame(columns=["a"], row_count=1)
@@ -243,7 +243,7 @@ class TestCollectionTransparency:
 
     def test_collection_subtype_matches(self) -> None:
         """Collection[Image] (subtype of Array) should match Array port."""
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         port = InputPort(name="in", accepted_types=[Array])
         img = Image(shape=(5, 5), ndim=2, dtype="uint8")
@@ -258,7 +258,7 @@ class TestCollectionTransparency:
         *class*, not a Collection *instance*. The isinstance check in
         port_accepts_type() correctly requires an instance.
         """
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         port = InputPort(name="in", accepted_types=[Image])
         img = Image(shape=(5, 5), ndim=2, dtype="uint8")

@@ -27,10 +27,10 @@ from typing import ClassVar
 
 import pytest
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.io.io_block import IOBlock
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.io.io_block import IOBlock
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
 
 from .conftest import InMemoryIOBlock
 
@@ -98,7 +98,7 @@ class TestIOBlockSubclassDispatch:
 
     def test_input_direction_uses_declared_output_port_name(self) -> None:
         """Input-direction dispatch must honor subclass-declared output ports."""
-        from scieasy.blocks.base.ports import OutputPort
+        from scistudio.blocks.base.ports import OutputPort
 
         class ImageLoader(InMemoryIOBlock):
             output_ports: ClassVar[list[OutputPort]] = [
@@ -135,7 +135,7 @@ class TestIOBlockSubclassDispatch:
         configured path wrapped in a single-item ``Collection`` of
         :class:`Text` per T-TRK-008 (the typed receipt that replaces
         the old ``# type: ignore[dict-item]`` literal-string return)."""
-        from scieasy.core.types.text import Text
+        from scistudio.core.types.text import Text
 
         class OutputBlock(InMemoryIOBlock):
             direction: ClassVar[str] = "output"
@@ -161,7 +161,7 @@ class TestIOBlockSubclassDispatch:
 
     def test_output_direction_uses_declared_input_port_name(self) -> None:
         """Output-direction dispatch must honor subclass-declared input ports."""
-        from scieasy.blocks.base.ports import InputPort
+        from scistudio.blocks.base.ports import InputPort
 
         class OutputBlock(InMemoryIOBlock):
             direction: ClassVar[str] = "output"
@@ -181,8 +181,8 @@ class TestIOBlockSubclassDispatch:
 
     def test_output_direction_uses_declared_receipt_port_when_overridden(self) -> None:
         """Output-direction dispatch should use explicit receipt port overrides."""
-        from scieasy.blocks.base.ports import OutputPort
-        from scieasy.core.types.text import Text
+        from scistudio.blocks.base.ports import OutputPort
+        from scistudio.core.types.text import Text
 
         class OutputBlock(InMemoryIOBlock):
             direction: ClassVar[str] = "output"

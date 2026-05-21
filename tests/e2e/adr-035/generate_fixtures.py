@@ -13,7 +13,7 @@ Ground truth shape (per user e2e spec, 2026-05-14):
 
 The AI Block under test will read manifest.json, parse each filename,
 write a CSV at the path it chose, and signal completion via
-mcp__scieasy__finish_ai_block. We then compare its output to
+mcp__scistudio__finish_ai_block. We then compare its output to
 expected_metadata.csv byte-for-byte (after column/row sort to be
 order-insensitive).
 
@@ -25,7 +25,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# numpy is in scieasy's runtime deps; pandas and tifffile are not. Import them
+# numpy is in scistudio's runtime deps; pandas and tifffile are not. Import them
 # lazily with a clear error so a fresh contributor environment surfaces the
 # missing dep instead of an opaque ModuleNotFoundError at module load time.
 try:

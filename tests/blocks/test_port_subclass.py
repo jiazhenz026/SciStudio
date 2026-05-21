@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from scieasy.blocks.base.ports import InputPort, OutputPort, validate_connection
-from scieasy.core.types.base import DataObject
+from scistudio.blocks.base.ports import InputPort, OutputPort, validate_connection
+from scistudio.core.types.base import DataObject
 
 # --- Stub type hierarchy for testing ---
 

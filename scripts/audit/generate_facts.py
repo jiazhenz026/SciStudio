@@ -7,7 +7,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from scieasy.qa.audit.facts import (
+from scistudio.qa.audit.facts import (
     DEFAULT_FACTS_PATH,
     DEFAULT_GENERATED_AT,
     check_generated_facts,
@@ -27,7 +27,7 @@ def _parse_datetime(value: str) -> datetime:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate ADR-042 facts registry")
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
-    parser.add_argument("--package", default="scieasy")
+    parser.add_argument("--package", default="scistudio")
     parser.add_argument("--facts-path", type=Path, default=DEFAULT_FACTS_PATH)
     parser.add_argument("--output", type=Path, default=None, help="Alias for --facts-path when writing/checking")
     parser.add_argument("--source-sha", default=None)

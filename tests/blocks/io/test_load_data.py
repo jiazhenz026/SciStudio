@@ -31,14 +31,14 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from scieasy.blocks.io import LoadData
-from scieasy.blocks.io.loaders.load_data import _CORE_TYPE_MAP
-from scieasy.core.types.array import Array
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.series import Series
-from scieasy.core.types.text import Text
+from scistudio.blocks.io import LoadData
+from scistudio.blocks.io.loaders.load_data import _CORE_TYPE_MAP
+from scistudio.core.types.array import Array
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.series import Series
+from scistudio.core.types.text import Text
 
 # ---------------------------------------------------------------------------
 # Instantiation + dynamic-port contract
@@ -86,9 +86,9 @@ def test_dynamic_ports_classvar_shape() -> None:
 
 
 def test_load_data_in_io_blocks_namespace() -> None:
-    """LoadData must be importable from ``scieasy.blocks.io``."""
-    from scieasy.blocks.io import IOBlock
-    from scieasy.blocks.io import LoadData as Reexported
+    """LoadData must be importable from ``scistudio.blocks.io``."""
+    from scistudio.blocks.io import IOBlock
+    from scistudio.blocks.io import LoadData as Reexported
 
     assert Reexported is LoadData
     assert issubclass(LoadData, IOBlock)
@@ -474,7 +474,7 @@ def test_allow_pickle_true_loads_pkl(tmp_path: Path, caplog: pytest.LogCaptureFi
             }
         }
     )
-    with caplog.at_level(logging.WARNING, logger="scieasy.blocks.io.loaders.load_data"):
+    with caplog.at_level(logging.WARNING, logger="scistudio.blocks.io.loaders.load_data"):
         loaded = block.load(block.config)
 
     assert isinstance(loaded, DataFrame)
@@ -499,7 +499,7 @@ def test_allow_pickle_true_series(tmp_path: Path, caplog: pytest.LogCaptureFixtu
             }
         }
     )
-    with caplog.at_level(logging.WARNING, logger="scieasy.blocks.io.loaders.load_data"):
+    with caplog.at_level(logging.WARNING, logger="scistudio.blocks.io.loaders.load_data"):
         loaded = block.load(block.config)
 
     assert isinstance(loaded, Series)
@@ -556,7 +556,7 @@ def test_load_data_multi_path_returns_collection(tmp_path: Path) -> None:
     block = LoadData(config={"params": {"core_type": "DataFrame", "path": [str(csv1), str(csv2)]}})
     result = block.load(block.config)
 
-    from scieasy.core.types.collection import Collection
+    from scistudio.core.types.collection import Collection
 
     assert isinstance(result, Collection)
     assert len(result) == 2
@@ -586,7 +586,7 @@ def test_load_data_multi_path_single_element_list(tmp_path: Path) -> None:
     block = LoadData(config={"params": {"core_type": "DataFrame", "path": [str(csv1)]}})
     result = block.load(block.config)
 
-    from scieasy.core.types.collection import Collection
+    from scistudio.core.types.collection import Collection
 
     assert isinstance(result, Collection)
     assert len(result) == 1
@@ -633,7 +633,7 @@ def test_load_data_run_multi_path_wraps_collection_correctly(tmp_path: Path) -> 
     block = LoadData(config={"params": {"core_type": "DataFrame", "path": [str(csv1), str(csv2)]}})
     out = block.run(inputs={}, config=block.config)
 
-    from scieasy.core.types.collection import Collection
+    from scistudio.core.types.collection import Collection
 
     collection = out["data"]
     assert isinstance(collection, Collection)
@@ -680,35 +680,35 @@ class TestCapabilityDerivedExtensionDispatch:
 
     def test_extension_map_is_populated(self) -> None:
         """``_LOAD_EXTENSION_MAP`` is a non-empty derived dict."""
-        from scieasy.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
+        from scistudio.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
 
         assert isinstance(_LOAD_EXTENSION_MAP, dict)
         assert len(_LOAD_EXTENSION_MAP) > 0
 
     def test_extension_map_contains_array_extensions(self) -> None:
         """Array dispatch suffixes (.npy/.npz/.zarr/.parquet/.pq) appear."""
-        from scieasy.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
+        from scistudio.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
 
         for ext in (".npy", ".npz", ".zarr", ".parquet", ".pq"):
             assert ext in _LOAD_EXTENSION_MAP, f"missing {ext!r}"
 
     def test_extension_map_contains_pickle_extensions(self) -> None:
         """Pickle suffixes appear (still gated by ``allow_pickle`` at runtime)."""
-        from scieasy.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
+        from scistudio.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
 
         for ext in (".pkl", ".pickle"):
             assert ext in _LOAD_EXTENSION_MAP, f"missing {ext!r}"
 
     def test_extension_map_contains_dataframe_extensions(self) -> None:
         """DataFrame dispatch suffixes (.csv/.tsv/.json) appear."""
-        from scieasy.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
+        from scistudio.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
 
         for ext in (".csv", ".tsv", ".json"):
             assert ext in _LOAD_EXTENSION_MAP, f"missing {ext!r}"
 
     def test_extension_map_contains_text_extensions(self) -> None:
         """Text dispatch suffixes appear (subset of _TEXT_FORMAT_MAP)."""
-        from scieasy.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
+        from scistudio.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
 
         for ext in (".txt", ".md", ".html", ".xml", ".yaml", ".yml", ".toml", ".log"):
             assert ext in _LOAD_EXTENSION_MAP, f"missing {ext!r}"
@@ -725,7 +725,7 @@ class TestCapabilityDerivedExtensionDispatch:
         sorted, capability-derived supported extension set."""
         import re
 
-        from scieasy.blocks.io.loaders.load_data import _supported_load_extensions
+        from scistudio.blocks.io.loaders.load_data import _supported_load_extensions
 
         bogus = tmp_path / "bogus.xyz"
         bogus.write_bytes(b"junk")
@@ -754,8 +754,8 @@ class TestCapabilityDerivedExtensionDispatch:
         is removed from ``LoadData``; the base ``IOBlock`` default (empty
         dict) is now what an MRO lookup returns. The capability-derived
         mapping lives in :data:`_LOAD_EXTENSION_MAP` instead."""
-        from scieasy.blocks.io.io_block import IOBlock
-        from scieasy.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
+        from scistudio.blocks.io.io_block import IOBlock
+        from scistudio.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
 
         assert IOBlock.supported_extensions == {}
         # LoadData no longer overrides the ClassVar — the override has been

@@ -1,4 +1,4 @@
-"""Tests for ``scieasy.core.units.PhysicalQuantity``.
+"""Tests for ``scistudio.core.units.PhysicalQuantity``.
 
 Covers ADR-027 D6 (dataclass contract, unit tables, conversion,
 comparison, equality, hash) and ADR-027 Addendum 1 §4 (Pydantic v2
@@ -15,7 +15,7 @@ import dataclasses
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from scieasy.core.units import PhysicalQuantity
+from scistudio.core.units import PhysicalQuantity
 
 # ---------------------------------------------------------------------------
 # Construction & validation (ADR-027 D6 §"unit tables").

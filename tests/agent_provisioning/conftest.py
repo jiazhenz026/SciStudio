@@ -1,6 +1,6 @@
 """Shared fixtures for ``tests/agent_provisioning/`` (ADR-040 §3.8).
 
-The ``tmp_project_dir`` fixture creates a minimal SciEasy-shaped project
+The ``tmp_project_dir`` fixture creates a minimal SciStudio-shaped project
 directory under ``tmp_path`` for provisioning tests. It is intentionally
 lighter than a full ApiRuntime-created project — provisioning sub-step
 tests only need a writable directory.

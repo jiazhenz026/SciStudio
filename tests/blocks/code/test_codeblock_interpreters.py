@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.blocks.code.interpreters import (
+from scistudio.blocks.code.interpreters import (
     InterpreterResolutionError,
     ResolvedInterpreter,
     UnsupportedScriptExtensionError,
@@ -40,11 +40,11 @@ def test_existing_interpreter_resolution_accepts_explicit_executable(tmp_path: P
         project_dir=tmp_path,
         mode="existing",
         interpreter_path=sys.executable,
-        environment_config={"environment_variables": {"SCIEASY_CODEBLOCK_TEST": "1"}},
+        environment_config={"environment_variables": {"SCISTUDIO_CODEBLOCK_TEST": "1"}},
     )
 
     assert Path(resolved.executable).resolve() == Path(sys.executable).resolve()
-    assert resolved.environment == {"SCIEASY_CODEBLOCK_TEST": "1"}
+    assert resolved.environment == {"SCISTUDIO_CODEBLOCK_TEST": "1"}
 
 
 def test_existing_interpreter_resolution_requires_executable(tmp_path: Path) -> None:

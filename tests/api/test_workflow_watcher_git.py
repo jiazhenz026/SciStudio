@@ -27,7 +27,7 @@ from typing import Any
 
 from watchdog.events import FileCreatedEvent, FileModifiedEvent
 
-from scieasy.api.routes.workflow_watcher import (
+from scistudio.api.routes.workflow_watcher import (
     _DEBOUNCE_SECONDS,
     _GitHeadHandler,
 )

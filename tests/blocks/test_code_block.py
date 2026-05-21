@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.blocks.base.state import BlockState
-from scieasy.blocks.code.code_block import CodeBlock, CodeBlockMigrationError
-from scieasy.blocks.code.introspect import introspect_script
-from scieasy.blocks.code.runners.python_runner import PythonRunner
+from scistudio.blocks.base.state import BlockState
+from scistudio.blocks.code.code_block import CodeBlock, CodeBlockMigrationError
+from scistudio.blocks.code.introspect import introspect_script
+from scistudio.blocks.code.runners.python_runner import PythonRunner
 
 
 class TestPythonRunnerInline:

@@ -58,12 +58,12 @@ row).
 
 ---
 
-### E2E-001 — Real microplastic SRS calibration pipeline reproduced as a SciEasy block graph
+### E2E-001 — Real microplastic SRS calibration pipeline reproduced as a SciStudio block graph
 
 - **Category**: WF
 - **Priority**: P1
 - **Related FR / SC**: FR-004, FR-006, FR-009, FR-010, FR-011, SC-001, SC-003
-- **Owner project**: `C:/Users/jiazh/Box/Jiazhen Zhang/04 Data/microplastics/processed/microplastic-size-calibration/` (a real SciEasy project with `project.yaml`, custom `blocks/`, and 12 SRS TIFF fixtures under `data/raw/`).
+- **Owner project**: `C:/Users/jiazh/Box/Jiazhen Zhang/04 Data/microplastics/processed/microplastic-size-calibration/` (a real SciStudio project with `project.yaml`, custom `blocks/`, and 12 SRS TIFF fixtures under `data/raw/`).
 - **Given**: the project's existing custom blocks (`microplastics.parse_metadata`, `melt_spectra`, `find_peaks`, `calibrate_size`) plus the ADR-043 + ADR-041 integrated umbrella's imaging + srs blocks.
 - **When**: workflow `workflows/microplastic-size-calibration-v3.yaml` (written for this case) is run via `python run_workflow.py workflows/microplastic-size-calibration-v3.yaml`. The graph is
   `parse_metadata → imaging.load_image → srs.calibrate (scale=50000) → imaging.axis_projection (max along λ) → imaging.cellpose_segment (cyto3, diameter=8) → srs.extract_spectrum (3D stack + 2D labels) → microplastics.melt_spectra → find_peaks → calibrate_size → save_data`.
@@ -76,7 +76,7 @@ row).
 - **Status**: `[~]` partial-pass — framework-layer PASS, owner-domain workflow swap required.
 - **Evidence (pass)**:
   - Phase D run executed against a local-disk copy of the project at
-    `C:\Users\jiazh\Desktop\workspace\scieasy-e2e-microplastic` (Box cloud
+    `C:\Users\jiazh\Desktop\workspace\scistudio-e2e-microplastic` (Box cloud
     sync slowed cellpose-SAM CPU inference; local copy ran ~10× faster).
   - All 17 nodes reached `Done` (`parse_meta`, `save_meta`, `load_images`,
     `calibrate_srs`, `max_projection`, `threshold`, `segment`, `extract`,
@@ -89,7 +89,7 @@ row).
     cols across 12 fovs), `data/artifacts/peaks_overview.zarr`,
     `data/artifacts/size_calibration.zarr`.
   - **ADR-043 capability dispatch** verified live in Chrome: Load Image
-    dropdown auto-picked `scieasy-blocks-imaging.image.tiff.load` from the
+    dropdown auto-picked `scistudio-blocks-imaging.image.tiff.load` from the
     `.tif` extension (FR-006); 9 imaging formats listed in dropdown (FR-012).
   - **ADR-041 / FR-009 OME propagation** verified by in-process script
     `scripts/verify_ome_propagation_e2e001.py` (committed in
@@ -102,7 +102,7 @@ row).
     complete; without it, all relative paths in block configs (`data/raw/
     *.tif`, `data/parquet/*.parquet`) resolved against the GUI launcher
     cwd instead of the project root. Fix lives in
-    `src/scieasy/engine/runners/local.py` with regression tests in
+    `src/scistudio/engine/runners/local.py` with regression tests in
     `tests/engine/test_local_runner.py::TestLocalRunnerWorkerCwd`.
 - **Partial-pass rationale**: The owner-authored `microplastic-size-
   calibration-v3.yaml` originally used `imaging.cellpose_segment` (cellpose-
@@ -149,7 +149,7 @@ row).
   - Phase D session surfaced and fixed **2 framework P1 bugs blocking CodeBlock entirely**:
     - **#1308** (CodeBlock rejects engine-injected `workflow_id` with `extra_forbidden`) — fixed by adding `workflow_id` to the strip-sets in both `code_block._persisted_codeblock_config` and `validation._RUNTIME_ONLY_CONFIG_KEYS`. Regression test at `tests/blocks/code/test_codeblock_execution.py::test_persisted_codeblock_config_strips_engine_enrichment_fields`.
     - **#1305** (subprocess workers ignore `project_dir`) — fixed in the same hotfix branch; preceded #1308.
-  - After both fixes the worker subprocess loaded the CodeBlock correctly and reached `backend.run()`. Final blocker is a **Windows pyzmq incompatibility**: `jupyter nbconvert` (any backend version) immediately crashes with `zmq.error.ZMQError: not a socket` on Windows + Python 3.13 + the currently-installed pyzmq, before any notebook cell executes. The `executed_notebook` artefact in `<project>/exchange/codeblock-run_calibration_notebook/<run_id>/outputs/executed_notebook/size_intensity_calibration_pipeline.executed.ipynb` shows all 24 cells with `execution_count=None` (zero cells reached). This is **not a SciEasy framework bug** — the same `jupyter nbconvert --execute` command run manually against the same notebook produces the same ZMQError.
+  - After both fixes the worker subprocess loaded the CodeBlock correctly and reached `backend.run()`. Final blocker is a **Windows pyzmq incompatibility**: `jupyter nbconvert` (any backend version) immediately crashes with `zmq.error.ZMQError: not a socket` on Windows + Python 3.13 + the currently-installed pyzmq, before any notebook cell executes. The `executed_notebook` artefact in `<project>/exchange/codeblock-run_calibration_notebook/<run_id>/outputs/executed_notebook/size_intensity_calibration_pipeline.executed.ipynb` shows all 24 cells with `execution_count=None` (zero cells reached). This is **not a SciStudio framework bug** — the same `jupyter nbconvert --execute` command run manually against the same notebook produces the same ZMQError.
   - One additional ADR-041 contract design issue surfaced: **#1309** — CodeBlock cwd semantics contradiction (working_directory vs exchange_dir). Tried the obvious "cwd = working_directory" fix but it broke `tests/blocks/code/test_codeblock_execution.py::test_codeblock_runs_python_script_through_exchange` (script uses `Path("inputs/<port>")` which only resolves under `exchange_dir`). Reverted; left as a design-review follow-up for the ADR-041 author.
 - **Issues filed**:
   - **#1308** (framework): CodeBlock rejects `workflow_id`. **Fixed in-PR** in `hotfix/adr-043-e2e-validation`.
@@ -157,7 +157,7 @@ row).
 - **Recommended owner action** for the notebook execution path:
   1. Upgrade pyzmq + jupyter_client to versions that work with Python 3.13 + Windows ProactorEventLoop, OR
   2. Force `WindowsSelectorEventLoopPolicy()` in a project-local `kernelspec` env, OR
-  3. Wait for #1309 design decision and use absolute paths in the notebook (e.g. `Path(os.environ["SCIEASY_PROJECT_DIR"]) / "data/raw"`).
+  3. Wait for #1309 design decision and use absolute paths in the notebook (e.g. `Path(os.environ["SCISTUDIO_PROJECT_DIR"]) / "data/raw"`).
 
 ---
 
@@ -178,7 +178,7 @@ row).
   - Each saved file's `meta.ome.images[0].channels[0].name` matches the
     upstream channel name.
 - **Expected**: PASS — all assertions hold; workflow run record shows the
-  capability_id chain `imaging.image.czi.load → ... → scieasy-blocks-imaging.image.tiff.save`.
+  capability_id chain `imaging.image.czi.load → ... → scistudio-blocks-imaging.image.tiff.save`.
 - **Status**: `[ ]`
 - **Evidence (pass)**:
 - **Issue (fail)**:
@@ -210,7 +210,7 @@ row).
 - **Category**: UI
 - **Priority**: P1 (substitutes for SC-005 live Chrome coverage)
 - **Related FR / SC**: FR-012, FR-013, FR-014, SC-005
-- **Given**: SciEasy frontend open in Chrome at `http://localhost:5173`
+- **Given**: SciStudio frontend open in Chrome at `http://localhost:5173`
   against a backend that exposes the merged umbrella branch. A workflow
   with an AppBlock node whose port has `type=Image, extension=.tif`.
 - **When**:
@@ -242,7 +242,7 @@ row).
 - **Priority**: P1 (this is the SC-002 live evidence path)
 - **Related FR / SC**: FR-004, FR-008, SC-002
 - **Given**: a local Python environment with JVM + `python-bioformats` +
-  `javabridge` + `ome-types` installed via `pip install scieasy-blocks-imaging[bioformats]`.
+  `javabridge` + `ome-types` installed via `pip install scistudio-blocks-imaging[bioformats]`.
   Fixture files at `tests/fixtures/microscopy/{sample.czi, sample.nd2, sample.lif, sample.oir, sample.oib}` (paths
   owner-supplied; can be downloaded or committed under git-lfs).
 - **When**: for each fixture file, run
@@ -295,7 +295,7 @@ row).
   attempted.
 - **Then**:
   - Failure is raised before any IO with a clear message naming the install
-    command `pip install scieasy-blocks-imaging[bioformats]`.
+    command `pip install scistudio-blocks-imaging[bioformats]`.
   - The CapabilityLookupError or ImportError is typed (not a bare RuntimeError).
 - **Expected**: PASS — verifies FR-008 final clause that missing-extras
   produces a clear, actionable error. **Note**: this case also surfaces the

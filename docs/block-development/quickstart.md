@@ -12,7 +12,7 @@ summary: "Five-minute block authoring guide with pointers to process blocks and 
 
 # Block Developer SDK -- Quickstart
 
-Build your first SciEasy block in five minutes.
+Build your first SciStudio block in five minutes.
 
 ---
 
@@ -38,10 +38,10 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.core.types.array import Array
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.types.array import Array
 
 
 class InvertImage(ProcessBlock):
@@ -105,10 +105,10 @@ class InvertImage(ProcessBlock):
 ## Where to save the file
 
 **Tier 1 (drop-in file):** Place the `.py` file in your project's `blocks/`
-directory or `~/.scieasy/blocks/`. The runtime discovers it automatically.
+directory or `~/.scistudio/blocks/`. The runtime discovers it automatically.
 
 **Tier 2 (installable package):** Create a Python package with
-`pyproject.toml` and `scieasy.blocks` entry-points. See
+`pyproject.toml` and `scistudio.blocks` entry-points. See
 [Publishing](publishing.md).
 
 ---
@@ -124,8 +124,8 @@ id, and handler method.
 from pathlib import Path
 from typing import Any, ClassVar
 
-from scieasy.blocks.io.simple_io import SimpleLoader
-from scieasy.core.types.array import Array
+from scistudio.blocks.io.simple_io import SimpleLoader
+from scistudio.core.types.array import Array
 
 
 class LoadNpy(SimpleLoader):
@@ -148,7 +148,7 @@ may conflict with another package. See [Block Contract](block-contract.md) and
 ## Test it immediately
 
 ```python
-from scieasy.testing import BlockTestHarness
+from scistudio.testing import BlockTestHarness
 
 def test_invert_image_contract():
     from invert_image import InvertImage

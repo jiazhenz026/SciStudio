@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.qa.audit.fact_drift import check_substitutions
-from scieasy.qa.schemas.facts import Fact, FactsRegistry
-from scieasy.qa.schemas.report import AuditStatus
+from scistudio.qa.audit.fact_drift import check_substitutions
+from scistudio.qa.schemas.facts import Fact, FactsRegistry
+from scistudio.qa.schemas.report import AuditStatus
 
 
 def test_fact_drift_reports_unknown_fact_substitution(tmp_path: Path) -> None:

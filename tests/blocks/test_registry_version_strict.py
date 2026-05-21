@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from scieasy.blocks.base.block import Block
-from scieasy.blocks.registry import (
+from scistudio.blocks.base.block import Block
+from scistudio.blocks.registry import (
     BlockRegistrationError,
     _resolve_distribution_version,
 )
@@ -35,17 +35,17 @@ def _make_block_with_module(module_name: str) -> type:
 
 
 class TestStrictVersionResolution:
-    def test_scieasy_namespace_returns_scieasy_version(self) -> None:
-        from scieasy import __version__ as scieasy_version
+    def test_scistudio_namespace_returns_scistudio_version(self) -> None:
+        from scistudio import __version__ as scistudio_version
 
-        cls = _make_block_with_module("scieasy.blocks.io.loaders.load_data")
-        assert _resolve_distribution_version(cls) == str(scieasy_version)
+        cls = _make_block_with_module("scistudio.blocks.io.loaders.load_data")
+        assert _resolve_distribution_version(cls) == str(scistudio_version)
 
-    def test_dropin_synthetic_module_returns_scieasy_version(self) -> None:
-        from scieasy import __version__ as scieasy_version
+    def test_dropin_synthetic_module_returns_scistudio_version(self) -> None:
+        from scistudio import __version__ as scistudio_version
 
-        cls = _make_block_with_module("_scieasy_dropin_my_block_1234567890")
-        assert _resolve_distribution_version(cls) == str(scieasy_version)
+        cls = _make_block_with_module("_scistudio_dropin_my_block_1234567890")
+        assert _resolve_distribution_version(cls) == str(scistudio_version)
 
     def test_unknown_module_raises_block_registration_error(self) -> None:
         """ADR §3.3: removing the ``"unknown"`` default — raise loudly."""
@@ -60,18 +60,18 @@ class TestStrictVersionResolution:
         with pytest.raises(BlockRegistrationError):
             _resolve_distribution_version(cls)
 
-    def test_scieasy_blocks_monorepo_resolves_to_real_version(self) -> None:
-        """Monorepo plugins (`scieasy_blocks_*`) resolve to either the
+    def test_scistudio_blocks_monorepo_resolves_to_real_version(self) -> None:
+        """Monorepo plugins (`scistudio_blocks_*`) resolve to either the
         plugin's own distribution version (when pip-installed) or fall
-        back to the scieasy version (when the editable install hasn't
+        back to the scistudio version (when the editable install hasn't
         populated ``packages_distributions``).
 
-        On CI the editable-install of `packages/scieasy-blocks-imaging`
+        On CI the editable-install of `packages/scistudio-blocks-imaging`
         may not populate ``importlib.metadata.packages_distributions``,
-        but the plugin source is in the same repo checkout as scieasy.
+        but the plugin source is in the same repo checkout as scistudio.
         Either path must succeed — the strict raise must NOT fire.
         """
-        cls = _make_block_with_module("scieasy_blocks_imaging.io.load_image")
+        cls = _make_block_with_module("scistudio_blocks_imaging.io.load_image")
         # Must not raise.
         version = _resolve_distribution_version(cls)
         assert isinstance(version, str) and version

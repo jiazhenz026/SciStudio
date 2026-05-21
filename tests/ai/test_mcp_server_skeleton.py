@@ -2,14 +2,14 @@
 
 Verifies only the *shape* of the scaffold:
 
-* The new ``scieasy.ai.agent.mcp`` sub-package and its five modules
+* The new ``scistudio.ai.agent.mcp`` sub-package and its five modules
   import without side effects.
 * :class:`MCPServer` exposes the required method signatures.
 * The four ``tools_*`` modules export the expected 9 / 5 / 7 / 4
   callables for a total of 25 tools.
 * Each of the 25 stubs raises :class:`NotImplementedError`.
-* ``scieasy mcp-bridge --help`` exits 0 with usage text.
-* The MCP scaffold imports no third-party SDK (only stdlib + scieasy).
+* ``scistudio mcp-bridge --help`` exits 0 with usage text.
+* The MCP scaffold imports no third-party SDK (only stdlib + scistudio).
 
 Behavioural tests ship with T-ECA-202..205.
 """
@@ -37,12 +37,12 @@ pytestmark = pytest.mark.skip(
 )
 
 _MCP_SUBMODULES: tuple[str, ...] = (
-    "scieasy.ai.agent.mcp",
-    "scieasy.ai.agent.mcp.server",
-    "scieasy.ai.agent.mcp.tools_workflow",
-    "scieasy.ai.agent.mcp.tools_authoring",
-    "scieasy.ai.agent.mcp.tools_inspection",
-    "scieasy.ai.agent.mcp.tools_qa",
+    "scistudio.ai.agent.mcp",
+    "scistudio.ai.agent.mcp.server",
+    "scistudio.ai.agent.mcp.tools_workflow",
+    "scistudio.ai.agent.mcp.tools_authoring",
+    "scistudio.ai.agent.mcp.tools_inspection",
+    "scistudio.ai.agent.mcp.tools_qa",
 )
 
 _WORKFLOW_TOOLS: tuple[str, ...] = (
@@ -123,8 +123,8 @@ def test_module_imports_clean() -> None:
 
 def test_package_re_exports_server_class() -> None:
     """The package ``__init__`` must re-export :class:`MCPServer`."""
-    pkg = importlib.import_module("scieasy.ai.agent.mcp")
-    server_mod = importlib.import_module("scieasy.ai.agent.mcp.server")
+    pkg = importlib.import_module("scistudio.ai.agent.mcp")
+    server_mod = importlib.import_module("scistudio.ai.agent.mcp.server")
     assert pkg.MCPServer is server_mod.MCPServer
     assert "MCPServer" in pkg.__all__
 
@@ -132,7 +132,7 @@ def test_package_re_exports_server_class() -> None:
 def test_server_class_has_required_signature() -> None:
     """:class:`MCPServer` must expose ``__init__``, ``start``, ``stop``,
     ``dispatch`` with the contracted signatures."""
-    from scieasy.ai.agent.mcp.server import MCPServer
+    from scistudio.ai.agent.mcp.server import MCPServer
 
     init_sig = inspect.signature(MCPServer.__init__)
     init_params = list(init_sig.parameters.keys())
@@ -165,7 +165,7 @@ def test_server_methods_implemented(tmp_path: Path) -> None:
     """
     import asyncio
 
-    from scieasy.ai.agent.mcp.server import MCPServer
+    from scistudio.ai.agent.mcp.server import MCPServer
 
     async def _run() -> dict[str, object]:
         server = MCPServer(socket_path=tmp_path / "mcp.sock", project_dir=tmp_path)
@@ -195,9 +195,9 @@ def test_tools_call_returns_text_content_block(tmp_path: Path) -> None:
 async def _test_tools_call_returns_text_content_block(tmp_path: Path) -> None:
     import json as _json
 
-    from scieasy.ai.agent.mcp import _context, _registry
-    from scieasy.ai.agent.mcp.runtime import make_mcp_runtime
-    from scieasy.ai.agent.mcp.server import MCPServer
+    from scistudio.ai.agent.mcp import _context, _registry
+    from scistudio.ai.agent.mcp.runtime import make_mcp_runtime
+    from scistudio.ai.agent.mcp.server import MCPServer
 
     runtime = make_mcp_runtime(tmp_path)
     _context.set_context(runtime)
@@ -229,10 +229,10 @@ async def _test_tools_call_returns_text_content_block(tmp_path: Path) -> None:
 def test_tool_modules_export_expected_callables() -> None:
     """Each ``tools_*`` module must expose its contracted tool callables."""
     for mod_name, tools in (
-        ("scieasy.ai.agent.mcp.tools_workflow", _WORKFLOW_TOOLS),
-        ("scieasy.ai.agent.mcp.tools_authoring", _AUTHORING_TOOLS),
-        ("scieasy.ai.agent.mcp.tools_inspection", _INSPECTION_TOOLS),
-        ("scieasy.ai.agent.mcp.tools_qa", _QA_TOOLS),
+        ("scistudio.ai.agent.mcp.tools_workflow", _WORKFLOW_TOOLS),
+        ("scistudio.ai.agent.mcp.tools_authoring", _AUTHORING_TOOLS),
+        ("scistudio.ai.agent.mcp.tools_inspection", _INSPECTION_TOOLS),
+        ("scistudio.ai.agent.mcp.tools_qa", _QA_TOOLS),
     ):
         mod = importlib.import_module(mod_name)
         for tool_name in tools:
@@ -255,10 +255,10 @@ def test_total_tool_count_is_25() -> None:
 
 @pytest.mark.parametrize(
     ("mod_name", "tool_name"),
-    [("scieasy.ai.agent.mcp.tools_workflow", t) for t in _WORKFLOW_TOOLS]
-    + [("scieasy.ai.agent.mcp.tools_authoring", t) for t in _AUTHORING_TOOLS]
-    + [("scieasy.ai.agent.mcp.tools_inspection", t) for t in _INSPECTION_TOOLS]
-    + [("scieasy.ai.agent.mcp.tools_qa", t) for t in _QA_TOOLS],
+    [("scistudio.ai.agent.mcp.tools_workflow", t) for t in _WORKFLOW_TOOLS]
+    + [("scistudio.ai.agent.mcp.tools_authoring", t) for t in _AUTHORING_TOOLS]
+    + [("scistudio.ai.agent.mcp.tools_inspection", t) for t in _INSPECTION_TOOLS]
+    + [("scistudio.ai.agent.mcp.tools_qa", t) for t in _QA_TOOLS],
 )
 def test_every_tool_is_callable(mod_name: str, tool_name: str) -> None:
     """T-ECA-202..204 landed: every tool is callable.
@@ -287,12 +287,12 @@ def test_every_tool_is_callable(mod_name: str, tool_name: str) -> None:
 
 
 def test_mcp_bridge_help_via_typer() -> None:
-    """``scieasy mcp-bridge --help`` must exit 0 and show usage text.
+    """``scistudio mcp-bridge --help`` must exit 0 and show usage text.
 
     Uses Typer's ``CliRunner`` so the test does not depend on the
-    ``scieasy`` console script being installed in the test environment.
+    ``scistudio`` console script being installed in the test environment.
     """
-    from scieasy.cli.main import app
+    from scistudio.cli.main import app
 
     runner = CliRunner()
     result = runner.invoke(app, ["mcp-bridge", "--help"])
@@ -301,7 +301,7 @@ def test_mcp_bridge_help_via_typer() -> None:
 
 
 def test_mcp_bridge_console_script_help() -> None:
-    """When invoked via ``python -m scieasy.cli.main mcp-bridge --help``,
+    """When invoked via ``python -m scistudio.cli.main mcp-bridge --help``,
     exit 0.
 
     This catches packaging-level regressions where the subcommand is
@@ -311,7 +311,7 @@ def test_mcp_bridge_console_script_help() -> None:
     output reliably across platforms).
     """
     result = subprocess.run(
-        [sys.executable, "-m", "scieasy.cli.main", "mcp-bridge", "--help"],
+        [sys.executable, "-m", "scistudio.cli.main", "mcp-bridge", "--help"],
         capture_output=True,
         text=True,
         timeout=30,
@@ -321,30 +321,30 @@ def test_mcp_bridge_console_script_help() -> None:
 
 
 def test_mcp_bridge_run_no_project_dir_returns_2(monkeypatch: pytest.MonkeyPatch) -> None:
-    """When ``SCIEASY_PROJECT_DIR`` is unset and no explicit socket is
+    """When ``SCISTUDIO_PROJECT_DIR`` is unset and no explicit socket is
     given, ``run()`` must exit 2 — a clear configuration error rather
     than a silent fail-open. See #810 (regression from the PR #808
     rollback) and the bridge's docstring for the rationale.
     """
-    from scieasy.cli.mcp_bridge import run
+    from scistudio.cli.mcp_bridge import run
 
-    monkeypatch.delenv("SCIEASY_PROJECT_DIR", raising=False)
+    monkeypatch.delenv("SCISTUDIO_PROJECT_DIR", raising=False)
     assert run(None) == 2
 
 
 def test_mcp_bridge_run_explicit_socket_unreachable_returns_2() -> None:
     """An explicit ``--socket`` pointing at a non-existent path returns 2."""
-    from scieasy.cli.mcp_bridge import run
+    from scistudio.cli.mcp_bridge import run
 
     # Use a path under a non-existent dir so both POSIX (AF_UNIX) and
     # Windows (port-file probe) reject it.
-    assert run("/nonexistent/scieasy-mcp-bridge-test.sock") == 2
+    assert run("/nonexistent/scistudio-mcp-bridge-test.sock") == 2
 
 
 def test_no_third_party_sdk_imports_in_mcp_package() -> None:
     """The MCP scaffold must not pull in any third-party SDK.
 
-    Allowed imports are stdlib modules and ``scieasy.*``. This guards
+    Allowed imports are stdlib modules and ``scistudio.*``. This guards
     against an implementer accidentally adding a dependency on, say,
     ``anthropic`` or ``openai`` to the MCP server layer.
     """
@@ -357,7 +357,7 @@ def test_no_third_party_sdk_imports_in_mcp_package() -> None:
     )
     # Re-import the package fresh and inspect its declared dependencies
     # by scanning the source for ``import`` statements.
-    import scieasy.ai.agent.mcp as mcp_pkg
+    import scistudio.ai.agent.mcp as mcp_pkg
 
     pkg_dir = Path(mcp_pkg.__file__).parent
     for py_file in pkg_dir.glob("*.py"):
@@ -368,6 +368,6 @@ def test_no_third_party_sdk_imports_in_mcp_package() -> None:
                 continue
             for bad in forbidden_prefixes:
                 # Match ``import <bad>`` or ``from <bad>``; allow
-                # ``scieasy.ai.agent.mcp`` itself.
+                # ``scistudio.ai.agent.mcp`` itself.
                 if stripped.startswith(f"import {bad}") or stripped.startswith(f"from {bad}"):
                     raise AssertionError(f"Forbidden third-party import '{bad}' in {py_file}: {stripped}")

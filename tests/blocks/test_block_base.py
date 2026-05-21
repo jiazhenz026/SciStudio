@@ -7,13 +7,13 @@ from typing import Any, ClassVar
 
 import pytest
 
-from scieasy.blocks.base.block import Block
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.base.state import BlockState
-from scieasy.core.storage.flush_context import clear, set_output_dir
-from scieasy.core.types.array import Array
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.blocks.base.block import Block
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.base.state import BlockState
+from scistudio.core.storage.flush_context import clear, set_output_dir
+from scistudio.core.types.array import Array
+from scistudio.core.types.dataframe import DataFrame
 
 
 @pytest.fixture(autouse=True)
@@ -304,7 +304,7 @@ class TestValidateCollectionTransparency:
 
     def test_validate_collection_with_matching_item_type(self) -> None:
         """Collection[Image] should pass validation for a port accepting Array."""
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         block = _DummyBlock()
         img = Image(shape=(10, 10), ndim=2, dtype="float64")
@@ -314,7 +314,7 @@ class TestValidateCollectionTransparency:
 
     def test_validate_collection_with_wrong_item_type(self) -> None:
         """Collection[DataFrame] should fail validation for a port accepting Array."""
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         block = _DummyBlock()
         df = DataFrame(columns=["a"], row_count=1)
@@ -324,7 +324,7 @@ class TestValidateCollectionTransparency:
 
     def test_validate_collection_exact_item_type(self) -> None:
         """Collection[Image] should pass validation for a port accepting Image."""
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         class _ImageBlock(Block):
             name: ClassVar[str] = "ImageOnly"
@@ -343,7 +343,7 @@ class TestValidateCollectionTransparency:
 
     def test_validate_collection_empty_accepted_types(self) -> None:
         """Collection should pass validation for a port accepting anything."""
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         block = _EmptyAcceptBlock()
         img = Image(shape=(5, 5), ndim=2, dtype="uint8")
@@ -355,7 +355,7 @@ class TestCollectionUtilities:
     """ADR-020: pack(), unpack(), unpack_single(), map_items(), parallel_map()."""
 
     def test_pack_creates_collection(self) -> None:
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         items = [Image(shape=(10, 10), ndim=2, dtype="float64")]
         result = Block.pack(items, item_type=Image)
@@ -364,7 +364,7 @@ class TestCollectionUtilities:
         assert result.item_type is Image
 
     def test_unpack_returns_list(self) -> None:
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         img = Image(shape=(5, 5), ndim=2, dtype="uint8")
         c = Collection([img], item_type=Image)
@@ -374,7 +374,7 @@ class TestCollectionUtilities:
         assert items[0] is img
 
     def test_unpack_single(self) -> None:
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         img = Image(shape=(5, 5), ndim=2, dtype="uint8")
         c = Collection([img])
@@ -382,7 +382,7 @@ class TestCollectionUtilities:
         assert result is img
 
     def test_unpack_single_multi_raises(self) -> None:
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         items = [
             Image(shape=(5, 5), ndim=2, dtype="uint8"),
@@ -393,7 +393,7 @@ class TestCollectionUtilities:
             Block.unpack_single(c)
 
     def test_map_items(self) -> None:
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         items = [
             Image(shape=(5, 5), ndim=2, dtype="uint8"),
@@ -410,7 +410,7 @@ class TestAutoFlush:
 
     def teardown_method(self) -> None:
         """Clear flush context after each test."""
-        from scieasy.core.storage.flush_context import clear
+        from scistudio.core.storage.flush_context import clear
 
         clear()
 
@@ -421,7 +421,7 @@ class TestAutoFlush:
 
     def test_auto_flush_already_has_ref(self) -> None:
         """DataObject with an existing StorageReference passes through."""
-        from scieasy.core.storage.ref import StorageReference
+        from scistudio.core.storage.ref import StorageReference
 
         img = Image(shape=(5, 5), ndim=2, dtype="float64")
         img.storage_ref = StorageReference(backend="zarr", path="/tmp/test.zarr")
@@ -430,7 +430,7 @@ class TestAutoFlush:
 
     def test_auto_flush_no_context_returns_as_is(self) -> None:
         """Without flush context, _auto_flush returns object as-is."""
-        from scieasy.core.storage.flush_context import clear
+        from scistudio.core.storage.flush_context import clear
 
         clear()
         img = Image(shape=(5, 5), ndim=2, dtype="float64")
@@ -446,8 +446,8 @@ class TestAutoFlush:
         import numpy as np
         import zarr
 
-        from scieasy.core.storage.flush_context import set_output_dir
-        from scieasy.core.storage.ref import StorageReference
+        from scistudio.core.storage.flush_context import set_output_dir
+        from scistudio.core.storage.ref import StorageReference
 
         output_dir = str(tmp_path)
         set_output_dir(output_dir)
@@ -569,7 +569,7 @@ class TestVariadicPortCountLimits:
 
     def test_validate_rejects_below_min_input_ports(self) -> None:
         """Validation fails when input port count is below min_input_ports."""
-        from scieasy.core.types.base import DataObject
+        from scistudio.core.types.base import DataObject
 
         class _MinInputBlock(Block):
             name: ClassVar[str] = "MinInput"
@@ -588,7 +588,7 @@ class TestVariadicPortCountLimits:
 
     def test_validate_rejects_above_max_input_ports(self) -> None:
         """Validation fails when input port count exceeds max_input_ports."""
-        from scieasy.core.types.base import DataObject
+        from scistudio.core.types.base import DataObject
 
         class _MaxInputBlock(Block):
             name: ClassVar[str] = "MaxInput"
@@ -615,7 +615,7 @@ class TestVariadicPortCountLimits:
 
     def test_validate_accepts_within_input_port_limits(self) -> None:
         """Validation passes when input port count is within min/max range."""
-        from scieasy.core.types.base import DataObject
+        from scistudio.core.types.base import DataObject
 
         class _BoundedInputBlock(Block):
             name: ClassVar[str] = "BoundedInput"
@@ -681,7 +681,7 @@ class TestVariadicPortCountLimits:
 
     def test_validate_no_limits_allows_any_count(self) -> None:
         """Without min/max limits, any port count is valid."""
-        from scieasy.core.types.base import DataObject
+        from scistudio.core.types.base import DataObject
 
         class _UnlimitedBlock(Block):
             name: ClassVar[str] = "Unlimited"

@@ -22,7 +22,7 @@ GIT_TARBALL_URL="https://www.kernel.org/pub/software/scm/git/git-${GIT_VERSION}.
 # SHA-256 of the published tarball.
 #
 # DESKTOP MAINTAINER ACTION REQUIRED before first release: this is a
-# placeholder. Run the script with SCIEASY_SKIP_GIT_SHA_VERIFY=1, copy the
+# placeholder. Run the script with SCISTUDIO_SKIP_GIT_SHA_VERIFY=1, copy the
 # computed hash printed to stderr, cross-verify it against
 # https://www.kernel.org/pub/software/scm/git/sha256sums.asc (kernel.org's
 # GPG-signed checksum manifest), then paste it here and commit. After that
@@ -72,8 +72,8 @@ else
     echo "ERROR: no sha256 tool (shasum / sha256sum)" >&2
     exit 1
 fi
-if [ "${SCIEASY_SKIP_GIT_SHA_VERIFY:-}" = "1" ]; then
-    echo "WARN: SCIEASY_SKIP_GIT_SHA_VERIFY=1, hash=${ACTUAL_SHA}"
+if [ "${SCISTUDIO_SKIP_GIT_SHA_VERIFY:-}" = "1" ]; then
+    echo "WARN: SCISTUDIO_SKIP_GIT_SHA_VERIFY=1, hash=${ACTUAL_SHA}"
 elif [ "$ACTUAL_SHA" != "$EXPECTED_SHA256" ]; then
     echo "ERROR: SHA256 mismatch" >&2
     echo "  expected $EXPECTED_SHA256" >&2

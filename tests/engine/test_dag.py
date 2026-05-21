@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from scieasy.engine.dag import (
+from scistudio.engine.dag import (
     DAG,
     CycleError,
     build_dag,
@@ -13,7 +13,7 @@ from scieasy.engine.dag import (
     get_root_nodes,
     topological_sort,
 )
-from scieasy.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
+from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
 
 # ---------------------------------------------------------------------------
 # Helpers

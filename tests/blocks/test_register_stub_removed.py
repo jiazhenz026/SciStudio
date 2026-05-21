@@ -1,9 +1,9 @@
 """Regression test for T-TRK-002: confirm the register stub is not exported.
 
 The Phase 11 master plan §2.5 sub-1a + standards doc §9.1 T-TRK-002 deleted
-``src/scieasy/blocks/process/builtins/register.py`` because it was a 1-line
+``src/scistudio/blocks/process/builtins/register.py`` because it was a 1-line
 docstring placeholder with no class body. Image registration belongs in
-``scieasy-blocks-imaging`` (T-IMG-027/028/029 per the imaging spec); the core
+``scistudio-blocks-imaging`` (T-IMG-027/028/029 per the imaging spec); the core
 ``process/builtins/`` directory is reserved for plain DataObject collection
 ops.
 
@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import importlib
 
-import scieasy.blocks.process.builtins as builtins_pkg
+import scistudio.blocks.process.builtins as builtins_pkg
 
 
 def test_builtins_init_does_not_export_register_block() -> None:

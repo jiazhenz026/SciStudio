@@ -24,10 +24,10 @@ from typing import Any
 
 import pytest
 
-from scieasy.ai.agent.mcp import _context, tools_authoring, tools_workflow
-from scieasy.ai.agent.mcp.server import mcp
-from scieasy.blocks.registry import BlockRegistry
-from scieasy.core.types.registry import TypeRegistry
+from scistudio.ai.agent.mcp import _context, tools_authoring, tools_workflow
+from scistudio.ai.agent.mcp.server import mcp
+from scistudio.blocks.registry import BlockRegistry
+from scistudio.core.types.registry import TypeRegistry
 
 _EXPECTED_TOOL_NAMES = {
     # category (a) workflow
@@ -100,7 +100,7 @@ def test_write_class_tools_have_next_step() -> None:
         tool = by_name[name]
         if name == "finish_ai_block":
             # Union[FinishAIBlockOK, FinishAIBlockError]; next_step lives on OK.
-            from scieasy.ai.agent.mcp.tools_workflow import FinishAIBlockOK
+            from scistudio.ai.agent.mcp.tools_workflow import FinishAIBlockOK
 
             assert "next_step" in FinishAIBlockOK.model_fields, f"{name}: FinishAIBlockOK missing next_step field"
             continue
@@ -192,8 +192,8 @@ def test_scaffold_block_emits_live_port_and_run_shape(stub_ctx, tmp_path: Path) 
     Post-F2 the scaffold template emits
     ``InputPort(name=..., accepted_types=[Image], required=True)`` and
     ``run(self, inputs: dict[str, Any], config: BlockConfig)`` — matching
-    ``Block.run`` ABC at ``src/scieasy/blocks/base/block.py`` and the
-    ``InputPort`` dataclass at ``src/scieasy/blocks/base/ports.py``.
+    ``Block.run`` ABC at ``src/scistudio/blocks/base/block.py`` and the
+    ``InputPort`` dataclass at ``src/scistudio/blocks/base/ports.py``.
     """
     result = _run(
         tools_authoring.scaffold_block(
@@ -223,7 +223,7 @@ def test_scaffold_block_emits_live_port_and_run_shape(stub_ctx, tmp_path: Path) 
     )
 
     # BlockConfig import is wired so the type annotation resolves.
-    assert "from scieasy.blocks.base.config import BlockConfig" in body
+    assert "from scistudio.blocks.base.config import BlockConfig" in body
 
 
 # ---------------------------------------------------------------------------
@@ -264,7 +264,7 @@ def test_finish_ai_block_returns_union_of_ok_or_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """ADR-035 §3.5 + ADR-040 §3.1: finish_ai_block returns OK | Error union envelope."""
-    monkeypatch.delenv("SCIEASY_AI_BLOCK_RUN_DIR", raising=False)
+    monkeypatch.delenv("SCISTUDIO_AI_BLOCK_RUN_DIR", raising=False)
     _context.set_context(None)
     result = _run(tools_workflow.finish_ai_block({}))
     assert result.status == "error"
@@ -288,8 +288,8 @@ def test_preview_dataframe_csv_streams_without_full_load(stub_ctx, tmp_path: Pat
     preview cap (100). The preview must return ≤ 100 rows AND must
     *not* be the full table.
     """
-    from scieasy.ai.agent.mcp import tools_inspection
-    from scieasy.ai.agent.mcp.tools_inspection import _preview_dataframe
+    from scistudio.ai.agent.mcp import tools_inspection
+    from scistudio.ai.agent.mcp.tools_inspection import _preview_dataframe
 
     big_csv = tmp_path / "big.csv"
     rows = 5000  # 50x the preview cap
@@ -308,8 +308,8 @@ def test_preview_dataframe_csv_streams_without_full_load(stub_ctx, tmp_path: Pat
 
 def test_preview_dataframe_parquet_streams_without_full_load(stub_ctx, tmp_path: Path) -> None:
     """Codex P1 (PR #1053): _preview_dataframe must not load the full Parquet."""
-    from scieasy.ai.agent.mcp import tools_inspection
-    from scieasy.ai.agent.mcp.tools_inspection import _preview_dataframe
+    from scistudio.ai.agent.mcp import tools_inspection
+    from scistudio.ai.agent.mcp.tools_inspection import _preview_dataframe
 
     pa = pytest.importorskip("pyarrow")
     pq = pytest.importorskip("pyarrow.parquet")
@@ -339,7 +339,7 @@ def test_search_docs_top_n_from_full_corpus_not_first_20(stub_ctx, tmp_path: Pat
         (so they would be discarded under the broken break-at-20 logic).
       - Assert the returned top-20 contains all 5 high-score docs.
     """
-    from scieasy.ai.agent.mcp import _context, tools_qa
+    from scistudio.ai.agent.mcp import _context, tools_qa
 
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir()
@@ -381,10 +381,10 @@ def test_docs_tools_no_dev_leak_when_no_project_docs(tmp_path: Path, monkeypatch
     """#1097 P0: docs lookup must not reach the dev source tree, ever.
 
     Pre-fix: ``_docs_root()`` unconditionally walked ``__file__.parents``
-    for any ``docs/`` directory. In an editable install of SciEasy
+    for any ``docs/`` directory. In an editable install of SciStudio
     (the dev checkout), that walk landed on
-    ``C:\\Users\\<dev>\\workspace\\SciEasy\\docs`` and the embedded agent
-    could ``search_docs`` / ``get_doc`` its way into SciEasy development
+    ``C:\\Users\\<dev>\\workspace\\SciStudio\\docs`` and the embedded agent
+    could ``search_docs`` / ``get_doc`` its way into SciStudio development
     ADRs — violating ADR-040 §2.1's dev/prod boundary and leaking
     absolute developer-machine paths.
 
@@ -392,13 +392,13 @@ def test_docs_tools_no_dev_leak_when_no_project_docs(tmp_path: Path, monkeypatch
     ``search_docs`` returns ``[]`` and ``get_doc`` raises
     ``FileNotFoundError``. The source-tree parents-walk is gone.
     """
-    from scieasy.ai.agent.mcp import _context, tools_qa
+    from scistudio.ai.agent.mcp import _context, tools_qa
 
     # Defensive: ensure no stale env override is in play.
-    monkeypatch.delenv("SCIEASY_DEV", raising=False)
+    monkeypatch.delenv("SCISTUDIO_DEV", raising=False)
 
     # A project workspace with no docs/ subdirectory (matches the e2e
-    # report: fresh project at ``C:\\temp\\scieasy-e2e-adr-040\\...``).
+    # report: fresh project at ``C:\\temp\\scistudio-e2e-adr-040\\...``).
     runtime = _StubRuntime(_project_dir=tmp_path)
     _context.set_context(runtime)
     try:
@@ -411,29 +411,29 @@ def test_docs_tools_no_dev_leak_when_no_project_docs(tmp_path: Path, monkeypatch
 
 
 def test_docs_tools_no_env_var_backdoor_into_source_tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """#1097 P0 hardening: ``SCIEASY_DEV=1`` MUST NOT re-open the leak.
+    """#1097 P0 hardening: ``SCISTUDIO_DEV=1`` MUST NOT re-open the leak.
 
     An earlier draft of the #1097 fix gated the parents-walk fallback
-    behind ``SCIEASY_DEV=1`` (mirroring the monorepo-scan convention).
+    behind ``SCISTUDIO_DEV=1`` (mirroring the monorepo-scan convention).
     That was rejected because any env-var-controlled escape into "dev
     mode" is a soft attack surface: a compromised shell init, a
     malicious launcher script, or a supply-chain dependency could set
-    ``SCIEASY_DEV=1`` and silently re-disclose developer source paths.
+    ``SCISTUDIO_DEV=1`` and silently re-disclose developer source paths.
 
-    Regression guard: even with ``SCIEASY_DEV=1`` set and the active
+    Regression guard: even with ``SCISTUDIO_DEV=1`` set and the active
     project carrying no ``docs/``, the MCP docs tools must NOT reach
-    into the SciEasy source repository.
+    into the SciStudio source repository.
     """
-    from scieasy.ai.agent.mcp import _context, tools_qa
+    from scistudio.ai.agent.mcp import _context, tools_qa
 
-    monkeypatch.setenv("SCIEASY_DEV", "1")
+    monkeypatch.setenv("SCISTUDIO_DEV", "1")
 
     runtime = _StubRuntime(_project_dir=tmp_path)  # no docs/ in the project
     _context.set_context(runtime)
     try:
         results = _run(tools_qa.search_docs("ADR-040", scope=None))
         assert results == [], (
-            f"SCIEASY_DEV=1 must NOT re-open the parents-walk into the source tree. Got non-empty results: {results!r}"
+            f"SCISTUDIO_DEV=1 must NOT re-open the parents-walk into the source tree. Got non-empty results: {results!r}"
         )
         with pytest.raises(FileNotFoundError):
             _run(tools_qa.get_doc("adr/ADR-040.md"))
@@ -445,10 +445,10 @@ def test_get_doc_path_is_relative_not_absolute(stub_ctx, tmp_path: Path) -> None
     """#1097: ``GetDocResult.path`` must not leak absolute developer paths.
 
     Pre-fix: ``path=str(resolved)`` exposed e.g.
-    ``C:\\Users\\<dev>\\workspace\\SciEasy\\docs\\adr\\ADR-038.md`` to
+    ``C:\\Users\\<dev>\\workspace\\SciStudio\\docs\\adr\\ADR-038.md`` to
     the agent. Post-fix the path is relative to the docs/ tree root.
     """
-    from scieasy.ai.agent.mcp import tools_qa
+    from scistudio.ai.agent.mcp import tools_qa
 
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir()
@@ -479,12 +479,12 @@ def test_dispatch_silently_drops_notifications(tmp_path: Path) -> None:
     'notifications/initialized'"}}`` to every notification. Claude Code
     tolerated the bogus error envelope, but Codex 2026's stricter MCP
     transport treats an unexpected frame as fatal and closes the
-    connection — meaning the Codex provider got ZERO scieasy MCP tools.
+    connection — meaning the Codex provider got ZERO scistudio MCP tools.
 
     Per JSON-RPC 2.0 § 4.1, notifications (requests without ``id``) MUST
     NOT trigger a response — error or otherwise.
     """
-    from scieasy.ai.agent.mcp.server import MCPServer
+    from scistudio.ai.agent.mcp.server import MCPServer
 
     server = MCPServer(socket_path=tmp_path / "mcp.sock", project_dir=tmp_path)
 

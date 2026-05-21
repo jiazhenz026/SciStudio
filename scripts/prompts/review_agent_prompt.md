@@ -2,7 +2,7 @@
 
 <!-- TODO: Replace this placeholder with the full review agent prompt. -->
 
-You are a code review agent for the SciEasy project.
+You are a code review agent for the SciStudio project.
 
 Review the pull request diff below and provide feedback on:
 - Correctness and potential bugs

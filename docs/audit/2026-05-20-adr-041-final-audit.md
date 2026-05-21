@@ -20,8 +20,8 @@ Included ADR-041 artifacts:
 
 - `docs/adr/ADR-041.md`
 - `docs/specs/adr-041-codeblock-v2.md`
-- `src/scieasy/blocks/code/**`
-- `src/scieasy/workflow/validator.py` CodeBlock validation integration
+- `src/scistudio/blocks/code/**`
+- `src/scistudio/workflow/validator.py` CodeBlock validation integration
 - `frontend/src/components/BottomPanel.tsx` CodeBlock v2 editor integration
 - `tests/blocks/code/**`
 - `tests/workflow/test_validator_codeblock_v2.py`
@@ -34,7 +34,7 @@ Included ADR-041 artifacts:
 | Facts regeneration | Pass | `python scripts/audit/generate_facts.py --write` updated `docs/facts/generated.yaml`. |
 | Facts freshness | Pass | `python scripts/audit/generate_facts.py --check`. |
 | ADR/spec frontmatter load | Pass | `load_adr_frontmatter("docs/adr/ADR-041.md")` and `load_spec_frontmatter("docs/specs/adr-041-codeblock-v2.md")`. |
-| Scoped ADR-042 facts audit | Pass | `python -m scieasy.qa.audit.full_audit --skip-frontmatter-lint --skip-doc-drift --skip-closure --skip-signature-drift --format markdown --output docs/audit/2026-05-20-adr-041-final-audit-scoped.md`; generated report had zero error findings before being summarized here. |
+| Scoped ADR-042 facts audit | Pass | `python -m scistudio.qa.audit.full_audit --skip-frontmatter-lint --skip-doc-drift --skip-closure --skip-signature-drift --format markdown --output docs/audit/2026-05-20-adr-041-final-audit-scoped.md`; generated report had zero error findings before being summarized here. |
 | CodeBlock/workflow tests | Pass | `PYTHONPATH=src python -m pytest tests/blocks/code tests/workflow/test_validator.py tests/workflow/test_validator_dynamic_ports.py tests/workflow/test_validator_codeblock_v2.py --timeout=60 --no-cov` passed with 116 tests and 7 optional-runtime skips. |
 | Child PR CI | Pass | PRs #1231, #1233, #1239, #1247, #1248, #1249, #1250, #1255, and #1256 were green before merge into the tracking branch. |
 
@@ -52,7 +52,7 @@ No full-audit error finding in that run referenced:
 
 - `docs/adr/ADR-041.md`
 - `docs/specs/adr-041-codeblock-v2.md`
-- `src/scieasy/blocks/code`
+- `src/scistudio/blocks/code`
 - `tests/blocks/code`
 - `tests/workflow/test_validator_codeblock_v2.py`
 - `frontend/src/components/BottomPanel.tsx`
@@ -61,14 +61,14 @@ No full-audit error finding in that run referenced:
 
 ADR-041 did not modify ADR-043 conflict-guarded files:
 
-- `src/scieasy/blocks/io/capabilities.py`
-- `src/scieasy/blocks/io/simple_io.py`
-- `src/scieasy/blocks/io/io_block.py`
-- `src/scieasy/blocks/registry.py`
-- `src/scieasy/engine/materialisation.py`
-- `src/scieasy/blocks/app/app_block.py`
-- `src/scieasy/blocks/app/bridge.py`
-- `packages/scieasy-blocks-*`
+- `src/scistudio/blocks/io/capabilities.py`
+- `src/scistudio/blocks/io/simple_io.py`
+- `src/scistudio/blocks/io/io_block.py`
+- `src/scistudio/blocks/registry.py`
+- `src/scistudio/engine/materialisation.py`
+- `src/scistudio/blocks/app/app_block.py`
+- `src/scistudio/blocks/app/bridge.py`
+- `packages/scistudio-blocks-*`
 - `docs/adr/ADR-043.md`
 - `docs/specs/adr-043-*`
 

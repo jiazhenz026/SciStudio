@@ -15,7 +15,7 @@ language_source: en
 # E2E Session — <short title>
 
 > **How to use this file.** Fill the sections below before invoking the
-> `scieasy-e2e-test` skill. Anything you leave as `TODO` will block the run.
+> `scistudio-e2e-test` skill. Anything you leave as `TODO` will block the run.
 > The skill reads this file top-to-bottom and executes Section 5 step by step.
 > The skill writes back into Section 7 (Results) — leave it empty.
 
@@ -33,8 +33,8 @@ language_source: en
   `.claude/worktrees/<name>` if avoiding parallel-session collision>
 - **Backend port**: <e.g. 8000 or a non-default to avoid colliding with
   user's own GUI>
-- **Frontend mode**: <"prebuilt SPA via `scieasy gui`" |
-  "Vite dev server on port NNNN against `scieasy serve`">
+- **Frontend mode**: <"prebuilt SPA via `scistudio gui`" |
+  "Vite dev server on port NNNN against `scistudio serve`">
 - **Required services / env vars**: <anything beyond a clean dev install>
 - **Required data / fixtures**: <project folders, sample inputs, BLOB paths>
 - **External accounts**: <e.g. ANTHROPIC_API_KEY for AIBlock scenarios>
@@ -42,11 +42,11 @@ language_source: en
 ## 3. Launch Plan
 
 Fill the commands the skill should run. Leave the defaults if a clean
-`scieasy gui` is enough.
+`scistudio gui` is enough.
 
 - **Backend start**:
   ```powershell
-  scieasy gui --port 8000 --no-browser
+  scistudio gui --port 8000 --no-browser
   ```
 - **Frontend start** (only if Vite dev server is needed):
   ```powershell
@@ -58,7 +58,7 @@ Fill the commands the skill should run. Leave the defaults if a clean
   ```
 - **Cleanup commands** (will run at end of session, even on failure):
   ```powershell
-  Get-Process node, python | Where-Object { $_.CommandLine -match 'vite|scieasy' } | Stop-Process -Force
+  Get-Process node, python | Where-Object { $_.CommandLine -match 'vite|scistudio' } | Stop-Process -Force
   ```
 
 ## 4. Affordances Under Test

@@ -11,13 +11,13 @@ from typing import Any, ClassVar
 
 import pytest
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.io.io_block import IOBlock
-from scieasy.blocks.registry import BlockRegistry, _spec_from_class
-from scieasy.core.types.array import Array
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.io.io_block import IOBlock
+from scistudio.blocks.registry import BlockRegistry, _spec_from_class
+from scistudio.core.types.array import Array
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
 
 
 class _FakeImage(Array):

@@ -2,7 +2,7 @@
 
 ## Task Identity
 
-- Repository: SciEasy
+- Repository: SciStudio
 - Owner request: Implement the fix-in-PR items from the Phase C1 no-context audit report so the umbrella PR meets every spec success criterion before final merge into main. Specifically: P1-01 (flaky frontend test waitFor), P2-01 (pillow axes-override pixel-buffer zero bug), P2-05 (SaveImage TIFF OME-XML emission — unblocks SC-003), and P2-03 (SaveImage._resolve_format dual-source-of-truth).
 - Task kind: bugfix
 - Persona: implementer
@@ -12,7 +12,7 @@
 - Protected branch: main
 - Umbrella branch: track/adr-043/core-blocks-and-imaging (already includes A1/A2/A3/B1/B2 + C1 audit report)
 - Agent branch: feat/issue-1296/adr043-c1-fixes
-- Agent worktree: `/c/Users/jiazh/Desktop/workspace/SciEasy/.claude/worktrees/adr-043-c1-fixes` (manager pre-created)
+- Agent worktree: `/c/Users/jiazh/Desktop/workspace/SciStudio/.claude/worktrees/adr-043-c1-fixes` (manager pre-created)
 - Audit report (your source-of-truth for findings): `docs/audit/2026-05-20-adr-043-package-migration-no-context.md`
 - Manager checklist: `docs/planning/adr-043-package-migration-checklist.md` (edit ONLY rows in §6 marked "C1 fixes" if any; otherwise leave the checklist alone)
 - Spec: `docs/specs/adr-043-package-migration.md` — §3 FR-001..FR-017, §5 SC-001..SC-006
@@ -38,10 +38,10 @@ Read for findings detail:
 You own only these files for the fixes below:
 
 - `frontend/src/__tests__/CapabilityDropdown.test.tsx` — P1-01 fix (waitFor around `fireEvent.change` at line ~148)
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/pillow_handler.py` — P2-01 fix (`_load_png` / `_load_jpeg` axes-override pixel-buffer zero bug at line ~193)
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/save_image.py` — P2-05 fix (`_write_tiff` OME-XML emission to ImageDescription tag) + P2-03 fix (`_resolve_format` to consult `format_capabilities` instead of `supported_extensions`)
-- `packages/scieasy-blocks-imaging/tests/test_format_capabilities.py` — add regression test for SC-003 round-trip OME-XML preservation (load OME-TIFF → save OME-TIFF → reload → assert ome metadata equal)
-- `packages/scieasy-blocks-imaging/tests/test_pillow_handler.py` (create if missing) or extend an existing imaging test — regression test for axes-override pixel buffer (P2-01)
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/pillow_handler.py` — P2-01 fix (`_load_png` / `_load_jpeg` axes-override pixel-buffer zero bug at line ~193)
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py` — P2-05 fix (`_write_tiff` OME-XML emission to ImageDescription tag) + P2-03 fix (`_resolve_format` to consult `format_capabilities` instead of `supported_extensions`)
+- `packages/scistudio-blocks-imaging/tests/test_format_capabilities.py` — add regression test for SC-003 round-trip OME-XML preservation (load OME-TIFF → save OME-TIFF → reload → assert ome metadata equal)
+- `packages/scistudio-blocks-imaging/tests/test_pillow_handler.py` (create if missing) or extend an existing imaging test — regression test for axes-override pixel buffer (P2-01)
 - `CHANGELOG.md` — `[#1296]` `### Fixed` entry under `[Unreleased]`
 - Your own gate record at `.workflow/records/1296-c1-fixes.json`
 
@@ -89,24 +89,24 @@ Known deferred items (audit's §12 recommendations not in your scope):
      4. Assert `loaded.meta.ome.images[0].pixels.physical_size_x` equals the source value.
 
 4. **P2-03 (P2 — SaveImage._resolve_format walks supported_extensions instead of format_capabilities):**
-   - In `save_image.py:_resolve_format` (~lines 64-109), replace the `SaveImage.supported_extensions.values()` walk with derivation from `cls.format_capabilities` (the canonical source under ADR-043). Mirror the pattern A1 used for the in-tree LoadData/SaveData rewrite (see `src/scieasy/blocks/io/savers/save_data.py` `_resolve_save_format`).
+   - In `save_image.py:_resolve_format` (~lines 64-109), replace the `SaveImage.supported_extensions.values()` walk with derivation from `cls.format_capabilities` (the canonical source under ADR-043). Mirror the pattern A1 used for the in-tree LoadData/SaveData rewrite (see `src/scistudio/blocks/io/savers/save_data.py` `_resolve_save_format`).
    - This eliminates the dual-source-of-truth drift risk noted by P2-03 of the audit.
 
 5. **CHANGELOG entry:** `[#1296]` under `## [Unreleased]` → `### Fixed`. Describe the four fixes in one entry.
 
 ## Required Tests And Checks
 
-- `pytest packages/scieasy-blocks-imaging/tests/test_format_capabilities.py --timeout=60` — new SC-003 regression test must pass.
-- `pytest packages/scieasy-blocks-imaging/tests/ --timeout=60` — no NEW failures vs the umbrella baseline (39 pre-existing failures are owner-acknowledged debt).
+- `pytest packages/scistudio-blocks-imaging/tests/test_format_capabilities.py --timeout=60` — new SC-003 regression test must pass.
+- `pytest packages/scistudio-blocks-imaging/tests/ --timeout=60` — no NEW failures vs the umbrella baseline (39 pre-existing failures are owner-acknowledged debt).
 - `npm test -- frontend/src/__tests__/CapabilityDropdown.test.tsx` (or `vitest run frontend/src/__tests__/CapabilityDropdown.test.tsx`) — flaky test now stable across 10 runs.
-- `ruff check packages/scieasy-blocks-imaging/`
-- `ruff format --check packages/scieasy-blocks-imaging/`
-- `python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` — record evidence; pre-existing repo debt is owner-acknowledged.
+- `ruff check packages/scistudio-blocks-imaging/`
+- `ruff format --check packages/scistudio-blocks-imaging/`
+- `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` — record evidence; pre-existing repo debt is owner-acknowledged.
 - Sentrux: skipped with rationale if CLI unavailable.
 
 ## Gate Record Stages You Must Execute
 
-`python -m scieasy.qa.governance.gate_record start --task-kind bugfix --issue 1296 --slug c1-fixes --branch feat/issue-1296/adr043-c1-fixes --owner-directive "Phase C1 audit follow-up fixes: P1-01 flaky test + P2-01 pillow axes-override + P2-05 SaveImage TIFF OME-XML emission (unblocks SC-003) + P2-03 SaveImage._resolve_format consistency" --include <each file> --record-path .workflow/records/1296-c1-fixes.json`
+`python -m scistudio.qa.governance.gate_record start --task-kind bugfix --issue 1296 --slug c1-fixes --branch feat/issue-1296/adr043-c1-fixes --owner-directive "Phase C1 audit follow-up fixes: P1-01 flaky test + P2-01 pillow axes-override + P2-05 SaveImage TIFF OME-XML emission (unblocks SC-003) + P2-03 SaveImage._resolve_format consistency" --include <each file> --record-path .workflow/records/1296-c1-fixes.json`
 
 Then `plan`, `docs`, `check`, `sentrux`, `finalize` per usual.
 

@@ -15,7 +15,7 @@ language_source: en
 ## 1. What Is The Gate Workflow
 
 The gate workflow is the required delivery lifecycle for AI-authored work in
-SciEasy. It turns an AI task into reviewable repository evidence by recording
+SciStudio. It turns an AI task into reviewable repository evidence by recording
 scope, issue linkage, plan, docs, tests, checks, commit provenance, and PR
 provenance in a committed gate record.
 
@@ -44,7 +44,7 @@ aliases, but the commands below are the normative AI-facing interface.
 Start a gate record:
 
 ```bash
-python -m scieasy.qa.governance.gate_record start \
+python -m scistudio.qa.governance.gate_record start \
   --task-kind feature|bugfix|hotfix|refactor|docs|maintenance|manager \
   --issue <number> \
   --branch <branch> \
@@ -57,7 +57,7 @@ python -m scieasy.qa.governance.gate_record start \
 Record the plan:
 
 ```bash
-python -m scieasy.qa.governance.gate_record plan \
+python -m scistudio.qa.governance.gate_record plan \
   --record .workflow/records/<issue>-<task-slug>.json \
   --files <path-or-glob> \
   --docs <path-or-na> \
@@ -68,7 +68,7 @@ python -m scieasy.qa.governance.gate_record plan \
 Amend scope:
 
 ```bash
-python -m scieasy.qa.governance.gate_record amend \
+python -m scistudio.qa.governance.gate_record amend \
   --record .workflow/records/<issue>-<task-slug>.json \
   --reason "<why scope changed>" \
   --include <path-or-glob>
@@ -77,7 +77,7 @@ python -m scieasy.qa.governance.gate_record amend \
 Record documentation landing:
 
 ```bash
-python -m scieasy.qa.governance.gate_record docs \
+python -m scistudio.qa.governance.gate_record docs \
   --record .workflow/records/<issue>-<task-slug>.json \
   --updated <path> \
   --na <doc-class>:<reason>
@@ -86,7 +86,7 @@ python -m scieasy.qa.governance.gate_record docs \
 Record a completed check:
 
 ```bash
-python -m scieasy.qa.governance.gate_record check \
+python -m scistudio.qa.governance.gate_record check \
   --record .workflow/records/<issue>-<task-slug>.json \
   --name <check-name> \
   --command "<command or MCP tool id>" \
@@ -98,7 +98,7 @@ python -m scieasy.qa.governance.gate_record check \
 Record Sentrux evidence:
 
 ```bash
-python -m scieasy.qa.governance.gate_record sentrux \
+python -m scistudio.qa.governance.gate_record sentrux \
   --record .workflow/records/<issue>-<task-slug>.json \
   --mode free-tier \
   --status pass|fail|skipped \
@@ -108,7 +108,7 @@ python -m scieasy.qa.governance.gate_record sentrux \
 Finalize commit and PR provenance:
 
 ```bash
-python -m scieasy.qa.governance.gate_record finalize \
+python -m scistudio.qa.governance.gate_record finalize \
   --record .workflow/records/<issue>-<task-slug>.json \
   --commit <sha> \
   --pr <url> \
@@ -118,19 +118,19 @@ python -m scieasy.qa.governance.gate_record finalize \
 Validate local and CI boundaries:
 
 ```bash
-python -m scieasy.qa.governance.gate_record pre-commit --staged
+python -m scistudio.qa.governance.gate_record pre-commit --staged
 
-python -m scieasy.qa.governance.gate_record pre-commit \
+python -m scistudio.qa.governance.gate_record pre-commit \
   --staged \
   --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
 
-python -m scieasy.qa.governance.gate_record commit-msg <commit-msg-file> \
+python -m scistudio.qa.governance.gate_record commit-msg <commit-msg-file> \
   --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
 
-python -m scieasy.qa.governance.gate_record pre-push \
+python -m scistudio.qa.governance.gate_record pre-push \
   --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
 
-python -m scieasy.qa.governance.gate_record ci \
+python -m scistudio.qa.governance.gate_record ci \
   --gate-record .workflow/records/<issue>-<task-slug>.json \
   --base <base-ref> \
   --head <head-ref> \
@@ -173,7 +173,7 @@ available, use `gh`.
 Create or update the gate record with:
 
 ```bash
-python -m scieasy.qa.governance.gate_record start \
+python -m scistudio.qa.governance.gate_record start \
   --task-kind <task-kind> \
   --issue <number> \
   --branch <branch> \
@@ -223,7 +223,7 @@ No AI-authored PR is ready when the gate record lacks issue linkage.
 Record planned files and directories with:
 
 ```bash
-python -m scieasy.qa.governance.gate_record plan \
+python -m scistudio.qa.governance.gate_record plan \
   --record .workflow/records/<issue>-<task-slug>.json \
   --files <path-or-glob> \
   --docs <path-or-na> \
@@ -263,7 +263,7 @@ Before touching newly discovered files outside the original plan, update the
 gate record with:
 
 ```bash
-python -m scieasy.qa.governance.gate_record amend \
+python -m scistudio.qa.governance.gate_record amend \
   --record .workflow/records/<issue>-<task-slug>.json \
   --reason "<why scope changed>" \
   --include <path-or-glob>
@@ -285,7 +285,7 @@ Update documentation before running the final test and audit stage.
 Record updated paths and explicit N/A rationales with:
 
 ```bash
-python -m scieasy.qa.governance.gate_record docs \
+python -m scistudio.qa.governance.gate_record docs \
   --record .workflow/records/<issue>-<task-slug>.json \
   --updated <path> \
   --na <doc-class>:<reason>
@@ -312,7 +312,7 @@ For a typical source, governance, or architecture-relevant change:
 ruff check .
 ruff format --check .
 pytest <targeted-tests-or-test-directory>
-python -m scieasy.qa.audit.full_audit \
+python -m scistudio.qa.audit.full_audit \
   --repo-root . \
   --format json \
   --output docs/audit/full-audit-latest.json
@@ -321,7 +321,7 @@ python -m scieasy.qa.audit.full_audit \
 Each completed check must be recorded with:
 
 ```bash
-python -m scieasy.qa.governance.gate_record check \
+python -m scistudio.qa.governance.gate_record check \
   --record .workflow/records/<issue>-<task-slug>.json \
   --name <check-name> \
   --command "<command or MCP tool id>" \
@@ -356,7 +356,7 @@ sentrux check .
 Record Sentrux evidence with:
 
 ```bash
-python -m scieasy.qa.governance.gate_record sentrux \
+python -m scistudio.qa.governance.gate_record sentrux \
   --record .workflow/records/<issue>-<task-slug>.json \
   --mode free-tier \
   --status pass|fail|skipped \
@@ -402,7 +402,7 @@ gh pr create --title "<type>(#<issue>): <summary>" --body "<body>"
 Record final commit and PR evidence with:
 
 ```bash
-python -m scieasy.qa.governance.gate_record finalize \
+python -m scistudio.qa.governance.gate_record finalize \
   --record .workflow/records/<issue>-<task-slug>.json \
   --commit <sha> \
   --pr <url> \
@@ -429,7 +429,7 @@ evidence helps review; CI evidence is authoritative.
 
 ## 4. MUSTs
 
-- MUST use `python -m scieasy.qa.governance.gate_record` for AI gate record
+- MUST use `python -m scistudio.qa.governance.gate_record` for AI gate record
   creation, updates, and validation.
 - MUST keep `AGENTS.md` as the hard policy entry point.
 - MUST use a committed gate record for AI-authored work.

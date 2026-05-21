@@ -44,7 +44,7 @@ This deprecated spec is retained as historical reference. Its original body is p
 
 ## 1. Purpose
 
-The right-column **Data Preview** panel in SciEasy Studio renders block outputs as type-specific previews. Two long-standing UX gaps surfaced live in the microplastic-calibration project (2026-05-15):
+The right-column **Data Preview** panel in SciStudio Studio renders block outputs as type-specific previews. Two long-standing UX gaps surfaced live in the microplastic-calibration project (2026-05-15):
 
 1. **Pill labels were uninformative.** Each output rendered as a truncated UUID (`data-873de`) regardless of whether the underlying DataObject carried a real source filename. For LoadImage outputs this is the user's primary mental key.
 2. **3-D arrays rendered as nonsensical 2-D strips.** The reducer in `runtime.py::preview_data` blindly peeled leading axes via `while ndim > 2: matrix = matrix[0]`. For `(y, x, c)` RGB plots this produced a `(x, c)` strip (e.g. `(1285, 3)` displayed as a 1285×3 grayscale image). The same shape category covered z-stacks `(y, x, z)`, time series `(y, x, t)`, and hyperspectral cubes `(lambda, y, x)`.

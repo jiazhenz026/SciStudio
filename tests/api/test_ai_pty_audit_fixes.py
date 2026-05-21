@@ -26,9 +26,9 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from scieasy.ai.agent.terminal import PtyProcess
-from scieasy.api.routes import ai_pty
-from scieasy.api.routes.ai_pty import (
+from scistudio.ai.agent.terminal import PtyProcess
+from scistudio.api.routes import ai_pty
+from scistudio.api.routes.ai_pty import (
     _active_ptys,
     _engine_run_to_run_dir,
     _engine_tab_to_run,
@@ -92,7 +92,7 @@ def _fake_spawn(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 
 
 def test_p1b_ipc_token_initialised_at_app_startup(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Audit P1-B: ``SCIEASY_ENGINE_IPC_TOKEN`` must be set after FastAPI startup.
+    """Audit P1-B: ``SCISTUDIO_ENGINE_IPC_TOKEN`` must be set after FastAPI startup.
 
     The TestClient's lifespan invokes :func:`create_app`'s lifespan which
     calls :func:`_ensure_ipc_token`. Without the fix the env var is unset
@@ -100,8 +100,8 @@ def test_p1b_ipc_token_initialised_at_app_startup(client: TestClient, monkeypatc
     """
     # The ``client`` fixture has already entered the TestClient context,
     # so the lifespan startup has already run.
-    token = os.environ.get("SCIEASY_ENGINE_IPC_TOKEN", "")
-    assert token, "engine startup must populate SCIEASY_ENGINE_IPC_TOKEN"
+    token = os.environ.get("SCISTUDIO_ENGINE_IPC_TOKEN", "")
+    assert token, "engine startup must populate SCISTUDIO_ENGINE_IPC_TOKEN"
 
     # Sanity: an internal IPC call sent with the live token authenticates.
     resp = client.post(
@@ -112,7 +112,7 @@ def test_p1b_ipc_token_initialised_at_app_startup(client: TestClient, monkeypatc
             "event": "completed",
             "detail": {},
         },
-        headers={"X-SciEasy-IPC-Token": token},
+        headers={"X-SciStudio-IPC-Token": token},
     )
     # 204 = handler accepted; 400 also acceptable if validation tightens.
     assert resp.status_code in (204, 400), resp.text
@@ -147,7 +147,7 @@ def test_p1c_pty_endpoint_joins_engine_initiated_tab(
         initial_stdin="HELLO-AGENT\n",
         block_run_id="rid-join-1",
         permission_mode="safe",
-        run_dir_path=str(opened_project / ".scieasy" / "ai-block-runs" / "rid-join-1"),
+        run_dir_path=str(opened_project / ".scistudio" / "ai-block-runs" / "rid-join-1"),
     )
     assert len(spawn_calls) == 1, "engine-initiated open should call _spawn exactly once"
     pre_spawn_pty = _active_ptys[tab_id]
@@ -194,7 +194,7 @@ def test_p1e_block_user_marked_done_writes_signal_file(client: TestClient, opene
     ``signals/mark_done.json`` under the AI Block run dir within ~1s."""
 
     run_id = "rid-mark-done-1"
-    run_dir = opened_project / ".scieasy" / "ai-block-runs" / run_id
+    run_dir = opened_project / ".scistudio" / "ai-block-runs" / run_id
     run_dir.mkdir(parents=True)
     (run_dir / "signals").mkdir()
 
@@ -229,7 +229,7 @@ def test_p1e_block_user_marked_done_writes_signal_file(client: TestClient, opene
 def test_p1e_block_user_cancel_writes_signal_file(client: TestClient, opened_project: Path) -> None:
     """Audit P1-E: ``block_user_cancel`` WS frame must also write the signal."""
     run_id = "rid-cancel-1"
-    run_dir = opened_project / ".scieasy" / "ai-block-runs" / run_id
+    run_dir = opened_project / ".scistudio" / "ai-block-runs" / run_id
     run_dir.mkdir(parents=True)
     (run_dir / "signals").mkdir()
 
@@ -283,9 +283,9 @@ def test_p1a_bootstrap_failure_propagates(monkeypatch: pytest.MonkeyPatch) -> No
     """Audit P1-A: failures in ``_write_system_prompt_tempfile`` /
     ``_ensure_mcp_config`` must abort spawn with a RuntimeError carrying
     a "bootstrap failed" message — not silently degrade the argv."""
-    import scieasy.ai.agent.terminal as terminal_mod
-    from scieasy.blocks.ai.ai_block import AIBlock
-    from scieasy.blocks.base.config import BlockConfig
+    import scistudio.ai.agent.terminal as terminal_mod
+    from scistudio.blocks.ai.ai_block import AIBlock
+    from scistudio.blocks.base.config import BlockConfig
 
     # Force the helpers to raise.
     def boom(*_args: Any, **_kwargs: Any) -> str:
@@ -295,7 +295,7 @@ def test_p1a_bootstrap_failure_propagates(monkeypatch: pytest.MonkeyPatch) -> No
 
     # Pretend `claude` is on PATH so we get past the discoverability check.
     monkeypatch.setattr(
-        "scieasy.blocks.ai.ai_block._discover_provider",
+        "scistudio.blocks.ai.ai_block._discover_provider",
         lambda _provider: "/usr/bin/claude",
     )
 

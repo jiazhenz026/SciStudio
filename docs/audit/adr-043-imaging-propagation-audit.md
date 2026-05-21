@@ -18,7 +18,7 @@ language_source: en
 
 This audit satisfies spec
 [`adr-043-package-migration`](../specs/adr-043-package-migration.md)
-**FR-010**: every `ProcessBlock` in `scieasy-blocks-imaging` whose output
+**FR-010**: every `ProcessBlock` in `scistudio-blocks-imaging` whose output
 inherits from `Image` (including `Mask`, `Label`, `Transform`) is
 audited against the **FR-009** propagation contract.
 
@@ -27,7 +27,7 @@ The contract codifies three propagation modes for `Image.Meta.ome`:
 - **Mode A — Shape-preserving same-type derivation.** The block constructs
   output via `OutputClass(..., meta=source.meta, ...)`. The entire Meta
   object — including `ome` — passes through verbatim. Helpers like
-  `iterate_over_axes` (`scieasy.utils.axis_iter`) also implement Mode A
+  `iterate_over_axes` (`scistudio.utils.axis_iter`) also implement Mode A
   by propagating `meta` by reference per ADR-027 D5.
 - **Mode B — Shape-changing same-type derivation.** The block constructs
   output via `OutputClass(..., meta=transform_helper(source.meta, ...), ...)`.
@@ -45,12 +45,12 @@ The contract codifies three propagation modes for `Image.Meta.ome`:
 ## 2. Audit Method
 
 Each block file under
-`packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/{math,morphology,preprocess,projection,registration,segmentation,measurement,tracking,visualization}/`
+`packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/{math,morphology,preprocess,projection,registration,segmentation,measurement,tracking,visualization}/`
 was read end-to-end. For every block class, the construction site of the
 output `DataObject` was inspected and classified by the propagation
 pattern (A/B/C). Where the audit found a non-conformant Mode B helper or
 Mode C constructor, the block was patched in this PR; the test file
-`packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py`
+`packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py`
 pins the resulting behaviour with at least one test per Mode per
 affected sub-package.
 
@@ -124,25 +124,25 @@ The columns are:
 The audit drove the following code changes (all in scope per the
 manager dispatch prompt):
 
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/geometry.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocess/geometry.py`
   — `_resize_meta` extended to deep-copy and rewrite OME pixels
   `size_x` / `size_y` / `physical_size_x` / `physical_size_y` (Mode B).
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/axis_ops.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocess/axis_ops.py`
   — `_split_meta` extended to deep-copy and collapse OME `size_<axis>`
   on the split axis (Mode B).
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/projection/projection.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/projection/projection.py`
   — `_projected_meta` extended to deep-copy and collapse OME
   `size_<axis>` on the projected axis (Mode B).
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/cellpose_segment.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/cellpose_segment.py`
   — both `mask_img` Image.Meta and `process_item` Label.Meta now carry
   `ome=item.meta.ome` (Mode C).
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/blob_detect.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/blob_detect.py`
   — Label.Meta carries `ome=item.meta.ome` (Mode C).
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/connected_components.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/connected_components.py`
   — Label.Meta carries `ome=item.meta.ome` (Mode C).
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/watershed.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/watershed.py`
   — Label.Meta carries `ome=image.meta.ome` (Mode C).
-- `packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py`
+- `packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py`
   — new file with 18 tests covering all three Modes across math,
   morphology, preprocess, projection, registration, segmentation,
   measurement.
@@ -166,7 +166,7 @@ manager dispatch prompt):
 ## 6. Verification
 
 - All 18 tests in
-  `packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py`
+  `packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py`
   pass (`pytest --timeout=60`).
 - Pre-existing failures in the broader imaging test suite (e.g. `_data`
   returning None in Rotate; `test_load_image`; `test_save_image`) are
@@ -192,5 +192,5 @@ manager dispatch prompt):
   §3 FR-009 / FR-010, §4.3 Phase B1.
 - ADR: [`docs/adrs/adr-043-package-migration.md`](../adrs/adr-043-package-migration.md)
 - ADR-027 D5 — `iterate_over_axes` metadata propagation pattern.
-- Tests: `packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py`.
+- Tests: `packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py`.
 - Gate record: `.workflow/records/1296-b1-imaging-propagation.json`.

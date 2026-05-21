@@ -1,13 +1,13 @@
 # ADR-036 Implementation Audit — 2026-05-14T16:53Z
 
 **PRs audited**:
-- [#855](https://github.com/zjzcpj/SciEasy/pull/855) — Skeleton (S36)
-- [#864](https://github.com/zjzcpj/SciEasy/pull/864) — I36a (TabState union + backend file/lint)
-- [#863](https://github.com/zjzcpj/SciEasy/pull/863) — I36b (CodeEditor + Save UX)
-- [#865](https://github.com/zjzcpj/SciEasy/pull/865) — I36c (ProjectTree + View source + reload + template)
+- [#855](https://github.com/zjzcpj/SciStudio/pull/855) — Skeleton (S36)
+- [#864](https://github.com/zjzcpj/SciStudio/pull/864) — I36a (TabState union + backend file/lint)
+- [#863](https://github.com/zjzcpj/SciStudio/pull/863) — I36b (CodeEditor + Save UX)
+- [#865](https://github.com/zjzcpj/SciStudio/pull/865) — I36c (ProjectTree + View source + reload + template)
 
 **Branch under audit**: `track/adr-036/code-editor` (audit branch: `audit-impl-036`)
-**Umbrella issue**: [#843](https://github.com/zjzcpj/SciEasy/issues/843)
+**Umbrella issue**: [#843](https://github.com/zjzcpj/SciStudio/issues/843)
 **Auditor**: A36-impl
 **ADR**: [ADR-036 — Embedded code editor for project files](../adr/ADR-036.md)
 
@@ -92,7 +92,7 @@ Walked every ticked row in `docs/planning/adr-035-036-checklist.md` lines 65–1
 
 ## 4. Chrome smoke results
 
-**SKIPPED-P2** — `mcp__claude-in-chrome__tabs_context_mcp` returned "No MCP tab groups found"; no SciEasy GUI process is running on this host. Per dispatch hygiene rules ("If GUI unavailable, mark Chrome smoke as SKIPPED-P2" and "Do NOT install scieasy"), the smoke matrix below could not be exercised live.
+**SKIPPED-P2** — `mcp__claude-in-chrome__tabs_context_mcp` returned "No MCP tab groups found"; no SciStudio GUI process is running on this host. Per dispatch hygiene rules ("If GUI unavailable, mark Chrome smoke as SKIPPED-P2" and "Do NOT install scistudio"), the smoke matrix below could not be exercised live.
 
 Subtests not exercised live:
 - (a) Toolbar "New" → workflow / custom block / note — file creation + tab open

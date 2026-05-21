@@ -1,1 +1,1 @@
-"""Integration tests for the SciEasy execution engine stack."""
+"""Integration tests for the SciStudio execution engine stack."""

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from scieasy.api.runtime import ApiRuntime
-from scieasy.blocks.base.state import BlockState
+from scistudio.api.runtime import ApiRuntime
+from scistudio.blocks.base.state import BlockState
 
 
 class _Recorder:

@@ -4,7 +4,7 @@ title: "Phase 11 LC-MS Plugin Block Specification"
 status: Deprecated
 feature_branch: legacy/phase11-lcms-block-spec
 created: 2026-04-07
-input: "Historical Phase 11 scieasy-blocks-lcms implementation specification retained for reference."
+input: "Historical Phase 11 scistudio-blocks-lcms implementation specification retained for reference."
 owners:
   - "@jiazhenz026"
 related_adrs:
@@ -49,7 +49,7 @@ This deprecated spec is retained as historical reference. Its original body is p
 ## 1. Purpose
 
 This document is the **single source of truth** for the implementation of the
-`scieasy-blocks-lcms` plugin package. It enumerates the four plugin types,
+`scistudio-blocks-lcms` plugin package. It enumerates the four plugin types,
 the ~20 blocks, the package layout, the per-ticket implementation contract,
 the open questions resolved during spec authoring, and the integration test
 strategy.
@@ -87,7 +87,7 @@ the most detailed per-ticket sections to the isotope tracing block group.
 
 ## 2. Scope
 
-**In scope**: design contract for the `scieasy-blocks-lcms` plugin package,
+**In scope**: design contract for the `scistudio-blocks-lcms` plugin package,
 covering 4 types and ~20 blocks across IO, external tools, isotope tracing,
 metabolomics analysis, and external plotting. One PR per ticket. The recommended
 PR order is a stacked sequence per the dependency graph in §4.
@@ -101,7 +101,7 @@ PR order is a stacked sequence per the dependency graph in §4.
 - The bundled AccuCor R script source code itself — only the *contract* for
   shipping it as package data is specified here. The actual R code lives in
   the implementation ticket (T-LCMS-007).
-- The `scieasy-blocks-imaging` and `scieasy-blocks-srs` plugins.
+- The `scistudio-blocks-imaging` and `scistudio-blocks-srs` plugins.
 
 **Forbidden** (these would be scope violations per the master plan §2.4 lock):
 
@@ -264,17 +264,17 @@ them is a workflow gate violation per `CLAUDE.md` Appendix A.
    other modified file is a scope violation per `CLAUDE.md` §6.7. Tests for
    in-scope source files are always in-scope.
 5. **Plugin layout discipline**: every plugin source file lives under
-   `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/`. Tests live under
-   `packages/scieasy-blocks-lcms/tests/`. The plugin MUST NOT add files
-   under `src/scieasy/` (the core repo path). If an implementation agent
+   `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/`. Tests live under
+   `packages/scistudio-blocks-lcms/tests/`. The plugin MUST NOT add files
+   under `src/scistudio/` (the core repo path). If an implementation agent
    discovers a missing core capability, they file a *new core issue* and
    block on it — never patch core inside a plugin PR.
 6. **Every check must be green before review**:
-   - `pytest -x --no-cov packages/scieasy-blocks-lcms/tests/` passes
+   - `pytest -x --no-cov packages/scistudio-blocks-lcms/tests/` passes
      locally.
-   - `ruff check packages/scieasy-blocks-lcms/` clean.
-   - `ruff format --check packages/scieasy-blocks-lcms/` clean.
-   - `mypy packages/scieasy-blocks-lcms/src --ignore-missing-imports`
+   - `ruff check packages/scistudio-blocks-lcms/` clean.
+   - `ruff format --check packages/scistudio-blocks-lcms/` clean.
+   - `mypy packages/scistudio-blocks-lcms/src --ignore-missing-imports`
      clean.
    - The core repo's `python -m importlinter --config pyproject.toml`
      contract is unchanged (plugins do not import from core internals).
@@ -306,7 +306,7 @@ them is a workflow gate violation per `CLAUDE.md` Appendix A.
     `[tool.pytest.ini_options].markers` in the plugin's `pyproject.toml`
     so CI skips them when the external dependency is absent.
 12. **The bundled AccuCor R script** is package data, not source code.
-    It lives at `src/scieasy_blocks_lcms/scripts/accucor_default.R` and is
+    It lives at `src/scistudio_blocks_lcms/scripts/accucor_default.R` and is
     declared in `pyproject.toml` `[tool.setuptools.package-data]`. The
     `AccuCorR` block resolves the script path via `importlib.resources`,
     not via filesystem traversal.
@@ -319,11 +319,11 @@ satisfy these:
 1. The PR's diff includes ONLY files listed in "Files to be created",
    "Files to be modified", "New tests", and "Existing tests to update" for
    that ticket. Any other modified file is a scope violation.
-2. `pytest -x --no-cov packages/scieasy-blocks-lcms/tests/` passes
+2. `pytest -x --no-cov packages/scistudio-blocks-lcms/tests/` passes
    locally before push.
-3. `ruff check packages/scieasy-blocks-lcms/` clean.
-4. `ruff format --check packages/scieasy-blocks-lcms/` clean.
-5. `mypy packages/scieasy-blocks-lcms/src --ignore-missing-imports` clean.
+3. `ruff check packages/scistudio-blocks-lcms/` clean.
+4. `ruff format --check packages/scistudio-blocks-lcms/` clean.
+5. `mypy packages/scistudio-blocks-lcms/src --ignore-missing-imports` clean.
 6. Importlinter contract unchanged on the core repo.
 7. `CHANGELOG.md` has an entry under `[Unreleased]` in the appropriate
    section with full attribution per `CLAUDE.md` Appendix A Stage 6.
@@ -354,7 +354,7 @@ ElMAVEN-exported peak tables through their *own* R script that calls
 
 **Decision**: the `AccuCorR` block ships a **default AccuCor R driver
 script** as package data at
-`packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/scripts/accucor_default.R`,
+`packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/scripts/accucor_default.R`,
 and accepts a user override via the `accucor_script_path: str | None`
 config field.
 
@@ -376,7 +376,7 @@ by the plugin (R packages cannot be installed via pip); the plugin's
 README documents the prerequisite (`install.packages("accucor")`).
 
 **License**: AccuCor is MIT-licensed; the upstream LICENSE is reproduced
-verbatim in `packages/scieasy-blocks-lcms/THIRD_PARTY_LICENSES.md` per the
+verbatim in `packages/scistudio-blocks-lcms/THIRD_PARTY_LICENSES.md` per the
 implementation ticket T-LCMS-007.
 
 **Why not just call AccuCor directly via `rpy2`?** Because `rpy2` carries a
@@ -531,7 +531,7 @@ default-pick decision.
 REST API. Specifically:
 
 - The block is a `ProcessBlock` (not a `CodeBlock`), and lives at
-  `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/metabolomics/pathway.py`.
+  `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/metabolomics/pathway.py`.
 - It depends on `requests>=2.31` (already declared in `pyproject.toml`).
 - The KEGG REST endpoints used: `https://rest.kegg.jp/link/pathway/cpd`
   (compound → pathway map) and `https://rest.kegg.jp/list/pathway/{org}`
@@ -714,7 +714,7 @@ Rationale:
 ### Q-12: Where do plugin blocks live in the GUI palette?
 
 ADR-026 specifies that plugin blocks are auto-discovered from the
-`scieasy.blocks` entry-point group at runtime. The frontend palette
+`scistudio.blocks` entry-point group at runtime. The frontend palette
 groups blocks by their `category: ClassVar[str]` and `package_name`
 fields.
 
@@ -727,11 +727,11 @@ controlled set:
 - `"process"` for the 5 isotope tracing blocks and the 6 metabolomics
   analysis blocks.
 
-The `package_name` ClassVar is `"scieasy-blocks-lcms"` for all 20 blocks
+The `package_name` ClassVar is `"scistudio-blocks-lcms"` for all 20 blocks
 (set in a base class `_LCMSBlockMixin` to avoid repetition — see
 T-LCMS-001).
 
-The palette will render LC-MS blocks under a `scieasy-blocks-lcms` group
+The palette will render LC-MS blocks under a `scistudio-blocks-lcms` group
 with sub-groups by category. No frontend changes are needed for this
 plugin.
 
@@ -756,7 +756,7 @@ l. Suggested workflow gate ticket title
 
 ### T-LCMS-001 — Plugin scaffold
 
-**a. Ticket ID and name**: T-LCMS-001 — `scieasy-blocks-lcms` plugin
+**a. Ticket ID and name**: T-LCMS-001 — `scistudio-blocks-lcms` plugin
 package scaffold.
 
 **b. Source ADR / spec sections**:
@@ -766,39 +766,39 @@ package scaffold.
 - This spec §2 (scope), §6 (universal rules).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/pyproject.toml` (project metadata,
+- `packages/scistudio-blocks-lcms/pyproject.toml` (project metadata,
   dependencies, entry-points, package data, pytest markers).
-- `packages/scieasy-blocks-lcms/README.md` (overview, install, the
+- `packages/scistudio-blocks-lcms/README.md` (overview, install, the
   user's workflow walkthrough, prerequisites for ElMAVEN / R / AccuCor /
   GraphPad).
-- `packages/scieasy-blocks-lcms/THIRD_PARTY_LICENSES.md` (AccuCor
+- `packages/scistudio-blocks-lcms/THIRD_PARTY_LICENSES.md` (AccuCor
   upstream LICENSE reproduced, plus any other vendored license text).
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/__init__.py`
   (re-exports + `get_blocks()` and `get_types()` entry-point functions —
   initially empty placeholders).
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/_base.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/_base.py`
   (`_LCMSBlockMixin` providing the shared `package_name` ClassVar).
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/io/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/io/__init__.py`
   (empty)
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/external/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/external/__init__.py`
   (empty)
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/isotope/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/isotope/__init__.py`
   (empty)
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/metabolomics/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/metabolomics/__init__.py`
   (empty)
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/plotting/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/plotting/__init__.py`
   (empty)
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/scripts/.gitkeep`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/scripts/.gitkeep`
   (placeholder for the AccuCor R script T-LCMS-007 will land)
-- `packages/scieasy-blocks-lcms/tests/__init__.py` (empty)
-- `packages/scieasy-blocks-lcms/tests/test_package_layout.py` (smoke
+- `packages/scistudio-blocks-lcms/tests/__init__.py` (empty)
+- `packages/scistudio-blocks-lcms/tests/test_package_layout.py` (smoke
   test asserting every sub-package is importable, `get_blocks()` returns
   an empty list, `get_types()` returns an empty list).
 
 **d. Files to be modified**: none.
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_package_layout.py`:
+- `packages/scistudio-blocks-lcms/tests/test_package_layout.py`:
   - `test_package_importable`
   - `test_get_blocks_returns_list`
   - `test_get_types_returns_list`
@@ -816,14 +816,14 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "scieasy-blocks-lcms"
+name = "scistudio-blocks-lcms"
 version = "0.1.0"
-description = "LC-MS metabolomics & stable isotope tracing blocks for SciEasy"
-authors = [{ name = "SciEasy contributors" }]
+description = "LC-MS metabolomics & stable isotope tracing blocks for SciStudio"
+authors = [{ name = "SciStudio contributors" }]
 license = { text = "MIT" }
 requires-python = ">=3.11"
 dependencies = [
-    "scieasy>=0.1",
+    "scistudio>=0.1",
     "numpy>=1.24",
     "pandas>=2.1",
     "scipy>=1.11",
@@ -842,17 +842,17 @@ test = [
     "pytest-cov>=5",
 ]
 
-[project.entry-points."scieasy.blocks"]
-lcms = "scieasy_blocks_lcms:get_blocks"
+[project.entry-points."scistudio.blocks"]
+lcms = "scistudio_blocks_lcms:get_blocks"
 
-[project.entry-points."scieasy.types"]
-lcms = "scieasy_blocks_lcms.types:get_types"
+[project.entry-points."scistudio.types"]
+lcms = "scistudio_blocks_lcms.types:get_types"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-scieasy_blocks_lcms = ["scripts/*.R"]
+scistudio_blocks_lcms = ["scripts/*.R"]
 
 [tool.pytest.ini_options]
 markers = [
@@ -865,7 +865,7 @@ markers = [
 The `_LCMSBlockMixin`:
 
 ```python
-# packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/_base.py
+# packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/_base.py
 from typing import ClassVar
 
 
@@ -875,14 +875,14 @@ class _LCMSBlockMixin:
     Centralises the package_name field so individual blocks don't repeat it.
     """
 
-    package_name: ClassVar[str] = "scieasy-blocks-lcms"
+    package_name: ClassVar[str] = "scistudio-blocks-lcms"
 ```
 
 The `__init__.py`:
 
 ```python
-# packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/__init__.py
-"""scieasy-blocks-lcms: LC-MS metabolomics & stable isotope tracing blocks."""
+# packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/__init__.py
+"""scistudio-blocks-lcms: LC-MS metabolomics & stable isotope tracing blocks."""
 
 from __future__ import annotations
 
@@ -899,15 +899,15 @@ def get_blocks() -> list[type]:
 ```
 
 **h. Acceptance criteria**:
-- [ ] `packages/scieasy-blocks-lcms/pyproject.toml` declares the
+- [ ] `packages/scistudio-blocks-lcms/pyproject.toml` declares the
       dependencies, entry-points, package-data, and pytest markers
       exactly as specified in §g.
-- [ ] `pip install -e packages/scieasy-blocks-lcms` succeeds in a clean
-      virtual environment with the core scieasy package already installed.
-- [ ] `python -c "import scieasy_blocks_lcms"` succeeds.
-- [ ] `python -c "from scieasy_blocks_lcms import get_blocks; assert get_blocks() == []"` succeeds.
-- [ ] `python -c "from scieasy_blocks_lcms._base import _LCMSBlockMixin; assert _LCMSBlockMixin.package_name == 'scieasy-blocks-lcms'"` succeeds.
-- [ ] `pytest packages/scieasy-blocks-lcms/tests/test_package_layout.py` passes.
+- [ ] `pip install -e packages/scistudio-blocks-lcms` succeeds in a clean
+      virtual environment with the core scistudio package already installed.
+- [ ] `python -c "import scistudio_blocks_lcms"` succeeds.
+- [ ] `python -c "from scistudio_blocks_lcms import get_blocks; assert get_blocks() == []"` succeeds.
+- [ ] `python -c "from scistudio_blocks_lcms._base import _LCMSBlockMixin; assert _LCMSBlockMixin.package_name == 'scistudio-blocks-lcms'"` succeeds.
+- [ ] `pytest packages/scistudio-blocks-lcms/tests/test_package_layout.py` passes.
 
 **i. Out of scope**:
 - The four plugin types (T-LCMS-002).
@@ -921,13 +921,13 @@ def get_blocks() -> list[type]:
 + `_base.py` + `README.md`. ~50 lines of test. Total ~250 lines.
 
 **l. Suggested workflow gate ticket title**:
-`scieasy-blocks-lcms plugin scaffold (T-LCMS-001)`
+`scistudio-blocks-lcms plugin scaffold (T-LCMS-001)`
 
 ---
 
 ### T-LCMS-002 — Types module
 
-**a. Ticket ID and name**: T-LCMS-002 — `scieasy_blocks_lcms.types` (4
+**a. Ticket ID and name**: T-LCMS-002 — `scistudio_blocks_lcms.types` (4
 plain-DataFrame/Artifact types).
 
 **b. Source ADR / spec sections**:
@@ -937,15 +937,15 @@ plain-DataFrame/Artifact types).
 - This spec §2 ("Forbidden" — no scan-level types).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/types.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/types.py`
   (the 4 type classes plus a `get_types()` function).
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/__init__.py`
   (re-export the four types).
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_types.py`:
+- `packages/scistudio-blocks-lcms/tests/test_types.py`:
   - `test_msrawfile_subclass_of_artifact`
   - `test_msrawfile_meta_frozen`
   - `test_msrawfile_meta_required_format`
@@ -973,7 +973,7 @@ plain-DataFrame/Artifact types).
 **g. Implementation details**:
 
 ```python
-# packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/types.py
+# packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/types.py
 """LC-MS plugin types: MSRawFile, PeakTable, MIDTable, SampleMetadata."""
 
 from __future__ import annotations
@@ -982,8 +982,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.dataframe import DataFrame
 
 
 class MSRawFile(Artifact):
@@ -1090,10 +1090,10 @@ the base class handles all the standard slots and the only
 plugin-specific data is the `meta` Pydantic model itself.
 
 **h. Acceptance criteria**:
-- [ ] `MSRawFile` is a subclass of `scieasy.core.types.artifact.Artifact`.
+- [ ] `MSRawFile` is a subclass of `scistudio.core.types.artifact.Artifact`.
 - [ ] `MSRawFile.Meta` is a frozen Pydantic v2 BaseModel with `format`
       required and four optional fields.
-- [ ] `PeakTable` is a subclass of `scieasy.core.types.dataframe.DataFrame`.
+- [ ] `PeakTable` is a subclass of `scistudio.core.types.dataframe.DataFrame`.
 - [ ] `PeakTable.Meta.source` is required; `polarity` is optional.
 - [ ] `MIDTable` is a subclass of `DataFrame`.
 - [ ] `MIDTable.Meta.tracer_atoms` defaults to `["C13"]`.
@@ -1143,14 +1143,14 @@ loader.
 - This spec §8 Q-10 (plural-only, no singular variant).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/io/load_ms_raw.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/io/load_ms_raw.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/io/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/io/__init__.py`
   (re-export `LoadMSRawFiles`).
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_io/test_load_ms_raw.py`:
+- `packages/scistudio-blocks-lcms/tests/test_io/test_load_ms_raw.py`:
   - `test_load_single_mzml_file`
   - `test_load_directory_glob_mzml`
   - `test_load_recursive_false_ignores_subdirs`
@@ -1176,7 +1176,7 @@ The block is a plain `IOBlock` subclass with `direction = "input"` and
 fixed output ports. It does NOT use dynamic ports (§8 Q-11).
 
 ```python
-# packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/io/load_ms_raw.py
+# packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/io/load_ms_raw.py
 """LoadMSRawFiles -- batch loader for raw LC-MS acquisition files."""
 
 from __future__ import annotations
@@ -1186,12 +1186,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar
 
-from scieasy.blocks.base.ports import OutputPort
-from scieasy.blocks.io.io_block import IOBlock
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.ports import OutputPort
+from scistudio.blocks.io.io_block import IOBlock
+from scistudio.core.types.collection import Collection
 
-from scieasy_blocks_lcms._base import _LCMSBlockMixin
-from scieasy_blocks_lcms.types import MSRawFile
+from scistudio_blocks_lcms._base import _LCMSBlockMixin
+from scistudio_blocks_lcms.types import MSRawFile
 
 _MZML_TIMESTAMP_RE = re.compile(r'startTimeStamp="([^"]+)"')
 _MZML_POLARITY_POSITIVE = re.compile(r'accession="MS:1000130"')
@@ -1367,13 +1367,13 @@ peak table loader.
 - Master plan §2.4 LC-MS IO.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/io/load_peak_table.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/io/load_peak_table.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/io/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/io/__init__.py`
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_io/test_load_peak_table.py`:
+- `packages/scistudio-blocks-lcms/tests/test_io/test_load_peak_table.py`:
   - `test_load_csv_elmaven`
   - `test_load_tsv_elmaven`
   - `test_load_xlsx_first_sheet`
@@ -1459,13 +1459,13 @@ loader.
   Q-5 (tracer atoms).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/io/load_mid_table.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/io/load_mid_table.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/io/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/io/__init__.py`
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_io/test_load_mid_table.py`:
+- `packages/scistudio-blocks-lcms/tests/test_io/test_load_mid_table.py`:
   - `test_load_csv_long_format`
   - `test_load_xlsx_with_sheet_name`
   - `test_default_tracer_atoms_is_c13`
@@ -1588,21 +1588,21 @@ columns or empty sample detection, and emits `MIDTable.Meta` with
 - Master plan §2.4 LC-MS IO.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/io/load_sample_metadata.py`
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/io/save_table.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/io/load_sample_metadata.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/io/save_table.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/io/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/io/__init__.py`
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_io/test_load_sample_metadata.py`:
+- `packages/scistudio-blocks-lcms/tests/test_io/test_load_sample_metadata.py`:
   - `test_load_csv_sample_metadata`
   - `test_load_tsv_sample_metadata`
   - `test_default_sample_id_column`
   - `test_custom_sample_id_column`
   - `test_raises_on_missing_sample_id_column`
   - `test_output_is_samplemetadata_instance`
-- `packages/scieasy-blocks-lcms/tests/test_io/test_save_table.py`:
+- `packages/scistudio-blocks-lcms/tests/test_io/test_save_table.py`:
   - `test_save_peak_table_csv`
   - `test_save_mid_table_xlsx`
   - `test_save_sample_metadata_tsv`
@@ -1689,19 +1689,19 @@ ElMAVEN) + `AccuCorR` (CodeBlock R runner for AccuCor).
 - This spec §8 Q-1 (AccuCor R script bundling), Q-2 (ElMAVEN GUI interaction).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/external/elmaven_block.py`
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/external/accucor_r.py`
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/scripts/accucor_default.R`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/external/elmaven_block.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/external/accucor_r.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/scripts/accucor_default.R`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/external/__init__.py`
-- `packages/scieasy-blocks-lcms/THIRD_PARTY_LICENSES.md` (reproduce
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/external/__init__.py`
+- `packages/scistudio-blocks-lcms/THIRD_PARTY_LICENSES.md` (reproduce
   AccuCor MIT LICENSE).
-- `packages/scieasy-blocks-lcms/README.md` (document ElMAVEN + R +
+- `packages/scistudio-blocks-lcms/README.md` (document ElMAVEN + R +
   AccuCor prerequisites).
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_external/test_elmaven_block.py`:
+- `packages/scistudio-blocks-lcms/tests/test_external/test_elmaven_block.py`:
   - `test_elmaven_block_class_config`
   - `test_elmaven_default_watch_timeout_1800s`
   - `test_elmaven_default_output_patterns`
@@ -1709,7 +1709,7 @@ ElMAVEN) + `AccuCorR` (CodeBlock R runner for AccuCor).
   - `test_elmaven_output_ports_declare_peaktable_and_midtable`
   - `test_elmaven_classify_export_peak_vs_mid`
   - `@pytest.mark.requires_elmaven test_elmaven_end_to_end_launch_and_collect`
-- `packages/scieasy-blocks-lcms/tests/test_external/test_accucor_r.py`:
+- `packages/scistudio-blocks-lcms/tests/test_external/test_accucor_r.py`:
   - `test_accucor_r_subclasses_codeblock_language_r`
   - `test_accucor_r_default_script_path_resolves`
   - `test_accucor_r_default_tracer_c13`
@@ -1784,7 +1784,7 @@ class AccuCorR(_LCMSBlockMixin, CodeBlock):
         if override:
             return str(override)
         with resources.as_file(
-            resources.files("scieasy_blocks_lcms.scripts") / "accucor_default.R"
+            resources.files("scistudio_blocks_lcms.scripts") / "accucor_default.R"
         ) as path:
             return str(path)
 
@@ -1798,10 +1798,10 @@ class AccuCorR(_LCMSBlockMixin, CodeBlock):
 ```
 
 The bundled `accucor_default.R` (package data at
-`src/scieasy_blocks_lcms/scripts/accucor_default.R`):
+`src/scistudio_blocks_lcms/scripts/accucor_default.R`):
 
 ```r
-# Default AccuCor driver shipped with scieasy-blocks-lcms.
+# Default AccuCor driver shipped with scistudio-blocks-lcms.
 # Upstream: https://github.com/lparsons/accucor (v0.3.1)
 # License: MIT (see THIRD_PARTY_LICENSES.md)
 #
@@ -1901,20 +1901,20 @@ weighted-average enrichment per compound per sample.
 (`feat/issue-366/T-LCMS-008-012-isotope-core`). The skeleton
 `NotImplementedError` body is replaced with a concrete
 `ProcessBlock.process_item()` implementation plus synthetic isotope
-tracing tests under `packages/scieasy-blocks-lcms/tests/test_isotope_tracing/`.
+tracing tests under `packages/scistudio-blocks-lcms/tests/test_isotope_tracing/`.
 
 **b. Source ADR / spec sections**:
 - Master plan §2.4 LC-MS isotope tracing (the USP).
 - This spec §8 Q-5 (tracer atom handling, multi-tracer).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/isotope/enrichment.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/isotope/enrichment.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/isotope/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/isotope/__init__.py`
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_isotope/test_enrichment.py`:
+- `packages/scistudio-blocks-lcms/tests/test_isotope/test_enrichment.py`:
   - `test_single_compound_single_tracer_full_labeling`
   - `test_single_compound_single_tracer_zero_labeling`
   - `test_single_compound_single_tracer_half_labeling`
@@ -1970,7 +1970,7 @@ simple `groupby` patterns in downstream blocks (`CompareGroupMID`,
 Implementation sketch:
 
 ```python
-# packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/isotope/enrichment.py
+# packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/isotope/enrichment.py
 """Calculate13CEnrichment — weighted-average labelling per compound/sample."""
 
 from __future__ import annotations
@@ -1979,13 +1979,13 @@ from typing import Any, ClassVar
 
 import pandas as pd
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.dataframe import DataFrame
 
-from scieasy_blocks_lcms._base import _LCMSBlockMixin
-from scieasy_blocks_lcms.types import MIDTable
+from scistudio_blocks_lcms._base import _LCMSBlockMixin
+from scistudio_blocks_lcms.types import MIDTable
 
 
 class Calculate13CEnrichment(_LCMSBlockMixin, ProcessBlock):
@@ -2147,13 +2147,13 @@ spec-listed error path for missing M+0 rows is covered by real tests.
 - Master plan §2.4 LC-MS isotope tracing.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/isotope/labeling.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/isotope/labeling.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/isotope/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/isotope/__init__.py`
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_isotope/test_labeling.py`:
+- `packages/scistudio-blocks-lcms/tests/test_isotope/test_labeling.py`:
   - `test_single_compound_single_sample`
   - `test_zero_labeling_returns_zero`
   - `test_full_labeling_returns_one`
@@ -2246,13 +2246,13 @@ boundary now have concrete code and synthetic test coverage.
 - Master plan §2.4 LC-MS isotope tracing.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/isotope/compare.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/isotope/compare.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/isotope/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/isotope/__init__.py`
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_isotope/test_compare.py`:
+- `packages/scistudio-blocks-lcms/tests/test_isotope/test_compare.py`:
   - `test_two_group_ttest_per_isotopologue`
   - `test_two_group_wilcoxon_per_isotopologue`
   - `test_two_group_mann_whitney_per_isotopologue`
@@ -2361,13 +2361,13 @@ non-13C-MFA disclaimer in code and tests.
 - This spec §8 Q-9 (FluxEstimate simplicity vs 13C-MFA boundary).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/isotope/flux.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/isotope/flux.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/isotope/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/isotope/__init__.py`
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_isotope/test_flux.py`:
+- `packages/scistudio-blocks-lcms/tests/test_isotope/test_flux.py`:
   - `test_single_compound_linear_fit`
   - `test_multi_compound_flux_estimate`
   - `test_with_pool_size_table`
@@ -2475,13 +2475,13 @@ spec-required meta retention and error handling.
 - Master plan §2.4 LC-MS isotope tracing.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/isotope/normalize.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/isotope/normalize.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/isotope/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/isotope/__init__.py`
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_isotope/test_normalize.py`:
+- `packages/scistudio-blocks-lcms/tests/test_isotope/test_normalize.py`:
   - `test_internal_standard_normalization`
   - `test_tic_normalization`
   - `test_median_normalization`
@@ -2563,13 +2563,13 @@ PeakTable + SampleMetadata → wide matrix).
 - Master plan §2.4 LC-MS metabolomics.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/metabolomics/matrix.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/metabolomics/matrix.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/metabolomics/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/metabolomics/__init__.py`
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_metabolomics/test_matrix.py`:
+- `packages/scistudio-blocks-lcms/tests/test_metabolomics/test_matrix.py`:
   - `test_pivot_long_to_wide`
   - `test_default_value_column_intensity`
   - `test_custom_value_column`
@@ -2648,13 +2648,13 @@ log/impute/scale for metabolite matrices.
 - Master plan §2.4 LC-MS metabolomics (consolidated preprocessing).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/metabolomics/preprocess.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/metabolomics/preprocess.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/metabolomics/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/metabolomics/__init__.py`
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_metabolomics/test_preprocess.py`:
+- `packages/scistudio-blocks-lcms/tests/test_metabolomics/test_preprocess.py`:
   - `test_log_transform_default_true`
   - `test_log_transform_handles_zeros_via_pseudocount`
   - `test_impute_knn`
@@ -2747,13 +2747,13 @@ t-test / ANOVA / Wilcoxon.
 - Master plan §2.4 LC-MS metabolomics.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/metabolomics/univariate.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/metabolomics/univariate.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/metabolomics/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/metabolomics/__init__.py`
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_metabolomics/test_univariate.py`:
+- `packages/scistudio-blocks-lcms/tests/test_metabolomics/test_univariate.py`:
   - `test_ttest_two_groups`
   - `test_anova_three_groups`
   - `test_wilcoxon_two_groups`
@@ -2850,13 +2850,13 @@ consolidated PCA/PLSDA/OPLSDA.
 - Master plan §2.4 LC-MS metabolomics.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/metabolomics/multivariate.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/metabolomics/multivariate.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/metabolomics/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/metabolomics/__init__.py`
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_metabolomics/test_multivariate.py`:
+- `packages/scistudio-blocks-lcms/tests/test_metabolomics/test_multivariate.py`:
   - `test_pca_default_two_components`
   - `test_pca_scores_shape_matches_samples`
   - `test_pca_loadings_shape_matches_features`
@@ -2966,13 +2966,13 @@ pathway enrichment (Python-native).
 - This spec §8 Q-6 (Python KEGG REST as the default).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/metabolomics/pathway.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/metabolomics/pathway.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/metabolomics/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/metabolomics/__init__.py`
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_metabolomics/test_pathway.py`:
+- `packages/scistudio-blocks-lcms/tests/test_metabolomics/test_pathway.py`:
   - `test_kegg_rest_call_mocked`
   - `test_compound_pathway_map_parsing`
   - `test_pathway_list_parsing`
@@ -3092,13 +3092,13 @@ extracellular flux analysis (spent vs fresh media).
 - This spec §8 Q-7 (formula, cell count normalization).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/metabolomics/consumption_secretion.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/metabolomics/consumption_secretion.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/metabolomics/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/metabolomics/__init__.py`
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_metabolomics/test_consumption_secretion.py`:
+- `packages/scistudio-blocks-lcms/tests/test_metabolomics/test_consumption_secretion.py`:
   - `test_pure_consumption_delta_negative`
   - `test_pure_secretion_delta_positive`
   - `test_consumed_or_secreted_flag`
@@ -3205,15 +3205,15 @@ wrapper for GraphPad Prism.
 - This spec §8 Q-8 (Windows-only, no default path).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/plotting/graphpad_block.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/plotting/graphpad_block.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/plotting/__init__.py`
-- `packages/scieasy-blocks-lcms/README.md` (document GraphPad path
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/plotting/__init__.py`
+- `packages/scistudio-blocks-lcms/README.md` (document GraphPad path
   prerequisite).
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_plotting/test_graphpad_block.py`:
+- `packages/scistudio-blocks-lcms/tests/test_plotting/test_graphpad_block.py`:
   - `test_graphpad_block_class_config`
   - `test_graphpad_no_default_app_command`
   - `test_graphpad_default_watch_timeout_1800s`
@@ -3353,30 +3353,30 @@ Total ~330 lines.
 ### T-LCMS-020 — Entry-point registration + plugin smoke test
 
 **a. Ticket ID and name**: T-LCMS-020 — entry-point registration for
-the `scieasy.blocks` / `scieasy.types` groups + plugin smoke test.
+the `scistudio.blocks` / `scistudio.types` groups + plugin smoke test.
 
 **b. Source ADR / spec sections**:
 - ADR-026 (entry-point plugin discovery).
-- ADR-028 §D2 (plugins register via `scieasy.blocks`).
+- ADR-028 §D2 (plugins register via `scistudio.blocks`).
 - This spec §8 Q-12 (palette categories).
 
 **c. Files to be created**: none (all registered files already exist).
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/__init__.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/__init__.py`
   (finalise `get_blocks()` to return the full list of 20 block
   classes).
-- `packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/types.py`
+- `packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/types.py`
   (verify `get_types()` returns the 4 classes — already done in
   T-LCMS-002).
-- `packages/scieasy-blocks-lcms/pyproject.toml` (double-check
+- `packages/scistudio-blocks-lcms/pyproject.toml` (double-check
   entry-point declarations match the `__init__.py` exports).
 
 **e. New tests**:
-- `packages/scieasy-blocks-lcms/tests/test_entry_points.py`:
-  - `test_scieasy_blocks_entry_point_discovers_all_20`
-  - `test_scieasy_types_entry_point_discovers_all_4`
-  - `test_all_blocks_have_package_name_scieasy_blocks_lcms`
+- `packages/scistudio-blocks-lcms/tests/test_entry_points.py`:
+  - `test_scistudio_blocks_entry_point_discovers_all_20`
+  - `test_scistudio_types_entry_point_discovers_all_4`
+  - `test_all_blocks_have_package_name_scistudio_blocks_lcms`
   - `test_all_blocks_have_category_from_controlled_set`
   - `test_all_blocks_have_unique_type_name`
   - `test_all_blocks_have_name`
@@ -3384,22 +3384,22 @@ the `scieasy.blocks` / `scieasy.types` groups + plugin smoke test.
   - `test_all_blocks_importable_from_top_level`
 
 **f. Existing tests to update**:
-- `packages/scieasy-blocks-lcms/tests/test_package_layout.py`
+- `packages/scistudio-blocks-lcms/tests/test_package_layout.py`
   (T-LCMS-001): update `test_get_blocks_returns_list` to assert the
   length is now 20.
 
 **g. Implementation details**:
 
 ```python
-# packages/scieasy-blocks-lcms/src/scieasy_blocks_lcms/__init__.py
-"""scieasy-blocks-lcms: LC-MS metabolomics & stable isotope tracing blocks."""
+# packages/scistudio-blocks-lcms/src/scistudio_blocks_lcms/__init__.py
+"""scistudio-blocks-lcms: LC-MS metabolomics & stable isotope tracing blocks."""
 
 from __future__ import annotations
 
 __version__ = "0.1.0"
 
 # Types
-from scieasy_blocks_lcms.types import (
+from scistudio_blocks_lcms.types import (
     MIDTable,
     MSRawFile,
     PeakTable,
@@ -3408,35 +3408,35 @@ from scieasy_blocks_lcms.types import (
 )
 
 # IO blocks
-from scieasy_blocks_lcms.io.load_ms_raw import LoadMSRawFiles
-from scieasy_blocks_lcms.io.load_peak_table import LoadPeakTable
-from scieasy_blocks_lcms.io.load_mid_table import LoadMIDTable
-from scieasy_blocks_lcms.io.load_sample_metadata import LoadSampleMetadata
-from scieasy_blocks_lcms.io.save_table import SaveTable
+from scistudio_blocks_lcms.io.load_ms_raw import LoadMSRawFiles
+from scistudio_blocks_lcms.io.load_peak_table import LoadPeakTable
+from scistudio_blocks_lcms.io.load_mid_table import LoadMIDTable
+from scistudio_blocks_lcms.io.load_sample_metadata import LoadSampleMetadata
+from scistudio_blocks_lcms.io.save_table import SaveTable
 
 # External tools
-from scieasy_blocks_lcms.external.elmaven_block import ElMAVENBlock
-from scieasy_blocks_lcms.external.accucor_r import AccuCorR
+from scistudio_blocks_lcms.external.elmaven_block import ElMAVENBlock
+from scistudio_blocks_lcms.external.accucor_r import AccuCorR
 
 # Isotope tracing
-from scieasy_blocks_lcms.isotope.enrichment import Calculate13CEnrichment
-from scieasy_blocks_lcms.isotope.labeling import FractionalLabeling
-from scieasy_blocks_lcms.isotope.compare import CompareGroupMID
-from scieasy_blocks_lcms.isotope.flux import FluxEstimate
-from scieasy_blocks_lcms.isotope.normalize import PoolSizeNormalize
+from scistudio_blocks_lcms.isotope.enrichment import Calculate13CEnrichment
+from scistudio_blocks_lcms.isotope.labeling import FractionalLabeling
+from scistudio_blocks_lcms.isotope.compare import CompareGroupMID
+from scistudio_blocks_lcms.isotope.flux import FluxEstimate
+from scistudio_blocks_lcms.isotope.normalize import PoolSizeNormalize
 
 # Metabolomics analysis
-from scieasy_blocks_lcms.metabolomics.matrix import MetaboliteMatrix
-from scieasy_blocks_lcms.metabolomics.preprocess import MatrixPreprocess
-from scieasy_blocks_lcms.metabolomics.univariate import UnivariateStats
-from scieasy_blocks_lcms.metabolomics.multivariate import MultivariateAnalysis
-from scieasy_blocks_lcms.metabolomics.pathway import PathwayEnrichment
-from scieasy_blocks_lcms.metabolomics.consumption_secretion import (
+from scistudio_blocks_lcms.metabolomics.matrix import MetaboliteMatrix
+from scistudio_blocks_lcms.metabolomics.preprocess import MatrixPreprocess
+from scistudio_blocks_lcms.metabolomics.univariate import UnivariateStats
+from scistudio_blocks_lcms.metabolomics.multivariate import MultivariateAnalysis
+from scistudio_blocks_lcms.metabolomics.pathway import PathwayEnrichment
+from scistudio_blocks_lcms.metabolomics.consumption_secretion import (
     ConsumptionSecretionAnalysis,
 )
 
 # External plotting
-from scieasy_blocks_lcms.plotting.graphpad_block import GraphPadBlock
+from scistudio_blocks_lcms.plotting.graphpad_block import GraphPadBlock
 
 
 def get_blocks() -> list[type]:
@@ -3487,7 +3487,7 @@ The smoke test verifies:
 
 1. `get_blocks()` returns exactly 20 classes.
 2. `get_types()` returns exactly 4 classes.
-3. Every block has `package_name == "scieasy-blocks-lcms"`.
+3. Every block has `package_name == "scistudio-blocks-lcms"`.
 4. Every block's `category` is in
    `{"io", "app", "code", "process"}`.
 5. Every block's `type_name` is unique across the plugin.
@@ -3496,18 +3496,18 @@ The smoke test verifies:
 8. All blocks are importable from the top-level package.
 
 The test also validates via the real entry-point mechanism: it uses
-`importlib.metadata.entry_points(group="scieasy.blocks")` to confirm
-the plugin is discoverable via the `scieasy.blocks` group after `pip
+`importlib.metadata.entry_points(group="scistudio.blocks")` to confirm
+the plugin is discoverable via the `scistudio.blocks` group after `pip
 install -e .`.
 
 **h. Acceptance criteria**:
 - [ ] `get_blocks()` returns exactly 20 classes in the order defined
       above.
 - [ ] `get_types()` returns exactly 4 classes.
-- [ ] All 20 blocks have `package_name == "scieasy-blocks-lcms"`.
+- [ ] All 20 blocks have `package_name == "scistudio-blocks-lcms"`.
 - [ ] All 20 blocks have a `category` in the controlled set.
 - [ ] All 20 `type_name` values are unique.
-- [ ] `importlib.metadata.entry_points(group="scieasy.blocks")` exposes
+- [ ] `importlib.metadata.entry_points(group="scistudio.blocks")` exposes
       the `lcms` entry point.
 - [ ] All 8 entry-point smoke tests pass.
 
@@ -3537,14 +3537,14 @@ workflow integration test with a synthetic AccuCor fixture.
 - This spec §11 (full integration test body).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-lcms/tests/integration/__init__.py`
-- `packages/scieasy-blocks-lcms/tests/integration/fixtures/synthetic_peak_table.csv`
+- `packages/scistudio-blocks-lcms/tests/integration/__init__.py`
+- `packages/scistudio-blocks-lcms/tests/integration/fixtures/synthetic_peak_table.csv`
   (the ElMAVEN-shaped fake peak table).
-- `packages/scieasy-blocks-lcms/tests/integration/fixtures/synthetic_mid_table.csv`
+- `packages/scistudio-blocks-lcms/tests/integration/fixtures/synthetic_mid_table.csv`
   (the AccuCor-shaped fake MID table — long format).
-- `packages/scieasy-blocks-lcms/tests/integration/fixtures/synthetic_sample_metadata.csv`
+- `packages/scistudio-blocks-lcms/tests/integration/fixtures/synthetic_sample_metadata.csv`
   (2 groups × 3 replicates × 1 timepoint).
-- `packages/scieasy-blocks-lcms/tests/integration/test_tracing_workflow.py`
+- `packages/scistudio-blocks-lcms/tests/integration/test_tracing_workflow.py`
   (the pytest integration test).
 
 **d. Files to be modified**: none.
@@ -3572,7 +3572,7 @@ integration test body.
       `UnivariateStats` → `SaveTable`.
 - [ ] The test asserts each block's output is the expected type.
 - [ ] The test asserts the final `SaveTable` writes a file to disk.
-- [ ] Test passes under `pytest packages/scieasy-blocks-lcms/tests/integration/`.
+- [ ] Test passes under `pytest packages/scistudio-blocks-lcms/tests/integration/`.
 
 **i. Out of scope**:
 - Real LC-MS data (the plugin does not ship raw files).
@@ -3642,7 +3642,7 @@ block to hit a round number.)
 ## 11. Integration test — isotope tracing workflow
 
 The full integration test at
-`packages/scieasy-blocks-lcms/tests/integration/test_tracing_workflow.py`.
+`packages/scistudio-blocks-lcms/tests/integration/test_tracing_workflow.py`.
 
 Per master plan §8, this plugin does **not** use the 4 imaging test
 images at `Example/images/` — those are for imaging/SRS. LC-MS uses
@@ -3714,7 +3714,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from scieasy_blocks_lcms import (
+from scistudio_blocks_lcms import (
     Calculate13CEnrichment,
     CompareGroupMID,
     LoadMIDTable,

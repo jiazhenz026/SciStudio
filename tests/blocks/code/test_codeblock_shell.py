@@ -6,14 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.blocks.code.backends import shell
-from scieasy.blocks.code.backends.shell import ShellCodeBlockBackend
-from scieasy.blocks.code.code_block import CodeBlock, CodeBlockExecutionError, CodeBlockRuntimeContext
-from scieasy.blocks.code.config import CodeBlockConfig
-from scieasy.blocks.code.interpreters import InterpreterResolutionError
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.text import Text
+from scistudio.blocks.code.backends import shell
+from scistudio.blocks.code.backends.shell import ShellCodeBlockBackend
+from scistudio.blocks.code.code_block import CodeBlock, CodeBlockExecutionError, CodeBlockRuntimeContext
+from scistudio.blocks.code.config import CodeBlockConfig
+from scistudio.blocks.code.interpreters import InterpreterResolutionError
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.text import Text
 
 
 def _live_shell() -> str | None:
@@ -115,11 +115,11 @@ def test_shell_backend_constructs_deterministic_command_and_exchange_environment
     assert resolved.working_directory == context.exchange_dir.as_posix()
     assert list(resolved.environment) == sorted(resolved.environment)
     assert resolved.environment["SHELL_BACKEND_TEST"] == "1"
-    assert resolved.environment["SCIEASY_CODEBLOCK_EXCHANGE_DIR"] == str(context.exchange_dir.resolve())
-    assert resolved.environment["SCIEASY_CODEBLOCK_INPUTS_DIR"] == str((context.exchange_dir / "inputs").resolve())
-    assert resolved.environment["SCIEASY_CODEBLOCK_OUTPUTS_DIR"] == str((context.exchange_dir / "outputs").resolve())
-    assert resolved.environment["SCIEASY_CODEBLOCK_PROJECT_DIR"] == str(tmp_path.resolve())
-    assert resolved.environment["SCIEASY_CODEBLOCK_SCRIPT_PATH"] == str(context.script_path.resolve())
+    assert resolved.environment["SCISTUDIO_CODEBLOCK_EXCHANGE_DIR"] == str(context.exchange_dir.resolve())
+    assert resolved.environment["SCISTUDIO_CODEBLOCK_INPUTS_DIR"] == str((context.exchange_dir / "inputs").resolve())
+    assert resolved.environment["SCISTUDIO_CODEBLOCK_OUTPUTS_DIR"] == str((context.exchange_dir / "outputs").resolve())
+    assert resolved.environment["SCISTUDIO_CODEBLOCK_PROJECT_DIR"] == str(tmp_path.resolve())
+    assert resolved.environment["SCISTUDIO_CODEBLOCK_SCRIPT_PATH"] == str(context.script_path.resolve())
 
 
 def test_missing_shell_diagnostic_is_clear(tmp_path: Path) -> None:
@@ -163,7 +163,7 @@ cat "$input_file" > outputs/summary/result.txt
     assert block.last_process.returncode == 0
     assert block.last_provenance_payload is not None
     assert block.last_provenance_payload["interpreter"]["family"] == "shell"
-    assert "SCIEASY_CODEBLOCK_EXCHANGE_DIR" in block.last_provenance_payload["environment"]["environment_delta"]
+    assert "SCISTUDIO_CODEBLOCK_EXCHANGE_DIR" in block.last_provenance_payload["environment"]["environment_delta"]
 
 
 @pytest.mark.skipif(_live_shell() is None, reason="POSIX shell is not available for live shell execution")

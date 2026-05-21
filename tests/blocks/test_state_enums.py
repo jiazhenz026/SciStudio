@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from scieasy.blocks.base.state import (
+from scistudio.blocks.base.state import (
     # ADR-020: BatchErrorStrategy, BatchMode, InputDelivery removed
     BlockState,
     ExecutionMode,

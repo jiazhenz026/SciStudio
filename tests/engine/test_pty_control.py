@@ -12,8 +12,8 @@ from typing import Any
 import httpx
 import pytest
 
-from scieasy.engine import pty_control
-from scieasy.engine.pty_control import (
+from scistudio.engine import pty_control
+from scistudio.engine.pty_control import (
     PtyTabSpec,
     notify_block_pty_event,
     request_pty_tab,
@@ -25,8 +25,8 @@ from scieasy.engine.pty_control import (
 def _reset_state(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Clear handler + env between tests so order is irrelevant."""
     set_in_process_handler(None)
-    monkeypatch.delenv("SCIEASY_ENGINE_API_URL", raising=False)
-    monkeypatch.delenv("SCIEASY_ENGINE_IPC_TOKEN", raising=False)
+    monkeypatch.delenv("SCISTUDIO_ENGINE_API_URL", raising=False)
+    monkeypatch.delenv("SCISTUDIO_ENGINE_IPC_TOKEN", raising=False)
     yield
     set_in_process_handler(None)
 
@@ -36,7 +36,7 @@ def _spec() -> PtyTabSpec:
         title="🤖 extract_metadata",
         spawn_argv=["claude", "--append-system-prompt", "@/tmp/p", "--mcp-config", "/tmp/m.json"],
         cwd="/tmp/proj",
-        initial_stdin="Read manifest at .scieasy/...\n",
+        initial_stdin="Read manifest at .scistudio/...\n",
         block_run_id="20260514-001-extract-abc123",
         permission_mode="safe",
     )
@@ -82,7 +82,7 @@ def test_request_pty_tab_non_dict_reply_raises() -> None:
 
 def test_request_pty_tab_no_handler_no_env_raises() -> None:
     # No env, no handler — RuntimeError with actionable message.
-    with pytest.raises(RuntimeError, match="SCIEASY_ENGINE_API_URL"):
+    with pytest.raises(RuntimeError, match="SCISTUDIO_ENGINE_API_URL"):
         request_pty_tab(_spec())
 
 
@@ -104,8 +104,8 @@ class _FakeResponse:
 
 
 def test_request_pty_tab_http_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SCIEASY_ENGINE_API_URL", "http://127.0.0.1:8000")
-    monkeypatch.setenv("SCIEASY_ENGINE_IPC_TOKEN", "secret-token")
+    monkeypatch.setenv("SCISTUDIO_ENGINE_API_URL", "http://127.0.0.1:8000")
+    monkeypatch.setenv("SCISTUDIO_ENGINE_IPC_TOKEN", "secret-token")
     captured: dict[str, Any] = {}
 
     def fake_post(url: str, **kw: Any) -> _FakeResponse:
@@ -119,13 +119,13 @@ def test_request_pty_tab_http_happy_path(monkeypatch: pytest.MonkeyPatch) -> Non
     tab_id = request_pty_tab(_spec())
     assert tab_id == "tab-http-1"
     assert captured["url"] == "http://127.0.0.1:8000/api/ai/pty/internal/request-tab"
-    assert captured["headers"]["X-SciEasy-IPC-Token"] == "secret-token"
+    assert captured["headers"]["X-SciStudio-IPC-Token"] == "secret-token"
     assert captured["json"]["type"] == "request_pty_tab"
     assert captured["timeout"] == pty_control._DEFAULT_REQUEST_TIMEOUT_S
 
 
 def test_request_pty_tab_http_503_cap_exceeded(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SCIEASY_ENGINE_API_URL", "http://127.0.0.1:8000")
+    monkeypatch.setenv("SCISTUDIO_ENGINE_API_URL", "http://127.0.0.1:8000")
 
     def fake_post(url: str, **kw: Any) -> _FakeResponse:
         return _FakeResponse(503, text="cap reached")
@@ -136,7 +136,7 @@ def test_request_pty_tab_http_503_cap_exceeded(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_request_pty_tab_http_timeout_raises_timeout_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SCIEASY_ENGINE_API_URL", "http://127.0.0.1:8000")
+    monkeypatch.setenv("SCISTUDIO_ENGINE_API_URL", "http://127.0.0.1:8000")
 
     def fake_post(url: str, **kw: Any) -> _FakeResponse:
         raise httpx.ConnectTimeout("timed out")
@@ -147,7 +147,7 @@ def test_request_pty_tab_http_timeout_raises_timeout_error(monkeypatch: pytest.M
 
 
 def test_request_pty_tab_http_transport_error_raises_broken_pipe(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SCIEASY_ENGINE_API_URL", "http://127.0.0.1:8000")
+    monkeypatch.setenv("SCISTUDIO_ENGINE_API_URL", "http://127.0.0.1:8000")
 
     def fake_post(url: str, **kw: Any) -> _FakeResponse:
         raise httpx.ConnectError("connection refused")
@@ -215,11 +215,11 @@ def test_notify_no_env_no_handler_logs_and_returns(
 ) -> None:
     # No env, no handler — should log and return cleanly (NOT raise).
     notify_block_pty_event("rid-no-env", "completed")
-    assert any("SCIEASY_ENGINE_API_URL" in rec.message for rec in caplog.records)
+    assert any("SCISTUDIO_ENGINE_API_URL" in rec.message for rec in caplog.records)
 
 
 def test_notify_http_swallows_transport_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SCIEASY_ENGINE_API_URL", "http://127.0.0.1:8000")
+    monkeypatch.setenv("SCISTUDIO_ENGINE_API_URL", "http://127.0.0.1:8000")
     monkeypatch.setattr(
         httpx,
         "post",

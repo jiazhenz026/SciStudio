@@ -1,7 +1,7 @@
 # Collection Guide
 
 This document covers patterns for working with Collections -- the
-standard block-to-block transport wrapper in SciEasy.
+standard block-to-block transport wrapper in SciStudio.
 
 ---
 
@@ -20,7 +20,7 @@ standard block-to-block transport wrapper in SciEasy.
 
 ## What is Collection?
 
-`Collection` (`scieasy.core.types.collection.Collection`) is a
+`Collection` (`scistudio.core.types.collection.Collection`) is a
 homogeneous ordered container of DataObject instances. It is the standard
 block-to-block transport type.
 
@@ -42,7 +42,7 @@ only the receiving block decides how to iterate.
 ### From a list of items (type inferred)
 
 ```python
-from scieasy.core.types.collection import Collection
+from scistudio.core.types.collection import Collection
 
 coll = Collection(items=[img1, img2, img3])
 # item_type is inferred from type(img1)

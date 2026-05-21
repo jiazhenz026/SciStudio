@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from scieasy.engine.resources import ResourceManager, ResourceRequest, ResourceSnapshot
+from scistudio.engine.resources import ResourceManager, ResourceRequest, ResourceSnapshot
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -264,7 +264,7 @@ class TestAvailableProperty:
 class TestEventBusAutoRelease:
     @patch("psutil.virtual_memory", return_value=_mock_vm(50.0))
     def test_auto_release_on_block_done(self, _mock):
-        from scieasy.engine.events import BLOCK_DONE, EngineEvent, EventBus
+        from scistudio.engine.events import BLOCK_DONE, EngineEvent, EventBus
 
         bus = EventBus()
         rm = ResourceManager(cpu_workers=4, gpu_slots=2, event_bus=bus)
@@ -287,7 +287,7 @@ class TestEventBusAutoRelease:
 
     @patch("psutil.virtual_memory", return_value=_mock_vm(50.0))
     def test_auto_release_on_block_error(self, _mock):
-        from scieasy.engine.events import BLOCK_ERROR, EngineEvent, EventBus
+        from scistudio.engine.events import BLOCK_ERROR, EngineEvent, EventBus
 
         bus = EventBus()
         rm = ResourceManager(gpu_slots=0, cpu_workers=4, event_bus=bus)
@@ -304,7 +304,7 @@ class TestEventBusAutoRelease:
 
     @patch("psutil.virtual_memory", return_value=_mock_vm(50.0))
     def test_auto_release_on_block_cancelled(self, _mock):
-        from scieasy.engine.events import BLOCK_CANCELLED, EngineEvent, EventBus
+        from scistudio.engine.events import BLOCK_CANCELLED, EngineEvent, EventBus
 
         bus = EventBus()
         rm = ResourceManager(gpu_slots=0, cpu_workers=4, event_bus=bus)
@@ -320,7 +320,7 @@ class TestEventBusAutoRelease:
 
     @patch("psutil.virtual_memory", return_value=_mock_vm(50.0))
     def test_auto_release_on_process_exited(self, _mock):
-        from scieasy.engine.events import PROCESS_EXITED, EngineEvent, EventBus
+        from scistudio.engine.events import PROCESS_EXITED, EngineEvent, EventBus
 
         bus = EventBus()
         rm = ResourceManager(gpu_slots=0, cpu_workers=4, event_bus=bus)
@@ -336,7 +336,7 @@ class TestEventBusAutoRelease:
 
     @patch("psutil.virtual_memory", return_value=_mock_vm(50.0))
     def test_event_for_unknown_block_id_is_ignored(self, _mock):
-        from scieasy.engine.events import BLOCK_DONE, EngineEvent, EventBus
+        from scistudio.engine.events import BLOCK_DONE, EngineEvent, EventBus
 
         bus = EventBus()
         rm = ResourceManager(gpu_slots=0, cpu_workers=4, event_bus=bus)

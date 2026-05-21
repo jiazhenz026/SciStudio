@@ -14,7 +14,7 @@
   ],
   "check_results": [
     {
-      "command_or_tool": "ruff check src/scieasy/qa/governance/mod_guard.py tests/qa/test_governance_mod_guard.py && ruff format --check src/scieasy/qa/governance/mod_guard.py tests/qa/test_governance_mod_guard.py",
+      "command_or_tool": "ruff check src/scistudio/qa/governance/mod_guard.py tests/qa/test_governance_mod_guard.py && ruff format --check src/scistudio/qa/governance/mod_guard.py tests/qa/test_governance_mod_guard.py",
       "exit_code": 0,
       "name": "ruff",
       "output_path": "ruff check passed; ruff format --check passed",
@@ -32,7 +32,7 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "PYTHONPATH=src python -m scieasy.qa.audit.frontmatter_lint docs/adr/ADR-042.md docs/specs/adr-042-documentation-tools.md --format text",
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.audit.frontmatter_lint docs/adr/ADR-042.md docs/specs/adr-042-documentation-tools.md --format text",
       "exit_code": 0,
       "name": "frontmatter-lint",
       "output_path": "passed: governing ADR/spec frontmatter check",
@@ -73,12 +73,12 @@
   },
   "full_audit": {
     "blocks_merge": true,
-    "command": "PYTHONPATH=src python -m scieasy.qa.audit.full_audit --repo-root . --format json --output %TEMP%\\scieasy-1316-full-audit.json --no-stale-check",
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output %TEMP%\\scistudio-1316-full-audit.json --no-stale-check",
     "exit_code": 1,
     "known_debt": [
       "pre-existing ADR/frontmatter/closure/signature/architecture drift baseline unrelated to .workflow/records whitelist and checklist"
     ],
-    "output_path": "C:\\Users\\jiazh\\AppData\\Local\\Temp\\scieasy-1316-full-audit.json",
+    "output_path": "C:\\Users\\jiazh\\AppData\\Local\\Temp\\scistudio-1316-full-audit.json",
     "status": "fail",
     "summary": {},
     "unclassified_failures": []
@@ -89,12 +89,12 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1316,
-      "url": "https://github.com/zjzcpj/SciEasy/issues/1316"
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1316"
     }
   ],
   "owner_directive": "Whitelist only .workflow/records/** in governance modification guard so every agent can commit gate records without broad governance approval; keep all other protected files guarded. Also keep ADR-042 documentation-generation checklist tracking.",
   "planned_files": [
-    "src/scieasy/qa/governance/mod_guard.py",
+    "src/scistudio/qa/governance/mod_guard.py",
     "tests/qa/test_governance_mod_guard.py",
     "docs/planning/adr-042-documentation-generation-checklist.md",
     ".workflow/records/1316-workflow-records-mod-guard-whitelist.json"
@@ -105,7 +105,7 @@
       1314
     ],
     "number": 1317,
-    "url": "https://github.com/zjzcpj/SciEasy/pull/1317"
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1317"
   },
   "record_path": ".workflow/records/1316-workflow-records-mod-guard-whitelist.json",
   "required_checks": [
@@ -121,14 +121,14 @@
       "frontend/**"
     ],
     "include": [
-      "src/scieasy/qa/governance/mod_guard.py",
+      "src/scistudio/qa/governance/mod_guard.py",
       "tests/qa/test_governance_mod_guard.py",
       "docs/planning/adr-042-documentation-generation-checklist.md",
       ".workflow/records/1316-workflow-records-mod-guard-whitelist.json"
     ]
   },
   "sentrux": {
-    "command_or_tool": "C:\\Users\\jiazh\\Desktop\\workspace\\SciEasy\\sentrux.exe check .",
+    "command_or_tool": "C:\\Users\\jiazh\\Desktop\\workspace\\SciStudio\\sentrux.exe check .",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
     "output_path": "sentrux check: 11 rules checked; Quality 4130; all rules pass",

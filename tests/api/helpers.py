@@ -7,8 +7,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from scieasy.api.runtime import ApiRuntime, WorkflowRun
-from scieasy.blocks.base.state import BlockState
+from scistudio.api.runtime import ApiRuntime, WorkflowRun
+from scistudio.blocks.base.state import BlockState
 
 
 def wait_for_condition(

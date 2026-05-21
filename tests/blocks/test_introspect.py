@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.blocks.code.introspect import (
+from scistudio.blocks.code.introspect import (
     _annotation_to_type_name,
     _params_to_port_dicts,
     introspect_script,
@@ -53,7 +53,7 @@ class TestAnnotationToTypeName:
         assert _annotation_to_type_name("Subscript(value=Name(id='Optional'), ...)") == "DataObject"
 
     def test_attribute_annotation_falls_back(self) -> None:
-        assert _annotation_to_type_name("Attribute(value=Name(id='scieasy'), attr='Image')") == "DataObject"
+        assert _annotation_to_type_name("Attribute(value=Name(id='scistudio'), attr='Image')") == "DataObject"
 
     def test_empty_string_falls_back(self) -> None:
         assert _annotation_to_type_name("") == "DataObject"

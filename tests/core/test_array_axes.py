@@ -18,8 +18,8 @@ import numpy as np
 import pytest
 from pydantic import BaseModel
 
-from scieasy.core.types.array import Array
-from scieasy.core.types.base import TypeSignature
+from scistudio.core.types.array import Array
+from scistudio.core.types.base import TypeSignature
 
 # ---------------------------------------------------------------------------
 # Test fixtures
@@ -66,9 +66,9 @@ def _backed_array(axes: list[str], data: np.ndarray) -> Array:
 
     import zarr
 
-    from scieasy.core.storage.ref import StorageReference
+    from scistudio.core.storage.ref import StorageReference
 
-    tmpdir = tempfile.mkdtemp(prefix="scieasy_test_")
+    tmpdir = tempfile.mkdtemp(prefix="scistudio_test_")
     zarr_path = f"{tmpdir}/{uuid.uuid4()}.zarr"
     zarr.save(zarr_path, data)
     ref = StorageReference(
@@ -186,11 +186,11 @@ class TestArraySel:
 
         import zarr
 
-        from scieasy.core.storage.ref import StorageReference
+        from scistudio.core.storage.ref import StorageReference
 
         meta = _TestArrayMeta(sample_id="s1", exposure_ms=12.5)
         data = np.zeros((5, 5), dtype="float32")
-        tmpdir = tempfile.mkdtemp(prefix="scieasy_test_")
+        tmpdir = tempfile.mkdtemp(prefix="scistudio_test_")
         zarr_path = f"{tmpdir}/{uuid.uuid4()}.zarr"
         zarr.save(zarr_path, data)
         ref = StorageReference(backend="zarr", path=zarr_path, metadata={"shape": [5, 5], "dtype": "float32"})
@@ -226,10 +226,10 @@ class TestArraySel:
 
         import zarr
 
-        from scieasy.core.storage.ref import StorageReference
+        from scistudio.core.storage.ref import StorageReference
 
         data = np.zeros((5, 5), dtype="float32")
-        tmpdir = tempfile.mkdtemp(prefix="scieasy_test_")
+        tmpdir = tempfile.mkdtemp(prefix="scistudio_test_")
         zarr_path = f"{tmpdir}/{uuid.uuid4()}.zarr"
         zarr.save(zarr_path, data)
         ref = StorageReference(backend="zarr", path=zarr_path, metadata={"shape": [5, 5], "dtype": "float32"})
@@ -373,7 +373,7 @@ class TestTypeSignatureRequiredAxes:
         assert sig.required_axes == frozenset({"c"})
 
     def test_non_array_signature_has_no_required_axes(self) -> None:
-        from scieasy.core.types.series import Series
+        from scistudio.core.types.series import Series
 
         sig = TypeSignature.from_type(Series)
         assert sig.required_axes is None

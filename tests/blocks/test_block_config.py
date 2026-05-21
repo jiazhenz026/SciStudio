@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.result import BlockResult
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.result import BlockResult
 
 
 class TestBlockConfig:

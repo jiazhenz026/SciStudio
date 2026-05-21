@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.workflow.serializer import absolutify_paths, relativify_paths
+from scistudio.workflow.serializer import absolutify_paths, relativify_paths
 
 # Sample config schema with file_browser and directory_browser widgets.
 SCHEMA = {

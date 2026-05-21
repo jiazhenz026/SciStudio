@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from scieasy.blocks.code.runner_registry import RunnerRegistry
-from scieasy.blocks.code.runners.python_runner import PythonRunner
+from scistudio.blocks.code.runner_registry import RunnerRegistry
+from scistudio.blocks.code.runners.python_runner import PythonRunner
 
 
 class _FakeRunner:

@@ -24,16 +24,16 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from scieasy.blocks.base.state import BlockState
-from scieasy.engine.events import (
+from scistudio.blocks.base.state import BlockState
+from scistudio.engine.events import (
     BLOCK_RUNNING,
     CANCEL_BLOCK_REQUEST,
     CANCEL_WORKFLOW_REQUEST,
     EngineEvent,
     EventBus,
 )
-from scieasy.engine.scheduler import DAGScheduler
-from scieasy.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
+from scistudio.engine.scheduler import DAGScheduler
+from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
 
 # ---------------------------------------------------------------------------
 # Helpers

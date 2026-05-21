@@ -32,9 +32,9 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.blocks.app.app_block import AppBlock
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.state import BlockState
+from scistudio.blocks.app.app_block import AppBlock
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.state import BlockState
 from tests.fixtures.test_images import K562_L_2845_TIF
 
 FIJI_EXE = Path(r"C:\Program Files\Fiji\fiji-windows-x64.exe")
@@ -205,7 +205,7 @@ def test_appblock_fiji_process_cleanup(tmp_path: Path) -> None:
 
     # Patch only within the bridge module to avoid interfering with
     # unrelated subprocesses (e.g. pytest's own plumbing).
-    import scieasy.blocks.app.bridge as bridge_mod
+    import scistudio.blocks.app.bridge as bridge_mod
 
     original = bridge_mod.subprocess.Popen
     bridge_mod.subprocess.Popen = _CapturingPopen  # type: ignore[attr-defined,misc]
@@ -260,10 +260,10 @@ def test_appblock_exchange_dir_cleanup(tmp_path: Path) -> None:
     import tempfile as _tempfile
 
     tempdir_root = Path(_tempfile.gettempdir())
-    before = {p for p in tempdir_root.glob("scieasy_app_*") if p.is_dir()}
+    before = {p for p in tempdir_root.glob("scistudio_app_*") if p.is_dir()}
 
     block.run(inputs={}, config=config)
 
-    after = {p for p in tempdir_root.glob("scieasy_app_*") if p.is_dir()}
+    after = {p for p in tempdir_root.glob("scistudio_app_*") if p.is_dir()}
     created = after - before
     assert not created, f"AppBlock left tempfile exchange dir(s) on disk after successful run: {created}"

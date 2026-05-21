@@ -81,7 +81,7 @@ function makeDetail(
   return {
     run: makeRun(),
     blocks: [makeBlock()],
-    environment_snapshot: { scieasy: "0.1.0" },
+    environment_snapshot: { scistudio: "0.1.0" },
     workflow_yaml_snapshot: "id: image_pipeline\nblocks: []\n",
     ...overrides,
   };

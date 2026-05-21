@@ -33,11 +33,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import ClassVar
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.io.io_block import IOBlock
-from scieasy.core.storage.ref import StorageReference
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.io.io_block import IOBlock
+from scistudio.core.storage.ref import StorageReference
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
 
 
 class NoopIOBlock(IOBlock):

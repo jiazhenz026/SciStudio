@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from scieasy.qa.governance.core_change_guard import check
-from scieasy.qa.schemas.report import AuditStatus
+from scistudio.qa.governance.core_change_guard import check
+from scistudio.qa.schemas.report import AuditStatus
 
 
 def _pr(label: str, permission: str = "admin") -> dict[str, object]:
@@ -19,7 +19,7 @@ def test_core_change_guard_passes_unprotected_files() -> None:
 
 
 def test_core_change_guard_blocks_protected_core_without_approval() -> None:
-    report = check(changed_files=["src/scieasy/core/runtime.py"], pr={})
+    report = check(changed_files=["src/scistudio/core/runtime.py"], pr={})
 
     assert report.status == AuditStatus.FAIL
     assert "core_change_guard.missing-admin-approval" in {finding.rule_id for finding in report.findings}
@@ -27,7 +27,7 @@ def test_core_change_guard_blocks_protected_core_without_approval() -> None:
 
 def test_core_change_guard_accepts_authorized_core_change_label() -> None:
     report = check(
-        changed_files=["src/scieasy/qa/governance/human_bypass_guard.py"],
+        changed_files=["src/scistudio/qa/governance/human_bypass_guard.py"],
         pr=_pr("admin-approved:core-change"),
     )
 
@@ -37,7 +37,7 @@ def test_core_change_guard_accepts_authorized_core_change_label() -> None:
 
 def test_core_change_guard_rejects_misspelled_or_unauthorized_label() -> None:
     report = check(
-        changed_files=["src/scieasy/qa/governance/human_bypass_guard.py"],
+        changed_files=["src/scistudio/qa/governance/human_bypass_guard.py"],
         pr=_pr("admin-approved:corechange"),
     )
 
@@ -46,7 +46,7 @@ def test_core_change_guard_rejects_misspelled_or_unauthorized_label() -> None:
 
 def test_core_change_guard_accepts_admin_approval_review() -> None:
     report = check(
-        changed_files=["src/scieasy/workflow/graph.py"],
+        changed_files=["src/scistudio/workflow/graph.py"],
         pr={"reviews": [{"state": "APPROVED", "actor": "owner", "permission": "maintain"}]},
     )
 

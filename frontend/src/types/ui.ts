@@ -7,7 +7,7 @@ import type { BlockPortResponse, BlockSchemaResponse, BlockSummary } from "./api
  * (ADR-039, #972) are both first-class entries.
  *
  * The "jobs" placeholder was removed by ADR-038 §3.8 (run history now
- * lives in `<project>/.scieasy/lineage.db` and is surfaced in Lineage).
+ * lives in `<project>/.scistudio/lineage.db` and is surfaced in Lineage).
  * ADR-039 was developed in parallel and still referenced `"jobs"` on its
  * track; the integration takes the ADR-038 removal and adds the ADR-039
  * `"git"` tab on top.

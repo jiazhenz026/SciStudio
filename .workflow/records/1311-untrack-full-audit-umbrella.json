@@ -38,7 +38,7 @@
   },
   "full_audit": {
     "blocks_merge": false,
-    "command": "python -m scieasy.qa.audit.full_audit",
+    "command": "python -m scistudio.qa.audit.full_audit",
     "exit_code": 0,
     "known_debt": [
       "owner-acknowledged"
@@ -54,7 +54,7 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1311,
-      "url": "https://github.com/zjzcpj/SciEasy/issues/1311"
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1311"
     }
   ],
   "owner_directive": "Two-layer fix for recurring docs/audit/full-audit-latest.json track/merge conflict on umbrella PR #1297. Layer 1: git rm --cached. Layer 2: pre-commit denylist.",
@@ -64,7 +64,7 @@
       1311
     ],
     "number": 1312,
-    "url": "https://github.com/zjzcpj/SciEasy/pull/1312"
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1312"
   },
   "record_path": ".workflow/records/1311-untrack-full-audit-umbrella.json",
   "required_checks": [

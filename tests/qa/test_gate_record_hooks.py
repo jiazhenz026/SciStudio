@@ -22,7 +22,7 @@ def test_hook_wrappers_use_gate_record_cli_and_not_legacy_gate() -> None:
 
     for path in paths:
         text = _text(path)
-        assert "scieasy.qa.governance.gate_record" in text
+        assert "scistudio.qa.governance.gate_record" in text
         assert ".workflow/gate.py" not in text
         assert ".workflow/active" not in text
 
@@ -32,13 +32,13 @@ def test_pre_commit_config_exposes_gate_record_hooks() -> None:
     local_repo = next(repo for repo in config["repos"] if repo["repo"] == "local")
     hooks = {hook["id"]: hook for hook in local_repo["hooks"]}
 
-    assert hooks["scieasy-gate-record-pre-commit"]["entry"] == (
-        "python scripts/hooks/run_python_module.py scieasy.qa.governance.gate_record pre-commit --staged"
+    assert hooks["scistudio-gate-record-pre-commit"]["entry"] == (
+        "python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record pre-commit --staged"
     )
-    assert hooks["scieasy-gate-record-commit-msg"]["entry"] == (
-        "python scripts/hooks/run_python_module.py scieasy.qa.governance.gate_record commit-msg"
+    assert hooks["scistudio-gate-record-commit-msg"]["entry"] == (
+        "python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record commit-msg"
     )
-    assert hooks["scieasy-gate-record-commit-msg"]["stages"] == ["commit-msg"]
+    assert hooks["scistudio-gate-record-commit-msg"]["stages"] == ["commit-msg"]
 
 
 def test_pre_commit_config_uses_src_layout_launcher_for_local_python_hooks() -> None:
@@ -53,7 +53,7 @@ def test_git_pre_commit_wrapper_uses_src_layout_launcher() -> None:
     hook = _text(".workflow/hooks/pre-commit")
 
     assert 'scripts" / "hooks" / "run_python_module.py' in hook
-    assert "scieasy.qa.governance.gate_record" in hook
+    assert "scistudio.qa.governance.gate_record" in hook
 
 
 def test_legacy_gate_py_removed() -> None:
@@ -80,7 +80,7 @@ def test_local_push_and_pr_hooks_accept_adr042_override_labels() -> None:
         assert "admin-approved:ai-override" in hook
         assert "admin-approved:core-change" in hook
         assert "admin-approved:merge" in hook
-        assert "SCIEASY_GATE_BYPASS_LABELS" in hook
+        assert "SCISTUDIO_GATE_BYPASS_LABELS" in hook
         assert "ADR-042 local gate bypassed by approved override label" in hook
 
     assert "--label" in pr_hook

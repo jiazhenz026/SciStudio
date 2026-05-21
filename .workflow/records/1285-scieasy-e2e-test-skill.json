@@ -5,12 +5,12 @@
       "approved_by": null,
       "exclude": [],
       "include": [
-        ".workflow/records/1285-scieasy-e2e-test-skill.json"
+        ".workflow/records/1285-scistudio-e2e-test-skill.json"
       ],
       "reason": "include the gate record file itself in scope (the record commits alongside the work)"
     }
   ],
-  "branch": "feat/scieasy-e2e-skill",
+  "branch": "feat/scistudio-e2e-skill",
   "changed_test_paths": [],
   "check_results": [
     {
@@ -33,7 +33,7 @@
     }
   ],
   "commit": {
-    "gate_record_path": ".workflow/records/1285-scieasy-e2e-test-skill.json",
+    "gate_record_path": ".workflow/records/1285-scistudio-e2e-test-skill.json",
     "shas": [
       "7f7dc09a7aff63d9fcc211c5967a62f6da68220c"
     ],
@@ -50,18 +50,18 @@
       "paths": [
         "docs/ai-developer/e2e/template.md",
         "docs/ai-developer/e2e/README.md",
-        "docs/ai-developer/skills/scieasy-e2e-test/SKILL.md",
-        "docs/ai-developer/skills/scieasy-e2e-test/references/chrome-mcp-recipes.md",
-        "docs/ai-developer/skills/scieasy-e2e-test/references/dev-server-lifecycle.md",
-        "docs/ai-developer/skills/scieasy-e2e-test/references/screenshot-recipes.md",
-        "docs/ai-developer/skills/scieasy-e2e-test/references/report-template.md",
+        "docs/ai-developer/skills/scistudio-e2e-test/SKILL.md",
+        "docs/ai-developer/skills/scistudio-e2e-test/references/chrome-mcp-recipes.md",
+        "docs/ai-developer/skills/scistudio-e2e-test/references/dev-server-lifecycle.md",
+        "docs/ai-developer/skills/scistudio-e2e-test/references/screenshot-recipes.md",
+        "docs/ai-developer/skills/scistudio-e2e-test/references/report-template.md",
         "AGENTS.md",
         ".claude/rules/rules.md",
         ".agents/rules/rules.md",
         ".codex/rules/rules.md",
-        ".claude/skills/scieasy-e2e-test/SKILL.md",
-        ".agents/skills/scieasy-e2e-test/SKILL.md",
-        ".codex/skills/scieasy-e2e-test/SKILL.md",
+        ".claude/skills/scistudio-e2e-test/SKILL.md",
+        ".agents/skills/scistudio-e2e-test/SKILL.md",
+        ".codex/skills/scistudio-e2e-test/SKILL.md",
         "CHANGELOG.md"
       ]
     },
@@ -76,10 +76,10 @@
   },
   "full_audit": {
     "blocks_merge": false,
-    "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
     "exit_code": 0,
     "known_debt": [
-      "all failing findings are pre-existing repo-wide debt (frontmatter/doc-drift/closure/signature-drift/architecture-drift on docs untouched by this PR: ADR-031..035, ADR-042 spec, architecture doc); this PR adds only .md files under docs/ai-developer/{e2e,skills/scieasy-e2e-test} plus pointer .md files, none of which appear in the failing findings"
+      "all failing findings are pre-existing repo-wide debt (frontmatter/doc-drift/closure/signature-drift/architecture-drift on docs untouched by this PR: ADR-031..035, ADR-042 spec, architecture doc); this PR adds only .md files under docs/ai-developer/{e2e,skills/scistudio-e2e-test} plus pointer .md files, none of which appear in the failing findings"
     ],
     "output_path": "docs/audit/full-audit-latest.json",
     "status": "pass",
@@ -95,18 +95,18 @@
       "url": null
     }
   ],
-  "owner_directive": "Add a scieasy-e2e-test skill and a fill-in e2e scenario template under docs/ai-developer/e2e/ (request from owner on 2026-05-20).",
+  "owner_directive": "Add a scistudio-e2e-test skill and a fill-in e2e scenario template under docs/ai-developer/e2e/ (request from owner on 2026-05-20).",
   "planned_files": [
-    "docs/ai-developer/skills/scieasy-e2e-test/SKILL.md",
-    "docs/ai-developer/skills/scieasy-e2e-test/references/chrome-mcp-recipes.md",
-    "docs/ai-developer/skills/scieasy-e2e-test/references/dev-server-lifecycle.md",
-    "docs/ai-developer/skills/scieasy-e2e-test/references/screenshot-recipes.md",
-    "docs/ai-developer/skills/scieasy-e2e-test/references/report-template.md",
+    "docs/ai-developer/skills/scistudio-e2e-test/SKILL.md",
+    "docs/ai-developer/skills/scistudio-e2e-test/references/chrome-mcp-recipes.md",
+    "docs/ai-developer/skills/scistudio-e2e-test/references/dev-server-lifecycle.md",
+    "docs/ai-developer/skills/scistudio-e2e-test/references/screenshot-recipes.md",
+    "docs/ai-developer/skills/scistudio-e2e-test/references/report-template.md",
     "docs/ai-developer/e2e/template.md",
     "docs/ai-developer/e2e/README.md",
-    ".claude/skills/scieasy-e2e-test/SKILL.md",
-    ".agents/skills/scieasy-e2e-test/SKILL.md",
-    ".codex/skills/scieasy-e2e-test/SKILL.md",
+    ".claude/skills/scistudio-e2e-test/SKILL.md",
+    ".agents/skills/scistudio-e2e-test/SKILL.md",
+    ".codex/skills/scistudio-e2e-test/SKILL.md",
     "AGENTS.md",
     ".claude/rules/rules.md",
     ".agents/rules/rules.md",
@@ -118,9 +118,9 @@
       1285
     ],
     "number": 1286,
-    "url": "https://github.com/zjzcpj/SciEasy/pull/1286"
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1286"
   },
-  "record_path": ".workflow/records/1285-scieasy-e2e-test-skill.json",
+  "record_path": ".workflow/records/1285-scistudio-e2e-test-skill.json",
   "required_checks": [
     "ruff",
     "format",
@@ -131,11 +131,11 @@
   "scope": {
     "exclude": [],
     "include": [
-      "docs/ai-developer/skills/scieasy-e2e-test/**",
+      "docs/ai-developer/skills/scistudio-e2e-test/**",
       "docs/ai-developer/e2e/**",
-      ".claude/skills/scieasy-e2e-test/**",
-      ".agents/skills/scieasy-e2e-test/**",
-      ".codex/skills/scieasy-e2e-test/**",
+      ".claude/skills/scistudio-e2e-test/**",
+      ".agents/skills/scistudio-e2e-test/**",
+      ".codex/skills/scistudio-e2e-test/**",
       "AGENTS.md",
       ".claude/rules/rules.md",
       ".agents/rules/rules.md",
@@ -194,6 +194,6 @@
       "summary": null
     }
   ],
-  "task_id": "1285-scieasy-e2e-test-skill",
+  "task_id": "1285-scistudio-e2e-test-skill",
   "task_kind": "docs"
 }

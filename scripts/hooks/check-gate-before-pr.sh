@@ -17,7 +17,7 @@ if [ -z "$BRANCH" ] || [ "$BRANCH" = "main" ] || [ "$BRANCH" = "HEAD" ]; then
   exit 0
 fi
 
-BYPASS_LABELS=$(SCIEASY_CMD="$CMD" python - <<'PY'
+BYPASS_LABELS=$(SCISTUDIO_CMD="$CMD" python - <<'PY'
 import os
 import shlex
 
@@ -28,11 +28,11 @@ valid = {
     "admin-approved:merge",
 }
 labels: set[str] = set()
-for raw in os.environ.get("SCIEASY_GATE_BYPASS_LABELS", "").replace(",", " ").split():
+for raw in os.environ.get("SCISTUDIO_GATE_BYPASS_LABELS", "").replace(",", " ").split():
     labels.add(raw.strip())
 
 try:
-    tokens = shlex.split(os.environ.get("SCIEASY_CMD", ""))
+    tokens = shlex.split(os.environ.get("SCISTUDIO_CMD", ""))
 except ValueError:
     tokens = []
 index = 0
@@ -59,7 +59,7 @@ print("\n".join(sorted(override_like)))
 PY
 )
 
-BASE_REF="${SCIEASY_GATE_BASE:-origin/main}"
+BASE_REF="${SCISTUDIO_GATE_BASE:-origin/main}"
 LABEL_ARGS=()
 while IFS= read -r label; do
   [ -n "$label" ] || continue
@@ -69,7 +69,7 @@ $BYPASS_LABELS
 EOF
 
 if [ -n "$BYPASS_LABELS" ]; then
-  OUTPUT=$(PYTHONPATH=src python -m scieasy.qa.governance.gate_record pr-ready \
+  OUTPUT=$(PYTHONPATH=src python -m scistudio.qa.governance.gate_record pr-ready \
     --repo-root . \
     --base "$BASE_REF" \
     --head HEAD \
@@ -88,7 +88,7 @@ if ! echo "$CMD" | grep -qiE '(closes|fixes|resolves)[[:space:]]+#?[0-9]+'; then
   exit 0
 fi
 
-OUTPUT=$(PYTHONPATH=src python -m scieasy.qa.governance.gate_record pr-ready \
+OUTPUT=$(PYTHONPATH=src python -m scistudio.qa.governance.gate_record pr-ready \
   --repo-root . \
   --base "$BASE_REF" \
   --head HEAD \

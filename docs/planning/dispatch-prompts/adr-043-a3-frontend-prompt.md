@@ -2,7 +2,7 @@
 
 ## Task Identity
 
-- Repository: SciEasy
+- Repository: SciStudio
 - Owner request: Add frontend UI for ADR-043 capability selection (dropdown on port editor), OME metadata browser panel on output preview, and lossy-save warning chip on SaveImage nodes.
 - Task kind: feature
 - Persona: implementer
@@ -47,7 +47,7 @@ You own only:
 
 You must not touch:
 
-- Any backend code (`src/scieasy/**`, `packages/**`).
+- Any backend code (`src/scistudio/**`, `packages/**`).
 - Other frontend components beyond the integration points listed above.
 - Other agents' branches/worktrees.
 - The spec doc.
@@ -111,7 +111,7 @@ Known deferred items:
 - Lint: `npm run lint` or equivalent eslint config.
 - Mandatory Chrome smoke (see T-024).
 - DO NOT use `npm run dev` for verification (per saved hygiene rule — stale dev server hygiene); use `vitest run` and the Chrome smoke harness.
-- `python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` — record. Pre-existing debt is owner-acknowledged.
+- `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` — record. Pre-existing debt is owner-acknowledged.
 - Sentrux: skipped with rationale if CLI unavailable.
 
 ## Gate Record Stages You Must Execute

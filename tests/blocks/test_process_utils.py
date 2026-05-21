@@ -5,8 +5,8 @@ from __future__ import annotations
 import pyarrow as pa
 import pytest
 
-from scieasy.blocks.process.utils import to_arrow
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.blocks.process.utils import to_arrow
+from scistudio.core.types.dataframe import DataFrame
 
 
 class TestToArrow:
@@ -23,8 +23,8 @@ class TestToArrow:
 
     def test_from_dataframe_with_storage_ref(self, tmp_path: pytest.TempPathFactory) -> None:
         """DataFrame with storage_ref returns Arrow table via get_in_memory_data."""
-        from scieasy.core.storage.arrow_backend import ArrowBackend
-        from scieasy.core.storage.ref import StorageReference
+        from scistudio.core.storage.arrow_backend import ArrowBackend
+        from scistudio.core.storage.ref import StorageReference
 
         table = pa.table({"x": [10, 20]})
         backend = ArrowBackend()

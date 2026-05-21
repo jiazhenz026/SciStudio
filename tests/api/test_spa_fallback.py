@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from scieasy.api.spa import SPAStaticFiles
+from scistudio.api.spa import SPAStaticFiles
 
 
 def _make_spa_app(static_dir: Path) -> FastAPI:

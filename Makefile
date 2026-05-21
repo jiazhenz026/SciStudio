@@ -8,10 +8,10 @@ lint:
 	ruff format --check src/ tests/
 
 typecheck:
-	mypy src/scieasy/
+	mypy src/scistudio/
 
 test:
 	pytest
 
 serve:
-	uvicorn scieasy.api.app:create_app --factory --reload --host 0.0.0.0 --port 8000
+	uvicorn scistudio.api.app:create_app --factory --reload --host 0.0.0.0 --port 8000

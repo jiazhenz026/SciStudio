@@ -18,9 +18,9 @@ from typing import Any
 
 import pytest
 
-from scieasy.ai.agent.mcp import _context, tools_workflow
-from scieasy.blocks.registry import BlockRegistry
-from scieasy.core.types.registry import TypeRegistry
+from scistudio.ai.agent.mcp import _context, tools_workflow
+from scistudio.blocks.registry import BlockRegistry
+from scistudio.core.types.registry import TypeRegistry
 
 # --- Stub MCPContext -------------------------------------------------------
 

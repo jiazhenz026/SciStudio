@@ -1,9 +1,9 @@
 ---
 name: audit-reviewer
-description: Use when acting as the SciEasy audit reviewer persona for reviews, audits, CI investigation, drift detection, conformance checks, and readiness assessment.
+description: Use when acting as the SciStudio audit reviewer persona for reviews, audits, CI investigation, drift detection, conformance checks, and readiness assessment.
 ---
 
-# SciEasy Audit Reviewer Skill
+# SciStudio Audit Reviewer Skill
 
 This skill is a hard pointer only. It does not define independent policy.
 

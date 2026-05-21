@@ -1,1 +1,1 @@
-"""Tests for scieasy.blocks.app integration with external GUI applications."""
+"""Tests for scistudio.blocks.app integration with external GUI applications."""

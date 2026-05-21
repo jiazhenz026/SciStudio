@@ -1,4 +1,4 @@
-"""Tests for :mod:`scieasy.engine.materialisation`.
+"""Tests for :mod:`scistudio.engine.materialisation`.
 
 Covers the test plan from ``docs/planning/phase-minus-1-bugfix-plan.md``
 §3 (issue #1078):
@@ -22,20 +22,20 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.io.io_block import IOBlock
-from scieasy.blocks.io.loaders.load_data import LoadData
-from scieasy.blocks.io.savers.save_data import SaveData
-from scieasy.blocks.registry import BlockRegistry, _spec_from_class
-from scieasy.core.storage.ref import StorageReference
-from scieasy.core.types.array import Array
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.text import Text
-from scieasy.engine.materialisation import (
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.io.io_block import IOBlock
+from scistudio.blocks.io.loaders.load_data import LoadData
+from scistudio.blocks.io.savers.save_data import SaveData
+from scistudio.blocks.registry import BlockRegistry, _spec_from_class
+from scistudio.core.storage.ref import StorageReference
+from scistudio.core.types.array import Array
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.text import Text
+from scistudio.engine.materialisation import (
     materialise_to_file,
     reconstruct_from_file,
 )
@@ -192,7 +192,7 @@ def test_pass_through_invokes_mount_pathlike_when_extension_matches(tmp_path: Pa
     reg = _registry_with_core_io()
     dest_dir = tmp_path / "out"
 
-    with patch("scieasy.utils.fs.mount_pathlike") as mocked_mount:
+    with patch("scistudio.utils.fs.mount_pathlike") as mocked_mount:
         # Configure the mock to actually create the destination so the
         # downstream existence assertions succeed.
         def _fake_mount(s: Any, d: Any) -> Path:
@@ -222,7 +222,7 @@ def test_pass_through_skipped_when_extension_mismatches(tmp_path: Path) -> None:
     reg = _registry_with_core_io()
     dest_dir = tmp_path / "out"
 
-    with patch("scieasy.utils.fs.mount_pathlike") as mocked_mount:
+    with patch("scistudio.utils.fs.mount_pathlike") as mocked_mount:
         out = materialise_to_file(txt, dest_dir, extension=".md", registry=reg)
 
     mocked_mount.assert_not_called()

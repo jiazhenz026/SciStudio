@@ -38,7 +38,7 @@ You are creating the **scaffolding** for an ADR. Your job is to make sure every 
          - test_write_manifest_atomic: kill mid-write, file remains old or new (never partial)
          - test_write_manifest_inmemory_input: triggers materialization
 
-       References: ADR-035 §3.4, src/scieasy/blocks/app/bridge.py:31-142 (similar pattern)
+       References: ADR-035 §3.4, src/scistudio/blocks/app/bridge.py:31-142 (similar pattern)
        """
        raise NotImplementedError("see comment block above")
    ```

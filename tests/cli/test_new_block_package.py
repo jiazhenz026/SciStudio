@@ -6,14 +6,14 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from scieasy.cli._scaffold import (
+from scistudio.cli._scaffold import (
     _to_display_name,
     _to_entry_point_name,
     _to_module_name,
     render_template,
     scaffold_block_package,
 )
-from scieasy.cli.main import app
+from scistudio.cli.main import app
 
 runner = CliRunner()
 
@@ -27,19 +27,19 @@ class TestHelpers:
     """Test name conversion helpers."""
 
     def test_to_module_name_replaces_hyphens(self) -> None:
-        assert _to_module_name("scieasy-blocks-srs") == "scieasy_blocks_srs"
+        assert _to_module_name("scistudio-blocks-srs") == "scistudio_blocks_srs"
 
     def test_to_module_name_replaces_dots(self) -> None:
         assert _to_module_name("my.package") == "my_package"
 
     def test_to_display_name(self) -> None:
-        assert _to_display_name("scieasy-blocks-srs") == "Scieasy Blocks Srs"
+        assert _to_display_name("scistudio-blocks-srs") == "Scistudio Blocks Srs"
 
     def test_to_display_name_underscores(self) -> None:
         assert _to_display_name("my_blocks") == "My Blocks"
 
     def test_to_entry_point_name(self) -> None:
-        assert _to_entry_point_name("scieasy-blocks-srs") == "scieasy_blocks_srs"
+        assert _to_entry_point_name("scistudio-blocks-srs") == "scistudio_blocks_srs"
 
 
 class TestRenderTemplate:
@@ -102,7 +102,7 @@ class TestScaffoldBlockPackage:
     def test_pyproject_has_entry_points(self, tmp_path: Path) -> None:
         scaffold_block_package(tmp_path, "my-blocks")
         content = (tmp_path / "my-blocks" / "pyproject.toml").read_text()
-        assert '[project.entry-points."scieasy.blocks"]' in content
+        assert '[project.entry-points."scistudio.blocks"]' in content
         assert "my_blocks" in content
         assert 'my_blocks = "my_blocks:get_blocks"' in content
 
@@ -119,7 +119,7 @@ class TestScaffoldBlockPackage:
             display_name="My Blocks",
         )
         content = (tmp_path / "my-blocks" / "src" / "my_blocks" / "__init__.py").read_text()
-        assert "from scieasy.blocks.base.package_info import PackageInfo" in content
+        assert "from scistudio.blocks.base.package_info import PackageInfo" in content
         assert "def get_blocks()" in content
         assert "tuple[PackageInfo, list[type]]" in content
         assert 'name="My Blocks"' in content
@@ -147,9 +147,9 @@ class TestScaffoldBlockPackage:
         assert 'name="SRS Imaging"' in init_content
 
     def test_default_display_name(self, tmp_path: Path) -> None:
-        scaffold_block_package(tmp_path, "scieasy-blocks-srs")
-        init_content = (tmp_path / "scieasy-blocks-srs" / "src" / "scieasy_blocks_srs" / "__init__.py").read_text()
-        assert 'name="Scieasy Blocks Srs"' in init_content
+        scaffold_block_package(tmp_path, "scistudio-blocks-srs")
+        init_content = (tmp_path / "scistudio-blocks-srs" / "src" / "scistudio_blocks_srs" / "__init__.py").read_text()
+        assert 'name="Scistudio Blocks Srs"' in init_content
 
     def test_existing_directory_raises(self, tmp_path: Path) -> None:
         (tmp_path / "existing").mkdir()
@@ -174,7 +174,7 @@ class TestScaffoldBlockPackage:
         )
         content = (tmp_path / "my-blocks" / "README.md").read_text()
         assert "# My Blocks" in content
-        assert "scieasy blocks" in content
+        assert "scistudio blocks" in content
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +183,7 @@ class TestScaffoldBlockPackage:
 
 
 class TestCLIInitBlockPackage:
-    """Test the ``scieasy init-block-package`` CLI command."""
+    """Test the ``scistudio init-block-package`` CLI command."""
 
     def test_help_shows_command(self) -> None:
         result = runner.invoke(app, ["--help"])
@@ -239,19 +239,19 @@ class TestCLIInitBlockPackage:
         assert "Next steps:" in result.output
         assert "pip install" in result.output
         assert "pytest" in result.output
-        assert "scieasy blocks" in result.output
+        assert "scistudio blocks" in result.output
 
     def test_generated_entry_points_correct(self, tmp_path: Path, monkeypatch: object) -> None:
         monkeypatch.chdir(tmp_path)  # type: ignore[union-attr]
-        runner.invoke(app, ["init-block-package", "scieasy-blocks-srs"])
-        content = (tmp_path / "scieasy-blocks-srs" / "pyproject.toml").read_text()
-        assert '[project.entry-points."scieasy.blocks"]' in content
-        assert 'scieasy_blocks_srs = "scieasy_blocks_srs:get_blocks"' in content
+        runner.invoke(app, ["init-block-package", "scistudio-blocks-srs"])
+        content = (tmp_path / "scistudio-blocks-srs" / "pyproject.toml").read_text()
+        assert '[project.entry-points."scistudio.blocks"]' in content
+        assert 'scistudio_blocks_srs = "scistudio_blocks_srs:get_blocks"' in content
 
     def test_generated_init_callable_protocol(self, tmp_path: Path, monkeypatch: object) -> None:
         monkeypatch.chdir(tmp_path)  # type: ignore[union-attr]
-        runner.invoke(app, ["init-block-package", "scieasy-blocks-srs"])
-        content = (tmp_path / "scieasy-blocks-srs" / "src" / "scieasy_blocks_srs" / "__init__.py").read_text()
+        runner.invoke(app, ["init-block-package", "scistudio-blocks-srs"])
+        content = (tmp_path / "scistudio-blocks-srs" / "src" / "scistudio_blocks_srs" / "__init__.py").read_text()
         assert "def get_blocks() -> tuple[PackageInfo, list[type]]:" in content
         assert "PackageInfo" in content
         assert "ExampleBlock" in content

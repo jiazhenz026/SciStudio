@@ -6,9 +6,9 @@ from typing import ClassVar
 
 import pytest
 
-from scieasy.core.storage.backend_router import BackendRouter, get_router
-from scieasy.core.storage.zarr_backend import ZarrBackend
-from scieasy.core.types.array import Array
+from scistudio.core.storage.backend_router import BackendRouter, get_router
+from scistudio.core.storage.zarr_backend import ZarrBackend
+from scistudio.core.types.array import Array
 
 
 class Image(Array):
@@ -50,11 +50,11 @@ class TestDefaultRouterCoverage:
     """get_router() has all 6 core types registered."""
 
     def test_default_router_coverage(self) -> None:
-        from scieasy.core.types.artifact import Artifact
-        from scieasy.core.types.composite import CompositeData
-        from scieasy.core.types.dataframe import DataFrame
-        from scieasy.core.types.series import Series
-        from scieasy.core.types.text import Text
+        from scistudio.core.types.artifact import Artifact
+        from scistudio.core.types.composite import CompositeData
+        from scistudio.core.types.dataframe import DataFrame
+        from scistudio.core.types.series import Series
+        from scistudio.core.types.text import Text
 
         router = get_router()
         for data_type in [Array, Series, DataFrame, Text, Artifact, CompositeData]:
@@ -71,19 +71,19 @@ class TestExtensionFor:
         assert router.extension_for(Array) == ".zarr"
 
     def test_extension_for_dataframe(self) -> None:
-        from scieasy.core.types.dataframe import DataFrame
+        from scistudio.core.types.dataframe import DataFrame
 
         router = get_router()
         assert router.extension_for(DataFrame) == ".parquet"
 
     def test_extension_for_text(self) -> None:
-        from scieasy.core.types.text import Text
+        from scistudio.core.types.text import Text
 
         router = get_router()
         assert router.extension_for(Text) == ".txt"
 
     def test_extension_for_composite(self) -> None:
-        from scieasy.core.types.composite import CompositeData
+        from scistudio.core.types.composite import CompositeData
 
         router = get_router()
         assert router.extension_for(CompositeData) == ""
@@ -97,13 +97,13 @@ class TestBackendNameFor:
         assert router.backend_name_for(Array) == "zarr"
 
     def test_backend_name_for_dataframe(self) -> None:
-        from scieasy.core.types.dataframe import DataFrame
+        from scistudio.core.types.dataframe import DataFrame
 
         router = get_router()
         assert router.backend_name_for(DataFrame) == "arrow"
 
     def test_backend_name_for_text(self) -> None:
-        from scieasy.core.types.text import Text
+        from scistudio.core.types.text import Text
 
         router = get_router()
         assert router.backend_name_for(Text) == "filesystem"

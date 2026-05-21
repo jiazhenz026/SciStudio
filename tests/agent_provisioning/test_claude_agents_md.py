@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.agent_provisioning.claude_agents_md import write_claude_agents_md
+from scistudio.agent_provisioning.claude_agents_md import write_claude_agents_md
 
 
 def test_writes_both_files_identical(tmp_project_dir: Path) -> None:
@@ -15,7 +15,7 @@ def test_writes_both_files_identical(tmp_project_dir: Path) -> None:
     claude = (tmp_project_dir / "CLAUDE.md").read_bytes()
     agents = (tmp_project_dir / "AGENTS.md").read_bytes()
     assert claude == agents
-    assert b"SciEasy project" in claude  # template marker
+    assert b"SciStudio project" in claude  # template marker
 
 
 def test_idempotent_force_false_preserves_user_edits(tmp_project_dir: Path) -> None:
@@ -44,7 +44,7 @@ def test_force_true_overwrites(tmp_project_dir: Path) -> None:
 
     body = (tmp_project_dir / "CLAUDE.md").read_text(encoding="utf-8")
     assert "garbage" not in body
-    assert "SciEasy project" in body
+    assert "SciStudio project" in body
 
 
 def test_creates_parent_dir_if_missing(tmp_path: Path) -> None:
@@ -70,11 +70,11 @@ def test_template_indexes_all_five_task_skills(tmp_project_dir: Path) -> None:
     write_claude_agents_md(tmp_project_dir, force=False)
     body = (tmp_project_dir / "CLAUDE.md").read_text(encoding="utf-8")
     for task_skill in (
-        "scieasy-build-workflow",
-        "scieasy-write-block",
-        "scieasy-debug-run",
-        "scieasy-inspect-data",
-        "scieasy-project-qa",
+        "scistudio-build-workflow",
+        "scistudio-write-block",
+        "scistudio-debug-run",
+        "scistudio-inspect-data",
+        "scistudio-project-qa",
     ):
         assert task_skill in body, f"CLAUDE.md/AGENTS.md template must reference {task_skill}."
 
@@ -89,8 +89,8 @@ def test_template_carries_non_negotiable_rules(tmp_project_dir: Path) -> None:
     write_claude_agents_md(tmp_project_dir, force=False)
     body = (tmp_project_dir / "CLAUDE.md").read_text(encoding="utf-8")
     # MCP tools over CLI
-    assert "mcp__scieasy__" in body
-    assert "scieasy" in body.lower() and "CLI" in body
+    assert "mcp__scistudio__" in body
+    assert "scistudio" in body.lower() and "CLI" in body
     # Block-reuse rule (#875)
     assert "list_blocks" in body
     assert "#875" in body or "reuse" in body.lower()

@@ -1,6 +1,6 @@
 # Testing
 
-This document covers how to test SciEasy blocks using the
+This document covers how to test SciStudio blocks using the
 `BlockTestHarness` and common testing patterns.
 
 ---
@@ -19,11 +19,11 @@ This document covers how to test SciEasy blocks using the
 
 ## BlockTestHarness Overview
 
-`scieasy.testing.BlockTestHarness` is the standard tool for validating
+`scistudio.testing.BlockTestHarness` is the standard tool for validating
 block contracts and running smoke tests.
 
 ```python
-from scieasy.testing import BlockTestHarness
+from scistudio.testing import BlockTestHarness
 
 harness = BlockTestHarness(MyBlock)
 ```
@@ -63,7 +63,7 @@ block passes all checks.
 
 ## validate_entry_point_callable()
 
-For Tier 2 packages, validates the return value of the `scieasy.blocks`
+For Tier 2 packages, validates the return value of the `scistudio.blocks`
 entry-point callable.
 
 ```python
@@ -97,8 +97,8 @@ Instantiates the block, calls `run()`, and returns the outputs.
 
 ```python
 import numpy as np
-from scieasy.core.types.array import Array
-from scieasy.core.types.collection import Collection
+from scistudio.core.types.array import Array
+from scistudio.core.types.collection import Collection
 
 def test_my_block_smoke(tmp_path):
     # Create synthetic input
@@ -138,7 +138,7 @@ the caller for inspection.
 Every block should have a contract test:
 
 ```python
-from scieasy.testing import BlockTestHarness
+from scistudio.testing import BlockTestHarness
 
 def test_contract():
     harness = BlockTestHarness(InvertImage)
@@ -150,8 +150,8 @@ def test_contract():
 
 ```python
 import numpy as np
-from scieasy.core.types.array import Array
-from scieasy.core.types.collection import Collection
+from scistudio.core.types.array import Array
+from scistudio.core.types.collection import Collection
 
 def test_invert_smoke():
     data = np.array([[0, 100], [200, 255]], dtype=np.uint8)
@@ -207,8 +207,8 @@ def test_loader_smoke(tmp_path):
 
 ```python
 import pytest
-from scieasy.core.types.array import Array
-from scieasy.core.types.collection import Collection
+from scistudio.core.types.array import Array
+from scistudio.core.types.collection import Collection
 
 @pytest.fixture
 def sample_image():

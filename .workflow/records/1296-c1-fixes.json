@@ -5,7 +5,7 @@
       "approved_by": null,
       "exclude": [],
       "include": [
-        "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/load_image.py"
+        "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py"
       ],
       "reason": "Scope expansion required to satisfy SC-003 deliverable: the C1 dispatch prompt assumed LoadImage._load_tiff already parsed OME-XML from the TIFF ImageDescription tag and exposed it on Image.Meta.ome, but the committed code constructs Image.Meta(source_file=path) with no ome= field. Without read-side parsing the SC-003 round-trip test cannot demonstrate end-to-end OME preservation through SaveImage(.ome.tif) -> LoadImage. Added _ome_from_tiff helper and threaded the parsed OME through _load_tiff's two return paths (persisted + in-memory). The capability already advertises format_metadata_reads=(ome,) per FR-004, so this brings the implementation up to the advertised fidelity."
     },
@@ -16,17 +16,17 @@
         ".workflow/records/1296-c1-fixes.json",
         "docs/audit/full-audit-latest.json"
       ],
-      "reason": "Add gate-record self-reference and full-audit JSON artifact to scope include (always touched by gate-record CLI + python -m scieasy.qa.audit.full_audit)."
+      "reason": "Add gate-record self-reference and full-audit JSON artifact to scope include (always touched by gate-record CLI + python -m scistudio.qa.audit.full_audit)."
     }
   ],
   "branch": "feat/issue-1296/adr043-c1-fixes",
   "changed_test_paths": [
-    "packages/scieasy-blocks-imaging/tests/test_format_capabilities.py",
-    "packages/scieasy-blocks-imaging/tests/test_pillow_handler.py"
+    "packages/scistudio-blocks-imaging/tests/test_format_capabilities.py",
+    "packages/scistudio-blocks-imaging/tests/test_pillow_handler.py"
   ],
   "check_results": [
     {
-      "command_or_tool": "pytest packages/scieasy-blocks-imaging/tests/test_format_capabilities.py --timeout=60",
+      "command_or_tool": "pytest packages/scistudio-blocks-imaging/tests/test_format_capabilities.py --timeout=60",
       "exit_code": 0,
       "name": "pytest test_format_capabilities",
       "output_path": null,
@@ -35,7 +35,7 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "pytest packages/scieasy-blocks-imaging/tests/test_pillow_handler.py --timeout=60",
+      "command_or_tool": "pytest packages/scistudio-blocks-imaging/tests/test_pillow_handler.py --timeout=60",
       "exit_code": 0,
       "name": "pytest test_pillow_handler",
       "output_path": null,
@@ -44,7 +44,7 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "ruff check packages/scieasy-blocks-imaging/",
+      "command_or_tool": "ruff check packages/scistudio-blocks-imaging/",
       "exit_code": 0,
       "name": "ruff check imaging",
       "output_path": null,
@@ -53,7 +53,7 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "ruff format --check packages/scieasy-blocks-imaging/",
+      "command_or_tool": "ruff format --check packages/scistudio-blocks-imaging/",
       "exit_code": 0,
       "name": "ruff format check imaging",
       "output_path": null,
@@ -93,7 +93,7 @@
   },
   "full_audit": {
     "blocks_merge": false,
-    "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
     "exit_code": 1,
     "known_debt": [
       "311 pre-existing findings across frontmatter_lint/doc_drift/closure/signature_drift/architecture_drift; 0 PR-attributable findings (filtered on the 6 files this PR touches). Pre-existing repo debt is owner-acknowledged per the umbrella C1 audit \u00a73 P3-05 and the broader ADR-043 cascade baseline."
@@ -115,10 +115,10 @@
   "owner_directive": "Phase C1 audit follow-up fixes: P1-01 flaky test + P2-01 pillow axes-override + P2-05 SaveImage TIFF OME-XML emission (unblocks SC-003) + P2-03 SaveImage._resolve_format consistency",
   "planned_files": [
     "frontend/src/__tests__/CapabilityDropdown.test.tsx",
-    "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/pillow_handler.py",
-    "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/save_image.py",
-    "packages/scieasy-blocks-imaging/tests/test_format_capabilities.py",
-    "packages/scieasy-blocks-imaging/tests/test_pillow_handler.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/pillow_handler.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py",
+    "packages/scistudio-blocks-imaging/tests/test_format_capabilities.py",
+    "packages/scistudio-blocks-imaging/tests/test_pillow_handler.py",
     "CHANGELOG.md"
   ],
   "pull_request": {
@@ -126,24 +126,24 @@
       1296
     ],
     "number": 1304,
-    "url": "https://github.com/zjzcpj/SciEasy/pull/1304"
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1304"
   },
   "record_path": ".workflow/records/1296-c1-fixes.json",
   "required_checks": [
-    "pytest packages/scieasy-blocks-imaging/tests/test_format_capabilities.py --timeout=60",
-    "pytest packages/scieasy-blocks-imaging/tests/test_pillow_handler.py --timeout=60",
-    "ruff check packages/scieasy-blocks-imaging/",
-    "ruff format --check packages/scieasy-blocks-imaging/"
+    "pytest packages/scistudio-blocks-imaging/tests/test_format_capabilities.py --timeout=60",
+    "pytest packages/scistudio-blocks-imaging/tests/test_pillow_handler.py --timeout=60",
+    "ruff check packages/scistudio-blocks-imaging/",
+    "ruff format --check packages/scistudio-blocks-imaging/"
   ],
   "schema_version": "1",
   "scope": {
     "exclude": [],
     "include": [
       "frontend/src/__tests__/CapabilityDropdown.test.tsx",
-      "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/pillow_handler.py",
-      "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/save_image.py",
-      "packages/scieasy-blocks-imaging/tests/test_format_capabilities.py",
-      "packages/scieasy-blocks-imaging/tests/test_pillow_handler.py",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/pillow_handler.py",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py",
+      "packages/scistudio-blocks-imaging/tests/test_format_capabilities.py",
+      "packages/scistudio-blocks-imaging/tests/test_pillow_handler.py",
       "CHANGELOG.md"
     ]
   },

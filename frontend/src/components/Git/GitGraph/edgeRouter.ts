@@ -157,10 +157,10 @@
  *     source — observational only) paints each branch end-to-end with
  *     one color including fork slants.
  *   - **gitk** (`git.git/gitk-git/gitk` `proc drawparentlinks`) is the
- *     only legacy outlier using parent color. SciEasy's old rule matched
+ *     only legacy outlier using parent color. SciStudio's old rule matched
  *     gitk.
  *
- *   The new rule (child-lane for every edge) aligns SciEasy with every
+ *   The new rule (child-lane for every edge) aligns SciStudio with every
  *   modern git GUI and matches the user-stated mental model that "the
  *   green branch should stay green". The geometry still reads "the merged-
  *   in branch ENDS at the merge commit" because the dot renders on top of

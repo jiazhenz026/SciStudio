@@ -58,7 +58,7 @@
   },
   "full_audit": {
     "blocks_merge": false,
-    "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
     "exit_code": 1,
     "known_debt": [
       "All 311 findings (frontmatter_lint=19, doc_drift=37, closure=22, signature_drift=98, architecture_drift=135) are pre-existing repo debt under docs/adr/ + docs/specs/ + docs/architecture/. Programmatic verification (check_audit.py): zero findings cite any of the 16 files this PR touches (frontend/src/components/PortEditor/CapabilityDropdown.tsx, frontend/src/components/OutputPreview/OMEMetadataPanel.tsx, frontend/src/components/WorkflowEditor/LossySaveWarning.tsx, frontend/src/api/capabilities.ts, the four new test files, the four integration-touched components, frontend/src/types/ui.ts, frontend/src/App.tsx, CHANGELOG.md, frontend/e2e/adr043-a3-smoke.md). Owner acknowledged the baseline debt per the manager checklist (admin-approved:ai-override bypass label)."
@@ -101,7 +101,7 @@
       1296
     ],
     "number": 1299,
-    "url": "https://github.com/zjzcpj/SciEasy/pull/1299"
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1299"
   },
   "record_path": ".workflow/records/1296-a3-frontend.json",
   "required_checks": [

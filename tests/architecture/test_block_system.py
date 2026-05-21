@@ -13,14 +13,14 @@ import inspect
 
 import pytest
 
-from scieasy.blocks.ai.ai_block import AIBlock
-from scieasy.blocks.app.app_block import AppBlock
-from scieasy.blocks.base.block import Block
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.code.code_block import CodeBlock
-from scieasy.blocks.io.io_block import IOBlock
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.blocks.subworkflow.subworkflow_block import SubWorkflowBlock
+from scistudio.blocks.ai.ai_block import AIBlock
+from scistudio.blocks.app.app_block import AppBlock
+from scistudio.blocks.base.block import Block
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.code.code_block import CodeBlock
+from scistudio.blocks.io.io_block import IOBlock
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.blocks.subworkflow.subworkflow_block import SubWorkflowBlock
 
 # ---------------------------------------------------------------------------
 # Data

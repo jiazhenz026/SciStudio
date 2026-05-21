@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.registry import BlockRegistry, BlockSpec
-from scieasy.core.types.array import Array
-from scieasy.core.types.series import Series
-from scieasy.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
-from scieasy.workflow.validator import validate_workflow
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.registry import BlockRegistry, BlockSpec
+from scistudio.core.types.array import Array
+from scistudio.core.types.series import Series
+from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
+from scistudio.workflow.validator import validate_workflow
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -219,7 +219,7 @@ class TestValidatorTypeCompat:
 
         Uses a locally-defined Array subclass to exercise the
         subclass-is-compatible path without depending on the
-        scieasy-blocks-imaging plugin's Image type.
+        scistudio-blocks-imaging plugin's Image type.
         """
 
         class _ArraySub(Array):

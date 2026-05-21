@@ -76,7 +76,7 @@ None.
   on the test `it("calls onChange with the picked id when user selects an option", ...)`.
   The audit's local-run section ran the Python tests only (no frontend
   vitest); the failure surfaced on the CI Frontend job
-  (https://github.com/zjzcpj/SciEasy/actions/runs/26187845593/job/77048168196).
+  (https://github.com/zjzcpj/SciStudio/actions/runs/26187845593/job/77048168196).
   **The component file and test file were last touched by Phase A3 PR
   #1299, which PASSED Frontend CI on its own run** (confirmed by
   `gh pr checks 1299`). The test code uses `fireEvent.change` immediately
@@ -102,7 +102,7 @@ None.
 
 ### P2 — Should fix (recommended in-PR or via follow-up issue)
 
-- **P2-01.** `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/pillow_handler.py:193`
+- **P2-01.** `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/pillow_handler.py:193`
   and `:212` — the axes-override branch in `_load_png` / `_load_jpeg`
   reassigns `img` to a freshly-constructed `Image` and then writes
   `img._data = np.asarray(img._data if hasattr(img, "_data") else [])`. Since
@@ -114,7 +114,7 @@ None.
   fix: capture `img._data` to a local before reassigning `img`. Out of audit
   scope to edit implementation; recommend a follow-up issue under #1204.
 
-- **P2-02.** `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/load_image.py:418-430`
+- **P2-02.** `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py:418-430`
   and `save_image.py:276-283` — `LoadImage.supported_extensions` and
   `SaveImage.supported_extensions` ClassVars remain after the `format_capabilities`
   migration. Per spec scope `out` they are NOT required to be removed (the
@@ -125,7 +125,7 @@ None.
   `supported_extensions` (relying on the inherited base default) or adding an
   assertion/test that the two stay aligned. Acceptable in this PR per scope.
 
-- **P2-03.** `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/save_image.py:64-109`
+- **P2-03.** `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py:64-109`
   (`_resolve_format`) calls `SaveImage.supported_extensions.values()` /
   `.keys()` directly rather than deriving from `format_capabilities`. Same
   source-of-truth drift risk as P2-02. Spec FR-003 only mandates the rewire
@@ -133,7 +133,7 @@ None.
   to that rule. Listed for visibility only.
 
 - **P2-04.** `Image.Meta` and `Label.Meta` carry `arbitrary_types_allowed=True`
-  in their `model_config` (`scieasy_blocks_imaging/types.py:39` and `:101`).
+  in their `model_config` (`scistudio_blocks_imaging/types.py:39` and `:101`).
   This is required because `ome_types.model.OME` is exposed as a non-BaseModel
   subclass after compat shimming on some platforms (per the code comment).
   The relaxed validation widens the set of accepted `ome=` payloads beyond
@@ -143,7 +143,7 @@ None.
 
 ### P3 — Nits / future polish
 
-- **P3-01.** `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/types.py:50`
+- **P3-01.** `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/types.py:50`
   declares `extra="forbid"` on `SRSImage.Meta`, but the SRS audit
   (`docs/audit/adr-043-srs-propagation-audit.md` §5) relies on
   `SRSImage.Meta(**old_meta.model_dump(), ...overrides)` round-tripping the
@@ -192,7 +192,7 @@ For each functional requirement: spec citation, code/test evidence, verdict.
 ### FR-001 — LoadData explicit `format_capabilities` (six core types × extensions, all `is_synthesized=False`, ids = `core.{lower(type)}.{format_id}.load`)
 
 - Spec: `docs/specs/adr-043-package-migration.md:365-371`.
-- Code: `src/scieasy/blocks/io/loaders/load_data.py:114-401`
+- Code: `src/scistudio/blocks/io/loaders/load_data.py:114-401`
   (`_LOAD_CAPABILITIES` tuple); `:513` binds it to the class. Helper
   `_load_capability` (`:70-111`) hard-codes `is_synthesized=False` and the
   FR-015 id convention.
@@ -207,7 +207,7 @@ For each functional requirement: spec citation, code/test evidence, verdict.
 ### FR-002 — SaveData explicit `format_capabilities` (mirror of FR-001, ids = `core.{...}.save`)
 
 - Spec: `:373-376`.
-- Code: `src/scieasy/blocks/io/savers/save_data.py:136-438` (`_SAVE_CAPABILITIES`);
+- Code: `src/scistudio/blocks/io/savers/save_data.py:136-438` (`_SAVE_CAPABILITIES`);
   `:652` binds to class. `_save_capability` (`:92-133`) hard-codes the
   invariants.
 - Tests: `tests/blocks/io/test_save_data_capabilities.py:63-200`
@@ -238,14 +238,14 @@ For each functional requirement: spec citation, code/test evidence, verdict.
 ### FR-004 — LoadImage capability set (TIFF/Zarr/Pillow PNG/JPEG/Bio-Formats family), `level=format_specific`, `format_metadata_reads=("ome",)`
 
 - Spec: `:385-398`.
-- Code: `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/load_image.py:238-407`
+- Code: `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py:238-407`
   declares all 9 capabilities. Bio-Formats handler attributes
   (`_load_czi`/`_load_nd2`/`_load_lif`/`_load_oir`/`_load_oib`,
   `:449-477`) are class-level lazy-import wrappers so registry scan-time
   validation succeeds even without the `[bioformats]` extras. Every
   capability declares
   `metadata_fidelity=MetadataFidelity(level="format_specific", format_metadata_reads=("ome",), typed_meta_reads=("source_file",), notes=...)`.
-- Tests: `packages/scieasy-blocks-imaging/tests/test_format_capabilities.py:62-127`
+- Tests: `packages/scistudio-blocks-imaging/tests/test_format_capabilities.py:62-127`
   (full ID set; per-format defaults; handler resolution; Bio-Formats lazy
   binding). **8 tests pass.**
 - **Verdict: PASS.**
@@ -267,10 +267,10 @@ For each functional requirement: spec citation, code/test evidence, verdict.
 ### FR-006 — `Image.Meta.ome: ome_types.model.OME | None = None`
 
 - Spec: `:414-417`.
-- Code: `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/types.py:39-50`
+- Code: `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/types.py:39-50`
   declares the field on `Image.Meta` with default `None`. The model_config
   carries `arbitrary_types_allowed=True` to embed `OME` (commented justified).
-- Tests: `packages/scieasy-blocks-imaging/tests/test_image_meta_ome.py:54-120`
+- Tests: `packages/scistudio-blocks-imaging/tests/test_image_meta_ome.py:54-120`
   (`test_image_meta_accepts_ome_field`, `test_image_meta_ome_defaults_to_none`,
   `test_image_meta_ome_roundtrip_via_model_dump`, `test_image_construction_carries_ome`,
   `test_image_with_meta_propagates_ome`,
@@ -290,15 +290,15 @@ For each functional requirement: spec citation, code/test evidence, verdict.
 ### FR-008 — Bio-Formats handler under `[bioformats]` extra (cellpose pattern); lazy imports; clear missing-extras error; registry hides capabilities when handler module fails
 
 - Spec: `:424-431`.
-- Code: `packages/scieasy-blocks-imaging/pyproject.toml:44-47` declares the
+- Code: `packages/scistudio-blocks-imaging/pyproject.toml:44-47` declares the
   extra with `python-bioformats>=4.0` and `python-javabridge>=4.0`. Handler
   module `bioformats_handler.py:38-44` defines `_MISSING_EXTRAS_HINT`
-  ("`pip install scieasy-blocks-imaging[bioformats]`" + JRE 8+ note).
+  ("`pip install scistudio-blocks-imaging[bioformats]`" + JRE 8+ note).
   Lazy importers `_import_bioformats` (`:46-56`) and `_import_javabridge`
   (`:59-65`) raise `ImportError` with the hint chained from the underlying
   ImportError. The class-level wrappers on `LoadImage` (`load_image.py:449-477`)
   defer the actual module imports to dispatch time.
-- Tests: `packages/scieasy-blocks-imaging/tests/test_bioformats_handler.py:33-127`
+- Tests: `packages/scistudio-blocks-imaging/tests/test_bioformats_handler.py:33-127`
   covers: missing-extras message; install-command in hint; module importable
   without extras; end-to-end `LoadImage(.czi)` failure mode under missing
   bioformats. All 7 tests pass.
@@ -359,7 +359,7 @@ For each functional requirement: spec citation, code/test evidence, verdict.
   registration, segmentation, measurement, tracking, visualization with
   Mode A/B/C + ome decision + justification. §4 lists the 8 code-file
   modifications and the propagation test file.
-- Tests: `packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py`
+- Tests: `packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py`
   (19 tests pass).
 - **Verdict: PASS.**
 
@@ -372,7 +372,7 @@ For each functional requirement: spec citation, code/test evidence, verdict.
   Mode A/B/C + propagation decision + justification. §6.2 documents the
   SRSKMeansCluster fix; §7.1-7.2 document SRSPCA / SRSUnmix legitimate
   drops with code comments.
-- Tests: `packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py`
+- Tests: `packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py`
   (7 tests pass).
 - **Verdict: PASS.**
 
@@ -425,19 +425,19 @@ For each functional requirement: spec citation, code/test evidence, verdict.
     and `save_data.py:121` the `.save` mirror. Tested in
     `test_load_data_capabilities.py:91-106` and the SaveData mirror.
   - imaging: `load_image.py:238-407` and `save_image.py:186-268` use
-    `"scieasy-blocks-imaging.image.{format}.{load|save}"`. **Discrepancy:**
+    `"scistudio-blocks-imaging.image.{format}.{load|save}"`. **Discrepancy:**
     the spec text says `imaging.image.{format_id}.{load|save}` but the
     code uses the package-name-prefixed form
-    `scieasy-blocks-imaging.image.{format_id}.{load|save}`. Tests
+    `scistudio-blocks-imaging.image.{format_id}.{load|save}`. Tests
     (`test_format_capabilities.py:73`) assert
-    `cap_id.startswith("scieasy-blocks-imaging.image.")`. The
+    `cap_id.startswith("scistudio-blocks-imaging.image.")`. The
     longer form is **stronger** — package-qualified globally — and
     satisfies ADR-043 §9 "capability IDs are globally stable and
     package-qualified". The spec's `imaging.image.*` example is shorter
     but the §9 rule is the binding constraint. Accept the more-qualified
     id; recommend a spec follow-up note clarifying the convention.
   - SRS: "reserved for future use"; no IO blocks in SRS package
-    (confirmed by `ls packages/scieasy-blocks-srs/src/scieasy_blocks_srs/`).
+    (confirmed by `ls packages/scistudio-blocks-srs/src/scistudio_blocks_srs/`).
 - **Verdict: PASS (with a minor spec/code wording mismatch — code is stricter).**
 
 ### FR-016 — Test coverage matrix
@@ -459,10 +459,10 @@ For each functional requirement: spec citation, code/test evidence, verdict.
     (5 missing-extras tests + 1 install-hint test, all pass).
 - **Verdict: PASS.**
 
-### FR-017 — Add `ome-types>=0.5,<0.6` as non-optional dep of `scieasy-blocks-imaging`
+### FR-017 — Add `ome-types>=0.5,<0.6` as non-optional dep of `scistudio-blocks-imaging`
 
 - Spec: `:502-504`.
-- Code: `packages/scieasy-blocks-imaging/pyproject.toml:29` declares
+- Code: `packages/scistudio-blocks-imaging/pyproject.toml:29` declares
   `"ome-types>=0.5,<0.6"` in `dependencies` (not optional).
 - Verified by `pip show ome-types` returning `0.5.3`.
 - **Verdict: PASS.**
@@ -478,18 +478,18 @@ For each functional requirement: spec citation, code/test evidence, verdict.
   **Result: 0 errors, 7 warnings (all one-way formats, explicitly
   permitted by ADR-043 §9: Bio-Formats family load-only + Series/Text
   JSON save-only).**
-- Cross-check: `python -m scieasy.qa.audit.full_audit ...` writes
+- Cross-check: `python -m scistudio.qa.audit.full_audit ...` writes
   `docs/audit/full-audit-latest.json`; filtering 311 findings to those
   touching PR files yields **0** PR-attributable findings.
 - **Verdict: PASS.**
 
 ### SC-002 — Bio-Formats load returns `Image` with non-None `physical_size_x` for CZI/ND2/LIF/OIR/OIB fixtures
 
-- Test: `packages/scieasy-blocks-imaging/tests/test_bioformats_handler.py:163-189`
+- Test: `packages/scistudio-blocks-imaging/tests/test_bioformats_handler.py:163-189`
   (`test_bioformats_load_populates_ome_physical_size_x`, parameterized over
   the 5 vendor formats). Each subset member skips if (a) the
   `[bioformats]` extra is not installed OR (b) no fixture is committed
-  under `packages/scieasy-blocks-imaging/tests/fixtures/microscopy/`.
+  under `packages/scistudio-blocks-imaging/tests/fixtures/microscopy/`.
 - Local run reports 5 SKIP because the test environment has neither the
   bioformats extras (no JVM) nor the fixtures. The test SHAPE is correct;
   green will require either CI with `[bioformats]` extras or a fixture
@@ -554,7 +554,7 @@ For each functional requirement: spec citation, code/test evidence, verdict.
 
 ### Additional P2 finding surfaced by SC-003 audit
 
-- **P2-05.** `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/save_image.py:112-141`
+- **P2-05.** `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py:112-141`
   (`_write_tiff`) writes the axis string via `tifffile.imwrite(...
   metadata={"axes": axes_str})` but DOES NOT serialize `image.meta.ome` to
   the OME-XML `ImageDescription` tag. The `imaging.image.tiff.save`
@@ -577,12 +577,12 @@ SaveData (33), LoadImage (9), SaveImage (4):
 
 - Capability IDs are package-qualified and globally stable: PASS.
   In-tree uses `core.{type}.{format}.{direction}`; imaging uses
-  `scieasy-blocks-imaging.image.{format}.{direction}`. All 75 ids are
+  `scistudio-blocks-imaging.image.{format}.{direction}`. All 75 ids are
   unique across the audited blocks.
 - Extensions are normalized lowercase with leading dots: PASS.
   Every extension in every capability's `extensions` tuple starts with
   `.` and is lowercase (enforced by `normalize_extension` in
-  `src/scieasy/blocks/io/capabilities.py:50-64`, called from
+  `src/scistudio/blocks/io/capabilities.py:50-64`, called from
   `FormatCapability.__post_init__`).
 - Defaults do not conflict within `(direction, type, extension)`: PASS.
   In-tree records are all `is_default=False` (deliberate cross-package
@@ -602,7 +602,7 @@ SaveData (33), LoadImage (9), SaveImage (4):
   `data_type.Meta.model_fields`. The runtime check is enforced by
   `FormatCapability.__post_init__` via
   `metadata_fidelity.validate_typed_meta_fields(self.data_type)` in
-  `src/scieasy/blocks/io/capabilities.py:218`.
+  `src/scistudio/blocks/io/capabilities.py:218`.
 - `is_synthesized=False` on every record: PASS — verified for all 75
   records.
 
@@ -648,14 +648,14 @@ SaveData (33), LoadImage (9), SaveImage (4):
 
 | Command | Status | Evidence |
 |---|---|---|
-| `python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | wrote 6694 lines | 311 total findings; 0 in PR-touched files (per `python` filter above). |
-| `ruff check src/scieasy/blocks/io/ packages/scieasy-blocks-imaging/ packages/scieasy-blocks-srs/` | All checks passed! | clean |
-| `ruff format --check src/scieasy/blocks/io/ packages/scieasy-blocks-imaging/ packages/scieasy-blocks-srs/` | 113 files already formatted | clean |
+| `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | wrote 6694 lines | 311 total findings; 0 in PR-touched files (per `python` filter above). |
+| `ruff check src/scistudio/blocks/io/ packages/scistudio-blocks-imaging/ packages/scistudio-blocks-srs/` | All checks passed! | clean |
+| `ruff format --check src/scistudio/blocks/io/ packages/scistudio-blocks-imaging/ packages/scistudio-blocks-srs/` | 113 files already formatted | clean |
 | `pytest tests/blocks/io/test_load_data_capabilities.py tests/blocks/io/test_save_data_capabilities.py --timeout=60` | 97 passed | clean |
-| `pytest packages/scieasy-blocks-imaging/tests/test_format_capabilities.py packages/scieasy-blocks-imaging/tests/test_image_meta_ome.py --timeout=60` | 35 passed + 1 skipped | clean |
-| `pytest packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py --timeout=60` | 19 passed | clean |
-| `pytest packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py --timeout=60` | 7 passed | clean |
-| `pytest packages/scieasy-blocks-imaging/tests/test_bioformats_handler.py --timeout=60` | 7 passed + 5 skipped | clean (skips are extras-gated, expected) |
+| `pytest packages/scistudio-blocks-imaging/tests/test_format_capabilities.py packages/scistudio-blocks-imaging/tests/test_image_meta_ome.py --timeout=60` | 35 passed + 1 skipped | clean |
+| `pytest packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py --timeout=60` | 19 passed | clean |
+| `pytest packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py --timeout=60` | 7 passed | clean |
+| `pytest packages/scistudio-blocks-imaging/tests/test_bioformats_handler.py --timeout=60` | 7 passed + 5 skipped | clean (skips are extras-gated, expected) |
 | ADR-043 §9 manual scan | 0 errors, 7 allowed-one-way warnings | see §6 |
 | ADR-043 §6 ambiguity scan | 0 ambiguity slots | see §7 |
 | Sentrux | skipped | not available in this audit environment (consistent with other ADR-043 phases) |
@@ -667,7 +667,7 @@ follow-up spec amendment:
 
 - **Capability id wording (FR-015):** spec says
   `imaging.image.{format}.{load|save}`; code uses
-  `scieasy-blocks-imaging.image.{format}.{load|save}`. The code is stricter
+  `scistudio-blocks-imaging.image.{format}.{load|save}`. The code is stricter
   (package-qualified) and aligns with ADR-043 §9. Recommend spec amendment
   to align wording.
 - **`_write_tiff` OME-XML serialisation (FR-005 + SC-003):** capability

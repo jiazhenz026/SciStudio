@@ -11,10 +11,10 @@ from __future__ import annotations
 
 import pytest
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.core.storage.flush_context import clear, set_output_dir
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.core.storage.flush_context import clear, set_output_dir
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
 from tests.fixtures.noop_block import NoopBlock
 
 

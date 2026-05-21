@@ -9,13 +9,13 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from scieasy.blocks.app.bridge import FileExchangeBridge
-from scieasy.blocks.io.loaders.load_data import LoadData
-from scieasy.blocks.io.savers.save_data import SaveData
-from scieasy.blocks.registry import BlockRegistry, _spec_from_class
-from scieasy.core.types.array import Array
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.blocks.app.bridge import FileExchangeBridge
+from scistudio.blocks.io.loaders.load_data import LoadData
+from scistudio.blocks.io.savers.save_data import SaveData
+from scistudio.blocks.registry import BlockRegistry, _spec_from_class
+from scistudio.core.types.array import Array
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.dataframe import DataFrame
 
 
 @pytest.fixture
@@ -177,7 +177,7 @@ def test_manifest_records_typed_entries(tmp_path: Path, registry_with_core_io: B
 
 def test_default_extension_only_matches_exact_core_type_name() -> None:
     """Plugin subclasses should not be forced onto a core extension."""
-    from scieasy.blocks.app.bridge import _default_extension_for_obj
+    from scistudio.blocks.app.bridge import _default_extension_for_obj
 
     class PluginArray(Array):
         pass

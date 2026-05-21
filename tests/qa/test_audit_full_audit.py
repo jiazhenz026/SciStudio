@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.qa.audit import full_audit
-from scieasy.qa.audit.facts import write_facts
-from scieasy.qa.audit.full_audit import render_markdown, run
-from scieasy.qa.schemas.facts import FactsRegistry
-from scieasy.qa.schemas.report import AuditStatus
+from scistudio.qa.audit import full_audit
+from scistudio.qa.audit.facts import write_facts
+from scistudio.qa.audit.full_audit import render_markdown, run
+from scistudio.qa.schemas.facts import FactsRegistry
+from scistudio.qa.schemas.report import AuditStatus
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 

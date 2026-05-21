@@ -9,13 +9,13 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.blocks.ai.completion import (
+from scistudio.blocks.ai.completion import (
     CompletionEvent,
     CompletionSource,
     CompletionWatcher,
     WatcherCancelledError,
 )
-from scieasy.blocks.ai.run_dir import RunDir
+from scistudio.blocks.ai.run_dir import RunDir
 
 # ---------------------------------------------------------------------------
 # Smoke tests on enum / dataclass shapes

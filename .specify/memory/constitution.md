@@ -16,7 +16,7 @@
   Follow-up TODOs: none
 -->
 
-# SciEasy Constitution
+# SciStudio Constitution
 
 ## Core Principles
 
@@ -167,7 +167,7 @@ decisions.
 ## Governance
 
 This constitution is the highest-authority document governing development
-practices, architectural decisions, and engineering standards in the SciEasy
+practices, architectural decisions, and engineering standards in the SciStudio
 repository. It supersedes all other practice documents when conflicts arise.
 
 ### Amendment Procedure

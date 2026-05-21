@@ -1,4 +1,4 @@
-"""Tests for ``scieasy install`` (#787).
+"""Tests for ``scistudio install`` (#787).
 
 Covers:
 
@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 import pytest
 
-from scieasy.cli.install import (
+from scistudio.cli.install import (
     MCP_SERVER_NAME,
     _strip_codex_block,
     perform_install,
@@ -54,10 +54,10 @@ def test_install_claude_user_idempotent(fake_home: Path, fake_cwd: Path) -> None
     cfg = json.loads((fake_home / ".claude.json").read_text(encoding="utf-8"))
     assert MCP_SERVER_NAME in cfg["mcpServers"]
     entry = cfg["mcpServers"][MCP_SERVER_NAME]
-    # Hotfix #880: args now prepend ["-m", "scieasy"] so the bridge always
-    # invokes the same scieasy install as the engine (avoids stale-PATH bug).
+    # Hotfix #880: args now prepend ["-m", "scistudio"] so the bridge always
+    # invokes the same scistudio install as the engine (avoids stale-PATH bug).
     assert entry["args"][-1] == "mcp-bridge"
-    assert "scieasy" in entry["args"]
+    assert "scistudio" in entry["args"]
     assert "command" in entry
 
 
@@ -94,8 +94,8 @@ def test_install_claude_project_scope_uses_mcp_json(fake_home: Path, fake_cwd: P
     assert project_cfg.is_file()
     cfg = json.loads(project_cfg.read_text(encoding="utf-8"))
     assert MCP_SERVER_NAME in cfg["mcpServers"]
-    # Project scope pins SCIEASY_PROJECT_DIR.
-    assert cfg["mcpServers"][MCP_SERVER_NAME]["env"]["SCIEASY_PROJECT_DIR"] == str(fake_cwd)
+    # Project scope pins SCISTUDIO_PROJECT_DIR.
+    assert cfg["mcpServers"][MCP_SERVER_NAME]["env"]["SCISTUDIO_PROJECT_DIR"] == str(fake_cwd)
 
 
 # ---------------------------------------------------------------------------
@@ -111,11 +111,11 @@ def test_install_codex_idempotent(fake_home: Path, fake_cwd: Path) -> None:
 
     toml_text = (fake_home / ".codex" / "config.toml").read_text(encoding="utf-8")
     assert f"[mcp_servers.{MCP_SERVER_NAME}]" in toml_text
-    # Hotfix #880: args now prepend ["-m", "scieasy"] so the bridge always
+    # Hotfix #880: args now prepend ["-m", "scistudio"] so the bridge always
     # runs from the same interpreter as the engine instead of relying on PATH.
     assert '"mcp-bridge"' in toml_text
     assert '"-m"' in toml_text
-    assert '"scieasy"' in toml_text
+    assert '"scistudio"' in toml_text
 
 
 def test_install_codex_preserves_other_keys(fake_home: Path, fake_cwd: Path) -> None:
@@ -144,19 +144,19 @@ def test_remove_codex_round_trip(fake_home: Path, fake_cwd: Path) -> None:
 
 def test_strip_codex_block_handles_nested_env() -> None:
     src = (
-        "[mcp_servers.scieasy]\n"
-        'command = "scieasy"\n'
+        "[mcp_servers.scistudio]\n"
+        'command = "scistudio"\n'
         'args = ["mcp-bridge"]\n'
         "\n"
-        "[mcp_servers.scieasy.env]\n"
-        'SCIEASY_PROJECT_DIR = "/tmp/proj"\n'
+        "[mcp_servers.scistudio.env]\n"
+        'SCISTUDIO_PROJECT_DIR = "/tmp/proj"\n'
         "\n"
         "[other_section]\n"
         'foo = "bar"\n'
     )
     stripped, removed = _strip_codex_block(src)
     assert removed is True
-    assert "scieasy" not in stripped
+    assert "scistudio" not in stripped
     assert "[other_section]" in stripped
     assert 'foo = "bar"' in stripped
 
@@ -231,7 +231,7 @@ def test_codex_project_scope_writes_local_config(fake_home: Path, fake_cwd: Path
     assert project_cfg.is_file()
     text = project_cfg.read_text(encoding="utf-8")
     assert f"[mcp_servers.{MCP_SERVER_NAME}]" in text
-    # Project scope pins SCIEASY_PROJECT_DIR via [mcp_servers.scieasy.env].
+    # Project scope pins SCISTUDIO_PROJECT_DIR via [mcp_servers.scistudio.env].
     assert f"[mcp_servers.{MCP_SERVER_NAME}.env]" in text
     assert str(fake_cwd) in text or repr(str(fake_cwd))[1:-1] in text
     # The user-scope codex config must NOT be touched.
@@ -244,7 +244,7 @@ def test_codex_project_scope_writes_local_config(fake_home: Path, fake_cwd: Path
 def test_install_skill_with_missing_source_raises_clearly(fake_home: Path, fake_cwd: Path) -> None:
     """If the bundled skill is missing, surface a FileNotFoundError."""
     with (
-        patch("scieasy.cli.install._find_skill_source", side_effect=FileNotFoundError("missing skill")),
+        patch("scistudio.cli.install._find_skill_source", side_effect=FileNotFoundError("missing skill")),
         pytest.raises(FileNotFoundError),
     ):
         perform_install(target=None, scope="user", skill=True, do_all=False, remove=False, cwd=fake_cwd)
@@ -299,7 +299,7 @@ def test_remove_skill_cross_removal(fake_home: Path, fake_cwd: Path) -> None:
 
 
 def test_install_codex_project_scope_writes_local_config(fake_home: Path, fake_cwd: Path) -> None:
-    """ADR-040 §3.7: `scieasy install --target codex --scope project` writes <cwd>/.codex/config.toml."""
+    """ADR-040 §3.7: `scistudio install --target codex --scope project` writes <cwd>/.codex/config.toml."""
     results = perform_install(target="codex", scope="project", skill=False, do_all=False, remove=False, cwd=fake_cwd)
     assert len(results) == 1
     project_cfg = fake_cwd / ".codex" / "config.toml"
@@ -307,7 +307,7 @@ def test_install_codex_project_scope_writes_local_config(fake_home: Path, fake_c
     text = project_cfg.read_text(encoding="utf-8")
     assert f"[mcp_servers.{MCP_SERVER_NAME}]" in text
     assert f"[mcp_servers.{MCP_SERVER_NAME}.env]" in text
-    assert "SCIEASY_PROJECT_DIR" in text
+    assert "SCISTUDIO_PROJECT_DIR" in text
     # User-scope codex config not touched.
     assert not (fake_home / ".codex" / "config.toml").is_file()
 

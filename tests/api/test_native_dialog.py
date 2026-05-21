@@ -17,13 +17,13 @@ class TestNativeDialogWindowsDirectory:
     def test_directory_mode_uses_ifileopendialog(self) -> None:
         """The PowerShell script should compile a C# FolderPicker via Add-Type,
         NOT use the legacy FolderBrowserDialog."""
-        from scieasy.api.routes.filesystem import _native_dialog_windows
+        from scistudio.api.routes.filesystem import _native_dialog_windows
 
         mock_result = MagicMock()
         mock_result.stdout = r"C:\Users\test\Documents"
         mock_result.returncode = 0
 
-        with patch("scieasy.api.routes.filesystem.subprocess.run", return_value=mock_result) as mock_run:
+        with patch("scistudio.api.routes.filesystem.subprocess.run", return_value=mock_result) as mock_run:
             result = _native_dialog_windows("directory", None)
 
         mock_run.assert_called_once()
@@ -40,26 +40,26 @@ class TestNativeDialogWindowsDirectory:
 
     def test_directory_mode_cancel_returns_empty(self) -> None:
         """When the user cancels, the function should return an empty list."""
-        from scieasy.api.routes.filesystem import _native_dialog_windows
+        from scistudio.api.routes.filesystem import _native_dialog_windows
 
         mock_result = MagicMock()
         mock_result.stdout = ""
         mock_result.returncode = 0
 
-        with patch("scieasy.api.routes.filesystem.subprocess.run", return_value=mock_result):
+        with patch("scistudio.api.routes.filesystem.subprocess.run", return_value=mock_result):
             result = _native_dialog_windows("directory", None)
 
         assert result == []
 
     def test_file_mode_uses_openfiledialog(self) -> None:
         """The file branch should still use OpenFileDialog (not IFileOpenDialog)."""
-        from scieasy.api.routes.filesystem import _native_dialog_windows
+        from scistudio.api.routes.filesystem import _native_dialog_windows
 
         mock_result = MagicMock()
         mock_result.stdout = r"C:\file1.txt|C:\file2.txt"
         mock_result.returncode = 0
 
-        with patch("scieasy.api.routes.filesystem.subprocess.run", return_value=mock_result) as mock_run:
+        with patch("scistudio.api.routes.filesystem.subprocess.run", return_value=mock_result) as mock_run:
             result = _native_dialog_windows("file", None)
 
         ps_command = mock_run.call_args[0][0]
@@ -87,37 +87,37 @@ class TestNativeDialogNoTimeout:
         )
 
     def test_windows_dialog_has_no_timeout(self) -> None:
-        from scieasy.api.routes.filesystem import _native_dialog_windows
+        from scistudio.api.routes.filesystem import _native_dialog_windows
 
         mock_result = MagicMock()
         mock_result.stdout = ""
         mock_result.returncode = 0
 
-        with patch("scieasy.api.routes.filesystem.subprocess.run", return_value=mock_result) as mock_run:
+        with patch("scistudio.api.routes.filesystem.subprocess.run", return_value=mock_result) as mock_run:
             _native_dialog_windows("directory", None)
 
         self._assert_no_timeout(mock_run)
 
     def test_macos_dialog_has_no_timeout(self) -> None:
-        from scieasy.api.routes.filesystem import _native_dialog_macos
+        from scistudio.api.routes.filesystem import _native_dialog_macos
 
         mock_result = MagicMock()
         mock_result.stdout = ""
         mock_result.returncode = 0
 
-        with patch("scieasy.api.routes.filesystem.subprocess.run", return_value=mock_result) as mock_run:
+        with patch("scistudio.api.routes.filesystem.subprocess.run", return_value=mock_result) as mock_run:
             _native_dialog_macos("file", None)
 
         self._assert_no_timeout(mock_run)
 
     def test_linux_dialog_has_no_timeout(self) -> None:
-        from scieasy.api.routes.filesystem import _native_dialog_linux
+        from scistudio.api.routes.filesystem import _native_dialog_linux
 
         mock_result = MagicMock()
         mock_result.stdout = ""
         mock_result.returncode = 0
 
-        with patch("scieasy.api.routes.filesystem.subprocess.run", return_value=mock_result) as mock_run:
+        with patch("scistudio.api.routes.filesystem.subprocess.run", return_value=mock_result) as mock_run:
             _native_dialog_linux("file", None)
 
         self._assert_no_timeout(mock_run)

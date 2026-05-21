@@ -20,11 +20,11 @@
   ],
   "branch": "feat/issue-1296/adr043-b1-imaging-propagation",
   "changed_test_paths": [
-    "packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py"
+    "packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py"
   ],
   "check_results": [
     {
-      "command_or_tool": "pytest packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py --timeout=60",
+      "command_or_tool": "pytest packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py --timeout=60",
       "exit_code": 0,
       "name": "pytest_propagation",
       "output_path": null,
@@ -33,7 +33,7 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "pytest packages/scieasy-blocks-imaging/tests/ --timeout=60",
+      "command_or_tool": "pytest packages/scistudio-blocks-imaging/tests/ --timeout=60",
       "exit_code": 1,
       "name": "pytest_imaging_full",
       "output_path": null,
@@ -42,7 +42,7 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "ruff check packages/scieasy-blocks-imaging/",
+      "command_or_tool": "ruff check packages/scistudio-blocks-imaging/",
       "exit_code": 0,
       "name": "ruff_check",
       "output_path": null,
@@ -51,7 +51,7 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "ruff format --check packages/scieasy-blocks-imaging/",
+      "command_or_tool": "ruff format --check packages/scistudio-blocks-imaging/",
       "exit_code": 0,
       "name": "ruff_format",
       "output_path": null,
@@ -79,7 +79,7 @@
   },
   "full_audit": {
     "blocks_merge": false,
-    "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
     "exit_code": 0,
     "known_debt": [
       "All 311 findings are in unchanged docs (docs/adr/ADR-031..046 missing frontmatter, docs/architecture/ARCHITECTURE.md drift, docs/specs/adr-042-consistency-tools.md signature drift). Verified via inline scan that zero findings reference any file modified by this PR. Pre-existing repo debt owner-acknowledged per dispatch prompt; tracked under #1204 follow-up."
@@ -100,15 +100,15 @@
   ],
   "owner_directive": "Phase B1: imaging ProcessBlock OME propagation audit + fix per spec FR-009/FR-010",
   "planned_files": [
-    "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/geometry.py",
-    "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/axis_ops.py",
-    "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/projection/projection.py",
-    "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/cellpose_segment.py",
-    "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/blob_detect.py",
-    "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/connected_components.py",
-    "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/watershed.py",
-    "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/cleanup.py",
-    "packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocess/geometry.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocess/axis_ops.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/projection/projection.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/cellpose_segment.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/blob_detect.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/connected_components.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/watershed.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/cleanup.py",
+    "packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py",
     "docs/audit/adr-043-imaging-propagation-audit.md",
     "CHANGELOG.md"
   ],
@@ -117,29 +117,29 @@
       1296
     ],
     "number": 1302,
-    "url": "https://github.com/zjzcpj/SciEasy/pull/1302"
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1302"
   },
   "record_path": ".workflow/records/1296-b1-imaging-propagation.json",
   "required_checks": [
-    "pytest packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py --timeout=60",
-    "pytest packages/scieasy-blocks-imaging/tests/ --timeout=60",
-    "ruff check packages/scieasy-blocks-imaging/",
-    "ruff format --check packages/scieasy-blocks-imaging/",
-    "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json"
+    "pytest packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py --timeout=60",
+    "pytest packages/scistudio-blocks-imaging/tests/ --timeout=60",
+    "ruff check packages/scistudio-blocks-imaging/",
+    "ruff format --check packages/scistudio-blocks-imaging/",
+    "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json"
   ],
   "schema_version": "1",
   "scope": {
     "exclude": [],
     "include": [
-      "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/geometry.py",
-      "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/axis_ops.py",
-      "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/projection/projection.py",
-      "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/cellpose_segment.py",
-      "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/blob_detect.py",
-      "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/connected_components.py",
-      "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/watershed.py",
-      "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/cleanup.py",
-      "packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocess/geometry.py",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocess/axis_ops.py",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/projection/projection.py",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/cellpose_segment.py",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/blob_detect.py",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/connected_components.py",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/watershed.py",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/cleanup.py",
+      "packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py",
       "docs/audit/adr-043-imaging-propagation-audit.md",
       "CHANGELOG.md"
     ]

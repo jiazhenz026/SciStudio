@@ -11,7 +11,7 @@ from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict
 
-from scieasy.core.types.array import Array
+from scistudio.core.types.array import Array
 
 
 class AnalysisImage(Array):

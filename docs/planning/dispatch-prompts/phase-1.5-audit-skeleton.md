@@ -46,7 +46,7 @@ Rate each as Sufficient / Needs more / Wrong contract. Log in report.
 ruff format --check .
 ruff check .
 pytest -q --timeout=60   # xfail / skip stubs expected
-mypy src/scieasy/ --ignore-missing-imports
+mypy src/scistudio/ --ignore-missing-imports
 cd frontend && npm run build && npx vitest run --reporter=basic
 cd ..
 ```

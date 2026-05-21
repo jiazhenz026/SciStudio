@@ -14,7 +14,7 @@ status: committed
 
 ## 1. Scope
 
-This audit covers every `ProcessBlock` in `packages/scieasy-blocks-srs/` and
+This audit covers every `ProcessBlock` in `packages/scistudio-blocks-srs/` and
 classifies its OME-metadata propagation behavior against the propagation
 contract codified in
 [`docs/specs/adr-043-package-migration.md`](../specs/adr-043-package-migration.md)
@@ -23,7 +23,7 @@ FR-009 (Modes A / B / C), as required by FR-011.
 Phase A2 added `ome: OME | None = None` to `Image.Meta` and `Label.Meta` in the
 imaging plugin. Because `SRSImage.Meta` inherits from `Image.Meta` via
 `class Meta(Image.Meta)` in
-[`packages/scieasy-blocks-srs/src/scieasy_blocks_srs/types.py`](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/types.py#L47),
+[`packages/scistudio-blocks-srs/src/scistudio_blocks_srs/types.py`](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/types.py#L47),
 `SRSImage.Meta` automatically gained the `ome` field with no edit to `types.py`
 required.
 
@@ -51,21 +51,21 @@ contract.
 
 | Block | File | Mode | Propagation site | Required action | Result |
 |---|---|---|---|---|---|
-| `SRSCalibrate` | [preprocess/srs_calibrate.py](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_calibrate.py#L95) | Mode C (model_dump + override) | `SRSImage.Meta(**item.meta.model_dump(), …overrides)` | None — `model_dump()` already includes `ome` | verified by test |
-| `SRSBaseline` | [preprocess/srs_baseline.py](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_baseline.py#L93) | Mode A | `SRSImage(..., meta=item.meta, ...)` | None — transparent | verified by test |
-| `SRSSpectralDenoise` | [preprocess/srs_spectral_denoise.py](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_spectral_denoise.py#L96) | Mode A | `SRSImage(..., meta=item.meta, ...)` | None — transparent | verified by test |
-| `SRSKMeansCluster` | [component_analysis/srs_kmeans.py](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_kmeans.py#L121) | Mode C (cross-type → `Label`) | `Label.Meta(source_file=…, n_objects=…, ome=…)` | **Add `ome=getattr(item.meta, "ome", None)` — DONE** | verified by test |
-| `SRSPCA` | [component_analysis/srs_pca.py](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_pca.py#L144) | Mode C — legitimate drop | `Image(..., meta=None, ...)` for per-PC score maps | Document deliberate `meta=None` | comment added; verified by test |
-| `SRSICA` | [component_analysis/srs_ica.py](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_ica.py#L107) | Mode C — legitimate drop (shares `_scores_to_image_collection`) | Reuses `SRSPCA._scores_to_image_collection` | Same rationale as `SRSPCA` (covered by shared helper) | comment in shared helper covers both |
-| `SRSUnmix` | [component_analysis/srs_unmix.py](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_unmix.py#L206) | Mode C — legitimate drop | `Image(..., meta=None, ...)` for per-endmember abundance maps | Document deliberate `meta=None` | comment added |
-| `SRSVCA` | [component_analysis/srs_vca.py](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_vca.py#L143) | Mode C — DataFrame output | `DataFrame(columns=…, row_count=…)` — no Meta object on DataFrame | None — output is tabular; no Meta to populate | n/a — DataFrame has no `ome` carrier |
-| `ExtractSpectrum` | [spectral_extraction/extract_spectrum.py](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/spectral_extraction/extract_spectrum.py#L118) | Mode C — DataFrame output | `DataFrame(columns=…, row_count=…)` — wide-format per-ROI spectra | None — output is tabular; no Meta to populate | n/a — DataFrame has no `ome` carrier |
+| `SRSCalibrate` | [preprocess/srs_calibrate.py](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocess/srs_calibrate.py#L95) | Mode C (model_dump + override) | `SRSImage.Meta(**item.meta.model_dump(), …overrides)` | None — `model_dump()` already includes `ome` | verified by test |
+| `SRSBaseline` | [preprocess/srs_baseline.py](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocess/srs_baseline.py#L93) | Mode A | `SRSImage(..., meta=item.meta, ...)` | None — transparent | verified by test |
+| `SRSSpectralDenoise` | [preprocess/srs_spectral_denoise.py](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocess/srs_spectral_denoise.py#L96) | Mode A | `SRSImage(..., meta=item.meta, ...)` | None — transparent | verified by test |
+| `SRSKMeansCluster` | [component_analysis/srs_kmeans.py](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_kmeans.py#L121) | Mode C (cross-type → `Label`) | `Label.Meta(source_file=…, n_objects=…, ome=…)` | **Add `ome=getattr(item.meta, "ome", None)` — DONE** | verified by test |
+| `SRSPCA` | [component_analysis/srs_pca.py](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_pca.py#L144) | Mode C — legitimate drop | `Image(..., meta=None, ...)` for per-PC score maps | Document deliberate `meta=None` | comment added; verified by test |
+| `SRSICA` | [component_analysis/srs_ica.py](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_ica.py#L107) | Mode C — legitimate drop (shares `_scores_to_image_collection`) | Reuses `SRSPCA._scores_to_image_collection` | Same rationale as `SRSPCA` (covered by shared helper) | comment in shared helper covers both |
+| `SRSUnmix` | [component_analysis/srs_unmix.py](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_unmix.py#L206) | Mode C — legitimate drop | `Image(..., meta=None, ...)` for per-endmember abundance maps | Document deliberate `meta=None` | comment added |
+| `SRSVCA` | [component_analysis/srs_vca.py](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_vca.py#L143) | Mode C — DataFrame output | `DataFrame(columns=…, row_count=…)` — no Meta object on DataFrame | None — output is tabular; no Meta to populate | n/a — DataFrame has no `ome` carrier |
+| `ExtractSpectrum` | [spectral_extraction/extract_spectrum.py](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/spectral_extraction/extract_spectrum.py#L118) | Mode C — DataFrame output | `DataFrame(columns=…, row_count=…)` — wide-format per-ROI spectra | None — output is tabular; no Meta to populate | n/a — DataFrame has no `ome` carrier |
 
 ## 4. Mode A — Verifications (No-Op Fixes)
 
 ### 4.1 `SRSBaseline`
 
-[`packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_baseline.py:93`](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_baseline.py#L93)
+[`packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocess/srs_baseline.py:93`](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocess/srs_baseline.py#L93)
 builds the output as:
 
 ```python
@@ -87,13 +87,13 @@ Verified by `test_srs_baseline_mode_a_preserves_ome`.
 
 ### 4.2 `SRSSpectralDenoise`
 
-[`packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_spectral_denoise.py:96`](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_spectral_denoise.py#L96)
+[`packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocess/srs_spectral_denoise.py:96`](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocess/srs_spectral_denoise.py#L96)
 uses the same `meta=item.meta` pattern. Same conclusion as `SRSBaseline`.
 Verified by `test_srs_spectral_denoise_mode_a_preserves_ome`.
 
 ## 5. Mode C — `model_dump` + override: `SRSCalibrate`
 
-[`packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_calibrate.py:95`](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_calibrate.py#L95)
+[`packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocess/srs_calibrate.py:95`](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocess/srs_calibrate.py#L95)
 rebuilds the SRSImage.Meta from the source's dumped Meta plus digitizer
 overrides:
 
@@ -142,7 +142,7 @@ layout — every pixel in the source maps to exactly one cluster ID. Per FR-009
 Mode C, **shape-preserving cross-type derivations MUST propagate `ome`**.
 
 The fix at
-[`packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_kmeans.py:118-130`](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_kmeans.py#L118):
+[`packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_kmeans.py:118-130`](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_kmeans.py#L118):
 
 ```python
 # ADR-043 FR-009 Mode C — Image-domain → Label is a shape-preserving
@@ -171,7 +171,7 @@ subclass). Verified by `test_srs_kmeans_mode_c_label_carries_ome`,
 
 ### 7.1 `SRSPCA` per-PC score maps
 
-[`packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_pca.py:128-150`](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_pca.py#L128):
+[`packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_pca.py:128-150`](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_pca.py#L128):
 each output `Image` is a 2D `y/x` score map for one principal component. The
 source spectral (`lambda`) axis is collapsed into a derived `pc_id` index — the
 OME description (channel ordering, spectral wavelengths, pixel-axis
@@ -186,7 +186,7 @@ channel=<spectrum-name>" applied to a PC-score map would be **actively
 misleading** — downstream consumers would assume the map represents a single
 physical channel rather than a derived projection. Dropping `meta` is the
 correct behavior. A comment was added at
-[`srs_pca.py:128-136`](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_pca.py#L128)
+[`srs_pca.py:128-136`](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_pca.py#L128)
 to make the deliberate intent explicit.
 
 Note: `SRSICA` reuses the same `_scores_to_image_collection` helper, so the
@@ -196,11 +196,11 @@ Verified by `test_srs_pca_mode_c_legitimate_meta_drop`.
 
 ### 7.2 `SRSUnmix` per-endmember abundance maps
 
-[`packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_unmix.py:197-214`](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_unmix.py#L197):
+[`packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_unmix.py:197-214`](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_unmix.py#L197):
 each abundance map is a 2D `y/x` map of per-endmember abundance. Same
 reasoning as `SRSPCA`: the spectral axis is replaced by an `endmember_id`
 index; OME channel / spectral metadata does not apply. A comment was added at
-[`srs_unmix.py:197-203`](../../packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_unmix.py#L197)
+[`srs_unmix.py:197-203`](../../packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_unmix.py#L197)
 to make the deliberate intent explicit.
 
 ### 7.3 `SRSVCA` and `ExtractSpectrum`
@@ -213,7 +213,7 @@ two blocks.
 ## 8. Tests
 
 A new test module at
-[`packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py`](../../packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py)
+[`packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py`](../../packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py)
 covers:
 
 | Test | Mode | Assertion |
@@ -227,7 +227,7 @@ covers:
 | `test_srs_kmeans_handles_meta_without_ome` | C edge | source `ome=None` → `label.meta.ome is None` |
 
 All 7 tests pass locally with
-`PYTHONPATH="packages/scieasy-blocks-imaging/src;packages/scieasy-blocks-srs/src" pytest packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py --timeout=60 --no-cov`.
+`PYTHONPATH="packages/scistudio-blocks-imaging/src;packages/scistudio-blocks-srs/src" pytest packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py --timeout=60 --no-cov`.
 
 ## 9. Out of Scope
 

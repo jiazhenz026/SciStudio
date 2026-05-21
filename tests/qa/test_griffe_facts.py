@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.qa.audit.griffe_facts import extract_symbol_facts, generate_registry
+from scistudio.qa.audit.griffe_facts import extract_symbol_facts, generate_registry
 
 
 def test_extract_symbol_facts_from_temporary_package(tmp_path: Path) -> None:

@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.io.capabilities import FormatCapability
-from scieasy.blocks.io.io_block import IOBlock
-from scieasy.blocks.registry import BlockRegistry, BlockSpec, _spec_from_class
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.text import Text
-from scieasy.workflow.definition import NodeDef, WorkflowDefinition
-from scieasy.workflow.validator import validate_workflow
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.io.capabilities import FormatCapability
+from scistudio.blocks.io.io_block import IOBlock
+from scistudio.blocks.registry import BlockRegistry, BlockSpec, _spec_from_class
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.text import Text
+from scistudio.workflow.definition import NodeDef, WorkflowDefinition
+from scistudio.workflow.validator import validate_workflow
 
 
 def _capability(

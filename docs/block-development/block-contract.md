@@ -13,7 +13,7 @@ summary: "Formal block authoring contract, including IO format capability declar
 # Block Contract
 
 This document is the formal specification of the block contract. Every
-block must satisfy these requirements to be valid in the SciEasy runtime.
+block must satisfy these requirements to be valid in the SciStudio runtime.
 
 ---
 
@@ -36,7 +36,7 @@ block must satisfy these requirements to be valid in the SciEasy runtime.
 
 ## Block ABC and Inheritance Hierarchy
 
-All blocks inherit from `scieasy.blocks.base.block.Block` (ABC). The
+All blocks inherit from `scistudio.blocks.base.block.Block` (ABC). The
 framework provides six concrete base classes:
 
 ```
@@ -71,8 +71,8 @@ Declares the block's input connection endpoints. Each port specifies
 accepted types and whether it is required.
 
 ```python
-from scieasy.blocks.base.ports import InputPort
-from scieasy.core.types.array import Array
+from scistudio.blocks.base.ports import InputPort
+from scistudio.core.types.array import Array
 
 input_ports: ClassVar[list[InputPort]] = [
     InputPort(name="image", accepted_types=[Array], required=True),
@@ -84,7 +84,7 @@ input_ports: ClassVar[list[InputPort]] = [
 Declares the block's output connection endpoints.
 
 ```python
-from scieasy.blocks.base.ports import OutputPort
+from scistudio.blocks.base.ports import OutputPort
 
 output_ports: ClassVar[list[OutputPort]] = [
     OutputPort(name="image", accepted_types=[Array]),
@@ -206,7 +206,7 @@ for cross-port consistency checks or output transformations.
 
 ## ProcessBlock Hooks
 
-`ProcessBlock` (`scieasy.blocks.process.process_block.ProcessBlock`)
+`ProcessBlock` (`scistudio.blocks.process.process_block.ProcessBlock`)
 provides the setup/teardown lifecycle (ADR-027 D7).
 
 ### `setup(self, config: BlockConfig) -> Any`
@@ -265,7 +265,7 @@ def teardown(self, state):
 
 ## IOBlock Hooks
 
-`IOBlock` (`scieasy.blocks.io.io_block.IOBlock`) provides the
+`IOBlock` (`scistudio.blocks.io.io_block.IOBlock`) provides the
 load/save dispatch. ADR-043 makes external file formats an IO boundary
 capability, not a DataObject property.
 
@@ -351,9 +351,9 @@ the full runtime contract.
 ```python
 from typing import ClassVar
 
-from scieasy.blocks.io.capabilities import FormatCapability, MetadataFidelity
-from scieasy.blocks.io.io_block import IOBlock
-from scieasy_blocks_imaging.types import Image
+from scistudio.blocks.io.capabilities import FormatCapability, MetadataFidelity
+from scistudio.blocks.io.io_block import IOBlock
+from scistudio_blocks_imaging.types import Image
 
 
 class LoadImage(IOBlock):
@@ -362,7 +362,7 @@ class LoadImage(IOBlock):
 
     format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
         FormatCapability(
-            id="scieasy-blocks-imaging.image.tiff.load",
+            id="scistudio-blocks-imaging.image.tiff.load",
             direction="load",
             data_type=Image,
             format_id="tiff",
@@ -393,8 +393,8 @@ synthesize conservative `pixel_only` capabilities from a small declaration:
 from pathlib import Path
 from typing import Any, ClassVar
 
-from scieasy.blocks.io.simple_io import SimpleLoader
-from scieasy.core.types.array import Array
+from scistudio.blocks.io.simple_io import SimpleLoader
+from scistudio.core.types.array import Array
 
 
 class LoadNpy(SimpleLoader):
@@ -639,9 +639,9 @@ Concrete AppBlock subclasses keep their `output_ports` ClassVar as a
 if config.get("output_ports"):
     return self._bin_outputs_by_extension(output_files, config)
 # Backwards-compatible fallback when no ports are declared:
-from scieasy.blocks.app.bridge import _guess_mime
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.app.bridge import _guess_mime
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.collection import Collection
 artifacts = [
     Artifact(file_path=p, mime_type=_guess_mime(p), description=p.name)
     for p in output_files

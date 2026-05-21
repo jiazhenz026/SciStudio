@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from scieasy.qa.governance.human_bypass_guard import VALID_OVERRIDE_LABELS, check
-from scieasy.qa.schemas.report import AuditStatus
+from scistudio.qa.governance.human_bypass_guard import VALID_OVERRIDE_LABELS, check
+from scistudio.qa.schemas.report import AuditStatus
 
 
 def _pr(*, labels: list[str], permission: str = "admin", has_ai_evidence: bool = False) -> dict[str, object]:

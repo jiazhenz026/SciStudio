@@ -4,7 +4,7 @@ After integrating ADR-038 (lineage store) + ADR-039 (git auto-init),
 ``ApiRuntime.open_project`` performs **two independent best-effort
 initialisations** in order:
 
-  1. ``_init_lineage_store`` — opens ``<project>/.scieasy/lineage.db``;
+  1. ``_init_lineage_store`` — opens ``<project>/.scistudio/lineage.db``;
      failure leaves ``runtime.lineage_store = None``.
   2. ADR-039 re-init hook — opens / inits the project git repo;
      failure leaves ``engine.is_repository(project_path) == False``.
@@ -26,7 +26,7 @@ import pytest
 
 @pytest.fixture
 def project_path(tmp_path: Path) -> Path:
-    """Bare-minimum SciEasy project directory."""
+    """Bare-minimum SciStudio project directory."""
     root = tmp_path / "demo_project"
     root.mkdir()
     (root / "project.yaml").write_text(
@@ -44,7 +44,7 @@ def _make_runtime():
     not need the full lifespan setup — we just want to call
     ``open_project`` directly.
     """
-    from scieasy.api.runtime import ApiRuntime
+    from scistudio.api.runtime import ApiRuntime
 
     return ApiRuntime()
 
@@ -62,7 +62,7 @@ def test_open_project_succeeds_when_lineage_init_fails(
     """
     runtime = _make_runtime()
 
-    from scieasy.core.lineage import store as _lineage_store_mod
+    from scistudio.core.lineage import store as _lineage_store_mod
 
     class _ExplodingStore:
         def __init__(self, *_args, **_kwargs):
@@ -88,7 +88,7 @@ def test_open_project_succeeds_when_git_init_fails(
 
     # Patch the lazily-imported GitEngine.is_repository / init_repository
     # so the ADR-039 hook in open_project raises.
-    from scieasy.core.versioning import git_engine as _gem
+    from scistudio.core.versioning import git_engine as _gem
 
     class _ExplodingEngine:
         def __init__(self, *_args, **_kwargs):
@@ -109,7 +109,7 @@ def test_open_project_succeeds_when_both_inits_fail(
     runtime = _make_runtime()
 
     # Disable lineage init (patch the lazy import inside _init_lineage_store).
-    from scieasy.core.lineage import store as _lineage_store_mod
+    from scistudio.core.lineage import store as _lineage_store_mod
 
     class _ExplodingStore:
         def __init__(self, *_args, **_kwargs):
@@ -118,7 +118,7 @@ def test_open_project_succeeds_when_both_inits_fail(
     monkeypatch.setattr(_lineage_store_mod, "LineageStore", _ExplodingStore)
 
     # Disable git init.
-    from scieasy.core.versioning import git_engine as _gem
+    from scistudio.core.versioning import git_engine as _gem
 
     class _ExplodingEngine:
         def __init__(self, *_args, **_kwargs):

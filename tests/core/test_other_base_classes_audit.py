@@ -26,18 +26,18 @@ import inspect
 import pytest
 from pydantic import BaseModel
 
-from scieasy.core.meta import FrameworkMeta
-from scieasy.core.types import artifact as artifact_module
-from scieasy.core.types import composite as composite_module
-from scieasy.core.types import dataframe as dataframe_module
-from scieasy.core.types import series as series_module
-from scieasy.core.types import text as text_module
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.series import Series
-from scieasy.core.types.text import Text
+from scistudio.core.meta import FrameworkMeta
+from scistudio.core.types import artifact as artifact_module
+from scistudio.core.types import composite as composite_module
+from scistudio.core.types import dataframe as dataframe_module
+from scistudio.core.types import series as series_module
+from scistudio.core.types import text as text_module
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.series import Series
+from scistudio.core.types.text import Text
 
 # ---------------------------------------------------------------------------
 # Test fixtures: tiny typed Meta models + matching subclasses for each
@@ -195,7 +195,7 @@ class TestSeriesIntegration:
         # Also explicitly assert the deleted names are gone.
         for deleted in ("Spectrum", "RamanSpectrum", "MassSpectrum"):
             assert not hasattr(series_module, deleted), (
-                f"series.py must not define '{deleted}' — it belongs in scieasy-blocks-spectral."
+                f"series.py must not define '{deleted}' — it belongs in scistudio-blocks-spectral."
             )
 
 
@@ -262,7 +262,7 @@ class TestDataFrameIntegration:
         assert classes == ["DataFrame"], f"Expected dataframe.py to contain only 'DataFrame'; found {classes}."
         for deleted in ("PeakTable", "MetabPeakTable"):
             assert not hasattr(dataframe_module, deleted), (
-                f"dataframe.py must not define '{deleted}' — it belongs in scieasy-blocks-spectral."
+                f"dataframe.py must not define '{deleted}' — it belongs in scistudio-blocks-spectral."
             )
 
 
@@ -448,11 +448,11 @@ class TestArtifactIntegration:
 
 
 class TestCoreTypesAllExports:
-    """The ``scieasy.core.types`` public surface must contain only base types."""
+    """The ``scistudio.core.types`` public surface must contain only base types."""
 
     def test_all_contains_only_base_types(self) -> None:
         """__all__ must not re-export any deleted domain subtypes."""
-        from scieasy.core.types import __all__ as core_types_all
+        from scistudio.core.types import __all__ as core_types_all
 
         forbidden = {
             "Spectrum",
@@ -469,12 +469,12 @@ class TestCoreTypesAllExports:
         }
         overlap = forbidden & set(core_types_all)
         assert overlap == set(), (
-            f"scieasy.core.types.__all__ must not re-export deleted domain subtypes; found: {sorted(overlap)}"
+            f"scistudio.core.types.__all__ must not re-export deleted domain subtypes; found: {sorted(overlap)}"
         )
 
     def test_all_contains_the_seven_base_types(self) -> None:
         """__all__ must contain exactly the seven core base types."""
-        from scieasy.core.types import __all__ as core_types_all
+        from scistudio.core.types import __all__ as core_types_all
 
         required = {
             "DataObject",
@@ -487,5 +487,5 @@ class TestCoreTypesAllExports:
         }
         missing = required - set(core_types_all)
         assert missing == set(), (
-            f"scieasy.core.types.__all__ must export all seven core base types; missing: {sorted(missing)}"
+            f"scistudio.core.types.__all__ must export all seven core base types; missing: {sorted(missing)}"
         )

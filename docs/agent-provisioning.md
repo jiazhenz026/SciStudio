@@ -1,12 +1,12 @@
 # Agent provisioning (ADR-040 §5.3)
 
-This page describes the per-project agent assets that SciEasy installs
+This page describes the per-project agent assets that SciStudio installs
 automatically at project creation and on every `open_project` /
-`scieasy init` invocation.
+`scistudio init` invocation.
 
 ## What gets installed
 
-Every SciEasy project receives the following set of agent-facing files
+Every SciStudio project receives the following set of agent-facing files
 the first time it is created or opened:
 
 ```
@@ -15,24 +15,24 @@ the first time it is created or opened:
   AGENTS.md                                # Codex agent guide (byte-identical to CLAUDE.md)
   .claude/
     settings.json                          # Claude Code PreToolUse + PostToolUse hook config
-    .scieasy-provision-version             # Version marker (current: 0.1.0)
+    .scistudio-provision-version             # Version marker (current: 0.1.0)
     hooks/
-      deny_scieasy_cli.py                  # PreToolUse / Bash — blocks `scieasy <subcommand>`
+      deny_scistudio_cli.py                  # PreToolUse / Bash — blocks `scistudio <subcommand>`
       protect_workflow_yaml.py             # PreToolUse / Edit|Write — blocks workflows/*.yaml writes
       enforce_list_blocks_before_block_write.py
                                            # PreToolUse — requires list_blocks call before authoring a block
       remind_poll_status.py                # PostToolUse / run_workflow — stderr reminder to poll
       mark_list_blocks_called.py           # PostToolUse / list_blocks — writes session marker
       enforce_concrete_port_types.py       # PostToolUse — stderr-warns on DataObject ports
-    skills/scieasy/                        # 6 task-scoped Claude Code skills
-      scieasy/SKILL.md                     # base index
-      scieasy-build-workflow/SKILL.md
-      scieasy-write-block/SKILL.md
-      scieasy-debug-run/SKILL.md
-      scieasy-inspect-data/SKILL.md
-      scieasy-project-qa/SKILL.md
-  .agents/skills/scieasy/                  # 6 task-scoped Codex skills (mirror of .claude/skills/)
-    scieasy/SKILL.md
+    skills/scistudio/                        # 6 task-scoped Claude Code skills
+      scistudio/SKILL.md                     # base index
+      scistudio-build-workflow/SKILL.md
+      scistudio-write-block/SKILL.md
+      scistudio-debug-run/SKILL.md
+      scistudio-inspect-data/SKILL.md
+      scistudio-project-qa/SKILL.md
+  .agents/skills/scistudio/                  # 6 task-scoped Codex skills (mirror of .claude/skills/)
+    scistudio/SKILL.md
     ... (5 more)
   .codex/
     config.toml                            # project-scope MCP server config
@@ -43,7 +43,7 @@ All filesystem-only — no network, no daemons, no external binaries.
 ## When provisioning runs
 
 Three entry points all converge on
-`scieasy.agent_provisioning.install_project_agent_assets`:
+`scistudio.agent_provisioning.install_project_agent_assets`:
 
 1. `ApiRuntime.create_project` (the GUI/HTTP path) — runs AFTER git init,
    BEFORE `open_project`. The initial commit is clean; provisioned files
@@ -51,7 +51,7 @@ Three entry points all converge on
 2. `ApiRuntime.open_project` (every open) — runs AFTER git re-init,
    BEFORE the MCP port publishes. Idempotent top-up: missing assets are
    restored, user-customized assets are preserved.
-3. `scieasy init <name>` (CLI parity per ADR-039 §6) — same ordering:
+3. `scistudio init <name>` (CLI parity per ADR-039 §6) — same ordering:
    git init → provisioning → final echo.
 
 Failures are non-fatal per ADR-040 §7. The provisioning function returns
@@ -97,14 +97,14 @@ file-system-driven:
 - **CLAUDE.md / AGENTS.md content**: edit freely; preserved on next open.
 
 To temporarily disable provisioning entirely for debugging, monkeypatch
-`scieasy.agent_provisioning.install_project_agent_assets` to a no-op.
+`scistudio.agent_provisioning.install_project_agent_assets` to a no-op.
 Production users should not need this.
 
 ## Version marker
 
-`<project>/.claude/.scieasy-provision-version` records the SciEasy
-provisioning template version (`SCIEASY_PROVISION_VERSION`, currently
-`0.1.0`). When the constant bumps in a future SciEasy release, an
+`<project>/.claude/.scistudio-provision-version` records the SciStudio
+provisioning template version (`SCISTUDIO_PROVISION_VERSION`, currently
+`0.1.0`). When the constant bumps in a future SciStudio release, an
 upgrade flow (Phase 3 / #1011) will compare this marker to the new
 constant and decide which canonical files to re-write. For 0.1.0, the
 marker is rewritten on every run and is not yet used for upgrade
@@ -114,31 +114,31 @@ decisions.
 
 ADR-040 §3.5 is explicit about the boundary:
 
-- **SciEasy source repo `CLAUDE.md` (this file's parent dir)**: rules
-  for *developing* SciEasy itself — gate workflow, ADR discipline, PR
+- **SciStudio source repo `CLAUDE.md` (this file's parent dir)**: rules
+  for *developing* SciStudio itself — gate workflow, ADR discipline, PR
   process, repo structure. ~800 lines.
 - **Provisioned `<project>/CLAUDE.md`**: rules for an agent *using* a
-  SciEasy project — MCP-only access, block-reuse discipline, workflow
+  SciStudio project — MCP-only access, block-reuse discipline, workflow
   YAML through schema. ~50 lines.
 
 The two are intentionally distinct. An end-user agent does not need to
-know how to run `gate.py`, and a SciEasy contributor does not need to
+know how to run `gate.py`, and a SciStudio contributor does not need to
 have MCP-only access enforced on their dev machine.
 
 ## Cross-link to install.py (ADR-040 §3.9)
 
 `<project>/.codex/config.toml` is rendered by
-`scieasy.cli.install._render_codex_block(project_dir)` — the same
-function `scieasy install --target codex --scope project` calls. The
+`scistudio.cli.install._render_codex_block(project_dir)` — the same
+function `scistudio install --target codex --scope project` calls. The
 auto-provisioned file is byte-identical to what an explicit
-`scieasy install` would emit. A dedicated test
+`scistudio install` would emit. A dedicated test
 (`tests/agent_provisioning/test_codex_config.py::test_codex_config_matches_install_render`)
 enforces this contract.
 
-User-scope `~/.codex/config.toml` (written by `scieasy install --scope user`)
+User-scope `~/.codex/config.toml` (written by `scistudio install --scope user`)
 continues to work as a fallback for sessions opened outside any
-SciEasy project. Codex 2026 walks both files; the project-scope entry
-wins inside a SciEasy project tree.
+SciStudio project. Codex 2026 walks both files; the project-scope entry
+wins inside a SciStudio project tree.
 
 ## Known limitations
 
@@ -154,7 +154,7 @@ wins inside a SciEasy project tree.
   hook is advisory (stderr warn); hard rejection is a future ADR.
 - **Skill body content** — the 5 task-scoped SKILL.md files ship as
   placeholders on this implementation cut; Phase 2c (`#1013`) authors
-  the real bodies. The base `scieasy` skill ships the legacy monolithic
+  the real bodies. The base `scistudio` skill ships the legacy monolithic
   content as a fallback.
 - **Windows hook execution** — CI is Ubuntu-only; settings.json
   invokes `python` explicitly so the executable bit is unused on

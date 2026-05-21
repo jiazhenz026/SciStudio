@@ -6,14 +6,14 @@ from typing import Any
 
 import pytest
 
-from scieasy.blocks.base.state import BlockState
-from scieasy.blocks.process.builtins.filter_collection import FilterCollection
-from scieasy.blocks.process.builtins.merge_collection import MergeCollection
-from scieasy.blocks.process.builtins.slice_collection import SliceCollection
-from scieasy.blocks.process.builtins.split_collection import SplitCollection
-from scieasy.core.types.array import Array
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.blocks.base.state import BlockState
+from scistudio.blocks.process.builtins.filter_collection import FilterCollection
+from scistudio.blocks.process.builtins.merge_collection import MergeCollection
+from scistudio.blocks.process.builtins.slice_collection import SliceCollection
+from scistudio.blocks.process.builtins.split_collection import SplitCollection
+from scistudio.core.types.array import Array
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.dataframe import DataFrame
 
 # ---------------------------------------------------------------------------
 # Local test fixture.

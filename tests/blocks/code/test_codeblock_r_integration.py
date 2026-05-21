@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from scieasy.blocks.code.code_block import CodeBlock, CodeBlockMigrationError
+from scistudio.blocks.code.code_block import CodeBlock, CodeBlockMigrationError
 
 
 def test_legacy_r_inline_config_reports_migration() -> None:

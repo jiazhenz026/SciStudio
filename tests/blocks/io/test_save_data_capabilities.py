@@ -1,7 +1,7 @@
 """Tests for :attr:`SaveData.format_capabilities` (ADR-043 / spec FR-002).
 
 These tests pin the explicit ``FormatCapability`` declarations on
-:class:`scieasy.blocks.io.savers.save_data.SaveData` introduced in the
+:class:`scistudio.blocks.io.savers.save_data.SaveData` introduced in the
 ADR-043 in-tree-core-IO migration (spec ``adr-043-package-migration``
 Phase A1, T-002 / T-005 / FR-016). They cover:
 
@@ -30,30 +30,30 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort
-from scieasy.blocks.io.capabilities import FormatCapability, MetadataFidelity
-from scieasy.blocks.io.io_block import IOBlock
-from scieasy.blocks.io.loaders.load_data import LoadData
-from scieasy.blocks.io.savers.save_data import (
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort
+from scistudio.blocks.io.capabilities import FormatCapability, MetadataFidelity
+from scistudio.blocks.io.io_block import IOBlock
+from scistudio.blocks.io.loaders.load_data import LoadData
+from scistudio.blocks.io.savers.save_data import (
     _SAVE_CAPABILITIES,
     _SAVE_EXTENSION_MAP,
     SaveData,
     _supported_save_extensions,
 )
-from scieasy.blocks.registry import (
+from scistudio.blocks.registry import (
     AmbiguousCapabilityError,
     BlockRegistry,
     MissingCapabilityError,
     _spec_from_class,
 )
-from scieasy.core.types.array import Array
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.series import Series
-from scieasy.core.types.text import Text
+from scistudio.core.types.array import Array
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.series import Series
+from scistudio.core.types.text import Text
 
 # ---------------------------------------------------------------------------
 # Declaration-shape tests (FR-002 + FR-015 + FR-016).
@@ -121,7 +121,7 @@ class TestSaveDataFormatCapabilitiesShape:
     def test_no_capability_claims_default(self) -> None:
         """FR-002 cross-package collision rule: core IO capabilities are
         declared ``is_default=False`` so installed package-specific
-        savers (e.g. ``scieasy-blocks-lcms.table.csv.save`` for
+        savers (e.g. ``scistudio-blocks-lcms.table.csv.save`` for
         ``(DataFrame, .csv)``) keep ownership of the default slot
         without triggering a registration-time
         :class:`CapabilityRegistrationError`. When no package declares a
@@ -370,7 +370,7 @@ class TestRegistryAmbiguityForMultipleCapabilities:
         (cross-package collision rule per A1 CI run). When a third-party
         block declares the same slot with ``is_default=True``, the
         default declaration wins. This mirrors the LCMS pilot pattern
-        where ``scieasy-blocks-lcms.table.csv.save`` claims default
+        where ``scistudio-blocks-lcms.table.csv.save`` claims default
         ownership of ``(DataFrame, .csv)`` and SaveData yields."""
 
         class _AltDataFrameSaver(IOBlock):

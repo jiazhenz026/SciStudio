@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.qa.audit.closure import check_bidirectional
-from scieasy.qa.schemas.facts import Fact, FactsRegistry
-from scieasy.qa.schemas.maintainers import MaintainerRule, Maintainers
-from scieasy.qa.schemas.report import AuditStatus
+from scistudio.qa.audit.closure import check_bidirectional
+from scistudio.qa.schemas.facts import Fact, FactsRegistry
+from scistudio.qa.schemas.maintainers import MaintainerRule, Maintainers
+from scistudio.qa.schemas.report import AuditStatus
 
 
 def test_closure_reports_public_symbol_without_governance(tmp_path: Path) -> None:

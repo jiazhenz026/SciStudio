@@ -63,13 +63,13 @@ date: 2026-05-12
 >       `{type:"error",message}`
 > * Resource cap: max 16 concurrent PTY tabs per backend.
 >
-> Implementation: `src/scieasy/ai/agent/terminal.py`,
-> `src/scieasy/ai/agent/system_prompt.py`,
-> `src/scieasy/api/routes/ai_pty.py`,
-> `src/scieasy/api/routes/ai.py` (`provider_status`).
+> Implementation: `src/scistudio/ai/agent/terminal.py`,
+> `src/scistudio/ai/agent/system_prompt.py`,
+> `src/scistudio/api/routes/ai_pty.py`,
+> `src/scistudio/api/routes/ai.py` (`provider_status`).
 >
 > **Phase 2 (issue #823, ADR-034 §3.6).** Canvas auto-update is delivered
-> by a filesystem watcher in `src/scieasy/api/routes/workflow_watcher.py`
+> by a filesystem watcher in `src/scistudio/api/routes/workflow_watcher.py`
 > rather than by intercepting `write_workflow` MCP tool calls (the PTY
 > mode is opaque to us). The watcher observes
 > `<active_project>/workflows/*.yaml` recursively, debounces per-path
@@ -78,7 +78,7 @@ date: 2026-05-12
 > `workflow.changed` engine event so the standard `/ws` outbound loop
 > delivers it to the browser. The frontend hook routes the event to
 > refetch + replace the canvas state, or clear it on `kind="deleted"`.
-> Note: the ADR-034 §3.6 draft text says `<project>/.scieasy/workflows/`;
+> Note: the ADR-034 §3.6 draft text says `<project>/.scistudio/workflows/`;
 > the implemented location is `<project>/workflows/` to match
 > `ApiRuntime.workflow_path`. Phase 3 will reconcile the ADR text.
 >
@@ -114,7 +114,7 @@ This spec is the checkpoint between *design* (ADR) and *implementation* (PRs). A
 
 ### In scope (covered by tickets in this spec)
 
-- All code, tests, and documentation changes needed to make the agent chat work end-to-end with a locally installed Claude Code CLI, against a SciEasy project workspace.
+- All code, tests, and documentation changes needed to make the agent chat work end-to-end with a locally installed Claude Code CLI, against a SciStudio project workspace.
 - A Codex-CLI alternate provider implementation (Phase 4).
 - Deletion of pre-ADR-033 AI surfaces: `ai/generation/`, `ai/synthesis/`, `ai/optimization/`, `ai/config.py`, single-call providers, three legacy REST endpoints, the keyword-routed `AIChat`.
 - New user-facing guide `docs/guides/ai-chat.md`.
@@ -125,7 +125,7 @@ This spec is the checkpoint between *design* (ADR) and *implementation* (PRs). A
 - **AIBlock revision.** Kept as-is per ADR-033 D9. A separate ADR + spec will decide whether to rewrite AIBlock on top of `AgentProvider` in non-interactive mode.
 - **Skill marketplace / sharing.** ADR-033 D7 supports project-local skills, but no GUI for browsing / installing shared skills.
 - **Multi-user / collaboration.** One user, one machine; concurrent chats on the same project are supported but cross-user is not.
-- **Telemetry / usage analytics.** SciEasy does not collect agent usage data in this phase.
+- **Telemetry / usage analytics.** SciStudio does not collect agent usage data in this phase.
 - **Cloud-mode CC** (`claude.ai` web interface, no local install). Local CLI only.
 
 ---
@@ -146,7 +146,7 @@ T-ECA-105 is **blocking** for T-ECA-110 (permission backend implementation). If 
 
 ### OQ2 — MCP transport
 
-**Resolution**: **stdio bridge subprocess**. The FastAPI process exposes the MCP server via a Unix domain socket (POSIX) or named pipe (Windows). A small `scieasy mcp-bridge` subprocess, spawned by CC per the `mcp.json` config, opens the socket and proxies JSON-RPC frames between CC (stdin/stdout) and the socket. Rationale:
+**Resolution**: **stdio bridge subprocess**. The FastAPI process exposes the MCP server via a Unix domain socket (POSIX) or named pipe (Windows). A small `scistudio mcp-bridge` subprocess, spawned by CC per the `mcp.json` config, opens the socket and proxies JSON-RPC frames between CC (stdin/stdout) and the socket. Rationale:
 
 - Pure-Python implementation; no extra non-stdlib runtime deps.
 - Survives CC restarts (the bridge dies, the FastAPI server keeps running).
@@ -164,7 +164,7 @@ T-ECA-105 is **blocking** for T-ECA-110 (permission backend implementation). If 
 
 **Resolution**: Defensive parser. Unknown event kinds are routed to a generic `OtherEvent { kind, raw, display_class }` and logged at INFO level; the WebSocket forwards them transparently to the frontend. Unknown fields on known event kinds are accepted and ignored. Schema version is read from the `init` event if present and recorded in session metadata; otherwise it is `null`.
 
-**Generic UI display taxonomy (issue #788)**: every `OtherEvent` carries a `display_class` field computed at parse time by `scieasy.ai.agent.stream_json.classify_for_display(kind, payload)`. The five stable classes are:
+**Generic UI display taxonomy (issue #788)**: every `OtherEvent` carries a `display_class` field computed at parse time by `scistudio.ai.agent.stream_json.classify_for_display(kind, payload)`. The five stable classes are:
 
 | class | criterion | UI |
 |---|---|---|
@@ -178,7 +178,7 @@ Adding a new event kind requires only adding a classification rule (one line in 
 
 ### OQ6 — Permission-decision UI latency
 
-**Resolution**: **5-minute soft timeout** for the pending approval. After 5 minutes the backend returns `deny` to the hook with reason `"timed_out"`. The frontend shows a `pending-permission-expired` banner so the user knows what happened. The 5-minute value is configurable in `{project}/.scieasy/settings.json`.
+**Resolution**: **5-minute soft timeout** for the pending approval. After 5 minutes the backend returns `deny` to the hook with reason `"timed_out"`. The frontend shows a `pending-permission-expired` banner so the user knows what happened. The 5-minute value is configurable in `{project}/.scistudio/settings.json`.
 
 ### OQ7 — MCP write tool atomicity
 
@@ -204,13 +204,13 @@ If Codex's stream format differs significantly enough that a tool-use round-trip
 **Resolution**: **Copy, not symlink**, because of Windows permission constraints. On `start_session()` the provider runs:
 
 ```python
-src_skills = project_dir / ".scieasy" / "skills"
+src_skills = project_dir / ".scistudio" / "skills"
 dst_skills = project_dir / ".claude" / "skills"
 if src_skills.exists():
     shutil.copytree(src_skills, dst_skills, dirs_exist_ok=True)
 ```
 
-User-authored content lives in `.scieasy/skills/`; `.claude/skills/` is a regenerated mirror that SciEasy treats as build output (added to `.gitignore` automatically).
+User-authored content lives in `.scistudio/skills/`; `.claude/skills/` is a regenerated mirror that SciStudio treats as build output (added to `.gitignore` automatically).
 
 ### OQ10 — Project security boundary
 
@@ -222,7 +222,7 @@ User-authored content lives in `.scieasy/skills/`; `.claude/skills/` is a regene
 
 ### 4.1 Logging
 
-Every module under `src/scieasy/ai/agent/` uses `logging.getLogger(__name__)` and emits at these levels:
+Every module under `src/scistudio/ai/agent/` uses `logging.getLogger(__name__)` and emits at these levels:
 
 - `DEBUG` — every stream-json event received; every MCP tool call args + result preview; subprocess stdin writes.
 - `INFO` — session start / end; provider discovery results; permission decisions; session ID assignment.
@@ -233,7 +233,7 @@ No `print()`. No bare `except:`. No swallowed exceptions without an `ERROR` log 
 
 ### 4.2 Error model
 
-A new exception hierarchy under `src/scieasy/ai/agent/errors.py`:
+A new exception hierarchy under `src/scistudio/ai/agent/errors.py`:
 
 ```
 AgentError                     # base
@@ -288,7 +288,7 @@ All errors are HTTP-mapped at the API boundary (`api/routes/ai.py`):
 An audit agent **must** verify, in order:
 
 1. The PR's diff is confined to the files listed in the ticket's `Owned files`.
-2. mypy and ruff are clean (`mypy src/scieasy/ --ignore-missing-imports` and `ruff check . && ruff format --check .`).
+2. mypy and ruff are clean (`mypy src/scistudio/ --ignore-missing-imports` and `ruff check . && ruff format --check .`).
 3. Unit tests for the ticket exist and pass.
 4. Coverage for the new code is ≥ 85%.
 5. The acceptance criteria in the ticket are each individually satisfied.
@@ -305,7 +305,7 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
 
 **Prerequisite**: ADR-033 (PR #696) merged or in-flight; spec (this doc) merged.
 
-**Exit gate**: A developer can fire `python -c "import asyncio; from scieasy.ai.agent import demo; asyncio.run(demo())"` and see a mocked CC session produce stream-json that flows out the chat WebSocket, with permission requests round-tripping correctly.
+**Exit gate**: A developer can fire `python -c "import asyncio; from scistudio.ai.agent import demo; asyncio.run(demo())"` and see a mocked CC session produce stream-json that flows out the chat WebSocket, with permission requests round-tripping correctly.
 
 **Phase-1 tickets**:
 
@@ -314,32 +314,32 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
 **Agent role**: SCAFFOLD AGENT for Phase 1.
 **Owned files** (create empty / stub):
 
-- `src/scieasy/ai/agent/__init__.py`
-- `src/scieasy/ai/agent/provider.py` — `AgentProvider` Protocol, `ProviderStatus` dataclass, `PermissionMode` enum, `AgentEvent` dataclass, `AgentSession` Protocol; all class bodies populated with full signatures + docstrings + `raise NotImplementedError`.
-- `src/scieasy/ai/agent/errors.py` — full exception hierarchy from §4.2.
-- `src/scieasy/ai/agent/binary_discovery.py` — `find_binary(name: str) -> Path | None` stub.
-- `src/scieasy/ai/agent/stream_json.py` — `parse_event(line: bytes) -> AgentEvent` stub.
-- `src/scieasy/ai/agent/session.py` — `AgentSessionManager` stub.
-- `src/scieasy/ai/agent/permission.py` — `PermissionPolicy` stub with the strict / bypass mode constants.
-- `src/scieasy/ai/agent/transcript.py` — `TranscriptWriter` stub.
-- `src/scieasy/ai/agent/system_prompt.py` — empty module with section A / B / C / D module-level constants set to `""`.
-- `src/scieasy/ai/agent/claude_code.py` — `ClaudeCodeProvider` class with `discover()` and `start_session()` stubs.
+- `src/scistudio/ai/agent/__init__.py`
+- `src/scistudio/ai/agent/provider.py` — `AgentProvider` Protocol, `ProviderStatus` dataclass, `PermissionMode` enum, `AgentEvent` dataclass, `AgentSession` Protocol; all class bodies populated with full signatures + docstrings + `raise NotImplementedError`.
+- `src/scistudio/ai/agent/errors.py` — full exception hierarchy from §4.2.
+- `src/scistudio/ai/agent/binary_discovery.py` — `find_binary(name: str) -> Path | None` stub.
+- `src/scistudio/ai/agent/stream_json.py` — `parse_event(line: bytes) -> AgentEvent` stub.
+- `src/scistudio/ai/agent/session.py` — `AgentSessionManager` stub.
+- `src/scistudio/ai/agent/permission.py` — `PermissionPolicy` stub with the strict / bypass mode constants.
+- `src/scistudio/ai/agent/transcript.py` — `TranscriptWriter` stub.
+- `src/scistudio/ai/agent/system_prompt.py` — empty module with section A / B / C / D module-level constants set to `""`.
+- `src/scistudio/ai/agent/claude_code.py` — `ClaudeCodeProvider` class with `discover()` and `start_session()` stubs.
 - `tests/ai/__init__.py` (if missing)
-- `tests/ai/test_phase1_skeleton.py` — verifies the module imports and the Protocols are implementable. Single test: `def test_module_imports_clean(): from scieasy.ai.agent import provider, errors, ...`.
+- `tests/ai/test_phase1_skeleton.py` — verifies the module imports and the Protocols are implementable. Single test: `def test_module_imports_clean(): from scistudio.ai.agent import provider, errors, ...`.
 
 **Acceptance criteria**:
 
 - All listed files exist with the specified contents.
-- `mypy src/scieasy/ai/agent/` is clean (`--ignore-missing-imports`).
+- `mypy src/scistudio/ai/agent/` is clean (`--ignore-missing-imports`).
 - `pytest tests/ai/test_phase1_skeleton.py` passes.
-- No file in `src/scieasy/ai/agent/` references `anthropic` or `openai` SDK imports.
+- No file in `src/scistudio/ai/agent/` references `anthropic` or `openai` SDK imports.
 
 **Dependencies**: none.
 
 ### T-ECA-102 — Binary discovery (impl)
 
 **Agent role**: IMPLEMENTATION AGENT (parallel with T-ECA-103).
-**Owned files**: `src/scieasy/ai/agent/binary_discovery.py`, `tests/ai/test_binary_discovery.py`.
+**Owned files**: `src/scistudio/ai/agent/binary_discovery.py`, `tests/ai/test_binary_discovery.py`.
 
 **Implementation requirements**:
 
@@ -366,7 +366,7 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
 ### T-ECA-103 — Stream-JSON parser (impl)
 
 **Agent role**: IMPLEMENTATION AGENT (parallel with T-ECA-102).
-**Owned files**: `src/scieasy/ai/agent/stream_json.py`, `tests/ai/test_stream_json.py`, `tests/fixtures/stream_json/*.ndjson`.
+**Owned files**: `src/scistudio/ai/agent/stream_json.py`, `tests/ai/test_stream_json.py`, `tests/fixtures/stream_json/*.ndjson`.
 
 **Implementation requirements**:
 
@@ -393,7 +393,7 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
 ### T-ECA-104 — ClaudeCodeProvider + subprocess lifecycle (impl)
 
 **Agent role**: IMPLEMENTATION AGENT (sequential after T-ECA-102 and T-ECA-103).
-**Owned files**: `src/scieasy/ai/agent/claude_code.py`, `tests/ai/test_claude_code.py`, `tests/fixtures/stub_claude.py`.
+**Owned files**: `src/scistudio/ai/agent/claude_code.py`, `tests/ai/test_claude_code.py`, `tests/fixtures/stub_claude.py`.
 
 **Implementation requirements**:
 
@@ -455,14 +455,14 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
 ### T-ECA-106 — SessionManager + state persistence (impl)
 
 **Agent role**: IMPLEMENTATION AGENT (parallel with T-ECA-105 spike).
-**Owned files**: `src/scieasy/ai/agent/session.py`, `src/scieasy/ai/agent/transcript.py`, `tests/ai/test_session_manager.py`, `tests/ai/test_transcript.py`.
+**Owned files**: `src/scistudio/ai/agent/session.py`, `src/scistudio/ai/agent/transcript.py`, `tests/ai/test_session_manager.py`, `tests/ai/test_transcript.py`.
 
 **Implementation requirements**:
 
 - `AgentSessionManager`:
   - `dict[tuple[Path, str], AgentSession]` keyed by `(project_dir, chat_id)`.
   - Cap = 5 per project; 6th `start_session` raises `AgentSessionError("concurrent chat cap reached")`.
-  - `start_session(project_dir, chat_id, ...)` writes / updates `{project_dir}/.scieasy/sessions/{chat_id}.json` metadata before spawning.
+  - `start_session(project_dir, chat_id, ...)` writes / updates `{project_dir}/.scistudio/sessions/{chat_id}.json` metadata before spawning.
   - `get_session(project_dir, chat_id)` returns the live session or None.
   - `close_session(project_dir, chat_id)` calls `session.close()`, leaves metadata file in place.
   - `shutdown_all()` for FastAPI lifespan teardown.
@@ -481,7 +481,7 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
     "total_turns": 0
   }
   ```
-- `TranscriptWriter` opens `{project_dir}/.scieasy/sessions/{chat_id}/transcript.jsonl` in append mode, writes one canonical event per line, flushes after each. Best-effort: write failures log WARNING but do not raise.
+- `TranscriptWriter` opens `{project_dir}/.scistudio/sessions/{chat_id}/transcript.jsonl` in append mode, writes one canonical event per line, flushes after each. Best-effort: write failures log WARNING but do not raise.
 
 **Tests**:
 
@@ -500,14 +500,14 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
 ### T-ECA-107 — WebSocket chat route + status route (impl)
 
 **Agent role**: IMPLEMENTATION AGENT (sequential after T-ECA-106).
-**Owned files**: `src/scieasy/api/routes/ai.py`, `src/scieasy/api/schemas.py` (additions only — no deletions yet), `tests/api/test_ai_chat_route.py`.
+**Owned files**: `src/scistudio/api/routes/ai.py`, `src/scistudio/api/schemas.py` (additions only — no deletions yet), `tests/api/test_ai_chat_route.py`.
 
 **Implementation requirements**:
 
 - `WS /api/ai/chat/{chat_id}` route:
   - On connect: ensures the chat session exists (start it if first connect, else attach).
   - Query parameters:
-    - `project_dir` (required): absolute path of the SciEasy project workspace; validated against an allow-list (user home or system temp).
+    - `project_dir` (required): absolute path of the SciStudio project workspace; validated against an allow-list (user home or system temp).
     - `permission_mode` (issue #791, optional, default `"strict"`): `"strict"` (prompt for every tool) or `"bypass"` (auto-approve). Any other value triggers a WS close with `1008` invalid permission_mode. The mode is fixed at WS-open time; changing it requires a reconnect (the frontend Settings panel triggers this with a confirm dialog). The mode is recorded in `SessionMetadata.bypass_mode` and read back by `_resolve_policy` in the permission-check path.
   - Accepts client messages: `{ "type": "user_message", "content": str }`, `{ "type": "cancel" }`. (Permission decisions are handled in T-ECA-110.)
   - Forwards every canonical `AgentEvent` from the session's stream to the client as `{ "type": "agent_event", "event": {...} }`.
@@ -534,12 +534,12 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
 ### T-ECA-108 — Static MCP config + hook config emission (impl)
 
 **Agent role**: IMPLEMENTATION AGENT (parallel with T-ECA-107).
-**Owned files**: `src/scieasy/ai/agent/config_files.py`, `tests/ai/test_config_files.py`.
+**Owned files**: `src/scistudio/ai/agent/config_files.py`, `tests/ai/test_config_files.py`.
 
 **Implementation requirements**:
 
-- `write_mcp_config(project_dir, chat_id) -> Path` writes `{project_dir}/.scieasy/mcp.json` (overwriting) with the MCP server config from ADR-033 §3 D2.3.
-- `write_hook_config(project_dir, permission_mode) -> Path` writes `{project_dir}/.scieasy/claude-hooks.json` configuring the `PreToolUse` hook to point at `scieasy hook-bridge`.
+- `write_mcp_config(project_dir, chat_id) -> Path` writes `{project_dir}/.scistudio/mcp.json` (overwriting) with the MCP server config from ADR-033 §3 D2.3.
+- `write_hook_config(project_dir, permission_mode) -> Path` writes `{project_dir}/.scistudio/claude-hooks.json` configuring the `PreToolUse` hook to point at `scistudio hook-bridge`.
 - Both functions are idempotent — same input ⇒ same output ⇒ no spurious git diffs.
 
 **Tests**:
@@ -551,18 +551,18 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
 **Acceptance criteria**:
 
 - Generated files are valid JSON with stable key ordering.
-- `.scieasy/` directory is auto-created if missing.
+- `.scistudio/` directory is auto-created if missing.
 
 **Dependencies**: T-ECA-101.
 
 ### T-ECA-109 — Phase-1 demo + integration test (impl)
 
 **Agent role**: IMPLEMENTATION AGENT (sequential after T-ECA-107, T-ECA-108).
-**Owned files**: `src/scieasy/ai/agent/demo.py`, `tests/integration/test_phase1_end_to_end.py`.
+**Owned files**: `src/scistudio/ai/agent/demo.py`, `tests/integration/test_phase1_end_to_end.py`.
 
 **Implementation requirements**:
 
-- `scieasy.ai.agent.demo.main()` async function that spawns a CC session via the stub binary, sends a synthetic "list files" prompt, prints each event.
+- `scistudio.ai.agent.demo.main()` async function that spawns a CC session via the stub binary, sends a synthetic "list files" prompt, prints each event.
 - Integration test that runs the demo against the stub and asserts a specific event sequence (init → assistant_text_delta × N → done).
 
 **Acceptance criteria**:
@@ -575,7 +575,7 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
 ### T-ECA-110 — Permission backend + hook bridge (impl)
 
 **Agent role**: IMPLEMENTATION AGENT (sequential after T-ECA-105 spike confirms PROCEED).
-**Owned files**: `src/scieasy/ai/agent/permission.py`, `src/scieasy/api/routes/ai.py` (add the two permission endpoints), `src/scieasy/cli/hook_bridge.py`, `tests/ai/test_permission.py`.
+**Owned files**: `src/scistudio/ai/agent/permission.py`, `src/scistudio/api/routes/ai.py` (add the two permission endpoints), `src/scistudio/cli/hook_bridge.py`, `tests/ai/test_permission.py`.
 
 **Implementation requirements**:
 
@@ -589,7 +589,7 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
 - `POST /api/ai/permission-decision` endpoint:
   - Receives `{chat_id, request_id, decision: "approve" | "deny"}`.
   - Signals the matching `asyncio.Event` with the decision.
-- `scieasy hook-bridge` CLI subcommand:
+- `scistudio hook-bridge` CLI subcommand:
   - Reads CC's PreToolUse hook payload from stdin (JSON).
   - POSTs to `/api/ai/permission-check`.
   - Exits 0 on approve, 2 on deny.
@@ -605,7 +605,7 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
 **Acceptance criteria**:
 
 - mypy clean.
-- The hook bridge is invokable as `scieasy hook-bridge` (registered in `pyproject.toml` `[project.scripts]`).
+- The hook bridge is invokable as `scistudio hook-bridge` (registered in `pyproject.toml` `[project.scripts]`).
 - WS messages for permission requests don't block other agent events on the same connection.
 
 **Dependencies**: T-ECA-105 (spike), T-ECA-107 (WS infrastructure).
@@ -623,8 +623,8 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
 - [ ] Architecture tests pass; `ai/` does not import from `engine/` / `api/` (forbidden direction).
 - [ ] Stream-json parser handles every fixture in `tests/fixtures/stream_json/`.
 - [ ] T-ECA-105 spike conclusion is honoured by T-ECA-110.
-- [ ] No `pyproject.toml` `[project.scripts]` entry name collisions for `scieasy hook-bridge`.
-- [ ] No file outside `src/scieasy/ai/agent/`, `src/scieasy/api/routes/ai.py`, `src/scieasy/api/schemas.py`, `src/scieasy/cli/`, `tests/ai/`, `tests/integration/` is touched.
+- [ ] No `pyproject.toml` `[project.scripts]` entry name collisions for `scistudio hook-bridge`.
+- [ ] No file outside `src/scistudio/ai/agent/`, `src/scistudio/api/routes/ai.py`, `src/scistudio/api/schemas.py`, `src/scistudio/cli/`, `tests/ai/`, `tests/integration/` is touched.
 
 **Acceptance criteria**:
 
@@ -637,7 +637,7 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
 
 ## 6. Phase 2 — MCP server + tools
 
-**Goal**: Agent can call the 25 SciEasy MCP tools with correct semantics, permissions, and error handling.
+**Goal**: Agent can call the 25 SciStudio MCP tools with correct semantics, permissions, and error handling.
 
 **Prerequisite**: Phase 1 complete; T-ECA-119 audit passed.
 
@@ -648,19 +648,19 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
 **Agent role**: SCAFFOLD AGENT for Phase 2.
 **Owned files**:
 
-- `src/scieasy/ai/agent/mcp/__init__.py`
-- `src/scieasy/ai/agent/mcp/server.py` — server scaffold + stdio transport over Unix socket / named pipe.
-- `src/scieasy/ai/agent/mcp/tools_workflow.py` — stub functions for all 9 (a) tools.
-- `src/scieasy/ai/agent/mcp/tools_authoring.py` — stub for all 5 (b) tools.
-- `src/scieasy/ai/agent/mcp/tools_inspection.py` — stub for all 7 (c) tools.
-- `src/scieasy/ai/agent/mcp/tools_qa.py` — stub for all 4 (d) tools.
-- `src/scieasy/cli/mcp_bridge.py` — `scieasy mcp-bridge` subcommand.
+- `src/scistudio/ai/agent/mcp/__init__.py`
+- `src/scistudio/ai/agent/mcp/server.py` — server scaffold + stdio transport over Unix socket / named pipe.
+- `src/scistudio/ai/agent/mcp/tools_workflow.py` — stub functions for all 9 (a) tools.
+- `src/scistudio/ai/agent/mcp/tools_authoring.py` — stub for all 5 (b) tools.
+- `src/scistudio/ai/agent/mcp/tools_inspection.py` — stub for all 7 (c) tools.
+- `src/scistudio/ai/agent/mcp/tools_qa.py` — stub for all 4 (d) tools.
+- `src/scistudio/cli/mcp_bridge.py` — `scistudio mcp-bridge` subcommand.
 - `tests/ai/test_mcp_server_skeleton.py` — verifies server starts, accepts connections, responds to `list_tools` request.
 
 **Acceptance criteria**:
 
 - All stubs implement the tool name and schema; bodies raise `NotImplementedError`.
-- `scieasy mcp-bridge --help` works.
+- `scistudio mcp-bridge --help` works.
 - `pytest tests/ai/test_mcp_server_skeleton.py` passes.
 
 **Dependencies**: T-ECA-119 (Phase 1 complete).
@@ -668,7 +668,7 @@ If any check fails, the audit agent leaves a review comment with `CHANGES_REQUES
 ### T-ECA-202 — Category (a) workflow tools (impl)
 
 **Agent role**: IMPLEMENTATION AGENT (parallel with T-ECA-203 and T-ECA-204).
-**Owned files**: `src/scieasy/ai/agent/mcp/tools_workflow.py`, `tests/ai/test_mcp_tools_workflow.py`.
+**Owned files**: `src/scistudio/ai/agent/mcp/tools_workflow.py`, `tests/ai/test_mcp_tools_workflow.py`.
 
 **Tools to implement** (9):
 
@@ -690,7 +690,7 @@ Every MCP tool that takes a user-supplied filesystem path argument
 (`write_workflow`, `get_workflow`, `validate_workflow` when called
 with a path, `update_block_config`, `get_block_config`, `run_workflow`,
 `scaffold_block`) **MUST** resolve that path against the active
-project root via `scieasy.ai.agent.mcp._context._resolve_project_path`.
+project root via `scistudio.ai.agent.mcp._context._resolve_project_path`.
 This helper composes `_resolve_project_root` (raises `RuntimeError`
 if no project is open) with `_safe_under` (rejects traversal outside
 the project).
@@ -726,14 +726,14 @@ Resolution rules:
 ### T-ECA-203 — Categories (b) + (c) tools (impl)
 
 **Agent role**: IMPLEMENTATION AGENT (parallel with T-ECA-202 and T-ECA-204).
-**Owned files**: `src/scieasy/ai/agent/mcp/tools_authoring.py`, `src/scieasy/ai/agent/mcp/tools_inspection.py`, `tests/ai/test_mcp_tools_authoring.py`, `tests/ai/test_mcp_tools_inspection.py`.
+**Owned files**: `src/scistudio/ai/agent/mcp/tools_authoring.py`, `src/scistudio/ai/agent/mcp/tools_inspection.py`, `tests/ai/test_mcp_tools_authoring.py`, `tests/ai/test_mcp_tools_inspection.py`.
 
 **Tools to implement** (5 + 7 = 12):
 
 | Tool | Impl notes |
 |------|-----------|
 | `read_block_source(type_name)` | `inspect.getfile(block_cls)` + `Path.read_text()`. |
-| `list_block_examples(category)` | Hard-coded curated list under `src/scieasy/blocks/{category}/` to start; configurable in v2. |
+| `list_block_examples(category)` | Hard-coded curated list under `src/scistudio/blocks/{category}/` to start; configurable in v2. |
 | `scaffold_block(name, category)` | Renders from `docs/block-development/templates/` (existing) into `{project}/blocks/{name}.py`. |
 | `reload_blocks()` | `get_block_registry().hot_reload()`. |
 | `run_block_tests(type_name)` | Discovers the test path heuristically (`tests/blocks/test_<name>.py`) and runs `pytest --tb=short` capturing output. |
@@ -758,7 +758,7 @@ Resolution rules:
 ### T-ECA-204 — Category (d) tools + system prompt builtin (impl)
 
 **Agent role**: IMPLEMENTATION AGENT (parallel with T-ECA-202 and T-ECA-203).
-**Owned files**: `src/scieasy/ai/agent/mcp/tools_qa.py`, `src/scieasy/ai/agent/system_prompt.py`, `tests/ai/test_mcp_tools_qa.py`, `tests/ai/test_system_prompt.py`.
+**Owned files**: `src/scistudio/ai/agent/mcp/tools_qa.py`, `src/scistudio/ai/agent/system_prompt.py`, `tests/ai/test_mcp_tools_qa.py`, `tests/ai/test_system_prompt.py`.
 
 **Tools to implement** (4):
 
@@ -789,12 +789,12 @@ Resolution rules:
 ### T-ECA-205 — MCP integration in-process wiring (impl)
 
 **Agent role**: IMPLEMENTATION AGENT (sequential after T-ECA-202, T-ECA-203, T-ECA-204).
-**Owned files**: `src/scieasy/ai/agent/mcp/server.py` (finalize), `src/scieasy/api/app.py` (add MCP server startup hook), `tests/integration/test_phase2_mcp_end_to_end.py`.
+**Owned files**: `src/scistudio/ai/agent/mcp/server.py` (finalize), `src/scistudio/api/app.py` (add MCP server startup hook), `tests/integration/test_phase2_mcp_end_to_end.py`.
 
 **Implementation requirements**:
 
 - FastAPI lifespan handler starts an MCP server bound to a local socket; teardown stops it.
-- `scieasy mcp-bridge --socket <path>` proxies stdin/stdout to/from that socket.
+- `scistudio mcp-bridge --socket <path>` proxies stdin/stdout to/from that socket.
 - All 25 tools dispatched correctly via JSON-RPC.
 
 **Tests**:
@@ -863,7 +863,7 @@ Each stub exports the component / hook / slice with empty render / no-op body.
 ### T-ECA-302 — Backend WS protocol finalize (impl)
 
 **Agent role**: IMPLEMENTATION AGENT (parallel with T-ECA-303).
-**Owned files**: `src/scieasy/api/routes/ai.py` (extend), `src/scieasy/api/schemas.py` (event envelope schemas), `tests/api/test_ai_chat_ws_v2.py`.
+**Owned files**: `src/scistudio/api/routes/ai.py` (extend), `src/scistudio/api/schemas.py` (event envelope schemas), `tests/api/test_ai_chat_ws_v2.py`.
 
 **Implementation requirements**:
 
@@ -938,22 +938,22 @@ Each stub exports the component / hook / slice with empty render / no-op body.
 **Agent role**: SCAFFOLD AGENT for Phase 4.
 **Owned files** (delete):
 
-- `src/scieasy/ai/generation/` (entire directory).
-- `src/scieasy/ai/synthesis/` (entire directory).
-- `src/scieasy/ai/optimization/` (entire directory).
-- `src/scieasy/ai/config.py`.
-- The three legacy route handlers in `src/scieasy/api/routes/ai.py` (`generate-block`, `suggest-workflow`, `optimize-params`).
-- Their associated Pydantic schemas in `src/scieasy/api/schemas.py`.
+- `src/scistudio/ai/generation/` (entire directory).
+- `src/scistudio/ai/synthesis/` (entire directory).
+- `src/scistudio/ai/optimization/` (entire directory).
+- `src/scistudio/ai/config.py`.
+- The three legacy route handlers in `src/scistudio/api/routes/ai.py` (`generate-block`, `suggest-workflow`, `optimize-params`).
+- Their associated Pydantic schemas in `src/scistudio/api/schemas.py`.
 - `tests/ai/test_block_generator.py`, `test_type_generator.py`, `test_workflow_planner.py` (if still present).
 
 **Plus** narrow exception per ADR-033 §3 D9 for AIBlock:
 
-- KEEP `src/scieasy/blocks/ai/providers.py` and `src/scieasy/blocks/ai/ai_block.py` unchanged.
+- KEEP `src/scistudio/blocks/ai/providers.py` and `src/scistudio/blocks/ai/ai_block.py` unchanged.
 - KEEP `tests/blocks/test_ai_block.py`.
 
 **Acceptance criteria**:
 
-- `git grep -rE 'SCIEASY_AI_(PROVIDER|API_KEY|MODEL)' src/` returns no matches.
+- `git grep -rE 'SCISTUDIO_AI_(PROVIDER|API_KEY|MODEL)' src/` returns no matches.
 - `pyproject.toml` `[project.optional-dependencies].ai` is unchanged (AIBlock still uses `anthropic` / `openai` SDKs in its own scope).
 - All deleted files have no remaining references (`grep` confirms).
 - `pytest` still passes (deleted tests should be accompanied by their fixtures and any orphan imports cleaned up).
@@ -963,7 +963,7 @@ Each stub exports the component / hook / slice with empty render / no-op body.
 ### T-ECA-402 — Codex provider (impl)
 
 **Agent role**: IMPLEMENTATION AGENT (parallel with T-ECA-403 docs).
-**Owned files**: `src/scieasy/ai/agent/codex.py`, `tests/ai/test_codex_provider.py`, `tests/fixtures/stub_codex.py`.
+**Owned files**: `src/scistudio/ai/agent/codex.py`, `tests/ai/test_codex_provider.py`, `tests/fixtures/stub_codex.py`.
 
 **Implementation requirements**:
 
@@ -1025,7 +1025,7 @@ Each stub exports the component / hook / slice with empty render / no-op body.
 
 ## 8.5. Phase 5 — End-to-end acceptance test
 
-**Goal**: Empirically validate that the embedded coding agent can autonomously reproduce a real-world scientific analysis. The acceptance target is the microplastics SRS spectrum-extraction notebook at `{box}/Jiazhen Zhang/04 Data/microplastics/processed/scripts/sample.ipynb`. The SciEasy agent (post-Phase-4 stack) must read the ipynb, build a SciEasy workflow with built-in blocks (hot-loading custom Tier-1 blocks under `{project}/blocks/` if needed), and run it. The test passes when the workflow's outputs match the ipynb's reference numerical outputs within tolerance.
+**Goal**: Empirically validate that the embedded coding agent can autonomously reproduce a real-world scientific analysis. The acceptance target is the microplastics SRS spectrum-extraction notebook at `{box}/Jiazhen Zhang/04 Data/microplastics/processed/scripts/sample.ipynb`. The SciStudio agent (post-Phase-4 stack) must read the ipynb, build a SciStudio workflow with built-in blocks (hot-loading custom Tier-1 blocks under `{project}/blocks/` if needed), and run it. The test passes when the workflow's outputs match the ipynb's reference numerical outputs within tolerance.
 
 **Hard operating constraint**: the dispatcher author (human or higher-level agent) is FORBIDDEN from touching the workflow canvas, editing the workflow YAML, writing or repairing custom blocks, or otherwise intervening in the agent's work product during the test. The only mutable input is the test prompt (T-ECA-504). If the agent fails despite prompt iteration, that is the test's signal that ADR-033's agent design has gaps — record gaps in the audit report.
 
@@ -1057,7 +1057,7 @@ Each stub exports the component / hook / slice with empty render / no-op body.
 **Implementation requirements**:
 
 - Chrome automation: prefer the existing `claude-in-chrome` MCP tool registry (the dispatcher's session has it loaded; the harness can shell out to a small driver script that uses the same protocol). Fallback: Playwright + Chromium driven via Python subprocess.
-- Lifecycle: launch SciEasy backend (`scieasy serve`); open browser to `http://localhost:8000`; create a fresh project; open the chat tab; ensure CC is logged in (skip with informative message if not).
+- Lifecycle: launch SciStudio backend (`scistudio serve`); open browser to `http://localhost:8000`; create a fresh project; open the chat tab; ensure CC is logged in (skip with informative message if not).
 - Send: the test prompt from T-ECA-504 into the chat input.
 - Capture: full stream-json transcript; final workflow YAML on canvas; project state after agent finishes; any errors.
 - Persist: timestamped output dir under `tests/e2e/runs/<timestamp>/` with transcript, workflow YAML, screenshots, run results.
@@ -1093,7 +1093,7 @@ This file is the **load-bearing test contract**. Iterate on prompt failures, not
 ### T-ECA-505 — Run + diff orchestration
 
 **Agent role**: IMPLEMENTATION AGENT (sequential after T-ECA-502, T-ECA-503, T-ECA-504 all merged).
-**Owned files**: `tests/e2e/microplastics/test_microplastics_e2e.py` (final form), maybe a `scieasy e2e` CLI subcommand for ad-hoc runs.
+**Owned files**: `tests/e2e/microplastics/test_microplastics_e2e.py` (final form), maybe a `scistudio e2e` CLI subcommand for ad-hoc runs.
 
 **Implementation requirements**:
 
@@ -1167,8 +1167,8 @@ Total agents per phase: **3** (1 scaffold + 2 implementation OR 1 scaffold + 1 i
 
 Phase 1, Phase 4, and Phase 5 are strict serialisation points. **Phase 2 and Phase 3 may run concurrently** after T-ECA-119 closes. The two phases own disjoint files:
 
-- Phase 2 owned files: `src/scieasy/ai/agent/mcp/*`, `src/scieasy/cli/mcp_bridge.py`, plus narrow edits to `src/scieasy/ai/agent/system_prompt.py` (T-ECA-204 fills in builtin content) and `src/scieasy/api/app.py` (T-ECA-205 adds the MCP-server lifespan hook).
-- Phase 3 owned files: `frontend/src/components/AIChat/*`, `frontend/src/hooks/*`, `frontend/src/stores/aiChatSlice.ts`, `frontend/src/types/agentEvents.ts`, plus edits to `src/scieasy/api/routes/ai.py` (event envelope additions) and `src/scieasy/api/schemas.py` (new Pydantic envelope models).
+- Phase 2 owned files: `src/scistudio/ai/agent/mcp/*`, `src/scistudio/cli/mcp_bridge.py`, plus narrow edits to `src/scistudio/ai/agent/system_prompt.py` (T-ECA-204 fills in builtin content) and `src/scistudio/api/app.py` (T-ECA-205 adds the MCP-server lifespan hook).
+- Phase 3 owned files: `frontend/src/components/AIChat/*`, `frontend/src/hooks/*`, `frontend/src/stores/aiChatSlice.ts`, `frontend/src/types/agentEvents.ts`, plus edits to `src/scistudio/api/routes/ai.py` (event envelope additions) and `src/scistudio/api/schemas.py` (new Pydantic envelope models).
 
 There is **no file overlap** between the two phases. Logical convergence happens only at Phase 3's manual end-to-end smoke test, which is richer when Phase 2's MCP tools are also available but does not require it (the frontend renders Claude Code native tool calls identically to MCP tool calls).
 

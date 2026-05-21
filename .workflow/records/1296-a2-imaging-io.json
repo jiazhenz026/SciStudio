@@ -12,13 +12,13 @@
   ],
   "branch": "feat/issue-1296/adr043-a2-imaging-io",
   "changed_test_paths": [
-    "packages/scieasy-blocks-imaging/tests/test_format_capabilities.py",
-    "packages/scieasy-blocks-imaging/tests/test_image_meta_ome.py",
-    "packages/scieasy-blocks-imaging/tests/test_bioformats_handler.py"
+    "packages/scistudio-blocks-imaging/tests/test_format_capabilities.py",
+    "packages/scistudio-blocks-imaging/tests/test_image_meta_ome.py",
+    "packages/scistudio-blocks-imaging/tests/test_bioformats_handler.py"
   ],
   "check_results": [
     {
-      "command_or_tool": "ruff format --check packages/scieasy-blocks-imaging/",
+      "command_or_tool": "ruff format --check packages/scistudio-blocks-imaging/",
       "exit_code": 0,
       "name": "full_audit",
       "output_path": null,
@@ -46,7 +46,7 @@
   },
   "full_audit": {
     "blocks_merge": false,
-    "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
     "exit_code": 1,
     "known_debt": [
       "All 311 findings (frontmatter_lint/doc_drift/closure/signature_drift/architecture_drift) are pre-existing repo debt \u2014 none touch this PR's changed files (verified via JSON inspection: zero findings cite types.py, load_image.py, save_image.py, pillow_handler.py, bioformats_handler.py, test_format_capabilities.py, test_image_meta_ome.py, test_bioformats_handler.py, or pyproject.toml). Owner acknowledged the baseline debt per the manager checklist \u00a75 (admin-approved:ai-override bypass label)."
@@ -65,17 +65,17 @@
       "url": null
     }
   ],
-  "owner_directive": "ADR-043 Phase A2: migrate scieasy-blocks-imaging IO blocks to explicit FormatCapability; add PNG/JPEG (Pillow) + Bio-Formats microscopy load-only handlers under imaging[bioformats] extras; add ome: OME | None field to Image.Meta and Label.Meta.",
+  "owner_directive": "ADR-043 Phase A2: migrate scistudio-blocks-imaging IO blocks to explicit FormatCapability; add PNG/JPEG (Pillow) + Bio-Formats microscopy load-only handlers under imaging[bioformats] extras; add ome: OME | None field to Image.Meta and Label.Meta.",
   "planned_files": [
-    "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/types.py",
-    "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/load_image.py",
-    "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/save_image.py",
-    "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/pillow_handler.py",
-    "packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/bioformats_handler.py",
-    "packages/scieasy-blocks-imaging/pyproject.toml",
-    "packages/scieasy-blocks-imaging/tests/test_format_capabilities.py",
-    "packages/scieasy-blocks-imaging/tests/test_image_meta_ome.py",
-    "packages/scieasy-blocks-imaging/tests/test_bioformats_handler.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/types.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/pillow_handler.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/bioformats_handler.py",
+    "packages/scistudio-blocks-imaging/pyproject.toml",
+    "packages/scistudio-blocks-imaging/tests/test_format_capabilities.py",
+    "packages/scistudio-blocks-imaging/tests/test_image_meta_ome.py",
+    "packages/scistudio-blocks-imaging/tests/test_bioformats_handler.py",
     "CHANGELOG.md"
   ],
   "pull_request": {
@@ -83,20 +83,20 @@
       1296
     ],
     "number": 1298,
-    "url": "https://github.com/zjzcpj/SciEasy/pull/1298"
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1298"
   },
   "record_path": ".workflow/records/1296-a2-imaging-io.json",
   "required_checks": [
-    "pytest packages/scieasy-blocks-imaging/tests/ --timeout=60",
-    "ruff check packages/scieasy-blocks-imaging/",
-    "ruff format --check packages/scieasy-blocks-imaging/",
-    "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json"
+    "pytest packages/scistudio-blocks-imaging/tests/ --timeout=60",
+    "ruff check packages/scistudio-blocks-imaging/",
+    "ruff format --check packages/scistudio-blocks-imaging/",
+    "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json"
   ],
   "schema_version": "1",
   "scope": {
     "exclude": [],
     "include": [
-      "packages/scieasy-blocks-imaging/**,CHANGELOG.md,.workflow/records/1296-a2-imaging-io.json"
+      "packages/scistudio-blocks-imaging/**,CHANGELOG.md,.workflow/records/1296-a2-imaging-io.json"
     ]
   },
   "sentrux": {

@@ -13,10 +13,10 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.agent_provisioning.hooks import write_hooks
+from scistudio.agent_provisioning.hooks import write_hooks
 
 _HOOK_NAMES = (
-    "deny_scieasy_cli.py",
+    "deny_scistudio_cli.py",
     "protect_workflow_yaml.py",
     "enforce_list_blocks_before_block_write.py",
     "remind_poll_status.py",
@@ -100,31 +100,31 @@ def _run_hook(script: Path, payload: dict, env: dict[str, str] | None = None) ->
     )
 
 
-def test_hook_deny_scieasy_cli_blocks(tmp_project_dir: Path) -> None:
+def test_hook_deny_scistudio_cli_blocks(tmp_project_dir: Path) -> None:
     write_hooks(tmp_project_dir, force=False)
-    script = tmp_project_dir / ".claude" / "hooks" / "deny_scieasy_cli.py"
-    proc = _run_hook(script, {"tool_input": {"command": "scieasy run workflow.yaml"}})
+    script = tmp_project_dir / ".claude" / "hooks" / "deny_scistudio_cli.py"
+    proc = _run_hook(script, {"tool_input": {"command": "scistudio run workflow.yaml"}})
     assert proc.returncode == 2
-    assert "MCP" in proc.stderr or "mcp__scieasy" in proc.stderr
+    assert "MCP" in proc.stderr or "mcp__scistudio" in proc.stderr
 
 
-def test_hook_deny_scieasy_cli_passes_safe(tmp_project_dir: Path) -> None:
+def test_hook_deny_scistudio_cli_passes_safe(tmp_project_dir: Path) -> None:
     write_hooks(tmp_project_dir, force=False)
-    script = tmp_project_dir / ".claude" / "hooks" / "deny_scieasy_cli.py"
+    script = tmp_project_dir / ".claude" / "hooks" / "deny_scistudio_cli.py"
     proc = _run_hook(script, {"tool_input": {"command": "ls -la"}})
     assert proc.returncode == 0
 
 
-def test_hook_deny_scieasy_cli_blocks_relative_path(tmp_project_dir: Path) -> None:
+def test_hook_deny_scistudio_cli_blocks_relative_path(tmp_project_dir: Path) -> None:
     write_hooks(tmp_project_dir, force=False)
-    script = tmp_project_dir / ".claude" / "hooks" / "deny_scieasy_cli.py"
-    proc = _run_hook(script, {"tool_input": {"command": "./scieasy validate workflow.yaml"}})
+    script = tmp_project_dir / ".claude" / "hooks" / "deny_scistudio_cli.py"
+    proc = _run_hook(script, {"tool_input": {"command": "./scistudio validate workflow.yaml"}})
     assert proc.returncode == 2
 
 
-def test_hook_deny_scieasy_cli_empty_stdin(tmp_project_dir: Path) -> None:
+def test_hook_deny_scistudio_cli_empty_stdin(tmp_project_dir: Path) -> None:
     write_hooks(tmp_project_dir, force=False)
-    script = tmp_project_dir / ".claude" / "hooks" / "deny_scieasy_cli.py"
+    script = tmp_project_dir / ".claude" / "hooks" / "deny_scistudio_cli.py"
     proc = subprocess.run(
         [sys.executable, str(script)],
         input="",
@@ -173,7 +173,7 @@ def test_hook_enforce_list_blocks_blocks_without_marker(tmp_project_dir: Path, m
 def test_hook_enforce_list_blocks_passes_with_marker(tmp_project_dir: Path) -> None:
     write_hooks(tmp_project_dir, force=False)
     script = tmp_project_dir / ".claude" / "hooks" / "enforce_list_blocks_before_block_write.py"
-    marker_dir = tmp_project_dir / ".scieasy" / ".session-state" / "test-session-2"
+    marker_dir = tmp_project_dir / ".scistudio" / ".session-state" / "test-session-2"
     marker_dir.mkdir(parents=True, exist_ok=True)
     (marker_dir / "list_blocks_called").touch()
     import os
@@ -262,7 +262,7 @@ def test_hook_mark_list_blocks_called_writes_marker(tmp_project_dir: Path) -> No
     env["CLAUDE_PROJECT_DIR"] = str(tmp_project_dir)
     proc = _run_hook(script, {"session_id": "abc123"}, env=env)
     assert proc.returncode == 0
-    marker = tmp_project_dir / ".scieasy" / ".session-state" / "abc123" / "list_blocks_called"
+    marker = tmp_project_dir / ".scistudio" / ".session-state" / "abc123" / "list_blocks_called"
     assert marker.is_file()
 
 
@@ -294,8 +294,8 @@ def test_hook_enforce_concrete_port_types_warns_on_dataobject(tmp_project_dir: P
     blocks.mkdir(parents=True, exist_ok=True)
     target = blocks / "demo_block.py"
     target.write_text(
-        "from scieasy.blocks.base.ports import InputPort\n"
-        "from scieasy.core.types.base import DataObject\n"
+        "from scistudio.blocks.base.ports import InputPort\n"
+        "from scistudio.core.types.base import DataObject\n"
         "p = InputPort(name='x', accepted_types=[DataObject], required=True)\n",
         encoding="utf-8",
     )
@@ -320,8 +320,8 @@ def test_hook_enforce_concrete_port_types_silent_on_concrete(tmp_project_dir: Pa
     blocks.mkdir(parents=True, exist_ok=True)
     target = blocks / "demo_block.py"
     target.write_text(
-        "from scieasy.blocks.base.ports import InputPort, OutputPort\n"
-        "from scieasy_blocks_imaging.types import Image, Mask\n"
+        "from scistudio.blocks.base.ports import InputPort, OutputPort\n"
+        "from scistudio_blocks_imaging.types import Image, Mask\n"
         "in_p = InputPort(name='x', accepted_types=[Image], required=True)\n"
         "out_p = OutputPort(name='y', accepted_types=[Mask])\n",
         encoding="utf-8",
@@ -342,7 +342,7 @@ def test_hook_enforce_concrete_port_types_flags_empty_accepted_types(tmp_project
     blocks.mkdir(parents=True, exist_ok=True)
     target = blocks / "empty_accepted.py"
     target.write_text(
-        "from scieasy.blocks.base.ports import InputPort\np = InputPort(name='x', accepted_types=[], required=True)\n",
+        "from scistudio.blocks.base.ports import InputPort\np = InputPort(name='x', accepted_types=[], required=True)\n",
         encoding="utf-8",
     )
     proc = _run_hook(
@@ -362,8 +362,8 @@ def test_hook_enforce_concrete_port_types_flags_attribute_form(tmp_project_dir: 
     blocks.mkdir(parents=True, exist_ok=True)
     target = blocks / "attr_form.py"
     target.write_text(
-        "from scieasy.core.types import base as core\n"
-        "from scieasy.blocks.base.ports import InputPort\n"
+        "from scistudio.core.types import base as core\n"
+        "from scistudio.blocks.base.ports import InputPort\n"
         "p = InputPort(name='x', accepted_types=[core.DataObject], required=True)\n",
         encoding="utf-8",
     )
@@ -402,7 +402,7 @@ def test_hook_enforce_concrete_port_types_non_literal_accepted_types_silent(
     blocks.mkdir(parents=True, exist_ok=True)
     target = blocks / "non_literal_accepted.py"
     target.write_text(
-        "from scieasy.blocks.base.ports import InputPort\n"
+        "from scistudio.blocks.base.ports import InputPort\n"
         "MY_TYPES = [int]\n"
         "p1 = InputPort(name='var_ref', accepted_types=MY_TYPES)\n"
         "p2 = InputPort(name='call', accepted_types=list((int,)))\n",

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from scieasy.blocks.base.block import Block
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.registry import _spec_from_class
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.block import Block
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.registry import _spec_from_class
+from scistudio.core.types.collection import Collection
 
 
 class TestBlockConfigSchema:
@@ -23,7 +23,7 @@ class TestBlockConfigSchema:
         # adapter dispatch layer was deleted. ``direction`` is now a
         # ClassVar on subclasses (``input`` / ``output``), not user
         # config.
-        from scieasy.blocks.io.io_block import IOBlock
+        from scistudio.blocks.io.io_block import IOBlock
 
         schema = IOBlock.config_schema
         assert schema["type"] == "object"
@@ -31,7 +31,7 @@ class TestBlockConfigSchema:
         assert "path" in schema.get("required", [])
 
     def test_code_block_schema_contains_language(self) -> None:
-        from scieasy.blocks.code.code_block import CodeBlock
+        from scistudio.blocks.code.code_block import CodeBlock
 
         schema = CodeBlock.config_schema
         assert "language" in schema["properties"]
@@ -54,7 +54,7 @@ class TestBlockConfigSchema:
     def test_appblock_schema_executable_path_and_output_dir(self) -> None:
         """Issue #571: AppBlock config_schema has Executable Path (file_browser, priority 0)
         and Save Outputs At (directory_browser, priority 1)."""
-        from scieasy.blocks.app.app_block import AppBlock
+        from scistudio.blocks.app.app_block import AppBlock
 
         schema = AppBlock.config_schema
         props = schema["properties"]
@@ -93,48 +93,48 @@ class TestVariadicPortEditorSchemaInjection:
         assert props["output_ports"]["ui_widget"] == "port_editor"
 
     def test_aiblock_own_schema_has_port_editor_fields(self) -> None:
-        from scieasy.blocks.ai.ai_block import AIBlock
+        from scistudio.blocks.ai.ai_block import AIBlock
 
         props = AIBlock.config_schema["properties"]
         self._assert_port_editor_fields(props)
 
     def test_codeblock_own_schema_has_port_editor_fields(self) -> None:
-        from scieasy.blocks.code.code_block import CodeBlock
+        from scistudio.blocks.code.code_block import CodeBlock
 
         props = CodeBlock.config_schema["properties"]
         self._assert_port_editor_fields(props)
 
     def test_appblock_own_schema_has_port_editor_fields(self) -> None:
-        from scieasy.blocks.app.app_block import AppBlock
+        from scistudio.blocks.app.app_block import AppBlock
 
         props = AppBlock.config_schema["properties"]
         self._assert_port_editor_fields(props)
 
     def test_aiblock_mro_merged_schema_has_port_editor_fields(self) -> None:
-        from scieasy.blocks.ai.ai_block import AIBlock
-        from scieasy.blocks.registry import _merge_config_schema
+        from scistudio.blocks.ai.ai_block import AIBlock
+        from scistudio.blocks.registry import _merge_config_schema
 
         merged = _merge_config_schema(AIBlock)
         self._assert_port_editor_fields(merged["properties"])
 
     def test_codeblock_mro_merged_schema_has_port_editor_fields(self) -> None:
-        from scieasy.blocks.code.code_block import CodeBlock
-        from scieasy.blocks.registry import _merge_config_schema
+        from scistudio.blocks.code.code_block import CodeBlock
+        from scistudio.blocks.registry import _merge_config_schema
 
         merged = _merge_config_schema(CodeBlock)
         self._assert_port_editor_fields(merged["properties"])
 
     def test_appblock_mro_merged_schema_has_port_editor_fields(self) -> None:
-        from scieasy.blocks.app.app_block import AppBlock
-        from scieasy.blocks.registry import _merge_config_schema
+        from scistudio.blocks.app.app_block import AppBlock
+        from scistudio.blocks.registry import _merge_config_schema
 
         merged = _merge_config_schema(AppBlock)
         self._assert_port_editor_fields(merged["properties"])
 
     def test_aiblock_subclass_inherits_port_editor_via_mro(self) -> None:
         """A subclass of AIBlock that declares no port editor fields gets them via MRO."""
-        from scieasy.blocks.ai.ai_block import AIBlock
-        from scieasy.blocks.registry import _merge_config_schema
+        from scistudio.blocks.ai.ai_block import AIBlock
+        from scistudio.blocks.registry import _merge_config_schema
 
         class _MyAIBlock(AIBlock):
             name: ClassVar[str] = "My AI"
@@ -155,7 +155,7 @@ class TestVariadicPortEditorSchemaInjection:
 
     def test_port_editor_fields_have_correct_item_schema(self) -> None:
         """Each port entry must have name (string) and types (array of strings)."""
-        from scieasy.blocks.ai.ai_block import AIBlock
+        from scistudio.blocks.ai.ai_block import AIBlock
 
         props = AIBlock.config_schema["properties"]
         item_props = props["input_ports"]["items"]["properties"]

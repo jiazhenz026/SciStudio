@@ -1,7 +1,7 @@
 """Tests for :attr:`LoadData.format_capabilities` (ADR-043 / spec FR-001).
 
 These tests pin the explicit ``FormatCapability`` declarations on
-:class:`scieasy.blocks.io.loaders.load_data.LoadData` introduced in
+:class:`scistudio.blocks.io.loaders.load_data.LoadData` introduced in
 the ADR-043 in-tree-core-IO migration (spec
 ``adr-043-package-migration`` Phase A1, T-001 / T-002 / T-005 /
 FR-016). They cover:
@@ -28,29 +28,29 @@ from typing import Any, ClassVar
 import numpy as np
 import pytest
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import OutputPort
-from scieasy.blocks.io.capabilities import FormatCapability, MetadataFidelity
-from scieasy.blocks.io.io_block import IOBlock
-from scieasy.blocks.io.loaders.load_data import (
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import OutputPort
+from scistudio.blocks.io.capabilities import FormatCapability, MetadataFidelity
+from scistudio.blocks.io.io_block import IOBlock
+from scistudio.blocks.io.loaders.load_data import (
     _LOAD_CAPABILITIES,
     _LOAD_EXTENSION_MAP,
     LoadData,
     _supported_load_extensions,
 )
-from scieasy.blocks.registry import (
+from scistudio.blocks.registry import (
     AmbiguousCapabilityError,
     BlockRegistry,
     MissingCapabilityError,
     _spec_from_class,
 )
-from scieasy.core.types.array import Array
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.series import Series
-from scieasy.core.types.text import Text
+from scistudio.core.types.array import Array
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.series import Series
+from scistudio.core.types.text import Text
 
 # ---------------------------------------------------------------------------
 # Declaration-shape tests (FR-001 + FR-015 + FR-016).
@@ -119,7 +119,7 @@ class TestLoadDataFormatCapabilitiesShape:
     def test_no_capability_claims_default(self) -> None:
         """FR-001 cross-package collision rule: core IO capabilities are
         declared ``is_default=False`` so installed package-specific
-        loaders (e.g. ``scieasy-blocks-lcms.table.csv.load`` for
+        loaders (e.g. ``scistudio-blocks-lcms.table.csv.load`` for
         ``(DataFrame, .csv)``) keep ownership of the default slot
         without triggering a registration-time
         :class:`CapabilityRegistrationError`. When no package declares a
@@ -357,7 +357,7 @@ class TestRegistryAmbiguityForMultipleCapabilities:
         (cross-package collision rule per A1 CI run). When a third-party
         block declares the same slot with ``is_default=True``, the
         default declaration wins. This mirrors the LCMS pilot pattern
-        where ``scieasy-blocks-lcms.table.csv.load`` claims default
+        where ``scistudio-blocks-lcms.table.csv.load`` claims default
         ownership of ``(DataFrame, .csv)`` and LoadData yields."""
         registry = BlockRegistry()
         registry._register_spec(_spec_from_class(LoadData, source="test"))

@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "description": "SciEasy gated development workflow",
+  "description": "SciStudio gated development workflow",
   "stages": [
     {
       "id": "create_issue",

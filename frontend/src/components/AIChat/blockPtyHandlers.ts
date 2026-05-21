@@ -16,7 +16,7 @@ import type { AiBlockStatus } from "../../store/types";
 /**
  * Handle the `block_pty_opened` WS event.
  *
- * The engine emits this after :func:`scieasy.api.routes.ai_pty.open_engine_initiated_tab`
+ * The engine emits this after :func:`scistudio.api.routes.ai_pty.open_engine_initiated_tab`
  * spawns a PTY for an AI Block worker. We register the tab in the store with
  * `source="ai-block"`, `state="running"` (skipping SetupScreen), and
  * `blockStatus="paused"`. The matching TerminalView mounts and connects to
@@ -85,7 +85,7 @@ function mapCloseResult(
  * Handle the `block_pty_closed` WS event.
  *
  * Engine emits this after the worker calls
- * :func:`scieasy.engine.pty_control.notify_block_pty_event`. We update the
+ * :func:`scistudio.engine.pty_control.notify_block_pty_event`. We update the
  * matching tab's `blockStatus` to done / error / cancelled. Per §3.9, the
  * TerminalView stays mounted — the tab remains interactive so the user can
  * keep chatting with the agent (e.g. to debug a failed output).

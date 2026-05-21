@@ -18,7 +18,7 @@ interface BlockPaletteProps {
  *   1. block.package_name (explicit backend field)
  *   2. prefix before the first dot in type_name (e.g. "Imaging" from "imaging.cellpose_segment")
  *      Short prefixes (≤4 chars) are uppercased (e.g. "LCMS", "SRS").
- *   3. "SciEasy Core" for blocks with source === "builtin" or no dot in type_name
+ *   3. "SciStudio Core" for blocks with source === "builtin" or no dot in type_name
  *   4. "Custom" for blocks with source === "custom"
  */
 function derivePackage(block: BlockSummary): string {
@@ -37,7 +37,7 @@ function derivePackage(block: BlockSummary): string {
     }
     return prefix.charAt(0).toUpperCase() + prefix.slice(1);
   }
-  return "SciEasy Core";
+  return "SciStudio Core";
 }
 
 interface BlockCardProps {
@@ -242,7 +242,7 @@ export function BlockPalette({
     if (block.direction) {
       (payload as Record<string, unknown>)._default_direction = block.direction;
     }
-    event.dataTransfer.setData("application/scieasy-block", JSON.stringify(payload));
+    event.dataTransfer.setData("application/scistudio-block", JSON.stringify(payload));
     event.dataTransfer.effectAllowed = "copy";
 
     if (dragImageRef.current) {

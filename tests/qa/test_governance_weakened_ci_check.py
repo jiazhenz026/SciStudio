@@ -3,8 +3,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from scieasy.qa.governance import weakened_ci_check
-from scieasy.qa.schemas.report import AuditStatus
+from scistudio.qa.governance import weakened_ci_check
+from scistudio.qa.schemas.report import AuditStatus
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -121,7 +121,7 @@ def test_weakened_ci_accepts_adr042_local_bypass_label(tmp_path: Path, monkeypat
     workflow = repo / ".github/workflows/ci.yml"
     workflow.write_text(workflow.read_text(encoding="utf-8") + "    continue-on-error: true\n", encoding="utf-8")
     _git(repo, "add", ".")
-    monkeypatch.setenv("SCIEASY_GATE_BYPASS_LABELS", "admin-approved:ai-override")
+    monkeypatch.setenv("SCISTUDIO_GATE_BYPASS_LABELS", "admin-approved:ai-override")
 
     report = weakened_ci_check.verify_no_weakening(repo, staged=True)
 
@@ -134,7 +134,7 @@ def test_weakened_ci_rejects_invalid_adr042_local_bypass_label(tmp_path: Path, m
     workflow = repo / ".github/workflows/ci.yml"
     workflow.write_text(workflow.read_text(encoding="utf-8") + "    continue-on-error: true\n", encoding="utf-8")
     _git(repo, "add", ".")
-    monkeypatch.setenv("SCIEASY_GATE_BYPASS_LABELS", "admin-approved-core-change")
+    monkeypatch.setenv("SCISTUDIO_GATE_BYPASS_LABELS", "admin-approved-core-change")
 
     report = weakened_ci_check.verify_no_weakening(repo, staged=True)
 

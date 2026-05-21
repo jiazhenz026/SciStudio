@@ -2,8 +2,8 @@
 
 ## Task Identity
 
-- Repository: SciEasy
-- Owner request: Audit every ProcessBlock in scieasy-blocks-srs and update each one to propagate `Image.Meta.ome` per the ADR-043 propagation contract (Modes A/B/C); commit an audit report. SRSImage.Meta inherits Image.Meta so `ome` is already on it via A2's merge.
+- Repository: SciStudio
+- Owner request: Audit every ProcessBlock in scistudio-blocks-srs and update each one to propagate `Image.Meta.ome` per the ADR-043 propagation contract (Modes A/B/C); commit an audit report. SRSImage.Meta inherits Image.Meta so `ome` is already on it via A2's merge.
 - Task kind: refactor
 - Persona: implementer
 - Parent tracking issue: #1204
@@ -12,7 +12,7 @@
 - Protected branch: main
 - Umbrella branch: track/adr-043/core-blocks-and-imaging (already includes Phase A2 merge)
 - Agent branch: feat/issue-1296/adr043-b2-srs-propagation
-- Agent worktree: `/c/Users/jiazh/Desktop/workspace/SciEasy/.claude/worktrees/adr-043-b2-srs-propagation` (manager pre-created)
+- Agent worktree: `/c/Users/jiazh/Desktop/workspace/SciStudio/.claude/worktrees/adr-043-b2-srs-propagation` (manager pre-created)
 - Manager checklist: `docs/planning/adr-043-package-migration-checklist.md` (edit ONLY rows in §6 marked "B2" and §11 Track B2)
 - Spec: `docs/specs/adr-043-package-migration.md` (your work is Phase B2 / FR-009, FR-011)
 
@@ -32,10 +32,10 @@ Read and follow:
 
 You own only:
 
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/*.py`
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/*.py`
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/spectral_extraction/*.py`
-- `packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py` (create)
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocess/*.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/*.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/spectral_extraction/*.py`
+- `packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py` (create)
 - `docs/audit/adr-043-srs-propagation-audit.md` (create — committed audit report)
 - `CHANGELOG.md` (Unreleased entry only)
 - Your own gate record at `.workflow/records/1296-b2-srs-propagation.json`
@@ -43,9 +43,9 @@ You own only:
 
 You must not touch:
 
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/types.py` — SRSImage.Meta inherits Image.Meta so `ome` is already there via A2; no changes needed here (verify but don't edit).
-- Any file in `packages/scieasy-blocks-imaging/**` — that is B1 agent's territory.
-- `src/scieasy/**`, `frontend/src/**` — out of scope.
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/types.py` — SRSImage.Meta inherits Image.Meta so `ome` is already there via A2; no changes needed here (verify but don't edit).
+- Any file in `packages/scistudio-blocks-imaging/**` — that is B1 agent's territory.
+- `src/scistudio/**`, `frontend/src/**` — out of scope.
 - Other agents' branches/worktrees.
 
 If you need an out-of-scope path, stop and report back.
@@ -80,7 +80,7 @@ Known deferred items:
 
 5. **T-044 (Mode C legitimate drop documentation):** `component_analysis/srs_pca.py` line ~144 and `srs_unmix.py` line ~206 both set `meta=None` on outputs because PC scores and end-member abundance maps don't share the source's pixel coordinate system (dimensionality is reduced). Document this in the audit report as "Mode C legitimate drop — output is not spatially aligned with input". DO NOT add ome propagation for these.
 
-6. **T-045 (Tests):** Create `packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py`. Cover:
+6. **T-045 (Tests):** Create `packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py`. Cover:
    - Mode A: SRSImage in with ome → SRSSpectralDenoise → ome present and equal.
    - Mode A: SRSImage in with ome → SRSBaseline → ome present and equal.
    - Mode C with model_dump: SRSImage in with ome → SRSCalibrate → ome present and equal (proves model_dump+override carries it).
@@ -93,16 +93,16 @@ Known deferred items:
 
 ## Required Tests And Checks
 
-- `pytest packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py --timeout=60`
-- `pytest packages/scieasy-blocks-srs/tests/` (broader)
-- `ruff check packages/scieasy-blocks-srs/`
-- `ruff format --check packages/scieasy-blocks-srs/`
-- `python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json`
+- `pytest packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py --timeout=60`
+- `pytest packages/scistudio-blocks-srs/tests/` (broader)
+- `ruff check packages/scistudio-blocks-srs/`
+- `ruff format --check packages/scistudio-blocks-srs/`
+- `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json`
 - Sentrux: skipped if unavailable with rationale.
 
 ## Gate Record Stages You Must Execute
 
-`python -m scieasy.qa.governance.gate_record start --task-kind refactor --issue 1296 --slug b2-srs-propagation --branch feat/issue-1296/adr043-b2-srs-propagation --owner-directive "Phase B2: SRS ProcessBlock OME propagation audit + fix per spec FR-009/FR-011" --include <each file> --record-path .workflow/records/1296-b2-srs-propagation.json`
+`python -m scistudio.qa.governance.gate_record start --task-kind refactor --issue 1296 --slug b2-srs-propagation --branch feat/issue-1296/adr043-b2-srs-propagation --owner-directive "Phase B2: SRS ProcessBlock OME propagation audit + fix per spec FR-009/FR-011" --include <each file> --record-path .workflow/records/1296-b2-srs-propagation.json`
 
 Then `plan`, `docs`, `check`, `sentrux`, `finalize` per usual.
 

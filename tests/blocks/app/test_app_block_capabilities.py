@@ -4,16 +4,16 @@ import json
 from pathlib import Path
 from typing import Any, ClassVar
 
-from scieasy.blocks.app.app_block import AppBlock
-from scieasy.blocks.app.bridge import FileExchangeBridge
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort
-from scieasy.blocks.io.capabilities import FormatCapability
-from scieasy.blocks.io.io_block import IOBlock
-from scieasy.blocks.registry import BlockRegistry, _spec_from_class
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.text import Text
+from scistudio.blocks.app.app_block import AppBlock
+from scistudio.blocks.app.bridge import FileExchangeBridge
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort
+from scistudio.blocks.io.capabilities import FormatCapability
+from scistudio.blocks.io.io_block import IOBlock
+from scistudio.blocks.registry import BlockRegistry, _spec_from_class
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.text import Text
 
 
 class _BridgeTextSaver(IOBlock):
@@ -62,7 +62,7 @@ def test_appblock_output_binner_threads_capability_id(monkeypatch: Any, tmp_path
         calls.append({"path": path, **kwargs})
         return Text(content="payload")
 
-    monkeypatch.setattr("scieasy.blocks.io.materialisation.reconstruct_from_file", _fake_reconstruct)
+    monkeypatch.setattr("scistudio.blocks.io.materialisation.reconstruct_from_file", _fake_reconstruct)
     block = AppBlock(
         config={
             "params": {
@@ -112,7 +112,7 @@ def test_appblock_output_binner_treats_null_capability_id_as_unset(monkeypatch: 
         calls.append({"path": path, **kwargs})
         return Text(content="payload")
 
-    monkeypatch.setattr("scieasy.blocks.io.materialisation.reconstruct_from_file", _fake_reconstruct)
+    monkeypatch.setattr("scistudio.blocks.io.materialisation.reconstruct_from_file", _fake_reconstruct)
     block = AppBlock(config={"params": {}})
     config = BlockConfig(
         params={

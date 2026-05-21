@@ -38,9 +38,9 @@ pytestmark = pytest.mark.skip(
     reason="S40a skeleton — tool bodies are NotImplementedError stubs. TODO(#1012): I40a Phase 2a restores."
 )
 
-from scieasy.ai.agent.mcp import _context, tools_inspection, tools_workflow  # noqa: E402
-from scieasy.blocks.registry import BlockRegistry  # noqa: E402
-from scieasy.core.types.registry import TypeRegistry  # noqa: E402
+from scistudio.ai.agent.mcp import _context, tools_inspection, tools_workflow  # noqa: E402
+from scistudio.blocks.registry import BlockRegistry  # noqa: E402
+from scistudio.core.types.registry import TypeRegistry  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Test scaffolding.
@@ -69,7 +69,7 @@ class _StubRuntime:
 @pytest.fixture
 def project_root(tmp_path: Path) -> Path:
     """Project workspace root; resolved up-front for macOS symlink safety."""
-    root = (tmp_path / "scieasy_project").resolve()
+    root = (tmp_path / "scistudio_project").resolve()
     root.mkdir()
     return root
 

@@ -9,8 +9,8 @@
  * Purpose
  * -------
  * Client-side cache + interaction state for the Lineage tab (per ADR-038
- * §3.8). The runtime source of truth lives in `<project>/.scieasy/lineage.db`
- * and is exposed over REST by `src/scieasy/api/routes/runs.py` (D38-2.4a).
+ * §3.8). The runtime source of truth lives in `<project>/.scistudio/lineage.db`
+ * and is exposed over REST by `src/scistudio/api/routes/runs.py` (D38-2.4a).
  * This slice does NOT mutate lineage data — it caches what the server
  * returns and tracks UI state (selection, loading flags, error strings).
  *

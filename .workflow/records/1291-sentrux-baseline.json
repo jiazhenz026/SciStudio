@@ -34,7 +34,7 @@
   },
   "full_audit": {
     "blocks_merge": false,
-    "command": "PYTHONPATH=src python -m scieasy.qa.audit.full_audit --format json --output docs/audit/full-audit-latest.json",
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --format json --output docs/audit/full-audit-latest.json",
     "exit_code": 0,
     "known_debt": [
       "Pre-existing repo-wide debt tracked under #1287 (frontmatter backfill across 19 ADRs/specs) and docs/specs/adr-042-consistency-tools.md drift (signature_drift + architecture_drift). This PR touches only .sentrux/rules.toml and sentrux evidence; no audit-relevant surface."
@@ -50,7 +50,7 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1291,
-      "url": "https://github.com/zjzcpj/SciEasy/issues/1291"
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1291"
     }
   ],
   "owner_directive": "Owner directive 2026-05-20: raise sentrux max_cc baseline from 75 to 100 to unblock PRs blocked by pre-existing validate_workflow cc=78; track refactor as #1292 followup.",
@@ -63,7 +63,7 @@
       1291
     ],
     "number": null,
-    "url": "https://github.com/zjzcpj/SciEasy/pull/1293"
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1293"
   },
   "record_path": ".workflow/records/1291-sentrux-baseline.json",
   "required_checks": [

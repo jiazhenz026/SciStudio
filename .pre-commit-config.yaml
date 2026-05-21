@@ -1,27 +1,27 @@
 repos:
   - repo: local
     hooks:
-      - id: scieasy-governance-mod-guard
-        name: SciEasy governance modification guard
-        entry: python scripts/hooks/run_python_module.py scieasy.qa.governance.mod_guard --staged
+      - id: scistudio-governance-mod-guard
+        name: SciStudio governance modification guard
+        entry: python scripts/hooks/run_python_module.py scistudio.qa.governance.mod_guard --staged
         language: system
         pass_filenames: false
-        files: ^(AGENTS\.md|\.workflow/|\.github/workflows/|\.pre-commit-config\.yaml|docs/adr/ADR-042\.md|docs/specs/adr-042-.*\.md|src/scieasy/qa/|tests/qa/)
-      - id: scieasy-weakened-ci-check
-        name: SciEasy weakened CI/pre-commit check
-        entry: python scripts/hooks/run_python_module.py scieasy.qa.governance.weakened_ci_check --staged
+        files: ^(AGENTS\.md|\.workflow/|\.github/workflows/|\.pre-commit-config\.yaml|docs/adr/ADR-042\.md|docs/specs/adr-042-.*\.md|src/scistudio/qa/|tests/qa/)
+      - id: scistudio-weakened-ci-check
+        name: SciStudio weakened CI/pre-commit check
+        entry: python scripts/hooks/run_python_module.py scistudio.qa.governance.weakened_ci_check --staged
         language: system
         pass_filenames: false
         files: ^(\.github/workflows/|\.pre-commit-config\.yaml|pyproject\.toml)
-      - id: scieasy-gate-record-pre-commit
-        name: SciEasy ADR-042 gate record pre-commit
-        entry: python scripts/hooks/run_python_module.py scieasy.qa.governance.gate_record pre-commit --staged
+      - id: scistudio-gate-record-pre-commit
+        name: SciStudio ADR-042 gate record pre-commit
+        entry: python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record pre-commit --staged
         language: system
         pass_filenames: false
         files: ^(src/|packages/|frontend/|web/|tests/|\.workflow/records/|\.github/workflows/|\.pre-commit-config\.yaml|scripts/hooks/)
-      - id: scieasy-gate-record-commit-msg
-        name: SciEasy ADR-042 gate record commit message
-        entry: python scripts/hooks/run_python_module.py scieasy.qa.governance.gate_record commit-msg
+      - id: scistudio-gate-record-commit-msg
+        name: SciStudio ADR-042 gate record commit message
+        entry: python scripts/hooks/run_python_module.py scistudio.qa.governance.gate_record commit-msg
         language: system
         stages: [commit-msg]
 

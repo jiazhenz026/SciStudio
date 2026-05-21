@@ -26,32 +26,32 @@ scope:
     - Replacement of branch protection or owner review.
 governs:
   modules:
-    - scieasy.qa.governance
-    - scieasy.qa.audit
+    - scistudio.qa.governance
+    - scistudio.qa.audit
   contracts:
-    - scieasy.qa.governance.local_gate.GateSession
-    - scieasy.qa.governance.local_gate.TaskKind
-    - scieasy.qa.governance.local_gate.record_stage
-    - scieasy.qa.governance.local_gate.check_pre_commit
-    - scieasy.qa.governance.local_gate.check_commit_msg
-    - scieasy.qa.governance.issue_link.resolve_or_create
-    - scieasy.qa.governance.docs_landing.check
-    - scieasy.qa.governance.persona_policy.check
-    - scieasy.qa.governance.human_bypass_guard.check
-    - scieasy.qa.governance.pr_merge_guard.check
-    - scieasy.qa.governance.core_change_guard.check
-    - scieasy.qa.governance.mod_guard.check
-    - scieasy.qa.governance.weakened_ci_check.verify_no_weakening
-    - scieasy.qa.audit.complete_artifacts.check
-    - scieasy.qa.audit.codemod_lint.check
-    - scieasy.qa.audit.trailer_lint.run
-    - scieasy.qa.audit.committer_enforce.check
+    - scistudio.qa.governance.local_gate.GateSession
+    - scistudio.qa.governance.local_gate.TaskKind
+    - scistudio.qa.governance.local_gate.record_stage
+    - scistudio.qa.governance.local_gate.check_pre_commit
+    - scistudio.qa.governance.local_gate.check_commit_msg
+    - scistudio.qa.governance.issue_link.resolve_or_create
+    - scistudio.qa.governance.docs_landing.check
+    - scistudio.qa.governance.persona_policy.check
+    - scistudio.qa.governance.human_bypass_guard.check
+    - scistudio.qa.governance.pr_merge_guard.check
+    - scistudio.qa.governance.core_change_guard.check
+    - scistudio.qa.governance.mod_guard.check
+    - scistudio.qa.governance.weakened_ci_check.verify_no_weakening
+    - scistudio.qa.audit.complete_artifacts.check
+    - scistudio.qa.audit.codemod_lint.check
+    - scistudio.qa.audit.trailer_lint.run
+    - scistudio.qa.audit.committer_enforce.check
   files:
-    - src/scieasy/qa/governance/**
-    - src/scieasy/qa/audit/complete_artifacts.py
-    - src/scieasy/qa/audit/codemod_lint.py
-    - src/scieasy/qa/audit/trailer_lint.py
-    - src/scieasy/qa/audit/committer_enforce.py
+    - src/scistudio/qa/governance/**
+    - src/scistudio/qa/audit/complete_artifacts.py
+    - src/scistudio/qa/audit/codemod_lint.py
+    - src/scistudio/qa/audit/trailer_lint.py
+    - src/scistudio/qa/audit/committer_enforce.py
     - scripts/audit/instructions_loaded_audit.py
     - .pre-commit-config.yaml
     - .github/workflows/**
@@ -83,7 +83,7 @@ This spec defines the custom AI restriction and human exemption tools required
 by ADR-042. It covers local gate sessions, issue linkage, docs landing, persona
 policy, runtime configuration parity, protected-path guards,
 `governance_mod_guard` policy checks through the
-`scieasy.qa.governance.mod_guard.check` entry point, governance weakening
+`scistudio.qa.governance.mod_guard.check` entry point, governance weakening
 checks, AI merge protection, trailer validation, human-bypass label provenance,
 and AI-only governed-change artifact checks.
 
@@ -100,7 +100,7 @@ As a repository owner, I need AI-authored commits to declare scope, issue,
 checks, docs landing, persona, and metadata before the commit exists.
 
 Why this priority: ADR-042 Section 7.2 makes the local gate an error gate for
-AI-authored work and stores temporary session state under `.git/scieasy/gates/`.
+AI-authored work and stores temporary session state under `.git/scistudio/gates/`.
 
 Independent Test: Run `local_gate.check_pre_commit` against staged-file and
 gate-session fixtures for valid scope, missing session, branch mismatch, denied
@@ -193,7 +193,7 @@ CI weakening diffs, AI merge attempts, valid admin labels, and missing labels.
 
 Acceptance Scenarios:
 
-1. Given an AI-authored change to `src/scieasy/core/**` without
+1. Given an AI-authored change to `src/scistudio/core/**` without
    `admin-approved:core-change`, when `core_change_guard` runs, then it fails.
 2. Given a workflow diff that removes a required check, when
    `weakened_ci_check` runs, then it fails.
@@ -214,7 +214,7 @@ Acceptance Scenarios:
 ### Functional Requirements
 
 - FR-001: `GateSession` MUST store local temporary state under
-  `.git/scieasy/gates/` and MUST NOT be committed.
+  `.git/scistudio/gates/` and MUST NOT be committed.
 - FR-002: `TaskKind` MUST support `hotfix`, `bugfix`, `feature`, `docs`,
   `maintenance`, and `manager`.
 - FR-003: `local_gate.check_pre_commit` MUST fail missing session, branch
@@ -251,7 +251,7 @@ Acceptance Scenarios:
   weakened checks, tests, thresholds, and exemptions.
 - FR-016a: The initial P0 implementation MUST run both tools as scoped local
   pre-commit hooks in staged-diff mode. `mod_guard` MAY accept the explicit
-  local override `SCIEASY_GOVERNANCE_CHANGE_APPROVED=1` only after maintainer
+  local override `SCISTUDIO_GOVERNANCE_CHANGE_APPROVED=1` only after maintainer
   authorization; this is an escape hatch for legitimate governance edits, not
   self-authorization by an AI agent.
 - FR-017: `instructions_loaded_audit` MUST record loaded instruction metadata as
@@ -285,7 +285,7 @@ Acceptance Scenarios:
 Implement AI governance tools as deterministic validators over three evidence
 sources: local gate session JSON, git staged or PR diffs, and durable GitHub
 metadata such as labels, reviews, actors, and commit trailers. Local hooks may
-make fast decisions from `.git/scieasy/gates/`, but remote CI is the durable
+make fast decisions from `.git/scistudio/gates/`, but remote CI is the durable
 authority for label provenance and PR-level bypass semantics.
 
 Keep human bypass explicit and narrow. Human labels skip only AI-only harness
@@ -295,19 +295,19 @@ checks. Repository quality checks still run and fail normally.
 
 | File or glob | Action | Rationale |
 |---|---|---|
-| `src/scieasy/qa/governance/local_gate.py` | create | Gate session schema, stage recording, pre-commit, and commit-msg checks |
-| `src/scieasy/qa/governance/issue_link.py` | create | Existing issue resolution and issue linkage records |
-| `src/scieasy/qa/governance/docs_landing.py` | create | Required docs/changelog/checklist landing checker |
-| `src/scieasy/qa/governance/persona_policy.py` | create | Persona, runtime config, constitution, and skill parity checker |
-| `src/scieasy/qa/governance/human_bypass_guard.py` | create | Human/admin label and review provenance validator |
-| `src/scieasy/qa/governance/pr_merge_guard.py` | create | AI merge-attempt guard |
-| `src/scieasy/qa/governance/core_change_guard.py` | create | Protected core path authorization checker |
-| `src/scieasy/qa/governance/mod_guard.py` | create | `governance_mod_guard` entry point for governance rule modification checks |
-| `src/scieasy/qa/governance/weakened_ci_check.py` | create | CI/test/lint threshold weakening detector |
-| `src/scieasy/qa/audit/complete_artifacts.py` | create | Governed-change artifact completion checker |
-| `src/scieasy/qa/audit/codemod_lint.py` | create | Codemod metadata and idempotence checker |
-| `src/scieasy/qa/audit/trailer_lint.py` | create | AI trailer validator |
-| `src/scieasy/qa/audit/committer_enforce.py` | create | Deferred approved-commit-path enforcement |
+| `src/scistudio/qa/governance/local_gate.py` | create | Gate session schema, stage recording, pre-commit, and commit-msg checks |
+| `src/scistudio/qa/governance/issue_link.py` | create | Existing issue resolution and issue linkage records |
+| `src/scistudio/qa/governance/docs_landing.py` | create | Required docs/changelog/checklist landing checker |
+| `src/scistudio/qa/governance/persona_policy.py` | create | Persona, runtime config, constitution, and skill parity checker |
+| `src/scistudio/qa/governance/human_bypass_guard.py` | create | Human/admin label and review provenance validator |
+| `src/scistudio/qa/governance/pr_merge_guard.py` | create | AI merge-attempt guard |
+| `src/scistudio/qa/governance/core_change_guard.py` | create | Protected core path authorization checker |
+| `src/scistudio/qa/governance/mod_guard.py` | create | `governance_mod_guard` entry point for governance rule modification checks |
+| `src/scistudio/qa/governance/weakened_ci_check.py` | create | CI/test/lint threshold weakening detector |
+| `src/scistudio/qa/audit/complete_artifacts.py` | create | Governed-change artifact completion checker |
+| `src/scistudio/qa/audit/codemod_lint.py` | create | Codemod metadata and idempotence checker |
+| `src/scistudio/qa/audit/trailer_lint.py` | create | AI trailer validator |
+| `src/scistudio/qa/audit/committer_enforce.py` | create | Deferred approved-commit-path enforcement |
 | `scripts/audit/instructions_loaded_audit.py` | create | Runtime instruction loading diagnostic |
 | `.pre-commit-config.yaml` | modify | Wire fast local AI gate and allowed quality checks |
 | `.github/workflows/**` | modify | Wire durable PR checks and label provenance validation |
@@ -347,7 +347,7 @@ checks. Repository quality checks still run and fail normally.
 ### 4.5 Risks And Rollback
 
 The main risk is confusing local convenience with durable authorization. Mitigate
-this by treating local `.git/scieasy/gates/` as AI commit-boundary evidence only
+this by treating local `.git/scistudio/gates/` as AI commit-boundary evidence only
 and treating GitHub labels/reviews as CI authority for human and administrator
 bypass.
 
@@ -460,7 +460,7 @@ class PullRequestMetadata(BaseModel):
     actors: list[ActorPermission] = Field(default_factory=list)
 ```
 
-Local gate public API in `scieasy.qa.governance.local_gate`:
+Local gate public API in `scistudio.qa.governance.local_gate`:
 
 ```python
 def start_session(
@@ -547,8 +547,8 @@ def check_persona_policy(
 ```
 
 The public `docs_landing` entry point is
-`scieasy.qa.governance.docs_landing.check`. The public `persona_policy` entry
-point is `scieasy.qa.governance.persona_policy.check`; it may delegate to
+`scistudio.qa.governance.docs_landing.check`. The public `persona_policy` entry
+point is `scistudio.qa.governance.persona_policy.check`; it may delegate to
 `check_persona_policy`.
 
 GitHub provenance and protected-operation guards:
@@ -573,11 +573,11 @@ def check_core_change(
     changed_files: Sequence[str],
     session: GateSession | None,
     protected_globs: Sequence[str] = (
-        "src/scieasy/core/**",
-        "src/scieasy/engine/**",
-        "src/scieasy/blocks/**",
-        "src/scieasy/workflow/**",
-        "src/scieasy/utils/**",
+        "src/scistudio/core/**",
+        "src/scistudio/engine/**",
+        "src/scistudio/blocks/**",
+        "src/scistudio/workflow/**",
+        "src/scistudio/utils/**",
     ),
 ) -> AuditReport: ...
 
@@ -601,11 +601,11 @@ The public ADR-042 names map as follows:
 
 | ADR-042 tool name | Public Python entry point |
 |---|---|
-| `human_bypass_guard` | `scieasy.qa.governance.human_bypass_guard.check` delegates to `check_human_bypass` |
-| `pr_merge_guard` | `scieasy.qa.governance.pr_merge_guard.check` delegates to `check_pr_merge` |
-| `core_change_guard` | `scieasy.qa.governance.core_change_guard.check` delegates to `check_core_change` |
-| `governance_mod_guard` | `scieasy.qa.governance.mod_guard.check` delegates to `check_governance_modification` |
-| `weakened_ci_check` | `scieasy.qa.governance.weakened_ci_check.verify_no_weakening` |
+| `human_bypass_guard` | `scistudio.qa.governance.human_bypass_guard.check` delegates to `check_human_bypass` |
+| `pr_merge_guard` | `scistudio.qa.governance.pr_merge_guard.check` delegates to `check_pr_merge` |
+| `core_change_guard` | `scistudio.qa.governance.core_change_guard.check` delegates to `check_core_change` |
+| `governance_mod_guard` | `scistudio.qa.governance.mod_guard.check` delegates to `check_governance_modification` |
+| `weakened_ci_check` | `scistudio.qa.governance.weakened_ci_check.verify_no_weakening` |
 
 Governed-change and provenance audit tools:
 
@@ -660,20 +660,20 @@ committer_enforce.check = check_committer_enforce
 Required CLI behavior:
 
 ```text
-python -m scieasy.qa.governance.mod_guard --base origin/main --head HEAD --format json
-python -m scieasy.qa.governance.mod_guard --staged
-python -m scieasy.qa.governance.local_gate start --kind docs --persona adr_author --scope docs/specs/**
-python -m scieasy.qa.governance.local_gate record --stage issue --issue 1113
-python -m scieasy.qa.governance.local_gate pre-commit
-python -m scieasy.qa.governance.local_gate commit-msg .git/COMMIT_EDITMSG
-python -m scieasy.qa.governance.persona_policy --format json
-python -m scieasy.qa.governance.human_bypass_guard --pr 1195 --format json
-python -m scieasy.qa.governance.core_change_guard --base origin/main --head HEAD --format json
-python -m scieasy.qa.governance.weakened_ci_check --base origin/main --head HEAD --format json
-python -m scieasy.qa.governance.weakened_ci_check --staged
-python -m scieasy.qa.audit.complete_artifacts --base origin/main --head HEAD --format json
-python -m scieasy.qa.audit.codemod_lint --base origin/main --head HEAD --format json
-python -m scieasy.qa.audit.trailer_lint --range origin/main..HEAD --format json
+python -m scistudio.qa.governance.mod_guard --base origin/main --head HEAD --format json
+python -m scistudio.qa.governance.mod_guard --staged
+python -m scistudio.qa.governance.local_gate start --kind docs --persona adr_author --scope docs/specs/**
+python -m scistudio.qa.governance.local_gate record --stage issue --issue 1113
+python -m scistudio.qa.governance.local_gate pre-commit
+python -m scistudio.qa.governance.local_gate commit-msg .git/COMMIT_EDITMSG
+python -m scistudio.qa.governance.persona_policy --format json
+python -m scistudio.qa.governance.human_bypass_guard --pr 1195 --format json
+python -m scistudio.qa.governance.core_change_guard --base origin/main --head HEAD --format json
+python -m scistudio.qa.governance.weakened_ci_check --base origin/main --head HEAD --format json
+python -m scistudio.qa.governance.weakened_ci_check --staged
+python -m scistudio.qa.audit.complete_artifacts --base origin/main --head HEAD --format json
+python -m scistudio.qa.audit.codemod_lint --base origin/main --head HEAD --format json
+python -m scistudio.qa.audit.trailer_lint --range origin/main..HEAD --format json
 ```
 
 All CLIs MUST use uniform ADR-042 audit exit codes: 0 for no error-severity

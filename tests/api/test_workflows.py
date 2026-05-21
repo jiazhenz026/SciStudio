@@ -6,9 +6,9 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from scieasy.api.runtime import ApiRuntime
-from scieasy.blocks.base.state import BlockState
-from scieasy.engine.events import WORKFLOW_CHANGED, EngineEvent
+from scistudio.api.runtime import ApiRuntime
+from scistudio.blocks.base.state import BlockState
+from scistudio.engine.events import WORKFLOW_CHANGED, EngineEvent
 from tests.api.helpers import (
     build_linear_workflow,
     wait_for_block_state,
@@ -245,7 +245,7 @@ def test_import_path_emits_workflow_changed_event(
 
     # Write a YAML to an external location and import it back.
     external = tmp_path / "external.yaml"
-    from scieasy.workflow.serializer import load_yaml, save_yaml
+    from scistudio.workflow.serializer import load_yaml, save_yaml
 
     definition = load_yaml(opened_project / "workflows" / "changed-import.yaml")
     definition.description = "edited externally"

@@ -1,4 +1,4 @@
-"""Shared test fixtures for the SciEasy test suite."""
+"""Shared test fixtures for the SciStudio test suite."""
 
 import pytest
 
@@ -9,7 +9,7 @@ import pytest
 # Two test-only fixtures get patched into the registry at collection time:
 #
 # 1. ``NoopBlock`` (from T-TRK-003) — relocated from
-#    ``src/scieasy/blocks/process/builtins/transform.py`` to
+#    ``src/scistudio/blocks/process/builtins/transform.py`` to
 #    ``tests/fixtures/noop_block.py``. Aliased to ``"process_block"``.
 #
 # 2. ``NoopIOBlock`` (from T-TRK-004) — concrete ``IOBlock`` subclass,
@@ -22,7 +22,7 @@ import pytest
 # pytest session do not see them. Per master plan §1 user override on
 # decision 1 (doc-external changes permitted when scoped to the feature
 # being tested) and the precedent established by T-TRK-003.
-from scieasy.blocks import registry as _registry_module
+from scistudio.blocks import registry as _registry_module
 
 _original_scan_builtins = _registry_module.BlockRegistry._scan_builtins
 

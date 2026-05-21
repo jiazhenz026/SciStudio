@@ -13,9 +13,9 @@ import asyncio
 
 from fastapi.testclient import TestClient
 
-from scieasy.api.runtime import ApiRuntime
-from scieasy.api.ws import _OUTBOUND_EVENTS
-from scieasy.engine.events import GIT_HEAD_CHANGED, EngineEvent
+from scistudio.api.runtime import ApiRuntime
+from scistudio.api.ws import _OUTBOUND_EVENTS
+from scistudio.engine.events import GIT_HEAD_CHANGED, EngineEvent
 
 
 def test_git_head_changed_in_outbound_events() -> None:

@@ -12,12 +12,12 @@ from typing import Any, ClassVar
 
 import pytest
 
-from scieasy.core.storage.flush_context import clear, set_output_dir
-from scieasy.core.storage.ref import StorageReference
-from scieasy.core.types.array import Array
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.core.storage.flush_context import clear, set_output_dir
+from scistudio.core.storage.ref import StorageReference
+from scistudio.core.types.array import Array
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.dataframe import DataFrame
 
 
 @pytest.fixture(autouse=True)
@@ -178,7 +178,7 @@ class TestStorageRefs:
 class TestBlockCollectionUtilities:
     def test_pack_creates_collection(self) -> None:
         """Block.pack() creates a Collection from items."""
-        from scieasy.blocks.base.block import Block
+        from scistudio.blocks.base.block import Block
 
         img1 = Image(shape=(1, 1), ndim=2, dtype="uint8")
         img2 = Image(shape=(2, 2), ndim=2, dtype="uint8")
@@ -189,7 +189,7 @@ class TestBlockCollectionUtilities:
 
     def test_unpack_returns_list(self) -> None:
         """Block.unpack() returns a list of items."""
-        from scieasy.blocks.base.block import Block
+        from scistudio.blocks.base.block import Block
 
         img = Image(shape=(1, 1), ndim=2, dtype="uint8")
         coll = Collection([img])
@@ -199,7 +199,7 @@ class TestBlockCollectionUtilities:
 
     def test_unpack_single_success(self) -> None:
         """Block.unpack_single() returns the single item."""
-        from scieasy.blocks.base.block import Block
+        from scistudio.blocks.base.block import Block
 
         img = Image(shape=(1, 1), ndim=2, dtype="uint8")
         coll = Collection([img])
@@ -208,7 +208,7 @@ class TestBlockCollectionUtilities:
 
     def test_unpack_single_fails_for_multiple(self) -> None:
         """Block.unpack_single() raises ValueError for length != 1."""
-        from scieasy.blocks.base.block import Block
+        from scistudio.blocks.base.block import Block
 
         imgs = [Image(shape=(i, i), ndim=2, dtype="uint8") for i in range(1, 4)]
         coll = Collection(imgs)
@@ -217,7 +217,7 @@ class TestBlockCollectionUtilities:
 
     def test_pack_unpack_roundtrip(self) -> None:
         """pack() then unpack() returns original items."""
-        from scieasy.blocks.base.block import Block
+        from scistudio.blocks.base.block import Block
 
         imgs = [Image(shape=(i, i), ndim=2, dtype="uint8") for i in range(1, 4)]
         coll = Block.pack(imgs, item_type=Image)
@@ -228,7 +228,7 @@ class TestBlockCollectionUtilities:
 
     def test_map_items(self) -> None:
         """Block.map_items() applies function to each item."""
-        from scieasy.blocks.base.block import Block
+        from scistudio.blocks.base.block import Block
 
         imgs = [Image(shape=(i, i), ndim=2, dtype="uint8") for i in range(1, 4)]
         coll = Collection(imgs)
@@ -243,7 +243,7 @@ class TestBlockCollectionUtilities:
 
     def test_auto_flush_passthrough(self) -> None:
         """_auto_flush returns object as-is when it has a storage_ref."""
-        from scieasy.blocks.base.block import Block
+        from scistudio.blocks.base.block import Block
 
         ref = StorageReference(backend="zarr", path="/test")
         obj = DataObject(storage_ref=ref)
@@ -252,7 +252,7 @@ class TestBlockCollectionUtilities:
 
     def test_auto_flush_no_ref_returns_as_is_without_context(self) -> None:
         """_auto_flush returns object as-is when output_dir not set."""
-        from scieasy.blocks.base.block import Block
+        from scistudio.blocks.base.block import Block
 
         clear()  # Remove the autouse fixture's output_dir
         obj = DataObject()
@@ -266,7 +266,7 @@ class TestBlockCollectionUtilities:
 class TestPortCollectionTransparency:
     def test_port_accepts_type_with_collection_instance(self) -> None:
         """port_accepts_type handles Collection instance check."""
-        from scieasy.blocks.base.ports import InputPort, port_accepts_type
+        from scistudio.blocks.base.ports import InputPort, port_accepts_type
 
         port = InputPort(name="data", accepted_types=[Image])
         # Collection is not a type, it's an instance check — for type-based
@@ -276,7 +276,7 @@ class TestPortCollectionTransparency:
 
     def test_port_accepts_dataobject_base(self) -> None:
         """Port accepting DataObject accepts all subtypes."""
-        from scieasy.blocks.base.ports import InputPort, port_accepts_type
+        from scistudio.blocks.base.ports import InputPort, port_accepts_type
 
         port = InputPort(name="data", accepted_types=[DataObject])
         assert port_accepts_type(port, Image) is True
@@ -284,7 +284,7 @@ class TestPortCollectionTransparency:
 
     def test_port_empty_accepted_types(self) -> None:
         """Port with empty accepted_types accepts anything."""
-        from scieasy.blocks.base.ports import InputPort, port_accepts_type
+        from scistudio.blocks.base.ports import InputPort, port_accepts_type
 
         port = InputPort(name="data", accepted_types=[])
         assert port_accepts_type(port, Image) is True

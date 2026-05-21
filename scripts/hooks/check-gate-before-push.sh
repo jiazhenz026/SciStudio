@@ -17,7 +17,7 @@ if [ -z "$BRANCH" ] || [ "$BRANCH" = "main" ] || [ "$BRANCH" = "HEAD" ]; then
   exit 0
 fi
 
-BYPASS_LABELS=$(SCIEASY_CMD="$CMD" SCIEASY_BRANCH="$BRANCH" python - <<'PY'
+BYPASS_LABELS=$(SCISTUDIO_CMD="$CMD" SCISTUDIO_BRANCH="$BRANCH" python - <<'PY'
 import os
 import subprocess
 
@@ -28,10 +28,10 @@ valid = {
     "admin-approved:merge",
 }
 labels: set[str] = set()
-for raw in os.environ.get("SCIEASY_GATE_BYPASS_LABELS", "").replace(",", " ").split():
+for raw in os.environ.get("SCISTUDIO_GATE_BYPASS_LABELS", "").replace(",", " ").split():
     labels.add(raw.strip())
 
-branch = os.environ.get("SCIEASY_BRANCH", "")
+branch = os.environ.get("SCISTUDIO_BRANCH", "")
 if branch:
     try:
         output = subprocess.check_output(
@@ -52,7 +52,7 @@ print("\n".join(sorted(override_like)))
 PY
 )
 
-BASE_REF="${SCIEASY_GATE_BASE:-origin/main}"
+BASE_REF="${SCISTUDIO_GATE_BASE:-origin/main}"
 LABEL_ARGS=()
 while IFS= read -r label; do
   [ -n "$label" ] || continue
@@ -60,7 +60,7 @@ while IFS= read -r label; do
 done <<EOF
 $BYPASS_LABELS
 EOF
-OUTPUT=$(PYTHONPATH=src python -m scieasy.qa.governance.gate_record pre-push \
+OUTPUT=$(PYTHONPATH=src python -m scistudio.qa.governance.gate_record pre-push \
   --repo-root . \
   --base "$BASE_REF" \
   --head HEAD \

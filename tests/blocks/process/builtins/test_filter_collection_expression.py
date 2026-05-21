@@ -6,10 +6,10 @@ from typing import Any
 
 import pytest
 
-from scieasy.blocks.base.state import BlockState
-from scieasy.blocks.process.builtins.filter_collection import FilterCollection
-from scieasy.core.types.array import Array
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.state import BlockState
+from scistudio.blocks.process.builtins.filter_collection import FilterCollection
+from scistudio.core.types.array import Array
+from scistudio.core.types.collection import Collection
 
 
 class Image(Array):

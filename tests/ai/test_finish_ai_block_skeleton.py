@@ -22,7 +22,7 @@ def test_finish_ai_block_is_registered() -> None:
     Category + mutation are encoded as FastMCP tags
     (``category:workflow`` + ``write``) per ADR-040 §3.2.
     """
-    from scieasy.ai.agent.mcp.server import mcp
+    from scistudio.ai.agent.mcp.server import mcp
 
     tools = _run(mcp.list_tools())
     by_name = {tool.name: tool for tool in tools}
@@ -34,7 +34,7 @@ def test_finish_ai_block_is_registered() -> None:
 
 def test_registry_now_has_26_tools() -> None:
     """ADR-035 §3.5 + ADR-040 §3.1: FastMCP exposes 26 tools."""
-    from scieasy.ai.agent.mcp.server import mcp
+    from scistudio.ai.agent.mcp.server import mcp
 
     tools = _run(mcp.list_tools())
     assert len(tools) == 26
@@ -42,6 +42,6 @@ def test_registry_now_has_26_tools() -> None:
 
 def test_finish_ai_block_handler_has_docstring() -> None:
     """Every MCP tool must carry a non-empty docstring (existing convention)."""
-    from scieasy.ai.agent.mcp import tools_workflow
+    from scistudio.ai.agent.mcp import tools_workflow
 
     assert (tools_workflow.finish_ai_block.__doc__ or "").strip()

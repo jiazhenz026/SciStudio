@@ -2,7 +2,7 @@
 
 Most project metadata lives in ``pyproject.toml``. This file exists only to
 hook a frontend-build step into ``python -m build`` / ``pip install .`` so
-that end users get a working SPA out of ``scieasy gui`` without needing
+that end users get a working SPA out of ``scistudio gui`` without needing
 Node locally at install time.
 
 Flow
@@ -10,18 +10,18 @@ Flow
 Whenever setuptools runs the ``build_py`` command (which happens during
 wheel building, source installs, and editable installs), we:
 
-1. Check whether ``src/scieasy/api/static/index.html`` already exists.
+1. Check whether ``src/scistudio/api/static/index.html`` already exists.
    If yes, we assume a previous invocation (or a pre-built sdist) already
    populated it and skip the build. This keeps offline / no-Node installs
    working as long as the static dir was pre-populated.
 2. Otherwise, shell out to ``npm ci && npm run build`` inside
    ``frontend/`` and copy the resulting ``dist/`` tree into
-   ``src/scieasy/api/static/``.
+   ``src/scistudio/api/static/``.
 3. If Node is not available and the static dir is empty, we print a
    warning but do NOT fail the install — the runtime falls back to the
    Swagger panel so at least the API is reachable. See #389.
 
-The runtime also has a dev fallback (``src/scieasy/api/app.py`` →
+The runtime also has a dev fallback (``src/scistudio/api/app.py`` →
 ``_resolve_spa_static_dir``) that serves ``frontend/dist/`` directly when
 the packaged static dir is empty, so editable installs work without ever
 running this hook.
@@ -40,11 +40,11 @@ from setuptools.command.build_py import build_py as _build_py
 _REPO_ROOT = Path(__file__).parent.resolve()
 _FRONTEND_DIR = _REPO_ROOT / "frontend"
 _FRONTEND_DIST = _FRONTEND_DIR / "dist"
-_PACKAGED_STATIC = _REPO_ROOT / "src" / "scieasy" / "api" / "static"
+_PACKAGED_STATIC = _REPO_ROOT / "src" / "scistudio" / "api" / "static"
 
 
 def _log(msg: str) -> None:
-    print(f"[scieasy-build] {msg}", file=sys.stderr)
+    print(f"[scistudio-build] {msg}", file=sys.stderr)
 
 
 def _has_prebuilt_spa() -> bool:
@@ -64,7 +64,7 @@ def _run_frontend_build() -> None:
     if not _npm_available():
         _log(
             "npm not found on PATH; skipping SPA build. Install Node.js to "
-            "bundle the SPA, or set SCIEASY_SKIP_FRONTEND_BUILD=1 to silence "
+            "bundle the SPA, or set SCISTUDIO_SKIP_FRONTEND_BUILD=1 to silence "
             "this warning. The runtime will redirect GET / to /docs."
         )
         return
@@ -89,8 +89,8 @@ class build_py(_build_py):  # noqa: N801 - setuptools command name must stay low
     def run(self) -> None:
         import os
 
-        if os.environ.get("SCIEASY_SKIP_FRONTEND_BUILD") == "1":
-            _log("SCIEASY_SKIP_FRONTEND_BUILD=1 set; skipping SPA build")
+        if os.environ.get("SCISTUDIO_SKIP_FRONTEND_BUILD") == "1":
+            _log("SCISTUDIO_SKIP_FRONTEND_BUILD=1 set; skipping SPA build")
         elif _has_prebuilt_spa():
             _log(f"found pre-built SPA at {_PACKAGED_STATIC}; skipping rebuild")
         else:

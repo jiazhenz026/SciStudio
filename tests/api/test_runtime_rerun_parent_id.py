@@ -14,9 +14,9 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from scieasy.api.app import create_app
-from scieasy.core.lineage.record import RunRecord
-from scieasy.workflow.definition import WorkflowDefinition
+from scistudio.api.app import create_app
+from scistudio.core.lineage.record import RunRecord
+from scistudio.workflow.definition import WorkflowDefinition
 
 
 @pytest.fixture()
@@ -24,7 +24,7 @@ def runtime_with_project(tmp_path, monkeypatch):
     fake_home = tmp_path / "home"
     fake_home.mkdir()
 
-    from scieasy.api import runtime as runtime_module
+    from scistudio.api import runtime as runtime_module
 
     monkeypatch.setattr(runtime_module.Path, "home", classmethod(lambda cls: fake_home))
 

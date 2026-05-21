@@ -27,7 +27,7 @@ def test_template_route_registered_before_block_type() -> None:
     is unreachable (``get_block_schema`` returns 404 with detail
     ``"Unknown block type: template"``).
     """
-    from scieasy.api.routes.blocks import router
+    from scistudio.api.routes.blocks import router
 
     paths_in_order = [r.path for r in router.routes]
     template = paths_in_order.index("/api/blocks/template")
@@ -48,8 +48,8 @@ def test_template_route_resolves_to_template_handler_not_schema() -> None:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from scieasy.api.deps import get_block_registry, get_type_registry
-    from scieasy.api.routes.blocks import router
+    from scistudio.api.deps import get_block_registry, get_type_registry
+    from scistudio.api.routes.blocks import router
 
     app = FastAPI()
     app.include_router(router)

@@ -17,14 +17,14 @@ from typing import Any, ClassVar
 import numpy as np
 import pytest
 
-from scieasy.core.storage.ref import StorageReference
-from scieasy.core.storage.zarr_backend import ZarrBackend
-from scieasy.core.types.array import Array
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.series import Series
-from scieasy.core.types.text import Text
+from scistudio.core.storage.ref import StorageReference
+from scistudio.core.storage.zarr_backend import ZarrBackend
+from scistudio.core.types.array import Array
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.series import Series
+from scistudio.core.types.text import Text
 
 
 class Image(Array):

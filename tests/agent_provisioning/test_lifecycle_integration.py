@@ -9,12 +9,12 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
-from scieasy.agent_provisioning import SCIEASY_PROVISION_VERSION
+from scistudio.agent_provisioning import SCISTUDIO_PROVISION_VERSION
 
 
 def _make_runtime(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Construct an ApiRuntime with an isolated home directory."""
-    from scieasy.api import runtime as runtime_module
+    from scistudio.api import runtime as runtime_module
 
     fake_home = tmp_path / "home"
     fake_home.mkdir(parents=True, exist_ok=True)
@@ -35,11 +35,11 @@ def test_create_project_provisions_assets(tmp_path: Path, monkeypatch: pytest.Mo
     assert (project_path / "AGENTS.md").is_file()
     assert (project_path / ".claude" / "settings.json").is_file()
     assert (project_path / ".codex" / "config.toml").is_file()
-    assert (project_path / ".claude" / "hooks" / "deny_scieasy_cli.py").is_file()
+    assert (project_path / ".claude" / "hooks" / "deny_scistudio_cli.py").is_file()
 
-    marker = project_path / ".claude" / ".scieasy-provision-version"
+    marker = project_path / ".claude" / ".scistudio-provision-version"
     assert marker.is_file()
-    assert marker.read_text(encoding="utf-8").strip() == SCIEASY_PROVISION_VERSION
+    assert marker.read_text(encoding="utf-8").strip() == SCISTUDIO_PROVISION_VERSION
 
 
 def test_open_project_idempotent_top_up(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -69,8 +69,8 @@ def test_open_project_idempotent_top_up(tmp_path: Path, monkeypatch: pytest.Monk
 
 
 def test_cli_init_provisions_assets(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``scieasy init`` triggers provisioning after git init."""
-    from scieasy.cli.main import app
+    """``scistudio init`` triggers provisioning after git init."""
+    from scistudio.cli.main import app
 
     monkeypatch.chdir(tmp_path)
     runner = CliRunner()
@@ -97,15 +97,15 @@ def test_provisioning_failure_degraded_mode(
     def _raise(*args: object, **kwargs: object):
         raise OSError("disk on fire")
 
-    # The runtime imports lazily: ``from scieasy.agent_provisioning import
+    # The runtime imports lazily: ``from scistudio.agent_provisioning import
     # install_project_agent_assets`` inside the try/except, so patching the
     # source module attribute is what intercepts the call.
     monkeypatch.setattr(
-        "scieasy.agent_provisioning.install_project_agent_assets",
+        "scistudio.agent_provisioning.install_project_agent_assets",
         _raise,
     )
 
-    caplog.set_level(logging.WARNING, logger="scieasy.api.runtime")
+    caplog.set_level(logging.WARNING, logger="scistudio.api.runtime")
     project = runtime.create_project(name="degraded", description="x", parent_path=str(parent))
 
     # Project IS created.

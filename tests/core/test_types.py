@@ -1,7 +1,7 @@
 """Tests for DataObject types, TypeSignature, and TypeRegistry (Phase 3.1).
 
 T-006 (ADR-027 D2) removed ``Image``, ``MSImage``, ``SRSImage``, and
-``FluorImage`` from ``scieasy.core.types.array``.
+``FluorImage`` from ``scistudio.core.types.array``.
 
 T-007 (ADR-027 D2) additionally removed ``Spectrum``, ``RamanSpectrum``,
 ``MassSpectrum``, ``PeakTable``, ``MetabPeakTable``, ``AnnData``, and
@@ -21,14 +21,14 @@ from typing import Any, ClassVar
 import numpy as np
 import pytest
 
-from scieasy.core.types.array import Array
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.base import DataObject, TypeSignature
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.registry import TypeRegistry, TypeSpec
-from scieasy.core.types.series import Series
-from scieasy.core.types.text import Text
+from scistudio.core.types.array import Array
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.base import DataObject, TypeSignature
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.registry import TypeRegistry, TypeSpec
+from scistudio.core.types.series import Series
+from scistudio.core.types.text import Text
 
 # ---------------------------------------------------------------------------
 # T-006 shim: local Image/MSImage/SRSImage/FluorImage subclasses.
@@ -43,7 +43,7 @@ class Image(Array):
     Accepts the legacy ``shape=/ndim=/dtype=`` kwargs. Uses
     ``axes=["y", "x"]`` for 2D payloads. TODO(T-008): drop shim and
     migrate tests to ``Array(axes=["y","x"], ...)`` or to the plugin
-    ``Image`` once ``scieasy-blocks-imaging`` is available.
+    ``Image`` once ``scistudio-blocks-imaging`` is available.
     """
 
     required_axes: ClassVar[frozenset[str]] = frozenset({"y", "x"})
@@ -360,7 +360,7 @@ class TestTypeRegistry:
 
     def test_register_and_resolve(self) -> None:
         registry = TypeRegistry()
-        spec = TypeSpec(name="Image", module_path="scieasy.core.types.array", class_name="Image")
+        spec = TypeSpec(name="Image", module_path="scistudio.core.types.array", class_name="Image")
         registry.register("Image", spec)
         resolved = registry.resolve("Image")
         assert resolved.name == "Image"
@@ -395,7 +395,7 @@ class TestTypeRegistry:
         assert "Artifact" in all_t
         assert "CompositeData" in all_t
         # Domain subtypes are NOT present — they will be re-registered
-        # via the ``scieasy.types`` entry-point when the relevant plugin
+        # via the ``scistudio.types`` entry-point when the relevant plugin
         # is installed.
         assert "Spectrum" not in all_t
         assert "PeakTable" not in all_t
@@ -478,7 +478,7 @@ class TestTypeRegistryEntryPoints:
         registry = TypeRegistry()
         with (
             patch("importlib.metadata.entry_points", return_value=[mock_ep]),
-            caplog.at_level("WARNING", logger="scieasy.core.types.registry"),
+            caplog.at_level("WARNING", logger="scistudio.core.types.registry"),
         ):
             registry._scan_entrypoint_types()
 
@@ -499,7 +499,7 @@ class TestTypeRegistryEntryPoints:
         registry = TypeRegistry()
         with (
             patch("importlib.metadata.entry_points", return_value=[mock_ep]),
-            caplog.at_level("WARNING", logger="scieasy.core.types.registry"),
+            caplog.at_level("WARNING", logger="scistudio.core.types.registry"),
         ):
             registry._scan_entrypoint_types()
 
@@ -517,7 +517,7 @@ class TestTypeRegistryEntryPoints:
         registry = TypeRegistry()
         with (
             patch("importlib.metadata.entry_points", return_value=[mock_ep]),
-            caplog.at_level("WARNING", logger="scieasy.core.types.registry"),
+            caplog.at_level("WARNING", logger="scistudio.core.types.registry"),
         ):
             registry._scan_entrypoint_types()
 
@@ -538,7 +538,7 @@ class TestTypeRegistryEntryPoints:
         registry = TypeRegistry()
         with (
             patch("importlib.metadata.entry_points", return_value=[mock_ep]),
-            caplog.at_level("WARNING", logger="scieasy.core.types.registry"),
+            caplog.at_level("WARNING", logger="scistudio.core.types.registry"),
         ):
             registry._scan_entrypoint_types()
 
@@ -556,7 +556,7 @@ class TestTypeRegistryEntryPoints:
         registry = TypeRegistry()
         with (
             patch("importlib.metadata.entry_points", return_value=[mock_ep]),
-            caplog.at_level("WARNING", logger="scieasy.core.types.registry"),
+            caplog.at_level("WARNING", logger="scistudio.core.types.registry"),
         ):
             registry._scan_entrypoint_types()
 
@@ -580,7 +580,7 @@ class TestTypeRegistryEntryPoints:
 
         all_t = registry.all_types()
         # Builtins are present. T-006 / ADR-027 D2: Image moved to
-        # scieasy-blocks-imaging; Array stays in core.
+        # scistudio-blocks-imaging; Array stays in core.
         assert "Array" in all_t
         assert "DataFrame" in all_t
         # External type is also present
@@ -707,8 +707,8 @@ class TestArrayProtocol:
 
     def test_array_protocol_with_storage(self, tmp_path: Path) -> None:
         """Array.__array__() materialises data via storage reference."""
-        from scieasy.core.storage.ref import StorageReference
-        from scieasy.core.storage.zarr_backend import ZarrBackend
+        from scistudio.core.storage.ref import StorageReference
+        from scistudio.core.storage.zarr_backend import ZarrBackend
 
         backend = ZarrBackend()
         data = np.array([[1, 2], [3, 4]], dtype=np.float32)
@@ -722,8 +722,8 @@ class TestArrayProtocol:
 
     def test_array_protocol_dtype_conversion(self, tmp_path: Path) -> None:
         """Array.__array__() respects dtype parameter."""
-        from scieasy.core.storage.ref import StorageReference
-        from scieasy.core.storage.zarr_backend import ZarrBackend
+        from scistudio.core.storage.ref import StorageReference
+        from scistudio.core.storage.zarr_backend import ZarrBackend
 
         backend = ZarrBackend()
         data = np.array([[1, 2], [3, 4]], dtype=np.float32)

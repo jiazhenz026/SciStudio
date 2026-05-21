@@ -283,7 +283,7 @@ export const api = {
   // agent (D38-2.4c) wires them to real fetch calls.
   //
   // URL shapes match the backend stubs declared by D38-2.4a in
-  // `src/scieasy/api/routes/runs.py`. Both PRs target tracking branch
+  // `src/scistudio/api/routes/runs.py`. Both PRs target tracking branch
   // `track/adr-038/lineage-db`; if either PR refines a path the other
   // updates here.
   //
@@ -411,7 +411,7 @@ export const api = {
   // -------------------------------------------------------------------------
   // ADR-039 §3.5 — Git versioning REST surface (D39-2.3a skeleton stubs).
   //
-  // These wrap the routes registered by `src/scieasy/api/routes/git.py`
+  // These wrap the routes registered by `src/scistudio/api/routes/git.py`
   // (PR #927). They are TYPED but otherwise straight passthroughs — no
   // client-side semantics live here. D39-2.3b consumers (gitSlice, the
   // Git/* components) call these directly and translate the response
@@ -571,7 +571,7 @@ function adaptBlockExecution(
   // /api/runs/{id} response carried the data and Methods export
   // surfaced it correctly.
   //
-  // Backend entry shape (see `src/scieasy/api/routes/runs.py::get_run`):
+  // Backend entry shape (see `src/scistudio/api/routes/runs.py::get_run`):
   //   { direction, port_name, position, object_id, type_name, backend,
   //     storage_path, produced_by_execution }
   //

@@ -1,6 +1,6 @@
 """Architecture enforcement: type system invariants.
 
-Validates structural properties of the ``scieasy.core.types`` hierarchy
+Validates structural properties of the ``scistudio.core.types`` hierarchy
 that survived ADR-027 D2:
 
 * Every public base class in the type modules inherits from
@@ -29,13 +29,13 @@ from typing import ClassVar
 
 import pytest
 
-from scieasy.core.types.array import Array
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.base import DataObject, TypeSignature
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.series import Series
-from scieasy.core.types.text import Text
+from scistudio.core.types.array import Array
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.base import DataObject, TypeSignature
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.series import Series
+from scistudio.core.types.text import Text
 
 # ---------------------------------------------------------------------------
 # Local fixture subclasses.
@@ -43,7 +43,7 @@ from scieasy.core.types.text import Text
 # These exercise the schema-declaration capability that ADR-027 D1 / D2
 # preserves on Array and CompositeData. They are intentionally minimal
 # and live entirely within this test module — the architecture test
-# does not depend on the scieasy-blocks-imaging plugin (or any other
+# does not depend on the scistudio-blocks-imaging plugin (or any other
 # plugin) being installed.
 # ---------------------------------------------------------------------------
 

@@ -19,7 +19,7 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
-from scieasy.engine.events import (
+from scistudio.engine.events import (
     BLOCK_CANCELLED,
     BLOCK_ERROR,
     BLOCK_SKIPPED,
@@ -27,8 +27,8 @@ from scieasy.engine.events import (
     EngineEvent,
     EventBus,
 )
-from scieasy.engine.scheduler import DAGScheduler
-from scieasy.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
+from scistudio.engine.scheduler import DAGScheduler
+from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
 
 
 def _capturing_bus() -> tuple[EventBus, list[EngineEvent]]:
@@ -75,7 +75,7 @@ class TestTerminalDataFromAllPaths:
         scheduler = _build_scheduler(wf, bus)
 
         # Pre-set A to ERROR so propagate_skip considers B.
-        from scieasy.blocks.base.state import BlockState
+        from scistudio.blocks.base.state import BlockState
 
         scheduler._block_states["A"] = BlockState.ERROR
 

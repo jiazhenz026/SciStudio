@@ -5,8 +5,8 @@ from typing import ClassVar
 import pytest
 from pydantic import BaseModel
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.io.capabilities import (
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.io.capabilities import (
     FormatCapability,
     InvalidExtensionError,
     InvalidFormatCapabilityError,
@@ -15,9 +15,9 @@ from scieasy.blocks.io.capabilities import (
     normalize_extension,
     normalize_extensions,
 )
-from scieasy.blocks.io.io_block import IOBlock
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.io.io_block import IOBlock
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
 
 
 class _ImageMeta(BaseModel):

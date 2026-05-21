@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.qa.audit.signature_drift import check_expected_signatures
-from scieasy.qa.schemas.facts import Fact, FactsRegistry
-from scieasy.qa.schemas.signatures import ExpectedCliCommand, ExpectedModelField, ExpectedParameter, ExpectedSignature
+from scistudio.qa.audit.signature_drift import check_expected_signatures
+from scistudio.qa.schemas.facts import Fact, FactsRegistry
+from scistudio.qa.schemas.signatures import ExpectedCliCommand, ExpectedModelField, ExpectedParameter, ExpectedSignature
 
 
 def _expected_fact(signature: ExpectedSignature) -> Fact:
@@ -111,16 +111,16 @@ def test_signature_drift_checks_pydantic_model_fields(tmp_path: Path) -> None:
 
 def test_signature_drift_reports_cli_exit_code_mismatch() -> None:
     command = ExpectedCliCommand(
-        command=["scieasy", "audit"],
+        command=["scistudio", "audit"],
         expected_exit_codes={0: "success"},
         source_spec="docs/specs/example.md",
         source_line=20,
     )
     actual = Fact(
-        id="cli:scieasy audit",
+        id="cli:scistudio audit",
         kind="cli",
         source="fixture",
-        subject="scieasy audit",
+        subject="scistudio audit",
         value={"exit_codes": {1: "failure"}},
         source_sha="abc123",
         confidence="generated",

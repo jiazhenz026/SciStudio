@@ -33,16 +33,16 @@ import pyarrow.csv as pcsv
 import pyarrow.parquet as pq
 import pytest
 
-from scieasy.blocks.io import SaveData
-from scieasy.blocks.io.savers.save_data import _CORE_TYPE_MAP
-from scieasy.core.types.array import Array
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.series import Series
-from scieasy.core.types.text import Text
+from scistudio.blocks.io import SaveData
+from scistudio.blocks.io.savers.save_data import _CORE_TYPE_MAP
+from scistudio.core.types.array import Array
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.series import Series
+from scistudio.core.types.text import Text
 
 # ---------------------------------------------------------------------------
 # Class-level shape tests
@@ -454,7 +454,7 @@ class TestAllowPickleGate:
                 }
             }
         )
-        with caplog.at_level(logging.WARNING, logger="scieasy.blocks.io.savers.save_data"):
+        with caplog.at_level(logging.WARNING, logger="scistudio.blocks.io.savers.save_data"):
             block.save(_make_dataframe(), block.config)
 
         assert path.exists()
@@ -567,7 +567,7 @@ def _make_storage_backed_array(tmp_path: Path, data: np.ndarray, axes: list[str]
 
     import zarr
 
-    from scieasy.core.storage.ref import StorageReference
+    from scistudio.core.storage.ref import StorageReference
 
     zarr_path = str(tmp_path / f"{uuid.uuid4()}.zarr")
     zarr.save(zarr_path, data)
@@ -583,7 +583,7 @@ def _make_storage_backed_dataframe(tmp_path: Path) -> DataFrame:
     """Create an arrow-backed DataFrame for testing streaming export."""
     import uuid
 
-    from scieasy.core.storage.ref import StorageReference
+    from scistudio.core.storage.ref import StorageReference
 
     table = _make_arrow_table()
     parquet_path = str(tmp_path / f"{uuid.uuid4()}.parquet")
@@ -672,7 +672,7 @@ class TestCapabilityDerivedExtensionDispatch:
 
     def test_extension_map_is_populated(self) -> None:
         """``_SAVE_EXTENSION_MAP`` is a non-empty derived dict."""
-        from scieasy.blocks.io.savers.save_data import _SAVE_EXTENSION_MAP
+        from scistudio.blocks.io.savers.save_data import _SAVE_EXTENSION_MAP
 
         assert isinstance(_SAVE_EXTENSION_MAP, dict)
         assert len(_SAVE_EXTENSION_MAP) > 0
@@ -680,8 +680,8 @@ class TestCapabilityDerivedExtensionDispatch:
     def test_save_extension_map_mirrors_load(self) -> None:
         """``_SAVE_EXTENSION_MAP`` mirrors ``_LOAD_EXTENSION_MAP`` so Load -> Save round-trip
         keeps the same discoverable suffix set per spec FR-001 / FR-002."""
-        from scieasy.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
-        from scieasy.blocks.io.savers.save_data import _SAVE_EXTENSION_MAP
+        from scistudio.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
+        from scistudio.blocks.io.savers.save_data import _SAVE_EXTENSION_MAP
 
         assert _SAVE_EXTENSION_MAP == _LOAD_EXTENSION_MAP, (
             "SaveData and LoadData capability-derived extension maps must mirror "
@@ -689,25 +689,25 @@ class TestCapabilityDerivedExtensionDispatch:
         )
 
     def test_extension_map_contains_array_extensions(self) -> None:
-        from scieasy.blocks.io.savers.save_data import _SAVE_EXTENSION_MAP
+        from scistudio.blocks.io.savers.save_data import _SAVE_EXTENSION_MAP
 
         for ext in (".npy", ".npz", ".zarr", ".parquet", ".pq"):
             assert ext in _SAVE_EXTENSION_MAP, f"missing {ext!r}"
 
     def test_extension_map_contains_pickle_extensions(self) -> None:
-        from scieasy.blocks.io.savers.save_data import _SAVE_EXTENSION_MAP
+        from scistudio.blocks.io.savers.save_data import _SAVE_EXTENSION_MAP
 
         for ext in (".pkl", ".pickle"):
             assert ext in _SAVE_EXTENSION_MAP, f"missing {ext!r}"
 
     def test_extension_map_contains_tabular_extensions(self) -> None:
-        from scieasy.blocks.io.savers.save_data import _SAVE_EXTENSION_MAP
+        from scistudio.blocks.io.savers.save_data import _SAVE_EXTENSION_MAP
 
         for ext in (".csv", ".tsv", ".json"):
             assert ext in _SAVE_EXTENSION_MAP, f"missing {ext!r}"
 
     def test_extension_map_contains_text_extensions(self) -> None:
-        from scieasy.blocks.io.savers.save_data import _SAVE_EXTENSION_MAP
+        from scistudio.blocks.io.savers.save_data import _SAVE_EXTENSION_MAP
 
         for ext in (".txt", ".md", ".html", ".xml", ".yaml", ".yml", ".toml", ".log"):
             assert ext in _SAVE_EXTENSION_MAP, f"missing {ext!r}"
@@ -723,7 +723,7 @@ class TestCapabilityDerivedExtensionDispatch:
         sorted, capability-derived supported extension set."""
         import re
 
-        from scieasy.blocks.io.savers.save_data import _supported_save_extensions
+        from scistudio.blocks.io.savers.save_data import _supported_save_extensions
 
         arr = Array(axes=["x"], shape=(3,), dtype="float64")
         arr._data = np.array([1.0, 2.0, 3.0])  # type: ignore[attr-defined]
@@ -751,8 +751,8 @@ class TestCapabilityDerivedExtensionDispatch:
         is removed from ``SaveData``; the base ``IOBlock`` default (empty
         dict) is now what an MRO lookup returns. The capability-derived
         mapping lives in :data:`_SAVE_EXTENSION_MAP` instead."""
-        from scieasy.blocks.io.io_block import IOBlock
-        from scieasy.blocks.io.savers.save_data import _SAVE_EXTENSION_MAP
+        from scistudio.blocks.io.io_block import IOBlock
+        from scistudio.blocks.io.savers.save_data import _SAVE_EXTENSION_MAP
 
         assert IOBlock.supported_extensions == {}
         # SaveData no longer overrides the ClassVar — the override has been

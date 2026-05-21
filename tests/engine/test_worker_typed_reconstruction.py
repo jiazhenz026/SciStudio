@@ -1,14 +1,14 @@
 """Tests for the T-014 worker subprocess typed reconstruction path.
 
-Exercises :func:`scieasy.core.types.serialization._reconstruct_one` and
-:func:`~scieasy.core.types.serialization._serialise_one` (the core
-round-trip helpers), plus :func:`scieasy.engine.runners.worker.reconstruct_inputs`
-and :func:`~scieasy.engine.runners.worker.serialise_outputs` (the worker
+Exercises :func:`scistudio.core.types.serialization._reconstruct_one` and
+:func:`~scistudio.core.types.serialization._serialise_one` (the core
+round-trip helpers), plus :func:`scistudio.engine.runners.worker.reconstruct_inputs`
+and :func:`~scistudio.engine.runners.worker.serialise_outputs` (the worker
 wrappers that dispatch per-item).
 
 Per ADR-027 D11 + Addendum 1 §1, the worker subprocess must return
-typed :class:`~scieasy.core.types.base.DataObject` instances (e.g. an
-:class:`~scieasy.core.types.array.Array`). Lazy loading is preserved at
+typed :class:`~scistudio.core.types.base.DataObject` instances (e.g. an
+:class:`~scistudio.core.types.array.Array`). Lazy loading is preserved at
 the method level: reconstructed instances have ``storage_ref`` set
 but do not read payload data until ``to_memory()`` / ``sel()`` /
 ``iter_over()`` is called (ADR-031 D2: ViewProxy eliminated).
@@ -34,22 +34,22 @@ from typing import Any, ClassVar
 import pytest
 from pydantic import BaseModel, ConfigDict
 
-from scieasy.core.meta import FrameworkMeta
-from scieasy.core.storage.ref import StorageReference
-from scieasy.core.types.array import Array
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.serialization import (
+from scistudio.core.meta import FrameworkMeta
+from scistudio.core.storage.ref import StorageReference
+from scistudio.core.types.array import Array
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.serialization import (
     _get_type_registry,
     _reconstruct_one,
     _serialise_one,
 )
-from scieasy.core.types.series import Series
-from scieasy.core.types.text import Text
-from scieasy.engine.runners.worker import reconstruct_inputs, serialise_outputs
+from scistudio.core.types.series import Series
+from scistudio.core.types.text import Text
+from scistudio.engine.runners.worker import reconstruct_inputs, serialise_outputs
 
 
 def _ref(path: str = "/tmp/test.zarr", backend: str = "zarr") -> StorageReference:
@@ -99,7 +99,7 @@ def _reset_registry_singleton() -> None:
     are re-registered by ``scan_builtins``, and fixture classes are
     re-registered explicitly via ``register_class``.
     """
-    from scieasy.core.types import serialization
+    from scistudio.core.types import serialization
 
     serialization._registry_instance = None
 

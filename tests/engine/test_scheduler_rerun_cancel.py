@@ -11,10 +11,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from scieasy.blocks.base.state import BlockState
-from scieasy.engine.events import EventBus
-from scieasy.engine.scheduler import DAGScheduler
-from scieasy.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
+from scistudio.blocks.base.state import BlockState
+from scistudio.engine.events import EventBus
+from scistudio.engine.scheduler import DAGScheduler
+from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
 
 
 def _linear_workflow(block_a: str = "a", block_b: str = "b") -> WorkflowDefinition:

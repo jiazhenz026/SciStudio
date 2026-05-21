@@ -39,7 +39,7 @@
       "include": [
         "scripts/hooks/check-gate-before-pr.sh",
         "scripts/hooks/check-gate-before-push.sh",
-        "src/scieasy/qa/governance/gate_record.py",
+        "src/scistudio/qa/governance/gate_record.py",
         "tests/qa/test_gate_record.py",
         "tests/qa/test_gate_record_hooks.py",
         "docs/adr/ADR-042-addendum1.md",
@@ -52,8 +52,8 @@
       "approved_by": null,
       "exclude": [],
       "include": [
-        "src/scieasy/qa/governance/mod_guard.py",
-        "src/scieasy/qa/governance/weakened_ci_check.py",
+        "src/scistudio/qa/governance/mod_guard.py",
+        "src/scistudio/qa/governance/weakened_ci_check.py",
         "tests/qa/test_governance_mod_guard.py",
         "tests/qa/test_governance_weakened_ci_check.py",
         ".github/workflows/workflow-gate.yml",
@@ -162,7 +162,7 @@
   },
   "full_audit": {
     "blocks_merge": true,
-    "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
     "exit_code": 1,
     "known_debt": [
       "pre-existing frontmatter/doc/signature/architecture drift findings captured during ADR-042 Addendum 1 rollout"
@@ -178,7 +178,7 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1269,
-      "url": "https://github.com/zjzcpj/SciEasy/issues/1269"
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1269"
     }
   ],
   "owner_directive": "Replace legacy gate.py hooks and CI with ADR-042 gate_record CLI enforcement.",
@@ -188,8 +188,8 @@
     ".workflow/hooks/pre-commit",
     "scripts/hooks/check-gate-before-pr.sh",
     "scripts/hooks/check-gate-before-push.sh",
-    "src/scieasy/qa/governance/gate_record.py",
-    "src/scieasy/qa/governance/__init__.py",
+    "src/scistudio/qa/governance/gate_record.py",
+    "src/scistudio/qa/governance/__init__.py",
     "tests/qa/test_gate_record.py",
     "tests/qa/test_gate_record_ci.py",
     "tests/qa/test_gate_record_hooks.py",
@@ -201,7 +201,7 @@
       1269
     ],
     "number": 1,
-    "url": "https://github.com/zjzcpj/SciEasy/pull/TBD"
+    "url": "https://github.com/zjzcpj/SciStudio/pull/TBD"
   },
   "record_path": ".workflow/records/1269-gate-record-hooks-final.json",
   "required_checks": [
@@ -223,8 +223,8 @@
       ".workflow/hooks/pre-commit",
       "scripts/hooks/check-gate-before-pr.sh",
       "scripts/hooks/check-gate-before-push.sh",
-      "src/scieasy/qa/governance/gate_record.py",
-      "src/scieasy/qa/governance/__init__.py",
+      "src/scistudio/qa/governance/gate_record.py",
+      "src/scistudio/qa/governance/__init__.py",
       "tests/qa/test_gate_record.py",
       "tests/qa/test_gate_record_ci.py",
       "tests/qa/test_gate_record_hooks.py",

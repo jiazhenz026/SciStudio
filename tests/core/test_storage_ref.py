@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from scieasy.core.storage.ref import StorageReference
+from scistudio.core.storage.ref import StorageReference
 
 
 class TestStorageReferencePathNormalization:

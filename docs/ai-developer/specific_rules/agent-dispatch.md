@@ -140,16 +140,16 @@ language_source: en
   checklist when any bypass label is used.
 
 ```bash
-python -m scieasy.qa.governance.gate_record pre-commit --staged
+python -m scistudio.qa.governance.gate_record pre-commit --staged
 
-python -m scieasy.qa.governance.gate_record pre-commit \
+python -m scistudio.qa.governance.gate_record pre-commit \
   --staged \
   --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
 
-python -m scieasy.qa.governance.gate_record commit-msg <commit-msg-file> \
+python -m scistudio.qa.governance.gate_record commit-msg <commit-msg-file> \
   --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
 
-python -m scieasy.qa.governance.gate_record pre-push \
+python -m scistudio.qa.governance.gate_record pre-push \
   --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
 ```
 

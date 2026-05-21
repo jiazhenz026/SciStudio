@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from scieasy.core.storage.composite_store import CompositeStore
-from scieasy.core.storage.ref import StorageReference
+from scistudio.core.storage.composite_store import CompositeStore
+from scistudio.core.storage.ref import StorageReference
 
 
 class TestCompositeStoreEdgeCases:

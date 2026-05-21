@@ -18,7 +18,7 @@ Fill every placeholder before dispatch.
 
 ## Task Identity
 
-- Repository: SciEasy
+- Repository: SciStudio
 - Owner request: <one sentence>
 - Task kind: <feature|bugfix|hotfix|refactor|docs|maintenance|manager>
 - Persona: <manager|implementer|adr_author>

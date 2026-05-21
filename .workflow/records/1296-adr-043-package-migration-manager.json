@@ -23,7 +23,7 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+      "command_or_tool": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
       "exit_code": 1,
       "name": "full_audit",
       "output_path": "docs/audit/full-audit-latest.json \u2014 0 findings touch the manager-track changed files (spec / checklist / gate record / CHANGELOG). All reported errors are pre-existing repo-wide debt unrelated to this PR: ADR-031.md frontmatter missing, signature_drift on adr-042-consistency-tools.md spec, architecture_drift on missing AnnData/SpatialData symbol references.",
@@ -57,7 +57,7 @@
   },
   "full_audit": {
     "blocks_merge": false,
-    "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
     "exit_code": 1,
     "known_debt": [
       "owner-acknowledged"
@@ -86,7 +86,7 @@
   "pull_request": {
     "body_closes_issues": [],
     "number": 1297,
-    "url": "https://github.com/zjzcpj/SciEasy/pull/1297"
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1297"
   },
   "record_path": ".workflow/records/1296-adr-043-package-migration-manager.json",
   "required_checks": [

@@ -4,7 +4,7 @@ title: "Phase 11 Imaging Plugin Block Specification"
 status: Deprecated
 feature_branch: legacy/phase11-imaging-block-spec
 created: 2026-04-07
-input: "Historical Phase 11 scieasy-blocks-imaging implementation specification retained for reference."
+input: "Historical Phase 11 scistudio-blocks-imaging implementation specification retained for reference."
 owners:
   - "@jiazhenz026"
 related_adrs:
@@ -36,7 +36,7 @@ This deprecated spec is retained as historical reference. Its original body is p
 
 ## 2. Existing Historical Body
 
-# Phase 11 `scieasy-blocks-imaging` Implementation Specification
+# Phase 11 `scistudio-blocks-imaging` Implementation Specification
 
 **Status**: accepted
 **Date**: 2026-04-07
@@ -50,7 +50,7 @@ variadic ports — informational only).
 
 ## 1. Purpose
 
-`scieasy-blocks-imaging` is the first SciEasy plugin package, shipping a
+`scistudio-blocks-imaging` is the first SciStudio plugin package, shipping a
 general-purpose set of blocks for fluorescence, brightfield, confocal,
 widefield, hyperspectral, and label-free microscopy. It is the
 flagship plugin used to validate ADR-028's plugin-IO contract and
@@ -80,25 +80,25 @@ enough to apply to any quantitative microscopy.
 **Phase 10 dependencies**: this plugin requires the Phase 10 core
 surface as merged on `main` at `1406b2a`:
 
-- `scieasy.core.types.array.Array` with instance-level axes and
+- `scistudio.core.types.array.Array` with instance-level axes and
   `required_axes` / `allowed_axes` / `canonical_order` ClassVar schema
   (T-006).
-- `scieasy.core.types.composite.CompositeData` with `expected_slots`
+- `scistudio.core.types.composite.CompositeData` with `expected_slots`
   ClassVar schema (T-007).
-- `scieasy.core.types.dataframe.DataFrame` for tabular outputs (T-007).
-- `scieasy.core.types.artifact.Artifact` for visualization outputs
+- `scistudio.core.types.dataframe.DataFrame` for tabular outputs (T-007).
+- `scistudio.core.types.artifact.Artifact` for visualization outputs
   (T-007).
-- `scieasy.core.types.collection.Collection` for batch transport.
-- `scieasy.core.meta.FrameworkMeta` and `ChannelInfo` (T-004).
-- `scieasy.core.units.PhysicalQuantity` with Pydantic v2 integration
+- `scistudio.core.types.collection.Collection` for batch transport.
+- `scistudio.core.meta.FrameworkMeta` and `ChannelInfo` (T-004).
+- `scistudio.core.units.PhysicalQuantity` with Pydantic v2 integration
   (T-003).
-- `scieasy.utils.axis_iter.iterate_over_axes(source, operates_on, func)`
+- `scistudio.utils.axis_iter.iterate_over_axes(source, operates_on, func)`
   (T-011).
-- `scieasy.utils.constraints.has_axes` / `has_exact_axes` / `has_shape`
+- `scistudio.utils.constraints.has_axes` / `has_exact_axes` / `has_shape`
   (T-010).
-- `scieasy.blocks.process.ProcessBlock` with `setup` / `teardown` hooks
+- `scistudio.blocks.process.ProcessBlock` with `setup` / `teardown` hooks
   and three-arg `process_item(self, item, config, state=None)` (T-009).
-- `scieasy.blocks.io.IOBlock` as abstract base class with abstract
+- `scistudio.blocks.io.IOBlock` as abstract base class with abstract
   `load()` / `save()` (ADR-028).
 - `BlockRegistry` reading `dynamic_ports` ClassVar (ADR-028 Addendum 1).
 - `Block.get_effective_input_ports()` / `get_effective_output_ports()`
@@ -111,8 +111,8 @@ surface as merged on `main` at `1406b2a`:
 ## 2. Scope
 
 **In scope**: contracts for tickets T-IMG-001 through T-IMG-038, the
-complete `scieasy-blocks-imaging` 0.1.0 release. The package lives at
-`packages/scieasy-blocks-imaging/` inside the SciEasy monorepo per
+complete `scistudio-blocks-imaging` 0.1.0 release. The package lives at
+`packages/scistudio-blocks-imaging/` inside the SciStudio monorepo per
 master plan Q1.
 
 **Out of scope**:
@@ -124,9 +124,9 @@ master plan Q1.
 - StarDist segmentation (deferred — `cellpose` is the only supported
   deep-learning segmentor in 0.1.0).
 - SRS-specific blocks (`SRSCalibrate`, `SRSUnmix`, `ExtractSpectrum`,
-  ...) — those live in `scieasy-blocks-srs` per
+  ...) — those live in `scistudio-blocks-srs` per
   `docs/specs/phase11-srs-block-spec.md`.
-- LC-MS blocks — those live in `scieasy-blocks-lcms` per
+- LC-MS blocks — those live in `scistudio-blocks-lcms` per
   `docs/specs/phase11-lcms-block-spec.md`.
 - The cross-plugin E2E pipeline (imaging + SRS + core IO) is referenced
   here for completeness in §11 but its `ExtractSpectrum` half is
@@ -138,7 +138,7 @@ master plan Q1.
   existing `BlockNode.tsx` rendering via the generic
   `category === "io"` path landed in ADR-028 Addendum 1. No new React
   component or schema response field is introduced by this plugin.
-- The plugin skeleton itself (the `packages/scieasy-blocks-imaging/`
+- The plugin skeleton itself (the `packages/scistudio-blocks-imaging/`
   directory tree with placeholder `NotImplementedError` files) is
   produced by the **Skeleton Agent** per master plan §4.2 Step 8 — not
   by these implementation tickets, which fill in the bodies.
@@ -189,7 +189,7 @@ master plan Q1.
 | T-IMG-035 | NapariBlock                                | ADR-019                                                            |
 | T-IMG-036 | CellProfilerBlock                          | ADR-019                                                            |
 | T-IMG-037 | QuPathBlock                                | ADR-019                                                            |
-| T-IMG-038 | Plugin packaging                           | ADR-025 (`scieasy.blocks` / `scieasy.types` entry-point groups), ADR-028 §D8 |
+| T-IMG-038 | Plugin packaging                           | ADR-025 (`scistudio.blocks` / `scistudio.types` entry-point groups), ADR-028 §D8 |
 
 ---
 
@@ -333,7 +333,7 @@ serial points are: T-IMG-001 → everything (types must exist first),
 T-IMG-002 → E2E test (need a loader), T-IMG-019 → E2E test (need
 segmentation). Outside of those, multiple impl agents can work
 simultaneously as long as their PRs do not collide on
-`packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+`packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 — which they will, because each block must be registered there. The
 recommended pattern is: each impl agent appends its block to the
 `get_blocks()` list and the `__init__.py` `__all__`, and the manager
@@ -364,11 +364,11 @@ follow them is a workflow gate violation.
    tests to update" sections. Any other modified file is a scope
    violation per `CLAUDE.md` §6.7.
 5. **Every check must be green before review**:
-   - `pytest -x --no-cov packages/scieasy-blocks-imaging/tests/`
+   - `pytest -x --no-cov packages/scistudio-blocks-imaging/tests/`
      passes locally.
-   - `ruff check packages/scieasy-blocks-imaging/` clean.
-   - `ruff format --check packages/scieasy-blocks-imaging/` clean.
-   - `mypy packages/scieasy-blocks-imaging/src --ignore-missing-imports`
+   - `ruff check packages/scistudio-blocks-imaging/` clean.
+   - `ruff format --check packages/scistudio-blocks-imaging/` clean.
+   - `mypy packages/scistudio-blocks-imaging/src --ignore-missing-imports`
      clean.
    - For tickets that touch core (none should), additionally
      `python -m importlinter --config pyproject.toml` clean.
@@ -389,7 +389,7 @@ follow them is a workflow gate violation.
    describing it. Do not fix it inline. Per `CLAUDE.md` §9.2 ("Claude
    must not silently broaden scope") and Appendix C Step 3.
 9. **No core modifications** — the imaging plugin must not modify any
-   file under `src/scieasy/`. If a block needs a feature core does not
+   file under `src/scistudio/`. If a block needs a feature core does not
    provide, open a follow-up issue requesting the core change and
    either skip or stub the affected behaviour. The `importlinter`
    contract `Plugins must not write to core` is the audit gate.
@@ -400,7 +400,7 @@ follow them is a workflow gate violation.
     marked with `@pytest.mark.requires_<extra>` and skipped when the
     extra is not installed. Production code must guard the import with
     a `try` / `except ImportError` and raise a friendly
-    `ImportError("install scieasy-blocks-imaging[<extra>]")` when the
+    `ImportError("install scistudio-blocks-imaging[<extra>]")` when the
     block is invoked without the extra.
 11. **Every block declares `category`, `type_name`, `name` ClassVars
     correctly** — `category` is one of `io`, `preprocessing`,
@@ -426,11 +426,11 @@ must satisfy these:
 1. The PR's diff includes ONLY files listed in "Files to be created",
    "Files to be modified", "New tests", and "Existing tests to update"
    for that ticket. Any other modified file is a scope violation.
-2. `pytest -x --no-cov packages/scieasy-blocks-imaging/tests/` passes
+2. `pytest -x --no-cov packages/scistudio-blocks-imaging/tests/` passes
    locally before push.
-3. `ruff check packages/scieasy-blocks-imaging/` clean.
-4. `ruff format --check packages/scieasy-blocks-imaging/` clean.
-5. `mypy packages/scieasy-blocks-imaging/src --ignore-missing-imports`
+3. `ruff check packages/scistudio-blocks-imaging/` clean.
+4. `ruff format --check packages/scistudio-blocks-imaging/` clean.
+5. `mypy packages/scistudio-blocks-imaging/src --ignore-missing-imports`
    clean.
 6. `CHANGELOG.md` has an entry under `[Unreleased]` in the appropriate
    section with full attribution per `CLAUDE.md` Appendix A Stage 6.
@@ -441,7 +441,7 @@ must satisfy these:
    checklist with each item ticked.
 10. CI is green on the PR before requesting review.
 11. The block is appended to `get_blocks()` in
-    `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+    `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
     in the same PR. (Exception: T-IMG-001 ships only types and is
     registered via `get_types()`.)
 12. The block round-trips through worker subprocess reconstruction —
@@ -463,16 +463,16 @@ agents do not have to re-litigate.
 
 OptEasy's `tiff_adapter.py` carries an established protocol for
 embedding Pydantic-encoded metadata in the TIFF `ImageDescription` tag
-as a UTF-8 JSON string with the sentinel prefix `OPTEASY:`. SciEasy
+as a UTF-8 JSON string with the sentinel prefix `OPTEASY:`. SciStudio
 inherits this verbatim per ADR-028 §D5.
 
 **Decision**: the JSON-in-ImageDescription helpers live as **private
 module-level functions** inside
-`packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/load_image.py`
+`packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py`
 and the symmetric `save_image.py`. They are NOT exposed publicly. The
 function names are `_decode_metadata_json(description: str | None) ->
 dict | None` and `_encode_metadata_json(meta: BaseModel) -> str`. The
-sentinel is renamed `SCIEASY:` for the new project.
+sentinel is renamed `SCISTUDIO:` for the new project.
 
 **Rationale**:
 
@@ -641,10 +641,10 @@ algorithm to each `(y, x)` slice. There are three ways to do it:
 
 1. Manual nested loops with explicit axis bookkeeping.
 2. `numpy.apply_over_axes`.
-3. `scieasy.utils.axis_iter.iterate_over_axes(source, {"y", "x"}, fn)`.
+3. `scistudio.utils.axis_iter.iterate_over_axes(source, {"y", "x"}, fn)`.
 
 **Decision**: blocks that have a 2D core algorithm and accept N-D
-input MUST use `iterate_over_axes` from `scieasy.utils.axis_iter`. The
+input MUST use `iterate_over_axes` from `scistudio.utils.axis_iter`. The
 utility:
 
 - Handles arbitrary axis orderings.
@@ -744,10 +744,10 @@ l. Suggested workflow gate ticket title
 The package layout referenced throughout:
 
 ```
-packages/scieasy-blocks-imaging/
+packages/scistudio-blocks-imaging/
 ├── pyproject.toml
 ├── README.md
-└── src/scieasy_blocks_imaging/
+└── src/scistudio_blocks_imaging/
     ├── __init__.py        (exports get_blocks(), get_types())
     ├── types.py           (Image, Mask, Label, Transform)
     ├── io/                (load_image.py, save_image.py)
@@ -777,11 +777,11 @@ packages/scieasy-blocks-imaging/
 `Transform` now enforce the typed metadata and validation contract on
 `main` (`PhysicalQuantity`, `ChannelInfo`, label-slot presence, and
 transform-matrix shape), with worker reconstruction coverage in
-`packages/scieasy-blocks-imaging/tests/test_types.py`. The same PR also
+`packages/scistudio-blocks-imaging/tests/test_types.py`. The same PR also
 aligns `T-IMG-008` / `T-IMG-010` compatibility tests with the typed
 metadata contract so downstream imaging validation stays green.
 
-**a. Ticket ID and name**: T-IMG-001 — `scieasy_blocks_imaging.types` module.
+**a. Ticket ID and name**: T-IMG-001 — `scistudio_blocks_imaging.types` module.
 
 **b. Source ADR sections**:
 
@@ -791,22 +791,22 @@ metadata contract so downstream imaging validation stays green.
 - ADR-027 D5 (per-subclass `Meta` Pydantic class).
 - ADR-027 Addendum 1 §3 (Meta JSON-round-trip constraints: frozen,
   no PrivateAttr, JSON-serialisable).
-- ADR-028 §D5 (plugin types register via `scieasy.types`
+- ADR-028 §D5 (plugin types register via `scistudio.types`
   entry-point).
 
 **c. Files to be created**:
 
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/types.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/types.py`
 
 **d. Files to be modified**:
 
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
   (add `get_types()` returning the four classes; the block-shipping
   half is filled by subsequent tickets).
 
 **e. New tests**:
 
-- `packages/scieasy-blocks-imaging/tests/test_types.py` (new file)
+- `packages/scistudio-blocks-imaging/tests/test_types.py` (new file)
   containing:
   - `test_image_required_axes_yx`
   - `test_image_allowed_axes_full_alphabet`
@@ -837,7 +837,7 @@ metadata contract so downstream imaging validation stays green.
 **g. Implementation details**:
 
 ```python
-# packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/types.py
+# packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/types.py
 
 from __future__ import annotations
 
@@ -846,11 +846,11 @@ from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict
 
-from scieasy.core.meta import ChannelInfo
-from scieasy.core.types.array import Array
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.units import PhysicalQuantity
+from scistudio.core.meta import ChannelInfo
+from scistudio.core.types.array import Array
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.units import PhysicalQuantity
 
 
 class Image(Array):
@@ -965,9 +965,9 @@ class Transform(Array):
 The `__init__.py` `get_types()` function:
 
 ```python
-# packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py
+# packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py
 
-from scieasy_blocks_imaging.types import Image, Label, Mask, Transform
+from scistudio_blocks_imaging.types import Image, Label, Mask, Transform
 
 def get_types() -> list[type]:
     return [Image, Mask, Label, Transform]
@@ -1043,16 +1043,16 @@ still tracked in this ticket.
 
 **c. Files to be created**:
 
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/load_image.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py`
 
 **d. Files to be modified**:
 
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 
-- `packages/scieasy-blocks-imaging/tests/test_io/test_load_image.py`
+- `packages/scistudio-blocks-imaging/tests/test_io/test_load_image.py`
   - `test_load_single_tif_file_returns_collection_length_one`
   - `test_load_directory_returns_collection_length_n`
   - `test_load_glob_pattern_returns_collection`
@@ -1076,26 +1076,26 @@ still tracked in this ticket.
 **g. Implementation details**:
 
 ```python
-# packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/load_image.py
+# packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py
 
 from __future__ import annotations
 import json, logging
 from pathlib import Path
 from typing import Any, ClassVar
 
-from scieasy.blocks.base.ports import OutputPort
-from scieasy.blocks.io.io_block import IOBlock
-from scieasy.core.meta import FrameworkMeta
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.ports import OutputPort
+from scistudio.blocks.io.io_block import IOBlock
+from scistudio.core.meta import FrameworkMeta
+from scistudio.core.types.collection import Collection
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 logger = logging.getLogger(__name__)
 
 _SUPPORTED_EXTS = {".tif", ".tiff", ".png", ".jpg", ".jpeg", ".npy", ".zarr"}
 _OPTIONAL_EXTS = {".czi": "czi", ".nd2": "nd2", ".lif": "lif"}
 _LAZY_THRESHOLD_BYTES = 128 * 1024 * 1024
-_TIFF_METADATA_PREFIX = "SCIEASY:"
+_TIFF_METADATA_PREFIX = "SCISTUDIO:"
 
 
 class LoadImage(IOBlock):
@@ -1171,7 +1171,7 @@ def _decode_metadata_json(description: str | None) -> dict | None:
     try:
         return json.loads(description[len(_TIFF_METADATA_PREFIX):])
     except json.JSONDecodeError:
-        logger.warning("Malformed SCIEASY metadata JSON")
+        logger.warning("Malformed SCISTUDIO metadata JSON")
         return None
 
 
@@ -1195,7 +1195,7 @@ def _load_tif(path: Path) -> Image:
             )
             img._data = data
             return img
-        from scieasy.core.storage.zarr_backend import ZarrStorageReference
+        from scistudio.core.storage.zarr_backend import ZarrStorageReference
         ref = ZarrStorageReference.from_tiff(path)
         return Image(
             axes=axes, shape=shape, dtype=dtype, storage_ref=ref,
@@ -1244,7 +1244,7 @@ def _load_npy(path: Path) -> Image:
 
 
 def _load_zarr(path: Path) -> Image:
-    from scieasy.core.storage.zarr_backend import ZarrStorageReference
+    from scistudio.core.storage.zarr_backend import ZarrStorageReference
     ref = ZarrStorageReference.from_path(path)
     return Image(axes=ref.axes or ["y", "x"], shape=ref.shape,
                  dtype=ref.dtype, storage_ref=ref,
@@ -1259,7 +1259,7 @@ def _load_optional(path: Path, extra: str) -> Image:
         except ImportError as exc:
             raise ImportError(
                 "Loading .czi files requires the [czi] extra: "
-                "pip install scieasy-blocks-imaging[czi]"
+                "pip install scistudio-blocks-imaging[czi]"
             ) from exc
     elif extra == "nd2":
         try:
@@ -1267,7 +1267,7 @@ def _load_optional(path: Path, extra: str) -> Image:
         except ImportError as exc:
             raise ImportError(
                 "Loading .nd2 files requires the [nd2] extra: "
-                "pip install scieasy-blocks-imaging[nd2]"
+                "pip install scistudio-blocks-imaging[nd2]"
             ) from exc
     elif extra == "lif":
         try:
@@ -1275,7 +1275,7 @@ def _load_optional(path: Path, extra: str) -> Image:
         except ImportError as exc:
             raise ImportError(
                 "Loading .lif files requires the [lif] extra: "
-                "pip install scieasy-blocks-imaging[lif]"
+                "pip install scistudio-blocks-imaging[lif]"
             ) from exc
     raise NotImplementedError(f"Optional format {extra} loader not yet implemented")
 ```
@@ -1293,7 +1293,7 @@ def _load_optional(path: Path, extra: str) -> Image:
 - [ ] Loading glob (`*.tif`) returns matching files.
 - [ ] TIFFs < 128 MiB load eagerly into `image._data`.
 - [ ] TIFFs ≥ 128 MiB load lazily with `storage_ref` set.
-- [ ] TIFF `ImageDescription` `SCIEASY:{...}` decoded into `Image.Meta`.
+- [ ] TIFF `ImageDescription` `SCISTUDIO:{...}` decoded into `Image.Meta`.
 - [ ] OME-TIFF detected via `<OME ` in `ImageDescription`.
 - [ ] `.png`/`.jpg` load via Pillow.
 - [ ] `.npy` infers axes from `ndim`.
@@ -1341,21 +1341,21 @@ and PNG/JPG/NPY backends remain deferred.
 
 - ADR-028 §D3' (plugin IO subclasses).
 - ADR-028 §D7 (`direction="output"`).
-- ADR-028 §D5 (round-trip via SCIEASY: JSON in TIFF).
+- ADR-028 §D5 (round-trip via SCISTUDIO: JSON in TIFF).
 - Q-IMG-1, Q-IMG-11.
 
 **c. Files to be created**:
 
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/save_image.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py`
 
 **d. Files to be modified**:
 
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 
-- `packages/scieasy-blocks-imaging/tests/test_io/test_save_image.py`
+- `packages/scistudio-blocks-imaging/tests/test_io/test_save_image.py`
   - `test_save_single_image_to_file`
   - `test_save_collection_to_directory_indexed`
   - `test_save_collection_uses_meta_source_file_basename_when_present`
@@ -1372,20 +1372,20 @@ and PNG/JPG/NPY backends remain deferred.
 **g. Implementation details**:
 
 ```python
-# packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/save_image.py
+# packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py
 
 from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any, ClassVar
 
-from scieasy.blocks.base.ports import InputPort
-from scieasy.blocks.io.io_block import IOBlock
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.ports import InputPort
+from scistudio.blocks.io.io_block import IOBlock
+from scistudio.core.types.collection import Collection
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
-_SCIEASY_PREFIX = "SCIEASY:"
+_SCISTUDIO_PREFIX = "SCISTUDIO:"
 
 
 class SaveImage(IOBlock):
@@ -1465,7 +1465,7 @@ class SaveImage(IOBlock):
 def _encode_metadata_json(img: Image) -> str:
     if img.meta is None:
         return ""
-    return _SCIEASY_PREFIX + img.meta.model_dump_json()
+    return _SCISTUDIO_PREFIX + img.meta.model_dump_json()
 
 
 def _save_tif(img: Image, path: Path) -> None:
@@ -1490,7 +1490,7 @@ def _save_npy(img: Image, path: Path) -> None:
 
 
 def _save_zarr(img: Image, path: Path) -> None:
-    from scieasy.core.storage.zarr_backend import ZarrStorageReference
+    from scistudio.core.storage.zarr_backend import ZarrStorageReference
     data = img.to_memory() if img.storage_ref else img._data
     ZarrStorageReference.write_to(path, data, axes=img.axes)
 ```
@@ -1542,16 +1542,16 @@ are deferred to a follow-on subset.
 
 **c. Files to be created**:
 
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocessing/denoise.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocessing/denoise.py`
 
 **d. Files to be modified**:
 
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocessing/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocessing/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 
-- `packages/scieasy-blocks-imaging/tests/test_preprocessing/test_denoise.py`
+- `packages/scistudio-blocks-imaging/tests/test_preprocessing/test_denoise.py`
   - `test_denoise_gaussian_2d_basic`
   - `test_denoise_gaussian_5d_iterates_over_extra_axes`
   - `test_denoise_median_2d_basic`
@@ -1574,12 +1574,12 @@ are deferred to a follow-on subset.
 from __future__ import annotations
 from typing import ClassVar
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.utils.axis_iter import iterate_over_axes
-from scieasy.utils.constraints import has_axes
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.utils.axis_iter import iterate_over_axes
+from scistudio.utils.constraints import has_axes
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 class Denoise(ProcessBlock):
@@ -1686,14 +1686,14 @@ functional; N-D inputs broadcast via `iterate_over_axes`.
 **b. Source ADR sections**: ADR-027 D3, D5.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocessing/background.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocessing/background.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocessing/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocessing/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
-- `packages/scieasy-blocks-imaging/tests/test_preprocessing/test_background.py`
+- `packages/scistudio-blocks-imaging/tests/test_preprocessing/test_background.py`
   - `test_background_rollingball_2d_basic`
   - `test_background_tophat_2d_basic`
   - `test_background_polynomial_2d_basic`
@@ -1714,12 +1714,12 @@ from __future__ import annotations
 from typing import ClassVar
 import numpy as np
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.utils.axis_iter import iterate_over_axes
-from scieasy.utils.constraints import has_axes
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.utils.axis_iter import iterate_over_axes
+from scistudio.utils.constraints import has_axes
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 class BackgroundSubtract(ProcessBlock):
@@ -1847,11 +1847,11 @@ for the reference image.
 **b. Source ADR sections**: ADR-027 D3, D5.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocessing/normalize.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocessing/normalize.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocessing/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocessing/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_preprocessing/test_normalize.py`
@@ -1874,11 +1874,11 @@ from __future__ import annotations
 from typing import ClassVar
 import numpy as np
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.utils.axis_iter import iterate_over_axes
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.utils.axis_iter import iterate_over_axes
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 class Normalize(ProcessBlock):
@@ -1957,11 +1957,11 @@ raises `NotImplementedError` pending the BaSiC algorithm integration.
 **b. Source ADR sections**: ADR-027 D2 (multi-input ports), D3, D5.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocessing/flatfield.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocessing/flatfield.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocessing/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocessing/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_preprocessing/test_flatfield.py`
@@ -1983,10 +1983,10 @@ from __future__ import annotations
 from typing import ClassVar
 import numpy as np
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 class FlatFieldCorrect(ProcessBlock):
@@ -2078,11 +2078,11 @@ class FlatFieldCorrect(ProcessBlock):
 **b. Source ADR sections**: ADR-027 D5 (Q-IMG-3 metadata propagation under shape change).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocessing/geometry.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocessing/geometry.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocessing/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocessing/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_preprocessing/test_geometry.py`
@@ -2113,12 +2113,12 @@ from __future__ import annotations
 from typing import ClassVar
 import numpy as np
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.utils.axis_iter import iterate_over_axes
-from scieasy.core.units import PhysicalQuantity
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.utils.axis_iter import iterate_over_axes
+from scistudio.core.units import PhysicalQuantity
 
-from scieasy_blocks_imaging.types import Image, Mask
+from scistudio_blocks_imaging.types import Image, Mask
 
 
 class Rotate(ProcessBlock):
@@ -2315,11 +2315,11 @@ T-IMG-001 skeleton status.
 **b. Source ADR sections**: ADR-027 D5.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocessing/convert_dtype.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocessing/convert_dtype.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocessing/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocessing/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_preprocessing/test_convert_dtype.py`
@@ -2340,10 +2340,10 @@ from __future__ import annotations
 from typing import ClassVar
 import numpy as np
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 class ConvertDType(ProcessBlock):
@@ -2437,11 +2437,11 @@ the conversion.
 **b. Source ADR sections**: ADR-027 D1 (axes), D5, ADR-020 (Collection); Q-IMG-3, Q-IMG-4.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocessing/axis_split_merge.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocessing/axis_split_merge.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocessing/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocessing/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_preprocessing/test_axis_split_merge.py`
@@ -2465,11 +2465,11 @@ from __future__ import annotations
 from typing import ClassVar
 import numpy as np
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.types.collection import Collection
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 class AxisSplit(ProcessBlock):
@@ -2627,11 +2627,11 @@ when the driving axis is `c` or `lambda`.
 **b. Source ADR sections**: ADR-027 D9 (palette discoverability for future blocks).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocessing/deconvolve.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocessing/deconvolve.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocessing/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocessing/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_preprocessing/test_deconvolve.py`
@@ -2647,10 +2647,10 @@ when the driving axis is `c` or `lambda`.
 from __future__ import annotations
 from typing import ClassVar
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 class Deconvolve(ProcessBlock):
@@ -2715,11 +2715,11 @@ class Deconvolve(ProcessBlock):
 **b. Source ADR sections**: ADR-027 D3, D5.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/ops.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/morphology/ops.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/morphology/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_morphology/test_ops.py`
@@ -2744,12 +2744,12 @@ class Deconvolve(ProcessBlock):
 from __future__ import annotations
 from typing import ClassVar
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.utils.axis_iter import iterate_over_axes
-from scieasy.utils.constraints import has_axes
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.utils.axis_iter import iterate_over_axes
+from scistudio.utils.constraints import has_axes
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 class MorphologyOp(ProcessBlock):
@@ -2831,11 +2831,11 @@ invalid config, and higher-rank broadcasting.
 **b. Source ADR sections**: ADR-027 D3.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/edges.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/morphology/edges.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/morphology/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_morphology/test_edges.py`
@@ -2856,12 +2856,12 @@ invalid config, and higher-rank broadcasting.
 from __future__ import annotations
 from typing import ClassVar
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.utils.axis_iter import iterate_over_axes
-from scieasy.utils.constraints import has_axes
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.utils.axis_iter import iterate_over_axes
+from scistudio.utils.constraints import has_axes
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 class EdgeDetect(ProcessBlock):
@@ -2940,11 +2940,11 @@ ordering, and broadcast per-slice over higher-rank image inputs.
 **b. Source ADR sections**: ADR-027 D3.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/ridges.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/morphology/ridges.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/morphology/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_morphology/test_ridges.py`
@@ -2964,12 +2964,12 @@ ordering, and broadcast per-slice over higher-rank image inputs.
 from __future__ import annotations
 from typing import ClassVar
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.utils.axis_iter import iterate_over_axes
-from scieasy.utils.constraints import has_axes
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.utils.axis_iter import iterate_over_axes
+from scistudio.utils.constraints import has_axes
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 class RidgeFilter(ProcessBlock):
@@ -3047,11 +3047,11 @@ bad method or sigma-range config explicitly.
 **b. Source ADR sections**: ADR-027 D3.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/sharpen.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/morphology/sharpen.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/morphology/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_morphology/test_sharpen.py`
@@ -3069,12 +3069,12 @@ bad method or sigma-range config explicitly.
 from __future__ import annotations
 from typing import ClassVar
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.utils.axis_iter import iterate_over_axes
-from scieasy.utils.constraints import has_axes
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.utils.axis_iter import iterate_over_axes
+from scistudio.utils.constraints import has_axes
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 class Sharpen(ProcessBlock):
@@ -3146,11 +3146,11 @@ tests.
 **b. Source ADR sections**: ADR-027 D3.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/fft.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/morphology/fft.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/morphology/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_morphology/test_fft.py`
@@ -3170,12 +3170,12 @@ from __future__ import annotations
 from typing import ClassVar
 import numpy as np
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.utils.axis_iter import iterate_over_axes
-from scieasy.utils.constraints import has_axes
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.utils.axis_iter import iterate_over_axes
+from scistudio.utils.constraints import has_axes
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 class FFTFilter(ProcessBlock):
@@ -3267,11 +3267,11 @@ broadcasting, and plugin-surface smoke wiring.
 **b. Source ADR sections**: ADR-027 D3, D2 (Mask output type).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/threshold.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/threshold.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_segmentation/test_threshold.py`
@@ -3299,12 +3299,12 @@ from __future__ import annotations
 from typing import ClassVar
 import numpy as np
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.utils.axis_iter import iterate_over_axes
-from scieasy.utils.constraints import has_axes
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.utils.axis_iter import iterate_over_axes
+from scistudio.utils.constraints import has_axes
 
-from scieasy_blocks_imaging.types import Image, Mask
+from scistudio_blocks_imaging.types import Image, Mask
 
 
 class Threshold(ProcessBlock):
@@ -3408,11 +3408,11 @@ methods, and 5D broadcasting.
 **b. Source ADR sections**: ADR-027 D3, D2 (Label output, CompositeData slots).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/watershed.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/watershed.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_segmentation/test_watershed.py`
@@ -3435,11 +3435,11 @@ from __future__ import annotations
 from typing import ClassVar
 import numpy as np
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.core.types.array import Array
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.types.array import Array
 
-from scieasy_blocks_imaging.types import Image, Label, Mask
+from scistudio_blocks_imaging.types import Image, Label, Mask
 
 
 class Watershed(ProcessBlock):
@@ -3557,11 +3557,11 @@ test verifies the block is wired into the plugin surface.
 - Q-IMG-2 (CPU fallback).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/cellpose_segment.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/cellpose_segment.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_segmentation/test_cellpose.py` (marker:
@@ -3590,13 +3590,13 @@ from __future__ import annotations
 import logging
 from typing import Any, ClassVar
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.core.types.array import Array
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.types.array import Array
+from scistudio.core.types.collection import Collection
 
-from scieasy_blocks_imaging.types import Image, Label
+from scistudio_blocks_imaging.types import Image, Label
 
 logger = logging.getLogger(__name__)
 
@@ -3613,7 +3613,7 @@ class CellposeSegment(ProcessBlock):
     present.
 
     Optional dependency: install with
-    ``pip install scieasy-blocks-imaging[cellpose]``.
+    ``pip install scistudio-blocks-imaging[cellpose]``.
     """
 
     type_name: ClassVar[str] = "imaging.cellpose_segment"
@@ -3650,7 +3650,7 @@ class CellposeSegment(ProcessBlock):
         except ImportError as exc:
             raise ImportError(
                 "CellposeSegment requires the [cellpose] extra: "
-                "pip install scieasy-blocks-imaging[cellpose]"
+                "pip install scistudio-blocks-imaging[cellpose]"
             ) from exc
         model_name = config.get("model", "cyto3")
         use_gpu = bool(config.get("use_gpu", False))
@@ -3762,11 +3762,11 @@ imaging plugin exports and smoke coverage.
 **b. Source ADR sections**: ADR-027 D3, D2.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/blob.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/blob.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_segmentation/test_blob.py`
@@ -3788,11 +3788,11 @@ from __future__ import annotations
 from typing import ClassVar
 import numpy as np
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.core.types.array import Array
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.types.array import Array
 
-from scieasy_blocks_imaging.types import Image, Label
+from scistudio_blocks_imaging.types import Image, Label
 
 
 class BlobDetect(ProcessBlock):
@@ -3887,11 +3887,11 @@ both connectivity modes and invalid-parameter behavior.
 **b. Source ADR sections**: ADR-027 D3, D2.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/connected_components.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/connected_components.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_segmentation/test_connected_components.py`
@@ -3910,11 +3910,11 @@ both connectivity modes and invalid-parameter behavior.
 from __future__ import annotations
 from typing import ClassVar
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.core.types.array import Array
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.types.array import Array
 
-from scieasy_blocks_imaging.types import Label, Mask
+from scistudio_blocks_imaging.types import Label, Mask
 
 
 class ConnectedComponents(ProcessBlock):
@@ -3988,11 +3988,11 @@ labels.
 **b. Source ADR sections**: ADR-027 D3.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/cleanup.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/cleanup.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_segmentation/test_cleanup.py`
@@ -4013,10 +4013,10 @@ labels.
 from __future__ import annotations
 from typing import ClassVar
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
 
-from scieasy_blocks_imaging.types import Label, Mask
+from scistudio_blocks_imaging.types import Label, Mask
 
 
 class RemoveSmallObjects(ProcessBlock):
@@ -4140,11 +4140,11 @@ class ShrinkLabels(ProcessBlock):
 **b. Source ADR sections**: ADR-027 D9 (palette discoverability for placeholders).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/tracking/track_objects.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/tracking/track_objects.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/tracking/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/tracking/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_tracking/test_track_objects.py`
@@ -4160,10 +4160,10 @@ class ShrinkLabels(ProcessBlock):
 from __future__ import annotations
 from typing import ClassVar
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
 
-from scieasy_blocks_imaging.types import Label
+from scistudio_blocks_imaging.types import Label
 
 
 class TrackObjects(ProcessBlock):
@@ -4222,7 +4222,7 @@ ports and publishes a `properties` `DataFrame`; the landed
 implementation follows that surface, emits `label_id` first, and
 concatenates collection inputs into one table with `image_index`. The
 measurement behavior is covered in
-`packages/scieasy-blocks-imaging/tests/test_continuation_b_skeletons.py`
+`packages/scistudio-blocks-imaging/tests/test_continuation_b_skeletons.py`
 plus the top-level imaging plugin smoke.
 
 **a. Ticket ID and name**: T-IMG-024 — `RegionProps` block.
@@ -4230,11 +4230,11 @@ plus the top-level imaging plugin smoke.
 **b. Source ADR sections**: ADR-027 D2 (DataFrame output), ADR-020 (Collection); Q-IMG-12.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/measurement/region_props.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/measurement/region_props.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/measurement/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/measurement/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_measurement/test_region_props.py`
@@ -4258,12 +4258,12 @@ from typing import ClassVar
 
 import pandas as pd
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.dataframe import DataFrame
 
-from scieasy_blocks_imaging.types import Image, Label
+from scistudio_blocks_imaging.types import Image, Label
 
 
 _ALLOWED_PROPS = {
@@ -4394,11 +4394,11 @@ tests and the imaging plugin smoke.
 **b. Source ADR sections**: ADR-027 D2 (DataFrame output).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/measurement/pairwise_distance.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/measurement/pairwise_distance.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/measurement/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/measurement/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_measurement/test_pairwise_distance.py`
@@ -4422,11 +4422,11 @@ from typing import ClassVar
 import numpy as np
 import pandas as pd
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.types.dataframe import DataFrame
 
-from scieasy_blocks_imaging.types import Label
+from scistudio_blocks_imaging.types import Label
 
 
 class PairwiseDistance(ProcessBlock):
@@ -4535,11 +4535,11 @@ the imaging plugin smoke confirms export wiring on `main`.
 **b. Source ADR sections**: ADR-027 D2, D3.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/measurement/colocalization.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/measurement/colocalization.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/measurement/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/measurement/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_measurement/test_colocalization.py`
@@ -4563,11 +4563,11 @@ from typing import ClassVar
 import numpy as np
 import pandas as pd
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.types.dataframe import DataFrame
 
-from scieasy_blocks_imaging.types import Image, Mask
+from scistudio_blocks_imaging.types import Image, Mask
 
 
 class Colocalization(ProcessBlock):
@@ -4676,11 +4676,11 @@ top-level imaging finish smoke test.
 **b. Source ADR sections**: ADR-027 D2 (Transform output), D3.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/registration/compute_registration.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/registration/compute_registration.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/registration/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/registration/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_registration/test_compute_registration.py`
@@ -4703,10 +4703,10 @@ from __future__ import annotations
 from typing import ClassVar
 import numpy as np
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
 
-from scieasy_blocks_imaging.types import Image, Transform
+from scistudio_blocks_imaging.types import Image, Transform
 
 
 class ComputeRegistration(ProcessBlock):
@@ -4791,11 +4791,11 @@ transform-shape constraints, and is covered by focused registration tests.
 **b. Source ADR sections**: ADR-027 D3, D5.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/registration/apply_transform.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/registration/apply_transform.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/registration/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/registration/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_registration/test_apply_transform.py`
@@ -4814,11 +4814,11 @@ transform-shape constraints, and is covered by focused registration tests.
 from __future__ import annotations
 from typing import ClassVar
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.utils.axis_iter import iterate_over_axes
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.utils.axis_iter import iterate_over_axes
 
-from scieasy_blocks_imaging.types import Image, Transform
+from scistudio_blocks_imaging.types import Image, Transform
 
 
 class ApplyTransform(ProcessBlock):
@@ -4900,11 +4900,11 @@ axis contract and returns registered images plus transform collections.
 **b. Source ADR sections**: ADR-027 D3, D5, D2 (multi-output).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/registration/register_series.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/registration/register_series.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/registration/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/registration/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_registration/test_register_series.py`
@@ -4923,11 +4923,11 @@ axis contract and returns registered images plus transform collections.
 from __future__ import annotations
 from typing import ClassVar
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.types.collection import Collection
 
-from scieasy_blocks_imaging.types import Image, Transform
+from scistudio_blocks_imaging.types import Image, Transform
 
 
 class RegisterSeries(ProcessBlock):
@@ -4997,12 +4997,12 @@ when projecting channel or wavelength axes.
 **b. Source ADR sections**: ADR-027 D1 (axes), D4 (`sel`), D5; Q-IMG-3.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/axis/projection.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/axis/select_slice.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/axis/projection.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/axis/select_slice.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/axis/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/axis/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_axis/test_projection.py`
@@ -5029,10 +5029,10 @@ from __future__ import annotations
 from typing import ClassVar
 import numpy as np
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 class AxisProjection(ProcessBlock):
@@ -5159,11 +5159,11 @@ NumPy arithmetic with dtype preservation and explicit divide-by-zero handling.
 **b. Source ADR sections**: ADR-027 D3.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/math/scalar_ops.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/math/scalar_ops.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/math/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/math/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_math/test_scalar_ops.py`
@@ -5184,11 +5184,11 @@ NumPy arithmetic with dtype preservation and explicit divide-by-zero handling.
 from __future__ import annotations
 from typing import ClassVar
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.utils.axis_iter import iterate_over_axes
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.utils.axis_iter import iterate_over_axes
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 def _make_scalar_block(name_str, type_name_str, op_fn):
@@ -5289,11 +5289,11 @@ and collection broadcasting support.
 **b. Source ADR sections**: ADR-027 D3, ADR-029 (informational, variadic deferred); Q-IMG-5.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/math/image_calculator.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/math/image_calculator.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/math/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/math/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_math/test_image_calculator.py`
@@ -5319,10 +5319,10 @@ import ast
 from typing import ClassVar
 import numpy as np
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 class ImageCalculator(ProcessBlock):
@@ -5460,15 +5460,15 @@ dependency gating in tests where `matplotlib` is required.
 **b. Source ADR sections**: ADR-027 D2 (Artifact output).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/visualization/pseudo_color.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/visualization/overlay.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/visualization/montage.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/visualization/movie.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/visualization/histogram.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/visualization/pseudo_color.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/visualization/overlay.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/visualization/montage.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/visualization/movie.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/visualization/histogram.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/visualization/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/visualization/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_visualization/test_pseudo_color.py`
@@ -5504,11 +5504,11 @@ from io import BytesIO
 from pathlib import Path
 from typing import ClassVar
 
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.core.types.artifact import Artifact
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.types.artifact import Artifact
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 _VALID_CMAPS = {"viridis", "plasma", "magma", "inferno", "gray", "hot"}
@@ -5605,11 +5605,11 @@ covered by fake-binary exchange tests.
 **b. Source ADR sections**: ADR-019 (AppBlock + ProcessHandle + FileWatcher), ADR-020 (Collection).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/interactive/fiji_block.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/fiji_block.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/interactive/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_interactive/test_fiji_block.py` (marker:
@@ -5632,11 +5632,11 @@ covered by fake-binary exchange tests.
 from __future__ import annotations
 from typing import ClassVar
 
-from scieasy.blocks.app.app_block import AppBlock
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.app.app_block import AppBlock
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.core.types.collection import Collection
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 class FijiBlock(AppBlock):
@@ -5713,11 +5713,11 @@ interactive file-exchange helper flow with fake-binary test coverage.
 **b. Source ADR sections**: ADR-019.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/interactive/napari_block.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/napari_block.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/interactive/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_interactive/test_napari_block.py` (marker:
@@ -5736,17 +5736,17 @@ interactive file-exchange helper flow with fake-binary test coverage.
 from __future__ import annotations
 from typing import ClassVar
 
-from scieasy.blocks.app.app_block import AppBlock
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.app.app_block import AppBlock
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.core.types.collection import Collection
 
-from scieasy_blocks_imaging.types import Image, Label
+from scistudio_blocks_imaging.types import Image, Label
 
 
 class NapariBlock(AppBlock):
     """Launch napari for interactive viewing/editing.
 
-    Optional dependency: pip install scieasy-blocks-imaging[napari]
+    Optional dependency: pip install scistudio-blocks-imaging[napari]
     """
 
     type_name: ClassVar[str] = "imaging.napari"
@@ -5775,10 +5775,10 @@ class NapariBlock(AppBlock):
         except ImportError as exc:
             raise ImportError(
                 "NapariBlock requires the [napari] extra: "
-                "pip install scieasy-blocks-imaging[napari]"
+                "pip install scistudio-blocks-imaging[napari]"
             ) from exc
         # napari runs as a Python subprocess that loads our exchange dir
-        return ["python", "-m", "scieasy_blocks_imaging.interactive._napari_runner",
+        return ["python", "-m", "scistudio_blocks_imaging.interactive._napari_runner",
                 "--exchange-dir", config.get("exchange_dir", "")]
 ```
 
@@ -5791,7 +5791,7 @@ class NapariBlock(AppBlock):
 - [ ] Subprocess launch.
 - [ ] Modified images saved back to exchange dir.
 
-**i. Out of scope**: Embedded napari widget in the SciEasy GUI (Phase 12+).
+**i. Out of scope**: Embedded napari widget in the SciStudio GUI (Phase 12+).
 
 **j. Dependencies on other tickets**: T-IMG-001.
 
@@ -5813,11 +5813,11 @@ measurement outputs with synthetic tool tests.
 **b. Source ADR sections**: ADR-019.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/interactive/cellprofiler_block.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/cellprofiler_block.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/interactive/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_interactive/test_cellprofiler_block.py` (marker:
@@ -5835,12 +5835,12 @@ measurement outputs with synthetic tool tests.
 from __future__ import annotations
 from typing import ClassVar
 
-from scieasy.blocks.app.app_block import AppBlock
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.blocks.app.app_block import AppBlock
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.dataframe import DataFrame
 
-from scieasy_blocks_imaging.types import Image, Label
+from scistudio_blocks_imaging.types import Image, Label
 
 
 class CellProfilerBlock(AppBlock):
@@ -5878,7 +5878,7 @@ class CellProfilerBlock(AppBlock):
 - [ ] Two output ports.
 - [ ] Tests marked `@pytest.mark.requires_cellprofiler`.
 
-**i. Out of scope**: Pipeline editing inside SciEasy.
+**i. Out of scope**: Pipeline editing inside SciStudio.
 
 **j. Dependencies on other tickets**: T-IMG-001.
 
@@ -5899,11 +5899,11 @@ file exchanges through the shared AppBlock helper path with fake-tool coverage.
 **b. Source ADR sections**: ADR-019.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/interactive/qupath_block.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/qupath_block.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/interactive/__init__.py`
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
 
 **e. New tests**:
 - `tests/test_interactive/test_qupath_block.py` (marker:
@@ -5920,11 +5920,11 @@ file exchanges through the shared AppBlock helper path with fake-tool coverage.
 from __future__ import annotations
 from typing import ClassVar
 
-from scieasy.blocks.app.app_block import AppBlock
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.app.app_block import AppBlock
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.core.types.collection import Collection
 
-from scieasy_blocks_imaging.types import Image
+from scistudio_blocks_imaging.types import Image
 
 
 class QuPathBlock(AppBlock):
@@ -5975,20 +5975,20 @@ class QuPathBlock(AppBlock):
 ### T-IMG-038 — Plugin packaging (`pyproject.toml` + entry-point registration)
 
 **Status**: Implemented in issue #386. The package now ships as
-`scieasy-blocks-imaging` 0.1.0 with hatchling metadata, `scieasy.blocks` /
-`scieasy.types` entry points, package-level packaging tests, README updates, and
+`scistudio-blocks-imaging` 0.1.0 with hatchling metadata, `scistudio.blocks` /
+`scistudio.types` entry points, package-level packaging tests, README updates, and
 the required top-level workflow smoke coverage.
 
 **a. Ticket ID and name**: T-IMG-038 — Plugin packaging and final wiring.
 
-**b. Source ADR sections**: ADR-025 (`scieasy.blocks` / `scieasy.types` entry-point groups), ADR-028 §D8.
+**b. Source ADR sections**: ADR-025 (`scistudio.blocks` / `scistudio.types` entry-point groups), ADR-028 §D8.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-imaging/pyproject.toml`
-- `packages/scieasy-blocks-imaging/README.md`
+- `packages/scistudio-blocks-imaging/pyproject.toml`
+- `packages/scistudio-blocks-imaging/README.md`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py`
   (final `get_blocks()` returning all 38 block classes; final
   `__all__`)
 
@@ -6010,17 +6010,17 @@ the required top-level workflow smoke coverage.
 **g. Implementation details**:
 
 ```toml
-# packages/scieasy-blocks-imaging/pyproject.toml
+# packages/scistudio-blocks-imaging/pyproject.toml
 
 [project]
-name = "scieasy-blocks-imaging"
+name = "scistudio-blocks-imaging"
 version = "0.1.0"
-description = "General-purpose microscopy block library for SciEasy"
-authors = [{name = "SciEasy Contributors"}]
+description = "General-purpose microscopy block library for SciStudio"
+authors = [{name = "SciStudio Contributors"}]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "scieasy>=0.1",
+    "scistudio>=0.1",
     "numpy>=1.24",
     "tifffile>=2024.1",
     "imageio>=2.33",
@@ -6038,20 +6038,20 @@ napari = ["napari>=0.5"]
 czi = ["aicsimageio>=4.14"]
 nd2 = ["nd2reader>=3.3"]
 lif = ["readlif>=0.6"]
-all = ["scieasy-blocks-imaging[cellpose,napari,czi,nd2,lif]"]
+all = ["scistudio-blocks-imaging[cellpose,napari,czi,nd2,lif]"]
 
-[project.entry-points."scieasy.blocks"]
-imaging = "scieasy_blocks_imaging:get_blocks"
+[project.entry-points."scistudio.blocks"]
+imaging = "scistudio_blocks_imaging:get_blocks"
 
-[project.entry-points."scieasy.types"]
-imaging = "scieasy_blocks_imaging:get_types"
+[project.entry-points."scistudio.types"]
+imaging = "scistudio_blocks_imaging:get_types"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/scieasy_blocks_imaging"]
+packages = ["src/scistudio_blocks_imaging"]
 
 [tool.pytest.ini_options]
 markers = [
@@ -6067,88 +6067,88 @@ markers = [
 ```
 
 ```python
-# packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/__init__.py
-"""scieasy-blocks-imaging — general-purpose microscopy plugin for SciEasy.
+# packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/__init__.py
+"""scistudio-blocks-imaging — general-purpose microscopy plugin for SciStudio.
 
 Public API:
-- get_blocks() — returns all block classes for scieasy.blocks entry-point
-- get_types() — returns the four imaging types for scieasy.types entry-point
+- get_blocks() — returns all block classes for scistudio.blocks entry-point
+- get_types() — returns the four imaging types for scistudio.types entry-point
 """
 from __future__ import annotations
 
-from scieasy_blocks_imaging.types import Image, Label, Mask, Transform
+from scistudio_blocks_imaging.types import Image, Label, Mask, Transform
 
 # IO
-from scieasy_blocks_imaging.io.load_image import LoadImage
-from scieasy_blocks_imaging.io.save_image import SaveImage
+from scistudio_blocks_imaging.io.load_image import LoadImage
+from scistudio_blocks_imaging.io.save_image import SaveImage
 # Preprocessing
-from scieasy_blocks_imaging.preprocessing.denoise import Denoise
-from scieasy_blocks_imaging.preprocessing.background import BackgroundSubtract
-from scieasy_blocks_imaging.preprocessing.normalize import Normalize
-from scieasy_blocks_imaging.preprocessing.flatfield import FlatFieldCorrect
-from scieasy_blocks_imaging.preprocessing.geometry import (
+from scistudio_blocks_imaging.preprocessing.denoise import Denoise
+from scistudio_blocks_imaging.preprocessing.background import BackgroundSubtract
+from scistudio_blocks_imaging.preprocessing.normalize import Normalize
+from scistudio_blocks_imaging.preprocessing.flatfield import FlatFieldCorrect
+from scistudio_blocks_imaging.preprocessing.geometry import (
     Rotate, Flip, Crop, Pad, Resize,
 )
-from scieasy_blocks_imaging.preprocessing.convert_dtype import ConvertDType
-from scieasy_blocks_imaging.preprocessing.axis_split_merge import (
+from scistudio_blocks_imaging.preprocessing.convert_dtype import ConvertDType
+from scistudio_blocks_imaging.preprocessing.axis_split_merge import (
     AxisSplit, AxisMerge,
 )
-from scieasy_blocks_imaging.preprocessing.deconvolve import Deconvolve
+from scistudio_blocks_imaging.preprocessing.deconvolve import Deconvolve
 # Morphology
-from scieasy_blocks_imaging.morphology.ops import MorphologyOp
-from scieasy_blocks_imaging.morphology.edges import EdgeDetect
-from scieasy_blocks_imaging.morphology.ridges import RidgeFilter
-from scieasy_blocks_imaging.morphology.sharpen import Sharpen
-from scieasy_blocks_imaging.morphology.fft import FFTFilter
+from scistudio_blocks_imaging.morphology.ops import MorphologyOp
+from scistudio_blocks_imaging.morphology.edges import EdgeDetect
+from scistudio_blocks_imaging.morphology.ridges import RidgeFilter
+from scistudio_blocks_imaging.morphology.sharpen import Sharpen
+from scistudio_blocks_imaging.morphology.fft import FFTFilter
 # Segmentation
-from scieasy_blocks_imaging.segmentation.threshold import Threshold
-from scieasy_blocks_imaging.segmentation.watershed import Watershed
-from scieasy_blocks_imaging.segmentation.cellpose_segment import CellposeSegment
-from scieasy_blocks_imaging.segmentation.blob import BlobDetect
-from scieasy_blocks_imaging.segmentation.connected_components import (
+from scistudio_blocks_imaging.segmentation.threshold import Threshold
+from scistudio_blocks_imaging.segmentation.watershed import Watershed
+from scistudio_blocks_imaging.segmentation.cellpose_segment import CellposeSegment
+from scistudio_blocks_imaging.segmentation.blob import BlobDetect
+from scistudio_blocks_imaging.segmentation.connected_components import (
     ConnectedComponents,
 )
-from scieasy_blocks_imaging.segmentation.cleanup import (
+from scistudio_blocks_imaging.segmentation.cleanup import (
     RemoveSmallObjects, RemoveBorderObjects, FillHoles,
     ExpandLabels, ShrinkLabels,
 )
 # Tracking
-from scieasy_blocks_imaging.tracking.track_objects import TrackObjects
+from scistudio_blocks_imaging.tracking.track_objects import TrackObjects
 # Measurement
-from scieasy_blocks_imaging.measurement.region_props import RegionProps
-from scieasy_blocks_imaging.measurement.pairwise_distance import PairwiseDistance
-from scieasy_blocks_imaging.measurement.colocalization import Colocalization
+from scistudio_blocks_imaging.measurement.region_props import RegionProps
+from scistudio_blocks_imaging.measurement.pairwise_distance import PairwiseDistance
+from scistudio_blocks_imaging.measurement.colocalization import Colocalization
 # Registration
-from scieasy_blocks_imaging.registration.compute_registration import (
+from scistudio_blocks_imaging.registration.compute_registration import (
     ComputeRegistration,
 )
-from scieasy_blocks_imaging.registration.apply_transform import ApplyTransform
-from scieasy_blocks_imaging.registration.register_series import RegisterSeries
+from scistudio_blocks_imaging.registration.apply_transform import ApplyTransform
+from scistudio_blocks_imaging.registration.register_series import RegisterSeries
 # Axis
-from scieasy_blocks_imaging.axis.projection import AxisProjection
-from scieasy_blocks_imaging.axis.select_slice import SelectSlice
+from scistudio_blocks_imaging.axis.projection import AxisProjection
+from scistudio_blocks_imaging.axis.select_slice import SelectSlice
 # Math
-from scieasy_blocks_imaging.math.scalar_ops import (
+from scistudio_blocks_imaging.math.scalar_ops import (
     AddScalar, SubtractScalar, MultiplyScalar, DivideScalar,
 )
-from scieasy_blocks_imaging.math.image_calculator import ImageCalculator
+from scistudio_blocks_imaging.math.image_calculator import ImageCalculator
 # Visualization
-from scieasy_blocks_imaging.visualization.pseudo_color import RenderPseudoColor
-from scieasy_blocks_imaging.visualization.overlay import RenderOverlay
-from scieasy_blocks_imaging.visualization.montage import RenderMontage
-from scieasy_blocks_imaging.visualization.movie import RenderMovie
-from scieasy_blocks_imaging.visualization.histogram import RenderHistogram
+from scistudio_blocks_imaging.visualization.pseudo_color import RenderPseudoColor
+from scistudio_blocks_imaging.visualization.overlay import RenderOverlay
+from scistudio_blocks_imaging.visualization.montage import RenderMontage
+from scistudio_blocks_imaging.visualization.movie import RenderMovie
+from scistudio_blocks_imaging.visualization.histogram import RenderHistogram
 # Interactive
-from scieasy_blocks_imaging.interactive.fiji_block import FijiBlock
-from scieasy_blocks_imaging.interactive.napari_block import NapariBlock
-from scieasy_blocks_imaging.interactive.cellprofiler_block import (
+from scistudio_blocks_imaging.interactive.fiji_block import FijiBlock
+from scistudio_blocks_imaging.interactive.napari_block import NapariBlock
+from scistudio_blocks_imaging.interactive.cellprofiler_block import (
     CellProfilerBlock,
 )
-from scieasy_blocks_imaging.interactive.qupath_block import QuPathBlock
+from scistudio_blocks_imaging.interactive.qupath_block import QuPathBlock
 
 
 def get_blocks() -> list[type]:
-    """Plugin entry point for scieasy.blocks."""
+    """Plugin entry point for scistudio.blocks."""
     return [
         # IO
         LoadImage, SaveImage,
@@ -6182,7 +6182,7 @@ def get_blocks() -> list[type]:
 
 
 def get_types() -> list[type]:
-    """Plugin entry point for scieasy.types."""
+    """Plugin entry point for scistudio.types."""
     return [Image, Mask, Label, Transform]
 
 
@@ -6196,12 +6196,12 @@ __all__ = [
 
 **h. Acceptance criteria**:
 
-- [ ] `pyproject.toml` declares `scieasy-blocks-imaging` 0.1.0.
+- [ ] `pyproject.toml` declares `scistudio-blocks-imaging` 0.1.0.
 - [ ] Required dependencies listed.
 - [ ] Five optional extras (`cellpose`, `napari`, `czi`, `nd2`,
       `lif`) plus `all`.
-- [ ] `[project.entry-points."scieasy.blocks"]` and
-      `[project.entry-points."scieasy.types"]` declared.
+- [ ] `[project.entry-points."scistudio.blocks"]` and
+      `[project.entry-points."scistudio.types"]` declared.
 - [ ] `pytest` markers registered for all `requires_*` tags.
 - [ ] `get_blocks()` returns ~50 block classes covering all listed
       tickets (counting bundle members like `Rotate`/`Flip`/`Crop`
@@ -6287,15 +6287,15 @@ Note the parens and spaces in filenames — quote carefully.
 ### Imaging-only sub-workflow (the half this spec covers)
 
 ```python
-# packages/scieasy-blocks-imaging/tests/integration/test_e2e_workflow.py
+# packages/scistudio-blocks-imaging/tests/integration/test_e2e_workflow.py
 
 from pathlib import Path
 
 import pytest
 
-from scieasy.workflow.builder import WorkflowBuilder
+from scistudio.workflow.builder import WorkflowBuilder
 
-from scieasy_blocks_imaging import (
+from scistudio_blocks_imaging import (
     LoadImage, Denoise, CellposeSegment, SaveImage,
 )
 
@@ -6320,7 +6320,7 @@ def test_e2e_imaging_pipeline(tmp_path):
             img, {"method": "gaussian", "sigma": 1.0}, state=None,
         ))
 
-    from scieasy.core.types.collection import Collection
+    from scistudio.core.types.collection import Collection
     denoised_col = Collection(denoised)
 
     # 3. Cellpose segment
@@ -6376,7 +6376,7 @@ LoadImage[seg]                  LoadImage[spectra]
 
 The `ExtractSpectrum` block is specified in
 `docs/specs/phase11-srs-block-spec.md`, not here. The cross-plugin
-integration test lives in `packages/scieasy-blocks-srs/tests/integration/`
+integration test lives in `packages/scistudio-blocks-srs/tests/integration/`
 and depends on both plugins being installed.
 
 ### Failure handling
@@ -6405,13 +6405,13 @@ spawns a fix agent, and re-runs.
 - `CLAUDE.md` §9.2 — no silent scope broadening.
 - Phase 11 master plan (`memory/phase11_master_plan.md`) — locked
   architectural decisions, block list, E2E test images.
-- `src/scieasy/utils/axis_iter.py` — `iterate_over_axes(source, operates_on, fn)`.
-- `src/scieasy/utils/constraints.py` — `has_axes`, `has_exact_axes`,
+- `src/scistudio/utils/axis_iter.py` — `iterate_over_axes(source, operates_on, fn)`.
+- `src/scistudio/utils/constraints.py` — `has_axes`, `has_exact_axes`,
   `has_shape`.
-- `src/scieasy/blocks/process/process_block.py` — `setup` /
+- `src/scistudio/blocks/process/process_block.py` — `setup` /
   `teardown` lifecycle hooks.
-- `src/scieasy/core/types/array.py` — `Array` instance-level axes,
+- `src/scistudio/core/types/array.py` — `Array` instance-level axes,
   `required_axes` / `allowed_axes` / `canonical_order` ClassVars.
-- `src/scieasy/core/meta/framework.py` — `FrameworkMeta`.
-- `src/scieasy/core/meta/channel.py` — `ChannelInfo`.
-- `src/scieasy/core/units.py` — `PhysicalQuantity`.
+- `src/scistudio/core/meta/framework.py` — `FrameworkMeta`.
+- `src/scistudio/core/meta/channel.py` — `ChannelInfo`.
+- `src/scistudio/core/units.py` — `PhysicalQuantity`.

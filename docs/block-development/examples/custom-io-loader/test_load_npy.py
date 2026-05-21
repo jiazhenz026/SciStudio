@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 from load_npy import LoadNpy
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.core.types.array import Array
-from scieasy.testing import BlockTestHarness
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.core.types.array import Array
+from scistudio.testing import BlockTestHarness
 
 
 class TestLoadNpyContract:

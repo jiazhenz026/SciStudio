@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.qa.audit.signature_contracts import extract_adr_signature_contracts
+from scistudio.qa.audit.signature_contracts import extract_adr_signature_contracts
 
 
 def _write_adr(path: Path, *, status: str = "Accepted") -> Path:
@@ -62,7 +62,7 @@ translations: []
 
 | Command | Expected exit codes |
 |---|---|
-| `scieasy audit signatures` | `0` pass, `2` drift |
+| `scistudio audit signatures` | `0` pass, `2` drift |
 
 ```python
 from pydantic import BaseModel
@@ -95,7 +95,7 @@ def test_extract_adr_signature_contracts_reads_active_adr_sections(tmp_path: Pat
     assert ("expected-signature", "sample.module.target") in by_kind_subject
     assert ("expected-signature", "sample.models.SampleModel") in by_kind_subject
     assert ("expected-model-field", "sample.models.SampleModel.name") in by_kind_subject
-    assert ("expected-cli-command", "scieasy audit signatures") in by_kind_subject
+    assert ("expected-cli-command", "scistudio audit signatures") in by_kind_subject
     assert ("expected-signature", "ignored") not in by_kind_subject
 
 

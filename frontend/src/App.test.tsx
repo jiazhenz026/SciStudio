@@ -64,7 +64,7 @@ describe("App", () => {
 
     expect(await screen.findByText("New Project")).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByText("SciEasy")).toBeInTheDocument();
+      expect(screen.getByText("SciStudio")).toBeInTheDocument();
     });
   });
 });

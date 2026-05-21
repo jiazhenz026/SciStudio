@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from scieasy.engine.resources import (
+from scistudio.engine.resources import (
     ResourceManager,
     ResourceRequest,
     _auto_detect_gpu_slots,
@@ -42,7 +42,7 @@ def _mock_vm(percent: float) -> MagicMock:
 class TestExplicitGPUSlotsRespected:
     def test_explicit_gpu_slots_respected(self) -> None:
         """ResourceManager(gpu_slots=4) honours the explicit value verbatim."""
-        with patch("scieasy.engine.resources._auto_detect_gpu_slots") as mock_detect:
+        with patch("scistudio.engine.resources._auto_detect_gpu_slots") as mock_detect:
             rm = ResourceManager(gpu_slots=4)
             assert rm.gpu_slots == 4
             assert rm._gpu_slots_auto_detected is False
@@ -50,7 +50,7 @@ class TestExplicitGPUSlotsRespected:
 
     def test_explicit_zero_gpu_slots_respected(self) -> None:
         """ResourceManager(gpu_slots=0) is treated as an explicit override."""
-        with patch("scieasy.engine.resources._auto_detect_gpu_slots") as mock_detect:
+        with patch("scistudio.engine.resources._auto_detect_gpu_slots") as mock_detect:
             rm = ResourceManager(gpu_slots=0)
             assert rm.gpu_slots == 0
             assert rm._gpu_slots_auto_detected is False
@@ -63,7 +63,7 @@ class TestExplicitGPUSlotsRespected:
         T-002 §h: ``ResourceManager(gpu_slots=2)`` does NOT call
         ``_auto_detect_gpu_slots``.
         """
-        with patch("scieasy.engine.resources._auto_detect_gpu_slots") as mock_detect:
+        with patch("scistudio.engine.resources._auto_detect_gpu_slots") as mock_detect:
             rm = ResourceManager(gpu_slots=2)
             assert rm.gpu_slots == 2
             mock_detect.assert_not_called()
@@ -77,7 +77,7 @@ class TestExplicitGPUSlotsRespected:
 class TestNoneTriggersAutoDetect:
     def test_gpu_slots_none_triggers_auto_detect(self) -> None:
         """ResourceManager() (default) calls _auto_detect_gpu_slots once."""
-        with patch("scieasy.engine.resources._auto_detect_gpu_slots", return_value=3) as mock_detect:
+        with patch("scistudio.engine.resources._auto_detect_gpu_slots", return_value=3) as mock_detect:
             rm = ResourceManager()
             assert rm.gpu_slots == 3
             assert rm._gpu_slots_auto_detected is True
@@ -85,7 +85,7 @@ class TestNoneTriggersAutoDetect:
 
     def test_gpu_slots_none_explicit_triggers_auto_detect(self) -> None:
         """Passing gpu_slots=None explicitly is equivalent to omitting it."""
-        with patch("scieasy.engine.resources._auto_detect_gpu_slots", return_value=1) as mock_detect:
+        with patch("scistudio.engine.resources._auto_detect_gpu_slots", return_value=1) as mock_detect:
             rm = ResourceManager(gpu_slots=None)
             assert rm.gpu_slots == 1
             mock_detect.assert_called_once_with()
@@ -251,7 +251,7 @@ class TestWarningEmittedOnceWhenNoGPUButRequired:
         gpu_request = ResourceRequest(requires_gpu=True, gpu_memory_gb=4.0)
 
         with (
-            caplog.at_level(logging.WARNING, logger="scieasy.engine.resources"),
+            caplog.at_level(logging.WARNING, logger="scistudio.engine.resources"),
             patch("psutil.virtual_memory", return_value=_mock_vm(50.0)),
         ):
             for _ in range(5):
@@ -268,13 +268,13 @@ class TestWarningEmittedOnceWhenNoGPUButRequired:
         Verifies the warning fires whether ``gpu_slots == 0`` came from
         auto-detect (mocked here) or explicit configuration.
         """
-        with patch("scieasy.engine.resources._auto_detect_gpu_slots", return_value=0):
+        with patch("scistudio.engine.resources._auto_detect_gpu_slots", return_value=0):
             rm = ResourceManager()  # auto-detect → 0
         assert rm.gpu_slots == 0
         assert rm._gpu_slots_auto_detected is True
 
         with (
-            caplog.at_level(logging.WARNING, logger="scieasy.engine.resources"),
+            caplog.at_level(logging.WARNING, logger="scistudio.engine.resources"),
             patch("psutil.virtual_memory", return_value=_mock_vm(50.0)),
         ):
             assert rm.can_dispatch(ResourceRequest(requires_gpu=True)) is False
@@ -295,7 +295,7 @@ class TestNoWarningWhenNoGPUBlockDeclared:
         cpu_request = ResourceRequest(requires_gpu=False, cpu_cores=2)
 
         with (
-            caplog.at_level(logging.WARNING, logger="scieasy.engine.resources"),
+            caplog.at_level(logging.WARNING, logger="scistudio.engine.resources"),
             patch("psutil.virtual_memory", return_value=_mock_vm(50.0)),
         ):
             for _ in range(3):
@@ -310,7 +310,7 @@ class TestNoWarningWhenNoGPUBlockDeclared:
         gpu_request = ResourceRequest(requires_gpu=True, gpu_memory_gb=2.0)
 
         with (
-            caplog.at_level(logging.WARNING, logger="scieasy.engine.resources"),
+            caplog.at_level(logging.WARNING, logger="scistudio.engine.resources"),
             patch("psutil.virtual_memory", return_value=_mock_vm(50.0)),
         ):
             assert rm.can_dispatch(gpu_request) is True

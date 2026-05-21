@@ -19,7 +19,7 @@ This audit independently compares repository documents and code behavior.
 
 ## Task Identity
 
-- Repository: SciEasy
+- Repository: SciStudio
 - Persona: audit_reviewer
 - Audit mode: no-context
 - Audit branch: <branch>

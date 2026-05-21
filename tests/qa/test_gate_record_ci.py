@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from scieasy.qa.governance.gate_record import CANONICAL_STAGE_ORDER, check_pr, validate_gate_record
-from scieasy.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
+from scistudio.qa.governance.gate_record import CANONICAL_STAGE_ORDER, check_pr, validate_gate_record
+from scistudio.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
 
 def _record(**overrides: object) -> dict[str, object]:
@@ -11,11 +11,11 @@ def _record(**overrides: object) -> dict[str, object]:
         "task_kind": "feature",
         "branch": "feat/issue-1267/gate-record-core",
         "owner_directive": "Implement ADR-042 Addendum 1 Track B.",
-        "issues": [{"number": 1267, "url": "https://github.com/zjzcpj/SciEasy/issues/1267"}],
+        "issues": [{"number": 1267, "url": "https://github.com/zjzcpj/SciStudio/issues/1267"}],
         "scope": {
             "include": [
-                "src/scieasy/qa/governance/gate_record.py",
-                "src/scieasy/qa/governance/__init__.py",
+                "src/scistudio/qa/governance/gate_record.py",
+                "src/scistudio/qa/governance/__init__.py",
                 ".workflow/**",
                 "tests/qa/test_gate_record*.py",
             ],
@@ -23,7 +23,7 @@ def _record(**overrides: object) -> dict[str, object]:
         },
         "governance_touch": True,
         "stages": [{"stage": stage.value, "status": "done"} for stage in CANONICAL_STAGE_ORDER],
-        "planned_files": ["src/scieasy/qa/governance/gate_record.py"],
+        "planned_files": ["src/scistudio/qa/governance/gate_record.py"],
         "changed_test_paths": ["tests/qa/test_gate_record_ci.py"],
         "sentrux": {
             "mode": "free-tier",
@@ -34,7 +34,7 @@ def _record(**overrides: object) -> dict[str, object]:
             "pro_required": False,
         },
         "full_audit": {
-            "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+            "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
             "status": "pass",
             "exit_code": 0,
             "output_path": "docs/audit/full-audit-latest.json",
@@ -47,7 +47,7 @@ def _record(**overrides: object) -> dict[str, object]:
 
 def _changed_files(*extra: str) -> list[str]:
     return [
-        "src/scieasy/qa/governance/gate_record.py",
+        "src/scistudio/qa/governance/gate_record.py",
         "tests/qa/test_gate_record_ci.py",
         ".workflow/gate-record.schema.json",
         *extra,
@@ -77,8 +77,8 @@ def test_pr_readiness_requires_all_gate_stages_done() -> None:
 def test_multiple_issues_must_all_close() -> None:
     record = _record(
         issues=[
-            {"number": 1267, "url": "https://github.com/zjzcpj/SciEasy/issues/1267"},
-            {"number": 1266, "url": "https://github.com/zjzcpj/SciEasy/issues/1266"},
+            {"number": 1267, "url": "https://github.com/zjzcpj/SciStudio/issues/1267"},
+            {"number": 1266, "url": "https://github.com/zjzcpj/SciStudio/issues/1266"},
         ]
     )
 
@@ -93,7 +93,7 @@ def test_multiple_issues_must_all_close() -> None:
 def test_scope_validation_rejects_files_outside_include_and_inside_exclude() -> None:
     report = validate_gate_record(
         _record(),
-        changed_files=_changed_files("docs/adr/ADR-042.md", "src/scieasy/core/secret.py"),
+        changed_files=_changed_files("docs/adr/ADR-042.md", "src/scistudio/core/secret.py"),
     )
 
     rule_ids = {finding.rule_id for finding in report.findings}
@@ -102,9 +102,9 @@ def test_scope_validation_rejects_files_outside_include_and_inside_exclude() -> 
 
 
 def test_scope_amendment_can_expand_allowed_files() -> None:
-    record = _record(amendments=[{"reason": "fixture expansion", "include": ["src/scieasy/core/allowed.py"]}])
+    record = _record(amendments=[{"reason": "fixture expansion", "include": ["src/scistudio/core/allowed.py"]}])
 
-    report = validate_gate_record(record, changed_files=_changed_files("src/scieasy/core/allowed.py"))
+    report = validate_gate_record(record, changed_files=_changed_files("src/scistudio/core/allowed.py"))
 
     assert not report.blocks_merge
 
@@ -112,14 +112,14 @@ def test_scope_amendment_can_expand_allowed_files() -> None:
 def test_implementation_change_requires_changed_test_file() -> None:
     record = _record(changed_test_paths=[])
 
-    report = validate_gate_record(record, changed_files=["src/scieasy/qa/governance/gate_record.py"])
+    report = validate_gate_record(record, changed_files=["src/scistudio/qa/governance/gate_record.py"])
 
     assert report.blocks_merge
     assert {finding.rule_id for finding in report.findings} == {"gate-record.tests.changed-test-required"}
 
 
 def test_changed_test_paths_must_be_in_pr_diff() -> None:
-    report = validate_gate_record(_record(), changed_files=["src/scieasy/qa/governance/gate_record.py"])
+    report = validate_gate_record(_record(), changed_files=["src/scistudio/qa/governance/gate_record.py"])
 
     assert report.blocks_merge
     assert {finding.rule_id for finding in report.findings} == {"gate-record.tests.changed-test-not-in-diff"}

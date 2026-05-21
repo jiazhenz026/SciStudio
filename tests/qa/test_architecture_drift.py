@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.qa.audit.architecture_drift import check
-from scieasy.qa.schemas.facts import Fact, FactsRegistry
-from scieasy.qa.schemas.report import AuditStatus
+from scistudio.qa.audit.architecture_drift import check
+from scistudio.qa.schemas.facts import Fact, FactsRegistry
+from scistudio.qa.schemas.report import AuditStatus
 
 
 def _symbol(subject: str, kind: str, **value) -> Fact:
@@ -24,11 +24,11 @@ def _facts() -> FactsRegistry:
     return FactsRegistry(
         source_sha="abc123",
         facts=[
-            _symbol("scieasy.sample", "module"),
-            _symbol("scieasy.sample.runtime", "module"),
-            _symbol("scieasy.sample.runtime.Runner", "class"),
+            _symbol("scistudio.sample", "module"),
+            _symbol("scistudio.sample.runtime", "module"),
+            _symbol("scistudio.sample.runtime.Runner", "class"),
             _symbol(
-                "scieasy.sample.runtime.Runner.run",
+                "scistudio.sample.runtime.Runner.run",
                 "function",
                 parameters=[
                     {"name": "self", "annotation": None, "required": True},
@@ -37,7 +37,7 @@ def _facts() -> FactsRegistry:
                 return_annotation="bool",
             ),
             _symbol(
-                "scieasy.sample.runtime.load_config",
+                "scistudio.sample.runtime.load_config",
                 "function",
                 parameters=[{"name": "path", "annotation": "Path", "required": True}],
                 return_annotation="dict[str, object]",
@@ -58,10 +58,10 @@ def test_architecture_drift_accepts_valid_module_symbol_and_signature_references
         tmp_path,
         """# Architecture
 
-The runtime lives in `scieasy.sample.runtime` and exposes `Runner`.
+The runtime lives in `scistudio.sample.runtime` and exposes `Runner`.
 
 ```python
-from scieasy.sample.runtime import Runner
+from scistudio.sample.runtime import Runner
 
 class Runner:
     def run(self, value: str) -> bool:
@@ -81,7 +81,7 @@ def test_architecture_drift_reports_stale_signature_in_python_code_block(tmp_pat
         """# Architecture
 
 ```python
-from scieasy.sample.runtime import Runner
+from scistudio.sample.runtime import Runner
 
 class Runner:
     def run(self, value: int) -> bool:
@@ -116,7 +116,7 @@ def test_architecture_drift_reports_missing_module_path(tmp_path: Path) -> None:
         tmp_path,
         """# Architecture
 
-The stale module path is `scieasy.missing.runtime`.
+The stale module path is `scistudio.missing.runtime`.
 """,
     )
 
@@ -134,7 +134,7 @@ def test_architecture_drift_skips_explicit_non_normative_examples(tmp_path: Path
 Non-normative pseudocode example:
 
 ```python
-from scieasy.missing.runtime import MissingRunner
+from scistudio.missing.runtime import MissingRunner
 
 class MissingRunner:
     def run(self, value: int) -> str:

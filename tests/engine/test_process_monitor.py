@@ -11,13 +11,13 @@ import contextlib
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from scieasy.engine.events import PROCESS_EXITED, EngineEvent, EventBus
-from scieasy.engine.runners.process_handle import (
+from scistudio.engine.events import PROCESS_EXITED, EngineEvent, EventBus
+from scistudio.engine.runners.process_handle import (
     ProcessExitInfo,
     ProcessHandle,
     ProcessRegistry,
 )
-from scieasy.engine.runners.process_monitor import ProcessMonitor
+from scistudio.engine.runners.process_monitor import ProcessMonitor
 
 # ---------------------------------------------------------------------------
 # Construction
@@ -134,7 +134,7 @@ class TestProcessMonitorDetection:
             monitor._running = True
 
             # Patch asyncio.sleep to avoid waiting
-            with patch("scieasy.engine.runners.process_monitor.asyncio.sleep", new_callable=AsyncMock):
+            with patch("scistudio.engine.runners.process_monitor.asyncio.sleep", new_callable=AsyncMock):
                 # Run exactly one iteration of the poll loop then stop
                 monitor._running = False  # Will exit after first sleep
                 # Instead, call _poll_loop body logic directly
@@ -230,7 +230,7 @@ class TestProcessMonitorDetection:
                 await _real_sleep(0)  # Yield control without waiting
 
             with (
-                patch("scieasy.engine.runners.process_monitor.asyncio.sleep", side_effect=mock_sleep),
+                patch("scistudio.engine.runners.process_monitor.asyncio.sleep", side_effect=mock_sleep),
                 contextlib.suppress(TimeoutError, asyncio.CancelledError),
             ):
                 await asyncio.wait_for(monitor._task, timeout=2.0)
@@ -274,7 +274,7 @@ class TestProcessMonitorDetection:
                 await _real_sleep(0)
 
             with (
-                patch("scieasy.engine.runners.process_monitor.asyncio.sleep", side_effect=mock_sleep),
+                patch("scistudio.engine.runners.process_monitor.asyncio.sleep", side_effect=mock_sleep),
                 contextlib.suppress(TimeoutError, asyncio.CancelledError),
             ):
                 await asyncio.wait_for(monitor._task, timeout=2.0)

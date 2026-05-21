@@ -2,7 +2,7 @@
 
 Per Phase 11 master plan §2.5 sub-1a and ``docs/specs/phase11-implementation-standards.md``
 T-TRK-003, this block was previously shipped as
-``src/scieasy/blocks/process/builtins/transform.py::TransformBlock``. It is
+``src/scistudio/blocks/process/builtins/transform.py::TransformBlock``. It is
 not a placeholder — it is the smoke-test fixture used by the API/frontend
 and execution-engine tests, just miscategorised. The body is preserved
 verbatim (identity pass-through with optional sleep) so the existing
@@ -23,10 +23,10 @@ from __future__ import annotations
 import time
 from typing import Any, ClassVar
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.core.types.base import DataObject
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.types.base import DataObject
 
 
 class NoopBlock(ProcessBlock):

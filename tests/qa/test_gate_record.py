@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from scieasy.qa.governance.gate_record import (
+from scistudio.qa.governance.gate_record import (
     CANONICAL_STAGE_ORDER,
     CheckEvidence,
     GateRecord,
@@ -29,11 +29,11 @@ def _record(**overrides: object) -> dict[str, object]:
         "task_kind": "feature",
         "branch": "feat/issue-1267/gate-record-core",
         "owner_directive": "Implement ADR-042 Addendum 1 Track B.",
-        "issues": [{"number": 1267, "url": "https://github.com/zjzcpj/SciEasy/issues/1267"}],
+        "issues": [{"number": 1267, "url": "https://github.com/zjzcpj/SciStudio/issues/1267"}],
         "scope": {
             "include": [
-                "src/scieasy/qa/governance/gate_record.py",
-                "src/scieasy/qa/governance/__init__.py",
+                "src/scistudio/qa/governance/gate_record.py",
+                "src/scistudio/qa/governance/__init__.py",
                 ".workflow/**",
                 "tests/qa/test_gate_record*.py",
             ],
@@ -41,7 +41,7 @@ def _record(**overrides: object) -> dict[str, object]:
         },
         "governance_touch": True,
         "stages": [{"stage": stage.value, "status": "done"} for stage in CANONICAL_STAGE_ORDER],
-        "planned_files": ["src/scieasy/qa/governance/gate_record.py"],
+        "planned_files": ["src/scistudio/qa/governance/gate_record.py"],
         "changed_test_paths": ["tests/qa/test_gate_record.py"],
         "admin_labels": [{"name": "admin-approved:core-change", "applied_by": "@owner"}],
         "required_checks": ["ruff", "pytest", "full_audit", "sentrux"],
@@ -62,7 +62,7 @@ def _record(**overrides: object) -> dict[str, object]:
             "pro_required": False,
         },
         "full_audit": {
-            "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+            "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
             "status": "pass",
             "exit_code": 0,
             "output_path": "docs/audit/full-audit-latest.json",
@@ -121,7 +121,7 @@ def test_sentrux_evidence_rejects_impossible_rule_counts() -> None:
 def test_full_audit_known_debt_is_allowed_but_unclassified_failures_block() -> None:
     known_debt = _record(
         full_audit={
-            "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+            "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
             "status": "fail",
             "exit_code": 1,
             "output_path": "docs/audit/full-audit-latest.json",
@@ -133,7 +133,7 @@ def test_full_audit_known_debt_is_allowed_but_unclassified_failures_block() -> N
 
     unclassified = _record(
         full_audit={
-            "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+            "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
             "status": "fail",
             "exit_code": 1,
             "output_path": "docs/audit/full-audit-latest.json",
@@ -190,7 +190,7 @@ def test_ai_facing_cli_records_canonical_workflow(tmp_path: Path) -> None:
                 "--issue",
                 "1267",
                 "--issue-url",
-                "https://github.com/zjzcpj/SciEasy/issues/1267",
+                "https://github.com/zjzcpj/SciStudio/issues/1267",
                 "--slug",
                 "Gate Record Core",
                 "--task-kind",
@@ -200,7 +200,7 @@ def test_ai_facing_cli_records_canonical_workflow(tmp_path: Path) -> None:
                 "--owner-directive",
                 "Implement ADR-042 Addendum 1 Track B.",
                 "--include",
-                "src/scieasy/qa/governance/**",
+                "src/scistudio/qa/governance/**",
                 "--include",
                 "tests/qa/test_gate_record*.py",
                 "--governance-touch",
@@ -217,7 +217,7 @@ def test_ai_facing_cli_records_canonical_workflow(tmp_path: Path) -> None:
                 "--record",
                 str(record_path),
                 "--files",
-                "src/scieasy/qa/governance/gate_record.py",
+                "src/scistudio/qa/governance/gate_record.py",
                 "--checks",
                 "ruff check .",
                 "--tests",
@@ -282,7 +282,7 @@ def test_ai_facing_cli_records_canonical_workflow(tmp_path: Path) -> None:
                 str(record_path),
                 "--full-audit",
                 "--command",
-                "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+                "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
                 "--status",
                 "pass",
                 "--exit-code",
@@ -326,7 +326,7 @@ def test_ai_facing_cli_records_canonical_workflow(tmp_path: Path) -> None:
                 "--pr-number",
                 "1276",
                 "--pr",
-                "https://github.com/zjzcpj/SciEasy/pull/1276",
+                "https://github.com/zjzcpj/SciStudio/pull/1276",
                 "--closes",
                 "#1267",
             ]
@@ -366,7 +366,7 @@ def test_start_cli_accepts_hotfix_task_kind(tmp_path: Path) -> None:
                 "--owner-directive",
                 "Retroactively record the completed hotfix gate.",
                 "--include",
-                "src/scieasy/runtime/**",
+                "src/scistudio/runtime/**",
                 "--include",
                 "tests/**",
                 "--record",
@@ -382,7 +382,7 @@ def test_start_cli_accepts_hotfix_task_kind(tmp_path: Path) -> None:
 
 
 def test_pre_commit_is_lightweight_until_final_gate(tmp_path: Path) -> None:
-    missing_record = check_pre_commit(tmp_path, staged_files=["src/scieasy/example.py"])
+    missing_record = check_pre_commit(tmp_path, staged_files=["src/scistudio/example.py"])
     assert not missing_record.blocks_merge
     assert missing_record.summary["skipped"] == "no gate record present yet; final push/PR/CI gate remains required"
 
@@ -390,13 +390,13 @@ def test_pre_commit_is_lightweight_until_final_gate(tmp_path: Path) -> None:
         full_audit=None,
         sentrux=None,
         changed_test_paths=[],
-        scope={"include": ["src/scieasy/**"], "exclude": []},
+        scope={"include": ["src/scistudio/**"], "exclude": []},
     )
     record_path = tmp_path / ".workflow" / "records" / "1267-gate-record-core.json"
     record_path.parent.mkdir(parents=True)
     record_path.write_text(json.dumps(data), encoding="utf-8")
 
-    report = check_pre_commit(tmp_path, gate_record=record_path, staged_files=["src/scieasy/example.py"])
+    report = check_pre_commit(tmp_path, gate_record=record_path, staged_files=["src/scistudio/example.py"])
     assert not report.blocks_merge
 
     outside_scope = check_pre_commit(tmp_path, gate_record=record_path, staged_files=["docs/adr/ADR-042.md"])

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from scieasy.qa.governance.sentrux_gate import parse_sentrux_result, verify_free_tier_claims
+from scistudio.qa.governance.sentrux_gate import parse_sentrux_result, verify_free_tier_claims
 
 
 def test_parse_sentrux_result_accepts_mcp_check_rules_shape() -> None:
@@ -43,7 +43,7 @@ def test_verify_free_tier_passes_for_source_change_with_free_tier_evidence() -> 
             "pro_required": False,
             "quality_signal": 4161,
         },
-        changed_files=["src/scieasy/qa/governance/sentrux_gate.py"],
+        changed_files=["src/scistudio/qa/governance/sentrux_gate.py"],
     )
 
     assert not report.blocks_merge
@@ -54,7 +54,7 @@ def test_verify_free_tier_passes_for_source_change_with_free_tier_evidence() -> 
 def test_verify_free_tier_rejects_missing_evidence_for_source_change() -> None:
     report = verify_free_tier_claims(
         None,
-        changed_files=["src/scieasy/runtime/engine.py"],
+        changed_files=["src/scistudio/runtime/engine.py"],
     )
 
     assert report.blocks_merge

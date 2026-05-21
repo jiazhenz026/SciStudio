@@ -12,11 +12,11 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.blocks.ai.run_dir import RunDir
-from scieasy.blocks.base.ports import OutputPort
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.text import Text
+from scistudio.blocks.ai.run_dir import RunDir
+from scistudio.blocks.base.ports import OutputPort
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.text import Text
 
 
 def test_run_dir_class_imports() -> None:
@@ -26,7 +26,7 @@ def test_run_dir_class_imports() -> None:
 
 def test_init_computes_path_correctly(tmp_path: Path) -> None:
     rd = RunDir(tmp_path, "abc-123")
-    assert rd.path == tmp_path / ".scieasy" / "ai-block-runs" / "abc-123"
+    assert rd.path == tmp_path / ".scistudio" / "ai-block-runs" / "abc-123"
     # ADR-038 §5.2 rename: the Python attribute is ``block_execution_id``.
     assert rd.block_execution_id == "abc-123"
     assert rd.project_dir == tmp_path
@@ -84,7 +84,7 @@ def test_write_manifest_basic_shape(tmp_path: Path) -> None:
     assert data["outputs"]["metadata"]["expected_path"] == "./results/metadata.csv"
     assert data["outputs"]["metadata"]["expected_type"] == "DataFrame"
     assert data["completion"]["deadline"] == "2026-05-13T22:30:45Z"
-    assert "Call mcp__scieasy__finish_ai_block" in data["completion"]["primary"]
+    assert "Call mcp__scistudio__finish_ai_block" in data["completion"]["primary"]
 
 
 def test_write_manifest_records_paths_verbatim(tmp_path: Path) -> None:

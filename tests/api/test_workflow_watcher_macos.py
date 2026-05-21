@@ -8,7 +8,7 @@ quirks the implementation agent (which runs on Windows) cannot reproduce:
    sides through the same path before the self-write deque compares
    tuples. We assert the deque actually matches when called via the
    symlinked path.
-2. Filenames are normalised to NFD by APFS / HFS+. SciEasy code passes
+2. Filenames are normalised to NFD by APFS / HFS+. SciStudio code passes
    strings in whatever form the user typed (typically NFC from the
    composing input methods). The handler normalises through NFC before
    comparing or emitting paths so the wire format is stable. We
@@ -25,7 +25,7 @@ from typing import Any
 import pytest
 from watchdog.events import FileModifiedEvent
 
-from scieasy.api.routes.workflow_watcher import _WorkflowFileHandler
+from scistudio.api.routes.workflow_watcher import _WorkflowFileHandler
 
 pytestmark = pytest.mark.skipif(
     sys.platform != "darwin",

@@ -1,4 +1,4 @@
-"""Tests for :func:`scieasy.utils.fs.mount_pathlike`.
+"""Tests for :func:`scistudio.utils.fs.mount_pathlike`.
 
 Platform-gated: POSIX runs the symlink test, Windows runs the
 hardlink + junction tests. Cross-volume failures and ``FileExists``
@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.utils.fs import mount_pathlike
+from scistudio.utils.fs import mount_pathlike
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX symlink path only")

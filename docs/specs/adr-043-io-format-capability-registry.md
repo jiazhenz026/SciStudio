@@ -28,34 +28,34 @@ scope:
     - Full migration of every package format in one implementation step.
 governs:
   modules:
-    - scieasy.blocks.io
-    - scieasy.blocks.registry
-    - scieasy.engine.materialisation
-    - scieasy.blocks.app
-    - scieasy.workflow
+    - scistudio.blocks.io
+    - scistudio.blocks.registry
+    - scistudio.engine.materialisation
+    - scistudio.blocks.app
+    - scistudio.workflow
   contracts:
-    - scieasy.blocks.io.capabilities.FormatCapability
-    - scieasy.blocks.io.capabilities.MetadataFidelity
-    - scieasy.blocks.io.simple_io.SimpleLoader
-    - scieasy.blocks.io.simple_io.SimpleSaver
-    - scieasy.blocks.io.io_block.IOBlock.get_format_capabilities
-    - scieasy.blocks.registry.BlockRegistry.list_format_capabilities
-    - scieasy.blocks.registry.BlockRegistry.find_loader_capability
-    - scieasy.blocks.registry.BlockRegistry.find_saver_capability
-    - scieasy.engine.materialisation.reconstruct_from_file
-    - scieasy.engine.materialisation.materialise_to_file
+    - scistudio.blocks.io.capabilities.FormatCapability
+    - scistudio.blocks.io.capabilities.MetadataFidelity
+    - scistudio.blocks.io.simple_io.SimpleLoader
+    - scistudio.blocks.io.simple_io.SimpleSaver
+    - scistudio.blocks.io.io_block.IOBlock.get_format_capabilities
+    - scistudio.blocks.registry.BlockRegistry.list_format_capabilities
+    - scistudio.blocks.registry.BlockRegistry.find_loader_capability
+    - scistudio.blocks.registry.BlockRegistry.find_saver_capability
+    - scistudio.engine.materialisation.reconstruct_from_file
+    - scistudio.engine.materialisation.materialise_to_file
   files:
-    - src/scieasy/blocks/io/capabilities.py
-    - src/scieasy/blocks/io/simple_io.py
-    - src/scieasy/blocks/io/io_block.py
-    - src/scieasy/blocks/registry.py
-    - src/scieasy/engine/materialisation.py
-    - src/scieasy/blocks/app/app_block.py
-    - src/scieasy/blocks/app/bridge.py
-    - src/scieasy/workflow/validator.py
+    - src/scistudio/blocks/io/capabilities.py
+    - src/scistudio/blocks/io/simple_io.py
+    - src/scistudio/blocks/io/io_block.py
+    - src/scistudio/blocks/registry.py
+    - src/scistudio/engine/materialisation.py
+    - src/scistudio/blocks/app/app_block.py
+    - src/scistudio/blocks/app/bridge.py
+    - src/scistudio/workflow/validator.py
     - frontend/src/**
-    - packages/scieasy-blocks-imaging/src/**
-    - packages/scieasy-blocks-lcms/src/**
+    - packages/scistudio-blocks-imaging/src/**
+    - packages/scistudio-blocks-lcms/src/**
     - docs/architecture/ARCHITECTURE.md
     - docs/block-development/**
 tests:
@@ -74,7 +74,7 @@ language_source: en
 
 ## 1. Change Summary
 
-This spec translates ADR-043 into implementation requirements for SciEasy's IO
+This spec translates ADR-043 into implementation requirements for SciStudio's IO
 format capability registry. The core change is to make external file format
 support an explicit IOBlock capability instead of a DataObject property or an
 engine guess.
@@ -312,7 +312,7 @@ Acceptance Scenarios:
 
 ### 4.1 Technical Approach
 
-Introduce capability models in `scieasy.blocks.io.capabilities`, then teach
+Introduce capability models in `scistudio.blocks.io.capabilities`, then teach
 IOBlock classes to expose explicit or synthesized capabilities. The registry
 builds a capability index during block registration and exposes query methods
 for loader and saver selection.
@@ -329,7 +329,7 @@ records or SimpleLoader/SimpleSaver.
 
 This migration layer is not the final published-package compliance mechanism.
 When hard ADR-043 validation is enabled, the current in-repository packages
-under `packages/scieasy-blocks-*` should be assumed non-compliant until their
+under `packages/scistudio-blocks-*` should be assumed non-compliant until their
 IO declarations are audited and migrated. That migration is intentionally
 tracked separately in issue #1204 so the registry implementation can land with
 clear compatibility semantics instead of silently certifying legacy packages.
@@ -338,17 +338,17 @@ clear compatibility semantics instead of silently certifying legacy packages.
 
 | File or glob | Action | Rationale |
 |---|---|---|
-| `src/scieasy/blocks/io/capabilities.py` | create | Capability and metadata fidelity models, validation helpers, typed errors |
-| `src/scieasy/blocks/io/simple_io.py` | create | SimpleLoader and SimpleSaver ergonomic base classes |
-| `src/scieasy/blocks/io/io_block.py` | modify | Add `format_capabilities` and compatibility synthesis |
-| `src/scieasy/blocks/registry.py` | modify | Index capabilities and expose deterministic lookup APIs |
-| `src/scieasy/engine/materialisation.py` | modify | Resolve loader and saver capabilities for file boundaries |
-| `src/scieasy/blocks/app/app_block.py` | modify | Reconstruct AppBlock outputs through capability lookup |
-| `src/scieasy/blocks/app/bridge.py` | modify | Materialise AppBlock inputs through capability lookup |
-| `src/scieasy/workflow/validator.py` | modify | Validate AppBlock and CodeBlock boundary IO before execution |
+| `src/scistudio/blocks/io/capabilities.py` | create | Capability and metadata fidelity models, validation helpers, typed errors |
+| `src/scistudio/blocks/io/simple_io.py` | create | SimpleLoader and SimpleSaver ergonomic base classes |
+| `src/scistudio/blocks/io/io_block.py` | modify | Add `format_capabilities` and compatibility synthesis |
+| `src/scistudio/blocks/registry.py` | modify | Index capabilities and expose deterministic lookup APIs |
+| `src/scistudio/engine/materialisation.py` | modify | Resolve loader and saver capabilities for file boundaries |
+| `src/scistudio/blocks/app/app_block.py` | modify | Reconstruct AppBlock outputs through capability lookup |
+| `src/scistudio/blocks/app/bridge.py` | modify | Materialise AppBlock inputs through capability lookup |
+| `src/scistudio/workflow/validator.py` | modify | Validate AppBlock and CodeBlock boundary IO before execution |
 | `frontend/src/**` | modify | Render format dropdowns, ambiguity states, and metadata warnings |
-| `packages/scieasy-blocks-imaging/src/**` | modify | Migrate image and label IO declarations to capabilities |
-| `packages/scieasy-blocks-lcms/src/**` | modify | Migrate LCMS IO declarations where applicable |
+| `packages/scistudio-blocks-imaging/src/**` | modify | Migrate image and label IO declarations to capabilities |
+| `packages/scistudio-blocks-lcms/src/**` | modify | Migrate LCMS IO declarations where applicable |
 | `docs/architecture/ARCHITECTURE.md` | modify | Align format and metadata architecture text with ADR-043 |
 | `docs/block-development/**` | modify | Document simple local IO and published package capability authoring |
 
@@ -408,7 +408,7 @@ Capability models:
 from dataclasses import dataclass, field
 from typing import Literal
 
-from scieasy.core.types.base import DataObject
+from scistudio.core.types.base import DataObject
 
 
 CapabilityDirection = Literal["load", "save"]
@@ -614,7 +614,7 @@ def validate_io_boundary_capabilities(
 
 The implementation keeps the ADR-043 requirements unchanged but records the
 audit-visible ownership corrections needed after the import-boundary fix:
-canonical materialisation lives in `scieasy.blocks.io.materialisation`, the
+canonical materialisation lives in `scistudio.blocks.io.materialisation`, the
 engine module remains a compatibility export, and block palette schemas expose
 capability metadata for the frontend selector. This addendum amends only the
 ADR-042 governed-surface metadata for audit purposes.
@@ -623,22 +623,22 @@ ADR-042 governed-surface metadata for audit purposes.
 governs:
   modules:
     add:
-      - scieasy.blocks.io.materialisation
-      - scieasy.api.schemas.FormatCapabilityResponse
-      - scieasy.api.schemas.MetadataFidelityResponse
+      - scistudio.blocks.io.materialisation
+      - scistudio.api.schemas.FormatCapabilityResponse
+      - scistudio.api.schemas.MetadataFidelityResponse
     remove: []
   contracts:
     add:
-      - scieasy.blocks.io.materialisation.reconstruct_from_file
-      - scieasy.blocks.io.materialisation.materialise_to_file
-      - scieasy.api.schemas.BlockSummary.format_capabilities
+      - scistudio.blocks.io.materialisation.reconstruct_from_file
+      - scistudio.blocks.io.materialisation.materialise_to_file
+      - scistudio.api.schemas.BlockSummary.format_capabilities
     remove:
-      - scieasy.engine.materialisation.reconstruct_from_file
-      - scieasy.engine.materialisation.materialise_to_file
+      - scistudio.engine.materialisation.reconstruct_from_file
+      - scistudio.engine.materialisation.materialise_to_file
   files:
     add:
-      - src/scieasy/blocks/io/materialisation.py
-      - src/scieasy/api/schemas.py
-      - src/scieasy/api/routes/blocks.py
+      - src/scistudio/blocks/io/materialisation.py
+      - src/scistudio/api/schemas.py
+      - src/scistudio/api/routes/blocks.py
     remove: []
 ```

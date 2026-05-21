@@ -19,8 +19,8 @@ pytestmark = pytest.mark.skip(
     reason="S40a skeleton — tool bodies are NotImplementedError stubs. TODO(#1012): I40a Phase 2a restores."
 )
 
-from scieasy.ai.agent.mcp import _context, tools_authoring  # noqa: E402
-from scieasy.blocks.registry import BlockRegistry  # noqa: E402
+from scistudio.ai.agent.mcp import _context, tools_authoring  # noqa: E402
+from scistudio.blocks.registry import BlockRegistry  # noqa: E402
 
 
 @dataclass
@@ -68,7 +68,7 @@ def test_list_block_examples_happy(ctx: _StubRuntime) -> None:
     assert isinstance(examples, list)
     # Compare structural module-path prefix as a tuple to avoid CodeQL
     # py/incomplete-url-substring-sanitization (rule confuses .io suffix with TLD).
-    assert any(tuple(e["name"].split(".")[:3]) == ("scieasy", "blocks", "io") for e in examples)
+    assert any(tuple(e["name"].split(".")[:3]) == ("scistudio", "blocks", "io") for e in examples)
 
 
 def test_list_block_examples_unknown_category_raises(ctx: _StubRuntime) -> None:
@@ -98,7 +98,7 @@ def test_scaffold_block_exists_raises(ctx: _StubRuntime, tmp_path: Path) -> None
 def test_render_port_block_uses_accepted_types() -> None:
     """Regression for #1063 — _render_port_block emits accepted_types=[T] not type=T.
 
-    InputPort and OutputPort in src/scieasy/blocks/base/ports.py take
+    InputPort and OutputPort in src/scistudio/blocks/base/ports.py take
     ``accepted_types: list[type]`` (not a single ``type=`` kwarg). Blocks
     scaffolded with the old template shape would raise ``TypeError`` at
     registry load time.

@@ -19,31 +19,31 @@ scope:
     - Short-form documentation limits for hand-authored docs.
     - Generated documentation freshness and hand-edit protection.
     - Skill pointer synchronization with canonical workflow docs.
-    - SciEasy-specific documentation generators listed by ADR-042.
+    - SciStudio-specific documentation generators listed by ADR-042.
   out:
     - Reimplementation of Sphinx, griffe, markdownlint, codespell, or linkcheck.
     - Translation workflow implementation beyond generated-marker enforcement.
     - Full content rewrite of existing historical docs.
 governs:
   modules:
-    - scieasy.qa.docs
-    - scieasy.qa.audit
+    - scistudio.qa.docs
+    - scistudio.qa.audit
   contracts:
-    - scieasy.qa.audit.frontmatter_lint.lint_file
-    - scieasy.qa.audit.doc_length_lint.check
-    - scieasy.qa.audit.auto_generated_lint.check
-    - scieasy.qa.audit.skill_pointer_sync.check
-    - scieasy.qa.docs.llms_txt.generate
-    - scieasy.qa.docs.entry_point_catalog.generate
-    - scieasy.qa.docs.cli_reference.generate
-    - scieasy.qa.docs.openapi_reference.generate
-    - scieasy.qa.docs.schema_reference.generate
+    - scistudio.qa.audit.frontmatter_lint.lint_file
+    - scistudio.qa.audit.doc_length_lint.check
+    - scistudio.qa.audit.auto_generated_lint.check
+    - scistudio.qa.audit.skill_pointer_sync.check
+    - scistudio.qa.docs.llms_txt.generate
+    - scistudio.qa.docs.entry_point_catalog.generate
+    - scistudio.qa.docs.cli_reference.generate
+    - scistudio.qa.docs.openapi_reference.generate
+    - scistudio.qa.docs.schema_reference.generate
   files:
-    - src/scieasy/qa/docs/**
-    - src/scieasy/qa/audit/frontmatter_lint.py
-    - src/scieasy/qa/audit/doc_length_lint.py
-    - src/scieasy/qa/audit/auto_generated_lint.py
-    - src/scieasy/qa/audit/skill_pointer_sync.py
+    - src/scistudio/qa/docs/**
+    - src/scistudio/qa/audit/frontmatter_lint.py
+    - src/scistudio/qa/audit/doc_length_lint.py
+    - src/scistudio/qa/audit/auto_generated_lint.py
+    - src/scistudio/qa/audit/skill_pointer_sync.py
     - docs/specs/**
     - docs/adr/**
     - docs/user/reference/**
@@ -67,12 +67,12 @@ language_source: en
 
 This spec defines the custom documentation normalization and generated-reference
 tools required by ADR-042. It covers `frontmatter_lint`, `doc_length_lint`,
-`auto_generated_lint`, `skill_pointer_sync`, and SciEasy-specific generators
+`auto_generated_lint`, `skill_pointer_sync`, and SciStudio-specific generators
 for `llms.txt`, entry points, CLI, OpenAPI, schemas, blocks, and runners.
 
 The spec comes from ADR-042 and the owner request to split custom tooling into
 four implementation specs. Sphinx, griffe, markdownlint, codespell, and
-linkcheck remain common tools. The custom tools only encode SciEasy-specific
+linkcheck remain common tools. The custom tools only encode SciStudio-specific
 policy that those tools cannot decide by themselves.
 
 Issue #1240 completes the current `frontmatter_lint` slice by keeping the
@@ -238,11 +238,11 @@ fresh generator output and reports stale or manually edited files.
 
 | File or glob | Action | Rationale |
 |---|---|---|
-| `src/scieasy/qa/audit/frontmatter_lint.py` | create | ADR/spec frontmatter and first-section validator |
-| `src/scieasy/qa/audit/doc_length_lint.py` | create | Short-form documentation length checker |
-| `src/scieasy/qa/audit/auto_generated_lint.py` | create | Generated-doc freshness and hand-edit checker |
-| `src/scieasy/qa/audit/skill_pointer_sync.py` | create | Runtime skill pointer validator |
-| `src/scieasy/qa/docs/**` | create | SciEasy-specific documentation generators |
+| `src/scistudio/qa/audit/frontmatter_lint.py` | create | ADR/spec frontmatter and first-section validator |
+| `src/scistudio/qa/audit/doc_length_lint.py` | create | Short-form documentation length checker |
+| `src/scistudio/qa/audit/auto_generated_lint.py` | create | Generated-doc freshness and hand-edit checker |
+| `src/scistudio/qa/audit/skill_pointer_sync.py` | create | Runtime skill pointer validator |
+| `src/scistudio/qa/docs/**` | create | SciStudio-specific documentation generators |
 | `docs/sphinx/conf.py` | modify | Integrate generated references and warning-as-error behavior |
 | `docs/user/reference/**` | generate | API, schema, CLI, OpenAPI, entry-point, block, and runner reference targets |
 | `docs/user/llms.txt` | generate | LLM context output derived from docs and generated references |
@@ -287,7 +287,7 @@ hand edits to generated targets as a workaround; fix the source or generator.
 ### 4.6 Signature-Level Contracts
 
 Implementers MUST use the shared `AuditReport` and `AuditFinding` models from
-`scieasy.qa.schemas.report`. Documentation tools may define additional local
+`scistudio.qa.schemas.report`. Documentation tools may define additional local
 models, but public functions return `AuditReport` or deterministic generator
 results.
 
@@ -412,7 +412,7 @@ def check_generated(
 ) -> AuditReport: ...
 ```
 
-`scieasy.qa.audit.auto_generated_lint.check` is the public entry point and MUST
+`scistudio.qa.audit.auto_generated_lint.check` is the public entry point and MUST
 delegate to `check_generated`. The public entry point keeps the ADR-042 name:
 
 ```python
@@ -428,7 +428,7 @@ def check(
 Generator module signatures:
 
 ```python
-# scieasy.qa.docs.llms_txt
+# scistudio.qa.docs.llms_txt
 def generate(
     repo_root: Path,
     *,
@@ -436,43 +436,43 @@ def generate(
 ) -> GeneratorResult: ...
 
 
-# scieasy.qa.docs.entry_point_catalog
+# scistudio.qa.docs.entry_point_catalog
 def generate(
     repo_root: Path,
     *,
     output_path: Path = Path("docs/user/reference/entry-points.md"),
-    group_prefix: str = "scieasy",
+    group_prefix: str = "scistudio",
 ) -> GeneratorResult: ...
 
 
-# scieasy.qa.docs.cli_reference
+# scistudio.qa.docs.cli_reference
 def generate(
     repo_root: Path,
     *,
     output_path: Path = Path("docs/user/reference/cli.md"),
-    command_import: str = "scieasy.cli:app",
+    command_import: str = "scistudio.cli:app",
 ) -> GeneratorResult: ...
 
 
-# scieasy.qa.docs.openapi_reference
+# scistudio.qa.docs.openapi_reference
 def generate(
     repo_root: Path,
     *,
     output_path: Path = Path("docs/user/reference/server-api.md"),
-    app_import: str = "scieasy.api.app:create_app",
+    app_import: str = "scistudio.api.app:create_app",
 ) -> GeneratorResult: ...
 
 
-# scieasy.qa.docs.schema_reference
+# scistudio.qa.docs.schema_reference
 def generate(
     repo_root: Path,
     *,
     output_dir: Path = Path("docs/user/reference/schemas"),
-    package_prefixes: Sequence[str] = ("scieasy",),
+    package_prefixes: Sequence[str] = ("scistudio",),
 ) -> list[GeneratorResult]: ...
 
 
-# scieasy.qa.docs.block_catalog
+# scistudio.qa.docs.block_catalog
 def generate(
     repo_root: Path,
     *,
@@ -480,7 +480,7 @@ def generate(
 ) -> list[GeneratorResult]: ...
 
 
-# scieasy.qa.docs.runner_catalog
+# scistudio.qa.docs.runner_catalog
 def generate(
     repo_root: Path,
     *,
@@ -520,13 +520,13 @@ def check(
 Required CLI behavior:
 
 ```text
-python -m scieasy.qa.audit.frontmatter_lint docs/adr/ADR-042.md --format json
-python -m scieasy.qa.audit.frontmatter_lint docs/specs --recursive --format json
-python -m scieasy.qa.audit.doc_length_lint docs --format json
-python -m scieasy.qa.docs.generate_reference --target all --check
-python -m scieasy.qa.docs.generate_reference --target all --write
-python -m scieasy.qa.audit.auto_generated_lint --check --format json
-python -m scieasy.qa.audit.skill_pointer_sync --format json
+python -m scistudio.qa.audit.frontmatter_lint docs/adr/ADR-042.md --format json
+python -m scistudio.qa.audit.frontmatter_lint docs/specs --recursive --format json
+python -m scistudio.qa.audit.doc_length_lint docs --format json
+python -m scistudio.qa.docs.generate_reference --target all --check
+python -m scistudio.qa.docs.generate_reference --target all --write
+python -m scistudio.qa.audit.auto_generated_lint --check --format json
+python -m scistudio.qa.audit.skill_pointer_sync --format json
 ```
 
 All CLIs MUST use the uniform ADR-042 audit exit codes: 0 for no

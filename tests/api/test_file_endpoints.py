@@ -74,7 +74,7 @@ def test_read_file_413_size(client: TestClient, project_parent: Path, monkeypatc
 
     Lower the cap via monkeypatch so we don't have to write 10 MB to disk.
     """
-    from scieasy.api.routes import projects
+    from scistudio.api.routes import projects
 
     monkeypatch.setattr(projects, "ADR036_FILE_SIZE_CAP_BYTES", 16)
     pid = _open(client, project_parent / "p5")
@@ -144,7 +144,7 @@ def test_write_file_atomic(
     def boom(*args: object, **kwargs: object) -> None:
         raise OSError("simulated rename failure")
 
-    monkeypatch.setattr("scieasy.api.routes.projects.os.replace", boom)
+    monkeypatch.setattr("scistudio.api.routes.projects.os.replace", boom)
 
     r = client.put(
         f"/api/projects/{pid}/file?path=scratch.py",
@@ -154,13 +154,13 @@ def test_write_file_atomic(
     # Original content untouched
     assert target.read_text(encoding="utf-8") == "# original\n"
     # Make sure no tmpfile was leaked
-    leftovers = [p for p in target.parent.iterdir() if p.name.startswith(".__scieasy_write_")]
+    leftovers = [p for p in target.parent.iterdir() if p.name.startswith(".__scistudio_write_")]
     assert leftovers == []
 
 
 def test_write_file_self_write_suppression(client: TestClient, project_parent: Path) -> None:
     """PUT calls ``mark_self_write`` so the watcher discards the echo event."""
-    from scieasy.api.routes import workflow_watcher as ww
+    from scistudio.api.routes import workflow_watcher as ww
 
     captured: list[Path] = []
 
@@ -190,7 +190,7 @@ def test_write_file_413_size(
     project_parent: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from scieasy.api.routes import projects
+    from scistudio.api.routes import projects
 
     monkeypatch.setattr(projects, "ADR036_FILE_SIZE_CAP_BYTES", 8)
     pid = _open(client, project_parent / "w4")

@@ -1,7 +1,7 @@
 # ADR-040 Code-Scope Manifest
 
 > Per-track owner-file manifest for the ADR-040 cascade. Authored by code-scope investigation agent AC40 on 2026-05-16.
-> Source: per-file `Read` + `Grep` of the SciEasy repo at main commit `4b6c54d`.
+> Source: per-file `Read` + `Grep` of the SciStudio repo at main commit `4b6c54d`.
 > Audience: Phase 1 skeleton agents (S40a/b/c/d) and Phase 2a impl agents (I40a/c/d).
 > ADR: [../adr/ADR-040.md](../adr/ADR-040.md). Checklist: [./adr-040-checklist.md](./adr-040-checklist.md). Plan: `~/.claude/plans/bubbly-popping-frost.md`.
 
@@ -20,16 +20,16 @@
 
 | File | LOC | Purpose |
 |---|---|---|
-| `src/scieasy/ai/agent/mcp/__init__.py` | 38 | Package init; re-exports `MCPServer` |
-| `src/scieasy/ai/agent/mcp/_context.py` | 203 | `MCPContext` Protocol + global getter/setter + path-traversal helpers |
-| `src/scieasy/ai/agent/mcp/_registry.py` | 279 | `ToolEntry` dataclass + `TOOL_REGISTRY` tuple (26 entries) — **deleted by FastMCP migration per ADR-040 §3.1** |
-| `src/scieasy/ai/agent/mcp/runtime.py` | 203 | `StandaloneMCPRuntime` + `make_mcp_runtime` + `start_inprocess_server` for the standalone bridge |
-| `src/scieasy/ai/agent/mcp/server.py` | 251 | Hand-rolled `MCPServer` class (asyncio JSON-RPC 2.0, line-delimited framing) — **rewritten by ADR-040 §3.1 to thin FastMCP wrapper** |
-| `src/scieasy/ai/agent/mcp/tools_authoring.py` | 242 | 5 tools (b-category): `read_block_source`, `list_block_examples`, `scaffold_block`, `reload_blocks`, `run_block_tests` |
-| `src/scieasy/ai/agent/mcp/tools_inspection.py` | 566 | 7 tools (c-category): `get_block_output`, `inspect_data`, `preview_data`, `get_lineage`, `get_block_config`, `update_block_config`, `get_block_logs` |
-| `src/scieasy/ai/agent/mcp/tools_qa.py` | 233 | 4 tools (d-category): `search_docs`, `get_doc`, `list_data`, `get_project_info` |
-| `src/scieasy/ai/agent/mcp/tools_workflow.py` | 752 | 10 tools (a-category): `list_blocks`, `get_block_schema`, `list_types`, `get_workflow`, `validate_workflow`, `write_workflow`, `run_workflow`, `cancel_run`, `get_run_status`, **`finish_ai_block`** (ADR-035 §3.5 — 26th tool) |
-| `src/scieasy/ai/agent/system_prompt.py` | 166 | `compose_system_prompt` + `_load_skill_md` + `_render_tool_catalog` + `_splice_catalog` |
+| `src/scistudio/ai/agent/mcp/__init__.py` | 38 | Package init; re-exports `MCPServer` |
+| `src/scistudio/ai/agent/mcp/_context.py` | 203 | `MCPContext` Protocol + global getter/setter + path-traversal helpers |
+| `src/scistudio/ai/agent/mcp/_registry.py` | 279 | `ToolEntry` dataclass + `TOOL_REGISTRY` tuple (26 entries) — **deleted by FastMCP migration per ADR-040 §3.1** |
+| `src/scistudio/ai/agent/mcp/runtime.py` | 203 | `StandaloneMCPRuntime` + `make_mcp_runtime` + `start_inprocess_server` for the standalone bridge |
+| `src/scistudio/ai/agent/mcp/server.py` | 251 | Hand-rolled `MCPServer` class (asyncio JSON-RPC 2.0, line-delimited framing) — **rewritten by ADR-040 §3.1 to thin FastMCP wrapper** |
+| `src/scistudio/ai/agent/mcp/tools_authoring.py` | 242 | 5 tools (b-category): `read_block_source`, `list_block_examples`, `scaffold_block`, `reload_blocks`, `run_block_tests` |
+| `src/scistudio/ai/agent/mcp/tools_inspection.py` | 566 | 7 tools (c-category): `get_block_output`, `inspect_data`, `preview_data`, `get_lineage`, `get_block_config`, `update_block_config`, `get_block_logs` |
+| `src/scistudio/ai/agent/mcp/tools_qa.py` | 233 | 4 tools (d-category): `search_docs`, `get_doc`, `list_data`, `get_project_info` |
+| `src/scistudio/ai/agent/mcp/tools_workflow.py` | 752 | 10 tools (a-category): `list_blocks`, `get_block_schema`, `list_types`, `get_workflow`, `validate_workflow`, `write_workflow`, `run_workflow`, `cancel_run`, `get_run_status`, **`finish_ai_block`** (ADR-035 §3.5 — 26th tool) |
+| `src/scistudio/ai/agent/system_prompt.py` | 166 | `compose_system_prompt` + `_load_skill_md` + `_render_tool_catalog` + `_splice_catalog` |
 
 ### 1.2 Tool count — VERIFIED
 
@@ -58,50 +58,50 @@ The `_registry.py` module docstring (line 1) says "25 tools" — also stale. Fla
 
 ### 1.3 Exported symbols (FastMCP migration must preserve or fully replace)
 
-**`src/scieasy/ai/agent/mcp/__init__.py`**
+**`src/scistudio/ai/agent/mcp/__init__.py`**
 - `__all__ = ["MCPServer"]` (line 38) — re-exports `MCPServer` from `server.py`. Phase 1 must re-export the FastMCP server class under the same name OR update the one consumer (none in `src/` — only tests in `tests/ai/test_mcp_server_skeleton.py:115-119`).
 
-**`src/scieasy/ai/agent/mcp/_context.py`**
+**`src/scistudio/ai/agent/mcp/_context.py`**
 - `MCPContext` (Protocol class, line 41) — structural typing protocol; FastMCP migration MUST preserve since tools depend on it.
 - `set_context(ctx)` (line 61), `get_context()` (line 75), `get_optional_context()` (line 94)
 - `_resolve_project_root(ctx)` (line 99), `_safe_under(root, target)` (line 112), `_resolve_project_path(target)` (line 141) — path-traversal guards used by 6+ tools.
 - `__all__` exports (line 191): `MCPContext`, `_resolve_project_path`, `_resolve_project_root`, `_safe_under`, `get_context`, `get_optional_context`, `set_context`.
 
-**`src/scieasy/ai/agent/mcp/_registry.py`** (DELETED by ADR §3.1)
+**`src/scistudio/ai/agent/mcp/_registry.py`** (DELETED by ADR §3.1)
 - `ToolEntry` (dataclass, line 33-58), `TOOL_REGISTRY` (tuple, line 63-253), `lookup(name)` (line 256), `all_names()` (line 264), `by_category()` (line 274).
 - **Callsites to fix** (all imports of `_registry` must move to a FastMCP `list_tools()` call or be deleted):
-  - `src/scieasy/ai/agent/mcp/server.py:36` (`from scieasy.ai.agent.mcp import _registry`)
-  - `src/scieasy/ai/agent/mcp/server.py:218` (`for entry in _registry.TOOL_REGISTRY`)
-  - `src/scieasy/ai/agent/mcp/server.py:226` (`entry = _registry.lookup(name)`)
-  - `src/scieasy/ai/agent/system_prompt.py:117` (`from scieasy.ai.agent.mcp._registry import TOOL_REGISTRY`)
-  - `tests/ai/test_system_prompt.py:7` (`from scieasy.ai.agent.mcp._registry import TOOL_REGISTRY, all_names`)
+  - `src/scistudio/ai/agent/mcp/server.py:36` (`from scistudio.ai.agent.mcp import _registry`)
+  - `src/scistudio/ai/agent/mcp/server.py:218` (`for entry in _registry.TOOL_REGISTRY`)
+  - `src/scistudio/ai/agent/mcp/server.py:226` (`entry = _registry.lookup(name)`)
+  - `src/scistudio/ai/agent/system_prompt.py:117` (`from scistudio.ai.agent.mcp._registry import TOOL_REGISTRY`)
+  - `tests/ai/test_system_prompt.py:7` (`from scistudio.ai.agent.mcp._registry import TOOL_REGISTRY, all_names`)
   - `tests/ai/test_finish_ai_block_skeleton.py:20-30` (`from ... import _registry; _registry.TOOL_REGISTRY`)
 
-**`src/scieasy/ai/agent/mcp/runtime.py`**
+**`src/scistudio/ai/agent/mcp/runtime.py`**
 - `StandaloneMCPRuntime` (dataclass, line 43), `_build_block_registry` (line 82), `_build_type_registry` (line 94), `make_mcp_runtime` (line 103), `default_socket_path` (line 133), `start_inprocess_server` (line 145), `stop_inprocess_server` (line 187).
 - Adapts standalone bridge runtime to current `MCPServer`. ADR §5.2 line 597 calls out this file as needing ~40 LOC of FastMCP adaptation.
 
-**`src/scieasy/ai/agent/mcp/server.py`** (REWRITTEN by ADR §3.1)
+**`src/scistudio/ai/agent/mcp/server.py`** (REWRITTEN by ADR §3.1)
 - Class `MCPServer` (line 49): `__init__`, `start`, `stop`, `port` property, `_handle_client`, `dispatch`.
 - Free functions `_ok` (line 246), `_error_response` (line 250).
 - Constants `_PARSE_ERROR`, `_INVALID_REQUEST`, `_METHOD_NOT_FOUND`, `_INVALID_PARAMS`, `_INTERNAL_ERROR` (lines 42-46) — JSON-RPC 2.0 error codes; FastMCP wraps these so most callers won't notice, but the standalone-bridge accept loop in `runtime.py:145-184` directly drives `server.start()`/`server.stop()`.
 
-**`src/scieasy/ai/agent/mcp/tools_workflow.py`** (10 tools)
+**`src/scistudio/ai/agent/mcp/tools_workflow.py`** (10 tools)
 - `list_blocks` (189), `get_block_schema` (209), `list_types` (242), `get_workflow` (263), `validate_workflow` (306), `write_workflow` (347), `run_workflow` (444), `cancel_run` (482), `get_run_status` (522), `finish_ai_block` (642).
 - Helpers (PRIVATE — preserve): `_ensure_error_subscriber` (57), `_collect_run_errors` (99), `_spec_to_dict` (118), `_port_to_dict` (134), `_atomic_write_text` (147), `_diff_summary` (171), `_looks_like_inline_yaml` (298), `_get_workflow_runtime` (426), `_resolve_ai_block_run_dir` (609).
 
-**`src/scieasy/ai/agent/mcp/tools_authoring.py`** (5 tools)
+**`src/scistudio/ai/agent/mcp/tools_authoring.py`** (5 tools)
 - `read_block_source` (25), `list_block_examples` (87), `scaffold_block` (158), `reload_blocks` (193), `run_block_tests` (210).
 - Helper: `_snake_to_camel` (154); `_SCAFFOLD_TEMPLATE` module-level string constant.
 - **Note for ADR §3.2a**: current `scaffold_block(name, category) -> dict[str, Any]` does NOT accept `input_ports` / `output_ports`. ADR §3.2a example signature with port specs + `warnings: list[str]` is a contract widening — Phase 1/2 skeleton must add the new parameters or the warnings logic has no input to inspect.
 
-**`src/scieasy/ai/agent/mcp/tools_inspection.py`** (7 tools)
+**`src/scistudio/ai/agent/mcp/tools_inspection.py`** (7 tools)
 - `get_block_output`, `inspect_data`, `preview_data`, `get_lineage`, `get_block_config`, `update_block_config`, `get_block_logs`.
 
-**`src/scieasy/ai/agent/mcp/tools_qa.py`** (4 tools)
+**`src/scistudio/ai/agent/mcp/tools_qa.py`** (4 tools)
 - `search_docs`, `get_doc`, `list_data`, `get_project_info`.
 
-**`src/scieasy/ai/agent/system_prompt.py`**
+**`src/scistudio/ai/agent/system_prompt.py`**
 - Public: `compose_system_prompt(project_dir: Path) -> str` (line 39) — `project_dir` is currently UNUSED (#825).
 - Private: `_load_skill_md()` (line 72), `_render_tool_catalog()` (line 108), `_splice_catalog(skill_md, catalog)` (line 143).
 - Module constants: `_TOOL_CATALOG_BEGIN = "<!-- tool_catalog:begin -->"` (33), `_TOOL_CATALOG_END = "<!-- tool_catalog:end -->"` (34).
@@ -110,14 +110,14 @@ The `_registry.py` module docstring (line 1) says "25 tools" — also stale. Fla
 ### 1.4 Callsites of public APIs
 
 **`compose_system_prompt`** (Grep result `src/`):
-- `src/scieasy/ai/agent/terminal.py:433` — lazy import inside `_write_system_prompt_tempfile(project_dir: Path)`.
-- `src/scieasy/ai/agent/terminal.py:435` — invocation: `prompt = compose_system_prompt(project_dir)`.
-- `src/scieasy/ai/agent/terminal.py:469` — docstring cross-ref.
+- `src/scistudio/ai/agent/terminal.py:433` — lazy import inside `_write_system_prompt_tempfile(project_dir: Path)`.
+- `src/scistudio/ai/agent/terminal.py:435` — invocation: `prompt = compose_system_prompt(project_dir)`.
+- `src/scistudio/ai/agent/terminal.py:469` — docstring cross-ref.
 
 **`MCPServer`** (Grep result `src/`):
-- `src/scieasy/ai/agent/mcp/__init__.py:36` (re-export).
-- `src/scieasy/ai/agent/mcp/runtime.py:36` (`if TYPE_CHECKING:`), `:162` (lazy import inside `start_inprocess_server`), `:178` (instantiation).
-- `src/scieasy/api/app.py` (lifespan — instantiation point; verify in Phase 1).
+- `src/scistudio/ai/agent/mcp/__init__.py:36` (re-export).
+- `src/scistudio/ai/agent/mcp/runtime.py:36` (`if TYPE_CHECKING:`), `:162` (lazy import inside `start_inprocess_server`), `:178` (instantiation).
+- `src/scistudio/api/app.py` (lifespan — instantiation point; verify in Phase 1).
 
 **`TOOL_REGISTRY` / `_registry.lookup` / `_registry.all_names`** — see §1.3 above (6 callsites total).
 
@@ -137,22 +137,22 @@ The `_registry.py` module docstring (line 1) says "25 tools" — also stale. Fla
 
 ### 1.6 TypeRegistry surface for §3.2a
 
-- `TypeRegistry` class: `src/scieasy/core/types/registry.py:69`.
+- `TypeRegistry` class: `src/scistudio/core/types/registry.py:69`.
 - Public methods touched by `list_types`: `all_types()` (referenced at `tools_workflow.py:245`).
 - `scan_all(include_monorepo: bool = False)` (line 426), `scan_builtins()` (line 288).
 - **MCP `list_types` tool already exists** (`tools_workflow.py:242`); ADR §3.2a's "Otherwise pick from list_types()" warning text references an existing tool — no new tool needed. The §3.2a soft-validation logic just needs to call `ctx.type_registry.has(type_name)` (verify the method exists; if not, `name in ctx.type_registry.all_types()`).
 
 ### 1.7 Frontend touchpoints
 
-`Grep mcp__scieasy|tools/list|MCPServer` over `frontend/src/` returns **zero matches**. Frontend has no MCP-tool-name references and no TypeScript types referencing the catalog. FastMCP migration is backend-only from the frontend's perspective.
+`Grep mcp__scistudio|tools/list|MCPServer` over `frontend/src/` returns **zero matches**. Frontend has no MCP-tool-name references and no TypeScript types referencing the catalog. FastMCP migration is backend-only from the frontend's perspective.
 
 ### 1.8 ADR-040 §5.1 / §5.2 mapping for FastMCP track
 
 | ADR-040 §5.2 row | Current file | Status |
 |---|---|---|
 | `pyproject.toml` (+5 LOC, fastmcp dep + package-data) | `pyproject.toml` lines 17- (`dependencies`) | No `fastmcp` entry today; needs add |
-| `server.py` (-180 +60) | `src/scieasy/ai/agent/mcp/server.py` (251 LOC) | Hand-rolled, replace with FastMCP wrapper |
-| `_registry.py` (-279) | `src/scieasy/ai/agent/mcp/_registry.py` (279 LOC) | Delete after migration |
+| `server.py` (-180 +60) | `src/scistudio/ai/agent/mcp/server.py` (251 LOC) | Hand-rolled, replace with FastMCP wrapper |
+| `_registry.py` (-279) | `src/scistudio/ai/agent/mcp/_registry.py` (279 LOC) | Delete after migration |
 | `tools_workflow.py` (±150) | 752 LOC | Convert all 10 tools to `@mcp.tool()` + Pydantic returns |
 | `tools_authoring.py` (±80) | 242 LOC | Same for 5 tools; add ADR §3.2a port-spec args |
 | `tools_inspection.py` (±120) | 566 LOC | Same for 7 tools |
@@ -163,13 +163,13 @@ The `_registry.py` module docstring (line 1) says "25 tools" — also stale. Fla
 ### 1.9 Out-of-scope for FastMCP track
 
 Do **not** touch:
-- `src/scieasy/core/**` — frozen contracts (per CLAUDE.md §7.3, agent-manager skill).
-- `src/scieasy/blocks/base/**` — foundational block classes.
-- `src/scieasy/engine/runners/**` — scheduler.
+- `src/scistudio/core/**` — frozen contracts (per CLAUDE.md §7.3, agent-manager skill).
+- `src/scistudio/blocks/base/**` — foundational block classes.
+- `src/scistudio/engine/runners/**` — scheduler.
 - `frontend/src/**` — out of scope (no MCP touchpoints).
-- `src/scieasy/api/runtime.py::create_project` / `::open_project` / `::init` — owned by Provisioning track.
-- `src/scieasy/cli/install.py` — owned by Install-parity track.
-- `skills/scieasy/SKILL.md` body content — owned by Skills track (Phase 2b). FastMCP can SHRINK the file via the relocation in §3.4, but the body content stays for Phase 2b.
+- `src/scistudio/api/runtime.py::create_project` / `::open_project` / `::init` — owned by Provisioning track.
+- `src/scistudio/cli/install.py` — owned by Install-parity track.
+- `skills/scistudio/SKILL.md` body content — owned by Skills track (Phase 2b). FastMCP can SHRINK the file via the relocation in §3.4, but the body content stays for Phase 2b.
 - ADRs, specs, CHANGELOG (only the gate workflow's own CHANGELOG entry).
 
 ---
@@ -180,26 +180,26 @@ Do **not** touch:
 
 | File | Action | Reason |
 |---|---|---|
-| `src/scieasy/agent_provisioning/` (new module) | Create | ADR §3.8; new orchestration module |
-| `src/scieasy/agent_provisioning/__init__.py` | Create | |
-| `src/scieasy/agent_provisioning/_orchestrate.py` | Create | `install_project_agent_assets` entry point |
-| `src/scieasy/agent_provisioning/claude_agents_md.py` | Create | Writes `<project>/CLAUDE.md` + `<project>/AGENTS.md` |
-| `src/scieasy/agent_provisioning/hooks.py` | Create | Writes `.claude/settings.json` + hook scripts |
-| `src/scieasy/agent_provisioning/skills.py` | Create | Writes 6 skill files to both providers' trees |
-| `src/scieasy/agent_provisioning/codex_config.py` | Create | Writes `<project>/.codex/config.toml` |
-| `src/scieasy/agent_provisioning/templates/*` | Create | Source-of-truth template files |
-| `src/scieasy/api/runtime.py` | Modify (narrow) | Wire `install_project_agent_assets` into `create_project` and `open_project` |
-| `src/scieasy/cli/main.py::init` | Modify (narrow) | Same wiring for CLI path |
-| `src/scieasy/ai/agent/terminal.py::spawn_codex` | Modify (docstring only) | Drop stale "intentional asymmetry" comment per ADR §5.2 |
+| `src/scistudio/agent_provisioning/` (new module) | Create | ADR §3.8; new orchestration module |
+| `src/scistudio/agent_provisioning/__init__.py` | Create | |
+| `src/scistudio/agent_provisioning/_orchestrate.py` | Create | `install_project_agent_assets` entry point |
+| `src/scistudio/agent_provisioning/claude_agents_md.py` | Create | Writes `<project>/CLAUDE.md` + `<project>/AGENTS.md` |
+| `src/scistudio/agent_provisioning/hooks.py` | Create | Writes `.claude/settings.json` + hook scripts |
+| `src/scistudio/agent_provisioning/skills.py` | Create | Writes 6 skill files to both providers' trees |
+| `src/scistudio/agent_provisioning/codex_config.py` | Create | Writes `<project>/.codex/config.toml` |
+| `src/scistudio/agent_provisioning/templates/*` | Create | Source-of-truth template files |
+| `src/scistudio/api/runtime.py` | Modify (narrow) | Wire `install_project_agent_assets` into `create_project` and `open_project` |
+| `src/scistudio/cli/main.py::init` | Modify (narrow) | Same wiring for CLI path |
+| `src/scistudio/ai/agent/terminal.py::spawn_codex` | Modify (docstring only) | Drop stale "intentional asymmetry" comment per ADR §5.2 |
 | `tests/agent_provisioning/` (new directory) | Create | Per ADR §5.1 |
 
 ### 2.2 Current `create_project` shape (provisioning wiring point)
 
-File: `src/scieasy/api/runtime.py`. Method: `ApiRuntime.create_project(self, name, description="", parent_path=None) -> KnownProject` at line **506**.
+File: `src/scistudio/api/runtime.py`. Method: `ApiRuntime.create_project(self, name, description="", parent_path=None) -> KnownProject` at line **506**.
 
 Key landmarks for ADR §3.8 wiring:
 - Line **507-510**: `_safe_parent_dir(parent_path)` + project_path resolution + existence check.
-- Line **517-529**: Directory scaffold (10 subdirs: `workflows`, `data/raw`, `data/zarr`, `data/parquet`, `data/artifacts`, `data/exchange`, `blocks`, `types`, `.scieasy`, `logs`). ADR §3.8 adds new dirs (`.claude/hooks/`, `.claude/skills/scieasy/<6>`, `.agents/skills/scieasy/<6>`, `.codex/`).
+- Line **517-529**: Directory scaffold (10 subdirs: `workflows`, `data/raw`, `data/zarr`, `data/parquet`, `data/artifacts`, `data/exchange`, `blocks`, `types`, `.scistudio`, `logs`). ADR §3.8 adds new dirs (`.claude/hooks/`, `.claude/skills/scistudio/<6>`, `.agents/skills/scistudio/<6>`, `.codex/`).
 - Line **531-538**: `project_id` + `KnownProject` construction.
 - Line **539-551**: `project.yaml` write.
 - Line **561-567**: `workflows/main.yaml` scaffold (issue #879). Best-effort.
@@ -211,21 +211,21 @@ Key landmarks for ADR §3.8 wiring:
 
 ### 2.3 Current `open_project` shape (idempotent top-up wiring point)
 
-File: `src/scieasy/api/runtime.py`. Method: `ApiRuntime.open_project(self, project_id_or_path: str) -> KnownProject` at line **655**.
+File: `src/scistudio/api/runtime.py`. Method: `ApiRuntime.open_project(self, project_id_or_path: str) -> KnownProject` at line **655**.
 
 Key landmarks:
 - Lines **656-665**: Resolve project (by id or by path); update `last_opened`; persist `known_projects`.
 - Line **666**: `self.active_project = candidate`.
 - Lines **667-669**: `self.data_catalog = {}; self.refresh_block_registry(); self._init_metadata_store(...)`.
 - Line **675**: `self._init_lineage_store(...)` (ADR-038).
-- Lines **676-701**: **ADR-039 re-init hook** — opt-out via `<project>/.scieasy/no_git` marker; otherwise `GitEngine(...).init_repository(...)` if `.git/` missing.
+- Lines **676-701**: **ADR-039 re-init hook** — opt-out via `<project>/.scistudio/no_git` marker; otherwise `GitEngine(...).init_repository(...)` if `.git/` missing.
 - Line **705**: `self._publish_mcp_port(...)`.
 
-**ADR §3.8 idempotent top-up**: insert `install_project_agent_assets(project_path, force=False)` after line 701 (after the git re-init block, before MCP port publish). `force=False` is the contract — existing user-edited files NOT overwritten. The `<project>/.claude/.scieasy-provision-version` marker file (ADR §3.8) governs version-driven upgrades; OQ-1 in ADR §8 is deferred to Phase 3 design.
+**ADR §3.8 idempotent top-up**: insert `install_project_agent_assets(project_path, force=False)` after line 701 (after the git re-init block, before MCP port publish). `force=False` is the contract — existing user-edited files NOT overwritten. The `<project>/.claude/.scistudio-provision-version` marker file (ADR §3.8) governs version-driven upgrades; OQ-1 in ADR §8 is deferred to Phase 3 design.
 
 ### 2.4 Current `cli/main.py::init` shape (CLI wiring point)
 
-File: `src/scieasy/cli/main.py`. Function: `init(name: str = typer.Argument("my_project", ...)) -> None` at line **93** (Typer command).
+File: `src/scistudio/cli/main.py`. Function: `init(name: str = typer.Argument("my_project", ...)) -> None` at line **93** (Typer command).
 
 Key landmarks:
 - Lines **96-99**: Path check; abort if exists.
@@ -238,7 +238,7 @@ Key landmarks:
 
 ### 2.5 `spawn_claude` / `spawn_codex` argv shape (verbatim)
 
-File: `src/scieasy/ai/agent/terminal.py`. Verified at commit `4b6c54d`.
+File: `src/scistudio/ai/agent/terminal.py`. Verified at commit `4b6c54d`.
 
 **`spawn_claude`** (line 452-510). Argv block (lines 492-501):
 
@@ -268,11 +268,11 @@ if dangerous:
 
 **File discovery for Codex**: same `cwd=project_dir` (line 553). Codex walks from project root to cwd loading `.codex/config.toml`, `AGENTS.md`, `.agents/skills/` (per ADR §2.7). No argv changes needed once provisioning lands.
 
-**`extra_env` parameter** (both functions): threaded through `PtyProcess`. Used by ADR-035 §3.5 path (a) for `SCIEASY_AI_BLOCK_RUN_DIR`. ADR-040 hooks do NOT need extra env — `$CLAUDE_PROJECT_DIR` is supplied by Claude Code itself.
+**`extra_env` parameter** (both functions): threaded through `PtyProcess`. Used by ADR-035 §3.5 path (a) for `SCISTUDIO_AI_BLOCK_RUN_DIR`. ADR-040 hooks do NOT need extra env — `$CLAUDE_PROJECT_DIR` is supplied by Claude Code itself.
 
 ### 2.6 GUI spawn path (Chrome → API → spawn)
 
-File: `src/scieasy/api/routes/ai_pty.py`. Function: `_spawn(provider, project_dir, dangerous, extra_env)` at line **346**.
+File: `src/scistudio/api/routes/ai_pty.py`. Function: `_spawn(provider, project_dir, dangerous, extra_env)` at line **346**.
 
 Routing:
 - `provider == "claude-code"` → `spawn_claude(...)` (line 365).
@@ -285,15 +285,15 @@ Engine-initiated path: ADR-035 §3.10 skeleton at lines 372+ for AI Block tab sp
 
 ### 2.7 `<session_id>` hook stdin payload
 
-`Grep session_id|sessionId` over `src/scieasy/ai/agent/` returns **zero matches**. No existing session_id handling in SciEasy code today.
+`Grep session_id|sessionId` over `src/scistudio/ai/agent/` returns **zero matches**. No existing session_id handling in SciStudio code today.
 
 **Source of `session_id`** (ADR §3.6): Claude Code's hook system passes a JSON object on stdin to each hook command. The `session_id` is one field in that payload. Verified independently against Claude Code's hooks documentation cited in ADR-040 §10 sources. Hook scripts read stdin via `json.load(sys.stdin)` — see `enforce_list_blocks_before_block_write.py` and `mark_list_blocks_called.py` in ADR §3.6.
 
-**Marker path**: `<project>/.scieasy/.session-state/<session_id>/list_blocks_called` (ADR §3.6 line 432). `.scieasy/` is gitignored already via `src/scieasy/core/versioning/gitignore_template.py:35` — `.session-state/` under it is therefore covered. **No gitignore change required.**
+**Marker path**: `<project>/.scistudio/.session-state/<session_id>/list_blocks_called` (ADR §3.6 line 432). `.scistudio/` is gitignored already via `src/scistudio/core/versioning/gitignore_template.py:35` — `.session-state/` under it is therefore covered. **No gitignore change required.**
 
 ### 2.8 ADR-038 lineage.db touch-points
 
-`lineage.db` lives at `<project>/.scieasy/lineage.db` per ADR-038 §3.5. Wired via `ApiRuntime._init_lineage_store(...)` (called at `runtime.py:675`).
+`lineage.db` lives at `<project>/.scistudio/lineage.db` per ADR-038 §3.5. Wired via `ApiRuntime._init_lineage_store(...)` (called at `runtime.py:675`).
 
 **ADR-040 §7.3 invariant**: "Hooks do not write lineage." Verified — none of the 6 hook scripts in ADR §3.6 reach for lineage. The Provisioning track must NOT introduce a lineage.db dependency in the hook scripts. The marker file at `.session-state/<session_id>/list_blocks_called` is a plain `Path.touch()`, no DB.
 
@@ -307,7 +307,7 @@ Created by both `create_project` (`api/runtime.py:517-529`) and `cli/main.py::in
 ├── data/{raw,zarr,parquet,artifacts,exchange}/
 ├── blocks/
 ├── types/
-├── .scieasy/        # gitignored
+├── .scistudio/        # gitignored
 ├── logs/
 ├── project.yaml
 └── workflows/main.yaml    # ADR §3.8: present; #879
@@ -320,11 +320,11 @@ After ADR-039 git auto-init, also has `.git/`, `.gitignore`, README (per `init_r
 - `<project>/AGENTS.md` (identical content)
 - `<project>/.claude/settings.json` (hook config per §3.6)
 - `<project>/.claude/hooks/*.py` (6 hook scripts per §3.6)
-- `<project>/.claude/skills/scieasy/<6 dirs>/SKILL.md`
-- `<project>/.agents/skills/scieasy/<6 dirs>/SKILL.md`
+- `<project>/.claude/skills/scistudio/<6 dirs>/SKILL.md`
+- `<project>/.agents/skills/scistudio/<6 dirs>/SKILL.md`
 - `<project>/.codex/config.toml`
-- `<project>/.claude/.scieasy-provision-version` (version marker)
-- `<project>/.scieasy/.session-state/` (gitignored runtime marker dir)
+- `<project>/.claude/.scistudio-provision-version` (version marker)
+- `<project>/.scistudio/.session-state/` (gitignored runtime marker dir)
 
 **None of these exist in the current scaffold**. ADR §2.6 confirmed `grep -r PreToolUse src/` finds zero hook scripts.
 
@@ -334,7 +334,7 @@ After ADR-039 git auto-init, also has `.git/`, `.gitignore`, README (per `init_r
 |---|---|
 | `tests/api/test_projects.py` | `create_project` HTTP integration. Adapt for new directories/files present after provisioning. |
 | `tests/api/test_open_project_degraded_modes.py` | ADR-039 + ADR-038 degraded-mode integration. Phase 3 must add a `provisioning_failure` degraded mode case. |
-| `tests/cli/test_init_git_init.py` (44 LOC) | `scieasy init` git auto-init test. Adapt for new provisioned files. |
+| `tests/cli/test_init_git_init.py` (44 LOC) | `scistudio init` git auto-init test. Adapt for new provisioned files. |
 | `tests/api/test_ai_pty.py` | PTY spawn integration. Spawn-time argv/cwd unaffected by provisioning but the spawned shell will now see hooks fire. |
 | `tests/api/test_ai_pty_engine_spawn.py` | Engine-initiated AI Block spawn — same. |
 | `tests/agent_provisioning/test_*.py` (new) | Per ADR §5.1. 6 test files. |
@@ -342,12 +342,12 @@ After ADR-039 git auto-init, also has `.git/`, `.gitignore`, README (per `init_r
 ### 2.11 Out-of-scope for Provisioning track
 
 Do **not** touch:
-- `src/scieasy/ai/agent/mcp/**` — owned by FastMCP track.
-- `src/scieasy/cli/install.py` — owned by Install-parity track.
-- `src/scieasy/core/versioning/**` — frozen ADR-039 surface; only modify if a NEW `.gitignore` line is needed (it isn't — `.scieasy/` already covers `.session-state/`).
-- `src/scieasy/blocks/**`, `src/scieasy/engine/**`, `src/scieasy/core/**` — frozen contracts.
+- `src/scistudio/ai/agent/mcp/**` — owned by FastMCP track.
+- `src/scistudio/cli/install.py` — owned by Install-parity track.
+- `src/scistudio/core/versioning/**` — frozen ADR-039 surface; only modify if a NEW `.gitignore` line is needed (it isn't — `.scistudio/` already covers `.session-state/`).
+- `src/scistudio/blocks/**`, `src/scistudio/engine/**`, `src/scistudio/core/**` — frozen contracts.
 - `frontend/src/**` — out of scope.
-- `skills/scieasy/SKILL.md` body content — Skills track.
+- `skills/scistudio/SKILL.md` body content — Skills track.
 - ADR-040 itself, ADR-038, ADR-039, CHANGELOG.
 
 ---
@@ -358,37 +358,37 @@ Do **not** touch:
 
 | File | Action | Reason |
 |---|---|---|
-| `src/scieasy/cli/install.py` | Modify | ADR §3.9 cross-install + Codex project-scope branch + remove "force user-scope" fallback |
+| `src/scistudio/cli/install.py` | Modify | ADR §3.9 cross-install + Codex project-scope branch + remove "force user-scope" fallback |
 | `tests/cli/test_install.py` | Modify | Add cross-install + project-scope codex test cases |
 
 ### 3.2 `install.py` current shape (verbatim line numbers)
 
-File: `src/scieasy/cli/install.py` (574 LOC).
+File: `src/scistudio/cli/install.py` (574 LOC).
 
 **Constants** (line 41):
 ```python
-MCP_SERVER_NAME = "scieasy"
+MCP_SERVER_NAME = "scistudio"
 ```
 
 **`InstallResult` dataclass** (line 44-61): `(target, scope, path, action, detail)`.
 
 **Helpers**:
-- `_scieasy_command_for_env() -> tuple[str, list[str]]` (line 69-88): returns `(sys.executable, ["-m", "scieasy"])`. Hotfix 2026-05-14 changed from `shutil.which("scieasy")` to `sys.executable -m scieasy` to avoid stale-PATH bug. **Preserve**.
+- `_scistudio_command_for_env() -> tuple[str, list[str]]` (line 69-88): returns `(sys.executable, ["-m", "scistudio"])`. Hotfix 2026-05-14 changed from `shutil.which("scistudio")` to `sys.executable -m scistudio` to avoid stale-PATH bug. **Preserve**.
 - `_mcp_entry_payload(project_dir: Path | None) -> dict` (line 91-106): builds `{command, args, env}` entry for Claude/Codex config files.
 - `_atomic_write_json(path, payload)` (line 109-114): write-then-rename.
 
 **Claude target**:
 - `_claude_user_config_path()` (122) → `Path.home() / ".claude.json"`.
 - `_claude_project_config_path(cwd)` (126) → `cwd / ".mcp.json"`.
-- `_install_claude(scope, cwd)` (130-167): mutates `mcpServers.scieasy` in either user or project config; returns `InstallResult`.
+- `_install_claude(scope, cwd)` (130-167): mutates `mcpServers.scistudio` in either user or project config; returns `InstallResult`.
 - `_remove_claude(scope, cwd)` (170-200): symmetric removal.
 
 **Codex target**:
 - `_codex_config_path()` (208) → `Path.home() / ".codex" / "config.toml"`. **HARD-CODED to user scope today** — ADR §3.9 needs a project-scope variant: `cwd / ".codex" / "config.toml"`.
 - `_format_toml_string(s)` (212): TOML basic-string escaper.
-- `_render_codex_block(project_dir: Path | None) -> str` (222-240): renders `[mcp_servers.scieasy]` block. Same shape ADR §3.7 reuses for `<project>/.codex/config.toml`.
+- `_render_codex_block(project_dir: Path | None) -> str` (222-240): renders `[mcp_servers.scistudio]` block. Same shape ADR §3.7 reuses for `<project>/.codex/config.toml`.
   ```python
-  command, prefix_args = _scieasy_command_for_env()
+  command, prefix_args = _scistudio_command_for_env()
   args_literal = json.dumps([*prefix_args, "mcp-bridge"])
   lines = [
       f"[mcp_servers.{MCP_SERVER_NAME}]",
@@ -398,17 +398,17 @@ MCP_SERVER_NAME = "scieasy"
   if project_dir is not None:
       lines.append("")
       lines.append(f"[mcp_servers.{MCP_SERVER_NAME}.env]")
-      lines.append(f"SCIEASY_PROJECT_DIR = {_format_toml_string(str(project_dir))}")
+      lines.append(f"SCISTUDIO_PROJECT_DIR = {_format_toml_string(str(project_dir))}")
   return "\n".join(lines) + "\n"
   ```
-- `_strip_codex_block(existing)` (249-284): removes `[mcp_servers.scieasy]` + nested `[.env]` from existing TOML text.
+- `_strip_codex_block(existing)` (249-284): removes `[mcp_servers.scistudio]` + nested `[.env]` from existing TOML text.
 - `_install_codex(scope, cwd)` (287-331): writes the TOML block to `~/.codex/config.toml` regardless of scope. **Currently does not support project scope.**
 - `_remove_codex(scope, cwd)` (334-351): symmetric.
 
 **Skill target** (Claude only today):
-- `_skill_dest(scope, cwd)` (359-364): returns `~/.claude/skills/scieasy` (user) or `<cwd>/.claude/skills/scieasy` (project). **No `.agents/skills/` path today.**
-- `_find_skill_source()` (367-393): walks up from `__file__` to find `<repo>/skills/scieasy/SKILL.md`. **Fails for wheel install (#824)** — ADR §3.4 fixes via `importlib.resources`.
-- `_install_skill(scope, cwd)` (396-416): `shutil.copytree(src, dest)`. **Single destination; ADR §3.9 needs second destination (`~/.agents/skills/scieasy`).**
+- `_skill_dest(scope, cwd)` (359-364): returns `~/.claude/skills/scistudio` (user) or `<cwd>/.claude/skills/scistudio` (project). **No `.agents/skills/` path today.**
+- `_find_skill_source()` (367-393): walks up from `__file__` to find `<repo>/skills/scistudio/SKILL.md`. **Fails for wheel install (#824)** — ADR §3.4 fixes via `importlib.resources`.
+- `_install_skill(scope, cwd)` (396-416): `shutil.copytree(src, dest)`. **Single destination; ADR §3.9 needs second destination (`~/.agents/skills/scistudio`).**
 - `_remove_skill(scope, cwd)` (419-424): `shutil.rmtree(dest)`. Single destination.
 
 **Orchestration** (line 432):
@@ -444,41 +444,41 @@ elif tgt == "codex":
 
 - `_emit_results(results)` (line 510): prints `[target/scope] action: path` + detail.
 - `_typer_command(target, scope, skill, do_all, remove)` (line 517-560): Typer entry point. Calls `perform_install` and emits results.
-- `register(app)` (line 563): mounts as `scieasy install`.
+- `register(app)` (line 563): mounts as `scistudio install`.
 
 ### 3.4 Callsites of install.py internals
 
-`Grep _install_skill|_install_codex|_render_codex_block|MCP_SERVER_NAME|_mcp_entry_payload|_scieasy_command_for_env` across repo:
+`Grep _install_skill|_install_codex|_render_codex_block|MCP_SERVER_NAME|_mcp_entry_payload|_scistudio_command_for_env` across repo:
 
 | Callsite | What it imports |
 |---|---|
-| `src/scieasy/__main__.py` | (Phase 1014 fix) — imports `MCP_SERVER_NAME`, `_mcp_entry_payload`, `_scieasy_command_for_env` for the bridge entry-point. **Verify** these survive ADR §3.9 changes. |
-| `src/scieasy/ai/agent/terminal.py:418` | `from scieasy.cli.install import MCP_SERVER_NAME, _mcp_entry_payload` — used by `_ensure_mcp_config` to write `<project>/.scieasy/mcp.json` for `--mcp-config`. **Must keep**. |
+| `src/scistudio/__main__.py` | (Phase 1014 fix) — imports `MCP_SERVER_NAME`, `_mcp_entry_payload`, `_scistudio_command_for_env` for the bridge entry-point. **Verify** these survive ADR §3.9 changes. |
+| `src/scistudio/ai/agent/terminal.py:418` | `from scistudio.cli.install import MCP_SERVER_NAME, _mcp_entry_payload` — used by `_ensure_mcp_config` to write `<project>/.scistudio/mcp.json` for `--mcp-config`. **Must keep**. |
 | `tests/cli/test_install.py` | Tests for all install paths. |
 | `tests/cli/test_dunder_main.py` | Tests for `__main__.py` consumers. |
-| `skills/scieasy/SKILL.md` | Documentation references. |
+| `skills/scistudio/SKILL.md` | Documentation references. |
 
 ### 3.5 Skill source-path resolution (#824 wheel-install bug)
 
-Current `_find_skill_source` (`install.py:367-393`) walks up from `Path(__file__).resolve().parents` looking for a `skills/scieasy/SKILL.md` sibling. The same pattern is in `system_prompt.py::_load_skill_md`.
+Current `_find_skill_source` (`install.py:367-393`) walks up from `Path(__file__).resolve().parents` looking for a `skills/scistudio/SKILL.md` sibling. The same pattern is in `system_prompt.py::_load_skill_md`.
 
-**Failure mode for wheel installs**: `skills/` lives at repo root, NOT inside `src/scieasy/`. When pip installs the wheel, `skills/` does not land in `site-packages/`. The walk-up logic hits `site-packages/` (no `skills/` sibling), then walks further up to the venv root, then to `/`, then raises `FileNotFoundError`.
+**Failure mode for wheel installs**: `skills/` lives at repo root, NOT inside `src/scistudio/`. When pip installs the wheel, `skills/` does not land in `site-packages/`. The walk-up logic hits `site-packages/` (no `skills/` sibling), then walks further up to the venv root, then to `/`, then raises `FileNotFoundError`.
 
-**ADR §3.4 fix**: relocate `skills/` → `src/scieasy/_skills/` and use `importlib.resources`:
+**ADR §3.4 fix**: relocate `skills/` → `src/scistudio/_skills/` and use `importlib.resources`:
 
 ```python
 from importlib.resources import files
 def _load_skill_md() -> str:
-    return (files("scieasy") / "_skills" / "scieasy" / "SKILL.md").read_text("utf-8")
+    return (files("scistudio") / "_skills" / "scistudio" / "SKILL.md").read_text("utf-8")
 ```
 
-Both `system_prompt.py::_load_skill_md` AND `install.py::_find_skill_source` switch. Add `[tool.setuptools.package-data] scieasy = ["_skills/scieasy/**/*.md"]` to `pyproject.toml`.
+Both `system_prompt.py::_load_skill_md` AND `install.py::_find_skill_source` switch. Add `[tool.setuptools.package-data] scistudio = ["_skills/scistudio/**/*.md"]` to `pyproject.toml`.
 
 **Note**: the relocation is owned by Skills track (Phase 2 in ADR §6); Install-parity track only updates `_find_skill_source` to call the new location, which is a 1-line change.
 
 ### 3.6 `~/.agents/skills/` references
 
-`Grep .agents/skills|~/.agents` returns **zero hits in src/**. Only matches are in `docs/planning/adr-040-checklist.md`, `docs/adr/ADR-040.md`, `CHANGELOG.md`. Confirms ADR-040 §2.7 — SciEasy installs nothing at `~/.agents/skills/` today. ADR §3.9 adds this as a parallel destination in `_install_skill`/`_remove_skill`.
+`Grep .agents/skills|~/.agents` returns **zero hits in src/**. Only matches are in `docs/planning/adr-040-checklist.md`, `docs/adr/ADR-040.md`, `CHANGELOG.md`. Confirms ADR-040 §2.7 — SciStudio installs nothing at `~/.agents/skills/` today. ADR §3.9 adds this as a parallel destination in `_install_skill`/`_remove_skill`.
 
 ### 3.7 Test files touching this track
 
@@ -491,7 +491,7 @@ Both `system_prompt.py::_load_skill_md` AND `install.py::_find_skill_source` swi
 **Phase 4 must add**:
 - Cross-install across `.claude/skills/` + `.agents/skills/` for all 6 skill files.
 - `_remove_skill` symmetry across both paths.
-- Codex project-scope branch: `scieasy install --target codex --scope project` writes `<cwd>/.codex/config.toml`.
+- Codex project-scope branch: `scistudio install --target codex --scope project` writes `<cwd>/.codex/config.toml`.
 - Removed fallback: assertion that "wrote to user scope" detail no longer surfaces at project scope.
 
 ### 3.8 ADR-040 §3.7 vs §3.9 — note for I40d
@@ -499,18 +499,18 @@ Both `system_prompt.py::_load_skill_md` AND `install.py::_find_skill_source` swi
 ADR §3.7 (Codex MCP at `<project>/.codex/config.toml`) and ADR §3.9 (cross-install) overlap: both write to `<project>/.codex/config.toml`. The split:
 
 - **§3.7** is the **auto-provisioning** path (Provisioning track owns the call site at `install_project_agent_assets`).
-- **§3.9** is the **CLI power-user** path (Install-parity track owns the `scieasy install --target codex --scope project` branch).
+- **§3.9** is the **CLI power-user** path (Install-parity track owns the `scistudio install --target codex --scope project` branch).
 
 They MUST produce identical TOML output. Both reuse `_render_codex_block` (Install-parity track owns). Provisioning track depends on Install-parity track exporting `_render_codex_block` cleanly (already public in module scope). No circular dep — Provisioning imports from `install`, not the reverse.
 
 ### 3.9 Out-of-scope for Install-parity track
 
 Do **not** touch:
-- `src/scieasy/ai/agent/mcp/**` — FastMCP track.
-- `src/scieasy/api/runtime.py`, `src/scieasy/cli/main.py::init`, `src/scieasy/agent_provisioning/**` — Provisioning track.
-- `src/scieasy/__main__.py` — only modify if a public symbol it imports changes name; otherwise leave alone.
-- `src/scieasy/ai/agent/terminal.py` — Provisioning track owns the docstring edit at line 529-536; Install-parity track must keep `_mcp_entry_payload` import surface stable.
-- `src/scieasy/core/**`, `src/scieasy/blocks/**`, `src/scieasy/engine/**` — frozen.
+- `src/scistudio/ai/agent/mcp/**` — FastMCP track.
+- `src/scistudio/api/runtime.py`, `src/scistudio/cli/main.py::init`, `src/scistudio/agent_provisioning/**` — Provisioning track.
+- `src/scistudio/__main__.py` — only modify if a public symbol it imports changes name; otherwise leave alone.
+- `src/scistudio/ai/agent/terminal.py` — Provisioning track owns the docstring edit at line 529-536; Install-parity track must keep `_mcp_entry_payload` import surface stable.
+- `src/scistudio/core/**`, `src/scistudio/blocks/**`, `src/scistudio/engine/**` — frozen.
 - `frontend/src/**` — out of scope.
 - ADRs/specs/CHANGELOG (only gate-workflow CHANGELOG entry).
 
@@ -522,23 +522,23 @@ Do **not** touch:
 
 | File | Action | Reason |
 |---|---|---|
-| `skills/scieasy/SKILL.md` (current, 372 LOC) | Relocate + rewrite | ADR §3.4 — move to `src/scieasy/_skills/scieasy/SKILL.md`, shrink to ~50 LOC base |
-| `src/scieasy/_skills/scieasy/SKILL.md` (new) | Create | Thin base index per ADR §3.4 |
-| `src/scieasy/_skills/scieasy/scieasy-build-workflow/SKILL.md` (new) | Create | Task skill |
-| `src/scieasy/_skills/scieasy/scieasy-write-block/SKILL.md` (new) | Create | Task skill (embeds #875 block-reuse rule + §3.4 port-type rule) |
-| `src/scieasy/_skills/scieasy/scieasy-debug-run/SKILL.md` (new) | Create | Task skill |
-| `src/scieasy/_skills/scieasy/scieasy-inspect-data/SKILL.md` (new) | Create | Task skill |
-| `src/scieasy/_skills/scieasy/scieasy-project-qa/SKILL.md` (new) | Create | Task skill |
-| `pyproject.toml` | Modify (narrow) | Add `[tool.setuptools.package-data]` entry for `_skills/scieasy/**/*.md` |
+| `skills/scistudio/SKILL.md` (current, 372 LOC) | Relocate + rewrite | ADR §3.4 — move to `src/scistudio/_skills/scistudio/SKILL.md`, shrink to ~50 LOC base |
+| `src/scistudio/_skills/scistudio/SKILL.md` (new) | Create | Thin base index per ADR §3.4 |
+| `src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md` (new) | Create | Task skill |
+| `src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md` (new) | Create | Task skill (embeds #875 block-reuse rule + §3.4 port-type rule) |
+| `src/scistudio/_skills/scistudio/scistudio-debug-run/SKILL.md` (new) | Create | Task skill |
+| `src/scistudio/_skills/scistudio/scistudio-inspect-data/SKILL.md` (new) | Create | Task skill |
+| `src/scistudio/_skills/scistudio/scistudio-project-qa/SKILL.md` (new) | Create | Task skill |
+| `pyproject.toml` | Modify (narrow) | Add `[tool.setuptools.package-data]` entry for `_skills/scistudio/**/*.md` |
 
-### 4.2 Current `skills/scieasy/SKILL.md` structure
+### 4.2 Current `skills/scistudio/SKILL.md` structure
 
-File: `skills/scieasy/SKILL.md` at **repo root** (372 LOC).
+File: `skills/scistudio/SKILL.md` at **repo root** (372 LOC).
 
-**Frontmatter** (lines 1-7): YAML with `name: scieasy` + description.
+**Frontmatter** (lines 1-7): YAML with `name: scistudio` + description.
 
 **Body structure**:
-- `# SciEasy` (line 9): identity heading.
+- `# SciStudio` (line 9): identity heading.
 - `## Identity & scope` (line ~13)
 - `## Environment assumptions (read first)` (line ~21): the 4 hard rules — backend running, MCP attached, prefer MCP over CLI, cwd = project root.
 - `<!-- tool_catalog:begin -->` at **line 156**.
@@ -546,24 +546,24 @@ File: `skills/scieasy/SKILL.md` at **repo root** (372 LOC).
 - `## See also` at end.
 
 **Identity continuity needs for Phase 2b**:
-- Preserve `name: scieasy` frontmatter (compose_system_prompt + install.py both depend on it).
+- Preserve `name: scistudio` frontmatter (compose_system_prompt + install.py both depend on it).
 - Preserve `<!-- tool_catalog:begin/end -->` markers (system_prompt.py:33-34 splices into them).
 - Add a new `<!-- project_context:begin/end -->` marker pair (ADR §3.3) — owned by FastMCP track for the renderer; Skills track must include the marker in the base SKILL.md so the splice has a target.
 
 ### 4.3 Skill-source resolution today
 
-Both `system_prompt.py::_load_skill_md` and `install.py::_find_skill_source` walk up from `__file__` looking for `skills/scieasy/SKILL.md` at repo root.
+Both `system_prompt.py::_load_skill_md` and `install.py::_find_skill_source` walk up from `__file__` looking for `skills/scistudio/SKILL.md` at repo root.
 
-After ADR §3.4 relocation, both switch to `importlib.resources.files("scieasy") / "_skills" / "scieasy" / "SKILL.md"`. Phase 2 (per ADR §6) owns the relocation; Phase 1 (FastMCP) updates `system_prompt.py`; Phase 4 (Install-parity) updates `install.py`.
+After ADR §3.4 relocation, both switch to `importlib.resources.files("scistudio") / "_skills" / "scistudio" / "SKILL.md"`. Phase 2 (per ADR §6) owns the relocation; Phase 1 (FastMCP) updates `system_prompt.py`; Phase 4 (Install-parity) updates `install.py`.
 
 ### 4.4 Examples subdirectory
 
-`skills/scieasy/examples/` exists. Phase 2b should decide whether to keep this in `_skills/scieasy/examples/` or move per-task examples under each task skill's directory. Out of scope here — flag for Phase 2b skill-design investigation.
+`skills/scistudio/examples/` exists. Phase 2b should decide whether to keep this in `_skills/scistudio/examples/` or move per-task examples under each task skill's directory. Out of scope here — flag for Phase 2b skill-design investigation.
 
 ### 4.5 Out-of-scope for Skills track
 
 Do **not** touch:
-- Anything outside `skills/scieasy/` (legacy) and `src/scieasy/_skills/` (post-relocation).
+- Anything outside `skills/scistudio/` (legacy) and `src/scistudio/_skills/` (post-relocation).
 - `pyproject.toml` outside the single `[tool.setuptools.package-data]` addition (do not bump versions, add new tools, etc.).
 - Any Python source — Skills track is content-only (markdown).
 - `system_prompt.py`, `install.py` — those edits are owned by FastMCP / Install-parity tracks.
@@ -576,12 +576,12 @@ The 6 hook scripts in ADR §3.6 are **template files** owned by Provisioning tra
 
 | Template | Hook type | Matcher | Purpose |
 |---|---|---|---|
-| `hook_deny_scieasy_cli.py` | PreToolUse | `Bash` | Block `scieasy` CLI calls (closes #875 CLI-vs-MCP half) |
+| `hook_deny_scistudio_cli.py` | PreToolUse | `Bash` | Block `scistudio` CLI calls (closes #875 CLI-vs-MCP half) |
 | `hook_protect_workflow_yaml.py` | PreToolUse | `Edit\|Write` | Block direct edits to `workflows/*.yaml` |
-| `hook_enforce_list_blocks_before_block_write.py` | PreToolUse | `Edit\|Write\|Bash\|mcp__scieasy__scaffold_block` | Closes #875 block-reuse half via session-keyed marker |
-| `hook_remind_poll_status.py` | PostToolUse | `mcp__scieasy__run_workflow` | Inject reminder to poll `get_run_status` |
-| `hook_mark_list_blocks_called.py` | PostToolUse | `mcp__scieasy__list_blocks` | Write session marker for §3.6 enforcement |
-| `hook_enforce_concrete_port_types.py` | PostToolUse | `Edit\|Write\|mcp__scieasy__scaffold_block` | AST-scan blocks for `DataObject`-typed ports (#§3.2a L5) |
+| `hook_enforce_list_blocks_before_block_write.py` | PreToolUse | `Edit\|Write\|Bash\|mcp__scistudio__scaffold_block` | Closes #875 block-reuse half via session-keyed marker |
+| `hook_remind_poll_status.py` | PostToolUse | `mcp__scistudio__run_workflow` | Inject reminder to poll `get_run_status` |
+| `hook_mark_list_blocks_called.py` | PostToolUse | `mcp__scistudio__list_blocks` | Write session marker for §3.6 enforcement |
+| `hook_enforce_concrete_port_types.py` | PostToolUse | `Edit\|Write\|mcp__scistudio__scaffold_block` | AST-scan blocks for `DataObject`-typed ports (#§3.2a L5) |
 
 All Python; all read stdin JSON payload from Claude Code; exit code 2 = block; exit code 0 = pass.
 
@@ -610,25 +610,25 @@ No ADR-040-specific shared fixtures needed beyond `tmp_project_dir`; each track 
 
 Three forbidden contracts:
 
-1. `scieasy.core` may not import `scieasy.blocks`, `scieasy.engine`, `scieasy.api`, `scieasy.ai`, `scieasy.workflow`. Exception: `scieasy.core.lineage.recorder -> scieasy.engine.events` (TYPE_CHECKING only).
-2. `scieasy.blocks` may not import `scieasy.engine`, `scieasy.api`, `scieasy.ai`. Exception: `scieasy.blocks.ai.ai_block -> scieasy.engine.pty_control`.
-3. `scieasy.engine` may not import `scieasy.api`, `scieasy.ai`.
+1. `scistudio.core` may not import `scistudio.blocks`, `scistudio.engine`, `scistudio.api`, `scistudio.ai`, `scistudio.workflow`. Exception: `scistudio.core.lineage.recorder -> scistudio.engine.events` (TYPE_CHECKING only).
+2. `scistudio.blocks` may not import `scistudio.engine`, `scistudio.api`, `scistudio.ai`. Exception: `scistudio.blocks.ai.ai_block -> scistudio.engine.pty_control`.
+3. `scistudio.engine` may not import `scistudio.api`, `scistudio.ai`.
 
 **Impact on ADR-040**:
-- `src/scieasy/agent_provisioning/` is a new top-level subpackage. It does not appear in any contract — no constraint. Recommend Phase 3 (Provisioning) add a contract: `scieasy.agent_provisioning` may not import `scieasy.api` (provisioning is filesystem-only) — flag for ADR-040 audit but not a blocking requirement.
-- `scieasy.ai.agent.mcp` may freely import `scieasy.ai.agent.system_prompt` (no contract). FastMCP migration introduces no new dep edges.
-- `src/scieasy/_skills/` is data, not a Python package — no import-linter implications.
+- `src/scistudio/agent_provisioning/` is a new top-level subpackage. It does not appear in any contract — no constraint. Recommend Phase 3 (Provisioning) add a contract: `scistudio.agent_provisioning` may not import `scistudio.api` (provisioning is filesystem-only) — flag for ADR-040 audit but not a blocking requirement.
+- `scistudio.ai.agent.mcp` may freely import `scistudio.ai.agent.system_prompt` (no contract). FastMCP migration introduces no new dep edges.
+- `src/scistudio/_skills/` is data, not a Python package — no import-linter implications.
 
 ### 6.4 mypy strict-mode boundaries
 
 `pyproject.toml [tool.mypy]`:
 - `python_version = "3.11"` — pinned (zarr 3.2+ uses PEP 695 syntax requires 3.12+; that's the only known constraint).
-- `disallow_untyped_defs = true` — strict typing enforced for all `scieasy.*` modules.
+- `disallow_untyped_defs = true` — strict typing enforced for all `scistudio.*` modules.
 - `ignore_missing_imports = true` — third-party stubs may be missing.
 - Overrides for `zarr` (skip imports).
 
 **Impact on ADR-040**:
-- New module `src/scieasy/agent_provisioning/` falls under the same `disallow_untyped_defs = true` regime. Skeleton agents must add full type annotations.
+- New module `src/scistudio/agent_provisioning/` falls under the same `disallow_untyped_defs = true` regime. Skeleton agents must add full type annotations.
 - `fastmcp` is a new dependency (Phase 1). Confirm `fastmcp` ships type stubs; if not, add to mypy ignore-missing-imports override list.
 
 ### 6.5 CI parity command
@@ -642,16 +642,16 @@ Post-PR #1010, `--timeout=60` is in `pyproject.toml [tool.pytest.ini_options]` s
 
 ### 6.6 Coverage gate
 
-`pyproject.toml`: `--cov-fail-under=70` (temporarily lowered post-PR #808 rollback). New code in `src/scieasy/agent_provisioning/`, the FastMCP-rewritten `mcp/` files, and `install.py` extensions all contribute to the coverage gate. Skeleton phase tests typically `@pytest.mark.skip` so coverage of skeleton stubs is zero — acceptable (skipped tests don't lower coverage). Impl phase must restore coverage.
+`pyproject.toml`: `--cov-fail-under=70` (temporarily lowered post-PR #808 rollback). New code in `src/scistudio/agent_provisioning/`, the FastMCP-rewritten `mcp/` files, and `install.py` extensions all contribute to the coverage gate. Skeleton phase tests typically `@pytest.mark.skip` so coverage of skeleton stubs is zero — acceptable (skipped tests don't lower coverage). Impl phase must restore coverage.
 
 ### 6.7 Per-track out-of-scope file lists (consolidated)
 
 | Track | Must NOT touch |
 |---|---|
-| FastMCP | `core/**`, `blocks/base/**`, `engine/runners/**`, `frontend/**`, `api/runtime.py::create_project`, `api/runtime.py::open_project`, `cli/install.py`, `skills/scieasy/SKILL.md` body, ADRs/specs/CHANGELOG. |
-| Provisioning | `ai/agent/mcp/**`, `cli/install.py`, `core/versioning/**` (read-only ref), `blocks/**`, `engine/**`, `core/**`, `frontend/**`, `skills/scieasy/SKILL.md` body, ADRs/specs/CHANGELOG. |
+| FastMCP | `core/**`, `blocks/base/**`, `engine/runners/**`, `frontend/**`, `api/runtime.py::create_project`, `api/runtime.py::open_project`, `cli/install.py`, `skills/scistudio/SKILL.md` body, ADRs/specs/CHANGELOG. |
+| Provisioning | `ai/agent/mcp/**`, `cli/install.py`, `core/versioning/**` (read-only ref), `blocks/**`, `engine/**`, `core/**`, `frontend/**`, `skills/scistudio/SKILL.md` body, ADRs/specs/CHANGELOG. |
 | Install-parity | `ai/agent/mcp/**`, `api/runtime.py`, `cli/main.py::init`, `agent_provisioning/**`, `__main__.py` (unless symbol-renaming forces a follow-up), `ai/agent/terminal.py` (only Provisioning may touch docstring), `core/**`, `blocks/**`, `engine/**`, `frontend/**`, ADRs/specs/CHANGELOG. |
-| Skills | Anything outside `skills/scieasy/` and `src/scieasy/_skills/`; Python source; `system_prompt.py`; `install.py`. |
+| Skills | Anything outside `skills/scistudio/` and `src/scistudio/_skills/`; Python source; `system_prompt.py`; `install.py`. |
 | Hook scripts | Same as Provisioning (sub-track). |
 
 ### 6.8 Tracking-branch + PR target convention (from checklist §0.5)
@@ -670,8 +670,8 @@ This manifest's own PR is a docs PR and targets `main` directly (per dispatch pr
 
 | ADR-040 §5.1 / §5.2 row | Current-tree reality | Action by impl agents |
 |---|---|---|
-| §5.1 "new file: `src/scieasy/ai/agent/mcp/_context.py`" — NOT in inventory | **EXISTS today** (203 LOC) | No action: this is a current-tree file ADR didn't enumerate. FastMCP migration keeps it intact. |
-| §5.1 "new file: `src/scieasy/ai/agent/mcp/__init__.py`" — NOT in inventory | **EXISTS today** (38 LOC) | Minor edit only — drop the "25 tools" stale phrasing. |
+| §5.1 "new file: `src/scistudio/ai/agent/mcp/_context.py`" — NOT in inventory | **EXISTS today** (203 LOC) | No action: this is a current-tree file ADR didn't enumerate. FastMCP migration keeps it intact. |
+| §5.1 "new file: `src/scistudio/ai/agent/mcp/__init__.py`" — NOT in inventory | **EXISTS today** (38 LOC) | Minor edit only — drop the "25 tools" stale phrasing. |
 | §5.2 row "`install.py:489-498`" force-user-scope fallback | Actual line range: **487-498** at commit `4b6c54d` | Line numbers drift between ADR drafting (2026-05-15) and now. Use **the verbatim block** as the search anchor — quoted in §3.2 above. |
 | ADR-039 git auto-init "skeleton" | **PRODUCTION LIVE** at `api/runtime.py:598-610` + `:686-701` + `cli/main.py:155-174` | Provisioning track inserts AFTER git init; verify ordering doesn't break ADR-039's initial-commit semantics. |
 | ADR §3.8 "3 hook scripts" (line 475) | ADR §3.6 actually defines **6 hook scripts** | Authoritative count: 6 (matches §3.6 detail). Flag in §8. |
@@ -688,15 +688,15 @@ This manifest's own PR is a docs PR and targets `main` directly (per dispatch pr
 
 The codebase was authored when there were 25 baseline tools; ADR-035 added a 26th (`finish_ai_block`). Multiple comments/docstrings still say "25 tools":
 
-- `src/scieasy/ai/agent/mcp/_registry.py:1` — module docstring ("single source of truth for the 25 tools").
-- `src/scieasy/ai/agent/mcp/_registry.py:267-268` — `all_names()` docstring ("25 baseline tools + finish_ai_block ... = 26 tools").
-- `src/scieasy/ai/agent/mcp/__init__.py:14` — "T-ECA-202..205 (implementation) — fills in the 25 tool functions".
-- `src/scieasy/ai/agent/mcp/__init__.py:19` — "The 25 tools are split across four modules".
-- `src/scieasy/ai/agent/mcp/__init__.py:26` — `tools_inspection` docstring claims **"7 tools"** which IS correct.
-- `src/scieasy/ai/agent/mcp/__init__.py:23` — `tools_workflow` claims **"9 tools"** but actually has **10** (10 = 9 + `finish_ai_block`).
-- `src/scieasy/ai/agent/mcp/server.py:7,54,188,209` — "25 tools" / "25 registered tools".
-- `src/scieasy/ai/agent/mcp/runtime.py:12,16` — "25 MCP tools".
-- `src/scieasy/cli/install.py:4` — comment header refers to "25-tool MCP surface".
+- `src/scistudio/ai/agent/mcp/_registry.py:1` — module docstring ("single source of truth for the 25 tools").
+- `src/scistudio/ai/agent/mcp/_registry.py:267-268` — `all_names()` docstring ("25 baseline tools + finish_ai_block ... = 26 tools").
+- `src/scistudio/ai/agent/mcp/__init__.py:14` — "T-ECA-202..205 (implementation) — fills in the 25 tool functions".
+- `src/scistudio/ai/agent/mcp/__init__.py:19` — "The 25 tools are split across four modules".
+- `src/scistudio/ai/agent/mcp/__init__.py:26` — `tools_inspection` docstring claims **"7 tools"** which IS correct.
+- `src/scistudio/ai/agent/mcp/__init__.py:23` — `tools_workflow` claims **"9 tools"** but actually has **10** (10 = 9 + `finish_ai_block`).
+- `src/scistudio/ai/agent/mcp/server.py:7,54,188,209` — "25 tools" / "25 registered tools".
+- `src/scistudio/ai/agent/mcp/runtime.py:12,16` — "25 MCP tools".
+- `src/scistudio/cli/install.py:4` — comment header refers to "25-tool MCP surface".
 
 These are all stale. Most disappear naturally as files are rewritten/deleted by FastMCP migration. None are code bugs (they're comments). **Do not fix in this manifest's PR** — let track agents update during their own PRs.
 
@@ -718,7 +718,7 @@ ADR-040 §2.7 says the "force user-scope for codex" comment is at `install.py:48
 
 ### 8.5 `_registry.py` docstring undercounts `tools_workflow` (9 vs 10)
 
-`src/scieasy/ai/agent/mcp/__init__.py:23` says `tools_workflow` has "9 tools". Actually 10 (after ADR-035 added `finish_ai_block` to the workflow category). Stale comment; cleaned up naturally during FastMCP migration.
+`src/scistudio/ai/agent/mcp/__init__.py:23` says `tools_workflow` has "9 tools". Actually 10 (after ADR-035 added `finish_ai_block` to the workflow category). Stale comment; cleaned up naturally during FastMCP migration.
 
 ### 8.6 ADR §3.2a `scaffold_block` signature widening
 
@@ -742,7 +742,7 @@ Flag for Phase 1 audit (A40-skel) — verify the skeleton signatures match what 
 
 ### 8.7 ADR-035 `finish_ai_block` category placement
 
-`finish_ai_block` is registered under category `"workflow"` (`_registry.py:248`) with mutation `"write"`. The ADR-040 §3.4 skill split groups skills by MCP category, but `finish_ai_block` is a fundamentally different concern from `write_workflow`/`run_workflow` — it's an AI-Block-internal signaling tool. This is **not a bug** — the category is correctly "workflow" — but it's an awkward fit for the `scieasy-build-workflow` skill split. Phase 2b skill-design investigation should decide whether to call it out under a dedicated section in `scieasy-write-block` (it's most relevant to AI Block authoring) or in `scieasy-debug-run`.
+`finish_ai_block` is registered under category `"workflow"` (`_registry.py:248`) with mutation `"write"`. The ADR-040 §3.4 skill split groups skills by MCP category, but `finish_ai_block` is a fundamentally different concern from `write_workflow`/`run_workflow` — it's an AI-Block-internal signaling tool. This is **not a bug** — the category is correctly "workflow" — but it's an awkward fit for the `scistudio-build-workflow` skill split. Phase 2b skill-design investigation should decide whether to call it out under a dedicated section in `scistudio-write-block` (it's most relevant to AI Block authoring) or in `scistudio-debug-run`.
 
 ### 8.8 (none — all flagged items above are docs/comment drift, no source bugs)
 

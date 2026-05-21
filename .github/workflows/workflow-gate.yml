@@ -143,7 +143,7 @@ jobs:
           import os
           from pathlib import Path
 
-          from scieasy.qa.governance import human_bypass_guard
+          from scistudio.qa.governance import human_bypass_guard
 
           report = human_bypass_guard.check(
               pr=json.loads(os.environ["PR_METADATA"]),
@@ -189,7 +189,7 @@ jobs:
 
             while IFS= read -r record; do
               [ -n "$record" ] || continue
-              PYTHONPATH=src python -m scieasy.qa.governance.gate_record ci \
+              PYTHONPATH=src python -m scistudio.qa.governance.gate_record ci \
                 --gate-record "$record" \
                 --base "origin/$BASE_REF" \
                 --head HEAD \
@@ -226,7 +226,7 @@ jobs:
           import subprocess
           from pathlib import Path
 
-          from scieasy.qa.governance import (
+          from scistudio.qa.governance import (
               core_change_guard,
               docs_landing,
               human_bypass_guard,

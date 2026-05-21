@@ -4,7 +4,7 @@ title: "ADR-043 In-Tree, Imaging, and SRS Migration to IO Format Capabilities"
 status: Draft
 feature_branch: track/adr-043/core-blocks-and-imaging
 created: 2026-05-20
-input: "Owner directive (2026-05-20): coordinate migration of in-tree LoadData/SaveData and the shipped scieasy-blocks-imaging + scieasy-blocks-srs packages to ADR-043 explicit FormatCapability records; add new imaging formats (PNG/JPEG via Pillow, Bio-Formats microscopy formats via cellprofiler/python-bioformats as an optional install extra); make Image.Meta carry a unified OME metadata object (ome_types.model.OME); codify ProcessBlock metadata propagation contract so OME metadata persists end-to-end; add frontend UI for capability selection, lossy-save warning, and OME metadata browsing."
+input: "Owner directive (2026-05-20): coordinate migration of in-tree LoadData/SaveData and the shipped scistudio-blocks-imaging + scistudio-blocks-srs packages to ADR-043 explicit FormatCapability records; add new imaging formats (PNG/JPEG via Pillow, Bio-Formats microscopy formats via cellprofiler/python-bioformats as an optional install extra); make Image.Meta carry a unified OME metadata object (ome_types.model.OME); codify ProcessBlock metadata propagation contract so OME metadata persists end-to-end; add frontend UI for capability selection, lossy-save warning, and OME metadata browsing."
 owners:
   - "@jiazhenz026"
 related_adrs:
@@ -29,39 +29,39 @@ scope:
     - "Removing IOBlock base class supported_extensions ClassVar (required as synthesis fallback for unmigrated third-party blocks)"
 governs:
   modules:
-    - scieasy.blocks.io.loaders.load_data
-    - scieasy.blocks.io.savers.save_data
-    - scieasy_blocks_imaging
-    - scieasy_blocks_imaging.types
-    - scieasy_blocks_imaging.io.load_image
-    - scieasy_blocks_imaging.io.save_image
-    - scieasy_blocks_srs
+    - scistudio.blocks.io.loaders.load_data
+    - scistudio.blocks.io.savers.save_data
+    - scistudio_blocks_imaging
+    - scistudio_blocks_imaging.types
+    - scistudio_blocks_imaging.io.load_image
+    - scistudio_blocks_imaging.io.save_image
+    - scistudio_blocks_srs
   contracts:
-    - scieasy.blocks.io.loaders.load_data.LoadData.format_capabilities
-    - scieasy.blocks.io.savers.save_data.SaveData.format_capabilities
-    - scieasy_blocks_imaging.types.Image.Meta.ome
-    - scieasy_blocks_imaging.types.Label.Meta.ome
-    - scieasy_blocks_imaging.io.load_image.LoadImage.format_capabilities
-    - scieasy_blocks_imaging.io.save_image.SaveImage.format_capabilities
+    - scistudio.blocks.io.loaders.load_data.LoadData.format_capabilities
+    - scistudio.blocks.io.savers.save_data.SaveData.format_capabilities
+    - scistudio_blocks_imaging.types.Image.Meta.ome
+    - scistudio_blocks_imaging.types.Label.Meta.ome
+    - scistudio_blocks_imaging.io.load_image.LoadImage.format_capabilities
+    - scistudio_blocks_imaging.io.save_image.SaveImage.format_capabilities
   files:
-    - src/scieasy/blocks/io/loaders/load_data.py
-    - src/scieasy/blocks/io/savers/save_data.py
-    - packages/scieasy-blocks-imaging/src/**
-    - packages/scieasy-blocks-imaging/pyproject.toml
-    - packages/scieasy-blocks-srs/src/**
+    - src/scistudio/blocks/io/loaders/load_data.py
+    - src/scistudio/blocks/io/savers/save_data.py
+    - packages/scistudio-blocks-imaging/src/**
+    - packages/scistudio-blocks-imaging/pyproject.toml
+    - packages/scistudio-blocks-srs/src/**
     - frontend/src/**
     - tests/blocks/io/**
-    - packages/scieasy-blocks-imaging/tests/**
-    - packages/scieasy-blocks-srs/tests/**
+    - packages/scistudio-blocks-imaging/tests/**
+    - packages/scistudio-blocks-srs/tests/**
     - docs/specs/adr-043-package-migration.md
 tests:
   - tests/blocks/io/test_load_data_capabilities.py
   - tests/blocks/io/test_save_data_capabilities.py
-  - packages/scieasy-blocks-imaging/tests/test_format_capabilities.py
-  - packages/scieasy-blocks-imaging/tests/test_image_meta_ome.py
-  - packages/scieasy-blocks-imaging/tests/test_bioformats_handler.py
-  - packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py
-  - packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py
+  - packages/scistudio-blocks-imaging/tests/test_format_capabilities.py
+  - packages/scistudio-blocks-imaging/tests/test_image_meta_ome.py
+  - packages/scistudio-blocks-imaging/tests/test_bioformats_handler.py
+  - packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py
+  - packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py
   - frontend/src/__tests__/CapabilityDropdown.test.tsx
   - frontend/src/__tests__/OMEMetadataPanel.test.tsx
   - frontend/src/__tests__/LossySaveWarning.test.tsx
@@ -74,7 +74,7 @@ language_source: en
 ## 1. Change Summary
 
 This spec coordinates the migration of in-tree core IO blocks (`LoadData` / `SaveData`)
-and the shipped `scieasy-blocks-imaging` + `scieasy-blocks-srs` packages from the
+and the shipped `scistudio-blocks-imaging` + `scistudio-blocks-srs` packages from the
 legacy `supported_extensions` model to explicit ADR-043 `FormatCapability`
 declarations. It also expands the imaging package to support PNG/JPEG (via Pillow)
 and microscopy vendor formats (CZI/ND2/LIF/OIR/OIB via `cellprofiler/python-bioformats`
@@ -114,20 +114,20 @@ The spec body details these changes. Every row maps to one or more
 | 14 | Frontend lossy-save warning chip on SaveImage node listing OME fields that the target capability will drop | frontend UI | FR-014 |
 | 15 | Capability ID naming convention: `core.{type}.{format}.{load\|save}` (in-tree), `imaging.image.{format}.{load\|save}` (imaging), `srs.srsimage.{format}.{load\|save}` (SRS reserved) | spec contract | FR-015 |
 | 16 | Test coverage: per-block capability declarations, ome field round-trip, Mode A/B/C propagation, ambiguity error, missing-extras failure mode | tests | FR-016 |
-| 17 | Add `ome-types>=0.5,<0.6` as non-optional dependency of `scieasy-blocks-imaging` | imaging deps | FR-017 |
+| 17 | Add `ome-types>=0.5,<0.6` as non-optional dependency of `scistudio-blocks-imaging` | imaging deps | FR-017 |
 
 ## 2. User Scenarios & Testing
 
 ### User Story 1 - Existing core IO workflows keep working after capability migration (Priority: P1)
 
-As a scientist who has saved SciEasy workflows using the six core DataObject types
+As a scientist who has saved SciStudio workflows using the six core DataObject types
 (Array, DataFrame, Series, Text, Artifact, CompositeData), I need every existing
 workflow to keep running with byte-identical output after `LoadData` / `SaveData`
 adopt explicit `FormatCapability` declarations and drop the legacy
 `supported_extensions` ClassVar.
 
 **Why this priority:** The migration cannot break the existing six-core-type IO
-pipeline. All current SciEasy users — whether they wrote workflows or just consume
+pipeline. All current SciStudio users — whether they wrote workflows or just consume
 them — depend on this baseline behavior. If migration causes regressions here,
 every downstream worker breaks. P1 is unconditional.
 
@@ -161,14 +161,14 @@ looks the same except for the new gate-record evidence.
 ### User Story 2 - imaging package supports PNG/JPEG and microscopy vendor formats (Priority: P1)
 
 As a microscopy researcher, I need to drop existing `.czi` / `.nd2` / `.lif` /
-`.oir` / `.oib` acquisition files directly into a SciEasy workflow without manual
+`.oir` / `.oib` acquisition files directly into a SciStudio workflow without manual
 conversion to TIFF; I also need to load consumer `.png` / `.jpg` images for
 annotation reference or visualization.
 
 **Why this priority:** Format coverage is the practical reason the imaging package
 exists. CZI/ND2/LIF/OIR cover the Zeiss/Nikon/Leica/Olympus market — anyone running
 a modern microscopy lab. PNG/JPEG covers reference plate captures and annotation
-images. Without these, users have to convert outside SciEasy, losing reproducibility.
+images. Without these, users have to convert outside SciStudio, losing reproducibility.
 
 **Independent Test:** With `imaging[bioformats]` extras installed and the
 `python-bioformats` JVM dependency satisfied, run a workflow
@@ -286,7 +286,7 @@ unchanged.
 
 ### User Story 5 - UI exposes capability selection, OME browser, and lossy-save warnings (Priority: P2)
 
-As a scientist using the SciEasy frontend block editor, I need (a) a dropdown to
+As a scientist using the SciStudio frontend block editor, I need (a) a dropdown to
 select between multiple compatible capabilities when ambiguous
 `(type, extension)` combinations exist, (b) a button to browse the OME metadata
 attached to a workflow output, (c) a clear warning when a SaveImage capability has
@@ -351,7 +351,7 @@ persists `capability_id` on the port.
   propagation matrix table.
 - **`Image.with_meta(...)` calls:** Existing `with_meta` already propagates all
   typed Meta fields including the new `ome` (per
-  `src/scieasy/core/types/base.py` `with_meta` immutable update mechanism). No
+  `src/scistudio/core/types/base.py` `with_meta` immutable update mechanism). No
   DataObject base change required.
 - **OME schema version drift:** `ome-types` periodically tracks OME schema
   upgrades; the spec pins a version range in the imaging package's
@@ -380,7 +380,7 @@ persists `capability_id` on the port.
   enumerated `sorted(LoadData.supported_extensions.keys())` MUST be re-sourced
   from the capability list.
 
-- **FR-004:** `scieasy_blocks_imaging.io.LoadImage.format_capabilities` MUST be an
+- **FR-004:** `scistudio_blocks_imaging.io.LoadImage.format_capabilities` MUST be an
   explicit declaration covering:
   - `imaging.image.tiff.load` (handler: tifffile; extensions `.tif` and `.tiff`
     including OME-TIFF detection inside the handler);
@@ -396,7 +396,7 @@ persists `capability_id` on the port.
   where the typed_meta_reads enumerate which Image.Meta fields the handler
   reliably populates beyond `ome` (typically `pixel_size`, `z_spacing`, `channels`).
 
-- **FR-005:** `scieasy_blocks_imaging.io.SaveImage.format_capabilities` MUST be an
+- **FR-005:** `scistudio_blocks_imaging.io.SaveImage.format_capabilities` MUST be an
   explicit declaration covering ONLY writable formats:
   - `imaging.image.tiff.save` (handler: tifffile; writes OME-XML to
     ImageDescription tag);
@@ -411,12 +411,12 @@ persists `capability_id` on the port.
   save capability MUST declare `format_metadata_writes=("ome",)` with
   `typed_meta_writes` matching what the handler reliably persists.
 
-- **FR-006:** `scieasy_blocks_imaging.types.Image.Meta` MUST gain a typed field
+- **FR-006:** `scistudio_blocks_imaging.types.Image.Meta` MUST gain a typed field
   `ome: ome_types.model.OME | None = None`. The field MUST be readable and
   writable via `Image.Meta(ome=...)` construction and via
   `Image.with_meta(ome=...)`.
 
-- **FR-007:** `scieasy_blocks_imaging.types.Label.Meta` MUST gain a typed field
+- **FR-007:** `scistudio_blocks_imaging.types.Label.Meta` MUST gain a typed field
   `ome: ome_types.model.OME | None = None`. Label.Meta inheritance is from
   BaseModel directly (not from Image.Meta — Image and Label have sibling Meta
   models in current code), so the field is added explicitly to Label.Meta.
@@ -426,7 +426,7 @@ persists `capability_id` on the port.
   handler module MUST defer the `python-bioformats` / `javabridge` / `ome-types`
   imports to lazy load time. When extras are missing, the handler MUST raise a
   clear error naming the install command
-  `pip install scieasy-blocks-imaging[bioformats]`. The registry MUST hide
+  `pip install scistudio-blocks-imaging[bioformats]`. The registry MUST hide
   Bio-Formats capabilities from `list_format_capabilities` results when the
   extras are not importable.
 
@@ -451,14 +451,14 @@ persists `capability_id` on the port.
     `Image → DataFrame` for measurements, `SRSImage → DataFrame` for PC scores),
     `meta=None` or a domain-specific Meta without `ome` is permitted.
 
-- **FR-010:** Every ProcessBlock in `scieasy-blocks-imaging` whose output type
+- **FR-010:** Every ProcessBlock in `scistudio-blocks-imaging` whose output type
   inherits from `Image` (including `Label`, `Mask`, `Transform`) MUST be audited
   against FR-009 and updated to propagate `ome` when the mode/output shape
   requires it. The audit's findings MUST be recorded in
   `docs/audit/adr-043-imaging-propagation-audit.md` (committed as repository
   evidence).
 
-- **FR-011:** Every ProcessBlock in `scieasy-blocks-srs` MUST be audited against
+- **FR-011:** Every ProcessBlock in `scistudio-blocks-srs` MUST be audited against
   FR-009. The audit MUST classify each block as Mode A / B / C and (for Mode C)
   explicitly justify the propagate-vs-drop choice for `ome`. Findings MUST be
   recorded in `docs/audit/adr-043-srs-propagation-audit.md`.
@@ -500,7 +500,7 @@ persists `capability_id` on the port.
     the install-command message).
 
 - **FR-017:** `ome-types>=0.5,<0.6` MUST be added as a non-optional dependency of
-  `scieasy-blocks-imaging` in `pyproject.toml`. ome-types is pydantic v2-native
+  `scistudio-blocks-imaging` in `pyproject.toml`. ome-types is pydantic v2-native
   from 0.4+ and has stable API since 0.5.
 
 ### Key Entities
@@ -521,7 +521,7 @@ persists `capability_id` on the port.
   propagated through ProcessBlocks. Required by FR-006. Inherited transparently
   by SRSImage.Meta because SRSImage.Meta declares
   `class Meta(Image.Meta)` (verified in
-  `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/types.py`).
+  `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/types.py`).
 
 - **Label.Meta.ome field (new):** explicit `ome_types.model.OME | None` field
   on Label.Meta to support shape-preserving cross-type derivation
@@ -542,10 +542,10 @@ sequential audit phases (Phase B) and an integration phase (Phase C):
 
 - **Phase A (parallel)** — three implementation surfaces can land independently
   because they don't share files:
-  - A1: in-tree core IO migration (`src/scieasy/blocks/io/loaders/load_data.py`,
-    `src/scieasy/blocks/io/savers/save_data.py`).
+  - A1: in-tree core IO migration (`src/scistudio/blocks/io/loaders/load_data.py`,
+    `src/scistudio/blocks/io/savers/save_data.py`).
   - A2: imaging IO + Image.Meta.ome + Bio-Formats extras + new format handlers
-    (`packages/scieasy-blocks-imaging/src/**`, `pyproject.toml`).
+    (`packages/scistudio-blocks-imaging/src/**`, `pyproject.toml`).
   - A3: frontend UI (`frontend/src/**`).
   
   Each agent owns an isolated worktree, a feature branch off the umbrella branch,
@@ -570,33 +570,33 @@ or materialisation changes are in scope.
 
 | File | Action | Rationale |
 |---|---|---|
-| `src/scieasy/blocks/io/loaders/load_data.py` | modify | FR-001, FR-003 — explicit format_capabilities; delete supported_extensions; rewire `_resolve_format` |
-| `src/scieasy/blocks/io/savers/save_data.py` | modify | FR-002, FR-003 — mirror of load_data |
+| `src/scistudio/blocks/io/loaders/load_data.py` | modify | FR-001, FR-003 — explicit format_capabilities; delete supported_extensions; rewire `_resolve_format` |
+| `src/scistudio/blocks/io/savers/save_data.py` | modify | FR-002, FR-003 — mirror of load_data |
 | `tests/blocks/io/test_load_data_capabilities.py` | create | FR-016 — capability coverage tests for LoadData |
 | `tests/blocks/io/test_save_data_capabilities.py` | create | FR-016 — capability coverage tests for SaveData |
-| `packages/scieasy-blocks-imaging/pyproject.toml` | modify | FR-008, FR-017 — add bioformats extras + ome-types required dep |
-| `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/types.py` | modify | FR-006, FR-007 — Image.Meta.ome, Label.Meta.ome fields |
-| `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/load_image.py` | modify | FR-004 — declare format_capabilities; add PNG/JPEG/Bio-Formats branches |
-| `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/save_image.py` | modify | FR-005 — declare format_capabilities; add PNG/JPEG; no bioformats |
-| `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/bioformats_handler.py` | create | FR-008 — Bio-Formats lazy-import handler |
-| `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/pillow_handler.py` | create | FR-004/005 — PNG/JPEG handlers via Pillow |
-| `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/geometry.py` | modify | FR-009/010 — `_resize_meta` helper updates ome.images[0].pixels |
-| `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/axis_ops.py` | modify | FR-009/010 — `_split_meta` helper propagates ome |
-| `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/projection/projection.py` | modify | FR-009/010 — `_projected_meta` helper rewrites ome dimensions |
-| `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/cellpose_segment.py` | modify | FR-009/010 Mode C — mask_img and Label.Meta carry ome |
-| `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/*.py` | modify | FR-009/010 Mode C — every Image→Label / Image→Mask block carries ome |
-| `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/math/*.py` | modify | FR-009/010 Mode A — verify `meta=source.meta` intact |
-| `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/registration/*.py` | modify | FR-009/010 Mode A — verify |
-| `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/*.py` | modify | FR-009/010 Mode A — verify |
-| `packages/scieasy-blocks-imaging/tests/test_format_capabilities.py` | create | FR-016 — imaging IO capability tests |
-| `packages/scieasy-blocks-imaging/tests/test_image_meta_ome.py` | create | FR-016 — Image.Meta.ome / Label.Meta.ome round-trip tests |
-| `packages/scieasy-blocks-imaging/tests/test_bioformats_handler.py` | create | FR-008, FR-016 — Bio-Formats handler tests (gated by extras availability) |
-| `packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py` | create | FR-010, FR-016 — propagation Mode A/B/C tests for imaging |
-| `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_pca.py` | modify | FR-009/011 Mode C — document deliberate ome drop |
-| `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_unmix.py` | modify | FR-009/011 Mode C — same |
-| `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_kmeans.py` | modify | FR-009/011 Mode C — Label output must carry ome |
-| `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/*.py` | modify | FR-009/011 Mode A — verify `meta=item.meta` intact |
-| `packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py` | create | FR-011, FR-016 — propagation tests for SRS |
+| `packages/scistudio-blocks-imaging/pyproject.toml` | modify | FR-008, FR-017 — add bioformats extras + ome-types required dep |
+| `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/types.py` | modify | FR-006, FR-007 — Image.Meta.ome, Label.Meta.ome fields |
+| `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py` | modify | FR-004 — declare format_capabilities; add PNG/JPEG/Bio-Formats branches |
+| `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py` | modify | FR-005 — declare format_capabilities; add PNG/JPEG; no bioformats |
+| `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/bioformats_handler.py` | create | FR-008 — Bio-Formats lazy-import handler |
+| `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/pillow_handler.py` | create | FR-004/005 — PNG/JPEG handlers via Pillow |
+| `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocess/geometry.py` | modify | FR-009/010 — `_resize_meta` helper updates ome.images[0].pixels |
+| `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocess/axis_ops.py` | modify | FR-009/010 — `_split_meta` helper propagates ome |
+| `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/projection/projection.py` | modify | FR-009/010 — `_projected_meta` helper rewrites ome dimensions |
+| `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/cellpose_segment.py` | modify | FR-009/010 Mode C — mask_img and Label.Meta carry ome |
+| `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/*.py` | modify | FR-009/010 Mode C — every Image→Label / Image→Mask block carries ome |
+| `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/math/*.py` | modify | FR-009/010 Mode A — verify `meta=source.meta` intact |
+| `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/registration/*.py` | modify | FR-009/010 Mode A — verify |
+| `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/morphology/*.py` | modify | FR-009/010 Mode A — verify |
+| `packages/scistudio-blocks-imaging/tests/test_format_capabilities.py` | create | FR-016 — imaging IO capability tests |
+| `packages/scistudio-blocks-imaging/tests/test_image_meta_ome.py` | create | FR-016 — Image.Meta.ome / Label.Meta.ome round-trip tests |
+| `packages/scistudio-blocks-imaging/tests/test_bioformats_handler.py` | create | FR-008, FR-016 — Bio-Formats handler tests (gated by extras availability) |
+| `packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py` | create | FR-010, FR-016 — propagation Mode A/B/C tests for imaging |
+| `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_pca.py` | modify | FR-009/011 Mode C — document deliberate ome drop |
+| `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_unmix.py` | modify | FR-009/011 Mode C — same |
+| `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_kmeans.py` | modify | FR-009/011 Mode C — Label output must carry ome |
+| `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocess/*.py` | modify | FR-009/011 Mode A — verify `meta=item.meta` intact |
+| `packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py` | create | FR-011, FR-016 — propagation tests for SRS |
 | `frontend/src/components/PortEditor/CapabilityDropdown.tsx` | create | FR-012 — capability dropdown component |
 | `frontend/src/components/OutputPreview/OMEMetadataPanel.tsx` | create | FR-013 — OME metadata browser panel |
 | `frontend/src/components/WorkflowEditor/LossySaveWarning.tsx` | create | FR-014 — lossy-save warning chip |
@@ -657,7 +657,7 @@ or materialisation changes are in scope.
 - **B1 — imaging ProcessBlock propagation audit + fix** (agent: implementer;
   branch: `track/adr-043/core-blocks-and-imaging/b1-imaging-propagation`)
   - T-030 Audit each block file under
-    `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/{math,morphology,preprocess,projection,registration,segmentation,measurement}/`;
+    `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/{math,morphology,preprocess,projection,registration,segmentation,measurement}/`;
     classify A/B/C.
   - T-031 For Mode B helpers (`_resize_meta`, `_projected_meta`, `_split_meta`):
     update to handle `ome` field (axes/pixel_size adjustment).
@@ -671,7 +671,7 @@ or materialisation changes are in scope.
 - **B2 — SRS ProcessBlock propagation audit + fix** (agent: implementer;
   branch: `track/adr-043/core-blocks-and-imaging/b2-srs-propagation`)
   - T-040 Audit each block under
-    `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/{preprocess,component_analysis,spectral_extraction}/`.
+    `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/{preprocess,component_analysis,spectral_extraction}/`.
   - T-041 Confirm Mode A blocks (`srs_baseline.py`, `srs_spectral_denoise.py`)
     are correct (no-op fix expected).
   - T-042 Fix `srs_kmeans.py` (Label output: add `ome=item.meta.ome`).
@@ -736,10 +736,10 @@ owner-provided scenario against the integrated umbrella branch.
 - `ruff check .` + `ruff format --check .`.
 - Targeted `pytest` against new test files (with `--timeout=60`).
 - ADR-043 §9 package validity scan on the affected package.
-- `python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json`.
+- `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json`.
 - Sentrux applicability check.
 - All checks recorded via
-  `python -m scieasy.qa.governance.gate_record check ...`.
+  `python -m scistudio.qa.governance.gate_record check ...`.
 
 **Integration verification (Phase C):**
 
@@ -747,7 +747,7 @@ owner-provided scenario against the integrated umbrella branch.
   LoadData/SaveData/LoadImage/SaveImage capability declarations.
 - **SC-002 evidence:** Pytest fixture loads sample CZI/ND2/LIF/OIR files
   (committed under
-  `packages/scieasy-blocks-imaging/tests/fixtures/microscopy/` or downloaded at
+  `packages/scistudio-blocks-imaging/tests/fixtures/microscopy/` or downloaded at
   test time); assertion `image.meta.ome.images[0].pixels.physical_size_x is not None`.
 - **SC-003 evidence:** Golden-path test loads CZI → applies Resize(factor=0.5) →
   saves OME-TIFF → reloads saved file → asserts
@@ -760,7 +760,7 @@ owner-provided scenario against the integrated umbrella branch.
 
 **CI gates:**
 
-- Pre-commit hooks: `python -m scieasy.qa.governance.gate_record pre-commit --staged`.
+- Pre-commit hooks: `python -m scistudio.qa.governance.gate_record pre-commit --staged`.
 - Commit-msg hook: trailers present (`Gate-Record:`, `Task-Kind:`, `Issue:`,
   `Assisted-by:`).
 - Pre-push hook: validate gate record.
@@ -771,7 +771,7 @@ owner-provided scenario against the integrated umbrella branch.
 | Risk | Likelihood | Impact | Mitigation / Rollback |
 |---|---|---|---|
 | `cellprofiler/python-bioformats` is in maintenance mode (last release approximately 2-3 years ago); the JVM wrapper may regress on macOS Apple Silicon or break on python 3.13. | Medium | High (Bio-Formats family broken) | Mitigation: pin a tested release. Rollback target candidates: (1) `scyjava` + `bioformats_jar` (more modern Java bridge), (2) `bioio` family (per-format native readers). If wrapper is unmaintainable, file a follow-up issue under #1204 to migrate; Bio-Formats capabilities can stay declared but raise "deprecated handler" until migrated. |
-| JVM cold start (3-5s) is paid once per block process; if SciEasy moves to short-lived worker subprocesses (one block per process), the JVM startup dominates microscopy load times. | Low | Medium | Mitigation: spec calls out the dependency on block process longevity. If worker model changes, JVM pooling or pre-warm subprocess strategy needs to be designed (separate issue). |
+| JVM cold start (3-5s) is paid once per block process; if SciStudio moves to short-lived worker subprocesses (one block per process), the JVM startup dominates microscopy load times. | Low | Medium | Mitigation: spec calls out the dependency on block process longevity. If worker model changes, JVM pooling or pre-warm subprocess strategy needs to be designed (separate issue). |
 | `ome-types` major version drift breaking pydantic v2 model API. | Low | Medium | Mitigation: pin `ome-types>=0.5,<0.6` in pyproject.toml; integration tests assert at least one OME read survives version churn. Rollback: if 0.5.x has a regression, downgrade pin to last known good. |
 | ProcessBlock propagation audit may surface unforeseen edge cases (e.g. a block both projects axes AND drops type — Mode B + Mode C interleaved). | Medium | Medium | Mitigation: Mode C explicitly allows per-block decision; audit reports record the decision. Rollback: any single block's propagation can be deferred to a follow-up issue without blocking other phases. |
 | Image.Meta.ome field addition may break existing pydantic model_dump tests that count fields. | Medium | Low | Mitigation: pre-emptive grep for `model_dump` / `Image.Meta` usages in tests during A2; update fixtures accordingly. |
@@ -799,13 +799,13 @@ owner-provided scenario against the integrated umbrella branch.
 
 - **SC-001:** ADR-043 §9 package validity scan returns 0 violations on
   `LoadData`, `SaveData`, `LoadImage`, `SaveImage`. Measurement: run
-  `python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json`
+  `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json`
   and grep for `"adr043"` violations in the output. Target: zero entries.
 
 - **SC-002:** With `imaging[bioformats]` extras installed, loading a
   CZI/ND2/LIF/OIR test fixture returns an `Image` whose
   `meta.ome.images[0].pixels.physical_size_x` is non-None. Measurement: pytest
-  fixture in `packages/scieasy-blocks-imaging/tests/test_bioformats_handler.py`.
+  fixture in `packages/scistudio-blocks-imaging/tests/test_bioformats_handler.py`.
   Target: green for each Bio-Formats subset member with a committed or
   downloadable fixture.
 
@@ -851,7 +851,7 @@ owner-provided scenario against the integrated umbrella branch.
   existing-system inferred; the A3 agent verifies before coding.
 
 - **A4 (inferred):** `cellprofiler/python-bioformats` continues to install and
-  run on the targeted SciEasy CI environment (Linux + Windows + macOS Intel;
+  run on the targeted SciStudio CI environment (Linux + Windows + macOS Intel;
   macOS Apple Silicon verified on best-effort basis). Source: community
   evidence on the project's GitHub issue tracker.
 
@@ -870,5 +870,5 @@ owner-provided scenario against the integrated umbrella branch.
 - **A7 (existing-system):** Existing `Image.with_meta()` immutable update
   mechanism propagates new typed Meta fields automatically as long as the new
   field is declared on `Image.Meta`. No DataObject base class change required.
-  Source: `src/scieasy/core/types/base.py` `with_meta` implementation read on
+  Source: `src/scistudio/core/types/base.py` `with_meta` implementation read on
   2026-05-20.

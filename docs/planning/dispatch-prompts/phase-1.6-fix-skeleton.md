@@ -54,7 +54,7 @@ If a finding is genuinely a `reject` (auditor was wrong):
 ruff format --check . || (ruff format . && git add -u)
 ruff check .
 pytest -q --timeout=60   # xfail/skip stubs expected
-mypy src/scieasy/ --ignore-missing-imports
+mypy src/scistudio/ --ignore-missing-imports
 cd frontend && npm run build && npx vitest run --reporter=basic
 cd ..
 ```

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from scieasy.blocks.ai.parsers import extract_code, extract_json
+from scistudio.blocks.ai.parsers import extract_code, extract_json
 
 # ---------------------------------------------------------------------------
 # extract_code tests

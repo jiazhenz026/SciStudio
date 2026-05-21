@@ -8,9 +8,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from scieasy.blocks.base.package_info import PackageInfo
-from scieasy.blocks.base.state import BlockState
-from scieasy.blocks.registry import BlockRegistry, BlockSpec
+from scistudio.blocks.base.package_info import PackageInfo
+from scistudio.blocks.base.state import BlockState
+from scistudio.blocks.registry import BlockRegistry, BlockSpec
 
 
 class TestBlockRegistryTier2:
@@ -47,8 +47,8 @@ class TestBlockRegistryTier1:
         """A .py file with a Block subclass in a scan dir is discovered."""
         dropin = tmp_path / "my_block.py"
         dropin.write_text(
-            "from scieasy.blocks.process.process_block import ProcessBlock\n"
-            "from scieasy.blocks.base.config import BlockConfig\n"
+            "from scistudio.blocks.process.process_block import ProcessBlock\n"
+            "from scistudio.blocks.base.config import BlockConfig\n"
             "from typing import Any\n"
             "\n"
             "class MyCustomBlock(ProcessBlock):\n"
@@ -79,8 +79,8 @@ class TestBlockRegistryTier1:
         # Add a new block file.
         new_block = tmp_path / "new_block.py"
         new_block.write_text(
-            "from scieasy.blocks.process.process_block import ProcessBlock\n"
-            "from scieasy.blocks.base.config import BlockConfig\n"
+            "from scistudio.blocks.process.process_block import ProcessBlock\n"
+            "from scistudio.blocks.base.config import BlockConfig\n"
             "from typing import Any\n"
             "\n"
             "class NewBlock(ProcessBlock):\n"
@@ -99,8 +99,8 @@ class TestBlockRegistryTier1:
         """hot_reload() removes specs for deleted files."""
         dropin = tmp_path / "temp_block.py"
         dropin.write_text(
-            "from scieasy.blocks.process.process_block import ProcessBlock\n"
-            "from scieasy.blocks.base.config import BlockConfig\n"
+            "from scistudio.blocks.process.process_block import ProcessBlock\n"
+            "from scistudio.blocks.base.config import BlockConfig\n"
             "from typing import Any\n"
             "\n"
             "class TempBlock(ProcessBlock):\n"
@@ -146,8 +146,8 @@ class TestBlockRegistryLogging:
 
         good = tmp_path / "good_block.py"
         good.write_text(
-            "from scieasy.blocks.process.process_block import ProcessBlock\n"
-            "from scieasy.blocks.base.config import BlockConfig\n"
+            "from scistudio.blocks.process.process_block import ProcessBlock\n"
+            "from scistudio.blocks.base.config import BlockConfig\n"
             "from typing import Any\n"
             "\n"
             "class GoodBlock(ProcessBlock):\n"
@@ -169,8 +169,8 @@ class TestInferCategory:
     """Tests for _infer_category helper."""
 
     def test_infer_category_ai_block(self) -> None:
-        from scieasy.blocks.ai.ai_block import AIBlock
-        from scieasy.blocks.registry import _infer_category
+        from scistudio.blocks.ai.ai_block import AIBlock
+        from scistudio.blocks.registry import _infer_category
 
         assert _infer_category(AIBlock) == "ai"
 
@@ -208,7 +208,7 @@ class TestPackageInfo:
             info.name = "Changed"  # type: ignore[misc]
 
     def test_importable_from_base(self) -> None:
-        from scieasy.blocks.base import PackageInfo as PackageInfoFromBase
+        from scistudio.blocks.base import PackageInfo as PackageInfoFromBase
 
         assert PackageInfoFromBase is PackageInfo
 
@@ -277,13 +277,13 @@ class TestScanTier2CallableProtocol:
     def _make_mock_block_class(self, name: str = "MockBlock") -> type:
         """Create a minimal mock Block subclass for testing.
 
-        D38-3.2: stamp ``__module__`` under the ``scieasy.*`` namespace so
-        :func:`_resolve_distribution_version` returns the real scieasy
+        D38-3.2: stamp ``__module__`` under the ``scistudio.*`` namespace so
+        :func:`_resolve_distribution_version` returns the real scistudio
         version instead of raising :class:`BlockRegistrationError`. The
         registry's strict-raise (ADR §3.3) is bypassed for in-tree
-        modules because they read ``scieasy.__version__``.
+        modules because they read ``scistudio.__version__``.
         """
-        from scieasy.blocks.base.block import Block
+        from scistudio.blocks.base.block import Block
 
         cls = type(
             name,
@@ -300,8 +300,8 @@ class TestScanTier2CallableProtocol:
         )
         # ``type()`` sets ``__module__`` to the caller's module (``abc``
         # via ABCMeta.__new__), which ``_resolve_distribution_version``
-        # cannot resolve. Force it under the scieasy namespace.
-        cls.__module__ = "scieasy.blocks._mock_for_registry_tests"
+        # cannot resolve. Force it under the scistudio namespace.
+        cls.__module__ = "scistudio.blocks._mock_for_registry_tests"
         return cls
 
     def _make_mock_entry_point(self, name: str, load_return: object) -> MagicMock:
@@ -347,7 +347,7 @@ class TestScanTier2CallableProtocol:
         """Abstract Block entry-points should not be reported as non-Block items."""
         from abc import ABC, abstractmethod
 
-        from scieasy.blocks.base.block import Block
+        from scistudio.blocks.base.block import Block
 
         abstract_block = type(
             "AbstractMockBlock",
@@ -536,8 +536,8 @@ class TestMergeConfigSchema:
         """When both parent and child declare the same field, child wins."""
         from typing import Any, ClassVar
 
-        from scieasy.blocks.base.block import Block
-        from scieasy.blocks.registry import _merge_config_schema
+        from scistudio.blocks.base.block import Block
+        from scistudio.blocks.registry import _merge_config_schema
 
         class Parent(Block):
             config_schema: ClassVar[dict[str, Any]] = {
@@ -568,8 +568,8 @@ class TestMergeConfigSchema:
         """Fields declared only in parent appear in the merged schema."""
         from typing import Any, ClassVar
 
-        from scieasy.blocks.base.block import Block
-        from scieasy.blocks.registry import _merge_config_schema
+        from scistudio.blocks.base.block import Block
+        from scistudio.blocks.registry import _merge_config_schema
 
         class Parent(Block):
             config_schema: ClassVar[dict[str, Any]] = {
@@ -602,11 +602,11 @@ class TestMergeConfigSchema:
         """Output IOBlock subclass gets directory_browser + single-string path."""
         from typing import Any, ClassVar
 
-        from scieasy.blocks.base.config import BlockConfig
-        from scieasy.blocks.io.io_block import IOBlock
-        from scieasy.blocks.registry import _merge_config_schema
-        from scieasy.core.types.base import DataObject
-        from scieasy.core.types.collection import Collection
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.io.io_block import IOBlock
+        from scistudio.blocks.registry import _merge_config_schema
+        from scistudio.core.types.base import DataObject
+        from scistudio.core.types.collection import Collection
 
         class MySaver(IOBlock):
             direction: ClassVar[str] = "output"
@@ -635,11 +635,11 @@ class TestMergeConfigSchema:
         """Input IOBlock subclass inherits file_browser + array path from base."""
         from typing import Any, ClassVar
 
-        from scieasy.blocks.base.config import BlockConfig
-        from scieasy.blocks.io.io_block import IOBlock
-        from scieasy.blocks.registry import _merge_config_schema
-        from scieasy.core.types.base import DataObject
-        from scieasy.core.types.collection import Collection
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.io.io_block import IOBlock
+        from scistudio.blocks.registry import _merge_config_schema
+        from scistudio.core.types.base import DataObject
+        from scistudio.core.types.collection import Collection
 
         class MyLoader(IOBlock):
             direction: ClassVar[str] = "input"
@@ -668,8 +668,8 @@ class TestMergeConfigSchema:
         """AppBlock subclass inherits output_dir from the base class."""
         from typing import Any, ClassVar
 
-        from scieasy.blocks.app.app_block import AppBlock
-        from scieasy.blocks.registry import _merge_config_schema
+        from scistudio.blocks.app.app_block import AppBlock
+        from scistudio.blocks.registry import _merge_config_schema
 
         class MyApp(AppBlock):
             app_command: ClassVar[str] = "fiji"
@@ -697,8 +697,8 @@ class TestMergeConfigSchema:
         """AppBlock subclass fields with ui_priority < 2 are bumped to 2."""
         from typing import Any, ClassVar
 
-        from scieasy.blocks.app.app_block import AppBlock
-        from scieasy.blocks.registry import _merge_config_schema
+        from scistudio.blocks.app.app_block import AppBlock
+        from scistudio.blocks.registry import _merge_config_schema
 
         class MyApp(AppBlock):
             app_command: ClassVar[str] = "fiji"
@@ -725,11 +725,11 @@ class TestMergeConfigSchema:
         """When a leaf class explicitly declares path, its version wins."""
         from typing import Any, ClassVar
 
-        from scieasy.blocks.base.config import BlockConfig
-        from scieasy.blocks.io.io_block import IOBlock
-        from scieasy.blocks.registry import _merge_config_schema
-        from scieasy.core.types.base import DataObject
-        from scieasy.core.types.collection import Collection
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.io.io_block import IOBlock
+        from scistudio.blocks.registry import _merge_config_schema
+        from scistudio.core.types.base import DataObject
+        from scistudio.core.types.collection import Collection
 
         class CustomLoader(IOBlock):
             direction: ClassVar[str] = "input"
@@ -761,11 +761,11 @@ class TestMergeConfigSchema:
         """Output IOBlock that declares its own path keeps it as-is."""
         from typing import Any, ClassVar
 
-        from scieasy.blocks.base.config import BlockConfig
-        from scieasy.blocks.io.io_block import IOBlock
-        from scieasy.blocks.registry import _merge_config_schema
-        from scieasy.core.types.base import DataObject
-        from scieasy.core.types.collection import Collection
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.io.io_block import IOBlock
+        from scistudio.blocks.registry import _merge_config_schema
+        from scistudio.core.types.base import DataObject
+        from scistudio.core.types.collection import Collection
 
         class CustomSaver(IOBlock):
             direction: ClassVar[str] = "output"
@@ -797,8 +797,8 @@ class TestMergeConfigSchema:
         """Duplicate required fields across MRO are deduplicated."""
         from typing import Any, ClassVar
 
-        from scieasy.blocks.base.block import Block
-        from scieasy.blocks.registry import _merge_config_schema
+        from scistudio.blocks.base.block import Block
+        from scistudio.blocks.registry import _merge_config_schema
 
         class Parent(Block):
             config_schema: ClassVar[dict[str, Any]] = {
@@ -827,7 +827,7 @@ class TestAppBlockSubclassConfigCleanup:
 
     def test_fiji_own_config_schema_has_no_watch_timeout(self) -> None:
         """FijiBlock's own config_schema must not include watch_timeout."""
-        from scieasy_blocks_imaging.interactive.fiji_block import FijiBlock
+        from scistudio_blocks_imaging.interactive.fiji_block import FijiBlock
 
         own_schema = FijiBlock.__dict__.get("config_schema", {})
         props = own_schema.get("properties", {})
@@ -835,7 +835,7 @@ class TestAppBlockSubclassConfigCleanup:
 
     def test_fiji_own_config_schema_has_no_app_command(self) -> None:
         """FijiBlock must not redeclare app_command in its own config_schema."""
-        from scieasy_blocks_imaging.interactive.fiji_block import FijiBlock
+        from scistudio_blocks_imaging.interactive.fiji_block import FijiBlock
 
         own_schema = FijiBlock.__dict__.get("config_schema", {})
         props = own_schema.get("properties", {})
@@ -843,7 +843,7 @@ class TestAppBlockSubclassConfigCleanup:
 
     def test_fiji_own_config_schema_has_no_output_patterns(self) -> None:
         """FijiBlock must not redeclare output_patterns in its own config_schema."""
-        from scieasy_blocks_imaging.interactive.fiji_block import FijiBlock
+        from scistudio_blocks_imaging.interactive.fiji_block import FijiBlock
 
         own_schema = FijiBlock.__dict__.get("config_schema", {})
         props = own_schema.get("properties", {})
@@ -851,9 +851,9 @@ class TestAppBlockSubclassConfigCleanup:
 
     def test_fiji_mro_merged_includes_app_command(self) -> None:
         """FijiBlock's MRO-merged config_schema includes app_command from AppBlock."""
-        from scieasy_blocks_imaging.interactive.fiji_block import FijiBlock
+        from scistudio_blocks_imaging.interactive.fiji_block import FijiBlock
 
-        from scieasy.blocks.registry import _merge_config_schema
+        from scistudio.blocks.registry import _merge_config_schema
 
         merged = _merge_config_schema(FijiBlock)
         props = merged.get("properties", {})
@@ -861,9 +861,9 @@ class TestAppBlockSubclassConfigCleanup:
 
     def test_fiji_mro_merged_includes_output_dir(self) -> None:
         """FijiBlock's MRO-merged config_schema includes output_dir from AppBlock."""
-        from scieasy_blocks_imaging.interactive.fiji_block import FijiBlock
+        from scistudio_blocks_imaging.interactive.fiji_block import FijiBlock
 
-        from scieasy.blocks.registry import _merge_config_schema
+        from scistudio.blocks.registry import _merge_config_schema
 
         merged = _merge_config_schema(FijiBlock)
         props = merged.get("properties", {})
@@ -871,7 +871,7 @@ class TestAppBlockSubclassConfigCleanup:
 
     def test_elmaven_own_config_schema_has_no_app_command(self) -> None:
         """ElMAVENBlock must not redeclare app_command in its own config_schema."""
-        from scieasy_blocks_lcms.external.elmaven_block import ElMAVENBlock
+        from scistudio_blocks_lcms.external.elmaven_block import ElMAVENBlock
 
         own_schema = ElMAVENBlock.__dict__.get("config_schema", {})
         props = own_schema.get("properties", {})
@@ -879,7 +879,7 @@ class TestAppBlockSubclassConfigCleanup:
 
     def test_elmaven_own_config_schema_has_no_output_patterns(self) -> None:
         """ElMAVENBlock must not redeclare output_patterns in its own config_schema."""
-        from scieasy_blocks_lcms.external.elmaven_block import ElMAVENBlock
+        from scistudio_blocks_lcms.external.elmaven_block import ElMAVENBlock
 
         own_schema = ElMAVENBlock.__dict__.get("config_schema", {})
         props = own_schema.get("properties", {})
@@ -887,9 +887,9 @@ class TestAppBlockSubclassConfigCleanup:
 
     def test_elmaven_mro_merged_includes_app_command(self) -> None:
         """ElMAVENBlock's MRO-merged config_schema includes app_command from AppBlock."""
-        from scieasy_blocks_lcms.external.elmaven_block import ElMAVENBlock
+        from scistudio_blocks_lcms.external.elmaven_block import ElMAVENBlock
 
-        from scieasy.blocks.registry import _merge_config_schema
+        from scistudio.blocks.registry import _merge_config_schema
 
         merged = _merge_config_schema(ElMAVENBlock)
         props = merged.get("properties", {})
@@ -903,9 +903,9 @@ class TestVariadicPortsSpec:
         """Non-variadic block yields variadic_inputs=False, variadic_outputs=False."""
         from typing import Any, ClassVar
 
-        from scieasy.blocks.base.block import Block
-        from scieasy.blocks.base.config import BlockConfig
-        from scieasy.blocks.registry import _spec_from_class
+        from scistudio.blocks.base.block import Block
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.registry import _spec_from_class
 
         class _StaticBlock(Block):
             name: ClassVar[str] = "StaticTestBlock"
@@ -921,9 +921,9 @@ class TestVariadicPortsSpec:
         """Variadic block yields variadic_inputs=True, variadic_outputs=True."""
         from typing import Any, ClassVar
 
-        from scieasy.blocks.base.block import Block
-        from scieasy.blocks.base.config import BlockConfig
-        from scieasy.blocks.registry import _spec_from_class
+        from scistudio.blocks.base.block import Block
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.registry import _spec_from_class
 
         class _VariadicBlock(Block):
             name: ClassVar[str] = "VariadicTestBlock"
@@ -941,12 +941,12 @@ class TestVariadicPortsSpec:
         """allowed_input/output_types ClassVars are serialized to class name strings."""
         from typing import Any, ClassVar
 
-        from scieasy.blocks.base.block import Block
-        from scieasy.blocks.base.config import BlockConfig
-        from scieasy.blocks.base.ports import InputPort, OutputPort
-        from scieasy.blocks.registry import _spec_from_class
-        from scieasy.core.types.array import Array
-        from scieasy.core.types.dataframe import DataFrame
+        from scistudio.blocks.base.block import Block
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.ports import InputPort, OutputPort
+        from scistudio.blocks.registry import _spec_from_class
+        from scistudio.core.types.array import Array
+        from scistudio.core.types.dataframe import DataFrame
 
         class _TypedVariadicBlock(Block):
             name: ClassVar[str] = "TypedVariadicBlock"
@@ -968,9 +968,9 @@ class TestVariadicPortsSpec:
         """Block with no allowed_types ClassVar yields empty allowed_input/output_types."""
         from typing import Any, ClassVar
 
-        from scieasy.blocks.base.block import Block
-        from scieasy.blocks.base.config import BlockConfig
-        from scieasy.blocks.registry import _spec_from_class
+        from scistudio.blocks.base.block import Block
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.registry import _spec_from_class
 
         class _DefaultAllowedBlock(Block):
             name: ClassVar[str] = "DefaultAllowedBlock"
@@ -991,9 +991,9 @@ class TestPortCountLimitsSpec:
         """Block without explicit limits yields None for all 4 fields."""
         from typing import Any, ClassVar
 
-        from scieasy.blocks.base.block import Block
-        from scieasy.blocks.base.config import BlockConfig
-        from scieasy.blocks.registry import _spec_from_class
+        from scistudio.blocks.base.block import Block
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.registry import _spec_from_class
 
         class _NoLimitsBlock(Block):
             name: ClassVar[str] = "NoLimitsBlock"
@@ -1011,9 +1011,9 @@ class TestPortCountLimitsSpec:
         """Block with explicit min/max ClassVars yields correct spec values."""
         from typing import Any, ClassVar
 
-        from scieasy.blocks.base.block import Block
-        from scieasy.blocks.base.config import BlockConfig
-        from scieasy.blocks.registry import _spec_from_class
+        from scistudio.blocks.base.block import Block
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.registry import _spec_from_class
 
         class _LimitedBlock(Block):
             name: ClassVar[str] = "LimitedBlock"
