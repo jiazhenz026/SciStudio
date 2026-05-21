@@ -12,11 +12,10 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useCallback, useMemo, useState } from "react";
 
-import { extractOMEFromMetadata } from "../api/capabilities";
 import { resolveTypeColor } from "../config/typeColorMap";
 import type { BlockPortResponse, BlockSchemaResponse, BlockSummary, WorkflowEdge, WorkflowNode } from "../types/api";
 import type { BlockNodeData } from "../types/ui";
-import { flattenOmeFields } from "./WorkflowEditor/LossySaveWarning";
+import { collectUpstreamOmeFields } from "./WorkflowEditor/LossySaveWarning";
 import { AnnotationNode } from "./nodes/AnnotationNode";
 import { BlockNode } from "./nodes/BlockNode";
 import { GroupNode } from "./nodes/GroupNode";
@@ -250,6 +249,10 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
       // payload (typed Image.Meta.ome). Cheap when blockOutputs is
       // undefined or the node has no upstream IO; the LossySaveWarning
       // chip self-suppresses when the resulting list is empty.
+      // Fix #1313 bug 1: collection-shaped payloads
+      // (``{ kind: "collection", items: [...] }``) carry metadata under
+      // ``items[*].metadata``; recursion lives in
+      // ``collectUpstreamOmeFields``.
       const upstreamOmeFields = (() => {
         if (!blockOutputs) return undefined;
         const sourceIds = edges
@@ -260,12 +263,8 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
         for (const sourceId of sourceIds) {
           const outputs = blockOutputs[sourceId];
           if (!outputs) continue;
-          for (const value of Object.values(outputs)) {
-            if (!value || typeof value !== "object") continue;
-            const meta = (value as { metadata?: Record<string, unknown> }).metadata;
-            const ome = extractOMEFromMetadata(meta);
-            if (!ome) continue;
-            for (const field of flattenOmeFields(ome)) collected.add(field);
+          for (const field of collectUpstreamOmeFields(outputs)) {
+            collected.add(field);
           }
         }
         return collected.size > 0 ? Array.from(collected) : undefined;

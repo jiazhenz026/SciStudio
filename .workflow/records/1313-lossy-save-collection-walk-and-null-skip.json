@@ -1,0 +1,153 @@
+{
+  "admin_labels": [
+    {
+      "name": "admin-approved:ai-override"
+    }
+  ],
+  "amendments": [
+    {
+      "approved_by": "owner",
+      "exclude": [],
+      "include": [
+        "CHANGELOG.md"
+      ],
+      "reason": "include CHANGELOG.md"
+    }
+  ],
+  "branch": "fix/issue-1313/lossy-save-collection-walk-and-null-skip",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "npx vitest run src/__tests__/LossySaveWarning.test.tsx",
+      "exit_code": 0,
+      "name": "vitest",
+      "output_path": "21 passed (10 new for bug 1+2)",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npx tsc --noEmit",
+      "exit_code": 0,
+      "name": "tsc",
+      "output_path": "clean",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npx vitest run",
+      "exit_code": 0,
+      "name": "vitest-full",
+      "output_path": "43 files 436 passed 13 skipped",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "see docs.rationale"
+    },
+    "checklist": {},
+    "docs": {
+      "not_applicable": true,
+      "paths": [],
+      "rationale": "CHANGELOG entries deferred per owner directive 2026-05-21 \u2014 append-style CHANGELOG produces recurring umbrella merge conflicts. PR body and gate record carry the equivalent narrative."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scieasy.qa.audit.full_audit",
+    "exit_code": 0,
+    "known_debt": [
+      "owner-acknowledged"
+    ],
+    "output_path": ".workflow/full-audit-1313.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1313,
+      "url": "https://github.com/zjzcpj/SciEasy/issues/1313"
+    }
+  ],
+  "owner_directive": "Fix 2 audit-surfaced bugs in LossySaveWarning OME flattening: (1) upstreamOmeFields didn't recurse into Collection payloads (LoadImage shape); (2) flattenOmeFields recorded null/undefined as present, inflating sourceOmeFields with model_dump None fields.",
+  "planned_files": [],
+  "pull_request": null,
+  "record_path": ".workflow/records/1313-lossy-save-collection-walk-and-null-skip.json",
+  "required_checks": [
+    "vitest",
+    "tsc",
+    "build"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/components/WorkflowEditor/LossySaveWarning.tsx",
+      "frontend/src/components/WorkflowCanvas.tsx",
+      "frontend/src/__tests__/LossySaveWarning.test.tsx"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "frontend-only bug fix to LossySaveWarning helper + WorkflowCanvas; no source-architecture rules touched. Sentrux CLI unavailable in dispatcher env.",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1313-lossy-save-collection-walk-and-null-skip",
+  "task_kind": "bugfix"
+}

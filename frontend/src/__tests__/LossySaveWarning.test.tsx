@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   LossySaveWarning,
+  collectUpstreamOmeFields,
   flattenOmeFields,
 } from "../components/WorkflowEditor/LossySaveWarning";
 import { lossyOmeFields } from "../api/capabilities";
@@ -148,5 +149,133 @@ describe("flattenOmeFields", () => {
       "keys.0",
       "keys.1",
     ]);
+  });
+
+  // Fix #1313 bug 2: null/undefined values are NOT recorded as present.
+  it("skips null/undefined scalar fields (treat as missing, not as dropped)", () => {
+    expect(
+      flattenOmeFields({
+        physical_size_x: 0.5,
+        physical_size_y: null,
+        physical_size_z: undefined,
+      }),
+    ).toEqual(["physical_size_x"]);
+  });
+
+  it("skips null/undefined values inside nested objects", () => {
+    expect(
+      flattenOmeFields({
+        pixels: {
+          physical_size_x: 0.5,
+          physical_size_y: null,
+        },
+      }),
+    ).toEqual(["pixels.physical_size_x"]);
+  });
+
+  it("skips null/undefined elements inside arrays", () => {
+    expect(
+      flattenOmeFields({
+        channels: [{ name: "DAPI" }, null, { name: "FITC" }],
+      }),
+    ).toEqual(["channels.0.name", "channels.2.name"]);
+  });
+
+  it("returns [] when every leaf is null (regression: model_dump(mode='json') with all-None Meta)", () => {
+    expect(
+      flattenOmeFields({
+        physical_size_x: null,
+        physical_size_y: null,
+        pixels: { physical_size_x: null },
+      }),
+    ).toEqual([]);
+  });
+});
+
+// Fix #1313 bug 1: walk Collection-shaped payloads (LoadImage etc.).
+describe("collectUpstreamOmeFields", () => {
+  it("returns [] for null/undefined/empty", () => {
+    expect(collectUpstreamOmeFields(null)).toEqual([]);
+    expect(collectUpstreamOmeFields(undefined)).toEqual([]);
+    expect(collectUpstreamOmeFields({})).toEqual([]);
+  });
+
+  it("extracts OME from top-level value.metadata.ome", () => {
+    const outputs = {
+      out_port: {
+        metadata: {
+          ome: { images: [{ pixels: { physical_size_x: 0.5 } }] },
+        },
+      },
+    };
+    expect(collectUpstreamOmeFields(outputs).sort()).toEqual([
+      "images.0.pixels.physical_size_x",
+    ]);
+  });
+
+  it("recurses into kind=collection items[] (regression: LoadImage payload shape)", () => {
+    const outputs = {
+      images: {
+        kind: "collection",
+        items: [
+          {
+            metadata: {
+              ome: { images: [{ pixels: { physical_size_x: 0.5 } }] },
+            },
+          },
+          {
+            metadata: {
+              ome: { images: [{ pixels: { size_x: 320 } }] },
+            },
+          },
+        ],
+      },
+    };
+    expect(collectUpstreamOmeFields(outputs).sort()).toEqual([
+      "images.0.pixels.physical_size_x",
+      "images.0.pixels.size_x",
+    ]);
+  });
+
+  it("deduplicates fields when multiple items share the same OME paths", () => {
+    const outputs = {
+      images: {
+        kind: "collection",
+        items: [
+          { metadata: { ome: { images: [{ pixels: { size_x: 320 } }] } } },
+          { metadata: { ome: { images: [{ pixels: { size_x: 640 } }] } } },
+        ],
+      },
+    };
+    // Both items expose the same path "images.0.pixels.size_x" — single entry.
+    expect(collectUpstreamOmeFields(outputs)).toEqual([
+      "images.0.pixels.size_x",
+    ]);
+  });
+
+  it("recurses through nested wrappers like { output: { metadata: ... } }", () => {
+    const outputs = {
+      wrapper: {
+        output: {
+          metadata: {
+            ome: { images: [{ pixels: { size_x: 320 } }] },
+          },
+        },
+      },
+    };
+    expect(collectUpstreamOmeFields(outputs)).toEqual([
+      "images.0.pixels.size_x",
+    ]);
+  });
+
+  it("returns [] when no metadata.ome is reachable anywhere", () => {
+    const outputs = {
+      images: {
+        kind: "collection",
+        items: [{ metadata: { source_file: "/path" } }, { metadata: null }],
+      },
+      other: { value: 42 },
+    };
+    expect(collectUpstreamOmeFields(outputs)).toEqual([]);
   });
 });
