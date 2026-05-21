@@ -513,11 +513,162 @@ def test_branch_switch_emits_created_for_new_yaml(client: TestClient, opened_pro
 
 
 def test_branch_delete_endpoint(client: TestClient, opened_project: Path) -> None:
-    client.post("/api/git/branch/create", json={"name": "temp"})
-    resp = client.delete("/api/git/branches/temp")
-    assert resp.status_code == 200
+    """ADR-039 Addendum 1 §11.4 row #1356 — auto-tag safety net.
+
+    Setup: create a feature branch with a unique tip commit, insert a
+    ``runs`` row whose ``workflow_git_commit`` points at that tip, then
+    delete the branch via the REST endpoint. Expectation:
+
+    1. The delete succeeds (status 200).
+    2. The feature branch is gone from ``/api/git/branches``.
+    3. A ``refs/scistudio/lineage/<tip-sha>`` ref exists pointing at the
+       formerly-orphan commit, so the SHA is still reachable.
+    """
+    import subprocess
+
+    from scistudio.core.lineage.record import RunRecord
+
+    # Drain any residual untracked state.
+    if client.get("/api/git/status").json()["dirty"]:
+        client.post("/api/git/commit", json={"message": "drain"})
+
+    # Create feature branch with a unique tip commit.
+    client.post("/api/git/branch/create", json={"name": "feature"})
+    client.post("/api/git/branch/switch", json={"branch_name": "feature"})
+    (opened_project / "feature_only.txt").write_text("D", encoding="utf-8")
+    feature_tip_sha = client.post("/api/git/commit", json={"message": "feature tip"}).json()["commit_sha"]
+    client.post("/api/git/branch/switch", json={"branch_name": "main"})
+
+    # Insert a lineage row that references the feature tip.
+    runtime = client.app.state.runtime
+    runtime.lineage_store.insert_run(
+        RunRecord(
+            run_id="run-1356",
+            workflow_id="wf-1356",
+            workflow_git_commit=feature_tip_sha,
+            workflow_yaml_snapshot="id: wf-1356\n",
+            workflow_dirty=False,
+            started_at="2026-05-21T00:00:00Z",
+            finished_at="2026-05-21T00:00:01Z",
+            status="completed",
+            environment_snapshot={
+                "python_version": "3.13.0",
+                "platform": "test",
+                "key_packages": {},
+            },
+            triggered_by="test",
+            parent_run_id=None,
+            execute_from_block_id=None,
+            user_notes=None,
+        )
+    )
+
+    # Delete via REST. We use force=true because the feature branch
+    # diverged from main (that's the precondition for orphan candidates);
+    # plain ``git branch -d`` refuses unmerged branches.
+    resp = client.delete("/api/git/branches/feature?force=true")
+    assert resp.status_code == 200, resp.text
+
+    # Branch is gone.
     names = [b["name"] for b in client.get("/api/git/branches").json()]
-    assert "temp" not in names
+    assert "feature" not in names
+
+    # The lineage-pinning ref exists and resolves to the formerly-orphan SHA.
+    ref_name = f"refs/scistudio/lineage/{feature_tip_sha}"
+    rev = subprocess.run(
+        ["git", "-C", str(opened_project), "rev-parse", ref_name],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert rev.returncode == 0, f"lineage ref missing: {rev.stderr}"
+    assert rev.stdout.strip() == feature_tip_sha
+
+
+def test_branch_delete_endpoint_no_lineage_reference_leaves_no_refs(client: TestClient, opened_project: Path) -> None:
+    """Clean delete (no lineage reference) creates no ``refs/scistudio/lineage/*``."""
+    import subprocess
+
+    if client.get("/api/git/status").json()["dirty"]:
+        client.post("/api/git/commit", json={"message": "drain"})
+
+    client.post("/api/git/branch/create", json={"name": "temp"})
+    client.post("/api/git/branch/switch", json={"branch_name": "temp"})
+    (opened_project / "temp_only.txt").write_text("x", encoding="utf-8")
+    client.post("/api/git/commit", json={"message": "temp tip"})
+    client.post("/api/git/branch/switch", json={"branch_name": "main"})
+
+    # No RunRecord referencing the tip — safety net should pin nothing.
+    resp = client.delete("/api/git/branches/temp?force=true")
+    assert resp.status_code == 200, resp.text
+
+    # Verify no refs/scistudio/lineage/* exist.
+    proc = subprocess.run(
+        ["git", "-C", str(opened_project), "for-each-ref", "--format=%(refname)", "refs/scistudio/"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0
+    assert proc.stdout.strip() == "", f"safety net created refs without a lineage reference: {proc.stdout!r}"
+
+
+def test_branch_delete_endpoint_safety_net_keeps_sha_reachable(client: TestClient, opened_project: Path) -> None:
+    """After branch delete + safety-net pin, the SHA can still be diffed/restored.
+
+    This is the end-state guarantee: the Lineage tab's "Restore this
+    run's workflow" path resolves ``runs.workflow_git_commit`` via
+    plain ``git`` — as long as the SHA is reachable (via any ref), the
+    restore endpoint works.
+    """
+    import subprocess
+
+    from scistudio.core.lineage.record import RunRecord
+
+    if client.get("/api/git/status").json()["dirty"]:
+        client.post("/api/git/commit", json={"message": "drain"})
+
+    client.post("/api/git/branch/create", json={"name": "feature"})
+    client.post("/api/git/branch/switch", json={"branch_name": "feature"})
+    (opened_project / "workflows" / "kept.yaml").write_text("id: kept\nnodes: []\n", encoding="utf-8")
+    feature_tip_sha = client.post("/api/git/commit", json={"message": "feature tip"}).json()["commit_sha"]
+    client.post("/api/git/branch/switch", json={"branch_name": "main"})
+
+    runtime = client.app.state.runtime
+    runtime.lineage_store.insert_run(
+        RunRecord(
+            run_id="run-1356-restore",
+            workflow_id="wf-1356-restore",
+            workflow_git_commit=feature_tip_sha,
+            workflow_yaml_snapshot="id: wf-1356-restore\n",
+            workflow_dirty=False,
+            started_at="2026-05-21T00:00:00Z",
+            finished_at="2026-05-21T00:00:01Z",
+            status="completed",
+            environment_snapshot={
+                "python_version": "3.13.0",
+                "platform": "test",
+                "key_packages": {},
+            },
+            triggered_by="test",
+            parent_run_id=None,
+            execute_from_block_id=None,
+            user_notes=None,
+        )
+    )
+
+    # Delete the branch (force=true because feature diverged from main).
+    assert client.delete("/api/git/branches/feature?force=true").status_code == 200
+
+    # SHA must still resolve through plain git after the delete — this
+    # is what the lineage Restore path depends on.
+    rev = subprocess.run(
+        ["git", "-C", str(opened_project), "cat-file", "-e", feature_tip_sha],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert rev.returncode == 0, "orphan SHA is no longer reachable"
 
 
 def test_branch_delete_current_409(client: TestClient, opened_project: Path) -> None:

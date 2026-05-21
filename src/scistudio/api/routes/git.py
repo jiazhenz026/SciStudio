@@ -454,9 +454,36 @@ async def branch_create(request: Request, body: BranchCreateRequest) -> dict[str
 
 @router.delete("/branches/{name}")
 async def branch_delete(request: Request, name: str, force: bool = False) -> dict[str, str]:
-    """Delete a local branch."""
+    """Delete a local branch.
+
+    ADR-039 Addendum 1 §11.4 row #1356 — silent auto-tag safety net.
+    Before the actual ``git branch -d|-D`` runs, scan for commits that
+    would become unreachable and pin the lineage-referenced subset
+    under ``refs/scistudio/lineage/<sha>``. Per owner decision
+    2026-05-21 this is intentionally silent: no warn / confirm dialog,
+    no response payload change.
+
+    TODO(#1380): cleanup mechanism for accumulated
+    refs/scistudio/lineage/* refs.
+      Out of scope per ADR-039 Addendum 1 §11.4 row #1356.
+      Followup: https://github.com/zjzcpj/SciStudio/issues/1380
+    """
     engine = _engine_for_request(request)
+    runtime = request.app.state.runtime
+    lineage_store = getattr(runtime, "lineage_store", None)
     try:
+        # Safety net (silent): pin any orphan-candidate SHAs that
+        # lineage references under refs/scistudio/lineage/<sha> so the
+        # branch delete cannot leave runs.workflow_git_commit pointing
+        # at unreachable commits. Skip when the lineage store has not
+        # been initialised for this project (best-effort like the rest
+        # of the lineage write path).
+        if lineage_store is not None:
+            orphan_candidates = engine.commits_reachable_only_from(name)
+            if orphan_candidates:
+                referenced = lineage_store.workflow_git_commits_in(list(orphan_candidates))
+                for sha in referenced:
+                    engine.tag(f"refs/scistudio/lineage/{sha}", sha)
         engine.branch_delete(name, force=force)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc

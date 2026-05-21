@@ -325,6 +325,49 @@ class LineageStore:
             columns = [d[0] for d in cur.description]
             return [dict(zip(columns, row, strict=False)) for row in cur.fetchall()]
 
+    def workflow_git_commits_in(self, sha_list: list[str]) -> set[str]:
+        """Return the subset of *sha_list* that any ``runs`` row references.
+
+        ADR-039 Addendum 1 §11.4 row #1356: the branch-delete safety net
+        needs to know which orphan-candidate SHAs are referenced by
+        lineage rows so it can pin them under ``refs/scistudio/lineage/*``
+        before the delete. This is the read-side query that powers that
+        check.
+
+        Empty input returns an empty set without touching the database
+        (SQLite ``IN ()`` is a syntax error in some bindings; cheaper to
+        short-circuit).
+
+        SHAs absent from ``runs.workflow_git_commit`` (including NULL
+        rows) are filtered out — the returned set is always a subset of
+        ``sha_list``.
+
+        Parameters
+        ----------
+        sha_list:
+            Candidate SHAs to check. Order is irrelevant; duplicates are
+            tolerated (the DB query collapses them).
+
+        Returns
+        -------
+        set[str]
+            The subset of input SHAs that appear in
+            ``runs.workflow_git_commit``.
+        """
+        if not sha_list:
+            return set()
+        # De-duplicate to keep the SQL parameter count tight.
+        unique = list({s for s in sha_list if s})
+        if not unique:
+            return set()
+        placeholders = ",".join("?" * len(unique))
+        with self._connect() as conn:
+            cur = conn.execute(
+                f"SELECT DISTINCT workflow_git_commit FROM runs WHERE workflow_git_commit IN ({placeholders})",
+                unique,
+            )
+            return {row[0] for row in cur.fetchall() if row[0]}
+
     # ------------------------------------------------------------------
     # block_executions
     # ------------------------------------------------------------------
