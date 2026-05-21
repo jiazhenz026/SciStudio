@@ -1,0 +1,165 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "feat/issue-1360/pr-create-wrapper",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check scripts/scistudio_pr_create.py tests/scripts/",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check scripts/scistudio_pr_create.py tests/scripts/",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "3 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "pytest tests/scripts --timeout=30 --no-cov",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "20 passed in 0.25s \u2014 4 extract_body / 6 find_gate_record / 6 filter_findings / 2 main smoke / 2 misc",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1360-pr-create-wrapper.json",
+    "shas": [
+      "27c092ddf61aea60c1c9ea5a3c2a68ee988da8ff"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "tooling script only; no contract/runtime/architecture change requiring ADR (per new-feature.md \u00a72 decision)"
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "CHANGELOG.md [Unreleased] Added entry \u2014 CLI maps it to docs.paths so re-record as N/A per memory feedback_gate_record_pr_ready_quirks #9"
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "single-implementer feature PR; no docs/planning/ checklist applies (not a manager dispatch)"
+    },
+    "docs": {
+      "paths": [
+        "docs/ai-developer/specific_rules/gated-workflow.md",
+        "CHANGELOG.md"
+      ]
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "no new spec; wrapper calls existing gate_record ci CLI per ADR-042 \u00a73.7"
+    },
+    "speckit": {
+      "not_applicable": true,
+      "rationale": "N/A \u2014 single utility script, not a subsystem"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json \u2014 all 8 child reports pass",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1360,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1360"
+    }
+  ],
+  "owner_directive": "Owner authorized 2026-05-21 in chat (post-#1351 retrospective): wrapper to pre-flight gate_record ci before gh pr create; filter PR-state guards (core_change_guard/pr_merge_guard/human_bypass_guard) as CI's authoritative domain; do NOT modify gate_record CLI itself (separate protected-core scope)",
+  "planned_files": [],
+  "pull_request": {
+    "body_closes_issues": [
+      1360
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1361"
+  },
+  "record_path": ".workflow/records/1360-pr-create-wrapper.json",
+  "required_checks": [],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "scripts/scistudio_pr_create.py",
+      "tests/scripts/__init__.py",
+      "tests/scripts/test_scistudio_pr_create.py",
+      "docs/ai-developer/specific_rules/gated-workflow.md",
+      "CHANGELOG.md",
+      ".workflow/records/1360-pr-create-wrapper.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "rules_checked=3/15 (free tier cap; pro_required=false), violation_count=0, files=1097, import_edges=2613, quality_signal=4443",
+    "pro_required": false,
+    "quality_signal": 4443.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1360-pr-create-wrapper",
+  "task_kind": "feature"
+}
