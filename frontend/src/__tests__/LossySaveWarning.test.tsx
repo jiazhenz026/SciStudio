@@ -139,6 +139,77 @@ describe("lossyOmeFields", () => {
       ),
     ).toEqual(["pixels.physical_size_x", "channels.0.name"]);
   });
+
+  // Codex P1 (PR #1388 / #1371): runtime source paths produced by
+  // ``collectUpstreamOmeFields`` carry the `images.<index>.` prefix
+  // (the OME tree walk starts from { images: [...] }), while capability
+  // declarations use the post-images structural path. The matcher
+  // normalises the prefix away before comparing.
+  it("normalises 'images.<index>.' prefix on source paths before matching narrow declarations (Codex P1 #1388)", () => {
+    const target = fidelity("format_specific", {
+      // PNG / JPEG narrow declaration (the post-#1371 form).
+      format_metadata_writes: [
+        "ome.pixels.physical_size_x",
+        "ome.pixels.physical_size_y",
+      ],
+    });
+    // Real runtime source paths from collectUpstreamOmeFields walking
+    // `{ images: [{ pixels: { physical_size_x: 0.5, physical_size_y: 0.5 } }] }`.
+    expect(
+      lossyOmeFields(
+        [
+          "images.0.pixels.physical_size_x",
+          "images.0.pixels.physical_size_y",
+          "images.0.channels.0.emission_wavelength",
+          "images.0.annotations.0.value",
+        ],
+        target,
+      ),
+    ).toEqual([
+      // Two physical_size paths are writable → not flagged.
+      "images.0.channels.0.emission_wavelength",
+      "images.0.annotations.0.value",
+    ]);
+  });
+
+  it("also normalises 'images.<index>.' against a broad 'ome' declaration (Codex P1 #1388)", () => {
+    // Defensive — broad declarations already early-return, but pin the
+    // semantics so a future refactor that drops the early-return still
+    // matches against normalised source paths.
+    const target = fidelity("format_specific", {
+      format_metadata_writes: ["ome"],
+    });
+    expect(
+      lossyOmeFields(
+        [
+          "images.0.pixels.physical_size_x",
+          "images.1.channels.0.name",
+        ],
+        target,
+      ),
+    ).toEqual([]);
+  });
+
+  it("does not double-strip a path with an inner 'images.<index>.' segment (Codex P1 #1388 defensive)", () => {
+    // The regex anchors at the start, so `pixels.images.0.x` (an
+    // unlikely-but-possible legitimately-nested path) stays intact and
+    // matches the declaration verbatim.
+    const target = fidelity("format_specific", {
+      format_metadata_writes: ["pixels.images.0.x"],
+    });
+    expect(
+      lossyOmeFields(["pixels.images.0.x"], target),
+    ).toEqual([]);
+  });
+
+  it("matches multi-digit and large indexes 'images.42.pixels.x' (Codex P1 #1388)", () => {
+    const target = fidelity("format_specific", {
+      format_metadata_writes: ["ome.pixels.physical_size_x"],
+    });
+    expect(
+      lossyOmeFields(["images.42.pixels.physical_size_x"], target),
+    ).toEqual([]);
+  });
 });
 
 describe("LossySaveWarning", () => {
