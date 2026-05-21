@@ -160,7 +160,7 @@ language_source: en
 - [x] `platform.py`: delete TYPE_CHECKING import (line ~19) + 6 lazy imports (lines ~88,147,197,268,315,355); add single module-top `from .exit_info import ProcessExitInfo`. → see commit
 - [x] `engine/runners/__init__.py`: verify `ProcessExitInfo` re-export still resolves. → existing re-export `from scistudio.engine.runners.process_handle import ProcessExitInfo` unchanged; runtime smoke test in regression `test_no_circular_import` confirms `ProcessExitInfo.__module__ == "scistudio.engine.runners.exit_info"` and `engine.runners.ProcessExitInfo` is the same object.
 - [x] Add `test_no_circular_import` regression test in each pair. → `tests/core/test_git_engine.py::test_no_circular_import` + `tests/engine/test_process_handle.py::test_no_circular_import`
-- [x] Run targeted pytest + ruff + sentrux MCP rescan locally; expected `clusters` drops to 3. → 434 passed / 5 skipped / 8 xfailed; sentrux clusters: 5 → 3 (Pair D + Pair E gone); evidence in `.workflow/records/1337-pair-cycles-sentrux.json`
+- [x] Run targeted pytest + ruff + sentrux MCP rescan locally; expected `clusters` drops to 3. → 434 passed / 5 skipped / 8 xfailed; sentrux clusters: 5 → 3 (Pair D + Pair E gone); evidence in `docs/audit/2026-05-21-track-a-1337-sentrux.json`
 - [x] Update ADR-039 `governs.contracts` and ADR-019 `governs.contracts` (+ ADR-019 `governs.files`) to point at the new canonical contract locations (`errors.GitError`, `exit_info.ProcessExitInfo`). Required for `doc_drift.phantom-contract`, `closure.unresolved-contract-claim`, `signature_drift.missing-symbol` to pass — gate record amended with rationale. → see commit
 
 ### 7.4 Audit

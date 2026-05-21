@@ -23,11 +23,19 @@
       "approved_by": null,
       "exclude": [],
       "include": [
-        ".workflow/records/1337-pair-cycles-sentrux.json",
+        "docs/audit/2026-05-21-track-a-1337-sentrux.json",
         "docs/audit/full-audit-track-a.json",
         "docs/planning/no-cycles-1335-1337-checklist.md"
       ],
       "reason": "Add sentrux evidence file, full-audit evidence file, and checklist row updates to scope (post-implementation auxiliary artifacts required by gate workflow + manager checklist contract)."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/audit/2026-05-21-track-a-1337-sentrux.json"
+      ],
+      "reason": "Move sentrux evidence file out of .workflow/records/ (which is reserved for gate-record JSONs) to docs/audit/ per gate-validator's _discover_gate_record glob '.workflow/records/*.json'. The previous file location ambiguated the gate-record discovery and forced pr-ready into 'gate-record.missing' rejection."
     }
   ],
   "branch": "fix/1337-pair-cycles",
@@ -145,7 +153,7 @@
     "command_or_tool": "mcp__plugin_sentrux_sentrux__rescan + dsm + health",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": ".workflow/records/1337-pair-cycles-sentrux.json",
+    "output_path": "docs/audit/2026-05-21-track-a-1337-sentrux.json",
     "pro_required": false,
     "quality_signal": 4472.0,
     "rules_checked": null,
