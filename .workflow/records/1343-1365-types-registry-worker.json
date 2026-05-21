@@ -35,7 +35,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1343-1365-types-registry-worker.json",
+    "shas": [
+      "2e68c4af"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -88,7 +94,14 @@
     "docs/planning/2026-05-21-bug-sweep-checklist.md",
     ".workflow/records/1343-1365-types-registry-worker.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1343,
+      1365
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1386"
+  },
   "record_path": ".workflow/records/1343-1365-types-registry-worker.json",
   "required_checks": [
     "ruff",
