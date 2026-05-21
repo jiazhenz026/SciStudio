@@ -57,7 +57,10 @@
       "not_applicable": true,
       "rationale": "no functional user-visible behavior added; the scan-dir paths were promised by ARCHITECTURE.md and were silently absent. CHANGELOG follow-up may be added by the umbrella PR if owner requires."
     },
-    "checklist": {},
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "manager-owned checklist at docs/planning/arch-drift-checklist.md is updated by manager, not implementer (per dispatch prompt scope: out of scope for this sub-PR)"
+    },
     "docs": {
       "not_applicable": true,
       "rationale": "Impl catches the existing ARCHITECTURE.md §10 + §10.5 commitment up to runtime behavior; the doc text already describes the intended scan paths. No new user-facing docs needed — the existing ARCHITECTURE description is now backed by impl."
@@ -111,17 +114,17 @@
     ]
   },
   "sentrux": {
-    "command_or_tool": "sentrux check",
+    "command_or_tool": "sentrux",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "{\"files\":1075,\"import_edges\":2598,\"lines\":276362,\"quality_signal\":4124,\"rules_checked\":3,\"violation_count\":0,\"source\":\"mcp__plugin_sentrux_sentrux__{scan,check_rules}\"}",
+    "output_path": null,
     "pro_required": false,
-    "quality_signal": null,
-    "rules_checked": null,
+    "quality_signal": 4124,
+    "rules_checked": 3,
     "status": "pass",
     "summary": {},
-    "thresholds": {},
-    "total_rules_defined": null
+    "thresholds": {"complexity": "70"},
+    "total_rules_defined": 15
   },
   "stages": [
     {
