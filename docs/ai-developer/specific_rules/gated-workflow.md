@@ -392,12 +392,30 @@ Issue: #<number>
 Assisted-by: <runtime>:<model-or-agent-id>
 ```
 
-Push the branch and open the PR:
+Push the branch and open the PR. **Prefer the
+`scripts/scistudio_pr_create.py` wrapper over invoking `gh pr create`
+directly** (#1360): it pre-flights `gate_record ci` with the real PR body
+locally and short-circuits the open-PR step when CI would reject the
+record. The wrapper filters `core_change_guard` / `pr_merge_guard` /
+`human_bypass_guard` findings because those guards depend on PR labels
+that cannot exist before the PR does — CI is the authoritative enforcer
+for that subset.
 
 ```bash
 git push -u origin HEAD
-gh pr create --title "<type>(#<issue>): <summary>" --body "<body>"
+python scripts/scistudio_pr_create.py \
+  --title "<type>(#<issue>): <summary>" \
+  --body "<body>"
 ```
+
+The wrapper accepts every `gh pr create` flag verbatim and passes them
+through. `--dry-run` runs the pre-flight without invoking `gh`. Set
+`SCISTUDIO_SKIP_PREFLIGHT=1` only for emergency one-off escapes; CI will
+still run the full guard set in the cloud.
+
+Direct `gh pr create` invocation remains supported for non-AI work or
+when the wrapper is unavailable, but AI-authored PRs that skip the
+wrapper SHOULD expect more CI fix-and-push iterations.
 
 Record final commit and PR evidence with:
 
