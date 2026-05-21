@@ -165,6 +165,53 @@ class TestAddScanDir:
 
         assert "NotADataObject" not in registry.all_types()
 
+    def test_drop_in_load_class_round_trip(self, tmp_path: Path) -> None:
+        """Regression: #1343 — drop-in module must be importable via load_class.
+
+        Before #1343 was fixed, the drop-in scanner created a synthetic
+        ``_scistudio_type_dropin_<stem>_<mtime>`` module via
+        :func:`importlib.util.spec_from_file_location` but never inserted
+        it into :data:`sys.modules`. :meth:`TypeRegistry.register_class`
+        then stored ``cls.__module__`` (the synthetic name) in
+        :attr:`TypeSpec.module_path`. Any subsequent call to
+        :meth:`TypeRegistry.load_class` — which does
+        ``importlib.import_module(spec.module_path)`` — raised
+        :class:`ModuleNotFoundError`, leaving every scanned drop-in type
+        registerable but unloadable. This test exercises the full
+        round-trip (scan → register → load_class) for both the legacy
+        ``str``-resolve path and the ADR-027 D11 ``type_chain``-resolve
+        path that worker reconstruction uses.
+        """
+        import sys
+
+        scan_dir = tmp_path / "types"
+        _write_module(scan_dir, "round_trip_type.py", _GOOD_MODULE)
+
+        registry = TypeRegistry()
+        registry.add_scan_dir(scan_dir)
+        registry.scan_all()
+
+        # The spec is stored under the synthetic module name; that name
+        # MUST be present in sys.modules so importlib can find it.
+        spec = registry.all_types()["CustomDropInType"]
+        assert spec.module_path.startswith("_scistudio_type_dropin_round_trip_type_")
+        assert spec.module_path in sys.modules
+
+        # Legacy str path: load_class must return the concrete class, not
+        # raise ModuleNotFoundError (#1343 P1 regression).
+        loaded = registry.load_class("CustomDropInType")
+        assert loaded.__name__ == "CustomDropInType"
+        assert isinstance(loaded, type)
+
+        # ADR-027 D11 type_chain path used by worker reconstruction:
+        # ``resolve(["DataObject", "CustomDropInType"])`` walks from
+        # rightmost to leftmost and must return the drop-in class.
+        from scistudio.core.types.base import DataObject
+
+        resolved = registry.resolve(["DataObject", "CustomDropInType"])
+        assert resolved is loaded
+        assert issubclass(resolved, DataObject) and resolved is not DataObject
+
     def test_drop_in_does_not_override_builtin(self, tmp_path: Path) -> None:
         """A drop-in cannot shadow built-ins — built-ins are registered first.
 
