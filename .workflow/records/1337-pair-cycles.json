@@ -72,7 +72,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1337-pair-cycles.json",
+    "shas": [
+      "ef32f505c13619ac0fe03e6a352fa6acc46c0781"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "not_applicable": true,
@@ -123,7 +129,13 @@
     "tests/engine/test_process_handle.py",
     ".workflow/records/1337-pair-cycles.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1337
+    ],
+    "number": 1348,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1348"
+  },
   "record_path": ".workflow/records/1337-pair-cycles.json",
   "required_checks": [
     "ruff",
