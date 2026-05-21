@@ -213,11 +213,11 @@ language_source: en
 
 ### 8.3 Implementation
 
-- [x] Create `src/scistudio/core/storage/_defaults.py` with `build_default()` (moves body of `_build_default_router()`). → `<commit pending in this PR>`
-- [x] `backend_router.py`: delete `_build_default_router()` + 6 lazy type imports (lines 53-78); rewrite `get_router()` as lazy-singleton + add `TODO(#1342)` comment. → `<commit pending in this PR>`
-- [x] `core/storage/__init__.py`: verify `get_router` re-export still works. → no change required; smoke-tested via `from scistudio.core.storage import get_router`
-- [x] Add `test_no_circular_import` + `test_singleton_identity` regression tests. Also added `test_backend_router_has_no_types_top_level_import` (locks cycle-free state). → `<commit pending in this PR>`
-- [x] Run targeted pytest + ruff + sentrux MCP rescan locally; expected `clusters` drops to 4 (after this fix alone) or 2 (after Track A also lands). → sentrux clusters 5→4 (10-module SCC at level 9 removed); pytest 17/17 green on `tests/core/test_backend_router.py` + `tests/blocks/test_auto_flush_composite.py`; ruff + format clean; full_audit pass (`docs/audit/full-audit-track-b.json`).
+- [x] Create `src/scistudio/core/storage/_defaults.py` with `build_default()` (moves body of `_build_default_router()`). → commit `c278d1fe` (PR #1347)
+- [x] `backend_router.py`: delete `_build_default_router()` + 6 lazy type imports (lines 53-78); rewrite `get_router()` as lazy-singleton + add `TODO(#1342)` comment. → commit `c278d1fe` (PR #1347)
+- [x] `core/storage/__init__.py`: verify `get_router` re-export still works. → no change required; smoke-tested via `from scistudio.core.storage import get_router` resolving correctly post-fix.
+- [x] Add `test_no_circular_import` + `test_singleton_identity` regression tests. Also added `test_backend_router_has_no_types_top_level_import` (locks cycle-free state). → commit `c278d1fe` (PR #1347)
+- [x] Run targeted pytest + ruff + sentrux MCP rescan locally; expected `clusters` drops to 4 (after this fix alone) or 2 (after Track A also lands). → sentrux clusters 5→4 (10-module SCC at level 9 removed; post-finalize re-scan shows 3 clusters); pytest 17/17 green on `tests/core/test_backend_router.py` + `tests/blocks/test_auto_flush_composite.py`; ruff + format clean; full_audit pass (`docs/audit/full-audit-track-b.json`).
 
 ### 8.4 Audit
 
