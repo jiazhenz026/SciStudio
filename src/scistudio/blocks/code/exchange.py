@@ -190,8 +190,7 @@ class CodeBlockExchangeManifest:
             "logs_dir": str(self.layout.logs_dir),
             "temp_dir": str(self.layout.temp_dir),
             "ports": {
-                f"{direction}:{name}": record.to_dict()
-                for (direction, name), record in sorted(self.ports.items())
+                f"{direction}:{name}": record.to_dict() for (direction, name), record in sorted(self.ports.items())
             },
             "diagnostics": [diagnostic.to_dict() for diagnostic in self.diagnostics],
         }
