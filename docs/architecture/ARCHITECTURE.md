@@ -3,7 +3,7 @@ doc_type: architecture
 title: "SciEasy Architecture Document"
 status: living
 owner: "@jiazhenz026"
-last_updated: 2026-05-19
+last_updated: 2026-05-20
 governed_by:
   - ADR-042
   - ADR-043
@@ -24,3392 +24,2101 @@ summary: "Stable architecture overview for SciEasy runtime, data, block, registr
 
 # SciEasy Architecture Document
 
-> **Status**: Draft v0.3
-> **Last updated**: 2026-05-19 (ADR-043 format capability registry and ADR-042 document metadata)
+> Status: Living architecture reference
+> Last updated: 2026-05-20
+> Audit rule: implementation contracts must match current repository facts
 
 ---
 
-## 1. Problem statement
+## 1. Introduction
 
-Modern biomedical research increasingly generates multi-modal datasets — RNA/DNA sequencing, LC-MS metabolomics, spatial transcriptomics, immunofluorescence microscopy, SRS imaging, mass spectrometry imaging, and more. Each modality demands its own processing software, programming language, and data format. Researchers face two compounding problems:
+### 1.1 Introduction
 
-1. **Fragmented processing**: tools are scattered across R scripts, Python notebooks, standalone GUI applications (ElMAVEN, Fiji, napari), and command-line pipelines. Exchanging intermediate results between these environments is manual, error-prone, and poorly documented.
-2. **High barrier for non-developers**: researchers without strong programming backgrounds cannot efficiently chain together complex multi-step analyses, let alone integrate data across modalities.
+SciEasy is a scientific data analysis framework for AI-native, traceable,
+reproducible, multimodal, and streaming data workflows.
 
-## 2. Vision
+SciEasy is designed for scientific data:
 
-A **modality-agnostic, building-block workflow framework** where:
+- It uses a typed scientific data model to describe the shape, storage,
+  metadata, and movement of data across workflow steps.
+- It uses a block-based workflow system to compose analysis steps into graphs.
+- It uses a plugin system so domains can add new data types, processing blocks,
+  file adapters, and tool integrations without moving domain logic into the core
+  runtime.
+- It is AI-native: it provides MCP tools so AI agents can create and run
+  workflows, create dedicated blocks, tune parameters, inspect results, optimize
+  analysis, and participate in workflows as blocks.
+- It tracks lineage for each workflow run and uses native Git version and branch
+  management for reproducibility.
 
-- Every processing step is encapsulated as a **Block** with standardised inputs and outputs.
-- All data flows through a small set of **base data types** that are extensible via inheritance.
-- Users compose workflows visually by wiring blocks together on a canvas — no code required for standard pipelines.
-- Existing tools are **included, not replaced**: users can embed R/Python scripts, launch GUI applications, or call CLI tools as blocks within the same workflow.
-- Multiple data modalities coexist in a **single workflow graph**, enabling true cross-modal fusion analysis.
-- The framework is **AI-native**: AI can generate blocks, synthesise workflows, and optimise parameters at runtime.
+### 1.2 Contents
 
-### 2.1 Design principles
-
-| Principle | Implication |
-|---|---|
-| **Inclusive** | Never ask users to migrate. Wrap existing tools as blocks. |
-| **Composable** | Small, single-purpose blocks that combine into complex workflows. |
-| **Type-safe** | Port-level type checking prevents invalid connections at design time. |
-| **Lazy by default** | Data objects hold references, not payloads. 100 GB datasets stay on disk until a block requests a specific slice. |
-| **Checkpoint everything** | Workflow state is serialisable. Pause, resume, and recover from any point. |
-| **Community-extensible** | Abstract base classes + plugin registry via Python entry-points (ADR-025). Anyone can publish a block package with `pip install`. Block SDK scaffolding and test harness lower the barrier for external developers (ADR-026). |
-
----
-
-## 3. Layered architecture overview
-
-The system is organised into six horizontal layers, from bottom to top. Each layer depends only on the layers below it.
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Layer 6: Frontend (bundled into Python wheel; ADR-024)     │
-│  ReactFlow canvas · block palette · monitoring dashboard    │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 5: API + SPA serving                                 │
-│  FastAPI REST · WebSocket · SSE · SPA fallback middleware   │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 4: AI services                                       │
-│  Block generation · workflow synthesis · param optimisation  │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 3: Execution engine                                  │
-│  DAG scheduler · process lifecycle · resource management    │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 2: Block system                                      │
-│  Port typing · block registry · state machine · runners     │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 1: Data foundation                                   │
-│  Type hierarchy · storage backends · lazy loading · lineage │
-│                                  · versioning (bundled git) │
-├─────────────────────────────────────────────────────────────┤
-│  Plugin ecosystem (cross-cutting; ADR-025, ADR-026)         │
-│  Entry-points protocol · PackageInfo · Block SDK ·          │
-│  Community blocks · custom types · external adapters ·      │
-│  BlockTestHarness · scieasy init-block-package scaffolding  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 3.1 Cross-cutting: history and versioning model (ADR-038, ADR-039)
-
-The system maintains **two independent history layers** that together satisfy the user's reproducibility requirements. Earlier drafts of this document conflated provenance, run tracking, and source version control under a single ambiguous "metadata" umbrella; the layers are now cleanly separated. They share exactly one join key.
-
-| Layer | Where it lives | What it records | Triggered by | ADR |
-|---|---|---|---|---|
-| **Source version control** | `<project>/.git/` | Workflow YAML, custom block `.py`, notes `.md` — every edit users want to recover | User clicks **Commit** (manual) or **Run** (pre-run auto-commit, ON by default) | ADR-039 |
-| **Run lineage** | `<project>/.scieasy/lineage.db` (SQLite, 4 normalized tables) | Every workflow execution: which workflow, which blocks, which params, which I/O DataObjects, which environment, against which source commit | User clicks **Run** (engine writes the row) | ADR-038 |
-
-**Single join key:** every row in `lineage.db.runs` carries a `workflow_git_commit` column pointing at the exact source commit the run executed against. From a run row, the user can `git checkout <sha>` to recover the source; from a source commit, the user can query `SELECT * FROM runs WHERE workflow_git_commit = ?` to see which runs ran against it.
-
-**Why two layers, not one unified store:**
-
-- Source files (YAML, Python, Markdown) want text-friendly diff / merge / branch semantics that git already provides perfectly after 40 years of stability — embedding git wins over reinventing.
-- Run records are immutable, append-only, queried via SQL by user questions ("what params did I use last Tuesday on the cellpose block?") — a SQLite store is the natural fit.
-- Conflating them in prior drafts produced the user-visible confusion documented in ADR-038 §2.2: the word "metadata" collided with `DataObject.meta` (typed scientific metadata), `DataObject.user` (annotations), plugin manifest metadata, and the workflow YAML `metadata:` block. The two-layer split ends that confusion.
-
-**What `lineage.db` is NOT:** it is **not** a content cache. Intermediate block outputs are overwritten freely by subsequent runs at their natural backend-managed paths (Zarr / Arrow / file). The recipe (workflow YAML snapshot + resolved params + environment + git commit SHA) survives indefinitely in `lineage.db.runs` and is sufficient to reproduce any historical run by re-execution. See §4.4 for the schema and write-flow.
-
-**What `.git/` is NOT:** it is **not** a snapshot of run data. The default `.gitignore` excludes `data/` (large binary inputs/outputs) and `.scieasy/` (per-machine runtime state including the lineage database itself). Two users cloning the same SciEasy project each generate their own local lineage when they run workflows; collaborative sharing of run lineage is a future ADR. The git CLI engine used to manage the repository is a **bundled portable git binary** (~25-30 MB shipped via the ADR-037 desktop bundle), not a Python library — see §4.6 for the source-version-control architecture.
-
-**AI agents may consume both layers:** an embedded agent (ADR-034) can `git log` and `git show` inside its PTY, and can `sqlite3 .scieasy/lineage.db "SELECT ..."` to answer reproducibility questions; no new MCP tools are required for either.
-
----
-
-## 4. Layer 1 — Data foundation
-
-### 4.1 Base type hierarchy
-
-All data flowing between blocks is wrapped in a `DataObject` subclass. **The core ships exactly seven types** (ADR-027 D2): the abstract `DataObject` root plus six primitives. **Domain subtypes — `Image`, `Spectrum`, `PeakTable`, `AnnData`, and everything similar — do not live in core.** They are provided by plugin packages via the `scieasy.types` entry-point group (ADR-025) and registered at startup (main process) and at worker subprocess startup (ADR-027 D11).
-
-```mermaid
-classDiagram
-    class DataObject {
-        +framework: FrameworkMeta
-        +meta: BaseModel
-        +user: dict
-        +dtype_info: TypeSignature
-        +storage_ref: StorageReference
-        +to_memory() Any
-        +slice(*args) Any
-        +iter_chunks(chunk_size) Iterator
-        +get_in_memory_data() Any
-        +with_meta(**changes) Self
-        +save(path) None
-    }
-
-    class Array {
-        +axes: list~str~
-        +shape: tuple
-        +dtype: numpy.dtype
-        +chunk_shape: tuple
-        +required_axes: ClassVar frozenset
-        +allowed_axes: ClassVar frozenset
-        +canonical_order: ClassVar tuple
-        +sel(**kwargs) Array
-        +iter_over(axis) Iterator
-    }
-
-    class Series {
-        +index_name: str
-        +value_name: str
-        +length: int
-    }
-
-    class DataFrame {
-        +columns: list[str]
-        +row_count: int
-        +schema: dict
-    }
-
-    class Text {
-        +content: str
-        +format: str
-        +encoding: str
-    }
-
-    class Artifact {
-        +file_path: Path
-        +mime_type: str
-        +description: str
-    }
-
-    class CompositeData {
-        +slots: dict~str, DataObject~
-        +get(slot_name) DataObject
-        +set(slot_name, data) None
-        +slot_types() dict~str, type~
-    }
-
-    DataObject <|-- Array
-    DataObject <|-- Series
-    DataObject <|-- DataFrame
-    DataObject <|-- Text
-    DataObject <|-- Artifact
-    DataObject <|-- CompositeData
-```
-
-The diagram above is the **complete** core type surface. There are no `Image`, `MSImage`, `Spectrum`, `PeakTable`, `AnnData`, or `SpatialData` classes in core. These are plugin-provided extensions.
-
-**Plugin-provided extension inset (illustrative, not in core)**: the `scieasy-blocks-imaging` package registers its own hierarchy rooted at `Array`, visible to the core `TypeRegistry` after entry-point scan:
-
-```mermaid
-classDiagram
-    class Array {
-        <<core>>
-    }
-    class Image {
-        <<plugin: scieasy-blocks-imaging>>
-        +meta: Image.Meta
-    }
-    class FluorImage {
-        <<plugin: scieasy-blocks-imaging>>
-    }
-    class HyperspectralImage {
-        <<plugin: scieasy-blocks-imaging>>
-    }
-    class SRSImage {
-        <<plugin: scieasy-blocks-imaging>>
-    }
-
-    Array <|-- Image
-    Image <|-- FluorImage
-    Image <|-- HyperspectralImage
-    Image <|-- SRSImage
-```
-
-Other plugin packages (`scieasy-blocks-spectral`, `scieasy-blocks-msi`, `scieasy-blocks-singlecell`, `scieasy-blocks-spatial-omics`) follow the same pattern — each subclasses one of the six core primitives and registers via `scieasy.types` entry points. The core diagram never grows as new modalities are added.
-
-**Why `CompositeData` exists**: Many real-world scientific data structures are inherently multi-modal containers rather than single-type objects. AnnData (single-cell, provided by `scieasy-blocks-singlecell`) bundles a matrix (`.X` → Array), observation metadata (`.obs` → DataFrame), variable metadata (`.var` → DataFrame), and unstructured annotations (`.uns` → Artifact). SpatialData (provided by `scieasy-blocks-spatial-omics`) combines images, coordinate tables, and region annotations. Forcing these into single-parent inheritance (e.g. AnnData as a DataFrame) loses critical structural semantics.
-
-`CompositeData` models these as a named collection of heterogeneous `DataObject` slots:
-
-```python
-class CompositeData(DataObject):
-    """A named collection of heterogeneous DataObjects."""
-
-    def __init__(self, slots: dict[str, DataObject] = None, **kwargs):
-        super().__init__(**kwargs)
-        self._slots = slots or {}
-
-    def get(self, slot_name: str) -> DataObject:
-        """Retrieve a named slot (e.g. anndata.get('X') → Array)."""
-        return self._slots[slot_name]
-
-    def set(self, slot_name: str, data: DataObject) -> None:
-        """Set or replace a named slot."""
-        self._slots[slot_name] = data
-
-    def slot_types(self) -> dict[str, type]:
-        """Return {slot_name: DataObject subclass} for port constraint checking."""
-        return {k: type(v) for k, v in self._slots.items()}
-
-    @property
-    def slot_names(self) -> list[str]:
-        return list(self._slots.keys())
-```
-
-Plugin-provided composite subclasses declare their expected slot structure. For example (in `scieasy-blocks-singlecell`):
-
-```python
-# scieasy_blocks_singlecell/types/anndata.py
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.array import Array
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.artifact import Artifact
-
-class AnnData(CompositeData):
-    """Single-cell data: expression matrix + cell/gene metadata."""
-    expected_slots = {
-        "X": Array,           # expression matrix (cells × genes)
-        "obs": DataFrame,     # cell-level metadata
-        "var": DataFrame,     # gene-level metadata
-        "uns": Artifact,      # unstructured annotations
-    }
-
-# scieasy_blocks_spatial_omics/types/spatialdata.py
-class SpatialData(CompositeData):
-    """Spatial omics data: images + coordinates + annotations."""
-    expected_slots = {
-        "images": Array,
-        "points": DataFrame,
-        "shapes": DataFrame,
-        "table": AnnData,     # CompositeData can nest CompositeData
-    }
-```
-
-Neither class lives in the core package.
-
-**Named axes on `Array` — instance-level with class-level schema (ADR-027 D1)**: Each `Array` instance carries its own `axes: list[str]`. Subclasses declare three ClassVar constraints:
-
-- `required_axes: frozenset[str]` — axes every instance of this class must have
-- `allowed_axes: frozenset[str] | None` — axes this class accepts; `None` means any
-- `canonical_order: tuple[str, ...]` — preferred ordering for reorder operations
-
-The base `Array` class leaves all three empty/None (accepts anything). Subclasses tighten as needed. The 6D axis alphabet for scientific imaging is:
-
-| Axis | Meaning | Notes |
+| Section | Topic | Contract source |
 |---|---|---|
-| `t` | time (frames, timestamps) | |
-| `z` | depth / focal plane | |
-| `c` | discrete channel (DAPI, GFP, brightfield) | unordered labels, not values |
-| `lambda` | continuous spectral dimension | ordered numeric values in nm, cm⁻¹, or m/z |
-| `y` | vertical spatial | |
-| `x` | horizontal spatial | |
+| 1 | Introduction | Product purpose, document conventions |
+| 2 | Scope | In-scope runtime architecture and out-of-scope future work |
+| 3 | Architecture overview | ADR-025, ADR-026, ADR-038, ADR-039 |
+| 4 | Data foundation | ADR-027, ADR-028, ADR-031, ADR-038, ADR-039, ADR-041 |
+| 5 | Block system | ADR-020, ADR-025, ADR-026, ADR-027, ADR-028 |
+| 6 | Execution engine | ADR-020, ADR-038 |
+| 7 | AI Agents | ADR-034, ADR-040 |
+| 8 | API | ADR-023, ADR-024, ADR-033 |
+| 9 | Frontend | ADR-023, ADR-024, ADR-036 |
+| 10 | Project workspace structure | ADR-023, ADR-038, ADR-039, ADR-040 |
+| 11 | Technology stack summary | Current repository dependencies |
+| 12 | Extension points | ADR-025, ADR-026, ADR-028 |
+| Appendix A | Concrete walkthrough | Conceptual example |
+| Appendix B | Glossary | Human-readable terminology |
+| Appendix C | Future considerations | Planned or deferred work |
 
-`c` and `lambda` are deliberately distinct — `c` is a discrete label set, `lambda` is a continuous physical quantity. Blocks can require one or the other via constraint helpers (`has_axes("y","x","c")` vs `has_axes("y","x","lambda")`). The two may coexist in a single instance for rare multichannel + hyperspectral setups. The canonical order follows OME convention with spectral inserted between channel and spatial.
+### 1.3 Architecture Index
 
-`Array` instances are constructed with an explicit `axes` argument:
+| Area | Primary responsibility | Expected evidence |
+|---|---|---|
+| Data foundation | Data object model, storage references, lazy access, lineage, boundary format handling | ADRs, specs, public type contracts, storage tests |
+| Block system | Block base behavior, port semantics, registry, package discovery, SDK expectations | ADRs, public block contracts, registry tests |
+| Execution engine | Graph scheduling, collection transport, process lifecycle, resource coordination, checkpoint behavior | Runtime modules, engine tests, lineage checks |
+| AI Agents | Production agent boundaries, MCP surface, project provisioning, skills, hooks, provider parity | ADRs, API contracts, governance checks |
+| API layer | REST, WebSocket, SPA serving, project and workflow orchestration | API modules, route tests, frontend integration checks |
+| Frontend | Canvas layout, palette, node UI, preview panels, tab behavior, run controls | Frontend source, UI tests, ADR-backed interaction rules |
+| Workspace | Project files, workflow definitions, local runtime state, source history | Workspace docs, ADRs, serialization tests |
+| Extension points | Plugin entry points, block packages, custom type packages, developer scaffolding | Specs, entry point contracts, SDK tests |
 
-```python
-# Built-in 2D image (in plugin package, not core)
-img_2d = Image(axes=["y", "x"], shape=(512, 512), dtype=np.uint16)
+---
 
-# 5D fluorescence stack: 10 time points, 30 z-planes, 4 channels, 512×512
-img_5d = FluorImage(
-    axes=["t", "z", "c", "y", "x"],
-    shape=(10, 30, 4, 512, 512),
-    dtype=np.uint16,
-)
+## 2. Scope
 
-# 6D hyperspectral time-course: time × depth × 128 wavelengths × spatial
-img_6d = HyperspectralImage(
-    axes=["t", "z", "lambda", "y", "x"],
-    shape=(10, 30, 128, 512, 512),
-    dtype=np.float32,
-)
-```
+### 2.1 Why SciEasy Exists
 
-Plugin-provided subclasses declare their schema at class level. For example (in `scieasy-blocks-imaging`):
+Scientific data analysis increasingly combines many modalities, tools, file
+formats, programming languages, and review steps. A single study may involve
+images, tables, spectra, omics matrices, notebooks, command-line tools, GUI
+applications, and AI-assisted interpretation. Researchers need the flexibility
+of this ecosystem, but also need analysis to be repeatable, inspectable, and
+recoverable.
 
-```python
-class Image(Array):
-    required_axes   = frozenset({"y", "x"})
-    allowed_axes    = frozenset({"t", "z", "c", "lambda", "y", "x"})
-    canonical_order = ("t", "z", "c", "lambda", "y", "x")
+SciEasy exists to make that workflow shape explicit. It treats analysis as a
+typed, traceable workflow rather than a loose collection of scripts, notebooks,
+manual exports, and undocumented intermediate files.
 
-class FluorImage(Image):
-    required_axes = frozenset({"y", "x", "c"})   # channel mandatory
+### 2.2 Weaknesses In Existing Workflows
 
-class HyperspectralImage(Image):
-    required_axes = frozenset({"y", "x", "lambda"})
+SciEasy is designed around several common weaknesses in current scientific data
+analysis practice:
 
-class SRSImage(Image):
-    required_axes = frozenset({"y", "x", "lambda"})
-    # same as HyperspectralImage structurally; distinct for domain semantics
+- Analysis steps often live in disconnected tools, scripts, notebooks, and GUI
+  applications.
+- Existing pipelines are valuable, but many workflow systems require users to
+  rewrite them before they can be tracked, composed, or reviewed.
+- Intermediate data movement is frequently manual, hidden in local files, or
+  encoded in ad hoc naming conventions.
+- Parameters, tool versions, data provenance, and review decisions are often
+  difficult to reconstruct after the analysis is complete.
+- Multimodal workflows require repeated conversion between domain-specific
+  formats and tool-specific assumptions.
+- File extensions and format labels are often treated as if they were reliable
+  data contracts, even though real analysis tools may disagree about the same
+  nominal format.
+- Large datasets make eager loading and full-copy processing expensive or
+  impossible.
+- AI assistance is often outside the workflow record, making suggestions,
+  generated code, and parameter changes hard to audit later.
 
-# (MSImage moves to scieasy-blocks-msi in a separate plugin.)
-```
+### 2.3 What SciEasy Provides
 
-Axis validation runs in the `Array.__init__` via `_validate_axes()`: the instance's `axes` must be a superset of `required_axes` and (if specified) a subset of `allowed_axes`, and must not contain duplicates. Instances can be reordered to `canonical_order` via a helper method on `Array`.
+SciEasy provides a framework for building and running scientific workflows with
+clear contracts between steps:
 
-`TypeSignature.from_type(cls)` (ADR-027 D1) additionally records `required_axes` so port compatibility checks enforce "incoming instance must have at least the target port type's required axes".
+- A typed data model for describing scientific data, metadata, storage, and
+  movement across workflow steps.
+- A block-based workflow model for composing analysis steps into reusable,
+  reviewable graphs.
+- Inclusive execution blocks for existing work: CodeBlock and AppBlock let
+  users run familiar scripts, command-line tools, GUI applications, and
+  pipelines inside SciEasy with near-zero migration cost.
+- Lineage tracking for workflow runs so inputs, parameters, outputs, source
+  state, and execution context can be connected.
+- Native source-history integration so workflow definitions and project files
+  can be versioned and branched.
+- Plugin extension points for domain packages, file adapters, processing tools,
+  and custom blocks.
+- A canonical-zone data handling model where internal workflow data uses
+  explicit typed contracts, while file-format and extension conversion happen at
+  import/export or external-tool boundaries.
+- API and frontend layers that expose the same runtime truth instead of
+  inventing separate workflow state.
+- AI-native orchestration surfaces so agents can assist with workflow creation,
+  execution, block generation, parameter tuning, and result review while staying
+  inside the project record.
 
-Named axes serve four purposes: (1) port constraints can require specific axes instead of just ndim checks (see `scieasy.utils.constraints.has_axes`); (2) `Array.iter_over(axis)` and `Array.sel(**kwargs)` let blocks slice along named axes without manual positional indexing; (3) `scieasy.utils.axis_iter.iterate_over_axes(source, operates_on, func)` lets blocks process high-dim Arrays one slice at a time (section 4.5); (4) visualisation blocks can auto-assign axes to plot dimensions without config.
+### 2.4 What SciEasy Does Not Provide
 
-**Key fields on `DataObject` — stratified metadata (ADR-027 D5)**:
+SciEasy is not intended to replace every scientific tool or analysis library.
+It provides the workflow runtime around those tools.
 
-Every `DataObject` has three metadata slots:
+SciEasy does not try to:
 
-- `framework: FrameworkMeta` — immutable framework-managed fields (created_at, object_id, source origin description, optional lineage_id, optional derived_from parent object_id). Block authors do not mutate this; the framework manages it.
-- `meta: BaseModel` — **typed Pydantic BaseModel** declared per subtype. For example, `FluorImage.Meta` may declare `pixel_size: PhysicalQuantity`, `channels: list[ChannelInfo]`, `objective: str | None`, `acquisition_date: datetime | None`. The base `DataObject.meta` type is an empty `BaseModel`; subtypes override with their own typed model.
-- `user: dict[str, Any]` — free-form dict escape hatch. Framework never interprets these fields; they round-trip as JSON through the Pydantic serialiser.
-- `dtype_info: TypeSignature` — used by the port system for connection validation. Encodes the class MRO chain so that a `FluorImage` matches any port accepting `Image`, `Array`, or `DataObject`. For `CompositeData`, the signature additionally encodes the slot structure so ports can require specific named slots of specific types. For `Array` subtypes, it also encodes `required_axes`.
-- `storage_ref: StorageReference | None` — pointer to the backing store (Zarr path, Parquet file, plain file path). For `CompositeData`, this is a directory containing one storage ref per slot. The object itself is lightweight — typically a few KB regardless of the underlying data size.
+- Replace domain-specific analysis packages, statistical methods, or scientific
+  validation.
+- Guarantee that an analysis is scientifically correct without human review and
+  domain expertise.
+- Hide all complexity from advanced users who need custom code, external tools,
+  or domain-specific tuning.
+- Move all domain logic into the core runtime.
+- Make large data cheap by itself; it provides contracts and execution patterns
+  that let blocks avoid unnecessary loading and copying.
 
-Block authors read metadata via `img.meta.pixel_size` (typed attribute access with IDE autocompletion) and update it with the immutable helper `img.with_meta(pixel_size=new_value)`, which returns a new instance. Example:
+### 2.5 Future Plans
 
-```python
-from scieasy.core.units import PhysicalQuantity as Q
+Future work should extend SciEasy without weakening the core boundaries:
 
-img = FluorImage(
-    axes=["z", "c", "y", "x"],
-    shape=(30, 4, 512, 512),
-    dtype=np.uint16,
-    meta=FluorImage.Meta(
-        pixel_size=Q(0.108, "um"),
-        channels=[
-            ChannelInfo(name="DAPI", excitation_nm=405, emission_nm=460),
-            ChannelInfo(name="GFP",  excitation_nm=488, emission_nm=525),
-            ...
-        ],
-        objective="Plan Apo 60× 1.40 NA",
-    ),
-)
+- Broader domain plugin packages for common scientific modalities.
+- More streaming and partial-read execution patterns for large data.
+- Stronger collaboration workflows for sharing project state, lineage, and
+  review decisions across machines or teams.
+- Richer AI-assisted workflow design, debugging, and result interpretation.
+- More external tool adapters for established GUI, CLI, and service-based
+  scientific software.
+- Marketplace-style discovery and version resolution for reusable blocks and
+  data types.
 
-# Read (typed, autocomplete-friendly)
-if img.meta.pixel_size < Q(0.2, "um"):
-    # super-resolution path
-    ...
+---
 
-# Write (immutable update)
-resampled = img.with_meta(pixel_size=Q(0.216, "um"))
-```
+---
 
-The free-dict `DataObject.metadata` property remains as a backward-compatibility shim returning `self.user` with a `DeprecationWarning`; it is removed after Phase 11.
+## 3. Architecture Overview
 
-### 4.2 Storage backends
+SciEasy is organized as a layered runtime with cross-cutting plugin and
+governance systems. The layers describe responsibility boundaries; the runtime
+architecture describes how those parts cooperate while a workflow is edited,
+validated, executed, paused, reviewed, resumed, and inspected.
 
-Each base type maps to an optimal storage backend:
+### 3.1 Layer Architecture
+
+The layer model keeps user-facing tools, API orchestration, execution behavior,
+block contracts, and data handling separate. Higher layers depend on lower
+layers, while plugin and cross-cutting systems extend or observe the stack
+without becoming a hidden seventh layer.
+
+<table>
+  <tbody>
+    <tr>
+      <td colspan="2" style="text-align:center; padding:10px; border:1px solid #999;"><strong>Layer 6: Frontend</strong><br />Workflow canvas, block palette, previews, run controls, review panels</td>
+    </tr>
+    <tr>
+      <td colspan="2" style="text-align:center; padding:10px; border:1px solid #999;"><strong>Layer 5: API</strong><br />REST, realtime updates, project and workflow orchestration, static app serving</td>
+    </tr>
+    <tr>
+      <td colspan="2" style="text-align:center; padding:10px; border:1px solid #999;"><strong>Layer 4: AI Agents</strong><br />Production agent runtime, MCP contracts, project provisioning, skills, hooks, provider parity</td>
+    </tr>
+    <tr>
+      <td colspan="2" style="text-align:center; padding:10px; border:1px solid #999;"><strong>Layer 3: Execution Engine</strong><br />Event-driven scheduling, process lifecycle, resource coordination, pause/resume, checkpoint behavior</td>
+    </tr>
+    <tr>
+      <td colspan="2" style="text-align:center; padding:10px; border:1px solid #999;"><strong>Layer 2: Block System</strong><br />Block lifecycle, ports, validation, CodeBlock, AppBlock, AIBlock, subworkflows, registry metadata</td>
+    </tr>
+    <tr>
+      <td colspan="2" style="text-align:center; padding:10px; border:1px solid #999;"><strong>Layer 1: Data Foundation</strong><br />Typed scientific data model, storage references, lazy access, lineage, canonical-zone boundary handling</td>
+    </tr>
+    <tr>
+      <td style="text-align:center; padding:10px; border:1px solid #999; width:50%;"><strong>Plugin Ecosystem</strong><br />Domain blocks, data types, file adapters, external-tool bridges, package discovery</td>
+      <td style="text-align:center; padding:10px; border:1px solid #999; width:50%;"><strong>Cross-Cutting Systems</strong><br />Lineage, Git-backed history, governance, audit, permissions, environment capture</td>
+    </tr>
+  </tbody>
+</table>
+
+The plugin ecosystem and cross-cutting systems sit on the same conceptual row:
+plugins extend what SciEasy can do, while cross-cutting systems record, govern,
+or constrain work across all layers. Neither should collapse into frontend
+state or bypass the lower runtime contracts.
+
+### 3.2 Runtime Architecture
+
+At runtime, SciEasy is event-driven. The frontend and API submit workflow
+changes and run requests to the runtime. The runtime validates the workflow
+against block and data-type contracts, resolves plugin-provided capabilities,
+dispatches ready work through the execution engine, and emits events that keep
+UI, API clients, AI tools, lineage, and review surfaces synchronized.
+
+<table>
+  <tbody>
+    <tr>
+      <td style="text-align:center; padding:10px; border:1px solid #999;"><strong>Frontend</strong><br />Canvas, controls, previews, review UI</td>
+      <td style="text-align:center; padding:10px; border:1px solid #999;"><strong>AI / MCP Clients</strong><br />Workflow authoring, block creation, tuning, result review</td>
+    </tr>
+    <tr>
+      <td colspan="2" style="text-align:center; padding:10px; border:1px solid #999;"><strong>API Boundary</strong><br />Receives user and agent intent; exposes runtime state without becoming the source of truth</td>
+    </tr>
+    <tr>
+      <td colspan="2" style="text-align:center; padding:10px; border:1px solid #999;"><strong>Workflow Runtime</strong><br />Validates graphs, resolves block/type contracts, manages run state, coordinates reviews</td>
+    </tr>
+    <tr>
+      <td style="text-align:center; padding:10px; border:1px solid #999;"><strong>Event Bus</strong><br />Run events, block state changes, progress, logs, review gates, file boundary events</td>
+      <td style="text-align:center; padding:10px; border:1px solid #999;"><strong>Plugin Registry</strong><br />Discovers blocks, types, adapters, capabilities, and external-tool bridges</td>
+    </tr>
+    <tr>
+      <td colspan="2" style="text-align:center; padding:10px; border:1px solid #999;"><strong>Execution Engine</strong><br />Schedules ready blocks, reserves resources, starts local or external work, handles pause/resume/failure</td>
+    </tr>
+    <tr>
+      <td style="text-align:center; padding:10px; border:1px solid #999;"><strong>Block Runtime</strong><br />Process blocks, IO blocks, CodeBlock, AppBlock, AIBlock, subworkflows</td>
+      <td style="text-align:center; padding:10px; border:1px solid #999;"><strong>Type And Data Runtime</strong><br />Typed objects, storage references, canonical-zone data, import/export boundaries</td>
+    </tr>
+    <tr>
+      <td colspan="2" style="text-align:center; padding:10px; border:1px solid #999;"><strong>Project Record</strong><br />Workflow definitions, artifacts, lineage, Git history, environment snapshots, logs, audit evidence</td>
+    </tr>
+  </tbody>
+</table>
+
+The most important runtime coupling is between blocks and data types. Blocks do
+not merely pass opaque files to each other; they declare what kind of data they
+accept and produce. Data types describe shape, storage, metadata, and access
+patterns. The execution engine uses those contracts to validate connections,
+materialize data at external-tool boundaries, avoid unnecessary full loads, and
+persist enough lineage to reconstruct what happened.
+
+The API and frontend are presentation and orchestration surfaces over this
+runtime. They may cache view state for interaction, but workflow truth belongs
+to the runtime and project record. AI agents use the same API and MCP-facing
+capabilities as other clients, so AI-authored actions can be reviewed, traced,
+and reproduced instead of living only in chat history.
+
+---
+
+## 4. Layer 1: Data Foundation
+
+The **data foundation** is the bottom layer of SciEasy. It gives workflow blocks
+a common way to describe **scientific data**, move data between steps, avoid
+unnecessary copies, cross **file-format boundaries**, and preserve enough
+context to reproduce an analysis later.
+
+### 4.1 Base Types
+
+SciEasy keeps the **core data model** intentionally small. The **base types**
+are not a catalog of every scientific modality. They are the common shapes that
+many domain types can build on.
+
+#### 4.1.1 DataObject
+
+`DataObject` is the **common wrapper** for data moving through a workflow. It exists
+so every block can receive data with a consistent envelope for framework
+metadata, user metadata, type information, and storage references.
+
+It normally appears as a lightweight object that points to stored data instead
+of carrying the full payload in memory. Examples include an object representing
+a table persisted in Parquet, an image stack persisted in Zarr, or a file-backed
+artifact produced by an external tool.
+
+#### 4.1.2 Array
+
+`Array` represents **N-dimensional numeric data with named axes**. It exists
+because scientific imaging, spectra, volumes, time series, and other dense
+measurements need axis-aware slicing and iteration rather than anonymous
+positional indexing.
+
+An `Array` records shape, dtype, axes, chunking expectations, and storage
+reference information. Examples include microscopy images, volumetric stacks,
+hyperspectral cubes, matrix-like measurements, and other dense numeric payloads.
+
+#### 4.1.3 Series
+
+`Series` represents **one-dimensional labelled data**. It exists for values that
+are naturally ordered or indexed but do not need the full table model.
+
+A `Series` may be used for spectra, traces, measurements over time, calibration
+curves, or other single-axis scientific values.
+
+#### 4.1.4 DataFrame
+
+`DataFrame` represents **tabular data**. It exists because many scientific
+results are row-and-column records: observations, features, peaks, measurements,
+sample metadata, quality-control tables, and summary outputs.
+
+A `DataFrame` records columns, schema, row count, and a storage reference to a
+columnar backend when data is persisted.
+
+#### 4.1.5 Text
+
+`Text` represents **small textual payloads**. It exists for prompts, notes, logs,
+plain text outputs, structured text snippets, and other small content that is
+better carried directly than stored as a large data object.
+
+Unlike large scientific arrays or tables, a `Text` object may keep its content
+in memory because it is expected to be small.
+
+#### 4.1.6 Artifact
+
+`Artifact` represents **files whose internal format is not part of the SciEasy
+canonical data model**. It exists for interoperability with scientific tools
+that produce reports, images, PDFs, archives, logs, or other file outputs.
+
+An `Artifact` usually preserves the original file and carries descriptive
+metadata, MIME information, and a file path or storage reference.
+
+#### 4.1.7 CompositeData
+
+`CompositeData` represents a **named bundle of heterogeneous data objects**. It
+exists because many real scientific objects are containers rather than a single
+array or table.
+
+A composite object may bundle a matrix, feature table, observation metadata,
+images, coordinate tables, masks, annotations, or other related data slots while
+keeping the bundle addressable as one workflow value.
+
+### 4.2 Type Hierarchy
+
+The **type hierarchy** lets SciEasy validate workflow connections at the level
+of scientific meaning without forcing every modality into the core package.
+
+**Core types** provide broad categories. **Plugin packages** define
+domain-specific types by building on those categories. A workflow port can
+accept a broad type when it only needs generic behavior, or a narrower
+plugin-provided type when the block requires domain-specific structure.
+
+This separation keeps core stable while allowing new domains to extend SciEasy
+with their own types. The core does not need to know every image, spectrum,
+omics, or instrument-specific class in advance. It only needs the registered
+type relationship and the contracts needed for validation, preview, storage,
+and execution.
+
+Examples:
+
+- **`Image` -> `Array`**: image data specializes the dense named-axis array
+  model.
+- **`FluorImage` -> `Image`**: fluorescence image data specializes image data
+  with channel-aware metadata and axis requirements.
+- **`Spectrum` -> `Series`**: spectrum data specializes one-dimensional labelled
+  values.
+- **`PeakTable` -> `DataFrame`**: peak tables specialize row-and-column
+  scientific results.
+- **single-cell data / spatial-omics data -> `CompositeData`**: multimodal
+  containers specialize named bundles of heterogeneous data slots.
+
+### 4.3 Data Management
+
+#### 4.3.1 Storage Backends
+
+SciEasy stores data in **backends chosen for the access pattern** of each base
+type. The goal is to keep workflow values **lightweight** while allowing blocks
+to load only the data they actually need.
 
 | Base type | Primary backend | Rationale |
 |---|---|---|
-| `Array` | **Zarr** (chunked, compressed, cloud-compatible) | Handles 100 GB+ MSI and hyperspectral data. Supports partial reads via chunk indexing. |
-| `Series` | **Zarr** or **Parquet** (single-column) | Small enough to fit in memory for most cases; Zarr for very long series. |
-| `DataFrame` | **Apache Arrow / Parquet** | Columnar format enables efficient filtering and aggregation. Memory-mappable via Arrow. |
-| `Text` | **Filesystem** (plain text / JSON) | Trivially small. Stored as files for easy external access. |
-| `Artifact` | **Filesystem** (original format preserved) | PDFs, images, reports. Kept as-is for interoperability. |
-| `CompositeData` | **Directory of slot backends** | Each slot stored using the backend appropriate to its type. A manifest JSON maps slot names to storage refs. |
-
-### 4.3 Lazy loading via DataObject methods (ADR-031)
-
-Blocks receive **typed DataObject instances** (e.g., `Image`, `DataFrame`) with `storage_ref` set. Data is not loaded into memory until the block explicitly requests it. There is no intermediary accessor class -- data access methods live directly on `DataObject` and its subclasses.
-
-**Data access methods on DataObject:**
-
-| Method | Defined on | Behavior |
-|--------|-----------|----------|
-| `to_memory()` | **DataObject** | Materialize full data from storage. Emits a 2 GB size warning for large data. |
-| `get_in_memory_data()` | **DataObject** | Alias for `to_memory()`. Subclasses may override (Text returns `content`, Artifact reads from `file_path`). |
-| `slice(*args)` | **DataObject** | Backend-specific sub-selection (Zarr indexing, Arrow column filter, etc.). |
-| `iter_chunks(chunk_size)` | **DataObject** | Yield successive chunks from storage. |
-
-**Array-specific methods:**
-
-| Method | Defined on | Behavior |
-|--------|-----------|----------|
-| `sel(**kwargs)` | **Array** | Partial read along named axes. Reads from storage, not from in-memory data. Returns a new Array with `storage_ref` set. |
-| `iter_over(axis)` | **Array** | Yield slices along one axis. Each slice has `storage_ref` set. |
-| `__array__(dtype)` | **Array** | NumPy protocol. Calls `to_memory()`. |
-
-**Usage in blocks:**
-
-```python
-# Full materialization (small data, simple blocks)
-data = image.to_memory()
-
-# Partial read along named axes (large imaging data)
-z_plane = image.sel(z=5)
-
-# Chunked iteration (streaming, constant memory)
-for chunk in large_array.iter_chunks(1024):
-    process(chunk)
-```
-
-Laziness is enforced at two levels:
-
-1. **IOBlock level** (ADR-031 D4): loaders write data to storage (Zarr/Arrow) and return reference-only objects with `storage_ref` set. The IOBlock base class provides `persist_array()` and `persist_table()` helpers for streaming writes. A safety net auto-flushes any object that a loader returns without `storage_ref`.
-2. **Method level**: `to_memory()`, `sel()`, and `iter_chunks()` route through `storage_ref` to the appropriate storage backend. No data is loaded until one of these methods is called.
-
-**Exempt types**: `Text` holds its `content` string in memory (inherently small, ~KB). `Artifact` uses `file_path` as its transport mechanism and is exempt from auto-flush -- the file stays at its original path and is not copied into managed storage.
-
-### 4.4 Data lineage (ADR-038)
-
-Every workflow execution is recorded as a structured run in `<project>/.scieasy/lineage.db`, a single SQLite database (WAL mode) with four normalized tables. The schema unifies what were previously two disjoint subsystems (`metadata.db` per the now-superseded ADR-032 and a dormant `lineage.db` schema per the original ADR-007 §4.4) into one coherent run-history surface. The architectural intent: **separate source version control (git, ADR-039) from run tracking (this database)**; their only join key is `runs.workflow_git_commit`.
-
-```sql
--- Table 1: runs — one row per workflow execution
-CREATE TABLE runs (
-    run_id                  TEXT PRIMARY KEY,         -- UUIDv4
-    workflow_id             TEXT NOT NULL,            -- logical name e.g. "image_pipeline"
-    workflow_git_commit     TEXT,                     -- SHA at run start (NULL if git unavailable)
-    workflow_yaml_snapshot  TEXT NOT NULL,            -- full YAML; safety net if git is lost
-    workflow_dirty          INTEGER NOT NULL,         -- 0/1 worktree-clean flag at run start
-    started_at              TEXT NOT NULL,
-    finished_at             TEXT,
-    status                  TEXT NOT NULL,            -- running | completed | failed | cancelled
-    environment_snapshot    TEXT NOT NULL,            -- JSON: full uv pip freeze
-    triggered_by            TEXT NOT NULL,            -- user | ai_block | execute_from
-    parent_run_id           TEXT REFERENCES runs(run_id),
-    execute_from_block_id   TEXT,                     -- which block "Run from here" started at (NULL = full DAG)
-    user_notes              TEXT
-);
-
--- Table 2: block_executions — one row per block per run
-CREATE TABLE block_executions (
-    block_execution_id      TEXT PRIMARY KEY,         -- UUIDv4
-    run_id                  TEXT NOT NULL REFERENCES runs(run_id),
-    block_id                TEXT NOT NULL,            -- DAG node id
-    block_type              TEXT NOT NULL,            -- class name
-    block_version           TEXT NOT NULL,            -- auto-injected from importlib.metadata
-    block_config_resolved   TEXT NOT NULL,            -- JSON, post-template-expansion params
-    started_at              TEXT NOT NULL,
-    finished_at             TEXT,
-    duration_ms             INTEGER,
-    termination             TEXT NOT NULL,            -- completed | error | cancelled | skipped
-    termination_detail      TEXT,
-    UNIQUE (run_id, block_id)
-);
-
--- Table 3: data_objects — DataObject identity catalog (subsumes the old metadata.db role)
-CREATE TABLE data_objects (
-    object_id               TEXT PRIMARY KEY,         -- FrameworkMeta UUID
-    type_name               TEXT NOT NULL,
-    backend                 TEXT,                     -- "zarr" / "arrow" / "file"
-    storage_path            TEXT,                     -- best-effort; may be stale after overwrite
-    size_bytes              INTEGER,
-    mtime_at_write          TEXT,
-    created_at              TEXT NOT NULL,
-    wire_payload            TEXT NOT NULL,            -- full wire-format JSON for reconstruction
-    derived_from            TEXT REFERENCES data_objects(object_id),
-    produced_by_execution   TEXT REFERENCES block_executions(block_execution_id)
-);
-
--- Table 4: block_io — port-to-DataObject edges per execution
-CREATE TABLE block_io (
-    block_execution_id      TEXT NOT NULL REFERENCES block_executions(block_execution_id),
-    direction               TEXT NOT NULL,            -- 'input' | 'output'
-    port_name               TEXT NOT NULL,
-    object_id               TEXT NOT NULL REFERENCES data_objects(object_id),
-    position                INTEGER NOT NULL,         -- index within port (Collections unrolled)
-    PRIMARY KEY (block_execution_id, direction, port_name, position)
-);
-```
-
-**Write flow (engine-owned, block-transparent).** All writes happen in the engine process; worker subprocesses do not connect to the database. The block author contract (`Block.run(inputs, config) → outputs`) is unchanged.
-
-```
-ApiRuntime.start_workflow(workflow_id):
-    run_id = uuid4()
-    yaml = read(workflows/<workflow_id>.yaml)
-    git_commit, dirty = git_engine.head_state()    # per ADR-039 (None if no git)
-    env = EnvironmentSnapshot.capture(full=True)   # full `uv pip freeze`
-    INSERT runs (...)
-    construct LineageRecorder(lineage_store); pass to DAGScheduler
-
-DAGScheduler._run_block(node_id, block, inputs, config):
-    block_execution_id = uuid4()
-    INSERT block_executions (started_at=now, ...)
-    for each input port + position:
-        INSERT OR IGNORE data_objects (wire_payload, ...)
-        INSERT block_io (direction='input', ...)
-    result = await runner.run(block, inputs, config)
-    for each output port + position:
-        INSERT data_objects (produced_by_execution=block_execution_id,
-                              derived_from=obj.framework.derived_from, ...)
-        INSERT block_io (direction='output', ...)
-    UPDATE block_executions SET finished_at=now, duration_ms, termination=...
-```
-
-**Collection unrolling.** A `Collection[Image]` output with N items is unrolled into N `data_objects` rows + N `block_io` rows with `position` ordering. The `_collection: true` wire wrapper is not persisted; it is reconstructed at read time by grouping `block_io` rows for `(block_execution_id, direction, port_name)` ordered by `position`. A 1000-item Collection costs ~MB (reference-only `wire_payload` per ADR-031), not GB.
-
-**No content hashing, no per-run data directories, no GC.** Intermediate block outputs land at their natural backend-managed paths and are **overwritten freely** by subsequent runs (matches the Fiji / ImageJ / GraphPad norm: "the recipe is the artifact"). `data_objects.storage_path` is best-effort — the UI marks runs whose intermediate data may have been overwritten and the affordance is **re-run with recorded settings**, not "browse old data". `wire_payload` preserves the full reference-only object (FrameworkMeta + meta + user + StorageReference) so methods export works even after raw data is overwritten.
-
-**Termination states.** `block_executions.termination` records all four terminal states: `completed`, `error`, `cancelled`, `skipped` (per ADR-018). Every block execution attempt is traceable, including failures and cancellations.
-
-**Force-injected `block_version`.** BlockRegistry resolves each entry-point to its source distribution and stamps `importlib.metadata.version(distribution_name)` onto the `BlockSpec.version` field at registration time. Registration fails loudly if version cannot be resolved — reproducibility hard requirement (ADR-038 §3.3).
-
-**Four user questions, one SQL query each** (see ADR-038 §3.7 for queries):
-
-1. Which run? — `SELECT * FROM runs WHERE run_id = ?`
-2. Which workflow was running? — `SELECT workflow_id, workflow_yaml_snapshot, workflow_git_commit FROM runs WHERE run_id = ?`
-3. Which blocks ran? — `SELECT block_id, block_type, block_version, duration_ms, termination FROM block_executions WHERE run_id = ?`
-4. Per-block params + I/O? — `SELECT block_config_resolved` plus a join through `block_io → data_objects`.
-
-Plus the reverse query (figure file → run that produced it + methods): join `data_objects.storage_path → block_executions → runs`. The lineage tab in the GUI surfaces all five through a two-pane runs-list + run-detail layout (ADR-038 §3.8).
-
-**Re-run validation.** When the user clicks "Re-run this run", the engine performs advisory (non-blocking) checks: input file size + mtime drift and environment package drift, surfaced as dismissible warnings. The new run gets a fresh `run_id` with `parent_run_id` linking back; re-run chains are queryable.
-
-**"Run from here" scope.** `execute_from_block_id` records which block the user clicked "Run from here" on. The intermediate data needed to start mid-DAG is preserved only in the ADR-012 single-slot checkpoint (`<project>/.scieasy/pause/`), so "Run from here" works against the **most recent** run only. To reproduce an older historical run, the user re-runs the **full workflow** from start with the recorded recipe (workflow_yaml_snapshot + block_config_resolved + environment_snapshot + workflow_git_commit). This is the deliberate price of the no-per-run-isolation decision.
-
-### 4.5 Axis-iteration and broadcast utilities
-
-Two sibling utilities live in `scieasy.utils` for working with named-axis Arrays. They cover different but related concerns:
-
-- **`scieasy.utils.axis_iter.iterate_over_axes(source, operates_on, func)`** (ADR-027 D3) — iterate a single Array over all its extra (non-`operates_on`) axes, applying `func` to each slice and stacking results back. This is the common case for 5D/6D imaging blocks: "I know how to process `(y, x)`, please loop over everything else".
-- **`scieasy.utils.broadcast.broadcast_apply(source, target, func, over_axes)`** — project a lower-dimensional object onto a higher-dimensional one along named axes. This is the cross-modal case: "apply a 2D cell mask `(y, x)` to every channel of a 3D MSI dataset `(y, x, mz)`", or "apply a baseline curve to each spectrum in a batch".
-
-Neither utility is automatic broadcasting at the type system or port level — block authors decide when and how to use them. Shape alignment does not guarantee semantic alignment (e.g. an IF image and an MSI image must be spatially registered before broadcasting makes sense), so the framework provides the mechanisms and the block encodes the domain logic.
-
-#### 4.5.1 `iterate_over_axes` — the 80% case (ADR-027 D3)
-
-```python
-# scieasy/utils/axis_iter.py
-
-def iterate_over_axes(
-    source: Array,
-    operates_on: set[str],
-    func: Callable[[np.ndarray, dict[str, int]], np.ndarray],
-) -> Array:
-    """Iterate func over all axes in source NOT in operates_on.
-
-    For each combination of the non-operates_on axes, func receives:
-      - slice_data: numpy array containing only the operates_on dimensions
-      - slice_coord: dict mapping extra-axis name to current integer index
-
-    Results are stacked back into a new instance of source's concrete class
-    with axes, shape, and metadata (framework/meta/user) preserved per
-    ADR-027 D5 inheritance rules.
-
-    Raises BroadcastError if slice outputs have inconsistent shapes or if
-    operates_on is not a subset of source.axes.
-    """
-    ...
-```
-
-Memory: O(one slice + one output slice) regardless of the number of extra-axis combinations. Serial by design — block-internal parallelism is not the framework's business per ADR-027 D8 and D13.
-
-**Typical usage** (in a plugin-provided imaging block):
-
-```python
-from scieasy.utils.axis_iter import iterate_over_axes
-from scieasy.utils.constraints import has_axes
-from scieasy_blocks_imaging.types import Image
-
-class GaussianDenoise(ProcessBlock):
-    input_ports  = [InputPort(name="image", accepted_types=[Image],
-                              constraint=has_axes("y", "x"))]
-    output_ports = [OutputPort(name="denoised", accepted_types=[Image])]
-
-    def process_item(self, item: Image, config, state=None) -> Image:
-        from scipy.ndimage import gaussian_filter
-        sigma = config.get("sigma", 1.0)
-
-        def _denoise(slice_2d, coord):
-            return gaussian_filter(slice_2d, sigma=sigma)
-
-        return iterate_over_axes(item, operates_on={"y", "x"}, func=_denoise)
-```
-
-A 5D `(t, z, c, y, x)` input is handled correctly with zero additional code: `iterate_over_axes` iterates `t × z × c` and feeds each 2D slice to `_denoise`. Block authors never write manual index-tuple arithmetic. ADR-027 D5 governs metadata inheritance: the output preserves `axes`, `meta` (by reference, since Pydantic models are frozen), `user` (shallow copy), and gets a new `framework` with `derived_from=item.framework.object_id`.
-
-#### 4.5.2 `broadcast_apply` — the cross-modal case
-
-```python
-# scieasy/utils/broadcast.py
-
-def broadcast_apply(
-    source: Array,            # lower-dim, e.g. mask (y, x)
-    target: Array,            # higher-dim, e.g. MSI (y, x, mz)
-    func: Callable,           # applied per-slice: func(source_data, target_slice) → result
-    over_axes: list[str],     # target axes to iterate over, e.g. ["mz"]
-) -> list:
-    """
-    Apply a lower-dim Array to a higher-dim Array along named axes.
-
-    Iterates over `over_axes` in the target, extracting slices that share
-    the remaining axes with source, and calls `func` on each pair.
-
-    Raises BroadcastError if source axes are not a subset of
-    target axes minus over_axes.
-    """
-    shared = set(target.axes) - set(over_axes)
-    if not shared.issubset(set(source.axes)):
-        raise BroadcastError(
-            f"Cannot broadcast: source axes {source.axes} do not cover "
-            f"shared axes {shared} (target axes {target.axes} minus over_axes {over_axes})"
-        )
-
-    results = []
-    for idx in iter_axis_slices(target, over_axes):
-        target_slice = target.slice(idx)       # (y, x) at this m/z value
-        results.append(func(source, target_slice))
-    return results
-```
-
-**Usage in a block** (plugin-provided, cross-modal MSI analysis):
-
-```python
-from scieasy_blocks_imaging.types import Image
-from scieasy_blocks_msi.types import MSImage
-from scieasy.core.types.dataframe import DataFrame
-
-class ApplyMaskToMSI(ProcessBlock):
-    name = "Apply mask to MSI"
-    input_ports = [
-        InputPort(name="mask", accepted_types=[Image]),
-        InputPort(name="msi", accepted_types=[MSImage]),
-    ]
-    output_ports = [OutputPort(name="cell_spectra", accepted_types=[DataFrame])]
-
-    def run(self, inputs, config):
-        mask = inputs["mask"]
-        msi = inputs["msi"]
-
-        # Block author decides over_axes — this is domain knowledge
-        per_channel = broadcast_apply(
-            source=mask, target=msi,
-            func=self._extract_cell_means,
-            over_axes=["mz"],
-        )
-        # Assemble into cell × m/z DataFrame
-        return {"cell_spectra": stack_to_dataframe(per_channel, msi.mz_axis)}
-```
-
-Both utilities are axis-name-aware (not position-based), integrate with `DataObject` storage-backed access methods for chunked iteration on large datasets, and raise clear errors when axes don't align. Neither is required -- they are conveniences for common patterns. Blocks that need finer control write manual loops over `Array.iter_over(axis)` or `Array.sel(**kwargs)` directly (both added by ADR-027 D4 with Level 1 laziness and metadata preservation).
-
-### 4.6 Source version control via bundled git (ADR-039)
-
-Every SciEasy project is also a git repository. Workflow YAML files, custom block `.py` files, project notes (`.md`), and `project.yaml` live under git management with standard semantics: commit, history, diff, restore, branch, merge, cherry-pick, stash. The engine is a **bundled portable `git` binary** invoked via subprocess — not pygit2, not gitpython, not dulwich.
-
-**Why bundled git CLI (decision reversed 2026-05-15 from initial pygit2 draft):**
-
-- Maximum cross-platform reliability across Windows / macOS / Linux including new OS versions and architectures (Windows ARM, pre-release distros). Binary distributions of git have been maintained for 25+ years.
-- 100% bug-for-bug compatibility with external git tools (VS Code, GitHub Desktop, terminal git CLI). Users who open the same project in another tool see identical behavior.
-- License-clean: shelling out and bundling the binary do not subject SciEasy to git's GPLv2 terms (VS Code, GitHub Desktop, GitKraken etc. all do this).
-- Stable wire format via plumbing commands (`git log --format=...`, `git status --porcelain=v2`, `git diff --raw`) parsed across versions.
-
-The ~25-30 MB bundle-size cost (vs ~3 MB for pygit2) is acceptable against ADR-037's ~250 MB total desktop bundle. See ADR-039 §3.1 for the full rationale.
-
-**Per-platform packaging:**
-
-| Platform | Binary | Source |
-|---|---|---|
-| Windows | MinGit (~30 MB) | Git for Windows portable distribution |
-| macOS | Static `git` (~25 MB) | Built from Git source release, universal2 arch |
-| Linux | Static `git` (~25 MB) | Built from Git source release with musl libc |
-
-Sourcing is automated by `desktop/scripts/fetch-git-portable.{ps1,sh}` in the ADR-037 packaging pipeline; the binary version is pinned per SciEasy release and refreshed quarterly for CVE updates.
-
-**Project lifecycle:**
-
-```
-Project opened:
-    if <project>/.git/ exists:
-        use as-is
-    else if <project>/.scieasy/no_git marker absent:
-        bundled_git init <project>
-        write default .gitignore
-        initial commit ("Initial commit (auto-generated by SciEasy)")
-    else:
-        operate without versioning (degraded mode; warn in UI)
-
-Workflow run:
-    if user has auto-commit ON (default):
-        if working tree dirty:
-            squash-commit dirty files with message "auto: pre-run @ <ts> (run=<short_id>, workflow=<id>)"
-        capture HEAD SHA → lineage.db.runs.workflow_git_commit
-    else:
-        capture HEAD SHA (may be older than current working state); set workflow_dirty=1
-        the inline workflow_yaml_snapshot is the reproducibility safety net
-
-Workflow saved (Ctrl+S):
-    file watcher updates canvas / editor (no git action unless user clicks Commit)
-```
-
-**Commit-message prefix convention** (filtered by the GUI History panel):
-
-- `auto:` — pre-run squash commit, hidden by default in the History panel ("Manual milestones" filter), rendered as small grey dots in the branch graph view for topology preservation.
-- `agent:` — agent-authored milestone (ADR-034 embedded coding agent, ADR-035 AI Block, or programmatic flows), visible with 🤖 icon.
-- *(no prefix)* — user-authored manual milestone, visible with 👤 icon.
-
-**v1 feature set:** commit, history (with filter), diff, restore, branch list/create/switch/delete, merge (FF + clean three-way + conflict path), cherry-pick, stash list/save/apply/drop, branch graph visualization (clean-room implementation; no vendored third-party library — see ADR-039 §3.5b). Conflict resolution UI reuses the ADR-036 Monaco editor with `<<<<<< / ====== / >>>>>>` marker decorations and inline action buttons (Accept Current / Accept Incoming / Accept Both / Manual edit) — no new editor, no 3-way merge component.
-
-**Default `.gitignore`** (auto-written on init; users may edit):
-
-```gitignore
-# Data files (not versioned — see ADR-038 for run lineage)
-data/
-
-# SciEasy runtime state (per-project, per-machine; not portable)
-.scieasy/
-
-# Python caches, plugin venvs, editor caches, OS noise
-__pycache__/
-*.py[cod]
-*-venv/
-*.venv/
-.idea/
-.vscode/
-.DS_Store
-Thumbs.db
-```
-
-The `.scieasy/lineage.db` is git-ignored by default (binary, no useful diff/merge; conceptually local to the machine). Users who explicitly want lineage shared with collaborators delete the `.scieasy/` line from `.gitignore`.
-
-**Out of scope for v1:** remote push/pull, git LFS, submodules, hook UI, tag UI, rebase UI, bisect UI — these are explicitly deferred to v2 (ADR-039 §3.10). The user can still invoke them via the bundled or system `git` CLI from a terminal; SciEasy does not lock `.git/`.
-
-**Why this replaces the previous ETag scheme:** the prior implementation used an in-memory `ApiRuntime.bump_revision` counter + `If-Match` header for optimistic concurrency on workflow saves. That counter reset on server restart and tracked only the active session, providing no historical recovery and no protection across restarts. Git is now the durable concurrency / history mechanism; the existing `workflow_watcher` (ADR-034 Phase 2) is extended to also detect external `.git/HEAD` changes so the GUI invalidates its cache and prompts to reload on external commits.
-
-### 4.7 Format handling: canonical zone vs boundary (ADR-028 §D8, ADR-031, ADR-041)
-
-This section makes the format-handling model explicit. It was implicit in the interplay between ADR-028 (IOBlock refactor), ADR-031 (reference-only contract), and the AppBlock file-exchange pattern, but was never stated as a single coherent picture. The implicit nature led to repeated re-derivation during plugin and ADR design work, including the 2026-05-16 CodeBlock v2 / ADR-041 session that prompted this section.
-
-#### 4.7.1 The two zones
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    canonical zone (Zarr / Arrow only)                │
-│                                                                      │
-│   ProcessBlock ──► ProcessBlock ──► ProcessBlock ──► CustomBlock     │
-│                                                                      │
-│   storage_ref.format == "zarr" (or "arrow") everywhere               │
-│   format is not a dispatch concern within this zone                  │
-└─────────────────────────────────────────────────────────────────────┘
-                  ▲                                       ▼
-            ┌─────┴─────┐                          ┌──────┴──────┐
-            │  Load     │                          │  Save       │
-            │ (boundary)│                          │ (boundary)  │
-            └───────────┘                          └─────────────┘
-                  ▲                                       ▼
-                  │            ┌─────────────────────┐
-                  └───────────►│ AppBlock / CodeBlock │
-                               │  / AIBlock           │
-                               │ (boundary)           │
-                               └─────────────────────┘
-```
-
-**Canonical zone**: between every `Load*` boundary and every `Save*` / external-tool boundary, all in-flight DataObject instances carry `storage_ref.format == "zarr"` (for `Array` and its subclasses) or `"arrow"` (for `DataFrame` / `Series`) or `"file"` (for `Artifact`). `ProcessBlock`, `CodeBlock` (post-AppBlock-prepare), and user-authored custom blocks all operate on this canonical form via the `to_memory()` / `sel()` / `iter_chunks()` interfaces (per ADR-031 D1). Format is **not** part of edge compatibility within the canonical zone; only type compatibility matters.
-
-**Boundary**: the five points where format actually matters. The framework handles the canonical ↔ user-format translation only at these five edges:
-
-1. **Load** (a `Load*` block at the entry of a workflow): user file -> canonical Zarr/Arrow through a selected loader capability.
-2. **Save** (a `Save*` block at an exit): canonical Zarr/Arrow -> user file through a selected saver capability.
-3. **AppBlock invocation**: materialise canonical inputs through saver capabilities and reconstruct declared outputs through loader capabilities.
-4. **CodeBlock invocation** (per ADR-041): same boundary pattern for scripts and notebooks.
-5. **AIBlock invocation** (per ADR-035): same boundary pattern when an agent/tool session needs file exchange.
-
-#### 4.7.2 Where format authority lives
-
-ADR-043 replaces extension-only dispatch with a structured IO format capability
-registry. Format authority lives on boundary blocks and registry declarations,
-not on DataObject classes.
-
-The owning surfaces are:
-
-- `IOBlock` classes and their `FormatCapability` records.
-- `SimpleLoader` and `SimpleSaver`, which synthesize conservative local
-  capabilities for one-off user IO.
-- `AppBlock` and `CodeBlock` port config, which may request a specific
-  `capability_id` when materialising inputs or reconstructing outputs.
-- `BlockRegistry`, which indexes capabilities and resolves them
-  deterministically.
-
-DataObject classes remain format-independent. There is no `TiffImage`,
-`PngImage`, `MzmlPeakTable`, or similar format subtype. A plugin-provided
-`Image` or `PeakTable` type describes semantic shape and typed `meta`; external
-formats are boundary representations.
-
-`FormatCapability` is the stable boundary contract. It records direction,
-target type, format id, extensions, handler, stable capability id,
-default/priority metadata, round-trip group, and typed `meta` fidelity. The
-workflow records `capability_id` when a boundary selection must be replayed
-exactly. Extension remains useful for filenames and human readability, but the
-capability id is the semantic replay key.
-
-Legacy `supported_extensions` declarations are compatibility synthesis only.
-They keep existing blocks runnable while packages migrate to explicit
-capability records. They do not make a published package compliant with the
-final ADR-043 package validity standard. Full published-package hard-validation
-migration is tracked by #1204.
-
-#### 4.7.3 Capability selection and ambiguity
-
-Boundary dispatch follows ADR-043's deterministic lookup order:
-
-1. Match by direction, target type, and extension or format id.
-2. Use an explicit `capability_id` when supplied.
-3. Otherwise accept a unique match.
-4. Otherwise prefer an explicitly declared default.
-5. Otherwise prefer the most-specific compatible type.
-6. If still tied, raise an ambiguity error.
-
-Registration order is display ordering, not semantic dispatch. The engine must
-not silently choose the first registered package when two installed packages
-claim the same `(direction, type, extension)` boundary.
-
-#### 4.7.4 Format conversion is `Load + Save`, not an internal edge
-
-There is no internal "format converter block" concept. Converting OIR to TIFF
-is naturally:
+| `Array` | Zarr | Chunked, compressed, cloud-compatible storage for large numeric data. |
+| `Series` | Zarr or Parquet | Efficient storage for long one-dimensional values. |
+| `DataFrame` | Apache Arrow / Parquet | Columnar storage for filtering, aggregation, and memory mapping. |
+| `Text` | In memory or filesystem | Small textual payloads can usually travel directly. |
+| `Artifact` | Filesystem | Original files are preserved for interoperability. |
+| `CompositeData` | Directory of slot backends | Each slot uses the backend appropriate to its own type. |
+
+#### 4.3.2 Canonical Zone And Boundary Formats
+
+SciEasy separates **internal workflow data** from **external file formats**.
+Inside the workflow, data moves through a **canonical zone**: arrays, tables,
+text, artifacts, and composite objects use explicit typed contracts and storage
+references. File extensions and external formats are not used as the internal
+compatibility model.
+
+**Format handling happens at boundaries:**
+
+- Load boundaries convert user files into canonical typed data.
+- Save boundaries convert canonical typed data into user-requested output
+  formats.
+- AppBlock and CodeBlock boundaries materialize canonical inputs for external
+  tools or scripts, then reconstruct declared outputs back into canonical typed
+  data.
+- AIBlock boundaries follow the same model when an agent workflow needs file
+  exchange.
 
 ```text
-Load Image (*.oir, capability_id=imaging.image.oir.load)
-  -> canonical Image
-  -> Save Image (*.tif, capability_id=imaging.image.tiff.save)
++--------------------+     +--------------------+
+| User files         |     | User outputs       |
+| instrument formats |     | requested formats  |
++---------+----------+     +----------+---------+
+          |                           ^
+          v                           |
++---------+----------+     +----------+---------+
+| Load boundary      |     | Save boundary      |
+| selected capability|     | selected capability|
++---------+----------+     +----------+---------+
+          |                           ^
+          v                           |
++---------+---------------------------+---------+
+| Canonical zone                               |
+| typed data objects + storage references      |
+| format is not an internal edge contract      |
++---------+---------------------------+---------+
+          ^                           ^
+          |                           |
++---------+---------------------------+---------+
+| External-tool boundaries                     |
+| AppBlock / CodeBlock / AIBlock               |
+| materialize inputs, reconstruct outputs      |
++------------------------------------------------+
 ```
 
-The middle edge is type-only: `Image` flows through canonical storage. Format
-conversion happens only because the workflow explicitly contains a load
-boundary and a save boundary.
+This model avoids treating **file extensions as data contracts**. A filename may
+be useful for humans, but the replayable decision is the selected **boundary
+capability**: the declared direction, target type, format identity, extensions,
+handler, priority/default metadata, and fidelity expectations.
 
-For specialized external conversion tools such as Bio-Formats `bfconvert`, the
-right shape is an `AppBlock` that operates at file level. Its input and output
-ports declare type, extension, and, when needed, selected capability ids for
-materialisation/reconstruction. The AppBlock remains a boundary; it does not
-make canonical workflow edges format-aware.
+Within the **canonical zone**, blocks connect by type and declared data
+contract. When a user needs a different file format, SciEasy models that as an
+explicit **boundary conversion** rather than a hidden edge between ordinary
+processing blocks.
 
-#### 4.7.5 Provenance, lineage, and typed `meta` fidelity
+#### 4.3.3 Lazy Loading, Slicing, And Broadcast
 
-ADR-043 separates three concerns that older prose often called "metadata":
+SciEasy avoids loading **large datasets** until a block asks for data. Data
+objects can point to persisted storage and expose methods for **full
+materialization**, **partial reads**, and **chunked iteration**.
 
-- `storage_ref.format` is the current storage backend key, such as `zarr`,
-  `arrow`, or `file`. It is not the original user format inside the canonical
-  zone.
-- Lineage records run state, block parameters, environment snapshots, and object
-  edges. It is execution provenance, not IO metadata fidelity.
-- `DataObject.meta` is the typed domain metadata surface. IO capability fidelity
-  only promises what a loader or saver reads or writes through this typed
-  surface, plus explicitly declared package sidecars for stronger
-  format-specific claims.
+**Lazy loading** has three practical effects:
 
-A capability with `metadata_fidelity=MetadataFidelity(level="pixel_only")`
-promises only the primary payload and minimum structural fields. A capability
-with `typed_meta` must name typed `meta` fields such as `pixel_size`, `axes`,
-or `channels`. `format_specific` and `lossless` claims require explicit fields,
-sidecars, round-trip groups, and package tests.
+- Large arrays and tables can move through the workflow as references.
+- Blocks can process slices or chunks instead of copying entire datasets.
+- External-tool boundaries can materialize only the files needed for that tool.
 
-#### 4.7.6 What this is NOT
+**Named axes** make slicing and broadcast meaningful for scientific data. A
+block can operate over spatial axes while iterating over time, depth, channel,
+or spectral dimensions. **Broadcast helpers** support cross-modal patterns where
+a lower-dimensional object is applied across a higher-dimensional target, while
+the block remains responsible for the scientific validity of the operation.
 
-- No engine-level format guessing or alias prediction. Packages declare the
-  extensions and format ids they support.
-- No automatic conversion inside canonical workflow edges. Between ordinary
-  blocks, compatibility remains type-only.
-- No format-as-subtype explosion. Formats belong to capabilities, not
-  DataObject classes.
-- No hidden metadata preservation claim. A saver writes only the typed `meta`
-  fields and format-specific fields declared by its selected capability.
+### 4.4 Metadata Management
 
-#### 4.7.7 Worked example
+ADR-043 uses metadata management in a narrow IO-boundary sense. It governs how
+external file metadata is represented, declared, validated, and surfaced when
+data crosses between SciEasy's canonical zone and files, scripts, notebooks, or
+external applications.
 
-User workflow: take a directory of `.oir` microscopy files, run segmentation,
-and save the masks as TIFFs.
+The central rule is that **DataObject types do not own file formats**. Format
+knowledge belongs to IO capabilities. A `FormatCapability` describes one
+boundary conversion with a **direction**, **data type**, **format id**,
+**extensions**, **label**, **owning block type**, **handler**, **default or
+priority**, optional **round-trip group**, and a **metadata fidelity** contract.
 
-```text
-Load Image (*.oir, capability_id=imaging.image.oir.load)
-  -> Image(storage_ref.format="zarr", meta=Image.Meta(...))
-  -> Cellpose Segment (ProcessBlock; type-only canonical edge)
-  -> Label(storage_ref.format="zarr", meta=Label.Meta(...))
-  -> Save Image (*.tif, capability_id=imaging.label.tiff.save)
-```
+`MetadataFidelity` records what domain metadata survives that conversion:
 
-Three boundary touches are format-aware:
+| Fidelity level | Meaning |
+|---|---|
+| `pixel_only` | Preserves only the primary payload and minimum structural fields needed to build the target object. |
+| `typed_meta` | Preserves declared fields from the target type's typed `meta` model. |
+| `format_specific` | Preserves declared format-native metadata through typed fields, a typed sidecar, or a package-defined metadata object. |
+| `lossless` | Preserves the declared boundary representation for a compatible round-trip group. |
 
-1. `Load Image` resolves a loader capability for `Image + .oir`, invokes its
-   handler, writes canonical storage, and returns an `Image` object.
-2. `Cellpose Segment` operates only on canonical typed objects and their typed
-   `meta`; original file format is irrelevant.
-3. `Save Image` resolves a saver capability for `Label + .tif`, warns if the
-   chosen capability is lossy for populated typed `meta`, and writes TIFF.
+This metadata is validated at registry scan time. The registry checks that
+handlers exist, extensions are normalized, capability IDs are stable, defaults
+do not conflict, round-trip claims have compatible load/save sides, and
+declared typed `meta` fields exist on the target type's metadata model.
 
-If no `Label + .tif` saver exists, or if two savers match without a selected
-capability id/default, validation fails before execution.
+AppBlock and CodeBlock boundary ports use this same model. An extension remains
+a filename and UI hint, but the selected **`capability_id`** is the stable IO
+selection for replay and validation when multiple packages can handle the same
+type and extension.
 
-#### 4.7.8 Implementation status (as of 2026-05-19)
+Run IDs, block execution rows, resolved configs, environment snapshots, and
+input/output object edges are **Lineage**, not ADR-043 metadata management.
+Free-form user metadata is also outside ADR-043 and belongs to a future
+metadata package.
 
-ADR-043 is the active target architecture for IO format capability dispatch.
-The implementation is split across the ADR-043 cascade tracks. This document
-records the target architecture and developer contract; code, package, and UI
-tracks own the corresponding runtime implementation.
+### 4.5 Data Lineage
+
+SciEasy records workflow execution as **lineage** rather than treating outputs
+as isolated files. A run record connects the workflow definition, source state,
+resolved block parameters, block executions, inputs, outputs, environment
+information, and termination state.
+
+**Lineage is separate from content storage.** Intermediate outputs may be
+managed by their natural storage backends and may be overwritten by later runs.
+The durable asset is the **recipe**: which workflow ran, with which parameters,
+against which inputs, in which environment, and from which source state.
+
+This lets SciEasy answer questions such as:
+
+- Which workflow produced this result?
+- Which blocks ran and which were skipped, cancelled, or failed?
+- Which parameters and inputs were used?
+- Which source version was executed?
+- What should be re-run to reproduce or inspect the result?
+
+The lineage store is `<project>/.scieasy/lineage.db`, a SQLite database using
+WAL mode for project-local concurrent writes. ADR-038 defines four normalized
+tables:
+
+| Table | What it records |
+|---|---|
+| `runs` | One workflow execution, including workflow id, source commit, workflow snapshot, status, trigger, parent run, execute-from block, and environment snapshot. |
+| `block_executions` | One row per block execution in a run, including block id, block type, block version, resolved config, timing, duration, and terminal status. |
+| `data_objects` | DataObject identity and reference payloads, including type name, backend, best-effort storage path, size, mtime, wire payload, derivation, and producer execution. |
+| `block_io` | Port-to-object edges for each execution, including direction, port name, object id, and collection position. |
+
+Worker subprocesses do not write to `lineage.db`. The engine process observes
+block inputs and outputs, reads their wire-format references, and records the
+lineage rows externally. This keeps block authoring unchanged while making run
+history queryable.
+
+Collections are stored as item-level lineage edges rather than as one opaque
+row. A collection output with many items becomes many `data_objects` rows plus
+ordered `block_io.position` entries, so the UI can reconstruct the collection
+shape without storing the collection wrapper as a separate database object.
+
+Each run also records an environment snapshot. The snapshot captures the Python
+version, platform, full package freeze, and derived key packages so re-run
+checks can warn when the current environment has drifted from the historical
+run.
+
+**Re-runs** create new lineage records linked back to the earlier run. That
+makes reproducibility visible as a chain of attempts rather than an overwrite of
+history.
+
+### 4.6 Version Control
+
+Every SciEasy project can be managed as a **Git-backed project**. Workflow
+files, custom block code, notes, and project configuration can be committed,
+compared, restored, branched, and merged using ordinary version-control
+semantics.
+
+**Git history** and **run lineage** solve different problems:
+
+- Git records changes to source files, workflow definitions, custom code, and
+  project notes.
+- Lineage records executions, parameters, inputs, outputs, environment context,
+  and run status.
+
+The connection between them is the **source state captured for a run**. From a
+run, a user can recover the workflow source that was executed. From a source
+state, a user can inspect which runs used it.
+
+Branches are also useful for scientific analysis itself, not only software
+development. Scientists often adapt nearly identical pipelines for different
+batches, instruments, cohorts, or experiments. A branch can represent one
+parallel workflow variant for one data context. Users can switch quickly between
+branches, compare what changed, and keep each adapted workflow recoverable. In
+this usage, branches are primarily a way to manage parallel analysis variants;
+merging is optional and often not the main goal.
+
+Project runtime state and **large data** are not automatically treated as Git
+content. They are managed through storage and lineage. This keeps Git useful for
+human-readable project history and parallel workflow variants while avoiding
+large binary churn in ordinary commits.
 
 ---
 
-## 5. Layer 2 — Block system
+## 5. Layer 2: Block System
 
-### 5.1 Block base class
+A **Block** is the unit of work in a SciEasy workflow. It wraps one analysis
+step behind a typed contract: what it accepts, what it produces, how it is
+configured, and how the runtime should execute it. Blocks can represent pure
+computation, data loading and saving, external applications, project-local
+scripts, AI agents, or nested workflows.
+
+### 5.1 Base Class Definition
+
+The `Block` base class defines the common contract shared by every block. The
+full implementation contains validation details and helper methods; the public
+surface below is the architecture-level contract.
 
 ```python
 from abc import ABC, abstractmethod
-from enum import Enum
+from typing import Any, ClassVar
 
-class BlockState(Enum):
-    IDLE = "idle"
-    READY = "ready"
-    RUNNING = "running"
-    PAUSED = "paused"       # waiting for user (interactive/external)
-    DONE = "done"
-    ERROR = "error"
-    CANCELLED = "cancelled" # user explicitly requested termination (ADR-018)
-    SKIPPED = "skipped"     # upstream did not produce required output (ADR-018)
-
-class ExecutionMode(Enum):
-    AUTO = "auto"           # pure computation, no user intervention
-    INTERACTIVE = "interactive"  # requires user action (e.g. napari review)
-    EXTERNAL = "external"   # delegates to external application
+from scieasy.blocks.base.config import BlockConfig
+from scieasy.blocks.base.ports import InputPort, OutputPort
+from scieasy.blocks.base.state import BlockState, ExecutionMode
+from scieasy.core.types.collection import Collection
 
 class Block(ABC):
-    """Abstract base class for all blocks."""
+    name: ClassVar[str] = "Unnamed Block"
+    description: ClassVar[str] = ""
+    version: ClassVar[str] = "0.1.0"
+    subcategory: ClassVar[str] = ""
 
-    # --- Class-level declarations (overridden by subclasses) ---
-    name: str = "Unnamed Block"
-    description: str = ""
-    version: str = "0.1.0"
-    input_ports: list[InputPort] = []
-    output_ports: list[OutputPort] = []
-    execution_mode: ExecutionMode = ExecutionMode.AUTO
-    terminate_grace_sec: float = 5.0       # grace period before SIGKILL (ADR-019)
+    input_ports: ClassVar[list[InputPort]] = []
+    output_ports: ClassVar[list[OutputPort]] = []
 
-    def __init__(self, config: dict = None):
-        self.config = BlockConfig(config or {})
-        self.state = BlockState.IDLE
-
-    def validate(self, inputs: dict[str, Collection]) -> bool:
-        """Check that inputs are compatible before execution.
-        Called by the engine before run(). Return False to abort."""
-        return True
-
-    @abstractmethod
-    def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
-        """Core execution logic. Must return a dict mapping output port names to Collections.
-
-        IMPORTANT: This method always executes inside an isolated subprocess,
-        never in the engine process (ADR-017). The engine serialises
-        StorageReference pointers to the subprocess; the subprocess
-        reconstructs typed DataObject instances (e.g., Image, DataFrame)
-        from storage references and wraps them in Collections (ADR-031 D7).
-        Block authors do not need to handle serialisation — the subprocess
-        wrapper is transparent.
-        """
-        ...
-
-    def postprocess(self, outputs: dict[str, DataObject]) -> dict[str, DataObject]:
-        """Optional hook for cleanup, logging, or output transformation."""
-        return outputs
-```
-
-**State machine** (ADR-018): the eight states and their valid transitions:
-
-```
-IDLE      → { READY, SKIPPED, ERROR }
-READY     → { RUNNING, SKIPPED, ERROR }
-RUNNING   → { DONE, PAUSED, ERROR, CANCELLED }
-PAUSED    → { RUNNING, ERROR, CANCELLED }
-DONE      → { IDLE }
-ERROR     → { IDLE }
-CANCELLED → { IDLE }
-SKIPPED   → { IDLE }
-```
-
-`DONE`, `ERROR`, `CANCELLED`, and `SKIPPED` are terminal states for a single workflow execution. Transitioning back to `IDLE` is only valid when the workflow is reset for a new run.
-
-**State diagram:**
-
-```
-                          ┌──────────────────────────────────────────────┐
-                          │               WORKFLOW RESET                  │
-                          │  (only when starting a new run of the same   │
-                          │   workflow — all blocks return to IDLE)       │
-                          └──┬─────┬─────────┬───────────┬──────────────┘
-                             │     │         │           │
-                             ▼     ▼         ▼           ▼
-          ┌───────────── IDLE ◄── DONE    ERROR ──► IDLE
-          │                │                ▲
-          │                ▼                │
-          │    ┌──── READY ────────────► ERROR
-          │    │       │                    ▲
-          │    │       ▼                    │
-          │    │   RUNNING ──────┬───── ERROR
-          │    │       │        │          ▲
-          │    │       ▼        │          │
-          │    │   PAUSED ──────┤───── ERROR
-          │    │       │        │
-          │    │       │        ▼
-          │    │       │      DONE ──────► IDLE
-          │    │       │
-          │    │       │    (user cancels)
-          │    │       └─────────────► CANCELLED ──► IDLE
-          │    │                            ▲
-          │    │                            │
-          │    │       (user cancels        │
-          │    │        while RUNNING) ─────┘
-          │    │
-          │    │    (upstream failed/cancelled,
-          │    │     required inputs unsatisfiable)
-          │    └──────────────────────► SKIPPED ────► IDLE
-          │                                ▲
-          └────────────────────────────────┘
-              (upstream failed/cancelled
-               before block left IDLE)
-```
-
-**`CANCELLED`**: the user explicitly requested termination of this block. The block's subprocess is killed via `ProcessHandle.terminate()` (ADR-019). No output is produced. Downstream blocks that depend on this block's output are marked `SKIPPED`.
-
-**`SKIPPED`**: this block cannot execute because a required upstream block did not produce output (due to `ERROR`, `CANCELLED`, or itself being `SKIPPED`). The skip reason is recorded and traces back to the root-cause block. Propagation is automatic and deterministic — the scheduler does not distinguish between `ERROR` and `CANCELLED` when propagating; it only checks whether required inputs can be satisfied.
-
-**Subprocess isolation** (ADR-017): all blocks execute in isolated subprocesses. The engine process is a pure orchestrator that never executes block logic directly. This provides:
-- **Reliable cancellation**: any block can be terminated at any time via OS-level process signals.
-- **Crash isolation**: a segfault, OOM, or memory leak in a block only kills its subprocess.
-- **Hang protection**: a deadlocked block does not freeze the engine.
-
-Block authors do not need to change their code. The framework handles serialisation of `StorageReference` pointers and reconstruction of typed `DataObject` instances transparently in the subprocess worker (ADR-031 D7). Cross-process overhead is limited to process startup (~50-200ms) + reference serialisation (~KB), not data copying -- the underlying data stays in storage (Zarr/Parquet/filesystem). Since ADR-027 D11, the worker subprocess additionally calls `TypeRegistry.scan()` at startup so plugin-provided domain types (e.g. `Image`, `FluorImage`) can be resolved from the incoming `type_chain` metadata.
-
-**ProcessBlock lifecycle hooks — `setup` and `teardown` (ADR-027 D7)**: `ProcessBlock` extends the `Block` base with two optional hooks around the per-run iteration:
-
-```python
-class ProcessBlock(Block):
-    def setup(self, config: BlockConfig) -> Any:
-        """Called once per run() before iterating the input Collection.
-        Return value is passed to process_item() as `state`.
-        Default: returns None.
-        Use for: loading ML models, opening DB connections, compiling
-        regexes — anything expensive that should be amortised across items."""
-        return None
-
-    def teardown(self, state: Any) -> None:
-        """Called once per run() in a finally block, even on error.
-        Default: no-op.
-        Use for: releasing resources (close files, free GPU memory)."""
-        pass
-
-    def process_item(
-        self,
-        item: DataObject,
-        config: BlockConfig,
-        state: Any = None,
-    ) -> DataObject:
-        raise NotImplementedError
-
-    def run(self, inputs, config):
-        primary = next(iter(inputs.values()))
-        state = self.setup(config)
-        try:
-            if isinstance(primary, Collection):
-                results = []
-                for item in primary:
-                    result = self.process_item(item, config, state)
-                    result = self._auto_flush(result)
-                    results.append(result)
-                output_name = self.output_ports[0].name if self.output_ports else "output"
-                return {output_name: Collection(results, item_type=primary.item_type)}
-            else:
-                result = self.process_item(primary, config, state)
-                output_name = self.output_ports[0].name if self.output_ports else "output"
-                return {output_name: result}
-        finally:
-            self.teardown(state)
-```
-
-Key properties:
-
-- `setup` receives **only** the config. It does not see `inputs`. Data-driven initialisation belongs inside `process_item` (lazy init + cache on `state`).
-- `setup` is called **inside the worker subprocess**, after `TypeRegistry.scan()` and input reconstruction. The returned state object lives for the lifetime of one `run()` call and is garbage-collected with the subprocess.
-- `teardown` is called in a `finally` block so it runs even when `process_item` raises. Use it for `torch.cuda.empty_cache()`, `conn.close()`, and similar cleanup.
-- Blocks that do not need setup ignore the hooks entirely — the defaults are no-ops, fully backward-compatible with any existing 2-arg `process_item(self, item, config)` override. The new `state` parameter defaults to `None`, so existing overrides continue to work.
-- Cellpose and similar GPU workloads should use `setup` to load the model once per Collection and override `run()` in Tier 2 style to exploit the library's own batched `eval([...], batch_size=N)` API. See §5.3 for the full pattern.
-
-### 5.2 Port system
-
-```python
-class Port:
-    """Connection endpoint on a block."""
-    name: str
-    accepted_types: list[type]  # e.g. [Image, Array] — accepts Image or any Array subclass
-    description: str = ""
-    required: bool = True
-
-class InputPort(Port):
-    default: DataObject | None = None   # optional default value
-
-    # --- Runtime constraint (optional) ---
-    constraint: Callable[[DataObject], bool] | None = None
-    constraint_description: str = ""    # human-readable, shown in UI tooltip
-
-class OutputPort(Port):
-    pass
-```
-
-**Two-phase connection validation**:
-
-1. **Design-time (fast)**: when the user draws a connection in ReactFlow, the frontend checks whether the source port's output type is in the target port's `accepted_types`, accounting for inheritance. Invalid connections are visually rejected. This check is purely structural — it only considers the class hierarchy.
-
-2. **Pre-execution (precise)**: before a block runs, the engine calls the optional `constraint` function on each input, passing the **Collection** (ADR-020). Constraint functions that need per-item checks should iterate over the Collection. This catches semantic mismatches that type alone cannot express.
-
-Example constraints (ADR-020: constraints receive Collection):
-
-```python
-# A 2D convolution block needs all images to have spatial axes
-InputPort(
-    name="images",
-    accepted_types=[Image],
-    constraint=lambda col: all(
-        img.axes is not None and {"y", "x"}.issubset(set(img.axes))
-        for img in col
-    ),
-    constraint_description="All images must have spatial axes (y, x)",
-)
-
-# A broadcast block needs all masks to be 2D spatial
-InputPort(
-    name="masks",
-    accepted_types=[Image],
-    constraint=lambda col: all(
-        img.axes is not None and set(img.axes) == {"y", "x"}
-        for img in col
-    ),
-    constraint_description="All masks must be 2D spatial (y, x) for broadcasting over target channels",
-)
-
-# A merge block needs two DataFrames with at least one shared column
-InputPort(
-    name="right",
-    accepted_types=[DataFrame],
-    constraint=lambda col: all(
-        len(set(df.columns) & set(self._left_columns)) > 0
-        for df in col
-    ),
-    constraint_description="Must share at least one column with the left input",
-)
-
-# A port that accepts CompositeData with a required slot structure
-InputPort(
-    name="spatial_data",
-    accepted_types=[CompositeData],
-    constraint=lambda col: all(
-        "images" in cd.slot_names and "table" in cd.slot_names
-        for cd in col
-    ),
-    constraint_description="Must contain 'images' (Array) and 'table' slots",
-)
-```
-
-When a constraint fails, the engine reports the `constraint_description` to the user via WebSocket, and the block transitions to `ERROR` state with a clear diagnostic.
-
-#### Variadic ports (ADR-029)
-
-Most blocks declare a **static** port list — a fixed set of `InputPort` / `OutputPort` instances on the class. Three block categories support **variadic** (per-instance) port counts: `AIBlock`, `CodeBlock`, and `AppBlock`. Variadic blocks allow users to add or remove ports at design time via a `[+]` / `[−]` editor on the canvas node and in the Bottom Panel Config tab.
-
-**Class-level declarations** control variadic behaviour:
-
-```python
-class Block(ABC):
-    # Static blocks leave these at defaults:
     variadic_inputs: ClassVar[bool] = False
     variadic_outputs: ClassVar[bool] = False
-    allowed_input_types: ClassVar[list[type]] = [DataObject]   # no constraint
-    allowed_output_types: ClassVar[list[type]] = [DataObject]
-```
-
-- `variadic_inputs` / `variadic_outputs` — enable per-instance port addition on input / output side. `BlockSpec` carries these flags; the frontend renders `[+]` buttons only when `True`.
-- `allowed_input_types` / `allowed_output_types` — constrain the type dropdown in the port editor. A `FijiBlock` that declares `allowed_input_types = [Image, DataFrame, ROI]` prevents users from wiring incompatible types (e.g. `Text`) into its variadic ports.
-
-**Per-instance port storage** (ADR-029 D1): variadic port lists are stored in `self.config["input_ports"]` and `self.config["output_ports"]` as JSON-serialisable dicts:
-
-```python
-config["input_ports"] = [
-    {"name": "images_branch_a", "types": ["Image"]},
-    {"name": "images_branch_b", "types": ["Image"]},
-    {"name": "metadata",        "types": ["DataFrame"]},
-]
-```
-
-This reuses the existing config serialisation path — the workflow YAML `nodes[].config` carries the port list alongside other parameters. No new persistence layer is needed.
-
-**GUI injection** (ADR-029 D12): base classes that enable variadic mode declare the port editor fields in their `config_schema`. Through ADR-030 MRO merge, these fields are automatically injected into every subclass's config form — block authors do not add them manually.
-
-**`get_effective_*_ports()` override**: when a variadic block has user-declared ports in config, `get_effective_input_ports()` / `get_effective_output_ports()` construct `InputPort` / `OutputPort` instances from the config dicts and return them instead of the static `ClassVar` list. The validator and scheduler see the per-instance port list transparently.
-
-**Multiple same-type ports** (ADR-029 D13): a variadic block may have several ports of the same type — for example, two `Image` input ports receiving `Collection[Image]` from two parallel branches. Each port carries its own Collection independently; the block's `run()` receives them as separate keys in the input dict.
-
-**CodeBlock auto-inference** (ADR-029 D7): for `CodeBlock` in Python script mode, `introspect.py` parses the function signature and auto-populates the variadic port list. Type annotations map to port types; untyped parameters default to `DataObject`. R, Julia, and inline mode use the manual port editor.
-
-**Example — variadic `AppBlock`**:
-
-```python
-class FijiBlock(AppBlock):
-    name = "Fiji"
-    variadic_inputs: ClassVar[bool] = True
-    variadic_outputs: ClassVar[bool] = True
-    allowed_input_types: ClassVar[list[type]] = [Image, DataFrame, ROI]
-    allowed_output_types: ClassVar[list[type]] = [Image, DataFrame, Artifact]
-
-    # config_schema for app-specific fields only;
-    # variadic port editor fields are injected via MRO merge from AppBlock base.
-    config_schema: ClassVar[dict[str, Any]] = {
-        "type": "object",
-        "properties": {
-            "macro": {"type": "string", "title": "ImageJ Macro", "ui_priority": 2},
-        },
-    }
-```
-
-**No impact on engine or worker**: the scheduler routes by edge/port-name (unchanged), the worker subprocess reconstructs each port's Collection via `type_chain` (unchanged), and Collection homogeneity is enforced per-port (unchanged).
-
-### 5.3 Block categories
-
-The framework defines five concrete block categories plus one meta-category for composition. All other functionality is achieved through subclassing.
-
-```mermaid
-classDiagram
-    class Block {
-        <<abstract>>
-        +validate()
-        +run()
-        +postprocess()
-    }
-
-    class IOBlock {
-        <<abstract>>
-        +load(config) DataObject*
-        +save(obj, config) None*
-        Abstract base for ingress / egress
-    }
-
-    class ProcessBlock {
-        +algorithm: str
-        Deterministic data transformation
-        Includes merging and splitting
-    }
-
-    class CodeBlock {
-        +language: "python" | "r" | "julia"
-        +mode: "inline" | "script"
-        +script: str | None
-        +script_path: Path | None
-        +entry_function: str
-        Runs user-provided code
-    }
-
-    class AppBlock {
-        +app_command: str
-        +exchange_dir: Path
-        +watch_patterns: list[str]
-        Bridges external GUI software
-    }
-
-    class AIBlock {
-        +model: str
-        +prompt_template: str
-        LLM-driven processing
-    }
-
-    class SubWorkflowBlock {
-        +workflow_ref: str | Path
-        +input_mapping: dict
-        +output_mapping: dict
-        Runs an entire workflow as one block
-    }
-
-    Block <|-- IOBlock
-    Block <|-- ProcessBlock
-    Block <|-- CodeBlock
-    Block <|-- AppBlock
-    Block <|-- AIBlock
-    Block <|-- SubWorkflowBlock
-```
-
-#### IOBlock
-
-Handles all data ingress and egress. **`IOBlock` is an abstract base class** (ADR-028 §D2) with two abstract methods — `load(config) -> DataObject` and `save(obj, config) -> None` — and a default `run()` that dispatches to one of them based on the subclass's `direction: ClassVar[str]`. Concrete IO blocks subclass `IOBlock` and implement `load()` (for input-only blocks) or `save()` (for output-only blocks). The previous "single block type with a `direction` flag plus a `FormatAdapter` registry" pattern (the deleted `scieasy.blocks.io.adapters` package and `adapter_registry.py`) is gone.
-
-Core ships **two concrete IO blocks** that together cover all six core `DataObject` types (`Array`, `DataFrame`, `Series`, `Text`, `Artifact`, `CompositeData`):
-
-- **`LoadData`** at `src/scieasy/blocks/io/loaders/load_data.py` — input-only. Implements `load()` by dispatching to one of six private module-level `_load_*` functions selected by the `core_type` config enum (ADR-028 Addendum 1 §C9).
-- **`SaveData`** at `src/scieasy/blocks/io/savers/save_data.py` — output-only. Mirrors `LoadData` with six private `_save_*` dispatch functions.
-
-Both classes use the **dynamic-port mechanism** (ADR-028 Addendum 1 §C5): they declare a `dynamic_ports: ClassVar[dict[str, Any] | None]` descriptor mapping the `core_type` config field to a per-`enum`-value list of `accepted_types`, and override `get_effective_input_ports()` / `get_effective_output_ports()` so the validator and the frontend palette see the *narrowed* type for the configured `core_type`. The static `output_ports` declaration uses the broad `[DataObject]` upper bound for backward-compatible registration; the per-instance override is what the runtime and the GUI actually consume.
-
-Plugin packages ship additional concrete `IOBlock` subclasses for domain-specific formats — for example, `LoadImage` in `scieasy-blocks-imaging` absorbs the old `tiff_adapter` logic into a private `_load_tif()` function, and `LoadMSRawFile` in `scieasy-blocks-lcms` absorbs `mzxml_adapter`. Plugin IO blocks register through the existing `scieasy.blocks` entry-point group; the previously planned dedicated `scieasy.adapters` entry-point group has been removed (ADR-025 §6 superseded by ADR-028 §D4).
-
-#### ProcessBlock
-
-The workhorse for data transformation. Covers:
-
-- Single-input transforms (denoise, baseline correction, normalisation, segmentation).
-- Multi-input operations (merge, register, concatenate, cross-modal fusion).
-- Splitting / filtering (subset by condition, train/test split).
-
-Each `ProcessBlock` subclass declares its input/output ports with specific type constraints. For example, a `CellposeSegment` block accepts `Image` on input and produces `Image` (mask) + `DataFrame` (cell properties) on output.
-
-#### CodeBlock
-
-Enables zero-friction integration of existing scripts. Supports two execution modes (inline, script) with automatic Collection unpack/repack (ADR-020-Add4).
-
-##### Execution modes
-
-**Inline mode** — for short scripts and quick operations:
-
-The user writes code directly in the block's config panel. Input data is injected as variables matching port names; output variables are captured automatically.
-
-```python
-# Inline mode: user writes this in the config panel
-# Variables `input_0` and `input_1` are auto-injected from input ports
-merged = input_0.merge(input_1, on="cell_id")
-output_0 = merged[merged["confidence"] > 0.8]
-```
-
-**Script mode** — for existing analysis scripts and complex pipelines:
-
-The user points the block at an existing `.py`, `.R`, or `.jl` file (local path or Git repository). The script communicates with the framework through a **convention-based entry function**:
-
-```python
-# User's existing script: my_analysis.py
-# Can import any libraries, define helper functions, span hundreds of lines.
-
-import numpy as np
-from scipy.signal import savgol_filter
-from my_lab_utils import custom_baseline  # user's own modules work fine
-
-def configure() -> dict:
-    """Optional: declare config schema for the block's UI form."""
-    return {
-        "window_length": {"type": "int", "default": 11, "min": 3},
-        "poly_order": {"type": "int", "default": 3},
-        "baseline_method": {"type": "enum", "options": ["als", "snip", "custom"]},
-    }
-
-def run(inputs: dict, config: dict) -> dict:
-    """Required: the entry point. Receives input data and config, returns outputs."""
-    spectra = inputs["spectra"]           # numpy array from input port
-    smoothed = savgol_filter(spectra, config["window_length"], config["poly_order"])
-    baseline = custom_baseline(smoothed, method=config["baseline_method"])
-    corrected = smoothed - baseline
-    return {"output_0": corrected}        # maps to output port
-```
-
-```r
-# User's existing script: deseq_analysis.R
-# Full R script with all dependencies — runs as-is.
-
-library(DESeq2)
-library(tidyverse)
-
-configure <- function() {
-    list(alpha = list(type = "float", default = 0.05),
-         lfc_threshold = list(type = "float", default = 1.0))
-}
-
-run <- function(inputs, config) {
-    counts <- inputs$counts              # from input port "counts"
-    metadata <- inputs$metadata          # from input port "metadata"
-    dds <- DESeqDataSetFromMatrix(countData = counts,
-                                  colData = metadata,
-                                  design = ~ condition)
-    dds <- DESeq(dds)
-    res <- results(dds, alpha = config$alpha,
-                   lfcThreshold = config$lfc_threshold)
-    list(output_0 = as.data.frame(res))  # maps to output port
-}
-```
-
-##### Input handling (ADR-020)
-
-CodeBlock inputs are handled via the Collection auto-unpack/repack layer (ADR-020-Add4). All inputs are delivered as native in-memory objects — equivalent to the former MEMORY delivery mode. The `InputDelivery` enum has been removed (see ADR-016, now partially superseded by ADR-020).
-
-For each input port:
-- **Collection length=1**: the single item is materialised via `.to_memory()` (e.g., a numpy array).
-- **Collection length>1**: replaced with a `LazyList` that loads items on demand, keeping peak memory at O(1) per iteration step.
-
-Users who need fine-grained control over data loading (slicing, chunked iteration) should write a **ProcessBlock** instead of a CodeBlock. ProcessBlock authors receive typed DataObject instances directly and decide for themselves when to materialise via `to_memory()`, `sel()`, or `iter_chunks()`.
-
-##### Framework bridge implementation
-
-All CodeBlock execution happens inside an isolated subprocess (ADR-017). The engine process never calls `exec()` or `importlib` directly. Instead, it prepares an invocation payload containing `StorageReference` pointers and delegates to the subprocess worker:
-
-```python
-class CodeBlock(Block):
-    def run(self, inputs, config):
-        """Executed inside the subprocess worker, NOT in the engine process.
-
-        The engine serialises StorageReference pointers and config to the
-        subprocess. The subprocess reconstructs typed DataObject instances
-        from storage (ADR-031 D7), unpacks Collection inputs, and calls
-        this method.
-        """
-        language = config["language"]
-        runner = CodeRunnerRegistry.get(language)
-
-        # Unpack Collection inputs for user scripts (ADR-020-Add4)
-        unpacked = self._unpack_inputs(inputs)
-
-        if config["mode"] == "inline":
-            result = runner.execute_inline(config["script"], unpacked)
-        else:
-            result = runner.execute_script(
-                script_path=config["script_path"],
-                entry_function=config.get("entry_function", "run"),
-                inputs=unpacked,
-                config=config.get("script_config", {}),
-            )
-
-        # Repack outputs into Collections (ADR-020-Add4)
-        return self._repack_outputs(result)
-```
-
-Note: data materialisation calls happen inside the subprocess, loading data into the subprocess's memory — not the engine's. This preserves the lazy-loading contract (ADR-007): the engine process never touches the actual data.
-
-##### Script discovery and UI integration
-
-The frontend provides a file picker for `.py` / `.R` / `.jl` files. When a script is selected, the framework introspects it — reads port names from the `run()` function signature and config schema from `configure()` (if present) — and auto-populates the block's port declarations and config form. The user's script does not need to be modified beyond adding the `run()` convention.
-
-**Code runners** are isolated subprocess execution environments (ADR-017):
-- **Python**: the subprocess worker calls `exec()` for inline mode or `importlib` for script mode — both inside the subprocess, never in the engine process.
-- **R**: subprocess calling `Rscript` with JSON-based input/output serialisation. No in-process `rpy2` bridge.
-- **Julia**: subprocess calling `julia` with JSON-based input/output serialisation. No in-process `juliacall` bridge.
-
-All code runners execute inside subprocesses managed by `ProcessHandle` (ADR-019). If a script hangs or crashes, the subprocess is terminated without affecting the engine.
-
-#### AppBlock
-
-Bridges external GUI applications (ElMAVEN, Fiji, napari, MestReNova, etc.) via a file-exchange protocol:
-
-```
-ExternalAppBridge protocol:
-
-1. PREPARE: Serialise input data to exchange directory in app-native format
-   (e.g., .mzXML for ElMAVEN, .tif for Fiji)
-
-2. LAUNCH: Start external process via configured command
-   (e.g., "ElMAVEN --input {exchange_dir}/data.mzXML")
-
-3. PAUSE: Engine enters PAUSED state. Frontend shows "Waiting for external software..."
-   User operates the external application normally.
-
-4. WATCH: Monitor exchange directory for output files using filesystem watcher (watchdog).
-   Configurable watch patterns (e.g., "*.csv", "*_peaks.tsv").
-
-5. DETECT: When output files appear or are modified, trigger resume.
-
-6. RESUME: Read output files, wrap as DataObject, continue workflow.
-```
-
-The `AppBlock` config includes:
-- `app_command`: command template to launch the application.
-- `exchange_dir`: temporary directory for file-based data exchange.
-- `input_format` / `output_format`: serialisation format for each direction.
-- `watch_patterns`: glob patterns for detecting completed output.
-- `timeout`: optional max wait time before error.
-
-**macOS `.app` bundles** (issue #677): when `app_command` resolves to a path
-ending in `.app`, `FileExchangeBridge.launch()` rewrites the invocation to
-`open -W -n -a <App.app> --args ...`. The `-W` flag is required so `open`
-blocks until the launched .app exits — without it, the returned `Popen`
-handle tracks only the short-lived `open` launcher (which exits within
-~100 ms) instead of the .app itself, causing the watcher to immediately
-believe the process died and to abort the run. The `-n` flag forces a
-fresh instance so the watcher is keyed to the new process and does not
-accidentally wait on an unrelated already-open window.
-
-#### AIBlock
-
-LLM-powered processing for tasks that benefit from natural-language reasoning:
-
-- **Classification**: label cells, annotate spectra, categorise pathology reports.
-- **Summarisation**: generate text summaries of analysis results.
-- **Parameter suggestion**: given intermediate results, suggest optimal parameters for downstream blocks.
-- **Code generation**: dynamically write a `ProcessBlock` implementation based on a natural-language description.
-
-The `AIBlock` sends data (or data summaries) + a prompt template to a configured LLM endpoint and parses structured output back into `DataObject` instances.
-
-#### SubWorkflowBlock
-
-A meta-block that encapsulates an entire workflow as a single reusable block. This enables hierarchical composition — complex pipelines become building blocks in larger workflows.
-
-```python
-class SubWorkflowBlock(Block):
-    """Runs a complete workflow as a single block within a parent workflow."""
-
-    def __init__(self, config: dict):
-        super().__init__(config)
-        self.workflow_ref = config["workflow_ref"]   # path or ID of the child workflow
-        self.input_mapping = config["input_mapping"]  # parent port → child IOBlock
-        self.output_mapping = config["output_mapping"] # child IOBlock → parent port
-
-    def run(self, inputs, config):
-        # 1. Load the child workflow definition
-        child_workflow = WorkflowLoader.load(self.workflow_ref)
-
-        # 2. Inject parent inputs into designated child IOBlocks
-        for parent_port, child_io_id in self.input_mapping.items():
-            child_workflow.inject_input(child_io_id, inputs[parent_port])
-
-        # 3. Execute the child workflow with its own DAG scheduler
-        child_engine = DAGScheduler(child_workflow)
-        child_engine.execute()
-
-        # 4. Extract designated child outputs as parent outputs
-        return {
-            parent_port: child_engine.get_output(child_io_id)
-            for parent_port, child_io_id in self.output_mapping.items()
-        }
-```
-
-**Use cases**:
-
-- **Reusable sub-pipelines**: a lab's standard Raman preprocessing pipeline (load → denoise → baseline → normalise) becomes a single "Raman Prep" block that appears in the palette alongside primitive blocks.
-- **Team collaboration**: one person builds and validates the LC-MS analysis workflow; another person uses it as a block in a larger multi-modal workflow without needing to understand the internals.
-- **Recursive composition**: a SubWorkflowBlock's child workflow can itself contain SubWorkflowBlocks, enabling arbitrary nesting depth.
-- **Sharing**: published workflows can be imported and used as blocks by the community, just like regular blocks.
-
-**In the frontend**, a SubWorkflowBlock appears as a single node with a "drill-down" button. Clicking it opens the child workflow in a nested canvas view (similar to Figma's component editing or Unreal Engine's Blueprint sub-graphs). Input/output ports on the parent node correspond to designated IOBlocks in the child workflow.
-
-### 5.4 Block and type distribution
-
-Blocks and custom data types are discovered from two sources, merged into a unified registry. The design goal: a bench scientist adds a block by dropping a file; a community maintainer publishes a polished package via pip.
-
-**Core / plugin boundary (ADR-027 D2)**: Core ships only the seven base types listed in §4.1 (`DataObject`, `Array`, `Series`, `DataFrame`, `Text`, `Artifact`, `CompositeData`). **No domain subtypes live in core.** `Image`, `FluorImage`, `SRSImage`, `MSImage`, `Spectrum`, `RamanSpectrum`, `MassSpectrum`, `PeakTable`, `MetabPeakTable`, `AnnData`, `SpatialData` — all of these are supplied by plugin packages via the `scieasy.types` entry-point group. The same rule applies to blocks: the core package ships only cross-cutting built-ins (`IOBlock`, `CodeBlock`, `AppBlock`, `AIBlock`, `SubWorkflowBlock`, `MergeCollection`, `SplitCollection`, `FilterCollection`, `SliceCollection`, `MergeBlock`, `SplitBlock`, `TransformBlock`). Every domain-aware block — Gaussian denoise, watershed, Cellpose, peak picking, mass calibration — lives in a plugin package.
-
-This boundary keeps the core modality-agnostic and ensures new modalities can be added to the ecosystem without modifying core. A scientist who only does imaging installs `scieasy + scieasy-blocks-imaging`; the core never even imports imaging-specific symbols. The worker subprocess calls `TypeRegistry.scan()` at startup (ADR-027 D11) so plugin types are resolvable from serialised `type_chain` metadata.
-
-#### Tier 1 — Drop-in files (zero config)
-
-Users place `.py` files in scan directories. The framework auto-discovers them on startup (and via a "Reload" button in the UI).
-
-| Scope | Blocks | Types |
-|---|---|---|
-| **Project-local** (this project only) | `{project}/blocks/*.py` | `{project}/types/*.py` |
-| **User-global** (all projects) | `~/.scieasy/blocks/*.py` | `~/.scieasy/types/*.py` |
-
-For each `.py` file, the framework imports the module, finds all classes inheriting `Block` or `DataObject`, reads their class-level declarations, and registers them with `BlockRegistry` or `TypeRegistry` respectively.
-
-**Minimal drop-in block example** (using a plugin-provided type):
-
-```python
-# my_project/blocks/raman_denoise.py
-from scieasy.blocks.base import ProcessBlock, InputPort, OutputPort
-from scieasy_blocks_spectral.types import Spectrum  # plugin-provided, not core
-
-class RamanDenoise(ProcessBlock):
-    name = "Raman denoise"
-    description = "Savitzky-Golay smoothing for Raman spectra"
-    version = "0.1.0"
-    category = "spectroscopy"
-
-    input_ports = [InputPort(name="spectrum", accepted_types=[Spectrum])]
-    output_ports = [OutputPort(name="smoothed", accepted_types=[Spectrum])]
-
-    def process_item(self, item, config, state=None):
-        from scipy.signal import savgol_filter
-        data = item.to_memory()
-        result = savgol_filter(data, config.get("window", 11), config.get("order", 3))
-        return Spectrum(
-            axes=item.axes, shape=result.shape, dtype=result.dtype,
-            meta=item.meta,
-        )
-```
-
-Save → click "Reload blocks" → appears in palette under "spectroscopy". The `from scieasy_blocks_spectral.types import Spectrum` requires that the user has installed `scieasy-blocks-spectral`; the drop-in file itself does not need to live inside the plugin package.
-
-**Minimal drop-in type example:**
-
-```python
-# my_project/types/flow_data.py
-from scieasy.core.types import CompositeData, Array, DataFrame
-
-class FlowCytoData(CompositeData):
-    name = "Flow cytometry data"
-    expected_slots = {
-        "events": DataFrame,               # events × channels
-        "compensation_matrix": Array,       # channel × channel
-    }
-
-    def compensate(self) -> "FlowCytoData":
-        """Apply compensation matrix to event data."""
-        ...
-
-    def gate(self, channel: str, threshold: float) -> "FlowCytoData":
-        """Simple threshold gate on a channel."""
-        ...
-```
-
-Save → the type is immediately available for port declarations in any block.
-
-#### Tier 2 — pip install (for community packages) (ADR-025)
-
-When a block collection needs formal versioning, dependency management, and broad distribution, it is published as a standard Python package on PyPI. Users install with one command; blocks and types register automatically via entry-points.
-
-**User installs:**
-
-```bash
-pip install scieasy-flowcyto
-```
-
-All blocks and types from the package appear in the palette immediately — no config needed. Domain-specific IO loaders and savers are shipped as ordinary `IOBlock` subclasses inside the `scieasy.blocks` entry-point group; there is no separate adapter registry (ADR-028 §D4 supersedes ADR-025 §6).
-
-##### Two entry-point groups
-
-External packages register their contributions via two standard Python entry-point groups:
-
-| Group | Purpose | Callable return type |
-|-------|---------|---------------------|
-| `scieasy.blocks` | Block class discovery (including plugin-owned `IOBlock` subclasses such as `LoadImage`) | `(PackageInfo, list[type[Block]])` or `list[type[Block]]` |
-| `scieasy.types` | Custom DataObject subtype registration | `list[type[DataObject]]` |
-
-Each entry-point value points to a **callable** (typically a `get_blocks()` or `get_types()` function) that the registry invokes at scan time. The previously documented `scieasy.adapters` group was removed by ADR-028 §D4 — concrete IO classes register through `scieasy.blocks` like any other block category.
-
-**Dynamic-port override mechanism** (ADR-028 Addendum 1). Any block — not just `IOBlock` subclasses — may declare a `dynamic_ports: ClassVar[dict[str, Any] | None]` descriptor and override `get_effective_input_ports()` / `get_effective_output_ports()` to provide per-instance port resolution. The descriptor format is enum-only (no expressions, no mini-DSL) and maps `{source_config_key, output_port_mapping: {port_name: {enum_value: [type_names]}}}`. Core's `LoadData` and `SaveData` use this hook to narrow `accepted_types` based on the user-selected `core_type` enum; the worker subprocess, the validator, and the frontend `BlockNode` all consume `get_effective_*_ports()` rather than the static class-level declarations. See ADR-028 + Addendum 1 and `docs/block-development/block-contract.md` "Dynamic Ports" for the worked example.
-
-##### PackageInfo metadata
-
-External block packages provide package-level metadata via a `PackageInfo` dataclass:
-
-```python
-from dataclasses import dataclass
-
-@dataclass
-class PackageInfo:
-    """Metadata for an external block package, shown in the GUI palette."""
-    name: str                  # Display name (e.g., "SRS Imaging")
-    description: str = ""      # One-line description
-    author: str = ""           # Author or lab name
-    version: str = "0.1.0"    # Package version
-```
-
-The `get_blocks()` callable returns a tuple of `(PackageInfo, list[type[Block]])`:
-
-```python
-from scieasy.blocks.base import PackageInfo
-
-PACKAGE_INFO = PackageInfo(
-    name="SRS Imaging",
-    description="Stimulated Raman Scattering microscopy analysis toolkit",
-    author="Dr. Wang Lab",
-    version="0.1.0",
-)
-
-def get_blocks():
-    from .processing.unmixing import SpectralUnmixingBlock
-    from .processing.baseline import BaselineCorrectionBlock
-    from .stat.pca import PCABlock
-    from .io.srs_reader import SRSReaderBlock
-    return PACKAGE_INFO, [SRSReaderBlock, SpectralUnmixingBlock, BaselineCorrectionBlock, PCABlock]
-```
-
-For backward compatibility, `get_blocks()` may return a plain `list[type[Block]]` without `PackageInfo`. In that case, the entry-point name is used as the package display name.
-
-##### Two-level block categorization
-
-Blocks are organized in the GUI palette by **package** (top level) and **category** (second level):
-
-```
-Block Palette:
-├── Core                         ← built-in (scieasy main package)
-│   ├── code_block
-│   ├── io_block
-│   └── app_block                ← also covers manual review (see note below)
-├── SRS Imaging                  ← PackageInfo.name
-│   ├── io                       ← BlockMetadata.category
-│   │   └── SRS Reader
-│   ├── processing
-│   │   ├── Spectral Unmixing
-│   │   └── Baseline Correction
-│   └── stat
-│       └── PCA
-└── Genomics                     ← another pip package
-    └── ...
-```
-
-For manual review, use `AppBlock` (see `docs/block-development/block-contract.md`) to open Fiji, Napari, or any GUI tool as part of the workflow. There is no dedicated manual-review block class — `AppBlock` already implements the `IDLE → READY → RUNNING → PAUSED → RUNNING → DONE` lifecycle that human-in-the-loop steps require.
-
-The `category` field is a free-form string set by the block author in `BlockMetadata`. No fixed taxonomy — authors define categories that make sense for their domain. The `BlockSpec` dataclass gains a `package_name: str` field to support this grouping.
-
-**Package structure (what the community maintainer creates):**
-
-```
-scieasy-flowcyto/
-├── pyproject.toml
-└── src/
-    └── scieasy_flowcyto/
-        ├── __init__.py           # PackageInfo + get_blocks()
-        ├── types/
-        │   └── flow_data.py      # FlowCytoData(CompositeData) + get_types()
-        └── blocks/
-            ├── load_fcs.py       # IOBlock subclass: implements load() for .fcs
-            ├── save_fcs.py       # IOBlock subclass: implements save() for .fcs
-            ├── compensate.py     # ProcessBlock: compensation
-            ├── gate.py           # ProcessBlock: gating
-            ├── flowjo_bridge.py  # AppBlock: FlowJo integration
-            └── clustering.py     # ProcessBlock: FlowSOM / Phenograph
-```
-
-```toml
-# pyproject.toml
-[project]
-name = "scieasy-flowcyto"
-version = "1.0.0"
-dependencies = ["scieasy>=0.1", "fcsparser>=0.2", "flowsom>=0.1"]
-
-[project.entry-points."scieasy.blocks"]
-flowcyto = "scieasy_flowcyto:get_blocks"              # callable protocol (ADR-025)
-
-[project.entry-points."scieasy.types"]
-flowcyto = "scieasy_flowcyto.types.flow_data:get_types"
-```
-
-Note the entry-point format change from ADR-025: each entry-point value is a **callable** (function or class), not a direct class reference. The callable is invoked by the registry and returns a list of classes (optionally with `PackageInfo`). Domain-specific loaders/savers (`LoadFCS`, `SaveFCS` above) are concrete `IOBlock` subclasses returned from `get_blocks()` along with the rest of the package's blocks; the dedicated `scieasy.adapters` entry-point group documented in ADR-025 §6 was removed by ADR-028 §D4.
-
-##### Custom type registration via entry-points
-
-Custom `DataObject` subtypes must be registered so the engine can validate port type compatibility (e.g., `FlowCytoData` IS-A `CompositeData`), reconstruct typed objects from storage references during checkpoint restore, and display type-appropriate previews in the frontend:
-
-```python
-# scieasy_flowcyto/types/flow_data.py
-def get_types():
-    return [FlowCytoData]
-```
-
-`TypeRegistry` gains a `_scan_entrypoint_types()` method that iterates `entry_points(group="scieasy.types")`, invokes each callable, and registers the returned type classes.
-
-#### Registry implementation
-
-```python
-class BlockRegistry:
-    """Unified block discovery across all sources."""
-
-    def __init__(self):
-        self._specs: dict[str, BlockSpec] = {}
-        self._packages: dict[str, PackageInfo] = {}   # ADR-025: package metadata
-
-    def scan(self):
-        # 1. Tier 1: scan drop-in directories
-        for directory in self._scan_dirs:          # project/blocks/, ~/.scieasy/blocks/
-            for py_file in directory.glob("*.py"):
-                self._register_from_file(py_file)
-
-        # 2. Tier 2: scan installed entry_points (ADR-025 callable protocol)
-        for ep in entry_points(group="scieasy.blocks"):
-            try:
-                callable_or_class = ep.load()
-                result = callable_or_class() if callable(callable_or_class) else callable_or_class
-                if isinstance(result, tuple) and len(result) == 2:
-                    pkg_info, block_classes = result    # (PackageInfo, [Block, ...])
-                    self._packages[pkg_info.name] = pkg_info
-                    for cls in block_classes:
-                        spec = self._make_spec(cls)
-                        spec.package_name = pkg_info.name
-                        self._specs[spec.name] = spec
-                elif isinstance(result, list):
-                    for cls in result:                  # backward compat: plain list
-                        spec = self._make_spec(cls)
-                        spec.package_name = ep.name     # entry-point name as fallback
-                        self._specs[spec.name] = spec
-            except Exception:
-                logger.warning("Failed to load blocks from '%s'", ep.name, exc_info=True)
-
-        # Tier 2 blocks shadow Tier 1 blocks with the same name
-        # (installed packages are considered authoritative)
-
-    def hot_reload(self):
-        """Re-scan Tier 1 directories only (fast, triggered by UI button)."""
-        ...
-
-    def packages(self) -> dict[str, PackageInfo]:
-        """Return all registered package metadata (for GUI palette grouping)."""
-        return dict(self._packages)
-
-    def specs_by_package(self) -> dict[str, list[BlockSpec]]:
-        """Return blocks grouped by package_name for two-level palette display."""
-        grouped: dict[str, list[BlockSpec]] = {}
-        for spec in self._specs.values():
-            grouped.setdefault(spec.package_name, []).append(spec)
-        return grouped
-```
-
-`TypeRegistry` follows an identical callable protocol with `scieasy.types` entry-points and `{project}/types/` + `~/.scieasy/types/` scan directories.
-
-Each registered block/type exposes to the palette:
-- Name, description, version, author.
-- Input/output port declarations with type constraints.
-- Default config schema (JSON Schema, rendered as a form in the frontend).
-- Icon and category (for palette organisation).
-- Package name (for two-level grouping in palette; ADR-025).
-- Source indicator: "project", "user", or package name (shown as a badge in the UI).
-
----
-
-## 6. Layer 3 — Execution engine
-
-### 6.1 DAG scheduler
-
-A workflow is a directed acyclic graph (DAG) of blocks connected by typed edges. The scheduler is **event-driven** (ADR-018) — it reacts to block completion, errors, cancellation, and process death events via the `EventBus`, rather than iterating sequentially through a fixed topological order.
-
-Core responsibilities:
-
-1. **Topological sort**: determines execution order respecting data dependencies.
-2. **Readiness check**: a block becomes READY when all its required input ports have data.
-3. **Dispatch**: ready blocks are dispatched to the `BlockRunner`, which spawns an isolated subprocess (ADR-017) and returns a `RunHandle`.
-4. **Cancellation handling**: on `CANCEL_BLOCK_REQUEST`, terminates the block's subprocess and propagates `SKIPPED` to all unreachable downstream blocks (ADR-018).
-5. **State propagation**: all block state changes are emitted as events on the `EventBus`, consumed by the WebSocket handler, LineageRecorder, CheckpointManager, and ResourceManager.
-
-**Concurrency model (ADR-018 Addendum 1)**: The scheduler uses `asyncio.create_task` to start each block as an independent task. `_dispatch` performs only the synchronous prelude (state transition, input gathering, block instantiation) and then creates a task for `_run_and_finalize`, which awaits the subprocess via `runner.run(...)`. Independent DAG branches therefore execute concurrently — the event loop returns to dispatching other ready blocks immediately after creating the task, rather than blocking on `popen.communicate()`.
-
-When `ResourceManager.can_dispatch()` refuses a block (GPU slot exhausted, system memory above watermark), the block stays in READY state and `_dispatch` returns without creating a task. A helper `_dispatch_newly_ready()` is called from `_on_block_done` and `_on_process_exited` to re-scan for READY blocks whose earlier dispatch was blocked, retrying them as resources free up.
-
-```python
-@dataclass
-class RunHandle:
-    """Returned by BlockRunner.run() for lifecycle tracking."""
-    run_id: str
-    process_handle: ProcessHandle
-    result: asyncio.Future[dict[str, Any]]   # resolves when subprocess completes
-
-class DAGScheduler:
-    def __init__(self, workflow: WorkflowDefinition, event_bus: EventBus,
-                 runner: BlockRunner, resource_manager: ResourceManager,
-                 process_registry: ProcessRegistry):
-        self.graph = build_dag(workflow)
-        self.block_states: dict[str, BlockState] = {}
-        self.skip_reasons: dict[str, str] = {}
-        self._active_tasks: dict[str, asyncio.Task[None]] = {}   # ADR-018 Addendum 1
-        self.event_bus = event_bus
-        self.runner = runner
-        self.resource_manager = resource_manager
-        self.process_registry = process_registry
-
-        event_bus.subscribe(CANCEL_BLOCK_REQUEST, self._on_cancel_block)
-        event_bus.subscribe(CANCEL_WORKFLOW_REQUEST, self._on_cancel_workflow)
-        event_bus.subscribe(PROCESS_EXITED, self._on_process_exited)
-
-    async def execute(self):
-        await self.event_bus.emit(EngineEvent(WORKFLOW_STARTED, data={"workflow_id": ...}))
-        try:
-            # Initial dispatch: find all blocks with no dependencies → READY → dispatch.
-            # Note: dispatch does NOT inline-await the runner; it creates a task.
-            for block_id in self._find_ready_blocks():
-                await self._dispatch(block_id)
-
-            # Wait for event-driven completion. Event handlers call
-            # _dispatch_newly_ready() to fan out successors and retry
-            # resource-blocked dispatches.
-            await self._completed_event.wait()
-        finally:
-            await self._cancel_active_tasks_on_shutdown()
-        await self.event_bus.emit(EngineEvent(WORKFLOW_COMPLETED, data={...}))
-
-    async def _dispatch(self, block_id: str):
-        """Synchronous prelude: transition state and create the run task.
-        Returns immediately — does NOT await the subprocess (ADR-018 Addendum 1)."""
-        if self._paused:
-            return
-        if not self.resource_manager.can_dispatch(block.resource_request):
-            return   # stay READY; retried on next resource release
-        self.set_state(block_id, BlockState.RUNNING)
-        await self.event_bus.emit(EngineEvent(BLOCK_RUNNING, block_id=block_id))
-
-        block = self._instantiate_block(block_id)
-        inputs = self._gather_inputs(block_id)
-        node = self.graph.nodes[block_id]
-
-        # Create an independent task for the subprocess wait + completion event.
-        task = asyncio.create_task(
-            self._run_and_finalize(block_id, block, inputs, node.config),
-            name=f"dispatch:{block_id}",
-        )
-        self._active_tasks[block_id] = task
-
-    async def _run_and_finalize(self, block_id, block, inputs, config):
-        """Task body: await subprocess, store outputs, emit terminal events."""
-        try:
-            result = await self.runner.run(block, inputs, config)
-            self._block_outputs[block_id] = result
-            self.set_state(block_id, BlockState.DONE)
-            await self.event_bus.emit(EngineEvent(BLOCK_DONE, block_id=block_id, data={...}))
-        except Exception as exc:
-            if self.block_states.get(block_id) == BlockState.CANCELLED:
-                return   # cancellation already handled by _on_cancel_block
-            self.set_state(block_id, BlockState.ERROR)
-            await self.event_bus.emit(EngineEvent(BLOCK_ERROR, block_id=block_id, data={"error": str(exc)}))
-        finally:
-            self._active_tasks.pop(block_id, None)
-
-    async def _on_block_done(self, event: EngineEvent):
-        """Dispatch newly-ready successors AND retry any READY blocks that
-        were previously blocked by resource gating."""
-        await self._dispatch_newly_ready()
-        self._check_completion()
-
-    async def _dispatch_newly_ready(self):
-        """Scan for IDLE blocks whose predecessors are DONE and for READY blocks
-        that could not dispatch earlier due to resource gating; dispatch them."""
-        for node_id in self._order:
-            state = self.block_states[node_id]
-            if state == BlockState.IDLE and self._check_readiness(node_id):
-                self.set_state(node_id, BlockState.READY)
-                await self._dispatch(node_id)
-            elif state == BlockState.READY and node_id not in self._active_tasks:
-                await self._dispatch(node_id)
-
-    async def _on_cancel_block(self, event: EngineEvent):
-        block_id = event.block_id
-        if self.block_states[block_id] not in (BlockState.RUNNING, BlockState.PAUSED):
-            return
-        # Primary path: kill the subprocess; _run_and_finalize unwinds naturally.
-        handle = self.process_registry.get_handle(block_id)
-        if handle is not None:
-            handle.terminate(grace_period_sec=block.terminate_grace_sec)
-        elif block_id in self._active_tasks:
-            # Rare: cancellation requested before the subprocess started.
-            self._active_tasks[block_id].cancel()
-        self.set_state(block_id, BlockState.CANCELLED)
-        await self.event_bus.emit(EngineEvent(BLOCK_CANCELLED, block_id=block_id))
-        self._propagate_skipped(block_id)
-
-    def _check_completion(self) -> None:
-        terminal = {BlockState.DONE, BlockState.ERROR, BlockState.CANCELLED, BlockState.SKIPPED}
-        if all(s in terminal for s in self.block_states.values()) and not self._active_tasks:
-            self._completed_event.set()
-
-    async def _cancel_active_tasks_on_shutdown(self) -> None:
-        """Best-effort cleanup in execute()'s finally block. Terminates any
-        remaining subprocesses and awaits their tasks so execute() never leaks."""
-        for block_id, task in list(self._active_tasks.items()):
-            handle = self.process_registry.get_handle(block_id)
-            if handle is not None:
-                try:
-                    handle.terminate()
-                except Exception:
-                    logger.exception("Shutdown: failed to terminate %s", block_id)
-            if not task.done():
-                task.cancel()
-                try:
-                    await task
-                except BaseException:
-                    pass
-
-    def _propagate_skipped(self, failed_block_id: str):
-        """Mark all unreachable downstream blocks as SKIPPED."""
-        queue = self._get_downstream_of(failed_block_id)
-        while queue:
-            block_id = queue.pop(0)
-            if self.block_states[block_id] in (DONE, ERROR, CANCELLED, SKIPPED):
-                continue
-            unsatisfied = self._get_unsatisfied_required_inputs(block_id)
-            if unsatisfied:
-                self.set_state(block_id, BlockState.SKIPPED)
-                self.skip_reasons[block_id] = f"upstream '{failed_block_id}' did not produce output"
-                self.event_bus.emit(EngineEvent(BLOCK_SKIPPED, block_id=block_id,
-                    data={"skip_reason": self.skip_reasons[block_id]}))
-                queue.extend(self._get_downstream_of(block_id))
-```
-
-Key properties of the concurrency model:
-
-- **True parallel branch execution**: two blocks with no data dependency between them run simultaneously in separate subprocesses. The wall-clock time of independent branches is `max(a, b)`, not `a + b`.
-- **Resource-aware throttling**: `ResourceManager.can_dispatch()` is the sole gate. With `gpu_slots=4`, four GPU blocks run concurrently; with `gpu_slots=1`, they queue. Blocks blocked by gating sit in READY and are retried whenever a block releases resources.
-- **Clean cancellation**: `ProcessHandle.terminate()` on the running subprocess is the authoritative stop signal. The task body catches the resulting exception, sees the state is already `CANCELLED`, and unwinds quietly.
-- **Clean shutdown**: `execute()`'s `try/finally` guarantees that any outstanding tasks are cancelled and their subprocesses terminated before `execute()` returns, even on engine-level exceptions.
-- **Single-threaded cooperative execution**: asyncio is single-threaded, so state mutations happen only between `await` points. No explicit locking is needed except for `reset_block()`, which has its own `_reset_lock` because it can be triggered from external callers.
-
-**EventBus subscription matrix** — who listens to what:
-
-| Subscriber | `BLOCK_DONE` | `BLOCK_ERROR` | `BLOCK_CANCELLED` | `BLOCK_SKIPPED` | `CANCEL_BLOCK_REQUEST` | `CANCEL_WORKFLOW_REQUEST` | `PROCESS_SPAWNED` | `PROCESS_EXITED` |
-|---|---|---|---|---|---|---|---|---|
-| **DAGScheduler** | ✓ schedule next | ✓ propagate SKIPPED | ✓ propagate SKIPPED | — | ✓ initiate cancel | ✓ cancel all | — | ✓ update block state |
-| **ResourceManager** | ✓ release | ✓ release | ✓ release | — | — | — | ✓ record allocation | ✓ release |
-| **ProcessRegistry** | — | — | — | — | ✓ terminate process | ✓ terminate all | ✓ register handle | ✓ deregister handle |
-| **WebSocket handler** | ✓ push to client | ✓ push to client | ✓ push to client | ✓ push to client | — | — | — | — |
-| **LineageRecorder** | ✓ write record | ✓ write record | ✓ write record | ✓ write record | — | — | — | — |
-| **CheckpointManager** | ✓ save | ✓ save | ✓ save | ✓ save | — | — | — | — |
-
-### 6.2 Collection-based data transport (ADR-020)
-
-All data flowing between blocks is wrapped in a `Collection` — a homogeneous, ordered container of `DataObject` instances. The engine treats every Collection as an opaque unit: one Collection in, one Collection out, one subprocess, one ProcessHandle. **The engine never unpacks, iterates, or inspects the contents of a Collection.**
-
-```python
-class Collection:
-    """Homogeneous ordered collection of DataObjects.
-
-    NOT a DataObject subclass — it is a transport wrapper, not a data type.
-    Its type identity for port matching is determined by item_type.
-    A single item is Collection with length=1. There is no special case.
-    """
-    items: list[DataObject]
-    item_type: type          # e.g. Image, DataFrame — determines port compatibility
-
-    def __getitem__(self, index): ...
-    def __iter__(self): ...
-    def __len__(self): ...
-    def storage_refs(self) -> list[StorageReference]: ...
-```
-
-A single image is `Collection[Image]` with length=1. 100 images is `Collection[Image]` with length=100. The engine handles both identically.
-
-**Port compatibility**: `Collection` is transparent to the port system. A port declaring `accepted_types=[Image]` accepts `Collection[Image]` of any length. The port system checks the Collection's `item_type` against `accepted_types`, not the Collection wrapper itself.
-
-**Block-internal iteration and memory safety** (ADR-020 Addendum 5): blocks decide how to process their input Collection. The framework provides a three-tier interface with automatic memory management:
-
-**Tier 1 — `process_item()` (80% of blocks, zero memory management):**
-
-```python
-class ProcessBlock(Block):
-    def process_item(self, item: DataObject, config: BlockConfig) -> DataObject:
-        """Override this. Framework handles iteration, flush, and packing."""
-        raise NotImplementedError
-
-    def run(self, inputs, config):
-        """Default: iterate primary input, auto-flush each result to storage."""
-        primary = list(inputs.values())[0]
-        refs = []
-        for item in primary:
-            result = self.process_item(item, config)
-            result = _auto_flush(result)     # write to storage, return lightweight ref
-            refs.append(result)              # ~KB ref only
-        return {self.output_ports[0].name: Collection(refs)}
-```
-
-Peak memory: 1 input item + 1 output item, constant regardless of Collection size.
-
-**Tier 2 — `run()` + framework utilities (15% of blocks, automatic safety):**
-
-```python
-class Block(ABC):
-    # --- Pack / unpack (returns typed DataObject instances, ADR-031 D7) ---
-    @staticmethod
-    def pack(items: list[DataObject]) -> Collection:
-        """Auto-flushes each item to storage if no StorageReference."""
-    @staticmethod
-    def unpack(collection: Collection) -> list[DataObject]: ...
-    @staticmethod
-    def unpack_single(collection: Collection) -> DataObject: ...
-
-    # --- Iteration helpers (auto-flush after each item) ---
-    @staticmethod
-    def map_items(func, collection: Collection) -> Collection:
-        """Apply func to each item sequentially. Auto-flushes each result."""
-    @staticmethod
-    def parallel_map(func, collection: Collection, max_workers=4) -> Collection:
-        """Apply func to each item using a process pool. Auto-flushes each result.
-        Warning: loads max_workers items concurrently — use map_items for large items."""
-```
-
-`map_items` and `parallel_map` auto-flush each result to storage internally. `pack()` auto-flushes any remaining in-memory items as a safety net. Block authors using these utilities get memory safety without explicit flush calls.
-
-**Tier 3 — `run()` + manual loop (5% of blocks, pack() safety net):**
-
-Block authors who write manual loops accumulate results in memory. `pack()` flushes when called, but cannot prevent peak memory during the loop. This is the least optimal path but still has the safety net.
-
-**`_auto_flush` mechanism**: any DataObject without a `StorageReference` is written to the output storage directory and replaced with a lightweight reference (~KB). This is called internally by `map_items`, `parallel_map`, `pack`, and the `process_item` default `run()`. The subprocess worker (`worker.py`) also performs a final force-write scan after `block.run()` returns, catching any items that bypassed framework utilities.
-
-**Example block patterns:**
-
-| Tier | Pattern | Block example | Code | Peak memory |
-|---|---|---|---|---|
-| 1 | Simple per-item | Savitzky-Golay smooth | `process_item(self, item, config): return smooth(item.to_memory())` | O(1 item) |
-| 2 | Parallel per-item | Cellpose segmentation | `return {"masks": self.parallel_map(segment, inputs["images"], max_workers=4)}` | O(workers × item) |
-| 2 | Serial per-item | napari review | `for mask in self.unpack(inputs["masks"]): ...` + `self.pack(results)` | O(N items) at pack, then flushed |
-| 2 | Whole-collection | ElMAVEN peak picking | `bridge.prepare(inputs["data"], exchange_dir)` — bridge iterates and writes files one at a time | O(1 item) |
-| 2 | Single-item operation | Cross-modal merge | `metab = self.unpack_single(inputs["metabolites"])` | O(1 item) |
-
-**CodeBlock auto-unpack** (ADR-020 Addendum 4): CodeBlock transparently converts Collections for user scripts. `Collection` length=1 → single native object (numpy array, pandas DataFrame). `Collection` length>1 → `LazyList` that loads items on demand during iteration. User scripts never see a `Collection` object. `LazyList` ensures memory stays bounded during `for x in input_0:` loops — each iteration loads one item, previous items are eligible for GC.
-
-**Collection operation blocks** (ADR-021): the framework provides built-in utility blocks for combining, splitting, filtering, and slicing Collections. For example, `MergeCollection` concatenates two same-typed Collections — useful when merging two batches of data before passing to ElMAVEN.
-
-### 6.3 Pause, resume, and checkpointing
-
-The engine supports mid-workflow suspension via `WorkflowCheckpoint`:
-
-```python
-@dataclass
-class WorkflowCheckpoint:
-    workflow_id: str
-    timestamp: datetime
-    block_states: dict[str, BlockState]          # state of every block (all 8 states valid)
-    intermediate_refs: dict[str, StorageReference]  # outputs produced so far
-    pending_block: str | None                     # block waiting for user action
-    config_snapshot: dict                          # full config at checkpoint time
-    skip_reasons: dict[str, str]                   # block_id → skip reason for SKIPPED blocks (ADR-018)
-```
-
-Checkpoints are saved to `{project}/.scieasy/pause/` (relocated from the prior `{project}/checkpoints/` path during the ADR-038 unification; see ADR-012 for the unchanged scope and ADR-038 §3.6a for the distinction from run lineage) as JSON + references to Zarr/Parquet data. Resuming a workflow loads the latest checkpoint, skips completed blocks, and continues from the pending block. The `CheckpointManager` subscribes to `BLOCK_DONE`, `BLOCK_ERROR`, `BLOCK_CANCELLED`, and `BLOCK_SKIPPED` events on the `EventBus` and saves a checkpoint after each state change.
-
-The checkpoint store is a **single-slot artifact** (one file per `workflow_id`, overwritten on every terminal event). It is distinct from `lineage.db` (§4.4): the checkpoint mirrors the on-disk state at the moment of the most recent terminal block event and powers pause/resume + "Run from here on the latest run"; `lineage.db` records the full history of every run as immutable rows but preserves no intermediate data. "Run from here" against an older historical run is therefore not supported — to reproduce an older run, re-execute the full workflow using the recipe stored in `lineage.db.runs` (workflow_yaml_snapshot + per-block resolved params + environment + git commit SHA).
-
-Checkpoint state values include `CANCELLED` and `SKIPPED` (ADR-018). When resuming from a checkpoint, blocks in these states are not re-executed. Users can reset individual blocks to `IDLE` to retry them in a new run.
-
-This is critical for:
-- **AppBlock**: user closes ElMAVEN, goes to lunch, comes back → workflow resumes.
-- **Long pipelines**: crash recovery without re-running expensive blocks.
-- **Collaborative workflows**: one person runs the automated steps, saves checkpoint, another person does the manual review steps.
-- **Partial cancellation recovery**: user cancels one branch, the checkpoint records which blocks completed, which were cancelled, and which were skipped — enabling selective re-execution.
-
-### 6.4 Resource management
-
-Resource management uses a three-layer defence model (ADR-022):
-
-- **Layer 1 (ResourceManager)**: dispatch gating — checks GPU slots, CPU cores, and actual OS memory usage before launching a block.
-- **Layer 2 (block-internal)**: `_auto_flush`, `LazyList`, `parallel_map(max_workers)` control per-block memory at runtime (ADR-020 Addendum 4/5).
-- **Layer 3 (OS + ProcessMonitor)**: if a subprocess exceeds available memory, the OS kills it; ProcessMonitor detects the death and the scheduler marks it as `ERROR` (ADR-017/019).
-
-```python
-@dataclass
-class ResourceRequest:
-    """Declared by each block: what discrete resources does it need?"""
-    requires_gpu: bool = False
-    gpu_memory_gb: float = 0.0          # GPU VRAM — declared (not monitorable cross-platform)
-    cpu_cores: int = 1
-    max_internal_workers: int = 1       # ADR-027 D8: declared internal parallelism
-    # NOTE: estimated_memory_gb removed (ADR-022).
-    # System memory is monitored at OS level via psutil, not estimated per-block.
-
-    @property
-    def effective_cpu(self) -> int:
-        """Total CPU footprint for ResourceManager accounting."""
-        return self.cpu_cores * self.max_internal_workers
-
-class ResourceManager:
-    """Dispatch gating based on discrete resources + OS memory monitoring."""
-
-    def __init__(
+    allowed_input_types: ClassVar[list[type]] = []
+    allowed_output_types: ClassVar[list[type]] = []
+
+    min_input_ports: ClassVar[int | None] = None
+    max_input_ports: ClassVar[int | None] = None
+    min_output_ports: ClassVar[int | None] = None
+    max_output_ports: ClassVar[int | None] = None
+
+    dynamic_ports: ClassVar[dict[str, Any] | None] = None
+    execution_mode: ClassVar[ExecutionMode] = ExecutionMode.AUTO
+    terminate_grace_sec: ClassVar[float] = 5.0
+    key_dependencies: ClassVar[list[str]] = []
+    config_schema: ClassVar[dict[str, Any]] = {"type": "object", "properties": {}}
+
+    def transition(self, target: BlockState) -> None: ...
+    def get_effective_input_ports(self) -> list[InputPort]: ...
+    def get_effective_output_ports(self) -> list[OutputPort]: ...
+    def validate(self, inputs: dict[str, Any]) -> bool: ...
+
+    @abstractmethod
+    def run(
         self,
-        gpu_slots: int | None = None,           # ADR-027 D10: None triggers auto-detect
-        cpu_workers: int = 4,
-        memory_high_watermark: float = 0.80,    # pause dispatch above 80% system RAM
-        memory_critical: float = 0.95,          # never dispatch above 95% system RAM
-    ):
-        if gpu_slots is None:
-            gpu_slots = _auto_detect_gpu_slots()  # torch.cuda.device_count() or nvidia-smi
-        ...
+        inputs: dict[str, Collection],
+        config: BlockConfig,
+    ) -> dict[str, Collection]: ...
 
-    def can_dispatch(self, request: ResourceRequest) -> bool:
-        """Check if resources are available for dispatching a block.
-        GPU/CPU: discrete slot counting (declaration-based, predictive).
-        Memory: OS-level check via psutil (monitoring-based, reactive)."""
-        import psutil
-        if request.requires_gpu and self._gpu_in_use >= self.gpu_slots:
-            return False
-        if self._cpu_in_use + request.effective_cpu > self.max_cpu_workers:
-            return False
-        if psutil.virtual_memory().percent / 100.0 > self.memory_high_watermark:
-            return False
-        return True
-
-    def release(self, request: ResourceRequest) -> None:
-        """Release discrete resources (GPU slots, CPU cores).
-        Memory is not explicitly released — it drops when the subprocess exits."""
-        ...
-
-    @property
-    def available(self) -> ResourceSnapshot:
-        """Current resource state (for UI display and scheduler decisions)."""
-        ...
-
-def _auto_detect_gpu_slots() -> int:
-    """Best-effort GPU count detection. Tries torch, then nvidia-smi, then 0.
-    ADR-027 D10: returns physical GPU count, not VRAM-aware slot calculation.
-    Users with large models on small cards should override via project config."""
-    try:
-        import torch
-        if torch.cuda.is_available():
-            return torch.cuda.device_count()
-    except ImportError:
-        pass
-    try:
-        import subprocess
-        r = subprocess.run(["nvidia-smi", "-L"], capture_output=True, text=True, timeout=2)
-        if r.returncode == 0:
-            return sum(1 for line in r.stdout.splitlines() if line.startswith("GPU "))
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        pass
-    return 0
+    def postprocess(
+        self,
+        outputs: dict[str, Collection],
+    ) -> dict[str, Collection]: ...
 ```
 
-**`gpu_slots` default behaviour (ADR-027 D10)**: prior to this addendum, the default was `0`, which meant every block declaring `requires_gpu=True` failed `can_dispatch()` unconditionally. Phase 10 changes the default to `None`, which triggers `_auto_detect_gpu_slots()` at construction time. On a workstation with two CUDA-visible GPUs, `gpu_slots` becomes `2` automatically, and two GPU blocks can run concurrently (subject to scheduler concurrency per ADR-018 Addendum 1). Users who need to override (for VRAM constraints, or to intentionally serialise GPU work) pass an explicit integer: `ResourceManager(gpu_slots=1, ...)`.
+Important class attributes:
 
-**Declared internal parallelism (ADR-027 D8)**: `ResourceRequest.max_internal_workers` lets a block declare that its own `run()` will internally use N workers (threads or processes) beyond the base `cpu_cores` declaration. The resource manager multiplies the two to compute `effective_cpu`, preventing scheduler-level CPU over-subscription when a block author uses library-level parallelism (numpy/MKL thread pools, `concurrent.futures` inside a block). This is an honour-system field — the framework does not enforce the declared count — but it does give the scheduler enough information to avoid double-booking CPU resources.
+- **`name` / `description` / `version`** identify the block in the palette and
+  in lineage records.
+- **`input_ports` / `output_ports`** declare the static typed interface.
+- **`variadic_inputs` / `variadic_outputs`** allow a block instance to expose a
+  user-edited port list.
+- **`allowed_input_types` / `allowed_output_types`** constrain port-editor type
+  choices for variadic blocks.
+- **`dynamic_ports`** describes enum-driven port changes such as load/save
+  blocks whose selected data type changes the effective port type.
+- **`execution_mode`** tells the runtime whether the block is automatic,
+  interactive, or external.
+- **`terminate_grace_sec`** gives the runtime a cancellation grace period before
+  forced termination.
+- **`config_schema`** drives the configuration form exposed through the API and
+  frontend.
 
-Blocks declare discrete resource needs via a class-level attribute:
+### 5.2 State Machine
 
-```python
-class CellposeSegment(ProcessBlock):
-    resource_request = ResourceRequest(requires_gpu=True, gpu_memory_gb=2.0)
+Every block instance moves through a small state machine during a workflow run.
+Terminal states describe the result of one execution attempt; returning to
+`IDLE` happens when the workflow is reset for another run.
+
+```text
+IDLE      -> READY | SKIPPED | ERROR
+READY     -> RUNNING | SKIPPED | ERROR
+RUNNING   -> DONE | PAUSED | ERROR | CANCELLED
+PAUSED    -> RUNNING | ERROR | CANCELLED
+DONE      -> IDLE
+ERROR     -> IDLE
+CANCELLED -> IDLE
+SKIPPED   -> IDLE
 ```
 
-The DAG scheduler consults `ResourceManager.can_dispatch()` before dispatching each block. If the system memory watermark is exceeded (e.g., a previous block is still processing a large Collection), the scheduler waits until memory drops before launching the next block. GPU and CPU resources use discrete slot counting — if only 1 GPU slot is available, GPU blocks run one at a time.
-
-**Automatic resource release via EventBus** (ADR-018, ADR-019): the `ResourceManager` subscribes to `BLOCK_DONE`, `BLOCK_ERROR`, `BLOCK_CANCELLED`, and `PROCESS_EXITED` events. When any of these events fire, the manager releases the discrete resources (GPU slots, CPU cores) allocated to that block. Memory is not explicitly released — it drops naturally when the subprocess exits and the OS reclaims pages.
-
-```python
-# ResourceManager event subscription (in __init__):
-event_bus.subscribe(BLOCK_DONE, self._on_block_terminal)
-event_bus.subscribe(BLOCK_ERROR, self._on_block_terminal)
-event_bus.subscribe(BLOCK_CANCELLED, self._on_block_terminal)
-event_bus.subscribe(PROCESS_EXITED, self._on_block_terminal)
-
-def _on_block_terminal(self, event: EngineEvent):
-    allocation = self._allocations.pop(event.block_id, None)
-    if allocation:
-        self.release(allocation)    # releases GPU slots + CPU cores only
+```text
++------+      +-------+      +---------+      +------+
+| IDLE | ---> | READY | ---> | RUNNING | ---> | DONE |
++--+---+      +---+---+      +----+----+      +--+---+
+   |              |               |              |
+   |              |               v              |
+   |              |          +----+----+         |
+   |              |          | PAUSED  | --------+
+   |              |          +----+----+
+   |              |               |
+   v              v               v
++--+---+      +---+---+      +----+-----+
+|ERROR |      |SKIPPED|      |CANCELLED |
++--+---+      +---+---+      +----+-----+
+   |              |               |
+   +--------------+---------------+
+                  |
+                  v
+                +----+
+                |IDLE|
+                +----+
 ```
 
-### 6.5 Process lifecycle management
+#### 5.2.1 IDLE
 
-All blocks execute in isolated subprocesses (ADR-017). The process lifecycle is managed by three components that work together via the `EventBus` (ADR-019):
+`IDLE` means the block is not part of an active execution attempt. A reset
+places completed, failed, cancelled, or skipped blocks back into this state.
 
-#### ProcessHandle
+#### 5.2.2 READY
 
-A cross-platform abstraction over an OS process, providing three guarantees: always terminable, always observable, always tracked.
+`READY` means all required upstream inputs are available and the scheduler may
+dispatch the block.
 
-```python
-class ProcessHandle:
-    block_id: str                       # which block owns this process
-    pid: int                            # OS process ID
-    start_time: datetime                # when the process was launched
-    resource_request: ResourceRequest   # resources this process holds
+#### 5.2.3 RUNNING
 
-    async def is_alive(self) -> bool:
-        """Non-blocking alive check. Uses os.kill(pid,0) on POSIX, OpenProcess on Windows."""
+`RUNNING` means the block has been dispatched and is actively executing or
+waiting inside its worker process.
 
-    async def exit_info(self) -> ProcessExitInfo | None:
-        """Exit code + signal info if exited, None if still running."""
+#### 5.2.4 PAUSED
 
-    async def terminate(self, grace_period_sec: float = 5.0) -> ProcessExitInfo:
-        """Terminate process and all its children.
-        Linux/macOS: SIGTERM to process group → wait grace_period → SIGKILL.
-        Windows: TerminateJobObject (immediate, no grace period)."""
+`PAUSED` means execution is intentionally suspended while waiting for an
+external action, such as a GUI application, human review, or agent completion.
 
-    async def kill(self) -> ProcessExitInfo:
-        """Immediate forced termination. SIGKILL / TerminateProcess."""
+#### 5.2.5 DONE
 
-@dataclass
-class ProcessExitInfo:
-    exit_code: int | None
-    signal_number: int | None       # POSIX only
-    was_killed_by_framework: bool
-    platform_detail: str
-```
+`DONE` means the block completed successfully and produced its declared outputs.
 
-#### spawn_block_process factory
+#### 5.2.6 ERROR
 
-**All subprocess creation goes through this single function.** No code in the framework calls `subprocess.Popen` directly.
+`ERROR` means the block failed because validation, runtime execution, external
+process handling, or output reconstruction failed.
 
-```python
-def spawn_block_process(
-    block_id: str,
-    command: list[str],
-    resource_request: ResourceRequest,
-    event_bus: EventBus,
-    cwd: str | Path | None = None,
-    env: dict[str, str] | None = None,
-    stdin_data: bytes | None = None,
-) -> ProcessHandle:
-    """Launch a subprocess with platform-appropriate isolation.
-    Linux/macOS: start_new_session=True (new process group for killpg).
-    Windows: CREATE_NEW_PROCESS_GROUP + Job Object (kills entire tree on close).
-    Registers the handle in ProcessRegistry and emits PROCESS_SPAWNED event."""
-```
+#### 5.2.7 CANCELLED
 
-#### ProcessRegistry
+`CANCELLED` means the user or runtime explicitly terminated the block before it
+completed.
 
-Singleton tracking all active block processes:
+#### 5.2.8 SKIPPED
 
-```python
-class ProcessRegistry:
-    def register(self, handle: ProcessHandle) -> None
-    def deregister(self, block_id: str) -> None
-    def get_handle(self, block_id: str) -> ProcessHandle | None
-    def active_handles(self) -> list[ProcessHandle]
-    def terminate_all(self, grace_period_sec: float = 5.0) -> None
-        """Emergency shutdown: terminate every active process."""
-```
+`SKIPPED` means the block could not run because required upstream output was not
+available. Skip propagation lets the workflow finish with a clear causal chain
+instead of hiding the downstream effects of an earlier failure.
 
-#### ProcessMonitor
+### 5.3 Subprocess Isolation
 
-Background coroutine that polls active processes for unexpected exits at 1-second intervals:
+Block logic runs outside the engine process. The engine remains an orchestrator:
+it validates workflow state, starts workers, records transitions, handles
+cancellation, and collects outputs. The worker process reconstructs typed inputs
+from references, executes the block, and returns typed outputs.
 
-```python
-class ProcessMonitor:
-    async def run(self):
-        while True:
-            for handle in self.registry.active_handles():
-                if not await handle.is_alive():
-                    exit_info = await handle.exit_info()
-                    self.event_bus.emit(ProcessExitedEvent(
-                        block_id=handle.block_id, exit_info=exit_info))
-                    self.registry.deregister(handle.block_id)
-            await asyncio.sleep(self.poll_interval_sec)
-```
+Subprocess isolation provides three guarantees:
 
-Detects: crashes (non-zero exit), OOM kills, user killing external apps via the OS task manager. Subscribers react via `PROCESS_EXITED` events (see EventBus subscription matrix in section 6.1).
+- **Reliable cancellation**: the runtime can terminate a block without killing
+  the engine.
+- **Crash isolation**: a crash, memory leak, or native-library failure is
+  contained to the worker or external process.
+- **Low data-copy overhead**: large payloads stay in storage; cross-process
+  exchange carries references and metadata rather than full data whenever
+  possible.
 
-#### Platform abstraction
+### 5.4 Core Block Classes
 
-All platform-specific process management is isolated in a single module:
+The core block classes define common execution shapes. Domain packages and
+project-local custom blocks build on these shapes instead of inventing their own
+workflow runtime.
 
-| Operation | Linux / macOS | Windows |
-|---|---|---|
-| Process group creation | `start_new_session=True` (calls `setsid()`) | `CREATE_NEW_PROCESS_GROUP` + Job Object |
-| Graceful termination | `os.killpg(pgid, SIGTERM)` + grace period | No equivalent; goes directly to forced termination |
-| Forced termination | `os.killpg(pgid, SIGKILL)` | `TerminateJobObject()` or `TerminateProcess()` |
-| Process tree kill | `os.killpg()` kills entire group | Job Object kills all assigned processes |
-| Alive check | `os.kill(pid, 0)` | `OpenProcess()` + `GetExitCodeProcess()` |
-| Zombie cleanup | `os.waitpid(pid, WNOHANG)` | Not applicable (Windows auto-cleans) |
+#### 5.4.1 IOBlock
 
-#### Worker → orchestrator stdout envelope
+`IOBlock` handles **data ingress and egress**. Loader blocks convert external
+files into canonical typed data. Saver blocks convert canonical typed data into
+user-requested external formats.
 
-The worker subprocess writes a single JSON object to stdout when `block.run()` completes. The envelope shape is:
+Important class attributes include **`direction`**, **`supported_extensions`**,
+**`format_capabilities`**, static or dynamic ports, and format-related config
+schema. `IOBlock` is where file format capability metadata attaches to block
+execution.
 
-```jsonc
-{
-  "outputs": { /* port-name -> wire-format dict */ },
-  "environment": { /* EnvironmentSnapshot fields, see §6.7 */ },
-  "final_state": "cancelled"  // optional; see below
-}
-```
+#### 5.4.2 ProcessBlock
 
-The `final_state` field (added in #681) is **only present when the block ended in a non-DONE terminal state** (`cancelled`, `error`, or `skipped`) by calling `self.transition()` from inside `run()`. The common case — block ends in `RUNNING`/`DONE` — omits the field entirely, preserving the original "no field == DONE" semantics for blocks that do not transition themselves.
+`ProcessBlock` is the normal class for deterministic data transformations. It
+is used for algorithms that consume typed inputs and produce typed outputs.
 
-`LocalRunner` translates a present `final_state` into a `BlockTerminalStateReportedError` exception. The scheduler's `_run_and_finalize` catches it and finalises the block to the reported state, emitting `BLOCK_CANCELLED` / `BLOCK_ERROR` / `BLOCK_SKIPPED` and propagating skips downstream — the same downstream behaviour as the corresponding cancel-from-outside path. This contract decouples the in-process `Block.transition()` API (private to the worker) from the orchestrator's view of terminal state without requiring a sidecar IPC channel.
+Important class attributes include **`input_ports`**, **`output_ports`**,
+**`algorithm`**, **`subcategory`**, and **`config_schema`**. Block authors can
+implement per-item processing for simple cases or override full run behavior for
+custom batching, streaming, or multi-port logic.
 
-The pattern is used by `AppBlock` when an external GUI exits without producing the expected output (see §5.3 / `AppBlock`): the block transitions to `CANCELLED` and returns `{}`, and the orchestrator records `CANCELLED` rather than incorrectly recording `DONE` with empty outputs.
+#### 5.4.3 Custom Block
 
-### 6.6 Error handling within blocks (ADR-020)
+**Custom Block** is a user-facing concept rather than a separate required base
+class in the current runtime. A custom block is a project-local or user-global
+block file that subclasses one of the core block classes and is discovered by
+the registry.
 
-With Collection-based transport, error handling for individual items within a Collection is the block's responsibility, not the engine's. The engine only sees block-level outcomes: DONE, ERROR, CANCELLED, or SKIPPED.
+Custom blocks usually declare **`name`**, **`description`**, **`version`**,
+**`input_ports`**, **`output_ports`**, **`config_schema`**, and optional
+**`subcategory`**. They let a lab add local logic without publishing a package.
 
-Blocks that process items individually can implement their own error strategies:
+#### 5.4.4 AppBlock
 
-```python
-class RobustCellpose(ProcessBlock):
-    def run(self, inputs, config):
-        results = []
-        for img in self.unpack(inputs["images"]):
-            try:
-                results.append(segment(img))
-            except Exception:
-                results.append(None)  # skip failed item, or use a sentinel
-        return {"masks": self.pack([r for r in results if r is not None])}
-```
+`AppBlock` bridges external GUI or CLI applications through file exchange. It
+materializes canonical inputs for the tool, launches or coordinates the tool,
+watches for declared outputs, and reconstructs those outputs into canonical
+typed data.
 
-If a block's subprocess crashes (segfault, OOM), all items in the Collection are lost — the same behaviour as interrupting a Jupyter notebook cell. However, the engine process is unaffected (ADR-017): `ProcessMonitor` detects the crash, the block transitions to `ERROR`, downstream blocks are `SKIPPED`, and the user can resume from the last checkpoint.
+Important class attributes include **`app_command`**, **`output_patterns`**,
+**`variadic_inputs`**, **`variadic_outputs`**, **`input_ports`**,
+**`output_ports`**, and **`config_schema`**. `AppBlock` usually runs in external
+mode and may enter `PAUSED` while waiting for user or tool output.
 
-Blocks using Tier 1 (`process_item`) get partial result preservation automatically — each processed item is flushed to storage before the next item begins. A crash on item 47 preserves items 1–46 in storage. Blocks using Tier 2/3 can achieve the same by calling `_auto_flush` or `flush_to_storage` after each item.
+#### 5.4.5 CodeBlock
 
-### 6.7 Environment snapshots for reproducibility (ADR-038)
+`CodeBlock` runs project-local scripts through the same external-boundary model
+as app integration. Conceptually, it is part of the **AppBlock-shaped boundary
+family**: canonical inputs are materialized for a script, the script runs in a
+resolved backend, and declared outputs are reconstructed. In the current code,
+`CodeBlock` directly subclasses `Block` while sharing the AppBlock-style
+boundary behavior.
 
-Every `runs` row in `lineage.db` (§4.4) carries a JSON-serialised `EnvironmentSnapshot` capturing the full Python environment at run start. The dataclass:
+Important class attributes include **`input_ports`**, **`output_ports`**,
+**`variadic_inputs`**, **`variadic_outputs`**, and script/backend configuration
+schema. `CodeBlock` is for existing scripts and notebooks, not for moving
+plugin logic into core.
 
-```python
-@dataclass
-class EnvironmentSnapshot:
-    python_version: str                         # "3.11.8"
-    platform: str                               # "linux-x86_64"
-    full_freeze: str                            # full `uv pip freeze` output (default)
-    key_packages: dict[str, str]                # derived from full_freeze: {"scipy": "...", "cellpose": "..."}
-    conda_env: str | None = None                # optional: conda env export
-```
+Supported script suffixes are defined by the registered CodeBlock backends:
 
-**Default scope changed by ADR-038**: prior drafts captured only 5 key packages declared per-block via `key_dependencies`. The unified lineage system now captures the **full `uv pip freeze`** at run start, with `key_packages` derived for fast equality checks but the full freeze always available. Rationale: a block's transitive dependencies (numpy, scipy, libraries used inside Cellpose, etc.) influence results far beyond what any single block author can predict; reproducibility-grade auditability requires the complete dependency closure. Storage cost: ~5-20 KB per run, negligible against any project's total `lineage.db` size.
+| Backend | Supported suffixes |
+|---|---|
+| Python script | `.py` |
+| Shell script | `.sh` |
+| R / Quarto script | `.R`, `.Rmd`, `.qmd` |
+| Notebook | `.ipynb` |
+| MATLAB-family script | `.m`, `.mlx` |
 
-Re-run validation (§4.4) compares the historical run's environment to the current process environment and surfaces advisory warnings on drift (no blocking).
+#### 5.4.6 AIBlock
 
-### 6.8 Remote execution interface (future)
+`AIBlock` runs an AI agent as a workflow node. It presents declared inputs to
+the agent, waits for completion, and validates declared outputs before the
+workflow continues. Conceptually, it is also part of the **AppBlock-shaped
+boundary family**: it crosses from canonical workflow data into an external
+agent session and back. In the current code, `AIBlock` directly subclasses
+`Block` while sharing this boundary behavior.
 
-The current implementation is local-only, but the scheduler–runner interface is designed for location-agnostic execution:
+Important class attributes include **`type_name`**, **`name`**,
+**`description`**, **`subcategory`**, **`input_ports`**, **`output_ports`**,
+**`variadic_inputs`**, **`variadic_outputs`**, and agent/provider configuration
+schema.
 
-```python
-class BlockRunner(Protocol):
-    """Abstract interface between the scheduler and the execution environment."""
-    async def run(self, block: Block, inputs: dict, config: dict) -> RunHandle: ...
-    async def check_status(self, run_id: str) -> BlockState: ...
-    async def cancel(self, run_id: str) -> None: ...
+#### 5.4.7 SubWorkflowBlock
 
-class LocalRunner(BlockRunner):
-    """Runs blocks as isolated local subprocesses (ADR-017). Default implementation."""
-    ...
+`SubWorkflowBlock` lets a workflow be reused as a single block inside another
+workflow. It is the composition mechanism for reusable sub-pipelines and
+hierarchical workflows.
 
-# Future implementations (not in v1):
-# class SSHRunner(BlockRunner):     # run on remote machine via SSH
-# class SlurmRunner(BlockRunner):   # submit to HPC cluster
-# class CloudRunner(BlockRunner):   # run on cloud compute (AWS Batch, GCP, etc.)
-```
+Important class attributes include ports that map parent workflow values into
+child workflow inputs and child outputs back to the parent node.
 
-The DAG scheduler interacts only with the `BlockRunner` protocol. `run()` returns a `RunHandle` containing a `ProcessHandle` for lifecycle management and an `asyncio.Future` for the result. Adding remote execution in the future means implementing a new runner (with its own `ProcessHandle` subclass for remote termination) — no changes to the scheduler, block system, or frontend.
+### 5.5 Port System
+
+Ports define where data can enter or leave a block. They are the visible
+connection points in the frontend and the runtime contract used by validation
+and scheduling.
+
+#### 5.5.1 Static Ports
+
+Static ports are declared on the block class. They are appropriate when the
+block always has the same input and output shape, such as one image in and one
+image out.
+
+Each static port declares a **name**, **accepted types**, **required/default
+behavior**, and optional human-readable description.
+
+#### 5.5.2 Variadic Ports
+
+Variadic ports are edited per block instance. They are appropriate for blocks
+where users choose the number or type of inputs and outputs at workflow design
+time, such as AppBlock, CodeBlock, AIBlock, or routing blocks.
+
+Variadic behavior is controlled by **`variadic_inputs`**,
+**`variadic_outputs`**, **`allowed_input_types`**, **`allowed_output_types`**,
+and optional min/max port-count constraints. Effective port methods convert the
+instance configuration into the port list consumed by validation and execution.
+
+#### 5.5.3 Port Validation
+
+Port validation happens in layers:
+
+- **Design-time validation** rejects impossible connections in the frontend.
+- **Workflow validation** checks graph structure and port compatibility before
+  execution.
+- **Block validation** checks required inputs, accepted types, port constraints,
+  and variadic port limits for the specific block instance.
+
+### 5.6 Plugin And Block Installation
+
+SciEasy discovers blocks from two main sources:
+
+- **Project-local or user-global block files** for quick custom work inside a
+  project or workstation.
+- **Installed Python packages** that register blocks and data types through
+  entry points.
+
+This gives users two workflows: a scientist can create a local custom block with
+low ceremony, while a package maintainer can publish a reusable plugin with
+versioned dependencies, package metadata, block classes, data types, and IO
+capabilities.
+
+The registry records block metadata such as **name**, **version**, **module
+path**, **class name**, **base category**, **subcategory**, **ports**, **config
+schema**, **package name**, and source. The palette can then group blocks by
+package and category without importing domain logic into core.
 
 ---
 
-## 7. Layer 4 — AI services
+## 6. Layer 3: Execution Engine
 
-Layer 4 hosts SciEasy's **embedded coding agent** (ADR-033): the user's locally installed Claude Code (or Codex) CLI, wrapped as a subprocess and surfaced through the chat tab. Layer 4 no longer ships generation / synthesis / optimisation pipelines as separate single-call services — those user needs are met by the agent calling SciEasy's MCP tools.
+The execution engine turns a validated workflow graph into coordinated runtime
+work. It owns graph scheduling, event propagation, subprocess dispatch,
+checkpoint updates, resource gating, data transport, and terminal-state
+handling. It does not own scientific algorithms; those live inside blocks.
 
-> **Note**: this section was rewritten for ADR-033 (2026-05-12). The previous content (block generation, workflow synthesis, parameter optimisation pipelines as standalone services) is superseded. `AIBlock` (the workflow-graph LLM node) is unaffected and continues to live under `blocks/ai/` — it is a workflow primitive, not an agent surface.
+### 6.1 Engine Responsibilities And Scope
 
-### 7.1 Agent runtime (ADR-033 D1)
+The engine is responsible for moving a workflow from **requested** to
+**completed, failed, cancelled, or partially skipped** while preserving enough
+state for the UI, API, lineage system, and checkpoint system to agree on what
+happened.
 
-The agent runtime spawns the user's locally installed CLI as a subprocess; the engine streams the CLI's `--output-format stream-json` events to the frontend via WebSocket. SciEasy does not implement an agent loop, does not handle OAuth, and does not maintain a prompt-cache strategy — those concerns are delegated to the upstream CLI.
+In scope:
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ Provider abstraction (src/scieasy/ai/agent/)                                │
-│                                                                             │
-│ AgentProvider Protocol — name, binary_name, discover(), start_session()     │
-│   ClaudeCodeProvider — wraps `claude` CLI                                   │
-│   CodexProvider      — wraps OpenAI `codex` CLI (Phase 4)                   │
-│                                                                             │
-│ Binary discovery (8 fallback paths, incl. Windows registry)                 │
-│ Subprocess lifecycle (asyncio.create_subprocess_exec, stdin/stdout pipes)   │
-│ Stream-json parser (NDJSON line-by-line)                                    │
-│ SessionManager — dict[chat_id, AgentSession]; cap=5 per project             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+- Build and execute a typed DAG from the workflow definition.
+- Track block state transitions and emit runtime events.
+- Dispatch blocks through a `BlockRunner`, normally `LocalRunner`.
+- Coordinate subprocess lifecycle through `ProcessHandle`, `ProcessRegistry`,
+  and `ProcessMonitor`.
+- Apply resource gating through `ResourceManager` before starting work.
+- Preserve pause/resume and latest-run checkpoint state through
+  `CheckpointManager` and `WorkflowCheckpoint`.
+- Move data between blocks as `Collection` transport units.
+- Surface block-level terminal outcomes to API, frontend, lineage, and audit
+  surfaces.
 
-Each `AgentSession` corresponds to one CLI subprocess with one `session_id`. The first stream-json `init` event carries the session id; subsequent turns within the same chat use `--resume <id>`. Sessions persist as `{project}/.scieasy/sessions/<chat_id>.json` + `transcript.jsonl`.
+Out of scope:
 
-### 7.2 SciEasy MCP server (ADR-033 D2)
+- Scientific correctness of a block's algorithm.
+- Per-item retry policy inside a collection. That belongs to the block.
+- Hidden conversion between file formats on ordinary workflow edges.
+- Long-term run provenance storage. The engine emits and observes events, but
+  durable run history belongs to the lineage layer in Section 4.5.
 
-The MCP server runs **in-process with FastAPI** and exposes ~25 tools across four user-need categories. Tools share the same dependency-injection container as REST routes (BlockRegistry, TypeRegistry, scheduler, the unified `LineageStore` per ADR-038, and the bundled `GitEngine` per ADR-039). Agents query `lineage.db` directly via SQL inside their PTY bash tool and run `git` via the bundled binary — neither requires a dedicated MCP tool.
+The engine therefore acts as the runtime coordinator. It keeps orchestration
+explicit while letting blocks, data types, lineage, and UI components keep their
+own responsibilities.
 
-| Category | Tools | Read / Write |
+### 6.2 Event Bus
+
+`EventBus` is the runtime publish/subscribe backbone defined by ADR-018.
+Schedulers, resource managers, process monitors, checkpoint handlers, lineage
+recorders, WebSocket handlers, and API surfaces coordinate by emitting and
+subscribing to `EngineEvent` values.
+
+Core mechanisms:
+
+| Mechanism | Responsibility |
+|---|---|
+| `EngineEvent` | Carries event type, optional block id, payload data, and timestamp. |
+| `EventBus.subscribe` | Registers sync or async callbacks for one event type. |
+| `EventBus.emit` | Broadcasts an event to subscribers, awaits async callbacks, and isolates callback failures. |
+| `EventBus.unsubscribe` | Removes a callback from an event type. |
+
+Important runtime event families:
+
+| Event family | Examples | Main use |
 |---|---|---|
-| **(a) Workflow design + execution** | `list_blocks`, `get_block_schema`, `list_types`, `get_workflow`, `validate_workflow`, `get_run_status`, `write_workflow`, `run_workflow`, `cancel_run` | 6 R / 3 W |
-| **(b) Custom block authoring** | `read_block_source`, `list_block_examples`, `scaffold_block`, `reload_blocks`, `run_block_tests` | 2 R / 3 W |
-| **(c) Result inspection + parameter tuning** | `get_block_output`, `inspect_data`, `preview_data`, `get_lineage`, `get_block_config`, `update_block_config`, `get_block_logs` | 6 R / 1 W |
-| **(d) Q&A about the project** | `search_docs`, `get_doc`, `list_data`, `get_project_info` | 4 R / 0 W |
+| Workflow lifecycle | `WORKFLOW_STARTED`, `WORKFLOW_COMPLETED` | Run-level UI/API updates and completion handling. |
+| Block lifecycle | `BLOCK_READY`, `BLOCK_RUNNING`, `BLOCK_PAUSED`, `BLOCK_DONE`, `BLOCK_ERROR`, `BLOCK_CANCELLED`, `BLOCK_SKIPPED` | State propagation, downstream scheduling, checkpointing, lineage writes. |
+| Cancellation requests | `CANCEL_BLOCK_REQUEST`, `CANCEL_WORKFLOW_REQUEST` | User/API initiated cancellation routed to the scheduler and process layer. |
+| Process lifecycle | `PROCESS_SPAWNED`, `PROCESS_EXITED` | Register, monitor, release resources, and detect unexpected process termination. |
+| Checkpointing | `CHECKPOINT_SAVED` | Notify UI and runtime surfaces that latest-run state was persisted. |
+| Interactive workflow | `INTERACTIVE_PROMPT`, `INTERACTIVE_COMPLETE` | Bridge human/tool interaction for blocks that pause for input. |
+| Project change | `WORKFLOW_CHANGED`, `GIT_HEAD_CHANGED` | Invalidate cached workflow or Git views after source changes. |
 
-Generic file IO (Read / Write / Edit / Glob / Grep / Bash) remains Claude Code's native domain — MCP focuses on SciEasy-semantic operations.
+Event handling is deliberately resilient. One subscriber failure is logged and
+isolated; it must not prevent later subscribers from receiving the same event.
+This keeps a WebSocket push failure from blocking resource release, checkpoint
+updates, or scheduler progress.
 
-The CLI is pointed at the in-process server via `{project}/.scieasy/mcp.json`, which spawns a small `scieasy mcp-bridge` proxy subprocess that connects to the FastAPI process. See ADR-033 §3 D2 for the full bridge contract.
+The main subscriber pattern is:
 
-### 7.3 Permission model (ADR-033 D4)
+| Subscriber | Typical events consumed | Result |
+|---|---|---|
+| `DAGScheduler` | Block terminal events, cancellation requests, process exits | Dispatch successors, cancel running work, or mark downstream blocks skipped. |
+| `ResourceManager` | Terminal block events and process exits | Release GPU and CPU allocations. |
+| `ProcessRegistry` | Process spawn/exit and cancellation requests | Track active handles and terminate requested processes. |
+| `ProcessMonitor` | Active process handles | Emits `PROCESS_EXITED` for crashes, OS kills, or external termination. |
+| `CheckpointManager` | Terminal block events | Writes latest-run checkpoint state. |
+| Lineage recorder | Terminal block events and run lifecycle context | Writes durable run, block, object, and port-edge records. |
+| WebSocket/API handlers | Workflow and block state events | Push runtime status to clients. |
 
-Strict by default: every Edit, Write, Bash, WebFetch, and write-class MCP tool call requires user approval. Read-only operations are auto-approved. A per-session **Bypass mode** opts out of approval entirely (red banner shown while active).
+### 6.3 DAG Scheduler
 
-Enforcement uses Claude Code's `PreToolUse` hook protocol. The hook posts the tool call to a SciEasy backend endpoint (`POST /api/ai/permission-check`); the frontend renders the prompt; the user's decision flows back through `POST /api/ai/permission-decision`.
+`DAGScheduler` executes the workflow graph. It treats each workflow node as a
+block execution unit and each edge as a typed dependency. A block can run only
+after required upstream outputs are available and the resource manager allows
+dispatch.
 
-```
-   Claude Code subprocess
-        │
-        │  about to call Edit("workflows/foo.yaml")
-        ▼
-   PreToolUse hook ──► scieasy hook-bridge ──► POST /api/ai/permission-check
-                                                         │
-                                                         ▼
-                                            WebSocket → frontend prompt UI
-                                                         │
-                                                         ▼
-                                            user clicks Approve / Deny
-                                                         │
-                                                         ▼
-                                       POST /api/ai/permission-decision
-                                                         │
-                                       hook exits 0 (approve) or 2 (deny)
-                                                         │
-                                                         ▼
-                                            Claude Code proceeds / aborts
-```
+Scheduler responsibilities:
 
-### 7.4 System prompt composition (ADR-033 D3)
+- Build an execution order from the DAG.
+- Initialize block states and move ready nodes into `READY`.
+- Dispatch ready blocks by creating independent async tasks.
+- Await block completion through the runner result path.
+- Store block outputs for downstream inputs.
+- Emit terminal events for done, error, cancelled, or skipped blocks.
+- Retry ready-but-resource-blocked nodes after resources are released.
+- Propagate `SKIPPED` to downstream nodes whose required inputs can no longer be
+  produced.
 
-The agent's behaviour is shaped by a three-tier system prompt assembled at session start and passed via `--append-system-prompt @<tmp_file>`:
+The concurrency model is event-driven. Dispatch does not wait inline for a
+subprocess to finish; it starts a task and returns control to the event loop.
+Independent DAG branches can therefore run in parallel, while blocks with data
+dependencies still wait for their predecessors.
 
-1. **Builtin** — `src/scieasy/ai/agent/system_prompt.py`. Covers SciEasy core concepts (block contract, six data types, workflow YAML), explicit MCP tool enumeration, and production-mode working principles. Distinct from `CLAUDE.md` developer discipline — the agent is told to plan-before-act, verify-before-claim, cite-real-data, prefer-minimal-change, use-SciEasy-semantics, be-honest, respect-data-scale, never-silently-overwrite. It is NOT told to file GitHub issues, follow conventional commits, or pass the workflow gate.
-2. **Project overlay** — `{project}/.scieasy/system_prompt.md` (optional, gitignored opt-in).
-3. **Per-machine overlay** — `{project}/.scieasy/system_prompt.local.md` (optional, gitignored by default).
+Cancellation also flows through the scheduler. A block cancellation request asks
+the process layer to terminate the active process, moves the block to
+`CANCELLED`, emits the terminal event, and marks unreachable downstream blocks
+as `SKIPPED`. Workflow cancellation repeats the same pattern for every active or
+pending block.
 
-### 7.5 Project-local state (ADR-033 D7)
+### 6.4 Checkpointing And Resource Management
 
-All agent-related persistent state lives under the project workspace, making projects portable and self-contained:
+The engine keeps two runtime control systems close to scheduling: latest-run
+checkpointing and resource gating. Both are deliberately operational; neither is
+the durable lineage record described in Section 4.5.
 
-```
-{project}/
-└── .scieasy/
-    ├── settings.json                # permission mode, concurrent-chat cap, model preference
-    ├── system_prompt.md             # project-level system prompt overlay
-    ├── system_prompt.local.md       # per-machine prompt overlay
-    ├── mcp.json                     # generated at session start
-    ├── claude-hooks.json            # generated PreToolUse hook config
-    ├── sessions/<chat_id>.json      # SciEasy chat metadata
-    ├── sessions/<chat_id>/transcript.jsonl   # write-through stream-json snapshot
-    ├── memory/MEMORY.md             # project-local agent memory
-    └── skills/*.md                  # project-local Claude Code skills
-```
+`CheckpointManager` saves the latest known workflow state after terminal block
+events. `WorkflowCheckpoint` records block states, intermediate references,
+pending block information, config snapshot, and skip reasons. The checkpoint
+lives under `<project>/.scieasy/pause/` and is a **latest-run recovery artifact**.
+It supports pause/resume, crash recovery, and run-from-here on the latest
+available intermediate state.
 
-The CLI's home-directory transcript (`~/.claude/projects/<sha>/`) remains canonical for `--resume`; the project-local copy is a write-through mirror for portability.
+A checkpoint is not a historical run database. Once newer runs overwrite
+intermediate outputs, older intermediate states are not guaranteed to be
+loadable from the checkpoint. Historical reproducibility comes from the lineage
+recipe plus re-execution, not from storing every intermediate payload forever.
 
-### 7.6 AIBlock (workflow LLM node) — unchanged
+`ResourceManager` gates dispatch before a block starts. It tracks discrete GPU
+slots and CPU worker budget, and it checks current system memory before allowing
+new subprocesses to launch. Resource release happens from terminal events and
+process-exit events.
 
-The `AIBlock` workflow primitive (`src/scieasy/blocks/ai/`) is preserved unchanged in this layer revision. It continues to function as a single-call LLM node inside the workflow graph — appropriate for batch operations like "run a vision model over every image in this Collection" that an interactive chat cannot perform. A future ADR will decide whether to re-implement AIBlock on top of `AgentProvider` in non-interactive mode, leave it as-is, or retire it.
+The resource model has three layers:
 
-### 7.7 What this layer no longer ships
+| Layer | Responsibility |
+|---|---|
+| Dispatch gating | `ResourceManager` decides whether a block may start based on GPU, CPU, and memory state. |
+| Block-local memory behavior | Collection helpers, lazy loading, and block logic decide how much data is loaded at once. |
+| OS/process fallback | If a subprocess crashes or is killed by the OS, `ProcessMonitor` emits a process-exit event and the scheduler marks the block failed. |
 
-The following modules existed prior to ADR-033 and are removed as part of the Phase 4 cleanup:
+Blocks declare resource needs through resource request metadata. The scheduler
+uses those declarations as an admission-control signal, not as proof that a
+scientific method is safe or efficient.
 
-- `ai/generation/` (block_generator, type_generator, validator, templates) — block generation now happens through the agent calling `scaffold_block` + native `Write`, with the agent supplying domain reasoning.
-- `ai/synthesis/workflow_planner.py` — workflow synthesis now happens through the agent calling `list_blocks` + `validate_workflow` + `write_workflow`.
-- `ai/optimization/param_optimizer.py` — parameter tuning now happens through the agent calling `get_run_status` + `inspect_data` + `update_block_config`.
-- `ai/config.py` (`AIConfig`, `get_provider()`) — provider selection happens through the chat's settings panel, not env vars.
-- `/api/ai/generate-block`, `/suggest-workflow`, `/optimize-params` — REST endpoints retired; replaced by `WS /api/ai/chat/{chat_id}`, `GET /api/ai/status`, `POST /api/ai/permission-check`, `POST /api/ai/permission-decision`.
+### 6.5 Process Lifecycle Management
+
+SciEasy runs blocks in isolated subprocesses per ADR-017 and ADR-019. The goal
+is simple: a block can crash, be cancelled, or exhaust memory without taking
+down the engine process.
+
+The process lifecycle components are:
+
+| Component | Role |
+|---|---|
+| `BlockRunner` | Abstract runner interface used by the scheduler. |
+| `LocalRunner` | Default runner that executes blocks as local subprocesses. |
+| `RunHandle` | Scheduler-level handle for a running block, including process and result tracking. |
+| `ProcessHandle` | Cross-platform abstraction for observing, terminating, and killing one process tree. |
+| `ProcessRegistry` | Registry of active process handles, used for lookup, cancellation, and shutdown. |
+| `ProcessMonitor` | Background watcher that emits `PROCESS_EXITED` when an active process disappears unexpectedly. |
+
+All subprocess creation goes through the process lifecycle layer. On POSIX
+systems, child processes are grouped so termination can reach the process tree.
+On Windows, the implementation uses the platform process primitives needed to
+terminate the launched process tree. Platform details stay behind
+`ProcessHandle`; the scheduler only asks for cancellation or observes terminal
+state.
+
+The worker-to-engine result path uses a stdout envelope. A successful worker
+returns serialized outputs and environment information. A worker can also report
+a non-DONE terminal state through the terminal-state path, which `LocalRunner`
+turns into `BlockTerminalStateReportedError` so the scheduler finalizes the
+block as cancelled, errored, or skipped instead of treating empty output as a
+successful run.
+
+### 6.6 Data Flow And Collection Management
+
+All inter-block values move as `Collection` transport units from ADR-020. A
+single object is represented as a length-one collection; multiple objects are a
+longer homogeneous collection. `Collection` is not a base data type. Its type
+identity for ports comes from the item type.
+
+Engine-level rules:
+
+- The scheduler schedules block nodes, not collection items.
+- The engine treats each collection as an opaque transport unit.
+- Port validation compares the collection item type with the port's accepted
+  data types.
+- Worker serialization preserves the collection envelope across subprocess
+  boundaries.
+- Checkpoint and lineage paths preserve collection structure through ordered
+  item references.
+
+Block-level rules:
+
+- A block decides whether to process one item, iterate over many items, or treat
+  the whole collection as a unit.
+- Per-item error strategy belongs inside the block.
+- Memory safety comes from lazy loading, chunking, item-wise flushing, and block
+  helper utilities.
+- CodeBlock may present collections to user scripts as native single objects or
+  lazy iterable lists so users do not need to handle framework internals.
+
+Collection utility blocks such as merge, split, filter, and slice operate at the
+workflow level. They make collection structure explicit in the graph instead of
+hiding batching behavior inside the scheduler.
+
+### 6.7 Error Management
+
+The engine reports errors at block and workflow boundaries. It does not try to
+interpret scientific partial failure inside a collection unless the block
+chooses to expose that failure as an output or terminal state.
+
+Main error classes:
+
+| Error class | Engine behavior |
+|---|---|
+| Block exception | Mark block `ERROR`, emit `BLOCK_ERROR`, release resources, checkpoint, and skip unreachable downstream blocks. |
+| User cancellation | Mark block or workflow `CANCELLED`, terminate active processes, emit cancellation events, and skip dependent work. |
+| Missing required upstream output | Mark downstream block `SKIPPED` with a skip reason. |
+| Subprocess crash or OS kill | `ProcessMonitor` emits `PROCESS_EXITED`; scheduler records failure and propagates skip where needed. |
+| Subscriber failure | `EventBus` logs and isolates the callback failure so other subscribers still run. |
+| Block-reported terminal state | `LocalRunner` converts the worker report into scheduler-visible terminal handling. |
+
+For collection processing, partial success is a block contract. A robust block
+may catch per-item failures, emit a smaller collection, or return a structured
+artifact describing rejected items. A block that crashes before returning loses
+that block's in-process partial work, while already-flushed outputs and the
+latest checkpoint remain available according to their normal storage rules.
+
+This error model keeps the runtime predictable: the engine owns block-level
+state, process cleanup, skip propagation, and event delivery; blocks own domain
+recovery choices.
 
 ---
 
+## 7. Layer 4: AI Agents
 
-## 8. Layer 5 — API
+Layer 4 is the production AI-agent layer. It lets a scientist work with a
+Claude Code or Codex agent inside a SciEasy project while keeping the agent on
+SciEasy's normal workflow, data, lineage, and project-management rails.
 
-### 8.1 FastAPI backend
+ADR-040 is the governing decision for this layer. The older model treated the
+agent mostly as an embedded chat surface with a static prompt and a loose tool
+catalog. The current model treats agent reliability as a project-level stack:
+project instructions, task skills, FastMCP-backed tools, project context,
+provider configuration, and deterministic hooks where the provider supports
+them.
 
-The backend exposes three communication channels:
+### 7.1 Production Agent Boundary
 
-| Channel | Protocol | Purpose |
+ADR-040 separates two environments that must not be confused:
+
+| Environment | Meaning | Governed here? |
 |---|---|---|
-| REST | HTTP | Workflow CRUD, block registry, project management, file upload/download |
-| WebSocket | WS | Real-time block state changes, progress updates, interactive block signals |
-| SSE | HTTP streaming | Log streaming from block execution, long-running task progress |
+| Development environment | The SciEasy source repository used by framework contributors. | No. Contributor agents follow repository AI developer rules, gate records, ADR workflow, and source-repo policy. |
+| Production environment | A user's SciEasy project workspace opened through the GUI or created by `scieasy init`. | Yes. This layer governs the agent that helps the user build, run, inspect, and maintain project workflows. |
 
-### 8.2 Key REST endpoints
+Production agents work in the user's project root. Their job is to help with
+scientific workflow authoring, custom block creation, run debugging, data
+inspection, and project questions. They should use SciEasy semantic surfaces for
+workflow and data operations instead of bypassing the GUI and runtime through
+ad hoc shell commands.
 
-```
-# Workflow management
-POST   /api/workflows                  Create a new workflow
-GET    /api/workflows/{id}             Get workflow definition
-PUT    /api/workflows/{id}             Update workflow (add/remove/rewire blocks)
-DELETE /api/workflows/{id}             Delete workflow
-POST   /api/workflows/{id}/execute     Start execution
-POST   /api/workflows/{id}/pause       Pause at current block
-POST   /api/workflows/{id}/resume      Resume from checkpoint
-POST   /api/workflows/{id}/cancel      Cancel entire workflow (ADR-018)
-POST   /api/workflows/{id}/blocks/{block_id}/cancel  Cancel a single block (ADR-018)
-POST   /api/workflows/{id}/execute-from  Start execution from a specific block (ADR-023)
+This boundary matters because production agents and development agents need very
+different instructions. A production agent should understand workflows, blocks,
+data refs, lineage, and project files. It should not inherit the full SciEasy
+source-repository contributor process.
 
-# Block registry
-GET    /api/blocks                     List all available blocks (with search/filter)
-GET    /api/blocks/{type}              Get block schema (ports, config, description)
-POST   /api/blocks/validate-connection Validate a proposed port connection
+### 7.2 Agent Runtime
 
-# Data management
-POST   /api/data/upload                Upload data files
-GET    /api/data/{ref}                 Get data object metadata
-GET    /api/data/{ref}/preview         Get a type-appropriate preview (ADR-023 Addendum 1)
+The GUI opens agent sessions as PTY-backed tabs inside the active project.
+Provider-specific launch code is intentionally thin:
 
-# Project management (ADR-023 Addendum 1)
-POST   /api/projects                   Create a new project workspace
-GET    /api/projects                   List all projects (name, path, last_opened, workflow_count)
-GET    /api/projects/{id}              Get project details
-PUT    /api/projects/{id}              Update project metadata
-DELETE /api/projects/{id}              Delete project
+| Provider | Runtime shape |
+|---|---|
+| Claude Code | Spawned in the project root with SciEasy MCP config and composed project prompt. |
+| Codex | Spawned in the project root and configured through project-scope Codex files. |
 
-# AI services (ADR-033)
-GET    /api/ai/status                   Provider availability, version, login state
-WS     /api/ai/chat/{chat_id}           Bidirectional chat: user_message, cancel,
-                                        permission_decision; agent_event stream-out
-POST   /api/ai/permission-check         Called by `scieasy hook-bridge`; returns
-                                        approve / deny / ask
-POST   /api/ai/permission-decision      Frontend posts approve / deny for pending tool call
-```
+The PTY model keeps the upstream provider responsible for the agent loop,
+authentication, transcript behavior, and provider-native UX. SciEasy is
+responsible for project anchoring, MCP availability, project context, and the
+files that steer provider behavior.
 
-Removed REST endpoints (vs. pre-ADR-033 design): `POST /api/ai/generate-block`,
-`POST /api/ai/suggest-workflow`, `POST /api/ai/optimize-params`. Their use cases
-are now served by the chat agent invoking MCP tools (`scaffold_block`,
-`write_workflow`, `update_block_config`, etc.).
+Agent sessions are separate from workflow execution. The agent can author or
+modify workflow definitions, inspect runs, create custom blocks, or participate
+in an AIBlock, but the workflow runtime remains the source of execution truth.
+When an agent starts a workflow run, observes outputs, or updates block config,
+those actions still flow through the same backend, registry, lineage, and Git
+surfaces as human-initiated actions.
 
-### 8.3 WebSocket protocol
+### 7.3 MCP Tool Surface
 
-```json
-// Server → Client: block state change
-{
-  "type": "block_state",
-  "block_id": "cellpose_001",
-  "state": "running",
-  "progress": 0.45,
-  "message": "Processing image 23/50"
-}
+The MCP surface is the agent's semantic interface to SciEasy. ADR-040 moves this
+surface to a FastMCP-backed implementation so schemas, descriptions, and return
+models are generated from typed tool definitions rather than hand-written loose
+JSON-RPC descriptions.
 
-// Server → Client: interactive block waiting
-{
-  "type": "interactive_prompt",
-  "block_id": "napari_review_001",
-  "prompt": "Review segmentation mask. Click 'Done' when finished.",
-  "app_url": "napari://..."
-}
+The MCP layer is used for operations that need SciEasy semantics:
 
-// Client → Server: user completes interactive step
-{
-  "type": "interactive_complete",
-  "block_id": "napari_review_001"
-}
+- discovering blocks and data types;
+- reading, validating, and writing workflow definitions;
+- starting, cancelling, or inspecting runs;
+- scaffolding and reloading custom blocks;
+- inspecting data references, previews, and lineage;
+- reading project-aware documentation or project state.
 
-// Client → Server: cancel a single block (ADR-018)
-{
-  "type": "cancel_block",
-  "block_id": "cellpose_001",
-  "workflow_id": "wf_001"
-}
+MCP is served by the running SciEasy backend. During FastAPI startup, the API
+process creates the FastMCP-backed `MCPServer`, installs a project-aware runtime
+context, and binds a project-local transport. On POSIX systems this transport is
+a Unix socket under the active project's `.scieasy/` directory. On Windows it is
+a loopback TCP listener, with the chosen port written beside the project-local
+socket sentinel so bridge processes can discover it.
 
-// Client → Server: cancel entire workflow (ADR-018)
-{
-  "type": "cancel_workflow",
-  "workflow_id": "wf_001"
-}
+Agent providers do not import SciEasy internals directly. They connect through
+provider-specific MCP configuration:
 
-// Server → Client: cancellation propagation result (ADR-018)
-{
-  "type": "cancel_propagation",
-  "cancelled_block": "cellpose_001",
-  "skipped_blocks": [
-    {"block_id": "napari_review_001", "reason": "upstream 'cellpose_001' cancelled"},
-    {"block_id": "srs_extract_001", "reason": "upstream 'cellpose_001' cancelled"}
-  ],
-  "unaffected_blocks": ["raman_preprocess_001", "load_raman_001"]
-}
-```
+| Provider | How it reaches the MCP server |
+|---|---|
+| Claude Code | SciEasy writes `<project>/.scieasy/mcp.json`; the spawned `claude` process receives that config and invokes `scieasy mcp-bridge`, which forwards MCP traffic to the backend server. |
+| Codex | SciEasy writes `<project>/.codex/config.toml`; Codex discovers the project-scope MCP entry and invokes the same bridge path. |
+| Standalone bridge | When no live backend socket is available, `scieasy mcp-bridge` can build a minimal project-scoped MCP runtime for read-oriented tooling, while backend-dependent run control reports that the SciEasy backend must be running. |
 
-### 8.4 Static file serving and SPA fallback (ADR-024)
+Tool handlers receive the same project root, block registry, type registry, run
+state, and event bus context that the backend uses. This is why MCP calls can
+validate workflows, reload blocks, start runs, inspect lineage, and reflect live
+runtime state instead of operating as disconnected file edits.
 
-The React frontend is pre-built at release time and included in the Python wheel as package data under `scieasy/api/static/`. In production (`scieasy gui`), the FastAPI app serves the SPA:
+The production MCP surface contains 26 tools:
 
-- All `/api/*` routes and `/ws` are handled by FastAPI route handlers
-- `SPAStaticFiles` middleware (mounted at `/`) serves static assets and falls back to `index.html` for unknown paths, enabling client-side routing
-- The SPA mount is only activated when `api/static/` exists; in development mode, the root `/` redirects to `/docs`
+| Area | MCP tool | Purpose | Access |
+|---|---|---|---|
+| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;list_blocks</code> | List registered blocks and palette metadata. | Read |
+| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;get_block_schema</code> | Read one block's ports, config schema, and description. | Read |
+| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;list_types</code> | List registered data types for port and workflow authoring. | Read |
+| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;get_workflow</code> | Read a project workflow definition. | Read |
+| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;validate_workflow</code> | Validate workflow structure before execution or save. | Read |
+| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;write_workflow</code> | Persist schema-validated workflow YAML. | Write |
+| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;run_workflow</code> | Start a workflow run through the SciEasy runtime. | Write |
+| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;cancel_run</code> | Cancel an active workflow run. | Write |
+| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;get_run_status</code> | Poll run state, block state, and terminal outcome. | Read |
+| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;finish_ai_block</code> | Signal completion from inside an AIBlock run. | Write |
+| Authoring | <code>mcp&#95;&#95;scieasy&#95;&#95;read_block_source</code> | Read project or package block source for reuse or inspection. | Read |
+| Authoring | <code>mcp&#95;&#95;scieasy&#95;&#95;list_block_examples</code> | List scaffold/example block templates. | Read |
+| Authoring | <code>mcp&#95;&#95;scieasy&#95;&#95;scaffold_block</code> | Create a custom block skeleton with typed ports and config. | Write |
+| Authoring | <code>mcp&#95;&#95;scieasy&#95;&#95;reload_blocks</code> | Reload project-local blocks after authoring changes. | Write |
+| Authoring | <code>mcp&#95;&#95;scieasy&#95;&#95;run_block_tests</code> | Run block-level verification for authored blocks. | Write |
+| Inspection | <code>mcp&#95;&#95;scieasy&#95;&#95;get_block_output</code> | Locate output references for a block or run. | Read |
+| Inspection | <code>mcp&#95;&#95;scieasy&#95;&#95;inspect_data</code> | Inspect data reference metadata without loading full payloads. | Read |
+| Inspection | <code>mcp&#95;&#95;scieasy&#95;&#95;preview_data</code> | Produce a type-appropriate preview for UI or agent review. | Read |
+| Inspection | <code>mcp&#95;&#95;scieasy&#95;&#95;get_lineage</code> | Query lineage records for runs, blocks, and data objects. | Read |
+| Inspection | <code>mcp&#95;&#95;scieasy&#95;&#95;get_block_config</code> | Read a block instance's effective configuration. | Read |
+| Inspection | <code>mcp&#95;&#95;scieasy&#95;&#95;update_block_config</code> | Update a block config through schema-aware workflow mutation. | Write |
+| Inspection | <code>mcp&#95;&#95;scieasy&#95;&#95;get_block_logs</code> | Read block or run logs for debugging. | Read |
+| Project QA | <code>mcp&#95;&#95;scieasy&#95;&#95;search_docs</code> | Search project and SciEasy documentation. | Read |
+| Project QA | <code>mcp&#95;&#95;scieasy&#95;&#95;get_doc</code> | Read a selected documentation page or section. | Read |
+| Project QA | <code>mcp&#95;&#95;scieasy&#95;&#95;list_data</code> | List project data files and references. | Read |
+| Project QA | <code>mcp&#95;&#95;scieasy&#95;&#95;get_project_info</code> | Read project metadata, paths, and high-level state. | Read |
 
-Reserved path prefixes: `/api/*`, `/ws`, `/docs`, `/openapi.json`.
+The important architectural rule is not the exact tool list. The rule is that
+agent actions touching **blocks**, **workflows**, **runs**, **data**, or
+**lineage** should go through MCP-backed SciEasy contracts. Generic file reading
+can remain provider-native, but direct edits to workflow YAML or shelling out to
+alternate runtime paths bypass validation, GUI refresh, and lineage expectations.
+
+Tool results may include next-step guidance and warnings. This creates a local
+feedback loop: after a write-like action, the agent is nudged toward validation,
+status polling, reload, or type correction without requiring another global
+prompt rewrite.
+
+### 7.4 Project Context And Skills
+
+Agent behavior is shaped at session start by project-aware context. The composed
+prompt can include project facts such as project name, project root, available
+workflows, installed plugins, Git state, and recently modified workflow files.
+This makes the agent aware of the actual project instead of operating from a
+static generic SciEasy prompt.
+
+ADR-040 also replaces a monolithic skill file with task-scoped skills. The base
+SciEasy skill acts as a compact index, while task skills provide detailed
+instructions only when relevant.
+
+| Skill area | Use |
+|---|---|
+| Workflow building | Turn a user's analysis intent into a valid workflow graph. |
+| Custom block authoring | Reuse existing blocks first, then scaffold new project-specific blocks when needed. |
+| Run debugging | Inspect failed or cancelled runs and suggest concrete repairs. |
+| Data inspection | Explore data references, previews, lineage, and output meaning. |
+| Project QA | Answer questions about project structure, files, configuration, and documentation. |
+
+Skills are packaged with SciEasy so wheel installs can provision them reliably.
+Project provisioning writes provider-specific skill trees so Claude Code and
+Codex can discover the same task guidance.
+
+### 7.5 Project Provisioning
+
+Production agent reliability is installed into the user's project, not into the
+SciEasy source repository. Project creation and project opening perform an
+idempotent provisioning pass.
+
+Provisioned assets include:
+
+| Asset | Purpose |
+|---|---|
+| `CLAUDE.md` | Project-level instructions for Claude Code. |
+| `AGENTS.md` | Equivalent project-level instructions for Codex and generic agents. |
+| `.claude/settings.json` | Claude Code hook configuration. |
+| `.claude/hooks/` | Hook scripts that block or flag known unsafe production-agent actions. |
+| `.claude/skills/` | Claude-discoverable SciEasy task skills. |
+| `.agents/skills/` | Codex/generic-agent discoverable SciEasy task skills. |
+| `.codex/config.toml` | Project-scope Codex MCP and provider configuration. |
+
+Provisioning is non-fatal and conservative. Missing assets are created; existing
+user-edited files are not silently overwritten. This lets older projects receive
+the reliability stack while preserving user customizations.
+
+The same asset model is also available through install commands for power users
+who want to configure user-scope or project-scope provider assets manually.
+
+### 7.6 Hooks And Guardrails
+
+Hooks are a defense-in-depth layer for production projects. They do not replace
+MCP schemas, skills, or human review, but they catch known drift patterns at the
+moment a provider attempts a risky action.
+
+Key behaviors:
+
+- block direct shell use of the SciEasy CLI when an MCP-backed path should be
+  used instead;
+- block direct edits to workflow YAML that would bypass schema-aware workflow
+  writing;
+- require block discovery before authoring a new custom block;
+- remind agents to poll run status after starting a run;
+- flag overly generic or unregistered port types in custom block code.
+
+Hook coverage is provider-dependent. Claude Code uses the project `.claude`
+hook configuration directly. Codex discovers its project config separately and
+may support a different subset of hook behavior depending on provider version.
+The architecture therefore treats hooks as enforcement where available and
+advisory where provider support is weaker.
+
+### 7.7 Provider Parity
+
+ADR-040 makes Claude Code and Codex first-class production-agent providers. They
+have different discovery mechanisms, so SciEasy provisions both instead of
+pretending one provider's files will govern the other.
+
+Parity principles:
+
+- Both providers get project-level instructions.
+- Both providers get SciEasy task skills.
+- Both providers get MCP configuration for the active project.
+- Both providers run inside the project root.
+- Both providers are expected to use SciEasy semantic operations for workflows,
+  blocks, runs, and data.
+
+The implementation details differ. Claude Code can receive explicit MCP and
+prompt arguments at spawn time. Codex relies more heavily on project-scope
+configuration and standard discovery files. The architectural contract is that a
+fresh SciEasy project should not require a user to manually wire basic agent
+access before an embedded production agent can help.
+
+### 7.8 AIBlock Relationship
+
+`AIBlock` is still a workflow block, not the whole agent layer. It lets an agent
+participate as a node in a workflow graph, with declared inputs, declared
+outputs, and workflow-visible terminal state. That makes AI participation
+composable with ordinary blocks rather than a separate side channel.
+
+The distinction is:
+
+| Surface | Role |
+|---|---|
+| Agent tab | Interactive project assistant for editing, inspecting, debugging, and explaining. |
+| AIBlock | Workflow node that invokes an agent-like step as part of a run. |
+| MCP layer | Shared semantic tool surface used by agents to interact with SciEasy safely. |
+| Runtime engine | Source of truth for execution state, events, checkpoints, and lineage. |
+
+An example AIBlock use is **experiment metadata extraction from filenames**.
+A workflow may load a collection of microscopy image artifacts whose filenames
+encode experiment structure, such as treatment group, sample id, replicate id,
+time point, or imaging channel. An AIBlock can receive the file references and a
+prompt such as:
+
+> Infer experiment metadata from the input filenames. Produce a CSV table with
+> columns `file`, `group`, `sample`, `replicate`, `timepoint`, `channel`, and
+> `confidence`. Flag ambiguous names instead of guessing silently.
+
+The block declares one input collection and one output table artifact. During
+execution, the engine writes an AIBlock run manifest containing the block name,
+per-port inputs, expected output paths, declared output types, the user prompt,
+and the completion contract. The spawned agent reads that manifest, writes the
+CSV to the declared output path, then calls the AIBlock completion MCP tool so the workflow can continue.
+
+The AIBlock agent differs from a normal agent tab:
+
+| Aspect | Normal agent tab | AIBlock agent |
+|---|---|---|
+| Trigger | User opens or talks to a chat tab. | Workflow execution reaches an AIBlock node. |
+| Scope | Open-ended project assistance. | One declared block task with typed inputs and outputs. |
+| Context | Project prompt, project context, skills, MCP, and user conversation. | Same production agent context plus an AIBlock manifest and initial task message. |
+| I/O contract | No declared workflow ports. | Input and output ports are part of the workflow graph. |
+| Completion | User and agent decide when the conversation is done. | Agent must produce declared outputs and signal completion. |
+| Failure handling | Conversation error or user-visible failed action. | Block becomes `ERROR`, `CANCELLED`, or `SKIPPED` according to runtime rules. |
+
+In the current implementation, the AIBlock does not replace the production
+agent system prompt with a separate provider prompt. It reuses the same
+project-aware prompt and MCP configuration where the provider supports them,
+then adds AIBlock-specific runtime context through the initial message and
+manifest. Functionally, that manifest acts as the extra block-scoped instruction
+layer: it tells the agent where inputs are, what outputs are expected, what the
+deadline is, and how to finish the block.
+
+This keeps AI-native behavior inside the same architecture as the rest of
+SciEasy. Agents can help build and improve workflows, and agents can also appear
+inside workflows, but neither case bypasses block contracts, data contracts,
+lineage, or project governance.
 
 ---
 
-## 9. Layer 6 — Frontend
+## 8. Layer 5: API
 
-> **ADR-023** redesigned the frontend layout. This section reflects that decision.
+### 8.1 API Role And Scope
 
-### 9.1 Technology stack
+The **API layer** is the entry point used by the frontend, agents, and external
+clients to reach the SciEasy runtime. It presents project, workflow, block,
+data, run, and agent operations through stable service boundaries.
 
-| Component | Technology | Rationale |
+The API layer does **not** own workflow truth. Workflow structure, execution
+state, type validation, lineage, and artifact records remain runtime-owned. The
+API layer also does **not** perform scientific computation or replace the
+engine. It validates requests, calls runtime services, serializes responses, and
+streams runtime events to clients.
+
+### 8.2 REST Resources
+
+REST resources are organized by domain instead of by a long endpoint list:
+
+| Resource domain | Responsibility |
+|---|---|
+| **Projects** | Opens, creates, lists, and updates project workspaces and project-scoped files. |
+| **Workflows** | Reads and mutates workflow definitions while preserving backend validation as the source of truth. |
+| **Blocks** | Exposes the block registry, block schemas, templates, and connection validation. |
+| **Data previews** | Provides lightweight, type-aware previews and metadata for data objects without loading full artifacts into the frontend. |
+| **Runs** | Lists recorded runs, exposes run details, and starts runtime-approved rerun flows from recorded state. |
+| **Agent status and permissions** | Reports provider availability, terminal-agent status, and pending human approval decisions. |
+
+These resources are **facades over runtime contracts**. A REST response may be
+formatted for the frontend, but the underlying meaning comes from workflow,
+block, data, run, and permission schemas owned by the backend.
+
+### 8.3 Realtime Updates
+
+Realtime channels use **WebSocket** and streaming responses to keep clients in
+sync with runtime activity. They carry block state, run progress, interactive
+prompts, workflow changes, Git-head changes, logs, and agent-terminal updates.
+
+The event source is the backend **EventBus** and runtime services. The frontend
+does not infer execution state locally, manufacture block transitions, or treat
+its cached view as authoritative. When the frontend receives a realtime update,
+it reconciles its display with backend-emitted events.
+
+### 8.4 Agent-Facing MCP
+
+**MCP** is the agent-facing API. **REST** and **WebSocket** are primarily
+frontend-facing APIs. Both surfaces share the same backend runtime context:
+project root, block registry, type registry, workflow state, run state, event
+bus, and permission checks.
+
+Agents should use MCP or approved API surfaces when creating workflows,
+editing blocks, reading outputs, tuning configuration, inspecting lineage, or
+starting runs. They should not bypass SciEasy by editing workflow truth directly
+or by invoking the CLI as an untracked control plane. This keeps agent work
+inside the same schemas, lineage boundaries, permission model, and audit trail
+as frontend-driven work.
+
+### 8.5 Static App Serving And Contract Boundaries
+
+FastAPI also serves the bundled **SPA** for packaged desktop and local-server
+use. Backend routes under `/api/*` and WebSocket routes are handled by backend
+route handlers. Other browser paths fall back to the SPA so client-side routing
+can open project, workflow, run, and settings views directly.
+
+The stable API contracts are the **workflow**, **block**, **data**, and **run**
+schemas plus the runtime events emitted by the backend. Frontend state slices,
+React providers, cache keys, component props, terminal-provider internals, and
+other UI implementation details are not API contracts.
+
+---
+
+## 9. Layer 6: Frontend
+
+The frontend is the human workspace for SciEasy. It presents the backend-owned
+project, workflow, execution, preview, lineage, Git, and agent state in one
+local application shell. It does **not** own workflow truth; it edits through API
+contracts and reconciles its view from backend responses and realtime events.
+
+### 9.1 Technology Stack
+
+| Area | Current frontend choice | Role |
 |---|---|---|
-| Workflow canvas | **ReactFlow** (`@xyflow/react`) | Mature node-graph editor with drag-drop, zoom, minimap |
-| State management | **Zustand** | Lightweight, works well with ReactFlow |
-| UI components | **shadcn/ui** + **Tailwind CSS** | Clean, accessible, customisable component library |
-| Data previews | **Plotly.js** (charts), **Monaco** (text), embedded image viewers | Interactive data exploration inline |
-| Block palette | Searchable sidebar with categories | Drag blocks onto canvas |
-| Build tool | **Vite** + **TypeScript** | Fast HMR, type safety |
+| **Application framework** | React 18 + TypeScript + Vite | Local SPA shell, fast development loop, typed UI state. |
+| **Workflow canvas** | ReactFlow | Node graph editor, typed edges, minimap, controls, drag/drop block creation. |
+| **Resizable layout** | react-resizable-panels | Horizontal app columns and vertical canvas/bottom-panel split. |
+| **State management** | Zustand slices | Project, workflow, execution, UI, palette, preview, tabs, terminal tabs, lineage, and Git state. |
+| **UI primitives** | shadcn-style Radix wrappers, Tailwind, lucide-react | Buttons, menus, tabs, tooltips, separators, icons, and responsive styling. |
+| **Editors and terminals** | Monaco and xterm, both lazy-loaded | Project file editing, workflow source viewing, and embedded agent terminals. |
+| **Data visualization** | Plotly and custom image/table viewers | Charts, server-paginated tables, image LUTs, zoom/pan, and slice navigation. |
 
-### 9.2 Layout
+### 9.2 Application Shell
 
-Three resizable columns (Block Palette | Canvas + Bottom Panel | Data Preview) with a fixed toolbar at the top.
+The current shell has a compact fixed toolbar and a resizable three-column
+workspace. When no project is open, the body shows a **Welcome** screen with New
+Project, Open Project, and recent projects.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ Toolbar: [Import][Export][Save] │ [▶Run][⏸Pause][■Stop][↻Reset] │ [🗑Del][🔄Reload] │
-├───────────┬──────────────────────────────────────────────────┬──────────────┤
-│           │              ReactFlow Canvas                    │              │
-│  Block    │                                                  │    Data      │
-│  Palette  │     ┌──────┐      ┌──────┐        ┌────┐       │   Preview    │
-│           │     │ Load ├─────▶│ Proc │        │mini│       │    Panel     │
-│  [Search] │     └──────┘      └──┬───┘        │map │       │              │
-│           │                     │              └────┘       │  [Port ▼]    │
-│  ▸ IO     │                ┌────▼───┐                       │  [1][2][3].. │
-│  ▸ Process│                │ Export │                       │  ┌────────┐  │
-│  ▸ Code   │                └────────┘                       │  │viewer  │  │
-│  ▸ App    ├──────────────────────────────────────────────────┤  └────────┘  │
-│  ▸ AI     │ Bottom Panel (browser-style tabs)                │  Metadata:   │
-│  ▸ Sub-WF │ [💬 AI Chat][📋 Config][📜 Logs][🔗 Lineage]... │  shape: ...  │
-│  ▸ Custom │                                                  │              │
-│           │ > AI: I suggest adding baseline correction...    │              │
-└───────────┴──────────────────────────────────────────────────┴──────────────┘
+│ SciEasy · project/workflow title │ Projects │ New/Import/Save │ Run controls │ WS Logs │
+├───────────────┬───────────────────────────────────────────────┬──────────────┤
+│ Blocks/Project│ Main tabs: workflow canvases + file editors    │ Preview      │
+│ sidebar       ├───────────────────────────────────────────────┤ panel        │
+│               │ ReactFlow canvas or Monaco editor              │              │
+│ 📦 Blocks     │                                               │ 🖼 output     │
+│ 📁 Project    │                                               │ previews     │
+│               ├───────────────────────────────────────────────┤              │
+│               │ 💬 AI Chat │ 📋 Config │ 📜 Logs │ 🔗 Lineage │ Git │       │
+└───────────────┴───────────────────────────────────────────────┴──────────────┘
 ```
 
-**Structural rules:**
+**Toolbar** behavior depends on the active main tab. Workflow tabs show run,
+pause, stop, reset, delete, reload, note, group, and view-source actions. File
+editor tabs keep the toolbar focused on New, Import, and Save so workflow-only
+actions do not apply to source files.
 
-- **Block Palette** (left): full height from toolbar to window bottom. Does not share vertical space with the bottom panel.
-- **ReactFlow Canvas** (centre top): fills remaining horizontal space. Contains the ReactFlow minimap (default position: bottom-right of canvas viewport).
-- **Bottom Panel** (centre bottom): same width as canvas. Height adjustable via drag handle. Can be collapsed.
-- **Data Preview Panel** (right): full height from toolbar to window bottom. Does not share vertical space with the bottom panel.
-- **Toolbar** (top): full width, fixed position.
+**Git controls** live in the bottom Git tab rather than in the toolbar. This
+keeps the toolbar usable on narrow screens and makes commit history, branch
+graphs, stashes, commits, and merge flows reachable from a dedicated surface.
 
-**All three columns are resizable via drag handles:**
+### 9.3 Navigation And Project Surface
 
-| Panel | Default | Min | Max | Drag |
-|-------|---------|-----|-----|------|
-| Block Palette | 220px | 160px | 400px | Horizontal (right edge) |
-| Data Preview | 320px | 240px | 600px | Horizontal (left edge) |
-| Bottom Panel | 200px | 100px | 50% of canvas height | Vertical (top edge) |
-| Canvas | Fills remaining | — | — | — |
+The left sidebar has two modes:
 
-**Collapse behaviour:**
+| Mode | Purpose |
+|---|---|
+| **Blocks** | Searchable block palette populated from the backend block registry. Dragging a block creates a workflow node, with default parameters filled where the block category requires them. |
+| **Project** | Project tree browser with lazy directory loading, file icons, context-menu copy/reveal actions, workflow loading, and editable file opening. |
 
-| Panel | Trigger | Collapsed state |
-|-------|---------|-----------------|
-| Block Palette | Toggle button or `Ctrl+B` | Icon-only mode (~48px) showing category icons |
-| Data Preview | Toggle button or `Ctrl+D` | Hidden (0px). Auto-shows when a block with output is selected. |
-| Bottom Panel | Clicking the empty canvas pane (unless pinned), `Ctrl+J`, or the pin toggle in the tab strip | Collapses to ~8% of column height (~64–80px), leaving the tab strip fully visible. Clicking any tab button, selecting a block on the canvas, or clicking an error badge expands it again. A pin button at the right end of the tab strip disables canvas-pane-click auto-collapse — useful for keeping the panel open during AI Chat sessions. |
+The project tree watches backend file-change signals. When an agent or external
+editor changes a workflow file, the frontend refreshes the project tree and, for
+new workflow files, can open the workflow tab automatically.
 
-### 9.3 Toolbar
+The center workspace has a browser-style main tab strip:
 
-Fixed horizontal bar at the top, grouped by function:
+| Main tab kind | What it hosts |
+|---|---|
+| **Workflow** | A ReactFlow canvas snapshot for one open workflow. |
+| **File** | A Monaco editor tab for project-local editable files. |
+| **Workflow source** | A read-only Monaco view of the active workflow YAML, opened from View source. |
 
-```
-[📁 Projects ▼] │ [📂 Import][💾 Save][📤 Export] │ [▶ Run][⏸ Pause][■ Stop][↻ Reset] │ [🗑 Delete][🔄 Reload Blocks]
- Project mgmt      File operations                    Execution controls                   Edit operations
-```
+Dirty markers are per tab. Closing a dirty workflow or file tab asks for user
+confirmation. File editor tabs are loaded lazily from the backend and save back
+through the project-file API.
 
-**Projects menu** (ADR-023 Addendum 1):
+### 9.4 Workflow Canvas
 
-| Menu item | Action |
-|-----------|--------|
-| New Project... | Modal dialog → name, description, directory → `POST /api/projects/` |
-| Open Project... | List known projects or browse directory → load `project.yaml` |
-| Save Project | Save current workflow + project metadata |
-| Recent Projects ▸ | Sub-menu of last 5 opened projects |
-| Close Project | Return to welcome screen |
+The workflow canvas is a controlled ReactFlow surface. It renders backend
+workflow nodes and edges, but local drag state is used while the user moves a
+node so the UI follows the cursor smoothly before the final layout is written
+back to the workflow store.
 
-When no project is open, the canvas area shows a **welcome screen** with "New Project", "Open Project", and recent projects list.
+Canvas responsibilities:
 
-**Keyboard shortcuts:**
+- **Drag/drop block creation** from the palette into canvas coordinates.
+- **Backend-validated connections** before an edge is accepted.
+- **Typed edges** colored from the source port type.
+- **Annotation nodes** and **group nodes** for workflow readability.
+- **MiniMap**, pan/zoom controls, and a type legend for active data types.
+- **Delete**, run-block, restart-block, and error-click actions routed back to
+  the application shell.
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+O` | Import workflow YAML |
-| `Ctrl+S` | Save workflow |
-| `Ctrl+Shift+S` | Export workflow |
-| `Ctrl+Enter` | Run workflow |
-| `Ctrl+.` | Stop (cancel entire workflow) |
-| `Delete` / `Backspace` | Delete selected block(s) or edge(s) |
-| `Ctrl+Z` | Undo |
-| `Ctrl+Y` / `Ctrl+Shift+Z` | Redo |
-| `Ctrl+A` | Select all |
-| `Escape` | Deselect all |
-| `Space` (hold) | Pan canvas |
-| `Ctrl+Mouse wheel` | Zoom canvas |
-| `Ctrl+M` | Toggle minimap |
+The canvas can collapse the bottom panel when the user clicks empty space. The
+bottom panel pin disables that behavior, which is especially useful while an AI
+terminal session is open.
 
-### 9.4 Block Palette (left column)
+### 9.5 Block Nodes And Ports
 
-Full-height left sidebar with searchable, categorised block list.
-
-- Blocks are fetched from `GET /api/blocks/` on mount and after "Reload Blocks."
-- Search filters by block name, category, and description.
-- Categories: IO, Process, Code, App, AI, SubWorkflow, Custom (user/project-local blocks from `~/.scieasy/blocks/` and `project/blocks/`).
-- Drag-and-drop: dragging a block onto the canvas creates a new node with default config.
-
-### 9.5 Block node design
-
-Each block on the canvas renders as a custom ReactFlow node with header, inline config, ports, and status footer.
+Block nodes are compact cards with a category icon, display label, action
+buttons, inline configuration, typed ports, and a status footer.
 
 ```
 ┌────────────────────────────────────┐
-│ 📦 Cellpose Segmentation   [▶][↻] │  ← Header: icon + name + run + start-from-here
+│ 📦 Cellpose Segmentation   ▶ ↻ ×  │
 ├────────────────────────────────────┤
-◯  Model:    [▼ cyto2       ]   ◉   │  ← Inline config (top 3 by ui_priority);
-◯  Diameter: [  30.0        ]   ◉   │    ports align with config rows on each
-◯  Channels: [▼ [0,1]       ]   ◉   │    side (Issue #976 — first divider line)
+│ Format: TIFF image                 │
+│ Model:  cyto2                      │
+│ Diameter: 30                       │
 ├────────────────────────────────────┤
-│ ✅ Done · 3.2s · 47 items          │  ← State badge
+│ ✅ Done                            │
 └────────────────────────────────────┘
 ```
 
-**Header elements:**
+| Node area | Current behavior |
+|---|---|
+| **Header** | Shows category icon, display name, run, restart, and delete actions. |
+| **Inline config** | Shows the top configuration fields by UI priority; format capability selection appears when the schema provides capabilities. |
+| **Ports** | Input ports sit on the left, output ports on the right, and align with the inline-config area. Dynamic ports resolve from the active configuration value. |
+| **Variadic ports** | Blocks with configurable port counts expose small add/remove controls; removing a connected port asks before disconnecting edges. |
+| **Status footer** | Shows idle, ready, running, paused, done, error, cancelled, or skipped state. Error state exposes the summary inline and routes details to Logs. |
 
-| Element | Description |
-|---------|-------------|
-| Icon | Block category icon (IO, Process, Code, App, AI, SubWF) |
-| Name | Block display name (from block metadata or user-assigned) |
-| `[▶]` button | Run this single block only (uses cached upstream outputs) |
-| `[↻]` button | "Start from here" — re-run from this block through all downstream (ADR-023 Section 8) |
+Port colors come from the frontend type-color map plus backend-supplied type
+hierarchy. Known scientific types use stable colors; plugin or unknown types use
+a deterministic hash color. Subtypes can use ring colors so, for example, an
+image-derived type can share the image fill color while remaining visually
+separable.
 
-**Inline config (hybrid approach):**
+### 9.6 Data Preview Panel
 
-Block nodes display the **top 3 parameters** by `ui_priority` (default: first 3 in schema order) as compact inline form controls. Clicking the block switches the bottom panel to the `[📋 Config]` tab showing the **full parameter form** with all parameters, descriptions, and validation.
+The right preview panel shows the latest previewable outputs for the selected
+block. It derives user-facing labels from output metadata when possible, so file
+outputs can show names like source filenames instead of opaque data references.
 
-**Port rendering:**
+| Preview kind | UI behavior |
+|---|---|
+| **Table** | Server-paginated table with sticky headers, sortable columns, page controls, and jump-to-page input. |
+| **Image** | Zoom/pan viewport with LUT swatches, display min/max sliders, reset, image-shape badge, and optional 3D slice slider. |
+| **Chart** | Plotly chart for series-like previews. |
+| **Text** | Read-only preformatted text preview. |
+| **Composite** | Slot list where each slot can expose its own previewable value. |
+| **Artifact fallback** | Displays file path or MIME metadata when no richer renderer applies. |
 
-- Input ports on the **left** edge, output ports on the **right** edge.
-- Port handles are coloured by data type (Section 9.6).
-- Port row 1 starts ~14px below the header divider (Issue #976), so the handles visually align with the inline-config rows on each side. Subsequent ports stride 20px down the edge.
-- Hover tooltip: type name, constraint, connection status.
-- Drawing a connection triggers backend validation (`POST /api/blocks/validate-connection`). Invalid connections are visually rejected.
+Preview fetching is lazy. The active data reference is loaded on demand, while
+image slices beyond the first slice use a small local slice cache and a debounce
+so dragging a slider does not flood the backend.
 
-**State badge:**
+### 9.7 Bottom Panel
 
-| State | Display | Colour |
-|-------|---------|--------|
-| IDLE | `○ Idle` | Grey `#9CA3AF` |
-| READY | `◉ Ready` | Blue `#3B82F6` |
-| RUNNING | `⟳ Running · {elapsed}` | Blue `#3B82F6` with spinner |
-| PAUSED | `⏸ Paused` | Amber `#F59E0B` |
-| DONE | `✅ Done · {elapsed} · {item_count} items` | Green `#22C55E` |
-| ERROR | `❌ Error: {message}` | Red `#EF4444` (clickable → traceback in Logs) |
-| CANCELLED | `⊘ Cancelled` | Orange `#F97316` |
-| SKIPPED | `⊘ Skipped: {reason}` | Grey `#9CA3AF` italic |
+The bottom panel is a first-class work surface, not a log drawer. It is
+resizable, collapsible, and pinnable.
 
-**Node sizing:** fixed width 280px, dynamic height based on inline params and ports.
+| Tab | Current role |
+|---|---|
+| **💬 AI Chat** | Multi-tab embedded agent terminal. User-created tabs start from setup; AI Block tabs can be opened by the engine and keep block status in the tab strip. Inactive terminal tabs stay mounted so subprocesses and WebSocket sessions survive tab switches. |
+| **📋 Config** | Full schema-driven configuration editor for the selected block. Variadic ports, format capabilities, CodeBlock ports, and environment variables are edited here when the schema requires richer controls than inline node config. |
+| **📜 Logs** | Real-time log viewer backed by the log stream, with level filtering and unread count when the user is not viewing Logs. |
+| **🔗 Lineage** | Two-pane run history and run detail surface. It fetches runs on mount, refreshes after workflow completion, and owns methods-export and rerun dialogs. |
+| **Git** | Branch picker, status badge, commit dialog, stash panel, commit history, branch graph, and merge-entry point. Long-running merge resolution is mounted at the application level so it survives tab switches and project visibility changes. |
 
-### 9.6 Port type colour system
+Interactive block prompts appear as modal flows when the backend pauses for user
+input, including data routing and pair editing. Completion and cancellation go
+back through the WebSocket control channel instead of being inferred by the UI.
 
-Base data types receive a pure solid colour. Sub-types inherit the parent colour. Users may define `_ui_ring_color` on custom sub-types for visual distinction.
+### 9.8 Realtime State Flow
 
-| Base Type | Colour | Hex | Collection |
-|-----------|--------|-----|------------|
-| `Array` | Blue | `#3B82F6` | Double ring blue |
-| `Series` | Green | `#22C55E` | Double ring green |
-| `DataFrame` | Orange | `#F97316` | Double ring orange |
-| `Text` | Purple | `#A855F7` | Double ring purple |
-| `Artifact` | Grey | `#6B7280` | Double ring grey |
-| `CompositeData` | Red | `#EF4444` | Double ring red |
-| `DataObject` (fallback) | Light grey | `#E5E7EB` | Double ring grey |
+The frontend listens to two realtime channels:
 
-```
-Single DataObject port:  ◉  (solid filled circle)
-Collection[T] port:      ◎  (double ring in T's colour)
-```
+| Channel | Frontend use |
+|---|---|
+| **WebSocket** | Workflow events, block state, output references, interactive prompts, workflow file changes, Git HEAD changes, and AI Block terminal lifecycle events. |
+| **Log stream** | Execution log rows scoped to the active workflow and, when Logs is focused on a block, the selected block. |
 
-**User-extensible ring colours:** sub-types declare `_ui_ring_color: ClassVar[str]` for an outer ring around the parent's solid fill. If undefined, the sub-type is visually identical to the parent (tooltip always shows the precise type).
+Realtime events update Zustand slices, not independent frontend truth. For
+example, workflow-file changes from the backend can refresh the loaded workflow,
+clear a deleted workflow, open newly-created workflows, bump the project-tree
+refresh counter, or invalidate Git history. Execution events update block state,
+outputs, errors, log rows, interactive prompts, and running status.
 
-**Edge colours:** inherit the source port's base type colour. Collection edges render as **dashed lines**.
+### 9.9 Frontend Boundaries
 
-The colour map is stored in `frontend/src/config/typeColorMap.ts`. At runtime, the frontend resolves port colours by walking the type hierarchy from the block schema API.
+The frontend may cache, debounce, and present user-friendly UI state, but stable
+meaning stays in backend contracts:
 
-### 9.7 Data Preview Panel (right column)
-
-Full-height right sidebar that displays the output of the currently selected block.
-
-```
-┌─────────────────────────────┐
-│ Preview: {block_name}       │
-├─────────────────────────────┤
-│ Port: [▼ {port_name}    ]  │  ← Dropdown for multiple output ports
-├─────────────────────────────┤
-│ Collection[Image] · 47 items│  ← Type badge + item count
-├──┬──┬──┬──┬──┬──────────────┤
-│ 1│ 2│ 3│ 4│ 5│  ... ▶       │  ← Collection item tabs
-├──┴──┴──┴──┴──┴──────────────┤
-│  ┌───────────────────────┐  │
-│  │   Type-specific       │  │  ← Renderer area
-│  │   renderer            │  │
-│  └───────────────────────┘  │
-├─────────────────────────────┤
-│ Metadata:                   │
-│   shape: (1024, 1024)       │
-│   dtype: uint16             │
-│   storage: zarr://data/...  │
-└─────────────────────────────┘
-```
-
-**Renderer selection by type:**
-
-| Type | Renderer |
-|------|----------|
-| `DataFrame`, `PeakTable` | Server-paginated table: 3-state click-to-sort headers (unsorted→asc→desc), prev/next/first/last buttons, jump-to-page input. Only the active page is fetched; backend caches parsed + sorted variants in a process-local LRU keyed by `(path, mtime, sort_by, sort_dir)` so disk IO is paid once per file. Query params: `page` (1-based), `page_size` (cap 200), `sort_by`, `sort_dir` (`asc`/`desc`). |
-| `Array`, `Image` | Zoomable image viewer (channel selector, brightness/contrast) |
-| `MSImage` | Image + click-to-spectrum overlay (Plotly) |
-| `Series`, `Spectrum` | Plotly line chart (zoom, pan, hover) |
-| `Text` | Monaco editor (read-only, syntax highlighting) |
-| `Artifact` | File preview (images/PDFs inline, others show metadata + download) |
-| `CompositeData` | Expandable slot list with per-slot renderer |
-
-**Collection tab behaviour:**
-
-| Size | Rendering |
-|------|-----------|
-| 1 item | No tab bar, render directly |
-| 2–20 | Horizontal tab bar with labels (metadata or sequential numbers) |
-| 21–100 | Paginated tab bar, 10 per page |
-| >100 | Paginated + jump-to input |
-
-Preview data is fetched lazily on tab click via `GET /api/data/{ref}/preview` and cached in Zustand.
-
-### 9.8 Bottom Panel (browser-style tabs)
-
-Tabbed panel below the canvas, same width as the canvas area.
-
-| Tab | Content | Phase |
-|-----|---------|-------|
-| **💬 AI Chat** | Embedded claude/codex TUI via PTY (ADR-034). Each chat tab is a live agent session. | ADR-034 |
-| **📋 Config** | Full parameter form for selected block (JSON Schema → auto-generated form) | Phase 8 MVP |
-| **📜 Logs** | Real-time execution log stream (SSE), block filter, severity filter (incl. error-only). Replaces the standalone Problems tab as of PR #834. | Phase 8 MVP |
-| **🔗 Lineage** | Two-pane runs-list + run-detail surface on the unified `lineage.db` per ADR-038 §3.8. Left pane: reverse-chronological run list (workflow, duration, block count, git commit). Right pane: clicked run's blocks, params, I/O DataObjects, `[Re-run]` + `[Export methods]` actions. | ADR-038 Phase 3 |
-
-**Jobs tab removed** (ADR-038 §3.8): the standalone Jobs tab was a placeholder for what the new Lineage tab now subsumes. Running and recently-completed workflow runs surface as live-updating rows at the top of the Lineage tab's run list.
-
-**Tab interaction rules:**
-
-- Clicking a block → auto-switches to **Config** tab (unless user has pinned another tab).
-- Starting execution → auto-switches to **Logs** tab and auto-expands bottom panel.
-- Clicking an ERROR badge → auto-switches to **Logs** filtered to that block.
-- AI Chat maintains conversation history across block selections.
-
-### 9.8a Main-area tab strip (ADR-036)
-
-A separate tab strip lives **above the canvas**, distinct from the bottom panel tabs. Each main-area tab hosts one of:
-
-- **Workflow canvas** (`kind: "workflow"`) — the original ReactFlow surface; one tab per open workflow YAML.
-- **Code editor** (`kind: "file"`) — Monaco-backed editor for project-local `.py / .txt / .md / .yaml / .yml / .json / .csv / .log` files. Server-side `ruff` lint surfaces as Monaco markers. Used to edit `blocks/*.py` (custom blocks), scratch scripts, configs.
-- **Workflow source view** (`kind: "file"` with `readOnly=true`, `tabId="source:<workflow_id>"`) — read-only YAML view alongside the canvas, opened by the "View source" toolbar button when a workflow tab is active.
-
-`TabState` is a discriminated union (`{kind: "workflow"} | {kind: "file"}`) — the kind drives which content component renders and which top-toolbar buttons are shown. Auto-save uses the same 800 ms debounce already in place for workflow tabs. The "New" button in the top toolbar is intentionally limited to **three options only** — new workflow, new custom block (`blocks/*.py` scaffolded from `src/scieasy/blocks/_templates/block_base_template.py`), or new note (`*.md`) — to keep users away from arbitrary file dumping. Reading other files (`requirements.txt` etc.) happens via the Project tree.
-
-See ADR-036 for the full decision record.
-
-### 9.9 "Start from here" execution (ADR-023)
-
-Each block node has a `[↻]` button that re-runs the workflow from that block using cached upstream outputs.
-
-**Execution flow:**
-
-1. Frontend sends `POST /api/workflows/{id}/execute-from` with `{"block_id": "C"}`.
-2. Backend validates all predecessors of C have cached outputs in checkpoint `intermediate_refs`.
-3. Backend resets C and all downstream blocks to IDLE, clears their cached outputs.
-4. Backend loads predecessor outputs from checkpoint, sets predecessors to DONE.
-5. DAGScheduler executes from C onward (normal event-driven dispatch).
-6. Frontend receives state updates via WebSocket: C, D, E transition through RUNNING → DONE while A, B remain DONE.
-
-The `[↻]` button is visible only when cached upstream outputs exist. If predecessor outputs are missing, a tooltip explains: "Run the workflow first to enable Start from here."
-
-### 9.10 State management (Zustand)
-
-| Store slice | Responsibility |
-|-------------|----------------|
-| `projectSlice` | Current project, recent projects, isProjectOpen (ADR-023 Addendum 1) |
-| `workflowSlice` | Nodes, edges, workflow metadata (mirror of backend state) |
-| `executionSlice` | Per-block execution state, timing, output refs (updated via WebSocket) |
-| `uiSlice` | Panel widths, collapsed states, selected block ID, active bottom tab |
-| `previewSlice` | Cached preview data keyed by StorageReference |
-| `paletteSlice` | Available blocks from registry, search filter |
-| `chatSlice` | AI chat message history |
-
-**Data flow:** the backend is the source of truth for workflow definition and execution state. The frontend sends mutations via REST and receives state updates via WebSocket. The frontend never computes execution state locally.
-
-### 9.11 Frontend bundling and `scieasy gui` (ADR-024)
-
-The target user profile for SciEasy includes scientists who do not write code. The installation and launch experience must be:
-
-```bash
-pip install scieasy
-scieasy gui
-```
-
-No Node.js, no `npm install`, no separate dev server. This is achieved by bundling the compiled React frontend into the Python wheel as static files.
-
-#### Build pipeline
-
-The React frontend is built at **package build time** (CI/release step), not at install time:
-
-1. CI runs `cd frontend && npm ci && npm run build`.
-2. Build output (`index.html` + `assets/`) is copied to `src/scieasy/api/static/`.
-3. `pyproject.toml` includes `api/static/**/*` as package data.
-4. Users installing via `pip install scieasy` receive the pre-built frontend.
-5. Developers still use `npm run dev` (Vite dev server + CORS) for frontend development.
-
-The `api/static/` directory is `.gitignore`'d — it is a build artifact, not source code.
-
-#### URL routing convention
-
-All backend API routes use the `/api/` prefix. WebSocket uses `/ws`. All other paths serve the SPA:
-
-```
-/api/*         → FastAPI route handlers
-/ws            → WebSocket endpoint
-/*             → SPA fallback (serve index.html)
-```
-
-A custom `SPAStaticFiles` middleware (subclass of `StaticFiles`) handles the SPA fallback: any path not matching a real file or an `/api/` / `/ws` route returns `index.html`, enabling client-side routing for deep links like `/projects/123/workflows`.
-
-```python
-# In create_app():
-static_dir = Path(__file__).parent / "static"
-if static_dir.exists():
-    app.mount("/", SPAStaticFiles(directory=static_dir, html=True))
-```
-
-The static mount is registered **after** all API routers and WebSocket endpoints, so `/api/*` and `/ws` take priority.
-
-#### `scieasy gui` CLI command
-
-```python
-@app.command()
-def gui(
-    port: int = typer.Option(8000, help="Port for the API server"),
-    no_browser: bool = typer.Option(False, help="Do not open browser automatically"),
-):
-    """Launch SciEasy GUI in your default browser."""
-    import threading, webbrowser, uvicorn
-
-    url = f"http://localhost:{port}"
-    if not no_browser:
-        threading.Timer(1.5, webbrowser.open, args=[url]).start()
-
-    uvicorn.run("scieasy.api.app:create_app", factory=True, host="0.0.0.0", port=port)
-```
-
-The existing `scieasy serve` command remains available for headless/API-only usage (no browser auto-open). The frontend must use relative asset paths (`base: "./"` in Vite config) to ensure the SPA works when served from any path prefix.
-
-#### Zero-configuration first launch
-
-When a user opens the GUI with no existing projects, the frontend shows a Welcome screen (ADR-023 Addendum 1). The backend provides a default workspace directory at `~/SciEasy/projects/`. The "Create Project" flow requires only a project name — all other settings use sensible defaults.
+- **Workflow definitions** are saved and loaded through backend workflow APIs.
+- **Connections** are accepted only after backend validation.
+- **Execution state** is driven by runtime events, not local simulation.
+- **Data previews** are fetched by reference and rendered according to backend
+  preview payloads.
+- **Project files** are opened and saved through project-file APIs, with read-only
+  source views kept distinct from editable file tabs.
+- **Agent work** enters the frontend through MCP/API-backed events and terminal
+  sessions rather than direct frontend mutation of workflow truth.
 
 ---
+## 10. Project Workspace Structure
 
-## 10. Project workspace structure
+A SciEasy user project is a normal filesystem directory with a small set of
+well-known paths. The **project root** is identified by `project.yaml`; opening a
+directory without that file is rejected as an invalid SciEasy project.
 
-Each project is a self-contained directory:
+### 10.1 Created Project Layout
+
+`ApiRuntime.create_project` currently creates this baseline layout:
 
 ```
 my_project/
-├── .git/                     # Auto-initialised by SciEasy on project open (ADR-039)
-├── .gitignore                # Auto-written; excludes data/ and .scieasy/ by default
-├── .scieasy/                 # Per-machine runtime state (gitignored by default)
-│   ├── lineage.db            # Unified SQLite run lineage (ADR-038, 4 normalized tables)
-│   ├── pause/                # Single-slot workflow checkpoints (ADR-012; relocated from checkpoints/)
-│   │   └── main_analysis/    #   Serialised workflow states for pause/resume
-│   ├── ai-block-runs/        # Per-AIBlock-execution runtime dirs (ADR-035)
-│   ├── sessions/             # ADR-034 chat session state
-│   └── git_author.json       # First-commit author cache (ADR-039 OQ-1)
-├── project.yaml              # Project metadata, default settings (git-tracked)
-├── workflows/                # Git-tracked workflow YAML files
-│   ├── main_analysis.yaml    # Workflow DAG definition (portable, version-controllable)
-│   └── preprocessing.yaml
-├── blocks/                   # Git-tracked custom blocks (Tier 1 drop-in)
-│   ├── raman_denoise.py      #   project-local blocks, version-controlled normally
-│   └── custom_merge.py
-├── types/                    # Git-tracked custom data types (Tier 1 drop-in)
-│   └── maldi_image.py
-├── notes/                    # Git-tracked project notes (ADR-036)
-│   └── thoughts.md
-├── data/                     # NOT git-tracked (large binary; see .gitignore)
-│   ├── raw/                  # Original uploaded files (read-only after import)
-│   ├── zarr/                 # Zarr stores for Array-type data
-│   ├── parquet/              # Parquet files for DataFrame-type data
-│   └── artifacts/            # PDFs, reports, images, other files
+├── project.yaml
+├── workflows/
+│   └── main.yaml
+├── blocks/
+├── types/
+├── data/
+│   ├── raw/
+│   ├── zarr/
+│   ├── parquet/
+│   ├── artifacts/
+│   └── exchange/
+├── .scieasy/
 └── logs/
-    └── execution.log         # Timestamped execution logs
 ```
 
-User-global drop-in directory (shared across all projects):
+| Path | Purpose |
+|---|---|
+| `project.yaml` | Project identity: id, name, description, version, and creation timestamp. |
+| `workflows/main.yaml` | Default workflow scaffold written with the canonical workflow serializer. |
+| `workflows/` | User workflow YAML files. Workflow IDs map to `workflows/<id>.yaml`. |
+| `blocks/` | Project-local custom blocks. Saving a clean Python file here can hot-reload the block registry. |
+| `types/` | Project-local custom data type definitions. |
+| `data/raw/` | Uploaded or imported raw files. File uploads land here after filename sanitization. |
+| `data/zarr/` | Zarr-backed array-style data. |
+| `data/parquet/` | Parquet-backed table-style data. |
+| `data/artifacts/` | Reports, images, PDFs, and other artifact files. |
+| `data/exchange/` | Exchange area used by external app/code style blocks for file handoff. |
+| `.scieasy/` | Per-project runtime state. This directory is local and gitignored by default. |
+| `logs/` | Project log directory reserved for user-visible logs and diagnostics. |
+
+`notes/` is **not** part of the required scaffold. The frontend can create notes
+under `notes/` when that directory exists, and otherwise falls back to creating
+the note at the project root.
+
+### 10.2 Runtime State Under `.scieasy`
+
+The `.scieasy/` directory is for local runtime coordination. It is excluded by
+the default SciEasy `.gitignore` and should not be treated as portable project
+source.
+
+| Runtime path | Producer | Purpose |
+|---|---|---|
+| `.scieasy/lineage.db` | API/runtime lineage initialization | SQLite lineage store for runs, block executions, data objects, and I/O joins. |
+| `.scieasy/pause/<workflow_id>/` | Checkpoint manager | Single-slot pause/resume and run-from-here checkpoint files for a workflow. |
+| `.scieasy/ai-block-runs/<block_execution_id>/` | AIBlock runtime | Per-AIBlock manifest, completion signals, and copied terminal transcript. |
+| `.scieasy/.session-state/<session_id>/` | Agent hooks | Session markers such as whether `list_blocks` was called before block authoring. |
+| `.scieasy/mcp.sock` | MCP server on POSIX | Project-local MCP socket endpoint when the backend is running. |
+| `.scieasy/mcp.sock.port` | MCP server on Windows | Loopback TCP port sentinel for the project-local MCP bridge. |
+| `.scieasy/mcp.json` | Claude terminal spawn path | Project-scoped MCP config written when spawning Claude Code from SciEasy. |
+| `.scieasy/no_git` | User/project marker | Opt-out marker checked before automatic Git re-initialization on project open. |
+
+Legacy root-level `metadata.db`, `lineage/`, and `checkpoints/` paths are not the
+current layout. Existing files may remain in old projects, but current runtime
+state is under `.scieasy/`.
+
+### 10.3 Versioned Source Boundary
+
+On project creation, SciEasy best-effort initializes Git with `main` as the
+initial branch, writes a default `.gitignore`, stages the project, and creates an
+initial commit. If Git is unavailable, project creation and open still proceed in
+degraded mode.
+
+The default `.gitignore` excludes:
+
+- `data/`
+- `.scieasy/`
+- Python caches
+- OS noise files
+- plugin virtual environments
+- editor cache files
+
+This means workflow YAML, project metadata, project-local blocks, project-local
+types, notes, and agent configuration files are source-like project artifacts
+unless the user edits `.gitignore` differently. Large data payloads and local
+runtime state stay outside Git by default.
+
+### 10.4 Agent And MCP Project Assets
+
+SciEasy provisions production-agent assets on project creation and on every
+project open. Provisioning is idempotent with `force=false`: existing files are
+preserved, missing files are restored, and failures are non-fatal.
+
+```
+my_project/
+├── CLAUDE.md
+├── AGENTS.md
+├── .claude/
+│   ├── settings.json
+│   ├── .scieasy-provision-version
+│   ├── hooks/
+│   └── skills/scieasy/
+├── .agents/
+│   └── skills/scieasy/
+└── .codex/
+    └── config.toml
+```
+
+| Path | Purpose |
+|---|---|
+| `CLAUDE.md` | Project-scoped guide for Claude Code sessions using SciEasy. |
+| `AGENTS.md` | Project-scoped guide for Codex and generic agent sessions. |
+| `.claude/settings.json` | Claude Code hook matcher configuration. |
+| `.claude/hooks/` | Hook scripts that steer agents toward MCP-backed workflow and block operations. |
+| `.claude/skills/scieasy/` | Claude Code SciEasy skills. |
+| `.agents/skills/scieasy/` | Codex/generic agent SciEasy skills. |
+| `.codex/config.toml` | Project-scope Codex MCP server configuration. |
+
+These files are different from the SciEasy source repository's developer-facing
+agent rules. A user project receives short operating guidance for agents that are
+using SciEasy, not the full contributor workflow for developing SciEasy itself.
+
+### 10.5 User-Wide Extension Paths
+
+In addition to project-local extensions, SciEasy also scans user-wide extension
+locations:
+
 ```
 ~/.scieasy/
-├── blocks/                   # User-global custom blocks
-└── types/                    # User-global custom data types
+├── blocks/
+└── types/
 ```
 
-**Note on relocations (2026-05-15):** The pre-ADR-038/039 layout had top-level `checkpoints/` and `lineage/` directories and a `metadata.db` file at project root. These are gone: checkpoints moved into `.scieasy/pause/`, the lineage database is now `.scieasy/lineage.db` (with a refactored 4-table schema), and `metadata.db` is collapsed into the unified `lineage.db` per ADR-038. The unified store handles both DataObject identity (formerly `metadata.db`) and run history (formerly `lineage/lineage.db`); see §4.4.
+Project-local `blocks/` and `types/` are useful for one project or one family of
+related analyses. User-wide locations are useful for reusable personal blocks and
+types shared across projects. Packaged plugins remain the preferred mechanism for
+distribution beyond one user machine.
 
-### 10.1 Workflow definition format
+---
+## 11. Extensibility
 
-Workflows are serialised as YAML, decoupled from the ReactFlow frontend state:
+SciEasy is designed to keep the **core runtime** small while letting scientific capability grow at the project, package, application, and agent layers. The framework provides stable extension boundaries for **blocks**, **data types**, **format capabilities**, **external applications**, **code runners**, and **agent tools**. Domain-specific science should usually enter through one of those boundaries instead of being added directly to core.
 
-```yaml
-workflow:
-  id: "multimodal-cell-analysis"
-  version: "1.0.0"
-  description: "Integrated LC-MS, Raman, IF, and SRS analysis"
+### 11.1 Extension Philosophy
 
-  nodes:
-    - id: "load_lcms"
-      block_type: "IOBlock"
-      config:
-        direction: "input"
-        format: "mzXML"
-        path: "data/raw/sample_001.mzXML"
+Extensibility follows four rules:
 
-    - id: "elmaven"
-      block_type: "AppBlock"
-      config:
-        app_command: "ElMAVEN --input {exchange_dir}/data.mzXML"
-        input_format: "mzXML"
-        output_format: "csv"
-        watch_patterns: ["*_peaks.csv"]
-      execution_mode: "external"
-      # block handles batch internally (ADR-020)
+- **Core owns runtime contracts.** Scheduling, validation, lineage, versioning, storage boundaries, and event delivery remain framework responsibilities.
+- **Projects can extend locally.** A lab can place project-specific blocks and types in the project workspace without publishing a package.
+- **Packages can extend publicly.** Reusable blocks and types can be distributed as Python packages and discovered through entry points.
+- **Existing tools stay useful.** Scripts, notebooks, command-line tools, GUI applications, and agents can be wrapped as workflow blocks instead of rewritten from scratch.
 
-    - id: "r_annotation"
-      block_type: "CodeBlock"
-      config:
-        language: "r"
-        script: |
-          library(MetaboAnalystR)
-          peak_table <- input_0
-          annotated <- annotate_peaks(peak_table)
-          output_0 <- annotated
+This keeps SciEasy inclusive: a workflow may combine native blocks, project-local logic, Jupyter notebooks, Python/R/MATLAB scripts, user-preferred applications, and calls to an AI Agent for help in one typed graph.
 
-    - id: "load_raman"
-      block_type: "IOBlock"
-      config:
-        direction: "input"
-        format: "csv"
-        path: "data/raw/raman_spectra/"
-        # loads directory as Collection (ADR-020)
+### 11.2 Project-Local Extensions
 
-    - id: "raman_preprocess"
-      block_type: "ProcessBlock"
-      config:
-        algorithm: "raman_pipeline"
-        params:
-          baseline_method: "als"
-          smoothing_window: 11
-      # block handles batch internally (ADR-020)
+A SciEasy project contains `blocks/` and `types/` directories for local extension code. This is the lowest-friction path for a scientist who wants to adapt a pipeline for one dataset, one experiment, or one lab workflow.
 
-    - id: "load_if_images"
-      block_type: "IOBlock"
-      config:
-        direction: "input"
-        format: "tif"
-        path: "data/raw/IF_images/"
-        # loads directory as Collection (ADR-020)
+The current custom block starter is copied from `src/scieasy/blocks/_templates/block_base_template.py` into `<project>/blocks/<name>.py`. Non-normative template excerpt:
 
-    - id: "cellpose_segment"
-      block_type: "ProcessBlock"
-      config:
-        algorithm: "cellpose"
-        params:
-          model: "cyto2"
-          diameter: 30
-      # block handles batch internally (ADR-020)
+```python
+from __future__ import annotations
 
-    - id: "napari_review"
-      block_type: "AppBlock"
-      config:
-        app_command: "napari"
-      execution_mode: "interactive"
-      # block handles batch internally (ADR-020)
+from typing import Any, ClassVar
 
-    - id: "srs_extract"
-      block_type: "ProcessBlock"
-      config:
-        algorithm: "mask_spectral_extraction"
-        description: "Apply IF-derived cell masks to registered SRS hyperspectral images"
+from scieasy.blocks.base import (
+    Block,
+    BlockConfig,
+    InputPort,
+    OutputPort,
+)
+from scieasy.core.types.collection import Collection
 
-    - id: "cross_modal_merge"
-      block_type: "ProcessBlock"
-      config:
-        algorithm: "multimodal_merge"
-        join_on: "cell_id"
 
-    - id: "export_results"
-      block_type: "IOBlock"
-      config:
-        direction: "output"
-        format: "h5ad"
-        path: "data/results/integrated.h5ad"
+class MyBlock(Block):
+    """Replace this docstring with what your block does."""
 
-  edges:
-    - source: "load_lcms:output_0"
-      target: "elmaven:input_0"
-    - source: "elmaven:output_0"
-      target: "r_annotation:input_0"
-    - source: "load_raman:output_0"
-      target: "raman_preprocess:input_0"
-    - source: "load_if_images:output_0"
-      target: "cellpose_segment:input_0"
-    - source: "cellpose_segment:output_0"
-      target: "napari_review:input_0"
-    - source: "napari_review:output_0"
-      target: "srs_extract:input_mask"
-    - source: "r_annotation:output_0"
-      target: "cross_modal_merge:input_metabolites"
-    - source: "raman_preprocess:output_0"
-      target: "cross_modal_merge:input_spectra"
-    - source: "srs_extract:output_0"
-      target: "cross_modal_merge:input_spatial"
-    - source: "cross_modal_merge:output_0"
-      target: "export_results:input_0"
+    input_ports: ClassVar[list[InputPort]] = [
+        InputPort(name="input", accepted_types=[]),
+    ]
+    output_ports: ClassVar[list[OutputPort]] = [
+        OutputPort(name="output", accepted_types=[]),
+    ]
+
+    config_schema: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {},
+    }
+
+    def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
+        raise NotImplementedError("fill in MyBlock.run()")
 ```
 
-### 10.2 Prod-env agent reliability stack (ADR-040)
+The empty `accepted_types` lists are placeholders in the starter file. Production blocks should narrow ports to concrete `DataObject` subclasses whenever the expected type is known, because concrete ports improve validation, palette display, agent reasoning, and downstream reproducibility.
 
-When a project is created (`scieasy init` or `ApiRuntime.create_project`) or
-re-opened (`ApiRuntime.open_project`), SciEasy provisions a small set of
-**prod-env agent reliability files** into the project so end-user-facing
-Claude Code and Codex sessions running *inside that project* behave
-predictably:
+Project-local extensions are best for:
 
-```
-my_project/
-├── CLAUDE.md                              # Identity + 4 core rules for Claude Code (~50 LOC)
-├── AGENTS.md                              # Identical content; Codex reads this name
-├── .claude/
-│   ├── settings.json                      # Hook matchers (PreToolUse / PostToolUse)
-│   ├── hooks/                             # 6 hook scripts (ADR-040 §3.6)
-│   │   ├── deny_scieasy_cli.py            #   Blocks `scieasy …` Bash invocations
-│   │   ├── protect_workflow_yaml.py       #   Blocks direct edits to workflows/*.yaml
-│   │   ├── enforce_list_blocks_before_block_write.py
-│   │   ├── remind_poll_status.py
-│   │   ├── mark_list_blocks_called.py
-│   │   └── enforce_concrete_port_types.py
-│   ├── skills/scieasy/{…6 skills…}        # Cross-installed to BOTH locations
-│   └── .scieasy-provision-version         # Version marker for idempotent top-up
-├── .agents/
-│   └── skills/scieasy/{…6 skills…}        # Codex reads from .agents/skills/
-└── .codex/
-    └── config.toml                        # [mcp_servers.scieasy] project-scope MCP wiring
-```
+| Use case | Why project-local works |
+|---|---|
+| One-off preprocessing | The block lives with the dataset and workflow branch that needs it. |
+| Lab-private analysis | The code stays inside the project repository instead of a public package. |
+| Dataset adaptation | A branch can carry small pipeline changes for one batch or experiment. |
+| Fast prototyping | The user can iterate before deciding whether the block belongs in a package. |
 
-Key properties:
+### 11.3 Package Extensions
 
-- **Idempotent**: `install_project_agent_assets(project_dir, force=False)` is
-  called on every `open_project`. Existing user-edited files are preserved
-  (per-file hash compare) and only missing files are top-up-written. This is
-  how alpha-stage projects retroactively acquire the new assets when SciEasy
-  is upgraded.
-- **Non-fatal**: per ADR-040 §7, provisioning failure is logged at WARNING
-  level and the project still opens. Degraded-mode tests
-  (`tests/api/test_open_project_degraded_modes.py`) cover this.
-- **Lifecycle ordering**: provisioning runs **after** ADR-039 git auto-init
-  so the initial commit is clean of provisioned files; they land in a second
-  commit on the user's first checkpoint.
-- **Dev vs prod env boundary**: this stack is for **end-user agent sessions
-  inside a SciEasy project**. The SciEasy source repository (`SciEasy/`
-  itself) has its own developer-facing CLAUDE.md, hooks, and skills that
-  follow a different — much larger — contract (see `CLAUDE.md` at the
-  repo root). The prod-env CLAUDE.md template is intentionally ~50 lines:
-  it tells end-user agents to use the MCP server (not `scieasy` CLI), to
-  call `list_blocks` before writing blocks, and to trust hook denials.
+Reusable extensions are distributed as Python packages. The runtime discovers package-provided blocks and types through entry points, then registers them into the same block and type registries used by core and project-local code.
 
-See `docs/agent-provisioning.md` for the operational reference and
-ADR-040 for the architectural decision record.
+| Entry point group | Responsibility |
+|---|---|
+| `scieasy.blocks` | Registers block classes and optional package metadata for palette grouping. |
+| `scieasy.types` | Registers additional `DataObject` subclasses for typed ports and storage behavior. |
+| `scieasy.runners` | Registers CodeBlock runner backends for additional script execution environments. |
+
+The block package path is appropriate when a block set is reusable across projects, has its own tests, carries external dependencies, or belongs to a scientific community plugin. Package authors can use `PackageInfo` for display metadata and `BlockTestHarness` for contract validation, both of which are public helper surfaces in the current codebase.
+
+### 11.4 Block-Level Extension Patterns
+
+Most extension work enters SciEasy as a block. The block type should match the integration boundary:
+
+| Extension pattern | Use when |
+|---|---|
+| **CustomBlock** | The user writes project-local Python logic and wants direct control over the run method. |
+| **ProcessBlock** | The block transforms one typed data item or a Collection using framework iteration behavior. |
+| **IOBlock** | The block loads or saves external file formats and participates in format capability selection. |
+| **CodeBlock** | The user wants to run an existing script, notebook, or analysis file with declared input/output exchange. |
+| **AppBlock** | The workflow needs to launch an external GUI or CLI application and reconstruct outputs from files. |
+| **AIBlock** | An agent performs a bounded workflow step and returns declared outputs through the same runtime boundary. |
+| **SubWorkflowBlock** | A reusable workflow should appear as a single block inside a larger workflow. |
+
+This model lets users migrate gradually. A familiar script can start as a **CodeBlock**, become a **CustomBlock** when it needs tighter runtime integration, and later move into a package when it becomes reusable.
+
+### 11.5 Data And Format Extensions
+
+SciEasy separates **data type identity** from **external file format**. New scientific domains can add typed `DataObject` subclasses, while IO blocks declare the external formats they can load or save.
+
+Format extensions should describe:
+
+| Concern | Extension responsibility |
+|---|---|
+| **File extension and format ID** | Make the external boundary explicit and stable. |
+| **Target data type** | State which `DataObject` subclass is produced or consumed. |
+| **Metadata fidelity** | Record whether metadata is preserved exactly, partially, or only in a sidecar. |
+| **Priority and defaults** | Let the runtime choose among multiple capable loaders or savers predictably. |
+
+The **canonical zone** remains the internal storage boundary. Format conversion happens at IO and app boundaries; workflow internals should prefer typed objects with stable storage references.
+
+### 11.6 Agent And Tool Extensions
+
+Agents extend SciEasy through the **MCP tool surface** and project-provisioned skills. They can inspect registries, scaffold blocks, validate workflows, run workflows, read outputs, and finish AIBlock tasks through runtime-controlled tools.
+
+Agent extension does not make the agent the owner of workflow truth. The backend runtime remains authoritative for workflow state, run state, lineage, validation, and event emission. Agents should use MCP/API operations rather than editing workflow files or invoking runtime commands as a hidden control plane.
+
+### 11.7 Out Of Scope And Future Extension Areas
+
+Several extension directions are deliberately left open but are not required for the current local-first architecture:
+
+| Area | Current stance |
+|---|---|
+| **Remote execution backends** | Future schedulers may target cluster or cloud environments, but local runtime behavior remains the baseline contract. |
+| **Marketplace discovery** | Package metadata can support a future searchable block marketplace without changing the project-local or entry-point model. |
+| **Stronger sandboxing** | Subprocess isolation is the current baseline; container or browser-level isolation can be added later for multi-user deployments. |
+| **Streaming pipelines** | Current workflows are store-and-forward through typed objects and storage references; streaming transfer would require scheduler and failure-model work. |
+
+These are extension directions, not current user-facing contracts.
 
 ---
 
-## 11. Technology stack summary
+## 12. Dependencies List
+
+This section summarizes the dependency surface declared by the repository. It is not a lockfile; exact resolved versions belong to the Python and frontend package managers.
+
+### 12.1 Python Runtime Dependencies
+
+| Dependency | Role |
+|---|---|
+| `pydantic` | Data validation for configs, API models, and runtime schemas. |
+| `fastapi` | Backend API framework for REST, WebSocket, and static app serving. |
+| `python-multipart` | File upload parsing for API routes. |
+| `uvicorn[standard]` | ASGI server used to run the API. |
+| `zarr` | Chunked array storage backend. |
+| `pyarrow` | Arrow and Parquet table storage and exchange. |
+| `watchdog` | Filesystem change watching for project and frontend update flows. |
+| `typer` | CLI command framework. |
+| `xxhash` | Fast content hashing. |
+| `httpx` | HTTP client utility. |
+| `pyyaml` | YAML parsing and writing for workflow/project files. |
+| `psutil` | OS-level memory and process monitoring. |
+| `filelock` | Cross-process file locking for agent and MCP write paths. |
+| `ruamel.yaml` | Round-trip YAML editing when comments and ordering must be preserved. |
+| `pywinpty` | Windows-only PTY support for embedded terminal agents. |
+| `fastmcp` | MCP server implementation for agent-facing tools. |
+
+### 12.2 Optional Python Dependencies
+
+| Extra | Dependencies | Role |
+|---|---|---|
+| `ai` | `anthropic`, `openai` | Optional provider SDKs for AI agent integrations. |
+| `dev` | `pytest`, `pytest-cov`, `pytest-xdist`, `pytest-timeout`, `ruff`, `mypy`, `types-PyYAML`, `import-linter`, `griffe`, `pre-commit` | Test, lint, type-check, architecture, and governance tooling. |
+
+### 12.3 Frontend Runtime Dependencies
+
+| Dependency | Role |
+|---|---|
+| `react`, `react-dom` | React application runtime. |
+| `@xyflow/react` | Workflow canvas and node graph interactions. |
+| `zustand` | Frontend state management for UI and runtime views. |
+| `@radix-ui/react-*` | Accessible UI primitives used by shadcn-style components. |
+| `lucide-react` | Icon set for toolbars, buttons, and panels. |
+| `react-resizable-panels` | Resizable application shell panels. |
+| `@monaco-editor/react` | Embedded code editor. |
+| `@xterm/xterm` and xterm addons | Embedded terminal tabs and terminal affordances. |
+| `plotly.js`, `react-plotly.js` | Interactive chart preview rendering. |
+| `class-variance-authority`, `clsx`, `tailwind-merge`, `tailwindcss-animate` | UI class composition and animation helpers. |
+
+### 12.4 Frontend Build And Test Dependencies
+
+| Dependency | Role |
+|---|---|
+| `typescript` | Type checking and compilation. |
+| `vite`, `@vitejs/plugin-react` | Frontend build and development server. |
+| `vitest`, `jsdom` | Frontend unit test runtime. |
+| `@testing-library/*` | React component and user-event testing helpers. |
+| `tailwindcss`, `postcss`, `autoprefixer` | Styling build pipeline. |
+| `@types/*` | TypeScript type packages for React and Plotly bindings. |
+
+### 12.5 External Tool Expectations
+
+Some runtime paths depend on tools installed outside the Python or frontend dependency set:
+
+| Tool family | Used by |
+|---|---|
+| Git | Project source versioning and workflow branch management. |
+| Python, shell, R/Quarto, Jupyter, MATLAB-family interpreters | CodeBlock execution backends when a workflow uses those script formats. |
+| User-selected GUI or CLI applications | AppBlock integrations. |
+| Claude or Codex CLI | Terminal agent sessions and AIBlock agent runs when those providers are selected. |
+
+---
+
+## 13. Technology Stack Summary
 
 | Layer | Technology | Version / Notes |
 |---|---|---|
-| Language | Python 3.11+ | Core framework |
-| Web framework | FastAPI | REST + WebSocket + SSE |
-| Data validation | Pydantic v2 | Config schemas, API models |
-| Array storage | Zarr v3 | Chunked, compressed, cloud-ready |
-| Tabular storage | Apache Arrow / Parquet | Via `pyarrow` |
-| Lineage DB | SQLite (WAL) | Unified run lineage (ADR-038, supersedes ADR-032): `runs` + `block_executions` + `data_objects` + `block_io` |
-| Source version control | bundled portable `git` CLI (MinGit on Windows ~30 MB; static `git` on mac/Linux ~25 MB) | Workflow YAML + custom blocks + notes per ADR-039; auto-init on project open; pre-run auto-commit |
-| Process lifecycle | ProcessHandle + ProcessRegistry + ProcessMonitor | Cross-platform: POSIX signals + process groups (Linux/macOS), Job Objects + TerminateProcess (Windows). Optional: `psutil` for convenience methods (ADR-019) |
-| Concurrency | `concurrent.futures` + `asyncio` | Block-internal parallelism, async scheduling |
-| System monitoring | `psutil` | OS memory usage for ResourceManager dispatch gating, process alive checks for ProcessHandle (ADR-022, ADR-019) |
-| Frontend framework | React 18 + TypeScript | |
-| Workflow canvas | ReactFlow | Node-graph editor |
-| State management | Zustand | Lightweight, React-native |
-| UI toolkit | shadcn/ui + Tailwind CSS | |
-| Data visualisation | Plotly.js | Inline previews |
-| AI integration | Anthropic / OpenAI API | Block generation, workflow synthesis |
-| Package format | PyPI (`pip install`) | Block distribution via `scieasy.*` entry_points (ADR-025) |
-| Block SDK | `scieasy.testing` + `scieasy init-block-package` | Test harness + scaffolding for external developers (ADR-026) |
-| Frontend bundling | Vite build → Python wheel package data | Pre-built SPA served by FastAPI, `scieasy gui` command (ADR-024) |
+| Language | Python 3.11+ | Core runtime, CLI, API, block system, agents, and governance tooling. |
+| API framework | FastAPI + Uvicorn | REST resources, WebSocket updates, static SPA serving, and local backend serving. |
+| Validation | Pydantic v2 | API models, block configs, workflow/runtime schemas. |
+| Workflow graph | YAML + typed registry contracts | Workflow source is stored under `workflows/`; backend/runtime remains source of truth. |
+| YAML handling | PyYAML + ruamel.yaml | Standard YAML read/write plus round-trip editing where comments and order matter. |
+| Event runtime | EventBus + asyncio | Runtime event propagation, WebSocket updates, run progress, prompts, and status changes. |
+| File watching | watchdog | Project file and Git-head change detection bridged into runtime events. |
+| Process lifecycle | ProcessHandle, ProcessRegistry, ProcessMonitor | Cross-platform subprocess isolation, cancellation, and liveness tracking. |
+| Lineage store | SQLite with WAL | Project-local `.scieasy/lineage.db` for runs, block executions, data objects, and block IO. |
+| Storage | Zarr, Arrow/Parquet, file artifacts | Canonical storage backends for arrays, tables, and external artifacts. |
+| Version control | Bundled or system git | Project workflow/source tracking, branches for parallel workflow variants, pre-run source snapshots. |
+| Block discovery | Project files + Python entry points | Project-local `blocks/` and package-level `scieasy.blocks` discovery. |
+| Type discovery | Core registry + Python entry points | Core `DataObject` types plus package-level `scieasy.types` extensions. |
+| Code execution | CodeBlock backends | Python, POSIX shell, R/Quarto, Jupyter notebooks, and MATLAB-family files through declared exchange contracts. |
+| MCP server | FastMCP | Agent-facing tool server used by Claude/Codex sessions and AIBlock runs. |
+| Frontend | React 18 + TypeScript + Vite | Bundled SPA served by the backend. |
+| Workflow canvas | React Flow via `@xyflow/react` | Node graph editing, typed ports, edges, annotations, grouping, and canvas controls. |
+| Frontend state | Zustand | Client-side UI state; not workflow truth. |
+| UI toolkit | Tailwind, Radix/shadcn-style components, lucide icons | Application shell, panels, dialogs, forms, and toolbar controls. |
+| Code editor | Monaco via `@monaco-editor/react` | Project file tabs, Python lint markers, and Git conflict editing. |
+| Terminal UI | xterm.js | Embedded Claude/Codex terminal tabs over PTY-backed WebSocket sessions. |
+| Data preview | Plotly and custom preview renderers | Tables, images, text, charts, composites, and artifact fallbacks. |
+| Agent integration | Claude/Codex CLI + MCP bridge | Project agents and AIBlock agent runs use runtime-scoped MCP tools. |
+| Packaging | Python wheel / PyPI | Core installation, bundled frontend assets, templates, skills, and third-party block packages. |
+| Testing helpers | pytest, Vitest, BlockTestHarness | Runtime tests, frontend tests, and block package contract/smoke-test support. |
+---|---|---|
+| Language | Python 3.11+ | Core runtime, CLI, API, block system, agents, and governance tooling. |
+| API framework | FastAPI | REST resources, WebSocket updates, static SPA serving, runtime entry point. |
+| Validation | Pydantic v2 | API models, block configs, workflow/runtime schemas. |
+| Workflow graph | YAML + typed registry contracts | Workflow source is stored under `workflows/`; backend/runtime remains source of truth. |
+| Event runtime | EventBus + asyncio | Runtime event propagation, WebSocket updates, run progress, prompts, and status changes. |
+| Process lifecycle | ProcessHandle, ProcessRegistry, ProcessMonitor | Cross-platform subprocess isolation, cancellation, and liveness tracking. |
+| Lineage store | SQLite with WAL | Project-local `.scieasy/lineage.db` for runs, block executions, data objects, and block IO. |
+| Storage | Zarr, Arrow/Parquet, file artifacts | Canonical storage backends for arrays, tables, and external artifacts. |
+| Version control | Bundled git where needed | Project workflow/source tracking, branches for parallel workflow variants, pre-run source snapshots. |
+| Block discovery | Project files + Python entry points | Project-local `blocks/` and package-level `scieasy.blocks` discovery. |
+| Type discovery | Core registry + Python entry points | Core `DataObject` types plus package-level `scieasy.types` extensions. |
+| Code execution | CodeBlock backends | Python, shell, R/Quarto, notebooks, and MATLAB-family files through declared exchange contracts. |
+| Frontend | React 18 + TypeScript + Vite | Bundled SPA served by the backend. |
+| Workflow canvas | ReactFlow | Node graph editing, typed ports, edges, annotations, and canvas controls. |
+| Frontend state | Zustand | Client-side UI state; not workflow truth. |
+| UI toolkit | Tailwind, Radix/shadcn-style components, lucide icons | Application shell, panels, dialogs, forms, and toolbar controls. |
+| Data preview | Plotly and custom preview renderers | Tables, images, text, charts, composites, and artifact fallbacks. |
+| Agent integration | MCP + terminal agents | Claude/Codex project agents and AIBlock runs use runtime-scoped MCP tools. |
+| Packaging | Python wheel / PyPI | Core installation and third-party block packages. |
+| Testing helpers | pytest + BlockTestHarness | Runtime tests plus block package contract and smoke-test support. |
 
 ---
-
-## 12. Extension points
-
-The framework is designed for community extensibility at every layer:
-
-| What to extend | How |
-|---|---|
-| **New data type** | Subclass any base type. Drop `.py` in `{project}/types/` (Tier 1) or publish as pip package with `scieasy.types` entry-point callable (Tier 2; ADR-025). Max 3 levels of inheritance from DataObject. |
-| **New block** | Subclass one of the five block categories. Drop `.py` in `{project}/blocks/` (Tier 1) or publish as pip package with `scieasy.blocks` entry-point callable returning `(PackageInfo, [Block, ...])` (Tier 2; ADR-025). |
-| **Block package** | Use `scieasy init-block-package` to scaffold a complete package with `PackageInfo`, entry-points, example blocks, tests using `BlockTestHarness`, and documentation (ADR-026). Publish to PyPI for community distribution. |
-| **Reusable sub-pipeline** | Build a workflow, then use it as a `SubWorkflowBlock` in other workflows. Publish as a shareable workflow YAML. |
-| **New storage backend** | Implement the `StorageBackend` protocol (read, write, slice, iter_chunks). Register for a data type. |
-| **New code runner** | Implement the `CodeRunner` protocol (execute script with namespace injection). Register for a language identifier via `scieasy.runners` entry-point. |
-| **New app bridge** | Configure `AppBlock` with the application's CLI, declared type/extension ports, and capability-aware materialisation/reconstruction rules. |
-| **New IO block (loader / saver)** | For simple local IO, subclass `SimpleLoader` or `SimpleSaver`. For published packages or aggregate IO, declare explicit `FormatCapability` records with stable capability IDs, metadata fidelity, and default/priority policy. Register through the existing `scieasy.blocks` entry-point group; no separate `scieasy.adapters` group exists. |
-| **New block runner** | Implement the `BlockRunner` protocol for remote/cluster execution environments. |
-
-### 12.1 Entry-point callable protocol (ADR-025, amended by ADR-028 §D4)
-
-The two surviving entry-point groups (`scieasy.blocks` and `scieasy.types`) follow a **callable protocol**: the entry-point value is a function (or class) that the registry invokes at scan time. This allows lazy importing — block code is not imported until the registry scans, preventing import-time side effects and heavy dependency loading at startup. The third group originally proposed in ADR-025 §6 (`scieasy.adapters`) was removed by ADR-028 §D4 — concrete IO classes (e.g., `LoadImage`, `LoadMSRawFile`) register through `scieasy.blocks` like any other block.
-
-```python
-# scieasy.blocks callable protocol:
-def get_blocks() -> tuple[PackageInfo, list[type[Block]]]:
-    """Return package metadata + list of block classes (including any
-    plugin-owned IOBlock subclasses such as LoadImage / SaveImage)."""
-    ...
-
-# Backward-compatible variant (no PackageInfo):
-def get_blocks() -> list[type[Block]]:
-    """Entry-point name used as package display name."""
-    ...
-
-# scieasy.types callable protocol:
-def get_types() -> list[type[DataObject]]:
-    """Return list of custom DataObject subclasses to register."""
-    ...
-```
-
-### 12.2 Block SDK (ADR-026)
-
-For the SciEasy ecosystem to grow, external developers must be able to create block packages without reading internal architecture documents. The Block SDK provides three components:
-
-#### `scieasy init-block-package` — project scaffolding
-
-Generates a complete, ready-to-develop block package with a single CLI command:
-
-```bash
-$ scieasy init-block-package scieasy-blocks-srs
-
-Package display name [SRS]: SRS Imaging
-Author []: Dr. Wang Lab
-Categories (comma-separated) [processing]: processing, stat, io
-
-Created scieasy-blocks-srs/
-  src/scieasy_blocks_srs/
-    __init__.py                    # PackageInfo + get_blocks()
-    types.py                       # Example custom type (optional)
-    processing/example_block.py    # Example block per category
-    stat/example_block.py
-    io/example_block.py
-  tests/
-    test_example_block.py          # Example test using BlockTestHarness
-  pyproject.toml                   # Pre-configured with entry-points
-  README.md                        # Quick start guide
-```
-
-The generated `pyproject.toml` includes all three entry-point groups pre-configured. The example block is a minimal working implementation with inline comments explaining the contract. Templates are shipped as `.tpl` files inside `scieasy.cli.templates`.
-
-#### `BlockTestHarness` — testing utility
-
-A test helper that eliminates boilerplate for block testing:
-
-```python
-from scieasy.testing import BlockTestHarness
-
-class TestMyBlock:
-    def test_doubles_values(self, tmp_path):
-        harness = BlockTestHarness(MyTransformBlock, work_dir=tmp_path)
-        result = harness.run(
-            inputs={"data": {"x": [1, 2, 3], "y": [4, 5, 6]}},
-            params={"column": "x"},
-        )
-        assert result["output"].column("x").to_pylist() == [2, 4, 6]
-```
-
-`BlockTestHarness` responsibilities:
-- Wrap raw Python data (dicts, lists, numpy arrays) into appropriate DataObjects.
-- Create a temporary project structure.
-- Call `process_item()` with properly constructed inputs.
-- Validate output types against the block's declared output ports.
-- Materialize output DataObjects for easy assertion.
-- Clean up temporary files.
-
-Location: `src/scieasy/testing/harness.py` (public module: `from scieasy.testing import BlockTestHarness`).
-
-#### Developer documentation
-
-A structured documentation set in `docs/block-development/` communicates the constraints from ADR-017 through ADR-022 in practical, actionable terms — without requiring developers to read internal ADRs:
-
-| Document | Content |
-|----------|---------|
-| `quickstart.md` | 5-minute from-zero-to-running guide |
-| `architecture-for-block-devs.md` | Execution model: subprocess isolation, Collection transport, block lifecycle |
-| `block-contract.md` | Input/output/params reference |
-| `data-types.md` | Core type hierarchy, Collection, when to use each type |
-| `custom-types.md` | Subclassing core types, metadata persistence |
-| `memory-safety.md` | Three-tier processing model (process_item → map_items → manual) |
-| `collection-guide.md` | Working with Collections correctly |
-| `testing.md` | BlockTestHarness API reference |
-| `publishing.md` | PyPI packaging and distribution guide |
-| `docs/block-development/examples/` | Complete walkthroughs: simple-transform, custom-io-loader, multi-block-package |
-
-Key developer-facing rules (translated from ADRs):
-
-- **Subprocess isolation** (ADR-017): your block runs in a separate process — you CAN use any CPU/memory, import any library; you CANNOT share mutable state across calls or hold persistent connections.
-- **Collection transport** (ADR-020): use `process_item()` (Tier 1) for 80% of blocks (constant memory), `map_items()` (Tier 2) for batch operations, manual `Collection` handling (Tier 3) only when cross-item operations are required.
-- **Cancellation** (ADR-018): blocks do not need to handle cancellation explicitly — the engine terminates the subprocess. Use atomic write patterns (write-to-temp-then-rename) for partial output safety.
-- **Memory** (ADR-022): blocks should declare resource hints (`requires_gpu`, `cpu_cores`) to help the scheduler. System memory is monitored at OS level via psutil, not estimated per-block.
-
----
-
 ## Appendix A: Concrete example walkthrough
 
 **Scenario**: Jiazhen has LC-MS data, Raman spectra, IF images, and SRS hyperspectral images. The goal is to integrate all four modalities at the single-cell level.
