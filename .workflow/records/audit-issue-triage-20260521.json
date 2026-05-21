@@ -1,6 +1,15 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/audit/audit-issue-triage-full-audit.json"
+      ],
+      "reason": "Include full_audit evidence path under gate scope"
+    }
+  ],
   "branch": "audit/2026-05-21-open-issue-triage",
   "changed_test_paths": [],
   "check_results": [
