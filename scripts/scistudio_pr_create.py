@@ -45,6 +45,13 @@ _FILTERED_GUARD_PREFIXES: tuple[str, ...] = (
     "human_bypass_guard.",
 )
 
+# Specific (rule_id, stage-token) pairs that are also structurally impossible
+# pre-PR: ``commit_and_submit_pr`` is only marked done by ``gate_record
+# finalize``, which itself requires the PR URL. ``gate_record ci`` is strict
+# (mirrors CI's post-PR run) and surfaces this as ``gate-record.stage.not-done``.
+# Caught during dogfooding this wrapper on PR #1360.
+_FILTERED_STAGE_NOT_DONE_TOKENS: tuple[str, ...] = ("commit_and_submit_pr",)
+
 
 def extract_body(argv: list[str]) -> str:
     """Read PR body text from ``--body`` or ``--body-file`` in *argv*.
@@ -101,18 +108,35 @@ def find_gate_record(repo_root: Path, branch: str) -> Path:
     )
 
 
+def _is_pr_state_finding(f: dict[str, Any]) -> bool:
+    """True when *f* is structurally impossible to satisfy pre-PR.
+
+    Two classes today:
+    - rule_id under one of the three PR-state guards
+      (:data:`_FILTERED_GUARD_PREFIXES`);
+    - ``gate-record.stage.not-done`` where the message names a stage in
+      :data:`_FILTERED_STAGE_NOT_DONE_TOKENS` (currently only
+      ``commit_and_submit_pr``, which finalize sets after the PR URL exists).
+    """
+    rule_id = f.get("rule_id", "")
+    if rule_id.startswith(_FILTERED_GUARD_PREFIXES):
+        return True
+    if rule_id == "gate-record.stage.not-done":
+        message = str(f.get("message", ""))
+        return any(token in message for token in _FILTERED_STAGE_NOT_DONE_TOKENS)
+    return False
+
+
 def filter_findings(report: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
     """Drop PR-state-dependent findings from *report*.
 
-    Returns ``(remaining, filtered_count)``. *remaining* keeps findings
-    whose ``rule_id`` does NOT start with any of
-    :data:`_FILTERED_GUARD_PREFIXES`; *filtered_count* is the dropped
-    count so the wrapper can print a transparency note.
+    Returns ``(remaining, filtered_count)``. *remaining* keeps findings that
+    the local pre-PR check can meaningfully fail on; *filtered_count* is the
+    dropped count so the wrapper can print a transparency note. The drop
+    predicate is :func:`_is_pr_state_finding`.
     """
     all_findings = report.get("findings") or []
-    remaining = [
-        f for f in all_findings if isinstance(f, dict) and not f.get("rule_id", "").startswith(_FILTERED_GUARD_PREFIXES)
-    ]
+    remaining = [f for f in all_findings if isinstance(f, dict) and not _is_pr_state_finding(f)]
     return remaining, len(all_findings) - len(remaining)
 
 

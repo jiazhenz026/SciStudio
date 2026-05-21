@@ -179,6 +179,37 @@ class TestFilterFindings:
         assert len(remaining) == 1
         assert filtered == 0
 
+    def test_stage_not_done_commit_and_submit_pr_filtered(self, wrapper) -> None:
+        # Caught during PR #1360 dogfood: ``commit_and_submit_pr`` stage is
+        # only set by ``gate_record finalize`` which itself requires the PR
+        # URL — structurally impossible to pass pre-PR.
+        report = {
+            "findings": [
+                _finding(
+                    "gate-record.stage.not-done",
+                    message="gate stage must be done before PR readiness: commit_and_submit_pr",
+                )
+            ]
+        }
+        remaining, filtered = wrapper.filter_findings(report)
+        assert remaining == []
+        assert filtered == 1
+
+    def test_stage_not_done_other_stages_kept(self, wrapper) -> None:
+        # A ``stage.not-done`` for any other stage (e.g. ``implement``)
+        # IS the author's responsibility to fix pre-push; must NOT be filtered.
+        report = {
+            "findings": [
+                _finding(
+                    "gate-record.stage.not-done",
+                    message="gate stage must be done before PR readiness: implement",
+                )
+            ]
+        }
+        remaining, filtered = wrapper.filter_findings(report)
+        assert len(remaining) == 1
+        assert filtered == 0
+
 
 # ---------------------------------------------------------------------------
 # main — smoke via --dry-run + SCISTUDIO_SKIP_PREFLIGHT
