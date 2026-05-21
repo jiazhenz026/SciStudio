@@ -1,6 +1,8 @@
 {
   "admin_labels": [
     {
+      "applied_at": null,
+      "applied_by": null,
       "name": "admin-approved:ai-override"
     }
   ],
@@ -18,7 +20,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1311-untrack-full-audit-umbrella.json",
+    "shas": [
+      "177452aada80b25c05701e344e9153068d719b42"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -51,7 +59,13 @@
   ],
   "owner_directive": "Two-layer fix for recurring docs/audit/full-audit-latest.json track/merge conflict on umbrella PR #1297. Layer 1: git rm --cached. Layer 2: pre-commit denylist.",
   "planned_files": [],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1311
+    ],
+    "number": 1312,
+    "url": "https://github.com/zjzcpj/SciEasy/pull/1312"
+  },
   "record_path": ".workflow/records/1311-untrack-full-audit-umbrella.json",
   "required_checks": [
     "pre-commit-denylist-unit-test"
