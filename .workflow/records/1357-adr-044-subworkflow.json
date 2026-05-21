@@ -30,7 +30,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1357-adr-044-subworkflow.json",
+    "shas": [
+      "59d8f8fb"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "not_applicable": true,
@@ -74,7 +80,13 @@
     "docs/specs/adr-044-subworkflow-block.md",
     "docs/architecture/ARCHITECTURE.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1357
+    ],
+    "number": 1359,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1359"
+  },
   "record_path": ".workflow/records/1357-adr-044-subworkflow.json",
   "required_checks": [
     "frontmatter_lint",
@@ -138,7 +150,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
