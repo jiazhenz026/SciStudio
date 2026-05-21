@@ -30,7 +30,7 @@ language_source: en
   - Agents: `fix/issue-<n>/<slug>` @ `.claude/worktrees/agent-<wave>-<id>` per dispatch
 - Protected branch: `main`
 - Umbrella branch: `umbrella/2026-05-21-bug-sweep`
-- Umbrella PR: `#<pending>`
+- Umbrella PR: `#1377` (https://github.com/zjzcpj/SciStudio/pull/1377)
 - Umbrella PR title: `[DO NOT MERGE] umbrella(bug-sweep-2026-05-21): 16-issue Tier 1+2 + audit-followup batch`
 - Final PR target: `main`
 - Dispatch prompt templates:
@@ -75,9 +75,9 @@ language_source: en
 - [ ] Gate record started.
 - [ ] Scope include/exclude recorded in the gate record.
 - [x] Umbrella branch created.
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [ ] Protected branch and umbrella PR number recorded in this checklist.
+- [x] Umbrella PR opened. → #1377
+- [x] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Protected branch and umbrella PR number recorded in this checklist.
 - [x] No `pip install -e .` environment pollution found.
 - [~] Dispatch checklist copied from the template and committed.
 - [ ] Dispatch prompts created from the correct prompt template and linked below.

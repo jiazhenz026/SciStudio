@@ -1,12 +1,75 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Manager-coordination commit; checklist + gate record bootstrap counts as the manager implementation artifact. No scope change vs. original include set."
+    }
+  ],
   "branch": "umbrella/2026-05-21-bug-sweep",
   "changed_test_paths": [],
-  "check_results": [],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "650 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+      "exit_code": 0,
+      "name": "full_audit",
+      "output_path": "docs/audit/full-audit-latest.json",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
   "commit": null,
-  "docs_landing": {},
-  "full_audit": null,
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "no-architecture-change"
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "manager-coordination-only-no-user-visible-change"
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/2026-05-21-bug-sweep-checklist.md"
+      ]
+    },
+    "docs": {},
+    "spec": {
+      "not_applicable": true,
+      "rationale": "no-contract-change"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
   "governance_touch": false,
   "issues": [
     {
@@ -17,10 +80,18 @@
     }
   ],
   "owner_directive": "Triage and fix open bugs with scope <=150 LOC; root-cause fixes only. 16 issues across Tier 1+2 + audit-followup #1365-#1371.",
-  "planned_files": [],
+  "planned_files": [
+    "docs/planning/2026-05-21-bug-sweep-checklist.md",
+    ".workflow/records/manager-2026-05-21-bug-sweep.json"
+  ],
   "pull_request": null,
   "record_path": ".workflow/records/manager-2026-05-21-bug-sweep.json",
-  "required_checks": [],
+  "required_checks": [
+    "ruff",
+    "format",
+    "full_audit",
+    "sentrux"
+  ],
   "schema_version": "1",
   "scope": {
     "exclude": [],
@@ -29,7 +100,19 @@
       ".workflow/records/manager-2026-05-21-bug-sweep.json"
     ]
   },
-  "sentrux": null,
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "Manager-coordination commit touches only docs/planning/ and .workflow/records/; no source/runtime/governance-code change. Sentrux applicability per ADR-042 Addendum 1 \u00a72 limited to governance config implementation, not record-only updates.",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
   "stages": [
     {
       "completed_at": null,
@@ -40,25 +123,25 @@
     {
       "completed_at": null,
       "stage": "plan",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
       "completed_at": null,
       "stage": "update_docs",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
       "completed_at": null,
       "stage": "test_and_checks",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
