@@ -72,7 +72,10 @@
       "not_applicable": true,
       "rationale": "manager-owned checklist at docs/planning/arch-drift-checklist.md is updated by manager, not implementer (per dispatch prompt scope: out of scope)"
     },
-    "docs": {},
+    "docs": {
+      "not_applicable": true,
+      "rationale": "Engine-internal boundary enforcement (worker.py + scheduler.py); no public-facing user docs are affected. The ADR-020 + ARCHITECTURE.md contract description is unchanged and already covers this behavior."
+    },
     "spec": {
       "not_applicable": true,
       "rationale": "no public contract or schema change"
@@ -94,7 +97,7 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1330,
-      "url": null
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1330"
     }
   ],
   "owner_directive": "Implement engine-side auto-wrap of bare DataObject into length-one Collection at output boundary; ADR-020 \u00a73 contract enforcement; do not touch the six existing manual wraps.",
