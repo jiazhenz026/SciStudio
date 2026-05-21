@@ -41,7 +41,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/audit-1352-addendum-1-completeness.json",
+    "shas": [
+      "c97347f6"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -75,7 +81,11 @@
     "docs/audit/2026-05-21-adr-039-addendum-1-completeness-audit.md",
     ".workflow/records/audit-1352-addendum-1-completeness.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "number": null,
+    "url": null
+  },
   "record_path": ".workflow/records/audit-1352-addendum-1-completeness.json",
   "required_checks": [
     "ruff_check",
@@ -141,7 +151,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
