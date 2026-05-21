@@ -687,7 +687,9 @@ class BlockRegistry:
         for capability, _spec in self._iter_capability_specs():
             if direction is not None and capability.direction != direction:
                 continue
-            if normalized_extension is not None and normalized_extension not in capability.extensions:
+            if normalized_extension is not None and not _extension_matches_capability(
+                normalized_extension, capability.extensions
+            ):
                 continue
             if normalized_format_id is not None and capability.format_id != normalized_format_id:
                 continue
@@ -861,7 +863,7 @@ class BlockRegistry:
     ) -> bool:
         if capability.direction != direction:
             return False
-        if extension is not None and extension not in capability.extensions:
+        if extension is not None and not _extension_matches_capability(extension, capability.extensions):
             return False
         if format_id is not None and capability.format_id != format_id:
             return False
@@ -903,7 +905,9 @@ class BlockRegistry:
                 continue
             if capability.direction != direction:
                 continue
-            if normalized_extension is not None and normalized_extension not in capability.extensions:
+            if normalized_extension is not None and not _extension_matches_capability(
+                normalized_extension, capability.extensions
+            ):
                 continue
             if dtype is not None and not _capability_matches_type(capability, dtype, direction):
                 continue
@@ -1215,17 +1219,64 @@ class BlockRegistry:
         return best
 
 
+def _iter_compound_to_single_suffix(extension: str) -> list[str]:
+    """Return the compound-to-single suffix chain for *extension*.
+
+    Mirrors :meth:`IOBlock._detect_format`'s probe order so registry
+    extension lookups agree with IO-block format detection. The chain
+    walks from the longest compound form down to the trailing single
+    suffix. Examples (case-preserving — caller is expected to lower-case
+    once before calling):
+
+    * ``".ome.tif"`` -> ``[".ome.tif", ".tif"]``
+    * ``".foo.bar.baz"`` -> ``[".foo.bar.baz", ".bar.baz", ".baz"]``
+    * ``".tif"`` -> ``[".tif"]``
+    * ``"tif"`` -> ``[".tif"]`` (leading dot is normalized).
+
+    Returns an empty list when *extension* is empty.
+    """
+    if not extension:
+        return []
+    normalized = extension if extension.startswith(".") else f".{extension}"
+    parts = normalized.split(".")
+    # ``".ome.tif"`` -> ``["", "ome", "tif"]``; skip the leading empty so
+    # ``start`` indexes the first real suffix component.
+    chain: list[str] = []
+    for start in range(1, len(parts)):
+        chain.append("." + ".".join(parts[start:]))
+    return chain
+
+
 def _ext_in_mapping(extension_lower: str, mapping: dict[str, str]) -> bool:
     """Case-insensitive membership check for ``supported_extensions``.
 
     Accepts both forms ``".tif"`` and ``"tif"`` for *extension_lower*
     (the leading dot is normalized). Returns True if any key in *mapping*
-    matches case-insensitively. Used by :meth:`BlockRegistry._find_io_block`.
+    matches case-insensitively against any suffix in the compound-to-single
+    chain produced by :func:`_iter_compound_to_single_suffix`. So a query
+    for ``".ome.tif"`` matches a mapping that declares only ``".tif"`` —
+    the same fallback behaviour as :meth:`IOBlock._detect_format`. Used by
+    :meth:`BlockRegistry._find_io_block`.
     """
     if not mapping:
         return False
-    candidate = extension_lower if extension_lower.startswith(".") else f".{extension_lower}"
-    return any(candidate == key.lower() for key in mapping)
+    normalized_keys = {key.lower() for key in mapping}
+    return any(candidate in normalized_keys for candidate in _iter_compound_to_single_suffix(extension_lower))
+
+
+def _extension_matches_capability(extension_lower: str, capability_extensions: tuple[str, ...]) -> bool:
+    """Return True if *extension_lower* matches *capability_extensions*.
+
+    Walks the same compound-to-single suffix chain as :func:`_ext_in_mapping`,
+    so :class:`FormatCapability` lookups honour the ADR-028 §D8 fallback
+    contract documented on :meth:`BlockRegistry.find_loader` and
+    :meth:`BlockRegistry.find_saver`. ``capability_extensions`` entries are
+    already lower-case per :func:`normalize_extension`.
+    """
+    if not capability_extensions:
+        return False
+    capability_set = set(capability_extensions)
+    return any(candidate in capability_set for candidate in _iter_compound_to_single_suffix(extension_lower))
 
 
 def _capability_matches_type(
