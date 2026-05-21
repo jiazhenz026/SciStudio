@@ -17,6 +17,7 @@ from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from scistudio.qa.governance.paths import is_gate_record_path
 from scistudio.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
 VALID_OVERRIDE_LABELS: frozenset[str] = frozenset(
@@ -334,6 +335,12 @@ def _is_implementation_path(path: str) -> bool:
 
 def _sentrux_applies(path: str) -> bool:
     normalized = _normalize_path(path)
+    # Gate-record evidence files live under .workflow/ but are per-PR audit
+    # trail rows that every AI PR creates; they are not architectural
+    # surface and must not force Sentrux evidence on records-only changes
+    # (#1362, same pattern as core_change_guard / sentrux_gate / docs_landing).
+    if is_gate_record_path(normalized):
+        return False
     if normalized.startswith("docs/") and not normalized.startswith(("docs/adr/", "docs/specs/")):
         return False
     return _matches_any(

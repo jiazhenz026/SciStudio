@@ -16,6 +16,7 @@ from scistudio.qa.governance.human_bypass_guard import (
     CORE_CHANGE_LABEL,
     label_has_authorized_provenance,
 )
+from scistudio.qa.governance.paths import is_gate_record_path
 from scistudio.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
 PROTECTED_GLOBS = (
@@ -77,6 +78,13 @@ def _has_admin_approval_review(pr: Mapping[str, Any] | None) -> bool:
 
 
 def _is_protected(path: str, protected_globs: Sequence[str]) -> bool:
+    # Gate-record evidence files under .workflow/records/** live under the
+    # ``.workflow/**`` protected glob but are per-PR audit trail rows that
+    # every AI-authored PR creates by design; they must not require admin
+    # approval to land. See ``governance.paths`` for the shared exclusion
+    # rule used across governance modules (#1362).
+    if is_gate_record_path(path):
+        return False
     return any(fnmatch.fnmatchcase(path, pattern) for pattern in protected_globs)
 
 
