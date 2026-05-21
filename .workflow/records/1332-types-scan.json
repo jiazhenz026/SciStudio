@@ -89,7 +89,12 @@
     "src/scistudio/api/runtime.py",
     "tests/core/test_type_registry_scan_dirs.py"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "number": 1339,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1339",
+    "base": "umbrella/arch-drift-and-collection-wrap",
+    "head": "fix/issue-1332-types-scan"
+  },
   "record_path": ".workflow/records/1332-types-scan.json",
   "required_checks": [
     "ruff,format,pytest,sentrux"
