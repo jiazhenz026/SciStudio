@@ -133,8 +133,8 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
-      "summary": null
+      "status": "done",
+      "summary": "N/A \u2014 read-only audit; only the audit report and gate record were written (no source/test code changed)"
     },
     {
       "completed_at": null,
