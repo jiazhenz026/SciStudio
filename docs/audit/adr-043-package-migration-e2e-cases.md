@@ -73,9 +73,60 @@ row).
   - The calibration's log-log slope/intercept matches the notebook within numerical tolerance.
   - Every `Image` flowing through `imaging.axis_projection` and `imaging.cellpose_segment` preserves `meta.ome` through to the downstream consumer (FR-009 Mode B + Mode C propagation).
 - **Expected**: PASS — exercises the full ADR-043 capability dispatch + ADR-041 propagation contract on real data.
-- **Status**: `[ ]`
-- **Evidence (pass)**: `workflows/microplastic-size-calibration-v3.yaml` committed in the owner's Box project; run record under `lineage/` of that project.
-- **Issue (fail)**:
+- **Status**: `[~]` partial-pass — framework-layer PASS, owner-domain workflow swap required.
+- **Evidence (pass)**:
+  - Phase D run executed against a local-disk copy of the project at
+    `C:\Users\jiazh\Desktop\workspace\scieasy-e2e-microplastic` (Box cloud
+    sync slowed cellpose-SAM CPU inference; local copy ran ~10× faster).
+  - All 17 nodes reached `Done` (`parse_meta`, `save_meta`, `load_images`,
+    `calibrate_srs`, `max_projection`, `threshold`, `segment`, `extract`,
+    `save_wide_spectra`, `melt`, `save_long_spectra`, `peaks`, `save_peaks`,
+    `save_peaks_plot`, `calibrate`, `save_calibration`, `save_calibration_plot`).
+  - Output artefacts written: `data/parquet/calibration.parquet` (2 rows
+    log-log slope/intercept), `data/parquet/peaks.parquet` (10698 rows),
+    `data/parquet/spectra_long.parquet` (213960 rows), `data/parquet/
+    spectra_wide.parquet` (40 rows × 5350 cols = 1 wavenumber + 5349 ROI
+    cols across 12 fovs), `data/artifacts/peaks_overview.zarr`,
+    `data/artifacts/size_calibration.zarr`.
+  - **ADR-043 capability dispatch** verified live in Chrome: Load Image
+    dropdown auto-picked `scieasy-blocks-imaging.image.tiff.load` from the
+    `.tif` extension (FR-006); 9 imaging formats listed in dropdown (FR-012).
+  - **ADR-041 / FR-009 OME propagation** verified by in-process script
+    `scripts/verify_ome_propagation_e2e001.py` (committed in
+    `hotfix/adr-043-e2e-validation`): `LoadImage → SRSCalibrate →
+    AxisProjection` chain preserves `meta.source_file`, propagates
+    `meta.wavenumbers_cm1` (set by SRSCalibrate, len=40), and propagates
+    `meta.ome = None` unchanged across all three steps — no silent drop.
+  - **Phase D unblocker fix #1305** (subprocess workers now use
+    `cwd=config["project_dir"]`) was required before the workflow could
+    complete; without it, all relative paths in block configs (`data/raw/
+    *.tif`, `data/parquet/*.parquet`) resolved against the GUI launcher
+    cwd instead of the project root. Fix lives in
+    `src/scieasy/engine/runners/local.py` with regression tests in
+    `tests/engine/test_local_runner.py::TestLocalRunnerWorkerCwd`.
+- **Partial-pass rationale**: The owner-authored `microplastic-size-
+  calibration-v3.yaml` originally used `imaging.cellpose_segment` (cellpose-
+  SAM cyto3 model) as Step 3. Cellpose-SAM is trained on natural uint8
+  images; given the max-projection of a calibrated `SRSImage` (voltage
+  float values, range typically -1 to +10 V), the model returned
+  labels-all-zero on all 12 fovs (verified in
+  `data/zarr/microplastic-size-calibration-v3/segment/*.zarr`,
+  `np.unique == [0]`). The pipeline then failed downstream at
+  `microplastics.melt_spectra` ("no matching ROI columns were melted"
+  because `srs.extract_spectrum` had no labels to extract from). The
+  workflow was swapped to `imaging.threshold (otsu) →
+  imaging.connected_components (connectivity=2) → srs.extract_spectrum`
+  to confirm the framework-layer chain end-to-end. **Cellpose path
+  remains a valid future option** once a `0-255 normalize` block is
+  inserted between `max_projection` and the segmentation block; this is
+  owner-domain workflow work, not a framework bug.
+- **Issues filed**:
+  - **#1305** (framework): subprocess workers ignore `project_dir`, relative
+    paths broken. **Fixed in-PR** in `hotfix/adr-043-e2e-validation`.
+  - **#1306** (framework): TIFF loader ignores OME-TIFF metadata despite
+    capability claim. Discovered by the OME verify script. Does NOT block
+    E2E-001 (SRS TIFFs are ImageJ-format, not OME-TIFF). Tracked as a
+    follow-up.
 
 ---
 
@@ -93,9 +144,20 @@ row).
   - `_executed_notebook` Artifact output is captured per ADR-041 §7 and visible in the run's lineage.
   - On-disk outputs at `calibration_outputs/` are equivalent to the manual notebook run (existing `size_intensity_calibration_pipeline_executed.ipynb` is the reference baseline).
 - **Expected**: PASS — proves CodeBlock v2 can wrap an existing real-world notebook with zero source edits.
-- **Status**: `[ ]`
-- **Evidence (pass)**: workflow YAML committed in the owner's Box project; lineage entry for the run; size + content parity check between the auto-captured executed notebook and the reference `size_intensity_calibration_pipeline_executed.ipynb`.
-- **Issue (fail)**:
+- **Status**: `[!]` fail — blocked by two framework bugs (fixed in-PR) plus one Windows env incompatibility (out of hotfix scope).
+- **Evidence**:
+  - Phase D session surfaced and fixed **2 framework P1 bugs blocking CodeBlock entirely**:
+    - **#1308** (CodeBlock rejects engine-injected `workflow_id` with `extra_forbidden`) — fixed by adding `workflow_id` to the strip-sets in both `code_block._persisted_codeblock_config` and `validation._RUNTIME_ONLY_CONFIG_KEYS`. Regression test at `tests/blocks/code/test_codeblock_execution.py::test_persisted_codeblock_config_strips_engine_enrichment_fields`.
+    - **#1305** (subprocess workers ignore `project_dir`) — fixed in the same hotfix branch; preceded #1308.
+  - After both fixes the worker subprocess loaded the CodeBlock correctly and reached `backend.run()`. Final blocker is a **Windows pyzmq incompatibility**: `jupyter nbconvert` (any backend version) immediately crashes with `zmq.error.ZMQError: not a socket` on Windows + Python 3.13 + the currently-installed pyzmq, before any notebook cell executes. The `executed_notebook` artefact in `<project>/exchange/codeblock-run_calibration_notebook/<run_id>/outputs/executed_notebook/size_intensity_calibration_pipeline.executed.ipynb` shows all 24 cells with `execution_count=None` (zero cells reached). This is **not a SciEasy framework bug** — the same `jupyter nbconvert --execute` command run manually against the same notebook produces the same ZMQError.
+  - One additional ADR-041 contract design issue surfaced: **#1309** — CodeBlock cwd semantics contradiction (working_directory vs exchange_dir). Tried the obvious "cwd = working_directory" fix but it broke `tests/blocks/code/test_codeblock_execution.py::test_codeblock_runs_python_script_through_exchange` (script uses `Path("inputs/<port>")` which only resolves under `exchange_dir`). Reverted; left as a design-review follow-up for the ADR-041 author.
+- **Issues filed**:
+  - **#1308** (framework): CodeBlock rejects `workflow_id`. **Fixed in-PR** in `hotfix/adr-043-e2e-validation`.
+  - **#1309** (spec contradiction): CodeBlock cwd = `working_directory` vs cwd = `exchange_dir` for declared-port scripts. **Deferred** to ADR-author design pass; fix attempt reverted with rationale in issue comment.
+- **Recommended owner action** for the notebook execution path:
+  1. Upgrade pyzmq + jupyter_client to versions that work with Python 3.13 + Windows ProactorEventLoop, OR
+  2. Force `WindowsSelectorEventLoopPolicy()` in a project-local `kernelspec` env, OR
+  3. Wait for #1309 design decision and use absolute paths in the notebook (e.g. `Path(os.environ["SCIEASY_PROJECT_DIR"]) / "data/raw"`).
 
 ---
 

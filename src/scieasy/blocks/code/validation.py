@@ -24,9 +24,13 @@ _CAPABILITY_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]*$")
 _CORE_DATA_TYPES: dict[str, type[DataObject]] = {
     cls.__name__: cls for cls in (DataObject, Array, DataFrame, Series, Text, Artifact, CompositeData)
 }
+# Fix #1308: mirror the strip-set in ``code_block._persisted_codeblock_config``.
+# DAGScheduler injects ``workflow_id`` alongside ``project_dir`` / ``block_id``;
+# any key missing from BOTH sets fails CodeBlockConfig(extra="forbid").
 _RUNTIME_ONLY_CONFIG_KEYS = {
     "project_dir",
     "block_id",
+    "workflow_id",
     "run_id",
     "registry",
     "materialise_adapter",
