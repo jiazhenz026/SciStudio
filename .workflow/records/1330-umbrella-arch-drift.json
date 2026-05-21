@@ -65,7 +65,10 @@
         "docs/planning/arch-drift-checklist.md"
       ]
     },
-    "docs": {}
+    "docs": {
+      "not_applicable": true,
+      "rationale": "Manager umbrella coordinates two impl tracks; sub-PR Track A (engine Collection wrap) and Track B (TypeRegistry filesystem scan) each closed their own gate records with explicit per-doc-class N/A rationales before merging. No public-facing user docs are added or changed at the umbrella level."
+    }
   },
   "full_audit": {
     "blocks_merge": false,
