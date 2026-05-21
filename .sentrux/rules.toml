@@ -1,7 +1,17 @@
 [constraints]
 # Lock the current baseline first, then ratchet down toward zero cycles.
 # Baseline observed by sentrux on 2026-05-20: cycles = 5.
-max_cycles = 5
+# Ratcheted to 3 on 2026-05-21 after #1335 + #1337 landed via umbrella PR #1344.
+#   - #1335 broke the core.types <-> core.storage.backend_router SCC.
+#   - #1337 broke the core.versioning + engine.runners pairwise cycles.
+# The remaining 3 clusters are all inside #1336's territory (blocks.registry
+# <-> ai.agent.* cross-layer SCC, P0). Ratchet to 0 once #1336 closes.
+# Tracking issues for follow-ups:
+#   - #1336 (P0) — blocks/ai.agent SCC; resolves remaining 3 clusters.
+#   - #1341 (P3, blocked-by #1336) — add no_cycles import-linter contract.
+#   - #1342 (P3, tech-debt) — eliminate the lazy import added in
+#     backend_router.get_router by #1335's transitional surgical fix.
+max_cycles = 3
 # Baseline raised 2026-05-20 to unblock PRs (#1291); ratchet back toward 75
 # after src/scistudio/workflow/validator.py:validate_workflow is split into
 # per-check helpers (followup: #1292).

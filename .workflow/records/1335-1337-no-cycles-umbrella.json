@@ -17,14 +17,54 @@
         "docs/planning/dispatch-prompts/fix-1335-router-defaults.md"
       ],
       "reason": "Add dispatch prompt files to scope (saved per agent-dispatch.md MUST-save rule)"
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/audit/full-audit-umbrella-final.json"
+      ],
+      "reason": "Add full audit output file produced during umbrella verification (post-integration)"
     }
   ],
   "branch": "track/no-cycles-1335-1337",
   "changed_test_paths": [],
   "check_results": [],
   "commit": null,
-  "docs_landing": {},
-  "full_audit": null,
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "see above"
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "manager preflight + ratchet not user-facing; no CHANGELOG entry. #1335 + #1337 are tracked in their own PR titles + commit messages."
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/no-cycles-1335-1337-checklist.md"
+      ]
+    },
+    "docs": {
+      "paths": [
+        "docs/audit/2026-05-21-no-cycles-umbrella-sentrux.json"
+      ]
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "manager-owned umbrella records dispatch + ratchet; no behavioral spec change. Track A updated ADR-019 and ADR-039 governs.contracts in PR #1348; Track B added a TODO(#1342) for follow-up. Manager has nothing further to add."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-umbrella-final.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-umbrella-final.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
   "governance_touch": true,
   "issues": [
     {
@@ -59,18 +99,18 @@
     ]
   },
   "sentrux": {
-    "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + session_start + health + dsm + check_rules",
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__rescan + dsm + health + check_rules",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
     "output_path": "docs/audit/2026-05-21-no-cycles-umbrella-sentrux.json",
     "pro_required": false,
-    "quality_signal": 4125.0,
+    "quality_signal": 4474.0,
     "rules_checked": 3,
     "status": "pass",
     "summary": {},
     "thresholds": {
       "max_cc": "100",
-      "max_cycles": "5"
+      "max_cycles": "3"
     },
     "total_rules_defined": 15
   },
@@ -96,7 +136,7 @@
     {
       "completed_at": null,
       "stage": "update_docs",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {

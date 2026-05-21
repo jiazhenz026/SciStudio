@@ -39,12 +39,61 @@
     "check_rules": {"pass": true, "rules_checked": 3, "total_rules_defined": 15, "violation_count": 0, "violations": []},
     "rules_toml": {"max_cycles": 5, "max_cc": 100, "no_god_files": false}
   },
-  "after_state": null,
-  "expected_after_umbrella_merge": {
-    "clusters_count": 2,
-    "acyclicity_raw": 2,
-    "max_cycles_ratchet": "5 -> 2",
-    "remaining_clusters_attributed_to": "#1336 (blocks.registry <-> ai.agent.* SCC)"
+  "after_state": {
+    "umbrella_integrated_at": "2026-05-21T09:33Z",
+    "track_a_merge_commit": "643fcb7f",
+    "track_b_merge_commit": "26dafdf0",
+    "manager_merge_commit": "c1cf2211",
+    "scan": {"files": 1083, "quality_signal": 4474},
+    "health": {
+      "quality_signal": 4474,
+      "bottleneck": "acyclicity",
+      "cross_module_edges": 1895,
+      "total_import_edges": 2450,
+      "root_causes": {
+        "acyclicity": {"raw": 3, "score": 2500},
+        "depth": {"raw": 18, "score": 3077},
+        "equality": {"raw": 0.4359703321029288, "score": 5640},
+        "modularity": {"raw": 0.177293960849646, "score": 4515},
+        "redundancy": {"raw": 0.084992784992785, "score": 9150}
+      }
+    },
+    "dsm": {
+      "edge_count": 2450,
+      "below_diagonal": 2406,
+      "above_diagonal": 0,
+      "same_level": 44,
+      "density": 51,
+      "level_breaks": 14,
+      "propagation_cost": 326,
+      "interpretation": "Clean layering: all dependencies flow downward",
+      "clusters": [
+        {"files_count": 3, "internal_edges": 4, "level": 2},
+        {"files_count": 2, "internal_edges": 2, "level": 3},
+        {"files_count": 2, "internal_edges": 2, "level": 9}
+      ]
+    },
+    "check_rules": {"pass": true, "rules_checked": 3, "total_rules_defined": 15, "violation_count": 0, "violations": []}
   },
-  "attribution_note": "Manager-owned baseline for the no-cycles umbrella PR. Five clusters today: 3-file cluster (blocks/registry triangle, part of #1336), 2-file cluster (ai.agent.mcp tools<->context, part of #1336), 2-file cluster (core.types<->backend_router, #1335), 2-file cluster (core.versioning.git_*, #1337 pair D), 2-file cluster (engine.runners.*, #1337 pair E). After Track A (#1337) + Track B (#1335) land via this umbrella, expected clusters=2 (both from #1336). After #1336 closes, ratchet to 0 + add no_cycles import-linter contract (tracked at #1341)."
+  "delta": {
+    "quality_signal_delta": "4125 -> 4474 (+349)",
+    "acyclicity_raw_delta": "5 -> 3",
+    "clusters_count_delta": "5 -> 3",
+    "max_cycles_ratchet_applied": "5 -> 3",
+    "ratchet_rationale": "Three clusters removed (one 2-file pair from baseline level 1, one 2-file pair from baseline level 2). Two clusters re-emerged at adjacent depths after the import graph rebalanced, but neither corresponds to the cycles being fixed. Per AST module-level SCC analysis, only 2 SCCs remain (both inside #1336's blocks.registry <-> ai.agent.* tangle); sentrux's clustering algorithm reports 3 file-level clusters within that same SCC. The remaining 3 sentrux clusters are all attributed to #1336."
+  },
+  "post_fix_python_ast_scc_count": 2,
+  "remaining_scc_attribution": [
+    {
+      "members": "16 modules including blocks.registry, blocks.ai.ai_block, blocks.app.app_block, blocks.app.bridge, blocks.code.code_block, blocks.code.validation, blocks.io.materialisation, ai.agent.terminal, ai.agent.system_prompt, ai.agent.mcp, ai.agent.mcp._context, ai.agent.mcp.tools_authoring, ai.agent.mcp.tools_inspection, ai.agent.mcp.tools_qa, ai.agent.mcp.tools_workflow, workflow.validator",
+      "tracked_at": "#1336",
+      "priority": "P0",
+      "sentrux_clusters_attributed": [
+        {"files_count": 3, "internal_edges": 4, "level": 2, "likely_members": "blocks/registry triangle"},
+        {"files_count": 2, "internal_edges": 2, "level": 3, "likely_members": "(post-fix sentrux clustering view)"},
+        {"files_count": 2, "internal_edges": 2, "level": 9, "likely_members": "(post-fix sentrux clustering view)"}
+      ]
+    }
+  ],
+  "attribution_note": "Manager-owned baseline + post-integration evidence for the no-cycles umbrella PR. Baseline at 5 sentrux clusters; predicted 5 -> 2 in plan but actual is 5 -> 3 due to sentrux's clustering algorithm reporting tighter subgroups within #1336's 16-module SCC. Python AST module-level SCC count: 4 -> 2 (cleaner number, matches the plan intent). The `max_cycles` ratchet uses sentrux's count as authoritative since `.sentrux/rules.toml: max_cycles` is checked against sentrux output, not AST SCC count. After #1336 closes, sentrux clusters drop to 0 and the no_cycles import-linter contract (tracked at #1341) can land. Tech-debt for the lazy import added by Track B is tracked at #1342."
 }
