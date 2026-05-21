@@ -34,15 +34,60 @@ def test_no_circular_import() -> None:
     ``GitBinary.run`` AND a lazy ``from .git_binary import GitBinary``
     inside ``GitEngine._git``. The fix extracts ``GitError`` into
     ``scistudio.core.versioning.errors`` so both modules can use
-    module-top imports. This test spawns a fresh interpreter and imports
-    each module first (in either order) to prove the cycle is gone.
+    module-top imports.
+
+    The test spawns a fresh interpreter and pre-registers a no-op shim
+    in ``sys.modules`` for ``scistudio.core.versioning`` (with a real
+    ``__path__`` so sibling submodules still resolve via the normal
+    import system) BEFORE importing either cycle-pair submodule. This
+    guarantees that the chosen "first" submodule really is the first one
+    Python parses — otherwise a plain
+    ``importlib.import_module("scistudio.core.versioning.<sub>")`` would
+    trigger the real ``__init__.py`` first, which itself imports
+    ``git_binary`` then ``git_engine`` in a fixed order and would
+    collapse both branches into the same effective test (Codex P2 audit
+    on PR #1348).
     """
     script = textwrap.dedent(
         """
         import importlib
         import sys
+        import types
+        from pathlib import Path
 
         order = sys.argv[1]
+        package_dir = Path(sys.argv[2])
+
+        # Pre-register a NO-OP package shim for scistudio.core.versioning
+        # so that loading a submodule from its .py file does NOT trigger
+        # the real scistudio/core/versioning/__init__.py (which imports
+        # git_binary BEFORE git_engine and would defeat the order test).
+        # We give the shim a __path__ pointing at the package dir so
+        # Python's import machinery can still resolve sibling submodules
+        # via the normal ``from .sibling import ...`` syntax inside each
+        # module body.
+        for parent_name, parent_path in [
+            ("scistudio", None),
+            ("scistudio.core", None),
+            ("scistudio.core.versioning", str(package_dir)),
+        ]:
+            if parent_name not in sys.modules:
+                shim = types.ModuleType(parent_name)
+                if parent_path:
+                    shim.__path__ = [parent_path]
+                else:
+                    shim.__path__ = []
+                sys.modules[parent_name] = shim
+
+        # errors.py is the shared shim. Pre-load it so the two cycle-pair
+        # modules have an explicit dependency they can resolve via the
+        # normal import system before we touch them.
+        importlib.import_module("scistudio.core.versioning.errors")
+
+        # The TRUE test of "no cycle" is whether git_binary can be loaded
+        # without git_engine AND vice versa.  We load them in the order
+        # requested directly from their .py files, BEFORE Python would
+        # otherwise consult the package __init__ ordering.
         if order == "binary-first":
             importlib.import_module("scistudio.core.versioning.git_binary")
             importlib.import_module("scistudio.core.versioning.git_engine")
@@ -52,14 +97,18 @@ def test_no_circular_import() -> None:
 
         # Smoke test the re-export contract: ``GitError`` must still resolve
         # via ``git_engine`` (the public surface used by api.routes.git).
-        from scistudio.core.versioning.git_engine import GitError as _E
+        _E = sys.modules["scistudio.core.versioning.git_engine"].GitError
         assert _E.__module__ == "scistudio.core.versioning.errors", _E.__module__
         print("OK")
         """
     )
+    # Locate the source files for the submodule .py paths.
+    import scistudio.core.versioning as _versioning_pkg
+
+    package_dir = Path(_versioning_pkg.__file__).parent
     for order in ("binary-first", "engine-first"):
         proc = subprocess.run(
-            [sys.executable, "-c", script, order],
+            [sys.executable, "-c", script, order, str(package_dir)],
             capture_output=True,
             text=True,
             timeout=30,
