@@ -13,7 +13,7 @@ from scistudio.blocks.code.code_block import (
     register_codeblock_backend,
     run_codeblock_process,
 )
-from scistudio.blocks.code.config import CodeBlockConfig
+from scistudio.blocks.code.config import CodeBlockConfig, CodeBlockConfigError
 from scistudio.blocks.code.exchange import safe_exchange_name
 from scistudio.blocks.code.interpreters import InterpreterResolutionError, ResolvedInterpreter
 
@@ -43,7 +43,7 @@ class NotebookCodeBlockBackend:
         # read project-relative paths like ``Path("data/raw")``. The
         # exchange dir remains the materialisation target for declared
         # ports.
-        script_cwd = context.config.resolve_working_directory(context.project_dir)
+        script_cwd = _resolve_existing_working_directory(context)
         argv = _nbconvert_argv(
             executable,
             source_notebook=target,
@@ -72,7 +72,7 @@ class NotebookCodeBlockBackend:
         # ADR-041 §4: keep the subprocess cwd aligned with the resolved
         # working directory used by ``resolve()`` so nbconvert and its
         # spawned kernel share the same launch directory.
-        script_cwd = context.config.resolve_working_directory(context.project_dir)
+        script_cwd = _resolve_existing_working_directory(context)
         return run_codeblock_process(
             argv=interpreter.argv,
             cwd=script_cwd,
@@ -210,6 +210,28 @@ def _environment_delta(environment_config: Mapping[str, object]) -> dict[str, st
     if not isinstance(raw_delta, Mapping):
         raise InterpreterResolutionError("Notebook environment variables must be a mapping.")
     return {str(key): str(value) for key, value in raw_delta.items() if os.environ.get(str(key)) != str(value)}
+
+
+def _resolve_existing_working_directory(context: CodeBlockRuntimeContext) -> Path:
+    """Resolve ``working_directory`` and require it to exist as a directory.
+
+    :meth:`CodeBlockConfig.resolve_working_directory` intentionally allows
+    paths that don't yet exist, but :func:`subprocess.run` / nbconvert
+    raise low-level ``FileNotFoundError`` when ``cwd`` doesn't exist.
+    Surface a clear :class:`CodeBlockConfigError` instead so the failure
+    points at the misconfigured field, not at a Python subprocess
+    internal. Codex P2 review of PR #1392.
+    """
+    script_cwd = context.config.resolve_working_directory(context.project_dir)
+    if not script_cwd.exists():
+        raise CodeBlockConfigError(
+            f"working_directory does not exist: {script_cwd} "
+            f"(resolved from {context.config.working_directory!r} under project root "
+            f"{context.project_dir!r})"
+        )
+    if not script_cwd.is_dir():
+        raise CodeBlockConfigError(f"working_directory must be a directory, not a file: {script_cwd}")
+    return script_cwd
 
 
 def register() -> None:

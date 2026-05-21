@@ -26,7 +26,7 @@ from scistudio.blocks.code.backends.notebook import (
 )
 from scistudio.blocks.code.backends.python import PythonCodeBlockBackend
 from scistudio.blocks.code.code_block import CodeBlockRuntimeContext
-from scistudio.blocks.code.config import CodeBlockConfig
+from scistudio.blocks.code.config import CodeBlockConfig, CodeBlockConfigError
 from scistudio.blocks.code.interpreters import ResolvedInterpreter
 
 
@@ -155,6 +155,28 @@ class TestPythonBackendCwd:
 
         assert captured["cwd"] == (project_dir / "analysis").resolve()
 
+    def test_run_raises_clear_error_for_missing_working_directory(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Codex P2 (PR #1392): a non-existent ``working_directory`` must
+        surface a :class:`CodeBlockConfigError` pointing at the misconfigured
+        field, not a low-level ``FileNotFoundError`` from ``subprocess.run``.
+        """
+        context, _project_dir = _make_python_context(tmp_path, working_directory="does/not/exist")
+        interpreter = ResolvedInterpreter(
+            family="python",
+            executable="python",
+            argv=["python", str(context.script_path)],
+            working_directory=(tmp_path / "does" / "not" / "exist").as_posix(),
+            environment={},
+            version="3.12.0",
+            warnings=[],
+        )
+
+        with pytest.raises(CodeBlockConfigError, match="working_directory does not exist"):
+            PythonCodeBlockBackend().run(context, interpreter)
+
 
 # ---------------------------------------------------------------------------
 # Notebook backend
@@ -257,3 +279,27 @@ class TestNotebookBackendCwd:
         expected_cwd = (project_dir / "analysis").resolve()
         assert interpreter.working_directory == expected_cwd.as_posix()
         assert f"--ExecutePreprocessor.cwd={expected_cwd}" in interpreter.argv
+
+    def test_resolve_raises_clear_error_for_missing_working_directory(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Codex P2 (PR #1392): the same clear-error guard runs in
+        ``resolve()`` for the notebook backend, since ``resolve()`` runs
+        first and feeds the bad cwd into the nbconvert argv before
+        ``run()`` would crash.
+        """
+        monkeypatch.setattr(
+            "scistudio.blocks.code.backends.notebook._probe_nbconvert_version",
+            lambda _executable: ("nbconvert 7.0.0", []),
+        )
+        context, _project_dir = _make_notebook_context(tmp_path, working_directory="does/not/exist")
+        backend = NotebookCodeBlockBackend(
+            executable_locator=lambda executable: (
+                "/fake/path/to/jupyter-nbconvert" if executable == "jupyter-nbconvert" else None
+            )
+        )
+
+        with pytest.raises(CodeBlockConfigError, match="working_directory does not exist"):
+            backend.resolve(context)

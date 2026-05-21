@@ -44,6 +44,15 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/blocks/test_registry_find.py tests/blocks/code/test_codeblock_backends.py tests/blocks/code/test_codeblock_notebooks.py tests/blocks/code/test_codeblock_execution.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "pytest_codex_reconcile",
+      "output_path": "45 passed in 13.68s (post-codex-reconcile)",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": {
@@ -143,9 +152,9 @@
     "command_or_tool": "sentrux check",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "MCP scan+check_rules+health: pass, rules_checked=3/15, violation_count=0, quality_signal=4445, files=1113, import_edges=2629, lines=285148",
+    "output_path": "MCP scan+check_rules (post-codex-reconcile): pass, rules_checked=3/15, violation_count=0, quality_signal=4444, files=1115, import_edges=2634, lines=285743",
     "pro_required": false,
-    "quality_signal": 4445.0,
+    "quality_signal": 4444.0,
     "rules_checked": 3,
     "status": "pass",
     "summary": {},

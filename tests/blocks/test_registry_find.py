@@ -234,12 +234,25 @@ class TestCompoundExtensionFallback:
         assert reg.find_loader(_FakeImage, ".ome.tif") is _LoaderTif
 
     def test_compound_query_prefers_explicit_compound_declaration(self) -> None:
-        """When both compound and single-suffix loaders match, the registry
-        still returns a loader. Resolution order is a separate contract;
-        the bug under #1109 was that compound queries returned nothing."""
+        """Codex P1 (PR #1392): when both a compound (``.ome.tif``) and a
+        single-suffix (``.tif``) loader are registered, the compound-specific
+        declaration must win. Otherwise the new suffix-fallback would
+        introduce ambiguity for previously-deterministic registrations.
+
+        This is the same "longest matching suffix wins" rule
+        :meth:`IOBlock._detect_format` already obeys: probe the suffix
+        chain from longest to shortest and stop at the first non-empty
+        match set.
+        """
         reg = _build_registry(_LoaderCompoundTif, _LoaderTif)
-        result = reg.find_loader(_FakeImage, ".ome.tif")
-        assert result in (_LoaderCompoundTif, _LoaderTif)
+        assert reg.find_loader(_FakeImage, ".ome.tif") is _LoaderCompoundTif
+        # Reverse registration order: still the compound wins.
+        reg_reversed = _build_registry(_LoaderTif, _LoaderCompoundTif)
+        assert reg_reversed.find_loader(_FakeImage, ".ome.tif") is _LoaderCompoundTif
+        # A plain ``.tif`` query still resolves the single-suffix loader
+        # because the compound declaration does not contain ``.tif`` as
+        # one of its declared extensions.
+        assert reg.find_loader(_FakeImage, ".tif") is _LoaderTif
 
     def test_dtype_none_compound_query_falls_back_to_single_suffix(self) -> None:
         """Extension-only callers (dtype=None) also receive the compound
