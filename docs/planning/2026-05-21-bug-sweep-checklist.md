@@ -102,7 +102,7 @@ language_source: en
 | W1 | implementer | N/A | inline | Tier 1 surgical batch | `fix/bug-sweep-2026-05-21/tier1-surgical` | `.claude/worktrees/agent-abd2b11eeda702937` | See §7.1 | See §7.1 | PR #1379 — Closes #1110 #617 #1281 #1282 #1368 | `[x]` |
 | W2-A | implementer | N/A | inline | types path drop-in + worker | `fix/issue-1343-1365/types-registry` | `.claude/worktrees/agent-w2a-types` | See §7.2 | See §7.2 | Closes #1343 #1365 | `[ ]` |
 | W2-B | implementer | N/A | inline | imaging TIFF OME + capability metadata | `fix/issue-1306-1371/imaging-ome-fidelity` | `.claude/worktrees/agent-w2b-imaging` | See §7.3 | See §7.3 | PR #1388, Closes #1306 #1371 | `[x]` |
-| W3-A | implementer | N/A | inline | scheduler READY emit + interactive normalize | `fix/issue-1367-1370/scheduler-emit-normalize` | `.claude/worktrees/agent-w3a-scheduler` | See §7.4 | See §7.4 | Closes #1367 #1370 | `[ ]` |
+| W3-A | implementer | N/A | inline | scheduler READY emit + interactive normalize | `fix/issue-1367-1370/scheduler-emit-normalize` | `.claude/worktrees/agent-abd9f7afe3a3c4c66` | See §7.4 | See §7.4 | PR #1391, Closes #1367 #1370 | `[~]` |
 | W3-B | implementer | N/A | inline | block registry + code backends | `fix/issue-1109-1309/registry-codebackends` | `.claude/worktrees/agent-w3b-registry` | See §7.5 | See §7.5 | Closes #1109 #1309 | `[ ]` |
 | W4-A | implementer | N/A | inline | frontend port editor capability_id | `fix/issue-1366/port-capability-clear` | `.claude/worktrees/agent-w4a-porteditor` | See §7.6 | See §7.6 | Closes #1366 | `[ ]` |
 | W4-B | implementer | N/A | inline | completion race + save-image dir picker | `fix/issue-902-1369/completion-saveimg` | `.claude/worktrees/agent-w4b-misc` | See §7.7 | See §7.7 | Closes #902 #1369 | `[ ]` |
@@ -210,6 +210,27 @@ language_source: en
   - `tests/engine/test_scheduler.py` (extend): resume/rerun/reset each emit exactly one `BLOCK_READY`
   - `tests/engine/test_scheduler_interactive.py` (extend or create): bare `DataObject` and `list[DataObject]` on `is_collection=True` ports normalize via `_normalize_outputs()`
 
+#### W3-A status (2026-05-21)
+
+- PR: [#1391](https://github.com/zjzcpj/zjzcpj/SciStudio/pull/1391) — base `umbrella/2026-05-21-bug-sweep`, head `fix/issue-1367-1370/scheduler-emit-normalize`.
+- Final pushed commit: `90e6b429` (finalize gate-record commit, after `7b75f44e` which carries the docs + check evidence).
+- CI `Verify Workflow Compliance`: **expected fail** — only finding is `core_change_guard.missing-admin-approval` for `src/scistudio/engine/scheduler.py` (paths under `src/scistudio/engine/**` are protected per ADR-042 §3.4). All other guards (`pr_merge_guard`, `governance_mod_guard`, `weakened_ci_check`, `sentrux_gate`, `docs_landing`, `core_change_guard` PR-body record discovery) returned `pass`. Awaits owner `admin-approved:core-change` label.
+- Codex auto-review: none observed within 5 minutes of CI completion (silent — see PR #1391 review/comment listings empty at 2026-05-21).
+- Branch: `fix/issue-1367-1370/scheduler-emit-normalize` based on `umbrella/2026-05-21-bug-sweep`.
+- Implementation summary:
+  - #1367 — Added `await self._emit_block_ready(node_id)` at the three remaining scheduler-owned IDLE→READY transition sites in `src/scistudio/engine/scheduler.py`: `resume()` (IDLE→READY branch), `rerun_block()` (post-cancel re-dispatch), and `reset_block()` (Step 5 ready_ids loop). The `_dispatch_newly_ready()` and `execute()` paths already emitted via PR #1327; this funnels all four call sites through `_emit_block_ready()` so every IDLE→READY emits `BLOCK_READY` exactly once.
+  - #1370 — Added `_normalize_outputs(result, effective_output_ports)` call in `_run_interactive()` between the `__scistudio_env__` sidecar lift and the `_block_outputs[node_id] = result` store, mirroring the existing call site in `_run_and_finalize()` (with the same `get_effective_output_ports() / type(block).output_ports` fallback chain).
+- Source LOC change: 32 lines added to `src/scistudio/engine/scheduler.py` (most are comments referencing #1367/#1370 and rationale).
+- Tests: 5 new tests (3 in `TestSchedulerLifecycleBlockReady`, 2 in `TestInteractiveCollectionNormalize`); full engine sweep 389 passed, 4 skipped, 8 xfailed in 5.64s.
+- Files touched:
+  - `src/scistudio/engine/scheduler.py` (4 small edits across 4 sites)
+  - `tests/engine/test_scheduler.py` (new `TestSchedulerLifecycleBlockReady` class, 3 tests)
+  - `tests/engine/test_scheduler_interactive.py` (new file, 2 tests)
+  - `CHANGELOG.md`
+  - `.workflow/records/1367-1370-scheduler-emit-normalize.json`
+- Gate record: [.workflow/records/1367-1370-scheduler-emit-normalize.json](../../.workflow/records/1367-1370-scheduler-emit-normalize.json) — all 6 stages `done`; commit + PR provenance recorded via `finalize`.
+- Wrapper escape: `SCISTUDIO_SKIP_PREFLIGHT=1` used for `scripts/scistudio_pr_create.py` because the umbrella branch base does not yet carry the wrapper fix from PR #1385 (dispatch-authorized).
+
 ### 7.5 W3-B — Registry + Code backends (#1109 + #1309)
 
 - Owner: W3-B implementer
@@ -275,6 +296,17 @@ language_source: en
 | Full audit | `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[x]` | `status=pass, 0 findings, vulture child 6 informational` |
 | Sentrux | MCP `scan` + `check_rules` | `[x]` | `pass, rules_checked=3/15, violation_count=0, quality_signal=4445, files=1110` |
 | CI | `Verify Workflow Compliance` | `[x]` | https://github.com/zjzcpj/SciStudio/actions/runs/26252955593 (1m6s) |
+
+#### W3-A verification (PR #1391)
+
+| Check | Command or tool | Status | Evidence |
+|---|---|---|---|
+| Ruff | `ruff check .` | `[x]` | `All checks passed!` |
+| Format | `ruff format --check .` | `[x]` | `653 files already formatted` |
+| Pytest | `PYTHONPATH=src pytest tests/engine/ --timeout=60 --no-cov` | `[x]` | `389 passed, 4 skipped, 8 xfailed in 5.64s` (covers `tests/engine/test_scheduler.py`, `tests/engine/test_scheduler_interactive.py`, plus full engine suite) |
+| Full audit | `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[x]` | `status=pass`, 0 findings; 8 implemented child reports (generate_facts, frontmatter_lint, fact_drift, doc_drift, closure, signature_drift, architecture_drift, vulture) |
+| Sentrux | MCP `scan` + `check_rules` + `health` | `[x]` | `pass`, `quality_signal=4444`, `rules_checked=3/15`, `violation_count=0`, `files=1115`, `import_edges=2638` |
+| CI | `Verify Workflow Compliance` | `[!]` | https://github.com/zjzcpj/SciStudio/actions/runs/26254924564 — **expected fail** on `core_change_guard.missing-admin-approval` for `src/scistudio/engine/scheduler.py`; all other guards pass. Owner to add `admin-approved:core-change` label. |
 
 ## 9. Drift Log
 
