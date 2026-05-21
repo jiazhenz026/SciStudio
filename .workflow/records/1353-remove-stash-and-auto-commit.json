@@ -42,6 +42,14 @@
         "docs/audit/smoke/2026-05-21-1353-1354-rest-smoke.md"
       ],
       "reason": "Add gate-record and smoke evidence to PR scope"
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/planning/adr-039-addendum-1-impl-checklist.md"
+      ],
+      "reason": "Add checklist file to PR scope per dispatch prompt \u00a7Coordination - 'Edit only your checklist rows (## 6 Agent A row and ## 7.3 Implementation rows).'"
     }
   ],
   "branch": "feat/issue-1353-1354/remove-stash-add-auto-commit",
@@ -60,7 +68,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1353-remove-stash-and-auto-commit.json",
+    "shas": [
+      "42c41572d00476994156d268a278bfd173d0db08"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "paths": [
@@ -109,7 +123,14 @@
     "frontend/src/components/Lineage/__tests__/RunDetail.restore.test.tsx",
     "CHANGELOG.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1353,
+      1354
+    ],
+    "number": 1378,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1378"
+  },
   "record_path": ".workflow/records/1353-remove-stash-and-auto-commit.json",
   "required_checks": [
     "ruff check .",
@@ -175,7 +196,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],

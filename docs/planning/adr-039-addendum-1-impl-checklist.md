@@ -97,7 +97,7 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| A (W1) | `implementer` | `N/A` | `docs/planning/dispatch-prompts/agent-A-1353-1354.md` | Combined stash removal + auto-commit replacement | `feat/issue-1353-1354/remove-stash-and-auto-commit` | `.claude/worktrees/agent-A-1353-1354/` | `git_engine.py` (stash methods + restore auto-commit), `routes/git.py` (stash endpoints + restore/switch auto-commit), `app.py` (verify mounts), `StashListPanel.tsx`, `StashApplyDialog.tsx`, `GitTab.tsx`, `GitHistoryList.tsx` (stash slots + handleRestore), `BranchPicker.tsx` (auto-commit toast in switch), `gitSlice.ts`, `lib/api.ts`, `types/api.ts`, `RunDetail.tsx` (hint text), 5 test files | `GitHistoryList.tsx` row layout + buttons (B owns), `GitGraph/interactions.ts` (B owns), `branch_delete` route (C owns), `BranchPicker.tsx::handleDelete` (C owns), `lineage/store.py` (C owns) | `#1353 + #1354` / PR-A | `[ ]` |
+| A (W1) | `implementer` | `N/A` | `docs/planning/dispatch-prompts/agent-A-1353-1354.md` | Combined stash removal + auto-commit replacement | `feat/issue-1353-1354/remove-stash-and-auto-commit` | `.claude/worktrees/agent-A-1353-1354/` | `git_engine.py` (stash methods + restore auto-commit), `routes/git.py` (stash endpoints + restore/switch auto-commit), `app.py` (verify mounts), `StashListPanel.tsx`, `StashApplyDialog.tsx`, `GitTab.tsx`, `GitHistoryList.tsx` (stash slots + handleRestore), `BranchPicker.tsx` (auto-commit toast in switch), `gitSlice.ts`, `lib/api.ts`, `types/api.ts`, `RunDetail.tsx` (hint text), 5 test files | `GitHistoryList.tsx` row layout + buttons (B owns), `GitGraph/interactions.ts` (B owns), `branch_delete` route (C owns), `BranchPicker.tsx::handleDelete` (C owns), `lineage/store.py` (C owns) | `#1353 + #1354` / [PR-A #1378](https://github.com/zjzcpj/SciStudio/pull/1378) | `[x]` |
 | B (W2) | `implementer` | `N/A` | `docs/planning/dispatch-prompts/agent-B-1355.md` | Inline `[Diff]` `[Restore]` buttons + remove row-click → modal | `feat/issue-1355/inline-history-row-buttons` | `.claude/worktrees/agent-B-1355/` | `GitHistoryList.tsx` (handleRowClick + row layout), `GitGraph/interactions.ts` (onCommitClick), `GitHistoryList.test.tsx` | Everything Agent A owns; everything Agent C owns; do not touch stash code (A handles it) | `#1355` / PR-B | `[ ]` |
 | C (W2) | `implementer` | `N/A` | `docs/planning/dispatch-prompts/agent-C-1356.md` | Silent auto-tag safety net on branch delete | `feat/issue-1356/branch-delete-orphan-guard` | `.claude/worktrees/agent-C-1356/` | `lineage/store.py` (new `workflow_git_commits_in`), `git_engine.py` (new `commits_reachable_only_from` + `tag` helpers — distinct from A's modifications), `routes/git.py::branch_delete` only, related test files | All of A's scope; all of B's scope; no UI dialog changes (silent per owner C) | `#1356` / PR-C | `[ ]` |
 
@@ -133,10 +133,10 @@ language_source: en
 
 ### 7.3 Implementation
 
-- [ ] Commit 1 (`chore(#1353)`): pure stash deletion — `<commit SHA>`
-- [ ] Commit 2 (`feat(#1354)`): auto-commit replacement — `<commit SHA>`
-- [ ] Tests rewritten/added — `<artifact link>`
-- [ ] CHANGELOG entry added — `<artifact link>`
+- [x] Commit 1 (`chore(#1353)`): pure stash deletion — `8a009658`
+- [x] Commit 2 (`feat(#1354)`): auto-commit replacement — `3141c80a`
+- [x] Tests rewritten/added — backend `tests/core/test_git_engine.py` + `tests/api/test_git_endpoints.py` (75 passed); frontend `gitSlice.test.ts` + `GitTab.test.tsx` + `RunDetail.restore.test.tsx` (46 passed in scope; 442 in full suite)
+- [x] CHANGELOG entry added — top `[Unreleased] ### Changed` row citing both #1353 and #1354 (commit `3141c80a`)
 
 ### 7.4 Audit
 
