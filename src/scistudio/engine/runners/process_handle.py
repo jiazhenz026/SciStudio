@@ -11,26 +11,28 @@ import json
 import logging
 import subprocess
 import sys
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from scistudio.engine.runners.exit_info import ProcessExitInfo
 from scistudio.engine.runners.platform import PlatformOps, get_platform_ops
 
 logger = logging.getLogger(__name__)
 
+# ``ProcessExitInfo`` is defined in :mod:`scistudio.engine.runners.exit_info`
+# and re-exported here so ``scistudio.engine.runners.process_handle.ProcessExitInfo``
+# continues to resolve for every existing importer (the package
+# ``__init__``, ``LocalRunner``, downstream tests). The extraction broke
+# the former platform↔process_handle pair-cycle (see #1337 / PR #1344).
 
-@dataclass
-class ProcessExitInfo:
-    """Exit state of a terminated subprocess.
-
-    Populated by PlatformOps when process exits (ADR-019).
-    """
-
-    exit_code: int | None = None
-    signal_number: int | None = None  # Unix only, None on Windows
-    was_killed_by_framework: bool = False
-    platform_detail: str = ""
+__all__ = [
+    "ProcessExitInfo",
+    "ProcessHandle",
+    "ProcessRegistry",
+    "build_worker_payload",
+    "register_async_process",
+    "spawn_block_process",
+]
 
 
 class ProcessHandle:

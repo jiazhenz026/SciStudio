@@ -24,25 +24,28 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+from scistudio.core.versioning.errors import GitError
+from scistudio.core.versioning.git_binary import GitBinary
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Error envelope
 # ---------------------------------------------------------------------------
+#
+# ``GitError`` is defined in :mod:`scistudio.core.versioning.errors` and
+# re-exported here so ``scistudio.core.versioning.git_engine.GitError``
+# continues to resolve for every existing importer (REST layer, package
+# ``__init__``, downstream tests). The extraction broke the former lazy-
+# import pair-cycle with :mod:`scistudio.core.versioning.git_binary` (see
+# #1337 / PR #1344).
 
-
-class GitError(RuntimeError):
-    """A git invocation returned non-zero exit.
-
-    Carries enough information to render a structured 500 / 409 / 422
-    response in the REST layer.
-    """
-
-    def __init__(self, returncode: int, stderr: str, args: list[str]) -> None:
-        super().__init__(f"git {' '.join(args)} → exit {returncode}: {stderr.strip()}")
-        self.returncode = returncode
-        self.stderr = stderr
-        self.git_args = args
+__all__ = [
+    "GitEngine",
+    "GitError",
+    "HeadState",
+    "MergeResult",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -88,8 +91,6 @@ class GitEngine:
     def _git(self) -> Any:
         """Lazy-resolved :class:`GitBinary`."""
         if self._binary is None:
-            from scistudio.core.versioning.git_binary import GitBinary
-
             self._binary = GitBinary.locate()
         return self._binary
 
