@@ -1,0 +1,95 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "umbrella/arch-drift-and-collection-wrap",
+  "changed_test_paths": [],
+  "check_results": [],
+  "commit": null,
+  "docs_landing": {},
+  "full_audit": null,
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1330,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1330"
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1331,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1331"
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1332,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1332"
+    },
+    {
+      "close_in_pr": false,
+      "followup_rationale": "P1-2 resource gating not wired into dispatch; existing open issue #887 tracks impl. This umbrella's Track B updates ARCHITECTURE.md §6 to match current behavior and links #887; impl deferred to that issue's own scope.",
+      "number": 887,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/887"
+    }
+  ],
+  "owner_directive": "Manager-owned umbrella for ARCHITECTURE doc drift P1 audit findings + engine Collection auto-wrap (ADR-020 \u00a73 contract enforcement). Sub-agents in parallel: Track A impl (#1330), Track B docs (#1331 + #1332, references #887). Final umbrella PR [DO NOT MERGE] until owner removes prefix.",
+  "planned_files": [],
+  "pull_request": null,
+  "record_path": ".workflow/records/1330-umbrella-arch-drift.json",
+  "required_checks": [],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "docs/architecture/ARCHITECTURE.md",
+      "src/scistudio/engine/runners/worker.py",
+      "src/scistudio/engine/scheduler.py",
+      "tests/engine/",
+      "docs/planning/arch-drift-checklist.md",
+      ".workflow/records/umbrella-arch-drift.json"
+    ]
+  },
+  "sentrux": null,
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1330-umbrella-arch-drift",
+  "task_kind": "manager"
+}
