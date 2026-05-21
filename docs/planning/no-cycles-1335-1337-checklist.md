@@ -98,15 +98,19 @@ language_source: en
 
 ## 5. Local Gate Hook Bypass Evidence
 
-- Authorized bypass label: `N/A`
-- Owner authorization source: `N/A`
-- Reason: `N/A — manager uses standard local gate hooks; CI is authoritative`
+- Authorized bypass label: `admin-approved:ai-override`
+- Owner authorization source: chat on 2026-05-21 — owner selected "Authorize admin-approved:ai-override for this one umbrella setup push (Recommended)" in response to manager AskUserQuestion about chicken-and-egg umbrella push validation.
+- Reason: ADR-042 `pre-push` and `pr-ready` validators require all 6 stages done + full_audit evidence (`require_final_evidence=True`); the umbrella's `commit_and_submit_pr` stage cannot complete before the PR exists. Bypass is scoped to TWO commands ONLY: the initial `git push -u origin track/no-cycles-1335-1337` and the initial `gh pr create` that opens the `[DO NOT MERGE]` umbrella PR. All subsequent commits/pushes (agent PRs, ratchet merge, finalize) use the standard non-bypass workflow.
+- Scope of bypass: initial umbrella setup ONLY. Agent PRs (Track A `#1337`, Track B `#1335`) must NOT use this bypass label; they are normal implementer PRs with full gate evidence at PR open time.
+- PR label applied: `admin-approved:ai-override` on the umbrella PR (so CI's gate validator recognizes the bypass).
 
 | Hook | Command | Bypass label | Status | Evidence |
 |---|---|---|---|---|
-| Pre-commit | `python -m scistudio.qa.governance.gate_record pre-commit --staged` | N/A | `[ ]` | `<output or summary>` |
-| Commit message | `python -m scistudio.qa.governance.gate_record commit-msg <commit-msg-file>` | N/A | `[ ]` | `<output or summary>` |
-| Pre-push | `python -m scistudio.qa.governance.gate_record pre-push` | N/A | `[ ]` | `<output or summary>` |
+| Pre-commit (preflight commit) | `python -m scistudio.qa.governance.gate_record pre-commit --staged` | N/A — passed clean | `[x]` | `gate_record: pass` |
+| Commit message (preflight commit) | `python -m scistudio.qa.governance.gate_record commit-msg <commit-msg-file>` | N/A | `[x]` | commit `36bac1d3` accepted |
+| Pre-push (initial umbrella setup) | `SCISTUDIO_GATE_BYPASS_LABELS=admin-approved:ai-override git push -u origin track/no-cycles-1335-1337` | `admin-approved:ai-override` (chat-authorized, this push only) | `[ ]` | `<push output>` |
+| Pre-PR (initial umbrella PR open) | `SCISTUDIO_GATE_BYPASS_LABELS=admin-approved:ai-override gh pr create ... --label admin-approved:ai-override` | `admin-approved:ai-override` (chat-authorized, this PR only) | `[ ]` | `<PR URL>` |
+| All later commits/pushes (agent PRs, ratchet merge, finalize) | normal gate hooks | N/A | `[ ]` | `<runs without bypass>` |
 
 ## 6. Dispatch Matrix
 
