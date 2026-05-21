@@ -38,6 +38,9 @@ def test_load_image_supported_extensions_classvar() -> None:
 
     Cross-package integration check: from the core test suite we can
     inspect the imaging plugin's ClassVar to ensure #1075 landed.
+    Per ADR-043 / spec adr-043-package-migration FR-004 the loader's
+    extension surface expanded to cover PNG/JPEG (Pillow) and Bio-Formats
+    microscopy vendor formats (CZI/ND2/LIF/OIR/OIB load-only).
     """
     from scieasy_blocks_imaging.io.load_image import LoadImage
 
@@ -45,27 +48,51 @@ def test_load_image_supported_extensions_classvar() -> None:
         ".tif": "tiff",
         ".tiff": "tiff",
         ".zarr": "zarr",
+        ".png": "png",
+        ".jpg": "jpeg",
+        ".jpeg": "jpeg",
+        ".czi": "czi",
+        ".nd2": "nd2",
+        ".lif": "lif",
+        ".oir": "oir",
+        ".oib": "oib",
     }
 
 
 def test_save_image_supported_extensions_classvar() -> None:
-    """#1075: SaveImage declares ``supported_extensions`` (ADR-028 §D8)."""
+    """#1075: SaveImage declares ``supported_extensions`` (ADR-028 §D8).
+
+    Per ADR-043 FR-005, SaveImage covers writable formats only — TIFF /
+    Zarr / PNG / JPEG. Bio-Formats vendor formats are intentionally
+    absent because python-bioformats is load-only.
+    """
     from scieasy_blocks_imaging.io.save_image import SaveImage
 
     assert SaveImage.supported_extensions == {
         ".tif": "tiff",
         ".tiff": "tiff",
         ".zarr": "zarr",
+        ".png": "png",
+        ".jpg": "jpeg",
+        ".jpeg": "jpeg",
     }
 
 
-def test_load_image_save_image_supported_extensions_mirror() -> None:
-    """#1075: SaveImage.supported_extensions mirrors LoadImage's for round-trip
-    discoverability via BlockRegistry (#1077)."""
+def test_load_image_save_image_supported_extensions_subset() -> None:
+    """#1075: SaveImage.supported_extensions is a STRICT subset of
+    LoadImage's for round-trip discoverability via BlockRegistry (#1077).
+
+    Per ADR-043 FR-005 the save surface is narrower because Bio-Formats
+    vendor formats (CZI/ND2/LIF/OIR/OIB) are load-only.
+    """
     from scieasy_blocks_imaging.io.load_image import LoadImage
     from scieasy_blocks_imaging.io.save_image import SaveImage
 
-    assert SaveImage.supported_extensions == LoadImage.supported_extensions
+    save_exts = set(SaveImage.supported_extensions.keys())
+    load_exts = set(LoadImage.supported_extensions.keys())
+    assert save_exts.issubset(load_exts)
+    # The load-only set is the Bio-Formats vendor microscopy family.
+    assert load_exts - save_exts == {".czi", ".nd2", ".lif", ".oir", ".oib"}
 
 
 def test_imaging_legacy_extension_constants_removed() -> None:

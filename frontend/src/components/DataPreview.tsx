@@ -1,8 +1,11 @@
 import Plot from "react-plotly.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { extractOMEFromMetadata, getOMEMetadata, type OMETree } from "../api/capabilities";
 import { api } from "../lib/api";
 import type { DataPreviewResponse } from "../types/api";
+
+import { OMEMetadataPanel, hasOMEContent } from "./OutputPreview/OMEMetadataPanel";
 
 interface DataPreviewProps {
   selectedNodeId: string | null;
@@ -929,6 +932,50 @@ export function DataPreview({
       ? !!previewLoading[activeRef]
       : !!activeSliceKey && sliceFetchingRef.current.has(activeSliceKey));
 
+  // ADR-043 FR-013 — OME metadata panel toggle.
+  //
+  // First try the cached preview's metadata (the preview endpoint already
+  // returns `metadata` alongside `preview`). When absent, fall back to a
+  // lazy `/api/data/{ref}` fetch the first time the user clicks the
+  // "OME metadata" button.
+  const previewMetadata = useMemo<Record<string, unknown> | null>(() => {
+    if (!preview) return null;
+    const md = (preview as unknown as { metadata?: Record<string, unknown> }).metadata;
+    return md && typeof md === "object" ? md : null;
+  }, [preview]);
+  const previewOme = useMemo<OMETree | null>(
+    () => extractOMEFromMetadata(previewMetadata),
+    [previewMetadata],
+  );
+  const [omeOpen, setOmeOpen] = useState(false);
+  const [fetchedOmeByRef, setFetchedOmeByRef] = useState<Record<string, OMETree | null>>({});
+  const [omeFetching, setOmeFetching] = useState<Record<string, boolean>>({});
+  const activeFetchedOme = activeRef ? fetchedOmeByRef[activeRef] ?? null : null;
+  const activeOme = previewOme ?? activeFetchedOme;
+  const omeAvailable = hasOMEContent(activeOme) || (!previewOme && activeRef != null);
+  // Reset the open state when the active ref changes.
+  useEffect(() => {
+    setOmeOpen(false);
+  }, [activeRef]);
+
+  const handleOpenOme = useCallback(() => {
+    setOmeOpen(true);
+    if (!activeRef || previewOme) return;
+    if (fetchedOmeByRef[activeRef] !== undefined) return;
+    if (omeFetching[activeRef]) return;
+    setOmeFetching((prev) => ({ ...prev, [activeRef]: true }));
+    getOMEMetadata(activeRef)
+      .then((ome) => {
+        setFetchedOmeByRef((prev) => ({ ...prev, [activeRef]: ome }));
+      })
+      .catch(() => {
+        setFetchedOmeByRef((prev) => ({ ...prev, [activeRef]: null }));
+      })
+      .finally(() => {
+        setOmeFetching((prev) => ({ ...prev, [activeRef]: false }));
+      });
+  }, [activeRef, previewOme, fetchedOmeByRef, omeFetching]);
+
   return (
     <aside className="flex h-full flex-col overflow-hidden border-l border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(245,241,232,0.98))] p-4">
       <div className="flex items-start justify-between gap-3">
@@ -965,12 +1012,37 @@ export function DataPreview({
             {isLoadingActive ? (
               <div className="rounded-[1.6rem] border border-stone-200 bg-white p-4 text-sm text-stone-500">Loading preview…</div>
             ) : preview && activeRef ? (
-              <PreviewRenderer
-                preview={preview.preview}
-                dataRef={activeRef}
-                currentSlice={activeSlice}
-                onSliceChange={handleSliceChange}
-              />
+              <>
+                <PreviewRenderer
+                  preview={preview.preview}
+                  dataRef={activeRef}
+                  currentSlice={activeSlice}
+                  onSliceChange={handleSliceChange}
+                />
+                {/* ADR-043 FR-013 — OME metadata browser. Always render the
+                    button when a ref is active; the panel itself surfaces
+                    a "No OME metadata" message when the underlying object
+                    has none. */}
+                {omeAvailable ? (
+                  <div className="mt-3">
+                    {!omeOpen ? (
+                      <button
+                        type="button"
+                        className="rounded-full border border-stone-300 bg-white px-3 py-1 text-xs text-stone-600 hover:bg-stone-50"
+                        onClick={handleOpenOme}
+                        data-testid="open-ome-metadata"
+                      >
+                        OME metadata
+                      </button>
+                    ) : (
+                      <OMEMetadataPanel
+                        ome={activeOme}
+                        onClose={() => setOmeOpen(false)}
+                      />
+                    )}
+                  </div>
+                ) : null}
+              </>
             ) : (
               <div className="rounded-[1.6rem] border border-stone-200 bg-white p-4 text-sm text-stone-500">
                 Preview not loaded yet.

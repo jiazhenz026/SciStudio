@@ -141,12 +141,16 @@ class Watershed(ProcessBlock):
         labels = np.transpose(labelled, inverse_axes)
         raster = Array(axes=list(image.axes), shape=labels.shape, dtype=labels.dtype)
         raster._data = labels  # type: ignore[attr-defined]
+        # ADR-043 / spec FR-009 Mode C: Label output is shape-aligned with
+        # the input Image (axes match image.axes), so ``ome`` MUST be
+        # carried into the rebuilt ``Label.Meta``.
         return Label(
             slots={"raster": raster},
             framework=image.framework.derive(),
             meta=Label.Meta(
                 source_file=getattr(image.meta, "source_file", None),
                 n_objects=offset,
+                ome=getattr(image.meta, "ome", None),
             ),
             user=dict(image.user),
         )

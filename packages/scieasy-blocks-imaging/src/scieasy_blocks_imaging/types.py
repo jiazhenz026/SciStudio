@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any, ClassVar
 
 import numpy as np
+from ome_types.model import OME
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from scieasy.core.meta import ChannelInfo
@@ -25,7 +26,17 @@ class Image(Array):
     class Meta(BaseModel):
         """Per-instance imaging metadata."""
 
-        model_config = ConfigDict(frozen=True)
+        # ADR-043 / spec adr-043-package-migration FR-006: ``ome`` is a typed
+        # carrier for the canonical OME-XML metadata structure. Populated by
+        # IO handlers (Bio-Formats, OME-TIFF, PNG/JPEG EXIF mapping) and
+        # propagated through ProcessBlocks per the propagation contract
+        # (FR-009 modes A/B/C). The default is ``None`` so existing call sites
+        # constructing ``Image.Meta()`` remain backward-compatible.
+        # Pydantic v2 needs ``arbitrary_types_allowed`` to embed the
+        # ``ome_types`` model class because it is exposed as a non-BaseModel
+        # subclass after compat shimming on some platforms; declare it
+        # alongside ``frozen=True``.
+        model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
         pixel_size: PhysicalQuantity | None = None
         z_spacing: PhysicalQuantity | None = None
@@ -36,6 +47,7 @@ class Image(Array):
         acquisition_date: datetime | None = None
         source_file: str | None = None
         instrument: str | None = None
+        ome: OME | None = None
 
         @field_validator("channels", mode="before")
         @classmethod
@@ -80,9 +92,16 @@ class Label(CompositeData):
     class Meta(BaseModel):
         """Per-instance label-image metadata."""
 
-        model_config = ConfigDict(frozen=True)
+        # ADR-043 / spec adr-043-package-migration FR-007: ``ome`` is added
+        # explicitly here because ``Label.Meta`` inherits from
+        # :class:`pydantic.BaseModel` directly (sibling of ``Image.Meta``,
+        # not subclass). The field carries the source ``Image``'s OME
+        # metadata across shape-preserving cross-type derivations (FR-009
+        # Mode C, e.g. segmentation: ``Image → Label``).
+        model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
         source_file: str | None = None
         n_objects: int | None = None
+        ome: OME | None = None
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)

@@ -76,12 +76,17 @@ class ConnectedComponents(ProcessBlock):
         )
         raster = Array(axes=list(item.axes), shape=labels.shape, dtype=labels.dtype)
         raster._data = labels  # type: ignore[attr-defined]
+        # ADR-043 / spec FR-009 Mode C: Label output is shape-aligned with
+        # the input Mask (same axes / raster shape), so ``ome`` MUST be
+        # carried from the source Mask's Image.Meta into the rebuilt
+        # ``Label.Meta``.
         return Label(
             slots={"raster": raster},
             framework=item.framework.derive(),
             meta=Label.Meta(
                 source_file=getattr(item.meta, "source_file", None),
                 n_objects=int(labels.max()) if labels.size else 0,
+                ome=getattr(item.meta, "ome", None),
             ),
             user=dict(item.user),
         )

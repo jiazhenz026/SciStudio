@@ -147,7 +147,45 @@ def _projected_meta(meta: Image.Meta | None, axis: str) -> Image.Meta | None:
         updates["channels"] = None
     if axis == "lambda":
         updates["wavelengths_nm"] = None
+
+    # ADR-043 / spec FR-009 Mode B: projection drops one axis. We deep-copy
+    # the OME object (so the frozen source Meta is not mutated) and rewrite
+    # the dropped-axis size to 1 in OME's ``size_<axis>`` and remove that
+    # axis from ``dimension_order`` when it is present. Per-axis pixel
+    # sizes for remaining axes are left unchanged (the in-plane sampling
+    # is unaffected by a projection along an orthogonal axis).
+    ome = getattr(meta, "ome", None)
+    if ome is not None:
+        updates["ome"] = _project_ome(ome, axis)
+
     return meta.model_copy(update=updates) if updates else meta
+
+
+def _project_ome(ome: Any, axis: str) -> Any:
+    """Return a deep-copied OME with ``size_<axis>`` collapsed to 1.
+
+    The OME dimension_order is left as-is when the projected axis is not
+    present in it (some loaders omit singleton-dim characters); when the
+    axis character IS in dimension_order we keep the order string but
+    collapse the size to 1 so consumers can still tell a projection
+    happened by reading ``size_<axis>``.
+    """
+    new_ome = ome.model_copy(deep=True)
+    if not new_ome.images:
+        return new_ome
+    pixels = new_ome.images[0].pixels
+
+    # Map SciEasy axis name -> OME pixel-size attribute.
+    axis_to_size_attr: dict[str, str] = {
+        "t": "size_t",
+        "z": "size_z",
+        "c": "size_c",
+        "lambda": "size_c",  # spectral axis maps to channel count in OME
+    }
+    size_attr = axis_to_size_attr.get(axis)
+    if size_attr is not None and hasattr(pixels, size_attr):
+        setattr(pixels, size_attr, 1)
+    return new_ome
 
 
 def _reduce(data: np.ndarray, method: str, axis_index: int) -> np.ndarray:

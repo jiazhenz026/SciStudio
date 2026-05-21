@@ -6,6 +6,7 @@ import { api, ApiError } from "../../lib/api";
 import type { FilesystemEntry, FormatCapabilityResponse } from "../../types/api";
 import type { BlockNodeData } from "../../types/ui";
 import { computeEffectivePorts } from "../../utils/computeEffectivePorts";
+import { LossySaveWarning } from "../WorkflowEditor/LossySaveWarning";
 
 // ---------------------------------------------------------------------------
 // Category icon map
@@ -765,7 +766,19 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
   const configProps = getTopConfigProperties(data.schema?.config_schema).filter(
     (prop) => !(data.category === "io" && prop.key === "direction"),
   );
-  const formatCapabilities = data.schema?.format_capabilities ?? [];
+  // Fix #1307: when the block has a ``core_type`` driving config (LoadData /
+  // SaveData), the inline Format dropdown MUST only show capabilities whose
+  // ``data_type`` matches the active core_type, otherwise the user can pick
+  // illegal combinations (e.g. core_type=Series + capability_id=
+  // ``core.dataframe.csv.save``) that produce undefined runtime behaviour.
+  // Blocks without a ``core_type`` field (e.g. imaging.threshold) are
+  // unaffected because the filter is a no-op when ``coreType`` is null.
+  const allFormatCapabilities = data.schema?.format_capabilities ?? [];
+  const coreType =
+    typeof data.config?.core_type === "string" ? data.config.core_type : null;
+  const formatCapabilities = coreType
+    ? allFormatCapabilities.filter((cap) => cap.data_type === coreType)
+    : allFormatCapabilities;
   const typeHierarchy = data.schema?.type_hierarchy;
   const categoryIcon = categoryIcons[data.category] ?? categoryIcons.custom;
   // ADR-028 Addendum 1 §B fix #3 / §C8: read ``direction`` from the schema
@@ -1086,6 +1099,28 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
             <ErrorMessage message={data.errorSummary ?? data.errorMessage!} />
           ) : null}
         </div>
+        {/* ADR-043 FR-014 — lossy-save warning chip. Only rendered for
+            save-direction IO blocks where the parent has supplied
+            `upstreamOmeFields` AND a capability is selected whose
+            `metadata_fidelity` would drop any of those fields. The
+            LossySaveWarning component itself returns null when the
+            dropped-field set is empty, so this branch is cheap when
+            there is no warning to surface. */}
+        {data.category === "io" && (data.schema?.direction === "output" || data.schema?.direction === "save") && data.upstreamOmeFields && data.upstreamOmeFields.length > 0 && (() => {
+          const selectedId = data.config?.capability_id;
+          const selectedCap = formatCapabilities.find(
+            (c) => typeof selectedId === "string" && c.id === selectedId,
+          ) ?? (formatCapabilities.length === 1 ? formatCapabilities[0] : undefined);
+          if (!selectedCap) return null;
+          return (
+            <div className="mt-1">
+              <LossySaveWarning
+                sourceOmeFields={data.upstreamOmeFields}
+                targetCapabilityFidelity={selectedCap.metadata_fidelity}
+              />
+            </div>
+          );
+        })()}
         {data.status === "paused" && data.category === "app" && (
           <PausedToast outputDir={String(data.config?.output_dir ?? "")} />
         )}

@@ -49,6 +49,13 @@ dev = [
     "import-linter>=2.0",
     "griffe>=1.7",
     "pre-commit>=4.0",
+    # ADR-043 / spec adr-043-package-migration FR-017: ome-types is a required
+    # dep of scieasy-blocks-imaging now that Image.Meta carries a typed
+    # ``ome: OME | None`` field. Listed here as well so the skeleton import
+    # tests in ``tests/plugins/test_phase11_skeleton.py`` (which exercise
+    # ``importlib.import_module(scieasy_blocks_imaging...)`` directly without
+    # installing the plugin package) can succeed in CI.
+    "ome-types>=0.5,<0.6",
 ]
 
 [project.scripts]

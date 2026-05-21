@@ -15,6 +15,7 @@ import { useCallback, useMemo, useState } from "react";
 import { resolveTypeColor } from "../config/typeColorMap";
 import type { BlockPortResponse, BlockSchemaResponse, BlockSummary, WorkflowEdge, WorkflowNode } from "../types/api";
 import type { BlockNodeData } from "../types/ui";
+import { collectUpstreamOmeFields } from "./WorkflowEditor/LossySaveWarning";
 import { AnnotationNode } from "./nodes/AnnotationNode";
 import { BlockNode } from "./nodes/BlockNode";
 import { GroupNode } from "./nodes/GroupNode";
@@ -94,6 +95,15 @@ interface WorkflowCanvasProps {
    * panel down to its tab strip.
    */
   onPaneClick?: () => void;
+  /**
+   * ADR-043 FR-014 — optional map of `blockId -> output payload` used by the
+   * SaveImage `LossySaveWarning` chip. The payload shape matches the
+   * `blockOutputs` slice in `useAppStore`; the canvas walks upstream edges
+   * to find the OME field list on the source block's outputs and forwards
+   * it via `BlockNodeData.upstreamOmeFields`. When omitted, no warning is
+   * computed (forward-compatible with callers that don't yet wire it).
+   */
+  blockOutputs?: Record<string, Record<string, unknown>>;
 }
 
 export function WorkflowCanvas(props: WorkflowCanvasProps) {
@@ -119,6 +129,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     onUpdateNodeConfig,
     onUpdateNodePosition,
     selectedNodeId,
+    blockOutputs,
   } = props;
 
   // Collect the set of type names and merged type hierarchy present across
@@ -232,6 +243,33 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
       // Regular block node
       const summary = blocks.find((block) => block.type_name === node.block_type);
       const schema = schemas[node.block_type];
+
+      // ADR-043 FR-014 — derive upstream OME fields by walking incoming
+      // edges and inspecting the source block's cached outputs for an OME
+      // payload (typed Image.Meta.ome). Cheap when blockOutputs is
+      // undefined or the node has no upstream IO; the LossySaveWarning
+      // chip self-suppresses when the resulting list is empty.
+      // Fix #1313 bug 1: collection-shaped payloads
+      // (``{ kind: "collection", items: [...] }``) carry metadata under
+      // ``items[*].metadata``; recursion lives in
+      // ``collectUpstreamOmeFields``.
+      const upstreamOmeFields = (() => {
+        if (!blockOutputs) return undefined;
+        const sourceIds = edges
+          .filter((edge) => edge.target.split(":")[0] === node.id)
+          .map((edge) => edge.source.split(":")[0]);
+        if (sourceIds.length === 0) return undefined;
+        const collected = new Set<string>();
+        for (const sourceId of sourceIds) {
+          const outputs = blockOutputs[sourceId];
+          if (!outputs) continue;
+          for (const field of collectUpstreamOmeFields(outputs)) {
+            collected.add(field);
+          }
+        }
+        return collected.size > 0 ? Array.from(collected) : undefined;
+      })();
+
       return {
         id: node.id,
         type: "block",
@@ -261,11 +299,12 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
           onDelete: makeOnDelete(node.id),
           onUpdateConfig: makeOnUpdateConfig(node.id),
           onErrorClick: makeOnErrorClick(node.id),
+          upstreamOmeFields,
         },
         selected: selectedNodeId === node.id,
       };
     });
-  }, [blocks, blockStates, blockErrors, blockErrorSummaries, dragPositions, makeOnDelete, makeOnErrorClick, makeOnRestart, makeOnRun, makeOnUpdateConfig, nodes, onUpdateNodeConfig, resolveLabel, schemas, selectedNodeId]);
+  }, [blocks, blockStates, blockErrors, blockErrorSummaries, blockOutputs, dragPositions, edges, makeOnDelete, makeOnErrorClick, makeOnRestart, makeOnRun, makeOnUpdateConfig, nodes, onUpdateNodeConfig, resolveLabel, schemas, selectedNodeId]);
 
   const flowEdges = useMemo<Array<Edge>>(() => {
     return edges.map((edge) => {

@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -175,6 +176,34 @@ class LocalRunner:
 
         # Launch via asyncio.create_subprocess_exec to avoid os.fork()
         # deadlock on macOS after importing native extensions (#483).
+        # Fix #1305: worker cwd is the active project root so relative
+        # paths in block configs (e.g. ``data/raw/foo.tif`` in LoadImage,
+        # ``data/parquet/out.parquet`` in SaveData) resolve against the
+        # project, not against wherever ``scieasy gui`` was launched.
+        # When no project is active (CLI standalone runs), inherit the
+        # parent process cwd unchanged.
+        # TODO(#1305): per-block explicit ``_resolve_project_relative``
+        #   helper would be more architecturally pure (AGENTS.md §3.5
+        #   "Prefer explicit contracts over clever shortcuts"). This
+        #   subprocess-cwd approach is the minimal Phase D unblocker;
+        #   a follow-up may migrate IO blocks to explicit per-block
+        #   resolution and revert this implicit cwd contract.
+        #   Followup: https://github.com/zjzcpj/SciEasy/issues/1305
+        project_dir = config.get("project_dir")
+        worker_cwd = str(project_dir) if isinstance(project_dir, str) and project_dir else None
+        # When we change the worker cwd away from the parent process cwd,
+        # the parent's implicit ``sys.path[0]=''`` no longer resolves to
+        # the same directory in the worker. Tests + dev workflows that
+        # imported modules relative to the launcher cwd (e.g. tests'
+        # ``tests.fixtures.noop_io_block``) would then fail with
+        # ``ModuleNotFoundError``. Preserve that import surface by adding
+        # the parent's cwd to the worker's ``PYTHONPATH``.
+        worker_env: dict[str, str] | None = None
+        if worker_cwd is not None:
+            worker_env = dict(os.environ)
+            parent_cwd = os.getcwd()
+            existing_pp = worker_env.get("PYTHONPATH", "")
+            worker_env["PYTHONPATH"] = f"{parent_cwd}{os.pathsep}{existing_pp}" if existing_pp else parent_cwd
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             "-m",
@@ -183,6 +212,8 @@ class LocalRunner:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             start_new_session=True,
+            cwd=worker_cwd,
+            env=worker_env,
         )
 
         # Register the process in the ProcessRegistry for lifecycle tracking.

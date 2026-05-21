@@ -68,7 +68,7 @@ class TestTypedReconstruction:
                     "name": "tables",
                     "types": ["DataFrame"],
                     "extension": "csv",
-                    "capability_id": "scieasy.blocks.io.loaders.load_data.loaddata.load.csv",
+                    "capability_id": "core.dataframe.csv.load",
                 }
             ]
         )
@@ -79,7 +79,7 @@ class TestTypedReconstruction:
                         "name": "tables",
                         "types": ["DataFrame"],
                         "extension": "csv",
-                        "capability_id": "scieasy.blocks.io.loaders.load_data.loaddata.load.csv",
+                        "capability_id": "core.dataframe.csv.load",
                     },
                 ]
             }
@@ -126,7 +126,7 @@ class TestTypedReconstruction:
                     "name": "tables",
                     "types": ["DataFrame"],
                     "extension": "csv",
-                    "capability_id": "scieasy.blocks.io.loaders.load_data.loaddata.load.csv",
+                    "capability_id": "core.dataframe.csv.load",
                 }
             ]
         )
@@ -137,7 +137,7 @@ class TestTypedReconstruction:
                         "name": "tables",
                         "types": ["DataFrame"],
                         "extension": "csv",
-                        "capability_id": "scieasy.blocks.io.loaders.load_data.loaddata.load.csv",
+                        "capability_id": "core.dataframe.csv.load",
                     },
                 ]
             }

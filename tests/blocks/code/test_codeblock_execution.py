@@ -236,3 +236,37 @@ def test_codeblock_backend_loader_registers_python_backend() -> None:
 
     python_backend = next(backend for backend in backends if backend.name == "python")
     assert ".py" in python_backend.extensions
+
+
+def test_persisted_codeblock_config_strips_engine_enrichment_fields() -> None:
+    """Fix #1308 regression guard: ``_persisted_codeblock_config`` MUST strip
+    every field that ``DAGScheduler._build_enriched_config`` injects at the
+    block boundary. Otherwise ``CodeBlockConfig(extra='forbid')`` rejects
+    them and every CodeBlock run inside a workflow fails."""
+    from scieasy.blocks.code.code_block import _persisted_codeblock_config
+
+    raw = {
+        "script_path": "script.py",
+        "working_directory": ".",
+        "inputs": [],
+        "outputs": [],
+        # Engine-injected runtime fields (from DAGScheduler):
+        "project_dir": "/path/to/project",
+        "block_id": "run_calibration_notebook",
+        "workflow_id": "microplastic-codeblock-direct",
+        "run_id": "run-abc123",
+        "registry": object(),
+        "materialise_adapter": object(),
+        "reconstruct_adapter": object(),
+    }
+    cleaned = _persisted_codeblock_config(raw)
+    assert "workflow_id" not in cleaned, "_persisted_codeblock_config must strip workflow_id (fix #1308)"
+    assert "project_dir" not in cleaned
+    assert "block_id" not in cleaned
+    assert "run_id" not in cleaned
+    assert "registry" not in cleaned
+    assert "materialise_adapter" not in cleaned
+    assert "reconstruct_adapter" not in cleaned
+    # User-authored fields must survive.
+    assert cleaned["script_path"] == "script.py"
+    assert cleaned["working_directory"] == "."
