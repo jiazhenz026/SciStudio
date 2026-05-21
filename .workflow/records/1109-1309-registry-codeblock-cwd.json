@@ -1,0 +1,182 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "tests/blocks/code/test_codeblock_execution.py"
+      ],
+      "reason": "test_codeblock_execution.py and test_codeblock_notebooks.py encode the buggy cwd=exchange_dir behavior in their integration test scripts; they must be updated alongside the fix"
+    }
+  ],
+  "branch": "fix/issue-1109-1309/registry-codeblock-cwd",
+  "changed_test_paths": [
+    "tests/blocks/code/test_codeblock_backends.py",
+    "tests/blocks/code/test_codeblock_execution.py",
+    "tests/blocks/code/test_codeblock_notebooks.py",
+    "tests/blocks/test_registry_find.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "653 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/blocks/test_registry_find.py tests/blocks/code/test_codeblock_backends.py tests/blocks/code/test_codeblock_notebooks.py tests/blocks/code/test_codeblock_execution.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "43 passed in 15.25s",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "no-architecture-change-impl-of-existing-ADR-041-and-ADR-028"
+    },
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/2026-05-21-bug-sweep-checklist.md"
+      ]
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "no-user-facing-docs-required"
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "no-public-contract-change-honours-existing-docstring-contract"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1109,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1109"
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1309,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1309"
+    }
+  ],
+  "owner_directive": "Root-cause: BlockRegistry compound-ext fallback + CodeBlock backends working_directory",
+  "planned_files": [
+    "src/scistudio/blocks/registry.py",
+    "src/scistudio/blocks/code/backends/notebook.py",
+    "src/scistudio/blocks/code/backends/python.py"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1109-1309-registry-codeblock-cwd.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/blocks/registry.py",
+      "src/scistudio/blocks/code/backends/notebook.py",
+      "src/scistudio/blocks/code/backends/python.py",
+      "tests/blocks/test_registry_find.py",
+      "tests/blocks/code/test_codeblock_notebooks.py",
+      "tests/blocks/code/test_codeblock_backends.py",
+      "CHANGELOG.md",
+      "docs/planning/2026-05-21-bug-sweep-checklist.md",
+      ".workflow/records/1109-1309-registry-codeblock-cwd.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "MCP scan+check_rules+health: pass, rules_checked=3/15, violation_count=0, quality_signal=4445, files=1113, import_edges=2629, lines=285148",
+    "pro_required": false,
+    "quality_signal": 4445.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1109-registry-codeblock-cwd",
+  "task_kind": "bugfix"
+}
