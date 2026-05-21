@@ -36,7 +36,16 @@
       ]
     }
   },
-  "full_audit": null,
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root .",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/audit-issue-triage-full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
   "governance_touch": false,
   "issues": [
     {
