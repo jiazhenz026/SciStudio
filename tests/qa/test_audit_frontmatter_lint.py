@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from scieasy.qa.audit._util import load_adr_frontmatter as _util_load_adr_frontmatter
 from scieasy.qa.audit.frontmatter_lint import check, lint_file, lint_paths
 from scieasy.qa.audit.loaders import load_adr_frontmatter, load_architecture_frontmatter
-from scieasy.qa.schemas.frontmatter import ADRAddendumFrontmatter, ArchitectureFrontmatter
+from scieasy.qa.schemas.frontmatter import ADRAddendumFrontmatter, ADRFrontmatter, ArchitectureFrontmatter
 from scieasy.qa.schemas.report import AuditStatus, Severity
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -233,6 +234,34 @@ def test_adr_addendum_loader_selects_addendum_schema(tmp_path: Path) -> None:
     assert isinstance(frontmatter, ADRAddendumFrontmatter)
     assert frontmatter.adr == 42
     assert frontmatter.addendum == 1
+
+
+def test_util_load_adr_frontmatter_selects_addendum_schema(tmp_path: Path) -> None:
+    """``_util.load_adr_frontmatter`` must route addendum files to ``ADRAddendumFrontmatter``.
+
+    ``governed.load_governed_documents`` (consumed by doc_drift + closure) calls
+    this lower-level loader directly; if it falls back to ``ADRFrontmatter`` the
+    standalone-addendum schema is rejected and audit reports a false positive.
+    """
+
+    path = _write(tmp_path / "docs" / "adr" / "ADR-042-addendum1.md", _valid_addendum())
+
+    frontmatter, _body, findings = _util_load_adr_frontmatter(path)
+
+    assert findings == []
+    assert isinstance(frontmatter, ADRAddendumFrontmatter)
+    assert frontmatter.adr == 42
+    assert frontmatter.addendum == 1
+
+
+def test_util_load_adr_frontmatter_keeps_plain_adr_schema(tmp_path: Path) -> None:
+    path = _write(tmp_path / "docs" / "adr" / "ADR-123.md", _valid_adr())
+
+    frontmatter, _body, findings = _util_load_adr_frontmatter(path)
+
+    assert findings == []
+    assert isinstance(frontmatter, ADRFrontmatter)
+    assert not isinstance(frontmatter, ADRAddendumFrontmatter)
 
 
 def test_valid_architecture_frontmatter_and_h1_pass(tmp_path: Path) -> None:

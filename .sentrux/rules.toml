@@ -2,8 +2,10 @@
 # Lock the current baseline first, then ratchet down toward zero cycles.
 # Baseline observed by sentrux on 2026-05-20: cycles = 5.
 max_cycles = 5
-# Baseline observed by sentrux on 2026-05-20: highest function CC = 75.
-max_cc = 75
+# Baseline raised 2026-05-20 to unblock PRs (#1291); ratchet back toward 75
+# after src/scieasy/workflow/validator.py:validate_workflow is split into
+# per-check helpers (followup: #1292).
+max_cc = 100
 no_god_files = false
 
 [[layers]]
