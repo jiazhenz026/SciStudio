@@ -429,9 +429,29 @@ class SaveImage(IOBlock):
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {
-            # ADR-030: ``path`` is inherited from IOBlock base class via MRO merge.
-            # Direction-aware post-processing auto-switches to directory_browser.
-            #
+            # Issue #1369: SaveImage writes single-image outputs to a
+            # concrete file path (``out.tif``, ``out.zarr``, ``out.png``,
+            # ``out.jpg``), so the bottom panel must open the **file**
+            # picker, not the directory picker. The base ``IOBlock``
+            # declares ``path`` as ``ui_widget="file_browser"``, but the
+            # ADR-030 registry post-processor flips that to
+            # ``directory_browser`` for any direction=="output" subclass
+            # that does NOT declare ``path`` in its own ``config_schema``
+            # (see ``scistudio.blocks.registry._subclass_declares_field``).
+            # Multi-image batch mode treats ``path`` as a directory and
+            # auto-numbers entries, but SaveImage's primary single-image
+            # path needs a file. Declaring ``path`` here pins
+            # ``ui_widget="file_browser"`` and short-circuits the
+            # post-processor override. Workflow YAMLs that pass a
+            # directory for batch mode still work — only the UI picker
+            # changes; the runtime path resolution in ``save()`` is
+            # unchanged.
+            "path": {
+                "type": "string",
+                "ui_priority": 0,
+                "ui_widget": "file_browser",
+                "title": "Output path",
+            },
             # Format selection: surfaced as the ADR-043 ``capability_id``
             # dropdown (FormatCapabilityConfig in BottomPanel) — the
             # backend resolves ``capability_id -> format_id`` via
@@ -442,7 +462,7 @@ class SaveImage(IOBlock):
             # :func:`_resolve_format` still honours the ``explicit`` arg
             # (highest precedence) for backward compatibility.
         },
-        "required": [],
+        "required": ["path"],
     }
 
     def load(

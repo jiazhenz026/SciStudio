@@ -151,8 +151,33 @@ class CompletionWatcher:
             # (a) MCP signal file
             mcp_path = self.run_dir.mcp_signal_path()
             if mcp_path.exists():
+                # Issue #902: defend against the TOCTOU race where a
+                # writer that opens the signal file with mode ``"w"``
+                # truncates it to 0 bytes before writing JSON. If the
+                # watcher polls inside that truncate window it reads
+                # an empty string and ``json.loads("")`` raises
+                # ``JSONDecodeError`` — which would otherwise surface
+                # as a spurious ``ValueError("malformed MCP signal")``.
+                # Tests/fixtures use atomic temp+replace (see
+                # ``tests/blocks/ai/conftest.py::_atomic_write_signal``);
+                # production agents historically also use atomic writes
+                # (#962 / #909), but we cannot assume every MCP writer
+                # is atomic. Treat empty / whitespace-only content as
+                # "file mid-write" and retry on the next poll. Persistent
+                # malformed JSON (non-empty but invalid) still raises.
+                raw = mcp_path.read_text(encoding="utf-8")
+                if not raw.strip():
+                    # File created but content not yet flushed; let the
+                    # next poll see the all-or-nothing post-replace state.
+                    if deadline is not None and time.monotonic() >= deadline:
+                        raise TimeoutError(
+                            f"AIBlock completion: no signal within {timeout_sec}s "
+                            f"(declared outputs: {list(self._resolved.keys())})."
+                        )
+                    time.sleep(self.poll_interval)
+                    continue
                 try:
-                    payload = json.loads(mcp_path.read_text(encoding="utf-8"))
+                    payload = json.loads(raw)
                 except json.JSONDecodeError as exc:
                     raise ValueError(f"AIBlock completion: malformed MCP signal at {mcp_path}: {exc}") from exc
                 outputs_raw = payload.get("outputs", {}) if isinstance(payload, dict) else {}
