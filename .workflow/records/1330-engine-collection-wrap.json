@@ -48,7 +48,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1330-engine-collection-wrap.json",
+    "shas": [
+      "a4724d7af4e04452e26dcebb05fad05414d8401e"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -98,7 +104,11 @@
     "tests/engine/test_collection_wrap.py",
     ".workflow/records/1330-engine-collection-wrap.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "number": null,
+    "url": null
+  },
   "record_path": ".workflow/records/1330-engine-collection-wrap.json",
   "required_checks": [
     "pytest:tests/engine/test_collection_wrap.py",
@@ -165,7 +175,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
