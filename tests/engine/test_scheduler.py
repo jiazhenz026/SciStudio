@@ -841,9 +841,7 @@ class TestSchedulerLifecycleBlockReady:
 
         # Only B transitioned IDLE->READY in this resume call; A was already
         # DONE and never re-entered the READY state.
-        assert ready_block_ids == ["B"], (
-            f"resume() should emit BLOCK_READY exactly once for B; got {ready_block_ids}"
-        )
+        assert ready_block_ids == ["B"], f"resume() should emit BLOCK_READY exactly once for B; got {ready_block_ids}"
 
     def test_rerun_block_emits_block_ready_on_ready_transition(self) -> None:
         """rerun_block() emits BLOCK_READY when its single block transitions IDLE->READY.

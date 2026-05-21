@@ -102,7 +102,7 @@ language_source: en
 | W1 | implementer | N/A | inline | Tier 1 surgical batch | `fix/bug-sweep-2026-05-21/tier1-surgical` | `.claude/worktrees/agent-abd2b11eeda702937` | See §7.1 | See §7.1 | PR #1379 — Closes #1110 #617 #1281 #1282 #1368 | `[x]` |
 | W2-A | implementer | N/A | inline | types path drop-in + worker | `fix/issue-1343-1365/types-registry` | `.claude/worktrees/agent-w2a-types` | See §7.2 | See §7.2 | Closes #1343 #1365 | `[ ]` |
 | W2-B | implementer | N/A | inline | imaging TIFF OME + capability metadata | `fix/issue-1306-1371/imaging-ome-fidelity` | `.claude/worktrees/agent-w2b-imaging` | See §7.3 | See §7.3 | PR #1388, Closes #1306 #1371 | `[x]` |
-| W3-A | implementer | N/A | inline | scheduler READY emit + interactive normalize | `fix/issue-1367-1370/scheduler-emit-normalize` | `.claude/worktrees/agent-w3a-scheduler` | See §7.4 | See §7.4 | Closes #1367 #1370 | `[ ]` |
+| W3-A | implementer | N/A | inline | scheduler READY emit + interactive normalize | `fix/issue-1367-1370/scheduler-emit-normalize` | `.claude/worktrees/agent-abd9f7afe3a3c4c66` | See §7.4 | See §7.4 | Closes #1367 #1370 | `[~]` |
 | W3-B | implementer | N/A | inline | block registry + code backends | `fix/issue-1109-1309/registry-codebackends` | `.claude/worktrees/agent-w3b-registry` | See §7.5 | See §7.5 | Closes #1109 #1309 | `[ ]` |
 | W4-A | implementer | N/A | inline | frontend port editor capability_id | `fix/issue-1366/port-capability-clear` | `.claude/worktrees/agent-w4a-porteditor` | See §7.6 | See §7.6 | Closes #1366 | `[ ]` |
 | W4-B | implementer | N/A | inline | completion race + save-image dir picker | `fix/issue-902-1369/completion-saveimg` | `.claude/worktrees/agent-w4b-misc` | See §7.7 | See §7.7 | Closes #902 #1369 | `[ ]` |
@@ -210,6 +210,20 @@ language_source: en
   - `tests/engine/test_scheduler.py` (extend): resume/rerun/reset each emit exactly one `BLOCK_READY`
   - `tests/engine/test_scheduler_interactive.py` (extend or create): bare `DataObject` and `list[DataObject]` on `is_collection=True` ports normalize via `_normalize_outputs()`
 
+#### W3-A status (2026-05-21)
+
+- Branch: `fix/issue-1367-1370/scheduler-emit-normalize` based on `umbrella/2026-05-21-bug-sweep`.
+- Implementation summary:
+  - #1367 — Added `await self._emit_block_ready(node_id)` at the three remaining scheduler-owned IDLE→READY transition sites in `src/scistudio/engine/scheduler.py`: `resume()` (IDLE→READY branch), `rerun_block()` (post-cancel re-dispatch), and `reset_block()` (Step 5 ready_ids loop). The `_dispatch_newly_ready()` and `execute()` paths already emitted via PR #1327; this funnels all four call sites through `_emit_block_ready()` so every IDLE→READY emits `BLOCK_READY` exactly once.
+  - #1370 — Added `_normalize_outputs(result, effective_output_ports)` call in `_run_interactive()` between the `__scistudio_env__` sidecar lift and the `_block_outputs[node_id] = result` store, mirroring the existing call site in `_run_and_finalize()` (with the same `get_effective_output_ports() / type(block).output_ports` fallback chain).
+- Source LOC change: 32 lines added to `src/scistudio/engine/scheduler.py` (most are comments referencing #1367/#1370 and rationale).
+- Files touched:
+  - `src/scistudio/engine/scheduler.py` (4 small edits across 4 sites)
+  - `tests/engine/test_scheduler.py` (new `TestSchedulerLifecycleBlockReady` class, 3 tests)
+  - `tests/engine/test_scheduler_interactive.py` (new file, 2 tests)
+  - `CHANGELOG.md`
+  - `.workflow/records/1367-1370-scheduler-emit-normalize.json`
+
 ### 7.5 W3-B — Registry + Code backends (#1109 + #1309)
 
 - Owner: W3-B implementer
@@ -275,6 +289,17 @@ language_source: en
 | Full audit | `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[x]` | `status=pass, 0 findings, vulture child 6 informational` |
 | Sentrux | MCP `scan` + `check_rules` | `[x]` | `pass, rules_checked=3/15, violation_count=0, quality_signal=4445, files=1110` |
 | CI | `Verify Workflow Compliance` | `[x]` | https://github.com/zjzcpj/SciStudio/actions/runs/26252955593 (1m6s) |
+
+#### W3-A verification (branch fix/issue-1367-1370/scheduler-emit-normalize)
+
+| Check | Command or tool | Status | Evidence |
+|---|---|---|---|
+| Ruff | `ruff check .` | `[~]` | `<pending — run during Phase 4>` |
+| Format | `ruff format --check .` | `[~]` | `<pending>` |
+| Pytest | `pytest tests/engine/test_scheduler.py tests/engine/test_scheduler_interactive.py --timeout=60` | `[~]` | `<pending — 5 new tests + 77 scheduler tests passed locally during development>` |
+| Full audit | `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[~]` | `<pending>` |
+| Sentrux | MCP `scan` + `check_rules` + `health` | `[~]` | `<pending>` |
+| CI | `Verify Workflow Compliance` | `[~]` | `<pending — expected to require admin-approved:core-change for src/scistudio/engine/**>` |
 
 ## 9. Drift Log
 

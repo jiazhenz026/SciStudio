@@ -35,7 +35,6 @@ from scistudio.engine.events import (
 from scistudio.engine.scheduler import DAGScheduler
 from scistudio.workflow.definition import NodeDef, WorkflowDefinition
 
-
 # ---------------------------------------------------------------------------
 # Test fixtures
 # ---------------------------------------------------------------------------
@@ -152,6 +151,9 @@ async def _drive_interactive(scheduler: DAGScheduler, event_bus: EventBus) -> No
     resolving it and unblocking the block ``run``.
     """
     completion_scheduled = asyncio.Event()
+    # Strong references to the deferred emit tasks so Python does not
+    # garbage-collect them mid-await (ruff RUF006).
+    spawned_tasks: list[asyncio.Task[None]] = []
 
     async def _emit_completion(block_id: str | None) -> None:
         await event_bus.emit(
@@ -166,13 +168,17 @@ async def _drive_interactive(scheduler: DAGScheduler, event_bus: EventBus) -> No
         # Defer the INTERACTIVE_COMPLETE emit so ``_run_interactive`` has a
         # chance to register its pending future first. ``create_task``
         # returns immediately; the task is awaited via the event loop.
-        asyncio.create_task(_emit_completion(event.block_id), name="test:emit-complete")
+        task = asyncio.create_task(_emit_completion(event.block_id), name="test:emit-complete")
+        spawned_tasks.append(task)
         completion_scheduled.set()
 
     event_bus.subscribe(INTERACTIVE_PROMPT, _on_prompt)
     await scheduler.execute()
     # Ensure the prompt handler fired exactly once (sanity guard).
     assert completion_scheduled.is_set()
+    # Drain spawned tasks so the test does not leave dangling futures.
+    if spawned_tasks:
+        await asyncio.gather(*spawned_tasks, return_exceptions=True)
 
 
 # ---------------------------------------------------------------------------
