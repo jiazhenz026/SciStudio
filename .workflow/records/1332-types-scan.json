@@ -1,0 +1,151 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "fix/issue-1332-types-scan",
+  "changed_test_paths": [
+    "tests/core/test_type_registry_scan_dirs.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "python -m pytest tests/core/test_type_registry_scan_dirs.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "pytest-scan-dirs",
+      "output_path": "10 passed, 1 warning in 2.79s",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m pytest tests/core/ --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "pytest-core-regression",
+      "output_path": "564 passed, 2 skipped, 20 warnings in 10.87s",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m ruff check src/scistudio/core/types/registry.py src/scistudio/api/runtime.py tests/core/test_type_registry_scan_dirs.py",
+      "exit_code": 0,
+      "name": "ruff-check",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m ruff format --check src/scistudio/core/types/registry.py src/scistudio/api/runtime.py tests/core/test_type_registry_scan_dirs.py",
+      "exit_code": 0,
+      "name": "ruff-format",
+      "output_path": "3 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "no new ADR \u2014 this is an impl-catches-up-to-existing-doc patch under issue #1332; no architectural decision is being made."
+    },
+    "architecture": {
+      "not_applicable": true,
+      "rationale": "ARCHITECTURE.md sections 10 + 10.5 already commit to project/types and ~/.scistudio/types scan paths; this PR catches the impl up to the existing doc commitment. Owner directive 2026-05-21 forbids editing ARCHITECTURE.md."
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "no functional user-visible behavior added; the scan-dir paths were promised by ARCHITECTURE.md and were silently absent. CHANGELOG follow-up may be added by the umbrella PR if owner requires."
+    },
+    "checklist": {},
+    "docs": {},
+    "spec": {
+      "not_applicable": true,
+      "rationale": "no spec touched; TypeRegistry.add_scan_dir mirrors BlockRegistry.add_scan_dir which is already part of the registry contract."
+    }
+  },
+  "full_audit": null,
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1332,
+      "url": null
+    }
+  ],
+  "owner_directive": "Implement TypeRegistry add_scan_dir + wire project/user types directories. Catch impl up to ARCHITECTURE.md sections 10 + 10.5. Do NOT touch ARCHITECTURE.md (final commitment per owner).",
+  "planned_files": [
+    "src/scistudio/core/types/registry.py",
+    "src/scistudio/api/runtime.py",
+    "tests/core/test_type_registry_scan_dirs.py"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1332-types-scan.json",
+  "required_checks": [
+    "ruff,format,pytest,sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/core/types/registry.py",
+      "src/scistudio/api/runtime.py",
+      "tests/core/test_type_registry_scan_dirs.py",
+      ".workflow/records/1332-types-scan.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "{\"files\":1075,\"import_edges\":2598,\"lines\":276362,\"quality_signal\":4124,\"rules_checked\":3,\"violation_count\":0,\"source\":\"mcp__plugin_sentrux_sentrux__{scan,check_rules}\"}",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1332-types-scan",
+  "task_kind": "feature"
+}
