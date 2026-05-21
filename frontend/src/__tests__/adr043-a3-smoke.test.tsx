@@ -227,8 +227,14 @@ describe("ADR-043 Phase A3 smoke — OME metadata panel toggle (FR-013)", () => 
 });
 
 describe("ADR-043 Phase A3 smoke — lossy-save warning (FR-014)", () => {
-  it("surfaces dropped fields when target is pixel_only", () => {
-    const tiffPixelOnly = TWO_SAVERS[0].metadata_fidelity;
+  it("hides the chip when a broad 'ome' write declaration claims full OME round-trip (#1371)", () => {
+    // Issue #1371: a declaration of `format_metadata_writes: ["ome"]`
+    // claims that EVERY OME field is preserved (TIFF / Bio-Formats
+    // family). The matcher used to exact-compare flattened source paths
+    // against the literal token "ome" and so flagged everything as
+    // dropped — a false positive. The chip must now render nothing for
+    // these fully-OME-writable capabilities.
+    const tiffBroadOme = TWO_SAVERS[0].metadata_fidelity;
     const sourceFields = [
       "pixels.physical_size_x",
       "pixels.physical_size_y",
@@ -236,25 +242,55 @@ describe("ADR-043 Phase A3 smoke — lossy-save warning (FR-014)", () => {
       "channels.0.emission_wavelength",
       "annotations.0.value",
     ];
-    // The TWO_SAVERS[0] capability declares writes for `ome` (format) and
-    // `pixels.physical_size_x` (typed). Anything else should appear as
-    // dropped.
+    const { container } = render(
+      <LossySaveWarning
+        sourceOmeFields={sourceFields}
+        targetCapabilityFidelity={tiffBroadOme}
+      />,
+    );
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("surfaces dropped fields when narrow OME paths leave some unwritten (#1371)", () => {
+    // PNG / JPEG declare only the precise OME paths actually persisted
+    // (EXIF DPI → ome.pixels.physical_size_x/y). Anything outside those
+    // two paths is legitimately lossy and must surface on the chip.
+    const pngNarrowOme: FormatCapabilityResponse["metadata_fidelity"] = {
+      level: "format_specific",
+      typed_meta_reads: [],
+      typed_meta_writes: ["pixel_size", "channels"],
+      format_metadata_reads: [
+        "ome.pixels.physical_size_x",
+        "ome.pixels.physical_size_y",
+      ],
+      format_metadata_writes: [
+        "ome.pixels.physical_size_x",
+        "ome.pixels.physical_size_y",
+      ],
+      notes: null,
+    };
+    const sourceFields = [
+      "pixels.physical_size_x",
+      "pixels.physical_size_y",
+      "channels.0.name",
+      "channels.0.emission_wavelength",
+      "annotations.0.value",
+    ];
     render(
       <LossySaveWarning
         sourceOmeFields={sourceFields}
-        targetCapabilityFidelity={tiffPixelOnly}
+        targetCapabilityFidelity={pngNarrowOme}
       />,
     );
     const chip = screen.getByTestId("lossy-save-warning");
     expect(chip).toHaveTextContent("Lossy save");
-    // `typed_meta_writes` declares `pixels.physical_size_x`, so that path
-    // is WRITABLE and must NOT appear in the dropped list. The remaining
-    // four source paths are dropped; with inlineLimit=3 the chip surfaces
-    // three inline + "+1 more" expander.
-    expect(chip).toHaveTextContent("pixels.physical_size_y");
-    expect(chip).toHaveTextContent("channels.0.name");
+    // ome.pixels.physical_size_x/y are WRITABLE (declared) → not dropped.
     expect(chip).not.toHaveTextContent("pixels.physical_size_x");
-    expect(screen.getByText(/\+1 more/)).toBeInTheDocument();
+    expect(chip).not.toHaveTextContent("pixels.physical_size_y");
+    // The remaining three source paths are dropped.
+    expect(chip).toHaveTextContent("channels.0.name");
+    expect(chip).toHaveTextContent("channels.0.emission_wavelength");
+    expect(chip).toHaveTextContent("annotations.0.value");
   });
 
   it("renders nothing when target is lossless", () => {

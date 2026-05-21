@@ -1,0 +1,186 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "frontend/src/__tests__/adr043-a3-smoke.test.tsx",
+        "frontend/src/__tests__/LossySaveWarning.test.tsx"
+      ],
+      "reason": "Update vitest tests that pinned the pre-#1371 buggy lossyOmeFields exact-match behaviour"
+    }
+  ],
+  "branch": "fix/issue-1306-1371/imaging-ome-fidelity",
+  "changed_test_paths": [
+    "packages/scistudio-blocks-imaging/tests/test_load_image_ome.py",
+    "packages/scistudio-blocks-imaging/tests/test_save_image_capabilities.py",
+    "packages/scistudio-blocks-imaging/tests/test_format_capabilities.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "652 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "pytest packages/scistudio-blocks-imaging/tests/test_load_image_ome.py packages/scistudio-blocks-imaging/tests/test_save_image_capabilities.py packages/scistudio-blocks-imaging/tests/test_format_capabilities.py --timeout=60",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "35 passed, 588 warnings in 0.89s",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npx vitest run (frontend)",
+      "exit_code": 0,
+      "name": "vitest",
+      "output_path": "444 passed, 13 skipped (457) across 43 test files",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "no-architecture-change"
+    },
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {},
+    "docs": {},
+    "spec": {
+      "not_applicable": true,
+      "rationale": "impl-matches-existing-ADR-043-spec"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1306,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1306"
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1371,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1371"
+    }
+  ],
+  "owner_directive": "ADR-043 imaging fidelity: TIFF OME read regression test + narrow zarr/png/jpeg capability declarations + frontend lossy matching",
+  "planned_files": [
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py",
+    "frontend/src/api/capabilities.ts"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1306-1371-imaging-ome-fidelity.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest",
+    "full_audit",
+    "sentrux",
+    "vitest"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py",
+      "frontend/src/api/capabilities.ts",
+      "packages/scistudio-blocks-imaging/tests/test_load_image_ome.py",
+      "packages/scistudio-blocks-imaging/tests/test_save_image_capabilities.py",
+      "packages/scistudio-blocks-imaging/tests/test_format_capabilities.py",
+      "frontend/src/__tests__/capabilities.test.ts",
+      "CHANGELOG.md",
+      "docs/planning/2026-05-21-bug-sweep-checklist.md",
+      ".workflow/records/1306-1371-imaging-ome-fidelity.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "{\"rules_checked\": 3, \"total_rules_defined\": 15, \"violation_count\": 0, \"pro_required\": false, \"quality_signal\": 4445, \"files\": 1110, \"import_edges\": 2620, \"lines\": 284190}",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1306-imaging-ome-fidelity",
+  "task_kind": "bugfix"
+}

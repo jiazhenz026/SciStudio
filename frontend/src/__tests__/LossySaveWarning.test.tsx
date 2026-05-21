@@ -51,6 +51,94 @@ describe("lossyOmeFields", () => {
       ),
     ).toEqual(["annotations.0.value"]);
   });
+
+  // Issue #1371: broad declaration ``"ome"`` is a prefix covering every
+  // OME field path; hierarchical declarations like
+  // ``"ome.pixels.physical_size_x"`` strip the ``ome.`` prefix before
+  // comparing against source paths (which arrive bare per
+  // ``flattenOmeFields``).
+  it("treats the broad token 'ome' as covering every OME source path (#1371)", () => {
+    const target = fidelity("format_specific", {
+      format_metadata_writes: ["ome"],
+    });
+    expect(
+      lossyOmeFields(
+        [
+          "pixels.physical_size_x",
+          "pixels.physical_size_y",
+          "channels.0.emission_wavelength",
+        ],
+        target,
+      ),
+    ).toEqual([]);
+  });
+
+  it("treats a hierarchical 'ome.pixels.physical_size_x' as covering the bare 'pixels.physical_size_x' (#1371)", () => {
+    const target = fidelity("format_specific", {
+      format_metadata_writes: [
+        "ome.pixels.physical_size_x",
+        "ome.pixels.physical_size_y",
+      ],
+    });
+    expect(
+      lossyOmeFields(
+        [
+          "pixels.physical_size_x",
+          "pixels.physical_size_y",
+          "channels.0.emission_wavelength",
+        ],
+        target,
+      ),
+    ).toEqual(["channels.0.emission_wavelength"]);
+  });
+
+  it("does not exact-match 'pixels.physical_size_x' source field against bare 'ome' declaration alone (#1371 false-positive guard)", () => {
+    // Pre-#1371 logic exact-matched the source path against the
+    // declaration set, so "pixels.physical_size_x" vs declaration ["ome"]
+    // marked every source field as lossy. The fix treats "ome" as a
+    // prefix covering everything; this case verifies that exact-match
+    // semantics no longer leak through.
+    const target = fidelity("format_specific", {
+      format_metadata_writes: ["ome"],
+      typed_meta_writes: [],
+    });
+    expect(
+      lossyOmeFields(["pixels.physical_size_x"], target),
+    ).toEqual([]);
+  });
+
+  it("still flags fields when neither broad 'ome' nor matching hierarchical declaration covers them (#1371 false-negative guard)", () => {
+    const target = fidelity("format_specific", {
+      // PNG/JPEG narrow declaration.
+      format_metadata_writes: [
+        "ome.pixels.physical_size_x",
+        "ome.pixels.physical_size_y",
+      ],
+    });
+    expect(
+      lossyOmeFields(
+        [
+          "pixels.physical_size_x",
+          "channels.0.emission_wavelength",
+          "annotations.0.value",
+        ],
+        target,
+      ),
+    ).toEqual(["channels.0.emission_wavelength", "annotations.0.value"]);
+  });
+
+  it("returns every source field for a pixel_only capability even when declarations are empty (#1371 zarr regression)", () => {
+    // Zarr capability narrowed to pixel_only; the early return at the
+    // top of the function MUST NOT cover this case because the level is
+    // not lossless and declarations are empty — every source field is
+    // legitimately lossy.
+    expect(
+      lossyOmeFields(
+        ["pixels.physical_size_x", "channels.0.name"],
+        fidelity("pixel_only"),
+      ),
+    ).toEqual(["pixels.physical_size_x", "channels.0.name"]);
+  });
 });
 
 describe("LossySaveWarning", () => {

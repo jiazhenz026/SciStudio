@@ -275,12 +275,26 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * `sourceOmeFields` is a flat list of dotted field paths (e.g.
  * `pixels.physical_size_x`, `channels.0.emission_wavelength`); the
  * dotted form mirrors how OME-types lays out its model in `model_dump()`.
+ * Source paths are bare (no `ome.` prefix); declarations may carry an
+ * `ome.` prefix or use the broad `ome` token (see below).
  *
- * A field is considered "writable" when it appears in EITHER:
- *   - `metadata_fidelity.format_metadata_writes` (round-tripped via the
- *     format's native metadata block), OR
- *   - `metadata_fidelity.typed_meta_writes` (round-tripped via the
- *     typed Image.Meta sidecar).
+ * A field is considered "writable" when:
+ *   - The declaration contains the broad token `"ome"` — round-trips all
+ *     OME fields (e.g. TIFF, Bio-Formats).
+ *   - The declaration contains a hierarchical OME path
+ *     (e.g. `"ome.pixels.physical_size_x"`) whose suffix after the
+ *     `ome.` prefix equals the source field path (e.g. PNG / JPEG EXIF
+ *     DPI → `physical_size_x`/`physical_size_y`).
+ *   - The declaration contains the source path verbatim — legacy match
+ *     used by typed-Meta declarations and any future broad token.
+ *
+ * Issue #1371 (bug-sweep 2026-05-21): previously the helper exact-matched
+ * source paths like `pixels.physical_size_x` against declarations like
+ * the broad `"ome"`, producing false positives for capabilities that
+ * round-trip everything and false negatives when declarations narrowed
+ * to hierarchical OME paths. The matcher now treats `"ome"` as a prefix
+ * covering every OME field and strips the `ome.` prefix from
+ * hierarchical declarations before comparison.
  *
  * `lossless` capabilities round-trip everything; the helper returns `[]`
  * regardless of source field count. `pixel_only` capabilities round-trip
@@ -291,9 +305,21 @@ export function lossyOmeFields(
   targetFidelity: MetadataFidelityResponse,
 ): string[] {
   if (targetFidelity.level === "lossless") return [];
-  const writable = new Set<string>([
+  const declarations = [
     ...(targetFidelity.format_metadata_writes ?? []),
     ...(targetFidelity.typed_meta_writes ?? []),
-  ]);
+  ];
+  // Broad token: any declaration equal to `"ome"` round-trips every
+  // OME field, so no source path is lossy.
+  if (declarations.includes("ome")) return [];
+  // Hierarchical paths after `ome.` prefix stripping; legacy exact matches.
+  const writable = new Set<string>();
+  for (const decl of declarations) {
+    if (decl.startsWith("ome.")) {
+      writable.add(decl.slice("ome.".length));
+    } else {
+      writable.add(decl);
+    }
+  }
   return sourceOmeFields.filter((field) => !writable.has(field));
 }
