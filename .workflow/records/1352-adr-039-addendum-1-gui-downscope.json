@@ -41,7 +41,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1352-adr-039-addendum-1-gui-downscope.json",
+    "shas": [
+      "3ae7136a6153236e4956387a8e609c4bfd23f4d6"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {
@@ -87,7 +93,13 @@
     "docs/adr/ADR-039.md",
     "CHANGELOG.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1352
+    ],
+    "number": 1358,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1358"
+  },
   "record_path": ".workflow/records/1352-adr-039-addendum-1-gui-downscope.json",
   "required_checks": [
     "ruff",
@@ -151,7 +163,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
