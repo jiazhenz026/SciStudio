@@ -27,7 +27,7 @@ language_source: en
   - Agents: branch pattern `fix/<issue>-<scope>`, worktree pattern `.claude/worktrees/fix-<issue>`
 - Protected branch: `main`
 - Umbrella branch: `track/no-cycles-1335-1337`
-- Umbrella PR: `#<pending>`
+- Umbrella PR: `#1344` (https://github.com/zjzcpj/SciStudio/pull/1344)
 - Umbrella PR title: `[DO NOT MERGE] fix(#1335,#1337): break circular imports (5 → 2 sentrux clusters)`
 - Final PR target: `main` (manager merges umbrella → main only on explicit owner authorization)
 - Dispatch prompt templates:
@@ -76,9 +76,9 @@ language_source: en
 - [x] Gate record started. → `.workflow/records/1335-1337-no-cycles-umbrella.json`
 - [x] Scope include/exclude recorded in the gate record. → plan + amend stages done
 - [x] Umbrella branch created. → `track/no-cycles-1335-1337` off `origin/main` (814141b6)
-- [ ] Umbrella PR opened. → pending push of gate record + checklist
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`. → pending
-- [x] Protected branch and umbrella PR number recorded in this checklist. → `main` / `#<pending>`
+- [x] Umbrella PR opened. → https://github.com/zjzcpj/SciStudio/pull/1344 (with `admin-approved:ai-override`, `audit-followup`, `architecture` labels)
+- [x] Umbrella PR title includes `[DO NOT MERGE]`. → `[DO NOT MERGE] fix(#1335,#1337): break circular imports (5 → 2 sentrux clusters)`
+- [x] Protected branch and umbrella PR number recorded in this checklist. → `main` / `#1344`
 - [x] No `pip install -e .` environment pollution found. → manager uses `PYTHONPATH=src python -m …`; agents instructed similarly
 - [ ] Dispatch checklist copied from the template and committed. → committing now
 - [ ] Dispatch prompts created from the correct prompt template and linked below. → pending Track A + Track B dispatch
@@ -116,8 +116,8 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `A-1337` | `implementer` | `N/A` | `docs/planning/dispatch-prompts/fix-1337-pair-cycles.md` | Break git_binary↔git_engine + platform↔process_handle pairs via `_common.py` extractions | `fix/1337-pair-cycles` | `.claude/worktrees/fix-1337` | `core/versioning/_common.py` (new), `core/versioning/git_binary.py`, `core/versioning/git_engine.py`, `core/versioning/__init__.py`, `engine/runners/_common.py` (new), `engine/runners/platform.py`, `engine/runners/process_handle.py`, `engine/runners/__init__.py`, `tests/core/test_git_engine.py`, `tests/engine/test_process_handle.py`, own gate record | `.sentrux/rules.toml`, `pyproject.toml`, `core/types/`, `core/storage/`, `blocks/`, `ai/`, `frontend/` | `#1337` / `#<pending>` | `[ ]` |
-| `A-1335` | `implementer` | `N/A` | `docs/planning/dispatch-prompts/fix-1335-router-defaults.md` | Extract `core/storage/_defaults.py` to break core.types ↔ backend_router cycle; insert `TODO(#1342)` at lazy-import site | `fix/1335-router-defaults` | `.claude/worktrees/fix-1335` | `core/storage/_defaults.py` (new), `core/storage/backend_router.py`, `core/storage/__init__.py` (only if needed), `tests/core/test_backend_router.py`, own gate record | `core/types/*.py`, `tests/blocks/test_auto_flush_composite.py`, `.sentrux/rules.toml`, `pyproject.toml`, `core/versioning/`, `engine/runners/`, `blocks/`, `ai/`, `frontend/` | `#1335` / `#<pending>` | `[ ]` |
+| `A-1337` | `implementer` | `N/A` | [`docs/planning/dispatch-prompts/fix-1337-pair-cycles.md`](docs/planning/dispatch-prompts/fix-1337-pair-cycles.md) | Break git_binary↔git_engine + platform↔process_handle pairs via `_common.py` extractions | `fix/1337-pair-cycles` | `.claude/worktrees/fix-1337` | `core/versioning/_common.py` (new), `core/versioning/git_binary.py`, `core/versioning/git_engine.py`, `core/versioning/__init__.py`, `engine/runners/_common.py` (new), `engine/runners/platform.py`, `engine/runners/process_handle.py`, `engine/runners/__init__.py`, `tests/core/test_git_engine.py`, `tests/engine/test_process_handle.py`, own gate record | `.sentrux/rules.toml`, `pyproject.toml`, `core/types/`, `core/storage/`, `blocks/`, `ai/`, `frontend/` | `#1337` / `#<pending>` (umbrella target: #1344) | `[ ]` |
+| `A-1335` | `implementer` | `N/A` | [`docs/planning/dispatch-prompts/fix-1335-router-defaults.md`](docs/planning/dispatch-prompts/fix-1335-router-defaults.md) | Extract `core/storage/_defaults.py` to break core.types ↔ backend_router cycle; insert `TODO(#1342)` at lazy-import site | `fix/1335-router-defaults` | `.claude/worktrees/fix-1335` | `core/storage/_defaults.py` (new), `core/storage/backend_router.py`, `core/storage/__init__.py` (only if needed), `tests/core/test_backend_router.py`, own gate record | `core/types/*.py`, `tests/blocks/test_auto_flush_composite.py`, `.sentrux/rules.toml`, `pyproject.toml`, `core/versioning/`, `engine/runners/`, `blocks/`, `ai/`, `frontend/` | `#1335` / `#<pending>` (umbrella target: #1344) | `[ ]` |
 
 ## 7. Track A — Fix #1337 (pair D + pair E)
 
