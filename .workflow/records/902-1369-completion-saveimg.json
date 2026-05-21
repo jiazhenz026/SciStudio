@@ -43,7 +43,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/902-1369-completion-saveimg.json",
+    "shas": [
+      "1f4db3ffefeb0a22163f30344e025d8f34e4d7dc"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -104,7 +110,14 @@
     "docs/planning/2026-05-21-bug-sweep-checklist.md",
     ".workflow/records/902-1369-completion-saveimg.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      902,
+      1369
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1395"
+  },
   "record_path": ".workflow/records/902-1369-completion-saveimg.json",
   "required_checks": [
     "ruff",
@@ -174,7 +187,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
