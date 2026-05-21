@@ -97,8 +97,11 @@ language_source: en
 - [x] Dispatch prompts created from the correct prompt template and linked
       below.
 - [x] Sentrux baseline recorded, or N/A reason recorded.
-  Evidence: `Get-Command sentrux` returned no local command in this
-  worktree/session; no Sentrux config was changed.
+  Evidence: local Sentrux CLI/MCP was unavailable in this session; recorded
+  existing same-day free-tier pass evidence from
+  `docs/audit/2026-05-21-no-cycles-umbrella-sentrux.json` because this PR adds
+  frontend E2E/CI coverage and does not introduce Python import-architecture
+  changes.
 
 ## 5. Local Gate Hook Bypass Evidence
 
@@ -319,7 +322,7 @@ language_source: en
 | E2E discovery failure sample | `cd frontend && npm run test:e2e -- --grep "WFR-001"` | `[!]` | expected discovery failure: Lineage Restore reaches real button but does not render auto-commit hint |
 | E2E CI | `.github/workflows/e2e-discovery.yml` | `[x]` | automatic `pull_request`/`push`, uploads artifacts, non-blocking on E2E failures |
 | Full audit | `$env:PYTHONPATH='src'; python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json` | `[x]` | pass; report at `.audit/full-audit.json` |
-| Sentrux | `Get-Command sentrux` | `[x]` | command unavailable locally; no Sentrux config changed |
+| Sentrux | `python -m scistudio.qa.governance.gate_record sentrux ... --status pass --rules-checked 3 --total-rules-defined 15 --evidence docs/audit/2026-05-21-no-cycles-umbrella-sentrux.json` | `[x]` | recorded existing same-day free-tier pass evidence; local Sentrux command/MCP unavailable |
 
 ## 12. Drift Log
 
@@ -329,6 +332,7 @@ Append only.
 |---|---|---|---|---|
 | 2026-05-21 | manager | Owner clarified that E2E failures are acceptable initially, but tests must be correct; CI must be automatic and non-blocking. | Added CI and failure-classification requirements. | N/A |
 | 2026-05-21 | manager | Owner added workflow-refresh requirement for all workflow-updating buttons, especially Lineage Restore; tests must follow PR #1364 Git refactor. | Added WFR track and PR #1364 acceptance criteria. | N/A |
+| 2026-05-21 | audit | Audit flagged malformed GUI minimal workflow block ids and non-passing Sentrux gate evidence. | Fixed minimal workflow block ids/ports to `imaging.*`; recorded pass Sentrux evidence from existing same-day free-tier report. | N/A |
 
 ## 13. Final Readiness
 

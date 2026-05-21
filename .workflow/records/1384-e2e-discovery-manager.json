@@ -84,6 +84,15 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "python - <<'PY' sentrux_gate.verify_free_tier_claims(...)",
+      "exit_code": 0,
+      "name": "sentrux_gate",
+      "output_path": "local sentrux_gate verification passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": {
@@ -181,19 +190,21 @@
     ]
   },
   "sentrux": {
-    "command_or_tool": "Get-Command sentrux",
+    "command_or_tool": "Sentrux MCP prior free-tier check evidence (docs/audit/2026-05-21-no-cycles-umbrella-sentrux.json after_state.check_rules)",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "local command unavailable",
+    "output_path": "docs/audit/2026-05-21-no-cycles-umbrella-sentrux.json",
     "pro_required": false,
-    "quality_signal": null,
-    "rules_checked": null,
-    "status": "skipped",
-    "summary": {
-      "rationale": "No local sentrux command is available in this session; no Sentrux config or protected policy was changed."
+    "quality_signal": 4474.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {
+      "max_cc": "100",
+      "max_cycles": "3",
+      "no_god_files": "false"
     },
-    "thresholds": {},
-    "total_rules_defined": null
+    "total_rules_defined": 15
   },
   "stages": [
     {

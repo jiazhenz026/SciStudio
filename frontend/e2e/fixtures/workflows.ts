@@ -64,27 +64,30 @@ export async function writeWorkflowFixture(projectRoot: string, fixture: E2EWork
 const baseNodes = [
   {
     id: "load_image",
-    block_type: "scistudio_blocks_imaging.io.load_image",
+    block_type: "imaging.load_image",
     layout: { x: 80, y: 120 },
     config: { path: "data/raw/synthetic-fluorescence.png" },
   },
   {
     id: "threshold",
-    block_type: "scistudio_blocks_imaging.segmentation.threshold",
+    block_type: "imaging.threshold",
     layout: { x: 360, y: 120 },
     config: { method: "otsu" },
   },
   {
     id: "save_threshold",
-    block_type: "scistudio_blocks_imaging.io.save_image",
+    block_type: "imaging.save_image",
     layout: { x: 640, y: 120 },
-    config: { path: "data/artifacts/threshold-mask.png" },
+    config: {
+      path: "data/artifacts/threshold-mask.png",
+      capability_id: "scistudio-blocks-imaging.image.png.save",
+    },
   },
 ];
 
 const baseEdges = [
-  { source: "load_image:image", target: "threshold:image" },
-  { source: "threshold:mask", target: "save_threshold:image" },
+  { source: "load_image:images", target: "threshold:image" },
+  { source: "threshold:mask", target: "save_threshold:images" },
 ];
 
 export const minimalLoadThresholdSaveWorkflow: E2EWorkflow = {
