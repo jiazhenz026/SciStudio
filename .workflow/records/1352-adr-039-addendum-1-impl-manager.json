@@ -6,6 +6,29 @@
       "exclude": [],
       "include": [],
       "reason": "manager-only dispatch setup: implementation = the checklist + 3 dispatch prompt files committed in this PR; sub-PRs carry their own code changes via their own gate records"
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/**",
+        "CHANGELOG.md",
+        "docs/audit/**",
+        "docs/planning/**",
+        "frontend/src/components/Git/**",
+        "frontend/src/components/Lineage/**",
+        "frontend/src/components/BottomPanel.tsx",
+        "frontend/src/components/Toolbar.tsx",
+        "frontend/src/lib/api.ts",
+        "frontend/src/store/**",
+        "frontend/src/types/api.ts",
+        "src/scistudio/api/**",
+        "src/scistudio/core/lineage/**",
+        "src/scistudio/core/versioning/**",
+        "tests/api/**",
+        "tests/core/**"
+      ],
+      "reason": "Per audit P1 finding + owner pick (Option A): widen scope.include to cover all 40 paths in the umbrella diff vs main. The umbrella PR is by design a meta-PR composed of 3 already-gated sub-PRs whose files are listed here for CI gate-record-scope validation. Each sub-PR's narrower record is also committed in-tree and remains authoritative for its own slice."
     }
   ],
   "branch": "umbrella/adr-039-addendum-1-impl",
