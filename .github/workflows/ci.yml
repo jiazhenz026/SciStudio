@@ -75,6 +75,33 @@ jobs:
       - name: Run architecture tests
         run: pytest tests/architecture/ -v --no-cov
 
+  full-audit:
+    name: Full Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          cache: true
+          cache-dependency-path: pyproject.toml
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: uv pip install --system -e ".[dev]"
+      - name: Run ADR-042 full audit
+        run: |
+          mkdir -p .audit
+          PYTHONPATH=src python -m scieasy.qa.audit.full_audit \
+            --repo-root . \
+            --format json \
+            --output .audit/full-audit.json
+      - name: Upload full audit report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: full-audit-report
+          path: .audit/full-audit.json
+
   test:
     name: Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest

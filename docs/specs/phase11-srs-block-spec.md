@@ -1,3 +1,42 @@
+---
+spec_id: phase11-srs-block-spec
+title: "Phase 11 SRS Plugin Block Specification"
+status: Deprecated
+feature_branch: legacy/phase11-srs-block-spec
+created: 2026-04-07
+input: "Historical Phase 11 scieasy-blocks-srs implementation specification retained for reference."
+owners:
+  - "@jiazhenz026"
+related_adrs:
+  - 27
+  - 28
+related_specs:
+  - phase11-implementation-standards
+  - phase11-imaging-block-spec
+  - phase11-lcms-block-spec
+scope:
+  in:
+    - Historical SRS plugin block contracts retained for reference.
+  out:
+    - Active implementation planning.
+governs:
+  modules: []
+  contracts: []
+  entry_points: []
+  files: []
+  excludes: []
+tests: []
+acceptance_source: issue
+language_source: en
+---
+# Phase 11 SRS Plugin Block Specification
+
+## 1. Change Summary
+
+This deprecated spec is retained as historical reference. Its original body is preserved below, but it is not an active implementation spec under ADR-042.
+
+## 2. Existing Historical Body
+
 # Phase 11 — `scieasy-blocks-srs` Plugin Block Specification
 
 **Status**: accepted

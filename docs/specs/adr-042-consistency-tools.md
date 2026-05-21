@@ -34,12 +34,13 @@ governs:
     - scieasy.qa.schemas.maintainers.MaintainerRule
     - scieasy.qa.schemas.maintainers.Maintainers
     - scieasy.qa.schemas.report.AuditReport
-    - scieasy.qa.schemas.report.AuditFinding
+    - scieasy.qa.schemas.report.Finding
     - scieasy.qa.schemas.facts.FactsRegistry
     - scieasy.qa.schemas.signatures.ParameterSpec
     - scieasy.qa.schemas.signatures.ExpectedSignature
     - scieasy.qa.schemas.signatures.ExpectedModelField
     - scieasy.qa.schemas.signatures.ExpectedCliCommand
+    - scieasy.qa.audit.frontmatter_lint.lint_file
     - scieasy.qa.audit.facts.generate_facts
     - scieasy.qa.audit.facts.write_facts
     - scieasy.qa.audit.facts.check_generated_facts
@@ -52,7 +53,21 @@ governs:
     - scieasy.qa.audit.signature_drift.check_expected_signatures
     - scieasy.qa.audit.full_audit.run
     - scieasy.qa.audit.full_audit.render_markdown
+    - scieasy.qa.audit.loaders.load_adr_frontmatter
+    - scieasy.qa.audit.loaders.load_spec_frontmatter
+    - scieasy.qa.audit.loaders.load_maintainers
   files:
+    - docs/adr/ADR-042.md
+    - AGENTS.md
+    - MAINTAINERS
+    - pyproject.toml
+    - .pre-commit-config.yaml
+    - .github/workflows/ci.yml
+    - .github/workflows/workflow-gate.yml
+    - .github/workflows/ai-review.yml
+    - .claude/**
+    - docs/architecture/**
+    - docs/block-development/**
     - src/scieasy/qa/schemas/**
     - src/scieasy/qa/audit/loaders.py
     - src/scieasy/qa/audit/doc_drift.py
@@ -65,7 +80,6 @@ governs:
     - src/scieasy/qa/audit/signature_contracts.py
     - src/scieasy/qa/audit/full_audit.py
     - scripts/audit/generate_facts.py
-    - docs/facts/generated.yaml
     - docs/audit/**
     - tests/qa/test_schemas_maintainers.py
     - tests/qa/test_schemas_report.py
@@ -257,7 +271,8 @@ Acceptance Scenarios:
   active specs that point to missing ADRs.
 - FR-019: `doc_drift` MUST report ADR governed modules, contracts,
   entry-points, and files that are not covered by any active related spec once
-  the ADR phase is `implementation`, `complete`, or `maintenance`.
+  the ADR phase is `implementation`, `complete`, or `maintenance`. It MUST NOT
+  require active spec coverage for ADRs with phase `legacy`.
 - FR-020: `doc_drift` MUST report active spec governed modules, contracts,
   entry-points, and files that are not covered by their related ADRs.
 
@@ -355,7 +370,7 @@ target these symbols.
 
 Shared scalar aliases:
 
-```python
+```text
 from pathlib import Path
 from typing import Any, Literal, Mapping, Sequence
 
@@ -392,7 +407,7 @@ DriftClass = Literal[
 
 Shared report envelope in `scieasy.qa.schemas.report`:
 
-```python
+```text
 from datetime import datetime
 from pydantic import BaseModel, Field
 
@@ -429,7 +444,7 @@ class AuditReport(BaseModel):
 
 Fact schemas in `scieasy.qa.schemas.facts`:
 
-```python
+```text
 class Fact(BaseModel):
     id: str
     kind: FactKind
@@ -456,7 +471,7 @@ class FactsRegistry(BaseModel):
 
 Signature facts in `scieasy.qa.schemas.signatures`:
 
-```python
+```text
 SignatureKind = Literal["function", "class", "method", "pydantic-model", "cli-command"]
 
 
@@ -503,7 +518,7 @@ class ExpectedCliCommand(BaseModel):
 
 Frontmatter and ownership schemas:
 
-```python
+```text
 from datetime import date
 from typing import Any, Literal, Mapping
 from pydantic import BaseModel, Field
@@ -534,7 +549,7 @@ class ADRFrontmatter(BaseModel):
     tests: list[str]
     agent_editable: bool | Literal["owner-only"]
     assisted_by: list[str]
-    phase: Literal["planning", "implementation", "complete", "maintenance"]
+    phase: Literal["planning", "implementation", "complete", "maintenance", "legacy"]
     tags: list[str]
     owner: str
     co_authors: list[str]
@@ -579,7 +594,7 @@ class Maintainers(BaseModel):
 Fact generation and schema loading:
 
 ```python
-def load_adr_frontmatter(path: Path) -> ADRFrontmatter: ...
+def load_adr_frontmatter(path: Path) -> ADRFrontmatter | ADRAddendumFrontmatter: ...
 
 def load_spec_frontmatter(path: Path) -> SpecFrontmatter: ...
 
@@ -654,10 +669,12 @@ def run(
     *,
     facts_path: Path = Path("docs/facts/generated.yaml"),
     check_stale: bool = True,
+    include_frontmatter_lint: bool = True,
     include_doc_drift: bool = True,
     include_fact_drift: bool = True,
     include_closure: bool = True,
     include_signature_drift: bool = True,
+    include_architecture_drift: bool = True,
 ) -> AuditReport: ...
 ```
 
@@ -709,3 +726,10 @@ CLI exit codes are uniform across ADR-042 audit tools:
   owner-approved scope exclusions that the checker can read.
 - The owner will decide when each consistency checker is wired; once wired, it
   is an immediate hard-fail checker.
+
+## 7. Appendix
+
+`legacy` is the ADR phase for historical decisions being preserved or
+normalized after their original implementation window. `doc_drift` still checks
+their governed symbols and files, but it does not require an active related
+implementation spec.

@@ -1,0 +1,205 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": "owner-hotfix-session",
+      "exclude": [],
+      "include": [],
+      "reason": "Implementation landed within the approved hotfix scope; no scope expansion."
+    }
+  ],
+  "branch": "hotfix/rewrite-adr-001-040",
+  "changed_test_paths": [
+    "tests/qa/test_audit_signature_contracts.py",
+    "tests/qa/test_gate_record_hooks.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check src/scieasy/qa/audit/signature_contracts.py src/scieasy/qa/audit/facts.py src/scieasy/qa/audit/signature_drift.py tests/qa/test_audit_signature_contracts.py tests/qa/test_gate_record_hooks.py",
+      "exit_code": 0,
+      "name": "ruff-audit-signature-contracts-and-hooks",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest --no-cov tests/qa/test_gate_record_hooks.py",
+      "exit_code": 0,
+      "name": "pytest-gate-record-hooks",
+      "output_path": "9 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest --no-cov tests/qa/test_audit_signature_contracts.py tests/qa/test_audit_signature_drift.py tests/qa/test_generate_facts_cli.py",
+      "exit_code": 0,
+      "name": "pytest-signature-contracts-and-facts",
+      "output_path": "9 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scieasy.qa.audit.frontmatter_lint docs/adr/ADR-001.md --format text",
+      "exit_code": 0,
+      "name": "frontmatter-adr-001",
+      "output_path": "No findings",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m ruff format --check src/scieasy/qa/audit/signature_contracts.py src/scieasy/qa/audit/facts.py src/scieasy/qa/audit/signature_drift.py tests/qa/test_audit_signature_contracts.py tests/qa/test_gate_record_hooks.py",
+      "exit_code": 0,
+      "name": "ruff-format-audit-signature-contracts-and-hooks",
+      "output_path": "5 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1294-adr-signature-contracts-active-workflow-warning.json",
+    "shas": [
+      "17d81254a72242457dc30e024b2aa8cb46f2ab70"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Hotfix changes audit tooling, gate evidence, and ADR draft only; no release changelog entry."
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "Owner-guided hotfix scope is tracked by issue #1294, gate record, and PR #1295; no separate planning checklist is required."
+    },
+    "docs": {
+      "paths": [
+        "docs/adr/ADR-001.md"
+      ]
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 1,
+    "known_debt": [
+      "Legacy ADR-031..040 frontmatter backlog is in the owner-guided ADR-001..040 rewrite track (#1289).",
+      "Existing ADR-042 consistency-tool signature drift remains transition debt outside this hotfix.",
+      "Existing architecture-drift and closure findings are transition debt outside this hotfix."
+    ],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "fail",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1294,
+      "url": "https://github.com/zjzcpj/SciEasy/issues/1294"
+    }
+  ],
+  "owner_directive": "Owner requested fixing legacy no-active-workflow warnings without touching another agent's worktree, and pushing this work as a PR from the current worktree. Include ADR signature-contract audit support needed before continuing ADR-001..040 split.",
+  "planned_files": [
+    "docs/adr/ADR.md",
+    "docs/adr/ADR-001.md",
+    "src/scieasy/qa/audit/signature_contracts.py",
+    "src/scieasy/qa/audit/signature_drift.py",
+    "src/scieasy/qa/audit/facts.py",
+    "tests/qa/test_audit_signature_contracts.py",
+    "tests/qa/test_gate_record_hooks.py",
+    ".workflow/active/20260408-191813-fix-fijiblock-passes-exchange-dir-instea.json"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1294
+    ],
+    "number": 1295,
+    "url": "https://github.com/zjzcpj/SciEasy/pull/1295"
+  },
+  "record_path": ".workflow/records/1294-adr-signature-contracts-active-workflow-warning.json",
+  "required_checks": [
+    "ruff check src/scieasy/qa/audit/signature_contracts.py src/scieasy/qa/audit/facts.py src/scieasy/qa/audit/signature_drift.py tests/qa/test_audit_signature_contracts.py tests/qa/test_gate_record_hooks.py",
+    "PYTHONPATH=src pytest --no-cov tests/qa/test_gate_record_hooks.py",
+    "PYTHONPATH=src pytest --no-cov tests/qa/test_audit_signature_contracts.py tests/qa/test_audit_signature_drift.py tests/qa/test_generate_facts_cli.py",
+    "python -m scieasy.qa.audit.frontmatter_lint docs/adr/ADR-001.md --format text"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "docs/adr/ADR-*.md",
+      "docs/adr/ADR.md",
+      "src/scieasy/qa/audit/signature_contracts.py",
+      "src/scieasy/qa/audit/signature_drift.py",
+      "src/scieasy/qa/audit/facts.py",
+      "tests/qa/test_audit_signature_contracts.py",
+      "tests/qa/test_gate_record_hooks.py",
+      ".workflow/active/**",
+      ".workflow/records/1294-adr-signature-contracts-active-workflow-warning.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__sentrux__.scan + check_rules after rebase onto origin/main",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "MCP check_rules: pass=true; violation_count=0; rules_checked=3; total_rules_defined=15",
+    "pro_required": false,
+    "quality_signal": 4130.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {
+      "max_cc": "100",
+      "max_cycles": "5",
+      "no_god_files": "false"
+    },
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1294-adr-signature-contracts-active-workflow-warning",
+  "task_kind": "hotfix"
+}

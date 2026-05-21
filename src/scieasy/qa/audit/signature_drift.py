@@ -9,7 +9,7 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
-from scieasy.qa.audit.signature_contracts import extract_signature_contracts
+from scieasy.qa.audit.signature_contracts import extract_governed_signature_contracts
 from scieasy.qa.schemas.facts import Fact, FactsRegistry
 from scieasy.qa.schemas.report import AuditReport, AuditStatus, DriftClass, Finding, Severity
 from scieasy.qa.schemas.signatures import ExpectedCliCommand, ExpectedModelField, ExpectedSignature
@@ -360,10 +360,9 @@ def extract_expected_signature_facts(
     *,
     source_sha: str,
 ) -> list[Fact]:
-    """Extract expected signature facts from all specs."""
+    """Extract expected signature facts from active specs and ADRs."""
 
-    return extract_signature_contracts(
-        sorted((repo_root / "docs" / "specs").glob("*.md")),
+    return extract_governed_signature_contracts(
         repo_root=repo_root,
         source_sha=source_sha,
     )
