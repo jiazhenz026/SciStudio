@@ -1,0 +1,170 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "fix/issue-1343-1365/types-registry-worker-reconstruction",
+  "changed_test_paths": [
+    "tests/core/test_type_registry_scan_dirs.py",
+    "tests/engine/test_worker_reconstruction_scan_dirs.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "651 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "pytest tests/core/test_type_registry_scan_dirs.py tests/engine/test_worker_reconstruction_scan_dirs.py tests/core/test_type_registry_resolve_and_meta.py tests/engine/test_worker_typed_reconstruction.py tests/engine/test_local_runner.py --timeout=60",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "108 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "no-architecture-change"
+    },
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {},
+    "docs": {},
+    "spec": {
+      "not_applicable": true,
+      "rationale": "behavior-restoring-bugfix-no-public-contract-change"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1343,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1365,
+      "url": null
+    }
+  ],
+  "owner_directive": "Root-cause fix: drop-in sys.modules registration + worker reconstruction scan-dir visibility",
+  "planned_files": [
+    "src/scistudio/core/types/serialization.py",
+    "src/scistudio/engine/runners/local.py",
+    "tests/core/test_type_registry_scan_dirs.py",
+    "tests/engine/test_worker_reconstruction_scan_dirs.py",
+    "CHANGELOG.md",
+    "docs/planning/2026-05-21-bug-sweep-checklist.md",
+    ".workflow/records/1343-1365-types-registry-worker.json"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1343-1365-types-registry-worker.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/core/types/registry.py",
+      "src/scistudio/core/types/serialization.py",
+      "src/scistudio/engine/runners/worker.py",
+      "src/scistudio/engine/runners/local.py",
+      "src/scistudio/api/runtime.py",
+      "tests/core/test_type_registry_scan_dirs.py",
+      "tests/engine/test_worker_typed_reconstruction.py",
+      "tests/engine/test_worker_reconstruction_scan_dirs.py",
+      "CHANGELOG.md",
+      "docs/planning/2026-05-21-bug-sweep-checklist.md",
+      ".workflow/records/1343-1365-types-registry-worker.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules + health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "pass:3/3 rules; quality_signal=4445; violation_count=0",
+    "pro_required": false,
+    "quality_signal": 4445.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1343-types-registry-worker-reconstruction",
+  "task_kind": "bugfix"
+}
