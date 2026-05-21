@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from scieasy.core.storage.flush_context import clear, get_output_dir, set_output_dir
+from scistudio.core.storage.flush_context import clear, get_output_dir, set_output_dir
 
 
 class TestFlushContext:

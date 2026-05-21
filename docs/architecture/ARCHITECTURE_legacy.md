@@ -1,4 +1,4 @@
-# SciEasy Architecture Legacy Reference
+# SciStudio Architecture Legacy Reference
 
 > Legacy reference only. This file preserves the pre-rewrite architecture document
 > for historical context. The current architecture contract lives in
@@ -9,7 +9,7 @@
 
 ---
 doc_type: architecture
-title: "SciEasy Architecture Document"
+title: "SciStudio Architecture Document"
 status: living
 owner: "@jiazhenz026"
 last_updated: 2026-05-19
@@ -28,10 +28,10 @@ related_adrs:
   - 41
   - 42
   - 43
-summary: "Stable architecture overview for SciEasy runtime, data, block, registry, boundary IO, frontend, and extension layers."
+summary: "Stable architecture overview for SciStudio runtime, data, block, registry, boundary IO, frontend, and extension layers."
 ---
 
-# SciEasy Architecture Document
+# SciStudio Architecture Document
 
 > **Status**: Draft v0.3
 > **Last updated**: 2026-05-19 (ADR-043 format capability registry and ADR-042 document metadata)
@@ -97,7 +97,7 @@ The system is organised into six horizontal layers, from bottom to top. Each lay
 │  Plugin ecosystem (cross-cutting; ADR-025, ADR-026)         │
 │  Entry-points protocol · PackageInfo · Block SDK ·          │
 │  Community blocks · custom types · external adapters ·      │
-│  BlockTestHarness · scieasy init-block-package scaffolding  │
+│  BlockTestHarness · scistudio init-block-package scaffolding  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -108,7 +108,7 @@ The system maintains **two independent history layers** that together satisfy th
 | Layer | Where it lives | What it records | Triggered by | ADR |
 |---|---|---|---|---|
 | **Source version control** | `<project>/.git/` | Workflow YAML, custom block `.py`, notes `.md` — every edit users want to recover | User clicks **Commit** (manual) or **Run** (pre-run auto-commit, ON by default) | ADR-039 |
-| **Run lineage** | `<project>/.scieasy/lineage.db` (SQLite, 4 normalized tables) | Every workflow execution: which workflow, which blocks, which params, which I/O DataObjects, which environment, against which source commit | User clicks **Run** (engine writes the row) | ADR-038 |
+| **Run lineage** | `<project>/.scistudio/lineage.db` (SQLite, 4 normalized tables) | Every workflow execution: which workflow, which blocks, which params, which I/O DataObjects, which environment, against which source commit | User clicks **Run** (engine writes the row) | ADR-038 |
 
 **Single join key:** every row in `lineage.db.runs` carries a `workflow_git_commit` column pointing at the exact source commit the run executed against. From a run row, the user can `git checkout <sha>` to recover the source; from a source commit, the user can query `SELECT * FROM runs WHERE workflow_git_commit = ?` to see which runs ran against it.
 
@@ -120,9 +120,9 @@ The system maintains **two independent history layers** that together satisfy th
 
 **What `lineage.db` is NOT:** it is **not** a content cache. Intermediate block outputs are overwritten freely by subsequent runs at their natural backend-managed paths (Zarr / Arrow / file). The recipe (workflow YAML snapshot + resolved params + environment + git commit SHA) survives indefinitely in `lineage.db.runs` and is sufficient to reproduce any historical run by re-execution. See §4.4 for the schema and write-flow.
 
-**What `.git/` is NOT:** it is **not** a snapshot of run data. The default `.gitignore` excludes `data/` (large binary inputs/outputs) and `.scieasy/` (per-machine runtime state including the lineage database itself). Two users cloning the same SciEasy project each generate their own local lineage when they run workflows; collaborative sharing of run lineage is a future ADR. The git CLI engine used to manage the repository is a **bundled portable git binary** (~25-30 MB shipped via the ADR-037 desktop bundle), not a Python library — see §4.6 for the source-version-control architecture.
+**What `.git/` is NOT:** it is **not** a snapshot of run data. The default `.gitignore` excludes `data/` (large binary inputs/outputs) and `.scistudio/` (per-machine runtime state including the lineage database itself). Two users cloning the same SciStudio project each generate their own local lineage when they run workflows; collaborative sharing of run lineage is a future ADR. The git CLI engine used to manage the repository is a **bundled portable git binary** (~25-30 MB shipped via the ADR-037 desktop bundle), not a Python library — see §4.6 for the source-version-control architecture.
 
-**AI agents may consume both layers:** an embedded agent (ADR-034) can `git log` and `git show` inside its PTY, and can `sqlite3 .scieasy/lineage.db "SELECT ..."` to answer reproducibility questions; no new MCP tools are required for either.
+**AI agents may consume both layers:** an embedded agent (ADR-034) can `git log` and `git show` inside its PTY, and can `sqlite3 .scistudio/lineage.db "SELECT ..."` to answer reproducibility questions; no new MCP tools are required for either.
 
 ---
 
@@ -130,7 +130,7 @@ The system maintains **two independent history layers** that together satisfy th
 
 ### 4.1 Base type hierarchy
 
-All data flowing between blocks is wrapped in a `DataObject` subclass. **The core ships exactly seven types** (ADR-027 D2): the abstract `DataObject` root plus six primitives. **Domain subtypes — `Image`, `Spectrum`, `PeakTable`, `AnnData`, and everything similar — do not live in core.** They are provided by plugin packages via the `scieasy.types` entry-point group (ADR-025) and registered at startup (main process) and at worker subprocess startup (ADR-027 D11).
+All data flowing between blocks is wrapped in a `DataObject` subclass. **The core ships exactly seven types** (ADR-027 D2): the abstract `DataObject` root plus six primitives. **Domain subtypes — `Image`, `Spectrum`, `PeakTable`, `AnnData`, and everything similar — do not live in core.** They are provided by plugin packages via the `scistudio.types` entry-point group (ADR-025) and registered at startup (main process) and at worker subprocess startup (ADR-027 D11).
 
 ```mermaid
 classDiagram
@@ -201,7 +201,7 @@ classDiagram
 
 The diagram above is the **complete** core type surface. There are no `Image`, `MSImage`, `Spectrum`, `PeakTable`, `AnnData`, or `SpatialData` classes in core. These are plugin-provided extensions.
 
-**Plugin-provided extension inset (illustrative, not in core)**: the `scieasy-blocks-imaging` package registers its own hierarchy rooted at `Array`, visible to the core `TypeRegistry` after entry-point scan:
+**Plugin-provided extension inset (illustrative, not in core)**: the `scistudio-blocks-imaging` package registers its own hierarchy rooted at `Array`, visible to the core `TypeRegistry` after entry-point scan:
 
 ```mermaid
 classDiagram
@@ -209,17 +209,17 @@ classDiagram
         <<core>>
     }
     class Image {
-        <<plugin: scieasy-blocks-imaging>>
+        <<plugin: scistudio-blocks-imaging>>
         +meta: Image.Meta
     }
     class FluorImage {
-        <<plugin: scieasy-blocks-imaging>>
+        <<plugin: scistudio-blocks-imaging>>
     }
     class HyperspectralImage {
-        <<plugin: scieasy-blocks-imaging>>
+        <<plugin: scistudio-blocks-imaging>>
     }
     class SRSImage {
-        <<plugin: scieasy-blocks-imaging>>
+        <<plugin: scistudio-blocks-imaging>>
     }
 
     Array <|-- Image
@@ -228,9 +228,9 @@ classDiagram
     Image <|-- SRSImage
 ```
 
-Other plugin packages (`scieasy-blocks-spectral`, `scieasy-blocks-msi`, `scieasy-blocks-singlecell`, `scieasy-blocks-spatial-omics`) follow the same pattern — each subclasses one of the six core primitives and registers via `scieasy.types` entry points. The core diagram never grows as new modalities are added.
+Other plugin packages (`scistudio-blocks-spectral`, `scistudio-blocks-msi`, `scistudio-blocks-singlecell`, `scistudio-blocks-spatial-omics`) follow the same pattern — each subclasses one of the six core primitives and registers via `scistudio.types` entry points. The core diagram never grows as new modalities are added.
 
-**Why `CompositeData` exists**: Many real-world scientific data structures are inherently multi-modal containers rather than single-type objects. AnnData (single-cell, provided by `scieasy-blocks-singlecell`) bundles a matrix (`.X` → Array), observation metadata (`.obs` → DataFrame), variable metadata (`.var` → DataFrame), and unstructured annotations (`.uns` → Artifact). SpatialData (provided by `scieasy-blocks-spatial-omics`) combines images, coordinate tables, and region annotations. Forcing these into single-parent inheritance (e.g. AnnData as a DataFrame) loses critical structural semantics.
+**Why `CompositeData` exists**: Many real-world scientific data structures are inherently multi-modal containers rather than single-type objects. AnnData (single-cell, provided by `scistudio-blocks-singlecell`) bundles a matrix (`.X` → Array), observation metadata (`.obs` → DataFrame), variable metadata (`.var` → DataFrame), and unstructured annotations (`.uns` → Artifact). SpatialData (provided by `scistudio-blocks-spatial-omics`) combines images, coordinate tables, and region annotations. Forcing these into single-parent inheritance (e.g. AnnData as a DataFrame) loses critical structural semantics.
 
 `CompositeData` models these as a named collection of heterogeneous `DataObject` slots:
 
@@ -259,14 +259,14 @@ class CompositeData(DataObject):
         return list(self._slots.keys())
 ```
 
-Plugin-provided composite subclasses declare their expected slot structure. For example (in `scieasy-blocks-singlecell`):
+Plugin-provided composite subclasses declare their expected slot structure. For example (in `scistudio-blocks-singlecell`):
 
 ```python
-# scieasy_blocks_singlecell/types/anndata.py
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.array import Array
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.artifact import Artifact
+# scistudio_blocks_singlecell/types/anndata.py
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.array import Array
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.artifact import Artifact
 
 class AnnData(CompositeData):
     """Single-cell data: expression matrix + cell/gene metadata."""
@@ -277,7 +277,7 @@ class AnnData(CompositeData):
         "uns": Artifact,      # unstructured annotations
     }
 
-# scieasy_blocks_spatial_omics/types/spatialdata.py
+# scistudio_blocks_spatial_omics/types/spatialdata.py
 class SpatialData(CompositeData):
     """Spatial omics data: images + coordinates + annotations."""
     expected_slots = {
@@ -330,7 +330,7 @@ img_6d = HyperspectralImage(
 )
 ```
 
-Plugin-provided subclasses declare their schema at class level. For example (in `scieasy-blocks-imaging`):
+Plugin-provided subclasses declare their schema at class level. For example (in `scistudio-blocks-imaging`):
 
 ```python
 class Image(Array):
@@ -348,14 +348,14 @@ class SRSImage(Image):
     required_axes = frozenset({"y", "x", "lambda"})
     # same as HyperspectralImage structurally; distinct for domain semantics
 
-# (MSImage moves to scieasy-blocks-msi in a separate plugin.)
+# (MSImage moves to scistudio-blocks-msi in a separate plugin.)
 ```
 
 Axis validation runs in the `Array.__init__` via `_validate_axes()`: the instance's `axes` must be a superset of `required_axes` and (if specified) a subset of `allowed_axes`, and must not contain duplicates. Instances can be reordered to `canonical_order` via a helper method on `Array`.
 
 `TypeSignature.from_type(cls)` (ADR-027 D1) additionally records `required_axes` so port compatibility checks enforce "incoming instance must have at least the target port type's required axes".
 
-Named axes serve four purposes: (1) port constraints can require specific axes instead of just ndim checks (see `scieasy.utils.constraints.has_axes`); (2) `Array.iter_over(axis)` and `Array.sel(**kwargs)` let blocks slice along named axes without manual positional indexing; (3) `scieasy.utils.axis_iter.iterate_over_axes(source, operates_on, func)` lets blocks process high-dim Arrays one slice at a time (section 4.5); (4) visualisation blocks can auto-assign axes to plot dimensions without config.
+Named axes serve four purposes: (1) port constraints can require specific axes instead of just ndim checks (see `scistudio.utils.constraints.has_axes`); (2) `Array.iter_over(axis)` and `Array.sel(**kwargs)` let blocks slice along named axes without manual positional indexing; (3) `scistudio.utils.axis_iter.iterate_over_axes(source, operates_on, func)` lets blocks process high-dim Arrays one slice at a time (section 4.5); (4) visualisation blocks can auto-assign axes to plot dimensions without config.
 
 **Key fields on `DataObject` — stratified metadata (ADR-027 D5)**:
 
@@ -370,7 +370,7 @@ Every `DataObject` has three metadata slots:
 Block authors read metadata via `img.meta.pixel_size` (typed attribute access with IDE autocompletion) and update it with the immutable helper `img.with_meta(pixel_size=new_value)`, which returns a new instance. Example:
 
 ```python
-from scieasy.core.units import PhysicalQuantity as Q
+from scistudio.core.units import PhysicalQuantity as Q
 
 img = FluorImage(
     axes=["z", "c", "y", "x"],
@@ -455,7 +455,7 @@ Laziness is enforced at two levels:
 
 ### 4.4 Data lineage (ADR-038)
 
-Every workflow execution is recorded as a structured run in `<project>/.scieasy/lineage.db`, a single SQLite database (WAL mode) with four normalized tables. The schema unifies what were previously two disjoint subsystems (`metadata.db` per the now-superseded ADR-032 and a dormant `lineage.db` schema per the original ADR-007 §4.4) into one coherent run-history surface. The architectural intent: **separate source version control (git, ADR-039) from run tracking (this database)**; their only join key is `runs.workflow_git_commit`.
+Every workflow execution is recorded as a structured run in `<project>/.scistudio/lineage.db`, a single SQLite database (WAL mode) with four normalized tables. The schema unifies what were previously two disjoint subsystems (`metadata.db` per the now-superseded ADR-032 and a dormant `lineage.db` schema per the original ADR-007 §4.4) into one coherent run-history surface. The architectural intent: **separate source version control (git, ADR-039) from run tracking (this database)**; their only join key is `runs.workflow_git_commit`.
 
 ```sql
 -- Table 1: runs — one row per workflow execution
@@ -560,21 +560,21 @@ Plus the reverse query (figure file → run that produced it + methods): join `d
 
 **Re-run validation.** When the user clicks "Re-run this run", the engine performs advisory (non-blocking) checks: input file size + mtime drift and environment package drift, surfaced as dismissible warnings. The new run gets a fresh `run_id` with `parent_run_id` linking back; re-run chains are queryable.
 
-**"Run from here" scope.** `execute_from_block_id` records which block the user clicked "Run from here" on. The intermediate data needed to start mid-DAG is preserved only in the ADR-012 single-slot checkpoint (`<project>/.scieasy/pause/`), so "Run from here" works against the **most recent** run only. To reproduce an older historical run, the user re-runs the **full workflow** from start with the recorded recipe (workflow_yaml_snapshot + block_config_resolved + environment_snapshot + workflow_git_commit). This is the deliberate price of the no-per-run-isolation decision.
+**"Run from here" scope.** `execute_from_block_id` records which block the user clicked "Run from here" on. The intermediate data needed to start mid-DAG is preserved only in the ADR-012 single-slot checkpoint (`<project>/.scistudio/pause/`), so "Run from here" works against the **most recent** run only. To reproduce an older historical run, the user re-runs the **full workflow** from start with the recorded recipe (workflow_yaml_snapshot + block_config_resolved + environment_snapshot + workflow_git_commit). This is the deliberate price of the no-per-run-isolation decision.
 
 ### 4.5 Axis-iteration and broadcast utilities
 
-Two sibling utilities live in `scieasy.utils` for working with named-axis Arrays. They cover different but related concerns:
+Two sibling utilities live in `scistudio.utils` for working with named-axis Arrays. They cover different but related concerns:
 
-- **`scieasy.utils.axis_iter.iterate_over_axes(source, operates_on, func)`** (ADR-027 D3) — iterate a single Array over all its extra (non-`operates_on`) axes, applying `func` to each slice and stacking results back. This is the common case for 5D/6D imaging blocks: "I know how to process `(y, x)`, please loop over everything else".
-- **`scieasy.utils.broadcast.broadcast_apply(source, target, func, over_axes)`** — project a lower-dimensional object onto a higher-dimensional one along named axes. This is the cross-modal case: "apply a 2D cell mask `(y, x)` to every channel of a 3D MSI dataset `(y, x, mz)`", or "apply a baseline curve to each spectrum in a batch".
+- **`scistudio.utils.axis_iter.iterate_over_axes(source, operates_on, func)`** (ADR-027 D3) — iterate a single Array over all its extra (non-`operates_on`) axes, applying `func` to each slice and stacking results back. This is the common case for 5D/6D imaging blocks: "I know how to process `(y, x)`, please loop over everything else".
+- **`scistudio.utils.broadcast.broadcast_apply(source, target, func, over_axes)`** — project a lower-dimensional object onto a higher-dimensional one along named axes. This is the cross-modal case: "apply a 2D cell mask `(y, x)` to every channel of a 3D MSI dataset `(y, x, mz)`", or "apply a baseline curve to each spectrum in a batch".
 
 Neither utility is automatic broadcasting at the type system or port level — block authors decide when and how to use them. Shape alignment does not guarantee semantic alignment (e.g. an IF image and an MSI image must be spatially registered before broadcasting makes sense), so the framework provides the mechanisms and the block encodes the domain logic.
 
 #### 4.5.1 `iterate_over_axes` — the 80% case (ADR-027 D3)
 
 ```python
-# scieasy/utils/axis_iter.py
+# scistudio/utils/axis_iter.py
 
 def iterate_over_axes(
     source: Array,
@@ -602,9 +602,9 @@ Memory: O(one slice + one output slice) regardless of the number of extra-axis c
 **Typical usage** (in a plugin-provided imaging block):
 
 ```python
-from scieasy.utils.axis_iter import iterate_over_axes
-from scieasy.utils.constraints import has_axes
-from scieasy_blocks_imaging.types import Image
+from scistudio.utils.axis_iter import iterate_over_axes
+from scistudio.utils.constraints import has_axes
+from scistudio_blocks_imaging.types import Image
 
 class GaussianDenoise(ProcessBlock):
     input_ports  = [InputPort(name="image", accepted_types=[Image],
@@ -626,7 +626,7 @@ A 5D `(t, z, c, y, x)` input is handled correctly with zero additional code: `it
 #### 4.5.2 `broadcast_apply` — the cross-modal case
 
 ```python
-# scieasy/utils/broadcast.py
+# scistudio/utils/broadcast.py
 
 def broadcast_apply(
     source: Array,            # lower-dim, e.g. mask (y, x)
@@ -660,9 +660,9 @@ def broadcast_apply(
 **Usage in a block** (plugin-provided, cross-modal MSI analysis):
 
 ```python
-from scieasy_blocks_imaging.types import Image
-from scieasy_blocks_msi.types import MSImage
-from scieasy.core.types.dataframe import DataFrame
+from scistudio_blocks_imaging.types import Image
+from scistudio_blocks_msi.types import MSImage
+from scistudio.core.types.dataframe import DataFrame
 
 class ApplyMaskToMSI(ProcessBlock):
     name = "Apply mask to MSI"
@@ -690,13 +690,13 @@ Both utilities are axis-name-aware (not position-based), integrate with `DataObj
 
 ### 4.6 Source version control via bundled git (ADR-039)
 
-Every SciEasy project is also a git repository. Workflow YAML files, custom block `.py` files, project notes (`.md`), and `project.yaml` live under git management with standard semantics: commit, history, diff, restore, branch, merge, cherry-pick, stash. The engine is a **bundled portable `git` binary** invoked via subprocess — not pygit2, not gitpython, not dulwich.
+Every SciStudio project is also a git repository. Workflow YAML files, custom block `.py` files, project notes (`.md`), and `project.yaml` live under git management with standard semantics: commit, history, diff, restore, branch, merge, cherry-pick, stash. The engine is a **bundled portable `git` binary** invoked via subprocess — not pygit2, not gitpython, not dulwich.
 
 **Why bundled git CLI (decision reversed 2026-05-15 from initial pygit2 draft):**
 
 - Maximum cross-platform reliability across Windows / macOS / Linux including new OS versions and architectures (Windows ARM, pre-release distros). Binary distributions of git have been maintained for 25+ years.
 - 100% bug-for-bug compatibility with external git tools (VS Code, GitHub Desktop, terminal git CLI). Users who open the same project in another tool see identical behavior.
-- License-clean: shelling out and bundling the binary do not subject SciEasy to git's GPLv2 terms (VS Code, GitHub Desktop, GitKraken etc. all do this).
+- License-clean: shelling out and bundling the binary do not subject SciStudio to git's GPLv2 terms (VS Code, GitHub Desktop, GitKraken etc. all do this).
 - Stable wire format via plumbing commands (`git log --format=...`, `git status --porcelain=v2`, `git diff --raw`) parsed across versions.
 
 The ~25-30 MB bundle-size cost (vs ~3 MB for pygit2) is acceptable against ADR-037's ~250 MB total desktop bundle. See ADR-039 §3.1 for the full rationale.
@@ -709,7 +709,7 @@ The ~25-30 MB bundle-size cost (vs ~3 MB for pygit2) is acceptable against ADR-0
 | macOS | Static `git` (~25 MB) | Built from Git source release, universal2 arch |
 | Linux | Static `git` (~25 MB) | Built from Git source release with musl libc |
 
-Sourcing is automated by `desktop/scripts/fetch-git-portable.{ps1,sh}` in the ADR-037 packaging pipeline; the binary version is pinned per SciEasy release and refreshed quarterly for CVE updates.
+Sourcing is automated by `desktop/scripts/fetch-git-portable.{ps1,sh}` in the ADR-037 packaging pipeline; the binary version is pinned per SciStudio release and refreshed quarterly for CVE updates.
 
 **Project lifecycle:**
 
@@ -717,10 +717,10 @@ Sourcing is automated by `desktop/scripts/fetch-git-portable.{ps1,sh}` in the AD
 Project opened:
     if <project>/.git/ exists:
         use as-is
-    else if <project>/.scieasy/no_git marker absent:
+    else if <project>/.scistudio/no_git marker absent:
         bundled_git init <project>
         write default .gitignore
-        initial commit ("Initial commit (auto-generated by SciEasy)")
+        initial commit ("Initial commit (auto-generated by SciStudio)")
     else:
         operate without versioning (degraded mode; warn in UI)
 
@@ -751,8 +751,8 @@ Workflow saved (Ctrl+S):
 # Data files (not versioned — see ADR-038 for run lineage)
 data/
 
-# SciEasy runtime state (per-project, per-machine; not portable)
-.scieasy/
+# SciStudio runtime state (per-project, per-machine; not portable)
+.scistudio/
 
 # Python caches, plugin venvs, editor caches, OS noise
 __pycache__/
@@ -765,9 +765,9 @@ __pycache__/
 Thumbs.db
 ```
 
-The `.scieasy/lineage.db` is git-ignored by default (binary, no useful diff/merge; conceptually local to the machine). Users who explicitly want lineage shared with collaborators delete the `.scieasy/` line from `.gitignore`.
+The `.scistudio/lineage.db` is git-ignored by default (binary, no useful diff/merge; conceptually local to the machine). Users who explicitly want lineage shared with collaborators delete the `.scistudio/` line from `.gitignore`.
 
-**Out of scope for v1:** remote push/pull, git LFS, submodules, hook UI, tag UI, rebase UI, bisect UI — these are explicitly deferred to v2 (ADR-039 §3.10). The user can still invoke them via the bundled or system `git` CLI from a terminal; SciEasy does not lock `.git/`.
+**Out of scope for v1:** remote push/pull, git LFS, submodules, hook UI, tag UI, rebase UI, bisect UI — these are explicitly deferred to v2 (ADR-039 §3.10). The user can still invoke them via the bundled or system `git` CLI from a terminal; SciStudio does not lock `.git/`.
 
 **Why this replaces the previous ETag scheme:** the prior implementation used an in-memory `ApiRuntime.bump_revision` counter + `If-Match` header for optimistic concurrency on workflow saves. That counter reset on server restart and tracked only the active session, providing no historical recovery and no protection across restarts. Git is now the durable concurrency / history mechanism; the existing `workflow_watcher` (ADR-034 Phase 2) is extended to also detect external `.git/HEAD` changes so the GUI invalidates its cache and prompts to reload on external commits.
 
@@ -1329,16 +1329,16 @@ classDiagram
 
 #### IOBlock
 
-Handles all data ingress and egress. **`IOBlock` is an abstract base class** (ADR-028 §D2) with two abstract methods — `load(config) -> DataObject` and `save(obj, config) -> None` — and a default `run()` that dispatches to one of them based on the subclass's `direction: ClassVar[str]`. Concrete IO blocks subclass `IOBlock` and implement `load()` (for input-only blocks) or `save()` (for output-only blocks). The previous "single block type with a `direction` flag plus a `FormatAdapter` registry" pattern (the deleted `scieasy.blocks.io.adapters` package and `adapter_registry.py`) is gone.
+Handles all data ingress and egress. **`IOBlock` is an abstract base class** (ADR-028 §D2) with two abstract methods — `load(config) -> DataObject` and `save(obj, config) -> None` — and a default `run()` that dispatches to one of them based on the subclass's `direction: ClassVar[str]`. Concrete IO blocks subclass `IOBlock` and implement `load()` (for input-only blocks) or `save()` (for output-only blocks). The previous "single block type with a `direction` flag plus a `FormatAdapter` registry" pattern (the deleted `scistudio.blocks.io.adapters` package and `adapter_registry.py`) is gone.
 
 Core ships **two concrete IO blocks** that together cover all six core `DataObject` types (`Array`, `DataFrame`, `Series`, `Text`, `Artifact`, `CompositeData`):
 
-- **`LoadData`** at `src/scieasy/blocks/io/loaders/load_data.py` — input-only. Implements `load()` by dispatching to one of six private module-level `_load_*` functions selected by the `core_type` config enum (ADR-028 Addendum 1 §C9).
-- **`SaveData`** at `src/scieasy/blocks/io/savers/save_data.py` — output-only. Mirrors `LoadData` with six private `_save_*` dispatch functions.
+- **`LoadData`** at `src/scistudio/blocks/io/loaders/load_data.py` — input-only. Implements `load()` by dispatching to one of six private module-level `_load_*` functions selected by the `core_type` config enum (ADR-028 Addendum 1 §C9).
+- **`SaveData`** at `src/scistudio/blocks/io/savers/save_data.py` — output-only. Mirrors `LoadData` with six private `_save_*` dispatch functions.
 
 Both classes use the **dynamic-port mechanism** (ADR-028 Addendum 1 §C5): they declare a `dynamic_ports: ClassVar[dict[str, Any] | None]` descriptor mapping the `core_type` config field to a per-`enum`-value list of `accepted_types`, and override `get_effective_input_ports()` / `get_effective_output_ports()` so the validator and the frontend palette see the *narrowed* type for the configured `core_type`. The static `output_ports` declaration uses the broad `[DataObject]` upper bound for backward-compatible registration; the per-instance override is what the runtime and the GUI actually consume.
 
-Plugin packages ship additional concrete `IOBlock` subclasses for domain-specific formats — for example, `LoadImage` in `scieasy-blocks-imaging` absorbs the old `tiff_adapter` logic into a private `_load_tif()` function, and `LoadMSRawFile` in `scieasy-blocks-lcms` absorbs `mzxml_adapter`. Plugin IO blocks register through the existing `scieasy.blocks` entry-point group; the previously planned dedicated `scieasy.adapters` entry-point group has been removed (ADR-025 §6 superseded by ADR-028 §D4).
+Plugin packages ship additional concrete `IOBlock` subclasses for domain-specific formats — for example, `LoadImage` in `scistudio-blocks-imaging` absorbs the old `tiff_adapter` logic into a private `_load_tif()` function, and `LoadMSRawFile` in `scistudio-blocks-lcms` absorbs `mzxml_adapter`. Plugin IO blocks register through the existing `scistudio.blocks` entry-point group; the previously planned dedicated `scistudio.adapters` entry-point group has been removed (ADR-025 §6 superseded by ADR-028 §D4).
 
 #### ProcessBlock
 
@@ -1576,9 +1576,9 @@ class SubWorkflowBlock(Block):
 
 Blocks and custom data types are discovered from two sources, merged into a unified registry. The design goal: a bench scientist adds a block by dropping a file; a community maintainer publishes a polished package via pip.
 
-**Core / plugin boundary (ADR-027 D2)**: Core ships only the seven base types listed in §4.1 (`DataObject`, `Array`, `Series`, `DataFrame`, `Text`, `Artifact`, `CompositeData`). **No domain subtypes live in core.** `Image`, `FluorImage`, `SRSImage`, `MSImage`, `Spectrum`, `RamanSpectrum`, `MassSpectrum`, `PeakTable`, `MetabPeakTable`, `AnnData`, `SpatialData` — all of these are supplied by plugin packages via the `scieasy.types` entry-point group. The same rule applies to blocks: the core package ships only cross-cutting built-ins (`IOBlock`, `CodeBlock`, `AppBlock`, `AIBlock`, `SubWorkflowBlock`, `MergeCollection`, `SplitCollection`, `FilterCollection`, `SliceCollection`, `MergeBlock`, `SplitBlock`, `TransformBlock`). Every domain-aware block — Gaussian denoise, watershed, Cellpose, peak picking, mass calibration — lives in a plugin package.
+**Core / plugin boundary (ADR-027 D2)**: Core ships only the seven base types listed in §4.1 (`DataObject`, `Array`, `Series`, `DataFrame`, `Text`, `Artifact`, `CompositeData`). **No domain subtypes live in core.** `Image`, `FluorImage`, `SRSImage`, `MSImage`, `Spectrum`, `RamanSpectrum`, `MassSpectrum`, `PeakTable`, `MetabPeakTable`, `AnnData`, `SpatialData` — all of these are supplied by plugin packages via the `scistudio.types` entry-point group. The same rule applies to blocks: the core package ships only cross-cutting built-ins (`IOBlock`, `CodeBlock`, `AppBlock`, `AIBlock`, `SubWorkflowBlock`, `MergeCollection`, `SplitCollection`, `FilterCollection`, `SliceCollection`, `MergeBlock`, `SplitBlock`, `TransformBlock`). Every domain-aware block — Gaussian denoise, watershed, Cellpose, peak picking, mass calibration — lives in a plugin package.
 
-This boundary keeps the core modality-agnostic and ensures new modalities can be added to the ecosystem without modifying core. A scientist who only does imaging installs `scieasy + scieasy-blocks-imaging`; the core never even imports imaging-specific symbols. The worker subprocess calls `TypeRegistry.scan()` at startup (ADR-027 D11) so plugin types are resolvable from serialised `type_chain` metadata.
+This boundary keeps the core modality-agnostic and ensures new modalities can be added to the ecosystem without modifying core. A scientist who only does imaging installs `scistudio + scistudio-blocks-imaging`; the core never even imports imaging-specific symbols. The worker subprocess calls `TypeRegistry.scan()` at startup (ADR-027 D11) so plugin types are resolvable from serialised `type_chain` metadata.
 
 #### Tier 1 — Drop-in files (zero config)
 
@@ -1587,7 +1587,7 @@ Users place `.py` files in scan directories. The framework auto-discovers them o
 | Scope | Blocks | Types |
 |---|---|---|
 | **Project-local** (this project only) | `{project}/blocks/*.py` | `{project}/types/*.py` |
-| **User-global** (all projects) | `~/.scieasy/blocks/*.py` | `~/.scieasy/types/*.py` |
+| **User-global** (all projects) | `~/.scistudio/blocks/*.py` | `~/.scistudio/types/*.py` |
 
 For each `.py` file, the framework imports the module, finds all classes inheriting `Block` or `DataObject`, reads their class-level declarations, and registers them with `BlockRegistry` or `TypeRegistry` respectively.
 
@@ -1595,8 +1595,8 @@ For each `.py` file, the framework imports the module, finds all classes inherit
 
 ```python
 # my_project/blocks/raman_denoise.py
-from scieasy.blocks.base import ProcessBlock, InputPort, OutputPort
-from scieasy_blocks_spectral.types import Spectrum  # plugin-provided, not core
+from scistudio.blocks.base import ProcessBlock, InputPort, OutputPort
+from scistudio_blocks_spectral.types import Spectrum  # plugin-provided, not core
 
 class RamanDenoise(ProcessBlock):
     name = "Raman denoise"
@@ -1617,13 +1617,13 @@ class RamanDenoise(ProcessBlock):
         )
 ```
 
-Save → click "Reload blocks" → appears in palette under "spectroscopy". The `from scieasy_blocks_spectral.types import Spectrum` requires that the user has installed `scieasy-blocks-spectral`; the drop-in file itself does not need to live inside the plugin package.
+Save → click "Reload blocks" → appears in palette under "spectroscopy". The `from scistudio_blocks_spectral.types import Spectrum` requires that the user has installed `scistudio-blocks-spectral`; the drop-in file itself does not need to live inside the plugin package.
 
 **Minimal drop-in type example:**
 
 ```python
 # my_project/types/flow_data.py
-from scieasy.core.types import CompositeData, Array, DataFrame
+from scistudio.core.types import CompositeData, Array, DataFrame
 
 class FlowCytoData(CompositeData):
     name = "Flow cytometry data"
@@ -1650,10 +1650,10 @@ When a block collection needs formal versioning, dependency management, and broa
 **User installs:**
 
 ```bash
-pip install scieasy-flowcyto
+pip install scistudio-flowcyto
 ```
 
-All blocks and types from the package appear in the palette immediately — no config needed. Domain-specific IO loaders and savers are shipped as ordinary `IOBlock` subclasses inside the `scieasy.blocks` entry-point group; there is no separate adapter registry (ADR-028 §D4 supersedes ADR-025 §6).
+All blocks and types from the package appear in the palette immediately — no config needed. Domain-specific IO loaders and savers are shipped as ordinary `IOBlock` subclasses inside the `scistudio.blocks` entry-point group; there is no separate adapter registry (ADR-028 §D4 supersedes ADR-025 §6).
 
 ##### Two entry-point groups
 
@@ -1661,10 +1661,10 @@ External packages register their contributions via two standard Python entry-poi
 
 | Group | Purpose | Callable return type |
 |-------|---------|---------------------|
-| `scieasy.blocks` | Block class discovery (including plugin-owned `IOBlock` subclasses such as `LoadImage`) | `(PackageInfo, list[type[Block]])` or `list[type[Block]]` |
-| `scieasy.types` | Custom DataObject subtype registration | `list[type[DataObject]]` |
+| `scistudio.blocks` | Block class discovery (including plugin-owned `IOBlock` subclasses such as `LoadImage`) | `(PackageInfo, list[type[Block]])` or `list[type[Block]]` |
+| `scistudio.types` | Custom DataObject subtype registration | `list[type[DataObject]]` |
 
-Each entry-point value points to a **callable** (typically a `get_blocks()` or `get_types()` function) that the registry invokes at scan time. The previously documented `scieasy.adapters` group was removed by ADR-028 §D4 — concrete IO classes register through `scieasy.blocks` like any other block category.
+Each entry-point value points to a **callable** (typically a `get_blocks()` or `get_types()` function) that the registry invokes at scan time. The previously documented `scistudio.adapters` group was removed by ADR-028 §D4 — concrete IO classes register through `scistudio.blocks` like any other block category.
 
 **Dynamic-port override mechanism** (ADR-028 Addendum 1). Any block — not just `IOBlock` subclasses — may declare a `dynamic_ports: ClassVar[dict[str, Any] | None]` descriptor and override `get_effective_input_ports()` / `get_effective_output_ports()` to provide per-instance port resolution. The descriptor format is enum-only (no expressions, no mini-DSL) and maps `{source_config_key, output_port_mapping: {port_name: {enum_value: [type_names]}}}`. Core's `LoadData` and `SaveData` use this hook to narrow `accepted_types` based on the user-selected `core_type` enum; the worker subprocess, the validator, and the frontend `BlockNode` all consume `get_effective_*_ports()` rather than the static class-level declarations. See ADR-028 + Addendum 1 and `docs/block-development/block-contract.md` "Dynamic Ports" for the worked example.
 
@@ -1687,7 +1687,7 @@ class PackageInfo:
 The `get_blocks()` callable returns a tuple of `(PackageInfo, list[type[Block]])`:
 
 ```python
-from scieasy.blocks.base import PackageInfo
+from scistudio.blocks.base import PackageInfo
 
 PACKAGE_INFO = PackageInfo(
     name="SRS Imaging",
@@ -1712,7 +1712,7 @@ Blocks are organized in the GUI palette by **package** (top level) and **categor
 
 ```
 Block Palette:
-├── Core                         ← built-in (scieasy main package)
+├── Core                         ← built-in (scistudio main package)
 │   ├── code_block
 │   ├── io_block
 │   └── app_block                ← also covers manual review (see note below)
@@ -1735,10 +1735,10 @@ The `category` field is a free-form string set by the block author in `BlockMeta
 **Package structure (what the community maintainer creates):**
 
 ```
-scieasy-flowcyto/
+scistudio-flowcyto/
 ├── pyproject.toml
 └── src/
-    └── scieasy_flowcyto/
+    └── scistudio_flowcyto/
         ├── __init__.py           # PackageInfo + get_blocks()
         ├── types/
         │   └── flow_data.py      # FlowCytoData(CompositeData) + get_types()
@@ -1754,30 +1754,30 @@ scieasy-flowcyto/
 ```toml
 # pyproject.toml
 [project]
-name = "scieasy-flowcyto"
+name = "scistudio-flowcyto"
 version = "1.0.0"
-dependencies = ["scieasy>=0.1", "fcsparser>=0.2", "flowsom>=0.1"]
+dependencies = ["scistudio>=0.1", "fcsparser>=0.2", "flowsom>=0.1"]
 
-[project.entry-points."scieasy.blocks"]
-flowcyto = "scieasy_flowcyto:get_blocks"              # callable protocol (ADR-025)
+[project.entry-points."scistudio.blocks"]
+flowcyto = "scistudio_flowcyto:get_blocks"              # callable protocol (ADR-025)
 
-[project.entry-points."scieasy.types"]
-flowcyto = "scieasy_flowcyto.types.flow_data:get_types"
+[project.entry-points."scistudio.types"]
+flowcyto = "scistudio_flowcyto.types.flow_data:get_types"
 ```
 
-Note the entry-point format change from ADR-025: each entry-point value is a **callable** (function or class), not a direct class reference. The callable is invoked by the registry and returns a list of classes (optionally with `PackageInfo`). Domain-specific loaders/savers (`LoadFCS`, `SaveFCS` above) are concrete `IOBlock` subclasses returned from `get_blocks()` along with the rest of the package's blocks; the dedicated `scieasy.adapters` entry-point group documented in ADR-025 §6 was removed by ADR-028 §D4.
+Note the entry-point format change from ADR-025: each entry-point value is a **callable** (function or class), not a direct class reference. The callable is invoked by the registry and returns a list of classes (optionally with `PackageInfo`). Domain-specific loaders/savers (`LoadFCS`, `SaveFCS` above) are concrete `IOBlock` subclasses returned from `get_blocks()` along with the rest of the package's blocks; the dedicated `scistudio.adapters` entry-point group documented in ADR-025 §6 was removed by ADR-028 §D4.
 
 ##### Custom type registration via entry-points
 
 Custom `DataObject` subtypes must be registered so the engine can validate port type compatibility (e.g., `FlowCytoData` IS-A `CompositeData`), reconstruct typed objects from storage references during checkpoint restore, and display type-appropriate previews in the frontend:
 
 ```python
-# scieasy_flowcyto/types/flow_data.py
+# scistudio_flowcyto/types/flow_data.py
 def get_types():
     return [FlowCytoData]
 ```
 
-`TypeRegistry` gains a `_scan_entrypoint_types()` method that iterates `entry_points(group="scieasy.types")`, invokes each callable, and registers the returned type classes.
+`TypeRegistry` gains a `_scan_entrypoint_types()` method that iterates `entry_points(group="scistudio.types")`, invokes each callable, and registers the returned type classes.
 
 #### Registry implementation
 
@@ -1791,12 +1791,12 @@ class BlockRegistry:
 
     def scan(self):
         # 1. Tier 1: scan drop-in directories
-        for directory in self._scan_dirs:          # project/blocks/, ~/.scieasy/blocks/
+        for directory in self._scan_dirs:          # project/blocks/, ~/.scistudio/blocks/
             for py_file in directory.glob("*.py"):
                 self._register_from_file(py_file)
 
         # 2. Tier 2: scan installed entry_points (ADR-025 callable protocol)
-        for ep in entry_points(group="scieasy.blocks"):
+        for ep in entry_points(group="scistudio.blocks"):
             try:
                 callable_or_class = ep.load()
                 result = callable_or_class() if callable(callable_or_class) else callable_or_class
@@ -1834,7 +1834,7 @@ class BlockRegistry:
         return grouped
 ```
 
-`TypeRegistry` follows an identical callable protocol with `scieasy.types` entry-points and `{project}/types/` + `~/.scieasy/types/` scan directories.
+`TypeRegistry` follows an identical callable protocol with `scistudio.types` entry-points and `{project}/types/` + `~/.scistudio/types/` scan directories.
 
 Each registered block/type exposes to the palette:
 - Name, description, version, author.
@@ -2139,7 +2139,7 @@ class WorkflowCheckpoint:
     skip_reasons: dict[str, str]                   # block_id → skip reason for SKIPPED blocks (ADR-018)
 ```
 
-Checkpoints are saved to `{project}/.scieasy/pause/` (relocated from the prior `{project}/checkpoints/` path during the ADR-038 unification; see ADR-012 for the unchanged scope and ADR-038 §3.6a for the distinction from run lineage) as JSON + references to Zarr/Parquet data. Resuming a workflow loads the latest checkpoint, skips completed blocks, and continues from the pending block. The `CheckpointManager` subscribes to `BLOCK_DONE`, `BLOCK_ERROR`, `BLOCK_CANCELLED`, and `BLOCK_SKIPPED` events on the `EventBus` and saves a checkpoint after each state change.
+Checkpoints are saved to `{project}/.scistudio/pause/` (relocated from the prior `{project}/checkpoints/` path during the ADR-038 unification; see ADR-012 for the unchanged scope and ADR-038 §3.6a for the distinction from run lineage) as JSON + references to Zarr/Parquet data. Resuming a workflow loads the latest checkpoint, skips completed blocks, and continues from the pending block. The `CheckpointManager` subscribes to `BLOCK_DONE`, `BLOCK_ERROR`, `BLOCK_CANCELLED`, and `BLOCK_SKIPPED` events on the `EventBus` and saves a checkpoint after each state change.
 
 The checkpoint store is a **single-slot artifact** (one file per `workflow_id`, overwritten on every terminal event). It is distinct from `lineage.db` (§4.4): the checkpoint mirrors the on-disk state at the moment of the most recent terminal block event and powers pause/resume + "Run from here on the latest run"; `lineage.db` records the full history of every run as immutable rows but preserves no intermediate data. "Run from here" against an older historical run is therefore not supported — to reproduce an older run, re-execute the full workflow using the recipe stored in `lineage.db.runs` (workflow_yaml_snapshot + per-block resolved params + environment + git commit SHA).
 
@@ -2448,17 +2448,17 @@ The DAG scheduler interacts only with the `BlockRunner` protocol. `run()` return
 
 ## 7. Layer 4 — AI services
 
-Layer 4 hosts SciEasy's **embedded coding agent** (ADR-033): the user's locally installed Claude Code (or Codex) CLI, wrapped as a subprocess and surfaced through the chat tab. Layer 4 no longer ships generation / synthesis / optimisation pipelines as separate single-call services — those user needs are met by the agent calling SciEasy's MCP tools.
+Layer 4 hosts SciStudio's **embedded coding agent** (ADR-033): the user's locally installed Claude Code (or Codex) CLI, wrapped as a subprocess and surfaced through the chat tab. Layer 4 no longer ships generation / synthesis / optimisation pipelines as separate single-call services — those user needs are met by the agent calling SciStudio's MCP tools.
 
 > **Note**: this section was rewritten for ADR-033 (2026-05-12). The previous content (block generation, workflow synthesis, parameter optimisation pipelines as standalone services) is superseded. `AIBlock` (the workflow-graph LLM node) is unaffected and continues to live under `blocks/ai/` — it is a workflow primitive, not an agent surface.
 
 ### 7.1 Agent runtime (ADR-033 D1)
 
-The agent runtime spawns the user's locally installed CLI as a subprocess; the engine streams the CLI's `--output-format stream-json` events to the frontend via WebSocket. SciEasy does not implement an agent loop, does not handle OAuth, and does not maintain a prompt-cache strategy — those concerns are delegated to the upstream CLI.
+The agent runtime spawns the user's locally installed CLI as a subprocess; the engine streams the CLI's `--output-format stream-json` events to the frontend via WebSocket. SciStudio does not implement an agent loop, does not handle OAuth, and does not maintain a prompt-cache strategy — those concerns are delegated to the upstream CLI.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ Provider abstraction (src/scieasy/ai/agent/)                                │
+│ Provider abstraction (src/scistudio/ai/agent/)                                │
 │                                                                             │
 │ AgentProvider Protocol — name, binary_name, discover(), start_session()     │
 │   ClaudeCodeProvider — wraps `claude` CLI                                   │
@@ -2471,9 +2471,9 @@ The agent runtime spawns the user's locally installed CLI as a subprocess; the e
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Each `AgentSession` corresponds to one CLI subprocess with one `session_id`. The first stream-json `init` event carries the session id; subsequent turns within the same chat use `--resume <id>`. Sessions persist as `{project}/.scieasy/sessions/<chat_id>.json` + `transcript.jsonl`.
+Each `AgentSession` corresponds to one CLI subprocess with one `session_id`. The first stream-json `init` event carries the session id; subsequent turns within the same chat use `--resume <id>`. Sessions persist as `{project}/.scistudio/sessions/<chat_id>.json` + `transcript.jsonl`.
 
-### 7.2 SciEasy MCP server (ADR-033 D2)
+### 7.2 SciStudio MCP server (ADR-033 D2)
 
 The MCP server runs **in-process with FastAPI** and exposes ~25 tools across four user-need categories. Tools share the same dependency-injection container as REST routes (BlockRegistry, TypeRegistry, scheduler, the unified `LineageStore` per ADR-038, and the bundled `GitEngine` per ADR-039). Agents query `lineage.db` directly via SQL inside their PTY bash tool and run `git` via the bundled binary — neither requires a dedicated MCP tool.
 
@@ -2484,22 +2484,22 @@ The MCP server runs **in-process with FastAPI** and exposes ~25 tools across fou
 | **(c) Result inspection + parameter tuning** | `get_block_output`, `inspect_data`, `preview_data`, `get_lineage`, `get_block_config`, `update_block_config`, `get_block_logs` | 6 R / 1 W |
 | **(d) Q&A about the project** | `search_docs`, `get_doc`, `list_data`, `get_project_info` | 4 R / 0 W |
 
-Generic file IO (Read / Write / Edit / Glob / Grep / Bash) remains Claude Code's native domain — MCP focuses on SciEasy-semantic operations.
+Generic file IO (Read / Write / Edit / Glob / Grep / Bash) remains Claude Code's native domain — MCP focuses on SciStudio-semantic operations.
 
-The CLI is pointed at the in-process server via `{project}/.scieasy/mcp.json`, which spawns a small `scieasy mcp-bridge` proxy subprocess that connects to the FastAPI process. See ADR-033 §3 D2 for the full bridge contract.
+The CLI is pointed at the in-process server via `{project}/.scistudio/mcp.json`, which spawns a small `scistudio mcp-bridge` proxy subprocess that connects to the FastAPI process. See ADR-033 §3 D2 for the full bridge contract.
 
 ### 7.3 Permission model (ADR-033 D4)
 
 Strict by default: every Edit, Write, Bash, WebFetch, and write-class MCP tool call requires user approval. Read-only operations are auto-approved. A per-session **Bypass mode** opts out of approval entirely (red banner shown while active).
 
-Enforcement uses Claude Code's `PreToolUse` hook protocol. The hook posts the tool call to a SciEasy backend endpoint (`POST /api/ai/permission-check`); the frontend renders the prompt; the user's decision flows back through `POST /api/ai/permission-decision`.
+Enforcement uses Claude Code's `PreToolUse` hook protocol. The hook posts the tool call to a SciStudio backend endpoint (`POST /api/ai/permission-check`); the frontend renders the prompt; the user's decision flows back through `POST /api/ai/permission-decision`.
 
 ```
    Claude Code subprocess
         │
         │  about to call Edit("workflows/foo.yaml")
         ▼
-   PreToolUse hook ──► scieasy hook-bridge ──► POST /api/ai/permission-check
+   PreToolUse hook ──► scistudio hook-bridge ──► POST /api/ai/permission-check
                                                          │
                                                          ▼
                                             WebSocket → frontend prompt UI
@@ -2520,9 +2520,9 @@ Enforcement uses Claude Code's `PreToolUse` hook protocol. The hook posts the to
 
 The agent's behaviour is shaped by a three-tier system prompt assembled at session start and passed via `--append-system-prompt @<tmp_file>`:
 
-1. **Builtin** — `src/scieasy/ai/agent/system_prompt.py`. Covers SciEasy core concepts (block contract, six data types, workflow YAML), explicit MCP tool enumeration, and production-mode working principles. Distinct from `CLAUDE.md` developer discipline — the agent is told to plan-before-act, verify-before-claim, cite-real-data, prefer-minimal-change, use-SciEasy-semantics, be-honest, respect-data-scale, never-silently-overwrite. It is NOT told to file GitHub issues, follow conventional commits, or pass the workflow gate.
-2. **Project overlay** — `{project}/.scieasy/system_prompt.md` (optional, gitignored opt-in).
-3. **Per-machine overlay** — `{project}/.scieasy/system_prompt.local.md` (optional, gitignored by default).
+1. **Builtin** — `src/scistudio/ai/agent/system_prompt.py`. Covers SciStudio core concepts (block contract, six data types, workflow YAML), explicit MCP tool enumeration, and production-mode working principles. Distinct from `CLAUDE.md` developer discipline — the agent is told to plan-before-act, verify-before-claim, cite-real-data, prefer-minimal-change, use-SciStudio-semantics, be-honest, respect-data-scale, never-silently-overwrite. It is NOT told to file GitHub issues, follow conventional commits, or pass the workflow gate.
+2. **Project overlay** — `{project}/.scistudio/system_prompt.md` (optional, gitignored opt-in).
+3. **Per-machine overlay** — `{project}/.scistudio/system_prompt.local.md` (optional, gitignored by default).
 
 ### 7.5 Project-local state (ADR-033 D7)
 
@@ -2530,13 +2530,13 @@ All agent-related persistent state lives under the project workspace, making pro
 
 ```
 {project}/
-└── .scieasy/
+└── .scistudio/
     ├── settings.json                # permission mode, concurrent-chat cap, model preference
     ├── system_prompt.md             # project-level system prompt overlay
     ├── system_prompt.local.md       # per-machine prompt overlay
     ├── mcp.json                     # generated at session start
     ├── claude-hooks.json            # generated PreToolUse hook config
-    ├── sessions/<chat_id>.json      # SciEasy chat metadata
+    ├── sessions/<chat_id>.json      # SciStudio chat metadata
     ├── sessions/<chat_id>/transcript.jsonl   # write-through stream-json snapshot
     ├── memory/MEMORY.md             # project-local agent memory
     └── skills/*.md                  # project-local Claude Code skills
@@ -2546,7 +2546,7 @@ The CLI's home-directory transcript (`~/.claude/projects/<sha>/`) remains canoni
 
 ### 7.6 AIBlock (workflow LLM node) — unchanged
 
-The `AIBlock` workflow primitive (`src/scieasy/blocks/ai/`) is preserved unchanged in this layer revision. It continues to function as a single-call LLM node inside the workflow graph — appropriate for batch operations like "run a vision model over every image in this Collection" that an interactive chat cannot perform. A future ADR will decide whether to re-implement AIBlock on top of `AgentProvider` in non-interactive mode, leave it as-is, or retire it.
+The `AIBlock` workflow primitive (`src/scistudio/blocks/ai/`) is preserved unchanged in this layer revision. It continues to function as a single-call LLM node inside the workflow graph — appropriate for batch operations like "run a vision model over every image in this Collection" that an interactive chat cannot perform. A future ADR will decide whether to re-implement AIBlock on top of `AgentProvider` in non-interactive mode, leave it as-is, or retire it.
 
 ### 7.7 What this layer no longer ships
 
@@ -2609,7 +2609,7 @@ DELETE /api/projects/{id}              Delete project
 GET    /api/ai/status                   Provider availability, version, login state
 WS     /api/ai/chat/{chat_id}           Bidirectional chat: user_message, cancel,
                                         permission_decision; agent_event stream-out
-POST   /api/ai/permission-check         Called by `scieasy hook-bridge`; returns
+POST   /api/ai/permission-check         Called by `scistudio hook-bridge`; returns
                                         approve / deny / ask
 POST   /api/ai/permission-decision      Frontend posts approve / deny for pending tool call
 ```
@@ -2672,7 +2672,7 @@ are now served by the chat agent invoking MCP tools (`scaffold_block`,
 
 ### 8.4 Static file serving and SPA fallback (ADR-024)
 
-The React frontend is pre-built at release time and included in the Python wheel as package data under `scieasy/api/static/`. In production (`scieasy gui`), the FastAPI app serves the SPA:
+The React frontend is pre-built at release time and included in the Python wheel as package data under `scistudio/api/static/`. In production (`scistudio gui`), the FastAPI app serves the SPA:
 
 - All `/api/*` routes and `/ws` are handled by FastAPI route handlers
 - `SPAStaticFiles` middleware (mounted at `/`) serves static assets and falls back to `index.html` for unknown paths, enabling client-side routing
@@ -2792,7 +2792,7 @@ Full-height left sidebar with searchable, categorised block list.
 
 - Blocks are fetched from `GET /api/blocks/` on mount and after "Reload Blocks."
 - Search filters by block name, category, and description.
-- Categories: IO, Process, Code, App, AI, SubWorkflow, Custom (user/project-local blocks from `~/.scieasy/blocks/` and `project/blocks/`).
+- Categories: IO, Process, Code, App, AI, SubWorkflow, Custom (user/project-local blocks from `~/.scistudio/blocks/` and `project/blocks/`).
 - Drag-and-drop: dragging a block onto the canvas creates a new node with default config.
 
 ### 9.5 Block node design
@@ -2949,7 +2949,7 @@ A separate tab strip lives **above the canvas**, distinct from the bottom panel 
 - **Code editor** (`kind: "file"`) — Monaco-backed editor for project-local `.py / .txt / .md / .yaml / .yml / .json / .csv / .log` files. Server-side `ruff` lint surfaces as Monaco markers. Used to edit `blocks/*.py` (custom blocks), scratch scripts, configs.
 - **Workflow source view** (`kind: "file"` with `readOnly=true`, `tabId="source:<workflow_id>"`) — read-only YAML view alongside the canvas, opened by the "View source" toolbar button when a workflow tab is active.
 
-`TabState` is a discriminated union (`{kind: "workflow"} | {kind: "file"}`) — the kind drives which content component renders and which top-toolbar buttons are shown. Auto-save uses the same 800 ms debounce already in place for workflow tabs. The "New" button in the top toolbar is intentionally limited to **three options only** — new workflow, new custom block (`blocks/*.py` scaffolded from `src/scieasy/blocks/_templates/block_base_template.py`), or new note (`*.md`) — to keep users away from arbitrary file dumping. Reading other files (`requirements.txt` etc.) happens via the Project tree.
+`TabState` is a discriminated union (`{kind: "workflow"} | {kind: "file"}`) — the kind drives which content component renders and which top-toolbar buttons are shown. Auto-save uses the same 800 ms debounce already in place for workflow tabs. The "New" button in the top toolbar is intentionally limited to **three options only** — new workflow, new custom block (`blocks/*.py` scaffolded from `src/scistudio/blocks/_templates/block_base_template.py`), or new note (`*.md`) — to keep users away from arbitrary file dumping. Reading other files (`requirements.txt` etc.) happens via the Project tree.
 
 See ADR-036 for the full decision record.
 
@@ -2982,13 +2982,13 @@ The `[↻]` button is visible only when cached upstream outputs exist. If predec
 
 **Data flow:** the backend is the source of truth for workflow definition and execution state. The frontend sends mutations via REST and receives state updates via WebSocket. The frontend never computes execution state locally.
 
-### 9.11 Frontend bundling and `scieasy gui` (ADR-024)
+### 9.11 Frontend bundling and `scistudio gui` (ADR-024)
 
-The target user profile for SciEasy includes scientists who do not write code. The installation and launch experience must be:
+The target user profile for SciStudio includes scientists who do not write code. The installation and launch experience must be:
 
 ```bash
-pip install scieasy
-scieasy gui
+pip install scistudio
+scistudio gui
 ```
 
 No Node.js, no `npm install`, no separate dev server. This is achieved by bundling the compiled React frontend into the Python wheel as static files.
@@ -2998,9 +2998,9 @@ No Node.js, no `npm install`, no separate dev server. This is achieved by bundli
 The React frontend is built at **package build time** (CI/release step), not at install time:
 
 1. CI runs `cd frontend && npm ci && npm run build`.
-2. Build output (`index.html` + `assets/`) is copied to `src/scieasy/api/static/`.
+2. Build output (`index.html` + `assets/`) is copied to `src/scistudio/api/static/`.
 3. `pyproject.toml` includes `api/static/**/*` as package data.
-4. Users installing via `pip install scieasy` receive the pre-built frontend.
+4. Users installing via `pip install scistudio` receive the pre-built frontend.
 5. Developers still use `npm run dev` (Vite dev server + CORS) for frontend development.
 
 The `api/static/` directory is `.gitignore`'d — it is a build artifact, not source code.
@@ -3026,7 +3026,7 @@ if static_dir.exists():
 
 The static mount is registered **after** all API routers and WebSocket endpoints, so `/api/*` and `/ws` take priority.
 
-#### `scieasy gui` CLI command
+#### `scistudio gui` CLI command
 
 ```python
 @app.command()
@@ -3034,21 +3034,21 @@ def gui(
     port: int = typer.Option(8000, help="Port for the API server"),
     no_browser: bool = typer.Option(False, help="Do not open browser automatically"),
 ):
-    """Launch SciEasy GUI in your default browser."""
+    """Launch SciStudio GUI in your default browser."""
     import threading, webbrowser, uvicorn
 
     url = f"http://localhost:{port}"
     if not no_browser:
         threading.Timer(1.5, webbrowser.open, args=[url]).start()
 
-    uvicorn.run("scieasy.api.app:create_app", factory=True, host="0.0.0.0", port=port)
+    uvicorn.run("scistudio.api.app:create_app", factory=True, host="0.0.0.0", port=port)
 ```
 
-The existing `scieasy serve` command remains available for headless/API-only usage (no browser auto-open). The frontend must use relative asset paths (`base: "./"` in Vite config) to ensure the SPA works when served from any path prefix.
+The existing `scistudio serve` command remains available for headless/API-only usage (no browser auto-open). The frontend must use relative asset paths (`base: "./"` in Vite config) to ensure the SPA works when served from any path prefix.
 
 #### Zero-configuration first launch
 
-When a user opens the GUI with no existing projects, the frontend shows a Welcome screen (ADR-023 Addendum 1). The backend provides a default workspace directory at `~/SciEasy/projects/`. The "Create Project" flow requires only a project name — all other settings use sensible defaults.
+When a user opens the GUI with no existing projects, the frontend shows a Welcome screen (ADR-023 Addendum 1). The backend provides a default workspace directory at `~/SciStudio/projects/`. The "Create Project" flow requires only a project name — all other settings use sensible defaults.
 
 ---
 
@@ -3058,9 +3058,9 @@ Each project is a self-contained directory:
 
 ```
 my_project/
-├── .git/                     # Auto-initialised by SciEasy on project open (ADR-039)
-├── .gitignore                # Auto-written; excludes data/ and .scieasy/ by default
-├── .scieasy/                 # Per-machine runtime state (gitignored by default)
+├── .git/                     # Auto-initialised by SciStudio on project open (ADR-039)
+├── .gitignore                # Auto-written; excludes data/ and .scistudio/ by default
+├── .scistudio/                 # Per-machine runtime state (gitignored by default)
 │   ├── lineage.db            # Unified SQLite run lineage (ADR-038, 4 normalized tables)
 │   ├── pause/                # Single-slot workflow checkpoints (ADR-012; relocated from checkpoints/)
 │   │   └── main_analysis/    #   Serialised workflow states for pause/resume
@@ -3089,12 +3089,12 @@ my_project/
 
 User-global drop-in directory (shared across all projects):
 ```
-~/.scieasy/
+~/.scistudio/
 ├── blocks/                   # User-global custom blocks
 └── types/                    # User-global custom data types
 ```
 
-**Note on relocations (2026-05-15):** The pre-ADR-038/039 layout had top-level `checkpoints/` and `lineage/` directories and a `metadata.db` file at project root. These are gone: checkpoints moved into `.scieasy/pause/`, the lineage database is now `.scieasy/lineage.db` (with a refactored 4-table schema), and `metadata.db` is collapsed into the unified `lineage.db` per ADR-038. The unified store handles both DataObject identity (formerly `metadata.db`) and run history (formerly `lineage/lineage.db`); see §4.4.
+**Note on relocations (2026-05-15):** The pre-ADR-038/039 layout had top-level `checkpoints/` and `lineage/` directories and a `metadata.db` file at project root. These are gone: checkpoints moved into `.scistudio/pause/`, the lineage database is now `.scistudio/lineage.db` (with a refactored 4-table schema), and `metadata.db` is collapsed into the unified `lineage.db` per ADR-038. The unified store handles both DataObject identity (formerly `metadata.db`) and run history (formerly `lineage/lineage.db`); see §4.4.
 
 ### 10.1 Workflow definition format
 
@@ -3219,8 +3219,8 @@ workflow:
 
 ### 10.2 Prod-env agent reliability stack (ADR-040)
 
-When a project is created (`scieasy init` or `ApiRuntime.create_project`) or
-re-opened (`ApiRuntime.open_project`), SciEasy provisions a small set of
+When a project is created (`scistudio init` or `ApiRuntime.create_project`) or
+re-opened (`ApiRuntime.open_project`), SciStudio provisions a small set of
 **prod-env agent reliability files** into the project so end-user-facing
 Claude Code and Codex sessions running *inside that project* behave
 predictably:
@@ -3232,18 +3232,18 @@ my_project/
 ├── .claude/
 │   ├── settings.json                      # Hook matchers (PreToolUse / PostToolUse)
 │   ├── hooks/                             # 6 hook scripts (ADR-040 §3.6)
-│   │   ├── deny_scieasy_cli.py            #   Blocks `scieasy …` Bash invocations
+│   │   ├── deny_scistudio_cli.py            #   Blocks `scistudio …` Bash invocations
 │   │   ├── protect_workflow_yaml.py       #   Blocks direct edits to workflows/*.yaml
 │   │   ├── enforce_list_blocks_before_block_write.py
 │   │   ├── remind_poll_status.py
 │   │   ├── mark_list_blocks_called.py
 │   │   └── enforce_concrete_port_types.py
-│   ├── skills/scieasy/{…6 skills…}        # Cross-installed to BOTH locations
-│   └── .scieasy-provision-version         # Version marker for idempotent top-up
+│   ├── skills/scistudio/{…6 skills…}        # Cross-installed to BOTH locations
+│   └── .scistudio-provision-version         # Version marker for idempotent top-up
 ├── .agents/
-│   └── skills/scieasy/{…6 skills…}        # Codex reads from .agents/skills/
+│   └── skills/scistudio/{…6 skills…}        # Codex reads from .agents/skills/
 └── .codex/
-    └── config.toml                        # [mcp_servers.scieasy] project-scope MCP wiring
+    └── config.toml                        # [mcp_servers.scistudio] project-scope MCP wiring
 ```
 
 Key properties:
@@ -3251,7 +3251,7 @@ Key properties:
 - **Idempotent**: `install_project_agent_assets(project_dir, force=False)` is
   called on every `open_project`. Existing user-edited files are preserved
   (per-file hash compare) and only missing files are top-up-written. This is
-  how alpha-stage projects retroactively acquire the new assets when SciEasy
+  how alpha-stage projects retroactively acquire the new assets when SciStudio
   is upgraded.
 - **Non-fatal**: per ADR-040 §7, provisioning failure is logged at WARNING
   level and the project still opens. Degraded-mode tests
@@ -3260,11 +3260,11 @@ Key properties:
   so the initial commit is clean of provisioned files; they land in a second
   commit on the user's first checkpoint.
 - **Dev vs prod env boundary**: this stack is for **end-user agent sessions
-  inside a SciEasy project**. The SciEasy source repository (`SciEasy/`
+  inside a SciStudio project**. The SciStudio source repository (`SciStudio/`
   itself) has its own developer-facing CLAUDE.md, hooks, and skills that
   follow a different — much larger — contract (see `CLAUDE.md` at the
   repo root). The prod-env CLAUDE.md template is intentionally ~50 lines:
-  it tells end-user agents to use the MCP server (not `scieasy` CLI), to
+  it tells end-user agents to use the MCP server (not `scistudio` CLI), to
   call `list_blocks` before writing blocks, and to trust hook denials.
 
 See `docs/agent-provisioning.md` for the operational reference and
@@ -3292,9 +3292,9 @@ ADR-040 for the architectural decision record.
 | UI toolkit | shadcn/ui + Tailwind CSS | |
 | Data visualisation | Plotly.js | Inline previews |
 | AI integration | Anthropic / OpenAI API | Block generation, workflow synthesis |
-| Package format | PyPI (`pip install`) | Block distribution via `scieasy.*` entry_points (ADR-025) |
-| Block SDK | `scieasy.testing` + `scieasy init-block-package` | Test harness + scaffolding for external developers (ADR-026) |
-| Frontend bundling | Vite build → Python wheel package data | Pre-built SPA served by FastAPI, `scieasy gui` command (ADR-024) |
+| Package format | PyPI (`pip install`) | Block distribution via `scistudio.*` entry_points (ADR-025) |
+| Block SDK | `scistudio.testing` + `scistudio init-block-package` | Test harness + scaffolding for external developers (ADR-026) |
+| Frontend bundling | Vite build → Python wheel package data | Pre-built SPA served by FastAPI, `scistudio gui` command (ADR-024) |
 
 ---
 
@@ -3304,22 +3304,22 @@ The framework is designed for community extensibility at every layer:
 
 | What to extend | How |
 |---|---|
-| **New data type** | Subclass any base type. Drop `.py` in `{project}/types/` (Tier 1) or publish as pip package with `scieasy.types` entry-point callable (Tier 2; ADR-025). Max 3 levels of inheritance from DataObject. |
-| **New block** | Subclass one of the five block categories. Drop `.py` in `{project}/blocks/` (Tier 1) or publish as pip package with `scieasy.blocks` entry-point callable returning `(PackageInfo, [Block, ...])` (Tier 2; ADR-025). |
-| **Block package** | Use `scieasy init-block-package` to scaffold a complete package with `PackageInfo`, entry-points, example blocks, tests using `BlockTestHarness`, and documentation (ADR-026). Publish to PyPI for community distribution. |
+| **New data type** | Subclass any base type. Drop `.py` in `{project}/types/` (Tier 1) or publish as pip package with `scistudio.types` entry-point callable (Tier 2; ADR-025). Max 3 levels of inheritance from DataObject. |
+| **New block** | Subclass one of the five block categories. Drop `.py` in `{project}/blocks/` (Tier 1) or publish as pip package with `scistudio.blocks` entry-point callable returning `(PackageInfo, [Block, ...])` (Tier 2; ADR-025). |
+| **Block package** | Use `scistudio init-block-package` to scaffold a complete package with `PackageInfo`, entry-points, example blocks, tests using `BlockTestHarness`, and documentation (ADR-026). Publish to PyPI for community distribution. |
 | **Reusable sub-pipeline** | Build a workflow, then use it as a `SubWorkflowBlock` in other workflows. Publish as a shareable workflow YAML. |
 | **New storage backend** | Implement the `StorageBackend` protocol (read, write, slice, iter_chunks). Register for a data type. |
-| **New code runner** | Implement the `CodeRunner` protocol (execute script with namespace injection). Register for a language identifier via `scieasy.runners` entry-point. |
+| **New code runner** | Implement the `CodeRunner` protocol (execute script with namespace injection). Register for a language identifier via `scistudio.runners` entry-point. |
 | **New app bridge** | Configure `AppBlock` with the application's CLI, declared type/extension ports, and capability-aware materialisation/reconstruction rules. |
-| **New IO block (loader / saver)** | For simple local IO, subclass `SimpleLoader` or `SimpleSaver`. For published packages or aggregate IO, declare explicit `FormatCapability` records with stable capability IDs, metadata fidelity, and default/priority policy. Register through the existing `scieasy.blocks` entry-point group; no separate `scieasy.adapters` group exists. |
+| **New IO block (loader / saver)** | For simple local IO, subclass `SimpleLoader` or `SimpleSaver`. For published packages or aggregate IO, declare explicit `FormatCapability` records with stable capability IDs, metadata fidelity, and default/priority policy. Register through the existing `scistudio.blocks` entry-point group; no separate `scistudio.adapters` group exists. |
 | **New block runner** | Implement the `BlockRunner` protocol for remote/cluster execution environments. |
 
 ### 12.1 Entry-point callable protocol (ADR-025, amended by ADR-028 §D4)
 
-The two surviving entry-point groups (`scieasy.blocks` and `scieasy.types`) follow a **callable protocol**: the entry-point value is a function (or class) that the registry invokes at scan time. This allows lazy importing — block code is not imported until the registry scans, preventing import-time side effects and heavy dependency loading at startup. The third group originally proposed in ADR-025 §6 (`scieasy.adapters`) was removed by ADR-028 §D4 — concrete IO classes (e.g., `LoadImage`, `LoadMSRawFile`) register through `scieasy.blocks` like any other block.
+The two surviving entry-point groups (`scistudio.blocks` and `scistudio.types`) follow a **callable protocol**: the entry-point value is a function (or class) that the registry invokes at scan time. This allows lazy importing — block code is not imported until the registry scans, preventing import-time side effects and heavy dependency loading at startup. The third group originally proposed in ADR-025 §6 (`scistudio.adapters`) was removed by ADR-028 §D4 — concrete IO classes (e.g., `LoadImage`, `LoadMSRawFile`) register through `scistudio.blocks` like any other block.
 
 ```python
-# scieasy.blocks callable protocol:
+# scistudio.blocks callable protocol:
 def get_blocks() -> tuple[PackageInfo, list[type[Block]]]:
     """Return package metadata + list of block classes (including any
     plugin-owned IOBlock subclasses such as LoadImage / SaveImage)."""
@@ -3330,7 +3330,7 @@ def get_blocks() -> list[type[Block]]:
     """Entry-point name used as package display name."""
     ...
 
-# scieasy.types callable protocol:
+# scistudio.types callable protocol:
 def get_types() -> list[type[DataObject]]:
     """Return list of custom DataObject subclasses to register."""
     ...
@@ -3338,21 +3338,21 @@ def get_types() -> list[type[DataObject]]:
 
 ### 12.2 Block SDK (ADR-026)
 
-For the SciEasy ecosystem to grow, external developers must be able to create block packages without reading internal architecture documents. The Block SDK provides three components:
+For the SciStudio ecosystem to grow, external developers must be able to create block packages without reading internal architecture documents. The Block SDK provides three components:
 
-#### `scieasy init-block-package` — project scaffolding
+#### `scistudio init-block-package` — project scaffolding
 
 Generates a complete, ready-to-develop block package with a single CLI command:
 
 ```bash
-$ scieasy init-block-package scieasy-blocks-srs
+$ scistudio init-block-package scistudio-blocks-srs
 
 Package display name [SRS]: SRS Imaging
 Author []: Dr. Wang Lab
 Categories (comma-separated) [processing]: processing, stat, io
 
-Created scieasy-blocks-srs/
-  src/scieasy_blocks_srs/
+Created scistudio-blocks-srs/
+  src/scistudio_blocks_srs/
     __init__.py                    # PackageInfo + get_blocks()
     types.py                       # Example custom type (optional)
     processing/example_block.py    # Example block per category
@@ -3364,14 +3364,14 @@ Created scieasy-blocks-srs/
   README.md                        # Quick start guide
 ```
 
-The generated `pyproject.toml` includes all three entry-point groups pre-configured. The example block is a minimal working implementation with inline comments explaining the contract. Templates are shipped as `.tpl` files inside `scieasy.cli.templates`.
+The generated `pyproject.toml` includes all three entry-point groups pre-configured. The example block is a minimal working implementation with inline comments explaining the contract. Templates are shipped as `.tpl` files inside `scistudio.cli.templates`.
 
 #### `BlockTestHarness` — testing utility
 
 A test helper that eliminates boilerplate for block testing:
 
 ```python
-from scieasy.testing import BlockTestHarness
+from scistudio.testing import BlockTestHarness
 
 class TestMyBlock:
     def test_doubles_values(self, tmp_path):
@@ -3391,7 +3391,7 @@ class TestMyBlock:
 - Materialize output DataObjects for easy assertion.
 - Clean up temporary files.
 
-Location: `src/scieasy/testing/harness.py` (public module: `from scieasy.testing import BlockTestHarness`).
+Location: `src/scistudio/testing/harness.py` (public module: `from scistudio.testing import BlockTestHarness`).
 
 #### Developer documentation
 
@@ -3423,7 +3423,7 @@ Key developer-facing rules (translated from ADRs):
 
 **Scenario**: Jiazhen has LC-MS data, Raman spectra, IF images, and SRS hyperspectral images. The goal is to integrate all four modalities at the single-cell level.
 
-**Plugin prerequisites**: this scenario uses domain types (`PeakTable`, `MetabPeakTable`, `Image`, `Spectrum`, `MSImage`, `AnnData`) that are **not in core** (ADR-027 D2). Running this workflow requires the relevant plugin packages installed: `scieasy-blocks-spectral` (Spectrum, PeakTable, MetabPeakTable), `scieasy-blocks-imaging` (Image, FluorImage, SRSImage), `scieasy-blocks-msi` (MSImage), and `scieasy-blocks-singlecell` (AnnData output). Each plugin registers its types via the `scieasy.types` entry-point group (ADR-025) and its blocks via `scieasy.blocks`. The core SciEasy installation has no knowledge of any of these types.
+**Plugin prerequisites**: this scenario uses domain types (`PeakTable`, `MetabPeakTable`, `Image`, `Spectrum`, `MSImage`, `AnnData`) that are **not in core** (ADR-027 D2). Running this workflow requires the relevant plugin packages installed: `scistudio-blocks-spectral` (Spectrum, PeakTable, MetabPeakTable), `scistudio-blocks-imaging` (Image, FluorImage, SRSImage), `scistudio-blocks-msi` (MSImage), and `scistudio-blocks-singlecell` (AnnData output). Each plugin registers its types via the `scistudio.types` entry-point group (ADR-025) and its blocks via `scistudio.blocks`. The core SciStudio installation has no knowledge of any of these types.
 
 ```
                     ┌───────────┐
@@ -3526,8 +3526,8 @@ The Raman and LC-MS results are preserved. Only the IF-dependent subgraph is ski
 | **EventBus** | Publish/subscribe dispatcher that connects all runtime components (scheduler, resource manager, process registry, WebSocket handler, lineage recorder, checkpoint manager). The backbone of the event-driven runtime (ADR-018). |
 | **RunHandle** | Returned by `BlockRunner.run()`. Contains a `ProcessHandle` for lifecycle management and an `asyncio.Future` for the result. |
 | **PackageInfo** | Dataclass providing metadata (name, description, author, version) for an external block package. Returned by `get_blocks()` callables alongside block class lists (ADR-025). |
-| **BlockTestHarness** | Testing utility in `scieasy.testing` that wraps raw Python data into DataObjects, calls block methods, and materializes outputs for assertion. Eliminates boilerplate in block tests (ADR-026). |
-| **Block SDK** | The combination of `scieasy init-block-package` scaffolding, `BlockTestHarness`, and developer documentation that enables external developers to create and publish block packages (ADR-026). |
+| **BlockTestHarness** | Testing utility in `scistudio.testing` that wraps raw Python data into DataObjects, calls block methods, and materializes outputs for assertion. Eliminates boilerplate in block tests (ADR-026). |
+| **Block SDK** | The combination of `scistudio init-block-package` scaffolding, `BlockTestHarness`, and developer documentation that enables external developers to create and publish block packages (ADR-026). |
 | **SPA fallback** | Middleware (`SPAStaticFiles`) that serves `index.html` for any path not matching `/api/*`, `/ws`, or a real static file — enabling client-side routing in the bundled React frontend (ADR-024). |
 
 ---
@@ -3579,8 +3579,8 @@ class SandboxPolicy(Enum):
 
 As the ecosystem grows (ADR-025, ADR-026), community block packages may conflict or have incompatible version constraints. Future considerations:
 
-- **Version constraint resolution**: when multiple packages declare `scieasy>=X`, ensure the installed SciEasy version satisfies all constraints. This is handled by pip today, but may need custom validation for block API compatibility.
-- **Block marketplace**: a searchable registry (like PyPI, but with SciEasy-specific metadata — port types, categories, data modalities) where scientists discover domain-specific block packages.
+- **Version constraint resolution**: when multiple packages declare `scistudio>=X`, ensure the installed SciStudio version satisfies all constraints. This is handled by pip today, but may need custom validation for block API compatibility.
+- **Block marketplace**: a searchable registry (like PyPI, but with SciStudio-specific metadata — port types, categories, data modalities) where scientists discover domain-specific block packages.
 - **Block version pinning in workflows**: workflow YAML could optionally pin block package versions to ensure reproducibility across installations.
 
 These are not in scope for v0.2 — the current entry-points protocol (ADR-025) and Block SDK (ADR-026) establish the foundation.

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.blocks.code.code_block import (
+from scistudio.blocks.code.code_block import (
     CodeBlock,
     CodeBlockExecutionError,
     CodeBlockMigrationError,
@@ -16,11 +16,11 @@ from scieasy.blocks.code.code_block import (
     register_codeblock_backend,
     unregister_codeblock_backend,
 )
-from scieasy.blocks.code.exchange import CodeBlockExchangeError
-from scieasy.blocks.code.interpreters import ResolvedInterpreter
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.text import Text
+from scistudio.blocks.code.exchange import CodeBlockExchangeError
+from scistudio.blocks.code.interpreters import ResolvedInterpreter
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.text import Text
 
 
 def _write_script(project_dir: Path, body: str, *, name: str = "script.py") -> Path:
@@ -243,7 +243,7 @@ def test_persisted_codeblock_config_strips_engine_enrichment_fields() -> None:
     every field that ``DAGScheduler._build_enriched_config`` injects at the
     block boundary. Otherwise ``CodeBlockConfig(extra='forbid')`` rejects
     them and every CodeBlock run inside a workflow fails."""
-    from scieasy.blocks.code.code_block import _persisted_codeblock_config
+    from scistudio.blocks.code.code_block import _persisted_codeblock_config
 
     raw = {
         "script_path": "script.py",

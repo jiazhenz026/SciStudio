@@ -6,8 +6,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from scieasy.core.types.array import Array
-from scieasy.engine.checkpoint import (
+from scistudio.core.types.array import Array
+from scistudio.engine.checkpoint import (
     CheckpointManager,
     WorkflowCheckpoint,
     deserialize_intermediate_refs,
@@ -15,7 +15,7 @@ from scieasy.engine.checkpoint import (
     save_checkpoint,
     serialize_intermediate_refs,
 )
-from scieasy.engine.events import (
+from scistudio.engine.events import (
     BLOCK_CANCELLED,
     BLOCK_DONE,
     BLOCK_ERROR,
@@ -212,8 +212,8 @@ class TestIntermediateRefsSerialization:
 
     def test_serialize_collection_output(self) -> None:
         """Collection outputs preserve structure instead of str()."""
-        from scieasy.core.storage.ref import StorageReference
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.storage.ref import StorageReference
+        from scistudio.core.types.collection import Collection
 
         img = Image(shape=(10, 10))
         img.storage_ref = StorageReference(backend="zarr", path="/tmp/test.zarr")
@@ -237,7 +237,7 @@ class TestIntermediateRefsSerialization:
 
     def test_serialize_storage_ref_output(self) -> None:
         """DataObject with storage_ref serializes to ref dict."""
-        from scieasy.core.storage.ref import StorageReference
+        from scistudio.core.storage.ref import StorageReference
 
         img = Image(shape=(10, 10))
         img.storage_ref = StorageReference(backend="zarr", path="/tmp/img.zarr")
@@ -250,8 +250,8 @@ class TestIntermediateRefsSerialization:
         """Serialized intermediate_refs can be JSON-serialized."""
         import json
 
-        from scieasy.core.storage.ref import StorageReference
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.storage.ref import StorageReference
+        from scistudio.core.types.collection import Collection
 
         img = Image(shape=(5, 5))
         img.storage_ref = StorageReference(backend="zarr", path="/tmp/test.zarr")
@@ -265,7 +265,7 @@ class TestIntermediateRefsSerialization:
 
     def test_serialize_collection_item_without_storage_ref(self) -> None:
         """Collection item without storage_ref falls back to _value string."""
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         img = Image(shape=(3, 3))
         # No storage_ref set
@@ -302,9 +302,9 @@ class TestDeserializeIntermediateRefs:
         """serialize -> JSON -> deserialize reconstructs DataObject items."""
         import json
 
-        from scieasy.core.storage.ref import StorageReference
-        from scieasy.core.types.base import DataObject
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.storage.ref import StorageReference
+        from scistudio.core.types.base import DataObject
+        from scistudio.core.types.collection import Collection
 
         img = Image(shape=(10, 10))
         img.storage_ref = StorageReference(
@@ -338,8 +338,8 @@ class TestDeserializeIntermediateRefs:
         """Single DataObject with storage_ref deserializes to DataObject."""
         import json
 
-        from scieasy.core.storage.ref import StorageReference
-        from scieasy.core.types.base import DataObject
+        from scistudio.core.storage.ref import StorageReference
+        from scistudio.core.types.base import DataObject
 
         img = Image(shape=(5, 5))
         img.storage_ref = StorageReference(backend="zarr", path="/tmp/img.zarr")
@@ -408,8 +408,8 @@ class TestDeserializeTypeChain:
 
     def test_single_ref_preserves_type_chain(self) -> None:
         """Single wire-format dict with type_chain reconstructs typed DataObject."""
-        from scieasy.core.types.array import Array
-        from scieasy.core.types.base import DataObject
+        from scistudio.core.types.array import Array
+        from scistudio.core.types.base import DataObject
 
         data = {
             "block_a": {
@@ -432,7 +432,7 @@ class TestDeserializeTypeChain:
 
     def test_single_ref_falls_back_to_dataobject_when_no_type_chain(self) -> None:
         """Without type_chain in metadata, falls back to base DataObject."""
-        from scieasy.core.types.base import DataObject
+        from scistudio.core.types.base import DataObject
 
         data = {
             "block_a": {
@@ -451,7 +451,7 @@ class TestDeserializeTypeChain:
 
     def test_collection_items_preserve_type_chain_from_item_metadata(self) -> None:
         """Collection items use type_chain for typed reconstruction."""
-        from scieasy.core.types.base import DataObject
+        from scistudio.core.types.base import DataObject
 
         data = {
             "block_a": {

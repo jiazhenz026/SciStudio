@@ -63,7 +63,7 @@ ticket. Linear chained sequence per the dependency graph below.
 Out of scope: the ADR text itself (already merged in PRs #255 and #259);
 the architecture / project-tree / block-sdk doc updates (already merged
 in PR #257 and #258); the imaging plugin package itself (lives in
-`scieasy-blocks-imaging` repo, not this one).
+`scistudio-blocks-imaging` repo, not this one).
 
 ## One-sentence summary
 
@@ -82,14 +82,14 @@ in a stacked-PR sequence that always leaves `main` green.
 | T-001  | Scheduler concurrency fix                                    | ADR-018 Addendum 1 (whole)                         |
 | T-002  | ResourceManager GPU auto-detect                              | ADR-027 D10                                        |
 | T-003  | PhysicalQuantity                                             | ADR-027 D6 + Addendum 1 §4 (PhysicalQuantity Pydantic integration) |
-| T-004  | FrameworkMeta + scieasy.core.meta module                     | ADR-027 D5 (framework slot)                        |
+| T-004  | FrameworkMeta + scistudio.core.meta module                     | ADR-027 D5 (framework slot)                        |
 | T-005  | DataObject three-slot metadata                               | ADR-027 D5 (whole)                                 |
 | T-006  | Array 6D instance-level axes + sel/iter\_over                | ADR-027 D1, D4                                     |
 | T-007  | Other base classes (Series/DataFrame/Composite/Text/Artifact) audit | ADR-027 D2                                  |
 | T-008  | Test migration — replace `Image()` with `Array(axes=...)`    | ADR-027 D2 consequence (modified files table)      |
 | T-009  | ProcessBlock setup/teardown hooks                            | ADR-027 D7                                         |
-| T-010  | scieasy.utils.constraints                                    | ADR-027 D4 companion (port constraint helpers)     |
-| T-011  | scieasy.utils.axis\_iter.iterate\_over\_axes                 | ADR-027 D3                                         |
+| T-010  | scistudio.utils.constraints                                    | ADR-027 D4 companion (port constraint helpers)     |
+| T-011  | scistudio.utils.axis\_iter.iterate\_over\_axes                 | ADR-027 D3                                         |
 | T-012  | TypeRegistry.resolve + Meta validation                       | ADR-027 D11 + Addendum 1 §3 (Meta constraints)     |
 | T-013  | Six base-class `_reconstruct_extra_kwargs` / `_serialise_extra_metadata` hooks | ADR-027 Addendum 1 §2 + Addendum 1 §"Rewritten files" |
 | T-014  | Worker subprocess typed reconstruction                       | ADR-027 D11 + Addendum 1 §1 (`_reconstruct_one` / `_serialise_one`) |
@@ -161,13 +161,13 @@ branch (stacked PRs):
 1. **T-001** — scheduler concurrency fix (independent, large)
 2. **T-002** — GPU auto-detect (independent, small)
 3. **T-003** — PhysicalQuantity (independent, small)
-4. **T-004** — FrameworkMeta + `scieasy.core.meta` package
+4. **T-004** — FrameworkMeta + `scistudio.core.meta` package
 5. **T-005** — DataObject three-slot metadata
 6. **T-006** — Array 6D axes + `sel` / `iter_over`
 7. **T-007** — other base classes audit
 8. **T-009** — ProcessBlock setup / teardown hooks
-9. **T-010** — `scieasy.utils.constraints`
-10. **T-011** — `scieasy.utils.axis_iter.iterate_over_axes`
+9. **T-010** — `scistudio.utils.constraints`
+10. **T-011** — `scistudio.utils.axis_iter.iterate_over_axes`
 11. **T-008** — test migration (Image → Array)
 12. **T-012** — `TypeRegistry.resolve` + Meta validation
 13. **T-013** — six base-class `_reconstruct_extra_kwargs` /
@@ -208,7 +208,7 @@ follow them is a workflow gate violation.
      coverage).
    - `ruff check src/ tests/` clean.
    - `ruff format --check src/ tests/` clean.
-   - `mypy src/scieasy --ignore-missing-imports` clean.
+   - `mypy src/scistudio --ignore-missing-imports` clean.
    - `python -m importlinter --config pyproject.toml` clean (the
      `Core must not depend on blocks/engine/api/ai/workflow` contract is
      load-bearing for several of these tickets).
@@ -242,7 +242,7 @@ satisfy these:
 2. `pytest -x --no-cov` passes locally before push.
 3. `ruff check src/ tests/` clean.
 4. `ruff format --check src/ tests/` clean.
-5. `mypy src/scieasy --ignore-missing-imports` clean.
+5. `mypy src/scistudio --ignore-missing-imports` clean.
 6. `CHANGELOG.md` has an entry under `[Unreleased]` in the appropriate
    section with full attribution per `CLAUDE.md` Appendix A Stage 6.
 7. Workflow gate has all 6 stages `[DONE]`.
@@ -267,16 +267,16 @@ sub-table for `composite.py`, noting: "The recursive delegation needs
 an import of `worker._reconstruct_one`, which is acceptable because
 composite reconstruction is intrinsically tied to the worker
 reconstruction protocol. Alternative: move the helpers into a new
-module `scieasy.core.types.serialization` to avoid `core` importing
+module `scistudio.core.types.serialization` to avoid `core` importing
 `engine.runners`."
 
-**Decision: create `src/scieasy/core/types/serialization.py`** as a NEW
+**Decision: create `src/scistudio/core/types/serialization.py`** as a NEW
 module owned by T-014. The two helpers (`_reconstruct_one`,
 `_serialise_one`) live there. `worker.py` imports them from
-`scieasy.core.types.serialization` instead of defining them locally.
+`scistudio.core.types.serialization` instead of defining them locally.
 `composite.py`'s `_reconstruct_extra_kwargs` and
 `_serialise_extra_metadata` (added by T-013) do
-`from scieasy.core.types.serialization import _reconstruct_one,
+`from scistudio.core.types.serialization import _reconstruct_one,
 _serialise_one` *inside the classmethod body* to avoid an import cycle
 at module load time.
 
@@ -289,13 +289,13 @@ at module load time.
   chains they consume.
 
 **Impact**: T-014's "Files to be created" list adds
-`src/scieasy/core/types/serialization.py`. T-013's `composite.py` patch
+`src/scistudio/core/types/serialization.py`. T-013's `composite.py` patch
 uses the inside-the-method import.
 
 ### Question 2: How does T-008 handle `tests/integration/test_multimodal_workflow.py`?
 
 ADR-027's "modified files" table for tests says: "Update ~7
-instantiations OR move this test into `scieasy-blocks-imaging` as an
+instantiations OR move this test into `scistudio-blocks-imaging` as an
 integration test that requires all three plugin packages installed.
 Phase 10 decision: keep in core repo but mark with a pytest marker
 `@pytest.mark.requires_imaging` that is skipped when the plugin is not
@@ -307,7 +307,7 @@ installed."
    `pyproject.toml` under `[tool.pytest.ini_options].markers`.
 2. Adds a top-of-module fixture / skip directive in
    `tests/integration/test_multimodal_workflow.py` that checks for
-   `scieasy_blocks_imaging` importability and skips the whole module if
+   `scistudio_blocks_imaging` importability and skips the whole module if
    absent.
 3. Rewrites every `Image(...)` call in that file to
    `Array(axes=[...], ...)` so that, when the plugin lands, the test
@@ -315,18 +315,18 @@ installed."
 
 **Rationale**: keeps the core repo's CI fully self-contained (no
 external plugin dependency) while preserving the test's value once
-`scieasy-blocks-imaging` ships. The `requires_imaging` marker becomes a
+`scistudio-blocks-imaging` ships. The `requires_imaging` marker becomes a
 pattern for other Phase 10+ plugin-dependent tests.
 
-### Question 3: What goes in `scieasy.core.meta` vs. directly under each base class?
+### Question 3: What goes in `scistudio.core.meta` vs. directly under each base class?
 
 ADR-027 D5 lists `core/meta/__init__.py` and `core/meta/framework.py`
 as new files in the impact scope but does not enumerate the public
 surface beyond `FrameworkMeta`.
 
 **Decision** (already reflected in the PR #261 skeleton):
-- `scieasy.core.meta.framework` exports `FrameworkMeta`.
-- `scieasy.core.meta.__init__` re-exports `FrameworkMeta`, the
+- `scistudio.core.meta.framework` exports `FrameworkMeta`.
+- `scistudio.core.meta.__init__` re-exports `FrameworkMeta`, the
   `with_meta` free-function helper, and `ChannelInfo` (a small frozen
   Pydantic BaseModel used by imaging plugin `Meta` classes).
 - `ChannelInfo` lives in core (not in any plugin) so multiple imaging
@@ -362,7 +362,7 @@ new third argument has a default of `None`."
 passing tolerates extra trailing positional args only when the override
 is keyword-aware. **To be safe**, T-009 also walks every existing
 `process_item` override (in `tests/` and in
-`src/scieasy/blocks/process/contrib/`) and explicitly accepts `state`
+`src/scistudio/blocks/process/contrib/`) and explicitly accepts `state`
 in the signature, even when ignored. This is a one-line change per
 override and is in scope for T-009.
 
@@ -395,14 +395,14 @@ l. Suggested workflow gate ticket title
 **b. Source ADR sections**:
 - ADR-018 Addendum 1, "Decision" section (whole).
 - ADR-018 Addendum 1, "Detailed impact scope → Rewritten files" table
-  for `src/scieasy/engine/scheduler.py`.
+  for `src/scistudio/engine/scheduler.py`.
 - ARCHITECTURE.md §6.1 (already updated in PR #257 to describe the
   target behaviour).
 
 **c. Files to be created**: none.
 
 **d. Files to be modified**:
-- `src/scieasy/engine/scheduler.py`
+- `src/scistudio/engine/scheduler.py`
 
 **e. New tests**:
 - `tests/engine/test_scheduler_concurrency.py` (new file) containing:
@@ -593,7 +593,7 @@ Phase 10 ticket and can land first.
 **c. Files to be created**: none.
 
 **d. Files to be modified**:
-- `src/scieasy/engine/resources.py`
+- `src/scistudio/engine/resources.py`
 
 **e. New tests**:
 - `tests/engine/test_resource_manager_gpu_autodetect.py` (new file)
@@ -699,11 +699,11 @@ v2 integration.
 - ADR-027 D6 (PhysicalQuantity definition + unit tables).
 - ADR-027 Addendum 1 §4 ("PhysicalQuantity Pydantic integration").
 
-**c. Files to be created**: none. (`src/scieasy/core/units.py` was
+**c. Files to be created**: none. (`src/scistudio/core/units.py` was
 created as a skeleton in PR #261.)
 
 **d. Files to be modified**:
-- `src/scieasy/core/units.py` — fill in the skeleton.
+- `src/scistudio/core/units.py` — fill in the skeleton.
 
 **e. New tests**:
 - `tests/core/test_units.py` (new file) containing:
@@ -725,7 +725,7 @@ created as a skeleton in PR #261.)
 **f. Existing tests to update**: none.
 
 **g. Implementation details**: replace the `NotImplementedError`
-placeholders in `src/scieasy/core/units.py` with the implementation
+placeholders in `src/scistudio/core/units.py` with the implementation
 quoted in ADR-027 D6:
 
 ```python
@@ -852,9 +852,9 @@ the Pydantic integration and docstrings). ~200 lines of tests. Total
 
 ---
 
-### T-004 — FrameworkMeta + scieasy.core.meta module
+### T-004 — FrameworkMeta + scistudio.core.meta module
 
-**a. Ticket ID and name**: T-004 — `FrameworkMeta` + `scieasy.core.meta`
+**a. Ticket ID and name**: T-004 — `FrameworkMeta` + `scistudio.core.meta`
 public surface.
 
 **b. Source ADR sections**:
@@ -862,13 +862,13 @@ public surface.
 - ADR-027 "Detailed impact scope → New files" rows for
   `core/meta/__init__.py` and `core/meta/framework.py`.
 
-**c. Files to be created**: none. (`src/scieasy/core/meta/framework.py`
-and `src/scieasy/core/meta/__init__.py` were created as skeletons in
+**c. Files to be created**: none. (`src/scistudio/core/meta/framework.py`
+and `src/scistudio/core/meta/__init__.py` were created as skeletons in
 PR #261.)
 
 **d. Files to be modified**:
-- `src/scieasy/core/meta/framework.py` — fill in the skeleton.
-- `src/scieasy/core/meta/__init__.py` — fill in `ChannelInfo` and
+- `src/scistudio/core/meta/framework.py` — fill in the skeleton.
+- `src/scistudio/core/meta/__init__.py` — fill in `ChannelInfo` and
   `with_meta` (the latter remains a thin wrapper since the bulk of the
   logic lives on `DataObject` after T-005).
 
@@ -889,7 +889,7 @@ PR #261.)
 **g. Implementation details**:
 
 ```python
-# scieasy/core/meta/framework.py
+# scistudio/core/meta/framework.py
 
 from datetime import datetime
 from uuid import uuid4
@@ -919,7 +919,7 @@ class FrameworkMeta(BaseModel):
 ```
 
 ```python
-# scieasy/core/meta/__init__.py — ChannelInfo
+# scistudio/core/meta/__init__.py — ChannelInfo
 
 from pydantic import BaseModel, ConfigDict
 
@@ -969,13 +969,13 @@ T-005.
 **j. Dependencies on other tickets**:
 - T-003 (PhysicalQuantity) is recommended to merge first so the
   ChannelInfo docs can reference it, though there is no hard import
-  dependency from `scieasy.core.meta` to `scieasy.core.units`.
+  dependency from `scistudio.core.meta` to `scistudio.core.units`.
 
 **k. Estimated diff size**: ~80 source lines (40 in `framework.py`, 40
 in `__init__.py`). ~150 lines of tests. Total ~230 lines.
 
 **l. Suggested workflow gate ticket title**:
-`FrameworkMeta and scieasy.core.meta per ADR-027 D5 (T-004)`
+`FrameworkMeta and scistudio.core.meta per ADR-027 D5 (T-004)`
 
 ---
 
@@ -987,12 +987,12 @@ in `__init__.py`). ~150 lines of tests. Total ~230 lines.
 **b. Source ADR sections**:
 - ADR-027 D5 (whole subsection).
 - ADR-027 "Detailed impact scope → Rewritten files" row for
-  `src/scieasy/core/types/base.py`.
+  `src/scistudio/core/types/base.py`.
 
 **c. Files to be created**: none.
 
 **d. Files to be modified**:
-- `src/scieasy/core/types/base.py`
+- `src/scistudio/core/types/base.py`
 
 **e. New tests**:
 - `tests/core/test_stratified_metadata.py` (new file) containing:
@@ -1015,10 +1015,10 @@ in `__init__.py`). ~150 lines of tests. Total ~230 lines.
 **g. Implementation details**:
 
 ```python
-# scieasy/core/types/base.py
+# scistudio/core/types/base.py
 
 from pydantic import BaseModel
-from scieasy.core.meta import FrameworkMeta
+from scistudio.core.meta import FrameworkMeta
 
 class DataObject:
     def __init__(
@@ -1116,13 +1116,13 @@ of tests. Total ~280 lines.
 - ADR-027 D1 (instance-level axes).
 - ADR-027 D4 (`sel` and `iter_over`).
 - ADR-027 "Detailed impact scope → Rewritten files" row for
-  `src/scieasy/core/types/array.py`.
+  `src/scistudio/core/types/array.py`.
 - ARCHITECTURE.md §4.1 (named axes on Array — already in PR #257).
 
 **c. Files to be created**: none.
 
 **d. Files to be modified**:
-- `src/scieasy/core/types/array.py`
+- `src/scistudio/core/types/array.py`
 
 **e. New tests**:
 - `tests/core/test_array_axes.py` (new file) containing:
@@ -1149,7 +1149,7 @@ of tests. Total ~280 lines.
 **g. Implementation details**:
 
 ```python
-# scieasy/core/types/array.py
+# scistudio/core/types/array.py
 
 class Array(DataObject):
     required_axes:   ClassVar[frozenset[str]] = frozenset()
@@ -1245,7 +1245,7 @@ reduced axes. Document this in the `sel` docstring.
 
 **i. Out of scope**:
 - Defining any domain subclasses (`Image`, `FluorImage`, etc.) — they
-  live in `scieasy-blocks-imaging`, not core (ADR-027 D2).
+  live in `scistudio-blocks-imaging`, not core (ADR-027 D2).
 - Deleting any existing core domain subclasses — that audit is T-007.
 - Test migration — that is T-008.
 - Level 2 laziness (`SlicedStorageReference` carried through ViewProxy)
@@ -1280,12 +1280,12 @@ any that exist; ensure each base class is the only class in its module.
 **c. Files to be created**: none.
 
 **d. Files to be modified**:
-- `src/scieasy/core/types/series.py`
-- `src/scieasy/core/types/dataframe.py`
-- `src/scieasy/core/types/composite.py`
-- `src/scieasy/core/types/text.py`
-- `src/scieasy/core/types/artifact.py`
-- `src/scieasy/core/types/__init__.py` — update re-exports.
+- `src/scistudio/core/types/series.py`
+- `src/scistudio/core/types/dataframe.py`
+- `src/scistudio/core/types/composite.py`
+- `src/scistudio/core/types/text.py`
+- `src/scistudio/core/types/artifact.py`
+- `src/scistudio/core/types/__init__.py` — update re-exports.
 
 **e. New tests**:
 - `tests/architecture/test_core_has_no_domain_types.py` (new file)
@@ -1302,7 +1302,7 @@ any that exist; ensure each base class is the only class in its module.
 **f. Existing tests to update**:
 - `tests/architecture/test_type_system.py` — add the post-Phase 10
   invariant: "exactly seven public DataObject subclasses live in
-  `scieasy.core.types`".
+  `scistudio.core.types`".
 
 **g. Implementation details**: this is largely a deletion ticket. For
 each module, audit for any domain subclass definition and remove. The
@@ -1316,28 +1316,28 @@ the base class. Update `core/types/__init__.py` to re-export only the
 seven base types.
 
 **h. Acceptance criteria**:
-- [ ] `src/scieasy/core/types/series.py` defines exactly one public
+- [ ] `src/scistudio/core/types/series.py` defines exactly one public
       class: `Series` (ADR-027 D2).
-- [ ] `src/scieasy/core/types/dataframe.py` defines exactly one public
+- [ ] `src/scistudio/core/types/dataframe.py` defines exactly one public
       class: `DataFrame` (ADR-027 D2).
-- [ ] `src/scieasy/core/types/composite.py` defines exactly one public
+- [ ] `src/scistudio/core/types/composite.py` defines exactly one public
       class: `CompositeData` (ADR-027 D2).
-- [ ] `src/scieasy/core/types/text.py` defines exactly one public
+- [ ] `src/scistudio/core/types/text.py` defines exactly one public
       class: `Text` (ADR-027 D2).
-- [ ] `src/scieasy/core/types/artifact.py` defines exactly one public
+- [ ] `src/scistudio/core/types/artifact.py` defines exactly one public
       class: `Artifact` (ADR-027 D2).
-- [ ] `scieasy.core.types.__all__` lists exactly the seven base types
+- [ ] `scistudio.core.types.__all__` lists exactly the seven base types
       plus `Collection` and `TypeRegistry` (no domain subclasses).
 - [ ] `test_core_has_no_domain_types.py` passes.
 
 **i. Out of scope**:
-- Creating the plugin packages (`scieasy-blocks-imaging`,
-  `scieasy-blocks-spectral`, etc.). They are separate repositories.
+- Creating the plugin packages (`scistudio-blocks-imaging`,
+  `scistudio-blocks-spectral`, etc.). They are separate repositories.
 - Migrating existing tests that reference `Image` / `Spectrum` etc.
   That is T-008.
 - Updating built-in blocks that have `accepted_types=[Image]`. That
   is part of T-008's audit (rename to `accepted_types=[Array]` with
-  optional constraint helpers from `scieasy.utils.constraints`).
+  optional constraint helpers from `scistudio.utils.constraints`).
 
 **j. Dependencies on other tickets**:
 - T-006 must merge first (so `array.py` is in its final shape).
@@ -1357,8 +1357,8 @@ with `Array(axes=[...], ...)` across the test suite.
 
 **b. Source ADR sections**:
 - ADR-027 D2 (consequence — "tests under `tests/blocks/` that
-  `from scieasy.core.types.array import Image` must either switch to
-  `Array` or be marked as requiring `scieasy-blocks-imaging` installed").
+  `from scistudio.core.types.array import Image` must either switch to
+  `Array` or be marked as requiring `scistudio-blocks-imaging` installed").
 - ADR-027 "Detailed impact scope → Modified files" tests sub-table.
 
 **c. Files to be created**: none.
@@ -1391,7 +1391,7 @@ opening the PR):
   AND add the `@pytest.mark.requires_imaging` skip-via-marker per
   Question 2 above.
 - `tests/api/test_data.py` — ~1 instantiation.
-- `tests/workflow/test_validator.py` — `from scieasy.core.types.array
+- `tests/workflow/test_validator.py` — `from scistudio.core.types.array
   import Array, Image` → `Array` only.
 - `tests/ai/test_validator.py` — ~4 instantiations. AI validator tests
   verify the "you cannot import Image from core" rule, which is now
@@ -1403,15 +1403,15 @@ opening the PR):
 `Array(axes=["t","z","c","y","x"], ...)` for higher-dim cases. Where
 the original test passed `Image` to a port's `accepted_types=`, replace
 with `accepted_types=[Array]` plus an optional
-`constraint=has_axes("y","x")` from `scieasy.utils.constraints`.
+`constraint=has_axes("y","x")` from `scistudio.utils.constraints`.
 
 `tests/integration/test_multimodal_workflow.py` gets the
 `requires_imaging` skip directive at the top of the module:
 
 ```python
 import pytest
-pytest.importorskip("scieasy_blocks_imaging",
-                    reason="requires scieasy-blocks-imaging plugin")
+pytest.importorskip("scistudio_blocks_imaging",
+                    reason="requires scistudio-blocks-imaging plugin")
 
 pytestmark = pytest.mark.requires_imaging
 ```
@@ -1421,12 +1421,12 @@ The marker registration in `pyproject.toml`:
 ```toml
 [tool.pytest.ini_options]
 markers = [
-    "requires_imaging: marks tests that need scieasy-blocks-imaging installed",
+    "requires_imaging: marks tests that need scistudio-blocks-imaging installed",
 ]
 ```
 
 **h. Acceptance criteria**:
-- [ ] No file under `tests/` contains `from scieasy.core.types.array
+- [ ] No file under `tests/` contains `from scistudio.core.types.array
       import Image` (or any other domain subclass from core).
 - [ ] No file under `tests/` instantiates `Image(...)` from a core
       module.
@@ -1435,11 +1435,11 @@ markers = [
       absent (per Question 2 above).
 - [ ] `pyproject.toml` registers the `requires_imaging` marker.
 - [ ] `pytest -x --no-cov` passes locally.
-- [ ] No production source under `src/scieasy/` is modified by this
+- [ ] No production source under `src/scistudio/` is modified by this
       PR (test-only migration).
 
 **i. Out of scope**:
-- Touching any `src/scieasy/blocks/` built-ins that hard-code
+- Touching any `src/scistudio/blocks/` built-ins that hard-code
   `accepted_types=[Image]`. Those are also tracked by ADR-027's
   Modified Files table; if the audit reveals any built-ins still
   referencing core `Image`, **open a separate issue** rather than
@@ -1472,10 +1472,10 @@ lines.
 **c. Files to be created**: none.
 
 **d. Files to be modified**:
-- `src/scieasy/blocks/process/process_block.py`
-- `src/scieasy/blocks/process/contrib/baseline_correction.py`
-- `src/scieasy/blocks/process/contrib/cellpose_segment.py`
-- `src/scieasy/blocks/process/contrib/spectral_pca.py`
+- `src/scistudio/blocks/process/process_block.py`
+- `src/scistudio/blocks/process/contrib/baseline_correction.py`
+- `src/scistudio/blocks/process/contrib/cellpose_segment.py`
+- `src/scistudio/blocks/process/contrib/spectral_pca.py`
 
   (each `process_item` override gets `state=None` added explicitly per
   Question 5 above)
@@ -1515,7 +1515,7 @@ class ProcessBlock(Block):
         raise NotImplementedError
 
     def run(self, inputs, config):
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
         primary = next(iter(inputs.values()))
         state = self.setup(config)
         try:
@@ -1551,13 +1551,13 @@ class ProcessBlock(Block):
 - [ ] Pre-existing `process_item` overrides with the 2-arg signature
       continue to work (`test_existing_two_arg_process_item_still_works`).
 - [ ] Each existing override under
-      `src/scieasy/blocks/process/contrib/*.py` is updated to accept
+      `src/scistudio/blocks/process/contrib/*.py` is updated to accept
       `state=None` even when ignored (per Question 5).
 
 **i. Out of scope**:
 - Cellpose-specific logic. The Cellpose block is a plugin
   responsibility (per ADR-027 D14); the contrib placeholder under
-  `src/scieasy/blocks/process/contrib/cellpose_segment.py` only needs
+  `src/scistudio/blocks/process/contrib/cellpose_segment.py` only needs
   the signature update, not the full Tier-2 batched implementation.
 - The `setup`-receives-inputs alternative (rejected in ADR-027
   discussion #11).
@@ -1577,22 +1577,22 @@ class ProcessBlock(Block):
 
 ---
 
-### T-010 — scieasy.utils.constraints
+### T-010 — scistudio.utils.constraints
 
 **a. Ticket ID and name**: T-010 — port constraint helper module.
 
 **b. Source ADR sections**:
 - ADR-027 "Detailed impact scope → New files" row for
-  `src/scieasy/utils/constraints.py`.
+  `src/scistudio/utils/constraints.py`.
 - ADR-027 D4 (companion).
 - ARCHITECTURE.md §4.1 + §4.5.1 (already in PR #257) — describe the
   `has_axes(...)` usage pattern.
 
-**c. Files to be created**: none. (`src/scieasy/utils/constraints.py`
+**c. Files to be created**: none. (`src/scistudio/utils/constraints.py`
 was created as a skeleton in PR #261.)
 
 **d. Files to be modified**:
-- `src/scieasy/utils/constraints.py` — fill in the skeleton.
+- `src/scistudio/utils/constraints.py` — fill in the skeleton.
 
 **e. New tests**:
 - `tests/utils/test_constraints.py` (new file; if `tests/utils/`
@@ -1613,7 +1613,7 @@ was created as a skeleton in PR #261.)
 **g. Implementation details**:
 
 ```python
-# scieasy/utils/constraints.py — implementations to fill in
+# scistudio/utils/constraints.py — implementations to fill in
 
 def has_axes(*required: str) -> ConstraintFn:
     required_set = frozenset(required)
@@ -1683,25 +1683,25 @@ during unit tests. The implementation should accept any iterable.
 lines of tests. Total ~230 lines.
 
 **l. Suggested workflow gate ticket title**:
-`scieasy.utils.constraints per ADR-027 D4 companion (T-010)`
+`scistudio.utils.constraints per ADR-027 D4 companion (T-010)`
 
 ---
 
-### T-011 — scieasy.utils.axis\_iter.iterate\_over\_axes
+### T-011 — scistudio.utils.axis\_iter.iterate\_over\_axes
 
 **a. Ticket ID and name**: T-011 — `iterate_over_axes` utility.
 
 **b. Source ADR sections**:
 - ADR-027 D3 (whole).
 - ADR-027 "Detailed impact scope → New files" row for
-  `src/scieasy/utils/axis_iter.py`.
+  `src/scistudio/utils/axis_iter.py`.
 - ARCHITECTURE.md §4.5.1 (already in PR #257).
 
-**c. Files to be created**: none. (`src/scieasy/utils/axis_iter.py` was
+**c. Files to be created**: none. (`src/scistudio/utils/axis_iter.py` was
 created as a skeleton in PR #261.)
 
 **d. Files to be modified**:
-- `src/scieasy/utils/axis_iter.py` — fill in the skeleton.
+- `src/scistudio/utils/axis_iter.py` — fill in the skeleton.
 
 **e. New tests**:
 - `tests/utils/test_axis_iter.py` (new file) containing:
@@ -1718,11 +1718,11 @@ created as a skeleton in PR #261.)
 **g. Implementation details**:
 
 ```python
-# scieasy/utils/axis_iter.py
+# scistudio/utils/axis_iter.py
 
 import numpy as np
 from itertools import product
-from scieasy.core.exceptions import BroadcastError
+from scistudio.core.exceptions import BroadcastError
 
 def iterate_over_axes(source, operates_on, func):
     if not operates_on.issubset(set(source.axes)):
@@ -1809,7 +1809,7 @@ result; defer that detail to the implementer.
 lines of tests. Total ~320 lines.
 
 **l. Suggested workflow gate ticket title**:
-`scieasy.utils.axis_iter.iterate_over_axes per ADR-027 D3 (T-011)`
+`scistudio.utils.axis_iter.iterate_over_axes per ADR-027 D3 (T-011)`
 
 ---
 
@@ -1822,12 +1822,12 @@ lines of tests. Total ~320 lines.
 - ADR-027 D11 (TypeRegistry.scan + .resolve helper).
 - ADR-027 Addendum 1 §3 ("Meta Pydantic constraints").
 - ADR-027 Addendum 1 "Detailed impact scope → Rewritten files" row
-  for `src/scieasy/core/types/registry.py`.
+  for `src/scistudio/core/types/registry.py`.
 
 **c. Files to be created**: none.
 
 **d. Files to be modified**:
-- `src/scieasy/core/types/registry.py`
+- `src/scistudio/core/types/registry.py`
 
 **e. New tests**:
 - `tests/core/test_type_registry_resolve.py` (new file) containing:
@@ -1847,7 +1847,7 @@ lines of tests. Total ~320 lines.
 **g. Implementation details**:
 
 ```python
-# scieasy/core/types/registry.py
+# scistudio/core/types/registry.py
 
 from pydantic import BaseModel
 from pydantic.fields import PrivateAttr
@@ -1954,19 +1954,19 @@ core base classes.
 **c. Files to be created**: none.
 
 **d. Files to be modified**:
-- `src/scieasy/core/types/base.py` — add default no-op hook pair on
+- `src/scistudio/core/types/base.py` — add default no-op hook pair on
   `DataObject`.
-- `src/scieasy/core/types/array.py` — add `axes` / `shape` / `dtype`
+- `src/scistudio/core/types/array.py` — add `axes` / `shape` / `dtype`
   / `chunk_shape` hook pair on `Array`.
-- `src/scieasy/core/types/series.py` — add `index_name` / `value_name`
+- `src/scistudio/core/types/series.py` — add `index_name` / `value_name`
   / `length` hook pair on `Series`.
-- `src/scieasy/core/types/dataframe.py` — add `columns` / `row_count`
+- `src/scistudio/core/types/dataframe.py` — add `columns` / `row_count`
   / `schema` hook pair on `DataFrame`.
-- `src/scieasy/core/types/text.py` — add `format` / `encoding` hook
+- `src/scistudio/core/types/text.py` — add `format` / `encoding` hook
   pair on `Text`.
-- `src/scieasy/core/types/artifact.py` — add `mime_type` / `description`
+- `src/scistudio/core/types/artifact.py` — add `mime_type` / `description`
   hook pair on `Artifact`.
-- `src/scieasy/core/types/composite.py` — add slot-recursive hook pair
+- `src/scistudio/core/types/composite.py` — add slot-recursive hook pair
   on `CompositeData` (delegates to `_reconstruct_one` / `_serialise_one`
   via inside-the-method import per Question 1 above).
 
@@ -1991,7 +1991,7 @@ Addendum 1 §"D11′ companion. `_reconstruct_extra_kwargs` classmethod
 hook":
 
 ```python
-# scieasy/core/types/base.py
+# scistudio/core/types/base.py
 class DataObject:
     @classmethod
     def _reconstruct_extra_kwargs(cls, metadata: dict) -> dict:
@@ -2002,7 +2002,7 @@ class DataObject:
         return {}
 
 
-# scieasy/core/types/array.py
+# scistudio/core/types/array.py
 class Array(DataObject):
     @classmethod
     def _reconstruct_extra_kwargs(cls, metadata: dict) -> dict:
@@ -2023,7 +2023,7 @@ class Array(DataObject):
         }
 
 
-# scieasy/core/types/series.py
+# scistudio/core/types/series.py
 class Series(DataObject):
     @classmethod
     def _reconstruct_extra_kwargs(cls, metadata: dict) -> dict:
@@ -2042,7 +2042,7 @@ class Series(DataObject):
         }
 
 
-# scieasy/core/types/dataframe.py
+# scistudio/core/types/dataframe.py
 class DataFrame(DataObject):
     @classmethod
     def _reconstruct_extra_kwargs(cls, metadata: dict) -> dict:
@@ -2061,7 +2061,7 @@ class DataFrame(DataObject):
         }
 
 
-# scieasy/core/types/text.py
+# scistudio/core/types/text.py
 class Text(DataObject):
     @classmethod
     def _reconstruct_extra_kwargs(cls, metadata: dict) -> dict:
@@ -2078,7 +2078,7 @@ class Text(DataObject):
         }
 
 
-# scieasy/core/types/artifact.py
+# scistudio/core/types/artifact.py
 class Artifact(DataObject):
     @classmethod
     def _reconstruct_extra_kwargs(cls, metadata: dict) -> dict:
@@ -2095,12 +2095,12 @@ class Artifact(DataObject):
         }
 
 
-# scieasy/core/types/composite.py
+# scistudio/core/types/composite.py
 class CompositeData(DataObject):
     @classmethod
     def _reconstruct_extra_kwargs(cls, metadata: dict) -> dict:
         # Inside-the-method import to avoid load-time cycle (Question 1).
-        from scieasy.core.types.serialization import _reconstruct_one
+        from scistudio.core.types.serialization import _reconstruct_one
         slot_payloads = metadata.get("slots", {}) or {}
         slots = {
             slot_name: _reconstruct_one(slot_payload)
@@ -2110,7 +2110,7 @@ class CompositeData(DataObject):
 
     @classmethod
     def _serialise_extra_metadata(cls, obj: "CompositeData") -> dict:
-        from scieasy.core.types.serialization import _serialise_one
+        from scistudio.core.types.serialization import _serialise_one
         return {
             "slots": {
                 slot_name: _serialise_one(slot_obj)
@@ -2132,13 +2132,13 @@ class CompositeData(DataObject):
 - [ ] `Text` overrides both, covering `format`, `encoding`.
 - [ ] `Artifact` overrides both, covering `mime_type`, `description`.
 - [ ] `CompositeData` overrides both with slot-recursive delegation
-      via `from scieasy.core.types.serialization import ...` *inside*
+      via `from scistudio.core.types.serialization import ...` *inside*
       the classmethod body (per Question 1 above).
 - [ ] `test_plugin_subclass_can_override_and_super` exercises the
       `super()._reconstruct_extra_kwargs(metadata)` chain that plugin
       subclasses use (per ADR-027 Addendum 1 §"D11′ companion" final
       paragraph).
-- [ ] No `import scieasy.core.types.serialization` at module load time
+- [ ] No `import scistudio.core.types.serialization` at module load time
       in `composite.py` (verified by importlinter contract — composite
       currently has no such import; the inside-the-method import keeps
       the load-time graph clean).
@@ -2165,11 +2165,11 @@ class CompositeData(DataObject):
   composite skip (or use a stub `serialization` module fixture that
   injects no-op `_reconstruct_one` / `_serialise_one`).
   Alternatively, T-013 ships alongside a stub
-  `src/scieasy/core/types/serialization.py` that exposes no-op
+  `src/scistudio/core/types/serialization.py` that exposes no-op
   versions of the two helpers, which T-014 then replaces with the
   full implementation. **Decision**: ship the stub in T-013 to remove
   the conditional. Add it to T-013's "Files to be created" list:
-  `src/scieasy/core/types/serialization.py` (stub).
+  `src/scistudio/core/types/serialization.py` (stub).
 
 **k. Estimated diff size**: ~150 source lines across the seven
 modules. ~250 lines of tests. ~30 lines of stub. Total ~430 lines.
@@ -2190,16 +2190,16 @@ startup.
 - ADR-027 D11 (TypeRegistry.scan in worker.main).
 - ADR-027 Addendum 1 §1 (whole — `_reconstruct_one`, `_serialise_one`).
 - ADR-027 Addendum 1 "Detailed impact scope → Rewritten files" row
-  for `src/scieasy/engine/runners/worker.py`.
+  for `src/scistudio/engine/runners/worker.py`.
 
 **c. Files to be created**:
-- (None new — `src/scieasy/core/types/serialization.py` was already
+- (None new — `src/scistudio/core/types/serialization.py` was already
   created in T-013 as a stub. T-014 replaces the stub body with the
   full `_reconstruct_one` / `_serialise_one` implementations.)
 
 **d. Files to be modified**:
-- `src/scieasy/engine/runners/worker.py`
-- `src/scieasy/core/types/serialization.py` (T-013 stub → full impl)
+- `src/scistudio/engine/runners/worker.py`
+- `src/scistudio/core/types/serialization.py` (T-013 stub → full impl)
 
 **e. New tests**:
 - `tests/engine/test_worker_type_reconstruction.py` (new file)
@@ -2239,14 +2239,14 @@ startup.
 **g. Implementation details**:
 
 ```python
-# scieasy/core/types/serialization.py — full implementation
+# scistudio/core/types/serialization.py — full implementation
 
 from typing import Any
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.registry import TypeRegistry
-from scieasy.core.storage.ref import StorageReference
-from scieasy.core.meta import FrameworkMeta
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.registry import TypeRegistry
+from scistudio.core.storage.ref import StorageReference
+from scistudio.core.meta import FrameworkMeta
 
 
 def _reconstruct_one(payload_item: dict) -> "DataObject":
@@ -2312,11 +2312,11 @@ def _serialise_one(obj: "DataObject") -> dict:
 ```
 
 ```python
-# scieasy/engine/runners/worker.py
+# scistudio/engine/runners/worker.py
 
 def main() -> None:
     try:
-        from scieasy.core.types.registry import TypeRegistry
+        from scistudio.core.types.registry import TypeRegistry
         TypeRegistry.scan()  # ADR-027 D11
 
         raw = sys.stdin.read()
@@ -2325,10 +2325,10 @@ def main() -> None:
 
 
 def reconstruct_inputs(payload: dict[str, Any]) -> dict[str, Any]:
-    from scieasy.core.types.collection import Collection
-    from scieasy.core.types.registry import TypeRegistry
-    from scieasy.core.types.base import DataObject
-    from scieasy.core.types.serialization import _reconstruct_one
+    from scistudio.core.types.collection import Collection
+    from scistudio.core.types.registry import TypeRegistry
+    from scistudio.core.types.base import DataObject
+    from scistudio.core.types.serialization import _reconstruct_one
 
     raw_inputs = payload.get("inputs", {})
     result: dict[str, Any] = {}
@@ -2348,10 +2348,10 @@ def reconstruct_inputs(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def serialise_outputs(outputs: dict[str, Any], output_dir: str) -> dict[str, Any]:
-    from scieasy.blocks.base.block import Block
-    from scieasy.core.types.base import DataObject
-    from scieasy.core.types.collection import Collection
-    from scieasy.core.types.serialization import _serialise_one
+    from scistudio.blocks.base.block import Block
+    from scistudio.core.types.base import DataObject
+    from scistudio.core.types.collection import Collection
+    from scistudio.core.types.serialization import _serialise_one
 
     result: dict[str, Any] = {}
     for key, value in outputs.items():
@@ -2371,9 +2371,9 @@ def serialise_outputs(outputs: dict[str, Any], output_dir: str) -> dict[str, Any
     return result
 ```
 
-**Important**: the `from scieasy.core.types.serialization import ...`
+**Important**: the `from scistudio.core.types.serialization import ...`
 lines stay outside the function body in `worker.py` because `worker.py`
-lives in `scieasy.engine`, not `scieasy.core`, so the import is in the
+lives in `scistudio.engine`, not `scistudio.core`, so the import is in the
 "normal" direction (engine → core). The inside-the-method imports are
 required only inside `composite.py` to avoid the load-time cycle when
 core imports core (per Question 1).
@@ -2394,7 +2394,7 @@ longer constructs `ViewProxy` instances).
       (`type_chain` + `framework` + `meta` + `user` + base-class extras)
       via `_serialise_one` (ADR-027 Addendum 1 §1).
 - [ ] `_reconstruct_one` and `_serialise_one` live in
-      `src/scieasy/core/types/serialization.py` (Question 1).
+      `src/scistudio/core/types/serialization.py` (Question 1).
 - [ ] Round-trip test: serialise an instance via `_serialise_one`,
       reconstruct via `_reconstruct_one`, assert deep equality of
       `framework`, `meta`, `user`, `axes`, `shape`, `dtype`,
@@ -2443,12 +2443,12 @@ modified in `worker.py`. ~400 lines of tests. Total ~600 lines.
 | T-001  | Scheduler concurrency fix               | —                      | ~430       |
 | T-002  | ResourceManager GPU auto-detect         | —                      | ~150       |
 | T-003  | PhysicalQuantity                        | —                      | ~320       |
-| T-004  | FrameworkMeta + scieasy.core.meta       | T-003 (soft)           | ~230       |
+| T-004  | FrameworkMeta + scistudio.core.meta       | T-003 (soft)           | ~230       |
 | T-005  | DataObject three slots                  | T-004                  | ~280       |
 | T-006  | Array 6D axes + sel/iter\_over          | T-005                  | ~450       |
 | T-007  | Other base classes audit                | T-006                  | ~200       |
 | T-009  | ProcessBlock setup/teardown             | T-005                  | ~250       |
-| T-010  | scieasy.utils.constraints               | T-006                  | ~230       |
+| T-010  | scistudio.utils.constraints               | T-006                  | ~230       |
 | T-011  | iterate\_over\_axes                     | T-006, T-005           | ~320       |
 | T-008  | Test migration Image → Array            | T-006, T-007           | ~255       |
 | T-012  | TypeRegistry.resolve + Meta validation  | T-005                  | ~280       |

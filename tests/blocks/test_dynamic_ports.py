@@ -20,14 +20,14 @@ from typing import Any, ClassVar
 
 import pytest
 
-from scieasy.api.schemas import BlockSchemaResponse
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.blocks.registry import BlockRegistry, _spec_from_class
-from scieasy.core.types.array import Array
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.api.schemas import BlockSchemaResponse
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.blocks.registry import BlockRegistry, _spec_from_class
+from scistudio.core.types.array import Array
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.dataframe import DataFrame
 
 # ---------------------------------------------------------------------------
 # Effective-ports defaults and overrides
@@ -150,7 +150,7 @@ class TestBlockSpecPopulation:
         assert spec.direction == ""
 
     def test_block_spec_direction_populated_from_io_block(self) -> None:
-        from scieasy.blocks.io.io_block import IOBlock
+        from scistudio.blocks.io.io_block import IOBlock
 
         spec = _spec_from_class(IOBlock, source="test")
         assert spec.direction == "input"

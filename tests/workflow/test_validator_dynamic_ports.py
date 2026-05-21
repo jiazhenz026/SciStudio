@@ -13,16 +13,16 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.blocks.registry import BlockRegistry, BlockSpec, _spec_from_class
-from scieasy.core.types.array import Array
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.series import Series
-from scieasy.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
-from scieasy.workflow.validator import validate_workflow
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.blocks.registry import BlockRegistry, BlockSpec, _spec_from_class
+from scistudio.core.types.array import Array
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.series import Series
+from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
+from scistudio.workflow.validator import validate_workflow
 
 # ---------------------------------------------------------------------------
 # Test fixture blocks (module-level so the registry can import them)

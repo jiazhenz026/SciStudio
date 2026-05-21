@@ -26,36 +26,36 @@ scope:
     - Self-iterating ADR or governance-rule modification.
 governs:
   modules:
-    - scieasy.qa.schemas
-    - scieasy.qa.audit
+    - scistudio.qa.schemas
+    - scistudio.qa.audit
   contracts:
-    - scieasy.qa.schemas.frontmatter.ADRFrontmatter
-    - scieasy.qa.schemas.frontmatter.SpecFrontmatter
-    - scieasy.qa.schemas.maintainers.MaintainerRule
-    - scieasy.qa.schemas.maintainers.Maintainers
-    - scieasy.qa.schemas.report.AuditReport
-    - scieasy.qa.schemas.report.Finding
-    - scieasy.qa.schemas.facts.FactsRegistry
-    - scieasy.qa.schemas.signatures.ParameterSpec
-    - scieasy.qa.schemas.signatures.ExpectedSignature
-    - scieasy.qa.schemas.signatures.ExpectedModelField
-    - scieasy.qa.schemas.signatures.ExpectedCliCommand
-    - scieasy.qa.audit.frontmatter_lint.lint_file
-    - scieasy.qa.audit.facts.generate_facts
-    - scieasy.qa.audit.facts.write_facts
-    - scieasy.qa.audit.facts.check_generated_facts
-    - scieasy.qa.audit.griffe_facts.extract_symbol_facts
-    - scieasy.qa.audit.griffe_facts.generate_registry
-    - scieasy.qa.audit.signature_contracts.extract_signature_contracts
-    - scieasy.qa.audit.doc_drift.classify_repo
-    - scieasy.qa.audit.fact_drift.check_substitutions
-    - scieasy.qa.audit.closure.check_bidirectional
-    - scieasy.qa.audit.signature_drift.check_expected_signatures
-    - scieasy.qa.audit.full_audit.run
-    - scieasy.qa.audit.full_audit.render_markdown
-    - scieasy.qa.audit.loaders.load_adr_frontmatter
-    - scieasy.qa.audit.loaders.load_spec_frontmatter
-    - scieasy.qa.audit.loaders.load_maintainers
+    - scistudio.qa.schemas.frontmatter.ADRFrontmatter
+    - scistudio.qa.schemas.frontmatter.SpecFrontmatter
+    - scistudio.qa.schemas.maintainers.MaintainerRule
+    - scistudio.qa.schemas.maintainers.Maintainers
+    - scistudio.qa.schemas.report.AuditReport
+    - scistudio.qa.schemas.report.Finding
+    - scistudio.qa.schemas.facts.FactsRegistry
+    - scistudio.qa.schemas.signatures.ParameterSpec
+    - scistudio.qa.schemas.signatures.ExpectedSignature
+    - scistudio.qa.schemas.signatures.ExpectedModelField
+    - scistudio.qa.schemas.signatures.ExpectedCliCommand
+    - scistudio.qa.audit.frontmatter_lint.lint_file
+    - scistudio.qa.audit.facts.generate_facts
+    - scistudio.qa.audit.facts.write_facts
+    - scistudio.qa.audit.facts.check_generated_facts
+    - scistudio.qa.audit.griffe_facts.extract_symbol_facts
+    - scistudio.qa.audit.griffe_facts.generate_registry
+    - scistudio.qa.audit.signature_contracts.extract_signature_contracts
+    - scistudio.qa.audit.doc_drift.classify_repo
+    - scistudio.qa.audit.fact_drift.check_substitutions
+    - scistudio.qa.audit.closure.check_bidirectional
+    - scistudio.qa.audit.signature_drift.check_expected_signatures
+    - scistudio.qa.audit.full_audit.run
+    - scistudio.qa.audit.full_audit.render_markdown
+    - scistudio.qa.audit.loaders.load_adr_frontmatter
+    - scistudio.qa.audit.loaders.load_spec_frontmatter
+    - scistudio.qa.audit.loaders.load_maintainers
   files:
     - docs/adr/ADR-042.md
     - AGENTS.md
@@ -68,17 +68,17 @@ governs:
     - .claude/**
     - docs/architecture/**
     - docs/block-development/**
-    - src/scieasy/qa/schemas/**
-    - src/scieasy/qa/audit/loaders.py
-    - src/scieasy/qa/audit/doc_drift.py
-    - src/scieasy/qa/audit/fact_drift.py
-    - src/scieasy/qa/audit/closure.py
-    - src/scieasy/qa/audit/signature_drift.py
-    - src/scieasy/qa/audit/facts.py
-    - src/scieasy/qa/audit/governed.py
-    - src/scieasy/qa/audit/griffe_facts.py
-    - src/scieasy/qa/audit/signature_contracts.py
-    - src/scieasy/qa/audit/full_audit.py
+    - src/scistudio/qa/schemas/**
+    - src/scistudio/qa/audit/loaders.py
+    - src/scistudio/qa/audit/doc_drift.py
+    - src/scistudio/qa/audit/fact_drift.py
+    - src/scistudio/qa/audit/closure.py
+    - src/scistudio/qa/audit/signature_drift.py
+    - src/scistudio/qa/audit/facts.py
+    - src/scistudio/qa/audit/governed.py
+    - src/scistudio/qa/audit/griffe_facts.py
+    - src/scistudio/qa/audit/signature_contracts.py
+    - src/scistudio/qa/audit/full_audit.py
     - scripts/audit/generate_facts.py
     - docs/audit/**
     - tests/qa/test_schemas_maintainers.py
@@ -306,15 +306,15 @@ tooling in GitHub issues and owner review.
 
 | File or glob | Action | Rationale |
 |---|---|---|
-| `src/scieasy/qa/schemas/frontmatter.py` | create | ADR and spec frontmatter models |
-| `src/scieasy/qa/schemas/maintainers.py` | create | Maintainer ownership model |
-| `src/scieasy/qa/schemas/report.py` | create | Shared audit report envelope |
-| `src/scieasy/qa/schemas/facts.py` | create | Fact and facts registry models |
+| `src/scistudio/qa/schemas/frontmatter.py` | create | ADR and spec frontmatter models |
+| `src/scistudio/qa/schemas/maintainers.py` | create | Maintainer ownership model |
+| `src/scistudio/qa/schemas/report.py` | create | Shared audit report envelope |
+| `src/scistudio/qa/schemas/facts.py` | create | Fact and facts registry models |
 | `scripts/audit/generate_facts.py` | create | CLI entry point for fact generation |
-| `src/scieasy/qa/audit/doc_drift.py` | create | Documentation/fact contradiction classifier |
-| `src/scieasy/qa/audit/fact_drift.py` | create | Fact substitution checker |
-| `src/scieasy/qa/audit/closure.py` | create | Ownership and coverage closure checker |
-| `src/scieasy/qa/audit/full_audit.py` | create | Aggregate consistency runner |
+| `src/scistudio/qa/audit/doc_drift.py` | create | Documentation/fact contradiction classifier |
+| `src/scistudio/qa/audit/fact_drift.py` | create | Fact substitution checker |
+| `src/scistudio/qa/audit/closure.py` | create | Ownership and coverage closure checker |
+| `src/scistudio/qa/audit/full_audit.py` | create | Aggregate consistency runner |
 | `docs/facts/generated.yaml` | generate | Generated fact snapshot |
 | `tests/qa/test_audit_*.py` | create | Focused fixtures for facts, drift, closure, and aggregate reports |
 
@@ -405,7 +405,7 @@ DriftClass = Literal[
 ]
 ```
 
-Shared report envelope in `scieasy.qa.schemas.report`:
+Shared report envelope in `scistudio.qa.schemas.report`:
 
 ```text
 from datetime import datetime
@@ -442,7 +442,7 @@ class AuditReport(BaseModel):
     def error_findings(self) -> list[AuditFinding]: ...
 ```
 
-Fact schemas in `scieasy.qa.schemas.facts`:
+Fact schemas in `scistudio.qa.schemas.facts`:
 
 ```text
 class Fact(BaseModel):
@@ -469,7 +469,7 @@ class FactsRegistry(BaseModel):
     def find(self, *, kind: FactKind | None = None, subject: str | None = None) -> list[Fact]: ...
 ```
 
-Signature facts in `scieasy.qa.schemas.signatures`:
+Signature facts in `scistudio.qa.schemas.signatures`:
 
 ```text
 SignatureKind = Literal["function", "class", "method", "pydantic-model", "cli-command"]
@@ -608,7 +608,7 @@ def generate_facts(
     source_sha: str | None = None,
     include_observed: bool = False,
     include_signature_contracts: bool = True,
-    package: str = "scieasy",
+    package: str = "scistudio",
     generated_at: datetime = DEFAULT_GENERATED_AT,
 ) -> FactsRegistry: ...
 
@@ -619,7 +619,7 @@ def check_generated_facts(
     *,
     facts_path: Path = Path("docs/facts/generated.yaml"),
     update: bool = False,
-    package: str = "scieasy",
+    package: str = "scistudio",
     source_sha: str | None = None,
     generated_at: datetime = DEFAULT_GENERATED_AT,
 ) -> AuditReport: ...
@@ -683,11 +683,11 @@ Required CLI behavior:
 ```text
 python scripts/audit/generate_facts.py --check
 python scripts/audit/generate_facts.py --write
-python -m scieasy.qa.audit.fact_drift --facts docs/facts/generated.yaml --format json
-python -m scieasy.qa.audit.doc_drift --facts docs/facts/generated.yaml --format json
-python -m scieasy.qa.audit.closure --facts docs/facts/generated.yaml --format json
-python -m scieasy.qa.audit.signature_drift --facts docs/facts/generated.yaml --format json
-python -m scieasy.qa.audit.full_audit --format json
+python -m scistudio.qa.audit.fact_drift --facts docs/facts/generated.yaml --format json
+python -m scistudio.qa.audit.doc_drift --facts docs/facts/generated.yaml --format json
+python -m scistudio.qa.audit.closure --facts docs/facts/generated.yaml --format json
+python -m scistudio.qa.audit.signature_drift --facts docs/facts/generated.yaml --format json
+python -m scistudio.qa.audit.full_audit --format json
 ```
 
 CLI exit codes are uniform across ADR-042 audit tools:
@@ -720,7 +720,7 @@ CLI exit codes are uniform across ADR-042 audit tools:
 
 - Initial drift detection will focus on structured claims and explicit
   references before attempting broader prose analysis.
-- Sphinx and griffe provide generated inputs, but SciEasy policy decisions stay
+- Sphinx and griffe provide generated inputs, but SciStudio policy decisions stay
   in custom consistency tools.
 - Future-work records must be issue-linked structured TODOs or explicit
   owner-approved scope exclusions that the checker can read.

@@ -3,7 +3,7 @@
 These tests:
 
 1. Open a project so the lineage store is initialised (see
-   :func:`scieasy.api.deps.get_lineage_store`).
+   :func:`scistudio.api.deps.get_lineage_store`).
 2. Seed lineage rows directly through the runtime's
    :attr:`ApiRuntime.lineage_store` handle (the routes don't expose a
    write endpoint — writes go through ``LineageRecorder``).
@@ -22,7 +22,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from scieasy.core.lineage.record import (
+from scistudio.core.lineage.record import (
     BlockExecutionRecord,
     BlockIORow,
     DataObjectRow,

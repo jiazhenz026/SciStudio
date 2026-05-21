@@ -8,8 +8,8 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from scieasy.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
-from scieasy.workflow.serializer import load_yaml, save_yaml
+from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
+from scistudio.workflow.serializer import load_yaml, save_yaml
 
 
 class TestRoundTrip:

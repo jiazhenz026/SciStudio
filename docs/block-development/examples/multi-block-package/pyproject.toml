@@ -3,26 +3,26 @@ requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [project]
-name = "scieasy-blocks-example"
+name = "scistudio-blocks-example"
 version = "0.1.0"
-description = "Example multi-block package for SciEasy."
+description = "Example multi-block package for SciStudio."
 readme = "README.md"
 authors = [
-    {name = "SciEasy Contributors"},
+    {name = "SciStudio Contributors"},
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "scieasy>=0.2.1",
+    "scistudio>=0.2.1",
     "numpy>=1.24",
     "pydantic>=2.0",
     "scipy>=1.10",
     "scikit-image>=0.21",
 ]
 
-[project.entry-points."scieasy.blocks"]
+[project.entry-points."scistudio.blocks"]
 example = "my_blocks:get_block_package"
 
-[project.entry-points."scieasy.types"]
+[project.entry-points."scistudio.types"]
 example = "my_blocks:get_types"
 
 [tool.hatch.build.targets.wheel]

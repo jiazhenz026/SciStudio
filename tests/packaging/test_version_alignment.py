@@ -32,15 +32,15 @@ def test_plugin_core_dependency_accepts_current_root_version() -> None:
     root_version = Version(pyproject["project"]["version"])
 
     plugin_files = [
-        REPO_ROOT / "packages" / "scieasy-blocks-imaging" / "pyproject.toml",
-        REPO_ROOT / "packages" / "scieasy-blocks-lcms" / "pyproject.toml",
-        REPO_ROOT / "packages" / "scieasy-blocks-srs" / "pyproject.toml",
+        REPO_ROOT / "packages" / "scistudio-blocks-imaging" / "pyproject.toml",
+        REPO_ROOT / "packages" / "scistudio-blocks-lcms" / "pyproject.toml",
+        REPO_ROOT / "packages" / "scistudio-blocks-srs" / "pyproject.toml",
     ]
 
     for plugin_file in plugin_files:
         plugin = _load_toml(plugin_file)
         dependencies = plugin["project"]["dependencies"]
-        req = next(Requirement(dep) for dep in dependencies if dep.startswith("scieasy>="))
+        req = next(Requirement(dep) for dep in dependencies if dep.startswith("scistudio>="))
         assert root_version in req.specifier, f"{plugin_file} does not accept core version {root_version}"
 
 

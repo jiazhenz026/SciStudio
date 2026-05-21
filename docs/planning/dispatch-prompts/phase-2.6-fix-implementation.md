@@ -23,7 +23,7 @@ You are **Fix agent F<NNN>-impl** for the ADR-<NNN> implementation phase. Tracki
 ```
 git fetch origin
 git checkout -b fix/audit-impl-<NNN> origin/track/adr-<NNN>/<short-name>
-python -c "import scieasy; print(scieasy.__file__)"
+python -c "import scistudio; print(scistudio.__file__)"
 cd frontend && npm install
 cd ..
 ```
@@ -53,7 +53,7 @@ Document under `## Findings rejected` in fix-PR body. Reply on audit comment wit
 ruff format --check . || (ruff format . && git add -u)
 ruff check .
 pytest -q --timeout=60
-mypy src/scieasy/ --ignore-missing-imports
+mypy src/scistudio/ --ignore-missing-imports
 cd frontend && npm run build && npx vitest run --reporter=basic
 cd ..
 ```
@@ -61,7 +61,7 @@ cd ..
 ## STEP 6 — Chrome smoke for UI fixes
 
 If any of your fixes touched UI (frontend changes):
-1. `scieasy gui` background
+1. `scistudio gui` background
 2. Chrome MCP → reproduce the user-visible flow your fix targets
 3. Verify behavior matches expectation
 4. GIF + screenshot in fix-PR body

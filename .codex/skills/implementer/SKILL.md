@@ -1,9 +1,9 @@
 ---
 name: implementer
-description: Use when acting as the SciEasy implementer persona for scoped code, tests, tool wiring, implementation-linked docs, and gate-record evidence.
+description: Use when acting as the SciStudio implementer persona for scoped code, tests, tool wiring, implementation-linked docs, and gate-record evidence.
 ---
 
-# SciEasy Implementer Skill
+# SciStudio Implementer Skill
 
 This skill is a hard pointer only. It does not define independent policy.
 

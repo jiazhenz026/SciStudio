@@ -1,0 +1,37 @@
+# Minimal SciStudio workflow: load a TIFF, threshold it, write a mask.
+#
+# Cite this from the agent like:
+#   "Use a structure similar to skills/scistudio/examples/basic-image-workflow.yaml"
+#
+# Block types referenced here are illustrative; resolve real block_type
+# names against the project's registry via `list_blocks` before writing
+# the workflow to disk. Field shapes (id, block_type, config, ports)
+# match the WorkflowDefinition schema in src/scistudio/workflow/definition.py.
+id: basic-image-workflow
+version: "1.0.0"
+description: >
+  Load a TIFF image from disk, threshold it, and persist the resulting
+  binary mask. Smallest-possible image workflow — useful as a structural
+  reference when composing larger pipelines.
+
+nodes:
+  - id: load
+    block_type: scistudio_blocks_imaging.io.load_image
+    config:
+      path: data/raw/sample.tif
+
+  - id: threshold
+    block_type: scistudio_blocks_imaging.segmentation.threshold
+    config:
+      method: otsu
+
+  - id: save
+    block_type: scistudio_blocks_imaging.io.save_image
+    config:
+      path: data/artifacts/mask.tif
+
+edges:
+  - source: load.image
+    target: threshold.image
+  - source: threshold.mask
+    target: save.image

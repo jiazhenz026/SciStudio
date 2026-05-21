@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.qa.governance.persona_policy import check
-from scieasy.qa.schemas.report import AuditStatus
+from scistudio.qa.governance.persona_policy import check
+from scistudio.qa.schemas.report import AuditStatus
 
 
 def _write(repo: Path, path: str, content: str = "ok\n") -> str:

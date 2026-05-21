@@ -11,7 +11,7 @@ The hooks are the contract that lets :func:`_reconstruct_one` /
 specific kwargs through the JSON wire format without a giant
 ``isinstance`` chain inside the worker subprocess.
 
-T-013 shipped the :mod:`scieasy.core.types.serialization` module as a
+T-013 shipped the :mod:`scistudio.core.types.serialization` module as a
 stub whose bodies raised :class:`NotImplementedError`; T-014 replaced
 those bodies with the full implementation. The composite-section
 tests in this file therefore exercise the real round-trip instead of
@@ -26,13 +26,13 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.core.types.array import Array
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.series import Series
-from scieasy.core.types.text import Text
+from scistudio.core.types.array import Array
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.series import Series
+from scistudio.core.types.text import Text
 
 # ---------------------------------------------------------------------------
 # DataObject base hooks (defaults return empty dict)
@@ -369,7 +369,7 @@ def test_artifact_round_trip_none_path() -> None:
 def test_composite_reconstruct_delegates_to_serialization_helpers() -> None:
     """Composite reconstruction recursively invokes :func:`_reconstruct_one`.
 
-    T-014 replaced the :mod:`scieasy.core.types.serialization` stub
+    T-014 replaced the :mod:`scistudio.core.types.serialization` stub
     bodies with the real implementation. The composite hook calls
     ``_reconstruct_one`` once per slot, rebuilding each child as its
     own typed :class:`DataObject` instance.
@@ -413,7 +413,7 @@ def test_composite_reconstruct_empty_slots_short_circuits() -> None:
 
 def test_composite_serialise_delegates_to_serialization_helpers() -> None:
     """Composite serialisation recursively invokes :func:`_serialise_one`."""
-    from scieasy.core.storage.ref import StorageReference
+    from scistudio.core.storage.ref import StorageReference
 
     inner = Array(
         axes=["y", "x"],
@@ -449,7 +449,7 @@ def test_composite_hook_round_trip() -> None:
     round-trip a composite with multiple slot types (Array + Series +
     DataFrame) into an equivalent composite on the receiving side.
     """
-    from scieasy.core.storage.ref import StorageReference
+    from scistudio.core.storage.ref import StorageReference
 
     image = Array(
         axes=["y", "x"],
@@ -495,8 +495,8 @@ def test_serialization_module_imports() -> None:
     The signatures were locked by T-013 and remain locked after T-014
     replaced the stub bodies with the real implementation.
     """
-    from scieasy.core.types import serialization
-    from scieasy.core.types.serialization import _reconstruct_one, _serialise_one
+    from scistudio.core.types import serialization
+    from scistudio.core.types.serialization import _reconstruct_one, _serialise_one
 
     assert callable(_reconstruct_one)
     assert callable(_serialise_one)
@@ -509,7 +509,7 @@ def test_serialization_reconstruct_round_trips_bare_dataobject() -> None:
 
     Replaces the T-013 ``test_serialization_stub_reconstruct_raises``.
     """
-    from scieasy.core.types.serialization import _reconstruct_one
+    from scistudio.core.types.serialization import _reconstruct_one
 
     obj = _reconstruct_one(
         {
@@ -533,8 +533,8 @@ def test_serialization_serialise_round_trips_bare_dataobject() -> None:
     Replaces the T-013 ``test_serialization_stub_serialise_raises``.
     ADR-031 Addendum 1: storage_ref is required for serialisation.
     """
-    from scieasy.core.storage.ref import StorageReference
-    from scieasy.core.types.serialization import _serialise_one
+    from scistudio.core.storage.ref import StorageReference
+    from scistudio.core.types.serialization import _serialise_one
 
     obj = DataObject(storage_ref=StorageReference(backend="zarr", path="/tmp/test.zarr"))
     payload = _serialise_one(obj)
@@ -545,7 +545,7 @@ def test_serialization_serialise_round_trips_bare_dataobject() -> None:
 
 def test_serialization_serialise_rejects_none_storage_ref() -> None:
     """ADR-031 Addendum 1: _serialise_one rejects DataObject without storage_ref."""
-    from scieasy.core.types.serialization import _serialise_one
+    from scistudio.core.types.serialization import _serialise_one
 
     with pytest.raises(ValueError, match="storage_ref is None"):
         _serialise_one(DataObject())

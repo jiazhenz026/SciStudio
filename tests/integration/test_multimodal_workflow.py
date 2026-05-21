@@ -6,7 +6,7 @@ correctly when integrated.
 
 ADR-027 D2 / phase10-implementation-standards.md T-008 (Question 2): this
 module exercises an image-typed multimodal pipeline whose ``Image`` data
-type lives in the ``scieasy-blocks-imaging`` plugin package. The entire
+type lives in the ``scistudio-blocks-imaging`` plugin package. The entire
 module is therefore gated behind ``pytest.importorskip`` so that when the
 plugin is not installed (the current state of the core repository) the
 tests are skipped at collection time rather than failing.
@@ -24,8 +24,8 @@ import pytest
 # tests reference; in its absence the multimodal workflow has no
 # Image-typed data to flow through it.
 pytest.importorskip(
-    "scieasy_blocks_imaging",
-    reason="requires scieasy-blocks-imaging plugin",
+    "scistudio_blocks_imaging",
+    reason="requires scistudio-blocks-imaging plugin",
 )
 
 # Module-level marker so test runs can opt out of imaging-plugin tests
@@ -34,20 +34,20 @@ pytestmark = pytest.mark.requires_imaging
 
 # The plugin's Image type. The import below only runs when
 # ``pytest.importorskip`` above succeeded.
-from scieasy_blocks_imaging.types import Image  # type: ignore[import-not-found]  # noqa: E402
+from scistudio_blocks_imaging.types import Image  # type: ignore[import-not-found]  # noqa: E402
 
-from scieasy.blocks.base.block import Block  # noqa: E402
-from scieasy.blocks.base.state import BlockState  # noqa: E402
-from scieasy.core.types.collection import Collection  # noqa: E402
-from scieasy.engine.dag import build_dag, topological_sort  # noqa: E402
-from scieasy.engine.events import (  # noqa: E402
+from scistudio.blocks.base.block import Block  # noqa: E402
+from scistudio.blocks.base.state import BlockState  # noqa: E402
+from scistudio.core.types.collection import Collection  # noqa: E402
+from scistudio.engine.dag import build_dag, topological_sort  # noqa: E402
+from scistudio.engine.events import (  # noqa: E402
     BLOCK_DONE,
     WORKFLOW_STARTED,
     EngineEvent,
     EventBus,
 )
-from scieasy.engine.scheduler import DAGScheduler  # noqa: E402
-from scieasy.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition  # noqa: E402
+from scistudio.engine.scheduler import DAGScheduler  # noqa: E402
+from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # DAG construction + topological sort for a multimodal pipeline
@@ -275,7 +275,7 @@ class TestCollectionThroughPipeline:
         """Collection rejects heterogeneous items."""
         import pytest
 
-        from scieasy.core.types.base import DataObject
+        from scistudio.core.types.base import DataObject
 
         img = Image(shape=(2, 2), ndim=2, dtype="uint8")
         obj = DataObject()

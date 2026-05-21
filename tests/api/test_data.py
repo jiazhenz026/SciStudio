@@ -10,11 +10,11 @@ import numpy as np
 from fastapi.testclient import TestClient
 from pytest import MonkeyPatch
 
-from scieasy.api.runtime import ApiRuntime, _infer_type_name_from_ref
-from scieasy.core.storage.ref import StorageReference
-from scieasy.core.types.array import Array
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.series import Series
+from scistudio.api.runtime import ApiRuntime, _infer_type_name_from_ref
+from scistudio.core.storage.ref import StorageReference
+from scistudio.core.types.array import Array
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.series import Series
 
 
 def test_upload_metadata_and_preview_for_csv_and_text(client: TestClient, opened_project: Path) -> None:
@@ -38,7 +38,7 @@ def test_upload_metadata_and_preview_for_csv_and_text(client: TestClient, opened
 
     text_response = client.post(
         "/api/data/upload",
-        files={"file": ("notes.txt", b"hello from SciEasy", "text/plain")},
+        files={"file": ("notes.txt", b"hello from SciStudio", "text/plain")},
     )
     assert text_response.status_code == 200
     text_ref = text_response.json()["ref"]
@@ -46,7 +46,7 @@ def test_upload_metadata_and_preview_for_csv_and_text(client: TestClient, opened
     text_preview = client.get(f"/api/data/{text_ref}/preview")
     assert text_preview.status_code == 200
     assert text_preview.json()["preview"]["kind"] == "text"
-    assert "hello from SciEasy" in text_preview.json()["preview"]["content"]
+    assert "hello from SciStudio" in text_preview.json()["preview"]["content"]
 
 
 def test_preview_supports_image_series_composite_and_artifact_types(
@@ -527,7 +527,7 @@ def test_preview_data_dataframe_cache_skips_repeat_disk_reads(
     reuse the unsorted base, so flipping sort columns / directions never
     re-reads the file. Touching the file (mtime change) invalidates.
     """
-    from scieasy.api import runtime as runtime_mod
+    from scistudio.api import runtime as runtime_mod
 
     # Build a small csv. The cache behavior we care about is invariant to size.
     rows = "".join(f"{i},{i * 2}\n" for i in range(80))

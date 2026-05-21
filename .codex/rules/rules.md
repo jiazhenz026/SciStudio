@@ -50,7 +50,7 @@ This file is a pointer only. It is not an independent policy source.
 - Use `docs/ai-developer/templates/agent-dispatch-audit-no-context-prompt-template.md`
   if you are dispatching an audit without current task context.
 
-- Use `docs/ai-developer/skills/scieasy-e2e-test/SKILL.md` if you are running
-  a live end-to-end SciEasy session from a scenario file under
+- Use `docs/ai-developer/skills/scistudio-e2e-test/SKILL.md` if you are running
+  a live end-to-end SciStudio session from a scenario file under
   `docs/ai-developer/e2e/`. Pair it with
   `docs/ai-developer/e2e/template.md` and `docs/ai-developer/e2e/README.md`.

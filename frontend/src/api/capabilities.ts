@@ -5,7 +5,7 @@
 //   Aggregate ADR-043 IO format capabilities for the frontend port editor,
 //   OME metadata browser, and lossy-save warning chip. The backend already
 //   exposes capabilities per IOBlock via `BlockSummary.format_capabilities`
-//   (see `src/scieasy/api/routes/blocks.py::list_blocks`), so we consume the
+//   (see `src/scistudio/api/routes/blocks.py::list_blocks`), so we consume the
 //   existing `/api/blocks/` endpoint and filter client-side rather than add
 //   a new dedicated route. This keeps the API contract minimal (one source
 //   of truth: `BlockRegistry.list_format_capabilities` semantics, surfaced
@@ -14,7 +14,7 @@
 // FR-013:
 //   `getOMEMetadata` extracts the `ome` payload from a stored DataObject's
 //   metadata via the existing `/api/data/{ref}` endpoint. The OME field is
-//   populated by IO loaders in `scieasy-blocks-imaging` (Phase A2). When the
+//   populated by IO loaders in `scistudio-blocks-imaging` (Phase A2). When the
 //   field is absent or null, this helper returns `null` so callers can
 //   gracefully hide the "OME metadata" button.
 //
@@ -40,7 +40,7 @@ export type CapabilityDirection = "load" | "save";
  * `"tif"` (no dot) as its prop.
  *
  * NOTE: the *backend* normalises capability extensions WITH a leading
- * dot (see `src/scieasy/blocks/io/capabilities.py::normalize_extension`),
+ * dot (see `src/scistudio/blocks/io/capabilities.py::normalize_extension`),
  * so when we compare user input against backend `cap.extensions` we must
  * first re-dot the user value or strip dots from the backend values.
  * `normalizeBackendExtension` handles the backend-side normalisation;
@@ -60,7 +60,7 @@ export function normalizeExtension(raw: string | null | undefined): string {
  * Normalise a backend-emitted extension into the user-facing form
  * (lowercase, no leading dot). Backend capability records carry their
  * extensions in canonical ".tif" / ".tiff" form per
- * `scieasy.blocks.io.capabilities.normalize_extension`; the frontend
+ * `scistudio.blocks.io.capabilities.normalize_extension`; the frontend
  * compares them against the dot-stripped user input from PortEditorTable,
  * so we strip the leading dot on the backend side at compare time. We
  * keep the original tuple shape on the wire (no normalisation when the

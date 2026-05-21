@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.qa.audit._util import load_adr_frontmatter as _util_load_adr_frontmatter
-from scieasy.qa.audit.frontmatter_lint import check, lint_file, lint_paths
-from scieasy.qa.audit.loaders import load_adr_frontmatter, load_architecture_frontmatter
-from scieasy.qa.schemas.frontmatter import ADRAddendumFrontmatter, ADRFrontmatter, ArchitectureFrontmatter
-from scieasy.qa.schemas.report import AuditStatus, Severity
+from scistudio.qa.audit._util import load_adr_frontmatter as _util_load_adr_frontmatter
+from scistudio.qa.audit.frontmatter_lint import check, lint_file, lint_paths
+from scistudio.qa.audit.loaders import load_adr_frontmatter, load_architecture_frontmatter
+from scistudio.qa.schemas.frontmatter import ADRAddendumFrontmatter, ADRFrontmatter, ArchitectureFrontmatter
+from scistudio.qa.schemas.report import AuditStatus, Severity
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -33,12 +33,12 @@ tracking_issue: 1113
 is_code_implementation: true
 governs:
   modules:
-    - scieasy.qa
+    - scistudio.qa
   contracts:
-    - scieasy.qa.audit.frontmatter_lint.lint_file
+    - scistudio.qa.audit.frontmatter_lint.lint_file
   entry_points: []
   files:
-    - src/scieasy/qa/**
+    - src/scistudio/qa/**
   excludes: []
 tests:
   - tests/qa/test_audit_frontmatter_lint.py
@@ -84,9 +84,9 @@ tracking_issue: null
 is_code_implementation: true
 governs:
   modules:
-    - scieasy.qa.governance
+    - scistudio.qa.governance
   contracts:
-    - scieasy.qa.governance.gate_record.GateRecord
+    - scistudio.qa.governance.gate_record.GateRecord
   entry_points: []
   files:
     - docs/adr/ADR-{number:03d}-addendum{addendum}.md
@@ -125,7 +125,7 @@ translations: []
 def _valid_architecture() -> str:
     return """---
 doc_type: architecture
-title: "SciEasy Architecture Document"
+title: "SciStudio Architecture Document"
 status: living
 owner: "@owner"
 last_updated: 2026-05-19
@@ -135,10 +135,10 @@ governed_by:
 related_adrs:
   - 42
   - 43
-summary: "Stable architecture overview for SciEasy runtime and governance layers."
+summary: "Stable architecture overview for SciStudio runtime and governance layers."
 ---
 
-# SciEasy Architecture Document
+# SciStudio Architecture Document
 
 ## 1. Problem statement
 """
@@ -314,7 +314,7 @@ def test_architecture_frontmatter_requires_owner(tmp_path: Path) -> None:
 def test_architecture_h1_must_match_title(tmp_path: Path) -> None:
     path = _write(
         tmp_path / "docs" / "architecture" / "ARCHITECTURE.md",
-        _valid_architecture().replace("# SciEasy Architecture Document", "# Wrong Architecture Title"),
+        _valid_architecture().replace("# SciStudio Architecture Document", "# Wrong Architecture Title"),
     )
 
     findings = lint_file(path)

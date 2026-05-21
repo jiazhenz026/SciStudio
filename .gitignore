@@ -77,7 +77,7 @@ node_modules/
 frontend/tsconfig.tsbuildinfo
 
 # Built frontend served by Python backend (not committed, created by CI)
-src/scieasy/api/static/
+src/scistudio/api/static/
 
 
 # Workflow gate state files (local per-developer)
@@ -91,3 +91,4 @@ src/scieasy/api/static/
 .workflow/*.local.json
 .workflow/records/*.local.json
 .workflow/records/*-scratch.json
+.workflow/full-audit-*.json

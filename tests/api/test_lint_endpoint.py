@@ -66,9 +66,9 @@ def test_lint_ruff_missing(client: TestClient, monkeypatch: pytest.MonkeyPatch) 
     def fake_run(*args: object, **kwargs: object) -> object:
         raise FileNotFoundError("ruff not on PATH")
 
-    monkeypatch.setattr("scieasy.api.routes.lint.subprocess.run", fake_run)
+    monkeypatch.setattr("scistudio.api.routes.lint.subprocess.run", fake_run)
     # Reset the once-per-process warned flag so the WARN log path runs.
-    monkeypatch.setattr("scieasy.api.routes.lint._ruff_missing_warned", False)
+    monkeypatch.setattr("scistudio.api.routes.lint._ruff_missing_warned", False)
     r = client.post(
         "/api/lint/python",
         json={"content": "x = 1\n", "filename": "x.py"},
@@ -83,7 +83,7 @@ def test_lint_ruff_timeout(client: TestClient, monkeypatch: pytest.MonkeyPatch) 
     def fake_run(*args: object, **kwargs: object) -> object:
         raise subprocess.TimeoutExpired(cmd="ruff", timeout=10.0)
 
-    monkeypatch.setattr("scieasy.api.routes.lint.subprocess.run", fake_run)
+    monkeypatch.setattr("scistudio.api.routes.lint.subprocess.run", fake_run)
     r = client.post(
         "/api/lint/python",
         json={"content": "x = 1\n", "filename": "x.py"},
@@ -105,7 +105,7 @@ def test_lint_ruff_non_json(client: TestClient, monkeypatch: pytest.MonkeyPatch)
     def fake_run(*args: object, **kwargs: object) -> FakeCompleted:
         return FakeCompleted()
 
-    monkeypatch.setattr("scieasy.api.routes.lint.subprocess.run", fake_run)
+    monkeypatch.setattr("scistudio.api.routes.lint.subprocess.run", fake_run)
     r = client.post(
         "/api/lint/python",
         json={"content": "x = 1\n", "filename": "x.py"},

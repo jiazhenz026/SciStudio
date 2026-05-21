@@ -15,20 +15,20 @@ from pathlib import Path
 import pytest
 
 try:
-    from scieasy_blocks_lcms.external.elmaven_block import (
+    from scistudio_blocks_lcms.external.elmaven_block import (
         ElMAVENBlock,
         _classify_export,
         _collect_elmaven_outputs,
         _resolve_command,
         _resolve_exchange_dir,
     )
-    from scieasy_blocks_lcms.types import MSRawFile
+    from scistudio_blocks_lcms.types import MSRawFile
 
     HAS_LCMS = True
 except ImportError:
     HAS_LCMS = False
 
-pytestmark = pytest.mark.skipif(not HAS_LCMS, reason="scieasy_blocks_lcms not installed")
+pytestmark = pytest.mark.skipif(not HAS_LCMS, reason="scistudio_blocks_lcms not installed")
 
 
 class TestClassifyExport:
@@ -107,16 +107,16 @@ class TestSharedHelpers:
     """Test the shared helpers introduced by #555 refactoring."""
 
     def test_resolve_exchange_dir_creates_subdirs(self, tmp_path: Path) -> None:
-        from scieasy.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.config import BlockConfig
 
         config = BlockConfig(params={"project_dir": str(tmp_path), "block_id": "test-blk"})
-        result = _resolve_exchange_dir(config, prefix="scieasy_elmaven_")
+        result = _resolve_exchange_dir(config, prefix="scistudio_elmaven_")
         assert result == tmp_path / "data" / "exchange" / "test-blk"
         assert (result / "inputs").is_dir()
         assert (result / "outputs").is_dir()
 
     def test_resolve_command_uses_override_key(self) -> None:
-        from scieasy.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.config import BlockConfig
 
         config = BlockConfig(params={"elmaven_path": "/opt/elmaven/bin/elmaven"})
         result = _resolve_command(config, app_command="elmaven", override_key="elmaven_path")
@@ -135,7 +135,7 @@ class TestBridgeDevNull:
         """Verify the bridge source code uses DEVNULL to prevent PIPE deadlock."""
         import inspect
 
-        from scieasy.blocks.app.bridge import FileExchangeBridge
+        from scistudio.blocks.app.bridge import FileExchangeBridge
 
         source = inspect.getsource(FileExchangeBridge.launch)
         assert "subprocess.DEVNULL" in source, "bridge.launch should use DEVNULL, not PIPE"

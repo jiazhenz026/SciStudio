@@ -8,9 +8,9 @@ from unittest.mock import AsyncMock
 
 from fastapi.testclient import TestClient
 
-from scieasy.api.runtime import ApiRuntime
-from scieasy.api.ws import _OUTBOUND_EVENTS, websocket_handler
-from scieasy.engine.events import (
+from scistudio.api.runtime import ApiRuntime
+from scistudio.api.ws import _OUTBOUND_EVENTS, websocket_handler
+from scistudio.engine.events import (
     BLOCK_DONE,
     CANCEL_BLOCK_REQUEST,
     CANCEL_WORKFLOW_REQUEST,

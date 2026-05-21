@@ -11,11 +11,11 @@ from typing import Any, ClassVar
 
 import pytest
 
-from scieasy.core.types.array import Array
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.core.types.array import Array
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.dataframe import DataFrame
 
 
 class Image(Array):

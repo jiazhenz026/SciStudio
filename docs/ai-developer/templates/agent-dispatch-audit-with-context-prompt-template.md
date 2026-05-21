@@ -19,7 +19,7 @@ complete, scoped, and tested.
 
 ## Task Identity
 
-- Repository: SciEasy
+- Repository: SciStudio
 - Persona: audit_reviewer
 - Audit mode: with-context
 - Issue: #<issue>

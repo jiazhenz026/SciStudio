@@ -12,10 +12,10 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from scieasy.blocks.app.bridge import FileExchangeBridge
-from scieasy.blocks.app.command_validator import validate_app_command
-from scieasy.blocks.app.watcher import FileWatcher
-from scieasy.core.types.artifact import Artifact
+from scistudio.blocks.app.bridge import FileExchangeBridge
+from scistudio.blocks.app.command_validator import validate_app_command
+from scistudio.blocks.app.watcher import FileWatcher
+from scistudio.core.types.artifact import Artifact
 
 
 class TestFileWatcher:
@@ -139,9 +139,9 @@ class TestAppBlockExchangeDir:
         """When project_dir and block_id are in config, exchange dir is in project workspace."""
         from unittest.mock import MagicMock, patch
 
-        from scieasy.blocks.app.app_block import AppBlock
-        from scieasy.blocks.base.config import BlockConfig
-        from scieasy.blocks.base.state import BlockState
+        from scistudio.blocks.app.app_block import AppBlock
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.state import BlockState
 
         block = AppBlock()
         # Transition to RUNNING so run() can transition to PAUSED.
@@ -162,9 +162,9 @@ class TestAppBlockExchangeDir:
 
         # Patch bridge and watcher to avoid real subprocess execution.
         with (
-            patch("scieasy.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
-            patch("scieasy.blocks.app.app_block.subprocess") as _mock_sub,
-            patch("scieasy.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
+            patch("scistudio.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
+            patch("scistudio.blocks.app.app_block.subprocess") as _mock_sub,
+            patch("scistudio.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
         ):
             mock_bridge = MagicMock()
             mock_bridge_cls.return_value = mock_bridge
@@ -175,7 +175,7 @@ class TestAppBlockExchangeDir:
             mock_bridge.launch.return_value = mock_proc
 
             # Patch FileWatcher to return fake output files immediately.
-            with patch("scieasy.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
+            with patch("scistudio.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
                 mock_watcher = MagicMock()
                 mock_watcher_cls.return_value = mock_watcher
                 fake_output = tmp_path / "result.csv"
@@ -195,9 +195,9 @@ class TestAppBlockExchangeDir:
         """When project_dir is not set, exchange dir falls back to tempfile."""
         from unittest.mock import MagicMock, patch
 
-        from scieasy.blocks.app.app_block import AppBlock
-        from scieasy.blocks.base.config import BlockConfig
-        from scieasy.blocks.base.state import BlockState
+        from scistudio.blocks.app.app_block import AppBlock
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.state import BlockState
 
         block = AppBlock()
         # Transition to RUNNING so run() can transition to PAUSED.
@@ -211,11 +211,11 @@ class TestAppBlockExchangeDir:
         )
 
         with (
-            patch("scieasy.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
-            patch("scieasy.blocks.app.app_block.subprocess") as _mock_sub,
-            patch("scieasy.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
+            patch("scistudio.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
+            patch("scistudio.blocks.app.app_block.subprocess") as _mock_sub,
+            patch("scistudio.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
             patch(
-                "scieasy.blocks.app.app_block.tempfile.mkdtemp", return_value=str(tmp_path / "fallback")
+                "scistudio.blocks.app.app_block.tempfile.mkdtemp", return_value=str(tmp_path / "fallback")
             ) as mock_mkdtemp,
         ):
             mock_bridge = MagicMock()
@@ -225,7 +225,7 @@ class TestAppBlockExchangeDir:
             mock_proc.pid = 12345
             mock_bridge.launch.return_value = mock_proc
 
-            with patch("scieasy.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
+            with patch("scistudio.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
                 mock_watcher = MagicMock()
                 mock_watcher_cls.return_value = mock_watcher
                 fake_output = tmp_path / "result.csv"
@@ -237,7 +237,7 @@ class TestAppBlockExchangeDir:
                 block.run(inputs={}, config=config)
 
             # Verify tempfile.mkdtemp was called as fallback.
-            mock_mkdtemp.assert_called_once_with(prefix="scieasy_app_")
+            mock_mkdtemp.assert_called_once_with(prefix="scistudio_app_")
 
 
 class TestFileExchangeBridgeCollection:
@@ -245,11 +245,11 @@ class TestFileExchangeBridgeCollection:
 
     def test_prepare_handles_collection(self, tmp_path: Path) -> None:
         """Bridge should serialize Collection items into a subdirectory."""
-        from scieasy.core.types.array import Array
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.array import Array
+        from scistudio.core.types.collection import Collection
 
         # ADR-027 D2: construct plain 2D Arrays instead of the removed
-        # core Image class (which now lives in scieasy-blocks-imaging).
+        # core Image class (which now lives in scistudio-blocks-imaging).
         items = [
             Array(axes=["y", "x"], shape=(3, 3), dtype="uint8"),
             Array(axes=["y", "x"], shape=(5, 5), dtype="float32"),
@@ -343,7 +343,7 @@ class TestCommandValidator:
         app_bundle = tmp_path / "Fiji.app"
         app_bundle.mkdir()
 
-        with patch("scieasy.blocks.app.command_validator.sys") as mock_sys:
+        with patch("scistudio.blocks.app.command_validator.sys") as mock_sys:
             mock_sys.platform = "darwin"
             result = validate_app_command([str(app_bundle)])
             assert result == [str(app_bundle)]
@@ -355,7 +355,7 @@ class TestCommandValidator:
         app_bundle = tmp_path / "Fiji.app"
         app_bundle.mkdir()
 
-        with patch("scieasy.blocks.app.command_validator.sys") as mock_sys:
+        with patch("scistudio.blocks.app.command_validator.sys") as mock_sys:
             mock_sys.platform = "linux"
             with pytest.raises(ValueError, match="not found"):
                 validate_app_command([str(app_bundle)])
@@ -384,9 +384,9 @@ class TestBridgeMacOSAppBundle:
         app_bundle.mkdir()
 
         with (
-            patch("scieasy.blocks.app.bridge.sys") as mock_sys,
-            patch("scieasy.blocks.app.command_validator.sys") as mock_val_sys,
-            patch("scieasy.blocks.app.bridge.subprocess.Popen") as mock_popen,
+            patch("scistudio.blocks.app.bridge.sys") as mock_sys,
+            patch("scistudio.blocks.app.command_validator.sys") as mock_val_sys,
+            patch("scistudio.blocks.app.bridge.subprocess.Popen") as mock_popen,
         ):
             mock_sys.platform = "darwin"
             mock_val_sys.platform = "darwin"
@@ -421,8 +421,8 @@ class TestBridgeMacOSAppBundle:
         exe.chmod(0o755)
 
         with (
-            patch("scieasy.blocks.app.bridge.sys") as mock_sys,
-            patch("scieasy.blocks.app.bridge.subprocess.Popen") as mock_popen,
+            patch("scistudio.blocks.app.bridge.sys") as mock_sys,
+            patch("scistudio.blocks.app.bridge.subprocess.Popen") as mock_popen,
         ):
             mock_sys.platform = "win32"
             mock_proc = MagicMock()
@@ -559,8 +559,8 @@ class TestAppBlockSubprocessCleanup:
 
     def _make_running_block(self):
         """Create an AppBlock in RUNNING state."""
-        from scieasy.blocks.app.app_block import AppBlock
-        from scieasy.blocks.base.state import BlockState
+        from scistudio.blocks.app.app_block import AppBlock
+        from scistudio.blocks.base.state import BlockState
 
         block = AppBlock()
         block.transition(BlockState.READY)
@@ -571,16 +571,16 @@ class TestAppBlockSubprocessCleanup:
         """After successful run(), proc.wait() must be called to reap the process."""
         from unittest.mock import MagicMock, patch
 
-        from scieasy.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.config import BlockConfig
 
         block = self._make_running_block()
         config = BlockConfig(params={"app_command": "echo hello"})
 
         with (
-            patch("scieasy.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
-            patch("scieasy.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
+            patch("scistudio.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
+            patch("scistudio.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
             patch(
-                "scieasy.blocks.app.app_block.tempfile.mkdtemp",
+                "scistudio.blocks.app.app_block.tempfile.mkdtemp",
                 return_value=str(tmp_path / "temp_exchange"),
             ),
         ):
@@ -592,7 +592,7 @@ class TestAppBlockSubprocessCleanup:
             mock_proc.wait.return_value = 0
             mock_bridge.launch.return_value = mock_proc
 
-            with patch("scieasy.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
+            with patch("scistudio.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
                 mock_watcher = MagicMock()
                 mock_watcher_cls.return_value = mock_watcher
                 fake_output = tmp_path / "result.csv"
@@ -610,16 +610,16 @@ class TestAppBlockSubprocessCleanup:
         import subprocess as _subprocess
         from unittest.mock import MagicMock, patch
 
-        from scieasy.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.config import BlockConfig
 
         block = self._make_running_block()
         config = BlockConfig(params={"app_command": "echo hello"})
 
         with (
-            patch("scieasy.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
-            patch("scieasy.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
+            patch("scistudio.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
+            patch("scistudio.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
             patch(
-                "scieasy.blocks.app.app_block.tempfile.mkdtemp",
+                "scistudio.blocks.app.app_block.tempfile.mkdtemp",
                 return_value=str(tmp_path / "temp_exchange"),
             ),
         ):
@@ -635,7 +635,7 @@ class TestAppBlockSubprocessCleanup:
             ]
             mock_bridge.launch.return_value = mock_proc
 
-            with patch("scieasy.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
+            with patch("scistudio.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
                 mock_watcher = MagicMock()
                 mock_watcher_cls.return_value = mock_watcher
                 fake_output = tmp_path / "result.csv"
@@ -651,17 +651,17 @@ class TestAppBlockSubprocessCleanup:
         """On ProcessExitedWithoutOutputError, proc must still be waited on."""
         from unittest.mock import MagicMock, patch
 
-        from scieasy.blocks.app.watcher import ProcessExitedWithoutOutputError
-        from scieasy.blocks.base.config import BlockConfig
+        from scistudio.blocks.app.watcher import ProcessExitedWithoutOutputError
+        from scistudio.blocks.base.config import BlockConfig
 
         block = self._make_running_block()
         config = BlockConfig(params={"app_command": "echo hello"})
 
         with (
-            patch("scieasy.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
-            patch("scieasy.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
+            patch("scistudio.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
+            patch("scistudio.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
             patch(
-                "scieasy.blocks.app.app_block.tempfile.mkdtemp",
+                "scistudio.blocks.app.app_block.tempfile.mkdtemp",
                 return_value=str(tmp_path / "temp_exchange"),
             ),
         ):
@@ -673,7 +673,7 @@ class TestAppBlockSubprocessCleanup:
             mock_proc.wait.return_value = 0
             mock_bridge.launch.return_value = mock_proc
 
-            with patch("scieasy.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
+            with patch("scistudio.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
                 mock_watcher = MagicMock()
                 mock_watcher_cls.return_value = mock_watcher
                 mock_watcher.wait_for_output.side_effect = ProcessExitedWithoutOutputError("Process exited")
@@ -689,8 +689,8 @@ class TestAppBlockTempDirCleanup:
     """#339: Verify temp exchange directories are cleaned up."""
 
     def _make_running_block(self):
-        from scieasy.blocks.app.app_block import AppBlock
-        from scieasy.blocks.base.state import BlockState
+        from scistudio.blocks.app.app_block import AppBlock
+        from scistudio.blocks.base.state import BlockState
 
         block = AppBlock()
         block.transition(BlockState.READY)
@@ -701,18 +701,18 @@ class TestAppBlockTempDirCleanup:
         """Temp exchange dir (no project_dir) must be removed after run()."""
         from unittest.mock import MagicMock, patch
 
-        from scieasy.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.config import BlockConfig
 
         block = self._make_running_block()
 
-        temp_dir = tmp_path / "scieasy_app_temp"
+        temp_dir = tmp_path / "scistudio_app_temp"
         config = BlockConfig(params={"app_command": "echo hello"})
 
         with (
-            patch("scieasy.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
-            patch("scieasy.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
+            patch("scistudio.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
+            patch("scistudio.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
             patch(
-                "scieasy.blocks.app.app_block.tempfile.mkdtemp",
+                "scistudio.blocks.app.app_block.tempfile.mkdtemp",
                 return_value=str(temp_dir),
             ),
         ):
@@ -724,7 +724,7 @@ class TestAppBlockTempDirCleanup:
             mock_proc.wait.return_value = 0
             mock_bridge.launch.return_value = mock_proc
 
-            with patch("scieasy.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
+            with patch("scistudio.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
                 mock_watcher = MagicMock()
                 mock_watcher_cls.return_value = mock_watcher
                 fake_output = tmp_path / "result.csv"
@@ -741,7 +741,7 @@ class TestAppBlockTempDirCleanup:
         """Project exchange dir (project_dir + block_id) must NOT be removed."""
         from unittest.mock import MagicMock, patch
 
-        from scieasy.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.config import BlockConfig
 
         block = self._make_running_block()
 
@@ -758,8 +758,8 @@ class TestAppBlockTempDirCleanup:
         exchange_dir = project_dir / "data" / "exchange" / "block_123"
 
         with (
-            patch("scieasy.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
-            patch("scieasy.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
+            patch("scistudio.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
+            patch("scistudio.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
         ):
             mock_bridge = MagicMock()
             mock_bridge_cls.return_value = mock_bridge
@@ -769,7 +769,7 @@ class TestAppBlockTempDirCleanup:
             mock_proc.wait.return_value = 0
             mock_bridge.launch.return_value = mock_proc
 
-            with patch("scieasy.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
+            with patch("scistudio.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
                 mock_watcher = MagicMock()
                 mock_watcher_cls.return_value = mock_watcher
                 fake_output = tmp_path / "result.csv"
@@ -786,18 +786,18 @@ class TestAppBlockTempDirCleanup:
         """Temp exchange dir must be cleaned up even if run() raises."""
         from unittest.mock import MagicMock, patch
 
-        from scieasy.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.config import BlockConfig
 
         block = self._make_running_block()
 
-        temp_dir = tmp_path / "scieasy_app_error"
+        temp_dir = tmp_path / "scistudio_app_error"
         config = BlockConfig(params={"app_command": "echo hello"})
 
         with (
-            patch("scieasy.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
-            patch("scieasy.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
+            patch("scistudio.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
+            patch("scistudio.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
             patch(
-                "scieasy.blocks.app.app_block.tempfile.mkdtemp",
+                "scistudio.blocks.app.app_block.tempfile.mkdtemp",
                 return_value=str(temp_dir),
             ),
         ):
@@ -822,7 +822,7 @@ class TestAppBlockVariadicPorts:
     """Issue #680: ``config.{input,output}_ports`` overrides ClassVar ports."""
 
     def test_effective_input_ports_use_config_when_set(self) -> None:
-        from scieasy.blocks.app.app_block import AppBlock
+        from scistudio.blocks.app.app_block import AppBlock
 
         block = AppBlock(
             config={
@@ -839,7 +839,7 @@ class TestAppBlockVariadicPorts:
         assert [p.name for p in ports] == ["alpha", "beta"]
 
     def test_effective_output_ports_use_config_when_set(self) -> None:
-        from scieasy.blocks.app.app_block import AppBlock
+        from scistudio.blocks.app.app_block import AppBlock
 
         block = AppBlock(
             config={
@@ -855,7 +855,7 @@ class TestAppBlockVariadicPorts:
         assert [p.name for p in ports] == ["tables"]
 
     def test_falls_back_to_classvar_when_config_unset(self) -> None:
-        from scieasy.blocks.app.app_block import AppBlock
+        from scistudio.blocks.app.app_block import AppBlock
 
         block = AppBlock()
         # ClassVar ports remain visible when no config override is given.
@@ -867,12 +867,12 @@ class TestAppBlockExtensionBinner:
     """Issue #680: ``_bin_outputs_by_extension`` routing rules."""
 
     def _make_block_with_ports(self, port_dicts: list[dict[str, Any]]) -> Any:
-        from scieasy.blocks.app.app_block import AppBlock
+        from scistudio.blocks.app.app_block import AppBlock
 
         return AppBlock(config={"params": {"output_ports": port_dicts}})
 
     def test_routes_files_by_extension_case_insensitive(self, tmp_path: Path) -> None:
-        from scieasy.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.config import BlockConfig
 
         f1 = tmp_path / "image.TIF"
         f2 = tmp_path / "image2.tif"
@@ -902,7 +902,7 @@ class TestAppBlockExtensionBinner:
         assert result["tables"].length == 1
 
     def test_required_port_with_no_files_raises(self, tmp_path: Path) -> None:
-        from scieasy.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.config import BlockConfig
 
         f1 = tmp_path / "image.tif"
         f1.write_text("x", encoding="utf-8")
@@ -928,7 +928,7 @@ class TestAppBlockExtensionBinner:
     def test_unmatched_files_emit_warning_log(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         import logging
 
-        from scieasy.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.config import BlockConfig
 
         f1 = tmp_path / "image.tif"
         f2 = tmp_path / "stray.txt"
@@ -944,7 +944,7 @@ class TestAppBlockExtensionBinner:
             }
         )
 
-        with caplog.at_level(logging.WARNING, logger="scieasy.blocks.app.app_block"):
+        with caplog.at_level(logging.WARNING, logger="scistudio.blocks.app.app_block"):
             result = block._bin_outputs_by_extension([f1, f2], config)
 
         assert result["images"].length == 1
@@ -959,8 +959,8 @@ class TestAppBlockExtensionBinner:
         which would be rejected by a Collection whose declared ``item_type``
         was a strict ``Artifact`` subclass.
         """
-        from scieasy.blocks.base.config import BlockConfig
-        from scieasy.core.types.artifact import Artifact
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.core.types.artifact import Artifact
 
         f1 = tmp_path / "report.pdf"
         f1.write_text("x", encoding="utf-8")
@@ -991,7 +991,7 @@ class TestAppBlockExtensionBinner:
         warning is gone — the new contract is: if you declare a concrete
         non-Artifact type, the runtime requires a matching loader.
         """
-        from scieasy.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.config import BlockConfig
 
         f1 = tmp_path / "image.no_loader_for_array_here_xyz"
         f1.write_text("x", encoding="utf-8")
@@ -1022,9 +1022,9 @@ class TestAppBlockExtensionBinner:
         """
         from typing import ClassVar
 
-        from scieasy.blocks.app.app_block import AppBlock
-        from scieasy.blocks.base.config import BlockConfig
-        from scieasy.blocks.base.ports import OutputPort
+        from scistudio.blocks.app.app_block import AppBlock
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.ports import OutputPort
 
         class _OptionalPortBlock(AppBlock):
             variadic_outputs: ClassVar[bool] = False
@@ -1043,9 +1043,9 @@ class TestAppBlockExtensionBinner:
         """End-to-end run() goes through the binner when ports are declared."""
         from unittest.mock import MagicMock, patch
 
-        from scieasy.blocks.app.app_block import AppBlock
-        from scieasy.blocks.base.config import BlockConfig
-        from scieasy.blocks.base.state import BlockState
+        from scistudio.blocks.app.app_block import AppBlock
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.state import BlockState
 
         block = AppBlock()
         block.transition(BlockState.READY)
@@ -1064,10 +1064,10 @@ class TestAppBlockExtensionBinner:
         f1.write_text("a,b\n1,2\n", encoding="utf-8")
 
         with (
-            patch("scieasy.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
-            patch("scieasy.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
+            patch("scistudio.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
+            patch("scistudio.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
             patch(
-                "scieasy.blocks.app.app_block.tempfile.mkdtemp",
+                "scistudio.blocks.app.app_block.tempfile.mkdtemp",
                 return_value=str(tmp_path / "ex"),
             ),
         ):
@@ -1079,7 +1079,7 @@ class TestAppBlockExtensionBinner:
             mock_proc.wait.return_value = 0
             mock_bridge.launch.return_value = mock_proc
 
-            with patch("scieasy.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
+            with patch("scistudio.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
                 mock_watcher = MagicMock()
                 mock_watcher_cls.return_value = mock_watcher
                 mock_watcher.wait_for_output.return_value = [f1]

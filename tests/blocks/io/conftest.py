@@ -15,11 +15,11 @@ from typing import ClassVar
 
 import pytest
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.io.io_block import IOBlock
-from scieasy.core.storage.flush_context import clear, set_output_dir
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.io.io_block import IOBlock
+from scistudio.core.storage.flush_context import clear, set_output_dir
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
 
 
 @pytest.fixture(autouse=True)

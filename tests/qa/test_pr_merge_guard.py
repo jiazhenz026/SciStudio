@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from scieasy.qa.governance.pr_merge_guard import check
-from scieasy.qa.schemas.report import AuditStatus
+from scistudio.qa.governance.pr_merge_guard import check
+from scistudio.qa.schemas.report import AuditStatus
 
 
 def _pr(label: str, permission: str = "admin") -> dict[str, object]:

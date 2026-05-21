@@ -1,4 +1,4 @@
-"""Unit tests for :mod:`scieasy.api.routes.workflow_watcher` (ADR-034 Phase 2).
+"""Unit tests for :mod:`scistudio.api.routes.workflow_watcher` (ADR-034 Phase 2).
 
 The watcher's contract surface is small:
 
@@ -32,8 +32,8 @@ from watchdog.events import (
     FileMovedEvent,
 )
 
-from scieasy.api.routes import workflow_watcher as watcher_module
-from scieasy.api.routes.workflow_watcher import (
+from scistudio.api.routes import workflow_watcher as watcher_module
+from scistudio.api.routes.workflow_watcher import (
     _DEBOUNCE_SECONDS,
     WorkflowWatcher,
     _WorkflowFileHandler,

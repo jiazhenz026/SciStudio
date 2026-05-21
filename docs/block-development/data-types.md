@@ -24,7 +24,7 @@ Array axes, metadata slots, and lazy loading.
 
 ## Six Core Base Types
 
-SciEasy defines six core data types in `scieasy.core.types`:
+SciStudio defines six core data types in `scistudio.core.types`:
 
 | Type | Module | Purpose |
 |------|--------|---------|
@@ -43,7 +43,7 @@ Domain-specific subclasses (e.g., `Image`, `FluorImage`, `PeakTable`,
 
 ## DataObject Base Class
 
-`scieasy.core.types.base.DataObject` is the root of the data type
+`scistudio.core.types.base.DataObject` is the root of the data type
 hierarchy. Every data object has four declared slots:
 
 ```python
@@ -57,7 +57,7 @@ class DataObject:
 ### Construction
 
 ```python
-from scieasy.core.types.array import Array
+from scistudio.core.types.array import Array
 
 img = Array(
     axes=["y", "x"],
@@ -86,7 +86,7 @@ N-dimensional array with named axes. The primary type for images,
 spectra, and tensors.
 
 ```python
-from scieasy.core.types.array import Array
+from scistudio.core.types.array import Array
 
 arr = Array(
     axes=["z", "c", "y", "x"],
@@ -154,7 +154,7 @@ Memory: O(one slice per iteration step).
 Columnar tabular data, backed by Arrow/Parquet.
 
 ```python
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.core.types.dataframe import DataFrame
 
 table = DataFrame(
     columns=["mz", "rt", "intensity"],
@@ -172,7 +172,7 @@ Attributes: `columns`, `row_count`, `schema`.
 One-dimensional indexed data (time series, chromatogram, spectrum).
 
 ```python
-from scieasy.core.types.series import Series
+from scistudio.core.types.series import Series
 
 spectrum = Series(
     index_name="wavenumber",
@@ -190,7 +190,7 @@ Attributes: `index_name`, `value_name`, `length`.
 String content (plain text, markdown, JSON).
 
 ```python
-from scieasy.core.types.text import Text
+from scistudio.core.types.text import Text
 
 note = Text(content="Experiment completed successfully.", format="plain")
 ```
@@ -205,7 +205,7 @@ Opaque file handle for non-scientific data (PDFs, binary blobs, reports).
 
 ```python
 from pathlib import Path
-from scieasy.core.types.artifact import Artifact
+from scistudio.core.types.artifact import Artifact
 
 pdf = Artifact(
     file_path=Path("/data/report.pdf"),
@@ -226,9 +226,9 @@ Named slots of heterogeneous DataObjects. Used for compound data like
 labeled images (raster + polygon table).
 
 ```python
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.array import Array
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.array import Array
+from scistudio.core.types.dataframe import DataFrame
 
 class Label(CompositeData):
     expected_slots: ClassVar[dict[str, type]] = {
@@ -247,8 +247,8 @@ Access slots with `obj.get("raster")` and `obj.set("raster", array)`.
 DataObject subclass.
 
 ```python
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.array import Array
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.array import Array
 
 # Construct from a list of items
 coll = Collection(items=[img1, img2, img3], item_type=Array)
@@ -359,16 +359,16 @@ will also accept any subclass (`Image`, `FluorImage`, etc.).
 
 ```
 Array
-  +-- Image            (plugin: scieasy-blocks-imaging)
+  +-- Image            (plugin: scistudio-blocks-imaging)
   |     +-- FluorImage
   |     +-- Mask
   +-- (other Array subclasses in plugins)
 
 DataFrame
-  +-- PeakTable        (plugin: scieasy-blocks-lcms)
+  +-- PeakTable        (plugin: scistudio-blocks-lcms)
 
 CompositeData
-  +-- Label            (plugin: scieasy-blocks-imaging)
+  +-- Label            (plugin: scistudio-blocks-imaging)
 ```
 
 When a Collection is checked against a port, the Collection's

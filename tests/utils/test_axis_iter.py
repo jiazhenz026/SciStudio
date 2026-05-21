@@ -1,4 +1,4 @@
-"""Tests for ``scieasy.utils.axis_iter.iterate_over_axes``.
+"""Tests for ``scistudio.utils.axis_iter.iterate_over_axes``.
 
 Covers T-011 per ADR-027 D3 and the T-011 section of
 ``docs/specs/phase10-implementation-standards.md``.
@@ -17,10 +17,10 @@ import numpy as np
 import pytest
 from pydantic import BaseModel, ConfigDict
 
-from scieasy.core.meta import FrameworkMeta
-from scieasy.core.types.array import Array
-from scieasy.utils.axis_iter import iterate_over_axes
-from scieasy.utils.broadcast import BroadcastError
+from scistudio.core.meta import FrameworkMeta
+from scistudio.core.types.array import Array
+from scistudio.utils.axis_iter import iterate_over_axes
+from scistudio.utils.broadcast import BroadcastError
 
 # ---------------------------------------------------------------------------
 # Fixtures

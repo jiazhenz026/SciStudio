@@ -2,8 +2,8 @@
 
 ## Task Identity
 
-- Repository: SciEasy
-- Owner request: Audit every Image-domain ProcessBlock in scieasy-blocks-imaging and update each one to propagate `Image.Meta.ome` per the ADR-043 propagation contract (Modes A/B/C); commit an audit report enumerating each block's mode classification and ome decision.
+- Repository: SciStudio
+- Owner request: Audit every Image-domain ProcessBlock in scistudio-blocks-imaging and update each one to propagate `Image.Meta.ome` per the ADR-043 propagation contract (Modes A/B/C); commit an audit report enumerating each block's mode classification and ome decision.
 - Task kind: refactor
 - Persona: implementer
 - Parent tracking issue: #1204
@@ -12,7 +12,7 @@
 - Protected branch: main
 - Umbrella branch: track/adr-043/core-blocks-and-imaging (already includes Phase A2 merge providing `Image.Meta.ome` and `Label.Meta.ome` fields)
 - Agent branch: feat/issue-1296/adr043-b1-imaging-propagation
-- Agent worktree: `/c/Users/jiazh/Desktop/workspace/SciEasy/.claude/worktrees/adr-043-b1-imaging-propagation` (manager pre-created)
+- Agent worktree: `/c/Users/jiazh/Desktop/workspace/SciStudio/.claude/worktrees/adr-043-b1-imaging-propagation` (manager pre-created)
 - Manager checklist: `docs/planning/adr-043-package-migration-checklist.md` (edit ONLY rows in §6 marked "B1" and §10 Track B1)
 - Spec: `docs/specs/adr-043-package-migration.md` (your work is Phase B1 / FR-009, FR-010)
 
@@ -32,15 +32,15 @@ Read and follow:
 
 You own only:
 
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/geometry.py` (`_resize_meta` helper — Mode B; update to handle `ome` field axes/pixel_size adjustment)
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/axis_ops.py` (`_split_meta` helper — Mode B; propagate ome to split outputs)
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/projection/projection.py` (`_projected_meta` helper — Mode B; rewrite ome dimensions on axis projection)
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/segmentation/*.py` (Mode C blocks — add `ome=source.meta.ome` to rebuilt Meta where output preserves spatial coordinate system, e.g. cellpose_segment.py L110 mask_img and L147 Label output)
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/math/*.py` (Mode A — verify `meta=source.meta` intact; no-op fix expected)
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/morphology/*.py` (Mode A — verify)
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/registration/*.py` (Mode A — verify)
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/measurement/*.py` (Mode C — outputs are DataFrames with no image coord; legitimately drop ome and document)
-- `packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py` (create)
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocess/geometry.py` (`_resize_meta` helper — Mode B; update to handle `ome` field axes/pixel_size adjustment)
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocess/axis_ops.py` (`_split_meta` helper — Mode B; propagate ome to split outputs)
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/projection/projection.py` (`_projected_meta` helper — Mode B; rewrite ome dimensions on axis projection)
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/segmentation/*.py` (Mode C blocks — add `ome=source.meta.ome` to rebuilt Meta where output preserves spatial coordinate system, e.g. cellpose_segment.py L110 mask_img and L147 Label output)
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/math/*.py` (Mode A — verify `meta=source.meta` intact; no-op fix expected)
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/morphology/*.py` (Mode A — verify)
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/registration/*.py` (Mode A — verify)
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/measurement/*.py` (Mode C — outputs are DataFrames with no image coord; legitimately drop ome and document)
+- `packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py` (create)
 - `docs/audit/adr-043-imaging-propagation-audit.md` (create — committed audit report)
 - `CHANGELOG.md` (Unreleased entry only)
 - Your own gate record at `.workflow/records/1296-b1-imaging-propagation.json`
@@ -48,11 +48,11 @@ You own only:
 
 You must not touch:
 
-- IO blocks: `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/*.py` — already migrated by A2.
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/types.py` — A2's territory. The `ome` field is already there.
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/interactive/*.py` — AppBlocks, separate concern.
-- `packages/scieasy-blocks-srs/**` — that is B2 agent's territory.
-- `src/scieasy/**` — out of scope for this phase.
+- IO blocks: `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/*.py` — already migrated by A2.
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/types.py` — A2's territory. The `ome` field is already there.
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/*.py` — AppBlocks, separate concern.
+- `packages/scistudio-blocks-srs/**` — that is B2 agent's territory.
+- `src/scistudio/**` — out of scope for this phase.
 - `frontend/src/**` — A3 agent.
 - Other agents' branches/worktrees.
 
@@ -94,7 +94,7 @@ Known deferred items:
 
 3. **T-032 (Mode C fixes):** Walk every segmentation/*.py block. For each block where the output is shape-aligned with input (cellpose_segment.py L110 mask_img, L147 Label output, blob_detect, watershed, connected_components, cleanup, threshold), add `ome=image.meta.ome if image.meta else None` to the rebuilt Meta. For measurement/*.py blocks (region_props, colocalization, pairwise_distance) where output is a DataFrame, document the deliberate drop.
 
-4. **T-033 (Tests):** Create `packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py`. Cover:
+4. **T-033 (Tests):** Create `packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py`. Cover:
    - At least one test per Mode (A/B/C) per affected sub-package.
    - Mode A: load Image with ome.physical_size_x=0.5; run ImageCalculator; assert output.meta.ome.images[0].pixels.physical_size_x == 0.5.
    - Mode B: load Image with ome.physical_size_x=0.5; Resize(factor=0.5); assert output.meta.ome.images[0].pixels.physical_size_x == 1.0.
@@ -109,16 +109,16 @@ Known deferred items:
 
 ## Required Tests And Checks
 
-- `pytest packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py --timeout=60`
-- `pytest packages/scieasy-blocks-imaging/tests/` (broader, ensure no regression on existing tests)
-- `ruff check packages/scieasy-blocks-imaging/`
-- `ruff format --check packages/scieasy-blocks-imaging/`
-- `python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` — pre-existing repo debt is owner-acknowledged; if your changes add NEW findings fix them.
+- `pytest packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py --timeout=60`
+- `pytest packages/scistudio-blocks-imaging/tests/` (broader, ensure no regression on existing tests)
+- `ruff check packages/scistudio-blocks-imaging/`
+- `ruff format --check packages/scistudio-blocks-imaging/`
+- `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` — pre-existing repo debt is owner-acknowledged; if your changes add NEW findings fix them.
 - Sentrux: skipped with rationale if CLI unavailable.
 
 ## Gate Record Stages You Must Execute
 
-`python -m scieasy.qa.governance.gate_record start --task-kind refactor --issue 1296 --slug b1-imaging-propagation --branch feat/issue-1296/adr043-b1-imaging-propagation --owner-directive "Phase B1: imaging ProcessBlock OME propagation audit + fix per spec FR-009/FR-010" --include <each file> --record-path .workflow/records/1296-b1-imaging-propagation.json`
+`python -m scistudio.qa.governance.gate_record start --task-kind refactor --issue 1296 --slug b1-imaging-propagation --branch feat/issue-1296/adr043-b1-imaging-propagation --owner-directive "Phase B1: imaging ProcessBlock OME propagation audit + fix per spec FR-009/FR-010" --include <each file> --record-path .workflow/records/1296-b1-imaging-propagation.json`
 
 Then `plan`, `docs`, `check` (×N), `sentrux`, `finalize` per usual A1/A2 pattern.
 

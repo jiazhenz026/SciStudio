@@ -9,14 +9,14 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from scieasy.engine.events import EventBus
-from scieasy.engine.runners.local import LocalRunner, _derive_output_dir
-from scieasy.engine.runners.process_handle import (
+from scistudio.engine.events import EventBus
+from scistudio.engine.runners.local import LocalRunner, _derive_output_dir
+from scistudio.engine.runners.process_handle import (
     ProcessExitInfo,
     ProcessHandle,
     ProcessRegistry,
 )
-from scieasy.engine.runners.worker import reconstruct_inputs, serialise_outputs
+from scistudio.engine.runners.worker import reconstruct_inputs, serialise_outputs
 
 # ---------------------------------------------------------------------------
 # Construction
@@ -135,7 +135,7 @@ class TestLocalRunnerRun:
         mock_proc.communicate = AsyncMock(return_value=(stdout, stderr))
         return mock_proc
 
-    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_run_returns_parsed_output(self, mock_create_sub: AsyncMock) -> None:
         """run() should return the worker output payload from subprocess stdout."""
         output_data = {"outputs": {"result": "42"}}
@@ -168,7 +168,7 @@ class TestLocalRunnerRun:
         assert payload["output_dir"]
         assert Path(payload["output_dir"]).exists()
 
-    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_run_raises_on_nonzero_exit(self, mock_create_sub: AsyncMock) -> None:
         """run() should raise when the subprocess exits with a non-zero code."""
         mock_proc = self._make_async_proc(b"", b"traceback here", 1, pid=101)
@@ -189,7 +189,7 @@ class TestLocalRunnerRun:
         else:
             raise AssertionError("Expected LocalRunner.run() to raise RuntimeError")
 
-    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_run_returns_empty_dict_on_no_stdout(self, mock_create_sub: AsyncMock) -> None:
         """run() should return empty dict when subprocess produces no stdout."""
         mock_proc = self._make_async_proc(b"", b"", 0, pid=102)
@@ -206,7 +206,7 @@ class TestLocalRunnerRun:
         result = asyncio.run(runner.run(FakeBlock(), {}, {}))
         assert result == {}
 
-    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_run_unwraps_output_envelope(self, mock_create_sub: AsyncMock) -> None:
         """run() should unwrap the {"outputs": ...} envelope (#120)."""
         inner = {"port_a": "value_a", "port_b": 123}
@@ -224,7 +224,7 @@ class TestLocalRunnerRun:
         result = asyncio.run(runner.run(FakeBlock(), {}, {}))
         assert result == inner
 
-    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_run_passes_through_non_envelope_json(self, mock_create_sub: AsyncMock) -> None:
         """run() should return raw dict when no 'outputs' key is present."""
         raw = {"error": "something broke"}
@@ -241,13 +241,13 @@ class TestLocalRunnerRun:
         result = asyncio.run(runner.run(FakeBlock(), {}, {}))
         assert result == raw
 
-    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_run_raises_terminal_state_for_cancelled(self, mock_create_sub: AsyncMock) -> None:
         """#681: run() should raise BlockTerminalStateReportedError(CANCELLED)
         when the worker envelope contains ``final_state: "cancelled"``.
         """
-        from scieasy.blocks.base.state import BlockState
-        from scieasy.engine.runners.terminal_state import BlockTerminalStateReportedError
+        from scistudio.blocks.base.state import BlockState
+        from scistudio.engine.runners.terminal_state import BlockTerminalStateReportedError
 
         envelope = {
             "outputs": {},
@@ -272,11 +272,11 @@ class TestLocalRunnerRun:
         else:
             raise AssertionError("Expected BlockTerminalStateReportedError to be raised")
 
-    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_run_raises_terminal_state_for_error(self, mock_create_sub: AsyncMock) -> None:
         """#681: ``final_state: "error"`` raises BlockTerminalStateReportedError(ERROR)."""
-        from scieasy.blocks.base.state import BlockState
-        from scieasy.engine.runners.terminal_state import BlockTerminalStateReportedError
+        from scistudio.blocks.base.state import BlockState
+        from scistudio.engine.runners.terminal_state import BlockTerminalStateReportedError
 
         envelope = {
             "outputs": {"partial": "value"},
@@ -301,7 +301,7 @@ class TestLocalRunnerRun:
         else:
             raise AssertionError("Expected BlockTerminalStateReportedError to be raised")
 
-    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_run_ignores_done_final_state(self, mock_create_sub: AsyncMock) -> None:
         """#681: ``final_state: "done"`` (non-terminal-failure) is treated as a
         normal return — the runner does not raise. The worker only emits
@@ -326,7 +326,7 @@ class TestLocalRunnerRun:
         result = asyncio.run(runner.run(FakeBlock(), {}, {}))
         assert result == {"port_a": "value"}
 
-    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_run_returns_outputs_when_final_state_absent(self, mock_create_sub: AsyncMock) -> None:
         """#681 backward compat: envelope without ``final_state`` returns outputs."""
         envelope = {
@@ -383,7 +383,7 @@ class TestReconstructInputsTypeChain:
         """ADR-027 Addendum 1 §1 (T-014): reconstruct_inputs recovers type_chain
         from metadata and returns a typed DataObject instance.
         """
-        from scieasy.core.types.array import Array
+        from scistudio.core.types.array import Array
 
         payload = {
             "inputs": {
@@ -407,7 +407,7 @@ class TestReconstructInputsTypeChain:
 
     def test_falls_back_to_dataobject_without_metadata(self) -> None:
         """Reconstruct_inputs defaults to bare ``DataObject`` when no type_chain."""
-        from scieasy.core.types.base import DataObject
+        from scistudio.core.types.base import DataObject
 
         payload = {
             "inputs": {
@@ -440,8 +440,8 @@ class TestSerialiseOutputsTypeChain:
         """serialise_outputs includes type_chain in the wire-format metadata
         sidecar (ADR-027 Addendum 1 §1, builds on #132).
         """
-        from scieasy.core.storage.ref import StorageReference
-        from scieasy.core.types.base import DataObject
+        from scistudio.core.storage.ref import StorageReference
+        from scistudio.core.types.base import DataObject
 
         obj = DataObject(storage_ref=StorageReference(backend="zarr", path="/out/result.zarr", format="zarr"))
 
@@ -456,10 +456,10 @@ class TestSerialiseOutputsTypeChain:
 
 
 class TestSpawnEmitScheduling:
-    @patch("scieasy.engine.runners.process_handle.subprocess.Popen")
+    @patch("scistudio.engine.runners.process_handle.subprocess.Popen")
     def test_emit_scheduled_on_running_loop(self, mock_popen_cls: MagicMock) -> None:
         """emit() should be scheduled via create_task when event loop exists (#122)."""
-        from scieasy.engine.runners.process_handle import spawn_block_process
+        from scistudio.engine.runners.process_handle import spawn_block_process
 
         mock_proc = MagicMock()
         mock_proc.pid = 300
@@ -484,10 +484,10 @@ class TestSpawnEmitScheduling:
         asyncio.run(_run())
         bus.emit.assert_called_once()
 
-    @patch("scieasy.engine.runners.process_handle.subprocess.Popen")
+    @patch("scistudio.engine.runners.process_handle.subprocess.Popen")
     def test_emit_skipped_without_event_loop(self, mock_popen_cls: MagicMock) -> None:
         """spawn_block_process should not raise when no event loop exists (#122)."""
-        from scieasy.engine.runners.process_handle import spawn_block_process
+        from scistudio.engine.runners.process_handle import spawn_block_process
 
         mock_proc = MagicMock()
         mock_proc.pid = 301
@@ -518,7 +518,7 @@ class TestSpawnEmitScheduling:
 class TestLocalRunnerAsyncBehavior:
     """Verify LocalRunner.run() does not block the event loop (#162)."""
 
-    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_event_loop_responsive_during_run(self, mock_create_sub: AsyncMock) -> None:
         """A concurrent coroutine should complete while run() is in progress."""
         output_data = {"outputs": {"result": "ok"}}
@@ -553,7 +553,7 @@ class TestLocalRunnerAsyncBehavior:
         asyncio.run(_test())
         assert concurrent_ran, "Concurrent coroutine should have completed during run()"
 
-    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_run_uses_block_id_attribute(self, mock_create_sub: AsyncMock) -> None:
         """run() should read block.id and use it as the ProcessHandle identifier (#163).
 
@@ -590,7 +590,7 @@ class TestLocalRunnerWorkerCwd:
     the worker subprocess MUST run with ``cwd=config['project_dir']`` when an
     active project is set, so block configs that use project-relative paths
     (LoadImage, SaveData, custom blocks, etc.) resolve against the project
-    root and not against wherever ``scieasy gui`` was launched.
+    root and not against wherever ``scistudio gui`` was launched.
     """
 
     def _make_async_proc(self, stdout: bytes, stderr: bytes, returncode: int, pid: int = 200) -> AsyncMock:
@@ -600,7 +600,7 @@ class TestLocalRunnerWorkerCwd:
         mock_proc.communicate = AsyncMock(return_value=(stdout, stderr))
         return mock_proc
 
-    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_worker_cwd_uses_project_dir_when_active(self, mock_create_sub: AsyncMock, tmp_path: Path) -> None:
         mock_create_sub.return_value = self._make_async_proc(b"{}", b"", 0, pid=200)
         runner = LocalRunner()
@@ -615,7 +615,7 @@ class TestLocalRunnerWorkerCwd:
         call_kwargs = mock_create_sub.call_args.kwargs
         assert call_kwargs.get("cwd") == str(project_dir)
 
-    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_worker_cwd_is_none_when_no_active_project(self, mock_create_sub: AsyncMock) -> None:
         mock_create_sub.return_value = self._make_async_proc(b"{}", b"", 0, pid=201)
         runner = LocalRunner()
@@ -628,7 +628,7 @@ class TestLocalRunnerWorkerCwd:
         call_kwargs = mock_create_sub.call_args.kwargs
         assert call_kwargs.get("cwd") is None
 
-    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_worker_cwd_ignores_non_string_project_dir(self, mock_create_sub: AsyncMock) -> None:
         mock_create_sub.return_value = self._make_async_proc(b"{}", b"", 0, pid=202)
         runner = LocalRunner()
@@ -641,7 +641,7 @@ class TestLocalRunnerWorkerCwd:
         call_kwargs = mock_create_sub.call_args.kwargs
         assert call_kwargs.get("cwd") is None
 
-    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_worker_env_prepends_parent_cwd_to_pythonpath(self, mock_create_sub: AsyncMock, tmp_path: Path) -> None:
         """When worker cwd is overridden to project_dir, the parent process
         cwd MUST be added to PYTHONPATH so imports that previously resolved
@@ -666,7 +666,7 @@ class TestLocalRunnerWorkerCwd:
         pp = env.get("PYTHONPATH", "")
         assert parent_cwd_before in pp.split(os.pathsep)
 
-    @patch("scieasy.engine.runners.local.asyncio.create_subprocess_exec")
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_worker_env_is_none_when_no_active_project(self, mock_create_sub: AsyncMock) -> None:
         """When no project is active (CLI standalone runs), env is None so
         the worker inherits the parent env unchanged."""

@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from scieasy.api.routes import ai as ai_routes
+from scistudio.api.routes import ai as ai_routes
 
 
 def test_status_returns_locked_shape(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

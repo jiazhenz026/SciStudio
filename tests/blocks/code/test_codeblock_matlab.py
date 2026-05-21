@@ -6,16 +6,16 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.blocks.code.backends.matlab import (
+from scistudio.blocks.code.backends.matlab import (
     MatlabCodeBlockBackend,
     MatlabRuntimeResolutionError,
     build_matlab_command,
     register,
     resolve_matlab_executable,
 )
-from scieasy.blocks.code.code_block import CodeBlockRuntimeContext, list_codeblock_backends
-from scieasy.blocks.code.config import CodeBlockConfig
-from scieasy.blocks.code.interpreters import ResolvedInterpreter
+from scistudio.blocks.code.code_block import CodeBlockRuntimeContext, list_codeblock_backends
+from scistudio.blocks.code.config import CodeBlockConfig
+from scistudio.blocks.code.interpreters import ResolvedInterpreter
 
 
 def _write_script(project_dir: Path, name: str = "scripts/run.m") -> Path:
@@ -39,7 +39,7 @@ def _context(project_dir: Path, script_path: str, **kwargs: object) -> CodeBlock
         script_path=script,
         project_dir=project_dir,
         exchange_dir=exchange_dir,
-        environment_config={"environment_variables": {"SCIEASY_CODEBLOCK_TEST": "1"}},
+        environment_config={"environment_variables": {"SCISTUDIO_CODEBLOCK_TEST": "1"}},
     )
 
 
@@ -63,7 +63,7 @@ def test_auto_selection_prefers_matlab_for_plain_m(monkeypatch: pytest.MonkeyPat
     def fake_which(name: str) -> str | None:
         return f"/toolchain/{name}" if name in {"matlab", "octave"} else None
 
-    monkeypatch.setattr("scieasy.blocks.code.backends.matlab.which_executable", fake_which)
+    monkeypatch.setattr("scistudio.blocks.code.backends.matlab.which_executable", fake_which)
 
     executable, family = resolve_matlab_executable(suffix=".m", mode="auto", interpreter_path=None)
 
@@ -75,7 +75,7 @@ def test_auto_selection_uses_octave_for_plain_m_when_matlab_missing(monkeypatch:
     def fake_which(name: str) -> str | None:
         return "/toolchain/octave" if name == "octave" else None
 
-    monkeypatch.setattr("scieasy.blocks.code.backends.matlab.which_executable", fake_which)
+    monkeypatch.setattr("scistudio.blocks.code.backends.matlab.which_executable", fake_which)
 
     executable, family = resolve_matlab_executable(suffix=".m", mode="auto", interpreter_path=None)
 
@@ -87,21 +87,21 @@ def test_mlx_requires_matlab_in_auto_mode(monkeypatch: pytest.MonkeyPatch) -> No
     def fake_which(name: str) -> str | None:
         return "/toolchain/octave" if name == "octave" else None
 
-    monkeypatch.setattr("scieasy.blocks.code.backends.matlab.which_executable", fake_which)
+    monkeypatch.setattr("scistudio.blocks.code.backends.matlab.which_executable", fake_which)
 
     with pytest.raises(MatlabRuntimeResolutionError, match=r"\.mlx CodeBlock scripts require MATLAB"):
         resolve_matlab_executable(suffix=".mlx", mode="auto", interpreter_path=None)
 
 
 def test_existing_octave_rejected_for_mlx(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("scieasy.blocks.code.backends.matlab.which_executable", lambda name: f"/toolchain/{name}")
+    monkeypatch.setattr("scistudio.blocks.code.backends.matlab.which_executable", lambda name: f"/toolchain/{name}")
 
     with pytest.raises(MatlabRuntimeResolutionError, match="Octave cannot execute live scripts"):
         resolve_matlab_executable(suffix=".mlx", mode="existing", interpreter_path="octave")
 
 
 def test_missing_executable_reports_matlab_family_diagnostic(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("scieasy.blocks.code.backends.matlab.which_executable", lambda name: None)
+    monkeypatch.setattr("scistudio.blocks.code.backends.matlab.which_executable", lambda name: None)
 
     with pytest.raises(MatlabRuntimeResolutionError, match="No MATLAB or Octave executable"):
         resolve_matlab_executable(suffix=".m", mode="auto", interpreter_path=None)
@@ -118,9 +118,9 @@ def test_command_construction_is_deterministic_for_matlab_and_octave(tmp_path: P
 
 
 def test_resolve_builds_runtime_metadata(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr("scieasy.blocks.code.backends.matlab.which_executable", lambda name: f"/toolchain/{name}")
+    monkeypatch.setattr("scistudio.blocks.code.backends.matlab.which_executable", lambda name: f"/toolchain/{name}")
     monkeypatch.setattr(
-        "scieasy.blocks.code.backends.matlab.probe_matlab_version",
+        "scistudio.blocks.code.backends.matlab.probe_matlab_version",
         lambda *, executable, family: ("MATLAB test-version", []),
     )
     context = _context(tmp_path, "scripts/run.m")
@@ -133,7 +133,7 @@ def test_resolve_builds_runtime_metadata(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert resolved.argv[0] == "/toolchain/matlab"
     assert resolved.argv[1] == "-batch"
     assert resolved.working_directory == context.exchange_dir.as_posix()
-    assert resolved.environment == {"SCIEASY_CODEBLOCK_TEST": "1"}
+    assert resolved.environment == {"SCISTUDIO_CODEBLOCK_TEST": "1"}
     assert resolved.version == "MATLAB test-version"
 
 
@@ -144,7 +144,7 @@ def test_run_reuses_shared_codeblock_process(monkeypatch: pytest.MonkeyPatch, tm
         executable="/toolchain/matlab",
         argv=["/toolchain/matlab", "-batch", "run('script.m')"],
         working_directory=context.exchange_dir.as_posix(),
-        environment={"SCIEASY_CODEBLOCK_TEST": "1"},
+        environment={"SCISTUDIO_CODEBLOCK_TEST": "1"},
     )
     calls: dict[str, object] = {}
 
@@ -152,7 +152,7 @@ def test_run_reuses_shared_codeblock_process(monkeypatch: pytest.MonkeyPatch, tm
         calls.update(kwargs)
         return subprocess.CompletedProcess(interpreter.argv, 0, stdout="ok", stderr="")
 
-    monkeypatch.setattr("scieasy.blocks.code.backends.matlab.run_codeblock_process", fake_run_codeblock_process)
+    monkeypatch.setattr("scistudio.blocks.code.backends.matlab.run_codeblock_process", fake_run_codeblock_process)
 
     completed = MatlabCodeBlockBackend().run(context, interpreter)
 

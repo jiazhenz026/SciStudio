@@ -20,7 +20,7 @@ You are **Auditor A<NNN>-impl** for the ADR-<NNN> implementation phase. Tracking
 ```
 git fetch origin
 git checkout -b audit/impl-<NNN>-<datestamp> origin/track/adr-<NNN>/<short-name>
-python -c "import scieasy; print(scieasy.__file__)"
+python -c "import scistudio; print(scistudio.__file__)"
 cd frontend && npm install
 cd ..
 ```
@@ -52,7 +52,7 @@ Severity:
 ruff format --check .
 ruff check .
 pytest -q --timeout=60
-mypy src/scieasy/ --ignore-missing-imports
+mypy src/scistudio/ --ignore-missing-imports
 cd frontend && npm run build && npx vitest run --reporter=basic
 cd ..
 ```
@@ -64,7 +64,7 @@ Any failure = P1.
 Per `feedback_mandatory_chrome_smoke_test` and `feedback_phase_audit_smoke_test`. Unit tests do NOT replace this.
 
 ```
-scieasy gui --port <free> --no-browser   # background
+scistudio gui --port <free> --no-browser   # background
 ```
 
 Use Chrome MCP (`mcp__claude-in-chrome__*` tools — load via ToolSearch first).

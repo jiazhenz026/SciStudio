@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.qa.audit.doc_drift import classify_repo
-from scieasy.qa.schemas.facts import Fact, FactsRegistry
-from scieasy.qa.schemas.report import AuditStatus
+from scistudio.qa.audit.doc_drift import classify_repo
+from scistudio.qa.schemas.facts import Fact, FactsRegistry
+from scistudio.qa.schemas.report import AuditStatus
 
 
 def _write_adr(path: Path, *, module: str, phase: str = "implementation", adr: int = 42) -> None:

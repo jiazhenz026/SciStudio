@@ -19,12 +19,12 @@ from typing import Any, ClassVar
 
 import pytest
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.core.storage.flush_context import clear, set_output_dir
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.storage.flush_context import clear, set_output_dir
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
 
 
 @pytest.fixture(autouse=True)

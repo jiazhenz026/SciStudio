@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from scieasy.api.runtime import ApiRuntime, _rmtree_force
+from scistudio.api.runtime import ApiRuntime, _rmtree_force
 
 _DIRTY_YAML = (
     "workflow:\n  id: main\n  version: 1.0.1\n"
@@ -36,7 +36,7 @@ def _commit_initial_workflow(project_path: Path, runtime: ApiRuntime) -> str:
     """Drain the seed dirty tree (lineage.db etc.) so HEAD is clean."""
     if runtime.workflow_runs:
         runtime.workflow_runs.clear()
-    from scieasy.core.versioning.git_engine import GitEngine
+    from scistudio.core.versioning.git_engine import GitEngine
 
     engine = GitEngine(project_path)
     if engine.status()["dirty"]:
@@ -61,7 +61,7 @@ def test_start_workflow_captures_git_commit_dirty_tree(client: TestClient, opene
     """
     runtime: ApiRuntime = client.app.state.runtime
 
-    from scieasy.core.versioning.git_engine import GitEngine
+    from scistudio.core.versioning.git_engine import GitEngine
 
     engine = GitEngine(opened_project)
     head_before_dirty = _commit_initial_workflow(opened_project, runtime)
@@ -103,7 +103,7 @@ def test_start_workflow_captures_git_commit_clean_tree(client: TestClient, opene
     runtime: ApiRuntime = client.app.state.runtime
     head_clean = _commit_initial_workflow(opened_project, runtime)
 
-    from scieasy.core.versioning.git_engine import GitEngine
+    from scistudio.core.versioning.git_engine import GitEngine
 
     engine = GitEngine(opened_project)
     assert engine.status()["dirty"] is False
@@ -164,7 +164,7 @@ def test_start_workflow_dirty_tree_commit_failure_degrades_to_none(
 
     # Monkeypatch GitEngine.commit to raise, simulating a stuck index
     # / locked .git / disk-full failure during auto-commit.
-    from scieasy.core.versioning.git_engine import GitEngine, GitError
+    from scistudio.core.versioning.git_engine import GitEngine, GitError
 
     def _fail_commit(self, *args, **kwargs):  # type: ignore[no-untyped-def]
         raise GitError(1, "simulated auto-commit failure", ["commit"])

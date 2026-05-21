@@ -53,10 +53,10 @@ jobs:
       - run: uv pip install --system -e ".[dev]"
       - name: Run mypy
         run: |
-          if [ -d src/scieasy ]; then
-            mypy src/scieasy/ --ignore-missing-imports
+          if [ -d src/scistudio ]; then
+            mypy src/scistudio/ --ignore-missing-imports
           else
-            echo "No src/scieasy/ directory yet — skipping"
+            echo "No src/scistudio/ directory yet — skipping"
           fi
 
   architecture:
@@ -91,7 +91,7 @@ jobs:
       - name: Run ADR-042 full audit
         run: |
           mkdir -p .audit
-          PYTHONPATH=src python -m scieasy.qa.audit.full_audit \
+          PYTHONPATH=src python -m scistudio.qa.audit.full_audit \
             --repo-root . \
             --format json \
             --output .audit/full-audit.json
@@ -122,7 +122,7 @@ jobs:
       - name: Run tests
         shell: bash {0}
         env:
-          SCIEASY_DEV: "1"
+          SCISTUDIO_DEV: "1"
         # ``--timeout=60`` (pytest-timeout) hard-kills any test that hangs
         # past 60 s and prints its traceback, so a stuck CI surfaces a
         # diagnosable failure instead of timing out the whole job at 6 h.
@@ -159,10 +159,10 @@ jobs:
       - run: uv pip install --system -e ".[dev]"
       - name: Run import linter
         run: |
-          if [ -d src/scieasy ]; then
+          if [ -d src/scistudio ]; then
             lint-imports
           else
-            echo "No src/scieasy/ directory yet — skipping"
+            echo "No src/scistudio/ directory yet — skipping"
           fi
 
   # frontend:
@@ -228,8 +228,8 @@ jobs:
         working-directory: frontend
         run: npm ci && npm run build
       - name: Copy build output to Python package
-        run: cp -r frontend/dist/ src/scieasy/api/static/
+        run: cp -r frontend/dist/ src/scistudio/api/static/
       - uses: actions/upload-artifact@v7
         with:
           name: frontend-static
-          path: src/scieasy/api/static/
+          path: src/scistudio/api/static/

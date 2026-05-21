@@ -115,7 +115,7 @@ class TestNativeDialog:
         """Successful directory dialog returns the selected path in a list."""
         import subprocess
 
-        import scieasy.api.routes.filesystem as fs_mod
+        import scistudio.api.routes.filesystem as fs_mod
 
         fake_dir = str(opened_project / "data")
 
@@ -140,7 +140,7 @@ class TestNativeDialog:
         """Successful file dialog returns the selected file path in a list."""
         import subprocess
 
-        import scieasy.api.routes.filesystem as fs_mod
+        import scistudio.api.routes.filesystem as fs_mod
 
         fake_file = str(opened_project / "data" / "sample.csv")
 
@@ -165,7 +165,7 @@ class TestNativeDialog:
         """File dialog with multiple selections returns pipe-separated paths."""
         import subprocess
 
-        import scieasy.api.routes.filesystem as fs_mod
+        import scistudio.api.routes.filesystem as fs_mod
 
         fake_a = str(opened_project / "data" / "a.csv")
         fake_b = str(opened_project / "data" / "b.csv")
@@ -191,7 +191,7 @@ class TestNativeDialog:
         """Cancelled dialog returns empty paths list."""
         import subprocess
 
-        import scieasy.api.routes.filesystem as fs_mod
+        import scistudio.api.routes.filesystem as fs_mod
 
         class FakeCompletedProcess:
             stdout = "\n"
@@ -214,7 +214,7 @@ class TestNativeDialog:
         """Dialog timeout returns 504."""
         import subprocess
 
-        import scieasy.api.routes.filesystem as fs_mod
+        import scistudio.api.routes.filesystem as fs_mod
 
         original_run = subprocess.run
 
@@ -235,7 +235,7 @@ class TestNativeDialog:
         """Missing native command returns 500."""
         import subprocess
 
-        import scieasy.api.routes.filesystem as fs_mod
+        import scistudio.api.routes.filesystem as fs_mod
 
         original_run = subprocess.run
 
@@ -274,7 +274,7 @@ class TestRevealInExplorer:
             def __init__(self, args: list[str], **_kwargs: object) -> None:
                 calls.append(args)
 
-        import scieasy.api.routes.filesystem as fs_mod
+        import scistudio.api.routes.filesystem as fs_mod
 
         # Monkeypatch subprocess.Popen in the filesystem module
         original_popen = subprocess.Popen
@@ -331,7 +331,7 @@ class TestRevealPathSanitiser:
         """Reveal with a valid path under the user home returns 200 (mocked subprocess)."""
         import subprocess
 
-        import scieasy.api.routes.filesystem as fs_mod
+        import scistudio.api.routes.filesystem as fs_mod
 
         calls: list[list[str]] = []
 
@@ -355,7 +355,7 @@ class TestRevealPathSanitiser:
         """Reveal with a valid path under tempdir returns 200 (mocked subprocess)."""
         import subprocess
 
-        import scieasy.api.routes.filesystem as fs_mod
+        import scistudio.api.routes.filesystem as fs_mod
 
         # Create a real file under tmp_path so the existence check passes.
         target = tmp_path / "sample.txt"

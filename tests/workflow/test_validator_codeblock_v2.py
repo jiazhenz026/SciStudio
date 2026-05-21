@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.blocks.code.code_block import CodeBlock
-from scieasy.blocks.registry import BlockRegistry, _spec_from_class
-from scieasy.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
-from scieasy.workflow.validator import validate_workflow
+from scistudio.blocks.code.code_block import CodeBlock
+from scistudio.blocks.registry import BlockRegistry, _spec_from_class
+from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
+from scistudio.workflow.validator import validate_workflow
 
 
 class _CodeBlockValidationRegistry(BlockRegistry):

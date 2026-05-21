@@ -1,5 +1,5 @@
 [project]
-name = "scieasy"
+name = "scistudio"
 version = "0.2.1"
 description = "AI-native, inclusive workflow runtime for multimodal scientific data"
 readme = "README.md"
@@ -50,51 +50,51 @@ dev = [
     "griffe>=1.7",
     "pre-commit>=4.0",
     # ADR-043 / spec adr-043-package-migration FR-017: ome-types is a required
-    # dep of scieasy-blocks-imaging now that Image.Meta carries a typed
+    # dep of scistudio-blocks-imaging now that Image.Meta carries a typed
     # ``ome: OME | None`` field. Listed here as well so the skeleton import
     # tests in ``tests/plugins/test_phase11_skeleton.py`` (which exercise
-    # ``importlib.import_module(scieasy_blocks_imaging...)`` directly without
+    # ``importlib.import_module(scistudio_blocks_imaging...)`` directly without
     # installing the plugin package) can succeed in CI.
     "ome-types>=0.5,<0.6",
 ]
 
 [project.scripts]
-scieasy = "scieasy.cli.main:app"
+scistudio = "scistudio.cli.main:app"
 
-[project.entry-points."scieasy.blocks"]
-load_data = "scieasy.blocks.io.loaders.load_data:LoadData"
-save_data = "scieasy.blocks.io.savers.save_data:SaveData"
-process_merge = "scieasy.blocks.process.builtins.merge:MergeBlock"
-process_split = "scieasy.blocks.process.builtins.split:SplitBlock"
-code_block = "scieasy.blocks.code:CodeBlock"
-app_block = "scieasy.blocks.app:AppBlock"
-ai_block = "scieasy.blocks.ai:AIBlock"
-subworkflow_block = "scieasy.blocks.subworkflow:SubWorkflowBlock"
-merge_collection = "scieasy.blocks.process.builtins.merge_collection:MergeCollection"
-split_collection = "scieasy.blocks.process.builtins.split_collection:SplitCollection"
-filter_collection = "scieasy.blocks.process.builtins.filter_collection:FilterCollection"
-slice_collection = "scieasy.blocks.process.builtins.slice_collection:SliceCollection"
-data_router = "scieasy.blocks.process.builtins.data_router:DataRouter"
-pair_editor = "scieasy.blocks.process.builtins.pair_editor:PairEditor"
+[project.entry-points."scistudio.blocks"]
+load_data = "scistudio.blocks.io.loaders.load_data:LoadData"
+save_data = "scistudio.blocks.io.savers.save_data:SaveData"
+process_merge = "scistudio.blocks.process.builtins.merge:MergeBlock"
+process_split = "scistudio.blocks.process.builtins.split:SplitBlock"
+code_block = "scistudio.blocks.code:CodeBlock"
+app_block = "scistudio.blocks.app:AppBlock"
+ai_block = "scistudio.blocks.ai:AIBlock"
+subworkflow_block = "scistudio.blocks.subworkflow:SubWorkflowBlock"
+merge_collection = "scistudio.blocks.process.builtins.merge_collection:MergeCollection"
+split_collection = "scistudio.blocks.process.builtins.split_collection:SplitCollection"
+filter_collection = "scistudio.blocks.process.builtins.filter_collection:FilterCollection"
+slice_collection = "scistudio.blocks.process.builtins.slice_collection:SliceCollection"
+data_router = "scistudio.blocks.process.builtins.data_router:DataRouter"
+pair_editor = "scistudio.blocks.process.builtins.pair_editor:PairEditor"
 
-# T-TRK-004 / ADR-028 §D4: the ``scieasy.adapters`` entry-point group
+# T-TRK-004 / ADR-028 §D4: the ``scistudio.adapters`` entry-point group
 # has been removed. Plugin-owned IO blocks now register via the
-# ``scieasy.blocks`` entry-point group as ``IOBlock`` subclasses
+# ``scistudio.blocks`` entry-point group as ``IOBlock`` subclasses
 # (see ADR-028 §D1 + Addendum 1 §C). Core ``LoadData`` and ``SaveData``
 # entry-points will be added by T-TRK-007 / T-TRK-008.
 
 # T-008 / ADR-027 D2: the previous entry-points here pointed at
 # core ``Image``, ``Spectrum``, and ``PeakTable`` classes that were
 # removed in T-006 and T-007. The classes now live in plugin
-# packages (``scieasy-blocks-imaging``, ``scieasy-blocks-spectral``)
-# which declare their own ``scieasy.types`` entry-points. The core
+# packages (``scistudio-blocks-imaging``, ``scistudio-blocks-spectral``)
+# which declare their own ``scistudio.types`` entry-points. The core
 # repository contributes no built-in domain types via this group.
-[project.entry-points."scieasy.types"]
+[project.entry-points."scistudio.types"]
 
-[project.entry-points."scieasy.runners"]
-python = "scieasy.blocks.code.runners.python_runner:PythonRunner"
-r = "scieasy.blocks.code.runners.r_runner:RRunner"
-julia = "scieasy.blocks.code.runners.julia_runner:JuliaRunner"
+[project.entry-points."scistudio.runners"]
+python = "scistudio.blocks.code.runners.python_runner:PythonRunner"
+r = "scistudio.blocks.code.runners.r_runner:RRunner"
+julia = "scistudio.blocks.code.runners.julia_runner:JuliaRunner"
 
 [build-system]
 requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]
@@ -104,16 +104,16 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
-scieasy = [
+scistudio = [
     "api/static/**/*",
     "cli/templates/**/*.tpl",
     # ADR-040 §3.4: multi-skill source tree must ship in the wheel so
-    # ``scieasy install --target claude|codex`` and the agent_provisioning
+    # ``scistudio install --target claude|codex`` and the agent_provisioning
     # cross-installer can find canonical bodies.
-    "_skills/scieasy/**/*.md",
+    "_skills/scistudio/**/*.md",
     # ADR-040 §3.5-3.8: agent_provisioning template files (CLAUDE.md/AGENTS.md,
     # codex_config.toml, 6 hook scripts) must ship with the wheel so
-    # ``scieasy init`` / ``ApiRuntime.create_project`` can install them.
+    # ``scistudio init`` / ``ApiRuntime.create_project`` can install them.
     "agent_provisioning/templates/**/*",
 ]
 
@@ -139,7 +139,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["scieasy"]
+known-first-party = ["scistudio"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -148,7 +148,7 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
 mypy_path = "src"
-packages = ["scieasy"]
+packages = ["scistudio"]
 
 # zarr 3.2+ uses PEP 695 generic syntax (`class Foo[T]:`) which is only valid
 # in Python 3.12+. Our mypy is pinned to python_version = "3.11", so it cannot
@@ -161,7 +161,7 @@ follow_imports = "skip"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # TEMP: lowered until ADR-034 Phase 1-3 restores test coverage. See PR #808 rollback context.
-addopts = "-ra -q --cov=scieasy --cov-report=term-missing --cov-fail-under=70"
+addopts = "-ra -q --cov=scistudio --cov-report=term-missing --cov-fail-under=70"
 # ADR-040 preflight: per-test 60s wall-clock kill via pytest-timeout. Without
 # this, hung tests (Windows subprocess pipe issues, deadlocked asyncio) hang
 # pytest forever which hangs agents forever. ``thread`` method works on Windows
@@ -172,33 +172,33 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
-    "requires_imaging: marks tests that need scieasy-blocks-imaging installed (deselect with '-m \"not requires_imaging\"')",
+    "requires_imaging: marks tests that need scistudio-blocks-imaging installed (deselect with '-m \"not requires_imaging\"')",
     "requires_r: tests that need an R installation with Rscript on PATH",
-    "requires_fiji: marks tests that need a local Fiji install at the master-plan §10 path (deselect with '-m \"not requires_fiji\"'). T-IMG-038 will migrate this marker to packages/scieasy-blocks-imaging/pyproject.toml.",
+    "requires_fiji: marks tests that need a local Fiji install at the master-plan §10 path (deselect with '-m \"not requires_fiji\"'). T-IMG-038 will migrate this marker to packages/scistudio-blocks-imaging/pyproject.toml.",
 ]
 
 [tool.importlinter]
-root_packages = ["scieasy"]
+root_packages = ["scistudio"]
 
 [[tool.importlinter.contracts]]
 name = "Core must not depend on blocks, engine, api, ai, or workflow"
 type = "forbidden"
-source_modules = ["scieasy.core"]
-forbidden_modules = ["scieasy.blocks", "scieasy.engine", "scieasy.api", "scieasy.ai", "scieasy.workflow"]
+source_modules = ["scistudio.core"]
+forbidden_modules = ["scistudio.blocks", "scistudio.engine", "scistudio.api", "scistudio.ai", "scistudio.workflow"]
 # ADR-038 §3.2: LineageRecorder lives in core/lineage/ but observes the
 # engine EventBus. The actual import is TYPE_CHECKING-only — event-name
 # strings are hardcoded in core to avoid runtime coupling, and runtime
 # objects (EventBus, EngineEvent) arrive via constructor injection. The
 # type-shape reference is unavoidable for the type checker.
 ignore_imports = [
-    "scieasy.core.lineage.recorder -> scieasy.engine.events",
+    "scistudio.core.lineage.recorder -> scistudio.engine.events",
 ]
 
 [[tool.importlinter.contracts]]
 name = "Blocks must not depend on engine, api, or ai services"
 type = "forbidden"
-source_modules = ["scieasy.blocks"]
-forbidden_modules = ["scieasy.engine", "scieasy.api", "scieasy.ai"]
+source_modules = ["scistudio.blocks"]
+forbidden_modules = ["scistudio.engine", "scistudio.api", "scistudio.ai"]
 # Narrow carve-outs for engine-layer dispatch surfaces that block-layer
 # code must call. Each entry cites the ADR that justifies the boundary
 # crossing.
@@ -215,14 +215,14 @@ forbidden_modules = ["scieasy.engine", "scieasy.api", "scieasy.ai"]
 # below are lazy function-body imports executed only inside the per-run
 # AppBlock dispatch path.
 ignore_imports = [
-    "scieasy.blocks.ai.ai_block -> scieasy.engine.pty_control",
+    "scistudio.blocks.ai.ai_block -> scistudio.engine.pty_control",
 ]
 
 [[tool.importlinter.contracts]]
 name = "Engine must not depend on api or ai services"
 type = "forbidden"
-source_modules = ["scieasy.engine"]
-forbidden_modules = ["scieasy.api", "scieasy.ai"]
+source_modules = ["scistudio.engine"]
+forbidden_modules = ["scistudio.api", "scistudio.ai"]
 
 [tool.commitizen]
 name = "cz_conventional_commits"
@@ -230,7 +230,7 @@ version = "0.2.1"
 tag_format = "v$version"
 
 [tool.coverage.run]
-source = ["scieasy"]
+source = ["scistudio"]
 omit = [
     "*/tests/*",
     "*/__init__.py",

@@ -129,8 +129,8 @@ spawn.
   port" GUI controls. Implementation agents reading this document
   must reject any inline scope expansion in this direction.
 
-- **Plugin packages beyond imaging / SRS / LC-MS.** ``scieasy-blocks-
-  singlecell``, ``scieasy-blocks-flow``, and any future plugin remain
+- **Plugin packages beyond imaging / SRS / LC-MS.** ``scistudio-blocks-
+  singlecell``, ``scistudio-blocks-flow``, and any future plugin remain
   out of scope. The corresponding bundled adapters (``h5ad_adapter``
   and ``fcs_adapter``) are deleted per ADR-028 §D2 but no replacement
   plugin work is scheduled.
@@ -338,8 +338,8 @@ follow them is a workflow gate violation per ``CLAUDE.md`` §6.7 and
    - ``pytest -x --no-cov`` passes locally.
    - ``ruff check src/ tests/ packages/`` clean.
    - ``ruff format --check src/ tests/ packages/`` clean.
-   - ``mypy src/scieasy --ignore-missing-imports`` clean for core
-     changes; ``mypy packages/scieasy-blocks-<plugin>/src
+   - ``mypy src/scistudio --ignore-missing-imports`` clean for core
+     changes; ``mypy packages/scistudio-blocks-<plugin>/src
      --ignore-missing-imports`` clean for plugin changes.
    - ``python -m importlinter --config pyproject.toml`` clean (the
      ``Core must not depend on blocks/engine/api/ai/workflow``
@@ -542,20 +542,20 @@ SRS tests need types from the imaging plugin (``Image``, ``Mask``,
 core repo's perspective.
 
 **Decision**: SRS tests that touch imaging types use
-``pytest.importorskip("scieasy_blocks_imaging")`` at module top, plus
-a session-scoped fixture in ``packages/scieasy-blocks-srs/tests/
+``pytest.importorskip("scistudio_blocks_imaging")`` at module top, plus
+a session-scoped fixture in ``packages/scistudio-blocks-srs/tests/
 conftest.py``::
 
     import pytest
 
     @pytest.fixture(scope="session")
     def imaging_types():
-        imaging = pytest.importorskip("scieasy_blocks_imaging")
+        imaging = pytest.importorskip("scistudio_blocks_imaging")
         return imaging  # caller does imaging_types.Image, .Mask, .Label
 
 Tests that do not touch imaging types skip the fixture entirely. The
 fixture is the **only** sanctioned way to import imaging-plugin types
-from SRS tests; ad-hoc ``import scieasy_blocks_imaging`` at module
+from SRS tests; ad-hoc ``import scistudio_blocks_imaging`` at module
 top (without ``importorskip``) breaks the SRS test suite when imaging
 is not installed.
 
@@ -602,14 +602,14 @@ uses the marker.
 
 | Marker                   | Registered in                                | First-use ticket          |
 |--------------------------|----------------------------------------------|---------------------------|
-| ``requires_cellpose``    | ``packages/scieasy-blocks-imaging/pyproject.toml`` | T-IMG-019            |
-| ``requires_napari``      | ``packages/scieasy-blocks-imaging/pyproject.toml`` | T-IMG-035            |
-| ``requires_fiji``        | ``packages/scieasy-blocks-imaging/pyproject.toml`` | T-IMG-034 + T-TRK-015 |
-| ``requires_cellprofiler``| ``packages/scieasy-blocks-imaging/pyproject.toml`` | T-IMG-036            |
-| ``requires_qupath``      | ``packages/scieasy-blocks-imaging/pyproject.toml`` | T-IMG-037            |
-| ``requires_r``           | ``pyproject.toml`` (root, for sub-1e) AND ``packages/scieasy-blocks-lcms/pyproject.toml`` (for AccuCor) | T-TRK-013 + T-LCMS-007 |
-| ``requires_elmaven``     | ``packages/scieasy-blocks-lcms/pyproject.toml`` | T-LCMS-007             |
-| ``requires_graphpad``    | ``packages/scieasy-blocks-lcms/pyproject.toml`` | T-LCMS-019             |
+| ``requires_cellpose``    | ``packages/scistudio-blocks-imaging/pyproject.toml`` | T-IMG-019            |
+| ``requires_napari``      | ``packages/scistudio-blocks-imaging/pyproject.toml`` | T-IMG-035            |
+| ``requires_fiji``        | ``packages/scistudio-blocks-imaging/pyproject.toml`` | T-IMG-034 + T-TRK-015 |
+| ``requires_cellprofiler``| ``packages/scistudio-blocks-imaging/pyproject.toml`` | T-IMG-036            |
+| ``requires_qupath``      | ``packages/scistudio-blocks-imaging/pyproject.toml`` | T-IMG-037            |
+| ``requires_r``           | ``pyproject.toml`` (root, for sub-1e) AND ``packages/scistudio-blocks-lcms/pyproject.toml`` (for AccuCor) | T-TRK-013 + T-LCMS-007 |
+| ``requires_elmaven``     | ``packages/scistudio-blocks-lcms/pyproject.toml`` | T-LCMS-007             |
+| ``requires_graphpad``    | ``packages/scistudio-blocks-lcms/pyproject.toml`` | T-LCMS-019             |
 | ``requires_imaging``     | ``pyproject.toml`` (root, used by SRS tests) | (already registered Phase 10) |
 | ``requires_lcms``        | ``pyproject.toml`` (root, used by integration tests) | T-LCMS-021         |
 
@@ -683,8 +683,8 @@ optional ``C``, ``D``, ``E`` input ports.
 
 ### Q12. Test runner discovery for monorepo
 
-Phase 11 introduces ``packages/scieasy-blocks-imaging/`` and
-``packages/scieasy-blocks-srs/`` and ``packages/scieasy-blocks-lcms/``
+Phase 11 introduces ``packages/scistudio-blocks-imaging/`` and
+``packages/scistudio-blocks-srs/`` and ``packages/scistudio-blocks-lcms/``
 each with their own ``tests/`` directory.
 
 **Decision**: The root ``pyproject.toml`` ``[tool.pytest.ini_options]``
@@ -694,15 +694,15 @@ section gains a ``testpaths`` key that includes both the core
     [tool.pytest.ini_options]
     testpaths = [
         "tests",
-        "packages/scieasy-blocks-imaging/tests",
-        "packages/scieasy-blocks-srs/tests",
-        "packages/scieasy-blocks-lcms/tests",
+        "packages/scistudio-blocks-imaging/tests",
+        "packages/scistudio-blocks-srs/tests",
+        "packages/scistudio-blocks-lcms/tests",
     ]
     rootdir = "."
 
 Plugin-package tests run via the same ``pytest`` invocation as core
 tests. Each plugin package also has its own ``pyproject.toml`` so
-that ``pip install -e packages/scieasy-blocks-imaging`` works
+that ``pip install -e packages/scistudio-blocks-imaging`` works
 standalone for downstream consumers.
 
 This decision is implemented incrementally: T-IMG-038 / T-SRS-013 /
@@ -757,29 +757,29 @@ stub directory and its four placeholder files.
 entirety; no surrounding ``__init__.py`` references it.)
 
 **e. Files to be deleted**:
-- ``src/scieasy/blocks/process/contrib/cellpose_segment.py`` (1-line
+- ``src/scistudio/blocks/process/contrib/cellpose_segment.py`` (1-line
   stub)
-- ``src/scieasy/blocks/process/contrib/spectral_pca.py`` (1-line
+- ``src/scistudio/blocks/process/contrib/spectral_pca.py`` (1-line
   stub)
-- ``src/scieasy/blocks/process/contrib/baseline_correction.py``
+- ``src/scistudio/blocks/process/contrib/baseline_correction.py``
   (1-line stub)
-- ``src/scieasy/blocks/process/contrib/__init__.py`` (1-line stub)
-- ``src/scieasy/blocks/process/contrib/`` directory itself
+- ``src/scistudio/blocks/process/contrib/__init__.py`` (1-line stub)
+- ``src/scistudio/blocks/process/contrib/`` directory itself
 
 **f. New tests**: none.
 
 **g. Existing tests to update**:
-- Grep ``tests/`` for any import of ``scieasy.blocks.process.contrib``;
+- Grep ``tests/`` for any import of ``scistudio.blocks.process.contrib``;
   remove or replace each. Expected hits: zero, because every file in
   the directory is a 1-line stub. The grep is part of the acceptance
   criteria; if it returns hits, escalate as a separate issue rather
   than expanding scope.
 
 **h. Implementation details**:
-1. ``git rm -r src/scieasy/blocks/process/contrib/``
-2. ``git grep "scieasy.blocks.process.contrib"`` — must return 0 hits
+1. ``git rm -r src/scistudio/blocks/process/contrib/``
+2. ``git grep "scistudio.blocks.process.contrib"`` — must return 0 hits
    in non-deleted files.
-3. ``git grep "from scieasy.blocks.process import contrib"`` — must
+3. ``git grep "from scistudio.blocks.process import contrib"`` — must
    return 0 hits.
 4. Run ``pytest -x --no-cov tests/blocks/`` to confirm no test
    imports from the deleted directory.
@@ -819,21 +819,21 @@ T-TRK-003, T-TRK-011 in Sprint A Level A0.
 **c. Files to be created**: none.
 
 **d. Files to be modified**:
-- ``src/scieasy/blocks/process/builtins/__init__.py`` — remove any
+- ``src/scistudio/blocks/process/builtins/__init__.py`` — remove any
   ``from .register import ...`` line if present.
 
 **e. Files to be deleted**:
-- ``src/scieasy/blocks/process/builtins/register.py`` (1-line stub)
+- ``src/scistudio/blocks/process/builtins/register.py`` (1-line stub)
 
 **f. New tests**: none.
 
 **g. Existing tests to update**: grep for
-``scieasy.blocks.process.builtins.register``; remove any test imports.
+``scistudio.blocks.process.builtins.register``; remove any test imports.
 
 **h. Implementation details**:
 1. Read ``register.py`` to confirm it is a 1-line stub (verify the
    master plan claim before deleting).
-2. ``git rm src/scieasy/blocks/process/builtins/register.py``
+2. ``git rm src/scistudio/blocks/process/builtins/register.py``
 3. Edit ``__init__.py`` to remove any reference.
 4. ``git grep "blocks.process.builtins.register"`` — must be 0 hits.
 
@@ -857,7 +857,7 @@ T-TRK-003, T-TRK-011 in Sprint A Level A0.
 ### T-TRK-003 — Move ``transform.py`` → ``tests/fixtures/noop_block.py``
 
 **a. Ticket ID and name**: T-TRK-003 — Relocate the smoke-test
-``TransformBlock`` from ``src/scieasy/blocks/process/builtins/`` to
+``TransformBlock`` from ``src/scistudio/blocks/process/builtins/`` to
 ``tests/fixtures/`` and rename to ``NoopBlock``.
 
 **b. Source ADR / spec sections**:
@@ -875,14 +875,14 @@ T-TRK-003, T-TRK-011 in Sprint A Level A0.
   the natural place to introduce the fixtures package.
 
 **d. Files to be modified**:
-- ``src/scieasy/blocks/process/builtins/__init__.py`` — remove
+- ``src/scistudio/blocks/process/builtins/__init__.py`` — remove
   ``TransformBlock`` import / re-export.
 - All test files that import ``TransformBlock`` from
-  ``scieasy.blocks.process.builtins.transform``: rewrite to
+  ``scistudio.blocks.process.builtins.transform``: rewrite to
   ``from tests.fixtures.noop_block import NoopBlock``.
 
 **e. Files to be deleted**:
-- ``src/scieasy/blocks/process/builtins/transform.py``
+- ``src/scistudio/blocks/process/builtins/transform.py``
 
 **f. New tests**:
 - ``tests/fixtures/test_noop_block.py`` — minimal smoke test that
@@ -902,7 +902,7 @@ T-TRK-003, T-TRK-011 in Sprint A Level A0.
 3. Create ``tests/fixtures/noop_block.py`` with the relocated body,
    renamed class, and new ``type_name = "noop"``.
 4. Create ``tests/fixtures/test_images.py`` per Q6.
-5. ``git rm src/scieasy/blocks/process/builtins/transform.py``
+5. ``git rm src/scistudio/blocks/process/builtins/transform.py``
 6. Update ``__init__.py``.
 7. ``git grep "TransformBlock"`` and rewrite each hit.
 8. Run ``pytest -x --no-cov`` and confirm green.
@@ -934,15 +934,15 @@ T-TRK-011.
 ### T-TRK-004 — Delete ``adapters/`` and rewrite ``io_block.py`` as ABC
 
 **a. Ticket ID and name**: T-TRK-004 — Delete the entire
-``src/scieasy/blocks/io/adapters/`` directory and
-``adapter_registry.py``, and rewrite ``src/scieasy/blocks/io/
+``src/scistudio/blocks/io/adapters/`` directory and
+``adapter_registry.py``, and rewrite ``src/scistudio/blocks/io/
 io_block.py`` as an abstract base class with ``load()`` / ``save()``
 abstract methods plus a default ``run()`` dispatch.
 
 **b. Source ADR / spec sections**:
 - ADR-028 §D1 (IOBlock becomes abstract base).
 - ADR-028 §D2 (delete adapters directory + adapter_registry).
-- ADR-028 §D4 (delete ``scieasy.adapters`` entry-point group).
+- ADR-028 §D4 (delete ``scistudio.adapters`` entry-point group).
 - Phase 11 master plan §2.1 + §2.5 sub-1b PR-A and PR-A-2 (this
   ticket bundles the original PR-A + PR-A-2 because rewriting
   ``io_block.py`` is unimplementable while ``adapter_registry.py``
@@ -951,7 +951,7 @@ abstract methods plus a default ``run()`` dispatch.
 **c. Files to be created**: none.
 
 **d. Files to be modified**:
-- ``src/scieasy/blocks/io/io_block.py`` — full rewrite. After this
+- ``src/scistudio/blocks/io/io_block.py`` — full rewrite. After this
   ticket, the body is approximately::
 
       """IOBlock — abstract base for plugin-owned data ingress and egress."""
@@ -961,11 +961,11 @@ abstract methods plus a default ``run()`` dispatch.
       from pathlib import Path
       from typing import Any, ClassVar
 
-      from scieasy.blocks.base.block import Block
-      from scieasy.blocks.base.config import BlockConfig
-      from scieasy.blocks.base.ports import InputPort, OutputPort
-      from scieasy.core.types.base import DataObject
-      from scieasy.core.types.collection import Collection
+      from scistudio.blocks.base.block import Block
+      from scistudio.blocks.base.config import BlockConfig
+      from scistudio.blocks.base.ports import InputPort, OutputPort
+      from scistudio.core.types.base import DataObject
+      from scistudio.core.types.collection import Collection
 
 
       class IOBlock(Block):
@@ -1014,22 +1014,22 @@ abstract methods plus a default ``run()`` dispatch.
                   self.save(data, config)
                   return {"path": str(config.get("path"))}
 
-- ``pyproject.toml`` — remove the ``[project.entry-points."scieasy.adapters"]``
+- ``pyproject.toml`` — remove the ``[project.entry-points."scistudio.adapters"]``
   table entirely (ADR-028 §D4 supersedes ADR-025 §6).
 
 **e. Files to be deleted**:
-- ``src/scieasy/blocks/io/adapters/__init__.py``
-- ``src/scieasy/blocks/io/adapters/base.py``
-- ``src/scieasy/blocks/io/adapters/csv_adapter.py``
-- ``src/scieasy/blocks/io/adapters/parquet_adapter.py``
-- ``src/scieasy/blocks/io/adapters/zarr_adapter.py``
-- ``src/scieasy/blocks/io/adapters/generic_adapter.py``
-- ``src/scieasy/blocks/io/adapters/tiff_adapter.py``
-- ``src/scieasy/blocks/io/adapters/mzxml_adapter.py``
-- ``src/scieasy/blocks/io/adapters/h5ad_adapter.py``
-- ``src/scieasy/blocks/io/adapters/fcs_adapter.py``
-- ``src/scieasy/blocks/io/adapters/`` directory itself
-- ``src/scieasy/blocks/io/adapter_registry.py``
+- ``src/scistudio/blocks/io/adapters/__init__.py``
+- ``src/scistudio/blocks/io/adapters/base.py``
+- ``src/scistudio/blocks/io/adapters/csv_adapter.py``
+- ``src/scistudio/blocks/io/adapters/parquet_adapter.py``
+- ``src/scistudio/blocks/io/adapters/zarr_adapter.py``
+- ``src/scistudio/blocks/io/adapters/generic_adapter.py``
+- ``src/scistudio/blocks/io/adapters/tiff_adapter.py``
+- ``src/scistudio/blocks/io/adapters/mzxml_adapter.py``
+- ``src/scistudio/blocks/io/adapters/h5ad_adapter.py``
+- ``src/scistudio/blocks/io/adapters/fcs_adapter.py``
+- ``src/scistudio/blocks/io/adapters/`` directory itself
+- ``src/scistudio/blocks/io/adapter_registry.py``
 - Any ``tests/blocks/io/test_*_adapter.py`` files. (Grep first; the
   expected count is 4-8 files.)
 
@@ -1040,20 +1040,20 @@ abstract methods plus a default ``run()`` dispatch.
   satisfies the contract.
 
 **g. Existing tests to update**:
-- Any test that imports from ``scieasy.blocks.io.adapters.*`` must be
+- Any test that imports from ``scistudio.blocks.io.adapters.*`` must be
   deleted or rewritten. Grep before deleting.
 - Any test that constructs ``IOBlock(direction=...)`` directly will
   need to use a minimal ``InMemoryIOBlock`` test fixture instead.
   Add the fixture to ``tests/blocks/io/conftest.py``.
 
 **h. Implementation details**:
-1. ``git rm -r src/scieasy/blocks/io/adapters/``
-2. ``git rm src/scieasy/blocks/io/adapter_registry.py``
+1. ``git rm -r src/scistudio/blocks/io/adapters/``
+2. ``git rm src/scistudio/blocks/io/adapter_registry.py``
 3. Rewrite ``io_block.py`` per the body above.
-4. Edit ``pyproject.toml`` to remove the ``scieasy.adapters``
+4. Edit ``pyproject.toml`` to remove the ``scistudio.adapters``
    entry-point table.
-5. Grep for ``from scieasy.blocks.io.adapter_registry`` and
-   ``from scieasy.blocks.io.adapters`` — every hit must be deleted
+5. Grep for ``from scistudio.blocks.io.adapter_registry`` and
+   ``from scistudio.blocks.io.adapters`` — every hit must be deleted
    or refactored to the new pattern.
 6. Run ``pytest -x --no-cov``. Expect failures only in tests that
    imported the deleted adapter modules; delete or rewrite those
@@ -1063,11 +1063,11 @@ abstract methods plus a default ``run()`` dispatch.
    contract is unaffected by this ticket but verify it remains green.
 
 **i. Acceptance criteria**:
-- ``src/scieasy/blocks/io/adapters/`` and
-  ``src/scieasy/blocks/io/adapter_registry.py`` no longer exist.
+- ``src/scistudio/blocks/io/adapters/`` and
+  ``src/scistudio/blocks/io/adapter_registry.py`` no longer exist.
 - ``IOBlock`` cannot be instantiated directly (the new test asserts
   ``TypeError``).
-- ``pyproject.toml`` no longer has any ``scieasy.adapters``
+- ``pyproject.toml`` no longer has any ``scistudio.adapters``
   entry-point group.
 - ``pytest -x --no-cov`` green.
 - ``ruff check`` clean.
@@ -1132,7 +1132,7 @@ use the new effective-ports methods.
 **c. Files to be created**: none. (Tests added below.)
 
 **d. Files to be modified**:
-- ``src/scieasy/blocks/base/block.py`` — add::
+- ``src/scistudio/blocks/base/block.py`` — add::
 
       input_ports: ClassVar[list[InputPort]] = []
       output_ports: ClassVar[list[OutputPort]] = []
@@ -1151,19 +1151,19 @@ use the new effective-ports methods.
   directly. The existing ``port_map = {p.name: p for p in self.input_ports}``
   becomes ``port_map = {p.name: p for p in self.get_effective_input_ports()}``.
 
-- ``src/scieasy/blocks/process/process_block.py`` (or wherever
+- ``src/scistudio/blocks/process/process_block.py`` (or wherever
   ``ProcessBlock.run`` lives) — when inferring output Collection
   ``item_type``, read ``self.get_effective_output_ports()`` instead
   of the ClassVar.
 
-- ``src/scieasy/workflow/validator.py`` — when validating connection
+- ``src/scistudio/workflow/validator.py`` — when validating connection
   compatibility, construct a temporary block instance from the
   workflow node's config and call
   ``block.get_effective_input_ports()`` /
   ``get_effective_output_ports()`` to get per-instance ports for
   type checking.
 
-- ``src/scieasy/blocks/registry.py`` — extend ``BlockSpec`` dataclass::
+- ``src/scistudio/blocks/registry.py`` — extend ``BlockSpec`` dataclass::
 
       direction: str = ""
       dynamic_ports: dict[str, Any] | None = None
@@ -1180,7 +1180,7 @@ use the new effective-ports methods.
   ``output_port_mapping`` not a dict, enum-value lists not lists of
   strings, etc.).
 
-- ``src/scieasy/api/schemas.py`` — extend ``BlockSchemaResponse``::
+- ``src/scistudio/api/schemas.py`` — extend ``BlockSchemaResponse``::
 
       class BlockSchemaResponse(BlockSummary):
           config_schema: dict[str, Any] = Field(default_factory=dict)
@@ -1188,7 +1188,7 @@ use the new effective-ports methods.
           dynamic_ports: dict[str, Any] | None = None  # ADR-028 Addendum 1 D4
           direction: str | None = None                 # ADR-028 Addendum 1 D8
 
-- ``src/scieasy/api/routes/blocks.py`` — in ``_summary()`` and
+- ``src/scistudio/api/routes/blocks.py`` — in ``_summary()`` and
   ``_schema_response()`` (or whatever the response builders are
   called), populate the new fields from the BlockSpec.
 
@@ -1229,10 +1229,10 @@ on block instances::
 
     git grep -n "self\.input_ports" src/
     git grep -n "self\.output_ports" src/
-    git grep -n "\.input_ports" src/scieasy/workflow/
-    git grep -n "\.output_ports" src/scieasy/workflow/
-    git grep -n "\.input_ports" src/scieasy/api/
-    git grep -n "\.output_ports" src/scieasy/api/
+    git grep -n "\.input_ports" src/scistudio/workflow/
+    git grep -n "\.output_ports" src/scistudio/workflow/
+    git grep -n "\.input_ports" src/scistudio/api/
+    git grep -n "\.output_ports" src/scistudio/api/
 
 For each hit, decide: keep the ClassVar read (because it's a class
 introspection from registry scan) or migrate to the effective-ports
@@ -1283,7 +1283,7 @@ ABC migration.
 ### T-TRK-007 — ``LoadData`` class + 6 private ``_load_*`` functions
 
 **a. Ticket ID and name**: T-TRK-007 — Implement
-``src/scieasy/blocks/io/loaders/load_data.py`` containing the
+``src/scistudio/blocks/io/loaders/load_data.py`` containing the
 ``LoadData`` class plus six private module-level dispatch functions.
 
 **b. Source ADR / spec sections**:
@@ -1294,15 +1294,15 @@ ABC migration.
 - Phase 11 master plan §2.2 (``LoadData`` reference body).
 
 **c. Files to be created**:
-- ``src/scieasy/blocks/io/loaders/__init__.py`` — re-exports
+- ``src/scistudio/blocks/io/loaders/__init__.py`` — re-exports
   ``LoadData``.
-- ``src/scieasy/blocks/io/loaders/load_data.py`` — contains the
+- ``src/scistudio/blocks/io/loaders/load_data.py`` — contains the
   ``LoadData`` class and the six ``_load_*`` private functions.
 
 **d. Files to be modified**:
-- ``src/scieasy/blocks/io/__init__.py`` — re-export ``LoadData``.
+- ``src/scistudio/blocks/io/__init__.py`` — re-export ``LoadData``.
 - ``pyproject.toml`` — register ``LoadData`` under
-  ``[project.entry-points."scieasy.blocks"]`` so it appears in the
+  ``[project.entry-points."scistudio.blocks"]`` so it appears in the
   block palette.
 
 **e. Files to be deleted**: none.
@@ -1338,16 +1338,16 @@ follows this exactly)::
     from pathlib import Path
     from typing import Any, ClassVar
 
-    from scieasy.blocks.base.config import BlockConfig
-    from scieasy.blocks.base.ports import OutputPort
-    from scieasy.blocks.io.io_block import IOBlock
-    from scieasy.core.types.array import Array
-    from scieasy.core.types.artifact import Artifact
-    from scieasy.core.types.base import DataObject
-    from scieasy.core.types.composite import CompositeData
-    from scieasy.core.types.dataframe import DataFrame
-    from scieasy.core.types.series import Series
-    from scieasy.core.types.text import Text
+    from scistudio.blocks.base.config import BlockConfig
+    from scistudio.blocks.base.ports import OutputPort
+    from scistudio.blocks.io.io_block import IOBlock
+    from scistudio.core.types.array import Array
+    from scistudio.core.types.artifact import Artifact
+    from scistudio.core.types.base import DataObject
+    from scistudio.core.types.composite import CompositeData
+    from scistudio.core.types.dataframe import DataFrame
+    from scistudio.core.types.series import Series
+    from scistudio.core.types.text import Text
 
 
     _CORE_TYPE_MAP: dict[str, type[DataObject]] = {
@@ -1459,7 +1459,7 @@ The six private functions absorb the logic from the deleted
 file extension is ``.pkl`` or ``.pickle``.
 
 **i. Acceptance criteria**:
-- ``LoadData`` is importable from ``scieasy.blocks.io``.
+- ``LoadData`` is importable from ``scistudio.blocks.io``.
 - ``LoadData`` is registered in ``pyproject.toml`` entry-points.
 - ``get_effective_output_ports()`` returns the correct
   ``OutputPort`` for every enum value.
@@ -1489,7 +1489,7 @@ T-TRK-008 (SaveData).
 ### T-TRK-008 — ``SaveData`` class + 6 private ``_save_*`` functions
 
 **a. Ticket ID and name**: T-TRK-008 — Implement
-``src/scieasy/blocks/io/savers/save_data.py`` containing the
+``src/scistudio/blocks/io/savers/save_data.py`` containing the
 ``SaveData`` class plus six private module-level dispatch functions.
 
 **b. Source ADR / spec sections**:
@@ -1498,11 +1498,11 @@ T-TRK-008 (SaveData).
 - ADR-028 Addendum 1 §C5 + §C9.
 
 **c. Files to be created**:
-- ``src/scieasy/blocks/io/savers/__init__.py``
-- ``src/scieasy/blocks/io/savers/save_data.py``
+- ``src/scistudio/blocks/io/savers/__init__.py``
+- ``src/scistudio/blocks/io/savers/save_data.py``
 
 **d. Files to be modified**:
-- ``src/scieasy/blocks/io/__init__.py`` — re-export ``SaveData``.
+- ``src/scistudio/blocks/io/__init__.py`` — re-export ``SaveData``.
 - ``pyproject.toml`` — register ``SaveData`` entry-point.
 
 **e. Files to be deleted**: none.
@@ -1723,17 +1723,17 @@ to reflect ADR-028 + Addendum 1.
 - ``docs/architecture/ARCHITECTURE.md`` — §4.2 (block category
   hierarchy: IOBlock is now an abstract base; concrete loaders
   ship in core (LoadData / SaveData) and plugin packages) and §5.1
-  (extension points: remove the ``scieasy.adapters`` entry-point
+  (extension points: remove the ``scistudio.adapters`` entry-point
   group reference; mention the dynamic-port override mechanism).
 - ``docs/architecture/PROJECT_TREE.md`` — remove the
-  ``src/scieasy/blocks/io/adapters/`` subtree from the tree
-  diagram; add the ``src/scieasy/blocks/io/loaders/`` and
-  ``src/scieasy/blocks/io/savers/`` subtrees.
+  ``src/scistudio/blocks/io/adapters/`` subtree from the tree
+  diagram; add the ``src/scistudio/blocks/io/loaders/`` and
+  ``src/scistudio/blocks/io/savers/`` subtrees.
 - ``docs/guides/block-sdk.md`` — add a section "Writing a dynamic-port
   block" with a worked example based on ``LoadData``; add a
   pointer to ADR-028 Addendum 1 from the IO subsection.
 - ``docs/adr/ADR.md`` — add a "Superseded by ADR-028 §D4" stamp on
-  ADR-025 §6 (the ``scieasy.adapters`` entry-point group section).
+  ADR-025 §6 (the ``scistudio.adapters`` entry-point group section).
 
 **e. Files to be deleted**: none.
 
@@ -1745,15 +1745,15 @@ check.)
 **h. Implementation details**:
 1. Read each of the four target files.
 2. Identify the exact paragraphs that mention ``IOBlock`` /
-   ``adapters`` / ``adapter_registry`` / ``scieasy.adapters``.
+   ``adapters`` / ``adapter_registry`` / ``scistudio.adapters``.
 3. Rewrite each paragraph to reflect the post-ADR-028 architecture.
 4. Add the dynamic-port worked example to ``block-sdk.md``.
 5. Verify links to ADR-028 and Addendum 1 are correct.
 
 **i. Acceptance criteria**:
-- No reference to ``scieasy.blocks.io.adapters`` survives in any
+- No reference to ``scistudio.blocks.io.adapters`` survives in any
   of the four files.
-- No reference to ``scieasy.adapters`` entry-point survives.
+- No reference to ``scistudio.adapters`` entry-point survives.
 - The dynamic-port worked example is present and matches the
   T-TRK-007 ``LoadData`` body.
 - ADR-025 §6 has a "Superseded" stamp.
@@ -1827,7 +1827,7 @@ issue rather than deleting it inline.)
 - Do not implement a new ManualReviewBlock class. The whole point
   of this ticket is that ManualReviewBlock is being abandoned in
   favour of the AppBlock pattern.
-- Do not touch any source code under ``src/scieasy/blocks/``.
+- Do not touch any source code under ``src/scistudio/blocks/``.
 
 **k. Dependencies**: none. Independent of every other ticket.
 
@@ -1840,7 +1840,7 @@ issue rather than deleting it inline.)
 ### T-TRK-012 — ``FilterCollection`` metadata query
 
 **a. Ticket ID and name**: T-TRK-012 — Extend
-``src/scieasy/blocks/process/builtins/filter_collection.py`` to
+``src/scistudio/blocks/process/builtins/filter_collection.py`` to
 accept an ``expression: str`` config param parsed via an AST
 whitelist (NOT ``eval()``).
 
@@ -1848,12 +1848,12 @@ whitelist (NOT ``eval()``).
 - Phase 11 master plan §2.5 sub-1d.
 
 **c. Files to be created**:
-- ``src/scieasy/blocks/process/builtins/expression_evaluator.py``
+- ``src/scistudio/blocks/process/builtins/expression_evaluator.py``
   — the AST whitelist evaluator (a small new module that the
   ``FilterCollection`` block depends on).
 
 **d. Files to be modified**:
-- ``src/scieasy/blocks/process/builtins/filter_collection.py`` —
+- ``src/scistudio/blocks/process/builtins/filter_collection.py`` —
   add the ``expression`` config field and the runtime evaluator
   call.
 
@@ -1991,7 +1991,7 @@ not as part of this PR).
 **j. Out of scope**:
 - Do not add R installation scripts.
 - Do not add a CI workflow to install R (that is a follow-up).
-- Do not modify any source under ``src/scieasy/blocks/code/``
+- Do not modify any source under ``src/scistudio/blocks/code/``
   unless a verified bug requires it. If a bug is found, file a
   separate issue and reference it in this PR; the fix is a
   separate PR.
@@ -2045,7 +2045,7 @@ auto-unpack/repack has a bug, file an issue separately.
 - All universal AC items satisfied.
 
 **j. Out of scope**: same as T-TRK-013 — do not modify
-``src/scieasy/blocks/code/`` unless a verified bug requires it.
+``src/scistudio/blocks/code/`` unless a verified bug requires it.
 
 **k. Dependencies**: T-TRK-003 (test image fixtures must exist).
 
@@ -2075,7 +2075,7 @@ cleanup.
   result to a known path.
 
 **d. Files to be modified**:
-- ``packages/scieasy-blocks-imaging/pyproject.toml`` (or root
+- ``packages/scistudio-blocks-imaging/pyproject.toml`` (or root
   ``pyproject.toml`` if no plugin scaffold yet at this point) —
   register the ``requires_fiji`` marker per Q7. Note: this ticket
   runs **before** T-IMG-038 plugin packaging, so the marker
@@ -2150,7 +2150,7 @@ validation rules). This standards doc carries only the cross-ticket
 metadata: dependency edges, sprint bucket, and coupling notes.
 
 **Sprint C** (parallel within levels). All Track 2 tickets land in
-``packages/scieasy-blocks-imaging/`` per the monorepo decision.
+``packages/scistudio-blocks-imaging/`` per the monorepo decision.
 
 ---
 
@@ -2160,7 +2160,7 @@ metadata: dependency edges, sprint bucket, and coupling notes.
 - **Summary**: Define ``Image(Array)``, ``Mask(Image)``,
   ``Label(CompositeData)``, ``Transform(Array)`` as the four imaging
   type classes per master plan §2.4.
-- **Files**: ``packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/types.py``
+- **Files**: ``packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/types.py``
   + tests
 - **Dependencies**: T-TRK-006 (Block ABC migration)
 - **Estimated diff size**: M
@@ -2176,7 +2176,7 @@ metadata: dependency edges, sprint bucket, and coupling notes.
   PNG / JPG / Zarr / CZI / ND2 / LIF / npy. Absorbs the deleted
   ``tiff_adapter.py`` logic verbatim. Large images use lazy
   storage_ref. Metadata auto-extracted to ``meta``.
-- **Files**: ``packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/load_image.py``
+- **Files**: ``packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py``
   + tests
 - **Dependencies**: T-IMG-001, T-TRK-004
 - **Estimated diff size**: L
@@ -2620,10 +2620,10 @@ metadata: dependency edges, sprint bucket, and coupling notes.
 - **Summary**: ``pyproject.toml`` for the imaging package +
   entry-point registration for every block class + plugin smoke
   test that asserts every block is importable. Also adds the
-  ``packages/scieasy-blocks-imaging/tests`` path to the root
+  ``packages/scistudio-blocks-imaging/tests`` path to the root
   ``pyproject.toml`` ``testpaths`` list per Q12.
-- **Files**: ``packages/scieasy-blocks-imaging/pyproject.toml``,
-  ``packages/scieasy-blocks-imaging/tests/test_plugin_smoke.py``,
+- **Files**: ``packages/scistudio-blocks-imaging/pyproject.toml``,
+  ``packages/scistudio-blocks-imaging/tests/test_plugin_smoke.py``,
   root ``pyproject.toml`` (testpaths only)
 - **Dependencies**: T-IMG-001 through T-IMG-037 ALL merged (the
   smoke test must succeed for every block).
@@ -2639,17 +2639,17 @@ Each entry below is a pointer to ``docs/specs/phase11-srs-block-spec.md``.
 SRS depends on the imaging plugin: ``SRSImage`` extends ``Image``.
 Cross-plugin imports follow Q5 (``pytest.importorskip``).
 
-Sprint D. All Track 3 tickets land in ``packages/scieasy-blocks-srs/``.
+Sprint D. All Track 3 tickets land in ``packages/scistudio-blocks-srs/``.
 
 ---
 
 #### T-SRS-000 — Package skeleton + entry points
 
 - **Source**: SRS spec §9 T-SRS-000
-- **Summary**: ``packages/scieasy-blocks-srs/`` directory tree,
+- **Summary**: ``packages/scistudio-blocks-srs/`` directory tree,
   ``pyproject.toml``, empty ``src/``, empty ``tests/conftest.py``
   with the ``imaging_types`` fixture per Q5.
-- **Files**: ``pyproject.toml``, ``src/scieasy_blocks_srs/__init__.py``,
+- **Files**: ``pyproject.toml``, ``src/scistudio_blocks_srs/__init__.py``,
   ``tests/conftest.py``
 - **Dependencies**: T-IMG-038 (imaging plugin must be installable
   before SRS can declare a runtime dependency on it).
@@ -2666,7 +2666,7 @@ Sprint D. All Track 3 tickets land in ``packages/scieasy-blocks-srs/``.
   laser_power, integration_time, digitizer_*, pump/stokes wavelength).
   **NO ``RamanSpectrum``** — spectra are DataFrames per master plan
   §2.4.
-- **Files**: ``src/scieasy_blocks_srs/types.py`` + tests
+- **Files**: ``src/scistudio_blocks_srs/types.py`` + tests
 - **Dependencies**: T-SRS-000, T-IMG-001
 - **Estimated diff size**: M
 - **Coupling notes**: Standalone.
@@ -2679,7 +2679,7 @@ Sprint D. All Track 3 tickets land in ``packages/scieasy-blocks-srs/``.
 - **Summary**: Digitizer inversion + ``Image → SRSImage`` type
   conversion. **The entry point of the SRS pipeline** — converts
   the imaging-plugin output to the SRS type.
-- **Files**: ``src/scieasy_blocks_srs/preprocess/srs_calibrate.py``
+- **Files**: ``src/scistudio_blocks_srs/preprocess/srs_calibrate.py``
   + tests
 - **Dependencies**: T-SRS-001
 - **Estimated diff size**: M
@@ -2805,8 +2805,8 @@ Sprint D. All Track 3 tickets land in ``packages/scieasy-blocks-srs/``.
 - **Source**: SRS spec §9 T-SRS-013
 - **Summary**: Update ``pyproject.toml`` entry points for all SRS
   blocks; add plugin smoke test; extend root ``pyproject.toml``
-  ``testpaths`` to include ``packages/scieasy-blocks-srs/tests``.
-- **Files**: ``packages/scieasy-blocks-srs/pyproject.toml``,
+  ``testpaths`` to include ``packages/scistudio-blocks-srs/tests``.
+- **Files**: ``packages/scistudio-blocks-srs/pyproject.toml``,
   ``.../tests/test_plugin_smoke.py``, root ``pyproject.toml``
 - **Dependencies**: T-SRS-000 through T-SRS-012 merged.
 - **Estimated diff size**: S
@@ -2820,7 +2820,7 @@ Sprint D. All Track 3 tickets land in ``packages/scieasy-blocks-srs/``.
 - **Summary**: Integration test that exercises imaging + SRS together.
   Uses the ``imaging_types`` fixture from Q5. Marker:
   ``@pytest.mark.requires_imaging``.
-- **Files**: ``packages/scieasy-blocks-srs/tests/integration/
+- **Files**: ``packages/scistudio-blocks-srs/tests/integration/
   test_imaging_srs_pipeline.py``
 - **Dependencies**: T-SRS-013, T-IMG-038
 - **Estimated diff size**: M
@@ -2834,17 +2834,17 @@ Each entry below is a pointer to ``docs/specs/phase11-lcms-block-spec.md``.
 LC-MS depends on the R runner (T-TRK-013) for AccuCorR and on the
 Python runner (T-TRK-014) for some isotope tracing blocks.
 
-Sprint E. All Track 4 tickets land in ``packages/scieasy-blocks-lcms/``.
+Sprint E. All Track 4 tickets land in ``packages/scistudio-blocks-lcms/``.
 
 ---
 
 #### T-LCMS-001 — Plugin scaffold
 
 - **Source**: LC-MS spec §9 T-LCMS-001
-- **Summary**: ``packages/scieasy-blocks-lcms/`` directory tree,
+- **Summary**: ``packages/scistudio-blocks-lcms/`` directory tree,
   ``pyproject.toml``, empty src/, conftest with marker registration
   for ``requires_r`` / ``requires_elmaven`` / ``requires_graphpad``.
-- **Files**: ``pyproject.toml``, ``src/scieasy_blocks_lcms/__init__.py``,
+- **Files**: ``pyproject.toml``, ``src/scistudio_blocks_lcms/__init__.py``,
   ``tests/conftest.py``
 - **Dependencies**: T-TRK-013 + T-TRK-014 (CodeBlock audits must
   merge before LC-MS depends on the runners).
@@ -2860,7 +2860,7 @@ Sprint E. All Track 4 tickets land in ``packages/scieasy-blocks-lcms/``.
   ``MIDTable(DataFrame)`` (long format per master plan §2.4),
   ``SampleMetadata(DataFrame)``. **NO ``MSSpectrum``, NO ``MSRun``**
   per master plan.
-- **Files**: ``src/scieasy_blocks_lcms/types.py`` + tests
+- **Files**: ``src/scistudio_blocks_lcms/types.py`` + tests
 - **Dependencies**: T-LCMS-001
 - **Estimated diff size**: M
 - **Coupling notes**: Standalone.
@@ -3087,7 +3087,7 @@ Sprint E. All Track 4 tickets land in ``packages/scieasy-blocks-lcms/``.
 - **Summary**: Update ``pyproject.toml`` entry points for every
   LC-MS block; add plugin smoke test; extend root
   ``pyproject.toml`` ``testpaths``.
-- **Files**: ``packages/scieasy-blocks-lcms/pyproject.toml``,
+- **Files**: ``packages/scistudio-blocks-lcms/pyproject.toml``,
   ``.../tests/test_plugin_smoke.py``, root ``pyproject.toml``
 - **Dependencies**: T-LCMS-001 through T-LCMS-019 merged.
 - **Estimated diff size**: S
@@ -3102,7 +3102,7 @@ Sprint E. All Track 4 tickets land in ``packages/scieasy-blocks-lcms/``.
   + SampleMetadata → MetaboliteMatrix → MatrixPreprocess →
   Calculate13CEnrichment → CompareGroupMID → SaveTable. Verifies
   the full LC-MS happy path.
-- **Files**: ``packages/scieasy-blocks-lcms/tests/integration/
+- **Files**: ``packages/scistudio-blocks-lcms/tests/integration/
   test_isotope_tracing_pipeline.py``
 - **Dependencies**: T-LCMS-020
 - **Estimated diff size**: M
@@ -3289,12 +3289,12 @@ Level D1, before T-SRS-013).
         SEGMENTATION_IMAGES, SPECTRA_IMAGES,
     )
 
-    pytest.importorskip("scieasy_blocks_imaging")
-    pytest.importorskip("scieasy_blocks_srs")
+    pytest.importorskip("scistudio_blocks_imaging")
+    pytest.importorskip("scistudio_blocks_srs")
 
-    from scieasy_blocks_imaging import LoadImage, Denoise, CellposeSegment
-    from scieasy_blocks_srs import ExtractSpectrum
-    from scieasy.blocks.io.savers import SaveData
+    from scistudio_blocks_imaging import LoadImage, Denoise, CellposeSegment
+    from scistudio_blocks_srs import ExtractSpectrum
+    from scistudio.blocks.io.savers import SaveData
 
     @pytest.mark.requires_cellpose
     def test_phase11_e2e_imaging_srs_pipeline(tmp_path):
@@ -3339,8 +3339,8 @@ acceptable per master plan §8.
 §10. Chrome path is user-confirmed working.
 
 **Steps**:
-1. Start the FastAPI GUI server (``scieasy gui`` or
-   ``uvicorn scieasy.api.main:app``).
+1. Start the FastAPI GUI server (``scistudio gui`` or
+   ``uvicorn scistudio.api.main:app``).
 2. ``mcp__Claude_in_Chrome__navigate`` to ``http://localhost:8000``
    (or wherever the GUI is served).
 3. Drag each block from the palette to the canvas.

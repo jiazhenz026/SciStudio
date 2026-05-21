@@ -12,11 +12,11 @@
   ],
   "branch": "feat/issue-1296/adr043-b2-srs-propagation",
   "changed_test_paths": [
-    "packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py"
+    "packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py"
   ],
   "check_results": [
     {
-      "command_or_tool": "pytest packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py --timeout=60",
+      "command_or_tool": "pytest packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py --timeout=60",
       "exit_code": 0,
       "name": "pytest-meta-propagation",
       "output_path": null,
@@ -25,7 +25,7 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "pytest packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py packages/scieasy-blocks-srs/tests/test_preprocess.py packages/scieasy-blocks-srs/tests/test_component_analysis.py --timeout=60",
+      "command_or_tool": "pytest packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py packages/scistudio-blocks-srs/tests/test_preprocess.py packages/scistudio-blocks-srs/tests/test_component_analysis.py --timeout=60",
       "exit_code": 0,
       "name": "pytest-broader-srs",
       "output_path": null,
@@ -34,7 +34,7 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "ruff check packages/scieasy-blocks-srs/",
+      "command_or_tool": "ruff check packages/scistudio-blocks-srs/",
       "exit_code": 0,
       "name": "ruff-check",
       "output_path": null,
@@ -43,7 +43,7 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "ruff format --check packages/scieasy-blocks-srs/",
+      "command_or_tool": "ruff format --check packages/scistudio-blocks-srs/",
       "exit_code": 0,
       "name": "ruff-format",
       "output_path": null,
@@ -75,7 +75,7 @@
   },
   "full_audit": {
     "blocks_merge": false,
-    "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
     "exit_code": 1,
     "known_debt": [
       "311 findings, ALL pre-existing repo debt; zero findings on any file edited by this B2 task (srs_kmeans.py, srs_pca.py, srs_unmix.py, audit doc, propagation test). Owner-acknowledged per ADR-042 Addendum 1 / umbrella gate record 1296-adr-043-package-migration-manager.json."
@@ -96,8 +96,8 @@
   ],
   "owner_directive": "Phase B2: SRS ProcessBlock OME propagation audit + fix per spec FR-009/FR-011",
   "planned_files": [
-    "packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_kmeans.py",
-    "packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py",
+    "packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_kmeans.py",
+    "packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py",
     "docs/audit/adr-043-srs-propagation-audit.md",
     "docs/planning/adr-043-package-migration-checklist.md",
     "CHANGELOG.md"
@@ -107,30 +107,30 @@
       1296
     ],
     "number": 1301,
-    "url": "https://github.com/zjzcpj/SciEasy/pull/1301"
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1301"
   },
   "record_path": ".workflow/records/1296-b2-srs-propagation.json",
   "required_checks": [
-    "pytest packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py --timeout=60",
-    "pytest packages/scieasy-blocks-srs/tests/ --timeout=60",
-    "ruff check packages/scieasy-blocks-srs/",
-    "ruff format --check packages/scieasy-blocks-srs/",
-    "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json"
+    "pytest packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py --timeout=60",
+    "pytest packages/scistudio-blocks-srs/tests/ --timeout=60",
+    "ruff check packages/scistudio-blocks-srs/",
+    "ruff format --check packages/scistudio-blocks-srs/",
+    "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json"
   ],
   "schema_version": "1",
   "scope": {
     "exclude": [],
     "include": [
-      "packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_baseline.py",
-      "packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_spectral_denoise.py",
-      "packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocess/srs_calibrate.py",
-      "packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_kmeans.py",
-      "packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_pca.py",
-      "packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_unmix.py",
-      "packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_ica.py",
-      "packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/srs_vca.py",
-      "packages/scieasy-blocks-srs/src/scieasy_blocks_srs/spectral_extraction/extract_spectrum.py",
-      "packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py",
+      "packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocess/srs_baseline.py",
+      "packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocess/srs_spectral_denoise.py",
+      "packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocess/srs_calibrate.py",
+      "packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_kmeans.py",
+      "packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_pca.py",
+      "packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_unmix.py",
+      "packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_ica.py",
+      "packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/srs_vca.py",
+      "packages/scistudio-blocks-srs/src/scistudio_blocks_srs/spectral_extraction/extract_spectrum.py",
+      "packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py",
       "docs/audit/adr-043-srs-propagation-audit.md",
       "docs/planning/adr-043-package-migration-checklist.md",
       "CHANGELOG.md"

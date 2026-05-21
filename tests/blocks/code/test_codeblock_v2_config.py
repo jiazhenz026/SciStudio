@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from scieasy.blocks.code.config import (
+from scistudio.blocks.code.config import (
     CodeBlockConfig,
     CodeBlockConfigError,
     PortFileConfig,
@@ -42,7 +42,7 @@ def test_mixed_inline_and_script_config_is_rejected() -> None:
 
 
 def test_entry_function_script_config_is_rejected() -> None:
-    with pytest.raises(ValidationError, match="does not call SciEasy entry functions"):
+    with pytest.raises(ValidationError, match="does not call SciStudio entry functions"):
         CodeBlockConfig(script_path="scripts/segment.py", entry_function="run")
 
 

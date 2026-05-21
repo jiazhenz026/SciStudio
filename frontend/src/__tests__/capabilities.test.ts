@@ -66,7 +66,7 @@ function pkg(blockType: string, caps: FormatCapabilityResponse[]): BlockListResp
         output_ports: [],
         direction: "output",
         source: "package",
-        package_name: "scieasy-blocks-imaging",
+        package_name: "scistudio-blocks-imaging",
         variadic_inputs: false,
         variadic_outputs: false,
         format_capabilities: caps,

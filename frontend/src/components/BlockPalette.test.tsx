@@ -47,7 +47,7 @@ describe("BlockPalette — Stage 10.1 Part 2", () => {
     // Package headers — CSS uppercases visually; text in DOM is as-derived.
     expect(screen.getByText("Imaging")).toBeInTheDocument();
     expect(screen.getByText("LCMS")).toBeInTheDocument();
-    expect(screen.getByText("SciEasy Core")).toBeInTheDocument();
+    expect(screen.getByText("SciStudio Core")).toBeInTheDocument();
 
     // Category headers nested under packages (lowercase in DOM, uppercase via CSS)
     expect(screen.getByText("segmentation")).toBeInTheDocument();

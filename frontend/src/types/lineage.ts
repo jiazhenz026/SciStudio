@@ -20,7 +20,7 @@
  *   POST /api/runs/{run_id}/rerun
  *
  * D38-2.4a (parallel backend skeleton) owns the FastAPI route signatures
- * in `src/scieasy/api/routes/runs.py`. Both PRs target the tracking
+ * in `src/scistudio/api/routes/runs.py`. Both PRs target the tracking
  * branch `track/adr-038/lineage-db`; if the backend refines the response
  * envelope before D38-2.4c IMPL, the IMPL agent updates this file.
  */

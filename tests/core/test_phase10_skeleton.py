@@ -30,7 +30,7 @@ from __future__ import annotations
 
 
 # ---------------------------------------------------------------------------
-# T-004 / ADR-027 D5 — FrameworkMeta + scieasy.core.meta module
+# T-004 / ADR-027 D5 — FrameworkMeta + scistudio.core.meta module
 #
 # T-004 has landed; the smoke tests that lived here have been replaced by
 # the real per-feature suite in ``tests/core/test_framework_meta.py``.
@@ -38,7 +38,7 @@ from __future__ import annotations
 
 
 # ---------------------------------------------------------------------------
-# T-010 / ADR-027 D4 companion — scieasy.utils.constraints
+# T-010 / ADR-027 D4 companion — scistudio.utils.constraints
 #
 # T-010 has landed; the smoke tests that lived here have been replaced by
 # the real per-feature suite in ``tests/utils/test_constraints.py``. The
@@ -48,7 +48,7 @@ from __future__ import annotations
 
 
 # ---------------------------------------------------------------------------
-# T-011 / ADR-027 D3 — scieasy.utils.axis_iter.iterate_over_axes
+# T-011 / ADR-027 D3 — scistudio.utils.axis_iter.iterate_over_axes
 #
 # T-011 has landed; the smoke tests that lived here have been replaced by
 # the real per-feature suite in ``tests/utils/test_axis_iter.py``. The
@@ -65,14 +65,14 @@ from __future__ import annotations
 def test_all_skeletons_co_importable() -> None:
     """The PR description claims all 5 skeletons import together
     cleanly. Guard that claim. T-004 has landed, so the
-    ``scieasy.core.meta`` symbols (``FrameworkMeta``, ``ChannelInfo``,
+    ``scistudio.core.meta`` symbols (``FrameworkMeta``, ``ChannelInfo``,
     ``with_meta_changes``) are real implementations rather than
     placeholders, but the import-surface contract still applies."""
-    from scieasy.core.meta import ChannelInfo, FrameworkMeta, with_meta_changes
-    from scieasy.core.meta.framework import FrameworkMeta as FrameworkMetaDirect
-    from scieasy.core.units import PhysicalQuantity
-    from scieasy.utils.axis_iter import iterate_over_axes
-    from scieasy.utils.constraints import has_axes, has_exact_axes, has_shape
+    from scistudio.core.meta import ChannelInfo, FrameworkMeta, with_meta_changes
+    from scistudio.core.meta.framework import FrameworkMeta as FrameworkMetaDirect
+    from scistudio.core.units import PhysicalQuantity
+    from scistudio.utils.axis_iter import iterate_over_axes
+    from scistudio.utils.constraints import has_axes, has_exact_axes, has_shape
 
     assert FrameworkMeta is FrameworkMetaDirect
     assert PhysicalQuantity is not None

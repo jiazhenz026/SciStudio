@@ -1,6 +1,6 @@
 ---
 doc_type: architecture
-title: "SciEasy Architecture Document"
+title: "SciStudio Architecture Document"
 status: living
 owner: "@jiazhenz026"
 last_updated: 2026-05-20
@@ -19,10 +19,10 @@ related_adrs:
   - 41
   - 42
   - 43
-summary: "Stable architecture overview for SciEasy runtime, data, block, registry, boundary IO, frontend, and extension layers."
+summary: "Stable architecture overview for SciStudio runtime, data, block, registry, boundary IO, frontend, and extension layers."
 ---
 
-# SciEasy Architecture Document
+# SciStudio Architecture Document
 
 > Status: Living architecture reference
 > Last updated: 2026-05-20
@@ -34,10 +34,10 @@ summary: "Stable architecture overview for SciEasy runtime, data, block, registr
 
 ### 1.1 Introduction
 
-SciEasy is a scientific data analysis framework for AI-native, traceable,
+SciStudio is a scientific data analysis framework for AI-native, traceable,
 reproducible, multimodal, and streaming data workflows.
 
-SciEasy is designed for scientific data:
+SciStudio is designed for scientific data:
 
 - It uses a typed scientific data model to describe the shape, storage,
   metadata, and movement of data across workflow steps.
@@ -88,7 +88,7 @@ SciEasy is designed for scientific data:
 
 ## 2. Scope
 
-### 2.1 Why SciEasy Exists
+### 2.1 Why SciStudio Exists
 
 Scientific data analysis increasingly combines many modalities, tools, file
 formats, programming languages, and review steps. A single study may involve
@@ -97,13 +97,13 @@ applications, and AI-assisted interpretation. Researchers need the flexibility
 of this ecosystem, but also need analysis to be repeatable, inspectable, and
 recoverable.
 
-SciEasy exists to make that workflow shape explicit. It treats analysis as a
+SciStudio exists to make that workflow shape explicit. It treats analysis as a
 typed, traceable workflow rather than a loose collection of scripts, notebooks,
 manual exports, and undocumented intermediate files.
 
 ### 2.2 Weaknesses In Existing Workflows
 
-SciEasy is designed around several common weaknesses in current scientific data
+SciStudio is designed around several common weaknesses in current scientific data
 analysis practice:
 
 - Analysis steps often live in disconnected tools, scripts, notebooks, and GUI
@@ -124,9 +124,9 @@ analysis practice:
 - AI assistance is often outside the workflow record, making suggestions,
   generated code, and parameter changes hard to audit later.
 
-### 2.3 What SciEasy Provides
+### 2.3 What SciStudio Provides
 
-SciEasy provides a framework for building and running scientific workflows with
+SciStudio provides a framework for building and running scientific workflows with
 clear contracts between steps:
 
 - A typed data model for describing scientific data, metadata, storage, and
@@ -135,7 +135,7 @@ clear contracts between steps:
   reviewable graphs.
 - Inclusive execution blocks for existing work: CodeBlock and AppBlock let
   users run familiar scripts, command-line tools, GUI applications, and
-  pipelines inside SciEasy with near-zero migration cost.
+  pipelines inside SciStudio with near-zero migration cost.
 - Lineage tracking for workflow runs so inputs, parameters, outputs, source
   state, and execution context can be connected.
 - Native source-history integration so workflow definitions and project files
@@ -151,12 +151,12 @@ clear contracts between steps:
   execution, block generation, parameter tuning, and result review while staying
   inside the project record.
 
-### 2.4 What SciEasy Does Not Provide
+### 2.4 What SciStudio Does Not Provide
 
-SciEasy is not intended to replace every scientific tool or analysis library.
+SciStudio is not intended to replace every scientific tool or analysis library.
 It provides the workflow runtime around those tools.
 
-SciEasy does not try to:
+SciStudio does not try to:
 
 - Replace domain-specific analysis packages, statistical methods, or scientific
   validation.
@@ -170,7 +170,7 @@ SciEasy does not try to:
 
 ### 2.5 Future Plans
 
-Future work should extend SciEasy without weakening the core boundaries:
+Future work should extend SciStudio without weakening the core boundaries:
 
 - Broader domain plugin packages for common scientific modalities.
 - More streaming and partial-read execution patterns for large data.
@@ -188,7 +188,7 @@ Future work should extend SciEasy without weakening the core boundaries:
 
 ## 3. Architecture Overview
 
-SciEasy is organized as a layered runtime with cross-cutting plugin and
+SciStudio is organized as a layered runtime with cross-cutting plugin and
 governance systems. The layers describe responsibility boundaries; the runtime
 architecture describes how those parts cooperate while a workflow is edited,
 validated, executed, paused, reviewed, resumed, and inspected.
@@ -228,13 +228,13 @@ without becoming a hidden seventh layer.
 </table>
 
 The plugin ecosystem and cross-cutting systems sit on the same conceptual row:
-plugins extend what SciEasy can do, while cross-cutting systems record, govern,
+plugins extend what SciStudio can do, while cross-cutting systems record, govern,
 or constrain work across all layers. Neither should collapse into frontend
 state or bypass the lower runtime contracts.
 
 ### 3.2 Runtime Architecture
 
-At runtime, SciEasy is event-driven. The frontend and API submit workflow
+At runtime, SciStudio is event-driven. The frontend and API submit workflow
 changes and run requests to the runtime. The runtime validates the workflow
 against block and data-type contracts, resolves plugin-provided capabilities,
 dispatches ready work through the execution engine, and emits events that keep
@@ -286,14 +286,14 @@ and reproduced instead of living only in chat history.
 
 ## 4. Layer 1: Data Foundation
 
-The **data foundation** is the bottom layer of SciEasy. It gives workflow blocks
+The **data foundation** is the bottom layer of SciStudio. It gives workflow blocks
 a common way to describe **scientific data**, move data between steps, avoid
 unnecessary copies, cross **file-format boundaries**, and preserve enough
 context to reproduce an analysis later.
 
 ### 4.1 Base Types
 
-SciEasy keeps the **core data model** intentionally small. The **base types**
+SciStudio keeps the **core data model** intentionally small. The **base types**
 are not a catalog of every scientific modality. They are the common shapes that
 many domain types can build on.
 
@@ -347,7 +347,7 @@ in memory because it is expected to be small.
 
 #### 4.1.6 Artifact
 
-`Artifact` represents **files whose internal format is not part of the SciEasy
+`Artifact` represents **files whose internal format is not part of the SciStudio
 canonical data model**. It exists for interoperability with scientific tools
 that produce reports, images, PDFs, archives, logs, or other file outputs.
 
@@ -366,7 +366,7 @@ keeping the bundle addressable as one workflow value.
 
 ### 4.2 Type Hierarchy
 
-The **type hierarchy** lets SciEasy validate workflow connections at the level
+The **type hierarchy** lets SciStudio validate workflow connections at the level
 of scientific meaning without forcing every modality into the core package.
 
 **Core types** provide broad categories. **Plugin packages** define
@@ -374,7 +374,7 @@ domain-specific types by building on those categories. A workflow port can
 accept a broad type when it only needs generic behavior, or a narrower
 plugin-provided type when the block requires domain-specific structure.
 
-This separation keeps core stable while allowing new domains to extend SciEasy
+This separation keeps core stable while allowing new domains to extend SciStudio
 with their own types. The core does not need to know every image, spectrum,
 omics, or instrument-specific class in advance. It only needs the registered
 type relationship and the contracts needed for validation, preview, storage,
@@ -397,7 +397,7 @@ Examples:
 
 #### 4.3.1 Storage Backends
 
-SciEasy stores data in **backends chosen for the access pattern** of each base
+SciStudio stores data in **backends chosen for the access pattern** of each base
 type. The goal is to keep workflow values **lightweight** while allowing blocks
 to load only the data they actually need.
 
@@ -412,7 +412,7 @@ to load only the data they actually need.
 
 #### 4.3.2 Canonical Zone And Boundary Formats
 
-SciEasy separates **internal workflow data** from **external file formats**.
+SciStudio separates **internal workflow data** from **external file formats**.
 Inside the workflow, data moves through a **canonical zone**: arrays, tables,
 text, artifacts, and composite objects use explicit typed contracts and storage
 references. File extensions and external formats are not used as the internal
@@ -462,13 +462,13 @@ capability**: the declared direction, target type, format identity, extensions,
 handler, priority/default metadata, and fidelity expectations.
 
 Within the **canonical zone**, blocks connect by type and declared data
-contract. When a user needs a different file format, SciEasy models that as an
+contract. When a user needs a different file format, SciStudio models that as an
 explicit **boundary conversion** rather than a hidden edge between ordinary
 processing blocks.
 
 #### 4.3.3 Lazy Loading, Slicing, And Broadcast
 
-SciEasy avoids loading **large datasets** until a block asks for data. Data
+SciStudio avoids loading **large datasets** until a block asks for data. Data
 objects can point to persisted storage and expose methods for **full
 materialization**, **partial reads**, and **chunked iteration**.
 
@@ -488,7 +488,7 @@ the block remains responsible for the scientific validity of the operation.
 
 ADR-043 uses metadata management in a narrow IO-boundary sense. It governs how
 external file metadata is represented, declared, validated, and surfaced when
-data crosses between SciEasy's canonical zone and files, scripts, notebooks, or
+data crosses between SciStudio's canonical zone and files, scripts, notebooks, or
 external applications.
 
 The central rule is that **DataObject types do not own file formats**. Format
@@ -523,7 +523,7 @@ metadata package.
 
 ### 4.5 Data Lineage
 
-SciEasy records workflow execution as **lineage** rather than treating outputs
+SciStudio records workflow execution as **lineage** rather than treating outputs
 as isolated files. A run record connects the workflow definition, source state,
 resolved block parameters, block executions, inputs, outputs, environment
 information, and termination state.
@@ -533,7 +533,7 @@ managed by their natural storage backends and may be overwritten by later runs.
 The durable asset is the **recipe**: which workflow ran, with which parameters,
 against which inputs, in which environment, and from which source state.
 
-This lets SciEasy answer questions such as:
+This lets SciStudio answer questions such as:
 
 - Which workflow produced this result?
 - Which blocks ran and which were skipped, cancelled, or failed?
@@ -541,7 +541,7 @@ This lets SciEasy answer questions such as:
 - Which source version was executed?
 - What should be re-run to reproduce or inspect the result?
 
-The lineage store is `<project>/.scieasy/lineage.db`, a SQLite database using
+The lineage store is `<project>/.scistudio/lineage.db`, a SQLite database using
 WAL mode for project-local concurrent writes. ADR-038 defines four normalized
 tables:
 
@@ -573,7 +573,7 @@ history.
 
 ### 4.6 Version Control
 
-Every SciEasy project can be managed as a **Git-backed project**. Workflow
+Every SciStudio project can be managed as a **Git-backed project**. Workflow
 files, custom block code, notes, and project configuration can be committed,
 compared, restored, branched, and merged using ordinary version-control
 semantics.
@@ -606,7 +606,7 @@ large binary churn in ordinary commits.
 
 ## 5. Layer 2: Block System
 
-A **Block** is the unit of work in a SciEasy workflow. It wraps one analysis
+A **Block** is the unit of work in a SciStudio workflow. It wraps one analysis
 step behind a typed contract: what it accepts, what it produces, how it is
 configured, and how the runtime should execute it. Blocks can represent pure
 computation, data loading and saving, external applications, project-local
@@ -622,10 +622,10 @@ surface below is the architecture-level contract.
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.base.state import BlockState, ExecutionMode
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.base.state import BlockState, ExecutionMode
+from scistudio.core.types.collection import Collection
 
 class Block(ABC):
     name: ClassVar[str] = "Unnamed Block"
@@ -920,7 +920,7 @@ Port validation happens in layers:
 
 ### 5.6 Plugin And Block Installation
 
-SciEasy discovers blocks from two main sources:
+SciStudio discovers blocks from two main sources:
 
 - **Project-local or user-global block files** for quick custom work inside a
   project or workstation.
@@ -1063,7 +1063,7 @@ the durable lineage record described in Section 4.5.
 `CheckpointManager` saves the latest known workflow state after terminal block
 events. `WorkflowCheckpoint` records block states, intermediate references,
 pending block information, config snapshot, and skip reasons. The checkpoint
-lives under `<project>/.scieasy/pause/` and is a **latest-run recovery artifact**.
+lives under `<project>/.scistudio/pause/` and is a **latest-run recovery artifact**.
 It supports pause/resume, crash recovery, and run-from-here on the latest
 available intermediate state.
 
@@ -1091,7 +1091,7 @@ scientific method is safe or efficient.
 
 ### 6.5 Process Lifecycle Management
 
-SciEasy runs blocks in isolated subprocesses per ADR-017 and ADR-019. The goal
+SciStudio runs blocks in isolated subprocesses per ADR-017 and ADR-019. The goal
 is simple: a block can crash, be cancelled, or exhaust memory without taking
 down the engine process.
 
@@ -1184,8 +1184,8 @@ recovery choices.
 ## 7. Layer 4: AI Agents
 
 Layer 4 is the production AI-agent layer. It lets a scientist work with a
-Claude Code or Codex agent inside a SciEasy project while keeping the agent on
-SciEasy's normal workflow, data, lineage, and project-management rails.
+Claude Code or Codex agent inside a SciStudio project while keeping the agent on
+SciStudio's normal workflow, data, lineage, and project-management rails.
 
 ADR-040 is the governing decision for this layer. The older model treated the
 agent mostly as an embedded chat surface with a static prompt and a loose tool
@@ -1200,18 +1200,18 @@ ADR-040 separates two environments that must not be confused:
 
 | Environment | Meaning | Governed here? |
 |---|---|---|
-| Development environment | The SciEasy source repository used by framework contributors. | No. Contributor agents follow repository AI developer rules, gate records, ADR workflow, and source-repo policy. |
-| Production environment | A user's SciEasy project workspace opened through the GUI or created by `scieasy init`. | Yes. This layer governs the agent that helps the user build, run, inspect, and maintain project workflows. |
+| Development environment | The SciStudio source repository used by framework contributors. | No. Contributor agents follow repository AI developer rules, gate records, ADR workflow, and source-repo policy. |
+| Production environment | A user's SciStudio project workspace opened through the GUI or created by `scistudio init`. | Yes. This layer governs the agent that helps the user build, run, inspect, and maintain project workflows. |
 
 Production agents work in the user's project root. Their job is to help with
 scientific workflow authoring, custom block creation, run debugging, data
-inspection, and project questions. They should use SciEasy semantic surfaces for
+inspection, and project questions. They should use SciStudio semantic surfaces for
 workflow and data operations instead of bypassing the GUI and runtime through
 ad hoc shell commands.
 
 This boundary matters because production agents and development agents need very
 different instructions. A production agent should understand workflows, blocks,
-data refs, lineage, and project files. It should not inherit the full SciEasy
+data refs, lineage, and project files. It should not inherit the full SciStudio
 source-repository contributor process.
 
 ### 7.2 Agent Runtime
@@ -1221,11 +1221,11 @@ Provider-specific launch code is intentionally thin:
 
 | Provider | Runtime shape |
 |---|---|
-| Claude Code | Spawned in the project root with SciEasy MCP config and composed project prompt. |
+| Claude Code | Spawned in the project root with SciStudio MCP config and composed project prompt. |
 | Codex | Spawned in the project root and configured through project-scope Codex files. |
 
 The PTY model keeps the upstream provider responsible for the agent loop,
-authentication, transcript behavior, and provider-native UX. SciEasy is
+authentication, transcript behavior, and provider-native UX. SciStudio is
 responsible for project anchoring, MCP availability, project context, and the
 files that steer provider behavior.
 
@@ -1238,12 +1238,12 @@ surfaces as human-initiated actions.
 
 ### 7.3 MCP Tool Surface
 
-The MCP surface is the agent's semantic interface to SciEasy. ADR-040 moves this
+The MCP surface is the agent's semantic interface to SciStudio. ADR-040 moves this
 surface to a FastMCP-backed implementation so schemas, descriptions, and return
 models are generated from typed tool definitions rather than hand-written loose
 JSON-RPC descriptions.
 
-The MCP layer is used for operations that need SciEasy semantics:
+The MCP layer is used for operations that need SciStudio semantics:
 
 - discovering blocks and data types;
 - reading, validating, and writing workflow definitions;
@@ -1252,21 +1252,21 @@ The MCP layer is used for operations that need SciEasy semantics:
 - inspecting data references, previews, and lineage;
 - reading project-aware documentation or project state.
 
-MCP is served by the running SciEasy backend. During FastAPI startup, the API
+MCP is served by the running SciStudio backend. During FastAPI startup, the API
 process creates the FastMCP-backed `MCPServer`, installs a project-aware runtime
 context, and binds a project-local transport. On POSIX systems this transport is
-a Unix socket under the active project's `.scieasy/` directory. On Windows it is
+a Unix socket under the active project's `.scistudio/` directory. On Windows it is
 a loopback TCP listener, with the chosen port written beside the project-local
 socket sentinel so bridge processes can discover it.
 
-Agent providers do not import SciEasy internals directly. They connect through
+Agent providers do not import SciStudio internals directly. They connect through
 provider-specific MCP configuration:
 
 | Provider | How it reaches the MCP server |
 |---|---|
-| Claude Code | SciEasy writes `<project>/.scieasy/mcp.json`; the spawned `claude` process receives that config and invokes `scieasy mcp-bridge`, which forwards MCP traffic to the backend server. |
-| Codex | SciEasy writes `<project>/.codex/config.toml`; Codex discovers the project-scope MCP entry and invokes the same bridge path. |
-| Standalone bridge | When no live backend socket is available, `scieasy mcp-bridge` can build a minimal project-scoped MCP runtime for read-oriented tooling, while backend-dependent run control reports that the SciEasy backend must be running. |
+| Claude Code | SciStudio writes `<project>/.scistudio/mcp.json`; the spawned `claude` process receives that config and invokes `scistudio mcp-bridge`, which forwards MCP traffic to the backend server. |
+| Codex | SciStudio writes `<project>/.codex/config.toml`; Codex discovers the project-scope MCP entry and invokes the same bridge path. |
+| Standalone bridge | When no live backend socket is available, `scistudio mcp-bridge` can build a minimal project-scoped MCP runtime for read-oriented tooling, while backend-dependent run control reports that the SciStudio backend must be running. |
 
 Tool handlers receive the same project root, block registry, type registry, run
 state, and event bus context that the backend uses. This is why MCP calls can
@@ -1277,36 +1277,36 @@ The production MCP surface contains 26 tools:
 
 | Area | MCP tool | Purpose | Access |
 |---|---|---|---|
-| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;list_blocks</code> | List registered blocks and palette metadata. | Read |
-| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;get_block_schema</code> | Read one block's ports, config schema, and description. | Read |
-| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;list_types</code> | List registered data types for port and workflow authoring. | Read |
-| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;get_workflow</code> | Read a project workflow definition. | Read |
-| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;validate_workflow</code> | Validate workflow structure before execution or save. | Read |
-| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;write_workflow</code> | Persist schema-validated workflow YAML. | Write |
-| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;run_workflow</code> | Start a workflow run through the SciEasy runtime. | Write |
-| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;cancel_run</code> | Cancel an active workflow run. | Write |
-| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;get_run_status</code> | Poll run state, block state, and terminal outcome. | Read |
-| Workflow | <code>mcp&#95;&#95;scieasy&#95;&#95;finish_ai_block</code> | Signal completion from inside an AIBlock run. | Write |
-| Authoring | <code>mcp&#95;&#95;scieasy&#95;&#95;read_block_source</code> | Read project or package block source for reuse or inspection. | Read |
-| Authoring | <code>mcp&#95;&#95;scieasy&#95;&#95;list_block_examples</code> | List scaffold/example block templates. | Read |
-| Authoring | <code>mcp&#95;&#95;scieasy&#95;&#95;scaffold_block</code> | Create a custom block skeleton with typed ports and config. | Write |
-| Authoring | <code>mcp&#95;&#95;scieasy&#95;&#95;reload_blocks</code> | Reload project-local blocks after authoring changes. | Write |
-| Authoring | <code>mcp&#95;&#95;scieasy&#95;&#95;run_block_tests</code> | Run block-level verification for authored blocks. | Write |
-| Inspection | <code>mcp&#95;&#95;scieasy&#95;&#95;get_block_output</code> | Locate output references for a block or run. | Read |
-| Inspection | <code>mcp&#95;&#95;scieasy&#95;&#95;inspect_data</code> | Inspect data reference metadata without loading full payloads. | Read |
-| Inspection | <code>mcp&#95;&#95;scieasy&#95;&#95;preview_data</code> | Produce a type-appropriate preview for UI or agent review. | Read |
-| Inspection | <code>mcp&#95;&#95;scieasy&#95;&#95;get_lineage</code> | Query lineage records for runs, blocks, and data objects. | Read |
-| Inspection | <code>mcp&#95;&#95;scieasy&#95;&#95;get_block_config</code> | Read a block instance's effective configuration. | Read |
-| Inspection | <code>mcp&#95;&#95;scieasy&#95;&#95;update_block_config</code> | Update a block config through schema-aware workflow mutation. | Write |
-| Inspection | <code>mcp&#95;&#95;scieasy&#95;&#95;get_block_logs</code> | Read block or run logs for debugging. | Read |
-| Project QA | <code>mcp&#95;&#95;scieasy&#95;&#95;search_docs</code> | Search project and SciEasy documentation. | Read |
-| Project QA | <code>mcp&#95;&#95;scieasy&#95;&#95;get_doc</code> | Read a selected documentation page or section. | Read |
-| Project QA | <code>mcp&#95;&#95;scieasy&#95;&#95;list_data</code> | List project data files and references. | Read |
-| Project QA | <code>mcp&#95;&#95;scieasy&#95;&#95;get_project_info</code> | Read project metadata, paths, and high-level state. | Read |
+| Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;list_blocks</code> | List registered blocks and palette metadata. | Read |
+| Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;get_block_schema</code> | Read one block's ports, config schema, and description. | Read |
+| Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;list_types</code> | List registered data types for port and workflow authoring. | Read |
+| Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;get_workflow</code> | Read a project workflow definition. | Read |
+| Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;validate_workflow</code> | Validate workflow structure before execution or save. | Read |
+| Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;write_workflow</code> | Persist schema-validated workflow YAML. | Write |
+| Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;run_workflow</code> | Start a workflow run through the SciStudio runtime. | Write |
+| Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;cancel_run</code> | Cancel an active workflow run. | Write |
+| Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;get_run_status</code> | Poll run state, block state, and terminal outcome. | Read |
+| Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;finish_ai_block</code> | Signal completion from inside an AIBlock run. | Write |
+| Authoring | <code>mcp&#95;&#95;scistudio&#95;&#95;read_block_source</code> | Read project or package block source for reuse or inspection. | Read |
+| Authoring | <code>mcp&#95;&#95;scistudio&#95;&#95;list_block_examples</code> | List scaffold/example block templates. | Read |
+| Authoring | <code>mcp&#95;&#95;scistudio&#95;&#95;scaffold_block</code> | Create a custom block skeleton with typed ports and config. | Write |
+| Authoring | <code>mcp&#95;&#95;scistudio&#95;&#95;reload_blocks</code> | Reload project-local blocks after authoring changes. | Write |
+| Authoring | <code>mcp&#95;&#95;scistudio&#95;&#95;run_block_tests</code> | Run block-level verification for authored blocks. | Write |
+| Inspection | <code>mcp&#95;&#95;scistudio&#95;&#95;get_block_output</code> | Locate output references for a block or run. | Read |
+| Inspection | <code>mcp&#95;&#95;scistudio&#95;&#95;inspect_data</code> | Inspect data reference metadata without loading full payloads. | Read |
+| Inspection | <code>mcp&#95;&#95;scistudio&#95;&#95;preview_data</code> | Produce a type-appropriate preview for UI or agent review. | Read |
+| Inspection | <code>mcp&#95;&#95;scistudio&#95;&#95;get_lineage</code> | Query lineage records for runs, blocks, and data objects. | Read |
+| Inspection | <code>mcp&#95;&#95;scistudio&#95;&#95;get_block_config</code> | Read a block instance's effective configuration. | Read |
+| Inspection | <code>mcp&#95;&#95;scistudio&#95;&#95;update_block_config</code> | Update a block config through schema-aware workflow mutation. | Write |
+| Inspection | <code>mcp&#95;&#95;scistudio&#95;&#95;get_block_logs</code> | Read block or run logs for debugging. | Read |
+| Project QA | <code>mcp&#95;&#95;scistudio&#95;&#95;search_docs</code> | Search project and SciStudio documentation. | Read |
+| Project QA | <code>mcp&#95;&#95;scistudio&#95;&#95;get_doc</code> | Read a selected documentation page or section. | Read |
+| Project QA | <code>mcp&#95;&#95;scistudio&#95;&#95;list_data</code> | List project data files and references. | Read |
+| Project QA | <code>mcp&#95;&#95;scistudio&#95;&#95;get_project_info</code> | Read project metadata, paths, and high-level state. | Read |
 
 The important architectural rule is not the exact tool list. The rule is that
 agent actions touching **blocks**, **workflows**, **runs**, **data**, or
-**lineage** should go through MCP-backed SciEasy contracts. Generic file reading
+**lineage** should go through MCP-backed SciStudio contracts. Generic file reading
 can remain provider-native, but direct edits to workflow YAML or shelling out to
 alternate runtime paths bypass validation, GUI refresh, and lineage expectations.
 
@@ -1321,10 +1321,10 @@ Agent behavior is shaped at session start by project-aware context. The composed
 prompt can include project facts such as project name, project root, available
 workflows, installed plugins, Git state, and recently modified workflow files.
 This makes the agent aware of the actual project instead of operating from a
-static generic SciEasy prompt.
+static generic SciStudio prompt.
 
 ADR-040 also replaces a monolithic skill file with task-scoped skills. The base
-SciEasy skill acts as a compact index, while task skills provide detailed
+SciStudio skill acts as a compact index, while task skills provide detailed
 instructions only when relevant.
 
 | Skill area | Use |
@@ -1335,14 +1335,14 @@ instructions only when relevant.
 | Data inspection | Explore data references, previews, lineage, and output meaning. |
 | Project QA | Answer questions about project structure, files, configuration, and documentation. |
 
-Skills are packaged with SciEasy so wheel installs can provision them reliably.
+Skills are packaged with SciStudio so wheel installs can provision them reliably.
 Project provisioning writes provider-specific skill trees so Claude Code and
 Codex can discover the same task guidance.
 
 ### 7.5 Project Provisioning
 
 Production agent reliability is installed into the user's project, not into the
-SciEasy source repository. Project creation and project opening perform an
+SciStudio source repository. Project creation and project opening perform an
 idempotent provisioning pass.
 
 Provisioned assets include:
@@ -1353,8 +1353,8 @@ Provisioned assets include:
 | `AGENTS.md` | Equivalent project-level instructions for Codex and generic agents. |
 | `.claude/settings.json` | Claude Code hook configuration. |
 | `.claude/hooks/` | Hook scripts that block or flag known unsafe production-agent actions. |
-| `.claude/skills/` | Claude-discoverable SciEasy task skills. |
-| `.agents/skills/` | Codex/generic-agent discoverable SciEasy task skills. |
+| `.claude/skills/` | Claude-discoverable SciStudio task skills. |
+| `.agents/skills/` | Codex/generic-agent discoverable SciStudio task skills. |
 | `.codex/config.toml` | Project-scope Codex MCP and provider configuration. |
 
 Provisioning is non-fatal and conservative. Missing assets are created; existing
@@ -1372,7 +1372,7 @@ moment a provider attempts a risky action.
 
 Key behaviors:
 
-- block direct shell use of the SciEasy CLI when an MCP-backed path should be
+- block direct shell use of the SciStudio CLI when an MCP-backed path should be
   used instead;
 - block direct edits to workflow YAML that would bypass schema-aware workflow
   writing;
@@ -1389,22 +1389,22 @@ advisory where provider support is weaker.
 ### 7.7 Provider Parity
 
 ADR-040 makes Claude Code and Codex first-class production-agent providers. They
-have different discovery mechanisms, so SciEasy provisions both instead of
+have different discovery mechanisms, so SciStudio provisions both instead of
 pretending one provider's files will govern the other.
 
 Parity principles:
 
 - Both providers get project-level instructions.
-- Both providers get SciEasy task skills.
+- Both providers get SciStudio task skills.
 - Both providers get MCP configuration for the active project.
 - Both providers run inside the project root.
-- Both providers are expected to use SciEasy semantic operations for workflows,
+- Both providers are expected to use SciStudio semantic operations for workflows,
   blocks, runs, and data.
 
 The implementation details differ. Claude Code can receive explicit MCP and
 prompt arguments at spawn time. Codex relies more heavily on project-scope
 configuration and standard discovery files. The architectural contract is that a
-fresh SciEasy project should not require a user to manually wire basic agent
+fresh SciStudio project should not require a user to manually wire basic agent
 access before an embedded production agent can help.
 
 ### 7.8 AIBlock Relationship
@@ -1420,7 +1420,7 @@ The distinction is:
 |---|---|
 | Agent tab | Interactive project assistant for editing, inspecting, debugging, and explaining. |
 | AIBlock | Workflow node that invokes an agent-like step as part of a run. |
-| MCP layer | Shared semantic tool surface used by agents to interact with SciEasy safely. |
+| MCP layer | Shared semantic tool surface used by agents to interact with SciStudio safely. |
 | Runtime engine | Source of truth for execution state, events, checkpoints, and lineage. |
 
 An example AIBlock use is **experiment metadata extraction from filenames**.
@@ -1459,7 +1459,7 @@ layer: it tells the agent where inputs are, what outputs are expected, what the
 deadline is, and how to finish the block.
 
 This keeps AI-native behavior inside the same architecture as the rest of
-SciEasy. Agents can help build and improve workflows, and agents can also appear
+SciStudio. Agents can help build and improve workflows, and agents can also appear
 inside workflows, but neither case bypasses block contracts, data contracts,
 lineage, or project governance.
 
@@ -1470,7 +1470,7 @@ lineage, or project governance.
 ### 8.1 API Role And Scope
 
 The **API layer** is the entry point used by the frontend, agents, and external
-clients to reach the SciEasy runtime. It presents project, workflow, block,
+clients to reach the SciStudio runtime. It presents project, workflow, block,
 data, run, and agent operations through stable service boundaries.
 
 The API layer does **not** own workflow truth. Workflow structure, execution
@@ -1516,7 +1516,7 @@ bus, and permission checks.
 
 Agents should use MCP or approved API surfaces when creating workflows,
 editing blocks, reading outputs, tuning configuration, inspecting lineage, or
-starting runs. They should not bypass SciEasy by editing workflow truth directly
+starting runs. They should not bypass SciStudio by editing workflow truth directly
 or by invoking the CLI as an untracked control plane. This keeps agent work
 inside the same schemas, lineage boundaries, permission model, and audit trail
 as frontend-driven work.
@@ -1537,7 +1537,7 @@ other UI implementation details are not API contracts.
 
 ## 9. Layer 6: Frontend
 
-The frontend is the human workspace for SciEasy. It presents the backend-owned
+The frontend is the human workspace for SciStudio. It presents the backend-owned
 project, workflow, execution, preview, lineage, Git, and agent state in one
 local application shell. It does **not** own workflow truth; it edits through API
 contracts and reconciles its view from backend responses and realtime events.
@@ -1562,7 +1562,7 @@ Project, Open Project, and recent projects.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ SciEasy · project/workflow title │ Projects │ New/Import/Save │ Run controls │ WS Logs │
+│ SciStudio · project/workflow title │ Projects │ New/Import/Save │ Run controls │ WS Logs │
 ├───────────────┬───────────────────────────────────────────────┬──────────────┤
 │ Blocks/Project│ Main tabs: workflow canvases + file editors    │ Preview      │
 │ sidebar       ├───────────────────────────────────────────────┤ panel        │
@@ -1729,9 +1729,9 @@ meaning stays in backend contracts:
 ---
 ## 10. Project Workspace Structure
 
-A SciEasy user project is a normal filesystem directory with a small set of
+A SciStudio user project is a normal filesystem directory with a small set of
 well-known paths. The **project root** is identified by `project.yaml`; opening a
-directory without that file is rejected as an invalid SciEasy project.
+directory without that file is rejected as an invalid SciStudio project.
 
 ### 10.1 Created Project Layout
 
@@ -1750,7 +1750,7 @@ my_project/
 │   ├── parquet/
 │   ├── artifacts/
 │   └── exchange/
-├── .scieasy/
+├── .scistudio/
 └── logs/
 ```
 
@@ -1766,37 +1766,37 @@ my_project/
 | `data/parquet/` | Parquet-backed table-style data. |
 | `data/artifacts/` | Reports, images, PDFs, and other artifact files. |
 | `data/exchange/` | Exchange area used by external app/code style blocks for file handoff. |
-| `.scieasy/` | Per-project runtime state. This directory is local and gitignored by default. |
+| `.scistudio/` | Per-project runtime state. This directory is local and gitignored by default. |
 | `logs/` | Project log directory reserved for user-visible logs and diagnostics. |
 
 `notes/` is **not** part of the required scaffold. The frontend can create notes
 under `notes/` when that directory exists, and otherwise falls back to creating
 the note at the project root.
 
-### 10.2 Runtime State Under `.scieasy`
+### 10.2 Runtime State Under `.scistudio`
 
-The `.scieasy/` directory is for local runtime coordination. It is excluded by
-the default SciEasy `.gitignore` and should not be treated as portable project
+The `.scistudio/` directory is for local runtime coordination. It is excluded by
+the default SciStudio `.gitignore` and should not be treated as portable project
 source.
 
 | Runtime path | Producer | Purpose |
 |---|---|---|
-| `.scieasy/lineage.db` | API/runtime lineage initialization | SQLite lineage store for runs, block executions, data objects, and I/O joins. |
-| `.scieasy/pause/<workflow_id>/` | Checkpoint manager | Single-slot pause/resume and run-from-here checkpoint files for a workflow. |
-| `.scieasy/ai-block-runs/<block_execution_id>/` | AIBlock runtime | Per-AIBlock manifest, completion signals, and copied terminal transcript. |
-| `.scieasy/.session-state/<session_id>/` | Agent hooks | Session markers such as whether `list_blocks` was called before block authoring. |
-| `.scieasy/mcp.sock` | MCP server on POSIX | Project-local MCP socket endpoint when the backend is running. |
-| `.scieasy/mcp.sock.port` | MCP server on Windows | Loopback TCP port sentinel for the project-local MCP bridge. |
-| `.scieasy/mcp.json` | Claude terminal spawn path | Project-scoped MCP config written when spawning Claude Code from SciEasy. |
-| `.scieasy/no_git` | User/project marker | Opt-out marker checked before automatic Git re-initialization on project open. |
+| `.scistudio/lineage.db` | API/runtime lineage initialization | SQLite lineage store for runs, block executions, data objects, and I/O joins. |
+| `.scistudio/pause/<workflow_id>/` | Checkpoint manager | Single-slot pause/resume and run-from-here checkpoint files for a workflow. |
+| `.scistudio/ai-block-runs/<block_execution_id>/` | AIBlock runtime | Per-AIBlock manifest, completion signals, and copied terminal transcript. |
+| `.scistudio/.session-state/<session_id>/` | Agent hooks | Session markers such as whether `list_blocks` was called before block authoring. |
+| `.scistudio/mcp.sock` | MCP server on POSIX | Project-local MCP socket endpoint when the backend is running. |
+| `.scistudio/mcp.sock.port` | MCP server on Windows | Loopback TCP port sentinel for the project-local MCP bridge. |
+| `.scistudio/mcp.json` | Claude terminal spawn path | Project-scoped MCP config written when spawning Claude Code from SciStudio. |
+| `.scistudio/no_git` | User/project marker | Opt-out marker checked before automatic Git re-initialization on project open. |
 
 Legacy root-level `metadata.db`, `lineage/`, and `checkpoints/` paths are not the
 current layout. Existing files may remain in old projects, but current runtime
-state is under `.scieasy/`.
+state is under `.scistudio/`.
 
 ### 10.3 Versioned Source Boundary
 
-On project creation, SciEasy best-effort initializes Git with `main` as the
+On project creation, SciStudio best-effort initializes Git with `main` as the
 initial branch, writes a default `.gitignore`, stages the project, and creates an
 initial commit. If Git is unavailable, project creation and open still proceed in
 degraded mode.
@@ -1804,7 +1804,7 @@ degraded mode.
 The default `.gitignore` excludes:
 
 - `data/`
-- `.scieasy/`
+- `.scistudio/`
 - Python caches
 - OS noise files
 - plugin virtual environments
@@ -1817,7 +1817,7 @@ runtime state stay outside Git by default.
 
 ### 10.4 Agent And MCP Project Assets
 
-SciEasy provisions production-agent assets on project creation and on every
+SciStudio provisions production-agent assets on project creation and on every
 project open. Provisioning is idempotent with `force=false`: existing files are
 preserved, missing files are restored, and failures are non-fatal.
 
@@ -1827,36 +1827,36 @@ my_project/
 ├── AGENTS.md
 ├── .claude/
 │   ├── settings.json
-│   ├── .scieasy-provision-version
+│   ├── .scistudio-provision-version
 │   ├── hooks/
-│   └── skills/scieasy/
+│   └── skills/scistudio/
 ├── .agents/
-│   └── skills/scieasy/
+│   └── skills/scistudio/
 └── .codex/
     └── config.toml
 ```
 
 | Path | Purpose |
 |---|---|
-| `CLAUDE.md` | Project-scoped guide for Claude Code sessions using SciEasy. |
+| `CLAUDE.md` | Project-scoped guide for Claude Code sessions using SciStudio. |
 | `AGENTS.md` | Project-scoped guide for Codex and generic agent sessions. |
 | `.claude/settings.json` | Claude Code hook matcher configuration. |
 | `.claude/hooks/` | Hook scripts that steer agents toward MCP-backed workflow and block operations. |
-| `.claude/skills/scieasy/` | Claude Code SciEasy skills. |
-| `.agents/skills/scieasy/` | Codex/generic agent SciEasy skills. |
+| `.claude/skills/scistudio/` | Claude Code SciStudio skills. |
+| `.agents/skills/scistudio/` | Codex/generic agent SciStudio skills. |
 | `.codex/config.toml` | Project-scope Codex MCP server configuration. |
 
-These files are different from the SciEasy source repository's developer-facing
+These files are different from the SciStudio source repository's developer-facing
 agent rules. A user project receives short operating guidance for agents that are
-using SciEasy, not the full contributor workflow for developing SciEasy itself.
+using SciStudio, not the full contributor workflow for developing SciStudio itself.
 
 ### 10.5 User-Wide Extension Paths
 
-In addition to project-local extensions, SciEasy also scans user-wide extension
+In addition to project-local extensions, SciStudio also scans user-wide extension
 locations:
 
 ```
-~/.scieasy/
+~/.scistudio/
 ├── blocks/
 └── types/
 ```
@@ -1869,7 +1869,7 @@ distribution beyond one user machine.
 ---
 ## 11. Extensibility
 
-SciEasy is designed to keep the **core runtime** small while letting scientific capability grow at the project, package, application, and agent layers. The framework provides stable extension boundaries for **blocks**, **data types**, **format capabilities**, **external applications**, **code runners**, and **agent tools**. Domain-specific science should usually enter through one of those boundaries instead of being added directly to core.
+SciStudio is designed to keep the **core runtime** small while letting scientific capability grow at the project, package, application, and agent layers. The framework provides stable extension boundaries for **blocks**, **data types**, **format capabilities**, **external applications**, **code runners**, and **agent tools**. Domain-specific science should usually enter through one of those boundaries instead of being added directly to core.
 
 ### 11.1 Extension Philosophy
 
@@ -1880,26 +1880,26 @@ Extensibility follows four rules:
 - **Packages can extend publicly.** Reusable blocks and types can be distributed as Python packages and discovered through entry points.
 - **Existing tools stay useful.** Scripts, notebooks, command-line tools, GUI applications, and agents can be wrapped as workflow blocks instead of rewritten from scratch.
 
-This keeps SciEasy inclusive: a workflow may combine native blocks, project-local logic, Jupyter notebooks, Python/R/MATLAB scripts, user-preferred applications, and calls to an AI Agent for help in one typed graph.
+This keeps SciStudio inclusive: a workflow may combine native blocks, project-local logic, Jupyter notebooks, Python/R/MATLAB scripts, user-preferred applications, and calls to an AI Agent for help in one typed graph.
 
 ### 11.2 Project-Local Extensions
 
-A SciEasy project contains `blocks/` and `types/` directories for local extension code. This is the lowest-friction path for a scientist who wants to adapt a pipeline for one dataset, one experiment, or one lab workflow.
+A SciStudio project contains `blocks/` and `types/` directories for local extension code. This is the lowest-friction path for a scientist who wants to adapt a pipeline for one dataset, one experiment, or one lab workflow.
 
-The current custom block starter is copied from `src/scieasy/blocks/_templates/block_base_template.py` into `<project>/blocks/<name>.py`. Non-normative template excerpt:
+The current custom block starter is copied from `src/scistudio/blocks/_templates/block_base_template.py` into `<project>/blocks/<name>.py`. Non-normative template excerpt:
 
 ```python
 from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from scieasy.blocks.base import (
+from scistudio.blocks.base import (
     Block,
     BlockConfig,
     InputPort,
     OutputPort,
 )
-from scieasy.core.types.collection import Collection
+from scistudio.core.types.collection import Collection
 
 
 class MyBlock(Block):
@@ -1938,15 +1938,15 @@ Reusable extensions are distributed as Python packages. The runtime discovers pa
 
 | Entry point group | Responsibility |
 |---|---|
-| `scieasy.blocks` | Registers block classes and optional package metadata for palette grouping. |
-| `scieasy.types` | Registers additional `DataObject` subclasses for typed ports and storage behavior. |
-| `scieasy.runners` | Registers CodeBlock runner backends for additional script execution environments. |
+| `scistudio.blocks` | Registers block classes and optional package metadata for palette grouping. |
+| `scistudio.types` | Registers additional `DataObject` subclasses for typed ports and storage behavior. |
+| `scistudio.runners` | Registers CodeBlock runner backends for additional script execution environments. |
 
 The block package path is appropriate when a block set is reusable across projects, has its own tests, carries external dependencies, or belongs to a scientific community plugin. Package authors can use `PackageInfo` for display metadata and `BlockTestHarness` for contract validation, both of which are public helper surfaces in the current codebase.
 
 ### 11.4 Block-Level Extension Patterns
 
-Most extension work enters SciEasy as a block. The block type should match the integration boundary:
+Most extension work enters SciStudio as a block. The block type should match the integration boundary:
 
 | Extension pattern | Use when |
 |---|---|
@@ -1962,7 +1962,7 @@ This model lets users migrate gradually. A familiar script can start as a **Code
 
 ### 11.5 Data And Format Extensions
 
-SciEasy separates **data type identity** from **external file format**. New scientific domains can add typed `DataObject` subclasses, while IO blocks declare the external formats they can load or save.
+SciStudio separates **data type identity** from **external file format**. New scientific domains can add typed `DataObject` subclasses, while IO blocks declare the external formats they can load or save.
 
 Format extensions should describe:
 
@@ -1977,7 +1977,7 @@ The **canonical zone** remains the internal storage boundary. Format conversion 
 
 ### 11.6 Agent And Tool Extensions
 
-Agents extend SciEasy through the **MCP tool surface** and project-provisioned skills. They can inspect registries, scaffold blocks, validate workflows, run workflows, read outputs, and finish AIBlock tasks through runtime-controlled tools.
+Agents extend SciStudio through the **MCP tool surface** and project-provisioned skills. They can inspect registries, scaffold blocks, validate workflows, run workflows, read outputs, and finish AIBlock tasks through runtime-controlled tools.
 
 Agent extension does not make the agent the owner of workflow truth. The backend runtime remains authoritative for workflow state, run state, lineage, validation, and event emission. Agents should use MCP/API operations rather than editing workflow files or invoking runtime commands as a hidden control plane.
 
@@ -2079,11 +2079,11 @@ Some runtime paths depend on tools installed outside the Python or frontend depe
 | Event runtime | EventBus + asyncio | Runtime event propagation, WebSocket updates, run progress, prompts, and status changes. |
 | File watching | watchdog | Project file and Git-head change detection bridged into runtime events. |
 | Process lifecycle | ProcessHandle, ProcessRegistry, ProcessMonitor | Cross-platform subprocess isolation, cancellation, and liveness tracking. |
-| Lineage store | SQLite with WAL | Project-local `.scieasy/lineage.db` for runs, block executions, data objects, and block IO. |
+| Lineage store | SQLite with WAL | Project-local `.scistudio/lineage.db` for runs, block executions, data objects, and block IO. |
 | Storage | Zarr, Arrow/Parquet, file artifacts | Canonical storage backends for arrays, tables, and external artifacts. |
 | Version control | Bundled or system git | Project workflow/source tracking, branches for parallel workflow variants, pre-run source snapshots. |
-| Block discovery | Project files + Python entry points | Project-local `blocks/` and package-level `scieasy.blocks` discovery. |
-| Type discovery | Core registry + Python entry points | Core `DataObject` types plus package-level `scieasy.types` extensions. |
+| Block discovery | Project files + Python entry points | Project-local `blocks/` and package-level `scistudio.blocks` discovery. |
+| Type discovery | Core registry + Python entry points | Core `DataObject` types plus package-level `scistudio.types` extensions. |
 | Code execution | CodeBlock backends | Python, POSIX shell, R/Quarto, Jupyter notebooks, and MATLAB-family files through declared exchange contracts. |
 | MCP server | FastMCP | Agent-facing tool server used by Claude/Codex sessions and AIBlock runs. |
 | Frontend | React 18 + TypeScript + Vite | Bundled SPA served by the backend. |

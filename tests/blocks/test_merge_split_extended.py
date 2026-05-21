@@ -5,10 +5,10 @@ from __future__ import annotations
 import pyarrow as pa
 import pytest
 
-from scieasy.blocks.base.state import BlockState
-from scieasy.blocks.process.builtins.merge import MergeBlock
-from scieasy.blocks.process.builtins.split import SplitBlock
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.blocks.base.state import BlockState
+from scistudio.blocks.process.builtins.merge import MergeBlock
+from scistudio.blocks.process.builtins.split import SplitBlock
+from scistudio.core.types.dataframe import DataFrame
 
 
 def _make_df(data: dict) -> DataFrame:

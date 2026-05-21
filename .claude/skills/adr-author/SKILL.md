@@ -1,9 +1,9 @@
 ---
 name: adr-author
-description: Use when acting as the SciEasy ADR author persona for ADRs, addenda, specs, governance text, document standards, schemas, and architecture-facing decisions.
+description: Use when acting as the SciStudio ADR author persona for ADRs, addenda, specs, governance text, document standards, schemas, and architecture-facing decisions.
 ---
 
-# SciEasy ADR Author Skill
+# SciStudio ADR Author Skill
 
 This skill is a hard pointer only. It does not define independent policy.
 

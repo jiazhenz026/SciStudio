@@ -68,7 +68,7 @@
   },
   "full_audit": {
     "blocks_merge": false,
-    "command": "python -m scieasy.qa.audit.full_audit",
+    "command": "python -m scistudio.qa.audit.full_audit",
     "exit_code": 0,
     "known_debt": [
       "owner-acknowledged"
@@ -84,7 +84,7 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1313,
-      "url": "https://github.com/zjzcpj/SciEasy/issues/1313"
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1313"
     }
   ],
   "owner_directive": "Fix 2 audit-surfaced bugs in LossySaveWarning OME flattening: (1) upstreamOmeFields didn't recurse into Collection payloads (LoadImage shape); (2) flattenOmeFields recorded null/undefined as present, inflating sourceOmeFields with model_dump None fields.",
@@ -94,7 +94,7 @@
       1313
     ],
     "number": 1315,
-    "url": "https://github.com/zjzcpj/SciEasy/pull/1315"
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1315"
   },
   "record_path": ".workflow/records/1313-lossy-save-collection-walk-and-null-skip.json",
   "required_checks": [

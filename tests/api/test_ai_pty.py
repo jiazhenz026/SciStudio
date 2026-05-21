@@ -18,9 +18,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from scieasy.ai.agent.terminal import PtyProcess
-from scieasy.api.routes import ai_pty
-from scieasy.api.routes.ai_pty import _active_ptys
+from scistudio.ai.agent.terminal import PtyProcess
+from scistudio.api.routes import ai_pty
+from scistudio.api.routes.ai_pty import _active_ptys
 
 
 def _echo_argv() -> list[str]:
@@ -140,7 +140,7 @@ def test_pty_ws_invalid_provider(client: TestClient, opened_project: Path) -> No
 
 def test_pty_ws_max_count(client: TestClient, opened_project: Path) -> None:
     """The 17th simultaneous connection must be rejected with an error."""
-    from scieasy.api.routes.ai_pty import MAX_ACTIVE_PTYS
+    from scistudio.api.routes.ai_pty import MAX_ACTIVE_PTYS
 
     assert MAX_ACTIVE_PTYS == 16
 

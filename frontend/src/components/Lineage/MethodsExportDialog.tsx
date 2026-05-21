@@ -8,7 +8,7 @@
  * -------
  * Modal dialog for the "Export methods" affordance. Fetches the rendered
  * markdown via api.lineage.getRunMethods(runId) (server-side renderer lives
- * in `src/scieasy/core/lineage/methods_export.py` per ADR-038 §5.1, owned
+ * in `src/scistudio/core/lineage/methods_export.py` per ADR-038 §5.1, owned
  * by the sibling D38-2.4a agent). Displays the markdown read-only inside
  * a scrollable region; offers Copy and Download .md actions.
  *

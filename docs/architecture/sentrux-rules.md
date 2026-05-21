@@ -1,6 +1,6 @@
 # Sentrux Architecture Rules
 
-SciEasy uses Sentrux as a lightweight architecture sensor for dependency
+SciStudio uses Sentrux as a lightweight architecture sensor for dependency
 health, layering, and boundary checks. The executable rule file lives at
 `.sentrux/rules.toml`.
 

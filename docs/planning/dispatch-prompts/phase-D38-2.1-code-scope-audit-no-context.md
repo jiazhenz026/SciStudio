@@ -7,7 +7,7 @@
 
 ## Your task
 
-Read ADR-038 (`docs/adr/ADR-038.md`) fully. Then scan the **entire SciEasy repository on `main`** to produce a definitive code-modification scope list. ADR-038 §5.1 and §5.2 contain the author's best estimate of the files to change. Your job is to **validate that list against reality** — find every code site that touches the concepts ADR-038 changes, and report which sites are already in the ADR's list vs. which are missing.
+Read ADR-038 (`docs/adr/ADR-038.md`) fully. Then scan the **entire SciStudio repository on `main`** to produce a definitive code-modification scope list. ADR-038 §5.1 and §5.2 contain the author's best estimate of the files to change. Your job is to **validate that list against reality** — find every code site that touches the concepts ADR-038 changes, and report which sites are already in the ADR's list vs. which are missing.
 
 Specifically, scan for every callsite, definition, import, test, and string-literal reference of:
 
@@ -61,7 +61,7 @@ ADR §5.2 file list reviewed against: <number of files actually scanned>
 
 | File | Symbols / lines | ADR §5.2 row |
 |---|---|---|
-| `src/scieasy/engine/scheduler.py` | line 425 (BLOCK_DONE emit), line 549 (BLOCK_DONE emit), `_run_block` body | §5.2 row "scheduler.py" |
+| `src/scistudio/engine/scheduler.py` | line 425 (BLOCK_DONE emit), line 549 (BLOCK_DONE emit), `_run_block` body | §5.2 row "scheduler.py" |
 | ... | ... | ... |
 
 ## Files MISSING from ADR §5.2 (newly discovered — manager must add to D38-2.2/2.3/2.4 owned-file lists)

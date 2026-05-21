@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from scieasy.blocks.ai.providers import (
+from scistudio.blocks.ai.providers import (
     AnthropicProvider,
     LLMProvider,
     OpenAIProvider,
@@ -89,7 +89,7 @@ class TestAnthropicProvider:
         """Create an AnthropicProvider with a mocked SDK."""
         with (
             patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key-123"}),
-            patch("scieasy.blocks.ai.providers._anthropic_sdk", mock_sdk),
+            patch("scistudio.blocks.ai.providers._anthropic_sdk", mock_sdk),
         ):
             return AnthropicProvider()
 
@@ -153,7 +153,7 @@ class TestAnthropicProvider:
 
     def test_missing_sdk_raises_import_error(self) -> None:
         """AnthropicProvider raises ImportError when SDK is not installed."""
-        with patch("scieasy.blocks.ai.providers._anthropic_sdk", None), pytest.raises(ImportError, match="anthropic"):
+        with patch("scistudio.blocks.ai.providers._anthropic_sdk", None), pytest.raises(ImportError, match="anthropic"):
             AnthropicProvider(api_key="key")
 
     def test_missing_api_key_raises(self) -> None:
@@ -161,7 +161,7 @@ class TestAnthropicProvider:
         mock_sdk = MagicMock()
         env_no_key = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
         with (
-            patch("scieasy.blocks.ai.providers._anthropic_sdk", mock_sdk),
+            patch("scistudio.blocks.ai.providers._anthropic_sdk", mock_sdk),
             patch.dict(os.environ, env_no_key, clear=True),
             pytest.raises(ValueError, match="No Anthropic API key"),
         ):
@@ -170,7 +170,7 @@ class TestAnthropicProvider:
     def test_explicit_api_key(self) -> None:
         """AnthropicProvider uses the explicitly provided key."""
         mock_sdk = MagicMock()
-        with patch("scieasy.blocks.ai.providers._anthropic_sdk", mock_sdk):
+        with patch("scistudio.blocks.ai.providers._anthropic_sdk", mock_sdk):
             AnthropicProvider(api_key="explicit-key")
             mock_sdk.Anthropic.assert_called_once_with(api_key="explicit-key")
 
@@ -178,7 +178,7 @@ class TestAnthropicProvider:
         """AnthropicProvider falls back to env var."""
         mock_sdk = MagicMock()
         with (
-            patch("scieasy.blocks.ai.providers._anthropic_sdk", mock_sdk),
+            patch("scistudio.blocks.ai.providers._anthropic_sdk", mock_sdk),
             patch.dict(os.environ, {"ANTHROPIC_API_KEY": "env-key"}),
         ):
             AnthropicProvider()
@@ -203,7 +203,7 @@ class TestOpenAIProvider:
         """Create an OpenAIProvider with a mocked SDK."""
         with (
             patch.dict(os.environ, {"OPENAI_API_KEY": "test-key-456"}),
-            patch("scieasy.blocks.ai.providers._openai_sdk", mock_sdk),
+            patch("scistudio.blocks.ai.providers._openai_sdk", mock_sdk),
         ):
             return OpenAIProvider()
 
@@ -294,7 +294,7 @@ class TestOpenAIProvider:
 
     def test_missing_sdk_raises_import_error(self) -> None:
         """OpenAIProvider raises ImportError when SDK is not installed."""
-        with patch("scieasy.blocks.ai.providers._openai_sdk", None), pytest.raises(ImportError, match="openai"):
+        with patch("scistudio.blocks.ai.providers._openai_sdk", None), pytest.raises(ImportError, match="openai"):
             OpenAIProvider(api_key="key")
 
     def test_missing_api_key_raises(self) -> None:
@@ -302,7 +302,7 @@ class TestOpenAIProvider:
         mock_sdk = MagicMock()
         env_no_key = {k: v for k, v in os.environ.items() if k != "OPENAI_API_KEY"}
         with (
-            patch("scieasy.blocks.ai.providers._openai_sdk", mock_sdk),
+            patch("scistudio.blocks.ai.providers._openai_sdk", mock_sdk),
             patch.dict(os.environ, env_no_key, clear=True),
             pytest.raises(ValueError, match="No OpenAI API key"),
         ):
@@ -311,7 +311,7 @@ class TestOpenAIProvider:
     def test_explicit_api_key(self) -> None:
         """OpenAIProvider uses the explicitly provided key."""
         mock_sdk = MagicMock()
-        with patch("scieasy.blocks.ai.providers._openai_sdk", mock_sdk):
+        with patch("scistudio.blocks.ai.providers._openai_sdk", mock_sdk):
             OpenAIProvider(api_key="explicit-key")
             mock_sdk.OpenAI.assert_called_once_with(api_key="explicit-key")
 

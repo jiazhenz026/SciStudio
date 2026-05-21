@@ -30,9 +30,9 @@ Examples of where types live:
 
 | Type | Package |
 |------|---------|
-| `Image`, `Label`, `Mask`, `Transform` | `scieasy-blocks-imaging` |
-| `PeakTable`, `MIDTable` | `scieasy-blocks-lcms` |
-| `RamanSpectrum` | `scieasy-blocks-srs` |
+| `Image`, `Label`, `Mask`, `Transform` | `scistudio-blocks-imaging` |
+| `PeakTable`, `MIDTable` | `scistudio-blocks-lcms` |
+| `RamanSpectrum` | `scistudio-blocks-srs` |
 
 ---
 
@@ -50,8 +50,8 @@ from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict
 
-from scieasy.core.types.array import Array
-from scieasy.core.units import PhysicalQuantity
+from scistudio.core.types.array import Array
+from scistudio.core.units import PhysicalQuantity
 
 
 class FluorImage(Array):
@@ -98,7 +98,7 @@ from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict
 
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.core.types.dataframe import DataFrame
 
 
 class PeakTable(DataFrame):
@@ -124,9 +124,9 @@ from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict
 
-from scieasy.core.types.array import Array
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.core.types.array import Array
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.dataframe import DataFrame
 
 
 class Label(CompositeData):
@@ -190,7 +190,7 @@ class MyType(Array):
 **ADR-027 D8**: Use `PhysicalQuantity` for values with units.
 
 ```python
-from scieasy.core.units import PhysicalQuantity
+from scistudio.core.units import PhysicalQuantity
 
 pixel_size = PhysicalQuantity(value=0.325, unit="um")
 ```
@@ -202,13 +202,13 @@ pixel_size = PhysicalQuantity(value=0.325, unit="um")
 
 ## Plugin Type Registration
 
-Plugin types are registered via the `scieasy.types` entry-point group
+Plugin types are registered via the `scistudio.types` entry-point group
 in `pyproject.toml`.
 
 ### pyproject.toml
 
 ```toml
-[project.entry-points."scieasy.types"]
+[project.entry-points."scistudio.types"]
 my_plugin = "my_plugin_package:get_types"
 ```
 
@@ -221,7 +221,7 @@ def get_types() -> list[type]:
     return [FluorImage, RatioImage]
 ```
 
-The `TypeRegistry` scans all `scieasy.types` entry-points at startup
+The `TypeRegistry` scans all `scistudio.types` entry-points at startup
 and makes the types available for:
 
 - Port type matching
@@ -285,7 +285,7 @@ img = Image(
 )
 
 # Create derived image with updated pixel_size
-from scieasy.core.units import PhysicalQuantity
+from scistudio.core.units import PhysicalQuantity
 derived = img.with_meta(pixel_size=PhysicalQuantity(value=0.325, unit="um"))
 
 # derived has:

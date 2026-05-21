@@ -21,9 +21,9 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from scieasy.ai.agent.terminal import PtyProcess
-from scieasy.api.routes import ai_pty
-from scieasy.api.routes.ai_pty import (
+from scistudio.ai.agent.terminal import PtyProcess
+from scistudio.api.routes import ai_pty
+from scistudio.api.routes.ai_pty import (
     _active_ptys,
     _engine_tab_to_run,
     broadcast_ai_pty_message,
@@ -235,7 +235,7 @@ def test_unregister_unknown_is_noop() -> None:
 @pytest.fixture()
 def _ipc_token(monkeypatch: pytest.MonkeyPatch) -> str:
     tok = "test-secret-token-xyz"
-    monkeypatch.setenv("SCIEASY_ENGINE_IPC_TOKEN", tok)
+    monkeypatch.setenv("SCISTUDIO_ENGINE_IPC_TOKEN", tok)
     return tok
 
 
@@ -253,7 +253,7 @@ def test_internal_request_tab_happy_path(client: TestClient, opened_project: Pat
                 "permission_mode": "safe",
             },
         },
-        headers={"X-SciEasy-IPC-Token": _ipc_token},
+        headers={"X-SciStudio-IPC-Token": _ipc_token},
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -265,7 +265,7 @@ def test_internal_request_tab_bad_token_401(client: TestClient, opened_project: 
     resp = client.post(
         "/api/ai/pty/internal/request-tab",
         json={"type": "request_pty_tab", "spec": {"cwd": str(opened_project)}},
-        headers={"X-SciEasy-IPC-Token": "wrong-token"},
+        headers={"X-SciStudio-IPC-Token": "wrong-token"},
     )
     assert resp.status_code == 401
 
@@ -282,7 +282,7 @@ def test_internal_request_tab_wrong_type_400(client: TestClient, _ipc_token: str
     resp = client.post(
         "/api/ai/pty/internal/request-tab",
         json={"type": "wrong", "spec": {}},
-        headers={"X-SciEasy-IPC-Token": _ipc_token},
+        headers={"X-SciStudio-IPC-Token": _ipc_token},
     )
     assert resp.status_code == 400
 
@@ -307,7 +307,7 @@ def test_internal_request_tab_cap_returns_503(
                 "permission_mode": "safe",
             },
         },
-        headers={"X-SciEasy-IPC-Token": _ipc_token},
+        headers={"X-SciStudio-IPC-Token": _ipc_token},
     )
     assert resp.status_code == 503
 
@@ -337,7 +337,7 @@ def test_internal_request_tab_soft_failure_returns_error_envelope(
                 "permission_mode": "safe",
             },
         },
-        headers={"X-SciEasy-IPC-Token": _ipc_token},
+        headers={"X-SciStudio-IPC-Token": _ipc_token},
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -360,7 +360,7 @@ def test_internal_notify_happy_path(client: TestClient, opened_project: Path, _i
                 "permission_mode": "safe",
             },
         },
-        headers={"X-SciEasy-IPC-Token": _ipc_token},
+        headers={"X-SciStudio-IPC-Token": _ipc_token},
     )
     assert open_resp.status_code == 200
 
@@ -379,7 +379,7 @@ def test_internal_notify_happy_path(client: TestClient, opened_project: Path, _i
                 "event": "completed",
                 "detail": {"outputs": 1},
             },
-            headers={"X-SciEasy-IPC-Token": _ipc_token},
+            headers={"X-SciStudio-IPC-Token": _ipc_token},
         )
         assert resp.status_code == 204
     finally:
@@ -400,7 +400,7 @@ def test_internal_notify_unknown_event_400(client: TestClient, _ipc_token: str) 
             "block_run_id": "rid",
             "event": "not-a-real-event",
         },
-        headers={"X-SciEasy-IPC-Token": _ipc_token},
+        headers={"X-SciStudio-IPC-Token": _ipc_token},
     )
     assert resp.status_code == 400
 
@@ -413,7 +413,7 @@ def test_internal_notify_bad_token_401(client: TestClient, _ipc_token: str) -> N
             "block_run_id": "rid",
             "event": "completed",
         },
-        headers={"X-SciEasy-IPC-Token": "wrong"},
+        headers={"X-SciStudio-IPC-Token": "wrong"},
     )
     assert resp.status_code == 401
 
@@ -440,7 +440,7 @@ def test_ws_forwards_block_pty_opened(client: TestClient, opened_project: Path, 
                     "permission_mode": "safe",
                 },
             },
-            headers={"X-SciEasy-IPC-Token": _ipc_token},
+            headers={"X-SciStudio-IPC-Token": _ipc_token},
         )
         assert resp.status_code == 200
 

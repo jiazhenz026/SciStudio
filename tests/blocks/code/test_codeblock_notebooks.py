@@ -7,18 +7,18 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.blocks.code.backends.notebook import NotebookCodeBlockBackend, executed_notebook_path
-from scieasy.blocks.code.code_block import (
+from scistudio.blocks.code.backends.notebook import NotebookCodeBlockBackend, executed_notebook_path
+from scistudio.blocks.code.code_block import (
     CodeBlock,
     CodeBlockExecutionError,
     CodeBlockRuntimeContext,
     list_codeblock_backends,
 )
-from scieasy.blocks.code.config import CodeBlockConfig
-from scieasy.blocks.code.interpreters import InterpreterResolutionError
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.text import Text
+from scistudio.blocks.code.config import CodeBlockConfig
+from scistudio.blocks.code.interpreters import InterpreterResolutionError
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.text import Text
 
 
 def _write_notebook(project_dir: Path, source: str, *, name: str = "analysis.ipynb") -> Path:

@@ -44,7 +44,7 @@ Recommended local checks for human-authored changes are:
 ruff check .
 ruff format --check .
 pytest <targeted-tests-or-test-directory>
-python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json
+python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json
 ```
 
 Humans may skip all local hooks when needed:
@@ -65,13 +65,13 @@ whether the submitted checks and CI signal are sufficient.
 ruff check .
 ruff format --check .
 pytest <targeted-tests-or-test-directory>
-python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json
+python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json
 ```
 
 3. If only one AI-only hook is blocking you, you may skip only that hook:
 
 ```bash
-SKIP=scieasy-gate-record-pre-commit git commit
+SKIP=scistudio-gate-record-pre-commit git commit
 ```
 
 4. If several local hooks block legitimate human work, skip all local hooks:
@@ -145,7 +145,7 @@ Closes #1300
 
 Human-authored PR. Requesting human-authored label for AI-only gate bypass.
 Quality checks run:
-- python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json
+- python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json
 Local hooks skipped: no
 ```
 
@@ -159,6 +159,6 @@ Quality checks run:
 - ruff check .
 - ruff format --check .
 - pytest tests/qa/test_example.py
-- python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json
+- python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json
 Local hooks skipped: yes
 ```

@@ -24,17 +24,17 @@ scope:
     - Human review replacement.
 governs:
   modules:
-    - scieasy.qa.code_score
-    - scieasy.qa.test_quality
+    - scistudio.qa.code_score
+    - scistudio.qa.test_quality
   contracts:
-    - scieasy.qa.code_score.score_module
-    - scieasy.qa.code_score.score_changed_modules
-    - scieasy.qa.test_quality.ast_lint.check_test_file
-    - scieasy.qa.test_quality.test_first_check.verify_ordering
-    - scieasy.qa.test_quality.mutation_runner.run_targeted
+    - scistudio.qa.code_score.score_module
+    - scistudio.qa.code_score.score_changed_modules
+    - scistudio.qa.test_quality.ast_lint.check_test_file
+    - scistudio.qa.test_quality.test_first_check.verify_ordering
+    - scistudio.qa.test_quality.mutation_runner.run_targeted
   files:
-    - src/scieasy/qa/code_score/**
-    - src/scieasy/qa/test_quality/**
+    - src/scistudio/qa/code_score/**
+    - src/scistudio/qa/test_quality/**
     - tests/qa/test_code_score.py
     - tests/qa/test_test_quality_ast.py
     - tests/qa/test_test_quality_test_first.py
@@ -63,7 +63,7 @@ owner request to split custom tooling into four implementation specs.
 The spec intentionally treats common tools such as `ruff`, `mypy`, `pyright`,
 `pytest`, `coverage`, `import-linter`, `griffe`, `vulture`, `xenon`, and
 `pip-audit` as inputs, not as code to rewrite. Custom code-quality tools must
-aggregate and interpret those signals for SciEasy policy without hiding the
+aggregate and interpret those signals for SciStudio policy without hiding the
 underlying tool output.
 
 ## 2. User Scenarios & Testing
@@ -162,7 +162,7 @@ Acceptance Scenarios:
 - FR-008: AI advisory scoring MUST never block unless ADR-042 is amended by the
   owner.
 - FR-009: Local pre-commit reports MUST be written under
-  `.git/scieasy/code-score/` and MUST NOT be committed.
+  `.git/scistudio/code-score/` and MUST NOT be committed.
 - FR-010: CI change-score reports MUST be uploaded as artifacts and MAY be
   committed under `docs/audit/code-score/changes/` when the owner wants
   persistent history.
@@ -195,7 +195,7 @@ Acceptance Scenarios:
 ### 4.1 Technical Approach
 
 Implement code-quality tooling as deterministic Python modules under
-`src/scieasy/qa/`. `code_score` should collect normalized inputs from existing
+`src/scistudio/qa/`. `code_score` should collect normalized inputs from existing
 tool outputs, git diff metadata, and optional module-health reports. It should
 then apply ADR-042 scoring rules in a small policy layer with explicit weights,
 hard F triggers, and stable report JSON.
@@ -212,8 +212,8 @@ hard F triggers, and stable report JSON.
 
 | File or glob | Action | Rationale |
 |---|---|---|
-| `src/scieasy/qa/code_score/**` | create | Scoring engine, report models, CLI, and adapters for common tool reports |
-| `src/scieasy/qa/test_quality/**` | create | Test AST lint, test-first evidence checker, and mutation wrapper |
+| `src/scistudio/qa/code_score/**` | create | Scoring engine, report models, CLI, and adapters for common tool reports |
+| `src/scistudio/qa/test_quality/**` | create | Test AST lint, test-first evidence checker, and mutation wrapper |
 | `tests/qa/test_code_score.py` | create | Grade, F-trigger, AI-skip, and historical-debt fixtures |
 | `tests/qa/test_test_quality_ast.py` | create | Weak-test anti-pattern fixtures |
 | `tests/qa/test_test_quality_test_first.py` | create | Test-first required and not-required ordering fixtures |
@@ -245,7 +245,7 @@ hard F triggers, and stable report JSON.
 - Run AST lint fixtures for each weak-test rule and clean control tests.
 - Run mutation wrapper tests without requiring repository-wide mutation runs.
 - Run `ruff check`, `mypy` or `pyright` where configured, and targeted `pytest`.
-- Verify `code_score --changed --fast` writes only under `.git/scieasy/`.
+- Verify `code_score --changed --fast` writes only under `.git/scistudio/`.
 
 ### 4.5 Risks And Rollback
 
@@ -263,7 +263,7 @@ be narrow and owner-approved.
 
 Implementers MUST keep deterministic scoring separate from AI advisory scoring.
 Only deterministic F grades may block. All scoring and test-quality tools MUST
-emit or embed the shared `AuditReport` shape from `scieasy.qa.schemas.report`.
+emit or embed the shared `AuditReport` shape from `scistudio.qa.schemas.report`.
 
 Score and finding models:
 
@@ -492,12 +492,12 @@ def run_targeted(
 Required CLI behavior:
 
 ```text
-python -m scieasy.qa.code_score --changed --fast --format json
-python -m scieasy.qa.code_score --changed --full --base origin/main --head HEAD --format json
-python -m scieasy.qa.code_score --module-health --write docs/audit/code-score/module-health/latest.json
-python -m scieasy.qa.test_quality.ast_lint tests --format json
-python -m scieasy.qa.test_quality.test_first_check --base origin/main --head HEAD --required false --format json
-python -m scieasy.qa.test_quality.mutation_runner --changed --base origin/main --head HEAD --format json
+python -m scistudio.qa.code_score --changed --fast --format json
+python -m scistudio.qa.code_score --changed --full --base origin/main --head HEAD --format json
+python -m scistudio.qa.code_score --module-health --write docs/audit/code-score/module-health/latest.json
+python -m scistudio.qa.test_quality.ast_lint tests --format json
+python -m scistudio.qa.test_quality.test_first_check --base origin/main --head HEAD --required false --format json
+python -m scistudio.qa.test_quality.mutation_runner --changed --base origin/main --head HEAD --format json
 ```
 
 Exit code rules:
@@ -523,7 +523,7 @@ Exit code rules:
 - SC-004: Weak-test AST fixtures produce stable findings with file and location.
 - SC-005: Mutation runner fixtures produce a normalized report without requiring
   a repository-wide mutation run.
-- SC-006: Pre-commit writes local score output under `.git/scieasy/code-score/`
+- SC-006: Pre-commit writes local score output under `.git/scistudio/code-score/`
   only.
 
 ## 6. Assumptions

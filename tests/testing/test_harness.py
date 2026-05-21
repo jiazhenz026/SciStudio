@@ -14,12 +14,12 @@ from typing import Any, ClassVar
 
 import pytest
 
-from scieasy.blocks.base.block import Block
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.package_info import PackageInfo
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.core.types.base import DataObject
-from scieasy.testing import BlockTestHarness
+from scistudio.blocks.base.block import Block
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.package_info import PackageInfo
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.core.types.base import DataObject
+from scistudio.testing import BlockTestHarness
 
 # ---------------------------------------------------------------------------
 # Fixture blocks for testing

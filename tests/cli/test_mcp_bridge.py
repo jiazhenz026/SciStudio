@@ -1,8 +1,8 @@
-"""Tests for ``scieasy mcp-bridge`` ``run()`` two-mode behaviour (#810).
+"""Tests for ``scistudio mcp-bridge`` ``run()`` two-mode behaviour (#810).
 
 These cover the regressions introduced by the PR #808 rollback:
 
-* Without ``SCIEASY_PROJECT_DIR`` the bridge exits 2 (clear config error).
+* Without ``SCISTUDIO_PROJECT_DIR`` the bridge exits 2 (clear config error).
 * With a project dir and a running backend socket, the bridge connects
   to the backend and proxies ``tools/list`` through to it (attached mode).
 * With a project dir but no backend running, the bridge spawns an
@@ -34,7 +34,7 @@ import pytest
 
 
 def _make_project(tmp_path: Path) -> Path:
-    """Create a minimal SciEasy project layout under *tmp_path*."""
+    """Create a minimal SciStudio project layout under *tmp_path*."""
     project = tmp_path / "proj"
     project.mkdir()
     (project / "project.yaml").write_text(
@@ -43,7 +43,7 @@ def _make_project(tmp_path: Path) -> Path:
     )
     for sub in ("workflows", "blocks", "data/raw"):
         (project / sub).mkdir(parents=True, exist_ok=True)
-    (project / ".scieasy").mkdir(parents=True, exist_ok=True)
+    (project / ".scistudio").mkdir(parents=True, exist_ok=True)
     return project
 
 
@@ -53,7 +53,7 @@ def _make_project(tmp_path: Path) -> Path:
 
 
 def test_run_no_project_dir_env_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Unsetting ``SCIEASY_PROJECT_DIR`` must surface a clean exit-2.
+    """Unsetting ``SCISTUDIO_PROJECT_DIR`` must surface a clean exit-2.
 
     The bridge is invoked by external MCP clients via the generated
     ``mcp.json``; that file is expected to set the env var. If a user
@@ -61,25 +61,25 @@ def test_run_no_project_dir_env_exits_2(monkeypatch: pytest.MonkeyPatch) -> None
     configuration error rather than a silent fallback to ``~`` or
     ``cwd`` which could pick up the wrong project.
     """
-    from scieasy.cli.mcp_bridge import run
+    from scistudio.cli.mcp_bridge import run
 
-    monkeypatch.delenv("SCIEASY_PROJECT_DIR", raising=False)
+    monkeypatch.delenv("SCISTUDIO_PROJECT_DIR", raising=False)
     assert run(None) == 2
 
 
 def test_run_empty_project_dir_env_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
     """An empty/whitespace env value is treated the same as unset."""
-    from scieasy.cli.mcp_bridge import run
+    from scistudio.cli.mcp_bridge import run
 
-    monkeypatch.setenv("SCIEASY_PROJECT_DIR", "   ")
+    monkeypatch.setenv("SCISTUDIO_PROJECT_DIR", "   ")
     assert run(None) == 2
 
 
 def test_run_explicit_socket_unreachable_exits_2() -> None:
     """``--socket`` pointing at a non-existent path returns 2."""
-    from scieasy.cli.mcp_bridge import run
+    from scistudio.cli.mcp_bridge import run
 
-    assert run("/nonexistent/scieasy-mcp-bridge-test.sock") == 2
+    assert run("/nonexistent/scistudio-mcp-bridge-test.sock") == 2
 
 
 # ----------------------------------------------------------------------
@@ -96,7 +96,7 @@ def _drive_run_with_stdin(
 
     Captures stdout via a pipe-backed BytesIO. Returns ``(rc, stdout)``.
     """
-    from scieasy.cli import mcp_bridge
+    from scistudio.cli import mcp_bridge
 
     # Replace stdin with a BytesIO; the bridge's threaded reader uses
     # ``sys.stdin.buffer.read1`` which BytesIO supports.
@@ -113,7 +113,7 @@ def _drive_run_with_stdin(
 
     monkeypatch.setattr(sys, "stdin", _FakeStdin())
     monkeypatch.setattr(sys, "stdout", _FakeStdout())
-    monkeypatch.setenv("SCIEASY_PROJECT_DIR", str(project_dir))
+    monkeypatch.setenv("SCISTUDIO_PROJECT_DIR", str(project_dir))
 
     rc = mcp_bridge.run(None)
     return rc, captured_out.getvalue()
@@ -159,17 +159,17 @@ def test_run_attached_mode_proxies_to_backend(tmp_path: Path, monkeypatch: pytes
     """A reachable backend socket: bridge connects to it, not standalone.
 
     We stand up an :class:`MCPServer` bound to the conventional
-    ``<project>/.scieasy/mcp.sock`` location, then invoke ``run(None)``
+    ``<project>/.scistudio/mcp.sock`` location, then invoke ``run(None)``
     with stdin piping a ``tools/list`` request. The response must come
     from the backend server (which we verify by checking the tool count
     and that the backend server saw a connection).
     """
-    from scieasy.ai.agent.mcp import _context
-    from scieasy.ai.agent.mcp.runtime import make_mcp_runtime
-    from scieasy.ai.agent.mcp.server import MCPServer
+    from scistudio.ai.agent.mcp import _context
+    from scistudio.ai.agent.mcp.runtime import make_mcp_runtime
+    from scistudio.ai.agent.mcp.server import MCPServer
 
     project = _make_project(tmp_path)
-    socket_path = project / ".scieasy" / "mcp.sock"
+    socket_path = project / ".scistudio" / "mcp.sock"
 
     # Spin up an MCPServer on a dedicated background event loop so the
     # bridge's own asyncio.run() doesn't clash with it.
@@ -230,7 +230,7 @@ def test_run_attached_mode_proxies_to_backend(tmp_path: Path, monkeypatch: pytes
 
 def test_try_connect_attached_returns_none_without_socket(tmp_path: Path) -> None:
     """Probe must return None (not raise) when no backend socket exists."""
-    from scieasy.cli.mcp_bridge import _try_connect_attached
+    from scistudio.cli.mcp_bridge import _try_connect_attached
 
     project = _make_project(tmp_path)
     assert _try_connect_attached(project) is None
@@ -241,8 +241,8 @@ def test_attached_socket_path_matches_backend_convention(tmp_path: Path) -> None
 
     Guards against the bridge and backend diverging on socket location.
     """
-    from scieasy.ai.agent.mcp.runtime import default_socket_path
-    from scieasy.cli.mcp_bridge import _attached_socket_path
+    from scistudio.ai.agent.mcp.runtime import default_socket_path
+    from scistudio.cli.mcp_bridge import _attached_socket_path
 
     project = _make_project(tmp_path)
     assert _attached_socket_path(project) == default_socket_path(project)
@@ -257,7 +257,7 @@ def test_register_adds_subcommand() -> None:
     """``register(app)`` must wire the ``mcp-bridge`` subcommand on a Typer app."""
     import typer
 
-    from scieasy.cli.mcp_bridge import register
+    from scistudio.cli.mcp_bridge import register
 
     app = typer.Typer()
     register(app)
@@ -270,7 +270,7 @@ def test_module_imports_clean() -> None:
     """Importing the bridge must not perform I/O or block."""
     import importlib
 
-    mod = importlib.import_module("scieasy.cli.mcp_bridge")
+    mod = importlib.import_module("scistudio.cli.mcp_bridge")
     assert hasattr(mod, "run")
     assert hasattr(mod, "register")
 
@@ -280,6 +280,6 @@ def test_socket_module_not_shadowed() -> None:
     so the ``--socket`` Typer argument (which is named ``socket``)
     doesn't shadow it inside ``run()``. Regression guard.
     """
-    from scieasy.cli import mcp_bridge
+    from scistudio.cli import mcp_bridge
 
     assert mcp_bridge.socket_mod is socket_mod

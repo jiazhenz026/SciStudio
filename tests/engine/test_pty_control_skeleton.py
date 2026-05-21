@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from scieasy.engine.pty_control import (
+from scistudio.engine.pty_control import (
     PtyTabSpec,
     notify_block_pty_event,
 )

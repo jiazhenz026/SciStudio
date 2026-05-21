@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.blocks.registry import BlockRegistry, BlockSpec
-from scieasy.core.types.registry import TypeRegistry, TypeSpec
+from scistudio.blocks.registry import BlockRegistry, BlockSpec
+from scistudio.core.types.registry import TypeRegistry, TypeSpec
 
 # ---------------------------------------------------------------------------
 # ADR-009: BlockSpec must NOT hold class references
@@ -37,7 +37,7 @@ def test_block_spec_does_not_store_class_object() -> None:
 def test_block_spec_has_descriptor_fields() -> None:
     """``BlockSpec`` must store module_path and class_name for deferred import."""
     required = {"name", "module_path", "class_name", "base_category", "source"}
-    spec = BlockSpec(name="example", module_path="scieasy.blocks.io.io_block", class_name="IOBlock")
+    spec = BlockSpec(name="example", module_path="scistudio.blocks.io.io_block", class_name="IOBlock")
     actual = set(vars(spec).keys())
     assert required.issubset(actual), f"BlockSpec is missing fields: {required - actual}"
 
@@ -65,8 +65,8 @@ def test_type_spec_does_not_store_class_object() -> None:
 
 def test_type_spec_has_descriptor_fields() -> None:
     """``TypeSpec`` must store module_path and class_name for deferred import."""
-    spec = TypeSpec(name="Image", module_path="scieasy.core.types.array", class_name="Image")
-    assert spec.module_path == "scieasy.core.types.array"
+    spec = TypeSpec(name="Image", module_path="scistudio.core.types.array", class_name="Image")
+    assert spec.module_path == "scistudio.core.types.array"
     assert spec.class_name == "Image"
 
 
@@ -93,7 +93,7 @@ def test_type_registry_internal_storage_type() -> None:
     """``TypeRegistry._registry`` values must be ``TypeSpec`` instances."""
     reg = TypeRegistry()
     assert isinstance(reg._registry, dict)
-    spec = TypeSpec(name="Image", module_path="scieasy.core.types.array", class_name="Image")
+    spec = TypeSpec(name="Image", module_path="scistudio.core.types.array", class_name="Image")
     reg._registry["Image"] = spec
     assert isinstance(reg._registry["Image"], TypeSpec)
 
@@ -114,7 +114,7 @@ def test_type_registry_has_required_interface() -> None:
 def _parse_entry_points() -> list[tuple[str, str, str]]:
     """Parse ``pyproject.toml`` entry-points and return (group, name, ref) triples.
 
-    Each *ref* is a string like ``"scieasy.blocks.io:IOBlock"``.
+    Each *ref* is a string like ``"scistudio.blocks.io:IOBlock"``.
     """
     try:
         import tomllib

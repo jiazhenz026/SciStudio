@@ -32,30 +32,30 @@ scope:
     - Full package migration to ADR-043 capabilities; that remains governed by ADR-043.
 governs:
   modules:
-    - scieasy.blocks.code
-    - scieasy.blocks.app
-    - scieasy.engine.materialisation
-    - scieasy.workflow
+    - scistudio.blocks.code
+    - scistudio.blocks.app
+    - scistudio.engine.materialisation
+    - scistudio.workflow
   contracts:
-    - scieasy.blocks.code.code_block.CodeBlock
-    - scieasy.blocks.code.interpreters.resolve_script_interpreter
-    - scieasy.blocks.code.exchange.prepare_codeblock_exchange
-    - scieasy.blocks.code.exchange.collect_codeblock_outputs
-    - scieasy.blocks.code.validation.validate_codeblock_config
-    - scieasy.blocks.code.provenance.capture_script_provenance
-    - scieasy.blocks.app.bridge
-    - scieasy.engine.materialisation.materialise_to_file
-    - scieasy.engine.materialisation.reconstruct_from_file
+    - scistudio.blocks.code.code_block.CodeBlock
+    - scistudio.blocks.code.interpreters.resolve_script_interpreter
+    - scistudio.blocks.code.exchange.prepare_codeblock_exchange
+    - scistudio.blocks.code.exchange.collect_codeblock_outputs
+    - scistudio.blocks.code.validation.validate_codeblock_config
+    - scistudio.blocks.code.provenance.capture_script_provenance
+    - scistudio.blocks.app.bridge
+    - scistudio.engine.materialisation.materialise_to_file
+    - scistudio.engine.materialisation.reconstruct_from_file
   entry_points:
-    - scieasy.blocks
+    - scistudio.blocks
   files:
     - docs/specs/adr-041-codeblock-v2.md
     - docs/adr/ADR-041.md
     - docs/adr/ADR-043.md
-    - src/scieasy/blocks/code/**
-    - src/scieasy/blocks/app/**
-    - src/scieasy/engine/materialisation.py
-    - src/scieasy/workflow/validator.py
+    - src/scistudio/blocks/code/**
+    - src/scistudio/blocks/app/**
+    - src/scistudio/engine/materialisation.py
+    - src/scistudio/workflow/validator.py
     - frontend/src/**
     - docs/block-development/**
 tests:
@@ -80,7 +80,7 @@ This spec translates ADR-041 into an implementable plan for CodeBlock v2.
 CodeBlock v2 is a script integration block shaped like AppBlock: it materialises
 typed workflow inputs into files, launches a project-local script through a
 resolved interpreter, waits for completion, collects declared output files, and
-reconstructs typed SciEasy objects through ADR-043 IO format capabilities.
+reconstructs typed SciStudio objects through ADR-043 IO format capabilities.
 
 The implementation must preserve ADR-041's architectural boundaries:
 
@@ -88,7 +88,7 @@ The implementation must preserve ADR-041's architectural boundaries:
 - CodeBlock owns script execution coordination, not file format semantics;
 - typed boundary IO is resolved through ADR-043 capabilities;
 - delivery is file-only in v1;
-- inline code and SciEasy entry-function mode are removed from CodeBlock v2;
+- inline code and SciStudio entry-function mode are removed from CodeBlock v2;
 - script provenance, interpreter resolution, and environment snapshots are
   captured for lineage.
 
@@ -103,7 +103,7 @@ workflows.
 
 As a scientist, I need to select a project-local `.py` script and connect
 typed workflow inputs to script-readable files without rewriting the script as
-a SciEasy `run()` function.
+a SciStudio `run()` function.
 
 Why this priority: ADR-041 exists because the current CodeBlock requires
 framework-shaped code and excludes existing file-oriented scripts.
@@ -257,7 +257,7 @@ Acceptance Scenarios:
 
 - FR-001: CodeBlock v2 MUST expose one user-facing `Code Block` palette item.
 - FR-002: CodeBlock v2 MUST remove inline code execution from block config.
-- FR-003: CodeBlock v2 MUST remove SciEasy entry-function mode from block
+- FR-003: CodeBlock v2 MUST remove SciStudio entry-function mode from block
   config.
 - FR-004: CodeBlock v2 MUST require the configured script path to resolve
   inside the project directory.
@@ -377,18 +377,18 @@ the same validation, exchange, and materialisation semantics.
 
 | File or glob | Action | Rationale |
 |---|---|---|
-| `src/scieasy/blocks/code/code_block.py` | rewrite or replace | Move CodeBlock to v2 script-as-external-boundary behavior |
-| `src/scieasy/blocks/code/config.py` | create | Typed CodeBlock v2 config, port file config, migration diagnostics |
-| `src/scieasy/blocks/code/exchange.py` | create | Prepare exchange folders and collect output files |
-| `src/scieasy/blocks/code/interpreters.py` | create | Resolve script interpreter and environment mode |
-| `src/scieasy/blocks/code/provenance.py` | create | Capture script source hash, git evidence, and environment snapshot |
-| `src/scieasy/blocks/code/validation.py` | create | Validate script path, ports, capabilities, and migration state |
-| `src/scieasy/blocks/code/runners/**` | modify | Retire or adapt entry-function runners behind interpreter execution |
-| `src/scieasy/blocks/app/bridge.py` | modify if needed | Share AppBlock boundary helpers with CodeBlock |
-| `src/scieasy/blocks/app/app_block.py` | modify if needed | Keep AppBlock and CodeBlock capability validation aligned |
-| `src/scieasy/engine/materialisation.py` | modify if needed | Ensure capability-aware file read/write supports CodeBlock exchange |
-| `src/scieasy/workflow/validator.py` | modify | Add early CodeBlock v2 boundary validation and legacy diagnostics |
-| `src/scieasy/api/routes/blocks.py` | modify if needed | Expose CodeBlock config schema and capability choices |
+| `src/scistudio/blocks/code/code_block.py` | rewrite or replace | Move CodeBlock to v2 script-as-external-boundary behavior |
+| `src/scistudio/blocks/code/config.py` | create | Typed CodeBlock v2 config, port file config, migration diagnostics |
+| `src/scistudio/blocks/code/exchange.py` | create | Prepare exchange folders and collect output files |
+| `src/scistudio/blocks/code/interpreters.py` | create | Resolve script interpreter and environment mode |
+| `src/scistudio/blocks/code/provenance.py` | create | Capture script source hash, git evidence, and environment snapshot |
+| `src/scistudio/blocks/code/validation.py` | create | Validate script path, ports, capabilities, and migration state |
+| `src/scistudio/blocks/code/runners/**` | modify | Retire or adapt entry-function runners behind interpreter execution |
+| `src/scistudio/blocks/app/bridge.py` | modify if needed | Share AppBlock boundary helpers with CodeBlock |
+| `src/scistudio/blocks/app/app_block.py` | modify if needed | Keep AppBlock and CodeBlock capability validation aligned |
+| `src/scistudio/engine/materialisation.py` | modify if needed | Ensure capability-aware file read/write supports CodeBlock exchange |
+| `src/scistudio/workflow/validator.py` | modify | Add early CodeBlock v2 boundary validation and legacy diagnostics |
+| `src/scistudio/api/routes/blocks.py` | modify if needed | Expose CodeBlock config schema and capability choices |
 | `frontend/src/components/**` | modify | Config panel, port exchange guidance, script path warnings |
 | `frontend/src/store/**` | modify if needed | Persist CodeBlock capability and exchange config state |
 | `docs/block-development/**` | modify | Document script-as-block usage and migration guidance |
@@ -489,9 +489,9 @@ from typing import Any, Literal, Mapping, Sequence
 
 from pydantic import BaseModel, Field
 
-from scieasy.blocks.registry import BlockRegistry
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.registry import BlockRegistry
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
 
 
 PortDirection = Literal["input", "output"]

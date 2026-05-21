@@ -134,7 +134,7 @@ def test_list_projects_prunes_deleted_directories(client: TestClient, project_pa
     # The runtime's prune logic now keys on either ``is_dir()`` OR
     # ``project.yaml.is_file()`` returning False, so partial cleanup
     # (e.g. sqlite WAL residue) still triggers prune.
-    from scieasy.api.runtime import _rmtree_force
+    from scistudio.api.runtime import _rmtree_force
 
     _rmtree_force(project_path)
     # Best-effort: force-unlink project.yaml if it lingers.

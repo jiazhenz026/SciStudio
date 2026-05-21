@@ -1,0 +1,18 @@
+# SciStudio project-scope Codex MCP config (ADR-040 §3.7)
+#
+# TODO(#1013): I40c Phase 2a — this template is a structural outline only.
+#   The real file is *rendered* at provisioning time by
+#   ``scistudio.cli.install._render_codex_block(project_dir)`` so the
+#   ``command`` field reflects the current sys.executable + args list and
+#   ``SCISTUDIO_PROJECT_DIR`` reflects the absolute project path. This
+#   template is kept only as a documentation reference for the expected
+#   TOML shape.
+#   Out of scope per ADR-040 §3.7 (S40c skeleton).
+#   Followup: https://github.com/zjzcpj/SciStudio/issues/1013.
+
+[mcp_servers.scistudio]
+command = "<sys.executable rendered at provisioning time>"
+args = ["-m", "scistudio", "mcp-bridge"]
+
+[mcp_servers.scistudio.env]
+SCISTUDIO_PROJECT_DIR = "<absolute project path rendered at provisioning time>"

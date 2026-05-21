@@ -5,10 +5,10 @@ from typing import Any, ClassVar
 
 import pytest
 
-from scieasy.blocks.io.capabilities import MetadataFidelity, SimpleIODeclarationError
-from scieasy.blocks.io.simple_io import SimpleLoader, SimpleSaver
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.io.capabilities import MetadataFidelity, SimpleIODeclarationError
+from scistudio.blocks.io.simple_io import SimpleLoader, SimpleSaver
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
 
 
 class _SimpleObject(DataObject):

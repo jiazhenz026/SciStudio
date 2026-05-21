@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from scieasy.qa.schemas.report import AuditFinding, AuditReport, AuditStatus, Finding, Severity
+from scistudio.qa.schemas.report import AuditFinding, AuditReport, AuditStatus, Finding, Severity
 
 
 def test_audit_report_blocks_merge_on_error_finding() -> None:

@@ -17,7 +17,7 @@ The four-layer reliability stack is **structurally complete and cross-track cons
 
 - FastMCP `mcp.list_tools()` → `system_prompt._render_tool_catalog` → base `SKILL.md` `<!-- tool_catalog -->` splice.
 - `install._render_codex_block` shared by `cli/install.py` AND `agent_provisioning/codex_config.py` (one-way import, no cycle).
-- `_install_skill` (CLI path) and `agent_provisioning/skills.py::write_skills` (lifecycle path) read from the same `importlib.resources.files("scieasy") / "_skills" / "scieasy"` source.
+- `_install_skill` (CLI path) and `agent_provisioning/skills.py::write_skills` (lifecycle path) read from the same `importlib.resources.files("scistudio") / "_skills" / "scistudio"` source.
 - `install_project_agent_assets` wired at all 3 entry points (`api/runtime.py::create_project`, `api/runtime.py::open_project`, `cli/main.py::init`) with identical degraded-mode contract.
 
 What blocks ship today are **3 known content-level defects** that two of the three Phase 3 audits independently flagged:
@@ -41,10 +41,10 @@ Simulated `compose_system_prompt(<fixture project>)` mentally by reading the spl
 ### A.1 Splice sequence (verified)
 
 1. `compose_system_prompt(project_dir)` reads the base `SKILL.md` via `_load_skill_md` (`system_prompt.py:76-133`).
-   - **Path 1 (primary):** `importlib.resources.files("scieasy") / "_skills" / "scieasy" / "SKILL.md"` → resolves on `track/adr-040` (the packaged tree).
-   - **Path 2 (fallback):** repo-root walk-up `<repo>/skills/scieasy/SKILL.md` — **dead on `track/adr-040`** because I40b PR #1059 deleted the legacy file. Retained as defensive fallback (TODO(#1012)-tagged).
+   - **Path 1 (primary):** `importlib.resources.files("scistudio") / "_skills" / "scistudio" / "SKILL.md"` → resolves on `track/adr-040` (the packaged tree).
+   - **Path 2 (fallback):** repo-root walk-up `<repo>/skills/scistudio/SKILL.md` — **dead on `track/adr-040`** because I40b PR #1059 deleted the legacy file. Retained as defensive fallback (TODO(#1012)-tagged).
 2. `_render_tool_catalog()` (`system_prompt.py:136-201`) is invoked.
-   - Force-imports `scieasy.ai.agent.mcp` so FastMCP `@mcp.tool` decorators run.
+   - Force-imports `scistudio.ai.agent.mcp` so FastMCP `@mcp.tool` decorators run.
    - Calls `await mcp.list_tools()` via the Codex-P1-reconciled thread-pool executor pattern.
    - Returns 26 tools grouped by `category:` tag + `read`/`write` mutation tag.
 3. `_render_project_context(project_dir)` (`system_prompt.py:204-340`) is invoked.
@@ -57,7 +57,7 @@ Simulated `compose_system_prompt(<fixture project>)` mentally by reading the spl
 
 ### A.2 Marker presence verified
 
-`src/scieasy/_skills/scieasy/SKILL.md` carries BOTH marker pairs (per A2 §E.1). A2 cited line 68-69 + 78-79; verified directly. **PASS.**
+`src/scistudio/_skills/scistudio/SKILL.md` carries BOTH marker pairs (per A2 §E.1). A2 cited line 68-69 + 78-79; verified directly. **PASS.**
 
 ### A.3 Output the agent actually sees
 
@@ -69,9 +69,9 @@ The 4 tracks each own one or more pieces of the splice:
 
 | Piece | Owner track | File |
 |---|---|---|
-| Base SKILL.md content | Skills (I40b) | `src/scieasy/_skills/scieasy/SKILL.md` |
+| Base SKILL.md content | Skills (I40b) | `src/scistudio/_skills/scistudio/SKILL.md` |
 | Marker pairs in SKILL.md | Skills (I40b) — added during I40b | Same file |
-| `_load_skill_md` resolver | FastMCP (I40a) | `src/scieasy/ai/agent/system_prompt.py:76-133` |
+| `_load_skill_md` resolver | FastMCP (I40a) | `src/scistudio/ai/agent/system_prompt.py:76-133` |
 | `_render_tool_catalog` | FastMCP (I40a) | `system_prompt.py:136-201` |
 | `_render_project_context` | FastMCP (I40a) | `system_prompt.py:204-340` |
 | `<!-- tool_catalog -->` consumer | FastMCP (I40a) reads, Skills (I40b) emits | n/a |
@@ -100,21 +100,21 @@ Traced `api/runtime.py::create_project` end-to-end.
 | `<project>/CLAUDE.md` | `claude_agents_md.write_claude_agents_md` | §3.5 |
 | `<project>/AGENTS.md` | same (byte-identical copy) | §3.5 |
 | `<project>/.claude/settings.json` | `hooks.write_hooks` | §3.6 |
-| `<project>/.claude/hooks/deny_scieasy_cli.py` | same | §3.6 |
+| `<project>/.claude/hooks/deny_scistudio_cli.py` | same | §3.6 |
 | `<project>/.claude/hooks/protect_workflow_yaml.py` | same | §3.6 |
 | `<project>/.claude/hooks/enforce_list_blocks_before_block_write.py` | same | §3.6 |
 | `<project>/.claude/hooks/remind_poll_status.py` | same | §3.6 |
 | `<project>/.claude/hooks/mark_list_blocks_called.py` | same | §3.6 |
 | `<project>/.claude/hooks/enforce_concrete_port_types.py` | same | §3.6 |
-| `<project>/.claude/skills/scieasy/SKILL.md` | `skills.write_skills` (base) | §3.4 |
-| `<project>/.claude/skills/scieasy-build-workflow/SKILL.md` | same (task) | §3.4 |
-| `<project>/.claude/skills/scieasy-write-block/SKILL.md` | same | §3.4 |
-| `<project>/.claude/skills/scieasy-debug-run/SKILL.md` | same | §3.4 |
-| `<project>/.claude/skills/scieasy-inspect-data/SKILL.md` | same | §3.4 |
-| `<project>/.claude/skills/scieasy-project-qa/SKILL.md` | same | §3.4 |
-| `<project>/.agents/skills/scieasy/SKILL.md` (×6, mirrored) | same | §3.4 + §3.9 |
+| `<project>/.claude/skills/scistudio/SKILL.md` | `skills.write_skills` (base) | §3.4 |
+| `<project>/.claude/skills/scistudio-build-workflow/SKILL.md` | same (task) | §3.4 |
+| `<project>/.claude/skills/scistudio-write-block/SKILL.md` | same | §3.4 |
+| `<project>/.claude/skills/scistudio-debug-run/SKILL.md` | same | §3.4 |
+| `<project>/.claude/skills/scistudio-inspect-data/SKILL.md` | same | §3.4 |
+| `<project>/.claude/skills/scistudio-project-qa/SKILL.md` | same | §3.4 |
+| `<project>/.agents/skills/scistudio/SKILL.md` (×6, mirrored) | same | §3.4 + §3.9 |
 | `<project>/.codex/config.toml` | `codex_config.write_codex_config` | §3.7 |
-| `<project>/.claude/.scieasy-provision-version` | orchestrator marker | §3.8 |
+| `<project>/.claude/.scistudio-provision-version` | orchestrator marker | §3.8 |
 
 **Verified by reading `_orchestrate.py:80-109` `steps` table + `skills.py::_expected_skill_paths()` returning 12 paths (6×2 trees) + marker rel path.**
 
@@ -131,7 +131,7 @@ A1 §E said "~17 entries" — A1's count missed the codex/agents skills mirror (
 - `write_skills`: skip per file (line 153-155 in `skills.py`).
 - `write_codex_config`: skip if exists (line 40-41 in `codex_config.py`).
 
-**Race condition consideration (cross-track):** If user runs `scieasy install --skill --scope project` AND then SciEasy GUI opens the same project, both writers walk the same dest tree. Both use `force=False` semantics so the first writer wins — no clobber, no error, no data loss. **PASS.**
+**Race condition consideration (cross-track):** If user runs `scistudio install --skill --scope project` AND then SciStudio GUI opens the same project, both writers walk the same dest tree. Both use `force=False` semantics so the first writer wins — no clobber, no error, no data loss. **PASS.**
 
 ### B.4 Version-marker file edge case — **P2, A_int-specific**
 
@@ -141,7 +141,7 @@ This is **NOT** flagged by A1 (which noted version-marker drift detection absenc
 
 ### B.5 Cross-track partial-failure isolation — verified
 
-`_orchestrate.py:111-122`: each sub-step in `try/except`. Failure of one does not prevent the next. The `ProvisionResult.failed` list captures `(label, reason)` tuples. A1 §E enumerated 11 scenarios with PASS verdicts; A_int spot-checked "permission denied on `.claude/`" (hooks fails → skills sub-step still runs and writes to `.agents/skills/scieasy/` only since `.claude/skills/` mkdir would fail) — sub-step skip pattern works correctly.
+`_orchestrate.py:111-122`: each sub-step in `try/except`. Failure of one does not prevent the next. The `ProvisionResult.failed` list captures `(label, reason)` tuples. A1 §E enumerated 11 scenarios with PASS verdicts; A_int spot-checked "permission denied on `.claude/`" (hooks fails → skills sub-step still runs and writes to `.agents/skills/scistudio/` only since `.claude/skills/` mkdir would fail) — sub-step skip pattern works correctly.
 
 **No new P1; P2.B.4 logged.**
 
@@ -155,17 +155,17 @@ Five symbols are shared across track boundaries. Each must remain stable.
 
 **Importers:**
 - `cli/install.py` itself: `_render_codex_block` is defined at `install.py:242-269` and used by `_install_codex` (line 332).
-- `agent_provisioning/codex_config.py:45` does `from scieasy.cli.install import _render_codex_block` (deferred import to avoid pulling typer).
+- `agent_provisioning/codex_config.py:45` does `from scistudio.cli.install import _render_codex_block` (deferred import to avoid pulling typer).
 
 **Signature stability verified:** single positional arg `project_dir: Path | None`. Both callers pass an absolute path (`project_dir.resolve()` in `agent_provisioning`, raw `cwd` in `cli`). **PASS.**
 
 **Byte-equivalence test** (`tests/agent_provisioning/test_codex_config.py::test_codex_config_matches_install_render`) per A2 §B.13 — confirms the two writes produce identical content. **PASS.**
 
-### C.2 `MCP_SERVER_NAME`, `_mcp_entry_payload`, `_scieasy_command_for_env`
+### C.2 `MCP_SERVER_NAME`, `_mcp_entry_payload`, `_scistudio_command_for_env`
 
 **Importers:**
 - `cli/install.py` (defines, uses): `_install_claude` writes JSON `.mcp.json`, uses `MCP_SERVER_NAME` and `_mcp_entry_payload`.
-- `_scieasy_command_for_env` is internal to `cli/install.py` (defined at line 72, used at lines 102 + 249).
+- `_scistudio_command_for_env` is internal to `cli/install.py` (defined at line 72, used at lines 102 + 249).
 
 **A2 §B.13 noted** that `_render_codex_block` reaching into `cli.install` is a "future-refactor candidate" for a shared module. A_int concurs but **no P1/P2 risk today** because:
 - Import direction is one-way (`agent_provisioning → cli`); no cycle.
@@ -178,11 +178,11 @@ Five symbols are shared across track boundaries. Each must remain stable.
 
 **Callers:**
 - `api/app.py:107-114` FastAPI lifespan starts/stops via `MCPServer(socket_path, project_dir)` in-process.
-- `runtime.py::start_inprocess_server` (standalone-bridge entry point for the `scieasy mcp-bridge` subprocess) — A2 §B.4 verified.
+- `runtime.py::start_inprocess_server` (standalone-bridge entry point for the `scistudio mcp-bridge` subprocess) — A2 §B.4 verified.
 
 **Signature stability verified:** all 3 methods are real implementations now (NOT NotImplementedError stubs from S40a era). A2 §B.4 noted the runtime.py docstring is stale (says they raise NotImplementedError); P3 docstring update needed. **PASS** with P3 doc carryover.
 
-### C.4 Skill source path `importlib.resources.files("scieasy") / "_skills" / "scieasy"`
+### C.4 Skill source path `importlib.resources.files("scistudio") / "_skills" / "scistudio"`
 
 **Three independent readers** all target the same packaged path:
 
@@ -190,21 +190,21 @@ Five symbols are shared across track boundaries. Each must remain stable.
 2. **Install-parity track:** `cli/install.py::_find_skill_source` (`install.py:442-475`) walks the whole tree for `--skill` cross-install.
 3. **Provisioning track:** `agent_provisioning/skills.py::_read_skill_source` (`skills.py:87-132`) reads each of 6 SKILL.md files.
 
-All three resolve to `src/scieasy/_skills/scieasy/` on editable install AND on wheel install (per `pyproject.toml [tool.setuptools.package-data]` shipping `_skills/scieasy/**/*.md`).
+All three resolve to `src/scistudio/_skills/scistudio/` on editable install AND on wheel install (per `pyproject.toml [tool.setuptools.package-data]` shipping `_skills/scistudio/**/*.md`).
 
-**Cross-track risk discovered (P2-A_int-01):** `agent_provisioning/skills.py::_read_skill_source` (`skills.py:97`) maps the base "scieasy" skill name to package `scieasy._skills.scieasy` — but the file lives at the package ROOT, not at `scieasy._skills.scieasy.SKILL.md` within a "scieasy" subdir. The code handles this by reading from `scieasy._skills.scieasy` (the package itself) and joining `SKILL.md`. Reading code: `importlib.resources.files(package_path).joinpath("SKILL.md")` where `package_path = "scieasy._skills.scieasy"`. The base SKILL.md lives at `src/scieasy/_skills/scieasy/SKILL.md` (verified). **Works correctly** but the logic has an asymmetry: task skills get `scieasy._skills.scieasy.<name>` (line 97 conditional). If a future contributor renames the base skill or moves a task skill, the conditional logic must be updated symmetrically.
+**Cross-track risk discovered (P2-A_int-01):** `agent_provisioning/skills.py::_read_skill_source` (`skills.py:97`) maps the base "scistudio" skill name to package `scistudio._skills.scistudio` — but the file lives at the package ROOT, not at `scistudio._skills.scistudio.SKILL.md` within a "scistudio" subdir. The code handles this by reading from `scistudio._skills.scistudio` (the package itself) and joining `SKILL.md`. Reading code: `importlib.resources.files(package_path).joinpath("SKILL.md")` where `package_path = "scistudio._skills.scistudio"`. The base SKILL.md lives at `src/scistudio/_skills/scistudio/SKILL.md` (verified). **Works correctly** but the logic has an asymmetry: task skills get `scistudio._skills.scistudio.<name>` (line 97 conditional). If a future contributor renames the base skill or moves a task skill, the conditional logic must be updated symmetrically.
 
 A1 §3.4 marked this as PASS; A2 §B.2 marked PASS. A_int flag is **cosmetic clarity P3** — not blocking.
 
-**P2-A_int-01 (actual):** `cli/install.py::_find_skill_source` falls back ONLY to `<repo>/skills/scieasy/` (the deleted legacy path) — does NOT walk-up to the relocated `src/scieasy/_skills/scieasy/`. This is the EXACT P2 A1 §3.9 flagged ("PR #1049 Codex P2 NOT addressed"). A_int confirms this is still open. **Cross-track because:** if a dev clones the repo and runs `scieasy install --skill` from a non-installed state (no `importlib.resources` resolution), the `--skill` command fails with FileNotFoundError. In contrast, `agent_provisioning/skills.py::_read_skill_source` DOES walk both candidate paths (`skills.py:103-108`). The 2 tracks have divergent fallback behavior. **Recommend 2-line fix to `cli/install.py::_find_skill_source` to match the provisioning track's walk-up logic** — covered by A1 P2.6.
+**P2-A_int-01 (actual):** `cli/install.py::_find_skill_source` falls back ONLY to `<repo>/skills/scistudio/` (the deleted legacy path) — does NOT walk-up to the relocated `src/scistudio/_skills/scistudio/`. This is the EXACT P2 A1 §3.9 flagged ("PR #1049 Codex P2 NOT addressed"). A_int confirms this is still open. **Cross-track because:** if a dev clones the repo and runs `scistudio install --skill` from a non-installed state (no `importlib.resources` resolution), the `--skill` command fails with FileNotFoundError. In contrast, `agent_provisioning/skills.py::_read_skill_source` DOES walk both candidate paths (`skills.py:103-108`). The 2 tracks have divergent fallback behavior. **Recommend 2-line fix to `cli/install.py::_find_skill_source` to match the provisioning track's walk-up logic** — covered by A1 P2.6.
 
 ### C.5 Verifying PR #1065 reconciled A1's P1.1/P1.2/P1.3
 
 A1 §G flagged 3 P1s on skill envelope drift in PR #1059, BUT A1's report HEAD was `949476f` (pre-#1065). A_int verified at current HEAD (`d91c5e8`):
 
-- **P1.1** (`run_block_tests` arg name): `src/scieasy/_skills/scieasy/scieasy-write-block/SKILL.md:264` reads `mcp__scieasy__run_block_tests type_name="imaging.threshold_simple"` — uses `type_name`, NOT the broken `block_path`. ✓ **Reconciled.**
-- **P1.2** (`validate_workflow` envelope): `scieasy-build-workflow/SKILL.md:261` reads `ValidateWorkflowResult(valid: bool, errors:` — uses `valid: bool`, NOT the broken `ok: bool`. ✓ **Reconciled.**
-- **P1.3** (`get_run_status` envelope): `scieasy-debug-run/SKILL.md:38-47` reads `GetRunStatusResult(... progress: {"block_states": ...}, errors: [BlockErrorEntry(...)] )` — matches code exactly. ✓ **Reconciled.**
+- **P1.1** (`run_block_tests` arg name): `src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md:264` reads `mcp__scistudio__run_block_tests type_name="imaging.threshold_simple"` — uses `type_name`, NOT the broken `block_path`. ✓ **Reconciled.**
+- **P1.2** (`validate_workflow` envelope): `scistudio-build-workflow/SKILL.md:261` reads `ValidateWorkflowResult(valid: bool, errors:` — uses `valid: bool`, NOT the broken `ok: bool`. ✓ **Reconciled.**
+- **P1.3** (`get_run_status` envelope): `scistudio-debug-run/SKILL.md:38-47` reads `GetRunStatusResult(... progress: {"block_states": ...}, errors: [BlockErrorEntry(...)] )` — matches code exactly. ✓ **Reconciled.**
 
 **PR #1065 (commit `4e62f4a`) is the orphaned-after-#1059-squash reconcile that addressed all three.** A1's report was authored before this merge landed; verified A_int. The "manager merged with deferred fix" override A1 flagged is **closed in practice**.
 
@@ -218,13 +218,13 @@ ADR-040 §3.5 + §3.7 + §3.9 require Claude AND Codex provisioning to be symmet
 
 ### D.1 Skill mirroring — verified byte-identical
 
-`agent_provisioning/skills.py::write_skills` writes the SAME 6-skill set to BOTH `<project>/.claude/skills/scieasy/` AND `<project>/.agents/skills/scieasy/`. Source is read once per skill (`sources` dict at `skills.py:148`) and written twice. **Byte-identical guarantee structural.** **PASS.**
+`agent_provisioning/skills.py::write_skills` writes the SAME 6-skill set to BOTH `<project>/.claude/skills/scistudio/` AND `<project>/.agents/skills/scistudio/`. Source is read once per skill (`sources` dict at `skills.py:148`) and written twice. **Byte-identical guarantee structural.** **PASS.**
 
 `cli/install.py::_install_skill` also writes both trees via the same `_skill_dest` tuple (line 419-420). **PASS.**
 
 ### D.2 Codex `.codex/config.toml` — registers MCP server
 
-Per A2 §B.13: `codex_config.write_codex_config` calls `_render_codex_block(project_dir.resolve())` which emits `[mcp_servers.scieasy]` and `[mcp_servers.scieasy.env]` blocks. **PASS.**
+Per A2 §B.13: `codex_config.write_codex_config` calls `_render_codex_block(project_dir.resolve())` which emits `[mcp_servers.scistudio]` and `[mcp_servers.scistudio.env]` blocks. **PASS.**
 
 ### D.3 Codex CLAUDE.md/AGENTS.md parity — **P2 A_int-specific**
 
@@ -240,7 +240,7 @@ A Codex 2026 agent reading `AGENTS.md` is told hooks exist — but Codex's hook 
 
 This is **cross-track** because the fix touches:
 - `agent_provisioning/templates/claude_agents_md.md` (Provisioning track owns the template).
-- AND the skill bodies under `src/scieasy/_skills/scieasy/scieasy-write-block/SKILL.md` (Skills track owns; A3 §F.1.1 flagged the same issue at skill lines 17-20).
+- AND the skill bodies under `src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md` (Skills track owns; A3 §F.1.1 flagged the same issue at skill lines 17-20).
 
 A3 §G.5 row 5 recommended a single top-level "Hook safety net (Claude Code only)" disclaimer. A_int **concurs** and elevates: this is a P1 from Codex's POV (an agent acts incorrectly on false hook reassurance) but A3 already labeled it P1 (#5). **Confirmed P1, already flagged by A3.**
 
@@ -287,10 +287,10 @@ ADR-040 §5.3 promised updates to ADR-034, ADR-035, `embedded-coding-agent-spec.
 
 ADR-040 §2.1 explicitly carves dev environment out of scope. **HOWEVER**, the dispatch instructions for this audit (and several phase prompts under `docs/planning/dispatch-prompts/`) reference both:
 
-- The SciEasy repo's `.claude/skills/scieasy/` (dev env, agent harness)
-- The user's `<project>/.claude/skills/scieasy/` (prod env, written by ADR-040 §3.4)
+- The SciStudio repo's `.claude/skills/scistudio/` (dev env, agent harness)
+- The user's `<project>/.claude/skills/scistudio/` (prod env, written by ADR-040 §3.4)
 
-A future contributor reading the planning docs may conflate the two. **P3 cross-track** — recommend a single sentence at the top of `docs/agent-provisioning.md` explicitly stating "the prod-env tree at `<project>/.claude/skills/scieasy/` is a different deliverable from the dev-env tree at `<repo>/.claude/skills/scieasy/`." Non-blocking.
+A future contributor reading the planning docs may conflate the two. **P3 cross-track** — recommend a single sentence at the top of `docs/agent-provisioning.md` explicitly stating "the prod-env tree at `<project>/.claude/skills/scistudio/` is a different deliverable from the dev-env tree at `<repo>/.claude/skills/scistudio/`." Non-blocking.
 
 ### E.4 CHANGELOG verified
 
@@ -349,7 +349,7 @@ Cross-reference A1 + A2 + A3 findings.
 | A3-only findings | A_int verdict |
 |---|---|
 | `run()` arity disagreement (skill 2-arg vs scaffold 1-arg) | **P1 — must fix.** Confirmed by reading `tools_authoring.py:255` + skill §2. F40-integration scope. |
-| `scieasy-write-block` frontmatter doesn't disambiguate "add a new block to my workflow" | **P1 — must fix.** Confirmed by reading skill frontmatter. Skill content fix. |
+| `scistudio-write-block` frontmatter doesn't disambiguate "add a new block to my workflow" | **P1 — must fix.** Confirmed by reading skill frontmatter. Skill content fix. |
 | CLAUDE.md/AGENTS.md hook safety-net language misleads Codex agents | **P1 — must fix.** A_int §D.3 elevates this. Template fix. |
 | DataObject scope conflict (3-way: base SKILL vs skill body vs template) | **P2 — should fix.** Confirmed; all 3 places diverge. Single canonical phrasing needed. |
 
@@ -358,7 +358,7 @@ Cross-reference A1 + A2 + A3 findings.
 | `scaffold_block.category` arg accepted but unused | **P2 — should fix.** Visible to every block author. ~10 LOC fix. |
 | 6 pre-existing naked TODOs in `src/` | **P2 — should retag or exempt.** Ship-gate audit signal. |
 | `hook_protect_workflow_yaml.py` regex unanchored | **P2 — should fix.** Real false-positive risk. |
-| `hook_deny_scieasy_cli.py` regex doesn't catch `env VAR=v scieasy` or `cmd && scieasy` | **P2 — should fix.** |
+| `hook_deny_scistudio_cli.py` regex doesn't catch `env VAR=v scistudio` or `cmd && scistudio` | **P2 — should fix.** |
 | `hook_enforce_concrete_port_types.py` misses `ast.Attribute` form | **P2 — should fix** (part of broader hook rewrite). |
 
 ### G.3 A_int novel cross-track findings (not in A1/A2/A3)
@@ -373,7 +373,7 @@ The 3 P1s being addressed by F40-integration agent + PR #1064:
 
 1. **PR #1064** — scaffold template `type=` → `accepted_types=[T]` (4 LOC).
 2. **F40-integration agent** — `hook_enforce_concrete_port_types.py` rewrite (match `InputPort`/`OutputPort` + walk `accepted_types`).
-3. **F40-integration agent** — 5 skill files: `run()` arity clarification, `scieasy-write-block` frontmatter disambiguator, hook safety-net language Codex-aware.
+3. **F40-integration agent** — 5 skill files: `run()` arity clarification, `scistudio-write-block` frontmatter disambiguator, hook safety-net language Codex-aware.
 
 A_int verifies these align with A1 + A3 consensus.
 
@@ -385,7 +385,7 @@ A_int verifies these align with A1 + A3 consensus.
 
 - **P1.A_int.1**: `_SCAFFOLD_TEMPLATE` emits legacy `type=` API → `reload_blocks` TypeError. **PR #1064 in flight.** A1 P2 / A3 P1. Manager must land before ship.
 - **P1.A_int.2**: `hook_enforce_concrete_port_types.py` matches non-existent `PortSpec(...)`. Dead code on live API. **F40-integration scope.** A1 P2 / A3 P1.
-- **P1.A_int.3**: Skill body API drift on `run()` arity (`scieasy-write-block` §2 vs scaffold template) + `scieasy-write-block` frontmatter doesn't disambiguate "add block to workflow" + CLAUDE.md/AGENTS.md hook safety-net Codex parity. **F40-integration scope.** A3 P1 #3-#5.
+- **P1.A_int.3**: Skill body API drift on `run()` arity (`scistudio-write-block` §2 vs scaffold template) + `scistudio-write-block` frontmatter doesn't disambiguate "add block to workflow" + CLAUDE.md/AGENTS.md hook safety-net Codex parity. **F40-integration scope.** A3 P1 #3-#5.
 
 ### P2 (7 — should fix, mostly post-ship docs)
 
@@ -395,7 +395,7 @@ A_int verifies these align with A1 + A3 consensus.
 - **P2.A_int.4**: `docs/agent-provisioning.md` lines 155-158 describe pre-I40b state. A2 P2-A2-05.
 - **P2.A_int.5**: `scaffold_block.category` arg accepted but unused. A1 P2.1.
 - **P2.A_int.6**: 6 pre-existing naked TODOs in `src/`. A1 P2.5.
-- **P2.A_int.7**: Hook regex precision gaps (`protect_workflow_yaml` unanchored, `deny_scieasy_cli` misses `env`/`&&`, `enforce_concrete_port_types` misses `ast.Attribute`). A1 P2.2-P2.4.
+- **P2.A_int.7**: Hook regex precision gaps (`protect_workflow_yaml` unanchored, `deny_scistudio_cli` misses `env`/`&&`, `enforce_concrete_port_types` misses `ast.Attribute`). A1 P2.2-P2.4.
 
 ### P3 (6 — polish, accepted as-is)
 
@@ -415,7 +415,7 @@ Ordered fix dispatches beyond what's already in flight:
 1. **(BLOCKING) Land PR #1064** — scaffold template `type=` → `accepted_types=[T]`. CI Lint & Format failure on PR #1064 must be addressed (likely a trailing-whitespace fix or ruff format). Confirm with `gh pr checks 1064`.
 2. **(BLOCKING) F40-integration agent ships** with the 3 deliverables A3 §G.5 + A_int §G.4 enumerated:
    - `hook_enforce_concrete_port_types.py` rewrite (per A3 §G.5 row 4 patch).
-   - 5 skill files polish pass (`run()` arity in `scieasy-write-block` §2; frontmatter disambiguator in `scieasy-write-block`; hook safety-net Codex parity in any skill that references hooks).
+   - 5 skill files polish pass (`run()` arity in `scistudio-write-block` §2; frontmatter disambiguator in `scistudio-write-block`; hook safety-net Codex parity in any skill that references hooks).
    - `claude_agents_md.md` template — top-level "Hook safety net (Claude Code only)" disclaimer.
 3. **(STRONGLY RECOMMENDED) Pre-ship `cli/install.py::_find_skill_source` walk-up fix** — 2-line change. Or defer to a post-ship docs/install hardening PR.
 4. **(STRONGLY RECOMMENDED) Pre-ship `scaffold_block.category` arg fix** — 10 LOC. Either drop the arg or route into template selection.

@@ -2,20 +2,20 @@
 
 ## Files modified
 
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/load_image.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py`
   - Removed module-level legacy constants `_TIFF_EXTS`, `_ZARR_EXTS`, `_SUPPORTED_EXTS` (lines 27-29).
   - Declared `supported_extensions: ClassVar[dict[str, str]] = {".tif": "tiff", ".tiff": "tiff", ".zarr": "zarr"}` on `LoadImage`.
   - Replaced the `ext in _SUPPORTED_EXTS` / `ext in _TIFF_EXTS` checks in `_load_single` with a call to `self._detect_format(path)`. Error message now references `sorted(LoadImage.supported_extensions.keys())`.
   - Added a defensive `raise ValueError("LoadImage: format id ... has no dispatch arm")` for the case where a future ClassVar entry has no matching dispatch — surfaces missing wiring loudly rather than silently mis-routing.
-- `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/save_image.py`
+- `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py`
   - Removed module-level legacy constants `_TIFF_FORMAT`, `_ZARR_FORMAT`, `_SUPPORTED_FORMATS`, `_EXT_TO_FORMAT` (lines 31-35).
   - Declared `supported_extensions: ClassVar[dict[str, str]]` on `SaveImage`, mirroring `LoadImage.supported_extensions` exactly.
   - Rewrote `_resolve_format(path, explicit, block=None)` to (a) cross-check the explicit `config['format']` string against the ClassVar's set of registered format-identifier values, and (b) route path-based detection through `block._detect_format(path)` when a block is supplied or walk the ClassVar directly otherwise. Same compound-suffix-first, case-insensitive semantics as `IOBlock._detect_format`.
   - Updated `SaveImage._write_single` to compare `fmt == "tiff"` (string literal) rather than referencing the now-deleted `_TIFF_FORMAT` constant.
   - Threaded `block=self` into all three `_resolve_format` call sites inside `SaveImage.save`.
-- `packages/scieasy-blocks-imaging/tests/test_load_image.py`
+- `packages/scistudio-blocks-imaging/tests/test_load_image.py`
   - Appended `TestSupportedExtensionsClassVar` class with 8 new cases (exact ClassVar value, `_TIFF_EXTS`/`_ZARR_EXTS`/`_SUPPORTED_EXTS` removal assertion, `_detect_format` resolution on known/unknown/case-variant suffixes, error-message inspection, ClassVar-vs-IOBlock-base inheritance, TIFF + Zarr smoke round-trips).
-- `packages/scieasy-blocks-imaging/tests/test_save_image.py`
+- `packages/scistudio-blocks-imaging/tests/test_save_image.py`
   - Symmetric `TestSupportedExtensionsClassVar` class with 8 new cases including the explicit `SaveImage == LoadImage` mirror assertion, removal of `_TIFF_FORMAT`/`_ZARR_FORMAT`/`_SUPPORTED_FORMATS`/`_EXT_TO_FORMAT`, and the unsupported-extension error path.
 - `CHANGELOG.md` — `[Unreleased]` entry (added in follow-up commit).
 
@@ -34,7 +34,7 @@ None substantive. One observation:
 
 ## Tests added
 
-All 16 new cases pass under `PYTHONPATH=src:packages/scieasy-blocks-imaging/src python -m pytest packages/scieasy-blocks-imaging/tests/test_load_image.py::TestSupportedExtensionsClassVar packages/scieasy-blocks-imaging/tests/test_save_image.py::TestSupportedExtensionsClassVar --timeout=60 --no-cov`. Lint clean (ruff check + ruff format --check).
+All 16 new cases pass under `PYTHONPATH=src:packages/scistudio-blocks-imaging/src python -m pytest packages/scistudio-blocks-imaging/tests/test_load_image.py::TestSupportedExtensionsClassVar packages/scistudio-blocks-imaging/tests/test_save_image.py::TestSupportedExtensionsClassVar --timeout=60 --no-cov`. Lint clean (ruff check + ruff format --check).
 
 ## Known TODOs left in code
 

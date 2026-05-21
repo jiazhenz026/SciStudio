@@ -1,9 +1,9 @@
 ---
 name: manager
-description: Use when acting as the SciEasy manager persona for planning, coordination, dispatch, hotfix ownership, integration testing, e2e testing, PR readiness, and durable status reporting.
+description: Use when acting as the SciStudio manager persona for planning, coordination, dispatch, hotfix ownership, integration testing, e2e testing, PR readiness, and durable status reporting.
 ---
 
-# SciEasy Manager Skill
+# SciStudio Manager Skill
 
 This skill is a hard pointer only. It does not define independent policy.
 

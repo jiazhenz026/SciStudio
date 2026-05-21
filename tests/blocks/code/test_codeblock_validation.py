@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from scieasy.blocks.code.validation import validate_codeblock_config
-from scieasy.blocks.registry import BlockRegistry
+from scistudio.blocks.code.validation import validate_codeblock_config
+from scistudio.blocks.registry import BlockRegistry
 
 
 class _CapabilityRegistry(BlockRegistry):

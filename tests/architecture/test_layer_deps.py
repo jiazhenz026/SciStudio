@@ -5,7 +5,7 @@ Ensures that lower layers never import from higher layers.  The hierarchy is:
     Layer 1  core/
     Layer 2  blocks/
     Layer 3  engine/
-    Layer 4  ai/           (the scieasy.ai services package, NOT blocks/ai/)
+    Layer 4  ai/           (the scistudio.ai services package, NOT blocks/ai/)
     Layer 5  api/
 
 Cross-cutting packages (workflow/, utils/, cli/) are exempt from layer ordering
@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "scieasy"
+SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "scistudio"
 
 
 # ---------------------------------------------------------------------------
@@ -99,20 +99,20 @@ def _collect_py_files(subdir: str) -> list[Path]:
 def _is_forbidden(imp: str, forbidden_prefix: str) -> bool:
     """Return ``True`` when *imp* matches *forbidden_prefix*.
 
-    Special handling for ``scieasy.ai`` to avoid false positives on
-    ``scieasy.blocks.ai`` (which is in the blocks layer, not the AI
+    Special handling for ``scistudio.ai`` to avoid false positives on
+    ``scistudio.blocks.ai`` (which is in the blocks layer, not the AI
     services layer).
     """
-    # Exact match (e.g. ``import scieasy.api``)
+    # Exact match (e.g. ``import scistudio.api``)
     if imp == forbidden_prefix:
         return True
 
-    # Prefix match (e.g. ``from scieasy.api.routes import ...``)
+    # Prefix match (e.g. ``from scistudio.api.routes import ...``)
     prefix_dot = forbidden_prefix if forbidden_prefix.endswith(".") else forbidden_prefix + "."
     if imp.startswith(prefix_dot):
-        # Exclude false positives: ``scieasy.blocks.ai.*`` is NOT the AI
-        # services layer ``scieasy.ai.*``.
-        return not (forbidden_prefix == "scieasy.ai" and imp.startswith("scieasy.blocks.ai"))
+        # Exclude false positives: ``scistudio.blocks.ai.*`` is NOT the AI
+        # services layer ``scistudio.ai.*``.
+        return not (forbidden_prefix == "scistudio.ai" and imp.startswith("scistudio.blocks.ai"))
 
     return False
 
@@ -125,32 +125,32 @@ LAYER_RULES: list[tuple[str, list[str]]] = [
     (
         "core",
         [
-            "scieasy.blocks",
-            "scieasy.engine",
-            "scieasy.api",
-            "scieasy.ai",
-            "scieasy.workflow",
+            "scistudio.blocks",
+            "scistudio.engine",
+            "scistudio.api",
+            "scistudio.ai",
+            "scistudio.workflow",
         ],
     ),
     (
         "blocks",
         [
-            "scieasy.engine",
-            "scieasy.api",
-            "scieasy.ai",
+            "scistudio.engine",
+            "scistudio.api",
+            "scistudio.ai",
         ],
     ),
     (
         "engine",
         [
-            "scieasy.api",
-            "scieasy.ai",
+            "scistudio.api",
+            "scistudio.ai",
         ],
     ),
     (
         "ai",
         [
-            "scieasy.api",
+            "scistudio.api",
         ],
     ),
 ]

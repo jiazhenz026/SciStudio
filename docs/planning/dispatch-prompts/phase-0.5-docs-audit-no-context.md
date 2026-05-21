@@ -11,7 +11,7 @@
 Read ADR-038 (`docs/adr/ADR-038.md`) and ADR-039 (`docs/adr/ADR-039.md`) once, in full, to understand the architectural decisions the project just made. Then audit the project's documentation set listed below for:
 
 1. **Internal inconsistencies** — places where two docs disagree about a behavior, schema, file location, or terminology.
-2. **Residual references to deprecated concepts** — every mention of `metadata.db` should now be `<project>/.scieasy/lineage.db`, every `MetadataStore` should be the unified `LineageStore`, every `bump_revision` / `If-Match` flow should be gone, every `<project>/checkpoints/` should be `<project>/.scieasy/pause/`, the old flat `LineageRecord` schema with `input_hashes`/`output_hashes`/`batch_info` should be gone, the old "5 key packages" environment-snapshot default should be `uv pip freeze`. Find every leftover.
+2. **Residual references to deprecated concepts** — every mention of `metadata.db` should now be `<project>/.scistudio/lineage.db`, every `MetadataStore` should be the unified `LineageStore`, every `bump_revision` / `If-Match` flow should be gone, every `<project>/checkpoints/` should be `<project>/.scistudio/pause/`, the old flat `LineageRecord` schema with `input_hashes`/`output_hashes`/`batch_info` should be gone, the old "5 key packages" environment-snapshot default should be `uv pip freeze`. Find every leftover.
 3. **Factual errors against the ADRs** — claims in the docs that contradict ADR-038 or ADR-039 (wrong schema field name, wrong path, wrong default value, wrong feature set).
 4. **Missing cross-references** — pointers to ADR-032 (now superseded) that don't mention ADR-038, pointers to the old lineage layout that don't mention the new schema, etc.
 

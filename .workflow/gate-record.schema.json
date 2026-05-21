@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/zjzcpj/SciEasy/.workflow/gate-record.schema.json",
-  "title": "SciEasy ADR-042 Committed Gate Record",
+  "$id": "https://github.com/zjzcpj/SciStudio/.workflow/gate-record.schema.json",
+  "title": "SciStudio ADR-042 Committed Gate Record",
   "type": "object",
   "additionalProperties": false,
   "required": [

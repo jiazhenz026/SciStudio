@@ -26,7 +26,7 @@
  *   - All colors pass WCAG AA contrast vs the default light theme
  *     background (#fafafa, stone-50). For dark theme, the renderer
  *     should swap to a parallel `PALETTE_DARK` array — out of scope for
- *     v1 since SciEasy currently uses light theme only.
+ *     v1 since SciStudio currently uses light theme only.
  *   - Filtered commits get a fixed grey (`FILTERED_COLOR`) instead of
  *     a palette color, per ADR §3.5c.
  *

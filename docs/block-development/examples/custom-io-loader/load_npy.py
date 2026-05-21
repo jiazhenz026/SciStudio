@@ -10,7 +10,7 @@ Both paths persist directly. IOBlock loaders MUST NOT rely on auto-flush
 (ADR-031 Addendum 1, A1-D3).
 
 Usage:
-    Include in a Tier 2 package with scieasy.blocks entry-point.
+    Include in a Tier 2 package with scistudio.blocks entry-point.
 """
 
 from __future__ import annotations
@@ -20,13 +20,13 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import OutputPort
-from scieasy.blocks.io.io_block import IOBlock
-from scieasy.core.meta.framework import FrameworkMeta
-from scieasy.core.types.array import Array
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import OutputPort
+from scistudio.blocks.io.io_block import IOBlock
+from scistudio.core.meta.framework import FrameworkMeta
+from scistudio.core.types.array import Array
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
 
 
 class LoadNpy(IOBlock):

@@ -18,13 +18,13 @@ from pathlib import Path
 
 def test_compose_reads_skill_md(tmp_path: Path) -> None:
     """The returned prompt must contain a recognisable SKILL.md marker."""
-    from scieasy.ai.agent.system_prompt import compose_system_prompt
+    from scistudio.ai.agent.system_prompt import compose_system_prompt
 
     prompt = compose_system_prompt(tmp_path)
-    # SKILL.md opens with YAML frontmatter `name: scieasy` and an H1
-    # ``# SciEasy`` heading — both are stable identity markers; at least
+    # SKILL.md opens with YAML frontmatter `name: scistudio` and an H1
+    # ``# SciStudio`` heading — both are stable identity markers; at least
     # one should be present.
-    assert "name: scieasy" in prompt or "# SciEasy" in prompt
+    assert "name: scistudio" in prompt or "# SciStudio" in prompt
 
 
 def test_compose_does_not_deadlock_inside_running_loop(tmp_path: Path) -> None:
@@ -44,7 +44,7 @@ def test_compose_does_not_deadlock_inside_running_loop(tmp_path: Path) -> None:
     """
     import asyncio
 
-    from scieasy.ai.agent.system_prompt import compose_system_prompt
+    from scistudio.ai.agent.system_prompt import compose_system_prompt
 
     async def _runner() -> str:
         # Note: compose_system_prompt is sync; calling it from inside an
@@ -61,7 +61,7 @@ def test_compose_does_not_deadlock_inside_running_loop(tmp_path: Path) -> None:
 
 def test_compose_injects_full_tool_catalog(tmp_path: Path) -> None:
     """Every registered tool name must appear in the rendered prompt."""
-    from scieasy.ai.agent.system_prompt import compose_system_prompt
+    from scistudio.ai.agent.system_prompt import compose_system_prompt
 
     prompt = compose_system_prompt(tmp_path)
     # Spot-check tools across all four categories.
@@ -83,7 +83,7 @@ def test_compose_injects_full_tool_catalog(tmp_path: Path) -> None:
 
 def test_compose_is_idempotent(tmp_path: Path) -> None:
     """Same input project_dir must yield byte-identical output."""
-    from scieasy.ai.agent.system_prompt import compose_system_prompt
+    from scistudio.ai.agent.system_prompt import compose_system_prompt
 
     a = compose_system_prompt(tmp_path)
     b = compose_system_prompt(tmp_path)
@@ -92,7 +92,7 @@ def test_compose_is_idempotent(tmp_path: Path) -> None:
 
 def test_compose_uses_marker_block(tmp_path: Path) -> None:
     """The tool_catalog markers must wrap the rendered catalog."""
-    from scieasy.ai.agent.system_prompt import compose_system_prompt
+    from scistudio.ai.agent.system_prompt import compose_system_prompt
 
     prompt = compose_system_prompt(tmp_path)
     begin = prompt.find("<!-- tool_catalog:begin -->")
@@ -111,15 +111,15 @@ def test_compose_uses_marker_block(tmp_path: Path) -> None:
 def test_load_skill_md_returns_content() -> None:
     """ADR-040 §3.4: ``_load_skill_md`` returns the SKILL.md content.
 
-    Resolution prefers ``importlib.resources.files("scieasy") /
-    _skills/scieasy/SKILL.md`` and falls back to the legacy walk-up
+    Resolution prefers ``importlib.resources.files("scistudio") /
+    _skills/scistudio/SKILL.md`` and falls back to the legacy walk-up
     while the Skills track ships the relocated file.
     """
-    from scieasy.ai.agent.system_prompt import _load_skill_md
+    from scistudio.ai.agent.system_prompt import _load_skill_md
 
     content = _load_skill_md()
     assert content, "_load_skill_md returned empty string"
-    assert "name: scieasy" in content or "# SciEasy" in content
+    assert "name: scistudio" in content or "# SciStudio" in content
 
 
 # ---------------------------------------------------------------------------
@@ -133,7 +133,7 @@ def test_compose_renders_project_context_block(tmp_path: Path) -> None:
     Project setup: tmp_path/project.yaml with project.name = "TestProj" and
     tmp_path/workflows/ with one .yaml file.
     """
-    from scieasy.ai.agent.system_prompt import compose_system_prompt
+    from scistudio.ai.agent.system_prompt import compose_system_prompt
 
     (tmp_path / "project.yaml").write_text("project:\n  name: TestProj\n", encoding="utf-8")
     (tmp_path / "workflows").mkdir()
@@ -150,7 +150,7 @@ def test_compose_renders_project_context_block(tmp_path: Path) -> None:
 
 def test_compose_project_context_handles_non_git_project(tmp_path: Path) -> None:
     """ADR-040 §3.3: project_context omits the Git: line when project_dir isn't a git repo."""
-    from scieasy.ai.agent.system_prompt import compose_system_prompt
+    from scistudio.ai.agent.system_prompt import compose_system_prompt
 
     (tmp_path / "project.yaml").write_text("project:\n  name: NoGit\n", encoding="utf-8")
     prompt = compose_system_prompt(tmp_path)
@@ -164,7 +164,7 @@ def test_compose_project_context_handles_non_git_project(tmp_path: Path) -> None
 
 def test_compose_project_context_empty_workflows(tmp_path: Path) -> None:
     """ADR-040 §3.3: project_context renders even with zero workflows."""
-    from scieasy.ai.agent.system_prompt import compose_system_prompt
+    from scistudio.ai.agent.system_prompt import compose_system_prompt
 
     (tmp_path / "project.yaml").write_text("project:\n  name: Empty\n", encoding="utf-8")
     prompt = compose_system_prompt(tmp_path)
@@ -180,7 +180,7 @@ def test_compose_project_context_meets_100ms_budget(tmp_path: Path) -> None:
     Creates 1000 empty *.yaml files in tmp_path/workflows/ and times the
     full compose call.
     """
-    from scieasy.ai.agent.system_prompt import compose_system_prompt
+    from scistudio.ai.agent.system_prompt import compose_system_prompt
 
     (tmp_path / "project.yaml").write_text("project:\n  name: PerfTest\n", encoding="utf-8")
     workflows_dir = tmp_path / "workflows"
@@ -199,5 +199,5 @@ def test_compose_project_context_meets_100ms_budget(tmp_path: Path) -> None:
     # that may be under load.
     # TODO(#1012): tighten to <100ms once Phase 2a.5 audit confirms the
     # CI baseline measurement is stable. Out of scope per ADR-040 §3.3
-    # / phase: 2a I40a. Followup: https://github.com/zjzcpj/SciEasy/issues/1012.
+    # / phase: 2a I40a. Followup: https://github.com/zjzcpj/SciStudio/issues/1012.
     assert duration < 0.5, f"compose_system_prompt took {duration:.3f}s, expected <0.5s"

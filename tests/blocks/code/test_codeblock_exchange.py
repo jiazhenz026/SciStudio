@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.blocks.code.exchange import (
+from scistudio.blocks.code.exchange import (
     CodeBlockExchangeError,
     CodeBlockExchangePort,
     allocate_port_folder,
@@ -15,10 +15,10 @@ from scieasy.blocks.code.exchange import (
     plan_input_filenames,
     prepare_codeblock_exchange,
 )
-from scieasy.core.storage.ref import StorageReference
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.text import Text
+from scistudio.core.storage.ref import StorageReference
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.text import Text
 
 
 def test_create_exchange_layout_creates_per_run_paths(tmp_path: Path) -> None:
@@ -45,8 +45,8 @@ def test_allocate_port_folder_suffixes_existing_and_duplicate_names(tmp_path: Pa
     first = allocate_port_folder(parent, "image", used)
     second = allocate_port_folder(parent, "image", used)
 
-    assert first.name == "image__scieasy"
-    assert second.name == "image__scieasy_2"
+    assert first.name == "image__scistudio"
+    assert second.name == "image__scistudio_2"
     assert first.is_dir()
     assert second.is_dir()
 

@@ -10,8 +10,8 @@ at final-merge.
 
 from __future__ import annotations
 
-from scieasy.core.lineage.record import RunRecord
-from scieasy.core.lineage.store import LineageStore
+from scistudio.core.lineage.record import RunRecord
+from scistudio.core.lineage.store import LineageStore
 
 
 def _new_store_with_run(

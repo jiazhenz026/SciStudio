@@ -12,9 +12,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from scieasy.blocks.base.state import BlockState
-from scieasy.engine.dag import CycleError, build_dag, topological_sort
-from scieasy.engine.events import (
+from scistudio.blocks.base.state import BlockState
+from scistudio.engine.dag import CycleError, build_dag, topological_sort
+from scistudio.engine.events import (
     BLOCK_CANCELLED,
     BLOCK_SKIPPED,
     CANCEL_BLOCK_REQUEST,
@@ -22,8 +22,8 @@ from scieasy.engine.events import (
     EngineEvent,
     EventBus,
 )
-from scieasy.engine.scheduler import DAGScheduler
-from scieasy.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
+from scistudio.engine.scheduler import DAGScheduler
+from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
 
 # ---------------------------------------------------------------------------
 # Helpers

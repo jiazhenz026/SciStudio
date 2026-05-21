@@ -337,7 +337,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
       }}
       onDrop={(event) => {
         event.preventDefault();
-        const payload = event.dataTransfer.getData("application/scieasy-block");
+        const payload = event.dataTransfer.getData("application/scistudio-block");
         if (!payload) {
           return;
         }

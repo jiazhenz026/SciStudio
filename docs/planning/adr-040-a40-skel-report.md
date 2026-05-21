@@ -37,12 +37,12 @@ Touched files match the FastMCP-track owner-file list in
 `docs/planning/adr-040-code-scope.md` §1.1:
 
 - `pyproject.toml` (+1 dep) ✓
-- `src/scieasy/ai/agent/mcp/__init__.py` (docstring + re-export) ✓
-- `src/scieasy/ai/agent/mcp/_registry.py` **DELETED** ✓ (per ADR §3.1)
-- `src/scieasy/ai/agent/mcp/runtime.py` (lifecycle wrapper updates) ✓
-- `src/scieasy/ai/agent/mcp/server.py` (rewrite to FastMCP wrapper) ✓
-- `src/scieasy/ai/agent/mcp/tools_{authoring,inspection,qa,workflow}.py` (4 tool modules) ✓
-- `src/scieasy/ai/agent/system_prompt.py` (rewrite per §3.3) ✓
+- `src/scistudio/ai/agent/mcp/__init__.py` (docstring + re-export) ✓
+- `src/scistudio/ai/agent/mcp/_registry.py` **DELETED** ✓ (per ADR §3.1)
+- `src/scistudio/ai/agent/mcp/runtime.py` (lifecycle wrapper updates) ✓
+- `src/scistudio/ai/agent/mcp/server.py` (rewrite to FastMCP wrapper) ✓
+- `src/scistudio/ai/agent/mcp/tools_{authoring,inspection,qa,workflow}.py` (4 tool modules) ✓
+- `src/scistudio/ai/agent/system_prompt.py` (rewrite per §3.3) ✓
 - 10 test files (1 added: `tests/ai/test_mcp_fastmcp.py`; 9 modified)
 
 No out-of-scope files modified. No frontend, no `core/`, no
@@ -102,7 +102,7 @@ because `_load_skill_md()` now unconditionally raises. The error chain
 visible in CI logs:
 
 ```
-src/scieasy/blocks/ai/ai_block.py:467: RuntimeError
+src/scistudio/blocks/ai/ai_block.py:467: RuntimeError
   AIBlock bootstrap failed: cannot write system prompt or MCP config:
   S40a skeleton — importlib.resources skill load lands in I40a Phase 2a.
 ```
@@ -115,7 +115,7 @@ to `AIBlock` bootstrap — the dispatch explicitly called out
 
 Two P1 inline comments from `chatgpt-codex-connector[bot]`:
 
-1. **P1 — `src/scieasy/ai/agent/mcp/server.py:186` (Restore MCP server startup path)**:
+1. **P1 — `src/scistudio/ai/agent/mcp/server.py:186` (Restore MCP server startup path)**:
    `MCPServer.start()` raises `NotImplementedError`. `start_inprocess_server`
    (mcp/runtime.py) awaits `server.start()` and `api/app.py` lifespan
    awaits `mcp_server.start()` → standalone `mcp-bridge` crashes
@@ -126,7 +126,7 @@ Two P1 inline comments from `chatgpt-codex-connector[bot]`:
    FastMCP, so backend boot + bridge boot both stay live during the
    cascade.
 
-2. **P1 — `src/scieasy/ai/agent/system_prompt.py:113` (Keep system-prompt composition functional)**:
+2. **P1 — `src/scistudio/ai/agent/system_prompt.py:113` (Keep system-prompt composition functional)**:
    `compose_system_prompt()` always fails because `_load_skill_md()`
    raises unconditionally. `terminal.py::_write_system_prompt_tempfile`
    and `AIBlock` bootstrap both depend on this helper, so claude/codex
@@ -134,7 +134,7 @@ Two P1 inline comments from `chatgpt-codex-connector[bot]`:
    Confirmed by CI logs. Manager fix: keep legacy walk-up resolver as
    the body and only mark the importlib.resources switch as the future
    change (TODO comment but functional body), OR fall back to
-   reading the still-in-tree `skills/scieasy/SKILL.md` until S40b's
+   reading the still-in-tree `skills/scistudio/SKILL.md` until S40b's
    relocated SKILL.md is wired in. Either preserves backward
    compatibility during the skeleton phase.
 
@@ -193,9 +193,9 @@ defer to followup) per overnight merge protocol.
 | File | Status | Notes |
 |---|---|---|
 | `CHANGELOG.md` | +1 | Entry added |
-| `pyproject.toml` | +1 / -1 | `[tool.setuptools.package-data]` widened to include `_skills/scieasy/**/*.md`. Surgical edit; no other sections touched. ✓ |
-| `src/scieasy/_skills/scieasy/SKILL.md` | NEW | 18 LOC; frontmatter `name: scieasy`, identity stub, `<!-- project_context:begin/end -->` markers present ✓ |
-| `src/scieasy/_skills/scieasy/scieasy-{build-workflow,debug-run,inspect-data,project-qa,write-block}/SKILL.md` | NEW × 5 | 14-17 LOC each; frontmatter `name` + `description` populated ✓ |
+| `pyproject.toml` | +1 / -1 | `[tool.setuptools.package-data]` widened to include `_skills/scistudio/**/*.md`. Surgical edit; no other sections touched. ✓ |
+| `src/scistudio/_skills/scistudio/SKILL.md` | NEW | 18 LOC; frontmatter `name: scistudio`, identity stub, `<!-- project_context:begin/end -->` markers present ✓ |
+| `src/scistudio/_skills/scistudio/scistudio-{build-workflow,debug-run,inspect-data,project-qa,write-block}/SKILL.md` | NEW × 5 | 14-17 LOC each; frontmatter `name` + `description` populated ✓ |
 | `tests/packaging/test_wheel_skills.py` | NEW | Skipped regression scaffold with `TODO(#1011)` ✓ |
 
 Strictly markdown + packaging metadata + one skipped test. Zero Python
@@ -205,7 +205,7 @@ source code touched. Scope is tighter than even the dispatch — perfect.
 
 Every new file carries an HTML comment block flagging Phase 2c
 (`TODO(#1011)`) for the actual content authoring. The
-`<!-- project_context:begin/end -->` markers in `_skills/scieasy/SKILL.md`
+`<!-- project_context:begin/end -->` markers in `_skills/scistudio/SKILL.md`
 are intentionally empty — the splice target for FastMCP's
 `_render_project_context` per ADR §3.3. ✓
 
@@ -219,7 +219,7 @@ are intentionally empty — the splice target for FastMCP's
     NOT present.** Note this is a known cross-track timing dependency:
     S40a's `system_prompt.py` documents that the splice happens against
     these markers (constants `_TOOL_CATALOG_BEGIN`/`_TOOL_CATALOG_END`),
-    but the legacy `skills/scieasy/SKILL.md` (still on disk at repo
+    but the legacy `skills/scistudio/SKILL.md` (still on disk at repo
     root) carries them. When S40a's `_load_skill_md` switches to
     `importlib.resources` on this S40b-relocated file, the tool_catalog
     splice will fail. **Finding P3 — F1027-1**: I40b (Phase 2c)
@@ -240,14 +240,14 @@ Type Check + Architecture Tests + CodeQL. ✓
 
 `tests/packaging/test_wheel_skills.py` is a single skipped test with a
 reference impl in the docstring (`from importlib.resources import
-files; ... .read_text("utf-8"); assert "scieasy" in content`). I40b can
+files; ... .read_text("utf-8"); assert "scistudio" in content`). I40b can
 flip skip→pass without re-deriving the assertion. ✓
 
 #### Findings summary (PR #1027)
 
 | ID | Severity | Location | Finding |
 |---|---|---|---|
-| F1027-1 | P3 | `_skills/scieasy/SKILL.md` | No `<!-- tool_catalog -->` marker — required by S40a/I40a's splice but Phase 2c (I40b) authors the full body. Track for I40b dispatch. |
+| F1027-1 | P3 | `_skills/scistudio/SKILL.md` | No `<!-- tool_catalog -->` marker — required by S40a/I40a's splice but Phase 2c (I40b) authors the full body. Track for I40b dispatch. |
 
 ---
 
@@ -260,22 +260,22 @@ flip skip→pass without re-deriving the assertion. ✓
 
 Owned-file scope from manifest §2.1 covered with surgical precision:
 
-- `src/scieasy/agent_provisioning/` package — 7 new modules
+- `src/scistudio/agent_provisioning/` package — 7 new modules
   (`__init__.py`, `_orchestrate.py`, `claude_agents_md.py`, `hooks.py`,
   `skills.py`, `codex_config.py`, `templates/*` × 7) ✓
-- `src/scieasy/agent_provisioning/templates/` — 6 hook templates +
+- `src/scistudio/agent_provisioning/templates/` — 6 hook templates +
   `claude_agents_md.md` + `codex_config.toml`. Confirmed 6 hooks per
   ADR §3.6 (not 3 — see code-scope §8.3 / §5):
-  `hook_deny_scieasy_cli.py`, `hook_protect_workflow_yaml.py`,
+  `hook_deny_scistudio_cli.py`, `hook_protect_workflow_yaml.py`,
   `hook_enforce_list_blocks_before_block_write.py`,
   `hook_remind_poll_status.py`, `hook_mark_list_blocks_called.py`,
   `hook_enforce_concrete_port_types.py` ✓
-- `src/scieasy/api/runtime.py` — +48 LOC, narrow wiring inside
+- `src/scistudio/api/runtime.py` — +48 LOC, narrow wiring inside
   `create_project` (after ADR-039 git init block, before
   `self.open_project()`) AND `open_project` (after ADR-039 re-init,
   before `_publish_mcp_port`). Existing ADR-039 / ADR-038 logic
   untouched. ✓
-- `src/scieasy/cli/main.py` — +24 LOC; insertion after the existing
+- `src/scistudio/cli/main.py` — +24 LOC; insertion after the existing
   git-init `typer.echo(f"WARNING: git auto-init errored: {exc}", ...)`
   and before final success echo. ✓
 - `tests/agent_provisioning/` — 6 new test files (`test_claude_agents_md.py`,
@@ -294,7 +294,7 @@ list. Sampled:
 
 - `_orchestrate.py::install_project_agent_assets` (lines 91-105) — full
   impl plan documented before the raise ✓
-- `hook_deny_scieasy_cli.py` — exits 0 unconditionally; module docstring
+- `hook_deny_scistudio_cli.py` — exits 0 unconditionally; module docstring
   explicitly says "MUST NOT exit 2 — a half-finished blocker would
   break every Bash call in a provisioned project". Strong scope
   discipline ✓
@@ -304,7 +304,7 @@ list. Sampled:
 
 #### C. Signature contract compliance
 
-- `SCIEASY_PROVISION_VERSION = "0.1.0-skeleton"` constant defined ✓
+- `SCISTUDIO_PROVISION_VERSION = "0.1.0-skeleton"` constant defined ✓
 - `ProvisionResult` dataclass with `written/skipped/failed/version`
   fields ✓
 - **Lifecycle wiring guards `NotImplementedError`** — both
@@ -360,7 +360,7 @@ each test has a `@pytest.mark.skip(reason="...")` decorator with
 | ID | Severity | Location | Finding |
 |---|---|---|---|
 | F1029-1 | P2 | CI Test (Python 3.11) | Unrelated flake on `test_cancel_block_and_cancel_workflow_propagate_terminal_states`. Recommend manager re-run. Not blocking. |
-| F1029-2 | P3 | `_orchestrate.py::SCIEASY_PROVISION_VERSION` | Uses `TODO(#1011)` for version bump rather than a dedicated tracking issue. Strictly aligns with the umbrella; could be refined but acceptable. |
+| F1029-2 | P3 | `_orchestrate.py::SCISTUDIO_PROVISION_VERSION` | Uses `TODO(#1011)` for version bump rather than a dedicated tracking issue. Strictly aligns with the umbrella; could be refined but acceptable. |
 
 ---
 
@@ -373,7 +373,7 @@ each test has a `@pytest.mark.skip(reason="...")` decorator with
 
 Strictly within manifest §3.1 owned files:
 
-- `src/scieasy/cli/install.py` — +118 / -13. Surgical edits add
+- `src/scistudio/cli/install.py` — +118 / -13. Surgical edits add
   TODO-comment blocks above `_codex_config_path`, `_install_codex`,
   `_skill_dest`, `_install_skill`, `_remove_skill`, and the
   `perform_install` codex fallback branch. **Return type of
@@ -389,7 +389,7 @@ Strictly within manifest §3.1 owned files:
 
 S40d preserved legacy bodies INSIDE the touched functions — explicitly
 called out in the dispatch as a judgment call: dispatch said
-"`MCP_SERVER_NAME`, `_mcp_entry_payload`, `_scieasy_command_for_env`,
+"`MCP_SERVER_NAME`, `_mcp_entry_payload`, `_scistudio_command_for_env`,
 `_render_codex_block` signatures UNCHANGED (preserves `__main__.py` +
 `terminal.py` consumers). S40d kept legacy bodies inline per its
 judgment call — flag this as a deviation from 'pure NotImplementedError
@@ -406,7 +406,7 @@ references. ✓
 
 #### C. Signature contract compliance
 
-- `MCP_SERVER_NAME`, `_mcp_entry_payload`, `_scieasy_command_for_env`,
+- `MCP_SERVER_NAME`, `_mcp_entry_payload`, `_scistudio_command_for_env`,
   `_render_codex_block` — UNCHANGED. ✓ (Verified via diff.)
 - `_install_skill` signature: `(scope: str, cwd: Path) -> list[InstallResult]`
   (return type widened) ✓ — `perform_install` correctly uses
@@ -451,7 +451,7 @@ assertion. Adequate for I40d flip. ✓
 ### W1 — `_load_skill_md` ↔ relocated SKILL.md timing
 
 S40a's `_load_skill_md()` in `system_prompt.py` documents
-`importlib.resources.files("scieasy") / "_skills" / "scieasy" / "SKILL.md"`
+`importlib.resources.files("scistudio") / "_skills" / "scistudio" / "SKILL.md"`
 as the future path. S40b ships the file at exactly that location with
 `pyproject.toml` package-data entry. **But the two PRs target different
 bases** (#1030 → `track/adr-040/fastmcp`; #1027 →
@@ -481,7 +481,7 @@ preserved.
 ### W4 — `pyproject.toml` overlap
 
 S40a edits `[project] dependencies` (adds `fastmcp`); S40b edits
-`[tool.setuptools.package-data]` (adds `_skills/scieasy/**/*.md`).
+`[tool.setuptools.package-data]` (adds `_skills/scistudio/**/*.md`).
 Different sections → no conflict.
 
 **BUT**: when these tracking branches eventually merge into main,
@@ -492,7 +492,7 @@ no overlap. ✓ Flag for Phase 3.5 integration audit as resolved.
 
 ### W5 — `<!-- tool_catalog -->` markers (cross-track gap, see F1027-1)
 
-S40b's relocated `_skills/scieasy/SKILL.md` doesn't include
+S40b's relocated `_skills/scistudio/SKILL.md` doesn't include
 `<!-- tool_catalog:begin/end -->` markers (Phase 2c I40b adds full
 body). When I40a runs against the relocated file, the
 `_splice` call in `compose_system_prompt` won't find target markers
@@ -545,7 +545,7 @@ Single F40-skel agent (or manager hotfix) on PR #1030 with:
    bodies with `TODO(#1012): I40a Phase 2a — replace with FastMCP
    serve loop.`
 2. **F1030-2 fix**: restore `_load_skill_md()` to the legacy walk-up
-   resolver targeting the still-on-disk `skills/scieasy/SKILL.md` at
+   resolver targeting the still-on-disk `skills/scistudio/SKILL.md` at
    repo root. Mark with `TODO(#1012): I40a Phase 2a — switch to
    importlib.resources once S40b's relocated SKILL.md is reachable on
    this branch.` Restore `compose_system_prompt()` body to call legacy

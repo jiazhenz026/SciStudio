@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-from scieasy.blocks.app.bridge import FileExchangeBridge
+from scistudio.blocks.app.bridge import FileExchangeBridge
 
 
 def test_launch_appends_exchange_dir_by_default(tmp_path: Path) -> None:
@@ -15,7 +15,7 @@ def test_launch_appends_exchange_dir_by_default(tmp_path: Path) -> None:
     exchange = tmp_path / "exchange"
     exchange.mkdir()
 
-    with patch("scieasy.blocks.app.bridge.subprocess.Popen") as mock_popen:
+    with patch("scistudio.blocks.app.bridge.subprocess.Popen") as mock_popen:
         mock_popen.return_value = mock_popen
         bridge.launch([sys.executable, "-c", "pass"], exchange)
 
@@ -30,7 +30,7 @@ def test_launch_uses_argv_override_when_provided(tmp_path: Path) -> None:
     exchange.mkdir()
     override = ["/some/file.tif", "/other/file.tif"]
 
-    with patch("scieasy.blocks.app.bridge.subprocess.Popen") as mock_popen:
+    with patch("scistudio.blocks.app.bridge.subprocess.Popen") as mock_popen:
         mock_popen.return_value = mock_popen
         bridge.launch([sys.executable, "-c", "pass"], exchange, argv_override=override)
 
@@ -55,10 +55,10 @@ def test_launch_macos_app_bundle_uses_open_w_and_n(tmp_path: Path) -> None:
 
     with (
         patch.object(sys, "platform", "darwin"),
-        patch("scieasy.blocks.app.bridge.subprocess.Popen") as mock_popen,
+        patch("scistudio.blocks.app.bridge.subprocess.Popen") as mock_popen,
         # validate_app_command rejects nonexistent executables; bypass it
         # so we can assert the macOS-specific argv rewrite in isolation.
-        patch("scieasy.blocks.app.command_validator.validate_app_command", return_value=[fake_app]),
+        patch("scistudio.blocks.app.command_validator.validate_app_command", return_value=[fake_app]),
     ):
         mock_popen.return_value = mock_popen
         bridge.launch(fake_app, exchange)
@@ -85,8 +85,8 @@ def test_launch_non_darwin_does_not_inject_open(tmp_path: Path) -> None:
 
     with (
         patch.object(sys, "platform", "linux"),
-        patch("scieasy.blocks.app.bridge.subprocess.Popen") as mock_popen,
-        patch("scieasy.blocks.app.command_validator.validate_app_command", return_value=[fake_app]),
+        patch("scistudio.blocks.app.bridge.subprocess.Popen") as mock_popen,
+        patch("scistudio.blocks.app.command_validator.validate_app_command", return_value=[fake_app]),
     ):
         mock_popen.return_value = mock_popen
         bridge.launch(fake_app, exchange)

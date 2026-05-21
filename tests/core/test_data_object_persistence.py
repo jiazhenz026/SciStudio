@@ -5,9 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from scieasy.core.types.array import Array
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.text import Text
+from scistudio.core.types.array import Array
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.text import Text
 
 
 class TestArrayGetInMemoryData:
@@ -84,7 +84,7 @@ class TestSaveDataFrameToArrow:
         import pyarrow as pa
         import pyarrow.parquet as pq
 
-        from scieasy.core.types.dataframe import DataFrame
+        from scistudio.core.types.dataframe import DataFrame
 
         df = DataFrame(columns=["a", "b"], row_count=3)
         df._arrow_table = pa.table({"a": [1, 2, 3], "b": [4, 5, 6]})
@@ -128,7 +128,7 @@ class TestWriteFromMemoryZarr:
     def test_write_from_memory(self, tmp_path: object) -> None:
         import zarr
 
-        from scieasy.core.storage.zarr_backend import ZarrBackend
+        from scistudio.core.storage.zarr_backend import ZarrBackend
 
         backend = ZarrBackend()
         data = np.arange(12, dtype="int32").reshape(3, 4)
@@ -148,7 +148,7 @@ class TestWriteFromMemoryArrow:
     def test_write_from_memory(self, tmp_path: object) -> None:
         import pyarrow.parquet as pq
 
-        from scieasy.core.storage.arrow_backend import ArrowBackend
+        from scistudio.core.storage.arrow_backend import ArrowBackend
 
         backend = ArrowBackend()
         data = {"x": [10, 20], "y": [30, 40]}
@@ -169,7 +169,7 @@ class TestWriteFromMemoryFilesystem:
     def test_write_from_memory(self, tmp_path: object) -> None:
         from pathlib import Path
 
-        from scieasy.core.storage.filesystem import FilesystemBackend
+        from scistudio.core.storage.filesystem import FilesystemBackend
 
         backend = FilesystemBackend()
         target = (tmp_path / "wfm.txt").as_posix()

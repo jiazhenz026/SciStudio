@@ -7,11 +7,11 @@ to write the outputs the test expects and then write the
 would do, but synchronously and on a thread the test owns.
 
 The stub also monkeypatches:
-  * ``scieasy.engine.pty_control.request_pty_tab`` — returns a fake
+  * ``scistudio.engine.pty_control.request_pty_tab`` — returns a fake
     ``tab_id`` and triggers the stub's behaviour.
-  * ``scieasy.engine.pty_control.notify_block_pty_event`` — recorded for
+  * ``scistudio.engine.pty_control.notify_block_pty_event`` — recorded for
     assertions.
-  * ``scieasy.blocks.ai.ai_block._discover_provider`` — always returns a
+  * ``scistudio.blocks.ai.ai_block._discover_provider`` — always returns a
     fake binary path so tests don't depend on claude/codex being
     installed in CI.
 
@@ -38,7 +38,7 @@ def _atomic_write_signal(signal_path: Path, content: str) -> None:
     """Atomically write *content* to *signal_path* via tempfile + os.replace.
 
     Mirrors the production helper in
-    ``scieasy.ai.agent.mcp.tools_workflow._atomic_write_text``: writes to a
+    ``scistudio.ai.agent.mcp.tools_workflow._atomic_write_text``: writes to a
     temp file in the same directory then ``os.replace`` (atomic on POSIX +
     Windows) so a reader polling concurrently never observes a 0-byte
     truncated file. Closes the documented TOCTOU race in #962 / #909.
@@ -105,7 +105,7 @@ class StubAgent:
         assert self._project_dir is not None, "StubAgent.attach() must be called first"
 
         # Resolve run_dir from convention.
-        run_dir = self._project_dir / ".scieasy" / "ai-block-runs" / run_id
+        run_dir = self._project_dir / ".scistudio" / "ai-block-runs" / run_id
         signals = run_dir / "signals"
 
         if self.finish_via == "close":
@@ -200,14 +200,14 @@ def stub_agent(project_dir: Path, monkeypatch: pytest.MonkeyPatch) -> StubAgent:
     stub.attach(project_dir)
 
     # Patch pty_control to use the stub.
-    from scieasy.engine import pty_control
+    from scistudio.engine import pty_control
 
     monkeypatch.setattr(pty_control, "request_pty_tab", stub.make_request_handler())
     monkeypatch.setattr(pty_control, "notify_block_pty_event", stub.make_notify_handler())
 
     # Patch the discover lookup so tests don't depend on claude/codex
     # being installed.
-    from scieasy.blocks.ai import ai_block as ai_block_module
+    from scistudio.blocks.ai import ai_block as ai_block_module
 
     monkeypatch.setattr(ai_block_module, "_discover_provider", lambda provider: "/fake/bin/" + provider)
 

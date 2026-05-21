@@ -14,14 +14,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scieasy.core.lineage.environment import EnvironmentSnapshot
-from scieasy.core.lineage.record import (
+from scistudio.core.lineage.environment import EnvironmentSnapshot
+from scistudio.core.lineage.record import (
     BlockExecutionRecord,
     BlockIORow,
     DataObjectRow,
     RunRecord,
 )
-from scieasy.core.lineage.store import LineageStore
+from scistudio.core.lineage.store import LineageStore
 
 
 def _make_run(run_id: str = "run-1", workflow_id: str = "wf") -> RunRecord:
@@ -192,7 +192,7 @@ class TestLineageStoreDataObjectsAndIO:
 
 class TestLineageStorePersistence:
     def test_default_path_persists(self, tmp_path: Path, monkeypatch) -> None:
-        """``LineageStore()`` with no path defaults to ``.scieasy/lineage.db`` under cwd."""
+        """``LineageStore()`` with no path defaults to ``.scistudio/lineage.db`` under cwd."""
         monkeypatch.chdir(tmp_path)
         store = LineageStore()
         store.insert_run(_make_run())
@@ -203,5 +203,5 @@ class TestLineageStorePersistence:
         assert run is not None
         assert run["workflow_id"] == "wf"
         store2.close()
-        # File on disk lives under .scieasy/.
-        assert (tmp_path / ".scieasy" / "lineage.db").exists()
+        # File on disk lives under .scistudio/.
+        assert (tmp_path / ".scistudio" / "lineage.db").exists()

@@ -5,39 +5,39 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from scieasy.agent_provisioning.codex_config import write_codex_config
+from scistudio.agent_provisioning.codex_config import write_codex_config
 
 
 def test_writes_codex_config_toml(tmp_project_dir: Path) -> None:
-    """``.codex/config.toml`` exists with expected mcp_servers.scieasy block."""
+    """``.codex/config.toml`` exists with expected mcp_servers.scistudio block."""
     written = write_codex_config(tmp_project_dir, force=False)
     assert written == [".codex/config.toml"]
 
     raw = (tmp_project_dir / ".codex" / "config.toml").read_text(encoding="utf-8")
     data = tomllib.loads(raw)
     assert "mcp_servers" in data
-    block = data["mcp_servers"]["scieasy"]
-    assert block["args"] == ["-m", "scieasy", "mcp-bridge"]
-    assert block["env"]["SCIEASY_PROJECT_DIR"] == str(tmp_project_dir.resolve())
+    block = data["mcp_servers"]["scistudio"]
+    assert block["args"] == ["-m", "scistudio", "mcp-bridge"]
+    assert block["env"]["SCISTUDIO_PROJECT_DIR"] == str(tmp_project_dir.resolve())
 
 
 def test_codex_config_mcp_block_matches_install_render(tmp_project_dir: Path) -> None:
-    """The ``[mcp_servers.scieasy]`` block matches ``_render_codex_block`` exactly.
+    """The ``[mcp_servers.scistudio]`` block matches ``_render_codex_block`` exactly.
 
     Per ADR §3.7 / §3.9 unification contract the MCP server block must
-    be byte-identical to what ``scieasy install --target codex`` emits.
+    be byte-identical to what ``scistudio install --target codex`` emits.
     Per ADR Addendum 4 the auto-provisioned file additionally appends a
     hooks block — so the contract is now "MCP block is the prefix" rather
     than "whole file is equal".
     """
-    from scieasy.cli.install import _render_codex_block
+    from scistudio.cli.install import _render_codex_block
 
     write_codex_config(tmp_project_dir, force=False)
     actual = (tmp_project_dir / ".codex" / "config.toml").read_text(encoding="utf-8")
     expected_mcp = _render_codex_block(tmp_project_dir.resolve())
     assert actual.startswith(expected_mcp), (
         "MCP-server block must be the unmodified prefix; "
-        "scieasy install --target codex must keep producing the same bytes."
+        "scistudio install --target codex must keep producing the same bytes."
     )
 
 
@@ -62,7 +62,7 @@ def test_codex_config_emits_six_hooks(tmp_project_dir: Path) -> None:
     assert len(post) == 3, f"expected 3 PostToolUse hooks, got {len(post)}"
 
     expected_pre_scripts = {
-        "deny_scieasy_cli.py",
+        "deny_scistudio_cli.py",
         "protect_workflow_yaml.py",
         "enforce_list_blocks_before_block_write.py",
     }
@@ -110,4 +110,4 @@ def test_force_overwrites(tmp_project_dir: Path) -> None:
     written = write_codex_config(tmp_project_dir, force=True)
     assert written == [".codex/config.toml"]
     body = (codex_dir / "config.toml").read_text(encoding="utf-8")
-    assert "mcp_servers.scieasy" in body
+    assert "mcp_servers.scistudio" in body

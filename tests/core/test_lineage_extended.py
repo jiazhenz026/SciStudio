@@ -12,7 +12,7 @@ import sqlite3
 
 import pytest
 
-from scieasy.core.lineage import (
+from scistudio.core.lineage import (
     BlockExecutionRecord,
     BlockIORow,
     DataObjectRow,
@@ -42,7 +42,7 @@ class TestPublicImportSurface:
     def test_provenance_graph_removed(self) -> None:
         """ADR-038 §3.4 + §5.1: ProvenanceGraph is gone."""
         with pytest.raises(ImportError):
-            from scieasy.core.lineage import graph  # noqa: F401
+            from scistudio.core.lineage import graph  # noqa: F401
 
 
 class TestLineageStoreLifecycle:

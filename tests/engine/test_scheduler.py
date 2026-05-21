@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from scieasy.blocks.base.state import BlockState
-from scieasy.engine.events import (
+from scistudio.blocks.base.state import BlockState
+from scistudio.engine.events import (
     BLOCK_DONE,
     BLOCK_ERROR,
     CANCEL_BLOCK_REQUEST,
@@ -18,8 +18,8 @@ from scieasy.engine.events import (
     EngineEvent,
     EventBus,
 )
-from scieasy.engine.scheduler import DAGScheduler
-from scieasy.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
+from scistudio.engine.scheduler import DAGScheduler
+from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -236,7 +236,7 @@ class TestSchedulerWorkerReportedTerminalState:
         recorded the block as DONE because ``self.transition(CANCELLED)``
         inside ``run()`` was lost when the worker only forwarded ``return {}``.
         """
-        from scieasy.engine.runners.terminal_state import BlockTerminalStateReportedError
+        from scistudio.engine.runners.terminal_state import BlockTerminalStateReportedError
 
         wf = _wf(
             nodes=[("A", "proc"), ("B", "proc"), ("C", "proc")],
@@ -265,7 +265,7 @@ class TestSchedulerWorkerReportedTerminalState:
         worker-reported path (and emits BLOCK_ERROR + propagates skip),
         equivalent to the generic exception path in observable behaviour.
         """
-        from scieasy.engine.runners.terminal_state import BlockTerminalStateReportedError
+        from scistudio.engine.runners.terminal_state import BlockTerminalStateReportedError
 
         wf = _wf(
             nodes=[("A", "proc"), ("B", "proc")],
@@ -306,7 +306,7 @@ class TestSchedulerWorkerReportedTerminalState:
         scheduler stores them in ``_block_outputs`` so checkpoints / lineage
         see the same view.
         """
-        from scieasy.engine.runners.terminal_state import BlockTerminalStateReportedError
+        from scistudio.engine.runners.terminal_state import BlockTerminalStateReportedError
 
         wf = _wf(nodes=[("A", "proc")])
 
@@ -335,7 +335,7 @@ class TestSchedulerWorkerReportedTerminalState:
         marking CANCELLED and the worker's ``BlockTerminalStateReportedError``
         unwinding through ``_run_and_finalize``.
         """
-        from scieasy.engine.runners.terminal_state import BlockTerminalStateReportedError
+        from scistudio.engine.runners.terminal_state import BlockTerminalStateReportedError
 
         wf = _wf(nodes=[("A", "proc")])
         scheduler, event_bus, runner = _make_scheduler(wf)
@@ -780,7 +780,7 @@ class TestSchedulerProcessExited:
 
     def test_running_block_transitions_to_error(self) -> None:
         """A RUNNING block whose process exits unexpectedly → ERROR + skip downstream."""
-        from scieasy.engine.events import PROCESS_EXITED
+        from scistudio.engine.events import PROCESS_EXITED
 
         wf = _wf(
             nodes=[("A", "proc"), ("B", "proc")],
@@ -806,7 +806,7 @@ class TestSchedulerProcessExited:
 
     def test_done_block_is_noop(self) -> None:
         """PROCESS_EXITED for an already-DONE block should not change state."""
-        from scieasy.engine.events import PROCESS_EXITED
+        from scistudio.engine.events import PROCESS_EXITED
 
         wf = _wf(nodes=[("A", "proc")])
         scheduler, event_bus, _runner = _make_scheduler(wf)
@@ -828,7 +828,7 @@ class TestSchedulerProcessExited:
 
     def test_paused_block_is_noop(self) -> None:
         """PROCESS_EXITED for a PAUSED block (AppBlock) should not interfere."""
-        from scieasy.engine.events import PROCESS_EXITED
+        from scistudio.engine.events import PROCESS_EXITED
 
         wf = _wf(nodes=[("A", "app")])
         scheduler, event_bus, _runner = _make_scheduler(wf)
@@ -849,7 +849,7 @@ class TestSchedulerProcessExited:
 
     def test_unknown_block_id_is_safe(self) -> None:
         """PROCESS_EXITED with a block_id not in the DAG should not crash."""
-        from scieasy.engine.events import PROCESS_EXITED
+        from scistudio.engine.events import PROCESS_EXITED
 
         wf = _wf(nodes=[("A", "proc")])
         scheduler, event_bus, _runner = _make_scheduler(wf)
@@ -869,7 +869,7 @@ class TestSchedulerProcessExited:
 
     def test_error_detail_includes_signal(self) -> None:
         """Error detail should mention the signal number when available."""
-        from scieasy.engine.events import PROCESS_EXITED
+        from scistudio.engine.events import PROCESS_EXITED
 
         wf = _wf(nodes=[("A", "proc")])
         scheduler, event_bus, _runner = _make_scheduler(wf)
@@ -928,7 +928,7 @@ class TestSchedulerCheckpoint:
 
     def test_resume_loads_checkpoint(self, tmp_path: object) -> None:
         """resume() should restore block states from a saved checkpoint."""
-        from scieasy.engine.checkpoint import CheckpointManager, WorkflowCheckpoint, save_checkpoint
+        from scistudio.engine.checkpoint import CheckpointManager, WorkflowCheckpoint, save_checkpoint
 
         wf = _wf(
             nodes=[("A", "proc"), ("B", "proc")],

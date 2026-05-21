@@ -269,7 +269,7 @@ class MyGPUBlock(ProcessBlock):
 ## Custom blocks alongside git (ADR-039)
 
 Your custom block files at `<project>/blocks/*.py` are **git-tracked source like
-any other Python file**. There is nothing block-author-specific about how SciEasy
+any other Python file**. There is nothing block-author-specific about how SciStudio
 treats them. When the user clicks Commit in the GUI, modified block files are
 staged and committed alongside workflow YAML and project notes. When the user
 switches branches via the BranchPicker, your block files are checked out to the
@@ -283,14 +283,14 @@ Two consequences worth knowing:
    at registration time and stamps it onto your `BlockSpec.version` field. If your
    plugin package's `pyproject.toml` is missing a version, registration **fails
    loudly** rather than defaulting. In-tree project blocks (`<project>/blocks/*.py`)
-   read `scieasy.__version__` as a uniform default; plugin blocks read their own
+   read `scistudio.__version__` as a uniform default; plugin blocks read their own
    distribution version per ADR-037 D11. Test your plugin packages with
    `BlockTestHarness.validate_package_info()` (ADR-026).
 
 2. **The framework records lineage externally — your block authoring contract is
    unchanged.** You continue to write `Block.run(inputs, config) → outputs`. You
    do **not** call into `LineageStore` directly. The engine observes your block's
-   execution and writes the appropriate rows into `<project>/.scieasy/lineage.db`
+   execution and writes the appropriate rows into `<project>/.scistudio/lineage.db`
    (4 normalized tables per ADR-038 §3.1) without any code on your side. If you
    need to read past lineage for AI-driven parameter tuning or similar, query the
    database via the MCP `get_lineage` tool (ADR-033) or directly via `sqlite3`.

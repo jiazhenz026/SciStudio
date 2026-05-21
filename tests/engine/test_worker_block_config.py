@@ -16,9 +16,9 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from scieasy.blocks.base.block import Block
-from scieasy.blocks.base.ports import OutputPort
-from scieasy.core.types.base import DataObject
+from scistudio.blocks.base.block import Block
+from scistudio.blocks.base.ports import OutputPort
+from scistudio.core.types.base import DataObject
 
 
 class _VariadicOut(Block):

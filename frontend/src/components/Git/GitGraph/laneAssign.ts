@@ -23,7 +23,7 @@
  * The original §3.5b sketch used a row-indexed `active_lanes: (sha|null)[]`
  * array where every active lane slot stayed open until the lane's "waiting"
  * SHA was processed. In a deep history with many already-deleted feature
- * branches (e.g. SciEasy dev repo: ~60 merged-and-deleted feature branches)
+ * branches (e.g. SciStudio dev repo: ~60 merged-and-deleted feature branches)
  * those slots could remain open all the way to repo root, producing max
  * lane index = 148 and SVG width = 2400px.
  *
@@ -46,7 +46,7 @@
  *
  * Net effect: max simultaneously-allocated color count = max number of
  * *temporally overlapping* unfinished side branches, not the count of
- * historical branches. For SciEasy dev repo this drops max lane from 148
+ * historical branches. For SciStudio dev repo this drops max lane from 148
  * to roughly the count of branches alive in any one row's neighbourhood
  * (typically <= 10).
  *

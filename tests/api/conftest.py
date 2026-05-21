@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from scieasy.api.app import create_app
-from scieasy.api.runtime import ApiRuntime
+from scistudio.api.app import create_app
+from scistudio.api.runtime import ApiRuntime
 
 
 @pytest.fixture()
@@ -21,11 +21,11 @@ def project_parent(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    """Create a TestClient with an isolated SciEasy home directory."""
+    """Create a TestClient with an isolated SciStudio home directory."""
     fake_home = tmp_path / "home"
     fake_home.mkdir()
 
-    from scieasy.api import runtime as runtime_module
+    from scistudio.api import runtime as runtime_module
 
     monkeypatch.setattr(runtime_module.Path, "home", classmethod(lambda cls: fake_home))
 

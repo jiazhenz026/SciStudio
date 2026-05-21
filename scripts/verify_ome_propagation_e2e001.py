@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-FIXTURE = Path(r"C:/Users/jiazh/Desktop/workspace/scieasy-e2e-microplastic/data/raw/50nm_2800-3200-40.tif")
+FIXTURE = Path(r"C:/Users/jiazh/Desktop/workspace/scistudio-e2e-microplastic/data/raw/50nm_2800-3200-40.tif")
 
 WAVENUMBERS = [2800.0 + i * (3200.0 - 2800.0) / 39 for i in range(40)]
 
@@ -72,11 +72,11 @@ def main() -> int:
         print(f"FIXTURE MISSING: {FIXTURE}", file=sys.stderr)
         return 2
 
-    from scieasy_blocks_imaging.io.load_image import LoadImage
-    from scieasy_blocks_imaging.projection.projection import AxisProjection
-    from scieasy_blocks_srs.preprocess.srs_calibrate import SRSCalibrate
+    from scistudio_blocks_imaging.io.load_image import LoadImage
+    from scistudio_blocks_imaging.projection.projection import AxisProjection
+    from scistudio_blocks_srs.preprocess.srs_calibrate import SRSCalibrate
 
-    from scieasy.core.types.dataframe import DataFrame  # noqa: F401  ensure init
+    from scistudio.core.types.dataframe import DataFrame  # noqa: F401  ensure init
 
     BlockConfig = dict  # noqa: N806 — ad-hoc alias for the test script
 

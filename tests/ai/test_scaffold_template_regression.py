@@ -2,7 +2,7 @@
 
 `tools_authoring._render_port_block` was emitting `type=DataObject` /
 `type=<T>` for `InputPort` / `OutputPort` constructor calls, but the
-live `Port` dataclass (`src/scieasy/blocks/base/ports.py:17`) takes
+live `Port` dataclass (`src/scistudio/blocks/base/ports.py:17`) takes
 `accepted_types: list[type]`. Blocks scaffolded via the broken template
 would raise `TypeError` at registry-load time.
 
@@ -13,7 +13,7 @@ shape and is covered by a separate skip in `test_mcp_tools_authoring.py`).
 
 from __future__ import annotations
 
-from scieasy.ai.agent.mcp import tools_authoring
+from scistudio.ai.agent.mcp import tools_authoring
 
 
 def test_render_port_block_non_empty_uses_accepted_types() -> None:

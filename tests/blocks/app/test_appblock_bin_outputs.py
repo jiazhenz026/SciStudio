@@ -30,10 +30,10 @@ from typing import Any
 
 import pytest
 
-from scieasy.blocks.app.app_block import AppBlock
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.blocks.app.app_block import AppBlock
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.dataframe import DataFrame
 
 
 def _make_block_with_ports(port_dicts: list[dict[str, Any]]) -> AppBlock:
@@ -143,7 +143,7 @@ class TestTypedReconstruction:
             }
         )
 
-        with caplog.at_level(logging.WARNING, logger="scieasy.blocks.app.app_block"):
+        with caplog.at_level(logging.WARNING, logger="scistudio.blocks.app.app_block"):
             block._bin_outputs_by_extension([csv_path], config)
 
         # The pre-#1079 warning text must never appear.

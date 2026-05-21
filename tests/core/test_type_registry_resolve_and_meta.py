@@ -21,14 +21,14 @@ from typing import ClassVar
 import pytest
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
-from scieasy.core.types.array import Array
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.registry import TypeRegistry, TypeSpec
-from scieasy.core.types.series import Series
-from scieasy.core.types.text import Text
+from scistudio.core.types.array import Array
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.registry import TypeRegistry, TypeSpec
+from scistudio.core.types.series import Series
+from scistudio.core.types.text import Text
 
 # ---------------------------------------------------------------------------
 # Fixtures: well-formed and malformed Meta classes
@@ -121,7 +121,7 @@ class TestResolveTypeChain:
         registry = TypeRegistry()
         registry.scan_builtins()
         # "Image" is NOT in core per ADR-027 D2 / T-006 — it lives in
-        # scieasy-blocks-imaging. So this chain tests exactly the
+        # scistudio-blocks-imaging. So this chain tests exactly the
         # "most-specific unknown, fall back to parent" path.
         result = registry.resolve(["DataObject", "Array", "Image"])
         assert result is Array

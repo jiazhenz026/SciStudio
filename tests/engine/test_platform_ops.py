@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-from scieasy.engine.runners.platform import PosixOps
+from scistudio.engine.runners.platform import PosixOps
 
 # ---------------------------------------------------------------------------
 # PosixOps.is_alive — invalid PID guard (#495)

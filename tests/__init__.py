@@ -1,1 +1,1 @@
-"""SciEasy test suite."""
+"""SciStudio test suite."""

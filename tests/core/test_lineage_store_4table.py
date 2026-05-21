@@ -20,13 +20,13 @@ import importlib
 from typing import Any
 from unittest.mock import MagicMock
 
-import scieasy
-from scieasy.core.lineage.record import RunRecord
-from scieasy.core.lineage.recorder import LineageRecorder
-from scieasy.core.lineage.store import LineageStore
-from scieasy.engine.events import EventBus
-from scieasy.engine.scheduler import DAGScheduler
-from scieasy.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
+import scistudio
+from scistudio.core.lineage.record import RunRecord
+from scistudio.core.lineage.recorder import LineageRecorder
+from scistudio.core.lineage.store import LineageStore
+from scistudio.engine.events import EventBus
+from scistudio.engine.scheduler import DAGScheduler
+from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
 
 
 def _wire(object_id: str, *, type_name: str = "DataFrame", path: str = "/tmp/x") -> dict[str, Any]:
@@ -69,7 +69,7 @@ class _FakeRunner:
 
     ``LocalRunner`` returns ``dict[str, Any]`` shaped like the unwrapped
     worker envelope; this fake mirrors that shape and additionally injects
-    the ``__scieasy_env__`` sentinel that the scheduler lifts into the
+    the ``__scistudio_env__`` sentinel that the scheduler lifts into the
     BLOCK_DONE event data (ADR-038 §5.2).
     """
 
@@ -79,7 +79,7 @@ class _FakeRunner:
     async def run(self, block: Any, inputs: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
         block_id = getattr(block, "id", None) or getattr(block, "id", "")
         outputs = dict(self._outputs.get(block_id, {}))
-        outputs["__scieasy_env__"] = {"python_version": "3.13.0", "platform": "test", "key_packages": {}}
+        outputs["__scistudio_env__"] = {"python_version": "3.13.0", "platform": "test", "key_packages": {}}
         return outputs
 
     async def check_status(self, run_id: str) -> str:
@@ -186,7 +186,7 @@ def test_environment_snapshot_is_full_freeze_by_default() -> None:
     """ADR-038 §5.2: ``EnvironmentSnapshot.capture()`` defaults to a full freeze."""
     # Import inside the test so importlib changes (when env var tweaks are in
     # play) take effect.
-    env_module = importlib.import_module("scieasy.core.lineage.environment")
+    env_module = importlib.import_module("scistudio.core.lineage.environment")
     snap = env_module.EnvironmentSnapshot.capture()
     # full_freeze must either be a real string (uv/pip succeeded) or None
     # (both subprocesses unavailable on this runner) — never the legacy
@@ -194,13 +194,13 @@ def test_environment_snapshot_is_full_freeze_by_default() -> None:
     assert snap.full_freeze is None or isinstance(snap.full_freeze, str)
 
 
-def test_block_version_defaults_to_scieasy_version_for_inline_blocks() -> None:
-    """ADR-038 §3.3: in-tree blocks register with ``scieasy.__version__`` (no ``"unknown"``)."""
-    from scieasy.blocks.registry import _resolve_distribution_version
+def test_block_version_defaults_to_scistudio_version_for_inline_blocks() -> None:
+    """ADR-038 §3.3: in-tree blocks register with ``scistudio.__version__`` (no ``"unknown"``)."""
+    from scistudio.blocks.registry import _resolve_distribution_version
 
     class _Dummy:
-        __module__ = "scieasy.blocks.io.loaders.load_data"
+        __module__ = "scistudio.blocks.io.loaders.load_data"
 
     resolved = _resolve_distribution_version(_Dummy)
-    assert resolved == scieasy.__version__
+    assert resolved == scistudio.__version__
     assert resolved != "unknown"

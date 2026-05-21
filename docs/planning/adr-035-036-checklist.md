@@ -14,30 +14,30 @@
 ## ADR-035 — AI Block on PTY (track/adr-035/ai-block-pty)
 
 ### Skeleton (Owner: S35)
-- [x] `src/scieasy/blocks/ai/ai_block.py` rewrite stub: `AIBlock(Block)` with `execution_mode=EXTERNAL`, `variadic_inputs/outputs=True`; all methods `raise NotImplementedError` with detailed implementation comments [§3.1] → PR #844-skeleton (sha pending commit)
-- [x] `src/scieasy/blocks/ai/run_dir.py` new module: `RunDir` class signature + per-run `.scieasy/ai-block-runs/{run_id}/` layout doc + manifest.json schema [§3.2, §3.4] → PR #844-skeleton
-- [x] `src/scieasy/blocks/ai/completion.py` new module: three completion paths sketched (MCP / FileWatcher / button) [§3.5] → PR #844-skeleton
-- [x] `src/scieasy/ai/agent/mcp/tools_workflow.py` add `finish_ai_block` ToolEntry stub returning `not_in_ai_block_context` envelope [§3.5] → PR #844-skeleton (registry now exposes 26 tools)
-- [x] `src/scieasy/engine/pty_control.py` new module: `request_pty_tab()` + `notify_block_pty_event()` IPC helpers stubbed [§3.10] → PR #844-skeleton
-- [x] `src/scieasy/api/routes/ai_pty.py` add engine-initiated tab-open route stub (sibling to user-launched WS route — **do not modify** the existing route) [§3.10] → PR #844-skeleton (`open_engine_initiated_tab` added; lines 1-318 of existing route untouched)
+- [x] `src/scistudio/blocks/ai/ai_block.py` rewrite stub: `AIBlock(Block)` with `execution_mode=EXTERNAL`, `variadic_inputs/outputs=True`; all methods `raise NotImplementedError` with detailed implementation comments [§3.1] → PR #844-skeleton (sha pending commit)
+- [x] `src/scistudio/blocks/ai/run_dir.py` new module: `RunDir` class signature + per-run `.scistudio/ai-block-runs/{run_id}/` layout doc + manifest.json schema [§3.2, §3.4] → PR #844-skeleton
+- [x] `src/scistudio/blocks/ai/completion.py` new module: three completion paths sketched (MCP / FileWatcher / button) [§3.5] → PR #844-skeleton
+- [x] `src/scistudio/ai/agent/mcp/tools_workflow.py` add `finish_ai_block` ToolEntry stub returning `not_in_ai_block_context` envelope [§3.5] → PR #844-skeleton (registry now exposes 26 tools)
+- [x] `src/scistudio/engine/pty_control.py` new module: `request_pty_tab()` + `notify_block_pty_event()` IPC helpers stubbed [§3.10] → PR #844-skeleton
+- [x] `src/scistudio/api/routes/ai_pty.py` add engine-initiated tab-open route stub (sibling to user-launched WS route — **do not modify** the existing route) [§3.10] → PR #844-skeleton (`open_engine_initiated_tab` added; lines 1-318 of existing route untouched)
 - [x] `frontend/src/components/AIChat/TerminalTabs.tsx` accept engine-initiated open events stub [§3.10] → PR #844-skeleton (`handleBlockPtyOpened` / `handleBlockPtyClosed` exports)
 - [x] `frontend/src/components/AIChat/TerminalTab.tsx` props extended for status badge + Mark-done button stubs [§3.9] → PR #844-skeleton (`AiBlockStatusBadge` / `MarkDoneButton` component stubs)
 - [x] `frontend/src/hooks/useWebSocket.ts` `block_pty_opened` / `block_pty_closed` switch-case stubs [§3.10] → PR #844-skeleton
 - [x] Test stubs created with detailed test plan comments → PR #844-skeleton (5 test files: `test_ai_block_skeleton.py`, `test_run_dir_skeleton.py`, `test_completion_skeleton.py`, `test_finish_ai_block_skeleton.py`, `test_pty_control_skeleton.py`, `TerminalTabs.skeleton.test.tsx`)
 
 ### Phase 2A — Backend block runtime (Owner: I35a)
-- [x] `AIBlock.run()` real implementation: writes manifest, requests PTY tab, enters PAUSED, awaits completion signal → `src/scieasy/blocks/ai/ai_block.py::AIBlock.run`
-- [x] Manifest writer (path, type_chain, inputs, outputs, deadline) [§3.4] → `src/scieasy/blocks/ai/run_dir.py::RunDir.write_manifest`
+- [x] `AIBlock.run()` real implementation: writes manifest, requests PTY tab, enters PAUSED, awaits completion signal → `src/scistudio/blocks/ai/ai_block.py::AIBlock.run`
+- [x] Manifest writer (path, type_chain, inputs, outputs, deadline) [§3.4] → `src/scistudio/blocks/ai/run_dir.py::RunDir.write_manifest`
 - [x] Output validation via existing IOBlock loaders [§3.6] → `AIBlock._validate_and_load_outputs` (dispatches to `LoadData`)
 - [x] State transitions IDLE→READY→RUNNING→PAUSED→DONE / ERROR / CANCELLED [§3.9] → `AIBlock._safe_transition` calls in `run()`
 - [x] StubAgent fixture for tests (does not spawn claude; simulates `finish_ai_block` call) → `tests/blocks/ai/conftest.py::StubAgent`
 - [x] Unit tests: manifest contents, completion-signal precedence, validation failures, all three completion paths → 55 tests in `tests/blocks/ai/test_{ai_block,run_dir,completion}_skeleton.py` (skeleton xfails flipped green)
 
 ### Phase 2B — Engine PTY control + MCP (Owner: I35b)
-- [x] `engine.request_pty_tab()` IPC: worker → engine sends spec, engine returns tab_id [§3.10] → src/scieasy/engine/pty_control.py (HTTP loopback + in-process test seam)
-- [x] `engine.notify_block_pty_event()` IPC: completion / cancellation events [§3.10] → src/scieasy/engine/pty_control.py
-- [x] `finish_ai_block` MCP tool real implementation: validates outputs dict, raises if not in AI Block context, writes signal file under `run_dir/` → src/scieasy/ai/agent/mcp/tools_workflow.py::finish_ai_block
-- [x] Engine-side route handler that allocates tab via existing `terminal.spawn_claude/codex` builder → src/scieasy/api/routes/ai_pty.py::open_engine_initiated_tab + POST /api/ai/pty/internal/request-tab
+- [x] `engine.request_pty_tab()` IPC: worker → engine sends spec, engine returns tab_id [§3.10] → src/scistudio/engine/pty_control.py (HTTP loopback + in-process test seam)
+- [x] `engine.notify_block_pty_event()` IPC: completion / cancellation events [§3.10] → src/scistudio/engine/pty_control.py
+- [x] `finish_ai_block` MCP tool real implementation: validates outputs dict, raises if not in AI Block context, writes signal file under `run_dir/` → src/scistudio/ai/agent/mcp/tools_workflow.py::finish_ai_block
+- [x] Engine-side route handler that allocates tab via existing `terminal.spawn_claude/codex` builder → src/scistudio/api/routes/ai_pty.py::open_engine_initiated_tab + POST /api/ai/pty/internal/request-tab
 - [x] WS broadcast `block_pty_opened` to frontend → register/unregister_ai_pty_subscriber in ai_pty.py + minimal subscribe hook in api/ws.py (no new EngineEvent type)
 - [x] Permission mode passthrough (safe / bypass) per block config [§3.7] → spawn_argv translates to dangerous=True/False inside open_engine_initiated_tab
 - [x] Tests: IPC roundtrip with mock engine, finish_ai_block error envelope shapes, multi-call rejection → tests/engine/test_pty_control.py (17), tests/ai/test_finish_ai_block.py (17), tests/api/test_ai_pty_engine_spawn.py (20)
@@ -65,10 +65,10 @@
 ### Skeleton (Owner: S36)
 - [x] `frontend/src/store/types.ts` — `WorkflowTab` + `FileTab` discriminated union scaffolding (no consumer migration yet — types only) [§3.10] → branch `feat/issue-848/skeleton`
 - [x] `frontend/src/store/tabSlice.ts` — `openFileTab()` / `saveFileTab()` / `updateFileTabContent()` action stubs [§3.10] → branch `feat/issue-848/skeleton`
-- [x] `src/scieasy/api/routes/projects.py` — file GET/PUT route stubs returning 501 with implementation-plan docstrings [§3.2] → branch `feat/issue-848/skeleton`
-- [x] `src/scieasy/api/routes/lint.py` new module — `POST /api/lint/python` stub [§3.3] → branch `feat/issue-848/skeleton`
-- [x] `src/scieasy/api/routes/blocks.py` — `GET /api/blocks/template` stub [§3.12] → branch `feat/issue-848/skeleton`
-- [x] `src/scieasy/blocks/_templates/__init__.py` + `block_base_template.py` — placeholder template file [§3.12] → branch `feat/issue-848/skeleton`
+- [x] `src/scistudio/api/routes/projects.py` — file GET/PUT route stubs returning 501 with implementation-plan docstrings [§3.2] → branch `feat/issue-848/skeleton`
+- [x] `src/scistudio/api/routes/lint.py` new module — `POST /api/lint/python` stub [§3.3] → branch `feat/issue-848/skeleton`
+- [x] `src/scistudio/api/routes/blocks.py` — `GET /api/blocks/template` stub [§3.12] → branch `feat/issue-848/skeleton`
+- [x] `src/scistudio/blocks/_templates/__init__.py` + `block_base_template.py` — placeholder template file [§3.12] → branch `feat/issue-848/skeleton`
 - [x] `frontend/src/components/CodeEditor.tsx` — empty component shell with Monaco lazy-import scaffolding marked TODO [§3.1] → branch `feat/issue-848/skeleton`
 - [x] `frontend/src/components/Toolbar.tsx` — kind-switch scaffolding marked TODO (existing buttons untouched) [§3.7] → branch `feat/issue-848/skeleton`
 - [x] `frontend/src/components/ProjectTree.tsx` — double-click handler stub marked TODO [§3.5] → branch `feat/issue-848/skeleton`
@@ -103,7 +103,7 @@
 - [x] Backend test: reload-gated-on-lint-pass → branch `feat/issue-851/project-tree` (`tests/api/test_reload_on_save.py::test_broken_block_save_does_not_reload_or_emit`)
 
 ### Audit & Fix (skeleton)
-- [x] Audit-skeleton report posted on umbrella issue (Owner: A36-skeleton) → audit-output PR #857; umbrella comment https://github.com/zjzcpj/SciEasy/issues/843#issuecomment-4448807888 ; verdict: pass-with-fixes (3 P1 Codex findings accepted)
+- [x] Audit-skeleton report posted on umbrella issue (Owner: A36-skeleton) → audit-output PR #857; umbrella comment https://github.com/zjzcpj/SciStudio/issues/843#issuecomment-4448807888 ; verdict: pass-with-fixes (3 P1 Codex findings accepted)
 - [x] All P1 findings fixed (or explicitly justified deferral) (Owner: F36-skeleton, conditional) → fix PR #860 squash-merged into feat/issue-848/skeleton; route ordering + lockfile regen + atomic write coordination
 
 ### Audit & Fix (implementation)
@@ -115,12 +115,12 @@
 ## Test phase checklist (e2e — dispatcher runs in hotfix mode)
 
 ### ADR-035 e2e (Chrome smoke + ground-truth comparison)
-- [ ] Chrome opens via `mcp__claude-in-chrome__tabs_create_mcp` → SciEasy GUI on free port
+- [ ] Chrome opens via `mcp__claude-in-chrome__tabs_create_mcp` → SciStudio GUI on free port
 - [ ] Generate 4 random-noise TIFFs in test workspace: `A_01.tiff`, `A_02.tiff`, `B_01.tiff`, `C_01.tiff` (script writes them; saved as ground-truth fixture under `tests/e2e/adr-035/`)
 - [ ] Generate ground-truth `metadata.csv` with columns `image_id, group, FOV` matching the 4 files
 - [ ] In GUI: build new workflow `LoadImage → AIBlock → SaveData`
   - [ ] LoadImage: variadic, configured for the 4 TIFFs as a Collection
-  - [ ] AIBlock: provider = Claude Code, permission mode = Bypass, prompt instructs reading manifest + writing `./outputs/metadata.csv` + calling `mcp__scieasy__finish_ai_block`
+  - [ ] AIBlock: provider = Claude Code, permission mode = Bypass, prompt instructs reading manifest + writing `./outputs/metadata.csv` + calling `mcp__scistudio__finish_ai_block`
   - [ ] SaveData: writes the AI Block's `metadata` output port to `./outputs/metadata_saved.csv`
 - [ ] Run workflow → AI Block tab opens automatically (block_pty_opened event)
 - [ ] Tab shows claude TUI; agent autonomously reads manifest, writes CSV, calls finish_ai_block
@@ -128,9 +128,9 @@
 - [ ] Compare `outputs/metadata_saved.csv` vs ground truth (sorted, deep-equal). **PASS = identical.**
 - [ ] Record GIF via `mcp__claude-in-chrome__gif_creator`
 
-### ADR-036 e2e (Chrome visual + 6 sub-tests) — **ALL PASS 2026-05-14** (Home PC Chrome MCP, port 50338, project `e2e-036` at `C:/temp/scieasy-e2e-036/e2e-036`)
+### ADR-036 e2e (Chrome visual + 6 sub-tests) — **ALL PASS 2026-05-14** (Home PC Chrome MCP, port 50338, project `e2e-036` at `C:/temp/scistudio-e2e-036/e2e-036`)
 
-- [x] **(a) Create-new triple** — New menu shows 3 items (workflow / custom block / note) ✓ per ADR-036 §3.7. File creation via API PUT works (notes/scratch.md, blocks/my_first.py); double-click opens Monaco tab. **Finding #1**: GUI uses `window.prompt()` for filename, blocks Chrome MCP — out of scope per user (not a SciEasy bug, browser limitation).
+- [x] **(a) Create-new triple** — New menu shows 3 items (workflow / custom block / note) ✓ per ADR-036 §3.7. File creation via API PUT works (notes/scratch.md, blocks/my_first.py); double-click opens Monaco tab. **Finding #1**: GUI uses `window.prompt()` for filename, blocks Chrome MCP — out of scope per user (not a SciStudio bug, browser limitation).
 - [x] **(b) Edit + auto-save** — Typed in scratch.md editor, waited 2 s; disk mtime 1778792781→1778792844, size 29→54, content identical to editor. No Save click needed. ✓
 - [x] **(c) View source dedup** — First click opened `main.yaml (source)` tab with Monaco YAML highlight. Second click: tab count unchanged (3: main / scratch.md / main.yaml (source)). ✓ **Finding #878**: View source on unsaved workflow alerts "main 不存在" instead of graceful save-or-prompt. **Finding #879**: New project does not auto-create empty `workflows/main.yaml`; must Ctrl+S manually.
 - [x] **(d) Sample workflow regression** — Substituted "Generate beads" with manually-generated 256×256 synthetic TIFF (5 ellipses, 6741 bright px) since no `imaging.beads` block exists. Workflow `imaging.load_image → imaging.threshold(otsu) → imaging.save_image` ran 3/3 Done. Output mask: 6741 True / 6741 input bright px = 100% match. Canvas mode unaffected by ADR-036 changes. ✓

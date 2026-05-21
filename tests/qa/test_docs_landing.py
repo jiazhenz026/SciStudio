@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from scieasy.qa.governance.docs_landing import check
-from scieasy.qa.schemas.report import AuditStatus
+from scistudio.qa.governance.docs_landing import check
+from scistudio.qa.schemas.report import AuditStatus
 
 
 def test_docs_landing_blocks_governed_change_without_evidence() -> None:
-    report = check(changed_files=["src/scieasy/qa/governance/issue_link.py"], docs_landing={})
+    report = check(changed_files=["src/scistudio/qa/governance/issue_link.py"], docs_landing={})
 
     assert report.status == AuditStatus.FAIL
     assert {
@@ -17,7 +17,7 @@ def test_docs_landing_blocks_governed_change_without_evidence() -> None:
 
 def test_docs_landing_accepts_paths_and_na_rationales() -> None:
     report = check(
-        changed_files=["src/scieasy/qa/governance/issue_link.py"],
+        changed_files=["src/scistudio/qa/governance/issue_link.py"],
         docs_landing={
             "docs": {"paths": ["docs/specs/adr-042-gate-record-sentrux-workflow.md"]},
             "changelog": {"not_applicable": True, "rationale": "N/A: internal guard rollout"},

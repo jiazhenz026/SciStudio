@@ -21,7 +21,7 @@ def test_file_route_registered_before_catch_all() -> None:
     and the editor file endpoints become unreachable. See ADR-036 audit
     finding P1-1.
     """
-    from scieasy.api.routes.projects import router
+    from scistudio.api.routes.projects import router
 
     paths_in_order = [r.path for r in router.routes]
     file_get = paths_in_order.index("/api/projects/{project_id:path}/file")
@@ -43,8 +43,8 @@ def test_file_route_resolves_to_file_handler_not_catch_all() -> None:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from scieasy.api.deps import get_runtime
-    from scieasy.api.routes.projects import router
+    from scistudio.api.deps import get_runtime
+    from scistudio.api.routes.projects import router
 
     app = FastAPI()
     app.include_router(router)

@@ -6,10 +6,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from scieasy.blocks.code.lazy_list import _ITEM_COUNT_WARNING_THRESHOLD, LazyList
-from scieasy.core.types.array import Array
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.code.lazy_list import _ITEM_COUNT_WARNING_THRESHOLD, LazyList
+from scistudio.core.types.array import Array
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
 
 
 def _make_item(label: str) -> DataObject:
@@ -215,7 +215,7 @@ class TestLazyListToList:
 class TestCodeBlockUnpackInputs:
     def test_single_item_collection_unwraps(self) -> None:
         """Collection with length=1 is unpacked to a single native object."""
-        from scieasy.blocks.code.code_block import CodeBlock
+        from scistudio.blocks.code.code_block import CodeBlock
 
         block = CodeBlock()
         coll = _make_collection(1)
@@ -224,7 +224,7 @@ class TestCodeBlockUnpackInputs:
 
     def test_multi_item_collection_becomes_lazy_list(self) -> None:
         """Collection with length>1 is wrapped in a LazyList."""
-        from scieasy.blocks.code.code_block import CodeBlock
+        from scistudio.blocks.code.code_block import CodeBlock
 
         block = CodeBlock()
         coll = _make_collection(3)
@@ -234,7 +234,7 @@ class TestCodeBlockUnpackInputs:
 
     def test_non_collection_passthrough(self) -> None:
         """Non-Collection values pass through unchanged."""
-        from scieasy.blocks.code.code_block import CodeBlock
+        from scistudio.blocks.code.code_block import CodeBlock
 
         block = CodeBlock()
         result = block._unpack_inputs({"threshold": 0.5, "name": "test"})
@@ -242,7 +242,7 @@ class TestCodeBlockUnpackInputs:
 
     def test_mixed_inputs(self) -> None:
         """Mix of Collection and non-Collection inputs."""
-        from scieasy.blocks.code.code_block import CodeBlock
+        from scistudio.blocks.code.code_block import CodeBlock
 
         block = CodeBlock()
         coll = _make_collection(2)
@@ -252,7 +252,7 @@ class TestCodeBlockUnpackInputs:
 
     def test_empty_inputs(self) -> None:
         """Empty inputs dict passes through."""
-        from scieasy.blocks.code.code_block import CodeBlock
+        from scistudio.blocks.code.code_block import CodeBlock
 
         block = CodeBlock()
         result = block._unpack_inputs({})
@@ -262,7 +262,7 @@ class TestCodeBlockUnpackInputs:
 class TestCodeBlockRepackOutputs:
     def test_single_dataobject_wrapped(self) -> None:
         """Single DataObject output is wrapped in a length-1 Collection."""
-        from scieasy.blocks.code.code_block import CodeBlock
+        from scistudio.blocks.code.code_block import CodeBlock
 
         block = CodeBlock()
         obj = Array(axes=["y", "x"], shape=(10, 10), dtype="uint8")
@@ -273,7 +273,7 @@ class TestCodeBlockRepackOutputs:
 
     def test_list_of_dataobjects_wrapped(self) -> None:
         """List of DataObjects is wrapped in a Collection."""
-        from scieasy.blocks.code.code_block import CodeBlock
+        from scistudio.blocks.code.code_block import CodeBlock
 
         block = CodeBlock()
         objs = [Array(axes=["y", "x"], shape=(i, i), dtype="uint8") for i in range(1, 4)]
@@ -283,7 +283,7 @@ class TestCodeBlockRepackOutputs:
 
     def test_non_dataobject_passthrough(self) -> None:
         """Non-DataObject values pass through unchanged."""
-        from scieasy.blocks.code.code_block import CodeBlock
+        from scistudio.blocks.code.code_block import CodeBlock
 
         block = CodeBlock()
         result = block._repack_outputs({"count": 42, "name": "test"})
@@ -291,7 +291,7 @@ class TestCodeBlockRepackOutputs:
 
     def test_empty_list_passthrough(self) -> None:
         """Empty list passes through (cannot infer item_type)."""
-        from scieasy.blocks.code.code_block import CodeBlock
+        from scistudio.blocks.code.code_block import CodeBlock
 
         block = CodeBlock()
         result = block._repack_outputs({"result": []})
@@ -299,7 +299,7 @@ class TestCodeBlockRepackOutputs:
 
     def test_mixed_outputs(self) -> None:
         """Mix of DataObject and non-DataObject outputs."""
-        from scieasy.blocks.code.code_block import CodeBlock
+        from scistudio.blocks.code.code_block import CodeBlock
 
         block = CodeBlock()
         obj = Array(axes=["y", "x"], shape=(10, 10), dtype="uint8")
@@ -313,8 +313,8 @@ class TestCodeBlockRunIntegration:
 
     def test_run_inline_python(self) -> None:
         """run() rejects inline Python instead of silently treating it as v2."""
-        from scieasy.blocks.base.state import BlockState
-        from scieasy.blocks.code.code_block import CodeBlock, CodeBlockMigrationError
+        from scistudio.blocks.base.state import BlockState
+        from scistudio.blocks.code.code_block import CodeBlock, CodeBlockMigrationError
 
         block = CodeBlock(config={"params": {"script": "result = 42"}})
         block.transition(BlockState.READY)
@@ -323,8 +323,8 @@ class TestCodeBlockRunIntegration:
 
     def test_run_inline_with_inputs(self) -> None:
         """run() rejects inline scripts even when legacy inputs are supplied."""
-        from scieasy.blocks.base.state import BlockState
-        from scieasy.blocks.code.code_block import CodeBlock, CodeBlockMigrationError
+        from scistudio.blocks.base.state import BlockState
+        from scistudio.blocks.code.code_block import CodeBlock, CodeBlockMigrationError
 
         block = CodeBlock(config={"params": {"script": "output = data * 2"}})
         block.transition(BlockState.READY)
@@ -333,8 +333,8 @@ class TestCodeBlockRunIntegration:
 
     def test_run_missing_script_raises(self) -> None:
         """run() with no script raises ValueError."""
-        from scieasy.blocks.base.state import BlockState
-        from scieasy.blocks.code.code_block import CodeBlock
+        from scistudio.blocks.base.state import BlockState
+        from scistudio.blocks.code.code_block import CodeBlock
 
         block = CodeBlock(config={"params": {}})
         block.transition(BlockState.READY)

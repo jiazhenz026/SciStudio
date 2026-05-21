@@ -59,7 +59,7 @@ pytest -q --timeout=60   # ensure backend not broken
 ```
 
 **Live Chrome smoke required**:
-1. Start `scieasy gui --port <free> --no-browser` (background).
+1. Start `scistudio gui --port <free> --no-browser` (background).
 2. Chrome MCP navigate.
 3. Programmatically open a file tab via the JS console (`window.__store.openFileTab('<some path>')`) — you may need to expose the store on window in dev mode for testing.
 4. Verify Monaco renders, lint markers appear, edit + Ctrl+S triggers PUT.

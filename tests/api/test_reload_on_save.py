@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from scieasy.api.routes import projects as projects_module
+from scistudio.api.routes import projects as projects_module
 
 
 def _open(client: TestClient, project_path: Path) -> str:
@@ -48,7 +48,7 @@ def captured_events(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
     """
     captured: list[dict] = []
 
-    from scieasy.engine import events as events_module
+    from scistudio.engine import events as events_module
 
     original_emit = events_module.EventBus.emit
 

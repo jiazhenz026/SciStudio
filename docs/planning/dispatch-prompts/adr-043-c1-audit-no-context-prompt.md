@@ -2,38 +2,38 @@
 
 ## Task Identity
 
-- Repository: SciEasy
+- Repository: SciStudio
 - Persona: audit_reviewer
 - Audit mode: **no-context**
 - Audit branch: `feat/issue-1296/adr043-c1-audit`
-- Audit worktree: `/c/Users/jiazh/Desktop/workspace/SciEasy/.claude/worktrees/adr-043-c1-audit`
+- Audit worktree: `/c/Users/jiazh/Desktop/workspace/SciStudio/.claude/worktrees/adr-043-c1-audit`
 - Allowed audit surfaces:
   - `docs/adr/ADR-043.md`
   - `docs/adr/ADR-041.md`
   - `docs/specs/adr-043-package-migration.md`
   - `docs/ai-developer/specific_rules/document-standards.md` (for SpecKit/ADR-042 §3.4 structural checks on the spec)
-  - `src/scieasy/blocks/io/loaders/load_data.py`
-  - `src/scieasy/blocks/io/savers/save_data.py`
-  - `src/scieasy/blocks/io/io_block.py`
-  - `src/scieasy/blocks/io/capabilities.py`
-  - `src/scieasy/blocks/io/simple_io.py`
-  - `src/scieasy/blocks/registry.py`
-  - `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/types.py`
-  - `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/io/**`
-  - `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/{math,morphology,preprocess,projection,registration,segmentation,measurement}/**`
-  - `packages/scieasy-blocks-imaging/pyproject.toml`
-  - `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/**`
+  - `src/scistudio/blocks/io/loaders/load_data.py`
+  - `src/scistudio/blocks/io/savers/save_data.py`
+  - `src/scistudio/blocks/io/io_block.py`
+  - `src/scistudio/blocks/io/capabilities.py`
+  - `src/scistudio/blocks/io/simple_io.py`
+  - `src/scistudio/blocks/registry.py`
+  - `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/types.py`
+  - `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/**`
+  - `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/{math,morphology,preprocess,projection,registration,segmentation,measurement}/**`
+  - `packages/scistudio-blocks-imaging/pyproject.toml`
+  - `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/**`
   - `frontend/src/components/PortEditor/CapabilityDropdown.tsx`
   - `frontend/src/components/OutputPreview/OMEMetadataPanel.tsx`
   - `frontend/src/components/WorkflowEditor/LossySaveWarning.tsx`
   - `frontend/src/api/capabilities.ts`
   - `tests/blocks/io/test_load_data_capabilities.py`
   - `tests/blocks/io/test_save_data_capabilities.py`
-  - `packages/scieasy-blocks-imaging/tests/test_format_capabilities.py`
-  - `packages/scieasy-blocks-imaging/tests/test_image_meta_ome.py`
-  - `packages/scieasy-blocks-imaging/tests/test_bioformats_handler.py`
-  - `packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py`
-  - `packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py`
+  - `packages/scistudio-blocks-imaging/tests/test_format_capabilities.py`
+  - `packages/scistudio-blocks-imaging/tests/test_image_meta_ome.py`
+  - `packages/scistudio-blocks-imaging/tests/test_bioformats_handler.py`
+  - `packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py`
+  - `packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py`
   - `frontend/src/__tests__/CapabilityDropdown.test.tsx`
   - `frontend/src/__tests__/OMEMetadataPanel.test.tsx`
   - `frontend/src/__tests__/LossySaveWarning.test.tsx`
@@ -109,16 +109,16 @@ And ADR-041 + spec FR-009 propagation contract:
 
 Run or verify these commands and record evidence in the audit report:
 
-- `python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` — record path; classify findings into "this-PR's-files" vs "pre-existing-repo-debt".
-- `ruff check src/scieasy/blocks/io/ packages/scieasy-blocks-imaging/ packages/scieasy-blocks-srs/`
-- `ruff format --check src/scieasy/blocks/io/ packages/scieasy-blocks-imaging/ packages/scieasy-blocks-srs/`
-- `pytest tests/blocks/io/test_load_data_capabilities.py tests/blocks/io/test_save_data_capabilities.py packages/scieasy-blocks-imaging/tests/test_format_capabilities.py packages/scieasy-blocks-imaging/tests/test_image_meta_ome.py packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py --timeout=60`
+- `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` — record path; classify findings into "this-PR's-files" vs "pre-existing-repo-debt".
+- `ruff check src/scistudio/blocks/io/ packages/scistudio-blocks-imaging/ packages/scistudio-blocks-srs/`
+- `ruff format --check src/scistudio/blocks/io/ packages/scistudio-blocks-imaging/ packages/scistudio-blocks-srs/`
+- `pytest tests/blocks/io/test_load_data_capabilities.py tests/blocks/io/test_save_data_capabilities.py packages/scistudio-blocks-imaging/tests/test_format_capabilities.py packages/scistudio-blocks-imaging/tests/test_image_meta_ome.py packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py --timeout=60`
 - ADR-043 §9 package validity scan: implement as a manual code+test cross-reference per the rules listed under "Audit Goal" above.
 - Sentrux: skipped with rationale if CLI/MCP unavailable (consistent with other phases).
 
 ## Gate Record Stages You Must Execute
 
-Use `python -m scieasy.qa.governance.gate_record` with your own record path at `.workflow/records/1296-c1-audit.json`. Run the full sequence:
+Use `python -m scistudio.qa.governance.gate_record` with your own record path at `.workflow/records/1296-c1-audit.json`. Run the full sequence:
 
 1. `start --task-kind maintenance --issue 1296 --slug c1-audit --branch feat/issue-1296/adr043-c1-audit --owner-directive "Phase C1 no-context audit of ADR-043 package migration against spec FR-001..FR-017 and SC-001..SC-006" --include docs/audit/2026-05-20-adr-043-package-migration-no-context.md --include .workflow/records/1296-c1-audit.json --record-path .workflow/records/1296-c1-audit.json`
 2. `plan` — declare planned files (just the audit report and gate record).

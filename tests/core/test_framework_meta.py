@@ -1,13 +1,13 @@
-"""Unit tests for ``scieasy.core.meta`` (T-004 / ADR-027 D5).
+"""Unit tests for ``scistudio.core.meta`` (T-004 / ADR-027 D5).
 
 Covers:
 
-- :class:`scieasy.core.meta.framework.FrameworkMeta` — defaults,
+- :class:`scistudio.core.meta.framework.FrameworkMeta` — defaults,
   ``frozen`` behaviour, ``derive`` propagation, JSON round-trip.
-- :class:`scieasy.core.meta.channel.ChannelInfo` — construction,
+- :class:`scistudio.core.meta.channel.ChannelInfo` — construction,
   ``frozen`` behaviour, JSON round-trip, composition inside another
   Pydantic model.
-- :func:`scieasy.core.meta._with_meta.with_meta_changes` — immutable
+- :func:`scistudio.core.meta._with_meta.with_meta_changes` — immutable
   update semantics and validation error propagation.
 """
 
@@ -19,7 +19,7 @@ from uuid import UUID
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from scieasy.core.meta import ChannelInfo, FrameworkMeta, with_meta_changes
+from scistudio.core.meta import ChannelInfo, FrameworkMeta, with_meta_changes
 
 # ---------------------------------------------------------------------------
 # FrameworkMeta — defaults

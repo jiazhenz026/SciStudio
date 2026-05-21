@@ -14,20 +14,20 @@ from typing import Any
 import numpy as np
 import pytest
 
-from scieasy.core.types.array import Array
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.composite import CompositeData
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.serialization import _reconstruct_one, _serialise_one
-from scieasy.core.types.series import Series
-from scieasy.core.types.text import Text
+from scistudio.core.types.array import Array
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.composite import CompositeData
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.serialization import _reconstruct_one, _serialise_one
+from scistudio.core.types.series import Series
+from scistudio.core.types.text import Text
 
 # ---------------------------------------------------------------------------
 # Plugin type imports (imaging plugin)
 # ---------------------------------------------------------------------------
 try:
-    from scieasy_blocks_imaging.types import Image, Label, Mask
+    from scistudio_blocks_imaging.types import Image, Label, Mask
 
     HAS_IMAGING = True
 except ImportError:
@@ -70,7 +70,7 @@ def _make_dataframe(tmp_path: Path) -> DataFrame:
 
 def _make_text(tmp_path: Path) -> Text:
     """Simple text object."""
-    t = Text(content="Hello, SciEasy!", format="plain", encoding="utf-8")
+    t = Text(content="Hello, SciStudio!", format="plain", encoding="utf-8")
     t.save(str(tmp_path / "text.txt"))
     return t
 
@@ -178,7 +178,7 @@ def test_serialise_deserialise_roundtrip(type_name: str, factory: Any, tmp_path:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skipif(not HAS_IMAGING, reason="scieasy_blocks_imaging not installed")
+@pytest.mark.skipif(not HAS_IMAGING, reason="scistudio_blocks_imaging not installed")
 def test_composite_slot_roundtrip(tmp_path: Path) -> None:
     """Label (CompositeData with raster Array slot) must round-trip with slots intact."""
     label = _make_label(tmp_path)
@@ -210,10 +210,10 @@ def test_composite_slot_roundtrip(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skipif(not HAS_IMAGING, reason="scieasy_blocks_imaging not installed")
+@pytest.mark.skipif(not HAS_IMAGING, reason="scistudio_blocks_imaging not installed")
 def test_collection_roundtrip(tmp_path: Path) -> None:
     """Collection[Image] must survive serialise_outputs -> reconstruct_inputs."""
-    from scieasy.engine.runners.worker import reconstruct_inputs, serialise_outputs
+    from scistudio.engine.runners.worker import reconstruct_inputs, serialise_outputs
 
     images = []
     for i in range(3):

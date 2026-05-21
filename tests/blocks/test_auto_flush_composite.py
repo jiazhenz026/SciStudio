@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
-from scieasy.blocks.base.block import Block
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.composite import CompositeData
+from scistudio.blocks.base.block import Block
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.composite import CompositeData
 
 
 class _StubDataObject(DataObject):
@@ -15,7 +15,7 @@ class _StubDataObject(DataObject):
 
     def save(self, path: str) -> None:
         # Simulate a successful save by setting storage_ref.
-        from scieasy.core.storage.ref import StorageReference
+        from scistudio.core.storage.ref import StorageReference
 
         self.storage_ref = StorageReference(backend="local", path=path, format="stub")
 
@@ -31,7 +31,7 @@ class _StubComposite(CompositeData):
 
     def save(self, path: str) -> None:
         """Minimal save that sets storage_ref (test stub)."""
-        from scieasy.core.storage.ref import StorageReference
+        from scistudio.core.storage.ref import StorageReference
 
         self.storage_ref = StorageReference(backend="local", path=path, format="stub")
 
@@ -45,8 +45,8 @@ def test_auto_flush_recurses_into_composite_slots() -> None:
     assert composite._slots["raster"].storage_ref is None
 
     with (
-        patch("scieasy.core.storage.flush_context.get_output_dir", return_value="/tmp/test_flush"),
-        patch("scieasy.core.storage.backend_router.get_router") as mock_router,
+        patch("scistudio.core.storage.flush_context.get_output_dir", return_value="/tmp/test_flush"),
+        patch("scistudio.core.storage.backend_router.get_router") as mock_router,
     ):
         router_inst = MagicMock()
         router_inst.extension_for.return_value = ".dat"
@@ -60,7 +60,7 @@ def test_auto_flush_recurses_into_composite_slots() -> None:
 
 def test_auto_flush_skips_already_flushed_slots() -> None:
     """_auto_flush should skip slots that already have a storage_ref."""
-    from scieasy.core.storage.ref import StorageReference
+    from scistudio.core.storage.ref import StorageReference
 
     inner = _StubDataObject()
     inner.storage_ref = StorageReference(backend="local", path="/already/flushed", format="stub")
@@ -68,8 +68,8 @@ def test_auto_flush_skips_already_flushed_slots() -> None:
     composite = _StubComposite(slots={"raster": inner})
 
     with (
-        patch("scieasy.core.storage.flush_context.get_output_dir", return_value="/tmp/test_flush"),
-        patch("scieasy.core.storage.backend_router.get_router") as mock_router,
+        patch("scistudio.core.storage.flush_context.get_output_dir", return_value="/tmp/test_flush"),
+        patch("scistudio.core.storage.backend_router.get_router") as mock_router,
     ):
         router_inst = MagicMock()
         router_inst.extension_for.return_value = ".dat"

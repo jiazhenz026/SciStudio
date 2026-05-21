@@ -53,7 +53,7 @@ pytest -q --timeout=60   # ensure backend tests not broken by store/types change
 ```
 
 **Live Chrome smoke required** (per `feedback_mandatory_chrome_smoke_test`). Use `mcp__claude-in-chrome__*`:
-1. Start `scieasy gui --port <free> --no-browser` (background).
+1. Start `scistudio gui --port <free> --no-browser` (background).
 2. Navigate Chrome to `http://127.0.0.1:<port>/`.
 3. Manually open the AIChat panel (existing UI).
 4. Simulate a `block_pty_opened` WS message via the JS console (or by spawning a test workflow with AIBlock that uses I35a + I35b's wiring, if those have landed).

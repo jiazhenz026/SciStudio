@@ -48,22 +48,22 @@
 ### 0.0 — CLAUDE.md §7.6 TODO rule
 
 - [x] §7.6 added to CLAUDE.md; agent-manager skill hygiene rule #11 mirrors it; memory `feedback_out_of_scope_todo` written
-- [x] PR opened + merged → [PR #1007](https://github.com/zjzcpj/SciEasy/pull/1007) → main commit `5059599`
-- [x] Issue tracker → [#1008](https://github.com/zjzcpj/SciEasy/issues/1008)
+- [x] PR opened + merged → [PR #1007](https://github.com/zjzcpj/SciStudio/pull/1007) → main commit `5059599`
+- [x] Issue tracker → [#1008](https://github.com/zjzcpj/SciStudio/issues/1008)
 
 ### 0.1-0.2 — State hygiene + toolchain
 
 - [x] `git fetch origin --prune` + `git pull origin main` (main at `627dc4f` after pytest-timeout fix)
 - [x] Tool versions verified: Python 3.13.12, pytest 9.0.2, ruff 0.15.9, mypy 1.20.0, gh 2.89.0, claude 2.1.143, codex-cli 0.130.0, node v24.14.0
-- [x] `python -c "import scieasy; print(scieasy.__file__)"` → source path, no editable-install pollution
+- [x] `python -c "import scistudio; print(scistudio.__file__)"` → source path, no editable-install pollution
 - [x] CI baseline on main: last 5 runs green
-- [ ] **Deferred**: separate manager worktree at `../scieasy-mgr-adr-040/`. Justified: as long as every sub-agent uses `isolation: "worktree"`, my main checkout is safe. Will create if HEAD drift observed.
+- [ ] **Deferred**: separate manager worktree at `../scistudio-mgr-adr-040/`. Justified: as long as every sub-agent uses `isolation: "worktree"`, my main checkout is safe. Will create if HEAD drift observed.
 
 ### 0.3 — pytest-timeout preflight fix
 
 - [x] `pytest-timeout>=2.3` added to `pyproject.toml [project.optional-dependencies].dev`; `timeout = 60` + `timeout_method = "thread"` added to `[tool.pytest.ini_options]`
-- [x] Issue → [#1009](https://github.com/zjzcpj/SciEasy/issues/1009)
-- [x] PR merged → [PR #1010](https://github.com/zjzcpj/SciEasy/pull/1010) → main commit `627dc4f`
+- [x] Issue → [#1009](https://github.com/zjzcpj/SciStudio/issues/1009)
+- [x] PR merged → [PR #1010](https://github.com/zjzcpj/SciStudio/pull/1010) → main commit `627dc4f`
 - [ ] **Followup**: clean up CI's now-redundant explicit `--timeout=60 --timeout-method=thread` flags and `pytest-timeout` install at `.github/workflows/ci.yml:94, 106, 108`. Out of scope here per CLAUDE.md §7.6 — TODO-tag deferred to a separate small PR after the cascade ships.
 
 ### 0.4 — Issues opened
@@ -73,7 +73,7 @@
 - [x] **#1011** ADR-040 cascade umbrella opened (links to #824/#825/#832/#875, ADR doc, plan file)
 - [x] **#1012** ADR-040 track: FastMCP migration (ADR §3.1, §3.2, §3.2a, §3.3)
 - [x] **#1013** ADR-040 track: prod-env agent provisioning (ADR §3.5, §3.6, §3.7, §3.8)
-- [x] **#1014** ADR-040 track: scieasy install Codex parity (ADR §3.9)
+- [x] **#1014** ADR-040 track: scistudio install Codex parity (ADR §3.9)
 - [x] **#1015** ADR-041 placeholder: Layer 7 filesystem ACL on `<project>/blocks/` (for TODO tags during cascade)
 - [x] **#1016** ADR-041 placeholder: BlockRegistry runtime rejection of `DataObject`-typed ports (for TODO tags during cascade)
 - [ ] Skills track issue (`#NNN`) opened at Phase 2b after skill-design investigation completes
@@ -103,7 +103,7 @@
 - [x] PreToolUse Bash hooks wire gate-check on `git push` and `gh pr create`; PreToolUse Agent wires template check (`check-agent-template.sh` validates `[DISPATCH-TEMPLATE-V1: <role>]` marker)
 - [x] **Hook file-path filter GENERALISED**: PR #1042 (issue #1041) patches `remind-checklist-discipline.sh` to glob `*adr-*-checklist.md*` instead of hardcoded `adr-035-036-checklist.md`. Without this fix, the discipline reminder never fired for the ADR-040 cascade — silent rule violation since I'd never see "verify drift, re-read memory" reminders.
 - [x] Chrome MCP loadable (`mcp__claude-in-chrome__tabs_context_mcp` schema fetched)
-- [ ] **Phase 4 prereq**: actual Chrome probe + scieasy-blocks-imaging plugin install + Codex CLI 2026+ project-scope `.codex/config.toml` support verification
+- [ ] **Phase 4 prereq**: actual Chrome probe + scistudio-blocks-imaging plugin install + Codex CLI 2026+ project-scope `.codex/config.toml` support verification
 
 ---
 
@@ -113,14 +113,14 @@
 
 - [ ] Single Explore agent dispatched with: ADR-040 + Phase 1 Explore findings inline + read-only mandate; output to `docs/planning/adr-040-code-scope.md`
 - [ ] Per-track sections produced:
-  - FastMCP (every file in `src/scieasy/ai/agent/mcp/`, every `MCPServer`/`TOOL_REGISTRY`/`_render_tool_catalog`/`_load_skill_md`/`compose_system_prompt` callsite, every test, TypeRegistry surface for §3.2a, frontend touch-points)
+  - FastMCP (every file in `src/scistudio/ai/agent/mcp/`, every `MCPServer`/`TOOL_REGISTRY`/`_render_tool_catalog`/`_load_skill_md`/`compose_system_prompt` callsite, every test, TypeRegistry surface for §3.2a, frontend touch-points)
   - Provisioning (ADR-039 live wiring in `api/runtime.py`+`cli/main.py`, ADR-038 lineage.db touch-points, `open_project` idempotency model, existing project template, Chrome/PTY codepath for hook firing, session_id payload format)
   - Install-parity (`_install_skill`/`_remove_skill`/`_install_codex`/`_render_codex_block`/`perform_install` exact shape, "force user-scope for codex" fallback location, `~/.agents/skills/` references, skill-source path resolution)
-  - Skills (current `skills/scieasy/SKILL.md` structure for identity continuity — deep skill-design research deferred to Phase 2b)
+  - Skills (current `skills/scistudio/SKILL.md` structure for identity continuity — deep skill-design research deferred to Phase 2b)
   - Cross-cutting (`tests/fixtures/`, `tests/conftest.py`, import-linter rules, mypy strict-mode boundaries, per-track out-of-scope file lists)
 - [ ] **Discrepancies from ADR-040 §5 inventory** (pre-discovered, agent confirms + extends):
   - Tool count is **27** (25 baseline + `finish_ai_block` from ADR-035 §3.5 skeleton, already in `_registry.py:246-252`), ADR says 26
-  - `src/scieasy/ai/agent/mcp/_context.py` + `__init__.py` missing from ADR §5.1 inventory
+  - `src/scistudio/ai/agent/mcp/_context.py` + `__init__.py` missing from ADR §5.1 inventory
   - ADR-039 git auto-init is **production-live** at `api/runtime.py:598-608` + `:686-701` + `cli/main.py:130-158` — not skeleton
 - [ ] Manifest committed to main via small docs PR; folded into Phase 1 dispatch prompts
 
@@ -133,7 +133,7 @@
 **Branch**: `feat/issue-NNN/adr-040-s40a-fastmcp-skeleton` off `track/adr-040/fastmcp`. **PR target**: tracking branch (NOT main).
 
 - [ ] Sub-issue opened for S40a
-- [ ] `src/scieasy/ai/agent/mcp/server.py` — new shape: `mcp = FastMCP(...)` placeholder, `serve()` stub raises `NotImplementedError` with detailed TODO comment per ADR §3.1
+- [ ] `src/scistudio/ai/agent/mcp/server.py` — new shape: `mcp = FastMCP(...)` placeholder, `serve()` stub raises `NotImplementedError` with detailed TODO comment per ADR §3.1
 - [ ] All 27 `@mcp.tool()` decorated stubs with type hints + Pydantic return models DEFINED (signatures real, bodies `NotImplementedError`) across `tools_workflow.py`, `tools_authoring.py`, `tools_inspection.py`, `tools_qa.py`
 - [ ] `_registry.py` — delete (FastMCP discovers by decorator); if any callsite imports from it, fix or TODO-tag
 - [ ] `system_prompt.py::_load_skill_md` — switched to `importlib.resources` (stub returns placeholder)
@@ -186,23 +186,23 @@
 **Branch**: `feat/issue-NNN/adr-040-s40c-provisioning-skeleton` off `track/adr-040/provisioning`.
 
 - [ ] Sub-issue opened for S40c
-- [ ] `src/scieasy/agent_provisioning/` package created:
+- [ ] `src/scistudio/agent_provisioning/` package created:
   - `__init__.py`
   - `_orchestrate.py` — `install_project_agent_assets(project_dir, *, force=False) -> ProvisionResult` stub raising NotImplementedError with TODO covering orchestration order, idempotent top-up, version-marker handling per §3.8
   - `claude_agents_md.py` — `write_claude_agents_md(project_dir)` stub
   - `hooks.py` — `write_hooks(project_dir)` stub
   - `skills.py` — `write_skills(project_dir)` stub
   - `codex_config.py` — `write_codex_config(project_dir)` stub
-- [ ] `src/scieasy/agent_provisioning/templates/` with placeholder files:
+- [ ] `src/scistudio/agent_provisioning/templates/` with placeholder files:
   - `claude_agents_md.md` (1-line TODO; content authored in Phase 2c)
   - `codex_config.toml` (TODO with structure outline per §3.7)
-  - `hook_deny_scieasy_cli.py` (stub with matcher + exit-code semantics comment per §3.6)
+  - `hook_deny_scistudio_cli.py` (stub with matcher + exit-code semantics comment per §3.6)
   - `hook_protect_workflow_yaml.py` (same)
   - `hook_enforce_list_blocks_before_block_write.py` (same; session-marker scheme comment) — header carries `# TODO(#1015)` Layer 7 ACL placeholder
   - `hook_remind_poll_status.py` (PostToolUse; always exit 0 — comment block)
   - `hook_mark_list_blocks_called.py` (PostToolUse; writes session marker)
   - `hook_enforce_concrete_port_types.py` (PostToolUse AST scan; comment block) — header carries `# TODO(#1016)` hard-validation placeholder
-- [ ] `SCIEASY_PROVISION_VERSION` constant + version-marker file path stubbed
+- [ ] `SCISTUDIO_PROVISION_VERSION` constant + version-marker file path stubbed
 - [ ] Stub call sites wired in `api/runtime.py::create_project` and `::open_project` and `cli/main.py::init` — wrapped in try/except per ADR §7 "non-fatal" semantics; current bodies pass (real call in I40c)
 - [ ] `tests/agent_provisioning/` directory + 6 test files with skipped stubs and docstring test plans
 - [ ] PR opened against tracking branch; CI green; `Closes #<sub-issue>` in body
@@ -215,10 +215,10 @@ See FastMCP track's A40-skel; covers all 4 skeleton PRs in one pass.
 
 **Branch**: `feat/issue-1039/adr-040-i40c-provisioning-impl` off `track/adr-040/provisioning` (later merged onto consolidated `track/adr-040` after track consolidation).
 
-- [x] CLAUDE.md/AGENTS.md template body authored (~50 LOC; identical content; end-user-agent purpose-written; distinct from SciEasy source repo's 800-line dev CLAUDE.md) → `src/scieasy/agent_provisioning/templates/claude_agents_md.md` (commit `f3c0f6f`)
-- [x] `codex_config.toml` rendered at provisioning time via `install._render_codex_block` (S40c skeleton template kept as docs-only reference) → `src/scieasy/agent_provisioning/codex_config.py` (commit `f3c0f6f`)
+- [x] CLAUDE.md/AGENTS.md template body authored (~50 LOC; identical content; end-user-agent purpose-written; distinct from SciStudio source repo's 800-line dev CLAUDE.md) → `src/scistudio/agent_provisioning/templates/claude_agents_md.md` (commit `f3c0f6f`)
+- [x] `codex_config.toml` rendered at provisioning time via `install._render_codex_block` (S40c skeleton template kept as docs-only reference) → `src/scistudio/agent_provisioning/codex_config.py` (commit `f3c0f6f`)
 - [x] All 6 hook scripts implemented:
-  - `deny_scieasy_cli.py`: regex on `tool_input.command`; exit 2 → commit `f3c0f6f`
+  - `deny_scistudio_cli.py`: regex on `tool_input.command`; exit 2 → commit `f3c0f6f`
   - `protect_workflow_yaml.py`: regex on `tool_input.file_path`; exit 2 → commit `f3c0f6f`
   - `enforce_list_blocks_before_block_write.py`: session-keyed marker, multi-matcher → commit `4e94629`
   - `remind_poll_status.py`: exit 0 + stderr reminder → commit `4e94629`
@@ -226,16 +226,16 @@ See FastMCP track's A40-skel; covers all 4 skeleton PRs in one pass.
   - `enforce_concrete_port_types.py`: AST-parse `blocks/*.py` for DataObject ports → commit `4e94629`
 - [x] `install_project_agent_assets` orchestrates all writes; idempotent (existence check; hash-based "preserve only if user-edited" deferred to Phase 3 per #1011) → commit `f3c0f6f`
 - [x] Lifecycle wiring real calls in `api/runtime.py::{create_project, open_project}` and `cli/main.py::init` → commit `e904159`
-- [x] `terminal.py::spawn_codex` docstring updated (dropped "asymmetry with claude"; documented `.codex/config.toml` + `.agents/skills/scieasy/` parity) → commit `e904159`
-- [x] `SCIEASY_PROVISION_VERSION = "0.1.0"`; marker file `<project>/.claude/.scieasy-provision-version` written → commit `f3c0f6f`
-- [ ] `.gitignore` default template: add `.scieasy/.session-state/` → **N/A**: `.scieasy/` rule already covers session-state (per ADR-039 `gitignore_template.py`)
+- [x] `terminal.py::spawn_codex` docstring updated (dropped "asymmetry with claude"; documented `.codex/config.toml` + `.agents/skills/scistudio/` parity) → commit `e904159`
+- [x] `SCISTUDIO_PROVISION_VERSION = "0.1.0"`; marker file `<project>/.claude/.scistudio-provision-version` written → commit `f3c0f6f`
+- [ ] `.gitignore` default template: add `.scistudio/.session-state/` → **N/A**: `.scistudio/` rule already covers session-state (per ADR-039 `gitignore_template.py`)
 - [x] `docs/agent-provisioning.md` (new) — one-page operational doc per ADR §5.3 → commit `603487d`
 - [x] `docs/architecture/ARCHITECTURE.md` — new subsection §10.2 "Prod-env agent reliability stack (ADR-040)" added (~50 LOC; dev-vs-prod env boundary, idempotent top-up, non-fatal degraded mode, lifecycle ordering) → commit `1d0913a` (merge resolution carried forward in this round)
 - [x] Tests:
   - [x] All assets land at expected paths on fresh `create_project` → `test_install_project_agent_assets_fresh_project`
   - [x] `open_project` idempotent top-up: missing files restored, customized preserved → `test_install_project_agent_assets_idempotent` + `test_open_project_idempotent_top_up`
   - [x] Each of 6 hook scripts behaves correctly against synthetic stdin (block + pass cases) → 14 per-hook tests in `test_hooks.py`
-  - [x] Lifecycle integration: GUI create / scieasy init → all assets present + hooks executable → `test_create_project_provisions_assets` + `test_cli_init_provisions_assets`
+  - [x] Lifecycle integration: GUI create / scistudio init → all assets present + hooks executable → `test_create_project_provisions_assets` + `test_cli_init_provisions_assets`
   - [ ] Hook script Windows-execute smoke test — CI is Ubuntu-only; settings.json invokes `python` explicitly, executable bit unused on Windows. Local Windows verification via `tests/agent_provisioning/test_hooks.py` (subprocess invocation pattern).
 - [x] CHANGELOG entry under `[Unreleased] > Added` → commit `603487d`
 - [ ] CI green; PR merged into tracking branch — **pending PR open + CI run**, see #1039
@@ -264,15 +264,15 @@ See FastMCP track.
 
 **Branch**: `feat/issue-1035/adr-040-i40d-install-impl` off `track/adr-040` (consolidated; #1035, PR pending).
 
-- [x] `_install_skill` resolves source via `importlib.resources.files("scieasy") / "_skills" / "scieasy"` (walk-up fallback retained for dev checkouts, TODO #1011), cross-installs to both `.claude/skills/` AND `.agents/skills/` trees (user or project scope) → commit `ebc123d`
+- [x] `_install_skill` resolves source via `importlib.resources.files("scistudio") / "_skills" / "scistudio"` (walk-up fallback retained for dev checkouts, TODO #1011), cross-installs to both `.claude/skills/` AND `.agents/skills/` trees (user or project scope) → commit `ebc123d`
 - [x] `_remove_skill` symmetric removal across both providers → commit `ebc123d`
 - [x] `_install_codex` project-scope branch writes `<cwd>/.codex/config.toml`; "force user-scope for codex" fallback in `perform_install` (was install.py:578-598) removed → commit `ebc123d`
 - [x] `perform_install` docstring updated (cross-install + project-scope codex now supported) → commit `ebc123d`
 - [x] `docs/cli-integration.md` — `--skill` cross-installs both providers; `--target codex --scope project` writes project config — PR commit
 - [x] Tests:
-  - Cross-install writes both `.claude/skills/scieasy/SKILL.md` and `.agents/skills/scieasy/SKILL.md` → `test_install_skill_cross_install_user_scope`, `test_install_skill_cross_install_project_scope`
+  - Cross-install writes both `.claude/skills/scistudio/SKILL.md` and `.agents/skills/scistudio/SKILL.md` → `test_install_skill_cross_install_user_scope`, `test_install_skill_cross_install_project_scope`
   - Remove cleans both trees → `test_remove_skill_cross_removal`
-  - Codex project-scope writes correct `[mcp_servers.scieasy]` TOML block → `test_install_codex_project_scope_writes_local_config`
+  - Codex project-scope writes correct `[mcp_servers.scistudio]` TOML block → `test_install_codex_project_scope_writes_local_config`
   - Legacy "wrote to user scope" caveat removed → `test_perform_install_codex_no_longer_forces_user_scope`
 - [ ] CHANGELOG entry
 - [ ] CI green; PR merged into tracking branch
@@ -286,15 +286,15 @@ See FastMCP track.
 **Branch**: `feat/issue-NNN/adr-040-s40b-skill-structure` off **main** (no skills tracking branch yet — opened later at Phase 2b).
 
 - [ ] Sub-issue opened for S40b
-- [ ] `src/scieasy/_skills/scieasy/SKILL.md` created (~5 LOC: frontmatter `name: scieasy` + identity stub + TODO referencing Phase 2c)
+- [ ] `src/scistudio/_skills/scistudio/SKILL.md` created (~5 LOC: frontmatter `name: scistudio` + identity stub + TODO referencing Phase 2c)
 - [ ] 5 task-skill directories created with stub SKILL.md (frontmatter `name:` + `description:` placeholder + body TODO):
-  - `scieasy-build-workflow/SKILL.md`
-  - `scieasy-write-block/SKILL.md`
-  - `scieasy-debug-run/SKILL.md`
-  - `scieasy-inspect-data/SKILL.md`
-  - `scieasy-project-qa/SKILL.md`
-- [ ] `pyproject.toml [tool.setuptools.package-data]` extended: `scieasy = ["api/static/**/*", "cli/templates/**/*.tpl", "_skills/scieasy/**/*.md"]`
-- [ ] `skills/scieasy/SKILL.md` at repo root **kept** (retired by I40b in Phase 2c, not now)
+  - `scistudio-build-workflow/SKILL.md`
+  - `scistudio-write-block/SKILL.md`
+  - `scistudio-debug-run/SKILL.md`
+  - `scistudio-inspect-data/SKILL.md`
+  - `scistudio-project-qa/SKILL.md`
+- [ ] `pyproject.toml [tool.setuptools.package-data]` extended: `scistudio = ["api/static/**/*", "cli/templates/**/*.tpl", "_skills/scistudio/**/*.md"]`
+- [ ] `skills/scistudio/SKILL.md` at repo root **kept** (retired by I40b in Phase 2c, not now)
 - [ ] `tests/packaging/test_wheel_skills.py` (skipped) — wheel-layout regression scaffold
 - [ ] PR opened against main (small docs+packaging PR); CI green; `Closes #<sub-issue>` in body
 
@@ -302,7 +302,7 @@ See FastMCP track.
 
 - [ ] After I40a + I40c + I40d merge into their tracking branches: dispatch single Explore agent
 - [ ] Deliverable: `docs/planning/adr-040-skill-design.md` covering:
-  1. Workflow development patterns in SciEasy (canonical YAML, common pitfalls, real examples beyond docs)
+  1. Workflow development patterns in SciStudio (canonical YAML, common pitfalls, real examples beyond docs)
   2. Block development patterns (`Block` base contract, `config_schema` MRO merge per ADR-030, `_spec_from_class` strict version, plugin entry-points per ADR-025, working example from `tests/integration/test_block_sdk_e2e.py`)
   3. Finalized MCP tool shape post-Phase 2a (all 27 tools, docstrings, Pydantic models, `next_step`, `warnings`)
   4. External harness prior art: n8n, Langflow/LangChain, Dify, Goose/Continue/Cursor, Anthropic Skills SDK best practices, OpenAI Codex Skills
@@ -316,16 +316,16 @@ See FastMCP track.
 
 **Branch**: `feat/issue-NNN/adr-040-i40b-skills` off `track/adr-040/skills`.
 
-- [x] Sub-issue opened for I40b → [#1057](https://github.com/zjzcpj/SciEasy/issues/1057)
-- [x] `src/scieasy/_skills/scieasy/SKILL.md` thin base body authored (~80 LOC: identity, 5-skill index, non-negotiable rules, `<!-- project_context -->` + `<!-- tool_catalog -->` markers) → commit `ced96fb`
+- [x] Sub-issue opened for I40b → [#1057](https://github.com/zjzcpj/SciStudio/issues/1057)
+- [x] `src/scistudio/_skills/scistudio/SKILL.md` thin base body authored (~80 LOC: identity, 5-skill index, non-negotiable rules, `<!-- project_context -->` + `<!-- tool_catalog -->` markers) → commit `ced96fb`
 - [x] 5 task skill bodies authored per Phase 2b blueprint:
-  - `scieasy-build-workflow`: YAML schema teaching + 10 pitfalls + 3 worked examples (linear / fan-out / AI block) + tool-call sequence + when-validate-fails / when-run-fails recovery → commit `ced96fb`
-  - `scieasy-write-block`: #875 block-reuse rule (Layer 1 + hook backup) + Block ABC contract + ADR-040 §3.2a port-type narrowness rule (with `list_types` mandate + scaffold_block warnings rule) + ADR-030 config_schema MRO merge + ADR-025 entry points + 6-category taxonomy + worked thresholding-block example + 8 pitfalls → commit `ced96fb`
-  - `scieasy-debug-run`: canonical diagnostic sequence + `get_run_status` envelope + `get_block_logs` patterns + 8 common error signatures + ADR-038 lineage.db MCP-surface rule + AI block PTY + `finish_ai_block` contract + worked diagnostic example → commit `ced96fb`
-  - `scieasy-inspect-data`: ADR-031 reference-only contract + `inspect_data` / `preview_data` / `get_lineage` / `get_block_output` / `list_data` + worked threshold-mask example + lineage-walk example → commit `ced96fb`
-  - `scieasy-project-qa`: `get_project_info` / `search_docs` / `get_doc` / `list_data` + combining-tools recipes + worked plugin-list example → commit `ced96fb`
-- [x] `src/scieasy/agent_provisioning/templates/claude_agents_md.md` refined per Phase 2b §6 (I40c baseline upgraded with hook-by-file names, ADR §3.2a citation, next_step/warnings reading rule, mirrored non-negotiable rules block) → commit `ced96fb`
-- [x] `skills/scieasy/SKILL.md` at repo root **DELETED** (canonical location is now `src/scieasy/_skills/scieasy/SKILL.md`; examples subdir under `skills/scieasy/examples/` retained as out-of-scope) → commit `ced96fb`
+  - `scistudio-build-workflow`: YAML schema teaching + 10 pitfalls + 3 worked examples (linear / fan-out / AI block) + tool-call sequence + when-validate-fails / when-run-fails recovery → commit `ced96fb`
+  - `scistudio-write-block`: #875 block-reuse rule (Layer 1 + hook backup) + Block ABC contract + ADR-040 §3.2a port-type narrowness rule (with `list_types` mandate + scaffold_block warnings rule) + ADR-030 config_schema MRO merge + ADR-025 entry points + 6-category taxonomy + worked thresholding-block example + 8 pitfalls → commit `ced96fb`
+  - `scistudio-debug-run`: canonical diagnostic sequence + `get_run_status` envelope + `get_block_logs` patterns + 8 common error signatures + ADR-038 lineage.db MCP-surface rule + AI block PTY + `finish_ai_block` contract + worked diagnostic example → commit `ced96fb`
+  - `scistudio-inspect-data`: ADR-031 reference-only contract + `inspect_data` / `preview_data` / `get_lineage` / `get_block_output` / `list_data` + worked threshold-mask example + lineage-walk example → commit `ced96fb`
+  - `scistudio-project-qa`: `get_project_info` / `search_docs` / `get_doc` / `list_data` + combining-tools recipes + worked plugin-list example → commit `ced96fb`
+- [x] `src/scistudio/agent_provisioning/templates/claude_agents_md.md` refined per Phase 2b §6 (I40c baseline upgraded with hook-by-file names, ADR §3.2a citation, next_step/warnings reading rule, mirrored non-negotiable rules block) → commit `ced96fb`
+- [x] `skills/scistudio/SKILL.md` at repo root **DELETED** (canonical location is now `src/scistudio/_skills/scistudio/SKILL.md`; examples subdir under `skills/scistudio/examples/` retained as out-of-scope) → commit `ced96fb`
 - [x] Tests:
   - [x] `tests/packaging/test_wheel_skills.py` flipped from skip → 3 passing assertions: base SKILL.md loadable via importlib.resources + frontmatter + both splice markers; all 5 task skills loadable + authored; base indexes every task skill → commit `ced96fb`
   - [x] `tests/agent_provisioning/test_claude_agents_md.py` extended with 2 content-refinement tests: template indexes all 5 task skills; template carries non-negotiable rules (MCP-tools-over-CLI, #875 list_blocks, ADR-040 §3.2a list_types/DataObject, workflow YAML via write_workflow) → commit `ced96fb`
@@ -386,7 +386,7 @@ Reviews all 3 impl PRs (I40a + I40c + I40d) together.
 
 - [ ] Simulate fresh prod-env agent: read rendered system prompt verbatim (call `compose_system_prompt` against fixture project); read each task skill's frontmatter; read body when triggered
 - [ ] For each of 7 e2e test cases (Phase 4), assess: does current skill+prompt+CLAUDE.md give agent enough to succeed? Where would agent guess wrong?
-- [ ] For e2e (g) "write thresholding block, zero hints": read `scieasy-write-block` SKILL.md cold and predict failure modes
+- [ ] For e2e (g) "write thresholding block, zero hints": read `scistudio-write-block` SKILL.md cold and predict failure modes
 - [ ] Review tool description ergonomics: do `next_step` hints guide correct sequences? Are warning messages actionable?
 - [ ] Cross-check Claude vs Codex: would a Codex agent (no hooks) be misled because rules assume hook backup?
 - [ ] Output: `docs/planning/adr-040-a3-report.md` with concrete rewrite suggestions for any risky content
@@ -416,8 +416,8 @@ Reviews all 3 impl PRs (I40a + I40c + I40d) together.
 
 **Setup**:
 - [ ] Manager enters hotfix mode (per CLAUDE.md §11.5)
-- [ ] Fresh test project at `~/scieasy-test-adr-040/` created via **GUI** (tests GUI provisioning path), not CLI
-- [ ] `scieasy-blocks-imaging` plugin installed in test env (needed for e2e (g) thresholding context)
+- [ ] Fresh test project at `~/scistudio-test-adr-040/` created via **GUI** (tests GUI provisioning path), not CLI
+- [ ] `scistudio-blocks-imaging` plugin installed in test env (needed for e2e (g) thresholding context)
 - [ ] Codex CLI version 2026+ confirmed; project-scope `.codex/config.toml` discovery works
 - [ ] Chrome MCP active; GIF recording per multi-step test
 - [ ] Both Claude Code and Codex CLIs spawn-able from GUI
@@ -437,7 +437,7 @@ Reviews all 3 impl PRs (I40a + I40c + I40d) together.
 
 **Test (d) — Lineage view + export parity**
 - [ ] Seed lineage.db with manual workflow run
-- [ ] Claude: prompt "view lineage for run X, export to methods.md"; output byte-equal to `GET /api/runs/{run_id}/methods` (`src/scieasy/api/routes/runs.py`)
+- [ ] Claude: prompt "view lineage for run X, export to methods.md"; output byte-equal to `GET /api/runs/{run_id}/methods` (`src/scistudio/api/routes/runs.py`)
 - [ ] Codex: same
 
 **Test (e) — Skill catalog completeness (provider-agnostic static check)**
@@ -445,14 +445,14 @@ Reviews all 3 impl PRs (I40a + I40c + I40d) together.
 - [ ] No skill teaches stale params (cross-check against FastMCP `list_tools()` output)
 
 **Test (f) — Hooks block known-bad operations**
-- [ ] Claude: prompt (i) `Bash(scieasy run)`, (ii) create workflow + run without validate, (iii) Edit `workflows/*.yaml` directly → all 3 blocked with informative stderr; agent pivots to correct MCP call in next turn
+- [ ] Claude: prompt (i) `Bash(scistudio run)`, (ii) create workflow + run without validate, (iii) Edit `workflows/*.yaml` directly → all 3 blocked with informative stderr; agent pivots to correct MCP call in next turn
 - [ ] Codex: same prompts; expected outcome is operations go through unhooked (per ADR §3.10 "Codex hook governance deferred"); documented expected-gap not a blocker; TODO-tag references #1015 for future Codex hook coverage
 
 **Test (g) — Agent writes thresholding block with ZERO hints**
 - [ ] Claude: prompt "write a simple image thresholding block — input image, output binary mask, threshold parameter"
   - Agent first calls `list_blocks` (#875 reuse rule)
   - Agent calls `list_types` to pick concrete `Image`/`Array` port type, not `DataObject` (§3.2a)
-  - Block subclasses `scieasy.blocks.base.block.Block` correctly
+  - Block subclasses `scistudio.blocks.base.block.Block` correctly
   - Block registers + loads
   - `run()` produces valid output of declared port type
   - Hooks don't trigger (operation within rules)
@@ -495,8 +495,8 @@ Reviews all 3 impl PRs (I40a + I40c + I40d) together.
 - [ ] All 4 tracking-branch CI green
 - [ ] All Codex P1/P2 findings on agent PRs resolved (none deferred to follow-ups)
 - [ ] `grep -rn "TODO[^(]" src/` returns ZERO matches (every TODO carries `(#NNN)` tracking ref) — CLAUDE.md §7.6 audit signal
-- [ ] Every of 27 MCP tools enumerable via `mcp__scieasy__list_tools` from a spawned agent
-- [ ] Fresh GUI-created project has CLAUDE.md + AGENTS.md + .claude/hooks/*.py × 6 + .claude/skills/scieasy/* × 6 + .agents/skills/scieasy/* × 6 + .codex/config.toml + .claude/.scieasy-provision-version
+- [ ] Every of 27 MCP tools enumerable via `mcp__scistudio__list_tools` from a spawned agent
+- [ ] Fresh GUI-created project has CLAUDE.md + AGENTS.md + .claude/hooks/*.py × 6 + .claude/skills/scistudio/* × 6 + .agents/skills/scistudio/* × 6 + .codex/config.toml + .claude/.scistudio-provision-version
 - [ ] Phase 4: 13/14 cells PASS + 1/14 Codex (f) expected-gap documented
 - [ ] CHANGELOG `[Unreleased]` has 1 entry per merged sub-PR with mandatory metadata
 
@@ -522,7 +522,7 @@ Reviews all 3 impl PRs (I40a + I40c + I40d) together.
 - 2026-05-16 — #824/#825/#832/#875 closed prematurely by ADR-040 docs PR #987 squash-merge. Cause: PR body carried "Closes" prefixes. Resolution: reopened by manager in Phase 0.4 with explanatory comments.
 - 2026-05-16 — pytest-timeout was only in CI args, missing from pyproject.toml dev deps. Cause: original install via explicit `uv pip install` extra. Resolution: added to `[project.optional-dependencies].dev` in PR #1010.
 - 2026-05-16 — ADR-040 §5.1 inventory says "26 tools"; ADR-040 §2.4 says "26"; AC40 manifest verified live count is **26** (25 baseline + `finish_ai_block` = 26). Initial checklist note "27" was an arithmetic error — fixed in this corrective sweep. ADR figure is correct as-is. Test `tests/ai/test_system_prompt.py:28` and `tests/ai/test_finish_ai_block_skeleton.py:30` both assert `len(TOOL_REGISTRY) == 26`. Reference: code-scope manifest §1.2.
-- 2026-05-16 — ADR-040 §5.1 missed `src/scieasy/ai/agent/mcp/_context.py` and `__init__.py`. Cause: drafting oversight. Resolution: dispatch prompts list them in S40a + I40a owned-files; ADR text not edited.
+- 2026-05-16 — ADR-040 §5.1 missed `src/scistudio/ai/agent/mcp/_context.py` and `__init__.py`. Cause: drafting oversight. Resolution: dispatch prompts list them in S40a + I40a owned-files; ADR text not edited.
 
 ---
 
@@ -535,8 +535,8 @@ Per CLAUDE.md §7.6, every deferred item has an in-repo TODO pointing here.
 - Per-turn system-prompt re-composition → tracked under #903 dimension D
 - Empirical prompt evaluation framework → tracked under #903 dimension E
 - Codex hook coverage for `apply_patch` / MCP calls (upstream OpenAI gap) → tracked under #1015 (Codex hook governance)
-- Sub-agent dispatch via Claude Code `Task` tool inside SciEasy MCP → future ADR
-- Custom slash commands (`.claude/commands/`) for SciEasy-specific workflows → future ADR
+- Sub-agent dispatch via Claude Code `Task` tool inside SciStudio MCP → future ADR
+- Custom slash commands (`.claude/commands/`) for SciStudio-specific workflows → future ADR
 - Per-skill telemetry → future enhancement
 - Project-level / per-machine prompt overlays → tracked under #903 dimension D
 - CI workflow cleanup of redundant `pytest-timeout` install + `--timeout=60` CLI flags (now in pyproject.toml) → follow-up small PR after cascade ships

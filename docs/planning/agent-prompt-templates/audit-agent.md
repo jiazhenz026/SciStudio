@@ -25,13 +25,13 @@ You are reviewing the merged work of one phase on one tracking branch. Your job 
    - `ruff format --check .`
    - `ruff check .`
    - `pytest -q --timeout=60`
-   - `mypy src/scieasy/ --ignore-missing-imports`
+   - `mypy src/scistudio/ --ignore-missing-imports`
    - `cd frontend && npm run build && vitest run`
    Report any failure as P1.
 
 6. **MANDATORY live Chrome smoke test for UI-touching phases** (per memory `mandatory_chrome_smoke_test` and `phase_audit_smoke_test`):
    - Use `mcp__claude-in-chrome__*` tools
-   - Start `scieasy gui` on a free port; navigate; perform the user-visible flow your phase enabled
+   - Start `scistudio gui` on a free port; navigate; perform the user-visible flow your phase enabled
    - Take screenshots; for ADR-035: open AI Block tab, verify status badge transitions; for ADR-036: open editor for a `.py`, edit + save, see lint markers, verify View source readonly
    - Without this evidence, the audit cannot pass — unit tests do NOT replace it (PR #800 shipped 3 broken features with all CI green)
 

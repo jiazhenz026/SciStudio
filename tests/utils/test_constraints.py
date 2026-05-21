@@ -1,9 +1,9 @@
-"""Tests for ``scieasy.utils.constraints`` port helper factories.
+"""Tests for ``scistudio.utils.constraints`` port helper factories.
 
 Covers T-010 per ADR-027 D4 (companion) and the T-010 section of
 ``docs/specs/phase10-implementation-standards.md``.
 
-Every factory in ``scieasy.utils.constraints`` is a closure: the outer
+Every factory in ``scistudio.utils.constraints`` is a closure: the outer
 function captures configuration, and the inner ``_check`` callable is
 what the block runtime actually invokes. These tests exercise the inner
 callable directly against hand-built Collections and raw lists (the
@@ -19,10 +19,10 @@ from typing import Any
 import numpy as np
 import pytest
 
-from scieasy.blocks.base.ports import InputPort, validate_port_constraint
-from scieasy.core.types.array import Array
-from scieasy.core.types.collection import Collection
-from scieasy.utils.constraints import (
+from scistudio.blocks.base.ports import InputPort, validate_port_constraint
+from scistudio.core.types.array import Array
+from scistudio.core.types.collection import Collection
+from scistudio.utils.constraints import (
     ConstraintFn,
     has_axes,
     has_dtype,

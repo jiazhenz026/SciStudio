@@ -1,7 +1,7 @@
 """macOS-only smoke test for the POSIX PTY spawn path used by ADR-034.
 
 This test verifies that the underlying ``pty.openpty`` + ``subprocess.Popen``
-pattern from :func:`scieasy.ai.agent.terminal.PtyProcess._spawn_posix` works
+pattern from :func:`scistudio.ai.agent.terminal.PtyProcess._spawn_posix` works
 on Darwin specifically — the implementation agent runs on Windows, so we
 defer real verification to the user's Mac via this skipped-on-non-Darwin
 smoke. CI runners are typically Linux, where this also runs (Linux is a

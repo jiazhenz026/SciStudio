@@ -27,7 +27,7 @@ The blocking gaps are concentrated in the **cross-doc consistency sweep**:
 ADR-034, ADR-035, and `docs/specs/embedded-coding-agent-spec.md` still teach
 the pre-ADR-040 hand-rolled / 25-tool world. ADR-040 §5.3 explicitly called
 for these doc updates and they have not landed. None of these block agent
-runtime (the live code path is correct), but they leave the SciEasy
+runtime (the live code path is correct), but they leave the SciStudio
 documentation graph internally contradictory — a reader following ADR-035
 will be misled about the current `finish_ai_block` envelope shape.
 
@@ -41,7 +41,7 @@ was found in scope A2.
 
 ### A.1 Tool inventory: 26/26 present
 
-`grep -n "@mcp.tool(" src/scieasy/ai/agent/mcp/` returns 26 decorated
+`grep -n "@mcp.tool(" src/scistudio/ai/agent/mcp/` returns 26 decorated
 functions across the four `tools_*.py` modules. Mapping vs the manifest
 §1.2 baseline + ADR-035 `finish_ai_block` addition:
 
@@ -58,7 +58,7 @@ asserts. **PASS**.
 
 ### A.2 Pydantic return models: 19 explicit models found
 
-`grep -n "^class \w+Result" src/scieasy/ai/agent/mcp/`:
+`grep -n "^class \w+Result" src/scistudio/ai/agent/mcp/`:
 
 - `tools_workflow.py` (7): `BlockSchemaResult`, `ListTypesResult`,
   `ValidateWorkflowResult`, `WriteWorkflowResult`, `RunWorkflowResult`,
@@ -114,14 +114,14 @@ Behaviour matches ADR §3.2a verbatim. **PASS.**
 ### A.5 `_registry.py` deletion + dead-import sweep
 
 ```
-src/scieasy/ai/agent/mcp/  → no _registry.py
+src/scistudio/ai/agent/mcp/  → no _registry.py
 ```
 
 `grep -rn "from.*_registry\|TOOL_REGISTRY" src/`:
 
-- `src/scieasy/ai/agent/mcp/__init__.py:33` — docstring reference: "there is
+- `src/scistudio/ai/agent/mcp/__init__.py:33` — docstring reference: "there is
   no longer a separate `TOOL_REGISTRY` tuple" — **historical context, fine**
-- `src/scieasy/ai/agent/system_prompt.py:16` — docstring reference:
+- `src/scistudio/ai/agent/system_prompt.py:16` — docstring reference:
   "replacing the deleted `_registry.TOOL_REGISTRY`" — **historical context,
   fine**
 - All other `_registry` matches are unrelated (`block_registry`,
@@ -129,7 +129,7 @@ src/scieasy/ai/agent/mcp/  → no _registry.py
 
 `grep -rn "_registry\|TOOL_REGISTRY" tests/` finds:
 
-- `tests/ai/test_mcp_server_skeleton.py:198` — `from scieasy.ai.agent.mcp
+- `tests/ai/test_mcp_server_skeleton.py:198` — `from scistudio.ai.agent.mcp
   import _context, _registry` — **STALE: the import would raise
   ImportError** if executed. Mitigated by `pytestmark = pytest.mark.skip(...)`
   at line 35 (module-level skip with `TODO(#1012)` reason). The skipped body
@@ -139,7 +139,7 @@ src/scieasy/ai/agent/mcp/  → no _registry.py
     the skeleton file outright or rewrite it against FastMCP. Tracked
     informally via I40a CHANGELOG note (`test_mcp_server_skeleton` is in
     the "module-level skip" group).
-- `tests/conftest.py:25` — `from scieasy.blocks import registry as
+- `tests/conftest.py:25` — `from scistudio.blocks import registry as
   _registry_module` — unrelated (block registry alias).
 
 **PASS** with one P3 housekeeping note.
@@ -160,7 +160,7 @@ ADR-033 is gone. **PASS**.
 
 `system_prompt.py:136-201` correctly:
 
-1. Force-imports `scieasy.ai.agent.mcp` so `@mcp.tool` decorators run before
+1. Force-imports `scistudio.ai.agent.mcp` so `@mcp.tool` decorators run before
    the FastMCP registry is queried.
 2. Calls `await mcp.list_tools()` (with the **Codex P1-reconciled**
    in-running-loop fix: spawns a worker thread + `asyncio.run` so callers
@@ -175,14 +175,14 @@ ADR-033 is gone. **PASS**.
 
 `system_prompt.py:76-133`:
 
-1. **Path 1**: `importlib.resources.files("scieasy") / "_skills" / "scieasy"
+1. **Path 1**: `importlib.resources.files("scistudio") / "_skills" / "scistudio"
    / "SKILL.md"` — packaged path, wheel-safe per ADR-040 §3.4. Closes #824.
-2. **Path 2 (fallback)**: legacy walk-up to repo-root `skills/scieasy/SKILL.md`,
+2. **Path 2 (fallback)**: legacy walk-up to repo-root `skills/scistudio/SKILL.md`,
    tagged `TODO(#1012): drop the legacy walk-up fallback once the Skills
    track merges to main`.
 
 **PASS.** The TODO is legitimate (CLAUDE.md §7.6 compliant). After
-`skills/scieasy/SKILL.md` was deleted at repo root by I40b commit `ced96fb`,
+`skills/scistudio/SKILL.md` was deleted at repo root by I40b commit `ced96fb`,
 the fallback path is dead code in this branch — but it remains defensive
 for downstream contributors who keep a stale repo-root tree.
 
@@ -199,12 +199,12 @@ for downstream contributors who keep a stale repo-root tree.
 | branch + sha | `git -C <project_dir> rev-parse` with 2.0s timeout | best-effort, omits on failure |
 
 Special-case: when `project_dir` is missing/invalid (no project open),
-returns a clear "No active SciEasy project is open" string rather than
+returns a clear "No active SciStudio project is open" string rather than
 crashing. **PASS.**
 
 ### B.4 `runtime.py` standalone-bridge wiring
 
-`src/scieasy/ai/agent/mcp/runtime.py`:
+`src/scistudio/ai/agent/mcp/runtime.py`:
 
 - `StandaloneMCPRuntime` dataclass satisfies `MCPContext` Protocol.
 - `make_mcp_runtime(project_dir)` builds the registries.
@@ -215,7 +215,7 @@ crashing. **PASS.**
 
 `MCPServer.serve()` (`server.py:167-184`) drives the standalone bridge:
 `await self.start()` then `self._server.serve_forever()`. This is the
-single blocking entry-point used by the `scieasy mcp-bridge` subprocess.
+single blocking entry-point used by the `scistudio mcp-bridge` subprocess.
 
 **PASS.**
 
@@ -239,7 +239,7 @@ constructor signature is preserved).
 
 `terminal.py:452-510`:
 
-- `--mcp-config <project>/.scieasy/mcp.json` preserved.
+- `--mcp-config <project>/.scistudio/mcp.json` preserved.
 - `--append-system-prompt @<temp_file>` preserved with `compose_system_prompt`
   driving the temp-file contents.
 - `--dangerously-skip-permissions` opt-in preserved.
@@ -254,9 +254,9 @@ unchanged.
 - Argv unchanged: `["codex"]` + optional `--dangerously-bypass-...`.
 - Docstring updated to drop the stale "intentional asymmetry with claude"
   language and document the project-scope `.codex/config.toml` +
-  `.agents/skills/scieasy/` auto-discovery pair (per ADR-040 §3.7 + §3.8).
+  `.agents/skills/scistudio/` auto-discovery pair (per ADR-040 §3.7 + §3.8).
 - Module-level docstring at line 31-34 also updated: "codex auto-reads
-  `~/.codex/config.toml` ... the user's `scieasy install --target codex`
+  `~/.codex/config.toml` ... the user's `scistudio install --target codex`
   writes the TOML entry".
 
 **PASS.**
@@ -290,7 +290,7 @@ unchanged.
 `cli/main.py:184-186`:
 
 ```
-from scieasy.agent_provisioning import install_project_agent_assets
+from scistudio.agent_provisioning import install_project_agent_assets
 provision_result = install_project_agent_assets(project_path, force=False)
 ```
 
@@ -302,8 +302,8 @@ non-fatal contract is preserved).
 
 `cli/install.py:478-516`:
 
-1. Walks BOTH `claude_dest` (`<base>/.claude/skills/scieasy/`) AND
-   `codex_dest` (`<base>/.agents/skills/scieasy/`) per ADR-040 §3.9.
+1. Walks BOTH `claude_dest` (`<base>/.claude/skills/scistudio/`) AND
+   `codex_dest` (`<base>/.agents/skills/scistudio/`) per ADR-040 §3.9.
 2. `_find_skill_source` resolution order: `importlib.resources` first,
    walk-up fallback for dev checkouts (TODO #1011).
 3. `shutil.copytree(src, dest)` after wiping any stale `dest` — ensures
@@ -315,9 +315,9 @@ non-fatal contract is preserved).
 
 `cli/install.py:307-365`:
 
-- `scope="user"` → `~/.codex/config.toml`, no `SCIEASY_PROJECT_DIR` env pin.
+- `scope="user"` → `~/.codex/config.toml`, no `SCISTUDIO_PROJECT_DIR` env pin.
 - `scope="project"` → `<cwd>/.codex/config.toml` with
-  `[mcp_servers.scieasy.env].SCIEASY_PROJECT_DIR = <cwd>`.
+  `[mcp_servers.scistudio.env].SCISTUDIO_PROJECT_DIR = <cwd>`.
 
 The legacy "force user-scope for codex" fallback is **removed** from
 `perform_install` (verified at line 604-609 — comment confirms removal).
@@ -327,8 +327,8 @@ The legacy "force user-scope for codex" fallback is **removed** from
 ### B.13 `_render_codex_block` reuse from provisioning
 
 `agent_provisioning/codex_config.py:45` does
-`from scieasy.cli.install import _render_codex_block` and renders the same
-block content the explicit `scieasy install --target codex --scope project`
+`from scistudio.cli.install import _render_codex_block` and renders the same
+block content the explicit `scistudio install --target codex --scope project`
 emits. `tests/agent_provisioning/test_codex_config.py::test_codex_config_
 matches_install_render` enforces byte-equivalence (per `docs/agent-
 provisioning.md:135-137`).
@@ -336,7 +336,7 @@ provisioning.md:135-137`).
 **PASS.** **P3 design note**: this is an internal `_render_codex_block`
 import from a private symbol — fine pragmatically, but architecturally a
 cleaner future refactor would be to extract `_render_codex_block` into a
-shared module (e.g. `scieasy.ai.agent.codex_config_template`) so neither
+shared module (e.g. `scistudio.ai.agent.codex_config_template`) so neither
 `cli` nor `agent_provisioning` is reaching into the other's private
 namespace. Not blocking for this cascade.
 
@@ -344,7 +344,7 @@ namespace. Not blocking for this cascade.
 
 ## C. Frontend touch-points
 
-`grep "mcp__scieasy__\|tools/list" frontend/src/` — **no matches.**
+`grep "mcp__scistudio__\|tools/list" frontend/src/` — **no matches.**
 
 The frontend does not consume MCP `tools/list` programmatically; it only
 hosts xterm.js panels showing the spawned claude/codex CLI's own MCP
@@ -390,14 +390,14 @@ is preserved by `MCPServer.dispatch`.
 
 ### E.1 Base SKILL.md markers
 
-`src/scieasy/_skills/scieasy/SKILL.md` carries BOTH:
+`src/scistudio/_skills/scistudio/SKILL.md` carries BOTH:
 
 - `<!-- project_context:begin --><!-- project_context:end -->` (line 68-69)
 - `<!-- tool_catalog:begin --><!-- tool_catalog:end -->` (line 78-79)
 
 per `_splice` requirement in `system_prompt.py:360-377`. **PASS.**
 
-### E.2 Live `InputPort`/`OutputPort` API in `scieasy-write-block` skill
+### E.2 Live `InputPort`/`OutputPort` API in `scistudio-write-block` skill
 
 Skill worked example uses the live dataclass API:
 
@@ -410,7 +410,7 @@ output_ports: ClassVar[list[OutputPort]] = [
 ]
 ```
 
-`src/scieasy/blocks/base/ports.py:23-34` confirms `accepted_types: list[type]`
+`src/scistudio/blocks/base/ports.py:23-34` confirms `accepted_types: list[type]`
 (not `expected_type: str`). The skill matches the live API.
 
 ADR-040 §3.2a / AC40-skill §1 finding (port-type narrowness via
@@ -421,24 +421,24 @@ body (sections 3 + 4 of the worked example). **PASS.**
 
 Spot-checks against `await mcp.list_tools()` reveal:
 
-- `scieasy-build-workflow` references `list_blocks`, `list_types`,
+- `scistudio-build-workflow` references `list_blocks`, `list_types`,
   `get_block_schema`, `validate_workflow`, `write_workflow`, `run_workflow`,
   `get_run_status` — all present.
-- `scieasy-write-block` references `list_blocks` (#875 reuse), `list_types`
+- `scistudio-write-block` references `list_blocks` (#875 reuse), `list_types`
   (port narrowness), `scaffold_block` (`warnings`), `run_block_tests`,
   `reload_blocks` — all present.
-- `scieasy-debug-run` references `get_run_status`, `get_block_logs`,
+- `scistudio-debug-run` references `get_run_status`, `get_block_logs`,
   `get_lineage`, `inspect_data`, `finish_ai_block` — all present.
-- `scieasy-inspect-data` references `inspect_data`, `preview_data`,
+- `scistudio-inspect-data` references `inspect_data`, `preview_data`,
   `get_lineage`, `get_block_output`, `list_data` — all present.
-- `scieasy-project-qa` references `get_project_info`, `search_docs`,
+- `scistudio-project-qa` references `get_project_info`, `search_docs`,
   `get_doc`, `list_data` — all present.
 
 No tool referenced in a skill is missing from `list_tools()`. **PASS.**
 
 ### E.4 `<project>/CLAUDE.md` + `<project>/AGENTS.md` templates
 
-`src/scieasy/agent_provisioning/templates/claude_agents_md.md` ships the
+`src/scistudio/agent_provisioning/templates/claude_agents_md.md` ships the
 ~50-line template referenced in ADR-040 §3.5 (Phase 2b refined by I40b).
 The `write_claude_agents_md` writer copies the same content to both
 `<project>/CLAUDE.md` and `<project>/AGENTS.md`.
@@ -446,7 +446,7 @@ The `write_claude_agents_md` writer copies the same content to both
 identical` enforces byte-equivalence.
 
 Content is end-user-agent focused (4 non-negotiable rules + skill list +
-project-context section) — distinct from the SciEasy dev `CLAUDE.md`
+project-context section) — distinct from the SciStudio dev `CLAUDE.md`
 (~800 lines of gate workflow content). **PASS.**
 
 ---
@@ -465,16 +465,16 @@ Per the comment "ADR-040 §3.5-3.8: prod-env agent provisioning module". **PASS.
 
 `pyproject.toml [tool.importlinter]` declares 3 forbidden contracts:
 
-1. `scieasy.core` must not import blocks/engine/api/ai/workflow.
-2. `scieasy.blocks` must not import engine/api/ai (one carve-out for
+1. `scistudio.core` must not import blocks/engine/api/ai/workflow.
+2. `scistudio.blocks` must not import engine/api/ai (one carve-out for
    ai_block → pty_control).
-3. `scieasy.engine` must not import api/ai.
+3. `scistudio.engine` must not import api/ai.
 
 `agent_provisioning` is **not** mentioned in any contract. The package
 imports:
-- `scieasy.cli.install._render_codex_block` (private but legal — no
+- `scistudio.cli.install._render_codex_block` (private but legal — no
   contract forbids cross-imports between `agent_provisioning` and `cli`).
-- `scieasy.agent_provisioning.{claude_agents_md, codex_config, hooks,
+- `scistudio.agent_provisioning.{claude_agents_md, codex_config, hooks,
   skills}` (intra-package).
 
 **No contract violations.** **PASS** with the **P3 design note** in §B.13.
@@ -565,19 +565,19 @@ the frontend has no impact.
 - **P2-A2-05**: `docs/agent-provisioning.md` lines 155-158 describe a
   state ("skills ship as placeholders") that I40b PR #1059 already
   superseded. Update text to "Skill bodies authored in I40b PR #1059 ship
-  in the bundled `src/scieasy/_skills/scieasy/` tree" and drop the
+  in the bundled `src/scistudio/_skills/scistudio/` tree" and drop the
   inaccurate `#1013` ref (should be `#1057`).
 
 ### P3 — nice-to-have
 
-- **P3-A2-01**: `src/scieasy/ai/agent/mcp/runtime.py:27-32` module
+- **P3-A2-01**: `src/scistudio/ai/agent/mcp/runtime.py:27-32` module
   docstring describes the S40a-era state ("MCPServer is a FastMCP wrapper
   whose start()/stop() raise NotImplementedError"). Real impl ships
   `start()`/`stop()`/`serve()` fully wired. One-line docstring rewrite.
 - **P3-A2-02**: `tests/ai/test_mcp_server_skeleton.py` is entirely skipped
   with stale `_registry` imports in its body. Delete the file or rewrite
   against FastMCP — small housekeeping follow-up.
-- **P3-A2-03**: `src/scieasy/cli/install.py` module docstring line 5 says
+- **P3-A2-03**: `src/scistudio/cli/install.py` module docstring line 5 says
   "the full 25-tool MCP surface". Update to 26 (or drop the count and link
   to ADR-040).
 - **P3-A2-04**: `agent_provisioning/codex_config.py` reaches into

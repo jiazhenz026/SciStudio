@@ -1,4 +1,4 @@
-"""CLI smoke tests for scieasy commands."""
+"""CLI smoke tests for scistudio commands."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 import yaml
 from typer.testing import CliRunner
 
-from scieasy.cli.main import app
+from scistudio.cli.main import app
 
 runner = CliRunner()
 
@@ -23,7 +23,7 @@ class TestCLIHelp:
 
 
 class TestCLIInit:
-    """Tests for the ``scieasy init`` command."""
+    """Tests for the ``scistudio init`` command."""
 
     def test_init_creates_workspace(self, tmp_path: Path, monkeypatch: object) -> None:
         monkeypatch.chdir(tmp_path)  # type: ignore[union-attr]
@@ -37,9 +37,9 @@ class TestCLIInit:
         assert (tmp_path / "test_proj" / "data" / "artifacts").is_dir()
         assert (tmp_path / "test_proj" / "blocks").is_dir()
         assert (tmp_path / "test_proj" / "types").is_dir()
-        # ADR-038 §3.5 / §5.2: lineage history lives under ``.scieasy/`` now;
+        # ADR-038 §3.5 / §5.2: lineage history lives under ``.scistudio/`` now;
         # the legacy ``checkpoints/`` and ``lineage/`` top-level dirs are gone.
-        assert (tmp_path / "test_proj" / ".scieasy").is_dir()
+        assert (tmp_path / "test_proj" / ".scistudio").is_dir()
         assert (tmp_path / "test_proj" / "logs").is_dir()
         assert (tmp_path / "test_proj" / "project.yaml").is_file()
 
@@ -72,7 +72,7 @@ class TestCLIInit:
 
 
 class TestCLIBlocks:
-    """Tests for the ``scieasy blocks`` command."""
+    """Tests for the ``scistudio blocks`` command."""
 
     def test_blocks_runs_without_error(self) -> None:
         result = runner.invoke(app, ["blocks"])
@@ -86,7 +86,7 @@ class TestCLIBlocks:
 
 
 class TestCLIServe:
-    """Tests for the ``scieasy serve`` command."""
+    """Tests for the ``scistudio serve`` command."""
 
     def test_serve_starts_uvicorn_with_factory(self, monkeypatch: object) -> None:
         calls: dict[str, object] = {}
@@ -104,9 +104,9 @@ class TestCLIServe:
         monkeypatch.setattr("uvicorn.run", fake_run)  # type: ignore[union-attr]
         result = runner.invoke(app, ["serve"])
         assert result.exit_code == 0
-        assert "Starting SciEasy server on 0.0.0.0:8000" in result.output
+        assert "Starting SciStudio server on 0.0.0.0:8000" in result.output
         assert calls == {
-            "app_target": "scieasy.api.app:create_app",
+            "app_target": "scistudio.api.app:create_app",
             "host": "0.0.0.0",
             "port": 8000,
             "factory": True,
@@ -142,12 +142,12 @@ class TestCLIServe:
 
 
 class TestCLIGui:
-    """Tests for the ``scieasy gui`` command."""
+    """Tests for the ``scistudio gui`` command."""
 
     def test_gui_help_prints_usage(self) -> None:
         result = runner.invoke(app, ["gui", "--help"])
         assert result.exit_code == 0
-        assert "Launch SciEasy GUI" in result.output
+        assert "Launch SciStudio GUI" in result.output
 
     def test_gui_starts_uvicorn_with_factory(self, monkeypatch: object) -> None:
         calls: dict[str, object] = {}
@@ -159,7 +159,7 @@ class TestCLIGui:
         result = runner.invoke(app, ["gui", "--no-browser"])
         assert result.exit_code == 0
         assert calls == {
-            "app_target": "scieasy.api.app:create_app",
+            "app_target": "scistudio.api.app:create_app",
             "host": "0.0.0.0",
             "port": 8000,
             "factory": True,
@@ -194,7 +194,7 @@ class TestCLIGui:
 
 
 class TestCLIValidate:
-    """Tests for the ``scieasy validate`` command."""
+    """Tests for the ``scistudio validate`` command."""
 
     def test_validate_missing_file(self) -> None:
         result = runner.invoke(app, ["validate", "nonexistent.yaml"])
@@ -227,7 +227,7 @@ class TestCLIValidate:
 
 
 class TestCLIRun:
-    """Tests for the ``scieasy run`` command."""
+    """Tests for the ``scistudio run`` command."""
 
     def test_run_missing_file(self) -> None:
         result = runner.invoke(app, ["run", "nonexistent.yaml"])

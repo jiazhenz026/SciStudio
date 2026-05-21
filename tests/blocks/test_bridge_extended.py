@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 import pytest
 
-from scieasy.blocks.app.bridge import FileExchangeBridge, _guess_mime
-from scieasy.blocks.app.watcher import FileWatcher
+from scistudio.blocks.app.bridge import FileExchangeBridge, _guess_mime
+from scistudio.blocks.app.watcher import FileWatcher
 
 
 class TestBridgeGuessMime:
@@ -42,7 +42,7 @@ class TestBridgeLaunchArgvOverride:
         bridge = FileExchangeBridge()
         file_paths = ["/data/sample1.mzXML", "/data/sample2.mzML"]
 
-        with patch("scieasy.blocks.app.bridge.subprocess.Popen") as mock_popen:
+        with patch("scistudio.blocks.app.bridge.subprocess.Popen") as mock_popen:
             mock_popen.return_value.pid = 12345
             bridge.launch(["echo"], tmp_path, argv_override=file_paths)
 
@@ -55,7 +55,7 @@ class TestBridgeLaunchArgvOverride:
         """Without argv_override, the exchange_dir is appended as trailing arg."""
         bridge = FileExchangeBridge()
 
-        with patch("scieasy.blocks.app.bridge.subprocess.Popen") as mock_popen:
+        with patch("scistudio.blocks.app.bridge.subprocess.Popen") as mock_popen:
             mock_popen.return_value.pid = 12345
             bridge.launch(["echo"], tmp_path)
 

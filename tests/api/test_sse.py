@@ -6,8 +6,8 @@ import asyncio
 import json
 from collections.abc import AsyncIterator
 
-from scieasy.api.runtime import ApiRuntime
-from scieasy.api.sse import sse_handler
+from scistudio.api.runtime import ApiRuntime
+from scistudio.api.sse import sse_handler
 
 
 class _FakeRequest:

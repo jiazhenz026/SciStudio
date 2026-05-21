@@ -2,7 +2,7 @@
 
 ## Task Identity
 
-- Repository: SciEasy
+- Repository: SciStudio
 - Owner request: Migrate in-tree `LoadData` / `SaveData` core IO blocks to ADR-043 explicit `FormatCapability` declarations; delete legacy `supported_extensions` ClassVar.
 - Task kind: refactor
 - Persona: implementer
@@ -32,8 +32,8 @@ Read and follow:
 
 You own only:
 
-- `src/scieasy/blocks/io/loaders/load_data.py`
-- `src/scieasy/blocks/io/savers/save_data.py`
+- `src/scistudio/blocks/io/loaders/load_data.py`
+- `src/scistudio/blocks/io/savers/save_data.py`
 - `tests/blocks/io/test_load_data_capabilities.py` (create)
 - `tests/blocks/io/test_save_data_capabilities.py` (create)
 - `CHANGELOG.md` (Unreleased entry only)
@@ -42,11 +42,11 @@ You own only:
 
 You must not touch:
 
-- `src/scieasy/blocks/io/io_block.py` — base class; `supported_extensions` ClassVar stays for unmigrated third-party packages (FR-003 explicitly scopes the delete to LoadData/SaveData only).
-- `src/scieasy/blocks/io/capabilities.py`, `simple_io.py`, `materialisation.py` — already migrated infrastructure.
-- `src/scieasy/blocks/registry.py` — already capability-aware.
-- `src/scieasy/engine/**`, `src/scieasy/workflow/validator.py` — out of scope.
-- `packages/scieasy-blocks-imaging/**`, `packages/scieasy-blocks-srs/**`, `packages/scieasy-blocks-lcms/**` — other agents.
+- `src/scistudio/blocks/io/io_block.py` — base class; `supported_extensions` ClassVar stays for unmigrated third-party packages (FR-003 explicitly scopes the delete to LoadData/SaveData only).
+- `src/scistudio/blocks/io/capabilities.py`, `simple_io.py`, `materialisation.py` — already migrated infrastructure.
+- `src/scistudio/blocks/registry.py` — already capability-aware.
+- `src/scistudio/engine/**`, `src/scistudio/workflow/validator.py` — out of scope.
+- `packages/scistudio-blocks-imaging/**`, `packages/scistudio-blocks-srs/**`, `packages/scistudio-blocks-lcms/**` — other agents.
 - `frontend/src/**` — A3 agent.
 - The spec doc, the manager checklist (except your own rows), other agents' branches/worktrees.
 
@@ -103,14 +103,14 @@ Known deferred items:
 
 - `pytest tests/blocks/io/test_load_data_capabilities.py tests/blocks/io/test_save_data_capabilities.py --timeout=60` — must pass.
 - `pytest tests/blocks/io/` targeted for any tests that touch LoadData/SaveData — verify no pre-existing regression.
-- `ruff check src/scieasy/blocks/io/loaders/ src/scieasy/blocks/io/savers/ tests/blocks/io/`
-- `ruff format --check src/scieasy/blocks/io/loaders/ src/scieasy/blocks/io/savers/ tests/blocks/io/`
-- `python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` — record evidence path in your gate record. Pre-existing repo-wide findings are owner-acknowledged debt; if your changes add NEW findings, fix them.
+- `ruff check src/scistudio/blocks/io/loaders/ src/scistudio/blocks/io/savers/ tests/blocks/io/`
+- `ruff format --check src/scistudio/blocks/io/loaders/ src/scistudio/blocks/io/savers/ tests/blocks/io/`
+- `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` — record evidence path in your gate record. Pre-existing repo-wide findings are owner-acknowledged debt; if your changes add NEW findings, fix them.
 - Sentrux: if Sentrux MCP/CLI is unavailable in your worktree, record `--status skipped` with rationale "Sentrux CLI unavailable; tests + ruff + full_audit cover the change surface and changes are scoped to canonical IO block declarations".
 
 ## Gate Record Stages You Must Execute
 
-Use `python -m scieasy.qa.governance.gate_record` with your own record path.
+Use `python -m scistudio.qa.governance.gate_record` with your own record path.
 
 1. `start --task-kind refactor --issue 1296 --slug a1-core-io --branch feat/issue-1296/adr043-a1-core-io --owner-directive "Phase A1: migrate LoadData/SaveData to explicit ADR-043 FormatCapability per spec FR-001..FR-003" --include <each file> --record-path .workflow/records/1296-a1-core-io.json`
 2. `plan --planned-file <each> --required-check ruff --required-check format --required-check pytest --required-check full_audit --docs "CHANGELOG.md"`

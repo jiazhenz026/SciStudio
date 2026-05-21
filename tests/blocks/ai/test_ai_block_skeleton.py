@@ -11,13 +11,13 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.blocks.ai.ai_block import (
+from scistudio.blocks.ai.ai_block import (
     _BYPASS_FLAG,
     AIBlock,
     _output_path_overrides,
 )
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.state import BlockState, ExecutionMode
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.state import BlockState, ExecutionMode
 from tests.blocks.ai.conftest import StubAgent  # type: ignore[import-not-found]
 
 # ---------------------------------------------------------------------------
@@ -62,7 +62,7 @@ def _config(**kwargs: object) -> BlockConfig:
 
 def test_build_argv_claude_safe_mode(project_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Patch discovery so we don't need claude installed.
-    from scieasy.blocks.ai import ai_block as mod
+    from scistudio.blocks.ai import ai_block as mod
 
     monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/claude")
     block = AIBlock()
@@ -80,7 +80,7 @@ def test_build_argv_claude_safe_mode(project_dir: Path, monkeypatch: pytest.Monk
 
 
 def test_build_argv_claude_bypass_uses_bypass_permissions(project_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from scieasy.blocks.ai import ai_block as mod
+    from scistudio.blocks.ai import ai_block as mod
 
     monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/claude")
     block = AIBlock()
@@ -96,7 +96,7 @@ def test_build_argv_claude_bypass_uses_bypass_permissions(project_dir: Path, mon
 
 
 def test_build_argv_codex_bypass_uses_dangerously_bypass(project_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from scieasy.blocks.ai import ai_block as mod
+    from scistudio.blocks.ai import ai_block as mod
 
     monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/codex")
     block = AIBlock()
@@ -113,7 +113,7 @@ def test_build_argv_unknown_provider_raises(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_build_argv_missing_binary_raises(monkeypatch: pytest.MonkeyPatch) -> None:
-    from scieasy.blocks.ai import ai_block as mod
+    from scistudio.blocks.ai import ai_block as mod
 
     monkeypatch.setattr(mod, "_discover_provider", lambda _p: None)
     block = AIBlock()
@@ -130,7 +130,7 @@ def test_build_argv_missing_binary_raises(monkeypatch: pytest.MonkeyPatch) -> No
 def test_validate_succeeds_when_provider_installed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from scieasy.blocks.ai import ai_block as mod
+    from scistudio.blocks.ai import ai_block as mod
 
     monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/claude")
     block = AIBlock()
@@ -140,16 +140,16 @@ def test_validate_succeeds_when_provider_installed(
 def test_validate_fails_with_install_hint_when_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from scieasy.blocks.ai import ai_block as mod
+    from scistudio.blocks.ai import ai_block as mod
 
     monkeypatch.setattr(mod, "_discover_provider", lambda _p: None)
     block = AIBlock()
-    with pytest.raises(ValueError, match="scieasy install"):
+    with pytest.raises(ValueError, match="scistudio install"):
         block.validate_config(_config(provider="claude-code", user_prompt="hi"))
 
 
 def test_validate_rejects_empty_prompt(monkeypatch: pytest.MonkeyPatch) -> None:
-    from scieasy.blocks.ai import ai_block as mod
+    from scistudio.blocks.ai import ai_block as mod
 
     monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/claude")
     block = AIBlock()
@@ -158,7 +158,7 @@ def test_validate_rejects_empty_prompt(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_validate_rejects_negative_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
-    from scieasy.blocks.ai import ai_block as mod
+    from scistudio.blocks.ai import ai_block as mod
 
     monkeypatch.setattr(mod, "_discover_provider", lambda _p: "/fake/claude")
     block = AIBlock()
@@ -210,7 +210,7 @@ def test_run_writes_manifest_with_correct_shape(project_dir: Path, stub_agent: S
     block.run(inputs={}, config=cfg)
 
     # Find the run dir created by the block.
-    runs_root = project_dir / ".scieasy" / "ai-block-runs"
+    runs_root = project_dir / ".scistudio" / "ai-block-runs"
     run_dirs = list(runs_root.iterdir())
     assert len(run_dirs) == 1
     manifest = json.loads((run_dirs[0] / "manifest.json").read_text(encoding="utf-8"))
@@ -325,7 +325,7 @@ def test_run_validation_fail_returns_error_state(project_dir: Path, stub_agent: 
     # skeleton-phase test — both transition the block to ERROR and preserve
     # the run_dir, which is what this test verifies. Relaxing the regex
     # unblocks Python 3.11 CI on docs-only PRs (#909 tracks the proper fix
-    # — error-path distinction belongs in src/scieasy/blocks/ai/, not here).
+    # — error-path distinction belongs in src/scistudio/blocks/ai/, not here).
     stub_agent.outputs = {"out": ("out.csv", "")}
     stub_agent.finish_via = "mcp"
     block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
@@ -339,7 +339,7 @@ def test_run_validation_fail_returns_error_state(project_dir: Path, stub_agent: 
         block.run(inputs={}, config=cfg)
     assert block.state is BlockState.ERROR
     # Run dir preserved.
-    runs_root = project_dir / ".scieasy" / "ai-block-runs"
+    runs_root = project_dir / ".scistudio" / "ai-block-runs"
     assert any(p.is_dir() for p in runs_root.iterdir())
 
 

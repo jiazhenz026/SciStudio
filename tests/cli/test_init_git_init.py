@@ -1,4 +1,4 @@
-"""Tests for ``scieasy init`` git-init parity (ADR-039 §6 Phase 1)."""
+"""Tests for ``scistudio init`` git-init parity (ADR-039 §6 Phase 1)."""
 
 from __future__ import annotations
 
@@ -7,13 +7,13 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from scieasy.cli.main import app
+from scistudio.cli.main import app
 
 runner = CliRunner()
 
 
 def test_cli_init_creates_git_repo(tmp_path: Path, monkeypatch) -> None:
-    """``scieasy init <name>`` creates a project with .git/ initialized."""
+    """``scistudio init <name>`` creates a project with .git/ initialized."""
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["init", "my_project"])
     assert result.exit_code == 0, result.output
@@ -26,10 +26,10 @@ def test_cli_init_creates_git_repo(tmp_path: Path, monkeypatch) -> None:
 def test_cli_init_degraded_mode_when_git_unavailable(tmp_path: Path, monkeypatch) -> None:
     """When ``GitBinary.locate`` raises BundledGitMissing, init still succeeds."""
     monkeypatch.chdir(tmp_path)
-    from scieasy.core.versioning.git_binary import BundledGitMissing
+    from scistudio.core.versioning.git_binary import BundledGitMissing
 
     with patch(
-        "scieasy.core.versioning.git_binary.GitBinary.locate",
+        "scistudio.core.versioning.git_binary.GitBinary.locate",
         side_effect=BundledGitMissing("no git for test"),
     ):
         result = runner.invoke(app, ["init", "degraded_project"])
@@ -45,7 +45,7 @@ def test_cli_init_degraded_mode_when_git_unavailable(tmp_path: Path, monkeypatch
 
 
 def test_cli_init_provisions_adr040_assets(tmp_path: Path, monkeypatch) -> None:
-    """ADR-040 §3.8: ``scieasy init`` provisions CLAUDE.md / hooks / codex config."""
+    """ADR-040 §3.8: ``scistudio init`` provisions CLAUDE.md / hooks / codex config."""
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["init", "adr040_project"])
     assert result.exit_code == 0, result.output
@@ -54,5 +54,5 @@ def test_cli_init_provisions_adr040_assets(tmp_path: Path, monkeypatch) -> None:
     assert (project / "CLAUDE.md").is_file()
     assert (project / "AGENTS.md").is_file()
     assert (project / ".claude" / "settings.json").is_file()
-    assert (project / ".claude" / "hooks" / "deny_scieasy_cli.py").is_file()
+    assert (project / ".claude" / "hooks" / "deny_scistudio_cli.py").is_file()
     assert (project / ".codex" / "config.toml").is_file()

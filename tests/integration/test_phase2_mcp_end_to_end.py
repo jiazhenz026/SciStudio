@@ -19,10 +19,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from scieasy.ai.agent.mcp import _context
-from scieasy.ai.agent.mcp.server import MCPServer
-from scieasy.blocks.registry import BlockRegistry
-from scieasy.core.types.registry import TypeRegistry
+from scistudio.ai.agent.mcp import _context
+from scistudio.ai.agent.mcp.server import MCPServer
+from scistudio.blocks.registry import BlockRegistry
+from scistudio.core.types.registry import TypeRegistry
 
 
 @dataclass
@@ -66,7 +66,7 @@ async def _test_mcp_server_initialize_tools_list_and_call(tmp_path: Path) -> Non
     runtime.type_registry.scan_builtins()
     _context.set_context(runtime)
 
-    socket_path = tmp_path / ".scieasy" / "mcp.sock"
+    socket_path = tmp_path / ".scistudio" / "mcp.sock"
     server = MCPServer(socket_path=socket_path, project_dir=tmp_path)
     try:
         await server.start()
@@ -74,7 +74,7 @@ async def _test_mcp_server_initialize_tools_list_and_call(tmp_path: Path) -> Non
         # initialize handshake
         init = await _connect_and_call(server, {"jsonrpc": "2.0", "id": 1, "method": "initialize"})
         assert "result" in init
-        assert init["result"]["serverInfo"]["name"] == "scieasy-mcp"
+        assert init["result"]["serverInfo"]["name"] == "scistudio-mcp"
 
         # tools/list — expect all 26 (25 baseline + finish_ai_block from ADR-035)
         listed = await _connect_and_call(server, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})

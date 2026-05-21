@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from scieasy.qa.governance.issue_link import (
+from scistudio.qa.governance.issue_link import (
     IssueQuery,
     IssueRecord,
     check,
     closing_issue_numbers,
     resolve_or_create,
 )
-from scieasy.qa.schemas.report import AuditStatus
+from scistudio.qa.schemas.report import AuditStatus
 
 
 class FixtureIssueClient:
@@ -20,11 +20,11 @@ class FixtureIssueClient:
 
     def create_issue(self, query: IssueQuery) -> IssueRecord:
         self.created.append(query)
-        return IssueRecord(number=77, url="https://github.com/zjzcpj/SciEasy/issues/77")
+        return IssueRecord(number=77, url="https://github.com/zjzcpj/SciStudio/issues/77")
 
 
 def test_resolve_or_create_prefers_existing_issue() -> None:
-    client = FixtureIssueClient([IssueRecord(number=42, url="https://github.com/zjzcpj/SciEasy/issues/42")])
+    client = FixtureIssueClient([IssueRecord(number=42, url="https://github.com/zjzcpj/SciStudio/issues/42")])
 
     record = resolve_or_create(IssueQuery(title="gate work"), client=client, create_if_missing=True)
 
@@ -43,7 +43,7 @@ def test_resolve_or_create_can_use_fixture_create_client() -> None:
 
 def test_check_requires_pr_body_closing_keywords() -> None:
     report = check(
-        issues=[{"number": 1271, "url": "https://github.com/zjzcpj/SciEasy/issues/1271"}],
+        issues=[{"number": 1271, "url": "https://github.com/zjzcpj/SciStudio/issues/1271"}],
         pr_body="Refs #1271",
         require_closing=True,
     )
@@ -55,10 +55,10 @@ def test_check_requires_pr_body_closing_keywords() -> None:
 def test_check_accepts_closing_keywords_for_multiple_issues() -> None:
     report = check(
         issues=[
-            {"number": 1271, "url": "https://github.com/zjzcpj/SciEasy/issues/1271"},
-            {"number": 1266, "url": "https://github.com/zjzcpj/SciEasy/issues/1266"},
+            {"number": 1271, "url": "https://github.com/zjzcpj/SciStudio/issues/1271"},
+            {"number": 1266, "url": "https://github.com/zjzcpj/SciStudio/issues/1266"},
         ],
-        pr_body="Closes #1271\nFixes https://github.com/zjzcpj/SciEasy/issues/1266",
+        pr_body="Closes #1271\nFixes https://github.com/zjzcpj/SciStudio/issues/1266",
         require_closing=True,
     )
 
@@ -68,7 +68,7 @@ def test_check_accepts_closing_keywords_for_multiple_issues() -> None:
 
 def test_check_rejects_mismatched_issue_url() -> None:
     report = check(
-        issues=[{"number": 1271, "url": "https://github.com/zjzcpj/SciEasy/issues/1266"}],
+        issues=[{"number": 1271, "url": "https://github.com/zjzcpj/SciStudio/issues/1266"}],
         require_closing=False,
     )
 

@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "scieasy"
+SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "scistudio"
 
 
 # ---------------------------------------------------------------------------
@@ -27,7 +27,7 @@ SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "scieasy"
 
 
 def test_no_stray_files_in_package_root() -> None:
-    """Only Python dunder bootstrap files may sit directly in ``src/scieasy/``.
+    """Only Python dunder bootstrap files may sit directly in ``src/scistudio/``.
 
     The original rule was a hard-equals on ``["__init__.py"]`` to keep
     drive-by ``foo.py`` from accumulating at the top level. Evolved
@@ -39,11 +39,11 @@ def test_no_stray_files_in_package_root() -> None:
     Files allowed:
 
     * ``__init__.py`` — package init (always required).
-    * ``__main__.py`` — enables ``python -m scieasy ...`` dispatch.
-      Every ``.scieasy/mcp.json`` invokes the bridge via
-      ``{sys.executable} -m scieasy mcp-bridge`` so the bridge always
+    * ``__main__.py`` — enables ``python -m scistudio ...`` dispatch.
+      Every ``.scistudio/mcp.json`` invokes the bridge via
+      ``{sys.executable} -m scistudio mcp-bridge`` so the bridge always
       runs from the same interpreter that emitted the manifest
-      (avoids the PATH-shadowed ``scieasy.EXE`` foot-gun the
+      (avoids the PATH-shadowed ``scistudio.EXE`` foot-gun the
       2026-05-14 hotfix originally addressed).
 
     Anything else stays in a subpackage.
@@ -168,15 +168,15 @@ def test_process_contrib_directory_removed() -> None:
     package pattern. The four 1-line stub modules and their parent
     directory were deleted by T-TRK-001 (Phase 11 master plan §2.5
     sub-1a). The real ``CellposeSegment`` implementation lives in
-    ``packages/scieasy-blocks-imaging/`` per T-IMG-019. This regression
+    ``packages/scistudio-blocks-imaging/`` per T-IMG-019. This regression
     test prevents the directory from being silently re-introduced.
     """
     contrib_dir = SRC_ROOT / "blocks" / "process" / "contrib"
     assert not contrib_dir.exists(), (
         f"{contrib_dir.relative_to(SRC_ROOT)} must not exist — the contrib "
         "pattern was deleted in T-TRK-001 (Phase 11). Add new process "
-        "blocks to scieasy/blocks/process/builtins/ or to a plugin "
-        "package under packages/scieasy-blocks-*/."
+        "blocks to scistudio/blocks/process/builtins/ or to a plugin "
+        "package under packages/scistudio-blocks-*/."
     )
 
 
@@ -196,8 +196,8 @@ def test_adapters_directory_removed() -> None:
     assert not adapters_dir.exists(), (
         f"{adapters_dir.relative_to(SRC_ROOT)} must not exist — the bundled "
         "adapter layer was deleted in T-TRK-004 (Phase 11). Plugin IO "
-        "blocks subclass scieasy.blocks.io.io_block.IOBlock and register "
-        "via the scieasy.blocks entry-point group per ADR-028 §D1/§D4."
+        "blocks subclass scistudio.blocks.io.io_block.IOBlock and register "
+        "via the scistudio.blocks entry-point group per ADR-028 §D1/§D4."
     )
 
 

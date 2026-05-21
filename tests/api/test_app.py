@@ -13,8 +13,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.testclient import TestClient
 
-from scieasy.api.app import _resolve_spa_static_dir, create_app, lifespan
-from scieasy.engine.runners.process_handle import ProcessRegistry
+from scistudio.api.app import _resolve_spa_static_dir, create_app, lifespan
+from scistudio.engine.runners.process_handle import ProcessRegistry
 
 
 class TestCreateApp:
@@ -28,7 +28,7 @@ class TestCreateApp:
     def test_app_title(self) -> None:
         """App has correct title metadata."""
         app = create_app()
-        assert app.title == "SciEasy API"
+        assert app.title == "SciStudio API"
 
     def test_app_version(self) -> None:
         """App has the expected version string."""
@@ -52,7 +52,7 @@ class TestLifespan:
 
     def test_lifespan_creates_runtime(self) -> None:
         """Lifespan startup creates an ApiRuntime on app.state."""
-        from scieasy.api.runtime import ApiRuntime
+        from scistudio.api.runtime import ApiRuntime
 
         async def _run() -> None:
             app = FastAPI()
@@ -89,11 +89,11 @@ class TestLifespan:
         Importing it must raise ImportError now that the polling watcher
         was collapsed into ``workflow_watcher._GitHeadHandler``.
         """
-        import scieasy.core.versioning as versioning_pkg
+        import scistudio.core.versioning as versioning_pkg
 
         assert "GitChangeWatcher" not in versioning_pkg.__all__
         with pytest.raises(ImportError):
-            from scieasy.core.versioning import GitChangeWatcher  # noqa: F401
+            from scistudio.core.versioning import GitChangeWatcher  # noqa: F401
 
     def test_lifespan_calls_terminate_all_on_shutdown(self) -> None:
         """Lifespan shutdown calls terminate_all on the registry."""
@@ -124,8 +124,8 @@ class TestCORSOrigins:
     """Tests for CORS origin configuration."""
 
     def test_default_cors_restricts_to_localhost(self, monkeypatch: object) -> None:
-        """Without SCIEASY_CORS_ORIGINS env var, only localhost origins are allowed."""
-        monkeypatch.delenv("SCIEASY_CORS_ORIGINS", raising=False)  # type: ignore[union-attr]
+        """Without SCISTUDIO_CORS_ORIGINS env var, only localhost origins are allowed."""
+        monkeypatch.delenv("SCISTUDIO_CORS_ORIGINS", raising=False)  # type: ignore[union-attr]
         app = create_app()
         cors_mw = next(
             (m for m in app.user_middleware if m.cls is CORSMiddleware),
@@ -138,8 +138,8 @@ class TestCORSOrigins:
         assert "*" not in allowed
 
     def test_cors_env_var_wildcard(self, monkeypatch: object) -> None:
-        """SCIEASY_CORS_ORIGINS=* allows all origins."""
-        monkeypatch.setenv("SCIEASY_CORS_ORIGINS", "*")  # type: ignore[union-attr]
+        """SCISTUDIO_CORS_ORIGINS=* allows all origins."""
+        monkeypatch.setenv("SCISTUDIO_CORS_ORIGINS", "*")  # type: ignore[union-attr]
         app = create_app()
         cors_mw = next(
             (m for m in app.user_middleware if m.cls is CORSMiddleware),
@@ -149,8 +149,8 @@ class TestCORSOrigins:
         assert cors_mw.kwargs.get("allow_origins") == ["*"]
 
     def test_cors_env_var_custom(self, monkeypatch: object) -> None:
-        """SCIEASY_CORS_ORIGINS with custom comma-separated origins."""
-        monkeypatch.setenv("SCIEASY_CORS_ORIGINS", "http://localhost:3000, http://localhost:4000")  # type: ignore[union-attr]
+        """SCISTUDIO_CORS_ORIGINS with custom comma-separated origins."""
+        monkeypatch.setenv("SCISTUDIO_CORS_ORIGINS", "http://localhost:3000, http://localhost:4000")  # type: ignore[union-attr]
         app = create_app()
         cors_mw = next(
             (m for m in app.user_middleware if m.cls is CORSMiddleware),
@@ -167,9 +167,9 @@ class TestStaticMount:
 
     def test_no_static_mount_when_dir_absent(self, tmp_path: Path, monkeypatch: object) -> None:
         """When no SPA bundle is resolved, root redirects to /docs."""
-        import scieasy.api.app as app_mod
+        import scistudio.api.app as app_mod
 
-        fake_app_py = tmp_path / "src" / "scieasy" / "api" / "app.py"
+        fake_app_py = tmp_path / "src" / "scistudio" / "api" / "app.py"
         fake_app_py.parent.mkdir(parents=True, exist_ok=True)
         fake_app_py.write_text("", encoding="utf-8")
         (tmp_path / "pyproject.toml").write_text("", encoding="utf-8")
@@ -182,9 +182,9 @@ class TestStaticMount:
 
     def test_static_mount_when_dir_exists(self, tmp_path: Path, monkeypatch: object) -> None:
         """When static dir exists, SPA mount serves index.html."""
-        import scieasy.api.app as app_mod
+        import scistudio.api.app as app_mod
 
-        fake_app_py = tmp_path / "src" / "scieasy" / "api" / "app.py"
+        fake_app_py = tmp_path / "src" / "scistudio" / "api" / "app.py"
         fake_app_py.parent.mkdir(parents=True, exist_ok=True)
         fake_app_py.write_text("", encoding="utf-8")
         static_dir = fake_app_py.parent / "static"
@@ -206,9 +206,9 @@ class TestStaticMount:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Editable-install fallback should warn when frontend/src is newer than dist."""
-        import scieasy.api.app as app_mod
+        import scistudio.api.app as app_mod
 
-        fake_app_py = tmp_path / "src" / "scieasy" / "api" / "app.py"
+        fake_app_py = tmp_path / "src" / "scistudio" / "api" / "app.py"
         fake_app_py.parent.mkdir(parents=True, exist_ok=True)
         fake_app_py.write_text("", encoding="utf-8")
         (tmp_path / "pyproject.toml").write_text("", encoding="utf-8")
@@ -239,7 +239,7 @@ class TestGetProcessRegistry:
 
     def test_returns_registry_from_app_state(self) -> None:
         """Returns the ProcessRegistry when it exists on app.state."""
-        from scieasy.api.deps import get_process_registry
+        from scistudio.api.deps import get_process_registry
 
         mock_request = MagicMock()
         mock_request.app.state.registry = ProcessRegistry()
@@ -250,7 +250,7 @@ class TestGetProcessRegistry:
         """Raises RuntimeError when registry is not on app.state."""
         import pytest
 
-        from scieasy.api.deps import get_process_registry
+        from scistudio.api.deps import get_process_registry
 
         mock_request = MagicMock()
         # Simulate state without registry attribute

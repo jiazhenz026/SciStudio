@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from scieasy.qa.audit.facts import load_facts
+from scistudio.qa.audit.facts import load_facts
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 

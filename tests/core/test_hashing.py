@@ -5,9 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pyarrow as pa
 
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
-from scieasy.utils.hashing import collection_hashes, content_hash
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
+from scistudio.utils.hashing import collection_hashes, content_hash
 
 
 class TestContentHash:

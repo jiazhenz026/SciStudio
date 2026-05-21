@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.state import ExecutionMode
-from scieasy.blocks.process.builtins.pair_editor import PairEditor
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.state import ExecutionMode
+from scistudio.blocks.process.builtins.pair_editor import PairEditor
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
 
 
 class StubItem(DataObject):

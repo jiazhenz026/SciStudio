@@ -2,9 +2,9 @@
 
 ADR-017: All block execution happens in isolated subprocesses.
 ADR-027 D11 + Addendum 1 §1 (T-014): ``reconstruct_inputs`` returns
-typed :class:`~scieasy.core.types.base.DataObject` instances;
+typed :class:`~scistudio.core.types.base.DataObject` instances;
 ``serialise_outputs`` writes the full typed metadata sidecar via
-:func:`~scieasy.core.types.serialization._serialise_one`.
+:func:`~scistudio.core.types.serialization._serialise_one`.
 ADR-031 D2: ViewProxy eliminated.
 """
 
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.engine.runners.worker import (
+from scistudio.engine.runners.worker import (
     main,
     reconstruct_inputs,
     serialise_outputs,
@@ -41,7 +41,7 @@ class TestReconstructInputs:
         """ADR-027 Addendum 1 §1 (T-014): dicts with backend/path reconstruct
         into typed DataObject instances.
         """
-        from scieasy.core.types.array import Array
+        from scistudio.core.types.array import Array
 
         payload = {
             "inputs": {
@@ -90,8 +90,8 @@ class TestSerialiseOutputs:
         """ADR-027 Addendum 1 §1 (T-014): typed DataObject outputs use the
         full metadata sidecar (type_chain + framework + meta + user + extras).
         """
-        from scieasy.core.storage.ref import StorageReference
-        from scieasy.core.types.array import Array
+        from scistudio.core.storage.ref import StorageReference
+        from scistudio.core.types.array import Array
 
         arr = Array(axes=["y", "x"], shape=(8, 8), dtype="uint8")
         arr._storage_ref = StorageReference(backend="zarr", path="/data/output.zarr", format="zarr")
@@ -127,7 +127,7 @@ class TestSerialiseOutputs:
         The hard gate enforces that all DataObjects must be persisted before
         leaving the worker subprocess. _serialise_one rejects storage_ref=None.
         """
-        from scieasy.core.types.array import Array
+        from scistudio.core.types.array import Array
 
         arr = Array(axes=["y", "x"], shape=(2, 2), dtype="uint8")
         # No storage_ref set → serialise_outputs hard-gates.
@@ -142,8 +142,8 @@ class TestSerialiseOutputs:
         import numpy as np
         import zarr
 
-        from scieasy.core.storage.ref import StorageReference
-        from scieasy.core.types.array import Array
+        from scistudio.core.storage.ref import StorageReference
+        from scistudio.core.types.array import Array
 
         # Write data to zarr first (ADR-031: no _data backdoor).
         zarr_path = str(tmp_path / "test.zarr")
@@ -163,7 +163,7 @@ class TestSerialiseOutputs:
 
     def test_serialise_collection_with_none_item_type(self) -> None:
         """Collection with item_type=None should not crash the worker (#168)."""
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         col = Collection.__new__(Collection)
         col._items = []
@@ -213,7 +213,7 @@ class TestWorkerMain:
         )
 
         result = subprocess.run(
-            [sys.executable, "-m", "scieasy.engine.runners.worker"],
+            [sys.executable, "-m", "scistudio.engine.runners.worker"],
             input=payload,
             capture_output=True,
             text=True,
@@ -263,7 +263,7 @@ class _CancellingStubBlock:
     """
 
     def __init__(self, config: object = None) -> None:
-        from scieasy.blocks.base.state import BlockState
+        from scistudio.blocks.base.state import BlockState
 
         # Accept optional config so worker.py's ``block_cls(config=config)``
         # call site (#883) succeeds; the stub doesn't read it.
@@ -275,7 +275,7 @@ class _CancellingStubBlock:
         self.state = target  # type: ignore[assignment]
 
     def run(self, inputs: dict, config: object) -> dict:
-        from scieasy.blocks.base.state import BlockState
+        from scistudio.blocks.base.state import BlockState
 
         self.state = BlockState.CANCELLED
         return {}
@@ -285,13 +285,13 @@ class _ErroringStubBlock:
     """Block stub that transitions to ERROR inside ``run()`` and returns ``{}``."""
 
     def __init__(self, config: object = None) -> None:
-        from scieasy.blocks.base.state import BlockState
+        from scistudio.blocks.base.state import BlockState
 
         # Accept optional config (#883).
         self.state = BlockState.IDLE
 
     def run(self, inputs: dict, config: object) -> dict:
-        from scieasy.blocks.base.state import BlockState
+        from scistudio.blocks.base.state import BlockState
 
         self.state = BlockState.ERROR
         return {}
@@ -320,7 +320,7 @@ class TestWorkerFinalState:
                 "output_dir": "",
             }
         )
-        # Ensure the subprocess imports the same ``scieasy`` source tree as
+        # Ensure the subprocess imports the same ``scistudio`` source tree as
         # this checkout's ``src/`` rather than any other editable install
         # that may be active in the active interpreter. Walk up from this
         # test file to find ``<repo>/src``. Required when the test runs in
@@ -330,7 +330,7 @@ class TestWorkerFinalState:
         if repo_src.is_dir():
             env["PYTHONPATH"] = str(repo_src) + os.pathsep + env.get("PYTHONPATH", "")
         result = subprocess.run(
-            [sys.executable, "-m", "scieasy.engine.runners.worker"],
+            [sys.executable, "-m", "scistudio.engine.runners.worker"],
             input=payload,
             capture_output=True,
             text=True,

@@ -17,12 +17,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from scieasy.blocks.base.block import Block
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.package_info import PackageInfo
-from scieasy.blocks.registry import BlockRegistry
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.registry import TypeRegistry
+from scistudio.blocks.base.block import Block
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.package_info import PackageInfo
+from scistudio.blocks.registry import BlockRegistry
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.registry import TypeRegistry
 
 # ---------------------------------------------------------------------------
 # Helpers: mock Block subclass and mock entry-point factories
@@ -32,11 +32,11 @@ from scieasy.core.types.registry import TypeRegistry
 def _make_block_class(name: str = "MockBlock", algorithm: str = "mock") -> type:
     """Create a minimal concrete Block subclass for testing.
 
-    D38-3.2: stamp ``__module__`` under the ``scieasy.*`` namespace so
-    :func:`_resolve_distribution_version` returns the running scieasy
+    D38-3.2: stamp ``__module__`` under the ``scistudio.*`` namespace so
+    :func:`_resolve_distribution_version` returns the running scistudio
     version instead of raising :class:`BlockRegistrationError` per
     ADR-038 §3.3. The registry's strict-raise is bypassed for in-tree
-    modules because they read ``scieasy.__version__``.
+    modules because they read ``scistudio.__version__``.
     """
     cls = type(
         name,
@@ -53,8 +53,8 @@ def _make_block_class(name: str = "MockBlock", algorithm: str = "mock") -> type:
         },
     )
     # ``type()`` sets ``__module__`` to ``abc`` (via ABCMeta), which
-    # the registry cannot resolve. Force it under the scieasy namespace.
-    cls.__module__ = "scieasy.blocks._mock_for_integration_tests"
+    # the registry cannot resolve. Force it under the scistudio namespace.
+    cls.__module__ = "scistudio.blocks._mock_for_integration_tests"
     return cls
 
 
@@ -105,7 +105,7 @@ class TestRegistryEntryPointRoundtrip:
             return info, [block_a, block_b]
 
         ep = _make_entry_point("srs-imaging", factory)
-        mock_eps = _make_eps_mock({"scieasy.blocks": [ep]})
+        mock_eps = _make_eps_mock({"scistudio.blocks": [ep]})
 
         reg = BlockRegistry()
         with patch("importlib.metadata.entry_points", return_value=mock_eps):
@@ -130,7 +130,7 @@ class TestRegistryEntryPointRoundtrip:
             return info, [block_cls]
 
         ep = _make_entry_point("genomics", factory)
-        mock_eps = _make_eps_mock({"scieasy.blocks": [ep]})
+        mock_eps = _make_eps_mock({"scistudio.blocks": [ep]})
 
         reg = BlockRegistry()
         with patch("importlib.metadata.entry_points", return_value=mock_eps):
@@ -157,7 +157,7 @@ class TestRegistryEntryPointRoundtrip:
 
         ep_a = _make_entry_point("pkg-a", factory_a)
         ep_b = _make_entry_point("standalone", factory_b)
-        mock_eps = _make_eps_mock({"scieasy.blocks": [ep_a, ep_b]})
+        mock_eps = _make_eps_mock({"scistudio.blocks": [ep_a, ep_b]})
 
         reg = BlockRegistry()
         with patch("importlib.metadata.entry_points", return_value=mock_eps):
@@ -180,7 +180,7 @@ class TestRegistryEntryPointRoundtrip:
             return [cls]
 
         ep = _make_entry_point("simple-package", factory)
-        mock_eps = _make_eps_mock({"scieasy.blocks": [ep]})
+        mock_eps = _make_eps_mock({"scistudio.blocks": [ep]})
 
         reg = BlockRegistry()
         with patch("importlib.metadata.entry_points", return_value=mock_eps):
@@ -201,7 +201,7 @@ class TestRegistryEntryPointRoundtrip:
 
         ep_x = _make_entry_point("x", lambda: (info_x, [cls_x]))
         ep_y = _make_entry_point("y", lambda: (info_y, [cls_y]))
-        mock_eps = _make_eps_mock({"scieasy.blocks": [ep_x, ep_y]})
+        mock_eps = _make_eps_mock({"scistudio.blocks": [ep_x, ep_y]})
 
         reg = BlockRegistry()
         with patch("importlib.metadata.entry_points", return_value=mock_eps):
@@ -226,10 +226,10 @@ class TestTier1DropInEndToEnd:
     """Scaffold a temp block file, scan it, instantiate, run, verify output."""
 
     BLOCK_TEMPLATE = """\
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.core.types.base import DataObject
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.core.types.base import DataObject
 from typing import Any
 
 
@@ -287,12 +287,12 @@ class {class_name}(ProcessBlock):
 
         ADR-038 §3.3: ``block_version`` is force-injected at registry
         scan time. Tier-1 drop-in modules have no PyPI distribution so
-        they fall back to ``scieasy.__version__`` — the class-level
+        they fall back to ``scistudio.__version__`` — the class-level
         ``version`` attribute on the scaffolded block is intentionally
         overridden to remove the historical ``"unknown"`` default and
         keep version provenance honest.
         """
-        from scieasy import __version__ as scieasy_version
+        from scistudio import __version__ as scistudio_version
 
         self._write_block_file(tmp_path, "DiscoverBlock", "Discover Block")
 
@@ -305,7 +305,7 @@ class {class_name}(ProcessBlock):
         spec = specs["Discover Block"]
         assert spec.source == "tier1"
         assert spec.base_category == "process"
-        assert spec.version == scieasy_version
+        assert spec.version == scistudio_version
 
     def test_tier1_instantiate_and_run(self, tmp_path: Path) -> None:
         """A Tier 1 block can be instantiated and executed end-to-end."""
@@ -500,13 +500,13 @@ class TestTypeRegistryEntryPoints:
             reg.scan_all()
 
         loaded_cls = reg.load_class("Array")
-        from scieasy.core.types.array import Array
+        from scistudio.core.types.array import Array
 
         assert loaded_cls is Array
 
     def test_is_instance_check(self) -> None:
         """is_instance() uses the loaded class for isinstance checking."""
-        from scieasy.core.types.array import Array
+        from scistudio.core.types.array import Array
 
         reg = TypeRegistry()
         with patch("importlib.metadata.entry_points", return_value=[]):
@@ -559,7 +559,7 @@ class TestFullIntegration:
             return ("not_package_info", "not_a_list")
 
         ep = _make_entry_point("bad-tuple", bad_factory)
-        mock_eps = _make_eps_mock({"scieasy.blocks": [ep]})
+        mock_eps = _make_eps_mock({"scistudio.blocks": [ep]})
 
         reg = BlockRegistry()
         with (
@@ -577,7 +577,7 @@ class TestFullIntegration:
             return 42
 
         ep = _make_entry_point("bad-return", bad_factory)
-        mock_eps = _make_eps_mock({"scieasy.blocks": [ep]})
+        mock_eps = _make_eps_mock({"scistudio.blocks": [ep]})
 
         reg = BlockRegistry()
         with (
@@ -593,8 +593,8 @@ class TestFullIntegration:
         # Set up a Tier 1 drop-in block.
         dropin = tmp_path / "custom_dropin.py"
         dropin.write_text(
-            "from scieasy.blocks.process.process_block import ProcessBlock\n"
-            "from scieasy.blocks.base.config import BlockConfig\n"
+            "from scistudio.blocks.process.process_block import ProcessBlock\n"
+            "from scistudio.blocks.base.config import BlockConfig\n"
             "from typing import Any\n"
             "\n"
             "class DropinInteg(ProcessBlock):\n"
@@ -611,7 +611,7 @@ class TestFullIntegration:
         cls = _make_block_class("Tier2Integ")
 
         ep = _make_entry_point("integ-ep", lambda: (info, [cls]))
-        mock_eps = _make_eps_mock({"scieasy.blocks": [ep]})
+        mock_eps = _make_eps_mock({"scistudio.blocks": [ep]})
 
         reg = BlockRegistry()
         reg.add_scan_dir(tmp_path)

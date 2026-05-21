@@ -3,7 +3,7 @@
 # Baseline observed by sentrux on 2026-05-20: cycles = 5.
 max_cycles = 5
 # Baseline raised 2026-05-20 to unblock PRs (#1291); ratchet back toward 75
-# after src/scieasy/workflow/validator.py:validate_workflow is split into
+# after src/scistudio/workflow/validator.py:validate_workflow is split into
 # per-check helpers (followup: #1292).
 max_cc = 100
 no_god_files = false
@@ -16,10 +16,10 @@ order = 0
 [[layers]]
 name = "interfaces"
 paths = [
-  "src/scieasy/api/*",
-  "src/scieasy/cli/*",
-  "src/scieasy/ai/*",
-  "src/scieasy/agent_provisioning/*",
+  "src/scistudio/api/*",
+  "src/scistudio/cli/*",
+  "src/scistudio/ai/*",
+  "src/scistudio/agent_provisioning/*",
 ]
 order = 1
 
@@ -31,53 +31,53 @@ order = 2
 [[layers]]
 name = "runtime"
 paths = [
-  "src/scieasy/workflow/*",
-  "src/scieasy/engine/*",
-  "src/scieasy/blocks/*",
+  "src/scistudio/workflow/*",
+  "src/scistudio/engine/*",
+  "src/scistudio/blocks/*",
 ]
 order = 3
 
 [[layers]]
 name = "core"
-paths = ["src/scieasy/core/*"]
+paths = ["src/scistudio/core/*"]
 order = 4
 
 [[boundaries]]
-from = "src/scieasy/core/*"
-to = "src/scieasy/api/*"
+from = "src/scistudio/core/*"
+to = "src/scistudio/api/*"
 reason = "Core contracts must not depend on API or UI entrypoints."
 
 [[boundaries]]
-from = "src/scieasy/core/*"
-to = "src/scieasy/cli/*"
+from = "src/scistudio/core/*"
+to = "src/scistudio/cli/*"
 reason = "Core contracts must not depend on CLI orchestration."
 
 [[boundaries]]
-from = "src/scieasy/core/*"
-to = "src/scieasy/ai/*"
+from = "src/scistudio/core/*"
+to = "src/scistudio/ai/*"
 reason = "AI orchestration must not leak into core contracts."
 
 [[boundaries]]
-from = "src/scieasy/core/*"
-to = "src/scieasy/blocks/*"
+from = "src/scistudio/core/*"
+to = "src/scistudio/blocks/*"
 reason = "Core should define primitive contracts, not depend on block implementations."
 
 [[boundaries]]
-from = "src/scieasy/engine/*"
-to = "src/scieasy/api/*"
+from = "src/scistudio/engine/*"
+to = "src/scistudio/api/*"
 reason = "Runtime execution must not depend on API presentation."
 
 [[boundaries]]
-from = "src/scieasy/engine/*"
-to = "src/scieasy/cli/*"
+from = "src/scistudio/engine/*"
+to = "src/scistudio/cli/*"
 reason = "Runtime execution must not depend on CLI entrypoints."
 
 [[boundaries]]
 from = "packages/*"
-to = "src/scieasy/api/*"
+to = "src/scistudio/api/*"
 reason = "Plugin packages should depend on runtime and block contracts, not API internals."
 
 [[boundaries]]
 from = "packages/*"
-to = "src/scieasy/cli/*"
+to = "src/scistudio/cli/*"
 reason = "Plugin packages should not depend on CLI internals."

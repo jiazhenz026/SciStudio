@@ -17,7 +17,7 @@ pytestmark = pytest.mark.skip(
     reason="S40a skeleton — tool bodies are NotImplementedError stubs. TODO(#1012): I40a Phase 2a restores."
 )
 
-from scieasy.ai.agent.mcp import _context, tools_qa  # noqa: E402
+from scistudio.ai.agent.mcp import _context, tools_qa  # noqa: E402
 
 
 @dataclass

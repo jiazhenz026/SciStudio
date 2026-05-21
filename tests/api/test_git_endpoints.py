@@ -1,4 +1,4 @@
-"""Tests for ``scieasy.api.routes.git`` REST endpoints (ADR-039).
+"""Tests for ``scistudio.api.routes.git`` REST endpoints (ADR-039).
 
 Phase D39-2.2b — bodies filled, xfail flipped to passing.
 """
@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from scieasy.engine.events import WORKFLOW_CHANGED
+from scistudio.engine.events import WORKFLOW_CHANGED
 
 # ---------------------------------------------------------------------------
 # Commit / log / diff / restore

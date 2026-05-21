@@ -31,11 +31,11 @@ Read `docs/planning/agent-prompt-templates/00-common-boilerplate.md` first for t
 
 You may modify exactly these files:
 
-- `src/scieasy/api/runtime.py` (remove `bump_revision`, `current_revision`, and any internal callers)
-- `src/scieasy/api/routes/workflows.py` (remove `If-Match` header handling, remove the `revision` field from `WorkflowResponse` if no in-tree consumer remains — verify by grep)
-- `src/scieasy/api/routes/workflow_watcher.py` (add `.git/HEAD` + `.git/refs/heads/*` mtime polling per ADR-039 §3.8; emit `git.head_changed` event with `{commit_sha, ref, kind}` payload)
-- `src/scieasy/api/ws.py` (subscribe to `git.head_changed`, forward to all connected clients; per the common boilerplate, this is an authorized event-type addition since ADR-039 §3.8 explicitly mandates it)
-- `src/scieasy/engine/events.py` (add `GIT_HEAD_CHANGED = "git.head_changed"` constant; this is the one authorized addition to the EventBus contract per the common boilerplate's "may NOT add new event types EXCEPT" clause)
+- `src/scistudio/api/runtime.py` (remove `bump_revision`, `current_revision`, and any internal callers)
+- `src/scistudio/api/routes/workflows.py` (remove `If-Match` header handling, remove the `revision` field from `WorkflowResponse` if no in-tree consumer remains — verify by grep)
+- `src/scistudio/api/routes/workflow_watcher.py` (add `.git/HEAD` + `.git/refs/heads/*` mtime polling per ADR-039 §3.8; emit `git.head_changed` event with `{commit_sha, ref, kind}` payload)
+- `src/scistudio/api/ws.py` (subscribe to `git.head_changed`, forward to all connected clients; per the common boilerplate, this is an authorized event-type addition since ADR-039 §3.8 explicitly mandates it)
+- `src/scistudio/engine/events.py` (add `GIT_HEAD_CHANGED = "git.head_changed"` constant; this is the one authorized addition to the EventBus contract per the common boilerplate's "may NOT add new event types EXCEPT" clause)
 - `frontend/src/lib/api.ts` (remove any `If-Match: ...` headers from workflow PUT calls)
 - `frontend/src/hooks/useWebSocket.ts` (add a `git.head_changed` case stub that invalidates a placeholder `gitSlice` — actual gitSlice doesn't exist yet, that's D39-2.3a; leave a TODO)
 - `frontend/src/store/workflowSlice.ts` (remove any `revision` field from workflow state if present)
@@ -47,8 +47,8 @@ You may modify exactly these files:
 
 In addition to the common boilerplate's hard list:
 
-- `src/scieasy/core/versioning/` — does not exist yet; D39-2.2a creates the skeleton
-- `src/scieasy/api/routes/git.py` — does not exist yet; D39-2.2a creates the skeleton
+- `src/scistudio/core/versioning/` — does not exist yet; D39-2.2a creates the skeleton
+- `src/scistudio/api/routes/git.py` — does not exist yet; D39-2.2a creates the skeleton
 - Any frontend `Git/` components — D39-2.3a creates the skeleton
 - Any ADR file (cross-ref edits already done in Phase 0)
 - ANY ADR-038 owned file (track/adr-038/ work is on a different tracking branch)

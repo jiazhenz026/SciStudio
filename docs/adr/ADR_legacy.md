@@ -1,6 +1,6 @@
-# SciEasy — Architecture Decision Records (ADR)
+# SciStudio — Architecture Decision Records (ADR)
 
-> ADRs capture the key design decisions made during SciEasy's architecture phase,
+> ADRs capture the key design decisions made during SciStudio's architecture phase,
 > including context, alternatives considered, and trade-offs accepted.
 >
 > **Status values**: `accepted` | `proposed` | `superseded` | `deprecated`
@@ -90,7 +90,7 @@ Applying low-dimensional data to high-dimensional data along specific axes is a 
 
 ### Decision
 
-Provide `broadcast_apply()` in `scieasy.utils.broadcast` as an explicit, opt-in utility that block authors call when needed. It validates axis name alignment, iterates over the specified `over_axes`, and calls a user-provided function per slice. Broadcasting is never triggered automatically by the port system or DAG scheduler.
+Provide `broadcast_apply()` in `scistudio.utils.broadcast` as an explicit, opt-in utility that block authors call when needed. It validates axis name alignment, iterates over the specified `over_axes`, and calls a user-provided function per slice. Broadcasting is never triggered automatically by the port system or DAG scheduler.
 
 ### Alternatives considered
 
@@ -162,7 +162,7 @@ The framework introspects script files to auto-generate port declarations and co
 
 - **Inline only**: breaks for complex scripts with imports, helper functions, and multi-file dependencies. Users would have to flatten everything into a single string.
 - **Script only (always require a file)**: overkill for `output_0 = input_0[input_0["pvalue"] < 0.05]`. Inline mode reduces friction for quick operations.
-- **Notebook-style cells**: adds UI complexity (cell ordering, state management) that duplicates Jupyter's job. SciEasy is a workflow framework, not a notebook.
+- **Notebook-style cells**: adds UI complexity (cell ordering, state management) that duplicates Jupyter's job. SciStudio is a workflow framework, not a notebook.
 
 ### Consequences
 
@@ -254,8 +254,8 @@ The framework targets both bench scientists (who want to add a quick custom bloc
 
 Two tiers, both feeding into a unified registry:
 
-- **Tier 1 — Drop-in files**: place a `.py` file in `{project}/blocks/` or `~/.scieasy/blocks/` (and corresponding `types/` directories). Framework auto-discovers on startup and via manual "Reload blocks" button. Zero packaging, zero config.
-- **Tier 2 — pip install**: standard Python packages with `scieasy.blocks`, `scieasy.types`, and `scieasy.adapters` entry_points. `pip install scieasy-flowcyto` makes all blocks appear in the palette immediately.
+- **Tier 1 — Drop-in files**: place a `.py` file in `{project}/blocks/` or `~/.scistudio/blocks/` (and corresponding `types/` directories). Framework auto-discovers on startup and via manual "Reload blocks" button. Zero packaging, zero config.
+- **Tier 2 — pip install**: standard Python packages with `scistudio.blocks`, `scistudio.types`, and `scistudio.adapters` entry_points. `pip install scistudio-flowcyto` makes all blocks appear in the palette immediately.
 
 Same two-tier model applies to custom data types.
 
@@ -362,7 +362,7 @@ Workflows are serialised as YAML files defining nodes (block type + config) and 
 ### Consequences
 
 - Workflows are portable `.yaml` files that can be committed to git, shared via email, or published alongside papers.
-- The `scieasy run workflow.yaml` CLI can execute workflows headlessly without a frontend.
+- The `scistudio run workflow.yaml` CLI can execute workflows headlessly without a frontend.
 - AI can generate and modify workflows by producing YAML.
 - Frontend layout information is optional metadata — losing it only means the canvas auto-layouts on next open.
 
@@ -386,7 +386,7 @@ The engine serialises a `WorkflowCheckpoint` after every block completion:
 - ID of the pending block (if paused for interactive/external action).
 - Full config snapshot at checkpoint time.
 
-Checkpoints are saved to `{project}/.scieasy/pause/` (relocated 2026-05-15 from the prior `{project}/checkpoints/` path during the ADR-038 history-model unification) as JSON + references to Zarr/Parquet data. Resuming loads the latest checkpoint, skips completed blocks, and continues from the pending block.
+Checkpoints are saved to `{project}/.scistudio/pause/` (relocated 2026-05-15 from the prior `{project}/checkpoints/` path during the ADR-038 history-model unification) as JSON + references to Zarr/Parquet data. Resuming loads the latest checkpoint, skips completed blocks, and continues from the pending block.
 
 ### Alternatives considered
 
@@ -565,12 +565,12 @@ For CHUNKED mode, the framework calls the script's `run()` function once per chu
 
 The original architecture implicitly assumed that blocks could execute in-process. Specifically:
 
-- `CodeBlock` inline mode executes user code via `exec(script, namespace)` in the engine's Python process (`src/scieasy/blocks/code/runners/python_runner.py:27`).
+- `CodeBlock` inline mode executes user code via `exec(script, namespace)` in the engine's Python process (`src/scistudio/blocks/code/runners/python_runner.py:27`).
 - `CodeBlock` script mode loads user scripts via `importlib.util.spec_from_file_location()` and calls `spec.loader.exec_module(module)` in the engine's process (`python_runner.py:62–67`).
-- `RRunner` was planned to use `rpy2` (in-process bridge) per its docstring (`src/scieasy/blocks/code/runners/r_runner.py:12`).
-- `JuliaRunner` was planned to use `juliacall` (in-process bridge) per its docstring (`src/scieasy/blocks/code/runners/julia_runner.py:12`).
+- `RRunner` was planned to use `rpy2` (in-process bridge) per its docstring (`src/scistudio/blocks/code/runners/r_runner.py:12`).
+- `JuliaRunner` was planned to use `juliacall` (in-process bridge) per its docstring (`src/scistudio/blocks/code/runners/julia_runner.py:12`).
 - `ProcessBlock` subclasses have their `run()` method called directly by the engine.
-- `AppBlock` already launches an external subprocess via `subprocess.Popen` (`src/scieasy/blocks/app/bridge.py:81–86`), but the Popen handle is returned from `launch()` and never stored, tracked, or used for lifecycle management.
+- `AppBlock` already launches an external subprocess via `subprocess.Popen` (`src/scistudio/blocks/app/bridge.py:81–86`), but the Popen handle is returned from `launch()` and never stored, tracked, or used for lifecycle management.
 
 This creates fundamental problems:
 
@@ -616,7 +616,7 @@ Engine process (orchestrator)              Block subprocess (worker)
 ────────────────────────────               ──────────────────────────
 1. Prepare invocation payload:
    {
-     "block_class": "scieasy.blocks.process.cellpose.CellposeSegment",
+     "block_class": "scistudio.blocks.process.cellpose.CellposeSegment",
      "block_config": { "diameter": 30, "model": "cyto2" },
      "inputs": {
        "image": {
@@ -629,7 +629,7 @@ Engine process (orchestrator)              Block subprocess (worker)
 
 2. Spawn subprocess:                      3. Subprocess starts clean Python interpreter.
    Popen(["python", "-m",                    Reads payload from stdin.
-     "scieasy.engine.runners.worker",         Imports block class.
+     "scistudio.engine.runners.worker",         Imports block class.
      ...])                                    Reconstructs ViewProxy from storage_ref.
    Register ProcessHandle.                    Calls block.run(inputs, config).
                                               Writes outputs to output_storage_dir.
@@ -693,32 +693,32 @@ All platform-specific code is encapsulated in `ProcessHandle` (ADR-019) and `eng
 
 | File | Contents | Key classes/functions |
 |---|---|---|
-| `src/scieasy/engine/runners/worker.py` | **Subprocess entry point.** Reads invocation payload from stdin (JSON), imports block class, reconstructs `ViewProxy` from `StorageReference`, calls `block.run()`, writes outputs to storage, prints output `StorageReference` JSON to stdout, exits. | `def main() -> None` (entry point), `def reconstruct_inputs(payload: dict) -> dict[str, ViewProxy]` (rebuild proxies from storage refs), `def serialise_outputs(outputs: dict, output_dir: Path) -> dict` (write outputs, return refs) |
-| `src/scieasy/engine/runners/platform.py` | **Platform abstraction layer.** Isolates all OS-specific process management (signals, process groups, Job Objects, alive checks, zombie cleanup). | `class PlatformOps(Protocol)` with methods: `create_process_group(popen: Popen) -> None`, `terminate_tree(pid: int, grace_period: float) -> ProcessExitInfo`, `kill_tree(pid: int) -> ProcessExitInfo`, `is_alive(pid: int) -> bool`, `get_exit_info(pid: int) -> ProcessExitInfo`. Implementations: `class PosixOps(PlatformOps)` (Linux+macOS), `class WindowsOps(PlatformOps)` (Windows). Factory: `def get_platform_ops() -> PlatformOps`. |
-| `src/scieasy/engine/runners/process_handle.py` | **ProcessHandle and ProcessRegistry.** See ADR-019 for complete specification. Created as a separate file rather than in `process_mgr.py` because it is an engine-layer concern, not a block-layer concern. | See ADR-019 |
-| `src/scieasy/engine/runners/process_monitor.py` | **ProcessMonitor background coroutine.** See ADR-019 for complete specification. | See ADR-019 |
+| `src/scistudio/engine/runners/worker.py` | **Subprocess entry point.** Reads invocation payload from stdin (JSON), imports block class, reconstructs `ViewProxy` from `StorageReference`, calls `block.run()`, writes outputs to storage, prints output `StorageReference` JSON to stdout, exits. | `def main() -> None` (entry point), `def reconstruct_inputs(payload: dict) -> dict[str, ViewProxy]` (rebuild proxies from storage refs), `def serialise_outputs(outputs: dict, output_dir: Path) -> dict` (write outputs, return refs) |
+| `src/scistudio/engine/runners/platform.py` | **Platform abstraction layer.** Isolates all OS-specific process management (signals, process groups, Job Objects, alive checks, zombie cleanup). | `class PlatformOps(Protocol)` with methods: `create_process_group(popen: Popen) -> None`, `terminate_tree(pid: int, grace_period: float) -> ProcessExitInfo`, `kill_tree(pid: int) -> ProcessExitInfo`, `is_alive(pid: int) -> bool`, `get_exit_info(pid: int) -> ProcessExitInfo`. Implementations: `class PosixOps(PlatformOps)` (Linux+macOS), `class WindowsOps(PlatformOps)` (Windows). Factory: `def get_platform_ops() -> PlatformOps`. |
+| `src/scistudio/engine/runners/process_handle.py` | **ProcessHandle and ProcessRegistry.** See ADR-019 for complete specification. Created as a separate file rather than in `process_mgr.py` because it is an engine-layer concern, not a block-layer concern. | See ADR-019 |
+| `src/scistudio/engine/runners/process_monitor.py` | **ProcessMonitor background coroutine.** See ADR-019 for complete specification. | See ADR-019 |
 
 #### Rewritten files
 
 | File | Current state | New state | Detailed changes |
 |---|---|---|---|
-| `src/scieasy/blocks/code/runners/python_runner.py` | `execute_inline()`: calls `exec(script, namespace)` in-process (line 27). `execute_script()`: calls `importlib.util.spec_from_file_location()` + `spec.loader.exec_module()` in-process (lines 62–67). | Both methods prepare an invocation payload and delegate to `spawn_block_process()`. The actual `exec()` / `importlib` logic moves to `worker.py` and only runs inside the subprocess. | `execute_inline(self, script, namespace) -> dict`: **remove** `exec(script, namespace)` call. **Replace with**: build payload `{"mode": "inline", "script": script, "inputs": serialise_refs(namespace)}`, call `spawn_block_process(["python", "-m", "scieasy.engine.runners.worker"], ...)`, read stdout for output refs, return deserialised outputs. The `exec()` call itself moves to `worker.py`. `execute_script(self, script_path, entry_function, inputs, config) -> dict`: **remove** `importlib.util.spec_from_file_location()` + `exec_module()` calls. **Replace with**: build payload `{"mode": "script", "script_path": str(script_path), "entry_function": entry_function, "inputs": serialise_refs(inputs), "config": config}`, call `spawn_block_process(...)`, read stdout. The `importlib` loading moves to `worker.py`. **Remove** import of `importlib.util` (line 2). **Add** imports: `from scieasy.engine.runners.process_handle import spawn_block_process`. |
-| `src/scieasy/blocks/code/runners/r_runner.py` | Both methods raise `NotImplementedError` with message suggesting `rpy2` (lines 17–18, 29–30). | **Remove** all `rpy2` references from docstring and error messages. Implement both methods using subprocess calling `Rscript`. | `execute_inline(self, script, namespace) -> dict`: write `script` to a temp `.R` file, write inputs to temp JSON files, build a wrapper R script that reads JSON inputs, `source()`s the user script, writes JSON outputs. Call `spawn_block_process(["Rscript", wrapper_path, ...])`. Parse output JSON. `execute_script(self, script_path, entry_function, inputs, config) -> dict`: write inputs to temp JSON files, build wrapper R script that calls `source(script_path)` then calls `entry_function(inputs, config)`, writes output JSON. Call `spawn_block_process(["Rscript", wrapper_path, ...])`. Parse output JSON. **Remove** docstring line "Planned backends: rpy2 (in-process)". **Add** docstring: "Executes R code in an isolated Rscript subprocess." |
-| `src/scieasy/blocks/code/runners/julia_runner.py` | Both methods raise `NotImplementedError` with message suggesting `juliacall` (lines 17–18, 29–30). | **Remove** all `juliacall` references. Implement both methods using subprocess calling `julia`. | Same pattern as `RRunner`: write inputs to temp JSON, build wrapper Julia script, call `spawn_block_process(["julia", wrapper_path, ...])`, parse output JSON. **Remove** docstring line "Planned backends: juliacall (in-process)". **Add** docstring: "Executes Julia code in an isolated julia subprocess." |
-| `src/scieasy/engine/runners/local.py` | All three methods (`run`, `check_status`, `cancel`) raise `NotImplementedError` (lines 37, 52, 62). Class docstring says "in the local process or as a local subprocess" (line 9). | **Implement** all three methods using subprocess execution via `spawn_block_process()`. Remove "in the local process" from docstring. | `run(self, block, inputs, config) -> dict`: build invocation payload from `block.__class__`, `inputs` (converted to `StorageReference` dicts), and `config`. Call `spawn_block_process()` to get `ProcessHandle`. Await subprocess completion by reading stdout. Parse output `StorageReference` JSON. Return output mapping. Store `ProcessHandle` in `self._active_runs: dict[str, ProcessHandle]` keyed by `run_id`. `check_status(self, run_id) -> Any`: look up `ProcessHandle` from `self._active_runs[run_id]`. Call `handle.is_alive()`. If alive, return `BlockState.RUNNING`. If exited, return `handle.exit_info()`. `cancel(self, run_id) -> None`: look up `ProcessHandle`. Call `await handle.terminate(grace_period_sec=5.0)`. Remove from `self._active_runs`. **Add** instance attribute: `self._active_runs: dict[str, ProcessHandle] = {}`. **Add** imports: `from scieasy.engine.runners.process_handle import ProcessHandle, spawn_block_process`. **Change** class docstring from "in the local process or as a local subprocess" to "as an isolated local subprocess". |
-| `src/scieasy/blocks/code/code_block.py` | `run()` (lines 38–77): directly calls `runner.execute_inline()` or `runner.execute_script()`, performs state transitions (`self.transition(BlockState.RUNNING)`, `self.transition(BlockState.DONE)`), and handles errors. | `run()` no longer performs state transitions directly (the engine/scheduler manages state transitions based on subprocess exit). The method prepares the execution request and returns it. State transitions move to the scheduler layer. | `run(self, inputs, config) -> dict`: **remove** `self.transition(BlockState.RUNNING)` (line 42) and `self.transition(BlockState.DONE)` (line 73) — state transitions are managed by the scheduler based on subprocess lifecycle, not by the block itself. **Remove** try/except that catches `Exception` and calls `self.transition(BlockState.ERROR)` (lines 43, 75–77) — error detection is based on subprocess exit code, handled by the scheduler. The method becomes a pure function: prepare inputs, select runner, call runner method, return results. **Note**: `_prepare_inputs()` (lines 79–112) logic for `InputDelivery.MEMORY` (calling `value.to_memory()`) moves inside the subprocess worker, because `to_memory()` loads data into the subprocess's memory, not the engine's. The engine-side `_prepare_inputs()` changes to: for all delivery modes, convert `ViewProxy` to `StorageReference` dict (lightweight). The subprocess-side `worker.py` handles the actual delivery mode dispatch. |
+| `src/scistudio/blocks/code/runners/python_runner.py` | `execute_inline()`: calls `exec(script, namespace)` in-process (line 27). `execute_script()`: calls `importlib.util.spec_from_file_location()` + `spec.loader.exec_module()` in-process (lines 62–67). | Both methods prepare an invocation payload and delegate to `spawn_block_process()`. The actual `exec()` / `importlib` logic moves to `worker.py` and only runs inside the subprocess. | `execute_inline(self, script, namespace) -> dict`: **remove** `exec(script, namespace)` call. **Replace with**: build payload `{"mode": "inline", "script": script, "inputs": serialise_refs(namespace)}`, call `spawn_block_process(["python", "-m", "scistudio.engine.runners.worker"], ...)`, read stdout for output refs, return deserialised outputs. The `exec()` call itself moves to `worker.py`. `execute_script(self, script_path, entry_function, inputs, config) -> dict`: **remove** `importlib.util.spec_from_file_location()` + `exec_module()` calls. **Replace with**: build payload `{"mode": "script", "script_path": str(script_path), "entry_function": entry_function, "inputs": serialise_refs(inputs), "config": config}`, call `spawn_block_process(...)`, read stdout. The `importlib` loading moves to `worker.py`. **Remove** import of `importlib.util` (line 2). **Add** imports: `from scistudio.engine.runners.process_handle import spawn_block_process`. |
+| `src/scistudio/blocks/code/runners/r_runner.py` | Both methods raise `NotImplementedError` with message suggesting `rpy2` (lines 17–18, 29–30). | **Remove** all `rpy2` references from docstring and error messages. Implement both methods using subprocess calling `Rscript`. | `execute_inline(self, script, namespace) -> dict`: write `script` to a temp `.R` file, write inputs to temp JSON files, build a wrapper R script that reads JSON inputs, `source()`s the user script, writes JSON outputs. Call `spawn_block_process(["Rscript", wrapper_path, ...])`. Parse output JSON. `execute_script(self, script_path, entry_function, inputs, config) -> dict`: write inputs to temp JSON files, build wrapper R script that calls `source(script_path)` then calls `entry_function(inputs, config)`, writes output JSON. Call `spawn_block_process(["Rscript", wrapper_path, ...])`. Parse output JSON. **Remove** docstring line "Planned backends: rpy2 (in-process)". **Add** docstring: "Executes R code in an isolated Rscript subprocess." |
+| `src/scistudio/blocks/code/runners/julia_runner.py` | Both methods raise `NotImplementedError` with message suggesting `juliacall` (lines 17–18, 29–30). | **Remove** all `juliacall` references. Implement both methods using subprocess calling `julia`. | Same pattern as `RRunner`: write inputs to temp JSON, build wrapper Julia script, call `spawn_block_process(["julia", wrapper_path, ...])`, parse output JSON. **Remove** docstring line "Planned backends: juliacall (in-process)". **Add** docstring: "Executes Julia code in an isolated julia subprocess." |
+| `src/scistudio/engine/runners/local.py` | All three methods (`run`, `check_status`, `cancel`) raise `NotImplementedError` (lines 37, 52, 62). Class docstring says "in the local process or as a local subprocess" (line 9). | **Implement** all three methods using subprocess execution via `spawn_block_process()`. Remove "in the local process" from docstring. | `run(self, block, inputs, config) -> dict`: build invocation payload from `block.__class__`, `inputs` (converted to `StorageReference` dicts), and `config`. Call `spawn_block_process()` to get `ProcessHandle`. Await subprocess completion by reading stdout. Parse output `StorageReference` JSON. Return output mapping. Store `ProcessHandle` in `self._active_runs: dict[str, ProcessHandle]` keyed by `run_id`. `check_status(self, run_id) -> Any`: look up `ProcessHandle` from `self._active_runs[run_id]`. Call `handle.is_alive()`. If alive, return `BlockState.RUNNING`. If exited, return `handle.exit_info()`. `cancel(self, run_id) -> None`: look up `ProcessHandle`. Call `await handle.terminate(grace_period_sec=5.0)`. Remove from `self._active_runs`. **Add** instance attribute: `self._active_runs: dict[str, ProcessHandle] = {}`. **Add** imports: `from scistudio.engine.runners.process_handle import ProcessHandle, spawn_block_process`. **Change** class docstring from "in the local process or as a local subprocess" to "as an isolated local subprocess". |
+| `src/scistudio/blocks/code/code_block.py` | `run()` (lines 38–77): directly calls `runner.execute_inline()` or `runner.execute_script()`, performs state transitions (`self.transition(BlockState.RUNNING)`, `self.transition(BlockState.DONE)`), and handles errors. | `run()` no longer performs state transitions directly (the engine/scheduler manages state transitions based on subprocess exit). The method prepares the execution request and returns it. State transitions move to the scheduler layer. | `run(self, inputs, config) -> dict`: **remove** `self.transition(BlockState.RUNNING)` (line 42) and `self.transition(BlockState.DONE)` (line 73) — state transitions are managed by the scheduler based on subprocess lifecycle, not by the block itself. **Remove** try/except that catches `Exception` and calls `self.transition(BlockState.ERROR)` (lines 43, 75–77) — error detection is based on subprocess exit code, handled by the scheduler. The method becomes a pure function: prepare inputs, select runner, call runner method, return results. **Note**: `_prepare_inputs()` (lines 79–112) logic for `InputDelivery.MEMORY` (calling `value.to_memory()`) moves inside the subprocess worker, because `to_memory()` loads data into the subprocess's memory, not the engine's. The engine-side `_prepare_inputs()` changes to: for all delivery modes, convert `ViewProxy` to `StorageReference` dict (lightweight). The subprocess-side `worker.py` handles the actual delivery mode dispatch. |
 
 #### Modified files
 
 | File | Current state | Changes | Detailed field/parameter changes |
 |---|---|---|---|
-| `src/scieasy/blocks/app/bridge.py` | `launch()` (line 75) returns `subprocess.Popen[bytes]`. The Popen handle is created with `subprocess.Popen([command, str(exchange_dir)], cwd=..., stdout=PIPE, stderr=PIPE)` (lines 81–86). Handle is returned but never stored or registered by caller. | `launch()` must use `spawn_block_process()` and return `ProcessHandle` instead of raw `Popen`. | `launch(self, command: str, exchange_dir: Path) -> ProcessHandle`: **change return type** from `subprocess.Popen[bytes]` to `ProcessHandle`. **Replace** `subprocess.Popen(...)` call with `spawn_block_process(block_id=..., command=[command, str(exchange_dir)], resource_request=ResourceRequest(), cwd=str(exchange_dir))`. **Add** `block_id: str` parameter to `launch()` signature (needed for `ProcessHandle` registration). **Add** import: `from scieasy.engine.runners.process_handle import ProcessHandle, spawn_block_process`. **Remove** import: `import subprocess` (line 6, no longer directly used). The `ExternalAppBridge` protocol (line 12) must update `launch()` signature to return `ProcessHandle` and accept `block_id`. |
-| `src/scieasy/blocks/app/app_block.py` | `run()` (lines 48–102): calls `bridge.launch(command, exchange_dir)` (line 75) but discards the return value. Error handling: bare `except Exception` → `self.transition(BlockState.ERROR)` → `raise` (lines 100–102). | Must store the `ProcessHandle` from `bridge.launch()`. Must pass `block_id` to `bridge.launch()`. State transitions move to scheduler (same as CodeBlock). | `run()`: **change** line 75 from `bridge.launch(command, exchange_dir)` to `self._process_handle = bridge.launch(block_id=self._block_id, command=command, exchange_dir=exchange_dir)`. **Add** instance attribute: `self._process_handle: ProcessHandle | None = None`. **Add** `self._block_id: str` parameter to `__init__()` (or set by the scheduler before `run()`). **Remove** `self.transition(BlockState.RUNNING)` (line 57), `self.transition(BlockState.PAUSED)` (line 74), `self.transition(BlockState.RUNNING)` (line 94), `self.transition(BlockState.DONE)` (line 97) — state transitions managed by scheduler. **Remove** try/except ERROR transition (lines 100–102) — error detection via subprocess exit code. |
-| `src/scieasy/blocks/app/watcher.py` | `wait_for_output()` (lines 47–72): polls for files only. No process awareness. Timeout raises `TimeoutError`. | **Add** optional `process_handle: ProcessHandle | None` parameter to `__init__()` and `wait_for_output()`. When a process handle is provided, each poll iteration also checks `process_handle.is_alive()`. If the process has exited and no output files are detected, raise a new `ProcessExitedWithoutOutputError` instead of continuing to poll forever. | `__init__()`: **add** parameter `process_handle: ProcessHandle | None = None` after `poll_interval`. Store as `self._process_handle`. `wait_for_output()`: **add** inside the `while self._running:` loop (after `new_files` check, before timeout check): `if self._process_handle is not None and not await self._process_handle.is_alive(): exit_info = await self._process_handle.exit_info(); if not new_files: raise ProcessExitedWithoutOutputError(f"External process exited (code={exit_info.exit_code}) without producing output files matching {self.patterns}")`. **Add** new exception class at module level: `class ProcessExitedWithoutOutputError(RuntimeError): pass`. **Note**: `wait_for_output()` becomes `async` because `ProcessHandle.is_alive()` is async. This cascading change affects `AppBlock.run()` (must `await watcher.wait_for_output()`). |
-| `src/scieasy/blocks/app/process_mgr.py` | Contains only a docstring: `"""External process lifecycle management (subprocess)."""` (line 1). Completely empty. | This file is superseded by `engine/runners/process_handle.py` and `engine/runners/process_monitor.py` (engine-layer concerns). | **Option A**: Delete the file entirely and remove from `__init__.py` imports. **Option B**: Keep as a thin re-export: `from scieasy.engine.runners.process_handle import ProcessHandle, ProcessRegistry`. **Recommended**: Option A (delete). The process lifecycle is an engine concern, not a block concern. Blocks interact with processes only through the `ProcessHandle` returned by `bridge.launch()`. |
-| `src/scieasy/engine/runners/base.py` | `BlockRunner` protocol defines `run()` returning `dict[str, Any]` (line 16), `check_status()` returning `Any` (line 40), `cancel()` returning `None` (line 55). | `run()` return type changes to include `ProcessHandle` for lifecycle tracking. `check_status()` return type becomes structured. | `run()`: **change** return type from `dict[str, Any]` to `tuple[str, ProcessHandle]` where the `str` is a `run_id`. The actual output data is not returned by `run()` — instead, the scheduler reads outputs from storage after the subprocess exits. **Alternative**: `run()` returns a `RunHandle` dataclass containing `run_id: str`, `process_handle: ProcessHandle`, and a `result_future: asyncio.Future[dict[str, Any]]` that resolves when the subprocess completes. **Recommended**: the `RunHandle` approach, because it allows the scheduler to fire-and-forget and await the future when ready. **Add** new dataclass: `@dataclass class RunHandle: run_id: str; process_handle: ProcessHandle; result: asyncio.Future[dict[str, Any]]`. `check_status()`: **change** return type from `Any` to `BlockState`. `cancel()`: no signature change, but the docstring should note that cancellation is via `ProcessHandle.terminate()`. |
-| `src/scieasy/blocks/base/block.py` | `_VALID_TRANSITIONS` dict (lines 13–20) defines allowed state transitions. No CANCELLED or SKIPPED states. | Updated in ADR-018 (see below). Listed here for completeness as a cross-ADR dependency. | See ADR-018 detailed impact scope. |
-| `src/scieasy/engine/events.py` | `EngineEvent` dataclass with `event_type: str` (line 19). No defined event type constants. `EventBus` with `emit()`, `subscribe()`, `unsubscribe()` all raising `NotImplementedError`. | **Add** event type constants for `PROCESS_SPAWNED` and `PROCESS_EXITED`. EventBus implementation is part of ADR-018 (shared dependency). | **Add** at module level: `PROCESS_SPAWNED = "process_spawned"`, `PROCESS_EXITED = "process_exited"`. These are imported by `spawn_block_process()` and `ProcessMonitor` respectively. Full event type enumeration is in ADR-018. |
+| `src/scistudio/blocks/app/bridge.py` | `launch()` (line 75) returns `subprocess.Popen[bytes]`. The Popen handle is created with `subprocess.Popen([command, str(exchange_dir)], cwd=..., stdout=PIPE, stderr=PIPE)` (lines 81–86). Handle is returned but never stored or registered by caller. | `launch()` must use `spawn_block_process()` and return `ProcessHandle` instead of raw `Popen`. | `launch(self, command: str, exchange_dir: Path) -> ProcessHandle`: **change return type** from `subprocess.Popen[bytes]` to `ProcessHandle`. **Replace** `subprocess.Popen(...)` call with `spawn_block_process(block_id=..., command=[command, str(exchange_dir)], resource_request=ResourceRequest(), cwd=str(exchange_dir))`. **Add** `block_id: str` parameter to `launch()` signature (needed for `ProcessHandle` registration). **Add** import: `from scistudio.engine.runners.process_handle import ProcessHandle, spawn_block_process`. **Remove** import: `import subprocess` (line 6, no longer directly used). The `ExternalAppBridge` protocol (line 12) must update `launch()` signature to return `ProcessHandle` and accept `block_id`. |
+| `src/scistudio/blocks/app/app_block.py` | `run()` (lines 48–102): calls `bridge.launch(command, exchange_dir)` (line 75) but discards the return value. Error handling: bare `except Exception` → `self.transition(BlockState.ERROR)` → `raise` (lines 100–102). | Must store the `ProcessHandle` from `bridge.launch()`. Must pass `block_id` to `bridge.launch()`. State transitions move to scheduler (same as CodeBlock). | `run()`: **change** line 75 from `bridge.launch(command, exchange_dir)` to `self._process_handle = bridge.launch(block_id=self._block_id, command=command, exchange_dir=exchange_dir)`. **Add** instance attribute: `self._process_handle: ProcessHandle | None = None`. **Add** `self._block_id: str` parameter to `__init__()` (or set by the scheduler before `run()`). **Remove** `self.transition(BlockState.RUNNING)` (line 57), `self.transition(BlockState.PAUSED)` (line 74), `self.transition(BlockState.RUNNING)` (line 94), `self.transition(BlockState.DONE)` (line 97) — state transitions managed by scheduler. **Remove** try/except ERROR transition (lines 100–102) — error detection via subprocess exit code. |
+| `src/scistudio/blocks/app/watcher.py` | `wait_for_output()` (lines 47–72): polls for files only. No process awareness. Timeout raises `TimeoutError`. | **Add** optional `process_handle: ProcessHandle | None` parameter to `__init__()` and `wait_for_output()`. When a process handle is provided, each poll iteration also checks `process_handle.is_alive()`. If the process has exited and no output files are detected, raise a new `ProcessExitedWithoutOutputError` instead of continuing to poll forever. | `__init__()`: **add** parameter `process_handle: ProcessHandle | None = None` after `poll_interval`. Store as `self._process_handle`. `wait_for_output()`: **add** inside the `while self._running:` loop (after `new_files` check, before timeout check): `if self._process_handle is not None and not await self._process_handle.is_alive(): exit_info = await self._process_handle.exit_info(); if not new_files: raise ProcessExitedWithoutOutputError(f"External process exited (code={exit_info.exit_code}) without producing output files matching {self.patterns}")`. **Add** new exception class at module level: `class ProcessExitedWithoutOutputError(RuntimeError): pass`. **Note**: `wait_for_output()` becomes `async` because `ProcessHandle.is_alive()` is async. This cascading change affects `AppBlock.run()` (must `await watcher.wait_for_output()`). |
+| `src/scistudio/blocks/app/process_mgr.py` | Contains only a docstring: `"""External process lifecycle management (subprocess)."""` (line 1). Completely empty. | This file is superseded by `engine/runners/process_handle.py` and `engine/runners/process_monitor.py` (engine-layer concerns). | **Option A**: Delete the file entirely and remove from `__init__.py` imports. **Option B**: Keep as a thin re-export: `from scistudio.engine.runners.process_handle import ProcessHandle, ProcessRegistry`. **Recommended**: Option A (delete). The process lifecycle is an engine concern, not a block concern. Blocks interact with processes only through the `ProcessHandle` returned by `bridge.launch()`. |
+| `src/scistudio/engine/runners/base.py` | `BlockRunner` protocol defines `run()` returning `dict[str, Any]` (line 16), `check_status()` returning `Any` (line 40), `cancel()` returning `None` (line 55). | `run()` return type changes to include `ProcessHandle` for lifecycle tracking. `check_status()` return type becomes structured. | `run()`: **change** return type from `dict[str, Any]` to `tuple[str, ProcessHandle]` where the `str` is a `run_id`. The actual output data is not returned by `run()` — instead, the scheduler reads outputs from storage after the subprocess exits. **Alternative**: `run()` returns a `RunHandle` dataclass containing `run_id: str`, `process_handle: ProcessHandle`, and a `result_future: asyncio.Future[dict[str, Any]]` that resolves when the subprocess completes. **Recommended**: the `RunHandle` approach, because it allows the scheduler to fire-and-forget and await the future when ready. **Add** new dataclass: `@dataclass class RunHandle: run_id: str; process_handle: ProcessHandle; result: asyncio.Future[dict[str, Any]]`. `check_status()`: **change** return type from `Any` to `BlockState`. `cancel()`: no signature change, but the docstring should note that cancellation is via `ProcessHandle.terminate()`. |
+| `src/scistudio/blocks/base/block.py` | `_VALID_TRANSITIONS` dict (lines 13–20) defines allowed state transitions. No CANCELLED or SKIPPED states. | Updated in ADR-018 (see below). Listed here for completeness as a cross-ADR dependency. | See ADR-018 detailed impact scope. |
+| `src/scistudio/engine/events.py` | `EngineEvent` dataclass with `event_type: str` (line 19). No defined event type constants. `EventBus` with `emit()`, `subscribe()`, `unsubscribe()` all raising `NotImplementedError`. | **Add** event type constants for `PROCESS_SPAWNED` and `PROCESS_EXITED`. EventBus implementation is part of ADR-018 (shared dependency). | **Add** at module level: `PROCESS_SPAWNED = "process_spawned"`, `PROCESS_EXITED = "process_exited"`. These are imported by `spawn_block_process()` and `ProcessMonitor` respectively. Full event type enumeration is in ADR-018. |
 
 #### Documentation impact
 
@@ -742,9 +742,9 @@ All platform-specific code is encapsulated in `ProcessHandle` (ADR-019) and `eng
 
 The original architecture defined only the happy path for block execution. Specifically:
 
-- `BlockState` enum (`src/scieasy/blocks/base/state.py:8–16`) defines six states: `IDLE`, `READY`, `RUNNING`, `PAUSED`, `DONE`, `ERROR`. There is no state for user-initiated cancellation or for blocks that cannot execute due to upstream failure.
+- `BlockState` enum (`src/scistudio/blocks/base/state.py:8–16`) defines six states: `IDLE`, `READY`, `RUNNING`, `PAUSED`, `DONE`, `ERROR`. There is no state for user-initiated cancellation or for blocks that cannot execute due to upstream failure.
 
-- `_VALID_TRANSITIONS` (`src/scieasy/blocks/base/block.py:13–20`) defines the state machine:
+- `_VALID_TRANSITIONS` (`src/scistudio/blocks/base/block.py:13–20`) defines the state machine:
   ```
   IDLE    → {READY, ERROR}
   READY   → {RUNNING, ERROR}
@@ -755,15 +755,15 @@ The original architecture defined only the happy path for block execution. Speci
   ```
   No transition leads to a "cancelled" or "skipped" state.
 
-- `DAGScheduler` (`src/scieasy/engine/scheduler.py:8–54`) is a skeleton with `execute()`, `pause()`, `resume()`, and `save_checkpoint()` all raising `NotImplementedError`. There is no `cancel_block()` or `cancel_workflow()` method. The architecture document describes `execute()` as a simple for-loop over topological sort (ARCHITECTURE.md lines 1039–1056), with no ability to respond to external signals during execution.
+- `DAGScheduler` (`src/scistudio/engine/scheduler.py:8–54`) is a skeleton with `execute()`, `pause()`, `resume()`, and `save_checkpoint()` all raising `NotImplementedError`. There is no `cancel_block()` or `cancel_workflow()` method. The architecture document describes `execute()` as a simple for-loop over topological sort (ARCHITECTURE.md lines 1039–1056), with no ability to respond to external signals during execution.
 
-- `EventBus` (`src/scieasy/engine/events.py:25–62`) defines `emit()`, `subscribe()`, `unsubscribe()` all raising `NotImplementedError`. No event types are defined. The bus is not connected to any component.
+- `EventBus` (`src/scistudio/engine/events.py:25–62`) defines `emit()`, `subscribe()`, `unsubscribe()` all raising `NotImplementedError`. No event types are defined. The bus is not connected to any component.
 
-- WebSocket handler (`src/scieasy/api/ws.py:8–28`) is a skeleton raising `NotImplementedError`. Only server→client events are mentioned in the architecture document (ARCHITECTURE.md lines 1457–1480). No client→server cancel messages are defined.
+- WebSocket handler (`src/scistudio/api/ws.py:8–28`) is a skeleton raising `NotImplementedError`. Only server→client events are mentioned in the architecture document (ARCHITECTURE.md lines 1457–1480). No client→server cancel messages are defined.
 
-- `LineageRecord` (`src/scieasy/core/lineage/record.py:12–35`) records only successful executions: `output_hashes`, `duration_ms`, etc. There is no field for termination reason, partial outputs, or skip reasons.
+- `LineageRecord` (`src/scistudio/core/lineage/record.py:12–35`) records only successful executions: `output_hashes`, `duration_ms`, etc. There is no field for termination reason, partial outputs, or skip reasons.
 
-- `WorkflowCheckpoint` (`src/scieasy/engine/checkpoint.py:12–24`) stores `block_states: dict[str, str]` but was designed for only the original six states.
+- `WorkflowCheckpoint` (`src/scistudio/engine/checkpoint.py:12–24`) stores `block_states: dict[str, str]` but was designed for only the original six states.
 
 Users need to:
 1. Cancel blocks that run too long (e.g., Cellpose on a large batch).
@@ -1000,7 +1000,7 @@ def propagate_skipped(self, failed_block_id: str, reason: str) -> list[str]:
 | External app finishes, does NOT write output files | `ProcessHandle.is_alive()` = False (exit code 0), FileWatcher detects no matching files | → `ERROR` with message "External process exited normally (code 0) but did not produce expected output files matching patterns {patterns}". Propagate `SKIPPED` downstream. |
 | External app crashes (segfault, unhandled exception) | `ProcessHandle.is_alive()` = False (exit code ≠ 0), no output files | → `ERROR` with message "External process exited with code {code}". Propagate `SKIPPED` downstream. |
 | User kills external app via OS task manager | `ProcessMonitor` detects PID gone. `ProcessHandle.is_alive()` = False. | Same as crash: → `ERROR` with message "External process terminated unexpectedly (exit code {code})". Propagate `SKIPPED` downstream. |
-| User cancels AppBlock via SciEasy UI | `CANCEL_BLOCK_REQUEST` → `ProcessHandle.terminate()` kills external app | → `CANCELLED`. External process killed immediately. No "save your work?" prompt. Propagate `SKIPPED` downstream. |
+| User cancels AppBlock via SciStudio UI | `CANCEL_BLOCK_REQUEST` → `ProcessHandle.terminate()` kills external app | → `CANCELLED`. External process killed immediately. No "save your work?" prompt. Propagate `SKIPPED` downstream. |
 | External app crashes AFTER writing output files | `ProcessHandle.is_alive()` = False (exit code ≠ 0), but FileWatcher detected files | → `DONE`. Output files exist and are valid. The crash was after the useful work completed. (Edge case: partially written files. The block author's `collect()` method should validate file integrity.) |
 
 #### Event-driven runtime architecture
@@ -1070,23 +1070,23 @@ The `EventBus` becomes the backbone of the runtime. All runtime components commu
 
 | File | Current state | New state | Detailed changes |
 |---|---|---|---|
-| `src/scieasy/engine/scheduler.py` | Skeleton class (54 lines). `__init__()`, `execute()`, `pause()`, `resume()`, `set_state()`, `save_checkpoint()` all raise `NotImplementedError`. No `cancel_block()` or `cancel_workflow()` methods. | Fully event-driven scheduler. | **Rewrite entirely.** `__init__(self, workflow: WorkflowDefinition, event_bus: EventBus, runner: BlockRunner, resource_manager: ResourceManager) -> None`: store workflow graph, build internal DAG (via `build_dag()`), initialise `block_states: dict[str, BlockState]` (all IDLE), `skip_reasons: dict[str, str]` (empty), subscribe to events on `event_bus`. Subscriptions: `PROCESS_EXITED` → `self._on_process_exited`, `CANCEL_BLOCK_REQUEST` → `self._on_cancel_block`, `CANCEL_WORKFLOW_REQUEST` → `self._on_cancel_workflow`. `async execute(self) -> None`: emit `WORKFLOW_STARTED`. Scan for blocks whose required inputs are all satisfied → transition to READY → dispatch via `runner.run()` → transition to RUNNING. Enter event loop: await events from EventBus. On `BLOCK_DONE`: store output refs, scan for newly-ready blocks, dispatch them. On `BLOCK_ERROR`/`BLOCK_CANCELLED`: call `propagate_skipped()`, check if workflow is complete. On `WORKFLOW_COMPLETED`: break loop. `async _on_cancel_block(self, event: EngineEvent) -> None`: validate block is in RUNNING or PAUSED state. Call `runner.cancel(run_id)`. Transition block to CANCELLED. Call `propagate_skipped(block_id, "cancelled")`. Emit `BLOCK_CANCELLED`. `async _on_cancel_workflow(self, event: EngineEvent) -> None`: for each RUNNING/PAUSED block: emit `CANCEL_BLOCK_REQUEST`. For each IDLE/READY block: transition to SKIPPED, emit `BLOCK_SKIPPED`. `def propagate_skipped(self, failed_block_id: str, reason: str) -> list[str]`: implementation as described in "Downstream propagation logic" section above. **Add** `cancel_block(block_id)` and `cancel_workflow()` public methods (emit events). **Remove** `pause()` and `resume()` — these are not removed from the API but internally they now emit events rather than directly manipulating state. |
-| `src/scieasy/engine/events.py` | `EngineEvent` dataclass (lines 12–22) with `event_type: str`, `block_id: str | None`, `data: dict`, `timestamp: datetime`. `EventBus` class (lines 25–62) with `emit()`, `subscribe()`, `unsubscribe()` all raising `NotImplementedError`. | Fully implemented EventBus with event type constants and async support. | **Add** event type constants at module level (13 constants as listed in the event catalogue above): `BLOCK_READY = "block_ready"`, `BLOCK_RUNNING = "block_running"`, `BLOCK_PAUSED = "block_paused"`, `BLOCK_DONE = "block_done"`, `BLOCK_ERROR = "block_error"`, `BLOCK_CANCELLED = "block_cancelled"`, `BLOCK_SKIPPED = "block_skipped"`, `CANCEL_BLOCK_REQUEST = "cancel_block_request"`, `CANCEL_WORKFLOW_REQUEST = "cancel_workflow_request"`, `PROCESS_SPAWNED = "process_spawned"`, `PROCESS_EXITED = "process_exited"`, `WORKFLOW_STARTED = "workflow_started"`, `WORKFLOW_COMPLETED = "workflow_completed"`, `CHECKPOINT_SAVED = "checkpoint_saved"`. **Implement** `EventBus`: `__init__()`: `self._subscribers: dict[str, list[Callable]] = defaultdict(list)`. `emit(event)`: iterate `self._subscribers[event.event_type]`, call each callback with the event. If a callback raises, log the error and continue (one failing subscriber must not block others). If callback is a coroutine, schedule it with `asyncio.create_task()`. `subscribe(event_type, callback)`: append callback to `self._subscribers[event_type]`. `unsubscribe(event_type, callback)`: remove callback from list. **Change** `EngineEvent.data` type annotation from `dict[str, Any]` to remain as-is (generic dict is intentional for flexibility), but **add** docstring specifying the expected payload fields per event type (referencing the event catalogue). |
+| `src/scistudio/engine/scheduler.py` | Skeleton class (54 lines). `__init__()`, `execute()`, `pause()`, `resume()`, `set_state()`, `save_checkpoint()` all raise `NotImplementedError`. No `cancel_block()` or `cancel_workflow()` methods. | Fully event-driven scheduler. | **Rewrite entirely.** `__init__(self, workflow: WorkflowDefinition, event_bus: EventBus, runner: BlockRunner, resource_manager: ResourceManager) -> None`: store workflow graph, build internal DAG (via `build_dag()`), initialise `block_states: dict[str, BlockState]` (all IDLE), `skip_reasons: dict[str, str]` (empty), subscribe to events on `event_bus`. Subscriptions: `PROCESS_EXITED` → `self._on_process_exited`, `CANCEL_BLOCK_REQUEST` → `self._on_cancel_block`, `CANCEL_WORKFLOW_REQUEST` → `self._on_cancel_workflow`. `async execute(self) -> None`: emit `WORKFLOW_STARTED`. Scan for blocks whose required inputs are all satisfied → transition to READY → dispatch via `runner.run()` → transition to RUNNING. Enter event loop: await events from EventBus. On `BLOCK_DONE`: store output refs, scan for newly-ready blocks, dispatch them. On `BLOCK_ERROR`/`BLOCK_CANCELLED`: call `propagate_skipped()`, check if workflow is complete. On `WORKFLOW_COMPLETED`: break loop. `async _on_cancel_block(self, event: EngineEvent) -> None`: validate block is in RUNNING or PAUSED state. Call `runner.cancel(run_id)`. Transition block to CANCELLED. Call `propagate_skipped(block_id, "cancelled")`. Emit `BLOCK_CANCELLED`. `async _on_cancel_workflow(self, event: EngineEvent) -> None`: for each RUNNING/PAUSED block: emit `CANCEL_BLOCK_REQUEST`. For each IDLE/READY block: transition to SKIPPED, emit `BLOCK_SKIPPED`. `def propagate_skipped(self, failed_block_id: str, reason: str) -> list[str]`: implementation as described in "Downstream propagation logic" section above. **Add** `cancel_block(block_id)` and `cancel_workflow()` public methods (emit events). **Remove** `pause()` and `resume()` — these are not removed from the API but internally they now emit events rather than directly manipulating state. |
+| `src/scistudio/engine/events.py` | `EngineEvent` dataclass (lines 12–22) with `event_type: str`, `block_id: str | None`, `data: dict`, `timestamp: datetime`. `EventBus` class (lines 25–62) with `emit()`, `subscribe()`, `unsubscribe()` all raising `NotImplementedError`. | Fully implemented EventBus with event type constants and async support. | **Add** event type constants at module level (13 constants as listed in the event catalogue above): `BLOCK_READY = "block_ready"`, `BLOCK_RUNNING = "block_running"`, `BLOCK_PAUSED = "block_paused"`, `BLOCK_DONE = "block_done"`, `BLOCK_ERROR = "block_error"`, `BLOCK_CANCELLED = "block_cancelled"`, `BLOCK_SKIPPED = "block_skipped"`, `CANCEL_BLOCK_REQUEST = "cancel_block_request"`, `CANCEL_WORKFLOW_REQUEST = "cancel_workflow_request"`, `PROCESS_SPAWNED = "process_spawned"`, `PROCESS_EXITED = "process_exited"`, `WORKFLOW_STARTED = "workflow_started"`, `WORKFLOW_COMPLETED = "workflow_completed"`, `CHECKPOINT_SAVED = "checkpoint_saved"`. **Implement** `EventBus`: `__init__()`: `self._subscribers: dict[str, list[Callable]] = defaultdict(list)`. `emit(event)`: iterate `self._subscribers[event.event_type]`, call each callback with the event. If a callback raises, log the error and continue (one failing subscriber must not block others). If callback is a coroutine, schedule it with `asyncio.create_task()`. `subscribe(event_type, callback)`: append callback to `self._subscribers[event_type]`. `unsubscribe(event_type, callback)`: remove callback from list. **Change** `EngineEvent.data` type annotation from `dict[str, Any]` to remain as-is (generic dict is intentional for flexibility), but **add** docstring specifying the expected payload fields per event type (referencing the event catalogue). |
 
 #### Modified files
 
 | File | Current state | Changes | Detailed field/parameter changes |
 |---|---|---|---|
-| `src/scieasy/blocks/base/state.py` | `BlockState` enum (lines 8–16): 6 values: `IDLE`, `READY`, `RUNNING`, `PAUSED`, `DONE`, `ERROR`. | **Add** two new enum values. | **Add** after `ERROR = "error"` (line 16): `CANCELLED = "cancelled"` and `SKIPPED = "skipped"`. Final enum has 8 values. No other changes to this file (other enums `ExecutionMode`, `BatchMode`, `InputDelivery`, `BatchErrorStrategy` are unchanged). |
-| `src/scieasy/blocks/base/block.py` | `_VALID_TRANSITIONS` (lines 13–20): 6 entries. | **Replace** the entire dict with the new 8-entry transition table. | **Replace** lines 13–20 with: `_VALID_TRANSITIONS: dict[BlockState, set[BlockState]] = { BlockState.IDLE: {BlockState.READY, BlockState.SKIPPED, BlockState.ERROR}, BlockState.READY: {BlockState.RUNNING, BlockState.SKIPPED, BlockState.ERROR}, BlockState.RUNNING: {BlockState.DONE, BlockState.PAUSED, BlockState.ERROR, BlockState.CANCELLED}, BlockState.PAUSED: {BlockState.RUNNING, BlockState.ERROR, BlockState.CANCELLED}, BlockState.DONE: {BlockState.IDLE}, BlockState.ERROR: {BlockState.IDLE}, BlockState.CANCELLED: {BlockState.IDLE}, BlockState.SKIPPED: {BlockState.IDLE}, }`. **Add** import of `CANCELLED` and `SKIPPED` in the `from .state import ...` line if they are used directly (currently the import on line 10 imports the `BlockState` class, which is sufficient). |
-| `src/scieasy/core/lineage/record.py` | `LineageRecord` dataclass (lines 12–35): 9 fields. No termination or skip fields. | **Add** 3 new fields for termination tracking. | **Add** after `batch_info` (line 35): `termination: str = "completed"` (allowed values: `"completed"`, `"cancelled"`, `"error"`, `"skipped"`), `partial_output_refs: list[str] | None = None` (storage references for any partial outputs produced before cancellation/error), `termination_detail: str | None = None` (human-readable detail: error message, skip reason, or cancellation source). |
-| `src/scieasy/core/lineage/store.py` | `_CREATE_TABLE` SQL (lines 13–26): 9 columns. `write()` method (lines 53–82): inserts 9 values. `_row_to_record()` (lines 84–100): reads 9 columns. | **Add** 3 new columns to the schema. **Update** `write()`, `_row_to_record()`, and `query()`. | **Change** `_CREATE_TABLE` (lines 13–26): add 3 columns after `batch_info TEXT`: `termination TEXT NOT NULL DEFAULT 'completed'`, `partial_output_refs TEXT`, `termination_detail TEXT`. **Add** new index: `CREATE INDEX IF NOT EXISTS idx_lineage_termination ON lineage (termination);` (for filtering by termination type). **Change** `write()` (line 67): add `termination`, `partial_output_refs`, `termination_detail` to INSERT statement and values tuple. **Change** `_row_to_record()`: add parsing of 3 new columns from row tuple (indices 9, 10, 11). **Add** to `query()`: optional `termination: str | None = None` filter parameter. When provided, add `WHERE termination = ?` clause. |
-| `src/scieasy/engine/checkpoint.py` | `WorkflowCheckpoint` dataclass (lines 12–24): 5 fields including `block_states: dict[str, str]`. | **Add** `skip_reasons` field. **Update** block_states documentation to include CANCELLED and SKIPPED as valid values. | **Add** after `config_snapshot` (line 24): `skip_reasons: dict[str, str] = field(default_factory=dict)` (mapping of block_id to skip reason string for all SKIPPED blocks). The `block_states` field already uses `str` values, so CANCELLED and SKIPPED are automatically valid. **Update** docstring to list all 8 valid state values. |
-| `src/scieasy/engine/resources.py` | `ResourceManager` class (lines 27–72): `__init__()`, `acquire()`, `release()`, `available` property — all `raise NotImplementedError`. No EventBus integration. | **Add** EventBus subscription for automatic resource release. | **Change** `__init__()` signature: add `event_bus: EventBus | None = None` parameter. If provided, subscribe to `BLOCK_DONE`, `BLOCK_ERROR`, `BLOCK_CANCELLED`, `PROCESS_EXITED` events with `self._on_block_terminal` callback. **Add** method `_on_block_terminal(self, event: EngineEvent) -> None`: look up resource allocation for `event.block_id`, call `self.release(allocation)`. **Add** internal tracking: `self._allocations: dict[str, ResourceRequest] = {}` mapping block_id to its allocated resources. `acquire()` stores the allocation; `release()` removes it. |
-| `src/scieasy/engine/batch.py` | `BatchExecutor` class (lines 8–99): `execute_serial()`, `execute_parallel()`, `execute_adaptive()` all `raise NotImplementedError`. | **Add** cancellation awareness to batch execution. | **Add** parameter to all three `execute_*` methods: `cancel_event: asyncio.Event | None = None`. When set, the executor checks `cancel_event.is_set()` before dispatching each item. If set, remaining items are not dispatched; results for unstarted items are marked as SKIPPED in the `BatchResult`. **Add** to returned `BatchResult` (needs new dataclass or dict): `skipped: list[int]` for item indices that were skipped due to cancellation. |
-| `src/scieasy/api/ws.py` | Single function `websocket_handler()` (lines 8–28) raising `NotImplementedError`. | **Implement** WebSocket handler with bidirectional event routing. | **Rewrite** `websocket_handler(websocket, event_bus)`: `await websocket.accept()`. Start two concurrent tasks: (1) **Inbound loop**: `async for message in websocket: data = json.loads(message); if data["type"] == "cancel_block": event_bus.emit(EngineEvent(event_type=CANCEL_BLOCK_REQUEST, block_id=data["block_id"], data={"workflow_id": data["workflow_id"]})); elif data["type"] == "cancel_workflow": event_bus.emit(EngineEvent(event_type=CANCEL_WORKFLOW_REQUEST, data={"workflow_id": data["workflow_id"]}))`. (2) **Outbound loop**: subscribe to `BLOCK_READY`, `BLOCK_RUNNING`, `BLOCK_PAUSED`, `BLOCK_DONE`, `BLOCK_ERROR`, `BLOCK_CANCELLED`, `BLOCK_SKIPPED`, `WORKFLOW_COMPLETED` events. On each event, `await websocket.send_json(serialise_event(event))`. **Add** helper `serialise_event(event: EngineEvent) -> dict` that converts event to the WebSocket JSON protocol format. **Add** `cancel_propagation` message type: when `BLOCK_CANCELLED` is followed by one or more `BLOCK_SKIPPED` events, aggregate them into a single `cancel_propagation` message listing all skipped blocks and unaffected blocks. |
-| `src/scieasy/api/schemas.py` | 10 Pydantic models for workflow, block, data, AI, and error responses (lines 1–119). No cancel-related schemas. | **Add** cancel-related request/response schemas. | **Add** after the Workflow section (after line 31): `class CancelBlockRequest(BaseModel): block_id: str; workflow_id: str`. `class CancelWorkflowRequest(BaseModel): workflow_id: str`. `class CancelBlockResponse(BaseModel): block_id: str; state: str; skipped_blocks: list[dict[str, str]] = []` (each dict has `block_id` and `reason`). `class CancelWorkflowResponse(BaseModel): workflow_id: str; cancelled_blocks: list[str] = []; skipped_blocks: list[str] = []`. |
-| `src/scieasy/api/routes/workflows.py` | 7 endpoints (lines 1–96): create, get, update, delete, execute, pause, resume. No cancel endpoints. | **Add** 2 cancel endpoints. | **Add** after `resume_workflow()` (line 96): `@router.post("/{workflow_id}/cancel", response_model=CancelWorkflowResponse) async def cancel_workflow(workflow_id: str) -> dict[str, Any]:` — emits `CANCEL_WORKFLOW_REQUEST` to EventBus. `@router.post("/{workflow_id}/blocks/{block_id}/cancel", response_model=CancelBlockResponse) async def cancel_block(workflow_id: str, block_id: str) -> dict[str, Any]:` — emits `CANCEL_BLOCK_REQUEST` to EventBus. **Add** import: `from scieasy.api.schemas import CancelBlockRequest, CancelBlockResponse, CancelWorkflowRequest, CancelWorkflowResponse`. |
+| `src/scistudio/blocks/base/state.py` | `BlockState` enum (lines 8–16): 6 values: `IDLE`, `READY`, `RUNNING`, `PAUSED`, `DONE`, `ERROR`. | **Add** two new enum values. | **Add** after `ERROR = "error"` (line 16): `CANCELLED = "cancelled"` and `SKIPPED = "skipped"`. Final enum has 8 values. No other changes to this file (other enums `ExecutionMode`, `BatchMode`, `InputDelivery`, `BatchErrorStrategy` are unchanged). |
+| `src/scistudio/blocks/base/block.py` | `_VALID_TRANSITIONS` (lines 13–20): 6 entries. | **Replace** the entire dict with the new 8-entry transition table. | **Replace** lines 13–20 with: `_VALID_TRANSITIONS: dict[BlockState, set[BlockState]] = { BlockState.IDLE: {BlockState.READY, BlockState.SKIPPED, BlockState.ERROR}, BlockState.READY: {BlockState.RUNNING, BlockState.SKIPPED, BlockState.ERROR}, BlockState.RUNNING: {BlockState.DONE, BlockState.PAUSED, BlockState.ERROR, BlockState.CANCELLED}, BlockState.PAUSED: {BlockState.RUNNING, BlockState.ERROR, BlockState.CANCELLED}, BlockState.DONE: {BlockState.IDLE}, BlockState.ERROR: {BlockState.IDLE}, BlockState.CANCELLED: {BlockState.IDLE}, BlockState.SKIPPED: {BlockState.IDLE}, }`. **Add** import of `CANCELLED` and `SKIPPED` in the `from .state import ...` line if they are used directly (currently the import on line 10 imports the `BlockState` class, which is sufficient). |
+| `src/scistudio/core/lineage/record.py` | `LineageRecord` dataclass (lines 12–35): 9 fields. No termination or skip fields. | **Add** 3 new fields for termination tracking. | **Add** after `batch_info` (line 35): `termination: str = "completed"` (allowed values: `"completed"`, `"cancelled"`, `"error"`, `"skipped"`), `partial_output_refs: list[str] | None = None` (storage references for any partial outputs produced before cancellation/error), `termination_detail: str | None = None` (human-readable detail: error message, skip reason, or cancellation source). |
+| `src/scistudio/core/lineage/store.py` | `_CREATE_TABLE` SQL (lines 13–26): 9 columns. `write()` method (lines 53–82): inserts 9 values. `_row_to_record()` (lines 84–100): reads 9 columns. | **Add** 3 new columns to the schema. **Update** `write()`, `_row_to_record()`, and `query()`. | **Change** `_CREATE_TABLE` (lines 13–26): add 3 columns after `batch_info TEXT`: `termination TEXT NOT NULL DEFAULT 'completed'`, `partial_output_refs TEXT`, `termination_detail TEXT`. **Add** new index: `CREATE INDEX IF NOT EXISTS idx_lineage_termination ON lineage (termination);` (for filtering by termination type). **Change** `write()` (line 67): add `termination`, `partial_output_refs`, `termination_detail` to INSERT statement and values tuple. **Change** `_row_to_record()`: add parsing of 3 new columns from row tuple (indices 9, 10, 11). **Add** to `query()`: optional `termination: str | None = None` filter parameter. When provided, add `WHERE termination = ?` clause. |
+| `src/scistudio/engine/checkpoint.py` | `WorkflowCheckpoint` dataclass (lines 12–24): 5 fields including `block_states: dict[str, str]`. | **Add** `skip_reasons` field. **Update** block_states documentation to include CANCELLED and SKIPPED as valid values. | **Add** after `config_snapshot` (line 24): `skip_reasons: dict[str, str] = field(default_factory=dict)` (mapping of block_id to skip reason string for all SKIPPED blocks). The `block_states` field already uses `str` values, so CANCELLED and SKIPPED are automatically valid. **Update** docstring to list all 8 valid state values. |
+| `src/scistudio/engine/resources.py` | `ResourceManager` class (lines 27–72): `__init__()`, `acquire()`, `release()`, `available` property — all `raise NotImplementedError`. No EventBus integration. | **Add** EventBus subscription for automatic resource release. | **Change** `__init__()` signature: add `event_bus: EventBus | None = None` parameter. If provided, subscribe to `BLOCK_DONE`, `BLOCK_ERROR`, `BLOCK_CANCELLED`, `PROCESS_EXITED` events with `self._on_block_terminal` callback. **Add** method `_on_block_terminal(self, event: EngineEvent) -> None`: look up resource allocation for `event.block_id`, call `self.release(allocation)`. **Add** internal tracking: `self._allocations: dict[str, ResourceRequest] = {}` mapping block_id to its allocated resources. `acquire()` stores the allocation; `release()` removes it. |
+| `src/scistudio/engine/batch.py` | `BatchExecutor` class (lines 8–99): `execute_serial()`, `execute_parallel()`, `execute_adaptive()` all `raise NotImplementedError`. | **Add** cancellation awareness to batch execution. | **Add** parameter to all three `execute_*` methods: `cancel_event: asyncio.Event | None = None`. When set, the executor checks `cancel_event.is_set()` before dispatching each item. If set, remaining items are not dispatched; results for unstarted items are marked as SKIPPED in the `BatchResult`. **Add** to returned `BatchResult` (needs new dataclass or dict): `skipped: list[int]` for item indices that were skipped due to cancellation. |
+| `src/scistudio/api/ws.py` | Single function `websocket_handler()` (lines 8–28) raising `NotImplementedError`. | **Implement** WebSocket handler with bidirectional event routing. | **Rewrite** `websocket_handler(websocket, event_bus)`: `await websocket.accept()`. Start two concurrent tasks: (1) **Inbound loop**: `async for message in websocket: data = json.loads(message); if data["type"] == "cancel_block": event_bus.emit(EngineEvent(event_type=CANCEL_BLOCK_REQUEST, block_id=data["block_id"], data={"workflow_id": data["workflow_id"]})); elif data["type"] == "cancel_workflow": event_bus.emit(EngineEvent(event_type=CANCEL_WORKFLOW_REQUEST, data={"workflow_id": data["workflow_id"]}))`. (2) **Outbound loop**: subscribe to `BLOCK_READY`, `BLOCK_RUNNING`, `BLOCK_PAUSED`, `BLOCK_DONE`, `BLOCK_ERROR`, `BLOCK_CANCELLED`, `BLOCK_SKIPPED`, `WORKFLOW_COMPLETED` events. On each event, `await websocket.send_json(serialise_event(event))`. **Add** helper `serialise_event(event: EngineEvent) -> dict` that converts event to the WebSocket JSON protocol format. **Add** `cancel_propagation` message type: when `BLOCK_CANCELLED` is followed by one or more `BLOCK_SKIPPED` events, aggregate them into a single `cancel_propagation` message listing all skipped blocks and unaffected blocks. |
+| `src/scistudio/api/schemas.py` | 10 Pydantic models for workflow, block, data, AI, and error responses (lines 1–119). No cancel-related schemas. | **Add** cancel-related request/response schemas. | **Add** after the Workflow section (after line 31): `class CancelBlockRequest(BaseModel): block_id: str; workflow_id: str`. `class CancelWorkflowRequest(BaseModel): workflow_id: str`. `class CancelBlockResponse(BaseModel): block_id: str; state: str; skipped_blocks: list[dict[str, str]] = []` (each dict has `block_id` and `reason`). `class CancelWorkflowResponse(BaseModel): workflow_id: str; cancelled_blocks: list[str] = []; skipped_blocks: list[str] = []`. |
+| `src/scistudio/api/routes/workflows.py` | 7 endpoints (lines 1–96): create, get, update, delete, execute, pause, resume. No cancel endpoints. | **Add** 2 cancel endpoints. | **Add** after `resume_workflow()` (line 96): `@router.post("/{workflow_id}/cancel", response_model=CancelWorkflowResponse) async def cancel_workflow(workflow_id: str) -> dict[str, Any]:` — emits `CANCEL_WORKFLOW_REQUEST` to EventBus. `@router.post("/{workflow_id}/blocks/{block_id}/cancel", response_model=CancelBlockResponse) async def cancel_block(workflow_id: str, block_id: str) -> dict[str, Any]:` — emits `CANCEL_BLOCK_REQUEST` to EventBus. **Add** import: `from scistudio.api.schemas import CancelBlockRequest, CancelBlockResponse, CancelWorkflowRequest, CancelWorkflowResponse`. |
 
 #### Documentation impact
 
@@ -1113,7 +1113,7 @@ The `EventBus` becomes the backbone of the runtime. All runtime components commu
 
 ADR-018 committed to an event-driven DAGScheduler that reacts to events as they arrive and dispatches independent branches of the workflow concurrently. ARCHITECTURE.md §6.1 and Appendix A both describe this behaviour — for example, the multimodal walkthrough states that "Three IOBlocks load data in parallel (independent branches). Each runs in its own subprocess (ADR-017)".
 
-The implementation in `src/scieasy/engine/scheduler.py` as of 2026-04-06 does **not** match that contract. Independent branches execute strictly in topological order, serialised on `popen.communicate()` inside the scheduler coroutine. This addendum documents the discrepancy, specifies the required implementation change, and captures the decisions made during Phase 10 planning about how concurrency, cancellation, and resource throttling must interact.
+The implementation in `src/scistudio/engine/scheduler.py` as of 2026-04-06 does **not** match that contract. Independent branches execute strictly in topological order, serialised on `popen.communicate()` inside the scheduler coroutine. This addendum documents the discrepancy, specifies the required implementation change, and captures the decisions made during Phase 10 planning about how concurrency, cancellation, and resource throttling must interact.
 
 This addendum does **not** revise any of ADR-018's user-visible decisions (state machine, cancel propagation, event catalogue, subscription matrix). Those remain authoritative. The addendum only narrows the implementation strategy.
 
@@ -1121,7 +1121,7 @@ This addendum does **not** revise any of ADR-018's user-visible decisions (state
 
 ADR-018 §5 ("Event-driven runtime architecture") and the subscription matrix assume that the scheduler is a true event loop: `DAGScheduler.execute()` kicks off the initial set of READY blocks and then awaits events, and each `BLOCK_DONE` event fires an `_on_block_done` handler that dispatches newly-ready successors. The expected behaviour is that when two blocks with no data dependency between them are simultaneously READY, they both start immediately — each on its own subprocess — and the scheduler returns to the event loop to await whichever finishes first.
 
-Source code audit (grep of `asyncio.(create_task|gather|ensure_future)` across `src/scieasy/engine/scheduler.py`) returns **zero matches**. Every dispatch is performed as a direct `await self._dispatch(node_id)`, and `_dispatch` itself performs `await self._runner.run(block, inputs, node.config)` inline, which in turn awaits `popen.communicate()` on the worker subprocess. The call chain is synchronous with respect to the event loop — no other coroutine runs until the current block's subprocess exits.
+Source code audit (grep of `asyncio.(create_task|gather|ensure_future)` across `src/scistudio/engine/scheduler.py`) returns **zero matches**. Every dispatch is performed as a direct `await self._dispatch(node_id)`, and `_dispatch` itself performs `await self._runner.run(block, inputs, node.config)` inline, which in turn awaits `popen.communicate()` on the worker subprocess. The call chain is synchronous with respect to the event loop — no other coroutine runs until the current block's subprocess exits.
 
 **Concrete observations** (referenced lines may shift as the file is edited):
 
@@ -1265,7 +1265,7 @@ async def _cancel_active_tasks_on_shutdown(self) -> None:
 
 | File | Current state | New state | Detailed changes |
 |---|---|---|---|
-| `src/scieasy/engine/scheduler.py` | `_dispatch` inline awaits `runner.run`. Every `await self._dispatch(...)` is inline-awaited by the caller. Zero `asyncio.create_task`. | `_dispatch` is a synchronous prelude that creates a task for `_run_and_finalize`. `execute()` wraps its body in `try/finally` to guarantee task cleanup. Event handlers call `_dispatch_newly_ready()` for throttling retries. `_check_completion()` additionally checks `_active_tasks` is empty. New `_cancel_active_tasks_on_shutdown()` helper. | **Add** field `self._active_tasks: dict[str, asyncio.Task[None]] = {}` in `__init__`. **Split** `_dispatch` (current ~34 lines) into `_dispatch` (prelude, ~15 lines) and `_run_and_finalize` (body, ~30 lines). **Add** `_dispatch_newly_ready()` (~12 lines). **Add** `_cancel_active_tasks_on_shutdown()` (~15 lines). **Change** `execute()` to wrap in `try/finally`. **Change** `_on_block_done` and `_on_process_exited` to call `_dispatch_newly_ready` instead of scanning inline (smaller, ~5 lines each). **Change** `_on_cancel_block` to branch on "handle present → terminate" vs "handle absent → task.cancel()". **Change** `_check_completion` to also check `not self._active_tasks`. Total diff approximately 150 lines changed across one file. |
+| `src/scistudio/engine/scheduler.py` | `_dispatch` inline awaits `runner.run`. Every `await self._dispatch(...)` is inline-awaited by the caller. Zero `asyncio.create_task`. | `_dispatch` is a synchronous prelude that creates a task for `_run_and_finalize`. `execute()` wraps its body in `try/finally` to guarantee task cleanup. Event handlers call `_dispatch_newly_ready()` for throttling retries. `_check_completion()` additionally checks `_active_tasks` is empty. New `_cancel_active_tasks_on_shutdown()` helper. | **Add** field `self._active_tasks: dict[str, asyncio.Task[None]] = {}` in `__init__`. **Split** `_dispatch` (current ~34 lines) into `_dispatch` (prelude, ~15 lines) and `_run_and_finalize` (body, ~30 lines). **Add** `_dispatch_newly_ready()` (~12 lines). **Add** `_cancel_active_tasks_on_shutdown()` (~15 lines). **Change** `execute()` to wrap in `try/finally`. **Change** `_on_block_done` and `_on_process_exited` to call `_dispatch_newly_ready` instead of scanning inline (smaller, ~5 lines each). **Change** `_on_cancel_block` to branch on "handle present → terminate" vs "handle absent → task.cancel()". **Change** `_check_completion` to also check `not self._active_tasks`. Total diff approximately 150 lines changed across one file. |
 
 #### Modified files
 
@@ -1329,8 +1329,8 @@ With all blocks executing in subprocesses (ADR-017) and user-initiated cancellat
 
 The original codebase had:
 
-- `subprocess.Popen` calls in `FileExchangeBridge.launch()` (`src/scieasy/blocks/app/bridge.py:81–86`) that returned a `Popen` handle, but the caller (`AppBlock.run()` at `app_block.py:75`) discarded it. The process was fire-and-forget with no monitoring or termination capability.
-- `src/scieasy/blocks/app/process_mgr.py` — a file containing only a docstring (`"""External process lifecycle management (subprocess)."""`). Completely empty.
+- `subprocess.Popen` calls in `FileExchangeBridge.launch()` (`src/scistudio/blocks/app/bridge.py:81–86`) that returned a `Popen` handle, but the caller (`AppBlock.run()` at `app_block.py:75`) discarded it. The process was fire-and-forget with no monitoring or termination capability.
+- `src/scistudio/blocks/app/process_mgr.py` — a file containing only a docstring (`"""External process lifecycle management (subprocess)."""`). Completely empty.
 - No process tracking anywhere in the codebase. No PID registry. No process monitoring loop. No cross-platform termination logic.
 
 Process management is complicated by three platform-specific concerns:
@@ -1457,7 +1457,7 @@ def spawn_block_process(
 
     Parameters:
         block_id: Identifier of the block this process belongs to.
-        command: Command and arguments (e.g., ["python", "-m", "scieasy.engine.runners.worker"]).
+        command: Command and arguments (e.g., ["python", "-m", "scistudio.engine.runners.worker"]).
         resource_request: Resources declared by the block.
         event_bus: EventBus for emitting PROCESS_SPAWNED event.
         cwd: Working directory for the subprocess.
@@ -1586,17 +1586,17 @@ emit PROCESS_EXITED(block_id="elmaven_001", exit_info={exit_code=1, signal=None,
 
 | File | Contents | Key classes/functions | Detailed specification |
 |---|---|---|---|
-| `src/scieasy/engine/runners/process_handle.py` | ProcessHandle, ProcessExitInfo, ProcessRegistry, spawn_block_process | See Decision section above | `ProcessExitInfo` dataclass: 4 fields (`exit_code: int | None`, `signal_number: int | None`, `was_killed_by_framework: bool`, `platform_detail: str`). `ProcessHandle` class: 6 attributes (`block_id: str`, `pid: int`, `start_time: datetime`, `resource_request: ResourceRequest`, `_popen: subprocess.Popen`, `_platform_ops: PlatformOps`), 4 async methods (`is_alive`, `exit_info`, `terminate`, `kill`). `ProcessRegistry` class: 2 internal attributes (`_handles: dict[str, ProcessHandle]`, `_lock: threading.Lock`), 5 methods (`register`, `deregister`, `get_handle`, `active_handles`, `terminate_all`). `spawn_block_process` function: 7 parameters, returns `ProcessHandle`. |
-| `src/scieasy/engine/runners/process_monitor.py` | ProcessMonitor background coroutine | See Decision section above | `ProcessMonitor` class: 3 attributes (`registry: ProcessRegistry`, `event_bus: EventBus`, `poll_interval_sec: float = 1.0`), 1 internal attribute (`_running: bool`), 2 async methods (`run`, `stop`). |
-| `src/scieasy/engine/runners/platform.py` | PlatformOps protocol, PosixOps, WindowsOps, get_platform_ops factory | See ADR-017 Decision section | `PlatformOps(Protocol)`: 5 methods (`create_process_group(popen) -> None`, `terminate_tree(pid, grace_period) -> ProcessExitInfo`, `kill_tree(pid) -> ProcessExitInfo`, `is_alive(pid) -> bool`, `get_exit_info(popen) -> ProcessExitInfo | None`). `PosixOps`: implements using `os.killpg`, `os.kill(pid, 0)`, `os.waitpid`, `signal.SIGTERM`, `signal.SIGKILL`, `os.getpgid`. `WindowsOps`: implements using `ctypes.windll.kernel32` for `CreateJobObject`, `AssignProcessToJobObject`, `TerminateJobObject`, `TerminateProcess`, `OpenProcess`, `GetExitCodeProcess`. `get_platform_ops() -> PlatformOps`: returns `WindowsOps()` if `sys.platform == "win32"`, else `PosixOps()`. |
+| `src/scistudio/engine/runners/process_handle.py` | ProcessHandle, ProcessExitInfo, ProcessRegistry, spawn_block_process | See Decision section above | `ProcessExitInfo` dataclass: 4 fields (`exit_code: int | None`, `signal_number: int | None`, `was_killed_by_framework: bool`, `platform_detail: str`). `ProcessHandle` class: 6 attributes (`block_id: str`, `pid: int`, `start_time: datetime`, `resource_request: ResourceRequest`, `_popen: subprocess.Popen`, `_platform_ops: PlatformOps`), 4 async methods (`is_alive`, `exit_info`, `terminate`, `kill`). `ProcessRegistry` class: 2 internal attributes (`_handles: dict[str, ProcessHandle]`, `_lock: threading.Lock`), 5 methods (`register`, `deregister`, `get_handle`, `active_handles`, `terminate_all`). `spawn_block_process` function: 7 parameters, returns `ProcessHandle`. |
+| `src/scistudio/engine/runners/process_monitor.py` | ProcessMonitor background coroutine | See Decision section above | `ProcessMonitor` class: 3 attributes (`registry: ProcessRegistry`, `event_bus: EventBus`, `poll_interval_sec: float = 1.0`), 1 internal attribute (`_running: bool`), 2 async methods (`run`, `stop`). |
+| `src/scistudio/engine/runners/platform.py` | PlatformOps protocol, PosixOps, WindowsOps, get_platform_ops factory | See ADR-017 Decision section | `PlatformOps(Protocol)`: 5 methods (`create_process_group(popen) -> None`, `terminate_tree(pid, grace_period) -> ProcessExitInfo`, `kill_tree(pid) -> ProcessExitInfo`, `is_alive(pid) -> bool`, `get_exit_info(popen) -> ProcessExitInfo | None`). `PosixOps`: implements using `os.killpg`, `os.kill(pid, 0)`, `os.waitpid`, `signal.SIGTERM`, `signal.SIGKILL`, `os.getpgid`. `WindowsOps`: implements using `ctypes.windll.kernel32` for `CreateJobObject`, `AssignProcessToJobObject`, `TerminateJobObject`, `TerminateProcess`, `OpenProcess`, `GetExitCodeProcess`. `get_platform_ops() -> PlatformOps`: returns `WindowsOps()` if `sys.platform == "win32"`, else `PosixOps()`. |
 
 #### Modified files
 
 | File | Changes | Detailed field/parameter changes |
 |---|---|---|
-| `src/scieasy/blocks/base/block.py` | **Add** `terminate_grace_sec` class variable. | **Add** after `key_dependencies: ClassVar[list[str]] = []` (line 43): `terminate_grace_sec: ClassVar[float] = 5.0` — grace period in seconds for `ProcessHandle.terminate()`. Used by the scheduler when cancelling this block. Default 5 seconds. Linux/macOS: SIGTERM → wait this long → SIGKILL. Windows: ignored (TerminateProcess is always immediate). |
-| `src/scieasy/blocks/app/process_mgr.py` | **Delete** this file. | File currently contains only `"""External process lifecycle management (subprocess)."""`. Process lifecycle is an engine-layer concern (ADR-019), not a block-layer concern. All process management is in `engine/runners/process_handle.py`, `engine/runners/process_monitor.py`, and `engine/runners/platform.py`. **Also update** `src/scieasy/blocks/app/__init__.py` if it imports from `process_mgr`. |
-| `src/scieasy/engine/runners/__init__.py` | **Add** exports for new modules. | **Add** imports: `from scieasy.engine.runners.process_handle import ProcessHandle, ProcessExitInfo, ProcessRegistry, spawn_block_process`, `from scieasy.engine.runners.process_monitor import ProcessMonitor`, `from scieasy.engine.runners.platform import PlatformOps, get_platform_ops`. |
+| `src/scistudio/blocks/base/block.py` | **Add** `terminate_grace_sec` class variable. | **Add** after `key_dependencies: ClassVar[list[str]] = []` (line 43): `terminate_grace_sec: ClassVar[float] = 5.0` — grace period in seconds for `ProcessHandle.terminate()`. Used by the scheduler when cancelling this block. Default 5 seconds. Linux/macOS: SIGTERM → wait this long → SIGKILL. Windows: ignored (TerminateProcess is always immediate). |
+| `src/scistudio/blocks/app/process_mgr.py` | **Delete** this file. | File currently contains only `"""External process lifecycle management (subprocess)."""`. Process lifecycle is an engine-layer concern (ADR-019), not a block-layer concern. All process management is in `engine/runners/process_handle.py`, `engine/runners/process_monitor.py`, and `engine/runners/platform.py`. **Also update** `src/scistudio/blocks/app/__init__.py` if it imports from `process_mgr`. |
+| `src/scistudio/engine/runners/__init__.py` | **Add** exports for new modules. | **Add** imports: `from scistudio.engine.runners.process_handle import ProcessHandle, ProcessExitInfo, ProcessRegistry, spawn_block_process`, `from scistudio.engine.runners.process_monitor import ProcessMonitor`, `from scistudio.engine.runners.platform import PlatformOps, get_platform_ops`. |
 
 #### Documentation impact
 
@@ -1861,14 +1861,14 @@ output_0 = [savgol_filter(s, 11, 3) for s in input_0]
 
 | File | Contents |
 |---|---|
-| `src/scieasy/core/types/collection.py` | `Collection` class with homogeneity enforcement, `__getitem__`, `__iter__`, `__len__`, `storage_refs()`. |
+| `src/scistudio/core/types/collection.py` | `Collection` class with homogeneity enforcement, `__getitem__`, `__iter__`, `__len__`, `storage_refs()`. |
 | `tests/core/test_collection.py` | Tests: construction, homogeneity enforcement (reject mixed types), length-0 edge case, pack/unpack round-trip, storage_refs extraction. |
 
 #### Deleted files
 
 | File | Reason |
 |---|---|
-| `src/scieasy/engine/batch.py` | `BatchExecutor` is entirely eliminated. All batch logic moves to Block internals. |
+| `src/scistudio/engine/batch.py` | `BatchExecutor` is entirely eliminated. All batch logic moves to Block internals. |
 
 #### Modified files — Layer 1 (Data Foundation)
 
@@ -1876,14 +1876,14 @@ output_0 = [savgol_filter(s, 11, 3) for s in input_0]
 |---|---|
 | `core/lineage/record.py` | **Delete** `batch_info: dict[str, Any] \| None = field(default=None)` (line 35). |
 | `core/lineage/store.py` | **Delete** `batch_info TEXT` from `_CREATE_TABLE` SQL (line 24). **Remove** `batch_info` from `write()` INSERT statement (line 67–81) and values tuple. **Remove** `batch_info` parsing from `_row_to_record()` (line 99). **Remove** `batch_info` from all SELECT column lists in `query()` (line 111) and `ancestors()` (line 141). **Update** row index offsets in `_row_to_record()` after column removal. |
-| `core/types/__init__.py` | **Add** re-export: `from scieasy.core.types.collection import Collection`. |
+| `core/types/__init__.py` | **Add** re-export: `from scistudio.core.types.collection import Collection`. |
 
 #### Modified files — Layer 2 (Block System)
 
 | File | Changes |
 |---|---|
 | `blocks/base/state.py` | **Delete** `BatchMode` enum (lines 27–33, 3 values). **Delete** `BatchErrorStrategy` enum (lines 43–49, 4 values). File retains: `BlockState`, `ExecutionMode`, `InputDelivery`. |
-| `blocks/base/block.py` | **Delete** import of `BatchErrorStrategy, BatchMode` from line 10. **Delete** `batch_mode: ClassVar[BatchMode] = BatchMode.PARALLEL` (line 40). **Delete** `on_batch_error: ClassVar[BatchErrorStrategy] = BatchErrorStrategy.SKIP` (line 41). **Change** `run()` signature (line 111) from `dict[str, Any] -> dict[str, Any]` to `dict[str, Collection] -> dict[str, Collection]`. **Add** import `from scieasy.core.types.collection import Collection`. **Add** 6 utility methods: `pack()`, `unpack()`, `unpack_single()`, `map_items()`, `parallel_map()`, `get_single_or_list()` (for CodeBlock). |
+| `blocks/base/block.py` | **Delete** import of `BatchErrorStrategy, BatchMode` from line 10. **Delete** `batch_mode: ClassVar[BatchMode] = BatchMode.PARALLEL` (line 40). **Delete** `on_batch_error: ClassVar[BatchErrorStrategy] = BatchErrorStrategy.SKIP` (line 41). **Change** `run()` signature (line 111) from `dict[str, Any] -> dict[str, Any]` to `dict[str, Collection] -> dict[str, Collection]`. **Add** import `from scistudio.core.types.collection import Collection`. **Add** 6 utility methods: `pack()`, `unpack()`, `unpack_single()`, `map_items()`, `parallel_map()`, `get_single_or_list()` (for CodeBlock). |
 | `blocks/base/result.py` | **Delete** `BatchResult` dataclass (lines 18–24). Retain `BlockResult`. |
 | `blocks/base/__init__.py` | **Remove** imports/exports: `BatchErrorStrategy`, `BatchMode`, `BatchResult` (lines 16, 18–19, 26–28). **Add** import/export: `Collection`. |
 | `blocks/base/ports.py` | **Update** `port_accepts_type()` (line 36): if incoming type is `Collection`, extract `item_type` and check that against `accepted_types`. **Update** `port_accepts_signature()` (line 48): handle `Collection` signature by delegating to item signature. **Update** `validate_connection()` (line 80): when source produces `Collection[X]`, check `X` against target's `accepted_types`. |
@@ -2295,8 +2295,8 @@ The following text in ADR-020 Decision section must be corrected:
 
 | File | Change |
 |---|---|
-| `src/scieasy/core/types/collection.py` | Raise TypeError on empty Collection without item_type |
-| `src/scieasy/blocks/base/ports.py` | `port_accepts_type` and `validate_connection` check Collection.item_type |
+| `src/scistudio/core/types/collection.py` | Raise TypeError on empty Collection without item_type |
+| `src/scistudio/blocks/base/ports.py` | `port_accepts_type` and `validate_connection` check Collection.item_type |
 | `tests/core/test_collection.py` | Test: `Collection([])` raises TypeError; `Collection([], item_type=Image)` OK |
 | `tests/blocks/test_ports.py` | Test: `Collection[DataFrame]` rejected by `accepted_types=[Image]` port |
 
@@ -2485,7 +2485,7 @@ GPU resource management retains the declaration-based model: `requires_gpu: bool
 
 | File | Change |
 |---|---|
-| `src/scieasy/engine/resources.py` | **Rewrite**: remove `estimated_memory_gb` from `ResourceRequest`, remove `available_memory_gb` from `ResourceSnapshot` (replace with `system_memory_percent`), remove `memory_budget_gb` from `ResourceManager.__init__`, add `memory_high_watermark`/`memory_critical` params, rewrite `acquire()`→`can_dispatch()` with `psutil.virtual_memory()`, simplify `release()` to GPU/CPU only. |
+| `src/scistudio/engine/resources.py` | **Rewrite**: remove `estimated_memory_gb` from `ResourceRequest`, remove `available_memory_gb` from `ResourceSnapshot` (replace with `system_memory_percent`), remove `memory_budget_gb` from `ResourceManager.__init__`, add `memory_high_watermark`/`memory_critical` params, rewrite `acquire()`→`can_dispatch()` with `psutil.virtual_memory()`, simplify `release()` to GPU/CPU only. |
 | `pyproject.toml` | **Add** `psutil` to `[project.dependencies]` |
 
 #### Documentation files
@@ -2630,7 +2630,7 @@ Full-height left sidebar with searchable, categorised block list.
 │ ▸ AI       │  Drag block from palette onto canvas
 │ ▸ SubWF    │
 ├───────────┤
-│ ▸ Custom   │  User/project-local blocks (~/.scieasy/blocks/, project/blocks/)
+│ ▸ Custom   │  User/project-local blocks (~/.scistudio/blocks/, project/blocks/)
 └───────────┘
 ```
 
@@ -3126,12 +3126,12 @@ Automatically detect when a block's config changes and mark it + downstream as "
 
 | File | Change |
 |------|--------|
-| `src/scieasy/api/routes/workflows.py` | Add `execute_from()` endpoint |
-| `src/scieasy/engine/scheduler.py` | Add `execute_from()` method |
-| `src/scieasy/api/routes/data.py` | Implement preview endpoint with type-appropriate responses |
-| `src/scieasy/api/schemas.py` | Add `ExecuteFromRequest`, `ExecuteFromResponse` models |
-| `src/scieasy/blocks/base/config.py` | Support `ui_priority` in parameter schema |
-| `src/scieasy/core/types/base.py` | Add optional `_ui_ring_color: ClassVar[str]` |
+| `src/scistudio/api/routes/workflows.py` | Add `execute_from()` endpoint |
+| `src/scistudio/engine/scheduler.py` | Add `execute_from()` method |
+| `src/scistudio/api/routes/data.py` | Implement preview endpoint with type-appropriate responses |
+| `src/scistudio/api/schemas.py` | Add `ExecuteFromRequest`, `ExecuteFromResponse` models |
+| `src/scistudio/blocks/base/config.py` | Support `ui_priority` in parameter schema |
+| `src/scistudio/core/types/base.py` | Add optional `_ui_ring_color: ClassVar[str]` |
 
 #### Documentation files to update
 
@@ -3151,7 +3151,7 @@ Automatically detect when a block's config changes and mark it + downstream as "
 
 ### Context
 
-ADR-023 redesigned the frontend layout but did not address project-level operations. The backend already has skeleton endpoints for project CRUD (`routes/projects.py`) and the CLI already implements `scieasy init` (Phase 6). However, the frontend has no UI for creating, opening, saving, or switching projects. Additionally, the Phase 7 API roadmap needs updates to reflect ADR-023's new endpoint requirements and enhanced response formats.
+ADR-023 redesigned the frontend layout but did not address project-level operations. The backend already has skeleton endpoints for project CRUD (`routes/projects.py`) and the CLI already implements `scistudio init` (Phase 6). However, the frontend has no UI for creating, opening, saving, or switching projects. Additionally, the Phase 7 API roadmap needs updates to reflect ADR-023's new endpoint requirements and enhanced response formats.
 
 ### Decision
 
@@ -3175,7 +3175,7 @@ Add a **Projects menu** to the toolbar, positioned before the file operations gr
 1. User clicks "New Project..." → modal dialog appears.
 2. User enters: project name, optional description, parent directory (with file browser).
 3. Frontend sends `POST /api/projects/` with `{ "name": "...", "description": "...", "path": "/path/to/parent" }`.
-4. Backend executes the equivalent of `scieasy init` — creates the workspace directory structure (`workflows/`, `data/raw/`, `data/zarr/`, `data/parquet/`, `data/artifacts/`, `blocks/`, `types/`, `.scieasy/pause/`, `.scieasy/lineage.db`, `logs/`) and writes `project.yaml`. (Per ADR-038/039: `.scieasy/pause/` replaces the legacy top-level `checkpoints/`; `.scieasy/lineage.db` replaces the legacy top-level `lineage/` and `metadata.db`.)
+4. Backend executes the equivalent of `scistudio init` — creates the workspace directory structure (`workflows/`, `data/raw/`, `data/zarr/`, `data/parquet/`, `data/artifacts/`, `blocks/`, `types/`, `.scistudio/pause/`, `.scistudio/lineage.db`, `logs/`) and writes `project.yaml`. (Per ADR-038/039: `.scistudio/pause/` replaces the legacy top-level `checkpoints/`; `.scistudio/lineage.db` replaces the legacy top-level `lineage/` and `metadata.db`.)
 5. Backend returns the project metadata including the workspace path.
 6. Frontend switches to the new project (empty canvas, palette refreshed for project-local blocks).
 
@@ -3201,7 +3201,7 @@ When no project is open (app first launched or project closed), the canvas area 
 ```
 ┌──────────────────────────────────────┐
 │                                      │
-│        Welcome to SciEasy            │
+│        Welcome to SciStudio            │
 │                                      │
 │   [📁 New Project]                   │
 │   [📂 Open Project]                  │
@@ -3276,11 +3276,11 @@ When `isProjectOpen` is false, the canvas area renders the welcome screen instea
 
 | File | Change |
 |------|--------|
-| `src/scieasy/api/schemas.py` | Add `ProjectCreate`, `ProjectResponse`, `ExecuteFromRequest`, `ExecuteFromResponse` |
-| `src/scieasy/api/routes/projects.py` | Implement all 5 endpoints with workspace directory operations |
-| `src/scieasy/api/routes/workflows.py` | Add `execute_from()` endpoint |
-| `src/scieasy/api/routes/data.py` | Implement type-appropriate preview responses |
-| `src/scieasy/engine/scheduler.py` | Add `execute_from()` method |
+| `src/scistudio/api/schemas.py` | Add `ProjectCreate`, `ProjectResponse`, `ExecuteFromRequest`, `ExecuteFromResponse` |
+| `src/scistudio/api/routes/projects.py` | Implement all 5 endpoints with workspace directory operations |
+| `src/scistudio/api/routes/workflows.py` | Add `execute_from()` endpoint |
+| `src/scistudio/api/routes/data.py` | Implement type-appropriate preview responses |
+| `src/scistudio/engine/scheduler.py` | Add `execute_from()` method |
 
 #### Frontend
 
@@ -3303,18 +3303,18 @@ When `isProjectOpen` is false, the canvas area renders the welcome screen instea
 
 ---
 
-## ADR-024: Frontend bundling, SPA serving, and `scieasy gui` command
+## ADR-024: Frontend bundling, SPA serving, and `scistudio gui` command
 
 **Status**: accepted
 **Date**: 2026-04-05
 
 ### Context
 
-The target user profile for SciEasy includes scientists who do not write code. The current developer workflow requires Node.js, `npm install`, and running a separate `npm run dev` process — this is unacceptable for end users. The installation and launch experience must be:
+The target user profile for SciStudio includes scientists who do not write code. The current developer workflow requires Node.js, `npm install`, and running a separate `npm run dev` process — this is unacceptable for end users. The installation and launch experience must be:
 
 ```
-pip install scieasy
-scieasy gui
+pip install scistudio
+scistudio gui
 ```
 
 This ADR defines how the React frontend is bundled into the Python package and served to users.
@@ -3328,7 +3328,7 @@ The React frontend is built at **package build time** (not at install time). The
 Directory layout inside the installed package:
 
 ```
-scieasy/
+scistudio/
 ├── api/
 │   ├── app.py
 │   ├── static/         ← npm run build output (index.html, assets/)
@@ -3337,9 +3337,9 @@ scieasy/
 
 Build pipeline:
 - CI / release workflow runs `cd frontend && npm run build`
-- Build output copied to `src/scieasy/api/static/`
-- `pyproject.toml` declares `[tool.hatch.build.targets.wheel] packages = ["src/scieasy"]` with static files included via package-data
-- Users installing via `pip install scieasy` receive the pre-built frontend
+- Build output copied to `src/scistudio/api/static/`
+- `pyproject.toml` declares `[tool.hatch.build.targets.wheel] packages = ["src/scistudio"]` with static files included via package-data
+- Users installing via `pip install scistudio` receive the pre-built frontend
 - Developers still use `npm run dev` with CORS for frontend development
 
 #### 2. API prefix convention
@@ -3378,7 +3378,7 @@ def create_app() -> FastAPI:
     return app
 ```
 
-#### 3. `scieasy gui` CLI command
+#### 3. `scistudio gui` CLI command
 
 A new CLI command starts the server and opens the user's default browser:
 
@@ -3388,7 +3388,7 @@ def gui(
     port: int = typer.Option(8000, help="Port for the API server"),
     no_browser: bool = typer.Option(False, help="Do not open browser automatically"),
 ):
-    """Launch SciEasy GUI in your default browser."""
+    """Launch SciStudio GUI in your default browser."""
     import threading
     import webbrowser
     import uvicorn
@@ -3397,14 +3397,14 @@ def gui(
     if not no_browser:
         threading.Timer(1.5, webbrowser.open, args=[url]).start()
 
-    uvicorn.run("scieasy.api.app:create_app", factory=True, host="0.0.0.0", port=port)
+    uvicorn.run("scistudio.api.app:create_app", factory=True, host="0.0.0.0", port=port)
 ```
 
-The existing `scieasy serve` command (from PR #160) remains available for headless/API-only usage.
+The existing `scistudio serve` command (from PR #160) remains available for headless/API-only usage.
 
 #### 4. Zero-configuration first launch
 
-When a user opens the GUI with no existing projects, the frontend shows a Welcome screen (ADR-023 Addendum 1). The backend provides a default workspace directory at `~/SciEasy/projects/`. The "Create Project" flow requires only a project name — all other settings use sensible defaults.
+When a user opens the GUI with no existing projects, the frontend shows a Welcome screen (ADR-023 Addendum 1). The backend provides a default workspace directory at `~/SciStudio/projects/`. The "Create Project" flow requires only a project name — all other settings use sensible defaults.
 
 ### Alternatives considered
 
@@ -3429,29 +3429,29 @@ When a user opens the GUI with no existing projects, the frontend shows a Welcom
 
 | File | Contents |
 |---|---|
-| `src/scieasy/api/static/` | Directory containing pre-built React frontend output (`index.html`, `assets/`). Created by `npm run build` during CI release step, included in wheel as package data. Not committed to git — `.gitignore`'d. |
-| `src/scieasy/api/spa.py` | SPA fallback middleware: subclass of `StaticFiles` that returns `index.html` for any path not matching a real file. ~30 lines. Required because FastAPI's `StaticFiles(html=True)` only serves `index.html` for `/`, not for deep SPA routes like `/projects/123/workflows`. |
+| `src/scistudio/api/static/` | Directory containing pre-built React frontend output (`index.html`, `assets/`). Created by `npm run build` during CI release step, included in wheel as package data. Not committed to git — `.gitignore`'d. |
+| `src/scistudio/api/spa.py` | SPA fallback middleware: subclass of `StaticFiles` that returns `index.html` for any path not matching a real file. ~30 lines. Required because FastAPI's `StaticFiles(html=True)` only serves `index.html` for `/`, not for deep SPA routes like `/projects/123/workflows`. |
 | `tests/api/test_spa_fallback.py` | Tests: (1) `/api/...` routes are NOT intercepted by SPA. (2) `/ws` is NOT intercepted. (3) Unknown paths like `/projects/foo` return `index.html`. (4) Static assets (`/assets/main.js`) are served directly. |
 
 #### Modified files — Layer 5 (API)
 
 | File | Changes |
 |---|---|
-| `src/scieasy/api/app.py` | **Add** import `from pathlib import Path`. **Add** import `from scieasy.api.spa import SPAStaticFiles`. **Add** static file mount at the END of `create_app()` (after all API routers and WebSocket): `static_dir = Path(__file__).parent / "static"` → `if static_dir.exists(): app.mount("/", SPAStaticFiles(directory=static_dir, html=True))`. Must be registered AFTER all `/api/*` and `/ws` routes (line 49, before `return app`). **No changes** to `_lifespan`, CORS, or existing route registration. |
+| `src/scistudio/api/app.py` | **Add** import `from pathlib import Path`. **Add** import `from scistudio.api.spa import SPAStaticFiles`. **Add** static file mount at the END of `create_app()` (after all API routers and WebSocket): `static_dir = Path(__file__).parent / "static"` → `if static_dir.exists(): app.mount("/", SPAStaticFiles(directory=static_dir, html=True))`. Must be registered AFTER all `/api/*` and `/ws` routes (line 49, before `return app`). **No changes** to `_lifespan`, CORS, or existing route registration. |
 
 #### Modified files — Layer 6 (CLI)
 
 | File | Changes |
 |---|---|
-| `src/scieasy/cli/main.py` | **Add** new `gui` command (after line 231, after existing `serve` command). Implementation: `@app.command() def gui(port: int = typer.Option(8000), no_browser: bool = typer.Option(False))` → starts uvicorn with `create_app` factory + opens browser via `threading.Timer(1.5, webbrowser.open, [url])`. **Add** imports: `threading`, `webbrowser` (inside function body to avoid top-level cost). **Update** existing `serve` command (lines 226–231): replace placeholder echo with actual uvicorn start: `uvicorn.run("scieasy.api.app:create_app", factory=True, host=host, port=port)`. |
+| `src/scistudio/cli/main.py` | **Add** new `gui` command (after line 231, after existing `serve` command). Implementation: `@app.command() def gui(port: int = typer.Option(8000), no_browser: bool = typer.Option(False))` → starts uvicorn with `create_app` factory + opens browser via `threading.Timer(1.5, webbrowser.open, [url])`. **Add** imports: `threading`, `webbrowser` (inside function body to avoid top-level cost). **Update** existing `serve` command (lines 226–231): replace placeholder echo with actual uvicorn start: `uvicorn.run("scistudio.api.app:create_app", factory=True, host=host, port=port)`. |
 
 #### Modified files — Build & CI
 
 | File | Changes |
 |---|---|
-| `pyproject.toml` | **Add** `[tool.setuptools.package-data]` section: `scieasy = ["api/static/**/*"]` to include pre-built frontend in wheel. No change to `[tool.setuptools.packages.find]` (line 79–80) — `where = ["src"]` already picks up the `api/` package. |
-| `.github/workflows/ci.yml` | **Add** a `build-frontend` job (runs before `build-wheel`): `cd frontend && npm ci && npm run build && cp -r dist/ ../src/scieasy/api/static/`. This job runs only on release tags (not on every PR). **Add** `needs: build-frontend` to the wheel/publish job so static files are available at wheel build time. |
-| `.gitignore` | **Add** `src/scieasy/api/static/` to prevent committing build artifacts. Developers use `npm run dev` (Vite dev server) during development, not pre-built files. |
+| `pyproject.toml` | **Add** `[tool.setuptools.package-data]` section: `scistudio = ["api/static/**/*"]` to include pre-built frontend in wheel. No change to `[tool.setuptools.packages.find]` (line 79–80) — `where = ["src"]` already picks up the `api/` package. |
+| `.github/workflows/ci.yml` | **Add** a `build-frontend` job (runs before `build-wheel`): `cd frontend && npm ci && npm run build && cp -r dist/ ../src/scistudio/api/static/`. This job runs only on release tags (not on every PR). **Add** `needs: build-frontend` to the wheel/publish job so static files are available at wheel build time. |
+| `.gitignore` | **Add** `src/scistudio/api/static/` to prevent committing build artifacts. Developers use `npm run dev` (Vite dev server) during development, not pre-built files. |
 
 #### Modified files — Frontend
 
@@ -3465,7 +3465,7 @@ When a user opens the GUI with no existing projects, the frontend shows a Welcom
 | File | Changes |
 |---|---|
 | `docs/architecture/ARCHITECTURE.md` | **Update** Section 7 (API layer): add paragraph describing static file serving and SPA fallback. Note that `/api/*` and `/ws` are reserved prefixes; all other paths serve the frontend. |
-| `docs/architecture/PROJECT_TREE.md` | **Add** `api/spa.py` entry under `src/scieasy/api/` with annotation "SPA fallback: serves index.html for non-API routes". **Add** `api/static/` entry with annotation "(build artifact, not in git)". |
+| `docs/architecture/PROJECT_TREE.md` | **Add** `api/spa.py` entry under `src/scistudio/api/` with annotation "SPA fallback: serves index.html for non-API routes". **Add** `api/static/` entry with annotation "(build artifact, not in git)". |
 | `docs/adr/ADR.md` | This ADR (ADR-024). |
 | `CHANGELOG.md` | **Add** entry under `[Unreleased]` → `### Added`. |
 
@@ -3485,7 +3485,7 @@ When a user opens the GUI with no existing projects, the frontend shows a Welcom
 
 ### Context
 
-SciEasy's block system (ADR-009) currently discovers blocks via file-system scanning (Tier 1: drop-in `.py` files) and a placeholder entry-points scan (Tier 2). For the `pip install scieasy-blocks-srs` experience to work, we need a formal protocol for:
+SciStudio's block system (ADR-009) currently discovers blocks via file-system scanning (Tier 1: drop-in `.py` files) and a placeholder entry-points scan (Tier 2). For the `pip install scistudio-blocks-srs` experience to work, we need a formal protocol for:
 
 1. How external block packages register their blocks
 2. How external packages register custom data types (subclasses of DataObject)
@@ -3500,32 +3500,32 @@ External packages use Python's standard `entry_points` mechanism with three grou
 
 | Group | Purpose | Return type |
 |-------|---------|-------------|
-| `scieasy.blocks` | Block class discovery | `(PackageInfo, list[type[Block]])` or `list[type[Block]]` |
-| `scieasy.types` | Custom DataObject subtype registration | `list[type[DataObject]]` |
-| `scieasy.adapters` | Custom IO adapter registration | `list[type[FormatAdapter]]` |
+| `scistudio.blocks` | Block class discovery | `(PackageInfo, list[type[Block]])` or `list[type[Block]]` |
+| `scistudio.types` | Custom DataObject subtype registration | `list[type[DataObject]]` |
+| `scistudio.adapters` | Custom IO adapter registration | `list[type[FormatAdapter]]` |
 
 Example `pyproject.toml` for an external package:
 
 ```toml
 [project]
-name = "scieasy-blocks-srs"
+name = "scistudio-blocks-srs"
 version = "0.1.0"
-dependencies = ["scieasy>=0.1", "tifffile"]
+dependencies = ["scistudio>=0.1", "tifffile"]
 
-[project.entry-points."scieasy.blocks"]
-srs = "scieasy_blocks_srs:get_blocks"
+[project.entry-points."scistudio.blocks"]
+srs = "scistudio_blocks_srs:get_blocks"
 
-[project.entry-points."scieasy.types"]
-srs = "scieasy_blocks_srs.types:get_types"
+[project.entry-points."scistudio.types"]
+srs = "scistudio_blocks_srs.types:get_types"
 
-[project.entry-points."scieasy.adapters"]
-srs = "scieasy_blocks_srs.io:get_adapters"
+[project.entry-points."scistudio.adapters"]
+srs = "scistudio_blocks_srs.io:get_adapters"
 ```
 
 #### 2. Block registration with package-level metadata
 
 ```python
-from scieasy.blocks.base import PackageInfo
+from scistudio.blocks.base import PackageInfo
 
 PACKAGE_INFO = PackageInfo(
     name="SRS Imaging",
@@ -3542,7 +3542,7 @@ def get_blocks():
     return PACKAGE_INFO, [SRSReaderBlock, SpectralUnmixingBlock, BaselineCorrectionBlock, PCABlock]
 ```
 
-`PackageInfo` is a new dataclass in `scieasy.blocks.base`:
+`PackageInfo` is a new dataclass in `scistudio.blocks.base`:
 
 ```python
 @dataclass
@@ -3561,7 +3561,7 @@ Blocks are organized in the GUI by **package** (top level) and **category** (sec
 
 ```
 Block Palette:
-├── Core                         ← built-in (scieasy main package)
+├── Core                         ← built-in (scistudio main package)
 │   ├── code_block
 │   ├── io_block
 │   └── manual_review
@@ -3587,8 +3587,8 @@ Custom DataObject subtypes must be registered so the engine can:
 - Display type-appropriate previews in the frontend
 
 ```python
-# scieasy_blocks_srs/types.py
-from scieasy.core.types.array import Image
+# scistudio_blocks_srs/types.py
+from scistudio.core.types.array import Image
 
 class SRSImage(Image):
     axes: ClassVar[list[str] | None] = ["y", "x", "wavenumber"]
@@ -3601,7 +3601,7 @@ def get_types():
 
 ```python
 def _scan_entrypoint_types(self) -> None:
-    eps = entry_points(group="scieasy.types")
+    eps = entry_points(group="scistudio.types")
     for ep in eps:
         try:
             type_classes = ep.load()()
@@ -3639,14 +3639,14 @@ The package author writes a custom save/load hook or a thin wrapper block that p
 
 #### 6. Adapter registration via entry-points
 
-> **Status (2026-04-08): SUPERSEDED by ADR-028 §D4.** The `scieasy.adapters`
+> **Status (2026-04-08): SUPERSEDED by ADR-028 §D4.** The `scistudio.adapters`
 > entry-point group described in this section has been removed. Concrete IO is
 > now provided by `IOBlock` ABC subclasses (`LoadData`, `SaveData`, plus
 > plugin-owned loaders like `LoadImage` and `LoadMSRawFile`) registered under
-> the existing `scieasy.blocks` entry-point group. The `FormatAdapter` protocol,
+> the existing `scistudio.blocks` entry-point group. The `FormatAdapter` protocol,
 > the per-extension adapter registry, and the `get_adapters()` callable have
 > all been deleted; the logic that previously lived in
-> `src/scieasy/blocks/io/adapters/{csv,parquet,zarr,generic}_adapter.py` was
+> `src/scistudio/blocks/io/adapters/{csv,parquet,zarr,generic}_adapter.py` was
 > absorbed into module-level private `_load_*` / `_save_*` functions inside
 > `LoadData` and `SaveData` (ADR-028 Addendum 1 §C9). Plugin-owned IO blocks
 > use the dynamic-port mechanism (ADR-028 Addendum 1 §C5) when one class needs
@@ -3665,7 +3665,7 @@ The adapter registry resolves by file extension. External adapters are checked *
 
 #### 7. Built-in blocks strategy (Strategy C)
 
-`pip install scieasy` ships with general-purpose blocks:
+`pip install scistudio` ships with general-purpose blocks:
 - CodeBlock — execute Python/R code
 - IOBlock — read/write standard formats
 - ManualReviewBlock — human-in-the-loop
@@ -3678,14 +3678,14 @@ Domain-specific blocks (imaging, genomics, etc.) are distributed as separate pac
 
 | Alternative | Why rejected |
 |---|---|
-| All blocks external (Strategy B) | Bad first experience — `pip install scieasy` alone can't do anything |
+| All blocks external (Strategy B) | Bad first experience — `pip install scistudio` alone can't do anything |
 | All blocks internal (Strategy A) | Bloats main package with every domain's dependencies |
 | Plugin YAML manifests instead of entry-points | Non-standard, reinvents what entry-points already solve |
 | Single entry-point group for everything | Types, blocks, and adapters have different lifecycle and discovery patterns |
 
 ### Consequences
 
-- External developers can `pip install` their blocks into any SciEasy installation
+- External developers can `pip install` their blocks into any SciStudio installation
 - Block discovery is lazy — entry-points are only loaded when the registry scans
 - Type compatibility works across packages (SRSImage IS-A Image IS-A Array)
 - No changes to the execution engine — blocks run the same regardless of origin
@@ -3697,34 +3697,34 @@ Domain-specific blocks (imaging, genomics, etc.) are distributed as separate pac
 
 | File | Contents |
 |---|---|
-| `src/scieasy/blocks/base/package_info.py` | `PackageInfo` dataclass with fields: `name: str`, `description: str = ""`, `author: str = ""`, `version: str = "0.1.0"`. Kept in a separate file (not `block.py`) to avoid circular imports when external packages import it for registration. |
+| `src/scistudio/blocks/base/package_info.py` | `PackageInfo` dataclass with fields: `name: str`, `description: str = ""`, `author: str = ""`, `version: str = "0.1.0"`. Kept in a separate file (not `block.py`) to avoid circular imports when external packages import it for registration. |
 | `tests/blocks/test_package_discovery.py` | Tests for the full entry-point discovery pipeline: (1) `get_blocks()` returning `(PackageInfo, list[Block])` tuple is parsed correctly. (2) `get_blocks()` returning plain `list[Block]` (backward compat) uses entry-point name as package name. (3) `get_types()` registers custom types into TypeRegistry. (4) `get_adapters()` registers adapters with correct extension mappings. (5) External adapter does not override built-in extensions. |
 
 #### Modified files — Layer 2 (Block System)
 
 | File | Changes |
 |---|---|
-| `src/scieasy/blocks/base/__init__.py` | **Add** import and re-export: `from scieasy.blocks.base.package_info import PackageInfo` (after line 5). **Add** `"PackageInfo"` to `__all__` list (line 23–37). |
-| `src/scieasy/blocks/registry.py` | **Add** `import logging` and `logger = logging.getLogger(__name__)` at module level (after line 17). **Add** `package_name: str = ""` field to `BlockSpec` dataclass (after line 39, for GUI grouping). **Update** `BlockRegistry.__init__()` (line 52–54): **Add** `self._packages: dict[str, PackageInfo] = {}` to track registered package metadata. **Rewrite** `_scan_tier2()` (lines 101–121): load entry-point, call the callable, detect return type — if `tuple` of `(PackageInfo, list)`, extract package info and register each block with `block_spec.package_name = info.name`; if plain `list`, use `ep.name` as fallback package name. **Add** `logger.warning(...)` in all 3 exception handlers (lines 97, 107–108, 120–121) — this overlaps with issue #169 fix. **Add** `def packages(self) -> dict[str, PackageInfo]` public method for GUI to query available packages and their metadata. **Add** `def specs_by_package(self) -> dict[str, list[BlockSpec]]` method returning blocks grouped by `package_name` for the block palette two-level hierarchy. |
-| `src/scieasy/blocks/registry.py` → `BlockSpec` | **Add** `package_name: str = ""` field to the dataclass (line 39). Populated during Tier 2 scan from `PackageInfo.name` or entry-point name. |
+| `src/scistudio/blocks/base/__init__.py` | **Add** import and re-export: `from scistudio.blocks.base.package_info import PackageInfo` (after line 5). **Add** `"PackageInfo"` to `__all__` list (line 23–37). |
+| `src/scistudio/blocks/registry.py` | **Add** `import logging` and `logger = logging.getLogger(__name__)` at module level (after line 17). **Add** `package_name: str = ""` field to `BlockSpec` dataclass (after line 39, for GUI grouping). **Update** `BlockRegistry.__init__()` (line 52–54): **Add** `self._packages: dict[str, PackageInfo] = {}` to track registered package metadata. **Rewrite** `_scan_tier2()` (lines 101–121): load entry-point, call the callable, detect return type — if `tuple` of `(PackageInfo, list)`, extract package info and register each block with `block_spec.package_name = info.name`; if plain `list`, use `ep.name` as fallback package name. **Add** `logger.warning(...)` in all 3 exception handlers (lines 97, 107–108, 120–121) — this overlaps with issue #169 fix. **Add** `def packages(self) -> dict[str, PackageInfo]` public method for GUI to query available packages and their metadata. **Add** `def specs_by_package(self) -> dict[str, list[BlockSpec]]` method returning blocks grouped by `package_name` for the block palette two-level hierarchy. |
+| `src/scistudio/blocks/registry.py` → `BlockSpec` | **Add** `package_name: str = ""` field to the dataclass (line 39). Populated during Tier 2 scan from `PackageInfo.name` or entry-point name. |
 
 #### Modified files — Layer 1 (Data Foundation)
 
 | File | Changes |
 |---|---|
-| `src/scieasy/core/types/registry.py` | **Add** `import importlib.metadata` (after line 9). **Add** `import logging` and `logger = logging.getLogger(__name__)` at module level. **Add** `_scan_entrypoint_types()` method to `TypeRegistry` class (after `scan_builtins()`, line 108): iterates `entry_points(group="scieasy.types")`, calls each callable, registers returned type classes via `self.register()`. Uses `try/except` with `logger.warning(...)` for robustness. **Update** `scan_builtins()` (line 67): optionally call `self._scan_entrypoint_types()` at the end, or provide a separate `scan_all()` method that calls both. |
+| `src/scistudio/core/types/registry.py` | **Add** `import importlib.metadata` (after line 9). **Add** `import logging` and `logger = logging.getLogger(__name__)` at module level. **Add** `_scan_entrypoint_types()` method to `TypeRegistry` class (after `scan_builtins()`, line 108): iterates `entry_points(group="scistudio.types")`, calls each callable, registers returned type classes via `self.register()`. Uses `try/except` with `logger.warning(...)` for robustness. **Update** `scan_builtins()` (line 67): optionally call `self._scan_entrypoint_types()` at the end, or provide a separate `scan_all()` method that calls both. |
 
 #### Modified files — Layer 2 (IO Subsystem)
 
 | File | Changes |
 |---|---|
-| `src/scieasy/blocks/io/adapter_registry.py` | **Add** `import logging` and `logger = logging.getLogger(__name__)` at module level (after line 6). **Update** `scan_entry_points()` (lines 49–65): **Add** priority enforcement — external adapters registered with `_register_external()` that skips extensions already claimed by `register_defaults()`. This prevents external packages from silently overriding `.csv`, `.parquet`, `.tiff`, `.zarr` handling. **Add** `logger.warning(...)` in exception handler (line 64) instead of bare `continue`. **Add** `logger.info("Registered external adapter %s for %s", ep.name, ...)` on success. |
+| `src/scistudio/blocks/io/adapter_registry.py` | **Add** `import logging` and `logger = logging.getLogger(__name__)` at module level (after line 6). **Update** `scan_entry_points()` (lines 49–65): **Add** priority enforcement — external adapters registered with `_register_external()` that skips extensions already claimed by `register_defaults()`. This prevents external packages from silently overriding `.csv`, `.parquet`, `.tiff`, `.zarr` handling. **Add** `logger.warning(...)` in exception handler (line 64) instead of bare `continue`. **Add** `logger.info("Registered external adapter %s for %s", ep.name, ...)` on success. |
 
 #### Modified files — Build Configuration
 
 | File | Changes |
 |---|---|
-| `pyproject.toml` | **No changes required** for core package. Entry-point groups `scieasy.blocks`, `scieasy.types`, `scieasy.adapters` already exist (lines 45–68). The `_scan_tier2` refactoring changes how loaded callables are interpreted, not the entry-point declaration format. |
+| `pyproject.toml` | **No changes required** for core package. Entry-point groups `scistudio.blocks`, `scistudio.types`, `scistudio.adapters` already exist (lines 45–68). The `_scan_tier2` refactoring changes how loaded callables are interpreted, not the entry-point declaration format. |
 
 #### Modified files — Documentation
 
@@ -3752,7 +3752,7 @@ Domain-specific blocks (imaging, genomics, etc.) are distributed as separate pac
 
 ### Context
 
-For the SciEasy ecosystem to grow, external developers must be able to create block packages without reading internal architecture documents. They need:
+For the SciStudio ecosystem to grow, external developers must be able to create block packages without reading internal architecture documents. They need:
 
 1. A project scaffolding tool that generates a working package structure
 2. A test harness that validates blocks against the block contract without manual setup
@@ -3760,19 +3760,19 @@ For the SciEasy ecosystem to grow, external developers must be able to create bl
 
 ### Decision
 
-#### 1. `scieasy init-block-package` CLI command
+#### 1. `scistudio init-block-package` CLI command
 
 Generates a complete, ready-to-develop block package:
 
 ```bash
-$ scieasy init-block-package scieasy-blocks-srs
+$ scistudio init-block-package scistudio-blocks-srs
 
 Package display name [SRS]: SRS Imaging
 Author []: Dr. Wang Lab
 Categories (comma-separated) [processing]: processing, stat, io
 
-Created scieasy-blocks-srs/
-  src/scieasy_blocks_srs/
+Created scistudio-blocks-srs/
+  src/scistudio_blocks_srs/
     __init__.py                    # PackageInfo + get_blocks()
     types.py                       # Example custom type (optional)
     processing/example_block.py    # Example block per category
@@ -3791,7 +3791,7 @@ The generated `pyproject.toml` includes all three entry-point groups pre-configu
 A test helper that eliminates boilerplate for block testing:
 
 ```python
-from scieasy.testing import BlockTestHarness
+from scistudio.testing import BlockTestHarness
 
 class TestMyBlock:
     def test_doubles_values(self, tmp_path):
@@ -3812,7 +3812,7 @@ class TestMyBlock:
 - Materialize output DataObjects for easy assertion
 - Clean up temporary files
 
-Location: `src/scieasy/testing/harness.py` (new module).
+Location: `src/scistudio/testing/harness.py` (new module).
 
 #### 3. Developer documentation structure
 
@@ -3882,7 +3882,7 @@ Blocks do not need to explicitly handle cancellation. The engine terminates the 
 External developers may define domain-specific types by subclassing core types:
 
 ```python
-from scieasy.core.types.array import Image
+from scistudio.core.types.array import Image
 
 class SRSImage(Image):
     """SRS microscopy image with spectral wavenumber axis."""
@@ -3909,7 +3909,7 @@ Do I need a custom IO adapter or block?
 Is my data in a standard format (.csv, .parquet, .tiff, .zarr)?
   YES → Built-in adapter handles it. No custom IO needed.
   NO  → Write a custom FormatAdapter for your file extension.
-         Register via scieasy.adapters entry-point.
+         Register via scistudio.adapters entry-point.
 
 Does the standard adapter return the wrong type?
   (e.g., TIFFAdapter returns Image but I need SRSImage)
@@ -3935,7 +3935,7 @@ Does the standard adapter return the wrong type?
 - Consistent package structure across the ecosystem
 - Test harness catches contract violations early
 - Documentation prevents common pitfalls (memory, serialization, type compatibility)
-- `scieasy.testing` becomes a new public module in the package
+- `scistudio.testing` becomes a new public module in the package
 
 ### Detailed impact scope
 
@@ -3943,32 +3943,32 @@ Does the standard adapter return the wrong type?
 
 | File | Contents |
 |---|---|
-| `src/scieasy/testing/__init__.py` | Public module re-export: `from scieasy.testing.harness import BlockTestHarness`. |
-| `src/scieasy/testing/harness.py` | `BlockTestHarness` class (~150 lines). Constructor takes `block_class: type[Block]`, `work_dir: Path`. Methods: `run(inputs: dict, params: dict) -> dict` (wraps raw data into DataObjects/Collections, constructs `BlockConfig`, calls `block.run()`, materializes outputs for assertion), `validate_contract(block_class)` (checks `input_ports`/`output_ports` declarations, verifies `run()` method signature). Internal helpers: `_wrap_input(raw_data) -> Collection` (dict → DataFrame, list → Collection of items, ndarray → Array), `_materialize_output(collection: Collection) -> Any` (Collection → native Python objects for easy assertion). |
-| `src/scieasy/cli/templates/` | Directory containing Jinja2/string-template files for `init-block-package` scaffolding. |
-| `src/scieasy/cli/templates/pyproject.toml.tpl` | Template for generated package's `pyproject.toml` with pre-configured `[project.entry-points."scieasy.blocks"]`, `[project.entry-points."scieasy.types"]`, `[project.entry-points."scieasy.adapters"]` sections. Placeholders: `{{package_name}}`, `{{display_name}}`, `{{author}}`, `{{categories}}`. |
-| `src/scieasy/cli/templates/__init__.py.tpl` | Template for generated package's `__init__.py` with `PackageInfo` declaration and `get_blocks()` function that imports from each category submodule. |
-| `src/scieasy/cli/templates/example_block.py.tpl` | Template for a minimal working block per category. Includes inline comments explaining: `input_ports`/`output_ports` declarations, `process_item()` vs `run()` choice, Collection handling, return type requirements. |
-| `src/scieasy/cli/templates/test_block.py.tpl` | Template test file using `BlockTestHarness` with a working example test. |
-| `src/scieasy/cli/templates/README.md.tpl` | Template README with quick-start instructions, development setup, and publishing checklist. |
+| `src/scistudio/testing/__init__.py` | Public module re-export: `from scistudio.testing.harness import BlockTestHarness`. |
+| `src/scistudio/testing/harness.py` | `BlockTestHarness` class (~150 lines). Constructor takes `block_class: type[Block]`, `work_dir: Path`. Methods: `run(inputs: dict, params: dict) -> dict` (wraps raw data into DataObjects/Collections, constructs `BlockConfig`, calls `block.run()`, materializes outputs for assertion), `validate_contract(block_class)` (checks `input_ports`/`output_ports` declarations, verifies `run()` method signature). Internal helpers: `_wrap_input(raw_data) -> Collection` (dict → DataFrame, list → Collection of items, ndarray → Array), `_materialize_output(collection: Collection) -> Any` (Collection → native Python objects for easy assertion). |
+| `src/scistudio/cli/templates/` | Directory containing Jinja2/string-template files for `init-block-package` scaffolding. |
+| `src/scistudio/cli/templates/pyproject.toml.tpl` | Template for generated package's `pyproject.toml` with pre-configured `[project.entry-points."scistudio.blocks"]`, `[project.entry-points."scistudio.types"]`, `[project.entry-points."scistudio.adapters"]` sections. Placeholders: `{{package_name}}`, `{{display_name}}`, `{{author}}`, `{{categories}}`. |
+| `src/scistudio/cli/templates/__init__.py.tpl` | Template for generated package's `__init__.py` with `PackageInfo` declaration and `get_blocks()` function that imports from each category submodule. |
+| `src/scistudio/cli/templates/example_block.py.tpl` | Template for a minimal working block per category. Includes inline comments explaining: `input_ports`/`output_ports` declarations, `process_item()` vs `run()` choice, Collection handling, return type requirements. |
+| `src/scistudio/cli/templates/test_block.py.tpl` | Template test file using `BlockTestHarness` with a working example test. |
+| `src/scistudio/cli/templates/README.md.tpl` | Template README with quick-start instructions, development setup, and publishing checklist. |
 
 #### New files — Documentation
 
 | File | Contents |
 |---|---|
-| `docs/block-development/quickstart.md` | 5-minute guide from `pip install scieasy` to running a custom block. Covers: `scieasy init-block-package`, editing the example block, running tests with `BlockTestHarness`, installing locally with `pip install -e .`, verifying with `scieasy blocks`. |
+| `docs/block-development/quickstart.md` | 5-minute guide from `pip install scistudio` to running a custom block. Covers: `scistudio init-block-package`, editing the example block, running tests with `BlockTestHarness`, installing locally with `pip install -e .`, verifying with `scistudio blocks`. |
 | `docs/block-development/architecture-for-block-devs.md` | Execution model explained for external developers: subprocess isolation (ADR-017), one block = one subprocess, Collection transport (ADR-020), block lifecycle (instantiate → run → serialize outputs → exit). No ADR numbers in prose — concepts only. |
 | `docs/block-development/block-contract.md` | Reference for block I/O contract: `input_ports`/`output_ports` declarations, `BlockConfig` and `params`, `process_item()` vs `run()`, return value requirements, error handling (raise exceptions, engine catches). |
 | `docs/block-development/data-types.md` | Core type hierarchy: `DataObject` → `Array`/`DataFrame`/`Series`/`Text`/`Artifact`/`CompositeData`. `Collection` as transport wrapper. When to use each type. Port type matching rules (`isinstance`-based). |
-| `docs/block-development/custom-types.md` | How to subclass core types. Rules: inherit from nearest core type, `axes` as `ClassVar`, instance metadata in `_metadata` dict, max depth 3, storage backend inherited. Registration via `scieasy.types` entry-point. |
+| `docs/block-development/custom-types.md` | How to subclass core types. Rules: inherit from nearest core type, `axes` as `ClassVar`, instance metadata in `_metadata` dict, max depth 3, storage backend inherited. Registration via `scistudio.types` entry-point. |
 | `docs/block-development/memory-safety.md` | Three-tier processing model (ADR-020 Addendum 5). Tier 1: `process_item()` (framework iterates, constant memory). Tier 2: `map_items()`/`parallel_map()` (block iterates with auto-flush). Tier 3: manual loop + `pack()` safety net. When to use each tier. `parallel_map` memory warning. |
 | `docs/block-development/collection-guide.md` | Working with Collections: `pack()`/`unpack()`/`unpack_single()`, `map_items()`, `parallel_map()`, handling empty collections, type homogeneity enforcement. Examples for per-item processing vs whole-collection operations. |
 | `docs/block-development/testing.md` | `BlockTestHarness` API reference. Example patterns: simple transform test, collection processing test, error case test, custom type test. Integration with pytest fixtures. |
-| `docs/block-development/publishing.md` | PyPI packaging guide: `pyproject.toml` entry-points, `PackageInfo` metadata, version constraints on `scieasy>=0.1`, building and uploading to PyPI, testing in a clean virtualenv. |
+| `docs/block-development/publishing.md` | PyPI packaging guide: `pyproject.toml` entry-points, `PackageInfo` metadata, version constraints on `scistudio>=0.1`, building and uploading to PyPI, testing in a clean virtualenv. |
 | `docs/block-development/examples/simple-transform.md` | Complete walkthrough: single-input single-output block that doubles array values. Shows `process_item()` pattern. |
 | `docs/block-development/examples/collection-processing.md` | Multi-item processing: spectral unmixing across a Collection of SRSImages. Shows `map_items()` and `parallel_map()`. |
-| `docs/block-development/examples/custom-io-adapter.md` | Writing a `FormatAdapter` for `.srs` files. Registration via `scieasy.adapters` entry-point. Priority rules (external cannot override built-in). |
-| `docs/block-development/examples/multi-block-package.md` | Full `scieasy-blocks-srs` package: multiple categories (`io`, `processing`, `stat`), custom `SRSImage` type, `PackageInfo`, tests, and `pyproject.toml`. |
+| `docs/block-development/examples/custom-io-adapter.md` | Writing a `FormatAdapter` for `.srs` files. Registration via `scistudio.adapters` entry-point. Priority rules (external cannot override built-in). |
+| `docs/block-development/examples/multi-block-package.md` | Full `scistudio-blocks-srs` package: multiple categories (`io`, `processing`, `stat`), custom `SRSImage` type, `PackageInfo`, tests, and `pyproject.toml`. |
 
 #### New files — Tests
 
@@ -3981,21 +3981,21 @@ Does the standard adapter return the wrong type?
 
 | File | Changes |
 |---|---|
-| `src/scieasy/cli/main.py` | **Add** `init_block_package` command (after `blocks` command, ~line 224). Implementation: `@app.command("init-block-package") def init_block_package(name: str, display_name: str = typer.Option(None), author: str = typer.Option(""), categories: str = typer.Option("processing"))`. Creates target directory, reads template files from `scieasy.cli.templates`, substitutes placeholders, writes output files. Creates per-category subdirectory with `example_block.py` for each comma-separated category. **Add** import `from scieasy.cli._scaffold import scaffold_block_package` (implementation extracted to helper to keep `main.py` focused on CLI wiring). |
-| `src/scieasy/cli/_scaffold.py` | **Add** (new file) scaffolding logic: `scaffold_block_package(name, display_name, author, categories, target_dir)`. Reads `.tpl` files from `templates/`, performs string substitution, writes to `target_dir`. Handles per-category directory creation and example block generation. ~100 lines. |
+| `src/scistudio/cli/main.py` | **Add** `init_block_package` command (after `blocks` command, ~line 224). Implementation: `@app.command("init-block-package") def init_block_package(name: str, display_name: str = typer.Option(None), author: str = typer.Option(""), categories: str = typer.Option("processing"))`. Creates target directory, reads template files from `scistudio.cli.templates`, substitutes placeholders, writes output files. Creates per-category subdirectory with `example_block.py` for each comma-separated category. **Add** import `from scistudio.cli._scaffold import scaffold_block_package` (implementation extracted to helper to keep `main.py` focused on CLI wiring). |
+| `src/scistudio/cli/_scaffold.py` | **Add** (new file) scaffolding logic: `scaffold_block_package(name, display_name, author, categories, target_dir)`. Reads `.tpl` files from `templates/`, performs string substitution, writes to `target_dir`. Handles per-category directory creation and example block generation. ~100 lines. |
 
 #### Modified files — Build Configuration
 
 | File | Changes |
 |---|---|
-| `pyproject.toml` | **Add** `[tool.setuptools.package-data]` entry: `scieasy = ["cli/templates/*.tpl", "api/static/**/*"]` to include template files in the wheel (line ~80, after `packages.find`). Templates must ship with the installed package so `init-block-package` works after `pip install scieasy`. |
+| `pyproject.toml` | **Add** `[tool.setuptools.package-data]` entry: `scistudio = ["cli/templates/*.tpl", "api/static/**/*"]` to include template files in the wheel (line ~80, after `packages.find`). Templates must ship with the installed package so `init-block-package` works after `pip install scistudio`. |
 
 #### Modified files — Documentation
 
 | File | Changes |
 |---|---|
-| `docs/architecture/ARCHITECTURE.md` | **Update** Section 2 (layer overview): add "Layer 7: Developer SDK" or note in Layer 6 (CLI) about `init-block-package` scaffolding and `scieasy.testing` module. **Update** Section 5 (Block system): add reference to developer documentation for block authors. |
-| `docs/architecture/PROJECT_TREE.md` | **Add** `testing/__init__.py` and `testing/harness.py` entries under `src/scieasy/`. **Add** `cli/templates/` directory entry with annotation "Jinja2 templates for init-block-package scaffolding". **Add** `cli/_scaffold.py` entry. **Add** `docs/block-development/` directory listing. |
+| `docs/architecture/ARCHITECTURE.md` | **Update** Section 2 (layer overview): add "Layer 7: Developer SDK" or note in Layer 6 (CLI) about `init-block-package` scaffolding and `scistudio.testing` module. **Update** Section 5 (Block system): add reference to developer documentation for block authors. |
+| `docs/architecture/PROJECT_TREE.md` | **Add** `testing/__init__.py` and `testing/harness.py` entries under `src/scistudio/`. **Add** `cli/templates/` directory entry with annotation "Jinja2 templates for init-block-package scaffolding". **Add** `cli/_scaffold.py` entry. **Add** `docs/block-development/` directory listing. |
 | `docs/adr/ADR.md` | This ADR (ADR-026). |
 | `CHANGELOG.md` | **Add** entry under `[Unreleased]` → `### Added`. |
 
@@ -4008,11 +4008,11 @@ Does the standard adapter return the wrong type?
 
 ### Context
 
-Phase 10 introduces the first domain plugin package (`scieasy-blocks-imaging`) and with it the first sustained contact between the core runtime and real 5D/6D scientific data. The planning discussion surfaced a set of gaps between the architecture described in ADRs 001–026 and the code actually needed to ship a working imaging pipeline:
+Phase 10 introduces the first domain plugin package (`scistudio-blocks-imaging`) and with it the first sustained contact between the core runtime and real 5D/6D scientific data. The planning discussion surfaced a set of gaps between the architecture described in ADRs 001–026 and the code actually needed to ship a working imaging pipeline:
 
-1. **The current `Array` / `Image` hierarchy is not usable for routine microscopy data.** `src/scieasy/core/types/array.py` declares `axes` as `ClassVar[list[str] | None]` and hard-codes `Image.axes = ["y", "x"]`, `MSImage.axes = ["y", "x", "mz"]`, etc. There is no way to represent a 5D `(t, z, c, y, x)` fluorescence stack or a 6D hyperspectral time-course without inventing yet another subclass for every permutation. This is the literal opposite of what the architecture §4.1 promises about "extensibility through named axes".
+1. **The current `Array` / `Image` hierarchy is not usable for routine microscopy data.** `src/scistudio/core/types/array.py` declares `axes` as `ClassVar[list[str] | None]` and hard-codes `Image.axes = ["y", "x"]`, `MSImage.axes = ["y", "x", "mz"]`, etc. There is no way to represent a 5D `(t, z, c, y, x)` fluorescence stack or a 6D hyperspectral time-course without inventing yet another subclass for every permutation. This is the literal opposite of what the architecture §4.1 promises about "extensibility through named axes".
 
-2. **Domain subtypes leak into core.** `Image`, `FluorImage`, `SRSImage`, `MSImage` are all defined in `src/scieasy/core/types/array.py`. ADR-002 (named axes), ADR-003 (broadcast as utility), and CLAUDE.md §2.3 ("Core must stay small and stable") all pressure in the direction of core holding only base primitives. The current placement contradicts that goal and blocks `scieasy-blocks-imaging` from owning its own type definitions cleanly.
+2. **Domain subtypes leak into core.** `Image`, `FluorImage`, `SRSImage`, `MSImage` are all defined in `src/scistudio/core/types/array.py`. ADR-002 (named axes), ADR-003 (broadcast as utility), and CLAUDE.md §2.3 ("Core must stay small and stable") all pressure in the direction of core holding only base primitives. The current placement contradicts that goal and blocks `scistudio-blocks-imaging` from owning its own type definitions cleanly.
 
 3. **No ergonomic metadata story.** `DataObject._metadata` is a free `dict[str, Any]` validated only as JSON-serialisable (`core/types/base.py:93`). A `FluorImage` author who wants to record pixel size, acquisition date, channel list, and objective lens has to cram everything into one flat untyped dict. There is no schema, no unit handling, no propagation rule, and no way for a downstream block to autocomplete `img.metadata["pix..."]`.
 
@@ -4022,13 +4022,13 @@ Phase 10 introduces the first domain plugin package (`scieasy-blocks-imaging`) a
 
 6. **`ResourceManager` defaults are broken for GPU workloads.** `resources.py:70` sets `gpu_slots: int = 0`, and `can_dispatch` refuses any `requires_gpu=True` block when `_gpu_in_use >= gpu_slots`. With `gpu_slots=0`, every GPU block fails `can_dispatch` unconditionally. The fix is a one-line default change plus auto-detection.
 
-7. **There is no common utility for "iterate over extra axes".** ADR-003 decided broadcast is a utility in `scieasy.utils.broadcast.broadcast_apply`, but that helper was designed for the "low-dim source + high-dim target" case (applying a 2D mask over an MSI hypercube), not the more common "single Array with axes I want to process one slice at a time" case. Phase 10 imaging blocks all need the latter.
+7. **There is no common utility for "iterate over extra axes".** ADR-003 decided broadcast is a utility in `scistudio.utils.broadcast.broadcast_apply`, but that helper was designed for the "low-dim source + high-dim target" case (applying a 2D mask over an MSI hypercube), not the more common "single Array with axes I want to process one slice at a time" case. Phase 10 imaging blocks all need the latter.
 
-8. **Worker subprocess cannot reconstruct domain types after they move out of core.** `engine/runners/worker.py:37-60` imports `TypeSignature` and `ViewProxy` but does not call any `TypeRegistry.scan()`. Once `Image` lives in `scieasy-blocks-imaging`, a worker running a Cellpose block must be able to `import` that package and find the `Image` class to reconstruct a typed instance from a `StorageReference`. Without a scan, the worker only has core base classes available.
+8. **Worker subprocess cannot reconstruct domain types after they move out of core.** `engine/runners/worker.py:37-60` imports `TypeSignature` and `ViewProxy` but does not call any `TypeRegistry.scan()`. Once `Image` lives in `scistudio-blocks-imaging`, a worker running a Cellpose block must be able to `import` that package and find the `Image` class to reconstruct a typed instance from a `StorageReference`. Without a scan, the worker only has core base classes available.
 
 9. **Collection-level parallelism pattern is undocumented.** With ADR-018 Addendum 1 restoring DAG-branch parallelism, the natural way to parallelise Cellpose over 100 images is `SplitCollection → 4 parallel Cellpose branches → MergeCollection`. This is the "L2 fan-out" pattern. It works with existing built-in blocks but has never been written down as the recommended approach, so block authors will invent ad-hoc alternatives.
 
-10. **OptEasy's `iter_over(axis)` and `sel(**kwargs)` helpers on `ArrayData` are missed.** Block authors writing 5D processing code in SciEasy currently have to `to_memory()` the whole volume and manually index with `tuple(slice(None) ... 15 ... slice(None))`. Every Phase 10 imaging block would repeat this pattern.
+10. **OptEasy's `iter_over(axis)` and `sel(**kwargs)` helpers on `ArrayData` are missed.** Block authors writing 5D processing code in SciStudio currently have to `to_memory()` the whole volume and manually index with `tuple(slice(None) ... 15 ... slice(None))`. Every Phase 10 imaging block would repeat this pattern.
 
 These issues are cross-cutting and interdependent — for example, moving domain types to plugins (#2) requires worker TypeRegistry scanning (#8), and `iter_over` laziness (#10) interacts with the metadata inheritance story (#3). They are bundled into a single ADR because they form a coherent Phase 10 preparation package rather than a sequence of unrelated fixes.
 
@@ -4036,22 +4036,22 @@ These issues are cross-cutting and interdependent — for example, moving domain
 
 | # | Topic | Options discussed | Final decision |
 |---|---|---|---|
-| 1 | Should `Array.axes` be class-level, instance-level, or a hybrid? | (A) Keep class-level, users subclass for every new combination. (B) Move to instance-level; class declares only constraints. (C) OptEasy-style single `dims: str` per instance. | **Decision: (B).** `Array` instances carry their own `axes: list[str]`. Classes declare `required_axes: frozenset[str]` (minimum set any instance must have), `allowed_axes: frozenset[str] | None` (superset of axes the class accepts; `None` means any), and `canonical_order: tuple[str, ...]` (preferred ordering for reorder operations). Option (A) is the current broken state. Option (C) sacrifices the typed-class discipline that makes port validation work in SciEasy. |
+| 1 | Should `Array.axes` be class-level, instance-level, or a hybrid? | (A) Keep class-level, users subclass for every new combination. (B) Move to instance-level; class declares only constraints. (C) OptEasy-style single `dims: str` per instance. | **Decision: (B).** `Array` instances carry their own `axes: list[str]`. Classes declare `required_axes: frozenset[str]` (minimum set any instance must have), `allowed_axes: frozenset[str] | None` (superset of axes the class accepts; `None` means any), and `canonical_order: tuple[str, ...]` (preferred ordering for reorder operations). Option (A) is the current broken state. Option (C) sacrifices the typed-class discipline that makes port validation work in SciStudio. |
 | 2 | How large is the axis alphabet for Phase 10? | (A) Just `(y, x)` plus a couple extras. (B) 5D: `(t, z, c, y, x)`. (C) 6D including spectral: `(t, z, c, lambda, y, x)`. | **Decision: (C).** Spectral imaging (SRS, hyperspectral) is a first-class target modality, and the `lambda` axis semantically differs from `c` (continuous spectral vs. discrete channel). Allowing both supports rare-but-real combined modalities (e.g., multichannel hyperspectral). Axis name `lambda` is spelled out (not the Greek letter `λ`) for YAML/JSON/URL safety. Canonical order is `(t, z, c, lambda, y, x)` following OME convention with spectral inserted between channel and spatial. |
 | 3 | Should `c` (discrete channel) and `lambda` (continuous spectral) coexist in one axes list? | (A) Forbid; a class picks one. (B) Allow; rare but valid. | **Decision: (B).** Allow. Block authors restrict via port `constraint` helpers (e.g., `has_axes("y", "x", "c")` for multichannel, `has_axes("y", "x", "lambda")` for spectral). Framework does not forbid the combination. |
-| 4 | Where should domain subtypes (`Image`, `Spectrum`, `AnnData`, `PeakTable`, etc.) live? | (A) Stay in core alongside base types. (B) Move all domain subtypes out of `scieasy/core/types/` into plugin packages. | **Decision: (B).** Core keeps only the seven base types (`DataObject`, `Array`, `Series`, `DataFrame`, `Text`, `Artifact`, `CompositeData`). All domain subtypes move to their respective plugin packages. This includes `Image`, `FluorImage`, `SRSImage`, `MSImage` (→ `scieasy-blocks-imaging`), `Spectrum`, `RamanSpectrum`, `MassSpectrum`, `PeakTable`, `MetabPeakTable` (→ `scieasy-blocks-spectral`), `AnnData` (→ future `scieasy-blocks-singlecell`), `SpatialData` (→ future `scieasy-blocks-spatial-omics`). This is the purest reading of CLAUDE.md §2.3 and ADR-008's Tier 2 package model. |
+| 4 | Where should domain subtypes (`Image`, `Spectrum`, `AnnData`, `PeakTable`, etc.) live? | (A) Stay in core alongside base types. (B) Move all domain subtypes out of `scistudio/core/types/` into plugin packages. | **Decision: (B).** Core keeps only the seven base types (`DataObject`, `Array`, `Series`, `DataFrame`, `Text`, `Artifact`, `CompositeData`). All domain subtypes move to their respective plugin packages. This includes `Image`, `FluorImage`, `SRSImage`, `MSImage` (→ `scistudio-blocks-imaging`), `Spectrum`, `RamanSpectrum`, `MassSpectrum`, `PeakTable`, `MetabPeakTable` (→ `scistudio-blocks-spectral`), `AnnData` (→ future `scistudio-blocks-singlecell`), `SpatialData` (→ future `scistudio-blocks-spatial-omics`). This is the purest reading of CLAUDE.md §2.3 and ADR-008's Tier 2 package model. |
 | 5 | How is broadcast-like iteration exposed to block authors? | (A) New base class hierarchy (`SpatialBlock`, `SpectralBlock`, `AxisIteratingBlock`) with override points. (B) Utility function `iterate_over_axes(source, operates_on, func)` that block authors call explicitly inside `process_item`. | **Decision: (B).** A base class per dimensional pattern multiplies the Block inheritance tree without adding expressive power — the only thing that varies is the set of axes to iterate over, which is a function argument, not a type. Utility function places the decision in the block author's hands without class-level commitment. Matches CLAUDE.md §7.2 ("Favor composition over deep inheritance"). |
 | 6 | Should the iteration utility be lazy, eager, or lazy-capable? | (A) Eager: load the whole Array, iterate in memory. (B) Level 1 lazy: `iter_over(axis)` is a generator that reads one slice per step. (C) Level 2 lazy: return new Array instances with `SlicedStorageReference` that read lazily at every subsequent access. | **Decision: (B) for Phase 10.** Level 1 laziness ensures peak memory is one slice, not the full volume. Each yielded slice is an in-memory Array instance (fresh `storage_ref=None`, data in `_data`), so downstream access is free. Level 2 (virtual slice refs threaded through ViewProxy) is deferred as a Phase 11+ optimisation under a separate ADR if profiling justifies it. |
 | 7 | Must `iter_over`/`sel` preserve metadata? | (A) Return raw numpy arrays. (B) Return new Array instances with all metadata inherited. | **Decision: (B).** Yielded slices are same-class-as-source (e.g., iterating a `FluorImage` yields `FluorImage` slices). `framework` metadata is derived (with a lineage hint), `meta` (domain metadata) is shared by reference since it is frozen Pydantic, `user` metadata is shallow-copied, `axes` has the iterated dimension removed. Block authors never lose metadata just because they iterated. |
 | 8 | How should metadata be structured? | (A) Free `dict[str, Any]` (current). (B) Structured per-subtype using dataclasses. (C) Structured per-subtype using Pydantic BaseModel with three slots (framework / domain / user). | **Decision: (C).** Three slots: `framework: FrameworkMeta` (immutable framework-managed fields — created_at, object_id, source, lineage hint), `meta: DomainMeta` (typed Pydantic BaseModel declared per subtype), `user: dict[str, Any]` (free-form escape hatch). Pydantic gives IDE autocompletion, type validation, clean JSON round-trip for subprocess transport, and painless schema evolution via field defaults. |
-| 9 | How are physical units represented? | (A) Raw floats; unit lives in a sibling field. (B) Use `pint`. (C) Self-written `PhysicalQuantity` with a small unit table. | **Decision: (C).** `pint` is ~200–400 ms import time per subprocess worker — unacceptable when every block spawns a fresh interpreter. `PhysicalQuantity` is a ~50-line dataclass covering the ~15 units SciEasy actually needs (length, time, frequency, wavenumber). Drop-in replacement with `pint` remains possible in a future phase by swapping the `scieasy.core.units` module internals. |
+| 9 | How are physical units represented? | (A) Raw floats; unit lives in a sibling field. (B) Use `pint`. (C) Self-written `PhysicalQuantity` with a small unit table. | **Decision: (C).** `pint` is ~200–400 ms import time per subprocess worker — unacceptable when every block spawns a fresh interpreter. `PhysicalQuantity` is a ~50-line dataclass covering the ~15 units SciStudio actually needs (length, time, frequency, wavenumber). Drop-in replacement with `pint` remains possible in a future phase by swapping the `scistudio.core.units` module internals. |
 | 10 | How does a block declare expensive one-time setup? | (A) Do it in `process_item`, pay the cost N times. (B) Add `setup(config)` / `teardown(state)` hooks to `ProcessBlock`. (C) Add a new `StatefulBlock` base class. | **Decision: (B).** Smallest surface change. Default `setup` returns `None`, default `teardown` does nothing. `process_item(item, config, state=None)` receives whatever `setup` returned. `ProcessBlock.run()` calls `setup` once, iterates, calls `teardown` in a `finally` block. Authors of stateless blocks ignore the hooks entirely. |
 | 11 | Should `setup` receive the inputs dict? | (A) Yes, for data-driven setup. (B) No, only config. | **Decision: (B).** `setup(config)` sees only the config. Data-driven decisions (e.g. "pick the model based on the first image's modality") happen lazily inside `process_item` and cache their result on the `state` object. Keeping `setup` config-only prevents a tangled contract where `setup` becomes responsible for Collection-aware logic. |
 | 12 | Are threads allowed inside a block's `run()`? | (A) Forbidden. (B) Allowed as an escape hatch, documented as not recommended. (C) Encouraged as the default parallelism pattern. | **Decision: (B).** Threads inside a block's worker subprocess are acceptable — SIGTERM/SIGKILL on the subprocess cleanly terminates all of its threads because OS-level process death releases thread resources. Threads CANNOT be interrupted cooperatively at sub-second granularity (there is no graceful "stop this thread mid-`cellpose.eval`"), so hard kill is the only reliable abort. Documentation must state: (1) threads are allowed, (2) L2 fan-out is preferred for Collection-level parallelism because it scales across machines and plays nicely with `ResourceManager`, (3) threads should be used only when a library releases the GIL (numpy/torch/cellpose C extensions) or for I/O-bound work, (4) cancellation is guaranteed only via subprocess kill, not via cooperative thread signalling. |
 | 13 | What is the recommended pattern for Collection-level parallelism? | (A) Block-internal ThreadPool. (B) Block-internal ProcessPool. (C) L2 fan-out: `SplitCollection → N parallel branches → MergeCollection` at the workflow graph level. | **Decision: (C).** Pushing parallelism up to the workflow graph means each branch is a separate subprocess under `ProcessRegistry` supervision, gets its own `ResourceManager` GPU/CPU slot, benefits from DAG-level cancellation semantics, and scales naturally to multi-GPU and multi-machine execution (future). Block-internal pools are permitted as an escape hatch (per #12) but not the documented default. |
 | 14 | Does `cellpose` specifically need block-internal parallelism? | (A) Yes, iterate items with a ThreadPool. (B) No, cellpose's own `model.eval([img1, img2, ...], batch_size=N)` uses GPU batching internally. | **Decision: (B).** Cellpose's parallelism is GPU-batched kernels inside a single `eval` call. A Phase 10 `CellposeSegment` block uses the Tier 2 pattern (override `run()`, call `setup()` once to load the model, then loop over the Collection in GPU-sized batches via `eval([...], batch_size=N)`). No thread pool or process pool needed at the block level. Multi-GPU parallelism uses L2 fan-out (per #13). |
 | 15 | What is the default value of `ResourceManager.gpu_slots`? | (A) `0` (current — GPU blocks never dispatch). (B) `1` (always allow one GPU block). (C) Auto-detect via `torch.cuda.device_count()` or `nvidia-smi` with `0` fallback. | **Decision: (C) + fallback behaviour.** `ResourceManager.__init__` takes `gpu_slots: int | None = None`. If `None`, call `_auto_detect_gpu_slots()` which tries `torch.cuda.device_count()` first, then `nvidia-smi -L`, then returns `0`. If the detected value is `0` but any block declares `requires_gpu=True`, log a single warning explaining that the user can override via project config. Explicit integer values passed to `__init__` are respected unchanged. Auto-detect runs once per scheduler instantiation, not per dispatch. |
-| 16 | Should the worker subprocess (`engine/runners/worker.py`) call `TypeRegistry.scan()` before reconstructing inputs? | (A) No — only core types are reconstructable, plugin types remain dict-like. (B) Yes — scan entry-points at worker startup so plugin types work. | **Decision: (B).** Once domain subtypes move to plugins (#4), the worker must be able to resolve `type_chain=["DataObject", "Array", "Image", "FluorImage"]` by importing `scieasy-blocks-imaging`. This means adding a `TypeRegistry.scan()` call at the top of `worker.main()` before `reconstruct_inputs()`. The scan is the same `scieasy.types` entry-point scan that the main process uses (ADR-025). Subprocess cold start grows by ~50 ms for a package with five types, acceptable given subprocess startup already dominates (~150 ms). |
+| 16 | Should the worker subprocess (`engine/runners/worker.py`) call `TypeRegistry.scan()` before reconstructing inputs? | (A) No — only core types are reconstructable, plugin types remain dict-like. (B) Yes — scan entry-points at worker startup so plugin types work. | **Decision: (B).** Once domain subtypes move to plugins (#4), the worker must be able to resolve `type_chain=["DataObject", "Array", "Image", "FluorImage"]` by importing `scistudio-blocks-imaging`. This means adding a `TypeRegistry.scan()` call at the top of `worker.main()` before `reconstruct_inputs()`. The scan is the same `scistudio.types` entry-point scan that the main process uses (ADR-025). Subprocess cold start grows by ~50 ms for a package with five types, acceptable given subprocess startup already dominates (~150 ms). |
 
 ### Decision
 
@@ -4105,7 +4105,7 @@ class Array(DataObject):
 Domain subtypes (defined in plugins per D2):
 
 ```python
-# In scieasy-blocks-imaging
+# In scistudio-blocks-imaging
 class Image(Array):
     required_axes   = frozenset({"y", "x"})
     allowed_axes    = frozenset({"t", "z", "c", "lambda", "y", "x"})
@@ -4122,7 +4122,7 @@ class HyperspectralImage(Image):
 
 #### D2. Core contains only base types; all domain subtypes live in plugins (covers discussion #4)
 
-`src/scieasy/core/types/` ends Phase 10 holding exactly these classes:
+`src/scistudio/core/types/` ends Phase 10 holding exactly these classes:
 
 - `base.py` → `DataObject`, `TypeSignature`
 - `array.py` → `Array` (no `Image`, no `MSImage`, no `SRSImage`, no `FluorImage`)
@@ -4138,24 +4138,24 @@ Plugin package map:
 
 | Domain type | Target plugin package |
 |---|---|
-| `Image`, `FluorImage`, `BrightfieldImage`, `HyperspectralImage`, `SRSImage` | `scieasy-blocks-imaging` |
-| `MSImage`, `MALDIImage` | `scieasy-blocks-msi` (new) |
-| `Spectrum`, `RamanSpectrum`, `MassSpectrum` | `scieasy-blocks-spectral` |
-| `PeakTable`, `MetabPeakTable` | `scieasy-blocks-spectral` |
-| `AnnData` | `scieasy-blocks-singlecell` (new) |
-| `SpatialData` | `scieasy-blocks-spatial-omics` (new) |
+| `Image`, `FluorImage`, `BrightfieldImage`, `HyperspectralImage`, `SRSImage` | `scistudio-blocks-imaging` |
+| `MSImage`, `MALDIImage` | `scistudio-blocks-msi` (new) |
+| `Spectrum`, `RamanSpectrum`, `MassSpectrum` | `scistudio-blocks-spectral` |
+| `PeakTable`, `MetabPeakTable` | `scistudio-blocks-spectral` |
+| `AnnData` | `scistudio-blocks-singlecell` (new) |
+| `SpatialData` | `scistudio-blocks-spatial-omics` (new) |
 
 Built-in blocks that currently reference `Image` directly (e.g. `MergeCollection`, `FilterCollection`, `SliceCollection`) are audited and changed to reference `Array` (or a plugin-provided type via entry-point import) — see impact scope.
 
 #### D3. `iterate_over_axes` utility (covers discussion #5)
 
-New module `src/scieasy/utils/axis_iter.py`:
+New module `src/scistudio/utils/axis_iter.py`:
 
 ```python
 from typing import Callable
 import numpy as np
-from scieasy.core.types.array import Array
-from scieasy.core.exceptions import BroadcastError
+from scistudio.core.types.array import Array
+from scistudio.core.exceptions import BroadcastError
 
 def iterate_over_axes(
     source: Array,
@@ -4181,7 +4181,7 @@ def iterate_over_axes(
 
 The function is serial. It does not use threads or subprocesses. Memory footprint is O(one slice + one result slice). Errors in user-provided `func` propagate unchanged. Metadata inheritance follows D5 (see below).
 
-This utility is placed in `scieasy.utils.axis_iter`, adjacent to the existing `scieasy.utils.broadcast.broadcast_apply` (ADR-003). The two cover complementary use cases: `iterate_over_axes` handles "iterate a single Array's extra dims" (common case), `broadcast_apply` handles "project a low-dim object onto a high-dim object" (cross-modal fusion case).
+This utility is placed in `scistudio.utils.axis_iter`, adjacent to the existing `scistudio.utils.broadcast.broadcast_apply` (ADR-003). The two cover complementary use cases: `iterate_over_axes` handles "iterate a single Array's extra dims" (common case), `broadcast_apply` handles "project a low-dim object onto a high-dim object" (cross-modal fusion case).
 
 #### D4. `Array.iter_over()` and `Array.sel()` with Level 1 laziness (covers discussion #6, #7)
 
@@ -4265,7 +4265,7 @@ class DataObject:
 Each Array subtype declares its own `Meta` Pydantic model:
 
 ```python
-# In scieasy-blocks-imaging
+# In scistudio-blocks-imaging
 class FluorImage(Image):
     class Meta(BaseModel):
         pixel_size:       PhysicalQuantity              # see D6
@@ -4299,7 +4299,7 @@ Backward-compat: `DataObject.metadata` remains as a property that returns `self.
 
 #### D6. `PhysicalQuantity` (covers discussion #9)
 
-New module `src/scieasy/core/units.py`:
+New module `src/scistudio/core/units.py`:
 
 ```python
 from dataclasses import dataclass
@@ -4347,7 +4347,7 @@ class PhysicalQuantity:
         return abs(self.value * _SCALE[self.unit] - other.value * _SCALE[other.unit]) < 1e-12
 ```
 
-Pydantic validator ensures `PhysicalQuantity` fields serialise as `{"value": ..., "unit": ...}` for JSON transport across subprocesses. A custom serialiser/validator module inside `scieasy.core.units` handles the Pydantic integration.
+Pydantic validator ensures `PhysicalQuantity` fields serialise as `{"value": ..., "unit": ...}` for JSON transport across subprocesses. A custom serialiser/validator module inside `scistudio.core.units` handles the Pydantic integration.
 
 #### D7. `ProcessBlock.setup()` and `teardown()` hooks (covers discussion #10, #11)
 
@@ -4378,7 +4378,7 @@ class ProcessBlock(Block):
         raise NotImplementedError
 
     def run(self, inputs, config):
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
         primary = next(iter(inputs.values()))
         state = self.setup(config)
         try:
@@ -4522,14 +4522,14 @@ If auto-detection returns 0 but any block in the loaded workflow declares `requi
 
 #### D11. Worker subprocess TypeRegistry scan (covers discussion #16)
 
-`src/scieasy/engine/runners/worker.py` `main()` gains an early call:
+`src/scistudio/engine/runners/worker.py` `main()` gains an early call:
 
 ```python
 def main() -> None:
     try:
         # ADR-027 D11: scan entry-points so plugin-provided DataObject
         # subtypes can be resolved during reconstruct_inputs.
-        from scieasy.core.types.registry import TypeRegistry
+        from scistudio.core.types.registry import TypeRegistry
         TypeRegistry.scan()
 
         raw = sys.stdin.read()
@@ -4541,10 +4541,10 @@ def main() -> None:
 
 ```python
 def reconstruct_inputs(payload):
-    from scieasy.core.proxy import ViewProxy
-    from scieasy.core.storage.ref import StorageReference
-    from scieasy.core.types.base import TypeSignature
-    from scieasy.core.types.registry import TypeRegistry
+    from scistudio.core.proxy import ViewProxy
+    from scistudio.core.storage.ref import StorageReference
+    from scistudio.core.types.base import TypeSignature
+    from scistudio.core.types.registry import TypeRegistry
 
     raw_inputs = payload.get("inputs", {})
     result = {}
@@ -4567,26 +4567,26 @@ def reconstruct_inputs(payload):
 
 ### Alternatives considered
 
-- **Keep all domain subtypes in core (D2 Option A)**: preserves the current import paths and test layout. Rejected because it contradicts CLAUDE.md §2.3 and makes the core untestable without implicit assumptions about imaging. The audit of `src/scieasy/blocks/` to update `accepted_types=[Image]` → `accepted_types=[Array]` is routine.
-- **Single `dims: str` like OptEasy (D1 Option C)**: one-line schema, zero validation. Rejected because it cannot express per-class required-axes constraints, cannot handle axis names longer than one character (`"lambda"`, `"wavenumber"`, `"mz"`), and gives up the typed-class contract that makes port checking work in SciEasy. OptEasy gets away with this because it is imaging-only.
+- **Keep all domain subtypes in core (D2 Option A)**: preserves the current import paths and test layout. Rejected because it contradicts CLAUDE.md §2.3 and makes the core untestable without implicit assumptions about imaging. The audit of `src/scistudio/blocks/` to update `accepted_types=[Image]` → `accepted_types=[Array]` is routine.
+- **Single `dims: str` like OptEasy (D1 Option C)**: one-line schema, zero validation. Rejected because it cannot express per-class required-axes constraints, cannot handle axis names longer than one character (`"lambda"`, `"wavenumber"`, `"mz"`), and gives up the typed-class contract that makes port checking work in SciStudio. OptEasy gets away with this because it is imaging-only.
 - **New base class `SpatialBlock` / `SpectralBlock` / `AxisIteratingBlock` (D3 Option A)**: aesthetically tidy, but creates a new layer of the inheritance tree for every dimensional pattern and forces block authors to choose a base class before they understand their problem. A utility function gives the same capability without the commitment. CLAUDE.md §7.2 explicitly favours composition.
-- **Use `pint` for units (D6 Option B)**: mature, well-tested, handles dimensional algebra. Rejected for Phase 10 on cold-start grounds: every subprocess worker imports Python fresh, and `pint` adds 200–400 ms to that. For a workflow with 50 blocks, that is 10–20 seconds of wall-clock overhead unconditionally. A 50-line self-written quantity class covers 99% of actual SciEasy metadata and can be swapped for pint later without API changes.
+- **Use `pint` for units (D6 Option B)**: mature, well-tested, handles dimensional algebra. Rejected for Phase 10 on cold-start grounds: every subprocess worker imports Python fresh, and `pint` adds 200–400 ms to that. For a workflow with 50 blocks, that is 10–20 seconds of wall-clock overhead unconditionally. A 50-line self-written quantity class covers 99% of actual SciStudio metadata and can be swapped for pint later without API changes.
 - **Forbid threads entirely (D8 Option A)**: simpler to explain but costs us the ability to use libraries like `torch.nn.DataParallel` or any numpy operation that internally spawns MKL/OpenBLAS threads. Those "threads" already exist implicitly in numpy code; forbidding explicit thread use in blocks would be arbitrary and inconsistent. Rejected.
 - **Auto-detect VRAM-aware GPU slot count (D10)**: tried to match physical VRAM against declared `gpu_memory_gb` to compute "how many cellpose instances can coexist". Rejected for Phase 10 because `gpu_memory_gb` is block-declared, not enforced, and because VRAM monitoring requires nvml bindings (`pynvml`) which are platform-specific and another dependency. The simpler "physical GPU count with user override" covers 90% of cases.
 - **Deep worker-side type reconstruction returning concrete subclass instances (D11 Option B maximalist)**: instead of leaving reconstructed inputs as `ViewProxy`, construct `Image(storage_ref=..., ...)` directly so that downstream code sees typed instances. Rejected because it would make `reconstruct_inputs` responsible for invoking each subclass's `__init__` with the right arguments, which we cannot generically do (different subclasses have different required metadata). The middle ground is: scan the registry (D11), map `type_chain` to a concrete class for signature matching, but still return a `ViewProxy`. Block authors call `item.view()` or `item.to_memory()` in the usual way; the registry-resolved class is used only for `TypeSignature` and port validation.
 
 ### Consequences
 
-- **Phase 10 becomes a clean start for imaging.** The `scieasy-blocks-imaging` package can own its own type hierarchy without fighting core. 6D data is a first-class supported shape, not a cast-to-Array workaround.
-- **Core shrinks by several files' worth of domain code.** `src/scieasy/core/types/array.py` loses four subclass definitions; `series.py`, `dataframe.py`, `composite.py` lose their domain subclasses similarly (audit will confirm exact counts). Each deleted class reappears inside the appropriate plugin package.
-- **Every block that referenced a domain type directly must be updated.** Core built-in blocks (`MergeCollection`, `FilterCollection`, `SliceCollection`, maybe `TransformBlock`) currently declare `accepted_types=[Image]` in some test fixtures. These become `accepted_types=[Array]` with optional constraint helpers. Tests under `tests/blocks/` that `from scieasy.core.types.array import Image` must either switch to `Array` or be marked as requiring `scieasy-blocks-imaging` installed (see impact scope).
+- **Phase 10 becomes a clean start for imaging.** The `scistudio-blocks-imaging` package can own its own type hierarchy without fighting core. 6D data is a first-class supported shape, not a cast-to-Array workaround.
+- **Core shrinks by several files' worth of domain code.** `src/scistudio/core/types/array.py` loses four subclass definitions; `series.py`, `dataframe.py`, `composite.py` lose their domain subclasses similarly (audit will confirm exact counts). Each deleted class reappears inside the appropriate plugin package.
+- **Every block that referenced a domain type directly must be updated.** Core built-in blocks (`MergeCollection`, `FilterCollection`, `SliceCollection`, maybe `TransformBlock`) currently declare `accepted_types=[Image]` in some test fixtures. These become `accepted_types=[Array]` with optional constraint helpers. Tests under `tests/blocks/` that `from scistudio.core.types.array import Image` must either switch to `Array` or be marked as requiring `scistudio-blocks-imaging` installed (see impact scope).
 - **Metadata becomes typed.** Pydantic-validated fields are a breaking change to the current free-dict interface. `DataObject.metadata` becomes a property returning `self.user` with a `DeprecationWarning`; callers relying on it for domain metadata (e.g., `img.metadata["pixel_size"]`) will see warnings and should migrate to `img.meta.pixel_size` during Phase 10.
 - **Subprocess cold start cost grows by ~50 ms per worker.** `TypeRegistry.scan()` adds the entry-point iteration to every worker startup. Acceptable because startup is already dominated by Python interpreter boot.
 - **`ResourceManager` becomes meaningfully throttling.** With `gpu_slots > 0` by default and scheduler concurrency fixed (ADR-018 Addendum 1), GPU block dispatch is now actually gated. Users on multi-GPU machines see parallel execution; users on single-GPU machines see serial GPU access without spinning.
 - **Cellpose parallelism story is documented.** Block authors have three clear options: (a) Tier 1 setup+process_item for simple per-item processing, (b) Tier 2 override `run()` for library-native batching (cellpose, stardist), (c) L2 fan-out via SplitCollection for multi-GPU.
 - **Block-developer docs must be updated.** Thread policy, setup/teardown, metadata conventions, axis semantics, and the fan-out pattern all need explicit documentation. This is tracked as Deliverable B in issue #255 and will land in a separate PR.
 - **Test fixtures across `tests/` need a one-shot migration.** Roughly 75 `Image(...)` instantiations across 17 test files must be updated to pass `axes=[...]`. A shim can be introduced temporarily (`def _test_image(...): return Image(axes=["y","x"], ...)`) to minimise diff noise.
-- **AI block generator templates must be updated.** ADR-013 / ADR-027 cross-reference: AI-generated blocks in Phase 9 produced code using `Image` imported from core. Generated code must be regenerated to import from `scieasy_blocks_imaging.types`, or the validator (ADR-013 §7.1) must reject core-Image imports.
+- **AI block generator templates must be updated.** ADR-013 / ADR-027 cross-reference: AI-generated blocks in Phase 9 produced code using `Image` imported from core. Generated code must be regenerated to import from `scistudio_blocks_imaging.types`, or the validator (ADR-013 §7.1) must reject core-Image imports.
 
 ### Detailed impact scope
 
@@ -4594,36 +4594,36 @@ def reconstruct_inputs(payload):
 
 | File | Contents |
 |---|---|
-| `src/scieasy/utils/axis_iter.py` | `iterate_over_axes(source, operates_on, func)` utility (D3). ~80 lines including docstrings and `BroadcastError` raises. |
-| `src/scieasy/utils/constraints.py` | Port constraint helper factory functions (D4 context): `has_axes(*required)`, `has_exact_axes(*axes)`, `has_shape(ndim)`, etc. Small module, ~40 lines, used in port `constraint=` kwargs. |
-| `src/scieasy/core/units.py` | `PhysicalQuantity` dataclass + unit tables + Pydantic integration (D6). ~120 lines. |
-| `src/scieasy/core/meta/__init__.py` | Public exports for `FrameworkMeta`, `with_meta` helper, `ChannelInfo` BaseModel used by plugins (D5). |
-| `src/scieasy/core/meta/framework.py` | `FrameworkMeta` BaseModel implementation. ~30 lines. |
+| `src/scistudio/utils/axis_iter.py` | `iterate_over_axes(source, operates_on, func)` utility (D3). ~80 lines including docstrings and `BroadcastError` raises. |
+| `src/scistudio/utils/constraints.py` | Port constraint helper factory functions (D4 context): `has_axes(*required)`, `has_exact_axes(*axes)`, `has_shape(ndim)`, etc. Small module, ~40 lines, used in port `constraint=` kwargs. |
+| `src/scistudio/core/units.py` | `PhysicalQuantity` dataclass + unit tables + Pydantic integration (D6). ~120 lines. |
+| `src/scistudio/core/meta/__init__.py` | Public exports for `FrameworkMeta`, `with_meta` helper, `ChannelInfo` BaseModel used by plugins (D5). |
+| `src/scistudio/core/meta/framework.py` | `FrameworkMeta` BaseModel implementation. ~30 lines. |
 
 #### Rewritten files
 
 | File | Current state | New state | Detailed changes |
 |---|---|---|---|
-| `src/scieasy/core/types/array.py` | Defines `Array` with `axes: ClassVar`, plus `Image`, `MSImage`, `SRSImage`, `FluorImage` subclasses. 84 lines. | `Array` only, with instance-level `axes`, class-level `required_axes`/`allowed_axes`/`canonical_order`, `_validate_axes` method. New `sel()` and `iter_over()` methods per D4. No domain subclasses. | **Delete** lines 62–83 (all `Image`-family subclasses). **Change** `Array` constructor: `axes` becomes a required keyword argument (`axes: list[str]`). **Add** `required_axes`, `allowed_axes`, `canonical_order` ClassVars (all default to empty/None). **Add** `_validate_axes` method called from `__init__`. **Add** `sel(**kwargs)` method (~40 lines). **Add** `iter_over(axis)` generator method (~20 lines). **Remove** the class-level `axes: ClassVar` declaration. |
-| `src/scieasy/core/types/base.py` | `DataObject.__init__(metadata, storage_ref)`, single free-dict metadata field, JSON validator. | `DataObject.__init__(framework, meta, user, storage_ref)` with three slots. Backward-compat `metadata` property delegating to `user`. | **Add** `framework: FrameworkMeta`, `meta: BaseModel`, `user: dict` fields. **Add** `with_meta(**changes)` method. **Keep** `metadata` as `@property` returning `self.user` with `DeprecationWarning`. **Update** JSON-serialisability check to cover `user` dict only (framework and meta use Pydantic's own serialisation). **Update** `TypeSignature.from_type` to include `required_axes` when the class has them (so the signature carries the constraint into port checks). |
-| `src/scieasy/core/types/series.py` | `Series` base class; domain subclasses if present. | `Series` only. | **Delete** any `Spectrum`, `RamanSpectrum`, `MassSpectrum` class definitions (audit — some may not exist yet). |
-| `src/scieasy/core/types/dataframe.py` | `DataFrame` base; domain subclasses. | `DataFrame` only. | **Delete** `PeakTable`, `MetabPeakTable` if present. |
-| `src/scieasy/core/types/composite.py` | `CompositeData`; domain subclasses. | `CompositeData` only. | **Delete** `AnnData`, `SpatialData` if present. |
-| `src/scieasy/blocks/process/process_block.py` | `ProcessBlock` with `process_item(self, item, config)` 2-arg signature, default `run()` iterates and calls `process_item`. | `ProcessBlock` with `setup(config)`, `teardown(state)`, `process_item(self, item, config, state=None)` 3-arg signature, default `run()` calls `setup`, iterates, calls `teardown` in finally. | **Add** `setup` and `teardown` methods (default no-op). **Change** `process_item` signature to accept `state=None` (backward-compatible — existing 2-arg overrides continue to work because they ignore the new parameter). **Change** `run()` to wrap iteration in `state = self.setup(config); try: ... finally: self.teardown(state)`. |
-| `src/scieasy/engine/runners/worker.py` | `main()` parses stdin, imports block, runs it. `reconstruct_inputs` creates bare `ViewProxy` with `DataObject` type chain when registry info is absent. | `main()` scans `TypeRegistry` entry-points first. `reconstruct_inputs` resolves `type_chain` to the most specific registered class. | **Add** `TypeRegistry.scan()` call at the top of `main()` before `reconstruct_inputs`. **Add** import of `TypeRegistry`. **Change** `reconstruct_inputs` to call `TypeRegistry.resolve(type_chain)` (new helper) and pass the resolved class into `TypeSignature`. **No change** to output serialisation path. |
-| `src/scieasy/engine/resources.py` | `ResourceManager.__init__(gpu_slots: int = 0, ...)`. `ResourceRequest.max_internal_workers` exists but is not officially enforced. | `ResourceManager.__init__(gpu_slots: int | None = None, ...)` with auto-detect. Formally document `max_internal_workers` as the block author's declaration of intended internal parallelism. | **Change** default of `gpu_slots` to `None`. **Add** `_auto_detect_gpu_slots()` module function. **Add** one-time WARNING log when detected slots is 0 but a GPU block is scheduled. **Update** docstrings of `ResourceRequest.max_internal_workers` and `effective_cpu` to point to ADR-027 D8 for the thread-policy context. |
-| `src/scieasy/core/types/registry.py` | `TypeRegistry` with register/scan for core types. | `TypeRegistry` with a new `resolve(type_chain: list[str]) -> type | None` helper that finds the most specific registered class matching a chain. | **Add** `resolve(type_chain)` method that walks the chain from most-specific to least-specific and returns the first match. **Ensure** `scan()` is idempotent (safe to call from worker subprocess every startup). |
+| `src/scistudio/core/types/array.py` | Defines `Array` with `axes: ClassVar`, plus `Image`, `MSImage`, `SRSImage`, `FluorImage` subclasses. 84 lines. | `Array` only, with instance-level `axes`, class-level `required_axes`/`allowed_axes`/`canonical_order`, `_validate_axes` method. New `sel()` and `iter_over()` methods per D4. No domain subclasses. | **Delete** lines 62–83 (all `Image`-family subclasses). **Change** `Array` constructor: `axes` becomes a required keyword argument (`axes: list[str]`). **Add** `required_axes`, `allowed_axes`, `canonical_order` ClassVars (all default to empty/None). **Add** `_validate_axes` method called from `__init__`. **Add** `sel(**kwargs)` method (~40 lines). **Add** `iter_over(axis)` generator method (~20 lines). **Remove** the class-level `axes: ClassVar` declaration. |
+| `src/scistudio/core/types/base.py` | `DataObject.__init__(metadata, storage_ref)`, single free-dict metadata field, JSON validator. | `DataObject.__init__(framework, meta, user, storage_ref)` with three slots. Backward-compat `metadata` property delegating to `user`. | **Add** `framework: FrameworkMeta`, `meta: BaseModel`, `user: dict` fields. **Add** `with_meta(**changes)` method. **Keep** `metadata` as `@property` returning `self.user` with `DeprecationWarning`. **Update** JSON-serialisability check to cover `user` dict only (framework and meta use Pydantic's own serialisation). **Update** `TypeSignature.from_type` to include `required_axes` when the class has them (so the signature carries the constraint into port checks). |
+| `src/scistudio/core/types/series.py` | `Series` base class; domain subclasses if present. | `Series` only. | **Delete** any `Spectrum`, `RamanSpectrum`, `MassSpectrum` class definitions (audit — some may not exist yet). |
+| `src/scistudio/core/types/dataframe.py` | `DataFrame` base; domain subclasses. | `DataFrame` only. | **Delete** `PeakTable`, `MetabPeakTable` if present. |
+| `src/scistudio/core/types/composite.py` | `CompositeData`; domain subclasses. | `CompositeData` only. | **Delete** `AnnData`, `SpatialData` if present. |
+| `src/scistudio/blocks/process/process_block.py` | `ProcessBlock` with `process_item(self, item, config)` 2-arg signature, default `run()` iterates and calls `process_item`. | `ProcessBlock` with `setup(config)`, `teardown(state)`, `process_item(self, item, config, state=None)` 3-arg signature, default `run()` calls `setup`, iterates, calls `teardown` in finally. | **Add** `setup` and `teardown` methods (default no-op). **Change** `process_item` signature to accept `state=None` (backward-compatible — existing 2-arg overrides continue to work because they ignore the new parameter). **Change** `run()` to wrap iteration in `state = self.setup(config); try: ... finally: self.teardown(state)`. |
+| `src/scistudio/engine/runners/worker.py` | `main()` parses stdin, imports block, runs it. `reconstruct_inputs` creates bare `ViewProxy` with `DataObject` type chain when registry info is absent. | `main()` scans `TypeRegistry` entry-points first. `reconstruct_inputs` resolves `type_chain` to the most specific registered class. | **Add** `TypeRegistry.scan()` call at the top of `main()` before `reconstruct_inputs`. **Add** import of `TypeRegistry`. **Change** `reconstruct_inputs` to call `TypeRegistry.resolve(type_chain)` (new helper) and pass the resolved class into `TypeSignature`. **No change** to output serialisation path. |
+| `src/scistudio/engine/resources.py` | `ResourceManager.__init__(gpu_slots: int = 0, ...)`. `ResourceRequest.max_internal_workers` exists but is not officially enforced. | `ResourceManager.__init__(gpu_slots: int | None = None, ...)` with auto-detect. Formally document `max_internal_workers` as the block author's declaration of intended internal parallelism. | **Change** default of `gpu_slots` to `None`. **Add** `_auto_detect_gpu_slots()` module function. **Add** one-time WARNING log when detected slots is 0 but a GPU block is scheduled. **Update** docstrings of `ResourceRequest.max_internal_workers` and `effective_cpu` to point to ADR-027 D8 for the thread-policy context. |
+| `src/scistudio/core/types/registry.py` | `TypeRegistry` with register/scan for core types. | `TypeRegistry` with a new `resolve(type_chain: list[str]) -> type | None` helper that finds the most specific registered class matching a chain. | **Add** `resolve(type_chain)` method that walks the chain from most-specific to least-specific and returns the first match. **Ensure** `scan()` is idempotent (safe to call from worker subprocess every startup). |
 
 #### Modified files
 
 | File | Changes |
 |---|---|
-| `src/scieasy/blocks/io/adapters/tiff_adapter.py` | **Change** line 26 `img = Image(...)` to import `Image` from `scieasy_blocks_imaging.types` (plugin) if available, else raise a clear error. Alternatively, the built-in TIFF adapter can be moved entirely to `scieasy-blocks-imaging` as part of Phase 10. Final decision deferred to the implementation ticket but captured here for visibility. |
-| `src/scieasy/blocks/process/builtins/*.py` (MergeCollection, FilterCollection, SliceCollection, TransformBlock, MergeBlock, SplitBlock) | **Audit** each for `accepted_types=[Image]` or similar domain-type references. **Change** to `accepted_types=[Array]` with optional constraint helpers. These built-ins are domain-agnostic by design and must not import from plugins. |
-| `src/scieasy/blocks/base/ports.py` | **Add** integration with `has_axes` constraint helper (constraint is the existing mechanism; no new field). **Update** `port_accepts_signature` to also check `TypeSignature.required_axes` compatibility (target port's required axes must be a subset of source type's required axes). |
-| `src/scieasy/api/routes/blocks.py` | **Audit** endpoints that return block schemas. If any hardcode domain-type names, generalise to read from `TypeRegistry`. |
-| `src/scieasy/ai/validators/*.py` (Phase 9 code generator validators) | **Update** type-reference checks so that AI-generated blocks cannot import `Image` from `scieasy.core.types.array` (it is no longer there). Validator must enforce plugin imports for domain types. |
-| `tests/core/test_types.py` | **Update** ~3 `Image(...)` instantiations: either use `Array` directly with `axes=["y","x"]`, or install `scieasy-blocks-imaging` as a test dependency. Chosen approach: switch to `Array` where the test is actually about core behaviour, keep `Image` imports in imaging-specific tests that live under `scieasy-blocks-imaging/tests/`. |
+| `src/scistudio/blocks/io/adapters/tiff_adapter.py` | **Change** line 26 `img = Image(...)` to import `Image` from `scistudio_blocks_imaging.types` (plugin) if available, else raise a clear error. Alternatively, the built-in TIFF adapter can be moved entirely to `scistudio-blocks-imaging` as part of Phase 10. Final decision deferred to the implementation ticket but captured here for visibility. |
+| `src/scistudio/blocks/process/builtins/*.py` (MergeCollection, FilterCollection, SliceCollection, TransformBlock, MergeBlock, SplitBlock) | **Audit** each for `accepted_types=[Image]` or similar domain-type references. **Change** to `accepted_types=[Array]` with optional constraint helpers. These built-ins are domain-agnostic by design and must not import from plugins. |
+| `src/scistudio/blocks/base/ports.py` | **Add** integration with `has_axes` constraint helper (constraint is the existing mechanism; no new field). **Update** `port_accepts_signature` to also check `TypeSignature.required_axes` compatibility (target port's required axes must be a subset of source type's required axes). |
+| `src/scistudio/api/routes/blocks.py` | **Audit** endpoints that return block schemas. If any hardcode domain-type names, generalise to read from `TypeRegistry`. |
+| `src/scistudio/ai/validators/*.py` (Phase 9 code generator validators) | **Update** type-reference checks so that AI-generated blocks cannot import `Image` from `scistudio.core.types.array` (it is no longer there). Validator must enforce plugin imports for domain types. |
+| `tests/core/test_types.py` | **Update** ~3 `Image(...)` instantiations: either use `Array` directly with `axes=["y","x"]`, or install `scistudio-blocks-imaging` as a test dependency. Chosen approach: switch to `Array` where the test is actually about core behaviour, keep `Image` imports in imaging-specific tests that live under `scistudio-blocks-imaging/tests/`. |
 | `tests/core/test_dataobject_extended.py` | **Update** ~1 instantiation per above. |
 | `tests/core/test_composite.py` | **Update** ~1 instantiation. |
 | `tests/core/test_proxy.py` | **Update** ~1 instantiation. |
@@ -4636,15 +4636,15 @@ def reconstruct_inputs(payload):
 | `tests/blocks/test_app_block.py` | **Update** ~2 instantiations. |
 | `tests/engine/test_checkpoint.py` | **Update** ~7 instantiations. |
 | `tests/integration/test_block_sdk_e2e.py` | **Update** ~1 instantiation. |
-| `tests/integration/test_multimodal_workflow.py` | **Update** ~7 instantiations OR move this test into `scieasy-blocks-imaging` as an integration test that requires all three plugin packages installed. Phase 10 decision: keep in core repo but mark with a pytest marker `@pytest.mark.requires_imaging` that is skipped when the plugin is not installed. |
+| `tests/integration/test_multimodal_workflow.py` | **Update** ~7 instantiations OR move this test into `scistudio-blocks-imaging` as an integration test that requires all three plugin packages installed. Phase 10 decision: keep in core repo but mark with a pytest marker `@pytest.mark.requires_imaging` that is skipped when the plugin is not installed. |
 | `tests/api/test_data.py` | **Update** ~1 instantiation. |
-| `tests/workflow/test_validator.py` | **Update** 1 `from scieasy.core.types.array import Array, Image` → `Array` only. |
+| `tests/workflow/test_validator.py` | **Update** 1 `from scistudio.core.types.array import Array, Image` → `Array` only. |
 | `tests/ai/test_validator.py` | **Update** ~4 instantiations. AI validator tests verify the "you cannot import Image from core" rule. |
 | `tests/ai/test_type_generator.py` | **Update** ~2 instantiations. |
 
 #### Deleted files
 
-No outright deletions. Domain subclasses are moved (deleted from core, recreated in plugins), but the Phase 10 plan tracks plugin-side additions as a separate work package in the `scieasy-blocks-imaging` repo scaffold task, not as file creations inside this repo.
+No outright deletions. Domain subclasses are moved (deleted from core, recreated in plugins), but the Phase 10 plan tracks plugin-side additions as a separate work package in the `scistudio-blocks-imaging` repo scaffold task, not as file creations inside this repo.
 
 #### New tests required
 
@@ -4664,14 +4664,14 @@ No outright deletions. Domain subclasses are moved (deleted from core, recreated
 |---|---|
 | `docs/architecture/ARCHITECTURE.md` §4.1 (Base type hierarchy) | **Rewrite** the class diagram: core shows only the 7 base types with a "domain subtypes provided by plugin packages" annotation below. **Remove** references to `Image`, `MSImage`, `FluorImage`, `SRSImage`, `Spectrum`, `AnnData`, `SpatialData`, `PeakTable` from the core diagram. **Add** an "extended example (plugin-provided)" inset showing an imaging plugin's hierarchy as illustrative. |
 | `docs/architecture/ARCHITECTURE.md` §4.1 (Named axes on Array) | **Rewrite** the `axes` example code to show instance-level axes: `Image(axes=["t","z","c","y","x"], shape=(10,30,4,512,512))`. **Add** discussion of `required_axes` / `allowed_axes` / `canonical_order`. **Add** the 6D axis alphabet table (`t, z, c, lambda, y, x`) with descriptions. |
-| `docs/architecture/ARCHITECTURE.md` §4.5 (Broadcast utility) | **Add** cross-reference to `scieasy.utils.axis_iter.iterate_over_axes` (new sibling function). Describe the split of responsibility: `broadcast_apply` = low-dim → high-dim projection, `iterate_over_axes` = single Array extra-dim iteration. |
+| `docs/architecture/ARCHITECTURE.md` §4.5 (Broadcast utility) | **Add** cross-reference to `scistudio.utils.axis_iter.iterate_over_axes` (new sibling function). Describe the split of responsibility: `broadcast_apply` = low-dim → high-dim projection, `iterate_over_axes` = single Array extra-dim iteration. |
 | `docs/architecture/ARCHITECTURE.md` §5.1 (Block base class) | **Add** `setup(config)` and `teardown(state)` to the ProcessBlock contract description. **Update** `process_item` signature to 3-arg. |
 | `docs/architecture/ARCHITECTURE.md` §6.4 (Resource management) | **Update** to note that `gpu_slots` auto-detects by default in Phase 10 and references ADR-027 D10. |
 | `docs/architecture/ARCHITECTURE.md` §4.4 / metadata discussion | **Rewrite** to describe the `framework` / `meta` / `user` three-slot model. **Add** example of a Pydantic `Meta` subclass on a domain type. |
 | `docs/architecture/ARCHITECTURE.md` §5.4 (Block and type distribution) | **Add** note that Phase 10 moves all domain types out of core. Plugin packages are the only path. Core contains only base types. |
-| `docs/architecture/ARCHITECTURE.md` Appendix A (multimodal example) | **Audit** code snippets that import `Image`, `MSImage`, etc. from core. Update to import from plugin packages with `from scieasy_blocks_imaging.types import FluorImage`. |
+| `docs/architecture/ARCHITECTURE.md` Appendix A (multimodal example) | **Audit** code snippets that import `Image`, `MSImage`, etc. from core. Update to import from plugin packages with `from scistudio_blocks_imaging.types import FluorImage`. |
 | `docs/architecture/PROJECT_TREE.md` | **Remove** `Image`, `MSImage`, `SRSImage`, `FluorImage` from `core/types/array.py` description. **Add** `utils/axis_iter.py`, `utils/constraints.py`, `core/units.py`, `core/meta/__init__.py`, `core/meta/framework.py` entries. |
-| `docs/guides/block-sdk.md` | **Rewrite** all `from scieasy.core.types.array import Image` imports to use plugin packages. **Add** section on setup/teardown hooks. **Add** section on metadata conventions (`img.meta.pixel_size`, `with_meta()`). **Add** subsection on L2 fan-out as the recommended Collection-level parallelism pattern. **Add** explicit thread policy paragraph. |
+| `docs/guides/block-sdk.md` | **Rewrite** all `from scistudio.core.types.array import Image` imports to use plugin packages. **Add** section on setup/teardown hooks. **Add** section on metadata conventions (`img.meta.pixel_size`, `with_meta()`). **Add** subsection on L2 fan-out as the recommended Collection-level parallelism pattern. **Add** explicit thread policy paragraph. |
 | `docs/testing/phase-5-to-8-human-tests.md` and `phase-5-human-tests.md` | **Update** example snippets that import core `Image`. |
 | `docs/adr/ADR.md` | This ADR (ADR-027). |
 | `CHANGELOG.md` | **Add** entry under `[Unreleased]` → `### Added` for ADR-027. |
@@ -4755,7 +4755,7 @@ The contradiction was not noticed during ADR-027 authoring because D5, D7, and D
 | 1 | What should `worker.reconstruct_inputs` return for each input? | (A) `ViewProxy` (current ADR-027 D11). (B) Typed `DataObject` instance with `storage_ref` set but payload not yet read. (C) A new `LazyDataObject` mix-in: typed instance that masquerades as `FluorImage` but defers payload load through proxy semantics. | **Decision: (B).** D5 unified the constructor surface, removing the original rationale for rejecting (B). (B) makes the in-worker block API identical to the externally-tested API: `item.meta.pixel_size`, `item.with_meta(...)`, `item.iter_over("z")`, `isinstance(item, FluorImage)` all behave the same. Lazy loading is preserved because a `FluorImage(storage_ref=ref, ...)` with `storage_ref` set does not read its payload until `to_memory()` / `view()` / `sel()` / `iter_over()` is called — the lazy contract from ADR-007 is satisfied at the method level, not at the wrapper-class level. (A) cancels D5/D7 inside the worker, as documented in the Context section. (C) introduces a third concept (LazyDataObject) without solving any problem that (B) does not already solve. |
 | 2 | Where lives the per-base-class knowledge of "how to reconstruct from a metadata sidecar"? | (A) A big `if cls is Array: ... elif cls is DataFrame: ...` chain inside `worker.py`. (B) A classmethod hook `_reconstruct_extra_kwargs(metadata: dict) -> dict` declared on each base class; worker.py invokes it generically. (C) Pydantic full reflection over class fields at runtime. | **Decision: (B).** (A) puts plugin-specific knowledge in the engine, violating CLAUDE.md §7.3 ("No mixing core contracts with plugin logic"). (C) is too magical and breaks for fields the framework deliberately keeps non-Pydantic, such as `Array.axes` (a list[str] that has class-level validation logic) and the geometry tuples. (B) is a small, explicit, well-documented contract: each base class declares what it needs to round-trip, the worker calls the hook generically. Plugin subclasses inherit the hook from their base class and almost never need to override it (the only exception is composite types whose slots have plugin-specific structure, which have their own slot reconstruction story). |
 | 3 | What constraints does a subclass's `Meta` Pydantic model have to satisfy to be reconstructable across the subprocess boundary? | (A) Any `pydantic.BaseModel` works; we hope for the best. (B) Frozen, no `PrivateAttr`, all fields must round-trip through `model_dump_json` / `model_validate_json`. | **Decision: (B).** The framework round-trips `Meta` through JSON every time a block runs, because the engine and worker live in different processes. PrivateAttr fields, fields holding live file handles, and fields with arbitrary types that lack a serializer all break this round-trip silently or noisily. Documenting the constraint as part of the `Meta` contract prevents Phase 11+ plugin authors from hitting confusing reconstruction errors. The framework provides `PhysicalQuantity`, `ChannelInfo`, and a small set of other primitives that all comply; plugin authors compose their `Meta` from these and from primitive Python types (str/int/float/bool/datetime/list/dict). |
-| 4 | How does `PhysicalQuantity` (ADR-027 D6) integrate with Pydantic so that `pixel_size: PhysicalQuantity` works without per-field boilerplate? | (A) Pydantic v2 `__get_pydantic_core_schema__` registered on the dataclass — fully transparent to plugin authors. (B) Per-field `field_serializer` / `field_validator` that each plugin author writes. | **Decision: (A).** Plugin authors writing `pixel_size: PhysicalQuantity` should not need to know anything about Pydantic internals. The integration cost is paid once inside `scieasy.core.units` (when ADR-027 D6 is implemented) and is invisible to downstream code. The serialised JSON form is `{"value": 0.108, "unit": "um"}`, which is what plugin authors see if they ever inspect the wire format. |
+| 4 | How does `PhysicalQuantity` (ADR-027 D6) integrate with Pydantic so that `pixel_size: PhysicalQuantity` works without per-field boilerplate? | (A) Pydantic v2 `__get_pydantic_core_schema__` registered on the dataclass — fully transparent to plugin authors. (B) Per-field `field_serializer` / `field_validator` that each plugin author writes. | **Decision: (A).** Plugin authors writing `pixel_size: PhysicalQuantity` should not need to know anything about Pydantic internals. The integration cost is paid once inside `scistudio.core.units` (when ADR-027 D6 is implemented) and is invisible to downstream code. The serialised JSON form is `{"value": 0.108, "unit": "um"}`, which is what plugin authors see if they ever inspect the wire format. |
 | 5 | What is the role of `ViewProxy` after this Addendum? | (A) Delete entirely, fold its methods into `Array`. (B) Keep `ViewProxy` as the return type of `Array.view()` for blocks that genuinely need explicit chunk-by-chunk reading without materialising the whole array. (C) Make `ViewProxy` strictly internal to backends. | **Decision: (B).** ViewProxy is still useful for blocks that read 100 GB Zarr stores chunk-by-chunk, where the block author wants explicit control over which chunks are touched. Examples: a streaming statistics block that computes per-chunk means, an ROI extraction block that reads only the requested spatial region. After this Addendum, `ViewProxy` is **demoted from "engine-injected input type"** to **"opt-in helper accessed via `item.view()`"**. The default block experience is `item.to_memory()` / `item.sel(...)` / `item.iter_over(...)`. Blocks that need ViewProxy explicitly call `item.view()`. |
 
 ### Decision
@@ -4765,7 +4765,7 @@ The contradiction was not noticed during ADR-027 authoring because D5, D7, and D
 Replace the D11 pseudocode with the following. The function dispatches three cases — `Collection`, single `DataObject`, scalar pass-through — and delegates per-item reconstruction to a private helper:
 
 ```python
-# scieasy/engine/runners/worker.py
+# scistudio/engine/runners/worker.py
 
 def reconstruct_inputs(payload: dict[str, Any]) -> dict[str, Any]:
     """Reconstruct typed DataObject inputs from the JSON wire payload.
@@ -4775,9 +4775,9 @@ def reconstruct_inputs(payload: dict[str, Any]) -> dict[str, Any]:
     returned instance has storage_ref set but does not read payload data
     until to_memory() / view() / sel() / iter_over() is called.
     """
-    from scieasy.core.types.collection import Collection
-    from scieasy.core.types.registry import TypeRegistry
-    from scieasy.core.types.base import DataObject
+    from scistudio.core.types.collection import Collection
+    from scistudio.core.types.registry import TypeRegistry
+    from scistudio.core.types.base import DataObject
 
     raw_inputs = payload.get("inputs", {})
     result: dict[str, Any] = {}
@@ -4821,10 +4821,10 @@ def _reconstruct_one(payload_item: dict) -> "DataObject":
             },
         }
     """
-    from scieasy.core.types.registry import TypeRegistry
-    from scieasy.core.types.base import DataObject
-    from scieasy.core.storage.ref import StorageReference
-    from scieasy.core.meta import FrameworkMeta
+    from scistudio.core.types.registry import TypeRegistry
+    from scistudio.core.types.base import DataObject
+    from scistudio.core.storage.ref import StorageReference
+    from scistudio.core.meta import FrameworkMeta
 
     ref = StorageReference(
         backend=payload_item["backend"],
@@ -4870,7 +4870,7 @@ def _reconstruct_one(payload_item: dict) -> "DataObject":
 Each of the six core base classes implements a `classmethod _reconstruct_extra_kwargs(metadata: dict) -> dict` that returns the keyword arguments that the class's `__init__` needs **beyond** the four core fields (`storage_ref`, `framework`, `meta`, `user`). The hook is called by `_reconstruct_one`. Plugin subclasses inherit the hook from their base class and almost never need to override it.
 
 ```python
-# scieasy/core/types/base.py
+# scistudio/core/types/base.py
 class DataObject:
     @classmethod
     def _reconstruct_extra_kwargs(cls, metadata: dict) -> dict:
@@ -4879,7 +4879,7 @@ class DataObject:
         return {}
 
 
-# scieasy/core/types/array.py
+# scistudio/core/types/array.py
 class Array(DataObject):
     @classmethod
     def _reconstruct_extra_kwargs(cls, metadata: dict) -> dict:
@@ -4891,7 +4891,7 @@ class Array(DataObject):
         }
 
 
-# scieasy/core/types/series.py
+# scistudio/core/types/series.py
 class Series(DataObject):
     @classmethod
     def _reconstruct_extra_kwargs(cls, metadata: dict) -> dict:
@@ -4902,7 +4902,7 @@ class Series(DataObject):
         }
 
 
-# scieasy/core/types/dataframe.py
+# scistudio/core/types/dataframe.py
 class DataFrame(DataObject):
     @classmethod
     def _reconstruct_extra_kwargs(cls, metadata: dict) -> dict:
@@ -4913,7 +4913,7 @@ class DataFrame(DataObject):
         }
 
 
-# scieasy/core/types/text.py
+# scistudio/core/types/text.py
 class Text(DataObject):
     @classmethod
     def _reconstruct_extra_kwargs(cls, metadata: dict) -> dict:
@@ -4923,7 +4923,7 @@ class Text(DataObject):
         }
 
 
-# scieasy/core/types/artifact.py
+# scistudio/core/types/artifact.py
 class Artifact(DataObject):
     @classmethod
     def _reconstruct_extra_kwargs(cls, metadata: dict) -> dict:
@@ -4933,7 +4933,7 @@ class Artifact(DataObject):
         }
 
 
-# scieasy/core/types/composite.py
+# scistudio/core/types/composite.py
 class CompositeData(DataObject):
     @classmethod
     def _reconstruct_extra_kwargs(cls, metadata: dict) -> dict:
@@ -4972,7 +4972,7 @@ In practice, almost all plugin types put their domain fields inside `Meta` (whic
 `worker.serialise_outputs` must be updated symmetrically so that the wire format `_reconstruct_one` reads is the wire format `serialise_outputs` writes. The output side already produces a metadata sidecar; this Addendum specifies its exact contents:
 
 ```python
-# scieasy/engine/runners/worker.py
+# scistudio/engine/runners/worker.py
 
 def serialise_outputs(outputs: dict[str, Any], output_dir: str) -> dict[str, Any]:
     """Serialise typed DataObject outputs to the JSON wire format.
@@ -4983,9 +4983,9 @@ def serialise_outputs(outputs: dict[str, Any], output_dir: str) -> dict[str, Any
       - If DataObject:  serialise via _serialise_one
       - Else:           pass through scalar / list / dict
     """
-    from scieasy.blocks.base.block import Block
-    from scieasy.core.types.base import DataObject
-    from scieasy.core.types.collection import Collection
+    from scistudio.blocks.base.block import Block
+    from scistudio.core.types.base import DataObject
+    from scistudio.core.types.collection import Collection
 
     result: dict[str, Any] = {}
     for key, value in outputs.items():
@@ -5075,10 +5075,10 @@ Validation logic lives in `TypeRegistry.register` and is called once per class a
 
 #### `PhysicalQuantity` Pydantic integration
 
-ADR-027 D6 specified `PhysicalQuantity` as a frozen dataclass. To make `pixel_size: PhysicalQuantity` work inside a `Meta` BaseModel without per-field boilerplate, the `scieasy.core.units` module attaches a Pydantic v2 core schema to the dataclass:
+ADR-027 D6 specified `PhysicalQuantity` as a frozen dataclass. To make `pixel_size: PhysicalQuantity` work inside a `Meta` BaseModel without per-field boilerplate, the `scistudio.core.units` module attaches a Pydantic v2 core schema to the dataclass:
 
 ```python
-# scieasy/core/units.py (extends ADR-027 D6's specification)
+# scistudio/core/units.py (extends ADR-027 D6's specification)
 
 from __future__ import annotations
 from dataclasses import dataclass
@@ -5173,16 +5173,16 @@ This demotion is consistent with ADR-007 (lazy loading): laziness is now express
 
 | File | Current state | New state | Detailed changes |
 |---|---|---|---|
-| `src/scieasy/engine/runners/worker.py` | `reconstruct_inputs` returns `ViewProxy`. `serialise_outputs` writes a metadata sidecar but does not split it into framework/meta/user. | `reconstruct_inputs` dispatches to `_reconstruct_one` per item, returns typed `DataObject` instances. `serialise_outputs` dispatches to `_serialise_one`, which writes `type_chain` + `framework` + `meta` + `user` + base-class extras into the metadata sidecar. | **Add** `_reconstruct_one(payload_item)` (~40 lines). **Add** `_serialise_one(obj)` (~30 lines). **Change** `reconstruct_inputs` to call `_reconstruct_one` instead of constructing `ViewProxy` (current ~30 lines → ~25 lines). **Change** `serialise_outputs` to call `_serialise_one` instead of inline serialisation (current ~50 lines → ~35 lines). **Remove** the `ViewProxy` import (no longer needed in worker.py). **Add** `TypeRegistry.scan()` call at top of `main()` per ADR-027 D11 (this part is unchanged from D11). |
-| `src/scieasy/core/types/base.py` | `DataObject` has framework/meta/user slots per ADR-027 D5. | Adds `_reconstruct_extra_kwargs(metadata)` and `_serialise_extra_metadata(obj)` classmethods, both returning `{}` by default. | **Add** two classmethods, each ~3 lines (default empty implementation + docstring). |
-| `src/scieasy/core/types/array.py` | `Array` per ADR-027 D1 with instance-level `axes`. | Adds `_reconstruct_extra_kwargs` and `_serialise_extra_metadata` covering `axes`, `shape`, `dtype`, `chunk_shape`. | **Add** two classmethods, ~10 lines each. |
-| `src/scieasy/core/types/series.py` | `Series` base class. | Adds two classmethods covering `index_name`, `value_name`, `length`. | **Add** two classmethods, ~6 lines each. |
-| `src/scieasy/core/types/dataframe.py` | `DataFrame` base class. | Adds two classmethods covering `columns`, `row_count`, `schema`. | **Add** two classmethods, ~6 lines each. |
-| `src/scieasy/core/types/text.py` | `Text` base class. | Adds two classmethods covering `format`, `encoding`. | **Add** two classmethods, ~5 lines each. |
-| `src/scieasy/core/types/artifact.py` | `Artifact` base class. | Adds two classmethods covering `mime_type`, `description`. | **Add** two classmethods, ~5 lines each. |
-| `src/scieasy/core/types/composite.py` | `CompositeData` per ADR-027 D2. | Adds two classmethods covering `slots` — recursively delegates to `_reconstruct_one` / `_serialise_one` for each slot. | **Add** two classmethods, ~10 lines each. The recursive delegation needs an import of `worker._reconstruct_one`, which is acceptable because composite reconstruction is intrinsically tied to the worker reconstruction protocol. Alternative: move the helpers into a new module `scieasy.core.types.serialization` to avoid `core` importing `engine.runners`. The implementation ticket will pick the cleaner of the two import directions. |
-| `src/scieasy/core/types/registry.py` | `TypeRegistry.register` and `TypeRegistry.resolve` per ADR-027 D11. | Adds validation in `register`: if the registered class declares a `Meta` attribute, check that it is a `BaseModel`, has no `PrivateAttr` fields, and that all fields round-trip through `model_dump(mode="json")` / `model_validate`. Reject with a clear error if not. | **Add** `_validate_meta_class(cls)` (~25 lines). **Call** from `register()`. The validation cost is paid once per class at registration; not per dispatch. |
-| `src/scieasy/core/units.py` | `PhysicalQuantity` per ADR-027 D6. | Adds `__get_pydantic_core_schema__` for transparent Pydantic v2 integration. | **Add** the classmethod (~25 lines including the imported `core_schema` helpers). |
+| `src/scistudio/engine/runners/worker.py` | `reconstruct_inputs` returns `ViewProxy`. `serialise_outputs` writes a metadata sidecar but does not split it into framework/meta/user. | `reconstruct_inputs` dispatches to `_reconstruct_one` per item, returns typed `DataObject` instances. `serialise_outputs` dispatches to `_serialise_one`, which writes `type_chain` + `framework` + `meta` + `user` + base-class extras into the metadata sidecar. | **Add** `_reconstruct_one(payload_item)` (~40 lines). **Add** `_serialise_one(obj)` (~30 lines). **Change** `reconstruct_inputs` to call `_reconstruct_one` instead of constructing `ViewProxy` (current ~30 lines → ~25 lines). **Change** `serialise_outputs` to call `_serialise_one` instead of inline serialisation (current ~50 lines → ~35 lines). **Remove** the `ViewProxy` import (no longer needed in worker.py). **Add** `TypeRegistry.scan()` call at top of `main()` per ADR-027 D11 (this part is unchanged from D11). |
+| `src/scistudio/core/types/base.py` | `DataObject` has framework/meta/user slots per ADR-027 D5. | Adds `_reconstruct_extra_kwargs(metadata)` and `_serialise_extra_metadata(obj)` classmethods, both returning `{}` by default. | **Add** two classmethods, each ~3 lines (default empty implementation + docstring). |
+| `src/scistudio/core/types/array.py` | `Array` per ADR-027 D1 with instance-level `axes`. | Adds `_reconstruct_extra_kwargs` and `_serialise_extra_metadata` covering `axes`, `shape`, `dtype`, `chunk_shape`. | **Add** two classmethods, ~10 lines each. |
+| `src/scistudio/core/types/series.py` | `Series` base class. | Adds two classmethods covering `index_name`, `value_name`, `length`. | **Add** two classmethods, ~6 lines each. |
+| `src/scistudio/core/types/dataframe.py` | `DataFrame` base class. | Adds two classmethods covering `columns`, `row_count`, `schema`. | **Add** two classmethods, ~6 lines each. |
+| `src/scistudio/core/types/text.py` | `Text` base class. | Adds two classmethods covering `format`, `encoding`. | **Add** two classmethods, ~5 lines each. |
+| `src/scistudio/core/types/artifact.py` | `Artifact` base class. | Adds two classmethods covering `mime_type`, `description`. | **Add** two classmethods, ~5 lines each. |
+| `src/scistudio/core/types/composite.py` | `CompositeData` per ADR-027 D2. | Adds two classmethods covering `slots` — recursively delegates to `_reconstruct_one` / `_serialise_one` for each slot. | **Add** two classmethods, ~10 lines each. The recursive delegation needs an import of `worker._reconstruct_one`, which is acceptable because composite reconstruction is intrinsically tied to the worker reconstruction protocol. Alternative: move the helpers into a new module `scistudio.core.types.serialization` to avoid `core` importing `engine.runners`. The implementation ticket will pick the cleaner of the two import directions. |
+| `src/scistudio/core/types/registry.py` | `TypeRegistry.register` and `TypeRegistry.resolve` per ADR-027 D11. | Adds validation in `register`: if the registered class declares a `Meta` attribute, check that it is a `BaseModel`, has no `PrivateAttr` fields, and that all fields round-trip through `model_dump(mode="json")` / `model_validate`. Reject with a clear error if not. | **Add** `_validate_meta_class(cls)` (~25 lines). **Call** from `register()`. The validation cost is paid once per class at registration; not per dispatch. |
+| `src/scistudio/core/units.py` | `PhysicalQuantity` per ADR-027 D6. | Adds `__get_pydantic_core_schema__` for transparent Pydantic v2 integration. | **Add** the classmethod (~25 lines including the imported `core_schema` helpers). |
 
 #### Tests
 
@@ -5223,14 +5223,14 @@ This demotion is consistent with ADR-007 (lazy loading): laziness is now express
 
 ### Context
 
-Phase 10 landed the final core type surface (ADR-027) with exactly seven base types — `DataObject`, `Array`, `Series`, `DataFrame`, `Text`, `Artifact`, `CompositeData` — and excised every domain subtype (`Image`, `Spectrum`, `PeakTable`, `AnnData`, ...) to plugin packages. The core's deliberate smallness is now load-bearing: `scieasy-blocks-imaging`, `scieasy-blocks-srs`, `scieasy-blocks-lcms`, and future plugins all depend on it as a stable foundation.
+Phase 10 landed the final core type surface (ADR-027) with exactly seven base types — `DataObject`, `Array`, `Series`, `DataFrame`, `Text`, `Artifact`, `CompositeData` — and excised every domain subtype (`Image`, `Spectrum`, `PeakTable`, `AnnData`, ...) to plugin packages. The core's deliberate smallness is now load-bearing: `scistudio-blocks-imaging`, `scistudio-blocks-srs`, `scistudio-blocks-lcms`, and future plugins all depend on it as a stable foundation.
 
 The IO layer, however, was not revised during Phase 10. It still follows the pre-Phase-10 "central adapter registry" pattern that was originally designed when domain types lived inside core:
 
-1. `src/scieasy/blocks/io/adapters/` ships eight bundled format adapters: `csv_adapter.py`, `fcs_adapter.py`, `generic_adapter.py`, `h5ad_adapter.py`, `mzxml_adapter.py`, `parquet_adapter.py`, `tiff_adapter.py`, `zarr_adapter.py`.
-2. `src/scieasy/blocks/io/adapter_registry.py` is a separate registry class that dispatches by file extension, completely parallel to the `BlockRegistry` in `scieasy.blocks.registry` and the `TypeRegistry` in `scieasy.core.types.registry`.
-3. `src/scieasy/blocks/io/io_block.py::_run_input` (lines 78–106) loops files in a directory, asks `AdapterRegistry.get_for_extension(ext)` for a class, calls `adapter.create_reference(path)`, and wraps the result in a bare `DataObject(storage_ref=ref)` — *with no type information*. The loaded object has no `Image`/`SRSImage`/`PeakTable` identity; it is a generic `DataObject` whose only distinguishing feature is its `storage_ref.metadata` dict.
-4. ADR-025 §6 (block package distribution protocol) specifies a `scieasy.adapters` entry-point group alongside `scieasy.blocks` and `scieasy.types`, intended so external packages can register additional adapters via `pyproject.toml`.
+1. `src/scistudio/blocks/io/adapters/` ships eight bundled format adapters: `csv_adapter.py`, `fcs_adapter.py`, `generic_adapter.py`, `h5ad_adapter.py`, `mzxml_adapter.py`, `parquet_adapter.py`, `tiff_adapter.py`, `zarr_adapter.py`.
+2. `src/scistudio/blocks/io/adapter_registry.py` is a separate registry class that dispatches by file extension, completely parallel to the `BlockRegistry` in `scistudio.blocks.registry` and the `TypeRegistry` in `scistudio.core.types.registry`.
+3. `src/scistudio/blocks/io/io_block.py::_run_input` (lines 78–106) loops files in a directory, asks `AdapterRegistry.get_for_extension(ext)` for a class, calls `adapter.create_reference(path)`, and wraps the result in a bare `DataObject(storage_ref=ref)` — *with no type information*. The loaded object has no `Image`/`SRSImage`/`PeakTable` identity; it is a generic `DataObject` whose only distinguishing feature is its `storage_ref.metadata` dict.
+4. ADR-025 §6 (block package distribution protocol) specifies a `scistudio.adapters` entry-point group alongside `scistudio.blocks` and `scistudio.types`, intended so external packages can register additional adapters via `pyproject.toml`.
 
 This model was coherent when `Image` lived in core: the TIFF adapter knew about `Image`, returned an `Image` instance, and the adapter registry was the single source of truth for format-to-type mapping. With Phase 10's domain types moved to plugins, the model is broken in several concrete ways that surfaced when planning Phase 11's three plugin packages.
 
@@ -5244,12 +5244,12 @@ The eight bundled adapters mix two orthogonal concerns:
 | `parquet_adapter.py` | Generic tabular | Core |
 | `generic_adapter.py` | Opaque bytes | Core |
 | `zarr_adapter.py` | Generic chunked array | Core |
-| `tiff_adapter.py` | Image-specific | `scieasy-blocks-imaging` |
-| `mzxml_adapter.py` | LC-MS-specific | `scieasy-blocks-lcms` |
-| `h5ad_adapter.py` | Single-cell-specific | Future `scieasy-blocks-singlecell` |
-| `fcs_adapter.py` | Flow-cytometry-specific | Future `scieasy-blocks-flow` |
+| `tiff_adapter.py` | Image-specific | `scistudio-blocks-imaging` |
+| `mzxml_adapter.py` | LC-MS-specific | `scistudio-blocks-lcms` |
+| `h5ad_adapter.py` | Single-cell-specific | Future `scistudio-blocks-singlecell` |
+| `fcs_adapter.py` | Flow-cytometry-specific | Future `scistudio-blocks-flow` |
 
-Four of the eight adapters are plugin-domain concerns that core currently imports unconditionally. A user who installs only `scieasy` and wants to do single-cell analysis gets an `h5ad_adapter` they cannot meaningfully use (because `AnnData` was deleted from core in T-007). A user who installs `scieasy` plus `scieasy-blocks-lcms` gets the plugin's mzML support — but also the core's `mzxml_adapter`, which is a second, differently-behaving path to the same goal.
+Four of the eight adapters are plugin-domain concerns that core currently imports unconditionally. A user who installs only `scistudio` and wants to do single-cell analysis gets an `h5ad_adapter` they cannot meaningfully use (because `AnnData` was deleted from core in T-007). A user who installs `scistudio` plus `scistudio-blocks-lcms` gets the plugin's mzML support — but also the core's `mzxml_adapter`, which is a second, differently-behaving path to the same goal.
 
 This is the literal opposite of "core stays small and stable" from CLAUDE.md §2.3, and it is the literal opposite of ADR-027 D2's "core contains only base types; all domain subtypes live in plugins".
 
@@ -5293,14 +5293,14 @@ Two lines, `obj = DataObject(storage_ref=ref)`, throw away every piece of type k
 
 #### Tension 3 — Two parallel registries for one concern
 
-ADR-009 (registry stores specs), ADR-025 (plugin distribution), and Phase 10's `TypeRegistry` together establish that SciEasy has two registries:
+ADR-009 (registry stores specs), ADR-025 (plugin distribution), and Phase 10's `TypeRegistry` together establish that SciStudio has two registries:
 
-- `BlockRegistry` — maps block name → `BlockSpec` → block class, scanned from `scieasy.blocks` entry-points plus Tier-1 drop-in files.
-- `TypeRegistry` — maps type name → `TypeSpec` → `DataObject` subclass, scanned from `scieasy.types` entry-points plus core builtins.
+- `BlockRegistry` — maps block name → `BlockSpec` → block class, scanned from `scistudio.blocks` entry-points plus Tier-1 drop-in files.
+- `TypeRegistry` — maps type name → `TypeSpec` → `DataObject` subclass, scanned from `scistudio.types` entry-points plus core builtins.
 
 The adapter layer adds a third:
 
-- `AdapterRegistry` — maps file extension → adapter class, scanned from `scieasy.adapters` entry-points plus a hardcoded `register_defaults()` list in `adapter_registry.py`.
+- `AdapterRegistry` — maps file extension → adapter class, scanned from `scistudio.adapters` entry-points plus a hardcoded `register_defaults()` list in `adapter_registry.py`.
 
 These three registries overlap substantially. An adapter IS a kind of block (specifically, an IO block). An adapter's output type IS a registered DataObject subclass. The extension → adapter lookup IS functionally a specialised form of "find the block that knows how to read this format". Keeping three registries requires plugin authors to understand three registration protocols, debug three scan paths when their plugin does not load, and read three sections of ADR-025 to register a single feature.
 
@@ -5317,7 +5317,7 @@ Retrofitting the adapter layer to handle each of these requires either four new 
 
 #### Tension 5 — Block authors want user-facing named blocks, not `IOBlock(format=...)`
 
-OptEasy's experience directly informs this tension. OptEasy ships `LoadImage`, `SaveImage`, `LoadPeakTable`, `LoadSpectrum` as named blocks in the block palette. Each is self-explanatory; a non-programmer scientist picking `LoadImage` from the palette immediately understands what it will do. SciEasy's current `IOBlock(direction="input", path=..., format="tiff")` is strictly less expressive in the GUI: the same block name appears for every IO operation, and the user must set `format` correctly for the workflow to validate. The block palette's two-level grouping (ADR-025 §3) cannot help, because every IO block has the same `type_name = "io_block"`.
+OptEasy's experience directly informs this tension. OptEasy ships `LoadImage`, `SaveImage`, `LoadPeakTable`, `LoadSpectrum` as named blocks in the block palette. Each is self-explanatory; a non-programmer scientist picking `LoadImage` from the palette immediately understands what it will do. SciStudio's current `IOBlock(direction="input", path=..., format="tiff")` is strictly less expressive in the GUI: the same block name appears for every IO operation, and the user must set `format` correctly for the workflow to validate. The block palette's two-level grouping (ADR-025 §3) cannot help, because every IO block has the same `type_name = "io_block"`.
 
 The user-facing fix is obvious: ship `LoadImage` as a concrete class whose `output_ports` declares `accepted_types=[Image]`. The current adapter layer stands directly in the way of doing this, because it forces the declaration of type into the `storage_ref.metadata` dict rather than into the block's port contract.
 
@@ -5332,8 +5332,8 @@ These five tensions are cross-cutting and reinforcing. Any one of them alone mig
 | 1 | Should `IOBlock` be a concrete class (current state) or an abstract base? | (A) Concrete, with a `format` param and internal dispatch. (B) Abstract base class with `load()` / `save()` abstract methods; concrete loaders are subclasses. | **Decision: (B).** Abstract base forces every IO block to declare its input/output types via the standard `input_ports` / `output_ports` ClassVars. Type information flows through the block's port contract (ADR-016, Phase 10 port-check), not through a side-channel metadata dict. Concrete loaders are subclasses (one per loaded type for core, one per loaded type per plugin). This aligns the IO layer with every other block category: `ProcessBlock`, `CodeBlock`, `AppBlock` are all abstract-or-configurable bases with concrete subclasses carrying domain knowledge. |
 | 2 | Should the central adapter registry survive? | (A) Keep it, add typed reconstruction. (B) Delete it entirely; adapters are absorbed into loader blocks. (C) Keep it as a soft-deprecated compatibility layer for one phase. | **Decision: (B).** The registry is a second source of truth for "how to load files". Its only consumer is `IOBlock._run_input`, which this ADR deletes. Option (C) doubles the plugin-author cognitive burden for a full phase with no long-term payoff. Deleting in one cut (per Phase 10's "first destructive change is the risk point" lesson — this ADR and its implementation are explicitly expected to be the risk point, not a plugin package's first integration) keeps the surface area small. |
 | 3 | Which formats does core ship loader support for? | (A) Minimum: just Zarr for Array, Parquet for DataFrame/Series. (B) Pragmatic: all formats that are genuinely generic and not domain-specific, including CSV, TSV, Parquet, Pickle, NumPy, Zarr, plain text, opaque bytes. (C) Maximum: everything currently shipped, minus the four clearly plugin-specific ones. | **Decision: (B).** Pragmatic set. Users working with generic data (metadata CSVs, config files, numpy arrays from intermediate calculations, pickled sklearn models) should not need to install a domain plugin just to load their file. The specific format set is enumerated in Decision D3 below. |
-| 4 | Should the `scieasy.adapters` entry-point group be kept or deleted? | (A) Keep it for plugin-provided adapters. (B) Delete it; plugins ship IO *blocks*, not adapters. | **Decision: (B).** The `scieasy.blocks` entry-point group already accepts any block class, including `IOBlock` subclasses. A plugin loading mzML files registers an `LoadMSRawFile(IOBlock)` through `scieasy.blocks`, not a `MzmlAdapter` through `scieasy.adapters`. One registration protocol instead of two. ADR-025 §6 is superseded. |
-| 5 | What happens to the eight bundled adapters during implementation? | (A) Delete all eight, no migration. (B) Merge the four generic ones into core loaders; move the four domain-specific ones to their target plugin packages. | **Decision: (B).** The four generic adapters (`csv_adapter`, `parquet_adapter`, `zarr_adapter`, `generic_adapter`) contain logic that core needs — CSV parsing with pandas, Parquet reading, Zarr metadata handling, byte copy. That logic is absorbed into the corresponding `LoadDataFrame` / `LoadArray` / `LoadArtifact` core loaders. The four domain-specific adapters (`tiff_adapter`, `mzxml_adapter`, `h5ad_adapter`, `fcs_adapter`) are moved verbatim into their target plugin packages (`scieasy-blocks-imaging` / `scieasy-blocks-lcms` / future `scieasy-blocks-singlecell` / future `scieasy-blocks-flow`). The TIFF adapter's JSON-in-ImageDescription metadata round-trip logic is preserved as-is and becomes part of `scieasy-blocks-imaging`'s `LoadImage` block (Phase 11 Track 2). |
+| 4 | Should the `scistudio.adapters` entry-point group be kept or deleted? | (A) Keep it for plugin-provided adapters. (B) Delete it; plugins ship IO *blocks*, not adapters. | **Decision: (B).** The `scistudio.blocks` entry-point group already accepts any block class, including `IOBlock` subclasses. A plugin loading mzML files registers an `LoadMSRawFile(IOBlock)` through `scistudio.blocks`, not a `MzmlAdapter` through `scistudio.adapters`. One registration protocol instead of two. ADR-025 §6 is superseded. |
+| 5 | What happens to the eight bundled adapters during implementation? | (A) Delete all eight, no migration. (B) Merge the four generic ones into core loaders; move the four domain-specific ones to their target plugin packages. | **Decision: (B).** The four generic adapters (`csv_adapter`, `parquet_adapter`, `zarr_adapter`, `generic_adapter`) contain logic that core needs — CSV parsing with pandas, Parquet reading, Zarr metadata handling, byte copy. That logic is absorbed into the corresponding `LoadDataFrame` / `LoadArray` / `LoadArtifact` core loaders. The four domain-specific adapters (`tiff_adapter`, `mzxml_adapter`, `h5ad_adapter`, `fcs_adapter`) are moved verbatim into their target plugin packages (`scistudio-blocks-imaging` / `scistudio-blocks-lcms` / future `scistudio-blocks-singlecell` / future `scistudio-blocks-flow`). The TIFF adapter's JSON-in-ImageDescription metadata round-trip logic is preserved as-is and becomes part of `scistudio-blocks-imaging`'s `LoadImage` block (Phase 11 Track 2). |
 | 6 | Is pickle safe to support as a core loader path? | (A) No — pickle is arbitrary code execution, block authors should never load it. (B) Yes, with a mandatory opt-in flag and a prominent security warning. (C) Yes, unconditionally. | **Decision: (B).** Pickle is the de-facto serialisation format for sklearn models, intermediate pandas frames from notebooks, and arbitrary Python objects that cannot round-trip through parquet. Refusing to support it forces users to write `CodeBlock` script escape hatches to do something trivial, which is a worse outcome than a clearly-documented opt-in. The opt-in takes the form of an `allow_pickle: bool = False` config param on the relevant core loaders. When `allow_pickle` is `False` and the file extension is `.pkl` / `.pickle`, the block raises `ValueError` with a message pointing at the security implication and the opt-in path. This matches numpy's `np.load(..., allow_pickle=False)` convention and makes the decision auditable at workflow definition time. |
 | 7 | How does a plugin loader declare its output type? | (A) Via `output_ports = [OutputPort(accepted_types=[Image])]` — the standard Phase 10 port contract. (B) Via a new sidecar protocol specific to IO blocks. | **Decision: (A).** No new protocol. Plugin `LoadImage` subclasses `IOBlock` and declares `output_ports = [OutputPort(name="data", accepted_types=[Image])]` exactly like every other block. The Phase 10 port-check system already handles type compatibility via `TypeSignature.matches()` (T-005/T-006). Downstream `process_item(self, item: Image, ...)` annotations become accurate, isinstance checks work, `item.meta.pixel_size` autocompletes in IDEs — everything Phase 10 promised for typed DataObjects finally applies to the IO path. |
 | 8 | Does this ADR require changes to `_reconstruct_one` / `_serialise_one` (Phase 10 worker round-trip)? | (A) Yes — the IO block's output type needs a new field in the wire format. (B) No — the existing `type_chain` field in the metadata sidecar already handles this. | **Decision: (B).** No change required. When a plugin `LoadImage` block returns an `Image` instance, the worker's `serialise_outputs` calls `_serialise_one(image)`, which writes `md["type_chain"] = image.dtype_info.type_chain == ["DataObject", "Array", "Image"]` into the sidecar. The downstream block's worker calls `_reconstruct_one(payload_item)`, which calls `TypeRegistry.resolve(type_chain)` → `Image` class → constructs a typed `Image` instance. The wire format, the resolver, and the reconstruction hook contracts are all unchanged. This ADR interacts with Phase 10 only by *finally* making the IO path feed data into the Phase 10 pipeline in the typed form the pipeline was designed for. |
@@ -5342,7 +5342,7 @@ These five tensions are cross-cutting and reinforcing. Any one of them alone mig
 | 11 | Do we ship concrete loaders for all seven core types, or only the subset that has a natural binary format? | (A) All seven (`DataObject`, `Array`, `Series`, `DataFrame`, `Text`, `Artifact`, `CompositeData`). (B) Only the five with obvious binary formats (`Array`, `Series`, `DataFrame`, `Text`, `Artifact`). `CompositeData` and bare `DataObject` do not ship loaders. | **Decision: (B) plus LoadCompositeData.** Bare `DataObject` has no reasonable "load" story — it is the abstract root. `CompositeData` does, because composites persist as a directory containing one storage ref per slot plus a `manifest.json` (per Phase 10's §4.2 backend table). `LoadCompositeData` is a thin wrapper that reads the manifest, recurses into `_reconstruct_one` for each slot, and returns the assembled composite. Six concrete loaders + six concrete savers ship from core. |
 | 12 | Pickle only for DataFrame, or also Series / Array? | (A) Only DataFrame (most common pickle target — pandas.to_pickle). (B) DataFrame and Series (symmetric with parquet). (C) DataFrame, Series, Array, and bare DataObject (maximum flexibility). | **Decision: (B).** DataFrame and Series pickle are symmetric (both are pandas-native) and cover 95% of real-world `.pkl` usage. Array pickle is supported via numpy's native `np.load(allow_pickle=True)` path through `LoadArray`, not as a separate code path. Bare DataObject pickle is refused: anyone pickling a DataObject has enough framework knowledge to write a `CodeBlock` escape hatch, and loading a pickled DataObject would bypass Phase 10's typed reconstruction path entirely. |
 | 13 | How are the per-format extensions registered inside each core loader? | (A) Class-level `supported_extensions: ClassVar[dict[str, str]]` mapping extension → internal format name. (B) Hardcoded `if ext == ".csv": ... elif ext == ".tsv": ...` chains. (C) A pluggable registry inside each loader class. | **Decision: (A).** Class-level ClassVar. Every core loader declares `supported_extensions` explicitly so the block palette can render "supported formats: .csv, .tsv, .parquet, .pkl" in the block description automatically. Format dispatch inside the loader is a simple dict lookup plus a call to a private per-format method (`_load_csv`, `_load_tsv`, ...). Option (C) is premature generality — no loader needs runtime-pluggable format support. |
-| 14 | Is the change a breaking change, and if so, what is the migration story? | (A) Yes, breaking; ship a migration guide and a script. (B) No, keep `IOBlock(format=...)` as a deprecated shim for one phase. (C) Yes, breaking; no migration tooling needed because the pre-Phase-11 IOBlock usage base is small. | **Decision: (C).** SciEasy is still in pre-1.0 development; no external user has built production workflows on top of `IOBlock(format=...)`. The internal callers are the three bundled adapter tests plus `tests/blocks/test_adapter_registry.py`, which are migrated as part of this ADR's implementation PR. The CHANGELOG entry flags the break clearly. A migration shim that accepts the old `IOBlock(format=...)` form and re-routes to the new loaders would cost ~150 lines of code and add a permanent "did you mean the new loader?" ambiguity to every workflow file. |
+| 14 | Is the change a breaking change, and if so, what is the migration story? | (A) Yes, breaking; ship a migration guide and a script. (B) No, keep `IOBlock(format=...)` as a deprecated shim for one phase. (C) Yes, breaking; no migration tooling needed because the pre-Phase-11 IOBlock usage base is small. | **Decision: (C).** SciStudio is still in pre-1.0 development; no external user has built production workflows on top of `IOBlock(format=...)`. The internal callers are the three bundled adapter tests plus `tests/blocks/test_adapter_registry.py`, which are migrated as part of this ADR's implementation PR. The CHANGELOG entry flags the break clearly. A migration shim that accepts the old `IOBlock(format=...)` form and re-routes to the new loaders would cost ~150 lines of code and add a permanent "did you mean the new loader?" ambiguity to every workflow file. |
 
 ### Decision
 
@@ -5350,10 +5350,10 @@ The Phase 11 decisions from the discussion table are codified below. Each decisi
 
 #### D1. `IOBlock` becomes an abstract base class (covers discussion #1, #9, #10)
 
-`src/scieasy/blocks/io/io_block.py` is rewritten. The post-ADR-028 shape:
+`src/scistudio/blocks/io/io_block.py` is rewritten. The post-ADR-028 shape:
 
 ```python
-# scieasy/blocks/io/io_block.py
+# scistudio/blocks/io/io_block.py
 
 from __future__ import annotations
 
@@ -5361,11 +5361,11 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any, ClassVar
 
-from scieasy.blocks.base.block import Block
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.block import Block
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
 
 
 class IOBlock(Block):
@@ -5564,17 +5564,17 @@ Abstract base status is enforced via `ABC` inheritance in the implementation: `c
 The following files are **deleted** in the implementation PR (not this ADR PR):
 
 ```
-src/scieasy/blocks/io/adapter_registry.py
-src/scieasy/blocks/io/adapters/__init__.py
-src/scieasy/blocks/io/adapters/base.py
-src/scieasy/blocks/io/adapters/csv_adapter.py
-src/scieasy/blocks/io/adapters/fcs_adapter.py
-src/scieasy/blocks/io/adapters/generic_adapter.py
-src/scieasy/blocks/io/adapters/h5ad_adapter.py
-src/scieasy/blocks/io/adapters/mzxml_adapter.py
-src/scieasy/blocks/io/adapters/parquet_adapter.py
-src/scieasy/blocks/io/adapters/tiff_adapter.py
-src/scieasy/blocks/io/adapters/zarr_adapter.py
+src/scistudio/blocks/io/adapter_registry.py
+src/scistudio/blocks/io/adapters/__init__.py
+src/scistudio/blocks/io/adapters/base.py
+src/scistudio/blocks/io/adapters/csv_adapter.py
+src/scistudio/blocks/io/adapters/fcs_adapter.py
+src/scistudio/blocks/io/adapters/generic_adapter.py
+src/scistudio/blocks/io/adapters/h5ad_adapter.py
+src/scistudio/blocks/io/adapters/mzxml_adapter.py
+src/scistudio/blocks/io/adapters/parquet_adapter.py
+src/scistudio/blocks/io/adapters/tiff_adapter.py
+src/scistudio/blocks/io/adapters/zarr_adapter.py
 tests/blocks/test_adapter_registry.py
 tests/blocks/test_adapters.py  # migrated to tests/blocks/test_core_loaders.py
 ```
@@ -5587,16 +5587,16 @@ The per-adapter logic is preserved in one of two destinations per ADR-028 D5:
 | `parquet_adapter.py` | Core, merged | `LoadDataFrame._load_parquet`, `LoadSeries._load_parquet` |
 | `zarr_adapter.py` | Core, merged | `LoadArray._load_zarr`, `SaveArray._save_zarr` |
 | `generic_adapter.py` | Core, merged | `LoadArtifact._load_bytes` / `SaveArtifact._save_bytes` |
-| `tiff_adapter.py` | `scieasy-blocks-imaging` | `LoadImage._load_tif` (verbatim) |
-| `mzxml_adapter.py` | `scieasy-blocks-lcms` | `LoadMSRawFile._load_mzxml` (verbatim) |
-| `h5ad_adapter.py` | Future `scieasy-blocks-singlecell` | `LoadAnnData._load_h5ad` |
-| `fcs_adapter.py` | Future `scieasy-blocks-flow` | `LoadFCS._load_fcs` |
+| `tiff_adapter.py` | `scistudio-blocks-imaging` | `LoadImage._load_tif` (verbatim) |
+| `mzxml_adapter.py` | `scistudio-blocks-lcms` | `LoadMSRawFile._load_mzxml` (verbatim) |
+| `h5ad_adapter.py` | Future `scistudio-blocks-singlecell` | `LoadAnnData._load_h5ad` |
+| `fcs_adapter.py` | Future `scistudio-blocks-flow` | `LoadFCS._load_fcs` |
 
 Moving the plugin adapters is the responsibility of the Phase 11 plugin-package implementation PRs. The core-merge of the four generic adapters is the responsibility of the ADR-028 implementation PR. Both are tracked separately from this ADR PR.
 
 #### D3. Seven core loader/saver pairs (covers #3, #11)
 
-Core ships seven concrete loader classes and seven concrete saver classes, one per base type, under `src/scieasy/blocks/io/loaders/` and `src/scieasy/blocks/io/savers/`. The table below locks the format set and the primary backend per ADR-027 D2 §4.2:
+Core ships seven concrete loader classes and seven concrete saver classes, one per base type, under `src/scistudio/blocks/io/loaders/` and `src/scistudio/blocks/io/savers/`. The table below locks the format set and the primary backend per ADR-027 D2 §4.2:
 
 | Block | Base type | Supported extensions | Primary backend | Notes |
 |---|---|---|---|---|
@@ -5628,14 +5628,14 @@ Downstream block authors who pipe loaded-pickle data into `CodeBlock` or `Proces
 
 #### D5. Plugin IO block contract (covers #4, #7)
 
-Plugin packages ship their own IO blocks as subclasses of `scieasy.blocks.io.IOBlock`. The plugin's `LoadImage`:
+Plugin packages ship their own IO blocks as subclasses of `scistudio.blocks.io.IOBlock`. The plugin's `LoadImage`:
 
 ```python
-# scieasy_blocks_imaging/io/load_image.py
+# scistudio_blocks_imaging/io/load_image.py
 
-from scieasy.blocks.io import IOBlock
-from scieasy.blocks.base.ports import OutputPort
-from scieasy_blocks_imaging.types import Image
+from scistudio.blocks.io import IOBlock
+from scistudio.blocks.base.ports import OutputPort
+from scistudio_blocks_imaging.types import Image
 
 class LoadImage(IOBlock):
     direction = "input"
@@ -5677,19 +5677,19 @@ class LoadImage(IOBlock):
         # ... etc.
 ```
 
-No new protocol, no new entry-point group. The plugin author lists `LoadImage` in `get_blocks()` alongside every other plugin block, and `BlockRegistry._scan_tier2()` picks it up via the `scieasy.blocks` entry-point group.
+No new protocol, no new entry-point group. The plugin author lists `LoadImage` in `get_blocks()` alongside every other plugin block, and `BlockRegistry._scan_tier2()` picks it up via the `scistudio.blocks` entry-point group.
 
-The plugin's output type (`Image`) must be registered via the `scieasy.types` entry-point group (ADR-025 §4). At scan time, the worker subprocess `TypeRegistry.resolve(["DataObject", "Array", "Image"])` finds the plugin class, and Phase 10's `_reconstruct_one` reconstructs typed instances from serialised payloads. This entire path is unchanged by ADR-028.
+The plugin's output type (`Image`) must be registered via the `scistudio.types` entry-point group (ADR-025 §4). At scan time, the worker subprocess `TypeRegistry.resolve(["DataObject", "Array", "Image"])` finds the plugin class, and Phase 10's `_reconstruct_one` reconstructs typed instances from serialised payloads. This entire path is unchanged by ADR-028.
 
-#### D6. `scieasy.adapters` entry-point group deletion (covers #4)
+#### D6. `scistudio.adapters` entry-point group deletion (covers #4)
 
-The `scieasy.adapters` entry-point group defined in ADR-025 §6 is formally deleted by this ADR. The implementation PR removes:
+The `scistudio.adapters` entry-point group defined in ADR-025 §6 is formally deleted by this ADR. The implementation PR removes:
 
-- `[project.entry-points."scieasy.adapters"]` section from `pyproject.toml` (if it currently has any entries; at the time of ADR-028 writing, the section is declared but empty).
-- All mentions of `scieasy.adapters` from `src/scieasy/blocks/io/adapter_registry.py::scan_entry_points` (the whole file is deleted per D2).
+- `[project.entry-points."scistudio.adapters"]` section from `pyproject.toml` (if it currently has any entries; at the time of ADR-028 writing, the section is declared but empty).
+- All mentions of `scistudio.adapters` from `src/scistudio/blocks/io/adapter_registry.py::scan_entry_points` (the whole file is deleted per D2).
 - The ADR-025 §6 text is marked superseded with a pointer to ADR-028 (in a follow-up doc-update PR, not in this ADR PR).
 
-External plugins that currently use `scieasy.adapters` (none at time of ADR-028 writing) must migrate to shipping an `IOBlock` subclass via `scieasy.blocks`. The migration is straightforward: the adapter class body becomes a `_load_<format>` private method on the new IO block.
+External plugins that currently use `scistudio.adapters` (none at time of ADR-028 writing) must migrate to shipping an `IOBlock` subclass via `scistudio.blocks`. The migration is straightforward: the adapter class body becomes a `_load_<format>` private method on the new IO block.
 
 #### D7. Default `run()` dispatch and Collection wrapping (covers #10)
 
@@ -5736,7 +5736,7 @@ A plugin's detailed metadata extraction protocol is documented in the plugin's o
 
 #### D10. CLI surface (informative)
 
-The `scieasy` CLI surface is unchanged by ADR-028. The existing `scieasy run <workflow.yaml>` command loads the workflow, instantiates blocks via `BlockRegistry`, and executes them — all block classes including IO blocks are resolved through the same `BlockRegistry` path. No CLI command needs to know about the old `AdapterRegistry`; deleting it has no user-visible CLI effect.
+The `scistudio` CLI surface is unchanged by ADR-028. The existing `scistudio run <workflow.yaml>` command loads the workflow, instantiates blocks via `BlockRegistry`, and executes them — all block classes including IO blocks are resolved through the same `BlockRegistry` path. No CLI command needs to know about the old `AdapterRegistry`; deleting it has no user-visible CLI effect.
 
 ### Alternatives considered
 
@@ -5756,13 +5756,13 @@ The `scieasy` CLI surface is unchanged by ADR-028. The existing `scieasy run <wo
 - Conflates two orthogonal dimensions: what type does the block produce (a class-level concern) and how does the block load it (a runtime format-dispatch concern). Bundling them into one ClassVar requires users to subclass whenever they need a different type OR a different format, creating a Cartesian explosion (`LoadImageFromTiff`, `LoadImageFromZarr`, `LoadImageFromNpy`, ...).
 - Does not match the post-Phase-10 direction (core ships abstract bases, plugins ship concrete subclasses). This alternative proposes a third model (core ships concrete-but-configurable blocks).
 
-**Alternative C — Gradual deprecation over two phases.** Keep `scieasy.adapters` and `AdapterRegistry` alive in Phase 11 as soft-deprecated compatibility shims. Ship the new `IOBlock` ABC pattern alongside them. Mark the old API with `DeprecationWarning`. Remove in Phase 12.
+**Alternative C — Gradual deprecation over two phases.** Keep `scistudio.adapters` and `AdapterRegistry` alive in Phase 11 as soft-deprecated compatibility shims. Ship the new `IOBlock` ABC pattern alongside them. Mark the old API with `DeprecationWarning`. Remove in Phase 12.
 
 *Rejected because*:
 - Doubles the surface area for a full phase. Every plugin author must learn both patterns to understand which one to use.
 - Introduces "which registry should I write to?" as a permanent question during the deprecation window.
 - Phase 10 deprecated the old `DataObject.metadata` dict with exactly this pattern, and the resulting dual-path code in `filter_collection.py:58` and `bridge.py:52` (tracked by issue #278) has already become a small maintenance burden. Repeating the pattern is a known failure mode.
-- The Phase 11 plugin packages are the first consumers of the new IO path. There are no external users to protect from a breaking change — the change is fully internal to SciEasy at the time of landing.
+- The Phase 11 plugin packages are the first consumers of the new IO path. There are no external users to protect from a breaking change — the change is fully internal to SciStudio at the time of landing.
 
 **Alternative D — Keep adapters, rename to "format readers", integrate with `TypeRegistry`.** Unify the registries under a single umbrella: every type has one or more "format reader" classes attached to it, and `TypeRegistry.resolve(["DataObject", "Array", "Image"]).get_reader(".tif")` returns the correct loader class.
 
@@ -5773,24 +5773,24 @@ The `scieasy` CLI surface is unchanged by ADR-028. The existing `scieasy run <wo
 
 ### Consequences
 
-**Breaking changes** (all internal to pre-Phase-11 SciEasy, no external users affected):
+**Breaking changes** (all internal to pre-Phase-11 SciStudio, no external users affected):
 
 - `IOBlock()` is no longer instantiable directly; it is an ABC. Any test or code that constructs `IOBlock()` directly must migrate to one of the concrete loader/saver classes.
-- `AdapterRegistry` class no longer exists. Any code that imports `from scieasy.blocks.io.adapter_registry import AdapterRegistry` breaks.
-- Bundled adapters under `scieasy.blocks.io.adapters.*` no longer exist. Imports from that path break.
-- `scieasy.adapters` entry-point group is removed from `pyproject.toml`. Plugins that declared entries here (none at time of writing) break.
+- `AdapterRegistry` class no longer exists. Any code that imports `from scistudio.blocks.io.adapter_registry import AdapterRegistry` breaks.
+- Bundled adapters under `scistudio.blocks.io.adapters.*` no longer exist. Imports from that path break.
+- `scistudio.adapters` entry-point group is removed from `pyproject.toml`. Plugins that declared entries here (none at time of writing) break.
 - `IOBlock(direction="input", path=...)` no longer auto-dispatches by extension. Workflow YAML files using the old form must be migrated to specific loader blocks (e.g. `LoadDataFrame(path=...)`).
 
 **Non-breaking consequences**:
 
 - Block palette gains concrete loader entries: `LoadArray`, `LoadDataFrame`, `LoadSeries`, `LoadText`, `LoadArtifact`, `LoadCompositeData`, plus savers. GUI users see named blocks rather than a generic `IOBlock`.
-- Plugin packages can ship their own IO blocks (`LoadImage`, `LoadPeakTable`, `LoadMSRawFile`) via the existing `scieasy.blocks` entry-point group. No new plugin registration protocol to learn.
+- Plugin packages can ship their own IO blocks (`LoadImage`, `LoadPeakTable`, `LoadMSRawFile`) via the existing `scistudio.blocks` entry-point group. No new plugin registration protocol to learn.
 - Typed reconstruction (Phase 10 `_reconstruct_one`) finally reaches the IO path. Downstream blocks can declare `process_item(self, item: Image, ...)` annotations and they will be accurate.
 - Pickle support becomes first-class via the opt-in flag, without requiring a `CodeBlock` escape hatch.
 - `.tsv`, `.pkl`, `.npy`, `.npz` all gain first-class load paths via the core loaders.
-- The TIFF adapter's JSON-in-ImageDescription metadata round-trip is preserved verbatim in `scieasy-blocks-imaging.LoadImage` — no feature regression.
+- The TIFF adapter's JSON-in-ImageDescription metadata round-trip is preserved verbatim in `scistudio-blocks-imaging.LoadImage` — no feature regression.
 - Two registries (`BlockRegistry`, `TypeRegistry`) instead of three. Plugin author cognitive load decreases.
-- ADR-025 §6 is superseded, leaving ADR-025 with two entry-point groups (`scieasy.blocks`, `scieasy.types`) instead of three.
+- ADR-025 §6 is superseded, leaving ADR-025 with two entry-point groups (`scistudio.blocks`, `scistudio.types`) instead of three.
 
 **Known risks and mitigations**:
 
@@ -5800,8 +5800,8 @@ The `scieasy` CLI surface is unchanged by ADR-028. The existing `scieasy run <wo
 | Plugin authors reading ADR-025 §6 will be confused by the deletion. | Follow-up doc-update PR adds a "superseded by ADR-028" notice inside ADR-025 §6 pointing at this ADR. |
 | The four generic adapters being merged into core loaders may introduce subtle behaviour drift (e.g. CSV quoting edge cases). | The implementation PR must include a regression test per adapter: load a known input file, assert the output matches the pre-refactor output byte-for-byte or (for CSV) row-for-row. |
 | Pickle security footgun: a user might enable `allow_pickle=True` and then forget it is dangerous. | (1) The error message when `allow_pickle=False` reproduces the warning verbatim. (2) The block description in the GUI contains the warning. (3) A workflow validation pass can lint for `allow_pickle=True` in block configs and surface it during review. |
-| TIFF adapter's existing behaviour (JSON-in-ImageDescription metadata round-trip) must be preserved in the `scieasy-blocks-imaging` move. | The move PR includes a regression test that writes a known Image, reads it back, and asserts metadata equality. The test file moves alongside the adapter code. |
-| `scieasy.adapters` entry-point group deletion requires editing `pyproject.toml`. | The implementation PR updates `pyproject.toml`; the entry-point group declaration is trivially removable. |
+| TIFF adapter's existing behaviour (JSON-in-ImageDescription metadata round-trip) must be preserved in the `scistudio-blocks-imaging` move. | The move PR includes a regression test that writes a known Image, reads it back, and asserts metadata equality. The test file moves alongside the adapter code. |
+| `scistudio.adapters` entry-point group deletion requires editing `pyproject.toml`. | The implementation PR updates `pyproject.toml`; the entry-point group declaration is trivially removable. |
 | Tests under `tests/blocks/test_adapters.py` and `tests/blocks/test_adapter_registry.py` must be rewritten. | The ADR implementation PR deletes `test_adapter_registry.py` and replaces `test_adapters.py` with `test_core_loaders.py` (new file) covering the seven new concrete loaders, the seven savers, the pickle safety flag, the format-dispatch helper, and the default `run()` dispatch. |
 
 ### Detailed impact scope
@@ -5812,17 +5812,17 @@ Implementation of ADR-028 is **not** part of this ADR PR. The impact scope below
 
 | File | Reason |
 |---|---|
-| `src/scieasy/blocks/io/adapter_registry.py` | Replaced by per-block dispatch inside concrete loaders (D2). |
-| `src/scieasy/blocks/io/adapters/__init__.py` | Directory deleted (D2). |
-| `src/scieasy/blocks/io/adapters/base.py` | `FormatAdapter` protocol deleted; replaced by `IOBlock` ABC (D1). |
-| `src/scieasy/blocks/io/adapters/csv_adapter.py` | Logic merged into `LoadDataFrame._load_csv` (D5). |
-| `src/scieasy/blocks/io/adapters/fcs_adapter.py` | Moved verbatim to future `scieasy-blocks-flow` (D5). |
-| `src/scieasy/blocks/io/adapters/generic_adapter.py` | Logic merged into `LoadArtifact._load_bytes` (D5). |
-| `src/scieasy/blocks/io/adapters/h5ad_adapter.py` | Moved verbatim to future `scieasy-blocks-singlecell` (D5). |
-| `src/scieasy/blocks/io/adapters/mzxml_adapter.py` | Moved verbatim to `scieasy-blocks-lcms` (D5). |
-| `src/scieasy/blocks/io/adapters/parquet_adapter.py` | Logic merged into `LoadDataFrame._load_parquet`, `LoadSeries._load_parquet` (D5). |
-| `src/scieasy/blocks/io/adapters/tiff_adapter.py` | Moved verbatim to `scieasy-blocks-imaging` (D5). |
-| `src/scieasy/blocks/io/adapters/zarr_adapter.py` | Logic merged into `LoadArray._load_zarr`, `SaveArray._save_zarr` (D5). |
+| `src/scistudio/blocks/io/adapter_registry.py` | Replaced by per-block dispatch inside concrete loaders (D2). |
+| `src/scistudio/blocks/io/adapters/__init__.py` | Directory deleted (D2). |
+| `src/scistudio/blocks/io/adapters/base.py` | `FormatAdapter` protocol deleted; replaced by `IOBlock` ABC (D1). |
+| `src/scistudio/blocks/io/adapters/csv_adapter.py` | Logic merged into `LoadDataFrame._load_csv` (D5). |
+| `src/scistudio/blocks/io/adapters/fcs_adapter.py` | Moved verbatim to future `scistudio-blocks-flow` (D5). |
+| `src/scistudio/blocks/io/adapters/generic_adapter.py` | Logic merged into `LoadArtifact._load_bytes` (D5). |
+| `src/scistudio/blocks/io/adapters/h5ad_adapter.py` | Moved verbatim to future `scistudio-blocks-singlecell` (D5). |
+| `src/scistudio/blocks/io/adapters/mzxml_adapter.py` | Moved verbatim to `scistudio-blocks-lcms` (D5). |
+| `src/scistudio/blocks/io/adapters/parquet_adapter.py` | Logic merged into `LoadDataFrame._load_parquet`, `LoadSeries._load_parquet` (D5). |
+| `src/scistudio/blocks/io/adapters/tiff_adapter.py` | Moved verbatim to `scistudio-blocks-imaging` (D5). |
+| `src/scistudio/blocks/io/adapters/zarr_adapter.py` | Logic merged into `LoadArray._load_zarr`, `SaveArray._save_zarr` (D5). |
 | `tests/blocks/test_adapter_registry.py` | Registry no longer exists (D2). |
 | `tests/blocks/test_adapters.py` | Replaced by `tests/blocks/test_core_loaders.py` and `tests/blocks/test_core_savers.py` (D11). |
 
@@ -5830,28 +5830,28 @@ Implementation of ADR-028 is **not** part of this ADR PR. The impact scope below
 
 | File | Before | After |
 |---|---|---|
-| `src/scieasy/blocks/io/io_block.py` | 138 lines concrete class with `_run_input` / `_run_output` adapter-dispatch implementations | Abstract base class with `load()` / `save()` abstract methods, default `run()` dispatching on `direction`, `_detect_format()` helper (D1, D7, D8) |
-| `src/scieasy/blocks/io/__init__.py` | Re-exports `IOBlock`, `AdapterRegistry` | Re-exports `IOBlock` only; adds re-exports for the seven concrete core loaders/savers |
-| `pyproject.toml` | Contains `[project.entry-points."scieasy.adapters"]` section (empty) | Section removed (D6) |
+| `src/scistudio/blocks/io/io_block.py` | 138 lines concrete class with `_run_input` / `_run_output` adapter-dispatch implementations | Abstract base class with `load()` / `save()` abstract methods, default `run()` dispatching on `direction`, `_detect_format()` helper (D1, D7, D8) |
+| `src/scistudio/blocks/io/__init__.py` | Re-exports `IOBlock`, `AdapterRegistry` | Re-exports `IOBlock` only; adds re-exports for the seven concrete core loaders/savers |
+| `pyproject.toml` | Contains `[project.entry-points."scistudio.adapters"]` section (empty) | Section removed (D6) |
 
 #### Files to create
 
 | File | Contents |
 |---|---|
-| `src/scieasy/blocks/io/loaders/__init__.py` | Re-exports the seven concrete loaders |
-| `src/scieasy/blocks/io/loaders/array.py` | `LoadArray(IOBlock)` — supports `.zarr`, `.npy`, `.npz`. Metadata JSON sidecar for numpy formats |
-| `src/scieasy/blocks/io/loaders/dataframe.py` | `LoadDataFrame(IOBlock)` — supports `.parquet`, `.pq`, `.csv`, `.tsv`, `.txt`, `.pkl`, `.pickle`. `allow_pickle` flag (D4) |
-| `src/scieasy/blocks/io/loaders/series.py` | `LoadSeries(IOBlock)` — supports `.parquet`, `.pq`, `.csv`, `.pkl`, `.pickle`. Single-column enforcement on CSV. `allow_pickle` flag |
-| `src/scieasy/blocks/io/loaders/text.py` | `LoadText(IOBlock)` — supports `.txt`, `.json`, `.md`, `.html`, `.xml`, `.log`, `.yaml`, `.yml`, `.toml`. UTF-8 default, `encoding` param |
-| `src/scieasy/blocks/io/loaders/artifact.py` | `LoadArtifact(IOBlock)` — catch-all for any extension; opaque byte copy; sets `mime_type` from extension |
-| `src/scieasy/blocks/io/loaders/composite.py` | `LoadCompositeData(IOBlock)` — reads `manifest.json`, recurses into `_reconstruct_one` per slot |
-| `src/scieasy/blocks/io/savers/__init__.py` | Re-exports the seven concrete savers |
-| `src/scieasy/blocks/io/savers/array.py` | `SaveArray(IOBlock)` — writes `.zarr`, `.npy`, `.npz`. Round-trips `axes`/`shape`/`dtype`/`chunk_shape` via sidecar JSON or Zarr `.attrs` |
-| `src/scieasy/blocks/io/savers/dataframe.py` | `SaveDataFrame(IOBlock)` — writes `.parquet`, `.csv`, `.tsv`, `.pkl` |
-| `src/scieasy/blocks/io/savers/series.py` | `SaveSeries(IOBlock)` — writes `.parquet`, `.csv`, `.pkl` |
-| `src/scieasy/blocks/io/savers/text.py` | `SaveText(IOBlock)` — writes `.txt`, `.json`, etc. UTF-8 default |
-| `src/scieasy/blocks/io/savers/artifact.py` | `SaveArtifact(IOBlock)` — byte copy to any destination |
-| `src/scieasy/blocks/io/savers/composite.py` | `SaveCompositeData(IOBlock)` — writes `manifest.json` and per-slot sub-directories via `_serialise_one` |
+| `src/scistudio/blocks/io/loaders/__init__.py` | Re-exports the seven concrete loaders |
+| `src/scistudio/blocks/io/loaders/array.py` | `LoadArray(IOBlock)` — supports `.zarr`, `.npy`, `.npz`. Metadata JSON sidecar for numpy formats |
+| `src/scistudio/blocks/io/loaders/dataframe.py` | `LoadDataFrame(IOBlock)` — supports `.parquet`, `.pq`, `.csv`, `.tsv`, `.txt`, `.pkl`, `.pickle`. `allow_pickle` flag (D4) |
+| `src/scistudio/blocks/io/loaders/series.py` | `LoadSeries(IOBlock)` — supports `.parquet`, `.pq`, `.csv`, `.pkl`, `.pickle`. Single-column enforcement on CSV. `allow_pickle` flag |
+| `src/scistudio/blocks/io/loaders/text.py` | `LoadText(IOBlock)` — supports `.txt`, `.json`, `.md`, `.html`, `.xml`, `.log`, `.yaml`, `.yml`, `.toml`. UTF-8 default, `encoding` param |
+| `src/scistudio/blocks/io/loaders/artifact.py` | `LoadArtifact(IOBlock)` — catch-all for any extension; opaque byte copy; sets `mime_type` from extension |
+| `src/scistudio/blocks/io/loaders/composite.py` | `LoadCompositeData(IOBlock)` — reads `manifest.json`, recurses into `_reconstruct_one` per slot |
+| `src/scistudio/blocks/io/savers/__init__.py` | Re-exports the seven concrete savers |
+| `src/scistudio/blocks/io/savers/array.py` | `SaveArray(IOBlock)` — writes `.zarr`, `.npy`, `.npz`. Round-trips `axes`/`shape`/`dtype`/`chunk_shape` via sidecar JSON or Zarr `.attrs` |
+| `src/scistudio/blocks/io/savers/dataframe.py` | `SaveDataFrame(IOBlock)` — writes `.parquet`, `.csv`, `.tsv`, `.pkl` |
+| `src/scistudio/blocks/io/savers/series.py` | `SaveSeries(IOBlock)` — writes `.parquet`, `.csv`, `.pkl` |
+| `src/scistudio/blocks/io/savers/text.py` | `SaveText(IOBlock)` — writes `.txt`, `.json`, etc. UTF-8 default |
+| `src/scistudio/blocks/io/savers/artifact.py` | `SaveArtifact(IOBlock)` — byte copy to any destination |
+| `src/scistudio/blocks/io/savers/composite.py` | `SaveCompositeData(IOBlock)` — writes `manifest.json` and per-slot sub-directories via `_serialise_one` |
 | `tests/blocks/test_core_loaders.py` | Per-loader tests: happy path for each format, error on unknown extension, error on missing file, pickle opt-in enforcement, metadata round-trip |
 | `tests/blocks/test_core_savers.py` | Per-saver tests: happy path for each format, round-trip equivalence with loaders, directory-mode for `Collection` length > 1 |
 | `tests/blocks/test_ioblock_base.py` | `IOBlock()` direct instantiation raises `TypeError`; default `run()` dispatch branches correctly on `direction`; `_detect_format()` handles compound extensions |
@@ -5862,7 +5862,7 @@ Implementation of ADR-028 is **not** part of this ADR PR. The impact scope below
 |---|---|
 | `docs/adr/ADR.md` | This ADR (appended) |
 | `docs/adr/ADR.md` (ADR-025 §6) | **Follow-up PR after this ADR lands**: insert a `**Superseded by**: ADR-028` line at the start of §6 linking to ADR-028. Not included in this ADR PR to keep scope minimal. |
-| `docs/architecture/ARCHITECTURE.md` §4.2 (Storage backends) | **Follow-up PR**: clarify that loaders per base type now live at `scieasy.blocks.io.loaders.*` instead of `scieasy.blocks.io.adapters.*` |
+| `docs/architecture/ARCHITECTURE.md` §4.2 (Storage backends) | **Follow-up PR**: clarify that loaders per base type now live at `scistudio.blocks.io.loaders.*` instead of `scistudio.blocks.io.adapters.*` |
 | `docs/architecture/ARCHITECTURE.md` §5.1 (Block base) | **Follow-up PR**: add IOBlock ABC discussion alongside CodeBlock / AppBlock / ProcessBlock |
 | `docs/architecture/PROJECT_TREE.md` | **Follow-up PR**: update to reflect new `loaders/` and `savers/` sub-directories, deletion of `adapters/` |
 | `docs/guides/block-sdk.md` | **Follow-up PR**: add a "Shipping a format-specific IO block" section with the `LoadImage` example from D5 |
@@ -5875,17 +5875,17 @@ Implementation of ADR-028 is **not** part of this ADR PR. The impact scope below
 
 The following files are NOT touched by ADR-028 or its implementation. Listing them explicitly to prevent scope creep in the implementation PR:
 
-- `src/scieasy/core/types/*` — Phase 10's type hierarchy is unchanged.
-- `src/scieasy/core/types/registry.py` — `TypeRegistry.resolve` is unchanged.
-- `src/scieasy/core/types/serialization.py` — `_reconstruct_one` / `_serialise_one` are unchanged.
-- `src/scieasy/engine/runners/worker.py` — worker subprocess reconstruction path is unchanged.
-- `src/scieasy/engine/scheduler.py` — scheduler is unchanged.
-- `src/scieasy/blocks/base/*` — `Block` ABC, `InputPort`, `OutputPort`, `BlockConfig`, `BlockSpec` are unchanged.
-- `src/scieasy/blocks/process/*` — `ProcessBlock` is unchanged.
-- `src/scieasy/blocks/code/*` — `CodeBlock` is unchanged.
-- `src/scieasy/blocks/app/*` — `AppBlock` is unchanged.
-- `src/scieasy/blocks/ai/*` — AI blocks are unchanged.
-- Any test under `tests/core/`, `tests/engine/`, `tests/integration/` that does not currently import from `scieasy.blocks.io.adapters.*` or `scieasy.blocks.io.adapter_registry`.
+- `src/scistudio/core/types/*` — Phase 10's type hierarchy is unchanged.
+- `src/scistudio/core/types/registry.py` — `TypeRegistry.resolve` is unchanged.
+- `src/scistudio/core/types/serialization.py` — `_reconstruct_one` / `_serialise_one` are unchanged.
+- `src/scistudio/engine/runners/worker.py` — worker subprocess reconstruction path is unchanged.
+- `src/scistudio/engine/scheduler.py` — scheduler is unchanged.
+- `src/scistudio/blocks/base/*` — `Block` ABC, `InputPort`, `OutputPort`, `BlockConfig`, `BlockSpec` are unchanged.
+- `src/scistudio/blocks/process/*` — `ProcessBlock` is unchanged.
+- `src/scistudio/blocks/code/*` — `CodeBlock` is unchanged.
+- `src/scistudio/blocks/app/*` — `AppBlock` is unchanged.
+- `src/scistudio/blocks/ai/*` — AI blocks are unchanged.
+- Any test under `tests/core/`, `tests/engine/`, `tests/integration/` that does not currently import from `scistudio.blocks.io.adapters.*` or `scistudio.blocks.io.adapter_registry`.
 
 #### Test impact
 
@@ -5941,13 +5941,13 @@ For save blocks:
     path: data/output.parquet
 ```
 
-The implementation PR ships a small `scieasy migrate-workflow <file.yaml>` helper that rewrites old workflow files in place. The helper is explicitly optional — not shipping it would also be acceptable because no production workflows exist yet.
+The implementation PR ships a small `scistudio migrate-workflow <file.yaml>` helper that rewrites old workflow files in place. The helper is explicitly optional — not shipping it would also be acceptable because no production workflows exist yet.
 
 ### Open questions deferred to implementation
 
 The following details are deliberately left for the implementation PR(s) to resolve, rather than being locked in this ADR. The implementation author is expected to pick the simplest option consistent with the ADR's decision text and document the choice in the PR body.
 
-1. **Zarr `.attrs` key name for `axes` metadata**. `"axes"`, `"scieasy_axes"`, `"_axes"`, or nested under `"scieasy": {"axes": [...]}`? Low stakes; pick whichever matches the Phase 10 convention in `tiff_adapter.py::write`.
+1. **Zarr `.attrs` key name for `axes` metadata**. `"axes"`, `"scistudio_axes"`, `"_axes"`, or nested under `"scistudio": {"axes": [...]}`? Low stakes; pick whichever matches the Phase 10 convention in `tiff_adapter.py::write`.
 
 2. **Sidecar JSON filename for `.npy` / `.npz`**. `foo.npy` → `foo.npy.json` or `foo.json` or `foo_meta.json`? Low stakes; pick the least-ambiguous option.
 
@@ -5959,14 +5959,14 @@ The following details are deliberately left for the implementation PR(s) to reso
 
 6. **Whether the default `run()` should catch `FileNotFoundError` and wrap with additional context**. Decision: no — let it propagate. Subclasses can wrap if they want, but the framework should not swallow.
 
-7. **Whether the CLI `scieasy migrate-workflow` helper is part of the implementation PR or a follow-up**. Decision: follow-up, issue filed separately. The ADR implementation PR must not block on tooling.
+7. **Whether the CLI `scistudio migrate-workflow` helper is part of the implementation PR or a follow-up**. Decision: follow-up, issue filed separately. The ADR implementation PR must not block on tooling.
 
 ### Relationship to other ADRs
 
-- **Supersedes**: ADR-025 §6 "Adapter registration via entry-points". The `scieasy.adapters` entry-point group is removed. The rest of ADR-025 (blocks entry-point group §1, package metadata §2, two-level categorization §3, types entry-point group §4, custom metadata persistence §5, built-in blocks strategy §7) stands unchanged.
+- **Supersedes**: ADR-025 §6 "Adapter registration via entry-points". The `scistudio.adapters` entry-point group is removed. The rest of ADR-025 (blocks entry-point group §1, package metadata §2, two-level categorization §3, types entry-point group §4, custom metadata persistence §5, built-in blocks strategy §7) stands unchanged.
 - **Depends on**: ADR-009 (registry stores specs) — `BlockRegistry` is the surviving registry for IO blocks. ADR-027 (Phase 10 core type system) — the seven base types this ADR provides loaders for. ADR-027 Addendum 1 §1 (typed reconstruction) — the downstream path for any loaded DataObject.
 - **Does not affect**: ADR-017 (subprocess isolation), ADR-018 + Addendum 1 (scheduler), ADR-019 (ProcessHandle), ADR-020 + Addenda (Collection transport), ADR-021 (collection operations), ADR-022 (memory monitoring). These operate at the runtime layer which is orthogonal to how IO blocks are structured.
-- **Enables**: Phase 11 Track 2 (`scieasy-blocks-imaging`), Track 3 (`scieasy-blocks-srs`), Track 4 (`scieasy-blocks-lcms`). All three plugin packages ship their primary user-facing blocks via the `IOBlock` ABC path specified here. The three plugin specs (`docs/specs/phase11-imaging-block-spec.md`, `phase11-srs-block-spec.md`, `phase11-lcms-block-spec.md`) will reference this ADR as their IO contract source of truth.
+- **Enables**: Phase 11 Track 2 (`scistudio-blocks-imaging`), Track 3 (`scistudio-blocks-srs`), Track 4 (`scistudio-blocks-lcms`). All three plugin packages ship their primary user-facing blocks via the `IOBlock` ABC path specified here. The three plugin specs (`docs/specs/phase11-imaging-block-spec.md`, `phase11-srs-block-spec.md`, `phase11-lcms-block-spec.md`) will reference this ADR as their IO contract source of truth.
 
 ## ADR-028 Addendum 1: Dynamic port override mechanism and GUI consequences
 
@@ -6005,7 +6005,7 @@ ADR-028 §D3 specified six concrete core loader classes (`LoadArray`, `LoadDataF
 
 During design review the user observed that twelve palette items for core IO is visually dense and asked for a consolidated design: **one `Load Data` palette entry and one `Save Data` palette entry**, each with an internal "Data type" dropdown that picks which of the six base types the block produces. The output port's `accepted_types` must update when the dropdown selection changes, and the port's colour (inherited via `resolveTypeColor()` from the type hierarchy) must update to reflect the new type.
 
-This is the first case in SciEasy where a block's ports depend on its instance configuration. The existing `Block.input_ports` and `Block.output_ports` are `ClassVar[list[...]]` — their values are frozen at class definition time and cannot change per-instance. To deliver the `Load Data` UX, the framework needs an override point for per-instance port resolution.
+This is the first case in SciStudio where a block's ports depend on its instance configuration. The existing `Block.input_ports` and `Block.output_ports` are `ClassVar[list[...]]` — their values are frozen at class definition time and cannot change per-instance. To deliver the `Load Data` UX, the framework needs an override point for per-instance port resolution.
 
 Two dimensions of dynamism exist in the Phase 11 block surface:
 
@@ -6046,7 +6046,7 @@ The six-pair structure disappears from the palette. The six internal format-hand
 
 **Why private functions and not helper classes** (Q-B from the design conversation): the six dispatch functions are called exactly once each per `load()` invocation, do not need state, do not need a common interface other than `(BlockConfig) -> DataObject`, and do not benefit from polymorphism (the dispatch is an `if-elif` chain on a config string). A helper class per function would add class-definition boilerplate, MRO lookups, and instance construction cost for no benefit. The user explicitly chose private functions; this Addendum locks that decision.
 
-**Plugin IO blocks are unaffected.** `LoadImage` in `scieasy-blocks-imaging` remains a single concrete class with static `output_ports = [OutputPort(accepted_types=[Image])]`. Plugin authors who want to ship typed loaders continue to do so via the standard Phase 10 pattern. The dynamic mechanism is available to them via `get_effective_*_ports()` overrides if they want it, but plugin IO blocks for single-type formats (TIFF → Image, mzML → MSRawFile) stay static and get automatic port colouring from `resolveTypeColor()`'s type-hierarchy walk.
+**Plugin IO blocks are unaffected.** `LoadImage` in `scistudio-blocks-imaging` remains a single concrete class with static `output_ports = [OutputPort(accepted_types=[Image])]`. Plugin authors who want to ship typed loaders continue to do so via the standard Phase 10 pattern. The dynamic mechanism is available to them via `get_effective_*_ports()` overrides if they want it, but plugin IO blocks for single-type formats (TIFF → Image, mzML → MSRawFile) stay static and get automatic port colouring from `resolveTypeColor()`'s type-hierarchy walk.
 
 ### Discussion points and resolution
 
@@ -6055,7 +6055,7 @@ The six-pair structure disappears from the palette. The six internal format-hand
 | 1 | Should dynamic ports be a new `DynamicBlock` base class, a mixin, or methods on `Block`? | (A) New `DynamicBlock(Block)` sibling base class alongside `ProcessBlock` / `CodeBlock` / `IOBlock` / `AppBlock` / `AIBlock`. (B) `DynamicPortsMixin` mixin for multiple inheritance. (C) Two default-implementation methods on `Block` itself that subclasses override when needed. | **Decision: (C).** Dynamic ports are orthogonal to execution model. A new base class would create Cartesian product problems (`DynamicIOBlock`, `DynamicAIBlock`, `DynamicCodeBlock`, ...). A mixin adds multiple-inheritance complexity. Two default methods on `Block` — `get_effective_input_ports(self)` and `get_effective_output_ports(self)` — add zero surface area for static blocks (default returns the ClassVar) and a clean override point for dynamic blocks. This mirrors Phase 10's "no `SpatialBlock` base class, use `iterate_over_axes` function" decision (ADR-027 D5). |
 | 2 | How should the declarative mapping between a config field and port types be expressed? | (A) Enum-only mapping: `{source_config_key: str, output_port_mapping: dict[port_name, dict[enum_value, list[type_name]]]}`. (B) Mini-DSL with expressions: `"output_types": "[Array] if config.core_type == 'Array' else [DataFrame]"`. (C) Python lambda closures. | **Decision: (A).** Enum-only. The user explicitly restricted the mechanism to this simple case (Q-A). A mini-DSL invites parsing, security, and user-confusion problems for a benefit no one has asked for. Lambda closures cannot round-trip through JSON for frontend consumption. Dynamic blocks whose port rules are more complex than enum dispatch simply override `get_effective_*_ports(self)` in Python and skip the declarative mapping entirely — the frontend falls back to reading `output_ports` (the ClassVar placeholder) for palette display and calls the backend to recompute when config changes. The current Addendum does not implement that backend-round-trip path; it is explicitly deferred to ADR-029. |
 | 3 | Where does `dynamic_ports` live on the block class? | (A) `ClassVar[dict[str, Any]] = {}` on `Block`. (B) A separate `PortPolicy` dataclass attached via `dynamic_ports: ClassVar[PortPolicy | None] = None`. (C) A decorator `@dynamic_ports(...)`. | **Decision: (A).** A `ClassVar[dict[str, Any] \| None] = None` on `Block`. Simplest possible form. Validation that the dict has the expected shape happens once at registry scan time via `BlockRegistry._validate_dynamic_ports(cls)`. A `PortPolicy` dataclass is overkill for the two-level nested dict structure the mechanism needs. A decorator adds magic for no benefit. |
-| 4 | How does the frontend learn about `dynamic_ports`? | (A) Add a `dynamic_ports` field to `BlockSchemaResponse`. (B) Inline the mapping into `config_schema` as a custom `ui_widget` property. (C) Separate API endpoint `/api/blocks/<id>/dynamic_ports`. | **Decision: (A).** Add a `dynamic_ports: dict \| None = None` field to `BlockSchemaResponse` (Pydantic model in `src/scieasy/api/schemas.py`). The frontend reads the field once when the user drops the block onto the canvas and then recomputes ports locally whenever the driving config field changes. No API round-trip per change. |
+| 4 | How does the frontend learn about `dynamic_ports`? | (A) Add a `dynamic_ports` field to `BlockSchemaResponse`. (B) Inline the mapping into `config_schema` as a custom `ui_widget` property. (C) Separate API endpoint `/api/blocks/<id>/dynamic_ports`. | **Decision: (A).** Add a `dynamic_ports: dict \| None = None` field to `BlockSchemaResponse` (Pydantic model in `src/scistudio/api/schemas.py`). The frontend reads the field once when the user drops the block onto the canvas and then recomputes ports locally whenever the driving config field changes. No API round-trip per change. |
 | 5 | How does the backend compute `get_effective_output_ports()` for `LoadData`? | (A) Hardcode a `_CORE_TYPE_MAP` dict inside `load_data.py` mapping enum strings to classes. (B) Look up via `TypeRegistry.resolve`. (C) Use `importlib.import_module`. | **Decision: (A).** Hardcode the six core type mappings in a module-level `_CORE_TYPE_MAP: dict[str, type[DataObject]]` at the top of `load_data.py`. The six core types are stable Phase 10 contract, not user-extensible. Using `TypeRegistry.resolve` adds a registry dependency for no benefit; `importlib` adds runtime overhead. The hardcoded map is 6 lines and self-documenting. |
 | 6 | Where does the framework read the effective ports? | (A) Every call site that currently reads `self.input_ports` / `self.output_ports` changes to `self.get_effective_*_ports()`. (B) Only the hot paths change. (C) Introduce a property setter that caches on change. | **Decision: (A).** Audit every read of `.input_ports` / `.output_ports` in the framework and update each one. Static blocks pay zero cost (default implementation returns the ClassVar list). Caching adds complexity for a mechanism that runs at most once per block instance per workflow execution. The audit is small: `Block.validate`, `ProcessBlock.run`, `workflow/validator.py`, `api/routes/blocks.py` plus a few peripheral call sites. |
 | 7 | How does `workflow/validator.py` handle a dynamic block's port check? | (A) Use the class-level ClassVar (may be wrong for dynamic blocks). (B) Use `get_effective_*_ports()` on a temporary instance constructed with the workflow node's config. (C) Skip port validation for dynamic blocks. | **Decision: (B).** The workflow validator constructs a temporary `Block` instance from the workflow node's config (which it already has because it is validating a specific workflow), then calls `block.get_effective_input_ports()` / `get_effective_output_ports()` to get the effective port lists for that specific node. Static blocks still produce the same ClassVar values; dynamic blocks produce per-instance values that reflect the user's selection. |
@@ -6072,7 +6072,7 @@ The decisions from the discussion table are codified below as D1' through D9' (w
 
 #### D1'. `get_effective_input_ports` / `get_effective_output_ports` override points on `Block` (covers #1, #6)
 
-The `Block` ABC in `src/scieasy/blocks/base/block.py` gains two new methods with default implementations that return the class-level `input_ports` / `output_ports` ClassVar lists. Dynamic-port blocks override these methods to compute per-instance port lists from `self.config`.
+The `Block` ABC in `src/scistudio/blocks/base/block.py` gains two new methods with default implementations that return the class-level `input_ports` / `output_ports` ClassVar lists. Dynamic-port blocks override these methods to compute per-instance port lists from `self.config`.
 
 ```python
 class Block(ABC):
@@ -6154,7 +6154,7 @@ Validation failures raise `ValueError` at registration time with a clear message
 `BlockSpec` (the dataclass stored in `BlockRegistry`) gains a field:
 
 ```python
-# src/scieasy/blocks/registry.py
+# src/scistudio/blocks/registry.py
 @dataclass
 class BlockSpec:
     # ... existing fields ...
@@ -6164,10 +6164,10 @@ class BlockSpec:
 
 The `direction` field on `BlockSpec` is populated at scan time via `getattr(cls, "direction", None)`. Non-IOBlock classes have no `direction` ClassVar and this field stays `None`.
 
-`BlockSchemaResponse` (Pydantic model in `src/scieasy/api/schemas.py`) gains the same two fields:
+`BlockSchemaResponse` (Pydantic model in `src/scistudio/api/schemas.py`) gains the same two fields:
 
 ```python
-# src/scieasy/api/schemas.py
+# src/scistudio/api/schemas.py
 class BlockSchemaResponse(BlockSummary):
     """Detailed schema payload for a single block type."""
     config_schema: dict[str, Any] = Field(default_factory=dict)
@@ -6177,7 +6177,7 @@ class BlockSchemaResponse(BlockSummary):
     direction: str | None = None
 ```
 
-`_schema_response()` (in `src/scieasy/api/routes/blocks.py`) and `_summary()` are updated to populate both fields from `BlockSpec`.
+`_schema_response()` (in `src/scistudio/api/routes/blocks.py`) and `_summary()` are updated to populate both fields from `BlockSpec`.
 
 The frontend TypeScript types in `frontend/src/types/api.ts` are updated to match:
 
@@ -6202,12 +6202,12 @@ Every call site that currently reads `.input_ports` or `.output_ports` on a bloc
 
 | File | Before | After |
 |---|---|---|
-| `src/scieasy/blocks/base/block.py:92` | `port_map = {p.name: p for p in self.input_ports}` | `port_map = {p.name: p for p in self.get_effective_input_ports()}` |
-| `src/scieasy/blocks/base/block.py:95` | `for port in self.input_ports:` | `for port in self.get_effective_input_ports():` |
-| `src/scieasy/blocks/process/process_block.py:160` | `output_name = self.output_ports[0].name if self.output_ports else "output"` | `ports = self.get_effective_output_ports(); output_name = ports[0].name if ports else "output"` |
-| `src/scieasy/blocks/process/process_block.py:165` | (same pattern) | (same pattern) |
-| `src/scieasy/workflow/validator.py:190` | `for port in spec.input_ports:` (reads class spec) | For dynamic blocks: construct a temporary instance from the workflow node's config and call `block.get_effective_input_ports()`. For static blocks: fall through to the class-level list. See the validator implementation sketch below. |
-| `src/scieasy/api/routes/blocks.py:54-55` | `input_ports=[_port_response(port, ...) for port in spec.input_ports]` | For static blocks: unchanged (reads class spec for palette preview). For dynamic blocks: palette preview shows the placeholder ports from the ClassVar, and the frontend recomputes per-instance ports from `dynamic_ports`. |
+| `src/scistudio/blocks/base/block.py:92` | `port_map = {p.name: p for p in self.input_ports}` | `port_map = {p.name: p for p in self.get_effective_input_ports()}` |
+| `src/scistudio/blocks/base/block.py:95` | `for port in self.input_ports:` | `for port in self.get_effective_input_ports():` |
+| `src/scistudio/blocks/process/process_block.py:160` | `output_name = self.output_ports[0].name if self.output_ports else "output"` | `ports = self.get_effective_output_ports(); output_name = ports[0].name if ports else "output"` |
+| `src/scistudio/blocks/process/process_block.py:165` | (same pattern) | (same pattern) |
+| `src/scistudio/workflow/validator.py:190` | `for port in spec.input_ports:` (reads class spec) | For dynamic blocks: construct a temporary instance from the workflow node's config and call `block.get_effective_input_ports()`. For static blocks: fall through to the class-level list. See the validator implementation sketch below. |
+| `src/scistudio/api/routes/blocks.py:54-55` | `input_ports=[_port_response(port, ...) for port in spec.input_ports]` | For static blocks: unchanged (reads class spec for palette preview). For dynamic blocks: palette preview shows the placeholder ports from the ClassVar, and the frontend recomputes per-instance ports from `dynamic_ports`. |
 
 **Workflow validator sketch** (for `workflow/validator.py`):
 
@@ -6240,7 +6240,7 @@ The validator's type-compatibility check for a workflow edge uses `_get_effectiv
 ADR-028 §D3's six loader classes become two concrete classes (`LoadData` and `SaveData`) plus twelve private module-level functions. The file layout:
 
 ```
-src/scieasy/blocks/io/
+src/scistudio/blocks/io/
 |-- __init__.py            (re-exports IOBlock, LoadData, SaveData)
 |-- io_block.py            (IOBlock ABC - per ADR-028 D1)
 |-- loaders/
@@ -6262,7 +6262,7 @@ The six private functions absorb the format-handling logic from the deleted bund
 - `_load_artifact(config)` — absorbs `generic_adapter.py`, opaque byte copy, sets `mime_type` from extension.
 - `_load_composite_data(config)` — reads a directory containing `manifest.json` and recurses into `_reconstruct_one` per slot.
 
-`SaveData` has the symmetric structure in `src/scieasy/blocks/io/savers/save_data.py` with:
+`SaveData` has the symmetric structure in `src/scistudio/blocks/io/savers/save_data.py` with:
 - `direction: ClassVar[str] = "output"`
 - `type_name: ClassVar[str] = "save_data"`
 - `input_ports` placeholder instead of output_ports placeholder
@@ -6366,10 +6366,10 @@ The palette preview (BlockPalette.tsx) does **not** use the dynamic recomputatio
 
 #### D8'. Plugin IO blocks remain static (documented non-change)
 
-Plugin-provided IO blocks like `LoadImage` in `scieasy-blocks-imaging` continue to declare static `output_ports` ClassVars. They do not need to use the dynamic mechanism. Example (from the future Phase 11 imaging plugin spec):
+Plugin-provided IO blocks like `LoadImage` in `scistudio-blocks-imaging` continue to declare static `output_ports` ClassVars. They do not need to use the dynamic mechanism. Example (from the future Phase 11 imaging plugin spec):
 
 ```python
-# scieasy_blocks_imaging/io/load_image.py
+# scistudio_blocks_imaging/io/load_image.py
 
 class LoadImage(IOBlock):
     direction: ClassVar[str] = "input"
@@ -6399,14 +6399,14 @@ LoadArtifact / SaveArtifact
 LoadCompositeData / SaveCompositeData
 ```
 
-as six distinct concrete classes shipped under `src/scieasy/blocks/io/loaders/` and `src/scieasy/blocks/io/savers/`. Per Addendum 1 D5' and D9' (this decision), those six pairs are replaced with:
+as six distinct concrete classes shipped under `src/scistudio/blocks/io/loaders/` and `src/scistudio/blocks/io/savers/`. Per Addendum 1 D5' and D9' (this decision), those six pairs are replaced with:
 
 ```
 LoadData (single class) + six private module-level _load_* functions
 SaveData (single class) + six private module-level _save_* functions
 ```
 
-living in `src/scieasy/blocks/io/loaders/load_data.py` and `src/scieasy/blocks/io/savers/save_data.py` respectively. The six private functions carry all the format-handling logic absorbed from the deleted bundled adapters per ADR-028 §D2 and §D5.
+living in `src/scistudio/blocks/io/loaders/load_data.py` and `src/scistudio/blocks/io/savers/save_data.py` respectively. The six private functions carry all the format-handling logic absorbed from the deleted bundled adapters per ADR-028 §D2 and §D5.
 
 The ADR-028 §"Detailed impact scope" / "Files to create" table's rows for `loaders/array.py`, `loaders/dataframe.py`, `loaders/series.py`, `loaders/text.py`, `loaders/artifact.py`, `loaders/composite.py` (and the symmetric `savers/` rows) are **superseded** by this Addendum. The actual files created in the Sprint A sub-1b implementation PRs are only `loaders/load_data.py` and `savers/save_data.py`.
 
@@ -6491,22 +6491,22 @@ Implementation of Addendum 1 is **not** part of this ADR PR. The impact scope be
 
 | File | Changes |
 |---|---|
-| `src/scieasy/blocks/base/block.py` | **Add** `dynamic_ports: ClassVar[dict[str, Any] \| None] = None` ClassVar (around line 64). **Add** `get_effective_input_ports(self)` and `get_effective_output_ports(self)` methods with default implementations (after `input_ports` / `output_ports` declarations). **Update** `Block.validate()` (lines 92, 95) to use `self.get_effective_input_ports()` instead of `self.input_ports` directly. |
-| `src/scieasy/blocks/process/process_block.py` | **Update** lines 160, 165 to read `self.get_effective_output_ports()` instead of `self.output_ports` directly. |
-| `src/scieasy/blocks/io/io_block.py` | **Add** `direction: ClassVar[str] = "input"` at the class-body level (moved from subclass responsibility — it stays ClassVar but the IOBlock base class declares it so all subclasses inherit a default). |
-| `src/scieasy/blocks/registry.py` | **Add** `dynamic_ports: dict[str, Any] \| None = None` and `direction: str \| None = None` fields to `BlockSpec` dataclass. **Add** `_validate_dynamic_ports(cls)` helper method on `BlockRegistry` that runs at registration time. **Update** `_build_spec(cls)` (or equivalent) to populate `dynamic_ports` and `direction` from the class attributes. |
-| `src/scieasy/workflow/validator.py` | **Add** `_get_effective_ports(node, spec)` helper that constructs a temporary block instance for dynamic blocks. **Update** the edge type-compatibility check to use `_get_effective_ports()` instead of reading `spec.input_ports` / `spec.output_ports` directly. |
-| `src/scieasy/api/schemas.py` | **Add** `dynamic_ports: dict[str, Any] \| None = None` and `direction: str \| None = None` fields to `BlockSchemaResponse` Pydantic model. |
-| `src/scieasy/api/routes/blocks.py` | **Update** `_summary()` / `_schema_response()` to populate the two new fields from `BlockSpec`. |
+| `src/scistudio/blocks/base/block.py` | **Add** `dynamic_ports: ClassVar[dict[str, Any] \| None] = None` ClassVar (around line 64). **Add** `get_effective_input_ports(self)` and `get_effective_output_ports(self)` methods with default implementations (after `input_ports` / `output_ports` declarations). **Update** `Block.validate()` (lines 92, 95) to use `self.get_effective_input_ports()` instead of `self.input_ports` directly. |
+| `src/scistudio/blocks/process/process_block.py` | **Update** lines 160, 165 to read `self.get_effective_output_ports()` instead of `self.output_ports` directly. |
+| `src/scistudio/blocks/io/io_block.py` | **Add** `direction: ClassVar[str] = "input"` at the class-body level (moved from subclass responsibility — it stays ClassVar but the IOBlock base class declares it so all subclasses inherit a default). |
+| `src/scistudio/blocks/registry.py` | **Add** `dynamic_ports: dict[str, Any] \| None = None` and `direction: str \| None = None` fields to `BlockSpec` dataclass. **Add** `_validate_dynamic_ports(cls)` helper method on `BlockRegistry` that runs at registration time. **Update** `_build_spec(cls)` (or equivalent) to populate `dynamic_ports` and `direction` from the class attributes. |
+| `src/scistudio/workflow/validator.py` | **Add** `_get_effective_ports(node, spec)` helper that constructs a temporary block instance for dynamic blocks. **Update** the edge type-compatibility check to use `_get_effective_ports()` instead of reading `spec.input_ports` / `spec.output_ports` directly. |
+| `src/scistudio/api/schemas.py` | **Add** `dynamic_ports: dict[str, Any] \| None = None` and `direction: str \| None = None` fields to `BlockSchemaResponse` Pydantic model. |
+| `src/scistudio/api/routes/blocks.py` | **Update** `_summary()` / `_schema_response()` to populate the two new fields from `BlockSpec`. |
 
 #### Files to create (backend)
 
 | File | Contents |
 |---|---|
-| `src/scieasy/blocks/io/loaders/__init__.py` | Re-export `LoadData` |
-| `src/scieasy/blocks/io/loaders/load_data.py` | `LoadData` class + six private `_load_*` dispatch functions. Full implementation per D5'. |
-| `src/scieasy/blocks/io/savers/__init__.py` | Re-export `SaveData` |
-| `src/scieasy/blocks/io/savers/save_data.py` | `SaveData` class + six private `_save_*` dispatch functions. Symmetric counterpart of `load_data.py`. |
+| `src/scistudio/blocks/io/loaders/__init__.py` | Re-export `LoadData` |
+| `src/scistudio/blocks/io/loaders/load_data.py` | `LoadData` class + six private `_load_*` dispatch functions. Full implementation per D5'. |
+| `src/scistudio/blocks/io/savers/__init__.py` | Re-export `SaveData` |
+| `src/scistudio/blocks/io/savers/save_data.py` | `SaveData` class + six private `_save_*` dispatch functions. Symmetric counterpart of `load_data.py`. |
 
 #### Files to modify (frontend)
 
@@ -6527,14 +6527,14 @@ Implementation of Addendum 1 is **not** part of this ADR PR. The impact scope be
 
 #### Files NOT affected (explicitly)
 
-- `src/scieasy/core/types/*` — Phase 10 type hierarchy unchanged.
-- `src/scieasy/core/types/registry.py` — TypeRegistry.resolve unchanged.
-- `src/scieasy/core/types/serialization.py` — `_reconstruct_one` / `_serialise_one` unchanged (per Discussion #12).
-- `src/scieasy/engine/runners/worker.py` — worker subprocess unchanged.
-- `src/scieasy/engine/scheduler.py` — scheduler unchanged.
-- `src/scieasy/blocks/code/*` — CodeBlock unchanged by this Addendum (variadic CodeBlock is ADR-029 scope).
-- `src/scieasy/blocks/app/*` — AppBlock unchanged.
-- `src/scieasy/blocks/ai/*` — AIBlock unchanged (variadic AIBlock is ADR-029 scope).
+- `src/scistudio/core/types/*` — Phase 10 type hierarchy unchanged.
+- `src/scistudio/core/types/registry.py` — TypeRegistry.resolve unchanged.
+- `src/scistudio/core/types/serialization.py` — `_reconstruct_one` / `_serialise_one` unchanged (per Discussion #12).
+- `src/scistudio/engine/runners/worker.py` — worker subprocess unchanged.
+- `src/scistudio/engine/scheduler.py` — scheduler unchanged.
+- `src/scistudio/blocks/code/*` — CodeBlock unchanged by this Addendum (variadic CodeBlock is ADR-029 scope).
+- `src/scistudio/blocks/app/*` — AppBlock unchanged.
+- `src/scistudio/blocks/ai/*` — AIBlock unchanged (variadic AIBlock is ADR-029 scope).
 - `docs/architecture/ARCHITECTURE.md` — tracked by Sprint A sub-1b PR-D.
 - `docs/architecture/PROJECT_TREE.md` — tracked by Sprint A sub-1b PR-D.
 - `docs/guides/block-sdk.md` — tracked by Sprint A sub-1b PR-D.
@@ -6594,7 +6594,7 @@ to this ADR. This ADR defines the architecture for variadic port count on
 
 #### What `AIBlock` is today
 
-`src/scieasy/blocks/ai/ai_block.py` is a 30-line stub. The full body:
+`src/scistudio/blocks/ai/ai_block.py` is a 30-line stub. The full body:
 
 ```python
 class AIBlock(Block):
@@ -6645,7 +6645,7 @@ the per-instance state stored?" question) to this ADR.
 
 #### What `CodeBlock` is today
 
-`src/scieasy/blocks/code/code_block.py` is 163 lines. The relevant excerpts:
+`src/scistudio/blocks/code/code_block.py` is 163 lines. The relevant excerpts:
 
 ```python
 class CodeBlock(Block):
@@ -7659,7 +7659,7 @@ This creates three concrete problems.
 `config_schema` with a `path` field, but without `ui_widget`:
 
 ```python
-# src/scieasy/blocks/io/io_block.py line 56-60
+# src/scistudio/blocks/io/io_block.py line 56-60
 config_schema: ClassVar[dict[str, Any]] = {
     "type": "object",
     "properties": {"path": {"type": "string", "ui_priority": 1}},
@@ -7718,7 +7718,7 @@ updating every subclass across every plugin package.
 #### D1 — Registry merges `config_schema` properties along MRO
 
 The block registry's `_spec_from_class()` function (line 553 in
-`src/scieasy/blocks/registry.py`) currently reads `config_schema` with a
+`src/scistudio/blocks/registry.py`) currently reads `config_schema` with a
 simple `getattr(cls, "config_schema", ...)`. This will be replaced by a
 merge function that walks the class's MRO and unions all `properties` dicts:
 
@@ -7933,10 +7933,10 @@ redundant declarations is a separate follow-up, not a prerequisite.
 
 | File | Change |
 |------|--------|
-| `src/scieasy/blocks/registry.py` | Replace `getattr(cls, "config_schema", ...)` with `_merge_config_schema(cls)` in `_spec_from_class()`. Add direction-aware post-processing for IOBlock path field. |
-| `src/scieasy/blocks/io/io_block.py` | Update `config_schema` to declare `path` with full `ui_widget`, `type`, `items` for input direction. |
-| `src/scieasy/blocks/app/app_block.py` | Add `output_dir` field to `config_schema`. Update `run()` to use `config.get("output_dir")` for FileWatcher directory. |
-| `packages/scieasy-blocks-imaging/.../interactive/__init__.py` | Update `_run_external_app()` to read `config.get("output_dir")` and use as FileWatcher directory if set. |
+| `src/scistudio/blocks/registry.py` | Replace `getattr(cls, "config_schema", ...)` with `_merge_config_schema(cls)` in `_spec_from_class()`. Add direction-aware post-processing for IOBlock path field. |
+| `src/scistudio/blocks/io/io_block.py` | Update `config_schema` to declare `path` with full `ui_widget`, `type`, `items` for input direction. |
+| `src/scistudio/blocks/app/app_block.py` | Add `output_dir` field to `config_schema`. Update `run()` to use `config.get("output_dir")` for FileWatcher directory. |
+| `packages/scistudio-blocks-imaging/.../interactive/__init__.py` | Update `_run_external_app()` to read `config.get("output_dir")` and use as FileWatcher directory if set. |
 | `frontend/src/components/nodes/BlockNode.tsx` | Add copy-to-clipboard button for `directory_browser` widget. Add PAUSED toast for AppBlock. |
 | `frontend/src/store/executionSlice.ts` | Ensure PAUSED block state events surface for toast rendering. |
 
@@ -7944,23 +7944,23 @@ redundant declarations is a separate follow-up, not a prerequisite.
 
 | File | Reason |
 |------|--------|
-| `src/scieasy/workflow/serializer.py` | `_path_config_keys()` identifies path fields via `ui_widget` — verify `output_dir` is handled for relative path conversion (#506). |
-| `src/scieasy/api/runtime.py` | Path portability (relativify/absolutify) must work with merged schema. |
+| `src/scistudio/workflow/serializer.py` | `_path_config_keys()` identifies path fields via `ui_widget` — verify `output_dir` is handled for relative path conversion (#506). |
+| `src/scistudio/api/runtime.py` | Path portability (relativify/absolutify) must work with merged schema. |
 | `frontend/src/components/BottomPanel.tsx` | Full config panel must render merged schema correctly. |
 
 #### Cleanup (follow-up, not blocking)
 
 | File | Change |
 |------|--------|
-| `src/scieasy/blocks/io/loaders/load_data.py` | Remove redundant `path` from `config_schema` — inherited from IOBlock. |
-| `src/scieasy/blocks/io/savers/save_data.py` | Remove redundant `path` — direction-aware injection provides `directory_browser`. |
-| `packages/scieasy-blocks-imaging/.../io/load_image.py` | Remove redundant `path`. |
-| `packages/scieasy-blocks-imaging/.../io/save_image.py` | Remove redundant `path`. |
-| `packages/scieasy-blocks-lcms/.../io/load_peak_table.py` | Keep `path` (custom title), but remove `ui_widget` and `type` — inherited from base. |
-| `packages/scieasy-blocks-lcms/.../io/load_mid_table.py` | Same as above. |
-| `packages/scieasy-blocks-lcms/.../io/load_sample_metadata.py` | Same as above. |
-| `packages/scieasy-blocks-lcms/.../io/load_mzml_files.py` | Same as above. |
-| `packages/scieasy-blocks-lcms/.../io/save_table.py` | Remove `path` entirely — let output-direction base handle `directory_browser`. Fixes incorrect `file_browser` usage. |
+| `src/scistudio/blocks/io/loaders/load_data.py` | Remove redundant `path` from `config_schema` — inherited from IOBlock. |
+| `src/scistudio/blocks/io/savers/save_data.py` | Remove redundant `path` — direction-aware injection provides `directory_browser`. |
+| `packages/scistudio-blocks-imaging/.../io/load_image.py` | Remove redundant `path`. |
+| `packages/scistudio-blocks-imaging/.../io/save_image.py` | Remove redundant `path`. |
+| `packages/scistudio-blocks-lcms/.../io/load_peak_table.py` | Keep `path` (custom title), but remove `ui_widget` and `type` — inherited from base. |
+| `packages/scistudio-blocks-lcms/.../io/load_mid_table.py` | Same as above. |
+| `packages/scistudio-blocks-lcms/.../io/load_sample_metadata.py` | Same as above. |
+| `packages/scistudio-blocks-lcms/.../io/load_mzml_files.py` | Same as above. |
+| `packages/scistudio-blocks-lcms/.../io/save_table.py` | Remove `path` entirely — let output-direction base handle `directory_browser`. Fixes incorrect `file_browser` usage. |
 
 ### Implementation sequence
 
@@ -8136,7 +8136,7 @@ CompositeData holds named slots, each of which is a DataObject. Each slot indepe
 
 #### D2. ViewProxy is deleted
 
-The `ViewProxy` class (`src/scieasy/core/proxy.py`) is deleted entirely. Its functionality is absorbed into the type hierarchy as follows:
+The `ViewProxy` class (`src/scistudio/core/proxy.py`) is deleted entirely. Its functionality is absorbed into the type hierarchy as follows:
 
 | ViewProxy method | New location | Notes |
 |---|---|---|
@@ -8146,7 +8146,7 @@ The `ViewProxy` class (`src/scieasy/core/proxy.py`) is deleted entirely. Its fun
 | `shape` property | **Array**.`shape` | Already a constructor parameter on Array. Not on DataObject. |
 | `axes` property | **Array**.`axes` | Already a constructor parameter on Array. Not on DataObject. |
 | `from_file(path)` | Removed | Use `Artifact(file_path=Path(path))` or construct DataObject with appropriate `storage_ref`. |
-| `_get_backend(ref)` | Module-level utility in `scieasy.core.storage.backend_router` | Shared backend resolution, used by DataObject methods internally. |
+| `_get_backend(ref)` | Module-level utility in `scistudio.core.storage.backend_router` | Shared backend resolution, used by DataObject methods internally. |
 
 **`DataObject.view()` is deleted.** There is no ViewProxy path. Block authors call methods directly on the typed instance:
 
@@ -8331,7 +8331,7 @@ def _auto_flush(obj: Any) -> Any:
     if not isinstance(obj, DataObject):
         return obj
     # NEW: Artifact with file_path uses path-only transport
-    from scieasy.core.types.artifact import Artifact
+    from scistudio.core.types.artifact import Artifact
     if isinstance(obj, Artifact) and obj.file_path is not None:
         return obj
     # ... existing flush logic ...
@@ -8405,13 +8405,13 @@ The canonical documentation model is:
 
 | File | Reason |
 |------|--------|
-| `src/scieasy/core/proxy.py` | ViewProxy class eliminated |
+| `src/scistudio/core/proxy.py` | ViewProxy class eliminated |
 | `tests/core/test_proxy.py` | Tests for deleted class |
 | `tests/core/test_proxy_multi_backend.py` | Tests for deleted class |
 
 #### 4.2 Core type system changes
 
-**DataObject base class** (`src/scieasy/core/types/base.py`):
+**DataObject base class** (`src/scistudio/core/types/base.py`):
 
 | Change | Detail |
 |--------|--------|
@@ -8420,9 +8420,9 @@ The canonical documentation model is:
 | Add `slice(*args)` | New method: `_get_backend(self._storage_ref).slice(self._storage_ref, *args)` |
 | Add `iter_chunks(chunk_size)` | New method: `yield from _get_backend(self._storage_ref).iter_chunks(self._storage_ref, chunk_size)` |
 | Rewrite `get_in_memory_data()` | Remove `hasattr(self, "_data")` and `hasattr(self, "_arrow_table")` checks. New body: `return self.to_memory()` (D6) |
-| Remove `TYPE_CHECKING` ViewProxy import | Line 34: `from scieasy.core.proxy import ViewProxy` |
+| Remove `TYPE_CHECKING` ViewProxy import | Line 34: `from scistudio.core.proxy import ViewProxy` |
 
-**Array subclass** (`src/scieasy/core/types/array.py`):
+**Array subclass** (`src/scistudio/core/types/array.py`):
 
 | Change | Detail |
 |--------|--------|
@@ -8432,26 +8432,26 @@ The canonical documentation model is:
 | `__array__()` | No change — already calls `self.to_memory()`. |
 | `shape`, `axes`, `dtype` | No change — already declared constructor parameters. |
 
-**DataFrame subclass** (`src/scieasy/core/types/dataframe.py`):
+**DataFrame subclass** (`src/scistudio/core/types/dataframe.py`):
 
 | Change | Detail |
 |--------|--------|
 | No `_arrow_table` attribute | All data access through inherited `to_memory()` → ArrowBackend |
 
-**Text subclass** (`src/scieasy/core/types/text.py`):
+**Text subclass** (`src/scistudio/core/types/text.py`):
 
 | Change | Detail |
 |--------|--------|
 | `get_in_memory_data()` override | Returns `self.content`. No storage round-trip. (Existing behavior, no change.) |
 
-**Artifact subclass** (`src/scieasy/core/types/artifact.py`):
+**Artifact subclass** (`src/scistudio/core/types/artifact.py`):
 
 | Change | Detail |
 |--------|--------|
 | `get_in_memory_data()` override | Returns `self.file_path.read_bytes()`. (Existing behavior, no change.) |
 | Exempt from auto-flush | See D5. |
 
-**CompositeData** (`src/scieasy/core/types/composite.py`):
+**CompositeData** (`src/scistudio/core/types/composite.py`):
 
 | Change | Detail |
 |--------|--------|
@@ -8461,36 +8461,36 @@ The canonical documentation model is:
 
 | File | Changes |
 |------|---------|
-| `src/scieasy/blocks/io/io_block.py` | Change `load()` signature to `load(self, config, output_dir)`. Add `persist_array()` and `persist_table()` helper methods. Update `run()` to pass `output_dir` and auto-flush any item without `storage_ref` (D4 safety net). |
-| `src/scieasy/blocks/io/loaders/load_data.py` | Update `load()` to accept `output_dir`. Per-function changes: `_load_array .zarr` (already lazy, no change). `_load_array .npy/.npz/.parquet` (simple path — base class auto-flushes). `_load_dataframe` (simple or streaming — author's choice). `_load_series` (fix payload loss — must write to arrow). `_load_text` (simple path). `_load_artifact` (exempt, path-only D5). `_load_composite_data` (recursive, pass output_dir). |
-| `packages/scieasy-blocks-imaging/.../load_image.py` | Streaming path for `_load_tiff` (page-by-page via `persist_array()`). `_load_zarr` (reference existing zarr store, no copy). |
-| `packages/scieasy-blocks-lcms/.../load_mzml_files.py` | Update `load()` signature. MSRawFile is Artifact subclass — path-only, exempt. |
-| `packages/scieasy-blocks-lcms/.../load_peak_table.py` | Fix: write DataFrame to arrow via `persist_table()`, remove pandas from `user` dict. |
-| `packages/scieasy-blocks-lcms/.../load_mid_table.py` | Update `load()` signature, use simple or streaming path. |
-| `packages/scieasy-blocks-lcms/.../load_sample_metadata.py` | Update `load()` signature, use simple path. |
-| `src/scieasy/blocks/io/savers/save_data.py` | Remove `_arrow_table` check. Phase 3: add chunked export for Parquet/CSV/Zarr. |
-| `packages/scieasy-blocks-imaging/.../save_image.py` | No immediate change. Phase 3: add chunked TIFF write. |
-| `packages/scieasy-blocks-lcms/.../save_table.py` | Update `save()` to use `get_in_memory_data()` consistently. |
+| `src/scistudio/blocks/io/io_block.py` | Change `load()` signature to `load(self, config, output_dir)`. Add `persist_array()` and `persist_table()` helper methods. Update `run()` to pass `output_dir` and auto-flush any item without `storage_ref` (D4 safety net). |
+| `src/scistudio/blocks/io/loaders/load_data.py` | Update `load()` to accept `output_dir`. Per-function changes: `_load_array .zarr` (already lazy, no change). `_load_array .npy/.npz/.parquet` (simple path — base class auto-flushes). `_load_dataframe` (simple or streaming — author's choice). `_load_series` (fix payload loss — must write to arrow). `_load_text` (simple path). `_load_artifact` (exempt, path-only D5). `_load_composite_data` (recursive, pass output_dir). |
+| `packages/scistudio-blocks-imaging/.../load_image.py` | Streaming path for `_load_tiff` (page-by-page via `persist_array()`). `_load_zarr` (reference existing zarr store, no copy). |
+| `packages/scistudio-blocks-lcms/.../load_mzml_files.py` | Update `load()` signature. MSRawFile is Artifact subclass — path-only, exempt. |
+| `packages/scistudio-blocks-lcms/.../load_peak_table.py` | Fix: write DataFrame to arrow via `persist_table()`, remove pandas from `user` dict. |
+| `packages/scistudio-blocks-lcms/.../load_mid_table.py` | Update `load()` signature, use simple or streaming path. |
+| `packages/scistudio-blocks-lcms/.../load_sample_metadata.py` | Update `load()` signature, use simple path. |
+| `src/scistudio/blocks/io/savers/save_data.py` | Remove `_arrow_table` check. Phase 3: add chunked export for Parquet/CSV/Zarr. |
+| `packages/scistudio-blocks-imaging/.../save_image.py` | No immediate change. Phase 3: add chunked TIFF write. |
+| `packages/scistudio-blocks-lcms/.../save_table.py` | Update `save()` to use `get_in_memory_data()` consistently. |
 
 #### 4.4 Block framework changes
 
 | File | Changes |
 |------|---------|
-| `src/scieasy/blocks/base/block.py` | Remove `_is_view_proxy()` helper. Update `validate()` to remove ViewProxy branch. Update `_auto_flush()` to skip Artifact (D5). |
-| `src/scieasy/blocks/process/process_block.py` | No change — already calls `_auto_flush()` on outputs. |
-| `src/scieasy/blocks/process/utils.py` | Remove ViewProxy isinstance check in `to_arrow()`. |
-| `src/scieasy/blocks/app/bridge.py` | Remove ViewProxy isinstance check. |
-| `src/scieasy/blocks/process/builtins/split.py` | Replace `_arrow_table` assignments with `get_in_memory_data()` + storage write. |
-| `src/scieasy/blocks/process/builtins/merge.py` | Same pattern. |
+| `src/scistudio/blocks/base/block.py` | Remove `_is_view_proxy()` helper. Update `validate()` to remove ViewProxy branch. Update `_auto_flush()` to skip Artifact (D5). |
+| `src/scistudio/blocks/process/process_block.py` | No change — already calls `_auto_flush()` on outputs. |
+| `src/scistudio/blocks/process/utils.py` | Remove ViewProxy isinstance check in `to_arrow()`. |
+| `src/scistudio/blocks/app/bridge.py` | Remove ViewProxy isinstance check. |
+| `src/scistudio/blocks/process/builtins/split.py` | Replace `_arrow_table` assignments with `get_in_memory_data()` + storage write. |
+| `src/scistudio/blocks/process/builtins/merge.py` | Same pattern. |
 
 #### 4.5 Engine changes
 
 | File | Changes |
 |------|---------|
-| `src/scieasy/engine/checkpoint.py` | Rewrite `deserialize_intermediate_refs()` to construct DataObject, not ViewProxy (D8). |
-| `src/scieasy/engine/runners/worker.py` | Remove ViewProxy references from docstrings. No structural changes — already returns typed DataObject. |
-| `src/scieasy/engine/runners/local.py` | `serialise_inputs()` added by PR #623 (P0 fix) remains as defense-in-depth. |
-| `src/scieasy/engine/scheduler.py` | Remove ViewProxy comments. |
+| `src/scistudio/engine/checkpoint.py` | Rewrite `deserialize_intermediate_refs()` to construct DataObject, not ViewProxy (D8). |
+| `src/scistudio/engine/runners/worker.py` | Remove ViewProxy references from docstrings. No structural changes — already returns typed DataObject. |
+| `src/scistudio/engine/runners/local.py` | `serialise_inputs()` added by PR #623 (P0 fix) remains as defense-in-depth. |
+| `src/scistudio/engine/scheduler.py` | Remove ViewProxy comments. |
 
 #### 4.6 SaveData and saver changes
 
@@ -8504,8 +8504,8 @@ SaveData is a **sink block** — it reads data from storage and writes to a user
 
 | File | Changes |
 |------|---------|
-| `src/scieasy/blocks/io/savers/save_data.py` | Phase 1/2: Remove `_arrow_table` check in `_dataframe_to_arrow_table()`. All paths work via `get_in_memory_data()` → `to_memory()` → storage read. Phase 3: Add chunked export paths for formats that support it (Parquet, Zarr). |
-| `packages/scieasy-blocks-imaging/.../save_image.py` | Phase 1/2: No change needed — SaveImage calls `to_memory()` which now routes through storage. Phase 3: Add chunked TIFF write (page-by-page from zarr). |
+| `src/scistudio/blocks/io/savers/save_data.py` | Phase 1/2: Remove `_arrow_table` check in `_dataframe_to_arrow_table()`. All paths work via `get_in_memory_data()` → `to_memory()` → storage read. Phase 3: Add chunked export paths for formats that support it (Parquet, Zarr). |
+| `packages/scistudio-blocks-imaging/.../save_image.py` | Phase 1/2: No change needed — SaveImage calls `to_memory()` which now routes through storage. Phase 3: Add chunked TIFF write (page-by-page from zarr). |
 
 **Per-format SaveData behavior after this ADR:**
 
@@ -8521,8 +8521,8 @@ SaveData is a **sink block** — it reads data from storage and writes to a user
 
 | File | Changes |
 |------|---------|
-| `src/scieasy/utils/axis_iter.py` | Replace `result._data = data` with persist-to-zarr + set storage_ref. |
-| `src/scieasy/utils/broadcast.py` | Update ViewProxy references in docstrings/warnings. |
+| `src/scistudio/utils/axis_iter.py` | Replace `result._data = data` with persist-to-zarr + set storage_ref. |
+| `src/scistudio/utils/broadcast.py` | Update ViewProxy references in docstrings/warnings. |
 
 #### 4.8 Test changes
 
@@ -8564,7 +8564,7 @@ SaveData is a **sink block** — it reads data from storage and writes to a user
 #### Phase 2: ViewProxy elimination and `_data` cleanup
 
 7. **Move `_get_backend()` and data access methods to DataObject** — `to_memory()`, `slice()`, `iter_chunks()`. Add 2GB size warning.
-8. **Delete `ViewProxy` class** (`src/scieasy/core/proxy.py`) and `DataObject.view()` method.
+8. **Delete `ViewProxy` class** (`src/scistudio/core/proxy.py`) and `DataObject.view()` method.
 9. **Rewrite `get_in_memory_data()`** — route through `to_memory()`, remove `hasattr(self, "_data")` / `_arrow_table` checks (D6).
 10. **Update `Array.to_memory()`** — remove `_data` backdoor, always read from storage.
 11. **Update `Array.sel()`** — remove `_data` check, read from storage. Persist slice result to temp zarr with storage_ref (no `_data` stashing).
@@ -8642,5 +8642,5 @@ This ADR was motivated by the independent data storage and transport audit docum
 
 The audit's summary:
 
-> SciEasy's transport layer is mostly reference-based now, but its load, processing, and export layers still contain widespread eager materialization, payload-loss edge cases, and multiple mismatches with the stated design philosophy.
+> SciStudio's transport layer is mostly reference-based now, but its load, processing, and export layers still contain widespread eager materialization, payload-loss edge cases, and multiple mismatches with the stated design philosophy.
 

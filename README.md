@@ -1,22 +1,22 @@
-# SciEasy
+# SciStudio
 
 **AI-native, inclusive workflow runtime for multimodal scientific data.**
 
-[![CI](https://github.com/zjzcpj/SciEasy/actions/workflows/ci.yml/badge.svg)](https://github.com/zjzcpj/SciEasy/actions/workflows/ci.yml)
+[![CI](https://github.com/zjzcpj/SciStudio/actions/workflows/ci.yml/badge.svg)](https://github.com/zjzcpj/SciStudio/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Development Status](https://img.shields.io/badge/status-pre--alpha-orange.svg)]()
 
 ---
 
-## What is SciEasy?
+## What is SciStudio?
 
 Modern biomedical research generates multi-modal datasets -- RNA/DNA sequencing, LC-MS metabolomics, spatial transcriptomics, immunofluorescence microscopy, SRS imaging, mass spectrometry imaging, and more. Each modality demands its own processing software, programming language, and data format. Researchers face two compounding problems:
 
 1. **Fragmented processing**: tools are scattered across R scripts, Python notebooks, standalone GUI applications (ElMAVEN, Fiji, napari), and command-line pipelines. Exchanging intermediate results is manual, error-prone, and poorly documented.
 2. **High barrier for non-developers**: researchers without strong programming backgrounds cannot efficiently chain together complex multi-step analyses, let alone integrate data across modalities.
 
-SciEasy is a **modality-agnostic, building-block workflow framework** where:
+SciStudio is a **modality-agnostic, building-block workflow framework** where:
 
 - Every processing step is encapsulated as a **Block** with standardized inputs and outputs.
 - All data flows through a small set of **base data types** that are extensible via inheritance.
@@ -25,7 +25,7 @@ SciEasy is a **modality-agnostic, building-block workflow framework** where:
 - Multiple data modalities coexist in a **single workflow graph**, enabling true cross-modal fusion analysis.
 - The framework is **AI-native**: AI can generate blocks, synthesize workflows, and optimize parameters at runtime.
 
-> **Status**: SciEasy is in **pre-alpha** (v0.2.1). The core runtime, block system, execution engine, API layer, and frontend workflow editor are implemented and under active development. See [Current Status](#current-status) for details.
+> **Status**: SciStudio is in **pre-alpha** (v0.2.1). The core runtime, block system, execution engine, API layer, and frontend workflow editor are implemented and under active development. See [Current Status](#current-status) for details.
 
 ---
 
@@ -64,9 +64,9 @@ The DAG scheduler reacts to block completion, errors, cancellation, and process 
 
 ### Community-Extensible Plugin System
 
-- **Tier 1 (drop-in)**: place a `.py` file in `{project}/blocks/` or `~/.scieasy/blocks/` -- it appears in the palette immediately.
-- **Tier 2 (pip install)**: publish a block package to PyPI with `scieasy.blocks` entry-points. Users install with `pip install scieasy-yourpackage` and blocks register automatically.
-- **Block SDK**: `scieasy init-block-package` scaffolds a complete package; `BlockTestHarness` simplifies testing.
+- **Tier 1 (drop-in)**: place a `.py` file in `{project}/blocks/` or `~/.scistudio/blocks/` -- it appears in the palette immediately.
+- **Tier 2 (pip install)**: publish a block package to PyPI with `scistudio.blocks` entry-points. Users install with `pip install scistudio-yourpackage` and blocks register automatically.
+- **Block SDK**: `scistudio init-block-package` scaffolds a complete package; `BlockTestHarness` simplifies testing.
 
 ### Visual Workflow Editor
 
@@ -76,7 +76,7 @@ A React + ReactFlow frontend provides a drag-and-drop canvas for composing workf
 
 ## Architecture Overview
 
-SciEasy is organized into six horizontal layers, each depending only on the layers below it:
+SciStudio is organized into six horizontal layers, each depending only on the layers below it:
 
 ```
 +-------------------------------------------------------------+
@@ -130,7 +130,7 @@ For the full architecture document, see [`docs/architecture/ARCHITECTURE.md`](do
 | Data visualization | Plotly.js (inline previews) |
 | Build tool | Vite |
 | AI integration | Anthropic / OpenAI API |
-| Package format | PyPI with `scieasy.*` entry-points |
+| Package format | PyPI with `scistudio.*` entry-points |
 
 ---
 
@@ -146,36 +146,36 @@ For the full architecture document, see [`docs/architecture/ARCHITECTURE.md`](do
 **End users** — one command from PyPI:
 
 ```bash
-pip install scieasy
-scieasy gui
+pip install scistudio
+scistudio gui
 ```
 
-The wheel ships with the prebuilt React SPA, so `scieasy gui` opens the full
+The wheel ships with the prebuilt React SPA, so `scistudio gui` opens the full
 workflow editor directly. No Node.js required at install time.
 
 **Developers** — clone and install editable:
 
 ```bash
-git clone https://github.com/zjzcpj/SciEasy.git
-cd SciEasy
+git clone https://github.com/zjzcpj/SciStudio.git
+cd SciStudio
 pip install -e ".[dev]"
 (cd frontend && npm install && npm run build)   # one-time SPA build
-scieasy gui
+scistudio gui
 ```
 
 The dev path serves the SPA from `frontend/dist/` automatically, so you can
 iterate on Python + SPA without reinstalling. For hot-reload frontend dev,
-run `(cd frontend && npm run dev)` against a separate `scieasy serve`
+run `(cd frontend && npm run dev)` against a separate `scistudio serve`
 backend — Vite proxies `/api/*` to `http://localhost:8000`.
 
-> If `scieasy gui` lands on the FastAPI `/docs` page instead of the workflow
+> If `scistudio gui` lands on the FastAPI `/docs` page instead of the workflow
 > editor, the SPA bundle is missing. Run `(cd frontend && npm run build)` in
-> your dev checkout, or reinstall from a wheel that includes `scieasy/api/static/index.html`.
+> your dev checkout, or reinstall from a wheel that includes `scistudio/api/static/index.html`.
 
 ### Launch the GUI
 
 ```bash
-scieasy gui
+scistudio gui
 ```
 
 This starts the FastAPI backend and opens the workflow editor in your default browser at `http://localhost:8000`.
@@ -183,13 +183,13 @@ This starts the FastAPI backend and opens the workflow editor in your default br
 ### CLI Commands
 
 ```bash
-scieasy --help          # Show all available commands
-scieasy init            # Initialize a new project workspace
-scieasy validate FILE   # Validate a workflow YAML file
-scieasy run FILE        # Execute a workflow from a YAML file
-scieasy blocks          # List all registered blocks
-scieasy serve           # Start API server (headless, no browser)
-scieasy gui             # Start API server and open browser
+scistudio --help          # Show all available commands
+scistudio init            # Initialize a new project workspace
+scistudio validate FILE   # Validate a workflow YAML file
+scistudio run FILE        # Execute a workflow from a YAML file
+scistudio blocks          # List all registered blocks
+scistudio serve           # Start API server (headless, no browser)
+scistudio gui             # Start API server and open browser
 ```
 
 ---
@@ -197,8 +197,8 @@ scieasy gui             # Start API server and open browser
 ## Project Structure
 
 ```
-SciEasy/
-├── src/scieasy/                    # Python backend (pip-installable)
+SciStudio/
+├── src/scistudio/                    # Python backend (pip-installable)
 │   ├── core/                       # Layer 1: Data foundation
 │   │   ├── types/                  #   DataObject hierarchy + TypeRegistry
 │   │   ├── storage/                #   Zarr, Arrow/Parquet, filesystem backends
@@ -228,7 +228,7 @@ SciEasy/
 │   │   ├── routes/                 #   REST endpoints (workflows, blocks, data, projects)
 │   │   └── ws.py                   #   WebSocket handler
 │   ├── workflow/                   # Workflow definition + YAML serialization
-│   ├── cli/                        # Typer CLI (scieasy command)
+│   ├── cli/                        # Typer CLI (scistudio command)
 │   └── utils/                      # Hashing, broadcast, wrapping utilities
 ├── frontend/                       # Layer 6: React + TypeScript frontend
 │   ├── src/
@@ -256,7 +256,7 @@ SciEasy/
 
 ## Project Workspace
 
-When you create a project in SciEasy, it generates a self-contained directory:
+When you create a project in SciStudio, it generates a self-contained directory:
 
 ```
 my_project/
@@ -283,8 +283,8 @@ my_project/
 Save a `.py` file in your project's `blocks/` directory:
 
 ```python
-from scieasy.blocks.base import ProcessBlock, InputPort, OutputPort
-from scieasy.core.types import Spectrum
+from scistudio.blocks.base import ProcessBlock, InputPort, OutputPort
+from scistudio.core.types import Spectrum
 
 class RamanDenoise(ProcessBlock):
     name = "Raman denoise"
@@ -308,10 +308,10 @@ Click "Reload Blocks" in the GUI and it appears in the palette.
 For community distribution:
 
 ```bash
-scieasy init-block-package scieasy-blocks-mylab
+scistudio init-block-package scistudio-blocks-mylab
 ```
 
-This scaffolds a complete package with entry-points, example blocks, tests using `BlockTestHarness`, and a README. Publish to PyPI and users install with `pip install scieasy-blocks-mylab`.
+This scaffolds a complete package with entry-points, example blocks, tests using `BlockTestHarness`, and a README. Publish to PyPI and users install with `pip install scistudio-blocks-mylab`.
 
 ---
 
@@ -331,7 +331,7 @@ ruff check .
 ruff format --check .
 
 # Type check
-mypy src/scieasy/ --ignore-missing-imports
+mypy src/scistudio/ --ignore-missing-imports
 ```
 
 ### Frontend
@@ -360,17 +360,17 @@ The GitHub Actions CI pipeline runs on every PR:
 
 ## Developer integrations
 
-Drive SciEasy projects from your own terminal CLI (`claude` or `codex`),
-outside the SciEasy GUI, with the full 25-tool MCP surface and a
-SciEasy-aware skill installed:
+Drive SciStudio projects from your own terminal CLI (`claude` or `codex`),
+outside the SciStudio GUI, with the full 25-tool MCP surface and a
+SciStudio-aware skill installed:
 
 ```bash
-pip install scieasy
-scieasy install --all          # wires claude + codex + skill at user scope
-cd ~/work/my-project && claude # your CLI now has SciEasy tools
+pip install scistudio
+scistudio install --all          # wires claude + codex + skill at user scope
+cd ~/work/my-project && claude # your CLI now has SciStudio tools
 ```
 
-The bridge auto-detects whether a SciEasy backend is running and either
+The bridge auto-detects whether a SciStudio backend is running and either
 shares its state (attached mode) or stands up an in-process MCP server
 itself (standalone mode). See [`docs/cli-integration.md`](docs/cli-integration.md)
 for the full guide, including project vs user scope, Codex caveats, and
@@ -380,7 +380,7 @@ troubleshooting.
 
 ## Contributing
 
-SciEasy follows a structured development workflow to ensure traceability and architectural consistency. Please read [`CLAUDE.md`](CLAUDE.md) for the full set of development rules, including:
+SciStudio follows a structured development workflow to ensure traceability and architectural consistency. Please read [`CLAUDE.md`](CLAUDE.md) for the full set of development rules, including:
 
 - **Branch discipline**: all changes go through PRs; no direct push to main.
 - **Gate workflow**: every task follows a 6-stage pipeline (issue, change plan, branch, PR, docs, changelog).
@@ -401,7 +401,7 @@ Significant design decisions are documented as ADRs in [`docs/adr/ADR.md`](docs/
 | ADR-021 | Collection operation blocks (merge, split, filter, slice) |
 | ADR-022 | psutil-based OS memory monitoring (replacing per-block estimates) |
 | ADR-023 | Frontend layout redesign (three-column with bottom panel) |
-| ADR-024 | Frontend bundling into Python wheel + `scieasy gui` command |
+| ADR-024 | Frontend bundling into Python wheel + `scistudio gui` command |
 | ADR-025 | Plugin entry-points callable protocol with PackageInfo |
 | ADR-026 | Block SDK (scaffolding, test harness, developer docs) |
 
@@ -409,7 +409,7 @@ Significant design decisions are documented as ADRs in [`docs/adr/ADR.md`](docs/
 
 ## Current Status
 
-SciEasy is in **pre-alpha** (v0.2.1). The following is implemented and under active development:
+SciStudio is in **pre-alpha** (v0.2.1). The following is implemented and under active development:
 
 **Implemented:**
 - Core data type hierarchy with six base types and domain-specific subtypes
@@ -462,4 +462,4 @@ Development follows a phased plan. Completed phases:
 
 ## License
 
-SciEasy is released under the [MIT License](https://opensource.org/licenses/MIT).
+SciStudio is released under the [MIT License](https://opensource.org/licenses/MIT).

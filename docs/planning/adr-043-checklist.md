@@ -26,7 +26,7 @@
 - [x] Add `FormatCapability`, `MetadataFidelity`, direction/fidelity literals, typed validation errors, and normalization helpers. [ADR-043 sections 8, 11] -> commit `4110f6b4`
 - [x] Add `SimpleLoader` and `SimpleSaver` ergonomic bases with conservative `pixel_only` synthesis. [ADR-043 section 4] -> commit `4110f6b4`
 - [x] Extend `IOBlock.get_format_capabilities()` and legacy `supported_extensions` migration synthesis without final package-compliance claims. [ADR-043 sections 9, 13] -> commit `4110f6b4`
-- [x] Export public simple/capability APIs from `scieasy.blocks.io`. -> commit `4110f6b4`
+- [x] Export public simple/capability APIs from `scistudio.blocks.io`. -> commit `4110f6b4`
 - [x] Add tests for valid/invalid capabilities, metadata fidelity, simple IO synthesis, and compatibility synthesis. -> local tests `pytest -q --timeout=60 --no-cov tests/blocks/io/test_format_capabilities.py tests/blocks/io/test_simple_io.py`
 
 ## Track B - Registry Lookup (Owner: A43-registry, issue #1210)
@@ -64,8 +64,8 @@
 
 ### Implementation
 
-- [x] Add explicit imaging `LoadImage` / `SaveImage` TIFF/Zarr capabilities with stable IDs and fidelity declarations. -> `pytest -q --timeout=60 --no-cov packages/scieasy-blocks-imaging/tests/test_format_capabilities.py`
-- [x] Add minimal LCMS table/raw IO capability declarations where low-risk and mark one-way formats explicitly. -> `pytest -q --timeout=60 --no-cov packages/scieasy-blocks-lcms/tests/test_io/test_format_capabilities.py`
+- [x] Add explicit imaging `LoadImage` / `SaveImage` TIFF/Zarr capabilities with stable IDs and fidelity declarations. -> `pytest -q --timeout=60 --no-cov packages/scistudio-blocks-imaging/tests/test_format_capabilities.py`
+- [x] Add minimal LCMS table/raw IO capability declarations where low-risk and mark one-way formats explicitly. -> `pytest -q --timeout=60 --no-cov packages/scistudio-blocks-lcms/tests/test_io/test_format_capabilities.py`
 - [x] Add package tests proving explicit declarations are used instead of compatibility synthesis for pilot IOBlocks. -> focused capability tests passed, 5 tests
 - [x] Update package docs for capability IDs and metadata fidelity. -> package README updates
 - [x] Mark full package hard-validation migration deferrals with `TODO(#1204)` where code knowingly remains legacy. -> package README TODO markers
@@ -75,10 +75,10 @@
 ### Audit
 
 - [x] Run `python scripts/audit/generate_facts.py --check`. -> local PASS after commit `ac875b87`
-- [x] Run `python -m scieasy.qa.audit.full_audit --format json`. -> local FAIL only on pre-existing legacy frontmatter / global closure baseline
+- [x] Run `python -m scistudio.qa.audit.full_audit --format json`. -> local FAIL only on pre-existing legacy frontmatter / global closure baseline
 - [x] Classify failures as ADR-043-related vs pre-existing baseline. -> local classifier found `implementation_related_count: 0`
 - [x] Fix every ADR-043-related fail in a scoped branch/PR. -> commit `ac875b87`
-- [x] Post audit summary and fixes on #1207. -> https://github.com/zjzcpj/SciEasy/issues/1207#issuecomment-4492978957
+- [x] Post audit summary and fixes on #1207. -> https://github.com/zjzcpj/SciStudio/issues/1207#issuecomment-4492978957
 
 ## Track G - Architecture And Developer Docs (Owner: A43-docs, issue #1215)
 
@@ -98,15 +98,15 @@
 > integration. The accepted implementation findings were fixed in #1241.
 
 - [ ] #1216 P2 `docs/adr/ADR-043.md`: Codex suggested changing `tracking_issue` from package fallout #1204 to manager issue #1207. Assessment: partially valid traceability concern, but not accepted as an implementation bug. ADR-043's locked frontmatter currently points at the long-lived package migration tracker #1204; #1207 is the cascade execution manager issue. Resolution: not changed; checklist and #1207 comment carry cascade traceability.
-- [x] #1218 P1 `src/scieasy/blocks/io/capabilities.py`: reject scalar extension strings before normalizing. Assessment: valid. Final code treated `extensions="tif"` as an iterable of characters. Resolution: fixed in #1241; regression `test_normalize_extension_rejects_invalid_values`.
-- [x] #1218 P2 `src/scieasy/blocks/io/capabilities.py`: reject scalar metadata-field strings in fidelity declarations. Assessment: valid. Final code treated `typed_meta_reads="pixel_size"` as per-character fields. Resolution: fixed in #1241; regression `test_metadata_field_lists_reject_scalar_strings`.
-- [x] #1218 P2 `src/scieasy/blocks/io/simple_io.py`: validate `path` is a single path in SimpleLoader/SimpleSaver helpers. Assessment: valid. Final code coerced list values through `Path(str(raw_path))`. Resolution: fixed in #1241; regressions `test_simple_loader_rejects_multi_path_config` and `test_simple_saver_rejects_multi_path_config`.
+- [x] #1218 P1 `src/scistudio/blocks/io/capabilities.py`: reject scalar extension strings before normalizing. Assessment: valid. Final code treated `extensions="tif"` as an iterable of characters. Resolution: fixed in #1241; regression `test_normalize_extension_rejects_invalid_values`.
+- [x] #1218 P2 `src/scistudio/blocks/io/capabilities.py`: reject scalar metadata-field strings in fidelity declarations. Assessment: valid. Final code treated `typed_meta_reads="pixel_size"` as per-character fields. Resolution: fixed in #1241; regression `test_metadata_field_lists_reject_scalar_strings`.
+- [x] #1218 P2 `src/scistudio/blocks/io/simple_io.py`: validate `path` is a single path in SimpleLoader/SimpleSaver helpers. Assessment: valid. Final code coerced list values through `Path(str(raw_path))`. Resolution: fixed in #1241; regressions `test_simple_loader_rejects_multi_path_config` and `test_simple_saver_rejects_multi_path_config`.
 - [x] #1219 P1 `docs/block-development/quickstart.md`: quickstart imported `SimpleLoader` before the core API existed in that standalone docs PR. Assessment: valid at the moment of PR #1219 review, but resolved by integration order once #1218 landed on the tracking branch. Resolution: fixed by integrated branch state.
-- [x] #1221 P1 `src/scieasy/blocks/registry.py`: preserve legacy ordering when loader dtype is omitted. Assessment: valid. Final `find_loader(None, ext)` entered capability ranking via `find_loader_capability(dtype or DataObject, extension)` before legacy fallback, so it could select a non-first registered capability. Resolution: fixed in #1241; regression `test_legacy_find_loader_without_dtype_keeps_registration_order`.
-- [x] #1221 P1 `src/scieasy/blocks/registry.py`: fall back when the resolved capability class fails to import. Assessment: valid. Final code resolved a single winning capability class and could return `None` instead of trying lower-ranked usable candidates. Resolution: fixed in #1241; regression `test_legacy_find_loader_falls_back_when_winning_capability_class_cannot_resolve`.
+- [x] #1221 P1 `src/scistudio/blocks/registry.py`: preserve legacy ordering when loader dtype is omitted. Assessment: valid. Final `find_loader(None, ext)` entered capability ranking via `find_loader_capability(dtype or DataObject, extension)` before legacy fallback, so it could select a non-first registered capability. Resolution: fixed in #1241; regression `test_legacy_find_loader_without_dtype_keeps_registration_order`.
+- [x] #1221 P1 `src/scistudio/blocks/registry.py`: fall back when the resolved capability class fails to import. Assessment: valid. Final code resolved a single winning capability class and could return `None` instead of trying lower-ranked usable candidates. Resolution: fixed in #1241; regression `test_legacy_find_loader_falls_back_when_winning_capability_class_cannot_resolve`.
 - [x] #1230 P2 `frontend/src/components/BottomPanel.tsx`: avoid persisting empty `capability_id` from the placeholder option. Assessment: valid. Final selector forwarded `event.target.value`; selecting the placeholder could persist `capability_id: ""`. Resolution: fixed in #1241; regression `BottomPanel clears ADR-043 capability selection as null when the placeholder is selected`.
-- [x] #1232 P1 `src/scieasy/workflow/validator.py`: validate boundary outputs against the runtime-selected type. Assessment: valid. Final validator checked all configured output types, while AppBlock reconstruction uses the first accepted type; unions such as `Artifact | Text` could be rejected even when runtime would use Artifact fallback. Resolution: fixed in #1241; regression `test_appblock_output_validation_uses_first_runtime_selected_type`.
-- [x] #1232 P2 `src/scieasy/blocks/app/app_block.py`: treat null `capability_id` as unset on AppBlock outputs. Assessment: valid. Final AppBlock output mapping used `str(entry.get("capability_id", "")).strip()`, so JSON null became `"None"`. Resolution: fixed in #1241; regression `test_appblock_output_binner_treats_null_capability_id_as_unset`.
+- [x] #1232 P1 `src/scistudio/workflow/validator.py`: validate boundary outputs against the runtime-selected type. Assessment: valid. Final validator checked all configured output types, while AppBlock reconstruction uses the first accepted type; unions such as `Artifact | Text` could be rejected even when runtime would use Artifact fallback. Resolution: fixed in #1241; regression `test_appblock_output_validation_uses_first_runtime_selected_type`.
+- [x] #1232 P2 `src/scistudio/blocks/app/app_block.py`: treat null `capability_id` as unset on AppBlock outputs. Assessment: valid. Final AppBlock output mapping used `str(entry.get("capability_id", "")).strip()`, so JSON null became `"None"`. Resolution: fixed in #1241; regression `test_appblock_output_binner_treats_null_capability_id_as_unset`.
 - [x] #1220 package capability pilot: no Codex auto-review findings were posted. Resolution: no action required.
 
 ## Acceptance Criteria

@@ -288,7 +288,7 @@ export interface TreeResponse {
 // ADR-039 — Git versioning API types
 // ---------------------------------------------------------------------------
 //
-// These mirror the JSON shapes returned by `src/scieasy/api/routes/git.py`
+// These mirror the JSON shapes returned by `src/scistudio/api/routes/git.py`
 // (merged in PR #927). When the backend GitEngine returns a `log()` row, a
 // branch listing, a stash entry, a status payload, or a merge result, the
 // FastAPI route emits it as JSON of one of the shapes below.
@@ -306,7 +306,7 @@ export interface TreeResponse {
  * and the backend `GitEngine.log()` plumbing parser (commits are formatted
  * with `--format=...` so this is the stable wire contract).
  *
- * Wire shape per `src/scieasy/core/versioning/git_engine.py::log()`:
+ * Wire shape per `src/scistudio/core/versioning/git_engine.py::log()`:
  *   `{ sha, short_sha, parents, author_name, author_email, author_date,
  *      subject, body, branches }`
  *
@@ -340,7 +340,7 @@ export interface GitCommit {
  * Local branch row from `GET /api/git/branches`.
  *
  * Wire shape is `{ name, head_sha, is_current }` per
- * `GitEngine.branches()` in `src/scieasy/core/versioning/git_engine.py`.
+ * `GitEngine.branches()` in `src/scistudio/core/versioning/git_engine.py`.
  * Codex review on PR #930 flagged a draft `commit_sha` field that did
  * not match the backend; fixed to mirror the actual payload.
  */
@@ -356,7 +356,7 @@ export interface GitBranch {
  * Stash entry from `GET /api/git/stash`.
  *
  * Wire shape is `{ stash_id, message, date }` per
- * `GitEngine.stash_list()` in `src/scieasy/core/versioning/git_engine.py`.
+ * `GitEngine.stash_list()` in `src/scistudio/core/versioning/git_engine.py`.
  * No `index` or `created_at` field is sent — Codex review on PR #930
  * flagged a draft contract mismatch; fixed to mirror the actual payload.
  */
@@ -389,7 +389,7 @@ export interface GitStatus {
  *
  * Wire shape is uniformly `{ result, conflicted_files }` for ALL three
  * variants per `GitEngine.merge()` / `cherry_pick()` in
- * `src/scieasy/core/versioning/git_engine.py`. Successful (FF / clean)
+ * `src/scistudio/core/versioning/git_engine.py`. Successful (FF / clean)
  * results return `conflicted_files: []` and do NOT include a separate
  * `commit_sha`; consumers that need the post-merge HEAD must call
  * `GET /api/git/log?limit=1` (or wait for the `git.head_changed` WS

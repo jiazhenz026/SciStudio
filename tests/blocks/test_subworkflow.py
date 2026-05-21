@@ -6,13 +6,13 @@ from typing import Any, ClassVar
 
 import pytest
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.base.state import BlockState
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.blocks.subworkflow.subworkflow_block import SubWorkflowBlock, _sequential_execute
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.base.state import BlockState
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.blocks.subworkflow.subworkflow_block import SubWorkflowBlock, _sequential_execute
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
 
 
 class AddOneBlock(ProcessBlock):

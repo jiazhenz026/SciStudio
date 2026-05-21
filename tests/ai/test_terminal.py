@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.ai.agent.terminal import PtyProcess
+from scistudio.ai.agent.terminal import PtyProcess
 
 
 def _python_echo_argv() -> list[str]:

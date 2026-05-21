@@ -45,11 +45,11 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.blocks.ai.completion import (
+from scistudio.blocks.ai.completion import (
     CompletionSource,
     CompletionWatcher,
 )
-from scieasy.blocks.ai.run_dir import RunDir
+from scistudio.blocks.ai.run_dir import RunDir
 
 
 def _make_watcher(tmp_path: Path) -> tuple[RunDir, CompletionWatcher]:

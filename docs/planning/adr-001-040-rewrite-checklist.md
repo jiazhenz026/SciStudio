@@ -24,7 +24,7 @@ language_source: en
 - Gate record: `.workflow/records/1289-adr-001-040-rewrite.json` (pending)
 - Branch/worktree plan:
   `hotfix/rewrite-adr-001-040` at
-  `C:/Users/jiazh/Desktop/workspace/SciEasy.wt/hotfix-rewrite-adr-001-040`
+  `C:/Users/jiazh/Desktop/workspace/SciStudio.wt/hotfix-rewrite-adr-001-040`
 - Protected branch: `main`
 - Umbrella branch: `hotfix/rewrite-adr-001-040`
 - Umbrella PR: pending dedicated ADR rewrite PR
@@ -118,9 +118,9 @@ language_source: en
 
 | Hook | Command | Bypass label | Status | Evidence |
 |---|---|---|---|---|
-| Pre-commit | `python -m scieasy.qa.governance.gate_record pre-commit --staged` | `N/A` | `[ ]` | pending |
-| Commit message | `python -m scieasy.qa.governance.gate_record commit-msg <commit-msg-file>` | `N/A` | `[ ]` | pending |
-| Pre-push | `python -m scieasy.qa.governance.gate_record pre-push` | `N/A` | `[ ]` | pending |
+| Pre-commit | `python -m scistudio.qa.governance.gate_record pre-commit --staged` | `N/A` | `[ ]` | pending |
+| Commit message | `python -m scistudio.qa.governance.gate_record commit-msg <commit-msg-file>` | `N/A` | `[ ]` | pending |
+| Pre-push | `python -m scistudio.qa.governance.gate_record pre-push` | `N/A` | `[ ]` | pending |
 
 ## 7. Dispatch Matrix
 
@@ -210,7 +210,7 @@ rewrite and review.
 | ADR-021: MergeCollection and Collection operation blocks | `docs/adr/ADR_legacy.md` | `docs/adr/ADR-021.md` | `[x]` | `[x]` | Owner approved; frontmatter lint pass; targeted full-audit findings 0 |
 | ADR-022: OS-level memory monitoring replaces estimated memory budget | `docs/adr/ADR_legacy.md` | `docs/adr/ADR-022.md` | `[x]` | `[x]` | Owner approved; frontmatter lint pass; targeted full-audit findings 0 |
 | ADR-023: Frontend layout redesign | `docs/adr/ADR_legacy.md` | `docs/adr/ADR-023.md` | `[x]` | `[x]` | Owner approved; frontmatter lint pass; targeted full-audit findings 0 |
-| ADR-024: Frontend bundling, SPA serving, and `scieasy gui` command | `docs/adr/ADR_legacy.md` | `docs/adr/ADR-024.md` | `[x]` | `[x]` | Owner approved; frontmatter lint pass; targeted full-audit findings 0 |
+| ADR-024: Frontend bundling, SPA serving, and `scistudio gui` command | `docs/adr/ADR_legacy.md` | `docs/adr/ADR-024.md` | `[x]` | `[x]` | Owner approved; frontmatter lint pass; targeted full-audit findings 0 |
 | ADR-025: Block package distribution protocol with entry-points | `docs/adr/ADR_legacy.md` | `docs/adr/ADR-025.md` | `[x]` | `[x]` | Owner approved; frontmatter lint pass; targeted full-audit findings 0 |
 | ADR-026: Block SDK - scaffolding, test harness, and developer documentation | `docs/adr/ADR_legacy.md` | `docs/adr/ADR-026.md` | `[x]` | `[x]` | Owner approved; frontmatter lint pass; targeted full-audit findings 0 |
 | ADR-027: Phase 10 core type system and block runtime refinements | `docs/adr/ADR_legacy.md` | `docs/adr/ADR-027.md` | `[x]` | `[x]` | Owner approved; deprecated Addendum 1 preserved and ADR-031 supersession note; frontmatter lint pass; targeted full-audit findings 0 |
@@ -225,24 +225,24 @@ rewrite and review.
 | ADR-036: Embedded code editor for project files | standalone legacy file | `docs/adr/ADR-036.md` | `[x]` | `[ ]` | Frontmatter and short summary prepended only; frontmatter lint pass; targeted full-audit findings 0 |
 | ADR-037: Desktop Application Packaging, Plugin Distribution, and First-Run Dependency Management | standalone legacy file | `docs/adr/ADR-037.md` | `[x]` | `[ ]` | Frontmatter and short summary prepended only; preserved Proposed status; frontmatter lint pass; targeted full-audit findings 0 |
 | ADR-038: Unified Run Lineage Database - Reproducibility through Recipe, Not Storage | standalone legacy file | `docs/adr/ADR-038.md` | `[x]` | `[ ]` | Frontmatter and short summary prepended only; supersedes ADR-032; frontmatter lint pass; targeted full-audit findings 0 |
-| ADR-039: Git-Backed Source Version Control for SciEasy Projects | standalone legacy file | `docs/adr/ADR-039.md` | `[x]` | `[ ]` | Frontmatter and short summary prepended only; frontmatter lint pass; targeted full-audit findings 0 |
+| ADR-039: Git-Backed Source Version Control for SciStudio Projects | standalone legacy file | `docs/adr/ADR-039.md` | `[x]` | `[ ]` | Frontmatter and short summary prepended only; frontmatter lint pass; targeted full-audit findings 0 |
 | ADR-040: Production-environment agent reliability | standalone legacy file | `docs/adr/ADR-040.md` | `[x]` | `[ ]` | Frontmatter and short summary prepended only; owner clarified status is Accepted; frontmatter lint pass; targeted full-audit findings 0 |
 
 ## 10. Verification Evidence
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
-| Per-ADR frontmatter | `python -m scieasy.qa.audit.frontmatter_lint docs/adr/ADR-<NNN>.md --format text` | `[x]` | ADR-001 through ADR-016 passed after `phase: legacy` update |
-| Signature drift | `PYTHONPATH=src python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[!]` | Full audit still fails on known non-target spec/architecture/signature debt; ADR-001 through ADR-016 no longer emit `doc-drift.adr-without-implementation-spec` |
-| Per-ADR frontmatter | `PYTHONPATH=src python -m scieasy.qa.audit.frontmatter_lint docs/adr/ADR-026.md docs/adr/ADR-027.md docs/adr/ADR-028.md docs/adr/ADR-029.md docs/adr/ADR-030.md --format text` | `[x]` | ADR-026 through ADR-030 passed |
-| Targeted full audit | `PYTHONPATH=src python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[!]` | ADR-026 through ADR-030 targeted findings 0; overall audit remains red on pre-existing ADR-031..040/spec/architecture debt |
+| Per-ADR frontmatter | `python -m scistudio.qa.audit.frontmatter_lint docs/adr/ADR-<NNN>.md --format text` | `[x]` | ADR-001 through ADR-016 passed after `phase: legacy` update |
+| Signature drift | `PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[!]` | Full audit still fails on known non-target spec/architecture/signature debt; ADR-001 through ADR-016 no longer emit `doc-drift.adr-without-implementation-spec` |
+| Per-ADR frontmatter | `PYTHONPATH=src python -m scistudio.qa.audit.frontmatter_lint docs/adr/ADR-026.md docs/adr/ADR-027.md docs/adr/ADR-028.md docs/adr/ADR-029.md docs/adr/ADR-030.md --format text` | `[x]` | ADR-026 through ADR-030 passed |
+| Targeted full audit | `PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[!]` | ADR-026 through ADR-030 targeted findings 0; overall audit remains red on pre-existing ADR-031..040/spec/architecture debt |
 | Legacy source rename | `Test-Path docs/adr/ADR.md; Test-Path docs/adr/ADR_legacy.md` | `[x]` | `ADR.md` absent; `ADR_legacy.md` present as owner-approved detailed reference |
-| Per-ADR frontmatter | `PYTHONPATH=src python -m scieasy.qa.audit.frontmatter_lint docs/adr/ADR-031.md docs/adr/ADR-032.md docs/adr/ADR-033.md docs/adr/ADR-034.md docs/adr/ADR-035.md docs/adr/ADR-036.md docs/adr/ADR-037.md docs/adr/ADR-038.md docs/adr/ADR-039.md docs/adr/ADR-040.md --format text` | `[x]` | ADR-031 through ADR-040 passed |
-| Targeted full audit | `PYTHONPATH=src python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[x]` | ADR-001 through ADR-040 targeted findings 0; overall audit remains red on non-target spec/architecture/signature debt |
-| Generated audit report | `PYTHONPATH=src python -m scieasy.qa.audit.full_audit --repo-root . --format markdown --output docs/audit/2026-05-20-adr-001-040-full-audit.md` | `[x]` | Report generated at `docs/audit/2026-05-20-adr-001-040-full-audit.md`; report status is overall `fail` because remaining findings are outside ADR-001 through ADR-040 |
+| Per-ADR frontmatter | `PYTHONPATH=src python -m scistudio.qa.audit.frontmatter_lint docs/adr/ADR-031.md docs/adr/ADR-032.md docs/adr/ADR-033.md docs/adr/ADR-034.md docs/adr/ADR-035.md docs/adr/ADR-036.md docs/adr/ADR-037.md docs/adr/ADR-038.md docs/adr/ADR-039.md docs/adr/ADR-040.md --format text` | `[x]` | ADR-031 through ADR-040 passed |
+| Targeted full audit | `PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[x]` | ADR-001 through ADR-040 targeted findings 0; overall audit remains red on non-target spec/architecture/signature debt |
+| Generated audit report | `PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format markdown --output docs/audit/2026-05-20-adr-001-040-full-audit.md` | `[x]` | Report generated at `docs/audit/2026-05-20-adr-001-040-full-audit.md`; report status is overall `fail` because remaining findings are outside ADR-001 through ADR-040 |
 | Sentrux | `mcp__sentrux__.rescan` plus `mcp__sentrux__.check_rules` | `[ ]` | pending or N/A if docs-only rules do not apply |
 | Link/closure audit | full audit closure check | `[ ]` | pending |
-| Gate record CI | `python -m scieasy.qa.governance.gate_record ci ...` | `[ ]` | pending |
+| Gate record CI | `python -m scistudio.qa.governance.gate_record ci ...` | `[ ]` | pending |
 
 ## 11. Drift Log
 

@@ -9,7 +9,7 @@ from typing import ClassVar
 import numpy as np
 import pytest
 
-from scieasy.utils.broadcast import BroadcastError, broadcast_apply, iter_axis_slices
+from scistudio.utils.broadcast import BroadcastError, broadcast_apply, iter_axis_slices
 
 
 @dataclass
@@ -189,7 +189,7 @@ class TestMemoryGuard:
 
     def test_warning_for_large_arrays(self) -> None:
         """ResourceWarning triggered when combined size > threshold."""
-        import scieasy.utils.broadcast as bmod
+        import scistudio.utils.broadcast as bmod
 
         original = bmod._MEMORY_WARN_BYTES
         try:

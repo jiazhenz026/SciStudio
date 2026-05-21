@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import asyncio
 
-from scieasy.core.lineage.record import RunRecord
-from scieasy.core.lineage.recorder import LineageRecorder
-from scieasy.core.lineage.store import LineageStore
-from scieasy.engine.events import (
+from scistudio.core.lineage.record import RunRecord
+from scistudio.core.lineage.recorder import LineageRecorder
+from scistudio.core.lineage.store import LineageStore
+from scistudio.engine.events import (
     BLOCK_CANCELLED,
     BLOCK_DONE,
     BLOCK_ERROR,
@@ -223,7 +223,7 @@ class TestLineageRecordRemoved:
     must no longer be importable from the lineage package."""
 
     def test_lineage_record_no_longer_exported(self) -> None:
-        import scieasy.core.lineage as lineage
+        import scistudio.core.lineage as lineage
 
         assert not hasattr(lineage, "LineageRecord"), "Legacy LineageRecord shell must be removed per ADR §3.4"
 
@@ -312,7 +312,7 @@ class TestExtractTypeNameCollection:
     """Hotfix #995: `_extract_type_name` must handle Collection wrappers."""
 
     def test_collection_returns_item_type(self) -> None:
-        from scieasy.core.lineage.recorder import _extract_type_name
+        from scistudio.core.lineage.recorder import _extract_type_name
 
         wire = {
             "kind": "collection",
@@ -323,7 +323,7 @@ class TestExtractTypeNameCollection:
         assert _extract_type_name(wire) == "Image"
 
     def test_collection_falls_back_to_items_metadata_type_chain(self) -> None:
-        from scieasy.core.lineage.recorder import _extract_type_name
+        from scistudio.core.lineage.recorder import _extract_type_name
 
         # item_type missing — recurse into items[0].metadata.type_chain.
         wire = {
@@ -335,13 +335,13 @@ class TestExtractTypeNameCollection:
         assert _extract_type_name(wire) == "Mask"
 
     def test_collection_falls_back_to_generic_when_empty(self) -> None:
-        from scieasy.core.lineage.recorder import _extract_type_name
+        from scistudio.core.lineage.recorder import _extract_type_name
 
         assert _extract_type_name({"kind": "collection"}) == "DataObject"
 
     def test_non_collection_unchanged(self) -> None:
         """Existing root-level type_chain path still works (PR #979 regression)."""
-        from scieasy.core.lineage.recorder import _extract_type_name
+        from scistudio.core.lineage.recorder import _extract_type_name
 
         wire = {"metadata": {"type_chain": ["DataObject", "DataFrame"]}}
         assert _extract_type_name(wire) == "DataFrame"

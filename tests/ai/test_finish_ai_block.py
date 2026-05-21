@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.ai.agent.mcp import _context, tools_workflow
+from scistudio.ai.agent.mcp import _context, tools_workflow
 
 
 def _run(coro):
@@ -25,7 +25,7 @@ def _run(coro):
 @pytest.fixture(autouse=True)
 def _isolate_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Clear AI Block env vars between tests."""
-    monkeypatch.delenv("SCIEASY_AI_BLOCK_RUN_DIR", raising=False)
+    monkeypatch.delenv("SCISTUDIO_AI_BLOCK_RUN_DIR", raising=False)
     saved = _context.get_optional_context()
     _context.set_context(None)
     yield
@@ -48,7 +48,7 @@ def test_finish_ai_block_env_var_pointing_at_missing_dir_falls_through(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Env var pointing at a non-existent dir is ignored — context check still wins."""
-    monkeypatch.setenv("SCIEASY_AI_BLOCK_RUN_DIR", str(tmp_path / "does-not-exist"))
+    monkeypatch.setenv("SCISTUDIO_AI_BLOCK_RUN_DIR", str(tmp_path / "does-not-exist"))
     result = _run(tools_workflow.finish_ai_block({}))
     assert result.code == "not_in_ai_block_context"
 
@@ -59,7 +59,7 @@ def test_finish_ai_block_env_var_pointing_at_missing_dir_falls_through(
 
 
 def test_finish_ai_block_writes_signal_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SCIEASY_AI_BLOCK_RUN_DIR", str(tmp_path))
+    monkeypatch.setenv("SCISTUDIO_AI_BLOCK_RUN_DIR", str(tmp_path))
     result = _run(tools_workflow.finish_ai_block({"metadata": "./out.csv"}))
     assert result.status == "ok"
     signal = Path(result.signal_path)
@@ -71,7 +71,7 @@ def test_finish_ai_block_writes_signal_file(tmp_path: Path, monkeypatch: pytest.
 
 
 def test_finish_ai_block_empty_outputs_allowed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SCIEASY_AI_BLOCK_RUN_DIR", str(tmp_path))
+    monkeypatch.setenv("SCISTUDIO_AI_BLOCK_RUN_DIR", str(tmp_path))
     result = _run(tools_workflow.finish_ai_block({}))
     assert result.status == "ok"
     payload = json.loads(Path(result.signal_path).read_text())
@@ -79,14 +79,14 @@ def test_finish_ai_block_empty_outputs_allowed(tmp_path: Path, monkeypatch: pyte
 
 
 def test_finish_ai_block_none_outputs_allowed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SCIEASY_AI_BLOCK_RUN_DIR", str(tmp_path))
+    monkeypatch.setenv("SCISTUDIO_AI_BLOCK_RUN_DIR", str(tmp_path))
     result = _run(tools_workflow.finish_ai_block(None))
     assert result.status == "ok"
     assert json.loads(Path(result.signal_path).read_text())["outputs"] == {}
 
 
 def test_finish_ai_block_relative_paths_preserved(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SCIEASY_AI_BLOCK_RUN_DIR", str(tmp_path))
+    monkeypatch.setenv("SCISTUDIO_AI_BLOCK_RUN_DIR", str(tmp_path))
     rel = "./results/metadata.csv"
     result = _run(tools_workflow.finish_ai_block({"out": rel}))
     payload = json.loads(Path(result.signal_path).read_text())
@@ -99,7 +99,7 @@ def test_finish_ai_block_relative_paths_preserved(tmp_path: Path, monkeypatch: p
 
 
 def test_finish_ai_block_second_call_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SCIEASY_AI_BLOCK_RUN_DIR", str(tmp_path))
+    monkeypatch.setenv("SCISTUDIO_AI_BLOCK_RUN_DIR", str(tmp_path))
     first = _run(tools_workflow.finish_ai_block({"out": "/tmp/a.csv"}))
     assert first.status == "ok"
     second = _run(tools_workflow.finish_ai_block({"out": "/tmp/b.csv"}))
@@ -113,14 +113,14 @@ def test_finish_ai_block_second_call_rejected(tmp_path: Path, monkeypatch: pytes
 
 
 def test_finish_ai_block_non_string_value_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SCIEASY_AI_BLOCK_RUN_DIR", str(tmp_path))
+    monkeypatch.setenv("SCISTUDIO_AI_BLOCK_RUN_DIR", str(tmp_path))
     result = _run(tools_workflow.finish_ai_block({"out": 42}))  # type: ignore[dict-item]
     assert result.status == "error"
     assert result.code == "invalid_outputs"
 
 
 def test_finish_ai_block_non_dict_outputs_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SCIEASY_AI_BLOCK_RUN_DIR", str(tmp_path))
+    monkeypatch.setenv("SCISTUDIO_AI_BLOCK_RUN_DIR", str(tmp_path))
     result = _run(tools_workflow.finish_ai_block(["not-a-dict"]))  # type: ignore[arg-type]
     assert result.code == "invalid_outputs"
 
@@ -131,7 +131,7 @@ def test_finish_ai_block_non_dict_outputs_rejected(tmp_path: Path, monkeypatch: 
 
 
 def test_finish_ai_block_io_error_returns_envelope(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SCIEASY_AI_BLOCK_RUN_DIR", str(tmp_path))
+    monkeypatch.setenv("SCISTUDIO_AI_BLOCK_RUN_DIR", str(tmp_path))
 
     def boom(*a: object, **kw: object) -> object:
         raise OSError("disk full")
@@ -170,7 +170,7 @@ def test_finish_ai_block_context_attr_takes_priority_over_env(tmp_path: Path, mo
     env_dir = tmp_path / "env"
     ctx_dir.mkdir()
     env_dir.mkdir()
-    monkeypatch.setenv("SCIEASY_AI_BLOCK_RUN_DIR", str(env_dir))
+    monkeypatch.setenv("SCISTUDIO_AI_BLOCK_RUN_DIR", str(env_dir))
 
     class _Ctx:
         block_registry = None  # type: ignore[assignment]
@@ -192,7 +192,7 @@ def test_finish_ai_block_env_var_used_when_context_attr_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Env var fallback fires when MCPContext lacks the attribute."""
-    monkeypatch.setenv("SCIEASY_AI_BLOCK_RUN_DIR", str(tmp_path))
+    monkeypatch.setenv("SCISTUDIO_AI_BLOCK_RUN_DIR", str(tmp_path))
 
     class _Ctx:
         block_registry = None  # type: ignore[assignment]

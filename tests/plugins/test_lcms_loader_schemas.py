@@ -10,17 +10,17 @@ from __future__ import annotations
 import pytest
 
 try:
-    from scieasy_blocks_lcms.io.load_mid_table import LoadMIDTable
-    from scieasy_blocks_lcms.io.load_mzml_files import LoadMzMLFiles
-    from scieasy_blocks_lcms.io.load_peak_table import LoadPeakTable
-    from scieasy_blocks_lcms.io.load_sample_metadata import LoadSampleMetadata
-    from scieasy_blocks_lcms.io.save_table import SaveTable
+    from scistudio_blocks_lcms.io.load_mid_table import LoadMIDTable
+    from scistudio_blocks_lcms.io.load_mzml_files import LoadMzMLFiles
+    from scistudio_blocks_lcms.io.load_peak_table import LoadPeakTable
+    from scistudio_blocks_lcms.io.load_sample_metadata import LoadSampleMetadata
+    from scistudio_blocks_lcms.io.save_table import SaveTable
 
     HAS_LCMS = True
 except ImportError:
     HAS_LCMS = False
 
-pytestmark = pytest.mark.skipif(not HAS_LCMS, reason="scieasy_blocks_lcms not installed")
+pytestmark = pytest.mark.skipif(not HAS_LCMS, reason="scistudio_blocks_lcms not installed")
 
 
 @pytest.mark.parametrize(
@@ -104,6 +104,6 @@ def test_save_table_format_enum_derived_from_supported_extensions() -> None:
 def test_load_mzml_module_does_not_export_detect_format() -> None:
     """#1076: deletion-guard for the private module-level helper that was
     superseded by ``IOBlock._detect_format``."""
-    from scieasy_blocks_lcms.io import load_mzml_files
+    from scistudio_blocks_lcms.io import load_mzml_files
 
     assert not hasattr(load_mzml_files, "_detect_format")

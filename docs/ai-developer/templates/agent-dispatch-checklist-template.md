@@ -81,9 +81,9 @@ language_source: en
 
 | Hook | Command | Bypass label | Status | Evidence |
 |---|---|---|---|---|
-| Pre-commit | `python -m scieasy.qa.governance.gate_record pre-commit --staged` | `<label or N/A>` | `[ ]` | `<output or summary>` |
-| Commit message | `python -m scieasy.qa.governance.gate_record commit-msg <commit-msg-file>` | `<label or N/A>` | `[ ]` | `<output or summary>` |
-| Pre-push | `python -m scieasy.qa.governance.gate_record pre-push` | `<label or N/A>` | `[ ]` | `<output or summary>` |
+| Pre-commit | `python -m scistudio.qa.governance.gate_record pre-commit --staged` | `<label or N/A>` | `[ ]` | `<output or summary>` |
+| Commit message | `python -m scistudio.qa.governance.gate_record commit-msg <commit-msg-file>` | `<label or N/A>` | `[ ]` | `<output or summary>` |
+| Pre-push | `python -m scistudio.qa.governance.gate_record pre-push` | `<label or N/A>` | `[ ]` | `<output or summary>` |
 
 ## 6. Dispatch Matrix
 
@@ -145,7 +145,7 @@ language_source: en
 | Ruff | `ruff check .` | `[ ]` | `<output path or summary>` |
 | Format | `ruff format --check .` | `[ ]` | `<output path or summary>` |
 | Tests | `<targeted pytest command>` | `[ ]` | `<output path or summary>` |
-| Full audit | `python -m scieasy.qa.audit.full_audit ...` | `[ ]` | `<output path>` |
+| Full audit | `python -m scistudio.qa.audit.full_audit ...` | `[ ]` | `<output path>` |
 | Sentrux | `<MCP tool or CLI command>` | `[ ]` | `<evidence or N/A reason>` |
 
 ## 9. Drift Log

@@ -1,4 +1,4 @@
-"""Tests for ``scieasy.core.versioning.git_engine`` (ADR-039).
+"""Tests for ``scistudio.core.versioning.git_engine`` (ADR-039).
 
 Phase D39-2.2b — bodies filled, xfail flipped to passing.
 """
@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.core.versioning.git_engine import GitEngine, GitError
+from scistudio.core.versioning.git_engine import GitEngine, GitError
 
 
 def _init_engine(tmp_path: Path) -> GitEngine:
@@ -30,7 +30,7 @@ def test_init_creates_git_dir(tmp_path: Path) -> None:
 
 
 def test_init_writes_default_gitignore(tmp_path: Path) -> None:
-    from scieasy.core.versioning.gitignore_template import DEFAULT_GITIGNORE
+    from scistudio.core.versioning.gitignore_template import DEFAULT_GITIGNORE
 
     GitEngine(tmp_path).init_repository(tmp_path)
     content = (tmp_path / ".gitignore").read_text(encoding="utf-8")
@@ -123,10 +123,10 @@ def test_commit_first_commit_against_no_head(tmp_path: Path) -> None:
     """Initial commit on a freshly init'd repo (no HEAD yet) succeeds.
 
     Simulates the path where some external tool ran ``git init`` but the
-    user clicks Run before SciEasy's auto-init has had a chance to seed
+    user clicks Run before SciStudio's auto-init has had a chance to seed
     the initial commit.
     """
-    from scieasy.core.versioning.git_binary import GitBinary
+    from scistudio.core.versioning.git_binary import GitBinary
 
     # Bare ``git init`` (no auto-gitignore, no initial commit). We can't
     # use ``GitEngine.init_repository`` here because it already makes the
@@ -156,7 +156,7 @@ def test_commit_no_head_with_empty_index_still_raises(tmp_path: Path) -> None:
     The empty-repo fix must not turn into a false negative on a truly
     empty tree.
     """
-    from scieasy.core.versioning.git_binary import GitBinary
+    from scistudio.core.versioning.git_binary import GitBinary
 
     binary = GitBinary.locate()
     binary.run(["init", "--initial-branch=main", str(tmp_path)], cwd=tmp_path.parent)
@@ -474,7 +474,7 @@ def test_merge_abort_no_op_raises(tmp_path: Path) -> None:
 
 
 def test_write_default_gitignore_writes_template(tmp_path: Path) -> None:
-    from scieasy.core.versioning.gitignore_template import (
+    from scistudio.core.versioning.gitignore_template import (
         DEFAULT_GITIGNORE,
         write_default_gitignore,
     )
@@ -484,7 +484,7 @@ def test_write_default_gitignore_writes_template(tmp_path: Path) -> None:
 
 
 def test_write_default_gitignore_preserves_existing(tmp_path: Path) -> None:
-    from scieasy.core.versioning.gitignore_template import write_default_gitignore
+    from scistudio.core.versioning.gitignore_template import write_default_gitignore
 
     (tmp_path / ".gitignore").write_text("custom\n", encoding="utf-8")
     assert write_default_gitignore(tmp_path) is False
@@ -492,7 +492,7 @@ def test_write_default_gitignore_preserves_existing(tmp_path: Path) -> None:
 
 
 def test_write_default_gitignore_missing_path(tmp_path: Path) -> None:
-    from scieasy.core.versioning.gitignore_template import write_default_gitignore
+    from scistudio.core.versioning.gitignore_template import write_default_gitignore
 
     with pytest.raises(FileNotFoundError):
         write_default_gitignore(tmp_path / "does-not-exist")
@@ -504,7 +504,7 @@ def test_write_default_gitignore_missing_path(tmp_path: Path) -> None:
 
 
 def test_is_dirty_status_helper(tmp_path: Path) -> None:
-    from scieasy.core.versioning.status import is_dirty
+    from scistudio.core.versioning.status import is_dirty
 
     engine = _init_engine(tmp_path)
     assert is_dirty(tmp_path) is False
@@ -515,7 +515,7 @@ def test_is_dirty_status_helper(tmp_path: Path) -> None:
 
 
 def test_modified_files_status_helper(tmp_path: Path) -> None:
-    from scieasy.core.versioning.status import modified_files
+    from scistudio.core.versioning.status import modified_files
 
     _init_engine(tmp_path)
     (tmp_path / "a.txt").write_text("a", encoding="utf-8")
@@ -550,7 +550,7 @@ def test_git_binary_run_pins_utf8_decode() -> None:
     # this test is deterministic under editable-install pollution where the
     # imported module may not match the worktree's source on disk.
     repo_root = Path(__file__).resolve().parents[2]
-    src_path = repo_root / "src" / "scieasy" / "core" / "versioning" / "git_binary.py"
+    src_path = repo_root / "src" / "scistudio" / "core" / "versioning" / "git_binary.py"
     src = src_path.read_text(encoding="utf-8")
     assert 'encoding="utf-8" if text else None' in src, (
         "GitBinary.run must pin encoding='utf-8' for text-mode subprocess "

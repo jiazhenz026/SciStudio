@@ -16,7 +16,7 @@
 
 The four-layer reliability stack (FastMCP migration, project-context injection, multi-skill split, prod-env provisioning + hooks + Codex MCP config) is implemented at the ADR-spec level and tracks the §3.x decision matrix faithfully. CI is green on every merged PR. However, three classes of issue should be fixed before the cascade ships:
 
-1. **PR #1059 (I40b skill content) merged 3 unreconciled Codex findings (1×P1 + 2×P2) — confirmed in this audit by direct code/skill cross-reference.** The P1 (`run_block_tests` example uses `block_path` instead of `type_name`) will cause every agent following the `scieasy-write-block` skill to fail the test-run step. Manager's "A3 will catch them" deferral is exactly the kind of override that overnight-merge protocol forbids — A1 is recording this so the dispatcher can fix in-PR before ship, not after.
+1. **PR #1059 (I40b skill content) merged 3 unreconciled Codex findings (1×P1 + 2×P2) — confirmed in this audit by direct code/skill cross-reference.** The P1 (`run_block_tests` example uses `block_path` instead of `type_name`) will cause every agent following the `scistudio-write-block` skill to fail the test-run step. Manager's "A3 will catch them" deferral is exactly the kind of override that overnight-merge protocol forbids — A1 is recording this so the dispatcher can fix in-PR before ship, not after.
 2. **9 naked `TODO[^(]` matches survive in `src/`** — violates the cascade ship-gate audit signal `grep -rn "TODO[^(]" src/` returns ZERO. Three of those are scaffold-template placeholders (legitimate, see B/F below); six are pre-existing tech debt that pre-date CLAUDE.md §7.6. The cascade should either retag them in this branch or explicitly exempt them.
 3. **`scaffold_block` accepts a `category` argument but ignores it** in the template rendering path. The argument is documented as required (no default) but has no observable effect.
 
@@ -31,9 +31,9 @@ Per-section coverage against the implementation on `track/adr-040`.
 ### §3.1 FastMCP migration
 
 - OK `fastmcp>=3.1,<4` declared in `pyproject.toml`.
-- OK `src/scieasy/ai/agent/mcp/server.py` is FastMCP-backed: module-level `mcp: FastMCP = FastMCP(name="scieasy-mcp", version="0.1.0")` at `server.py:51`. The `MCPServer` lifecycle wrapper (`server.py:67-139`) preserves the public surface (`start`, `stop`, `serve`, `port`, `dispatch`, `_handle_client`) so `api/app.py::lifespan` and `mcp-bridge` don't need to change. ADR §3.1 fully delivered.
+- OK `src/scistudio/ai/agent/mcp/server.py` is FastMCP-backed: module-level `mcp: FastMCP = FastMCP(name="scistudio-mcp", version="0.1.0")` at `server.py:51`. The `MCPServer` lifecycle wrapper (`server.py:67-139`) preserves the public surface (`start`, `stop`, `serve`, `port`, `dispatch`, `_handle_client`) so `api/app.py::lifespan` and `mcp-bridge` don't need to change. ADR §3.1 fully delivered.
 - OK `tools/list` enumerates from `await mcp.list_tools()` (`server.py:208-230`); `inputSchema` is generated from FastMCP `entry.parameters` (NOT the old `additionalProperties: true` stub).
-- OK `_registry.py` deleted. Confirmed via `ls src/scieasy/ai/agent/mcp/` — no `_registry.py` present. No code path imports it.
+- OK `_registry.py` deleted. Confirmed via `ls src/scistudio/ai/agent/mcp/` — no `_registry.py` present. No code path imports it.
 - OK `compose_system_prompt._render_tool_catalog` reads FastMCP `list_tools()` (`system_prompt.py:163-211`). Codex P1 from PR #1053 (event-loop deadlock) addressed with thread-pool executor pattern at `system_prompt.py:171-186`. Properly reconciled.
 - OK `finish_ai_block` ported (`tools_workflow.py:787+`). Returns `FinishAIBlockOK | FinishAIBlockError` Pydantic union per ADR §3.1.
 - **Tool count**: confirmed **26** (5+7+4+10) by `grep -c "^@mcp.tool"` across all 4 tool modules. Matches ADR §2.4 / §5.1.
@@ -68,16 +68,16 @@ Per-section coverage against the implementation on `track/adr-040`.
 
 ### §3.4 Multi-skill split + wheel packaging
 
-- OK `src/scieasy/_skills/scieasy/` exists with all 6 skill subdirectories.
+- OK `src/scistudio/_skills/scistudio/` exists with all 6 skill subdirectories.
 - OK `_load_skill_md` switched to `importlib.resources` PRIMARY with legacy walk-up fallback (TODO(#1012)-tagged).
-- OK `pyproject.toml [tool.setuptools.package-data]` includes `_skills/scieasy/**/*.md` and `agent_provisioning/templates/**/*`.
+- OK `pyproject.toml [tool.setuptools.package-data]` includes `_skills/scistudio/**/*.md` and `agent_provisioning/templates/**/*`.
 - OK Each task skill has YAML frontmatter triggering progressive disclosure.
-- OK `scieasy-write-block` opens with the #875 block-reuse mandate verbatim.
+- OK `scistudio-write-block` opens with the #875 block-reuse mandate verbatim.
 - OK `tests/packaging/test_wheel_skills.py` flipped from skip to passing.
 
 ### §3.5 Prod-env CLAUDE.md + AGENTS.md provisioning
 
-- OK Template at `src/scieasy/agent_provisioning/templates/claude_agents_md.md` (~60 LOC, content authored).
+- OK Template at `src/scistudio/agent_provisioning/templates/claude_agents_md.md` (~60 LOC, content authored).
 - OK `claude_agents_md.py::write_claude_agents_md` writes both files verbatim from the same template (identical content per ADR §3.5).
 - OK `force=False` semantics preserve user customizations.
 
@@ -91,7 +91,7 @@ Per-section coverage against the implementation on `track/adr-040`.
 ### §3.7 Codex MCP provisioning
 
 - OK `codex_config.py::write_codex_config` writes `<project>/.codex/config.toml` via shared `install._render_codex_block`.
-- OK Output byte-identical to `scieasy install --target codex --scope project`.
+- OK Output byte-identical to `scistudio install --target codex --scope project`.
 - WARN **Minor (P3)**: the template file `templates/codex_config.toml` is referenced by comments but **never actually loaded** at runtime. Documentation-only.
 
 ### §3.8 Lifecycle auto-installation
@@ -99,15 +99,15 @@ Per-section coverage against the implementation on `track/adr-040`.
 - OK `install_project_agent_assets(project_dir, force=False) -> ProvisionResult` defined at `_orchestrate.py:64-149`.
 - OK Wired at all 3 entry points: `ApiRuntime.create_project` (`api/runtime.py:612-631`), `ApiRuntime.open_project` (`api/runtime.py:725-743`), `cli/main.py::init` (lines 182-199).
 - OK Degraded-mode contract per ADR §7 "non-fatal".
-- OK `SCIEASY_PROVISION_VERSION = "0.1.0"` + marker file.
+- OK `SCISTUDIO_PROVISION_VERSION = "0.1.0"` + marker file.
 - WARN **Edge case (P2)**: upgrade flow NOT implemented — TODO(#1011)-tagged. Today: stale marker means no signal. Recommend `logger.info` on version drift.
 
 ### §3.9 Codex skill cross-install
 
-- OK `_install_skill` cross-installs to both `.claude/skills/scieasy/` AND `.agents/skills/scieasy/` per scope.
+- OK `_install_skill` cross-installs to both `.claude/skills/scistudio/` AND `.agents/skills/scistudio/` per scope.
 - OK `_remove_skill` symmetric across both trees.
 - OK `_install_codex` supports `--scope project`; the "force user-scope for codex" fallback removed.
-- WARN **Codex P2 on PR #1049 NOT addressed**: `_find_skill_source` walk-up at `install.py:461-469` still looks at `parent / "skills" / MCP_SERVER_NAME` only — NOT at relocated `parent / "src" / "scieasy" / "_skills" / "scieasy"`.
+- WARN **Codex P2 on PR #1049 NOT addressed**: `_find_skill_source` walk-up at `install.py:461-469` still looks at `parent / "skills" / MCP_SERVER_NAME` only — NOT at relocated `parent / "src" / "scistudio" / "_skills" / "scistudio"`.
 
 ### §3.10 Out of scope (explicit)
 
@@ -161,12 +161,12 @@ All return correctly-typed `BaseModel`. `search_docs` sort-by-score (Codex P2 PR
 
 ## C. Hook script edge cases
 
-### `hook_deny_scieasy_cli.py` (PreToolUse / Bash)
+### `hook_deny_scistudio_cli.py` (PreToolUse / Bash)
 
-- Regex: `r"^\s*(?:\S*/)?scieasy(?:\s|$)"`.
-- OK Catches: `scieasy run`, `  scieasy run`, `/usr/local/bin/scieasy run`.
-- BAD **P3 bypass**: `C:\Program Files\scieasy.EXE run` — `\S*/` doesn't match backslashes. Windows-path-prefixed invocation slips through. Low real-world impact (Claude Code uses POSIX paths in Bash on Windows).
-- BAD **P2 bypass**: `env SCIEASY_DEV=1 scieasy run` and `cmd1 && scieasy run` — `^\s*` anchors at line start; preamble of `env ...` or `cmd1 && ` consumes positions 0-N, and `scieasy` no longer at start. Fix: regex `r"(?:^|\s|;|&|\|)\s*(?:\S*/)?scieasy(?:\s|$)"`.
+- Regex: `r"^\s*(?:\S*/)?scistudio(?:\s|$)"`.
+- OK Catches: `scistudio run`, `  scistudio run`, `/usr/local/bin/scistudio run`.
+- BAD **P3 bypass**: `C:\Program Files\scistudio.EXE run` — `\S*/` doesn't match backslashes. Windows-path-prefixed invocation slips through. Low real-world impact (Claude Code uses POSIX paths in Bash on Windows).
+- BAD **P2 bypass**: `env SCISTUDIO_DEV=1 scistudio run` and `cmd1 && scistudio run` — `^\s*` anchors at line start; preamble of `env ...` or `cmd1 && ` consumes positions 0-N, and `scistudio` no longer at start. Fix: regex `r"(?:^|\s|;|&|\|)\s*(?:\S*/)?scistudio(?:\s|$)"`.
 - OK Exit code semantics correct (exit 2 on match).
 
 ### `hook_protect_workflow_yaml.py` (PreToolUse / Edit|Write|MultiEdit)
@@ -183,7 +183,7 @@ All return correctly-typed `BaseModel`. `search_docs` sort-by-score (Codex P2 PR
 - OK Session-marker path with `session_id` sanitization (line 99).
 - OK Fail-closed: no session_id / no CLAUDE_PROJECT_DIR → marker `None` → block.
 - OK No race (PreToolUse and PostToolUse serial in agent turn).
-- WARN **P3**: cleanup of stale `.scieasy/.session-state/<old_session_id>/` directories on `open_project` NOT implemented. ADR §3.6 mentioned 7-day prune; practical impact negligible (empty marker files).
+- WARN **P3**: cleanup of stale `.scistudio/.session-state/<old_session_id>/` directories on `open_project` NOT implemented. ADR §3.6 mentioned 7-day prune; practical impact negligible (empty marker files).
 
 ### `hook_mark_list_blocks_called.py` (PostToolUse / list_blocks)
 
@@ -201,7 +201,7 @@ All return correctly-typed `BaseModel`. `search_docs` sort-by-score (Codex P2 PR
 - OK AST parse with SyntaxError tolerance.
 - OK Detects `PortSpec(...)` and `<module>.PortSpec(...)` call forms.
 - OK Detects `type="DataObject"` (Constant) and bare `type=DataObject` (Name).
-- BAD **P2**: misses `PortSpec(type=core.DataObject)` (`ast.Attribute` form). Real patterns: `from scieasy.core.types import DataObject; ...`. Fix: extend detection to `ast.Attribute` where `attr == "DataObject"`.
+- BAD **P2**: misses `PortSpec(type=core.DataObject)` (`ast.Attribute` form). Real patterns: `from scistudio.core.types import DataObject; ...`. Fix: extend detection to `ast.Attribute` where `attr == "DataObject"`.
 - BAD **P3**: aliased import `from ... import DataObject as DO` escapes. Bad-faith author bypass; not a real-world agent concern.
 - OK `TODO(#1013)` for live TypeRegistry lookup properly tagged.
 
@@ -223,7 +223,7 @@ Verified by reading `system_prompt.py:213-321`:
 | BlockRegistry empty | Skip "Installed block plugins" line | OK |
 | `project.yaml` missing | Falls back to `project_dir.name` | OK |
 | `project.yaml` malformed | Caught at line 252 → dir-name fallback | OK |
-| `project_dir = None` | Returns "No active SciEasy project" message | OK |
+| `project_dir = None` | Returns "No active SciStudio project" message | OK |
 | Permission denied on workflows/ | OSError caught → 0 workflows | OK |
 
 **No P1/P2 findings.** Only cosmetic `_format_age` zero-handling note (P3).
@@ -299,17 +299,17 @@ Manager merged PR #1059 with rationale "A3 will catch them" — that defers fix 
 
 **Confirmed by direct code/skill comparison**:
 
-1. **P1 — `scieasy-write-block/SKILL.md:264` teaches wrong arg name `block_path`**:
-   - Skill says: `mcp__scieasy__run_block_tests block_path=blocks/threshold_simple.py`
+1. **P1 — `scistudio-write-block/SKILL.md:264` teaches wrong arg name `block_path`**:
+   - Skill says: `mcp__scistudio__run_block_tests block_path=blocks/threshold_simple.py`
    - Code requires (`tools_authoring.py:431`): `async def run_block_tests(type_name: str = Field(...))`
    - **Impact**: every agent following this skill will call with `block_path=...`. FastMCP's strict `inputSchema` will reject — `unexpected keyword argument 'block_path'` or `type_name` missing. The *exact* failure mode the §3.2 + skill-as-canonical-teaching paradigm was meant to prevent.
 
-2. **P2 — `scieasy-build-workflow/SKILL.md:262` documents stale `validate_workflow` envelope**:
+2. **P2 — `scistudio-build-workflow/SKILL.md:262` documents stale `validate_workflow` envelope**:
    - Skill says: `validate_workflow returns {ok: bool, errors: list[ValidationError], next_step: str}`
    - Code returns (`tools_workflow.py:251`): `ValidateWorkflowResult(valid: bool, errors: list[str])` — no `ok`, no `next_step`, errors are plain strings.
    - **Impact**: agent references `result.ok` (doesn't exist) and `errors[i].message` (each is plain str). Silent mis-parse.
 
-3. **P2 — `scieasy-debug-run/SKILL.md:38-55` documents stale `get_run_status` envelope**:
+3. **P2 — `scistudio-debug-run/SKILL.md:38-55` documents stale `get_run_status` envelope**:
    - Skill says (flat): `{state, block_states, started_at, finished_at, error: str}`
    - Code returns (`tools_workflow.py:300`): `GetRunStatusResult(run_id, state, progress: dict, errors: list[BlockErrorEntry])` — block_states nested under `progress`, errors is a list of tracebacks (plural).
    - **Impact**: agent reads `result.block_states` (KeyError/AttributeError). Won't see `result.progress["block_states"]`. Won't see the `errors: list[BlockErrorEntry]` tracebacks. Diagnostic flow silently misses real data.
@@ -342,15 +342,15 @@ Cross-checked against `docs/planning/adr-040-checklist.md` "Acceptance criteria"
 
 ### P1 (3 — block ship)
 
-- **P1.1**: `scieasy-write-block/SKILL.md:264` teaches `block_path=...` for `run_block_tests`; actual arg is `type_name`. Affected: `src/scieasy/_skills/scieasy/scieasy-write-block/SKILL.md`. Fix: replace argument name in example + surrounding prose.
-- **P1.2**: `scieasy-build-workflow/SKILL.md:262` documents stale `validate_workflow` envelope `{ok, errors[ValidationError], next_step}`; actual is `{valid: bool, errors: list[str]}`. Affected: `src/scieasy/_skills/scieasy/scieasy-build-workflow/SKILL.md`.
-- **P1.3**: `scieasy-debug-run/SKILL.md:38-55` documents stale `get_run_status` envelope (flat block_states, started_at/finished_at, error: str); actual has `progress.block_states` nested + `errors: list[BlockErrorEntry]`. Affected: `src/scieasy/_skills/scieasy/scieasy-debug-run/SKILL.md`.
+- **P1.1**: `scistudio-write-block/SKILL.md:264` teaches `block_path=...` for `run_block_tests`; actual arg is `type_name`. Affected: `src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md`. Fix: replace argument name in example + surrounding prose.
+- **P1.2**: `scistudio-build-workflow/SKILL.md:262` documents stale `validate_workflow` envelope `{ok, errors[ValidationError], next_step}`; actual is `{valid: bool, errors: list[str]}`. Affected: `src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md`.
+- **P1.3**: `scistudio-debug-run/SKILL.md:38-55` documents stale `get_run_status` envelope (flat block_states, started_at/finished_at, error: str); actual has `progress.block_states` nested + `errors: list[BlockErrorEntry]`. Affected: `src/scistudio/_skills/scistudio/scistudio-debug-run/SKILL.md`.
 
 ### P2 (6 — should fix before ship)
 
-- **P2.1**: `scaffold_block.category` arg accepted but unused. `src/scieasy/ai/agent/mcp/tools_authoring.py:299-401`. Fix: route into template selection or drop.
+- **P2.1**: `scaffold_block.category` arg accepted but unused. `src/scistudio/ai/agent/mcp/tools_authoring.py:299-401`. Fix: route into template selection or drop.
 - **P2.2**: `hook_protect_workflow_yaml.py` regex unanchored → false positives on `*workflows/*`. Fix: `r"(?:^|/)workflows/.*\.ya?ml$"`.
-- **P2.3**: `hook_deny_scieasy_cli.py` misses `env VAR=v scieasy ...` and `cmd && scieasy ...`. Fix: regex `r"(?:^|\s|;|&|\|)\s*..."` or shlex-parse argv.
+- **P2.3**: `hook_deny_scistudio_cli.py` misses `env VAR=v scistudio ...` and `cmd && scistudio ...`. Fix: regex `r"(?:^|\s|;|&|\|)\s*..."` or shlex-parse argv.
 - **P2.4**: `hook_enforce_concrete_port_types.py` misses `PortSpec(type=core.DataObject)` (Attribute). Fix: extend detection to `ast.Attribute attr=="DataObject"`.
 - **P2.5**: 6 pre-existing naked TODOs in `src/`. Retag OR document exemption in checklist.
 - **P2.6**: PR #1049 Codex P2 (`_find_skill_source` walk-up missing relocated path). 2-line `install.py` fix.
@@ -361,10 +361,10 @@ Cross-checked against `docs/planning/adr-040-checklist.md` "Acceptance criteria"
 - **P3.2**: `scaffold_block` doesn't pass explicit `next_step=` in return (relies on default; defensive recommendation).
 - **P3.3**: 3 scaffold-template TODOs (legitimate user-template content; reword or exclude from grep).
 - **P3.4**: PR #1043 merged with red CI (docs-only; manager discretion).
-- **P3.5**: No cleanup of stale `.scieasy/.session-state/<old>/` dirs (negligible disk impact).
+- **P3.5**: No cleanup of stale `.scistudio/.session-state/<old>/` dirs (negligible disk impact).
 - **P3.6**: `templates/codex_config.toml` is documentation-only — never loaded at runtime.
 - **P3.7**: Checklist drift — many `[ ]` boxes unticked despite merges.
-- **P3.8**: Windows-path `C:\...\scieasy.EXE` not caught by `deny_scieasy_cli` regex (low real-world impact).
+- **P3.8**: Windows-path `C:\...\scistudio.EXE` not caught by `deny_scistudio_cli` regex (low real-world impact).
 
 ---
 

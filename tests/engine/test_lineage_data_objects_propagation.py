@@ -1,8 +1,8 @@
 """Regression: scheduler run populates ``data_objects`` + ``block_io`` rows.
 
 ADR-038 §6 Phase 2 (Phase D38-2.3) acceptance test for #929: a real
-:class:`~scieasy.engine.scheduler.DAGScheduler` run with a one-block
-workflow and a wired :class:`~scieasy.core.lineage.LineageRecorder` must
+:class:`~scistudio.engine.scheduler.DAGScheduler` run with a one-block
+workflow and a wired :class:`~scistudio.core.lineage.LineageRecorder` must
 populate
 
 * at least one row in ``data_objects`` (the produced object identity), and
@@ -25,18 +25,18 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from scieasy.core.lineage.record import RunRecord
-from scieasy.core.lineage.recorder import LineageRecorder
-from scieasy.core.lineage.store import LineageStore
-from scieasy.engine.events import EventBus
-from scieasy.engine.scheduler import DAGScheduler
-from scieasy.workflow.definition import NodeDef, WorkflowDefinition
+from scistudio.core.lineage.record import RunRecord
+from scistudio.core.lineage.recorder import LineageRecorder
+from scistudio.core.lineage.store import LineageStore
+from scistudio.engine.events import EventBus
+from scistudio.engine.scheduler import DAGScheduler
+from scistudio.workflow.definition import NodeDef, WorkflowDefinition
 
 
 def _wire_dict(object_id: str, type_chain: list[str] | None = None) -> dict[str, Any]:
     """Build a wire-format dict that mirrors the worker subprocess envelope.
 
-    Per ``scieasy.core.types.base.TypeSignature``, ``type_chain`` is ordered
+    Per ``scistudio.core.types.base.TypeSignature``, ``type_chain`` is ordered
     from most general to most specific (e.g. ``["DataObject", "Array",
     "FluorImage"]``). The leaf — the concrete type lineage queries care
     about — is the LAST element. Phase 3.5 Codex P1 reconcile on PR #979

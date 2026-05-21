@@ -7,12 +7,12 @@ last_updated: 2026-05-19
 governed_by:
   - ADR-042
   - ADR-043
-summary: "Packaging and distribution guide for SciEasy block packages, including published IO capability requirements."
+summary: "Packaging and distribution guide for SciStudio block packages, including published IO capability requirements."
 ---
 
 # Publishing
 
-This document covers how to package and distribute SciEasy blocks as
+This document covers how to package and distribute SciStudio blocks as
 installable Python packages (Tier 2 distribution).
 
 ---
@@ -36,7 +36,7 @@ installable Python packages (Tier 2 distribution).
 
 ### Tier 1: Drop-in files
 
-Place `.py` files in `~/.scieasy/blocks/` or a project's `blocks/`
+Place `.py` files in `~/.scistudio/blocks/` or a project's `blocks/`
 directory. No packaging needed. Good for personal blocks or prototyping.
 
 ### Tier 2: Installable packages
@@ -83,23 +83,23 @@ requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [project]
-name = "scieasy-blocks-mypackage"
+name = "scistudio-blocks-mypackage"
 version = "0.1.0"
-description = "My custom blocks for SciEasy."
+description = "My custom blocks for SciStudio."
 readme = "README.md"
 authors = [
     {name = "Your Name"},
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "scieasy>=0.2.1",
+    "scistudio>=0.2.1",
     "numpy>=1.24",
 ]
 
-[project.entry-points."scieasy.blocks"]
+[project.entry-points."scistudio.blocks"]
 mypackage = "my_blocks:get_block_package"
 
-[project.entry-points."scieasy.types"]
+[project.entry-points."scistudio.types"]
 mypackage = "my_blocks:get_types"
 
 [tool.hatch.build.targets.wheel]
@@ -110,9 +110,9 @@ packages = ["src/my_blocks"]
 
 ## Entry-Points
 
-SciEasy discovers blocks and types via two entry-point groups:
+SciStudio discovers blocks and types via two entry-point groups:
 
-### `scieasy.blocks`
+### `scistudio.blocks`
 
 The block registry scans this group at startup. Each entry-point must
 point to a callable that returns either:
@@ -121,17 +121,17 @@ point to a callable that returns either:
 - `list[type[Block]]` -- backward-compatible format.
 
 ```toml
-[project.entry-points."scieasy.blocks"]
+[project.entry-points."scistudio.blocks"]
 mypackage = "my_blocks:get_block_package"
 ```
 
-### `scieasy.types`
+### `scistudio.types`
 
 The type registry scans this group at startup. Each entry-point must
 point to a callable that returns `list[type]`:
 
 ```toml
-[project.entry-points."scieasy.types"]
+[project.entry-points."scistudio.types"]
 mypackage = "my_blocks:get_types"
 ```
 
@@ -143,10 +143,10 @@ mypackage = "my_blocks:get_types"
 registry:
 
 ```python
-from scieasy.blocks.base.package_info import PackageInfo
+from scistudio.blocks.base.package_info import PackageInfo
 
 info = PackageInfo(
-    name="scieasy-blocks-mypackage",
+    name="scistudio-blocks-mypackage",
     description="My custom processing blocks.",
     author="Your Name",
     version="0.1.0",
@@ -173,7 +173,7 @@ Your package's `__init__.py` should export three callables:
 
 from __future__ import annotations
 
-from scieasy.blocks.base.package_info import PackageInfo
+from scistudio.blocks.base.package_info import PackageInfo
 from my_blocks.blocks.my_process import MyProcessBlock
 from my_blocks.blocks.my_loader import MyLoader
 from my_blocks.types.my_types import MyImage
@@ -186,7 +186,7 @@ _BLOCKS: tuple[type, ...] = (MyProcessBlock, MyLoader)
 
 def get_package_info() -> PackageInfo:
     return PackageInfo(
-        name="scieasy-blocks-mypackage",
+        name="scistudio-blocks-mypackage",
         description="My custom blocks.",
         author="Your Name",
         version=__version__,
@@ -194,7 +194,7 @@ def get_package_info() -> PackageInfo:
 
 
 def get_types() -> list[type]:
-    """Return exported type classes for the scieasy.types entry-point."""
+    """Return exported type classes for the scistudio.types entry-point."""
     return list(_TYPES)
 
 
@@ -204,7 +204,7 @@ def get_blocks() -> list[type]:
 
 
 def get_block_package() -> tuple[PackageInfo, list[type]]:
-    """Return package metadata and blocks for scieasy.blocks entry-point."""
+    """Return package metadata and blocks for scistudio.blocks entry-point."""
     return get_package_info(), get_blocks()
 ```
 
@@ -229,8 +229,8 @@ Use explicit `FormatCapability` records when a package:
 ```python
 from typing import ClassVar
 
-from scieasy.blocks.io.capabilities import FormatCapability, MetadataFidelity
-from scieasy.blocks.io.io_block import IOBlock
+from scistudio.blocks.io.capabilities import FormatCapability, MetadataFidelity
+from scistudio.blocks.io.io_block import IOBlock
 from my_blocks.types import MyImage
 
 
@@ -288,8 +288,8 @@ published packages is tracked by #1204.
 Run the full validation before publishing:
 
 ```python
-from scieasy.testing import BlockTestHarness
-from scieasy.blocks.base.block import Block
+from scistudio.testing import BlockTestHarness
+from scistudio.blocks.base.block import Block
 
 def test_entry_point_validates():
     from my_blocks import get_block_package
@@ -348,7 +348,7 @@ def setup(self, config):
     except ImportError as exc:
         raise ImportError(
             "This block requires the [gpu] extra: "
-            "pip install scieasy-blocks-mypackage[gpu]"
+            "pip install scistudio-blocks-mypackage[gpu]"
         ) from exc
     return models.Cellpose(model_type=config.get("model"))
 ```

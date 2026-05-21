@@ -5,16 +5,16 @@ from typing import ClassVar
 
 import pytest
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.io.capabilities import FormatCapability
-from scieasy.blocks.io.io_block import IOBlock
-from scieasy.blocks.registry import AmbiguousCapabilityError, BlockRegistry, _spec_from_class
-from scieasy.core.types.artifact import Artifact
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.text import Text
-from scieasy.engine.materialisation import materialise_to_file, reconstruct_from_file
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.io.capabilities import FormatCapability
+from scistudio.blocks.io.io_block import IOBlock
+from scistudio.blocks.registry import AmbiguousCapabilityError, BlockRegistry, _spec_from_class
+from scistudio.core.types.artifact import Artifact
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.text import Text
+from scistudio.engine.materialisation import materialise_to_file, reconstruct_from_file
 
 
 def _capability(

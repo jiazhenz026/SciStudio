@@ -32,7 +32,7 @@
   ],
   "check_results": [
     {
-      "command_or_tool": "ruff check src/scieasy/qa/audit/_util.py tests/qa/test_audit_frontmatter_lint.py",
+      "command_or_tool": "ruff check src/scistudio/qa/audit/_util.py tests/qa/test_audit_frontmatter_lint.py",
       "exit_code": 0,
       "name": "ruff",
       "output_path": "All checks passed!",
@@ -41,7 +41,7 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "ruff format --check src/scieasy/qa/audit/_util.py tests/qa/test_audit_frontmatter_lint.py",
+      "command_or_tool": "ruff format --check src/scistudio/qa/audit/_util.py tests/qa/test_audit_frontmatter_lint.py",
       "exit_code": 0,
       "name": "format",
       "output_path": "2 files already formatted",
@@ -59,7 +59,7 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "PYTHONPATH=src python -m scieasy.qa.audit.full_audit --format json",
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --format json",
       "exit_code": 1,
       "name": "full_audit",
       "output_path": "Status unchanged at fail (pre-existing drift in adr-042-consistency-tools.md + 19 ADRs/specs without frontmatter, tracked in #1287). Targeted item-B findings dropped from 2 to 0: doc_drift 37 -> 36, closure 22 -> 21. All other child counts unchanged on the same SHA.",
@@ -89,7 +89,7 @@
   },
   "full_audit": {
     "blocks_merge": false,
-    "command": "PYTHONPATH=src python -m scieasy.qa.audit.full_audit --format json --output docs/audit/full-audit-latest.json",
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --format json --output docs/audit/full-audit-latest.json",
     "exit_code": 0,
     "known_debt": [
       "Pre-existing repo-wide debt tracked under #1287: 19 ADR/spec files without ADR-042 frontmatter trigger frontmatter_lint (19) + doc_drift (36) + closure (21). signature_drift (98) and architecture_drift (135) are pre-existing facts vs adr-042-consistency-tools.md drift, tracked separately. This PR removes the 2 addendum1-specific findings (1 in doc_drift, 1 in closure) and touches no other surface."
@@ -105,12 +105,12 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1288,
-      "url": "https://github.com/zjzcpj/SciEasy/issues/1288"
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1288"
     }
   ],
   "owner_directive": "Per #1287 item B: route ADR addendum files through ADRAddendumFrontmatter in _util loader; investigation first, then 5-10 line fix + unit test.",
   "planned_files": [
-    "src/scieasy/qa/audit/_util.py",
+    "src/scistudio/qa/audit/_util.py",
     "tests/qa/test_audit_frontmatter_lint.py"
   ],
   "pull_request": {
@@ -118,7 +118,7 @@
       1288
     ],
     "number": null,
-    "url": "https://github.com/zjzcpj/SciEasy/pull/1290"
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1290"
   },
   "record_path": ".workflow/records/1288-adr-addendum-util-loader.json",
   "required_checks": [
@@ -128,7 +128,7 @@
   "scope": {
     "exclude": [],
     "include": [
-      "src/scieasy/qa/audit/_util.py",
+      "src/scistudio/qa/audit/_util.py",
       "tests/qa/test_audit_frontmatter_lint.py"
     ]
   },

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-from scieasy.engine.events import EventBus
-from scieasy.engine.scheduler import DAGScheduler
-from scieasy.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
+from scistudio.engine.events import EventBus
+from scistudio.engine.scheduler import DAGScheduler
+from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
 
 
 def _make_scheduler(workflow: WorkflowDefinition) -> DAGScheduler:

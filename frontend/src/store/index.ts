@@ -57,7 +57,7 @@ export const useAppStore = create<AppStore>()(
       ...createGitSlice(...args),
     }),
     {
-      name: "scieasy-studio-ui",
+      name: "scistudio-studio-ui",
       partialize: (state) => ({
         activeBottomTab: state.activeBottomTab,
         paletteCollapsed: state.paletteCollapsed,

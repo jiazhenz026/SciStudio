@@ -36,7 +36,7 @@ This deprecated spec is retained as historical reference. Its original body is p
 
 # AppBlock Variadic Ports + Extension-Based Output Binning
 
-**Issue**: [#680](https://github.com/zjzcpj/SciEasy/issues/680)
+**Issue**: [#680](https://github.com/zjzcpj/SciStudio/issues/680)
 **Status**: Implemented
 **Builds on**: ADR-029 (variadic port editor), ADR-030 (config_schema MRO merge)
 **Related (out of scope)**: #679 (per-app `output_dir` injection)
@@ -97,7 +97,7 @@ materialise the data.
 
 ## Validator: duplicate-extension check
 
-`scieasy.workflow.validator.validate_workflow` adds **Check 8**:
+`scistudio.workflow.validator.validate_workflow` adds **Check 8**:
 
 > For every node whose `BlockSpec.variadic_outputs` is `True`, scan
 > `node.config["output_ports"]` and reject configurations where two
@@ -148,4 +148,4 @@ Concrete AppBlock subclasses (FijiBlock, NapariBlock, ElMAVENBlock):
 | Binner | `tests/blocks/test_app_block.py::TestAppBlockExtensionBinner` |
 | Workflow validator | `tests/workflow/test_validator.py::TestValidatorAppBlockDuplicateExtensions` |
 | Frontend editor | `frontend/src/components/PortEditorTable.test.tsx` |
-| End-to-end FijiBlock | `packages/scieasy-blocks-imaging/tests/test_interactive_blocks.py::test_fiji_block_routes_outputs_into_user_declared_ports_by_extension` |
+| End-to-end FijiBlock | `packages/scistudio-blocks-imaging/tests/test_interactive_blocks.py::test_fiji_block_routes_outputs_into_user_declared_ports_by_extension` |

@@ -16,29 +16,29 @@ tracking_issue: null
 is_code_implementation: true
 governs:
   modules:
-    - scieasy.qa.governance
-    - scieasy.qa.governance.gate_record
-    - scieasy.qa.governance.sentrux_gate
-    - scieasy.qa.governance.human_bypass_guard
-    - scieasy.qa.governance.core_change_guard
-    - scieasy.qa.governance.pr_merge_guard
-    - scieasy.qa.schemas.frontmatter
-    - scieasy.qa.audit.architecture_drift
+    - scistudio.qa.governance
+    - scistudio.qa.governance.gate_record
+    - scistudio.qa.governance.sentrux_gate
+    - scistudio.qa.governance.human_bypass_guard
+    - scistudio.qa.governance.core_change_guard
+    - scistudio.qa.governance.pr_merge_guard
+    - scistudio.qa.schemas.frontmatter
+    - scistudio.qa.audit.architecture_drift
   contracts:
-    - scieasy.qa.schemas.frontmatter.ArchitectureFrontmatter
-    - scieasy.qa.audit.architecture_drift.check
-    - scieasy.qa.governance.gate_record.GateRecord
-    - scieasy.qa.governance.gate_record.CheckEvidence
-    - scieasy.qa.governance.gate_record.SentruxEvidence
-    - scieasy.qa.governance.gate_record.FullAuditEvidence
-    - scieasy.qa.governance.gate_record.validate_gate_record
-    - scieasy.qa.governance.gate_record.check_pre_commit
-    - scieasy.qa.governance.gate_record.check_commit_msg
-    - scieasy.qa.governance.gate_record.check_pr
-    - scieasy.qa.governance.sentrux_gate.verify_free_tier_claims
-    - scieasy.qa.governance.human_bypass_guard.check
-    - scieasy.qa.governance.core_change_guard.check
-    - scieasy.qa.governance.pr_merge_guard.check
+    - scistudio.qa.schemas.frontmatter.ArchitectureFrontmatter
+    - scistudio.qa.audit.architecture_drift.check
+    - scistudio.qa.governance.gate_record.GateRecord
+    - scistudio.qa.governance.gate_record.CheckEvidence
+    - scistudio.qa.governance.gate_record.SentruxEvidence
+    - scistudio.qa.governance.gate_record.FullAuditEvidence
+    - scistudio.qa.governance.gate_record.validate_gate_record
+    - scistudio.qa.governance.gate_record.check_pre_commit
+    - scistudio.qa.governance.gate_record.check_commit_msg
+    - scistudio.qa.governance.gate_record.check_pr
+    - scistudio.qa.governance.sentrux_gate.verify_free_tier_claims
+    - scistudio.qa.governance.human_bypass_guard.check
+    - scistudio.qa.governance.core_change_guard.check
+    - scistudio.qa.governance.pr_merge_guard.check
   entry_points: []
   files:
     - docs/adr/ADR-042-addendum1.md
@@ -50,7 +50,7 @@ governs:
     - .github/workflows/**
     - .pre-commit-config.yaml
     - scripts/hooks/**
-    - src/scieasy/qa/**
+    - src/scistudio/qa/**
     - tests/qa/**
   excludes: []
 
@@ -99,7 +99,7 @@ governance:
 | D12. Architecture truthfulness audit | Validate architecture-document code blocks and referenced function/class names against repository facts | Full audit fails architecture drift unless an example is explicitly non-normative | Section 5 |
 
 This addendum supersedes ADR-042 Section 7.2 only where that section defines
-gate state as local-only state under `.git/scieasy/gates/`. Local gate state may
+gate state as local-only state under `.git/scistudio/gates/`. Local gate state may
 still exist as a pre-commit helper, but it is not sufficient for delivery.
 
 ### 1.1 Problems Addressed
@@ -180,7 +180,7 @@ AI agents must use the repository-owned gate-record CLI to create and update
 the committed gate record. The command surface is:
 
 ```bash
-python -m scieasy.qa.governance.gate_record start \
+python -m scistudio.qa.governance.gate_record start \
   --task-kind feature|bugfix|hotfix|refactor|docs|maintenance|manager \
   --issue <number> \
   --slug <task-slug> \
@@ -190,7 +190,7 @@ python -m scieasy.qa.governance.gate_record start \
   --exclude <path-or-glob> \
   --record .workflow/records/<issue>-<task-slug>.json
 
-python -m scieasy.qa.governance.gate_record plan \
+python -m scistudio.qa.governance.gate_record plan \
   --record .workflow/records/<issue>-<task-slug>.json \
   --files <path-or-glob> \
   --tests <changed-test-path> \
@@ -200,17 +200,17 @@ python -m scieasy.qa.governance.gate_record plan \
   --checks full_audit \
   --checks sentrux
 
-python -m scieasy.qa.governance.gate_record amend \
+python -m scistudio.qa.governance.gate_record amend \
   --record .workflow/records/<issue>-<task-slug>.json \
   --reason "<why scope changed>" \
   --include <path-or-glob>
 
-python -m scieasy.qa.governance.gate_record docs \
+python -m scistudio.qa.governance.gate_record docs \
   --record .workflow/records/<issue>-<task-slug>.json \
   --updated <path> \
   --na <doc-class>:<reason>
 
-python -m scieasy.qa.governance.gate_record check \
+python -m scistudio.qa.governance.gate_record check \
   --record .workflow/records/<issue>-<task-slug>.json \
   --name <check-name> \
   --command "<command or MCP tool id>" \
@@ -218,30 +218,30 @@ python -m scieasy.qa.governance.gate_record check \
   --exit-code <code> \
   --output <path-or-summary>
 
-python -m scieasy.qa.governance.gate_record sentrux \
+python -m scistudio.qa.governance.gate_record sentrux \
   --record .workflow/records/<issue>-<task-slug>.json \
   --mode free-tier \
   --status pass|fail|skipped \
   --evidence <json-path-or-summary>
 
-python -m scieasy.qa.governance.gate_record finalize \
+python -m scistudio.qa.governance.gate_record finalize \
   --record .workflow/records/<issue>-<task-slug>.json \
   --commit <sha> \
   --pr <url> \
   --closes "#<issue>"
 
-python -m scieasy.qa.governance.gate_record pre-commit --staged
-python -m scieasy.qa.governance.gate_record pre-commit \
+python -m scistudio.qa.governance.gate_record pre-commit --staged
+python -m scistudio.qa.governance.gate_record pre-commit \
   --staged \
   --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
-python -m scieasy.qa.governance.gate_record commit-msg <commit-msg-file> \
+python -m scistudio.qa.governance.gate_record commit-msg <commit-msg-file> \
   --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
-python -m scieasy.qa.governance.gate_record pre-push \
+python -m scistudio.qa.governance.gate_record pre-push \
   --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
-python -m scieasy.qa.governance.gate_record pr-ready \
+python -m scistudio.qa.governance.gate_record pr-ready \
   --pr-body "<body>" \
   --pr-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
-python -m scieasy.qa.governance.gate_record ci \
+python -m scistudio.qa.governance.gate_record ci \
   --gate-record .workflow/records/<issue>-<task-slug>.json \
   --base <base-ref> \
   --head <head-ref> \
@@ -252,7 +252,7 @@ The CLI may expose additional convenience aliases, but the commands above are
 the normative AI-facing interface. They must update the committed gate record or
 validate it; self-attestation in chat is not gate evidence.
 
-For local-only bypass, agents may also export `SCIEASY_GATE_BYPASS_LABELS` with
+For local-only bypass, agents may also export `SCISTUDIO_GATE_BYPASS_LABELS` with
 one or more of the same four labels before running `git commit`, `git push`, or
 `gh pr create`. This local bypass permits PR submission for review; CI still
 runs and remains authoritative.
@@ -267,7 +267,7 @@ committed gate record before moving to the next step.
 The agent must:
 
 1. Create or update `.workflow/records/<issue>-<task-slug>.json` with
-   `python -m scieasy.qa.governance.gate_record start`.
+   `python -m scistudio.qa.governance.gate_record start`.
 2. Record `task_kind`, `branch`, `owner_directive`, `scope.include`,
    `scope.exclude`, `governance_touch`, and expected artifact classes.
 3. Link an existing issue or create a new issue before implementation work is
@@ -293,7 +293,7 @@ No AI-authored PR is ready when the gate record lacks issue linkage.
 The agent must:
 
 1. Record planned files and directories with
-   `python -m scieasy.qa.governance.gate_record plan`.
+   `python -m scistudio.qa.governance.gate_record plan`.
 2. Record expected docs, tests, changelog, ADR/spec/addendum, and checklist
    landing.
 3. Record required checks. At minimum, source or governance changes require:
@@ -315,7 +315,7 @@ The agent must:
 
 1. Keep changes within `scope.include` and outside `scope.exclude`.
 2. Update the gate record with
-   `python -m scieasy.qa.governance.gate_record amend` before touching newly
+   `python -m scistudio.qa.governance.gate_record amend` before touching newly
    discovered files outside the original plan.
 3. For implementation-category tasks, add or modify at least one test file in
    the same PR.
@@ -334,7 +334,7 @@ The agent must:
 
 1. Update required docs, specs, ADR addenda, changelog entries, and checklists.
 2. Record the updated paths in the gate record with
-   `python -m scieasy.qa.governance.gate_record docs`.
+   `python -m scistudio.qa.governance.gate_record docs`.
 3. For each documentation class that is not required, record an explicit N/A
    rationale.
 4. Update the plan amendment if documentation work expands the file scope.
@@ -353,15 +353,15 @@ the required check set is:
 ruff check .
 ruff format --check .
 pytest <targeted-tests-or-test-directory>
-python -m scieasy.qa.audit.full_audit \
+python -m scistudio.qa.audit.full_audit \
   --repo-root . \
   --format json \
   --output docs/audit/full-audit-latest.json
 ```
 
 Each completed check must be recorded with
-`python -m scieasy.qa.governance.gate_record check`; Sentrux evidence must be
-recorded with `python -m scieasy.qa.governance.gate_record sentrux`.
+`python -m scistudio.qa.governance.gate_record check`; Sentrux evidence must be
+recorded with `python -m scistudio.qa.governance.gate_record sentrux`.
 
 When generated facts are part of the change or full audit reports stale facts,
 the agent must also run:
@@ -417,7 +417,7 @@ Assisted-by: <runtime>:<model-or-agent-id>
 
 3. Push the branch and open the PR.
 4. Record final commit and PR evidence with
-   `python -m scieasy.qa.governance.gate_record finalize`.
+   `python -m scistudio.qa.governance.gate_record finalize`.
 5. Ensure the PR body names the gate record path and closes every issue listed
    in the gate record using GitHub closing keywords: `Closes #N`, `Fixes #N`,
    or `Resolves #N`.
@@ -511,7 +511,7 @@ branch-name special cases such as `hotfix/*`; task behavior is declared by
 
 Local intermediate hooks must allow the four ADR-042 override labels to bypass
 local-only gate enforcement so a PR can be opened for review. The supported
-labels are accepted through `SCIEASY_GATE_BYPASS_LABELS`, existing PR labels
+labels are accepted through `SCISTUDIO_GATE_BYPASS_LABELS`, existing PR labels
 visible to `gh pr view` during pre-push, or `gh pr create --label/-l` during
 PR creation. This bypass applies to local hooks only. In CI, an authorized
 `human-authored` label is the skip-all signal for ADR-042 workflow-gate
@@ -522,12 +522,12 @@ gate record unless an administrator explicitly approves the relevant override.
 Examples:
 
 ```bash
-SCIEASY_GATE_BYPASS_LABELS=admin-approved:ai-override git push -u origin HEAD
+SCISTUDIO_GATE_BYPASS_LABELS=admin-approved:ai-override git push -u origin HEAD
 
-python -m scieasy.qa.governance.gate_record pre-push \
+python -m scistudio.qa.governance.gate_record pre-push \
   --bypass-label admin-approved:ai-override
 
-python -m scieasy.qa.governance.gate_record pr-ready \
+python -m scistudio.qa.governance.gate_record pr-ready \
   --pr-body "Closes #1266" \
   --pr-label admin-approved:ai-override
 

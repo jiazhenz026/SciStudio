@@ -10,8 +10,8 @@ language_source: en
 
 This directory holds **filled e2e session files** — one Markdown file per
 end-to-end test session. Each file pairs with one invocation of the
-`scieasy-e2e-test` skill (see
-`docs/ai-developer/skills/scieasy-e2e-test/SKILL.md`).
+`scistudio-e2e-test` skill (see
+`docs/ai-developer/skills/scistudio-e2e-test/SKILL.md`).
 
 ## How To Run An E2E Session
 
@@ -27,7 +27,7 @@ end-to-end test session. Each file pairs with one invocation of the
    跑 e2e: docs/ai-developer/e2e/2026-05-20-pr-1300-readiness.md
    ```
 
-   The `scieasy-e2e-test` skill triggers, executes the steps in order,
+   The `scistudio-e2e-test` skill triggers, executes the steps in order,
    and writes back into Section 7.
 
 4. Review the verdict + artifacts. If the session passes, the file is
@@ -61,7 +61,7 @@ end-to-end test session. Each file pairs with one invocation of the
 
 ## Related Documents
 
-- **Skill**: `docs/ai-developer/skills/scieasy-e2e-test/SKILL.md`
+- **Skill**: `docs/ai-developer/skills/scistudio-e2e-test/SKILL.md`
 - **Template**: `docs/ai-developer/e2e/template.md`
 - **Manager persona** (owns coordinated e2e):
   `docs/ai-developer/personas/manager.md`

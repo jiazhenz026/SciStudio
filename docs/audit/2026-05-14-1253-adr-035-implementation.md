@@ -42,12 +42,12 @@ The "Audit & Fix (skeleton)" rows (54–55) are also unticked despite PR #858 (`
 | PR | Codex finding | File:line | Severity (Codex) | Verified in current code? | Verdict |
 |---|---|---|---|---|---|
 | #856 | (no inline suggestions; meta-comment only) | — | — | — | **N/A** |
-| #862 | Propagate Claude bootstrap failures (`_write_system_prompt_tempfile` / `_ensure_mcp_config`) | `src/scieasy/blocks/ai/ai_block.py:412-424` | P1 | YES — `except Exception: logger.exception(...)` swallows error and proceeds with degraded argv (no `--append-system-prompt`/`--mcp-config`). Worker can no longer call `finish_ai_block`. | **ACCEPTED — P1 (must fix)** |
-| #861 | IPC token never initialised | `src/scieasy/api/routes/ai_pty.py:552-572` | P1 | YES — `_ensure_ipc_token()` is defined but never called from anywhere (verified via repo grep: only `os.environ.get(...)` reads). When `SCIEASY_ENGINE_IPC_TOKEN` env var is absent, `_check_ipc_token()` always 401s every internal request. **Engine→worker IPC is dead-on-arrival.** | **ACCEPTED — P1 (must fix)** |
-| #861 | Reuse existing PTY instead of spawning again for same `tab_id` | `src/scieasy/api/routes/ai_pty.py:118-132` vs `:498-499` | P1 | YES — `pty_endpoint` (the user-visible WS at `/api/ai/pty/{tab_id}`) calls `_spawn(...)` unconditionally at line 119 and overwrites `_active_ptys[tab_id]` at line 132, even if the tab was pre-spawned by `open_engine_initiated_tab` (line 490, 499). The engine-initiated PTY is orphaned (along with `_engine_initial_stdin` and `_engine_block_run_id` metadata) and a fresh agent process replaces it. **Block-to-tab correlation broken at runtime.** | **ACCEPTED — P1 (must fix)** |
-| #866 | `block_pty_closed`: parse outcome from `event` field, not `status`/`result` | `frontend/src/hooks/useWebSocket.ts:204-218` vs `src/scieasy/api/routes/ai_pty.py:654-660` | P1 | YES — backend writes `{type, block_run_id, tab_id, event: "completed"|"cancelled_by_user_close"|"error", detail}` (line 654-660) at the **top level**. Frontend reads `payload.data.status` and `payload.data.result` (lines 215-216). Neither field exists. `mapCloseResult(undefined)` falls through to default `"error"`. **Successful and user-cancelled runs render as red ✗.** | **ACCEPTED — P1 (must fix)** |
-| #866 | `permission_mode` read from wrong nesting level | `frontend/src/hooks/useWebSocket.ts:181-185` vs `src/scieasy/api/routes/ai_pty.py:507` | P2 | YES — backend emits `permission_mode` at the top level of the message (line 507). Frontend reads `src.permission_mode` from `payload.data` (line 181). Fallback "safe" is always taken. AI Block tabs in bypass mode show `dangerous=false` in store, breaking reconnect/UI cues. | **ACCEPTED — P2 (should fix; cheap one-line shape patch)** |
-| #866 | `block_user_marked_done` WS frame unsupported by inbound handler | `frontend/src/components/AIChat/TerminalTab.tsx:128-132` + `TerminalTabs.tsx:267-272` vs `src/scieasy/api/ws.py:113-146` | P1 | YES — inbound handler accepts `cancel_block`, `cancel_workflow`, `interactive_complete` only (lines 113-144). `block_user_marked_done` (TerminalTab.tsx:129) and `block_user_cancel` (TerminalTabs.tsx:268) both fall to the `else: logger.warning("Unknown WebSocket message type")` branch. **Mark-done button is a no-op; close-while-running cancellation never reaches engine.** | **ACCEPTED — P1 (must fix)** |
+| #862 | Propagate Claude bootstrap failures (`_write_system_prompt_tempfile` / `_ensure_mcp_config`) | `src/scistudio/blocks/ai/ai_block.py:412-424` | P1 | YES — `except Exception: logger.exception(...)` swallows error and proceeds with degraded argv (no `--append-system-prompt`/`--mcp-config`). Worker can no longer call `finish_ai_block`. | **ACCEPTED — P1 (must fix)** |
+| #861 | IPC token never initialised | `src/scistudio/api/routes/ai_pty.py:552-572` | P1 | YES — `_ensure_ipc_token()` is defined but never called from anywhere (verified via repo grep: only `os.environ.get(...)` reads). When `SCISTUDIO_ENGINE_IPC_TOKEN` env var is absent, `_check_ipc_token()` always 401s every internal request. **Engine→worker IPC is dead-on-arrival.** | **ACCEPTED — P1 (must fix)** |
+| #861 | Reuse existing PTY instead of spawning again for same `tab_id` | `src/scistudio/api/routes/ai_pty.py:118-132` vs `:498-499` | P1 | YES — `pty_endpoint` (the user-visible WS at `/api/ai/pty/{tab_id}`) calls `_spawn(...)` unconditionally at line 119 and overwrites `_active_ptys[tab_id]` at line 132, even if the tab was pre-spawned by `open_engine_initiated_tab` (line 490, 499). The engine-initiated PTY is orphaned (along with `_engine_initial_stdin` and `_engine_block_run_id` metadata) and a fresh agent process replaces it. **Block-to-tab correlation broken at runtime.** | **ACCEPTED — P1 (must fix)** |
+| #866 | `block_pty_closed`: parse outcome from `event` field, not `status`/`result` | `frontend/src/hooks/useWebSocket.ts:204-218` vs `src/scistudio/api/routes/ai_pty.py:654-660` | P1 | YES — backend writes `{type, block_run_id, tab_id, event: "completed"|"cancelled_by_user_close"|"error", detail}` (line 654-660) at the **top level**. Frontend reads `payload.data.status` and `payload.data.result` (lines 215-216). Neither field exists. `mapCloseResult(undefined)` falls through to default `"error"`. **Successful and user-cancelled runs render as red ✗.** | **ACCEPTED — P1 (must fix)** |
+| #866 | `permission_mode` read from wrong nesting level | `frontend/src/hooks/useWebSocket.ts:181-185` vs `src/scistudio/api/routes/ai_pty.py:507` | P2 | YES — backend emits `permission_mode` at the top level of the message (line 507). Frontend reads `src.permission_mode` from `payload.data` (line 181). Fallback "safe" is always taken. AI Block tabs in bypass mode show `dangerous=false` in store, breaking reconnect/UI cues. | **ACCEPTED — P2 (should fix; cheap one-line shape patch)** |
+| #866 | `block_user_marked_done` WS frame unsupported by inbound handler | `frontend/src/components/AIChat/TerminalTab.tsx:128-132` + `TerminalTabs.tsx:267-272` vs `src/scistudio/api/ws.py:113-146` | P1 | YES — inbound handler accepts `cancel_block`, `cancel_workflow`, `interactive_complete` only (lines 113-144). `block_user_marked_done` (TerminalTab.tsx:129) and `block_user_cancel` (TerminalTabs.tsx:268) both fall to the `else: logger.warning("Unknown WebSocket message type")` branch. **Mark-done button is a no-op; close-while-running cancellation never reaches engine.** | **ACCEPTED — P1 (must fix)** |
 
 **Summary:** 4 × P1 + 1 × P2 verified-still-present from Codex. Per memory `audit_p1_override`: deferring any of these P1s would be invalid — they each render a documented user-facing feature non-functional, and there is no infrastructure-level reason they can't be fixed in-PR.
 
@@ -67,35 +67,35 @@ The "Audit & Fix (skeleton)" rows (54–55) are also unticked despite PR #858 (`
 ## 5. P1 findings (must-fix before tracking → main)
 
 **P1-A (Codex #862-1):** Bootstrap failures swallowed in `AIBlock._build_provider_argv`.
-- File: `src/scieasy/blocks/ai/ai_block.py:412-424`
+- File: `src/scistudio/blocks/ai/ai_block.py:412-424`
 - Fix: re-raise after logging, or add explicit `raise RuntimeError("AI Block bootstrap failed: ...")` so `run()` enters ERROR state instead of spawning a degraded `claude` that hangs.
 - Test: add an injection that makes `_write_system_prompt_tempfile` raise; assert `AIBlock.run()` transitions to ERROR with actionable message rather than silent argv degradation.
 
 **P1-B (Codex #861-1):** IPC token never initialised in production engine startup.
-- File: `src/scieasy/api/routes/ai_pty.py:552-565`
+- File: `src/scistudio/api/routes/ai_pty.py:552-565`
 - Fix: call `_ensure_ipc_token()` at FastAPI app startup (e.g. in the engine bootstrapper that mounts `ai_pty.router`) so the env var is set before any worker subprocess inherits it. Pure helper-not-invoked bug.
 - Test: integration test that spawns a worker, calls `/internal/request-tab` from it, asserts 200 not 401.
 
 **P1-C (Codex #861-2):** Existing `pty_endpoint` overwrites engine-pre-spawned PTY on WS connect.
-- File: `src/scieasy/api/routes/ai_pty.py:117-132` (the join-WS path) and `:498-499` (the engine-initiated registration)
+- File: `src/scistudio/api/routes/ai_pty.py:117-132` (the join-WS path) and `:498-499` (the engine-initiated registration)
 - Fix: in `pty_endpoint`, if `tab_id in _active_ptys` and the existing entry has `_engine_block_run_id`, JOIN that PTY (re-use it) instead of calling `_spawn(...)` again. Also flush any `_engine_initial_stdin` to the PTY on first WS connect.
 - Test: integration test — call `open_engine_initiated_tab(...)` to register `tab_id=X`, then connect to `/api/ai/pty/X`, assert `_spawn` is NOT called a second time and the WS reads forwarded stdout from the original PTY.
 
 **P1-D (Codex #866-1):** `block_pty_closed` shape mismatch — frontend reads non-existent fields.
-- Files: `frontend/src/hooks/useWebSocket.ts:204-218` and (less invasively) `src/scieasy/api/routes/ai_pty.py:654-660`
+- Files: `frontend/src/hooks/useWebSocket.ts:204-218` and (less invasively) `src/scistudio/api/routes/ai_pty.py:654-660`
 - Fix (preferred — cheap, one-side-only): update `useWebSocket.ts` to read `payload.event` (or `(payload as any).event`) at the top level, with map: `completed → "done"`, `cancelled_by_user_close → "cancelled"`, `error → "error"`. Pass through to `handleBlockPtyClosed`.
 - Alternatively (backend side): add `status` field to message dict mirroring the `event` value with the FE-friendly label.
 - Test: vitest — feed a `block_pty_closed` frame with `event: "completed"` and `tab_id, block_run_id` at top level; assert `updateAiBlockStatus(tabId, "done")` is called (currently calls with "error").
 
 **P1-E (Codex #866-3):** `block_user_marked_done` and `block_user_cancel` WS frames are silently dropped.
-- Files: `src/scieasy/api/ws.py:113-146` (add inbound branches) plus event-bus wiring to engine that translates these into `mark_done.json` write (path c, ADR-035 §3.5) and a cancellation request respectively.
+- Files: `src/scistudio/api/ws.py:113-146` (add inbound branches) plus event-bus wiring to engine that translates these into `mark_done.json` write (path c, ADR-035 §3.5) and a cancellation request respectively.
 - Fix: add two new `elif msg_type == "block_user_marked_done":` and `elif msg_type == "block_user_cancel":` branches that emit appropriate `EngineEvent`s. The engine-side handler then calls into `pty_control.notify_block_pty_event` or writes the signal file.
 - Test: integration — open WS, send `{"type": "block_user_marked_done", "block_run_id": "...", "tab_id": "..."}`, assert `mark_done.json` appears in the run_dir within 1s.
 
 ## 6. P2 findings (should-fix; defer only with strong reason)
 
 **P2-A (Codex #866-2):** `permission_mode` field nesting mismatch.
-- File: `frontend/src/hooks/useWebSocket.ts:181-185` vs `src/scieasy/api/routes/ai_pty.py:507`
+- File: `frontend/src/hooks/useWebSocket.ts:181-185` vs `src/scistudio/api/routes/ai_pty.py:507`
 - Fix: read `(payload as any).permission_mode` from top level (mirror the `tab_id` / `block_run_id` resilience pattern already used in lines 209-212).
 - Test: vitest — feed frame with `permission_mode: "bypass"` at top level; assert resulting tab has `permissionMode === "dangerous"`.
 - **Should be fixed in the same fix-pass as P1-D** since they share the same WS handler and shape mismatch lineage. Deferring would leave `dangerous` mode silently degraded to `safe` on engine-initiated tabs.

@@ -5,8 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from scieasy.blocks.code.interpreters import resolve_script_interpreter
-from scieasy.blocks.code.provenance import (
+from scistudio.blocks.code.interpreters import resolve_script_interpreter
+from scistudio.blocks.code.provenance import (
     build_codeblock_provenance_payload,
     capture_environment_snapshot,
     capture_script_provenance,
@@ -28,7 +28,7 @@ def test_capture_script_provenance_records_hash_and_tracked_state(tmp_path: Path
     script = _write_script(tmp_path)
     _git(tmp_path, "init")
     _git(tmp_path, "config", "user.email", "agent@example.com")
-    _git(tmp_path, "config", "user.name", "SciEasy Agent")
+    _git(tmp_path, "config", "user.name", "SciStudio Agent")
     _git(tmp_path, "add", "scripts/run.py")
     _git(tmp_path, "commit", "-m", "add script")
 

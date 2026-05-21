@@ -7,11 +7,11 @@ from typing import ClassVar
 import pyarrow as pa
 import pytest
 
-from scieasy.blocks.base.state import BlockState
-from scieasy.blocks.process.builtins.merge import MergeBlock
-from scieasy.blocks.process.builtins.split import SplitBlock
-from scieasy.core.types.collection import Collection
-from scieasy.core.types.dataframe import DataFrame
+from scistudio.blocks.base.state import BlockState
+from scistudio.blocks.process.builtins.merge import MergeBlock
+from scistudio.blocks.process.builtins.split import SplitBlock
+from scistudio.core.types.collection import Collection
+from scistudio.core.types.dataframe import DataFrame
 
 
 def _make_df(data: dict) -> DataFrame:
@@ -95,7 +95,7 @@ class TestMergeBlockCollection:
 
     def test_concat_collection_inputs(self) -> None:
         """MergeBlock should unpack Collection inputs and pack output."""
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         left = _make_df({"a": [1, 2], "b": [3, 4]})
         right = _make_df({"a": [5, 6], "b": [7, 8]})
@@ -113,7 +113,7 @@ class TestMergeBlockCollection:
 
     def test_mixed_raw_and_collection(self) -> None:
         """MergeBlock should handle mix of raw and Collection inputs."""
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         left = _make_df({"x": [1]})
         right_col = Collection([_make_df({"x": [2]})], item_type=DataFrame)
@@ -129,7 +129,7 @@ class TestSplitBlockCollection:
     """ADR-020: SplitBlock with Collection-wrapped inputs."""
 
     def test_head_collection_input(self) -> None:
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         data = _make_df({"val": list(range(10))})
         data_col = Collection([data], item_type=DataFrame)
@@ -143,7 +143,7 @@ class TestSplitBlockCollection:
         assert out_col[0].row_count == 3
 
     def test_ratio_collection_input(self) -> None:
-        from scieasy.core.types.collection import Collection
+        from scistudio.core.types.collection import Collection
 
         data = _make_df({"val": list(range(10))})
         data_col = Collection([data], item_type=DataFrame)
@@ -171,10 +171,10 @@ class TestProcessBlockOutputTypeInference:
 
     def test_parent_type_output_accepted(self) -> None:
         """process_item returning a parent type must not raise TypeError."""
-        from scieasy.blocks.base.ports import InputPort, OutputPort
-        from scieasy.blocks.process.process_block import ProcessBlock
-        from scieasy.core.types.base import DataObject
-        from scieasy.core.types.collection import Collection
+        from scistudio.blocks.base.ports import InputPort, OutputPort
+        from scistudio.blocks.process.process_block import ProcessBlock
+        from scistudio.core.types.base import DataObject
+        from scistudio.core.types.collection import Collection
 
         class Parent(DataObject):
             pass
@@ -207,10 +207,10 @@ class TestProcessBlockOutputTypeInference:
         iteration (because the input itself was empty), the output Collection
         carries primary.item_type so downstream port checks remain meaningful.
         """
-        from scieasy.blocks.base.ports import InputPort, OutputPort
-        from scieasy.blocks.process.process_block import ProcessBlock
-        from scieasy.core.types.base import DataObject
-        from scieasy.core.types.collection import Collection
+        from scistudio.blocks.base.ports import InputPort, OutputPort
+        from scistudio.blocks.process.process_block import ProcessBlock
+        from scistudio.core.types.base import DataObject
+        from scistudio.core.types.collection import Collection
 
         class Parent(DataObject):
             pass

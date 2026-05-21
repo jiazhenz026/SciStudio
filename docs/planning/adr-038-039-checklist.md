@@ -40,7 +40,7 @@
 - [x] `docs/architecture/ARCHITECTURE.md` §1464 EventBus matrix — LineageRecorder status `planned`→`active` [ADR-038 §5.3]
 - [x] `docs/architecture/ARCHITECTURE.md` §2009 env snapshot — 5 packages → full `uv pip freeze` [ADR-038 §5.3]
 - [x] `docs/architecture/ARCHITECTURE.md` §2077 MCP server deps — `lineage, MetadataStore` → `LineageStore (unified)` [ADR-038 §5.3]
-- [x] `docs/architecture/PROJECT_TREE.md` — add `.git/`, `.gitignore`, `.scieasy/lineage.db`, `.scieasy/pause/`; remove `metadata.db` and `checkpoints/` [ADR-038/039 §5.3]
+- [x] `docs/architecture/PROJECT_TREE.md` — add `.git/`, `.gitignore`, `.scistudio/lineage.db`, `.scistudio/pause/`; remove `metadata.db` and `checkpoints/` [ADR-038/039 §5.3]
 - [x] `docs/adr/ADR-032.md` — status banner: `SUPERSEDED by ADR-038` [ADR-038 §10]
 - [x] `docs/adr/ADR-014.md` — cross-ref ADR-039 (git in project state model) [ADR-039 §5.3]
 - [x] `docs/adr/ADR-012.md` — clarify checkpoint scope vs lineage; relocate path note [ADR-038 §5.2, §3.6a]
@@ -56,12 +56,12 @@
 ### Phase 0 manager-driven gate workflow
 
 - [x] `gate.py start` → task ID `20260515-052537-adr-038-039-cascade-phase-0-architecture`
-- [x] `gh issue create` (Phase 0 docs PR's tracking issue) → gate.py advance create_issue → https://github.com/zjzcpj/SciEasy/issues/904
-- [x] Change Plan comment on the issue → gate.py advance write_change_plan → https://github.com/zjzcpj/SciEasy/issues/904#issuecomment-4459069604
+- [x] `gh issue create` (Phase 0 docs PR's tracking issue) → gate.py advance create_issue → https://github.com/zjzcpj/SciStudio/issues/904
+- [x] Change Plan comment on the issue → gate.py advance write_change_plan → https://github.com/zjzcpj/SciStudio/issues/904#issuecomment-4459069604
 - [x] Branch `docs/adr-038-039/architecture-refactor` created and pushed; commits `e6776a7`, `22014b1`, `6dc0ad8`
 - [x] Doc updates committed → gate.py advance update_docs
 - [x] CHANGELOG entry → gate.py advance update_changelog
-- [x] `gh pr create` against main → gate.py advance submit_pr → https://github.com/zjzcpj/SciEasy/pull/905
+- [x] `gh pr create` against main → gate.py advance submit_pr → https://github.com/zjzcpj/SciStudio/pull/905
 
 ---
 
@@ -69,7 +69,7 @@
 
 - [x] 1 audit agent dispatched, no session context; inputs limited to ADR-038/039 + refactored docs → agent ID `a83ab64ede13c85db`
 - [x] Audit report at `docs/audit/2026-05-15-adr-038-039-docs-audit.md` with P1/P2/P3 categorization (3 P1 + 4 P2 + 4 P3 + 1 OOS)
-- [x] Agent committed audit report to `audit-output-phase-0.5` branch + opened PR #907 → https://github.com/zjzcpj/SciEasy/pull/907
+- [x] Agent committed audit report to `audit-output-phase-0.5` branch + opened PR #907 → https://github.com/zjzcpj/SciStudio/pull/907
 
 ---
 
@@ -86,7 +86,7 @@
   - P2-4 (ADR-038 §5.2 app.py row dedup) → ADR-038.md
 - [x] P3 fixes applied (P3-1 Layer 1 caption, P3-3 §5.3 ADR.md file refs); P3-4 same root as P2-1 (resolved); P3-2 → out-of-scope issue
 - [x] Out-of-scope findings filed as separate GitHub issues; tracked in "Out-of-scope from docs audit" section below (#908)
-- [x] Docs PR #905 opened against main → https://github.com/zjzcpj/SciEasy/pull/905
+- [x] Docs PR #905 opened against main → https://github.com/zjzcpj/SciStudio/pull/905
 - [x] CI green on PR #905 (Codex P2 reconciled; all required checks pass before merge)
 - [x] User-approved autonomous merge → main has the refactored docs (merged 2026-05-15T11:09:07Z, commit 0cc8a8f)
 
@@ -96,16 +96,16 @@
 
 - [x] Re-sync main: `git checkout main && git pull origin main` (main at `0cc8a8f` Phase 0 docs merge)
 - [x] Tool checks: python 3.13.12, pytest 9.0.2, ruff 0.15.9, mypy 1.20.0, node v24.14.0, npm 11.9.0, gh 2.89.0, claude 2.1.142 — all on PATH
-- [x] `python -c "import scieasy; print(scieasy.__file__)"` → `src/scieasy/__init__.py` (clean, not editable-install contamination)
+- [x] `python -c "import scistudio; print(scistudio.__file__)"` → `src/scistudio/__init__.py` (clean, not editable-install contamination)
 - [ ] Chrome MCP probe (deferred to Phase D38-3.1b / D39-3.1 audit + Phase 4 e2e where it's mandatory)
 - [x] Discipline hook present at `scripts/hooks/remind-checklist-discipline.sh`; `.claude/settings.json` wires it to PostToolUse on Edit/Write/MultiEdit/TaskCreate/TaskUpdate/TaskStop/TodoWrite (verified from `.claude/settings.json` lines 30-46 during Phase 0)
 - [x] Tracking branch created: `track/adr-038/lineage-db` off main, pushed to origin (commit 7c1ae58 seed)
 - [x] Tracking branch created: `track/adr-039/git-versioning` off main, pushed to origin (commit 6549c5f seed)
-- [x] Umbrella issue opened: `ADR-038: Unified Run Lineage Database — implementation track` → https://github.com/zjzcpj/SciEasy/issues/910
-- [x] Umbrella issue opened: `ADR-039: Git-backed source version control — implementation track` → https://github.com/zjzcpj/SciEasy/issues/911
+- [x] Umbrella issue opened: `ADR-038: Unified Run Lineage Database — implementation track` → https://github.com/zjzcpj/SciStudio/issues/910
+- [x] Umbrella issue opened: `ADR-039: Git-backed source version control — implementation track` → https://github.com/zjzcpj/SciStudio/issues/911
 - [x] Sub-issues opened (created lazily per dispatch — one per sub-agent as dispatched): #920 #925 #929 #933 #934 #939 #941 
-- [x] Umbrella PR `[DO NOT MERGE]` opened from `track/adr-038/lineage-db` to main with checklist link → https://github.com/zjzcpj/SciEasy/pull/912
-- [x] Umbrella PR `[DO NOT MERGE]` opened from `track/adr-039/git-versioning` to main with checklist link → https://github.com/zjzcpj/SciEasy/pull/913
+- [x] Umbrella PR `[DO NOT MERGE]` opened from `track/adr-038/lineage-db` to main with checklist link → https://github.com/zjzcpj/SciStudio/pull/912
+- [x] Umbrella PR `[DO NOT MERGE]` opened from `track/adr-039/git-versioning` to main with checklist link → https://github.com/zjzcpj/SciStudio/pull/913
 - [x] CI baseline checked (main commit 0cc8a8f workflows queued; #909 tracks pre-existing Python 3.11 flake; no other regressions)
 
 ---
@@ -121,17 +121,17 @@
 
 ### Phase D38-2.2 — Wire-up + schema (Owner: ID38-2, 1 agent, refactor) [ADR-038 §6 Phase 1]
 
-- [x] Sub-issue opened, branch `feat/issue-920/d38-2-2-wire-up-schema` off `track/adr-038/lineage-db` → https://github.com/zjzcpj/SciEasy/issues/920
-- [x] `src/scieasy/core/lineage/` new package: `__init__.py`, `store.py` (4-table), `record.py`, `recorder.py` (moved from engine/), `environment.py`, `run_context.py`; `graph.py` DELETED per ADR §3.4 [ADR-038 §3.1, §5.1]
-- [x] `src/scieasy/engine/scheduler.py` — construct LineageRecorder; extend BLOCK_DONE event data (`config`, `block_type`, `block_version`, `environment`, `input_object_ids`, `output_object_ids`, `inputs`) [ADR-038 §3.2]
-- [x] `src/scieasy/engine/lineage_recorder.py` — relocated to `core/lineage/recorder.py`; engine path is a re-export shim for one minor-version compat window [ADR-038 §5.1, §5.2]
-- [x] `src/scieasy/engine/runners/local.py` — lift `environment` from worker envelope into event data via `__scieasy_env__` sentinel (scheduler pops before downstream blocks see it) [ADR-038 §5.2]
-- [x] `src/scieasy/api/runtime.py::start_workflow` — create RunRecord, construct LineageRecorder, pass to DAGScheduler, finalize on completion via `_finalize_lineage_run` task callback [ADR-038 §3.2]
-- [x] `src/scieasy/api/runtime.py::create_project` — `.scieasy/` replaces legacy `checkpoints/`+`lineage/` scaffold dirs
-- [x] `src/scieasy/api/deps.py::get_lineage_store` — rewrite to return the unified store owned by `ApiRuntime` (no per-request store allocation) [ADR-038 §5.2]
-- [x] `src/scieasy/api/app.py` — register `runs` router placeholder for D38-2.4a [ADR-038 §5.2]
-- [x] `src/scieasy/blocks/registry.py` — force-inject `block_version` from `importlib.metadata` (cached `packages_distributions`); in-tree blocks stamp `scieasy.__version__`; no `"unknown"` default [ADR-038 §3.3]
-- [x] `src/scieasy/cli/main.py` — `init` scaffold list parity with `runtime.py::create_project`
+- [x] Sub-issue opened, branch `feat/issue-920/d38-2-2-wire-up-schema` off `track/adr-038/lineage-db` → https://github.com/zjzcpj/SciStudio/issues/920
+- [x] `src/scistudio/core/lineage/` new package: `__init__.py`, `store.py` (4-table), `record.py`, `recorder.py` (moved from engine/), `environment.py`, `run_context.py`; `graph.py` DELETED per ADR §3.4 [ADR-038 §3.1, §5.1]
+- [x] `src/scistudio/engine/scheduler.py` — construct LineageRecorder; extend BLOCK_DONE event data (`config`, `block_type`, `block_version`, `environment`, `input_object_ids`, `output_object_ids`, `inputs`) [ADR-038 §3.2]
+- [x] `src/scistudio/engine/lineage_recorder.py` — relocated to `core/lineage/recorder.py`; engine path is a re-export shim for one minor-version compat window [ADR-038 §5.1, §5.2]
+- [x] `src/scistudio/engine/runners/local.py` — lift `environment` from worker envelope into event data via `__scistudio_env__` sentinel (scheduler pops before downstream blocks see it) [ADR-038 §5.2]
+- [x] `src/scistudio/api/runtime.py::start_workflow` — create RunRecord, construct LineageRecorder, pass to DAGScheduler, finalize on completion via `_finalize_lineage_run` task callback [ADR-038 §3.2]
+- [x] `src/scistudio/api/runtime.py::create_project` — `.scistudio/` replaces legacy `checkpoints/`+`lineage/` scaffold dirs
+- [x] `src/scistudio/api/deps.py::get_lineage_store` — rewrite to return the unified store owned by `ApiRuntime` (no per-request store allocation) [ADR-038 §5.2]
+- [x] `src/scistudio/api/app.py` — register `runs` router placeholder for D38-2.4a [ADR-038 §5.2]
+- [x] `src/scistudio/blocks/registry.py` — force-inject `block_version` from `importlib.metadata` (cached `packages_distributions`); in-tree blocks stamp `scistudio.__version__`; no `"unknown"` default [ADR-038 §3.3]
+- [x] `src/scistudio/cli/main.py` — `init` scaffold list parity with `runtime.py::create_project`
 - [x] `tests/engine/test_lineage_recorder.py` + `tests/core/test_lineage*.py` + `tests/api/test_deps.py` + `tests/cli/test_cli.py` — migrated to new schema
 - [x] Smoke test `tests/core/test_lineage_store_4table.py` passes: 3-block linear workflow produces 1 run + 3 block_executions + 3 data_objects + 5 block_io rows (linear DAG: A has no input → 5 not 6; spec note inline)
 - [ ] CI green
@@ -139,27 +139,27 @@
 
 ### Phase D38-2.3 — Collapse metadata.db (Owner: ID38-3, 1 agent, migration) [ADR-038 §6 Phase 2]
 
-- [x] Sub-issue opened, branch off tracking branch after D38-2.2 merged → [#929](https://github.com/zjzcpj/SciEasy/issues/929)
-- [x] `src/scieasy/core/metadata_store.py` → 6-month deprecation shim re-exporting unified store + DeprecationWarning [ADR-038 §5.2] → [PR #929 — deprecation shim](https://github.com/zjzcpj/SciEasy/pull/929)
-- [~] `src/scieasy/core/meta/framework.py` — `FrameworkMeta.lineage_id` populated with `block_execution_id` in run context [ADR-038 §3.2, §5.2] → `with_lineage_id` helper added; end-to-end stamping escalated on #929 (requires moving allocation site from recorder to scheduler per ADR §3.2 — core/lineage/ is out of scope for D38-2.3)
-- [x] `src/scieasy/engine/scheduler.py::_persist_output_metadata` — write to new `data_objects` table [ADR-038 §5.2] → [PR #929](https://github.com/zjzcpj/SciEasy/pull/929)
-- [x] `src/scieasy/engine/checkpoint.py` — relocate `<project>/checkpoints/` to `<project>/.scieasy/pause/`; docstring clarifies pause/resume scope vs lineage [ADR-038 §5.2] → [PR #929 — checkpoint_dir_for relocation in api/runtime.py](https://github.com/zjzcpj/SciEasy/pull/929)
+- [x] Sub-issue opened, branch off tracking branch after D38-2.2 merged → [#929](https://github.com/zjzcpj/SciStudio/issues/929)
+- [x] `src/scistudio/core/metadata_store.py` → 6-month deprecation shim re-exporting unified store + DeprecationWarning [ADR-038 §5.2] → [PR #929 — deprecation shim](https://github.com/zjzcpj/SciStudio/pull/929)
+- [~] `src/scistudio/core/meta/framework.py` — `FrameworkMeta.lineage_id` populated with `block_execution_id` in run context [ADR-038 §3.2, §5.2] → `with_lineage_id` helper added; end-to-end stamping escalated on #929 (requires moving allocation site from recorder to scheduler per ADR §3.2 — core/lineage/ is out of scope for D38-2.3)
+- [x] `src/scistudio/engine/scheduler.py::_persist_output_metadata` — write to new `data_objects` table [ADR-038 §5.2] → [PR #929](https://github.com/zjzcpj/SciStudio/pull/929)
+- [x] `src/scistudio/engine/checkpoint.py` — relocate `<project>/checkpoints/` to `<project>/.scistudio/pause/`; docstring clarifies pause/resume scope vs lineage [ADR-038 §5.2] → [PR #929 — checkpoint_dir_for relocation in api/runtime.py](https://github.com/zjzcpj/SciStudio/pull/929)
 - [x] Project-open auto-creates lineage.db if missing; no historical metadata.db migration (per user direction 2026-05-15) → existing D38-2.2 wiring honoured; legacy metadata.db detection logs INFO line and is otherwise ignored
 - [ ] Tests pass; CI green; PR merged into tracking branch
 
 ### Phase D38-2.4a — Backend REST + AIBlock rename (Owner: ID38-4a, 1 agent) [ADR-038 §6 Phase 3 backend]
 
-- [x] Sub-issue opened; parallel with D38-2.4b → [#933](https://github.com/zjzcpj/SciEasy/issues/933)
-- [x] `src/scieasy/api/routes/runs.py` (NEW) — GET /api/runs, GET /api/runs/{run_id}, GET /api/runs/{run_id}/methods, POST /api/runs/{run_id}/rerun [ADR-038 §3.7, §3.8] → branch `feat/issue-933/d38-2-4a-backend-rest`
-- [x] `src/scieasy/core/lineage/methods_export.py` (NEW) — markdown methods renderer [ADR-038 §5.1] → branch `feat/issue-933/d38-2-4a-backend-rest`
-- [x] `src/scieasy/blocks/ai/ai_block.py` — rename internal `run_id` → `block_execution_id` [ADR-038 §5.2] → branch `feat/issue-933/d38-2-4a-backend-rest`
-- [x] `src/scieasy/blocks/ai/run_dir.py` — rename path to use `block_execution_id` [ADR-038 §5.2] → branch `feat/issue-933/d38-2-4a-backend-rest`
+- [x] Sub-issue opened; parallel with D38-2.4b → [#933](https://github.com/zjzcpj/SciStudio/issues/933)
+- [x] `src/scistudio/api/routes/runs.py` (NEW) — GET /api/runs, GET /api/runs/{run_id}, GET /api/runs/{run_id}/methods, POST /api/runs/{run_id}/rerun [ADR-038 §3.7, §3.8] → branch `feat/issue-933/d38-2-4a-backend-rest`
+- [x] `src/scistudio/core/lineage/methods_export.py` (NEW) — markdown methods renderer [ADR-038 §5.1] → branch `feat/issue-933/d38-2-4a-backend-rest`
+- [x] `src/scistudio/blocks/ai/ai_block.py` — rename internal `run_id` → `block_execution_id` [ADR-038 §5.2] → branch `feat/issue-933/d38-2-4a-backend-rest`
+- [x] `src/scistudio/blocks/ai/run_dir.py` — rename path to use `block_execution_id` [ADR-038 §5.2] → branch `feat/issue-933/d38-2-4a-backend-rest`
 - [x] Pytest covers all 4 routes (happy path + 404 + validation errors) → `tests/api/test_runs_routes.py` (20 tests) + `tests/core/test_methods_export.py` (10 tests)
 - [ ] CI green; PR merged into tracking branch
 
 ### Phase D38-2.4b — Frontend Lineage tab SKELETON (Owner: SD38-4b, 1 agent — VERY detailed comments) [ADR-038 §6 Phase 3 frontend skeleton]
 
-- [x] Sub-issue opened; parallel with D38-2.4a → https://github.com/zjzcpj/SciEasy/issues/934
+- [x] Sub-issue opened; parallel with D38-2.4a → https://github.com/zjzcpj/SciStudio/issues/934
 - [x] `frontend/src/components/Lineage/LineageTab.tsx` (NEW skeleton, comments cover state shape, props, layout per ADR §3.8) → commit 2bf9cf2
 - [x] `frontend/src/components/Lineage/RunsList.tsx` (NEW skeleton, comments cover reverse-chrono list, click handler, live-updating running row per OQ-3, copy strings) → commit 2bf9cf2
 - [x] `frontend/src/components/Lineage/RunDetail.tsx` (NEW skeleton, comments cover right pane layout, click block → expand, Re-run button, Export methods button) → commit 2bf9cf2
@@ -184,7 +184,7 @@
 
 ### Phase D38-2.5 — Polish + status promotion (Owner: ID38-5, 1 agent) [ADR-038 §6 Phase 4]
 
-- [x] Methods markdown template refinement — verified §3.7 Q1-Q4 coverage end-to-end; added a partial-rerun banner when `execute_from_block_id` + `parent_run_id` are both set (ADR §3.6a), and surfaced `error` / `cancelled` termination detail in a dedicated fenced section instead of trailing the bullet → branch `feat/issue-948/d38-2-5-polish` (`src/scieasy/core/lineage/methods_export.py`)
+- [x] Methods markdown template refinement — verified §3.7 Q1-Q4 coverage end-to-end; added a partial-rerun banner when `execute_from_block_id` + `parent_run_id` are both set (ADR §3.6a), and surfaced `error` / `cancelled` termination detail in a dedicated fenced section instead of trailing the bullet → branch `feat/issue-948/d38-2-5-polish` (`src/scistudio/core/lineage/methods_export.py`)
 - [x] Re-run chain visualization — `RunDetail.tsx` makes `parent_run_id` a clickable button that dispatches `selectRun(parent)`, and renders an amber banner when `execute_from_block_id` is set explaining upstream blocks were reused from the parent run (ADR §3.6a). Upstream-skipped blocks have no `block_executions` row per ADR §3.6a so the blocks list is intentionally partial; canvas DAG grey-out remains out of scope here. → branch `feat/issue-948/d38-2-5-polish` (`frontend/src/components/Lineage/RunDetail.tsx`)
 - [x] ADR-038 status `proposed` → `accepted` (in `docs/adr/ADR-038.md`) → branch `feat/issue-948/d38-2-5-polish`
 - [x] Verify ADR-032 status `superseded by ADR-038` (already done in Phase 0) → `docs/adr/ADR-032.md:15` reads `**Status**: **superseded by ADR-038**`
@@ -254,29 +254,29 @@ P3 (file as follow-up issues; not blocking):
 - [x] Agent audits + fixes in single PR:
   - [x] Remove `ApiRuntime.bump_revision` / `current_revision` [ADR-039 §5.2] → commit e981303
   - [x] Remove `If-Match` revision handling in `api/routes/workflows.py` [ADR-039 §5.2] → commit e981303
-  - [x] Audit frontend for `If-Match` header usage (ADR may have missed callsites in `api.ts`); remove if found → audit comment https://github.com/zjzcpj/SciEasy/issues/915#issuecomment-4459281951 (frontend already clean; one stale test fixture revision dropped)
+  - [x] Audit frontend for `If-Match` header usage (ADR may have missed callsites in `api.ts`); remove if found → audit comment https://github.com/zjzcpj/SciStudio/issues/915#issuecomment-4459281951 (frontend already clean; one stale test fixture revision dropped)
   - [x] Extend `api/routes/workflow_watcher.py` to detect `.git/HEAD` changes → emit `git.head_changed` event [ADR-039 §3.8, §5.2] → commit e981303
   - [x] Subscribe to `git.head_changed` in `api/ws.py` and forward to clients → commit e981303
 - [ ] CI green; PR merged into `track/adr-039/git-versioning` → PR pending
 
 ### Phase D39-2.2a — Backend engine + REST + auto-init SKELETON (Owner: SD39-2a, 1 agent, detailed comments) [ADR-039 §6 Phase 1 skeleton]
 
-- [x] Sub-issue opened, branch off tracking branch → https://github.com/zjzcpj/SciEasy/issues/921
-- [x] `src/scieasy/core/versioning/__init__.py` (NEW) → branch feat/issue-921/d39-2-2a-backend-skeleton
-- [x] `src/scieasy/core/versioning/git_engine.py` (NEW skeleton; comments enumerate all subprocess wrappers: commit / log / diff / restore / branch ops / merge / cherry-pick / stash; plumbing-format parsing) → branch feat/issue-921/d39-2-2a-backend-skeleton
-- [x] `src/scieasy/core/versioning/git_binary.py` (NEW skeleton; comments cover bundle path + system fallback for dev CLI) → branch feat/issue-921/d39-2-2a-backend-skeleton
-- [x] `src/scieasy/core/versioning/gitignore_template.py` (NEW skeleton; comments give exact template per ADR §3.3) → branch feat/issue-921/d39-2-2a-backend-skeleton
-- [x] `src/scieasy/core/versioning/status.py` (NEW skeleton; dirty/modified helpers) → branch feat/issue-921/d39-2-2a-backend-skeleton
-- [x] `src/scieasy/core/versioning/watcher.py` (NEW skeleton; .git/HEAD + refs polling) → branch feat/issue-921/d39-2-2a-backend-skeleton
-- [x] `src/scieasy/api/routes/git.py` (NEW skeleton; all ~15 endpoints stubbed with route + signature + docstring per ADR §3.5 table) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] Sub-issue opened, branch off tracking branch → https://github.com/zjzcpj/SciStudio/issues/921
+- [x] `src/scistudio/core/versioning/__init__.py` (NEW) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scistudio/core/versioning/git_engine.py` (NEW skeleton; comments enumerate all subprocess wrappers: commit / log / diff / restore / branch ops / merge / cherry-pick / stash; plumbing-format parsing) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scistudio/core/versioning/git_binary.py` (NEW skeleton; comments cover bundle path + system fallback for dev CLI) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scistudio/core/versioning/gitignore_template.py` (NEW skeleton; comments give exact template per ADR §3.3) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scistudio/core/versioning/status.py` (NEW skeleton; dirty/modified helpers) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scistudio/core/versioning/watcher.py` (NEW skeleton; .git/HEAD + refs polling) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scistudio/api/routes/git.py` (NEW skeleton; all ~15 endpoints stubbed with route + signature + docstring per ADR §3.5 table) → branch feat/issue-921/d39-2-2a-backend-skeleton
 - [x] `desktop/scripts/fetch-git-portable.ps1` (NEW skeleton; build-step comments for Windows MinGit) → branch feat/issue-921/d39-2-2a-backend-skeleton
 - [x] `desktop/scripts/fetch-git-portable.sh` (NEW skeleton; macOS universal2 + Linux musl static build comments) → branch feat/issue-921/d39-2-2a-backend-skeleton
 - [~] `desktop/package.json` — add `desktop/resources/git/` to bundle assets → DEFERRED: file does not exist yet (ADR-037 packaging pipeline pending); documented in `fetch-git-portable.sh` top-of-file note so ADR-037 implementer adds the asset list entry when bundler config lands
-- [x] `src/scieasy/api/runtime.py::create_project` — auto-init call stub [ADR-039 §3.2] → branch feat/issue-921/d39-2-2a-backend-skeleton
-- [x] `src/scieasy/api/runtime.py::open_project` (or equivalent project-switch path) — re-init stub → branch feat/issue-921/d39-2-2a-backend-skeleton
-- [x] `src/scieasy/api/runtime.py::start_workflow` — pre-run auto-commit hook stub (TODO marker for D39-2.2b) → branch feat/issue-921/d39-2-2a-backend-skeleton
-- [x] `src/scieasy/api/app.py` — register git router, watcher install in lifespan → branch feat/issue-921/d39-2-2a-backend-skeleton
-- [x] `src/scieasy/cli/main.py::init` — CLI git-init parity stub → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scistudio/api/runtime.py::create_project` — auto-init call stub [ADR-039 §3.2] → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scistudio/api/runtime.py::open_project` (or equivalent project-switch path) — re-init stub → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scistudio/api/runtime.py::start_workflow` — pre-run auto-commit hook stub (TODO marker for D39-2.2b) → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scistudio/api/app.py` — register git router, watcher install in lifespan → branch feat/issue-921/d39-2-2a-backend-skeleton
+- [x] `src/scistudio/cli/main.py::init` — CLI git-init parity stub → branch feat/issue-921/d39-2-2a-backend-skeleton
 - [x] Pytest stubs (xfail) with test-plan docstrings for: commit/restore round-trip, auto-init idempotence, merge FF/clean/conflict, cherry-pick, stash CRUD → tests/core/test_git_engine.py (17 xfail) + tests/api/test_git_endpoints.py (21 xfail) + tests/cli/test_init_git_init.py (2 xfail); all xfail correctly under `pytest --timeout=60`
 - [ ] PR merged into tracking branch
 
@@ -287,12 +287,12 @@ P3 (file as follow-up issues; not blocking):
 - [x] Auto-init writes `.gitignore` + initial commit per ADR §3.2-3.3
 - [x] Pre-run auto-commit hook in `start_workflow`: dirty → `auto:` commit (lineage-row write deferred to D39-2.5 via TODO marker — D38-2.2 schema not on this tracking branch yet)
 - [x] All 21 REST endpoints functional; full pytest coverage including merge (FF/clean/conflict), cherry-pick, stash CRUD (38 engine tests + 28 endpoint tests + 2 CLI tests)
-- [x] Bundled-git locator works on Windows (MinGit) AND falls back to system `git` for dev CLI; `SCIEASY_GIT_BUNDLE_ROOT` env override for tests
+- [x] Bundled-git locator works on Windows (MinGit) AND falls back to system `git` for dev CLI; `SCISTUDIO_GIT_BUNDLE_ROOT` env override for tests
 - [ ] CI green; PR merged into tracking branch
 
 ### Phase D39-2.3a — Frontend UI core SKELETON (Owner: SD39-3a, 1 agent — VERY detailed comments) [ADR-039 §6 Phase 2 skeleton]
 
-- [x] Sub-issue opened, depends on D39-2.2b merged → https://github.com/zjzcpj/SciEasy/issues/928
+- [x] Sub-issue opened, depends on D39-2.2b merged → https://github.com/zjzcpj/SciStudio/issues/928
 - [x] `frontend/src/components/Git/CommitDialog.tsx` (NEW skeleton; comments cover pre-filled template per ADR §3.5, message validation, commit button + cancel) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
 - [x] `frontend/src/components/Git/GitHistoryList.tsx` (NEW skeleton; comments cover reverse-chrono list, filter dropdown (Manual/All/Auto/Agent per ADR §3.4, §3.4a, §3.5c), click-to-diff, click-to-restore actions, virtualization plan) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
 - [x] `frontend/src/components/Git/GitDiffModal.tsx` (NEW skeleton; comments cover `react-diff-viewer-continued` integration) → branch `feat/issue-928/d39-2-3a-frontend-skeleton`
@@ -363,7 +363,7 @@ P3 (file as follow-up issues; not blocking):
 - [x] Manager classifies P1/P2; overrides auditor "defer" per overnight merge protocol → #968 dispatch fix-agent on `fix/issue-968/d39-3-2-audit-fixes`
 - [x] **P1-A** dual git-watcher collapse → deleted `core/versioning/watcher.py`, removed `app.py:84-112` construction, removed `__init__.py` re-export; watchdog `_GitHeadHandler` is single source of truth emitting canonical `commit_sha`
 - [x] **P1-B** H-A1 defensive guard verified → `runtime.py:1333` `getattr`+`callable()` chain retained; 2 regression tests added in `tests/api/test_workflow_run_git.py` (no-hook + hook-raises). NO D38-side change in this PR (that's D38-3.2).
-- [x] **P2-A** AIBlock `agent:` prefix docstring corrected → removed stale reference to non-existent `mcp__scieasy__git_commit` MCP tool; documents actual enforcement (system-prompt + agent's own `git commit -m` in PTY)
+- [x] **P2-A** AIBlock `agent:` prefix docstring corrected → removed stale reference to non-existent `mcp__scistudio__git_commit` MCP tool; documents actual enforcement (system-prompt + agent's own `git commit -m` in PTY)
 - [x] **P2-B** project-switch watcher restart → resolved for free by P1-A collapse (workflow_watcher's `start_for_project` is already invoked from `routes/projects.py::_restart_workflow_watcher`)
 - [x] **P2-C** `GitEngine.commit()` empty-repo edge → branches on `rev-parse --verify HEAD`; falls back to `ls-files --cached` when HEAD absent. Test added.
 - [x] **P3 nits** filed as follow-up issue #969 (is_repository worktree, merge FF heuristic, log parser empty-body)
@@ -398,7 +398,7 @@ integration boundary between ADR-038 and ADR-039:
   verify on the real code paths.
 - `frontend/src/store/index.ts` registers both `lineageSlice` and
   `gitSlice` — verify no naming collisions or selector overlap.
-- `src/scieasy/api/runtime.py::start_workflow` is touched by D38-2.2
+- `src/scistudio/api/runtime.py::start_workflow` is touched by D38-2.2
   (LineageRecorder wire) AND D39-2.2b (pre-run auto-commit hook) AND
   D39-2.5 (the SHA-to-runs.workflow_git_commit field write). Verify
   the call order, the error-handling interleave, and the on-failure
@@ -441,15 +441,15 @@ Section B — frontend cross-slice:
 
 Section C — schema / contract:
 - [x] `lineage.db.runs` schema present in DB after Phase D38-2.2 + D38-2.3 chain.
-- [x] `block_version` force-injection (D38-2.2) does not break any block subclass shipped in `packages/scieasy-blocks-{imaging,lcms,srs}/`.
+- [x] `block_version` force-injection (D38-2.2) does not break any block subclass shipped in `packages/scistudio-blocks-{imaging,lcms,srs}/`.
 - [x] `metadata.db` deprecation shim still answers reads correctly from agent MCP tools (ADR-033 `inspect_data` / `get_lineage` / `preview_data`); deprecation warning suppressed at MCP import boundary (P2-4).
 - [x] `If-Match` / `bump_revision` removal (D39-2.1) didn't leave dangling consumers in `frontend/src/lib/api.ts` or anywhere else.
 
 Section D — file conflicts between tracks:
-- [x] `src/scieasy/api/runtime.py` final state has both D38 and D39 wirings present and ordered correctly (P1-1 + P1-2 + P1-3).
+- [x] `src/scistudio/api/runtime.py` final state has both D38 and D39 wirings present and ordered correctly (P1-1 + P1-2 + P1-3).
 - [x] `frontend/src/store/index.ts` final state has both slices registered.
 - [x] `frontend/src/hooks/useWebSocket.ts` final state handles `git.head_changed`.
-- [x] `src/scieasy/api/app.py` lifespan correctly initializes lineage store + git watcher (both `runs` and `git_routes` routers registered).
+- [x] `src/scistudio/api/app.py` lifespan correctly initializes lineage store + git watcher (both `runs` and `git_routes` routers registered).
 - [x] **HAZARD H-D1**: resolved by P1-4 fix. RunDetail.tsx keeps ADR-038 full body + ADR-039 named exports + Restore button in footer.
 - [x] **HAZARD H-D2**: resolved alongside H-D1 (D39-2.5 out-of-scope items all converge cleanly except for the RunDetail.tsx conflict that P1-4 handles).
 
@@ -491,7 +491,7 @@ release-blockers.
 
 ### Phase 4a — ADR-038 e2e (Chrome smoke)
 
-- [ ] Chrome opens via `mcp__claude-in-chrome__tabs_create_mcp` → SciEasy GUI on free port
+- [ ] Chrome opens via `mcp__claude-in-chrome__tabs_create_mcp` → SciStudio GUI on free port
 - [ ] Create new project `e2e-038`
 - [ ] Generate synthetic bead TIFF (256×256, ~5 ellipses, ~6741 bright px; reuse fixture from ADR-036 e2e sub-test (d))
 - [ ] Build workflow in GUI: `imaging.load_image → imaging.threshold(otsu) → imaging.save_image`
@@ -505,10 +505,10 @@ release-blockers.
 - [ ] **(b)** "Run from here" run has `execute_from_block_id = "threshold_<n>"` and `parent_run_id` pointing to a prior run; upstream blocks greyed-out per ADR §3.6a
 - [ ] **(c)** GUI visual check matches ADR §3.8 layout (two-pane runs list + run detail); click handlers respond correctly
 - [ ] **(d)** "Export methods" produces markdown file matching `methods_export.py` template
-- [ ] **(e1)** Delete `<project>/.scieasy/lineage.db` while GUI closed; reopen project; new empty db auto-created; Lineage tab shows "no runs yet" without crash
+- [ ] **(e1)** Delete `<project>/.scistudio/lineage.db` while GUI closed; reopen project; new empty db auto-created; Lineage tab shows "no runs yet" without crash
 - [ ] **(e2)** Delete a block from canvas, save workflow, re-add the block, save again; Lineage tab still displays all prior runs (block_executions rows preserved)
 - [ ] **(e3)** Delete workflow YAML file from disk; reopen project; Lineage tab still shows all prior runs of that workflow (workflow_yaml_snapshot inline in `runs` table per ADR §3.1 — confirms user's recollection)
-- [ ] **(f)** Open AI chat in GUI; ask "Show me lineage for last 5 runs of image_pipeline — list each run's blocks, params, outputs"; agent writes SQL against `<project>/.scieasy/lineage.db`; compare to ground truth from direct `sqlite3` query
+- [ ] **(f)** Open AI chat in GUI; ask "Show me lineage for last 5 runs of image_pipeline — list each run's blocks, params, outputs"; agent writes SQL against `<project>/.scistudio/lineage.db`; compare to ground truth from direct `sqlite3` query
 - [ ] **(f-followup)** If agent fails or hallucinates, file follow-up issue to update agent system prompt
 - [ ] GIF recorded via `mcp__claude-in-chrome__gif_creator`
 
@@ -587,7 +587,7 @@ release-blockers.
 
 > Populated during Phase 0.75 from the docs-audit report. Each entry: audit excerpt → issue URL.
 
-- **OOS-1** (P3-2 in audit): `PROJECT_TREE.md` line 83-84 still describes `core/proxy.py` as ViewProxy lazy-loading accessor, but ARCHITECTURE.md Appendix B (line 3256) marks ViewProxy eliminated by ADR-031. Pre-existing drift unrelated to ADR-038/039. → https://github.com/zjzcpj/SciEasy/issues/908
+- **OOS-1** (P3-2 in audit): `PROJECT_TREE.md` line 83-84 still describes `core/proxy.py` as ViewProxy lazy-loading accessor, but ARCHITECTURE.md Appendix B (line 3256) marks ViewProxy eliminated by ADR-031. Pre-existing drift unrelated to ADR-038/039. → https://github.com/zjzcpj/SciStudio/issues/908
 
 ---
 
@@ -608,8 +608,8 @@ release-blockers.
 (`StubAgent._emit` now uses `tempfile.mkstemp` + `os.replace` for all
 three signal-file writes — `finish_ai_block.json` happy path,
 `finish_ai_block.json` deliberate-error path, and `mark_done.json`).
-Fix B was a no-op: production `mcp__scieasy__finish_ai_block`
-(`src/scieasy/ai/agent/mcp/tools_workflow.py:744`) already used
+Fix B was a no-op: production `mcp__scistudio__finish_ai_block`
+(`src/scistudio/ai/agent/mcp/tools_workflow.py:744`) already used
 `_atomic_write_text`. Regression locked by
 `tests/blocks/ai/test_completion_race.py` (two deterministic
 threading.Event-coordinated tests; without-fix mode raises the
@@ -643,7 +643,7 @@ but only describes one test.
   background thread): `(signals / "finish_ai_block.json").write_text(json.dumps(...))`.
   `Path.write_text` is **non-atomic**: it `open("w")` → truncates to 0
   bytes → `f.write(data)` → `f.close()`.
-- *Reader* (`src/scieasy/blocks/ai/completion.py:152-157`,
+- *Reader* (`src/scistudio/blocks/ai/completion.py:152-157`,
   `CompletionWatcher.wait` polling loop, main thread):
   `if mcp_path.exists(): payload = json.loads(mcp_path.read_text(...))`.
   Raises `ValueError(... "malformed MCP signal ...")` on `json.JSONDecodeError`.
@@ -676,8 +676,8 @@ reader strict.
 | # | Change | File | Rationale |
 |---|---|---|---|
 | A | Atomic write in `StubAgent._emit` | `tests/blocks/ai/conftest.py` `_emit()` around lines 102-103 (the `finish_via == "mcp"` branch and the `mark_done` branch) — use `tempfile.NamedTemporaryFile(dir=signals, delete=False)` + `os.replace(tmp, target)` | Closes the race in the test fixture; immediately stabilises CI |
-| B | Atomic write in production MCP server | Wherever the real `mcp__scieasy__finish_ai_block` tool writes `finish_ai_block.json` (per ADR-035; locate via `grep -r finish_ai_block` and inspect the MCP tools module) — same `tempfile + os.replace` pattern | Avoids the same race biting real agent runs where AIBlock's polling and the MCP tool run in different processes |
-| C | (NOT recommended) Reader-side retry | `src/scieasy/blocks/ai/completion.py:154` | Rejected: weakens watcher contract, masks future real bugs where writer crashes mid-write |
+| B | Atomic write in production MCP server | Wherever the real `mcp__scistudio__finish_ai_block` tool writes `finish_ai_block.json` (per ADR-035; locate via `grep -r finish_ai_block` and inspect the MCP tools module) — same `tempfile + os.replace` pattern | Avoids the same race biting real agent runs where AIBlock's polling and the MCP tool run in different processes |
+| C | (NOT recommended) Reader-side retry | `src/scistudio/blocks/ai/completion.py:154` | Rejected: weakens watcher contract, masks future real bugs where writer crashes mid-write |
 
 **Tests to add.** A regression test in `tests/blocks/ai/test_completion.py`
 that asserts `CompletionWatcher.wait` survives a deliberately-induced

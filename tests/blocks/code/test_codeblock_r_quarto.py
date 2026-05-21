@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.blocks.code.backends import r_quarto
-from scieasy.blocks.code.code_block import CodeBlock, CodeBlockRuntimeContext, list_codeblock_backends
-from scieasy.blocks.code.config import CodeBlockConfig
-from scieasy.blocks.code.interpreters import InterpreterResolutionError
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.text import Text
+from scistudio.blocks.code.backends import r_quarto
+from scistudio.blocks.code.code_block import CodeBlock, CodeBlockRuntimeContext, list_codeblock_backends
+from scistudio.blocks.code.config import CodeBlockConfig
+from scistudio.blocks.code.interpreters import InterpreterResolutionError
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.text import Text
 
 
 def _write_script(project_dir: Path, name: str, body: str = "# script\n") -> Path:
@@ -98,10 +98,10 @@ def test_rscript_command_uses_exchange_directory_and_environment(
     assert interpreter.argv == ["/tools/Rscript", str(context.script_path)]
     assert interpreter.working_directory == context.exchange_dir.as_posix()
     assert interpreter.environment["SCI"] == "easy"
-    assert interpreter.environment["SCIEASY_EXCHANGE_DIR"] == str(context.exchange_dir)
-    assert interpreter.environment["SCIEASY_INPUTS_DIR"] == str(context.exchange_dir / "inputs")
-    assert interpreter.environment["SCIEASY_OUTPUTS_DIR"] == str(context.exchange_dir / "outputs")
-    assert interpreter.environment["SCIEASY_SCRIPT_PATH"] == str(context.script_path)
+    assert interpreter.environment["SCISTUDIO_EXCHANGE_DIR"] == str(context.exchange_dir)
+    assert interpreter.environment["SCISTUDIO_INPUTS_DIR"] == str(context.exchange_dir / "inputs")
+    assert interpreter.environment["SCISTUDIO_OUTPUTS_DIR"] == str(context.exchange_dir / "outputs")
+    assert interpreter.environment["SCISTUDIO_SCRIPT_PATH"] == str(context.script_path)
 
 
 def test_rmarkdown_command_targets_single_declared_output_folder(
@@ -190,7 +190,7 @@ def test_quarto_backend_output_is_collected_from_declared_port_folder(
     assert outputs["report"][0].content == "rendered"
     assert block.last_exchange_manifest is not None
     assert captured["cwd"] == block.last_exchange_manifest.layout.exchange_dir
-    assert captured["env_delta"]["SCIEASY_OUTPUTS_DIR"] == str(block.last_exchange_manifest.layout.outputs_dir)
+    assert captured["env_delta"]["SCISTUDIO_OUTPUTS_DIR"] == str(block.last_exchange_manifest.layout.outputs_dir)
     assert captured["argv"][1:3] == ["render", str(tmp_path / "scripts" / "report.qmd")]
     assert Path(captured["argv"][4]) == block.last_exchange_manifest.output_folders["report"]
 

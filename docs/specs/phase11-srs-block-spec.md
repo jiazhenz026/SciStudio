@@ -4,7 +4,7 @@ title: "Phase 11 SRS Plugin Block Specification"
 status: Deprecated
 feature_branch: legacy/phase11-srs-block-spec
 created: 2026-04-07
-input: "Historical Phase 11 scieasy-blocks-srs implementation specification retained for reference."
+input: "Historical Phase 11 scistudio-blocks-srs implementation specification retained for reference."
 owners:
   - "@jiazhenz026"
 related_adrs:
@@ -37,7 +37,7 @@ This deprecated spec is retained as historical reference. Its original body is p
 
 ## 2. Existing Historical Body
 
-# Phase 11 — `scieasy-blocks-srs` Plugin Block Specification
+# Phase 11 — `scistudio-blocks-srs` Plugin Block Specification
 
 **Status**: accepted
 **Date**: 2026-04-07
@@ -54,7 +54,7 @@ ADR-028 Addendum 1 (dynamic ports + GUI)
 ## 1. Purpose
 
 This document is the **single source of truth** for the implementation tickets
-that ship the `scieasy-blocks-srs` plugin package. It is the SRS-modality
+that ship the `scistudio-blocks-srs` plugin package. It is the SRS-modality
 companion to the imaging spec (`phase11-imaging-block-spec.md`) and inherits the
 imaging spec's `Image` / `Mask` / `Label` types and `LoadImage` / `SaveImage` IO
 blocks unchanged.
@@ -94,14 +94,14 @@ block.
 **In scope** — files that the implementation cascade is allowed to touch
 through the union of all T-SRS tickets:
 
-- `packages/scieasy-blocks-srs/pyproject.toml`
-- `packages/scieasy-blocks-srs/README.md`
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/__init__.py`
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/types.py`
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocessing/{__init__,calibrate,baseline,denoise,normalize}.py`
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/{__init__,unmix,vca,pca,ica,kmeans}.py`
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/spectral/{__init__,extract,band_ratio}.py`
-- `packages/scieasy-blocks-srs/tests/**`
+- `packages/scistudio-blocks-srs/pyproject.toml`
+- `packages/scistudio-blocks-srs/README.md`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/__init__.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/types.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocessing/{__init__,calibrate,baseline,denoise,normalize}.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/{__init__,unmix,vca,pca,ica,kmeans}.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/spectral/{__init__,extract,band_ratio}.py`
+- `packages/scistudio-blocks-srs/tests/**`
 
 **Out of scope** — explicitly forbidden by this spec, even if the agent thinks
 it would help:
@@ -112,8 +112,8 @@ it would help:
   `phase11-lcms-block-spec.md`).
 - Architecture docs (`docs/architecture/ARCHITECTURE.md`,
   `docs/architecture/PROJECT_TREE.md`).
-- Anything under `src/scieasy/` (core types, engine, blocks, api, frontend).
-- The imaging plugin source (`packages/scieasy-blocks-imaging/`) — this spec
+- Anything under `src/scistudio/` (core types, engine, blocks, api, frontend).
+- The imaging plugin source (`packages/scistudio-blocks-imaging/`) — this spec
   *consumes* it and *depends* on it but does not modify it.
 - Reintroducing any of the explicitly removed blocks (see §2.1 below).
 - Adding any class to `types.py` other than `SRSImage`.
@@ -143,32 +143,32 @@ ALS-flavoured baseline correction is also rejected: `SRSBaseline.method` MUST
 NOT include `als` as an option. The allowed methods are `polynomial`,
 `rubber_band`, `rolling_ball_spectral` only.
 
-### 2.2 Cross-plugin dependency on `scieasy-blocks-imaging`
+### 2.2 Cross-plugin dependency on `scistudio-blocks-imaging`
 
-`scieasy-blocks-srs` depends on `scieasy-blocks-imaging` because:
+`scistudio-blocks-srs` depends on `scistudio-blocks-imaging` because:
 
 1. `SRSImage` subclasses `Image` (defined in
-   `scieasy_blocks_imaging.types.image`).
+   `scistudio_blocks_imaging.types.image`).
 2. `SRSCalibrate.input_ports` accepts `Image` (the raw digitizer output) and
    `SRSCalibrate.output_ports` produces `SRSImage` (the calibrated typed
    instance). The Phase 10 port-check accepts the upgrade because `SRSImage`
    is a subclass of `Image`.
 3. `ExtractSpectrum.input_ports` consumes `SRSImage` plus optional `Mask` /
    `Label` from imaging.
-4. The plugin's `pyproject.toml` declares `scieasy-blocks-imaging>=0.1` as a
+4. The plugin's `pyproject.toml` declares `scistudio-blocks-imaging>=0.1` as a
    hard runtime dependency.
 
-This is the **first** intentional cross-plugin import in SciEasy. The pattern
+This is the **first** intentional cross-plugin import in SciStudio. The pattern
 is documented here so the LC-MS spec and future plugins can follow it. The
 import direction is one-way: `srs` imports from `imaging`, never the reverse.
 
 ### 2.3 Package layout
 
 ```
-packages/scieasy-blocks-srs/
+packages/scistudio-blocks-srs/
 ├── pyproject.toml
 ├── README.md
-├── src/scieasy_blocks_srs/
+├── src/scistudio_blocks_srs/
 │   ├── __init__.py                  (get_blocks, get_types)
 │   ├── types.py                     (SRSImage)
 │   ├── preprocessing/{__init__,calibrate,baseline,denoise,normalize}.py
@@ -312,12 +312,12 @@ them is a workflow gate violation per CLAUDE.md Appendix A.
    blocks list MUST NOT be re-introduced.
 5. **Every check must be green before review**:
    - `pytest -x --no-cov` passes locally inside
-     `packages/scieasy-blocks-srs/`.
+     `packages/scistudio-blocks-srs/`.
    - `ruff check` clean over the package source and tests.
    - `ruff format --check` clean.
    - `mypy --ignore-missing-imports` clean.
-   - The plugin imports cleanly with both `scieasy` and
-     `scieasy-blocks-imaging` installed (T-SRS-013 adds an importability
+   - The plugin imports cleanly with both `scistudio` and
+     `scistudio-blocks-imaging` installed (T-SRS-013 adds an importability
      smoke test that the entry-point scan succeeds).
 6. **CHANGELOG.md** must be updated under `[Unreleased]` in the appropriate
    section (`Added` / `Changed` / `Fixed`) with full attribution per
@@ -343,13 +343,13 @@ them is a workflow gate violation per CLAUDE.md Appendix A.
     SRS ingress path reuses the imaging plugin's `LoadImage`. The egress path
     reuses imaging's `SaveImage` for `SRSImage` (subclass-compatible) and
     core's `SaveData` (post ADR-028 Addendum 1) for `DataFrame` outputs.
-11. **Cross-plugin imports are one-way** — `scieasy-blocks-srs` imports from
-    `scieasy_blocks_imaging` (specifically the `Image` / `Mask` / `Label`
+11. **Cross-plugin imports are one-way** — `scistudio-blocks-srs` imports from
+    `scistudio_blocks_imaging` (specifically the `Image` / `Mask` / `Label`
     types). The reverse (imaging importing from srs) is forbidden and would
     be flagged by the audit agent.
 12. **Lambda axis is mandatory** — `SRSImage.required_axes = frozenset({"y",
     "x", "lambda"})`. Every block in this package uses
-    `has_axes("y", "x", "lambda")` from `scieasy.utils.constraints` (T-010,
+    `has_axes("y", "x", "lambda")` from `scistudio.utils.constraints` (T-010,
     Phase 10) on its input port to enforce that the spectral dimension is
     present. Blocks that operate per-pixel along the spectral axis use
     `iterate_over_axes(operates_on={"lambda"}, ...)`; blocks that operate
@@ -381,7 +381,7 @@ satisfy these:
 11. The block class declares `name`, `description`, `version`, `category`,
     `input_ports`, `output_ports`, `config_schema`, and either
     `process_item(self, item, config, state)` or an explicit `run` override.
-12. The block class is **importable** without `scieasy_blocks_imaging`
+12. The block class is **importable** without `scistudio_blocks_imaging`
     raising — every block module that subclasses an imaging type does so via
     a top-level import that fails fast at import time with a clear message
     if the imaging plugin is missing.
@@ -447,7 +447,7 @@ data", and forcing them to chain `SRSVCA` → `SRSUnmix` for the common
 case doubles the workflow node count. When the optional `references`
 input port is empty, the block imports the module-level
 `_extract_endmembers` helper from
-`scieasy_blocks_srs.component_analysis.vca` directly (clean test seam,
+`scistudio_blocks_srs.component_analysis.vca` directly (clean test seam,
 no class instantiation), runs it with `auto_vca_n_components` from
 config (default 4), and uses the returned matrix as the NNLS basis.
 A runtime info log line `"SRSUnmix: no references provided, extracting
@@ -511,28 +511,28 @@ l. Suggested workflow gate ticket title
 
 ### T-SRS-000 — Package skeleton + entry-points
 
-**a. Ticket ID and name**: T-SRS-000 — `scieasy-blocks-srs` package skeleton.
+**a. Ticket ID and name**: T-SRS-000 — `scistudio-blocks-srs` package skeleton.
 
 **b. Source ADR / spec sections**: ADR-025 §3 (plugin distribution),
-ADR-028 §D7 (plugin IO blocks register via `scieasy.blocks` entry-point
+ADR-028 §D7 (plugin IO blocks register via `scistudio.blocks` entry-point
 group), master plan §2.4 (locked package layout).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-srs/pyproject.toml`
-- `packages/scieasy-blocks-srs/README.md`
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/__init__.py`
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/types.py` (placeholder)
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocessing/__init__.py`
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/__init__.py`
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/spectral/__init__.py`
-- `packages/scieasy-blocks-srs/tests/__init__.py`
-- `packages/scieasy-blocks-srs/tests/test_package_skeleton.py`
+- `packages/scistudio-blocks-srs/pyproject.toml`
+- `packages/scistudio-blocks-srs/README.md`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/__init__.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/types.py` (placeholder)
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocessing/__init__.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/__init__.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/spectral/__init__.py`
+- `packages/scistudio-blocks-srs/tests/__init__.py`
+- `packages/scistudio-blocks-srs/tests/test_package_skeleton.py`
 
 **d. Files to be modified**: none.
 
 **e. New tests** (`tests/test_package_skeleton.py`, 6 tests):
-`test_pyproject_declares_correct_dependencies` (asserts `scieasy>=0.1`
-and `scieasy-blocks-imaging>=0.1`),
+`test_pyproject_declares_correct_dependencies` (asserts `scistudio>=0.1`
+and `scistudio-blocks-imaging>=0.1`),
 `test_pyproject_declares_block_entrypoint`,
 `test_pyproject_declares_type_entrypoint`,
 `test_package_root_importable`,
@@ -545,20 +545,20 @@ and `scieasy-blocks-imaging>=0.1`),
 
 **`pyproject.toml`** uses the `hatchling` backend and declares:
 
-- `name = "scieasy-blocks-srs"`, `version = "0.1.0"`,
+- `name = "scistudio-blocks-srs"`, `version = "0.1.0"`,
   `requires-python = ">=3.11"`.
-- Runtime dependencies: `scieasy>=0.1`, `scieasy-blocks-imaging>=0.1`,
+- Runtime dependencies: `scistudio>=0.1`, `scistudio-blocks-imaging>=0.1`,
   `numpy>=1.24`, `scipy>=1.11`, `scikit-learn>=1.3`, `pydantic>=2.5`.
 - Optional dependencies: `bm4d = ["bm4d>=4.0"]`,
   `pywt = ["PyWavelets>=1.5"]`,
   `dev = ["pytest>=8.0", "ruff>=0.4", "mypy>=1.10"]`.
-- Entry-point group `scieasy.blocks`: `srs =
-  "scieasy_blocks_srs:get_blocks"`.
-- Entry-point group `scieasy.types`: `srs =
-  "scieasy_blocks_srs.types:get_types"`.
-- `[tool.hatch.build.targets.wheel] packages = ["src/scieasy_blocks_srs"]`.
+- Entry-point group `scistudio.blocks`: `srs =
+  "scistudio_blocks_srs:get_blocks"`.
+- Entry-point group `scistudio.types`: `srs =
+  "scistudio_blocks_srs.types:get_types"`.
+- `[tool.hatch.build.targets.wheel] packages = ["src/scistudio_blocks_srs"]`.
 
-**`src/scieasy_blocks_srs/__init__.py`** ships a docstring summarising
+**`src/scistudio_blocks_srs/__init__.py`** ships a docstring summarising
 the package contents (one type, 4 preprocessing blocks, 5 component
 analysis blocks, 2 spectral blocks, no IOBlock subclasses, no spectrum
 class) and two functions:
@@ -568,21 +568,21 @@ class) and two functions:
 - `get_types() -> list[type]` — returns `[]` in T-SRS-000, populated
   by T-SRS-001 (and re-exported via `types.py`).
 
-**`src/scieasy_blocks_srs/types.py`** is a one-function placeholder
+**`src/scistudio_blocks_srs/types.py`** is a one-function placeholder
 whose `get_types()` returns `[]`. T-SRS-001 replaces it with the real
 `SRSImage` definition and the populated `get_types()`.
 
 **`README.md`** is a 30-line stub that points at this spec.
 
 **h. Acceptance criteria**:
-- [ ] `packages/scieasy-blocks-srs/` directory exists with the layout
+- [ ] `packages/scistudio-blocks-srs/` directory exists with the layout
       described in §2.3.
-- [ ] `pip install -e packages/scieasy-blocks-srs/` succeeds.
-- [ ] `python -c "import scieasy_blocks_srs; print(scieasy_blocks_srs.get_blocks())"`
+- [ ] `pip install -e packages/scistudio-blocks-srs/` succeeds.
+- [ ] `python -c "import scistudio_blocks_srs; print(scistudio_blocks_srs.get_blocks())"`
       prints `[]`.
-- [ ] `python -c "from scieasy_blocks_srs.types import get_types; print(get_types())"`
+- [ ] `python -c "from scistudio_blocks_srs.types import get_types; print(get_types())"`
       prints `[]`.
-- [ ] Both entry-point groups (`scieasy.blocks`, `scieasy.types`) appear in
+- [ ] Both entry-point groups (`scistudio.blocks`, `scistudio.types`) appear in
       `importlib.metadata.entry_points()` after install.
 - [ ] All 6 skeleton tests pass.
 
@@ -614,11 +614,11 @@ plan §2.4 (locked Meta field list).
 **c. Files to be created**: none beyond what T-SRS-000 created.
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/types.py` — replace the
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/types.py` — replace the
   placeholder with the full `SRSImage` class and the `get_types` body.
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/__init__.py` — re-export
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/__init__.py` — re-export
   `SRSImage` for ergonomics.
-- `packages/scieasy-blocks-srs/tests/test_types.py` — new file with the type
+- `packages/scistudio-blocks-srs/tests/test_types.py` — new file with the type
   tests.
 
 **e. New tests** (`tests/test_types.py`, ~14 tests):
@@ -648,8 +648,8 @@ file additions do not break them).
 **g. Implementation details**:
 
 `SRSImage` is defined in
-`packages/scieasy-blocks-srs/src/scieasy_blocks_srs/types.py` and
-imports `Image` from `scieasy_blocks_imaging.types` at module top
+`packages/scistudio-blocks-srs/src/scistudio_blocks_srs/types.py` and
+imports `Image` from `scistudio_blocks_imaging.types` at module top
 (fail-fast if the imaging plugin is missing).
 
 **Class declaration**:
@@ -686,7 +686,7 @@ scan picks up exactly one class.
 
 **h. Acceptance criteria**:
 - [ ] `SRSImage` is defined in `types.py` and inherits from
-      `scieasy_blocks_imaging.types.Image`.
+      `scistudio_blocks_imaging.types.Image`.
 - [ ] `SRSImage.required_axes == frozenset({"y", "x", "lambda"})`.
 - [ ] `SRSImage.canonical_order == ("t", "z", "c", "lambda", "y", "x")`.
 - [ ] `SRSImage.Meta` is a frozen Pydantic v2 BaseModel that subclasses
@@ -724,7 +724,7 @@ hooks), ADR-028 §D1 (typed plugin blocks), §8 Question 1 (re-run detection),
 master plan §2.4 (locked digitizer formula and parameter set).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocessing/calibrate.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocessing/calibrate.py`
 
 **d. Files to be modified**: none beyond the new file.
 
@@ -787,7 +787,7 @@ The block subclasses `ProcessBlock` and overrides `process_item` only
    pattern T-006 established for `Array.sel`).
 
 The OptEasy reference `srs_calibration.py` uses the same formula but
-returns a typed `OpteasyImage`. The SciEasy version differs only in
+returns a typed `OpteasyImage`. The SciStudio version differs only in
 returning `SRSImage` and populating the typed `Meta` model rather than
 a free dict.
 
@@ -827,7 +827,7 @@ correction.
 order=3).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocessing/baseline.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocessing/baseline.py`
 
 **d. Files to be modified**: none.
 
@@ -926,7 +926,7 @@ denoising.
 (method enum locked).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocessing/denoise.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocessing/denoise.py`
 
 **d. Files to be modified**: none.
 
@@ -990,7 +990,7 @@ extras are not installed.
 **h. Acceptance criteria**:
 - [ ] All four methods present in the enum.
 - [ ] PCA / SVD methods always available; wavelet and BM4D guarded by
-      ImportError → ValueError with a "pip install scieasy-blocks-srs[pywt|bm4d]"
+      ImportError → ValueError with a "pip install scistudio-blocks-srs[pywt|bm4d]"
       hint.
 - [ ] `n_components > n_wavenumbers` raises.
 - [ ] Output dtype float32; meta preserved.
@@ -1016,7 +1016,7 @@ spatio-spectral denoising`.
 (method enum locked).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocessing/normalize.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocessing/normalize.py`
 
 **d. Files to be modified**: none.
 
@@ -1091,7 +1091,7 @@ endmember extraction.
 **b. Source ADR / spec sections**: ADR-027 D7. Master plan §2.4 (locked).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/vca.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/vca.py`
 
 **d. Files to be modified**: none.
 
@@ -1144,7 +1144,7 @@ The implementation lives in two parts:
 - `process_item` calls `_extract_endmembers`, wraps the returned matrix
   into a `pandas.DataFrame` with `columns = wavenumbers`,
   `index = pd.Index(range(n), name="endmember_id")`, and converts via
-  `DataFrame.from_pandas(df)` to the SciEasy core type.
+  `DataFrame.from_pandas(df)` to the SciStudio core type.
 
 **h. Acceptance criteria**:
 - [ ] `_extract_endmembers(item, n_components)` is module-level and
@@ -1175,7 +1175,7 @@ auto-VCA fallback.
 **b. Source ADR / spec sections**: ADR-027 D7. §8 Question 4 (auto-VCA).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/unmix.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/unmix.py`
 
 **d. Files to be modified**: none.
 
@@ -1276,7 +1276,7 @@ along the lambda axis.
 **b. Source ADR / spec sections**: ADR-027 D7. Master plan §2.4 (locked).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/pca.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/pca.py`
 
 **d. Files to be modified**: none.
 
@@ -1340,7 +1340,7 @@ analysis (FastICA).
 **b. Source ADR / spec sections**: ADR-027 D7. Master plan §2.4 (locked).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/ica.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/ica.py`
 
 **d. Files to be modified**: none.
 
@@ -1399,7 +1399,7 @@ of pixel spectra.
 shape).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/kmeans.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/kmeans.py`
 
 **d. Files to be modified**: none.
 
@@ -1468,7 +1468,7 @@ spectra per ROI.
 Imaging spec (`Mask` and `Label` types).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/spectral/extract.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/spectral/extract.py`
 
 **d. Files to be modified**: none.
 
@@ -1564,7 +1564,7 @@ imaging.
 **b. Source ADR / spec sections**: ADR-027 D7. Master plan §2.4 (locked).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/spectral/band_ratio.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/spectral/band_ratio.py`
 
 **d. Files to be modified**: none.
 
@@ -1641,16 +1641,16 @@ to return all locked blocks/types and add an end-to-end importability
 smoke test.
 
 **b. Source ADR / spec sections**: ADR-025 §6 (entry-points), ADR-028 §D7
-(plugin IO blocks via `scieasy.blocks`).
+(plugin IO blocks via `scistudio.blocks`).
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-srs/tests/test_entry_points.py`
+- `packages/scistudio-blocks-srs/tests/test_entry_points.py`
 
 **d. Files to be modified**:
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/__init__.py`
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/preprocessing/__init__.py`
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/component_analysis/__init__.py`
-- `packages/scieasy-blocks-srs/src/scieasy_blocks_srs/spectral/__init__.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/__init__.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/preprocessing/__init__.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/component_analysis/__init__.py`
+- `packages/scistudio-blocks-srs/src/scistudio_blocks_srs/spectral/__init__.py`
 
 **e. New tests** (`tests/test_entry_points.py`, ~7 tests):
 `test_get_blocks_returns_all_eleven` (`len == 11`),
@@ -1665,7 +1665,7 @@ smoke test.
 
 **g. Implementation details**:
 
-`packages/scieasy-blocks-srs/src/scieasy_blocks_srs/__init__.py`:
+`packages/scistudio-blocks-srs/src/scistudio_blocks_srs/__init__.py`:
 
 - Imports each block class from its sibling module
   (`preprocessing.calibrate.SRSCalibrate`,
@@ -1679,13 +1679,13 @@ smoke test.
   blocks**. (The "~8 blocks" / "10 blocks" phrasing in the master plan
   prompt was approximate; the locked enumerated list resolves to 11.)
 
-`packages/scieasy-blocks-srs/src/scieasy_blocks_srs/types.py`:
+`packages/scistudio-blocks-srs/src/scistudio_blocks_srs/types.py`:
 
 - `get_types()` returns `[SRSImage]`.
 
 The submodule `__init__.py` files (`preprocessing/__init__.py`,
 `component_analysis/__init__.py`, `spectral/__init__.py`) re-export
-their classes for ergonomic `from scieasy_blocks_srs.preprocessing
+their classes for ergonomic `from scistudio_blocks_srs.preprocessing
 import SRSCalibrate` access but do not need to declare entry-point
 contributors of their own.
 
@@ -1719,8 +1719,8 @@ together with this plugin's `SRSCalibrate` / `ExtractSpectrum`.
 (CRITICAL — this IS success criteria)"), this spec §11 below.
 
 **c. Files to be created**:
-- `packages/scieasy-blocks-srs/tests/integration/test_e2e_with_imaging.py`
-- `packages/scieasy-blocks-srs/tests/integration/conftest.py` (fixture
+- `packages/scistudio-blocks-srs/tests/integration/test_e2e_with_imaging.py`
+- `packages/scistudio-blocks-srs/tests/integration/conftest.py` (fixture
   for the test image paths)
 
 **d. Files to be modified**: none.
@@ -1756,7 +1756,7 @@ Path(r"C:\Users\jiazh\Desktop\workspace\Example\images")` constant.
 
 `tests/integration/test_e2e_with_imaging.py` is gated by
 `pytestmark = pytest.mark.requires_imaging` and starts with
-`imaging = pytest.importorskip("scieasy_blocks_imaging")` so the test
+`imaging = pytest.importorskip("scistudio_blocks_imaging")` so the test
 skips cleanly when the sister plugin is not installed.
 
 The main test function `test_e2e_python_headless_workflow` performs
@@ -1949,11 +1949,11 @@ criteria — they are a reason to fix the underlying block.
   `Denoise`, `CellposeSegment`.
 - **`CLAUDE.md`** — Appendix A (workflow gate), §6.7 (scope discipline),
   §9.2 (no silent scope expansion).
-- **`src/scieasy/core/types/array.py`** — `Array` base class with
+- **`src/scistudio/core/types/array.py`** — `Array` base class with
   instance-level axes and class-level schema.
-- **`src/scieasy/core/meta/framework.py`** — `FrameworkMeta` and
+- **`src/scistudio/core/meta/framework.py`** — `FrameworkMeta` and
   `with_meta_changes` helper used by every typed `Meta` model.
-- **`src/scieasy/core/units.py`** — `PhysicalQuantity` for the
+- **`src/scistudio/core/units.py`** — `PhysicalQuantity` for the
   `integration_time` field on `SRSImage.Meta`.
 - **OptEasy reference**:
   `OptEasy/opteasy-blocks/src/opteasy_blocks/preprocessing/srs_calibration.py`

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
-from scieasy.engine.events import (
+from scistudio.engine.events import (
     BLOCK_DONE,
     BLOCK_ERROR,
     BLOCK_READY,

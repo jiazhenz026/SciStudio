@@ -1,13 +1,13 @@
 # AGENTS.md
 
-This is the root behavior guide for SciEasy repository work.
+This is the root behavior guide for SciStudio repository work.
 
 Runtime files, skills, memory, and tool-specific configs must point here and to
 canonical docs instead of creating separate policy.
 
 ## 1. Project Identity
 
-SciEasy is an AI-native workflow runtime for multimodal scientific data. It uses
+SciStudio is an AI-native workflow runtime for multimodal scientific data. It uses
 typed workflow graphs, formal block contracts, persisted artifacts,
 plugin-based extension, manual review steps, and AI-assisted orchestration.
 
@@ -136,7 +136,7 @@ plugin-based extension, manual review steps, and AI-assisted orchestration.
   `docs/ai-developer/specific_rules/gated-workflow.md`.
 
 - Gate records must be created and updated with:
-  `python -m scieasy.qa.governance.gate_record`.
+  `python -m scistudio.qa.governance.gate_record`.
 
 ### 3.8 Hotfix Mode
 
@@ -205,8 +205,8 @@ If any item is missing, the task is not complete.
 - Use `docs/ai-developer/templates/agent-dispatch-audit-no-context-prompt-template.md`
   if you are dispatching an audit agent without current task context.
 
-- Use `docs/ai-developer/skills/scieasy-e2e-test/SKILL.md` if you are running
-  a live end-to-end SciEasy session from a scenario file under
+- Use `docs/ai-developer/skills/scistudio-e2e-test/SKILL.md` if you are running
+  a live end-to-end SciStudio session from a scenario file under
   `docs/ai-developer/e2e/` (PR readiness, hotfix repro, regression check).
   Pair it with `docs/ai-developer/e2e/template.md` (the fill-in scenario
   template) and `docs/ai-developer/e2e/README.md` (workflow + naming).

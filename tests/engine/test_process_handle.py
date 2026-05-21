@@ -10,14 +10,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from scieasy.engine.resources import ResourceRequest
-from scieasy.engine.runners.platform import (
+from scistudio.engine.resources import ResourceRequest
+from scistudio.engine.runners.platform import (
     PlatformOps,
     PosixOps,
     WindowsOps,
     get_platform_ops,
 )
-from scieasy.engine.runners.process_handle import (
+from scistudio.engine.runners.process_handle import (
     ProcessExitInfo,
     ProcessHandle,
     ProcessRegistry,
@@ -317,7 +317,7 @@ class TestProcessRegistry:
 
 
 class TestSpawnBlockProcess:
-    @patch("scieasy.engine.runners.process_handle.subprocess.Popen")
+    @patch("scistudio.engine.runners.process_handle.subprocess.Popen")
     def test_spawns_subprocess_and_registers(self, mock_popen_cls: MagicMock) -> None:
         """spawn_block_process should create a subprocess, register it, and emit event."""
         # Setup mock Popen
@@ -352,7 +352,7 @@ class TestSpawnBlockProcess:
         assert call_args[0][0] == [
             sys.executable,
             "-m",
-            "scieasy.engine.runners.worker",
+            "scistudio.engine.runners.worker",
         ]
 
         # Verify handle is correct
@@ -376,7 +376,7 @@ class TestSpawnBlockProcess:
         assert event.block_id == "mymodule.MyBlock"
         assert event.data == {"pid": 42}
 
-    @patch("scieasy.engine.runners.process_handle.subprocess.Popen")
+    @patch("scistudio.engine.runners.process_handle.subprocess.Popen")
     def test_spawn_uses_class_object(self, mock_popen_cls: MagicMock) -> None:
         """When block_class is a class, it should resolve the dotted path."""
         mock_proc = MagicMock()
@@ -400,7 +400,7 @@ class TestSpawnBlockProcess:
         # block_id should be the fully qualified class path
         assert "FakeBlock" in handle.block_id
 
-    @patch("scieasy.engine.runners.process_handle.subprocess.Popen")
+    @patch("scistudio.engine.runners.process_handle.subprocess.Popen")
     def test_spawn_default_resource_request(self, mock_popen_cls: MagicMock) -> None:
         """When no resource_request given, should default to ResourceRequest()."""
         mock_proc = MagicMock()
@@ -422,7 +422,7 @@ class TestSpawnBlockProcess:
         assert handle.resource_request.cpu_cores == 1
         assert handle.resource_request.requires_gpu is False
 
-    @patch("scieasy.engine.runners.process_handle.subprocess.Popen")
+    @patch("scistudio.engine.runners.process_handle.subprocess.Popen")
     def test_spawn_sets_platform_process_group(self, mock_popen_cls: MagicMock) -> None:
         """Popen should be called with platform-specific process group kwargs."""
         mock_proc = MagicMock()
@@ -447,7 +447,7 @@ class TestSpawnBlockProcess:
         else:
             assert call_kwargs.get("start_new_session") is True
 
-    @patch("scieasy.engine.runners.process_handle.subprocess.Popen")
+    @patch("scistudio.engine.runners.process_handle.subprocess.Popen")
     def test_spawn_with_job_handle_calls_assign(self, mock_popen_cls: MagicMock) -> None:
         """When job_handle is provided, assign_to_job should be called."""
         mock_proc = MagicMock()
@@ -460,7 +460,7 @@ class TestSpawnBlockProcess:
 
         sentinel_job = object()  # Fake job handle
 
-        with patch("scieasy.engine.runners.process_handle.get_platform_ops") as mock_get_ops:
+        with patch("scistudio.engine.runners.process_handle.get_platform_ops") as mock_get_ops:
             mock_ops = MagicMock()
             mock_ops.create_process_group.side_effect = lambda kw: kw
             mock_get_ops.return_value = mock_ops

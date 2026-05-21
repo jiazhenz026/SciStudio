@@ -10,11 +10,11 @@ from fastapi.testclient import TestClient
 def test_template_basic_returns_python_with_correct_imports(client: TestClient) -> None:
     """GET /api/blocks/template?kind=basic returns Python content with the right imports.
 
-    Asserts the literal ``"from scieasy.blocks.base import"`` import line is
+    Asserts the literal ``"from scistudio.blocks.base import"`` import line is
     present and the ``Block`` symbol is referenced. We do not pin the
     exact symbol list because the template tracks whatever
     ``base/__init__.py`` exports — see the long comment at the top of
-    ``src/scieasy/blocks/_templates/block_base_template.py``.
+    ``src/scistudio/blocks/_templates/block_base_template.py``.
     """
     r = client.get("/api/blocks/template?kind=basic")
     assert r.status_code == 200, r.text
@@ -22,7 +22,7 @@ def test_template_basic_returns_python_with_correct_imports(client: TestClient) 
     assert body["kind"] == "basic"
     assert body["suggested_filename"].endswith(".py")
     content = body["content"]
-    assert "from scieasy.blocks.base import" in content
+    assert "from scistudio.blocks.base import" in content
     assert "Block" in content
     # Must be syntactically valid Python — otherwise the editor renders it
     # with squiggles immediately on open and the template UX silently breaks.

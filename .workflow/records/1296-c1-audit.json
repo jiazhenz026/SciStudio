@@ -5,7 +5,7 @@
   "changed_test_paths": [],
   "check_results": [
     {
-      "command_or_tool": "ruff check src/scieasy/blocks/io packages/scieasy-blocks-imaging packages/scieasy-blocks-srs",
+      "command_or_tool": "ruff check src/scistudio/blocks/io packages/scistudio-blocks-imaging packages/scistudio-blocks-srs",
       "exit_code": null,
       "name": "ruff-check",
       "output_path": null,
@@ -14,7 +14,7 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "ruff format --check src/scieasy/blocks/io packages/scieasy-blocks-imaging packages/scieasy-blocks-srs",
+      "command_or_tool": "ruff format --check src/scistudio/blocks/io packages/scistudio-blocks-imaging packages/scistudio-blocks-srs",
       "exit_code": null,
       "name": "ruff-format",
       "output_path": null,
@@ -32,7 +32,7 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "pytest packages/scieasy-blocks-imaging/tests/test_format_capabilities.py packages/scieasy-blocks-imaging/tests/test_image_meta_ome.py packages/scieasy-blocks-imaging/tests/test_processblock_meta_propagation.py packages/scieasy-blocks-imaging/tests/test_bioformats_handler.py --timeout=60",
+      "command_or_tool": "pytest packages/scistudio-blocks-imaging/tests/test_format_capabilities.py packages/scistudio-blocks-imaging/tests/test_image_meta_ome.py packages/scistudio-blocks-imaging/tests/test_processblock_meta_propagation.py packages/scistudio-blocks-imaging/tests/test_bioformats_handler.py --timeout=60",
       "exit_code": null,
       "name": "pytest-imaging-suite",
       "output_path": null,
@@ -41,7 +41,7 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "pytest packages/scieasy-blocks-srs/tests/test_processblock_meta_propagation.py --timeout=60",
+      "command_or_tool": "pytest packages/scistudio-blocks-srs/tests/test_processblock_meta_propagation.py --timeout=60",
       "exit_code": null,
       "name": "pytest-srs-propagation",
       "output_path": null,
@@ -86,7 +86,7 @@
   },
   "full_audit": {
     "blocks_merge": false,
-    "command": "python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
     "exit_code": null,
     "known_debt": [
       "311 findings are pre-existing repo-wide debt (frontmatter/signature/architecture drift across ADR-031..ADR-040 and Phase 10/11 spec files); 0 findings are attributable to PR-touched files (verified by file-path filter)"
@@ -115,14 +115,14 @@
       1296
     ],
     "number": 1303,
-    "url": "https://github.com/zjzcpj/SciEasy/pull/1303"
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1303"
   },
   "record_path": ".workflow/records/1296-c1-audit.json",
   "required_checks": [
-    "python -m scieasy.qa.audit.full_audit",
-    "ruff check src/scieasy/blocks/io packages/scieasy-blocks-imaging packages/scieasy-blocks-srs",
-    "ruff format --check src/scieasy/blocks/io packages/scieasy-blocks-imaging packages/scieasy-blocks-srs",
-    "pytest tests/blocks/io/test_load_data_capabilities.py tests/blocks/io/test_save_data_capabilities.py packages/scieasy-blocks-imaging/tests packages/scieasy-blocks-srs/tests",
+    "python -m scistudio.qa.audit.full_audit",
+    "ruff check src/scistudio/blocks/io packages/scistudio-blocks-imaging packages/scistudio-blocks-srs",
+    "ruff format --check src/scistudio/blocks/io packages/scistudio-blocks-imaging packages/scistudio-blocks-srs",
+    "pytest tests/blocks/io/test_load_data_capabilities.py tests/blocks/io/test_save_data_capabilities.py packages/scistudio-blocks-imaging/tests packages/scistudio-blocks-srs/tests",
     "adr043-section-9-validity-scan",
     "adr043-section-6-ambiguity-scan",
     "sentrux"

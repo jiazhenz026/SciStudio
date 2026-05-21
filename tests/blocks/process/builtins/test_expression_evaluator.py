@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from scieasy.blocks.process.builtins.expression_evaluator import (
+from scistudio.blocks.process.builtins.expression_evaluator import (
     ExpressionEvaluator,
     build_scope,
 )
@@ -148,7 +148,7 @@ class TestMisc:
             ExpressionEvaluator(123)  # type: ignore[arg-type]
 
     def test_build_scope_from_dataobject(self) -> None:
-        from scieasy.core.types.array import Array
+        from scistudio.core.types.array import Array
 
         item = Array(axes=["y", "x"], shape=(2, 2), dtype="uint8", user={"k": "v"})
         scope = build_scope(item, 7)

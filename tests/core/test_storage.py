@@ -9,11 +9,11 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from scieasy.core.storage.arrow_backend import ArrowBackend
-from scieasy.core.storage.composite_store import CompositeStore
-from scieasy.core.storage.filesystem import FilesystemBackend
-from scieasy.core.storage.ref import StorageReference
-from scieasy.core.storage.zarr_backend import ZarrBackend
+from scistudio.core.storage.arrow_backend import ArrowBackend
+from scistudio.core.storage.composite_store import CompositeStore
+from scistudio.core.storage.filesystem import FilesystemBackend
+from scistudio.core.storage.ref import StorageReference
+from scistudio.core.storage.zarr_backend import ZarrBackend
 
 
 class TestZarrBackend:
@@ -118,7 +118,7 @@ class TestZarrBackend:
 
     def test_axes_roundtrip_via_dataobject(self, tmp_path: Path) -> None:
         """Array with storage_ref can round-trip axes metadata after Zarr write."""
-        from scieasy.core.types.array import Array
+        from scistudio.core.types.array import Array
 
         backend = ZarrBackend()
         data = np.zeros((100, 100), dtype="float64")
@@ -205,7 +205,7 @@ class TestFilesystemBackend:
 
     def test_text_roundtrip(self, tmp_path: Path) -> None:
         backend = FilesystemBackend()
-        content = "Hello, SciEasy!\nLine 2."
+        content = "Hello, SciStudio!\nLine 2."
         ref = StorageReference(
             backend="filesystem",
             path=str(tmp_path / "hello.txt"),
@@ -311,7 +311,7 @@ class TestFilesystemBackend:
             format="plain",
         )
         with (
-            patch("scieasy.core.storage.filesystem.os.replace", side_effect=OSError("mock")),
+            patch("scistudio.core.storage.filesystem.os.replace", side_effect=OSError("mock")),
             pytest.raises(OSError, match="mock"),
         ):
             backend.write("data", ref)

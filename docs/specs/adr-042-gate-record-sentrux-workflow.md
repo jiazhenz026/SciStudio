@@ -38,63 +38,63 @@ scope:
     - Automatic application of GitHub labels or administrator approvals.
 governs:
   modules:
-    - scieasy.qa.governance
-    - scieasy.qa.schemas.frontmatter
-    - scieasy.qa.audit.frontmatter_lint
-    - scieasy.qa.audit.architecture_drift
-    - scieasy.qa.governance.gate_record
-    - scieasy.qa.governance.sentrux_gate
-    - scieasy.qa.governance.issue_link
-    - scieasy.qa.governance.docs_landing
-    - scieasy.qa.governance.persona_policy
-    - scieasy.qa.governance.human_bypass_guard
-    - scieasy.qa.governance.core_change_guard
-    - scieasy.qa.governance.pr_merge_guard
-    - scieasy.qa.governance.mod_guard
-    - scieasy.qa.governance.weakened_ci_check
+    - scistudio.qa.governance
+    - scistudio.qa.schemas.frontmatter
+    - scistudio.qa.audit.frontmatter_lint
+    - scistudio.qa.audit.architecture_drift
+    - scistudio.qa.governance.gate_record
+    - scistudio.qa.governance.sentrux_gate
+    - scistudio.qa.governance.issue_link
+    - scistudio.qa.governance.docs_landing
+    - scistudio.qa.governance.persona_policy
+    - scistudio.qa.governance.human_bypass_guard
+    - scistudio.qa.governance.core_change_guard
+    - scistudio.qa.governance.pr_merge_guard
+    - scistudio.qa.governance.mod_guard
+    - scistudio.qa.governance.weakened_ci_check
   contracts:
-    - scieasy.qa.schemas.frontmatter.ADRAddendumFrontmatter
-    - scieasy.qa.schemas.frontmatter.ArchitectureFrontmatter
-    - scieasy.qa.audit.frontmatter_lint.lint_file
-    - scieasy.qa.audit.architecture_drift.check
-    - scieasy.qa.governance.gate_record.GateRecord
-    - scieasy.qa.governance.gate_record.GateStage
-    - scieasy.qa.governance.gate_record.CheckEvidence
-    - scieasy.qa.governance.gate_record.SentruxEvidence
-    - scieasy.qa.governance.gate_record.FullAuditEvidence
-    - scieasy.qa.governance.gate_record.validate_gate_record
-    - scieasy.qa.governance.gate_record.check_pre_commit
-    - scieasy.qa.governance.gate_record.check_commit_msg
-    - scieasy.qa.governance.gate_record.check_pr
-    - scieasy.qa.governance.sentrux_gate.parse_sentrux_result
-    - scieasy.qa.governance.sentrux_gate.verify_free_tier_claims
-    - scieasy.qa.governance.issue_link.resolve_or_create
-    - scieasy.qa.governance.docs_landing.check
-    - scieasy.qa.governance.persona_policy.check
-    - scieasy.qa.governance.human_bypass_guard.check
-    - scieasy.qa.governance.core_change_guard.check
-    - scieasy.qa.governance.pr_merge_guard.check
-    - scieasy.qa.governance.mod_guard.check
-    - scieasy.qa.governance.weakened_ci_check.verify_no_weakening
+    - scistudio.qa.schemas.frontmatter.ADRAddendumFrontmatter
+    - scistudio.qa.schemas.frontmatter.ArchitectureFrontmatter
+    - scistudio.qa.audit.frontmatter_lint.lint_file
+    - scistudio.qa.audit.architecture_drift.check
+    - scistudio.qa.governance.gate_record.GateRecord
+    - scistudio.qa.governance.gate_record.GateStage
+    - scistudio.qa.governance.gate_record.CheckEvidence
+    - scistudio.qa.governance.gate_record.SentruxEvidence
+    - scistudio.qa.governance.gate_record.FullAuditEvidence
+    - scistudio.qa.governance.gate_record.validate_gate_record
+    - scistudio.qa.governance.gate_record.check_pre_commit
+    - scistudio.qa.governance.gate_record.check_commit_msg
+    - scistudio.qa.governance.gate_record.check_pr
+    - scistudio.qa.governance.sentrux_gate.parse_sentrux_result
+    - scistudio.qa.governance.sentrux_gate.verify_free_tier_claims
+    - scistudio.qa.governance.issue_link.resolve_or_create
+    - scistudio.qa.governance.docs_landing.check
+    - scistudio.qa.governance.persona_policy.check
+    - scistudio.qa.governance.human_bypass_guard.check
+    - scistudio.qa.governance.core_change_guard.check
+    - scistudio.qa.governance.pr_merge_guard.check
+    - scistudio.qa.governance.mod_guard.check
+    - scistudio.qa.governance.weakened_ci_check.verify_no_weakening
   files:
     - docs/specs/adr-042-gate-record-sentrux-workflow.md
     - docs/adr/ADR-042-addendum1.md
     - docs/architecture/ARCHITECTURE.md
-    - src/scieasy/qa/schemas/frontmatter.py
-    - src/scieasy/qa/audit/frontmatter_lint.py
-    - src/scieasy/qa/audit/architecture_drift.py
-    - src/scieasy/qa/audit/loaders.py
-    - src/scieasy/qa/governance/gate_record.py
-    - src/scieasy/qa/governance/sentrux_gate.py
-    - src/scieasy/qa/governance/issue_link.py
-    - src/scieasy/qa/governance/docs_landing.py
-    - src/scieasy/qa/governance/persona_policy.py
-    - src/scieasy/qa/governance/human_bypass_guard.py
-    - src/scieasy/qa/governance/core_change_guard.py
-    - src/scieasy/qa/governance/pr_merge_guard.py
-    - src/scieasy/qa/governance/mod_guard.py
-    - src/scieasy/qa/governance/weakened_ci_check.py
-    - src/scieasy/qa/governance/__init__.py
+    - src/scistudio/qa/schemas/frontmatter.py
+    - src/scistudio/qa/audit/frontmatter_lint.py
+    - src/scistudio/qa/audit/architecture_drift.py
+    - src/scistudio/qa/audit/loaders.py
+    - src/scistudio/qa/governance/gate_record.py
+    - src/scistudio/qa/governance/sentrux_gate.py
+    - src/scistudio/qa/governance/issue_link.py
+    - src/scistudio/qa/governance/docs_landing.py
+    - src/scistudio/qa/governance/persona_policy.py
+    - src/scistudio/qa/governance/human_bypass_guard.py
+    - src/scistudio/qa/governance/core_change_guard.py
+    - src/scistudio/qa/governance/pr_merge_guard.py
+    - src/scistudio/qa/governance/mod_guard.py
+    - src/scistudio/qa/governance/weakened_ci_check.py
+    - src/scistudio/qa/governance/__init__.py
     - tests/qa/test_gate_record.py
     - tests/qa/test_gate_record_hooks.py
     - tests/qa/test_gate_record_ci.py
@@ -175,7 +175,7 @@ The implementation must also replace the legacy CI gate check. The old
 must not remain as a parallel source of authority after committed gate records
 are implemented. The old `.workflow/gate.py` command is obsolete and must be
 deleted from the repository; current hooks and contributor instructions must
-call `python -m scieasy.qa.governance.gate_record` instead.
+call `python -m scistudio.qa.governance.gate_record` instead.
 
 Generated or local workflow artifacts that cause recurring branch conflicts
 must be ignored where they are not canonical repository documentation. If an
@@ -448,7 +448,7 @@ Acceptance Scenarios:
   issue, unless an owner-approved follow-up rationale is present.
 - FR-010: Gate records MUST include docs landing evidence before Test And Checks.
 - FR-011: Gate records MUST include ADR-042 full audit evidence when
-  `python -m scieasy.qa.audit.full_audit` is available.
+  `python -m scistudio.qa.audit.full_audit` is available.
 - FR-012: During the technical-debt phase, full-audit findings MAY be accepted
   only when classified as known debt in the gate record.
 - FR-013: Sentrux evidence MUST be required for source, package, workflow,
@@ -524,7 +524,7 @@ Acceptance Scenarios:
 ### 5.1 Technical Approach
 
 Implement gate records as repository-visible JSON files validated by Pydantic
-models in `scieasy.qa.governance.gate_record`. The module exposes local hook
+models in `scistudio.qa.governance.gate_record`. The module exposes local hook
 entry points and CI validation entry points that share the same schema and
 scope-checking logic.
 
@@ -547,7 +547,7 @@ must either implement that tool according to its existing ADR-042 spec or record
 a tracked implementation issue. The gate must not replace it with a weaker
 parallel check.
 
-Add `scieasy.qa.governance.sentrux_gate` for narrow Sentrux evidence parsing and
+Add `scistudio.qa.governance.sentrux_gate` for narrow Sentrux evidence parsing and
 free-tier claim validation. This module does not implement Sentrux; it validates
 evidence produced by Sentrux MCP or CLI and rejects Pro-only claims.
 
@@ -560,22 +560,22 @@ local MCP sessions or Pro-only Sentrux diagnostics.
 
 | File | Action | Purpose |
 |---|---|---|
-| `src/scieasy/qa/governance/gate_record.py` | create | Gate record schema, local checks, commit-message checks, PR validation |
-| `src/scieasy/qa/governance/sentrux_gate.py` | create | Sentrux free-tier evidence parsing and validation |
-| `src/scieasy/qa/governance/issue_link.py` | use/complete if missing | Existing ADR-042 issue-link hard-fail guard |
-| `src/scieasy/qa/governance/docs_landing.py` | use/complete if missing | Existing ADR-042 docs/changelog/checklist hard-fail guard |
-| `src/scieasy/qa/governance/persona_policy.py` | use/complete if missing | Existing ADR-042 persona/runtime hard-fail guard |
-| `src/scieasy/qa/governance/human_bypass_guard.py` | use/complete if missing | Existing ADR-042 human bypass provenance guard |
-| `src/scieasy/qa/governance/core_change_guard.py` | use/complete if missing | Existing ADR-042 protected core change guard |
-| `src/scieasy/qa/governance/pr_merge_guard.py` | use/complete if missing | Existing ADR-042 AI merge guard |
-| `src/scieasy/qa/governance/mod_guard.py` | use | Existing ADR-042 governance modification guard |
-| `src/scieasy/qa/governance/weakened_ci_check.py` | use | Existing ADR-042 CI weakening guard |
-| `src/scieasy/qa/schemas/frontmatter.py` | modify | Add standalone ADR addendum frontmatter schema support |
-| `src/scieasy/qa/audit/frontmatter_lint.py` | modify | Accept and validate `ADR-NNN-addendumM.md` and `docs/architecture/ARCHITECTURE.md` |
-| `src/scieasy/qa/audit/architecture_drift.py` | create | Validate architecture code blocks, symbols, module paths, and signatures against repository facts |
-| `src/scieasy/qa/audit/full_audit.py` | modify | Include architecture drift as a child audit report |
-| `src/scieasy/qa/audit/loaders.py` | modify | Load addendum and architecture frontmatter for audit/facts tools |
-| `src/scieasy/qa/governance/__init__.py` | modify | Export gate-record public contracts |
+| `src/scistudio/qa/governance/gate_record.py` | create | Gate record schema, local checks, commit-message checks, PR validation |
+| `src/scistudio/qa/governance/sentrux_gate.py` | create | Sentrux free-tier evidence parsing and validation |
+| `src/scistudio/qa/governance/issue_link.py` | use/complete if missing | Existing ADR-042 issue-link hard-fail guard |
+| `src/scistudio/qa/governance/docs_landing.py` | use/complete if missing | Existing ADR-042 docs/changelog/checklist hard-fail guard |
+| `src/scistudio/qa/governance/persona_policy.py` | use/complete if missing | Existing ADR-042 persona/runtime hard-fail guard |
+| `src/scistudio/qa/governance/human_bypass_guard.py` | use/complete if missing | Existing ADR-042 human bypass provenance guard |
+| `src/scistudio/qa/governance/core_change_guard.py` | use/complete if missing | Existing ADR-042 protected core change guard |
+| `src/scistudio/qa/governance/pr_merge_guard.py` | use/complete if missing | Existing ADR-042 AI merge guard |
+| `src/scistudio/qa/governance/mod_guard.py` | use | Existing ADR-042 governance modification guard |
+| `src/scistudio/qa/governance/weakened_ci_check.py` | use | Existing ADR-042 CI weakening guard |
+| `src/scistudio/qa/schemas/frontmatter.py` | modify | Add standalone ADR addendum frontmatter schema support |
+| `src/scistudio/qa/audit/frontmatter_lint.py` | modify | Accept and validate `ADR-NNN-addendumM.md` and `docs/architecture/ARCHITECTURE.md` |
+| `src/scistudio/qa/audit/architecture_drift.py` | create | Validate architecture code blocks, symbols, module paths, and signatures against repository facts |
+| `src/scistudio/qa/audit/full_audit.py` | modify | Include architecture drift as a child audit report |
+| `src/scistudio/qa/audit/loaders.py` | modify | Load addendum and architecture frontmatter for audit/facts tools |
+| `src/scistudio/qa/governance/__init__.py` | modify | Export gate-record public contracts |
 | `.workflow/gate.py` | delete | Remove obsolete local-only gate state machine |
 | `.workflow/gate-record.schema.json` | create | JSON Schema mirror for committed gate records |
 | `.workflow/records/.gitkeep` | create | Keep committed gate-record directory present |
@@ -659,10 +659,10 @@ local MCP sessions or Pro-only Sentrux diagnostics.
 
 `.pre-commit-config.yaml` must add:
 
-- `scieasy-gate-record-pre-commit`: runs
-  `python -m scieasy.qa.governance.gate_record pre-commit --staged`.
-- `scieasy-gate-record-commit-msg`: runs
-  `python -m scieasy.qa.governance.gate_record commit-msg`.
+- `scistudio-gate-record-pre-commit`: runs
+  `python -m scistudio.qa.governance.gate_record pre-commit --staged`.
+- `scistudio-gate-record-commit-msg`: runs
+  `python -m scistudio.qa.governance.gate_record commit-msg`.
 
 The pre-commit hook is intentionally lightweight. If no gate record is present
 yet, it reports a non-blocking skip so agents and humans can iterate through
@@ -676,14 +676,14 @@ The commit-msg hook checks `Gate-Record`, `Task-Kind`, `Issue`, and
 `Assisted-by` trailers.
 
 `scripts/hooks/check-gate-before-push.sh` must call
-`python -m scieasy.qa.governance.gate_record pre-push` and enforce final gate
+`python -m scistudio.qa.governance.gate_record pre-push` and enforce final gate
 semantics before allowing `git push`: a gate record must exist, all six stages
 must be complete, implementation-category work must include changed tests,
 required full audit and Sentrux evidence must be recorded, and changed files
 must remain in scope.
 
 `scripts/hooks/check-gate-before-pr.sh` must call
-`python -m scieasy.qa.governance.gate_record pr-ready` and enforce the same
+`python -m scistudio.qa.governance.gate_record pr-ready` and enforce the same
 final gate semantics, plus closing issue text and PR provenance. Hook behavior
 must not depend on branch-name special cases such as `hotfix/*`; task behavior
 is declared by `gate_record start --task-kind ...`.
@@ -693,7 +693,7 @@ ADR-042 override labels as local-only bypass inputs: `human-authored`,
 `admin-approved:ai-override`, `admin-approved:core-change`, and
 `admin-approved:merge`. The `gate_record` CLI must expose `--bypass-label` for
 `pre-commit`, `commit-msg`, and `pre-push`, and `--pr-label` for `pr-ready`.
-It must also read `SCIEASY_GATE_BYPASS_LABELS`. The pre-push wrapper should
+It must also read `SCISTUDIO_GATE_BYPASS_LABELS`. The pre-push wrapper should
 read labels from an existing PR with `gh pr view` when available; the PR-create
 wrapper should parse `gh pr create --label/-l`. These bypasses allow the PR to
 be submitted for review; CI still runs and remains authoritative.
@@ -711,7 +711,7 @@ be submitted for review; CI still runs and remains authoritative.
 5. Run:
 
 ```bash
-python -m scieasy.qa.governance.gate_record ci \
+python -m scistudio.qa.governance.gate_record ci \
   --gate-record .workflow/records/<record>.json \
   --base origin/${{ github.base_ref }} \
   --head HEAD \
@@ -719,7 +719,7 @@ python -m scieasy.qa.governance.gate_record ci \
 ```
 
 6. Validate that the gate record includes full audit evidence produced by:
-   `python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json`.
+   `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json`.
 7. Validate Sentrux free-tier evidence recorded from the applicable Sentrux
    MCP/CLI check. CI does not require Sentrux Pro and must reject Pro-only
    claims.
@@ -779,9 +779,9 @@ pytest tests/qa/test_persona_policy.py
 pytest tests/qa/test_human_bypass_guard.py
 pytest tests/qa/test_core_change_guard.py
 pytest tests/qa/test_pr_merge_guard.py
-ruff check src/scieasy/qa/governance tests/qa/test_gate_record*.py tests/qa/test_sentrux_gate.py
-ruff format --check src/scieasy/qa/governance tests/qa/test_gate_record*.py tests/qa/test_sentrux_gate.py
-python -m scieasy.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json
+ruff check src/scistudio/qa/governance tests/qa/test_gate_record*.py tests/qa/test_sentrux_gate.py
+ruff format --check src/scistudio/qa/governance tests/qa/test_gate_record*.py tests/qa/test_sentrux_gate.py
+python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json
 ```
 
 When Sentrux is available locally, also run:

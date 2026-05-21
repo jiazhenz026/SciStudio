@@ -1,52 +1,52 @@
-# CLI integration — use `claude` or `codex` against SciEasy projects
+# CLI integration — use `claude` or `codex` against SciStudio projects
 
-This guide is for developers who want to drive SciEasy projects from
+This guide is for developers who want to drive SciStudio projects from
 **their own** terminal CLI (the user-installed `claude` or `codex`),
-**outside** the SciEasy GUI. The GUI's embedded coding agent already
+**outside** the SciStudio GUI. The GUI's embedded coding agent already
 does this internally; CLI integration exposes the same MCP surface plus
-a SciEasy-aware skill to any compatible client.
+a SciStudio-aware skill to any compatible client.
 
-The result: `pip install scieasy && scieasy install --all && claude`
-in a project dir, and your CLI immediately has 25 SciEasy tools plus a
+The result: `pip install scistudio && scistudio install --all && claude`
+in a project dir, and your CLI immediately has 25 SciStudio tools plus a
 skill describing how to use them.
 
 ## Quick start
 
 ```bash
-# 1. Install SciEasy.
-pip install scieasy   # or pip install -e . from a source checkout
+# 1. Install SciStudio.
+pip install scistudio   # or pip install -e . from a source checkout
 
 # 2. Wire up your CLI of choice. --all installs claude + codex + skill at user scope.
-scieasy install --all
+scistudio install --all
 
-# 3. cd into a SciEasy project and launch your CLI.
+# 3. cd into a SciStudio project and launch your CLI.
 cd ~/work/my-microplastics-project
 claude          # or: codex
 ```
 
 In the chat, try: "list all available block types in this project". The
-CLI should call `mcp__scieasy__list_blocks` via the bridge and return
+CLI should call `mcp__scistudio__list_blocks` via the bridge and return
 the actual registry.
 
 ## The pieces
 
 There are four moving parts behind the curtain.
 
-### 1. `scieasy mcp-bridge` (stdio adapter)
+### 1. `scistudio mcp-bridge` (stdio adapter)
 
 A small subprocess invoked by `claude` / `codex`. Reads JSON-RPC frames
 from its stdin and writes responses to its stdout, proxying to a
-SciEasy MCP server. Two modes (auto-selected at startup):
+SciStudio MCP server. Two modes (auto-selected at startup):
 
-- **Attached mode** — a SciEasy backend is already running for this
-  project (you have `scieasy gui` or `scieasy serve` open in another
+- **Attached mode** — a SciStudio backend is already running for this
+  project (you have `scistudio gui` or `scistudio serve` open in another
   terminal). The bridge connects to the backend's local socket and
   every CLI shares the same project state. Writes from the CLI
   (`write_workflow`, `update_block_config`) are visible to the GUI on
   the next read.
 - **Standalone mode** — no backend is running. The bridge spins up an
   in-process MCP server itself, scoped to
-  `$SCIEASY_PROJECT_DIR` (or the current working directory if it
+  `$SCISTUDIO_PROJECT_DIR` (or the current working directory if it
   contains a `project.yaml`). The block + type registries are scanned
   from disk at startup (~1-2 s); after that, tool calls are served
   directly. Tear-down happens on stdin EOF.
@@ -56,9 +56,9 @@ The bridge is **stateless across invocations** in standalone mode: each
 its own in-process MCP server. Writes are persisted to disk, so two
 standalone bridges see each other's writes on the next read — but they
 don't share an in-memory run history. If you need shared run state,
-launch the backend first (`scieasy serve` or `scieasy gui`).
+launch the backend first (`scistudio serve` or `scistudio gui`).
 
-### 2. `scieasy install`
+### 2. `scistudio install`
 
 A Typer subcommand that wires the MCP server into a CLI's config file.
 Targets and behaviours:
@@ -67,17 +67,17 @@ Targets and behaviours:
 |---------------------------|-----------------------------------------------------------------------|
 | `claude` / `user`         | `~/.claude.json` (`mcpServers`)                                       |
 | `claude` / `project`      | `<cwd>/.mcp.json` (`mcpServers`)                                      |
-| `codex` / `user`          | `~/.codex/config.toml` (`[mcp_servers.scieasy]`)                      |
-| `codex` / `project`       | `<cwd>/.codex/config.toml` (`[mcp_servers.scieasy]`) — Codex 2026     |
-| `skill` / `user`          | `~/.claude/skills/scieasy/` AND `~/.agents/skills/scieasy/`           |
-| `skill` / `project`       | `<cwd>/.claude/skills/scieasy/` AND `<cwd>/.agents/skills/scieasy/`   |
+| `codex` / `user`          | `~/.codex/config.toml` (`[mcp_servers.scistudio]`)                      |
+| `codex` / `project`       | `<cwd>/.codex/config.toml` (`[mcp_servers.scistudio]`) — Codex 2026     |
+| `skill` / `user`          | `~/.claude/skills/scistudio/` AND `~/.agents/skills/scistudio/`           |
+| `skill` / `project`       | `<cwd>/.claude/skills/scistudio/` AND `<cwd>/.agents/skills/scistudio/`   |
 | `--all` (user scope)      | All of the above                                                       |
 
 All operations are **idempotent**; re-running produces a `noop` result.
 Use `--remove` to undo any install.
 
-The `--skill` flag **cross-installs** the SciEasy skill tree to both
-Claude (`.claude/skills/scieasy/`) and Codex (`.agents/skills/scieasy/`)
+The `--skill` flag **cross-installs** the SciStudio skill tree to both
+Claude (`.claude/skills/scistudio/`) and Codex (`.agents/skills/scistudio/`)
 providers in a single call — both CLIs use identical `SKILL.md` format
 (frontmatter + progressive-disclosure body), and the cross-install costs
 one extra `shutil.copytree` per scope (ADR-040 §3.9).
@@ -86,24 +86,24 @@ Examples:
 
 ```bash
 # User-scope claude + cross-installed skill (both providers).
-scieasy install --target claude --scope user --skill
+scistudio install --target claude --scope user --skill
 
 # Project-scope claude only (writes <cwd>/.mcp.json).
-scieasy install --target claude --scope project
+scistudio install --target claude --scope project
 
 # Project-scope codex MCP entry — writes <cwd>/.codex/config.toml
 # (Codex 2026 walks from project root loading every .codex/config.toml).
-scieasy install --target codex --scope project
+scistudio install --target codex --scope project
 
 # User-scope codex MCP entry.
-scieasy install --target codex
+scistudio install --target codex
 
 # Convenience.
-scieasy install --all
+scistudio install --all
 
 # Reverse anything.
-scieasy install --target claude --scope user --remove
-scieasy install --all --remove
+scistudio install --target claude --scope user --remove
+scistudio install --all --remove
 ```
 
 > **Codex 2026 project-scope support.** Codex 2026 introduced
@@ -112,31 +112,31 @@ scieasy install --all --remove
 > releases honoured only user-scope `~/.codex/config.toml`. Passing
 > `--target codex --scope project` writes a project-scope MCP entry
 > that takes effect once Codex is launched inside that project, with
-> `SCIEASY_PROJECT_DIR` pinned via the `[mcp_servers.scieasy.env]`
+> `SCISTUDIO_PROJECT_DIR` pinned via the `[mcp_servers.scistudio.env]`
 > table. Codex's "trusted projects" model means the first open after
 > install may prompt for trust acceptance — one-time UX friction.
 
-### 3. SciEasy skill
+### 3. SciStudio skill
 
-A packaged directory `src/scieasy/_skills/scieasy/` (per ADR-040 §3.4,
-bundled with the wheel and installed by `scieasy install --skill`)
+A packaged directory `src/scistudio/_skills/scistudio/` (per ADR-040 §3.4,
+bundled with the wheel and installed by `scistudio install --skill`)
 containing:
 
 - `SKILL.md` — base identity + thin pointer index to the 5 task-scoped
   sub-skills.
-- `scieasy-build-workflow/SKILL.md`, `scieasy-write-block/SKILL.md`,
-  `scieasy-debug-run/SKILL.md`, `scieasy-inspect-data/SKILL.md`,
-  `scieasy-project-qa/SKILL.md` — JIT-loaded task skills with
+- `scistudio-build-workflow/SKILL.md`, `scistudio-write-block/SKILL.md`,
+  `scistudio-debug-run/SKILL.md`, `scistudio-inspect-data/SKILL.md`,
+  `scistudio-project-qa/SKILL.md` — JIT-loaded task skills with
   progressive-disclosure semantics (frontmatter `description` triggers
   body load on demand).
 
-Per ADR-040 §3.9, `scieasy install --skill` **cross-installs** the
+Per ADR-040 §3.9, `scistudio install --skill` **cross-installs** the
 entire 6-file tree to both providers:
 
-- Claude Code reads `~/.claude/skills/scieasy/` (user) or
-  `<project>/.claude/skills/scieasy/` (project).
-- Codex reads `~/.agents/skills/scieasy/` (user) or
-  `<project>/.agents/skills/scieasy/` (project).
+- Claude Code reads `~/.claude/skills/scistudio/` (user) or
+  `<project>/.claude/skills/scistudio/` (project).
+- Codex reads `~/.agents/skills/scistudio/` (user) or
+  `<project>/.agents/skills/scistudio/` (project).
 
 Both providers auto-discover skills at session start and surface them
 in their respective slash-command pickers. The base `SKILL.md` body is
@@ -170,26 +170,26 @@ shared whenever the backend is up**.
 
 ## Troubleshooting
 
-**The CLI can't find tools / says no SciEasy MCP server.**
+**The CLI can't find tools / says no SciStudio MCP server.**
 
-- Confirm install: `scieasy install --target claude --scope user`
+- Confirm install: `scistudio install --target claude --scope user`
   should report `installed` or `noop`.
 - Check the config file: `cat ~/.claude.json` should contain
-  `"mcpServers": { "scieasy": ... }` near the top.
-- Check `scieasy` is on PATH: `which scieasy` (or `where scieasy` on
+  `"mcpServers": { "scistudio": ... }` near the top.
+- Check `scistudio` is on PATH: `which scistudio` (or `where scistudio` on
   Windows) should return a path. If not, the bridge can't launch.
 
 **Standalone bridge fails with "no project is currently open".**
 
-The bridge resolves `$SCIEASY_PROJECT_DIR` from the env, falling back
+The bridge resolves `$SCISTUDIO_PROJECT_DIR` from the env, falling back
 to the current working directory if it contains `project.yaml`. If
 both are absent, project-scoped tools error with a clear message —
-this is intentional. Either `cd` into a SciEasy project or set
-`SCIEASY_PROJECT_DIR` in the CLI's MCP-server `env` block.
+this is intentional. Either `cd` into a SciStudio project or set
+`SCISTUDIO_PROJECT_DIR` in the CLI's MCP-server `env` block.
 
 **Stale port file / socket on Windows.**
 
-When a SciEasy backend crashes, the `<project>/.scieasy/mcp.sock.port`
+When a SciStudio backend crashes, the `<project>/.scistudio/mcp.sock.port`
 sentinel may be left behind. The bridge attempts the connect anyway
 and, on failure, falls back to standalone mode automatically with a
 note on stderr.
@@ -199,25 +199,25 @@ note on stderr.
 The install command tries to preserve other keys in the target file
 (either `~/.codex/config.toml` for user scope or
 `<cwd>/.codex/config.toml` for project scope per Codex 2026), but it
-does normalise the `[mcp_servers.scieasy]` block to a canonical
+does normalise the `[mcp_servers.scistudio]` block to a canonical
 layout. If you've heavily customised the file, inspect the diff
 before/after.
 
 ## Git compatibility (ADR-039)
 
-SciEasy bundles a portable `git` binary at `<install>/resources/git/bin/git[.exe]`
+SciStudio bundles a portable `git` binary at `<install>/resources/git/bin/git[.exe]`
 (MinGit on Windows, static-built `git` on macOS/Linux) for its own source
 version control operations. The bundled binary is used by the in-process
-`GitEngine` subprocess wrapper at `src/scieasy/core/versioning/git_engine.py`.
+`GitEngine` subprocess wrapper at `src/scistudio/core/versioning/git_engine.py`.
 
 External `git` interactions remain fully supported and unblocked:
 
-- SciEasy does **not** lock `.git/`. Users can run any external `git` CLI in
+- SciStudio does **not** lock `.git/`. Users can run any external `git` CLI in
   parallel from a terminal, GUI tool (GitHub Desktop, GitKraken, JetBrains
-  built-in git, VS Code), or AI agent's shell — and SciEasy's `workflow_watcher`
+  built-in git, VS Code), or AI agent's shell — and SciStudio's `workflow_watcher`
   (ADR-034 Phase 2, extended by ADR-039 §3.8) detects the resulting
   `.git/HEAD` change and refreshes its UI cache.
-- The `scieasy gui` developer CLI (non-desktop-bundled installs) falls back
+- The `scistudio gui` developer CLI (non-desktop-bundled installs) falls back
   to the user's system `git` if no bundled binary is present.
 
 ### Commit-message prefix convention
@@ -228,20 +228,20 @@ agent + auto layers stay visually distinguishable:
 
 | Prefix | Meaning | GUI default visibility | Icon |
 |---|---|---|---|
-| `auto:` | Pre-run squash commit emitted by SciEasy when the working tree is dirty at Run time | **Hidden** under default "Manual milestones" filter | small grey dot in graph |
+| `auto:` | Pre-run squash commit emitted by SciStudio when the working tree is dirty at Run time | **Hidden** under default "Manual milestones" filter | small grey dot in graph |
 | `agent:` | Commit authored by an AI agent (ADR-034 embedded coding agent, ADR-035 AI Block, or any programmatic flow). Format: `agent: <summary> (session=<chat_or_block_run_id>)` | Visible | 🤖 |
 | *(no prefix)* | Manual user commit | Visible | 👤 |
 
-When an external tool or script makes commits inside a SciEasy project, prefer
+When an external tool or script makes commits inside a SciStudio project, prefer
 the no-prefix form for human-driven changes. Reserve `auto:` and `agent:` for
 their specific machine-driven contexts so the filter remains meaningful.
 
 ## Out of scope
 
-- A hosted / shared SciEasy backend across machines.
-- Auto-injecting the SciEasy tools into existing `claude` conversations
+- A hosted / shared SciStudio backend across machines.
+- Auto-injecting the SciStudio tools into existing `claude` conversations
   (the install is per-project / per-user, not per-conversation).
-- A SciEasy plugin marketplace.
+- A SciStudio plugin marketplace.
 
 ## See also
 

@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from scieasy.qa.governance import mod_guard
-from scieasy.qa.schemas.report import AuditStatus
+from scistudio.qa.governance import mod_guard
+from scistudio.qa.schemas.report import AuditStatus
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -79,13 +79,13 @@ def test_mod_guard_still_blocks_non_record_workflow_change_without_approval(tmp_
 
 def test_mod_guard_allows_protected_change_with_explicit_flag(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
-    _write(repo, "src/scieasy/qa/governance/mod_guard.py", "print('changed')\n")
+    _write(repo, "src/scistudio/qa/governance/mod_guard.py", "print('changed')\n")
     _git(repo, "add", ".")
 
     report = mod_guard.check(repo, staged=True, allow_governance_change=True)
 
     assert report.status == AuditStatus.PASS
-    assert report.summary["changed_protected_files"] == ["src/scieasy/qa/governance/mod_guard.py"]
+    assert report.summary["changed_protected_files"] == ["src/scistudio/qa/governance/mod_guard.py"]
 
 
 def test_mod_guard_allows_protected_change_with_environment_override(
@@ -106,7 +106,7 @@ def test_mod_guard_accepts_adr042_local_bypass_labels(tmp_path: Path, monkeypatc
     repo = _init_repo(tmp_path)
     _write(repo, ".pre-commit-config.yaml", "repos:\n  - repo: local\n")
     _git(repo, "add", ".")
-    monkeypatch.setenv("SCIEASY_GATE_BYPASS_LABELS", "admin-approved:ai-override")
+    monkeypatch.setenv("SCISTUDIO_GATE_BYPASS_LABELS", "admin-approved:ai-override")
 
     report = mod_guard.check(repo, staged=True)
 
@@ -118,7 +118,7 @@ def test_mod_guard_rejects_invalid_adr042_local_bypass_label(tmp_path: Path, mon
     repo = _init_repo(tmp_path)
     _write(repo, ".pre-commit-config.yaml", "repos:\n  - repo: local\n")
     _git(repo, "add", ".")
-    monkeypatch.setenv("SCIEASY_GATE_BYPASS_LABELS", "admin-approved-core-change")
+    monkeypatch.setenv("SCISTUDIO_GATE_BYPASS_LABELS", "admin-approved-core-change")
 
     report = mod_guard.check(repo, staged=True)
 

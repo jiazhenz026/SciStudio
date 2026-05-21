@@ -25,10 +25,10 @@ import numpy as np
 import pytest
 from pydantic import BaseModel
 
-from scieasy.core.meta import FrameworkMeta
-from scieasy.core.storage.ref import StorageReference
-from scieasy.core.storage.zarr_backend import ZarrBackend
-from scieasy.core.types.base import DataObject
+from scistudio.core.meta import FrameworkMeta
+from scistudio.core.storage.ref import StorageReference
+from scistudio.core.storage.zarr_backend import ZarrBackend
+from scistudio.core.types.base import DataObject
 
 # ---------------------------------------------------------------------------
 # Test fixtures: a tiny typed Meta + a subclass that uses it.

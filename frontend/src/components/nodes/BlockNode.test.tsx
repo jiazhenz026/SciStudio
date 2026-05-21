@@ -137,7 +137,7 @@ function renderNode(
   );
 }
 
-// LoadData-style dynamic descriptor mirrored from src/scieasy/blocks/io/loaders/load_data.py
+// LoadData-style dynamic descriptor mirrored from src/scistudio/blocks/io/loaders/load_data.py
 const LOAD_DATA_DYNAMIC: DynamicPortsConfig = {
   source_config_key: "core_type",
   output_port_mapping: {

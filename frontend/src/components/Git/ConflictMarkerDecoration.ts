@@ -31,7 +31,7 @@
  *   ... incoming ...
  *   >>>>>>> source
  *
- *  SciEasy does NOT enable diff3 by default in v1; we handle it
+ *  SciStudio does NOT enable diff3 by default in v1; we handle it
  *  gracefully if the user's git config is set this way.)
  *
  * This module registers Monaco decorations to:

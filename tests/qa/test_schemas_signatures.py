@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from scieasy.qa.schemas.signatures import (
+from scistudio.qa.schemas.signatures import (
     ExpectedCliCommand,
     ExpectedModelField,
     ExpectedParameter,
@@ -56,11 +56,11 @@ def test_expected_model_field_and_cli_command_schemas() -> None:
         source_line=20,
     )
     command = ExpectedCliCommand(
-        command=["scieasy", "audit"],
+        command=["scistudio", "audit"],
         expected_exit_codes={0: "ok"},
         source_spec="docs/specs/example.md",
         source_line=30,
     )
 
     assert field.required
-    assert command.command == ["scieasy", "audit"]
+    assert command.command == ["scistudio", "audit"]

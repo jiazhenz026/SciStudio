@@ -2,7 +2,7 @@
 
 Pre-ADR-038 these tests exercised a live SQLite store at
 ``<project>/metadata.db``. Phase D38-2.3 collapses that store into the
-unified :class:`~scieasy.core.lineage.LineageStore`; the legacy
+unified :class:`~scistudio.core.lineage.LineageStore`; the legacy
 ``MetadataStore`` symbol is now a thin shim whose responsibilities are:
 
 * Preserve the public method surface (``put`` / ``put_wire`` / ``get`` /
@@ -13,13 +13,13 @@ unified :class:`~scieasy.core.lineage.LineageStore`; the legacy
 * Emit a one-time :class:`DeprecationWarning` so consumers know to
   migrate.
 * Make writes silent no-ops — the authoritative writer is now the
-  :class:`~scieasy.core.lineage.LineageRecorder`.
+  :class:`~scistudio.core.lineage.LineageRecorder`.
 * Delegate reads to the active project's :class:`LineageStore` (via the
   :class:`ApiRuntime` singleton). Without an active store, reads return
   ``None`` / ``[]``.
 
 These tests fault-inject an in-memory :class:`LineageStore` via the
-``scieasy.api.deps._runtime`` import path so the shim's read delegation
+``scistudio.api.deps._runtime`` import path so the shim's read delegation
 can be verified end-to-end without booting the full FastAPI app.
 """
 
@@ -31,10 +31,10 @@ from typing import Any
 
 import pytest
 
-import scieasy.core.metadata_store as _ms
-from scieasy.core.lineage.record import DataObjectRow
-from scieasy.core.lineage.store import LineageStore
-from scieasy.core.metadata_store import (
+import scistudio.core.metadata_store as _ms
+from scistudio.core.lineage.record import DataObjectRow
+from scistudio.core.lineage.store import LineageStore
+from scistudio.core.metadata_store import (
     MetadataStore,
     _set_active_lineage_store,
     get_metadata_store,

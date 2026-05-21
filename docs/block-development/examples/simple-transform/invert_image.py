@@ -5,7 +5,7 @@ and let the framework handle iteration, auto-flush, and Collection
 packing. Peak memory: O(1 item).
 
 Usage:
-    Place this file in ~/.scieasy/blocks/ for Tier 1 discovery,
+    Place this file in ~/.scistudio/blocks/ for Tier 1 discovery,
     or include it in a Tier 2 package.
 """
 
@@ -15,10 +15,10 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy.core.types.array import Array
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio.core.types.array import Array
 
 
 class InvertImage(ProcessBlock):

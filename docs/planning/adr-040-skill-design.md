@@ -3,14 +3,14 @@
 > Authored 2026-05-16 by `AC40-skill` (skill-design investigation agent).
 > Read-only investigation feeding Phase 2c (I40b) skill content authoring.
 > Companion to [ADR-040](../adr/ADR-040.md) §3.4 / §3.5 and [code-scope manifest](./adr-040-code-scope.md).
-> Issue: [#1051](https://github.com/zjzcpj/SciEasy/issues/1051). Umbrella: [#1011](https://github.com/zjzcpj/SciEasy/issues/1011).
+> Issue: [#1051](https://github.com/zjzcpj/SciStudio/issues/1051). Umbrella: [#1011](https://github.com/zjzcpj/SciStudio/issues/1011).
 > Source state inspected: `track/adr-040` HEAD (commit `a697803`) for the S40a skeleton + WIP at `.claude/worktrees/i40a-impl/` (uncommitted, read-only) for I40a direction.
 
 ## How to use this document
 
 - **Phase 2c (I40b) skill content authoring** consumes this whole file plus ADR-040 §3.4. No further upstream research should be required.
 - The 9 top-level sections are the dispatch contract from the Phase 2b prompt; do not delete or renumber.
-- Worked examples (§1.3, §2.6, §5.x) are **drop-in copy** for the matching skill bodies — they have been written against the real Block ABC / port API verified on `track/adr-040` and should compile/validate without rework. Where the live API differs from the existing repo-root `skills/scieasy/SKILL.md` worked example, this document is the canonical source.
+- Worked examples (§1.3, §2.6, §5.x) are **drop-in copy** for the matching skill bodies — they have been written against the real Block ABC / port API verified on `track/adr-040` and should compile/validate without rework. Where the live API differs from the existing repo-root `skills/scistudio/SKILL.md` worked example, this document is the canonical source.
 - External-harness comparisons in §4 are explicitly tagged **verified** (sourced from the live docs cited in ADR-040 §10 or directly inspected) or **from training, unverified** so the Phase 2c agent can choose how heavily to lean on each recommendation.
 
 ---
@@ -19,8 +19,8 @@
 
 The S40a skeleton landed on `track/adr-040/fastmcp` (PR #1030, merged into `track/adr-040`) but the I40a impl PR is mid-flight in the user's worktree at `.claude/worktrees/i40a-impl/`. As of this writing, the WIP shows:
 
-- `src/scieasy/ai/agent/mcp/server.py` — `MCPServer` lifecycle wrapper now wraps a real `fastmcp.FastMCP` instance (verified). Module-scope `mcp = FastMCP(name="scieasy-mcp", version="0.1.0")`. Transport (POSIX UDS / Windows TCP loopback) is preserved verbatim from the ADR-033-era hand-rolled server so the bridge subprocess (`scieasy mcp-bridge`) keeps working.
-- `src/scieasy/ai/agent/system_prompt.py` — `_load_skill_md` prefers `importlib.resources` for the relocated `scieasy._skills.scieasy.SKILL.md` but **retains the walk-up fallback** to `<repo>/skills/scieasy/SKILL.md` because S40b's relocation has not been wired into this branch yet (per the file's own docstring comment marked `TODO(#1012)`). `_render_project_context` (closes #825) is shaped per ADR §3.3 but the live impl status varies — Phase 2c should verify once I40a lands.
+- `src/scistudio/ai/agent/mcp/server.py` — `MCPServer` lifecycle wrapper now wraps a real `fastmcp.FastMCP` instance (verified). Module-scope `mcp = FastMCP(name="scistudio-mcp", version="0.1.0")`. Transport (POSIX UDS / Windows TCP loopback) is preserved verbatim from the ADR-033-era hand-rolled server so the bridge subprocess (`scistudio mcp-bridge`) keeps working.
+- `src/scistudio/ai/agent/system_prompt.py` — `_load_skill_md` prefers `importlib.resources` for the relocated `scistudio._skills.scistudio.SKILL.md` but **retains the walk-up fallback** to `<repo>/skills/scistudio/SKILL.md` because S40b's relocation has not been wired into this branch yet (per the file's own docstring comment marked `TODO(#1012)`). `_render_project_context` (closes #825) is shaped per ADR §3.3 but the live impl status varies — Phase 2c should verify once I40a lands.
 - Each `tools_*.py` file: tool bodies are being filled in (compare `track/adr-040` HEAD `NotImplementedError` bodies → WIP partial-real bodies). The 26 `@mcp.tool` decorators with Pydantic return-model shapes are stable; what changes is the body.
 - `_render_tool_catalog` placeholder state — the S40a skeleton produces a hand-rolled fallback string when FastMCP enumeration is unavailable; I40a switches it to live `await mcp.list_tools()`. Phase 2c skills should be robust to BOTH return styles (the body content describes the tools, not the catalog rendering itself).
 
@@ -28,9 +28,9 @@ The S40a skeleton landed on `track/adr-040/fastmcp` (PR #1030, merged into `trac
 
 ---
 
-## 1. SciEasy workflow development patterns
+## 1. SciStudio workflow development patterns
 
-Source of truth inspected: `src/scieasy/workflow/`, the existing repo-root `skills/scieasy/SKILL.md` ("Workflow YAML — exact schema" section), `tests/integration/`, and `docs/specs/`. The YAML schema is enforced by `validate_workflow` (`src/scieasy/ai/agent/mcp/tools_workflow.py:306` on `track/adr-040`) and by `write_workflow` pre-write (lines 347+).
+Source of truth inspected: `src/scistudio/workflow/`, the existing repo-root `skills/scistudio/SKILL.md` ("Workflow YAML — exact schema" section), `tests/integration/`, and `docs/specs/`. The YAML schema is enforced by `validate_workflow` (`src/scistudio/ai/agent/mcp/tools_workflow.py:306` on `track/adr-040`) and by `write_workflow` pre-write (lines 347+).
 
 ### 1.1 Canonical workflow YAML shape
 
@@ -98,7 +98,7 @@ Observed from `tests/integration/test_*.py` failure modes and live agent traces:
 3. **Hallucinated port names.** Agents guess `"image"` when the block exposes `"images"` (plural) or vice versa. Cure: `get_block_schema(block_type)` returns the exact `input_ports[].name` / `output_ports[].name`. Cite those names; do not type from memory.
 4. **Wrong `block_type` casing or missing namespace.** Block types are namespaced (`imaging.threshold`, not `threshold`; `lcms.peak_pick`, not `peakpick`). `list_blocks` returns the canonical name.
 5. **Missing required config field.** Each block's `config_schema` has a `required` list. `write_workflow` validates and rejects with the specific JSON-Schema error.
-6. **Path escape.** `path: ../foo.tif` in a config is rejected at runtime — `MCPContext._safe_under` (in `src/scieasy/ai/agent/mcp/_context.py:112`) refuses paths outside the project root. Use project-relative paths.
+6. **Path escape.** `path: ../foo.tif` in a config is rejected at runtime — `MCPContext._safe_under` (in `src/scistudio/ai/agent/mcp/_context.py:112`) refuses paths outside the project root. Use project-relative paths.
 7. **Circular edges (DAG violation).** The runtime rejects cycles at validation time. Agents accidentally create them by re-targeting an edge to an upstream node; `validate_workflow` reports the cycle.
 8. **Type-incompatible edges.** Connecting `output_ports.dataframe: DataFrame` to `input_ports.image: Image` fails edge-time type checking. `get_block_schema` exposes the types; `list_types` exposes the hierarchy. Use both when wiring an unfamiliar pair of blocks.
 9. **Missing `workflow:` top-level key.** A common slip: writing `id: ...` at the file root instead of nesting under `workflow:`. Schema validation rejects.
@@ -212,7 +212,7 @@ workflow:
       target: "stats:image"
 ```
 
-Distinguishing feature: the `ai.assisted_segmenter` block is an `AIBlock` (ADR-035). When the runtime hits it the engine spawns the embedded agent (claude-code or codex) inside a PTY tab in the GUI. The agent uses the **same** MCP tool surface this document describes — it sees the AI block's run-dir, can call `mcp__scieasy__finish_ai_block` to terminate cleanly with output refs, and pauses the workflow until either a successful `finish_ai_block` call or a timeout. See §8 for the `finish_ai_block` placement decision.
+Distinguishing feature: the `ai.assisted_segmenter` block is an `AIBlock` (ADR-035). When the runtime hits it the engine spawns the embedded agent (claude-code or codex) inside a PTY tab in the GUI. The agent uses the **same** MCP tool surface this document describes — it sees the AI block's run-dir, can call `mcp__scistudio__finish_ai_block` to terminate cleanly with output refs, and pauses the workflow until either a successful `finish_ai_block` call or a timeout. See §8 for the `finish_ai_block` placement decision.
 
 ### 1.4 Recommended tool-call sequence
 
@@ -237,16 +237,16 @@ preview_data(ref)                     # thumbnail / first rows
 
 ---
 
-## 2. SciEasy block development patterns
+## 2. SciStudio block development patterns
 
 Source of truth inspected on `track/adr-040`:
 
-- `src/scieasy/blocks/base/block.py` — Block ABC. `Block.run(self, inputs, config) -> dict[str, Any]` is abstract. State machine `BlockState.IDLE → READY → RUNNING → DONE|PAUSED|ERROR|CANCELLED`.
-- `src/scieasy/blocks/base/ports.py` — `Port` / `InputPort` / `OutputPort` dataclasses (kw_only). Fields: `name: str`, `accepted_types: list[type]`, `required: bool = True`, `description: str = ""`. The Port API is **inheritance-aware**: `port_accepts_type(port, data_type)` walks the type hierarchy.
-- `src/scieasy/blocks/base/config.py` — `BlockConfig` (Pydantic BaseModel), accepts arbitrary keys, validated against `config_schema` at construct.
-- `src/scieasy/blocks/process/process_block.py` — `ProcessBlock` adds `process_item(item, config, state)` for per-item iteration over Collections (ADR-020 transparency).
+- `src/scistudio/blocks/base/block.py` — Block ABC. `Block.run(self, inputs, config) -> dict[str, Any]` is abstract. State machine `BlockState.IDLE → READY → RUNNING → DONE|PAUSED|ERROR|CANCELLED`.
+- `src/scistudio/blocks/base/ports.py` — `Port` / `InputPort` / `OutputPort` dataclasses (kw_only). Fields: `name: str`, `accepted_types: list[type]`, `required: bool = True`, `description: str = ""`. The Port API is **inheritance-aware**: `port_accepts_type(port, data_type)` walks the type hierarchy.
+- `src/scistudio/blocks/base/config.py` — `BlockConfig` (Pydantic BaseModel), accepts arbitrary keys, validated against `config_schema` at construct.
+- `src/scistudio/blocks/process/process_block.py` — `ProcessBlock` adds `process_item(item, config, state)` for per-item iteration over Collections (ADR-020 transparency).
 - `tests/integration/test_block_sdk_e2e.py` — canonical block-authoring contract test.
-- ADR-025 (entry points): plugins register via `[project.entry-points."scieasy.blocks"]` in `pyproject.toml`. Project-local `blocks/*.py` are auto-discovered without entry points.
+- ADR-025 (entry points): plugins register via `[project.entry-points."scistudio.blocks"]` in `pyproject.toml`. Project-local `blocks/*.py` are auto-discovered without entry points.
 - ADR-030: `config_schema` is **MRO-merged** across the inheritance chain (subclass schemas extend parent schemas; the registry computes the effective schema at scan time).
 
 ### 2.1 The Block ABC contract
@@ -272,11 +272,11 @@ class Block(ABC):
 
 **Critical**: agents must NOT set `base_category` as a ClassVar. It is inferred from which abstract base the class extends (`ProcessBlock`, `IOBlock`, `CodeBlock`, `AppBlock`, `AIBlock`, `SubWorkflowBlock`). Setting it as a ClassVar is a contract violation that the registry scan ignores; the skill should teach the right pattern (subclass the right parent), not the wrong one (set a ClassVar).
 
-**Note on the existing repo-root `skills/scieasy/SKILL.md` example**: the "Writing a custom block" worked example currently uses an older `BlockSpec` / `PortSpec` dataclass pattern that no longer exists in the codebase (`src/scieasy/blocks/base/spec.py` does not exist on `track/adr-040`; ports use `InputPort` / `OutputPort` instances directly in the `input_ports` ClassVar list). **Phase 2c MUST refresh this example** to match the live API verified in §2.6 below. This is part of the §3.4 split work and is one of the most concrete reasons the existing skill is overdue for restructure.
+**Note on the existing repo-root `skills/scistudio/SKILL.md` example**: the "Writing a custom block" worked example currently uses an older `BlockSpec` / `PortSpec` dataclass pattern that no longer exists in the codebase (`src/scistudio/blocks/base/spec.py` does not exist on `track/adr-040`; ports use `InputPort` / `OutputPort` instances directly in the `input_ports` ClassVar list). **Phase 2c MUST refresh this example** to match the live API verified in §2.6 below. This is part of the §3.4 split work and is one of the most concrete reasons the existing skill is overdue for restructure.
 
 ### 2.2 The `_spec_from_class` mechanism + strict version checking
 
-The block registry (in `src/scieasy/core/blocks/registry.py`, frozen contract — out of scope for Phase 2b) scans installed plugins and project-local `blocks/` for `Block` subclasses and computes a `BlockSpec` for each. The spec is derived from class metadata (name, version, ports, config_schema). Version mismatches (e.g. two plugins registering `imaging.threshold` at different `version` strings) cause the registry to refuse loading. The skill must teach: bump `version` on every meaningful contract change; do not silently re-use a version across incompatible bodies.
+The block registry (in `src/scistudio/core/blocks/registry.py`, frozen contract — out of scope for Phase 2b) scans installed plugins and project-local `blocks/` for `Block` subclasses and computes a `BlockSpec` for each. The spec is derived from class metadata (name, version, ports, config_schema). Version mismatches (e.g. two plugins registering `imaging.threshold` at different `version` strings) cause the registry to refuse loading. The skill must teach: bump `version` on every meaningful contract change; do not silently re-use a version across incompatible bodies.
 
 ### 2.3 Plugin entry-point pattern (ADR-025)
 
@@ -284,10 +284,10 @@ For shipping a block as a pip-installable plugin:
 
 ```toml
 # pyproject.toml of the plugin package
-[project.entry-points."scieasy.blocks"]
+[project.entry-points."scistudio.blocks"]
 mypkg = "mypkg"
 
-[project.entry-points."scieasy.types"]
+[project.entry-points."scistudio.types"]
 mypkg = "mypkg.types"
 ```
 
@@ -299,7 +299,7 @@ If `MyBlock(ProcessBlock)` declares a `config_schema` and `ProcessBlock` itself 
 
 ### 2.5 Port-type narrowness rule (ADR-040 §3.2a)
 
-This is the **single most important rule** the `scieasy-write-block` skill must enforce.
+This is the **single most important rule** the `scistudio-write-block` skill must enforce.
 
 **The rule**: pick the **most specific applicable** `DataObject` subclass for every port. Use the abstract `DataObject` root **only** when the block legitimately accepts any type (e.g. `SubWorkflowBlock` inputs, generic `save_data` / `load_data` blocks).
 
@@ -312,11 +312,11 @@ This is the **single most important rule** the `scieasy-write-block` skill must 
 
 The skill (Layer 1 / L2 in the defense-in-depth) preempts both by teaching the rule before the agent writes.
 
-**The remediation when the agent needs a new type**: declare a new `DataObject` subclass in the plugin's `scieasy.types` entry point. Do NOT silently widen to `DataObject`.
+**The remediation when the agent needs a new type**: declare a new `DataObject` subclass in the plugin's `scistudio.types` entry point. Do NOT silently widen to `DataObject`.
 
 ### 2.6 Worked example — thresholding block from scratch
 
-Drop-in for `scieasy-write-block` skill body. Written against the live Block ABC and verified against the `imaging.normalize` block in `packages/scieasy-blocks-imaging/src/scieasy_blocks_imaging/preprocess/normalize.py`.
+Drop-in for `scistudio-write-block` skill body. Written against the live Block ABC and verified against the `imaging.normalize` block in `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/preprocess/normalize.py`.
 
 ```python
 # blocks/threshold_simple.py — project-local custom block.
@@ -327,10 +327,10 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from scieasy.blocks.base.config import BlockConfig
-from scieasy.blocks.base.ports import InputPort, OutputPort
-from scieasy.blocks.process.process_block import ProcessBlock
-from scieasy_blocks_imaging.types import Image, Mask
+from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.ports import InputPort, OutputPort
+from scistudio.blocks.process.process_block import ProcessBlock
+from scistudio_blocks_imaging.types import Image, Mask
 
 
 class ThresholdSimple(ProcessBlock):
@@ -388,18 +388,18 @@ class ThresholdSimple(ProcessBlock):
 Then the agent's tool sequence:
 
 ```
-mcp__scieasy__list_blocks                              # confirm imaging.threshold_simple is NOT already registered
-mcp__scieasy__list_types                               # confirm Image, Mask types exist in the registry
-mcp__scieasy__scaffold_block(
+mcp__scistudio__list_blocks                              # confirm imaging.threshold_simple is NOT already registered
+mcp__scistudio__list_types                               # confirm Image, Mask types exist in the registry
+mcp__scistudio__scaffold_block(
     name="threshold_simple",
     category="process",
     input_ports={"image": {"type": "Image", "required": true}},
     output_ports={"mask": {"type": "Mask"}}
 )                                                      # writes blocks/threshold_simple.py; warnings: []
 # agent edits the scaffolded file to fill in process_item body
-mcp__scieasy__reload_blocks                            # re-scans the registry
-mcp__scieasy__list_blocks                              # confirm imaging.threshold_simple appears
-mcp__scieasy__run_block_tests block_path=blocks/threshold_simple.py
+mcp__scistudio__reload_blocks                            # re-scans the registry
+mcp__scistudio__list_blocks                              # confirm imaging.threshold_simple appears
+mcp__scistudio__run_block_tests block_path=blocks/threshold_simple.py
 ```
 
 **E2E (g) acceptance criterion**: an agent operating from this worked example alone (no prior context) should be able to author and register a working thresholding block end to end. The example is intentionally complete enough that the agent can copy it, edit method names, swap the algorithm, and produce a working block.
@@ -457,7 +457,7 @@ Verified count: `len(TOOL_REGISTRY) == 26` (asserted in `tests/ai/test_system_pr
 Per ADR-040 §3.1 + §3.2:
 
 - **Read-class tools** return a Pydantic `BaseModel` carrying the read result. No `next_step` field.
-- **Write-class tools** carry a `next_step: str` field pointing at the canonical follow-up tool. E.g. `WriteWorkflowResult.next_step = "Call mcp__scieasy__validate_workflow with the same path before run_workflow."` The skill body should reference `next_step` so agents form the habit of reading it.
+- **Write-class tools** carry a `next_step: str` field pointing at the canonical follow-up tool. E.g. `WriteWorkflowResult.next_step = "Call mcp__scistudio__validate_workflow with the same path before run_workflow."` The skill body should reference `next_step` so agents form the habit of reading it.
 - **`scaffold_block`** uniquely carries `warnings: list[str]` (§3.2a). The skill must teach: after every `scaffold_block` call, **read every warning** before proceeding.
 
 ### 3.3 Per-tool description style
@@ -496,14 +496,14 @@ Below, all entries marked "**verified**" were inspected against the documentatio
 | **Anthropic Skills SDK** (verified — code.claude.com/docs/en/skills) | One directory per skill, `SKILL.md` body, optional `resources/` siblings. Skill chosen by Claude based on `description` frontmatter matching user turn. | YAML frontmatter at the top of `SKILL.md`: `name` (slug), `description` (the trigger spec — Claude reads this to decide invocation). | Two-level: (1) top-level `description` is always in context; (2) body is loaded when Claude invokes the skill. | The `name` + `description` MUST appear together. Description must describe BOTH what the skill does AND when to use it. |
 | **OpenAI Codex Skills** (verified — developers.openai.com/codex/skills) | Same as Anthropic Skills SDK in shape (`SKILL.md` + frontmatter). Designed for cross-portability. | Identical YAML frontmatter convention. | Same two-level model. | Recently shipped (mid-2026); designed for parity with Anthropic. |
 | **AGENTS.md convention** (verified — developers.openai.com/codex/guides/agents-md) | Single root file `AGENTS.md`; identity + non-negotiable rules + index of skills. NOT a skill in itself; complementary to skills. | No frontmatter — plain markdown. | Always in context (loaded at session start). | Designed as the universal counterpart to `CLAUDE.md`. ADR-040 §3.5 follows this exactly. |
-| **n8n** (from training, unverified) | UI-driven workflow node catalog with embedded AI-agent nodes (LangChain). Each node has a schema + parameter UI. AI-agent context is per-node config, not a skill. | n/a (UI; no markdown skill convention). | n/a. | The "AI Agent" node accepts a system prompt as a parameter — no separation between identity rules and tool teaching. Single-blob prompt is the inverse of the split this ADR proposes; observation: n8n users report drift on long blocks of tool instructions, mirroring SciEasy's #832/#825 motivation. |
-| **Langflow / LangChain LangGraph** (from training, unverified) | Tool context is per-agent system message + per-tool docstrings. No formal "skill" abstraction; tools are first-class with structured `description` fields. | n/a. | Tools are auto-rendered in the system prompt at agent construction; no dynamic disclosure within a session. | Strong precedent for treating tool docstrings as the primary teaching surface. SciEasy's ADR-040 §3.2 (rewriting tool descriptions + `next_step`) follows this exact pattern. |
-| **Dify** (from training, unverified) | Workflow + AI block hybrid. Tools are "plugins" with schema + manifest. | YAML manifest per plugin. | Plugins listed in the agent's context at session start. | Closest analog to SciEasy's "MCP tools as blocks" mental model. No equivalent of skill split — single global system prompt. |
+| **n8n** (from training, unverified) | UI-driven workflow node catalog with embedded AI-agent nodes (LangChain). Each node has a schema + parameter UI. AI-agent context is per-node config, not a skill. | n/a (UI; no markdown skill convention). | n/a. | The "AI Agent" node accepts a system prompt as a parameter — no separation between identity rules and tool teaching. Single-blob prompt is the inverse of the split this ADR proposes; observation: n8n users report drift on long blocks of tool instructions, mirroring SciStudio's #832/#825 motivation. |
+| **Langflow / LangChain LangGraph** (from training, unverified) | Tool context is per-agent system message + per-tool docstrings. No formal "skill" abstraction; tools are first-class with structured `description` fields. | n/a. | Tools are auto-rendered in the system prompt at agent construction; no dynamic disclosure within a session. | Strong precedent for treating tool docstrings as the primary teaching surface. SciStudio's ADR-040 §3.2 (rewriting tool descriptions + `next_step`) follows this exact pattern. |
+| **Dify** (from training, unverified) | Workflow + AI block hybrid. Tools are "plugins" with schema + manifest. | YAML manifest per plugin. | Plugins listed in the agent's context at session start. | Closest analog to SciStudio's "MCP tools as blocks" mental model. No equivalent of skill split — single global system prompt. |
 | **Goose** (Block.xyz, from training, unverified) | Skills called "extensions"; each extension has tool definitions + system-prompt fragments. | TOML extension manifest. | Extensions selected by user at session config time (not per-turn). | Stronger isolation than Anthropic Skills (each extension is a separate process). Less dynamic. |
 | **Continue.dev** (from training, unverified) | `.continuerc` config + per-context-provider system messages. No skill split. | YAML config. | Static at session start. | Optimized for IDE inline-edit context; not directly comparable. |
-| **Cursor** (from training, unverified) | `.cursorrules` (file-level system prompt) + per-repository instructions. No skill split. | Plain markdown. | Static at session start. | Closest analog to SciEasy's `<project>/CLAUDE.md` provisioning (§3.5). Single-file simplicity is the strength; no dynamic disclosure is the limit. |
+| **Cursor** (from training, unverified) | `.cursorrules` (file-level system prompt) + per-repository instructions. No skill split. | Plain markdown. | Static at session start. | Closest analog to SciStudio's `<project>/CLAUDE.md` provisioning (§3.5). Single-file simplicity is the strength; no dynamic disclosure is the limit. |
 
-### 4.2 Five-to-seven adoption recommendations for SciEasy
+### 4.2 Five-to-seven adoption recommendations for SciStudio
 
 1. **Adopt Anthropic Skills SDK frontmatter convention verbatim** (`name: <slug>` + `description: <trigger spec>`). This is ADR-040 §3.4 already; the recommendation is to keep the description **trigger-focused** — describe the user-turn shape that should invoke the skill, NOT the skill content. Example template provided in §5 of this document for each of the 5 task skills.
 2. **Keep the base `SKILL.md` thin** (~50 LOC) per ADR §3.4. Verified pattern: thin index + identity + when-to-use-each-skill. Avoid duplicating content across base + task skills — base is the discoverable entry, task skills are the canonical teaching surface.
@@ -527,13 +527,13 @@ For each of the 5 task skills, this section provides:
 - Recommended tool-call sequence
 - Anti-patterns to call out
 
-### 5.1 `scieasy-build-workflow`
+### 5.1 `scistudio-build-workflow`
 
 **Frontmatter `description`:**
-> Use when the user wants to design a new workflow, choose block types, wire edges between blocks, or convert a verbal pipeline description into a valid workflow YAML. NOT for debugging existing runs (use `scieasy-debug-run`) or for writing custom blocks (use `scieasy-write-block`).
+> Use when the user wants to design a new workflow, choose block types, wire edges between blocks, or convert a verbal pipeline description into a valid workflow YAML. NOT for debugging existing runs (use `scistudio-debug-run`) or for writing custom blocks (use `scistudio-write-block`).
 
 **Body opening (drop-in):**
-> You are designing a SciEasy workflow — a DAG of typed blocks expressed as a YAML file under `workflows/`. The runtime is the source of truth; the GUI canvas is an editor and viewer. Workflows are validated structurally and type-wise before they run, so a well-formed YAML is the contract you have to satisfy on the first try if you want a smooth user experience. This skill teaches the YAML schema verbatim, the canonical tool-call sequence, and the pitfalls that account for most validation failures.
+> You are designing a SciStudio workflow — a DAG of typed blocks expressed as a YAML file under `workflows/`. The runtime is the source of truth; the GUI canvas is an editor and viewer. Workflows are validated structurally and type-wise before they run, so a well-formed YAML is the contract you have to satisfy on the first try if you want a smooth user experience. This skill teaches the YAML schema verbatim, the canonical tool-call sequence, and the pitfalls that account for most validation failures.
 
 **Required sections:**
 1. **YAML schema teaching** — drop in §1.1 verbatim.
@@ -563,13 +563,13 @@ get_block_output → inspect_data / preview_data
 - Polling `get_run_status` once and declaring done on `running`.
 - Hallucinating port names instead of calling `get_block_schema`.
 
-### 5.2 `scieasy-write-block`
+### 5.2 `scistudio-write-block`
 
 **Frontmatter `description`:**
-> Use when the user wants to author a new custom block — a Python class subclassing `Block` (or `ProcessBlock` / `IOBlock` / etc.) with typed input/output ports and a `config_schema`. ALWAYS check if an existing block satisfies the contract first (call `list_blocks`). NOT for editing an existing block's config (use `update_block_config`) or for writing a workflow (use `scieasy-build-workflow`).
+> Use when the user wants to author a new custom block — a Python class subclassing `Block` (or `ProcessBlock` / `IOBlock` / etc.) with typed input/output ports and a `config_schema`. ALWAYS check if an existing block satisfies the contract first (call `list_blocks`). NOT for editing an existing block's config (use `update_block_config`) or for writing a workflow (use `scistudio-build-workflow`).
 
 **Body opening (drop-in):**
-> Before writing a new block, you MUST call `mcp__scieasy__list_blocks` and REUSE an existing block if its I/O contract matches. Build a new block only when no existing block satisfies the input-port + output-port shape — and document the reason in the new block's docstring. This is the project-wide block-reuse rule (#875). The rest of this skill covers what to do once you have established a new block is genuinely necessary: the Block ABC contract, port-type selection, config-schema design, the scaffold→edit→reload cycle, and a worked example.
+> Before writing a new block, you MUST call `mcp__scistudio__list_blocks` and REUSE an existing block if its I/O contract matches. Build a new block only when no existing block satisfies the input-port + output-port shape — and document the reason in the new block's docstring. This is the project-wide block-reuse rule (#875). The rest of this skill covers what to do once you have established a new block is genuinely necessary: the Block ABC contract, port-type selection, config-schema design, the scaffold→edit→reload cycle, and a worked example.
 
 **Required sections:**
 1. **Block-reuse rule (#875) — MANDATORY first step** — see body opening + an "anti-pattern: silent new-block" callout.
@@ -582,8 +582,8 @@ get_block_output → inspect_data / preview_data
 8. **Common pitfalls** — drop in §2.7 verbatim.
 
 **Mandatory rules:**
-- Call `mcp__scieasy__list_blocks` FIRST. Reuse if contract matches.
-- Call `mcp__scieasy__list_types` before selecting port types. Pick the most specific applicable type. `DataObject` is reserved for `SubWorkflowBlock` + generic `AppBlock` patterns — `scaffold_block` will warn if you use it.
+- Call `mcp__scistudio__list_blocks` FIRST. Reuse if contract matches.
+- Call `mcp__scistudio__list_types` before selecting port types. Pick the most specific applicable type. `DataObject` is reserved for `SubWorkflowBlock` + generic `AppBlock` patterns — `scaffold_block` will warn if you use it.
 - Do NOT set `base_category` as a ClassVar — it is inferred from the parent class.
 - Always `reload_blocks` after writing; verify with `list_blocks`.
 - Always `run_block_tests` before declaring the block done.
@@ -611,13 +611,13 @@ run_block_tests block_path=...
 - `run()` returning a list/tuple/scalar (must return `dict[str, Any]` keyed by output port name).
 - Skipping `reload_blocks` after writing (block does not appear in `list_blocks`).
 
-### 5.3 `scieasy-debug-run`
+### 5.3 `scistudio-debug-run`
 
 **Frontmatter `description`:**
-> Use when a workflow run has failed, is stuck, or produced unexpected output, and you need to diagnose the cause. Covers run-status inspection, block-log retrieval, lineage navigation, and common error signatures. NOT for designing new workflows (use `scieasy-build-workflow`).
+> Use when a workflow run has failed, is stuck, or produced unexpected output, and you need to diagnose the cause. Covers run-status inspection, block-log retrieval, lineage navigation, and common error signatures. NOT for designing new workflows (use `scistudio-build-workflow`).
 
 **Body opening (drop-in):**
-> A SciEasy run has terminated in `failed` or `cancelled` state, or you suspect a block is producing wrong output. This skill teaches the canonical diagnostic sequence — start at the run-status envelope, drill into per-block logs, follow lineage backwards to find the upstream cause, and inspect intermediate data refs without materialising them into memory. Most run failures fall into ~6 recurring categories; the "Common error signatures" section maps each to the next tool call.
+> A SciStudio run has terminated in `failed` or `cancelled` state, or you suspect a block is producing wrong output. This skill teaches the canonical diagnostic sequence — start at the run-status envelope, drill into per-block logs, follow lineage backwards to find the upstream cause, and inspect intermediate data refs without materialising them into memory. Most run failures fall into ~6 recurring categories; the "Common error signatures" section maps each to the next tool call.
 
 **Required sections:**
 1. **The canonical diagnostic sequence** — get_run_status → identify failed block(s) → get_block_logs → get_lineage → inspect_data / preview_data.
@@ -651,13 +651,13 @@ get_lineage(failed_input_ref)          # walk backwards
 - Calling `inspect_data` on a 50GB array (use `preview_data` — it returns a thumbnail).
 - Re-running the workflow without changing anything ("maybe it'll work this time").
 
-### 5.4 `scieasy-inspect-data`
+### 5.4 `scistudio-inspect-data`
 
 **Frontmatter `description`:**
-> Use when the user wants to look at intermediate or output data — preview a slice of an image, peek at the first rows of a DataFrame, check the shape/dtype of an array, or trace where a data ref came from. NOT for debugging failed runs (use `scieasy-debug-run`).
+> Use when the user wants to look at intermediate or output data — preview a slice of an image, peek at the first rows of a DataFrame, check the shape/dtype of an array, or trace where a data ref came from. NOT for debugging failed runs (use `scistudio-debug-run`).
 
 **Body opening (drop-in):**
-> SciEasy data flows as references (`StorageReference`), not in-memory payloads — this is the ADR-031 reference-only contract. You inspect refs without materialising them: `inspect_data` returns shape/dtype/axes/storage backend, `preview_data` returns a thumbnail or first-N-rows preview, `get_lineage` walks the producing-block graph backwards. This skill teaches when to reach for each, how to interpret the results faithfully, and when to materialise (rarely — only via `to_memory()` inside a block's `run()`, never inside an agent turn).
+> SciStudio data flows as references (`StorageReference`), not in-memory payloads — this is the ADR-031 reference-only contract. You inspect refs without materialising them: `inspect_data` returns shape/dtype/axes/storage backend, `preview_data` returns a thumbnail or first-N-rows preview, `get_lineage` walks the producing-block graph backwards. This skill teaches when to reach for each, how to interpret the results faithfully, and when to materialise (rarely — only via `to_memory()` inside a block's `run()`, never inside an agent turn).
 
 **Required sections:**
 1. **Reference-only contract (ADR-031)** — data never flows through the agent's memory. The agent sees refs (opaque IDs); MCP tools operate on refs.
@@ -689,13 +689,13 @@ get_lineage(ref)                       # if "where did this come from"
 - Materialising a ref into memory via `Bash` and `cat`.
 - Reporting a `preview_data` thumbnail as the actual data.
 
-### 5.5 `scieasy-project-qa`
+### 5.5 `scistudio-project-qa`
 
 **Frontmatter `description`:**
 > Use when the user asks about the project itself — what blocks are installed, where docs live, what files are in `data/`, project name/metadata, recent workflows. NOT for designing or debugging workflows.
 
 **Body opening (drop-in):**
-> Use this skill when the user asks meta-questions about the SciEasy project workspace: which plugins are installed, where the docs are, what's been recently modified, what files live in `data/`. These are surfaces beyond the workflow/run scope — they map to four read-only tools that pull from the file system, the block registry, and the docs index. This skill teaches what each tool returns and how to combine them for common questions.
+> Use this skill when the user asks meta-questions about the SciStudio project workspace: which plugins are installed, where the docs are, what's been recently modified, what files live in `data/`. These are surfaces beyond the workflow/run scope — they map to four read-only tools that pull from the file system, the block registry, and the docs index. This skill teaches what each tool returns and how to combine them for common questions.
 
 **Required sections:**
 1. **`search_docs(query)`** — free-text search over `docs/`.
@@ -708,7 +708,7 @@ get_lineage(ref)                       # if "where did this come from"
 - Never invent project details — cite `get_project_info` returns verbatim.
 - For doc-lookup questions, prefer `search_docs` over guessing paths.
 
-**Worked example outline:** User: "What blocks does this project have access to?" → `get_project_info` → list `installed_plugins` → `list_blocks` (cross-reference to scieasy-build-workflow if user wants to use them).
+**Worked example outline:** User: "What blocks does this project have access to?" → `get_project_info` → list `installed_plugins` → `list_blocks` (cross-reference to scistudio-build-workflow if user wants to use them).
 
 **Recommended tool-call sequence:**
 ```
@@ -726,29 +726,29 @@ list_data                              # for "what data do we have"
 
 ## 6. Recommended `<project>/CLAUDE.md` + `<project>/AGENTS.md` template
 
-Per ADR-040 §3.5, both files share identical content. Below is the verbatim ~50-line draft body. The template lives at `src/scieasy/agent_provisioning/templates/project_claude_md.md` (Provisioning track owns the file; Phase 2c skill agent's job is to validate this content matches the skill index it ships).
+Per ADR-040 §3.5, both files share identical content. Below is the verbatim ~50-line draft body. The template lives at `src/scistudio/agent_provisioning/templates/project_claude_md.md` (Provisioning track owns the file; Phase 2c skill agent's job is to validate this content matches the skill index it ships).
 
 ```markdown
-# SciEasy project — agent guide
+# SciStudio project — agent guide
 
-You are an embedded agent inside a SciEasy project workspace. The user
-is a researcher building scientific data workflows. The SciEasy GUI is
+You are an embedded agent inside a SciStudio project workspace. The user
+is a researcher building scientific data workflows. The SciStudio GUI is
 already running on http://localhost:8000; do NOT start a second backend.
 
 ## Identity & non-negotiable rules
 
-- Use `mcp__scieasy__*` tools for anything touching blocks, workflows,
-  runs, or data. Do NOT use the `scieasy` CLI via Bash — it bypasses
+- Use `mcp__scistudio__*` tools for anything touching blocks, workflows,
+  runs, or data. Do NOT use the `scistudio` CLI via Bash — it bypasses
   live GUI updates and ADR-038 lineage tracking. Hooks will block such
   calls with exit code 2.
 - Do NOT directly Edit/Write `workflows/*.yaml`. Use
-  `mcp__scieasy__write_workflow` / `update_block_config` so the runtime
+  `mcp__scistudio__write_workflow` / `update_block_config` so the runtime
   sees changes via the validated path. Hooks block direct edits.
 - BEFORE writing a new block, list existing blocks via
-  `mcp__scieasy__list_blocks` and reuse one if its I/O contract
+  `mcp__scistudio__list_blocks` and reuse one if its I/O contract
   matches. Build new only when nothing fits.
 - BEFORE selecting port types for a new block, call
-  `mcp__scieasy__list_types`. Pick the most specific applicable type;
+  `mcp__scistudio__list_types`. Pick the most specific applicable type;
   `DataObject` is reserved for generic blocks only.
 - Working directory (`cwd`) is the project root. Use relative paths
   (`data/raw/x.tif`, `workflows/foo.yaml`) — MCP tools resolve them
@@ -760,11 +760,11 @@ already running on http://localhost:8000; do NOT start a second backend.
 
 Invoke the relevant skill before deep work in that area:
 
-- `scieasy-build-workflow` — design a new workflow (YAML schema, validation, run lifecycle).
-- `scieasy-write-block` — author a custom block (Block ABC, port types, scaffold→edit→reload).
-- `scieasy-debug-run` — diagnose a failed run (run status, logs, lineage).
-- `scieasy-inspect-data` — explore data references (inspect/preview/lineage).
-- `scieasy-project-qa` — answer project-structure / docs / data questions.
+- `scistudio-build-workflow` — design a new workflow (YAML schema, validation, run lifecycle).
+- `scistudio-write-block` — author a custom block (Block ABC, port types, scaffold→edit→reload).
+- `scistudio-debug-run` — diagnose a failed run (run status, logs, lineage).
+- `scistudio-inspect-data` — explore data references (inspect/preview/lineage).
+- `scistudio-project-qa` — answer project-structure / docs / data questions.
 
 The skill body is the canonical teaching surface. This file is the
 identity + non-negotiable-rules index. If a rule here conflicts with a
@@ -789,16 +789,16 @@ Where the finalized MCP tool surface lacks affordance the skill teaching must fi
 
 | # | Gap in MCP shape | Skill compensation |
 |---|---|---|
-| 1 | `scaffold_block` warnings are advisory; nothing in the tool surface forces the agent to **read** them | `scieasy-write-block` mandatory rule: "After every `scaffold_block` call, READ every entry in `warnings: list[str]`. Do not proceed if there are unaddressed warnings." |
-| 2 | `list_types` output may be long; agent could miss the type they want | `scieasy-write-block` worked example demonstrates `list_types` → identify `Image, Mask` → use both. Skill teaches scanning by partial-name match. |
-| 3 | `validate_workflow` errors are pydantic JSON; agents tend to fix only the first error | `scieasy-build-workflow` mandatory rule: "Read every error, fix all in one re-write." |
-| 4 | `get_run_status` returns `error: str | None` at the run level but per-block details require `get_block_logs` | `scieasy-debug-run` canonical diagnostic sequence: status → identify failed block → logs. Skill teaches not to stop at status. |
-| 5 | `get_block_output` requires the agent to know the `port_name`; if they forget the schema, they will guess | `scieasy-debug-run` cross-references `get_block_schema` for port-name lookup. |
-| 6 | No tool surfaces "which workflows exist in this project" — `list_data` is data-only | `scieasy-project-qa` teaches: `get_project_info` includes `recently_modified_workflows`; for full enumeration use the Read tool on `workflows/*.yaml` (acceptable since it's read-only). |
-| 7 | `update_block_config` accepts a JSON patch; agents may not know the YAML preservation behavior | `scieasy-debug-run` (and `scieasy-build-workflow`) note: `update_block_config` preserves comments + ordering — preferred over re-writing the whole YAML for parameter tweaks. |
-| 8 | `finish_ai_block` is only meaningful when the agent is **inside** an AI block PTY; the same tool surface is exposed outside | `scieasy-write-block` and `scieasy-debug-run` note: only call `finish_ai_block` when the run context indicates an AI block (the environment variable `SCIEASY_AI_BLOCK_RUN_DIR` is set per ADR-035 §3.5). Outside an AI block, the call fails fast. |
-| 9 | `run_block_tests` runs pytest against a single block file — if the test fails, the agent gets a pytest exit summary, not a structured failure | `scieasy-write-block` teaches: on `run_block_tests` failure, read the pytest output verbatim; do not retry without changes. |
-| 10 | No tool exposes the **block category** taxonomy directly; only `list_blocks` (which returns per-block categories) | `scieasy-write-block` includes a brief taxonomy list (`io / process / code / app / ai / subworkflow`) so the agent knows what `category` argument to pass to `scaffold_block`. |
+| 1 | `scaffold_block` warnings are advisory; nothing in the tool surface forces the agent to **read** them | `scistudio-write-block` mandatory rule: "After every `scaffold_block` call, READ every entry in `warnings: list[str]`. Do not proceed if there are unaddressed warnings." |
+| 2 | `list_types` output may be long; agent could miss the type they want | `scistudio-write-block` worked example demonstrates `list_types` → identify `Image, Mask` → use both. Skill teaches scanning by partial-name match. |
+| 3 | `validate_workflow` errors are pydantic JSON; agents tend to fix only the first error | `scistudio-build-workflow` mandatory rule: "Read every error, fix all in one re-write." |
+| 4 | `get_run_status` returns `error: str | None` at the run level but per-block details require `get_block_logs` | `scistudio-debug-run` canonical diagnostic sequence: status → identify failed block → logs. Skill teaches not to stop at status. |
+| 5 | `get_block_output` requires the agent to know the `port_name`; if they forget the schema, they will guess | `scistudio-debug-run` cross-references `get_block_schema` for port-name lookup. |
+| 6 | No tool surfaces "which workflows exist in this project" — `list_data` is data-only | `scistudio-project-qa` teaches: `get_project_info` includes `recently_modified_workflows`; for full enumeration use the Read tool on `workflows/*.yaml` (acceptable since it's read-only). |
+| 7 | `update_block_config` accepts a JSON patch; agents may not know the YAML preservation behavior | `scistudio-debug-run` (and `scistudio-build-workflow`) note: `update_block_config` preserves comments + ordering — preferred over re-writing the whole YAML for parameter tweaks. |
+| 8 | `finish_ai_block` is only meaningful when the agent is **inside** an AI block PTY; the same tool surface is exposed outside | `scistudio-write-block` and `scistudio-debug-run` note: only call `finish_ai_block` when the run context indicates an AI block (the environment variable `SCISTUDIO_AI_BLOCK_RUN_DIR` is set per ADR-035 §3.5). Outside an AI block, the call fails fast. |
+| 9 | `run_block_tests` runs pytest against a single block file — if the test fails, the agent gets a pytest exit summary, not a structured failure | `scistudio-write-block` teaches: on `run_block_tests` failure, read the pytest output verbatim; do not retry without changes. |
+| 10 | No tool exposes the **block category** taxonomy directly; only `list_blocks` (which returns per-block categories) | `scistudio-write-block` includes a brief taxonomy list (`io / process / code / app / ai / subworkflow`) so the agent knows what `category` argument to pass to `scaffold_block`. |
 
 ---
 
@@ -810,21 +810,21 @@ Where the finalized MCP tool surface lacks affordance the skill teaching must fi
 
 **Three placement options**:
 
-A. Cover briefly in `scieasy-build-workflow` (since it's `workflow`-category).
-B. Cover fully in `scieasy-write-block` (most relevant when authoring AI Block subclasses).
-C. Cover fully in `scieasy-debug-run` (most relevant to unsticking AI block sessions).
+A. Cover briefly in `scistudio-build-workflow` (since it's `workflow`-category).
+B. Cover fully in `scistudio-write-block` (most relevant when authoring AI Block subclasses).
+C. Cover fully in `scistudio-debug-run` (most relevant to unsticking AI block sessions).
 
 **Recommendation: hybrid (A + C).**
 
-- `scieasy-build-workflow` mentions `finish_ai_block` in passing inside the §1.3 "Example C — AI block in a pipeline" annotation: "the agent uses `mcp__scieasy__finish_ai_block` to terminate cleanly with output refs". One sentence; cross-reference to `scieasy-debug-run` for the full operational surface.
-- `scieasy-debug-run` gets the full coverage in a dedicated subsection "Working inside an AI block PTY": when the env var `SCIEASY_AI_BLOCK_RUN_DIR` is set, the agent is inside an AI block; the canonical termination is via `finish_ai_block(run_id, output_refs)`; calling it without that env set fails fast.
-- **NOT** in `scieasy-write-block`. The block author writes the AIBlock subclass; the agent calling `finish_ai_block` is the **embedded** agent that AIBlock spawns, not the author of the AIBlock class itself.
+- `scistudio-build-workflow` mentions `finish_ai_block` in passing inside the §1.3 "Example C — AI block in a pipeline" annotation: "the agent uses `mcp__scistudio__finish_ai_block` to terminate cleanly with output refs". One sentence; cross-reference to `scistudio-debug-run` for the full operational surface.
+- `scistudio-debug-run` gets the full coverage in a dedicated subsection "Working inside an AI block PTY": when the env var `SCISTUDIO_AI_BLOCK_RUN_DIR` is set, the agent is inside an AI block; the canonical termination is via `finish_ai_block(run_id, output_refs)`; calling it without that env set fails fast.
+- **NOT** in `scistudio-write-block`. The block author writes the AIBlock subclass; the agent calling `finish_ai_block` is the **embedded** agent that AIBlock spawns, not the author of the AIBlock class itself.
 
 This placement matches user reality: workflow-authors see `finish_ai_block` mentioned once when wiring an AI block in; agents that actually need to call it find the full teaching where they're already looking (debug-run, which is where stuck-AI-block sessions tend to land).
 
-### 8.2 The repo-root `skills/scieasy/SKILL.md` worked-example refresh
+### 8.2 The repo-root `skills/scistudio/SKILL.md` worked-example refresh
 
-**Decision**: Phase 2c MUST refresh the "Writing a custom block" worked example to match the live Block ABC API (per §2 of this document). The current example uses an obsolete `BlockSpec` / `PortSpec` shape that no longer exists in the codebase. This is part of `scieasy-write-block` content authoring; not a separate task.
+**Decision**: Phase 2c MUST refresh the "Writing a custom block" worked example to match the live Block ABC API (per §2 of this document). The current example uses an obsolete `BlockSpec` / `PortSpec` shape that no longer exists in the codebase. This is part of `scistudio-write-block` content authoring; not a separate task.
 
 ### 8.3 Tool catalog rendering
 
@@ -839,10 +839,10 @@ Phase 2c (I40b) can dispatch with this deliverable + ADR-040 §3.4 alone. No fur
 - [x] All 26 MCP tools enumerated with category, class (read/write), Pydantic result-model name, and `next_step` / `warnings` field presence (§3.1).
 - [x] Block ABC contract documented against the live API (§2).
 - [x] Workflow YAML schema documented verbatim (§1.1) including the edge-format pitfall (§1.2 #1).
-- [x] Three worked workflow examples (linear / fan-out / AI block, §1.3) — drop-in for `scieasy-build-workflow`.
-- [x] One worked block example (thresholding, §2.6) — drop-in for `scieasy-write-block`, complete enough for e2e (g) acceptance.
+- [x] Three worked workflow examples (linear / fan-out / AI block, §1.3) — drop-in for `scistudio-build-workflow`.
+- [x] One worked block example (thresholding, §2.6) — drop-in for `scistudio-write-block`, complete enough for e2e (g) acceptance.
 - [x] Port-type narrowness rule (ADR §3.2a) documented + skill compensation specified (§2.5 + §7 row 1).
-- [x] Block-reuse rule (#875) — placement in `scieasy-write-block` confirmed; body opening provided (§5.2).
+- [x] Block-reuse rule (#875) — placement in `scistudio-write-block` confirmed; body opening provided (§5.2).
 - [x] External harness comparison + 7 adoption recommendations (§4).
 - [x] Per-skill recommended body content for all 5 task skills with frontmatter `description`, opening, sections, rules, anti-patterns, worked examples (§5.1-§5.5).
 - [x] `<project>/CLAUDE.md` + `<project>/AGENTS.md` draft body (~50 LOC) provided verbatim (§6).
@@ -855,17 +855,17 @@ Phase 2c (I40b) can dispatch with this deliverable + ADR-040 §3.4 alone. No fur
 The Phase 2c (I40b) agent should:
 
 1. Read this document end-to-end + ADR-040 §3.4 / §3.5.
-2. Create 6 files under `src/scieasy/_skills/scieasy/` (or whichever path I40a + S40b have settled on by then — verify before writing):
-   - `SKILL.md` (thin base, ~50 LOC, frontmatter `name: scieasy`, body lists 5 task skills + project_context marker block).
-   - `scieasy-build-workflow/SKILL.md` (§5.1 content).
-   - `scieasy-write-block/SKILL.md` (§5.2 content).
-   - `scieasy-debug-run/SKILL.md` (§5.3 content).
-   - `scieasy-inspect-data/SKILL.md` (§5.4 content).
-   - `scieasy-project-qa/SKILL.md` (§5.5 content).
-3. Update `src/scieasy/agent_provisioning/templates/project_claude_md.md` (or wherever the Provisioning track has placed it) to match §6 body verbatim.
-4. Drop the legacy `skills/scieasy/SKILL.md` (or compatibility-symlink per ADR §3.4 backward-compat note).
+2. Create 6 files under `src/scistudio/_skills/scistudio/` (or whichever path I40a + S40b have settled on by then — verify before writing):
+   - `SKILL.md` (thin base, ~50 LOC, frontmatter `name: scistudio`, body lists 5 task skills + project_context marker block).
+   - `scistudio-build-workflow/SKILL.md` (§5.1 content).
+   - `scistudio-write-block/SKILL.md` (§5.2 content).
+   - `scistudio-debug-run/SKILL.md` (§5.3 content).
+   - `scistudio-inspect-data/SKILL.md` (§5.4 content).
+   - `scistudio-project-qa/SKILL.md` (§5.5 content).
+3. Update `src/scistudio/agent_provisioning/templates/project_claude_md.md` (or wherever the Provisioning track has placed it) to match §6 body verbatim.
+4. Drop the legacy `skills/scistudio/SKILL.md` (or compatibility-symlink per ADR §3.4 backward-compat note).
 5. Update test fixtures that reference the monolithic skill (per `tests/ai/test_system_prompt.py`).
-6. Verify: `python -c "import importlib.resources; print((importlib.resources.files('scieasy') / '_skills' / 'scieasy' / 'SKILL.md').read_text('utf-8')[:100])"` returns the new base content (post-S40b relocation landing).
+6. Verify: `python -c "import importlib.resources; print((importlib.resources.files('scistudio') / '_skills' / 'scistudio' / 'SKILL.md').read_text('utf-8')[:100])"` returns the new base content (post-S40b relocation landing).
 
 ### Risks / open items for Phase 2c
 

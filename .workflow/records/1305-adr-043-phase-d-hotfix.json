@@ -11,9 +11,9 @@
       "approved_by": "owner",
       "exclude": [],
       "include": [
-        "src/scieasy/engine/runners/local.py",
-        "src/scieasy/blocks/code/code_block.py",
-        "src/scieasy/blocks/code/validation.py",
+        "src/scistudio/engine/runners/local.py",
+        "src/scistudio/blocks/code/code_block.py",
+        "src/scistudio/blocks/code/validation.py",
         "frontend/src/components/nodes/BlockNode.tsx",
         "frontend/src/components/nodes/BlockNode.test.tsx",
         "tests/engine/test_local_runner.py",
@@ -87,7 +87,7 @@
   },
   "full_audit": {
     "blocks_merge": false,
-    "command": "python -m scieasy.qa.audit.full_audit",
+    "command": "python -m scistudio.qa.audit.full_audit",
     "exit_code": 0,
     "known_debt": [
       "owner-acknowledged"
@@ -103,7 +103,7 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1305,
-      "url": "https://github.com/zjzcpj/SciEasy/issues/1305"
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1305"
     }
   ],
   "owner_directive": "ADR-043 Phase D E2E hotfix round: owner explicitly authorized hotfix mode 2026-05-20 for E2E-001+E2E-002 execution. Round surfaced and fixed framework bugs #1305 (subprocess cwd), #1307 (SaveData format dropdown filter), #1308 (CodeBlock workflow_id strip). Also filed #1306 (TIFF OME-detection) and #1309 (CodeBlock cwd semantics) as deferred design follow-ups. Phase D evidence committed in docs/audit/adr-043-package-migration-e2e-cases.md.",
@@ -115,7 +115,7 @@
       1308
     ],
     "number": 1310,
-    "url": "https://github.com/zjzcpj/SciEasy/pull/1310"
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1310"
   },
   "record_path": ".workflow/records/1305-adr-043-phase-d-hotfix.json",
   "required_checks": [
@@ -127,7 +127,7 @@
   "scope": {
     "exclude": [],
     "include": [
-      "src/scieasy/engine/runners/local.py,src/scieasy/blocks/code/code_block.py,src/scieasy/blocks/code/validation.py,frontend/src/components/nodes/BlockNode.tsx,frontend/src/components/nodes/BlockNode.test.tsx,tests/engine/test_local_runner.py,tests/blocks/code/test_codeblock_execution.py,scripts/verify_ome_propagation_e2e001.py,docs/audit/adr-043-package-migration-e2e-cases.md"
+      "src/scistudio/engine/runners/local.py,src/scistudio/blocks/code/code_block.py,src/scistudio/blocks/code/validation.py,frontend/src/components/nodes/BlockNode.tsx,frontend/src/components/nodes/BlockNode.test.tsx,tests/engine/test_local_runner.py,tests/blocks/code/test_codeblock_execution.py,scripts/verify_ome_propagation_e2e001.py,docs/audit/adr-043-package-migration-e2e-cases.md"
     ]
   },
   "sentrux": {

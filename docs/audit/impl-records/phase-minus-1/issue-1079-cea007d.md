@@ -6,9 +6,9 @@ implementation commit: `cea007d`.
 
 ## Files modified
 
-- `src/scieasy/blocks/app/app_block.py` — rewrote
+- `src/scistudio/blocks/app/app_block.py` — rewrote
   `_bin_outputs_by_extension` to call
-  `scieasy.engine.materialisation.reconstruct_from_file` per port. Removed
+  `scistudio.engine.materialisation.reconstruct_from_file` per port. Removed
   the precomputed `port_item_types` table and the
   `"declared type ... not constructible from a file path"` warning.
   Dropped the now-unused `_guess_mime` import. Added explicit

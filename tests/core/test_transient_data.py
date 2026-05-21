@@ -22,10 +22,10 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from scieasy.core.types.array import Array
-from scieasy.core.types.base import DataObject
-from scieasy.core.types.dataframe import DataFrame
-from scieasy.core.types.series import Series
+from scistudio.core.types.array import Array
+from scistudio.core.types.base import DataObject
+from scistudio.core.types.dataframe import DataFrame
+from scistudio.core.types.series import Series
 
 # ---------------------------------------------------------------------------
 # 1. Array(data=...) sets _transient_data
@@ -169,8 +169,8 @@ class TestSerialiseExcludesTransient:
         wire format must NOT contain _transient_data."""
         import zarr
 
-        from scieasy.core.storage.ref import StorageReference
-        from scieasy.core.types.serialization import _serialise_one
+        from scistudio.core.storage.ref import StorageReference
+        from scistudio.core.types.serialization import _serialise_one
 
         arr = np.zeros((5, 5))
         zarr_path = str(tmp_path / "test.zarr")
@@ -207,13 +207,13 @@ class TestReconstructTransientIsNone:
     def test_reconstructed_object_has_none_transient(self, tmp_path: Path):
         import zarr
 
-        from scieasy.core.types.serialization import _reconstruct_one, _serialise_one
+        from scistudio.core.types.serialization import _reconstruct_one, _serialise_one
 
         arr = np.zeros((4, 4))
         zarr_path = str(tmp_path / "test.zarr")
         zarr.save(zarr_path, arr)
 
-        from scieasy.core.storage.ref import StorageReference
+        from scistudio.core.storage.ref import StorageReference
 
         obj = Array(
             axes=["y", "x"],
@@ -258,21 +258,21 @@ class TestNoHasattrPatterns:
         return violations
 
     def test_no_hasattr_data_in_base(self):
-        base_path = Path(__file__).resolve().parents[2] / "src" / "scieasy" / "core" / "types" / "base.py"
+        base_path = Path(__file__).resolve().parents[2] / "src" / "scistudio" / "core" / "types" / "base.py"
         violations = self._check_no_hasattr(base_path, "_data")
         assert violations == [], f"hasattr(self, '_data') found at lines {violations} in base.py"
 
     def test_no_hasattr_arrow_table_in_base(self):
-        base_path = Path(__file__).resolve().parents[2] / "src" / "scieasy" / "core" / "types" / "base.py"
+        base_path = Path(__file__).resolve().parents[2] / "src" / "scistudio" / "core" / "types" / "base.py"
         violations = self._check_no_hasattr(base_path, "_arrow_table")
         assert violations == [], f"hasattr(self, '_arrow_table') found at lines {violations} in base.py"
 
     def test_no_hasattr_data_in_array(self):
-        array_path = Path(__file__).resolve().parents[2] / "src" / "scieasy" / "core" / "types" / "array.py"
+        array_path = Path(__file__).resolve().parents[2] / "src" / "scistudio" / "core" / "types" / "array.py"
         violations = self._check_no_hasattr(array_path, "_data")
         assert violations == [], f"hasattr(self, '_data') found at lines {violations} in array.py"
 
     def test_no_hasattr_arrow_table_in_array(self):
-        array_path = Path(__file__).resolve().parents[2] / "src" / "scieasy" / "core" / "types" / "array.py"
+        array_path = Path(__file__).resolve().parents[2] / "src" / "scistudio" / "core" / "types" / "array.py"
         violations = self._check_no_hasattr(array_path, "_arrow_table")
         assert violations == [], f"hasattr(self, '_arrow_table') found at lines {violations} in array.py"

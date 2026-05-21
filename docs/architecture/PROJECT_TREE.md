@@ -1,4 +1,4 @@
-# SciEasy — Project Tree
+# SciStudio — Project Tree
 
 > Maps 1:1 to the Architecture Document (ARCHITECTURE.md).
 > Each file is annotated with its responsibility.
@@ -6,7 +6,7 @@
 > **Note:** This tree shows the **target architecture**. Sections marked *"planned"* contain files that do not yet exist in the repository.
 
 ```
-scieasy/                               # ← repo root
+scistudio/                               # ← repo root
 │
 ├── pyproject.toml                      # Package metadata, dependencies, entry_points
 ├── README.md
@@ -16,11 +16,11 @@ scieasy/                               # ← repo root
 │
 │
 │ ══════════════════════════════════════════════════════════════════
-│  PYTHON BACKEND  (src layout — `pip install -e .` installs scieasy)
+│  PYTHON BACKEND  (src layout — `pip install -e .` installs scistudio)
 │ ══════════════════════════════════════════════════════════════════
 │
 ├── src/
-│   └── scieasy/
+│   └── scistudio/
 │       ├── __init__.py                 # Package root, version string
 │       │
 │       │
@@ -32,7 +32,7 @@ scieasy/                               # ← repo root
 │       │   ├── types/                  # DataObject type hierarchy — CORE BASE TYPES ONLY
 │       │   │   │                       #   (ADR-027 D2): domain subtypes (Image, Spectrum,
 │       │   │   │                       #   PeakTable, AnnData, etc.) live in plugin packages
-│       │   │   │                       #   and register via the scieasy.types entry-point.
+│       │   │   │                       #   and register via the scistudio.types entry-point.
 │       │   │   ├── __init__.py         # Re-exports the seven base types
 │       │   │   ├── base.py             # DataObject ABC, TypeSignature, framework/meta/user
 │       │   │   │                       #   slots (ADR-027 D5). No free-dict metadata;
@@ -53,8 +53,8 @@ scieasy/                               # ← repo root
 │       │   │   │                       #   for DataObjects between blocks (ADR-020).
 │       │   │   │                       #   NOT a DataObject subclass — type identity from contents.
 │       │   │   └── registry.py         # TypeRegistry: discovers types from
-│       │   │                           #   Tier 1: {project}/types/ + ~/.scieasy/types/
-│       │   │                           #   Tier 2: scieasy.types entry_points
+│       │   │                           #   Tier 1: {project}/types/ + ~/.scistudio/types/
+│       │   │                           #   Tier 2: scistudio.types entry_points
 │       │   │                           #   Resolves inheritance for port matching.
 │       │   │                           #   resolve(type_chain) helper for worker subprocess
 │       │   │                           #   type reconstruction (ADR-027 D11).
@@ -106,7 +106,7 @@ scieasy/                               # ← repo root
 │       │       │                       #   (--porcelain=v2, --format=...).
 │       │       ├── git_binary.py       # Locate bundled git executable across platforms
 │       │       │                       #   (resources/git/bin/git[.exe]). Falls back to system
-│       │       │                       #   git for `scieasy gui` developer CLI.
+│       │       │                       #   git for `scistudio gui` developer CLI.
 │       │       ├── gitignore_template.py  # Default .gitignore content + write logic (ADR-039 §3.3)
 │       │       ├── status.py           # Working-tree status helpers (dirty flag, modified files)
 │       │       └── watcher.py          # Detect external git changes (HEAD / refs mtime;
@@ -230,8 +230,8 @@ scieasy/                               # ← repo root
 │       │   │                             #   inject inputs, run child DAG, extract outputs
 │       │   │
 │       │   └── registry.py             # BlockRegistry: discovers blocks from
-│       │                               #   Tier 1: {project}/blocks/ + ~/.scieasy/blocks/
-│       │                               #   Tier 2: scieasy.blocks entry_points (ADR-025 callable protocol)
+│       │                               #   Tier 1: {project}/blocks/ + ~/.scistudio/blocks/
+│       │                               #   Tier 2: scistudio.blocks entry_points (ADR-025 callable protocol)
 │       │                               #   Callable protocol: get_blocks() → (PackageInfo, [Block])
 │       │                               #   or plain list[Block] for backward compat.
 │       │                               #   Methods: packages(), specs_by_package() for GUI grouping.
@@ -299,7 +299,7 @@ scieasy/                               # ← repo root
 │       │       ├── stream_json.py       # NDJSON parser for `--output-format stream-json`
 │       │       ├── system_prompt.py     # Three-tier prompt composition (builtin/project/local)
 │       │       ├── permission.py        # PreToolUse hook bridge — strict / bypass policy
-│       │       ├── transcript.py        # Write-through snapshot to {project}/.scieasy/sessions/
+│       │       ├── transcript.py        # Write-through snapshot to {project}/.scistudio/sessions/
 │       │       └── mcp/                 # In-process MCP server (~25 tools, ADR-033 D2)
 │       │           ├── __init__.py
 │       │           ├── server.py        # Server scaffold + stdio transport
@@ -398,7 +398,7 @@ scieasy/                               # ← repo root
 │       │ ── Testing Utilities ──────────────────────────────────────
 │       │
 │       ├── testing/                    # Block SDK test utilities (ADR-026) [implemented]
-│       │   ├── __init__.py             # Re-export: from scieasy.testing.harness import BlockTestHarness
+│       │   ├── __init__.py             # Re-export: from scistudio.testing.harness import BlockTestHarness
 │       │   └── harness.py             # BlockTestHarness: validate_block() checks port/name/run
 │       │                               #   contract, validate_package_info() checks PackageInfo,
 │       │                               #   validate_entry_point_callable() checks ADR-025 format,
@@ -411,13 +411,13 @@ scieasy/                               # ← repo root
 │       └── cli/
 │           ├── __init__.py
 │           ├── main.py                 # CLI entry point:
-│           │                           #   scieasy serve      — start FastAPI server (headless)
-│           │                           #   scieasy gui        — start server + open browser (ADR-024)
-│           │                           #   scieasy run <wf>   — run workflow headless
-│           │                           #   scieasy validate   — validate workflow YAML
-│           │                           #   scieasy init       — create new project workspace
-│           │                           #   scieasy blocks     — list installed blocks
-│           │                           #   scieasy init-block-package — scaffold a block package (ADR-026)
+│           │                           #   scistudio serve      — start FastAPI server (headless)
+│           │                           #   scistudio gui        — start server + open browser (ADR-024)
+│           │                           #   scistudio run <wf>   — run workflow headless
+│           │                           #   scistudio validate   — validate workflow YAML
+│           │                           #   scistudio init       — create new project workspace
+│           │                           #   scistudio blocks     — list installed blocks
+│           │                           #   scistudio init-block-package — scaffold a block package (ADR-026)
 │           ├── _scaffold.py            # Scaffolding logic for init-block-package (ADR-026):
 │           │                           #   scaffold_block_package(name, display_name, author,
 │           │                           #   categories, target_dir). Reads .tpl files, substitutes
@@ -717,55 +717,55 @@ scieasy/                               # ← repo root
 
 ```toml
 [project.scripts]
-scieasy = "scieasy.cli.main:app"
+scistudio = "scistudio.cli.main:app"
 
 # --- Entry-point groups (ADR-025 callable protocol, amended by ADR-028 §D4) ---
 # Each entry-point value is a callable (function or class).
 # The registry invokes the callable at scan time.
-# For scieasy.blocks: callable returns (PackageInfo, list[type[Block]])
+# For scistudio.blocks: callable returns (PackageInfo, list[type[Block]])
 #   or plain list[type[Block]] for backward compat. Concrete IOBlock
 #   subclasses (LoadData, SaveData, plus plugin loaders like LoadImage)
 #   register through this group too — there is no longer a separate
-#   `scieasy.adapters` group (ADR-028 §D4 supersedes ADR-025 §6).
-# For scieasy.types: callable returns list[type[DataObject]].
+#   `scistudio.adapters` group (ADR-028 §D4 supersedes ADR-025 §6).
+# For scistudio.types: callable returns list[type[DataObject]].
 
-[project.entry-points."scieasy.blocks"]
+[project.entry-points."scistudio.blocks"]
 # Built-in blocks (these are direct class references — core package
 # does not use the callable protocol for its own blocks)
-load_data = "scieasy.blocks.io.loaders.load_data:LoadData"
-save_data = "scieasy.blocks.io.savers.save_data:SaveData"
-process_merge = "scieasy.blocks.process.builtins.merge:MergeBlock"
-process_split = "scieasy.blocks.process.builtins.split:SplitBlock"
-code_block = "scieasy.blocks.code:CodeBlock"
-app_block = "scieasy.blocks.app:AppBlock"
-ai_block = "scieasy.blocks.ai:AIBlock"
-subworkflow_block = "scieasy.blocks.subworkflow:SubWorkflowBlock"
+load_data = "scistudio.blocks.io.loaders.load_data:LoadData"
+save_data = "scistudio.blocks.io.savers.save_data:SaveData"
+process_merge = "scistudio.blocks.process.builtins.merge:MergeBlock"
+process_split = "scistudio.blocks.process.builtins.split:SplitBlock"
+code_block = "scistudio.blocks.code:CodeBlock"
+app_block = "scistudio.blocks.app:AppBlock"
+ai_block = "scistudio.blocks.ai:AIBlock"
+subworkflow_block = "scistudio.blocks.subworkflow:SubWorkflowBlock"
 
-[project.entry-points."scieasy.types"]
+[project.entry-points."scistudio.types"]
 # Built-in domain types (base types are always available, no entry_point needed)
-image = "scieasy.core.types.array:Image"
-spectrum = "scieasy.core.types.series:Spectrum"
-peak_table = "scieasy.core.types.dataframe:PeakTable"
+image = "scistudio.core.types.array:Image"
+spectrum = "scistudio.core.types.series:Spectrum"
+peak_table = "scistudio.core.types.dataframe:PeakTable"
 
-[project.entry-points."scieasy.runners"]
-python = "scieasy.blocks.code.runners.python_runner:PythonRunner"
-r = "scieasy.blocks.code.runners.r_runner:RRunner"
-julia = "scieasy.blocks.code.runners.julia_runner:JuliaRunner"
+[project.entry-points."scistudio.runners"]
+python = "scistudio.blocks.code.runners.python_runner:PythonRunner"
+r = "scistudio.blocks.code.runners.r_runner:RRunner"
+julia = "scistudio.blocks.code.runners.julia_runner:JuliaRunner"
 ```
 
 ## Example external package entry_points (ADR-025, amended by ADR-028 §D4)
 
 ```toml
-# In scieasy-blocks-srs/pyproject.toml:
-[project.entry-points."scieasy.blocks"]
-srs = "scieasy_blocks_srs:get_blocks"          # → (PackageInfo, [Block, ...])
+# In scistudio-blocks-srs/pyproject.toml:
+[project.entry-points."scistudio.blocks"]
+srs = "scistudio_blocks_srs:get_blocks"          # → (PackageInfo, [Block, ...])
                                                # The returned list includes any
                                                # plugin-owned IOBlock subclasses
                                                # (e.g. LoadSRSImage / SaveSRSImage)
                                                # alongside ProcessBlocks etc.
 
-[project.entry-points."scieasy.types"]
-srs = "scieasy_blocks_srs.types:get_types"     # → [SRSImage]
+[project.entry-points."scistudio.types"]
+srs = "scistudio_blocks_srs.types:get_types"     # → [SRSImage]
 ```
 
 ## File count summary
@@ -774,13 +774,13 @@ srs = "scieasy_blocks_srs.types:get_types"     # → [SRSImage]
 |---|---|---|
 | `core/` | ~22 | Data types, Collection transport, storage, proxy, **unified lineage (ADR-038, 7 files)**, **versioning (ADR-039, 6 files)** |
 | `blocks/` | 30 | All block categories, IO loaders/savers (ADR-028), code runners, registry, lazy_list (process_mgr.py deleted per ADR-019, lazy_list.py added per ADR-020, io/adapters/ + adapter_registry.py deleted per ADR-028 §D2/§D4) |
-| `engine/` | 9 | Scheduler, resources, checkpoint (relocated to `.scieasy/pause/`), events, runners. `engine/lineage_recorder.py` moved to `core/lineage/recorder.py` per ADR-038. |
+| `engine/` | 9 | Scheduler, resources, checkpoint (relocated to `.scistudio/pause/`), events, runners. `engine/lineage_recorder.py` moved to `core/lineage/recorder.py` per ADR-038. |
 | `ai/` | ~14 | Embedded coding agent — provider/session/stream-json/permission/transcript + in-process MCP server with ~25 tools (ADR-033). Old generation/synthesis/optimization modules deleted. |
 | `api/` | 12 | FastAPI routes incl. **runs.py (ADR-038)** + **git.py (ADR-039)**, WebSocket, SSE, SPA fallback (ADR-024). `bump_revision` / `If-Match` ETag flow removed per ADR-039 (replaced by git SHA + working-tree dirty state). |
 | `workflow/` | 4 | Definition, serialization, validation, layout |
 | `utils/` | 3 | Hashing, wrapping, logging |
 | `testing/` | 2 | BlockTestHarness for external block developers (ADR-026) |
-| `cli/` | 3+5tpl | CLI entry point (incl. git-init parity on `scieasy init` per ADR-039), scaffolding, templates |
+| `cli/` | 3+5tpl | CLI entry point (incl. git-init parity on `scistudio init` per ADR-039), scaffolding, templates |
 | **Total backend** | **~99** | |
 | `frontend/src/` | ~55 `.tsx/.ts` | React components incl. **Lineage/ (6 files, ADR-038)** + **Git/ + Git/GitGraph/ (~15 files, ADR-039)**, hooks, stores incl. lineageSlice + gitSlice, API client. |
 | `docs/block-development/` | 13 `.md` | Block SDK developer documentation (ADR-026) |
@@ -788,8 +788,8 @@ srs = "scieasy_blocks_srs.types:get_types"     # → [SRSImage]
 | `tests/` | ~50 | Architecture enforcement, unit, integration, harness, CLI tests, incl. **lineage 4-table schema tests** + **git engine subprocess tests** |
 
 **Removed by ADR-038/039 (2026-05-15):**
-- `src/scieasy/core/metadata_store.py` → 6-month deprecation shim re-exporting unified store + `DeprecationWarning` (function lives in `core/lineage/`)
-- `src/scieasy/engine/lineage_recorder.py` → moved to `core/lineage/recorder.py`
+- `src/scistudio/core/metadata_store.py` → 6-month deprecation shim re-exporting unified store + `DeprecationWarning` (function lives in `core/lineage/`)
+- `src/scistudio/engine/lineage_recorder.py` → moved to `core/lineage/recorder.py`
 - `ApiRuntime.bump_revision` / `current_revision` + workflow routes' `If-Match` handling
-- Top-level `<project>/metadata.db` and `<project>/checkpoints/` (replaced by `<project>/.scieasy/lineage.db` and `<project>/.scieasy/pause/`)
+- Top-level `<project>/metadata.db` and `<project>/checkpoints/` (replaced by `<project>/.scistudio/lineage.db` and `<project>/.scistudio/pause/`)
 - Frontend Jobs tab (subsumed by Lineage tab; `"jobs"` removed from `BottomTab` discriminated union)
