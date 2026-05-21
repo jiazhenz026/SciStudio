@@ -62,7 +62,10 @@
       "not_applicable": true,
       "rationale": "standalone-fix-not-part-of-coordinated-dispatch"
     },
-    "docs": {},
+    "docs": {
+      "not_applicable": true,
+      "rationale": "no-user-facing-docs-required-CHANGELOG-covers-it"
+    },
     "spec": {
       "not_applicable": true,
       "rationale": "no-public-API-change"
@@ -84,7 +87,7 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1382,
-      "url": null
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1382"
     }
   ],
   "owner_directive": "Fix scripts/scistudio_pr_create.py to parse --base from argv and pass resolved ref to pre-flight gate_record ci. Removes need for SCISTUDIO_SKIP_PREFLIGHT=1 on umbrella sub-PRs.",
@@ -122,14 +125,14 @@
     "command_or_tool": "sentrux check",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "Sentrux does not apply per ADR-042 Addendum 1: changed files are scripts/scistudio_pr_create.py (NOT in IMPLEMENTATION_PATTERNS), tests/scripts/, and CHANGELOG.md. _sentrux_applies returns False for all. Sentrux CLI unavailable locally; CI runs the canonical check on the PR.",
+    "output_path": "MCP sentrux scan + check_rules + health: pass, rules_checked=3/15, violation_count=0, quality_signal=4445",
     "pro_required": false,
-    "quality_signal": null,
-    "rules_checked": null,
-    "status": "skipped",
+    "quality_signal": 4445.0,
+    "rules_checked": 3,
+    "status": "pass",
     "summary": {},
     "thresholds": {},
-    "total_rules_defined": null
+    "total_rules_defined": 15
   },
   "stages": [
     {
