@@ -21,11 +21,29 @@
         "tests/core/"
       ],
       "reason": "Scope revision: drop #1331 (P1-1 interactive subprocess, too large for overnight autonomous) and #887 (P1-2 resource gating, owner deferral, ARCHITECTURE \u00a76 doc stays as final commitment). Track B repurposed from docs to impl: TypeRegistry filesystem scan (#1332) instead of ARCHITECTURE.md edits. Add Track B impl paths to scope, drop ARCHITECTURE.md from scope."
+    },
+    {
+      "approved_by": "owner",
+      "exclude": [],
+      "include": [
+        "docs/audit/full-audit-latest.json"
+      ],
+      "reason": "Include docs/audit/full-audit-latest.json (audit evidence file). Standard ADR-042 audit output path."
     }
   ],
   "branch": "umbrella/arch-drift-and-collection-wrap",
   "changed_test_paths": [],
-  "check_results": [],
+  "check_results": [
+    {
+      "command_or_tool": "manager umbrella; impl checks happen in sub-PRs Track A and Track B",
+      "exit_code": 0,
+      "name": "manager-coordination-only",
+      "output_path": null,
+      "status": "skipped",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
   "commit": null,
   "docs_landing": {
     "adr": {
@@ -43,7 +61,16 @@
     },
     "docs": {}
   },
-  "full_audit": null,
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
   "governance_touch": true,
   "issues": [
     {
@@ -83,7 +110,21 @@
       ".workflow/records/umbrella-arch-drift.json"
     ]
   },
-  "sentrux": null,
+  "sentrux": {
+    "command_or_tool": "sentrux",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": null,
+    "pro_required": false,
+    "quality_signal": 4125.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {
+      "complexity": "70"
+    },
+    "total_rules_defined": 15
+  },
   "stages": [
     {
       "completed_at": null,
@@ -112,7 +153,7 @@
     {
       "completed_at": null,
       "stage": "test_and_checks",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
