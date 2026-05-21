@@ -3,8 +3,7 @@
     {
       "applied_at": "2026-05-21T21:00:00Z",
       "applied_by": "agent-C-1356",
-      "name": "admin-approved:core-change",
-      "rationale": "Owner-coordinated umbrella PR for ADR-039 Addendum 1 \u00a711.4 row #1356. Owner chose option C (silent auto-tag safety net) in #1356, which inherently requires modifying protected core paths src/scistudio/core/lineage/store.py (new workflow_git_commits_in method) and src/scistudio/core/versioning/git_engine.py (new commits_reachable_only_from + tag methods). PR-A in the same umbrella (#1378) carries the identical label for the same rationale (protected paths touched per ADR-039 Addendum 1 \u00a711.3 rows for #1353+#1354)."
+      "name": "admin-approved:core-change"
     }
   ],
   "amendments": [
