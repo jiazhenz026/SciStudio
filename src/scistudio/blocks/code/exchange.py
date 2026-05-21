@@ -156,21 +156,32 @@ class PortManifestRecord:
 
 @dataclass(kw_only=True)
 class CodeBlockExchangeManifest:
-    """Concrete exchange manifest for one CodeBlock run."""
+    """Concrete exchange manifest for one CodeBlock run.
+
+    Manifest records are keyed by ``(direction, name)`` so a CodeBlock
+    declaring an input port and an output port with the same name (e.g.
+    ``data -> data``) keeps both records (#1281). The
+    :attr:`input_folders` / :attr:`output_folders` views remain keyed by
+    bare port ``name`` because port names are unique within a single
+    direction.
+    """
 
     layout: CodeBlockExchangeLayout
-    ports: dict[str, PortManifestRecord]
+    ports: dict[tuple[PortDirection, str], PortManifestRecord]
     diagnostics: list[ExchangeDiagnostic] = field(default_factory=list)
 
     @property
     def input_folders(self) -> dict[str, Path]:
-        return {name: record.folder for name, record in self.ports.items() if record.direction == "input"}
+        return {record.name: record.folder for record in self.ports.values() if record.direction == "input"}
 
     @property
     def output_folders(self) -> dict[str, Path]:
-        return {name: record.folder for name, record in self.ports.items() if record.direction == "output"}
+        return {record.name: record.folder for record in self.ports.values() if record.direction == "output"}
 
     def to_dict(self) -> dict[str, object]:
+        # Serialise the ``(direction, name)`` tuple keys as
+        # ``"<direction>:<name>"`` so the manifest JSON has stable
+        # string keys without losing the direction discriminator.
         return {
             "exchange_dir": str(self.layout.exchange_dir),
             "inputs_dir": str(self.layout.inputs_dir),
@@ -178,7 +189,9 @@ class CodeBlockExchangeManifest:
             "manifest_path": str(self.layout.manifest_path),
             "logs_dir": str(self.layout.logs_dir),
             "temp_dir": str(self.layout.temp_dir),
-            "ports": {name: record.to_dict() for name, record in sorted(self.ports.items())},
+            "ports": {
+                f"{direction}:{name}": record.to_dict() for (direction, name), record in sorted(self.ports.items())
+            },
             "diagnostics": [diagnostic.to_dict() for diagnostic in self.diagnostics],
         }
 
@@ -294,7 +307,7 @@ def initialise_exchange_manifest(
 
     input_names: set[str] = set()
     output_names: set[str] = set()
-    records: dict[str, PortManifestRecord] = {}
+    records: dict[tuple[PortDirection, str], PortManifestRecord] = {}
     for port in port_configs:
         parent = layout.inputs_dir if port.direction == "input" else layout.outputs_dir
         used_names = input_names if port.direction == "input" else output_names
@@ -303,7 +316,10 @@ def initialise_exchange_manifest(
             if port.folder_name is not None
             else allocate_port_folder(parent, port.name, used_names)
         )
-        records[port.name] = PortManifestRecord(
+        # Key by ``(direction, name)`` so an input port and an output port
+        # sharing the same name (e.g. ``data -> data``) do not overwrite
+        # each other (#1281).
+        records[(port.direction, port.name)] = PortManifestRecord(
             name=port.name,
             direction=port.direction,
             object_type=_type_hint_name(port.data_type),
@@ -336,7 +352,7 @@ def prepare_codeblock_exchange(
     )
     manifest = initialise_exchange_manifest(port_configs, layout=layout)
     for port in (port for port in port_configs if port.direction == "input"):
-        record = manifest.ports[port.name]
+        record = manifest.ports[(port.direction, port.name)]
         value = inputs.get(port.name)
         if value is None:
             diagnostic = ExchangeDiagnostic(
@@ -385,12 +401,12 @@ def discover_declared_outputs(
     """Discover declared output files and report missing or extra outputs."""
 
     output_ports = [port for port in port_configs if port.direction == "output"]
-    known_folders = {manifest.ports[port.name].folder.resolve(): port for port in output_ports}
+    known_folders = {manifest.ports[(port.direction, port.name)].folder.resolve(): port for port in output_ports}
     files_by_port: dict[str, list[Path]] = {port.name: [] for port in output_ports}
     diagnostics: list[ExchangeDiagnostic] = []
 
     for port in output_ports:
-        record = manifest.ports[port.name]
+        record = manifest.ports[(port.direction, port.name)]
         extension = normalise_extension(port.extension)
         matching: list[Path] = []
         mismatched: list[Path] = []

@@ -34,7 +34,6 @@ import pytest
 
 from scistudio.blocks.app.app_block import AppBlock
 from scistudio.blocks.base.config import BlockConfig
-from scistudio.blocks.base.state import BlockState
 from tests.fixtures.test_images import K562_L_2845_TIF
 
 FIJI_EXE = Path(r"C:\Program Files\Fiji\fiji-windows-x64.exe")
@@ -60,15 +59,15 @@ pytestmark = [
 
 
 def _make_block() -> AppBlock:
-    """Return an AppBlock already transitioned to RUNNING.
+    """Return a freshly constructed :class:`AppBlock`.
 
-    :meth:`AppBlock.run` transitions to PAUSED, so the block must start
-    in RUNNING (per the existing pattern in ``tests/blocks/test_app_block.py``).
+    PR #1351 removed the vestigial worker-side :meth:`Block.transition`
+    API and its state precondition (``BlockState`` no longer exists at
+    the :class:`Block` level). Production code now calls ``block.run``
+    directly without any explicit ``READY``/``RUNNING`` step, so the
+    integration helper mirrors that pattern.
     """
-    block = AppBlock()
-    block.transition(BlockState.READY)
-    block.transition(BlockState.RUNNING)
-    return block
+    return AppBlock()
 
 
 def _make_config(

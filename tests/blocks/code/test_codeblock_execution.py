@@ -74,13 +74,20 @@ def _block_config(project_dir: Path, script_path: str, **params: object) -> dict
 
 
 def test_codeblock_runs_python_script_through_exchange(tmp_path: Path) -> None:
+    # Issue #1309: the subprocess now launches from the resolved
+    # ``working_directory`` (default ``"."`` = project root). The script
+    # therefore needs absolute paths to reach the per-run exchange dir.
+    exchange_dir = tmp_path / "exchange" / "codeblock-block-1" / "run-1"
     _write_script(
         tmp_path,
-        """
+        f"""
 from pathlib import Path
 
-source = sorted(Path("inputs/prompt").glob("*.txt"))[0]
-target = Path("outputs/summary/result.txt")
+inputs_dir = Path({(exchange_dir / "inputs").as_posix()!r})
+outputs_dir = Path({(exchange_dir / "outputs").as_posix()!r})
+source = sorted((inputs_dir / "prompt").glob("*.txt"))[0]
+target = outputs_dir / "summary" / "result.txt"
+target.parent.mkdir(parents=True, exist_ok=True)
 target.write_text(source.read_text(encoding="utf-8").upper(), encoding="utf-8")
 """.strip()
         + "\n",
@@ -103,7 +110,8 @@ target.write_text(source.read_text(encoding="utf-8").upper(), encoding="utf-8")
     assert (block.last_exchange_manifest.layout.manifest_path).is_file()
     assert block.last_provenance_payload is not None
     assert block.last_provenance_payload["script"]["relative_path"] == "scripts/script.py"
-    assert block.last_provenance_payload["exchange_manifest"]["ports"]["summary"]["status"] == "collected"
+    # ``to_dict`` keys manifest ports by ``"<direction>:<name>"`` per #1281.
+    assert block.last_provenance_payload["exchange_manifest"]["ports"]["output:summary"]["status"] == "collected"
 
 
 def test_codeblock_missing_required_output_fails_after_successful_process(tmp_path: Path) -> None:

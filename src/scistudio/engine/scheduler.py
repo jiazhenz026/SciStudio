@@ -630,6 +630,22 @@ class DAGScheduler:
                 if isinstance(env_candidate, dict):
                     env_payload = env_candidate
 
+            # #1370: ADR-020 §3 contract enforcement at the interactive
+            # in-process boundary. The worker-subprocess path normalises
+            # inside ``worker.py`` and the regular in-process path does so
+            # in ``_run_and_finalize``; the interactive path used to skip
+            # the wrap, so a custom interactive block returning a bare
+            # ``DataObject`` or ``list[DataObject]`` on an
+            # ``is_collection=True`` port could leak through unwrapped.
+            if isinstance(result, dict):
+                from scistudio.engine.runners.worker import _normalize_outputs
+
+                try:
+                    effective_output_ports = block.get_effective_output_ports()
+                except AttributeError:
+                    effective_output_ports = list(getattr(type(block), "output_ports", []))
+                _normalize_outputs(result, effective_output_ports)
+
             self._block_outputs[node_id] = result
             # ADR-038 §5.2: persist DataObject identity to the unified
             # ``data_objects`` table. See the parallel callsite in
@@ -1390,7 +1406,13 @@ class DAGScheduler:
             if self._block_states[node_id] == BlockState.READY:
                 await self._dispatch(node_id)
             elif self._block_states[node_id] == BlockState.IDLE and self._check_readiness(node_id):
+                # #1367: every scheduler-owned IDLE->READY transition must
+                # emit ``BLOCK_READY`` exactly once. The execute() and
+                # _dispatch_newly_ready() paths already do so; resume()
+                # used to flip the state silently, causing frontend WS
+                # subscribers to miss readiness events on resume.
                 self._block_states[node_id] = BlockState.READY
+                await self._emit_block_ready(node_id)
                 await self._dispatch(node_id)
         await self._drain_active_tasks()
 
@@ -1465,7 +1487,11 @@ class DAGScheduler:
 
         # Step 4: dispatch if ready.
         if self._check_readiness(block_id):
+            # #1367: emit BLOCK_READY on the rerun IDLE->READY transition so
+            # frontend WS subscribers observe readiness consistently with
+            # execute() and _dispatch_newly_ready().
             self._block_states[block_id] = BlockState.READY
+            await self._emit_block_ready(block_id)
             await self._dispatch(block_id)
 
         await self._drain_active_tasks()
@@ -1549,10 +1575,16 @@ class DAGScheduler:
             self._reset_downstream_skipped(block_id)
 
             # Step 5: Re-evaluate readiness, collect ready IDs, then dispatch.
+            # #1367: every scheduler-owned IDLE->READY transition emits
+            # ``BLOCK_READY`` exactly once. The reset path used to flip
+            # state silently for every block that became ready after the
+            # reset, breaking frontend WS readiness visibility for
+            # selectively re-run subgraphs.
             ready_ids: list[str] = []
             for node_id in self._order:
                 if self._block_states[node_id] == BlockState.IDLE and self._check_readiness(node_id):
                     self._block_states[node_id] = BlockState.READY
+                    await self._emit_block_ready(node_id)
                     ready_ids.append(node_id)
             for node_id in ready_ids:
                 await self._dispatch(node_id)

@@ -71,12 +71,22 @@ def _effective_ports_for_node(
 
 
 def _is_codeblock_spec(spec: BlockSpec) -> bool:
-    """Return whether *spec* describes the ADR-041 CodeBlock runtime."""
+    """Return whether *spec* describes the ADR-041 CodeBlock runtime.
+
+    Narrowed to the concrete CodeBlock identity (#1282): the previous
+    ``spec.base_category == "code"`` branch matched any code-category
+    block (including custom or synthetic code-category specs) and ran
+    CodeBlock v2 config validation against them, surfacing spurious
+    ``script_path`` / ``input_ports`` / ``output_ports`` errors. The
+    canonical CodeBlock class declares ``name="Code Block"``,
+    ``type_name="code_block"``, and lives at
+    ``scistudio.blocks.code.code_block.CodeBlock`` — any one of those
+    three is sufficient to identify it; ``base_category`` alone is not.
+    """
 
     return (
         spec.name == "Code Block"
         or spec.type_name == "code_block"
-        or spec.base_category == "code"
         or (spec.module_path == "scistudio.blocks.code.code_block" and spec.class_name == "CodeBlock")
     )
 

@@ -152,6 +152,76 @@ def test_wait_malformed_mcp_signal_raises_value_error(tmp_path: Path) -> None:
         watcher.wait(timeout_sec=2.0)
 
 
+def test_wait_empty_mcp_signal_is_retried_not_raised(tmp_path: Path) -> None:
+    """Issue #902: empty MCP signal file is mid-write, not malformed.
+
+    A signal file that has been created but whose content has not yet
+    been flushed reads as ``""``. ``json.loads("")`` would raise
+    ``JSONDecodeError`` and historically surfaced as a spurious
+    ``ValueError("malformed MCP signal")`` (the documented CI flake on
+    ``test_ai_block_skeleton.py``). With Option B production hardening
+    the watcher must treat empty / whitespace as "file mid-write" and
+    keep polling. If the writer never catches up the deadline still
+    elapses, surfacing :class:`TimeoutError` rather than the misleading
+    ValueError.
+    """
+    rd, watcher = _make_watcher(
+        tmp_path,
+        {},
+        poll_interval=0.02,
+    )
+    rd.mcp_signal_path().parent.mkdir(parents=True, exist_ok=True)
+    # Empty file: simulates the truncate-window read in #902.
+    rd.mcp_signal_path().write_text("", encoding="utf-8")
+    with pytest.raises(TimeoutError, match="no signal"):
+        watcher.wait(timeout_sec=0.2)
+
+
+def test_wait_whitespace_only_mcp_signal_is_retried_not_raised(tmp_path: Path) -> None:
+    """Issue #902: whitespace-only content is treated as mid-write too.
+
+    Mirrors :func:`test_wait_empty_mcp_signal_is_retried_not_raised` for
+    a file containing only whitespace (``"\\n"``, ``"  "``, etc.).
+    """
+    rd, watcher = _make_watcher(
+        tmp_path,
+        {},
+        poll_interval=0.02,
+    )
+    rd.mcp_signal_path().parent.mkdir(parents=True, exist_ok=True)
+    rd.mcp_signal_path().write_text("   \n\t  ", encoding="utf-8")
+    with pytest.raises(TimeoutError, match="no signal"):
+        watcher.wait(timeout_sec=0.2)
+
+
+def test_wait_empty_mcp_signal_eventually_becomes_valid(tmp_path: Path) -> None:
+    """Issue #902: empty signal -> later filled with JSON -> watcher succeeds.
+
+    Drives the end-to-end Option B contract: a non-atomic writer that
+    truncates the file (size = 0) and only later writes the JSON must
+    not crash the watcher. Once the JSON lands the watcher returns the
+    :class:`CompletionEvent` cleanly.
+    """
+    rd, watcher = _make_watcher(
+        tmp_path,
+        {},
+        poll_interval=0.02,
+    )
+    signal_path = rd.mcp_signal_path()
+    signal_path.parent.mkdir(parents=True, exist_ok=True)
+    signal_path.write_text("", encoding="utf-8")
+
+    def delayed_writer() -> None:
+        # Long enough that the watcher polls the empty file at least once.
+        time.sleep(0.1)
+        signal_path.write_text(json.dumps({"outputs": {}}), encoding="utf-8")
+
+    threading.Thread(target=delayed_writer, daemon=True).start()
+    event = watcher.wait(timeout_sec=3.0)
+    assert event.source is CompletionSource.MCP_FINISH_TOOL
+    assert event.detail["raw_payload"] == {"outputs": {}}
+
+
 def test_wait_extra_output_in_mcp_signal_logs_and_ignores(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     rd, watcher = _make_watcher(tmp_path, {"out": {"expected_path": "./out.csv"}})
     rd.mcp_signal_path().parent.mkdir(parents=True, exist_ok=True)
