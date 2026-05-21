@@ -29,7 +29,7 @@
       "command_or_tool": "pytest tests/core/test_type_registry_scan_dirs.py tests/engine/test_worker_reconstruction_scan_dirs.py tests/core/test_type_registry_resolve_and_meta.py tests/engine/test_worker_typed_reconstruction.py tests/engine/test_local_runner.py --timeout=60",
       "exit_code": 0,
       "name": "pytest",
-      "output_path": "108 passed",
+      "output_path": "111 passed (Codex P2 reconcile round)",
       "status": "pass",
       "summary": {},
       "timestamp": null
@@ -135,12 +135,12 @@
     ]
   },
   "sentrux": {
-    "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules + health",
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__rescan + check_rules",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "pass:3/3 rules; quality_signal=4445; violation_count=0",
+    "output_path": "pass:3/3 rules; quality_signal=4444; violation_count=0 (Codex P2 reconcile round)",
     "pro_required": false,
-    "quality_signal": 4445.0,
+    "quality_signal": 4444.0,
     "rules_checked": 3,
     "status": "pass",
     "summary": {},

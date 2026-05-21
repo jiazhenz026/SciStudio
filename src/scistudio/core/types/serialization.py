@@ -101,18 +101,27 @@ def _get_type_registry() -> TypeRegistry:
         registry = TypeRegistry()
         # #1365: register the same scan dirs ApiRuntime.refresh_type_registry
         # wires for the API path, so worker subprocess reconstruction sees
-        # project-local + user-wide drop-in DataObject subclasses. Add the
-        # dirs BEFORE scan_all so the single scan_all() call picks them up.
+        # project-local + user-wide drop-in DataObject subclasses.
         project_dir_env = os.environ.get("SCISTUDIO_PROJECT_DIR", "").strip()
         if project_dir_env:
             registry.add_scan_dir(Path(project_dir_env) / "types")
         registry.add_scan_dir(Path.home() / ".scistudio" / "types")
-        # scan_all() runs builtins → entry-points → scan-dirs in order,
-        # so plugin / built-in registrations win on duplicates.
-        # Plugin scan errors are logged by the registry itself; never
-        # fail reconstruction because of a broken plugin entry-point.
+        # Built-in registration MUST be guaranteed: if scan_builtins()
+        # raises (import/registration error inside core), there is no
+        # silent fall-back to base DataObject — fail fast so the bug
+        # surfaces here rather than at _reconstruct_one's resolve(chain)
+        # call site. (Codex P2 on PR #1386: previously the whole
+        # scan_all() call was wrapped in contextlib.suppress, which
+        # could cache a partially-initialised registry.)
+        registry.scan_builtins()
+        # Plugin / drop-in scan errors remain best-effort: the registry's
+        # own per-entry exception handling already logs a warning, so
+        # one broken plugin or unparseable drop-in must not prevent
+        # reconstruction of core instances.
         with contextlib.suppress(Exception):
-            registry.scan_all()
+            registry._scan_entrypoint_types()
+        with contextlib.suppress(Exception):
+            registry._scan_filesystem_dirs()
         _registry_instance = registry
     return _registry_instance
 

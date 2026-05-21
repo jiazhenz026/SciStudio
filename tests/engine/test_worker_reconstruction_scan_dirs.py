@@ -157,6 +157,72 @@ class TestGetTypeRegistryScanDirs:
         registry = _get_type_registry()
         assert "DataObject" in registry.all_types()
 
+    def test_builtins_scan_failure_is_not_swallowed(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Codex P2 on PR #1386 — built-in scan failures MUST propagate.
+
+        ``_get_type_registry`` previously wrapped the whole ``scan_all()``
+        call in ``contextlib.suppress(Exception)`` so a single broken
+        plugin would not prevent reconstruction. The same suppress also
+        swallowed any failure inside ``scan_builtins()`` and cached a
+        partially-initialised singleton, silently degrading every
+        subsequent typed reconstruction to bare ``DataObject``.
+
+        After the fix ``scan_builtins()`` is called outside the
+        suppress block, so an injected failure surfaces here rather
+        than at a downstream resolve() call site.
+        """
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        monkeypatch.delenv("SCISTUDIO_PROJECT_DIR", raising=False)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+        # Inject a failure inside ``TypeRegistry.scan_builtins`` to prove
+        # the suppress no longer covers built-in registration.
+        from scistudio.core.types.registry import TypeRegistry
+
+        def _boom(self: TypeRegistry) -> None:
+            raise RuntimeError("synthetic built-in failure for #1365 regression")
+
+        monkeypatch.setattr(TypeRegistry, "scan_builtins", _boom)
+
+        with pytest.raises(RuntimeError, match="synthetic built-in failure"):
+            _get_type_registry()
+
+        # Singleton must not be cached after the failure — a subsequent
+        # call (with the monkeypatch undone by the fixture) must rebuild.
+        assert serialization_module._registry_instance is None
+
+    def test_plugin_scan_failure_is_swallowed(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Symmetric guarantee: a broken plugin entry-point or drop-in
+        scan MUST still be best-effort, so the worker can reconstruct
+        core types even when one plugin is misbehaving.
+        """
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        monkeypatch.delenv("SCISTUDIO_PROJECT_DIR", raising=False)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+        from scistudio.core.types.registry import TypeRegistry
+
+        def _boom(self: TypeRegistry) -> None:
+            raise RuntimeError("synthetic plugin failure")
+
+        # Break entry-point scan; built-ins must still register.
+        monkeypatch.setattr(TypeRegistry, "_scan_entrypoint_types", _boom)
+
+        registry = _get_type_registry()
+        # Built-ins are present despite the plugin failure.
+        assert "DataObject" in registry.all_types()
+        assert "Array" in registry.all_types()
+
     def test_worker_reconstruct_one_finds_project_drop_in(
         self,
         tmp_path: Path,
@@ -239,7 +305,8 @@ class TestLocalRunnerPropagatesProjectDirEnv:
         call_kwargs = mock_create_sub.call_args.kwargs
         env = call_kwargs.get("env")
         assert env is not None, "worker env must be set when project_dir is known"
-        assert env.get("SCISTUDIO_PROJECT_DIR") == str(project_dir)
+        # Absolutified by LocalRunner before export (Codex P2 on PR #1386).
+        assert env.get("SCISTUDIO_PROJECT_DIR") == str(project_dir.resolve())
 
     @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_project_dir_env_absent_without_active_project(
@@ -291,5 +358,47 @@ class TestLocalRunnerPropagatesProjectDirEnv:
         call_kwargs = mock_create_sub.call_args.kwargs
         env = call_kwargs.get("env")
         assert env is not None
-        assert env.get("SCISTUDIO_PROJECT_DIR") == str(project_dir)
+        # Absolutified by LocalRunner before export (Codex P2 on PR #1386).
+        assert env.get("SCISTUDIO_PROJECT_DIR") == str(project_dir.resolve())
         assert parent_cwd in env.get("PYTHONPATH", "").split(os.pathsep)
+
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
+    def test_relative_project_dir_is_absolutified_before_export(
+        self,
+        mock_create_sub: AsyncMock,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Codex P2 on PR #1386 — a relative ``config['project_dir']`` MUST
+        be absolutified before landing on ``SCISTUDIO_PROJECT_DIR``.
+
+        The worker subprocess is started with ``cwd=project_dir`` (see
+        the assignment a few lines above the env block in
+        ``LocalRunner.run``). If we passed a relative path through
+        verbatim, the worker would later resolve
+        ``Path(project_dir_env) / "types"`` against its own (already-
+        switched) cwd, producing ``<project>/<project>/types`` and
+        silently missing every project drop-in type.
+        """
+        mock_create_sub.return_value = _make_async_proc(json.dumps({"outputs": {}}).encode(), b"", 0)
+        runner = LocalRunner()
+
+        project_root = tmp_path / "rel-root"
+        project_root.mkdir()
+        monkeypatch.chdir(tmp_path)
+        relative_project_dir = "rel-root"
+
+        class FakeBlock:
+            pass
+
+        asyncio.run(runner.run(FakeBlock(), {}, {"project_dir": relative_project_dir}))
+
+        call_kwargs = mock_create_sub.call_args.kwargs
+        env = call_kwargs.get("env")
+        assert env is not None
+        exported = env.get("SCISTUDIO_PROJECT_DIR")
+        assert exported is not None
+        # The exported value must be an absolute path, not the original relative one.
+        assert Path(exported).is_absolute(), f"expected absolute path, got: {exported!r}"
+        # And it must resolve to the same real directory the test created.
+        assert Path(exported) == project_root.resolve()
