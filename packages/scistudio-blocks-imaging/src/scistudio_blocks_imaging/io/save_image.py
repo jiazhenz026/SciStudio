@@ -525,8 +525,31 @@ class SaveImage(IOBlock):
                 self._write_single(image, path, fmt)
                 return
 
-            # Multi-item collection: path is treated as directory
-            out_dir = path if path.suffix == "" else path.parent
+            # Multi-item collection: path resolution.
+            # Issue #1369: the config UI now exposes ``path`` via the
+            # file picker (``ui_widget="file_browser"`` declared above),
+            # so a user typing ``out.tif`` for a node that turns out to
+            # receive a multi-item Collection at runtime should NOT
+            # silently lose their filename. Two cases:
+            #   * ``path`` has a suffix (e.g. ``out.tif``) → treat
+            #     ``path.parent`` as ``out_dir`` and ``path.stem`` as
+            #     the per-item filename prefix. Batch writes go to
+            #     ``out_dir/<stem>_0000.<ext>``,
+            #     ``out_dir/<stem>_0001.<ext>``, etc.
+            #   * ``path`` has no suffix (e.g. ``batch_out``) → legacy
+            #     behaviour: treat ``path`` as ``out_dir`` and use the
+            #     default ``image`` prefix. This preserves backward
+            #     compatibility for workflow YAMLs that pass a bare
+            #     directory.
+            # Codex review on PR #1395 flagged the silent filename drop;
+            # this resolution honours both the file-picker UX and the
+            # legacy directory-path workflows.
+            if path.suffix:
+                out_dir = path.parent
+                stem = path.stem
+            else:
+                out_dir = path
+                stem = "image"
             out_dir.mkdir(parents=True, exist_ok=True)
             # Resolve format first so the batch extension can mirror it
             # (extension dispatch needs a real path, so we hand a dummy
@@ -540,7 +563,7 @@ class SaveImage(IOBlock):
             for i, item in enumerate(obj):
                 if not isinstance(item, Image):
                     raise ValueError(f"SaveImage: Collection item {i} is not an Image")
-                item_path = out_dir / f"image_{i:04d}{ext}"
+                item_path = out_dir / f"{stem}_{i:04d}{ext}"
                 self._write_single(item, item_path, fmt)
             return
 

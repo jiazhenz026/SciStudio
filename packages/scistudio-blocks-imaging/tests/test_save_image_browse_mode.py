@@ -25,14 +25,37 @@ The bottom panel mapping
 ``browseMode`` directly (``file_browser`` → ``"file"``,
 ``directory_browser`` → ``"directory"``), so a backend assertion is
 sufficient to lock the UX contract end-to-end.
+
+Codex review on PR #1395 flagged a related UI/runtime mismatch: with
+``file_browser`` consistently exposed, a user picking ``out.tif`` for
+a node that turns out to receive a multi-item Collection at runtime
+would have their filename silently dropped (pre-fix batch logic did
+``out_dir = path if path.suffix == "" else path.parent`` then wrote
+``out_dir/image_0000.tif``). The companion runtime fix in
+``SaveImage.save`` now honours the typed stem in batch mode (``out.tif``
++ N items → ``out_0000.tif``, ``out_0001.tif``, …) and keeps the legacy
+bare-directory branch when ``path`` has no suffix. The batch tests
+below pin both branches.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import numpy as np
 import pytest
 from scistudio_blocks_imaging.io.save_image import SaveImage
+from scistudio_blocks_imaging.types import Image
 
+from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.registry import _merge_config_schema
+from scistudio.core.types.collection import Collection
+
+
+def _make_image(arr: np.ndarray, axes: list[str]) -> Image:
+    img = Image(axes=axes, shape=arr.shape, dtype=arr.dtype)
+    img._data = arr
+    return img
 
 
 def test_save_image_path_uses_file_browser_after_merge() -> None:
@@ -91,3 +114,51 @@ def test_save_image_other_savers_still_get_directory_browser_for_path() -> None:
 
     merged = _merge_config_schema(SaveData)
     assert merged["properties"]["path"]["ui_widget"] == "directory_browser"
+
+
+def test_save_image_batch_with_file_suffix_path_honours_stem(tmp_path: Path) -> None:
+    """Codex review on PR #1395 — batch mode honours the typed file stem.
+
+    With the new file-browser UX a user types ``out.tif`` for the
+    SaveImage ``path``. If the node turns out to receive a multi-item
+    Collection at runtime, batch dispatch must:
+
+    * write into ``out.tif.parent`` (NOT lose the filename), AND
+    * use ``out.tif.stem`` as the per-item filename prefix.
+
+    Pre-fix behaviour silently stripped the stem and wrote
+    ``parent/image_0000.tif`` — making the file-picker UX misleading.
+    """
+    arr = np.zeros((2, 2), dtype=np.uint8)
+    imgs = [_make_image(arr.copy(), ["y", "x"]) for _ in range(3)]
+    col = Collection(items=imgs, item_type=Image)
+    out_file = tmp_path / "result.tif"
+    SaveImage().save(col, BlockConfig(params={"path": str(out_file)}))
+    # Filename stem is honoured; outputs land in the same directory.
+    assert (tmp_path / "result_0000.tif").exists()
+    assert (tmp_path / "result_0001.tif").exists()
+    assert (tmp_path / "result_0002.tif").exists()
+    # The literal file path is NOT created (filename was used as stem,
+    # not as a literal target).
+    assert not out_file.exists()
+
+
+def test_save_image_batch_with_bare_directory_path_uses_image_prefix(
+    tmp_path: Path,
+) -> None:
+    """Legacy backward-compat — bare-directory ``path`` keeps ``image`` prefix.
+
+    Workflow YAMLs that pass a bare directory (no suffix, e.g.
+    ``batch_out``) for batch saves are unchanged: ``path`` is the
+    output directory and per-item filenames use the default ``image``
+    prefix. This pins the legacy branch so the #1395 stem-honouring
+    fix does not silently change YAML-driven batch outputs.
+    """
+    arr = np.zeros((2, 2), dtype=np.uint8)
+    imgs = [_make_image(arr.copy(), ["y", "x"]) for _ in range(2)]
+    col = Collection(items=imgs, item_type=Image)
+    out_dir = tmp_path / "batch_out"
+    SaveImage().save(col, BlockConfig(params={"path": str(out_dir)}))
+    # Legacy ``image_XXXX`` prefix preserved for bare-directory paths.
+    assert (out_dir / "image_0000.tif").exists()
+    assert (out_dir / "image_0001.tif").exists()

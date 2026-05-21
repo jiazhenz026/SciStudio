@@ -6,6 +6,12 @@
       "exclude": [],
       "include": [],
       "reason": "Mark implement stage done after #902 reader-side hardening + #1369 SaveImage path config override land in this branch's working tree."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Codex P2 reconciliation: extend #1369 runtime to honour file-stem in batch SaveImage mode (avoid silent filename drop with file-picker UX)."
     }
   ],
   "branch": "fix/issue-902-1369/completion-saveimg",
@@ -37,7 +43,7 @@
       "command_or_tool": "pytest tests/blocks/ai/test_completion_skeleton.py tests/blocks/ai/test_completion_race.py packages/scistudio-blocks-imaging/tests/test_save_image_browse_mode.py --timeout=60 --no-cov",
       "exit_code": 0,
       "name": "pytest",
-      "output_path": "24 passed (20 AI completion + 4 save image browse mode)",
+      "output_path": "26 passed (20 AI completion + 6 save image browse mode)",
       "status": "pass",
       "summary": {},
       "timestamp": null
@@ -144,7 +150,7 @@
     "command_or_tool": "sentrux check",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "{rules_checked:3,total_rules_defined:15,violation_count:0,quality_signal:4445,pro_required:false,files:1116,bottleneck:acyclicity}",
+    "output_path": "{rules_checked:3,total_rules_defined:15,violation_count:0,quality_signal:4444,pro_required:false,files:1122,bottleneck:acyclicity}",
     "pro_required": false,
     "quality_signal": null,
     "rules_checked": null,
