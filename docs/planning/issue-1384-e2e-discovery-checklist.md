@@ -116,7 +116,7 @@ language_source: en
 |---|---|---|---|---|---|---|---|---|---|---|
 | E2E-Harness | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-harness.md` | Playwright harness, service startup, fixtures, non-blocking CI | `feat/issue-1384/e2e-harness` | `../SciStudio-e2e-harness-1384` | `frontend/playwright.config.ts`, `frontend/e2e/support/**`, `frontend/e2e/fixtures/**`, `frontend/package.json`, `.github/workflows/e2e-discovery.yml` | specs under `frontend/e2e/specs/**` except scaffold placeholders | `#1384` / umbrella `#1387` | `[x]` local checks pass; committed on branch |
 | E2E-GUI | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-gui.md` | GUI-001..015 specs | `feat/issue-1384/e2e-gui` | `../SciStudio-e2e-gui-1384` | `frontend/e2e/specs/gui/**` | harness, Git specs, workflow-refresh specs | `#1384` / umbrella `#1387` | `[x]` committed on branch; pending manager interface alignment |
-| E2E-Git-WFR | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-git-wfr.md` | GIT-001..005 + WFR-001..006 specs against PR #1364 behavior | `feat/issue-1384/e2e-git-wfr` | `../SciStudio-e2e-git-wfr-1384` | `frontend/e2e/specs/git/**`, `frontend/e2e/specs/workflow-refresh/**` | harness, GUI specs | `#1384` / umbrella `#1387` | `[~]` committed on branch; pending integration |
+| E2E-Git-WFR | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-git-wfr.md` | GIT-001..005 + WFR-001..006 specs against PR #1364 behavior | `feat/issue-1384/e2e-git-wfr` | `../SciStudio-e2e-git-wfr-1384` | `frontend/e2e/specs/git/**`, `frontend/e2e/specs/workflow-refresh/**` | harness, GUI specs | `#1384` / umbrella `#1387` | `[x]` committed on branch; pending manager interface alignment |
 | E2E-Audit | audit_reviewer | with-context | `docs/planning/dispatch-prompts/issue-1384-e2e-audit.md` | Read-only audit of harness/spec correctness and no over-mocking | `audit/issue-1384/e2e-discovery` | `../SciStudio-e2e-audit-1384` | `docs/audit/2026-05-21-issue-1384-e2e-discovery-audit.md` | implementation files except read-only inspection | `#1384` / umbrella `#1387` | `[ ]` |
 
 ## 7. Track: Harness And CI
@@ -248,8 +248,8 @@ language_source: en
 
 ### 9.3 Implementation
 
-- [ ] GIT-001..005 specs -> pending.
-- [ ] WFR-001..006 specs -> pending.
+- [x] GIT-001..005 specs -> `frontend/e2e/specs/git/git-versioning.spec.ts`; `git diff --check` passed; `npm run test:e2e -- --grep '@git'` blocked because `frontend/package.json` has no `test:e2e` script.
+- [x] WFR-001..006 specs -> `frontend/e2e/specs/workflow-refresh/workflow-refresh.spec.ts`; `git diff --check` passed; `npm run test:e2e -- --grep '@workflow-refresh'` blocked because `frontend/package.json` has no `test:e2e` script.
 
 ### 9.4 Audit
 
@@ -257,7 +257,7 @@ language_source: en
 
 ### 9.5 Integration
 
-- [ ] Pending.
+- [~] Pending manager support-contract alignment and combined E2E run.
 
 ## 10. Track: Audit
 
