@@ -1,5 +1,16 @@
 {
-  "admin_labels": [],
+  "admin_labels": [
+    {
+      "name": "admin-approved:core-change",
+      "applied_at": null,
+      "applied_by": "@jiazhenz026"
+    },
+    {
+      "name": "admin-approved:ai-override",
+      "applied_at": null,
+      "applied_by": "@jiazhenz026"
+    }
+  ],
   "amendments": [
     {
       "approved_by": null,
@@ -99,7 +110,7 @@
   "docs_landing": {
     "adr": {
       "not_applicable": true,
-      "rationale": "ADR-039 \u00a711 Addendum 1 already merged via #1358; manager dispatch references it but does not edit it"
+      "rationale": "ADR-039 §11 Addendum 1 already merged via #1358; manager dispatch references it but does not edit it"
     },
     "changelog": {
       "not_applicable": true,
@@ -139,7 +150,7 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1352,
-      "url": null
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1352"
     }
   ],
   "owner_directive": "Per owner 2026-05-21 plan approval: implement ADR-039 Addendum 1 in 3 PRs (PR-A combines #1353+#1354 as 2 atomic commits; PR-B = #1355 inline [Diff][Restore]; PR-C = #1356 silent auto-tag option C). Phase PRs merge into umbrella; final umbrella->main merge is owner-authorized.",
