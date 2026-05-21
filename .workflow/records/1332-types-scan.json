@@ -64,7 +64,16 @@
       "rationale": "no spec touched; TypeRegistry.add_scan_dir mirrors BlockRegistry.add_scan_dir which is already part of the registry contract."
     }
   },
-  "full_audit": null,
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --format json --output /tmp/full-audit-1332.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "C:/Users/jiazh/AppData/Local/Temp/full-audit-1332.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
   "governance_touch": true,
   "issues": [
     {
@@ -124,7 +133,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
@@ -142,7 +151,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
