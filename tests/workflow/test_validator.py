@@ -675,3 +675,100 @@ class TestValidatorAppBlockDuplicateExtensions:
         errors = validate_workflow(wf, registry=reg)
         dup_errors = [e for e in errors if "Duplicate extension" in e]
         assert dup_errors == []
+
+
+# ---------------------------------------------------------------------------
+# Issue #1282: _is_codeblock_spec must identify the concrete CodeBlock only
+# ---------------------------------------------------------------------------
+
+
+class TestIsCodeBlockSpecNarrowing:
+    """Codex P1 (#1282): ``_is_codeblock_spec`` previously matched any
+    spec with ``base_category == 'code'``, causing
+    :func:`validate_codeblock_config` to run against non-CodeBlock
+    code-category specs and emit spurious ``script_path`` / port-field
+    errors. The check now requires concrete CodeBlock identity (name,
+    type_name, or module+class)."""
+
+    def test_concrete_codeblock_spec_is_identified(self) -> None:
+        from scistudio.workflow.validator import _is_codeblock_spec
+
+        # Canonical CodeBlock v2 spec — must still be identified by every
+        # discriminator the validator supports.
+        canonical = BlockSpec(
+            name="Code Block",
+            type_name="code_block",
+            base_category="code",
+            module_path="scistudio.blocks.code.code_block",
+            class_name="CodeBlock",
+        )
+        assert _is_codeblock_spec(canonical) is True
+
+    def test_codeblock_identified_by_module_and_class_path(self) -> None:
+        from scistudio.workflow.validator import _is_codeblock_spec
+
+        # Module + class path alone (e.g. a stub with non-canonical display
+        # name) still identifies CodeBlock for back-compat with existing
+        # registry shapes.
+        by_module = BlockSpec(
+            name="custom",
+            type_name="custom",
+            base_category="code",
+            module_path="scistudio.blocks.code.code_block",
+            class_name="CodeBlock",
+        )
+        assert _is_codeblock_spec(by_module) is True
+
+    def test_non_codeblock_code_category_spec_is_not_identified(self) -> None:
+        from scistudio.workflow.validator import _is_codeblock_spec
+
+        # Synthetic code-category block that is NOT CodeBlock — would
+        # previously have been misidentified via ``base_category == "code"``
+        # and crashed CodeBlock v2 validation with spurious errors.
+        synthetic = BlockSpec(
+            name="my_custom_runner",
+            type_name="my_custom_runner",
+            base_category="code",
+            module_path="my_plugin.runner",
+            class_name="MyCustomRunner",
+        )
+        assert _is_codeblock_spec(synthetic) is False
+
+    def test_non_codeblock_code_category_does_not_trigger_codeblock_validation(self) -> None:
+        """End-to-end: a code-category spec that isn't CodeBlock must not
+        surface ``script_path``-missing / port-field errors when validated.
+
+        Before the narrowing, ``validate_codeblock_config`` would run
+        against this spec and complain about a missing ``script_path``
+        and unexpected ``input_ports`` / ``output_ports`` fields.
+        """
+
+        # Construct a code-category spec that is unambiguously NOT
+        # CodeBlock (different name, type_name, module, class).
+        synthetic = BlockSpec(
+            name="custom_runner",
+            type_name="custom_runner",
+            base_category="code",
+            module_path="my_plugin.runner",
+            class_name="MyCustomRunner",
+        )
+        reg = _registry_from_specs(synthetic)
+
+        wf = WorkflowDefinition(
+            nodes=[
+                NodeDef(
+                    id="r1",
+                    block_type="custom_runner",
+                    # No params at all — under the old broad check, this
+                    # would surface "CodeBlock script_path" errors etc.
+                    config={"params": {}},
+                )
+            ],
+        )
+
+        errors = validate_workflow(wf, registry=reg)
+
+        # No CodeBlock v2 diagnostics should be emitted for this non-CodeBlock spec.
+        assert not any("CodeBlock" in error and "r1" in error for error in errors), (
+            f"unexpected CodeBlock diagnostics on a non-CodeBlock spec: {errors}"
+        )
