@@ -1,0 +1,186 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "fix/issue-1334-vestigial-block-state",
+  "changed_test_paths": [
+    "tests/blocks/test_block_base.py",
+    "tests/blocks/test_app_block.py",
+    "tests/blocks/test_process_block.py",
+    "tests/blocks/test_code_block.py",
+    "tests/blocks/test_collection_blocks.py",
+    "tests/blocks/test_subworkflow.py",
+    "tests/blocks/test_registry.py",
+    "tests/blocks/process/builtins/test_filter_collection_expression.py",
+    "tests/blocks/ai/test_ai_block_skeleton.py",
+    "tests/engine/test_worker.py",
+    "tests/engine/test_scheduler.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check <17 touched files>",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check <17 touched files>",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "17 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "pytest tests/blocks tests/engine --timeout=120 --no-cov",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "231 targeted-touched passed in 15.61s; full tree 1289 passed + 30 pre-existing failures (test_registry plugin-discovery env-only \u2014 baselined, identical to origin/main) + 13 skipped + 10 xfailed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+      "exit_code": 0,
+      "name": "full_audit",
+      "output_path": "docs/audit/full-audit-latest.json \u2014 top status=pass; all 8 child reports pass (generate_facts, frontmatter_lint, fact_drift, doc_drift, closure, signature_drift, architecture_drift, vulture); 6 informational vulture findings inherited from baseline",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "ADR-018 already engine-authoritative; #1334 explicit: no ADR change needed"
+    },
+    "changelog": {},
+    "checklist": {},
+    "docs": {
+      "paths": [
+        "docs/architecture/ARCHITECTURE.md",
+        "CHANGELOG.md"
+      ]
+    },
+    "frontend": {
+      "not_applicable": true,
+      "rationale": "no UI surface change; wire envelope shape bit-identical to pre-fix"
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "no spec touched; engine-side scheduler signature contract (ADR-018 \u00a78.1) unchanged"
+    }
+  },
+  "full_audit": null,
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1334,
+      "url": null
+    }
+  ],
+  "owner_directive": "Owner authorized Option B fix path in chat (2026-05-21): delete vestigial worker-side Block.state/transition machinery per #1334; closes #560 as side effect",
+  "planned_files": [
+    "src/scistudio/blocks/base/block.py",
+    "src/scistudio/blocks/base/exceptions.py",
+    "src/scistudio/blocks/app/app_block.py",
+    "src/scistudio/blocks/ai/ai_block.py",
+    "src/scistudio/blocks/subworkflow/subworkflow_block.py",
+    "src/scistudio/engine/runners/worker.py"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1334-vestigial-block-state.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/blocks/base/block.py",
+      "src/scistudio/blocks/base/exceptions.py",
+      "src/scistudio/blocks/app/app_block.py",
+      "src/scistudio/blocks/ai/ai_block.py",
+      "src/scistudio/blocks/subworkflow/subworkflow_block.py",
+      "src/scistudio/engine/runners/worker.py",
+      "tests/blocks/test_block_base.py",
+      "tests/blocks/test_app_block.py",
+      "tests/blocks/test_process_block.py",
+      "tests/blocks/test_code_block.py",
+      "tests/blocks/test_collection_blocks.py",
+      "tests/blocks/test_subworkflow.py",
+      "tests/blocks/test_registry.py",
+      "tests/blocks/process/builtins/test_filter_collection_expression.py",
+      "tests/blocks/ai/test_ai_block_skeleton.py",
+      "tests/engine/test_worker.py",
+      "tests/engine/test_scheduler.py",
+      "docs/architecture/ARCHITECTURE.md",
+      "CHANGELOG.md",
+      ".workflow/records/1334-vestigial-block-state.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "{\"rules_checked\": 3, \"total_rules_defined\": 15, \"violation_count\": 0, \"pass\": true, \"quality_signal\": 4126, \"files\": 1081, \"import_edges\": 2602, \"pro_required\": false}",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1334-vestigial-block-state",
+  "task_kind": "bugfix"
+}

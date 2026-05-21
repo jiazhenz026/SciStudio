@@ -6,7 +6,6 @@ from typing import Any
 
 import pytest
 
-from scistudio.blocks.base.state import BlockState
 from scistudio.blocks.process.builtins.filter_collection import FilterCollection
 from scistudio.core.types.array import Array
 from scistudio.core.types.collection import Collection
@@ -39,7 +38,6 @@ def _make_images(n: int) -> list[Image]:
 
 
 def _run(block: FilterCollection, col: Collection) -> Collection:
-    block.transition(BlockState.READY)
     return block.run({"input": col}, block.config)["output"]
 
 
@@ -103,14 +101,12 @@ class TestFilterCollectionExpression:
     def test_rejects_forbidden_expression_at_run(self) -> None:
         col = Collection(_make_images(2), item_type=Image)
         block = FilterCollection(config={"params": {"expression": "__import__('os')"}})
-        block.transition(BlockState.READY)
         with pytest.raises(ValueError, match="forbidden construct"):
             block.run({"input": col}, block.config)
 
     def test_rejects_arbitrary_call(self) -> None:
         col = Collection(_make_images(2), item_type=Image)
         block = FilterCollection(config={"params": {"expression": "print('x')"}})
-        block.transition(BlockState.READY)
         with pytest.raises(ValueError, match="forbidden construct"):
             block.run({"input": col}, block.config)
 
@@ -125,14 +121,12 @@ class TestFilterCollectionExpression:
                 }
             }
         )
-        block.transition(BlockState.READY)
         with pytest.raises(ValueError, match="not both"):
             block.run({"input": col}, block.config)
 
     def test_expression_must_be_string(self) -> None:
         col = Collection(_make_images(2), item_type=Image)
         block = FilterCollection(config={"params": {"expression": 123}})
-        block.transition(BlockState.READY)
         with pytest.raises(ValueError, match="must be a str"):
             block.run({"input": col}, block.config)
 

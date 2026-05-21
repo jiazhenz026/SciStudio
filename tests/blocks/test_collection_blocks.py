@@ -6,7 +6,6 @@ from typing import Any
 
 import pytest
 
-from scistudio.blocks.base.state import BlockState
 from scistudio.blocks.process.builtins.filter_collection import FilterCollection
 from scistudio.blocks.process.builtins.merge_collection import MergeCollection
 from scistudio.blocks.process.builtins.slice_collection import SliceCollection
@@ -58,7 +57,6 @@ class TestMergeCollection:
         col_b = Collection(images_b, item_type=Image)
 
         block = MergeCollection()
-        block.transition(BlockState.READY)
         result = block.run({"input_a": col_a, "input_b": col_b}, block.config)
 
         merged = result["output"]
@@ -74,13 +72,11 @@ class TestMergeCollection:
         )
 
         block = MergeCollection()
-        block.transition(BlockState.READY)
         with pytest.raises(TypeError, match="different item types"):
             block.run({"input_a": col_images, "input_b": col_df}, block.config)
 
     def test_merge_non_collection_raises(self) -> None:
         block = MergeCollection()
-        block.transition(BlockState.READY)
         with pytest.raises(TypeError, match="requires Collection inputs"):
             block.run({"input_a": "not_a_collection", "input_b": "neither"}, block.config)
 
@@ -98,7 +94,6 @@ class TestSplitCollection:
         col = Collection(images, item_type=Image)
 
         block = SplitCollection(config={"params": {"split_index": 2}})
-        block.transition(BlockState.READY)
         result = block.run({"input": col}, block.config)
 
         assert len(result["output_a"]) == 2
@@ -111,7 +106,6 @@ class TestSplitCollection:
         col = Collection(images, item_type=Image)
 
         block = SplitCollection()
-        block.transition(BlockState.READY)
         result = block.run({"input": col}, block.config)
 
         assert len(result["output_a"]) == 3
@@ -119,7 +113,6 @@ class TestSplitCollection:
 
     def test_split_non_collection_raises(self) -> None:
         block = SplitCollection()
-        block.transition(BlockState.READY)
         with pytest.raises(TypeError, match="requires a Collection input"):
             block.run({"input": "not_a_collection"}, block.config)
 
@@ -137,7 +130,6 @@ class TestFilterCollection:
         col = Collection(images, item_type=Image)
 
         block = FilterCollection(config={"params": {"predicate_key": "index", "predicate_value": 2}})
-        block.transition(BlockState.READY)
         result = block.run({"input": col}, block.config)
 
         filtered = result["output"]
@@ -151,7 +143,6 @@ class TestFilterCollection:
         col = Collection(images, item_type=Image)
 
         block = FilterCollection(config={"params": {"predicate_key": "index", "predicate_value": 999}})
-        block.transition(BlockState.READY)
         result = block.run({"input": col}, block.config)
 
         filtered = result["output"]
@@ -163,13 +154,11 @@ class TestFilterCollection:
         col = Collection(_make_images(2), item_type=Image)
 
         block = FilterCollection(config={"params": {}})
-        block.transition(BlockState.READY)
         with pytest.raises(ValueError, match="predicate_key"):
             block.run({"input": col}, block.config)
 
     def test_filter_non_collection_raises(self) -> None:
         block = FilterCollection(config={"params": {"predicate_key": "k", "predicate_value": "v"}})
-        block.transition(BlockState.READY)
         with pytest.raises(TypeError, match="requires a Collection input"):
             block.run({"input": "not_a_collection"}, block.config)
 
@@ -187,7 +176,6 @@ class TestSliceCollection:
         col = Collection(images, item_type=Image)
 
         block = SliceCollection(config={"params": {"start": 0, "end": 2}})
-        block.transition(BlockState.READY)
         result = block.run({"input": col}, block.config)
 
         sliced = result["output"]
@@ -202,13 +190,11 @@ class TestSliceCollection:
         col = Collection(images, item_type=Image)
 
         block = SliceCollection()
-        block.transition(BlockState.READY)
         result = block.run({"input": col}, block.config)
 
         assert len(result["output"]) == 3
 
     def test_slice_non_collection_raises(self) -> None:
         block = SliceCollection()
-        block.transition(BlockState.READY)
         with pytest.raises(TypeError, match="requires a Collection input"):
             block.run({"input": "not_a_collection"}, block.config)

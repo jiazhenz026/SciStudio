@@ -11,7 +11,6 @@ from scistudio.blocks.base.ports import InputPort, OutputPort
 
 if TYPE_CHECKING:
     from scistudio.core.types.collection import Collection
-from scistudio.blocks.base.state import BlockState
 from scistudio.core.types.base import DataObject
 
 logger = logging.getLogger(__name__)
@@ -170,7 +169,6 @@ def _sequential_execute(
     namespace = dict(inputs)
 
     for block in blocks:
-        block.transition(BlockState.READY)
         block_inputs: dict[str, Any] = {}
         # ADR-028 Addendum 1 D5: read effective input ports so dynamic
         # child blocks resolve their config-driven port set per instance.

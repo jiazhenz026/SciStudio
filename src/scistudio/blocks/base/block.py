@@ -17,18 +17,7 @@ from scistudio.blocks.base.ports import (
     ports_from_config_dicts,
     validate_port_constraint,
 )
-from scistudio.blocks.base.state import BlockState, ExecutionMode
-
-_VALID_TRANSITIONS: dict[BlockState, set[BlockState]] = {
-    BlockState.IDLE: {BlockState.READY, BlockState.SKIPPED, BlockState.ERROR},
-    BlockState.READY: {BlockState.RUNNING, BlockState.SKIPPED, BlockState.ERROR},
-    BlockState.RUNNING: {BlockState.DONE, BlockState.PAUSED, BlockState.ERROR, BlockState.CANCELLED},
-    BlockState.PAUSED: {BlockState.RUNNING, BlockState.ERROR, BlockState.CANCELLED},
-    BlockState.DONE: {BlockState.IDLE},
-    BlockState.ERROR: {BlockState.IDLE},
-    BlockState.CANCELLED: {BlockState.IDLE},  # ADR-018: user explicitly terminated
-    BlockState.SKIPPED: {BlockState.IDLE},  # ADR-018: upstream input unavailable
-}
+from scistudio.blocks.base.state import ExecutionMode
 
 
 class Block(ABC):
@@ -114,14 +103,6 @@ class Block(ABC):
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         self.config: BlockConfig = BlockConfig(**(config or {}))
-        self.state: BlockState = BlockState.IDLE
-
-    def transition(self, target: BlockState) -> None:
-        """Transition to *target* state, raising if the transition is invalid."""
-        allowed = _VALID_TRANSITIONS.get(self.state, set())
-        if target not in allowed:
-            raise RuntimeError(f"Invalid state transition: {self.state.value} -> {target.value}")
-        self.state = target
 
     # -- ADR-028 Addendum 1 D2: effective-ports hooks --------------------------
 

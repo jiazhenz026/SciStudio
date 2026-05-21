@@ -7,7 +7,6 @@ from typing import ClassVar
 import pyarrow as pa
 import pytest
 
-from scistudio.blocks.base.state import BlockState
 from scistudio.blocks.process.builtins.merge import MergeBlock
 from scistudio.blocks.process.builtins.split import SplitBlock
 from scistudio.core.types.collection import Collection
@@ -30,7 +29,6 @@ class TestMergeBlock:
         right = _make_df({"a": [5, 6], "b": [7, 8]})
 
         block = MergeBlock(config={"params": {"how": "concat"}})
-        block.transition(BlockState.READY)
         result = block.run({"left": left, "right": right}, block.config)
 
         merged_col = result["merged"]
@@ -45,8 +43,6 @@ class TestMergeBlock:
         right = _make_df({"x": [2]})
 
         block = MergeBlock()
-        block.transition(BlockState.READY)
-        assert block.state == BlockState.READY
 
         block.run({"left": left, "right": right}, block.config)
 
@@ -57,7 +53,6 @@ class TestSplitBlock:
     def test_head_mode(self) -> None:
         data = _make_df({"val": list(range(10))})
         block = SplitBlock(config={"params": {"mode": "head", "n": 3}})
-        block.transition(BlockState.READY)
         result = block.run({"data": data}, block.config)
 
         out_col = result["out"]
@@ -67,7 +62,6 @@ class TestSplitBlock:
     def test_ratio_mode(self) -> None:
         data = _make_df({"val": list(range(10))})
         block = SplitBlock(config={"params": {"mode": "ratio", "ratio": 0.7}})
-        block.transition(BlockState.READY)
         result = block.run({"data": data}, block.config)
 
         assert result["out"][0].row_count == 7
@@ -76,7 +70,6 @@ class TestSplitBlock:
     def test_filter_mode(self) -> None:
         data = _make_df({"name": ["alice", "bob", "alice"], "score": [10, 20, 30]})
         block = SplitBlock(config={"params": {"mode": "filter", "column": "name", "value": "alice"}})
-        block.transition(BlockState.READY)
         result = block.run({"data": data}, block.config)
 
         out_col = result["out"]
@@ -85,7 +78,6 @@ class TestSplitBlock:
     def test_unknown_mode_raises(self) -> None:
         data = _make_df({"x": [1]})
         block = SplitBlock(config={"params": {"mode": "unknown"}})
-        block.transition(BlockState.READY)
         with pytest.raises(ValueError, match="Unknown split mode"):
             block.run({"data": data}, block.config)
 
@@ -104,7 +96,6 @@ class TestMergeBlockCollection:
         right_col = Collection([right], item_type=DataFrame)
 
         block = MergeBlock(config={"params": {"how": "concat"}})
-        block.transition(BlockState.READY)
         result = block.run({"left": left_col, "right": right_col}, block.config)
 
         merged_col = result["merged"]
@@ -119,7 +110,6 @@ class TestMergeBlockCollection:
         right_col = Collection([_make_df({"x": [2]})], item_type=DataFrame)
 
         block = MergeBlock(config={"params": {"how": "concat"}})
-        block.transition(BlockState.READY)
         result = block.run({"left": left, "right": right_col}, block.config)
 
         assert result["merged"][0].row_count == 2
@@ -135,7 +125,6 @@ class TestSplitBlockCollection:
         data_col = Collection([data], item_type=DataFrame)
 
         block = SplitBlock(config={"params": {"mode": "head", "n": 3}})
-        block.transition(BlockState.READY)
         result = block.run({"data": data_col}, block.config)
 
         out_col = result["out"]
@@ -149,7 +138,6 @@ class TestSplitBlockCollection:
         data_col = Collection([data], item_type=DataFrame)
 
         block = SplitBlock(config={"params": {"mode": "ratio", "ratio": 0.5}})
-        block.transition(BlockState.READY)
         result = block.run({"data": data_col}, block.config)
 
         assert result["out"][0].row_count == 5
@@ -192,7 +180,6 @@ class TestProcessBlockOutputTypeInference:
                 return Parent()
 
         block = _DowncastBlock()
-        block.transition(BlockState.READY)
         result = block.run({"data": Collection([Child(), Child()], item_type=Child)}, block.config)
 
         assert isinstance(result["out"], Collection)
@@ -227,7 +214,6 @@ class TestProcessBlockOutputTypeInference:
                 return item
 
         block = _PassthroughBlock()
-        block.transition(BlockState.READY)
         result = block.run({"data": Collection([], item_type=Child)}, block.config)
 
         assert isinstance(result["out"], Collection)
