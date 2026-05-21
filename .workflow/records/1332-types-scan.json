@@ -58,7 +58,10 @@
       "rationale": "no functional user-visible behavior added; the scan-dir paths were promised by ARCHITECTURE.md and were silently absent. CHANGELOG follow-up may be added by the umbrella PR if owner requires."
     },
     "checklist": {},
-    "docs": {},
+    "docs": {
+      "not_applicable": true,
+      "rationale": "Impl catches the existing ARCHITECTURE.md §10 + §10.5 commitment up to runtime behavior; the doc text already describes the intended scan paths. No new user-facing docs needed — the existing ARCHITECTURE description is now backed by impl."
+    },
     "spec": {
       "not_applicable": true,
       "rationale": "no spec touched; TypeRegistry.add_scan_dir mirrors BlockRegistry.add_scan_dir which is already part of the registry contract."
@@ -80,7 +83,7 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1332,
-      "url": null
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1332"
     }
   ],
   "owner_directive": "Implement TypeRegistry add_scan_dir + wire project/user types directories. Catch impl up to ARCHITECTURE.md sections 10 + 10.5. Do NOT touch ARCHITECTURE.md (final commitment per owner).",
