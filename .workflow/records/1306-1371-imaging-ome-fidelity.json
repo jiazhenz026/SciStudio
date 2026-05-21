@@ -55,7 +55,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1306-1371-imaging-ome-fidelity.json",
+    "shas": [
+      "5be0d8db1bdd49a69e12a23982ab12962252eb10"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -104,7 +110,14 @@
     "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py",
     "frontend/src/api/capabilities.ts"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1306,
+      1371
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1388"
+  },
   "record_path": ".workflow/records/1306-1371-imaging-ome-fidelity.json",
   "required_checks": [
     "ruff",
@@ -177,7 +190,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
