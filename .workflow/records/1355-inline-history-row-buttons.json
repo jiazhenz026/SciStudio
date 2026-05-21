@@ -1,5 +1,9 @@
 {
-  "admin_labels": [],
+  "admin_labels": [
+    {
+      "name": "admin-approved:ai-override"
+    }
+  ],
   "amendments": [
     {
       "approved_by": null,
@@ -25,7 +29,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1355-inline-history-row-buttons.json",
+    "shas": [
+      "22e0daeb"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "ADR": {
       "not_applicable": true,
@@ -63,7 +73,7 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1355,
-      "url": null
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1355"
     }
   ],
   "owner_directive": "Implement ADR-039 Addendum 1 \u00a711.3: remove row-click \u2192 modal from history list + graph dot; add explicit inline [Diff] button beside [Restore].",
@@ -73,7 +83,13 @@
     "frontend/src/components/Git/__tests__/GitHistoryList.test.tsx",
     "CHANGELOG.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1355
+    ],
+    "number": 1383,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1383"
+  },
   "record_path": ".workflow/records/1355-inline-history-row-buttons.json",
   "required_checks": [
     "ruff check .",
@@ -139,7 +155,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
