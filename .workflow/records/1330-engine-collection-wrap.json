@@ -51,7 +51,7 @@
   "commit": {
     "gate_record_path": ".workflow/records/1330-engine-collection-wrap.json",
     "shas": [
-      "a4724d7af4e04452e26dcebb05fad05414d8401e"
+      "3080156dd4946b082098b4e4fabf144d7fab905e"
     ],
     "trailers": {}
   },
@@ -105,9 +105,11 @@
     ".workflow/records/1330-engine-collection-wrap.json"
   ],
   "pull_request": {
-    "body_closes_issues": [],
-    "number": null,
-    "url": null
+    "body_closes_issues": [
+      1330
+    ],
+    "number": 1338,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1338"
   },
   "record_path": ".workflow/records/1330-engine-collection-wrap.json",
   "required_checks": [
