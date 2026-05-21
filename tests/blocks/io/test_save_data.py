@@ -325,13 +325,57 @@ class TestRoundTripText:
         assert path.exists()
         assert path.read_text(encoding="utf-8") == "hello\nworld\n"
 
-    @pytest.mark.parametrize("ext", [".txt", ".md", ".html", ".xml", ".log", ".yaml", ".toml", ".json"])
+    @pytest.mark.parametrize(
+        "ext",
+        [
+            ".txt",
+            ".md",
+            ".markdown",
+            ".html",
+            ".htm",
+            ".xml",
+            ".log",
+            ".yaml",
+            ".toml",
+            ".json",
+        ],
+    )
     def test_text_round_trip_supported_extensions(self, tmp_path: Path, ext: str) -> None:
         path = tmp_path / f"doc{ext}"
         block = SaveData(config={"params": {"core_type": "Text", "path": str(path)}})
         text = Text(content="payload", format="plain")
         block.save(text, block.config)
         assert path.read_text(encoding="utf-8") == "payload"
+
+    def test_text_capability_advertises_markdown_and_htm(self) -> None:
+        """#1110: ``.markdown`` and ``.htm`` are accepted by ``_save_text``
+        and must be advertised by the Text save capability so
+        ``find_saver_capability`` can discover SaveData for those paths.
+        """
+        from scistudio.blocks.io.savers.save_data import _SAVE_EXTENSION_MAP
+
+        text_extensions = {
+            ext
+            for capability in SaveData.format_capabilities
+            if capability.data_type is Text and capability.format_id == "text"
+            for ext in capability.extensions
+        }
+        assert text_extensions == {
+            ".txt",
+            ".log",
+            ".md",
+            ".markdown",
+            ".html",
+            ".htm",
+            ".xml",
+            ".yaml",
+            ".yml",
+            ".toml",
+        }
+        # Capability-derived extension map must include the new entries
+        # so extension-based dispatch / discovery picks them up.
+        for ext in (".markdown", ".htm"):
+            assert _SAVE_EXTENSION_MAP[ext] == "text"
 
     def test_text_unsupported_extension_raises(self, tmp_path: Path) -> None:
         path = tmp_path / "doc.weird"

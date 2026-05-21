@@ -231,6 +231,9 @@ _LOAD_CAPABILITIES: tuple[FormatCapability, ...] = (
         notes=_PICKLE_NOTE,
     ),
     # ----- Text ------------------------------------------------------------
+    # ``.markdown`` and ``.htm`` are accepted by ``_load_text`` (see
+    # :data:`_TEXT_FORMAT_MAP`) and are added here to keep the Load <-> Save
+    # capability map symmetric per ADR-043 FR-001 / FR-002 (#1110).
     _load_capability(
         data_type=Text,
         type_name="Text",
@@ -239,7 +242,9 @@ _LOAD_CAPABILITIES: tuple[FormatCapability, ...] = (
             ".txt",
             ".log",
             ".md",
+            ".markdown",
             ".html",
+            ".htm",
             ".xml",
             ".yaml",
             ".yml",
@@ -371,7 +376,9 @@ _LOAD_CAPABILITIES: tuple[FormatCapability, ...] = (
             ".txt",
             ".log",
             ".md",
+            ".markdown",
             ".html",
+            ".htm",
             ".xml",
             ".yaml",
             ".yml",
@@ -1020,7 +1027,9 @@ _TEXT_FORMAT_MAP: dict[str, str] = {
     ".txt": "plain",
     ".log": "plain",
     ".md": "markdown",
+    ".markdown": "markdown",
     ".html": "html",
+    ".htm": "html",
     ".xml": "xml",
     ".yaml": "yaml",
     ".yml": "yaml",
@@ -1029,7 +1038,7 @@ _TEXT_FORMAT_MAP: dict[str, str] = {
 
 
 def _load_text(config: BlockConfig, block: LoadData | None = None) -> Text:
-    """Load Text from .txt / .md / .html / .xml / .log / .yaml / .yml / .toml.
+    """Load Text from .txt / .md / .markdown / .html / .htm / .xml / .log / .yaml / .yml / .toml.
 
     Reads the file via :meth:`pathlib.Path.read_text` (UTF-8) and infers
     the ``format`` field from the extension via :data:`_TEXT_FORMAT_MAP`.
