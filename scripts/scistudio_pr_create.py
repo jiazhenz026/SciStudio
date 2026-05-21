@@ -75,6 +75,48 @@ def extract_body(argv: list[str]) -> str:
     return ""
 
 
+def extract_base(argv: list[str]) -> str | None:
+    """Read PR base ref from ``--base`` in *argv* (matches ``gh pr create``).
+
+    Returns ``None`` when ``--base`` is absent (caller defaults to
+    ``origin/main``). Supports both space-separated (``--base foo``) and
+    equals-separated (``--base=foo``) forms.
+    """
+    i = 0
+    while i < len(argv):
+        token = argv[i]
+        if token == "--base" and i + 1 < len(argv):
+            return argv[i + 1]
+        if token.startswith("--base="):
+            return token.split("=", 1)[1]
+        i += 1
+    return None
+
+
+def resolve_base_ref(base: str | None) -> str:
+    """Map a ``gh pr create`` ``--base`` value to a git diff base ref.
+
+    ``gh pr create --base`` takes a plain branch name (``main``,
+    ``umbrella/foo``); ``git diff`` and ``gate_record ci`` want a remote
+    ref like ``origin/main``. This function bridges the two:
+
+    - ``None`` → ``origin/main`` (preserves the wrapper's historical default
+      when the caller did not pass ``--base``).
+    - already-qualified ref (``origin/<x>``, ``refs/<x>``) → use verbatim so
+      callers can override completely without accidental double-prefixing.
+    - plain branch name → ``f"origin/{name}"``.
+
+    Content-agnostic: makes no assumption about whether the base is
+    ``main``, a stacked-PR umbrella branch, a release branch, or anything
+    else (#1382).
+    """
+    if base is None:
+        return "origin/main"
+    if base.startswith(("origin/", "refs/")):
+        return base
+    return f"origin/{base}"
+
+
 def find_gate_record(repo_root: Path, branch: str) -> Path:
     """Locate the committed gate record for *branch*.
 
@@ -217,8 +259,10 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
 
+        base = resolve_base_ref(extract_base(argv))
+
         try:
-            report = run_gate_record_ci(repo_root, record, body)
+            report = run_gate_record_ci(repo_root, record, body, base=base)
         except SystemExit as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 2

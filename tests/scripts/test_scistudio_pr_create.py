@@ -234,3 +234,128 @@ class TestMainSmoke:
         err = capsys.readouterr().err
         assert "SKIPPED" in err
         assert "DRY RUN" in err
+
+
+# ---------------------------------------------------------------------------
+# extract_base + resolve_base_ref (#1382)
+# ---------------------------------------------------------------------------
+
+
+class TestExtractBase:
+    def test_missing_returns_none(self, wrapper) -> None:
+        assert wrapper.extract_base(["--title", "X", "--body", "Y"]) is None
+
+    def test_space_separated(self, wrapper) -> None:
+        assert wrapper.extract_base(["--base", "main", "--title", "X"]) == "main"
+
+    def test_equals_separated(self, wrapper) -> None:
+        assert wrapper.extract_base(["--title", "X", "--base=main"]) == "main"
+
+    def test_umbrella_branch(self, wrapper) -> None:
+        assert wrapper.extract_base(["--base", "umbrella/2026-05-21-bug-sweep"]) == "umbrella/2026-05-21-bug-sweep"
+
+    def test_branch_with_dots_and_slashes(self, wrapper) -> None:
+        assert wrapper.extract_base(["--base=release/v1.0"]) == "release/v1.0"
+
+    def test_token_substring_does_not_match(self, wrapper) -> None:
+        # --base-file or --basemain must not falsely match.
+        assert wrapper.extract_base(["--basefoo", "main"]) is None
+
+    def test_returns_first_when_passed_twice(self, wrapper) -> None:
+        # gh pr create's own semantics: first occurrence wins. Mirror that.
+        assert wrapper.extract_base(["--base", "main", "--base", "release"]) == "main"
+
+
+class TestResolveBaseRef:
+    def test_none_defaults_to_origin_main(self, wrapper) -> None:
+        assert wrapper.resolve_base_ref(None) == "origin/main"
+
+    def test_plain_branch_prefixed_with_origin(self, wrapper) -> None:
+        assert wrapper.resolve_base_ref("main") == "origin/main"
+
+    def test_umbrella_branch_prefixed(self, wrapper) -> None:
+        assert wrapper.resolve_base_ref("umbrella/2026-05-21-bug-sweep") == "origin/umbrella/2026-05-21-bug-sweep"
+
+    def test_already_origin_qualified_kept_verbatim(self, wrapper) -> None:
+        # Caller-provided ``origin/main`` must not become ``origin/origin/main``.
+        assert wrapper.resolve_base_ref("origin/main") == "origin/main"
+        assert wrapper.resolve_base_ref("origin/release/v1") == "origin/release/v1"
+
+    def test_refs_qualified_kept_verbatim(self, wrapper) -> None:
+        # Power users may pass a fully-qualified ref; respect that.
+        assert wrapper.resolve_base_ref("refs/heads/main") == "refs/heads/main"
+        assert wrapper.resolve_base_ref("refs/remotes/upstream/main") == "refs/remotes/upstream/main"
+
+    def test_content_agnostic_no_umbrella_semantics(self, wrapper) -> None:
+        # The function must work identically regardless of whether the branch
+        # name looks umbrella-shaped. No special branches.
+        assert wrapper.resolve_base_ref("feature/foo") == "origin/feature/foo"
+        assert wrapper.resolve_base_ref("hotfix/bar") == "origin/hotfix/bar"
+        assert wrapper.resolve_base_ref("track/baz") == "origin/track/baz"
+
+
+class TestMainBaseWiring:
+    """Ensure ``main()`` actually threads the resolved base into ``gate_record ci``."""
+
+    def test_base_threaded_into_run_gate_record_ci(self, wrapper, monkeypatch, tmp_path: Path) -> None:
+        # Set up a minimal repo-like layout so find_gate_record + body extraction
+        # succeed, then intercept run_gate_record_ci to capture the resolved base.
+        records_dir = tmp_path / ".workflow" / "records"
+        _write_record(records_dir, "issue-x", "fix/issue-x/wrapper-detect")
+
+        # git rev-parse stubs
+        def _fake_check_output(cmd, *args, **kwargs):
+            if cmd[:2] == ["git", "rev-parse"] and "--show-toplevel" in cmd:
+                return str(tmp_path) + "\n"
+            if cmd[:2] == ["git", "rev-parse"] and "--abbrev-ref" in cmd:
+                return "fix/issue-x/wrapper-detect\n"
+            raise AssertionError(f"unexpected check_output call: {cmd}")
+
+        monkeypatch.setattr(wrapper.subprocess, "check_output", _fake_check_output)
+
+        captured: dict[str, Any] = {}
+
+        def _fake_run_gate_record_ci(repo_root, record, body, *, base="origin/main", head="HEAD"):
+            captured["base"] = base
+            captured["head"] = head
+            return {"findings": []}
+
+        monkeypatch.setattr(wrapper, "run_gate_record_ci", _fake_run_gate_record_ci)
+
+        # Avoid actually invoking gh pr create.
+        def _fake_subprocess_call(cmd):
+            captured["gh_argv"] = cmd
+            return 0
+
+        monkeypatch.setattr(wrapper.subprocess, "call", _fake_subprocess_call)
+
+        # --base umbrella/foo → resolve to origin/umbrella/foo
+        rc = wrapper.main(["--base", "umbrella/2026-05-21-bug-sweep", "--title", "X", "--body", "Closes #1382"])
+        assert rc == 0
+        assert captured["base"] == "origin/umbrella/2026-05-21-bug-sweep"
+
+    def test_default_base_origin_main_when_flag_absent(self, wrapper, monkeypatch, tmp_path: Path) -> None:
+        records_dir = tmp_path / ".workflow" / "records"
+        _write_record(records_dir, "issue-x", "fix/issue-x/wrapper-detect")
+
+        def _fake_check_output(cmd, *args, **kwargs):
+            if cmd[:2] == ["git", "rev-parse"] and "--show-toplevel" in cmd:
+                return str(tmp_path) + "\n"
+            if cmd[:2] == ["git", "rev-parse"] and "--abbrev-ref" in cmd:
+                return "fix/issue-x/wrapper-detect\n"
+            raise AssertionError(f"unexpected check_output call: {cmd}")
+
+        monkeypatch.setattr(wrapper.subprocess, "check_output", _fake_check_output)
+
+        captured: dict[str, Any] = {}
+
+        def _fake_run_gate_record_ci(repo_root, record, body, *, base="origin/main", head="HEAD"):
+            captured["base"] = base
+            return {"findings": []}
+
+        monkeypatch.setattr(wrapper, "run_gate_record_ci", _fake_run_gate_record_ci)
+        monkeypatch.setattr(wrapper.subprocess, "call", lambda cmd: 0)
+
+        rc = wrapper.main(["--title", "X", "--body", "Closes #1382"])
+        assert rc == 0
+        assert captured["base"] == "origin/main"
