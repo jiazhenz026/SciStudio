@@ -340,6 +340,70 @@ def test_branch_switch_auto_commits_dirty_tree(client: TestClient, opened_projec
     assert "from=main" in head_subject and "to=feature" in head_subject
 
 
+def test_branch_switch_rejects_unknown_branch_without_mutating_history(
+    client: TestClient, opened_project: Path
+) -> None:
+    """Codex P1 on PR #1378: validate the target branch exists BEFORE
+    creating the auto-commit. Pre-fix, a stale/invalid branch name
+    would cause an ``auto: pre-switch`` commit to land on the OLD
+    branch *and* the endpoint to return an error — non-atomic.
+    """
+    _drain(client)
+    main_yaml = opened_project / "workflows" / "main.yaml"
+    if not main_yaml.exists():
+        main_yaml.parent.mkdir(parents=True, exist_ok=True)
+        main_yaml.write_text("v: 1\n", encoding="utf-8")
+        client.post("/api/git/commit", json={"message": "init"})
+
+    head_before = client.get("/api/git/log", params={"limit": 1}).json()[0]["sha"]
+
+    # Dirty the tree.
+    main_yaml.write_text("v: WIP\n", encoding="utf-8")
+    assert client.get("/api/git/status").json()["dirty"] is True
+
+    resp = client.post(
+        "/api/git/branch/switch",
+        json={"branch_name": "nonexistent-branch"},
+    )
+    assert resp.status_code == 404
+
+    # HEAD must NOT have advanced — no `auto: pre-switch` commit landed.
+    head_after = client.get("/api/git/log", params={"limit": 1}).json()[0]["sha"]
+    assert head_after == head_before, "branch_switch with an invalid target must not mutate history (Codex P1 #1378)."
+    # The dirty content is still in the working tree.
+    assert main_yaml.read_text(encoding="utf-8") == "v: WIP\n"
+
+
+def test_restore_rejects_unknown_commit_without_mutating_history(client: TestClient, opened_project: Path) -> None:
+    """Codex P2 on PR #1378: validate the restore target BEFORE creating
+    the auto-commit. Pre-fix, an invalid commit_sha would mutate
+    history with an `auto: pre-restore` commit *and* the endpoint
+    would return an error — non-atomic.
+    """
+    _drain(client)
+    target = opened_project / "file.yaml"
+    target.write_text("A", encoding="utf-8")
+    client.post("/api/git/commit", json={"message": "A"})
+
+    # Dirty the tree.
+    target.write_text("WIP\n", encoding="utf-8")
+    assert client.get("/api/git/status").json()["dirty"] is True
+
+    head_before = client.get("/api/git/log", params={"limit": 1}).json()[0]["sha"]
+
+    # Try restore with an unknown SHA.
+    resp = client.post(
+        "/api/git/restore",
+        json={"commit_sha": "deadbeef" * 5, "files": ["file.yaml"]},
+    )
+    assert resp.status_code in (404, 500)
+
+    head_after = client.get("/api/git/log", params={"limit": 1}).json()[0]["sha"]
+    assert head_after == head_before, "restore with an invalid commit_sha must not mutate history (Codex P2 #1378)."
+    # Dirty content preserved.
+    assert target.read_text(encoding="utf-8") == "WIP\n"
+
+
 # ---------------------------------------------------------------------------
 # Hotfix #988: tree-mutating endpoints emit workflow.changed per file.
 #

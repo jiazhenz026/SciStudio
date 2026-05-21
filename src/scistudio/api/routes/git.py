@@ -323,6 +323,16 @@ async def restore(request: Request, body: RestoreRequest) -> dict[str, Any]:
     runtime = request.app.state.runtime
     project_dir = Path(runtime.active_project.path)
     before = _snapshot_workflows(project_dir)
+    # Codex P2 on PR #1378: validate the restore target BEFORE creating
+    # the auto-commit. Pre-fix, an invalid commit_sha (typo, dropped
+    # ref, etc.) would mutate history with an `auto: pre-restore` commit
+    # *and* return an error — non-atomic, confusing extra commits on
+    # failed requests. Resolving the target first means the auto-commit
+    # only lands when the subsequent restore can actually proceed.
+    try:
+        engine._run(["rev-parse", "--verify", f"{body.commit_sha}^{{commit}}"])
+    except GitError as exc:
+        raise _git_error_to_http(exc) from exc
     try:
         # ADR-039 Addendum 1 (#1354): auto-commit dirty tree BEFORE the
         # checkout overlays the historical content. This protects the
@@ -384,6 +394,20 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
     project_dir = Path(runtime.active_project.path)
     before = _snapshot_workflows(project_dir)
     old_branch = engine.current_branch() or "(detached)"
+    # Codex P1 on PR #1378: validate the target branch exists BEFORE
+    # creating the auto-commit. Pre-fix, a stale/invalid branch name
+    # (deleted outside this client, typo, etc.) would mutate history
+    # with an `auto: pre-switch` commit on the OLD branch *and* return
+    # an error from the subsequent checkout — non-atomic, user-visible
+    # extra commits on failed requests. Resolving the target first
+    # means the auto-commit only lands when the checkout can actually
+    # proceed.
+    known_branches = {b["name"] for b in engine.branches()}
+    if body.branch_name not in known_branches:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Branch '{body.branch_name}' does not exist.",
+        )
     try:
         # ADR-039 Addendum 1 (#1354): auto-commit dirty tree BEFORE the
         # checkout so the user does not see a raw git "your local
