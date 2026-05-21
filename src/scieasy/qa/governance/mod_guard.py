@@ -29,6 +29,8 @@ PROTECTED_PATTERNS: tuple[str, ...] = (
     "tests/qa/**",
 )
 
+UNPROTECTED_PATTERNS: tuple[str, ...] = (".workflow/records/**",)
+
 
 def _run_git(repo_root: Path, args: list[str]) -> str:
     return subprocess.check_output(["git", *args], cwd=repo_root, text=True, stderr=subprocess.DEVNULL)
@@ -52,6 +54,8 @@ def _changed_files(repo_root: Path, *, base_ref: str, head_ref: str, staged: boo
 
 def _is_protected(path: str) -> bool:
     normalized = path.replace("\\", "/")
+    if any(fnmatch.fnmatchcase(normalized, pattern) for pattern in UNPROTECTED_PATTERNS):
+        return False
     return any(fnmatch.fnmatchcase(normalized, pattern) for pattern in PROTECTED_PATTERNS)
 
 

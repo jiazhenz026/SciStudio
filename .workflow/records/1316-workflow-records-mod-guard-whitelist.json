@@ -1,0 +1,183 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Implementation completed within planned scope: .workflow/records whitelist plus regression tests and checklist."
+    }
+  ],
+  "branch": "codex/adr042-docgen-checklist",
+  "changed_test_paths": [
+    "tests/qa/test_governance_mod_guard.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check src/scieasy/qa/governance/mod_guard.py tests/qa/test_governance_mod_guard.py && ruff format --check src/scieasy/qa/governance/mod_guard.py tests/qa/test_governance_mod_guard.py",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "ruff check passed; ruff format --check passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src PYTEST_ADDOPTS=--no-cov pytest tests/qa/test_governance_mod_guard.py --timeout=60",
+      "exit_code": 0,
+      "name": "targeted-pytest",
+      "output_path": "8 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scieasy.qa.audit.frontmatter_lint docs/adr/ADR-042.md docs/specs/adr-042-documentation-tools.md --format text",
+      "exit_code": 0,
+      "name": "frontmatter-lint",
+      "output_path": "passed: governing ADR/spec frontmatter check",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1316-workflow-records-mod-guard-whitelist.json",
+    "shas": [
+      "b9442064"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "owner-authorized-narrow-guard-behavior-without-changing-adr-042-semantics"
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "bugfix-and-tracking-checklist-no-user-facing-release-note"
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/adr-042-documentation-generation-checklist.md"
+      ]
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "implementation-linked-documentation-is-the-tracking-checklist-for-this-narrow-governance-fix"
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "owner-authorized-narrow-implementation-fix-covered-by-issue-1316"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": true,
+    "command": "PYTHONPATH=src python -m scieasy.qa.audit.full_audit --repo-root . --format json --output %TEMP%\\scieasy-1316-full-audit.json --no-stale-check",
+    "exit_code": 1,
+    "known_debt": [
+      "pre-existing ADR/frontmatter/closure/signature/architecture drift baseline unrelated to .workflow/records whitelist and checklist"
+    ],
+    "output_path": "C:\\Users\\jiazh\\AppData\\Local\\Temp\\scieasy-1316-full-audit.json",
+    "status": "fail",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1316,
+      "url": "https://github.com/zjzcpj/SciEasy/issues/1316"
+    }
+  ],
+  "owner_directive": "Whitelist only .workflow/records/** in governance modification guard so every agent can commit gate records without broad governance approval; keep all other protected files guarded. Also keep ADR-042 documentation-generation checklist tracking.",
+  "planned_files": [
+    "src/scieasy/qa/governance/mod_guard.py",
+    "tests/qa/test_governance_mod_guard.py",
+    "docs/planning/adr-042-documentation-generation-checklist.md",
+    ".workflow/records/1316-workflow-records-mod-guard-whitelist.json"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1316,
+      1314
+    ],
+    "number": 1317,
+    "url": "https://github.com/zjzcpj/SciEasy/pull/1317"
+  },
+  "record_path": ".workflow/records/1316-workflow-records-mod-guard-whitelist.json",
+  "required_checks": [
+    "ruff",
+    "targeted-pytest",
+    "frontmatter-lint",
+    "full-audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "frontend/**"
+    ],
+    "include": [
+      "src/scieasy/qa/governance/mod_guard.py",
+      "tests/qa/test_governance_mod_guard.py",
+      "docs/planning/adr-042-documentation-generation-checklist.md",
+      ".workflow/records/1316-workflow-records-mod-guard-whitelist.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "C:\\Users\\jiazh\\Desktop\\workspace\\SciEasy\\sentrux.exe check .",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "sentrux check: 11 rules checked; Quality 4130; all rules pass",
+    "pro_required": false,
+    "quality_signal": 4130.0,
+    "rules_checked": 11,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 11
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1316-workflow-records-mod-guard-whitelist",
+  "task_kind": "bugfix"
+}
