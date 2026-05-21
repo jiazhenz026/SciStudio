@@ -25,7 +25,7 @@
   ],
   "check_results": [
     {
-      "command_or_tool": "pytest tests/core/test_lineage_store.py tests/core/test_git_engine.py tests/api/test_git_endpoints.py --timeout=60",
+      "command_or_tool": "pytest tests/core/test_lineage_store.py tests/core/test_git_engine.py tests/api/test_git_endpoints.py --timeout=60 (post-Codex)",
       "exit_code": null,
       "name": "full_audit",
       "output_path": null,
@@ -37,7 +37,7 @@
   "commit": {
     "gate_record_path": ".workflow/records/1356-branch-delete-orphan-guard.json",
     "shas": [
-      "02c2704d73cebb3c7d07baaf59274c1b09ab6eb6"
+      "6115d9e3"
     ],
     "trailers": {}
   },
@@ -127,7 +127,7 @@
     ]
   },
   "sentrux": {
-    "command_or_tool": "sentrux mcp scan + check_rules + health + session_end",
+    "command_or_tool": "sentrux mcp scan + check_rules + session_end (post-Codex)",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
     "output_path": null,
