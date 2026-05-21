@@ -90,9 +90,11 @@ language_source: en
   Evidence: `#1387`.
 - [x] Umbrella PR title includes `[DO NOT MERGE]`.
 - [x] Protected branch and umbrella PR number recorded in this checklist.
-- [ ] No `pip install -e .` environment pollution found.
-- [ ] Dispatch checklist copied from the template and committed.
-- [ ] Dispatch prompts created from the correct prompt template and linked
+- [x] No `pip install -e .` environment pollution found.
+  Evidence: manager setup used only repository Python modules via
+  `PYTHONPATH=src`.
+- [x] Dispatch checklist copied from the template and committed.
+- [x] Dispatch prompts created from the correct prompt template and linked
       below.
 - [ ] Sentrux baseline recorded, or N/A reason recorded.
 
@@ -112,9 +114,9 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| E2E-Harness | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-harness.md` | Playwright harness, service startup, fixtures, non-blocking CI | `feat/issue-1384/e2e-harness` | `../SciStudio-e2e-harness-1384` | `frontend/playwright.config.ts`, `frontend/e2e/support/**`, `frontend/e2e/fixtures/**`, `frontend/package.json`, `.github/workflows/e2e-discovery.yml` | specs under `frontend/e2e/specs/**` except scaffold placeholders | `#1384` / umbrella `#1387` | `[ ]` |
-| E2E-GUI | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-gui.md` | GUI-001..015 specs | `feat/issue-1384/e2e-gui` | `../SciStudio-e2e-gui-1384` | `frontend/e2e/specs/gui/**` | harness, Git specs, workflow-refresh specs | `#1384` / umbrella `#1387` | `[ ]` |
-| E2E-Git-WFR | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-git-wfr.md` | GIT-001..005 + WFR-001..006 specs against PR #1364 behavior | `feat/issue-1384/e2e-git-wfr` | `../SciStudio-e2e-git-wfr-1384` | `frontend/e2e/specs/git/**`, `frontend/e2e/specs/workflow-refresh/**` | harness, GUI specs | `#1384` / umbrella `#1387` | `[ ]` |
+| E2E-Harness | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-harness.md` | Playwright harness, service startup, fixtures, non-blocking CI | `feat/issue-1384/e2e-harness` | `../SciStudio-e2e-harness-1384` | `frontend/playwright.config.ts`, `frontend/e2e/support/**`, `frontend/e2e/fixtures/**`, `frontend/package.json`, `.github/workflows/e2e-discovery.yml` | specs under `frontend/e2e/specs/**` except scaffold placeholders | `#1384` / umbrella `#1387` | `[~]` |
+| E2E-GUI | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-gui.md` | GUI-001..015 specs | `feat/issue-1384/e2e-gui` | `../SciStudio-e2e-gui-1384` | `frontend/e2e/specs/gui/**` | harness, Git specs, workflow-refresh specs | `#1384` / umbrella `#1387` | `[~]` |
+| E2E-Git-WFR | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-git-wfr.md` | GIT-001..005 + WFR-001..006 specs against PR #1364 behavior | `feat/issue-1384/e2e-git-wfr` | `../SciStudio-e2e-git-wfr-1384` | `frontend/e2e/specs/git/**`, `frontend/e2e/specs/workflow-refresh/**` | harness, GUI specs | `#1384` / umbrella `#1387` | `[~]` |
 | E2E-Audit | audit_reviewer | with-context | `docs/planning/dispatch-prompts/issue-1384-e2e-audit.md` | Read-only audit of harness/spec correctness and no over-mocking | `audit/issue-1384/e2e-discovery` | `../SciStudio-e2e-audit-1384` | `docs/audit/2026-05-21-issue-1384-e2e-discovery-audit.md` | implementation files except read-only inspection | `#1384` / umbrella `#1387` | `[ ]` |
 
 ## 7. Track: Harness And CI
@@ -140,12 +142,12 @@ language_source: en
 
 ### 7.2 Dispatch
 
-- [ ] Prompt file created.
-- [ ] Correct prompt template selected.
-- [ ] Agent branch/worktree assigned.
-- [ ] Write set and out-of-scope paths included in prompt.
-- [ ] TODO rule included in prompt.
-- [ ] Required checks included in prompt.
+- [x] Prompt file created.
+- [x] Correct prompt template selected.
+- [x] Agent branch/worktree assigned.
+- [x] Write set and out-of-scope paths included in prompt.
+- [x] TODO rule included in prompt.
+- [x] Required checks included in prompt.
 
 ### 7.3 Implementation
 
@@ -181,8 +183,8 @@ language_source: en
 
 ### 8.2 Dispatch
 
-- [ ] Prompt file created.
-- [ ] Agent branch/worktree assigned.
+- [x] Prompt file created.
+- [x] Agent branch/worktree assigned.
 
 ### 8.3 Implementation
 
@@ -217,8 +219,8 @@ language_source: en
 
 ### 9.2 Dispatch
 
-- [ ] Prompt file created.
-- [ ] Agent branch/worktree assigned.
+- [x] Prompt file created.
+- [x] Agent branch/worktree assigned.
 
 ### 9.3 Implementation
 
