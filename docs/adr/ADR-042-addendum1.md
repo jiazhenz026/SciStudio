@@ -504,9 +504,15 @@ fails when:
 - governance or Sentrux rules are weakened without owner-approved scope.
 
 Pre-push and PR-readiness hooks are final local gates. They run the same
-final-evidence semantics as CI, except that CI remains authoritative and
-recomputes the result from repository and PR metadata. These hooks must not use
-branch-name special cases such as `hotfix/*`; task behavior is declared by
+final-evidence semantics as CI, **except** that the `commit_and_submit_pr`
+stage is not required at `pre-push` or `pr-ready` time. That stage is only set
+to `done` by `gate_record finalize`, which needs a commit SHA and PR URL; the
+PR URL exists only after `gh pr create`, which itself depends on a passing
+`pr-ready`. Requiring the stage at either pre-push or pr-ready would create an
+unsolvable loop. CI remains authoritative and continues to require every
+stage including `commit_and_submit_pr` because the PR exists by then and
+`finalize` should have been called. These hooks must not use branch-name
+special cases such as `hotfix/*`; task behavior is declared by
 `gate_record start --task-kind ...`.
 
 Local intermediate hooks must allow the four ADR-042 override labels to bypass

@@ -49,6 +49,9 @@ dev = [
     "import-linter>=2.0",
     "griffe>=1.7",
     "pre-commit>=4.0",
+    # #1340: vulture wires into full_audit as informational dead-code child
+    # report (ADR-042 code-quality stack named vulture but never installed it).
+    "vulture>=2.11",
     # ADR-043 / spec adr-043-package-migration FR-017: ome-types is a required
     # dep of scistudio-blocks-imaging now that Image.Meta carries a typed
     # ``ome: OME | None`` field. Listed here as well so the skeleton import
@@ -121,6 +124,10 @@ scistudio = [
 target-version = "py311"
 line-length = 120
 src = ["src"]
+# #1340: vulture_allowlist.py is a vulture configuration file, not real code.
+# The ``_.attr`` lookups are sentinels vulture reads; ruff would flag every
+# line as B018 / RUF100 if it linted them.
+extend-exclude = ["vulture_allowlist.py"]
 
 [tool.ruff.lint]
 select = [
@@ -228,6 +235,17 @@ forbidden_modules = ["scistudio.api", "scistudio.ai"]
 name = "cz_conventional_commits"
 version = "0.2.1"
 tag_format = "v$version"
+
+# Issue #1340 / ADR-042 code-quality stack: vulture runs as an informational
+# child report inside ``scistudio.qa.audit.full_audit``. Severity stays
+# WARNING for the initial rollout so the report never sets ``blocks_merge`` on
+# its own; promotion to ERROR is a follow-up once the allowlist is tuned.
+[tool.vulture]
+paths = ["src/scistudio"]
+exclude = ["src/scistudio/api/static/**"]
+min_confidence = 80
+sort_by_size = false
+ignore_decorators = ["@app.*", "@router.*", "@pytest.fixture"]
 
 [tool.coverage.run]
 source = ["scistudio"]

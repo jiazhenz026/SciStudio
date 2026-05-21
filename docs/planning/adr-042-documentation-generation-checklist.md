@@ -54,6 +54,7 @@ contracts remain `docs/adr/ADR-042.md`,
 | [x] | `signature_drift` | `src/scistudio/qa/audit/signature_drift.py`; `tests/qa/test_audit_signature_drift.py`. | Included by `full_audit`. |
 | [x] | `architecture_drift` | `src/scistudio/qa/audit/architecture_drift.py`; `tests/qa/test_architecture_drift.py`. | Included by `full_audit` via ADR-042 Addendum 1 work. |
 | [x] | `full_audit` | `src/scistudio/qa/audit/full_audit.py`; `tests/qa/test_audit_full_audit.py`. | Runnable CLI; gate workflow validates recorded full-audit evidence. |
+| [x] | `vulture_audit` | `src/scistudio/qa/audit/vulture_audit.py`; `tests/qa/test_audit_vulture.py`; `vulture_allowlist.py`; `[tool.vulture]` config in `pyproject.toml`. | Included by `full_audit` as informational child report (#1340). Reports WARNING-severity findings; never sets `blocks_merge` in v1. |
 
 ## Adjacent ADR-042 Tooling Not Yet In Documentation Pipeline
 
@@ -62,7 +63,7 @@ contracts remain `docs/adr/ADR-042.md`,
 | [x] | Gate records and PR workflow guards | `src/scistudio/qa/governance/gate_record.py`; `.github/workflows/workflow-gate.yml`; `.pre-commit-config.yaml`; `tests/qa/test_gate_record*.py`. | Implemented by ADR-042 Addendum 1, not a docs generator. |
 | [x] | Docs landing guard | `src/scistudio/qa/governance/docs_landing.py`; `tests/qa/test_docs_landing.py`; workflow-gate orchestration. | Enforces docs evidence in gate records. |
 | [ ] | `complete_artifacts`, `codemod_lint`, `trailer_lint`, `committer_enforce` | Listed in `docs/specs/adr-042-ai-governance-tools.md`; no corresponding modules found. | Track separately from documentation generation. |
-| [ ] | `code_score` and `test_quality` | Listed in `docs/specs/adr-042-code-quality-tools.md`; no `src/scistudio/qa/code_score/` or `src/scistudio/qa/test_quality/` found. | Track separately from documentation generation. |
+| [~] | `code_score` and `test_quality` | Listed in `docs/specs/adr-042-code-quality-tools.md`; `code_score` and `test_quality` modules still absent. `vulture` (also listed as standard tool in same spec, lines 22 + 64) is now wired through `vulture_audit` (#1340). | Track `code_score` and `test_quality` separately. |
 
 ## Open Follow-Ups
 

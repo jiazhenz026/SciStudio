@@ -12,6 +12,8 @@ from scistudio.qa.governance.gate_record import (
     GateRecord,
     GateStage,
     SentruxEvidence,
+    _discover_gate_record,
+    _is_governance_path,
     check_commit_msg,
     check_pr_ready,
     check_pre_commit,
@@ -159,6 +161,375 @@ def test_check_evidence_rejects_passing_nonzero_exit_code() -> None:
                 "exit_code": 1,
             }
         )
+
+
+def test_governance_path_excludes_gate_record_evidence_files() -> None:
+    """#1340: gate-record evidence files under ``.workflow/records/**`` are
+    written by every AI-authored PR by design. They live under ``.workflow/``
+    but are not governance policy, so they must not trigger the governance
+    touch rule on their own. Real governance touches (gate code, hooks, CI)
+    still count.
+    """
+
+    assert _is_governance_path(".workflow/active") is True
+    assert _is_governance_path(".workflow/hooks/pre-commit") is True
+    assert _is_governance_path(".github/workflows/workflow-gate.yml") is True
+    assert _is_governance_path(".pre-commit-config.yaml") is True
+    assert _is_governance_path("docs/adr/ADR-042.md") is True
+    assert _is_governance_path("docs/adr/ADR-042-addendum1.md") is True
+    assert _is_governance_path("src/scistudio/qa/governance/gate_record.py") is True
+
+    assert _is_governance_path(".workflow/records/1340-wire-vulture.json") is False
+    assert _is_governance_path(".workflow/records/some-future.json") is False
+
+    assert _is_governance_path("src/scistudio/engine/scheduler.py") is False
+    assert _is_governance_path("CHANGELOG.md") is False
+
+
+def test_gate_record_without_governance_touch_accepts_records_only_change() -> None:
+    """A PR whose only ``.workflow/**`` change is its own gate-record evidence
+    file must validate cleanly with ``governance_touch=false`` (#1340).
+    """
+
+    record = _record(
+        governance_touch=False,
+        scope={"include": ["src/scistudio/engine/scheduler.py", ".workflow/records/**"], "exclude": []},
+    )
+    report = validate_gate_record(
+        record,
+        changed_files=[
+            "src/scistudio/engine/scheduler.py",
+            ".workflow/records/1267-gate-record-core.json",
+        ],
+    )
+
+    governance_findings = [f for f in report.findings if f.rule_id == "gate-record.governance-touch.missing"]
+    assert governance_findings == []
+
+
+def test_amend_cli_flips_governance_touch_to_true(tmp_path: Path) -> None:
+    """#1340: amend --governance-touch flips the record's governance_touch
+    flag to True. This closes the CLI gap where start was the only command
+    that could set governance_touch, forcing direct JSON edits when an
+    in-flight gate record legitimately needed to certify a governance touch.
+    """
+
+    record_path = tmp_path / ".workflow" / "records" / "1340-amend-governance-touch.json"
+
+    assert (
+        main(
+            [
+                "start",
+                "--repo-root",
+                str(tmp_path),
+                "--issue",
+                "1340",
+                "--slug",
+                "amend governance touch",
+                "--task-kind",
+                "feature",
+                "--branch",
+                "feat/issue-1340/amend-governance-touch",
+                "--owner-directive",
+                "test the new amend --governance-touch flag",
+                "--include",
+                "src/scistudio/qa/governance/gate_record.py",
+                "--record",
+                str(record_path),
+            ]
+        )
+        == 0
+    )
+
+    record_before = json.loads(record_path.read_text(encoding="utf-8"))
+    assert record_before["governance_touch"] is False
+
+    assert (
+        main(
+            [
+                "amend",
+                "--record",
+                str(record_path),
+                "--reason",
+                "extend scope to include a governance code edit not foreseen at start",
+                "--include",
+                "src/scistudio/qa/governance/mod_guard.py",
+                "--governance-touch",
+            ]
+        )
+        == 0
+    )
+
+    record_after = json.loads(record_path.read_text(encoding="utf-8"))
+    assert record_after["governance_touch"] is True
+    assert any(
+        amendment.get("reason", "").startswith("extend scope to include a governance code edit")
+        for amendment in record_after["amendments"]
+    )
+
+
+def test_amend_without_governance_touch_flag_preserves_existing_value(tmp_path: Path) -> None:
+    """A plain ``amend`` call without ``--governance-touch`` must not toggle
+    governance_touch. The flag is opt-in: silence means leave the existing
+    value alone.
+    """
+
+    record_path = tmp_path / ".workflow" / "records" / "1340-amend-preserve.json"
+    assert (
+        main(
+            [
+                "start",
+                "--repo-root",
+                str(tmp_path),
+                "--issue",
+                "1340",
+                "--slug",
+                "amend preserve",
+                "--task-kind",
+                "feature",
+                "--branch",
+                "feat/issue-1340/amend-preserve",
+                "--owner-directive",
+                "directive",
+                "--include",
+                "src/scistudio/qa/governance/**",
+                "--governance-touch",
+                "--record",
+                str(record_path),
+            ]
+        )
+        == 0
+    )
+
+    assert json.loads(record_path.read_text(encoding="utf-8"))["governance_touch"] is True
+
+    assert (
+        main(
+            [
+                "amend",
+                "--record",
+                str(record_path),
+                "--reason",
+                "plain scope amendment, no governance_touch change",
+                "--include",
+                "tests/qa/test_extra.py",
+            ]
+        )
+        == 0
+    )
+
+    assert json.loads(record_path.read_text(encoding="utf-8"))["governance_touch"] is True
+
+
+def test_gate_record_still_requires_governance_touch_for_real_governance_files() -> None:
+    """Editing actual governance code (gate_record.py, CI workflows) must
+    still require ``governance_touch=true``. This is the inverse of the
+    records-only carve-out — the rule fix in #1340 must not weaken the real
+    governance protection.
+    """
+
+    record = _record(
+        governance_touch=False,
+        scope={"include": ["src/scistudio/qa/governance/**", ".workflow/records/**"], "exclude": []},
+    )
+    report = validate_gate_record(
+        record,
+        changed_files=[
+            "src/scistudio/qa/governance/gate_record.py",
+            ".workflow/records/1267-gate-record-core.json",
+        ],
+    )
+
+    governance_findings = [f for f in report.findings if f.rule_id == "gate-record.governance-touch.missing"]
+    assert len(governance_findings) == 1
+    assert governance_findings[0].file == "src/scistudio/qa/governance/gate_record.py"
+
+
+def test_pr_ready_does_not_require_commit_and_submit_pr_stage_done() -> None:
+    """#1340: ``pr-ready`` runs BEFORE ``gh pr create``. The
+    ``commit_and_submit_pr`` stage is set by ``finalize``, which needs a
+    commit SHA and PR URL. Requiring that stage done at pr-ready time would
+    be a chicken-and-egg: no PR exists yet, so no finalize, so the stage
+    can never be done, so pr-ready can never pass on a fresh branch.
+    """
+
+    record_data = _record()
+    pending_stages: list[dict[str, object]] = []
+    for stage in record_data["stages"]:
+        copy = dict(stage)
+        if stage["stage"] == GateStage.COMMIT_AND_SUBMIT_PR.value:
+            copy["status"] = "pending"
+        pending_stages.append(copy)
+    record_data["stages"] = pending_stages
+
+    pr_body = "## Summary\n- thing\n\nGate record: .workflow/records/1267-gate-record-core.json\n\nCloses #1267\n"
+    report = check_pr_ready_via_function = validate_gate_record(
+        record_data,
+        changed_files=["src/scistudio/qa/governance/gate_record.py"],
+        pr_body=pr_body,
+        require_pr_body=True,
+        require_post_pr_stages=False,
+    )
+
+    stage_findings = [f for f in report.findings if f.rule_id == "gate-record.stage.not-done"]
+    assert stage_findings == []
+    del check_pr_ready_via_function
+
+
+def test_ci_still_requires_commit_and_submit_pr_stage_done() -> None:
+    """The chicken-and-egg carve-out is opt-in. CI (which runs after the PR
+    exists and after ``finalize`` should have been called) keeps requiring
+    every stage done — including ``commit_and_submit_pr``.
+    """
+
+    record_data = _record()
+    pending_stages: list[dict[str, object]] = []
+    for stage in record_data["stages"]:
+        copy = dict(stage)
+        if stage["stage"] == GateStage.COMMIT_AND_SUBMIT_PR.value:
+            copy["status"] = "pending"
+        pending_stages.append(copy)
+    record_data["stages"] = pending_stages
+
+    pr_body = "## Summary\n- thing\n\nGate record: .workflow/records/1267-gate-record-core.json\n\nCloses #1267\n"
+    report = validate_gate_record(
+        record_data,
+        changed_files=["src/scistudio/qa/governance/gate_record.py"],
+        pr_body=pr_body,
+        require_pr_body=True,
+    )
+
+    stage_findings = [
+        f
+        for f in report.findings
+        if f.rule_id == "gate-record.stage.not-done" and f.evidence.get("stage") == GateStage.COMMIT_AND_SUBMIT_PR.value
+    ]
+    assert len(stage_findings) == 1, "CI must still require commit_and_submit_pr to be done"
+
+
+def test_pre_push_does_not_require_commit_and_submit_pr_stage_done() -> None:
+    """``pre-push`` runs BEFORE ``git push``. The PR doesn't exist yet; the
+    commit_and_submit_pr stage cannot be done. Same carve-out as pr-ready.
+    """
+
+    record_data = _record()
+    pending_stages: list[dict[str, object]] = []
+    for stage in record_data["stages"]:
+        copy = dict(stage)
+        if stage["stage"] == GateStage.COMMIT_AND_SUBMIT_PR.value:
+            copy["status"] = "pending"
+        pending_stages.append(copy)
+    record_data["stages"] = pending_stages
+
+    report = validate_gate_record(
+        record_data,
+        changed_files=["src/scistudio/qa/governance/gate_record.py"],
+        require_post_pr_stages=False,
+    )
+
+    stage_findings = [f for f in report.findings if f.rule_id == "gate-record.stage.not-done"]
+    assert stage_findings == []
+
+
+def _write_record_file(path: Path, *, task_kind: str, task_id: str = "test") -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"task_kind": task_kind, "task_id": task_id}),
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_discover_gate_record_returns_single_record_unchanged(tmp_path: Path) -> None:
+    record = _write_record_file(
+        tmp_path / ".workflow" / "records" / "1340-wire-vulture.json",
+        task_kind="feature",
+    )
+
+    resolved = _discover_gate_record(tmp_path, [".workflow/records/1340-wire-vulture.json"])
+
+    assert resolved == record
+
+
+def test_discover_gate_record_picks_manager_record_on_umbrella(tmp_path: Path) -> None:
+    """#1340: umbrella PRs created by the manager persona accumulate sub-PR
+    records in their diff. The umbrella's own record has ``task_kind: manager``;
+    sub-PR records have implementation task kinds (feature/bugfix/etc).
+    Discovery must pick the manager record as the primary.
+    """
+
+    umbrella = _write_record_file(
+        tmp_path / ".workflow" / "records" / "1266-umbrella.json",
+        task_kind="manager",
+        task_id="1266-umbrella",
+    )
+    _write_record_file(
+        tmp_path / ".workflow" / "records" / "1267-sub-a.json",
+        task_kind="feature",
+        task_id="1267-sub-a",
+    )
+    _write_record_file(
+        tmp_path / ".workflow" / "records" / "1268-sub-b.json",
+        task_kind="bugfix",
+        task_id="1268-sub-b",
+    )
+
+    resolved = _discover_gate_record(
+        tmp_path,
+        [
+            ".workflow/records/1267-sub-a.json",
+            ".workflow/records/1266-umbrella.json",
+            ".workflow/records/1268-sub-b.json",
+        ],
+    )
+
+    assert resolved == umbrella
+
+
+def test_discover_gate_record_returns_none_for_multiple_manager_records(tmp_path: Path) -> None:
+    """Defensive case: if a PR somehow carries multiple manager records, the
+    umbrella heuristic does not apply and discovery falls back to the
+    single-record-on-disk path (which returns None when more than one exists).
+    """
+
+    _write_record_file(
+        tmp_path / ".workflow" / "records" / "100-m1.json",
+        task_kind="manager",
+    )
+    _write_record_file(
+        tmp_path / ".workflow" / "records" / "200-m2.json",
+        task_kind="manager",
+    )
+
+    resolved = _discover_gate_record(
+        tmp_path,
+        [".workflow/records/100-m1.json", ".workflow/records/200-m2.json"],
+    )
+
+    assert resolved is None
+
+
+def test_discover_gate_record_returns_none_for_multiple_non_manager_records(tmp_path: Path) -> None:
+    """If a PR carries multiple records but none are manager-kind, this is
+    not the umbrella case — fail closed (return None so the caller emits the
+    standard 'exactly one gate record' error).
+    """
+
+    _write_record_file(
+        tmp_path / ".workflow" / "records" / "100-feature.json",
+        task_kind="feature",
+    )
+    _write_record_file(
+        tmp_path / ".workflow" / "records" / "200-bugfix.json",
+        task_kind="bugfix",
+    )
+
+    resolved = _discover_gate_record(
+        tmp_path,
+        [".workflow/records/100-feature.json", ".workflow/records/200-bugfix.json"],
+    )
+
+    assert resolved is None
 
 
 def test_check_commit_msg_requires_adr042_trailers() -> None:

@@ -175,8 +175,38 @@ jobs:
           fi
 
           if [ "$SKIP_GATE_RECORD" -eq 0 ]; then
+            # #1340: umbrella PRs created by the manager persona accumulate
+            # sub-PR gate records in their diff. When multiple records are
+            # present, fall back to the one whose ``task_kind`` is
+            # ``manager`` and validate that as the primary; sub-PR records
+            # are historical evidence that already passed their own CI.
+            RECORDS="$(RECORDS="$RECORDS" python - <<'PY'
+          import json
+          import os
+
+          paths = [line for line in os.environ.get("RECORDS", "").splitlines() if line.strip()]
+          if len(paths) <= 1:
+              for path in paths:
+                  print(path)
+          else:
+              manager_paths = []
+              for path in paths:
+                  try:
+                      with open(path, encoding="utf-8") as handle:
+                          data = json.load(handle)
+                  except (OSError, json.JSONDecodeError):
+                      continue
+                  if isinstance(data, dict) and data.get("task_kind") == "manager":
+                      manager_paths.append(path)
+              if len(manager_paths) == 1:
+                  print(manager_paths[0])
+              else:
+                  for path in paths:
+                      print(path)
+          PY
+          )"
             if [ "$(echo "$RECORDS" | sed '/^$/d' | wc -l)" -ne 1 ]; then
-              echo "::error::ADR-042 expects exactly one committed gate record per PR."
+              echo "::error::ADR-042 expects exactly one committed gate record per PR (or exactly one manager record on an umbrella PR)."
               echo "$RECORDS"
               exit 1
             fi
@@ -211,13 +241,38 @@ jobs:
         run: |
           set -euo pipefail
           CHANGED="$(git diff --name-only "origin/$BASE_REF...HEAD")"
+          # #1340: when multiple gate records are in the diff (umbrella PR
+          # case), prefer the one whose task_kind is ``manager``; otherwise
+          # fall back to the first record so the guard orchestration step
+          # still runs on a single-record PR.
           RECORD="$(CHANGED="$CHANGED" python - <<'PY'
+          import json
           import os
 
-          for path in os.environ.get("CHANGED", "").splitlines():
-              if path.startswith(".workflow/records/") and path.endswith(".json"):
-                  print(path)
-                  break
+          candidates = [
+              path
+              for path in os.environ.get("CHANGED", "").splitlines()
+              if path.startswith(".workflow/records/") and path.endswith(".json")
+          ]
+          chosen = ""
+          if len(candidates) == 1:
+              chosen = candidates[0]
+          elif len(candidates) > 1:
+              manager_paths = []
+              for path in candidates:
+                  try:
+                      with open(path, encoding="utf-8") as handle:
+                          data = json.load(handle)
+                  except (OSError, json.JSONDecodeError):
+                      continue
+                  if isinstance(data, dict) and data.get("task_kind") == "manager":
+                      manager_paths.append(path)
+              if len(manager_paths) == 1:
+                  chosen = manager_paths[0]
+              else:
+                  chosen = candidates[0]
+          if chosen:
+              print(chosen)
           PY
           )"
           PYTHONPATH=src RECORD="$RECORD" python - <<'PY'

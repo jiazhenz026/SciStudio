@@ -352,6 +352,31 @@ def _sentrux_applies(path: str) -> bool:
     )
 
 
+# Paths under ``.workflow/records/**`` are gate-record evidence files that
+# every AI-authored PR creates by design. They live under ``.workflow/`` but
+# are not the governance policy itself, so treating them as governance touches
+# would force every ordinary AI PR to flip ``governance_touch=true`` (#1340).
+# Governance code (``src/scistudio/qa/governance/**``), governance config
+# (``.workflow/active``, ``.workflow/hooks/**``), CI pipelines, and ADR-042
+# itself remain governance touches.
+_GOVERNANCE_PATTERNS: tuple[str, ...] = (
+    ".workflow/**",
+    ".github/workflows/**",
+    ".pre-commit-config.yaml",
+    "docs/adr/ADR-042.md",
+    "docs/adr/ADR-042-addendum*.md",
+    "src/scistudio/qa/governance/**",
+)
+_GOVERNANCE_NON_TOUCH_PATTERNS: tuple[str, ...] = (".workflow/records/**",)
+
+
+def _is_governance_path(path: str) -> bool:
+    normalized = _normalize_path(path)
+    if _matches_any(normalized, _GOVERNANCE_NON_TOUCH_PATTERNS):
+        return False
+    return _matches_any(normalized, _GOVERNANCE_PATTERNS)
+
+
 def _effective_include(record: GateRecord) -> list[str]:
     includes = list(record.scope.include)
     for amendment in record.amendments:
@@ -474,6 +499,16 @@ def _local_bypass_report(labels: Sequence[str]) -> AuditReport | None:
     return None
 
 
+# Stages that can only be done after the PR exists. Pre-push and pr-ready
+# validators run BEFORE the PR is created, so they must not require these
+# stages to be done — otherwise every initial push hits a chicken-and-egg
+# (#1340): commit_and_submit_pr is set by ``finalize`` which needs a commit
+# SHA and PR URL, but the PR cannot be opened without first passing pr-ready,
+# and pre-push cannot accept without commit_and_submit_pr. CI runs after the
+# PR exists, so it does require all stages.
+POST_PR_STAGES: frozenset[GateStage] = frozenset({GateStage.COMMIT_AND_SUBMIT_PR})
+
+
 def validate_gate_record(
     record: GateRecord | Mapping[str, Any] | str | Path,
     *,
@@ -483,8 +518,15 @@ def validate_gate_record(
     guard_reports: Sequence[AuditReport] = (),
     require_pr_body: bool = False,
     require_final_evidence: bool = True,
+    require_post_pr_stages: bool = True,
 ) -> AuditReport:
-    """Validate a gate record against optional PR or staged-file evidence."""
+    """Validate a gate record against optional PR or staged-file evidence.
+
+    ``require_post_pr_stages`` controls whether stages that can only complete
+    after the PR exists (currently ``commit_and_submit_pr``) are required.
+    Pre-push and pr-ready validators set this to ``False`` because they run
+    before ``gh pr create`` (#1340). CI validation leaves it ``True``.
+    """
 
     findings: list[Finding] = []
     try:
@@ -518,21 +560,7 @@ def validate_gate_record(
                 )
 
         if not parsed.governance_touch:
-            governance_paths = [
-                path
-                for path in normalized_changed
-                if _matches_any(
-                    path,
-                    (
-                        ".workflow/**",
-                        ".github/workflows/**",
-                        ".pre-commit-config.yaml",
-                        "docs/adr/ADR-042.md",
-                        "docs/adr/ADR-042-addendum*.md",
-                        "src/scistudio/qa/governance/**",
-                    ),
-                )
-            ]
+            governance_paths = [path for path in normalized_changed if _is_governance_path(path)]
             for path in governance_paths:
                 findings.append(
                     _finding(
@@ -577,14 +605,17 @@ def validate_gate_record(
 
     if require_final_evidence:
         for stage in parsed.stages:
-            if stage.status != "done":
-                findings.append(
-                    _finding(
-                        "gate-record.stage.not-done",
-                        f"gate stage must be done before PR readiness: {stage.stage.value}",
-                        evidence={"stage": stage.stage.value, "status": stage.status},
-                    )
+            if stage.status == "done":
+                continue
+            if not require_post_pr_stages and stage.stage in POST_PR_STAGES:
+                continue
+            findings.append(
+                _finding(
+                    "gate-record.stage.not-done",
+                    f"gate stage must be done before PR readiness: {stage.stage.value}",
+                    evidence={"stage": stage.stage.value, "status": stage.status},
                 )
+            )
 
     if require_final_evidence and parsed.full_audit is None:
         findings.append(_finding("gate-record.full-audit.missing", "ADR-042 full audit evidence is required"))
@@ -664,10 +695,43 @@ def _git_lines(repo_root: Path, args: list[str]) -> list[str]:
     return [_normalize_path(line) for line in output.splitlines() if line.strip()]
 
 
+def _record_task_kind(path: Path) -> str | None:
+    """Return the ``task_kind`` field of a gate record on disk, or ``None``.
+
+    Tolerates malformed or missing files: callers fall back to the
+    single-record path when this returns ``None``.
+    """
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if isinstance(data, dict):
+        value = data.get("task_kind")
+        return value if isinstance(value, str) else None
+    return None
+
+
 def _discover_gate_record(repo_root: Path, changed_files: Sequence[str]) -> Path | None:
+    """Resolve the gate record to validate against.
+
+    The default case is a single PR with a single record under
+    ``.workflow/records/``. Umbrella PRs (created by the manager persona)
+    accumulate sub-PR records in their diff because each sub-PR merged into
+    the umbrella brought its own record along; in that case the umbrella's
+    own record carries ``task_kind: manager`` and the sub-PR records carry
+    implementation task kinds. When exactly one manager record is present in
+    the diff, treat that as the primary record and let the sub-PR records
+    pass through as historical evidence (#1340).
+    """
+
     record_paths = [path for path in changed_files if _match_path(path, ".workflow/records/*.json")]
     if len(record_paths) == 1:
         return repo_root / record_paths[0]
+    if len(record_paths) > 1:
+        manager_paths = [repo_root / path for path in record_paths if _record_task_kind(repo_root / path) == "manager"]
+        if len(manager_paths) == 1:
+            return manager_paths[0]
     records_dir = repo_root / ".workflow" / "records"
     records = sorted(records_dir.glob("*.json")) if records_dir.exists() else []
     return records[0] if len(records) == 1 else None
@@ -711,7 +775,7 @@ def check_pre_push(
     record_path = gate_record or _discover_gate_record(root, changed)
     if record_path is None:
         return _report([_finding("gate-record.missing", "exactly one gate record is required before push")])
-    return validate_gate_record(record_path, changed_files=changed)
+    return validate_gate_record(record_path, changed_files=changed, require_post_pr_stages=False)
 
 
 def check_pr_ready(
@@ -733,7 +797,14 @@ def check_pr_ready(
     record_path = gate_record or _discover_gate_record(root, changed)
     if record_path is None:
         return _report([_finding("gate-record.missing", "exactly one gate record is required before PR creation")])
-    return check_pr(record_path, changed_files=changed, pr_body=pr_body, pr_labels=pr_labels)
+    return validate_gate_record(
+        record_path,
+        changed_files=changed,
+        pr_body=pr_body,
+        pr_labels=pr_labels,
+        require_pr_body=True,
+        require_post_pr_stages=False,
+    )
 
 
 def _trailers(commit_message: str) -> dict[str, str]:
@@ -865,13 +936,24 @@ def amend_record(
     include: Sequence[str] = (),
     exclude: Sequence[str] = (),
     approved_by: str | None = None,
+    governance_touch: bool | None = None,
 ) -> Path:
-    """Append a scope amendment."""
+    """Append a scope amendment.
+
+    When ``governance_touch`` is ``True``, flip the record's
+    ``governance_touch`` flag to ``True``. Passing ``None`` leaves the existing
+    value untouched. This exists because real governance touches can become
+    known only after ``start`` (the original CLI gap that #1340 surfaced —
+    editing governance code under an in-flight gate record left no clean way
+    to certify ``governance_touch=true`` other than recreating the record).
+    """
 
     record = _load_record(record_path)
     record.amendments.append(
         ScopeAmendment(reason=reason, include=list(include), exclude=list(exclude), approved_by=approved_by)
     )
+    if governance_touch is True:
+        record.governance_touch = True
     _mark_stage(record, GateStage.IMPLEMENT)
     return _write_record(record_path, record)
 
@@ -1055,6 +1137,15 @@ def main(argv: list[str] | None = None) -> int:
     amend.add_argument("--include", action="append", default=[])
     amend.add_argument("--exclude", action="append", default=[])
     amend.add_argument("--approved-by")
+    amend.add_argument(
+        "--governance-touch",
+        action="store_true",
+        help=(
+            "flip the record's governance_touch flag to True. Use when the "
+            "amendment brings real governance code under the gate scope and "
+            "the original start did not set --governance-touch."
+        ),
+    )
 
     docs = subparsers.add_parser("docs", help="record documentation landing")
     docs.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
@@ -1162,6 +1253,7 @@ def main(argv: list[str] | None = None) -> int:
                 include=args.include,
                 exclude=args.exclude,
                 approved_by=args.approved_by,
+                governance_touch=True if args.governance_touch else None,
             )
             print(_normalize_path(str(output_path)))
             return 0
