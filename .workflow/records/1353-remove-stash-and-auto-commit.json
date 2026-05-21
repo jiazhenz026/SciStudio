@@ -1,9 +1,9 @@
 {
   "admin_labels": [
     {
-      "name": "admin-approved:core-change",
+      "applied_at": "2026-05-21T19:57:00Z",
       "applied_by": "jiazhenz026",
-      "applied_at": "2026-05-21T19:57:00Z"
+      "name": "admin-approved:core-change"
     }
   ],
   "amendments": [
@@ -94,7 +94,7 @@
     },
     "docs": {
       "not_applicable": true,
-      "rationale": "ADR-039 §11 Addendum 1 already merged via PR #1358; this PR only implements the addendum's cancellations and replacements per the documented scope. No new ADR or spec required."
+      "rationale": "ADR-039 \u00a711 Addendum 1 already merged via PR #1358; this PR only implements the addendum's cancellations and replacements per the documented scope. No new ADR or spec required."
     }
   },
   "full_audit": {
@@ -174,7 +174,7 @@
     "name": "sentrux.free_tier",
     "output_path": null,
     "pro_required": false,
-    "quality_signal": 4443.0,
+    "quality_signal": 4444.0,
     "rules_checked": 3,
     "status": "pass",
     "summary": {},
