@@ -5,7 +5,7 @@
       "approved_by": null,
       "exclude": [],
       "include": [],
-      "reason": "Implementation complete; marking implement stage done"
+      "reason": "Implementation complete (records exclusion helper + docs_record CHANGELOG routing fix); marking implement stage done"
     }
   ],
   "branch": "fix/issue-1362/governance-records-helper",
@@ -17,7 +17,7 @@
       "command_or_tool": "pytest tests/qa/test_governance_paths.py tests/qa/test_gate_record.py -x --timeout=60",
       "exit_code": 0,
       "name": "pytest",
-      "output_path": "49 passed in 2.83s (20 new + 29 existing)",
+      "output_path": "52 passed (24 new in test_governance_paths + 28 existing)",
       "status": "pass",
       "summary": {},
       "timestamp": null
@@ -32,31 +32,29 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "ruff format --check src/scistudio/qa/governance/ tests/qa/test_governance_paths.py",
+      "command_or_tool": "ruff format src/scistudio/qa/governance/ tests/qa/test_governance_paths.py",
       "exit_code": 0,
       "name": "format",
-      "output_path": "13 files already formatted",
+      "output_path": "13 files formatted (1 reformatted)",
       "status": "pass",
       "summary": {},
       "timestamp": null
     }
   ],
-  "commit": {
-    "gate_record_path": ".workflow/records/1362-governance-records-helper.json",
-    "shas": [
-      "85c57ba1"
-    ],
-    "trailers": {}
-  },
+  "commit": null,
   "docs_landing": {
-    "changelog": {},
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
     "checklist": {
       "not_applicable": true,
       "rationale": "no checklist applicable to a single-PR governance fix"
     },
     "docs": {
       "not_applicable": true,
-      "rationale": "bugfix in governance code path-matching helpers; no user-facing behavior change requires doc update beyond CHANGELOG"
+      "rationale": "bugfix in governance path-matching helpers; no spec/ADR/architecture doc updates required"
     }
   },
   "full_audit": {
@@ -75,10 +73,10 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1362,
-      "url": null
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1362"
     }
   ],
-  "owner_directive": "Centralize .workflow/records/** exclusion in shared governance path helper; fix core_change_guard + sentrux_gate + docs_landing + gate_record._sentrux_applies; PR will need admin-approved:core-change label since it modifies governance code",
+  "owner_directive": "Centralize .workflow/records/** exclusion in shared governance path helper; fix core_change_guard + sentrux_gate + docs_landing + gate_record._sentrux_applies; also fix docs_record CLI silently routing CHANGELOG.md to docs class instead of changelog class (same routing-bug class)",
   "planned_files": [
     "src/scistudio/qa/governance/paths.py",
     "src/scistudio/qa/governance/core_change_guard.py",
@@ -88,13 +86,7 @@
     "tests/qa/test_governance_paths.py",
     "CHANGELOG.md"
   ],
-  "pull_request": {
-    "body_closes_issues": [
-      1362
-    ],
-    "number": 1363,
-    "url": "https://github.com/zjzcpj/SciStudio/pull/1363"
-  },
+  "pull_request": null,
   "record_path": ".workflow/records/1362-governance-records-helper.json",
   "required_checks": [
     "ruff",
@@ -121,9 +113,9 @@
     "command_or_tool": "sentrux.exe check .",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "11/11 rules pass; Quality=4443; governance code change",
+    "output_path": "11/11 rules pass; Quality=4445",
     "pro_required": false,
-    "quality_signal": 4443.0,
+    "quality_signal": 4445.0,
     "rules_checked": 11,
     "status": "pass",
     "summary": {},
@@ -164,7 +156,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "done",
+      "status": "pending",
       "summary": null
     }
   ],

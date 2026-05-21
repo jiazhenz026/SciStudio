@@ -134,6 +134,95 @@ class TestDocsLandingRecordsException:
         assert docs_landing._requires_landing([".workflow/hooks/pre-commit.sh"])
 
 
+class TestDocsRecordChangelogRouting:
+    """``gate_record.docs_record`` credits CHANGELOG.md to ``changelog``.
+
+    Regression for the routing gap surfaced by PR #1363 CI: the legacy
+    ``docs_record`` only knew about ``docs/planning/`` (checklist) versus
+    everything-else (docs). ``CHANGELOG.md`` got silently dropped into the
+    ``docs`` class, leaving ``changelog`` empty and forcing every PR with a
+    genuine CHANGELOG entry to N/A it (untruthful) or bypass via
+    ``admin-approved:ai-override``.
+    """
+
+    def test_changelog_md_lands_in_changelog_class(self, tmp_path) -> None:
+        from scistudio.qa.governance.gate_record import docs_record, start_record
+
+        record_path = tmp_path / "1362-test.json"
+        start_record(
+            repo_root=tmp_path,
+            issue_number=1362,
+            slug="test",
+            task_kind="bugfix",
+            branch="fix/test",
+            owner_directive="test",
+            include=(),
+            issue_url="https://example.com/issues/1362",
+            record_path=record_path,
+        )
+        docs_record(record_path, updated=["CHANGELOG.md"])
+
+        import json
+
+        landing = json.loads(record_path.read_text())["docs_landing"]
+        assert landing["changelog"] == {"paths": ["CHANGELOG.md"]}
+        # docs class must NOT also pick up CHANGELOG.md — single routing.
+        assert "CHANGELOG.md" not in landing["docs"].get("paths", [])
+
+    def test_mixed_paths_route_to_correct_classes(self, tmp_path) -> None:
+        from scistudio.qa.governance.gate_record import docs_record, start_record
+
+        record_path = tmp_path / "1362-test.json"
+        start_record(
+            repo_root=tmp_path,
+            issue_number=1362,
+            slug="test",
+            task_kind="bugfix",
+            branch="fix/test",
+            owner_directive="test",
+            include=(),
+            issue_url="https://example.com/issues/1362",
+            record_path=record_path,
+        )
+        docs_record(
+            record_path,
+            updated=[
+                "CHANGELOG.md",
+                "docs/specs/example.md",
+                "docs/planning/example-checklist.md",
+            ],
+        )
+
+        import json
+
+        landing = json.loads(record_path.read_text())["docs_landing"]
+        assert landing["changelog"]["paths"] == ["CHANGELOG.md"]
+        assert landing["docs"]["paths"] == ["docs/specs/example.md"]
+        assert landing["checklist"]["paths"] == ["docs/planning/example-checklist.md"]
+
+    def test_no_changelog_in_updated_leaves_changelog_empty(self, tmp_path) -> None:
+        from scistudio.qa.governance.gate_record import docs_record, start_record
+
+        record_path = tmp_path / "1362-test.json"
+        start_record(
+            repo_root=tmp_path,
+            issue_number=1362,
+            slug="test",
+            task_kind="bugfix",
+            branch="fix/test",
+            owner_directive="test",
+            include=(),
+            issue_url="https://example.com/issues/1362",
+            record_path=record_path,
+        )
+        docs_record(record_path, updated=["docs/specs/example.md"])
+
+        import json
+
+        landing = json.loads(record_path.read_text())["docs_landing"]
+        assert landing["changelog"] == {}
+
+
 class TestGateRecordSentruxAppliesException:
     """``gate_record._sentrux_applies`` skips records paths.
 
