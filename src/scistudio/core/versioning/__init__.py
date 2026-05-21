@@ -3,7 +3,8 @@
 This package wraps a **bundled portable git CLI binary** (MinGit on Windows,
 static-built git on macOS/Linux) so every SciStudio project is a real git
 repository with standard git semantics: history, diff, restore, branch,
-merge, cherry-pick, stash.
+merge, cherry-pick. (ADR-039 Addendum 1 / #1353 removed the stash GUI/REST
+surface; the bundled binary still supports `git stash` from a CLI.)
 
 Public surface
 --------------

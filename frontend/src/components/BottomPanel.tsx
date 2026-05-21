@@ -934,11 +934,11 @@ export function BottomPanel({
           // D38-2.4c IMPL fills the two-pane runs-list + run-detail view.
           <LineageTab />
         ) : activeTab === "git" ? (
-          // ADR-039 §3.5 (#972) — Git tab. GitTab owns its own modals
-          // (CommitDialog / StashListPanel) so they unmount when the
-          // user switches away from this tab. MergeFlow is mounted
-          // separately below (its conflict-state close guard must
-          // survive bottom-tab switches; Codex P1 on PR #974).
+          // ADR-039 §3.5 (#972) — Git tab. GitTab owns its own modal
+          // (CommitDialog) so it unmounts when the user switches away
+          // from this tab. MergeFlow is mounted separately below (its
+          // conflict-state close guard must survive bottom-tab
+          // switches; Codex P1 on PR #974).
           <GitTab />
         ) : activeTab !== "ai" ? (
           <PlaceholderTab />

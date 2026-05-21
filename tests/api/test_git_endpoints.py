@@ -143,42 +143,116 @@ def test_restore_endpoint_soft_restore(client: TestClient, opened_project: Path)
     # Restore to sha_a; HEAD remains at B but file content reverts.
     resp = client.post("/api/git/restore", json={"commit_sha": sha_a, "files": ["file.yaml"]})
     assert resp.status_code == 200
+    body = resp.json()
+    # ADR-039 Addendum 1 (#1354): the response now carries an explicit
+    # `auto_commit_sha` field (null on a clean tree).
+    assert body["status"] == "ok"
+    assert body["auto_commit_sha"] is None
     assert target.read_text(encoding="utf-8") == "A"
 
 
-def test_restore_skips_when_file_unchanged(client: TestClient, opened_project: Path) -> None:
-    """Hotfix #997: restore is a no-op when the target file content
-    already matches the requested commit. Pre-fix, repeat clicks on
-    Restore (e.g. while a different file was dirty) accumulated
-    `auto-stash before restore` entries that showed up in the graph
-    as commit nodes and confused users.
+def test_restore_endpoint_auto_commits_dirty_tree(client: TestClient, opened_project: Path) -> None:
+    """ADR-039 Addendum 1 (#1354): when the working tree is dirty and
+    the target file differs from the current working-tree content (so
+    hotfix #997 does NOT short-circuit), ``/restore`` auto-commits the
+    dirty content first via ``engine.commit(prefix="auto", ...)`` and
+    returns the new SHA in ``auto_commit_sha``. The auto-commit
+    subject must start with ``auto: pre-restore @``.
     """
     target = opened_project / "file.yaml"
     target.write_text("A", encoding="utf-8")
     sha_a = client.post("/api/git/commit", json={"message": "A"}).json()["commit_sha"]
+    target.write_text("B", encoding="utf-8")
+    client.post("/api/git/commit", json={"message": "B"})
 
-    # File content already matches sha_a (no change since the commit).
-    # Pre-fix this would NOT have created a stash (status was clean),
-    # but to guarantee the no-op even with an unrelated dirty file we
-    # mark another file dirty and confirm Restore still doesn't stash.
-    other = opened_project / "other.txt"
-    other.write_text("dirty unrelated", encoding="utf-8")
+    # Dirty `file.yaml` itself so the hotfix #997 short-circuit cannot
+    # kick in (the target diverges from both worktree AND sha_a's
+    # content). Now restore to sha_a.
+    target.write_text("DIRTY-WIP", encoding="utf-8")
+    assert client.get("/api/git/status").json()["dirty"] is True
 
-    # Snapshot stash count before.
-    before = client.get("/api/git/stash").json()
-    before_count = len(before)
+    resp = client.post(
+        "/api/git/restore",
+        json={"commit_sha": sha_a, "files": ["file.yaml"]},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["status"] == "ok"
+    auto_sha = body["auto_commit_sha"]
+    assert auto_sha is not None and isinstance(auto_sha, str)
+    assert len(auto_sha) == 40
+
+    # Confirm the auto: pre-restore commit sits on HEAD's history.
+    log = client.get("/api/git/log", params={"limit": 5}).json()
+    head_subject = log[0]["subject"]
+    assert head_subject.startswith("auto: pre-restore @"), head_subject
+    assert f"target={sha_a[:7]}" in head_subject
+
+    # File content matches sha_a (the restore actually ran after the
+    # auto-commit).
+    assert target.read_text(encoding="utf-8") == "A"
+
+
+def test_restore_endpoint_clean_tree_no_auto_commit(client: TestClient, opened_project: Path) -> None:
+    """A clean working tree at restore time produces ``auto_commit_sha=null``
+    and no new commit on HEAD.
+    """
+    target = opened_project / "file.yaml"
+    target.write_text("A", encoding="utf-8")
+    sha_a = client.post("/api/git/commit", json={"message": "A"}).json()["commit_sha"]
+    target.write_text("B", encoding="utf-8")
+    sha_b = client.post("/api/git/commit", json={"message": "B"}).json()["commit_sha"]
+
+    # Working tree is clean (just committed). Status check confirms.
+    assert client.get("/api/git/status").json()["dirty"] is False
 
     resp = client.post(
         "/api/git/restore",
         json={"commit_sha": sha_a, "files": ["file.yaml"]},
     )
     assert resp.status_code == 200
-    # No stash should have been created because the target file is
-    # unchanged vs sha_a.
-    after = client.get("/api/git/stash").json()
-    assert len(after) == before_count, (
-        f"Restore should be a no-op when target file matches commit; "
-        f"stash count went from {before_count} to {len(after)}"
+    body = resp.json()
+    assert body["auto_commit_sha"] is None
+    # HEAD unchanged.
+    assert client.get("/api/git/log", params={"limit": 1}).json()[0]["sha"] == sha_b
+
+
+def test_restore_skips_when_file_unchanged(client: TestClient, opened_project: Path) -> None:
+    """Hotfix #997: ``engine.restore`` is a no-op when the target file
+    content already matches the requested commit. Pre-fix, repeat
+    clicks on Restore (e.g. while a different file was dirty)
+    accumulated auto-handler entries that showed up in the graph as
+    commit nodes and confused users.
+
+    ADR-039 Addendum 1 (#1354): the route layer auto-commits ANY
+    dirty tree before invoking ``engine.restore``, so the no-op
+    measure is now: when the working tree is CLEAN and the target
+    matches HEAD's content, the restore creates no new commit (no
+    auto-commit because clean, no checkout because unchanged). This
+    test pins that contract.
+    """
+    _drain(client)
+    target = opened_project / "file.yaml"
+    target.write_text("A", encoding="utf-8")
+    sha_a = client.post("/api/git/commit", json={"message": "A"}).json()["commit_sha"]
+
+    # Clean tree — confirm before the restore.
+    assert client.get("/api/git/status").json()["dirty"] is False
+
+    head_before = client.get("/api/git/log", params={"limit": 1}).json()[0]["sha"]
+
+    resp = client.post(
+        "/api/git/restore",
+        json={"commit_sha": sha_a, "files": ["file.yaml"]},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["auto_commit_sha"] is None  # clean tree → no auto-commit
+
+    head_after = client.get("/api/git/log", params={"limit": 1}).json()[0]["sha"]
+    assert head_after == head_before, (
+        "Restore on a clean tree where target matches HEAD must not "
+        "change HEAD (hotfix #997 short-circuit still applies)."
     )
     # File content unchanged.
     assert target.read_text(encoding="utf-8") == "A"
@@ -206,12 +280,128 @@ def test_branch_create_endpoint(client: TestClient, opened_project: Path) -> Non
 
 
 def test_branch_switch_endpoint(client: TestClient, opened_project: Path) -> None:
+    # Ensure a clean tree first — the opened_project fixture may have
+    # residual untracked state (metadata.db etc).
+    _drain(client)
     client.post("/api/git/branch/create", json={"name": "feature"})
     resp = client.post("/api/git/branch/switch", json={"branch_name": "feature"})
     assert resp.status_code == 200
+    body = resp.json()
+    # ADR-039 Addendum 1 (#1354): the response carries `auto_commit_sha`
+    # (null on a clean tree).
+    assert body["current_branch"] == "feature"
+    assert body["auto_commit_sha"] is None
     branches = client.get("/api/git/branches").json()
     current = next(b for b in branches if b["is_current"])
     assert current["name"] == "feature"
+
+
+def test_branch_switch_auto_commits_dirty_tree(client: TestClient, opened_project: Path) -> None:
+    """ADR-039 Addendum 1 (#1354): a branch switch with a dirty working
+    tree auto-commits the dirty content first via
+    ``engine.commit(prefix="auto", message="pre-switch @ ...")`` and
+    only then runs ``git checkout <branch>``. The pre-addendum behavior
+    was a raw "your local changes would be overwritten" error.
+    """
+    main_yaml = opened_project / "workflows" / "main.yaml"
+    if not main_yaml.exists():
+        main_yaml.parent.mkdir(parents=True, exist_ok=True)
+        main_yaml.write_text("v: 1\n", encoding="utf-8")
+        client.post("/api/git/commit", json={"message": "init main"})
+
+    # Create a feature branch with a different main.yaml content.
+    client.post("/api/git/branch/create", json={"name": "feature"})
+    client.post("/api/git/branch/switch", json={"branch_name": "feature"})
+    main_yaml.write_text("v: feature\n", encoding="utf-8")
+    client.post("/api/git/commit", json={"message": "feature v"})
+
+    # Switch back to main (clean — pre-warm).
+    client.post("/api/git/branch/switch", json={"branch_name": "main"})
+
+    # Now make main dirty in a way that conflicts with feature's
+    # main.yaml — switching back to feature would otherwise fail.
+    main_yaml.write_text("v: WIP\n", encoding="utf-8")
+    assert client.get("/api/git/status").json()["dirty"] is True
+
+    resp = client.post("/api/git/branch/switch", json={"branch_name": "feature"})
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["current_branch"] == "feature"
+    auto_sha = body["auto_commit_sha"]
+    assert auto_sha is not None
+    assert isinstance(auto_sha, str) and len(auto_sha) == 40
+
+    # The auto: pre-switch commit landed on `main` (the old branch).
+    # Switching back to main, that commit must be at the tip.
+    client.post("/api/git/branch/switch", json={"branch_name": "main"})
+    main_log = client.get("/api/git/log", params={"branch": "main", "limit": 5}).json()
+    head_subject = main_log[0]["subject"]
+    assert head_subject.startswith("auto: pre-switch @"), head_subject
+    assert "from=main" in head_subject and "to=feature" in head_subject
+
+
+def test_branch_switch_rejects_unknown_branch_without_mutating_history(
+    client: TestClient, opened_project: Path
+) -> None:
+    """Codex P1 on PR #1378: validate the target branch exists BEFORE
+    creating the auto-commit. Pre-fix, a stale/invalid branch name
+    would cause an ``auto: pre-switch`` commit to land on the OLD
+    branch *and* the endpoint to return an error — non-atomic.
+    """
+    _drain(client)
+    main_yaml = opened_project / "workflows" / "main.yaml"
+    if not main_yaml.exists():
+        main_yaml.parent.mkdir(parents=True, exist_ok=True)
+        main_yaml.write_text("v: 1\n", encoding="utf-8")
+        client.post("/api/git/commit", json={"message": "init"})
+
+    head_before = client.get("/api/git/log", params={"limit": 1}).json()[0]["sha"]
+
+    # Dirty the tree.
+    main_yaml.write_text("v: WIP\n", encoding="utf-8")
+    assert client.get("/api/git/status").json()["dirty"] is True
+
+    resp = client.post(
+        "/api/git/branch/switch",
+        json={"branch_name": "nonexistent-branch"},
+    )
+    assert resp.status_code == 404
+
+    # HEAD must NOT have advanced — no `auto: pre-switch` commit landed.
+    head_after = client.get("/api/git/log", params={"limit": 1}).json()[0]["sha"]
+    assert head_after == head_before, "branch_switch with an invalid target must not mutate history (Codex P1 #1378)."
+    # The dirty content is still in the working tree.
+    assert main_yaml.read_text(encoding="utf-8") == "v: WIP\n"
+
+
+def test_restore_rejects_unknown_commit_without_mutating_history(client: TestClient, opened_project: Path) -> None:
+    """Codex P2 on PR #1378: validate the restore target BEFORE creating
+    the auto-commit. Pre-fix, an invalid commit_sha would mutate
+    history with an `auto: pre-restore` commit *and* the endpoint
+    would return an error — non-atomic.
+    """
+    _drain(client)
+    target = opened_project / "file.yaml"
+    target.write_text("A", encoding="utf-8")
+    client.post("/api/git/commit", json={"message": "A"})
+
+    # Dirty the tree.
+    target.write_text("WIP\n", encoding="utf-8")
+    assert client.get("/api/git/status").json()["dirty"] is True
+
+    head_before = client.get("/api/git/log", params={"limit": 1}).json()[0]["sha"]
+
+    # Try restore with an unknown SHA.
+    resp = client.post(
+        "/api/git/restore",
+        json={"commit_sha": "deadbeef" * 5, "files": ["file.yaml"]},
+    )
+    assert resp.status_code in (404, 500)
+
+    head_after = client.get("/api/git/log", params={"limit": 1}).json()[0]["sha"]
+    assert head_after == head_before, "restore with an invalid commit_sha must not mutate history (Codex P2 #1378)."
+    # Dirty content preserved.
+    assert target.read_text(encoding="utf-8") == "WIP\n"
 
 
 # ---------------------------------------------------------------------------
@@ -414,51 +604,6 @@ def test_cherry_pick_endpoint_clean(client: TestClient, opened_project: Path) ->
     resp = client.post("/api/git/cherry-pick", json={"commit_sha": feat_sha})
     assert resp.status_code == 200
     assert resp.json()["result"] == "clean"
-
-
-# ---------------------------------------------------------------------------
-# Stash CRUD
-# ---------------------------------------------------------------------------
-
-
-def test_stash_save_endpoint(client: TestClient, opened_project: Path) -> None:
-    _drain(client)
-    (opened_project / "wip.txt").write_text("x", encoding="utf-8")
-    resp = client.post("/api/git/stash/save", json={"message": "wip"})
-    assert resp.status_code == 200
-    assert resp.json()["stash_id"].startswith("stash@")
-
-
-def test_stash_list_endpoint(client: TestClient, opened_project: Path) -> None:
-    _drain(client)
-    (opened_project / "wip.txt").write_text("x", encoding="utf-8")
-    client.post("/api/git/stash/save", json={"message": "wip"})
-    resp = client.get("/api/git/stash")
-    assert resp.status_code == 200
-    assert len(resp.json()) >= 1
-
-
-def test_stash_apply_endpoint(client: TestClient, opened_project: Path) -> None:
-    _drain(client)
-    (opened_project / "wip.txt").write_text("x", encoding="utf-8")
-    stash_id = client.post("/api/git/stash/save", json={"message": "wip"}).json()["stash_id"]
-    resp = client.post("/api/git/stash/apply", json={"stash_id": stash_id})
-    assert resp.status_code == 200
-    assert resp.json()["status"] in ("ok", "conflict")
-
-
-def test_stash_drop_endpoint(client: TestClient, opened_project: Path) -> None:
-    _drain(client)
-    (opened_project / "wip.txt").write_text("x", encoding="utf-8")
-    stash_id = client.post("/api/git/stash/save", json={"message": "wip"}).json()["stash_id"]
-    resp = client.delete(f"/api/git/stash/{stash_id}")
-    assert resp.status_code == 200
-
-
-def test_stash_save_clean_409(client: TestClient, opened_project: Path) -> None:
-    _drain(client)
-    resp = client.post("/api/git/stash/save", json={"message": "nothing"})
-    assert resp.status_code == 409
 
 
 # ---------------------------------------------------------------------------

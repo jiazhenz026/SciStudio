@@ -1,0 +1,224 @@
+{
+  "admin_labels": [
+    {
+      "applied_at": "2026-05-21T19:57:00Z",
+      "applied_by": "jiazhenz026",
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "src/scistudio/api/app.py",
+        "frontend/src/components/Git/StashListPanel.tsx",
+        "frontend/src/components/Git/StashApplyDialog.tsx",
+        "frontend/src/components/Git/GitTab.tsx",
+        "frontend/src/components/Git/GitHistoryList.tsx",
+        "frontend/src/components/Git/BranchPicker.tsx",
+        "frontend/src/store/gitSlice.ts",
+        "frontend/src/lib/api.ts",
+        "frontend/src/types/api.ts",
+        "frontend/src/components/Lineage/RunDetail.tsx",
+        "tests/core/test_git_engine.py",
+        "tests/api/test_git_endpoints.py",
+        "frontend/src/store/__tests__/gitSlice.test.ts",
+        "frontend/src/components/Git/__tests__/GitTab.test.tsx",
+        "frontend/src/components/Lineage/__tests__/RunDetail.restore.test.tsx",
+        "CHANGELOG.md"
+      ],
+      "reason": "Add full file write set per dispatch prompt + issue #1354 reference (combined PR per file-collision matrix)"
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "frontend/src/components/BottomPanel.tsx",
+        "frontend/src/components/Toolbar.tsx",
+        "src/scistudio/core/versioning/__init__.py"
+      ],
+      "reason": "Add files touched only for comment/docstring cleanup of stash references"
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1353-remove-stash-and-auto-commit.json",
+        "docs/audit/smoke/2026-05-21-1353-1354-rest-smoke.md"
+      ],
+      "reason": "Add gate-record and smoke evidence to PR scope"
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/planning/adr-039-addendum-1-impl-checklist.md"
+      ],
+      "reason": "Add checklist file to PR scope per dispatch prompt \u00a7Coordination - 'Edit only your checklist rows (## 6 Agent A row and ## 7.3 Implementation rows).'"
+    }
+  ],
+  "branch": "feat/issue-1353-1354/remove-stash-add-auto-commit",
+  "changed_test_paths": [
+    "tests/core/test_git_engine.py",
+    "tests/api/test_git_endpoints.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "Chrome smoke: Lineage Restore on dirty tree shows 'committed as <sha>' hint",
+      "exit_code": 0,
+      "name": "full_audit",
+      "output_path": "docs/audit/smoke/2026-05-21-1353-1354-rest-smoke.md",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1353-remove-stash-and-auto-commit.json",
+    "shas": [
+      "42c41572d00476994156d268a278bfd173d0db08"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/adr-039-addendum-1-impl-checklist.md"
+      ]
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "ADR-039 \u00a711 Addendum 1 already merged via PR #1358; this PR only implements the addendum's cancellations and replacements per the documented scope. No new ADR or spec required."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "scistudio.qa.audit.full_audit JSON",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1353,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1353"
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1354,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1354"
+    }
+  ],
+  "owner_directive": "Implement ADR-039 Addendum 1 \u00a711: remove all git stash affordances (GUI/REST/engine) per #1353 and replace dirty-tree branch switch + restore with auto-commit per #1354. Two atomic commits required (pure deletion, then pure addition). Targets umbrella/adr-039-addendum-1-impl, NOT main.",
+  "planned_files": [
+    "src/scistudio/core/versioning/git_engine.py",
+    "src/scistudio/api/routes/git.py",
+    "frontend/src/components/Git/StashListPanel.tsx",
+    "frontend/src/components/Git/StashApplyDialog.tsx",
+    "frontend/src/components/Git/GitTab.tsx",
+    "frontend/src/components/Git/GitHistoryList.tsx",
+    "frontend/src/components/Git/BranchPicker.tsx",
+    "frontend/src/store/gitSlice.ts",
+    "frontend/src/lib/api.ts",
+    "frontend/src/types/api.ts",
+    "frontend/src/components/Lineage/RunDetail.tsx",
+    "tests/core/test_git_engine.py",
+    "tests/api/test_git_endpoints.py",
+    "frontend/src/store/__tests__/gitSlice.test.ts",
+    "frontend/src/components/Git/__tests__/GitTab.test.tsx",
+    "frontend/src/components/Lineage/__tests__/RunDetail.restore.test.tsx",
+    "CHANGELOG.md"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1353,
+      1354
+    ],
+    "number": 1378,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1378"
+  },
+  "record_path": ".workflow/records/1353-remove-stash-and-auto-commit.json",
+  "required_checks": [
+    "ruff check .",
+    "ruff format --check .",
+    "pytest tests/core/test_git_engine.py tests/api/test_git_endpoints.py -v --timeout=60",
+    "frontend vitest: gitSlice + GitTab + RunDetail.restore",
+    "scistudio.qa.audit.full_audit JSON",
+    "sentrux session_start/scan/check_rules/session_end",
+    "Chrome smoke: Lineage Restore on dirty tree shows 'committed as <sha>' hint"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/core/versioning/git_engine.py",
+      "src/scistudio/api/routes/git.py"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": null,
+    "pro_required": false,
+    "quality_signal": 4444.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1353-remove-stash-and-auto-commit",
+  "task_kind": "feature"
+}

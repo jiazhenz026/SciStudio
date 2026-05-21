@@ -544,18 +544,19 @@ export function workflowYamlPathForRun(run: { workflow_id: string }): string {
  */
 export async function runRestoreWorkflow(
   run: RunRecordForRestore,
-): Promise<{ status: "ok" | "stashed"; stash_id?: string }> {
+): Promise<{ status: "ok"; auto_commit_sha: string | null }> {
   if (!run.workflow_git_commit) {
     throw new Error(
       "This run has no recorded git commit (degraded mode). Restore unavailable.",
     );
   }
-  // Hotfix #997: forward the backend's `status` / `stash_id` so the UI
-  // can surface "Your unsaved changes were stashed as <id>" when the
-  // working tree was dirty. Pre-fix the helper returned `void` and the
-  // stash entry accumulated invisibly — repeat clicks under a dirty
-  // tree piled up stash refs that confused users with "lots of new
-  // commits" (stash refs render as commit nodes in the graph).
+  // ADR-039 Addendum 1 (#1354): the backend auto-commits any dirty
+  // working-tree state BEFORE the soft restore and returns
+  // `auto_commit_sha`. We forward the full result so the caller can
+  // surface "Your unsaved changes were committed as <sha>" — the
+  // user-reported Lineage-Restore confusion was specifically the
+  // pre-addendum amber "stashed as <id>" message; this replacement
+  // copy uses language the four-op user model already understands.
   const result = await api.gitRestore({
     commit_sha: run.workflow_git_commit,
     files: [workflowYamlPathForRun(run)],
@@ -581,21 +582,24 @@ interface RestoreWorkflowButtonProps {
 export function RestoreWorkflowButton({ run, onRestored }: RestoreWorkflowButtonProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Hotfix #997: surface backend's stash status so dirty-tree restores
-  // are not silent. The hint clears on the next click.
-  const [stashHint, setStashHint] = useState<string | null>(null);
+  // ADR-039 Addendum 1 (#1354): replaces the pre-addendum amber
+  // "stashed as <id>" hint. The user-reported Lineage Restore
+  // confusion was caused by stash drawer language the four-op user
+  // model does not include. Copy now uses History tab terminology
+  // every user already understands.
+  const [autoCommitHint, setAutoCommitHint] = useState<string | null>(null);
 
   const disabled = busy || !run.workflow_git_commit;
 
   const handleClick = async () => {
     setError(null);
-    setStashHint(null);
+    setAutoCommitHint(null);
     setBusy(true);
     try {
       const result = await runRestoreWorkflow(run);
-      if (result.status === "stashed" && result.stash_id) {
-        setStashHint(
-          `Your unsaved changes were stashed as ${result.stash_id} — recover via Git tab → Stashes.`,
+      if (result.auto_commit_sha) {
+        setAutoCommitHint(
+          `Your unsaved changes were committed as ${result.auto_commit_sha.slice(0, 7)} before the restore — see History tab to revert if unintended.`,
         );
       }
       onRestored?.();
@@ -631,13 +635,13 @@ export function RestoreWorkflowButton({ run, onRestored }: RestoreWorkflowButton
           {error}
         </div>
       )}
-      {stashHint && !error && (
+      {autoCommitHint && !error && (
         <div
-          className="run-detail__restore-stash-hint mt-1 text-xs text-amber-700"
+          className="run-detail__restore-auto-commit-hint mt-1 text-xs text-stone-600"
           role="status"
-          data-testid="run-detail-restore-stash-hint"
+          data-testid="run-detail-restore-auto-commit-hint"
         >
-          {stashHint}
+          {autoCommitHint}
         </div>
       )}
     </div>

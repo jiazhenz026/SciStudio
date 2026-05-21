@@ -287,6 +287,48 @@ def test_restore_round_trip(tmp_path: Path) -> None:
     assert head_sha == sha_b
 
 
+def test_restore_does_not_auto_handle_dirty_tree(tmp_path: Path) -> None:
+    """ADR-039 Addendum 1 (#1354): the engine.restore method is now a
+    pure soft restore — it does NOT auto-stash or auto-commit a dirty
+    tree. The auto-commit responsibility lives at the route layer
+    (``scistudio.api.routes.git::restore``). This test pins the engine
+    contract: ``restore`` against a dirty tree either succeeds without
+    creating a new commit (if git allows the checkout) or raises the
+    raw ``GitError`` (which the route layer catches AFTER it has
+    already auto-committed).
+    """
+    engine = _init_engine(tmp_path)
+    target = tmp_path / "file.yaml"
+    target.write_text("A", encoding="utf-8")
+    sha_a = engine.commit("version A")
+    target.write_text("B", encoding="utf-8")
+    sha_b = engine.commit("version B")
+
+    head_count_before = len(engine.log(limit=100))
+
+    # Dirty an unrelated file. The hotfix #997 short-circuit applies
+    # because the target file ('file.yaml') already matches sha_b on
+    # disk, so engine.restore short-circuits to a no-op even though
+    # `other.txt` is dirty.
+    (tmp_path / "other.txt").write_text("dirty unrelated", encoding="utf-8")
+
+    engine.restore(sha_b, files=["file.yaml"])
+
+    # No new commits were created by engine.restore itself — confirms
+    # the auto-handler is at the route layer, not the engine.
+    head_count_after = len(engine.log(limit=100))
+    assert head_count_after == head_count_before, (
+        "engine.restore must not create commits — that responsibility "
+        "moved to the route layer in ADR-039 Addendum 1 (#1354)."
+    )
+    # HEAD still at sha_b.
+    assert engine.head_state().commit_sha == sha_b
+    # The unrelated dirty file is still dirty (engine didn't stash it).
+    assert engine.status()["dirty"] is True
+    # Suppress unused-binding warning for the original sha.
+    _ = sha_a
+
+
 # ---------------------------------------------------------------------------
 # Branch ops
 # ---------------------------------------------------------------------------
@@ -478,30 +520,6 @@ def test_cherry_pick_conflict_same_shape_as_merge(tmp_path: Path) -> None:
     assert result["result"] == "conflict"
     assert "a.txt" in result["conflicted_files"]
     engine.merge_abort()
-
-
-# ---------------------------------------------------------------------------
-# Stash CRUD
-# ---------------------------------------------------------------------------
-
-
-def test_stash_save_apply_drop_cycle(tmp_path: Path) -> None:
-    engine = _init_engine(tmp_path)
-    (tmp_path / "a.txt").write_text("a", encoding="utf-8")
-    engine.commit("add a")
-    (tmp_path / "a.txt").write_text("dirty", encoding="utf-8")
-    stash_id = engine.stash_save("WIP")
-    assert engine.status()["dirty"] is False
-    engine.stash_apply(stash_id)
-    assert engine.status()["dirty"] is True
-    engine.stash_drop(stash_id)
-    assert engine.stash_list() == []
-
-
-def test_stash_save_clean_tree_raises(tmp_path: Path) -> None:
-    engine = _init_engine(tmp_path)
-    with pytest.raises(GitError):
-        engine.stash_save("WIP")
 
 
 # ---------------------------------------------------------------------------

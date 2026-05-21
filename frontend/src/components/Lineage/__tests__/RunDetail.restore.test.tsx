@@ -30,7 +30,7 @@ import {
 
 vi.mock("../../../lib/api", () => ({
   api: {
-    gitRestore: vi.fn().mockResolvedValue({ status: "ok" }),
+    gitRestore: vi.fn().mockResolvedValue({ status: "ok", auto_commit_sha: null }),
   },
 }));
 
@@ -109,5 +109,50 @@ describe("RestoreWorkflowButton", () => {
       });
       expect(onRestored).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("on click with auto_commit_sha present, surfaces 'committed as <sha>' hint and NO stash language (ADR-039 Addendum 1 / #1354)", async () => {
+    // Re-prime the mock to return an auto-commit SHA.
+    (api.gitRestore as any).mockResolvedValueOnce({
+      status: "ok",
+      auto_commit_sha: "ab12345deadbeef" + "0".repeat(25),
+    });
+    render(
+      <RestoreWorkflowButton
+        run={{ run_id: "r1", workflow_id: "main", workflow_git_commit: "deadbeef1234" }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /restore this run/i }));
+    await waitFor(() => {
+      const hint = screen.getByTestId("run-detail-restore-auto-commit-hint");
+      expect(hint.textContent ?? "").toMatch(
+        /Your unsaved changes were committed as ab12345 before the restore — see History tab to revert if unintended/,
+      );
+      // The pre-addendum amber "stashed as ..." hint must not appear.
+      expect(hint.textContent ?? "").not.toMatch(/stash/i);
+    });
+    // Old stash-hint testid must not be in the DOM either.
+    expect(
+      screen.queryByTestId("run-detail-restore-stash-hint"),
+    ).toBeNull();
+  });
+
+  it("on click with auto_commit_sha=null, no auto-commit hint renders (clean tree)", async () => {
+    (api.gitRestore as any).mockResolvedValueOnce({
+      status: "ok",
+      auto_commit_sha: null,
+    });
+    render(
+      <RestoreWorkflowButton
+        run={{ run_id: "r1", workflow_id: "main", workflow_git_commit: "deadbeef1234" }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /restore this run/i }));
+    await waitFor(() => {
+      expect(api.gitRestore).toHaveBeenCalled();
+    });
+    expect(
+      screen.queryByTestId("run-detail-restore-auto-commit-hint"),
+    ).toBeNull();
   });
 });

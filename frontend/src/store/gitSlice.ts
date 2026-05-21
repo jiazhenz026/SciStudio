@@ -32,9 +32,6 @@
  *       Working-tree status from `GET /api/git/status`. Refreshed on
  *       `git.head_changed` events (via useWebSocket.ts → invalidateAll).
  *       The toolbar GitStatusBadge renders the `dirty` boolean.
- *   stashes:          GitStashEntry[] | null
- *       Cached from `GET /api/git/stash`. The StashListPanel consults this
- *       and `loadStashes()` refreshes.
  *   mergeInProgress:  { source_branch: string; conflicted_files: string[] } | null
  *       Set by `MergeFlow.tsx` (D39-2.4a, NOT THIS SKELETON) when a merge
  *       returns "conflict". `null` outside of a conflict resolution flow.
@@ -105,7 +102,6 @@ import type {
   GitCommit,
   GitCommitPrefix,
   GitHistoryFilter,
-  GitStashEntry,
   GitStatus,
 } from "../types/api";
 import type { AppStore } from "./types";
@@ -145,9 +141,20 @@ export interface GitSlice {
   logLoading: Record<string, boolean>;
   historyFilter: GitHistoryFilter;
   status: GitStatus | null;
-  stashes: GitStashEntry[] | null;
   mergeInProgress: GitMergeInProgress | null;
   lastError: string | null;
+  /**
+   * ADR-039 Addendum 1 (#1354) — transient "safety auto-commit landed"
+   * notice. Set by `switchBranch` / `restore` when the backend
+   * response carries a non-null `auto_commit_sha`, consumed by
+   * `BranchPicker` (toast on switch) and `RestoreWorkflowButton`
+   * (inline hint on restore). Components clear it via
+   * `setLastNotice(null)` after rendering, mirroring the
+   * `lastError` lifecycle. Kept distinct from `lastError` so
+   * downstream UI does not confuse "your change was committed
+   * safely" with "something failed".
+   */
+  lastNotice: string | null;
   /**
    * ADR-039 §3.5 (#972 — Codex P1 on PR #974) — branch the user clicked
    * "Merge into current" on. Driving this from the slice (rather than
@@ -177,15 +184,14 @@ export interface GitSlice {
   loadBranches: () => Promise<void>;
   loadLog: (branch?: string) => Promise<void>;
   loadStatus: () => Promise<void>;
-  loadStashes: () => Promise<void>;
   commit: (message: string, files?: string[]) => Promise<string>;
-  switchBranch: (name: string) => Promise<void>;
+  switchBranch: (name: string) => Promise<{ auto_commit_sha: string | null }>;
   createBranch: (name: string, baseSha?: string) => Promise<void>;
   deleteBranch: (name: string, force?: boolean) => Promise<void>;
   restore: (
     commitSha: string,
     files?: string[],
-  ) => Promise<{ status: "ok" } | { status: "stashed"; stash_id: string }>;
+  ) => Promise<{ status: "ok"; auto_commit_sha: string | null }>;
   setMergeInProgress: (state: GitMergeInProgress | null) => void;
   /**
    * Open or close MergeFlow. `source` is the branch being merged into
@@ -197,6 +203,7 @@ export interface GitSlice {
    */
   setMergeFlowSource: (source: string | null, projectId?: string | null) => void;
   setLastError: (message: string | null) => void;
+  setLastNotice: (message: string | null) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -261,19 +268,19 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
   logLoading: {},
   historyFilter: "manual",
   status: null,
-  stashes: null,
   mergeInProgress: null,
   mergeFlowSource: null,
   mergeFlowProjectId: null,
   lastError: null,
+  lastNotice: null,
 
   setHistoryFilter: (filter) => set({ historyFilter: filter }),
 
   invalidateHistory: () => {
     // Clear cached log / status / branch list. Called from useWebSocket on
     // `git.head_changed` and from any other action that needs to discard
-    // stale git state (commit, switch, restore, merge resolve, stash apply).
-    set({ logCache: {}, status: null, branches: null, stashes: null });
+    // stale git state (commit, switch, restore, merge resolve).
+    set({ logCache: {}, status: null, branches: null });
     // #984 fix: actively re-fetch instead of waiting for "the next consumer
     // render" — no consumer (BranchPicker, GitHistoryList, GitStatusBadge)
     // is wired to re-fetch on state=null. They only call their respective
@@ -284,10 +291,6 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
     void get().loadBranches();
     void get().loadStatus();
     void get().loadLog();
-    // Stashes refetch is intentionally skipped — the stash panel runs
-    // its own useEffect and the cost of an always-on stash poll on
-    // every external git op outweighs the benefit on the small minority
-    // of sessions that have the stash drawer open mid-flow.
   },
 
   setMergeInProgress: (state) => set({ mergeInProgress: state }),
@@ -304,6 +307,7 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
       mergeFlowProjectId: source === null ? null : (projectId ?? null),
     }),
   setLastError: (message) => set({ lastError: message }),
+  setLastNotice: (message) => set({ lastNotice: message }),
 
   loadBranches: async () => {
     try {
@@ -342,15 +346,6 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
     }
   },
 
-  loadStashes: async () => {
-    try {
-      const stashes = await api.gitStashList();
-      set({ stashes, lastError: null });
-    } catch (err) {
-      set({ lastError: describeApiError(err, "Failed to load stashes") });
-    }
-  },
-
   commit: async (message: string, files?: string[]) => {
     try {
       const resp = await api.gitCommit({ message, files });
@@ -370,12 +365,26 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
 
   switchBranch: async (name: string) => {
     try {
-      await api.gitBranchSwitch(name);
+      const oldBranch = get().currentBranch;
+      const result = await api.gitBranchSwitch(name);
+      const autoSha = result.auto_commit_sha ?? null;
       // Clear all caches; HEAD moved.
-      set({ logCache: {}, status: null, branches: null, lastError: null });
+      set({
+        logCache: {},
+        status: null,
+        branches: null,
+        lastError: null,
+        // ADR-039 Addendum 1 (#1354) — surface the safety auto-commit
+        // to the user via a transient toast. `BranchPicker` consumes
+        // `lastNotice` and clears it on its next mount cycle.
+        lastNotice: autoSha
+          ? `Auto-committed unsaved changes on ${oldBranch ?? "previous branch"} as ${autoSha.slice(0, 7)} before switching to ${name}.`
+          : null,
+      });
       await get().loadBranches();
       void get().loadStatus();
       void get().loadLog(name);
+      return { auto_commit_sha: autoSha };
     } catch (err) {
       set({ lastError: describeApiError(err, `Failed to switch to '${name}'`) });
       throw err;
@@ -406,13 +415,23 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
 
   restore: async (commitSha: string, files?: string[]) => {
     try {
-      // Codex P2-A on PR #940: forward the `{status,stash_id}` response so
-      // callers (GitHistoryList) can open StashApplyDialog when a dirty tree
-      // was auto-stashed. Dropping this payload made restore-on-dirty look
-      // like silent data disappearance.
       const result = await api.gitRestore({ commit_sha: commitSha, files });
-      set({ status: null, lastError: null });
+      const autoSha = result.auto_commit_sha ?? null;
+      set({
+        status: null,
+        lastError: null,
+        // ADR-039 Addendum 1 (#1354) — surface the auto-commit hint to
+        // the user. `RestoreWorkflowButton` consumes `lastNotice` (or
+        // reads `auto_commit_sha` directly from the awaited result;
+        // either path is supported).
+        lastNotice: autoSha
+          ? `Your unsaved changes were committed as ${autoSha.slice(0, 7)} before the restore — see History tab to revert if unintended.`
+          : null,
+      });
       void get().loadStatus();
+      // History changed — reload the active log so the new auto:
+      // pre-restore commit shows up immediately.
+      if (autoSha) void get().loadLog();
       return result;
     } catch (err) {
       set({ lastError: describeApiError(err, "Restore failed") });

@@ -16,7 +16,6 @@ import { GitDiffModal } from "./GitDiffModal";
 import { GraphSVG } from "./GitGraph/GraphSVG";
 import { useGraphData } from "./GitGraph/integration";
 import { useGraphInteractions } from "./GitGraph/interactions";
-import { StashApplyDialog } from "./StashApplyDialog";
 
 const PREFIX_ICON: Record<string, string> = {
   auto: "·",
@@ -55,9 +54,6 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
 
   // Internal diff modal state — opened by default if onCommitClick not given.
   const [diffOpen, setDiffOpen] = useState<{ from: string; to?: string } | null>(null);
-  // Codex P2-A on PR #940: when restore auto-stashes, surface the
-  // StashApplyDialog so the user can choose Apply / Keep / Discard.
-  const [stashPrompt, setStashPrompt] = useState<string | null>(null);
   // ADR-039 §3.5b / D39-2.4b — view toggle: list vs branch graph.
   // Hotfix #1000: default Git tab view is Graph (per Phase 4a feedback —
   // graph is the primary affordance; List is a fallback for plain text).
@@ -98,22 +94,13 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
         return;
       }
       const ok = window.confirm(
-        `Restore files from commit ${commit.short_sha}?\n\n${commit.subject}\n\nThis will overwrite the working tree (uncommitted changes will be auto-stashed).`,
+        `Restore files from commit ${commit.short_sha}?\n\n${commit.subject}\n\nThis will overwrite the working tree.`,
       );
       if (!ok) return;
-      // Codex P2-A on PR #940: open StashApplyDialog when the backend
-      // auto-stashed the dirty tree (ADR-039 §3.6) so the user sees where
-      // their unsaved edits went.
-      void restore(commit.sha)
-        .then((result) => {
-          if (result && result.status === "stashed") {
-            setStashPrompt(result.stash_id);
-          }
-        })
-        .catch((err) => {
-          // eslint-disable-next-line no-console
-          console.warn("[GitHistoryList] restore failed:", err);
-        });
+      void restore(commit.sha).catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn("[GitHistoryList] restore failed:", err);
+      });
     },
     [onRestoreClick, restore],
   );
@@ -316,14 +303,6 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
           from={diffOpen.from}
           to={diffOpen.to}
           onClose={() => setDiffOpen(null)}
-        />
-      )}
-
-      {stashPrompt !== null && (
-        <StashApplyDialog
-          open={true}
-          stashId={stashPrompt}
-          onClose={() => setStashPrompt(null)}
         />
       )}
     </div>
