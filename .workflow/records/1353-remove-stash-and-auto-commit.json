@@ -1,5 +1,10 @@
 {
-  "admin_labels": [],
+  "admin_labels": [
+    {
+      "name": "admin-approved:core-change",
+      "rationale": "Per ADR-039 Addendum 1 (#1352, merged via #1358) the stash code in src/scistudio/core/versioning/git_engine.py is explicitly slated for removal in this issue (#1353); the version-controlled __init__.py docstring is a trailing cleanup of the same module. Owner approved the scope in the manager dispatch plan at ~/.claude/plans/manager-indexed-catmull.md and in the dispatch prompt docs/planning/dispatch-prompts/agent-A-1353-1354.md (Scope section explicitly enumerates the deletions in git_engine.py)."
+    }
+  ],
   "amendments": [
     {
       "approved_by": null,
