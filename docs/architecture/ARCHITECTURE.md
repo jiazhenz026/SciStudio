@@ -879,12 +879,41 @@ schema.
 
 #### 5.4.7 SubWorkflowBlock
 
-`SubWorkflowBlock` lets a workflow be reused as a single block inside another
-workflow. It is the composition mechanism for reusable sub-pipelines and
-hierarchical workflows.
+`SubWorkflowBlock` lets a workflow be referenced as a single node inside
+another workflow. It is the canvas-readability mechanism for collapsing
+sub-pipelines.
 
-Important class attributes include ports that map parent workflow values into
-child workflow inputs and child outputs back to the parent node.
+**Current state.** The class in
+`src/scistudio/blocks/subworkflow/subworkflow_block.py` is a runtime stub: it
+executes child blocks via an in-process sequential executor with engine-side
+`_scheduler_factory` and `_cleanup_callback` injection points. Issue #890
+tracks the gap, and the stub is not used by any production workflow YAML.
+
+**Planned state (ADR-044, accepted 2026-05-21).** `SubWorkflowBlock` becomes
+an authoring-only container. A node in a workflow YAML carries only a
+reference to an external subworkflow file (`config.ref.path`). At run start
+(`ApiRuntime.start_workflow`), a parser-layer flattener
+(`WorkflowDefinition.flatten_subworkflows`) replaces every `SubWorkflowBlock`
+node with a prefixed copy of the referenced subworkflow's blocks and edges
+before scheduler dispatch. The editor sees the authored graph (with
+`SubWorkflowBlock` containers intact) so that subsequent saves preserve the
+on-disk YAML; per-node port handles and dangling-edge detection in the
+editor use the existing dynamic-ports mechanism on `SubWorkflowBlock`, not
+whole-graph flattening. The scheduler always receives a flat DAG and never
+observes a `SubWorkflowBlock` at runtime. The lineage record's
+`workflow_yaml_snapshot` captures the flattened YAML, so reproducibility of
+past runs is preserved automatically. Per-reference reproducibility against
+future edits is delegated to git (branches or tags), not embedded in the
+tool.
+
+The planned state deletes the existing scheduler-injection scaffold and
+closes issue #890 via the implementation PR. The post-ADR class is a thin
+authoring-time shell with dynamic port derivation from the referenced
+subworkflow's `exposed_ports`, and double-click on the canvas node opens
+the referenced file in its own editor tab.
+
+See ADR-044 (`docs/adr/ADR-044.md`) and the implementation spec
+(`docs/specs/adr-044-subworkflow-block.md`) for the full contract.
 
 ### 5.5 Port System
 

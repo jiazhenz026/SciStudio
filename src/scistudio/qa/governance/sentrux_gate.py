@@ -11,6 +11,7 @@ from typing import Any, cast
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from scistudio.qa.governance.paths import is_gate_record_path
 from scistudio.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
 FREE_TIER_MODE = "free-tier"
@@ -217,6 +218,11 @@ def sentrux_applies_to_changes(changed_files: Sequence[str] | None) -> bool:
         return True
     for path in changed_files:
         normalized = path.replace("\\", "/")
+        # Gate-record evidence files live under .workflow/ but are per-PR
+        # audit trail, not architectural surface (#1362). Skip them so a
+        # records-only diff does not falsely require a fresh Sentrux scan.
+        if is_gate_record_path(normalized):
+            continue
         if normalized in _GOVERNANCE_FILES:
             return True
         if normalized.startswith(_SOURCE_PREFIXES + _WORKFLOW_PREFIXES + _ARCHITECTURE_DOC_PREFIXES):
