@@ -1,0 +1,165 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Vitest classifier broadened + 26 unit tests added; no scope change vs original include set"
+    }
+  ],
+  "branch": "fix/issue-1389/test-path-vitest",
+  "changed_test_paths": [
+    "tests/qa/test_gate_record.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "651 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "pytest tests/qa/test_gate_record.py --no-cov --timeout=60",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "53 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "no-architecture-change-bug-fix-only"
+    },
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "standalone-fix-not-part-of-coordinated-dispatch"
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "no-user-facing-docs-required"
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "no-public-contract-change"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1389,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1389"
+    }
+  ],
+  "owner_directive": "Broaden _is_test_path to recognize vitest co-located tests (*.test.{ts,tsx}, *.spec.{ts,tsx}, __tests__/**). Gap 1 of #1389; gap 2 already closed by PR #1385.",
+  "planned_files": [
+    "src/scistudio/qa/governance/gate_record.py",
+    "tests/qa/test_gate_record.py",
+    "CHANGELOG.md"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1389-test-path-vitest.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/qa/governance/gate_record.py",
+      "tests/qa/test_gate_record.py",
+      "CHANGELOG.md",
+      ".workflow/records/1389-test-path-vitest.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "MCP scan+check_rules+health: pass, rules_checked=3/15, violation_count=0, quality_signal=4444, files=1121",
+    "pro_required": false,
+    "quality_signal": 4444.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1389-test-path-vitest",
+  "task_kind": "bugfix"
+}
