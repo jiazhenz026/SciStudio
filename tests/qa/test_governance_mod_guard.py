@@ -4,6 +4,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from scieasy.qa.governance import mod_guard
 from scieasy.qa.schemas.report import AuditStatus
 
@@ -53,6 +55,28 @@ def test_mod_guard_blocks_protected_staged_change_without_approval(tmp_path: Pat
     assert [finding.file for finding in report.findings] == [".pre-commit-config.yaml"]
 
 
+def test_mod_guard_allows_gate_record_without_approval(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    _write(repo, ".workflow/records/123-example.json", "{}\n")
+    _git(repo, "add", ".")
+
+    report = mod_guard.check(repo, staged=True)
+
+    assert report.status == AuditStatus.PASS
+    assert report.summary["changed_protected_files"] == []
+
+
+def test_mod_guard_still_blocks_non_record_workflow_change_without_approval(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    _write(repo, ".workflow/gate-record.schema.json", "{}\n")
+    _git(repo, "add", ".")
+
+    report = mod_guard.check(repo, staged=True)
+
+    assert report.status == AuditStatus.FAIL
+    assert [finding.file for finding in report.findings] == [".workflow/gate-record.schema.json"]
+
+
 def test_mod_guard_allows_protected_change_with_explicit_flag(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     _write(repo, "src/scieasy/qa/governance/mod_guard.py", "print('changed')\n")
@@ -64,7 +88,9 @@ def test_mod_guard_allows_protected_change_with_explicit_flag(tmp_path: Path) ->
     assert report.summary["changed_protected_files"] == ["src/scieasy/qa/governance/mod_guard.py"]
 
 
-def test_mod_guard_allows_protected_change_with_environment_override(tmp_path: Path, monkeypatch) -> None:
+def test_mod_guard_allows_protected_change_with_environment_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     repo = _init_repo(tmp_path)
     _write(repo, "tests/qa/test_example.py", "def test_example():\n    assert True\n")
     _git(repo, "add", ".")
@@ -76,7 +102,7 @@ def test_mod_guard_allows_protected_change_with_environment_override(tmp_path: P
     assert os.environ[mod_guard.APPROVAL_ENV] == "1"
 
 
-def test_mod_guard_accepts_adr042_local_bypass_labels(tmp_path: Path, monkeypatch) -> None:
+def test_mod_guard_accepts_adr042_local_bypass_labels(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     repo = _init_repo(tmp_path)
     _write(repo, ".pre-commit-config.yaml", "repos:\n  - repo: local\n")
     _git(repo, "add", ".")
@@ -88,7 +114,7 @@ def test_mod_guard_accepts_adr042_local_bypass_labels(tmp_path: Path, monkeypatc
     assert report.summary["bypassed"] is True
 
 
-def test_mod_guard_rejects_invalid_adr042_local_bypass_label(tmp_path: Path, monkeypatch) -> None:
+def test_mod_guard_rejects_invalid_adr042_local_bypass_label(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     repo = _init_repo(tmp_path)
     _write(repo, ".pre-commit-config.yaml", "repos:\n  - repo: local\n")
     _git(repo, "add", ".")
