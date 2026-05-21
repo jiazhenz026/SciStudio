@@ -26,7 +26,7 @@
   "commit": {
     "gate_record_path": ".workflow/records/audit-issue-triage-20260521.json",
     "shas": [
-      "05e9884b"
+      "916185b5"
     ],
     "trailers": {}
   },
@@ -73,8 +73,8 @@
     "body_closes_issues": [
       1398
     ],
-    "number": null,
-    "url": null
+    "number": 1399,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1399"
   },
   "record_path": ".workflow/records/audit-issue-triage-20260521.json",
   "required_checks": [
