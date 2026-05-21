@@ -301,6 +301,17 @@ class NativeDialogResponse(BaseModel):
 _last_used_directory: str | None = None
 
 
+def _ps_single_quote_escape(value: str) -> str:
+    """Escape ``'`` for embedding inside a PowerShell single-quoted string.
+
+    PowerShell literal-quotes a single quote inside ``'...'`` by doubling
+    it (``''``). Workflow names like ``Bob's run`` would otherwise break
+    the dialog script syntax (#617).
+    """
+
+    return value.replace("'", "''")
+
+
 def _native_dialog_windows(
     mode: str,
     initial_dir: str | None,
@@ -314,6 +325,13 @@ def _native_dialog_windows(
     For file mode the list may contain multiple files.
     For save_file mode the list contains at most one element.
     """
+    # Escape ``'`` -> ``''`` in any user-controllable value before
+    # interpolating into PowerShell single-quoted strings (#617).
+    safe_initial_dir = _ps_single_quote_escape(initial_dir or "")
+    safe_default_filename = _ps_single_quote_escape(default_filename or "")
+    safe_file_filter = _ps_single_quote_escape(
+        file_filter or "YAML files (*.yaml)|*.yaml|All files (*.*)|*.*"
+    )
     if mode == "directory":
         # Use modern IFileOpenDialog COM with FOS_PICKFOLDERS for Vista+ style
         # instead of the legacy Win2000-era FolderBrowserDialog.
@@ -390,14 +408,13 @@ public static class FolderPicker {
             "if ($result) { $result } else { '' }"
         )
     elif mode == "save_file":
-        filter_str = file_filter or "YAML files (*.yaml)|*.yaml|All files (*.*)|*.*"
         ps_script = (
             "Add-Type -AssemblyName System.Windows.Forms;"
             "[System.Windows.Forms.Application]::EnableVisualStyles();"
             "$d = New-Object System.Windows.Forms.SaveFileDialog;"
-            f"$d.InitialDirectory = '{initial_dir or ''}';"
-            f"$d.FileName = '{default_filename or ''}';"
-            f"$d.Filter = '{filter_str}';"
+            f"$d.InitialDirectory = '{safe_initial_dir}';"
+            f"$d.FileName = '{safe_default_filename}';"
+            f"$d.Filter = '{safe_file_filter}';"
             "if ($d.ShowDialog() -eq 'OK') { $d.FileName } else { '' }"
         )
     else:
@@ -408,7 +425,7 @@ public static class FolderPicker {
             "[System.Windows.Forms.Application]::EnableVisualStyles();"
             "$d = New-Object System.Windows.Forms.OpenFileDialog;"
             "$d.Multiselect = $true;"
-            f"$d.InitialDirectory = '{initial_dir or ''}';"
+            f"$d.InitialDirectory = '{safe_initial_dir}';"
             "if ($d.ShowDialog() -eq 'OK') { ($d.FileNames -join '|') } else { '' }"
         )
     # No timeout: this is a desktop-local server and the user may legitimately
