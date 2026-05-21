@@ -50,7 +50,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1366-port-capability-clear.json",
+    "shas": [
+      "f518c47cfcaf20449016c15f6c6103d0420b5476"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -101,7 +107,13 @@
     "docs/planning/2026-05-21-bug-sweep-checklist.md",
     ".workflow/records/1366-port-capability-clear.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1366
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1397"
+  },
   "record_path": ".workflow/records/1366-port-capability-clear.json",
   "required_checks": [
     "ruff",
@@ -168,7 +180,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
