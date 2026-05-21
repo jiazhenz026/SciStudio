@@ -1,6 +1,13 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": "owner",
+      "exclude": [],
+      "include": [],
+      "reason": "no scope changes; live hotfix session covered the planned files exactly"
+    }
+  ],
   "branch": "hotfix/gui-bugs-20260521",
   "changed_test_paths": [
     "tests/api/test_runs_routes.py",
@@ -44,7 +51,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1320-gui-bugs-20260521.json",
+    "shas": [
+      "ff22eb666ddb34f933c006b10f8da93e5423c168"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -54,8 +67,17 @@
       "rationale": "5 small bug fixes (terminal rendering, rerun event loop, config UX, format consolidation, MCP auto-open); no public-API or schema changes that require user-facing docs. Save Image schema removal of lowercase format is UI-only \u2014 workflow YAMLs continue to load via backward-compat path in _resolve_format."
     }
   },
-  "full_audit": null,
-  "governance_touch": false,
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "manual self-audit of 5 file diffs against owner directive + all unit+sentrux+tsc evidence",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": ".workflow/records/1320-full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
   "issues": [
     {
       "close_in_pr": true,
@@ -75,7 +97,13 @@
     "frontend/src/hooks/useWebSocket.ts",
     "frontend/src/hooks/useWebSocket.test.ts"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1320
+    ],
+    "number": 1321,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1321"
+  },
   "record_path": ".workflow/records/1320-gui-bugs-20260521.json",
   "required_checks": [
     "frontend tsc",
@@ -119,7 +147,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
@@ -137,7 +165,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
