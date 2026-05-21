@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from scistudio.blocks.base.state import BlockState
 from scistudio.blocks.code.code_block import CodeBlock, CodeBlockMigrationError
 from scistudio.blocks.code.introspect import introspect_script
 from scistudio.blocks.code.runners.python_runner import PythonRunner
@@ -75,13 +74,11 @@ class TestCodeBlockInline:
 
     def test_inline_execution_reports_migration(self) -> None:
         block = CodeBlock(config={"params": {"script": "result = 42"}})
-        block.transition(BlockState.READY)
         with pytest.raises(CodeBlockMigrationError, match="Inline CodeBlock configs are not valid"):
             block.run({}, block.config)
 
     def test_inline_with_input_reports_migration(self) -> None:
         block = CodeBlock(config={"params": {"script": "output = data * 2"}})
-        block.transition(BlockState.READY)
         with pytest.raises(CodeBlockMigrationError, match="Inline CodeBlock configs are not valid"):
             block.run({"data": 10}, block.config)
 
@@ -93,7 +90,6 @@ class TestCodeBlockScript:
         script = tmp_path / "block_script.py"
         script.write_text("def run(inputs, config):\n    return {'result': sum(inputs.get('values', []))}\n")
         block = CodeBlock(config={"params": {"project_dir": str(tmp_path), "script_path": "block_script.py"}})
-        block.transition(BlockState.READY)
         with pytest.raises(CodeBlockMigrationError, match="does not call entry functions"):
             block.run({}, block.config)
 

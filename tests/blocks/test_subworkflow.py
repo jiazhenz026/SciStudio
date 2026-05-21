@@ -8,7 +8,6 @@ import pytest
 
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.base.ports import InputPort, OutputPort
-from scistudio.blocks.base.state import BlockState
 from scistudio.blocks.process.process_block import ProcessBlock
 from scistudio.blocks.subworkflow.subworkflow_block import SubWorkflowBlock, _sequential_execute
 from scistudio.core.types.base import DataObject
@@ -91,20 +90,17 @@ class TestSubWorkflowBlock:
                 }
             }
         )
-        block.transition(BlockState.READY)
         result = block.run({"data": 10}, block.config)
         # (10 + 1) * 2 = 22
         assert result["result"] == 22
 
     def test_unmapped_passthrough(self) -> None:
         block = SubWorkflowBlock(config={"params": {"child_blocks": [], "input_mapping": {}, "output_mapping": {}}})
-        block.transition(BlockState.READY)
         result = block.run({"extra": 99}, block.config)
         assert result["extra"] == 99
 
     def test_state_transitions(self) -> None:
         block = SubWorkflowBlock(config={"params": {"child_blocks": []}})
-        block.transition(BlockState.READY)
         block.run({}, block.config)
 
     def test_scheduler_factory_injection(self) -> None:
@@ -128,7 +124,6 @@ class TestSubWorkflowBlock:
                     }
                 }
             )
-            block.transition(BlockState.READY)
 
             # Monkey-patch _run_with_scheduler to prove it gets called.
             original_method = block._run_with_scheduler
@@ -159,7 +154,6 @@ class TestSubWorkflowBlock:
                 }
             }
         )
-        block.transition(BlockState.READY)
         result = block.run({"data": 5}, block.config)
         # (5 + 1) * 2 = 12
         assert result["result"] == 12
@@ -180,7 +174,6 @@ class TestSubWorkflowBlock:
                 }
             }
         )
-        block.transition(BlockState.READY)
         result = block.run({"data": coll}, block.config)
 
         assert isinstance(result["result"], Collection)
@@ -198,7 +191,6 @@ class TestCleanupCallback:
         SubWorkflowBlock._cleanup_callback = lambda: callback_called.append(True)
         try:
             block = SubWorkflowBlock(config={"params": {"child_blocks": []}})
-            block.transition(BlockState.READY)
             block.run({}, block.config)
             assert len(callback_called) == 1
         finally:
@@ -210,7 +202,6 @@ class TestCleanupCallback:
         SubWorkflowBlock._cleanup_callback = lambda: callback_called.append(True)
         try:
             block = SubWorkflowBlock(config={"params": {"child_blocks": []}})
-            block.transition(BlockState.READY)
             # Monkey-patch _run_with_scheduler to force an error during execution.
 
             def boom(*a: Any, **kw: Any) -> dict[str, Any]:
@@ -234,7 +225,6 @@ class TestCleanupCallback:
         SubWorkflowBlock._cleanup_callback = bad_cleanup
         try:
             block = SubWorkflowBlock(config={"params": {"child_blocks": []}})
-            block.transition(BlockState.READY)
             # Monkey-patch _run_with_scheduler to force an error during execution.
 
             def boom(*a: Any, **kw: Any) -> dict[str, Any]:
@@ -253,8 +243,6 @@ class TestCleanupCallback:
         """When no callback is set, no error occurs in finally block."""
         assert SubWorkflowBlock._cleanup_callback is None
         block = SubWorkflowBlock(config={"params": {"child_blocks": []}})
-        block.transition(BlockState.READY)
         block.run({}, block.config)
         # Block no longer sets own DONE state (scheduler owns that).
         # Just verify run() completes without error.
-        assert block.state == BlockState.READY

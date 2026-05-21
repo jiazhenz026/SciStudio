@@ -624,7 +624,7 @@ from typing import Any, ClassVar
 
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.base.ports import InputPort, OutputPort
-from scistudio.blocks.base.state import BlockState, ExecutionMode
+from scistudio.blocks.base.state import ExecutionMode
 from scistudio.core.types.collection import Collection
 
 class Block(ABC):
@@ -652,7 +652,6 @@ class Block(ABC):
     key_dependencies: ClassVar[list[str]] = []
     config_schema: ClassVar[dict[str, Any]] = {"type": "object", "properties": {}}
 
-    def transition(self, target: BlockState) -> None: ...
     def get_effective_input_ports(self) -> list[InputPort]: ...
     def get_effective_output_ports(self) -> list[OutputPort]: ...
     def validate(self, inputs: dict[str, Any]) -> bool: ...
@@ -690,9 +689,14 @@ Important class attributes:
 
 ### 5.2 State Machine
 
-Every block instance moves through a small state machine during a workflow run.
-Terminal states describe the result of one execution attempt; returning to
-`IDLE` happens when the workflow is reset for another run.
+Every block moves through a small state machine during a workflow run. The
+state machine is owned by the engine — `DAGScheduler` is the authoritative
+source per ADR-018 §8.1 (`DAGScheduler.set_state` / `block_states()`). Worker
+subprocesses do not carry their own block-state field; cancellation from
+inside `run()` surfaces as the typed `BlockCancelledByAppError` exception, which
+the worker forwards via the `final_state` envelope (#1334). Terminal states
+describe the result of one execution attempt; returning to `IDLE` happens
+when the workflow is reset for another run.
 
 ```text
 IDLE      -> READY | SKIPPED | ERROR

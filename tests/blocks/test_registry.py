@@ -9,7 +9,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from scistudio.blocks.base.package_info import PackageInfo
-from scistudio.blocks.base.state import BlockState
 from scistudio.blocks.registry import BlockRegistry, BlockSpec
 
 
@@ -32,7 +31,6 @@ class TestBlockRegistryTier2:
         reg.scan()
         block = reg.instantiate("Merge")
         assert block.name == "Merge"
-        assert block.state == BlockState.IDLE
 
     def test_instantiate_unknown_raises(self) -> None:
         reg = BlockRegistry()

@@ -313,30 +313,24 @@ class TestCodeBlockRunIntegration:
 
     def test_run_inline_python(self) -> None:
         """run() rejects inline Python instead of silently treating it as v2."""
-        from scistudio.blocks.base.state import BlockState
         from scistudio.blocks.code.code_block import CodeBlock, CodeBlockMigrationError
 
         block = CodeBlock(config={"params": {"script": "result = 42"}})
-        block.transition(BlockState.READY)
         with pytest.raises(CodeBlockMigrationError, match="Inline CodeBlock configs"):
             block.run({}, block.config)
 
     def test_run_inline_with_inputs(self) -> None:
         """run() rejects inline scripts even when legacy inputs are supplied."""
-        from scistudio.blocks.base.state import BlockState
         from scistudio.blocks.code.code_block import CodeBlock, CodeBlockMigrationError
 
         block = CodeBlock(config={"params": {"script": "output = data * 2"}})
-        block.transition(BlockState.READY)
         with pytest.raises(CodeBlockMigrationError, match="Inline CodeBlock configs"):
             block.run({"data": 10}, block.config)
 
     def test_run_missing_script_raises(self) -> None:
         """run() with no script raises ValueError."""
-        from scistudio.blocks.base.state import BlockState
         from scistudio.blocks.code.code_block import CodeBlock
 
         block = CodeBlock(config={"params": {}})
-        block.transition(BlockState.READY)
         with pytest.raises(ValueError, match="script"):
             block.run({}, block.config)

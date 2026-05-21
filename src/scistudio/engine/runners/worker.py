@@ -38,6 +38,8 @@ import sys
 import traceback
 from typing import Any
 
+from scistudio.blocks.base.exceptions import BlockCancelledByAppError
+
 logger = logging.getLogger(__name__)
 
 
@@ -369,18 +371,30 @@ def main() -> None:
         # CompletionWatcher / validator look at the wrong file (#883).
         block = block_cls(config=config)
 
-        if hasattr(block, "transition"):
-            from scistudio.blocks.base.state import BlockState
-
-            block.transition(BlockState.READY)
-
         # Build config object.
         from scistudio.blocks.base.config import BlockConfig
 
         block_config = BlockConfig(**config)
 
-        # Execute.
-        outputs = block.run(inputs, block_config)
+        # Execute. Block.state / Block.transition were removed per #1334:
+        # the engine-owned DAGScheduler (ADR-018 §8.1) is the authoritative
+        # state machine. Cancellation from inside a block surfaces as a
+        # ``BlockCancelledByAppError`` exception (#681 / #560) — the engine path
+        # below catches it and forwards ``final_state="cancelled"`` via the
+        # stdout envelope.
+        try:
+            outputs = block.run(inputs, block_config)
+        except BlockCancelledByAppError:
+            from scistudio.core.lineage.environment import EnvironmentSnapshot
+
+            env_snapshot = EnvironmentSnapshot.capture()
+            envelope: dict[str, Any] = {
+                "outputs": {},
+                "environment": env_snapshot.to_dict(),
+                "final_state": "cancelled",
+            }
+            print(json.dumps(envelope))
+            return
 
         # #1330: enforce ADR-020 §3 transport contract — wrap bare
         # DataObject values on ``is_collection=True`` ports into length-one
@@ -395,26 +409,6 @@ def main() -> None:
                 effective_output_ports = list(getattr(type(block), "output_ports", []))
             _normalize_outputs(outputs, effective_output_ports)
 
-        # #681: capture the block's terminal state if it transitioned to a
-        # non-DONE terminal state (CANCELLED / ERROR / SKIPPED) from inside
-        # ``run()``. ``Block.transition()`` only mutates ``self.state`` in
-        # the worker process; without this readback the orchestrator never
-        # observes the change. The envelope's ``final_state`` field is
-        # absent for the common case where the block ends in RUNNING/DONE,
-        # so existing blocks that do not call ``transition()`` from inside
-        # ``run()`` keep the previous "no field == DONE" semantics.
-        final_state: str | None = None
-        if hasattr(block, "state"):
-            from scistudio.blocks.base.state import BlockState
-
-            block_state = getattr(block, "state", None)
-            if isinstance(block_state, BlockState) and block_state in (
-                BlockState.CANCELLED,
-                BlockState.ERROR,
-                BlockState.SKIPPED,
-            ):
-                final_state = block_state.value
-
         # Capture environment inside subprocess for accurate lineage (issue #54).
         from scistudio.core.lineage.environment import EnvironmentSnapshot
 
@@ -423,9 +417,7 @@ def main() -> None:
         # Serialize outputs via the typed wire format.
         result = serialise_outputs(outputs, output_dir) if isinstance(outputs, dict) else {"_result": str(outputs)}
 
-        envelope: dict[str, Any] = {"outputs": result, "environment": env_snapshot.to_dict()}
-        if final_state is not None:
-            envelope["final_state"] = final_state
+        envelope = {"outputs": result, "environment": env_snapshot.to_dict()}
         print(json.dumps(envelope))
     except Exception:
         print(json.dumps({"error": traceback.format_exc()}))

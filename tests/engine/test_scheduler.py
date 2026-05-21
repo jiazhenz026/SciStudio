@@ -261,9 +261,12 @@ class TestSchedulerWorkerReportedTerminalState:
     def test_runner_reports_cancelled_records_cancelled(self) -> None:
         """A block whose worker subprocess reports CANCELLED ends up CANCELLED.
 
-        Regression for #681 / AppBlock cancellation: previously the scheduler
-        recorded the block as DONE because ``self.transition(CANCELLED)``
-        inside ``run()`` was lost when the worker only forwarded ``return {}``.
+        Regression for #681 / AppBlock cancellation: AppBlock now signals
+        cancellation by raising ``BlockCancelledByAppError`` (#1334), which the
+        worker translates into a ``final_state="cancelled"`` envelope. The
+        scheduler then sees the cancellation via the existing
+        ``BlockTerminalStateReportedError`` mechanism instead of treating
+        the empty ``return {}`` as DONE.
         """
         from scistudio.engine.runners.terminal_state import BlockTerminalStateReportedError
 

@@ -253,56 +253,33 @@ class _StubBlock:
 
 
 class _CancellingStubBlock:
-    """Block stub that transitions to CANCELLED inside ``run()`` and returns ``{}``.
+    """Block stub that raises ``BlockCancelledByAppError`` from ``run()``.
 
-    Mirrors the AppBlock cancellation pattern: when the block's internal
-    failure path fires (e.g. external app exited without producing output),
-    it calls ``self.transition(BlockState.CANCELLED)`` and returns an empty
-    outputs dict. Worker must forward the CANCELLED state via the envelope's
-    ``final_state`` field so the orchestrator records the block correctly.
+    Mirrors the AppBlock cancellation pattern (#1334): when the external
+    app exits without producing output, AppBlock raises
+    ``BlockCancelledByAppError``. The worker must catch it and forward
+    ``final_state="cancelled"`` via the stdout envelope so the orchestrator
+    records the block correctly via the existing
+    ``BlockTerminalStateReportedError`` channel (#681).
     """
 
     def __init__(self, config: object = None) -> None:
-        from scistudio.blocks.base.state import BlockState
-
         # Accept optional config so worker.py's ``block_cls(config=config)``
         # call site (#883) succeeds; the stub doesn't read it.
-        self.state = BlockState.IDLE
-
-    def transition(self, target: object) -> None:
-        # Mimic Block.transition() — direct assignment is enough for the
-        # worker's final-state readback contract.
-        self.state = target  # type: ignore[assignment]
+        pass
 
     def run(self, inputs: dict, config: object) -> dict:
-        from scistudio.blocks.base.state import BlockState
+        from scistudio.blocks.base.exceptions import BlockCancelledByAppError
 
-        self.state = BlockState.CANCELLED
-        return {}
-
-
-class _ErroringStubBlock:
-    """Block stub that transitions to ERROR inside ``run()`` and returns ``{}``."""
-
-    def __init__(self, config: object = None) -> None:
-        from scistudio.blocks.base.state import BlockState
-
-        # Accept optional config (#883).
-        self.state = BlockState.IDLE
-
-    def run(self, inputs: dict, config: object) -> dict:
-        from scistudio.blocks.base.state import BlockState
-
-        self.state = BlockState.ERROR
-        return {}
+        raise BlockCancelledByAppError("stub cancellation")
 
 
 class TestWorkerFinalState:
-    """#681: worker must forward terminal non-DONE states via envelope.
+    """#681 / #1334: worker must forward CANCELLED via envelope.
 
-    These run the worker as a real subprocess and inspect the JSON envelope
-    on stdout. The synthetic block classes above transition to CANCELLED
-    or ERROR before returning ``{}``, simulating the AppBlock pattern.
+    Runs the worker as a real subprocess and inspects the JSON envelope on
+    stdout. The synthetic block raises ``BlockCancelledByAppError`` to simulate
+    the AppBlock cancellation path.
     """
 
     def _run_worker(self, block_class_path: str) -> dict:
@@ -346,15 +323,10 @@ class TestWorkerFinalState:
         assert parsed.get("outputs") == {}
         assert parsed.get("final_state") == "cancelled"
 
-    def test_error_block_emits_final_state_in_envelope(self) -> None:
-        parsed = self._run_worker("tests.engine.test_worker._ErroringStubBlock")
-        assert "error" not in parsed, parsed
-        assert parsed.get("outputs") == {}
-        assert parsed.get("final_state") == "error"
-
     def test_normal_block_omits_final_state_field(self) -> None:
-        # _StubBlock does not call ``transition()`` — it has no ``state``
-        # attribute, so the envelope must NOT include ``final_state``.
+        # _StubBlock returns normally — the envelope must NOT include
+        # ``final_state``. Per #1334 the worker-side block state machine is
+        # gone; ``final_state`` only appears on ``BlockCancelledByAppError``.
         parsed = self._run_worker("tests.engine.test_worker._StubBlock")
         assert "error" not in parsed, parsed
         assert "final_state" not in parsed

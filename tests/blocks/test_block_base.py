@@ -1,4 +1,11 @@
-"""Tests for Block ABC — validate(), transition(), postprocess()."""
+"""Tests for Block ABC — validate(), postprocess(), terminate_grace_sec.
+
+The worker-side block state machine (``Block.state`` / ``Block.transition`` /
+``_VALID_TRANSITIONS``) was removed in #1334; the engine-owned
+``DAGScheduler._block_states`` is the authoritative state machine (ADR-018
+§8.1). The corresponding ``TestBlockTransition`` /
+``TestBlockTransitionCancelledSkipped`` classes were deleted with it.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +17,6 @@ import pytest
 from scistudio.blocks.base.block import Block
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.base.ports import InputPort, OutputPort
-from scistudio.blocks.base.state import BlockState
 from scistudio.core.storage.flush_context import clear, set_output_dir
 from scistudio.core.types.array import Array
 from scistudio.core.types.dataframe import DataFrame
@@ -106,69 +112,6 @@ class _EmptyAcceptBlock(Block):
         return {}
 
 
-class TestBlockTransition:
-    """Block.transition — state machine enforcement."""
-
-    def test_idle_to_ready(self) -> None:
-        block = _DummyBlock()
-        assert block.state == BlockState.IDLE
-        block.transition(BlockState.READY)
-        assert block.state == BlockState.READY
-
-    def test_ready_to_running(self) -> None:
-        block = _DummyBlock()
-        block.transition(BlockState.READY)
-        block.transition(BlockState.RUNNING)
-        assert block.state == BlockState.RUNNING
-
-    def test_running_to_done(self) -> None:
-        block = _DummyBlock()
-        block.transition(BlockState.READY)
-        block.transition(BlockState.RUNNING)
-        block.transition(BlockState.DONE)
-        assert block.state == BlockState.DONE
-
-    def test_running_to_paused(self) -> None:
-        block = _DummyBlock()
-        block.transition(BlockState.READY)
-        block.transition(BlockState.RUNNING)
-        block.transition(BlockState.PAUSED)
-        assert block.state == BlockState.PAUSED
-
-    def test_paused_to_running(self) -> None:
-        block = _DummyBlock()
-        block.transition(BlockState.READY)
-        block.transition(BlockState.RUNNING)
-        block.transition(BlockState.PAUSED)
-        block.transition(BlockState.RUNNING)
-        assert block.state == BlockState.RUNNING
-
-    def test_done_to_idle(self) -> None:
-        block = _DummyBlock()
-        block.transition(BlockState.READY)
-        block.transition(BlockState.RUNNING)
-        block.transition(BlockState.DONE)
-        block.transition(BlockState.IDLE)
-        assert block.state == BlockState.IDLE
-
-    def test_error_to_idle(self) -> None:
-        block = _DummyBlock()
-        block.transition(BlockState.ERROR)
-        assert block.state == BlockState.ERROR
-        block.transition(BlockState.IDLE)
-        assert block.state == BlockState.IDLE
-
-    def test_invalid_transition_raises(self) -> None:
-        block = _DummyBlock()
-        with pytest.raises(RuntimeError, match="Invalid state transition"):
-            block.transition(BlockState.DONE)
-
-    def test_idle_to_running_invalid(self) -> None:
-        block = _DummyBlock()
-        with pytest.raises(RuntimeError, match="Invalid state transition"):
-            block.transition(BlockState.RUNNING)
-
-
 class TestBlockValidate:
     """Block.validate — port contract checking."""
 
@@ -221,63 +164,6 @@ class TestBlockPostprocess:
         block = _DummyBlock()
         outputs = {"result": "value"}
         assert block.postprocess(outputs) is outputs
-
-
-class TestBlockTransitionCancelledSkipped:
-    """ADR-018: CANCELLED and SKIPPED state transitions."""
-
-    def test_running_to_cancelled(self) -> None:
-        block = _DummyBlock()
-        block.transition(BlockState.READY)
-        block.transition(BlockState.RUNNING)
-        block.transition(BlockState.CANCELLED)
-        assert block.state == BlockState.CANCELLED
-
-    def test_paused_to_cancelled(self) -> None:
-        block = _DummyBlock()
-        block.transition(BlockState.READY)
-        block.transition(BlockState.RUNNING)
-        block.transition(BlockState.PAUSED)
-        block.transition(BlockState.CANCELLED)
-        assert block.state == BlockState.CANCELLED
-
-    def test_idle_to_skipped(self) -> None:
-        block = _DummyBlock()
-        block.transition(BlockState.SKIPPED)
-        assert block.state == BlockState.SKIPPED
-
-    def test_ready_to_skipped(self) -> None:
-        block = _DummyBlock()
-        block.transition(BlockState.READY)
-        block.transition(BlockState.SKIPPED)
-        assert block.state == BlockState.SKIPPED
-
-    def test_cancelled_to_idle(self) -> None:
-        block = _DummyBlock()
-        block.transition(BlockState.READY)
-        block.transition(BlockState.RUNNING)
-        block.transition(BlockState.CANCELLED)
-        block.transition(BlockState.IDLE)
-        assert block.state == BlockState.IDLE
-
-    def test_skipped_to_idle(self) -> None:
-        block = _DummyBlock()
-        block.transition(BlockState.SKIPPED)
-        block.transition(BlockState.IDLE)
-        assert block.state == BlockState.IDLE
-
-    def test_done_to_cancelled_invalid(self) -> None:
-        block = _DummyBlock()
-        block.transition(BlockState.READY)
-        block.transition(BlockState.RUNNING)
-        block.transition(BlockState.DONE)
-        with pytest.raises(RuntimeError, match="Invalid state transition"):
-            block.transition(BlockState.CANCELLED)
-
-    def test_idle_to_cancelled_invalid(self) -> None:
-        block = _DummyBlock()
-        with pytest.raises(RuntimeError, match="Invalid state transition"):
-            block.transition(BlockState.CANCELLED)
 
 
 class TestTerminateGraceSec:

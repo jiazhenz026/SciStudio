@@ -17,7 +17,7 @@ from scistudio.blocks.ai.ai_block import (
     _output_path_overrides,
 )
 from scistudio.blocks.base.config import BlockConfig
-from scistudio.blocks.base.state import BlockState, ExecutionMode
+from scistudio.blocks.base.state import ExecutionMode
 from tests.blocks.ai.conftest import StubAgent  # type: ignore[import-not-found]
 
 # ---------------------------------------------------------------------------
@@ -174,18 +174,15 @@ def test_validate_rejects_negative_timeout(monkeypatch: pytest.MonkeyPatch) -> N
 def _prepared_block(
     output_ports: list[dict[str, object]] | None = None,
 ) -> AIBlock:
-    """Construct an AIBlock + drive its state through IDLE→READY→RUNNING.
+    """Construct an AIBlock for direct ``run()`` invocation.
 
-    Mirrors the AppBlock test fixture pattern (tests/blocks/app/...)
-    because ``Block.transition`` rejects IDLE→PAUSED directly.
+    The worker-side block state machine was removed in #1334; AIBlock no
+    longer needs IDLE→READY→RUNNING priming before ``run()``.
     """
     instance_config: dict[str, object] = {}
     if output_ports is not None:
         instance_config["output_ports"] = output_ports
-    block = AIBlock(config=instance_config)
-    block.transition(BlockState.READY)
-    block.transition(BlockState.RUNNING)
-    return block
+    return AIBlock(config=instance_config)
 
 
 def test_run_writes_manifest_with_correct_shape(project_dir: Path, stub_agent: StubAgent) -> None:
@@ -337,7 +334,6 @@ def test_run_validation_fail_returns_error_state(project_dir: Path, stub_agent: 
     )
     with pytest.raises(ValueError, match=r"is empty|Expecting value|malformed MCP signal"):
         block.run(inputs={}, config=cfg)
-    assert block.state is BlockState.ERROR
     # Run dir preserved.
     runs_root = project_dir / ".scistudio" / "ai-block-runs"
     assert any(p.is_dir() for p in runs_root.iterdir())
@@ -354,10 +350,11 @@ def test_run_spawn_fail_returns_error(project_dir: Path, stub_agent: StubAgent) 
     )
     with pytest.raises(RuntimeError, match="PTY spawn failed"):
         block.run(inputs={}, config=cfg)
-    assert block.state is BlockState.ERROR
 
 
 def test_run_timeout_cancels(project_dir: Path, stub_agent: StubAgent) -> None:
+    from scistudio.blocks.base.exceptions import BlockCancelledByAppError
+
     stub_agent.finish_via = "close"  # Never signal.
     block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./never.csv"}])
     cfg = _config(
@@ -366,9 +363,11 @@ def test_run_timeout_cancels(project_dir: Path, stub_agent: StubAgent) -> None:
         project_dir=str(project_dir),
         timeout_sec=1,
     )
-    result = block.run(inputs={}, config=cfg)
-    assert result == {}
-    assert block.state is BlockState.CANCELLED
+    # AIBlock now signals cancellation via BlockCancelledByAppError (#1334
+    # Codex P1) so the worker can forward `final_state="cancelled"` to the
+    # scheduler instead of misclassifying the run as DONE.
+    with pytest.raises(BlockCancelledByAppError, match="timeout"):
+        block.run(inputs={}, config=cfg)
     assert any("cancelled" in n[1] for n in stub_agent.notifications)
 
 
@@ -383,7 +382,6 @@ def test_run_malformed_mcp_signal_errors(project_dir: Path, stub_agent: StubAgen
     )
     with pytest.raises(ValueError, match="malformed MCP signal"):
         block.run(inputs={}, config=cfg)
-    assert block.state is BlockState.ERROR
 
 
 # ---------------------------------------------------------------------------

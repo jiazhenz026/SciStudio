@@ -141,12 +141,8 @@ class TestAppBlockExchangeDir:
 
         from scistudio.blocks.app.app_block import AppBlock
         from scistudio.blocks.base.config import BlockConfig
-        from scistudio.blocks.base.state import BlockState
 
         block = AppBlock()
-        # Transition to RUNNING so run() can transition to PAUSED.
-        block.transition(BlockState.READY)
-        block.transition(BlockState.RUNNING)
 
         project_dir = tmp_path / "my_project"
         project_dir.mkdir()
@@ -197,12 +193,8 @@ class TestAppBlockExchangeDir:
 
         from scistudio.blocks.app.app_block import AppBlock
         from scistudio.blocks.base.config import BlockConfig
-        from scistudio.blocks.base.state import BlockState
 
         block = AppBlock()
-        # Transition to RUNNING so run() can transition to PAUSED.
-        block.transition(BlockState.READY)
-        block.transition(BlockState.RUNNING)
 
         config = BlockConfig(
             params={
@@ -558,14 +550,10 @@ class TestAppBlockSubprocessCleanup:
     """#338: Verify subprocess is properly waited on / terminated after run()."""
 
     def _make_running_block(self):
-        """Create an AppBlock in RUNNING state."""
+        """Create an AppBlock instance (state machine removed per #1334)."""
         from scistudio.blocks.app.app_block import AppBlock
-        from scistudio.blocks.base.state import BlockState
 
-        block = AppBlock()
-        block.transition(BlockState.READY)
-        block.transition(BlockState.RUNNING)
-        return block
+        return AppBlock()
 
     def test_proc_wait_called_on_normal_exit(self, tmp_path: Path) -> None:
         """After successful run(), proc.wait() must be called to reap the process."""
@@ -648,11 +636,20 @@ class TestAppBlockSubprocessCleanup:
             mock_proc.terminate.assert_called_once()
 
     def test_proc_waited_on_process_exited_without_output(self, tmp_path: Path) -> None:
-        """On ProcessExitedWithoutOutputError, proc must still be waited on."""
+        """On ProcessExitedWithoutOutputError, proc must still be waited on.
+
+        Per #1334, AppBlock now signals cancellation by raising
+        ``BlockCancelledByAppError`` instead of returning ``{}`` — the engine
+        catches it in the worker and emits ``final_state="cancelled"``.
+        The proc.wait() reaping at ``finally`` (#338) must still fire.
+        """
         from unittest.mock import MagicMock, patch
+
+        import pytest
 
         from scistudio.blocks.app.watcher import ProcessExitedWithoutOutputError
         from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.exceptions import BlockCancelledByAppError
 
         block = self._make_running_block()
         config = BlockConfig(params={"app_command": "echo hello"})
@@ -679,9 +676,9 @@ class TestAppBlockSubprocessCleanup:
                 mock_watcher.wait_for_output.side_effect = ProcessExitedWithoutOutputError("Process exited")
                 mock_bridge.collect.return_value = {}
 
-                result = block.run(inputs={}, config=config)
+                with pytest.raises(BlockCancelledByAppError):
+                    block.run(inputs={}, config=config)
 
-            assert result == {}
             assert mock_proc.wait.called, "proc.wait() not called on cancelled path (#338)"
 
 
@@ -690,12 +687,8 @@ class TestAppBlockTempDirCleanup:
 
     def _make_running_block(self):
         from scistudio.blocks.app.app_block import AppBlock
-        from scistudio.blocks.base.state import BlockState
 
-        block = AppBlock()
-        block.transition(BlockState.READY)
-        block.transition(BlockState.RUNNING)
-        return block
+        return AppBlock()
 
     def test_temp_exchange_dir_cleaned_up(self, tmp_path: Path) -> None:
         """Temp exchange dir (no project_dir) must be removed after run()."""
@@ -1045,11 +1038,8 @@ class TestAppBlockExtensionBinner:
 
         from scistudio.blocks.app.app_block import AppBlock
         from scistudio.blocks.base.config import BlockConfig
-        from scistudio.blocks.base.state import BlockState
 
         block = AppBlock()
-        block.transition(BlockState.READY)
-        block.transition(BlockState.RUNNING)
 
         config = BlockConfig(
             params={
@@ -1091,3 +1081,100 @@ class TestAppBlockExtensionBinner:
 
         assert "tables" in result
         assert result["tables"].length == 1
+
+
+class TestAppBlockVestigialStateRemoval:
+    """Regression tests for #1334 / #560 — removal of worker-side Block.state."""
+
+    def test_appblock_run_does_not_crash_on_state_precondition(self, tmp_path: Path) -> None:
+        """AppBlock.run() must NOT raise `Invalid state transition: ready -> paused`.
+
+        Before #1334, AppBlock.run() called ``self.transition(BlockState.PAUSED)``
+        which required the worker to first move the block READY → RUNNING. The
+        worker never did, so AppBlock always crashed on the first call. Fixed
+        by removing the vestigial state machine entirely (engine-owned state
+        per ADR-018 §8.1 is authoritative).
+        """
+        from unittest.mock import MagicMock, patch
+
+        from scistudio.blocks.app.app_block import AppBlock
+        from scistudio.blocks.base.config import BlockConfig
+
+        block = AppBlock()
+        config = BlockConfig(
+            params={"app_command": "echo hello", "output_patterns": ["*.csv"]},
+        )
+        out_file = tmp_path / "out" / "result.csv"
+        out_file.parent.mkdir(parents=True, exist_ok=True)
+        out_file.write_text("x\n1\n", encoding="utf-8")
+
+        with (
+            patch("scistudio.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
+            patch("scistudio.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
+            patch(
+                "scistudio.blocks.app.app_block.tempfile.mkdtemp",
+                return_value=str(tmp_path / "exchange"),
+            ),
+        ):
+            mock_bridge = MagicMock()
+            mock_bridge_cls.return_value = mock_bridge
+            mock_proc = MagicMock()
+            mock_proc.poll.return_value = None
+            mock_proc.pid = 1
+            mock_proc.wait.return_value = 0
+            mock_bridge.launch.return_value = mock_proc
+            mock_bridge.collect.return_value = {"result": Artifact(file_path=out_file)}
+
+            with patch("scistudio.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
+                mock_watcher = MagicMock()
+                mock_watcher_cls.return_value = mock_watcher
+                mock_watcher.wait_for_output.return_value = [out_file]
+
+                # The pre-#1334 bug raised at this call:
+                # RuntimeError: Invalid state transition: ready -> paused
+                result = block.run(inputs={}, config=config)
+
+        assert "result" in result
+
+    def test_block_base_class_has_no_vestigial_state_machine(self) -> None:
+        """Block ABC must not expose ``state`` or ``transition`` (#1334)."""
+        from scistudio.blocks.base.block import Block
+
+        assert not hasattr(Block, "state")
+        assert not hasattr(Block, "transition")
+
+    def test_appblock_signals_cancellation_via_typed_exception(self, tmp_path: Path) -> None:
+        """ProcessExitedWithoutOutputError surfaces as BlockCancelledByAppError."""
+        from unittest.mock import MagicMock, patch
+
+        from scistudio.blocks.app.app_block import AppBlock
+        from scistudio.blocks.app.watcher import ProcessExitedWithoutOutputError
+        from scistudio.blocks.base.config import BlockConfig
+        from scistudio.blocks.base.exceptions import BlockCancelledByAppError
+
+        block = AppBlock()
+        config = BlockConfig(params={"app_command": "echo hello"})
+
+        with (
+            patch("scistudio.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,
+            patch("scistudio.blocks.app.app_block.validate_app_command", return_value=["echo", "hello"]),
+            patch(
+                "scistudio.blocks.app.app_block.tempfile.mkdtemp",
+                return_value=str(tmp_path / "exchange"),
+            ),
+        ):
+            mock_bridge = MagicMock()
+            mock_bridge_cls.return_value = mock_bridge
+            mock_proc = MagicMock()
+            mock_proc.poll.return_value = None
+            mock_proc.pid = 1
+            mock_proc.wait.return_value = 0
+            mock_bridge.launch.return_value = mock_proc
+
+            with patch("scistudio.blocks.app.watcher.FileWatcher") as mock_watcher_cls:
+                mock_watcher = MagicMock()
+                mock_watcher_cls.return_value = mock_watcher
+                mock_watcher.wait_for_output.side_effect = ProcessExitedWithoutOutputError("gone")
+
+                with pytest.raises(BlockCancelledByAppError, match="gone"):
+                    block.run(inputs={}, config=config)

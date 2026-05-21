@@ -13,8 +13,9 @@ from scistudio.blocks.app.bridge import FileExchangeBridge
 from scistudio.blocks.app.command_validator import validate_app_command
 from scistudio.blocks.base.block import Block
 from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.exceptions import BlockCancelledByAppError
 from scistudio.blocks.base.ports import InputPort, OutputPort
-from scistudio.blocks.base.state import BlockState, ExecutionMode
+from scistudio.blocks.base.state import ExecutionMode
 from scistudio.core.types.artifact import Artifact
 from scistudio.core.types.base import DataObject
 from scistudio.core.types.collection import Collection
@@ -414,8 +415,10 @@ class AppBlock(Block):
 
         proc: subprocess.Popen[bytes] | None = None
         try:
-            # Step 2: Launch and pause (waiting for external interaction).
-            self.transition(BlockState.PAUSED)
+            # Step 2: Launch external app (waits for external interaction).
+            # PAUSED visibility for in-flight AppBlocks is tracked in #56
+            # (subprocess→engine status channel); the engine-owned scheduler
+            # (ADR-018 §8.1) is the authoritative state machine.
             proc = bridge.launch(command, exchange_dir)
 
             # ADR-019: Wrap Popen in adapter for FileWatcher process monitoring.
@@ -441,10 +444,11 @@ class AppBlock(Block):
             watcher.start()
             try:
                 output_files = watcher.wait_for_output()
-            except ProcessExitedWithoutOutputError:
-                # ADR-018: Process exited without producing output — cancel.
-                self.transition(BlockState.CANCELLED)
-                return {}
+            except ProcessExitedWithoutOutputError as exc:
+                # ADR-018: external process exited without producing output —
+                # signal CANCELLED to the worker, which forwards it to the
+                # engine via the ``final_state`` envelope (#681 / #1334).
+                raise BlockCancelledByAppError(str(exc)) from exc
             finally:
                 watcher.stop()
 

@@ -60,8 +60,9 @@ from scistudio.blocks.ai.completion import (
 from scistudio.blocks.ai.run_dir import RunDir
 from scistudio.blocks.base.block import Block
 from scistudio.blocks.base.config import BlockConfig
+from scistudio.blocks.base.exceptions import BlockCancelledByAppError
 from scistudio.blocks.base.ports import InputPort, OutputPort
-from scistudio.blocks.base.state import BlockState, ExecutionMode
+from scistudio.blocks.base.state import ExecutionMode
 from scistudio.core.types.base import DataObject
 
 if TYPE_CHECKING:
@@ -266,7 +267,6 @@ class AIBlock(Block):
         try:
             run_dir.create()
         except (PermissionError, FileExistsError) as exc:
-            self._safe_transition(BlockState.ERROR)
             raise RuntimeError(f"AIBlock: cannot create run dir at {run_dir.path}: {exc}") from exc
 
         # 2. Build inputs → list[DataObject] per port (Collection unpack).
@@ -305,15 +305,10 @@ class AIBlock(Block):
                 output_paths=output_path_overrides,
             )
         except Exception as exc:
-            self._safe_transition(BlockState.ERROR)
             raise RuntimeError(f"AIBlock: failed to write manifest: {exc}") from exc
 
         # 5. Build spawn argv.
-        try:
-            spawn_argv = self._build_spawn_argv(config, str(manifest_path))
-        except Exception:
-            self._safe_transition(BlockState.ERROR)
-            raise
+        spawn_argv = self._build_spawn_argv(config, str(manifest_path))
 
         # 6. Ask engine to open a PTY tab.
         from scistudio.engine import pty_control as _pty_control
@@ -334,12 +329,10 @@ class AIBlock(Block):
         try:
             tab_id = _pty_control.request_pty_tab(spec)
         except Exception as exc:
-            self._safe_transition(BlockState.ERROR)
             raise RuntimeError(f"AIBlock: PTY spawn failed: {exc}") from exc
         logger.info("AIBlock %s: PTY tab opened, tab_id=%s", block_execution_id, tab_id)
 
-        # 7. Transition to PAUSED while the agent works.
-        self._safe_transition(BlockState.PAUSED)
+        # 7. Agent works in the PTY tab. PAUSED visibility is tracked in #56.
 
         # 8. Race the three completion signals.
         output_specs: dict[str, dict[str, Any]] = {}
@@ -359,33 +352,27 @@ class AIBlock(Block):
 
         try:
             event = watcher.wait(timeout_sec=float(timeout_sec))
-        except TimeoutError:
-            self._safe_transition(BlockState.RUNNING)
-            self._safe_transition(BlockState.CANCELLED)
+        except TimeoutError as exc:
             _safe_notify(_pty_control, block_execution_id, "cancelled_by_user_close", {"reason": "timeout"})
-            return {}
-        except WatcherCancelledError:
-            self._safe_transition(BlockState.RUNNING)
-            self._safe_transition(BlockState.CANCELLED)
+            # Signal cancellation through the worker envelope (#1334 P1
+            # from Codex review on PR #1351): a bare ``return {}`` would
+            # serialize as DONE because the worker now only emits
+            # ``final_state="cancelled"`` for ``BlockCancelledByAppError``.
+            raise BlockCancelledByAppError(f"AIBlock timeout after {timeout_sec}s") from exc
+        except WatcherCancelledError as exc:
             _safe_notify(_pty_control, block_execution_id, "cancelled_by_user_close", {"reason": "cancelled"})
-            return {}
+            raise BlockCancelledByAppError(f"AIBlock cancelled: {exc}") from exc
         except ValueError as exc:
             # Malformed MCP signal — preserve run_dir, surface as ERROR.
-            self._safe_transition(BlockState.RUNNING)
-            self._safe_transition(BlockState.ERROR)
             _safe_notify(_pty_control, block_execution_id, "error", {"reason": str(exc)})
             raise
 
-        # 9. PAUSED → RUNNING for output validation.
-        self._safe_transition(BlockState.RUNNING)
-
-        # 10. Validate + load outputs via IOBlock loaders.
+        # 9. Validate + load outputs via IOBlock loaders.
         try:
             results = self._validate_and_load_outputs(
                 event.outputs, output_specs, project_dir, str(config.get("output_dir", ""))
             )
         except Exception as exc:
-            self._safe_transition(BlockState.ERROR)
             _safe_notify(_pty_control, block_execution_id, "error", {"reason": str(exc)})
             raise
 
@@ -531,20 +518,6 @@ class AIBlock(Block):
             else:
                 results[port_name] = Collection([obj], item_type=type(obj))
         return results
-
-    def _safe_transition(self, target: BlockState) -> None:
-        """Best-effort state transition that swallows invalid-transition errors.
-
-        ``Block.transition`` raises if the source → target edge isn't in
-        the legal table. Tests that exercise ``run()`` directly without
-        first stepping through IDLE → READY → RUNNING would otherwise
-        explode at the first transition; for production runs the
-        scheduler always sets the prereqs.
-        """
-        try:
-            self.transition(target)
-        except RuntimeError as exc:
-            logger.debug("AIBlock state transition skipped (%s)", exc)
 
 
 # ---------------------------------------------------------------------------
