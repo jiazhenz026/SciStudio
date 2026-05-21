@@ -87,8 +87,15 @@
         "CHANGELOG.md"
       ]
     },
-    "checklist": {},
-    "docs": {}
+    "checklist": {
+      "paths": [
+        "docs/planning/adr-039-addendum-1-impl-checklist.md"
+      ]
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "ADR-039 §11 Addendum 1 already merged via PR #1358; this PR only implements the addendum's cancellations and replacements per the documented scope. No new ADR or spec required."
+    }
   },
   "full_audit": {
     "blocks_merge": false,
@@ -106,7 +113,13 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1353,
-      "url": null
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1353"
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1354,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1354"
     }
   ],
   "owner_directive": "Implement ADR-039 Addendum 1 \u00a711: remove all git stash affordances (GUI/REST/engine) per #1353 and replace dirty-tree branch switch + restore with auto-commit per #1354. Two atomic commits required (pure deletion, then pure addition). Targets umbrella/adr-039-addendum-1-impl, NOT main.",
