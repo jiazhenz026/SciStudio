@@ -153,18 +153,38 @@ def test_notebook_backend_builds_inplace_nbconvert_command(tmp_path: Path) -> No
     assert interpreter.argv[0] == interpreter.executable
     assert "--inplace" in interpreter.argv
     assert str(executed_notebook_path(context)) in interpreter.argv
-    assert f"--ExecutePreprocessor.cwd={exchange_dir}" in interpreter.argv
+    # #1309: cwd must come from ``CodeBlockConfig.resolve_working_directory(...)``
+    # (default ``"."`` -> project root), not the exchange dir.
+    expected_cwd = config.resolve_working_directory(tmp_path)
+    assert f"--ExecutePreprocessor.cwd={expected_cwd}" in interpreter.argv
     assert "--ExecutePreprocessor.timeout=30" in interpreter.argv
+
+
+def _exchange_outputs_dir(project_dir: Path, *, block_id: str = "notebook-block", run_id: str = "run-1") -> Path:
+    """Return the deterministic per-run outputs dir for these integration tests.
+
+    Mirrors :func:`scistudio.blocks.code.exchange.create_codeblock_exchange_layout`
+    so the notebook source can write into the materialisation target via an
+    absolute path. With #1309 the subprocess cwd is now ``project_dir`` (the
+    resolved ``working_directory``), so notebooks must use absolute paths to
+    reach the exchange outputs folder.
+    """
+    return project_dir / "exchange" / f"codeblock-{block_id}" / run_id / "outputs"
 
 
 def test_codeblock_runs_notebook_and_collects_typed_output_plus_executed_artifact(tmp_path: Path) -> None:
     _require_notebook_tool()
+    outputs_dir = _exchange_outputs_dir(tmp_path)
     _write_notebook(
         tmp_path,
-        """
+        f"""
 from pathlib import Path
 
-Path("outputs/summary/result.txt").write_text("notebook ok", encoding="utf-8")
+# Issue #1309: the notebook now runs from project_dir, not the exchange dir,
+# so it must use an absolute path to reach the exchange outputs folder.
+target = Path({outputs_dir.as_posix()!r}) / "summary" / "result.txt"
+target.parent.mkdir(parents=True, exist_ok=True)
+target.write_text("notebook ok", encoding="utf-8")
 """.lstrip(),
     )
     block = CodeBlock(
@@ -197,12 +217,16 @@ Path("outputs/summary/result.txt").write_text("notebook ok", encoding="utf-8")
 
 def test_failed_notebook_retains_executed_artifact_file_when_nbconvert_created_it(tmp_path: Path) -> None:
     _require_notebook_tool()
+    outputs_dir = _exchange_outputs_dir(tmp_path)
     _write_notebook(
         tmp_path,
-        """
+        f"""
 from pathlib import Path
 
-Path("outputs/summary/result.txt").write_text("before failure", encoding="utf-8")
+# Issue #1309: see sibling test for the absolute-path rationale.
+target = Path({outputs_dir.as_posix()!r}) / "summary" / "result.txt"
+target.parent.mkdir(parents=True, exist_ok=True)
+target.write_text("before failure", encoding="utf-8")
 raise RuntimeError("notebook boom")
 """.lstrip(),
     )

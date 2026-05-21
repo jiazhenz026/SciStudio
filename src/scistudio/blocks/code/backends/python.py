@@ -37,9 +37,16 @@ class PythonCodeBlockBackend:
         context: CodeBlockRuntimeContext,
         interpreter: ResolvedInterpreter,
     ) -> subprocess.CompletedProcess[str]:
+        # ADR-041 §4: launch the interpreter from the configured working
+        # directory (default ``"."`` = project root). Previously the
+        # subprocess inherited ``cwd=context.exchange_dir``, which broke
+        # any script that read project-relative paths like ``Path("data/raw")``.
+        # The exchange dir is still the materialisation target for declared
+        # ports; only the *executing* process cwd changes here.
+        script_cwd = context.config.resolve_working_directory(context.project_dir)
         return run_codeblock_process(
             argv=[interpreter.executable, str(context.script_path)],
-            cwd=context.exchange_dir,
+            cwd=script_cwd,
             env_delta=interpreter.environment,
             timeout_seconds=context.config.timeout_seconds,
         )

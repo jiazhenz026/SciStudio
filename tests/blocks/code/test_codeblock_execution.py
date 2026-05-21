@@ -74,13 +74,20 @@ def _block_config(project_dir: Path, script_path: str, **params: object) -> dict
 
 
 def test_codeblock_runs_python_script_through_exchange(tmp_path: Path) -> None:
+    # Issue #1309: the subprocess now launches from the resolved
+    # ``working_directory`` (default ``"."`` = project root). The script
+    # therefore needs absolute paths to reach the per-run exchange dir.
+    exchange_dir = tmp_path / "exchange" / "codeblock-block-1" / "run-1"
     _write_script(
         tmp_path,
-        """
+        f"""
 from pathlib import Path
 
-source = sorted(Path("inputs/prompt").glob("*.txt"))[0]
-target = Path("outputs/summary/result.txt")
+inputs_dir = Path({(exchange_dir / "inputs").as_posix()!r})
+outputs_dir = Path({(exchange_dir / "outputs").as_posix()!r})
+source = sorted((inputs_dir / "prompt").glob("*.txt"))[0]
+target = outputs_dir / "summary" / "result.txt"
+target.parent.mkdir(parents=True, exist_ok=True)
 target.write_text(source.read_text(encoding="utf-8").upper(), encoding="utf-8")
 """.strip()
         + "\n",
