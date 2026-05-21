@@ -36,10 +36,18 @@ class NotebookCodeBlockBackend:
     def resolve(self, context: CodeBlockRuntimeContext) -> ResolvedInterpreter:
         executable = self._resolve_executable(context.config)
         target = executed_notebook_path(context)
+        # ADR-041 §4: nbconvert launches the kernel from the configured
+        # working directory (default ``"."`` = project root). Previously
+        # ``--ExecutePreprocessor.cwd`` and the interpreter ``working_directory``
+        # were set to ``context.exchange_dir``, which broke notebooks that
+        # read project-relative paths like ``Path("data/raw")``. The
+        # exchange dir remains the materialisation target for declared
+        # ports.
+        script_cwd = context.config.resolve_working_directory(context.project_dir)
         argv = _nbconvert_argv(
             executable,
             source_notebook=target,
-            execution_cwd=context.exchange_dir,
+            execution_cwd=script_cwd,
             timeout_seconds=context.config.timeout_seconds,
         )
         version, warnings = _probe_nbconvert_version(executable)
@@ -47,7 +55,7 @@ class NotebookCodeBlockBackend:
             family="notebook",
             executable=executable,
             argv=argv,
-            working_directory=context.exchange_dir.as_posix(),
+            working_directory=script_cwd.as_posix(),
             environment=_environment_delta(context.environment_config),
             version=version,
             warnings=warnings,
@@ -61,9 +69,13 @@ class NotebookCodeBlockBackend:
         target = executed_notebook_path(context)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(context.script_path, target)
+        # ADR-041 §4: keep the subprocess cwd aligned with the resolved
+        # working directory used by ``resolve()`` so nbconvert and its
+        # spawned kernel share the same launch directory.
+        script_cwd = context.config.resolve_working_directory(context.project_dir)
         return run_codeblock_process(
             argv=interpreter.argv,
-            cwd=context.exchange_dir,
+            cwd=script_cwd,
             env_delta=interpreter.environment,
             timeout_seconds=context.config.timeout_seconds,
         )
