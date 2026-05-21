@@ -1,5 +1,11 @@
 {
-  "admin_labels": [],
+  "admin_labels": [
+    {
+      "applied_at": null,
+      "applied_by": "@jiazhenz026",
+      "name": "admin-approved:core-change"
+    }
+  ],
   "amendments": [
     {
       "approved_by": null,
