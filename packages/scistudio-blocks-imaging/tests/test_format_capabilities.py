@@ -89,29 +89,49 @@ def test_load_image_tiff_capability_defaults() -> None:
 
 
 def test_load_image_zarr_capability_defaults() -> None:
+    """Issue #1371: zarr load declares ``pixel_only`` — the handler reads
+    array + axes only, never OME metadata."""
     capabilities = _capabilities_by_id(LoadImage)
     zarr = capabilities["scistudio-blocks-imaging.image.zarr.load"]
     assert zarr.format_id == "zarr"
     assert zarr.extensions == (".zarr",)
-    assert zarr.metadata_fidelity.level == "format_specific"
-    assert "ome" in zarr.metadata_fidelity.format_metadata_reads
+    assert zarr.metadata_fidelity.level == "pixel_only"
+    # pixel_only forbids any declared meta fields — guard against
+    # accidental re-introduction of overclaiming declarations.
+    assert zarr.metadata_fidelity.format_metadata_reads == ()
+    assert zarr.metadata_fidelity.typed_meta_reads == ()
 
 
 def test_load_image_png_capability_defaults() -> None:
+    """Issue #1371: PNG load declares only the OME fields actually
+    populated from EXIF DPI."""
     capabilities = _capabilities_by_id(LoadImage)
     png = capabilities["scistudio-blocks-imaging.image.png.load"]
     assert png.format_id == "png"
     assert png.extensions == (".png",)
     assert png.handler == "_load_png"
     assert png.metadata_fidelity.level == "format_specific"
+    assert png.metadata_fidelity.format_metadata_reads == (
+        "ome.pixels.physical_size_x",
+        "ome.pixels.physical_size_y",
+    )
+    # No broad ``ome`` token — would re-introduce the overclaim.
+    assert "ome" not in png.metadata_fidelity.format_metadata_reads
 
 
 def test_load_image_jpeg_capability_defaults() -> None:
+    """Issue #1371: JPEG load declares only the OME fields actually
+    populated from EXIF DPI."""
     capabilities = _capabilities_by_id(LoadImage)
     jpeg = capabilities["scistudio-blocks-imaging.image.jpeg.load"]
     assert jpeg.format_id == "jpeg"
     assert jpeg.extensions == (".jpg", ".jpeg")
     assert jpeg.handler == "_load_jpeg"
+    assert jpeg.metadata_fidelity.format_metadata_reads == (
+        "ome.pixels.physical_size_x",
+        "ome.pixels.physical_size_y",
+    )
+    assert "ome" not in jpeg.metadata_fidelity.format_metadata_reads
 
 
 @pytest.mark.parametrize("fmt", ["czi", "nd2", "lif", "oir", "oib"])
@@ -155,22 +175,42 @@ def test_save_image_capability_id_convention() -> None:
 
 
 def test_save_image_png_jpeg_declare_minimal_writable_meta() -> None:
-    """PNG/JPEG can persist only EXIF-mappable fields (pixel_size, channels)."""
+    """PNG/JPEG persist only EXIF-mappable fields.
+
+    Issue #1371: ``format_metadata_writes`` declares the precise OME
+    field paths (``ome.pixels.physical_size_x`` / ``physical_size_y``)
+    rather than the broad ``"ome"`` token, so the lossy-save warning
+    chip can correctly identify what's preserved versus dropped.
+    """
     capabilities = _capabilities_by_id(SaveImage)
     for fmt in ("png", "jpeg"):
         cap = capabilities[f"scistudio-blocks-imaging.image.{fmt}.save"]
         assert "pixel_size" in cap.metadata_fidelity.typed_meta_writes
         assert "channels" in cap.metadata_fidelity.typed_meta_writes
-        assert "ome" in cap.metadata_fidelity.format_metadata_writes
+        # Issue #1371: precise OME field paths, not a broad ``"ome"``.
+        assert cap.metadata_fidelity.format_metadata_writes == (
+            "ome.pixels.physical_size_x",
+            "ome.pixels.physical_size_y",
+        )
+        assert "ome" not in cap.metadata_fidelity.format_metadata_writes
 
 
-def test_save_image_tiff_zarr_declare_richer_writable_meta() -> None:
-    """TIFF / zarr can persist pixel_size + z_spacing + channels + ome."""
+def test_save_image_tiff_declares_richer_writable_meta() -> None:
+    """TIFF persists pixel_size + z_spacing + channels + full OME."""
     capabilities = _capabilities_by_id(SaveImage)
-    for fmt in ("tiff", "zarr"):
-        cap = capabilities[f"scistudio-blocks-imaging.image.{fmt}.save"]
-        assert {"pixel_size", "z_spacing", "channels"}.issubset(set(cap.metadata_fidelity.typed_meta_writes))
-        assert "ome" in cap.metadata_fidelity.format_metadata_writes
+    cap = capabilities["scistudio-blocks-imaging.image.tiff.save"]
+    assert {"pixel_size", "z_spacing", "channels"}.issubset(set(cap.metadata_fidelity.typed_meta_writes))
+    assert "ome" in cap.metadata_fidelity.format_metadata_writes
+
+
+def test_save_image_zarr_declares_pixel_only() -> None:
+    """Issue #1371: zarr save is ``pixel_only`` — the writer persists
+    array data + ``axes`` group attribute, never OME or typed Meta."""
+    capabilities = _capabilities_by_id(SaveImage)
+    cap = capabilities["scistudio-blocks-imaging.image.zarr.save"]
+    assert cap.metadata_fidelity.level == "pixel_only"
+    assert cap.metadata_fidelity.format_metadata_writes == ()
+    assert cap.metadata_fidelity.typed_meta_writes == ()
 
 
 # ---------------------------------------------------------------------------
