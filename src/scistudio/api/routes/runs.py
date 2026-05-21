@@ -218,13 +218,23 @@ def get_run_methods(run_id: str, store: Any = _LineageStoreDep) -> PlainTextResp
 
 
 @router.post("/{run_id}/rerun")
-def rerun_run(
+async def rerun_run(
     run_id: str,
     body: RerunRequest,
     store: Any = _LineageStoreDep,
     runtime: ApiRuntime = _RuntimeDep,
 ) -> dict[str, Any]:
     """Queue a re-run of the workflow that produced ``run_id``.
+
+    Must be ``async def`` so the handler executes on the asyncio event-loop
+    thread rather than FastAPI's sync threadpool:
+    :meth:`ApiRuntime.start_workflow` schedules the run via
+    :func:`asyncio.create_task`, which raises ``RuntimeError("no running
+    event loop")`` from a threadpool caller and leaves the lineage
+    ``runs`` row stranded in ``running`` state (the row is inserted
+    before ``create_task`` is reached). The sibling
+    ``POST /api/workflows/{id}/execute`` handler is async for the same
+    reason.
 
     The new run is created via :meth:`ApiRuntime.start_workflow` against
     the historical run's ``workflow_id``. The runtime constructs a fresh

@@ -38,6 +38,11 @@ export function TerminalView({
   // closure can reach them without re-rendering.
   const termRef = useRef<unknown>(null);
   const fitRef = useRef<{ fit: () => void } | null>(null);
+  // Buffer stdout that arrives before xterm finishes its async dynamic-import
+  // bootstrap. Without this, the PTY's startup banner (claude-code prints
+  // several KB immediately on spawn) gets silently dropped, leaving the TUI
+  // mid-render with no prior screen state.
+  const pendingWritesRef = useRef<string[]>([]);
 
   // Keep callbacks fresh without re-mounting the WS (which would tear down
   // the PTY subprocess).
@@ -54,7 +59,11 @@ export function TerminalView({
     onMessage: (frame) => {
       if (frame.type === "stdout") {
         const t = termRef.current as { write?: (data: string) => void } | null;
-        t?.write?.(frame.data);
+        if (t?.write) {
+          t.write(frame.data);
+        } else {
+          pendingWritesRef.current.push(frame.data);
+        }
       } else if (frame.type === "exit") {
         onExitRef.current(frame.code);
       } else if (frame.type === "error") {
@@ -80,15 +89,31 @@ export function TerminalView({
       const fitMod = await import("@xterm/addon-fit");
       const searchMod = await import("@xterm/addon-search");
       const linksMod = await import("@xterm/addon-web-links");
+      const canvasMod = await import("@xterm/addon-canvas");
       if (cancelled) return;
 
       const TerminalCtor = (xtermMod as { Terminal: new (opts?: unknown) => typeof term }).Terminal;
       const FitAddon = (fitMod as { FitAddon: new () => { fit: () => void } }).FitAddon;
       const SearchAddon = (searchMod as { SearchAddon: new () => unknown }).SearchAddon;
       const WebLinksAddon = (linksMod as { WebLinksAddon: new () => unknown }).WebLinksAddon;
+      const CanvasAddon = (canvasMod as { CanvasAddon: new () => unknown }).CanvasAddon;
 
       term = new TerminalCtor({
-        theme: { background: "#1e1e1e" },
+        // xterm's default ANSI black is #2e3436 — nearly invisible on the
+        // #1e1e1e background. Codex occasionally emits ANSI color 0 (black)
+        // for foreground text, which then renders as unreadable dark-on-dark.
+        // Mirror the VS Code dark+ approach: brighten "black" to a readable
+        // grey so colored output stays visible regardless of which palette
+        // index the agent picks. Explicit foreground/cursor guarantees the
+        // default text colour is the brighter one users expect.
+        theme: {
+          background: "#1e1e1e",
+          foreground: "#e6e6e6",
+          cursor: "#ffffff",
+          cursorAccent: "#1e1e1e",
+          black: "#666666",
+          brightBlack: "#7f7f7f",
+        },
         fontFamily: "Consolas, Menlo, monospace",
         fontSize: 14,
         cursorBlink: true,
@@ -98,6 +123,7 @@ export function TerminalView({
       const fit = new FitAddon();
       const search = new SearchAddon();
       const links = new WebLinksAddon();
+      const canvas = new CanvasAddon();
       // Refs filled in for the onMessage closure.
       termRef.current = term;
       fitRef.current = fit;
@@ -105,12 +131,34 @@ export function TerminalView({
       term!.loadAddon(fit);
       term!.loadAddon(search);
       term!.loadAddon(links);
+      // Switch from xterm's default DOM renderer to the canvas renderer.
+      // The DOM renderer leaves cell-redraw artifacts when claude-code's
+      // alt-screen TUI scrolls (e.g. the startup banner ghosts when the
+      // user drags the scrollbar). Canvas owns the entire viewport pixel
+      // buffer so scroll always paints a clean frame. ``open()`` MUST run
+      // before ``loadAddon(canvas)`` — the addon attaches its <canvas>
+      // child to the terminal element, which only exists after open.
       term!.open(container);
+      term!.loadAddon(canvas);
       try {
         fit.fit();
       } catch {
         // fit can throw if the container has zero dims; ignore — the resize
         // observer will fire once layout settles.
+      }
+
+      // Flush stdout that arrived during the async xterm bootstrap, then
+      // notify the PTY of the post-fit viewport so subsequent output is
+      // laid out against the real cols/rows rather than the 120x30 default.
+      const pending = pendingWritesRef.current;
+      if (pending.length > 0) {
+        for (const chunk of pending) {
+          term!.write(chunk);
+        }
+        pendingWritesRef.current = [];
+      }
+      if (term!.cols > 0 && term!.rows > 0) {
+        send({ type: "resize", cols: term!.cols, rows: term!.rows });
       }
 
       onDataDisposable = term!.onData((data: string) => {

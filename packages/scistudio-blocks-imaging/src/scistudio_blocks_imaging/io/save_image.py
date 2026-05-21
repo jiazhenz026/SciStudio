@@ -91,9 +91,14 @@ def _save_image_extension_map() -> dict[str, str]:
     return mapping
 
 
-def _resolve_format(path: Path, explicit: str | None, block: SaveImage | None = None) -> str:
-    """Resolve the output format from an explicit config value or the
-    path suffix.
+def _resolve_format(
+    path: Path,
+    explicit: str | None,
+    block: SaveImage | None = None,
+    capability_id: str | None = None,
+) -> str:
+    """Resolve the output format from an explicit config value, a
+    capability id, or the path suffix.
 
     P2-03 (Phase C1 audit, issue #1296) / ADR-043 FR-005: the
     canonical source of truth for writable formats is
@@ -104,6 +109,17 @@ def _resolve_format(path: Path, explicit: str | None, block: SaveImage | None = 
     as documented scaffolding for the wider migration (see P2-02 in the
     Phase C1 audit report). Raises :class:`ValueError` on unknown
     values.
+
+    Resolution order:
+      1. ``explicit`` (legacy ``config['format']`` string) — wins for
+         backward compatibility with workflow YAMLs that pin the format
+         directly. Pre-existing field; new workflows configure the
+         format via ``capability_id`` instead.
+      2. ``capability_id`` (ADR-043 unified capability selector,
+         surfaced via the Format dropdown in the bottom panel) — looked
+         up in :attr:`SaveImage.format_capabilities` to get the
+         declared ``format_id``.
+      3. Extension dispatch on ``path.suffix``.
     """
     extension_map = _save_image_extension_map()
     supported_format_ids = set(extension_map.values())
@@ -118,6 +134,14 @@ def _resolve_format(path: Path, explicit: str | None, block: SaveImage | None = 
                 f"SaveImage: unsupported format {explicit!r}; supported formats are {sorted(supported_format_ids)}"
             )
         return fmt
+    if capability_id is not None:
+        for cap in SaveImage.format_capabilities:
+            if cap.id == capability_id:
+                return cap.format_id
+        raise ValueError(
+            f"SaveImage: capability_id {capability_id!r} is not declared in SaveImage.format_capabilities; "
+            f"valid ids are {sorted(c.id for c in SaveImage.format_capabilities)}"
+        )
     if block is not None:
         detected = block._detect_format(path)
     else:
@@ -373,11 +397,16 @@ class SaveImage(IOBlock):
         "properties": {
             # ADR-030: ``path`` is inherited from IOBlock base class via MRO merge.
             # Direction-aware post-processing auto-switches to directory_browser.
-            "format": {
-                "type": "string",
-                "enum": ["tiff", "zarr", "png", "jpeg"],
-                "ui_priority": 1,
-            },
+            #
+            # Format selection: surfaced as the ADR-043 ``capability_id``
+            # dropdown (FormatCapabilityConfig in BottomPanel) — the
+            # backend resolves ``capability_id -> format_id`` via
+            # :func:`_resolve_format`. The legacy ``format`` enum field
+            # was removed here so the UI does not display two parallel
+            # format selectors; existing workflow YAMLs that set
+            # ``config['format']`` continue to load because
+            # :func:`_resolve_format` still honours the ``explicit`` arg
+            # (highest precedence) for backward compatibility.
         },
         "required": [],
     }
@@ -425,6 +454,11 @@ class SaveImage(IOBlock):
         fmt_cfg = config.get("format")
         if fmt_cfg is not None and not isinstance(fmt_cfg, str):
             raise ValueError(f"SaveImage: config['format'] must be a string or omitted, got {type(fmt_cfg).__name__}")
+        capability_id = config.get("capability_id")
+        if capability_id is not None and not isinstance(capability_id, str):
+            raise ValueError(
+                f"SaveImage: config['capability_id'] must be a string or omitted, got {type(capability_id).__name__}"
+            )
 
         # Handle Collection: save each item with auto-numbered filename
         if isinstance(obj, Collection):
@@ -433,15 +467,22 @@ class SaveImage(IOBlock):
             if len(obj) == 1:
                 # Single-item collection: use path as-is
                 image = _unwrap_image(obj)
-                fmt = _resolve_format(path, fmt_cfg, block=self)
+                fmt = _resolve_format(path, fmt_cfg, block=self, capability_id=capability_id)
                 self._write_single(image, path, fmt)
                 return
 
             # Multi-item collection: path is treated as directory
             out_dir = path if path.suffix == "" else path.parent
             out_dir.mkdir(parents=True, exist_ok=True)
-            ext = f".{fmt_cfg}" if fmt_cfg else ".tif"
-            fmt = _resolve_format(Path(f"dummy{ext}"), fmt_cfg, block=self)
+            # Resolve format first so the batch extension can mirror it
+            # (extension dispatch needs a real path, so we hand a dummy
+            # with the chosen suffix once we know the format id).
+            if fmt_cfg is not None or capability_id is not None:
+                fmt = _resolve_format(path, fmt_cfg, block=self, capability_id=capability_id)
+                ext = f".{fmt}"
+            else:
+                ext = ".tif"
+                fmt = _resolve_format(Path(f"dummy{ext}"), None, block=self)
             for i, item in enumerate(obj):
                 if not isinstance(item, Image):
                     raise ValueError(f"SaveImage: Collection item {i} is not an Image")
@@ -451,6 +492,6 @@ class SaveImage(IOBlock):
 
         # Single image (not in Collection)
         image = _unwrap_image(obj)
-        fmt = _resolve_format(path, fmt_cfg, block=self)
+        fmt = _resolve_format(path, fmt_cfg, block=self, capability_id=capability_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         self._write_single(image, path, fmt)

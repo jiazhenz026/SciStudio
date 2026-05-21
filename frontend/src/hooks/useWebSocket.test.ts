@@ -217,6 +217,65 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
     expect(useAppStore.getState().workflowDescription).toBe("refreshed");
   });
 
+  it("auto-opens the workflow tab when an MCP-driven run emits workflow_started for an unopened workflow", async () => {
+    // Hotfix scope: when an agent calls MCP run_workflow on a yaml that the
+    // user has not opened in the canvas, the scheduler emits
+    // ``workflow_started`` — no ``workflow.changed`` fires because the yaml
+    // was not mutated. The hook must mirror the ``workflow.changed
+    // kind=created`` auto-open path so the user can watch the run live.
+    useAppStore.setState({ workflowId: null, tabs: [] });
+    vi.mocked(api.getWorkflow).mockResolvedValueOnce({
+      id: "mcp_run_target",
+      version: "1.0.0",
+      description: "via MCP",
+      nodes: [],
+      edges: [],
+      metadata: {},
+    } as never);
+    const openTabSpy = vi.fn();
+    useAppStore.setState({ openTab: openTabSpy });
+
+    renderHook(() => useWorkflowWebSocket(true));
+
+    pushMessage({
+      type: "workflow_started",
+      workflow_id: "mcp_run_target",
+      timestamp: "2026-05-21T00:00:00Z",
+      data: {},
+    });
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(vi.mocked(api.getWorkflow)).toHaveBeenCalledWith("mcp_run_target");
+    expect(openTabSpy).toHaveBeenCalled();
+  });
+
+  it("does NOT auto-open on workflow_started when the workflow is already open", async () => {
+    // Idempotency guard: a manual user-click already produced the tab, the
+    // run that follows must not double-open or re-fetch.
+    useAppStore.setState({
+      tabs: [
+        // Shape mirrors the workflow-tab variant; only the discriminating
+        // fields matter for the hook's lookup.
+        { id: "t-already-open", kind: "workflow", workflowId: "already_open", title: "Already Open" },
+      ] as never,
+    });
+    const openTabSpy = vi.fn();
+    useAppStore.setState({ openTab: openTabSpy });
+
+    renderHook(() => useWorkflowWebSocket(true));
+
+    pushMessage({
+      type: "workflow_started",
+      workflow_id: "already_open",
+      timestamp: "2026-05-21T00:00:00Z",
+      data: {},
+    });
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(vi.mocked(api.getWorkflow)).not.toHaveBeenCalled();
+    expect(openTabSpy).not.toHaveBeenCalled();
+  });
+
   it("ignores workflow.changed for a workflow that is not currently loaded", async () => {
     useAppStore.setState({ workflowId: "alpha" });
     renderHook(() => useWorkflowWebSocket(true));
