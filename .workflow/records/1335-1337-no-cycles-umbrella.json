@@ -30,7 +30,13 @@
   "branch": "track/no-cycles-1335-1337",
   "changed_test_paths": [],
   "check_results": [],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1335-1337-no-cycles-umbrella.json",
+    "shas": [
+      "2f286d4d"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -81,7 +87,14 @@
     ".workflow/records/1335-1337-no-cycles-umbrella.json",
     "docs/audit/2026-05-21-no-cycles-umbrella-sentrux.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1335,
+      1337
+    ],
+    "number": 1344,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1344"
+  },
   "record_path": ".workflow/records/1335-1337-no-cycles-umbrella.json",
   "required_checks": [
     "sentrux",
@@ -148,7 +161,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
