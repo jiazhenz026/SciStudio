@@ -14,7 +14,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/audit-issue-triage-20260521.json",
+    "shas": [
+      "05e9884b"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "not_applicable": true,
@@ -45,7 +51,13 @@
     "docs/audit/2026-05-21-open-issue-triage.md",
     ".workflow/records/audit-issue-triage-20260521.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1398
+    ],
+    "number": null,
+    "url": null
+  },
   "record_path": ".workflow/records/audit-issue-triage-20260521.json",
   "required_checks": [
     "ruff_check"
@@ -88,7 +100,7 @@
       "completed_at": null,
       "stage": "implement",
       "status": "done",
-      "summary": "N/A — read-only triage audit; only the triage report and gate record were written"
+      "summary": "N/A \u2014 read-only triage audit; only the triage report and gate record were written"
     },
     {
       "completed_at": null,
@@ -105,7 +117,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
