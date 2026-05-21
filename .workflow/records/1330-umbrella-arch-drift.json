@@ -1,11 +1,48 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": "owner",
+      "exclude": [],
+      "include": [
+        ".workflow/records/1330-umbrella-arch-drift.json",
+        "docs/planning/arch-drift-checklist.md"
+      ],
+      "reason": "Correct include pattern: actual gate-record filename includes issue prefix (1330-umbrella-arch-drift.json), original include omitted it. Also expand scope to cover the manager-owned seed files only \u2014 sub-tracks are implemented in separate PRs on their own branches."
+    },
+    {
+      "approved_by": "owner",
+      "exclude": [
+        "docs/architecture/ARCHITECTURE.md"
+      ],
+      "include": [
+        "src/scistudio/core/types/registry.py",
+        "src/scistudio/api/runtime.py",
+        "tests/core/"
+      ],
+      "reason": "Scope revision: drop #1331 (P1-1 interactive subprocess, too large for overnight autonomous) and #887 (P1-2 resource gating, owner deferral, ARCHITECTURE \u00a76 doc stays as final commitment). Track B repurposed from docs to impl: TypeRegistry filesystem scan (#1332) instead of ARCHITECTURE.md edits. Add Track B impl paths to scope, drop ARCHITECTURE.md from scope."
+    }
+  ],
   "branch": "umbrella/arch-drift-and-collection-wrap",
   "changed_test_paths": [],
   "check_results": [],
   "commit": null,
-  "docs_landing": {},
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "No ADR change. ARCHITECTURE.md edits are owned by Track B docs PR. ADR-020 \u00a73 already matches the proposed Track A engine wrap fix."
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Manager umbrella has no user-facing surface change of its own; sub-PRs Track A and Track B each handle their own changelog entries if needed."
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/arch-drift-checklist.md"
+      ]
+    },
+    "docs": {}
+  },
   "full_audit": null,
   "governance_touch": true,
   "issues": [
@@ -18,27 +55,22 @@
     {
       "close_in_pr": true,
       "followup_rationale": null,
-      "number": 1331,
-      "url": "https://github.com/zjzcpj/SciStudio/issues/1331"
-    },
-    {
-      "close_in_pr": true,
-      "followup_rationale": null,
       "number": 1332,
       "url": "https://github.com/zjzcpj/SciStudio/issues/1332"
-    },
-    {
-      "close_in_pr": false,
-      "followup_rationale": "P1-2 resource gating not wired into dispatch; existing open issue #887 tracks impl. This umbrella's Track B updates ARCHITECTURE.md §6 to match current behavior and links #887; impl deferred to that issue's own scope.",
-      "number": 887,
-      "url": "https://github.com/zjzcpj/SciStudio/issues/887"
     }
   ],
-  "owner_directive": "Manager-owned umbrella for ARCHITECTURE doc drift P1 audit findings + engine Collection auto-wrap (ADR-020 \u00a73 contract enforcement). Sub-agents in parallel: Track A impl (#1330), Track B docs (#1331 + #1332, references #887). Final umbrella PR [DO NOT MERGE] until owner removes prefix.",
-  "planned_files": [],
+  "owner_directive": "REVISED 2026-05-21: scope narrowed to #1330 + #1332 only. #1331 (P1-1 interactive subprocess) and #887 (P1-2 resource gating) deferred \u2014 too large for autonomous overnight work; both stay open as standalone issues. Track A impl: engine Collection auto-wrap (#1330, ADR-020 \u00a73). Track B impl (was docs): TypeRegistry add_scan_dir mirroring BlockRegistry, covers <project>/types and ~/.scistudio/types (#1332). Final umbrella PR [DO NOT MERGE] until owner removes prefix.",
+  "planned_files": [
+    ".workflow/records/1330-umbrella-arch-drift.json",
+    "docs/planning/arch-drift-checklist.md"
+  ],
   "pull_request": null,
   "record_path": ".workflow/records/1330-umbrella-arch-drift.json",
-  "required_checks": [],
+  "required_checks": [
+    "manager coordination only \u2014 actual checks run in sub-PRs Track A and Track B",
+    "Sentrux baseline",
+    "ADR-042 full audit"
+  ],
   "schema_version": "1",
   "scope": {
     "exclude": [],
@@ -62,19 +94,19 @@
     {
       "completed_at": null,
       "stage": "plan",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
       "completed_at": null,
       "stage": "update_docs",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {

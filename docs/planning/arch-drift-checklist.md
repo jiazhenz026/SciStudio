@@ -17,14 +17,15 @@ language_source: en
 
 ## 1. Change Summary
 
-- Owner request: "开一个umbrella，负责修3个P1和engine给collection兜底的issue，最后PR，修CI"
-- Task kind: `manager` (umbrella coordinates a `feature` impl track + a `docs` track)
+- Owner request (revised 2026-05-21): scope narrowed to #1330 + #1332 only after manager push-back on P1-1 subprocess refactor size.
+- Task kind: `manager` (umbrella coordinates two impl tracks)
 - Manager persona: `manager`
 - Issues:
   - `#1330` — engine: auto-wrap bare DataObject into length-one Collection (Track A closes)
-  - `#1331` — docs: ARCHITECTURE §5.3 overstates subprocess isolation (Track B closes)
-  - `#1332` — docs: ARCHITECTURE §10-11 overstates local type extension discovery (Track B closes)
-  - `#887` — engine: resource gating not wired (referenced, Track B updates §6 doc; impl deferred to #887)
+  - `#1332` — engine: TypeRegistry filesystem scan for project/user `types/` dirs (Track B closes)
+- Deferred from this umbrella (stay open as standalone issues):
+  - `#1331` — P1-1 interactive subprocess: requires bidirectional IPC redesign + ADR, too large for overnight autonomous work
+  - `#887` — P1-2 resource gating: owner directive keeps ARCHITECTURE §6 as final commitment; impl deferred to #887's own scope
 - Gate record: `.workflow/records/1330-umbrella-arch-drift.json`
 - Branch/worktree plan:
   - Manager worktree: `.claude/worktrees/umbrella-arch-drift` on `umbrella/arch-drift-and-collection-wrap`
@@ -44,20 +45,22 @@ language_source: en
   - `src/scistudio/engine/runners/worker.py` (Track A)
   - `src/scistudio/engine/scheduler.py` (Track A)
   - `tests/engine/` (Track A)
-  - `docs/architecture/ARCHITECTURE.md` (Track B)
+  - `src/scistudio/core/types/registry.py` (Track B)
+  - `src/scistudio/api/runtime.py` (Track B)
+  - `tests/core/` (Track B)
   - `docs/planning/arch-drift-checklist.md` (manager)
   - `.workflow/records/1330-umbrella-arch-drift.json` (manager)
 - Out of scope:
+  - `docs/architecture/ARCHITECTURE.md` — owner directive 2026-05-21: ARCHITECTURE.md is the **final commitment**, do not weaken doc claims. impl must catch up.
   - Removing the six existing manual `Collection([result], item_type=X)` wraps in concrete blocks (`merge.py`, `split.py`, `code_block.py`, `process_block.py`, `app_block.py`, `ai_block.py`) — defer to follow-up cleanup PR per #1330 spec
   - Wiring `resource_manager.acquire()` into scheduler dispatch (P1-2 impl) — defer to #887
-  - Implementing `TypeRegistry.add_scan_dir()` for project/user `types/` directories (P1-3 impl) — file follow-up if owner demand surfaces
-  - ADR text revision — current ADR-020 §3 already matches the proposed engine-wrap fix; no ADR change needed
-  - Refactoring interactive blocks to run in subprocess (P1-1 impl) — design intent per #591/#594 keeps in-process; defer indefinitely
+  - Refactoring interactive blocks to run in subprocess (P1-1 impl) — bidirectional IPC redesign + ADR needed; defer to #1331
 - Protected paths:
   - `.workflow/records/1330-umbrella-arch-drift.json` (manager-owned governance file; `governance_touch=true` recorded)
 - Deferred work:
-  - `TODO(#887): wire per-block resource_request into scheduler.can_dispatch + acquire/release; current docs §6 describes the L2/L3 watermark-only behavior`
+  - `TODO(#887): wire per-block resource_request into scheduler.can_dispatch + acquire/release. ARCHITECTURE.md §6 stays as final commitment.`
   - `TODO(#1330): follow-up cleanup PR removes six manual Collection wraps in blocks/ after engine wrap soak-tests in production`
+  - `TODO(#1331): refactor interactive blocks to subprocess execution. Needs bidirectional IPC channel design + ADR.`
 
 ## 3. Conventions
 
@@ -103,7 +106,7 @@ language_source: en
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Track-A | implementer | N/A | (inline below in §7.A) | engine Collection auto-wrap | `fix/issue-1330-engine-collection-wrap` | `.claude/worktrees/track-a-collection-wrap` | `src/scistudio/engine/runners/worker.py`, `src/scistudio/engine/scheduler.py`, `tests/engine/test_collection_wrap.py` (new) | `docs/architecture/ARCHITECTURE.md`, the six manual-wrap block files | `#1330` / `<PR-A pending>` | `[ ]` |
-| Track-B | implementer | N/A | (inline below in §7.B) | ARCHITECTURE.md drift fixes (§5.3 + §6 + §10/§10.5) | `docs/issue-1331-1332-arch-drift` | `.claude/worktrees/track-b-arch-drift-docs` | `docs/architecture/ARCHITECTURE.md` | `src/`, `tests/`, any non-doc files | `#1331` + `#1332` / `<PR-B pending>` | `[ ]` |
+| Track-B | implementer | N/A | (inline below in §7.B) | TypeRegistry filesystem scan for project/user `types/` | `fix/issue-1332-types-scan` | `.claude/worktrees/track-b-types-scan` | `src/scistudio/core/types/registry.py`, `src/scistudio/api/runtime.py`, `tests/core/test_type_registry_scan_dirs.py` (new) | `docs/architecture/ARCHITECTURE.md`, anything outside TypeRegistry path | `#1332` / `<PR-B pending>` | `[ ]` |
 
 ## 7. Tracks
 
