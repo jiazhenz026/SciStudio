@@ -695,10 +695,43 @@ def _git_lines(repo_root: Path, args: list[str]) -> list[str]:
     return [_normalize_path(line) for line in output.splitlines() if line.strip()]
 
 
+def _record_task_kind(path: Path) -> str | None:
+    """Return the ``task_kind`` field of a gate record on disk, or ``None``.
+
+    Tolerates malformed or missing files: callers fall back to the
+    single-record path when this returns ``None``.
+    """
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if isinstance(data, dict):
+        value = data.get("task_kind")
+        return value if isinstance(value, str) else None
+    return None
+
+
 def _discover_gate_record(repo_root: Path, changed_files: Sequence[str]) -> Path | None:
+    """Resolve the gate record to validate against.
+
+    The default case is a single PR with a single record under
+    ``.workflow/records/``. Umbrella PRs (created by the manager persona)
+    accumulate sub-PR records in their diff because each sub-PR merged into
+    the umbrella brought its own record along; in that case the umbrella's
+    own record carries ``task_kind: manager`` and the sub-PR records carry
+    implementation task kinds. When exactly one manager record is present in
+    the diff, treat that as the primary record and let the sub-PR records
+    pass through as historical evidence (#1340).
+    """
+
     record_paths = [path for path in changed_files if _match_path(path, ".workflow/records/*.json")]
     if len(record_paths) == 1:
         return repo_root / record_paths[0]
+    if len(record_paths) > 1:
+        manager_paths = [repo_root / path for path in record_paths if _record_task_kind(repo_root / path) == "manager"]
+        if len(manager_paths) == 1:
+            return manager_paths[0]
     records_dir = repo_root / ".workflow" / "records"
     records = sorted(records_dir.glob("*.json")) if records_dir.exists() else []
     return records[0] if len(records) == 1 else None

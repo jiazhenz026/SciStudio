@@ -12,6 +12,7 @@ from scistudio.qa.governance.gate_record import (
     GateRecord,
     GateStage,
     SentruxEvidence,
+    _discover_gate_record,
     _is_governance_path,
     check_commit_msg,
     check_pr_ready,
@@ -428,6 +429,107 @@ def test_pre_push_does_not_require_commit_and_submit_pr_stage_done() -> None:
 
     stage_findings = [f for f in report.findings if f.rule_id == "gate-record.stage.not-done"]
     assert stage_findings == []
+
+
+def _write_record_file(path: Path, *, task_kind: str, task_id: str = "test") -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"task_kind": task_kind, "task_id": task_id}),
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_discover_gate_record_returns_single_record_unchanged(tmp_path: Path) -> None:
+    record = _write_record_file(
+        tmp_path / ".workflow" / "records" / "1340-wire-vulture.json",
+        task_kind="feature",
+    )
+
+    resolved = _discover_gate_record(tmp_path, [".workflow/records/1340-wire-vulture.json"])
+
+    assert resolved == record
+
+
+def test_discover_gate_record_picks_manager_record_on_umbrella(tmp_path: Path) -> None:
+    """#1340: umbrella PRs created by the manager persona accumulate sub-PR
+    records in their diff. The umbrella's own record has ``task_kind: manager``;
+    sub-PR records have implementation task kinds (feature/bugfix/etc).
+    Discovery must pick the manager record as the primary.
+    """
+
+    umbrella = _write_record_file(
+        tmp_path / ".workflow" / "records" / "1266-umbrella.json",
+        task_kind="manager",
+        task_id="1266-umbrella",
+    )
+    _write_record_file(
+        tmp_path / ".workflow" / "records" / "1267-sub-a.json",
+        task_kind="feature",
+        task_id="1267-sub-a",
+    )
+    _write_record_file(
+        tmp_path / ".workflow" / "records" / "1268-sub-b.json",
+        task_kind="bugfix",
+        task_id="1268-sub-b",
+    )
+
+    resolved = _discover_gate_record(
+        tmp_path,
+        [
+            ".workflow/records/1267-sub-a.json",
+            ".workflow/records/1266-umbrella.json",
+            ".workflow/records/1268-sub-b.json",
+        ],
+    )
+
+    assert resolved == umbrella
+
+
+def test_discover_gate_record_returns_none_for_multiple_manager_records(tmp_path: Path) -> None:
+    """Defensive case: if a PR somehow carries multiple manager records, the
+    umbrella heuristic does not apply and discovery falls back to the
+    single-record-on-disk path (which returns None when more than one exists).
+    """
+
+    _write_record_file(
+        tmp_path / ".workflow" / "records" / "100-m1.json",
+        task_kind="manager",
+    )
+    _write_record_file(
+        tmp_path / ".workflow" / "records" / "200-m2.json",
+        task_kind="manager",
+    )
+
+    resolved = _discover_gate_record(
+        tmp_path,
+        [".workflow/records/100-m1.json", ".workflow/records/200-m2.json"],
+    )
+
+    assert resolved is None
+
+
+def test_discover_gate_record_returns_none_for_multiple_non_manager_records(tmp_path: Path) -> None:
+    """If a PR carries multiple records but none are manager-kind, this is
+    not the umbrella case — fail closed (return None so the caller emits the
+    standard 'exactly one gate record' error).
+    """
+
+    _write_record_file(
+        tmp_path / ".workflow" / "records" / "100-feature.json",
+        task_kind="feature",
+    )
+    _write_record_file(
+        tmp_path / ".workflow" / "records" / "200-bugfix.json",
+        task_kind="bugfix",
+    )
+
+    resolved = _discover_gate_record(
+        tmp_path,
+        [".workflow/records/100-feature.json", ".workflow/records/200-bugfix.json"],
+    )
+
+    assert resolved is None
 
 
 def test_check_commit_msg_requires_adr042_trailers() -> None:

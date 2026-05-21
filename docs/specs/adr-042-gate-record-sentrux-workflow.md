@@ -715,7 +715,15 @@ be submitted for review; CI still runs and remains authoritative.
 1. Remove the legacy `.workflow/active` branch-state lookup as a CI authority.
 2. Discover gate records changed in the PR.
 3. Validate exactly one primary gate record for AI-authored task branches unless
-   the PR is an approved human-authored bypass.
+   the PR is an approved human-authored bypass. **Umbrella PRs created by the
+   manager persona may carry multiple gate records in their diff** — the
+   umbrella's own record plus historical sub-PR records inherited from sub-PR
+   merges. In that case the primary record is the one whose ``task_kind`` is
+   ``manager``; the sub-PR records are historical evidence that already passed
+   their own CI runs. If multiple records are present and exactly one has
+   ``task_kind: manager``, validate that record as the primary. If no manager
+   record is present, or more than one is present, fail with the standard
+   "exactly one gate record" error.
 4. Fetch PR changed files, PR body, labels, label actor provenance, and review
    approval metadata.
 5. Run:

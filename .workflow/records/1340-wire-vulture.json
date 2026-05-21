@@ -50,6 +50,14 @@
         "docs/specs/adr-042-consistency-tools.md"
       ],
       "reason": "include adr-042-consistency-tools.md spec update: add include_vulture=True to the full_audit.run signature contract since vulture is now a child report"
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".github/workflows/workflow-gate.yml"
+      ],
+      "reason": "extend scope to also fix umbrella PR gate-record discovery: detect manager task_kind in both _discover_gate_record (Python validator) and .github/workflows/workflow-gate.yml (CI). Closes the same family of gate-workflow bugs as the chicken-and-egg fix and the governance-touch carve-out \u2014 user-authorized in session 2026-05-21."
     }
   ],
   "branch": "feat/issue-1340/wire-vulture",
