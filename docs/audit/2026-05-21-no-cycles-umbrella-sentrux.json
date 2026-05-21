@@ -1,0 +1,50 @@
+{
+  "tool": "sentrux",
+  "mode": "free-tier",
+  "umbrella_branch": "track/no-cycles-1335-1337",
+  "gate_record": ".workflow/records/1335-1337-no-cycles-umbrella.json",
+  "captured": "2026-05-21",
+  "baseline": {
+    "scan": {"files": 1073, "import_edges": 2598, "lines": 275796, "quality_signal": 4125},
+    "health": {
+      "quality_signal": 4125,
+      "bottleneck": "acyclicity",
+      "cross_module_edges": 1894,
+      "total_import_edges": 2447,
+      "root_causes": {
+        "acyclicity": {"raw": 5, "score": 1667},
+        "depth": {"raw": 18, "score": 3077},
+        "equality": {"raw": 0.4360261182691139, "score": 5640},
+        "modularity": {"raw": 0.17681091698148688, "score": 4512},
+        "redundancy": {"raw": 0.08501732101616628, "score": 9150}
+      }
+    },
+    "dsm": {
+      "edge_count": 2447,
+      "below_diagonal": 2399,
+      "above_diagonal": 0,
+      "same_level": 48,
+      "density": 51,
+      "level_breaks": 14,
+      "propagation_cost": 325,
+      "interpretation": "Clean layering: all dependencies flow downward",
+      "clusters": [
+        {"files_count": 3, "internal_edges": 4, "level": 2},
+        {"files_count": 2, "internal_edges": 2, "level": 9},
+        {"files_count": 2, "internal_edges": 2, "level": 2},
+        {"files_count": 2, "internal_edges": 2, "level": 1},
+        {"files_count": 2, "internal_edges": 2, "level": 3}
+      ]
+    },
+    "check_rules": {"pass": true, "rules_checked": 3, "total_rules_defined": 15, "violation_count": 0, "violations": []},
+    "rules_toml": {"max_cycles": 5, "max_cc": 100, "no_god_files": false}
+  },
+  "after_state": null,
+  "expected_after_umbrella_merge": {
+    "clusters_count": 2,
+    "acyclicity_raw": 2,
+    "max_cycles_ratchet": "5 -> 2",
+    "remaining_clusters_attributed_to": "#1336 (blocks.registry <-> ai.agent.* SCC)"
+  },
+  "attribution_note": "Manager-owned baseline for the no-cycles umbrella PR. Five clusters today: 3-file cluster (blocks/registry triangle, part of #1336), 2-file cluster (ai.agent.mcp tools<->context, part of #1336), 2-file cluster (core.types<->backend_router, #1335), 2-file cluster (core.versioning.git_*, #1337 pair D), 2-file cluster (engine.runners.*, #1337 pair E). After Track A (#1337) + Track B (#1335) land via this umbrella, expected clusters=2 (both from #1336). After #1336 closes, ratchet to 0 + add no_cycles import-linter contract (tracked at #1341)."
+}
