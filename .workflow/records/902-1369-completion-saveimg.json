@@ -147,17 +147,17 @@
     ]
   },
   "sentrux": {
-    "command_or_tool": "sentrux check",
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__check_rules",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "{rules_checked:3,total_rules_defined:15,violation_count:0,quality_signal:4444,pro_required:false,files:1122,bottleneck:acyclicity}",
+    "output_path": null,
     "pro_required": false,
-    "quality_signal": null,
-    "rules_checked": null,
+    "quality_signal": 4444.0,
+    "rules_checked": 3,
     "status": "pass",
     "summary": {},
     "thresholds": {},
-    "total_rules_defined": null
+    "total_rules_defined": 15
   },
   "stages": [
     {
