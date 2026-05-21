@@ -67,7 +67,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1110-617-1281-1282-1368-tier1-surgical-bug-sweep.json",
+    "shas": [
+      "053ed418472d9c5bf9c264b280508f01092a95b7"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -144,7 +150,17 @@
     "tests/workflow/test_validator.py",
     "CHANGELOG.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1110,
+      617,
+      1281,
+      1282,
+      1368
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1379"
+  },
   "record_path": ".workflow/records/1110-617-1281-1282-1368-tier1-surgical-bug-sweep.json",
   "required_checks": [
     "ruff",
@@ -218,7 +234,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
