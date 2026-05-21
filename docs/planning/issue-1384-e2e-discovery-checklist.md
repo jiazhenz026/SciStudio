@@ -33,7 +33,7 @@ language_source: en
 - Protected branch: `main`
 - Integration base branch: `umbrella/adr-039-addendum-1-impl`
 - Umbrella branch: `track/issue-1384-e2e-discovery`
-- Umbrella PR: `pending`
+- Umbrella PR: `#1387`
 - Umbrella PR title: `[DO NOT MERGE] issue #1384 E2E discovery suite`
 - Final PR target: `umbrella/adr-039-addendum-1-impl`
 - Dispatch prompt templates:
@@ -84,10 +84,12 @@ language_source: en
 - [x] Gate record started.
   Evidence: `.workflow/records/1384-e2e-discovery-manager.json`.
 - [x] Scope include/exclude recorded in the gate record.
-- [ ] Umbrella branch pushed.
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [ ] Protected branch and umbrella PR number recorded in this checklist.
+- [x] Umbrella branch pushed.
+  Evidence: `origin/track/issue-1384-e2e-discovery`.
+- [x] Umbrella PR opened.
+  Evidence: `#1387`.
+- [x] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Protected branch and umbrella PR number recorded in this checklist.
 - [ ] No `pip install -e .` environment pollution found.
 - [ ] Dispatch checklist copied from the template and committed.
 - [ ] Dispatch prompts created from the correct prompt template and linked
@@ -110,10 +112,10 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| E2E-Harness | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-harness.md` | Playwright harness, service startup, fixtures, non-blocking CI | `feat/issue-1384/e2e-harness` | `../SciStudio-e2e-harness-1384` | `frontend/playwright.config.ts`, `frontend/e2e/support/**`, `frontend/e2e/fixtures/**`, `frontend/package.json`, `.github/workflows/e2e-discovery.yml` | specs under `frontend/e2e/specs/**` except scaffold placeholders | `#1384` | `[ ]` |
-| E2E-GUI | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-gui.md` | GUI-001..015 specs | `feat/issue-1384/e2e-gui` | `../SciStudio-e2e-gui-1384` | `frontend/e2e/specs/gui/**` | harness, Git specs, workflow-refresh specs | `#1384` | `[ ]` |
-| E2E-Git-WFR | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-git-wfr.md` | GIT-001..005 + WFR-001..006 specs against PR #1364 behavior | `feat/issue-1384/e2e-git-wfr` | `../SciStudio-e2e-git-wfr-1384` | `frontend/e2e/specs/git/**`, `frontend/e2e/specs/workflow-refresh/**` | harness, GUI specs | `#1384` | `[ ]` |
-| E2E-Audit | audit_reviewer | with-context | `docs/planning/dispatch-prompts/issue-1384-e2e-audit.md` | Read-only audit of harness/spec correctness and no over-mocking | `audit/issue-1384/e2e-discovery` | `../SciStudio-e2e-audit-1384` | `docs/audit/2026-05-21-issue-1384-e2e-discovery-audit.md` | implementation files except read-only inspection | `#1384` | `[ ]` |
+| E2E-Harness | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-harness.md` | Playwright harness, service startup, fixtures, non-blocking CI | `feat/issue-1384/e2e-harness` | `../SciStudio-e2e-harness-1384` | `frontend/playwright.config.ts`, `frontend/e2e/support/**`, `frontend/e2e/fixtures/**`, `frontend/package.json`, `.github/workflows/e2e-discovery.yml` | specs under `frontend/e2e/specs/**` except scaffold placeholders | `#1384` / umbrella `#1387` | `[ ]` |
+| E2E-GUI | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-gui.md` | GUI-001..015 specs | `feat/issue-1384/e2e-gui` | `../SciStudio-e2e-gui-1384` | `frontend/e2e/specs/gui/**` | harness, Git specs, workflow-refresh specs | `#1384` / umbrella `#1387` | `[ ]` |
+| E2E-Git-WFR | implementer | N/A | `docs/planning/dispatch-prompts/issue-1384-e2e-git-wfr.md` | GIT-001..005 + WFR-001..006 specs against PR #1364 behavior | `feat/issue-1384/e2e-git-wfr` | `../SciStudio-e2e-git-wfr-1384` | `frontend/e2e/specs/git/**`, `frontend/e2e/specs/workflow-refresh/**` | harness, GUI specs | `#1384` / umbrella `#1387` | `[ ]` |
+| E2E-Audit | audit_reviewer | with-context | `docs/planning/dispatch-prompts/issue-1384-e2e-audit.md` | Read-only audit of harness/spec correctness and no over-mocking | `audit/issue-1384/e2e-discovery` | `../SciStudio-e2e-audit-1384` | `docs/audit/2026-05-21-issue-1384-e2e-discovery-audit.md` | implementation files except read-only inspection | `#1384` / umbrella `#1387` | `[ ]` |
 
 ## 7. Track: Harness And CI
 
