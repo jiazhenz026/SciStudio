@@ -41,7 +41,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1382-wrapper-base-detection.json",
+    "shas": [
+      "f295726937b4c899c4a67e5f7663663513882454"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -87,7 +93,13 @@
     "tests/scripts/test_scistudio_pr_create.py",
     "CHANGELOG.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1382
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1385"
+  },
   "record_path": ".workflow/records/1382-wrapper-base-detection.json",
   "required_checks": [
     "ruff",
@@ -153,7 +165,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
