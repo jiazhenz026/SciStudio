@@ -261,6 +261,10 @@ _SAVE_CAPABILITIES: tuple[FormatCapability, ...] = (
         notes=_PICKLE_NOTE,
     ),
     # ----- Text ------------------------------------------------------------
+    # ``.markdown`` and ``.htm`` are accepted by ``_save_text`` (see the
+    # Text-specific superset in that function) but were missing from the
+    # registry-visible capability declaration, so ``find_saver_capability``
+    # could not discover SaveData for those extensions (#1110).
     _save_capability(
         data_type=Text,
         type_name="Text",
@@ -269,7 +273,9 @@ _SAVE_CAPABILITIES: tuple[FormatCapability, ...] = (
             ".txt",
             ".log",
             ".md",
+            ".markdown",
             ".html",
+            ".htm",
             ".xml",
             ".yaml",
             ".yml",
@@ -408,7 +414,9 @@ _SAVE_CAPABILITIES: tuple[FormatCapability, ...] = (
             ".txt",
             ".log",
             ".md",
+            ".markdown",
             ".html",
+            ".htm",
             ".xml",
             ".yaml",
             ".yml",
@@ -1021,7 +1029,7 @@ def _save_series(obj: DataObject, config: BlockConfig) -> None:
 
 
 def _save_text(obj: DataObject, config: BlockConfig) -> None:
-    """Save :class:`Text` to ``.txt`` / ``.md`` / ``.html`` / ``.xml`` / ``.log`` / ``.yaml`` / ``.yml`` / ``.toml`` / ``.json``.
+    """Save :class:`Text` to ``.txt`` / ``.md`` / ``.markdown`` / ``.html`` / ``.htm`` / ``.xml`` / ``.log`` / ``.yaml`` / ``.yml`` / ``.toml`` / ``.json``.
 
     The full content lives in :attr:`Text.content`; the file is
     written via :meth:`Path.write_text` with UTF-8 encoding (or the

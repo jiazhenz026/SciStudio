@@ -109,13 +109,13 @@ def test_prepare_exchange_materialises_inputs_and_records_manifest(tmp_path: Pat
             "image.save.ome-tiff",
         )
     ]
-    image_record = manifest.ports["image"]
+    image_record = manifest.ports[("input", "image")]
     assert image_record.status == "materialised"
     assert image_record.files[0].path == manifest.input_folders["image"] / "sample.ome.tif"
     assert image_record.files[0].format_hint == ".ome.tif"
     assert image_record.files[0].capability_id == "image.save.ome-tiff"
     assert manifest.output_folders["table"].is_dir()
-    assert manifest.to_dict()["ports"]["image"]["files"][0]["status"] == "materialised"
+    assert manifest.to_dict()["ports"]["input:image"]["files"][0]["status"] == "materialised"
 
 
 def test_discover_declared_outputs_routes_by_folder_and_reports_diagnostics(tmp_path: Path) -> None:
@@ -149,7 +149,7 @@ def test_discover_declared_outputs_routes_by_folder_and_reports_diagnostics(tmp_
         "unknown_output_folder",
     }
     assert result.has_errors
-    assert manifest.ports["mask"].files[-1].status == "collected"
+    assert manifest.ports[("output", "mask")].files[-1].status == "collected"
 
 
 def test_collect_outputs_uses_reconstruct_adapter_and_allows_empty_optional(tmp_path: Path) -> None:
@@ -194,3 +194,91 @@ def test_collect_outputs_raises_for_missing_required_output(tmp_path: Path) -> N
         )
 
     assert [diagnostic.code for diagnostic in exc_info.value.diagnostics] == ["missing_required_output"]
+
+
+def test_initialise_manifest_keeps_same_named_input_and_output_ports(tmp_path: Path) -> None:
+    """#1281: an input port and an output port sharing the same name must
+    not overwrite each other in the exchange manifest.
+
+    Before the fix, ``records[port.name] = ...`` keyed both records by
+    the bare port name; the second port iterated would silently
+    overwrite the first. Now records are keyed by ``(direction, name)``,
+    so both coexist with their own per-port folders and metadata.
+    """
+    ports = [
+        CodeBlockExchangePort(name="data", direction="input", data_type=DataObject, extension=".csv"),
+        CodeBlockExchangePort(name="data", direction="output", data_type=Text, extension=".txt"),
+    ]
+    layout = create_codeblock_exchange_layout(tmp_path / "exchange", block_id="b1", run_id="r1")
+
+    manifest = initialise_exchange_manifest(ports, layout=layout)
+
+    # Both records exist under their composite key.
+    input_record = manifest.ports[("input", "data")]
+    output_record = manifest.ports[("output", "data")]
+    assert input_record is not output_record
+    assert input_record.direction == "input"
+    assert output_record.direction == "output"
+    assert input_record.format_hint == ".csv"
+    assert output_record.format_hint == ".txt"
+    assert input_record.folder.is_dir()
+    assert output_record.folder.is_dir()
+    # The two folders live under different parents (inputs vs outputs),
+    # so the on-disk layout is fully disambiguated.
+    assert input_record.folder.parent == layout.inputs_dir
+    assert output_record.folder.parent == layout.outputs_dir
+
+    # The direction-keyed views still surface each port by bare name.
+    assert manifest.input_folders == {"data": input_record.folder}
+    assert manifest.output_folders == {"data": output_record.folder}
+
+    # ``to_dict`` serialises ``(direction, name)`` as ``"<direction>:<name>"``
+    # so JSON consumers see both records under distinct string keys.
+    serialised = manifest.to_dict()
+    assert "input:data" in serialised["ports"]
+    assert "output:data" in serialised["ports"]
+    assert serialised["ports"]["input:data"]["direction"] == "input"
+    assert serialised["ports"]["output:data"]["direction"] == "output"
+
+
+def test_prepare_exchange_materialises_input_when_output_has_same_name(tmp_path: Path) -> None:
+    """#1281: ``prepare_codeblock_exchange`` materialises into the input
+    folder even when an output port shares the input's name.
+    """
+    calls: list[Path] = []
+
+    def materialise(
+        obj: DataObject,
+        dest_dir: Path,
+        extension: str,
+        *,
+        filename_stem: str,
+        capability_id: str | None = None,
+    ) -> Path:
+        path = dest_dir / f"{filename_stem}{extension}"
+        path.write_text("payload", encoding="utf-8")
+        calls.append(path)
+        return path
+
+    ports = [
+        CodeBlockExchangePort(name="data", direction="input", data_type=DataObject, extension=".csv"),
+        CodeBlockExchangePort(name="data", direction="output", data_type=Text, extension=".txt"),
+    ]
+    input_obj = DataObject(storage_ref=StorageReference(backend="filesystem", path="raw/sample.csv"))
+
+    manifest = prepare_codeblock_exchange(
+        {"data": input_obj},
+        ports,
+        exchange_root=tmp_path / "exchange",
+        block_id="b1",
+        run_id="r1",
+        materialise_adapter=materialise,
+    )
+
+    # The input record is "materialised"; the output record is still
+    # "folder_created" because nothing has written outputs yet.
+    assert manifest.ports[("input", "data")].status == "materialised"
+    assert manifest.ports[("output", "data")].status == "folder_created"
+    # The materialised file lives under the input folder, not the output one.
+    assert calls and calls[0].parent == manifest.input_folders["data"]
+    assert calls[0].parent != manifest.output_folders["data"]
