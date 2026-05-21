@@ -1,0 +1,73 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "umbrella/2026-05-21-bug-sweep",
+  "changed_test_paths": [],
+  "check_results": [],
+  "commit": null,
+  "docs_landing": {},
+  "full_audit": null,
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1110,
+      "url": null
+    }
+  ],
+  "owner_directive": "Triage and fix open bugs with scope <=150 LOC; root-cause fixes only. 16 issues across Tier 1+2 + audit-followup #1365-#1371.",
+  "planned_files": [],
+  "pull_request": null,
+  "record_path": ".workflow/records/manager-2026-05-21-bug-sweep.json",
+  "required_checks": [],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "docs/planning/2026-05-21-bug-sweep-checklist.md",
+      ".workflow/records/manager-2026-05-21-bug-sweep.json"
+    ]
+  },
+  "sentrux": null,
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1110-bug-sweep-2026-05-21",
+  "task_kind": "manager"
+}
