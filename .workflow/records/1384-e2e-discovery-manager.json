@@ -107,7 +107,10 @@
       "not_applicable": true,
       "rationale": "No new architecture decision; this manager setup implements an E2E test plan for issue #1384."
     },
-    "changelog": {},
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Internal E2E discovery harness and workflow for issue #1384; no user-facing product or release-note behavior changed."
+    },
     "checklist": {
       "paths": [
         "docs/planning/issue-1384-e2e-discovery-checklist.md",
@@ -117,7 +120,11 @@
         "docs/planning/dispatch-prompts/issue-1384-e2e-audit.md"
       ]
     },
-    "docs": {},
+    "docs": {
+      "paths": [
+        "frontend/e2e/README.md"
+      ]
+    },
     "spec": {
       "not_applicable": true,
       "rationale": "No public runtime contract changed by manager setup."
