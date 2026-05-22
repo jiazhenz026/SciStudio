@@ -1,0 +1,117 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1455-runtime-contract-tests.json"
+      ],
+      "reason": "Committed gate-record evidence is required for AI-authored work; source/docs/frontend remain out of scope."
+    }
+  ],
+  "branch": "test/contract-surfaces-2-5",
+  "changed_test_paths": [
+    "tests/contracts"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff check tests\\\\contracts",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m pytest tests\\\\contracts --no-cov --timeout=60",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "20 passed, 8 xfailed; xfails tracked by #1454",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "changelog": {},
+    "checklist": {},
+    "docs": {
+      "not_applicable": true,
+      "rationale": "test-only contract suite; issues #1452 and #1454 carry tracking context"
+    }
+  },
+  "full_audit": null,
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1455,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1455"
+    }
+  ],
+  "owner_directive": "Add test-only architecture contract tests for runtime surfaces 2-5; no product code changes; xfails tracked by #1454.",
+  "planned_files": [
+    "tests/contracts/**"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1455-runtime-contract-tests.json",
+  "required_checks": [
+    "ruff,pytest"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "src/**",
+      "frontend/**",
+      "docs/**"
+    ],
+    "include": [
+      "tests/contracts/**"
+    ]
+  },
+  "sentrux": null,
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1455-runtime-contract-tests",
+  "task_kind": "maintenance"
+}
