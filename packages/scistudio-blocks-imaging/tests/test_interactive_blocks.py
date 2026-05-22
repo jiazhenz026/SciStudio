@@ -10,10 +10,13 @@ no ports are declared).
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
+from types import MethodType
 
 import numpy as np
+import pytest
 from scistudio_blocks_imaging.interactive.fiji_block import FijiBlock
 from scistudio_blocks_imaging.interactive.napari_block import NapariBlock
 from scistudio_blocks_imaging.types import Image
@@ -31,6 +34,12 @@ def _make_image(arr: np.ndarray, axes: list[str] | None = None) -> Image:
 
 
 def _make_running(block: object) -> object:
+    if not hasattr(block, "transition"):
+
+        def _transition(self: object, state: BlockState) -> None:
+            self.state = state  # type: ignore[attr-defined]
+
+        block.transition = MethodType(_transition, block)  # type: ignore[attr-defined]
     block.transition(BlockState.READY)  # type: ignore[attr-defined]
     block.transition(BlockState.RUNNING)  # type: ignore[attr-defined]
     return block
@@ -262,3 +271,125 @@ shutil.copyfile(tiff_path, out / "result.tif")
     assert result["images"][0].file_path is not None
     assert result["images"][0].file_path.suffix.lower() == ".tif"
     assert result["tables"][0].file_path.suffix.lower() == ".csv"
+
+
+def test_fiji_block_stages_configured_artifact_input_port(tmp_path: Path) -> None:
+    script = _write_fake_tool(
+        tmp_path,
+        """
+from pathlib import Path
+import shutil
+import sys
+
+tiff_path = Path(sys.argv[-1])
+exchange = tiff_path.parent.parent
+roi = exchange / "inputs" / "roi_zip" / "cells.roi.zip"
+assert roi.is_file(), f"ROI input was not staged: {roi}"
+out = exchange / "outputs"
+out.mkdir(exist_ok=True)
+shutil.copyfile(tiff_path, out / "image_with_roi.tif")
+""".strip(),
+    )
+    roi_source = tmp_path / "cells.roi.zip"
+    roi_source.write_bytes(b"roi")
+    exchange_dir = tmp_path / "exchange"
+    block = _make_running(FijiBlock())
+    image = _make_image(np.arange(16, dtype=np.uint8).reshape(4, 4))
+
+    result = block.run(
+        {
+            "image": Collection(items=[image], item_type=Image),
+            "roi_zip": Collection(items=[Artifact(file_path=roi_source)], item_type=Artifact),
+        },
+        BlockConfig(
+            params={
+                "app_command": [sys.executable, str(script)],
+                "exchange_dir": str(exchange_dir),
+                "watch_timeout": 5,
+                "input_ports": [
+                    {"name": "image", "types": ["Image"]},
+                    {"name": "roi_zip", "types": ["Artifact"]},
+                ],
+            }
+        ),
+    )
+
+    staged_roi = exchange_dir / "inputs" / "roi_zip" / "cells.roi.zip"
+    manifest = json.loads((exchange_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert staged_roi.read_bytes() == b"roi"
+    assert "image" in result
+    assert manifest["inputs"]["image"]["items"][0]["path"] == str(exchange_dir / "inputs" / "image_0000.tif")
+    assert manifest["inputs"]["roi_zip"]["items"][0]["path"] == str(staged_roi)
+    assert manifest["input_files"] == [str(exchange_dir / "inputs" / "image_0000.tif")]
+
+
+def test_napari_block_stages_configured_artifact_input_port(tmp_path: Path) -> None:
+    script = _write_fake_tool(
+        tmp_path,
+        """
+from pathlib import Path
+import shutil
+import sys
+
+tiff_path = Path(sys.argv[-1])
+exchange = tiff_path.parent.parent
+roi = exchange / "inputs" / "roi_zip" / "cells.roi.zip"
+assert roi.is_file(), f"ROI input was not staged: {roi}"
+out = exchange / "outputs"
+out.mkdir(exist_ok=True)
+shutil.copyfile(tiff_path, out / "napari_layer.tif")
+""".strip(),
+    )
+    roi_source = tmp_path / "cells.roi.zip"
+    roi_source.write_bytes(b"roi")
+    exchange_dir = tmp_path / "exchange"
+    block = _make_running(NapariBlock())
+    image = _make_image(np.arange(25, dtype=np.uint8).reshape(5, 5))
+
+    result = block.run(
+        {
+            "image": Collection(items=[image], item_type=Image),
+            "roi_zip": Collection(items=[Artifact(file_path=roi_source)], item_type=Artifact),
+        },
+        BlockConfig(
+            params={
+                "app_command": [sys.executable, str(script)],
+                "exchange_dir": str(exchange_dir),
+                "watch_timeout": 5,
+                "input_ports": [
+                    {"name": "image", "types": ["Image"]},
+                    {"name": "roi_zip", "types": ["Artifact"]},
+                ],
+            }
+        ),
+    )
+
+    staged_roi = exchange_dir / "inputs" / "roi_zip" / "cells.roi.zip"
+    manifest = json.loads((exchange_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert staged_roi.read_bytes() == b"roi"
+    assert "image" in result
+    assert manifest["inputs"]["image"]["items"][0]["path"] == str(exchange_dir / "inputs" / "image_0000.tif")
+    assert manifest["inputs"]["roi_zip"]["items"][0]["path"] == str(staged_roi)
+    assert manifest["input_files"] == [str(exchange_dir / "inputs" / "image_0000.tif")]
+
+
+def test_fiji_block_rejects_unsupported_configured_input_type(tmp_path: Path) -> None:
+    block = _make_running(FijiBlock())
+    image = _make_image(np.arange(16, dtype=np.uint8).reshape(4, 4))
+
+    with pytest.raises(NotImplementedError, match="unsupported type int"):
+        block.run(
+            {
+                "image": Collection(items=[image], item_type=Image),
+                "threshold": 3,
+            },
+            BlockConfig(
+                params={
+                    "exchange_dir": str(tmp_path / "exchange"),
+                    "input_ports": [
+                        {"name": "image", "types": ["Image"]},
+                        {"name": "threshold", "types": ["DataObject"]},
+                    ],
+                }
+            ),
+        )

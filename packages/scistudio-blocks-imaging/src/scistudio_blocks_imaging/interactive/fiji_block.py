@@ -10,8 +10,7 @@ from scistudio.blocks.base.ports import InputPort, OutputPort
 from scistudio.blocks.base.state import ExecutionMode
 from scistudio.core.types.collection import Collection
 from scistudio_blocks_imaging.interactive import (
-    _input_images,
-    _prepare_image_exchange,
+    _prepare_configured_input_exchange,
     _resolve_command,
     _resolve_exchange_dir,
     _run_external_app,
@@ -62,9 +61,14 @@ class FijiBlock(AppBlock):
     }
 
     def run(self, inputs: dict[str, Collection], config: BlockConfig) -> dict[str, Collection]:
-        images = _input_images(inputs, "image", "FijiBlock")
         exchange_dir = _resolve_exchange_dir(config, prefix="scistudio_fiji_")
-        staged_paths = _prepare_image_exchange(images, exchange_dir, tool_name=self.type_name, config=config)
+        staged_paths = _prepare_configured_input_exchange(
+            self,
+            inputs,
+            exchange_dir,
+            tool_name=self.type_name,
+            config=config,
+        )
 
         extra_args: list[str] = []
         macro_path = config.get("macro_path")
