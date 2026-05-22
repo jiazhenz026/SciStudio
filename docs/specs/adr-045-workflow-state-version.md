@@ -146,11 +146,15 @@ If B is clean, it fetches and adopts N+1. If B is dirty, it records a conflict.
 - FR-002: Backend GET responses for workflow and editable file content MUST
   return the current ADR-045 state version alongside existing content and mtime
   data. Workflow responses MUST expose that counter as `state_version` and MUST
-  preserve `version` as the workflow YAML/schema semver string.
+  preserve `version` as the workflow YAML/schema semver string. Editable file
+  responses MUST also expose the counter as `state_version` and MUST NOT add or
+  repurpose a file-response `version` field.
 - FR-003: Backend write responses MUST return the new ADR-045 state version and
   echo the client-provided source_id when present. Workflow write responses MUST
   expose that counter as `state_version` and MUST NOT repurpose the workflow
-  YAML/schema `version` field.
+  YAML/schema `version` field. Editable file write responses MUST expose the
+  counter as `state_version`; `file.changed` events continue to carry the event
+  counter as `version`.
 - FR-004: Every first-party workflow write site MUST emit workflow.changed
   after the disk write completes.
 - FR-005: Every first-party editable file write site MUST emit file.changed
@@ -199,11 +203,11 @@ emit versioned events after successful writes. The watcher consults the same
 runtime state to suppress only exact first-party echoes and to classify
 external writes.
 
-Frontend API types carry state_version/source_id for workflow responses and
-the corresponding state counter for editable file responses. The workflow and
-tab stores record clean and pending versions. `useWebSocket` becomes a
-dispatcher that applies ADR-045's four-branch reconcile algorithm to workflow
-and file events.
+Frontend API types carry `state_version`/`source_id` for workflow and editable
+file responses. The changed-event payload keeps the shared event `version`
+field. The workflow and tab stores record clean and pending versions.
+`useWebSocket` becomes a dispatcher that applies ADR-045's four-branch
+reconcile algorithm to workflow and file events.
 
 Contract consistency is a release constraint for this rollout. ADR-045, this
 spec, governed module/file lists, API response types, WebSocket event payloads,
@@ -221,7 +225,7 @@ the ADR/spec in the same change instead of leaving documentation drift.
 | `src/scistudio/api/routes/git.py` | modify | Emit gitRestore workflow changes through write-site semantics. |
 | `src/scistudio/api/routes/workflow_watcher.py` | modify | Demote watcher to fallback and simplify suppression. |
 | `src/scistudio/engine/events.py` | modify | Carry version/source/entity fields where event objects are used. |
-| `frontend/src/lib/api.ts` | modify | Type GET/PUT version/source_id fields. |
+| `frontend/src/lib/api.ts` | modify | Type GET/PUT `state_version`/`source_id` fields and changed-event `version` fields. |
 | `frontend/src/hooks/useWebSocket.ts` | modify | Apply version reconcile algorithm. |
 | `frontend/src/store/workflowSlice.ts` | modify | Track workflow version state and conflict state. |
 | `frontend/src/store/tabSlice.ts` | modify | Track file tab version state and conflict state. |
