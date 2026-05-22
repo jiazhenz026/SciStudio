@@ -1,0 +1,159 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1455-runtime-contract-tests.json"
+      ],
+      "reason": "Committed gate-record evidence is required for AI-authored work; source/docs/frontend remain out of scope."
+    }
+  ],
+  "branch": "test/contract-surfaces-2-5",
+  "changed_test_paths": [
+    "tests/contracts/test_block_schema_contract.py",
+    "tests/contracts/test_eventbus_lifecycle_contract.py",
+    "tests/contracts/test_io_capability_contract.py",
+    "tests/contracts/test_lineage_run_recipe_contract.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff check tests\\\\contracts",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff format --check tests\\\\contracts",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "4 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m pytest tests\\\\contracts --no-cov --timeout=60",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "20 passed, 8 xfailed; xfails tracked by #1454",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1455-runtime-contract-tests.json",
+    "shas": [
+      "484b389ce168a28d5ec3d4b3b9df099fc50264a9"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "test-only contract suite; no user-facing product behavior change"
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "single-scope PR tracked by #1455 plus xfail ledger #1454; no manager checklist required"
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "test-only contract suite; issues #1452 and #1454 carry tracking context"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/1455-full-audit.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": ".audit/1455-full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1455,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1455"
+    }
+  ],
+  "owner_directive": "Add test-only architecture contract tests for runtime surfaces 2-5; no product code changes; xfails tracked by #1454.",
+  "planned_files": [
+    "tests/contracts/**"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1455
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1456"
+  },
+  "record_path": ".workflow/records/1455-runtime-contract-tests.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest",
+    "full_audit"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "src/**",
+      "frontend/**",
+      "docs/**"
+    ],
+    "include": [
+      "tests/contracts/**"
+    ]
+  },
+  "sentrux": null,
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1455-runtime-contract-tests",
+  "task_kind": "maintenance"
+}
