@@ -59,6 +59,12 @@
     "trailers": {}
   },
   "docs_landing": {
+    "adr": {
+      "paths": [
+        "docs/adr/ADR-034.md",
+        "docs/adr/ADR-035.md"
+      ]
+    },
     "changelog": {
       "not_applicable": true,
       "rationale": "Umbrella #1427 lands rolled-up CHANGELOG entry after all Phase 1 sub-PRs merge into the umbrella branch; this sub-PR is a structural decomposition with no user-visible behavior change"
@@ -67,7 +73,24 @@
       "not_applicable": true,
       "rationale": "Manager-owned umbrella checklist docs/planning/backend-god-file-refactor-checklist.md (Section 6 Dispatch Matrix) tracks this sub-PR row; sub-PR does not edit it per agent-dispatch.md \u00a73 (agents edit only their own rows; manager owns the matrix)"
     },
-    "docs": {}
+    "docs": {
+      "paths": [
+        "docs/specs/embedded-coding-agent-spec.md"
+      ]
+    },
+    "release-notes": {
+      "not_applicable": true,
+      "rationale": "Pure structural refactor; no behavior change to wire protocol or routes"
+    },
+    "spec": {
+      "paths": [
+        "docs/specs/embedded-coding-agent-spec.md"
+      ]
+    },
+    "user-guide": {
+      "not_applicable": true,
+      "rationale": "Structural refactor with no behavior change; no user-facing surface affected"
+    }
   },
   "full_audit": {
     "blocks_merge": false,
