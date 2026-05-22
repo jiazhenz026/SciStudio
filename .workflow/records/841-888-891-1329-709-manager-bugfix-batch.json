@@ -102,7 +102,9 @@
       "rationale": "Manager checklist committed at docs/planning/bugfix-batch-841-888-891-1329-709-checklist.md."
     },
     "docs": {
-      "path": "docs/planning/bugfix-batch-841-888-891-1329-709-checklist.md",
+      "updated": [
+        "docs/planning/bugfix-batch-841-888-891-1329-709-checklist.md"
+      ],
       "rationale": "Manager checklist added as durable coordination evidence; no additional user-facing docs required beyond worker-scoped docs N/A rationales."
     }
   },
