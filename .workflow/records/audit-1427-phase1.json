@@ -35,7 +35,7 @@
   "commit": {
     "gate_record_path": ".workflow/records/audit-1427-phase1.json",
     "shas": [
-      "5e82f57cf2cecae04a109c9b0847bdf2efa90043"
+      "bd70aaa5583a841c6d934e27cb5f63c7171ba7120"
     ],
     "trailers": {}
   },
