@@ -15,6 +15,31 @@ export interface WorkflowHistoryEntry {
   description: string;
 }
 
+export type VersionedChangeSource =
+  | "canvas"
+  | "agent"
+  | "gitRestore"
+  | "import"
+  | "external"
+  | string;
+
+export type VersionedEntityClass = "workflow" | "file";
+
+export interface VersionConflictState {
+  entityClass: VersionedEntityClass;
+  entityId: string;
+  kind: string;
+  source: VersionedChangeSource | null;
+  sourceId: string | null;
+  baseVersion: number | null;
+  pendingVersion: number | null;
+  remoteVersion: number | null;
+  detectedAt: string;
+  message: string;
+  remoteWorkflow?: WorkflowResponse | null;
+  remoteContent?: string | null;
+}
+
 export interface ProjectSlice {
   currentProject: ProjectResponse | null;
   recentProjects: ProjectResponse[];
@@ -36,6 +61,10 @@ export interface WorkflowSlice {
   workflowNodes: WorkflowNode[];
   workflowEdges: WorkflowEdge[];
   workflowDirty: boolean;
+  workflowBaseVersion: number | null;
+  workflowPendingVersion: number | null;
+  workflowPendingSourceId: string | null;
+  workflowConflict: VersionConflictState | null;
   workflowHistory: WorkflowHistoryEntry[];
   workflowFuture: WorkflowHistoryEntry[];
   setWorkflow: (workflow: WorkflowResponse | null) => void;
@@ -50,6 +79,10 @@ export interface WorkflowSlice {
   removeEdge: (edge: WorkflowEdge) => void;
   setWorkflowDescription: (description: string) => void;
   markWorkflowSaved: () => void;
+  beginWorkflowSave: (workflowId: string, sourceId: string) => void;
+  confirmWorkflowVersion: (version: number, sourceId?: string | null) => void;
+  markWorkflowRemoteConflict: (conflict: VersionConflictState) => void;
+  clearWorkflowConflict: () => void;
   undoWorkflow: () => void;
   redoWorkflow: () => void;
 }
@@ -257,6 +290,10 @@ export interface WorkflowTab {
   workflowNodes: WorkflowNode[];
   workflowEdges: WorkflowEdge[];
   workflowDirty: boolean;
+  workflowBaseVersion?: number | null;
+  workflowPendingVersion?: number | null;
+  workflowPendingSourceId?: string | null;
+  workflowConflict?: VersionConflictState | null;
   workflowHistory: WorkflowHistoryEntry[];
   workflowFuture: WorkflowHistoryEntry[];
   selectedNodeId: string | null;
@@ -269,11 +306,8 @@ export interface WorkflowTab {
  *   "file:<path>"           — user opened a file via ProjectTree double-click
  *   "source:<workflow_id>"  — read-only YAML source view of a workflow
  *
- * `contentLoadedAt` stores the server `mtime` at the most recent fetch so
- * the implementation phase can detect "file changed externally" on save.
- *
- * TODO: implement external-change detection — compare server mtime to
- * `contentLoadedAt` before save and prompt the user on conflict.
+ * `contentLoadedAt` is retained for persisted-tab compatibility. ADR-045
+ * conflict detection uses `baseVersion` / `pendingVersion` instead.
  */
 export interface FileTab {
   /** ADR-036 §3.10 — discriminator. Always "file" for editor tabs. */
@@ -284,6 +318,10 @@ export interface FileTab {
   language: "python" | "yaml" | "json" | "text" | "markdown";
   content: string;
   contentLoadedAt: number;
+  baseVersion?: number | null;
+  pendingVersion?: number | null;
+  pendingSourceId?: string | null;
+  conflict?: VersionConflictState | null;
   dirty: boolean;
   readOnly: boolean;
   /**
@@ -356,6 +394,12 @@ export interface TabSlice {
    *   4. Read-only tabs ignore updates (no-op).
    */
   updateFileTabContent: (id: string, content: string) => void;
+  confirmFileVersion: (id: string, version: number, sourceId?: string | null) => void;
+  applyFileRemoteContent: (
+    id: string,
+    response: { content: string; mtime: number; state_version?: number },
+  ) => void;
+  markFileRemoteConflict: (id: string, conflict: VersionConflictState) => void;
 }
 
 // ADR-039 §6 Phase 2 — git versioning slice

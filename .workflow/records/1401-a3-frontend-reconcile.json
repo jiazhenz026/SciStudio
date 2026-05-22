@@ -1,0 +1,298 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Implementation completed within planned A3 frontend reconcile scope after rebase to tracking 3f617ae4."
+    }
+  ],
+  "branch": "feat/issue-1401/adr-045-frontend-reconcile",
+  "changed_test_paths": [
+    "frontend/src/hooks/__tests__/useWebSocket.versionVector.test.ts",
+    "frontend/src/store/__tests__/workflowSlice.versionVector.test.ts",
+    "frontend/src/store/__tests__/tabSlice.versionVector.test.ts",
+    "frontend/src/store/__tests__/tabState.test.ts"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "cd frontend; npm test -- src/hooks/__tests__/useWebSocket.versionVector.test.ts src/store/__tests__/workflowSlice.versionVector.test.ts src/store/__tests__/tabSlice.versionVector.test.ts src/store/__tests__/tabState.test.ts",
+      "exit_code": 0,
+      "name": "frontend vitest version vector",
+      "output_path": "4 files passed, 25 tests passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend; npm run build",
+      "exit_code": 0,
+      "name": "frontend build",
+      "output_path": "tsc -b and vite build passed; Vite emitted non-blocking chunk/dynamic-import warnings",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/integration/test_race_autosave.py tests/integration/test_race_lineage_restore.py tests/integration/test_race_agent_write.py tests/integration/test_race_external_editor.py tests/integration/test_race_multi_session.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "backend race matrix integration",
+      "output_path": "6 passed, 1 metadata-store deprecation warning",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-a3-full-audit.json",
+      "exit_code": 0,
+      "name": "full_audit",
+      "output_path": "docs/audit/adr-045-a3-full-audit.json; status pass",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend; npm run build",
+      "exit_code": 0,
+      "name": "frontend build final",
+      "output_path": "tsc -b and vite build passed; only existing large chunk warning",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend; npm test -- src/hooks/__tests__/useWebSocket.versionVector.test.ts src/store/__tests__/workflowSlice.versionVector.test.ts src/store/__tests__/tabSlice.versionVector.test.ts src/store/__tests__/tabState.test.ts",
+      "exit_code": 0,
+      "name": "frontend vitest version vector final",
+      "output_path": "4 files passed, 25 tests passed after removing API/store import cycle",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-a3-full-audit.json",
+      "exit_code": 0,
+      "name": "full_audit final",
+      "output_path": "docs/audit/adr-045-a3-full-audit.json; status pass after final code changes",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend; npm test -- src/hooks/__tests__/useWebSocket.versionVector.test.ts src/store/__tests__/workflowSlice.versionVector.test.ts src/store/__tests__/tabSlice.versionVector.test.ts src/store/__tests__/tabState.test.ts",
+      "exit_code": 0,
+      "name": "frontend vitest version vector final import cleanup",
+      "output_path": "4 files passed, 25 tests passed after final import cleanup",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend; npm run build",
+      "exit_code": 0,
+      "name": "frontend build final import cleanup",
+      "output_path": "tsc -b and vite build passed; only existing large chunk warning",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-a3-full-audit.json",
+      "exit_code": 0,
+      "name": "full_audit final import cleanup",
+      "output_path": "docs/audit/adr-045-a3-full-audit.json; status pass after final import cleanup",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-a3-full-audit.json",
+      "exit_code": 0,
+      "name": "full_audit final checklist",
+      "output_path": "docs/audit/adr-045-a3-full-audit.json; status pass after final checklist update",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.governance.gate_record pre-commit --staged",
+      "exit_code": 0,
+      "name": "gate pre-commit",
+      "output_path": "gate_record: pass",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.governance.gate_record commit-msg <tempfile>",
+      "exit_code": 0,
+      "name": "gate commit-msg",
+      "output_path": "gate_record: pass",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend; npm test -- src/hooks/__tests__/useWebSocket.versionVector.test.ts src/store/__tests__/workflowSlice.versionVector.test.ts src/store/__tests__/tabSlice.versionVector.test.ts src/store/__tests__/tabState.test.ts",
+      "exit_code": 0,
+      "name": "frontend vitest rebased 3f617ae4",
+      "output_path": "4 files passed, 25 tests passed after rebase to tracking 3f617ae4",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend; npm run build",
+      "exit_code": 0,
+      "name": "frontend build rebased 3f617ae4",
+      "output_path": "tsc -b and vite build passed after rebase to tracking 3f617ae4; existing large chunk warning only",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/integration/test_race_autosave.py tests/integration/test_race_lineage_restore.py tests/integration/test_race_agent_write.py tests/integration/test_race_external_editor.py tests/integration/test_race_multi_session.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "backend race matrix rebased 3f617ae4",
+      "output_path": "6 passed, 1 metadata-store deprecation warning after rebase to tracking 3f617ae4",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "ADR/spec": {
+      "not_applicable": true,
+      "rationale": "Contract text already updated by A1/A2/manager on tracking; A3 only records frontend implementation evidence and does not weaken the contract."
+    },
+    "changelog": {},
+    "checklist": {
+      "paths": [
+        "docs/planning/adr-045-version-vector-checklist.md"
+      ]
+    },
+    "docs": {}
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-a3-full-audit.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/adr-045-a3-full-audit.json; status pass after checklist note updated to tracking 3f617ae4",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1401,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1401"
+    }
+  ],
+  "owner_directive": "ADR-045 A3 frontend version reconcile and conflict state",
+  "planned_files": [
+    "frontend/src/lib/api.ts",
+    "frontend/src/hooks/useWebSocket.ts",
+    "frontend/src/store/workflowSlice.ts",
+    "frontend/src/store/tabSlice.ts",
+    "frontend/src/store/types.ts",
+    "frontend/src/hooks/__tests__/useWebSocket.versionVector.test.ts",
+    "frontend/src/store/__tests__/workflowSlice.versionVector.test.ts",
+    "frontend/src/store/__tests__/tabSlice.versionVector.test.ts",
+    "frontend/src/store/__tests__/tabState.test.ts",
+    "docs/planning/adr-045-version-vector-checklist.md",
+    "docs/audit/adr-045-a3-full-audit.json",
+    ".workflow/records/1401-a3-frontend-reconcile.json"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1401-a3-frontend-reconcile.json",
+  "required_checks": [
+    "frontend vitest version vector",
+    "frontend build",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "src/scistudio/**",
+      "frontend/package-lock.json",
+      "docs/adr/**",
+      "docs/specs/**"
+    ],
+    "include": [
+      "frontend/src/lib/api.ts",
+      "frontend/src/hooks/useWebSocket.ts",
+      "frontend/src/store/workflowSlice.ts",
+      "frontend/src/store/tabSlice.ts",
+      "frontend/src/store/types.ts",
+      "frontend/src/hooks/__tests__/useWebSocket.versionVector.test.ts",
+      "frontend/src/store/__tests__/workflowSlice.versionVector.test.ts",
+      "frontend/src/store/__tests__/tabSlice.versionVector.test.ts",
+      "frontend/src/store/__tests__/tabState.test.ts",
+      "docs/planning/adr-045-version-vector-checklist.md",
+      "docs/audit/adr-045-a3-full-audit.json",
+      ".workflow/records/1401-a3-frontend-reconcile.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__sentrux__.check_rules",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "Sentrux MCP free-tier check_rules failed on A3 branch and clean tracking 3f617ae4: max_cycles found 4 > 3. Baseline tracking quality_signal=4248; A3 quality_signal=4245. This is a baseline gate blocker, not claimed pass evidence.",
+    "pro_required": false,
+    "quality_signal": 4245.0,
+    "rules_checked": 3,
+    "status": "fail",
+    "summary": {},
+    "thresholds": {
+      "max_cycles": "3"
+    },
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1401-a3-frontend-reconcile",
+  "task_kind": "bugfix"
+}
