@@ -1,6 +1,15 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": "agent",
+      "exclude": [],
+      "include": [
+        "src/scistudio/qa/governance/gate_record.py"
+      ],
+      "reason": "Test amend"
+    }
+  ],
   "branch": "feat/sentrux-advisory",
   "changed_test_paths": [
     "tests/qa/test_gate_record_ci.py"
@@ -126,7 +135,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
