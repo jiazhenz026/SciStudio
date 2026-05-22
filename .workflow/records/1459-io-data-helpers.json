@@ -52,7 +52,14 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1459-io-data-helpers.json",
+    "shas": [
+      "91ed759ad8d23df0e58c478c9fdebab38f95cf85",
+      "a4aaa6c93cfad65633e8779b5077a2dba163f212"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -100,7 +107,13 @@
     "docs/specs/phase11-implementation-standards.md",
     "docs/adr/ADR-028.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1459
+    ],
+    "number": 1460,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1460"
+  },
   "record_path": ".workflow/records/1459-io-data-helpers.json",
   "required_checks": [
     "ruff",
@@ -171,7 +184,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
