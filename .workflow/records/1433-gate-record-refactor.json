@@ -1,5 +1,9 @@
 {
-  "admin_labels": [],
+  "admin_labels": [
+    {
+      "name": "admin-approved:core-change"
+    }
+  ],
   "amendments": [
     {
       "approved_by": null,
@@ -64,6 +68,12 @@
     "trailers": {}
   },
   "docs_landing": {
+    "adr": {
+      "paths": [
+        "docs/adr/ADR-042-addendum1.md",
+        "docs/adr/ADR-042-addendum3.md"
+      ]
+    },
     "changelog": {
       "not_applicable": true,
       "rationale": "Internal structural refactor with no behavior change; no user-visible release-note required."
@@ -73,9 +83,11 @@
       "rationale": "Manager-owned checklist at docs/planning/backend-god-file-refactor-checklist.md is updated by the manager dispatch role; per dispatch prompt scope this agent must not touch it."
     },
     "docs": {
+      "not_applicable": true,
+      "rationale": "Frontmatter governs.contracts updates in the ADR addenda + spec capture the public-name \u2192 canonical-path change; no other user-facing doc affected."
+    },
+    "spec": {
       "paths": [
-        "docs/adr/ADR-042-addendum1.md",
-        "docs/adr/ADR-042-addendum3.md",
         "docs/specs/adr-042-gate-record-sentrux-workflow.md"
       ]
     }
