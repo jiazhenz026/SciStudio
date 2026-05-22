@@ -6,6 +6,18 @@
       "exclude": [],
       "include": [],
       "reason": "Decomposed src/scistudio/api/routes/ai_pty.py (757 LOC) into a sub-package with __init__.py owning router + monkeypatch-seam state + _spawn, plus engine.py, websocket.py, validation.py, subscribers.py, internal_routes.py. Submodules use late-bound _pkg.<name> lookups so existing monkeypatch contracts on the package survive. Added 41 tests under tests/api/routes/ai_pty/ (public surface + per-submodule behaviour). Removed ai_pty.py from GOD_FILE_SIZE_WAIVERS. Updated ADR-034 / ADR-035 frontmatter governance to reference the new package path + the submodule-qualified open_engine_initiated_tab contract. All 31 pre-existing ai_pty tests + 41 new tests pass; full_audit pass; sentrux pass."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/adr/ADR-034.md",
+        "docs/adr/ADR-035.md",
+        "docs/specs/embedded-coding-agent-spec.md",
+        "docs/audit/full-audit-1432.json",
+        ".workflow/records/1432-api-ai-pty.json"
+      ],
+      "reason": "Expand scope to include ADR-034 / ADR-035 frontmatter updates (governance file claim + contract qualifier rewrites required by the rename of src/scistudio/api/routes/ai_pty.py to ai_pty/**), the embedded-coding-agent-spec.md prose pointer update, the docs/audit/full-audit-1432.json evidence artefact, and the .workflow/records/1432-api-ai-pty.json gate record itself. All driven by the package split \u2014 no behavioural surface widened."
     }
   ],
   "branch": "refactor/issue-1432/api-ai-pty",
