@@ -1,6 +1,13 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": "@jiazhenz026",
+      "exclude": [],
+      "include": [],
+      "reason": "Umbrella scaffold landed: checklist + manager gate record + ADR-046/047 sub-PRs tracked. D1 PR #1473 already open against main; will retarget when this umbrella PR opens."
+    }
+  ],
   "branch": "umbrella/phase3-bucket-d",
   "changed_test_paths": [],
   "check_results": [],
@@ -8,11 +15,11 @@
   "docs_landing": {
     "adr": {
       "not_applicable": true,
-      "rationale": "Manager scaffold only \u2014 no ADR changed in this scaffold PR; ADR-046/047 already merged in PR #1468."
+      "rationale": "Manager scaffold only \u2014 ADR-046/047 already merged in PR #1468."
     },
     "changelog": {
       "not_applicable": true,
-      "rationale": "Manager scaffold; no user-visible change. Sub-PRs handle their own changelog if needed."
+      "rationale": "Manager scaffold; sub-PRs handle their own changelog."
     },
     "checklist": {
       "paths": [
@@ -26,7 +33,7 @@
     },
     "spec": {
       "not_applicable": true,
-      "rationale": "ADR-046/047 + Addendum 1 (in D3' PR) authoritative."
+      "rationale": "ADRs authoritative."
     }
   },
   "full_audit": {
@@ -96,13 +103,13 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
       "completed_at": null,
       "stage": "update_docs",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
