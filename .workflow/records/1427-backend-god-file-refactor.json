@@ -1,0 +1,152 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "umbrella/backend-god-file-refactor",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check scripts/check_god_files.py",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "all checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check scripts/check_god_files.py",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "1 file already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python scripts/check_god_files.py --enforce",
+      "exit_code": 0,
+      "name": "god_file_advisory",
+      "output_path": "23 tracked waivers, 0 NEW violations",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "N/A umbrella scaffold; no architectural change yet"
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "N/A umbrella scaffold lands plan + tooling; CHANGELOG entries land with sub-PRs"
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/backend-god-file-refactor-checklist.md"
+      ]
+    },
+    "docs": {},
+    "spec": {
+      "not_applicable": true,
+      "rationale": "N/A scaffold + advisory script only"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1427,
+      "url": null
+    }
+  ],
+  "owner_directive": "Manager refactor for backend/engine god files. Phase 1 = Buckets A+B (10 files, 5 agents bundled). User authorized admin-approved:core-change for Bucket B 3 files on 2026-05-22. max-lines=500 advisory. Open umbrella issue/branch/PR scaffold.",
+  "planned_files": [
+    ".workflow/records/1427-backend-god-file-refactor.json",
+    "docs/planning/backend-god-file-refactor-checklist.md",
+    "scripts/check_god_files.py"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1427-backend-god-file-refactor.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "god_file_advisory",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      ".workflow/records/1427-backend-god-file-refactor.json",
+      "docs/planning/backend-god-file-refactor-checklist.md",
+      "scripts/check_god_files.py"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules + health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "scan: files=1161 edges=2654 lines=300245 quality_signal=4442; check_rules: pass=true 0 violations; health: bottleneck=acyclicity modularity=0.177",
+    "pro_required": false,
+    "quality_signal": 4442.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1427-backend-god-file-refactor",
+  "task_kind": "manager"
+}
