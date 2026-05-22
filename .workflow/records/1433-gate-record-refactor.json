@@ -12,6 +12,14 @@
         "docs/audit/2026-05-22-1433-full-audit.json"
       ],
       "reason": "Refactor invalidates ADR-042 governs: frontmatter that names the deleted gate_record.py and contract paths under the old single-file module. Add docs/adr/ADR-042-addendum1.md + docs/adr/ADR-042-addendum3.md + docs/specs/adr-042-gate-record-sentrux-workflow.md to scope to update only their governs: frontmatter to the new sub-package layout. ADR policy text is unchanged."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1433-gate-record-refactor.json"
+      ],
+      "reason": "Include the gate record itself in scope so CI gate-record.scope.outside-include passes for the .workflow/records/1433-gate-record-refactor.json file present in the PR diff (memory: per ADR-042 Addendum 1 the gate record path must be in include patterns)."
     }
   ],
   "branch": "refactor/issue-1433/gate-record",
