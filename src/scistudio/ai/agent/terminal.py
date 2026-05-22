@@ -57,19 +57,49 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 import threading
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # Public re-exports for the route layer.
-__all__ = ["PtyProcess", "spawn_claude", "spawn_codex"]
+__all__ = ["PtyProcess", "resolve_windows_executable", "spawn_claude", "spawn_codex"]
+
+_WINDOWS_EXECUTABLE_SUFFIXES = (".cmd", ".bat", ".exe")
+
+
+def resolve_windows_executable(name: str, *, which: Callable[[str], str | None] | None = None) -> str | None:
+    """Resolve an agent CLI to a concrete Windows executable when needed.
+
+    npm global installs on Windows commonly place both ``codex`` (a Unix
+    shell wrapper) and ``codex.cmd`` on PATH. Python 3.12.0 can return the
+    bare wrapper from :func:`shutil.which`, and pywinpty's CreateProcess
+    spawn path cannot execute it reliably. Prefer extensioned Windows
+    launchers while preserving normal ``shutil.which`` behavior elsewhere.
+    """
+    which = shutil.which if which is None else which
+    resolved = which(name)
+    if sys.platform != "win32":
+        return resolved
+
+    extensioned: list[str] = []
+    for suffix in _WINDOWS_EXECUTABLE_SUFFIXES:
+        candidate = which(name + suffix)
+        if candidate:
+            extensioned.append(candidate)
+
+    if extensioned:
+        if resolved and Path(resolved).suffix.lower() in _WINDOWS_EXECUTABLE_SUFFIXES:
+            return resolved
+        return extensioned[0]
+    return resolved
 
 
 class PtyProcess:
@@ -490,8 +520,9 @@ def spawn_claude(
     if _spawn_argv is not None:
         argv = list(_spawn_argv)
     else:
+        claude_binary = resolve_windows_executable("claude") or "claude"
         argv = [
-            "claude",
+            claude_binary,
             "--append-system-prompt",
             f"@{prompt_path}",
             "--mcp-config",
@@ -550,7 +581,7 @@ def spawn_codex(
     if _spawn_argv is not None:
         argv = list(_spawn_argv)
     else:
-        argv = ["codex"]
+        argv = [resolve_windows_executable("codex") or "codex"]
         if dangerous:
             argv.append("--dangerously-bypass-approvals-and-sandbox")
 
