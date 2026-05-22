@@ -211,7 +211,11 @@ class ApiRuntime:
         # concurrency model.
 
         self.event_bus = EventBus()
-        self.event_bus.runtime = self
+        # ADR-045: watcher reads runtime via getattr(event_bus, "runtime", None).
+        # The EventBus class lives in a protected path (engine.events) so we set
+        # the back-reference dynamically rather than adding a typed attribute,
+        # which would require a core-change label.
+        self.event_bus.runtime = self  # type: ignore[attr-defined]
         self.resource_manager = ResourceManager(event_bus=self.event_bus)
         self.process_registry = ProcessRegistry()
         self.runner = LocalRunner(event_bus=self.event_bus, registry=self.process_registry)
@@ -531,10 +535,13 @@ class ApiRuntime:
 
 # Sorted to satisfy ruff RUF022.
 __all__ = [
+    "FILE_ENTITY_CLASS",
     "MAX_TABLE_PAGE_SIZE",
+    "WORKFLOW_ENTITY_CLASS",
     "_TABLE_CACHE_MAX",
     "ApiRuntime",
     "DataRecord",
+    "FirstPartyEntityWrite",
     "KnownProject",
     "LogBroadcaster",
     "Path",
@@ -552,8 +559,5 @@ __all__ = [
     "_table_cache",
     "_table_cache_lock",
     "_trim_table_cache_locked",
-    "FILE_ENTITY_CLASS",
-    "FirstPartyEntityWrite",
-    "WORKFLOW_ENTITY_CLASS",
     "logger",
 ]

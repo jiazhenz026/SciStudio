@@ -2,12 +2,13 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "../../lib/api";
+import type * as ApiModule from "../../lib/api";
 import { useAppStore } from "../../store";
 import type { FileTab } from "../../store/types";
 import { useWorkflowWebSocket } from "../useWebSocket";
 
 vi.mock("../../lib/api", async () => {
-  const actual = await vi.importActual<typeof import("../../lib/api")>("../../lib/api");
+  const actual = await vi.importActual<typeof ApiModule>("../../lib/api");
   return {
     ...actual,
     consumePendingWorkflowSourceId: vi.fn(() => false),
@@ -139,9 +140,9 @@ describe("useWorkflowWebSocket ADR-045 reconcile", () => {
     createdSockets.length = 0;
     // @ts-expect-error - install our mock globally
     global.WebSocket = MockWebSocket;
-    // @ts-expect-error
+    // @ts-expect-error - MockWebSocket exposes the readyState constants
     global.WebSocket.OPEN = MockWebSocket.OPEN;
-    // @ts-expect-error
+    // @ts-expect-error - MockWebSocket exposes the readyState constants
     global.WebSocket.CLOSED = MockWebSocket.CLOSED;
     resetStore();
     vi.mocked(api.getWorkflow).mockReset();

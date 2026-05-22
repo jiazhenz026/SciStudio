@@ -43,7 +43,7 @@ governs:
     - src/scistudio/api/routes/workflows.py
     - src/scistudio/api/routes/projects.py
     - src/scistudio/api/routes/git.py
-    - src/scistudio/api/runtime.py
+    - src/scistudio/api/runtime/
     - src/scistudio/engine/events.py
     - frontend/src/hooks/useWebSocket.ts
     - frontend/src/store/tabSlice.ts
@@ -219,7 +219,7 @@ the ADR/spec in the same change instead of leaving documentation drift.
 
 | File or glob | Action | Rationale |
 |---|---|---|
-| `src/scistudio/api/runtime.py` | modify | Own version map and write-site helper state. |
+| `src/scistudio/api/runtime/` | modify | Own version map and write-site helper state (post umbrella #1427 god-file split). |
 | `src/scistudio/api/routes/workflows.py` | modify | Return versions and emit versioned workflow events. |
 | `src/scistudio/api/routes/projects.py` | modify | Return versions for file reads/saves and emit file.changed. |
 | `src/scistudio/api/routes/git.py` | modify | Emit gitRestore workflow changes through write-site semantics. |

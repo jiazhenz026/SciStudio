@@ -399,6 +399,7 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
    * success, ``dirty`` clears and ``contentLoadedAt`` advances to the
    * server's new mtime.
    */
+  // eslint-disable-next-line complexity -- ADR-045 reconcile state machine
   saveFileTab: async (id) => {
     const state = get();
     const tab = state.tabs.find((t) => t.id === id);
