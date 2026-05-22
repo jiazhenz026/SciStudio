@@ -53,7 +53,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1420-1421-hooks-order.json",
+    "shas": [
+      "feb7cc8c097edcfa7b72f3a521ba76cb9c14aa9c"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "paths": [
@@ -82,10 +88,10 @@
       "url": "https://github.com/zjzcpj/SciStudio/issues/1420"
     },
     {
-      "number": 1421,
-      "url": "https://github.com/zjzcpj/SciStudio/issues/1421",
       "close_in_pr": true,
-      "followup_rationale": null
+      "followup_rationale": null,
+      "number": 1421,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1421"
     }
   ],
   "owner_directive": "Fix BlockNode.tsx rules-of-hooks (#1420, P1) and App.tsx exhaustive-deps (#1421); retire both waiver blocks from frontend/eslint.config.js.",
@@ -95,7 +101,14 @@
     "frontend/eslint.config.js",
     "CHANGELOG.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1420,
+      1421
+    ],
+    "number": 1435,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1435"
+  },
   "record_path": ".workflow/records/1420-1421-hooks-order.json",
   "required_checks": [
     "frontend-lint,frontend-format,frontend-typecheck,frontend-test,frontend-build,full_audit,sentrux"
