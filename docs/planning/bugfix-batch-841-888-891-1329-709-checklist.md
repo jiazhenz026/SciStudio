@@ -27,7 +27,7 @@ language_source: en
   `C:\Users\jiazh\Desktop\workspace\SciStudio-manager-bugfix-batch-20260522`
 - Protected branch: `main`
 - Umbrella branch: `manager/bugfix-batch-841-888-891-1329-709`
-- Umbrella PR: `pending`
+- Umbrella PR: `#1451`
 - Umbrella PR title: `fix: integrate bugfix batch 841 888 891 1329 709`
 - Final PR target: `main`
 - Dispatch prompt templates:
@@ -77,7 +77,7 @@ language_source: en
       `.workflow/records/841-888-891-1329-709-manager-bugfix-batch.json`.
 - [x] Scope include/exclude recorded in the gate record.
 - [x] Umbrella branch created.
-- [~] Umbrella PR opened: pending.
+- [x] Umbrella PR opened: #1451.
 - [x] Umbrella PR title recorded for final integration.
 - [x] Protected branch recorded: `main`.
 - [x] No `pip install -e .` used in manager worktree.
@@ -187,6 +187,6 @@ Append only.
 - [x] Manager reviewed every changed file path.
 - [x] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux
       evidence when needed, commit, and PR evidence.
-- [~] PR closes every issue fixed by the dispatch.
+- [x] PR closes every issue fixed by the dispatch.
 - [ ] CI passed.
-- [~] Checklist final state matches PR and gate record.
+- [x] Checklist final state matches PR and gate record.

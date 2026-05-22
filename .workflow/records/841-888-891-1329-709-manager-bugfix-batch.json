@@ -74,9 +74,24 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.governance.gate_record ci --gate-record .workflow/records/841-888-891-1329-709-manager-bugfix-batch.json --base origin/main --head HEAD --pr-label admin-approved:core-change",
+      "exit_code": 0,
+      "name": "gate_record-ci",
+      "output_path": "gate_record: pass",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/841-888-891-1329-709-manager-bugfix-batch.json",
+    "shas": [
+      "1a0da0935359bbf794ef538f30e79898a0e9fe69"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "not_applicable": true,
@@ -154,7 +169,17 @@
     "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/napari_block.py",
     "docs/planning/bugfix-batch-841-888-891-1329-709-checklist.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      841,
+      888,
+      891,
+      1329,
+      709
+    ],
+    "number": 1451,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1451"
+  },
   "record_path": ".workflow/records/841-888-891-1329-709-manager-bugfix-batch.json",
   "required_checks": [
     "ruff",
@@ -202,6 +227,7 @@
       "src/scistudio/engine/runners/local.py",
       "src/scistudio/engine/runners/worker.py",
       "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/**",
+      "packages/scistudio-blocks-imaging/tests/**",
       "tests/**",
       ".workflow/records/**",
       "docs/planning/bugfix-batch-841-888-891-1329-709-checklist.md"
@@ -236,7 +262,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
@@ -254,7 +280,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
