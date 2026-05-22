@@ -21,6 +21,34 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class BlockStorageReferenceError(RuntimeError):
+    """Raised when a worker reports a structured storage-reference failure."""
+
+    def __init__(self, payload: dict[str, Any]) -> None:
+        self.payload = payload
+        self.error_kind = str(payload.get("error_kind") or "storage_reference_invalid")
+        self.ref = payload.get("ref") if isinstance(payload.get("ref"), dict) else {}
+        super().__init__(_format_storage_error_message(payload))
+
+
+def _format_storage_error_message(payload: dict[str, Any]) -> str:
+    message = payload.get("message")
+    if isinstance(message, str) and message:
+        return message
+    ref = payload.get("ref") if isinstance(payload.get("ref"), dict) else {}
+    backend = ref.get("backend") or "unknown-backend"
+    path = ref.get("path") or "unknown-path"
+    return f"Storage reference points to unavailable data: {backend}:{path}."
+
+
+def _raise_for_worker_error_payload(payload: dict[str, Any]) -> None:
+    error_kind = payload.get("error_kind")
+    if error_kind in {"storage_missing", "storage_reference_invalid"}:
+        raise BlockStorageReferenceError(payload)
+    if "error" in payload:
+        raise RuntimeError(str(payload["error"]))
+
+
 def _win_junction(target: str) -> str:
     """Create an NTFS junction from a short path to *target* (Windows only).
 
@@ -266,8 +294,7 @@ class LocalRunner:
             if stdout:
                 try:
                     payload = dict(json.loads(stdout.decode()))
-                    if "error" in payload:
-                        raise RuntimeError(str(payload["error"]))
+                    _raise_for_worker_error_payload(payload)
                     outputs = payload.get("outputs", payload)
                     if not isinstance(outputs, dict):
                         raise RuntimeError("Worker returned a non-dict output payload.")

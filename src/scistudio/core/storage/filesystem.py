@@ -9,7 +9,23 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+from scistudio.core.storage.errors import StorageMissingError, StorageReferenceInvalidError
 from scistudio.core.storage.ref import StorageReference
+
+
+def _wrap_filesystem_read_error(
+    ref: StorageReference,
+    operation: str,
+    exc: Exception,
+) -> StorageReferenceInvalidError:
+    if isinstance(exc, FileNotFoundError):
+        return StorageMissingError(ref, operation=operation, detail=str(exc))
+    return StorageReferenceInvalidError(
+        ref,
+        reason="corrupt_or_unreadable",
+        operation=operation,
+        detail=str(exc),
+    )
 
 
 class FilesystemBackend:
@@ -24,9 +40,12 @@ class FilesystemBackend:
         path = Path(ref.path)
         text_formats = {"plain", "markdown", "json", "text", "csv"}
         fmt = (ref.format or "").lower()
-        if fmt in text_formats or fmt.startswith("text"):
-            return path.read_text(encoding="utf-8")
-        return path.read_bytes()
+        try:
+            if fmt in text_formats or fmt.startswith("text"):
+                return path.read_text(encoding="utf-8")
+            return path.read_bytes()
+        except (FileNotFoundError, UnicodeDecodeError) as exc:
+            raise _wrap_filesystem_read_error(ref, "read", exc) from exc
 
     def write(self, data: Any, ref: StorageReference) -> StorageReference:
         """Write *data* (str or bytes) to the filesystem at *ref* atomically.
@@ -81,24 +100,33 @@ class FilesystemBackend:
             raise ValueError("FilesystemBackend.slice expects (offset, length).")
         offset, length = int(args[0]), int(args[1])
         path = Path(ref.path)
-        with path.open("rb") as f:
-            f.seek(offset)
-            return f.read(length)
+        try:
+            with path.open("rb") as f:
+                f.seek(offset)
+                return f.read(length)
+        except FileNotFoundError as exc:
+            raise StorageMissingError(ref, operation="slice", detail=str(exc)) from exc
 
     def iter_chunks(self, ref: StorageReference, chunk_size: int) -> Iterator[Any]:
         """Yield fixed-size byte chunks from *ref*."""
         path = Path(ref.path)
-        with path.open("rb") as f:
-            while True:
-                chunk = f.read(chunk_size)
-                if not chunk:
-                    break
-                yield chunk
+        try:
+            with path.open("rb") as f:
+                while True:
+                    chunk = f.read(chunk_size)
+                    if not chunk:
+                        break
+                    yield chunk
+        except FileNotFoundError as exc:
+            raise StorageMissingError(ref, operation="iter_chunks", detail=str(exc)) from exc
 
     def get_metadata(self, ref: StorageReference) -> dict[str, Any]:
         """Return filesystem metadata (size, mtime, etc.) for *ref*."""
         path = Path(ref.path)
-        stat = path.stat()
+        try:
+            stat = path.stat()
+        except FileNotFoundError as exc:
+            raise StorageMissingError(ref, operation="get_metadata", detail=str(exc)) from exc
         return {
             "size": stat.st_size,
             "mtime": os.path.getmtime(ref.path),

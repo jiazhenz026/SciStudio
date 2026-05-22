@@ -8,7 +8,21 @@ from typing import Any
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from scistudio.core.storage.errors import StorageMissingError, StorageReferenceInvalidError
 from scistudio.core.storage.ref import StorageReference
+
+
+def _wrap_arrow_read_error(ref: StorageReference, operation: str, exc: Exception) -> StorageReferenceInvalidError:
+    if isinstance(exc, FileNotFoundError):
+        return StorageMissingError(ref, operation=operation, detail=str(exc))
+    if isinstance(exc, pa.ArrowInvalid):
+        return StorageReferenceInvalidError(
+            ref,
+            reason="corrupt_or_unreadable",
+            operation=operation,
+            detail=str(exc),
+        )
+    raise exc
 
 
 class ArrowBackend:
@@ -16,7 +30,10 @@ class ArrowBackend:
 
     def read(self, ref: StorageReference) -> Any:
         """Read a Parquet file from *ref* and return a PyArrow Table."""
-        return pq.read_table(ref.path)
+        try:
+            return pq.read_table(ref.path)
+        except (FileNotFoundError, pa.ArrowInvalid) as exc:
+            raise _wrap_arrow_read_error(ref, "read", exc) from exc
 
     def write(self, data: Any, ref: StorageReference) -> StorageReference:
         """Write *data* (PyArrow Table or dict) as Parquet to *ref*.
@@ -59,17 +76,29 @@ class ArrowBackend:
         if args:
             first = args[0]
             columns = first if isinstance(first, list) else list(args)
-        return pq.read_table(ref.path, columns=columns)
+        try:
+            return pq.read_table(ref.path, columns=columns)
+        except (FileNotFoundError, pa.ArrowInvalid) as exc:
+            raise _wrap_arrow_read_error(ref, "slice", exc) from exc
 
     def iter_chunks(self, ref: StorageReference, chunk_size: int) -> Iterator[Any]:
         """Yield row-batched chunks from the Parquet file at *ref*."""
-        pf = pq.ParquetFile(ref.path)
+        try:
+            pf = pq.ParquetFile(ref.path)
+        except (FileNotFoundError, pa.ArrowInvalid) as exc:
+            raise _wrap_arrow_read_error(ref, "iter_chunks", exc) from exc
         for batch in pf.iter_batches(batch_size=chunk_size):
-            yield pa.Table.from_batches([batch])
+            try:
+                yield pa.Table.from_batches([batch])
+            except pa.ArrowInvalid as exc:
+                raise _wrap_arrow_read_error(ref, "iter_chunks", exc) from exc
 
     def get_metadata(self, ref: StorageReference) -> dict[str, Any]:
         """Return Parquet-level metadata for *ref*."""
-        pf = pq.ParquetFile(ref.path)
+        try:
+            pf = pq.ParquetFile(ref.path)
+        except (FileNotFoundError, pa.ArrowInvalid) as exc:
+            raise _wrap_arrow_read_error(ref, "get_metadata", exc) from exc
         schema = pf.schema_arrow
         return {
             "columns": schema.names,

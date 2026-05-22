@@ -1,0 +1,24 @@
+{
+  "mode": "free-tier",
+  "scan": {
+    "files": 1161,
+    "import_edges": 2662,
+    "lines": 300628,
+    "quality_signal": 4443
+  },
+  "check_rules": {
+    "pass": true,
+    "rules_checked": 3,
+    "total_rules_defined": 15,
+    "violation_count": 0,
+    "summary": "All architectural rules pass"
+  },
+  "session_end": {
+    "pass": true,
+    "signal_before": 4443,
+    "signal_after": 4443,
+    "signal_delta": 0,
+    "summary": "Quality stable or improved"
+  },
+  "pro_required": false
+}

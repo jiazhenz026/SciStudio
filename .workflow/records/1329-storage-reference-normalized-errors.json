@@ -1,0 +1,176 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Implementation completed within the planned scoped files; no scope expansion."
+    }
+  ],
+  "branch": "fix/issue-1329-storage-errors",
+  "changed_test_paths": [
+    "tests/core/test_storage.py",
+    "tests/engine/test_worker.py",
+    "tests/engine/test_local_runner.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "PYTHONPATH=src ruff check src/scistudio/core/storage src/scistudio/engine/runners/worker.py src/scistudio/engine/runners/local.py tests/core/test_storage.py tests/engine/test_worker.py tests/engine/test_local_runner.py",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/core/test_storage.py tests/engine/test_worker.py tests/engine/test_local_runner.py --no-cov",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "84 passed in 4.47s",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src ruff format --check src/scistudio/core/storage src/scistudio/engine/runners/worker.py src/scistudio/engine/runners/local.py tests/core/test_storage.py tests/engine/test_worker.py tests/engine/test_local_runner.py",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "16 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1329-storage-reference-normalized-errors.json",
+    "shas": [
+      "374e324fd7153fc31de1cf3bd9f21b1c059cce3a"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {},
+    "checklist": {},
+    "docs": {
+      "not_applicable": true,
+      "rationale": "N/A bugfix normalizes internal worker/storage error propagation; no public contract doc update needed"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": true,
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .workflow/records/1329-full-audit.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": ".workflow/records/1329-full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1329,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1329"
+    }
+  ],
+  "owner_directive": "Implement GitHub issue #1329: typed storage-missing/reference-invalid errors, structured worker payloads, LocalRunner clean typed/runtime error, targeted tests; do not touch forbidden paths.",
+  "planned_files": [
+    "src/scistudio/core/storage/**",
+    "src/scistudio/engine/runners/worker.py",
+    "src/scistudio/engine/runners/local.py"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1329
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1438"
+  },
+  "record_path": ".workflow/records/1329-storage-reference-normalized-errors.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "src/scistudio/engine/scheduler.py",
+      "src/scistudio/api/runtime.py",
+      "src/scistudio/core/lineage/store.py",
+      "src/scistudio/qa/governance/gate_record.py",
+      "src/scistudio/core/types/registry.py",
+      "src/scistudio/core/types/**",
+      "src/scistudio/frontend/**"
+    ],
+    "include": [
+      "src/scistudio/core/storage/**",
+      "src/scistudio/engine/runners/worker.py",
+      "src/scistudio/engine/runners/local.py",
+      "tests/core/**",
+      "tests/engine/**",
+      ".workflow/records/**"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__sentrux__.scan/session_start/rescan/check_rules/session_end",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": ".workflow/records/1329-sentrux-evidence.json",
+    "pro_required": false,
+    "quality_signal": 4443.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {
+      "pro_required": "false"
+    },
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1329-storage-reference-normalized-errors",
+  "task_kind": "bugfix"
+}
