@@ -204,12 +204,21 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-a3-full-audit.json",
+      "exit_code": 0,
+      "name": "full_audit Codex triage",
+      "output_path": "docs/audit/adr-045-a3-full-audit.json; pass after PR #1443 Codex triage update",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": {
     "gate_record_path": ".workflow/records/1401-a3-frontend-reconcile.json",
     "shas": [
-      "5e95ef90bd93e150fca145db203a03a07932085a"
+      "417ffc64f9793f64466c180231ba9a053360431f"
     ],
     "trailers": {}
   },
