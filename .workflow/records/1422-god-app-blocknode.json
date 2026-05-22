@@ -93,7 +93,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1422-god-app-blocknode.json",
+    "shas": [
+      "87908e05a4d1ec1feb16c187f303e38dfbbe5a32"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -111,7 +117,16 @@
       "rationale": "Refactor preserves behavior verbatim; no spec/contract change. Module decomposition is implementation detail."
     }
   },
-  "full_audit": null,
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
   "governance_touch": false,
   "issues": [
     {
@@ -154,7 +169,13 @@
     "frontend/src/components/nodes/__tests__/BlockNode/hooks1420.test.tsx",
     "CHANGELOG.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1422
+    ],
+    "number": 1450,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1450"
+  },
   "record_path": ".workflow/records/1422-god-app-blocknode.json",
   "required_checks": [
     "frontend-lint,frontend-format,frontend-typecheck,frontend-test,frontend-build,ruff,format,full_audit,sentrux"
@@ -220,7 +241,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
