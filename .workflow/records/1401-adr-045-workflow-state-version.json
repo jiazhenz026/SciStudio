@@ -30,7 +30,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1401-adr-045-workflow-state-version.json",
+    "shas": [
+      "39a28adda7abbc9313d1878247d8b97f0892e194"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "paths": [
@@ -75,7 +81,13 @@
     "CHANGELOG.md",
     ".workflow/records/1401-adr-045-workflow-state-version.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1401
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1404"
+  },
   "record_path": ".workflow/records/1401-adr-045-workflow-state-version.json",
   "required_checks": [
     "ruff",
@@ -139,7 +151,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
