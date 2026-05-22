@@ -74,6 +74,15 @@
     "trailers": {}
   },
   "docs_landing": {
+    "adr": {
+      "paths": [
+        "docs/adr/ADR-012.md",
+        "docs/adr/ADR-038.md",
+        "docs/adr/ADR-039.md",
+        "docs/adr/ADR-044.md",
+        "docs/adr/ADR-045.md"
+      ]
+    },
     "changelog": {
       "not_applicable": true,
       "rationale": "Umbrella #1427 lands rolled-up CHANGELOG entry after all Phase 1 sub-PRs merge into the umbrella branch; this sub-PR is a structural decomposition with no user-visible behavior change"
@@ -82,7 +91,14 @@
       "not_applicable": true,
       "rationale": "Manager-owned umbrella checklist docs/planning/backend-god-file-refactor-checklist.md (Section 6 Dispatch Matrix) tracks this sub-PR row; sub-PR does not edit it per agent-dispatch.md \u00a73 (agents edit only their own rows; manager owns the matrix)"
     },
-    "docs": {}
+    "docs": {
+      "not_applicable": true,
+      "rationale": "ADR frontmatter governs.files updates capture the file \u2192 sub-package path change; no other user-facing doc affected"
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "No contract or schema change"
+    }
   },
   "full_audit": {
     "blocks_merge": false,
