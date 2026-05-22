@@ -40,8 +40,15 @@
     "trailers": {}
   },
   "docs_landing": {
-    "changelog": {},
-    "checklist": {},
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Audit-only PR: produces an evidence document under docs/audit/ and does not change user-visible behavior; the umbrella PR #1429 lands the consolidated CHANGELOG entry once all Phase 1 sub-PRs and this audit roll up into main."
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/backend-god-file-refactor-checklist.md"
+      ]
+    },
     "docs": {
       "paths": [
         "docs/audit/2026-05-22-umbrella-1427-phase1-with-context.md"
