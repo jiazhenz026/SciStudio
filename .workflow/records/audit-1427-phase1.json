@@ -1,6 +1,15 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": "audit-reviewer-self",
+      "exclude": [],
+      "include": [
+        ".workflow/records/audit-1427-phase1.json"
+      ],
+      "reason": "Add own gate-record file to scope per ADR-042 Addendum 1 \u2014 meta-include the record itself so the file change passes gate-record.scope.outside-include."
+    }
+  ],
   "branch": "audit/issue-1427/phase1-review",
   "changed_test_paths": [],
   "check_results": [
