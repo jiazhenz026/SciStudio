@@ -59,23 +59,15 @@
     "trailers": {}
   },
   "docs_landing": {
-    "changelog": {},
-    "checklist": {},
-    "docs": {
-      "paths": [
-        "docs/adr/ADR-034.md",
-        "docs/adr/ADR-035.md",
-        "docs/specs/embedded-coding-agent-spec.md"
-      ]
-    },
-    "release-notes": {
+    "changelog": {
       "not_applicable": true,
-      "rationale": "Pure structural refactor; no behavior change to wire protocol or routes."
+      "rationale": "Umbrella #1427 lands rolled-up CHANGELOG entry after all Phase 1 sub-PRs merge into the umbrella branch; this sub-PR is a structural decomposition with no user-visible behavior change"
     },
-    "user-guide": {
+    "checklist": {
       "not_applicable": true,
-      "rationale": "Structural refactor with no behavior change; no user-facing surface affected."
-    }
+      "rationale": "Manager-owned umbrella checklist docs/planning/backend-god-file-refactor-checklist.md (Section 6 Dispatch Matrix) tracks this sub-PR row; sub-PR does not edit it per agent-dispatch.md \u00a73 (agents edit only their own rows; manager owns the matrix)"
+    },
+    "docs": {}
   },
   "full_audit": {
     "blocks_merge": false,
@@ -93,7 +85,7 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1432,
-      "url": null
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1432"
     }
   ],
   "owner_directive": "Refactor api/routes/ai_pty.py into sub-package per umbrella #1427",
