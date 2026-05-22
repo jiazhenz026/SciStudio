@@ -88,9 +88,7 @@ vi.mock("@monaco-editor/react", () => {
       editorState.lastMonaco = new FakeMonacoNamespace();
       // beforeMount runs before onMount in real @monaco-editor/react; it
       // receives the monaco namespace so the component can register themes.
-      const beforeMount = props.beforeMount as
-        | ((m: FakeMonacoNamespace) => void)
-        | undefined;
+      const beforeMount = props.beforeMount as ((m: FakeMonacoNamespace) => void) | undefined;
       beforeMount?.(editorState.lastMonaco);
       const onMount = props.onMount as
         | ((e: FakeMonacoEditor, m: FakeMonacoNamespace) => void)
@@ -287,13 +285,7 @@ describe("CodeEditor", () => {
   });
 
   it("registers the scistudio-soft-dark Monaco theme via beforeMount", async () => {
-    render(
-      <CodeEditor
-        tab={makeFileTab()}
-        onContentChange={vi.fn()}
-        onSave={vi.fn()}
-      />,
-    );
+    render(<CodeEditor tab={makeFileTab()} onContentChange={vi.fn()} onSave={vi.fn()} />);
     await waitFor(() => expect(editorState.lastProps).not.toBeNull());
     expect(editorState.lastProps?.theme).toBe("scistudio-soft-dark");
     // beforeMount fires synchronously on first render — theme is registered
