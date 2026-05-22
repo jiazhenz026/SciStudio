@@ -19,19 +19,37 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "git diff --check",
+      "command_or_tool": "python -m scistudio.qa.audit.frontmatter_lint docs/ai-developer/personas/test-engineer.md docs/ai-developer/specific_rules/test-engineering.md docs/ai-developer/rules.md docs/ai-developer/specific_rules/gated-workflow.md docs/ai-developer/specific_rules/agent-dispatch.md docs/ai-developer/checklists/agent-manager-rules-review.md --repo-root . --format text",
       "exit_code": 0,
-      "name": "git_diff_check",
-      "output_path": "pass",
+      "name": "docs_frontmatter_lint",
+      "output_path": "warnings only: docs are not ADR/spec/architecture frontmatter targets",
       "status": "pass",
       "summary": {},
       "timestamp": null
     },
     {
-      "command_or_tool": "python -m scistudio.qa.audit.frontmatter_lint docs/ai-developer/personas/test-engineer.md docs/ai-developer/specific_rules/test-engineering.md docs/ai-developer/rules.md docs/ai-developer/specific_rules/gated-workflow.md docs/ai-developer/specific_rules/agent-dispatch.md docs/ai-developer/checklists/agent-manager-rules-review.md --repo-root . --format text",
+      "command_or_tool": "PYTHONPATH=src pytest tests/qa/test_persona_policy.py tests/qa/test_test_engineer_scope_guard.py tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py -q --no-cov",
       "exit_code": 0,
-      "name": "docs_frontmatter_lint",
-      "output_path": "warnings only: docs are not ADR/spec/architecture frontmatter targets",
+      "name": "targeted_pytest",
+      "output_path": "targeted persona, scope guard, and gate-record tests passed with --no-cov for narrow behavioral run",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check src/scistudio/qa/governance/persona_policy.py src/scistudio/qa/governance/test_engineer_scope_guard.py src/scistudio/qa/governance/gate_record tests/qa/test_persona_policy.py tests/qa/test_test_engineer_scope_guard.py tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py",
+      "exit_code": 0,
+      "name": "ruff_format_check",
+      "output_path": "15 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "git diff --check",
+      "exit_code": 0,
+      "name": "git_diff_check",
+      "output_path": "passed with CRLF warning for gate record only",
       "status": "pass",
       "summary": {},
       "timestamp": null
@@ -41,34 +59,16 @@
   "docs_landing": {
     "changelog": {
       "not_applicable": true,
-      "rationale": "manager-dispatch-and-ai-governance-doc-update-no-user-facing-release-note-yet"
+      "rationale": "ai-governance-tooling-change-no-user-facing-release-note"
     },
     "checklist": {
       "paths": [
-        "docs/planning/adr-042-test-engineer-persona-implementation-checklist.md",
-        "docs/planning/dispatch-prompts/issue-1467-agent-a-code-guard.md",
-        "docs/planning/dispatch-prompts/issue-1467-agent-b-gate-record.md"
+        "docs/planning/adr-042-test-engineer-persona-implementation-checklist.md"
       ]
     },
     "docs": {
-      "paths": [
-        "docs/ai-developer/rules.md",
-        "docs/ai-developer/specific_rules/gated-workflow.md",
-        "docs/ai-developer/specific_rules/agent-dispatch.md",
-        "docs/ai-developer/specific_rules/test-engineering.md",
-        "docs/ai-developer/personas/test-engineer.md",
-        "docs/ai-developer/templates/agent-dispatch-prompt-template.md",
-        "docs/ai-developer/templates/agent-dispatch-checklist-template.md",
-        "docs/ai-developer/checklists/agent-manager-rules-review.md",
-        "docs/ai-developer/skills/scistudio-e2e-test/SKILL.md",
-        ".agents/skills/test-engineer/SKILL.md",
-        ".codex/skills/test-engineer/SKILL.md",
-        ".claude/skills/test-engineer/SKILL.md"
-      ]
-    },
-    "tests": {
       "not_applicable": true,
-      "rationale": "implementation-tests-owned-by-dispatched-agents-and-will-be-recorded-after-integration"
+      "rationale": "all-required-ai-governance-docs-updated"
     }
   },
   "full_audit": null,
@@ -82,6 +82,7 @@
     }
   ],
   "owner_directive": "Manager-dispatch implementation of ADR-042 test_engineer persona; 1-2 implementation agents own code changes while manager maintains docs, checklist, gate evidence, and integration.",
+  "persona": "manager",
   "planned_files": [
     "src/scistudio/qa/governance/persona_policy.py",
     "src/scistudio/qa/governance/test_engineer_scope_guard.py",

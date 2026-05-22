@@ -113,8 +113,8 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `A-code-guard` | `implementer` | `N/A` | `docs/planning/dispatch-prompts/issue-1467-agent-a-code-guard.md` | Persona policy and test-engineer scope guard | `feat/issue-1467/test-engineer-scope-guard` | agent-created | `src/scistudio/qa/governance/persona_policy.py`, `src/scistudio/qa/governance/test_engineer_scope_guard.py`, `tests/qa/test_persona_policy.py`, `tests/qa/test_test_engineer_scope_guard.py` | gate_record files, AI docs, product code | `#1467` | `[~]` |
-| `B-gate-record` | `implementer` | `N/A` | `docs/planning/dispatch-prompts/issue-1467-agent-b-gate-record.md` | Gate-record persona schema, CLI, and validation integration | `feat/issue-1467/gate-record-persona` | agent-created | `src/scistudio/qa/governance/gate_record/**`, `tests/qa/test_gate_record.py`, `tests/qa/test_gate_record_ci.py`, `tests/qa/test_gate_record_hooks.py` | persona_policy, scope guard implementation, AI docs, product code | `#1467` | `[~]` |
+| `A-code-guard` | `implementer` | `N/A` | `docs/planning/dispatch-prompts/issue-1467-agent-a-code-guard.md` | Persona policy and test-engineer scope guard | `feat/issue-1467/test-engineer-scope-guard` | `C:/Users/jiazh/Desktop/workspace/SciStudio-issue1467-agent-a` | `src/scistudio/qa/governance/persona_policy.py`, `src/scistudio/qa/governance/test_engineer_scope_guard.py`, `tests/qa/test_persona_policy.py`, `tests/qa/test_test_engineer_scope_guard.py` | gate_record files, AI docs, product code | `#1467`, commit `5546fdfd` cherry-picked as `653ff611` | `[x]` |
+| `B-gate-record` | `implementer` | `N/A` | `docs/planning/dispatch-prompts/issue-1467-agent-b-gate-record.md` | Gate-record persona schema, CLI, and validation integration | `feat/issue-1467/gate-record-persona` | `C:/Users/jiazh/Desktop/workspace/SciStudio-issue1467-agent-b` | `src/scistudio/qa/governance/gate_record/**`, `tests/qa/test_gate_record.py`, `tests/qa/test_gate_record_ci.py`, `tests/qa/test_gate_record_hooks.py` | persona_policy, scope guard implementation, AI docs, product code | `#1467`, commit `7c6e9c0e` cherry-picked as `408e5dec` | `[x]` |
 
 ## 7. Track: Governance Code
 
@@ -147,17 +147,22 @@ language_source: en
 
 ### 7.3 Implementation
 
-- [ ] Persona policy accepts `test_engineer` -> `pending`
-- [ ] Scope guard allows explicit test/e2e/audit/QA paths -> `pending`
-- [ ] Scope guard blocks production source and broad frontend paths -> `pending`
-- [ ] Targeted tests pass -> `pending`
+- [x] Persona policy accepts `test_engineer` -> commit `653ff611`.
+- [x] Scope guard allows explicit test/e2e/audit/QA paths -> commit
+  `653ff611`.
+- [x] Scope guard blocks production source and broad frontend paths -> commit
+  `653ff611`.
+- [x] Targeted tests pass ->
+  `PYTHONPATH=src pytest tests/qa/test_persona_policy.py tests/qa/test_test_engineer_scope_guard.py -q --no-cov`.
 
 ### 7.4 Integration
 
-- [ ] Agent output reviewed by manager.
-- [ ] Scope compliance verified.
-- [ ] Conflicts resolved intentionally.
-- [ ] Track merged or integrated.
+- [x] Agent output reviewed by manager -> changed-file review against prompt
+  scope.
+- [x] Scope compliance verified -> only owned code/test files changed.
+- [x] Conflicts resolved intentionally -> no conflict; cherry-picked
+  `5546fdfd` as `653ff611`.
+- [x] Track merged or integrated -> integration branch commit `653ff611`.
 
 ## 8. Track: Gate Record
 
@@ -193,17 +198,22 @@ language_source: en
 
 ### 8.3 Implementation
 
-- [ ] `GateRecord.persona` stored and validated -> `pending`
-- [ ] `gate_record start --persona` implemented -> `pending`
-- [ ] Validation invokes scope guard for `test_engineer` -> `pending`
-- [ ] Targeted tests pass -> `pending`
+- [x] `GateRecord.persona` stored and validated -> commit `408e5dec`.
+- [x] `gate_record start --persona` implemented -> commit `408e5dec`.
+- [x] Validation invokes scope guard for `test_engineer` -> commit
+  `408e5dec`, with manager integration interface fix.
+- [x] Targeted tests pass ->
+  `PYTHONPATH=src pytest tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py -q --no-cov`.
 
 ### 8.4 Integration
 
-- [ ] Agent output reviewed by manager.
-- [ ] Scope compliance verified.
-- [ ] Conflicts resolved intentionally.
-- [ ] Track merged or integrated.
+- [x] Agent output reviewed by manager -> changed-file review against prompt
+  scope.
+- [x] Scope compliance verified -> only owned gate-record code/test files
+  changed.
+- [x] Conflicts resolved intentionally -> no conflict; cherry-picked
+  `7c6e9c0e` as `408e5dec`.
+- [x] Track merged or integrated -> integration branch commit `408e5dec`.
 
 ## 9. Manager Documentation Track
 
@@ -225,12 +235,12 @@ language_source: en
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
-| Ruff | `ruff check .` | `[ ]` | `pending` |
-| Format | `ruff format --check .` | `[ ]` | `pending` |
-| Tests | `pytest tests/qa/test_persona_policy.py tests/qa/test_test_engineer_scope_guard.py tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py -q` | `[ ]` | `pending` |
+| Ruff | `ruff check .` | `[~]` | Targeted governance ruff passed; full repo ruff pending final integration. |
+| Format | `ruff format --check .` | `[~]` | Targeted governance format check passed; full repo format pending final integration. |
+| Tests | `pytest tests/qa/test_persona_policy.py tests/qa/test_test_engineer_scope_guard.py tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py -q --no-cov` | `[x]` | Passed after integrating A and B. |
 | Frontmatter | `python -m scistudio.qa.audit.frontmatter_lint docs/ai-developer/personas/test-engineer.md docs/ai-developer/specific_rules/test-engineering.md --repo-root . --format text` | `[ ]` | `pending` |
 | Full audit | `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-042-test-engineer-persona-implementation-full-audit.json` | `[ ]` | `pending` |
-| Sentrux | `N/A unless available in this session` | `[ ]` | `pending` |
+| Sentrux | `N/A unless available in this session` | `[x]` | Sentrux CLI unavailable in manager environment; recorded in gate record. |
 
 ## 11. Drift Log
 

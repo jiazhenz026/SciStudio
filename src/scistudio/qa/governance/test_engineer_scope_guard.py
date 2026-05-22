@@ -10,6 +10,7 @@ import subprocess
 import sys
 from collections.abc import Sequence
 from pathlib import Path, PurePosixPath
+from typing import Any
 
 from scistudio.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
@@ -181,12 +182,24 @@ def _blocked_finding(
 def check(
     *,
     repo_root: Path | None = None,
-    persona: str,
+    persona: str | None = None,
     changed_files: Sequence[str | Path],
     scope_includes: Sequence[str | Path] = (),
+    record: Any | None = None,
 ) -> AuditReport:
     """Validate changed files for the test_engineer no-production-code boundary."""
 
+    if record is not None:
+        persona = getattr(record, "persona", persona)
+        if not scope_includes:
+            record_scope = getattr(record, "scope", None)
+            record_includes = list(getattr(record_scope, "include", ()) or ())
+            amendments = getattr(record, "amendments", ()) or ()
+            for amendment in amendments:
+                record_includes.extend(getattr(amendment, "include", ()) or ())
+            scope_includes = record_includes
+
+    persona = persona or ""
     normalized_files = [_normalize_path(path, repo_root) for path in changed_files]
     normalized_includes = [_normalize_path(path, repo_root) for path in scope_includes]
     classifications: dict[str, str] = {}
