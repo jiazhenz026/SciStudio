@@ -71,23 +71,12 @@
     "trailers": {}
   },
   "docs_landing": {
-    "adr": {
+    "changelog": {},
+    "checklist": {
       "not_applicable": true,
-      "rationale": "N/A pure structural refactor; no architectural change"
+      "rationale": "Manager-owned umbrella checklist docs/planning/backend-god-file-refactor-checklist.md (Section 6 Dispatch Matrix) tracks this sub-PR row; sub-PR does not edit it per agent-dispatch.md \u00a73 (agents edit only their own rows; manager owns the matrix)"
     },
-    "changelog": {
-      "not_applicable": true,
-      "rationale": "N/A umbrella #1427 lands rolled-up CHANGELOG entry after all Phase 1 sub-PRs merge"
-    },
-    "checklist": {},
-    "docs": {
-      "not_applicable": true,
-      "rationale": "N/A new module map documented in tools_workflow/__init__.py + tools_inspection/__init__.py docstrings; no external user-facing doc affected"
-    },
-    "spec": {
-      "not_applicable": true,
-      "rationale": "N/A no contract or schema change"
-    }
+    "docs": {}
   },
   "full_audit": {
     "blocks_merge": false,
@@ -105,7 +94,7 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1431,
-      "url": null
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1431"
     }
   ],
   "owner_directive": "Refactor MCP tools_workflow + tools_inspection into sub-packages per umbrella #1427",
