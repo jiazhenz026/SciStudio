@@ -7,22 +7,14 @@
  * Re-run again and unintentionally launch a duplicate run.
  */
 
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAppStore } from "../../../store";
 import { RerunDialog } from "../RerunDialog";
 
 vi.mock("../../../lib/api", async () => {
-  const actual = await vi.importActual<typeof import("../../../lib/api")>(
-    "../../../lib/api",
-  );
+  const actual = await vi.importActual<typeof import("../../../lib/api")>("../../../lib/api");
   const stubDetail = {
     run: {
       run_id: "r1",
@@ -50,9 +42,7 @@ vi.mock("../../../lib/api", async () => {
         getRuns: vi.fn().mockResolvedValue({ runs: [] }),
         getRun: vi.fn().mockResolvedValue(stubDetail),
         getRunMethods: vi.fn(),
-        validateRerun: vi
-          .fn()
-          .mockResolvedValue({ input_warnings: [], env_warnings: [] }),
+        validateRerun: vi.fn().mockResolvedValue({ input_warnings: [], env_warnings: [] }),
         rerunRun: vi.fn().mockResolvedValue({ new_run_id: "" }),
       },
     },
@@ -130,9 +120,7 @@ describe("RerunDialog", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     // The rerun side effect went through; list refresh failure must not
     // surface as a "rerun failed" submit error on the dialog.
-    expect(
-      screen.queryByTestId("rerun-dialog-submit-error"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("rerun-dialog-submit-error")).not.toBeInTheDocument();
   });
 
   it("surfaces rerun failure (not refresh failure) and keeps the dialog open", async () => {
@@ -166,9 +154,7 @@ describe("RerunDialog", () => {
     await waitFor(() => expect(confirm).not.toBeDisabled());
     fireEvent.click(confirm);
     await waitFor(() =>
-      expect(
-        screen.getByTestId("rerun-dialog-submit-error"),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId("rerun-dialog-submit-error")).toBeInTheDocument(),
     );
     expect(onClose).not.toHaveBeenCalled();
   });

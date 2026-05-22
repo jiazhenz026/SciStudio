@@ -75,16 +75,14 @@ export function PortEditorTable({
 
   // Issue #680: input ports never show the extension column; output ports
   // show it by default unless the caller explicitly opts out.
-  const renderExtension =
-    direction === "output" && (showExtensionColumn ?? true);
+  const renderExtension = direction === "output" && (showExtensionColumn ?? true);
 
   // ADR-043 FR-012: only render the per-row CapabilityDropdown when the row
   // also exposes an extension input — without an extension the (direction,
   // type, extension) tuple cannot be resolved into a capability anyway.
   // Defaults to `renderExtension` so existing callers opt in automatically
   // and inputs / no-extension contexts opt out automatically.
-  const renderCapability =
-    renderExtension && (showCapabilityDropdown ?? true);
+  const renderCapability = renderExtension && (showCapabilityDropdown ?? true);
 
   function handleNameChange(index: number, name: string) {
     onChange(ports.map((p, i) => (i === index ? { ...p, name } : p)));
@@ -96,9 +94,7 @@ export function PortEditorTable({
     // from surviving into a tuple where it is no longer registered. The user
     // re-selects via the CapabilityDropdown for the new tuple.
     onChange(
-      ports.map((p, i) =>
-        i === index ? { ...p, types: [typeName], capability_id: null } : p,
-      ),
+      ports.map((p, i) => (i === index ? { ...p, types: [typeName], capability_id: null } : p)),
     );
   }
 
@@ -120,11 +116,7 @@ export function PortEditorTable({
   }
 
   function handleCapabilityChange(index: number, capabilityId: string) {
-    onChange(
-      ports.map((p, i) =>
-        i === index ? { ...p, capability_id: capabilityId } : p,
-      ),
-    );
+    onChange(ports.map((p, i) => (i === index ? { ...p, capability_id: capabilityId } : p)));
   }
 
   function handleRemove(index: number) {
@@ -199,9 +191,7 @@ export function PortEditorTable({
                   dataType={port.types[0] ?? defaultType}
                   extension={port.extension ?? ""}
                   value={port.capability_id ?? null}
-                  onChange={(capabilityId) =>
-                    handleCapabilityChange(index, capabilityId)
-                  }
+                  onChange={(capabilityId) => handleCapabilityChange(index, capabilityId)}
                   id={`${direction}-${port.name || index}`}
                   typeHierarchy={typeHierarchy}
                 />
@@ -210,7 +200,9 @@ export function PortEditorTable({
           </div>
         ))}
         {ports.length === 0 && (
-          <p className="text-xs text-stone-400">No ports defined. Click &quot;+ Add Port&quot; to add one.</p>
+          <p className="text-xs text-stone-400">
+            No ports defined. Click &quot;+ Add Port&quot; to add one.
+          </p>
         )}
       </div>
       <button

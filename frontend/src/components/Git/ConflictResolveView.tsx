@@ -39,9 +39,7 @@ function describeError(err: unknown): string {
   return "Stage failed.";
 }
 
-export function ConflictResolveView(
-  props: ConflictResolveViewProps,
-): JSX.Element {
+export function ConflictResolveView(props: ConflictResolveViewProps): JSX.Element {
   const { conflictedFiles, onOpenFile, onResolveAll, onAbort } = props;
 
   const [statuses, setStatuses] = useState<Record<string, Status>>(() => {
@@ -57,25 +55,22 @@ export function ConflictResolveView(
     return conflictedFiles.every((f) => statuses[f] === "resolved");
   }, [conflictedFiles, statuses]);
 
-  const handleMarkResolved = useCallback(
-    async (path: string) => {
-      setStaging((s) => ({ ...s, [path]: true }));
-      setStageErrors((s) => {
-        const { [path]: _drop, ...rest } = s;
-        void _drop;
-        return rest;
-      });
-      try {
-        await api.gitMergeStageFile(path);
-        setStatuses((s) => ({ ...s, [path]: "resolved" }));
-      } catch (err) {
-        setStageErrors((s) => ({ ...s, [path]: describeError(err) }));
-      } finally {
-        setStaging((s) => ({ ...s, [path]: false }));
-      }
-    },
-    [],
-  );
+  const handleMarkResolved = useCallback(async (path: string) => {
+    setStaging((s) => ({ ...s, [path]: true }));
+    setStageErrors((s) => {
+      const { [path]: _drop, ...rest } = s;
+      void _drop;
+      return rest;
+    });
+    try {
+      await api.gitMergeStageFile(path);
+      setStatuses((s) => ({ ...s, [path]: "resolved" }));
+    } catch (err) {
+      setStageErrors((s) => ({ ...s, [path]: describeError(err) }));
+    } finally {
+      setStaging((s) => ({ ...s, [path]: false }));
+    }
+  }, []);
 
   if (conflictedFiles.length === 0) {
     return (

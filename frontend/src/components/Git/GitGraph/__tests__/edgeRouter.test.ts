@@ -72,12 +72,7 @@ describe("routeEdges (D39-2.4b)", () => {
   });
 
   it("Fixture B: fan-out + merge → bezier for lane jumps", () => {
-    const commits = [
-      mk("C3", ["C2a", "C2b"]),
-      mk("C2a", ["C1"]),
-      mk("C2b", ["C1"]),
-      mk("C1", []),
-    ];
+    const commits = [mk("C3", ["C2a", "C2b"]), mk("C2a", ["C1"]), mk("C2b", ["C1"]), mk("C1", [])];
     const assignments = assignLanes(commits);
     const edges = routeEdges(assignments, commits);
     expect(edges).toHaveLength(4);
@@ -142,12 +137,7 @@ describe("routeEdges (D39-2.4b)", () => {
   });
 
   it("Fixture D: octopus merge produces one edge per parent", () => {
-    const commits = [
-      mk("C", ["P0", "P1", "P2"]),
-      mk("P0", []),
-      mk("P1", []),
-      mk("P2", []),
-    ];
+    const commits = [mk("C", ["P0", "P1", "P2"]), mk("P0", []), mk("P1", []), mk("P2", [])];
     const assignments = assignLanes(commits);
     const edges = routeEdges(assignments, commits);
     expect(edges).toHaveLength(3);
@@ -169,11 +159,7 @@ describe("routeEdges (D39-2.4b)", () => {
   it("Fixture F (hotfix #994): every edge inherits max(child_lane, parent_lane)", () => {
     // Merge child M on lane 0 with parents A (lane 0) and B (lane 1).
     // Primary edge M→A: max(0,0)=0. Merge edge M→B: max(0,1)=1.
-    const commits = [
-      mk("M", ["A", "B"]),
-      mk("A", []),
-      mk("B", []),
-    ];
+    const commits = [mk("M", ["A", "B"]), mk("A", []), mk("B", [])];
     const assignments = assignLanes(commits);
     const edges = routeEdges(assignments, commits);
     const primary = edges.find((e) => e.parent_sha === "A")!;
@@ -190,12 +176,7 @@ describe("routeEdges (D39-2.4b)", () => {
     // with the lane-1/lane-2 destination dots' colors. Post-#994 each
     // outgoing edge follows the parent's (side-branch) lane color, so
     // dot + curve agree visually.
-    const commits = [
-      mk("STASH", ["P0", "P1", "P2"]),
-      mk("P0", []),
-      mk("P1", []),
-      mk("P2", []),
-    ];
+    const commits = [mk("STASH", ["P0", "P1", "P2"]), mk("P0", []), mk("P1", []), mk("P2", [])];
     const assignments = assignLanes(commits);
     const edges = routeEdges(assignments, commits);
     expect(edges).toHaveLength(3);
@@ -228,8 +209,7 @@ describe("routeEdges (D39-2.4b)", () => {
     // (otherwise the fixture isn't exercising the bug). Per #994 each
     // edge takes `max(child_lane, parent_lane)` — the side-branch lane.
     expect(
-      sideFork.child_lane !== sideFork.parent_lane ||
-        mainFork.child_lane !== mainFork.parent_lane,
+      sideFork.child_lane !== sideFork.parent_lane || mainFork.child_lane !== mainFork.parent_lane,
     ).toBe(true);
     expect(sideFork.color_index).toBe(Math.max(sideFork.child_lane, sideFork.parent_lane));
     expect(mainFork.color_index).toBe(Math.max(mainFork.child_lane, mainFork.parent_lane));
@@ -245,4 +225,3 @@ describe("routeEdges (D39-2.4b)", () => {
     warn.mockRestore();
   });
 });
-

@@ -188,10 +188,7 @@ export interface MethodsExportDialogProps {
   onClose: () => void;
 }
 
-export function MethodsExportDialog({
-  runId,
-  onClose,
-}: MethodsExportDialogProps): ReactElement {
+export function MethodsExportDialog({ runId, onClose }: MethodsExportDialogProps): ReactElement {
   const [markdown, setMarkdown] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -211,8 +208,7 @@ export function MethodsExportDialog({
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        const msg =
-          err instanceof Error ? err.message : "Failed to render methods";
+        const msg = err instanceof Error ? err.message : "Failed to render methods";
         setError(msg);
         setLoading(false);
       });
@@ -277,10 +273,7 @@ export function MethodsExportDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center gap-3">
-          <h2
-            id="methods-export-title"
-            className="text-lg font-semibold text-ink"
-          >
+          <h2 id="methods-export-title" className="text-lg font-semibold text-ink">
             Methods · Run {runId.slice(0, 8)}
           </h2>
           <button
@@ -304,9 +297,7 @@ export function MethodsExportDialog({
             </p>
           )}
           {markdown !== null && (
-            <pre className="whitespace-pre-wrap font-mono text-xs text-ink">
-              {markdown}
-            </pre>
+            <pre className="whitespace-pre-wrap font-mono text-xs text-ink">{markdown}</pre>
           )}
         </div>
 

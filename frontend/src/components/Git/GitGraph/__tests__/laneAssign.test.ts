@@ -59,12 +59,7 @@ describe("assignLanes (D39-2.4b)", () => {
   });
 
   it("Fixture B: simple two-way merge", () => {
-    const commits = [
-      mk("C3", ["C2a", "C2b"]),
-      mk("C2a", ["C1"]),
-      mk("C2b", ["C1"]),
-      mk("C1", []),
-    ];
+    const commits = [mk("C3", ["C2a", "C2b"]), mk("C2a", ["C1"]), mk("C2b", ["C1"]), mk("C1", [])];
     const r = assignLanes(commits);
     expect(r[0]).toMatchObject({ sha: "C3", lane: 0, merge_lanes: [1] });
     expect(r[1]).toMatchObject({ sha: "C2a", lane: 0, merge_lanes: [] });
@@ -75,12 +70,7 @@ describe("assignLanes (D39-2.4b)", () => {
   });
 
   it("Fixture C: octopus merge (3 parents)", () => {
-    const commits = [
-      mk("C2", ["P0", "P1", "P2"]),
-      mk("P0", []),
-      mk("P1", []),
-      mk("P2", []),
-    ];
+    const commits = [mk("C2", ["P0", "P1", "P2"]), mk("P0", []), mk("P1", []), mk("P2", [])];
     const r = assignLanes(commits);
     expect(r[0]).toMatchObject({ sha: "C2", lane: 0, merge_lanes: [1, 2] });
     expect(r[1]).toMatchObject({ sha: "P0", lane: 0 });
@@ -89,12 +79,7 @@ describe("assignLanes (D39-2.4b)", () => {
   });
 
   it("Fixture D: two disconnected histories", () => {
-    const commits = [
-      mk("A2", ["A1"]),
-      mk("B2", ["B1"]),
-      mk("A1", []),
-      mk("B1", []),
-    ];
+    const commits = [mk("A2", ["A1"]), mk("B2", ["B1"]), mk("A1", []), mk("B1", [])];
     const r = assignLanes(commits);
     expect(r[0]).toMatchObject({ sha: "A2", lane: 0 });
     expect(r[1]).toMatchObject({ sha: "B2", lane: 1 });

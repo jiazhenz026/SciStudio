@@ -52,9 +52,7 @@ afterEach(() => {
 describe("TerminalTabs", () => {
   it("auto-creates an initial tab on first mount", async () => {
     render(<TerminalTabs />);
-    await waitFor(() =>
-      expect(useAppStore.getState().terminalTabs.length).toBe(1),
-    );
+    await waitFor(() => expect(useAppStore.getState().terminalTabs.length).toBe(1));
     const tab = useAppStore.getState().terminalTabs[0];
     expect(tab.title).toBe("Chat 1");
     expect(tab.state).toBe("setup");
@@ -63,9 +61,7 @@ describe("TerminalTabs", () => {
 
   it("adds a new tab when the + button is clicked", async () => {
     render(<TerminalTabs />);
-    await waitFor(() =>
-      expect(useAppStore.getState().terminalTabs.length).toBe(1),
-    );
+    await waitFor(() => expect(useAppStore.getState().terminalTabs.length).toBe(1));
     act(() => fireEvent.click(screen.getByTestId("terminal-tabs-add")));
     expect(useAppStore.getState().terminalTabs.length).toBe(2);
     expect(useAppStore.getState().terminalTabs[1].title).toBe("Chat 2");
@@ -73,31 +69,21 @@ describe("TerminalTabs", () => {
 
   it("closes a setup-state tab without confirm dialog", async () => {
     render(<TerminalTabs />);
-    await waitFor(() =>
-      expect(useAppStore.getState().terminalTabs.length).toBe(1),
-    );
+    await waitFor(() => expect(useAppStore.getState().terminalTabs.length).toBe(1));
     act(() => fireEvent.click(screen.getByTestId("terminal-tabs-add")));
     expect(useAppStore.getState().terminalTabs.length).toBe(2);
     const [t1] = useAppStore.getState().terminalTabs;
-    act(() =>
-      fireEvent.click(screen.getByTestId(`terminal-tab-close-btn-${t1.id}`)),
-    );
+    act(() => fireEvent.click(screen.getByTestId(`terminal-tab-close-btn-${t1.id}`)));
     expect(useAppStore.getState().terminalTabs.length).toBe(1);
     expect(screen.queryByTestId("terminal-confirm-dialog")).toBeNull();
   });
 
   it("prompts before closing a running tab", async () => {
     render(<TerminalTabs />);
-    await waitFor(() =>
-      expect(useAppStore.getState().terminalTabs.length).toBe(1),
-    );
+    await waitFor(() => expect(useAppStore.getState().terminalTabs.length).toBe(1));
     const id = useAppStore.getState().terminalTabs[0].id;
-    act(() =>
-      useAppStore.getState().launchTerminalTab(id, "claude-code", "safe"),
-    );
-    act(() =>
-      fireEvent.click(screen.getByTestId(`terminal-tab-close-btn-${id}`)),
-    );
+    act(() => useAppStore.getState().launchTerminalTab(id, "claude-code", "safe"));
+    act(() => fireEvent.click(screen.getByTestId(`terminal-tab-close-btn-${id}`)));
     expect(screen.getByTestId("terminal-confirm-dialog")).toBeInTheDocument();
     act(() => fireEvent.click(screen.getByTestId("terminal-confirm-ok")));
     expect(useAppStore.getState().terminalTabs.length).toBe(0);
@@ -105,26 +91,18 @@ describe("TerminalTabs", () => {
 
   it("renames a tab via double-click + Enter", async () => {
     render(<TerminalTabs />);
-    await waitFor(() =>
-      expect(useAppStore.getState().terminalTabs.length).toBe(1),
-    );
+    await waitFor(() => expect(useAppStore.getState().terminalTabs.length).toBe(1));
     const id = useAppStore.getState().terminalTabs[0].id;
-    act(() =>
-      fireEvent.doubleClick(screen.getByTestId(`terminal-tab-title-${id}`)),
-    );
+    act(() => fireEvent.doubleClick(screen.getByTestId(`terminal-tab-title-${id}`)));
     const input = screen.getByTestId(`terminal-tab-rename-input-${id}`);
     fireEvent.change(input, { target: { value: "My session" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    await waitFor(() =>
-      expect(useAppStore.getState().terminalTabs[0].title).toBe("My session"),
-    );
+    await waitFor(() => expect(useAppStore.getState().terminalTabs[0].title).toBe("My session"));
   });
 
   it("Ctrl+T opens a new tab", async () => {
     render(<TerminalTabs />);
-    await waitFor(() =>
-      expect(useAppStore.getState().terminalTabs.length).toBe(1),
-    );
+    await waitFor(() => expect(useAppStore.getState().terminalTabs.length).toBe(1));
     act(() => {
       fireEvent.keyDown(window, { key: "t", ctrlKey: true });
     });
@@ -133,9 +111,7 @@ describe("TerminalTabs", () => {
 
   it("Ctrl+W closes the active tab (no confirm if not running)", async () => {
     render(<TerminalTabs />);
-    await waitFor(() =>
-      expect(useAppStore.getState().terminalTabs.length).toBe(1),
-    );
+    await waitFor(() => expect(useAppStore.getState().terminalTabs.length).toBe(1));
     act(() => fireEvent.click(screen.getByTestId("terminal-tabs-add")));
     expect(useAppStore.getState().terminalTabs.length).toBe(2);
     act(() => {
@@ -146,9 +122,7 @@ describe("TerminalTabs", () => {
 
   it("Ctrl+1..9 switches to the corresponding tab", async () => {
     render(<TerminalTabs />);
-    await waitFor(() =>
-      expect(useAppStore.getState().terminalTabs.length).toBe(1),
-    );
+    await waitFor(() => expect(useAppStore.getState().terminalTabs.length).toBe(1));
     act(() => fireEvent.click(screen.getByTestId("terminal-tabs-add")));
     act(() => fireEvent.click(screen.getByTestId("terminal-tabs-add")));
     const tabs = useAppStore.getState().terminalTabs;
@@ -167,7 +141,13 @@ describe("TerminalTabs", () => {
     // Simulate persisted state with a "running" tab.
     const { rehydrateTerminalTabs } = await import("../../../store/terminalTabsSlice");
     const persisted = [
-      { id: "x", title: "Chat 1", provider: "claude-code" as const, permissionMode: "safe" as const, state: "running" as const },
+      {
+        id: "x",
+        title: "Chat 1",
+        provider: "claude-code" as const,
+        permissionMode: "safe" as const,
+        state: "running" as const,
+      },
     ];
     const rehydrated = rehydrateTerminalTabs(persisted);
     expect(rehydrated[0].state).toBe("closed");
@@ -211,9 +191,7 @@ describe("TerminalTabs", () => {
         });
       });
       expect(useAppStore.getState().activeTerminalTabId).toBe("blk-2");
-      const blkTab = useAppStore
-        .getState()
-        .terminalTabs.find((t) => t.id === "blk-2");
+      const blkTab = useAppStore.getState().terminalTabs.find((t) => t.id === "blk-2");
       expect(blkTab?.permissionMode).toBe("dangerous");
     });
 
@@ -231,15 +209,11 @@ describe("TerminalTabs", () => {
           block_name: "x",
         });
       });
-      expect(
-        useAppStore.getState().terminalTabs.filter((t) => t.id === "blk-3").length,
-      ).toBe(1);
+      expect(useAppStore.getState().terminalTabs.filter((t) => t.id === "blk-3").length).toBe(1);
     });
 
     it("handleBlockPtyClosed updates blockStatus on the matching tab", async () => {
-      const { handleBlockPtyOpened, handleBlockPtyClosed } = await import(
-        "../TerminalTabs"
-      );
+      const { handleBlockPtyOpened, handleBlockPtyClosed } = await import("../TerminalTabs");
       act(() => {
         handleBlockPtyOpened({
           tab_id: "blk-4",
@@ -255,9 +229,7 @@ describe("TerminalTabs", () => {
     });
 
     it("handleBlockPtyClosed maps legacy result=completed to status=done", async () => {
-      const { handleBlockPtyOpened, handleBlockPtyClosed } = await import(
-        "../TerminalTabs"
-      );
+      const { handleBlockPtyOpened, handleBlockPtyClosed } = await import("../TerminalTabs");
       act(() => {
         handleBlockPtyOpened({
           tab_id: "blk-5",
@@ -268,16 +240,13 @@ describe("TerminalTabs", () => {
       act(() => {
         handleBlockPtyClosed({ tab_id: "blk-5", result: "completed" });
       });
-      expect(
-        useAppStore.getState().terminalTabs.find((t) => t.id === "blk-5")
-          ?.blockStatus,
-      ).toBe("done");
+      expect(useAppStore.getState().terminalTabs.find((t) => t.id === "blk-5")?.blockStatus).toBe(
+        "done",
+      );
     });
 
     it("handleBlockPtyClosed keeps the tab open per ADR-035 §3.9", async () => {
-      const { handleBlockPtyOpened, handleBlockPtyClosed } = await import(
-        "../TerminalTabs"
-      );
+      const { handleBlockPtyOpened, handleBlockPtyClosed } = await import("../TerminalTabs");
       act(() => {
         handleBlockPtyOpened({
           tab_id: "blk-6",
@@ -322,9 +291,7 @@ describe("TerminalTabs", () => {
       const { handleBlockPtyOpened } = await import("../TerminalTabs");
       render(<TerminalTabs />);
       // Wait for the auto-created initial tab so we see only our AI Block tab too.
-      await waitFor(() =>
-        expect(useAppStore.getState().terminalTabs.length).toBe(1),
-      );
+      await waitFor(() => expect(useAppStore.getState().terminalTabs.length).toBe(1));
       act(() => {
         handleBlockPtyOpened({
           tab_id: "blk-confirm",
@@ -333,25 +300,17 @@ describe("TerminalTabs", () => {
         });
       });
       // Click close on the AI Block tab.
-      act(() =>
-        fireEvent.click(
-          screen.getByTestId("terminal-tab-close-btn-blk-confirm"),
-        ),
-      );
+      act(() => fireEvent.click(screen.getByTestId("terminal-tab-close-btn-blk-confirm")));
       const dialog = screen.getByTestId("terminal-confirm-dialog");
       expect(dialog).toBeInTheDocument();
       expect(dialog.textContent).toContain("AI Block");
       // Dismiss; tab remains.
       act(() => fireEvent.click(screen.getByTestId("terminal-confirm-cancel")));
-      expect(
-        useAppStore.getState().terminalTabs.some((t) => t.id === "blk-confirm"),
-      ).toBe(true);
+      expect(useAppStore.getState().terminalTabs.some((t) => t.id === "blk-confirm")).toBe(true);
     });
 
     it("rehydrate marks AI-Block running tabs as cancelled", async () => {
-      const { rehydrateTerminalTabs } = await import(
-        "../../../store/terminalTabsSlice"
-      );
+      const { rehydrateTerminalTabs } = await import("../../../store/terminalTabsSlice");
       const persisted = [
         {
           id: "blk-r",

@@ -23,10 +23,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import {
-  listCapabilities,
-  type CapabilityDirection,
-} from "../../api/capabilities";
+import { listCapabilities, type CapabilityDirection } from "../../api/capabilities";
 import type {
   FormatCapabilityResponse,
   MetadataFidelityLevel,
@@ -117,9 +114,7 @@ export function CapabilityDropdown({
   id,
   typeHierarchy,
 }: CapabilityDropdownProps) {
-  const [capabilities, setCapabilities] = useState<FormatCapabilityResponse[]>(
-    [],
-  );
+  const [capabilities, setCapabilities] = useState<FormatCapabilityResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -228,7 +223,9 @@ export function CapabilityDropdown({
           {capabilities.length} capabilities match — pick one to persist a stable
           <code className="mx-1 rounded bg-amber-50 px-1">capability_id</code>.
         </span>
-      ) : selected && selected.direction === "save" && selected.metadata_fidelity.level === "pixel_only" ? (
+      ) : selected &&
+        selected.direction === "save" &&
+        selected.metadata_fidelity.level === "pixel_only" ? (
         <span className="text-[11px] text-amber-700">
           This saver is payload-only; OME / typed-meta fields will be dropped.
         </span>

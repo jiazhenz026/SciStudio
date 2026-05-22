@@ -33,8 +33,7 @@
   color: #1c211b;
   background:
     radial-gradient(circle at top right, rgba(45, 120, 145, 0.12), transparent 30%),
-    radial-gradient(circle at bottom left, rgba(240, 106, 68, 0.18), transparent 28%),
-    #f5f1e8;
+    radial-gradient(circle at bottom left, rgba(240, 106, 68, 0.18), transparent 28%), #f5f1e8;
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
 }
 

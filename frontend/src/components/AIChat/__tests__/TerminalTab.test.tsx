@@ -83,9 +83,7 @@ describe("MarkDoneButton", () => {
     "is hidden when blockStatus=%s",
     (status) => {
       seedTab({ id: `btn-${status}`, blockStatus: status });
-      const { container } = render(
-        <MarkDoneButton tabId={`btn-${status}`} />,
-      );
+      const { container } = render(<MarkDoneButton tabId={`btn-${status}`} />);
       expect(container.firstChild).toBeNull();
     },
   );

@@ -130,8 +130,8 @@ export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
           className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
           data-testid="setup-status-error"
         >
-          Could not check provider status ({statusError}). Launch will be
-          disabled until /api/ai/status is reachable.
+          Could not check provider status ({statusError}). Launch will be disabled until
+          /api/ai/status is reachable.
         </div>
       ) : null}
 
@@ -193,8 +193,8 @@ export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
             className="mt-1"
           />
           <span>
-            <span className="font-medium">Ask</span> — default; the CLI prompts
-            for tool use (Shift+Tab / /permissions).
+            <span className="font-medium">Ask</span> — default; the CLI prompts for tool use
+            (Shift+Tab / /permissions).
           </span>
         </label>
         <label className="flex items-start gap-2 rounded-2xl border border-stone-300 px-3 py-2 text-sm text-ink hover:bg-stone-50">

@@ -45,10 +45,7 @@ describe("lossyOmeFields", () => {
       typed_meta_writes: ["channels.0.name"],
     });
     expect(
-      lossyOmeFields(
-        ["pixels.physical_size_x", "channels.0.name", "annotations.0.value"],
-        target,
-      ),
+      lossyOmeFields(["pixels.physical_size_x", "channels.0.name", "annotations.0.value"], target),
     ).toEqual(["annotations.0.value"]);
   });
 
@@ -63,11 +60,7 @@ describe("lossyOmeFields", () => {
     });
     expect(
       lossyOmeFields(
-        [
-          "pixels.physical_size_x",
-          "pixels.physical_size_y",
-          "channels.0.emission_wavelength",
-        ],
+        ["pixels.physical_size_x", "pixels.physical_size_y", "channels.0.emission_wavelength"],
         target,
       ),
     ).toEqual([]);
@@ -75,18 +68,11 @@ describe("lossyOmeFields", () => {
 
   it("treats a hierarchical 'ome.pixels.physical_size_x' as covering the bare 'pixels.physical_size_x' (#1371)", () => {
     const target = fidelity("format_specific", {
-      format_metadata_writes: [
-        "ome.pixels.physical_size_x",
-        "ome.pixels.physical_size_y",
-      ],
+      format_metadata_writes: ["ome.pixels.physical_size_x", "ome.pixels.physical_size_y"],
     });
     expect(
       lossyOmeFields(
-        [
-          "pixels.physical_size_x",
-          "pixels.physical_size_y",
-          "channels.0.emission_wavelength",
-        ],
+        ["pixels.physical_size_x", "pixels.physical_size_y", "channels.0.emission_wavelength"],
         target,
       ),
     ).toEqual(["channels.0.emission_wavelength"]);
@@ -102,26 +88,17 @@ describe("lossyOmeFields", () => {
       format_metadata_writes: ["ome"],
       typed_meta_writes: [],
     });
-    expect(
-      lossyOmeFields(["pixels.physical_size_x"], target),
-    ).toEqual([]);
+    expect(lossyOmeFields(["pixels.physical_size_x"], target)).toEqual([]);
   });
 
   it("still flags fields when neither broad 'ome' nor matching hierarchical declaration covers them (#1371 false-negative guard)", () => {
     const target = fidelity("format_specific", {
       // PNG/JPEG narrow declaration.
-      format_metadata_writes: [
-        "ome.pixels.physical_size_x",
-        "ome.pixels.physical_size_y",
-      ],
+      format_metadata_writes: ["ome.pixels.physical_size_x", "ome.pixels.physical_size_y"],
     });
     expect(
       lossyOmeFields(
-        [
-          "pixels.physical_size_x",
-          "channels.0.emission_wavelength",
-          "annotations.0.value",
-        ],
+        ["pixels.physical_size_x", "channels.0.emission_wavelength", "annotations.0.value"],
         target,
       ),
     ).toEqual(["channels.0.emission_wavelength", "annotations.0.value"]);
@@ -133,10 +110,7 @@ describe("lossyOmeFields", () => {
     // not lossless and declarations are empty — every source field is
     // legitimately lossy.
     expect(
-      lossyOmeFields(
-        ["pixels.physical_size_x", "channels.0.name"],
-        fidelity("pixel_only"),
-      ),
+      lossyOmeFields(["pixels.physical_size_x", "channels.0.name"], fidelity("pixel_only")),
     ).toEqual(["pixels.physical_size_x", "channels.0.name"]);
   });
 
@@ -148,10 +122,7 @@ describe("lossyOmeFields", () => {
   it("normalises 'images.<index>.' prefix on source paths before matching narrow declarations (Codex P1 #1388)", () => {
     const target = fidelity("format_specific", {
       // PNG / JPEG narrow declaration (the post-#1371 form).
-      format_metadata_writes: [
-        "ome.pixels.physical_size_x",
-        "ome.pixels.physical_size_y",
-      ],
+      format_metadata_writes: ["ome.pixels.physical_size_x", "ome.pixels.physical_size_y"],
     });
     // Real runtime source paths from collectUpstreamOmeFields walking
     // `{ images: [{ pixels: { physical_size_x: 0.5, physical_size_y: 0.5 } }] }`.
@@ -180,13 +151,7 @@ describe("lossyOmeFields", () => {
       format_metadata_writes: ["ome"],
     });
     expect(
-      lossyOmeFields(
-        [
-          "images.0.pixels.physical_size_x",
-          "images.1.channels.0.name",
-        ],
-        target,
-      ),
+      lossyOmeFields(["images.0.pixels.physical_size_x", "images.1.channels.0.name"], target),
     ).toEqual([]);
   });
 
@@ -197,18 +162,14 @@ describe("lossyOmeFields", () => {
     const target = fidelity("format_specific", {
       format_metadata_writes: ["pixels.images.0.x"],
     });
-    expect(
-      lossyOmeFields(["pixels.images.0.x"], target),
-    ).toEqual([]);
+    expect(lossyOmeFields(["pixels.images.0.x"], target)).toEqual([]);
   });
 
   it("matches multi-digit and large indexes 'images.42.pixels.x' (Codex P1 #1388)", () => {
     const target = fidelity("format_specific", {
       format_metadata_writes: ["ome.pixels.physical_size_x"],
     });
-    expect(
-      lossyOmeFields(["images.42.pixels.physical_size_x"], target),
-    ).toEqual([]);
+    expect(lossyOmeFields(["images.42.pixels.physical_size_x"], target)).toEqual([]);
   });
 });
 
@@ -219,10 +180,7 @@ describe("LossySaveWarning", () => {
 
   it("renders nothing when no fields would be dropped", () => {
     const { container } = render(
-      <LossySaveWarning
-        sourceOmeFields={["x"]}
-        targetCapabilityFidelity={fidelity("lossless")}
-      />,
+      <LossySaveWarning sourceOmeFields={["x"]} targetCapabilityFidelity={fidelity("lossless")} />,
     );
     expect(container.firstChild).toBeNull();
   });
@@ -230,11 +188,7 @@ describe("LossySaveWarning", () => {
   it("lists the dropped fields when the target is pixel_only", () => {
     render(
       <LossySaveWarning
-        sourceOmeFields={[
-          "pixels.physical_size_x",
-          "pixels.physical_size_y",
-          "channels.0.name",
-        ]}
+        sourceOmeFields={["pixels.physical_size_x", "pixels.physical_size_y", "channels.0.name"]}
         targetCapabilityFidelity={fidelity("pixel_only")}
       />,
     );
@@ -245,14 +199,7 @@ describe("LossySaveWarning", () => {
   });
 
   it("truncates with +N more and expands on click", () => {
-    const fields = [
-      "a.b",
-      "a.c",
-      "a.d",
-      "a.e",
-      "a.f",
-      "a.g",
-    ];
+    const fields = ["a.b", "a.c", "a.d", "a.e", "a.f", "a.g"];
     render(
       <LossySaveWarning
         sourceOmeFields={fields}
@@ -304,10 +251,7 @@ describe("flattenOmeFields", () => {
   });
 
   it("indexes arrays of scalars by position", () => {
-    expect(flattenOmeFields({ keys: ["a", "b"] })).toEqual([
-      "keys.0",
-      "keys.1",
-    ]);
+    expect(flattenOmeFields({ keys: ["a", "b"] })).toEqual(["keys.0", "keys.1"]);
   });
 
   // Fix #1313 bug 2: null/undefined values are NOT recorded as present.
@@ -367,9 +311,7 @@ describe("collectUpstreamOmeFields", () => {
         },
       },
     };
-    expect(collectUpstreamOmeFields(outputs).sort()).toEqual([
-      "images.0.pixels.physical_size_x",
-    ]);
+    expect(collectUpstreamOmeFields(outputs).sort()).toEqual(["images.0.pixels.physical_size_x"]);
   });
 
   it("recurses into kind=collection items[] (regression: LoadImage payload shape)", () => {
@@ -407,9 +349,7 @@ describe("collectUpstreamOmeFields", () => {
       },
     };
     // Both items expose the same path "images.0.pixels.size_x" — single entry.
-    expect(collectUpstreamOmeFields(outputs)).toEqual([
-      "images.0.pixels.size_x",
-    ]);
+    expect(collectUpstreamOmeFields(outputs)).toEqual(["images.0.pixels.size_x"]);
   });
 
   it("recurses through nested wrappers like { output: { metadata: ... } }", () => {
@@ -422,9 +362,7 @@ describe("collectUpstreamOmeFields", () => {
         },
       },
     };
-    expect(collectUpstreamOmeFields(outputs)).toEqual([
-      "images.0.pixels.size_x",
-    ]);
+    expect(collectUpstreamOmeFields(outputs)).toEqual(["images.0.pixels.size_x"]);
   });
 
   it("returns [] when no metadata.ome is reachable anywhere", () => {

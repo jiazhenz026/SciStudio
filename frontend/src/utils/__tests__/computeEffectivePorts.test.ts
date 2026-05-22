@@ -7,7 +7,11 @@ import { computeEffectivePorts } from "../computeEffectivePorts";
 // Test fixtures
 // ---------------------------------------------------------------------------
 
-function makePort(name: string, direction: "input" | "output", accepted: string[]): BlockPortResponse {
+function makePort(
+  name: string,
+  direction: "input" | "output",
+  accepted: string[],
+): BlockPortResponse {
   return {
     name,
     direction,
@@ -19,14 +23,7 @@ function makePort(name: string, direction: "input" | "output", accepted: string[
   };
 }
 
-const CORE_TYPES = [
-  "Array",
-  "DataFrame",
-  "Series",
-  "Text",
-  "Artifact",
-  "CompositeData",
-] as const;
+const CORE_TYPES = ["Array", "DataFrame", "Series", "Text", "Artifact", "CompositeData"] as const;
 
 /** Mirrors the LoadData backend ``dynamic_ports`` ClassVar shape. */
 const LOAD_DATA_DYNAMIC: DynamicPortsConfig = {
@@ -106,7 +103,12 @@ describe("computeEffectivePorts — LoadData (output mapping)", () => {
   });
 
   it("resolves DataFrame core_type to accepted_types=['DataFrame']", () => {
-    const result = computeEffectivePorts(LOAD_DATA_DYNAMIC, "DataFrame", LOAD_BASE_OUTPUT, "output");
+    const result = computeEffectivePorts(
+      LOAD_DATA_DYNAMIC,
+      "DataFrame",
+      LOAD_BASE_OUTPUT,
+      "output",
+    );
     expect(result[0].accepted_types).toEqual(["DataFrame"]);
   });
 
@@ -162,7 +164,12 @@ describe("computeEffectivePorts — SaveData (input mapping)", () => {
 
 describe("computeEffectivePorts — graceful fallback", () => {
   it("falls back to base ports for unknown enum value (does not throw)", () => {
-    const result = computeEffectivePorts(LOAD_DATA_DYNAMIC, "UnknownType", LOAD_BASE_OUTPUT, "output");
+    const result = computeEffectivePorts(
+      LOAD_DATA_DYNAMIC,
+      "UnknownType",
+      LOAD_BASE_OUTPUT,
+      "output",
+    );
     expect(result).toHaveLength(1);
     // The unknown enum value yields the original placeholder, not an empty
     // accepted_types list and not an exception.

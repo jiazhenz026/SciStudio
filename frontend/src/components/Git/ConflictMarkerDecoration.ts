@@ -234,10 +234,7 @@ export function parseConflictRegions(content: string): ConflictRegion[] {
     } else if (state === "in_current" && line.startsWith("|||||||")) {
       if (partial) partial.currentEndLine = lineNo;
       state = "in_base";
-    } else if (
-      (state === "in_current" || state === "in_base") &&
-      line.startsWith("=======")
-    ) {
+    } else if ((state === "in_current" || state === "in_base") && line.startsWith("=======")) {
       if (partial) {
         if (state === "in_base") {
           partial.baseEndLine = lineNo;
@@ -441,18 +438,12 @@ export function registerConflictDecorations(
     dom.dataset.testid = `conflict-action-${region.startLine}`;
     dom.setAttribute("aria-label", `Conflict region ${indexLabel}`);
 
-    const mkBtn = (
-      label: string,
-      type: ConflictAction["type"],
-      testid: string,
-    ) => {
+    const mkBtn = (label: string, type: ConflictAction["type"], testid: string) => {
       const b = document.createElement("button");
       b.type = "button";
       b.textContent = label;
       b.dataset.testid = testid;
-      b.className =
-        "rounded border border-stone-400 bg-white px-1.5 py-0.5 " +
-        "hover:bg-stone-50";
+      b.className = "rounded border border-stone-400 bg-white px-1.5 py-0.5 " + "hover:bg-stone-50";
       b.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
@@ -466,29 +457,15 @@ export function registerConflictDecorations(
     label.className = "mr-2 font-semibold text-stone-600";
     dom.appendChild(label);
     dom.appendChild(
-      mkBtn(
-        "Accept Current",
-        "accept_current",
-        `conflict-accept-current-${region.startLine}`,
-      ),
+      mkBtn("Accept Current", "accept_current", `conflict-accept-current-${region.startLine}`),
     );
     dom.appendChild(
-      mkBtn(
-        "Accept Incoming",
-        "accept_incoming",
-        `conflict-accept-incoming-${region.startLine}`,
-      ),
+      mkBtn("Accept Incoming", "accept_incoming", `conflict-accept-incoming-${region.startLine}`),
     );
     dom.appendChild(
-      mkBtn(
-        "Accept Both",
-        "accept_both",
-        `conflict-accept-both-${region.startLine}`,
-      ),
+      mkBtn("Accept Both", "accept_both", `conflict-accept-both-${region.startLine}`),
     );
-    dom.appendChild(
-      mkBtn("Manual edit", "manual_edit", `conflict-manual-${region.startLine}`),
-    );
+    dom.appendChild(mkBtn("Manual edit", "manual_edit", `conflict-manual-${region.startLine}`));
 
     return {
       getId: () => `conflict-widget-${region.startLine}`,
@@ -520,19 +497,19 @@ export function registerConflictDecorations(
     // theme via global CSS hooks `.conflict-current` / `.conflict-incoming`.
     const decorations = regions.flatMap((region) => {
       const out: Array<{
-        range: { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number };
+        range: {
+          startLineNumber: number;
+          startColumn: number;
+          endLineNumber: number;
+          endColumn: number;
+        };
         options: Record<string, unknown>;
       }> = [];
       const currentEnd = region.baseEndLine ?? region.currentEndLine;
       // current section: between `<<<<<<<` (exclusive) and ======= / |||||||  (exclusive)
       if (currentEnd - 1 > region.startLine) {
         out.push({
-          range: new monaco.Range(
-            region.startLine + 1,
-            1,
-            currentEnd - 1,
-            Number.MAX_SAFE_INTEGER,
-          ),
+          range: new monaco.Range(region.startLine + 1, 1, currentEnd - 1, Number.MAX_SAFE_INTEGER),
           options: {
             isWholeLine: true,
             className: "conflict-current",
@@ -563,12 +540,7 @@ export function registerConflictDecorations(
       }
       // marker lines — number them in the gutter.
       out.push({
-        range: new monaco.Range(
-          region.startLine,
-          1,
-          region.startLine,
-          Number.MAX_SAFE_INTEGER,
-        ),
+        range: new monaco.Range(region.startLine, 1, region.startLine, Number.MAX_SAFE_INTEGER),
         options: {
           isWholeLine: true,
           glyphMarginClassName: "conflict-marker-glyph",

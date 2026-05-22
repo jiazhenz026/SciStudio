@@ -3,14 +3,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  OMEMetadataPanel,
-  hasOMEContent,
-} from "../components/OutputPreview/OMEMetadataPanel";
-import {
-  extractOMEFromMetadata,
-  getOMEMetadata,
-} from "../api/capabilities";
+import { OMEMetadataPanel, hasOMEContent } from "../components/OutputPreview/OMEMetadataPanel";
+import { extractOMEFromMetadata, getOMEMetadata } from "../api/capabilities";
 
 describe("OMEMetadataPanel", () => {
   afterEach(() => {
@@ -35,9 +29,7 @@ describe("OMEMetadataPanel", () => {
             size_x: 2048,
             size_y: 1024,
           },
-          channels: [
-            { name: "DAPI", color: "#0000ff", emission_wavelength: 461 },
-          ],
+          channels: [{ name: "DAPI", color: "#0000ff", emission_wavelength: 461 }],
         },
       ],
     };

@@ -3,7 +3,10 @@ import { useEffect, useState } from "react";
 import type { LogEntry } from "../types/api";
 import { useAppStore } from "../store";
 
-export function useLogStream(workflowId: string | null, blockId: string | null): { connected: boolean } {
+export function useLogStream(
+  workflowId: string | null,
+  blockId: string | null,
+): { connected: boolean } {
   const appendLog = useAppStore((state) => state.appendLog);
   const [connected, setConnected] = useState(false);
 

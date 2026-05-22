@@ -9,9 +9,7 @@ import { useAppStore } from "../../../store";
 import { LineageTab } from "../LineageTab";
 
 vi.mock("../../../lib/api", async () => {
-  const actual = await vi.importActual<typeof import("../../../lib/api")>(
-    "../../../lib/api",
-  );
+  const actual = await vi.importActual<typeof import("../../../lib/api")>("../../../lib/api");
   return {
     ...actual,
     api: {
@@ -38,9 +36,7 @@ vi.mock("../../../lib/api", async () => {
           workflow_yaml_snapshot: null,
         }),
         getRunMethods: vi.fn().mockResolvedValue({ markdown: "# methods" }),
-        validateRerun: vi
-          .fn()
-          .mockResolvedValue({ input_warnings: [], env_warnings: [] }),
+        validateRerun: vi.fn().mockResolvedValue({ input_warnings: [], env_warnings: [] }),
         rerunRun: vi.fn().mockResolvedValue({ new_run_id: "" }),
       },
     },
@@ -92,9 +88,7 @@ describe("LineageTab", () => {
 
   it("renders the empty state when no runs and not loading", async () => {
     render(<LineageTab />);
-    await waitFor(() =>
-      expect(screen.getByTestId("lineage-tab-empty")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId("lineage-tab-empty")).toBeInTheDocument());
   });
 
   it("renders an error banner with Retry that calls fetchRuns again", async () => {

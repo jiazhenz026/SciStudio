@@ -190,6 +190,15 @@ jobs:
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci
+      - name: Lint frontend (ESLint)
+        working-directory: frontend
+        run: npm run lint
+      - name: Check frontend formatting (Prettier)
+        working-directory: frontend
+        run: npm run format:check
+      - name: Typecheck frontend (tsc --noEmit)
+        working-directory: frontend
+        run: npm run typecheck
       - name: Run frontend tests
         working-directory: frontend
         run: npm test

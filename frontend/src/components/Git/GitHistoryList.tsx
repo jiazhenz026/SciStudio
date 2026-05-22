@@ -144,10 +144,7 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
   const visibleCommits = commits ? selectVisibleCommits(commits, historyFilter) : [];
 
   return (
-    <div
-      data-testid="git-history-list"
-      className={`flex h-full flex-col ${className ?? ""}`}
-    >
+    <div data-testid="git-history-list" className={`flex h-full flex-col ${className ?? ""}`}>
       {showFilterDropdown && (
         <div className="flex items-center gap-2 border-b border-stone-200 px-3 py-2">
           <label htmlFor="git-history-filter-select" className="sr-only">
@@ -270,25 +267,16 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
           }}
         />
       ) : loading ? (
-        <div
-          data-testid="git-history-loading"
-          className="px-3 py-4 text-xs text-stone-500"
-        >
+        <div data-testid="git-history-loading" className="px-3 py-4 text-xs text-stone-500">
           Loading commit history…
         </div>
       ) : commits === null ? (
-        <div
-          data-testid="git-history-loading"
-          className="px-3 py-4 text-xs text-stone-500"
-        >
+        <div data-testid="git-history-loading" className="px-3 py-4 text-xs text-stone-500">
           Loading commit history…
         </div>
       ) : visibleCommits.length === 0 ? (
         commits.length === 0 ? (
-          <div
-            data-testid="git-history-empty"
-            className="px-3 py-4 text-xs text-stone-500"
-          >
+          <div data-testid="git-history-empty" className="px-3 py-4 text-xs text-stone-500">
             No commits yet on this branch.
           </div>
         ) : (
@@ -300,11 +288,7 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
           </div>
         )
       ) : (
-        <ul
-          data-testid="git-history-rows"
-          role="list"
-          className="min-h-0 flex-1 overflow-y-auto"
-        >
+        <ul data-testid="git-history-rows" role="list" className="min-h-0 flex-1 overflow-y-auto">
           {visibleCommits.map((commit) => {
             const prefix = classifyPrefix(commit.subject);
             // ADR-039 Addendum 1 §11.3 (issue #1355): the row is no
@@ -332,10 +316,7 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
                 <span data-testid="git-history-row-icon" aria-hidden>
                   {PREFIX_ICON[prefix] ?? "·"}
                 </span>
-                <code
-                  data-testid="git-history-row-short-sha"
-                  className="font-mono text-stone-500"
-                >
+                <code data-testid="git-history-row-short-sha" className="font-mono text-stone-500">
                   {commit.short_sha}
                 </code>
                 <span
@@ -420,11 +401,7 @@ function GitGraphPane({
   onCommitClick?: (sha: string) => void;
 } = {}): JSX.Element {
   const data = useGraphData();
-  const interactions = useGraphInteractions(
-    data.commits.length,
-    onCommitClick,
-    data.commits,
-  );
+  const interactions = useGraphInteractions(data.commits.length, onCommitClick, data.commits);
 
   if (data.loading) {
     return (

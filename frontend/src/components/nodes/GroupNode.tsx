@@ -13,10 +13,7 @@ import type { GroupNodeData } from "../../types/ui";
  * - Resizable via ReactFlow NodeResizer.
  * - Minimum size: 200x150.
  */
-export function GroupNode({
-  data,
-  selected,
-}: NodeProps<Node<GroupNodeData>>) {
+export function GroupNode({ data, selected }: NodeProps<Node<GroupNodeData>>) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingNote, setEditingNote] = useState(false);
   const [titleDraft, setTitleDraft] = useState(data.title);
@@ -135,13 +132,11 @@ export function GroupNode({
             }}
             data-testid="group-note-textarea"
           />
-        ) : (
-          data.note ? (
-            <p className="text-xs text-stone-400" data-testid="group-note">
-              {data.note}
-            </p>
-          ) : null
-        )}
+        ) : data.note ? (
+          <p className="text-xs text-stone-400" data-testid="group-note">
+            {data.note}
+          </p>
+        ) : null}
       </div>
     </div>
   );

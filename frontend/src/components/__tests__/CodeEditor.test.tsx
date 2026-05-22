@@ -88,9 +88,7 @@ vi.mock("@monaco-editor/react", () => {
       editorState.lastMonaco = new FakeMonacoNamespace();
       // beforeMount runs before onMount in real @monaco-editor/react; it
       // receives the monaco namespace so the component can register themes.
-      const beforeMount = props.beforeMount as
-        | ((m: FakeMonacoNamespace) => void)
-        | undefined;
+      const beforeMount = props.beforeMount as ((m: FakeMonacoNamespace) => void) | undefined;
       beforeMount?.(editorState.lastMonaco);
       const onMount = props.onMount as
         | ((e: FakeMonacoEditor, m: FakeMonacoNamespace) => void)
@@ -103,9 +101,7 @@ vi.mock("@monaco-editor/react", () => {
       // Re-render: propagate options updates as Monaco would via prop diff.
       editorState.lastEditor.updateOptions(options);
     }
-    editorState.onChangeCb = props.onChange as
-      | ((value: string | undefined) => void)
-      | null;
+    editorState.onChangeCb = props.onChange as ((value: string | undefined) => void) | null;
     return null;
   }
   return { default: MockEditor };
@@ -152,13 +148,7 @@ afterEach(() => {
 
 describe("CodeEditor", () => {
   it("renders the Monaco editor for a Python file tab", async () => {
-    render(
-      <CodeEditor
-        tab={makeFileTab()}
-        onContentChange={vi.fn()}
-        onSave={vi.fn()}
-      />,
-    );
+    render(<CodeEditor tab={makeFileTab()} onContentChange={vi.fn()} onSave={vi.fn()} />);
     await waitFor(() => expect(editorState.lastProps).not.toBeNull());
     expect(editorState.lastProps).toMatchObject({
       language: "python",
@@ -170,13 +160,7 @@ describe("CodeEditor", () => {
 
   it("propagates content changes via onContentChange", async () => {
     const onContentChange = vi.fn();
-    render(
-      <CodeEditor
-        tab={makeFileTab()}
-        onContentChange={onContentChange}
-        onSave={vi.fn()}
-      />,
-    );
+    render(<CodeEditor tab={makeFileTab()} onContentChange={onContentChange} onSave={vi.fn()} />);
     await waitFor(() => expect(editorState.onChangeCb).not.toBeNull());
     act(() => {
       editorState.onChangeCb?.("new content");
@@ -186,13 +170,7 @@ describe("CodeEditor", () => {
 
   it("debounces lint requests (5 rapid edits → 1 POST after 600 ms)", async () => {
     vi.useFakeTimers();
-    render(
-      <CodeEditor
-        tab={makeFileTab()}
-        onContentChange={vi.fn()}
-        onSave={vi.fn()}
-      />,
-    );
+    render(<CodeEditor tab={makeFileTab()} onContentChange={vi.fn()} onSave={vi.fn()} />);
     // Wait for the dynamic import + onMount to resolve.
     await vi.waitFor(() => expect(editorState.onChangeCb).not.toBeNull());
     // The onMount handler also schedules an initial lint; clear that timer
@@ -238,13 +216,7 @@ describe("CodeEditor", () => {
       }),
     });
     vi.useFakeTimers();
-    render(
-      <CodeEditor
-        tab={makeFileTab()}
-        onContentChange={vi.fn()}
-        onSave={vi.fn()}
-      />,
-    );
+    render(<CodeEditor tab={makeFileTab()} onContentChange={vi.fn()} onSave={vi.fn()} />);
     await vi.waitFor(() => expect(editorState.onChangeCb).not.toBeNull());
     act(() => {
       editorState.onChangeCb?.("import os\n");
@@ -286,13 +258,7 @@ describe("CodeEditor", () => {
 
   it("Ctrl+S inside the editor invokes onSave (via addCommand)", async () => {
     const onSave = vi.fn();
-    render(
-      <CodeEditor
-        tab={makeFileTab()}
-        onContentChange={vi.fn()}
-        onSave={onSave}
-      />,
-    );
+    render(<CodeEditor tab={makeFileTab()} onContentChange={vi.fn()} onSave={onSave} />);
     await waitFor(() => expect(editorState.lastEditor).not.toBeNull());
     // The editor should have registered a single Ctrl+S command.
     const cmd = editorState.lastEditor?.commands[0];
@@ -304,11 +270,7 @@ describe("CodeEditor", () => {
   it("Ctrl+S on the host container also invokes onSave (loading fallback)", async () => {
     const onSave = vi.fn();
     const { container } = render(
-      <CodeEditor
-        tab={makeFileTab()}
-        onContentChange={vi.fn()}
-        onSave={onSave}
-      />,
+      <CodeEditor tab={makeFileTab()} onContentChange={vi.fn()} onSave={onSave} />,
     );
     const host = container.querySelector("[data-testid='code-editor']") as HTMLElement;
     expect(host).toBeTruthy();
@@ -323,13 +285,7 @@ describe("CodeEditor", () => {
   });
 
   it("registers the scistudio-soft-dark Monaco theme via beforeMount", async () => {
-    render(
-      <CodeEditor
-        tab={makeFileTab()}
-        onContentChange={vi.fn()}
-        onSave={vi.fn()}
-      />,
-    );
+    render(<CodeEditor tab={makeFileTab()} onContentChange={vi.fn()} onSave={vi.fn()} />);
     await waitFor(() => expect(editorState.lastProps).not.toBeNull());
     expect(editorState.lastProps?.theme).toBe("scistudio-soft-dark");
     // beforeMount fires synchronously on first render — theme is registered

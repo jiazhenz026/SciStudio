@@ -7,9 +7,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../lib/api", async () => {
-  const actual = await vi.importActual<typeof import("../../../lib/api")>(
-    "../../../lib/api",
-  );
+  const actual = await vi.importActual<typeof import("../../../lib/api")>("../../../lib/api");
   return {
     ...actual,
     api: {
@@ -19,10 +17,7 @@ vi.mock("../../../lib/api", async () => {
 });
 
 import { ConflictResolveView } from "../ConflictResolveView";
-import {
-  parseConflictRegions,
-  resolveRegionText,
-} from "../ConflictMarkerDecoration";
+import { parseConflictRegions, resolveRegionText } from "../ConflictMarkerDecoration";
 import { api } from "../../../lib/api";
 
 afterEach(() => {
@@ -113,9 +108,7 @@ describe("parseConflictRegions (pure helper)", () => {
   });
 
   it("strips trailing CR (Windows CRLF) from labels", () => {
-    const content = ["<<<<<<< HEAD\r", "x", "=======", "y", ">>>>>>> src\r"].join(
-      "\n",
-    );
+    const content = ["<<<<<<< HEAD\r", "x", "=======", "y", ">>>>>>> src\r"].join("\n");
     const regions = parseConflictRegions(content);
     expect(regions[0].currentLabel).toBe("HEAD");
     expect(regions[0].incomingLabel).toBe("src");
@@ -137,12 +130,7 @@ describe("resolveRegionText (text splice)", () => {
 
   it("accept_current → keeps 'ours' section", () => {
     const out = resolveRegionText(content, region, { type: "accept_current" });
-    expect(out.split("\n")).toEqual([
-      "before",
-      "ours-1",
-      "ours-2",
-      "after",
-    ]);
+    expect(out.split("\n")).toEqual(["before", "ours-1", "ours-2", "after"]);
   });
 
   it("accept_incoming → keeps 'theirs' section", () => {
@@ -152,13 +140,7 @@ describe("resolveRegionText (text splice)", () => {
 
   it("accept_both → concatenates current then incoming", () => {
     const out = resolveRegionText(content, region, { type: "accept_both" });
-    expect(out.split("\n")).toEqual([
-      "before",
-      "ours-1",
-      "ours-2",
-      "theirs-1",
-      "after",
-    ]);
+    expect(out.split("\n")).toEqual(["before", "ours-1", "ours-2", "theirs-1", "after"]);
   });
 
   it("manual_edit → returns text unchanged", () => {
@@ -185,12 +167,7 @@ describe("resolveRegionText (text splice)", () => {
 
     it("accept_current keeps ONLY the current section (no base, no markers)", () => {
       const out = resolveRegionText(diff3, region3, { type: "accept_current" });
-      expect(out.split("\n")).toEqual([
-        "before",
-        "ours-1",
-        "ours-2",
-        "after",
-      ]);
+      expect(out.split("\n")).toEqual(["before", "ours-1", "ours-2", "after"]);
     });
 
     it("accept_incoming keeps ONLY the incoming section (no base, no markers)", () => {
@@ -200,13 +177,7 @@ describe("resolveRegionText (text splice)", () => {
 
     it("accept_both concatenates current + incoming (no base, no markers)", () => {
       const out = resolveRegionText(diff3, region3, { type: "accept_both" });
-      expect(out.split("\n")).toEqual([
-        "before",
-        "ours-1",
-        "ours-2",
-        "theirs-1",
-        "after",
-      ]);
+      expect(out.split("\n")).toEqual(["before", "ours-1", "ours-2", "theirs-1", "after"]);
     });
   });
 });
@@ -268,17 +239,13 @@ describe("ConflictResolveView (D39-2.4b)", () => {
         onAbort={noop}
       />,
     );
-    expect(screen.getByTestId("conflict-status-badge-src/a.py").textContent).toBe(
-      "Unresolved",
-    );
+    expect(screen.getByTestId("conflict-status-badge-src/a.py").textContent).toBe("Unresolved");
     await user.click(screen.getByTestId("conflict-mark-resolved-src/a.py"));
     await waitFor(() => {
       expect(api.gitMergeStageFile).toHaveBeenCalledWith("src/a.py");
     });
     await waitFor(() => {
-      expect(
-        screen.getByTestId("conflict-status-badge-src/a.py").textContent,
-      ).toBe("Resolved");
+      expect(screen.getByTestId("conflict-status-badge-src/a.py").textContent).toBe("Resolved");
     });
   });
 
@@ -300,17 +267,13 @@ describe("ConflictResolveView (D39-2.4b)", () => {
     expect(complete.getAttribute("aria-disabled")).toBe("true");
     await user.click(screen.getByTestId("conflict-mark-resolved-a.py"));
     await waitFor(() => {
-      expect(
-        screen.getByTestId("conflict-status-badge-a.py").textContent,
-      ).toBe("Resolved");
+      expect(screen.getByTestId("conflict-status-badge-a.py").textContent).toBe("Resolved");
     });
     // Still disabled — only one resolved.
     expect(complete.getAttribute("aria-disabled")).toBe("true");
     await user.click(screen.getByTestId("conflict-mark-resolved-b.py"));
     await waitFor(() => {
-      expect(
-        screen.getByTestId("conflict-status-badge-b.py").textContent,
-      ).toBe("Resolved");
+      expect(screen.getByTestId("conflict-status-badge-b.py").textContent).toBe("Resolved");
     });
     // Now enabled.
     expect(complete.getAttribute("aria-disabled")).toBe("false");

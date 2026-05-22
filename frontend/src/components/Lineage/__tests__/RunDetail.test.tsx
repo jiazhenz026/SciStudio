@@ -17,9 +17,7 @@ import type {
 import { RunDetail } from "../RunDetail";
 
 vi.mock("../../../lib/api", async () => {
-  const actual = await vi.importActual<typeof import("../../../lib/api")>(
-    "../../../lib/api",
-  );
+  const actual = await vi.importActual<typeof import("../../../lib/api")>("../../../lib/api");
   return {
     ...actual,
     api: {
@@ -35,9 +33,7 @@ vi.mock("../../../lib/api", async () => {
   };
 });
 
-function makeRun(
-  overrides: Partial<LineageRunSummary> = {},
-): LineageRunSummary {
+function makeRun(overrides: Partial<LineageRunSummary> = {}): LineageRunSummary {
   return {
     run_id: "r1",
     workflow_id: "image_pipeline",
@@ -55,9 +51,7 @@ function makeRun(
   };
 }
 
-function makeBlock(
-  overrides: Partial<LineageBlockExecution> = {},
-): LineageBlockExecution {
+function makeBlock(overrides: Partial<LineageBlockExecution> = {}): LineageBlockExecution {
   return {
     block_execution_id: "be-001",
     block_id: "load_image_1",
@@ -75,9 +69,7 @@ function makeBlock(
   };
 }
 
-function makeDetail(
-  overrides: Partial<LineageRunDetail> = {},
-): LineageRunDetail {
+function makeDetail(overrides: Partial<LineageRunDetail> = {}): LineageRunDetail {
   return {
     run: makeRun(),
     blocks: [makeBlock()],
@@ -143,9 +135,7 @@ describe("RunDetail", () => {
     });
     render(<RunDetail />);
     expect(screen.getByTestId("run-detail")).toBeInTheDocument();
-    expect(
-      screen.getByTestId("block-execution-card-be-001"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("block-execution-card-be-001")).toBeInTheDocument();
   });
 
   it("dispatches openRerunDialog when Re-run clicked", () => {
@@ -207,9 +197,7 @@ describe("RunDetail", () => {
       toggleBlockExecutionExpanded: spy,
     });
     render(<RunDetail />);
-    fireEvent.click(
-      screen.getByTestId("block-execution-card-toggle-be-001"),
-    );
+    fireEvent.click(screen.getByTestId("block-execution-card-toggle-be-001"));
     expect(spy).toHaveBeenCalledWith("be-001");
   });
 
@@ -248,9 +236,7 @@ describe("RunDetail", () => {
     expect(banner.textContent).toContain("Partial re-run");
     expect(banner.textContent).toContain("threshold_1");
     // The banner names the parent run id so the user can navigate back.
-    expect(
-      screen.getByTestId("run-detail-partial-rerun-parent-link"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("run-detail-partial-rerun-parent-link")).toBeInTheDocument();
   });
 
   it("does NOT render the partial banner for a full run", () => {
@@ -259,9 +245,7 @@ describe("RunDetail", () => {
       runDetails: { r1: makeDetail() },
     });
     render(<RunDetail />);
-    expect(
-      screen.queryByTestId("run-detail-partial-rerun-banner"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("run-detail-partial-rerun-banner")).not.toBeInTheDocument();
   });
 
   it("renders the partial banner without a parent link when no parent_run_id", () => {
@@ -279,9 +263,7 @@ describe("RunDetail", () => {
     render(<RunDetail />);
     const banner = screen.getByTestId("run-detail-partial-rerun-banner");
     expect(banner.textContent).toContain("Partial re-run");
-    expect(
-      screen.queryByTestId("run-detail-partial-rerun-parent-link"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("run-detail-partial-rerun-parent-link")).not.toBeInTheDocument();
   });
 
   it("partial banner parent link dispatches selectRun(parent_run_id)", () => {
@@ -299,9 +281,7 @@ describe("RunDetail", () => {
       selectRun: selectSpy,
     });
     render(<RunDetail />);
-    fireEvent.click(
-      screen.getByTestId("run-detail-partial-rerun-parent-link"),
-    );
+    fireEvent.click(screen.getByTestId("run-detail-partial-rerun-parent-link"));
     expect(selectSpy).toHaveBeenCalledWith("parent-xyz-9999");
   });
 

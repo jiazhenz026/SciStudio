@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
-import {
-  handleBlockPtyClosed,
-  handleBlockPtyOpened,
-} from "../components/AIChat/blockPtyHandlers";
+import { handleBlockPtyClosed, handleBlockPtyOpened } from "../components/AIChat/blockPtyHandlers";
 import { api } from "../lib/api";
 import type { WorkflowEventMessage } from "../types/api";
 import { useAppStore } from "../store";
@@ -253,19 +250,14 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
             block_run_id:
               (top.block_run_id as string) ??
               (src.block_run_id as string) ??
-              (payload.block_id ?? ""),
+              payload.block_id ??
+              "",
             block_name: src.block_name as string | undefined,
             title: (top.title as string) ?? (src.title as string | undefined),
-            status: src.status as
-              | "running"
-              | "paused"
-              | "done"
-              | "error"
-              | "cancelled"
-              | undefined,
+            status: src.status as "running" | "paused" | "done" | "error" | "cancelled" | undefined,
             permission_mode:
-              ((top.permission_mode as "safe" | "bypass" | "dangerous" | undefined) ??
-                (src.permission_mode as "safe" | "bypass" | "dangerous" | undefined)),
+              (top.permission_mode as "safe" | "bypass" | "dangerous" | undefined) ??
+              (src.permission_mode as "safe" | "bypass" | "dangerous" | undefined),
           });
           appendLog({
             timestamp: payload.timestamp,
@@ -309,14 +301,15 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
           } else if (eventField === "error") {
             result = "error";
           } else {
-            result = (src.result as "completed" | "cancelled" | "error" | undefined);
+            result = src.result as "completed" | "cancelled" | "error" | undefined;
           }
           handleBlockPtyClosed({
             tab_id: (top.tab_id as string) ?? (src.tab_id as string),
             block_run_id:
               (top.block_run_id as string) ??
               (src.block_run_id as string) ??
-              (payload.block_id ?? undefined),
+              payload.block_id ??
+              undefined,
             status: src.status as "done" | "error" | "cancelled" | undefined,
             result,
             detail:

@@ -26,10 +26,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import {
-  registerConflictDecorations,
-  resolveRegionText,
-} from "./Git/ConflictMarkerDecoration";
+import { registerConflictDecorations, resolveRegionText } from "./Git/ConflictMarkerDecoration";
 import { useAppStore } from "../store";
 import type { FileTab } from "../store/types";
 
@@ -105,11 +102,8 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
   //   - test interactively in Chrome: synthesize a merge conflict,
   //     open the file, click each glyph button, verify git-state
   //     correctness
-  const conflictedFiles = useAppStore(
-    (s) => s.mergeInProgress?.conflicted_files ?? null,
-  );
-  const isInConflict =
-    conflictedFiles !== null && conflictedFiles.includes(tab.filePath);
+  const conflictedFiles = useAppStore((s) => s.mergeInProgress?.conflicted_files ?? null);
+  const isInConflict = conflictedFiles !== null && conflictedFiles.includes(tab.filePath);
 
   // Codex P1 (PR #945): the conflict-decoration effect below depends on
   // `editorRef.current` / `monacoRef.current`, but refs don't trigger
@@ -241,17 +235,11 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
             },
           ]);
         } catch (err) {
-          console.warn(
-            "ConflictMarkerDecoration: failed to apply action",
-            err,
-          );
+          console.warn("ConflictMarkerDecoration: failed to apply action", err);
         }
       });
     } catch (err) {
-      console.warn(
-        "ConflictMarkerDecoration failed to register:",
-        err,
-      );
+      console.warn("ConflictMarkerDecoration failed to register:", err);
     }
     return () => {
       if (dispose) {

@@ -5,7 +5,11 @@ import type { AppStore, WorkflowHistoryEntry, WorkflowSlice } from "./types";
 
 function snapshot(state: AppStore): WorkflowHistoryEntry {
   return {
-    nodes: state.workflowNodes.map((node) => ({ ...node, config: { ...node.config }, layout: node.layout ? { ...node.layout } : null })),
+    nodes: state.workflowNodes.map((node) => ({
+      ...node,
+      config: { ...node.config },
+      layout: node.layout ? { ...node.layout } : null,
+    })),
     edges: state.workflowEdges.map((edge) => ({ ...edge })),
     description: state.workflowDescription,
   };
@@ -24,7 +28,7 @@ function mergeNodeConfig(node: WorkflowNode, config: Record<string, unknown>): W
     config: {
       ...node.config,
       params: {
-        ...(((node.config.params as Record<string, unknown> | undefined) ?? {})),
+        ...((node.config.params as Record<string, unknown> | undefined) ?? {}),
         ...config,
       },
     },
@@ -49,7 +53,7 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
       // schema. A workflow YAML that omits the `id:` field round-trips through
       // the API as ``id: ""`` and would render a blank top-left title here.
       // Fall back to "Untitled" so the user always sees a label.
-      workflowName: (workflow?.id || "Untitled"),
+      workflowName: workflow?.id || "Untitled",
       workflowDescription: workflow?.description ?? "",
       workflowVersion: workflow?.version ?? "1.0.0",
       workflowMetadata: workflow?.metadata ?? {},
@@ -124,12 +128,16 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
     set((state) => ({
       ...pushHistory(state),
       workflowDirty: true,
-      workflowNodes: state.workflowNodes.map((node) => (node.id === nodeId ? mergeNodeConfig(node, config) : node)),
+      workflowNodes: state.workflowNodes.map((node) =>
+        node.id === nodeId ? mergeNodeConfig(node, config) : node,
+      ),
     })),
   updateNodeLayout: (nodeId, position) =>
     set((state) => ({
       workflowDirty: true,
-      workflowNodes: state.workflowNodes.map((node) => (node.id === nodeId ? { ...node, layout: position } : node)),
+      workflowNodes: state.workflowNodes.map((node) =>
+        node.id === nodeId ? { ...node, layout: position } : node,
+      ),
     })),
   connectNodes: (edge) =>
     set((state) => ({
@@ -154,7 +162,8 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
         (edge) => edge.source !== edgeToRemove.source || edge.target !== edgeToRemove.target,
       ),
     })),
-  setWorkflowDescription: (description) => set({ workflowDescription: description, workflowDirty: true }),
+  setWorkflowDescription: (description) =>
+    set({ workflowDescription: description, workflowDirty: true }),
   markWorkflowSaved: () => set({ workflowDirty: false }),
   undoWorkflow: () => {
     const state = get();

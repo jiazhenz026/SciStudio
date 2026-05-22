@@ -243,10 +243,7 @@ export function classifyPrefix(message: string): GitCommitPrefix {
  *
  * D39-2.3b: this implementation is safe to keep as-is; it is pure logic.
  */
-export function selectVisibleCommits(
-  commits: GitCommit[],
-  filter: GitHistoryFilter,
-): GitCommit[] {
+export function selectVisibleCommits(commits: GitCommit[], filter: GitHistoryFilter): GitCommit[] {
   if (filter === "all") return [...commits];
   return commits.filter((c) => {
     const p = classifyPrefix(c.subject);

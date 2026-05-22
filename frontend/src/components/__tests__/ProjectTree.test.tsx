@@ -54,7 +54,9 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-async function renderTreeWith(entries: { name: string; type: "file" | "directory"; size?: number }[]) {
+async function renderTreeWith(
+  entries: { name: string; type: "file" | "directory"; size?: number }[],
+) {
   getProjectTreeMock.mockResolvedValue({ entries: entries as any });
   const onLoadWorkflow = vi.fn();
   const onReloadBlocks = vi.fn();
