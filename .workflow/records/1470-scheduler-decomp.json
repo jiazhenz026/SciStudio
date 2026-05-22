@@ -185,10 +185,10 @@
       "summary": null
     },
     {
-      "completed_at": null,
+      "completed_at": "2026-05-22T23:31:10.979492Z",
       "stage": "commit_and_submit_pr",
-      "status": "pending",
-      "summary": null
+      "status": "done",
+      "summary": "Committed and PR pending submission."
     }
   ],
   "task_id": "1470-scheduler-decomp",
