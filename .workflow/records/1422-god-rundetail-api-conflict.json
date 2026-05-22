@@ -6,14 +6,20 @@
       "exclude": [],
       "include": [],
       "reason": "Implementation complete: 3 god files split into <=500 LOC modules with public surfaces preserved via re-exports; 500 vitest pass; lint/typecheck/format/build clean; sentrux pass"
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/audit/full-audit-1422.json"
+      ],
+      "reason": "Add full-audit JSON output path to scope (ADR-042 evidence file)"
     }
   ],
   "branch": "refactor/issue-1422/god-rundetail-api-conflict",
   "changed_test_paths": [
-    "frontend/src/components/Lineage/__tests__/RunDetail.test.tsx",
-    "frontend/src/components/Lineage/__tests__/RunDetail.restore.test.tsx",
-    "frontend/src/lib/api/__tests__/*.test.ts",
-    "frontend/src/components/Git/__tests__/ConflictMarkerDecoration.test.ts"
+    "frontend/src/components/Git/__tests__/ConflictMarkerDecoration.test.ts",
+    "frontend/src/lib/api/__tests__/api-surface.test.ts"
   ],
   "check_results": [
     {
@@ -69,6 +75,15 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-1422.json",
+      "exit_code": 0,
+      "name": "full_audit",
+      "output_path": "docs/audit/full-audit-1422.json",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": null,
@@ -93,7 +108,16 @@
       "rationale": "no spec change \u2014 pure file split, public surfaces unchanged"
     }
   },
-  "full_audit": null,
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-1422.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-1422.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
   "governance_touch": false,
   "issues": [
     {
