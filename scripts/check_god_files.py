@@ -49,8 +49,9 @@ GOD_FILE_SIZE_WAIVERS: frozenset[str] = frozenset(
         # tools_workflow.py and tools_inspection.py removed from waivers in #1431 —
         # decomposed into src/scistudio/ai/agent/mcp/{tools_workflow,tools_inspection}/
         # sub-packages whose largest sub-module is < 750 LOC.
+        # ``src/scistudio/api/routes/ai_pty.py`` removed 2026-05-22 (#1432) —
+        # the 757-LOC route file was split into the ``ai_pty/`` sub-package.
         "src/scistudio/core/versioning/git_engine.py",
-        "src/scistudio/api/routes/ai_pty.py",
     }
 )
 
