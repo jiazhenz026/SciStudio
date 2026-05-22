@@ -204,6 +204,28 @@ class LocalRunner:
             parent_cwd = os.getcwd()
             existing_pp = worker_env.get("PYTHONPATH", "")
             worker_env["PYTHONPATH"] = f"{parent_cwd}{os.pathsep}{existing_pp}" if existing_pp else parent_cwd
+        # #1365: propagate ``SCISTUDIO_PROJECT_DIR`` to the worker so the
+        # worker-side :func:`scistudio.core.types.serialization._get_type_registry`
+        # registers ``<project>/types`` as a TypeRegistry scan dir before the
+        # first :func:`reconstruct_inputs` call. Without this the API-side
+        # registry sees project drop-in :class:`DataObject` types but the
+        # worker singleton falls back to base ``DataObject``. We always
+        # rebuild ``worker_env`` when ``project_dir`` is known so the env
+        # var lands on the subprocess even when ``worker_cwd`` itself was
+        # already configured above.
+        #
+        # Codex P2 on PR #1386: absolutify before exporting. The worker
+        # subprocess starts with ``cwd=worker_cwd=project_dir`` (the few
+        # lines above), so a relative ``project_dir`` would have
+        # :func:`_get_type_registry` resolve ``Path(project_dir_env) /
+        # "types"`` against the new cwd, producing
+        # ``<project>/<project>/types`` and missing every drop-in.
+        # ``Path(...).resolve()`` makes the env var an absolute path the
+        # worker can interpret without depending on its own cwd.
+        if isinstance(project_dir, str) and project_dir:
+            if worker_env is None:
+                worker_env = dict(os.environ)
+            worker_env["SCISTUDIO_PROJECT_DIR"] = str(Path(project_dir).resolve())
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             "-m",

@@ -1,0 +1,180 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "ADR-045 drafted with frontmatter + 7 sections including problem matrix, contract decision, scope, consequences with unlock matrix, alternatives, open questions; CHANGELOG entry added; no scope change vs original include set"
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/adr/ADR-041.md",
+        "docs/adr/ADR-043.md",
+        "docs/adr/ADR-044.md"
+      ],
+      "reason": "Owner identified is_code_implementation shortcut + ADR-041/043 implemented-phase status drift. Adding ADR-041, 043, 044 frontmatter alignment to this PR (was: ADR-045 only)."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/specs/adr-041-codeblock-v2.md",
+        "docs/specs/adr-043-io-format-capability-registry.md",
+        "docs/specs/adr-043-package-migration.md"
+      ],
+      "reason": "Need to bump spec status Draft \u2192 Implemented for ADR-041/043 to satisfy doc-drift.adr-without-implementation-spec rule"
+    }
+  ],
+  "branch": "docs/issue-1401/adr-045-workflow-state-version",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "658 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1401-adr-045-workflow-state-version.json",
+    "shas": [
+      "39a28adda7abbc9313d1878247d8b97f0892e194"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "standalone-adr-not-multi-agent-dispatch"
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "adr-itself-is-the-doc"
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "adr-only-no-spec-required-yet-implementation-spec-will-follow-tracking-#1401"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1401,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1401"
+    }
+  ],
+  "owner_directive": "Draft ADR-045 documenting the workflow state version-vector contract per #1401. Architecture-level fix for 5 client/server race scenarios (autosave/restore/agent write/external edit/multi-session). Status: Proposed (planning phase); implementation deferred to follow-up.",
+  "planned_files": [
+    "docs/adr/ADR-045.md",
+    "CHANGELOG.md",
+    ".workflow/records/1401-adr-045-workflow-state-version.json"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1401
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1404"
+  },
+  "record_path": ".workflow/records/1401-adr-045-workflow-state-version.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "docs/adr/ADR-045.md",
+      "CHANGELOG.md",
+      ".workflow/records/1401-adr-045-workflow-state-version.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "MCP scan+check_rules+health: pass, 3/15 rules, 0 violations, quality_signal=4441, files=1141",
+    "pro_required": false,
+    "quality_signal": 4441.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1401-adr-045-workflow-state-version",
+  "task_kind": "docs"
+}

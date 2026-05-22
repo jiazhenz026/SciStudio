@@ -54,16 +54,31 @@ def _get_type_registry() -> TypeRegistry:
     """Return the shared :class:`TypeRegistry` singleton for this process.
 
     The first call constructs a fresh :class:`TypeRegistry`, runs
-    :meth:`TypeRegistry.scan_builtins` to register the six core base
-    classes, and attempts :meth:`TypeRegistry._scan_entrypoint_types` to
-    pick up plugin-provided types. Subsequent calls return the same
+    :meth:`TypeRegistry.scan_all` to register the six core base
+    classes, plugin entry-points, and any project-local /
+    user-wide drop-in types reachable via the scan directories
+    declared in this section. Subsequent calls return the same
     instance.
 
-    Entry-point scanning is wrapped in a best-effort try/except: a
-    broken plugin must not prevent reconstruction of core instances.
-    Any plugin scan error is swallowed here (the registry's own
-    per-entry-point exception handling already logs a warning); the
-    core built-ins remain available either way.
+    Scan-directory wiring (#1365): the worker subprocess does not
+    own an :class:`~scistudio.api.runtime.ApiRuntime`, so the
+    ``<project>/types`` + ``~/.scistudio/types`` scan dirs that
+    :meth:`ApiRuntime.refresh_type_registry` wires for the API path
+    must be re-wired here too. The worker discovers the active
+    project root via the ``SCISTUDIO_PROJECT_DIR`` environment
+    variable (the same contract used by
+    :mod:`scistudio.cli.mcp_bridge` and the agent provisioning
+    layer); :class:`~scistudio.engine.runners.local.LocalRunner`
+    propagates that env var to the worker subprocess. When the env
+    var is unset (CLI standalone runs, tests) we still attempt the
+    user-wide dir under :func:`pathlib.Path.home`; no error if it
+    does not exist.
+
+    Entry-point and drop-in scanning are wrapped in best-effort
+    try/except: a broken plugin or unparseable drop-in must not
+    prevent reconstruction of core instances. The registry's own
+    per-item exception handling already logs a warning; the core
+    built-ins remain available either way.
 
     The worker subprocess calls this helper once at :func:`main`
     startup (via :func:`scistudio.engine.runners.worker.main`) to warm up
@@ -76,17 +91,37 @@ def _get_type_registry() -> TypeRegistry:
     ``_registry_instance`` to ``None``; the next call will re-scan.
     """
     import contextlib
+    import os
+    from pathlib import Path
 
     from scistudio.core.types.registry import TypeRegistry
 
     global _registry_instance
     if _registry_instance is None:
         registry = TypeRegistry()
+        # #1365: register the same scan dirs ApiRuntime.refresh_type_registry
+        # wires for the API path, so worker subprocess reconstruction sees
+        # project-local + user-wide drop-in DataObject subclasses.
+        project_dir_env = os.environ.get("SCISTUDIO_PROJECT_DIR", "").strip()
+        if project_dir_env:
+            registry.add_scan_dir(Path(project_dir_env) / "types")
+        registry.add_scan_dir(Path.home() / ".scistudio" / "types")
+        # Built-in registration MUST be guaranteed: if scan_builtins()
+        # raises (import/registration error inside core), there is no
+        # silent fall-back to base DataObject — fail fast so the bug
+        # surfaces here rather than at _reconstruct_one's resolve(chain)
+        # call site. (Codex P2 on PR #1386: previously the whole
+        # scan_all() call was wrapped in contextlib.suppress, which
+        # could cache a partially-initialised registry.)
         registry.scan_builtins()
-        # Plugin scan errors are logged by the registry itself; never
-        # fail reconstruction because of a broken plugin entry-point.
+        # Plugin / drop-in scan errors remain best-effort: the registry's
+        # own per-entry exception handling already logs a warning, so
+        # one broken plugin or unparseable drop-in must not prevent
+        # reconstruction of core instances.
         with contextlib.suppress(Exception):
             registry._scan_entrypoint_types()
+        with contextlib.suppress(Exception):
+            registry._scan_filesystem_dirs()
         _registry_instance = registry
     return _registry_instance
 

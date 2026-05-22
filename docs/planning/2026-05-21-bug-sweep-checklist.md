@@ -1,0 +1,353 @@
+---
+title: "2026-05-21 Bug Sweep Agent Dispatch Checklist"
+status: Approved
+owners:
+  - "@jiazhenz026"
+related_adrs: []
+language_source: en
+---
+
+# 2026-05-21 Bug Sweep Agent Dispatch Checklist
+
+> Mandatory tracking file. Every agent edits only rows it owns.
+> Drift is a protocol violation.
+> Source template:
+> `docs/ai-developer/templates/agent-dispatch-checklist-template.md`
+
+## 1. Change Summary
+
+- Owner request: `Triage and fix open bugs with medium-to-simple scope, fix LOC ≤150 (excluding tests). Root-cause fixes only.`
+- Task kind: `manager`
+- Manager persona: `manager`
+- Issues (16 total, all bugfix scope ≤150 LOC):
+  - Tier 1 surgical (5): #1110, #617, #1281, #1282, #1368
+  - Tier 2 focused (4): #1109, #902, #1306, #1309
+  - Audit-followup batch (7): #1343, #1365, #1366, #1367, #1369, #1370, #1371
+- Owner-skipped: #1356 (owner fixing themselves)
+- Gate record: `.workflow/records/manager-2026-05-21-bug-sweep.json`
+- Branch/worktree plan:
+  - Manager: `umbrella/2026-05-21-bug-sweep` @ `.claude/worktrees/manager-2026-05-21-bug-sweep`
+  - Agents: `fix/issue-<n>/<slug>` @ `.claude/worktrees/agent-<wave>-<id>` per dispatch
+- Protected branch: `main`
+- Umbrella branch: `umbrella/2026-05-21-bug-sweep`
+- Umbrella PR: `#1377` (https://github.com/zjzcpj/SciStudio/pull/1377)
+- Umbrella PR title: `[DO NOT MERGE] umbrella(bug-sweep-2026-05-21): 16-issue Tier 1+2 + audit-followup batch`
+- Final PR target: `main`
+- Dispatch prompt templates:
+  - Work: `docs/ai-developer/templates/agent-dispatch-prompt-template.md`
+  - Audit with context: `docs/ai-developer/templates/agent-dispatch-audit-with-context-prompt-template.md`
+  - Audit no context: `docs/ai-developer/templates/agent-dispatch-audit-no-context-prompt-template.md`
+
+## 2. Scope
+
+- In scope:
+  - Each agent's assigned write-set per Wave (see §6).
+- Out of scope:
+  - `#1356` lineage orphan tag — owner is fixing themselves
+  - `#1336` / `#1337` circular import — architecture, requires ADR-author
+  - `#841` Codex Windows 3.12 hang — platform diagnosis depth unknown
+  - Any cross-cutting refactor not named in a Wave write-set
+- Protected paths:
+  - `src/scistudio/{core,engine,blocks,workflow,utils}/**` — admin-approved:core-change label required
+  - `src/scistudio/qa/{governance,audit,schemas}/**` — admin-approved:core-change label required
+  - `.github/workflows/**` — admin-approved:core-change
+  - `.workflow/**` — admin-approved:core-change
+  - `.pre-commit-config.yaml` — admin-approved:core-change
+- Deferred work: `<TODO(#NNN) item or N/A>`
+
+## 3. Conventions
+
+- `[ ]` not started
+- `[~]` in progress
+- `[x]` done
+- `[!]` blocked
+- Every completed row MUST include an artifact:
+  PR link, commit, test command, report path, or gate-record entry.
+- Chat messages are not checklist evidence.
+- Agents edit only their own rows.
+- Scope changes require gate-record amendment before work continues.
+
+## 4. Manager Preflight
+
+- [x] Dedicated manager branch and worktree created.
+  → `umbrella/2026-05-21-bug-sweep` @ `.claude/worktrees/manager-2026-05-21-bug-sweep`
+- [x] Existing issues linked (16 issues, all open).
+- [ ] Gate record started.
+- [ ] Scope include/exclude recorded in the gate record.
+- [x] Umbrella branch created.
+- [x] Umbrella PR opened. → #1377
+- [x] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Protected branch and umbrella PR number recorded in this checklist.
+- [x] No `pip install -e .` environment pollution found.
+- [~] Dispatch checklist copied from the template and committed.
+- [ ] Dispatch prompts created from the correct prompt template and linked below.
+- [ ] Sentrux baseline recorded, or N/A reason recorded.
+
+## 5. Local Gate Hook Bypass Evidence
+
+- Authorized bypass label: `N/A` (no bypass authorized; standard gate enforcement)
+- Owner authorization source: `N/A`
+- Reason: `N/A`
+
+| Hook | Command | Bypass label | Status | Evidence |
+|---|---|---|---|---|
+| Pre-commit | `python -m scistudio.qa.governance.gate_record pre-commit --staged` | `N/A` | `[ ]` | `<output or summary>` |
+| Commit message | `python -m scistudio.qa.governance.gate_record commit-msg <commit-msg-file>` | `N/A` | `[ ]` | `<output or summary>` |
+| Pre-push | `python -m scistudio.qa.governance.gate_record pre-push` | `N/A` | `[ ]` | `<output or summary>` |
+
+## 6. Dispatch Matrix
+
+| Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| W1 | implementer | N/A | inline | Tier 1 surgical batch | `fix/bug-sweep-2026-05-21/tier1-surgical` | `.claude/worktrees/agent-abd2b11eeda702937` | See §7.1 | See §7.1 | PR #1379 — Closes #1110 #617 #1281 #1282 #1368 | `[x]` |
+| W2-A | implementer | N/A | inline | types path drop-in + worker | `fix/issue-1343-1365/types-registry` | `.claude/worktrees/agent-w2a-types` | See §7.2 | See §7.2 | Closes #1343 #1365 | `[ ]` |
+| W2-B | implementer | N/A | inline | imaging TIFF OME + capability metadata | `fix/issue-1306-1371/imaging-ome-fidelity` | `.claude/worktrees/agent-w2b-imaging` | See §7.3 | See §7.3 | PR #1388, Closes #1306 #1371 | `[x]` |
+| W3-A | implementer | N/A | inline | scheduler READY emit + interactive normalize | `fix/issue-1367-1370/scheduler-emit-normalize` | `.claude/worktrees/agent-abd9f7afe3a3c4c66` | See §7.4 | See §7.4 | PR #1391, Closes #1367 #1370 | `[~]` |
+| W3-B | implementer | N/A | inline | block registry + code backends | `fix/issue-1109-1309/registry-codebackends` | `.claude/worktrees/agent-w3b-registry` | See §7.5 | See §7.5 | Closes #1109 #1309 | `[ ]` |
+| W4-A | implementer | N/A | inline | frontend port editor capability_id | `fix/issue-1366/port-capability-clear` | `.claude/worktrees/agent-aadcf905402933469` | See §7.6 | See §7.6 | Closes #1366 (BLOCKED at pre-flight: #1389 vitest path classifier gap; precedent = `admin-approved:ai-override`) | `[!]` |
+| W4-B | implementer | N/A | inline | completion race + save-image dir picker | `fix/issue-902-1369/completion-saveimg` | `.claude/worktrees/agent-w4b-misc` | See §7.7 | See §7.7 | Closes #902 #1369 | `[ ]` |
+
+## 7. Tracks
+
+### 7.1 W1 — Tier 1 surgical batch (#1110 #617 #1281 #1282 #1368)
+
+- Owner: W1 implementer
+- Branch: `fix/bug-sweep-2026-05-21/tier1-surgical` (commit before finalize: `053ed418`; final commit after `finalize` adds the gate-record provenance)
+- PR: #1379 — https://github.com/zjzcpj/SciStudio/pull/1379
+- Gate record: `.workflow/records/1110-617-1281-1282-1368-tier1-surgical-bug-sweep.json`
+- Status:
+  - [x] **#1110** — advertise `.markdown` / `.htm` on SaveData + LoadData Text capability (+ `_TEXT_FORMAT_MAP`); preserved ADR-043 FR-001 / FR-002 Load ↔ Save mirror invariant.
+  - [x] **#617** — `_ps_single_quote_escape` doubles `'` → `''`; applied to `initial_dir`, `default_filename`, `file_filter` in `_native_dialog_windows` save_file / file modes.
+  - [x] **#1281** — `CodeBlockExchangeManifest.ports` keyed by `(direction, name)` tuple; `to_dict()` serialises as `"<direction>:<name>"`; downstream test updated.
+  - [x] **#1282** — `_is_codeblock_spec` dropped the `base_category == "code"` branch; concrete CodeBlock identity required via `name`/`type_name`/module+class.
+  - [x] **#1368** — `_make_block()` replaced with bare `AppBlock()` per PR #1351's new lifecycle pattern; `BlockState` import dropped.
+- In scope (final, after gate-record amend):
+  - `src/scistudio/blocks/io/savers/save_data.py` (#1110) — `_SAVE_CAPABILITIES` Text + Artifact-text extensions tuple
+  - `src/scistudio/blocks/io/loaders/load_data.py` (#1110 mirror) — `_LOAD_CAPABILITIES` Text + Artifact-text extensions + `_TEXT_FORMAT_MAP`
+  - `src/scistudio/api/routes/filesystem.py` (#617) — escape apostrophes in PowerShell strings
+  - `src/scistudio/blocks/code/exchange.py` (#1281) — key manifest records by `(direction, name)`
+  - `src/scistudio/workflow/validator.py` (#1282) — narrow `_is_codeblock_spec` to concrete class
+  - `tests/blocks/app/test_appblock_fiji_integration.py` (#1368) — remove calls to deleted `Block.transition`
+- Out of scope:
+  - All other source paths; no refactors; no docs unless directly tied to a fix
+- Required docs: ADR/spec untouched; CHANGELOG entry for the batch under `[Unreleased]` — done.
+- Required tests (all added):
+  - `tests/blocks/io/test_save_data.py::TestRoundTripText` (parametrise `.markdown`/`.htm` + `test_text_capability_advertises_markdown_and_htm`)
+  - `tests/blocks/io/test_load_data.py::test_extension_map_contains_markdown_and_htm_for_text`
+  - `tests/api/test_filesystem_dialog.py` (6 cases — escape helper, save_file `initial_dir` / `default_filename` / `file_filter`, file-open `initial_dir`, `None` initial_dir)
+  - `tests/blocks/code/test_codeblock_exchange.py::test_initialise_manifest_keeps_same_named_input_and_output_ports` + `test_prepare_exchange_materialises_input_when_output_has_same_name`
+  - `tests/workflow/test_validator.py::TestIsCodeBlockSpecNarrowing` (4 cases)
+  - `tests/blocks/app/test_appblock_fiji_integration.py` — collection now succeeds (was raising `AttributeError` from `Block.transition`)
+
+### 7.2 W2-A — Types path (#1343 + #1365)
+
+- Owner: W2-A implementer
+- In scope:
+  - `src/scistudio/core/types/registry.py` — register drop-in `__module__` into `sys.modules` before storing TypeSpec
+  - `src/scistudio/core/types/serialization.py` — refresh `_get_type_registry()` to consult project/user scan dirs (or expose a refresh-on-call path consistent with `ApiRuntime.refresh_type_registry()`)
+  - `src/scistudio/engine/runners/worker.py::reconstruct_inputs` — call into refresh path before resolving
+  - Tests for drop-in resolve through `TypeRegistry.load_class()` and through worker subprocess reconstruction
+- Out of scope:
+  - Removing or restructuring `_get_type_registry()`'s singleton contract — change behavior, not the API shape
+  - Any unrelated registry, capability, or schema work
+- Required docs: CHANGELOG entry only (no ADR/spec change for behavior-restoring bugfix)
+- Required tests:
+  - `tests/core/test_types_registry.py` — drop-in class registration round-trip via `TypeRegistry.load_class()`
+  - `tests/engine/test_worker_reconstruction.py` (extend) — project-local drop-in type reconstructs in worker subprocess (not falls back to base `DataObject`)
+
+### 7.3 W2-B — Imaging (#1306 + #1371)
+
+- Owner: W2-B implementer
+- In scope:
+  - `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py::_load_tiff` — read `tf.is_ome` + parse with `ome_types.from_xml`
+  - `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py` and `load_image.py` zarr/png/jpeg capability declarations — narrow `format_metadata_writes` / `format_metadata_reads` to actually-preserved subset
+  - `frontend/src/api/capabilities.ts::lossyOmeFields()` — broaden matching to handle hierarchical OME field paths vs broad declarations
+  - Tests for OME round-trip + capability matching
+- Out of scope:
+  - ImageJ TIFF metadata mapping to OME (separate enhancement per #1306 §Acceptance.3)
+  - Anything outside the imaging package or `lossyOmeFields`
+- Required docs: CHANGELOG entry
+- Required tests:
+  - Load fixture OME-TIFF → assert `image.meta.ome.images[0].pixels.physical_size_x`
+  - Zarr round-trip → assert capability declaration matches behavior (`meta.ome is None` for zarr today; or implement zarr OME if narrow enough)
+  - `lossyOmeFields()` unit test: flattened field `images.0.pixels.physical_size_x` correctly matched against broad declaration `ome`
+
+#### W2-B status (2026-05-21)
+
+- PR: [#1388](https://github.com/zjzcpj/SciStudio/pull/1388) — `MERGEABLE`, CI `Verify Workflow Compliance` pass.
+- Final commit: `b7c505b8210987a1bd6d59c0b392f33797cc0c26` (Codex P1 reconciliation).
+- Codex auto-review: 1 P1 (lossyOmeFields `images.<index>.` normalisation) addressed in b7c505b8 + reply on `pulls/comments/3284325380`.
+- Implementation summary:
+  - #1306 — `_load_tiff` already parsed OME-XML via `_ome_from_tiff` (PR #1304's P2-05 unblocker). This PR adds the externally-authored-OME-TIFF regression in `packages/scistudio-blocks-imaging/tests/test_load_image_ome.py` (3 cases: positive OME-TIFF, plain TIFF returns `meta.ome is None`, malformed OME-XML defensive fallback). No source change needed for #1306.
+  - #1371 backend — zarr load/save capabilities drop to `level="pixel_only"` (zero OME or typed Meta survives); PNG/JPEG declarations narrow to hierarchical `("ome.pixels.physical_size_x", "ome.pixels.physical_size_y")` (the only fields Pillow's EXIF DPI round-trips); TIFF keeps the broad `"ome"` token (genuinely writes full OME-XML via `ome_types.to_xml` into ImageDescription).
+  - #1371 frontend — `lossyOmeFields` now treats `"ome"` as a prefix covering every OME source path and strips `ome.` from hierarchical declarations before comparing source paths. Fixes false positives on broad declarations and false negatives once narrowed declarations land.
+- Scope amendments:
+  - 2026-05-21 — added `frontend/src/__tests__/adr043-a3-smoke.test.tsx` + `frontend/src/__tests__/LossySaveWarning.test.tsx` to gate record (`gate_record amend`) — both pre-existing tests pinned the old buggy `lossyOmeFields` exact-match semantics and needed updating to the new prefix-matching contract.
+- Files touched:
+  - `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/load_image.py` (zarr → pixel_only, png/jpeg → narrow paths)
+  - `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py` (zarr → pixel_only, png/jpeg → narrow paths, docstrings)
+  - `frontend/src/api/capabilities.ts` (`lossyOmeFields` prefix matcher)
+  - `packages/scistudio-blocks-imaging/tests/test_load_image_ome.py` (new, 3 cases)
+  - `packages/scistudio-blocks-imaging/tests/test_save_image_capabilities.py` (new, 7 cases)
+  - `packages/scistudio-blocks-imaging/tests/test_format_capabilities.py` (5 assertions updated to new fidelity)
+  - `frontend/src/__tests__/LossySaveWarning.test.tsx` (5 new cases)
+  - `frontend/src/__tests__/adr043-a3-smoke.test.tsx` (FR-014 smoke test updated)
+  - `CHANGELOG.md`
+  - `.workflow/records/1306-1371-imaging-ome-fidelity.json`
+- Tests: pytest 35 pass / 0 fail (0.89s); vitest 444 pass / 13 skipped / 0 fail (4.85s, 43 files).
+- Gate record: `.workflow/records/1306-1371-imaging-ome-fidelity.json`
+
+### 7.4 W3-A — Scheduler (#1367 + #1370)
+
+- Owner: W3-A implementer
+- In scope:
+  - `src/scistudio/engine/scheduler.py::resume`, `rerun_block`, `reset_block`, `_run_interactive` — emit `BLOCK_READY` on every IDLE→READY; normalize collection outputs in interactive path
+  - Tests for resume/rerun/reset and interactive collection normalization
+- Out of scope:
+  - Any other scheduler behavior; lifecycle/state machine refactor
+- Required docs: CHANGELOG entry; no ADR/spec change
+- Required tests:
+  - `tests/engine/test_scheduler.py` (extend): resume/rerun/reset each emit exactly one `BLOCK_READY`
+  - `tests/engine/test_scheduler_interactive.py` (extend or create): bare `DataObject` and `list[DataObject]` on `is_collection=True` ports normalize via `_normalize_outputs()`
+
+#### W3-A status (2026-05-21)
+
+- PR: [#1391](https://github.com/zjzcpj/zjzcpj/SciStudio/pull/1391) — base `umbrella/2026-05-21-bug-sweep`, head `fix/issue-1367-1370/scheduler-emit-normalize`.
+- Final pushed commit: `90e6b429` (finalize gate-record commit, after `7b75f44e` which carries the docs + check evidence).
+- CI `Verify Workflow Compliance`: **expected fail** — only finding is `core_change_guard.missing-admin-approval` for `src/scistudio/engine/scheduler.py` (paths under `src/scistudio/engine/**` are protected per ADR-042 §3.4). All other guards (`pr_merge_guard`, `governance_mod_guard`, `weakened_ci_check`, `sentrux_gate`, `docs_landing`, `core_change_guard` PR-body record discovery) returned `pass`. Awaits owner `admin-approved:core-change` label.
+- Codex auto-review: none observed within 5 minutes of CI completion (silent — see PR #1391 review/comment listings empty at 2026-05-21).
+- Branch: `fix/issue-1367-1370/scheduler-emit-normalize` based on `umbrella/2026-05-21-bug-sweep`.
+- Implementation summary:
+  - #1367 — Added `await self._emit_block_ready(node_id)` at the three remaining scheduler-owned IDLE→READY transition sites in `src/scistudio/engine/scheduler.py`: `resume()` (IDLE→READY branch), `rerun_block()` (post-cancel re-dispatch), and `reset_block()` (Step 5 ready_ids loop). The `_dispatch_newly_ready()` and `execute()` paths already emitted via PR #1327; this funnels all four call sites through `_emit_block_ready()` so every IDLE→READY emits `BLOCK_READY` exactly once.
+  - #1370 — Added `_normalize_outputs(result, effective_output_ports)` call in `_run_interactive()` between the `__scistudio_env__` sidecar lift and the `_block_outputs[node_id] = result` store, mirroring the existing call site in `_run_and_finalize()` (with the same `get_effective_output_ports() / type(block).output_ports` fallback chain).
+- Source LOC change: 32 lines added to `src/scistudio/engine/scheduler.py` (most are comments referencing #1367/#1370 and rationale).
+- Tests: 5 new tests (3 in `TestSchedulerLifecycleBlockReady`, 2 in `TestInteractiveCollectionNormalize`); full engine sweep 389 passed, 4 skipped, 8 xfailed in 5.64s.
+- Files touched:
+  - `src/scistudio/engine/scheduler.py` (4 small edits across 4 sites)
+  - `tests/engine/test_scheduler.py` (new `TestSchedulerLifecycleBlockReady` class, 3 tests)
+  - `tests/engine/test_scheduler_interactive.py` (new file, 2 tests)
+  - `CHANGELOG.md`
+  - `.workflow/records/1367-1370-scheduler-emit-normalize.json`
+- Gate record: [.workflow/records/1367-1370-scheduler-emit-normalize.json](../../.workflow/records/1367-1370-scheduler-emit-normalize.json) — all 6 stages `done`; commit + PR provenance recorded via `finalize`.
+- Wrapper escape: `SCISTUDIO_SKIP_PREFLIGHT=1` used for `scripts/scistudio_pr_create.py` because the umbrella branch base does not yet carry the wrapper fix from PR #1385 (dispatch-authorized).
+
+### 7.5 W3-B — Registry + Code backends (#1109 + #1309)
+
+- Owner: W3-B implementer
+- In scope:
+  - `src/scistudio/blocks/registry.py::_ext_in_mapping` — implement compound→single suffix walk mirroring `IOBlock._detect_format`
+  - `src/scistudio/blocks/code/backends/notebook.py` + `backends/python.py` — compute `script_cwd = context.config.resolve_working_directory(context.project_dir)` and pass to both subprocess and nbconvert
+  - Tests for compound extension fallback + CodeBlock cwd
+- Out of scope:
+  - Loader/saver dispatch beyond `_ext_in_mapping`
+  - CodeBlock exchange manifest (covered by #1281 in W1)
+- Required docs: CHANGELOG entry
+- Required tests:
+  - `tests/blocks/test_registry.py`: `.ome.tif` falls back to block declaring only `.tif`
+  - `tests/blocks/code/test_backends.py`: both backends pass `resolve_working_directory(project_dir)` as `cwd=`; subprocess sees `Path.cwd() == project_dir` when `working_directory: '.'`
+
+### 7.6 W4-A — Frontend PortEditor capability_id (#1366)
+
+- Owner: W4-A implementer
+- Branch: `fix/issue-1366/port-capability-clear`
+- Gate record: `.workflow/records/1366-port-capability-clear.json`
+- Status:
+  - [x] **#1366** — `handleTypeChange` and `handleExtensionChange` in `PortEditorTable.tsx` now set `capability_id = null` after updating their respective columns (Option A — clear); the row's `CapabilityDropdown` then re-renders empty and the user re-selects for the new tuple. One existing test (`normalises typed extensions…`) updated to reflect that the row carries `capability_id: null` after any extension edit.
+- In scope (final):
+  - `frontend/src/components/PortEditorTable.tsx::handleTypeChange` + `handleExtensionChange` — clear `capability_id` on either change (Option A)
+  - `frontend/src/components/PortEditorTable.test.tsx` — extended (co-located test file, the repo's existing convention — there is no `__tests__/` subdirectory under `components/`)
+- Out of scope:
+  - Backend validation pathway
+  - Other port editor functionality
+  - Capability recompute-when-valid (Option B per dispatch — deliberately deferred; simpler clear-and-reselect chosen)
+- Required docs: CHANGELOG entry — `### Fixed [#1366]`
+- Required tests (added):
+  - `frontend/src/components/PortEditorTable.test.tsx::"clears a pinned capability_id when the user changes the port type (#1366)"`
+  - `frontend/src/components/PortEditorTable.test.tsx::"clears a pinned capability_id when the user changes the extension (#1366)"`
+- Pre-flight blocker (reported, awaiting manager decision):
+  - `gate_record ci` returns `gate-record.tests.changed-test-required` because
+    `_is_test_path` (`src/scistudio/qa/governance/gate_record.py`) does not
+    recognise vitest path conventions (`*.test.tsx`, `__tests__/`). Documented
+    as issue **#1389**.
+  - Precedent: every recent frontend-only PR hit the same wall and merged with
+    `admin-approved:ai-override` (e.g. **#1383** merged 2026-05-21, plus
+    **#1299** / **#1313** / **#1320**). The CI workflow short-circuits the
+    full `gate_record ci` invocation when that label is present
+    (`.github/workflows/workflow-gate.yml::SKIP_GATE_RECORD=1`).
+  - Branch + record state are clean and ready: 6/6 stages would be done
+    after `finalize`; full audit pass; sentrux pass (qs=4445, 0
+    violations); vitest 450 passed / 13 skipped including the two new
+    `#1366` regressions.
+  - Awaiting manager call: (a) apply `admin-approved:ai-override` and push,
+    or (b) wait for an in-flight #1389 fix to land, or (c) restructure the
+    test file (no shape currently satisfies `_is_test_path` per #1389
+    analysis).
+
+### 7.7 W4-B — Completion race + Save Image dir picker (#902 + #1369)
+
+- Owner: W4-B implementer
+- In scope:
+  - `src/scistudio/blocks/ai/completion.py::CompletionWatcher` — Option B: skip empty/whitespace-only reads, retry on next poll (production hardening per #902 §Fix options)
+  - `tests/blocks/ai/conftest.py::StubAgent` — optionally also Option A atomic rename for fixture stability
+  - `packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/io/save_image.py` registry capability — flip `directory_browser` to file browser for single-image saves
+  - `frontend/src/components/BottomPanel.tsx` native dialog mapping if needed
+- Out of scope:
+  - Multi-image save behavior (out of scope per #1369 — single-image only)
+  - Other AI block lifecycle work
+- Required docs: CHANGELOG entry
+- Required tests:
+  - `tests/blocks/ai/test_completion.py`: empty-file mid-write retried, not crash
+  - `tests/blocks/test_save_image_capabilities.py`: single-image save advertises file-not-directory browse mode
+
+## 8. Verification Evidence
+
+| Check | Command or tool | Status | Evidence |
+|---|---|---|---|
+| Ruff (W1) | `ruff check .` | `[x]` | "All checks passed!" (gate-record: ruff) |
+| Format (W1) | `ruff format --check .` | `[x]` | "651 files already formatted" (gate-record: format) |
+| Tests (W1) | `pytest tests/blocks/io/test_save_data.py tests/blocks/io/test_save_data_capabilities.py tests/blocks/io/test_load_data.py tests/blocks/io/test_load_data_capabilities.py tests/api/test_filesystem_dialog.py tests/blocks/code/test_codeblock_exchange.py tests/blocks/code/test_codeblock_execution.py tests/workflow/test_validator.py tests/workflow/test_validator_codeblock_v2.py --timeout=60` | `[x]` | 300 passed (gate-record: pytest) |
+| Full audit (W1) | `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[x]` | top status=pass, 8/8 children pass (generate_facts, frontmatter_lint, fact_drift, doc_drift, closure, signature_drift, architecture_drift, vulture) |
+| Sentrux (W1) | MCP `scan`+`check_rules`+`health` | `[x]` | pass=true, rules_checked=3/15, violation_count=0, quality_signal=4445, bottleneck=acyclicity, pro_required=false |
+
+#### W2-B verification (PR #1388)
+
+| Check | Command or tool | Status | Evidence |
+|---|---|---|---|
+| Ruff | `ruff check .` | `[x]` | `All checks passed!` |
+| Format | `ruff format --check .` | `[x]` | `652 files already formatted` |
+| Pytest | `pytest packages/scistudio-blocks-imaging/tests/{test_load_image_ome,test_save_image_capabilities,test_format_capabilities}.py --timeout=60` | `[x]` | `35 passed in 0.89s` |
+| Vitest | `npx vitest run` (frontend) | `[x]` | `448 passed, 13 skipped (43 files) in 5.51s` |
+| Full audit | `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[x]` | `status=pass, 0 findings, vulture child 6 informational` |
+| Sentrux | MCP `scan` + `check_rules` | `[x]` | `pass, rules_checked=3/15, violation_count=0, quality_signal=4445, files=1110` |
+| CI | `Verify Workflow Compliance` | `[x]` | https://github.com/zjzcpj/SciStudio/actions/runs/26252955593 (1m6s) |
+
+#### W3-A verification (PR #1391)
+
+| Check | Command or tool | Status | Evidence |
+|---|---|---|---|
+| Ruff | `ruff check .` | `[x]` | `All checks passed!` |
+| Format | `ruff format --check .` | `[x]` | `653 files already formatted` |
+| Pytest | `PYTHONPATH=src pytest tests/engine/ --timeout=60 --no-cov` | `[x]` | `389 passed, 4 skipped, 8 xfailed in 5.64s` (covers `tests/engine/test_scheduler.py`, `tests/engine/test_scheduler_interactive.py`, plus full engine suite) |
+| Full audit | `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[x]` | `status=pass`, 0 findings; 8 implemented child reports (generate_facts, frontmatter_lint, fact_drift, doc_drift, closure, signature_drift, architecture_drift, vulture) |
+| Sentrux | MCP `scan` + `check_rules` + `health` | `[x]` | `pass`, `quality_signal=4444`, `rules_checked=3/15`, `violation_count=0`, `files=1115`, `import_edges=2638` |
+| CI | `Verify Workflow Compliance` | `[!]` | https://github.com/zjzcpj/SciStudio/actions/runs/26254924564 — **expected fail** on `core_change_guard.missing-admin-approval` for `src/scistudio/engine/scheduler.py`; all other guards pass. Owner to add `admin-approved:core-change` label. |
+
+## 9. Drift Log
+
+Append only.
+
+| Date | Agent | Drift | Action | Follow-up |
+|---|---|---|---|---|
+| 2026-05-21 | W1 | #1110 scope was named SaveData only, but `test_save_extension_map_mirrors_load` enforces Load ↔ Save symmetry — Save-only fix breaks CI. | Gate-record amend: include `src/scistudio/blocks/io/loaders/load_data.py` + `tests/blocks/io/test_load_data.py`. Mirror `.markdown`/`.htm` to LoadData's Text capability + `_TEXT_FORMAT_MAP`. | None — invariant preserved. |
+| 2026-05-21 | W1 | Dispatch prompt named `tests/blocks/code/test_exchange.py` but the actual file is `test_codeblock_exchange.py`. | Gate-record amend: include the real path. Existing tests updated to new tuple-key shape; same-name regression test added. | None. |
+| 2026-05-21 | W1 | #1281 `to_dict()` JSON key shape change ("name" → "direction:name") broke one downstream test in `test_codeblock_execution.py`. | Gate-record amend: include `test_codeblock_execution.py`. Updated one assertion to use `"output:summary"`. | None — only one downstream JSON consumer. |
+| 2026-05-21 | W1 | `scripts/scistudio_pr_create.py` pre-flight runs `gate_record ci --base origin/main`, but this PR's base is `umbrella/2026-05-21-bug-sweep`. Pre-flight flagged the manager's own gate record (which exists on umbrella but not main) as out-of-scope. | Used `SCISTUDIO_SKIP_PREFLIGHT=1` for the umbrella sub-PR case (the chicken-and-egg the wrapper handles for main-targeted PRs does not apply cleanly to umbrella sub-PRs). CI runs the full guard suite against the actual base. | Wrapper enhancement: detect umbrella base and pass through to `gate_record ci --base origin/umbrella/...` — out of scope for this PR. |
+
+## 10. Final Readiness
+
+- [ ] All dispatched agents have final outputs.
+- [ ] Manager reviewed every changed file.
+- [ ] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux evidence when needed, commit, and PR evidence.
+- [ ] PR closes every issue fixed by the dispatch.
+- [ ] CI passed.
+- [ ] Checklist final state matches PR and gate record.
