@@ -192,6 +192,7 @@ from scistudio.api.routes.ai_pty.subscribers import (  # noqa: E402
     register_ai_pty_subscriber,
     unregister_ai_pty_subscriber,
 )
+from scistudio.api.routes.ai_pty.websocket import pty_endpoint  # noqa: E402
 
 __all__ = [
     "MAX_ACTIVE_PTYS",
@@ -199,6 +200,7 @@ __all__ = [
     "get_block_run_id_for_tab",
     "get_run_dir_for_block_run",
     "open_engine_initiated_tab",
+    "pty_endpoint",
     "register_ai_pty_subscriber",
     "router",
     "unregister_ai_pty_subscriber",

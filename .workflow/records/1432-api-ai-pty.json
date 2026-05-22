@@ -21,7 +21,16 @@
     }
   ],
   "branch": "refactor/issue-1432/api-ai-pty",
-  "changed_test_paths": [],
+  "changed_test_paths": [
+    "tests/api/routes/__init__.py",
+    "tests/api/routes/ai_pty/__init__.py",
+    "tests/api/routes/ai_pty/test_engine.py",
+    "tests/api/routes/ai_pty/test_internal_routes.py",
+    "tests/api/routes/ai_pty/test_public_surface.py",
+    "tests/api/routes/ai_pty/test_subscribers.py",
+    "tests/api/routes/ai_pty/test_validation.py",
+    "tests/api/routes/ai_pty/test_websocket.py"
+  ],
   "check_results": [
     {
       "command_or_tool": "ruff check + ruff format --check on src/scistudio/api/routes/ai_pty/ and tests/api/routes/",
