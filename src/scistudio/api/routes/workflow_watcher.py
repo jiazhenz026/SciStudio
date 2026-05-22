@@ -310,6 +310,22 @@ class _WorkflowFileHandler(FileSystemEventHandler):
 
         relative_path = str(relative).replace("\\", "/")
         if self._runtime is not None:
+            # ADR-045 §3.3: emit only when ``inferred_version >
+            # last_known_version`` (see same guard in _ProjectFileHandler).
+            try:
+                disk_mtime = int(path.stat().st_mtime_ns)
+            except OSError:
+                disk_mtime = 0
+            cached_version = self._runtime.current_workflow_version(workflow_id)
+            if disk_mtime and disk_mtime <= cached_version:
+                logger.debug(
+                    "workflow_watcher: skipping delayed-echo workflow event %s %s (disk %d <= cached %d)",
+                    kind,
+                    path,
+                    disk_mtime,
+                    cached_version,
+                )
+                return
             version = self._runtime.bump_workflow_version(workflow_id)
             payload = self._runtime.versioned_change_payload(
                 entity_class=_WORKFLOW_ENTITY_CLASS,
@@ -415,6 +431,29 @@ class _ProjectFileHandler(_WorkflowFileHandler):
             project_id = self._runtime.active_project.id
 
         if self._runtime is not None:
+            # ADR-045 §3.3: emit only when ``inferred_version >
+            # last_known_version``. Without this guard, a delayed inotify
+            # event that fires AFTER the entity's version was already
+            # observed via GET would double-bump (the GET seeded the cache
+            # with disk mtime_ns; the watcher would unconditionally
+            # increment, ending up at disk_mtime + 1 while the disk has not
+            # actually changed).
+            try:
+                disk_mtime = int(path.stat().st_mtime_ns)
+            except OSError:
+                disk_mtime = 0
+            cached_version = self._runtime.current_entity_version(
+                FILE_ENTITY_CLASS, entity_id, path=path
+            )
+            if disk_mtime and disk_mtime <= cached_version:
+                logger.debug(
+                    "workflow_watcher: skipping delayed-echo file event %s %s (disk %d <= cached %d)",
+                    kind,
+                    path,
+                    disk_mtime,
+                    cached_version,
+                )
+                return
             version = self._runtime.bump_entity_version(FILE_ENTITY_CLASS, entity_id, path=path)
             payload = self._runtime.versioned_change_payload(
                 entity_class=FILE_ENTITY_CLASS,
