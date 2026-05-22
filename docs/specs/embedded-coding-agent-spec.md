@@ -65,7 +65,7 @@ date: 2026-05-12
 >
 > Implementation: `src/scistudio/ai/agent/terminal.py`,
 > `src/scistudio/ai/agent/system_prompt.py`,
-> `src/scistudio/api/routes/ai_pty.py`,
+> `src/scistudio/api/routes/ai_pty/` (sub-package split per issue #1432),
 > `src/scistudio/api/routes/ai.py` (`provider_status`).
 >
 > **Phase 2 (issue #823, ADR-034 §3.6).** Canvas auto-update is delivered

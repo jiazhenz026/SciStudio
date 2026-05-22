@@ -19,13 +19,16 @@ governs:
     - scistudio.qa.governance.gate_record
     - scistudio.qa.governance.sentrux_gate
   contracts:
-    - scistudio.qa.governance.gate_record.validate_gate_record
+    # ``gate_record`` is a sub-package as of #1433 (umbrella #1427); contract
+    # paths below point to the canonical definition sites so doc_drift / closure
+    # can resolve them against generated facts.
+    - scistudio.qa.governance.gate_record.validation.validate_gate_record
     - scistudio.qa.governance.sentrux_gate.verify_free_tier_claims
   entry_points: []
   files:
     - docs/adr/ADR-042-addendum3.md
     - .github/workflows/workflow-gate.yml
-    - src/scistudio/qa/governance/gate_record.py
+    - src/scistudio/qa/governance/gate_record
   excludes: []
 
 tests:

@@ -1,0 +1,157 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": "audit-reviewer-self",
+      "exclude": [],
+      "include": [
+        ".workflow/records/audit-1427-phase1.json"
+      ],
+      "reason": "Add own gate-record file to scope per ADR-042 Addendum 1 \u2014 meta-include the record itself so the file change passes gate-record.scope.outside-include."
+    }
+  ],
+  "branch": "audit/issue-1427/phase1-review",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check (per-PR re-verification on changed source files across 4 PRs)",
+      "exit_code": null,
+      "name": "ruff",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scistudio.qa.governance.gate_record ci --gate-record <each-of-4> --pr-body <live> (per PR)",
+      "exit_code": null,
+      "name": "gate_record_ci_replay",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/audit-1427-phase1.json",
+    "shas": [
+      "bd70aaa5583a841c6d934e27cb5f63c7171ba7120"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Audit-only PR: produces an evidence document under docs/audit/ and does not change user-visible behavior; the umbrella PR #1429 lands the consolidated CHANGELOG entry once all Phase 1 sub-PRs and this audit roll up into main."
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/backend-god-file-refactor-checklist.md"
+      ]
+    },
+    "docs": {
+      "paths": [
+        "docs/audit/2026-05-22-umbrella-1427-phase1-with-context.md"
+      ]
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": null,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1427,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1427"
+    }
+  ],
+  "owner_directive": "Independent post-implementation review of the 4 Phase 1 sub-PRs under umbrella #1427.",
+  "planned_files": [
+    "docs/audit/2026-05-22-umbrella-1427-phase1-with-context.md",
+    "docs/planning/backend-god-file-refactor-checklist.md"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1427
+    ],
+    "number": 1453,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1453"
+  },
+  "record_path": ".workflow/records/audit-1427-phase1.json",
+  "required_checks": [
+    "ruff",
+    "full_audit",
+    "sentrux",
+    "gate_record_ci_replay"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/2026-05-22-umbrella-1427-phase1-with-context.md",
+      "docs/planning/backend-god-file-refactor-checklist.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules + health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": null,
+    "pro_required": false,
+    "quality_signal": 4441.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": "Audit task: implementation = the audit report file at docs/audit/2026-05-22-umbrella-1427-phase1-with-context.md (no source code changes by audit-reviewer persona)."
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": "Audit commit + push prepared; PR opens against umbrella/backend-god-file-refactor as the audit-evidence companion PR to the four implementation sub-PRs."
+    }
+  ],
+  "task_id": "1427-audit-1427-phase1",
+  "task_kind": "docs"
+}

@@ -1,0 +1,213 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": "@jiazhenz026",
+      "exclude": [],
+      "include": [],
+      "reason": "Threshold raised from 500 to 750 mid-setup (chat 2026-05-22); umbrella scaffold implementation = checklist + advisory script + gate record now reflects the 750 threshold and 10-file waiver list. No source-code change in scaffold PR; sub-PRs add per-file decomposition + tests under tracked sub-issues."
+    },
+    {
+      "approved_by": "@jiazhenz026",
+      "exclude": [],
+      "include": [
+        "src/scistudio/api/runtime/**",
+        "src/scistudio/ai/agent/mcp/tools_workflow/**",
+        "src/scistudio/ai/agent/mcp/tools_inspection/**",
+        "src/scistudio/api/routes/ai_pty/**",
+        "src/scistudio/qa/governance/gate_record/**",
+        "tests/**",
+        "docs/audit/**",
+        "docs/adr/**",
+        "docs/specs/**",
+        "docs/planning/**",
+        ".workflow/records/**"
+      ],
+      "reason": "Phase 1 sub-PRs (#1441/#1442/#1444/#1445) + audit PR (#1453) merged into umbrella branch on 2026-05-22; broaden manager gate record scope to cover the full integrated diff against main and flip governance_touch=true (qa/governance/gate_record/ is now part of the umbrella diff)."
+    }
+  ],
+  "branch": "umbrella/backend-god-file-refactor",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check scripts/check_god_files.py",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "all checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check scripts/check_god_files.py",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "1 file already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python scripts/check_god_files.py --enforce",
+      "exit_code": 0,
+      "name": "god_file_advisory",
+      "output_path": "23 tracked waivers, 0 NEW violations",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python scripts/check_god_files.py --enforce",
+      "exit_code": 0,
+      "name": "god_file_advisory_750",
+      "output_path": "threshold=750 LOC; 10 tracked waivers, 0 NEW violations (re-recorded after owner raised threshold from 500 to 750 on 2026-05-22)",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1427-backend-god-file-refactor.json",
+    "shas": [
+      "9b4e05161c84ba1f969ff9288e3247ee917120aa"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "adr": {
+      "paths": [
+        "docs/adr/ADR-012.md",
+        "docs/adr/ADR-034.md",
+        "docs/adr/ADR-035.md",
+        "docs/adr/ADR-038.md",
+        "docs/adr/ADR-039.md",
+        "docs/adr/ADR-042-addendum1.md",
+        "docs/adr/ADR-042-addendum3.md",
+        "docs/adr/ADR-044.md",
+        "docs/adr/ADR-045.md"
+      ]
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Phase 1 sub-PRs are all structural refactors with no user-visible behavior change; rolled-up CHANGELOG entry deferred to umbrella -> main merge follow-up if needed."
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/backend-god-file-refactor-checklist.md"
+      ]
+    },
+    "docs": {
+      "paths": [
+        "docs/audit/2026-05-22-umbrella-1427-phase1-with-context.md"
+      ]
+    },
+    "spec": {
+      "paths": [
+        "docs/specs/embedded-coding-agent-spec.md",
+        "docs/specs/adr-042-gate-record-sentrux-workflow.md"
+      ]
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1427,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1427"
+    }
+  ],
+  "owner_directive": "Manager refactor for backend/engine god files. Phase 1 = Buckets A+B (10 files, 5 agents bundled). User authorized admin-approved:core-change for Bucket B 3 files on 2026-05-22. max-lines=500 advisory. Open umbrella issue/branch/PR scaffold.",
+  "planned_files": [
+    ".workflow/records/1427-backend-god-file-refactor.json",
+    "docs/planning/backend-god-file-refactor-checklist.md",
+    "scripts/check_god_files.py"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1427
+    ],
+    "number": 1429,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1429"
+  },
+  "record_path": ".workflow/records/1427-backend-god-file-refactor.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "god_file_advisory",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      ".workflow/records/1427-backend-god-file-refactor.json",
+      "docs/planning/backend-god-file-refactor-checklist.md",
+      "scripts/check_god_files.py"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules + health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "scan: files=1161 edges=2654 lines=300245 quality_signal=4442; check_rules: pass=true 0 violations; health: bottleneck=acyclicity modularity=0.177",
+    "pro_required": false,
+    "quality_signal": 4442.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1427-backend-god-file-refactor",
+  "task_kind": "manager"
+}
