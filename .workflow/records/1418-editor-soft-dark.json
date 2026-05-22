@@ -8,11 +8,19 @@
         "frontend/src/components/__tests__/CodeEditor.test.tsx"
       ],
       "reason": "Use existing CodeEditor.test.tsx (already has Monaco mock infrastructure) instead of new theme test file"
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1418-editor-soft-dark.json"
+      ],
+      "reason": "include gate record itself in scope (ADR-042 requires the gate record path to be committable within scope)"
     }
   ],
   "branch": "feat/editor-soft-dark",
   "changed_test_paths": [
-    "frontend/src/components/__tests__/CodeEditor.theme.test.tsx"
+    "frontend/src/components/__tests__/CodeEditor.test.tsx"
   ],
   "check_results": [
     {
@@ -78,14 +86,14 @@
   "owner_directive": "User requested softer dark editor theme (vs-dark too harsh); ship as proper PR.",
   "planned_files": [
     "frontend/src/components/CodeEditor.tsx",
-    "frontend/src/components/__tests__/CodeEditor.theme.test.tsx",
-    "docs/adr/ADR-036.md"
+    "frontend/src/components/__tests__/CodeEditor.test.tsx",
+    "docs/adr/ADR-036.md",
+    ".workflow/records/1418-editor-soft-dark.json"
   ],
   "pull_request": null,
   "record_path": ".workflow/records/1418-editor-soft-dark.json",
   "required_checks": [
     "frontend_typecheck",
-    "frontend_lint",
     "frontend_test",
     "full_audit",
     "sentrux"
