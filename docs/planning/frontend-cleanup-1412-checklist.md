@@ -25,8 +25,8 @@ language_source: en
 - Branch/worktree plan: manager works on `track/frontend-cleanup-1412` from `.claude/worktrees/frontend-cleanup-mgr`; every dispatched agent gets a dedicated `feat/issue-<n>/...` or `fix/issue-<n>/...` branch and worktree under `.claude/worktrees/`.
 - Protected branch: `main`
 - Umbrella branch: `track/frontend-cleanup-1412`
-- Umbrella PR: `#<pending>`
-- Umbrella PR title: `[DO NOT MERGE] track(frontend): retire #1412 baseline waivers (#1426)`
+- Umbrella PR: `#1428` (https://github.com/zjzcpj/SciStudio/pull/1428)
+- Umbrella PR title: `[DO NOT MERGE] track(frontend)(#1426): retire #1412 baseline waivers — frontend cleanup cascade`
 - Final PR target: `main`
 - Dispatch prompt templates:
   - Work: `docs/ai-developer/templates/agent-dispatch-prompt-template.md`
@@ -74,13 +74,13 @@ language_source: en
 - [x] Gate record started. → `.workflow/records/1426-frontend-cleanup-1412-manager.json`
 - [x] Scope include/exclude recorded in the gate record.
 - [x] Umbrella branch created. → `track/frontend-cleanup-1412`
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [x] Protected branch and umbrella PR number recorded in this checklist. → `main` + `<pending>`
+- [x] Umbrella PR opened. → #1428
+- [x] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Protected branch and umbrella PR number recorded in this checklist. → `main` + `#1428`
 - [x] No `pip install -e .` environment pollution found. → using `PYTHONPATH=src` invocation
-- [x] Dispatch checklist copied from the template and committed.
+- [x] Dispatch checklist copied from the template and committed. → commit 92bb4b8d
 - [ ] Dispatch prompts created from the correct prompt template and linked below.
-- [ ] Sentrux baseline recorded, or N/A reason recorded. → planned: Sentrux applies (frontend/** in applicability set) — record on integration.
+- [x] Sentrux baseline recorded. → free-tier scan pass, rules_checked=3/15, quality_signal=4442 (bootstrap commit, recorded in gate-record `sentrux` field).
 
 ## 5. Local Gate Hook Bypass Evidence
 

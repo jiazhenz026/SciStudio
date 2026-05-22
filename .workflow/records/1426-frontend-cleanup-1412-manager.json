@@ -1,10 +1,96 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Manager bootstrap commit landed (92bb4b8d): checklist + gate-record. No source change; sub-agent PRs land actual cascade work targeting track/frontend-cleanup-1412."
+    }
+  ],
   "branch": "track/frontend-cleanup-1412",
   "changed_test_paths": [],
-  "check_results": [],
-  "commit": null,
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "662 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "pytest",
+      "exit_code": null,
+      "name": "pytest",
+      "output_path": "Manager-bootstrap commit changes only docs/planning/*.md and .workflow/records/*.json \u2014 no Python source changed. Sub-agent PRs run pytest as needed.",
+      "status": "skipped",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npm run lint",
+      "exit_code": null,
+      "name": "frontend-lint",
+      "output_path": "Manager-bootstrap commit changes no frontend file. Each sub-agent PR runs frontend-lint as it lands.",
+      "status": "skipped",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npm run format:check",
+      "exit_code": null,
+      "name": "frontend-format",
+      "output_path": "Manager-bootstrap commit changes no frontend file.",
+      "status": "skipped",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npm run typecheck",
+      "exit_code": null,
+      "name": "frontend-typecheck",
+      "output_path": "Manager-bootstrap commit changes no frontend file.",
+      "status": "skipped",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npm test",
+      "exit_code": null,
+      "name": "frontend-test",
+      "output_path": "Manager-bootstrap commit changes no frontend file.",
+      "status": "skipped",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npm run build",
+      "exit_code": null,
+      "name": "frontend-build",
+      "output_path": "Manager-bootstrap commit changes no frontend file.",
+      "status": "skipped",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1426-frontend-cleanup-1412-manager.json",
+    "shas": [
+      "92bb4b8da19bb348772a586d07950b4a22ea0577"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -25,7 +111,16 @@
       "rationale": "no contract or schema change."
     }
   },
-  "full_audit": null,
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
   "governance_touch": false,
   "issues": [
     {
@@ -43,7 +138,22 @@
     "docs/audit/2026-05-22-frontend-cleanup-1412-with-context.md",
     "frontend/eslint.config.js"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1413,
+      1414,
+      1415,
+      1416,
+      1417,
+      1419,
+      1420,
+      1421,
+      1422,
+      1426
+    ],
+    "number": 1428,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1428"
+  },
   "record_path": ".workflow/records/1426-frontend-cleanup-1412-manager.json",
   "required_checks": [
     "ruff,format,pytest,full_audit,sentrux,frontend-lint,frontend-format,frontend-typecheck,frontend-test,frontend-build"
@@ -60,7 +170,19 @@
       "frontend/eslint.config.js"
     ]
   },
-  "sentrux": null,
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules + health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "scan: files=1163, lines=300753, quality_signal=4442. check_rules: pass (3/3, 0 violations). health: bottleneck=acyclicity (acyc=3 \u2192 score 2500), modularity=0.177, redundancy=0.085, equality=0.435, depth=19.",
+    "pro_required": false,
+    "quality_signal": 4442.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
   "stages": [
     {
       "completed_at": null,
@@ -77,7 +199,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
@@ -89,13 +211,13 @@
     {
       "completed_at": null,
       "stage": "test_and_checks",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
