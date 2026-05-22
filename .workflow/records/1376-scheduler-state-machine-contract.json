@@ -92,8 +92,8 @@
     {
       "close_in_pr": true,
       "followup_rationale": null,
-      "number": 1376,
-      "url": null
+      "number": 1449,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1449"
     }
   ],
   "owner_directive": "Add complete scheduler state-machine table coverage before god-file refactors; tests only, do not modify product code.",
@@ -102,7 +102,9 @@
     ".workflow/records/1376-scheduler-state-machine-contract.json"
   ],
   "pull_request": {
-    "body_closes_issues": [],
+    "body_closes_issues": [
+      1449
+    ],
     "number": 1448,
     "url": "https://github.com/zjzcpj/SciStudio/pull/1448"
   },
