@@ -229,6 +229,6 @@ assigned track rows above.
 | Date | Agent | Tool ID | Status | Notes |
 |---|---|---|---|---|
 | 2026-05-22 | A1 / Galileo | `019e4dd1-232e-7ec3-8348-c444808bbadc` | `[~]` | Backend workflow versioning dispatched to `feat/issue-1401/adr-045-backend-versioning`. |
-| 2026-05-22 | A2 / Linnaeus | `019e4dd1-2401-7ec0-9752-d5849a342f5b` | `[~]` | Backend file-tab versioning dispatched to `feat/issue-1401/adr-045-file-tabs`. |
-| 2026-05-22 | A3 / Godel | `019e4dd1-24fb-7d43-af13-37dd74fd67f1` | `[~]` | Frontend reconcile dispatched to `feat/issue-1401/adr-045-frontend-reconcile`. |
+| 2026-05-22 | A2 / Linnaeus | `019e4dd1-2401-7ec0-9752-d5849a342f5b` | `[!]` | Blocked on A1 runtime/event helper contract; no files changed, no PR opened. |
+| 2026-05-22 | A3 / Godel | `019e4dd1-24fb-7d43-af13-37dd74fd67f1` | `[!]` | Blocked on missing backend event/response contracts from A1/A2; no files changed, no PR opened. |
 | 2026-05-22 | A4 / audit | pending | `[ ]` | Held until A1-A3 PRs or commits exist; prompt prepared at `docs/planning/dispatch-prompts/adr-045-a4-audit-with-context.md`. |
