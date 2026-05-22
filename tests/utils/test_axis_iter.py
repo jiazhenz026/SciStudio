@@ -18,6 +18,7 @@ import pytest
 from pydantic import BaseModel, ConfigDict
 
 from scistudio.core.meta import FrameworkMeta
+from scistudio.core.storage.ref import StorageReference
 from scistudio.core.types.array import Array
 from scistudio.utils.axis_iter import iterate_over_axes
 from scistudio.utils.broadcast import BroadcastError
@@ -58,6 +59,32 @@ def _make_array(
     )
     arr._data = data  # type: ignore[attr-defined]
     return arr
+
+
+def _make_zarr_array(tmp_path: Any, axes: list[str], data: np.ndarray, *, chunks: tuple[int, ...]) -> Array:
+    zarr = pytest.importorskip("zarr")
+
+    zarr_path = tmp_path / "source.zarr"
+    writer = zarr.open_array(
+        str(zarr_path),
+        mode="w",
+        shape=data.shape,
+        chunks=chunks,
+        dtype=data.dtype,
+    )
+    writer[:] = data
+    ref = StorageReference(
+        backend="zarr",
+        path=str(zarr_path),
+        metadata={"shape": list(data.shape), "dtype": str(data.dtype)},
+    )
+    return Array(
+        axes=axes,
+        shape=data.shape,
+        dtype=data.dtype,
+        chunk_shape=chunks,
+        storage_ref=ref,
+    )
 
 
 class _SubclassArray(Array):
@@ -198,6 +225,48 @@ def test_iterate_over_axes_coord_dict_correct() -> None:
 
     expected = [{"t": t, "c": c} for t in range(2) for c in range(3)]
     assert coords_seen == expected
+
+
+def test_iterate_over_axes_zarr_reads_per_slice_without_source_to_memory(
+    tmp_path: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Zarr-backed sources use partial reads instead of full materialisation."""
+    data = np.arange(2 * 3 * 4 * 5, dtype=np.float32).reshape(2, 3, 4, 5)
+    src = _make_zarr_array(tmp_path, ["t", "z", "y", "x"], data, chunks=(1, 1, 4, 5))
+
+    def fail_source_to_memory() -> np.ndarray:
+        raise AssertionError("source.to_memory() must not be called for Zarr-backed iterate_over_axes")
+
+    monkeypatch.setattr(src, "to_memory", fail_source_to_memory)
+
+    from scistudio.core.storage.zarr_backend import ZarrBackend
+
+    original_slice = ZarrBackend.slice
+    slice_calls: list[tuple[Any, ...]] = []
+
+    def spy_slice(self: ZarrBackend, ref: StorageReference, *args: Any) -> Any:
+        slice_calls.append(args)
+        return original_slice(self, ref, *args)
+
+    monkeypatch.setattr(ZarrBackend, "slice", spy_slice)
+
+    seen_coords: list[dict[str, int]] = []
+
+    def double(slice_data: np.ndarray, coord: dict[str, int]) -> np.ndarray:
+        seen_coords.append(dict(coord))
+        assert slice_data.shape == (4, 5)
+        return slice_data * 2
+
+    result = iterate_over_axes(src, {"y", "x"}, double)
+
+    assert seen_coords == [{"t": t, "z": z} for t in range(2) for z in range(3)]
+    assert len(slice_calls) == 6
+    assert all(call[0] in {0, 1} and call[1] in {0, 1, 2} for call in slice_calls)
+    assert all(call[2:] == (slice(None), slice(None)) for call in slice_calls)
+    assert result.storage_ref is not None
+    assert result.storage_ref.backend == "zarr"
+    np.testing.assert_array_equal(np.asarray(result), data * 2)
 
 
 # ---------------------------------------------------------------------------
