@@ -6,6 +6,26 @@
       "exclude": [],
       "include": [],
       "reason": "ADR-045 drafted with frontmatter + 7 sections including problem matrix, contract decision, scope, consequences with unlock matrix, alternatives, open questions; CHANGELOG entry added; no scope change vs original include set"
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/adr/ADR-041.md",
+        "docs/adr/ADR-043.md",
+        "docs/adr/ADR-044.md"
+      ],
+      "reason": "Owner identified is_code_implementation shortcut + ADR-041/043 implemented-phase status drift. Adding ADR-041, 043, 044 frontmatter alignment to this PR (was: ADR-045 only)."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/specs/adr-041-codeblock-v2.md",
+        "docs/specs/adr-043-io-format-capability-registry.md",
+        "docs/specs/adr-043-package-migration.md"
+      ],
+      "reason": "Need to bump spec status Draft \u2192 Implemented for ADR-041/043 to satisfy doc-drift.adr-without-implementation-spec rule"
     }
   ],
   "branch": "docs/issue-1401/adr-045-workflow-state-version",
