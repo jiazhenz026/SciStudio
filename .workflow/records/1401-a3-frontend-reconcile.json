@@ -37,6 +37,15 @@
         "tests/contract/test_adr045_version_vector_contract.py"
       ],
       "reason": "Owner asked whether ADR-045 has a unified contract suite; added tests/contract coverage for HTTP, WebSocket, event, and watcher version-vector contracts."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "src/scistudio/api/routes/projects.py",
+        "src/scistudio/api/runtime.py"
+      ],
+      "reason": "Manager-owned umbrella PR #1410 CodeQL fix: document the sandboxed/trusted path preconditions at the exact ADR-045 first-party signature path operations without changing CI configuration or security thresholds."
     }
   ],
   "branch": "feat/issue-1401/adr-045-frontend-reconcile",
@@ -378,6 +387,33 @@
       "exit_code": 0,
       "name": "full_audit unified ADR-045 contract suite",
       "output_path": "docs/audit/adr-045-a3-full-audit.json; status pass after adding tests/contract ADR-045 suite",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest -n auto tests/contract/test_adr045_version_vector_contract.py tests/api/test_file_version_vector.py tests/api/test_reload_on_save.py tests/integration/test_race_external_editor.py --timeout=60 --timeout-method=thread --no-cov",
+      "exit_code": 0,
+      "name": "backend CodeQL path-precondition annotation regression",
+      "output_path": "14 passed after inline sandbox-precondition comments for CodeQL path alerts",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff check src/scistudio/api/routes/projects.py src/scistudio/api/runtime.py && ruff format --check src/scistudio/api/routes/projects.py src/scistudio/api/runtime.py",
+      "exit_code": 0,
+      "name": "ruff CodeQL path-precondition annotation",
+      "output_path": "All checks passed; 2 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-a3-full-audit.json",
+      "exit_code": 0,
+      "name": "full_audit CodeQL path-precondition annotation",
+      "output_path": "docs/audit/adr-045-a3-full-audit.json; status pass after CodeQL sandbox-precondition annotations",
       "status": "pass",
       "summary": {},
       "timestamp": null

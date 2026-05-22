@@ -2,7 +2,7 @@
   "tool": "full_audit",
   "status": "pass",
   "generated_at": "1970-01-01T00:00:00Z",
-  "source_sha": "a4ab0cbf119eb20f7db5c30399d0b5161e451f903015ec08b9e10ab43688e2ee",
+  "source_sha": "99fa533d727d1468d1cd57d5c81bad392fd697c1854373992a13311d82e1af11",
   "findings": [],
   "summary": {
     "implemented_children": [
@@ -22,7 +22,7 @@
       "tool": "generate_facts",
       "status": "pass",
       "generated_at": "1970-01-01T00:00:00Z",
-      "source_sha": "a4ab0cbf119eb20f7db5c30399d0b5161e451f903015ec08b9e10ab43688e2ee",
+      "source_sha": "99fa533d727d1468d1cd57d5c81bad392fd697c1854373992a13311d82e1af11",
       "findings": [],
       "summary": {
         "facts_path": "docs/facts/generated.yaml",
@@ -91,11 +91,11 @@
     {
       "tool": "frontmatter_lint",
       "status": "pass",
-      "generated_at": "2026-05-22T20:19:37.066846Z",
+      "generated_at": "2026-05-22T20:31:02.080117Z",
       "source_sha": "",
       "findings": [],
       "summary": {
-        "repo_root": "C:/Users/jiazh/Desktop/workspace/SciStudio/.claude/worktrees/adr-045-a3-frontend-reconcile",
+        "repo_root": "C:/Users/jiazh/Desktop/workspace/SciStudio/.claude/worktrees/manager-adr-045-1407",
         "findings": 0
       },
       "child_reports": []
@@ -103,8 +103,8 @@
     {
       "tool": "fact_drift",
       "status": "pass",
-      "generated_at": "2026-05-22T20:19:38.148107Z",
-      "source_sha": "a4ab0cbf119eb20f7db5c30399d0b5161e451f903015ec08b9e10ab43688e2ee",
+      "generated_at": "2026-05-22T20:31:03.207894Z",
+      "source_sha": "99fa533d727d1468d1cd57d5c81bad392fd697c1854373992a13311d82e1af11",
       "findings": [],
       "summary": {
         "docs_checked": 194,
@@ -115,8 +115,8 @@
     {
       "tool": "doc_drift",
       "status": "pass",
-      "generated_at": "2026-05-22T20:19:39.651632Z",
-      "source_sha": "a4ab0cbf119eb20f7db5c30399d0b5161e451f903015ec08b9e10ab43688e2ee",
+      "generated_at": "2026-05-22T20:31:04.669934Z",
+      "source_sha": "99fa533d727d1468d1cd57d5c81bad392fd697c1854373992a13311d82e1af11",
       "findings": [],
       "summary": {
         "governed_docs_checked": 64,
@@ -132,8 +132,8 @@
     {
       "tool": "closure",
       "status": "pass",
-      "generated_at": "2026-05-22T20:19:40.731452Z",
-      "source_sha": "a4ab0cbf119eb20f7db5c30399d0b5161e451f903015ec08b9e10ab43688e2ee",
+      "generated_at": "2026-05-22T20:31:05.674890Z",
+      "source_sha": "99fa533d727d1468d1cd57d5c81bad392fd697c1854373992a13311d82e1af11",
       "findings": [],
       "summary": {
         "governed_docs_checked": 64,
@@ -148,8 +148,8 @@
     {
       "tool": "signature_drift",
       "status": "pass",
-      "generated_at": "2026-05-22T20:19:40.734617Z",
-      "source_sha": "a4ab0cbf119eb20f7db5c30399d0b5161e451f903015ec08b9e10ab43688e2ee",
+      "generated_at": "2026-05-22T20:31:05.677951Z",
+      "source_sha": "99fa533d727d1468d1cd57d5c81bad392fd697c1854373992a13311d82e1af11",
       "findings": [],
       "summary": {
         "expected_signatures_checked": 188,
@@ -163,11 +163,11 @@
     {
       "tool": "architecture_drift",
       "status": "pass",
-      "generated_at": "2026-05-22T20:19:40.742716Z",
-      "source_sha": "a4ab0cbf119eb20f7db5c30399d0b5161e451f903015ec08b9e10ab43688e2ee",
+      "generated_at": "2026-05-22T20:31:05.685898Z",
+      "source_sha": "99fa533d727d1468d1cd57d5c81bad392fd697c1854373992a13311d82e1af11",
       "findings": [],
       "summary": {
-        "architecture_path": "C:/Users/jiazh/Desktop/workspace/SciStudio/.claude/worktrees/adr-045-a3-frontend-reconcile/docs/architecture/ARCHITECTURE.md",
+        "architecture_path": "C:/Users/jiazh/Desktop/workspace/SciStudio/.claude/worktrees/manager-adr-045-1407/docs/architecture/ARCHITECTURE.md",
         "symbols_available": 2360,
         "fences_checked": 6,
         "fences_skipped": 1,
@@ -178,7 +178,7 @@
     {
       "tool": "vulture",
       "status": "pass",
-      "generated_at": "2026-05-22T20:19:41.364608Z",
+      "generated_at": "2026-05-22T20:31:06.312619Z",
       "source_sha": "",
       "findings": [
         {

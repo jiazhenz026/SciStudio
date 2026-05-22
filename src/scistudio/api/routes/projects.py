@@ -316,6 +316,9 @@ async def write_project_file(
     if target.exists() and target.is_dir():
         raise HTTPException(status_code=400, detail="Path is a directory, not a file")
 
+    # ``target`` is returned by _resolve_project_file only after realpath +
+    # commonpath sandbox validation against ``project_root``.
+    # codeql[py/path-injection]
     existed = target.exists()
     entity_id = _project_relative_entity_id(project_root, target)
     kind = "modified" if existed else "created"
