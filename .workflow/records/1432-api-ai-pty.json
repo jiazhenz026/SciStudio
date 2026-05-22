@@ -51,7 +51,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1432-api-ai-pty.json",
+    "shas": [
+      "2d52f98ef088ab65f6951738c0ccfc5931466c30"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -107,7 +113,13 @@
     "tests/api/routes/test_ai_pty_internal_routes.py",
     "scripts/check_god_files.py"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1432
+    ],
+    "number": 1444,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1444"
+  },
   "record_path": ".workflow/records/1432-api-ai-pty.json",
   "required_checks": [
     "ruff",
@@ -173,7 +185,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
