@@ -121,7 +121,7 @@
   "commit": {
     "gate_record_path": ".workflow/records/1407-adr-045-manager-1407-drift.json",
     "shas": [
-      "8012258645aca56ec0245374ae56cac20e5884f5"
+      "cca1d0df"
     ],
     "trailers": {}
   },
