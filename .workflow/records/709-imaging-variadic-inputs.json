@@ -41,7 +41,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/709-imaging-variadic-inputs.json",
+    "shas": [
+      "11c74a408ac9ba69b09740632f304f0b88aec067"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -75,7 +81,13 @@
     "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/fiji_block.py",
     "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/napari_block.py"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      709
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1439"
+  },
   "record_path": ".workflow/records/709-imaging-variadic-inputs.json",
   "required_checks": [
     "ruff",
@@ -150,7 +162,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
