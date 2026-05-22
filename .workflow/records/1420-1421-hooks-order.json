@@ -1,6 +1,15 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/planning/frontend-cleanup-1412-checklist.md"
+      ],
+      "reason": "Add manager checklist \u00a77.1 row updates per dispatch prompt requirement (W1-impl finishes by editing only its own checklist rows)"
+    }
+  ],
   "branch": "fix/issue-1420-1421/hooks-order",
   "changed_test_paths": [
     "frontend/src/components/nodes/BlockNode.test.tsx",

@@ -98,7 +98,7 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| W1-impl | implementer | N/A | inline (see §7.1) | Fix #1420 (BlockNode hooks) + #1421 (App.tsx exhaustive-deps) | `fix/issue-1420-1421/hooks-order` | `.claude/worktrees/w1-hooks` | `frontend/src/components/nodes/BlockNode.tsx`, `frontend/src/App.tsx`, `frontend/eslint.config.js`, related tests | other waivers, other components | `#1420`, `#1421` | `[ ]` |
+| W1-impl | implementer | N/A | inline (see §7.1) | Fix #1420 (BlockNode hooks) + #1421 (App.tsx exhaustive-deps) | `fix/issue-1420-1421/hooks-order` | `.claude/worktrees/w1-hooks` | `frontend/src/components/nodes/BlockNode.tsx`, `frontend/src/App.tsx`, `frontend/eslint.config.js`, related tests | other waivers, other components | `#1420`, `#1421` → PR #1435 | `[x]` |
 | W2-A-impl | implementer | N/A | inline (see §7.2) | Split #1422 god files: App.tsx + BlockNode.tsx | `refactor/issue-1422/god-app-blocknode` | `.claude/worktrees/w2a-app-blocknode` | `frontend/src/App.tsx`, `frontend/src/components/nodes/BlockNode.tsx` (+ new sibling files), `frontend/eslint.config.js` | other god files | `#1422` (partial) | `[ ]` |
 | W2-B-impl | implementer | N/A | inline (see §7.2) | Split #1422 god files: DataPreview.tsx + BottomPanel.tsx | `refactor/issue-1422/god-datapreview-bottompanel` | `.claude/worktrees/w2b-datapreview-bottompanel` | `frontend/src/components/DataPreview.tsx`, `frontend/src/components/BottomPanel.tsx` (+ test + new sibling files), `frontend/eslint.config.js` | other god files | `#1422` (partial) | `[ ]` |
 | W2-C-impl | implementer | N/A | inline (see §7.2) | Split #1422 god files: RunDetail.tsx + lib/api.ts + ConflictMarkerDecoration.ts | `refactor/issue-1422/god-rundetail-api-conflict` | `.claude/worktrees/w2c-rundetail-api-conflict` | `frontend/src/components/Lineage/RunDetail.tsx`, `frontend/src/lib/api.ts`, `frontend/src/components/Git/ConflictMarkerDecoration.ts` (+ new sibling files), `frontend/eslint.config.js` | other god files | `#1422` (partial) | `[ ]` |
@@ -131,22 +131,22 @@ language_source: en
 
 #### 7.1.2 Dispatch
 
-- [ ] Prompt file created or dispatch prompt recorded. → inline below
-- [ ] Correct prompt template selected. → `agent-dispatch-prompt-template.md`
-- [ ] Audit mode recorded when persona is `audit_reviewer`. → N/A (implementer)
-- [ ] Agent branch/worktree assigned. → `fix/issue-1420-1421/hooks-order` at `.claude/worktrees/w1-hooks`
-- [ ] Write set and out-of-scope paths included in prompt.
-- [ ] TODO rule included in prompt.
-- [ ] Required checks included in prompt.
+- [x] Prompt file created or dispatch prompt recorded. → inline (manager dispatch turn 2026-05-22)
+- [x] Correct prompt template selected. → `agent-dispatch-prompt-template.md`
+- [x] Audit mode recorded when persona is `audit_reviewer`. → N/A (implementer)
+- [x] Agent branch/worktree assigned. → `fix/issue-1420-1421/hooks-order` at `.claude/worktrees/w1-hooks`
+- [x] Write set and out-of-scope paths included in prompt.
+- [x] TODO rule included in prompt.
+- [x] Required checks included in prompt.
 
 #### 7.1.3 Implementation
 
-- [ ] BlockNode.tsx hook order corrected → `<PR/commit>`
-- [ ] App.tsx exhaustive-deps resolved (fix or documented disable) → `<PR/commit>`
-- [ ] Waivers removed from eslint.config.js (rules-of-hooks, exhaustive-deps blocks) → `<PR/commit>`
-- [ ] Tests added/updated → `<PR/commit>`
-- [ ] Chrome smoke test passed → `<screenshot/notes>`
-- [ ] `npm run lint` passes on changed files with zero waivers for these rules → `<command output>`
+- [x] BlockNode.tsx hook order corrected → PR #1435, commit `df712cba` (extract `InlineTextInputField` sub-component)
+- [x] App.tsx exhaustive-deps resolved (fix or documented disable) → PR #1435, commit `df712cba` (decision matrix in PR body §"Per-site decision matrix")
+- [x] Waivers removed from eslint.config.js (rules-of-hooks, exhaustive-deps blocks) → PR #1435, commit `df712cba`
+- [x] Tests added/updated → PR #1435, commit `df712cba` (3 new `BlockNode.test.tsx` cases + 2 updated `eslint-config.test.ts` guards now positive)
+- [x] Chrome smoke test passed → dev server at `:5173`, app mounts cleanly, no rules-of-hooks console error. Screenshot: `docs/audit/smoke-test-1420-1421-20260522-144412.png` (local-only, not committed). Vite procs killed after.
+- [x] `npm run lint` passes on changed files with zero waivers for these rules → 0 errors (47 unchanged pre-existing warnings); `npm test` 481/494 pass; `npm run typecheck` / `format:check` / `build` all clean.
 
 #### 7.1.4 Audit
 
