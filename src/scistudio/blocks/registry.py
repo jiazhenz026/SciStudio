@@ -317,13 +317,14 @@ class BlockRegistry:
         """Register built-in core blocks used by the API/frontend.
 
         Only concrete, user-facing blocks are registered here.  Base
-        classes (AppBlock, CodeBlock, IOBlock) and non-functional process
+        classes (AppBlock, IOBlock) and non-functional process
         placeholders (Merge, Split, …) are excluded from the palette so
         end users see only the blocks they can actually use.  The
         excluded classes remain importable for plugin development and
         tests.
         """
         from scistudio.blocks.ai.ai_block import AIBlock
+        from scistudio.blocks.code.code_block import CodeBlock
         from scistudio.blocks.io.loaders.load_data import LoadData
         from scistudio.blocks.io.savers.save_data import SaveData
         from scistudio.blocks.subworkflow.subworkflow_block import SubWorkflowBlock
@@ -331,6 +332,7 @@ class BlockRegistry:
         for cls in (
             LoadData,
             SaveData,
+            CodeBlock,
             AIBlock,
             SubWorkflowBlock,
         ):

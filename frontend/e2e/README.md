@@ -47,6 +47,20 @@ load image -> threshold -> save mask
 The fixture uses real project paths and real workflow YAML. It intentionally
 does not patch frontend state or mock product APIs.
 
+`e2e/fixtures/codeblockWorkflows.ts` covers the CodeBlock v2 script-format
+matrix with minimal `LoadData -> CodeBlock -> SaveData` workflows. The current
+registered script extensions are:
+
+```text
+.py, .ipynb, .R, .Rmd, .qmd, .sh, .m, .mlx
+```
+
+Python is expected to execute in the base environment. Optional external
+runtimes such as Jupyter nbconvert, R/R Markdown, Quarto, POSIX shell, MATLAB,
+or Octave are detected by the test at runtime. When a runtime is absent, the
+scenario asserts that the workflow fails on the CodeBlock with a clear missing
+runtime diagnostic instead of treating the machine setup as a malformed test.
+
 ## Failure Classification
 
 Discovery failures should be classified before fixing:

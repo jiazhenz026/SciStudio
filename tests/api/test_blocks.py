@@ -49,6 +49,23 @@ def test_list_blocks_and_schema_alias_endpoints(client: TestClient) -> None:
     assert alias.json() == schema_payload
 
 
+def test_code_block_builtin_schema_is_registered(client: TestClient) -> None:
+    """The concrete CodeBlock runtime must be visible to workflows and the UI."""
+    response = client.get("/api/blocks/")
+    assert response.status_code == 200
+    blocks = response.json()["blocks"]
+    assert any(block["type_name"] == "code_block" for block in blocks)
+
+    schema = client.get("/api/blocks/code_block/schema")
+    assert schema.status_code == 200
+    payload = schema.json()
+    assert payload["name"] == "Code Block"
+    assert payload["type_name"] == "code_block"
+    assert payload["base_category"] == "code"
+    assert payload["config_schema"]["required"] == ["script_path"]
+    assert "script_path" in payload["config_schema"]["properties"]
+
+
 def test_validate_connection_endpoint_uses_registry_type_information(client: TestClient) -> None:
     """Connection validation should accept compatible ports and reject mismatches."""
     compatible = client.post(

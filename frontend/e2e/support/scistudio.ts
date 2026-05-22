@@ -13,6 +13,7 @@ import {
 
 type Project = { id: string; name: string; path: string; current_workflow_id?: string | null };
 type WorkflowShape = E2EWorkflow["workflow"];
+type WorkflowWaitOptions = { expectedStatus?: string | RegExp; timeoutMs?: number };
 
 type StudioFixture = ReturnType<typeof createStudio>;
 
@@ -157,12 +158,12 @@ function createStudio(page: Page, request: APIRequestContext) {
     return { workflowId, nodes, edges };
   }
 
-  async function runWorkflowAndWait(workflowId: string, options: { expectedStatus?: string } = {}) {
+  async function runWorkflowAndWait(workflowId: string, options: WorkflowWaitOptions = {}) {
     await page.getByRole("button", { name: /^Run$/i }).click();
-    return waitForWorkflowStatus(workflowId, options.expectedStatus ?? "completed");
+    return waitForWorkflowStatus(workflowId, options.expectedStatus ?? "completed", options.timeoutMs);
   }
 
-  async function waitForWorkflowStatus(workflowOrRunId: string, expectedStatus: string | RegExp) {
+  async function waitForWorkflowStatus(workflowOrRunId: string, expectedStatus: string | RegExp, timeoutMs?: number) {
     let latestRun: { runId: string; status: string; workflow_id?: string } = {
       runId: "",
       status: "unknown",
@@ -171,7 +172,7 @@ function createStudio(page: Page, request: APIRequestContext) {
       .poll(async () => {
         latestRun = await getRunStatus(workflowOrRunId);
         return latestRun.status;
-      })
+      }, timeoutMs === undefined ? undefined : { timeout: timeoutMs })
       .toMatch(expectedStatus instanceof RegExp ? expectedStatus : new RegExp(`^${escapeRegex(expectedStatus)}$`));
     return latestRun;
   }

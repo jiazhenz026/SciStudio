@@ -1,0 +1,244 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "src/scistudio/blocks/registry.py",
+        "tests/api/test_blocks.py"
+      ],
+      "reason": "CodeBlock format E2E exposed that the concrete code_block runtime is not registered, preventing every Load-Code-Save scenario from reaching the format backend."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "frontend/e2e/support/scistudio.ts"
+      ],
+      "reason": "CodeBlock notebook and shell E2E needed support-helper timeout and backend-aligned runtime detection after registry execution reached real format backends."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/audit/2026-05-22-1384-codeblock-e2e-full-audit.json"
+      ],
+      "reason": "Add committed ADR-042 full audit report required by PR readiness preflight."
+    }
+  ],
+  "branch": "track/issue-1384-codeblock-e2e",
+  "changed_test_paths": [
+    "tests/api/test_blocks.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "cd frontend; npm run test:e2e -- --list",
+      "exit_code": 0,
+      "name": "frontend-e2e-list",
+      "output_path": "Listed 37 Playwright tests, including 8 CodeBlock format cases.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend; SCISTUDIO_E2E_BACKEND_PORT=8138 SCISTUDIO_E2E_FRONTEND_PORT=5208 npm run test:e2e -- --grep @codeblock",
+      "exit_code": 0,
+      "name": "frontend-e2e-codeblock",
+      "output_path": "8 passed: .py, .ipynb, .R, .Rmd, .qmd, .sh, .m, .mlx Load-Code-Save matrix.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/api/test_blocks.py::test_code_block_builtin_schema_is_registered -q --no-cov",
+      "exit_code": 0,
+      "name": "pytest-codeblock-schema",
+      "output_path": "1 passed.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff check src/scistudio/blocks/registry.py tests/api/test_blocks.py",
+      "exit_code": 0,
+      "name": "ruff-check",
+      "output_path": "All checks passed; ruff cache write warning only.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check src/scistudio/blocks/registry.py tests/api/test_blocks.py",
+      "exit_code": 0,
+      "name": "ruff-format-check",
+      "output_path": "2 files already formatted.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend; npm run build",
+      "exit_code": 0,
+      "name": "npm-build",
+      "output_path": "tsc -b and vite build passed; existing large chunk warning emitted.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "git diff --check",
+      "exit_code": 0,
+      "name": "git-diff-check",
+      "output_path": "No whitespace errors.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "sentrux MCP/CLI unavailable in this session",
+      "exit_code": 0,
+      "name": "sentrux-skipped",
+      "output_path": "Sentrux unavailable locally; recorded skipped evidence.",
+      "status": "skipped",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.governance.gate_record pre-commit --staged",
+      "exit_code": 0,
+      "name": "gate-record-precommit",
+      "output_path": "gate_record: pass",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "No ADR update: this adds E2E coverage and registers the existing concrete CodeBlock runtime; it does not change the ADR-041 project-local script contract."
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "No changelog entry: test coverage and bug-regression fix only."
+    },
+    "checklist": {},
+    "docs": {
+      "paths": [
+        "frontend/e2e/README.md"
+      ]
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "No spec update: CodeBlock public contract and workflow schema are unchanged."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/2026-05-22-1384-codeblock-e2e-full-audit.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/2026-05-22-1384-codeblock-e2e-full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1384,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1384"
+    }
+  ],
+  "owner_directive": "Add CodeBlock Load-Code-Save Playwright E2E coverage for every supported CodeBlock script format.",
+  "planned_files": [
+    "frontend/e2e/fixtures/codeblockWorkflows.ts",
+    "frontend/e2e/specs/codeblock/codeblock-formats.spec.ts",
+    "frontend/e2e/support/scistudio.ts",
+    "frontend/e2e/README.md",
+    "src/scistudio/blocks/registry.py",
+    "tests/api/test_blocks.py",
+    "docs/audit/2026-05-22-1384-codeblock-e2e-full-audit.json"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1384-codeblock-e2e.json",
+  "required_checks": [
+    "frontend-e2e-list",
+    "frontend-e2e-codeblock",
+    "pytest-codeblock-schema",
+    "ruff-check",
+    "ruff-format-check",
+    "npm-build",
+    "git-diff-check",
+    "full_audit",
+    "sentrux-skipped",
+    "gate-record-precommit"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      ".audit/full-audit.json"
+    ],
+    "include": [
+      "frontend/e2e/**",
+      ".workflow/records/1384-codeblock-e2e.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux MCP/CLI unavailable in this session",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "Sentrux tool is not installed/exposed in this Codex environment; CI remains authoritative.",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": 0,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 0
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1384-codeblock-e2e",
+  "task_kind": "maintenance"
+}
