@@ -44,7 +44,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1465-adr-046-047-drafts.json",
+    "shas": [
+      "0cc79061631d510d9d685d119fcb656b8463c557"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "changelog:N/A docs-only PR; status": {
@@ -91,7 +97,13 @@
     "docs/adr/ADR-047.md",
     ".workflow/records/1465-adr-046-047-drafts.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1465
+    ],
+    "number": 1468,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1468"
+  },
   "record_path": ".workflow/records/1465-adr-046-047-drafts.json",
   "required_checks": [
     "ruff",
@@ -155,7 +167,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
