@@ -152,4 +152,50 @@ describe("tabSlice ADR-045 file version state", () => {
     expect(tab.baseVersion).toBe(6);
     expect(tab.pendingVersion).toBeGreaterThan(6);
   });
+
+  it("records a clean remote file delete without marking the tab dirty", () => {
+    useAppStore.setState({ tabs: [fileTab({ dirty: false, baseVersion: 5, pendingVersion: 5 })] });
+
+    useAppStore.getState().markFileRemoteConflict("file:notes.md", {
+      entityClass: "file",
+      entityId: "notes.md",
+      kind: "deleted",
+      source: "external",
+      sourceId: null,
+      baseVersion: 5,
+      pendingVersion: 5,
+      remoteVersion: 6,
+      detectedAt: "2026-05-22T00:00:00Z",
+      message: "File 'notes.md' was deleted remotely; local tab content was left unchanged.",
+    });
+
+    const tab = useAppStore.getState().tabs[0];
+    if (tab.kind !== "file") throw new Error("expected file tab");
+    expect(tab.dirty).toBe(false);
+    expect(tab.conflict?.kind).toBe("deleted");
+    expect(tab.content).toBe("local\n");
+  });
+
+  it("records a dirty remote file delete as a conflict while preserving local content", () => {
+    useAppStore.setState({ tabs: [fileTab({ dirty: true, baseVersion: 5, pendingVersion: 6 })] });
+
+    useAppStore.getState().markFileRemoteConflict("file:notes.md", {
+      entityClass: "file",
+      entityId: "notes.md",
+      kind: "deleted",
+      source: "external",
+      sourceId: null,
+      baseVersion: 5,
+      pendingVersion: 6,
+      remoteVersion: 7,
+      detectedAt: "2026-05-22T00:00:00Z",
+      message: "File 'notes.md' was deleted remotely; local edits were preserved.",
+    });
+
+    const tab = useAppStore.getState().tabs[0];
+    if (tab.kind !== "file") throw new Error("expected file tab");
+    expect(tab.dirty).toBe(true);
+    expect(tab.conflict?.remoteVersion).toBe(7);
+    expect(tab.content).toBe("local\n");
+  });
 });

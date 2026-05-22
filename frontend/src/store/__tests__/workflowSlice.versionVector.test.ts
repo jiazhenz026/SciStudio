@@ -82,4 +82,33 @@ describe("workflowSlice ADR-045 version state", () => {
     expect(state.workflowDescription).toBe("newer local edit");
     expect(state.workflowPendingSourceId).toBeNull();
   });
+
+  it("successful save clears dirty while waiting for the websocket echo", () => {
+    useAppStore.getState().setWorkflow(workflow(10));
+    useAppStore.getState().setWorkflowDescription("saved edit");
+    useAppStore.getState().beginWorkflowSave("demo", "workflow-source-1");
+
+    useAppStore.getState().markWorkflowSaved();
+
+    const state = useAppStore.getState();
+    expect(state.workflowDirty).toBe(false);
+    expect(state.workflowBaseVersion).toBe(10);
+    expect(state.workflowPendingVersion).toBe(11);
+    expect(state.workflowPendingSourceId).toBe("workflow-source-1");
+  });
+
+  it("successful save preserves dirty state for edits made after the request started", () => {
+    useAppStore.getState().setWorkflow(workflow(10));
+    useAppStore.getState().setWorkflowDescription("sent edit");
+    useAppStore.getState().beginWorkflowSave("demo", "workflow-source-1");
+    useAppStore.getState().setWorkflowDescription("newer local edit");
+
+    useAppStore.getState().markWorkflowSaved();
+
+    const state = useAppStore.getState();
+    expect(state.workflowDirty).toBe(true);
+    expect(state.workflowBaseVersion).toBe(10);
+    expect(state.workflowPendingVersion).toBeGreaterThan(11);
+    expect(state.workflowPendingSourceId).toBe("workflow-source-1");
+  });
 });

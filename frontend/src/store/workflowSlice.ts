@@ -1,8 +1,9 @@
 import type { StateCreator } from "zustand";
 
+import { setWorkflowWriteStartedListener } from "../lib/api";
+import type { VersionedWorkflowResponse } from "../lib/api";
 import type { BlockSummary, WorkflowEdge, WorkflowNode } from "../types/api";
 import type { AppStore, WorkflowHistoryEntry, WorkflowSlice } from "./types";
-import type { VersionedWorkflowResponse } from "../lib/api";
 
 function snapshot(state: AppStore): WorkflowHistoryEntry {
   return {
@@ -23,10 +24,14 @@ function stateVersionOf(workflow: VersionedWorkflowResponse | null | undefined):
   return typeof workflow?.state_version === "number" ? workflow.state_version : null;
 }
 
-function nextPendingVersion(base: number | null, pending: number | null): number | null {
+function nextPendingVersion(
+  base: number | null,
+  pending: number | null,
+  saveInFlight: boolean,
+): number | null {
   if (base === null) return pending;
-  if (pending === null) return base + 1;
-  return Math.max(base + 1, pending + 1);
+  if (saveInFlight) return Math.max(base + 2, pending ?? base + 2);
+  return base + 1;
 }
 
 function markDirty(state: AppStore): Pick<
@@ -38,6 +43,7 @@ function markDirty(state: AppStore): Pick<
     workflowPendingVersion: nextPendingVersion(
       state.workflowBaseVersion,
       state.workflowPendingVersion,
+      state.workflowPendingSourceId !== null,
     ),
     workflowConflict: null,
   };
@@ -56,7 +62,12 @@ function mergeNodeConfig(node: WorkflowNode, config: Record<string, unknown>): W
   };
 }
 
-export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> = (set, get) => ({
+export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> = (set, get) => {
+  setWorkflowWriteStartedListener((workflowId, sourceId) => {
+    get().beginWorkflowSave(workflowId, sourceId);
+  });
+
+  return {
   workflowId: null,
   workflowName: "Untitled",
   workflowDescription: "",
@@ -196,7 +207,7 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
       if (
         state.workflowBaseVersion !== null &&
         state.workflowPendingVersion !== null &&
-        state.workflowPendingVersion > state.workflowBaseVersion
+        state.workflowPendingVersion > state.workflowBaseVersion + 1
       ) {
         return {};
       }
@@ -261,4 +272,5 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
       workflowFuture: state.workflowFuture.slice(0, -1),
     });
   },
-});
+  };
+};

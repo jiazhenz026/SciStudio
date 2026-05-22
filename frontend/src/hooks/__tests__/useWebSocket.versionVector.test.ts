@@ -395,6 +395,37 @@ describe("useWorkflowWebSocket ADR-045 reconcile", () => {
     expect(tab.dirty).toBe(false);
   });
 
+  it("records a clean file.changed delete conflict without marking the tab dirty", () => {
+    useAppStore.setState({
+      tabs: [fileTab({ dirty: false, baseVersion: 5, pendingVersion: 5 })],
+      activeTabId: "file:notes.md",
+    });
+    renderHook(() => useWorkflowWebSocket(true));
+
+    pushMessage({
+      type: "file.changed",
+      workflow_id: null,
+      timestamp: "2026-05-22T00:00:00Z",
+      data: {
+        entity_class: "file",
+        entity_id: "notes.md",
+        path: "notes.md",
+        version: 6,
+        source: "external",
+        source_id: null,
+        kind: "deleted",
+      },
+    });
+
+    expect(api.getProjectFile).not.toHaveBeenCalled();
+    const tab = useAppStore.getState().tabs[0];
+    if (tab.kind !== "file") throw new Error("expected file tab");
+    expect(tab.content).toBe("local\n");
+    expect(tab.dirty).toBe(false);
+    expect(tab.conflict?.kind).toBe("deleted");
+    expect(tab.conflict?.remoteVersion).toBe(6);
+  });
+
   it("records a dirty file conflict and preserves local file content", async () => {
     useAppStore.setState({
       tabs: [fileTab({ dirty: true, pendingVersion: 6 })],

@@ -80,6 +80,8 @@ export interface VersionedWriteOptions {
 }
 
 const pendingWorkflowSourceIds = new Map<string, Set<string>>();
+let workflowWriteStartedListener: ((workflowId: string, sourceId: string) => void) | null =
+  null;
 
 export function createClientSourceId(prefix: "workflow" | "file"): string {
   const randomUUID = globalThis.crypto?.randomUUID;
@@ -90,10 +92,17 @@ export function createClientSourceId(prefix: "workflow" | "file"): string {
   return `${prefix}-${token}`;
 }
 
+export function setWorkflowWriteStartedListener(
+  listener: ((workflowId: string, sourceId: string) => void) | null,
+): void {
+  workflowWriteStartedListener = listener;
+}
+
 function rememberPendingWorkflowSourceId(workflowId: string, sourceId: string): void {
   const existing = pendingWorkflowSourceIds.get(workflowId) ?? new Set<string>();
   existing.add(sourceId);
   pendingWorkflowSourceIds.set(workflowId, existing);
+  workflowWriteStartedListener?.(workflowId, sourceId);
 }
 
 export function consumePendingWorkflowSourceId(workflowId: string, sourceId: string | null): boolean {

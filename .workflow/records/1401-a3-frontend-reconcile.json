@@ -159,6 +159,51 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend; npm test -- src/hooks/__tests__/useWebSocket.versionVector.test.ts src/store/__tests__/workflowSlice.versionVector.test.ts src/store/__tests__/tabSlice.versionVector.test.ts src/store/__tests__/tabState.test.ts",
+      "exit_code": 0,
+      "name": "frontend vitest version vector latest",
+      "output_path": "4 files passed, 30 tests passed after save-source and clean-delete conflict regression fixes",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend; npm run build",
+      "exit_code": 0,
+      "name": "frontend build latest",
+      "output_path": "tsc -b and vite build passed; existing large chunk warning only",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-a3-full-audit.json",
+      "exit_code": 0,
+      "name": "full_audit latest",
+      "output_path": "docs/audit/adr-045-a3-full-audit.json; pass after latest A3 regression fixes",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-a3-full-audit.json",
+      "exit_code": 0,
+      "name": "full_audit latest checklist",
+      "output_path": "docs/audit/adr-045-a3-full-audit.json; pass after latest checklist update",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/integration/test_race_autosave.py tests/integration/test_race_lineage_restore.py tests/integration/test_race_agent_write.py tests/integration/test_race_external_editor.py tests/integration/test_race_multi_session.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "backend race matrix latest",
+      "output_path": "6 passed, 1 metadata-store deprecation warning on current A3 branch",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": {

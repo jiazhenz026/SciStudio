@@ -526,9 +526,14 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
     const state = get();
     const tab = state.tabs.find((t) => t.id === id);
     if (!tab || tab.kind !== "file") return;
+    const hasLocalEdits =
+      tab.dirty ||
+      (typeof tab.baseVersion === "number" &&
+        typeof tab.pendingVersion === "number" &&
+        tab.pendingVersion > tab.baseVersion);
     const next: FileTab = {
       ...tab,
-      dirty: true,
+      dirty: hasLocalEdits,
       conflict,
       loading: false,
     };
