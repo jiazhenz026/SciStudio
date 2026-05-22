@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-05-22T03:05:06+00:00",
+  "config": {
+    "root": "src/scistudio",
+    "model": "BAAI/bge-small-en-v1.5",
+    "threshold": 0.92,
+    "min_loc": 5
+  },
+  "current": {
+    "functions_scanned": 1253,
+    "clusters": 81,
+    "duplicate_loc": 4778,
+    "total_loc": 34939,
+    "duplicate_pct": 13.68,
+    "max_cluster_size": 10
+  },
+  "ratchet": {
+    "max_clusters": 85,
+    "max_duplicate_pct": 14.36,
+    "max_cluster_size": 10,
+    "max_duplicate_loc": 5016
+  },
+  "ratchet_policy": "Initial baseline allows ~5% headroom on count + LOC; max_cluster_size is set tight (no headroom) to prevent any cluster from growing. After fixing duplicates, re-run with --write-baseline to ratchet down."
+}
