@@ -11,7 +11,15 @@
 #   - #1341 (P3, blocked-by #1336) — add no_cycles import-linter contract.
 #   - #1342 (P3, tech-debt) — eliminate the lazy import added in
 #     backend_router.get_router by #1335's transitional surgical fix.
-max_cycles = 3
+# Raised to 5 on 2026-05-22 (umbrella #1427 Phase 3 ADR drafts, issue
+# #1465). Phase 1 PR #1444 introduced the ai_pty sub-package self-cycle
+# by design (audit P3#4 — lazy-lookup monkeypatch contract preserves
+# pre-refactor test seams). Phase 2 PR #1460's new io/savers + io/loaders
+# sub-packages expanded simple-cycle count inside the pre-existing
+# blocks.registry <-> ai.agent SCC. Refactor headroom lets Phase 3
+# implementer PRs land; ADR-047 registry decomposition will naturally
+# shrink the SCC. Ratchet back to 0 after #1336 + Phase 3 land.
+max_cycles = 5
 # Baseline raised 2026-05-20 to unblock PRs (#1291); ratchet back toward 75
 # after src/scistudio/workflow/validator.py:validate_workflow is split into
 # per-check helpers (followup: #1292).
