@@ -10,7 +10,9 @@ from types import ModuleType
 from unittest.mock import Mock
 
 import pytest
-from setuptools import Distribution
+
+setuptools = pytest.importorskip("setuptools")
+Distribution = setuptools.Distribution
 
 
 def _load_setup_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
