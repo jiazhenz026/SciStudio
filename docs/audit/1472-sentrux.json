@@ -1,0 +1,5 @@
+{
+  "scan": {"files": 1282, "import_edges": 2901, "lines": 319156, "quality_signal": 4232},
+  "check_rules": {"pass": true, "rules_checked": 3, "total_rules_defined": 15, "violation_count": 0, "violations": []},
+  "health": {"quality_signal": 4232, "bottleneck": "acyclicity", "cross_module_edges": 2082}
+}
