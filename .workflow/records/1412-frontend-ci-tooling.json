@@ -1,0 +1,176 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": "jiazhenz026",
+      "exclude": [],
+      "include": [
+        "frontend/src/**"
+      ],
+      "reason": "Prettier --write pass on existing frontend tree (102 files reformatted). Owner-approved scope expansion to make format:check pass on first CI run rather than file a followup 'format pass' issue. Pure whitespace/quote/semicolon changes, no semantics altered."
+    }
+  ],
+  "branch": "feat/frontend-ci-tooling",
+  "changed_test_paths": [
+    "frontend/src/__tests__/eslint-config.test.ts"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "662 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "pytest tests/qa/test_gate_record.py --no-cov --timeout=60",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "55 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "no-architecture-decision-config-tooling-only"
+    },
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "standalone-task-not-coordinated-dispatch"
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "no-user-facing-docs-needed-config-files-self-document"
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "no-public-contract-or-runtime-behavior-change"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1412,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1412"
+    }
+  ],
+  "owner_directive": "Configure basic frontend CI tooling (ESLint + Prettier + tsc typecheck). Strict rules globally; god files baselined via ESLint overrides with follow-up issues. Wire into existing CI frontend job. Per /remote-control session 2026-05-22.",
+  "planned_files": [
+    "frontend/eslint.config.js",
+    "frontend/.prettierrc.json",
+    "frontend/.prettierignore",
+    "frontend/package.json",
+    "frontend/package-lock.json",
+    "frontend/src/__tests__/eslint-config.test.ts",
+    ".github/workflows/ci.yml",
+    "CHANGELOG.md"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1412-frontend-ci-tooling.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "frontend/eslint.config.js",
+      "frontend/.prettierrc.json",
+      "frontend/.prettierignore",
+      "frontend/package.json",
+      "frontend/package-lock.json",
+      "frontend/src/__tests__/eslint-config.test.ts",
+      ".github/workflows/ci.yml",
+      "CHANGELOG.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules + health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "MCP scan+check_rules+health: pass, rules_checked=3/15, violation_count=0, quality_signal=4441, files=1155, bottleneck=acyclicity (unchanged from main)",
+    "pro_required": false,
+    "quality_signal": 4441.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1412-frontend-ci-tooling",
+  "task_kind": "feature"
+}

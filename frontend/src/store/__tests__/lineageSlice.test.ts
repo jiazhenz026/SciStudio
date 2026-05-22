@@ -14,9 +14,7 @@ import { useAppStore } from "../index";
 import type { LineageRunDetail, LineageRunSummary } from "../../types/lineage";
 
 vi.mock("../../lib/api", async () => {
-  const actual = await vi.importActual<typeof import("../../lib/api")>(
-    "../../lib/api",
-  );
+  const actual = await vi.importActual<typeof import("../../lib/api")>("../../lib/api");
   return {
     ...actual,
     api: {
@@ -55,9 +53,7 @@ function makeRun(overrides: Partial<LineageRunSummary> = {}): LineageRunSummary 
   };
 }
 
-function makeDetail(
-  overrides: Partial<LineageRunDetail> = {},
-): LineageRunDetail {
+function makeDetail(overrides: Partial<LineageRunDetail> = {}): LineageRunDetail {
   return {
     run: makeRun(),
     blocks: [],
@@ -166,10 +162,7 @@ describe("lineageSlice", () => {
     s.toggleBlockExecutionExpanded("be-1");
     expect(useAppStore.getState().expandedBlockExecutionIds).toEqual(["be-1"]);
     s.toggleBlockExecutionExpanded("be-2");
-    expect(useAppStore.getState().expandedBlockExecutionIds).toEqual([
-      "be-1",
-      "be-2",
-    ]);
+    expect(useAppStore.getState().expandedBlockExecutionIds).toEqual(["be-1", "be-2"]);
     s.toggleBlockExecutionExpanded("be-1");
     expect(useAppStore.getState().expandedBlockExecutionIds).toEqual(["be-2"]);
   });

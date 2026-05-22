@@ -63,9 +63,7 @@ export interface GraphInteractionsApi {
  * delegates to the caller's `onOpen` callback so the panel can mount its
  * `GitDiffModal`.
  */
-export function makeCommitClickHandler(
-  onOpen: (sha: string) => void,
-): (sha: string) => void {
+export function makeCommitClickHandler(onOpen: (sha: string) => void): (sha: string) => void {
   return (sha: string) => {
     if (!sha) return;
     onOpen(sha);
@@ -118,10 +116,7 @@ export function useGraphInteractions(
       const top = el.scrollTop;
       const h = el.clientHeight;
       const firstVisible = Math.max(0, Math.floor(top / ROW_HEIGHT) - OVERSCAN);
-      const lastVisible = Math.min(
-        totalRows,
-        Math.ceil((top + h) / ROW_HEIGHT) + OVERSCAN,
-      );
+      const lastVisible = Math.min(totalRows, Math.ceil((top + h) / ROW_HEIGHT) + OVERSCAN);
       setVisibleRange([firstVisible, lastVisible]);
     };
     compute();

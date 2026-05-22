@@ -26,11 +26,7 @@
  */
 
 export type LineageRunStatus = "running" | "completed" | "failed" | "cancelled";
-export type LineageBlockTermination =
-  | "completed"
-  | "error"
-  | "cancelled"
-  | "skipped";
+export type LineageBlockTermination = "completed" | "error" | "cancelled" | "skipped";
 
 /**
  * One row from the `runs` table (ADR-038 §3.1) plus a computed

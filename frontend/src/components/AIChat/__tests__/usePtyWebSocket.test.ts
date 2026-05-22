@@ -8,11 +8,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  buildPtyUrl,
-  usePtyWebSocket,
-  type PtyServerFrame,
-} from "../hooks/usePtyWebSocket";
+import { buildPtyUrl, usePtyWebSocket, type PtyServerFrame } from "../hooks/usePtyWebSocket";
 
 class FakeWebSocket {
   static instances: FakeWebSocket[] = [];
@@ -57,8 +53,7 @@ const originalWs = global.WebSocket;
 
 beforeEach(() => {
   FakeWebSocket.instances = [];
-  (global as unknown as { WebSocket: typeof FakeWebSocket }).WebSocket =
-    FakeWebSocket;
+  (global as unknown as { WebSocket: typeof FakeWebSocket }).WebSocket = FakeWebSocket;
 });
 
 afterEach(() => {

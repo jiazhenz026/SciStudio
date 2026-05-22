@@ -48,9 +48,7 @@ export function computeEffectivePorts(
   if (!configValue) return basePorts;
 
   const mapping =
-    kind === "input"
-      ? dynamicPorts.input_port_mapping
-      : dynamicPorts.output_port_mapping;
+    kind === "input" ? dynamicPorts.input_port_mapping : dynamicPorts.output_port_mapping;
 
   // Mismatched kind: descriptor only declares the opposite direction's
   // mapping (e.g. caller asked for "input" but only output_port_mapping is

@@ -13,9 +13,7 @@ import { MergeFlow } from "../MergeFlow";
 
 // Mock the api module before importing the component.
 vi.mock("../../../lib/api", async () => {
-  const actual = await vi.importActual<typeof import("../../../lib/api")>(
-    "../../../lib/api",
-  );
+  const actual = await vi.importActual<typeof import("../../../lib/api")>("../../../lib/api");
   return {
     ...actual,
     api: {
@@ -59,9 +57,7 @@ describe("MergeFlow (D39-2.4b)", () => {
       conflicted_files: [],
     });
     const onClose = vi.fn();
-    render(
-      <MergeFlow sourceBranch="feature-x" isOpen={true} onClose={onClose} />,
-    );
+    render(<MergeFlow sourceBranch="feature-x" isOpen={true} onClose={onClose} />);
     // In-flight phase appears first.
     expect(screen.getByTestId("merge-flow-in-flight")).toBeDefined();
     // Let the promise resolve.
@@ -85,9 +81,7 @@ describe("MergeFlow (D39-2.4b)", () => {
       conflicted_files: [],
     });
     const onClose = vi.fn();
-    render(
-      <MergeFlow sourceBranch="feature-x" isOpen={true} onClose={onClose} />,
-    );
+    render(<MergeFlow sourceBranch="feature-x" isOpen={true} onClose={onClose} />);
     await act(async () => {
       await vi.runAllTimersAsync();
     });
@@ -104,9 +98,7 @@ describe("MergeFlow (D39-2.4b)", () => {
       result: "conflict",
       conflicted_files: ["a.py", "b.py"],
     });
-    render(
-      <MergeFlow sourceBranch="feature-x" isOpen={true} onClose={() => {}} />,
-    );
+    render(<MergeFlow sourceBranch="feature-x" isOpen={true} onClose={() => {}} />);
     await waitFor(() => {
       expect(screen.getByTestId("merge-flow-conflict")).toBeDefined();
     });
@@ -129,9 +121,7 @@ describe("MergeFlow (D39-2.4b)", () => {
       commit_sha: "abc1234",
     });
     const onClose = vi.fn();
-    render(
-      <MergeFlow sourceBranch="feature-x" isOpen={true} onClose={onClose} />,
-    );
+    render(<MergeFlow sourceBranch="feature-x" isOpen={true} onClose={onClose} />);
     await waitFor(() => {
       expect(screen.getByTestId("merge-flow-conflict")).toBeDefined();
     });
@@ -159,9 +149,7 @@ describe("MergeFlow (D39-2.4b)", () => {
       status: "ok",
     });
     const onClose = vi.fn();
-    render(
-      <MergeFlow sourceBranch="feature-x" isOpen={true} onClose={onClose} />,
-    );
+    render(<MergeFlow sourceBranch="feature-x" isOpen={true} onClose={onClose} />);
     await waitFor(() => {
       expect(screen.getByTestId("merge-flow-conflict")).toBeDefined();
     });
@@ -178,9 +166,7 @@ describe("MergeFlow (D39-2.4b)", () => {
       new Error("merge engine exploded"),
     );
     const onClose = vi.fn();
-    render(
-      <MergeFlow sourceBranch="feature-x" isOpen={true} onClose={onClose} />,
-    );
+    render(<MergeFlow sourceBranch="feature-x" isOpen={true} onClose={onClose} />);
     await waitFor(() => {
       expect(screen.getByTestId("merge-flow-error")).toBeDefined();
     });

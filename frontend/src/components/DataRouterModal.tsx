@@ -49,7 +49,8 @@ function ItemCard({
   onDragStart?: (e: React.DragEvent, ref: string) => void;
   colorIndex?: number;
 }) {
-  const colorClass = colorIndex != null ? ROW_COLORS[colorIndex % ROW_COLORS.length] : "bg-white border-stone-200";
+  const colorClass =
+    colorIndex != null ? ROW_COLORS[colorIndex % ROW_COLORS.length] : "bg-white border-stone-200";
   return (
     <div
       className={`flex items-center gap-2 rounded border px-2 py-1.5 text-xs ${colorClass} ${draggable ? "cursor-grab" : "cursor-default opacity-50"}`}
@@ -72,8 +73,8 @@ export function DataRouterModal({
 }: DataRouterModalProps) {
   // Track which items have been assigned to which output port.
   // Key: output port name, Value: list of item refs.
-  const [assignments, setAssignments] = useState<Record<string, string[]>>(
-    () => Object.fromEntries(outputPorts.map((p) => [p, []]))
+  const [assignments, setAssignments] = useState<Record<string, string[]>>(() =>
+    Object.fromEntries(outputPorts.map((p) => [p, []])),
   );
 
   // Track which items are still unassigned.
@@ -93,25 +94,22 @@ export function DataRouterModal({
     e.dataTransfer.effectAllowed = "move";
   }, []);
 
-  const handleDropOnOutput = useCallback(
-    (e: React.DragEvent, outputPort: string) => {
-      e.preventDefault();
-      const ref = e.dataTransfer.getData("text/plain");
-      if (!ref) return;
+  const handleDropOnOutput = useCallback((e: React.DragEvent, outputPort: string) => {
+    e.preventDefault();
+    const ref = e.dataTransfer.getData("text/plain");
+    if (!ref) return;
 
-      setAssignments((prev) => {
-        // Remove from any other output port first.
-        const next: Record<string, string[]> = {};
-        for (const [port, refs] of Object.entries(prev)) {
-          next[port] = refs.filter((r) => r !== ref);
-        }
-        // Add to target port.
-        next[outputPort] = [...(next[outputPort] ?? []), ref];
-        return next;
-      });
-    },
-    []
-  );
+    setAssignments((prev) => {
+      // Remove from any other output port first.
+      const next: Record<string, string[]> = {};
+      for (const [port, refs] of Object.entries(prev)) {
+        next[port] = refs.filter((r) => r !== ref);
+      }
+      // Add to target port.
+      next[outputPort] = [...(next[outputPort] ?? []), ref];
+      return next;
+    });
+  }, []);
 
   const handleDropOnInput = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -162,19 +160,12 @@ export function DataRouterModal({
             onDrop={handleDropOnInput}
             onDragOver={handleDragOver}
           >
-            <div className="text-xs font-medium uppercase tracking-wide text-stone-400">
-              Inputs
-            </div>
+            <div className="text-xs font-medium uppercase tracking-wide text-stone-400">Inputs</div>
             {inputPorts.map((portName) => {
               const portItems = itemsPerPort[portName] ?? [];
-              const unassignedPortItems = portItems.filter(
-                (item) => !assignedRefs.has(item.ref)
-              );
+              const unassignedPortItems = portItems.filter((item) => !assignedRefs.has(item.ref));
               return (
-                <div
-                  key={portName}
-                  className="rounded-lg border border-stone-200 bg-stone-50 p-3"
-                >
+                <div key={portName} className="rounded-lg border border-stone-200 bg-stone-50 p-3">
                   <div className="mb-2 text-xs font-medium text-stone-600">
                     {portName}{" "}
                     <span className="text-stone-400">
@@ -191,9 +182,7 @@ export function DataRouterModal({
                       />
                     ))}
                     {unassignedPortItems.length === 0 && (
-                      <span className="text-[10px] italic text-stone-400">
-                        All items assigned
-                      </span>
+                      <span className="text-[10px] italic text-stone-400">All items assigned</span>
                     )}
                   </div>
                 </div>
@@ -203,7 +192,14 @@ export function DataRouterModal({
 
           {/* Arrow divider */}
           <div className="flex items-center text-stone-300">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M5 12h14M13 5l6 7-6 7" />
             </svg>
           </div>
@@ -223,8 +219,7 @@ export function DataRouterModal({
                   onDragOver={handleDragOver}
                 >
                   <div className="mb-2 text-xs font-medium text-stone-600">
-                    {portName}{" "}
-                    <span className="text-stone-400">({portRefs.length})</span>
+                    {portName} <span className="text-stone-400">({portRefs.length})</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {portRefs.map((ref) => {
@@ -241,9 +236,7 @@ export function DataRouterModal({
                       );
                     })}
                     {portRefs.length === 0 && (
-                      <span className="text-[10px] italic text-stone-400">
-                        Drop items here
-                      </span>
+                      <span className="text-[10px] italic text-stone-400">Drop items here</span>
                     )}
                   </div>
                 </div>

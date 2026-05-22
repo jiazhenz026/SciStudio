@@ -34,8 +34,7 @@ function seed(branch: string, commits: GitCommit[] | undefined, loading = false)
     logLoading: { [key]: loading },
     historyFilter: "manual",
     loadLog: vi.fn().mockResolvedValue(undefined),
-    setHistoryFilter: (filter) =>
-      useAppStore.setState({ historyFilter: filter }),
+    setHistoryFilter: (filter) => useAppStore.setState({ historyFilter: filter }),
     restore: vi.fn().mockResolvedValue(undefined),
   });
 }
@@ -126,22 +125,16 @@ describe("GitHistoryList", () => {
     const onCommitClick = vi.fn();
     render(<GitHistoryList branch="main" onCommitClick={onCommitClick} />);
     flipToListView();
-    fireEvent.click(
-      screen.getByTestId(`git-history-row-diff-${userCommit.short_sha}`),
-    );
+    fireEvent.click(screen.getByTestId(`git-history-row-diff-${userCommit.short_sha}`));
     expect(onCommitClick).toHaveBeenCalledTimes(1);
-    expect(onCommitClick).toHaveBeenCalledWith(
-      expect.objectContaining({ sha: userCommit.sha }),
-    );
+    expect(onCommitClick).toHaveBeenCalledWith(expect.objectContaining({ sha: userCommit.sha }));
   });
 
   it("clicking the inline [Diff] button opens GitDiffModal when no onCommitClick prop is supplied", () => {
     render(<GitHistoryList branch="main" />);
     flipToListView();
     expect(screen.queryByTestId("git-diff-modal")).toBeNull();
-    fireEvent.click(
-      screen.getByTestId(`git-history-row-diff-${userCommit.short_sha}`),
-    );
+    fireEvent.click(screen.getByTestId(`git-history-row-diff-${userCommit.short_sha}`));
     expect(screen.getByTestId("git-diff-modal")).toBeTruthy();
   });
 
@@ -157,9 +150,7 @@ describe("GitHistoryList", () => {
     );
     flipToListView();
     fireEvent.click(screen.getByTestId(`git-history-row-restore-${userCommit.short_sha}`));
-    expect(onRestoreClick).toHaveBeenCalledWith(
-      expect.objectContaining({ sha: userCommit.sha }),
-    );
+    expect(onRestoreClick).toHaveBeenCalledWith(expect.objectContaining({ sha: userCommit.sha }));
     expect(onCommitClick).not.toHaveBeenCalled();
   });
 
@@ -169,9 +160,7 @@ describe("GitHistoryList", () => {
     flipToListView();
     const row = screen.getByTestId(`git-history-row-${userCommit.short_sha}`);
     fireEvent.keyDown(row, { key: "d" });
-    expect(onCommitClick).toHaveBeenCalledWith(
-      expect.objectContaining({ sha: userCommit.sha }),
-    );
+    expect(onCommitClick).toHaveBeenCalledWith(expect.objectContaining({ sha: userCommit.sha }));
   });
 
   it("pressing the 'r' hotkey on a focused row dispatches onRestoreClick", () => {
@@ -180,9 +169,7 @@ describe("GitHistoryList", () => {
     flipToListView();
     const row = screen.getByTestId(`git-history-row-${userCommit.short_sha}`);
     fireEvent.keyDown(row, { key: "r" });
-    expect(onRestoreClick).toHaveBeenCalledWith(
-      expect.objectContaining({ sha: userCommit.sha }),
-    );
+    expect(onRestoreClick).toHaveBeenCalledWith(expect.objectContaining({ sha: userCommit.sha }));
   });
 
   it("pressing Enter on a focused row does nothing (no modal, no callback)", () => {
@@ -206,9 +193,7 @@ describe("GitHistoryList", () => {
     render(<GitHistoryList branch="main" />);
     flipToListView();
     const diffBtn = screen.getByTestId(`git-history-row-diff-${userCommit.short_sha}`);
-    const restoreBtn = screen.getByTestId(
-      `git-history-row-restore-${userCommit.short_sha}`,
-    );
+    const restoreBtn = screen.getByTestId(`git-history-row-restore-${userCommit.short_sha}`);
     // tabIndex 0 (or unset on a native <button>) is keyboard-focusable.
     expect(diffBtn.tagName).toBe("BUTTON");
     expect(restoreBtn.tagName).toBe("BUTTON");

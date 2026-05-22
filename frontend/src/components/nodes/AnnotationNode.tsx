@@ -11,10 +11,7 @@ import type { AnnotationNodeData } from "../../types/ui";
  * - Double-click to enter edit mode (textarea); blur/Enter to save.
  * - When selected: subtle blue ring.
  */
-export function AnnotationNode({
-  data,
-  selected,
-}: NodeProps<Node<AnnotationNodeData>>) {
+export function AnnotationNode({ data, selected }: NodeProps<Node<AnnotationNodeData>>) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(data.text);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -57,9 +54,7 @@ export function AnnotationNode({
   return (
     <div
       className={`max-w-[240px] rounded-lg px-3 py-2 text-sm leading-relaxed transition-shadow ${
-        selected
-          ? "ring-2 ring-blue-400/60"
-          : ""
+        selected ? "ring-2 ring-blue-400/60" : ""
       }`}
       style={{ backgroundColor: "rgba(255, 251, 235, 0.6)" }}
       onDoubleClick={handleDoubleClick}

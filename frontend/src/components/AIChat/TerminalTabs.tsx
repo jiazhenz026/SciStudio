@@ -154,9 +154,7 @@ export function TerminalTabs() {
             <div
               key={tab.id}
               className={`flex items-center gap-1 rounded-t-md px-2 py-1 text-xs ${
-                active
-                  ? "bg-white text-ink shadow-sm"
-                  : "text-stone-500 hover:text-stone-700"
+                active ? "bg-white text-ink shadow-sm" : "text-stone-500 hover:text-stone-700"
               }`}
               role="tab"
               aria-selected={active}
@@ -242,8 +240,8 @@ export function TerminalTabs() {
         ))}
         {tabs.length === 0 || !activeTabId ? (
           <div className="flex h-full items-center justify-center text-sm text-stone-400">
-            No active tab. Press <kbd className="mx-1 rounded bg-stone-200 px-1">Ctrl</kbd>
-            +<kbd className="mx-1 rounded bg-stone-200 px-1">T</kbd> to open one.
+            No active tab. Press <kbd className="mx-1 rounded bg-stone-200 px-1">Ctrl</kbd>+
+            <kbd className="mx-1 rounded bg-stone-200 px-1">T</kbd> to open one.
           </div>
         ) : null}
       </div>

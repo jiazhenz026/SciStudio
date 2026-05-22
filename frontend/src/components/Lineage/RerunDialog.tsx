@@ -236,22 +236,15 @@ export interface RerunDialogProps {
   onClose: () => void;
 }
 
-export function RerunDialog({
-  runId,
-  onClose,
-}: RerunDialogProps): ReactElement {
+export function RerunDialog({ runId, onClose }: RerunDialogProps): ReactElement {
   const detail = useAppStore((s) => s.runDetails[runId]);
-  const detailLoading = useAppStore(
-    (s) => s.runDetailLoading[runId] ?? false,
-  );
+  const detailLoading = useAppStore((s) => s.runDetailLoading[runId] ?? false);
   const fetchRunDetail = useAppStore((s) => s.fetchRunDetail);
   const fetchRuns = useAppStore((s) => s.fetchRuns);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [validation, setValidation] = useState<LineageRerunValidation | null>(
-    null,
-  );
+  const [validation, setValidation] = useState<LineageRerunValidation | null>(null);
   const [validationLoading, setValidationLoading] = useState(true);
 
   // Defensive: if the dialog opens via deep-link with no detail cached,
@@ -344,10 +337,7 @@ export function RerunDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center gap-3">
-          <h2
-            id="rerun-dialog-title"
-            className="text-lg font-semibold text-ink"
-          >
+          <h2 id="rerun-dialog-title" className="text-lg font-semibold text-ink">
             Re-run · {runId.slice(0, 8)}
           </h2>
           <button
@@ -361,32 +351,25 @@ export function RerunDialog({
         </header>
 
         <p className="mt-2 text-sm text-stone-600">
-          A new run will be created with the same workflow YAML, parameters,
-          and environment recorded for this run. The new run will reference
-          this one via <code>parent_run_id</code>.
+          A new run will be created with the same workflow YAML, parameters, and environment
+          recorded for this run. The new run will reference this one via <code>parent_run_id</code>.
         </p>
 
         {checking && (
-          <p
-            className="mt-3 text-sm text-stone-500"
-            data-testid="rerun-dialog-loading"
-          >
+          <p className="mt-3 text-sm text-stone-500" data-testid="rerun-dialog-loading">
             Checking inputs and environment…
           </p>
         )}
 
         {validation && !checking && (
-          <section
-            className="mt-4 space-y-3"
-            data-testid="rerun-dialog-warnings"
-          >
+          <section className="mt-4 space-y-3" data-testid="rerun-dialog-warnings">
             {hasNoWarnings ? (
               <p
                 className="rounded bg-emerald-50 p-3 text-sm text-emerald-700"
                 data-testid="rerun-dialog-warnings-clean"
               >
-                No drift detected. Re-running will reproduce the original
-                results as closely as the current environment allows.
+                No drift detected. Re-running will reproduce the original results as closely as the
+                current environment allows.
               </p>
             ) : (
               <>
@@ -408,10 +391,7 @@ export function RerunDialog({
                   </div>
                 )}
                 {validation.env_warnings.length > 0 && (
-                  <div
-                    className="rounded bg-amber-50 p-3"
-                    data-testid="rerun-dialog-env-warnings"
-                  >
+                  <div className="rounded bg-amber-50 p-3" data-testid="rerun-dialog-env-warnings">
                     <h4 className="text-sm font-semibold text-amber-800">
                       Environment drift ({validation.env_warnings.length})
                     </h4>

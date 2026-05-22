@@ -208,7 +208,12 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
       type: "workflow.changed",
       workflow_id: "demo",
       timestamp: "2026-05-13T00:00:00Z",
-      data: { workflow_id: "demo", path: "workflows/demo.yaml", kind: "modified", changed_by: "watcher" },
+      data: {
+        workflow_id: "demo",
+        path: "workflows/demo.yaml",
+        kind: "modified",
+        changed_by: "watcher",
+      },
     });
 
     // Allow the awaited promise to flush.
@@ -256,7 +261,12 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
       tabs: [
         // Shape mirrors the workflow-tab variant; only the discriminating
         // fields matter for the hook's lookup.
-        { id: "t-already-open", kind: "workflow", workflowId: "already_open", title: "Already Open" },
+        {
+          id: "t-already-open",
+          kind: "workflow",
+          workflowId: "already_open",
+          title: "Already Open",
+        },
       ] as never,
     });
     const openTabSpy = vi.fn();
@@ -284,7 +294,12 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
       type: "workflow.changed",
       workflow_id: "beta",
       timestamp: "2026-05-13T00:00:00Z",
-      data: { workflow_id: "beta", path: "workflows/beta.yaml", kind: "modified", changed_by: "watcher" },
+      data: {
+        workflow_id: "beta",
+        path: "workflows/beta.yaml",
+        kind: "modified",
+        changed_by: "watcher",
+      },
     });
 
     await new Promise((r) => setTimeout(r, 0));
@@ -395,7 +410,12 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
       type: "workflow.changed",
       workflow_id: "demo",
       timestamp: "2026-05-13T00:00:00Z",
-      data: { workflow_id: "demo", path: "workflows/demo.yaml", kind: "deleted", changed_by: "watcher" },
+      data: {
+        workflow_id: "demo",
+        path: "workflows/demo.yaml",
+        kind: "deleted",
+        changed_by: "watcher",
+      },
     });
 
     // Wait for the probe promise to reject + the catch block to run.
@@ -405,9 +425,9 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
     expect(useAppStore.getState().workflowNodes).toEqual([]);
     // The delete event should also leave a log entry behind.
     const logs = useAppStore.getState().logEntries;
-    expect(logs.some((entry) => entry.message.includes("demo") && entry.message.includes("deleted"))).toBe(
-      true,
-    );
+    expect(
+      logs.some((entry) => entry.message.includes("demo") && entry.message.includes("deleted")),
+    ).toBe(true);
   });
 
   it("treats a transient delete-then-create (git checkout race) as modification", async () => {
@@ -425,7 +445,13 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
       id: "demo",
       name: "Demo (restored)",
       nodes: [
-        { id: "n", block_type: "Load", config: { restored: true }, execution_mode: null, layout: null },
+        {
+          id: "n",
+          block_type: "Load",
+          config: { restored: true },
+          execution_mode: null,
+          layout: null,
+        },
       ],
       edges: [],
       schemaVersion: 1,
@@ -436,7 +462,12 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
       type: "workflow.changed",
       workflow_id: "demo",
       timestamp: "2026-05-13T00:00:00Z",
-      data: { workflow_id: "demo", path: "workflows/demo.yaml", kind: "deleted", changed_by: "watcher" },
+      data: {
+        workflow_id: "demo",
+        path: "workflows/demo.yaml",
+        kind: "deleted",
+        changed_by: "watcher",
+      },
     });
 
     await new Promise((r) => setTimeout(r, 0));
@@ -446,8 +477,8 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
     expect(useAppStore.getState().workflowId).toBe("demo");
     expect(useAppStore.getState().workflowNodes.length).toBe(1);
     const logs = useAppStore.getState().logEntries;
-    expect(
-      logs.some((entry) => entry.message.includes("deleted on disk; canvas cleared")),
-    ).toBe(false);
+    expect(logs.some((entry) => entry.message.includes("deleted on disk; canvas cleared"))).toBe(
+      false,
+    );
   });
 });

@@ -8,13 +8,7 @@ interface TabBarProps {
   onNewTab: () => void;
 }
 
-export function TabBar({
-  tabs,
-  activeTabId,
-  onSwitchTab,
-  onCloseTab,
-  onNewTab,
-}: TabBarProps) {
+export function TabBar({ tabs, activeTabId, onSwitchTab, onCloseTab, onNewTab }: TabBarProps) {
   return (
     <div className="flex items-center gap-0 border-b border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] px-1">
       {tabs.map((tab) => {
@@ -39,7 +33,13 @@ export function TabBar({
             <span className="min-w-0 flex-1 truncate" title={label}>
               {label}
             </span>
-            <span style={{ visibility: isDirty ? "visible" : "hidden" }} className="shrink-0 text-[10px] text-amber-500" title="Unsaved changes">{" *"}</span>
+            <span
+              style={{ visibility: isDirty ? "visible" : "hidden" }}
+              className="shrink-0 text-[10px] text-amber-500"
+              title="Unsaved changes"
+            >
+              {" *"}
+            </span>
             <button
               type="button"
               className="ml-1 shrink-0 rounded p-0.5 text-stone-400 opacity-0 transition-opacity hover:bg-stone-200 hover:text-stone-600 group-hover:opacity-100"
@@ -49,7 +49,14 @@ export function TabBar({
                 onCloseTab(tab.id);
               }}
             >
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
                 <path d="M2 2l6 6M8 2l-6 6" />
               </svg>
             </button>
@@ -62,7 +69,14 @@ export function TabBar({
         title="New workflow tab"
         onClick={onNewTab}
       >
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        >
           <path d="M6 2v8M2 6h8" />
         </svg>
       </button>

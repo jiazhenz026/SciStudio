@@ -69,7 +69,7 @@ export function PairEditorModal({
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", `${port}:${positionIndex}`);
     },
-    []
+    [],
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -94,7 +94,7 @@ export function PairEditorModal({
         return { ...prev, [targetPort]: portOrder };
       });
     },
-    []
+    [],
   );
 
   const handleConfirm = () => {
@@ -133,8 +133,8 @@ export function PairEditorModal({
         <div className="border-b border-stone-100 px-5 py-3">
           <div className="text-sm font-semibold text-ink">Pair Editor</div>
           <div className="mt-0.5 text-xs text-stone-500">
-            Reorder items within each panel so that same-row items are correctly paired.
-            Items in the same row (same color) are paired by index.
+            Reorder items within each panel so that same-row items are correctly paired. Items in
+            the same row (same color) are paired by index.
           </div>
         </div>
 
@@ -157,8 +157,7 @@ export function PairEditorModal({
               <div key={rowIdx} className={`mt-1 grid gap-3 ${gridCols}`}>
                 {ports.map((portName) => {
                   const originalIndex = orders[portName]?.[rowIdx];
-                  const item =
-                    originalIndex != null ? itemLookup[portName]?.[originalIndex] : null;
+                  const item = originalIndex != null ? itemLookup[portName]?.[originalIndex] : null;
                   if (!item) return <div key={portName} />;
                   return (
                     <div

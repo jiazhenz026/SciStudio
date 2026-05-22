@@ -278,12 +278,7 @@
 
 import type { GitCommit } from "../../../types/api";
 
-import {
-  LANE_PITCH,
-  LANE_X_OFFSET,
-  PALETTE,
-  ROW_HEIGHT,
-} from "./colorPalette";
+import { LANE_PITCH, LANE_X_OFFSET, PALETTE, ROW_HEIGHT } from "./colorPalette";
 import type { LaneAssignment } from "./laneAssign";
 
 /**
@@ -330,10 +325,7 @@ export interface GraphEdge {
  *                      needed for parent-SHA → row-index resolution.
  * @returns Array of edges (one per parent link), suitable for SVG rendering.
  */
-export function routeEdges(
-  assignments: LaneAssignment[],
-  commits: GitCommit[],
-): GraphEdge[] {
+export function routeEdges(assignments: LaneAssignment[], commits: GitCommit[]): GraphEdge[] {
   if (assignments.length === 0) return [];
 
   const index = buildShaIndex(commits);
@@ -353,9 +345,7 @@ export function routeEdges(
       const parentSha = child.parents[p];
       if (parentSha === child.sha) {
         // Defensive: self-cycle never appears in real git output.
-        console.warn(
-          `edgeRouter: self-cycle on commit ${child.sha}; dropping edge.`,
-        );
+        console.warn(`edgeRouter: self-cycle on commit ${child.sha}; dropping edge.`);
         continue;
       }
       const parentIdx = index.has(parentSha) ? index.get(parentSha)! : -1;
@@ -391,9 +381,7 @@ export function routeEdges(
       let path: string;
       if (childLane === parentLane || parentIdx < 0) {
         // Case 1 (or dangling stub): straight vertical.
-        path =
-          `M ${childCenter.x} ${childCenter.y} ` +
-          `L ${parentCenter.x} ${parentCenter.y}`;
+        path = `M ${childCenter.x} ${childCenter.y} ` + `L ${parentCenter.x} ${parentCenter.y}`;
       } else if (parentLane > childLane) {
         // FORK-OUT (hotfix #1012 — supersedes #1005's mid-row corner):
         // The parent lives on a side lane to the right of the child.
@@ -471,10 +459,7 @@ export function routeEdges(
  * Coordinate helper exposed for the renderer (`GraphSVG.tsx`) so it can
  * place commit dots at the same anchor points the edges originate from.
  */
-export function centerOf(
-  idx: number,
-  lane: number,
-): { x: number; y: number } {
+export function centerOf(idx: number, lane: number): { x: number; y: number } {
   return {
     x: LANE_X_OFFSET + lane * LANE_PITCH,
     y: idx * ROW_HEIGHT + ROW_HEIGHT / 2,

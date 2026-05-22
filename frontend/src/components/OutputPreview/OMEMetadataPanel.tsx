@@ -45,9 +45,7 @@ type Path = readonly (string | number)[];
 
 function pathLabel(path: Path): string {
   return path
-    .map((segment) =>
-      typeof segment === "number" ? `[${segment}]` : String(segment),
-    )
+    .map((segment) => (typeof segment === "number" ? `[${segment}]` : String(segment)))
     .join(".");
 }
 
@@ -94,17 +92,11 @@ function LeafRow({
   const label = pathLabel(path);
   const display = formatLeaf(value);
   return (
-    <div
-      className="flex items-baseline justify-between gap-2 py-[2px]"
-      data-testid="ome-leaf"
-    >
+    <div className="flex items-baseline justify-between gap-2 py-[2px]" data-testid="ome-leaf">
       <span className="min-w-0 flex-1 truncate text-stone-500" title={label}>
         {path[path.length - 1] ?? label}
       </span>
-      <span
-        className="min-w-0 flex-1 truncate font-mono text-ink"
-        title={display}
-      >
+      <span className="min-w-0 flex-1 truncate font-mono text-ink" title={display}>
         {display}
       </span>
       <button
@@ -152,9 +144,7 @@ function TreeNode({
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
       >
-        <span className="inline-block w-3 text-stone-400">
-          {open ? "▾" : "▸"}
-        </span>
+        <span className="inline-block w-3 text-stone-400">{open ? "▾" : "▸"}</span>
         <span className="truncate">{label}</span>
         <span className="ml-1 text-[10px] text-stone-400">
           ({Array.isArray(value) ? `${entries.length} items` : `${entries.length} fields`})
@@ -191,11 +181,7 @@ function TreeNode({
 // block at the bottom.
 const TOP_KEYS_ORDER = ["images", "pixels", "channels", "annotations", "structured_annotations"];
 
-export function OMEMetadataPanel({
-  ome,
-  onClose,
-  copyToClipboard,
-}: OMEMetadataPanelProps) {
+export function OMEMetadataPanel({ ome, onClose, copyToClipboard }: OMEMetadataPanelProps) {
   const copy = useCallback(
     (text: string) => {
       const fn = copyToClipboard ?? defaultCopy;

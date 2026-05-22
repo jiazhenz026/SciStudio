@@ -10,9 +10,7 @@
 import { useEffect, useMemo } from "react";
 
 import { useAppStore } from "../../../store";
-import {
-  classifyPrefix,
-} from "../../../store/gitSlice";
+import { classifyPrefix } from "../../../store/gitSlice";
 import type { GitCommit, GitHistoryFilter } from "../../../types/api";
 
 import { type GraphEdge, routeEdges } from "./edgeRouter";
@@ -68,9 +66,7 @@ function applyFilter(
  */
 export function useGraphData(): GraphData {
   const commitsRaw = useAppStore((s) => s.logCache[LOG_ALL_KEY] ?? null);
-  const loadingFlag = useAppStore(
-    (s) => s.logLoading[LOG_ALL_KEY] ?? false,
-  );
+  const loadingFlag = useAppStore((s) => s.logLoading[LOG_ALL_KEY] ?? false);
   const historyFilter = useAppStore((s) => s.historyFilter);
   const lastError = useAppStore((s) => s.lastError);
   const loadLog = useAppStore((s) => s.loadLog);

@@ -131,10 +131,8 @@ export default function App() {
     const found = (tabs as AnyTab[]).find((t) => t.id === activeTabId);
     return found ?? null;
   }, [tabs, activeTabId]);
-  const activeFileTab: FileTab | null =
-    activeTab && activeTab.kind === "file" ? activeTab : null;
-  const activeTabKind: "workflow" | "file" =
-    activeFileTab ? "file" : "workflow";
+  const activeFileTab: FileTab | null = activeTab && activeTab.kind === "file" ? activeTab : null;
+  const activeTabKind: "workflow" | "file" = activeFileTab ? "file" : "workflow";
 
   const [busy, setBusy] = useState(false);
   const [leftTab, setLeftTab] = useState<"blocks" | "project">("blocks");
@@ -156,7 +154,10 @@ export default function App() {
   }, [bottomPanelPinned]);
 
   const { connected: wsConnected } = useWorkflowWebSocket(Boolean(currentProject));
-  const { connected: sseConnected } = useLogStream(workflowId, activeBottomTab === "logs" ? selectedNodeId : null);
+  const { connected: sseConnected } = useLogStream(
+    workflowId,
+    activeBottomTab === "logs" ? selectedNodeId : null,
+  );
 
   const selectedNode = useMemo(
     () => workflowNodes.find((node) => node.id === selectedNodeId) ?? null,
@@ -164,7 +165,9 @@ export default function App() {
   );
   const selectedSchema = selectedNode ? blockSchemas[selectedNode.block_type] : undefined;
   const selectedNodeLabel =
-    blocks.find((block) => block.type_name === selectedNode?.block_type)?.name ?? selectedNode?.block_type ?? "";
+    blocks.find((block) => block.type_name === selectedNode?.block_type)?.name ??
+    selectedNode?.block_type ??
+    "";
 
   const workflowPayload = useMemo<WorkflowResponse>(
     () => ({
@@ -175,7 +178,14 @@ export default function App() {
       nodes: workflowNodes,
       edges: workflowEdges,
     }),
-    [workflowDescription, workflowEdges, workflowId, workflowMetadata, workflowNodes, workflowVersion],
+    [
+      workflowDescription,
+      workflowEdges,
+      workflowId,
+      workflowMetadata,
+      workflowNodes,
+      workflowVersion,
+    ],
   );
 
   async function refreshProjects() {
@@ -186,7 +196,9 @@ export default function App() {
   async function refreshBlocks() {
     const payload = await api.listBlocks();
     startTransition(() => setBlocks(payload.blocks));
-    const schemas = await Promise.all(payload.blocks.map((block) => api.getBlockSchema(block.type_name)));
+    const schemas = await Promise.all(
+      payload.blocks.map((block) => api.getBlockSchema(block.type_name)),
+    );
     startTransition(() => {
       schemas.forEach((schema) => setBlockSchema(schema));
     });
@@ -381,7 +393,9 @@ export default function App() {
       return;
     }
     if (!/^[A-Za-z0-9._-]+$/.test(trimmed)) {
-      window.alert("Note filename may only contain letters, digits, underscores, dots, and hyphens.");
+      window.alert(
+        "Note filename may only contain letters, digits, underscores, dots, and hyphens.",
+      );
       return;
     }
     // Prefer notes/ if it exists; fall back to project root. We probe via
@@ -663,7 +677,9 @@ export default function App() {
   // tab B's debounce and B never autosaves. We track
   // `{timerId, contentSnapshot}` per tab id in a ref so each tab's
   // timer survives unrelated keystrokes.
-  const fileTabAutosaveTimers = useRef<Map<string, { timerId: number; contentSnapshot: string }>>(new Map());
+  const fileTabAutosaveTimers = useRef<Map<string, { timerId: number; contentSnapshot: string }>>(
+    new Map(),
+  );
   useEffect(() => {
     const timers = fileTabAutosaveTimers.current;
     if (!currentProject) {
@@ -727,7 +743,8 @@ export default function App() {
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT";
+      const isInput =
+        target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT";
       const ctrl = event.ctrlKey || event.metaKey;
       const key = event.key.toLowerCase();
 
@@ -910,13 +927,19 @@ export default function App() {
             }}
             onReloadBlocks={() => void refreshBlocks()}
             onStartFromSelected={() => void startFromSelected()}
-            onAddAnnotation={() => addAnnotationNode({ x: 150 + Math.random() * 200, y: 150 + Math.random() * 200 })}
-            onAddGroup={() => addGroupNode({ x: 150 + Math.random() * 200, y: 150 + Math.random() * 200 })}
+            onAddAnnotation={() =>
+              addAnnotationNode({ x: 150 + Math.random() * 200, y: 150 + Math.random() * 200 })
+            }
+            onAddGroup={() =>
+              addGroupNode({ x: 150 + Math.random() * 200, y: 150 + Math.random() * 200 })
+            }
             isRunning={isRunning}
           />
 
           {lastError ? (
-            <div className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{lastError}</div>
+            <div className="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">
+              {lastError}
+            </div>
           ) : null}
 
           {currentProject ? (
@@ -930,7 +953,13 @@ export default function App() {
               }}
             >
               {/* Left Sidebar — tab switcher + content */}
-              <ResizablePanel defaultSize="15%" minSize="4%" maxSize="28%" collapsible collapsedSize="0%">
+              <ResizablePanel
+                defaultSize="15%"
+                minSize="4%"
+                maxSize="28%"
+                collapsible
+                collapsedSize="0%"
+              >
                 <div className="flex h-full flex-col overflow-hidden">
                   {/* Tab switcher */}
                   <div className="flex shrink-0 border-b border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))]">
@@ -960,13 +989,18 @@ export default function App() {
                           if (block.direction) {
                             defaultParams.direction = block.direction;
                           } else if (block.type_name === "io_block") {
-                            defaultParams.direction = block.name === "Load Block" ? "input" : "output";
+                            defaultParams.direction =
+                              block.name === "Load Block" ? "input" : "output";
                           }
                           // Bug 7: Set default output_dir for AppBlocks when a project is open
                           if (block.base_category === "app" && currentProject) {
                             defaultParams.output_dir = `${currentProject.path}/data/exchange/outputs`;
                           }
-                          addNode(block, { x: 160, y: 160 }, Object.keys(defaultParams).length > 0 ? defaultParams : undefined);
+                          addNode(
+                            block,
+                            { x: 160, y: 160 },
+                            Object.keys(defaultParams).length > 0 ? defaultParams : undefined,
+                          );
                         }}
                         onReload={() => void refreshBlocks()}
                         onSearch={setPaletteSearch}
@@ -976,7 +1010,9 @@ export default function App() {
                       <ProjectTree
                         projectId={currentProject.id}
                         projectPath={currentProject.path}
-                        onLoadWorkflow={(workflowId, displayName) => void loadWorkflowById(workflowId, displayName)}
+                        onLoadWorkflow={(workflowId, displayName) =>
+                          void loadWorkflowById(workflowId, displayName)
+                        }
                         onReloadBlocks={() => void refreshBlocks()}
                       />
                     ) : (
@@ -990,143 +1026,151 @@ export default function App() {
               {/* Center: Tab Bar + Canvas + Bottom Panel vertical split */}
               <ResizablePanel defaultSize="63%">
                 <div className="flex h-full flex-col">
-                <TabBar
-                  tabs={tabs}
-                  activeTabId={activeTabId}
-                  onSwitchTab={switchTab}
-                  onCloseTab={closeTab}
-                  onNewTab={() => newWorkflow()}
-                />
-                <ResizablePanelGroup
-                  orientation="vertical"
-                  className="min-h-0 flex-1"
-                  onLayoutChanged={(layout) => {
-                    const sizes = Object.values(layout);
-                    if (sizes[1] != null && sizes[1] >= 10) setPanelSize("bottom", sizes[1]);
-                  }}
-                >
-                  <ResizablePanel defaultSize="70%" minSize="20%">
-                    {activeFileTab ? (
-                      // ADR-036 §3.7 — file tab → Monaco editor.
-                      <CodeEditor
-                        tab={activeFileTab}
-                        onContentChange={(content) => {
-                          try {
-                            updateFileTabContent(activeFileTab.id, content);
-                          } catch (error) {
-                            // Skeleton stub throws; soft-warn so the UI
-                            // still works in dev mode pre-I36a-merge.
-                            // eslint-disable-next-line no-console
-                            console.warn(
-                              `updateFileTabContent(${activeFileTab.id}) failed:`,
-                              error,
-                            );
-                          }
-                        }}
-                        onSave={() => {
-                          if (activeFileTab.readOnly) return;
-                          void saveFileTab(activeFileTab.id).catch((error) => {
-                            // eslint-disable-next-line no-console
-                            console.warn(
-                              `saveFileTab(${activeFileTab.id}) failed:`,
-                              error,
-                            );
-                          });
-                        }}
-                      />
-                    ) : (
-                    <WorkflowCanvas
-                      blockStates={blockStates}
-                      blockErrors={blockErrors}
-                      blockErrorSummaries={blockErrorSummaries}
-                      blockOutputs={blockOutputs}
-                      blocks={blocks.filter((block) => {
-                        const value = `${block.name} ${block.description} ${block.subcategory || block.base_category}`.toLowerCase();
-                        return value.includes(paletteSearch.toLowerCase());
-                      })}
-                      edges={workflowEdges}
-                      minimapVisible={minimapVisible}
-                      nodes={workflowNodes}
-                      onAddNode={addNode}
-                      onConnect={async (edge) => {
-                        try {
-                          const sourceNode = workflowNodes.find((node) => node.id === edge.source.split(":")[0]);
-                          const targetNode = workflowNodes.find((node) => node.id === edge.target.split(":")[0]);
-                          if (!sourceNode || !targetNode) {
-                            return;
-                          }
-                          const sourcePort = edge.source.split(":")[1];
-                          const targetPort = edge.target.split(":")[1];
-                          const validation = await api.validateConnection({
-                            source_block: sourceNode.block_type,
-                            source_port: sourcePort,
-                            target_block: targetNode.block_type,
-                            target_port: targetPort,
-                          });
-                          if (!validation.compatible) {
-                            setLastError(validation.reason);
-                            return;
-                          }
-                          connectNodes(edge);
-                          setLastError(null);
-                        } catch (error) {
-                          setLastError((error as Error).message);
-                        }
-                      }}
-                      onDeleteEdge={removeEdge}
-                      onDeleteNode={removeNode}
-                      onErrorClick={handleErrorClick}
-                      onPaneClick={handleCanvasPaneClick}
-                      onRunBlock={handleRunBlock}
-                      onRestartBlock={handleRestartBlock}
-                      onSelectNode={handleNodeSelect}
-                      onUpdateNodeConfig={updateNodeConfig}
-                      onUpdateNodePosition={updateNodeLayout}
-                      schemas={blockSchemas}
-                      selectedNodeId={selectedNodeId}
-                    />
-                    )}
-                  </ResizablePanel>
-                  <ResizableHandle withHandle />
-                  <ResizablePanel
-                    panelRef={bottomPanelRef}
-                    // collapsedSize is in % of the canvas-column height.
-                    // 8% on a typical 800–1000px column ≈ 64–80px, which
-                    // accommodates the ~60px tab strip without clipping
-                    // it. The previous 3% (~24–30px) cut off the bottom
-                    // half of the tab buttons.
-                    collapsedSize="8%"
-                    collapsible
-                    // 45% gives Git / Lineage / Logs tabs enough vertical
-                    // room for their list + detail content out-of-the-box.
-                    // 30% (prior default) made the Git history list
-                    // unreadable on a 1080p canvas column.
-                    defaultSize="45%"
-                    minSize="10%"
+                  <TabBar
+                    tabs={tabs}
+                    activeTabId={activeTabId}
+                    onSwitchTab={switchTab}
+                    onCloseTab={closeTab}
+                    onNewTab={() => newWorkflow()}
+                  />
+                  <ResizablePanelGroup
+                    orientation="vertical"
+                    className="min-h-0 flex-1"
+                    onLayoutChanged={(layout) => {
+                      const sizes = Object.values(layout);
+                      if (sizes[1] != null && sizes[1] >= 10) setPanelSize("bottom", sizes[1]);
+                    }}
                   >
-                    <BottomPanel
-                      activeTab={activeBottomTab}
-                      logEntries={logEntries}
-                      onTabChange={handleBottomTabChange}
-                      onTogglePin={toggleBottomPanelPinned}
-                      onUpdateConfig={(patch) => {
-                        if (selectedNodeId) {
-                          updateNodeConfig(selectedNodeId, patch);
-                        }
-                      }}
-                      pinned={bottomPanelPinned}
-                      selectedNode={selectedNode}
-                      selectedSchema={selectedSchema}
-                      unreadLogsCount={unreadLogsCount}
-                    />
-                  </ResizablePanel>
-                </ResizablePanelGroup>
+                    <ResizablePanel defaultSize="70%" minSize="20%">
+                      {activeFileTab ? (
+                        // ADR-036 §3.7 — file tab → Monaco editor.
+                        <CodeEditor
+                          tab={activeFileTab}
+                          onContentChange={(content) => {
+                            try {
+                              updateFileTabContent(activeFileTab.id, content);
+                            } catch (error) {
+                              // Skeleton stub throws; soft-warn so the UI
+                              // still works in dev mode pre-I36a-merge.
+                              // eslint-disable-next-line no-console
+                              console.warn(
+                                `updateFileTabContent(${activeFileTab.id}) failed:`,
+                                error,
+                              );
+                            }
+                          }}
+                          onSave={() => {
+                            if (activeFileTab.readOnly) return;
+                            void saveFileTab(activeFileTab.id).catch((error) => {
+                              // eslint-disable-next-line no-console
+                              console.warn(`saveFileTab(${activeFileTab.id}) failed:`, error);
+                            });
+                          }}
+                        />
+                      ) : (
+                        <WorkflowCanvas
+                          blockStates={blockStates}
+                          blockErrors={blockErrors}
+                          blockErrorSummaries={blockErrorSummaries}
+                          blockOutputs={blockOutputs}
+                          blocks={blocks.filter((block) => {
+                            const value =
+                              `${block.name} ${block.description} ${block.subcategory || block.base_category}`.toLowerCase();
+                            return value.includes(paletteSearch.toLowerCase());
+                          })}
+                          edges={workflowEdges}
+                          minimapVisible={minimapVisible}
+                          nodes={workflowNodes}
+                          onAddNode={addNode}
+                          onConnect={async (edge) => {
+                            try {
+                              const sourceNode = workflowNodes.find(
+                                (node) => node.id === edge.source.split(":")[0],
+                              );
+                              const targetNode = workflowNodes.find(
+                                (node) => node.id === edge.target.split(":")[0],
+                              );
+                              if (!sourceNode || !targetNode) {
+                                return;
+                              }
+                              const sourcePort = edge.source.split(":")[1];
+                              const targetPort = edge.target.split(":")[1];
+                              const validation = await api.validateConnection({
+                                source_block: sourceNode.block_type,
+                                source_port: sourcePort,
+                                target_block: targetNode.block_type,
+                                target_port: targetPort,
+                              });
+                              if (!validation.compatible) {
+                                setLastError(validation.reason);
+                                return;
+                              }
+                              connectNodes(edge);
+                              setLastError(null);
+                            } catch (error) {
+                              setLastError((error as Error).message);
+                            }
+                          }}
+                          onDeleteEdge={removeEdge}
+                          onDeleteNode={removeNode}
+                          onErrorClick={handleErrorClick}
+                          onPaneClick={handleCanvasPaneClick}
+                          onRunBlock={handleRunBlock}
+                          onRestartBlock={handleRestartBlock}
+                          onSelectNode={handleNodeSelect}
+                          onUpdateNodeConfig={updateNodeConfig}
+                          onUpdateNodePosition={updateNodeLayout}
+                          schemas={blockSchemas}
+                          selectedNodeId={selectedNodeId}
+                        />
+                      )}
+                    </ResizablePanel>
+                    <ResizableHandle withHandle />
+                    <ResizablePanel
+                      panelRef={bottomPanelRef}
+                      // collapsedSize is in % of the canvas-column height.
+                      // 8% on a typical 800–1000px column ≈ 64–80px, which
+                      // accommodates the ~60px tab strip without clipping
+                      // it. The previous 3% (~24–30px) cut off the bottom
+                      // half of the tab buttons.
+                      collapsedSize="8%"
+                      collapsible
+                      // 45% gives Git / Lineage / Logs tabs enough vertical
+                      // room for their list + detail content out-of-the-box.
+                      // 30% (prior default) made the Git history list
+                      // unreadable on a 1080p canvas column.
+                      defaultSize="45%"
+                      minSize="10%"
+                    >
+                      <BottomPanel
+                        activeTab={activeBottomTab}
+                        logEntries={logEntries}
+                        onTabChange={handleBottomTabChange}
+                        onTogglePin={toggleBottomPanelPinned}
+                        onUpdateConfig={(patch) => {
+                          if (selectedNodeId) {
+                            updateNodeConfig(selectedNodeId, patch);
+                          }
+                        }}
+                        pinned={bottomPanelPinned}
+                        selectedNode={selectedNode}
+                        selectedSchema={selectedSchema}
+                        unreadLogsCount={unreadLogsCount}
+                      />
+                    </ResizablePanel>
+                  </ResizablePanelGroup>
                 </div>
               </ResizablePanel>
               <ResizableHandle withHandle />
 
               {/* Data Preview — full height right column */}
-              <ResizablePanel defaultSize="22%" minSize="15%" maxSize="42%" collapsible collapsedSize="0%">
+              <ResizablePanel
+                defaultSize="22%"
+                minSize="15%"
+                maxSize="42%"
+                collapsible
+                collapsedSize="0%"
+              >
                 <DataPreview
                   blockOutputs={blockOutputs}
                   onLoadPreview={loadPreview}
@@ -1224,7 +1268,9 @@ export default function App() {
           )}
 
           {busy ? (
-            <div className="fixed bottom-4 right-4 rounded-full bg-ink px-4 py-2 text-sm text-white">Working…</div>
+            <div className="fixed bottom-4 right-4 rounded-full bg-ink px-4 py-2 text-sm text-white">
+              Working…
+            </div>
           ) : null}
 
           {/* ADR-039 §3.5 (#975) — MergeFlow modal lives at App level so
@@ -1269,9 +1315,7 @@ function AppLevelMergeFlow() {
   // Only render when the active project matches the one that opened
   // the modal. Different project → hide (state preserved). Same
   // project (or modal closed) → render normally.
-  const projectMatches =
-    mergeFlowProjectId === null ||
-    mergeFlowProjectId === currentProject?.id;
+  const projectMatches = mergeFlowProjectId === null || mergeFlowProjectId === currentProject?.id;
   return (
     <MergeFlow
       sourceBranch={mergeFlowSource ?? ""}

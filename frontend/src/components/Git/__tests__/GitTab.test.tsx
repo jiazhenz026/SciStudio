@@ -34,13 +34,9 @@ const cleanStatus: GitStatus = {
   conflicted: [],
 };
 
-const branches: GitBranch[] = [
-  { name: "main", head_sha: "a".repeat(40), is_current: true },
-];
+const branches: GitBranch[] = [{ name: "main", head_sha: "a".repeat(40), is_current: true }];
 
-function seedStore(
-  overrides: Partial<ReturnType<typeof useAppStore.getState>> = {},
-) {
+function seedStore(overrides: Partial<ReturnType<typeof useAppStore.getState>> = {}) {
   useAppStore.setState({
     currentProject: project,
     branches,

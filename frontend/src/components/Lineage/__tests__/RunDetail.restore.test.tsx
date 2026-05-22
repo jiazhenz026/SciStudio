@@ -22,11 +22,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  RestoreWorkflowButton,
-  runRestoreWorkflow,
-  workflowYamlPathForRun,
-} from "../RunDetail";
+import { RestoreWorkflowButton, runRestoreWorkflow, workflowYamlPathForRun } from "../RunDetail";
 
 vi.mock("../../../lib/api", () => ({
   api: {
@@ -132,9 +128,7 @@ describe("RestoreWorkflowButton", () => {
       expect(hint.textContent ?? "").not.toMatch(/stash/i);
     });
     // Old stash-hint testid must not be in the DOM either.
-    expect(
-      screen.queryByTestId("run-detail-restore-stash-hint"),
-    ).toBeNull();
+    expect(screen.queryByTestId("run-detail-restore-stash-hint")).toBeNull();
   });
 
   it("on click with auto_commit_sha=null, no auto-commit hint renders (clean tree)", async () => {
@@ -151,8 +145,6 @@ describe("RestoreWorkflowButton", () => {
     await waitFor(() => {
       expect(api.gitRestore).toHaveBeenCalled();
     });
-    expect(
-      screen.queryByTestId("run-detail-restore-auto-commit-hint"),
-    ).toBeNull();
+    expect(screen.queryByTestId("run-detail-restore-auto-commit-hint")).toBeNull();
   });
 });

@@ -16,9 +16,9 @@ vi.mock("../../lib/api", async () => {
   return {
     ...actual,
     api: {
-      gitBranches: vi.fn().mockResolvedValue([
-        { name: "main", head_sha: "a".repeat(40), is_current: true },
-      ]),
+      gitBranches: vi
+        .fn()
+        .mockResolvedValue([{ name: "main", head_sha: "a".repeat(40), is_current: true }]),
       gitLog: vi.fn().mockResolvedValue([]),
       gitStatus: vi.fn().mockResolvedValue({
         dirty: false,
@@ -35,9 +35,7 @@ vi.mock("../../lib/api", async () => {
       }),
       gitBranchCreate: vi.fn().mockResolvedValue({ status: "ok", name: "x" }),
       gitBranchDelete: vi.fn().mockResolvedValue({ status: "ok" }),
-      gitRestore: vi
-        .fn()
-        .mockResolvedValue({ status: "ok", auto_commit_sha: null }),
+      gitRestore: vi.fn().mockResolvedValue({ status: "ok", auto_commit_sha: null }),
     },
   };
 });
@@ -123,7 +121,8 @@ describe("gitSlice — default state shape (skeleton)", () => {
   function makeSlice() {
     let state: any = {};
     const set = (partial: any) => {
-      state = typeof partial === "function" ? { ...state, ...partial(state) } : { ...state, ...partial };
+      state =
+        typeof partial === "function" ? { ...state, ...partial(state) } : { ...state, ...partial };
     };
     const get = () => state;
     const api = {} as any;
@@ -205,7 +204,8 @@ describe("gitSlice — mutation actions", () => {
   function makeSlice() {
     let state: any = {};
     const set = (partial: any) => {
-      state = typeof partial === "function" ? { ...state, ...partial(state) } : { ...state, ...partial };
+      state =
+        typeof partial === "function" ? { ...state, ...partial(state) } : { ...state, ...partial };
     };
     const get = () => state;
     const slice = createGitSlice(set, get, {} as any);
@@ -233,7 +233,19 @@ describe("gitSlice — mutation actions", () => {
   it("loadLog populates logCache under the branch key", async () => {
     const { slice, get } = makeSlice();
     const { api } = await import("../../lib/api");
-    (api.gitLog as any).mockResolvedValueOnce([{ sha: "x", short_sha: "x", parents: [], subject: "feat: y", body: "", author_name: "", author_email: "", author_date: "", branches: [] }]);
+    (api.gitLog as any).mockResolvedValueOnce([
+      {
+        sha: "x",
+        short_sha: "x",
+        parents: [],
+        subject: "feat: y",
+        body: "",
+        author_name: "",
+        author_email: "",
+        author_date: "",
+        branches: [],
+      },
+    ]);
     await slice.loadLog("main");
     expect(get().logCache.main).toHaveLength(1);
     expect(get().logLoading.main).toBe(false);
@@ -297,9 +309,7 @@ describe("gitSlice — mutation actions", () => {
     let state: any = {};
     const set = (partial: any) => {
       state =
-        typeof partial === "function"
-          ? { ...state, ...partial(state) }
-          : { ...state, ...partial };
+        typeof partial === "function" ? { ...state, ...partial(state) } : { ...state, ...partial };
     };
     const get = () => state;
     const slice = createGitSlice(set, get, {} as any);
@@ -336,14 +346,22 @@ describe("gitSlice — mutation actions", () => {
     });
     const result = await slice.restore("abc1234");
     expect(result.auto_commit_sha).toContain("fedcba9");
-    expect(get().lastNotice).toMatch(/Your unsaved changes were committed as fedcba9 before the restore/);
+    expect(get().lastNotice).toMatch(
+      /Your unsaved changes were committed as fedcba9 before the restore/,
+    );
   });
 
   it("invalidateHistory clears log + status + branches", () => {
     const { slice, get } = makeSlice();
     // Pre-populate.
     (slice as any).logCache = { main: [] };
-    (slice as any).status = { dirty: false, modified: [], staged: [], untracked: [], conflicted: [] };
+    (slice as any).status = {
+      dirty: false,
+      modified: [],
+      staged: [],
+      untracked: [],
+      conflicted: [],
+    };
     slice.invalidateHistory();
     expect(get().logCache).toEqual({});
     expect(get().status).toBeNull();

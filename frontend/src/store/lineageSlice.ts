@@ -257,10 +257,7 @@ const INITIAL_LINEAGE_STATE = {
   rerunDialogRunId: null as string | null,
 };
 
-export const createLineageSlice: StateCreator<AppStore, [], [], LineageSlice> = (
-  set,
-  get,
-) => ({
+export const createLineageSlice: StateCreator<AppStore, [], [], LineageSlice> = (set, get) => ({
   ...INITIAL_LINEAGE_STATE,
 
   fetchRuns: async (opts) => {
@@ -269,8 +266,7 @@ export const createLineageSlice: StateCreator<AppStore, [], [], LineageSlice> = 
       const { runs } = await api.lineage.getRuns(opts);
       set({ runs, runsLoading: false });
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to load runs";
+      const message = err instanceof Error ? err.message : "Failed to load runs";
       // Keep previously-loaded runs visible; only flip loading + error.
       set({ runsLoading: false, runsError: message });
     }
@@ -289,13 +285,9 @@ export const createLineageSlice: StateCreator<AppStore, [], [], LineageSlice> = 
         runDetailError: { ...s.runDetailError, [runId]: null },
       }));
     } catch (err) {
-      const isNotFound =
-        err instanceof ApiError && err.status === 404
-          ? "Run not found"
-          : null;
+      const isNotFound = err instanceof ApiError && err.status === 404 ? "Run not found" : null;
       const message =
-        isNotFound ??
-        (err instanceof Error ? err.message : "Failed to load run detail");
+        isNotFound ?? (err instanceof Error ? err.message : "Failed to load run detail");
       set((s) => ({
         runDetailLoading: { ...s.runDetailLoading, [runId]: false },
         runDetailError: { ...s.runDetailError, [runId]: message },

@@ -123,13 +123,7 @@ describe("CommitDialog — UI", () => {
     const commit = vi.fn().mockResolvedValue("abcdef0");
     seedStore({ commit });
     const onClose = vi.fn();
-    render(
-      <CommitDialog
-        open={true}
-        onClose={onClose}
-        initialFiles={["workflows/a.yaml"]}
-      />,
-    );
+    render(<CommitDialog open={true} onClose={onClose} initialFiles={["workflows/a.yaml"]} />);
     fireEvent.change(screen.getByTestId("commit-dialog-message"), {
       target: { value: "feat: x\n# comment\n" },
     });

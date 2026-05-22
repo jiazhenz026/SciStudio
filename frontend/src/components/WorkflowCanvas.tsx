@@ -13,7 +13,13 @@ import "@xyflow/react/dist/style.css";
 import { useCallback, useMemo, useState } from "react";
 
 import { resolveTypeColor } from "../config/typeColorMap";
-import type { BlockPortResponse, BlockSchemaResponse, BlockSummary, WorkflowEdge, WorkflowNode } from "../types/api";
+import type {
+  BlockPortResponse,
+  BlockSchemaResponse,
+  BlockSummary,
+  WorkflowEdge,
+  WorkflowNode,
+} from "../types/api";
 import type { BlockNodeData } from "../types/ui";
 import { collectUpstreamOmeFields } from "./WorkflowEditor/LossySaveWarning";
 import { AnnotationNode } from "./nodes/AnnotationNode";
@@ -42,9 +48,7 @@ function resolveVariadicPorts(
   schema?: BlockSchemaResponse,
 ): BlockPortResponse[] {
   const isVariadic =
-    direction === "input"
-      ? schema?.variadic_inputs === true
-      : schema?.variadic_outputs === true;
+    direction === "input" ? schema?.variadic_inputs === true : schema?.variadic_outputs === true;
   if (!isVariadic) return schemaPorts;
 
   const configKey = direction === "input" ? "input_ports" : "output_ports";
@@ -79,7 +83,11 @@ interface WorkflowCanvasProps {
   selectedNodeId: string | null;
   minimapVisible: boolean;
   onSelectNode: (nodeId: string | null) => void;
-  onAddNode: (block: BlockSummary, position: { x: number; y: number }, defaultParams?: Record<string, unknown>) => void;
+  onAddNode: (
+    block: BlockSummary,
+    position: { x: number; y: number },
+    defaultParams?: Record<string, unknown>,
+  ) => void;
   onUpdateNodePosition: (nodeId: string, position: { x: number; y: number }) => void;
   onUpdateNodeConfig: (nodeId: string, config: Record<string, unknown>) => void;
   onConnect: (connection: WorkflowEdge) => Promise<void>;
@@ -165,9 +173,15 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
   const [dragPositions, setDragPositions] = useState<Record<string, { x: number; y: number }>>({});
 
   const makeOnRun = useCallback((nodeId: string) => () => onRunBlock(nodeId), [onRunBlock]);
-  const makeOnRestart = useCallback((nodeId: string) => () => onRestartBlock(nodeId), [onRestartBlock]);
+  const makeOnRestart = useCallback(
+    (nodeId: string) => () => onRestartBlock(nodeId),
+    [onRestartBlock],
+  );
   const makeOnDelete = useCallback((nodeId: string) => () => onDeleteNode(nodeId), [onDeleteNode]);
-  const makeOnErrorClick = useCallback((nodeId: string) => () => onErrorClick(nodeId), [onErrorClick]);
+  const makeOnErrorClick = useCallback(
+    (nodeId: string) => () => onErrorClick(nodeId),
+    [onErrorClick],
+  );
   const makeOnUpdateConfig = useCallback(
     (nodeId: string) => (patch: Record<string, unknown>) => onUpdateNodeConfig(nodeId, patch),
     [onUpdateNodeConfig],
@@ -193,7 +207,10 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     return nodes.map((node, index) => {
       const storePos = node.layout ?? { x: 120 + index * 80, y: 120 + index * 40 };
       const position = dragPositions[node.id] ?? storePos;
-      const params = ((node.config.params as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>;
+      const params = ((node.config.params as Record<string, unknown> | undefined) ?? {}) as Record<
+        string,
+        unknown
+      >;
 
       // Annotation node
       if (node.block_type === "_annotation") {
@@ -220,8 +237,10 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
 
       // Group frame node
       if (node.block_type === "_group") {
-        const groupW = (node.config.style as Record<string, unknown> | undefined)?.width as number ?? 400;
-        const groupH = (node.config.style as Record<string, unknown> | undefined)?.height as number ?? 250;
+        const groupW =
+          ((node.config.style as Record<string, unknown> | undefined)?.width as number) ?? 400;
+        const groupH =
+          ((node.config.style as Record<string, unknown> | undefined)?.height as number) ?? 250;
         return {
           id: node.id,
           type: "_group",
@@ -288,8 +307,18 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
           summary,
           schema,
           config: params,
-          inputPorts: resolveVariadicPorts(schema?.input_ports ?? summary?.input_ports ?? [], params, "input", schema),
-          outputPorts: resolveVariadicPorts(schema?.output_ports ?? summary?.output_ports ?? [], params, "output", schema),
+          inputPorts: resolveVariadicPorts(
+            schema?.input_ports ?? summary?.input_ports ?? [],
+            params,
+            "input",
+            schema,
+          ),
+          outputPorts: resolveVariadicPorts(
+            schema?.output_ports ?? summary?.output_ports ?? [],
+            params,
+            "output",
+            schema,
+          ),
           status: blockStates[node.id] ?? "idle",
           errorMessage: blockErrors[node.id],
           errorSummary: blockErrorSummaries[node.id],
@@ -304,7 +333,25 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
         selected: selectedNodeId === node.id,
       };
     });
-  }, [blocks, blockStates, blockErrors, blockErrorSummaries, blockOutputs, dragPositions, edges, makeOnDelete, makeOnErrorClick, makeOnRestart, makeOnRun, makeOnUpdateConfig, nodes, onUpdateNodeConfig, resolveLabel, schemas, selectedNodeId]);
+  }, [
+    blocks,
+    blockStates,
+    blockErrors,
+    blockErrorSummaries,
+    blockOutputs,
+    dragPositions,
+    edges,
+    makeOnDelete,
+    makeOnErrorClick,
+    makeOnRestart,
+    makeOnRun,
+    makeOnUpdateConfig,
+    nodes,
+    onUpdateNodeConfig,
+    resolveLabel,
+    schemas,
+    selectedNodeId,
+  ]);
 
   const flowEdges = useMemo<Array<Edge>>(() => {
     return edges.map((edge) => {
@@ -343,7 +390,11 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
         }
         const parsed = JSON.parse(payload) as BlockSummary & { _default_direction?: string };
         const position = reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
-        onAddNode(parsed, position, parsed._default_direction ? { direction: parsed._default_direction } : undefined);
+        onAddNode(
+          parsed,
+          position,
+          parsed._default_direction ? { direction: parsed._default_direction } : undefined,
+        );
       }}
     >
       <ReactFlow
@@ -367,7 +418,12 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
           }
         }}
         onConnect={async (connection: Connection) => {
-          if (!connection.source || !connection.target || !connection.sourceHandle || !connection.targetHandle) {
+          if (
+            !connection.source ||
+            !connection.target ||
+            !connection.sourceHandle ||
+            !connection.targetHandle
+          ) {
             return;
           }
           await onConnect({
@@ -376,14 +432,18 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
           });
         }}
         onEdgeClick={(_, edge) => {
-          const match = edges.find((candidate) => `${candidate.source}->${candidate.target}` === edge.id);
+          const match = edges.find(
+            (candidate) => `${candidate.source}->${candidate.target}` === edge.id,
+          );
           if (match) {
             onDeleteEdge(match);
           }
         }}
         onEdgesDelete={(deleted) => {
           deleted.forEach((edge) => {
-            const match = edges.find((candidate) => `${candidate.source}->${candidate.target}` === edge.id);
+            const match = edges.find(
+              (candidate) => `${candidate.source}->${candidate.target}` === edge.id,
+            );
             if (match) {
               onDeleteEdge(match);
             }

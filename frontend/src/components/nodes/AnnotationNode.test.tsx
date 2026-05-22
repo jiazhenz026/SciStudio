@@ -8,7 +8,10 @@ import { AnnotationNode } from "./AnnotationNode";
 afterEach(() => cleanup());
 
 // Minimal wrapper for ReactFlow node component rendering.
-function renderNode(dataOverrides: Partial<{ text: string; onUpdateText: (t: string) => void }> = {}, selected = false) {
+function renderNode(
+  dataOverrides: Partial<{ text: string; onUpdateText: (t: string) => void }> = {},
+  selected = false,
+) {
   const props = {
     id: "note-1",
     type: "_annotation",

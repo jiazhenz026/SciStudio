@@ -195,9 +195,7 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
   }
 
   if (tab.state === "setup") {
-    return (
-      <SetupScreen tabId={tabId} onLaunch={handleLaunch} onCancel={handleCancel} />
-    );
+    return <SetupScreen tabId={tabId} onLaunch={handleLaunch} onCancel={handleCancel} />;
   }
 
   if (tab.state === "running") {

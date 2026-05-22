@@ -15,7 +15,15 @@
  * the merge "submenu" is rendered as a separator block of items inside
  * the main menu. The visual hierarchy is preserved via a label header.
  */
-import { GitBranch as GitBranchIcon, ChevronDown, Plus, Check, GitMerge, Trash2, CornerUpRight } from "lucide-react";
+import {
+  GitBranch as GitBranchIcon,
+  ChevronDown,
+  Plus,
+  Check,
+  GitMerge,
+  Trash2,
+  CornerUpRight,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { JSX } from "react";
 import { createPortal } from "react-dom";
@@ -130,9 +138,7 @@ export function BranchPicker(props: BranchPickerProps): JSX.Element {
 
   const handleDelete = useCallback(
     (name: string) => {
-      const confirmed = window.confirm(
-        `Delete branch '${name}'? This cannot be undone.`,
-      );
+      const confirmed = window.confirm(`Delete branch '${name}'? This cannot be undone.`);
       if (!confirmed) return;
       void deleteBranch(name).catch((err) => {
         // eslint-disable-next-line no-console
@@ -208,10 +214,7 @@ export function BranchPicker(props: BranchPickerProps): JSX.Element {
                   handleSwitch(b.name);
                 }}
               >
-                <span
-                  data-testid="branch-picker-item-check"
-                  className="inline-block w-4"
-                >
+                <span data-testid="branch-picker-item-check" className="inline-block w-4">
                   {b.is_current ? <Check className="size-3.5 text-pine" /> : null}
                 </span>
                 <span className="flex-1">{b.name}</span>
@@ -233,10 +236,7 @@ export function BranchPicker(props: BranchPickerProps): JSX.Element {
             ))
           )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            data-testid="branch-picker-create"
-            onSelect={() => handleCreate()}
-          >
+          <DropdownMenuItem data-testid="branch-picker-create" onSelect={() => handleCreate()}>
             <Plus className="size-3.5" />+ Create branch…
           </DropdownMenuItem>
 
@@ -270,81 +270,83 @@ export function BranchPicker(props: BranchPickerProps): JSX.Element {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {autoCommitToast && createPortal(
-        <div
-          data-testid="branch-picker-auto-commit-toast"
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-4 right-4 z-50 max-w-md rounded-md border border-stone-300 bg-white px-4 py-3 text-xs text-ink shadow-lg"
-        >
-          {autoCommitToast}
-        </div>,
-        document.body,
-      )}
-
-      {createOpen && createPortal(
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="branch-create-title"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setCreateOpen(false);
-          }}
-        >
+      {autoCommitToast &&
+        createPortal(
           <div
-            data-testid="branch-create-dialog"
-            className="w-full max-w-md rounded-lg bg-white p-5 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            data-testid="branch-picker-auto-commit-toast"
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-4 right-4 z-50 max-w-md rounded-md border border-stone-300 bg-white px-4 py-3 text-xs text-ink shadow-lg"
           >
-            <h2 id="branch-create-title" className="mb-3 text-base font-semibold">
-              Create new branch
-            </h2>
-            <input
-              data-testid="branch-create-input"
-              autoFocus
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  submitCreate();
-                } else if (e.key === "Escape") {
-                  e.preventDefault();
-                  setCreateOpen(false);
-                }
-              }}
-              placeholder="branch-name"
-              className="block w-full rounded border border-stone-300 px-3 py-2 text-sm outline-none focus:border-pine"
-            />
-            <p className="mt-2 text-xs text-stone-500">
-              Creates a branch from the current HEAD and switches to it.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button
-                variant="toolbar"
-                size="toolbar"
-                type="button"
-                onClick={() => setCreateOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                data-testid="branch-create-submit"
-                variant="toolbar-dark"
-                size="toolbar"
-                type="button"
-                disabled={newName.trim().length === 0}
-                onClick={() => submitCreate()}
-              >
-                Create
-              </Button>
+            {autoCommitToast}
+          </div>,
+          document.body,
+        )}
+
+      {createOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="branch-create-title"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setCreateOpen(false);
+            }}
+          >
+            <div
+              data-testid="branch-create-dialog"
+              className="w-full max-w-md rounded-lg bg-white p-5 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 id="branch-create-title" className="mb-3 text-base font-semibold">
+                Create new branch
+              </h2>
+              <input
+                data-testid="branch-create-input"
+                autoFocus
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    submitCreate();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    setCreateOpen(false);
+                  }
+                }}
+                placeholder="branch-name"
+                className="block w-full rounded border border-stone-300 px-3 py-2 text-sm outline-none focus:border-pine"
+              />
+              <p className="mt-2 text-xs text-stone-500">
+                Creates a branch from the current HEAD and switches to it.
+              </p>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button
+                  variant="toolbar"
+                  size="toolbar"
+                  type="button"
+                  onClick={() => setCreateOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  data-testid="branch-create-submit"
+                  variant="toolbar-dark"
+                  size="toolbar"
+                  type="button"
+                  disabled={newName.trim().length === 0}
+                  onClick={() => submitCreate()}
+                >
+                  Create
+                </Button>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

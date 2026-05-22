@@ -69,15 +69,8 @@ export interface GraphSVGProps {
  * `interactions.ts` and is passed in via props.
  */
 export function GraphSVG(props: GraphSVGProps): JSX.Element {
-  const {
-    assignments,
-    edges,
-    commits,
-    onCommitClick,
-    visibleRange,
-    hoveredIdx,
-    focusedIdx,
-  } = props;
+  const { assignments, edges, commits, onCommitClick, visibleRange, hoveredIdx, focusedIdx } =
+    props;
 
   // Pull historyFilter so we re-render when it changes (the bool itself
   // is derived in integration.ts but tooltip text references it).
@@ -100,14 +93,8 @@ export function GraphSVG(props: GraphSVGProps): JSX.Element {
   const visibleEdges = useMemo(() => {
     if (visibleRange === undefined) return edges;
     return edges.filter((e) => {
-      const minIdx = Math.min(
-        e.child_idx,
-        e.parent_idx >= 0 ? e.parent_idx : e.child_idx,
-      );
-      const maxIdx = Math.max(
-        e.child_idx,
-        e.parent_idx >= 0 ? e.parent_idx : e.child_idx,
-      );
+      const minIdx = Math.min(e.child_idx, e.parent_idx >= 0 ? e.parent_idx : e.child_idx);
+      const maxIdx = Math.max(e.child_idx, e.parent_idx >= 0 ? e.parent_idx : e.child_idx);
       return maxIdx >= visibleStart - 1 && minIdx <= visibleEnd;
     });
   }, [edges, visibleRange, visibleStart, visibleEnd]);
@@ -153,12 +140,8 @@ export function GraphSVG(props: GraphSVGProps): JSX.Element {
             {assignments.slice(visibleStart, visibleEnd).map((a, offset) => {
               const idx = visibleStart + offset;
               const c = centerOf(idx, a.lane);
-              const r = a.filtered_out
-                ? COMMIT_RADIUS_FILTERED
-                : COMMIT_RADIUS_VISIBLE;
-              const fill = a.filtered_out
-                ? "#a1a1aa"
-                : colorForIndex(a.color_index);
+              const r = a.filtered_out ? COMMIT_RADIUS_FILTERED : COMMIT_RADIUS_VISIBLE;
+              const fill = a.filtered_out ? "#a1a1aa" : colorForIndex(a.color_index);
               const commit = commits[idx];
               const isHovered = hoveredIdx === idx;
               const isFocused = focusedIdx === idx;
@@ -181,11 +164,7 @@ export function GraphSVG(props: GraphSVGProps): JSX.Element {
                     stroke={isFocused ? "#000" : "none"}
                     strokeWidth={isFocused ? 1 : 0}
                   >
-                    <title>
-                      {commit
-                        ? `${commit.short_sha}  ${commit.subject}`
-                        : a.sha}
-                    </title>
+                    <title>{commit ? `${commit.short_sha}  ${commit.subject}` : a.sha}</title>
                   </circle>
                   {isMerge && !a.filtered_out && (
                     <circle

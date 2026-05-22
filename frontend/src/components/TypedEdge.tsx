@@ -1,6 +1,16 @@
 import { BaseEdge, getBezierPath, type EdgeProps } from "@xyflow/react";
 
-export function TypedEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, data }: EdgeProps) {
+export function TypedEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  style,
+  data,
+}: EdgeProps) {
   const [path] = getBezierPath({
     sourceX,
     sourceY,

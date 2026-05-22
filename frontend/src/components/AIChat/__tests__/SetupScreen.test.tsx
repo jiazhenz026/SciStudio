@@ -30,8 +30,7 @@ function mockStatusOnce(payload: unknown) {
     status: 200,
     json: async () => payload,
   });
-  (global as unknown as { fetch: typeof fetch }).fetch =
-    fetchMock as unknown as typeof fetch;
+  (global as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
   return fetchMock;
 }
 
@@ -57,9 +56,7 @@ describe("SetupScreen", () => {
     await waitFor(() =>
       expect(screen.getByTestId("setup-provider-claude-code")).not.toBeDisabled(),
     );
-    expect(screen.getByTestId("setup-working-dir").textContent).toContain(
-      "/abs/path/to/project",
-    );
+    expect(screen.getByTestId("setup-working-dir").textContent).toContain("/abs/path/to/project");
     expect(screen.getByTestId("setup-provider-claude-code")).toBeInTheDocument();
     expect(screen.getByTestId("setup-provider-codex")).toBeInTheDocument();
     expect(screen.getByTestId("setup-permission-safe")).toBeInTheDocument();
@@ -92,9 +89,7 @@ describe("SetupScreen", () => {
     render(<SetupScreen tabId="t1" onLaunch={vi.fn()} onCancel={vi.fn()} />);
     const codex = await screen.findByTestId("setup-provider-codex");
     expect(codex).toBeDisabled();
-    expect(screen.getByTestId("setup-provider-codex-hint").textContent).toMatch(
-      /not installed/i,
-    );
+    expect(screen.getByTestId("setup-provider-codex-hint").textContent).toMatch(/not installed/i);
   });
 
   it("shows '(not logged in)' when the provider is available but unauthenticated", async () => {
@@ -116,9 +111,7 @@ describe("SetupScreen", () => {
 
   it("invokes onLaunch with the chosen provider + dangerous flag", async () => {
     mockStatusOnce({
-      providers: [
-        { name: "claude-code", available: true, version: "2.1.0", logged_in: true },
-      ],
+      providers: [{ name: "claude-code", available: true, version: "2.1.0", logged_in: true }],
     });
     const onLaunch = vi.fn();
     render(<SetupScreen tabId="t1" onLaunch={onLaunch} onCancel={vi.fn()} />);
