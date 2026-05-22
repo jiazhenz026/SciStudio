@@ -194,11 +194,7 @@ def test_public_lifecycle_events_carry_consistent_workflow_id_and_block_type(
 
     asyncio.run(scheduler.execute())
 
-    matching = [
-        event
-        for event in seen
-        if event.event_type == event_type and event.block_id == block_id
-    ]
+    matching = [event for event in seen if event.event_type == event_type and event.block_id == block_id]
     assert len(matching) == 1
     event = matching[0]
     _assert_public_identity(event, block_id=block_id)
@@ -221,21 +217,15 @@ def test_public_lifecycle_events_carry_consistent_workflow_id_and_block_type(
             BLOCK_CANCELLED,
             "A",
             "contract.type.A",
-            lambda scheduler: scheduler._block_states.update(
-                {"A": BlockState.RUNNING, "B": BlockState.IDLE}
-            ),
-            lambda scheduler, bus: bus.emit(
-                EngineEvent(event_type=CANCEL_BLOCK_REQUEST, block_id="A")
-            ),
+            lambda scheduler: scheduler._block_states.update({"A": BlockState.RUNNING, "B": BlockState.IDLE}),
+            lambda scheduler, bus: bus.emit(EngineEvent(event_type=CANCEL_BLOCK_REQUEST, block_id="A")),
         ),
         (
             "workflow-cancel-skips-idle",
             BLOCK_SKIPPED,
             "B",
             "contract.type.B",
-            lambda scheduler: scheduler._block_states.update(
-                {"A": BlockState.DONE, "B": BlockState.IDLE}
-            ),
+            lambda scheduler: scheduler._block_states.update({"A": BlockState.DONE, "B": BlockState.IDLE}),
             lambda scheduler, bus: bus.emit(EngineEvent(event_type=CANCEL_WORKFLOW_REQUEST)),
         ),
     ],
@@ -265,11 +255,7 @@ def test_error_cancel_skip_terminal_events_have_downstream_payload_shape(
 
     asyncio.run(trigger(scheduler, bus))
 
-    events = [
-        event
-        for event in seen
-        if event.event_type == terminal_event and event.block_id == block_id
-    ]
+    events = [event for event in seen if event.event_type == terminal_event and event.block_id == block_id]
     assert len(events) == 1
     event = events[0]
     _assert_terminal_payload(event, block_id=block_id, block_type=block_type)

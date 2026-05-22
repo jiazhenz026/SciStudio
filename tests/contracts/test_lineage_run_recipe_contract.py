@@ -243,10 +243,7 @@ def test_terminal_events_distinguish_run_and_block_terminal_statuses() -> None:
                 )
 
         asyncio.run(emit_terminal_events())
-        assert {
-            row["block_id"]: row["termination"]
-            for row in store.list_block_executions(run_id)
-        } == {
+        assert {row["block_id"]: row["termination"] for row in store.list_block_executions(run_id)} == {
             "done-block": "completed",
             "error-block": "error",
             "cancelled-block": "cancelled",

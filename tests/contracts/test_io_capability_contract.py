@@ -25,11 +25,7 @@ def _core_io_registry() -> BlockRegistry:
 
 
 def _registered_capabilities() -> list[FormatCapability]:
-    return [
-        capability
-        for spec in _core_io_registry().all_specs().values()
-        for capability in spec.format_capabilities
-    ]
+    return [capability for spec in _core_io_registry().all_specs().values() for capability in spec.format_capabilities]
 
 
 def _capability_key(capability: FormatCapability) -> tuple[str, type[DataObject], str]:
@@ -76,12 +72,8 @@ def test_capability_ids_are_unique_and_defaults_do_not_overlap() -> None:
 
     assert duplicate_ids == []
 
-    defaults_by_type_format = [
-        _capability_key(capability) for capability in capabilities if capability.is_default
-    ]
-    duplicate_type_format_defaults = [
-        key for key, count in Counter(defaults_by_type_format).items() if count > 1
-    ]
+    defaults_by_type_format = [_capability_key(capability) for capability in capabilities if capability.is_default]
+    duplicate_type_format_defaults = [key for key, count in Counter(defaults_by_type_format).items() if count > 1]
     assert duplicate_type_format_defaults == []
 
     defaults_by_extension: list[tuple[str, type[DataObject], str]] = []
@@ -89,12 +81,9 @@ def test_capability_ids_are_unique_and_defaults_do_not_overlap() -> None:
         if not capability.is_default:
             continue
         defaults_by_extension.extend(
-            (capability.direction, capability.data_type, extension)
-            for extension in capability.extensions
+            (capability.direction, capability.data_type, extension) for extension in capability.extensions
         )
-    duplicate_extension_defaults = [
-        key for key, count in Counter(defaults_by_extension).items() if count > 1
-    ]
+    duplicate_extension_defaults = [key for key, count in Counter(defaults_by_extension).items() if count > 1]
     assert duplicate_extension_defaults == []
 
 
