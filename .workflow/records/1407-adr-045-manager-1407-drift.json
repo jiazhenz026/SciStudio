@@ -75,18 +75,27 @@
     "trailers": {}
   },
   "docs_landing": {
-    "changelog": {},
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "umbrella PR is a staged implementation/tracking PR and records contract changes in ADR/spec/checklist; final release changelog entry is N/A until owner-approved final PR to main"
+    },
     "checklist": {
       "paths": [
+        "docs/planning/adr-045-version-vector-checklist.md",
         "docs/planning/dispatch-prompts/adr-045-a1-backend-versioning.md",
         "docs/planning/dispatch-prompts/adr-045-a2-file-tabs.md",
         "docs/planning/dispatch-prompts/adr-045-a3-frontend-reconcile.md",
-        "docs/planning/dispatch-prompts/adr-045-a4-audit-with-context.md",
-        "docs/planning/adr-045-version-vector-checklist.md"
+        "docs/planning/dispatch-prompts/adr-045-a4-audit-with-context.md"
       ]
     },
     "docs": {
       "paths": [
+        "docs/adr/ADR-041.md",
+        "docs/adr/ADR-043.md",
+        "docs/adr/ADR-045.md",
+        "docs/specs/adr-041-codeblock-v2.md",
+        "docs/specs/adr-043-io-format-capability-registry.md",
+        "docs/specs/adr-043-package-migration.md",
         "docs/specs/adr-045-workflow-state-version.md"
       ]
     }
