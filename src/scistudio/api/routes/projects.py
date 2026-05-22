@@ -318,8 +318,7 @@ async def write_project_file(
 
     # ``target`` is returned by _resolve_project_file only after realpath +
     # commonpath sandbox validation against ``project_root``.
-    # codeql[py/path-injection]
-    existed = target.exists()
+    existed = target.exists()  # codeql[py/path-injection]
     entity_id = _project_relative_entity_id(project_root, target)
     kind = "modified" if existed else "created"
 
