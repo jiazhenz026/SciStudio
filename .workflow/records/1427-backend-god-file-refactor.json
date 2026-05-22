@@ -48,7 +48,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1427-backend-god-file-refactor.json",
+    "shas": [
+      "9b4e05161c84ba1f969ff9288e3247ee917120aa"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -94,7 +100,13 @@
     "docs/planning/backend-god-file-refactor-checklist.md",
     "scripts/check_god_files.py"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1427
+    ],
+    "number": 1429,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1429"
+  },
   "record_path": ".workflow/records/1427-backend-god-file-refactor.json",
   "required_checks": [
     "ruff",
@@ -159,7 +171,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
