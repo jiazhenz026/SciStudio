@@ -235,11 +235,11 @@ language_source: en
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
-| Ruff | `ruff check .` | `[~]` | Targeted governance ruff passed; full repo ruff pending final integration. |
-| Format | `ruff format --check .` | `[~]` | Targeted governance format check passed; full repo format pending final integration. |
+| Ruff | `ruff check .` | `[x]` | Passed after integration. |
+| Format | `ruff format --check .` | `[x]` | Passed after integration. |
 | Tests | `pytest tests/qa/test_persona_policy.py tests/qa/test_test_engineer_scope_guard.py tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py -q --no-cov` | `[x]` | Passed after integrating A and B. |
 | Frontmatter | `python -m scistudio.qa.audit.frontmatter_lint docs/ai-developer/personas/test-engineer.md docs/ai-developer/specific_rules/test-engineering.md --repo-root . --format text` | `[ ]` | `pending` |
-| Full audit | `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-042-test-engineer-persona-implementation-full-audit.json` | `[ ]` | `pending` |
+| Full audit | `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-042-test-engineer-persona-implementation-full-audit.json` | `[x]` | `docs/audit/adr-042-test-engineer-persona-implementation-full-audit.json` |
 | Sentrux | `N/A unless available in this session` | `[x]` | Sentrux CLI unavailable in manager environment; recorded in gate record. |
 
 ## 11. Drift Log

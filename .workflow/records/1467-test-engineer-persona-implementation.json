@@ -53,6 +53,15 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "ruff_format_check_full",
+      "output_path": "735 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": null,
@@ -67,11 +76,33 @@
       ]
     },
     "docs": {
-      "not_applicable": true,
-      "rationale": "all-required-ai-governance-docs-updated"
+      "paths": [
+        "docs/audit/adr-042-test-engineer-persona-implementation-full-audit.json",
+        "docs/ai-developer/rules.md",
+        "docs/ai-developer/specific_rules/gated-workflow.md",
+        "docs/ai-developer/specific_rules/agent-dispatch.md",
+        "docs/ai-developer/specific_rules/test-engineering.md",
+        "docs/ai-developer/personas/test-engineer.md",
+        "docs/ai-developer/templates/agent-dispatch-prompt-template.md",
+        "docs/ai-developer/templates/agent-dispatch-checklist-template.md",
+        "docs/ai-developer/checklists/agent-manager-rules-review.md",
+        "docs/ai-developer/skills/scistudio-e2e-test/SKILL.md",
+        ".agents/skills/test-engineer/SKILL.md",
+        ".codex/skills/test-engineer/SKILL.md",
+        ".claude/skills/test-engineer/SKILL.md"
+      ]
     }
   },
-  "full_audit": null,
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-042-test-engineer-persona-implementation-full-audit.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/adr-042-test-engineer-persona-implementation-full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
   "governance_touch": true,
   "issues": [
     {
