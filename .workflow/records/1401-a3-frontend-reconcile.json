@@ -29,6 +29,14 @@
         "tests/integration/test_race_external_editor.py"
       ],
       "reason": "Manager-owned PR #1443 Python CI fix: make API file writes register a pending first-party signature before atomic replace so watcher echo events cannot race the authoritative file.changed event."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "tests/contract/test_adr045_version_vector_contract.py"
+      ],
+      "reason": "Owner asked whether ADR-045 has a unified contract suite; added tests/contract coverage for HTTP, WebSocket, event, and watcher version-vector contracts."
     }
   ],
   "branch": "feat/issue-1401/adr-045-frontend-reconcile",
@@ -37,7 +45,8 @@
     "frontend/src/store/__tests__/workflowSlice.versionVector.test.ts",
     "frontend/src/store/__tests__/tabSlice.versionVector.test.ts",
     "frontend/src/store/__tests__/tabState.test.ts",
-    "tests/integration/test_race_external_editor.py"
+    "tests/integration/test_race_external_editor.py",
+    "tests/contract/test_adr045_version_vector_contract.py"
   ],
   "check_results": [
     {
@@ -345,6 +354,33 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest -n auto tests/contract/test_adr045_version_vector_contract.py tests/api/test_file_version_vector.py tests/api/test_reload_on_save.py tests/integration/test_race_external_editor.py --timeout=60 --timeout-method=thread --no-cov",
+      "exit_code": 0,
+      "name": "unified ADR-045 contract suite",
+      "output_path": "14 passed; includes tests/contract HTTP, WebSocket, event, and watcher contract coverage",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff check tests/contract/test_adr045_version_vector_contract.py && ruff format --check tests/contract/test_adr045_version_vector_contract.py",
+      "exit_code": 0,
+      "name": "ruff unified ADR-045 contract suite",
+      "output_path": "All checks passed; 1 file already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-a3-full-audit.json",
+      "exit_code": 0,
+      "name": "full_audit unified ADR-045 contract suite",
+      "output_path": "docs/audit/adr-045-a3-full-audit.json; status pass after adding tests/contract ADR-045 suite",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": {
@@ -374,7 +410,7 @@
     "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-a3-full-audit.json",
     "exit_code": 0,
     "known_debt": [],
-    "output_path": "docs/audit/adr-045-a3-full-audit.json; status pass after pending first-party signature fix",
+    "output_path": "docs/audit/adr-045-a3-full-audit.json; status pass after adding tests/contract ADR-045 suite",
     "status": "pass",
     "summary": {},
     "unclassified_failures": []
@@ -400,6 +436,7 @@
     "frontend/src/store/__tests__/tabSlice.versionVector.test.ts",
     "frontend/src/store/__tests__/tabState.test.ts",
     "tests/integration/test_race_external_editor.py",
+    "tests/contract/test_adr045_version_vector_contract.py",
     "docs/planning/adr-045-version-vector-checklist.md",
     "docs/audit/adr-045-a3-full-audit.json",
     ".workflow/records/1401-a3-frontend-reconcile.json"
@@ -449,7 +486,8 @@
       "src/scistudio/api/routes/projects.py",
       "src/scistudio/api/routes/workflow_watcher.py",
       "src/scistudio/api/runtime.py",
-      "tests/integration/test_race_external_editor.py"
+      "tests/integration/test_race_external_editor.py",
+      "tests/contract/test_adr045_version_vector_contract.py"
     ]
   },
   "sentrux": {
