@@ -3,7 +3,8 @@
   "amendments": [],
   "branch": "fix/issue-1420-1421/hooks-order",
   "changed_test_paths": [
-    "frontend/src/components/nodes/__tests__/BlockNode.test.tsx"
+    "frontend/src/components/nodes/BlockNode.test.tsx",
+    "frontend/src/__tests__/eslint-config.test.ts"
   ],
   "check_results": [
     {
