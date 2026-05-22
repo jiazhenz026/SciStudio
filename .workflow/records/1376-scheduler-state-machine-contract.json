@@ -73,8 +73,14 @@
       "not_applicable": true,
       "rationale": "test-only-contract-coverage-no-user-visible-product-change"
     },
-    "checklist": {},
-    "docs": {}
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "single-PR-test-only-change-no-manager-dispatch-checklist"
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "test-only-contract-coverage-no-public-contract-text-change"
+    }
   },
   "full_audit": {
     "blocks_merge": false,
