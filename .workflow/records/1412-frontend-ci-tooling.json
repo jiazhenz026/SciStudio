@@ -8,6 +8,14 @@
         "frontend/src/**"
       ],
       "reason": "Prettier --write pass on existing frontend tree (102 files reformatted). Owner-approved scope expansion to make format:check pass on first CI run rather than file a followup 'format pass' issue. Pure whitespace/quote/semicolon changes, no semantics altered."
+    },
+    {
+      "approved_by": "jiazhenz026",
+      "exclude": [],
+      "include": [
+        ".workflow/records/1412-frontend-ci-tooling.json"
+      ],
+      "reason": "Include the gate record file itself in scope.include \u2014 it is always staged with the change."
     }
   ],
   "branch": "feat/frontend-ci-tooling",
