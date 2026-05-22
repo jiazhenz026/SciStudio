@@ -442,9 +442,7 @@ class _ProjectFileHandler(_WorkflowFileHandler):
                 disk_mtime = int(path.stat().st_mtime_ns)
             except OSError:
                 disk_mtime = 0
-            cached_version = self._runtime.current_entity_version(
-                FILE_ENTITY_CLASS, entity_id, path=path
-            )
+            cached_version = self._runtime.current_entity_version(FILE_ENTITY_CLASS, entity_id, path=path)
             if disk_mtime and disk_mtime <= cached_version:
                 logger.debug(
                     "workflow_watcher: skipping delayed-echo file event %s %s (disk %d <= cached %d)",
