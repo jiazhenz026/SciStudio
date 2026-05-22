@@ -86,7 +86,14 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1422-god-rundetail-api-conflict.json",
+    "shas": [
+      "53d71c1eb7e4a33a066c840ffd6134a358f4facb",
+      "e612e2fa79ea832054478756d98e6a49ef3e22a7"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "addendum": {
       "not_applicable": true,
@@ -150,7 +157,13 @@
     "frontend/src/components/Git/ConflictMarkerDecoration.parts/widget.ts",
     "frontend/src/components/Git/ConflictMarkerDecoration.parts/decorations.ts"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1422
+    ],
+    "number": 1446,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1446"
+  },
   "record_path": ".workflow/records/1422-god-rundetail-api-conflict.json",
   "required_checks": [
     "ruff,format,pytest,full_audit,sentrux"
@@ -218,7 +231,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
