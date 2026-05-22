@@ -116,6 +116,15 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-full-audit.json",
+      "exit_code": 0,
+      "name": "full_audit",
+      "output_path": "docs/audit/adr-045-full-audit.json",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": {
