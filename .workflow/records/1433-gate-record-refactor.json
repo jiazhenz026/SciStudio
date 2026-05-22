@@ -55,7 +55,14 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1433-gate-record-refactor.json",
+    "shas": [
+      "019f79411e6ea92e2e1796466b2e92ad8bf57156",
+      "7e6c6940fdc39055335f96de883af06a62c95693"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "not_applicable": true,
@@ -104,7 +111,13 @@
     "src/scistudio/qa/governance/gate_record/cli.py",
     "scripts/check_god_files.py"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1433
+    ],
+    "number": 1442,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1442"
+  },
   "record_path": ".workflow/records/1433-gate-record-refactor.json",
   "required_checks": [
     "ruff",
@@ -172,7 +185,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
