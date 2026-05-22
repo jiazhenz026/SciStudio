@@ -11,7 +11,28 @@ from typing import Any
 import numpy as np
 import zarr
 
+from scistudio.core.storage.errors import StorageMissingError, StorageReferenceInvalidError
 from scistudio.core.storage.ref import StorageReference
+
+_ZARR_MISSING_ERRORS: tuple[type[BaseException], ...] = (
+    FileNotFoundError,
+    *tuple(
+        error_type
+        for error_name in ("PathNotFoundError", "ArrayNotFoundError")
+        if (error_type := getattr(zarr.errors, error_name, None)) is not None
+    ),
+)
+
+
+def _wrap_zarr_read_error(ref: StorageReference, operation: str, exc: Exception) -> StorageReferenceInvalidError:
+    if _ZARR_MISSING_ERRORS and isinstance(exc, _ZARR_MISSING_ERRORS):
+        return StorageMissingError(ref, operation=operation, detail=str(exc))
+    return StorageReferenceInvalidError(
+        ref,
+        reason="corrupt_or_unreadable",
+        operation=operation,
+        detail=str(exc),
+    )
 
 
 class ZarrBackend:
@@ -19,8 +40,11 @@ class ZarrBackend:
 
     def read(self, ref: StorageReference) -> Any:
         """Read a Zarr array from *ref* and return it as a numpy array."""
-        arr = zarr.open_array(ref.path, mode="r")
-        return np.asarray(arr)
+        try:
+            arr = zarr.open_array(ref.path, mode="r")
+            return np.asarray(arr)
+        except _ZARR_MISSING_ERRORS as exc:
+            raise StorageMissingError(ref, operation="read", detail=str(exc)) from exc
 
     def write(self, data: Any, ref: StorageReference) -> StorageReference:
         """Write *data* (numpy array) as a Zarr array to *ref*.
@@ -64,16 +88,25 @@ class ZarrBackend:
 
         *args* should be valid numpy-style index expressions (slices, ints).
         """
-        arr = zarr.open_array(ref.path, mode="r")
-        return np.asarray(arr[args])
+        try:
+            arr = zarr.open_array(ref.path, mode="r")
+            return np.asarray(arr[args])
+        except _ZARR_MISSING_ERRORS as exc:
+            raise StorageMissingError(ref, operation="slice", detail=str(exc)) from exc
 
     def iter_chunks(self, ref: StorageReference, chunk_size: int) -> Iterator[Any]:
         """Yield chunks along axis 0 of the Zarr array at *ref*."""
-        arr = zarr.open_array(ref.path, mode="r")
-        total = arr.shape[0]
-        for start in range(0, total, chunk_size):
-            end = min(start + chunk_size, total)
-            yield np.asarray(arr[start:end])
+        try:
+            arr = zarr.open_array(ref.path, mode="r")
+            total = arr.shape[0]
+            for start in range(0, total, chunk_size):
+                end = min(start + chunk_size, total)
+                try:
+                    yield np.asarray(arr[start:end])
+                except Exception as exc:
+                    raise _wrap_zarr_read_error(ref, "iter_chunks", exc) from exc
+        except _ZARR_MISSING_ERRORS as exc:
+            raise StorageMissingError(ref, operation="iter_chunks", detail=str(exc)) from exc
 
     def write_from_memory(self, data: Any, path: str) -> StorageReference:
         """Write raw in-memory numpy data to a Zarr store at *path*."""
@@ -82,7 +115,10 @@ class ZarrBackend:
 
     def get_metadata(self, ref: StorageReference) -> dict[str, Any]:
         """Return Zarr-level metadata for *ref*."""
-        arr = zarr.open_array(ref.path, mode="r")
+        try:
+            arr = zarr.open_array(ref.path, mode="r")
+        except _ZARR_MISSING_ERRORS as exc:
+            raise StorageMissingError(ref, operation="get_metadata", detail=str(exc)) from exc
         meta: dict[str, Any] = {
             "shape": list(arr.shape),
             "dtype": str(arr.dtype),
