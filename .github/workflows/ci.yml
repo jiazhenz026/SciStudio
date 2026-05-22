@@ -240,7 +240,9 @@ jobs:
       - name: Build wheel with required frontend bundle
         env:
           SCISTUDIO_REQUIRE_FRONTEND_BUILD: "1"
-        run: python -m build --wheel
+        run: |
+          # setup.py invokes npm ci and npm run build before collecting wheel package data.
+          python -m build --wheel
       - name: Inspect wheel SPA contents
         run: |
           python - <<'PY'
