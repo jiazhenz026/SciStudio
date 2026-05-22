@@ -37,16 +37,24 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Cache Hugging Face model
+      - name: Cache fastembed ONNX model
         uses: actions/cache@v4
         with:
-          path: ~/.cache/huggingface
-          key: hf-semantic-dup-bge-base-v1.5-${{ runner.os }}
+          # fastembed downloads quantised ONNX models into a system temp
+          # cache (~/.cache on Linux runners) rather than ~/.cache/huggingface.
+          # Cover both locations so warmed runs reuse the weights.
+          path: |
+            ~/.cache/huggingface
+            /tmp/fastembed_cache
+          key: fastembed-bge-base-v1.5-${{ runner.os }}
           restore-keys: |
-            hf-semantic-dup-bge-base-
+            fastembed-bge-base-
 
-      - name: Install sentence-transformers
-        run: pip install sentence-transformers numpy
+      - name: Install fastembed
+        # fastembed (ONNX runtime + int8-quantised BGE) replaces
+        # sentence-transformers + PyTorch. Install footprint drops from
+        # ~2GB to ~100MB and inference is ~3x faster on CPU.
+        run: pip install fastembed numpy
 
       - name: Run semantic duplication ratchet check
         run: |

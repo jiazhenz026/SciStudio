@@ -88,9 +88,13 @@ The gate is implemented by `scripts/semantic_dup_scan.py`. The script:
 1. Walks the configured root and extracts every function / method via AST,
    filtering by minimum LOC (default 5). Docstrings are stripped so that
    doc-only similarity does not dominate behavioural similarity.
-2. Embeds each function with a code-tuned sentence-transformer model
-   (default `BAAI/bge-base-en-v1.5`; the model is configurable so that
-   stronger code-tuned models can be swapped in without contract changes).
+2. Embeds each function with a code-tuned embedding model
+   (default `BAAI/bge-base-en-v1.5` served via the `fastembed` ONNX
+   runtime + int8-quantised weights; the model is configurable so that
+   stronger code-tuned models can be swapped in without contract
+   changes). The fastembed backend replaces the heavier
+   sentence-transformers + PyTorch stack to cut CI install footprint
+   from ~2GB to ~100MB and inference time by ~3x.
 3. Computes pairwise cosine similarity over normalised embeddings and
    clusters with union-find at a similarity threshold (default 0.92).
 4. Emits a markdown report (human readable) and a JSON payload (machine
