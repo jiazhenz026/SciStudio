@@ -12,6 +12,26 @@
       "exclude": [],
       "include": [],
       "reason": "Merged origin/main twice into umbrella (commits 8d1e3262 + the second to pick up #1465 .sentrux max_cycles=5). Resolved 2-file conflict on lib/api.ts (hoisted ADR-045 helpers into new api/version.ts) + tabState.test.ts (auto-resolved). Added .claude/** to eslint+prettier ignores. All frontend checks green (lint 0 errors, test 556/569, build clean). Sentrux now pass (4 cycles \u2264 5). Umbrella ready for W3-D re-dispatch."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "frontend/src/**",
+        "frontend/.prettierignore",
+        "CHANGELOG.md",
+        ".workflow/records/14*-*.json"
+      ],
+      "reason": "Broaden scope.include to cover the cleanup cascade surface accumulated on the umbrella branch. Wave 1 + Wave 2 (3 sub-PRs) + Wave 3-E sub-PR work all landed on track/frontend-cleanup-1412 and are part of the umbrella PR diff. Each sub-PR carried its own gate record with focused scope; the manager gate record now needs to span the full frontend cleanup surface."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/audit/full-audit-*.json",
+        "docs/audit/*.md"
+      ],
+      "reason": "Include W2-C's per-PR full audit output (docs/audit/full-audit-1422.json) \u2014 it was committed by W2-C's gate record but not in manager scope."
     }
   ],
   "branch": "track/frontend-cleanup-1412",
