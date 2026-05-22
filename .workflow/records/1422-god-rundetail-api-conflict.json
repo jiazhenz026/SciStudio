@@ -97,22 +97,28 @@
   "docs_landing": {
     "addendum": {
       "not_applicable": true,
-      "rationale": "no addendum needed \u2014 refactor scoped to a single tracked waiver"
+      "rationale": "No addendum needed \u2014 refactor scoped to a single tracked waiver."
     },
     "adr": {
       "not_applicable": true,
-      "rationale": "no ADR change \u2014 implementation-level reorganization tracked under #1412"
+      "rationale": "No ADR change \u2014 implementation-level reorganization tracked under #1412."
     },
     "changelog": {
       "paths": [
         "CHANGELOG.md"
       ]
     },
-    "checklist": {},
-    "docs": {},
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "Manager owns docs/planning/frontend-cleanup-1412-checklist.md; W2-C row updated by manager post-merge."
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "Refactor (#1422 god-file split, W2-C). No public-facing docs change; lib/api.ts public surface preserved via re-exports; RunDetail + ConflictMarkerDecoration exports unchanged."
+    },
     "spec": {
       "not_applicable": true,
-      "rationale": "no spec change \u2014 pure file split, public surfaces unchanged"
+      "rationale": "No spec change \u2014 pure file split, public surfaces unchanged."
     }
   },
   "full_audit": {
