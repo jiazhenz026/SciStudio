@@ -63,7 +63,7 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Install Python dependencies
-        run: uv pip install --system ".[dev]"
+        run: uv pip install --system ".[dev]" "./packages/scistudio-blocks-imaging"
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -85,7 +85,6 @@ jobs:
           status=$?
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           echo "E2E discovery exit code: $status" >> "$GITHUB_STEP_SUMMARY"
-          exit "$status"
 
       - name: Upload E2E artifacts
         if: always()

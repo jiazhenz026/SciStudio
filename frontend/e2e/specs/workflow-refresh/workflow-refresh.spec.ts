@@ -95,7 +95,7 @@ test.describe("Workflow refresh E2E discovery @workflow-refresh", () => {
     await openGitHistoryList(page);
 
     const baseShortSha = await shortShaFor(request, baseSha);
-    await page.getByTestId(`git-history-row-diff-${baseShortSha}`).click();
+    await page.getByTestId(`git-history-row-${baseShortSha}`).click();
     await expect(page.getByTestId("git-diff-modal")).toBeVisible();
     await expect(page.getByTestId("git-diff-viewer")).toContainText("workflows/main.yaml");
     await page.getByTestId("git-diff-close").click();
@@ -355,8 +355,8 @@ function workflowFixture(kind: "empty" | "base" | "expanded" | "branched"): Work
     return {
       ...common,
       description: "base workflow",
-      nodes: [node("load", "code_block", 80, 100), node("threshold", "code_block", 420, 100)],
-      edges: [{ source: "load:result", target: "threshold:data" }],
+      nodes: [node("load", "imaging.load_image", 80, 100), node("threshold", "imaging.threshold", 420, 100)],
+      edges: [{ source: "load:images", target: "threshold:image" }],
     };
   }
   if (kind === "expanded") {
@@ -364,21 +364,24 @@ function workflowFixture(kind: "empty" | "base" | "expanded" | "branched"): Work
       ...common,
       description: "expanded workflow",
       nodes: [
-        node("load", "code_block", 80, 100),
-        node("threshold", "code_block", 420, 100),
-        node("save", "code_block", 760, 100),
+        node("load", "imaging.load_image", 80, 100),
+        node("threshold", "imaging.threshold", 420, 100),
+        node("save", "imaging.save_image", 760, 100),
       ],
       edges: [
-        { source: "load:result", target: "threshold:data" },
-        { source: "threshold:result", target: "save:data" },
+        { source: "load:images", target: "threshold:image" },
+        { source: "threshold:mask", target: "save:images" },
       ],
     };
   }
   return {
     ...common,
     description: "branch workflow",
-    nodes: [node("branch-load", "code_block", 120, 160), node("branch-save", "code_block", 520, 160)],
-    edges: [{ source: "branch-load:result", target: "branch-save:data" }],
+    nodes: [
+      node("branch-load", "imaging.load_image", 120, 160),
+      node("branch-threshold", "imaging.threshold", 520, 160),
+    ],
+    edges: [{ source: "branch-load:images", target: "branch-threshold:image" }],
   };
 }
 

@@ -336,7 +336,22 @@ function createStudio(page: Page, request: APIRequestContext) {
     cancelWorkflow: async (workflowId: string) => apiJson(`/api/workflows/${encodeURIComponent(workflowId)}/cancel`, { method: "POST" }),
     waitForWorkflowStatus,
     openBottomTab: async (tab: string) => page.getByRole("button", { name: new RegExp(tab, "i") }).last().click(),
-    activeBottomTab: async () => page.locator("[aria-selected='true']").last().textContent(),
+    activeBottomTab: async () => {
+      const bottomTabs: Array<[string, RegExp]> = [
+        ["ai", /AI Chat/i],
+        ["config", /Config/i],
+        ["logs", /Logs/i],
+        ["lineage", /Lineage/i],
+        ["git", /Git/i],
+      ];
+      for (const [tab, name] of bottomTabs) {
+        const button = page.getByRole("button", { name }).last();
+        if ((await button.count()) === 0) continue;
+        const className = (await button.getAttribute("class")) ?? "";
+        if (className.includes("bg-ink")) return tab;
+      }
+      return null;
+    },
     selectLatestLineageRun: async ({ workflowId }: { workflowId: string }) => {
       const runs = await apiJson<{ runs: Array<{ run_id: string }> }>(`/api/runs?workflow_id=${workflowId}&limit=1`);
       const runId = runs.runs[0]?.run_id ?? "";

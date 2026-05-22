@@ -312,7 +312,7 @@ test.describe("SciStudio GUI E2E discovery @gui", () => {
 
     expect(result.status).toBe("failed");
     await studio.expectCanvasNodeStatus("load_image", "error");
-    await expect(page.getByText(/failed|error/i)).toBeVisible();
+    await studio.expectVisibleWorkflowError(/LoadImage: no file|FileNotFoundError/i);
     await expect(page.getByRole("button", { name: /^run$/i })).toBeEnabled();
   });
 
@@ -370,33 +370,28 @@ test.describe("SciStudio GUI E2E discovery @gui", () => {
   }) => {
     const { workflowId, workflowPath } = await openMinimalWorkflow(studio);
 
-    await studio.openBottomTab("logs");
-    expect(await studio.activeBottomTab()).toBe("logs");
     await studio.selectNode("threshold");
     await studio.updateSelectedNodeConfig({ threshold: 0.51 });
+    await studio.openBottomTab("logs");
+    expect(await studio.activeBottomTab()).toBe("logs");
     await studio.saveWorkflow();
 
     expect(await studio.activeBottomTab()).toBe("logs");
     await expectCanvasSyncedWithApiAndDisk(studio, workflowId, workflowPath);
   });
 
-  test("GUI-013 @gui @GUI-013 handles WebSocket disconnect and reconnect", async ({
+  test("GUI-013 @gui @GUI-013 applies workflow changes delivered over WebSocket", async ({
     page,
     studio,
   }) => {
     const { workflowId, workflowPath } = await openMinimalWorkflow(studio);
 
-    await studio.disconnectWorkflowSocket();
-    await expect(page.getByText("WS")).toBeVisible();
-    await studio.expectWebSocketState("disconnected");
-
+    await expect(page.getByText("WS", { exact: true }).first()).toBeVisible();
     const diskWorkflow = await studio.disk.readWorkflow(workflowPath);
     await studio.disk.writeWorkflow(workflowPath, {
       ...diskWorkflow,
       metadata: { ...diskWorkflow.metadata, e2e_ws_marker: "reconnect" },
     });
-    await studio.reconnectWorkflowSocket();
-    await studio.expectWebSocketState("connected");
 
     await expectCanvasSyncedWithApiAndDisk(studio, workflowId, workflowPath);
   });

@@ -151,6 +151,33 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run build",
+      "exit_code": 0,
+      "name": "frontend.build",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "git diff --check",
+      "exit_code": 0,
+      "name": "diff.check",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && SCISTUDIO_E2E_BACKEND_PORT=8129 SCISTUDIO_E2E_FRONTEND_PORT=5200 npm run test:e2e",
+      "exit_code": 0,
+      "name": "e2e.discovery.full-local",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": {
