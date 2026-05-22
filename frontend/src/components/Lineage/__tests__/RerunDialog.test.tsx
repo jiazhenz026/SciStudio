@@ -12,9 +12,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAppStore } from "../../../store";
 import { RerunDialog } from "../RerunDialog";
+import type * as ApiModule from "../../../lib/api";
 
 vi.mock("../../../lib/api", async () => {
-  const actual = await vi.importActual<typeof import("../../../lib/api")>("../../../lib/api");
+  const actual = await vi.importActual<typeof ApiModule>("../../../lib/api");
   const stubDetail = {
     run: {
       run_id: "r1",

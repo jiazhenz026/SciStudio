@@ -1,0 +1,221 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Wave 3 W3-E code complete: 12 test files converted to import type (typeof import('lib/api') -> typeof ApiModule via import type * as ApiModule); 4 unused-vars files cleaned (within import + dead StatusIcon/STATUS_COLOR/STATUS_GLYPH dropped in RunsList; blockId prop prefixed with _ in PairEditorModal; App.tsx had no remaining violations); useWebSocket.test.ts ban-ts-comment descriptions added for all 3 directives. eslint.config.js untouched (Wave 4 strips waivers). 536 vitest tests pass; backend untouched; full audit pass; sentrux free-tier pass; Chrome smoke confirmed App mount on port 5185 with no React errors."
+    }
+  ],
+  "branch": "cleanup/issue-1416-1417-1419/test-imports-unused-depth",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "662 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m pytest tests/qa/test_gate_record.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "55 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run lint",
+      "exit_code": 0,
+      "name": "frontend-lint",
+      "output_path": "0 errors 38 warnings (all pre-existing, unrelated to this PR)",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run format:check",
+      "exit_code": 0,
+      "name": "frontend-format",
+      "output_path": "All matched files use Prettier code style!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run typecheck",
+      "exit_code": 0,
+      "name": "frontend-typecheck",
+      "output_path": "tsc --noEmit clean",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm test",
+      "exit_code": 0,
+      "name": "frontend-test",
+      "output_path": "Test Files 55 passed (55); Tests 536 passed | 13 skipped (549)",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run build",
+      "exit_code": 0,
+      "name": "frontend-build",
+      "output_path": "vite v6.4.2 built in 17.07s; 2138 modules transformed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "addendum": {
+      "not_applicable": true,
+      "rationale": "No addendum needed."
+    },
+    "adr": {
+      "not_applicable": true,
+      "rationale": "No ADR change - implementation-level cleanup of #1412 baseline waivers."
+    },
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "Manager owns docs/planning/frontend-cleanup-1412-checklist.md; W3-E row updated by manager post-merge."
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "Refactor; CHANGELOG bullet captures behavior-preserving import + unused-vars cleanup."
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "No public contract or schema change."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1416,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1416"
+    }
+  ],
+  "owner_directive": "Convert 12 test files to import type (#1416); remove unused vars on 4 non-overlap files (partial #1417); add ban-ts-comment descriptions on useWebSocket.test.ts (partial #1419).",
+  "planned_files": [
+    "frontend/src/components/Git/__tests__/ConflictResolveView.test.tsx",
+    "frontend/src/components/Git/__tests__/MergeFlow.test.tsx",
+    "frontend/src/components/Lineage/__tests__/LineageTab.test.tsx",
+    "frontend/src/components/Lineage/__tests__/RerunDialog.test.tsx",
+    "frontend/src/components/Lineage/__tests__/RunDetail.test.tsx",
+    "frontend/src/components/Lineage/__tests__/RunsList.test.tsx",
+    "frontend/src/components/__tests__/ProjectTree.test.tsx",
+    "frontend/src/hooks/useWebSocket.test.ts",
+    "frontend/src/lib/fileExistence.test.ts",
+    "frontend/src/store/__tests__/gitSlice.test.ts",
+    "frontend/src/store/__tests__/lineageSlice.test.ts",
+    "frontend/src/store/__tests__/tabState.test.ts",
+    "frontend/src/App.tsx",
+    "frontend/src/components/Lineage/RunsList.tsx",
+    "frontend/src/components/PairEditorModal.tsx",
+    "CHANGELOG.md",
+    ".workflow/records/1416-1417-1419-tests-unused-depth.json"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1416-1417-1419-tests-unused-depth.json",
+  "required_checks": [
+    "ruff,format,pytest,full_audit,sentrux,frontend-lint,frontend-format,frontend-typecheck,frontend-test,frontend-build"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/**",
+      "CHANGELOG.md",
+      ".workflow/records/1416-1417-1419-tests-unused-depth.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules + health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "scan: 1232 files / 2784 import_edges / 304576 lines / quality_signal=4463; check_rules: pass (3/15 rules, 0 violations); health: bottleneck=acyclicity (raw=3, score=2500), quality_signal=4463. Free tier (3 of 15 rules) used; refactor of test-mock type imports + 3 src files + CHANGELOG does not regress architectural constraints.",
+    "pro_required": false,
+    "quality_signal": 4463.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1416-tests-unused-depth",
+  "task_kind": "refactor"
+}

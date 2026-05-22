@@ -40,7 +40,7 @@ const PAIR_COLORS = [
 ];
 
 export function PairEditorModal({
-  blockId,
+  blockId: _blockId,
   ports,
   itemsPerPort,
   collectionLength,

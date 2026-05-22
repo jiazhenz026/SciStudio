@@ -2,15 +2,16 @@
  * RunsList.test.tsx — D38-2.4c IMPL tests.
  */
 
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAppStore } from "../../../store";
 import type { LineageRunSummary } from "../../../types/lineage";
 import { RunsList } from "../RunsList";
+import type * as ApiModule from "../../../lib/api";
 
 vi.mock("../../../lib/api", async () => {
-  const actual = await vi.importActual<typeof import("../../../lib/api")>("../../../lib/api");
+  const actual = await vi.importActual<typeof ApiModule>("../../../lib/api");
   return {
     ...actual,
     api: {

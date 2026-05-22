@@ -6,8 +6,10 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type * as ApiModule from "../../../lib/api";
+
 vi.mock("../../../lib/api", async () => {
-  const actual = await vi.importActual<typeof import("../../../lib/api")>("../../../lib/api");
+  const actual = await vi.importActual<typeof ApiModule>("../../../lib/api");
   return {
     ...actual,
     api: {

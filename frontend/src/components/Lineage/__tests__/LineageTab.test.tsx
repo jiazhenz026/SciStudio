@@ -7,9 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAppStore } from "../../../store";
 import { LineageTab } from "../LineageTab";
+import type * as ApiModule from "../../../lib/api";
 
 vi.mock("../../../lib/api", async () => {
-  const actual = await vi.importActual<typeof import("../../../lib/api")>("../../../lib/api");
+  const actual = await vi.importActual<typeof ApiModule>("../../../lib/api");
   return {
     ...actual,
     api: {
