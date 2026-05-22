@@ -32,7 +32,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/audit-1427-phase1.json",
+    "shas": [
+      "5e82f57cf2cecae04a109c9b0847bdf2efa90043"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -66,7 +72,13 @@
     "docs/audit/2026-05-22-umbrella-1427-phase1-with-context.md",
     "docs/planning/backend-god-file-refactor-checklist.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1427
+    ],
+    "number": 1453,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1453"
+  },
   "record_path": ".workflow/records/audit-1427-phase1.json",
   "required_checks": [
     "ruff",
