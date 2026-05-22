@@ -136,14 +136,23 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
         const currentId = useAppStore.getState().workflowId;
         if (changedId && changedId === currentId) {
           if (kind === "deleted" || kind === "moved") {
-            setWorkflow(null);
-            appendLog({
-              timestamp: payload.timestamp,
-              level: "warn",
-              message: `Workflow '${changedId}' was ${kind} on disk; canvas cleared.`,
-              workflow_id: changedId,
-              block_id: null,
-            });
+            api
+              .getWorkflow(changedId)
+              .then((fresh) => {
+                if (useAppStore.getState().workflowId === changedId) {
+                  setWorkflow(fresh);
+                }
+              })
+              .catch(() => {
+                setWorkflow(null);
+                appendLog({
+                  timestamp: payload.timestamp,
+                  level: "warn",
+                  message: `Workflow '${changedId}' was ${kind} on disk; canvas cleared.`,
+                  workflow_id: changedId,
+                  block_id: null,
+                });
+              });
           } else {
             // modified / created — refetch and replace.
             api

@@ -384,6 +384,11 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
       await get().loadBranches();
       void get().loadStatus();
       void get().loadLog(name);
+      const activeWorkflowId = get().workflowId;
+      if (activeWorkflowId) {
+        const freshWorkflow = await api.getWorkflow(activeWorkflowId);
+        get().setWorkflow(freshWorkflow);
+      }
       return { auto_commit_sha: autoSha };
     } catch (err) {
       set({ lastError: describeApiError(err, `Failed to switch to '${name}'`) });
@@ -432,6 +437,11 @@ export const createGitSlice: StateCreator<AppStore, [], [], GitSlice> = (set, ge
       // History changed — reload the active log so the new auto:
       // pre-restore commit shows up immediately.
       if (autoSha) void get().loadLog();
+      const activeWorkflowId = get().workflowId;
+      if (activeWorkflowId) {
+        const freshWorkflow = await api.getWorkflow(activeWorkflowId);
+        get().setWorkflow(freshWorkflow);
+      }
       return result;
     } catch (err) {
       set({ lastError: describeApiError(err, "Restore failed") });

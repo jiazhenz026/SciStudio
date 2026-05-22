@@ -43,21 +43,45 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
   workflowHistory: [],
   workflowFuture: [],
   setWorkflow: (workflow) =>
-    set({
-      workflowId: workflow?.id ?? null,
-      // #796: WorkflowModel.id has an empty-string default in the backend
-      // schema. A workflow YAML that omits the `id:` field round-trips through
-      // the API as ``id: ""`` and would render a blank top-left title here.
-      // Fall back to "Untitled" so the user always sees a label.
-      workflowName: (workflow?.id || "Untitled"),
-      workflowDescription: workflow?.description ?? "",
-      workflowVersion: workflow?.version ?? "1.0.0",
-      workflowMetadata: workflow?.metadata ?? {},
-      workflowNodes: workflow?.nodes ?? [],
-      workflowEdges: workflow?.edges ?? [],
-      workflowDirty: false,
-      workflowHistory: [],
-      workflowFuture: [],
+    set((state) => {
+      const next = {
+        workflowId: workflow?.id ?? null,
+        // #796: WorkflowModel.id has an empty-string default in the backend
+        // schema. A workflow YAML that omits the `id:` field round-trips through
+        // the API as ``id: ""`` and would render a blank top-left title here.
+        // Fall back to "Untitled" so the user always sees a label.
+        workflowName: (workflow?.id || "Untitled"),
+        workflowDescription: workflow?.description ?? "",
+        workflowVersion: workflow?.version ?? "1.0.0",
+        workflowMetadata: workflow?.metadata ?? {},
+        workflowNodes: workflow?.nodes ?? [],
+        workflowEdges: workflow?.edges ?? [],
+        workflowDirty: false,
+        workflowHistory: [],
+        workflowFuture: [],
+        selectedNodeId: null,
+      };
+      return {
+        ...next,
+        tabs: state.tabs.map((tab) =>
+          tab.kind === "workflow" && tab.id === state.activeTabId
+            ? {
+                ...tab,
+                workflowId: next.workflowId ?? "main",
+                workflowName: next.workflowName,
+                workflowDescription: next.workflowDescription,
+                workflowVersion: next.workflowVersion,
+                workflowMetadata: next.workflowMetadata,
+                workflowNodes: next.workflowNodes,
+                workflowEdges: next.workflowEdges,
+                workflowDirty: next.workflowDirty,
+                workflowHistory: next.workflowHistory,
+                workflowFuture: next.workflowFuture,
+                selectedNodeId: next.selectedNodeId,
+              }
+            : tab,
+        ),
+      };
     }),
   setWorkflowName: (name) => set({ workflowName: name }),
   addNode: (block, position, defaultParams) =>

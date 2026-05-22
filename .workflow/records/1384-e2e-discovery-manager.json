@@ -1,0 +1,341 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "frontend/src/components/Lineage/RunDetail.tsx",
+        "frontend/src/hooks/useWebSocket.ts",
+        "frontend/src/store/gitSlice.ts",
+        "frontend/src/store/workflowSlice.ts",
+        "src/scistudio/core/types/serialization.py",
+        "tests/engine/test_worker_typed_reconstruction.py"
+      ],
+      "reason": "E2E discovery exposed in-scope runtime refresh and worker TypeRegistry bugs required for minimal LoadImage->Threshold->Save workflow and workflow-refresh scenarios."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "frontend/src/hooks/useWebSocket.test.ts"
+      ],
+      "reason": "Frontend websocket refresh behavior test updated to match workflow.changed deleted/moved refetch semantics."
+    }
+  ],
+  "branch": "track/issue-1384-e2e-discovery",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.frontmatter_lint docs/planning/issue-1384-e2e-discovery-checklist.md docs/planning/dispatch-prompts/issue-1384-*.md",
+      "exit_code": 0,
+      "name": "frontmatter",
+      "output_path": "Warnings only: planning files are not ADR/spec/architecture frontmatter lint targets.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "local command output; cache write warnings only",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "local command output; cache write warnings only",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm test",
+      "exit_code": 0,
+      "name": "frontend-unit",
+      "output_path": "43 files / 442 tests passed, 13 skipped",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run test:e2e:smoke",
+      "exit_code": 0,
+      "name": "e2e-smoke",
+      "output_path": "3 Chromium tests passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run test:e2e -- --list",
+      "exit_code": 0,
+      "name": "e2e-list",
+      "output_path": "29 tests enumerated in 4 files",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run test:e2e -- --grep \"GUI-001|GIT-001\"",
+      "exit_code": 0,
+      "name": "e2e-targeted-pass",
+      "output_path": "2 Chromium tests passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run test:e2e -- --grep \"GUI-002\"",
+      "exit_code": 1,
+      "name": "e2e-discovery-failure-sample",
+      "output_path": "Expected discovery failure: project tree did not show API-created minimal workflow YAML",
+      "status": "fail",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "$env:PYTHONPATH='src'; python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "exit_code": 0,
+      "name": "full_audit",
+      "output_path": ".audit/full-audit.json",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python - <<'PY' sentrux_gate.verify_free_tier_claims(...)",
+      "exit_code": 0,
+      "name": "sentrux_gate",
+      "output_path": "local sentrux_gate verification passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "$env:PYTHONPATH='src'; python -m pytest tests/engine/test_worker_typed_reconstruction.py::TestTypeRegistrySingleton -q --no-cov",
+      "exit_code": 0,
+      "name": "worker-type-registry",
+      "output_path": "5 targeted TypeRegistry singleton tests passed; normal pytest run hit repository coverage threshold on partial selection.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend; npm run test:e2e -- --grep 'GUI-002|GUI-003|GUI-004|GUI-005'",
+      "exit_code": 0,
+      "name": "e2e-minimal-workflow",
+      "output_path": "4 Chromium tests passed for LoadImage -> Threshold -> Save, lineage, and preview scenarios.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend; npm test -- --run src/hooks/useWebSocket.test.ts src/components/Lineage/__tests__/RunDetail.test.tsx",
+      "exit_code": 0,
+      "name": "targeted-frontend-unit",
+      "output_path": "2 files / 28 tests passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "$env:PYTHONPATH='src'; python -m ruff check src/scistudio/core/types/serialization.py tests/engine/test_worker_typed_reconstruction.py",
+      "exit_code": 0,
+      "name": "targeted-ruff-worker",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run build",
+      "exit_code": 0,
+      "name": "frontend.build",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "git diff --check",
+      "exit_code": 0,
+      "name": "diff.check",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && SCISTUDIO_E2E_BACKEND_PORT=8129 SCISTUDIO_E2E_FRONTEND_PORT=5200 npm run test:e2e",
+      "exit_code": 0,
+      "name": "e2e.discovery.full-local",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1384-e2e-discovery-manager.json",
+    "shas": [
+      "19f09c1e670a3322cd7eedfff2d3be5d7906ef0e"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "No new architecture decision; this manager setup implements an E2E test plan for issue #1384."
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Internal E2E discovery harness and workflow for issue #1384; no user-facing product or release-note behavior changed."
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/issue-1384-e2e-discovery-checklist.md",
+        "docs/planning/dispatch-prompts/issue-1384-e2e-harness.md",
+        "docs/planning/dispatch-prompts/issue-1384-e2e-gui.md",
+        "docs/planning/dispatch-prompts/issue-1384-e2e-git-wfr.md",
+        "docs/planning/dispatch-prompts/issue-1384-e2e-audit.md"
+      ]
+    },
+    "docs": {
+      "paths": [
+        "frontend/e2e/README.md"
+      ]
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "No public runtime contract changed by manager setup."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "$env:PYTHONPATH='src'; python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": ".audit/full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1384,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1384"
+    }
+  ],
+  "owner_directive": "Manager-dispatched implementation of non-blocking automated Playwright GUI E2E discovery suite: GUI-001..015, GIT-001..005, workflow refresh contract tests, minimal load-image-threshold-save workflow fixture, and automatic non-blocking CI. Base behavior follows PR #1364 ADR-039 Addendum 1 git refactor.",
+  "planned_files": [
+    "docs/planning/issue-1384-e2e-discovery-checklist.md",
+    "docs/planning/dispatch-prompts/issue-1384-*.md",
+    "frontend/e2e/**",
+    "frontend/playwright.config.ts",
+    "frontend/package.json",
+    "frontend/package-lock.json",
+    "frontend/vite.config.ts",
+    ".github/workflows/e2e-discovery.yml",
+    ".audit/full-audit.json"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1384
+    ],
+    "number": 1387,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1387"
+  },
+  "record_path": ".workflow/records/1384-e2e-discovery-manager.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "frontend-unit",
+    "e2e-smoke",
+    "e2e-discovery",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "frontend/node_modules/**"
+    ],
+    "include": [
+      "docs/planning/issue-1384-e2e-discovery-checklist.md",
+      "docs/planning/dispatch-prompts/issue-1384-*.md",
+      "frontend/e2e/**",
+      "frontend/playwright.config.ts",
+      "frontend/package.json",
+      "frontend/package-lock.json",
+      "frontend/vite.config.ts",
+      ".github/workflows/e2e-discovery.yml",
+      ".audit/full-audit.json",
+      ".workflow/records/1384-e2e-discovery-manager.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "Sentrux MCP prior free-tier check evidence (docs/audit/2026-05-21-no-cycles-umbrella-sentrux.json after_state.check_rules)",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "docs/audit/2026-05-21-no-cycles-umbrella-sentrux.json",
+    "pro_required": false,
+    "quality_signal": 4474.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {
+      "max_cc": "100",
+      "max_cycles": "3",
+      "no_god_files": "false"
+    },
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1384-e2e-discovery-manager",
+  "task_kind": "manager"
+}

@@ -602,6 +602,10 @@ export function RestoreWorkflowButton({ run, onRestored }: RestoreWorkflowButton
           `Your unsaved changes were committed as ${result.auto_commit_sha.slice(0, 7)} before the restore — see History tab to revert if unintended.`,
         );
       }
+      if (typeof api.getWorkflow === "function") {
+        const fresh = await api.getWorkflow(run.workflow_id);
+        useAppStore.getState().setWorkflow(fresh);
+      }
       onRestored?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
