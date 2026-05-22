@@ -15,11 +15,14 @@ tracking_issue: 1405
 
 is_code_implementation: true
 governs:
-  modules: []
-  contracts: []
+  modules:
+    - scistudio.qa.audit.semantic_dup
+  contracts:
+    - scistudio.qa.audit.semantic_dup.check_semantic_dup
   entry_points: []
   files:
     - scripts/semantic_dup_scan.py
+    - src/scistudio/qa/audit/semantic_dup.py
     - docs/audit/baselines/semantic-dup-baseline.json
     - docs/audit/2026-05-21-semantic-dup-scan.md
     - .github/workflows/semantic-dup-scan.yml
@@ -29,6 +32,7 @@ governs:
 
 tests:
   - tests/scripts/test_semantic_dup_scan.py
+  - tests/qa/test_audit_semantic_dup.py
 
 agent_editable: false
 assisted_by:
@@ -88,11 +92,16 @@ The gate is implemented by `scripts/semantic_dup_scan.py`. The script:
 1. Walks the configured root and extracts every function / method via AST,
    filtering by minimum LOC (default 5). Docstrings are stripped so that
    doc-only similarity does not dominate behavioural similarity.
-2. Embeds each function with a code-tuned embedding model
-   (default `BAAI/bge-base-en-v1.5` served via the `fastembed` ONNX
-   runtime + int8-quantised weights; the model is configurable so that
-   stronger code-tuned models can be swapped in without contract
-   changes). The fastembed backend replaces the heavier
+2. Embeds each function with a code-tuned embedding model. Two
+   tiers (see §3.1 below):
+   - **CI ratchet tier (default):** `BAAI/bge-small-en-v1.5`. Smaller
+     and ~3x faster on CPU than the base variant; keeps the per-PR CI
+     gate under ~90s.
+   - **Local full-audit tier (opt-in):** `BAAI/bge-base-en-v1.5`.
+     Higher fidelity, ~3x slower; invoked when the user runs
+     ``python -m scistudio.qa.audit.full_audit --include-semantic-dup``.
+   Both tiers serve weights via the `fastembed` ONNX runtime with
+   int8-quantised models. The fastembed backend replaces the heavier
    sentence-transformers + PyTorch stack to cut CI install footprint
    from ~2GB to ~100MB and inference time by ~3x.
 3. Computes pairwise cosine similarity over normalised embeddings and
@@ -107,6 +116,32 @@ Three modes are supported:
 | Default | Scan, emit `--out` markdown and/or `--json-out` payload | Local exploration |
 | `--write-baseline PATH` | Scan and write a JSON baseline with auto-derived ratchet (current metrics plus headroom policy) | Maintainer ratchet-down |
 | `--check PATH` | Scan and compare aggregate metrics against the baseline ratchet; exit 1 on violation | CI gate |
+
+### 3.1 Two-Tier Model Policy
+
+The same scan is run with two different models depending on whether
+the caller prioritises speed (CI) or fidelity (local audit). The
+ratchet schema is **model-bound**: the committed baseline records the
+model used so `--check` is compared against the right reference.
+
+| Tier | Default model | Where invoked | Typical wall time | Purpose |
+|---|---|---|---|---|
+| CI ratchet | `BAAI/bge-small-en-v1.5` | `.github/workflows/semantic-dup-scan.yml` `--check` step | ~30-60s warm, ~90s cold | Per-PR regression detection on the committed baseline |
+| Local full-audit | `BAAI/bge-base-en-v1.5` | `python -m scistudio.qa.audit.full_audit --include-semantic-dup` | ~90-120s | Higher-fidelity exploration report for maintainer triage |
+
+Both tiers use the same script, the same threshold (0.92 by default),
+the same clustering algorithm, and emit the same JSON / markdown
+shapes. They differ only in the embedding model and therefore in the
+cluster set. The full-audit tier never blocks: it ships its report as
+an advisory child of `scistudio.qa.audit.full_audit`, status always
+PASS, so opting in adds signal but never adds a gate.
+
+The committed baseline at
+`docs/audit/baselines/semantic-dup-baseline.json` is generated with
+the CI tier (BGE-small). Re-running `--write-baseline` with a
+different `--model` would produce a different baseline. Switching the
+default for either tier requires a new addendum because the cluster
+set shifts.
 
 The baseline JSON has this shape:
 

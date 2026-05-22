@@ -43,7 +43,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 SCHEMA_VERSION = 1
-DEFAULT_MODEL = "BAAI/bge-base-en-v1.5"
+# Two-tier model policy per ADR-042 Addendum 2 §3:
+# - DEFAULT_MODEL (CI ratchet check): BGE-small. ~33M params, ~3x faster
+#   inference than BGE-base; keeps the per-PR CI gate under 90s and the
+#   weekly scheduled scan trivially cheap.
+# - The higher-fidelity ``BAAI/bge-base-en-v1.5`` is reserved for local
+#   full-audit runs (``python -m scistudio.qa.audit.full_audit
+#   --include-semantic-dup``), where the extra signal is worth the extra
+#   minute.
+DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
 DEFAULT_THRESHOLD = 0.92
 DEFAULT_MIN_LOC = 5
 DEFAULT_RATCHET_SLACK = 0.05  # 5% headroom so initial baseline is not razor-tight
