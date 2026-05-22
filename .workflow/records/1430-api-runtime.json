@@ -74,17 +74,15 @@
     "trailers": {}
   },
   "docs_landing": {
-    "changelog": {},
-    "checklist": {},
-    "docs": {
-      "paths": [
-        "docs/adr/ADR-012.md",
-        "docs/adr/ADR-038.md",
-        "docs/adr/ADR-039.md",
-        "docs/adr/ADR-044.md",
-        "docs/adr/ADR-045.md"
-      ]
-    }
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Umbrella #1427 lands rolled-up CHANGELOG entry after all Phase 1 sub-PRs merge into the umbrella branch; this sub-PR is a structural decomposition with no user-visible behavior change"
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "Manager-owned umbrella checklist docs/planning/backend-god-file-refactor-checklist.md (Section 6 Dispatch Matrix) tracks this sub-PR row; sub-PR does not edit it per agent-dispatch.md \u00a73 (agents edit only their own rows; manager owns the matrix)"
+    },
+    "docs": {}
   },
   "full_audit": {
     "blocks_merge": false,
@@ -102,7 +100,7 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1430,
-      "url": null
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1430"
     }
   ],
   "owner_directive": "Refactor api/runtime.py into sub-package per umbrella #1427",
