@@ -49,11 +49,17 @@
     "trailers": {}
   },
   "docs_landing": {
-    "changelog": {},
-    "checklist": {},
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "No release-facing changelog entry is required for this narrow internal bugfix before release packaging; behavior is tracked by issue #709 and PR #1439."
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "No manager dispatch or multi-agent checklist is required for this single-implementer scoped bugfix; gate record is the checklist evidence."
+    },
     "docs": {
       "not_applicable": true,
-      "rationale": "No user-facing contract docs changed; bugfix is covered by issue #709 and package regression tests."
+      "rationale": "No user-facing documentation contract changed; issue #709 and package regression tests document the bugfix behavior."
     }
   },
   "full_audit": {
