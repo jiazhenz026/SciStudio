@@ -1,6 +1,16 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1431-mcp-tools-pair.json",
+        "tests/ai/agent/__init__.py"
+      ],
+      "reason": "Gate record path itself + tests/ai/agent/__init__.py package marker needed for test discovery; both were implicit in original scope"
+    }
+  ],
   "branch": "refactor/issue-1431/mcp-tools-pair",
   "changed_test_paths": [
     "tests/ai/agent/mcp/test_tools_workflow_surface.py",
