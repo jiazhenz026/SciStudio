@@ -119,11 +119,7 @@ describe("Toolbar — ADR-036 §3.7/§3.12 New menu (I36c)", () => {
     const onNewCustomBlock = vi.fn();
     const onNewNote = vi.fn();
     const user = makeUser();
-    render(
-      <Toolbar
-        {...makeProps({ onNewWorkflow, onNewCustomBlock, onNewNote })}
-      />,
-    );
+    render(<Toolbar {...makeProps({ onNewWorkflow, onNewCustomBlock, onNewNote })} />);
     await user.click(screen.getByRole("button", { name: /^new$/i }));
     expect(await screen.findByRole("menuitem", { name: /new workflow/i })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: /new custom block/i })).toBeTruthy();
@@ -161,9 +157,7 @@ describe("Toolbar — ADR-036 §3.7/§3.12 New menu (I36c)", () => {
 describe("Toolbar — ADR-036 §3.4 View source button (I36c)", () => {
   it("workflow tab: View source button is visible when onViewSource is provided", () => {
     const onViewSource = vi.fn();
-    render(
-      <Toolbar {...makeProps({ activeTabKind: "workflow", onViewSource })} />,
-    );
+    render(<Toolbar {...makeProps({ activeTabKind: "workflow", onViewSource })} />);
     expect(screen.getByRole("button", { name: /view source/i })).toBeTruthy();
   });
 
@@ -174,18 +168,14 @@ describe("Toolbar — ADR-036 §3.4 View source button (I36c)", () => {
 
   it("clicking View source calls onViewSource", () => {
     const onViewSource = vi.fn();
-    render(
-      <Toolbar {...makeProps({ activeTabKind: "workflow", onViewSource })} />,
-    );
+    render(<Toolbar {...makeProps({ activeTabKind: "workflow", onViewSource })} />);
     fireEvent.click(screen.getByRole("button", { name: /view source/i }));
     expect(onViewSource).toHaveBeenCalledTimes(1);
   });
 
   it("file tab: View source button is hidden even when onViewSource is provided", () => {
     const onViewSource = vi.fn();
-    render(
-      <Toolbar {...makeProps({ activeTabKind: "file", onViewSource })} />,
-    );
+    render(<Toolbar {...makeProps({ activeTabKind: "file", onViewSource })} />);
     expect(screen.queryByRole("button", { name: /view source/i })).toBeNull();
   });
 });

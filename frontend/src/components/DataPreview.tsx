@@ -72,7 +72,6 @@ export function extractRefEntries(payload: unknown): RefEntry[] {
   return Object.values(record).flatMap((value) => extractRefEntries(value));
 }
 
-
 // ─── LUT Colormaps (canvas-based, matching OptEasy) ─────────────────────────
 
 function buildLUT(fn: (t: number) => [number, number, number]): [number, number, number][] {
@@ -88,8 +87,16 @@ function buildLUT(fn: (t: number) => [number, number, number]): [number, number,
 
 const LUTS: Record<string, [number, number, number][]> = {
   gray: Array.from({ length: 256 }, (_, i) => [i, i, i] as [number, number, number]),
-  fire: buildLUT((t) => [Math.min(255, t * 3), Math.max(0, (t - 85) * 3), Math.max(0, (t - 170) * 3)]),
-  ice: buildLUT((t) => [Math.max(0, (t - 170) * 3), Math.max(0, (t - 85) * 3), Math.min(255, t * 3)]),
+  fire: buildLUT((t) => [
+    Math.min(255, t * 3),
+    Math.max(0, (t - 85) * 3),
+    Math.max(0, (t - 170) * 3),
+  ]),
+  ice: buildLUT((t) => [
+    Math.max(0, (t - 170) * 3),
+    Math.max(0, (t - 85) * 3),
+    Math.min(255, t * 3),
+  ]),
   green: buildLUT((t) => [0, t, 0]),
   red: buildLUT((t) => [t, 0, 0]),
   blue: buildLUT((t) => [0, 0, t]),
@@ -191,7 +198,9 @@ function ImageViewer({
       setProcessedUrl(src);
       return;
     }
-    void applyLUTToImage(src, LUTS[lutName] ?? LUTS.gray, minDisplay, maxDisplay).then(setProcessedUrl);
+    void applyLUTToImage(src, LUTS[lutName] ?? LUTS.gray, minDisplay, maxDisplay).then(
+      setProcessedUrl,
+    );
   }, [src, lutName, minDisplay, maxDisplay]);
 
   const handleWheel = useCallback((e: WheelEvent) => {
@@ -289,7 +298,8 @@ function ImageViewer({
             pointerEvents: "none",
           }}
         >
-          {shape ? `${shape.join(" \u00d7 ")} | ` : ""}{Math.round(scale * 100)}%
+          {shape ? `${shape.join(" \u00d7 ")} | ` : ""}
+          {Math.round(scale * 100)}%
         </div>
       </div>
 
@@ -310,7 +320,10 @@ function ImageViewer({
          * updates parent state immediately; parent handles 200 ms
          * debounce + slice cache + fetch.
          */}
-        {sliceAxisSize !== null && sliceAxisSize !== undefined && sliceAxisSize > 1 && onSliceChange ? (
+        {sliceAxisSize !== null &&
+        sliceAxisSize !== undefined &&
+        sliceAxisSize > 1 &&
+        onSliceChange ? (
           <div
             data-testid="image-slice-slider-row"
             style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}
@@ -340,23 +353,48 @@ function ImageViewer({
             aria-label="Zoom in"
             onClick={() => zoom(1.25)}
             type="button"
-            style={{ fontSize: 12, padding: "1px 8px", border: "1px solid #d6d3d1", borderRadius: 4, cursor: "pointer", background: "#fff" }}
+            style={{
+              fontSize: 12,
+              padding: "1px 8px",
+              border: "1px solid #d6d3d1",
+              borderRadius: 4,
+              cursor: "pointer",
+              background: "#fff",
+            }}
           >
             +
           </button>
-          <span style={{ minWidth: "3rem", textAlign: "center", color: "#78716c" }}>{Math.round(scale * 100)}%</span>
+          <span style={{ minWidth: "3rem", textAlign: "center", color: "#78716c" }}>
+            {Math.round(scale * 100)}%
+          </span>
           <button
             aria-label="Zoom out"
             onClick={() => zoom(0.8)}
             type="button"
-            style={{ fontSize: 12, padding: "1px 8px", border: "1px solid #d6d3d1", borderRadius: 4, cursor: "pointer", background: "#fff" }}
+            style={{
+              fontSize: 12,
+              padding: "1px 8px",
+              border: "1px solid #d6d3d1",
+              borderRadius: 4,
+              cursor: "pointer",
+              background: "#fff",
+            }}
           >
             {"\u2212"}
           </button>
           <button
             onClick={reset}
             type="button"
-            style={{ fontSize: 10, padding: "2px 8px", border: "1px solid #d6d3d1", borderRadius: 4, cursor: "pointer", background: "#fff", color: "#78716c", marginLeft: "auto" }}
+            style={{
+              fontSize: 10,
+              padding: "2px 8px",
+              border: "1px solid #d6d3d1",
+              borderRadius: 4,
+              cursor: "pointer",
+              background: "#fff",
+              color: "#78716c",
+              marginLeft: "auto",
+            }}
           >
             Reset
           </button>
@@ -452,7 +490,8 @@ function readTablePayload(preview: Record<string, unknown>): TableViewerInitial 
       : typeof preview.row_count === "number"
         ? preview.row_count
         : rows.length;
-  const pageSize = typeof preview.page_size === "number" ? preview.page_size : Math.max(rows.length, 1);
+  const pageSize =
+    typeof preview.page_size === "number" ? preview.page_size : Math.max(rows.length, 1);
   const totalPages =
     typeof preview.total_pages === "number"
       ? preview.total_pages
@@ -505,7 +544,7 @@ function TableViewer({ dataRef, initial }: TableViewerProps) {
           sortDir: sortDir ?? undefined,
         })
         .then((resp) => {
-          if (ticket !== inflightRef.current) return;  // a newer request superseded us
+          if (ticket !== inflightRef.current) return; // a newer request superseded us
           setData(readTablePayload(resp.preview));
         })
         .catch((err) => {
@@ -588,7 +627,9 @@ function TableViewer({ dataRef, initial }: TableViewerProps) {
                 return (
                   <th
                     key={column}
-                    aria-sort={isSorted ? (sortDir === "desc" ? "descending" : "ascending") : "none"}
+                    aria-sort={
+                      isSorted ? (sortDir === "desc" ? "descending" : "ascending") : "none"
+                    }
                     onClick={() => toggleSort(column)}
                     style={{
                       whiteSpace: "nowrap",
@@ -647,7 +688,8 @@ function TableViewer({ dataRef, initial }: TableViewerProps) {
         }}
       >
         <span>
-          {totalRows.toLocaleString()} row{totalRows !== 1 ? "s" : ""} {"\u00d7"} {columns.length} column
+          {totalRows.toLocaleString()} row{totalRows !== 1 ? "s" : ""} {"\u00d7"} {columns.length}{" "}
+          column
           {columns.length !== 1 ? "s" : ""}
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -754,8 +796,7 @@ function PreviewRenderer({ preview, dataRef, currentSlice, onSliceChange }: Prev
     case "image": {
       // Slider position: prefer the live parent state so dragging never
       // snaps back to the backend's last-rendered index.
-      const sliceIndex =
-        currentSlice ?? (preview.slice_index as number | null | undefined) ?? null;
+      const sliceIndex = currentSlice ?? (preview.slice_index as number | null | undefined) ?? null;
       return (
         <ImageViewer
           shape={preview.shape as number[] | undefined}
@@ -773,8 +814,14 @@ function PreviewRenderer({ preview, dataRef, currentSlice, onSliceChange }: Prev
           className="w-full"
           data={[
             {
-              x: (preview.points as Array<{ x: number; y: number }> | undefined)?.map((point) => point.x) ?? [],
-              y: (preview.points as Array<{ x: number; y: number }> | undefined)?.map((point) => point.y) ?? [],
+              x:
+                (preview.points as Array<{ x: number; y: number }> | undefined)?.map(
+                  (point) => point.x,
+                ) ?? [],
+              y:
+                (preview.points as Array<{ x: number; y: number }> | undefined)?.map(
+                  (point) => point.y,
+                ) ?? [],
               type: "scatter",
               mode: "lines+markers",
               marker: { color: "#f06a44" },
@@ -792,16 +839,22 @@ function PreviewRenderer({ preview, dataRef, currentSlice, onSliceChange }: Prev
         />
       );
     case "text":
-      return <pre className="max-h-80 overflow-auto rounded-[1.4rem] border border-stone-200 bg-white p-4 text-sm">{String(preview.content ?? "")}</pre>;
+      return (
+        <pre className="max-h-80 overflow-auto rounded-[1.4rem] border border-stone-200 bg-white p-4 text-sm">
+          {String(preview.content ?? "")}
+        </pre>
+      );
     case "composite":
       return (
         <div className="space-y-2">
-          {Object.entries((preview.slots as Record<string, unknown> | undefined) ?? {}).map(([slot, value]) => (
-            <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3" key={slot}>
-              <p className="text-xs uppercase tracking-[0.25em] text-stone-500">{slot}</p>
-              <p className="mt-1 text-sm text-ink">{String(value)}</p>
-            </div>
-          ))}
+          {Object.entries((preview.slots as Record<string, unknown> | undefined) ?? {}).map(
+            ([slot, value]) => (
+              <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3" key={slot}>
+                <p className="text-xs uppercase tracking-[0.25em] text-stone-500">{slot}</p>
+                <p className="mt-1 text-sm text-ink">{String(value)}</p>
+              </div>
+            ),
+          )}
         </div>
       );
     default:
@@ -950,7 +1003,7 @@ export function DataPreview({
   const [omeOpen, setOmeOpen] = useState(false);
   const [fetchedOmeByRef, setFetchedOmeByRef] = useState<Record<string, OMETree | null>>({});
   const [omeFetching, setOmeFetching] = useState<Record<string, boolean>>({});
-  const activeFetchedOme = activeRef ? fetchedOmeByRef[activeRef] ?? null : null;
+  const activeFetchedOme = activeRef ? (fetchedOmeByRef[activeRef] ?? null) : null;
   const activeOme = previewOme ?? activeFetchedOme;
   const omeAvailable = hasOMEContent(activeOme) || (!previewOme && activeRef != null);
   // Reset the open state when the active ref changes.
@@ -981,7 +1034,9 @@ export function DataPreview({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Preview</p>
-          <h2 className="mt-2 font-display text-2xl text-ink">{selectedNodeId ? selectedNodeLabel : "Select a node"}</h2>
+          <h2 className="mt-2 font-display text-2xl text-ink">
+            {selectedNodeId ? selectedNodeLabel : "Select a node"}
+          </h2>
         </div>
       </div>
 
@@ -1010,7 +1065,9 @@ export function DataPreview({
           </div>
           <div className="mt-4 min-h-0 flex-1 overflow-y-auto scrollbar-thin">
             {isLoadingActive ? (
-              <div className="rounded-[1.6rem] border border-stone-200 bg-white p-4 text-sm text-stone-500">Loading preview…</div>
+              <div className="rounded-[1.6rem] border border-stone-200 bg-white p-4 text-sm text-stone-500">
+                Loading preview…
+              </div>
             ) : preview && activeRef ? (
               <>
                 <PreviewRenderer
@@ -1035,10 +1092,7 @@ export function DataPreview({
                         OME metadata
                       </button>
                     ) : (
-                      <OMEMetadataPanel
-                        ome={activeOme}
-                        onClose={() => setOmeOpen(false)}
-                      />
+                      <OMEMetadataPanel ome={activeOme} onClose={() => setOmeOpen(false)} />
                     )}
                   </div>
                 ) : null}

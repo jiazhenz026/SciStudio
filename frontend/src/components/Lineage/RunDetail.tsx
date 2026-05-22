@@ -228,38 +228,24 @@ function formatDuration(run: LineageRunSummary): string {
 
 export function RunDetail(): ReactElement {
   const selectedRunId = useAppStore((s) => s.selectedRunId);
-  const detail = useAppStore((s) =>
-    selectedRunId ? s.runDetails[selectedRunId] : undefined,
-  );
-  const loading = useAppStore((s) =>
-    selectedRunId ? s.runDetailLoading[selectedRunId] : false,
-  );
-  const error = useAppStore((s) =>
-    selectedRunId ? s.runDetailError[selectedRunId] : null,
-  );
+  const detail = useAppStore((s) => (selectedRunId ? s.runDetails[selectedRunId] : undefined));
+  const loading = useAppStore((s) => (selectedRunId ? s.runDetailLoading[selectedRunId] : false));
+  const error = useAppStore((s) => (selectedRunId ? s.runDetailError[selectedRunId] : null));
   const openMethodsDialog = useAppStore((s) => s.openMethodsDialog);
   const openRerunDialog = useAppStore((s) => s.openRerunDialog);
   const selectRun = useAppStore((s) => s.selectRun);
 
   if (selectedRunId === null) {
     return (
-      <div
-        className="flex h-full items-center justify-center"
-        data-testid="run-detail-empty"
-      >
-        <p className="text-sm text-stone-500">
-          Select a run on the left to see its detail.
-        </p>
+      <div className="flex h-full items-center justify-center" data-testid="run-detail-empty">
+        <p className="text-sm text-stone-500">Select a run on the left to see its detail.</p>
       </div>
     );
   }
 
   if (loading && detail === undefined) {
     return (
-      <div
-        className="flex h-full items-center justify-center"
-        data-testid="run-detail-loading"
-      >
+      <div className="flex h-full items-center justify-center" data-testid="run-detail-loading">
         <p className="text-sm text-stone-500">Loading run detail…</p>
       </div>
     );
@@ -279,13 +265,8 @@ export function RunDetail(): ReactElement {
   if (detail === undefined) {
     // Fallback: should not normally hit this state.
     return (
-      <div
-        className="flex h-full items-center justify-center"
-        data-testid="run-detail-empty"
-      >
-        <p className="text-sm text-stone-500">
-          Select a run on the left to see its detail.
-        </p>
+      <div className="flex h-full items-center justify-center" data-testid="run-detail-empty">
+        <p className="text-sm text-stone-500">Select a run on the left to see its detail.</p>
       </div>
     );
   }
@@ -316,10 +297,7 @@ export function RunDetail(): ReactElement {
           Run {run.run_id.slice(0, 8)}
         </h3>
         {inlineError && (
-          <p
-            className="mt-1 text-xs text-rose-700"
-            data-testid="run-detail-stale-error"
-          >
+          <p className="mt-1 text-xs text-rose-700" data-testid="run-detail-stale-error">
             {inlineError}
           </p>
         )}
@@ -358,9 +336,7 @@ export function RunDetail(): ReactElement {
                   className="rounded text-ink underline decoration-dotted underline-offset-2 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                   data-testid="run-detail-parent-link"
                   title={`Open parent run ${run.parent_run_id}`}
-                  onClick={() =>
-                    run.parent_run_id && selectRun(run.parent_run_id)
-                  }
+                  onClick={() => run.parent_run_id && selectRun(run.parent_run_id)}
                 >
                   {run.parent_run_id.slice(0, 8)}
                 </button>
@@ -372,9 +348,7 @@ export function RunDetail(): ReactElement {
             <>
               <dt className="text-stone-500">Run-from block</dt>
               <dd>
-                <code className="text-stone-700">
-                  {run.execute_from_block_id}
-                </code>
+                <code className="text-stone-700">{run.execute_from_block_id}</code>
               </dd>
             </>
           )}
@@ -401,10 +375,9 @@ export function RunDetail(): ReactElement {
           data-testid="run-detail-partial-rerun-banner"
           role="note"
         >
-          <strong className="font-semibold">Partial re-run.</strong> Only
-          blocks at or downstream of{" "}
-          <code className="text-amber-900">{run.execute_from_block_id}</code>{" "}
-          executed in this run. Upstream block outputs were reused from
+          <strong className="font-semibold">Partial re-run.</strong> Only blocks at or downstream of{" "}
+          <code className="text-amber-900">{run.execute_from_block_id}</code> executed in this run.
+          Upstream block outputs were reused from
           {run.parent_run_id ? (
             <>
               {" "}
@@ -413,9 +386,7 @@ export function RunDetail(): ReactElement {
                 type="button"
                 className="underline decoration-dotted underline-offset-2 hover:text-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
                 data-testid="run-detail-partial-rerun-parent-link"
-                onClick={() =>
-                  run.parent_run_id && selectRun(run.parent_run_id)
-                }
+                onClick={() => run.parent_run_id && selectRun(run.parent_run_id)}
               >
                 {run.parent_run_id.slice(0, 8)}
               </button>
@@ -427,10 +398,7 @@ export function RunDetail(): ReactElement {
         </div>
       )}
 
-      <div
-        className="min-h-0 flex-1 overflow-y-auto px-4 py-3"
-        data-testid="run-detail-blocks"
-      >
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3" data-testid="run-detail-blocks">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-stone-500">
           Blocks ({detail.blocks.length})
         </h4>
@@ -480,8 +448,38 @@ export function RunDetail(): ReactElement {
          * implementing the soft-restore semantics from
          * ADR-038 §3.8 / ADR-039 §6 Phase 4. Disabled when
          * ``workflow_git_commit`` is null (degraded-mode run).
+         *
+         * #1400 hotfix: the parent now wires ``onRestored`` so the
+         * canvas refreshes after the YAML is rewritten on disk. Without
+         * this callback the gitRestore succeeded but the canvas kept
+         * showing the in-memory snapshot from before — the WS
+         * ``workflow.changed`` watcher is unreliable for git-checkout
+         * file replacements on Windows (#1322). If the same workflow is
+         * currently open we refetch and replace its slice in place;
+         * otherwise we openTab so the user sees the just-restored state.
          */}
-        <RestoreWorkflowButton run={run} />
+        <RestoreWorkflowButton
+          run={run}
+          onRestored={() => {
+            void (async () => {
+              try {
+                const fresh = await api.getWorkflow(run.workflow_id);
+                const store = useAppStore.getState();
+                if (store.workflowId === run.workflow_id) {
+                  store.setWorkflow(fresh);
+                } else {
+                  store.openTab(fresh, run.workflow_id);
+                }
+              } catch (err) {
+                // best-effort — the gitRestore itself already succeeded;
+                // worst case the user can refresh manually via the file
+                // tree. Surface to console for diagnosis.
+                // eslint-disable-next-line no-console
+                console.warn("[RunDetail] canvas refresh after restore failed:", err);
+              }
+            })();
+          }}
+        />
       </footer>
     </section>
   );
@@ -546,9 +544,7 @@ export async function runRestoreWorkflow(
   run: RunRecordForRestore,
 ): Promise<{ status: "ok"; auto_commit_sha: string | null }> {
   if (!run.workflow_git_commit) {
-    throw new Error(
-      "This run has no recorded git commit (degraded mode). Restore unavailable.",
-    );
+    throw new Error("This run has no recorded git commit (degraded mode). Restore unavailable.");
   }
   // ADR-039 Addendum 1 (#1354): the backend auto-commits any dirty
   // working-tree state BEFORE the soft restore and returns

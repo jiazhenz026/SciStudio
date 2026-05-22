@@ -26,9 +26,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  CapabilityDropdown,
-} from "../components/PortEditor/CapabilityDropdown";
+import { CapabilityDropdown } from "../components/PortEditor/CapabilityDropdown";
 import { LossySaveWarning } from "../components/WorkflowEditor/LossySaveWarning";
 import { OMEMetadataPanel, hasOMEContent } from "../components/OutputPreview/OMEMetadataPanel";
 import { extractOMEFromMetadata } from "../api/capabilities";
@@ -140,14 +138,10 @@ describe("ADR-043 Phase A3 smoke — capability dropdown ambiguity (FR-012)", ()
     // 2 capabilities + 1 placeholder ("Select a capability...")
     expect(options.length).toBeGreaterThanOrEqual(3);
     expect(
-      options.some((opt) =>
-        (opt as HTMLOptionElement).value === "imaging.image.tiff.save",
-      ),
+      options.some((opt) => (opt as HTMLOptionElement).value === "imaging.image.tiff.save"),
     ).toBe(true);
     expect(
-      options.some((opt) =>
-        (opt as HTMLOptionElement).value === "imaging.image.ome-tiff.save",
-      ),
+      options.some((opt) => (opt as HTMLOptionElement).value === "imaging.image.ome-tiff.save"),
     ).toBe(true);
 
     // Ambiguity message visible.
@@ -156,9 +150,7 @@ describe("ADR-043 Phase A3 smoke — capability dropdown ambiguity (FR-012)", ()
     // 2. Picking an option persists the id.
     const select = screen.getByRole("combobox") as HTMLSelectElement;
     fireEvent.change(select, { target: { value: "imaging.image.ome-tiff.save" } });
-    expect(screen.getByTestId("persisted")).toHaveTextContent(
-      "imaging.image.ome-tiff.save",
-    );
+    expect(screen.getByTestId("persisted")).toHaveTextContent("imaging.image.ome-tiff.save");
 
     // 3. Fidelity badge updates to lossless.
     expect(screen.getByTestId("fidelity-badge")).toHaveTextContent("lossless");
@@ -186,19 +178,11 @@ describe("ADR-043 Phase A3 smoke — OME metadata panel toggle (FR-013)", () => 
       return (
         <div>
           {!open ? (
-            <button
-              type="button"
-              data-testid="open-ome"
-              onClick={() => setOpen(true)}
-            >
+            <button type="button" data-testid="open-ome" onClick={() => setOpen(true)}>
               OME metadata
             </button>
           ) : (
-            <OMEMetadataPanel
-              ome={ome}
-              onClose={() => setOpen(false)}
-              copyToClipboard={copy}
-            />
+            <OMEMetadataPanel ome={ome} onClose={() => setOpen(false)} copyToClipboard={copy} />
           )}
         </div>
       );
@@ -243,10 +227,7 @@ describe("ADR-043 Phase A3 smoke — lossy-save warning (FR-014)", () => {
       "annotations.0.value",
     ];
     const { container } = render(
-      <LossySaveWarning
-        sourceOmeFields={sourceFields}
-        targetCapabilityFidelity={tiffBroadOme}
-      />,
+      <LossySaveWarning sourceOmeFields={sourceFields} targetCapabilityFidelity={tiffBroadOme} />,
     );
     expect(container.firstChild).toBeNull();
   });
@@ -259,14 +240,8 @@ describe("ADR-043 Phase A3 smoke — lossy-save warning (FR-014)", () => {
       level: "format_specific",
       typed_meta_reads: [],
       typed_meta_writes: ["pixel_size", "channels"],
-      format_metadata_reads: [
-        "ome.pixels.physical_size_x",
-        "ome.pixels.physical_size_y",
-      ],
-      format_metadata_writes: [
-        "ome.pixels.physical_size_x",
-        "ome.pixels.physical_size_y",
-      ],
+      format_metadata_reads: ["ome.pixels.physical_size_x", "ome.pixels.physical_size_y"],
+      format_metadata_writes: ["ome.pixels.physical_size_x", "ome.pixels.physical_size_y"],
       notes: null,
     };
     const sourceFields = [
@@ -277,10 +252,7 @@ describe("ADR-043 Phase A3 smoke — lossy-save warning (FR-014)", () => {
       "annotations.0.value",
     ];
     render(
-      <LossySaveWarning
-        sourceOmeFields={sourceFields}
-        targetCapabilityFidelity={pngNarrowOme}
-      />,
+      <LossySaveWarning sourceOmeFields={sourceFields} targetCapabilityFidelity={pngNarrowOme} />,
     );
     const chip = screen.getByTestId("lossy-save-warning");
     expect(chip).toHaveTextContent("Lossy save");
@@ -297,10 +269,7 @@ describe("ADR-043 Phase A3 smoke — lossy-save warning (FR-014)", () => {
     const losslessFidelity = TWO_SAVERS[1].metadata_fidelity;
     const { container } = render(
       <LossySaveWarning
-        sourceOmeFields={[
-          "pixels.physical_size_x",
-          "channels.0.emission_wavelength",
-        ]}
+        sourceOmeFields={["pixels.physical_size_x", "channels.0.emission_wavelength"]}
         targetCapabilityFidelity={losslessFidelity}
       />,
     );

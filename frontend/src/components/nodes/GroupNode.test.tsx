@@ -8,7 +8,13 @@ import { GroupNode } from "./GroupNode";
 afterEach(() => cleanup());
 
 function renderNode(
-  dataOverrides: Partial<{ title: string; note: string; color: string; onUpdateTitle: (t: string) => void; onUpdateNote: (n: string) => void }> = {},
+  dataOverrides: Partial<{
+    title: string;
+    note: string;
+    color: string;
+    onUpdateTitle: (t: string) => void;
+    onUpdateNote: (n: string) => void;
+  }> = {},
   selected = false,
 ) {
   const props = {

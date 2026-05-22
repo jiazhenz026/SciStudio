@@ -32,12 +32,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import type { ProjectResponse } from "../types/api";
 
@@ -100,26 +95,14 @@ interface ToolbarProps {
   isRunning: boolean;
 }
 
-function StatusPill({
-  connected,
-  label,
-}: {
-  connected: boolean;
-  label: string;
-}) {
+function StatusPill({ connected, label }: { connected: boolean; label: string }) {
   return (
     <span
       className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${
-        connected
-          ? "bg-pine/15 text-pine"
-          : "bg-stone-200 text-stone-500"
+        connected ? "bg-pine/15 text-pine" : "bg-stone-200 text-stone-500"
       }`}
     >
-      <span
-        className={`h-2 w-2 rounded-full ${
-          connected ? "bg-pine" : "bg-stone-400"
-        }`}
-      />
+      <span className={`h-2 w-2 rounded-full ${connected ? "bg-pine" : "bg-stone-400"}`} />
       {label}
     </span>
   );
@@ -159,9 +142,7 @@ function ToolbarButton({
       <TooltipContent side="bottom">
         <p>
           {label}
-          {shortcut ? (
-            <span className="ml-2 text-xs opacity-70">{shortcut}</span>
-          ) : null}
+          {shortcut ? <span className="ml-2 text-xs opacity-70">{shortcut}</span> : null}
         </p>
       </TooltipContent>
     </Tooltip>
@@ -229,13 +210,24 @@ export function Toolbar(props: ToolbarProps) {
             <p className="font-display text-lg leading-tight">SciStudio</p>
           </div>
           <div className="w-[200px] shrink-0">
-            <p className="truncate font-display text-base leading-tight text-ink" title={currentProject?.name ?? undefined}>
+            <p
+              className="truncate font-display text-base leading-tight text-ink"
+              title={currentProject?.name ?? undefined}
+            >
               {currentProject?.name ?? "No project open"}
             </p>
-            <p className="truncate text-xs text-stone-500" title={currentProject ? workflowName : undefined}>
-              {currentProject
-                ? (<>{workflowName}<span style={{ visibility: workflowDirty ? "visible" : "hidden" }}>{" *"}</span></>)
-                : "Open or create a project"}
+            <p
+              className="truncate text-xs text-stone-500"
+              title={currentProject ? workflowName : undefined}
+            >
+              {currentProject ? (
+                <>
+                  {workflowName}
+                  <span style={{ visibility: workflowDirty ? "visible" : "hidden" }}>{" *"}</span>
+                </>
+              ) : (
+                "Open or create a project"
+              )}
             </p>
           </div>
         </div>
@@ -260,10 +252,7 @@ export function Toolbar(props: ToolbarProps) {
               <FolderOpen className="size-4" />
               Open Project...
             </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={!currentProject}
-              onClick={onSave}
-            >
+            <DropdownMenuItem disabled={!currentProject} onClick={onSave}>
               <Save className="size-4" />
               Save Workflow
             </DropdownMenuItem>
@@ -271,10 +260,7 @@ export function Toolbar(props: ToolbarProps) {
             <DropdownMenuLabel>Recent Projects</DropdownMenuLabel>
             {recentProjects.length > 0 ? (
               recentProjects.slice(0, 5).map((project) => (
-                <DropdownMenuItem
-                  key={project.id}
-                  onClick={() => onOpenRecent(project)}
-                >
+                <DropdownMenuItem key={project.id} onClick={() => onOpenRecent(project)}>
                   <span className="truncate">{project.name}</span>
                 </DropdownMenuItem>
               ))
@@ -284,10 +270,7 @@ export function Toolbar(props: ToolbarProps) {
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              disabled={!currentProject}
-              onClick={onCloseProject}
-            >
+            <DropdownMenuItem disabled={!currentProject} onClick={onCloseProject}>
               <X className="size-4" />
               Close Project
             </DropdownMenuItem>
@@ -306,12 +289,7 @@ export function Toolbar(props: ToolbarProps) {
            */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
-                variant="toolbar"
-                size="toolbar"
-                disabled={!currentProject}
-                type="button"
-              >
+              <Button variant="toolbar" size="toolbar" disabled={!currentProject} type="button">
                 <FilePlus2 className="size-3.5" />
                 New
                 <ChevronDown className="size-3" />
@@ -329,10 +307,7 @@ export function Toolbar(props: ToolbarProps) {
                 <FileCode2 className="size-4" />
                 New custom block
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={onNewNote}
-                disabled={!currentProject || !onNewNote}
-              >
+              <DropdownMenuItem onClick={onNewNote} disabled={!currentProject || !onNewNote}>
                 <FileText className="size-4" />
                 New note
               </DropdownMenuItem>
@@ -403,12 +378,7 @@ export function Toolbar(props: ToolbarProps) {
                 iconClassName={isRunning ? "animate-spin" : undefined}
                 onClick={onRun}
               />
-              <ToolbarButton
-                icon={Pause}
-                label="Pause"
-                disabled={!workflowId}
-                onClick={onPause}
-              />
+              <ToolbarButton icon={Pause} label="Pause" disabled={!workflowId} onClick={onPause} />
               <ToolbarButton
                 icon={Square}
                 label="Stop"
@@ -434,11 +404,7 @@ export function Toolbar(props: ToolbarProps) {
                 disabled={!selectedNodeId}
                 onClick={onDelete}
               />
-              <ToolbarButton
-                icon={RefreshCw}
-                label="Reload"
-                onClick={onReloadBlocks}
-              />
+              <ToolbarButton icon={RefreshCw} label="Reload" onClick={onReloadBlocks} />
               <ToolbarButton
                 icon={StickyNote}
                 label="Note"

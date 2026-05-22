@@ -17,17 +17,17 @@ export interface GitStatusBadgeProps {
   onClick?: () => void;
 }
 
-function classifyStatus(
-  status: ReturnType<typeof useAppStore.getState>["status"],
-): { key: "clean" | "dirty" | "conflict" | "unknown"; label: string } {
+function classifyStatus(status: ReturnType<typeof useAppStore.getState>["status"]): {
+  key: "clean" | "dirty" | "conflict" | "unknown";
+  label: string;
+} {
   if (status === null) return { key: "unknown", label: "git: loading…" };
   if (status.conflicted.length > 0) {
     const n = status.conflicted.length;
     return { key: "conflict", label: `${n} conflict${n > 1 ? "s" : ""}` };
   }
   if (!status.dirty) return { key: "clean", label: "clean" };
-  const n =
-    status.modified.length + status.staged.length + status.untracked.length;
+  const n = status.modified.length + status.staged.length + status.untracked.length;
   return { key: "dirty", label: `${n} change${n > 1 ? "s" : ""}` };
 }
 

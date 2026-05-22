@@ -11,6 +11,7 @@ import pytest
 
 from scistudio.core.storage.arrow_backend import ArrowBackend
 from scistudio.core.storage.composite_store import CompositeStore
+from scistudio.core.storage.errors import StorageMissingError, StorageReferenceInvalidError
 from scistudio.core.storage.filesystem import FilesystemBackend
 from scistudio.core.storage.ref import StorageReference
 from scistudio.core.storage.zarr_backend import ZarrBackend
@@ -135,6 +136,16 @@ class TestZarrBackend:
         loaded = arr.to_memory()
         np.testing.assert_array_equal(loaded, data)
 
+    def test_missing_zarr_read_raises_typed_storage_error(self, tmp_path: Path) -> None:
+        backend = ZarrBackend()
+        ref = StorageReference(backend="zarr", path=str(tmp_path / "missing.zarr"))
+
+        with pytest.raises(StorageMissingError) as exc_info:
+            backend.read(ref)
+
+        assert exc_info.value.ref == ref
+        assert exc_info.value.operation == "read"
+
 
 class TestArrowBackend:
     """Round-trip write/read for Parquet tables."""
@@ -198,6 +209,28 @@ class TestArrowBackend:
         ref = StorageReference(backend="arrow", path=str(tmp_path / "bad.parquet"))
         with pytest.raises(TypeError, match=r"dict or pa\.Table"):
             backend.write("not a table", ref)
+
+    def test_missing_arrow_read_raises_typed_storage_error(self, tmp_path: Path) -> None:
+        backend = ArrowBackend()
+        ref = StorageReference(backend="arrow", path=str(tmp_path / "missing.parquet"))
+
+        with pytest.raises(StorageMissingError) as exc_info:
+            backend.read(ref)
+
+        assert exc_info.value.ref == ref
+        assert exc_info.value.operation == "read"
+
+    def test_corrupt_arrow_read_raises_reference_invalid_error(self, tmp_path: Path) -> None:
+        backend = ArrowBackend()
+        bad_path = tmp_path / "bad.parquet"
+        bad_path.write_text("not parquet", encoding="utf-8")
+        ref = StorageReference(backend="arrow", path=str(bad_path))
+
+        with pytest.raises(StorageReferenceInvalidError) as exc_info:
+            backend.read(ref)
+
+        assert exc_info.value.ref == ref
+        assert exc_info.value.reason == "corrupt_or_unreadable"
 
 
 class TestFilesystemBackend:
@@ -337,6 +370,20 @@ class TestFilesystemBackend:
         tmp_files = list(tmp_path.glob(".tmp_*"))
         assert tmp_files == []
 
+    def test_missing_filesystem_read_raises_typed_storage_error(self, tmp_path: Path) -> None:
+        backend = FilesystemBackend()
+        ref = StorageReference(
+            backend="filesystem",
+            path=str(tmp_path / "missing.txt"),
+            format="plain",
+        )
+
+        with pytest.raises(StorageMissingError) as exc_info:
+            backend.read(ref)
+
+        assert exc_info.value.ref == ref
+        assert exc_info.value.operation == "read"
+
 
 class TestCompositeStore:
     """Round-trip write/read for composite (directory-of-slots) storage."""
@@ -418,3 +465,13 @@ class TestCompositeStore:
         assert subset["a"] == "slot_a_data"
         assert "b" not in subset
         assert "c" not in subset
+
+    def test_missing_manifest_raises_typed_storage_error(self, tmp_path: Path) -> None:
+        store = CompositeStore()
+        ref = StorageReference(backend="composite", path=str(tmp_path / "missing-composite"))
+
+        with pytest.raises(StorageMissingError) as exc_info:
+            store.read(ref)
+
+        assert exc_info.value.ref == ref
+        assert exc_info.value.operation == "read"

@@ -1,4 +1,14 @@
-import type { BlockSchemaResponse, BlockSummary, DataPreviewResponse, LogEntry, ProjectResponse, WorkflowEdge, WorkflowEventMessage, WorkflowNode, WorkflowResponse } from "../types/api";
+import type {
+  BlockSchemaResponse,
+  BlockSummary,
+  DataPreviewResponse,
+  LogEntry,
+  ProjectResponse,
+  WorkflowEdge,
+  WorkflowEventMessage,
+  WorkflowNode,
+  WorkflowResponse,
+} from "../types/api";
 import type { BottomTab } from "../types/ui";
 import type { LineageSlice } from "./lineageSlice";
 
@@ -69,7 +79,11 @@ export interface WorkflowSlice {
   workflowFuture: WorkflowHistoryEntry[];
   setWorkflow: (workflow: WorkflowResponse | null) => void;
   setWorkflowName: (name: string) => void;
-  addNode: (block: BlockSummary, position: { x: number; y: number }, defaultParams?: Record<string, unknown>) => void;
+  addNode: (
+    block: BlockSummary,
+    position: { x: number; y: number },
+    defaultParams?: Record<string, unknown>,
+  ) => void;
   addAnnotationNode: (position: { x: number; y: number }) => void;
   addGroupNode: (position: { x: number; y: number }) => void;
   updateNodeConfig: (nodeId: string, config: Record<string, unknown>) => void;

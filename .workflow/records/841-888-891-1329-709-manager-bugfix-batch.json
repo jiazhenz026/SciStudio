@@ -1,0 +1,381 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "manager/bugfix-batch-841-888-891-1329-709",
+  "changed_test_paths": [
+    "tests/ai/test_windows_executable_resolution.py",
+    "tests/utils/test_axis_iter.py",
+    "tests/packaging/test_wheel_spa.py",
+    "tests/core/test_storage.py",
+    "tests/engine/test_local_runner.py",
+    "tests/engine/test_worker.py",
+    "packages/scistudio-blocks-imaging/tests/test_interactive_blocks.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff check <integrated Python paths>",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff format --check <integrated Python paths>",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "27 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m pytest tests/ai/test_windows_executable_resolution.py tests/utils/test_axis_iter.py tests/packaging/test_wheel_spa.py tests/core/test_storage.py tests/engine/test_local_runner.py tests/engine/test_worker.py --no-cov -q",
+      "exit_code": 0,
+      "name": "pytest-root-targeted",
+      "output_path": "113 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m pytest packages/scistudio-blocks-imaging/tests/test_interactive_blocks.py --no-cov -q",
+      "exit_code": 0,
+      "name": "pytest-imaging-targeted",
+      "output_path": "9 passed in 9.40s",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m mypy src/scistudio/engine/runners/local.py --ignore-missing-imports",
+      "exit_code": 0,
+      "name": "mypy-local-runner",
+      "output_path": "Success: no issues found in 1 source file",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python yaml.safe_load(.github/workflows/ci.yml)",
+      "exit_code": 0,
+      "name": "yaml-parse-ci",
+      "output_path": "ci.yml parsed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.governance.gate_record pre-commit --staged --bypass-label admin-approved:core-change",
+      "exit_code": 0,
+      "name": "pre-commit",
+      "output_path": "gate_record: pass",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.governance.gate_record ci --gate-record .workflow/records/841-888-891-1329-709-manager-bugfix-batch.json --base origin/main --head HEAD --pr-label admin-approved:core-change",
+      "exit_code": 0,
+      "name": "gate_record-ci",
+      "output_path": "gate_record: pass",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff check src/scistudio/utils/axis_iter.py tests/utils/test_axis_iter.py",
+      "exit_code": 0,
+      "name": "semantic-dup-fix-ruff",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff format --check src/scistudio/utils/axis_iter.py tests/utils/test_axis_iter.py",
+      "exit_code": 0,
+      "name": "semantic-dup-fix-format",
+      "output_path": "2 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m pytest tests/utils/test_axis_iter.py --no-cov -q",
+      "exit_code": 0,
+      "name": "semantic-dup-fix-pytest-axis-iter",
+      "output_path": "16 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "exit_code": 1,
+      "name": "semantic-dup-local",
+      "output_path": "Local environment lacks fastembed; GitHub Semantic Duplication Scan is authoritative for this check.",
+      "status": "skipped",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff check src/scistudio/utils/axis_iter.py tests/utils/test_axis_iter.py",
+      "exit_code": 0,
+      "name": "codex-audit-axis-iter-ruff",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff format --check src/scistudio/utils/axis_iter.py tests/utils/test_axis_iter.py",
+      "exit_code": 0,
+      "name": "codex-audit-axis-iter-format",
+      "output_path": "2 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m pytest tests/utils/test_axis_iter.py --no-cov -q",
+      "exit_code": 0,
+      "name": "codex-audit-axis-iter-pytest",
+      "output_path": "17 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff check src/scistudio/utils/axis_iter.py tests/utils/test_axis_iter.py",
+      "exit_code": 0,
+      "name": "semantic-dup-followup-axis-iter-ruff",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff format --check src/scistudio/utils/axis_iter.py tests/utils/test_axis_iter.py",
+      "exit_code": 0,
+      "name": "semantic-dup-followup-axis-iter-format",
+      "output_path": "2 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m pytest tests/utils/test_axis_iter.py --no-cov -q",
+      "exit_code": 0,
+      "name": "semantic-dup-followup-axis-iter-pytest",
+      "output_path": "17 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/841-888-891-1329-709-manager-bugfix-batch.json",
+    "shas": [
+      "1a0da0935359bbf794ef538f30e79898a0e9fe69"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "N/A manager integration PR; worker gate records and PR body provide issue-level release context for already-scoped bug fixes."
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "Manager checklist committed at docs/planning/bugfix-batch-841-888-891-1329-709-checklist.md."
+    },
+    "docs": {
+      "rationale": "Manager checklist added as durable coordination evidence; no additional user-facing docs required beyond worker-scoped docs N/A rationales.",
+      "updated": [
+        "docs/planning/bugfix-batch-841-888-891-1329-709-checklist.md"
+      ]
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output %TEMP%\\\\scistudio-manager-bugfix-batch-full-audit.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "%TEMP%\\\\scistudio-manager-bugfix-batch-full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 841,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/841"
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 888,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/888"
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 891,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/891"
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1329,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1329"
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 709,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/709"
+    }
+  ],
+  "owner_directive": "Manager umbrella integration for completed issue fixes #841, #888, #891, #1329, and #709; preserve forbidden god-file cleanup scope.",
+  "planned_files": [
+    ".github/workflows/ci.yml",
+    "setup.py",
+    "src/scistudio/ai/agent/terminal.py",
+    "src/scistudio/api/routes/ai.py",
+    "src/scistudio/utils/axis_iter.py",
+    "src/scistudio/core/storage/__init__.py",
+    "src/scistudio/core/storage/arrow_backend.py",
+    "src/scistudio/core/storage/composite_store.py",
+    "src/scistudio/core/storage/errors.py",
+    "src/scistudio/core/storage/filesystem.py",
+    "src/scistudio/core/storage/zarr_backend.py",
+    "src/scistudio/engine/runners/local.py",
+    "src/scistudio/engine/runners/worker.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/__init__.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/fiji_block.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/napari_block.py",
+    "docs/planning/bugfix-batch-841-888-891-1329-709-checklist.md"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      841,
+      888,
+      891,
+      1329,
+      709
+    ],
+    "number": 1451,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1451"
+  },
+  "record_path": ".workflow/records/841-888-891-1329-709-manager-bugfix-batch.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest-targeted",
+    "mypy-local-runner",
+    "full_audit",
+    "gate_record-ci",
+    "pre-commit",
+    "pre-push"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "frontend/src/App.tsx",
+      "frontend/src/components/BlockNode.tsx",
+      "frontend/src/components/DataPreview.tsx",
+      "frontend/src/components/BottomPanel.tsx",
+      "src/scistudio/api/runtime.py",
+      "src/scistudio/ai/agent/mcp/tools_workflow.py",
+      "src/scistudio/ai/agent/mcp/tools_inspection.py",
+      "src/scistudio/api/routes/ai_pty.py",
+      "src/scistudio/api/routes/workflow_watcher.py",
+      "src/scistudio/cli/install.py",
+      "src/scistudio/api/routes/git.py",
+      "src/scistudio/qa/governance/gate_record.py",
+      "src/scistudio/qa/audit/architecture_drift.py",
+      "src/scistudio/core/types/registry.py",
+      "src/scistudio/blocks/io/savers/save_data.py",
+      "src/scistudio/blocks/io/loaders/load_data.py",
+      "src/scistudio/blocks/code/code_block.py",
+      "src/scistudio/blocks/ai/ai_block.py",
+      "src/scistudio/core/lineage/store.py",
+      "src/scistudio/engine/scheduler.py",
+      "src/scistudio/blocks/registry.py",
+      "src/scistudio/core/versioning/git_engine.py"
+    ],
+    "include": [
+      "src/scistudio/ai/agent/terminal.py",
+      "src/scistudio/api/routes/ai.py",
+      "src/scistudio/utils/axis_iter.py",
+      "setup.py",
+      ".github/workflows/ci.yml",
+      "src/scistudio/core/storage/**",
+      "src/scistudio/engine/runners/local.py",
+      "src/scistudio/engine/runners/worker.py",
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/**",
+      "packages/scistudio-blocks-imaging/tests/**",
+      "tests/**",
+      ".workflow/records/**",
+      "docs/planning/bugfix-batch-841-888-891-1329-709-checklist.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "N/A manager integration only",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "Worker gate records retain Sentrux evidence; manager branch adds integration/checklist/gate evidence only.",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "841-bugfix-batch-841-888-891-1329-709",
+  "task_kind": "manager"
+}

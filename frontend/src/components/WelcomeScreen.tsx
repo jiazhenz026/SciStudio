@@ -17,7 +17,10 @@ export function WelcomeScreen({
 }: WelcomeScreenProps) {
   function handleDeleteProject(event: React.MouseEvent, projectId: string, projectName: string) {
     event.stopPropagation();
-    if (onDeleteProject && window.confirm(`Delete project '${projectName}'? This cannot be undone.`)) {
+    if (
+      onDeleteProject &&
+      window.confirm(`Delete project '${projectName}'? This cannot be undone.`)
+    ) {
       onDeleteProject(projectId);
     }
   }
@@ -31,8 +34,8 @@ export function WelcomeScreen({
               Every tool. Every format. One workflow.
             </h1>
             <p className="mt-4 max-w-2xl text-lg leading-8 text-stone-600">
-              Build typed scientific workflows that connect Python, R, CLI tools, and GUI applications
-              in a single backend-owned runtime.
+              Build typed scientific workflows that connect Python, R, CLI tools, and GUI
+              applications in a single backend-owned runtime.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <button
@@ -65,7 +68,9 @@ export function WelcomeScreen({
                   >
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium text-ink">{project.name}</span>
-                      <span className="mt-1 block max-w-[300px] truncate text-xs text-stone-500">{project.path}</span>
+                      <span className="mt-1 block max-w-[300px] truncate text-xs text-stone-500">
+                        {project.path}
+                      </span>
                     </span>
                     {onDeleteProject ? (
                       <span
@@ -76,8 +81,18 @@ export function WelcomeScreen({
                         tabIndex={0}
                         title="Delete project"
                       >
-                        <svg className="size-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14" strokeLinecap="round" strokeLinejoin="round" />
+                        <svg
+                          className="size-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
                         </svg>
                       </span>
                     ) : null}

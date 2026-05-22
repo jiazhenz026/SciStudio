@@ -1,0 +1,177 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Implementation completed within original scoped files; marking implement stage after code and regression test edits."
+    }
+  ],
+  "branch": "fix/709-imaging-variadic-inputs",
+  "changed_test_paths": [
+    "packages/scistudio-blocks-imaging/tests/test_interactive_blocks.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "PYTHONPATH=src;packages/scistudio-blocks-imaging/src python -m ruff check packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive packages/scistudio-blocks-imaging/tests/test_interactive_blocks.py",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src;packages/scistudio-blocks-imaging/src python -m ruff format --check packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive packages/scistudio-blocks-imaging/tests/test_interactive_blocks.py",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "4 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src;packages/scistudio-blocks-imaging/src python -m pytest packages/scistudio-blocks-imaging/tests/test_interactive_blocks.py --no-cov -q",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "9 passed in 9.04s",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/709-imaging-variadic-inputs.json",
+    "shas": [
+      "11c74a408ac9ba69b09740632f304f0b88aec067"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "No release-facing changelog entry is required for this narrow internal bugfix before release packaging; behavior is tracked by issue #709 and PR #1439."
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "No manager dispatch or multi-agent checklist is required for this single-implementer scoped bugfix; gate record is the checklist evidence."
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "No user-facing documentation contract changed; issue #709 and package regression tests document the bugfix behavior."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": true,
+    "command": "PYTHONPATH=src;packages/scistudio-blocks-imaging/src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .workflow/records/709-imaging-variadic-inputs-full-audit.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "status pass; findings=0; local output file not committed because .workflow/records must contain only gate records",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 709,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/709"
+    }
+  ],
+  "owner_directive": "Implement GitHub issue #709: Fiji/Napari interactive imaging blocks must stage effective configured input ports, including user-added Artifact ports, without touching forbidden core/frontend paths.",
+  "planned_files": [
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/__init__.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/fiji_block.py",
+    "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/napari_block.py"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      709
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1439"
+  },
+  "record_path": ".workflow/records/709-imaging-variadic-inputs.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "src/scistudio/blocks/ai/ai_block.py",
+      "src/scistudio/blocks/code/code_block.py",
+      "src/scistudio/blocks/io/loaders/load_data.py",
+      "src/scistudio/blocks/io/savers/save_data.py",
+      "src/scistudio/blocks/registry.py",
+      "src/scistudio/engine/scheduler.py",
+      "src/scistudio/api/runtime.py"
+    ],
+    "include": [
+      "packages/scistudio-blocks-imaging/src/scistudio_blocks_imaging/interactive/**",
+      "packages/scistudio-blocks-imaging/tests/test_interactive_blocks.py",
+      ".workflow/records/**"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__sentrux__.scan; mcp__sentrux__.check_rules; mcp__sentrux__.health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "check_rules pass=true rules_checked=3 total_rules_defined=15; quality_signal=4441; pro_required=false",
+    "pro_required": false,
+    "quality_signal": 4441.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {
+      "pro_required": "false"
+    },
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "709-imaging-variadic-inputs",
+  "task_kind": "bugfix"
+}

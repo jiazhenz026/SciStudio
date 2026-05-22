@@ -7,14 +7,8 @@
  */
 import { describe, expect, it } from "vitest";
 
-import {
-  AiBlockStatusBadge,
-  MarkDoneButton,
-} from "../TerminalTab";
-import {
-  handleBlockPtyClosed,
-  handleBlockPtyOpened,
-} from "../TerminalTabs";
+import { AiBlockStatusBadge, MarkDoneButton } from "../TerminalTab";
+import { handleBlockPtyClosed, handleBlockPtyOpened } from "../TerminalTabs";
 
 describe("ADR-035 §3.10 — engine-initiated PTY tab events (skeleton)", () => {
   it("exports handleBlockPtyOpened as a function", () => {

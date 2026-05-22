@@ -35,6 +35,11 @@ docs/audit/full-audit-latest.json
 docs/audit/*.local.json
 docs/audit/*.tmp.json
 
+# Per-run semantic-duplication scan output (ADR-042 Addendum 2). Only the
+# committed baseline is durable; the current snapshot is ephemeral evidence
+# emitted by every scan and uploaded as a CI artifact.
+docs/audit/baselines/semantic-dup-current.json
+
 # IDE
 .idea/
 .vscode/

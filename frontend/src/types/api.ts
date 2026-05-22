@@ -57,11 +57,7 @@ export interface BlockPortResponse {
   is_collection: boolean;
 }
 
-export type MetadataFidelityLevel =
-  | "pixel_only"
-  | "typed_meta"
-  | "format_specific"
-  | "lossless";
+export type MetadataFidelityLevel = "pixel_only" | "typed_meta" | "format_specific" | "lossless";
 
 export interface MetadataFidelityResponse {
   level: MetadataFidelityLevel;

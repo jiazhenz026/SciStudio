@@ -137,11 +137,7 @@ export function GitDiffModal(props: GitDiffModalProps): JSX.Element | null {
               Loading diff…
             </div>
           ) : error ? (
-            <div
-              role="alert"
-              data-testid="git-diff-error"
-              className="p-4 text-sm text-red-700"
-            >
+            <div role="alert" data-testid="git-diff-error" className="p-4 text-sm text-red-700">
               {error}
             </div>
           ) : diffText === "" ? (
@@ -149,10 +145,7 @@ export function GitDiffModal(props: GitDiffModalProps): JSX.Element | null {
               No differences.
             </div>
           ) : (
-            <pre
-              data-testid="git-diff-viewer"
-              className="font-mono text-xs leading-relaxed"
-            >
+            <pre data-testid="git-diff-viewer" className="font-mono text-xs leading-relaxed">
               {lines.map((line, i) => {
                 const { cls } = classifyLine(line);
                 return (

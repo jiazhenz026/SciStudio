@@ -78,7 +78,9 @@ function TreeNodeRow({
       type="button"
     >
       {node.type === "directory" ? (
-        <span className="w-3 text-[10px] text-stone-400">{node.expanded ? "\u25BC" : "\u25B6"}</span>
+        <span className="w-3 text-[10px] text-stone-400">
+          {node.expanded ? "\u25BC" : "\u25B6"}
+        </span>
       ) : (
         <span className="w-3" />
       )}
@@ -157,7 +159,11 @@ export function ProjectTree({
   }, [contextMenu]);
 
   const updateNode = useCallback(
-    (nodes: TreeNodeData[], targetPath: string, updater: (n: TreeNodeData) => TreeNodeData): TreeNodeData[] => {
+    (
+      nodes: TreeNodeData[],
+      targetPath: string,
+      updater: (n: TreeNodeData) => TreeNodeData,
+    ): TreeNodeData[] => {
       return nodes.map((node) => {
         if (node.path === targetPath) {
           return updater(node);
@@ -177,9 +183,7 @@ export function ProjectTree({
 
       if (node.expanded) {
         // Collapse
-        setRootNodes((prev) =>
-          updateNode(prev, node.path, (n) => ({ ...n, expanded: false })),
-        );
+        setRootNodes((prev) => updateNode(prev, node.path, (n) => ({ ...n, expanded: false })));
         return;
       }
 
@@ -199,9 +203,7 @@ export function ProjectTree({
           // ignore
         }
       } else {
-        setRootNodes((prev) =>
-          updateNode(prev, node.path, (n) => ({ ...n, expanded: true })),
-        );
+        setRootNodes((prev) => updateNode(prev, node.path, (n) => ({ ...n, expanded: true })));
       }
     },
     [loadChildren, updateNode],

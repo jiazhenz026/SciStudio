@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+﻿import { useEffect, useRef, useState, useCallback } from "react";
 
 import {
   handleBlockPtyClosed,
@@ -100,7 +100,7 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
       }
 
       // When an agent kicks off a run via the MCP ``run_workflow`` tool, the
-      // scheduler emits ``workflow_started`` for the existing YAML — no
+      // scheduler emits ``workflow_started`` for the existing YAML 鈥?no
       // ``workflow.changed`` event fires because the YAML is not modified.
       // Mirror the ``workflow.changed`` ``kind=created`` auto-open path so
       // the user can watch progress on the canvas without having to navigate
@@ -121,7 +121,7 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
             fetchPromise
               .then((fresh) => {
                 // The user may have opened the tab themselves between
-                // the event arriving and the fetch resolving — re-check
+                // the event arriving and the fetch resolving 鈥?re-check
                 // before mutating store state.
                 const tabs = useAppStore.getState().tabs;
                 if (!tabs.some((t) => t.kind === "workflow" && t.workflowId === startedId)) {
@@ -158,7 +158,7 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
         // ``projectTreeRefreshCounter``.
         useAppStore.getState().bumpProjectTreeRefresh();
         // ADR-034: agent-driven ``write_workflow`` (kind=created) for a
-        // workflow that isn't already open as a tab — auto-open it so
+        // workflow that isn't already open as a tab 鈥?auto-open it so
         // the user can see what claude/codex just produced without
         // having to navigate the file tree manually.
         if (
@@ -196,6 +196,43 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
             useAppStore.getState().confirmWorkflowVersion(eventVersion, sourceId);
             return;
           }
+
+          const refreshCurrentWorkflow = () => {
+            api
+              .getWorkflow(changedId)
+              .then((fresh) => {
+                // Re-check inside the resolution: the user may have switched
+                // workflows while the fetch was in flight.
+                if (useAppStore.getState().workflowId === changedId) {
+                  setWorkflow(fresh);
+                }
+              })
+              .catch((err) => {
+                // Hotfix #1400 part 3: git-checkout replacement can emit
+                // transient `deleted` or `moved` before restore makes the file
+                // visible again.
+                if (kind === "deleted" || kind === "moved") {
+                  setWorkflow(null);
+                  appendLog({
+                    timestamp: payload.timestamp,
+                    level: "warn",
+                    message: `Workflow '${changedId}' was ${kind} on disk; canvas cleared.`,
+                    workflow_id: changedId,
+                    block_id: null,
+                  });
+                  return;
+                }
+                appendLog({
+                  timestamp: payload.timestamp,
+                  level: "error",
+                  message: `Failed to refresh workflow '${changedId}' after disk change: ${
+                    err instanceof Error ? err.message : String(err)
+                  }`,
+                  workflow_id: changedId,
+                  block_id: null,
+                });
+              });
+          };
 
           const dirty = workflowIsDirty();
           if (dirty) {
@@ -242,51 +279,20 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
             return;
           }
 
-          if (kind === "deleted" || kind === "moved") {
-            setWorkflow(null);
-            appendLog({
-              timestamp: payload.timestamp,
-              level: "warn",
-              message: `Workflow '${changedId}' was ${kind} on disk; canvas cleared.`,
-              workflow_id: changedId,
-              block_id: null,
-            });
-          } else {
-            // modified / created — refetch and replace.
-            api
-              .getWorkflow(changedId)
-              .then((fresh) => {
-                // Re-check inside the resolution: the user may have switched
-                // workflows while the fetch was in flight.
-                if (useAppStore.getState().workflowId === changedId) {
-                  setWorkflow(fresh);
-                }
-              })
-              .catch((err) => {
-                appendLog({
-                  timestamp: payload.timestamp,
-                  level: "error",
-                  message: `Failed to refresh workflow '${changedId}' after disk change: ${
-                    err instanceof Error ? err.message : String(err)
-                  }`,
-                  workflow_id: changedId,
-                  block_id: null,
-                });
-              });
-          }
+          refreshCurrentWorkflow();
         }
         // Mismatched id: ignore (workflow lives in another tab or is not loaded).
         return;
       }
 
-      // ADR-039 §3.8: HEAD or branch-tip moved on disk (CLI git, editor git
+      // ADR-039 搂3.8: HEAD or branch-tip moved on disk (CLI git, editor git
       // plugin, or an agent running git inside the PTY). The Git tab and
       // canvas must invalidate cached log / branch / status views.
       //
       // D39-2.3a (skeleton) wires this to `gitSlice.invalidateHistory()`,
       // which clears `logCache` + `status` + `branches`. D39-2.3b will
       // refine to be selective (e.g. only invalidate the affected branch's
-      // log when `ref` is a branch tip) — the full invalidation here is
+      // log when `ref` is a branch tip) 鈥?the full invalidation here is
       // a correct conservative default in the skeleton phase.
       if (payload.type === "file.changed") {
         const data = versionedData(payload);
@@ -433,7 +439,7 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
         return;
       }
 
-      // ADR-035 §3.10 skeleton: engine-initiated PTY tab open/close events
+      // ADR-035 搂3.10 skeleton: engine-initiated PTY tab open/close events
       // for AI Block runs. Implementation phase (I35c) wires these to the
       // TerminalTabs component's `handleBlockPtyOpened` /
       // `handleBlockPtyClosed` helpers, which create / update the tab in
@@ -446,14 +452,14 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
       //   3. On `block_pty_closed`: validate payload shape, call handler.
       //   4. Both events should also append a Logs entry so the user sees
       //      ``[AI Block: extract_metadata] tab opened`` / ``... completed``
-      //      in the Logs panel for traceability per ADR-035 §6.1 (lineage).
+      //      in the Logs panel for traceability per ADR-035 搂6.1 (lineage).
       //
       // Test plan (vitest):
       //   - test_block_pty_opened_dispatches_to_handler
       //   - test_block_pty_closed_dispatches_to_handler
       //   - test_unknown_payload_shape_logs_warning_does_not_throw
       //
-      // References: ADR-035 §3.10, §6.1
+      // References: ADR-035 搂3.10, 搂6.1
       if (payload.type === "block_pty_opened") {
         try {
           // The wire payload may live at the top level OR nested under `data`,
@@ -464,8 +470,7 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
           // the top level of the message (see ``ai_pty.open_engine_initiated_tab``
           // line 507). Reading from ``src.permission_mode`` always returned
           // undefined, silently downgrading bypass-mode tabs to "safe".
-          // Mirror the resilience pattern used for tab_id / block_run_id —
-          // prefer the top-level field, fall back to nested for older paths.
+          // Mirror the resilience pattern used for tab_id / block_run_id 鈥?          // prefer the top-level field, fall back to nested for older paths.
           handleBlockPtyOpened({
             tab_id: (top.tab_id as string) ?? (src.tab_id as string),
             block_run_id:
@@ -508,12 +513,12 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
           const top = payload as unknown as Record<string, unknown>;
           // Audit P1-D (Codex #866-1): backend emits the outcome under the
           // top-level ``event`` field (one of "completed" |
-          // "cancelled_by_user_close" | "error" — see
+          // "cancelled_by_user_close" | "error" 鈥?see
           // ``ai_pty._internal_notify`` line 654-660). The previous code
           // read ``src.status`` / ``src.result`` from the nested ``data``
-          // dict — neither exists on the wire, so every successful run
+          // dict 鈥?neither exists on the wire, so every successful run
           // fell through to the conservative "error" default and rendered
-          // as a red ✗ in the tab strip.
+          // as a red 鉁?in the tab strip.
           const eventField = top.event as
             | "completed"
             | "cancelled_by_user_close"
@@ -566,7 +571,7 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
 
       // The Logs unread badge is coupled to ``appendLog`` / ``consumeEvent``
       // itself (executionSlice) so it tracks actual rendered rows. The
-      // Problems tab was removed in the same change set — block_error rows
+      // Problems tab was removed in the same change set 鈥?block_error rows
       // surface in the Logs panel (filterable via the level selector) and
       // as the inline error badge on the BlockNode itself.
     };

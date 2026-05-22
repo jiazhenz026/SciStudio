@@ -2,7 +2,12 @@ import { GitBranch, Pin, PinOff, Plus, Trash2 } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { api } from "../lib/api";
-import type { BlockSchemaResponse, FormatCapabilityResponse, LogEntry, WorkflowNode } from "../types/api";
+import type {
+  BlockSchemaResponse,
+  FormatCapabilityResponse,
+  LogEntry,
+  WorkflowNode,
+} from "../types/api";
 import type { BottomTab } from "../types/ui";
 import { TerminalTabs } from "./AIChat/TerminalTabs";
 import { GitTab } from "./Git/GitTab";
@@ -92,9 +97,7 @@ function CaretPreservingTextInput({
   placeholder?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const pendingSelectionRef = useRef<{ start: number; end: number } | null>(
-    null,
-  );
+  const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null);
   useLayoutEffect(() => {
     const pending = pendingSelectionRef.current;
     const el = inputRef.current;
@@ -154,7 +157,9 @@ function capabilityWarnings(
 ): string[] {
   const warnings: string[] = [];
   if (capabilities.length > 1 && !capability) {
-    warnings.push("Multiple backend capabilities match this block; choose one to persist a stable capability_id.");
+    warnings.push(
+      "Multiple backend capabilities match this block; choose one to persist a stable capability_id.",
+    );
   }
   if (capability?.direction === "save" && capability.metadata_fidelity.level === "pixel_only") {
     warnings.push("This saver is payload-only; typed metadata may not be written.");
@@ -210,7 +215,10 @@ function FormatCapabilityConfig({
         </div>
       ) : null}
       {warnings.map((warning) => (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" key={warning}>
+        <div
+          className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+          key={warning}
+        >
           {warning}
         </div>
       ))}
@@ -230,13 +238,24 @@ interface CodeBlockPortConfig {
   exchange_folder: string;
 }
 
-const CODEBLOCK_DATA_TYPES = ["DataObject", "Array", "DataFrame", "Series", "Text", "Artifact", "CompositeData"];
+const CODEBLOCK_DATA_TYPES = [
+  "DataObject",
+  "Array",
+  "DataFrame",
+  "Series",
+  "Text",
+  "Artifact",
+  "CompositeData",
+];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isCodeBlockConfigTarget(selectedNode: WorkflowNode | null, schema?: BlockSchemaResponse): boolean {
+function isCodeBlockConfigTarget(
+  selectedNode: WorkflowNode | null,
+  schema?: BlockSchemaResponse,
+): boolean {
   const tokens = [selectedNode?.block_type, schema?.type_name, schema?.name]
     .filter((value): value is string => Boolean(value))
     .map((value) => value.toLowerCase().replace(/[\s._-]+/g, ""));
@@ -249,7 +268,10 @@ function codeBlockFolder(direction: CodeBlockPortDirection, name: string): strin
   return `${direction}s/${safeName}/`;
 }
 
-function nextCodeBlockPortName(direction: CodeBlockPortDirection, ports: CodeBlockPortConfig[]): string {
+function nextCodeBlockPortName(
+  direction: CodeBlockPortDirection,
+  ports: CodeBlockPortConfig[],
+): string {
   const existing = new Set(ports.map((port) => port.name));
   let index = ports.length + 1;
   let name = `${direction}_${index}`;
@@ -280,12 +302,19 @@ function normalizeCodeBlockPort(
   };
 }
 
-function codeBlockPorts(params: Record<string, unknown>, key: "inputs" | "outputs", direction: CodeBlockPortDirection) {
+function codeBlockPorts(
+  params: Record<string, unknown>,
+  key: "inputs" | "outputs",
+  direction: CodeBlockPortDirection,
+) {
   const rawPorts = Array.isArray(params[key]) ? params[key] : [];
   return rawPorts.map((port, index) => normalizeCodeBlockPort(port, direction, index));
 }
 
-function persistCodeBlockPort(port: CodeBlockPortConfig, direction: CodeBlockPortDirection): Record<string, unknown> {
+function persistCodeBlockPort(
+  port: CodeBlockPortConfig,
+  direction: CodeBlockPortDirection,
+): Record<string, unknown> {
   const name = port.name.trim();
   const exchangeFolder = port.exchange_folder.trim() || codeBlockFolder(direction, name);
 
@@ -307,11 +336,15 @@ function CodeBlockEnvironmentEditor({
   value: unknown;
   onUpdate: (next: Record<string, string>) => void;
 }) {
-  const variables = isRecord(value) ? Object.entries(value).map(([key, envValue]) => [key, String(envValue)] as const) : [];
+  const variables = isRecord(value)
+    ? Object.entries(value).map(([key, envValue]) => [key, String(envValue)] as const)
+    : [];
 
   const updateEntry = (index: number, nextKey: string, nextValue: string) => {
     const currentKey = variables[index]?.[0] ?? "";
-    const duplicateKey = nextKey !== currentKey && variables.some(([key], rowIndex) => rowIndex !== index && key === nextKey);
+    const duplicateKey =
+      nextKey !== currentKey &&
+      variables.some(([key], rowIndex) => rowIndex !== index && key === nextKey);
     if (duplicateKey) {
       onUpdate(Object.fromEntries(variables));
       return;
@@ -354,7 +387,10 @@ function CodeBlockEnvironmentEditor({
       {variables.length ? (
         <div className="grid gap-2">
           {variables.map(([key, envValue], index) => (
-            <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]" key={`${key}-${index}`}>
+            <div
+              className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+              key={`${key}-${index}`}
+            >
               <label className="grid gap-1 text-sm">
                 <span className="font-medium text-stone-700">Name</span>
                 <CaretPreservingTextInput
@@ -451,7 +487,10 @@ function CodeBlockPortTable({
       {ports.length ? (
         <div className="grid gap-3">
           {ports.map((port, index) => (
-            <div className="grid gap-3 rounded-2xl border border-stone-200 bg-white/70 p-3" key={`${direction}-${index}`}>
+            <div
+              className="grid gap-3 rounded-2xl border border-stone-200 bg-white/70 p-3"
+              key={`${direction}-${index}`}
+            >
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.75fr)]">
                 <label className="grid gap-1 text-sm">
                   <span className="font-medium text-stone-700">Name</span>
@@ -469,11 +508,13 @@ function CodeBlockPortTable({
                     onChange={(event) => updatePort(index, { data_type: event.target.value })}
                     value={port.data_type}
                   >
-                    {Array.from(new Set([port.data_type, ...CODEBLOCK_DATA_TYPES])).map((typeName) => (
-                      <option key={typeName} value={typeName}>
-                        {typeName}
-                      </option>
-                    ))}
+                    {Array.from(new Set([port.data_type, ...CODEBLOCK_DATA_TYPES])).map(
+                      (typeName) => (
+                        <option key={typeName} value={typeName}>
+                          {typeName}
+                        </option>
+                      ),
+                    )}
                   </select>
                 </label>
                 <label className="grid gap-1 text-sm">
@@ -524,7 +565,8 @@ function CodeBlockPortTable({
                 </button>
               </div>
               <p className="text-xs text-stone-500">
-                {direction === "input" ? "Read from" : "Save into"} <code>{port.exchange_folder}</code>
+                {direction === "input" ? "Read from" : "Save into"}{" "}
+                <code>{port.exchange_folder}</code>
               </p>
             </div>
           ))}
@@ -546,7 +588,11 @@ function CodeBlockConfigEditor({
   const inputs = codeBlockPorts(params, "inputs", "input");
   const outputs = codeBlockPorts(params, "outputs", "output");
 
-  const updatePorts = (key: "inputs" | "outputs", direction: CodeBlockPortDirection, ports: CodeBlockPortConfig[]) => {
+  const updatePorts = (
+    key: "inputs" | "outputs",
+    direction: CodeBlockPortDirection,
+    ports: CodeBlockPortConfig[],
+  ) => {
     onUpdateConfig({ [key]: ports.map((port) => persistCodeBlockPort(port, direction)) });
   };
 
@@ -606,7 +652,9 @@ function CodeBlockConfigEditor({
           <span className="font-medium text-ink">Timeout seconds</span>
           <CaretPreservingTextInput
             className="min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3"
-            onChange={(next) => onUpdateConfig({ timeout_seconds: next === "" ? null : Number(next) })}
+            onChange={(next) =>
+              onUpdateConfig({ timeout_seconds: next === "" ? null : Number(next) })
+            }
             type="number"
             value={params.timeout_seconds == null ? "" : String(params.timeout_seconds)}
           />
@@ -640,13 +688,15 @@ function ConfigPanel({
   schema?: BlockSchemaResponse;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
 }) {
-  const params = ((selectedNode?.config.params as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>;
+  const params = ((selectedNode?.config.params as Record<string, unknown> | undefined) ??
+    {}) as Record<string, unknown>;
   const properties = schema?.config_schema.properties ?? {};
   const ordered = Object.entries(properties)
     .filter(([key, value]) => {
       // For io_block, hide "direction" — it is already determined by whether
       // the user dragged a Load Block or Save Block from the palette.
-      if ((schema?.direction || selectedNode?.block_type === "io_block") && key === "direction") return false;
+      if ((schema?.direction || selectedNode?.block_type === "io_block") && key === "direction")
+        return false;
       if (key === "capability_id") return false;
       // Skip port_editor fields — rendered separately as PortEditorTable below.
       if ((value as Record<string, unknown>).ui_widget === "port_editor") return false;
@@ -658,15 +708,23 @@ function ConfigPanel({
 
   const isVariadicInputs = schema?.variadic_inputs === true;
   const isVariadicOutputs = schema?.variadic_outputs === true;
-  const inputPorts = Array.isArray(params["input_ports"]) ? (params["input_ports"] as PortRow[]) : [];
-  const outputPorts = Array.isArray(params["output_ports"]) ? (params["output_ports"] as PortRow[]) : [];
+  const inputPorts = Array.isArray(params["input_ports"])
+    ? (params["input_ports"] as PortRow[])
+    : [];
+  const outputPorts = Array.isArray(params["output_ports"])
+    ? (params["output_ports"] as PortRow[])
+    : [];
   const typeHierarchy = schema?.type_hierarchy ?? [];
   const allowedInputTypes = schema?.allowed_input_types ?? [];
   const allowedOutputTypes = schema?.allowed_output_types ?? [];
   const formatCapabilities = schema?.format_capabilities ?? [];
 
   if (!selectedNode || !schema) {
-    return <div className="text-sm text-stone-500">Select a node to edit its JSON-schema-driven configuration.</div>;
+    return (
+      <div className="text-sm text-stone-500">
+        Select a node to edit its JSON-schema-driven configuration.
+      </div>
+    );
   }
 
   if (isCodeBlockConfigTarget(selectedNode, schema)) {
@@ -707,96 +765,100 @@ function ConfigPanel({
         </div>
       ) : null}
       <div className="grid gap-4 md:grid-cols-2">
-      {ordered.map(([key, value]) => {
-        const currentValue = params[key] ?? value.default ?? "";
-        if (Array.isArray(value.enum)) {
+        {ordered.map(([key, value]) => {
+          const currentValue = params[key] ?? value.default ?? "";
+          if (Array.isArray(value.enum)) {
+            return (
+              <label className="grid gap-2 text-sm" key={key}>
+                <span className="font-medium text-ink">{String(value.title ?? key)}</span>
+                <select
+                  className="rounded-2xl border border-stone-300 bg-white px-4 py-3"
+                  onChange={(event) => onUpdateConfig({ [key]: event.target.value })}
+                  value={String(currentValue)}
+                >
+                  {value.enum.map((option) => (
+                    <option key={String(option)} value={String(option)}>
+                      {String(option)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            );
+          }
+          const uiWidget = (value as Record<string, unknown>).ui_widget as string | undefined;
+          const browseMode: "file" | "directory" | null =
+            uiWidget === "file_browser"
+              ? "file"
+              : uiWidget === "directory_browser"
+                ? "directory"
+                : null;
           return (
             <label className="grid gap-2 text-sm" key={key}>
               <span className="font-medium text-ink">{String(value.title ?? key)}</span>
-              <select
-                className="rounded-2xl border border-stone-300 bg-white px-4 py-3"
-                onChange={(event) => onUpdateConfig({ [key]: event.target.value })}
-                value={String(currentValue)}
-              >
-                {value.enum.map((option) => (
-                  <option key={String(option)} value={String(option)}>
-                    {String(option)}
-                  </option>
-                ))}
-              </select>
+              <div className="flex w-full min-w-0 items-stretch gap-2">
+                <CaretPreservingTextInput
+                  className="min-w-0 flex-1 rounded-2xl border border-stone-300 bg-white px-4 py-3"
+                  onChange={(next) =>
+                    onUpdateConfig({
+                      [key]: value.type === "number" ? Number(next) : next,
+                    })
+                  }
+                  placeholder={key === "path" ? "Type or paste file/directory path" : undefined}
+                  type={value.type === "number" ? "number" : "text"}
+                  value={String(currentValue)}
+                />
+                {browseMode && (
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-2xl border border-stone-300 bg-white px-3 text-sm text-stone-600 hover:bg-stone-50"
+                    title="Browse filesystem"
+                    onClick={async () => {
+                      // Mirror BlockNode's inline browse pattern (#484): use the
+                      // backend's native dialog so the user gets their OS file
+                      // picker. Failure surfaces in console; the text field
+                      // remains usable as the manual fallback.
+                      const current = String(currentValue ?? "");
+                      let initialDir: string | undefined;
+                      if (current) {
+                        const sep = current.includes("\\") ? "\\" : "/";
+                        const parts = current.split(sep);
+                        if (
+                          browseMode === "file" &&
+                          parts.length > 1 &&
+                          parts[parts.length - 1].includes(".")
+                        ) {
+                          initialDir = parts.slice(0, -1).join(sep);
+                        } else {
+                          initialDir = current;
+                        }
+                      }
+                      try {
+                        const result = await api.openNativeDialog(browseMode, initialDir);
+                        if (result.paths.length > 0) {
+                          const schemaType = (value as Record<string, unknown>).type;
+                          const supportsArray = Array.isArray(schemaType)
+                            ? schemaType.includes("array")
+                            : schemaType === "array";
+                          onUpdateConfig({
+                            [key]:
+                              supportsArray && result.paths.length > 1
+                                ? result.paths
+                                : result.paths[0],
+                          });
+                        }
+                      } catch (err) {
+                        // eslint-disable-next-line no-console
+                        console.error("BottomPanel: native file dialog failed", err);
+                      }
+                    }}
+                  >
+                    ...
+                  </button>
+                )}
+              </div>
             </label>
           );
-        }
-        const uiWidget = (value as Record<string, unknown>).ui_widget as string | undefined;
-        const browseMode: "file" | "directory" | null =
-          uiWidget === "file_browser"
-            ? "file"
-            : uiWidget === "directory_browser"
-              ? "directory"
-              : null;
-        return (
-          <label className="grid gap-2 text-sm" key={key}>
-            <span className="font-medium text-ink">{String(value.title ?? key)}</span>
-            <div className="flex w-full min-w-0 items-stretch gap-2">
-              <CaretPreservingTextInput
-                className="min-w-0 flex-1 rounded-2xl border border-stone-300 bg-white px-4 py-3"
-                onChange={(next) =>
-                  onUpdateConfig({
-                    [key]: value.type === "number" ? Number(next) : next,
-                  })
-                }
-                placeholder={key === "path" ? "Type or paste file/directory path" : undefined}
-                type={value.type === "number" ? "number" : "text"}
-                value={String(currentValue)}
-              />
-              {browseMode && (
-                <button
-                  type="button"
-                  className="shrink-0 rounded-2xl border border-stone-300 bg-white px-3 text-sm text-stone-600 hover:bg-stone-50"
-                  title="Browse filesystem"
-                  onClick={async () => {
-                    // Mirror BlockNode's inline browse pattern (#484): use the
-                    // backend's native dialog so the user gets their OS file
-                    // picker. Failure surfaces in console; the text field
-                    // remains usable as the manual fallback.
-                    const current = String(currentValue ?? "");
-                    let initialDir: string | undefined;
-                    if (current) {
-                      const sep = current.includes("\\") ? "\\" : "/";
-                      const parts = current.split(sep);
-                      if (browseMode === "file" && parts.length > 1 && parts[parts.length - 1].includes(".")) {
-                        initialDir = parts.slice(0, -1).join(sep);
-                      } else {
-                        initialDir = current;
-                      }
-                    }
-                    try {
-                      const result = await api.openNativeDialog(browseMode, initialDir);
-                      if (result.paths.length > 0) {
-                        const schemaType = (value as Record<string, unknown>).type;
-                        const supportsArray = Array.isArray(schemaType)
-                          ? schemaType.includes("array")
-                          : schemaType === "array";
-                        onUpdateConfig({
-                          [key]:
-                            supportsArray && result.paths.length > 1
-                              ? result.paths
-                              : result.paths[0],
-                        });
-                      }
-                    } catch (err) {
-                      // eslint-disable-next-line no-console
-                      console.error("BottomPanel: native file dialog failed", err);
-                    }
-                  }}
-                >
-                  ...
-                </button>
-              )}
-            </div>
-          </label>
-        );
-      })}
+        })}
       </div>
     </div>
   );
@@ -811,7 +873,11 @@ function LogViewer({ entries }: { entries: LogEntry[] }) {
   return (
     <div className="flex h-full flex-col">
       <div className="mb-4 flex items-center gap-3">
-        <select className="rounded-full border border-stone-300 bg-white px-3 py-2 text-sm" onChange={(event) => setLevel(event.target.value)} value={level}>
+        <select
+          className="rounded-full border border-stone-300 bg-white px-3 py-2 text-sm"
+          onChange={(event) => setLevel(event.target.value)}
+          value={level}
+        >
           <option value="all">All levels</option>
           <option value="info">Info</option>
           <option value="error">Error</option>
@@ -820,7 +886,10 @@ function LogViewer({ entries }: { entries: LogEntry[] }) {
       <div className="flex-1 overflow-auto rounded-[1.4rem] border border-stone-200 bg-stone-950 p-4">
         {filtered.length ? (
           filtered.map((entry, index) => (
-            <div className="border-b border-stone-800 py-2 text-sm text-stone-100" key={`${entry.timestamp}-${index}`}>
+            <div
+              className="border-b border-stone-800 py-2 text-sm text-stone-100"
+              key={`${entry.timestamp}-${index}`}
+            >
               <p className="text-[11px] uppercase tracking-[0.3em] text-stone-500">
                 {entry.level} · {entry.workflow_id ?? "workflow"} · {entry.block_id ?? "system"}
               </p>
@@ -896,14 +965,22 @@ export function BottomPanel({
         </div>
         {onTogglePin ? (
           <button
-            aria-label={pinned ? "Unpin bottom panel" : "Pin bottom panel (disable canvas-click auto-collapse)"}
+            aria-label={
+              pinned
+                ? "Unpin bottom panel"
+                : "Pin bottom panel (disable canvas-click auto-collapse)"
+            }
             aria-pressed={pinned}
             className={`inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
               pinned ? "bg-ember/15 text-ember" : "bg-white text-stone-500 hover:bg-stone-100"
             }`}
             data-testid="bottom-panel-pin-toggle"
             onClick={onTogglePin}
-            title={pinned ? "Pinned — clicks on canvas won't fold the panel" : "Pin panel — clicks on canvas won't fold it"}
+            title={
+              pinned
+                ? "Pinned — clicks on canvas won't fold the panel"
+                : "Pin panel — clicks on canvas won't fold it"
+            }
             type="button"
           >
             {pinned ? <Pin className="h-4 w-4" /> : <PinOff className="h-4 w-4" />}
@@ -925,7 +1002,11 @@ export function BottomPanel({
           <TerminalTabs />
         </div>
         {activeTab === "config" ? (
-          <ConfigPanel onUpdateConfig={onUpdateConfig} schema={selectedSchema} selectedNode={selectedNode} />
+          <ConfigPanel
+            onUpdateConfig={onUpdateConfig}
+            schema={selectedSchema}
+            selectedNode={selectedNode}
+          />
         ) : activeTab === "logs" ? (
           <LogViewer entries={logEntries} />
         ) : activeTab === "lineage" ? (

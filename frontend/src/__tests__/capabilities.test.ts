@@ -15,11 +15,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  aggregateCapabilities,
-  ancestorTypeNames,
-  normalizeExtension,
-} from "../api/capabilities";
+import { aggregateCapabilities, ancestorTypeNames, normalizeExtension } from "../api/capabilities";
 import type { BlockListResponse, FormatCapabilityResponse, TypeHierarchyEntry } from "../types/api";
 
 function fakeCap(
@@ -96,9 +92,7 @@ describe("ancestorTypeNames", () => {
 
   it("includes the type itself, the universal DataObject base, and every supertype", () => {
     const got = ancestorTypeNames("Image", hier);
-    expect(Array.from(got).sort()).toEqual(
-      ["DataObject", "Image", "Tensor"].sort(),
-    );
+    expect(Array.from(got).sort()).toEqual(["DataObject", "Image", "Tensor"].sort());
   });
 
   it("falls back to {typeName, DataObject} when no hierarchy is supplied", () => {

@@ -39,8 +39,63 @@ import traceback
 from typing import Any
 
 from scistudio.blocks.base.exceptions import BlockCancelledByAppError
+from scistudio.core.storage.errors import StorageReferenceInvalidError
+from scistudio.core.storage.ref import StorageReference
 
 logger = logging.getLogger(__name__)
+
+
+def _same_storage_ref(left: StorageReference | None, right: StorageReference) -> bool:
+    return left is not None and left.backend == right.backend and left.path == right.path
+
+
+def _contains_storage_ref(value: Any, ref: StorageReference) -> bool:
+    storage_ref = getattr(value, "storage_ref", None)
+    if _same_storage_ref(storage_ref, ref):
+        return True
+    if isinstance(value, dict):
+        return any(_contains_storage_ref(item, ref) for item in value.values())
+    if isinstance(value, (list, tuple, set)):
+        return any(_contains_storage_ref(item, ref) for item in value)
+    if hasattr(value, "__iter__") and not isinstance(value, (str, bytes)):
+        try:
+            return any(_contains_storage_ref(item, ref) for item in value)
+        except TypeError:
+            return False
+    return False
+
+
+def _storage_error_context(
+    inputs: dict[str, Any],
+    ref: StorageReference,
+) -> tuple[str | None, str | None]:
+    """Return ``(port_name, upstream_block)`` for a failed storage ref."""
+    for port_name, value in inputs.items():
+        if _contains_storage_ref(value, ref):
+            metadata = ref.metadata or {}
+            upstream_block = (
+                metadata.get("upstream_block") or metadata.get("producer_block") or metadata.get("block_id")
+            )
+            return port_name, str(upstream_block) if upstream_block is not None else None
+    return None, None
+
+
+def _emit_storage_error(
+    exc: StorageReferenceInvalidError,
+    *,
+    inputs: dict[str, Any] | None,
+    block_id: str | None,
+) -> None:
+    port_name, upstream_block = _storage_error_context(inputs or {}, exc.ref)
+    print(
+        json.dumps(
+            exc.to_payload(
+                block_id=block_id,
+                port_name=port_name,
+                upstream_block=upstream_block,
+            )
+        )
+    )
 
 
 def reconstruct_inputs(payload: dict[str, Any]) -> dict[str, Any]:
@@ -312,6 +367,9 @@ def main() -> None:
         7. Serialize outputs via the typed wire format.
         8. On exception: write {"error": traceback_str} to stdout, exit 1.
     """
+    payload: dict[str, Any] = {}
+    inputs: dict[str, Any] = {}
+    block_id: str | None = None
     try:
         # ADR-027 D11: warm the TypeRegistry singleton so plugin-provided
         # DataObject subtypes can be resolved during reconstruct_inputs.
@@ -326,6 +384,7 @@ def main() -> None:
 
         block_class_path: str = payload["block_class"]
         config: dict[str, Any] = payload.get("config", {})
+        block_id = str(config.get("block_id") or block_class_path)
         output_dir: str = payload.get("output_dir", "")
         # #706: For Tier-1 drop-in blocks, the parent registry passes the
         # absolute path of the source ``.py`` file. The synthetic module
@@ -419,6 +478,9 @@ def main() -> None:
 
         envelope = {"outputs": result, "environment": env_snapshot.to_dict()}
         print(json.dumps(envelope))
+    except StorageReferenceInvalidError as exc:
+        _emit_storage_error(exc, inputs=inputs, block_id=block_id)
+        sys.exit(1)
     except Exception:
         print(json.dumps({"error": traceback.format_exc()}))
         sys.exit(1)

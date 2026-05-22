@@ -9,7 +9,9 @@ vi.mock("../lib/api", () => ({
   setWorkflowWriteStartedListener: vi.fn(),
 }));
 
-function makeCapability(overrides: Partial<FormatCapabilityResponse> = {}): FormatCapabilityResponse {
+function makeCapability(
+  overrides: Partial<FormatCapabilityResponse> = {},
+): FormatCapabilityResponse {
   return {
     id: "imaging.image.tiff.save",
     direction: "save",
@@ -353,7 +355,9 @@ describe("BottomPanel", () => {
       />,
     );
 
-    fireEvent.change(screen.getByDisplayValue("scripts/analyze.py"), { target: { value: "scripts/segment.py" } });
+    fireEvent.change(screen.getByDisplayValue("scripts/analyze.py"), {
+      target: { value: "scripts/segment.py" },
+    });
     expect(onUpdateConfig).toHaveBeenCalledWith({ script_path: "scripts/segment.py" });
 
     fireEvent.change(screen.getByDisplayValue("auto"), { target: { value: "existing" } });
@@ -387,14 +391,18 @@ describe("BottomPanel", () => {
     );
 
     fireEvent.change(screen.getByDisplayValue("4"), { target: { value: "8" } });
-    expect(onUpdateConfig).toHaveBeenCalledWith({ environment_variables: { OMP_NUM_THREADS: "8" } });
+    expect(onUpdateConfig).toHaveBeenCalledWith({
+      environment_variables: { OMP_NUM_THREADS: "8" },
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "Add variable" }));
     expect(onUpdateConfig).toHaveBeenCalledWith({
       environment_variables: { OMP_NUM_THREADS: "4", VAR_2: "" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove environment variable OMP_NUM_THREADS" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove environment variable OMP_NUM_THREADS" }),
+    );
     expect(onUpdateConfig).toHaveBeenCalledWith({ environment_variables: {} });
   });
 
@@ -581,7 +589,9 @@ describe("BottomPanel", () => {
       ],
     });
 
-    fireEvent.change(screen.getByDisplayValue("outputs/table/"), { target: { value: "outputs/results/" } });
+    fireEvent.change(screen.getByDisplayValue("outputs/table/"), {
+      target: { value: "outputs/results/" },
+    });
     expect(onUpdateConfig).toHaveBeenCalledWith({
       outputs: [
         {

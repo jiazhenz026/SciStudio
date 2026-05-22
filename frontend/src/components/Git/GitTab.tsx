@@ -48,22 +48,14 @@ export function GitTab(): JSX.Element {
 
   if (!currentProject) {
     return (
-      <div
-        data-testid="git-tab-empty"
-        className="flex h-full items-center justify-center"
-      >
-        <p className="text-sm text-stone-500">
-          Open a project to use Git versioning.
-        </p>
+      <div data-testid="git-tab-empty" className="flex h-full items-center justify-center">
+        <p className="text-sm text-stone-500">Open a project to use Git versioning.</p>
       </div>
     );
   }
 
   return (
-    <div
-      data-testid="git-tab"
-      className="flex h-full min-h-0 flex-col"
-    >
+    <div data-testid="git-tab" className="flex h-full min-h-0 flex-col">
       {/* Sticky top bar. Mirrors the previous Toolbar group but lives
           inside the Git tab so the main Toolbar can stay compact. */}
       <div
@@ -71,9 +63,7 @@ export function GitTab(): JSX.Element {
         className="flex shrink-0 items-center gap-2 border-b border-stone-200 bg-white/70 px-3 py-2"
       >
         <BranchPicker
-          onMergeRequested={(sourceBranch) =>
-            setMergeFlowSource(sourceBranch, currentProject.id)
-          }
+          onMergeRequested={(sourceBranch) => setMergeFlowSource(sourceBranch, currentProject.id)}
         />
         <GitStatusBadge onClick={() => setCommitOpen(true)} />
         <Button

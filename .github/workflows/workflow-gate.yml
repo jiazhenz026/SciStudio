@@ -331,13 +331,26 @@ jobs:
                           docs_landing=record.get("docs_landing", {}),
                           repo_root=Path("."),
                       ),
-                      sentrux_gate.verify_free_tier_claims(
-                          record.get("sentrux"),
-                          changed_files=changed,
-                          repo_root=Path("."),
-                      ),
                   ]
               )
+              # ADR-042 Addendum 3: Sentrux is advisory in CI. Run the
+              # check, surface findings as ``::warning::`` annotations,
+              # but do NOT contribute to the blocking reports list.
+              # Reviewers read the warnings and decide; merge is never
+              # blocked on sentrux alone.
+              sentrux_report = sentrux_gate.verify_free_tier_claims(
+                  record.get("sentrux"),
+                  changed_files=changed,
+                  repo_root=Path("."),
+              )
+              for finding in sentrux_report.findings:
+                  print(
+                      f"::warning title=Sentrux advisory::{finding.rule_id}: {finding.message}"
+                  )
+              if sentrux_report.findings:
+                  print(
+                      "::notice::Sentrux findings are advisory per ADR-042 Addendum 3 and do not block merge."
+                  )
           else:
               print("::notice::No AI gate record to orchestrate; running repository-level guards only.")
 

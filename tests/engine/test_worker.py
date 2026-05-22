@@ -247,6 +247,17 @@ class _StubBlock:
         return {"result": "ok"}
 
 
+class _ReadingStubBlock:
+    """Block that triggers lazy storage materialisation from an input port."""
+
+    def __init__(self, config: object = None) -> None:
+        pass
+
+    def run(self, inputs: dict, config: object) -> dict:
+        inputs["image"].to_memory()
+        return {"result": "unreachable"}
+
+
 # ---------------------------------------------------------------------------
 # main — final_state envelope field (#681)
 # ---------------------------------------------------------------------------
@@ -330,3 +341,55 @@ class TestWorkerFinalState:
         parsed = self._run_worker("tests.engine.test_worker._StubBlock")
         assert "error" not in parsed, parsed
         assert "final_state" not in parsed
+
+
+class TestWorkerStorageErrors:
+    def test_missing_storage_ref_emits_structured_payload(self, tmp_path: Path) -> None:
+        import json
+        import os
+        import subprocess
+        import sys
+
+        missing_path = tmp_path / "missing.zarr"
+        payload = json.dumps(
+            {
+                "block_class": "tests.engine.test_worker._ReadingStubBlock",
+                "inputs": {
+                    "image": {
+                        "backend": "zarr",
+                        "path": str(missing_path),
+                        "format": "zarr",
+                        "metadata": {
+                            "type_chain": ["DataObject", "Array"],
+                            "axes": ["y", "x"],
+                            "shape": [2, 2],
+                            "dtype": "uint8",
+                            "upstream_block": "loader-1",
+                        },
+                    }
+                },
+                "config": {"block_id": "segment-1"},
+                "output_dir": "",
+            }
+        )
+        env = os.environ.copy()
+        repo_src = Path(__file__).resolve().parents[2] / "src"
+        env["PYTHONPATH"] = str(repo_src) + os.pathsep + env.get("PYTHONPATH", "")
+
+        result = subprocess.run(
+            [sys.executable, "-m", "scistudio.engine.runners.worker"],
+            input=payload,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
+        )
+
+        parsed = json.loads(result.stdout)
+        assert result.returncode == 1
+        assert parsed["error_kind"] == "storage_missing"
+        assert parsed["block_id"] == "segment-1"
+        assert parsed["port_name"] == "image"
+        assert parsed["upstream_block"] == "loader-1"
+        assert parsed["ref"]["path"] == str(missing_path).replace("\\", "/")
+        assert "Traceback" not in parsed["message"]

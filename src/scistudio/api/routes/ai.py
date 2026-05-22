@@ -20,6 +20,8 @@ from typing import Any
 
 from fastapi import APIRouter
 
+from scistudio.ai.agent.terminal import resolve_windows_executable
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
@@ -88,7 +90,7 @@ def _binary_status(name: str) -> tuple[bool, str | None]:
     completes within 2 s with non-empty stdout.  Version is the trimmed
     stdout.
     """
-    binary = shutil.which(name)
+    binary = resolve_windows_executable(name, which=shutil.which)
     if not binary:
         return False, None
     try:
