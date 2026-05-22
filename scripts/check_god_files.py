@@ -44,8 +44,11 @@ GOD_FILE_SIZE_WAIVERS: frozenset[str] = frozenset(
         # the ``gate_record/`` sub-package in PR for #1433 (umbrella #1427);
         # waiver removed because every new sub-module is below the 750 LOC
         # threshold.
-        "src/scistudio/blocks/io/savers/save_data.py",
-        "src/scistudio/blocks/io/loaders/load_data.py",
+        # ``src/scistudio/blocks/io/savers/save_data.py`` and
+        # ``src/scistudio/blocks/io/loaders/load_data.py`` were decomposed
+        # via private sibling modules (Path D, ADR-028 Addendum 1 §C9) in
+        # PR for #1459 (Phase 2 of umbrella #1427); both files are now
+        # below the 750 LOC threshold and no longer need a waiver.
         # tools_workflow.py and tools_inspection.py removed from waivers in #1431 —
         # decomposed into src/scistudio/ai/agent/mcp/{tools_workflow,tools_inspection}/
         # sub-packages whose largest sub-module is < 750 LOC.
