@@ -118,23 +118,32 @@
     "trailers": {}
   },
   "docs_landing": {
+    "addendum": {
+      "not_applicable": true,
+      "rationale": "No addendum needed \u2014 issue-level scope tracked by #1426 + per-wave sub-issues."
+    },
     "adr": {
       "not_applicable": true,
-      "rationale": "no architectural decision; cascade is cleanup of waivers introduced by #1412."
+      "rationale": "No ADR change \u2014 cleanup cascade for #1412 baseline waivers; ADR-046/047 came in via main-merge but are independent."
     },
     "changelog": {
-      "not_applicable": true,
-      "rationale": "manager-bootstrap commit only \u2014 behavior change lands in Wave 4 integration commit; CHANGELOG entry added then."
+      "paths": [
+        "CHANGELOG.md"
+      ]
     },
     "checklist": {
       "paths": [
         "docs/planning/frontend-cleanup-1412-checklist.md"
       ]
     },
-    "docs": {},
+    "docs": {
+      "paths": [
+        "docs/audit/full-audit-1422.json"
+      ]
+    },
     "spec": {
       "not_applicable": true,
-      "rationale": "no contract or schema change."
+      "rationale": "No public contract or schema change \u2014 refactor + lint cleanup; lib/api public surface preserved via re-export shell."
     }
   },
   "full_audit": {
