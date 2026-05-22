@@ -30,7 +30,7 @@ from scistudio.api.routes.ai_pty.validation import _validate_project_dir
 logger = logging.getLogger(__name__)
 
 
-@_pkg.router.websocket("/pty/{tab_id}")
+@_pkg.router.websocket("/pty/{tab_id}")  # type: ignore[has-type]
 async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
     """Accept the WS, validate params, spawn PTY, pump until close."""
     await websocket.accept()

@@ -52,7 +52,7 @@ _HeaderToken = Annotated[str | None, Header(alias="X-SciStudio-IPC-Token")]
 _BodyDict = Annotated[dict[str, Any], Body()]
 
 
-@_pkg.router.post("/pty/internal/request-tab")
+@_pkg.router.post("/pty/internal/request-tab")  # type: ignore[has-type]
 async def _internal_request_tab(
     payload: _BodyDict,
     x_scistudio_ipc_token: _HeaderToken = None,
@@ -98,7 +98,7 @@ async def _internal_request_tab(
     return {"tab_id": tab_id, "error": None}
 
 
-@_pkg.router.post("/pty/internal/notify", status_code=204)
+@_pkg.router.post("/pty/internal/notify", status_code=204)  # type: ignore[has-type]
 async def _internal_notify(
     payload: _BodyDict,
     x_scistudio_ipc_token: _HeaderToken = None,
