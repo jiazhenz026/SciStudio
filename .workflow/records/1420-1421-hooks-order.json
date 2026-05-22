@@ -75,8 +75,15 @@
         "CHANGELOG.md"
       ]
     },
-    "checklist": {},
-    "docs": {}
+    "checklist": {
+      "paths": [
+        "docs/planning/frontend-cleanup-1412-checklist.md"
+      ]
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "bugfix is behavior-preserving \u2014 no ADR/spec/architecture surface changed; CHANGELOG + checklist cover the change set"
+    }
   },
   "full_audit": {
     "blocks_merge": false,
