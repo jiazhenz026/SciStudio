@@ -68,7 +68,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1471-registry-decomp.json",
+    "shas": [
+      "b3675e71346267ebae90d69646f02fe108fe94c7"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "paths": [
@@ -114,7 +120,13 @@
   ],
   "owner_directive": "Implement ADR-047 registry decomposition + legacy IO finder removal",
   "planned_files": [],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1471
+    ],
+    "number": 1476,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1476"
+  },
   "record_path": ".workflow/records/1471-registry-decomp.json",
   "required_checks": [],
   "schema_version": "1",
@@ -168,7 +180,7 @@
       "summary": null
     },
     {
-      "completed_at": "2026-05-22T23:36:05.987238+00:00",
+      "completed_at": "2026-05-22T23:36:05.987238Z",
       "stage": "update_docs",
       "status": "done",
       "summary": "docs_landing populated via JSON edit (gate_record docs is destructive); ADR-047 + 10 governance docs governs.files frontmatter updated for sub-package layout."
@@ -180,7 +192,7 @@
       "summary": null
     },
     {
-      "completed_at": "2026-05-22T23:37:26.068228+00:00",
+      "completed_at": "2026-05-22T23:37:26.068228Z",
       "stage": "commit_and_submit_pr",
       "status": "done",
       "summary": "Committed 4fb68a10 with AI-trailer + Closes #1471; ready to push and open PR."
