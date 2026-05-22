@@ -52,10 +52,9 @@
     "trailers": {}
   },
   "docs_landing": {
-    "changelog": {},
-    "changelog:N/A docs-only PR; status": {
+    "changelog": {
       "not_applicable": true,
-      "rationale": "Proposed implementation deferred to follow-up PRs"
+      "rationale": "N/A docs-only PR; ADRs Status=Proposed; implementation deferred to follow-up implementer PRs which will land the CHANGELOG entries."
     },
     "checklist": {
       "not_applicable": true,
