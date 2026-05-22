@@ -1,0 +1,315 @@
+---
+title: "Frontend Cleanup #1412 Cascade Dispatch Checklist"
+status: Approved
+owners:
+  - "@jiazhenz026"
+related_adrs:
+  - 42
+language_source: en
+---
+
+# Frontend Cleanup #1412 Cascade Dispatch Checklist
+
+> Mandatory tracking file. Every agent edits only rows it owns.
+> Drift is a protocol violation.
+> Source template:
+> `docs/ai-developer/templates/agent-dispatch-checklist-template.md`
+
+## 1. Change Summary
+
+- Owner request: Frontend 大规模错误清理和重构；最后把已挂上 CI 但被 baseline waivers 屏蔽的前端 lint 任务真正 enable。
+- Task kind: `manager`
+- Manager persona: `manager`
+- Issue: `#1426`
+- Gate record: `.workflow/records/1426-frontend-cleanup-1412-manager.json`
+- Branch/worktree plan: manager works on `track/frontend-cleanup-1412` from `.claude/worktrees/frontend-cleanup-mgr`; every dispatched agent gets a dedicated `feat/issue-<n>/...` or `fix/issue-<n>/...` branch and worktree under `.claude/worktrees/`.
+- Protected branch: `main`
+- Umbrella branch: `track/frontend-cleanup-1412`
+- Umbrella PR: `#<pending>`
+- Umbrella PR title: `[DO NOT MERGE] track(frontend): retire #1412 baseline waivers (#1426)`
+- Final PR target: `main`
+- Dispatch prompt templates:
+  - Work: `docs/ai-developer/templates/agent-dispatch-prompt-template.md`
+  - Audit with context: `docs/ai-developer/templates/agent-dispatch-audit-with-context-prompt-template.md`
+  - Audit no context: `docs/ai-developer/templates/agent-dispatch-audit-no-context-prompt-template.md`
+
+## 2. Scope
+
+- In scope:
+  - `frontend/src/**` cleanup edits required by #1413–#1422.
+  - `frontend/eslint.config.js` waiver removals (one block per follow-up issue).
+  - `frontend/.prettierrc.json`, `frontend/.prettierignore` only if a waiver retirement legitimately needs it.
+  - `docs/planning/frontend-cleanup-1412-checklist.md` (this file).
+  - `.workflow/records/1426-frontend-cleanup-1412-manager.json` (manager gate-record).
+  - `.workflow/records/<sub-issue>-<slug>.json` (one per sub-agent).
+  - `docs/audit/2026-05-22-frontend-cleanup-1412-no-context.md`
+  - `docs/audit/2026-05-22-frontend-cleanup-1412-with-context.md`
+  - `CHANGELOG.md` (governance-touch entry when integration lands).
+- Out of scope:
+  - `src/scistudio/**` (backend; this cascade is frontend-only).
+  - `.github/workflows/**` (CI was already wired by #1424).
+  - Any feature work / new behavior — refactor must preserve behavior.
+  - Adding new ESLint rules beyond what #1412 introduced.
+- Protected paths:
+  - `frontend/eslint.config.js` is **not** protected per ADR-042 Addendum 1, but waiver retirement must be deliberate and per-issue.
+- Deferred work:
+  - None planned; any in-flight discovery must use `TODO(#NNN)` citing an open issue.
+
+## 3. Conventions
+
+- `[ ]` not started
+- `[~]` in progress
+- `[x]` done
+- `[!]` blocked
+- Every completed row MUST include an artifact:
+  PR link, commit, test command, report path, or gate-record entry.
+- Chat messages are not checklist evidence.
+- Agents edit only their own rows (Track sub-sections).
+- Scope changes require a gate-record amendment **before** work continues.
+
+## 4. Manager Preflight
+
+- [x] Dedicated manager branch and worktree created. → `track/frontend-cleanup-1412` at `.claude/worktrees/frontend-cleanup-mgr`
+- [x] Existing issue linked, or new issue created only if none exists. → tracking #1426
+- [x] Gate record started. → `.workflow/records/1426-frontend-cleanup-1412-manager.json`
+- [x] Scope include/exclude recorded in the gate record.
+- [x] Umbrella branch created. → `track/frontend-cleanup-1412`
+- [ ] Umbrella PR opened.
+- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Protected branch and umbrella PR number recorded in this checklist. → `main` + `<pending>`
+- [x] No `pip install -e .` environment pollution found. → using `PYTHONPATH=src` invocation
+- [x] Dispatch checklist copied from the template and committed.
+- [ ] Dispatch prompts created from the correct prompt template and linked below.
+- [ ] Sentrux baseline recorded, or N/A reason recorded. → planned: Sentrux applies (frontend/** in applicability set) — record on integration.
+
+## 5. Local Gate Hook Bypass Evidence
+
+- Authorized bypass label: `N/A` (manager work has its own gate-record; sub-agents may need `admin-approved:ai-override` per individual situations, recorded in their own gate-records).
+- Owner authorization source: `N/A`
+- Reason: `N/A`
+
+| Hook | Command | Bypass label | Status | Evidence |
+|---|---|---|---|---|
+| Pre-commit | `python -m scistudio.qa.governance.gate_record pre-commit --staged` | `N/A` | `[ ]` | pending |
+| Commit message | `python -m scistudio.qa.governance.gate_record commit-msg <file>` | `N/A` | `[ ]` | pending |
+| Pre-push | `python -m scistudio.qa.governance.gate_record pre-push` | `N/A` | `[ ]` | pending |
+
+## 6. Dispatch Matrix
+
+| Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| W1-impl | implementer | N/A | inline (see §7.1) | Fix #1420 (BlockNode hooks) + #1421 (App.tsx exhaustive-deps) | `fix/issue-1420-1421/hooks-order` | `.claude/worktrees/w1-hooks` | `frontend/src/components/nodes/BlockNode.tsx`, `frontend/src/App.tsx`, `frontend/eslint.config.js`, related tests | other waivers, other components | `#1420`, `#1421` | `[ ]` |
+| W2-A-impl | implementer | N/A | inline (see §7.2) | Split #1422 god files: App.tsx + BlockNode.tsx | `refactor/issue-1422/god-app-blocknode` | `.claude/worktrees/w2a-app-blocknode` | `frontend/src/App.tsx`, `frontend/src/components/nodes/BlockNode.tsx` (+ new sibling files), `frontend/eslint.config.js` | other god files | `#1422` (partial) | `[ ]` |
+| W2-B-impl | implementer | N/A | inline (see §7.2) | Split #1422 god files: DataPreview.tsx + BottomPanel.tsx | `refactor/issue-1422/god-datapreview-bottompanel` | `.claude/worktrees/w2b-datapreview-bottompanel` | `frontend/src/components/DataPreview.tsx`, `frontend/src/components/BottomPanel.tsx` (+ test + new sibling files), `frontend/eslint.config.js` | other god files | `#1422` (partial) | `[ ]` |
+| W2-C-impl | implementer | N/A | inline (see §7.2) | Split #1422 god files: RunDetail.tsx + lib/api.ts + ConflictMarkerDecoration.ts | `refactor/issue-1422/god-rundetail-api-conflict` | `.claude/worktrees/w2c-rundetail-api-conflict` | `frontend/src/components/Lineage/RunDetail.tsx`, `frontend/src/lib/api.ts`, `frontend/src/components/Git/ConflictMarkerDecoration.ts` (+ new sibling files), `frontend/eslint.config.js` | other god files | `#1422` (partial) | `[ ]` |
+| W3-D-impl | implementer | N/A | inline (see §7.3) | #1413 (max-lines-per-function 18 files) + #1414 (complexity 10 files) | `refactor/issue-1413-1414/lint-fn-complexity` | `.claude/worktrees/w3d-fn-complexity` | files listed in `MAX_LINES_PER_FN_WAIVERS` + `COMPLEXITY_WAIVERS` (excluding god files owned by W2), `frontend/eslint.config.js` | god files, equality, unused | `#1413`, `#1414` | `[ ]` |
+| W3-E-impl | implementer | N/A | inline (see §7.3) | #1416 (consistent-type-imports tests) + #1417 (no-unused-vars non-god) + #1419 (max-depth + ban-ts-comment) | `cleanup/issue-1416-1417-1419/test-imports-unused-depth` | `.claude/worktrees/w3e-tests-unused-depth` | files in `CONSISTENT_TYPE_IMPORT_WAIVERS`, `NO_UNUSED_VARS_WAIVERS` (excluding god files), `Git/GitGraph/laneAssign.ts`, `hooks/useWebSocket.test.ts`, `frontend/eslint.config.js` | god files, equality | `#1416`, `#1417`, `#1419` | `[ ]` |
+| W4-audit-nc | audit_reviewer | no-context | inline (see §7.4) | Independently audit frontend code/docs/tests for drift after waves 1–3 land | `audit/2026-05-22-frontend-cleanup-no-context` | `.claude/worktrees/w4-audit-nc` | `docs/audit/2026-05-22-frontend-cleanup-1412-no-context.md` only | implementation files | `N/A (report)` | `[ ]` |
+| W4-audit-wc | audit_reviewer | with-context | inline (see §7.4) | Verify claimed cleanup for #1413–#1422 against checklist, PRs, gate evidence, lint output | `audit/2026-05-22-frontend-cleanup-with-context` | `.claude/worktrees/w4-audit-wc` | `docs/audit/2026-05-22-frontend-cleanup-1412-with-context.md` only | implementation files | `N/A (report)` | `[ ]` |
+| W4-integration | manager | N/A | self | Apply #1415 (eqeqeq, deferred due to god-file overlap), strip all remaining waiver blocks from `frontend/eslint.config.js`, fix CI failures, prepare umbrella PR for owner merge | `track/frontend-cleanup-1412` | `.claude/worktrees/frontend-cleanup-mgr` | `frontend/eslint.config.js`, files in `EQEQEQ_WAIVERS`, audit reports | n/a | `#1415`, umbrella PR | `[ ]` |
+
+## 7. Tracks
+
+### 7.1 Track: Wave 1 — Hooks bug + exhaustive-deps (`#1420` + `#1421`)
+
+#### 7.1.1 Track Scope
+
+- Owner: `W1-impl`
+- In scope:
+  - Fix `react-hooks/rules-of-hooks` violations in `frontend/src/components/nodes/BlockNode.tsx` (5 sites at L503/504/591/592/595): restructure so all Hooks are called at the top level before any early return.
+  - Investigate every `react-hooks/exhaustive-deps` violation in `frontend/src/App.tsx` (10 sites): for each one, either (a) add the missing dep and verify behavior, or (b) keep the omission with a targeted `// eslint-disable-next-line react-hooks/exhaustive-deps` plus an inline comment explaining the intentional reason.
+  - Remove the `react-hooks/rules-of-hooks` waiver block for `BlockNode.tsx` and the `react-hooks/exhaustive-deps` waiver block for `App.tsx` from `frontend/eslint.config.js`.
+  - Add/update tests covering the fixed hook flow in `BlockNode.tsx`.
+- Out of scope:
+  - Splitting either file into smaller modules (that is Wave 2 W2-A).
+  - Other waivers (max-lines, eqeqeq, etc. — leave those waivers in place).
+- Required docs:
+  - `CHANGELOG.md` entry under "Fixed" describing both fixes (one short bullet each).
+- Required tests:
+  - At least one new/updated React Testing Library or Vitest test exercising the previously-conditional hook path in `BlockNode.tsx`.
+  - For `App.tsx` deps, exhaustive-deps changes that fix a real stale-closure bug must have a regression test where reasonable; intentional disables don't require a test but must have an inline rationale.
+
+#### 7.1.2 Dispatch
+
+- [ ] Prompt file created or dispatch prompt recorded. → inline below
+- [ ] Correct prompt template selected. → `agent-dispatch-prompt-template.md`
+- [ ] Audit mode recorded when persona is `audit_reviewer`. → N/A (implementer)
+- [ ] Agent branch/worktree assigned. → `fix/issue-1420-1421/hooks-order` at `.claude/worktrees/w1-hooks`
+- [ ] Write set and out-of-scope paths included in prompt.
+- [ ] TODO rule included in prompt.
+- [ ] Required checks included in prompt.
+
+#### 7.1.3 Implementation
+
+- [ ] BlockNode.tsx hook order corrected → `<PR/commit>`
+- [ ] App.tsx exhaustive-deps resolved (fix or documented disable) → `<PR/commit>`
+- [ ] Waivers removed from eslint.config.js (rules-of-hooks, exhaustive-deps blocks) → `<PR/commit>`
+- [ ] Tests added/updated → `<PR/commit>`
+- [ ] Chrome smoke test passed → `<screenshot/notes>`
+- [ ] `npm run lint` passes on changed files with zero waivers for these rules → `<command output>`
+
+#### 7.1.4 Audit
+
+- [ ] Audit covered by Wave 4 (`W4-audit-wc`) — no per-wave audit dispatched.
+
+#### 7.1.5 Integration
+
+- [ ] Agent output reviewed by manager.
+- [ ] Scope compliance verified.
+- [ ] Conflicts resolved intentionally.
+- [ ] Sub-PR merged into `track/frontend-cleanup-1412`.
+
+### 7.2 Track: Wave 2 — God-file refactor (`#1422`)
+
+#### 7.2.1 Track Scope
+
+- Owner: `W2-A-impl`, `W2-B-impl`, `W2-C-impl` (parallel).
+- In scope (per agent — write set listed in §6).
+  - Each agent splits its assigned files into smaller modules (target: every produced file ≤ 500 LOC and every function ≤ 150 LOC, complexity ≤ 15).
+  - Each agent removes its files from `GOD_FILE_SIZE_WAIVERS` (and from `MAX_LINES_PER_FN_WAIVERS` / `COMPLEXITY_WAIVERS` / `EQEQEQ_WAIVERS` / `NO_UNUSED_VARS_WAIVERS` *if and only if* the resulting refactored files cleanly satisfy that rule too).
+  - Each agent must preserve external public behavior; no API/UX/contract changes.
+- Out of scope:
+  - Other god files owned by sibling agents.
+  - New features.
+  - Changing `react-hooks/rules-of-hooks` waiver for BlockNode.tsx (Wave 1 owns it).
+- Required docs:
+  - `CHANGELOG.md` entry per agent under "Changed" describing the file split.
+- Required tests:
+  - All existing tests must still pass after the refactor.
+  - Any extracted module that has non-trivial logic should get a unit test.
+
+#### 7.2.2 Dispatch (manager fills per agent before launch)
+
+- [ ] W2-A prompt recorded.
+- [ ] W2-B prompt recorded.
+- [ ] W2-C prompt recorded.
+- [ ] All three branches/worktrees assigned and unique.
+
+#### 7.2.3 Implementation
+
+- [ ] W2-A: App.tsx + BlockNode.tsx split → `<PR/commit>`
+- [ ] W2-B: DataPreview.tsx + BottomPanel.tsx split → `<PR/commit>`
+- [ ] W2-C: RunDetail.tsx + lib/api.ts + ConflictMarkerDecoration.ts split → `<PR/commit>`
+- [ ] All agents' files removed from `GOD_FILE_SIZE_WAIVERS` → confirm in eslint.config.js diff
+- [ ] Chrome smoke test passed on integrated umbrella branch → `<screenshot/notes>`
+
+#### 7.2.4 Audit
+
+- [ ] Audit covered by Wave 4.
+
+#### 7.2.5 Integration
+
+- [ ] Manager reviewed all three sub-PRs.
+- [ ] Conflicts resolved (esp. shared `frontend/eslint.config.js`).
+- [ ] All three merged into `track/frontend-cleanup-1412`.
+
+### 7.3 Track: Wave 3 — Function-shape + test-imports + misc (`#1413` `#1414` `#1416` `#1417` `#1419`)
+
+#### 7.3.1 Track Scope
+
+- Owner: `W3-D-impl`, `W3-E-impl` (parallel).
+- W3-D in scope: #1413 (max-lines-per-function) + #1414 (complexity). Touch the 18 + 10 files listed in `MAX_LINES_PER_FN_WAIVERS` and `COMPLEXITY_WAIVERS` **minus** any file owned by Wave 2 W2-* (those waivers are removed by Wave 2 once the file is no longer >500 LOC). For overlap files, W3-D may either wait for Wave 2 to land first OR refactor non-overlap files first and rebase.
+- W3-E in scope: #1416 + #1417 + #1419. Test files (#1416), unused vars in non-god files (#1417), `laneAssign.ts` max-depth and `useWebSocket.test.ts` ban-ts-comment.
+- Out of scope:
+  - God files owned by Wave 2.
+  - `eqeqeq` (#1415, Wave 4 manager-owned).
+  - Wave 1's BlockNode hooks / App deps.
+- Required tests:
+  - Same as Wave 2 — existing tests must continue to pass; new tests recommended for any non-trivial extracted unit.
+- Required docs:
+  - `CHANGELOG.md` entries per agent under "Changed".
+
+#### 7.3.2 Dispatch
+
+- [ ] W3-D prompt recorded.
+- [ ] W3-E prompt recorded.
+- [ ] Both branches/worktrees assigned and unique.
+
+#### 7.3.3 Implementation
+
+- [ ] W3-D: #1413 + #1414 refactor → `<PR/commit>`
+- [ ] W3-E: #1416 + #1417 + #1419 cleanup → `<PR/commit>`
+- [ ] Corresponding waivers stripped from eslint.config.js by each agent.
+
+#### 7.3.4 Audit
+
+- [ ] Audit covered by Wave 4.
+
+#### 7.3.5 Integration
+
+- [ ] Manager reviewed both sub-PRs.
+- [ ] Conflicts resolved.
+- [ ] Both merged into `track/frontend-cleanup-1412`.
+
+### 7.4 Track: Wave 4 — Audit + Integration
+
+#### 7.4.1 Track Scope
+
+- Owners: `W4-audit-nc` (no-context audit), `W4-audit-wc` (with-context audit), manager (integration).
+- In scope:
+  - Two parallel audits (no-context + with-context).
+  - Manager applies #1415 (eqeqeq) on the integrated umbrella branch.
+  - Manager strips every remaining waiver block from `frontend/eslint.config.js`.
+  - Manager fixes any CI failure introduced by waiver removal.
+  - Manager runs the full ADR-042 check suite and finalizes the gate-record.
+- Out of scope:
+  - New scope discovery (must spawn a new issue if found by audits).
+- Required reports:
+  - `docs/audit/2026-05-22-frontend-cleanup-1412-no-context.md`
+  - `docs/audit/2026-05-22-frontend-cleanup-1412-with-context.md`
+
+#### 7.4.2 Dispatch
+
+- [ ] W4-audit-nc prompt recorded (no-context template, strict context limits).
+- [ ] W4-audit-wc prompt recorded (with-context template).
+
+#### 7.4.3 Audits
+
+- [ ] W4-audit-nc report committed → `docs/audit/2026-05-22-frontend-cleanup-1412-no-context.md`
+- [ ] W4-audit-wc report committed → `docs/audit/2026-05-22-frontend-cleanup-1412-with-context.md`
+- [ ] All P1 findings fixed before integration → `<commits>`
+- [ ] P2/P3 findings either fixed or tracked → `<follow-up issues if any>`
+
+#### 7.4.4 Integration (manager)
+
+- [ ] #1415 (eqeqeq) applied across remaining EQEQEQ_WAIVERS files → `<commit>`
+- [ ] All waiver blocks removed from `frontend/eslint.config.js` → `<commit>`
+- [ ] `npm run lint` passes with **zero waivers** → `<command output>`
+- [ ] `npm run format:check` passes → `<command output>`
+- [ ] `npm run typecheck` passes → `<command output>`
+- [ ] `npm test` passes → `<command output>`
+- [ ] `npm run build` passes → `<command output>`
+- [ ] CI green on umbrella PR → `<run url>`
+
+## 8. Verification Evidence
+
+| Check | Command or tool | Status | Evidence |
+|---|---|---|---|
+| Ruff | `ruff check .` | `[ ]` | manager PR only touches frontend/docs/workflow; expected pass |
+| Format (py) | `ruff format --check .` | `[ ]` | pending |
+| Tests (py) | `pytest tests/architecture/ -v --no-cov` | `[ ]` | pending |
+| Full audit | `PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json` | `[ ]` | pending |
+| Sentrux | MCP `scan` + `check_rules` + `health` + `session_end` | `[ ]` | applies (frontend/** in scope); pending Wave 4 |
+| Frontend lint (strict, zero waivers) | `npm run lint` from `frontend/` | `[ ]` | acceptance criterion |
+| Frontend format | `npm run format:check` from `frontend/` | `[ ]` | pending |
+| Frontend typecheck | `npm run typecheck` from `frontend/` | `[ ]` | pending |
+| Frontend tests | `npm test` from `frontend/` | `[ ]` | pending |
+| Frontend build | `npm run build` from `frontend/` | `[ ]` | pending |
+
+## 9. Drift Log
+
+Append only.
+
+| Date | Agent | Drift | Action | Follow-up |
+|---|---|---|---|---|
+| 2026-05-22 | manager | Q1 (single tracker issue vs Closes list) unanswered — defaulted to opening #1426 as single tracker. | Recorded default in checklist. | Owner may reverse before integration. |
+| 2026-05-22 | manager | Q2 (#1420 hotfix vs P1) unanswered — defaulted to standard P1 gated workflow (not hotfix mode). | Wave 1 dispatched as `bugfix` task-kind, not `hotfix`. | Owner may escalate to hotfix mode if they have observed UI crashes. |
+
+## 10. Final Readiness
+
+- [ ] All dispatched agents have final outputs.
+- [ ] Manager reviewed every changed file.
+- [ ] Gate record includes issue, scope, plan, docs, tests, checks, Sentrux evidence, commit, and PR evidence.
+- [ ] PR closes `#1413 #1414 #1415 #1416 #1417 #1419 #1420 #1421 #1422 #1426` (all 9 sub-issues + the tracker).
+- [ ] CI passed.
+- [ ] Checklist final state matches PR and gate record.

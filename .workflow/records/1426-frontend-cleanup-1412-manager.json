@@ -1,0 +1,104 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "track/frontend-cleanup-1412",
+  "changed_test_paths": [],
+  "check_results": [],
+  "commit": null,
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "no architectural decision; cascade is cleanup of waivers introduced by #1412."
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "manager-bootstrap commit only \u2014 behavior change lands in Wave 4 integration commit; CHANGELOG entry added then."
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/frontend-cleanup-1412-checklist.md"
+      ]
+    },
+    "docs": {},
+    "spec": {
+      "not_applicable": true,
+      "rationale": "no contract or schema change."
+    }
+  },
+  "full_audit": null,
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1426,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1426"
+    }
+  ],
+  "owner_directive": "Manager-owned 4-wave dispatch to retire all frontend baseline waivers added by #1412 (PR #1424). Closes #1413 #1414 #1415 #1416 #1417 #1419 #1420 #1421 #1422 + #1426 tracker.",
+  "planned_files": [
+    "docs/planning/frontend-cleanup-1412-checklist.md",
+    ".workflow/records/1426-frontend-cleanup-1412-manager.json",
+    "docs/audit/2026-05-22-frontend-cleanup-1412-no-context.md",
+    "docs/audit/2026-05-22-frontend-cleanup-1412-with-context.md",
+    "frontend/eslint.config.js"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1426-frontend-cleanup-1412-manager.json",
+  "required_checks": [
+    "ruff,format,pytest,full_audit,sentrux,frontend-lint,frontend-format,frontend-typecheck,frontend-test,frontend-build"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "src/scistudio/**"
+    ],
+    "include": [
+      "docs/planning/frontend-cleanup-1412-checklist.md",
+      ".workflow/records/1426-frontend-cleanup-1412-manager.json",
+      "docs/audit/2026-05-22-frontend-cleanup-1412-*.md",
+      "frontend/eslint.config.js"
+    ]
+  },
+  "sentrux": null,
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1426-frontend-cleanup-1412-manager",
+  "task_kind": "manager"
+}
