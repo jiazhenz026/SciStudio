@@ -49,7 +49,7 @@
   "commit": {
     "gate_record_path": ".workflow/records/1455-runtime-contract-tests.json",
     "shas": [
-      "e9274aa82a1aa1aad0bda3980c4e355128ebd423"
+      "098486226637bb27bd03926751b649a8820b6610"
     ],
     "trailers": {}
   },
