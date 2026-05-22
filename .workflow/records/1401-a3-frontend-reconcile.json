@@ -186,7 +186,7 @@
     "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-a3-full-audit.json",
     "exit_code": 0,
     "known_debt": [],
-    "output_path": "docs/audit/adr-045-a3-full-audit.json; status pass after PR #1443 checklist update",
+    "output_path": "docs/audit/adr-045-a3-full-audit.json; status pass after Codex triage checklist update",
     "status": "pass",
     "summary": {},
     "unclassified_failures": []
