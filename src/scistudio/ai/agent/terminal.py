@@ -63,7 +63,7 @@ import sys
 import tempfile
 import threading
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
 
@@ -75,7 +75,7 @@ __all__ = ["PtyProcess", "resolve_windows_executable", "spawn_claude", "spawn_co
 _WINDOWS_EXECUTABLE_SUFFIXES = (".cmd", ".bat", ".exe")
 
 
-def resolve_windows_executable(name: str) -> str | None:
+def resolve_windows_executable(name: str, *, which: Callable[[str], str | None] | None = None) -> str | None:
     """Resolve an agent CLI to a concrete Windows executable when needed.
 
     npm global installs on Windows commonly place both ``codex`` (a Unix
@@ -84,13 +84,14 @@ def resolve_windows_executable(name: str) -> str | None:
     spawn path cannot execute it reliably. Prefer extensioned Windows
     launchers while preserving normal ``shutil.which`` behavior elsewhere.
     """
-    resolved = shutil.which(name)
+    which = shutil.which if which is None else which
+    resolved = which(name)
     if sys.platform != "win32":
         return resolved
 
     extensioned: list[str] = []
     for suffix in _WINDOWS_EXECUTABLE_SUFFIXES:
-        candidate = shutil.which(name + suffix)
+        candidate = which(name + suffix)
         if candidate:
             extensioned.append(candidate)
 

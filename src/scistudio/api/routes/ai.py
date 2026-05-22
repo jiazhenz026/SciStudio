@@ -12,6 +12,7 @@ PTY-tab embedded agent now replaces end-to-end.
 from __future__ import annotations
 
 import logging
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -89,7 +90,7 @@ def _binary_status(name: str) -> tuple[bool, str | None]:
     completes within 2 s with non-empty stdout.  Version is the trimmed
     stdout.
     """
-    binary = resolve_windows_executable(name)
+    binary = resolve_windows_executable(name, which=shutil.which)
     if not binary:
         return False, None
     try:

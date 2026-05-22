@@ -14,10 +14,10 @@
   ],
   "check_results": [
     {
-      "command_or_tool": "PYTHONPATH=src python -m pytest tests/ai/test_terminal.py tests/ai/test_windows_executable_resolution.py --no-cov",
+      "command_or_tool": "PYTHONPATH=src python -m pytest tests/ai/test_terminal.py tests/ai/test_windows_executable_resolution.py tests/api/test_provider_discovery.py --no-cov",
       "exit_code": 0,
       "name": "pytest-targeted",
-      "output_path": "11 passed, 1 skipped in 9.09s",
+      "output_path": "17 passed, 1 skipped in 12.45s",
       "status": "pass",
       "summary": {},
       "timestamp": null
@@ -68,10 +68,10 @@
   },
   "full_audit": {
     "blocks_merge": false,
-    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .workflow/records/841-full-audit.json",
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output C:\\Users\\jiazh\\AppData\\Local\\Temp\\scistudio-841-full-audit.json",
     "exit_code": 0,
     "known_debt": [],
-    "output_path": "full_audit pass; findings=0; implemented_children=generate_facts,frontmatter_lint,fact_drift,doc_drift,closure,signature_drift,architecture_drift,vulture; semantic_dup deferred by tool",
+    "output_path": "full_audit pass; findings=0; output=C:\\Users\\jiazh\\AppData\\Local\\Temp\\scistudio-841-full-audit.json",
     "status": "pass",
     "summary": {},
     "unclassified_failures": []
@@ -145,10 +145,10 @@
     ]
   },
   "sentrux": {
-    "command_or_tool": "mcp__sentrux__.scan/session_start/rescan/check_rules/session_end",
+    "command_or_tool": "mcp__sentrux__.scan/session_start/check_rules/session_end",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "scan files=1161 quality_signal=4441; check_rules pass rules_checked=3 total_rules_defined=15 violation_count=0; session_end pass signal_delta=0",
+    "output_path": "scan files=1163 import_edges=2656 quality_signal=4441; check_rules pass rules_checked=3 total_rules_defined=15 violation_count=0; session_end pass signal_delta=0",
     "pro_required": false,
     "quality_signal": 4441.0,
     "rules_checked": 3,
