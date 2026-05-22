@@ -58,7 +58,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1466-adr-042-test-engineer-persona.json",
+    "shas": [
+      "2c58f86be6548cc3a9f2981419b5bcc25b9c584b"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -97,7 +103,13 @@
     "docs/adr/ADR-042-addendum4.md",
     ".workflow/records/1466-adr-042-test-engineer-persona.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1466
+    ],
+    "number": 1469,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1469"
+  },
   "record_path": ".workflow/records/1466-adr-042-test-engineer-persona.json",
   "required_checks": [
     "frontmatter_lint",
@@ -147,7 +159,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
