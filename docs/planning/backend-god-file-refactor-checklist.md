@@ -157,13 +157,13 @@ language_source: en
 
 ### 7.4 Audit
 
-- [ ] Audit agent assigned, or manager audit completed.
-- [ ] Audit report file path assigned.
-- [ ] Audit report committed.
-- [ ] Audit report merged into final PR evidence path.
-- [ ] Findings recorded.
-- [ ] P1 findings fixed before integration.
-- [ ] P2/P3 findings fixed or tracked with owner-approved rationale.
+- [x] Audit agent assigned, or manager audit completed. → `audit_reviewer` dispatched 2026-05-22 from manager session per AUDIT-phase1.md
+- [x] Audit report file path assigned. → `docs/audit/2026-05-22-umbrella-1427-phase1-with-context.md`
+- [x] Audit report committed. → see audit branch `audit/issue-1427/phase1-review`
+- [ ] Audit report merged into final PR evidence path. (pending umbrella merge)
+- [x] Findings recorded. → 0 P1, 0 P2, 4 P3 (process/metadata observations); all 4 sub-PRs recommended `pass`
+- [x] P1 findings fixed before integration. → N/A (zero P1)
+- [x] P2/P3 findings fixed or tracked with owner-approved rationale. → P3 findings are improvement follow-ups, not merge-blockers (documented inline in audit report)
 
 ### 7.5 Integration
 
