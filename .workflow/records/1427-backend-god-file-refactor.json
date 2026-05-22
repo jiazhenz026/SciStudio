@@ -1,6 +1,13 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": "@jiazhenz026",
+      "exclude": [],
+      "include": [],
+      "reason": "Threshold raised from 500 to 750 mid-setup (chat 2026-05-22); umbrella scaffold implementation = checklist + advisory script + gate record now reflects the 750 threshold and 10-file waiver list. No source-code change in scaffold PR; sub-PRs add per-file decomposition + tests under tracked sub-issues."
+    }
+  ],
   "branch": "umbrella/backend-god-file-refactor",
   "changed_test_paths": [],
   "check_results": [
@@ -134,7 +141,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
