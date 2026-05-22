@@ -64,7 +64,7 @@
   "commit": {
     "gate_record_path": ".workflow/records/1376-scheduler-state-machine-contract.json",
     "shas": [
-      "0b3f5a81f11e220b62d1aa711afd7fe5f35348aa"
+      "f83bad4bd9661846d3b1a20fb1501d233259ab97"
     ],
     "trailers": {}
   },
