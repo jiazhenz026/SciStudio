@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 import re
 from collections.abc import Iterable, Mapping, Sequence
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,7 @@ from scistudio.qa.governance.gate_record.io import (
 )
 from scistudio.qa.governance.gate_record.models import (
     POST_PR_STAGES,
+    SUPPORTED_PERSONAS,
     GateRecord,
 )
 from scistudio.qa.governance.gate_record.paths import (
@@ -99,6 +101,62 @@ def _env_bypass_labels() -> list[str]:
     return _split_labels(os.environ.get("SCISTUDIO_GATE_BYPASS_LABELS", ""))
 
 
+def _test_engineer_scope_guard_findings(record: GateRecord, changed_files: Sequence[str]) -> list[Finding]:
+    if record.persona != "test_engineer":
+        return []
+    expected_interface = "check(*, record: GateRecord, changed_files: Sequence[str]) -> AuditReport"
+    module_name = "scistudio.qa.governance.test_engineer_scope_guard"
+    try:
+        module = import_module(module_name)
+    except ModuleNotFoundError as exc:
+        if exc.name != module_name:
+            raise
+        return [
+            _finding(
+                "gate-record.test-engineer-scope-guard.unavailable",
+                "test_engineer gate validation requires test_engineer_scope_guard.check",
+                evidence={"expected_interface": expected_interface},
+            )
+        ]
+
+    check = getattr(module, "check", None)
+    if not callable(check):
+        return [
+            _finding(
+                "gate-record.test-engineer-scope-guard.invalid-interface",
+                "test_engineer_scope_guard must expose a callable check function",
+                evidence={"expected_interface": expected_interface},
+            )
+        ]
+    try:
+        report = check(record=record, changed_files=changed_files)
+    except TypeError as exc:
+        return [
+            _finding(
+                "gate-record.test-engineer-scope-guard.invalid-interface",
+                "test_engineer_scope_guard.check rejected the expected gate-record interface",
+                evidence={"expected_interface": expected_interface, "error": str(exc)},
+            )
+        ]
+    if not isinstance(report, AuditReport):
+        return [
+            _finding(
+                "gate-record.test-engineer-scope-guard.invalid-interface",
+                "test_engineer_scope_guard.check must return an AuditReport",
+                evidence={"expected_interface": expected_interface, "actual_type": type(report).__name__},
+            )
+        ]
+    if report.blocks_merge:
+        return [
+            _finding(
+                "gate-record.test-engineer-scope-guard.failed",
+                "test_engineer_scope_guard blocked this gate record",
+                evidence=report.model_dump(mode="json"),
+            )
+        ]
+    return []
+
+
 def _local_bypass_report(labels: Sequence[str]) -> AuditReport | None:
     normalized = [label.strip() for label in labels if label.strip()]
     invalid = _invalid_override_labels(normalized)
@@ -157,6 +215,17 @@ def validate_gate_record(
     normalized_changed = [_normalize_path(path) for path in changed_files or []]
     includes = _effective_include(parsed)
     excludes = _effective_exclude(parsed)
+
+    if parsed.persona is None:
+        findings.append(
+            _finding(
+                "gate-record.persona.missing",
+                "new gate records must declare persona",
+                evidence={"allowed": list(SUPPORTED_PERSONAS)},
+            )
+        )
+    elif parsed.persona == "test_engineer":
+        findings.extend(_test_engineer_scope_guard_findings(parsed, normalized_changed))
 
     if normalized_changed:
         for path in normalized_changed:
@@ -312,6 +381,7 @@ def validate_gate_record(
         summary={
             "task_id": parsed.task_id,
             "task_kind": parsed.task_kind,
+            "persona": parsed.persona,
             "issues": [issue.number for issue in parsed.issues],
             "changed_files_checked": normalized_changed,
             "valid_override_labels": sorted(VALID_OVERRIDE_LABELS),

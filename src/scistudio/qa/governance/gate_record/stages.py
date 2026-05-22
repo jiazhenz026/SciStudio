@@ -48,6 +48,7 @@ def start_record(
     issue_url: str | None = None,
     governance_touch: bool = False,
     record_path: Path | None = None,
+    persona: str | None = None,
 ) -> Path:
     """Create or deterministically replace a committed gate record."""
 
@@ -59,6 +60,7 @@ def start_record(
             "record_path": rel_path,
             "task_id": f"{issue_number}-{_slugify(slug)}",
             "task_kind": task_kind,
+            "persona": persona or "implementer",
             "branch": branch,
             "owner_directive": owner_directive,
             "issues": [{"number": issue_number, "url": issue_url}],

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import sys
+import types
+
+import scistudio.qa.governance.gate_record.validation as gate_record_validation
 from scistudio.qa.governance.gate_record import CANONICAL_STAGE_ORDER, check_pr, validate_gate_record
 from scistudio.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
@@ -9,6 +13,7 @@ def _record(**overrides: object) -> dict[str, object]:
         "schema_version": "1",
         "task_id": "1267-gate-record-core",
         "task_kind": "feature",
+        "persona": "implementer",
         "branch": "feat/issue-1267/gate-record-core",
         "owner_directive": "Implement ADR-042 Addendum 1 Track B.",
         "issues": [{"number": 1267, "url": "https://github.com/zjzcpj/SciStudio/issues/1267"}],
@@ -226,3 +231,48 @@ def test_guard_reports_are_hard_fail_inputs() -> None:
 
     assert report.blocks_merge
     assert "gate-record.guard.failed" in {finding.rule_id for finding in report.findings}
+
+
+def test_test_engineer_record_requires_scope_guard_module(monkeypatch) -> None:
+    def missing_import(name: str):
+        raise ModuleNotFoundError(name=name)
+
+    monkeypatch.setattr(gate_record_validation, "import_module", missing_import)
+    record = _record(
+        persona="test_engineer",
+        scope={"include": ["tests/**"], "exclude": []},
+        changed_test_paths=["tests/qa/test_gate_record_ci.py"],
+    )
+
+    report = validate_gate_record(record, changed_files=["tests/qa/test_gate_record_ci.py"])
+
+    assert report.blocks_merge
+    assert "gate-record.test-engineer-scope-guard.unavailable" in {finding.rule_id for finding in report.findings}
+
+
+def test_test_engineer_scope_guard_is_invoked(monkeypatch) -> None:
+    calls: dict[str, object] = {}
+    module = types.ModuleType("scistudio.qa.governance.test_engineer_scope_guard")
+
+    def check(*, record, changed_files):
+        calls["persona"] = record.persona
+        calls["changed_files"] = list(changed_files)
+        return AuditReport(
+            tool="test_engineer_scope_guard",
+            status=AuditStatus.PASS,
+            source_sha="fixture",
+            findings=[],
+        )
+
+    module.check = check
+    monkeypatch.setitem(sys.modules, "scistudio.qa.governance.test_engineer_scope_guard", module)
+    record = _record(
+        persona="test_engineer",
+        scope={"include": ["tests/**"], "exclude": []},
+        changed_test_paths=["tests/qa/test_gate_record_ci.py"],
+    )
+
+    report = validate_gate_record(record, changed_files=["tests/qa/test_gate_record_ci.py"])
+
+    assert not report.blocks_merge
+    assert calls == {"persona": "test_engineer", "changed_files": ["tests/qa/test_gate_record_ci.py"]}
