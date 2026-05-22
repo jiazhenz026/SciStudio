@@ -188,12 +188,15 @@ export default function App() {
     ],
   );
 
-  async function refreshProjects() {
+  // #1421: useCallback so consumers (saveWorkflow, boot effect, ...) get
+  // a stable function identity. Only Zustand setters are referenced and
+  // those have stable identity by contract.
+  const refreshProjects = useCallback(async () => {
     const projects = await api.listProjects();
     startTransition(() => setProjects(projects));
-  }
+  }, [setProjects]);
 
-  async function refreshBlocks() {
+  const refreshBlocks = useCallback(async () => {
     const payload = await api.listBlocks();
     startTransition(() => setBlocks(payload.blocks));
     const schemas = await Promise.all(
@@ -202,7 +205,7 @@ export default function App() {
     startTransition(() => {
       schemas.forEach((schema) => setBlockSchema(schema));
     });
-  }
+  }, [setBlocks, setBlockSchema]);
 
   async function loadWorkflowForProject(project: ProjectResponse) {
     if (project.current_workflow_id) {
@@ -295,7 +298,15 @@ export default function App() {
     }
   }
 
-  async function saveWorkflow() {
+  // #1421: wrap in useCallback so identity stays stable across renders.
+  // Without this, every render rebuilt saveWorkflow and bled into the
+  // dependency arrays of every useCallback / useEffect that called it,
+  // forcing those hooks to rerun on every render. The captured reactive
+  // values (`currentProject`, `workflowPayload`) ARE in the dep array;
+  // every Zustand setter / action used here (`markWorkflowSaved`,
+  // `setCurrentProject`, `setLastError`) has stable identity by Zustand's
+  // contract and is therefore safe to include without churn.
+  const saveWorkflow = useCallback(async () => {
     if (!currentProject) {
       return;
     }
@@ -318,7 +329,14 @@ export default function App() {
     } catch (error) {
       setLastError((error as Error).message);
     }
-  }
+  }, [
+    currentProject,
+    workflowPayload,
+    markWorkflowSaved,
+    refreshProjects,
+    setCurrentProject,
+    setLastError,
+  ]);
 
   function newWorkflow() {
     const name = window.prompt("Workflow name:", "Untitled");
@@ -466,7 +484,8 @@ export default function App() {
     input.click();
   }
 
-  async function saveWorkflowAs() {
+  // #1421: useCallback so the keyboard-shortcut useEffect dep stays stable.
+  const saveWorkflowAs = useCallback(async () => {
     if (!currentProject) return;
 
     // First, ensure the current workflow is saved to the project
@@ -496,7 +515,7 @@ export default function App() {
     } catch (error) {
       setLastError((error as Error).message);
     }
-  }
+  }, [currentProject, saveWorkflow, workflowId, workflowPayload, setLastError]);
 
   async function loadPreview(dataRef: string) {
     try {
@@ -509,7 +528,8 @@ export default function App() {
     }
   }
 
-  async function runWorkflow() {
+  // #1421: useCallback so the keyboard-shortcut useEffect dep stays stable.
+  const runWorkflow = useCallback(async () => {
     if (!currentProject) {
       return;
     }
@@ -523,7 +543,7 @@ export default function App() {
     } catch (error) {
       setLastError((error as Error).message);
     }
-  }
+  }, [currentProject, saveWorkflow, workflowPayload, setLastError]);
 
   async function pauseWorkflow() {
     if (!workflowId) {
@@ -539,12 +559,13 @@ export default function App() {
     await api.resumeWorkflow(workflowId);
   }
 
-  async function cancelWorkflow() {
+  // #1421: useCallback so the keyboard-shortcut useEffect dep stays stable.
+  const cancelWorkflow = useCallback(async () => {
     if (!workflowId) {
       return;
     }
     await api.cancelWorkflow(workflowId);
-  }
+  }, [workflowId]);
 
   async function startFromSelected() {
     if (!workflowId || !selectedNodeId) {
@@ -634,10 +655,22 @@ export default function App() {
       setActiveBottomTab(tab);
       expandBottomPanel();
     },
-    [expandBottomPanel, setActiveBottomTab, activeBottomTab],
+    // #1421: `activeBottomTab` was an unnecessary dep — the callback only
+    // reads from its `tab` parameter and the setters, never from the value
+    // of `activeBottomTab`. (`typeof activeBottomTab` in the parameter type
+    // is a compile-time-only reference and doesn't capture the runtime
+    // value, so leaving it out doesn't introduce a stale closure.)
+    [expandBottomPanel, setActiveBottomTab],
   );
 
-  // Boot: load projects and blocks
+  // Boot: load projects and blocks.
+  //
+  // #1421: this effect is intentionally one-shot — `bootedRef.current` gates
+  // re-entry so the captured `refreshProjects` / `refreshBlocks` /
+  // `setLastError` identities only matter on the very first mount. We DO NOT
+  // want this to re-run when those callbacks' identities change (which would
+  // double-load projects/blocks and clobber any error the user is currently
+  // seeing). The empty dep array preserves that contract.
   useEffect(() => {
     if (bootedRef.current) {
       return;
@@ -653,9 +686,13 @@ export default function App() {
         setBusy(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-save on dirty (workflow tabs)
+  // Auto-save on dirty (workflow tabs).
+  // #1421: `saveWorkflow` is now included (it is a useCallback with stable
+  // identity tied to the same reactive inputs the effect already lists, so
+  // adding it does not cause spurious re-runs).
   useEffect(() => {
     if (!currentProject || !workflowDirty) {
       return undefined;
@@ -664,7 +701,7 @@ export default function App() {
       void saveWorkflow();
     }, 800);
     return () => window.clearTimeout(timeout);
-  }, [currentProject, workflowDirty, workflowPayload]);
+  }, [currentProject, workflowDirty, workflowPayload, saveWorkflow]);
 
   // ADR-036 §3.9 — auto-save loop for file tabs (mirrors the workflow
   // auto-save above). Each dirty file tab gets an independent 800 ms
@@ -732,12 +769,25 @@ export default function App() {
     };
   }, []);
 
-  // Sync active tab snapshot when workflow state changes
+  // Sync active tab snapshot when workflow state OR the active tab itself
+  // changes. #1421: previously the dep array omitted `activeTabId` and
+  // `syncActiveTab`. `syncActiveTab` is a Zustand action with stable
+  // identity, so adding it is a no-op. `activeTabId` is the more important
+  // addition — switching tabs should also push the current snapshot so the
+  // newly-active tab reflects current workflow state immediately.
   useEffect(() => {
     if (activeTabId) {
       syncActiveTab();
     }
-  }, [workflowNodes, workflowEdges, workflowDirty, workflowDescription, selectedNodeId]);
+  }, [
+    workflowNodes,
+    workflowEdges,
+    workflowDirty,
+    workflowDescription,
+    selectedNodeId,
+    activeTabId,
+    syncActiveTab,
+  ]);
 
   // Keyboard shortcuts
   useEffect(() => {
