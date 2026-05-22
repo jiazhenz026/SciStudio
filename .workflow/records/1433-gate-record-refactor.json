@@ -96,7 +96,7 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1433,
-      "url": null
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1433"
     }
   ],
   "owner_directive": "Refactor qa/governance/gate_record.py into sub-package per umbrella #1427; owner authorized admin-approved:core-change 2026-05-22",
