@@ -78,7 +78,15 @@ export function TerminalView({
     if (!container) return undefined;
 
     let cancelled = false;
-    let term: { write: (s: string) => void; onData: (cb: (s: string) => void) => { dispose: () => void }; open: (el: HTMLElement) => void; dispose: () => void; loadAddon: (a: unknown) => void; cols: number; rows: number } | null = null;
+    let term: {
+      write: (s: string) => void;
+      onData: (cb: (s: string) => void) => { dispose: () => void };
+      open: (el: HTMLElement) => void;
+      dispose: () => void;
+      loadAddon: (a: unknown) => void;
+      cols: number;
+      rows: number;
+    } | null = null;
     let onDataDisposable: { dispose: () => void } | null = null;
     let resizeObserver: ResizeObserver | null = null;
 

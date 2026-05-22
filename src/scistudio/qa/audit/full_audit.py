@@ -26,6 +26,7 @@ from scistudio.qa.audit.facts import (
 )
 from scistudio.qa.audit.frontmatter_lint import check_report as check_frontmatter
 from scistudio.qa.audit.loaders import load_maintainers
+from scistudio.qa.audit.semantic_dup import DEFAULT_AUDIT_MODEL, check_semantic_dup
 from scistudio.qa.audit.signature_drift import check_expected_signatures
 from scistudio.qa.audit.vulture_audit import check as check_vulture
 from scistudio.qa.schemas.facts import Fact, FactsRegistry
@@ -155,6 +156,8 @@ def run(
     include_signature_drift: bool = True,
     include_architecture_drift: bool = True,
     include_vulture: bool = True,
+    include_semantic_dup: bool = False,
+    semantic_dup_model: str = DEFAULT_AUDIT_MODEL,
 ) -> AuditReport:
     """Run the currently implemented ADR-042 aggregate audit checks."""
 
@@ -194,6 +197,15 @@ def run(
             child_reports.append(check_vulture(root))
         else:
             deferred_children.append("vulture")
+        if include_semantic_dup:
+            # Opt-in advisory child per ADR-042 Addendum 2 §3. Subprocess
+            # invocation isolates the fastembed / numpy / ONNX runtime
+            # dependency from full_audit's import surface so non-opt-in
+            # callers (CI's `Full Audit` job, all existing unit tests)
+            # pay nothing.
+            child_reports.append(check_semantic_dup(root, model=semantic_dup_model))
+        else:
+            deferred_children.append("semantic_dup")
 
     status = AuditStatus.FAIL if any(child.blocks_merge for child in child_reports) else AuditStatus.PASS
     return AuditReport(
@@ -296,6 +308,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--skip-signature-drift", action="store_true")
     parser.add_argument("--skip-architecture-drift", action="store_true")
     parser.add_argument("--skip-vulture", action="store_true")
+    parser.add_argument(
+        "--include-semantic-dup",
+        action="store_true",
+        help="Opt in to ADR-042 Addendum 2 semantic-duplication scan (advisory; ~30-90s).",
+    )
+    parser.add_argument(
+        "--semantic-dup-model",
+        default=DEFAULT_AUDIT_MODEL,
+        help=f"Embedding model for the local semantic-dup scan (default: {DEFAULT_AUDIT_MODEL}).",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -310,6 +332,8 @@ def main(argv: list[str] | None = None) -> int:
             include_signature_drift=not args.skip_signature_drift,
             include_architecture_drift=not args.skip_architecture_drift,
             include_vulture=not args.skip_vulture,
+            include_semantic_dup=args.include_semantic_dup,
+            semantic_dup_model=args.semantic_dup_model,
         )
         text = report.model_dump_json(indent=2) + "\n" if args.format == "json" else render_markdown(report)
         if args.output is None:

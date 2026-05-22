@@ -56,11 +56,7 @@ function BlockCard({ block, collapsed, onDragStart, onAddBlock, index }: BlockCa
       key={`${block.type_name}-${block.name}-${index}`}
       onDragStart={(event) => onDragStart(event, block)}
     >
-      <button
-        className="w-full text-left"
-        onClick={() => onAddBlock(block)}
-        type="button"
-      >
+      <button className="w-full text-left" onClick={() => onAddBlock(block)} type="button">
         <p className="font-medium text-ink">{collapsed ? block.name.slice(0, 2) : block.name}</p>
         {collapsed ? null : (
           <>
@@ -101,7 +97,9 @@ function CategorySection({
           type="button"
         >
           <span className="text-[10px] text-stone-500">{isCollapsed ? "▶" : "▼"}</span>
-          <span className="rounded-md border border-stone-300 bg-stone-100 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.25em] text-stone-600">{category}</span>
+          <span className="rounded-md border border-stone-300 bg-stone-100 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.25em] text-stone-600">
+            {category}
+          </span>
         </button>
       )}
       {isCollapsed && !paletteCollapsed ? null : (
@@ -231,7 +229,8 @@ export function BlockPalette({
   // When a search query is active, auto-expand all matching branches by filtering
   // to only blocks that match. groupBlocks then produces only the non-empty groups.
   const filtered = blocks.filter((block) => {
-    const value = `${block.name} ${block.description} ${block.subcategory || block.base_category}`.toLowerCase();
+    const value =
+      `${block.name} ${block.description} ${block.subcategory || block.base_category}`.toLowerCase();
     return value.includes(search.toLowerCase());
   });
 
@@ -256,9 +255,7 @@ export function BlockPalette({
   };
 
   return (
-    <aside
-      className="flex h-full flex-col overflow-hidden border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-4"
-    >
+    <aside className="flex h-full flex-col overflow-hidden border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-4">
       {/* Drag ghost element (offscreen) */}
       <div
         ref={dragImageRef}

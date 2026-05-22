@@ -419,8 +419,7 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
   // Outer loop. Re-enters merge vertices until all parents are consumed.
   let i = 0;
   while (i < n) {
-    const hasMoreParents =
-      state[i].nextParentIdx < commits[i].parents.length;
+    const hasMoreParents = state[i].nextParentIdx < commits[i].parents.length;
     if (state[i].branch === null || hasMoreParents) {
       determinePath(i);
       // Do NOT advance i: a merge commit with multiple parents needs to
@@ -444,8 +443,7 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
     // Hotfix #1010: color_index follows the branch (allocation order)
     // rather than the lane number. Defensive fallback uses lane 0's
     // palette colour when no branch is recorded.
-    const colorIndex =
-      branch !== null ? branch.colorIndex : 0 % PALETTE.length;
+    const colorIndex = branch !== null ? branch.colorIndex : 0 % PALETTE.length;
     out[r] = {
       sha: commits[r].sha,
       lane,
@@ -485,10 +483,7 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
         break;
       }
     }
-    if (
-      laneZeroDeepestRow >= 0 &&
-      laneZeroDeepestRow < out.length - 1
-    ) {
+    if (laneZeroDeepestRow >= 0 && laneZeroDeepestRow < out.length - 1) {
       const lane0Tail = commits[laneZeroDeepestRow];
       // Build a sha-to-row map once.
       const shaToIdx = new Map<string, number>();
@@ -496,11 +491,7 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
       let trueTrunkLane: number | null = null;
       for (let p = 1; p < lane0Tail.parents.length; p++) {
         const pi = shaToIdx.get(lane0Tail.parents[p]);
-        if (
-          pi !== undefined &&
-          pi > laneZeroDeepestRow &&
-          out[pi].lane !== 0
-        ) {
+        if (pi !== undefined && pi > laneZeroDeepestRow && out[pi].lane !== 0) {
           trueTrunkLane = out[pi].lane;
           break;
         }
@@ -514,9 +505,7 @@ export function assignLanes(commits: GitCommit[]): LaneAssignment[] {
           if (a.lane === 0) a.lane = target;
           else if (a.lane === target) a.lane = 0;
           if (a.merge_lanes.length > 0) {
-            a.merge_lanes = a.merge_lanes.map((c) =>
-              c === 0 ? target : c === target ? 0 : c,
-            );
+            a.merge_lanes = a.merge_lanes.map((c) => (c === 0 ? target : c === target ? 0 : c));
           }
         }
       }

@@ -1,0 +1,218 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Decomposed src/scistudio/api/routes/ai_pty.py (757 LOC) into a sub-package with __init__.py owning router + monkeypatch-seam state + _spawn, plus engine.py, websocket.py, validation.py, subscribers.py, internal_routes.py. Submodules use late-bound _pkg.<name> lookups so existing monkeypatch contracts on the package survive. Added 41 tests under tests/api/routes/ai_pty/ (public surface + per-submodule behaviour). Removed ai_pty.py from GOD_FILE_SIZE_WAIVERS. Updated ADR-034 / ADR-035 frontmatter governance to reference the new package path + the submodule-qualified open_engine_initiated_tab contract. All 31 pre-existing ai_pty tests + 41 new tests pass; full_audit pass; sentrux pass."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/adr/ADR-034.md",
+        "docs/adr/ADR-035.md",
+        "docs/specs/embedded-coding-agent-spec.md",
+        "docs/audit/full-audit-1432.json",
+        ".workflow/records/1432-api-ai-pty.json"
+      ],
+      "reason": "Expand scope to include ADR-034 / ADR-035 frontmatter updates (governance file claim + contract qualifier rewrites required by the rename of src/scistudio/api/routes/ai_pty.py to ai_pty/**), the embedded-coding-agent-spec.md prose pointer update, the docs/audit/full-audit-1432.json evidence artefact, and the .workflow/records/1432-api-ai-pty.json gate record itself. All driven by the package split \u2014 no behavioural surface widened."
+    }
+  ],
+  "branch": "refactor/issue-1432/api-ai-pty",
+  "changed_test_paths": [
+    "tests/api/routes/__init__.py",
+    "tests/api/routes/ai_pty/__init__.py",
+    "tests/api/routes/ai_pty/test_engine.py",
+    "tests/api/routes/ai_pty/test_internal_routes.py",
+    "tests/api/routes/ai_pty/test_public_surface.py",
+    "tests/api/routes/ai_pty/test_subscribers.py",
+    "tests/api/routes/ai_pty/test_validation.py",
+    "tests/api/routes/ai_pty/test_websocket.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check + ruff format --check on src/scistudio/api/routes/ai_pty/ and tests/api/routes/",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "pytest tests/api/routes/ tests/api/test_ai_pty.py tests/api/test_ai_pty_audit_fixes.py tests/api/test_ai_pty_engine_spawn.py --timeout=60",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python scripts/check_god_files.py --enforce",
+      "exit_code": 0,
+      "name": "god-files",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1432-api-ai-pty.json",
+    "shas": [
+      "2d52f98ef088ab65f6951738c0ccfc5931466c30"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "adr": {
+      "paths": [
+        "docs/adr/ADR-034.md",
+        "docs/adr/ADR-035.md"
+      ]
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Umbrella #1427 lands rolled-up CHANGELOG entry after all Phase 1 sub-PRs merge into the umbrella branch; this sub-PR is a structural decomposition with no user-visible behavior change"
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "Manager-owned umbrella checklist docs/planning/backend-god-file-refactor-checklist.md (Section 6 Dispatch Matrix) tracks this sub-PR row; sub-PR does not edit it per agent-dispatch.md \u00a73 (agents edit only their own rows; manager owns the matrix)"
+    },
+    "docs": {
+      "paths": [
+        "docs/specs/embedded-coding-agent-spec.md"
+      ]
+    },
+    "release-notes": {
+      "not_applicable": true,
+      "rationale": "Pure structural refactor; no behavior change to wire protocol or routes"
+    },
+    "spec": {
+      "paths": [
+        "docs/specs/embedded-coding-agent-spec.md"
+      ]
+    },
+    "user-guide": {
+      "not_applicable": true,
+      "rationale": "Structural refactor with no behavior change; no user-facing surface affected"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --output docs/audit/full-audit-1432.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-1432.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1432,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1432"
+    }
+  ],
+  "owner_directive": "Refactor api/routes/ai_pty.py into sub-package per umbrella #1427",
+  "planned_files": [
+    "src/scistudio/api/routes/ai_pty/__init__.py",
+    "src/scistudio/api/routes/ai_pty/_websocket.py",
+    "src/scistudio/api/routes/ai_pty/_validation.py",
+    "src/scistudio/api/routes/ai_pty/_subscribers.py",
+    "src/scistudio/api/routes/ai_pty/_engine.py",
+    "src/scistudio/api/routes/ai_pty/_internal_routes.py",
+    "src/scistudio/api/routes/ai_pty.py",
+    "tests/api/routes/__init__.py",
+    "tests/api/routes/test_ai_pty_public_surface.py",
+    "tests/api/routes/test_ai_pty_validation.py",
+    "tests/api/routes/test_ai_pty_subscribers.py",
+    "tests/api/routes/test_ai_pty_engine.py",
+    "tests/api/routes/test_ai_pty_internal_routes.py",
+    "scripts/check_god_files.py"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1432
+    ],
+    "number": 1444,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1444"
+  },
+  "record_path": ".workflow/records/1432-api-ai-pty.json",
+  "required_checks": [
+    "ruff",
+    "pytest",
+    "god-files",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/api/routes/ai_pty/**",
+      "src/scistudio/api/routes/ai_pty.py",
+      "tests/api/routes/**",
+      "scripts/check_god_files.py"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp sentrux scan + check_rules + health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": null,
+    "pro_required": false,
+    "quality_signal": 4444.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1432-api-ai-pty-refactor",
+  "task_kind": "refactor"
+}

@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from scistudio.engine.events import EventBus
-from scistudio.engine.runners.local import LocalRunner, _derive_output_dir
+from scistudio.engine.runners.local import BlockStorageReferenceError, LocalRunner, _derive_output_dir
 from scistudio.engine.runners.process_handle import (
     ProcessExitInfo,
     ProcessHandle,
@@ -188,6 +188,43 @@ class TestLocalRunnerRun:
             assert "traceback here" in str(exc)
         else:
             raise AssertionError("Expected LocalRunner.run() to raise RuntimeError")
+
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
+    def test_run_raises_clean_storage_error_payload(self, mock_create_sub: AsyncMock) -> None:
+        """Structured worker storage errors become clean typed runner errors."""
+        payload = {
+            "error_kind": "storage_missing",
+            "message": "Input 'image' of block 'segment-1' references unavailable storage data: zarr:/data/missing.zarr.",
+            "reason": "missing",
+            "operation": "read",
+            "block_id": "segment-1",
+            "port_name": "image",
+            "ref": {
+                "backend": "zarr",
+                "path": "/data/missing.zarr",
+                "format": "zarr",
+                "metadata": None,
+            },
+        }
+        mock_proc = self._make_async_proc(json.dumps(payload).encode(), b"", 1, pid=103)
+        mock_create_sub.return_value = mock_proc
+
+        bus = MagicMock()
+        bus.emit = AsyncMock()
+        runner = LocalRunner(event_bus=bus, registry=ProcessRegistry())
+
+        class FakeBlock:
+            pass
+
+        try:
+            asyncio.run(runner.run(FakeBlock(), {}, {}))
+        except BlockStorageReferenceError as exc:
+            assert exc.error_kind == "storage_missing"
+            assert exc.payload["port_name"] == "image"
+            assert "Traceback" not in str(exc)
+            assert "/data/missing.zarr" in str(exc)
+        else:
+            raise AssertionError("Expected BlockStorageReferenceError to be raised")
 
     @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
     def test_run_returns_empty_dict_on_no_stdout(self, mock_create_sub: AsyncMock) -> None:

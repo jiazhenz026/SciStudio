@@ -214,9 +214,7 @@ export function LineageTab(): ReactElement {
       const target = document.activeElement;
       if (
         target instanceof HTMLElement &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable)
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
       ) {
         return;
       }
@@ -242,10 +240,7 @@ export function LineageTab(): ReactElement {
       role="region"
       aria-label="Run lineage"
     >
-      <header
-        className="border-b border-stone-200 px-4 py-3"
-        data-testid="lineage-tab-header"
-      >
+      <header className="border-b border-stone-200 px-4 py-3" data-testid="lineage-tab-header">
         <h2 className="text-sm font-semibold text-ink">Run history</h2>
         <p className="text-xs text-stone-500">
           {runs.length} {runs.length === 1 ? "run" : "runs"} recorded
@@ -274,20 +269,14 @@ export function LineageTab(): ReactElement {
         </div>
       )}
 
-      <div
-        className="flex min-h-0 flex-1"
-        data-testid="lineage-tab-body"
-      >
+      <div className="flex min-h-0 flex-1" data-testid="lineage-tab-body">
         <div
           className="w-[36%] min-w-[260px] border-r border-stone-200"
           data-testid="lineage-tab-list-pane"
         >
           <RunsList />
         </div>
-        <div
-          className="min-w-0 flex-1"
-          data-testid="lineage-tab-detail-pane"
-        >
+        <div className="min-w-0 flex-1" data-testid="lineage-tab-detail-pane">
           {runs.length === 0 && !runsLoading && !selectedRunId ? (
             <div
               className="flex h-full items-center justify-center"
@@ -304,16 +293,10 @@ export function LineageTab(): ReactElement {
       </div>
 
       {methodsDialogRunId !== null && (
-        <MethodsExportDialog
-          runId={methodsDialogRunId}
-          onClose={closeMethodsDialog}
-        />
+        <MethodsExportDialog runId={methodsDialogRunId} onClose={closeMethodsDialog} />
       )}
       {rerunDialogRunId !== null && (
-        <RerunDialog
-          runId={rerunDialogRunId}
-          onClose={closeRerunDialog}
-        />
+        <RerunDialog runId={rerunDialogRunId} onClose={closeRerunDialog} />
       )}
     </section>
   );

@@ -8,7 +8,9 @@ afterEach(() => {
   cleanup();
 });
 
-function makeBlock(overrides: Partial<BlockSummary> & { type_name: string; name: string }): BlockSummary {
+function makeBlock(
+  overrides: Partial<BlockSummary> & { type_name: string; name: string },
+): BlockSummary {
   const base_category = overrides.base_category ?? "process";
   const subcategory = overrides.subcategory ?? "";
   return {
@@ -37,8 +39,18 @@ const defaultProps = {
 describe("BlockPalette — Stage 10.1 Part 2", () => {
   it("renders a 3-level tree (package -> category -> block)", () => {
     const blocks: BlockSummary[] = [
-      makeBlock({ type_name: "imaging.cellpose_segment", name: "Cellpose Segment", base_category: "process", subcategory: "segmentation" }),
-      makeBlock({ type_name: "lcms.load_peak_table", name: "Load Peak Table", base_category: "io", subcategory: "io" }),
+      makeBlock({
+        type_name: "imaging.cellpose_segment",
+        name: "Cellpose Segment",
+        base_category: "process",
+        subcategory: "segmentation",
+      }),
+      makeBlock({
+        type_name: "lcms.load_peak_table",
+        name: "Load Peak Table",
+        base_category: "io",
+        subcategory: "io",
+      }),
       makeBlock({ type_name: "load_data", name: "Load", base_category: "io" }),
     ];
 
@@ -75,7 +87,12 @@ describe("BlockPalette — Stage 10.1 Part 2", () => {
 
   it("packages and categories are collapsible", () => {
     const blocks: BlockSummary[] = [
-      makeBlock({ type_name: "imaging.segment", name: "Segment Block", base_category: "process", subcategory: "segmentation" }),
+      makeBlock({
+        type_name: "imaging.segment",
+        name: "Segment Block",
+        base_category: "process",
+        subcategory: "segmentation",
+      }),
     ];
 
     render(<BlockPalette {...defaultProps} blocks={blocks} />);
@@ -99,8 +116,18 @@ describe("BlockPalette — Stage 10.1 Part 2", () => {
 
   it("search expands matching branches automatically", () => {
     const blocks: BlockSummary[] = [
-      makeBlock({ type_name: "imaging.cellpose_segment", name: "Cellpose Segment", base_category: "process", subcategory: "segmentation" }),
-      makeBlock({ type_name: "lcms.load_peak", name: "Load Peak", base_category: "io", subcategory: "io" }),
+      makeBlock({
+        type_name: "imaging.cellpose_segment",
+        name: "Cellpose Segment",
+        base_category: "process",
+        subcategory: "segmentation",
+      }),
+      makeBlock({
+        type_name: "lcms.load_peak",
+        name: "Load Peak",
+        base_category: "io",
+        subcategory: "io",
+      }),
     ];
 
     // With a search filter that only matches the imaging block, the lcms block
@@ -115,8 +142,18 @@ describe("BlockPalette — Stage 10.1 Part 2", () => {
 
   it("empty categories are hidden when filtered", () => {
     const blocks: BlockSummary[] = [
-      makeBlock({ type_name: "imaging.cellpose_segment", name: "Cellpose Segment", base_category: "process", subcategory: "segmentation" }),
-      makeBlock({ type_name: "imaging.load_image", name: "Load Image", base_category: "io", subcategory: "io" }),
+      makeBlock({
+        type_name: "imaging.cellpose_segment",
+        name: "Cellpose Segment",
+        base_category: "process",
+        subcategory: "segmentation",
+      }),
+      makeBlock({
+        type_name: "imaging.load_image",
+        name: "Load Image",
+        base_category: "io",
+        subcategory: "io",
+      }),
     ];
 
     // Search that matches only the io category block

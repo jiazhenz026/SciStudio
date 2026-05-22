@@ -84,9 +84,7 @@ export const createTerminalTabsSlice: StateCreator<AppStore, [], [], TerminalTab
   launchTerminalTab: (id, provider, permissionMode) =>
     set((state) => ({
       terminalTabs: state.terminalTabs.map((t) =>
-        t.id === id
-          ? { ...t, provider, permissionMode, state: "running", exitCode: undefined }
-          : t,
+        t.id === id ? { ...t, provider, permissionMode, state: "running", exitCode: undefined } : t,
       ),
     })),
 

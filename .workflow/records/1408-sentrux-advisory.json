@@ -1,0 +1,174 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": "agent",
+      "exclude": [],
+      "include": [
+        "src/scistudio/qa/governance/gate_record.py"
+      ],
+      "reason": "Test amend"
+    }
+  ],
+  "branch": "feat/sentrux-advisory",
+  "changed_test_paths": [
+    "tests/qa/test_gate_record_ci.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff_check",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "ruff_format",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "pytest tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_sentrux_gate.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "pytest_qa",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1408-sentrux-advisory.json",
+    "shas": [
+      "b1989321f5ab0df57df37e2613659c14599ba5c1"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {},
+    "docs": {
+      "paths": [
+        "docs/adr/ADR-042-addendum3.md"
+      ]
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "scistudio.qa.audit.full_audit",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1408,
+      "url": null
+    }
+  ],
+  "owner_directive": "Downgrade sentrux from hard gate to advisory; keep recorded-fail local block; supersede ADR-042 Addendum 1 \u00a7D1 missing-evidence requirement",
+  "planned_files": [
+    "src/scistudio/qa/governance/gate_record.py",
+    ".github/workflows/workflow-gate.yml",
+    "docs/adr/ADR-042-addendum3.md",
+    "tests/qa/test_gate_record.py",
+    "tests/qa/test_gate_record_ci.py",
+    "CHANGELOG.md",
+    ".workflow/records/1408-sentrux-advisory.json"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1408
+    ],
+    "number": 1409,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1409"
+  },
+  "record_path": ".workflow/records/1408-sentrux-advisory.json",
+  "required_checks": [
+    "ruff check .",
+    "ruff format --check .",
+    "pytest tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_sentrux_gate.py --timeout=60 --no-cov"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/qa/governance/gate_record.py",
+      ".github/workflows/workflow-gate.yml",
+      "docs/adr/ADR-042-addendum3.md",
+      "tests/qa/test_gate_record.py",
+      "tests/qa/test_gate_record_ci.py",
+      "CHANGELOG.md",
+      ".workflow/records/1408-sentrux-advisory.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": null,
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1408-sentrux-advisory",
+  "task_kind": "feature"
+}

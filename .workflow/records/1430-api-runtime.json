@@ -1,0 +1,217 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": "@jiazhenz026",
+      "exclude": [],
+      "include": [
+        "docs/adr/ADR-012.md",
+        "docs/adr/ADR-014.md",
+        "docs/adr/ADR-038.md",
+        "docs/adr/ADR-039.md",
+        "docs/adr/ADR-044.md",
+        "docs/adr/ADR-045.md"
+      ],
+      "reason": "Full audit (closure + doc_drift + signature_drift) flagged 6 ADRs whose frontmatter governs scistudio.api.runtime.* symbols + src/scistudio/api/runtime.py. The runtime sub-package refactor makes those claims unresolvable \u2014 they must be updated to point at the new sub-module paths or at the package as a directory glob. Per dispatch's 'Update docs or record N/A reason', the ADR frontmatter updates are part of this refactor."
+    },
+    {
+      "approved_by": "@jiazhenz026",
+      "exclude": [],
+      "include": [
+        ".workflow/records/1430-api-runtime.json",
+        ".workflow/records/1430-pr-body.md"
+      ],
+      "reason": "Include the gate record file and PR body draft itself in the gate scope. Per ADR-042 Addendum 1 D9 (gitignore-alone-doesn't-untrack lesson), gate records are part of the changeset and must be in scope to satisfy pre-flight scope.outside-include."
+    }
+  ],
+  "branch": "refactor/issue-1430/api-runtime",
+  "changed_test_paths": [
+    "tests/api/test_runtime_import_surface.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "python -m ruff check src/scistudio/api/runtime/ tests/api/test_runtime_import_surface.py scripts/check_god_files.py",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m ruff format --check src/scistudio/api/runtime/ tests/api/test_runtime_import_surface.py scripts/check_god_files.py",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "10 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m pytest tests/api/ tests/core/test_type_registry_scan_dirs.py tests/agent_provisioning/test_lifecycle_integration.py --timeout=60 --no-cov (deselecting 8 pre-existing failures unrelated to this refactor: 5 in test_blocks.py + 3 in test_workflows.py \u2014 confirmed pre-existing on origin/umbrella/backend-god-file-refactor before this PR)",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "all tests/api/ and external caller tests pass; 8 pre-existing failures deselected",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python scripts/check_god_files.py --enforce",
+      "exit_code": 0,
+      "name": "god_file_advisory",
+      "output_path": "OK: all files at or above threshold are tracked waivers. src/scistudio/api/runtime.py waiver retired (file now sub-package, all sub-modules <750 LOC).",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1430-api-runtime.json",
+    "shas": [
+      "5bc819e0cfafee1b3f87e6d6340d7c7355d51d2f"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "adr": {
+      "paths": [
+        "docs/adr/ADR-012.md",
+        "docs/adr/ADR-038.md",
+        "docs/adr/ADR-039.md",
+        "docs/adr/ADR-044.md",
+        "docs/adr/ADR-045.md"
+      ]
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Umbrella #1427 lands rolled-up CHANGELOG entry after all Phase 1 sub-PRs merge into the umbrella branch; this sub-PR is a structural decomposition with no user-visible behavior change"
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "Manager-owned umbrella checklist docs/planning/backend-god-file-refactor-checklist.md (Section 6 Dispatch Matrix) tracks this sub-PR row; sub-PR does not edit it per agent-dispatch.md \u00a73 (agents edit only their own rows; manager owns the matrix)"
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "ADR frontmatter governs.files updates capture the file \u2192 sub-package path change; no other user-facing doc affected"
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "No contract or schema change"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1430,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1430"
+    }
+  ],
+  "owner_directive": "Refactor api/runtime.py into sub-package per umbrella #1427",
+  "planned_files": [
+    "src/scistudio/api/runtime/__init__.py",
+    "src/scistudio/api/runtime/_helpers.py",
+    "src/scistudio/api/runtime/_preview_cache.py",
+    "src/scistudio/api/runtime/_preview_image.py",
+    "src/scistudio/api/runtime/_models.py",
+    "src/scistudio/api/runtime/_projects_mixin.py",
+    "src/scistudio/api/runtime/_workflows_mixin.py",
+    "src/scistudio/api/runtime/_data_mixin.py",
+    "src/scistudio/api/runtime/_runs_mixin.py",
+    "src/scistudio/api/runtime/_runtime.py",
+    "src/scistudio/api/runtime.py",
+    "tests/api/test_runtime_import_surface.py",
+    "scripts/check_god_files.py"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1430
+    ],
+    "number": 1445,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1445"
+  },
+  "record_path": ".workflow/records/1430-api-runtime.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest",
+    "god_file_advisory",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/api/runtime/**",
+      "src/scistudio/api/runtime.py",
+      "tests/api/**",
+      "scripts/check_god_files.py"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__{scan,session_start,check_rules,health,session_end}",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "scan: files=1167, edges=2627, lines=299409, quality_signal=4443. check_rules: pass, 3/15 rules checked, 0 violations. health: bottleneck=acyclicity, quality_signal=4443. session_end: signal stable (4443 -> 4443), 0 violations.",
+    "pro_required": false,
+    "quality_signal": 4443.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1430-api-runtime-refactor",
+  "task_kind": "refactor"
+}

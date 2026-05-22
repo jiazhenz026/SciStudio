@@ -57,15 +57,18 @@ governs:
     - scistudio.qa.schemas.frontmatter.ArchitectureFrontmatter
     - scistudio.qa.audit.frontmatter_lint.lint_file
     - scistudio.qa.audit.architecture_drift.check
-    - scistudio.qa.governance.gate_record.GateRecord
-    - scistudio.qa.governance.gate_record.GateStage
-    - scistudio.qa.governance.gate_record.CheckEvidence
-    - scistudio.qa.governance.gate_record.SentruxEvidence
-    - scistudio.qa.governance.gate_record.FullAuditEvidence
-    - scistudio.qa.governance.gate_record.validate_gate_record
-    - scistudio.qa.governance.gate_record.check_pre_commit
-    - scistudio.qa.governance.gate_record.check_commit_msg
-    - scistudio.qa.governance.gate_record.check_pr
+    # ``gate_record`` is a sub-package as of #1433 (umbrella #1427); contract
+    # paths below point to the canonical definition sites so doc_drift / closure
+    # can resolve them against generated facts.
+    - scistudio.qa.governance.gate_record.models.GateRecord
+    - scistudio.qa.governance.gate_record.models.GateStage
+    - scistudio.qa.governance.gate_record.models.CheckEvidence
+    - scistudio.qa.governance.gate_record.models.SentruxEvidence
+    - scistudio.qa.governance.gate_record.models.FullAuditEvidence
+    - scistudio.qa.governance.gate_record.validation.validate_gate_record
+    - scistudio.qa.governance.gate_record.validation.check_pre_commit
+    - scistudio.qa.governance.gate_record.validation.check_commit_msg
+    - scistudio.qa.governance.gate_record.validation.check_pr
     - scistudio.qa.governance.sentrux_gate.parse_sentrux_result
     - scistudio.qa.governance.sentrux_gate.verify_free_tier_claims
     - scistudio.qa.governance.issue_link.resolve_or_create
@@ -84,7 +87,7 @@ governs:
     - src/scistudio/qa/audit/frontmatter_lint.py
     - src/scistudio/qa/audit/architecture_drift.py
     - src/scistudio/qa/audit/loaders.py
-    - src/scistudio/qa/governance/gate_record.py
+    - src/scistudio/qa/governance/gate_record
     - src/scistudio/qa/governance/sentrux_gate.py
     - src/scistudio/qa/governance/issue_link.py
     - src/scistudio/qa/governance/docs_landing.py

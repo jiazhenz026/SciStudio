@@ -163,10 +163,7 @@
 import { useEffect, useState, type ReactElement } from "react";
 
 import { useAppStore } from "../../store";
-import type {
-  LineageRunStatus,
-  LineageRunSummary,
-} from "../../types/lineage";
+import type { LineageRunStatus, LineageRunSummary } from "../../types/lineage";
 
 const STATUS_LABEL: Record<LineageRunStatus, string> = {
   completed: "completed",
@@ -262,10 +259,7 @@ function formatLocalDateTime(iso: string, now: Date): string {
   return `${date} ${time}`;
 }
 
-function formatDuration(
-  run: LineageRunSummary,
-  nowMs: number,
-): string {
+function formatDuration(run: LineageRunSummary, nowMs: number): string {
   let ms: number | null = run.duration_ms;
   if (ms === null && run.status === "running" && run.started_at) {
     const started = Date.parse(run.started_at);
@@ -300,10 +294,7 @@ export function RunsList(): ReactElement {
 
   if (runsLoading && runs.length === 0) {
     return (
-      <p
-        className="px-4 py-3 text-xs text-stone-500"
-        data-testid="runs-list-loading"
-      >
+      <p className="px-4 py-3 text-xs text-stone-500" data-testid="runs-list-loading">
         Loading runs…
       </p>
     );
@@ -311,10 +302,7 @@ export function RunsList(): ReactElement {
 
   if (runs.length === 0) {
     return (
-      <p
-        className="px-4 py-3 text-xs text-stone-500"
-        data-testid="runs-list-empty"
-      >
+      <p className="px-4 py-3 text-xs text-stone-500" data-testid="runs-list-empty">
         No runs yet. Run a workflow to populate this view.
       </p>
     );
@@ -383,13 +371,9 @@ export function RunsList(): ReactElement {
               </p>
             )}
             {run.parent_run_id && (
-              <p
-                className="text-[11px] text-stone-500"
-                data-testid="rerun-marker"
-              >
+              <p className="text-[11px] text-stone-500" data-testid="rerun-marker">
                 ↳ Re-run of {run.parent_run_id.slice(0, 8)}
-                {run.execute_from_block_id &&
-                  ` (from ${run.execute_from_block_id})`}
+                {run.execute_from_block_id && ` (from ${run.execute_from_block_id})`}
               </p>
             )}
           </li>

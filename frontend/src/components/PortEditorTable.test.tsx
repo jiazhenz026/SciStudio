@@ -15,9 +15,7 @@ describe("PortEditorTable", () => {
   });
 
   it("renders an extension column for output ports (issue #680)", () => {
-    const ports: PortRow[] = [
-      { name: "images", types: ["Image"], extension: "tif" },
-    ];
+    const ports: PortRow[] = [{ name: "images", types: ["Image"], extension: "tif" }];
     render(
       <PortEditorTable
         allowedTypes={[]}
@@ -84,9 +82,7 @@ describe("PortEditorTable", () => {
     // changed the React key, remounted the <input>, and dropped focus after
     // a single character. The fix uses a stable index-based key.
     function Harness() {
-      const [ports, setPorts] = useState<PortRow[]>([
-        { name: "a", types: ["DataObject"] },
-      ]);
+      const [ports, setPorts] = useState<PortRow[]>([{ name: "a", types: ["DataObject"] }]);
       return (
         <PortEditorTable
           allowedTypes={[]}

@@ -1,7 +1,12 @@
 import { type Node, Handle, Position, type NodeProps, useEdges, useReactFlow } from "@xyflow/react";
 import { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react";
 
-import { resolveTypeColor, resolveRingColor, isAnyType, primaryTypeName } from "../../config/typeColorMap";
+import {
+  resolveTypeColor,
+  resolveRingColor,
+  isAnyType,
+  primaryTypeName,
+} from "../../config/typeColorMap";
 import { api, ApiError } from "../../lib/api";
 import type { FilesystemEntry, FormatCapabilityResponse } from "../../types/api";
 import type { BlockNodeData } from "../../types/ui";
@@ -37,24 +42,36 @@ interface BadgeStyle {
 const badgeStyles: Record<string, BadgeStyle> = {
   idle: { icon: "\u25CB", label: "Idle", bg: "rgba(156,163,175,0.15)", text: "#9CA3AF" },
   ready: { icon: "\u25C9", label: "Ready", bg: "rgba(59,130,246,0.15)", text: "#3B82F6" },
-  running: { icon: "\u27F3", label: "Running", bg: "rgba(59,130,246,0.15)", text: "#3B82F6", spin: true },
+  running: {
+    icon: "\u27F3",
+    label: "Running",
+    bg: "rgba(59,130,246,0.15)",
+    text: "#3B82F6",
+    spin: true,
+  },
   paused: { icon: "\u23F8", label: "Paused", bg: "rgba(245,158,11,0.15)", text: "#F59E0B" },
   done: { icon: "\u2705", label: "Done", bg: "rgba(34,197,94,0.15)", text: "#22C55E" },
-  error: { icon: "\u274C", label: "Error", bg: "rgba(239,68,68,0.15)", text: "#EF4444", clickable: true },
+  error: {
+    icon: "\u274C",
+    label: "Error",
+    bg: "rgba(239,68,68,0.15)",
+    text: "#EF4444",
+    clickable: true,
+  },
   cancelled: { icon: "\u2298", label: "Cancelled", bg: "rgba(249,115,22,0.15)", text: "#F97316" },
-  skipped: { icon: "\u2298", label: "Skipped", bg: "rgba(156,163,175,0.15)", text: "#9CA3AF", italic: true },
+  skipped: {
+    icon: "\u2298",
+    label: "Skipped",
+    bg: "rgba(156,163,175,0.15)",
+    text: "#9CA3AF",
+    italic: true,
+  },
 };
 
 // ---------------------------------------------------------------------------
 // StatusBadge sub-component
 // ---------------------------------------------------------------------------
-function StatusBadge({
-  status,
-  onErrorClick,
-}: {
-  status?: string;
-  onErrorClick?: () => void;
-}) {
+function StatusBadge({ status, onErrorClick }: { status?: string; onErrorClick?: () => void }) {
   const style = badgeStyles[status ?? "idle"] ?? badgeStyles.idle;
 
   const inner = (
@@ -67,9 +84,7 @@ function StatusBadge({
         cursor: style.clickable ? "pointer" : undefined,
       }}
     >
-      <span className={style.spin ? "inline-block animate-spin" : undefined}>
-        {style.icon}
-      </span>
+      <span className={style.spin ? "inline-block animate-spin" : undefined}>{style.icon}</span>
       {style.label}
     </span>
   );
@@ -127,9 +142,7 @@ function FileBrowserModal({
     loadDirectory(startPath);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const breadcrumbs = currentPath
-    ? currentPath.replace(/\\/g, "/").split("/").filter(Boolean)
-    : [];
+  const breadcrumbs = currentPath ? currentPath.replace(/\\/g, "/").split("/").filter(Boolean) : [];
 
   const handleNavigate = (dirName: string) => {
     const sep = currentPath.includes("\\") ? "\\" : "/";
@@ -145,7 +158,7 @@ function FileBrowserModal({
     }
     const parts = currentPath.replace(/\\/g, "/").split("/").filter(Boolean);
     // On Windows paths like "C:/" we need to preserve the drive letter
-    const isWindows = currentPath.includes("\\") || (/^[A-Z]:/.test(currentPath));
+    const isWindows = currentPath.includes("\\") || /^[A-Z]:/.test(currentPath);
     let newPath: string;
     if (isWindows) {
       newPath = parts.slice(0, index + 1).join("\\");
@@ -184,8 +197,7 @@ function FileBrowserModal({
   const canSelect =
     mode === "directory_browser"
       ? currentPath !== "" || selectedEntry != null
-      : selectedEntry != null &&
-        entries.some((e) => e.name === selectedEntry && e.type === "file");
+      : selectedEntry != null && entries.some((e) => e.name === selectedEntry && e.type === "file");
 
   return (
     <div
@@ -227,31 +239,22 @@ function FileBrowserModal({
 
         {/* File list */}
         <div className="min-h-[200px] flex-1 overflow-y-auto px-2 py-1">
-          {loading && (
-            <p className="py-4 text-center text-xs text-stone-400">Loading...</p>
-          )}
-          {error && (
-            <p className="py-4 text-center text-xs text-red-500">{error}</p>
-          )}
+          {loading && <p className="py-4 text-center text-xs text-stone-400">Loading...</p>}
+          {error && <p className="py-4 text-center text-xs text-red-500">{error}</p>}
           {!loading && !error && entries.length === 0 && (
-            <p className="py-4 text-center text-xs text-stone-400">
-              Empty directory
-            </p>
+            <p className="py-4 text-center text-xs text-stone-400">Empty directory</p>
           )}
           {!loading &&
             !error &&
             entries.map((entry) => {
               const isDir = entry.type === "directory";
               const isSelected = selectedEntry === entry.name;
-              const isSelectable =
-                mode === "directory_browser" ? isDir : true;
+              const isSelectable = mode === "directory_browser" ? isDir : true;
               return (
                 <div
                   key={entry.name}
                   className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs ${
-                    isSelected
-                      ? "bg-blue-50 text-sea"
-                      : "text-ink hover:bg-stone-50"
+                    isSelected ? "bg-blue-50 text-sea" : "text-ink hover:bg-stone-50"
                   } ${!isSelectable && mode === "file_browser" && !isDir ? "opacity-50" : ""}`}
                   onClick={() => {
                     if (isDir) {
@@ -279,9 +282,7 @@ function FileBrowserModal({
                   </span>
                   <span className="min-w-0 flex-1 truncate">{entry.name}</span>
                   {!isDir && entry.size != null && (
-                    <span className="shrink-0 text-stone-400">
-                      {formatSize(entry.size)}
-                    </span>
+                    <span className="shrink-0 text-stone-400">{formatSize(entry.size)}</span>
                   )}
                 </div>
               );
@@ -319,9 +320,9 @@ interface ConfigProperty {
   schema: Record<string, unknown>;
 }
 
-function getTopConfigProperties(
-  configSchema?: { properties?: Record<string, Record<string, unknown>> },
-): ConfigProperty[] {
+function getTopConfigProperties(configSchema?: {
+  properties?: Record<string, Record<string, unknown>>;
+}): ConfigProperty[] {
   if (!configSchema?.properties) return [];
 
   return Object.entries(configSchema.properties)
@@ -381,7 +382,7 @@ function InlineCapabilitySelector({
   if (capabilities.length === 0) return null;
   const capability = selectedCapability(capabilities, value);
   const warning = capabilityWarning(capabilities, capability);
-  const selectValue = typeof value === "string" ? value : capability?.id ?? "";
+  const selectValue = typeof value === "string" ? value : (capability?.id ?? "");
 
   return (
     <label className="flex flex-col gap-1 text-xs">
@@ -498,8 +499,7 @@ function InlineConfigField({
   // "directory_browser", render a "..." browse button next to the input
   // that opens the FileBrowserModal (#484).
   const uiWidget = schema.ui_widget as string | undefined;
-  const hasBrowse =
-    uiWidget === "file_browser" || uiWidget === "directory_browser";
+  const hasBrowse = uiWidget === "file_browser" || uiWidget === "directory_browser";
   const [browseOpen, setBrowseOpen] = useState(false);
   const [clipCopied, setClipCopied] = useState(false);
 
@@ -530,10 +530,9 @@ function InlineConfigField({
         // (type includes "array"). Fields like app_command and script_path
         // are pure strings and must not receive an array.
         const schemaType = schema.type;
-        const supportsArray =
-          Array.isArray(schemaType)
-            ? schemaType.includes("array")
-            : schemaType === "array";
+        const supportsArray = Array.isArray(schemaType)
+          ? schemaType.includes("array")
+          : schemaType === "array";
         if (supportsArray && result.paths.length > 1) {
           onChange(key, result.paths);
         } else {
@@ -589,9 +588,7 @@ function InlineConfigField({
   // (e.g. the BottomPanel input bound to the same store entry) does not
   // steal selection from the canvas input.
   const inputRef = useRef<HTMLInputElement>(null);
-  const pendingSelectionRef = useRef<{ start: number; end: number } | null>(
-    null,
-  );
+  const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null);
   useLayoutEffect(() => {
     const pending = pendingSelectionRef.current;
     const el = inputRef.current;
@@ -654,7 +651,14 @@ function InlineConfigField({
             {clipCopied ? (
               <span className="text-green-600 text-[10px]">{"\u2713"}</span>
             ) : (
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
                 <rect x="5" y="5" width="9" height="9" rx="1" />
                 <path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" />
               </svg>
@@ -700,9 +704,7 @@ const MAX_TOOLTIP_LINES = 10;
 
 function ErrorMessage({ message }: { message: string }) {
   const truncated =
-    message.length > MAX_INLINE_ERROR_LEN
-      ? `${message.slice(0, MAX_INLINE_ERROR_LEN)}…`
-      : message;
+    message.length > MAX_INLINE_ERROR_LEN ? `${message.slice(0, MAX_INLINE_ERROR_LEN)}…` : message;
 
   // Build a tooltip that shows up to MAX_TOOLTIP_LINES lines of the error
   const lines = message.split("\n");
@@ -774,8 +776,7 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
   // Blocks without a ``core_type`` field (e.g. imaging.threshold) are
   // unaffected because the filter is a no-op when ``coreType`` is null.
   const allFormatCapabilities = data.schema?.format_capabilities ?? [];
-  const coreType =
-    typeof data.config?.core_type === "string" ? data.config.core_type : null;
+  const coreType = typeof data.config?.core_type === "string" ? data.config.core_type : null;
   const formatCapabilities = coreType
     ? allFormatCapabilities.filter((cap) => cap.data_type === coreType)
     : allFormatCapabilities;
@@ -795,9 +796,7 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
   const dynamicPorts = data.schema?.dynamic_ports ?? null;
   const sourceConfigKey = dynamicPorts?.source_config_key;
   const drivingConfigValue =
-    sourceConfigKey != null
-      ? (data.config?.[sourceConfigKey] as string | undefined)
-      : undefined;
+    sourceConfigKey != null ? (data.config?.[sourceConfigKey] as string | undefined) : undefined;
   const effectiveInputPorts = computeEffectivePorts(
     dynamicPorts,
     drivingConfigValue,
@@ -869,10 +868,13 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
 
   const handleAddPort = (direction: "input" | "output") => {
     const key = direction === "input" ? "input_ports" : "output_ports";
-    const current = Array.isArray(data.config?.[key]) ? (data.config[key] as Array<{name: string; types: string[]}>) : [];
-    const defaultType = direction === "input"
-      ? (data.schema?.allowed_input_types?.[0] ?? "DataObject")
-      : (data.schema?.allowed_output_types?.[0] ?? "DataObject");
+    const current = Array.isArray(data.config?.[key])
+      ? (data.config[key] as Array<{ name: string; types: string[] }>)
+      : [];
+    const defaultType =
+      direction === "input"
+        ? (data.schema?.allowed_input_types?.[0] ?? "DataObject")
+        : (data.schema?.allowed_output_types?.[0] ?? "DataObject");
     data.onUpdateConfig?.({
       [key]: [...current, { name: `port_${current.length + 1}`, types: [defaultType] }],
     });
@@ -892,7 +894,9 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
       deleteElements({ edges: connected });
     }
     const key = direction === "input" ? "input_ports" : "output_ports";
-    const current = Array.isArray(data.config?.[key]) ? (data.config[key] as Array<{name: string; types: string[]}>) : [];
+    const current = Array.isArray(data.config?.[key])
+      ? (data.config[key] as Array<{ name: string; types: string[] }>)
+      : [];
     data.onUpdateConfig?.({ [key]: current.filter((p) => p.name !== portName) });
   };
 
@@ -908,9 +912,7 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
       <div className="flex items-center justify-between gap-2 border-b border-stone-100 px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
           <span className="text-base leading-none">{categoryIcon}</span>
-          <span className="truncate font-display text-sm font-semibold text-ink">
-            {data.label}
-          </span>
+          <span className="truncate font-display text-sm font-semibold text-ink">{data.label}</span>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <button
@@ -929,7 +931,14 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
             title="Restart block"
             onClick={() => data.onRestart?.()}
           >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
               <path d="M13 8a5 5 0 1 1-1.5-3.5M13 3v2.5h-2.5" />
             </svg>
           </button>
@@ -939,7 +948,14 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
             title="Remove block"
             onClick={() => data.onDelete?.()}
           >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
               <path d="M4 4l8 8M12 4l-8 8" />
             </svg>
           </button>
@@ -949,7 +965,10 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
       {/* ----------------------------------------------------------------- */}
       {/* Inline config                                                     */}
       {/* ----------------------------------------------------------------- */}
-      <div ref={configSectionRef} className="nodrag nowheel space-y-2 overflow-hidden border-b border-stone-100 px-3 py-2">
+      <div
+        ref={configSectionRef}
+        className="nodrag nowheel space-y-2 overflow-hidden border-b border-stone-100 px-3 py-2"
+      >
         {formatCapabilities.length > 0 ? (
           <InlineCapabilitySelector
             capabilities={formatCapabilities}
@@ -957,8 +976,8 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
             onChange={(capabilityId) => data.onUpdateConfig?.({ capability_id: capabilityId })}
           />
         ) : null}
-        {configProps.length > 0
-          ? configProps.map((prop) => (
+        {configProps.length > 0 ? (
+          configProps.map((prop) => (
             <InlineConfigField
               key={prop.key}
               prop={prop}
@@ -966,10 +985,8 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
               onChange={handleConfigChange}
             />
           ))
-          : formatCapabilities.length === 0 ? (
-          <p className="text-center text-[11px] italic text-stone-400">
-            No parameters
-          </p>
+        ) : formatCapabilities.length === 0 ? (
+          <p className="text-center text-[11px] italic text-stone-400">No parameters</p>
         ) : null}
       </div>
 
@@ -1106,21 +1123,26 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
             LossySaveWarning component itself returns null when the
             dropped-field set is empty, so this branch is cheap when
             there is no warning to surface. */}
-        {data.category === "io" && (data.schema?.direction === "output" || data.schema?.direction === "save") && data.upstreamOmeFields && data.upstreamOmeFields.length > 0 && (() => {
-          const selectedId = data.config?.capability_id;
-          const selectedCap = formatCapabilities.find(
-            (c) => typeof selectedId === "string" && c.id === selectedId,
-          ) ?? (formatCapabilities.length === 1 ? formatCapabilities[0] : undefined);
-          if (!selectedCap) return null;
-          return (
-            <div className="mt-1">
-              <LossySaveWarning
-                sourceOmeFields={data.upstreamOmeFields}
-                targetCapabilityFidelity={selectedCap.metadata_fidelity}
-              />
-            </div>
-          );
-        })()}
+        {data.category === "io" &&
+          (data.schema?.direction === "output" || data.schema?.direction === "save") &&
+          data.upstreamOmeFields &&
+          data.upstreamOmeFields.length > 0 &&
+          (() => {
+            const selectedId = data.config?.capability_id;
+            const selectedCap =
+              formatCapabilities.find(
+                (c) => typeof selectedId === "string" && c.id === selectedId,
+              ) ?? (formatCapabilities.length === 1 ? formatCapabilities[0] : undefined);
+            if (!selectedCap) return null;
+            return (
+              <div className="mt-1">
+                <LossySaveWarning
+                  sourceOmeFields={data.upstreamOmeFields}
+                  targetCapabilityFidelity={selectedCap.metadata_fidelity}
+                />
+              </div>
+            );
+          })()}
         {data.status === "paused" && data.category === "app" && (
           <PausedToast outputDir={String(data.config?.output_dir ?? "")} />
         )}

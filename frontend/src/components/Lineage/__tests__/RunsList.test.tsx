@@ -2,13 +2,7 @@
  * RunsList.test.tsx — D38-2.4c IMPL tests.
  */
 
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAppStore } from "../../../store";
@@ -16,9 +10,7 @@ import type { LineageRunSummary } from "../../../types/lineage";
 import { RunsList } from "../RunsList";
 
 vi.mock("../../../lib/api", async () => {
-  const actual = await vi.importActual<typeof import("../../../lib/api")>(
-    "../../../lib/api",
-  );
+  const actual = await vi.importActual<typeof import("../../../lib/api")>("../../../lib/api");
   return {
     ...actual,
     api: {
@@ -34,9 +26,7 @@ vi.mock("../../../lib/api", async () => {
   };
 });
 
-function makeRun(
-  overrides: Partial<LineageRunSummary> = {},
-): LineageRunSummary {
+function makeRun(overrides: Partial<LineageRunSummary> = {}): LineageRunSummary {
   return {
     run_id: "00000000-0000-0000-0000-000000000001",
     workflow_id: "image_pipeline",
@@ -105,9 +95,7 @@ describe("RunsList", () => {
       selectedRunId: "r1",
     });
     render(<RunsList />);
-    expect(
-      screen.getByTestId("runs-list-row-r1").getAttribute("aria-selected"),
-    ).toBe("true");
+    expect(screen.getByTestId("runs-list-row-r1").getAttribute("aria-selected")).toBe("true");
   });
 
   it("renders the empty placeholder when runs is empty", () => {

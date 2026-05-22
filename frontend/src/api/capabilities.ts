@@ -173,9 +173,7 @@ export function aggregateCapabilities(
 ): FormatCapabilityResponse[] {
   const wantedExt = normalizeExtension(filter.extension);
   const wantedType = filter.dataType?.trim() ?? "";
-  const ancestors = wantedType
-    ? ancestorTypeNames(wantedType, filter.typeHierarchy)
-    : null;
+  const ancestors = wantedType ? ancestorTypeNames(wantedType, filter.typeHierarchy) : null;
   const seen = new Map<string, FormatCapabilityResponse>();
 
   for (const block of blocks.blocks ?? []) {
@@ -252,8 +250,7 @@ export function extractOMEFromMetadata(
   const fromFlat = meta.ome;
   if (isRecord(fromFlat)) return fromFlat;
 
-  const fromFramework = (meta.framework as Record<string, unknown> | undefined)
-    ?.ome;
+  const fromFramework = (meta.framework as Record<string, unknown> | undefined)?.ome;
   if (isRecord(fromFramework)) return fromFramework;
 
   return null;

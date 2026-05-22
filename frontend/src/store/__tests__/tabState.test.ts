@@ -269,9 +269,10 @@ describe("saveFileTab (ADR-036 §3.10)", () => {
     // to "type" between save start and save end.
     let resolvePut: (value: { mtime: number; size: number }) => void = () => {};
     putProjectFileMock.mockImplementation(
-      () => new Promise<{ mtime: number; size: number }>((resolve) => {
-        resolvePut = resolve;
-      }),
+      () =>
+        new Promise<{ mtime: number; size: number }>((resolve) => {
+          resolvePut = resolve;
+        }),
     );
 
     useAppStore.getState().openFileTab("a.py");

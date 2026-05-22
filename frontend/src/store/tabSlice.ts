@@ -223,9 +223,7 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
     }
 
     if (isDirty) {
-      const confirmed = window.confirm(
-        `"${displayLabel}" has unsaved changes. Close anyway?`,
-      );
+      const confirmed = window.confirm(`"${displayLabel}" has unsaved changes. Close anyway?`);
       if (!confirmed) return false;
     }
 
@@ -273,9 +271,7 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
     const state = get();
     if (!state.activeTabId) return;
     set({
-      tabs: state.tabs.map((t) =>
-        t.id === state.activeTabId ? captureActiveTab(state, t) : t,
-      ),
+      tabs: state.tabs.map((t) => (t.id === state.activeTabId ? captureActiveTab(state, t) : t)),
     });
   },
 
@@ -302,9 +298,7 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
     // localStorage rehydrate strips ``content`` and sets ``loading: true``,
     // per ADR-036 §3.11), fall through to refetch instead of just focusing
     // a permanently-empty placeholder.
-    const needsRefetch = Boolean(
-      existing && existing.kind === "file" && existing.loading,
-    );
+    const needsRefetch = Boolean(existing && existing.kind === "file" && existing.loading);
     if (existing && !needsRefetch) {
       state.switchTab(id);
       return;

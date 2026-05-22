@@ -1,0 +1,74 @@
+name: Semantic Duplication Scan
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'track/**'
+    paths:
+      - 'src/scistudio/**/*.py'
+      - 'scripts/semantic_dup_scan.py'
+      - 'docs/audit/baselines/semantic-dup-baseline.json'
+      - 'docs/adr/ADR-042-addendum2.md'
+      - '.github/workflows/semantic-dup-scan.yml'
+    types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    # Weekly scan covers PRs whose source-touching diff slipped through path
+    # filters (e.g. via subsequent untouched commits) and catches model /
+    # embedding-environment regressions.
+    - cron: '0 12 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  semantic-dup-check:
+    name: Semantic duplication ratchet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Cache fastembed ONNX model
+        uses: actions/cache@v4
+        with:
+          # fastembed downloads quantised ONNX models into a system temp
+          # cache (~/.cache on Linux runners) rather than ~/.cache/huggingface.
+          # Cover both locations so warmed runs reuse the weights.
+          path: |
+            ~/.cache/huggingface
+            /tmp/fastembed_cache
+          key: fastembed-bge-base-v1.5-${{ runner.os }}
+          restore-keys: |
+            fastembed-bge-base-
+
+      - name: Install fastembed
+        # fastembed (ONNX runtime + int8-quantised BGE) replaces
+        # sentence-transformers + PyTorch. Install footprint drops from
+        # ~2GB to ~100MB and inference is ~3x faster on CPU.
+        run: pip install fastembed numpy
+
+      - name: Run semantic duplication ratchet check
+        run: |
+          python scripts/semantic_dup_scan.py \
+            --check docs/audit/baselines/semantic-dup-baseline.json \
+            --out semantic-dup-report.md \
+            --json-out semantic-dup-current.json
+
+      - name: Upload report artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semantic-dup-report
+          path: |
+            semantic-dup-report.md
+            semantic-dup-current.json
+          retention-days: 30

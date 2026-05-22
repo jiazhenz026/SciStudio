@@ -57,9 +57,7 @@ function makePort(
   };
 }
 
-function makeSchema(
-  overrides: Partial<BlockSchemaResponse> = {},
-): BlockSchemaResponse {
+function makeSchema(overrides: Partial<BlockSchemaResponse> = {}): BlockSchemaResponse {
   return {
     name: "Test Block",
     type_name: "test_block",
@@ -106,10 +104,7 @@ function makeCapability(
   };
 }
 
-function renderNode(
-  dataOverrides: Partial<BlockNodeData> = {},
-  selected = false,
-) {
+function renderNode(dataOverrides: Partial<BlockNodeData> = {}, selected = false) {
   const baseData: BlockNodeData = {
     label: "Test Block",
     blockType: "test_block",
@@ -332,11 +327,10 @@ describe("BlockNode - Fix #1307 format dropdown filters by core_type", () => {
       }),
     });
     const select = screen.getByRole("combobox") as HTMLSelectElement;
-    const optionValues = Array.from(select.options).map((o) => o.value).filter((v) => v);
-    expect(optionValues).toEqual([
-      "core.dataframe.csv.save",
-      "core.dataframe.parquet.save",
-    ]);
+    const optionValues = Array.from(select.options)
+      .map((o) => o.value)
+      .filter((v) => v);
+    expect(optionValues).toEqual(["core.dataframe.csv.save", "core.dataframe.parquet.save"]);
   });
 
   it("filters the dropdown to Series capabilities when core_type=Series", () => {
@@ -350,7 +344,9 @@ describe("BlockNode - Fix #1307 format dropdown filters by core_type", () => {
       }),
     });
     const select = screen.getByRole("combobox") as HTMLSelectElement;
-    const optionValues = Array.from(select.options).map((o) => o.value).filter((v) => v);
+    const optionValues = Array.from(select.options)
+      .map((o) => o.value)
+      .filter((v) => v);
     expect(optionValues).toEqual(["core.series.csv.save"]);
   });
 
@@ -365,7 +361,9 @@ describe("BlockNode - Fix #1307 format dropdown filters by core_type", () => {
       }),
     });
     const select = screen.getByRole("combobox") as HTMLSelectElement;
-    const optionValues = Array.from(select.options).map((o) => o.value).filter((v) => v);
+    const optionValues = Array.from(select.options)
+      .map((o) => o.value)
+      .filter((v) => v);
     expect(optionValues).toEqual([
       "core.dataframe.csv.save",
       "core.dataframe.parquet.save",
@@ -644,7 +642,6 @@ describe("BlockNode — sanity smoke", () => {
   });
 });
 
-
 // ---------------------------------------------------------------------------
 // Native dialog fallback behavior (#678)
 // ---------------------------------------------------------------------------
@@ -903,9 +900,7 @@ describe("BlockNode - native dialog status-aware fallback (#678)", () => {
   it("does NOT open in-app FileBrowserModal when native dialog returns HTTP 504", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     const { ApiError } = await import("../../lib/api");
-    openNativeDialogMock.mockRejectedValueOnce(
-      new ApiError("Dialog timed out", 504),
-    );
+    openNativeDialogMock.mockRejectedValueOnce(new ApiError("Dialog timed out", 504));
 
     renderBrowseField();
     await userEvent.click(findBrowseButton());

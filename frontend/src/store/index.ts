@@ -86,17 +86,8 @@ export const useAppStore = create<AppStore>()(
         // anything not in the current union back to "lineage" — the
         // semantic replacement for the run-history surface Jobs used
         // to occupy. This also covers any future tab removals.
-        const validTabs = new Set<string>([
-          "ai",
-          "config",
-          "logs",
-          "lineage",
-          "git",
-        ]);
-        if (
-          typeof state.activeBottomTab !== "string" ||
-          !validTabs.has(state.activeBottomTab)
-        ) {
+        const validTabs = new Set<string>(["ai", "config", "logs", "lineage", "git"]);
+        if (typeof state.activeBottomTab !== "string" || !validTabs.has(state.activeBottomTab)) {
           state.activeBottomTab = "lineage";
         }
         const defaults = { palette: 15, preview: 22, bottom: 30 };

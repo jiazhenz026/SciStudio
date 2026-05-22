@@ -63,7 +63,10 @@ export function ProjectDialog({
 
   function handleDeleteProject(event: React.MouseEvent, projectId: string, projectName: string) {
     event.stopPropagation();
-    if (onDeleteProject && window.confirm(`Delete project '${projectName}'? This cannot be undone.`)) {
+    if (
+      onDeleteProject &&
+      window.confirm(`Delete project '${projectName}'? This cannot be undone.`)
+    ) {
       onDeleteProject(projectId);
     }
   }
@@ -78,19 +81,28 @@ export function ProjectDialog({
               {mode === "new" ? "Create a new workspace" : "Open an existing workspace"}
             </h2>
           </div>
-          <button className="rounded-full border border-stone-300 px-3 py-1 text-sm" onClick={onClose} type="button">
+          <button
+            className="rounded-full border border-stone-300 px-3 py-1 text-sm"
+            onClick={onClose}
+            type="button"
+          >
             Close
           </button>
         </div>
 
         <div className={`grid gap-4 ${mode === "new" ? "md:grid-cols-2" : ""}`}>
           <label className="grid gap-2 text-sm text-stone-700">
-            <span className="font-medium">{mode === "new" ? "Project name" : "Project ID or path"}</span>
+            <span className="font-medium">
+              {mode === "new" ? "Project name" : "Project ID or path"}
+            </span>
             {mode === "open" ? (
               <div className="flex gap-2">
                 <input
                   className="min-w-0 flex-1 rounded-2xl border border-stone-300 bg-white px-4 py-3 outline-none transition focus:border-ember"
-                  onChange={(event) => { onChange({ path: event.target.value }); setPathError(null); }}
+                  onChange={(event) => {
+                    onChange({ path: event.target.value });
+                    setPathError(null);
+                  }}
                   placeholder="C:\\research\\atlas-project"
                   value={path}
                 />
@@ -117,7 +129,10 @@ export function ProjectDialog({
               <div className="flex gap-2">
                 <input
                   className="min-w-0 flex-1 rounded-2xl border border-stone-300 bg-white px-4 py-3 outline-none transition focus:border-ember"
-                  onChange={(event) => { onChange({ path: event.target.value }); setPathError(null); }}
+                  onChange={(event) => {
+                    onChange({ path: event.target.value });
+                    setPathError(null);
+                  }}
                   placeholder="C:\\projects"
                   value={path}
                 />
@@ -144,9 +159,7 @@ export function ProjectDialog({
           ) : null}
         </div>
 
-        {pathError ? (
-          <p className="mt-2 text-sm text-red-600">{pathError}</p>
-        ) : null}
+        {pathError ? <p className="mt-2 text-sm text-red-600">{pathError}</p> : null}
 
         <div className="mt-6 rounded-[1.5rem] border border-stone-200 bg-white/80 p-4">
           <p className="text-xs uppercase tracking-[0.3em] text-stone-500">Recent projects</p>
@@ -176,8 +189,18 @@ export function ProjectDialog({
                         tabIndex={0}
                         title="Delete project"
                       >
-                        <svg className="size-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14" strokeLinecap="round" strokeLinejoin="round" />
+                        <svg
+                          className="size-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
                         </svg>
                       </span>
                     ) : null}
@@ -185,13 +208,19 @@ export function ProjectDialog({
                 </button>
               ))
             ) : (
-              <p className="text-sm text-stone-500">No project history yet. Create one to get started.</p>
+              <p className="text-sm text-stone-500">
+                No project history yet. Create one to get started.
+              </p>
             )}
           </div>
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
-          <button className="rounded-full border border-stone-300 px-4 py-2 text-sm" onClick={onClose} type="button">
+          <button
+            className="rounded-full border border-stone-300 px-4 py-2 text-sm"
+            onClick={onClose}
+            type="button"
+          >
             Cancel
           </button>
           <button

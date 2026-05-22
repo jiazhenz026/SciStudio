@@ -34,8 +34,7 @@ function seed(branch: string, commits: GitCommit[] | undefined, loading = false)
     logLoading: { [key]: loading },
     historyFilter: "manual",
     loadLog: vi.fn().mockResolvedValue(undefined),
-    setHistoryFilter: (filter) =>
-      useAppStore.setState({ historyFilter: filter }),
+    setHistoryFilter: (filter) => useAppStore.setState({ historyFilter: filter }),
     restore: vi.fn().mockResolvedValue(undefined),
   });
 }
@@ -126,22 +125,16 @@ describe("GitHistoryList", () => {
     const onCommitClick = vi.fn();
     render(<GitHistoryList branch="main" onCommitClick={onCommitClick} />);
     flipToListView();
-    fireEvent.click(
-      screen.getByTestId(`git-history-row-diff-${userCommit.short_sha}`),
-    );
+    fireEvent.click(screen.getByTestId(`git-history-row-diff-${userCommit.short_sha}`));
     expect(onCommitClick).toHaveBeenCalledTimes(1);
-    expect(onCommitClick).toHaveBeenCalledWith(
-      expect.objectContaining({ sha: userCommit.sha }),
-    );
+    expect(onCommitClick).toHaveBeenCalledWith(expect.objectContaining({ sha: userCommit.sha }));
   });
 
   it("clicking the inline [Diff] button opens GitDiffModal when no onCommitClick prop is supplied", () => {
     render(<GitHistoryList branch="main" />);
     flipToListView();
     expect(screen.queryByTestId("git-diff-modal")).toBeNull();
-    fireEvent.click(
-      screen.getByTestId(`git-history-row-diff-${userCommit.short_sha}`),
-    );
+    fireEvent.click(screen.getByTestId(`git-history-row-diff-${userCommit.short_sha}`));
     expect(screen.getByTestId("git-diff-modal")).toBeTruthy();
   });
 
@@ -157,9 +150,7 @@ describe("GitHistoryList", () => {
     );
     flipToListView();
     fireEvent.click(screen.getByTestId(`git-history-row-restore-${userCommit.short_sha}`));
-    expect(onRestoreClick).toHaveBeenCalledWith(
-      expect.objectContaining({ sha: userCommit.sha }),
-    );
+    expect(onRestoreClick).toHaveBeenCalledWith(expect.objectContaining({ sha: userCommit.sha }));
     expect(onCommitClick).not.toHaveBeenCalled();
   });
 
@@ -169,9 +160,7 @@ describe("GitHistoryList", () => {
     flipToListView();
     const row = screen.getByTestId(`git-history-row-${userCommit.short_sha}`);
     fireEvent.keyDown(row, { key: "d" });
-    expect(onCommitClick).toHaveBeenCalledWith(
-      expect.objectContaining({ sha: userCommit.sha }),
-    );
+    expect(onCommitClick).toHaveBeenCalledWith(expect.objectContaining({ sha: userCommit.sha }));
   });
 
   it("pressing the 'r' hotkey on a focused row dispatches onRestoreClick", () => {
@@ -180,9 +169,7 @@ describe("GitHistoryList", () => {
     flipToListView();
     const row = screen.getByTestId(`git-history-row-${userCommit.short_sha}`);
     fireEvent.keyDown(row, { key: "r" });
-    expect(onRestoreClick).toHaveBeenCalledWith(
-      expect.objectContaining({ sha: userCommit.sha }),
-    );
+    expect(onRestoreClick).toHaveBeenCalledWith(expect.objectContaining({ sha: userCommit.sha }));
   });
 
   it("pressing Enter on a focused row does nothing (no modal, no callback)", () => {
@@ -206,9 +193,7 @@ describe("GitHistoryList", () => {
     render(<GitHistoryList branch="main" />);
     flipToListView();
     const diffBtn = screen.getByTestId(`git-history-row-diff-${userCommit.short_sha}`);
-    const restoreBtn = screen.getByTestId(
-      `git-history-row-restore-${userCommit.short_sha}`,
-    );
+    const restoreBtn = screen.getByTestId(`git-history-row-restore-${userCommit.short_sha}`);
     // tabIndex 0 (or unset on a native <button>) is keyboard-focusable.
     expect(diffBtn.tagName).toBe("BUTTON");
     expect(restoreBtn.tagName).toBe("BUTTON");
@@ -232,5 +217,83 @@ describe("GitHistoryList", () => {
     flipToListView();
     fireEvent.click(screen.getByTestId("git-history-refresh"));
     expect(loadLog).toHaveBeenCalledWith("main");
+  });
+
+  // #1400: top-toolbar Diff/Restore work for both Graph and List views,
+  // driven by a shared `selectedCommit` state.
+  describe("#1400 top-toolbar Diff/Restore", () => {
+    it("top-toolbar Diff/Restore are disabled when no commit is selected", () => {
+      render(<GitHistoryList branch="main" />);
+      const diffBtn = screen.getByTestId("git-history-toolbar-diff");
+      const restoreBtn = screen.getByTestId("git-history-toolbar-restore");
+      expect(diffBtn).toBeDisabled();
+      expect(restoreBtn).toBeDisabled();
+      expect(screen.queryByTestId("git-history-toolbar-selection")).toBeNull();
+    });
+
+    it("clicking a list row selects the commit and enables the toolbar buttons", () => {
+      render(<GitHistoryList branch="main" />);
+      flipToListView();
+      fireEvent.click(screen.getByTestId(`git-history-row-${userCommit.short_sha}`));
+      expect(screen.getByTestId("git-history-toolbar-diff")).not.toBeDisabled();
+      expect(screen.getByTestId("git-history-toolbar-restore")).not.toBeDisabled();
+      expect(screen.getByTestId("git-history-toolbar-selection")).toHaveTextContent(
+        userCommit.short_sha,
+      );
+    });
+
+    it("top-toolbar Restore acts on the selected commit (List view)", () => {
+      const restore = vi.fn().mockResolvedValue(undefined);
+      useAppStore.setState({ restore });
+      vi.spyOn(window, "confirm").mockReturnValue(true);
+      render(<GitHistoryList branch="main" />);
+      flipToListView();
+      fireEvent.click(screen.getByTestId(`git-history-row-${userCommit.short_sha}`));
+      fireEvent.click(screen.getByTestId("git-history-toolbar-restore"));
+      expect(restore).toHaveBeenCalledWith(userCommit.sha);
+    });
+
+    it("top-toolbar Restore delegates to onRestoreClick when provided", () => {
+      const onRestoreClick = vi.fn();
+      render(<GitHistoryList branch="main" onRestoreClick={onRestoreClick} />);
+      flipToListView();
+      fireEvent.click(screen.getByTestId(`git-history-row-${userCommit.short_sha}`));
+      fireEvent.click(screen.getByTestId("git-history-toolbar-restore"));
+      expect(onRestoreClick).toHaveBeenCalledWith(userCommit);
+    });
+
+    it("top-toolbar Diff delegates to onCommitClick when provided", () => {
+      const onCommitClick = vi.fn();
+      render(<GitHistoryList branch="main" onCommitClick={onCommitClick} />);
+      flipToListView();
+      fireEvent.click(screen.getByTestId(`git-history-row-${userCommit.short_sha}`));
+      fireEvent.click(screen.getByTestId("git-history-toolbar-diff"));
+      expect(onCommitClick).toHaveBeenCalledWith(userCommit);
+    });
+
+    it("selecting a different row updates the toolbar's selection indicator", () => {
+      // Use the "all" filter so user/auto/agent commits are all visible.
+      useAppStore.setState({ historyFilter: "all" });
+      render(<GitHistoryList branch="main" />);
+      flipToListView();
+      fireEvent.click(screen.getByTestId(`git-history-row-${userCommit.short_sha}`));
+      expect(screen.getByTestId("git-history-toolbar-selection")).toHaveTextContent(
+        userCommit.short_sha,
+      );
+      fireEvent.click(screen.getByTestId(`git-history-row-${autoCommit.short_sha}`));
+      expect(screen.getByTestId("git-history-toolbar-selection")).toHaveTextContent(
+        autoCommit.short_sha,
+      );
+    });
+
+    it("toolbar buttons are visible in Graph view (default) too", () => {
+      // Graph view is the default. Buttons should render regardless of view,
+      // disabled until a commit is selected (graph-side selection wiring is
+      // exercised by the GraphSVG/interactions tests; here we only verify the
+      // toolbar renders in graph mode).
+      render(<GitHistoryList branch="main" />);
+      expect(screen.getByTestId("git-history-toolbar-diff")).toBeDisabled();
+      expect(screen.getByTestId("git-history-toolbar-restore")).toBeDisabled();
+    });
   });
 });

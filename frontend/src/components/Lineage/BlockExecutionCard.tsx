@@ -160,10 +160,7 @@
 import type { ReactElement } from "react";
 
 import { useAppStore } from "../../store";
-import type {
-  LineageBlockExecution,
-  LineageBlockTermination,
-} from "../../store/lineageSlice";
+import type { LineageBlockExecution, LineageBlockTermination } from "../../store/lineageSlice";
 
 export interface BlockExecutionCardProps {
   execution: LineageBlockExecution;
@@ -183,11 +180,7 @@ const TERMINATION_COLOR: Record<LineageBlockTermination, string> = {
   skipped: "text-stone-400",
 };
 
-function TerminationIcon({
-  termination,
-}: {
-  termination: LineageBlockTermination;
-}): ReactElement {
+function TerminationIcon({ termination }: { termination: LineageBlockTermination }): ReactElement {
   return (
     <>
       <span aria-hidden="true" className={TERMINATION_COLOR[termination]}>
@@ -209,9 +202,7 @@ function formatDuration(exec: LineageBlockExecution): string {
   return `${m}m ${s}s`;
 }
 
-export function BlockExecutionCard({
-  execution: exec,
-}: BlockExecutionCardProps): ReactElement {
+export function BlockExecutionCard({ execution: exec }: BlockExecutionCardProps): ReactElement {
   const expanded = useAppStore((s) =>
     s.expandedBlockExecutionIds.includes(exec.block_execution_id),
   );
@@ -236,9 +227,7 @@ export function BlockExecutionCard({
         <span className="text-xs text-stone-500">
           {exec.block_type} · v{exec.block_version}
         </span>
-        <span className="ml-auto text-xs text-stone-500">
-          {formatDuration(exec)}
-        </span>
+        <span className="ml-auto text-xs text-stone-500">{formatDuration(exec)}</span>
       </button>
 
       {expanded && (
@@ -274,13 +263,9 @@ export function BlockExecutionCard({
                       {io.port_name}[{io.position}]
                     </code>
                     <span className="text-stone-500">{io.type_name}</span>
-                    <code className="text-stone-500">
-                      {io.object_id.slice(0, 8)}
-                    </code>
+                    <code className="text-stone-500">{io.object_id.slice(0, 8)}</code>
                     {io.storage_path && (
-                      <span className="ml-auto text-stone-500">
-                        {io.storage_path}
-                      </span>
+                      <span className="ml-auto text-stone-500">{io.storage_path}</span>
                     )}
                   </li>
                 ))}
@@ -306,13 +291,9 @@ export function BlockExecutionCard({
                       {io.port_name}[{io.position}]
                     </code>
                     <span className="text-stone-500">{io.type_name}</span>
-                    <code className="text-stone-500">
-                      {io.object_id.slice(0, 8)}
-                    </code>
+                    <code className="text-stone-500">{io.object_id.slice(0, 8)}</code>
                     {io.storage_path && (
-                      <span className="ml-auto text-stone-500">
-                        {io.storage_path}
-                      </span>
+                      <span className="ml-auto text-stone-500">{io.storage_path}</span>
                     )}
                   </li>
                 ))}
@@ -321,10 +302,7 @@ export function BlockExecutionCard({
           </section>
 
           {exec.termination === "error" && exec.termination_detail && (
-            <section
-              className="mt-3 rounded bg-rose-50 p-2"
-              data-testid="block-card-error"
-            >
+            <section className="mt-3 rounded bg-rose-50 p-2" data-testid="block-card-error">
               <h5 className="text-xs font-semibold text-rose-700">Error</h5>
               <p className="text-xs text-rose-700">{exec.termination_detail}</p>
             </section>

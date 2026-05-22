@@ -212,10 +212,7 @@ describe("CapabilityDropdown", () => {
 
   it("ignores stale fetch responses (out-of-order responses do not clobber)", async () => {
     const firstResp: FormatCapabilityResponse[] = [fakeCapability("a")];
-    const secondResp: FormatCapabilityResponse[] = [
-      fakeCapability("b"),
-      fakeCapability("c"),
-    ];
+    const secondResp: FormatCapabilityResponse[] = [fakeCapability("b"), fakeCapability("c")];
 
     let resolveFirst!: (v: FormatCapabilityResponse[]) => void;
     const firstPromise = new Promise<FormatCapabilityResponse[]>((resolve) => {

@@ -28,14 +28,7 @@ import { useAppStore } from "../../store";
 
 import { ConflictResolveView } from "./ConflictResolveView";
 
-type Phase =
-  | "idle"
-  | "in_flight"
-  | "conflict"
-  | "completing"
-  | "aborting"
-  | "success"
-  | "error";
+type Phase = "idle" | "in_flight" | "conflict" | "completing" | "aborting" | "success" | "error";
 
 export interface MergeFlowProps {
   /** Branch the user wants to merge INTO the current branch. */
@@ -87,9 +80,7 @@ export function MergeFlow(props: MergeFlowProps): JSX.Element | null {
     try {
       const result = await api.gitMerge(sourceBranch);
       if (result.result === "fast-forward") {
-        setSuccessMessage(
-          `Fast-forwarded ${currentBranch ?? "current"} to ${sourceBranch}.`,
-        );
+        setSuccessMessage(`Fast-forwarded ${currentBranch ?? "current"} to ${sourceBranch}.`);
         setPhase("success");
         setMergeInProgress(null);
         invalidateHistory();
@@ -122,14 +113,7 @@ export function MergeFlow(props: MergeFlowProps): JSX.Element | null {
       setError(describeError(err));
       setPhase("error");
     }
-  }, [
-    sourceBranch,
-    currentBranch,
-    setMergeInProgress,
-    invalidateHistory,
-    loadLog,
-    loadStatus,
-  ]);
+  }, [sourceBranch, currentBranch, setMergeInProgress, invalidateHistory, loadLog, loadStatus]);
 
   // Kick off the merge when the modal opens.
   useEffect(() => {
@@ -164,19 +148,10 @@ export function MergeFlow(props: MergeFlowProps): JSX.Element | null {
       setError(describeError(err));
       setPhase("conflict");
     }
-  }, [
-    sourceBranch,
-    currentBranch,
-    setMergeInProgress,
-    invalidateHistory,
-    loadLog,
-    loadStatus,
-  ]);
+  }, [sourceBranch, currentBranch, setMergeInProgress, invalidateHistory, loadLog, loadStatus]);
 
   const handleAbort = useCallback(async () => {
-    const ok = window.confirm(
-      "Discard the in-progress merge? All resolution work will be lost.",
-    );
+    const ok = window.confirm("Discard the in-progress merge? All resolution work will be lost.");
     if (!ok) return;
     setPhase("aborting");
     setError(null);
@@ -254,8 +229,8 @@ export function MergeFlow(props: MergeFlowProps): JSX.Element | null {
           ) : phase === "conflict" || phase === "completing" || phase === "aborting" ? (
             <div data-testid="merge-flow-conflict" className="flex h-full flex-col">
               <p className="border-b border-stone-200 pb-2 text-sm text-stone-700">
-                {conflictedFiles.length} files have conflicts. Resolve each,
-                then click Complete Merge.
+                {conflictedFiles.length} files have conflicts. Resolve each, then click Complete
+                Merge.
               </p>
               {error ? (
                 <div
@@ -273,27 +248,18 @@ export function MergeFlow(props: MergeFlowProps): JSX.Element | null {
                 onAbort={handleAbort}
               />
               {phase === "completing" ? (
-                <p
-                  data-testid="merge-flow-completing"
-                  className="mt-2 text-xs text-stone-500"
-                >
+                <p data-testid="merge-flow-completing" className="mt-2 text-xs text-stone-500">
                   Finalizing merge…
                 </p>
               ) : null}
               {phase === "aborting" ? (
-                <p
-                  data-testid="merge-flow-aborting"
-                  className="mt-2 text-xs text-stone-500"
-                >
+                <p data-testid="merge-flow-aborting" className="mt-2 text-xs text-stone-500">
                   Aborting merge…
                 </p>
               ) : null}
             </div>
           ) : phase === "success" ? (
-            <div
-              data-testid="merge-flow-success"
-              className="p-4 text-sm text-green-700"
-            >
+            <div data-testid="merge-flow-success" className="p-4 text-sm text-green-700">
               {successMessage ?? "Merge succeeded."}
             </div>
           ) : phase === "error" ? (

@@ -10,7 +10,8 @@ Flow
 Whenever setuptools runs the ``build_py`` command (which happens during
 wheel building, source installs, and editable installs), we:
 
-1. Check whether ``src/scistudio/api/static/index.html`` already exists.
+1. Check whether ``src/scistudio/api/static/`` already contains a complete
+   SPA bundle: ``index.html``, ``assets/``, and at least one JavaScript asset.
    If yes, we assume a previous invocation (or a pre-built sdist) already
    populated it and skip the build. This keeps offline / no-Node installs
    working as long as the static dir was pre-populated.
@@ -29,6 +30,7 @@ running this hook.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -47,8 +49,17 @@ def _log(msg: str) -> None:
     print(f"[scistudio-build] {msg}", file=sys.stderr)
 
 
+def _is_complete_spa_bundle(static_dir: Path) -> bool:
+    assets_dir = static_dir / "assets"
+    return (
+        (static_dir / "index.html").is_file()
+        and assets_dir.is_dir()
+        and any(path.is_file() for path in assets_dir.rglob("*.js"))
+    )
+
+
 def _has_prebuilt_spa() -> bool:
-    return (_PACKAGED_STATIC / "index.html").is_file()
+    return _is_complete_spa_bundle(_PACKAGED_STATIC)
 
 
 def _npm_available() -> bool:
@@ -56,17 +67,23 @@ def _npm_available() -> bool:
     return shutil.which("npm") is not None
 
 
-def _run_frontend_build() -> None:
+def _run_frontend_build(*, required: bool = False) -> None:
     if not _FRONTEND_DIR.is_dir():
-        _log(f"no frontend/ directory at {_FRONTEND_DIR}; skipping SPA build")
+        msg = f"no frontend/ directory at {_FRONTEND_DIR}; skipping SPA build"
+        if required:
+            raise RuntimeError(msg)
+        _log(msg)
         return
 
     if not _npm_available():
-        _log(
+        msg = (
             "npm not found on PATH; skipping SPA build. Install Node.js to "
             "bundle the SPA, or set SCISTUDIO_SKIP_FRONTEND_BUILD=1 to silence "
             "this warning. The runtime will redirect GET / to /docs."
         )
+        if required:
+            raise RuntimeError(msg)
+        _log(msg)
         return
 
     _log("running `npm ci` in frontend/")
@@ -74,8 +91,11 @@ def _run_frontend_build() -> None:
     _log("running `npm run build` in frontend/")
     subprocess.check_call(["npm", "run", "build"], cwd=_FRONTEND_DIR, shell=sys.platform == "win32")
 
-    if not (_FRONTEND_DIST / "index.html").is_file():
-        raise RuntimeError(f"frontend build did not produce {_FRONTEND_DIST / 'index.html'}")
+    if not _is_complete_spa_bundle(_FRONTEND_DIST):
+        raise RuntimeError(
+            "frontend build did not produce a complete SPA bundle "
+            f"(expected index.html, assets/, and at least one JS asset under {_FRONTEND_DIST})"
+        )
 
     if _PACKAGED_STATIC.exists():
         shutil.rmtree(_PACKAGED_STATIC)
@@ -87,18 +107,21 @@ class build_py(_build_py):  # noqa: N801 - setuptools command name must stay low
     """Extend ``build_py`` to bundle the frontend SPA before collecting package data."""
 
     def run(self) -> None:
-        import os
-
         if os.environ.get("SCISTUDIO_SKIP_FRONTEND_BUILD") == "1":
             _log("SCISTUDIO_SKIP_FRONTEND_BUILD=1 set; skipping SPA build")
         elif _has_prebuilt_spa():
             _log(f"found pre-built SPA at {_PACKAGED_STATIC}; skipping rebuild")
         else:
+            required = os.environ.get("SCISTUDIO_REQUIRE_FRONTEND_BUILD") == "1"
             try:
-                _run_frontend_build()
+                _run_frontend_build(required=required)
             except subprocess.CalledProcessError as exc:
+                if required:
+                    raise RuntimeError(f"frontend build failed with exit {exc.returncode}") from exc
                 _log(f"frontend build failed with exit {exc.returncode}; continuing without SPA")
             except Exception as exc:  # pragma: no cover - defensive
+                if required:
+                    raise
                 _log(f"unexpected error bundling frontend SPA: {exc!r}; continuing without SPA")
         super().run()
 
