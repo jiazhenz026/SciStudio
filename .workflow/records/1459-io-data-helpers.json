@@ -1,6 +1,15 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1459-io-data-helpers.json"
+      ],
+      "reason": "Add gate-record file itself to scope (required for ADR-042 self-attribution)"
+    }
+  ],
   "branch": "refactor/issue-1459/io-data-helpers",
   "changed_test_paths": [
     "tests/blocks/io/test_io_data_helpers_layout.py"
@@ -144,7 +153,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
