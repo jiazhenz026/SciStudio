@@ -16,6 +16,7 @@ from scistudio.core.versioning.git_engine import GitEngine, GitError
 from scistudio.engine.events import WORKFLOW_CHANGED, EngineEvent
 
 logger = logging.getLogger(__name__)
+_WORKFLOW_ENTITY_CLASS = "workflow"
 
 router = APIRouter(prefix="/api/git", tags=["git"])
 
@@ -121,9 +122,12 @@ def _snapshot_workflows(project_dir: Path) -> dict[str, str | None]:
 
 
 async def _emit_workflow_diff(
-    event_bus: Any,
+    runtime: Any,
     project_dir: Path,
     before: dict[str, str | None],
+    *,
+    source: str,
+    source_id: str | None = None,
 ) -> None:
     """Diff *before* against the current on-disk state, emit ``workflow.changed``
     once per changed file.
@@ -162,16 +166,32 @@ async def _emit_workflow_diff(
         else:
             kind = "modified"
         workflow_id = Path(relative).stem
+        workflow_path = project_dir / relative
+        version = runtime.bump_workflow_version(workflow_id)
+        runtime.mark_workflow_first_party_write(workflow_id, version, path=workflow_path, kind=kind)
+        if workflow_path.exists():
+            try:
+                from scistudio.api.routes.workflow_watcher import mark_self_write
+
+                mark_self_write(workflow_path)
+            except Exception:
+                logger.debug("git endpoint: mark_self_write failed for %s", workflow_path, exc_info=True)
+        payload = runtime.versioned_change_payload(
+            entity_class=_WORKFLOW_ENTITY_CLASS,
+            entity_id=workflow_id,
+            version=version,
+            source=source,
+            source_id=source_id,
+            kind=kind,
+            workflow_id=workflow_id,
+            path=relative,
+            changed_by="git",
+        )
         try:
-            await event_bus.emit(
+            await runtime.event_bus.emit(
                 EngineEvent(
                     event_type=WORKFLOW_CHANGED,
-                    data={
-                        "workflow_id": workflow_id,
-                        "path": relative,
-                        "kind": kind,
-                        "changed_by": "git",
-                    },
+                    data=payload,
                 )
             )
         except Exception:
@@ -346,7 +366,7 @@ async def restore(request: Request, body: RestoreRequest) -> dict[str, Any]:
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
     # Hotfix #988: emit per-file workflow.changed so the canvas reloads.
-    await _emit_workflow_diff(runtime.event_bus, project_dir, before)
+    await _emit_workflow_diff(runtime, project_dir, before, source="gitRestore", source_id=body.commit_sha)
     return {"status": "ok", "auto_commit_sha": auto_sha}
 
 
@@ -433,7 +453,7 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
     # each workflow YAML that the branch switch rewrote. See
     # ``_snapshot_workflows`` docstring for why this can't rely on the
     # filesystem watcher.
-    await _emit_workflow_diff(runtime.event_bus, project_dir, before)
+    await _emit_workflow_diff(runtime, project_dir, before, source="gitRestore", source_id=body.branch_name)
     return {
         "status": "ok",
         "current_branch": body.branch_name,
@@ -563,7 +583,7 @@ async def merge(request: Request, body: MergeRequest) -> dict[str, Any]:
     # workflow.changed even when conflicted_files is non-empty so the user
     # sees both the conflict UI AND the canvas reflecting the pre-conflict
     # half of the merge that did apply.
-    await _emit_workflow_diff(runtime.event_bus, project_dir, before)
+    await _emit_workflow_diff(runtime, project_dir, before, source="gitRestore", source_id=body.source_branch)
     return result
 
 
@@ -578,7 +598,7 @@ async def cherry_pick(request: Request, body: CherryPickRequest) -> dict[str, An
         result = engine.cherry_pick(body.commit_sha)
     except GitError as exc:
         raise _git_error_to_http(exc) from exc
-    await _emit_workflow_diff(runtime.event_bus, project_dir, before)
+    await _emit_workflow_diff(runtime, project_dir, before, source="gitRestore", source_id=body.commit_sha)
     return result
 
 
@@ -614,7 +634,7 @@ async def merge_complete(request: Request) -> dict[str, str]:
     # Merge-complete is the final write in a conflict-resolution flow:
     # the staged conflict resolutions become the working tree. Emit so
     # the canvas reflects the resolved YAML.
-    await _emit_workflow_diff(runtime.event_bus, project_dir, before)
+    await _emit_workflow_diff(runtime, project_dir, before, source="gitRestore", source_id=sha)
     return {"status": "ok", "commit_sha": sha}
 
 
@@ -631,5 +651,5 @@ async def merge_abort(request: Request) -> dict[str, str]:
         raise _git_error_to_http(exc) from exc
     # Abort rewinds the working tree to the pre-merge state — workflow
     # YAML files revert too.
-    await _emit_workflow_diff(runtime.event_bus, project_dir, before)
+    await _emit_workflow_diff(runtime, project_dir, before, source="gitRestore", source_id="merge-abort")
     return {"status": "ok"}

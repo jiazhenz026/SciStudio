@@ -76,6 +76,7 @@ import time
 import unicodedata
 from collections import deque
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
 from typing import Any
@@ -90,9 +91,13 @@ from watchdog.events import (
 )
 from watchdog.observers import Observer
 
+from scistudio.api.file_contracts import ADR036_FILE_ALLOWLIST, FILE_CHANGED_EVENT_TYPE, FILE_ENTITY_CLASS
 from scistudio.engine.events import GIT_HEAD_CHANGED, WORKFLOW_CHANGED, EngineEvent, EventBus
 
 logger = logging.getLogger(__name__)
+_WORKFLOW_ENTITY_CLASS = "workflow"
+_PROJECT_FILE_IGNORED_PARTS = {".git", ".scistudio", "__pycache__", "node_modules"}
+_SCISTUDIO_TEMPFILE_PREFIX = ".__scistudio_write_"
 
 # Debounce window per path (ADR-034 §3.6: "Coalesce rapid writes within 200ms").
 _DEBOUNCE_SECONDS = 0.2
@@ -139,6 +144,25 @@ def _is_yaml(path: Path | str) -> bool:
     return Path(path).suffix.lower() in {".yaml", ".yml"}
 
 
+def _path_and_kind_for(event: FileSystemEvent) -> tuple[Path, str] | None:
+    kind = _kind_for(event)
+    if kind is None:
+        return None
+
+    raw_path: bytes | str | None
+    if isinstance(event, FileMovedEvent):
+        dest = getattr(event, "dest_path", None)
+        raw_path = dest if dest else event.src_path
+        kind = "created"
+    else:
+        raw_path = event.src_path if hasattr(event, "src_path") else None
+    if not raw_path:
+        return None
+    if isinstance(raw_path, bytes):
+        raw_path = raw_path.decode("utf-8", errors="replace")
+    return Path(raw_path), kind
+
+
 class _WorkflowFileHandler(FileSystemEventHandler):
     """Bridge from watchdog events into the SciStudio ``EventBus``.
 
@@ -158,11 +182,13 @@ class _WorkflowFileHandler(FileSystemEventHandler):
         project_dir: Path,
         broadcast: Callable[[dict[str, Any]], Any],
         loop: asyncio.AbstractEventLoop | None,
+        runtime: Any | None = None,
     ) -> None:
         super().__init__()
         self._project_dir = _normalise(project_dir)
         self._broadcast = broadcast
         self._loop = loop
+        self._runtime = runtime
         self._last_emit: dict[Path, float] = {}
         self._self_writes: deque[tuple[Path, float, int]] = deque(maxlen=_SELF_WRITE_DEQUE_CAP)
         self._lock = RLock()
@@ -197,38 +223,59 @@ class _WorkflowFileHandler(FileSystemEventHandler):
                     return True
         return False
 
+    def _debounced(self, path: Path) -> bool:
+        normalised = _normalise(path)
+        now = time.monotonic()
+        with self._lock:
+            last = self._last_emit.get(normalised, 0.0)
+            if now - last < _DEBOUNCE_SECONDS:
+                return True
+            self._last_emit[normalised] = now
+        return False
+
+    def _emit_payload(self, payload: dict[str, Any]) -> None:
+        if self._loop is None:
+            try:
+                self._broadcast(payload)
+            except Exception:
+                logger.exception("workflow_watcher: synchronous broadcast failed")
+            return
+        try:
+            asyncio.run_coroutine_threadsafe(self._dispatch(payload), self._loop)
+        except RuntimeError:
+            logger.warning("workflow_watcher: asyncio loop closed; dropping event")
+
     # -- watchdog callbacks ------------------------------------------------
 
     def on_any_event(self, event: FileSystemEvent) -> None:
         # We forward via on_any_event so all four kinds (modified/created/
         # deleted/moved) flow through a single debounce + filter pipeline.
-        kind = _kind_for(event)
-        if kind is None:
+        parsed = _path_and_kind_for(event)
+        if parsed is None:
             return
+        path, kind = parsed
 
         # For FileMovedEvent we want ``dest_path`` (the *new* name) — atomic
         # writes on Windows + POSIX both materialise as ``tmp.XYZ`` →
         # rename → final.yaml, so the only event whose path matches the
         # final filename is the move's destination. For all other kinds
         # ``src_path`` is the canonical key.
-        raw_path: bytes | str | None
-        if isinstance(event, FileMovedEvent):
-            dest = getattr(event, "dest_path", None)
-            raw_path = dest if dest else event.src_path
-        else:
-            raw_path = event.src_path if hasattr(event, "src_path") else None
-        if not raw_path:
-            return
-        if isinstance(raw_path, bytes):
-            raw_path = raw_path.decode("utf-8", errors="replace")
-        path = Path(raw_path)
         if not _is_yaml(path):
             return
-        # Promote a move-into-watched-tree to ``created`` semantically:
-        # what the canvas cares about is "a workflow YAML appeared", not
-        # the underlying atomic-write mechanics.
-        if isinstance(event, FileMovedEvent):
-            kind = "created"
+        normalised = _normalise(path)
+        workflow_id = normalised.stem
+
+        if self._runtime is not None and self._runtime.is_recent_workflow_first_party_write(
+            workflow_id,
+            path=path,
+            kind=kind,
+        ):
+            logger.debug(
+                "workflow_watcher: suppressing first-party workflow event %s %s",
+                kind,
+                path,
+            )
+            return
 
         # Suppress spurious deletes that fire as part of an atomic
         # replace (``os.replace(tmp, existing.yaml)`` on Windows emits a
@@ -245,20 +292,14 @@ class _WorkflowFileHandler(FileSystemEventHandler):
             )
             return
 
-        normalised = _normalise(path)
-
         # Self-write suppression (only meaningful for events on existing
         # files; deletions cannot match a (path, mtime, size) tuple).
         if kind in {"modified", "created"} and self._is_self_write(path):
             logger.debug("workflow_watcher: suppressing self-write event %s %s", kind, path)
             return
 
-        now = time.monotonic()
-        with self._lock:
-            last = self._last_emit.get(normalised, 0.0)
-            if now - last < _DEBOUNCE_SECONDS:
-                return
-            self._last_emit[normalised] = now
+        if self._debounced(path):
+            return
 
         try:
             relative = normalised.relative_to(self._project_dir)
@@ -267,30 +308,56 @@ class _WorkflowFileHandler(FileSystemEventHandler):
             # happen because we watch project_dir/workflows, but be safe.
             relative = normalised
 
-        payload: dict[str, Any] = {
-            "type": "workflow.changed",
-            "path": str(relative).replace("\\", "/"),
-            "kind": kind,
-            "workflow_id": normalised.stem,
-            "changed_by": "watcher",
-        }
-        logger.debug("workflow_watcher: emitting %s for %s", kind, payload["path"])
-
-        if self._loop is None:
-            # Synchronous broadcast path used by unit tests.
+        relative_path = str(relative).replace("\\", "/")
+        if self._runtime is not None:
+            # ADR-045 §3.3: emit only when ``inferred_version >
+            # last_known_version`` (see same guard in _ProjectFileHandler).
             try:
-                self._broadcast(payload)
-            except Exception:
-                logger.exception("workflow_watcher: synchronous broadcast failed")
-            return
-
-        # Watchdog dispatches callbacks on its own thread; hop back onto the
-        # asyncio loop so EventBus.emit's awaitable callbacks (e.g. WS sends)
-        # run in the right context.
-        try:
-            asyncio.run_coroutine_threadsafe(self._dispatch(payload), self._loop)
-        except RuntimeError:
-            logger.warning("workflow_watcher: asyncio loop closed; dropping event")
+                disk_mtime = int(path.stat().st_mtime_ns)
+            except OSError:
+                disk_mtime = 0
+            cached_version = self._runtime.current_workflow_version(workflow_id)
+            if disk_mtime and disk_mtime <= cached_version:
+                logger.debug(
+                    "workflow_watcher: skipping delayed-echo workflow event %s %s (disk %d <= cached %d)",
+                    kind,
+                    path,
+                    disk_mtime,
+                    cached_version,
+                )
+                return
+            version = self._runtime.bump_workflow_version(workflow_id)
+            payload = self._runtime.versioned_change_payload(
+                entity_class=_WORKFLOW_ENTITY_CLASS,
+                entity_id=workflow_id,
+                version=version,
+                source="external",
+                source_id=None,
+                kind=kind,
+                workflow_id=workflow_id,
+                path=relative_path,
+                changed_by="watcher",
+            )
+        else:
+            try:
+                version = int(path.stat().st_mtime_ns)
+            except OSError:
+                version = 0
+            payload = {
+                "entity_class": _WORKFLOW_ENTITY_CLASS,
+                "entity_id": workflow_id,
+                "version": version,
+                "source": "external",
+                "source_id": None,
+                "kind": kind,
+                "timestamp": datetime.now(tz=UTC).isoformat(),
+                "workflow_id": workflow_id,
+                "path": relative_path,
+                "changed_by": "watcher",
+            }
+        payload["type"] = "workflow.changed"
+        logger.debug("workflow_watcher: emitting %s for %s", kind, payload["path"])
+        self._emit_payload(payload)
 
     async def _dispatch(self, payload: dict[str, Any]) -> None:
         try:
@@ -299,6 +366,124 @@ class _WorkflowFileHandler(FileSystemEventHandler):
                 await result
         except Exception:
             logger.exception("workflow_watcher: broadcast failed for %s", payload.get("path"))
+
+
+class _ProjectFileHandler(_WorkflowFileHandler):
+    """Emit ADR-045 ``file.changed`` events for editable external file writes."""
+
+    def _entity_id_for(self, path: Path) -> str | None:
+        try:
+            normalised = _normalise(path)
+            relative = normalised.relative_to(self._project_dir)
+        except ValueError:
+            return None
+        parts = relative.parts
+        if not parts:
+            return None
+        if parts[0] == "workflows":
+            return None
+        if any(part in _PROJECT_FILE_IGNORED_PARTS for part in parts):
+            return None
+        if normalised.name.startswith(_SCISTUDIO_TEMPFILE_PREFIX):
+            return None
+        if normalised.suffix.lower() not in ADR036_FILE_ALLOWLIST:
+            return None
+        return relative.as_posix()
+
+    def on_any_event(self, event: FileSystemEvent) -> None:
+        parsed = _path_and_kind_for(event)
+        if parsed is None:
+            return
+        path, kind = parsed
+        entity_id = self._entity_id_for(path)
+        if entity_id is None:
+            return
+
+        if self._runtime is not None and self._runtime.is_recent_first_party_entity_write(
+            FILE_ENTITY_CLASS,
+            entity_id,
+            path=path,
+            kind=kind,
+        ):
+            logger.debug(
+                "workflow_watcher: suppressing first-party file event %s %s",
+                kind,
+                path,
+            )
+            return
+
+        if kind == "deleted" and path.exists():
+            logger.debug(
+                "workflow_watcher: suppressing transient file delete (file still exists): %s",
+                path,
+            )
+            return
+
+        if kind in {"modified", "created"} and self._is_self_write(path):
+            logger.debug("workflow_watcher: suppressing self-write file event %s %s", kind, path)
+            return
+
+        if self._debounced(path):
+            return
+
+        project_id = None
+        if self._runtime is not None and getattr(self._runtime, "active_project", None) is not None:
+            project_id = self._runtime.active_project.id
+
+        if self._runtime is not None:
+            # ADR-045 §3.3: emit only when ``inferred_version >
+            # last_known_version``. Without this guard, a delayed inotify
+            # event that fires AFTER the entity's version was already
+            # observed via GET would double-bump (the GET seeded the cache
+            # with disk mtime_ns; the watcher would unconditionally
+            # increment, ending up at disk_mtime + 1 while the disk has not
+            # actually changed).
+            try:
+                disk_mtime = int(path.stat().st_mtime_ns)
+            except OSError:
+                disk_mtime = 0
+            cached_version = self._runtime.current_entity_version(FILE_ENTITY_CLASS, entity_id, path=path)
+            if disk_mtime and disk_mtime <= cached_version:
+                logger.debug(
+                    "workflow_watcher: skipping delayed-echo file event %s %s (disk %d <= cached %d)",
+                    kind,
+                    path,
+                    disk_mtime,
+                    cached_version,
+                )
+                return
+            version = self._runtime.bump_entity_version(FILE_ENTITY_CLASS, entity_id, path=path)
+            payload = self._runtime.versioned_change_payload(
+                entity_class=FILE_ENTITY_CLASS,
+                entity_id=entity_id,
+                version=version,
+                source="external",
+                source_id=None,
+                kind=kind,
+                project_id=project_id,
+                path=entity_id,
+                changed_by="watcher",
+            )
+        else:
+            try:
+                version = int(path.stat().st_mtime_ns)
+            except OSError:
+                version = 0
+            payload = {
+                "entity_class": FILE_ENTITY_CLASS,
+                "entity_id": entity_id,
+                "version": version,
+                "source": "external",
+                "source_id": None,
+                "kind": kind,
+                "timestamp": datetime.now(tz=UTC).isoformat(),
+                "project_id": project_id,
+                "path": entity_id,
+                "changed_by": "watcher",
+            }
+        payload["type"] = FILE_CHANGED_EVENT_TYPE
+        logger.debug("workflow_watcher: emitting file.%s for %s", kind, payload["path"])
+        self._emit_payload(payload)
 
 
 class _GitHeadHandler(FileSystemEventHandler):
@@ -473,10 +658,11 @@ class WorkflowWatcher:
     changes; calling it again is idempotent (it stops the previous
     observers and replaces them).
 
-    The watcher manages **two** schedules per project:
+    The watcher manages three schedules per project:
 
     1. ``<project>/workflows/`` for canvas-relevant YAML edits (ADR-034).
-    2. ``<project>/.git/`` for HEAD + ``refs/heads/*`` movements
+    2. ``<project>/`` for editable file-tab external writes (ADR-045).
+    3. ``<project>/.git/`` for HEAD + ``refs/heads/*`` movements
        (ADR-039 §3.8). Silently skipped when the project is not a git
        repo yet (no ``.git`` directory) — D39-2.2a/b's auto-init will
        create it later.
@@ -489,10 +675,12 @@ class WorkflowWatcher:
 
     def __init__(self, event_bus: EventBus) -> None:
         self._event_bus = event_bus
+        self._runtime = getattr(event_bus, "runtime", None)
         # watchdog's Observer is a factory function, not a class — mypy
         # cannot use it as a type annotation. We store it as ``Any``.
         self._observer: Any = None
         self._handler: _WorkflowFileHandler | None = None
+        self._file_handler: _ProjectFileHandler | None = None
         self._git_handler: _GitHeadHandler | None = None
         self._watched_dir: Path | None = None
         self._watched_git_dir: Path | None = None
@@ -509,6 +697,10 @@ class WorkflowWatcher:
     @property
     def handler(self) -> _WorkflowFileHandler | None:
         return self._handler
+
+    @property
+    def file_handler(self) -> _ProjectFileHandler | None:
+        return self._file_handler
 
     @property
     def git_handler(self) -> _GitHeadHandler | None:
@@ -557,10 +749,18 @@ class WorkflowWatcher:
                 project_dir=project_dir,
                 broadcast=self._broadcast_to_event_bus,
                 loop=loop,
+                runtime=self._runtime,
+            )
+            file_handler = _ProjectFileHandler(
+                project_dir=project_dir,
+                broadcast=self._broadcast_file_to_event_bus,
+                loop=loop,
+                runtime=self._runtime,
             )
             observer = Observer()
             try:
                 observer.schedule(handler, str(workflows_dir), recursive=True)
+                observer.schedule(file_handler, str(project_dir), recursive=True)
                 # ADR-039 §3.8: also watch the project's .git directory if
                 # one exists. The handler filters down to HEAD + refs/heads/
                 # internally so the schedule itself can stay recursive (we
@@ -592,6 +792,7 @@ class WorkflowWatcher:
                 return
             self._observer = observer
             self._handler = handler
+            self._file_handler = file_handler
             self._git_handler = git_handler
             self._watched_dir = workflows_dir
             self._watched_git_dir = watched_git
@@ -607,6 +808,7 @@ class WorkflowWatcher:
             obs = self._observer
             self._observer = None
             self._handler = None
+            self._file_handler = None
             self._git_handler = None
             self._watched_dir = None
             self._watched_git_dir = None
@@ -619,23 +821,32 @@ class WorkflowWatcher:
             logger.warning("workflow_watcher: observer stop raised", exc_info=True)
 
     def mark_self_write(self, path: Path) -> None:
-        """Record that the canvas just wrote *path*; suppress the next echo."""
+        """Record that a first-party write touched *path*; suppress the next echo."""
         with self._lock:
             handler = self._handler
+            file_handler = self._file_handler
         if handler is not None:
             handler.mark_self_write(path)
+        if file_handler is not None:
+            file_handler.mark_self_write(path)
 
     async def _broadcast_to_event_bus(self, payload: dict[str, Any]) -> None:
         """Emit a ``workflow.changed`` EngineEvent so /ws forwards it."""
+        data = {key: value for key, value in payload.items() if key != "type"}
         await self._event_bus.emit(
             EngineEvent(
                 event_type=WORKFLOW_CHANGED,
-                data={
-                    "workflow_id": payload.get("workflow_id"),
-                    "path": payload.get("path"),
-                    "kind": payload.get("kind"),
-                    "changed_by": payload.get("changed_by", "watcher"),
-                },
+                data=data,
+            )
+        )
+
+    async def _broadcast_file_to_event_bus(self, payload: dict[str, Any]) -> None:
+        """Emit a ``file.changed`` EngineEvent so /ws forwards it."""
+        data = {key: value for key, value in payload.items() if key != "type"}
+        await self._event_bus.emit(
+            EngineEvent(
+                event_type=FILE_CHANGED_EVENT_TYPE,
+                data=data,
             )
         )
 

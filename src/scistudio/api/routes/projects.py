@@ -5,22 +5,25 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from scistudio.api.deps import get_runtime
-from scistudio.api.runtime import ApiRuntime
+from scistudio.api.file_contracts import ADR036_FILE_ALLOWLIST, FILE_CHANGED_EVENT_TYPE
+from scistudio.api.runtime import FILE_ENTITY_CLASS, ApiRuntime
 from scistudio.api.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
 from scistudio.engine.events import EngineEvent
 
-# ADR-036 §3.5 (I36c) — string event type for the WS-broadcast that fires
+# ADR-036 搂3.5 (I36c) 鈥?string event type for the WS-broadcast that fires
 # after a successful, lint-passing PUT to ``blocks/*.py``. Declared here
 # (not in scistudio.engine.events) because the events module is frozen by
 # the dispatch's hard-scope rules; subscribers can opt in by string.
 BLOCKS_RELOADED_EVENT_TYPE: str = "blocks.reloaded"
+_API_SOURCES = {"canvas", "agent", "gitRestore", "import", "external"}
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +48,7 @@ async def list_projects(runtime: RuntimeDep) -> list[ProjectResponse]:
 
 
 # ---------------------------------------------------------------------------
-# ADR-036 §3.2 — File read/write endpoints (skeleton, returns 501)
+# ADR-036 搂3.2 鈥?File read/write endpoints (skeleton, returns 501)
 #
 # These endpoints back the embedded code editor (Monaco). They serve a single
 # project-relative file as text, scoped to a per-project root, with an
@@ -53,7 +56,7 @@ async def list_projects(runtime: RuntimeDep) -> list[ProjectResponse]:
 # workflow filesystem watcher so the user's own save does not echo back as
 # an external-change event.
 #
-# IMPORTANT — route ordering:
+# IMPORTANT 鈥?route ordering:
 # These ``/{project_id:path}/file`` routes MUST be declared BEFORE the
 # greedy ``/{project_id:path}`` GET/PUT/DELETE handlers below. FastAPI
 # matches routes in declaration order, and ``{project_id:path}`` would
@@ -63,31 +66,16 @@ async def list_projects(runtime: RuntimeDep) -> list[ProjectResponse]:
 #
 # Implementation phase agents (I36a) replace each ``raise NotImplementedError``
 # below with the real handler. Read the docstring + comment block above each
-# stub before coding — it captures the full contract the handler must honour.
+# stub before coding 鈥?it captures the full contract the handler must honour.
 # ---------------------------------------------------------------------------
 
 
-# Module-level constants — implementation phase wires them in. Defining them
-# here in the skeleton makes the contract obvious and also gives the test
-# stubs something to import without forcing the real handler to exist.
-ADR036_FILE_ALLOWLIST: tuple[str, ...] = (
-    ".py",
-    ".txt",
-    ".md",
-    ".yaml",
-    ".yml",
-    ".json",
-    ".csv",
-    ".log",
-)
-"""Allowed file extensions for ADR-036 file GET/PUT (per ADR-036 §3.2)."""
-
 ADR036_FILE_SIZE_CAP_BYTES: int = 10 * 1024 * 1024
-"""Hard upper bound on file size returned/accepted by GET/PUT (per ADR-036 §3.2)."""
+"""Hard upper bound on file size returned/accepted by GET/PUT (per ADR-036 搂3.2)."""
 
 
 class FileReadResponse(BaseModel):
-    """Skeleton — response body shape for GET file endpoint (per ADR-036 §3.2).
+    """Skeleton 鈥?response body shape for GET file endpoint (per ADR-036 搂3.2).
 
     The real handler returns this exact shape; tests assert the shape stays
     stable.
@@ -97,19 +85,90 @@ class FileReadResponse(BaseModel):
     mtime: float
     size: int
     encoding: str = "utf-8"
+    state_version: int
+    entity_class: str = FILE_ENTITY_CLASS
+    entity_id: str
+    source: str | None = None
+    source_id: str | None = None
+    kind: str = "current"
+    timestamp: str
 
 
 class FileWriteRequest(BaseModel):
-    """Skeleton — request body shape for PUT file endpoint (per ADR-036 §3.2)."""
+    """Skeleton 鈥?request body shape for PUT file endpoint (per ADR-036 搂3.2)."""
 
     content: str
+    source: str | None = None
+    source_id: str | None = None
 
 
 class FileWriteResponse(BaseModel):
-    """Skeleton — response body shape for PUT file endpoint (per ADR-036 §3.2)."""
+    """Skeleton 鈥?response body shape for PUT file endpoint (per ADR-036 搂3.2)."""
 
     mtime: float
     size: int
+    state_version: int
+    entity_class: str = FILE_ENTITY_CLASS
+    entity_id: str
+    source: str
+    source_id: str | None = None
+    kind: str
+    timestamp: str
+
+
+def _now_iso() -> str:
+    return datetime.now(tz=UTC).isoformat()
+
+
+def _project_relative_entity_id(project_root: Path, target: Path) -> str:
+    """Return the ADR-045 file entity id for a sandboxed project file."""
+    try:
+        relative = target.relative_to(project_root)
+    except ValueError:
+        relative = Path(os.path.relpath(target, project_root))
+    return str(relative).replace("\\", "/")
+
+
+def _request_source_id(request: Request, body: FileWriteRequest) -> str | None:
+    return body.source_id or request.headers.get("X-Source-Id") or request.headers.get("X-File-Source-Id")
+
+
+def _request_source(request: Request, body: FileWriteRequest) -> str:
+    explicit = body.source or request.headers.get("X-File-Source") or request.headers.get("X-Source")
+    if explicit in _API_SOURCES:
+        return explicit
+    changed_by = request.headers.get("X-Changed-By")
+    if changed_by and changed_by not in {"api", "canvas"}:
+        return "agent"
+    return "canvas"
+
+
+async def _emit_file_changed(
+    runtime: ApiRuntime,
+    *,
+    entity_id: str,
+    target: Path,
+    project_id: str,
+    source: str,
+    source_id: str | None,
+    kind: str,
+    changed_by: str | None,
+) -> dict[str, Any]:
+    version = runtime.bump_entity_version(FILE_ENTITY_CLASS, entity_id, path=target)
+    runtime.mark_entity_first_party_write(FILE_ENTITY_CLASS, entity_id, version, path=target, kind=kind)
+    payload = runtime.versioned_change_payload(
+        entity_class=FILE_ENTITY_CLASS,
+        entity_id=entity_id,
+        version=version,
+        source=source,
+        source_id=source_id,
+        kind=kind,
+        project_id=project_id,
+        path=entity_id,
+        changed_by=changed_by,
+    )
+    await runtime.event_bus.emit(EngineEvent(event_type=FILE_CHANGED_EVENT_TYPE, data=payload))
+    return payload
 
 
 def _resolve_project_file(runtime: ApiRuntime, project_id: str, path: str) -> tuple[Path, Path]:
@@ -117,10 +176,10 @@ def _resolve_project_file(runtime: ApiRuntime, project_id: str, path: str) -> tu
 
     Returns ``(project_root, target_absolute_path)``. Raises ``HTTPException``
     with the appropriate status code on any rejection. This is the shared
-    sandbox check used by both GET and PUT — kept as a helper so both
+    sandbox check used by both GET and PUT 鈥?kept as a helper so both
     endpoints enforce the rules identically.
 
-    Rejection codes (per ADR-036 §3.2):
+    Rejection codes (per ADR-036 搂3.2):
       - 404: project unknown
       - 400: empty path / contains ``..`` segment / path is a directory
       - 403: resolved path escapes project root (symlink, traversal)
@@ -134,7 +193,7 @@ def _resolve_project_file(runtime: ApiRuntime, project_id: str, path: str) -> tu
         raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
     if not path:
         raise HTTPException(status_code=400, detail="path query parameter is required")
-    # Reject ``..`` segments early — same belt-and-braces as project_tree.
+    # Reject ``..`` segments early 鈥?same belt-and-braces as project_tree.
     parts = path.replace("\\", "/").split("/")
     if any(p == ".." for p in parts):
         raise HTTPException(status_code=403, detail="Path traversal is not allowed")
@@ -146,7 +205,7 @@ def _resolve_project_file(runtime: ApiRuntime, project_id: str, path: str) -> tu
         if os.path.commonpath([str(project_root), candidate]) != str(project_root):
             raise HTTPException(status_code=403, detail="Path escapes project root")
     except ValueError as exc:
-        # commonpath raises on different drives (Windows) — treat as escape.
+        # commonpath raises on different drives (Windows) 鈥?treat as escape.
         raise HTTPException(status_code=403, detail="Path escapes project root") from exc
 
     target = Path(candidate)
@@ -164,13 +223,13 @@ async def read_project_file(
     runtime: RuntimeDep,
     path: str = "",
 ) -> FileReadResponse:
-    """Read a project-relative file as UTF-8 text. (ADR-036 §3.2)
+    """Read a project-relative file as UTF-8 text. (ADR-036 搂3.2)
 
-    Sandbox + allowlist + size cap per ADR-036 §3.2. The full rationale and
+    Sandbox + allowlist + size cap per ADR-036 搂3.2. The full rationale and
     edge-case matrix lives in the ADR; the helper :func:`_resolve_project_file`
     enforces sandbox + allowlist; size and UTF-8 checks happen here.
     """
-    _, target = _resolve_project_file(runtime, project_id, path)
+    project_root, target = _resolve_project_file(runtime, project_id, path)
 
     if not target.exists():
         raise HTTPException(status_code=404, detail="File not found")
@@ -191,7 +250,7 @@ async def read_project_file(
     try:
         content = target.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:
-        # Binary file flagged as text by extension — refuse rather than
+        # Binary file flagged as text by extension 鈥?refuse rather than
         # serve mojibake into Monaco.
         raise HTTPException(
             status_code=415,
@@ -200,11 +259,17 @@ async def read_project_file(
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"read failed: {exc}") from exc
 
+    entity_id = _project_relative_entity_id(project_root, target)
+    state_version = runtime.current_entity_version(FILE_ENTITY_CLASS, entity_id, path=target)
+
     return FileReadResponse(
         content=content,
         mtime=stat.st_mtime,
         size=stat.st_size,
         encoding="utf-8",
+        state_version=state_version,
+        entity_id=entity_id,
+        timestamp=_now_iso(),
     )
 
 
@@ -213,11 +278,12 @@ async def write_project_file(
     project_id: str,
     runtime: RuntimeDep,
     body: FileWriteRequest,
+    request: Request,
     path: str = "",
 ) -> FileWriteResponse:
-    """Write a project-relative file atomically. (ADR-036 §3.2)
+    """Write a project-relative file atomically. (ADR-036 搂3.2)
 
-    Sandbox / allowlist / size cap per ADR-036 §3.2. Size cap is checked
+    Sandbox / allowlist / size cap per ADR-036 搂3.2. Size cap is checked
     BEFORE touching disk so 413 rejects never leave a partial tmpfile.
 
     Atomic write: ``tempfile.NamedTemporaryFile`` in the destination's
@@ -233,7 +299,7 @@ async def write_project_file(
     """
     from scistudio.api.routes.workflow_watcher import mark_self_write
 
-    _, target = _resolve_project_file(runtime, project_id, path)
+    project_root, target = _resolve_project_file(runtime, project_id, path)
 
     encoded = body.content.encode("utf-8")
     if len(encoded) > ADR036_FILE_SIZE_CAP_BYTES:
@@ -250,6 +316,13 @@ async def write_project_file(
     if target.exists() and target.is_dir():
         raise HTTPException(status_code=400, detail="Path is a directory, not a file")
 
+    # ``target`` is returned by _resolve_project_file only after realpath +
+    # commonpath sandbox validation against ``project_root``.
+    # lgtm[py/path-injection]
+    existed = target.exists()
+    entity_id = _project_relative_entity_id(project_root, target)
+    kind = "modified" if existed else "created"
+
     # Atomic write: tempfile in same dir + os.replace.
     tmp_fd, tmp_path = tempfile.mkstemp(prefix=".__scistudio_write_", suffix=target.suffix, dir=str(target.parent))
     try:
@@ -257,9 +330,17 @@ async def write_project_file(
             tmp_file.write(encoded)
             tmp_file.flush()
             os.fsync(tmp_file.fileno())
+        runtime.mark_entity_first_party_write(
+            FILE_ENTITY_CLASS,
+            entity_id,
+            runtime.current_entity_version(FILE_ENTITY_CLASS, entity_id, path=target),
+            path=target,
+            kind=kind,
+            pending=True,
+        )
         # Mark self-write BEFORE the rename so the watcher's debounce
         # filter sees the call land before the FS event fires. The watcher
-        # captures (path, mtime, size) lazily — calling it after writing
+        # captures (path, mtime, size) lazily 鈥?calling it after writing
         # the tmpfile but before the rename is fine because mark_self_write
         # itself stats the destination path lazily on event match.
         try:
@@ -294,13 +375,13 @@ async def write_project_file(
             pass
         raise HTTPException(status_code=500, detail=f"write failed: {exc}") from exc
 
-    # ADR-036 §3.5 (I36c): if the saved file is a Python source file under
+    # ADR-036 搂3.5 (I36c): if the saved file is a Python source file under
     # ``<project>/blocks/`` and lint diagnostics are empty, hot-reload the
     # block registry and broadcast a ``blocks.reloaded`` event so the
     # frontend palette refreshes + a passive toast can fire.
     #
     # Lint failure (any diagnostic) keeps the registry stable per ADR-036
-    # §3.5 — the file is saved but not loaded. The frontend's lint panel
+    # 搂3.5 鈥?the file is saved but not loaded. The frontend's lint panel
     # already shows the diagnostics; suppressing the reload prevents a
     # broken module from poisoning the palette.
     await _maybe_reload_blocks_after_save(runtime, target, body.content)
@@ -310,11 +391,33 @@ async def write_project_file(
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"post-write stat failed: {exc}") from exc
 
-    return FileWriteResponse(mtime=stat.st_mtime, size=stat.st_size)
+    source = _request_source(request, body)
+    source_id = _request_source_id(request, body)
+    change = await _emit_file_changed(
+        runtime,
+        entity_id=entity_id,
+        target=target,
+        project_id=project_id,
+        source=source,
+        source_id=source_id,
+        kind=kind,
+        changed_by=request.headers.get("X-Changed-By"),
+    )
+
+    return FileWriteResponse(
+        mtime=stat.st_mtime,
+        size=stat.st_size,
+        state_version=change["version"],
+        entity_id=entity_id,
+        source=change["source"],
+        source_id=change["source_id"],
+        kind=change["kind"],
+        timestamp=change["timestamp"],
+    )
 
 
 # ---------------------------------------------------------------------------
-# ADR-036 §3.5 (I36c) — blocks/*.py reload-on-save hook helper.
+# ADR-036 搂3.5 (I36c) 鈥?blocks/*.py reload-on-save hook helper.
 # Kept module-level (not nested in the PUT handler) so tests can patch it.
 # ---------------------------------------------------------------------------
 
@@ -339,8 +442,8 @@ async def _maybe_reload_blocks_after_save(runtime: ApiRuntime, target: Path, con
 
     "Clean" means lint returned zero diagnostics. Lint failure / ruff
     unavailability is treated as a no-op so a broken file never poisons
-    the registry (ADR-036 §3.5). All exceptions in this hook are
-    swallowed because the file save itself already succeeded — losing the
+    the registry (ADR-036 搂3.5). All exceptions in this hook are
+    swallowed because the file save itself already succeeded 鈥?losing the
     palette refresh is annoying, surfacing a 500 to the user is worse.
     """
     active = runtime.active_project
@@ -366,7 +469,7 @@ async def _maybe_reload_blocks_after_save(runtime: ApiRuntime, target: Path, con
         return
 
     # ruff missing / timeout returns an empty diagnostics list with a
-    # non-empty ``note``. Treat that as "no errors observed" — same as the
+    # non-empty ``note``. Treat that as "no errors observed" 鈥?same as the
     # editor: no squiggles means no blocking issues.
     before = set(runtime.block_registry.all_specs().keys())
     try:
@@ -397,7 +500,7 @@ async def _maybe_reload_blocks_after_save(runtime: ApiRuntime, target: Path, con
 
 
 # ---------------------------------------------------------------------------
-# Greedy ``/{project_id:path}`` handlers — declared AFTER the more specific
+# Greedy ``/{project_id:path}`` handlers 鈥?declared AFTER the more specific
 # ``/{project_id:path}/file`` routes above so FastAPI matches the file
 # routes first. See ADR-036 audit P1-1 for why this ordering matters.
 # ---------------------------------------------------------------------------
@@ -411,7 +514,7 @@ async def get_project(project_id: str, runtime: RuntimeDep) -> ProjectResponse:
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     # ADR-034 Phase 2: refresh the workflow filesystem watcher to point at
-    # the newly active project. ``start_for_project`` is idempotent — if the
+    # the newly active project. ``start_for_project`` is idempotent 鈥?if the
     # caller re-opens the same project it returns immediately without
     # disturbing the existing observer.
     _restart_workflow_watcher(project.path)
@@ -422,7 +525,7 @@ def _restart_workflow_watcher(project_path: str) -> None:
     """Best-effort: point the global watcher at *project_path*'s workflows/.
 
     Failure to start the observer is logged but does not affect the project
-    open response — the canvas continues to work without auto-refresh and
+    open response 鈥?the canvas continues to work without auto-refresh and
     the user sees their workflow YAMLs the next time they reload manually.
     """
     import asyncio

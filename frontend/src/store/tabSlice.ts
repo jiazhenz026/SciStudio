@@ -1,6 +1,7 @@
 import type { StateCreator } from "zustand";
 
-import { ApiError, api } from "../lib/api";
+import { ApiError, api, createClientSourceId } from "../lib/api";
+import type { VersionedWorkflowResponse } from "../lib/api";
 import type { AppStore, FileTab, TabSlice, TabState, WorkflowTab } from "./types";
 
 /**
@@ -23,6 +24,10 @@ function captureWorkflowTab(state: AppStore): WorkflowTab {
     workflowNodes: state.workflowNodes,
     workflowEdges: state.workflowEdges,
     workflowDirty: state.workflowDirty,
+    workflowBaseVersion: state.workflowBaseVersion,
+    workflowPendingVersion: state.workflowPendingVersion,
+    workflowPendingSourceId: state.workflowPendingSourceId,
+    workflowConflict: state.workflowConflict,
     workflowHistory: state.workflowHistory,
     workflowFuture: state.workflowFuture,
     selectedNodeId: state.selectedNodeId,
@@ -57,6 +62,10 @@ function restoreTab(tab: TabState): Partial<AppStore> {
       workflowNodes: tab.workflowNodes,
       workflowEdges: tab.workflowEdges,
       workflowDirty: tab.workflowDirty,
+      workflowBaseVersion: tab.workflowBaseVersion ?? null,
+      workflowPendingVersion: tab.workflowPendingVersion ?? tab.workflowBaseVersion ?? null,
+      workflowPendingSourceId: tab.workflowPendingSourceId ?? null,
+      workflowConflict: tab.workflowConflict ?? null,
       workflowHistory: tab.workflowHistory,
       workflowFuture: tab.workflowFuture,
       selectedNodeId: tab.selectedNodeId,
@@ -95,6 +104,23 @@ function replaceTab(state: AppStore, id: string, next: TabState): Partial<AppSto
   return {
     tabs: state.tabs.map((t) => (t.id === id ? next : t)),
   };
+}
+
+function workflowStateVersion(workflow: VersionedWorkflowResponse): number | null {
+  return typeof workflow.state_version === "number" ? workflow.state_version : null;
+}
+
+function fileStateVersion(response: { state_version?: number }): number | null {
+  return typeof response.state_version === "number" ? response.state_version : null;
+}
+
+function nextPendingVersion(
+  base: number | null | undefined,
+  pending: number | null | undefined,
+): number | null {
+  if (typeof base !== "number") return pending ?? null;
+  if (typeof pending !== "number") return base + 1;
+  return Math.max(base + 1, pending + 1);
 }
 
 export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, get) => ({
@@ -137,6 +163,7 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
     // downstream API calls (save/run) have something to address.
     const idForTab = workflow.id || displayName || "main";
     const tabId = `tab-${idForTab}-${Date.now()}`;
+    const baseVersion = workflowStateVersion(workflow as VersionedWorkflowResponse);
     const newTab: WorkflowTab = {
       kind: "workflow",
       id: tabId,
@@ -148,6 +175,10 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
       workflowNodes: workflow.nodes,
       workflowEdges: workflow.edges,
       workflowDirty: false,
+      workflowBaseVersion: baseVersion,
+      workflowPendingVersion: baseVersion,
+      workflowPendingSourceId: null,
+      workflowConflict: null,
       workflowHistory: [],
       workflowFuture: [],
       selectedNodeId: null,
@@ -224,6 +255,10 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
           workflowNodes: [],
           workflowEdges: [],
           workflowDirty: false,
+          workflowBaseVersion: null,
+          workflowPendingVersion: null,
+          workflowPendingSourceId: null,
+          workflowConflict: null,
           workflowHistory: [],
           workflowFuture: [],
           selectedNodeId: null,
@@ -296,6 +331,10 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
         language,
         content: "",
         contentLoadedAt: 0,
+        baseVersion: null,
+        pendingVersion: null,
+        pendingSourceId: null,
+        conflict: null,
         dirty: false,
         readOnly,
         loading: true,
@@ -333,6 +372,10 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
           ...current,
           content: response.content,
           contentLoadedAt: response.mtime,
+          baseVersion: fileStateVersion(response),
+          pendingVersion: fileStateVersion(response),
+          pendingSourceId: null,
+          conflict: null,
           loading: false,
         };
         set(replaceTab(after, id, populated));
@@ -359,6 +402,7 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
    * success, ``dirty`` clears and ``contentLoadedAt`` advances to the
    * server's new mtime.
    */
+  // eslint-disable-next-line complexity -- ADR-045 reconcile state machine
   saveFileTab: async (id) => {
     const state = get();
     const tab = state.tabs.find((t) => t.id === id);
@@ -374,15 +418,30 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
     // edits (mtime advances, dirty stays true so the next debounce saves
     // again). See audit 2026-05-14 P1 #1.
     const sentContent = tab.content;
+    const sourceId = createClientSourceId("file");
+    set(
+      replaceTab(state, id, {
+        ...tab,
+        pendingVersion: nextPendingVersion(tab.baseVersion, tab.pendingVersion),
+        pendingSourceId: sourceId,
+        conflict: null,
+      }),
+    );
 
     try {
-      const response = await api.putProjectFile(project.id, tab.filePath, sentContent);
+      const response = await api.putProjectFile(project.id, tab.filePath, sentContent, {
+        sourceId,
+      });
       const after = get();
       const latest = after.tabs.find((t) => t.id === id);
       // Tab may have been closed during the await — drop the result.
       if (!latest || latest.kind !== "file") return;
 
       const contentChangedDuringSave = latest.content !== sentContent;
+      const responseVersion = fileStateVersion(response);
+      const nextPending = contentChangedDuringSave
+        ? nextPendingVersion(responseVersion ?? latest.baseVersion, latest.pendingVersion)
+        : (responseVersion ?? latest.pendingVersion ?? null);
       const next: FileTab = {
         ...latest,
         // Only clear dirty if the user did NOT edit during the in-flight
@@ -390,6 +449,10 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
         // up the newer content on its next tick.
         dirty: contentChangedDuringSave ? true : false,
         contentLoadedAt: response.mtime,
+        baseVersion: responseVersion ?? latest.baseVersion ?? null,
+        pendingVersion: nextPending,
+        pendingSourceId: null,
+        conflict: null,
       };
       set(replaceTab(after, id, next));
     } catch (err) {
@@ -418,6 +481,62 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
       ...tab,
       content,
       dirty: true,
+      pendingVersion: nextPendingVersion(tab.baseVersion, tab.pendingVersion),
+      conflict: null,
+    };
+    set({ tabs: state.tabs.map((t) => (t.id === id ? next : t)) });
+  },
+
+  confirmFileVersion: (id, version, sourceId = null) => {
+    const state = get();
+    const tab = state.tabs.find((t) => t.id === id);
+    if (!tab || tab.kind !== "file") return;
+    const hasNewerLocalEdits =
+      typeof tab.pendingVersion === "number" && tab.pendingVersion > version;
+    const next: FileTab = {
+      ...tab,
+      baseVersion: version,
+      pendingVersion: hasNewerLocalEdits ? tab.pendingVersion : version,
+      pendingSourceId: tab.pendingSourceId === sourceId ? null : tab.pendingSourceId,
+      dirty: hasNewerLocalEdits ? tab.dirty : false,
+      conflict: null,
+    };
+    set({ tabs: state.tabs.map((t) => (t.id === id ? next : t)) });
+  },
+
+  applyFileRemoteContent: (id, response) => {
+    const state = get();
+    const tab = state.tabs.find((t) => t.id === id);
+    if (!tab || tab.kind !== "file") return;
+    const version = fileStateVersion(response);
+    const next: FileTab = {
+      ...tab,
+      content: response.content,
+      contentLoadedAt: response.mtime,
+      baseVersion: version ?? tab.baseVersion ?? null,
+      pendingVersion: version ?? tab.baseVersion ?? null,
+      pendingSourceId: null,
+      conflict: null,
+      dirty: false,
+      loading: false,
+    };
+    set({ tabs: state.tabs.map((t) => (t.id === id ? next : t)) });
+  },
+
+  markFileRemoteConflict: (id, conflict) => {
+    const state = get();
+    const tab = state.tabs.find((t) => t.id === id);
+    if (!tab || tab.kind !== "file") return;
+    const hasLocalEdits =
+      tab.dirty ||
+      (typeof tab.baseVersion === "number" &&
+        typeof tab.pendingVersion === "number" &&
+        tab.pendingVersion > tab.baseVersion);
+    const next: FileTab = {
+      ...tab,
+      dirty: hasLocalEdits,
+      conflict,
+      loading: false,
     };
     set({ tabs: state.tabs.map((t) => (t.id === id ? next : t)) });
   },

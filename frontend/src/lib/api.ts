@@ -37,6 +37,85 @@ const JSON_HEADERS = {
   "Content-Type": "application/json",
 };
 
+export type VersionedWorkflowResponse = WorkflowResponse & {
+  state_version?: number;
+  workflow_version?: string;
+  entity_class?: "workflow";
+  entity_id?: string;
+  source?: string | null;
+  source_id?: string | null;
+  kind?: string;
+  timestamp?: string;
+};
+
+export interface ProjectFileResponse {
+  content: string;
+  mtime: number;
+  size: number;
+  encoding: string;
+  state_version?: number;
+  entity_class?: "file";
+  entity_id?: string;
+  source?: string | null;
+  source_id?: string | null;
+  kind?: string;
+  timestamp?: string;
+}
+
+export interface ProjectFileWriteResponse {
+  mtime: number;
+  size: number;
+  state_version?: number;
+  entity_class?: "file";
+  entity_id?: string;
+  source?: string;
+  source_id?: string | null;
+  kind?: string;
+  timestamp?: string;
+}
+
+export interface VersionedWriteOptions {
+  sourceId?: string;
+  source?: "canvas" | "agent" | "gitRestore" | "import" | "external" | string;
+}
+
+const pendingWorkflowSourceIds = new Map<string, Set<string>>();
+let workflowWriteStartedListener: ((workflowId: string, sourceId: string) => void) | null = null;
+
+export function createClientSourceId(prefix: "workflow" | "file"): string {
+  const randomUUID = globalThis.crypto?.randomUUID;
+  const token =
+    typeof randomUUID === "function"
+      ? randomUUID.call(globalThis.crypto)
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${prefix}-${token}`;
+}
+
+export function setWorkflowWriteStartedListener(
+  listener: ((workflowId: string, sourceId: string) => void) | null,
+): void {
+  workflowWriteStartedListener = listener;
+}
+
+function rememberPendingWorkflowSourceId(workflowId: string, sourceId: string): void {
+  const existing = pendingWorkflowSourceIds.get(workflowId) ?? new Set<string>();
+  existing.add(sourceId);
+  pendingWorkflowSourceIds.set(workflowId, existing);
+  workflowWriteStartedListener?.(workflowId, sourceId);
+}
+
+export function consumePendingWorkflowSourceId(
+  workflowId: string,
+  sourceId: string | null,
+): boolean {
+  if (!sourceId) return false;
+  const existing = pendingWorkflowSourceIds.get(workflowId);
+  if (!existing?.has(sourceId)) return false;
+  existing.delete(sourceId);
+  if (existing.size === 0) pendingWorkflowSourceIds.delete(workflowId);
+  return true;
+}
+
 /**
  * Error thrown by `apiFetch` for non-2xx responses. Exposes the HTTP status
  * code so callers can branch on it (e.g. fall back on 500 but not on 504).
@@ -116,7 +195,7 @@ export const api = {
   importWorkflowFile: async (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-    return apiFetch<WorkflowResponse>("/api/workflows/import", {
+    return apiFetch<VersionedWorkflowResponse>("/api/workflows/import", {
       method: "POST",
       body: formData,
     });
@@ -125,26 +204,44 @@ export const api = {
     // Read the file via fetch from the backend browse result, then re-upload
     // For now, use a dedicated endpoint that accepts a path
     // TODO: replace the dedicated /api/workflows/import-path endpoint with a fetch-then-import flow that reuses /api/projects/{id}/file.
-    return apiFetch<WorkflowResponse>("/api/workflows/import-path", {
+    return apiFetch<VersionedWorkflowResponse>("/api/workflows/import-path", {
       method: "POST",
       headers: JSON_HEADERS,
       body: JSON.stringify({ path: filePath }),
     });
   },
-  createWorkflow: (body: WorkflowResponse) =>
-    apiFetch<WorkflowResponse>("/api/workflows/", {
+  createWorkflow: async (body: WorkflowResponse, options?: VersionedWriteOptions) => {
+    const sourceId = options?.sourceId ?? createClientSourceId("workflow");
+    rememberPendingWorkflowSourceId(body.id, sourceId);
+    return apiFetch<VersionedWorkflowResponse>("/api/workflows/", {
       method: "POST",
-      headers: JSON_HEADERS,
+      headers: {
+        ...JSON_HEADERS,
+        "X-Source-Id": sourceId,
+        "X-Workflow-Source": options?.source ?? "canvas",
+      },
       body: JSON.stringify(body),
-    }),
+    });
+  },
   getWorkflow: (workflowId: string) =>
-    apiFetch<WorkflowResponse>(`/api/workflows/${encodeURIComponent(workflowId)}`),
-  updateWorkflow: (workflowId: string, body: WorkflowResponse) =>
-    apiFetch<WorkflowResponse>(`/api/workflows/${encodeURIComponent(workflowId)}`, {
+    apiFetch<VersionedWorkflowResponse>(`/api/workflows/${encodeURIComponent(workflowId)}`),
+  updateWorkflow: async (
+    workflowId: string,
+    body: WorkflowResponse,
+    options?: VersionedWriteOptions,
+  ) => {
+    const sourceId = options?.sourceId ?? createClientSourceId("workflow");
+    rememberPendingWorkflowSourceId(workflowId, sourceId);
+    return apiFetch<VersionedWorkflowResponse>(`/api/workflows/${encodeURIComponent(workflowId)}`, {
       method: "PUT",
-      headers: JSON_HEADERS,
+      headers: {
+        ...JSON_HEADERS,
+        "X-Source-Id": sourceId,
+        "X-Workflow-Source": options?.source ?? "canvas",
+      },
       body: JSON.stringify(body),
-    }),
+    });
+  },
   deleteWorkflow: (workflowId: string) =>
     apiFetch<void>(`/api/workflows/${encodeURIComponent(workflowId)}`, {
       method: "DELETE",
@@ -244,18 +341,25 @@ export const api = {
     }),
   // ADR-036 §3.2 — embedded code editor file R/W endpoints.
   getProjectFile: (projectId: string, path: string) =>
-    apiFetch<{ content: string; mtime: number; size: number; encoding: string }>(
+    apiFetch<ProjectFileResponse>(
       `/api/projects/${encodeURIComponent(projectId)}/file?path=${encodeURIComponent(path)}`,
     ),
-  putProjectFile: (projectId: string, path: string, content: string) =>
-    apiFetch<{ mtime: number; size: number }>(
+  putProjectFile: (
+    projectId: string,
+    path: string,
+    content: string,
+    options?: VersionedWriteOptions,
+  ) => {
+    const sourceId = options?.sourceId ?? createClientSourceId("file");
+    return apiFetch<ProjectFileWriteResponse>(
       `/api/projects/${encodeURIComponent(projectId)}/file?path=${encodeURIComponent(path)}`,
       {
         method: "PUT",
         headers: JSON_HEADERS,
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, source: options?.source ?? "canvas", source_id: sourceId }),
       },
-    ),
+    );
+  },
   // ADR-036 §3.12 — block template scaffold endpoint (I36c).
   getBlockTemplate: (kind: string = "basic") =>
     apiFetch<{ kind: string; content: string; suggested_filename: string }>(

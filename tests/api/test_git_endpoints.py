@@ -487,6 +487,14 @@ def test_restore_endpoint_emits_workflow_changed(client: TestClient, opened_proj
     assert resp.status_code == 200
     paths = [ev.data["path"] for ev in captured]
     assert "workflows/main.yaml" in paths
+    main_event = next(ev for ev in captured if ev.data["path"] == "workflows/main.yaml")
+    assert main_event.data["entity_class"] == "workflow"
+    assert main_event.data["entity_id"] == "main"
+    assert isinstance(main_event.data["version"], int)
+    assert main_event.data["source"] == "gitRestore"
+    assert main_event.data["source_id"] == sha_a
+    assert main_event.data["kind"] == "modified"
+    assert main_event.data["timestamp"]
 
 
 def test_branch_switch_emits_created_for_new_yaml(client: TestClient, opened_project: Path, runtime) -> None:

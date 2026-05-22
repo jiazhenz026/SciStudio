@@ -1,15 +1,14 @@
 ---
 spec_id: adr-043-io-format-capability-registry
 title: "ADR-043 IO Format Capability Registry Implementation Specification"
-status: Draft
-feature_branch: feat/issue-1113/frontmatter-griffe-facts-main
+status: Implemented
+feature_branch: track/adr-043/core-blocks-and-imaging
 created: 2026-05-19
 input: "Owner-approved ADR-043 design for IO format capabilities, aggregate IOBlocks, custom IO ergonomics, and typed meta fidelity."
 owners:
   - "@jiazhenz026"
 related_adrs:
   - 43
-  - 42
 related_specs: []
 scope:
   in:
@@ -30,7 +29,7 @@ governs:
   modules:
     - scistudio.blocks.io
     - scistudio.blocks.registry
-    - scistudio.engine.materialisation
+    - scistudio.blocks.io.materialisation
     - scistudio.blocks.app
     - scistudio.workflow
   contracts:
@@ -39,23 +38,30 @@ governs:
     - scistudio.blocks.io.simple_io.SimpleLoader
     - scistudio.blocks.io.simple_io.SimpleSaver
     - scistudio.blocks.io.io_block.IOBlock.get_format_capabilities
+    - scistudio.blocks.registry.CapabilityLookupError
+    - scistudio.blocks.registry.MissingCapabilityError
+    - scistudio.blocks.registry.AmbiguousCapabilityError
     - scistudio.blocks.registry.BlockRegistry.list_format_capabilities
     - scistudio.blocks.registry.BlockRegistry.find_loader_capability
     - scistudio.blocks.registry.BlockRegistry.find_saver_capability
-    - scistudio.engine.materialisation.reconstruct_from_file
-    - scistudio.engine.materialisation.materialise_to_file
+    - scistudio.blocks.io.materialisation.reconstruct_from_file
+    - scistudio.blocks.io.materialisation.materialise_to_file
+  entry_points:
+    - scistudio.blocks
+    - scistudio.types
   files:
+    - docs/adr/ADR-043.md
+    - docs/specs/adr-043-io-format-capability-registry.md
     - src/scistudio/blocks/io/capabilities.py
     - src/scistudio/blocks/io/simple_io.py
     - src/scistudio/blocks/io/io_block.py
     - src/scistudio/blocks/registry.py
-    - src/scistudio/engine/materialisation.py
+    - src/scistudio/blocks/io/materialisation.py
     - src/scistudio/blocks/app/app_block.py
     - src/scistudio/blocks/app/bridge.py
     - src/scistudio/workflow/validator.py
     - frontend/src/**
-    - packages/scistudio-blocks-imaging/src/**
-    - packages/scistudio-blocks-lcms/src/**
+    - packages/scistudio-blocks-*/src/**/io/**
     - docs/architecture/ARCHITECTURE.md
     - docs/block-development/**
 tests:
@@ -342,7 +348,7 @@ clear compatibility semantics instead of silently certifying legacy packages.
 | `src/scistudio/blocks/io/simple_io.py` | create | SimpleLoader and SimpleSaver ergonomic base classes |
 | `src/scistudio/blocks/io/io_block.py` | modify | Add `format_capabilities` and compatibility synthesis |
 | `src/scistudio/blocks/registry.py` | modify | Index capabilities and expose deterministic lookup APIs |
-| `src/scistudio/engine/materialisation.py` | modify | Resolve loader and saver capabilities for file boundaries |
+| `src/scistudio/blocks/io/materialisation.py` | modify | Resolve loader and saver capabilities for file boundaries |
 | `src/scistudio/blocks/app/app_block.py` | modify | Reconstruct AppBlock outputs through capability lookup |
 | `src/scistudio/blocks/app/bridge.py` | modify | Materialise AppBlock inputs through capability lookup |
 | `src/scistudio/workflow/validator.py` | modify | Validate AppBlock and CodeBlock boundary IO before execution |
@@ -405,95 +411,48 @@ warnings when they affect execution or output fidelity.
 Capability models:
 
 ```python
-from dataclasses import dataclass, field
-from typing import Literal
+from pathlib import Path
+from typing import Any
 
+from scistudio.blocks.io.capabilities import FormatCapability, MetadataFidelity
+from scistudio.blocks.registry import BlockRegistry
 from scistudio.core.types.base import DataObject
 
 
-CapabilityDirection = Literal["load", "save"]
-MetadataFidelityLevel = Literal[
-    "pixel_only",
-    "typed_meta",
-    "format_specific",
-    "lossless",
-]
-
-
-@dataclass(frozen=True)
-class MetadataFidelity:
-    level: MetadataFidelityLevel = "pixel_only"
-    typed_meta_reads: tuple[str, ...] = ()
-    typed_meta_writes: tuple[str, ...] = ()
-    format_metadata_reads: tuple[str, ...] = ()
-    format_metadata_writes: tuple[str, ...] = ()
-    notes: str | None = None
-
-
-@dataclass(frozen=True)
-class FormatCapability:
-    id: str
-    direction: CapabilityDirection
-    data_type: type[DataObject]
-    format_id: str
-    extensions: tuple[str, ...]
-    label: str
-    block_type: str
-    handler: str
-    is_default: bool = False
-    priority: int = 0
-    roundtrip_group: str | None = None
-    metadata_fidelity: MetadataFidelity = field(default_factory=MetadataFidelity)
+class MetadataFidelity: ...
+class FormatCapability: ...
 ```
 
 Capability exceptions:
 
 ```python
-class CapabilityLookupError(LookupError):
-    direction: CapabilityDirection
-    data_type: type[DataObject]
-    extension: str | None
-    format_id: str | None
-    capability_id: str | None
-
-
-class MissingCapabilityError(CapabilityLookupError):
-    ...
-
-
-class AmbiguousCapabilityError(CapabilityLookupError):
-    candidates: tuple[FormatCapability, ...]
+class CapabilityLookupError: ...
+class MissingCapabilityError: ...
+class AmbiguousCapabilityError: ...
 ```
 
 IOBlock and simple bases:
 
 ```python
-class IOBlock(Block):
-    supported_extensions: ClassVar[dict[str, str]] = {}
-    format_capabilities: ClassVar[tuple[FormatCapability, ...]] = ()
-
+class IOBlock:
     @classmethod
     def get_format_capabilities(cls) -> tuple[FormatCapability, ...]:
         ...
 
 
-class SimpleLoader(IOBlock):
-    direction: ClassVar[str] = "input"
-    output_type: ClassVar[type[DataObject]]
-    extensions: ClassVar[list[str]]
-    format_id: ClassVar[str]
-    metadata_fidelity: ClassVar[MetadataFidelity] = MetadataFidelity()
+class SimpleLoader:
+    @classmethod
+    def get_format_capabilities(cls) -> tuple[FormatCapability, ...]:
+        ...
 
     def load_file(self, path: Path, config: dict[str, Any]) -> DataObject:
         ...
 
 
-class SimpleSaver(IOBlock):
-    direction: ClassVar[str] = "output"
-    input_type: ClassVar[type[DataObject]]
-    extensions: ClassVar[list[str]]
-    format_id: ClassVar[str]
-    metadata_fidelity: ClassVar[MetadataFidelity] = MetadataFidelity()
+class SimpleSaver:
+    @classmethod
+    def get_format_capabilities(cls) -> tuple[FormatCapability, ...]:
+        ...
 
     def save_file(
         self,
@@ -565,16 +524,10 @@ def materialise_to_file(
     ...
 ```
 
-Workflow validation:
-
-```python
-def validate_io_boundary_capabilities(
-    workflow: Workflow,
-    *,
-    registry: BlockRegistry,
-) -> list[CapabilityLookupError]:
-    ...
-```
+Workflow boundary validation is implemented through the existing
+`scistudio.workflow.validator` surface and calls the registry/materialisation
+contracts above. ADR-043 does not export a separate
+`validate_io_boundary_capabilities` function in the current implementation.
 
 ## 5. Acceptance Criteria
 

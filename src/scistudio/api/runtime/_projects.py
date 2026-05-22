@@ -315,6 +315,7 @@ def open_project(self: ApiRuntime, project_id_or_path: str) -> KnownProject:
     self.refresh_block_registry()
     self._init_metadata_store(Path(candidate.path))
     self._init_lineage_store(Path(candidate.path))
+    self.reset_version_state_for_project(Path(candidate.path))
     # ADR-039 §3.2 re-init hook
     try:
         candidate_path = Path(candidate.path)

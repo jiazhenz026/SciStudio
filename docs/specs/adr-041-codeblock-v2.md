@@ -1,16 +1,14 @@
 ---
 spec_id: adr-041-codeblock-v2
 title: "ADR-041 CodeBlock v2 Implementation Specification"
-status: Draft
-feature_branch: docs/issue-1208/adr-041-codeblock-v2-spec
+status: Implemented
+feature_branch: track/adr-041/codeblock-v2
 created: 2026-05-19
 input: "Owner request to write an ADR-042-compliant, implementation-ready planning spec for ADR-041."
 owners:
   - "@jiazhenz026"
 related_adrs:
   - 41
-  - 42
-  - 43
 related_specs:
   - adr-043-io-format-capability-registry
 scope:
@@ -34,18 +32,30 @@ governs:
   modules:
     - scistudio.blocks.code
     - scistudio.blocks.app
-    - scistudio.engine.materialisation
+    - scistudio.blocks.io.materialisation
     - scistudio.workflow
   contracts:
     - scistudio.blocks.code.code_block.CodeBlock
+    - scistudio.blocks.code.config.CodeBlockConfig
+    - scistudio.blocks.code.config.PortFileConfig
+    - scistudio.blocks.code.exchange.CodeBlockExchangeManifest
+    - scistudio.blocks.code.exchange.CodeBlockExchangePort
     - scistudio.blocks.code.interpreters.resolve_script_interpreter
     - scistudio.blocks.code.exchange.prepare_codeblock_exchange
     - scistudio.blocks.code.exchange.collect_codeblock_outputs
+    - scistudio.blocks.code.interpreters.ResolvedInterpreter
+    - scistudio.blocks.code.provenance.ScriptProvenance
     - scistudio.blocks.code.validation.validate_codeblock_config
+    - scistudio.blocks.code.validation.CodeBlockValidationDiagnostic
     - scistudio.blocks.code.provenance.capture_script_provenance
+    - scistudio.blocks.app.app_block.AppBlock
     - scistudio.blocks.app.bridge
-    - scistudio.engine.materialisation.materialise_to_file
-    - scistudio.engine.materialisation.reconstruct_from_file
+    - scistudio.blocks.io.materialisation.materialise_to_file
+    - scistudio.blocks.io.materialisation.reconstruct_from_file
+    - scistudio.blocks.io.capabilities.FormatCapability
+    - scistudio.blocks.io.capabilities.MetadataFidelity
+    - scistudio.blocks.registry.BlockRegistry.find_loader_capability
+    - scistudio.blocks.registry.BlockRegistry.find_saver_capability
   entry_points:
     - scistudio.blocks
   files:
@@ -54,9 +64,10 @@ governs:
     - docs/adr/ADR-043.md
     - src/scistudio/blocks/code/**
     - src/scistudio/blocks/app/**
-    - src/scistudio/engine/materialisation.py
+    - src/scistudio/blocks/io/materialisation.py
     - src/scistudio/workflow/validator.py
     - frontend/src/**
+    - docs/architecture/ARCHITECTURE.md
     - docs/block-development/**
 tests:
   - tests/blocks/code/test_codeblock_v2_config.py
@@ -386,7 +397,7 @@ the same validation, exchange, and materialisation semantics.
 | `src/scistudio/blocks/code/runners/**` | modify | Retire or adapt entry-function runners behind interpreter execution |
 | `src/scistudio/blocks/app/bridge.py` | modify if needed | Share AppBlock boundary helpers with CodeBlock |
 | `src/scistudio/blocks/app/app_block.py` | modify if needed | Keep AppBlock and CodeBlock capability validation aligned |
-| `src/scistudio/engine/materialisation.py` | modify if needed | Ensure capability-aware file read/write supports CodeBlock exchange |
+| `src/scistudio/blocks/io/materialisation.py` | modify if needed | Ensure capability-aware file read/write supports CodeBlock exchange |
 | `src/scistudio/workflow/validator.py` | modify | Add early CodeBlock v2 boundary validation and legacy diagnostics |
 | `src/scistudio/api/routes/blocks.py` | modify if needed | Expose CodeBlock config schema and capability choices |
 | `frontend/src/components/**` | modify | Config panel, port exchange guidance, script path warnings |
@@ -484,84 +495,50 @@ The exact implementation may split helpers differently, but downstream code
 and tests should target equivalent public responsibilities.
 
 ```python
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Literal, Mapping, Sequence
+from typing import Any
 
-from pydantic import BaseModel, Field
-
+from scistudio.blocks.code.config import InterpreterMode
+from scistudio.blocks.code.exchange import (
+    CodeBlockExchangeManifest,
+    CodeBlockExchangePort,
+    MaterialiseAdapter,
+    ReconstructAdapter,
+)
+from scistudio.blocks.code.interpreters import ResolvedInterpreter
+from scistudio.blocks.code.provenance import ScriptProvenance
+from scistudio.blocks.code.validation import CodeBlockValidationDiagnostic
 from scistudio.blocks.registry import BlockRegistry
 from scistudio.core.types.base import DataObject
 from scistudio.core.types.collection import Collection
 
 
-PortDirection = Literal["input", "output"]
-InterpreterMode = Literal["auto", "existing"]
+class PortFileConfig: ...
+class CodeBlockConfig: ...
+class ResolvedInterpreter: ...
+class ScriptProvenance: ...
+class CodeBlockExchangeManifest: ...
+class CodeBlockExchangePort: ...
+class CodeBlockValidationDiagnostic: ...
 
 
-class PortFileConfig(BaseModel):
-    name: str
-    direction: PortDirection
-    data_type: str
-    extension: str
-    capability_id: str | None = None
-    required: bool = True
-    exchange_folder: str | None = None
-
-
-class CodeBlockConfig(BaseModel):
-    script_path: str
-    interpreter_mode: InterpreterMode = "auto"
-    interpreter_path: str | None = None
-    environment: Mapping[str, Any] = Field(default_factory=dict)
-    inputs: list[PortFileConfig] = Field(default_factory=list)
-    outputs: list[PortFileConfig] = Field(default_factory=list)
-```
-
-```python
-class ResolvedInterpreter(BaseModel):
-    family: str
-    executable: str
-    argv: list[str]
-    working_directory: str
-    environment: Mapping[str, str] = Field(default_factory=dict)
-    version: str | None = None
-    warnings: list[str] = Field(default_factory=list)
-
-
-class ScriptProvenance(BaseModel):
-    relative_path: str
-    content_sha256: str
-    git_commit: str | None = None
-    git_status: Literal["tracked-clean", "tracked-modified", "untracked"]
-    resolved_path: str
-
-
-class CodeBlockExchangeManifest(BaseModel):
-    exchange_root: str
-    input_folders: Mapping[str, str]
-    output_folders: Mapping[str, str]
-    materialised_inputs: Mapping[str, list[str]] = Field(default_factory=dict)
-    collected_outputs: Mapping[str, list[str]] = Field(default_factory=dict)
-    warnings: list[str] = Field(default_factory=list)
-```
-
-```python
 def validate_codeblock_config(
-    config: CodeBlockConfig,
+    config: Mapping[str, Any],
     *,
     project_dir: Path,
-    registry: BlockRegistry,
-) -> list[Exception]:
+    registry: BlockRegistry | None = None,
+) -> list[CodeBlockValidationDiagnostic]:
     ...
 
 
 def resolve_script_interpreter(
     script_path: Path,
     *,
-    environment_config: Mapping[str, Any],
+    environment_config: Mapping[str, Any] | None = None,
     project_dir: Path,
     mode: InterpreterMode = "auto",
-    interpreter_path: Path | None = None,
+    interpreter_path: Path | str | None = None,
 ) -> ResolvedInterpreter:
     ...
 
@@ -572,24 +549,26 @@ def capture_script_provenance(
     project_dir: Path,
 ) -> ScriptProvenance:
     ...
-```
 
-```python
+
 def prepare_codeblock_exchange(
     inputs: Mapping[str, DataObject | Collection],
-    port_configs: Sequence[PortFileConfig],
+    port_configs: Sequence[CodeBlockExchangePort],
     *,
-    exchange_dir: Path,
-    registry: BlockRegistry,
+    exchange_root: Path,
+    block_id: str,
+    run_id: str,
+    materialise_adapter: MaterialiseAdapter,
+    block_slug: str = "codeblock",
 ) -> CodeBlockExchangeManifest:
     ...
 
 
 def collect_codeblock_outputs(
-    port_configs: Sequence[PortFileConfig],
+    port_configs: Sequence[CodeBlockExchangePort],
     *,
-    exchange_manifest: CodeBlockExchangeManifest,
-    registry: BlockRegistry,
+    manifest: CodeBlockExchangeManifest,
+    reconstruct_adapter: ReconstructAdapter,
 ) -> dict[str, Collection]:
     ...
 ```

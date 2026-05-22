@@ -1,16 +1,16 @@
 ---
 spec_id: adr-043-package-migration
 title: "ADR-043 In-Tree, Imaging, and SRS Migration to IO Format Capabilities"
-status: Draft
+status: Implemented
 feature_branch: track/adr-043/core-blocks-and-imaging
 created: 2026-05-20
 input: "Owner directive (2026-05-20): coordinate migration of in-tree LoadData/SaveData and the shipped scistudio-blocks-imaging + scistudio-blocks-srs packages to ADR-043 explicit FormatCapability records; add new imaging formats (PNG/JPEG via Pillow, Bio-Formats microscopy formats via cellprofiler/python-bioformats as an optional install extra); make Image.Meta carry a unified OME metadata object (ome_types.model.OME); codify ProcessBlock metadata propagation contract so OME metadata persists end-to-end; add frontend UI for capability selection, lossy-save warning, and OME metadata browsing."
 owners:
   - "@jiazhenz026"
 related_adrs:
-  - 41
   - 43
-related_specs: []
+related_specs:
+  - adr-041-codeblock-v2
 scope:
   in:
     - "Declare explicit format_capabilities ClassVar on LoadData/SaveData covering all six core DataObject types"
@@ -31,18 +31,9 @@ governs:
   modules:
     - scistudio.blocks.io.loaders.load_data
     - scistudio.blocks.io.savers.save_data
-    - scistudio_blocks_imaging
-    - scistudio_blocks_imaging.types
-    - scistudio_blocks_imaging.io.load_image
-    - scistudio_blocks_imaging.io.save_image
-    - scistudio_blocks_srs
   contracts:
     - scistudio.blocks.io.loaders.load_data.LoadData.format_capabilities
     - scistudio.blocks.io.savers.save_data.SaveData.format_capabilities
-    - scistudio_blocks_imaging.types.Image.Meta.ome
-    - scistudio_blocks_imaging.types.Label.Meta.ome
-    - scistudio_blocks_imaging.io.load_image.LoadImage.format_capabilities
-    - scistudio_blocks_imaging.io.save_image.SaveImage.format_capabilities
   files:
     - src/scistudio/blocks/io/loaders/load_data.py
     - src/scistudio/blocks/io/savers/save_data.py
