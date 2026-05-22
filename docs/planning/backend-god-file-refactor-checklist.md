@@ -89,8 +89,8 @@ language_source: en
 - [x] Protected branch and umbrella PR number recorded in this checklist. → protected = `main`; umbrella PR = #1429.
 - [x] No `pip install -e .` environment pollution found. → manager uses `PYTHONPATH=src` only
 - [x] Dispatch checklist copied from the template and committed. → this file
-- [ ] Dispatch prompts created from the correct prompt template and linked below. → pending until owner approves sub-PR dispatch
-- [ ] Sentrux baseline recorded, or N/A reason recorded. → pending
+- [x] Dispatch prompts created from the correct prompt template and linked below. → 4 prompts under `docs/planning/backend-god-file-refactor-prompts/` (A1, A2, A3, B1).
+- [x] Sentrux baseline recorded, or N/A reason recorded. → baseline saved via MCP `session_start`; quality_signal=4442, modularity=0.177.
 
 ## 5. Local Gate Hook Bypass Evidence
 
@@ -109,11 +109,11 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `A1` | `implementer` | `N/A` | `<TBD on dispatch>` | Split `api/runtime.py` (1839 LOC) — preserve public import surface | `refactor/issue-<sub>/api-runtime` | `.claude/worktrees/refactor-a1-api-runtime` | `src/scistudio/api/runtime.py` + new sibling modules under `src/scistudio/api/runtime/` (or equivalent) + tests under `tests/api/` | All other Bucket A/B files, all routes, all engine code | `<sub-issue, sub-PR pending>` | `[ ]` |
-| `A2` | `implementer` | `N/A` | `<TBD>` | Split `ai/agent/mcp/tools_workflow.py` (884) + `ai/agent/mcp/tools_inspection.py` (809) | `refactor/issue-<sub>/mcp-tools-pair` | `.claude/worktrees/refactor-a2-mcp-tools` | the 2 MCP tool files + new submodules + tests | All other files including any other ai/agent/* and cli/* | `<pending>` | `[ ]` |
-| `A3` | `implementer` | `N/A` | `<TBD>` | Split `api/routes/ai_pty.py` (757) | `refactor/issue-<sub>/api-ai-pty` | `.claude/worktrees/refactor-a3-ai-pty` | `src/scistudio/api/routes/ai_pty.py` + new submodules + tests | `api/runtime.py`, other routes, MCP tools | `<pending>` | `[ ]` |
-| `B1` | `implementer` | `N/A` | `<TBD>` | Split `qa/governance/gate_record.py` (1402 LOC) along 6-stage seams | `refactor/issue-<sub>/gate-record` | `.claude/worktrees/refactor-b1-gate-record` | `src/scistudio/qa/governance/gate_record.py` + new submodules under `src/scistudio/qa/governance/_gate/` (or similar) + tests | All other files | `<pending; PR requires admin-approved:core-change>` | `[ ]` |
-| `AUDIT` | `audit_reviewer` | `with-context` | `<TBD; one audit per sub-PR or one rolling audit pass>` | Verify scope, public-surface preservation, test coverage | `audit/<sub>` | `.claude/worktrees/audit-backend-godfile` | audit reports only | implementation files | `<pending>` | `[ ]` |
+| `A1` | `implementer` | `N/A` | `docs/planning/backend-god-file-refactor-prompts/A1-api-runtime.md` | Split `api/runtime.py` (1839 LOC) — preserve public import surface | `refactor/issue-1430/api-runtime` | `.claude/worktrees/refactor-a1-api-runtime` | `src/scistudio/api/runtime.py` → sub-package `src/scistudio/api/runtime/` + tests under `tests/api/` + waiver removal in `scripts/check_god_files.py` | All other Bucket A/B files, all routes, all engine code, manager checklist | #1430 / PR `<pending>` | `[~]` dispatched |
+| `A2` | `implementer` | `N/A` | `docs/planning/backend-god-file-refactor-prompts/A2-mcp-tools.md` | Split `ai/agent/mcp/tools_workflow.py` (884) + `ai/agent/mcp/tools_inspection.py` (809) | `refactor/issue-1431/mcp-tools-pair` | `.claude/worktrees/refactor-a2-mcp-tools` | the 2 MCP tool files → parallel sub-packages + tests under `tests/ai/agent/mcp/` + waiver removal | All other files including any other ai/agent/* and cli/*, manager checklist | #1431 / PR `<pending>` | `[~]` dispatched |
+| `A3` | `implementer` | `N/A` | `docs/planning/backend-god-file-refactor-prompts/A3-ai-pty.md` | Split `api/routes/ai_pty.py` (757) | `refactor/issue-1432/api-ai-pty` | `.claude/worktrees/refactor-a3-ai-pty` | `src/scistudio/api/routes/ai_pty.py` → sub-package + tests under `tests/api/routes/` + waiver removal | `api/runtime.py`, other routes, MCP tools, manager checklist | #1432 / PR `<pending>` | `[~]` dispatched |
+| `B1` | `implementer` | `N/A` | `docs/planning/backend-god-file-refactor-prompts/B1-gate-record.md` | Split `qa/governance/gate_record.py` (1402 LOC) along 6-stage seams | `refactor/issue-1433/gate-record` | `.claude/worktrees/refactor-b1-gate-record` | `src/scistudio/qa/governance/gate_record.py` → sub-package + tests under `tests/qa/governance/` + waiver removal | All other files, manager checklist, other governance files, schemas, audit code, scripts/scistudio_pr_create.py, .github/workflows | #1433 / PR `<pending; admin-approved:core-change required>` | `[~]` dispatched |
+| `AUDIT` | `audit_reviewer` | `with-context` | `<TBD post-implementation>` | Verify scope, public-surface preservation, test coverage, Codex auto-review reconcile | `audit/<sub>` | `.claude/worktrees/audit-backend-godfile` | audit reports only | implementation files | `<pending>` | `[ ]` |
 
 > Owner cap: max 5 parallel agents in Phase 1 (chat 2026-05-22). This matrix uses 4 (within cap) — A1 and B1 are solo because they are the two largest files, and bundling them would make their PRs unreviewable.
 
