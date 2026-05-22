@@ -1,0 +1,246 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Implementation complete: 3 god files split into <=500 LOC modules with public surfaces preserved via re-exports; 500 vitest pass; lint/typecheck/format/build clean; sentrux pass"
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/audit/full-audit-1422.json"
+      ],
+      "reason": "Add full-audit JSON output path to scope (ADR-042 evidence file)"
+    }
+  ],
+  "branch": "refactor/issue-1422/god-rundetail-api-conflict",
+  "changed_test_paths": [
+    "frontend/src/components/Git/__tests__/ConflictMarkerDecoration.test.ts",
+    "frontend/src/lib/api/__tests__/api-surface.test.ts"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "npm run lint",
+      "exit_code": 0,
+      "name": "frontend_lint",
+      "output_path": "0 errors, 48 warnings (pre-existing)",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npm run format:check",
+      "exit_code": 0,
+      "name": "frontend_format",
+      "output_path": "All matched files use Prettier code style",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npm run typecheck",
+      "exit_code": 0,
+      "name": "frontend_typecheck",
+      "output_path": "tsc --noEmit clean",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npx vitest run",
+      "exit_code": 0,
+      "name": "frontend_tests",
+      "output_path": "500 passed, 13 skipped (46 test files)",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npm run build",
+      "exit_code": 0,
+      "name": "frontend_build",
+      "output_path": "vite build OK in 17.11s",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "vite dev --port 5183 + Chrome MCP navigate",
+      "exit_code": 0,
+      "name": "chrome_smoke_test",
+      "output_path": "Frontend bundle loads cleanly on localhost:5183. Splash page renders (SCISTUDIO heading + 'No project open' + New/Open Project buttons). Zero console errors. 'Internal Server Error' banner is expected backend-down state; not relevant to the refactor surface (RunDetail, api.ts, ConflictMarkerDecoration). Screenshot ss_2355em81o captured.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-1422.json",
+      "exit_code": 0,
+      "name": "full_audit",
+      "output_path": "docs/audit/full-audit-1422.json",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1422-god-rundetail-api-conflict.json",
+    "shas": [
+      "53d71c1eb7e4a33a066c840ffd6134a358f4facb",
+      "e612e2fa79ea832054478756d98e6a49ef3e22a7"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "addendum": {
+      "not_applicable": true,
+      "rationale": "No addendum needed \u2014 refactor scoped to a single tracked waiver."
+    },
+    "adr": {
+      "not_applicable": true,
+      "rationale": "No ADR change \u2014 implementation-level reorganization tracked under #1412."
+    },
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "Manager owns docs/planning/frontend-cleanup-1412-checklist.md; W2-C row updated by manager post-merge."
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "Refactor (#1422 god-file split, W2-C). No public-facing docs change; lib/api.ts public surface preserved via re-exports; RunDetail + ConflictMarkerDecoration exports unchanged."
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "No spec change \u2014 pure file split, public surfaces unchanged."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-1422.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-1422.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1422,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1422"
+    }
+  ],
+  "owner_directive": "Split RunDetail.tsx (645 LOC), lib/api.ts (633 LOC), and Git/ConflictMarkerDecoration.ts (592 LOC) so every produced file <= 500 LOC. Behavior-preserving. api.ts public surface unchanged via re-exports.",
+  "planned_files": [
+    "frontend/src/components/Lineage/RunDetail.tsx",
+    "frontend/src/components/Lineage/RunDetail.parts/restore.tsx",
+    "frontend/src/components/Lineage/RunDetail.parts/format.ts",
+    "frontend/src/components/Lineage/RunDetail.parts/RunDetailHeader.tsx",
+    "frontend/src/components/Lineage/RunDetail.parts/PartialRerunBanner.tsx",
+    "frontend/src/lib/api.ts",
+    "frontend/src/lib/api/core.ts",
+    "frontend/src/lib/api/projects.ts",
+    "frontend/src/lib/api/blocks.ts",
+    "frontend/src/lib/api/workflows.ts",
+    "frontend/src/lib/api/data.ts",
+    "frontend/src/lib/api/filesystem.ts",
+    "frontend/src/lib/api/code.ts",
+    "frontend/src/lib/api/lineage.ts",
+    "frontend/src/lib/api/git.ts",
+    "frontend/src/components/Git/ConflictMarkerDecoration.ts",
+    "frontend/src/components/Git/ConflictMarkerDecoration.parts/types.ts",
+    "frontend/src/components/Git/ConflictMarkerDecoration.parts/parser.ts",
+    "frontend/src/components/Git/ConflictMarkerDecoration.parts/widget.ts",
+    "frontend/src/components/Git/ConflictMarkerDecoration.parts/decorations.ts"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1422
+    ],
+    "number": 1446,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1446"
+  },
+  "record_path": ".workflow/records/1422-god-rundetail-api-conflict.json",
+  "required_checks": [
+    "ruff,format,pytest,full_audit,sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/components/Lineage/RunDetail.tsx",
+      "frontend/src/components/Lineage/RunDetail.parts/**",
+      "frontend/src/components/Lineage/__tests__/**",
+      "frontend/src/lib/api.ts",
+      "frontend/src/lib/api/**",
+      "frontend/src/components/Git/ConflictMarkerDecoration.ts",
+      "frontend/src/components/Git/ConflictMarkerDecoration.parts/**",
+      "frontend/src/components/Git/__tests__/**",
+      "CHANGELOG.md",
+      ".workflow/records/1422-god-rundetail-api-conflict.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "{\"rules_checked\": 3, \"total_rules_defined\": 15, \"violation_count\": 0, \"quality_signal\": 4443, \"pro_required\": false, \"bottleneck\": \"acyclicity\", \"root_causes\": {\"acyclicity\": {\"raw\": 3, \"score\": 2500}, \"depth\": {\"raw\": 19, \"score\": 2963}, \"equality\": {\"raw\": 0.4346, \"score\": 5654}, \"modularity\": {\"raw\": 0.177, \"score\": 4514}, \"redundancy\": {\"raw\": 0.0841, \"score\": 9159}}, \"summary\": \"All architectural rules pass\"}",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1422-god-rundetail-api-conflict",
+  "task_kind": "refactor"
+}
