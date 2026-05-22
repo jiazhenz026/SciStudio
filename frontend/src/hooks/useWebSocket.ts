@@ -4,9 +4,11 @@ import {
   handleBlockPtyClosed,
   handleBlockPtyOpened,
 } from "../components/AIChat/blockPtyHandlers";
-import { api } from "../lib/api";
+import { api, consumePendingWorkflowSourceId } from "../lib/api";
+import type { ProjectFileResponse, VersionedWorkflowResponse } from "../lib/api";
 import type { WorkflowEventMessage } from "../types/api";
 import { useAppStore } from "../store";
+import type { VersionConflictState, VersionedChangeSource } from "../store/types";
 
 /** Ref-holder for the active WebSocket so components can send messages. */
 let _activeSocket: WebSocket | null = null;
@@ -19,6 +21,44 @@ export function sendWebSocketMessage(message: Record<string, unknown>): boolean 
     return true;
   }
   return false;
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function numberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function versionedData(payload: WorkflowEventMessage): Record<string, unknown> {
+  return (payload.data ?? {}) as Record<string, unknown>;
+}
+
+function eventSource(data: Record<string, unknown>): VersionedChangeSource | null {
+  return stringOrNull(data.source) as VersionedChangeSource | null;
+}
+
+function workflowIsDirty(): boolean {
+  const state = useAppStore.getState();
+  return (
+    state.workflowDirty ||
+    (typeof state.workflowBaseVersion === "number" &&
+      typeof state.workflowPendingVersion === "number" &&
+      state.workflowPendingVersion > state.workflowBaseVersion)
+  );
+}
+
+function fileIsDirty(tabId: string): boolean {
+  const state = useAppStore.getState();
+  const tab = state.tabs.find((t) => t.id === tabId);
+  if (!tab || tab.kind !== "file") return false;
+  return (
+    tab.dirty ||
+    (typeof tab.baseVersion === "number" &&
+      typeof tab.pendingVersion === "number" &&
+      tab.pendingVersion > tab.baseVersion)
+  );
 }
 
 export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
@@ -102,11 +142,16 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
       // refetch it and replace the in-memory state. If the file was deleted,
       // clear the canvas and warn via the Logs panel.
       if (payload.type === "workflow.changed") {
+        const data = versionedData(payload);
         const changedId =
           (payload.workflow_id as string | null | undefined) ??
-          (payload.data.workflow_id as string | undefined) ??
+          (data.workflow_id as string | undefined) ??
+          (data.entity_id as string | undefined) ??
           null;
-        const kind = (payload.data.kind as string | undefined) ?? "modified";
+        const kind = (data.kind as string | undefined) ?? "modified";
+        const eventVersion = numberOrNull(data.version);
+        const source = eventSource(data);
+        const sourceId = stringOrNull(data.source_id);
         // Any workflow YAML touch on disk is also a project-tree change,
         // so kick the ProjectTree's auto-refresh signal. The actual file
         // tree refetch happens in ProjectTree's useEffect subscribed to
@@ -135,6 +180,68 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
         }
         const currentId = useAppStore.getState().workflowId;
         if (changedId && changedId === currentId) {
+          const state = useAppStore.getState();
+          const baseVersion = state.workflowBaseVersion;
+          const pendingVersion = state.workflowPendingVersion;
+          if (eventVersion !== null && baseVersion !== null && eventVersion <= baseVersion) {
+            return;
+          }
+
+          const ownSourceEcho =
+            eventVersion !== null &&
+            sourceId !== null &&
+            (sourceId === state.workflowPendingSourceId ||
+              consumePendingWorkflowSourceId(changedId, sourceId));
+          if (ownSourceEcho && (pendingVersion === null || eventVersion <= pendingVersion)) {
+            useAppStore.getState().confirmWorkflowVersion(eventVersion, sourceId);
+            return;
+          }
+
+          const dirty = workflowIsDirty();
+          if (dirty) {
+            const recordConflict = (remoteWorkflow: VersionedWorkflowResponse | null) => {
+              const latest = useAppStore.getState();
+              const conflict: VersionConflictState = {
+                entityClass: "workflow",
+                entityId: changedId,
+                kind,
+                source,
+                sourceId,
+                baseVersion: latest.workflowBaseVersion,
+                pendingVersion: latest.workflowPendingVersion,
+                remoteVersion: eventVersion,
+                detectedAt: payload.timestamp,
+                message:
+                  eventVersion === null
+                    ? `Workflow '${changedId}' changed remotely without ADR-045 version data; local edits were preserved.`
+                    : `Workflow '${changedId}' changed remotely at version ${eventVersion}; local edits were preserved.`,
+                remoteWorkflow,
+              };
+              useAppStore.getState().markWorkflowRemoteConflict(conflict);
+              appendLog({
+                timestamp: payload.timestamp,
+                level: "warn",
+                message: conflict.message,
+                workflow_id: changedId,
+                block_id: null,
+              });
+            };
+
+            if (kind === "deleted" || kind === "moved") {
+              recordConflict(null);
+            } else {
+              api
+                .getWorkflow(changedId)
+                .then((fresh) => {
+                  if (useAppStore.getState().workflowId === changedId) {
+                    recordConflict(fresh);
+                  }
+                })
+                .catch(() => recordConflict(null));
+            }
+            return;
+          }
+
           if (kind === "deleted" || kind === "moved") {
             setWorkflow(null);
             appendLog({
@@ -181,6 +288,130 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
       // refine to be selective (e.g. only invalidate the affected branch's
       // log when `ref` is a branch tip) — the full invalidation here is
       // a correct conservative default in the skeleton phase.
+      if (payload.type === "file.changed") {
+        const data = versionedData(payload);
+        const path = stringOrNull(data.path) ?? stringOrNull(data.entity_id);
+        if (!path) return;
+
+        const kind = (data.kind as string | undefined) ?? "modified";
+        const eventVersion = numberOrNull(data.version);
+        const source = eventSource(data);
+        const sourceId = stringOrNull(data.source_id);
+
+        useAppStore.getState().bumpProjectTreeRefresh();
+        const state = useAppStore.getState();
+        const projectId = state.currentProject?.id;
+        const matchingTabs = state.tabs.filter(
+          (tab) => tab.kind === "file" && tab.filePath === path,
+        );
+        if (!projectId || matchingTabs.length === 0) return;
+
+        for (const tab of matchingTabs) {
+          if (tab.kind !== "file") continue;
+          if (
+            eventVersion !== null &&
+            typeof tab.baseVersion === "number" &&
+            eventVersion <= tab.baseVersion
+          ) {
+            continue;
+          }
+
+          const ownSourceEcho =
+            eventVersion !== null &&
+            sourceId !== null &&
+            sourceId === tab.pendingSourceId;
+          if (
+            ownSourceEcho &&
+            (typeof tab.pendingVersion !== "number" || eventVersion <= tab.pendingVersion)
+          ) {
+            useAppStore.getState().confirmFileVersion(tab.id, eventVersion, sourceId);
+            continue;
+          }
+
+          if (!fileIsDirty(tab.id)) {
+            if (kind === "deleted" || kind === "moved") {
+              const conflict: VersionConflictState = {
+                entityClass: "file",
+                entityId: path,
+                kind,
+                source,
+                sourceId,
+                baseVersion: tab.baseVersion ?? null,
+                pendingVersion: tab.pendingVersion ?? tab.baseVersion ?? null,
+                remoteVersion: eventVersion,
+                detectedAt: payload.timestamp,
+                message: `File '${path}' was ${kind} remotely; local tab content was left unchanged.`,
+              };
+              useAppStore.getState().markFileRemoteConflict(tab.id, conflict);
+              appendLog({
+                timestamp: payload.timestamp,
+                level: "warn",
+                message: conflict.message,
+                workflow_id: null,
+                block_id: null,
+              });
+              continue;
+            }
+            api
+              .getProjectFile(projectId, path)
+              .then((fresh) => {
+                useAppStore.getState().applyFileRemoteContent(tab.id, fresh);
+              })
+              .catch((err) => {
+                appendLog({
+                  timestamp: payload.timestamp,
+                  level: "error",
+                  message: `Failed to refresh file '${path}' after disk change: ${
+                    err instanceof Error ? err.message : String(err)
+                  }`,
+                  workflow_id: null,
+                  block_id: null,
+                });
+              });
+            continue;
+          }
+
+          const recordFileConflict = (remote: ProjectFileResponse | null) => {
+            const latest = useAppStore.getState().tabs.find((t) => t.id === tab.id);
+            if (!latest || latest.kind !== "file") return;
+            const conflict: VersionConflictState = {
+              entityClass: "file",
+              entityId: path,
+              kind,
+              source,
+              sourceId,
+              baseVersion: latest.baseVersion ?? null,
+              pendingVersion: latest.pendingVersion ?? latest.baseVersion ?? null,
+              remoteVersion: eventVersion,
+              detectedAt: payload.timestamp,
+              message:
+                eventVersion === null
+                  ? `File '${path}' changed remotely without ADR-045 version data; local edits were preserved.`
+                  : `File '${path}' changed remotely at version ${eventVersion}; local edits were preserved.`,
+              remoteContent: remote?.content ?? null,
+            };
+            useAppStore.getState().markFileRemoteConflict(tab.id, conflict);
+            appendLog({
+              timestamp: payload.timestamp,
+              level: "warn",
+              message: conflict.message,
+              workflow_id: null,
+              block_id: null,
+            });
+          };
+
+          if (kind === "deleted" || kind === "moved") {
+            recordFileConflict(null);
+          } else {
+            api
+              .getProjectFile(projectId, path)
+              .then((fresh) => recordFileConflict(fresh))
+              .catch(() => recordFileConflict(null));
+          }
+        }
+        return;
+      }
+
       if (payload.type === "git.head_changed") {
         const data = (payload.data ?? {}) as Record<string, unknown>;
         const commitSha = (data.commit_sha as string | null | undefined) ?? null;

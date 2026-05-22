@@ -1,4 +1,4 @@
-﻿"""Project CRUD and workspace management endpoints."""
+"""Project CRUD and workspace management endpoints."""
 
 from __future__ import annotations
 
@@ -317,6 +317,8 @@ async def write_project_file(
         raise HTTPException(status_code=400, detail="Path is a directory, not a file")
 
     existed = target.exists()
+    entity_id = _project_relative_entity_id(project_root, target)
+    kind = "modified" if existed else "created"
 
     # Atomic write: tempfile in same dir + os.replace.
     tmp_fd, tmp_path = tempfile.mkstemp(prefix=".__scistudio_write_", suffix=target.suffix, dir=str(target.parent))
@@ -325,6 +327,14 @@ async def write_project_file(
             tmp_file.write(encoded)
             tmp_file.flush()
             os.fsync(tmp_file.fileno())
+        runtime.mark_entity_first_party_write(
+            FILE_ENTITY_CLASS,
+            entity_id,
+            runtime.current_entity_version(FILE_ENTITY_CLASS, entity_id, path=target),
+            path=target,
+            kind=kind,
+            pending=True,
+        )
         # Mark self-write BEFORE the rename so the watcher's debounce
         # filter sees the call land before the FS event fires. The watcher
         # captures (path, mtime, size) lazily 鈥?calling it after writing
@@ -378,7 +388,6 @@ async def write_project_file(
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"post-write stat failed: {exc}") from exc
 
-    entity_id = _project_relative_entity_id(project_root, target)
     source = _request_source(request, body)
     source_id = _request_source_id(request, body)
     change = await _emit_file_changed(
@@ -388,7 +397,7 @@ async def write_project_file(
         project_id=project_id,
         source=source,
         source_id=source_id,
-        kind="modified" if existed else "created",
+        kind=kind,
         changed_by=request.headers.get("X-Changed-By"),
     )
 

@@ -1,5 +1,7 @@
 import type { StateCreator } from "zustand";
 
+import { setWorkflowWriteStartedListener } from "../lib/api";
+import type { VersionedWorkflowResponse } from "../lib/api";
 import type { BlockSummary, WorkflowEdge, WorkflowNode } from "../types/api";
 import type { AppStore, WorkflowHistoryEntry, WorkflowSlice } from "./types";
 
@@ -18,6 +20,35 @@ function pushHistory(state: AppStore): Pick<AppStore, "workflowHistory" | "workf
   };
 }
 
+function stateVersionOf(workflow: VersionedWorkflowResponse | null | undefined): number | null {
+  return typeof workflow?.state_version === "number" ? workflow.state_version : null;
+}
+
+function nextPendingVersion(
+  base: number | null,
+  pending: number | null,
+  saveInFlight: boolean,
+): number | null {
+  if (base === null) return pending;
+  if (saveInFlight) return Math.max(base + 2, pending ?? base + 2);
+  return base + 1;
+}
+
+function markDirty(state: AppStore): Pick<
+  AppStore,
+  "workflowDirty" | "workflowPendingVersion" | "workflowConflict"
+> {
+  return {
+    workflowDirty: true,
+    workflowPendingVersion: nextPendingVersion(
+      state.workflowBaseVersion,
+      state.workflowPendingVersion,
+      state.workflowPendingSourceId !== null,
+    ),
+    workflowConflict: null,
+  };
+}
+
 function mergeNodeConfig(node: WorkflowNode, config: Record<string, unknown>): WorkflowNode {
   return {
     ...node,
@@ -31,7 +62,12 @@ function mergeNodeConfig(node: WorkflowNode, config: Record<string, unknown>): W
   };
 }
 
-export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> = (set, get) => ({
+export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> = (set, get) => {
+  setWorkflowWriteStartedListener((workflowId, sourceId) => {
+    get().beginWorkflowSave(workflowId, sourceId);
+  });
+
+  return {
   workflowId: null,
   workflowName: "Untitled",
   workflowDescription: "",
@@ -40,24 +76,35 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
   workflowNodes: [],
   workflowEdges: [],
   workflowDirty: false,
+  workflowBaseVersion: null,
+  workflowPendingVersion: null,
+  workflowPendingSourceId: null,
+  workflowConflict: null,
   workflowHistory: [],
   workflowFuture: [],
   setWorkflow: (workflow) =>
-    set({
-      workflowId: workflow?.id ?? null,
-      // #796: WorkflowModel.id has an empty-string default in the backend
-      // schema. A workflow YAML that omits the `id:` field round-trips through
-      // the API as ``id: ""`` and would render a blank top-left title here.
-      // Fall back to "Untitled" so the user always sees a label.
-      workflowName: (workflow?.id || "Untitled"),
-      workflowDescription: workflow?.description ?? "",
-      workflowVersion: workflow?.version ?? "1.0.0",
-      workflowMetadata: workflow?.metadata ?? {},
-      workflowNodes: workflow?.nodes ?? [],
-      workflowEdges: workflow?.edges ?? [],
-      workflowDirty: false,
-      workflowHistory: [],
-      workflowFuture: [],
+    set(() => {
+      const baseVersion = stateVersionOf(workflow as VersionedWorkflowResponse | null);
+      return {
+        workflowId: workflow?.id ?? null,
+        // #796: WorkflowModel.id has an empty-string default in the backend
+        // schema. A workflow YAML that omits the `id:` field round-trips through
+        // the API as ``id: ""`` and would render a blank top-left title here.
+        // Fall back to "Untitled" so the user always sees a label.
+        workflowName: (workflow?.id || "Untitled"),
+        workflowDescription: workflow?.description ?? "",
+        workflowVersion: workflow?.version ?? "1.0.0",
+        workflowMetadata: workflow?.metadata ?? {},
+        workflowNodes: workflow?.nodes ?? [],
+        workflowEdges: workflow?.edges ?? [],
+        workflowDirty: false,
+        workflowBaseVersion: baseVersion,
+        workflowPendingVersion: baseVersion,
+        workflowPendingSourceId: null,
+        workflowConflict: null,
+        workflowHistory: [],
+        workflowFuture: [],
+      };
     }),
   setWorkflowName: (name) => set({ workflowName: name }),
   addNode: (block, position, defaultParams) =>
@@ -74,7 +121,7 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
 
       return {
         ...pushHistory(state),
-        workflowDirty: true,
+        ...markDirty(state),
         workflowId: state.workflowId ?? "main",
         workflowNodes: [
           ...state.workflowNodes,
@@ -90,7 +137,7 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
   addAnnotationNode: (position) =>
     set((state) => ({
       ...pushHistory(state),
-      workflowDirty: true,
+      ...markDirty(state),
       workflowId: state.workflowId ?? "main",
       workflowNodes: [
         ...state.workflowNodes,
@@ -105,7 +152,7 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
   addGroupNode: (position) =>
     set((state) => ({
       ...pushHistory(state),
-      workflowDirty: true,
+      ...markDirty(state),
       workflowId: state.workflowId ?? "main",
       workflowNodes: [
         ...state.workflowNodes,
@@ -123,24 +170,24 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
   updateNodeConfig: (nodeId, config) =>
     set((state) => ({
       ...pushHistory(state),
-      workflowDirty: true,
+      ...markDirty(state),
       workflowNodes: state.workflowNodes.map((node) => (node.id === nodeId ? mergeNodeConfig(node, config) : node)),
     })),
   updateNodeLayout: (nodeId, position) =>
     set((state) => ({
-      workflowDirty: true,
+      ...markDirty(state),
       workflowNodes: state.workflowNodes.map((node) => (node.id === nodeId ? { ...node, layout: position } : node)),
     })),
   connectNodes: (edge) =>
     set((state) => ({
       ...pushHistory(state),
-      workflowDirty: true,
+      ...markDirty(state),
       workflowEdges: [...state.workflowEdges, edge],
     })),
   removeNode: (nodeId) =>
     set((state) => ({
       ...pushHistory(state),
-      workflowDirty: true,
+      ...markDirty(state),
       workflowNodes: state.workflowNodes.filter((node) => node.id !== nodeId),
       workflowEdges: state.workflowEdges.filter(
         (edge) => !edge.source.startsWith(`${nodeId}:`) && !edge.target.startsWith(`${nodeId}:`),
@@ -149,13 +196,52 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
   removeEdge: (edgeToRemove) =>
     set((state) => ({
       ...pushHistory(state),
-      workflowDirty: true,
+      ...markDirty(state),
       workflowEdges: state.workflowEdges.filter(
         (edge) => edge.source !== edgeToRemove.source || edge.target !== edgeToRemove.target,
       ),
     })),
-  setWorkflowDescription: (description) => set({ workflowDescription: description, workflowDirty: true }),
-  markWorkflowSaved: () => set({ workflowDirty: false }),
+  setWorkflowDescription: (description) => set((state) => ({ workflowDescription: description, ...markDirty(state) })),
+  markWorkflowSaved: () =>
+    set((state) => {
+      if (
+        state.workflowBaseVersion !== null &&
+        state.workflowPendingVersion !== null &&
+        state.workflowPendingVersion > state.workflowBaseVersion + 1
+      ) {
+        return {};
+      }
+      return { workflowDirty: false };
+    }),
+  beginWorkflowSave: (workflowId, sourceId) =>
+    set((state) => {
+      if (state.workflowId !== workflowId) return {};
+      return {
+        workflowPendingVersion:
+          state.workflowBaseVersion === null
+            ? state.workflowPendingVersion
+            : Math.max(
+                state.workflowBaseVersion + 1,
+                state.workflowPendingVersion ?? state.workflowBaseVersion,
+              ),
+        workflowPendingSourceId: sourceId,
+      };
+    }),
+  confirmWorkflowVersion: (version, sourceId = null) =>
+    set((state) => {
+      const hasNewerLocalEdits =
+        state.workflowPendingVersion !== null && state.workflowPendingVersion > version;
+      return {
+        workflowBaseVersion: version,
+        workflowPendingVersion: hasNewerLocalEdits ? state.workflowPendingVersion : version,
+        workflowPendingSourceId:
+          state.workflowPendingSourceId === sourceId ? null : state.workflowPendingSourceId,
+        workflowDirty: hasNewerLocalEdits ? state.workflowDirty : false,
+        workflowConflict: null,
+      };
+    }),
+  markWorkflowRemoteConflict: (conflict) => set({ workflowConflict: conflict, workflowDirty: true }),
+  clearWorkflowConflict: () => set({ workflowConflict: null }),
   undoWorkflow: () => {
     const state = get();
     const last = state.workflowHistory[state.workflowHistory.length - 1];
@@ -166,7 +252,7 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
       workflowNodes: last.nodes,
       workflowEdges: last.edges,
       workflowDescription: last.description,
-      workflowDirty: true,
+      ...markDirty(state),
       workflowHistory: state.workflowHistory.slice(0, -1),
       workflowFuture: [...state.workflowFuture, snapshot(state)].slice(-40),
     });
@@ -181,9 +267,10 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
       workflowNodes: next.nodes,
       workflowEdges: next.edges,
       workflowDescription: next.description,
-      workflowDirty: true,
+      ...markDirty(state),
       workflowHistory: [...state.workflowHistory, snapshot(state)].slice(-40),
       workflowFuture: state.workflowFuture.slice(0, -1),
     });
   },
-});
+  };
+};

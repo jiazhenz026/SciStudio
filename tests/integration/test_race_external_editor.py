@@ -48,6 +48,41 @@ def test_external_file_edit_emits_versioned_file_changed(
     assert payload["version"] == base_version + 1
 
 
+def test_first_party_file_write_pending_signature_suppresses_watcher_echo(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    project_id = runtime.require_active_project().id
+    target = opened_project / "notes.md"
+    target.write_text("base\n", encoding="utf-8")
+    base = client.get(f"/api/projects/{project_id}/file?path=notes.md")
+    assert base.status_code == 200, base.text
+    base_version = base.json()["state_version"]
+
+    captured: list[dict[str, object]] = []
+    handler = _ProjectFileHandler(
+        project_dir=opened_project,
+        broadcast=lambda payload: captured.append(payload),
+        loop=None,
+        runtime=runtime,
+    )
+
+    runtime.mark_entity_first_party_write(
+        FILE_ENTITY_CLASS,
+        "notes.md",
+        base_version,
+        path=target,
+        kind="modified",
+        pending=True,
+    )
+    target.write_text("api save\n", encoding="utf-8")
+    handler.on_any_event(FileModifiedEvent(str(target)))
+
+    assert captured == []
+    assert runtime.current_entity_version(FILE_ENTITY_CLASS, "notes.md", path=target) == base_version
+
+
 def test_file_changed_events_reach_websocket_clients(
     client: TestClient,
     runtime: ApiRuntime,

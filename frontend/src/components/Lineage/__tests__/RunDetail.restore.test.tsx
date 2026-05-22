@@ -32,6 +32,7 @@ vi.mock("../../../lib/api", () => ({
   api: {
     gitRestore: vi.fn().mockResolvedValue({ status: "ok", auto_commit_sha: null }),
   },
+  setWorkflowWriteStartedListener: vi.fn(),
 }));
 
 import { api } from "../../../lib/api";
