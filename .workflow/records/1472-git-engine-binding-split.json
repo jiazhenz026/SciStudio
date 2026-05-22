@@ -59,7 +59,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1472-git-engine-binding-split.json",
+    "shas": [
+      "6a893f7b8146a6897f61ce58646f447fb3887775"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "paths": [
@@ -105,7 +111,13 @@
   ],
   "owner_directive": "D3' replan: D1-style class-binding split for git_engine; ADR-046 Addendum 1 written in same PR",
   "planned_files": [],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1472
+    ],
+    "number": 1477,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1477"
+  },
   "record_path": ".workflow/records/1472-git-engine-binding-split.json",
   "required_checks": [
     "ruff",
