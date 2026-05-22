@@ -304,6 +304,7 @@ Append only.
 |---|---|---|---|---|
 | 2026-05-22 | manager | Q1 (single tracker issue vs Closes list) unanswered — defaulted to opening #1426 as single tracker. | Recorded default in checklist. | Owner may reverse before integration. |
 | 2026-05-22 | manager | Q2 (#1420 hotfix vs P1) unanswered — defaulted to standard P1 gated workflow (not hotfix mode). | Wave 1 dispatched as `bugfix` task-kind, not `hotfix`. | Owner may escalate to hotfix mode if they have observed UI crashes. |
+| 2026-05-22 | manager | Wave 1/2 dispatch prompts deviated from `agent-dispatch-prompt-template.md`: added custom sections, mixed `gate_record docs --na docs:`/`--na checklist:` recipe into Work To Do step 7 rather than enforcing it in Required Tests And Checks. Result: all 3 W2 PRs failed CI `Verify Workflow Compliance` with `docs_landing.missing-docs` (and W2-A/C also `missing-checklist`); W1 PR hit the same gap and self-fixed mid-run. | Manager patched each W2 gate-record with `gate_record docs --updated CHANGELOG.md --na docs:<rationale> --na checklist:<rationale> --na adr:<rationale> --na spec:<rationale>` from each agent worktree, pushed fix commits, awaiting CI re-run. Wave 3 + Wave 4 audit prompts will compose more strictly from the template with the gate-record CLI recipe enumerated as required checks. | Re-aligned prompt template adherence; no new issue required. |
 
 ## 10. Final Readiness
 
