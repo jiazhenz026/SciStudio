@@ -11,7 +11,13 @@
   "branch": "umbrella/phase3-bucket-d",
   "changed_test_paths": [],
   "check_results": [],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1465-phase3-bucket-d-umbrella.json",
+    "shas": [
+      "8725299d292f4a701f2b355ede8abb82b4a3532d"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -60,7 +66,13 @@
     "docs/planning/phase3-bucket-d-checklist.md",
     ".workflow/records/1465-phase3-bucket-d-umbrella.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1465
+    ],
+    "number": 1475,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1475"
+  },
   "record_path": ".workflow/records/1465-phase3-bucket-d-umbrella.json",
   "required_checks": [
     "full_audit",
@@ -121,7 +133,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
