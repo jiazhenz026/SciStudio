@@ -41,7 +41,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/841-windows-npm-shim-resolution.json",
+    "shas": [
+      "4b5c6c9137ced752bc456a2c821f1d4c1e75e089"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -78,7 +84,13 @@
     "tests/ai/test_windows_executable_resolution.py",
     ".workflow/records/841-windows-npm-shim-resolution.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      841
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1434"
+  },
   "record_path": ".workflow/records/841-windows-npm-shim-resolution.json",
   "required_checks": [
     "ruff",
@@ -172,7 +184,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
