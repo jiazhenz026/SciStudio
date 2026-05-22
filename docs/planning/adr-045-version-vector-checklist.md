@@ -232,3 +232,13 @@ assigned track rows above.
 | 2026-05-22 | A2 / Linnaeus | `019e4dd1-2401-7ec0-9752-d5849a342f5b` | `[!]` | Blocked on A1 runtime/event helper contract; no files changed, no PR opened. |
 | 2026-05-22 | A3 / Godel | `019e4dd1-24fb-7d43-af13-37dd74fd67f1` | `[!]` | Blocked on missing backend event/response contracts from A1/A2; no files changed, no PR opened. |
 | 2026-05-22 | A4 / audit | pending | `[ ]` | Held until A1-A3 PRs or commits exist; prompt prepared at `docs/planning/dispatch-prompts/adr-045-a4-audit-with-context.md`. |
+
+## 13. Codex Auto-Audit Triage
+
+Append only. Do not resolve or reply to GitHub review threads unless the owner
+explicitly asks.
+
+| Date | PR | Source | Severity | Finding | Decision | Owner | Status |
+|---|---|---|---|---|---|---|---|
+| 2026-05-22 | #1411 | `chatgpt-codex-connector` | P1 | `WorkflowResponse.version` was repurposed from YAML/schema semver to ADR-045 state counter, which can corrupt read-then-save clients. | Accept. Preserve `version` as semver and expose state counter under a separate response field such as `state_version`; update docs/tests for contract consistency. | A1 / Galileo | `[~]` |
+| 2026-05-22 | #1411 | `chatgpt-codex-connector` | P2 | Watcher suppression drops every event for the workflow ID during the first-party window, which can hide a real external edit after an API/git write. | Accept. Suppress only exact first-party echoes and add a regression test for external edit after first-party write. | A1 / Galileo | `[~]` |
