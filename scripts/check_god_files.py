@@ -36,7 +36,8 @@ EXCLUDE_DIR_NAMES: frozenset[str] = frozenset({"__pycache__", "tests"})
 
 GOD_FILE_SIZE_WAIVERS: frozenset[str] = frozenset(
     {
-        "src/scistudio/api/runtime.py",
+        # ``src/scistudio/api/runtime.py`` removed 2026-05-22 (#1430) — the
+        # 1839-LOC god-file was split into the ``runtime/`` sub-package.
         "src/scistudio/engine/scheduler.py",
         "src/scistudio/blocks/registry.py",
         # ``src/scistudio/qa/governance/gate_record.py`` was decomposed into
