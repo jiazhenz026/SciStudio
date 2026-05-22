@@ -42,9 +42,10 @@ GOD_FILE_SIZE_WAIVERS: frozenset[str] = frozenset(
         "src/scistudio/qa/governance/gate_record.py",
         "src/scistudio/blocks/io/savers/save_data.py",
         "src/scistudio/blocks/io/loaders/load_data.py",
-        "src/scistudio/ai/agent/mcp/tools_workflow.py",
+        # tools_workflow.py and tools_inspection.py removed from waivers in #1431 —
+        # decomposed into src/scistudio/ai/agent/mcp/{tools_workflow,tools_inspection}/
+        # sub-packages whose largest sub-module is < 750 LOC.
         "src/scistudio/core/versioning/git_engine.py",
-        "src/scistudio/ai/agent/mcp/tools_inspection.py",
         "src/scistudio/api/routes/ai_pty.py",
     }
 )
