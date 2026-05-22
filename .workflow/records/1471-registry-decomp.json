@@ -180,10 +180,10 @@
       "summary": null
     },
     {
-      "completed_at": null,
+      "completed_at": "2026-05-22T23:37:26.068228+00:00",
       "stage": "commit_and_submit_pr",
-      "status": "pending",
-      "summary": null
+      "status": "done",
+      "summary": "Committed 4fb68a10 with AI-trailer + Closes #1471; ready to push and open PR."
     }
   ],
   "task_id": "1471-registry-decomp",
