@@ -290,17 +290,9 @@ def _iterate_over_axes_zarr(
     operates_axes_in_order: list[str],
 ) -> Array:
     """Zarr-backed path that reads and writes one iteration slice at a time."""
-    if not extra_axes:
-        slice_data = _read_zarr_slice(source, operates_on_fs, {})
-        result_slice = func(slice_data, {})
-        result_arr = np.asarray(result_slice)
-        _validate_result_ndim(result_arr, len(operates_axes_in_order))
-        return _build_result(source, result_arr)
-
     writer: Any = None
     zarr_path: str | None = None
     first_slice_shape: tuple[int, ...] | None = None
-    first_slice_dtype: Any = None
 
     for extra_idx in product(*(range(s) for s in extra_sizes)):
         coord: dict[str, int] = dict(zip(extra_axes, extra_idx, strict=True))
@@ -312,11 +304,10 @@ def _iterate_over_axes_zarr(
         if first_slice_shape is None:
             _validate_result_ndim(result_arr, len(operates_axes_in_order), coord)
             first_slice_shape = result_arr.shape
-            first_slice_dtype = result_arr.dtype
             zarr_path, writer = _open_zarr_result_writer(
                 source,
                 tuple(extra_sizes) + first_slice_shape,
-                first_slice_dtype,
+                result_arr.dtype,
                 _chunks_for_shape(tuple(1 for _ in extra_sizes) + first_slice_shape),
             )
         elif result_arr.shape != first_slice_shape:
@@ -339,7 +330,6 @@ def _iterate_over_axes_zarr(
         )
 
     assert zarr_path is not None
-    assert first_slice_dtype is not None or writer.dtype is not None
     return _build_result_from_zarr(source, zarr_path, tuple(writer.shape), writer.dtype)
 
 

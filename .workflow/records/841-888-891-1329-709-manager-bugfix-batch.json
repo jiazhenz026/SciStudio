@@ -146,6 +146,33 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff check src/scistudio/utils/axis_iter.py tests/utils/test_axis_iter.py",
+      "exit_code": 0,
+      "name": "semantic-dup-followup-axis-iter-ruff",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff format --check src/scistudio/utils/axis_iter.py tests/utils/test_axis_iter.py",
+      "exit_code": 0,
+      "name": "semantic-dup-followup-axis-iter-format",
+      "output_path": "2 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m pytest tests/utils/test_axis_iter.py --no-cov -q",
+      "exit_code": 0,
+      "name": "semantic-dup-followup-axis-iter-pytest",
+      "output_path": "17 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": {
