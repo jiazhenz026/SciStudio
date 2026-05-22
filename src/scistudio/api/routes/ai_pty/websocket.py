@@ -1,0 +1,258 @@
+"""User-launched PTY WebSocket route (ADR-034 Phase 1.2).
+
+Owns ``WS /api/ai/pty/{tab_id}`` — the route that accepts the frontend
+connection, validates query params, JOINs an engine-pre-spawned PTY
+(ADR-035 §3.10) or spawns a fresh one, runs two concurrent pump tasks
+(PTY → WS and WS → PTY), and tears down the subprocess tree on
+disconnect.
+
+Mutable seams (``_spawn``, ``MAX_ACTIVE_PTYS``, ``_active_ptys``,
+``_active_lock``, ``_engine_tab_to_run``, ``_engine_run_to_run_dir``,
+``_VALID_PROVIDERS``) are looked up on the package namespace at call
+time so monkeypatching them on ``scistudio.api.routes.ai_pty`` keeps
+working — pre-existing test contract.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import logging
+import threading
+
+from fastapi import WebSocket
+from starlette.websockets import WebSocketDisconnect, WebSocketState
+
+from scistudio.ai.agent.terminal import PtyProcess
+from scistudio.api.routes import ai_pty as _pkg
+from scistudio.api.routes.ai_pty.validation import _validate_project_dir
+
+logger = logging.getLogger(__name__)
+
+
+@_pkg.router.websocket("/pty/{tab_id}")
+async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
+    """Accept the WS, validate params, spawn PTY, pump until close."""
+    await websocket.accept()
+
+    # ---- Validate query parameters -----------------------------------------
+    params = websocket.query_params
+    provider = params.get("provider", "")
+    project_dir_raw = params.get("project_dir", "")
+    dangerous_raw = params.get("dangerous", "false").lower()
+
+    if provider not in _pkg._VALID_PROVIDERS:
+        await _send_error(
+            websocket,
+            f"Invalid provider {provider!r}; expected one of {_pkg._VALID_PROVIDERS}.",
+        )
+        await websocket.close()
+        return
+
+    if not project_dir_raw:
+        await _send_error(websocket, "Missing required query parameter 'project_dir'.")
+        await websocket.close()
+        return
+
+    try:
+        project_dir = _validate_project_dir(project_dir_raw)
+    except (RuntimeError, PermissionError, OSError) as exc:
+        await _send_error(websocket, f"Invalid project_dir: {exc}")
+        await websocket.close()
+        return
+
+    dangerous = dangerous_raw in {"true", "1", "yes"}
+
+    # ---- Engine-initiated tab join (ADR-035 §3.10) -------------------------
+    # Audit P1-C (Codex #861-2): if the engine pre-spawned a PTY for this
+    # tab_id (engine-initiated AI Block tab), JOIN that PTY instead of
+    # spawning a fresh one. Re-spawning would orphan the original agent
+    # process, drop the engine's _engine_initial_stdin / _engine_block_run_id
+    # metadata, and break the worker's completion-watcher correlation.
+    existing_pty: PtyProcess | None = None
+    async with _pkg._active_lock:
+        candidate = _pkg._active_ptys.get(tab_id)
+        if candidate is not None and getattr(candidate, "_engine_block_run_id", None):
+            existing_pty = candidate
+
+    if existing_pty is not None:
+        pty = existing_pty
+        # Replay the engine-supplied initial prompt to the agent, exactly
+        # once, on first WS connect. Stamped sentinel attribute prevents
+        # double-replay on a StrictMode dev re-mount or a reconnect.
+        initial_stdin = getattr(pty, "_engine_initial_stdin", None)
+        already_replayed = getattr(pty, "_engine_initial_stdin_sent", False)
+        if initial_stdin and not already_replayed:
+            try:
+                pty.write(initial_stdin.encode("utf-8", errors="replace"))
+            except Exception:  # pragma: no cover - PTY may have died
+                logger.warning("engine-initiated PTY: failed to flush initial stdin", exc_info=True)
+            pty._engine_initial_stdin_sent = True  # type: ignore[attr-defined]
+    else:
+        # ---- Resource cap --------------------------------------------------
+        async with _pkg._active_lock:
+            if len(_pkg._active_ptys) >= _pkg.MAX_ACTIVE_PTYS:
+                # Note: send + close while still holding the lock would
+                # serialise rejections; safe because send_json is fast and
+                # holding the lock guarantees the count snapshot we report.
+                await _send_error(
+                    websocket,
+                    f"max {_pkg.MAX_ACTIVE_PTYS} active terminals — close an existing tab and retry.",
+                )
+                await websocket.close()
+                return
+
+        # ---- Spawn PTY -----------------------------------------------------
+        try:
+            pty = _pkg._spawn(provider=provider, project_dir=project_dir, dangerous=dangerous)
+        except FileNotFoundError as exc:
+            # claude / codex binary missing on PATH — actionable error.
+            await _send_error(websocket, f"Provider binary not found: {exc}")
+            await websocket.close()
+            return
+        except Exception as exc:  # pragma: no cover - hard-to-trigger spawn failure
+            logger.error("PTY spawn failed", exc_info=True)
+            await _send_error(websocket, f"Failed to spawn PTY: {exc}")
+            await websocket.close()
+            return
+
+        async with _pkg._active_lock:
+            _pkg._active_ptys[tab_id] = pty
+
+    # ---- Pump tasks --------------------------------------------------------
+    loop = asyncio.get_running_loop()
+    stop = asyncio.Event()
+
+    async def pump_pty_to_ws() -> None:
+        """Forward PTY stdout to WS as ``{type:stdout,data:...}`` frames."""
+        try:
+            while not stop.is_set():
+                # Use an executor — :meth:`PtyProcess.read` blocks up to
+                # ~100 ms which would stall the event loop otherwise.
+                data = await loop.run_in_executor(None, pty.read, 0.1)
+                if data:
+                    if websocket.client_state != WebSocketState.CONNECTED:
+                        # Client closed already (StrictMode dev double-mount,
+                        # tab close, etc.) — abort cleanly instead of letting
+                        # send_json explode with "after websocket.close".
+                        break
+                    try:
+                        await websocket.send_json({"type": "stdout", "data": data.decode("utf-8", errors="replace")})
+                    except RuntimeError:
+                        # ASGI race: client_state can flip between the check
+                        # above and the send when uvicorn flushes a close
+                        # frame concurrently. Treat as a graceful end.
+                        break
+                if not pty.is_alive():
+                    break
+        except WebSocketDisconnect:
+            return
+        except Exception:  # pragma: no cover - logged, swallowed to trigger cleanup
+            logger.warning("PTY→WS pump failed", exc_info=True)
+        finally:
+            stop.set()
+
+    async def pump_ws_to_pty() -> None:
+        """Dispatch client frames to ``stdin`` / ``resize`` actions."""
+        try:
+            while not stop.is_set():
+                msg = await websocket.receive_json()
+                kind = msg.get("type")
+                if kind == "stdin":
+                    data = msg.get("data", "")
+                    if isinstance(data, str):
+                        pty.write(data.encode("utf-8", errors="replace"))
+                elif kind == "resize":
+                    try:
+                        cols = int(msg.get("cols", 80))
+                        rows = int(msg.get("rows", 24))
+                    except (TypeError, ValueError):
+                        continue
+                    pty.resize(cols=cols, rows=rows)
+                else:
+                    logger.debug("Ignoring unknown WS frame type %r", kind)
+        except WebSocketDisconnect:
+            return
+        except Exception:  # pragma: no cover - logged
+            logger.warning("WS→PTY pump failed", exc_info=True)
+        finally:
+            stop.set()
+
+    task_out = asyncio.create_task(pump_pty_to_ws())
+    task_in = asyncio.create_task(pump_ws_to_pty())
+
+    try:
+        await stop.wait()
+    finally:
+        # Pop from the registry FIRST.  The subsequent awaits in this
+        # finally block can themselves be cancelled (e.g. Starlette's
+        # WebSocketTestSession cancels the anyio scope on context exit
+        # via cs.cancel before awaiting fut.result), so deferring the
+        # pop until after them would leak the entry on cancellation.
+        # ``_active_ptys`` is a plain dict — direct ``pop`` is safe
+        # without the asyncio lock here because no other coroutine can
+        # observe a torn-down PTY meaningfully (cap check + insertion
+        # happen at accept time only, behind ``_active_lock``).
+        _pkg._active_ptys.pop(tab_id, None)
+        # ADR-035: also drop the engine-side tab→run map entry so a
+        # subsequent run does not see a stale block_run_id pointer.
+        run_id_for_cleanup = _pkg._engine_tab_to_run.pop(tab_id, None)
+        if run_id_for_cleanup is not None:
+            _pkg._engine_run_to_run_dir.pop(run_id_for_cleanup, None)
+        task_out.cancel()
+        task_in.cancel()
+
+        # Kill the subprocess tree in a background thread so even a
+        # subsequent cancellation of this coroutine still terminates
+        # the PTY.  Using a daemon thread (not ``loop.run_in_executor``)
+        # because the awaiting coroutine itself can be cancelled and
+        # would otherwise leave kill_tree's future orphaned in the
+        # executor without observable completion.
+        threading.Thread(target=pty.kill_tree, daemon=True).start()
+
+        # Try to send a final exit frame before tearing down.
+        if websocket.client_state == WebSocketState.CONNECTED:
+            with contextlib.suppress(Exception):
+                # Best-effort — pty may already be reaped.
+                code = _wait_exit_code(pty)
+                await websocket.send_json({"type": "exit", "code": code})
+            with contextlib.suppress(Exception):
+                await websocket.close()
+
+        # Await cancellation completion to keep tests deterministic.
+        # Bound with a timeout so an executor-stuck pump_pty_to_ws
+        # (run_in_executor doesn't honour cancellation) can't pin the
+        # route indefinitely.
+        for task in (task_out, task_in):
+            with contextlib.suppress(asyncio.CancelledError, TimeoutError, Exception):
+                await asyncio.wait_for(task, timeout=1.0)
+
+
+def _wait_exit_code(pty: PtyProcess) -> int:
+    """Return the subprocess exit code if available, else ``-1``.
+
+    Best-effort: on Windows ``winpty.PtyProcess.exitstatus`` is populated
+    after :meth:`isalive` flips false; on POSIX :class:`subprocess.Popen.returncode`
+    is set after :meth:`wait`.  Either way, we don't block — the caller is
+    in shutdown.
+    """
+    try:
+        impl = getattr(pty, "_impl", None)
+        if impl is not None:
+            status = getattr(impl, "exitstatus", None)
+            if status is not None:
+                return int(status)
+        popen = getattr(pty, "_popen", None)
+        if popen is not None and popen.returncode is not None:
+            return int(popen.returncode)
+    except Exception:  # pragma: no cover
+        pass
+    return -1
+
+
+async def _send_error(websocket: WebSocket, message: str) -> None:
+    """Best-effort send of an ``{type:error}`` frame."""
+    try:
+        await websocket.send_json({"type": "error", "message": message})
+    except Exception:  # pragma: no cover
+        logger.debug("Failed to send error frame", exc_info=True)
