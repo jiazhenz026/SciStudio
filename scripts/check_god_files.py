@@ -39,7 +39,10 @@ GOD_FILE_SIZE_WAIVERS: frozenset[str] = frozenset(
         "src/scistudio/api/runtime.py",
         "src/scistudio/engine/scheduler.py",
         "src/scistudio/blocks/registry.py",
-        "src/scistudio/qa/governance/gate_record.py",
+        # ``src/scistudio/qa/governance/gate_record.py`` was decomposed into
+        # the ``gate_record/`` sub-package in PR for #1433 (umbrella #1427);
+        # waiver removed because every new sub-module is below the 750 LOC
+        # threshold.
         "src/scistudio/blocks/io/savers/save_data.py",
         "src/scistudio/blocks/io/loaders/load_data.py",
         "src/scistudio/ai/agent/mcp/tools_workflow.py",
