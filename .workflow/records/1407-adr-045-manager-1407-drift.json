@@ -30,7 +30,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1407-adr-045-manager-1407-drift.json",
+    "shas": [
+      "8012258645aca56ec0245374ae56cac20e5884f5"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {
@@ -80,7 +86,13 @@
     "docs/planning/dispatch-prompts/adr-045-*.md",
     "docs/audit/adr-045-*.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1407
+    ],
+    "number": 1410,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1410"
+  },
   "record_path": ".workflow/records/1407-adr-045-manager-1407-drift.json",
   "required_checks": [
     "frontmatter_lint",
@@ -158,7 +170,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],

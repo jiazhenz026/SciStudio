@@ -8,7 +8,7 @@
 - Persona: implementer
 - Issue: #1401
 - Issue URL: https://github.com/zjzcpj/SciStudio/issues/1401
-- Umbrella PR: pending - manager must replace this line with the `[DO NOT MERGE]` PR number before dispatch.
+- Umbrella PR: #1410 `[DO NOT MERGE]` https://github.com/zjzcpj/SciStudio/pull/1410
 - Protected branch: main
 - Umbrella branch: track/adr-045/version-vector
 - Agent branch: feat/issue-1401/adr-045-frontend-reconcile
@@ -136,7 +136,7 @@ Use `python -m scistudio.qa.governance.gate_record` with `.workflow/records/1401
 
 Stop and report back if:
 
-- The umbrella PR line still says `pending` when you are dispatched.
+- The umbrella PR line is missing or does not point to #1410 when you are dispatched.
 - Backend event/response contracts from A1/A2 are not available on the tracking branch.
 - You need an out-of-scope file.
 - You cannot add deterministic frontend tests for the four reconcile branches.

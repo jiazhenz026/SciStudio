@@ -28,7 +28,7 @@ language_source: en
 - Branch/worktree plan: manager integration branch `track/adr-045/version-vector` in `.claude/worktrees/manager-adr-045-1407`; agent branches will use `feat/issue-1401/adr-045-*` from this tracking branch.
 - Protected branch: `main`
 - Umbrella branch: `track/adr-045/version-vector`
-- Umbrella PR: `pending`
+- Umbrella PR: `#1410` `https://github.com/zjzcpj/SciStudio/pull/1410`
 - Umbrella PR title: `[DO NOT MERGE] ADR-045 version-vector implementation`
 - Final PR target: `main`
 - Dispatch prompt templates:
@@ -80,9 +80,9 @@ language_source: en
 - [x] Gate record started. -> `.workflow/records/1407-adr-045-manager-1407-drift.json`
 - [x] Scope include/exclude recorded in the gate record. -> `.workflow/records/1407-adr-045-manager-1407-drift.json`
 - [x] Umbrella branch created. -> `track/adr-045/version-vector`
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [x] Protected branch and umbrella PR number recorded in this checklist. -> protected branch `main`; PR pending
+- [x] Umbrella PR opened. -> https://github.com/zjzcpj/SciStudio/pull/1410
+- [x] Umbrella PR title includes `[DO NOT MERGE]`. -> `[DO NOT MERGE] ADR-045 version-vector implementation`
+- [x] Protected branch and umbrella PR number recorded in this checklist. -> protected branch `main`; PR #1410
 - [x] No `pip install -e .` environment pollution found. -> `PYTHONPATH=src` import points to manager worktree source
 - [x] Dispatch checklist copied from the template and committed. -> pending first manager commit
 - [x] Dispatch prompts created from the correct prompt template and linked below. -> `docs/planning/dispatch-prompts/adr-045-a1-backend-versioning.md`, `adr-045-a2-file-tabs.md`, `adr-045-a3-frontend-reconcile.md`, `adr-045-a4-audit-with-context.md`
@@ -167,7 +167,7 @@ language_source: en
 - [x] ADR-045 spec file created. -> `docs/specs/adr-045-workflow-state-version.md`
 - [x] ADR-045 status/phase transitioned. -> `docs/adr/ADR-045.md`
 - [x] #1401 tracker open for implementation or replacement open issue recorded. -> `gh issue reopen 1401`
-- [ ] Umbrella PR opened before agent dispatch.
+- [x] Umbrella PR opened before agent dispatch. -> #1410
 - [x] Prompt files created or dispatch prompts recorded. -> `docs/planning/dispatch-prompts/adr-045-a*.md`
 
 ### 8.3 Implementation

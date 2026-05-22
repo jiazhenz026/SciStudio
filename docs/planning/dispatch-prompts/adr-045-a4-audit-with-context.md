@@ -8,7 +8,7 @@
 - Issue: #1401
 - Issue URL: https://github.com/zjzcpj/SciStudio/issues/1401
 - Owner request: Audit the ADR-045 implementation outputs for workflow/file version-vector race fixes before manager integration.
-- Umbrella PR: pending - manager must replace this line with the `[DO NOT MERGE]` PR number before dispatch.
+- Umbrella PR: #1410 `[DO NOT MERGE]` https://github.com/zjzcpj/SciStudio/pull/1410
 - Protected branch: main
 - Umbrella branch: track/adr-045/version-vector
 - Audit branch: audit/issue-1401/adr-045-version-vector
@@ -123,7 +123,7 @@ Run or verify:
 
 Stop and report back if:
 
-- The umbrella PR line or A1/A2/A3 PR list still says `pending` when you are dispatched.
+- The umbrella PR line is missing or does not point to #1410, or the A1/A2/A3 PR list still says `pending` when you are dispatched.
 - You need to change implementation code.
 - Required evidence is unavailable.
 - The audit scope conflicts with AGENTS.md, ADR, spec, or gate record.
