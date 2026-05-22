@@ -219,15 +219,5 @@ export default tseslint.config(
     files: ["src/hooks/useWebSocket.test.ts"],
     rules: { "@typescript-eslint/ban-ts-comment": "off" },
   },
-  {
-    // #1421 — investigate 10 missing-deps in App.tsx (potential stale-closure bugs).
-    files: ["src/App.tsx"],
-    rules: { "react-hooks/exhaustive-deps": "off" },
-  },
-  {
-    // #1420 — REAL BUG: BlockNode.tsx calls Hooks conditionally after early return.
-    files: ["src/components/nodes/BlockNode.tsx"],
-    rules: { "react-hooks/rules-of-hooks": "off" },
-  },
   prettier,
 );

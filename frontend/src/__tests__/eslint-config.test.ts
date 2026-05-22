@@ -53,7 +53,12 @@ export function Bad({ early }: { early: boolean }) {
     expect(ruleIds).not.toContain("max-lines");
   });
 
-  it("does NOT flag react-hooks/rules-of-hooks on BlockNode.tsx (#1420 waiver)", async () => {
+  it("DOES flag react-hooks/rules-of-hooks on BlockNode.tsx (#1420 waiver retired)", async () => {
+    // The waiver was retired in #1420/#1421: BlockNode.tsx is back under the
+    // default rules-of-hooks enforcement now that the conditional-hook
+    // refactor (extract InlineTextInputField) lets hooks live at the top
+    // level of every component in the file. A regression that re-introduces
+    // a hook after an early return MUST now lint-fail on this exact path.
     const source = `import { useState } from "react";
 export function Bad({ early }: { early: boolean }) {
   if (early) return null;
@@ -62,6 +67,20 @@ export function Bad({ early }: { early: boolean }) {
 }
 `;
     const ruleIds = await lintAs("src/components/nodes/BlockNode.tsx", source);
-    expect(ruleIds).not.toContain("react-hooks/rules-of-hooks");
+    expect(ruleIds).toContain("react-hooks/rules-of-hooks");
+  });
+
+  it("DOES flag react-hooks/exhaustive-deps on App.tsx (#1421 waiver retired)", async () => {
+    // The waiver was retired in #1420/#1421: every App.tsx hook either now
+    // includes the missing dep or carries an inline disable with rationale.
+    // A regression that re-introduces a bare missing-dep MUST now lint-fail.
+    const source = `import { useEffect } from "react";
+export function Bad({ value }: { value: number }) {
+  useEffect(() => { console.log(value); }, []);
+  return null;
+}
+`;
+    const ruleIds = await lintAs("src/App.tsx", source);
+    expect(ruleIds).toContain("react-hooks/exhaustive-deps");
   });
 });

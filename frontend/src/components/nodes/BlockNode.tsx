@@ -495,9 +495,28 @@ function InlineConfigField({
     );
   }
 
-  // Default: text input. When ui_widget is "file_browser" or
-  // "directory_browser", render a "..." browse button next to the input
-  // that opens the FileBrowserModal (#484).
+  // Default: text input — delegated to a dedicated sub-component so its
+  // Hooks (useState/useRef/useLayoutEffect) sit at the top level rather than
+  // after the early returns above. Splitting the default branch into its own
+  // component preserves the prior behavior while satisfying
+  // react-hooks/rules-of-hooks (#1420).
+  return <InlineTextInputField prop={prop} value={value} onChange={onChange} />;
+}
+
+function InlineTextInputField({
+  prop,
+  value,
+  onChange,
+}: {
+  prop: ConfigProperty;
+  value: unknown;
+  onChange: (key: string, val: unknown) => void;
+}) {
+  const { key, schema } = prop;
+  const label = (schema.title as string) ?? key;
+
+  // When ui_widget is "file_browser" or "directory_browser", render a "..."
+  // browse button next to the input that opens the FileBrowserModal (#484).
   const uiWidget = schema.ui_widget as string | undefined;
   const hasBrowse = uiWidget === "file_browser" || uiWidget === "directory_browser";
   const [browseOpen, setBrowseOpen] = useState(false);
