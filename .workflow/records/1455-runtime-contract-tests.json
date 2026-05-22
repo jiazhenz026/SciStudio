@@ -49,13 +49,19 @@
   "commit": {
     "gate_record_path": ".workflow/records/1455-runtime-contract-tests.json",
     "shas": [
-      "098486226637bb27bd03926751b649a8820b6610"
+      "484b389ce168a28d5ec3d4b3b9df099fc50264a9"
     ],
     "trailers": {}
   },
   "docs_landing": {
-    "changelog": {},
-    "checklist": {},
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "test-only contract suite; no user-facing product behavior change"
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "single-scope PR tracked by #1455 plus xfail ledger #1454; no manager checklist required"
+    },
     "docs": {
       "not_applicable": true,
       "rationale": "test-only contract suite; issues #1452 and #1454 carry tracking context"
