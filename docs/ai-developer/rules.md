@@ -40,7 +40,8 @@ language_source: en
   `manager`.
 
 - MUST choose one persona before work starts:
-  `manager`, `implementer`, `adr_author`, or `audit_reviewer`.
+  `manager`, `implementer`, `adr_author`, `audit_reviewer`, or
+  `test_engineer`.
 
 - MUST stay inside the owner request, issue, spec, ADR, and gate record.
   MUST NOT quietly expand the task.
@@ -121,3 +122,5 @@ unless the owner explicitly authorizes hotfix mode.
 | Implementer persona | `docs/ai-developer/personas/implementer.md` |
 | ADR author persona | `docs/ai-developer/personas/adr-author.md` |
 | Audit reviewer persona | `docs/ai-developer/personas/audit-reviewer.md` |
+| Test engineer persona | `docs/ai-developer/personas/test-engineer.md` |
+| Test engineering | `docs/ai-developer/specific_rules/test-engineering.md` |
