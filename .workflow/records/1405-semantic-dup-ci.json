@@ -1,6 +1,15 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": "agent",
+      "exclude": [],
+      "include": [
+        ".workflow/records/1405-semantic-dup-ci.json"
+      ],
+      "reason": "Gate record file itself is part of the canonical AI-authored work and must be in-scope per ADR-042 Addendum 1"
+    }
+  ],
   "branch": "feat/semantic-dup-ci",
   "changed_test_paths": [
     "tests/scripts/test_semantic_dup_scan.py"
@@ -34,7 +43,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1405-semantic-dup-ci.json",
+    "shas": [
+      "bde19e55cd1b269f16881a19bf1ef6d1cad2a1b8"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "paths": [
@@ -50,7 +65,16 @@
       ]
     }
   },
-  "full_audit": null,
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "scistudio.qa.audit.full_audit",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
   "governance_touch": true,
   "issues": [
     {
@@ -71,7 +95,13 @@
     ".gitignore",
     "CHANGELOG.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1405
+    ],
+    "number": 1406,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1406"
+  },
   "record_path": ".workflow/records/1405-semantic-dup-ci.json",
   "required_checks": [
     "ruff check .",
@@ -121,7 +151,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
@@ -139,7 +169,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
