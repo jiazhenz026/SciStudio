@@ -1,0 +1,204 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Implementation completed within the originally planned file scope."
+    }
+  ],
+  "branch": "fix/888-axis-iter-zarr-lazy",
+  "changed_test_paths": [
+    "tests/utils/test_axis_iter.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "PYTHONPATH=src ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src ruff format --check .",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "662 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/utils/test_axis_iter.py -q --no-cov",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "16 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/utils/test_axis_iter.py -q",
+      "exit_code": 1,
+      "name": "pytest-coverage-gated-target",
+      "output_path": "16 assertions passed; pytest failed only because repo-wide coverage total 6.12% is below fail-under=70 for narrow test invocation",
+      "status": "fail",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "sentrux check .",
+      "exit_code": 1,
+      "name": "sentrux-cli",
+      "output_path": "sentrux CLI not found on PATH; used Sentrux MCP check_rules instead",
+      "status": "skipped",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src;packages/scistudio-blocks-imaging/src pytest packages/scistudio-blocks-imaging/tests -q --no-cov",
+      "exit_code": 1,
+      "name": "imaging-package-tests",
+      "output_path": "335 passed, 9 skipped, 43 failed; failures are broad existing imaging package expectations around _data/unpersisted serialization, not isolated to this axis_iter change",
+      "status": "fail",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/888-axis-iter-zarr-lazy.json",
+    "shas": [
+      "0a0f05156c47c6aedb84e67c0f622272227dabd3"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "No changelog entry; targeted bug fix for issue #888 is documented by PR and gate record without release-note surface."
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "No separate checklist; scoped bug fix is covered by issue #888 acceptance criteria and regression test evidence."
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "No documentation change; issue #888 states existing docs are the source of truth and this PR only brings code into compliance with that contract."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": true,
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output TEMP/scistudio-888-full-audit.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "C:\\Users\\jiazh\\AppData\\Local\\Temp\\scistudio-888-full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 888,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/888"
+    }
+  ],
+  "owner_directive": "Implement lazy Zarr-backed iterate_over_axes without full source/output materialization; scope limited to src/scistudio/utils/axis_iter.py, tests/utils/test_axis_iter.py, and gate record.",
+  "planned_files": [
+    "src/scistudio/utils/axis_iter.py",
+    "tests/utils/test_axis_iter.py",
+    ".workflow/records/888-axis-iter-zarr-lazy.json"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      888
+    ],
+    "number": 1436,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1436"
+  },
+  "record_path": ".workflow/records/888-axis-iter-zarr-lazy.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "src/scistudio/engine/scheduler.py",
+      "src/scistudio/engine/resources.py",
+      "src/scistudio/api/runtime.py",
+      "src/scistudio/blocks/load_data.py",
+      "src/scistudio/blocks/save_data.py",
+      "packages/scistudio-blocks-imaging/**",
+      "frontend/**"
+    ],
+    "include": [
+      "src/scistudio/utils/axis_iter.py",
+      "tests/utils/test_axis_iter.py",
+      ".workflow/records/888-axis-iter-zarr-lazy.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__sentrux__.scan; mcp__sentrux__.check_rules; mcp__sentrux__.health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "check_rules pass=true; rules_checked=3; total_rules_defined=15; health quality_signal=4441; pro_required=false",
+    "pro_required": false,
+    "quality_signal": 4441.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {
+      "pro_required": "false"
+    },
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "888-axis-iter-zarr-lazy",
+  "task_kind": "bugfix"
+}

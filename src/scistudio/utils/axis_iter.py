@@ -148,8 +148,18 @@ def iterate_over_axes(
     extra_sizes: list[int] = [source.shape[source.axes.index(a)] for a in extra_axes]
     operates_axes_in_order: list[str] = [a for a in source.axes if a in operates_on_fs]
 
+    if _is_zarr_backed(source):
+        return _iterate_over_axes_zarr(
+            source,
+            operates_on_fs,
+            func,
+            extra_axes,
+            extra_sizes,
+            operates_axes_in_order,
+        )
+
     # 4. Materialise source data once. Per ADR-027 D4 this is the
-    # Phase 10 Level 1 path; lazy Zarr partial-reads are deferred.
+    # fallback path for in-memory and non-Zarr sources.
     source_data = source.to_memory()
     source_arr = np.asarray(source_data)
 
@@ -235,6 +245,144 @@ def iterate_over_axes(
     return _build_result(source, result_full)
 
 
+def _is_zarr_backed(source: Array) -> bool:
+    ref = getattr(source, "storage_ref", None)
+    return ref is not None and ref.backend == "zarr"
+
+
+def _validate_result_ndim(result_arr: np.ndarray, expected_ndim: int, coord: dict[str, int] | None = None) -> None:
+    if result_arr.ndim == expected_ndim:
+        return
+    suffix = "." if coord is None else f" at coord {coord}."
+    raise BroadcastError(
+        f"iterate_over_axes: func must return arrays with "
+        f"{expected_ndim} dimensions (len(operates_on)), "
+        f"but got an array with {result_arr.ndim} dimensions{suffix}"
+    )
+
+
+def _chunks_for_shape(shape: tuple[int, ...]) -> tuple[int, ...]:
+    return tuple(max(1, size) for size in shape)
+
+
+def _read_zarr_slice(source: Array, operates_on_fs: frozenset[str], coord: dict[str, int]) -> np.ndarray:
+    from scistudio.core.storage.zarr_backend import ZarrBackend
+
+    ref = source.storage_ref
+    if ref is None:
+        raise BroadcastError("iterate_over_axes: zarr-backed source is missing storage_ref")
+
+    index: list[int | slice] = []
+    for axis_name in source.axes:
+        if axis_name in operates_on_fs:
+            index.append(slice(None))
+        else:
+            index.append(coord[axis_name])
+    return np.asarray(ZarrBackend().slice(ref, *index))
+
+
+def _iterate_over_axes_zarr(
+    source: Array,
+    operates_on_fs: frozenset[str],
+    func: SliceFn,
+    extra_axes: list[str],
+    extra_sizes: list[int],
+    operates_axes_in_order: list[str],
+) -> Array:
+    """Zarr-backed path that reads and writes one iteration slice at a time."""
+    writer: Any = None
+    zarr_path: str | None = None
+    first_slice_shape: tuple[int, ...] | None = None
+
+    for extra_idx in product(*(range(s) for s in extra_sizes)):
+        coord: dict[str, int] = dict(zip(extra_axes, extra_idx, strict=True))
+
+        slice_data = _read_zarr_slice(source, operates_on_fs, coord)
+        result_slice = func(slice_data, coord)
+        result_arr = np.asarray(result_slice)
+
+        if first_slice_shape is None:
+            _validate_result_ndim(result_arr, len(operates_axes_in_order), coord)
+            first_slice_shape = result_arr.shape
+            zarr_path, writer = _open_zarr_result_writer(
+                source,
+                tuple(extra_sizes) + first_slice_shape,
+                result_arr.dtype,
+                _chunks_for_shape(tuple(1 for _ in extra_sizes) + first_slice_shape),
+            )
+        elif result_arr.shape != first_slice_shape:
+            raise BroadcastError(
+                f"iterate_over_axes: slice outputs must all have the same "
+                f"shape. First was {first_slice_shape}, but got "
+                f"{result_arr.shape} at coord {coord}."
+            )
+
+        assert writer is not None
+        writer[extra_idx] = result_arr
+
+    if writer is None:
+        operates_shape = tuple(source.shape[source.axes.index(a)] for a in operates_axes_in_order)  # type: ignore[index]
+        zarr_path, writer = _open_zarr_result_writer(
+            source,
+            tuple(extra_sizes) + operates_shape,
+            np.dtype(source.dtype),
+            _chunks_for_shape(tuple(1 for _ in extra_sizes) + operates_shape),
+        )
+
+    assert zarr_path is not None
+    return _build_result_from_zarr(source, zarr_path, tuple(writer.shape), writer.dtype)
+
+
+def _open_zarr_result_writer(
+    source: Array,
+    shape: tuple[int, ...],
+    dtype: Any,
+    chunks: tuple[int, ...],
+) -> tuple[str, Any]:
+    import tempfile
+    import uuid
+    from pathlib import Path
+
+    import zarr
+
+    from scistudio.core.storage.flush_context import get_output_dir
+
+    output_dir = get_output_dir()
+    if output_dir is None:
+        output_dir = tempfile.mkdtemp(prefix="scistudio_axis_iter_")
+    zarr_path = str(Path(output_dir) / f"{uuid.uuid4()}.zarr")
+    writer = zarr.open_array(
+        zarr_path,
+        mode="w",
+        shape=shape,
+        chunks=chunks,
+        dtype=dtype,
+    )
+    return zarr_path, writer
+
+
+def _build_result_from_zarr(source: Array, zarr_path: str, shape: tuple[int, ...], dtype: Any) -> Array:
+    from scistudio.core.storage.ref import StorageReference
+
+    new_framework = source._framework.derive()  # type: ignore[attr-defined]
+    ref = StorageReference(
+        backend="zarr",
+        path=zarr_path,
+        metadata={"shape": list(shape), "dtype": str(np.dtype(dtype))},
+    )
+
+    return type(source)(
+        axes=list(source.axes),
+        shape=shape,
+        dtype=np.dtype(dtype),
+        chunk_shape=source.chunk_shape,
+        framework=new_framework,
+        meta=source._meta,  # type: ignore[attr-defined]
+        user=dict(source._user),  # type: ignore[attr-defined]
+        storage_ref=ref,
+    )
+
+
 def _build_result(source: Array, data: np.ndarray) -> Array:
     """Construct a new ``type(source)`` instance with propagated metadata.
 
@@ -259,40 +407,14 @@ def _build_result(source: Array, data: np.ndarray) -> Array:
     properties because the properties return read-only views while the
     construction path needs the raw slots.
     """
-    import tempfile
-    import uuid
-    from pathlib import Path
-
-    import zarr
-
-    from scistudio.core.storage.flush_context import get_output_dir
-    from scistudio.core.storage.ref import StorageReference
-
-    new_framework = source._framework.derive()  # type: ignore[attr-defined]
-
-    # Persist to zarr and set storage_ref.
-    output_dir = get_output_dir()
-    if output_dir is None:
-        output_dir = tempfile.mkdtemp(prefix="scistudio_axis_iter_")
-    zarr_path = str(Path(output_dir) / f"{uuid.uuid4()}.zarr")
-    zarr.save(zarr_path, data)  # type: ignore[arg-type]
-    ref = StorageReference(
-        backend="zarr",
-        path=zarr_path,
-        metadata={"shape": list(data.shape), "dtype": str(data.dtype)},
+    zarr_path, writer = _open_zarr_result_writer(
+        source,
+        tuple(data.shape),
+        data.dtype,
+        _chunks_for_shape(tuple(data.shape)),
     )
-
-    result = type(source)(
-        axes=list(source.axes),
-        shape=tuple(data.shape),
-        dtype=data.dtype,
-        chunk_shape=source.chunk_shape,
-        framework=new_framework,
-        meta=source._meta,  # type: ignore[attr-defined]
-        user=dict(source._user),  # type: ignore[attr-defined]
-        storage_ref=ref,
-    )
-    return result
+    writer[...] = data
+    return _build_result_from_zarr(source, zarr_path, tuple(data.shape), data.dtype)
 
 
 __all__ = ["SliceFn", "iterate_over_axes"]

@@ -7,6 +7,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+from scistudio.core.storage.errors import StorageMissingError, StorageReferenceInvalidError
 from scistudio.core.storage.ref import StorageReference
 
 
@@ -42,7 +43,17 @@ class CompositeStore:
         """
         base = Path(ref.path)
         manifest_path = base / self._MANIFEST_NAME
-        manifest: dict[str, Any] = json.loads(manifest_path.read_text(encoding="utf-8"))
+        try:
+            manifest: dict[str, Any] = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except FileNotFoundError as exc:
+            raise StorageMissingError(ref, operation="read", detail=str(exc)) from exc
+        except json.JSONDecodeError as exc:
+            raise StorageReferenceInvalidError(
+                ref,
+                reason="corrupt_or_unreadable",
+                operation="read",
+                detail=str(exc),
+            ) from exc
 
         result: dict[str, Any] = {}
         for slot_name, slot_info in manifest["slots"].items():
@@ -130,7 +141,17 @@ class CompositeStore:
         """
         base = Path(ref.path)
         manifest_path = base / self._MANIFEST_NAME
-        manifest: dict[str, Any] = json.loads(manifest_path.read_text(encoding="utf-8"))
+        try:
+            manifest: dict[str, Any] = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except FileNotFoundError as exc:
+            raise StorageMissingError(ref, operation="slice", detail=str(exc)) from exc
+        except json.JSONDecodeError as exc:
+            raise StorageReferenceInvalidError(
+                ref,
+                reason="corrupt_or_unreadable",
+                operation="slice",
+                detail=str(exc),
+            ) from exc
 
         requested = set(args) if args else set(manifest["slots"].keys())
         result: dict[str, Any] = {}
@@ -151,7 +172,17 @@ class CompositeStore:
         """Yield slots one at a time from the composite at *ref*."""
         base = Path(ref.path)
         manifest_path = base / self._MANIFEST_NAME
-        manifest: dict[str, Any] = json.loads(manifest_path.read_text(encoding="utf-8"))
+        try:
+            manifest: dict[str, Any] = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except FileNotFoundError as exc:
+            raise StorageMissingError(ref, operation="iter_chunks", detail=str(exc)) from exc
+        except json.JSONDecodeError as exc:
+            raise StorageReferenceInvalidError(
+                ref,
+                reason="corrupt_or_unreadable",
+                operation="iter_chunks",
+                detail=str(exc),
+            ) from exc
 
         for slot_name, slot_info in manifest["slots"].items():
             backend = self._get_backend_for(slot_info["backend"])
@@ -166,7 +197,17 @@ class CompositeStore:
         """Return metadata for the composite directory at *ref*."""
         base = Path(ref.path)
         manifest_path = base / self._MANIFEST_NAME
-        manifest: dict[str, Any] = json.loads(manifest_path.read_text(encoding="utf-8"))
+        try:
+            manifest: dict[str, Any] = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except FileNotFoundError as exc:
+            raise StorageMissingError(ref, operation="get_metadata", detail=str(exc)) from exc
+        except json.JSONDecodeError as exc:
+            raise StorageReferenceInvalidError(
+                ref,
+                reason="corrupt_or_unreadable",
+                operation="get_metadata",
+                detail=str(exc),
+            ) from exc
         return {
             "slot_names": list(manifest["slots"].keys()),
             "slot_backends": {k: v["backend"] for k, v in manifest["slots"].items()},
