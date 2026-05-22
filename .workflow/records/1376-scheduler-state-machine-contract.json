@@ -69,13 +69,12 @@
     "trailers": {}
   },
   "docs_landing": {
-    "changelog": {},
-    "checklist": {},
-    "docs": {},
-    "public-docs": {
+    "changelog": {
       "not_applicable": true,
-      "rationale": "test-only-scheduler-contract-coverage-no-user-facing-behavior-change"
-    }
+      "rationale": "test-only-contract-coverage-no-user-visible-product-change"
+    },
+    "checklist": {},
+    "docs": {}
   },
   "full_audit": {
     "blocks_merge": false,
