@@ -250,6 +250,17 @@ def _is_zarr_backed(source: Array) -> bool:
     return ref is not None and ref.backend == "zarr"
 
 
+def _validate_result_ndim(result_arr: np.ndarray, expected_ndim: int, coord: dict[str, int] | None = None) -> None:
+    if result_arr.ndim == expected_ndim:
+        return
+    suffix = "." if coord is None else f" at coord {coord}."
+    raise BroadcastError(
+        f"iterate_over_axes: func must return arrays with "
+        f"{expected_ndim} dimensions (len(operates_on)), "
+        f"but got an array with {result_arr.ndim} dimensions{suffix}"
+    )
+
+
 def _iterate_over_axes_zarr(
     source: Array,
     operates_on_fs: frozenset[str],
@@ -263,12 +274,7 @@ def _iterate_over_axes_zarr(
         slice_data = np.asarray(source.sel().to_memory())
         result_slice = func(slice_data, {})
         result_arr = np.asarray(result_slice)
-        if result_arr.ndim != len(operates_axes_in_order):
-            raise BroadcastError(
-                f"iterate_over_axes: func must return arrays with "
-                f"{len(operates_axes_in_order)} dimensions (len(operates_on)), "
-                f"but got an array with {result_arr.ndim} dimensions."
-            )
+        _validate_result_ndim(result_arr, len(operates_axes_in_order))
         return _build_result(source, result_arr)
 
     writer: Any = None
@@ -285,13 +291,7 @@ def _iterate_over_axes_zarr(
         result_arr = np.asarray(result_slice)
 
         if first_slice_shape is None:
-            if result_arr.ndim != len(operates_axes_in_order):
-                raise BroadcastError(
-                    f"iterate_over_axes: func must return arrays with "
-                    f"{len(operates_axes_in_order)} dimensions "
-                    f"(len(operates_on)), but got an array with "
-                    f"{result_arr.ndim} dimensions at coord {coord}."
-                )
+            _validate_result_ndim(result_arr, len(operates_axes_in_order), coord)
             first_slice_shape = result_arr.shape
             first_slice_dtype = result_arr.dtype
             zarr_path, writer = _open_zarr_result_writer(
@@ -398,40 +398,14 @@ def _build_result(source: Array, data: np.ndarray) -> Array:
     properties because the properties return read-only views while the
     construction path needs the raw slots.
     """
-    import tempfile
-    import uuid
-    from pathlib import Path
-
-    import zarr
-
-    from scistudio.core.storage.flush_context import get_output_dir
-    from scistudio.core.storage.ref import StorageReference
-
-    new_framework = source._framework.derive()  # type: ignore[attr-defined]
-
-    # Persist to zarr and set storage_ref.
-    output_dir = get_output_dir()
-    if output_dir is None:
-        output_dir = tempfile.mkdtemp(prefix="scistudio_axis_iter_")
-    zarr_path = str(Path(output_dir) / f"{uuid.uuid4()}.zarr")
-    zarr.save(zarr_path, data)  # type: ignore[arg-type]
-    ref = StorageReference(
-        backend="zarr",
-        path=zarr_path,
-        metadata={"shape": list(data.shape), "dtype": str(data.dtype)},
+    zarr_path, writer = _open_zarr_result_writer(
+        source,
+        tuple(data.shape),
+        data.dtype,
+        tuple(max(1, size) for size in data.shape),
     )
-
-    result = type(source)(
-        axes=list(source.axes),
-        shape=tuple(data.shape),
-        dtype=data.dtype,
-        chunk_shape=source.chunk_shape,
-        framework=new_framework,
-        meta=source._meta,  # type: ignore[attr-defined]
-        user=dict(source._user),  # type: ignore[attr-defined]
-        storage_ref=ref,
-    )
-    return result
+    writer[...] = data
+    return _build_result_from_zarr(source, zarr_path, tuple(data.shape), data.dtype)
 
 
 __all__ = ["SliceFn", "iterate_over_axes"]

@@ -83,6 +83,42 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff check src/scistudio/utils/axis_iter.py tests/utils/test_axis_iter.py",
+      "exit_code": 0,
+      "name": "semantic-dup-fix-ruff",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m ruff format --check src/scistudio/utils/axis_iter.py tests/utils/test_axis_iter.py",
+      "exit_code": 0,
+      "name": "semantic-dup-fix-format",
+      "output_path": "2 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m pytest tests/utils/test_axis_iter.py --no-cov -q",
+      "exit_code": 0,
+      "name": "semantic-dup-fix-pytest-axis-iter",
+      "output_path": "16 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json",
+      "exit_code": 1,
+      "name": "semantic-dup-local",
+      "output_path": "Local environment lacks fastembed; GitHub Semantic Duplication Scan is authoritative for this check.",
+      "status": "skipped",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": {
@@ -102,10 +138,10 @@
       "rationale": "Manager checklist committed at docs/planning/bugfix-batch-841-888-891-1329-709-checklist.md."
     },
     "docs": {
+      "rationale": "Manager checklist added as durable coordination evidence; no additional user-facing docs required beyond worker-scoped docs N/A rationales.",
       "updated": [
         "docs/planning/bugfix-batch-841-888-891-1329-709-checklist.md"
-      ],
-      "rationale": "Manager checklist added as durable coordination evidence; no additional user-facing docs required beyond worker-scoped docs N/A rationales."
+      ]
     }
   },
   "full_audit": {

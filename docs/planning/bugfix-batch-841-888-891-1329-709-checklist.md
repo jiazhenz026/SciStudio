@@ -180,6 +180,7 @@ Append only.
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
 | 2026-05-22 | manager | Worker PRs were initially separate. | Created manager integration branch and checklist. | N/A |
+| 2026-05-22 | manager | Combined PR exceeded semantic duplication ratchet by 43 duplicate LOC. | Refactored `src/scistudio/utils/axis_iter.py` to share result ndim validation and zarr result construction. | N/A |
 
 ## 10. Final Readiness
 
