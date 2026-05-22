@@ -92,11 +92,11 @@
   "docs_landing": {
     "addendum": {
       "not_applicable": true,
-      "rationale": "N/A"
+      "rationale": "No addendum needed; refactor scoped to a single tracked waiver."
     },
     "adr": {
       "not_applicable": true,
-      "rationale": "Behavior-preserving refactor; no ADR/spec change"
+      "rationale": "Behavior-preserving refactor; no ADR change."
     },
     "changelog": {
       "paths": [
@@ -105,12 +105,15 @@
     },
     "checklist": {
       "not_applicable": true,
-      "rationale": "Manager (frontend-cleanup-mgr) owns docs/planning/frontend-cleanup-1412-checklist.md; W2-B row updated by manager post-merge per checklist convention"
+      "rationale": "Manager owns docs/planning/frontend-cleanup-1412-checklist.md; W2-B row updated by manager post-merge."
     },
-    "docs": {},
+    "docs": {
+      "not_applicable": true,
+      "rationale": "Refactor (#1422 god-file split, W2-B). No public-facing docs change; CHANGELOG bullet captures the split. Public exports of DataPreview/BottomPanel unchanged."
+    },
     "spec": {
       "not_applicable": true,
-      "rationale": "N/A \u2014 no public contract change"
+      "rationale": "No public contract change."
     }
   },
   "full_audit": {
