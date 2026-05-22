@@ -66,7 +66,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1430-api-runtime.json",
+    "shas": [
+      "5bc819e0cfafee1b3f87e6d6340d7c7355d51d2f"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -115,7 +121,13 @@
     "tests/api/test_runtime_import_surface.py",
     "scripts/check_god_files.py"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1430
+    ],
+    "number": 1445,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1445"
+  },
   "record_path": ".workflow/records/1430-api-runtime.json",
   "required_checks": [
     "ruff",
@@ -182,7 +194,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
