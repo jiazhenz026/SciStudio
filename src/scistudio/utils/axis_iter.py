@@ -261,6 +261,26 @@ def _validate_result_ndim(result_arr: np.ndarray, expected_ndim: int, coord: dic
     )
 
 
+def _chunks_for_shape(shape: tuple[int, ...]) -> tuple[int, ...]:
+    return tuple(max(1, size) for size in shape)
+
+
+def _read_zarr_slice(source: Array, operates_on_fs: frozenset[str], coord: dict[str, int]) -> np.ndarray:
+    from scistudio.core.storage.zarr_backend import ZarrBackend
+
+    ref = source.storage_ref
+    if ref is None:
+        raise BroadcastError("iterate_over_axes: zarr-backed source is missing storage_ref")
+
+    index: list[int | slice] = []
+    for axis_name in source.axes:
+        if axis_name in operates_on_fs:
+            index.append(slice(None))
+        else:
+            index.append(coord[axis_name])
+    return np.asarray(ZarrBackend().slice(ref, *index))
+
+
 def _iterate_over_axes_zarr(
     source: Array,
     operates_on_fs: frozenset[str],
@@ -271,7 +291,7 @@ def _iterate_over_axes_zarr(
 ) -> Array:
     """Zarr-backed path that reads and writes one iteration slice at a time."""
     if not extra_axes:
-        slice_data = np.asarray(source.sel().to_memory())
+        slice_data = _read_zarr_slice(source, operates_on_fs, {})
         result_slice = func(slice_data, {})
         result_arr = np.asarray(result_slice)
         _validate_result_ndim(result_arr, len(operates_axes_in_order))
@@ -285,8 +305,7 @@ def _iterate_over_axes_zarr(
     for extra_idx in product(*(range(s) for s in extra_sizes)):
         coord: dict[str, int] = dict(zip(extra_axes, extra_idx, strict=True))
 
-        slice_obj = source.sel(**coord)
-        slice_data = np.asarray(slice_obj.to_memory())
+        slice_data = _read_zarr_slice(source, operates_on_fs, coord)
         result_slice = func(slice_data, coord)
         result_arr = np.asarray(result_slice)
 
@@ -298,7 +317,7 @@ def _iterate_over_axes_zarr(
                 source,
                 tuple(extra_sizes) + first_slice_shape,
                 first_slice_dtype,
-                tuple(1 for _ in extra_sizes) + first_slice_shape,
+                _chunks_for_shape(tuple(1 for _ in extra_sizes) + first_slice_shape),
             )
         elif result_arr.shape != first_slice_shape:
             raise BroadcastError(
@@ -316,7 +335,7 @@ def _iterate_over_axes_zarr(
             source,
             tuple(extra_sizes) + operates_shape,
             np.dtype(source.dtype),
-            tuple(1 for _ in extra_sizes) + operates_shape,
+            _chunks_for_shape(tuple(1 for _ in extra_sizes) + operates_shape),
         )
 
     assert zarr_path is not None
@@ -402,7 +421,7 @@ def _build_result(source: Array, data: np.ndarray) -> Array:
         source,
         tuple(data.shape),
         data.dtype,
-        tuple(max(1, size) for size in data.shape),
+        _chunks_for_shape(tuple(data.shape)),
     )
     writer[...] = data
     return _build_result_from_zarr(source, zarr_path, tuple(data.shape), data.dtype)

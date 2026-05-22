@@ -181,6 +181,7 @@ Append only.
 |---|---|---|---|---|
 | 2026-05-22 | manager | Worker PRs were initially separate. | Created manager integration branch and checklist. | N/A |
 | 2026-05-22 | manager | Combined PR exceeded semantic duplication ratchet by 43 duplicate LOC. | Refactored `src/scistudio/utils/axis_iter.py` to share result ndim validation and zarr result construction. | N/A |
+| 2026-05-22 | Codex audit | P1/P2 findings on zarr lazy iteration and zero-length chunk handling. | Replaced `source.sel(...).to_memory()` with direct `ZarrBackend.slice()` reads and guarded writer chunks with positive sizes. | N/A |
 
 ## 10. Final Readiness
 

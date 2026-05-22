@@ -231,7 +231,7 @@ def test_iterate_over_axes_zarr_reads_per_slice_without_source_to_memory(
     tmp_path: Any,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Zarr-backed sources use partial reads instead of full materialisation."""
+    """Zarr-backed sources use direct partial reads without ``sel()`` temp stores."""
     data = np.arange(2 * 3 * 4 * 5, dtype=np.float32).reshape(2, 3, 4, 5)
     src = _make_zarr_array(tmp_path, ["t", "z", "y", "x"], data, chunks=(1, 1, 4, 5))
 
@@ -239,6 +239,11 @@ def test_iterate_over_axes_zarr_reads_per_slice_without_source_to_memory(
         raise AssertionError("source.to_memory() must not be called for Zarr-backed iterate_over_axes")
 
     monkeypatch.setattr(src, "to_memory", fail_source_to_memory)
+
+    def fail_source_sel(**kwargs: Any) -> Array:
+        raise AssertionError("source.sel() must not be called for Zarr-backed iterate_over_axes")
+
+    monkeypatch.setattr(src, "sel", fail_source_sel)
 
     from scistudio.core.storage.zarr_backend import ZarrBackend
 
@@ -267,6 +272,25 @@ def test_iterate_over_axes_zarr_reads_per_slice_without_source_to_memory(
     assert result.storage_ref is not None
     assert result.storage_ref.backend == "zarr"
     np.testing.assert_array_equal(np.asarray(result), data * 2)
+
+
+def test_iterate_over_axes_zarr_allows_zero_length_operated_axis(tmp_path: Any) -> None:
+    """Zarr writer chunks remain positive when func returns empty slices."""
+    data = np.empty((1, 0, 2), dtype=np.float32)
+    src = _make_zarr_array(tmp_path, ["t", "y", "x"], data, chunks=(1, 1, 2))
+
+    calls: list[dict[str, int]] = []
+
+    def identity(slice_data: np.ndarray, coord: dict[str, int]) -> np.ndarray:
+        calls.append(dict(coord))
+        assert slice_data.shape == (0, 2)
+        return slice_data
+
+    result = iterate_over_axes(src, {"y", "x"}, identity)
+
+    assert calls == [{"t": 0}]
+    assert result.shape == (1, 0, 2)
+    np.testing.assert_array_equal(np.asarray(result), data)
 
 
 # ---------------------------------------------------------------------------
