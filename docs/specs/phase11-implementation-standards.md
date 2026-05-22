@@ -1299,6 +1299,20 @@ ABC migration.
 - ``src/scistudio/blocks/io/loaders/load_data.py`` — contains the
   ``LoadData`` class and the six ``_load_*`` private functions.
 
+  *Path-D update (issue #1459, Phase 2 of #1427)*: the module-level
+  helper functions originally co-located in ``load_data.py`` were later
+  extracted to private sibling modules so the file stays under the
+  750-LOC god-file threshold. The sibling modules
+  ``loaders/_capability.py`` (FormatCapability declarations +
+  ``_LOAD_EXTENSION_MAP`` + ``_resolve_format``) and ``loaders/_helpers.py``
+  (``_resolve_path``, ``_check_pickle_allowed``, ``_CORE_TYPE_MAP``,
+  ``_TEXT_FORMAT_MAP``, ``_MIME_GUESS``) hold module-level private
+  functions only — ADR-028 Addendum 1 §C9 ("private functions, not
+  helper classes") is satisfied verbatim because no helper module
+  defines a class. The reference code sketch below (lines 1411-1453) is
+  illustrative; the actual layout uses these siblings to keep individual
+  files focused.
+
 **d. Files to be modified**:
 - ``src/scistudio/blocks/io/__init__.py`` — re-export ``LoadData``.
 - ``pyproject.toml`` — register ``LoadData`` under
@@ -1500,6 +1514,20 @@ T-TRK-008 (SaveData).
 **c. Files to be created**:
 - ``src/scistudio/blocks/io/savers/__init__.py``
 - ``src/scistudio/blocks/io/savers/save_data.py``
+
+  *Path-D update (issue #1459, Phase 2 of #1427)*: the module-level
+  helper functions originally co-located in ``save_data.py`` were later
+  extracted to private sibling modules so the file stays under the
+  750-LOC god-file threshold. The sibling modules
+  ``savers/_capability.py`` (FormatCapability declarations +
+  ``_SAVE_EXTENSION_MAP`` + ``_resolve_save_format``),
+  ``savers/_helpers.py`` (``_require_path``, ``_check_pickle_gate``,
+  ``_unwrap_for_save``, ``_CORE_TYPE_MAP``, per-format coercion
+  helpers), and ``savers/_streaming.py`` (ADR-031 Phase 3 zero-
+  materialisation export paths) hold module-level private functions
+  only — ADR-028 Addendum 1 §C9 ("private functions, not helper
+  classes") is satisfied verbatim because no helper module defines a
+  class. The reference code sketch below is illustrative.
 
 **d. Files to be modified**:
 - ``src/scistudio/blocks/io/__init__.py`` — re-export ``SaveData``.

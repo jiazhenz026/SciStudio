@@ -1,38 +1,63 @@
 """LoadData -- dynamic-port core IO loader (ADR-028 Addendum 1, ADR-043).
 
-This module implements the canonical core IO loader block per
-ADR-028 Addendum 1 §C5 (hardcoded ``_CORE_TYPE_MAP``) and §C9 (private
-module-level dispatch functions instead of helper classes).
+Canonical core IO loader block per ADR-028 Addendum 1 §C5 (hardcoded
+``_CORE_TYPE_MAP``) and §C9 (private module-level dispatch functions
+instead of helper classes). ADR-043 / spec ``adr-043-package-migration``
+FR-001 / FR-003 added the explicit :class:`FormatCapability` records on
+:attr:`LoadData.format_capabilities`; format dispatch is derived from
+those records via :func:`_legacy_extension_map` and held in
+:data:`_LOAD_EXTENSION_MAP`.
 
-The class body is the canonical implementation skeleton from
-``docs/specs/phase11-implementation-standards.md`` lines 1292-1413; the
-six private ``_load_*`` functions absorb the logic that previously
-lived in ``src/scistudio/blocks/io/adapters/{csv,parquet,zarr,generic}_adapter.py``
-(deleted in T-TRK-004 / PR #319).
+Module-level helpers were extracted to private sibling modules per
+issue #1459 (Phase 2 of #1427) so this file stays under the 750-LOC
+god-file threshold. Path D satisfies §C9 verbatim: every extracted
+sibling contains only ``_underscore`` module-level functions, no
+classes.
 
-The ``allow_pickle`` opt-in flag controls whether ``.pkl`` / ``.pickle``
-files can be loaded. The default is ``False``; passing
-``allow_pickle=True`` causes a WARNING-level log entry before the load
-proceeds. This mirrors NumPy's policy for the same security risk.
+- :mod:`scistudio.blocks.io.loaders._capability` — ``FormatCapability``
+  declarations, ``_LOAD_EXTENSION_MAP``, ``_resolve_format``.
+- :mod:`scistudio.blocks.io.loaders._helpers` — ``_resolve_path``,
+  ``_check_pickle_allowed``, ``_CORE_TYPE_MAP``, ``_TEXT_FORMAT_MAP``,
+  ``_MIME_GUESS``.
 
-ADR-043 / spec ``adr-043-package-migration`` FR-001 / FR-003:
-``LoadData`` now declares explicit ``FormatCapability`` records via
-``format_capabilities``. The legacy ``supported_extensions`` ClassVar
-has been removed; format dispatch is derived from the capability
-declarations via :func:`_legacy_extension_map`.
+The helper symbols are re-imported below so legacy callers that do
+``from scistudio.blocks.io.loaders.load_data import _LOAD_CAPABILITIES``
+(test code, mostly) continue to work without change. The load side has
+no streaming sibling: pyarrow readers already operate batch-by-batch.
 """
 
 from __future__ import annotations
 
 import json
-import logging
 from pathlib import Path
 from typing import Any, ClassVar
 
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.base.ports import OutputPort
-from scistudio.blocks.io.capabilities import FormatCapability, MetadataFidelity
+from scistudio.blocks.io.capabilities import FormatCapability
 from scistudio.blocks.io.io_block import IOBlock
+
+# Re-exports from the private sibling modules. The unused-import noqa
+# tags are intentional: legacy callers import these names directly from
+# :mod:`scistudio.blocks.io.loaders.load_data`, so they must remain
+# present at this module's top level.
+from scistudio.blocks.io.loaders._capability import (
+    _LOAD_CAPABILITIES,
+    _LOAD_EXTENSION_MAP,
+    _PICKLE_NOTE,  # noqa: F401  re-export for backward compat
+    _legacy_extension_map,  # noqa: F401  re-export for backward compat
+    _load_capability,  # noqa: F401  re-export for backward compat
+    _resolve_format,
+    _supported_load_extensions,
+)
+from scistudio.blocks.io.loaders._helpers import (
+    _CORE_TYPE_MAP,
+    _LOGGER,  # noqa: F401  re-export for backward compat
+    _MIME_GUESS,
+    _TEXT_FORMAT_MAP,
+    _check_pickle_allowed,
+    _resolve_path,
+)
 from scistudio.core.types.array import Array
 from scistudio.core.types.artifact import Artifact
 from scistudio.core.types.base import DataObject
@@ -41,448 +66,6 @@ from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.dataframe import DataFrame
 from scistudio.core.types.series import Series
 from scistudio.core.types.text import Text
-
-_LOGGER = logging.getLogger(__name__)
-
-
-_CORE_TYPE_MAP: dict[str, type[DataObject]] = {
-    "Array": Array,
-    "DataFrame": DataFrame,
-    "Series": Series,
-    "Text": Text,
-    "Artifact": Artifact,
-    "CompositeData": CompositeData,
-}
-
-
-# ---------------------------------------------------------------------------
-# ADR-043 / spec ``adr-043-package-migration`` FR-001:
-# explicit ``FormatCapability`` declarations for the LoadData six-core-type
-# matrix. Capability id convention: ``core.{lower(type)}.{format_id}.load``.
-# Pickle records carry ``notes="requires allow_pickle=True"``; the runtime
-# gate is enforced by :func:`_check_pickle_allowed`.
-# ---------------------------------------------------------------------------
-
-
-_PICKLE_NOTE: str = "requires allow_pickle=True"
-
-
-def _load_capability(
-    *,
-    data_type: type[DataObject],
-    type_name: str,
-    format_id: str,
-    extensions: tuple[str, ...],
-    label: str,
-    handler: str,
-    notes: str | None = None,
-) -> FormatCapability:
-    """Build a single load-direction :class:`FormatCapability` record.
-
-    The capability id follows the spec FR-015 convention
-    ``core.{lower(type)}.{format_id}.load`` and the roundtrip group
-    mirrors the matching save capability so the registry can pair
-    load+save handlers via :attr:`FormatCapability.roundtrip_group`.
-
-    Core IO records are declared ``is_default=False`` so installed
-    package-specific loaders (e.g. the LCMS package's
-    ``scistudio-blocks-lcms.table.csv.load`` for ``(DataFrame, .csv)``)
-    keep ownership of the default slot for their specialised data types
-    without triggering a registration-time conflict. When no package
-    declares a default for a given ``(data_type, extension)`` slot, the
-    registry returns the unique non-default core capability normally per
-    :meth:`BlockRegistry.find_loader_capability`.
-    """
-
-    lower_type = type_name.lower()
-    return FormatCapability(
-        id=f"core.{lower_type}.{format_id}.load",
-        direction="load",
-        data_type=data_type,
-        format_id=format_id,
-        extensions=extensions,
-        label=label,
-        block_type="LoadData",
-        handler=handler,
-        is_default=False,
-        roundtrip_group=f"core.{lower_type}.{format_id}",
-        metadata_fidelity=MetadataFidelity(level="pixel_only", notes=notes),
-        is_synthesized=False,
-    )
-
-
-_LOAD_CAPABILITIES: tuple[FormatCapability, ...] = (
-    # ----- Array -----------------------------------------------------------
-    _load_capability(
-        data_type=Array,
-        type_name="Array",
-        format_id="npy",
-        extensions=(".npy",),
-        label="NumPy NPY",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Array,
-        type_name="Array",
-        format_id="npz",
-        extensions=(".npz",),
-        label="NumPy NPZ",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Array,
-        type_name="Array",
-        format_id="zarr",
-        extensions=(".zarr",),
-        label="Zarr",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Array,
-        type_name="Array",
-        format_id="parquet",
-        extensions=(".parquet", ".pq"),
-        label="Parquet",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Array,
-        type_name="Array",
-        format_id="pickle",
-        extensions=(".pkl", ".pickle"),
-        label="Pickle",
-        handler="load",
-        notes=_PICKLE_NOTE,
-    ),
-    # ----- DataFrame -------------------------------------------------------
-    _load_capability(
-        data_type=DataFrame,
-        type_name="DataFrame",
-        format_id="csv",
-        extensions=(".csv",),
-        label="CSV",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=DataFrame,
-        type_name="DataFrame",
-        format_id="tsv",
-        extensions=(".tsv",),
-        label="TSV",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=DataFrame,
-        type_name="DataFrame",
-        format_id="parquet",
-        extensions=(".parquet", ".pq"),
-        label="Parquet",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=DataFrame,
-        type_name="DataFrame",
-        format_id="json",
-        extensions=(".json",),
-        label="JSON",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=DataFrame,
-        type_name="DataFrame",
-        format_id="pickle",
-        extensions=(".pkl", ".pickle"),
-        label="Pickle",
-        handler="load",
-        notes=_PICKLE_NOTE,
-    ),
-    # ----- Series ----------------------------------------------------------
-    _load_capability(
-        data_type=Series,
-        type_name="Series",
-        format_id="csv",
-        extensions=(".csv",),
-        label="CSV",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Series,
-        type_name="Series",
-        format_id="tsv",
-        extensions=(".tsv",),
-        label="TSV",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Series,
-        type_name="Series",
-        format_id="parquet",
-        extensions=(".parquet", ".pq"),
-        label="Parquet",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Series,
-        type_name="Series",
-        format_id="pickle",
-        extensions=(".pkl", ".pickle"),
-        label="Pickle",
-        handler="load",
-        notes=_PICKLE_NOTE,
-    ),
-    # ----- Text ------------------------------------------------------------
-    # ``.markdown`` and ``.htm`` are accepted by ``_load_text`` (see
-    # :data:`_TEXT_FORMAT_MAP`) and are added here to keep the Load <-> Save
-    # capability map symmetric per ADR-043 FR-001 / FR-002 (#1110).
-    _load_capability(
-        data_type=Text,
-        type_name="Text",
-        format_id="text",
-        extensions=(
-            ".txt",
-            ".log",
-            ".md",
-            ".markdown",
-            ".html",
-            ".htm",
-            ".xml",
-            ".yaml",
-            ".yml",
-            ".toml",
-        ),
-        label="Text",
-        handler="load",
-    ),
-    # ----- Artifact (opaque catch-all loader) -----------------------------
-    # ``_load_artifact`` accepts any extension at runtime — it copies bytes
-    # to an :class:`Artifact` with MIME-guessed type. The capability
-    # records below cover the canonical MIME-mapped extensions
-    # (:data:`_MIME_GUESS`) AND every extension the typed core loaders
-    # claim, so workflows that declare a wildcard port (AppBlock's
-    # ``types=['DataObject']``, which the binner maps to Artifact) can
-    # still resolve a loader for the legacy supported-extension union.
-    # The runtime catch-all means unknown extensions also load via this
-    # path; the records below are the discoverable / registry-visible
-    # surface.
-    _load_capability(
-        data_type=Artifact,
-        type_name="Artifact",
-        format_id="binary",
-        extensions=(".bin", ".dat"),
-        label="Binary",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Artifact,
-        type_name="Artifact",
-        format_id="pdf",
-        extensions=(".pdf",),
-        label="PDF",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Artifact,
-        type_name="Artifact",
-        format_id="png",
-        extensions=(".png",),
-        label="PNG",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Artifact,
-        type_name="Artifact",
-        format_id="jpeg",
-        extensions=(".jpg", ".jpeg"),
-        label="JPEG",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Artifact,
-        type_name="Artifact",
-        format_id="tiff",
-        extensions=(".tif", ".tiff"),
-        label="TIFF",
-        handler="load",
-    ),
-    # Artifact-as-opaque-loader records for the typed-core-loader
-    # extensions. These mirror the pre-ADR-043 synthesized
-    # ``data_type=DataObject`` capability that the AppBlock wildcard-port
-    # binner relied on. The typed loader (DataFrame+csv, Array+npy, …) is
-    # preferred when the caller asks for the concrete type because
-    # capability matching uses type specificity; the registry only
-    # returns the Artifact-typed record when the caller passes
-    # ``target_type=Artifact``.
-    _load_capability(
-        data_type=Artifact,
-        type_name="Artifact",
-        format_id="csv",
-        extensions=(".csv",),
-        label="CSV (opaque)",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Artifact,
-        type_name="Artifact",
-        format_id="tsv",
-        extensions=(".tsv",),
-        label="TSV (opaque)",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Artifact,
-        type_name="Artifact",
-        format_id="json",
-        extensions=(".json",),
-        label="JSON (opaque)",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Artifact,
-        type_name="Artifact",
-        format_id="parquet",
-        extensions=(".parquet", ".pq"),
-        label="Parquet (opaque)",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Artifact,
-        type_name="Artifact",
-        format_id="npy",
-        extensions=(".npy",),
-        label="NumPy NPY (opaque)",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Artifact,
-        type_name="Artifact",
-        format_id="npz",
-        extensions=(".npz",),
-        label="NumPy NPZ (opaque)",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Artifact,
-        type_name="Artifact",
-        format_id="zarr",
-        extensions=(".zarr",),
-        label="Zarr (opaque)",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Artifact,
-        type_name="Artifact",
-        format_id="text",
-        extensions=(
-            ".txt",
-            ".log",
-            ".md",
-            ".markdown",
-            ".html",
-            ".htm",
-            ".xml",
-            ".yaml",
-            ".yml",
-            ".toml",
-        ),
-        label="Text (opaque)",
-        handler="load",
-    ),
-    _load_capability(
-        data_type=Artifact,
-        type_name="Artifact",
-        format_id="pickle",
-        extensions=(".pkl", ".pickle"),
-        label="Pickle (opaque)",
-        handler="load",
-        notes=_PICKLE_NOTE,
-    ),
-    # ----- CompositeData ---------------------------------------------------
-    _load_capability(
-        data_type=CompositeData,
-        type_name="CompositeData",
-        format_id="json",
-        extensions=(".json",),
-        label="Composite manifest (JSON)",
-        handler="load",
-    ),
-)
-
-
-def _legacy_extension_map(
-    capabilities: tuple[FormatCapability, ...],
-) -> dict[str, str]:
-    """Derive a legacy ``extension -> format_id`` mapping from capabilities.
-
-    The pre-ADR-043 ``LoadData.supported_extensions`` ClassVar was a flat
-    ``dict[str, str]`` used by :func:`_resolve_format` / :meth:`IOBlock._detect_format`
-    for compound-suffix-first dispatch. The post-ADR-043 mapping is
-    derived from the explicit ``format_capabilities`` so format dispatch
-    keeps working at runtime without holding a duplicate ClassVar.
-
-    Cross-type collisions (e.g. ``.parquet`` is declared on Array,
-    DataFrame, and Series) are stable because every type that handles a
-    given extension uses the same ``format_id`` (e.g. ``"parquet"`` for
-    all three). The first capability to win the iteration is the
-    authoritative mapping for that extension; any subsequent capability
-    with the same extension+format_id is a no-op overwrite. Collisions
-    with different ``format_id`` values would raise a
-    :class:`RuntimeError` to surface the misconfiguration loudly rather
-    than silently picking one.
-    """
-
-    mapping: dict[str, str] = {}
-    for capability in capabilities:
-        for extension in capability.extensions:
-            normalized = extension.lower()
-            existing = mapping.get(normalized)
-            if existing is not None and existing != capability.format_id:
-                raise RuntimeError(
-                    f"LoadData format_capabilities declare conflicting format_id "
-                    f"for extension {normalized!r}: {existing!r} vs {capability.format_id!r}"
-                )
-            mapping[normalized] = capability.format_id
-    return mapping
-
-
-_LOAD_EXTENSION_MAP: dict[str, str] = _legacy_extension_map(_LOAD_CAPABILITIES)
-
-
-def _supported_load_extensions() -> tuple[str, ...]:
-    """Return the sorted tuple of every extension declared by LoadData.
-
-    Replaces the legacy ``sorted(LoadData.supported_extensions.keys())``
-    call sites in user-facing error messages.
-    """
-
-    return tuple(sorted(_LOAD_EXTENSION_MAP.keys()))
-
-
-def _resolve_format(path: Path, block: LoadData | None) -> str | None:
-    """Resolve a path's format identifier from the LoadData capability map.
-
-    Walks ``Path.suffixes`` longest-first to support compound suffixes,
-    mirroring :meth:`IOBlock._detect_format`. The lookup is
-    case-insensitive. If ``block`` is provided, the underlying
-    :meth:`IOBlock._detect_format` path is honoured (it reads
-    ``self.supported_extensions``, which on ``LoadData`` is now the
-    capability-derived module-level mapping exposed as
-    :attr:`LoadData.supported_extensions`).
-
-    ADR-043 / spec FR-003: format dispatch is now derived from explicit
-    ``format_capabilities`` rather than the deleted
-    ``supported_extensions`` ClassVar.
-    """
-
-    if block is not None:
-        return block._detect_format(path)
-    if not _LOAD_EXTENSION_MAP:
-        return None
-    suffixes = [s.lower() for s in path.suffixes]
-    for start in range(len(suffixes)):
-        candidate = "".join(suffixes[start:])
-        if candidate in _LOAD_EXTENSION_MAP:
-            return _LOAD_EXTENSION_MAP[candidate]
-    return None
 
 
 class LoadData(IOBlock):
@@ -717,44 +300,6 @@ class LoadData(IOBlock):
 # ``ValueError`` / ``FileNotFoundError`` so the calling block surfaces a
 # clear error to the workflow runtime instead of silently degrading.
 # ---------------------------------------------------------------------------
-
-
-def _resolve_path(config: BlockConfig) -> Path:
-    """Pull the validated ``path`` field off ``config`` as a :class:`Path`.
-
-    Raises ``ValueError`` if no path was supplied; the JSON schema also
-    enforces this on the API side, but we double-check at runtime so the
-    failure mode is identical regardless of the call site.
-    """
-    raw = config.get("path")
-    if raw is None:
-        raise ValueError("LoadData requires a 'path' config field")
-    return Path(str(raw))
-
-
-def _check_pickle_allowed(path: Path, config: BlockConfig) -> bool:
-    """Return ``True`` if the path is a pickle file and pickle is allowed.
-
-    Returns ``False`` for non-pickle paths (so the caller can fall through
-    to its default branch). Raises ``ValueError`` when the path IS a
-    pickle file but ``allow_pickle`` is not set, with an explicit security
-    message. Logs a WARNING when ``allow_pickle=True`` is honoured.
-    """
-    suffix = path.suffix.lower()
-    if suffix not in {".pkl", ".pickle"}:
-        return False
-    if not bool(config.get("allow_pickle", False)):
-        raise ValueError(
-            f"Refusing to load pickle file {path.name!r}: pickle deserialisation "
-            f"can execute arbitrary code. Set allow_pickle=True on the LoadData "
-            f"config if you trust the source."
-        )
-    _LOGGER.warning(
-        "LoadData: loading pickle file %s with allow_pickle=True. "
-        "Pickle files can execute arbitrary code; only load files from trusted sources.",
-        path,
-    )
-    return True
 
 
 def _load_array(config: BlockConfig, block: LoadData | None = None) -> Array:
@@ -1023,20 +568,6 @@ def _load_series(config: BlockConfig, block: Any = None, output_dir: str = "") -
     )
 
 
-_TEXT_FORMAT_MAP: dict[str, str] = {
-    ".txt": "plain",
-    ".log": "plain",
-    ".md": "markdown",
-    ".markdown": "markdown",
-    ".html": "html",
-    ".htm": "html",
-    ".xml": "xml",
-    ".yaml": "yaml",
-    ".yml": "yaml",
-    ".toml": "toml",
-}
-
-
 def _load_text(config: BlockConfig, block: LoadData | None = None) -> Text:
     """Load Text from .txt / .md / .markdown / .html / .htm / .xml / .log / .yaml / .yml / .toml.
 
@@ -1073,21 +604,6 @@ def _load_text(config: BlockConfig, block: LoadData | None = None) -> Text:
         format=_TEXT_FORMAT_MAP[suffix],
         encoding="utf-8",
     )
-
-
-_MIME_GUESS: dict[str, str] = {
-    ".csv": "text/csv",
-    ".json": "application/json",
-    ".txt": "text/plain",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".tif": "image/tiff",
-    ".tiff": "image/tiff",
-    ".pdf": "application/pdf",
-    ".bin": "application/octet-stream",
-    ".dat": "application/octet-stream",
-}
 
 
 def _load_artifact(config: BlockConfig) -> Artifact:
