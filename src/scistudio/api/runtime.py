@@ -1081,11 +1081,13 @@ class ApiRuntime:
         )
 
     def _first_party_write_signature(self, path: Path) -> tuple[str, int | None, int | None, bool]:
-        normalized = str(path.resolve())  # codeql[py/path-injection]
+        # lgtm[py/path-injection]
+        normalized = str(path.resolve())
         try:
             # First-party signatures are recorded only for paths produced by
             # runtime project/workflow helpers or route-level sandbox checks.
-            stat = path.stat()  # codeql[py/path-injection]
+            # lgtm[py/path-injection]
+            stat = path.stat()
         except OSError:
             return normalized, None, None, False
         return normalized, int(stat.st_mtime_ns), int(stat.st_size), True
@@ -1109,7 +1111,8 @@ class ApiRuntime:
         if path is not None:
             # First-party pending writes use the same trusted path surfaces as
             # exact signatures; no filesystem read is performed for pending.
-            path_key = str(path.resolve())  # codeql[py/path-injection]
+            # lgtm[py/path-injection]
+            path_key = str(path.resolve())
             if not pending:
                 path_key, mtime_ns, size, exists = self._first_party_write_signature(path)
         with self._version_lock:
@@ -1219,7 +1222,8 @@ class ApiRuntime:
         try:
             # Version seeding reads runtime-owned project/workflow paths, not
             # arbitrary unsandboxed request paths.
-            return int(path.stat().st_mtime_ns)  # codeql[py/path-injection]
+            # lgtm[py/path-injection]
+            return int(path.stat().st_mtime_ns)
         except OSError:
             return 0
 
