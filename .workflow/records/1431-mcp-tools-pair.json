@@ -71,12 +71,26 @@
     "trailers": {}
   },
   "docs_landing": {
-    "changelog": {},
+    "adr": {
+      "not_applicable": true,
+      "rationale": "Pure structural refactor; no architectural decision change"
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Umbrella #1427 lands rolled-up CHANGELOG entry after all Phase 1 sub-PRs merge into the umbrella branch; this sub-PR is a structural decomposition with no user-visible behavior change"
+    },
     "checklist": {
       "not_applicable": true,
       "rationale": "Manager-owned umbrella checklist docs/planning/backend-god-file-refactor-checklist.md (Section 6 Dispatch Matrix) tracks this sub-PR row; sub-PR does not edit it per agent-dispatch.md \u00a73 (agents edit only their own rows; manager owns the matrix)"
     },
-    "docs": {}
+    "docs": {
+      "not_applicable": true,
+      "rationale": "No external user-facing doc affected; new module map documented in tools_workflow/__init__.py + tools_inspection/__init__.py docstrings"
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "No contract or schema change"
+    }
   },
   "full_audit": {
     "blocks_merge": false,
