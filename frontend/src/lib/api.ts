@@ -80,8 +80,7 @@ export interface VersionedWriteOptions {
 }
 
 const pendingWorkflowSourceIds = new Map<string, Set<string>>();
-let workflowWriteStartedListener: ((workflowId: string, sourceId: string) => void) | null =
-  null;
+let workflowWriteStartedListener: ((workflowId: string, sourceId: string) => void) | null = null;
 
 export function createClientSourceId(prefix: "workflow" | "file"): string {
   const randomUUID = globalThis.crypto?.randomUUID;
@@ -105,7 +104,10 @@ function rememberPendingWorkflowSourceId(workflowId: string, sourceId: string): 
   workflowWriteStartedListener?.(workflowId, sourceId);
 }
 
-export function consumePendingWorkflowSourceId(workflowId: string, sourceId: string | null): boolean {
+export function consumePendingWorkflowSourceId(
+  workflowId: string,
+  sourceId: string | null,
+): boolean {
   if (!sourceId) return false;
   const existing = pendingWorkflowSourceIds.get(workflowId);
   if (!existing?.has(sourceId)) return false;
@@ -223,7 +225,11 @@ export const api = {
   },
   getWorkflow: (workflowId: string) =>
     apiFetch<VersionedWorkflowResponse>(`/api/workflows/${encodeURIComponent(workflowId)}`),
-  updateWorkflow: async (workflowId: string, body: WorkflowResponse, options?: VersionedWriteOptions) => {
+  updateWorkflow: async (
+    workflowId: string,
+    body: WorkflowResponse,
+    options?: VersionedWriteOptions,
+  ) => {
     const sourceId = options?.sourceId ?? createClientSourceId("workflow");
     rememberPendingWorkflowSourceId(workflowId, sourceId);
     return apiFetch<VersionedWorkflowResponse>(`/api/workflows/${encodeURIComponent(workflowId)}`, {
@@ -241,9 +247,12 @@ export const api = {
       method: "DELETE",
     }),
   executeWorkflow: (workflowId: string) =>
-    apiFetch<WorkflowExecutionResponse>(`/api/workflows/${encodeURIComponent(workflowId)}/execute`, {
-      method: "POST",
-    }),
+    apiFetch<WorkflowExecutionResponse>(
+      `/api/workflows/${encodeURIComponent(workflowId)}/execute`,
+      {
+        method: "POST",
+      },
+    ),
   pauseWorkflow: (workflowId: string) =>
     apiFetch<WorkflowExecutionResponse>(`/api/workflows/${encodeURIComponent(workflowId)}/pause`, {
       method: "POST",
@@ -275,7 +284,8 @@ export const api = {
       body: formData,
     });
   },
-  getDataMetadata: (dataRef: string) => apiFetch<DataMetadataResponse>(`/api/data/${encodeURIComponent(dataRef)}`),
+  getDataMetadata: (dataRef: string) =>
+    apiFetch<DataMetadataResponse>(`/api/data/${encodeURIComponent(dataRef)}`),
   getDataPreview: (dataRef: string, opts?: number | DataPreviewQuery) => {
     // Backwards-compat: a bare number is interpreted as ``slice`` (image flow).
     // Object form covers slice + DataFrame paging (page/page_size/sort_by/sort_dir).
@@ -291,9 +301,7 @@ export const api = {
     return apiFetch<DataPreviewResponse>(url);
   },
   browseFilesystem: (path: string) =>
-    apiFetch<FilesystemBrowseResponse>(
-      `/api/filesystem/browse?path=${encodeURIComponent(path)}`,
-    ),
+    apiFetch<FilesystemBrowseResponse>(`/api/filesystem/browse?path=${encodeURIComponent(path)}`),
   getProjectTree: (projectId: string, path = "") =>
     apiFetch<TreeResponse>(
       `/api/projects/${encodeURIComponent(projectId)}/tree?path=${encodeURIComponent(path)}`,
@@ -310,7 +318,11 @@ export const api = {
       headers: JSON_HEADERS,
       body: JSON.stringify({ mode, initial_dir: initialDir }),
     }),
-  openNativeSaveDialog: (options: { initialDir?: string; defaultFilename?: string; fileFilter?: string }) =>
+  openNativeSaveDialog: (options: {
+    initialDir?: string;
+    defaultFilename?: string;
+    fileFilter?: string;
+  }) =>
     apiFetch<{ paths: string[] }>("/api/filesystem/native-dialog", {
       method: "POST",
       headers: JSON_HEADERS,
@@ -332,7 +344,12 @@ export const api = {
     apiFetch<ProjectFileResponse>(
       `/api/projects/${encodeURIComponent(projectId)}/file?path=${encodeURIComponent(path)}`,
     ),
-  putProjectFile: (projectId: string, path: string, content: string, options?: VersionedWriteOptions) => {
+  putProjectFile: (
+    projectId: string,
+    path: string,
+    content: string,
+    options?: VersionedWriteOptions,
+  ) => {
     const sourceId = options?.sourceId ?? createClientSourceId("file");
     return apiFetch<ProjectFileWriteResponse>(
       `/api/projects/${encodeURIComponent(projectId)}/file?path=${encodeURIComponent(path)}`,
@@ -398,9 +415,7 @@ export const api = {
      * We also compute the convenience fields the frontend type needs
      * (block_count, duration_ms, workflow_dirty as boolean).
      */
-    getRuns: async (
-      params?: LineageGetRunsParams,
-    ): Promise<LineageGetRunsResponse> => {
+    getRuns: async (params?: LineageGetRunsParams): Promise<LineageGetRunsResponse> => {
       const qs = new URLSearchParams();
       if (params?.workflowId !== undefined) {
         qs.set("workflow_id", params.workflowId);
@@ -451,13 +466,9 @@ export const api = {
      * decoder.
      */
     getRunMethods: async (runId: string): Promise<LineageMethodsResponse> => {
-      const response = await fetch(
-        `/api/runs/${encodeURIComponent(runId)}/methods`,
-      );
+      const response = await fetch(`/api/runs/${encodeURIComponent(runId)}/methods`);
       if (!response.ok) {
-        const payload = (await response
-          .json()
-          .catch(() => ({ detail: response.statusText }))) as {
+        const payload = (await response.json().catch(() => ({ detail: response.statusText }))) as {
           detail?: string;
         };
         throw new ApiError(
@@ -475,9 +486,7 @@ export const api = {
      * the RerunDialog renders the "no drift detected" clean banner. When
      * the route ships, replace this with a real fetch call.
      */
-    validateRerun: async (
-      _runId: string,
-    ): Promise<LineageRerunValidation> => {
+    validateRerun: async (_runId: string): Promise<LineageRerunValidation> => {
       return { input_warnings: [], env_warnings: [] };
     },
 
@@ -620,11 +629,9 @@ function adaptRunSummary(row: Record<string, unknown>): LineageRunSummary {
     started_at: startedAt,
     finished_at: finishedAt,
     status: (row.status as LineageRunSummary["status"]) ?? "completed",
-    triggered_by:
-      (row.triggered_by as LineageRunSummary["triggered_by"]) ?? "user",
+    triggered_by: (row.triggered_by as LineageRunSummary["triggered_by"]) ?? "user",
     parent_run_id: (row.parent_run_id as string | null) ?? null,
-    execute_from_block_id:
-      (row.execute_from_block_id as string | null) ?? null,
+    execute_from_block_id: (row.execute_from_block_id as string | null) ?? null,
     // Codex P2 (PR #944): backend's GET /api/runs returns raw runs-table
     // rows and does NOT include a block_count column, so a static `0`
     // default would silently misreport "0 block(s)" for every list row.
@@ -635,9 +642,7 @@ function adaptRunSummary(row: Record<string, unknown>): LineageRunSummary {
   };
 }
 
-function adaptBlockExecution(
-  row: Record<string, unknown>,
-): LineageBlockExecution {
+function adaptBlockExecution(row: Record<string, unknown>): LineageBlockExecution {
   // Hotfix #1015: wire backend-supplied inputs/outputs through. Pre-fix
   // this adapter unconditionally returned `inputs: []` / `outputs: []`
   // with a "future enhancement" comment, but #996 already inlined the
@@ -656,8 +661,7 @@ function adaptBlockExecution(
   // already applied server-side (inputs vs outputs bucket), so the
   // adapter just trusts the bucket assignment.
   const rawInputs = (row.inputs as Record<string, unknown>[] | undefined) ?? [];
-  const rawOutputs =
-    (row.outputs as Record<string, unknown>[] | undefined) ?? [];
+  const rawOutputs = (row.outputs as Record<string, unknown>[] | undefined) ?? [];
   return {
     block_execution_id: String(row.block_execution_id ?? ""),
     block_id: String(row.block_id ?? ""),
@@ -673,18 +677,14 @@ function adaptBlockExecution(
             String(row.started_at ?? ""),
             (row.finished_at as string | null | undefined) ?? null,
           ),
-    termination:
-      (row.termination as LineageBlockExecution["termination"]) ?? "completed",
-    termination_detail:
-      (row.termination_detail as string | null | undefined) ?? null,
+    termination: (row.termination as LineageBlockExecution["termination"]) ?? "completed",
+    termination_detail: (row.termination_detail as string | null | undefined) ?? null,
     inputs: rawInputs.map(adaptDataObjectRef),
     outputs: rawOutputs.map(adaptDataObjectRef),
   };
 }
 
-function adaptDataObjectRef(
-  row: Record<string, unknown>,
-): LineageDataObjectRef {
+function adaptDataObjectRef(row: Record<string, unknown>): LineageDataObjectRef {
   return {
     object_id: String(row.object_id ?? ""),
     type_name: String(row.type_name ?? ""),
@@ -728,10 +728,7 @@ function parseJsonObject(value: unknown): Record<string, string> {
   return {};
 }
 
-function computeDurationMs(
-  startedAt: string,
-  finishedAt: string | null,
-): number | null {
+function computeDurationMs(startedAt: string, finishedAt: string | null): number | null {
   if (!finishedAt || !startedAt) return null;
   const start = Date.parse(startedAt);
   const end = Date.parse(finishedAt);

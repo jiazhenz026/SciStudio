@@ -114,7 +114,10 @@ function fileStateVersion(response: { state_version?: number }): number | null {
   return typeof response.state_version === "number" ? response.state_version : null;
 }
 
-function nextPendingVersion(base: number | null | undefined, pending: number | null | undefined): number | null {
+function nextPendingVersion(
+  base: number | null | undefined,
+  pending: number | null | undefined,
+): number | null {
   if (typeof base !== "number") return pending ?? null;
   if (typeof pending !== "number") return base + 1;
   return Math.max(base + 1, pending + 1);
@@ -426,7 +429,9 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
     );
 
     try {
-      const response = await api.putProjectFile(project.id, tab.filePath, sentContent, { sourceId });
+      const response = await api.putProjectFile(project.id, tab.filePath, sentContent, {
+        sourceId,
+      });
       const after = get();
       const latest = after.tabs.find((t) => t.id === id);
       // Tab may have been closed during the await — drop the result.
@@ -436,7 +441,7 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
       const responseVersion = fileStateVersion(response);
       const nextPending = contentChangedDuringSave
         ? nextPendingVersion(responseVersion ?? latest.baseVersion, latest.pendingVersion)
-        : responseVersion ?? latest.pendingVersion ?? null;
+        : (responseVersion ?? latest.pendingVersion ?? null);
       const next: FileTab = {
         ...latest,
         // Only clear dirty if the user did NOT edit during the in-flight
@@ -486,7 +491,8 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
     const state = get();
     const tab = state.tabs.find((t) => t.id === id);
     if (!tab || tab.kind !== "file") return;
-    const hasNewerLocalEdits = typeof tab.pendingVersion === "number" && tab.pendingVersion > version;
+    const hasNewerLocalEdits =
+      typeof tab.pendingVersion === "number" && tab.pendingVersion > version;
     const next: FileTab = {
       ...tab,
       baseVersion: version,

@@ -122,8 +122,7 @@ describe("tabSlice ADR-045 file version state", () => {
 
   it("preserves edits made during a save and keeps pendingVersion newer", async () => {
     useAppStore.setState({ tabs: [fileTab({ dirty: true, pendingVersion: 6 })] });
-    let resolvePut: (value: Awaited<ReturnType<typeof api.putProjectFile>>) => void =
-      () => {};
+    let resolvePut: (value: Awaited<ReturnType<typeof api.putProjectFile>>) => void = () => {};
     putProjectFileMock.mockImplementation(
       () =>
         new Promise((resolve) => {

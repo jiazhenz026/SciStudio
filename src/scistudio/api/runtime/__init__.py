@@ -411,7 +411,15 @@ class ApiRuntime:
             if entry.path != path_key:
                 return False
             if entry.exists is None:
-                return entry.kind == kind
+                # Pending in-flight write: the writer marked the signature
+                # before completing the rename, so we know any event for
+                # this exact path during the suppression window is our own
+                # echo. On Linux, ``os.replace(tmp, target)`` surfaces as a
+                # FileMovedEvent which maps to kind="created"; on Windows
+                # it is typically kind="modified". Don't enforce kind match
+                # in pending mode — the path match plus the short 2s window
+                # are sufficient.
+                return True
             if entry.exists is False:
                 return exists is False and entry.kind == "deleted" and kind == "deleted"
             return exists is True and entry.mtime_ns == mtime_ns and entry.size == size

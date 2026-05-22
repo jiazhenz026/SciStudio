@@ -289,7 +289,9 @@ describe("useWorkflowWebSocket ADR-045 reconcile", () => {
     const state = useAppStore.getState();
     expect(state.workflowDescription).toBe("local dirty");
     expect(state.workflowConflict?.remoteWorkflow?.description).toBe("remote");
-    expect(state.logEntries.some((entry) => entry.message.includes("local edits were preserved"))).toBe(true);
+    expect(
+      state.logEntries.some((entry) => entry.message.includes("local edits were preserved")),
+    ).toBe(true);
   });
 
   it("treats legacy workflow.changed without version as a dirty conflict", async () => {
