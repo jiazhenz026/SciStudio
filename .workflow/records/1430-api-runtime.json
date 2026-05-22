@@ -13,6 +13,15 @@
         "docs/adr/ADR-045.md"
       ],
       "reason": "Full audit (closure + doc_drift + signature_drift) flagged 6 ADRs whose frontmatter governs scistudio.api.runtime.* symbols + src/scistudio/api/runtime.py. The runtime sub-package refactor makes those claims unresolvable \u2014 they must be updated to point at the new sub-module paths or at the package as a directory glob. Per dispatch's 'Update docs or record N/A reason', the ADR frontmatter updates are part of this refactor."
+    },
+    {
+      "approved_by": "@jiazhenz026",
+      "exclude": [],
+      "include": [
+        ".workflow/records/1430-api-runtime.json",
+        ".workflow/records/1430-pr-body.md"
+      ],
+      "reason": "Include the gate record file and PR body draft itself in the gate scope. Per ADR-042 Addendum 1 D9 (gitignore-alone-doesn't-untrack lesson), gate records are part of the changeset and must be in scope to satisfy pre-flight scope.outside-include."
     }
   ],
   "branch": "refactor/issue-1430/api-runtime",
