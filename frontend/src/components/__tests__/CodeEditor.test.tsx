@@ -13,6 +13,13 @@ import { CodeEditor } from "../CodeEditor";
 import type { FileTab } from "../../store/types";
 
 // --- Monaco React mock state ---------------------------------------------
+interface DefinedTheme {
+  base: string;
+  inherit: boolean;
+  rules: Array<Record<string, unknown>>;
+  colors: Record<string, string>;
+}
+
 interface MockEditorState {
   lastProps: Record<string, unknown> | null;
   // The latest mounted-editor object passed to onMount.
@@ -22,6 +29,8 @@ interface MockEditorState {
   onChangeCb: ((value: string | undefined) => void) | null;
   // Last setModelMarkers call.
   markersByOwner: Map<string, unknown[]>;
+  // Themes registered via monaco.editor.defineTheme during beforeMount.
+  definedThemes: Map<string, DefinedTheme>;
 }
 
 const editorState: MockEditorState = {
@@ -30,6 +39,7 @@ const editorState: MockEditorState = {
   lastMonaco: null,
   onChangeCb: null,
   markersByOwner: new Map(),
+  definedThemes: new Map(),
 };
 
 class FakeMonacoEditor {
@@ -61,6 +71,9 @@ class FakeMonacoNamespace {
     setModelLanguage: (model: { lang: string }, lang: string) => {
       model.lang = lang;
     },
+    defineTheme: (name: string, data: DefinedTheme) => {
+      editorState.definedThemes.set(name, data);
+    },
   };
 }
 
@@ -73,6 +86,12 @@ vi.mock("@monaco-editor/react", () => {
     if (!editorState.lastEditor) {
       editorState.lastEditor = new FakeMonacoEditor(options, language);
       editorState.lastMonaco = new FakeMonacoNamespace();
+      // beforeMount runs before onMount in real @monaco-editor/react; it
+      // receives the monaco namespace so the component can register themes.
+      const beforeMount = props.beforeMount as
+        | ((m: FakeMonacoNamespace) => void)
+        | undefined;
+      beforeMount?.(editorState.lastMonaco);
       const onMount = props.onMount as
         | ((e: FakeMonacoEditor, m: FakeMonacoNamespace) => void)
         | undefined;
@@ -117,6 +136,7 @@ beforeEach(() => {
   editorState.lastMonaco = null;
   editorState.onChangeCb = null;
   editorState.markersByOwner.clear();
+  editorState.definedThemes.clear();
   fetchSpy = vi.fn().mockResolvedValue({
     ok: true,
     json: async () => ({ diagnostics: [] }),
@@ -300,5 +320,25 @@ describe("CodeEditor", () => {
     });
     host.dispatchEvent(event);
     expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("registers the scistudio-soft-dark Monaco theme via beforeMount", async () => {
+    render(
+      <CodeEditor
+        tab={makeFileTab()}
+        onContentChange={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(editorState.lastProps).not.toBeNull());
+    expect(editorState.lastProps?.theme).toBe("scistudio-soft-dark");
+    // beforeMount fires synchronously on first render — theme is registered
+    // before onMount resolves on the next microtask.
+    const theme = editorState.definedThemes.get("scistudio-soft-dark");
+    expect(theme).toBeDefined();
+    expect(theme?.base).toBe("vs-dark");
+    expect(theme?.inherit).toBe(true);
+    // Background MUST be the soft warm gray (#282c34), not pure vs-dark #1e1e1e.
+    expect(theme?.colors["editor.background"]).toBe("#282c34");
   });
 });

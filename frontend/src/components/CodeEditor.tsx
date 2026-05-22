@@ -320,6 +320,31 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
     }
   }
 
+  // SPIKE: soft-dark theme (One Dark-ish warm palette, lower contrast than vs-dark).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function handleBeforeMount(monaco: any) {
+    monaco.editor.defineTheme("scistudio-soft-dark", {
+      base: "vs-dark",
+      inherit: true,
+      rules: [],
+      colors: {
+        "editor.background": "#282c34",
+        "editor.foreground": "#abb2bf",
+        "editorLineNumber.foreground": "#4b5263",
+        "editorLineNumber.activeForeground": "#abb2bf",
+        "editor.selectionBackground": "#3e4452",
+        "editor.inactiveSelectionBackground": "#3e445280",
+        "editorCursor.foreground": "#56b6c2",
+        "editor.lineHighlightBackground": "#2c313a",
+        "editorIndentGuide.background": "#3b4048",
+        "editorIndentGuide.activeBackground": "#5c6370",
+        "editorWhitespace.foreground": "#3b4048",
+        "editorBracketMatch.background": "#3e4452",
+        "editorBracketMatch.border": "#56b6c2",
+      },
+    });
+  }
+
   // OnMount handler: stash editor + monaco; wire Ctrl+S; run an initial lint.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function handleEditorMount(editor: any, monaco: any) {
@@ -373,7 +398,7 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
         <EditorComponent
           height="100%"
           width="100%"
-          theme="vs"
+          theme="scistudio-soft-dark"
           language={tab.language}
           value={tab.content}
           path={tab.filePath}
@@ -388,6 +413,7 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
             insertSpaces: true,
             wordWrap: "off",
           }}
+          beforeMount={handleBeforeMount}
           onMount={handleEditorMount}
           onChange={handleEditorChange}
         />
@@ -416,6 +442,8 @@ interface EditorComponentProps {
   path?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   options?: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  beforeMount?: (monaco: any) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onMount?: (editor: any, monaco: any) => void;
   onChange?: (value: string | undefined) => void;

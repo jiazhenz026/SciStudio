@@ -1,0 +1,158 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "frontend/src/components/__tests__/CodeEditor.test.tsx"
+      ],
+      "reason": "Use existing CodeEditor.test.tsx (already has Monaco mock infrastructure) instead of new theme test file"
+    }
+  ],
+  "branch": "feat/editor-soft-dark",
+  "changed_test_paths": [
+    "frontend/src/components/__tests__/CodeEditor.theme.test.tsx"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "npx tsc --noEmit",
+      "exit_code": 0,
+      "name": "frontend_typecheck",
+      "output_path": "no diagnostics; full tsc --noEmit pass against worktree state",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npx vitest run src/components/__tests__/CodeEditor.test.tsx",
+      "exit_code": 0,
+      "name": "frontend_test",
+      "output_path": "8/8 tests passed (1 new theme test + 7 existing); 222ms",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "not_user_facing_runtime_change_visual_only"
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "single_PR_no_multi_phase_dispatch"
+    },
+    "docs": {
+      "paths": [
+        "docs/adr/ADR-036.md"
+      ]
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "no_dedicated_spec_required_addendum_in_existing_ADR036_covers_visual_theme_addition"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [
+      "vulture: 6 pre-existing unused-variable findings under src/scistudio/{blocks,core,engine,utils} \u2014 unrelated to this PR's frontend-only change"
+    ],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1418,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1418"
+    }
+  ],
+  "owner_directive": "User requested softer dark editor theme (vs-dark too harsh); ship as proper PR.",
+  "planned_files": [
+    "frontend/src/components/CodeEditor.tsx",
+    "frontend/src/components/__tests__/CodeEditor.theme.test.tsx",
+    "docs/adr/ADR-036.md"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1418-editor-soft-dark.json",
+  "required_checks": [
+    "frontend_typecheck",
+    "frontend_lint",
+    "frontend_test",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/components/CodeEditor.tsx",
+      "frontend/src/components/__tests__/CodeEditor.theme.test.tsx",
+      "docs/adr/ADR-036.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__{scan,check_rules,health}",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "scan: files=1146 import_edges=2650 lines=294717; check_rules: pass (0 violations across 3 free-tier rules of 15 defined); health: quality_signal=4441 bottleneck=acyclicity; pro_required=false",
+    "pro_required": false,
+    "quality_signal": 4441.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {
+      "max_cc": "100",
+      "max_cycles": "3"
+    },
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1418-editor-soft-dark",
+  "task_kind": "feature"
+}
