@@ -168,7 +168,7 @@ async def _emit_workflow_diff(
         workflow_id = Path(relative).stem
         workflow_path = project_dir / relative
         version = runtime.bump_workflow_version(workflow_id)
-        runtime.mark_workflow_first_party_write(workflow_id, version)
+        runtime.mark_workflow_first_party_write(workflow_id, version, path=workflow_path, kind=kind)
         if workflow_path.exists():
             try:
                 from scistudio.api.routes.workflow_watcher import mark_self_write

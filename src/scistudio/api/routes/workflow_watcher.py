@@ -237,7 +237,11 @@ class _WorkflowFileHandler(FileSystemEventHandler):
         normalised = _normalise(path)
         workflow_id = normalised.stem
 
-        if self._runtime is not None and self._runtime.is_recent_workflow_first_party_write(workflow_id):
+        if self._runtime is not None and self._runtime.is_recent_workflow_first_party_write(
+            workflow_id,
+            path=path,
+            kind=kind,
+        ):
             logger.debug(
                 "workflow_watcher: suppressing first-party workflow event %s %s",
                 kind,

@@ -66,7 +66,7 @@ def test_external_workflow_write_emits_versioned_external_payload(
     assert payload["timestamp"]
 
 
-def test_first_party_workflow_write_suppresses_stale_watcher_delete(
+def test_first_party_workflow_write_suppresses_only_exact_echo(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -76,10 +76,38 @@ def test_first_party_workflow_write_suppresses_stale_watcher_delete(
     yaml_path.write_text("id: first-party\nnodes: []\nedges: []\n", encoding="utf-8")
     runtime = _runtime_for_project(project, monkeypatch)
     version = runtime.bump_workflow_version("first-party")
-    runtime.mark_workflow_first_party_write("first-party", version)
+    runtime.mark_workflow_first_party_write("first-party", version, path=yaml_path, kind="modified")
 
     handler, captured = _handler(project, runtime)
+    handler.on_any_event(FileModifiedEvent(str(yaml_path)))
+    assert captured == []
+
+    yaml_path.write_text(
+        "id: first-party\ndescription: external after first party\nnodes: []\nedges: []\n",
+        encoding="utf-8",
+    )
+    handler.on_any_event(FileModifiedEvent(str(yaml_path)))
+
+    assert len(captured) == 1
+    payload = captured[0]
+    assert payload["source"] == "external"
+    assert payload["version"] == version + 1
+
+
+def test_first_party_workflow_delete_suppresses_exact_delete_echo(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = tmp_path / "project"
+    yaml_path = project / "workflows" / "deleted-first-party.yaml"
+    yaml_path.parent.mkdir(parents=True)
+    yaml_path.write_text("id: deleted-first-party\nnodes: []\nedges: []\n", encoding="utf-8")
+    runtime = _runtime_for_project(project, monkeypatch)
+    version = runtime.bump_workflow_version("deleted-first-party")
     yaml_path.unlink()
+    runtime.mark_workflow_first_party_write("deleted-first-party", version, path=yaml_path, kind="deleted")
+
+    handler, captured = _handler(project, runtime)
     handler.on_any_event(FileDeletedEvent(str(yaml_path)))
 
     assert captured == []

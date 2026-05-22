@@ -359,6 +359,19 @@ class WorkflowRun:
     workflow_git_commit: str | None = None
 
 
+@dataclass(frozen=True)
+class FirstPartyEntityWrite:
+    """Exact file signature for a first-party entity write."""
+
+    version: int
+    seen_at: float
+    path: str | None = None
+    mtime_ns: int | None = None
+    size: int | None = None
+    exists: bool | None = None
+    kind: str | None = None
+
+
 class LogBroadcaster:
     """Fan-out log events to SSE subscribers."""
 
@@ -417,7 +430,7 @@ class ApiRuntime:
         # concurrency model; cross-tab cache invalidation rides on the existing
         # ``workflow.changed`` event flow (now without a ``revision`` field).
         self._entity_versions: dict[tuple[str, str], int] = {}
-        self._first_party_entity_writes: dict[tuple[str, str], tuple[int, float]] = {}
+        self._first_party_entity_writes: dict[tuple[str, str], FirstPartyEntityWrite] = {}
         self._version_lock = threading.RLock()
 
         self.event_bus = EventBus()
@@ -1066,14 +1079,51 @@ class ApiRuntime:
             path=self.workflow_path(workflow_id),
         )
 
-    def mark_entity_first_party_write(self, entity_class: str, entity_id: str, version: int) -> None:
-        """Remember a write-site emission so watcher fallback can suppress echoes."""
-        key = self._version_key(entity_class, entity_id)
-        with self._version_lock:
-            self._first_party_entity_writes[key] = (int(version), time.monotonic())
+    def _first_party_write_signature(self, path: Path) -> tuple[str, int | None, int | None, bool]:
+        normalized = str(path.resolve())
+        try:
+            stat = path.stat()
+        except OSError:
+            return normalized, None, None, False
+        return normalized, int(stat.st_mtime_ns), int(stat.st_size), True
 
-    def mark_workflow_first_party_write(self, workflow_id: str, version: int) -> None:
-        self.mark_entity_first_party_write(WORKFLOW_ENTITY_CLASS, workflow_id, version)
+    def mark_entity_first_party_write(
+        self,
+        entity_class: str,
+        entity_id: str,
+        version: int,
+        *,
+        path: Path | None = None,
+        kind: str | None = None,
+    ) -> None:
+        """Remember an exact write-site signature so watcher fallback can suppress echoes."""
+        key = self._version_key(entity_class, entity_id)
+        path_key: str | None = None
+        mtime_ns: int | None = None
+        size: int | None = None
+        exists: bool | None = None
+        if path is not None:
+            path_key, mtime_ns, size, exists = self._first_party_write_signature(path)
+        with self._version_lock:
+            self._first_party_entity_writes[key] = FirstPartyEntityWrite(
+                version=int(version),
+                seen_at=time.monotonic(),
+                path=path_key,
+                mtime_ns=mtime_ns,
+                size=size,
+                exists=exists,
+                kind=kind,
+            )
+
+    def mark_workflow_first_party_write(
+        self,
+        workflow_id: str,
+        version: int,
+        *,
+        path: Path | None = None,
+        kind: str | None = None,
+    ) -> None:
+        self.mark_entity_first_party_write(WORKFLOW_ENTITY_CLASS, workflow_id, version, path=path, kind=kind)
 
     def is_recent_first_party_entity_write(
         self,
@@ -1081,6 +1131,8 @@ class ApiRuntime:
         entity_id: str,
         *,
         version: int | None = None,
+        path: Path | None = None,
+        kind: str | None = None,
     ) -> bool:
         key = self._version_key(entity_class, entity_id)
         now = time.monotonic()
@@ -1088,14 +1140,35 @@ class ApiRuntime:
             entry = self._first_party_entity_writes.get(key)
             if entry is None:
                 return False
-            seen_version, seen_at = entry
-            if now - seen_at > _FIRST_PARTY_WRITE_SUPPRESSION_SECONDS:
+            if now - entry.seen_at > _FIRST_PARTY_WRITE_SUPPRESSION_SECONDS:
                 self._first_party_entity_writes.pop(key, None)
                 return False
-            return version is None or int(version) == seen_version
+            if version is not None and int(version) != entry.version:
+                return False
+            if path is None:
+                return version is not None
+            path_key, mtime_ns, size, exists = self._first_party_write_signature(path)
+            if entry.path != path_key:
+                return False
+            if entry.exists is False:
+                return exists is False and entry.kind == "deleted" and kind == "deleted"
+            return exists is True and entry.mtime_ns == mtime_ns and entry.size == size
 
-    def is_recent_workflow_first_party_write(self, workflow_id: str) -> bool:
-        return self.is_recent_first_party_entity_write(WORKFLOW_ENTITY_CLASS, workflow_id)
+    def is_recent_workflow_first_party_write(
+        self,
+        workflow_id: str,
+        *,
+        version: int | None = None,
+        path: Path | None = None,
+        kind: str | None = None,
+    ) -> bool:
+        return self.is_recent_first_party_entity_write(
+            WORKFLOW_ENTITY_CLASS,
+            workflow_id,
+            version=version,
+            path=path,
+            kind=kind,
+        )
 
     def versioned_change_payload(
         self,

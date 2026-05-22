@@ -2,7 +2,7 @@
   "tool": "full_audit",
   "status": "pass",
   "generated_at": "1970-01-01T00:00:00Z",
-  "source_sha": "42b142c04f0c0da740ff250c1670e5b76d53ffb4a5cab1b3deeeae37df93ec87",
+  "source_sha": "7ae88ad0cf4bac8a66e4e3bb1ee5e7b660f7ffd79fbf40a83a0bb712fe835e4b",
   "findings": [],
   "summary": {
     "implemented_children": [
@@ -22,15 +22,15 @@
       "tool": "generate_facts",
       "status": "pass",
       "generated_at": "1970-01-01T00:00:00Z",
-      "source_sha": "42b142c04f0c0da740ff250c1670e5b76d53ffb4a5cab1b3deeeae37df93ec87",
+      "source_sha": "7ae88ad0cf4bac8a66e4e3bb1ee5e7b660f7ffd79fbf40a83a0bb712fe835e4b",
       "findings": [],
       "summary": {
         "facts_path": "docs/facts/generated.yaml",
         "generated_in_memory": true,
-        "total_facts": 2518,
+        "total_facts": 2527,
         "facts_by_kind": {
           "expected-signature": 188,
-          "symbol": 2330
+          "symbol": 2339
         },
         "facts_by_source": {
           "docs/adr/ADR-001.md": 9,
@@ -55,27 +55,27 @@
           "docs/specs/adr-041-codeblock-v2.md": 12,
           "docs/specs/adr-042-consistency-tools.md": 13,
           "docs/specs/adr-043-io-format-capability-registry.md": 19,
-          "griffe": 2330
+          "griffe": 2339
         },
         "facts_by_confidence": {
-          "generated": 2330,
+          "generated": 2339,
           "normative": 188
         },
         "facts_by_stability": {
           "stable": 188,
-          "unknown": 2330
+          "unknown": 2339
         },
-        "symbol_facts": 2330,
+        "symbol_facts": 2339,
         "symbols_by_kind": {
-          "attribute": 1226,
-          "class": 256,
+          "attribute": 1234,
+          "class": 257,
           "function": 645,
           "module": 203
         },
         "top_symbol_packages": {
           "scistudio.blocks": 752,
           "scistudio.qa": 482,
-          "scistudio.api": 433,
+          "scistudio.api": 442,
           "scistudio.core": 336,
           "scistudio.engine": 197,
           "scistudio.workflow": 58,
@@ -91,7 +91,7 @@
     {
       "tool": "frontmatter_lint",
       "status": "pass",
-      "generated_at": "2026-05-22T04:36:46.268080Z",
+      "generated_at": "2026-05-22T04:54:29.565295Z",
       "source_sha": "",
       "findings": [],
       "summary": {
@@ -103,8 +103,8 @@
     {
       "tool": "fact_drift",
       "status": "pass",
-      "generated_at": "2026-05-22T04:36:47.348605Z",
-      "source_sha": "42b142c04f0c0da740ff250c1670e5b76d53ffb4a5cab1b3deeeae37df93ec87",
+      "generated_at": "2026-05-22T04:54:30.749721Z",
+      "source_sha": "7ae88ad0cf4bac8a66e4e3bb1ee5e7b660f7ffd79fbf40a83a0bb712fe835e4b",
       "findings": [],
       "summary": {
         "docs_checked": 194,
@@ -115,8 +115,8 @@
     {
       "tool": "doc_drift",
       "status": "pass",
-      "generated_at": "2026-05-22T04:36:47.607173Z",
-      "source_sha": "42b142c04f0c0da740ff250c1670e5b76d53ffb4a5cab1b3deeeae37df93ec87",
+      "generated_at": "2026-05-22T04:54:31.031134Z",
+      "source_sha": "7ae88ad0cf4bac8a66e4e3bb1ee5e7b660f7ffd79fbf40a83a0bb712fe835e4b",
       "findings": [],
       "summary": {
         "governed_docs_checked": 64,
@@ -132,14 +132,14 @@
     {
       "tool": "closure",
       "status": "pass",
-      "generated_at": "2026-05-22T04:36:47.862519Z",
-      "source_sha": "42b142c04f0c0da740ff250c1670e5b76d53ffb4a5cab1b3deeeae37df93ec87",
+      "generated_at": "2026-05-22T04:54:31.340608Z",
+      "source_sha": "7ae88ad0cf4bac8a66e4e3bb1ee5e7b660f7ffd79fbf40a83a0bb712fe835e4b",
       "findings": [],
       "summary": {
         "governed_docs_checked": 64,
         "governed_modules": 83,
         "governed_contracts": 217,
-        "symbols_checked": 2330,
+        "symbols_checked": 2339,
         "maintainer_rules": 1,
         "maintainer_covered_symbols": 21
       },
@@ -148,14 +148,14 @@
     {
       "tool": "signature_drift",
       "status": "pass",
-      "generated_at": "2026-05-22T04:36:47.865888Z",
-      "source_sha": "42b142c04f0c0da740ff250c1670e5b76d53ffb4a5cab1b3deeeae37df93ec87",
+      "generated_at": "2026-05-22T04:54:31.344563Z",
+      "source_sha": "7ae88ad0cf4bac8a66e4e3bb1ee5e7b660f7ffd79fbf40a83a0bb712fe835e4b",
       "findings": [],
       "summary": {
         "expected_signatures_checked": 188,
         "expected_model_fields_checked": 0,
         "expected_cli_commands_checked": 0,
-        "symbols_available": 2330,
+        "symbols_available": 2339,
         "cli_facts_available": 0
       },
       "child_reports": []
@@ -163,12 +163,12 @@
     {
       "tool": "architecture_drift",
       "status": "pass",
-      "generated_at": "2026-05-22T04:36:47.878220Z",
-      "source_sha": "42b142c04f0c0da740ff250c1670e5b76d53ffb4a5cab1b3deeeae37df93ec87",
+      "generated_at": "2026-05-22T04:54:31.352955Z",
+      "source_sha": "7ae88ad0cf4bac8a66e4e3bb1ee5e7b660f7ffd79fbf40a83a0bb712fe835e4b",
       "findings": [],
       "summary": {
         "architecture_path": "C:/Users/jiazh/Desktop/workspace/SciStudio/.claude/worktrees/adr-045-a1-backend-versioning/docs/architecture/ARCHITECTURE.md",
-        "symbols_available": 2330,
+        "symbols_available": 2339,
         "fences_checked": 6,
         "fences_skipped": 1,
         "references_checked": 0
@@ -178,7 +178,7 @@
     {
       "tool": "vulture",
       "status": "pass",
-      "generated_at": "2026-05-22T04:36:48.783020Z",
+      "generated_at": "2026-05-22T04:54:32.210098Z",
       "source_sha": "",
       "findings": [
         {

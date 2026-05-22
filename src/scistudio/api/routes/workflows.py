@@ -35,7 +35,8 @@ class VersionedWorkflowResponse(BaseModel):
     """Workflow response with ADR-045 server-authoritative state version."""
 
     id: str
-    version: int = Field(description="ADR-045 state version, monotonic per workflow.")
+    version: str = Field(default="1.0.0", description="Workflow YAML/schema version.")
+    state_version: int = Field(description="ADR-045 state version, monotonic per workflow.")
     workflow_version: str = Field(default="1.0.0", description="Workflow YAML/schema version.")
     description: str = ""
     nodes: list[WorkflowNode] = Field(default_factory=list)
@@ -96,7 +97,8 @@ def _workflow_response(
 ) -> VersionedWorkflowResponse:
     return VersionedWorkflowResponse(
         id=definition.id,
-        version=state_version,
+        version=definition.version,
+        state_version=state_version,
         workflow_version=definition.version,
         description=definition.description,
         nodes=[
@@ -138,7 +140,7 @@ async def _emit_workflow_changed(
     view. Cross-process / cross-session durable history now lives in git.
     """
     version = runtime.bump_workflow_version(workflow_id)
-    runtime.mark_workflow_first_party_write(workflow_id, version)
+    runtime.mark_workflow_first_party_write(workflow_id, version, path=runtime.workflow_path(workflow_id), kind=kind)
     payload = runtime.versioned_change_payload(
         entity_class=WORKFLOW_ENTITY_CLASS,
         entity_id=workflow_id,

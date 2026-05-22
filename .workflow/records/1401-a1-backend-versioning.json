@@ -6,6 +6,15 @@
       "exclude": [],
       "include": [],
       "reason": "Implementation completed within the planned A1 backend workflow versioning scope; no scope expansion."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/adr/ADR-045.md",
+        "docs/specs/adr-045-workflow-state-version.md"
+      ],
+      "reason": "Manager accepted Codex P1/P2 contract fixes; ADR/spec must describe response state_version and exact watcher suppression."
     }
   ],
   "branch": "feat/issue-1401/adr-045-backend-versioning",
@@ -22,7 +31,16 @@
       "command_or_tool": "PYTHONPATH=(Resolve-Path src).Path pytest tests/api/test_workflow_version_vector.py tests/api/test_workflow_changed_event_schema.py tests/api/routes/test_workflow_watcher_fallback.py tests/api/test_workflows.py tests/api/test_git_endpoints.py tests/api/test_workflow_watcher.py --timeout=60 --no-cov",
       "exit_code": 0,
       "name": "pytest",
-      "output_path": "69 passed, 1 warning. Coverage-gated narrow run without --no-cov also had 69 tests pass but exited 1 because repo-wide coverage fail-under applied to targeted selection.",
+      "output_path": "71 passed, 1 warning. Coverage-gated narrow run without --no-cov is expected to hit repo-wide fail-under on targeted selection.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=(Resolve-Path src).Path mypy src/scistudio/api/runtime.py src/scistudio/api/routes/workflows.py src/scistudio/api/routes/git.py src/scistudio/api/routes/workflow_watcher.py --ignore-missing-imports --python-version 3.13",
+      "exit_code": 0,
+      "name": "mypy",
+      "output_path": "Success: no issues found in 4 source files",
       "status": "pass",
       "summary": {},
       "timestamp": null
@@ -54,10 +72,6 @@
     "trailers": {}
   },
   "docs_landing": {
-    "adr_spec": {
-      "not_applicable": true,
-      "rationale": "No ADR/spec change: A1 follows ADR-045 event contract; workflow response preserves YAML schema version as additive workflow_version compatibility field."
-    },
     "changelog": {
       "not_applicable": true,
       "rationale": "No changelog entry for manager-dispatched implementation branch; umbrella/final PR will summarize ADR-045 rollout."
@@ -69,6 +83,8 @@
     },
     "docs": {
       "paths": [
+        "docs/adr/ADR-045.md",
+        "docs/specs/adr-045-workflow-state-version.md",
         "docs/audit/adr-045-a1-full-audit.json"
       ]
     }
