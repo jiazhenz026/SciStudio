@@ -1,0 +1,194 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Implementation completed within the planned A1 backend workflow versioning scope; no scope expansion."
+    }
+  ],
+  "branch": "feat/issue-1401/adr-045-backend-versioning",
+  "changed_test_paths": [
+    "tests/api/test_workflow_version_vector.py",
+    "tests/api/test_workflow_changed_event_schema.py",
+    "tests/api/routes/test_workflow_watcher_fallback.py",
+    "tests/api/test_workflows.py",
+    "tests/api/test_git_endpoints.py",
+    "tests/api/test_workflow_watcher.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "PYTHONPATH=(Resolve-Path src).Path pytest tests/api/test_workflow_version_vector.py tests/api/test_workflow_changed_event_schema.py tests/api/routes/test_workflow_watcher_fallback.py tests/api/test_workflows.py tests/api/test_git_endpoints.py tests/api/test_workflow_watcher.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "69 passed, 1 warning. Coverage-gated narrow run without --no-cov also had 69 tests pass but exited 1 because repo-wide coverage fail-under applied to targeted selection.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff check src/scistudio/api/runtime.py src/scistudio/api/routes/workflows.py src/scistudio/api/routes/git.py src/scistudio/api/routes/workflow_watcher.py src/scistudio/engine/events.py tests/api/test_workflow_version_vector.py tests/api/test_workflow_changed_event_schema.py tests/api/routes/test_workflow_watcher_fallback.py",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check src/scistudio/api/runtime.py src/scistudio/api/routes/workflows.py src/scistudio/api/routes/git.py src/scistudio/api/routes/workflow_watcher.py src/scistudio/engine/events.py tests/api/test_workflow_version_vector.py tests/api/test_workflow_changed_event_schema.py tests/api/routes/test_workflow_watcher_fallback.py",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "8 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "adr_spec": {
+      "not_applicable": true,
+      "rationale": "No ADR/spec change: A1 follows ADR-045 event contract; workflow response preserves YAML schema version as additive workflow_version compatibility field."
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "No changelog entry for manager-dispatched implementation branch; umbrella/final PR will summarize ADR-045 rollout."
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/adr-045-version-vector-checklist.md"
+      ]
+    },
+    "docs": {
+      "paths": [
+        "docs/audit/adr-045-a1-full-audit.json"
+      ]
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "PYTHONPATH=(Resolve-Path src).Path python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-a1-full-audit.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/adr-045-a1-full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1401,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1401"
+    }
+  ],
+  "owner_directive": "ADR-045 A1 backend workflow versioning and watcher fallback",
+  "planned_files": [
+    "src/scistudio/api/runtime.py",
+    "src/scistudio/api/routes/workflows.py",
+    "src/scistudio/api/routes/git.py",
+    "src/scistudio/api/routes/workflow_watcher.py",
+    "src/scistudio/engine/events.py",
+    "tests/api/test_workflow_version_vector.py",
+    "tests/api/test_workflow_changed_event_schema.py",
+    "tests/api/routes/test_workflow_watcher_fallback.py",
+    "tests/api/test_workflows.py",
+    "tests/api/test_git_endpoints.py",
+    "tests/api/test_workflow_watcher.py",
+    "docs/planning/adr-045-version-vector-checklist.md",
+    ".workflow/records/1401-a1-backend-versioning.json",
+    "docs/audit/adr-045-a1-full-audit.json"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1401-a1-backend-versioning.json",
+  "required_checks": [
+    "pytest",
+    "ruff",
+    "format",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "src/scistudio/api/routes/projects.py",
+      "frontend/src/**",
+      "packages/**",
+      "src/scistudio/blocks/**",
+      "src/scistudio/workflow/**"
+    ],
+    "include": [
+      "src/scistudio/api/runtime.py",
+      "src/scistudio/api/routes/workflows.py",
+      "src/scistudio/api/routes/git.py",
+      "src/scistudio/api/routes/workflow_watcher.py",
+      "src/scistudio/engine/events.py",
+      "tests/api/test_workflow_version_vector.py",
+      "tests/api/test_workflow_changed_event_schema.py",
+      "tests/api/routes/test_workflow_watcher_fallback.py",
+      "tests/api/test_workflows.py",
+      "tests/api/test_git_endpoints.py",
+      "tests/api/test_workflow_watcher.py",
+      "docs/planning/adr-045-version-vector-checklist.md",
+      ".workflow/records/1401-a1-backend-versioning.json",
+      "docs/audit/adr-045-a1-full-audit.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__sentrux__.scan/rescan/check_rules/health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "Sentrux MCP: scan quality_signal=4248; after removing watcher-runtime import cycle rescan quality_signal=4441; check_rules pass; rules_checked=3; total_rules_defined=15; violations=0; pro_required=false",
+    "pro_required": false,
+    "quality_signal": 4441.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1401-a1-backend-versioning",
+  "task_kind": "bugfix"
+}

@@ -43,6 +43,7 @@ INTERACTIVE_COMPLETE = "interactive_complete"  # #591/#594: frontend -> backend 
 # The legacy ``revision`` field was removed by ADR-039 §5.2; git commit SHA +
 # working-tree dirty state replaces the optimistic-concurrency counter.
 WORKFLOW_CHANGED = "workflow.changed"
+FILE_CHANGED = "file.changed"  # ADR-045 shared version-vector event for file tabs.
 # ADR-039 §3.8: emitted when the project's git HEAD or any ref/branch tip
 # moves — used by the canvas + Git tab to invalidate cached log/diff views.
 # Payload:
@@ -93,6 +94,7 @@ class EventBus:
 
     def __init__(self) -> None:
         self._subscribers: dict[str, list[Callable[[EngineEvent], None]]] = defaultdict(list)
+        self.runtime: Any | None = None
 
     async def emit(self, event: EngineEvent) -> None:
         """Broadcast *event* to all subscribers of its event_type.
