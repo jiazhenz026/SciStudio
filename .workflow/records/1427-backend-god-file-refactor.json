@@ -30,6 +30,15 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "python scripts/check_god_files.py --enforce",
+      "exit_code": 0,
+      "name": "god_file_advisory_750",
+      "output_path": "threshold=750 LOC; 10 tracked waivers, 0 NEW violations (re-recorded after owner raised threshold from 500 to 750 on 2026-05-22)",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": null,

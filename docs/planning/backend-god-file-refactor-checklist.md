@@ -17,7 +17,7 @@ language_source: en
 
 ## 1. Change Summary
 
-- Owner request: `Refactor backend/engine god files (Python side) — Phase 1 = Bucket A + B (10 files, max-lines=500).`
+- Owner request: `Refactor backend/engine god files (Python side) — max-lines = 750 (chat 2026-05-22, raised from 500 to exclude basic type-definition files). Phase 1 = all 5 Bucket A+B candidates ≥750 LOC.`
 - Task kind: `refactor`
 - Manager persona: `manager`
 - Issue: `#1427`
@@ -38,41 +38,32 @@ language_source: en
 ## 2. Scope
 
 - LOC counts below are from `scripts/check_god_files.py` (Python stdlib line count). Earlier PowerShell `Measure-Object -Line` counts in chat were systematically lower because it excludes blank lines; the script counts are authoritative.
-- In scope (Phase 1, this umbrella initial batch — 10 of the 14 Bucket A+B candidates, per the 5-agent cap):
-  - Bucket A (non-protected, no core-change label needed) — 7 of 9 selected:
+- Threshold = 750 LOC (raised from 500 mid-setup per chat 2026-05-22 to exclude basic type-definition files).
+- In scope (Phase 1, this umbrella — all 5 Bucket A+B candidates ≥750 LOC):
+  - Bucket A (non-protected, no core-change label needed) — 4 files:
     - `src/scistudio/api/runtime.py` (1839 LOC)
     - `src/scistudio/ai/agent/mcp/tools_workflow.py` (884)
     - `src/scistudio/ai/agent/mcp/tools_inspection.py` (809)
     - `src/scistudio/api/routes/ai_pty.py` (757)
-    - `src/scistudio/api/routes/workflow_watcher.py` (696)
-    - `src/scistudio/cli/install.py` (691)
-    - `src/scistudio/api/routes/git.py` (635)
-  - Bucket B (protected, requires `admin-approved:core-change` label) — 3 of 5 selected:
+  - Bucket B (protected, requires `admin-approved:core-change` label) — 1 file:
     - `src/scistudio/qa/governance/gate_record.py` (1402)
-    - `src/scistudio/core/types/registry.py` (633)
-    - `src/scistudio/qa/audit/architecture_drift.py` (619)
   - Umbrella scaffold (this PR):
     - `docs/planning/backend-god-file-refactor-checklist.md`
     - `scripts/check_god_files.py` (advisory)
     - `.workflow/records/1427-backend-god-file-refactor.json`
-- Out of scope (deferred to Phase 1.5 or later):
-  - Phase 1.5 (Bucket A+B candidates not selected in Phase 1, deferred under the 5-agent cap):
-    - `src/scistudio/api/routes/filesystem.py` (590) — Bucket A
-    - `src/scistudio/ai/agent/terminal.py` (564) — Bucket A
-    - `src/scistudio/core/types/base.py` (553) — Bucket B
-    - `src/scistudio/workflow/validator.py` (505) — Bucket B
-  - Bucket C (6 files) — blocked on ADR-028 Addendum re-evaluation
-  - Bucket D (3 files) — blocked on new structural ADRs (scheduler, registry)
+- Out of scope (deferred):
+  - Bucket C (2 files ≥750 LOC: `blocks/io/savers/save_data.py`, `blocks/io/loaders/load_data.py`) — blocked on ADR-028 Addendum re-evaluation
+  - Bucket D (3 files ≥750 LOC: `engine/scheduler.py`, `blocks/registry.py`, `core/versioning/git_engine.py`) — blocked on new structural ADRs
+  - All files between 500 and 749 LOC (basic type-defs etc.) — out of scope at the 750 threshold
   - All frontend files (covered by #1422)
   - Any behavior change beyond pure structural decomposition (no API surface changes, no fix-along-the-way)
 - Protected paths:
   - `src/scistudio/qa/governance/**` (gate_record.py — Bucket B)
-  - `src/scistudio/qa/audit/**` (architecture_drift.py — Bucket B)
-  - `src/scistudio/core/**` (core/types/registry.py — Bucket B)
 - Deferred work:
-  - Bucket C — TODO(#1427-followup): re-open after ADR-028 Addendum review
-  - Bucket D — TODO(#1427-followup): re-open after structural ADRs land
-  - Promote `scripts/check_god_files.py` from advisory to hard-fail — TODO(#1427-followup) once all 10 Phase-1 files are below threshold
+  - Bucket C (2 files ≥750 LOC) — TODO(#1427-followup): re-open after ADR-028 Addendum review
+  - Bucket D (3 files ≥750 LOC) — TODO(#1427-followup): re-open after structural ADRs land
+  - Promote `scripts/check_god_files.py` from advisory to hard-fail — TODO(#1427-followup) once all 5 Phase-1 files are below threshold
+  - Lower threshold from 750 to 500 (future phase) — TODO(#1427-followup) after Phase 1+2+3 complete; would add ~13 more files
 
 ## 3. Conventions
 
@@ -104,9 +95,9 @@ language_source: en
 ## 5. Local Gate Hook Bypass Evidence
 
 - Authorized bypass label: `admin-approved:core-change`
-- Owner authorization source: chat 2026-05-22 (manager skill session, `/manager` invocation) — explicit owner answer to AskUserQuestion granting label for all 3 Bucket B files (`qa/governance/gate_record.py`, `qa/audit/architecture_drift.py`, `core/types/registry.py`).
-- Reason: Bucket B sub-PRs touch protected core paths (`src/scistudio/qa/{governance,audit}/**`, `src/scistudio/core/**`). Label is required for any PR landing on these paths per `reference_protected_globs`.
-- Scope of bypass: ONLY the 3 Bucket B sub-PRs. Bucket A sub-PRs and this umbrella scaffold PR do not need the label.
+- Owner authorization source: chat 2026-05-22 (manager skill session, `/manager` invocation) — explicit owner answer to AskUserQuestion granting label for all Bucket B files. At threshold = 750 the only Bucket B file in scope is `qa/governance/gate_record.py` (the other two — `qa/audit/architecture_drift.py` and `core/types/registry.py` — fell below the new threshold and are out of Phase 1 scope).
+- Reason: Bucket B sub-PR touches the protected `src/scistudio/qa/governance/**` path. Label is required for any PR landing on this path per `reference_protected_globs`.
+- Scope of bypass: ONLY the B1 sub-PR (`gate_record.py`). Bucket A sub-PRs and this umbrella scaffold PR do not need the label.
 
 | Hook | Command | Bypass label | Status | Evidence |
 |---|---|---|---|---|
@@ -118,12 +109,13 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `A1` | `implementer` | `N/A` | `<TBD on dispatch>` | Split `api/runtime.py` (1646 LOC) — preserve public import surface | `refactor/issue-<sub>/api-runtime` | `.claude/worktrees/refactor-a1-api-runtime` | `src/scistudio/api/runtime.py` + new sibling modules under `src/scistudio/api/runtime/` (or equivalent) + tests under `tests/api/` | All other Bucket A/B files, all routes, all engine code | `<sub-issue, sub-PR pending>` | `[ ]` |
-| `A2` | `implementer` | `N/A` | `<TBD>` | Split 3 FastAPI route files: `api/routes/{ai_pty,workflow_watcher,git}.py` | `refactor/issue-<sub>/api-routes-trio` | `.claude/worktrees/refactor-a2-api-routes` | the 3 route files + new submodules + tests | `api/runtime.py`, MCP tools, anything outside `api/routes/` | `<pending>` | `[ ]` |
-| `A3` | `implementer` | `N/A` | `<TBD>` | Split `ai/agent/mcp/tools_workflow.py` + `ai/agent/mcp/tools_inspection.py` + `cli/install.py` | `refactor/issue-<sub>/mcp-cli-trio` | `.claude/worktrees/refactor-a3-mcp-cli` | the 3 files + new submodules + tests | All other files | `<pending>` | `[ ]` |
-| `B1` | `implementer` | `N/A` | `<TBD>` | Split `qa/governance/gate_record.py` (1192 LOC) along 6-stage seams | `refactor/issue-<sub>/gate-record` | `.claude/worktrees/refactor-b1-gate-record` | `src/scistudio/qa/governance/gate_record.py` + new submodules under `src/scistudio/qa/governance/_gate/` (or similar) + tests | All other files | `<pending; PR requires admin-approved:core-change>` | `[ ]` |
-| `B2` | `implementer` | `N/A` | `<TBD>` | Split `qa/audit/architecture_drift.py` + `core/types/registry.py` | `refactor/issue-<sub>/audit-types-registry` | `.claude/worktrees/refactor-b2-audit-types` | the 2 files + new submodules + tests | All other files | `<pending; PR requires admin-approved:core-change>` | `[ ]` |
+| `A1` | `implementer` | `N/A` | `<TBD on dispatch>` | Split `api/runtime.py` (1839 LOC) — preserve public import surface | `refactor/issue-<sub>/api-runtime` | `.claude/worktrees/refactor-a1-api-runtime` | `src/scistudio/api/runtime.py` + new sibling modules under `src/scistudio/api/runtime/` (or equivalent) + tests under `tests/api/` | All other Bucket A/B files, all routes, all engine code | `<sub-issue, sub-PR pending>` | `[ ]` |
+| `A2` | `implementer` | `N/A` | `<TBD>` | Split `ai/agent/mcp/tools_workflow.py` (884) + `ai/agent/mcp/tools_inspection.py` (809) | `refactor/issue-<sub>/mcp-tools-pair` | `.claude/worktrees/refactor-a2-mcp-tools` | the 2 MCP tool files + new submodules + tests | All other files including any other ai/agent/* and cli/* | `<pending>` | `[ ]` |
+| `A3` | `implementer` | `N/A` | `<TBD>` | Split `api/routes/ai_pty.py` (757) | `refactor/issue-<sub>/api-ai-pty` | `.claude/worktrees/refactor-a3-ai-pty` | `src/scistudio/api/routes/ai_pty.py` + new submodules + tests | `api/runtime.py`, other routes, MCP tools | `<pending>` | `[ ]` |
+| `B1` | `implementer` | `N/A` | `<TBD>` | Split `qa/governance/gate_record.py` (1402 LOC) along 6-stage seams | `refactor/issue-<sub>/gate-record` | `.claude/worktrees/refactor-b1-gate-record` | `src/scistudio/qa/governance/gate_record.py` + new submodules under `src/scistudio/qa/governance/_gate/` (or similar) + tests | All other files | `<pending; PR requires admin-approved:core-change>` | `[ ]` |
 | `AUDIT` | `audit_reviewer` | `with-context` | `<TBD; one audit per sub-PR or one rolling audit pass>` | Verify scope, public-surface preservation, test coverage | `audit/<sub>` | `.claude/worktrees/audit-backend-godfile` | audit reports only | implementation files | `<pending>` | `[ ]` |
+
+> Owner cap: max 5 parallel agents in Phase 1 (chat 2026-05-22). This matrix uses 4 (within cap) — A1 and B1 are solo because they are the two largest files, and bundling them would make their PRs unreviewable.
 
 ## 7. Track: Phase 1 — Bucket A + B
 
@@ -158,11 +150,10 @@ language_source: en
 ### 7.3 Implementation
 
 - [ ] A1: `api/runtime.py` decomposed → `<artifact>`
-- [ ] A2: 3 route files decomposed → `<artifact>`
-- [ ] A3: 2 MCP tool files + cli/install decomposed → `<artifact>`
+- [ ] A2: 2 MCP tool files decomposed → `<artifact>`
+- [ ] A3: `api/routes/ai_pty.py` decomposed → `<artifact>`
 - [ ] B1: `gate_record.py` decomposed → `<artifact>`
-- [ ] B2: `architecture_drift.py` + `core/types/registry.py` decomposed → `<artifact>`
-- [ ] All 10 files removed from `GOD_FILE_SIZE_WAIVERS` → `<artifact>`
+- [ ] All 5 files removed from `GOD_FILE_SIZE_WAIVERS` → `<artifact>`
 
 ### 7.4 Audit
 

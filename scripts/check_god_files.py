@@ -3,7 +3,10 @@
 Mirror of the frontend `max-lines` ESLint rule (#1422) for the Python side.
 Per umbrella issue #1427:
 
-- Threshold: 500 LOC.
+- Threshold: 750 LOC. Frontend `#1422` uses 500; the Python side starts at 750
+  to avoid flagging basic type-definition files whose size is inherent to
+  their role (per owner directive 2026-05-22). The threshold may be lowered
+  in a later phase once the largest files are decomposed.
 - Scope: `src/scistudio/**/*.py`, excluding `tests/**` and `__pycache__/**`.
 - Mode: advisory (exit 0 even on violations). Use `--enforce` to exit non-zero
   on *new* violations (files not in `GOD_FILE_SIZE_WAIVERS`).
@@ -25,7 +28,7 @@ import json
 import sys
 from pathlib import Path
 
-MAX_LINES = 500
+MAX_LINES = 750
 
 SCAN_ROOT = Path("src/scistudio")
 
@@ -39,23 +42,10 @@ GOD_FILE_SIZE_WAIVERS: frozenset[str] = frozenset(
         "src/scistudio/qa/governance/gate_record.py",
         "src/scistudio/blocks/io/savers/save_data.py",
         "src/scistudio/blocks/io/loaders/load_data.py",
-        "src/scistudio/core/versioning/git_engine.py",
         "src/scistudio/ai/agent/mcp/tools_workflow.py",
+        "src/scistudio/core/versioning/git_engine.py",
         "src/scistudio/ai/agent/mcp/tools_inspection.py",
         "src/scistudio/api/routes/ai_pty.py",
-        "src/scistudio/api/routes/workflow_watcher.py",
-        "src/scistudio/cli/install.py",
-        "src/scistudio/api/routes/git.py",
-        "src/scistudio/core/types/registry.py",
-        "src/scistudio/blocks/code/code_block.py",
-        "src/scistudio/qa/audit/architecture_drift.py",
-        "src/scistudio/api/routes/filesystem.py",
-        "src/scistudio/blocks/ai/ai_block.py",
-        "src/scistudio/blocks/code/exchange.py",
-        "src/scistudio/core/lineage/store.py",
-        "src/scistudio/ai/agent/terminal.py",
-        "src/scistudio/core/types/base.py",
-        "src/scistudio/workflow/validator.py",
     }
 )
 
