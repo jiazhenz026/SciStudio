@@ -42,7 +42,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1400-git-tab-top-toolbar.json",
+    "shas": [
+      "35f09488eb04928fb9512ffa2414b5202841dce3"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -94,7 +100,13 @@
     "frontend/src/hooks/useWebSocket.test.ts",
     "CHANGELOG.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1400
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1402"
+  },
   "record_path": ".workflow/records/1400-git-tab-top-toolbar.json",
   "required_checks": [
     "ruff",
@@ -163,7 +175,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
