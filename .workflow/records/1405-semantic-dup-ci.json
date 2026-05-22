@@ -1,0 +1,148 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "feat/semantic-dup-ci",
+  "changed_test_paths": [
+    "tests/scripts/test_semantic_dup_scan.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff_check",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "ruff_format",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "pytest tests/scripts/test_semantic_dup_scan.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "pytest_scripts",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {},
+    "docs": {
+      "paths": [
+        "docs/adr/ADR-042-addendum2.md",
+        "docs/audit/2026-05-21-semantic-dup-scan.md",
+        "docs/audit/baselines/semantic-dup-baseline.json"
+      ]
+    }
+  },
+  "full_audit": null,
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1405,
+      "url": null
+    }
+  ],
+  "owner_directive": "Add semantic duplication scan as CI gate (embedding clustering); document in ADR-042 Addendum 2; full audit integration",
+  "planned_files": [
+    "scripts/semantic_dup_scan.py",
+    "docs/audit/baselines/semantic-dup-baseline.json",
+    "docs/audit/2026-05-21-semantic-dup-scan.md",
+    "docs/adr/ADR-042-addendum2.md",
+    "tests/scripts/test_semantic_dup_scan.py",
+    ".github/workflows/semantic-dup-scan.yml",
+    ".gitignore",
+    "CHANGELOG.md"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1405-semantic-dup-ci.json",
+  "required_checks": [
+    "ruff check .",
+    "ruff format --check .",
+    "pytest tests/scripts/test_semantic_dup_scan.py --timeout=60 --no-cov"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "scripts/semantic_dup_scan.py",
+      "docs/audit/baselines/semantic-dup-baseline.json",
+      "docs/audit/2026-05-21-semantic-dup-scan.md",
+      "docs/adr/ADR-042-addendum2.md",
+      ".github/workflows/semantic-dup-scan.yml",
+      "tests/scripts/test_semantic_dup_scan.py",
+      ".gitignore",
+      "CHANGELOG.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": null,
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1405-semantic-dup-ci",
+  "task_kind": "feature"
+}
