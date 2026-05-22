@@ -1,0 +1,73 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "umbrella/phase3-bucket-d",
+  "changed_test_paths": [],
+  "check_results": [],
+  "commit": null,
+  "docs_landing": {},
+  "full_audit": null,
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1465,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1465"
+    }
+  ],
+  "owner_directive": "Phase 3 of #1427 god-file refactor: scheduler (ADR-046, #1470) + registry+legacy-IO-delete (ADR-047, #1471) + git_engine class-binding split (ADR-046 Addendum 1 in PR, #1472). 3 parallel implementer agents dispatched 2026-05-22; umbrella scaffold built retroactively per agent-dispatch.md \u00a72.",
+  "planned_files": [],
+  "pull_request": null,
+  "record_path": ".workflow/records/1465-phase3-bucket-d-umbrella.json",
+  "required_checks": [],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "docs/planning/phase3-bucket-d-checklist.md",
+      ".workflow/records/1465-phase3-bucket-d-umbrella.json"
+    ]
+  },
+  "sentrux": null,
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1465-phase3-bucket-d-umbrella",
+  "task_kind": "manager"
+}
