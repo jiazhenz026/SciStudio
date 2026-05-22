@@ -96,7 +96,7 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 891,
-      "url": null
+      "url": "https://github.com/zjzcpj/SciStudio/issues/891"
     }
   ],
   "owner_directive": "Implement issue #891: require verified bundled SPA for release-mode wheel builds while preserving SCISTUDIO_SKIP_FRONTEND_BUILD developer escape hatch.",
