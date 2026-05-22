@@ -1,5 +1,11 @@
 {
-  "admin_labels": [],
+  "admin_labels": [
+    {
+      "applied_at": "2026-05-22T19:08:48.337974-04:00",
+      "applied_by": "@jiazhenz026",
+      "name": "admin-approved:core-change"
+    }
+  ],
   "amendments": [
     {
       "approved_by": null,
@@ -66,8 +72,14 @@
     "trailers": {}
   },
   "docs_landing": {
-    "changelog": {},
-    "checklist": {},
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "governance-decision-and-implementation-spec-only-no-user-facing-release-note"
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "single-agent-governance-doc-change-no-manager-dispatch-checklist-required"
+    },
     "docs": {
       "paths": [
         "docs/adr/ADR-042-addendum4.md",
