@@ -25,8 +25,8 @@ language_source: en
 - Branch/worktree plan: `umbrella/backend-god-file-refactor` in `.claude/worktrees/backend-god-refactor`; per-agent branches `refactor/issue-<sub>/<slug>` in `.claude/worktrees/<agent-slug>`
 - Protected branch: `main`
 - Umbrella branch: `umbrella/backend-god-file-refactor`
-- Umbrella PR: `#<pending>`
-- Umbrella PR title: `[DO NOT MERGE] umbrella(backend): god-file refactor Phase 1 (Bucket A + B)`
+- Umbrella PR: `#1429`
+- Umbrella PR title: `[DO NOT MERGE] umbrella(backend): god-file refactor scaffold (#1427)`
 - Final PR target: `main` (umbrella PR), `umbrella/backend-god-file-refactor` (sub-PRs)
 - Dispatch prompt templates:
   - Work: `docs/ai-developer/templates/agent-dispatch-prompt-template.md`
@@ -84,9 +84,9 @@ language_source: en
 - [x] Gate record started. → `.workflow/records/1427-backend-god-file-refactor.json`
 - [x] Scope include/exclude recorded in the gate record.
 - [x] Umbrella branch created.
-- [ ] Umbrella PR opened. → pending
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [ ] Protected branch and umbrella PR number recorded in this checklist.
+- [x] Umbrella PR opened. → #1429
+- [x] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Protected branch and umbrella PR number recorded in this checklist. → protected = `main`; umbrella PR = #1429.
 - [x] No `pip install -e .` environment pollution found. → manager uses `PYTHONPATH=src` only
 - [x] Dispatch checklist copied from the template and committed. → this file
 - [ ] Dispatch prompts created from the correct prompt template and linked below. → pending until owner approves sub-PR dispatch
