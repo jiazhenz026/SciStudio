@@ -1,0 +1,167 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Manager implementation stage completed within planned scope: #1407 drift docs, ADR-045 spec/status transition, contract-consistency dispatch prompts, audit evidence, and Sentrux evidence are landed for the setup PR."
+    }
+  ],
+  "branch": "track/adr-045/version-vector",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-status-spec-audit.json --skip-frontmatter-lint --skip-fact-drift --skip-architecture-drift --skip-vulture",
+      "exit_code": 0,
+      "name": "targeted_qa_audit",
+      "output_path": "docs/audit/adr-045-status-spec-audit.json",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-full-audit.json",
+      "exit_code": 0,
+      "name": "frontmatter_lint",
+      "output_path": "docs/audit/adr-045-full-audit.json",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "changelog": {},
+    "checklist": {
+      "paths": [
+        "docs/planning/dispatch-prompts/adr-045-a1-backend-versioning.md",
+        "docs/planning/dispatch-prompts/adr-045-a2-file-tabs.md",
+        "docs/planning/dispatch-prompts/adr-045-a3-frontend-reconcile.md",
+        "docs/planning/dispatch-prompts/adr-045-a4-audit-with-context.md",
+        "docs/planning/adr-045-version-vector-checklist.md"
+      ]
+    },
+    "docs": {
+      "paths": [
+        "docs/specs/adr-045-workflow-state-version.md"
+      ]
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-full-audit.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/adr-045-full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1407,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1407"
+    }
+  ],
+  "owner_directive": "Manager-owned ADR-045 landing: first fix ADR-041/043 implemented-state drift from #1407, draft ADR-045 spec/status transition, then dispatch up to four agents for ADR-045 implementation.",
+  "planned_files": [
+    "docs/adr/ADR-041.md",
+    "docs/adr/ADR-043.md",
+    "docs/adr/ADR-045.md",
+    "docs/specs/adr-041-codeblock-v2.md",
+    "docs/specs/adr-043-io-format-capability-registry.md",
+    "docs/specs/adr-043-package-migration.md",
+    "docs/specs/adr-045-workflow-state-version.md",
+    "docs/planning/adr-045-version-vector-checklist.md",
+    "docs/planning/dispatch-prompts/adr-045-*.md",
+    "docs/audit/adr-045-*.json"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1407-adr-045-manager-1407-drift.json",
+  "required_checks": [
+    "frontmatter_lint",
+    "targeted_qa_audit",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "frontend/node_modules/**",
+      ".venv/**"
+    ],
+    "include": [
+      "docs/adr/ADR-041.md",
+      "docs/adr/ADR-043.md",
+      "docs/adr/ADR-045.md",
+      "docs/specs/adr-041-codeblock-v2.md",
+      "docs/specs/adr-043-io-format-capability-registry.md",
+      "docs/specs/adr-043-package-migration.md",
+      "docs/specs/adr-045-workflow-state-version.md",
+      "docs/planning/adr-045-version-vector-checklist.md",
+      "docs/planning/dispatch-prompts/adr-045-*.md",
+      "docs/audit/adr-045-*.json",
+      "docs/audit/adr-045-*.md",
+      ".workflow/records/1407-adr-045-manager-1407-drift.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__sentrux__.scan + check_rules + health + session_end",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "docs/audit/adr-045-sentrux.json",
+    "pro_required": false,
+    "quality_signal": 4441.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {
+      "quality_signal": "4441"
+    },
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1407-adr-045-manager-1407-drift",
+  "task_kind": "manager"
+}
