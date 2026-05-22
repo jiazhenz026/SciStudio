@@ -64,7 +64,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1467-test-engineer-persona-implementation.json",
+    "shas": [
+      "bac272cbf43b3adc24dfa695f1fae9d4d8a9ff9f"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "not_applicable": true,
@@ -130,7 +136,13 @@
     "docs/planning/dispatch-prompts/issue-1467-*.md",
     "docs/audit/adr-042-test-engineer-persona-implementation-full-audit.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1467
+    ],
+    "number": 1474,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1474"
+  },
   "record_path": ".workflow/records/1467-test-engineer-persona-implementation.json",
   "required_checks": [
     "ruff",
@@ -194,8 +206,8 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
-      "summary": null
+      "status": "done",
+      "summary": "implementation agents integrated; manager interface fix applied"
     },
     {
       "completed_at": null,
@@ -212,7 +224,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
