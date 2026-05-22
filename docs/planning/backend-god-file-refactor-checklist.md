@@ -109,10 +109,10 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `A1` | `implementer` | `N/A` | `docs/planning/backend-god-file-refactor-prompts/A1-api-runtime.md` | Split `api/runtime.py` (1839 LOC) — preserve public import surface | `refactor/issue-1430/api-runtime` | `.claude/worktrees/refactor-a1-api-runtime` | `src/scistudio/api/runtime.py` → sub-package `src/scistudio/api/runtime/` + tests under `tests/api/` + waiver removal in `scripts/check_god_files.py` | All other Bucket A/B files, all routes, all engine code, manager checklist | #1430 / PR `<pending>` | `[~]` dispatched |
-| `A2` | `implementer` | `N/A` | `docs/planning/backend-god-file-refactor-prompts/A2-mcp-tools.md` | Split `ai/agent/mcp/tools_workflow.py` (884) + `ai/agent/mcp/tools_inspection.py` (809) | `refactor/issue-1431/mcp-tools-pair` | `.claude/worktrees/refactor-a2-mcp-tools` | the 2 MCP tool files → parallel sub-packages + tests under `tests/ai/agent/mcp/` + waiver removal | All other files including any other ai/agent/* and cli/*, manager checklist | #1431 / PR `<pending>` | `[~]` dispatched |
-| `A3` | `implementer` | `N/A` | `docs/planning/backend-god-file-refactor-prompts/A3-ai-pty.md` | Split `api/routes/ai_pty.py` (757) | `refactor/issue-1432/api-ai-pty` | `.claude/worktrees/refactor-a3-ai-pty` | `src/scistudio/api/routes/ai_pty.py` → sub-package + tests under `tests/api/routes/` + waiver removal | `api/runtime.py`, other routes, MCP tools, manager checklist | #1432 / PR `<pending>` | `[~]` dispatched |
-| `B1` | `implementer` | `N/A` | `docs/planning/backend-god-file-refactor-prompts/B1-gate-record.md` | Split `qa/governance/gate_record.py` (1402 LOC) along 6-stage seams | `refactor/issue-1433/gate-record` | `.claude/worktrees/refactor-b1-gate-record` | `src/scistudio/qa/governance/gate_record.py` → sub-package + tests under `tests/qa/governance/` + waiver removal | All other files, manager checklist, other governance files, schemas, audit code, scripts/scistudio_pr_create.py, .github/workflows | #1433 / PR `<pending; admin-approved:core-change required>` | `[~]` dispatched |
+| `A1` | `implementer` | `N/A` | `docs/planning/backend-god-file-refactor-prompts/A1-api-runtime.md` | Split `api/runtime.py` (1839 LOC) — preserve public import surface | `refactor/issue-1430/api-runtime` | `.claude/worktrees/refactor-a1-api-runtime` (agent nested it under manager worktree) | done — 8 sub-modules under `src/scistudio/api/runtime/` (largest 476 LOC); `tests/api/test_runtime_import_surface.py` (4 tests); waiver removed | as planned | #1430 / PR [#1445](https://github.com/zjzcpj/SciStudio/pull/1445) — CI green | `[x]` |
+| `A2` | `implementer` | `N/A` | `docs/planning/backend-god-file-refactor-prompts/A2-mcp-tools.md` | Split `ai/agent/mcp/tools_workflow.py` (884) + `ai/agent/mcp/tools_inspection.py` (809) | `refactor/issue-1431/mcp-tools-pair` | `.claude/worktrees/refactor-a2-mcp-tools` (nested) | done — 13 modules across 2 sub-packages; `tests/ai/agent/mcp/test_tools_{workflow,inspection}_surface.py` (24 tests); 2 waivers removed | as planned | #1431 / PR [#1441](https://github.com/zjzcpj/SciStudio/pull/1441) — CI green | `[x]` |
+| `A3` | `implementer` | `N/A` | `docs/planning/backend-god-file-refactor-prompts/A3-ai-pty.md` | Split `api/routes/ai_pty.py` (757) | `refactor/issue-1432/api-ai-pty` | `.claude/worktrees/refactor-a3-ai-pty` (nested) | done — 6 modules under `src/scistudio/api/routes/ai_pty/`; `tests/api/routes/ai_pty/test_*.py` (41 tests); waiver removed | as planned | #1432 / PR [#1444](https://github.com/zjzcpj/SciStudio/pull/1444) — CI green | `[x]` |
+| `B1` | `implementer` | `N/A` | `docs/planning/backend-god-file-refactor-prompts/B1-gate-record.md` | Split `qa/governance/gate_record.py` (1402 LOC) along 6-stage seams | `refactor/issue-1433/gate-record` | `.claude/worktrees/refactor-b1-gate-record` (nested) | done — 7 modules under `src/scistudio/qa/governance/gate_record/` (paths/models/io/stages/validation/cli/__main__/__init__); 18 new tests + 102 existing pass; waiver removed | as planned | #1433 / PR [#1442](https://github.com/zjzcpj/SciStudio/pull/1442) — `admin-approved:core-change` label set; CI green | `[x]` |
 | `AUDIT` | `audit_reviewer` | `with-context` | `<TBD post-implementation>` | Verify scope, public-surface preservation, test coverage, Codex auto-review reconcile | `audit/<sub>` | `.claude/worktrees/audit-backend-godfile` | audit reports only | implementation files | `<pending>` | `[ ]` |
 
 > Owner cap: max 5 parallel agents in Phase 1 (chat 2026-05-22). This matrix uses 4 (within cap) — A1 and B1 are solo because they are the two largest files, and bundling them would make their PRs unreviewable.
@@ -149,11 +149,11 @@ language_source: en
 
 ### 7.3 Implementation
 
-- [ ] A1: `api/runtime.py` decomposed → `<artifact>`
-- [ ] A2: 2 MCP tool files decomposed → `<artifact>`
-- [ ] A3: `api/routes/ai_pty.py` decomposed → `<artifact>`
-- [ ] B1: `gate_record.py` decomposed → `<artifact>`
-- [ ] All 5 files removed from `GOD_FILE_SIZE_WAIVERS` → `<artifact>`
+- [x] A1: `api/runtime.py` decomposed → PR [#1445](https://github.com/zjzcpj/SciStudio/pull/1445) CI green
+- [x] A2: 2 MCP tool files decomposed → PR [#1441](https://github.com/zjzcpj/SciStudio/pull/1441) CI green
+- [x] A3: `api/routes/ai_pty.py` decomposed → PR [#1444](https://github.com/zjzcpj/SciStudio/pull/1444) CI green
+- [x] B1: `gate_record.py` decomposed → PR [#1442](https://github.com/zjzcpj/SciStudio/pull/1442) CI green; `admin-approved:core-change` label set
+- [x] All 5 files removed from `GOD_FILE_SIZE_WAIVERS` → done in each sub-PR; current waiver count = 5 (only Bucket C/D files remain)
 
 ### 7.4 Audit
 
@@ -189,7 +189,9 @@ Append only.
 
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
-| `2026-05-22` | `manager` | (none yet) | initial scaffold | `<N/A>` |
+| `2026-05-22` | `manager` | (none) | initial scaffold | N/A |
+| `2026-05-22` | A1/A2/A3 | Agents nested their worktrees under `.claude/worktrees/backend-god-refactor/.claude/worktrees/` instead of using pre-created top-level paths | Accepted — all 4 PRs land correctly with right branch names; cleanup deferred to post-merge | TODO(#1427-followup): remove nested + recreate top-level worktrees after umbrella PR #1429 merges |
+| `2026-05-22` | A1/A2/A3 | Skipped `gate_record ci` before push (only ran `pr-ready`); CI then flagged missing issue URL + docs N/A | Manager backfilled JSON directly + ran `gate_record ci` per PR with actual body, then commit + push; all 3 PRs CI now green | Memory `feedback_gate_record_docs_is_destructive` added 2026-05-22 |
 
 ## 10. Final Readiness
 
