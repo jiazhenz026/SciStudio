@@ -51,7 +51,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1412-frontend-ci-tooling.json",
+    "shas": [
+      "b289c6dccc5125b80e26de649f33d7cd5bcbcbbe"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -105,7 +111,13 @@
     ".github/workflows/ci.yml",
     "CHANGELOG.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1412
+    ],
+    "number": 1424,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1424"
+  },
   "record_path": ".workflow/records/1412-frontend-ci-tooling.json",
   "required_checks": [
     "ruff",
@@ -175,7 +187,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
