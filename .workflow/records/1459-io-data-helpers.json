@@ -61,8 +61,14 @@
     "trailers": {}
   },
   "docs_landing": {
-    "changelog": {},
-    "checklist": {},
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Pure structural refactor with no behavior change; helpers moved into private sibling modules per Path D. No user-facing surface affected."
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "Phase 2 is a single-PR refactor (no umbrella, no multi-agent dispatch); umbrella checklist tracking is N/A. Issue #1459 body lists the target layout and scope."
+    },
     "docs": {
       "paths": [
         "docs/architecture/PROJECT_TREE.md",
@@ -88,7 +94,7 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1459,
-      "url": null
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1459"
     }
   ],
   "owner_directive": "Phase 2 of #1427: extract save_data/load_data helpers to private sibling modules per Path D; no ADR change, \u00a7C9 satisfied verbatim",
