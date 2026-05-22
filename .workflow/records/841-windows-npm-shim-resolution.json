@@ -49,9 +49,18 @@
     "trailers": {}
   },
   "docs_landing": {
-    "changelog": {},
-    "checklist": {},
-    "docs": {},
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "N/A for scoped internal bug fix; repository changelog is not maintained for this issue-level backend fix."
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "N/A; no planning checklist artifact is required for this narrow issue #841 implementation."
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "Implementation-only Windows executable resolution bug fix; no user-facing docs, API schema docs, ADR, or spec text changed."
+    },
     "product-docs": {
       "not_applicable": true,
       "rationale": "Implementation-only Windows executable resolution bug fix for existing AI CLI behavior; no public workflow, schema, API response shape, ADR, or spec text changed."
