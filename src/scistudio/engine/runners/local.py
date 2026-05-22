@@ -35,7 +35,8 @@ def _format_storage_error_message(payload: dict[str, Any]) -> str:
     message = payload.get("message")
     if isinstance(message, str) and message:
         return message
-    ref = payload.get("ref") if isinstance(payload.get("ref"), dict) else {}
+    raw_ref = payload.get("ref")
+    ref: dict[Any, Any] = raw_ref if isinstance(raw_ref, dict) else {}
     backend = ref.get("backend") or "unknown-backend"
     path = ref.get("path") or "unknown-path"
     return f"Storage reference points to unavailable data: {backend}:{path}."

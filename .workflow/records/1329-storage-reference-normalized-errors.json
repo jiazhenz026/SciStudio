@@ -41,6 +41,15 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src mypy src/scistudio/engine/runners/local.py --ignore-missing-imports",
+      "exit_code": 0,
+      "name": "mypy-local-runner",
+      "output_path": "Success: no issues found in 1 source file",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": {
@@ -60,10 +69,10 @@
   },
   "full_audit": {
     "blocks_merge": true,
-    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .workflow/records/1329-full-audit.json",
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output <transient>",
     "exit_code": 0,
     "known_debt": [],
-    "output_path": ".workflow/records/1329-full-audit.json",
+    "output_path": "embedded summary: full_audit pass; findings=0; blocks_merge=true",
     "status": "pass",
     "summary": {},
     "unclassified_failures": []
@@ -122,7 +131,7 @@
     "command_or_tool": "mcp__sentrux__.scan/session_start/rescan/check_rules/session_end",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": ".workflow/records/1329-sentrux-evidence.json",
+    "output_path": null,
     "pro_required": false,
     "quality_signal": 4443.0,
     "rules_checked": 3,
