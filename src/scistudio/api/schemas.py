@@ -29,6 +29,7 @@ class WorkflowCreate(BaseModel):
 
     id: str
     version: str = "1.0.0"
+    source_id: str | None = None
     description: str = ""
     nodes: list[WorkflowNode] = Field(default_factory=list)
     edges: list[WorkflowEdge] = Field(default_factory=list)

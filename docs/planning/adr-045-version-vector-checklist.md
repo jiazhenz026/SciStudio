@@ -172,9 +172,9 @@ language_source: en
 
 ### 8.3 Implementation
 
-- [ ] A1 backend versioning output reviewed.
-- [ ] A2 file tab output reviewed.
-- [ ] A3 frontend reconciliation output reviewed.
+- [x] A1 backend versioning output reviewed. -> PR #1411 merged; Codex P1/P2 accepted and fixed.
+- [x] A2 file tab output reviewed. -> PR #1425 merged; no Codex comments found.
+- [~] A3 frontend reconciliation output reviewed. -> A3 stopped on missing `file.changed` WebSocket backend contract; manager fix in progress.
 - [ ] A4 audit report reviewed.
 
 ### 8.4 Audit
@@ -195,9 +195,9 @@ language_source: en
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
-| Ruff | `ruff check .` | `[ ]` | pending implementation code; manager setup is docs/audit only |
-| Format | `ruff format --check .` | `[ ]` | pending implementation code; manager setup is docs/audit only |
-| Tests | targeted pytest/vitest from implementation agents | `[ ]` | pending |
+| Ruff | `ruff check src/scistudio/api/routes/workflow_watcher.py src/scistudio/api/routes/workflows.py src/scistudio/api/schemas.py src/scistudio/api/ws.py tests/integration/conftest.py tests/integration/test_race_autosave.py tests/integration/test_race_lineage_restore.py tests/integration/test_race_agent_write.py tests/integration/test_race_external_editor.py tests/integration/test_race_multi_session.py` | `[x]` | pass |
+| Format | `ruff format --check src/scistudio/api/routes/workflow_watcher.py src/scistudio/api/routes/workflows.py src/scistudio/api/schemas.py src/scistudio/api/ws.py tests/integration/conftest.py tests/integration/test_race_autosave.py tests/integration/test_race_lineage_restore.py tests/integration/test_race_agent_write.py tests/integration/test_race_external_editor.py tests/integration/test_race_multi_session.py` | `[x]` | 10 files already formatted |
+| Tests | `pytest tests/api/test_workflow_version_vector.py tests/api/test_file_version_vector.py tests/api/test_workflow_changed_event_schema.py tests/api/routes/test_workflow_watcher_fallback.py tests/api/test_reload_on_save.py tests/integration/test_race_autosave.py tests/integration/test_race_lineage_restore.py tests/integration/test_race_agent_write.py tests/integration/test_race_external_editor.py tests/integration/test_race_multi_session.py --timeout=60 --no-cov` | `[x]` | 22 passed |
 | Targeted QA audit | `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-drift-fix-audit.json --skip-frontmatter-lint --skip-fact-drift --skip-architecture-drift --skip-vulture` | `[x]` | `docs/audit/adr-045-drift-fix-audit.json` |
 | Full audit | `python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-full-audit.json` | `[x]` | `docs/audit/adr-045-full-audit.json` |
 | Sentrux | MCP scan/check/session evidence | `[x]` | `docs/audit/adr-045-sentrux.json` |
@@ -210,6 +210,7 @@ Append only.
 |---|---|---|---|---|
 | 2026-05-22 | manager | #1407: ADR-041/043 implemented code existed but ADR/spec phase/status remained planning/Draft, hiding doc/signature drift. | Manager opened drift-fix track before ADR-045 implementation dispatch. | #1407 |
 | 2026-05-22 | manager | Owner emphasized contract consistency for ADR-045 dispatch. | Added contract-consistency requirements to spec, checklist, and all A1-A4 dispatch prompts. | #1401 |
+| 2026-05-22 | A3 / manager | A3 found `file.changed` was emitted to EventBus but not forwarded over `/ws`, and file-tab external-editor watcher fallback was absent. | Manager expanded gate scope, added `file.changed` WebSocket forwarding, project-file watcher fallback, workflow body/header `source_id` parity, and ADR race-matrix integration tests. | #1401 |
 
 ## 11. Final Readiness
 
@@ -230,7 +231,8 @@ assigned track rows above.
 |---|---|---|---|---|
 | 2026-05-22 | A1 / Galileo | `019e4dd1-232e-7ec3-8348-c444808bbadc` | `[x]` | PR #1411 merged to `track/adr-045/version-vector`; Codex P1/P2 accepted and fixed. |
 | 2026-05-22 | A2 / Linnaeus | `019e4dd1-2401-7ec0-9752-d5849a342f5b` | `[x]` | PR #1425 merged to `track/adr-045/version-vector`; no Codex auto-review comments. |
-| 2026-05-22 | A3 / Godel | `019e4dd1-24fb-7d43-af13-37dd74fd67f1` | `[~]` | Resumed after A1/A2 landed; implementing frontend workflow/file reconcile. |
+| 2026-05-22 | A3 / Godel | `019e4dd1-24fb-7d43-af13-37dd74fd67f1` | `[!]` | Stopped on backend contract blocker: `file.changed` not in `/ws` outbound allowlist; manager accepted finding. |
+| 2026-05-22 | manager | local | `[~]` | Added backend contract-consistency fix and five ADR race-matrix integration test files; targeted backend regression suite passed 22 tests. |
 | 2026-05-22 | A4 / audit | pending | `[ ]` | Held until A3 PR/commit exists; prompt prepared at `docs/planning/dispatch-prompts/adr-045-a4-audit-with-context.md`. |
 
 ## 13. Codex Auto-Audit Triage

@@ -43,6 +43,30 @@
         "frontend/src/store/__tests__/tabState.test.ts"
       ],
       "reason": "Umbrella PR now aggregates ADR-045 implementation sub-PR outputs. Expand manager gate scope to cover A1-A4 implementation files, tests, gate records, and audit artifacts while sub-PR gate records remain their per-slice evidence."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "src/scistudio/api/routes/workflow_watcher.py",
+        "src/scistudio/api/ws.py",
+        "tests/integration/conftest.py",
+        "tests/integration/test_race_autosave.py",
+        "tests/integration/test_race_lineage_restore.py",
+        "tests/integration/test_race_agent_write.py",
+        "tests/integration/test_race_external_editor.py",
+        "tests/integration/test_race_multi_session.py"
+      ],
+      "reason": "Owner-required ADR-045 race-matrix regression coverage exposed a missing file.changed websocket/watcher contract; expand manager integration scope for backend contract consistency tests and narrow watcher fix."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "src/scistudio/api/schemas.py",
+        "src/scistudio/api/routes/workflows.py"
+      ],
+      "reason": "Keep ADR-045 source_id contract consistent by allowing workflow write bodies as well as existing headers to carry source_id."
     }
   ],
   "branch": "track/adr-045/version-vector",
@@ -62,6 +86,33 @@
       "exit_code": 0,
       "name": "frontmatter_lint",
       "output_path": "docs/audit/adr-045-full-audit.json",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "pytest tests/api/test_workflow_version_vector.py tests/api/test_file_version_vector.py tests/api/test_workflow_changed_event_schema.py tests/api/routes/test_workflow_watcher_fallback.py tests/api/test_reload_on_save.py tests/integration/test_race_autosave.py tests/integration/test_race_lineage_restore.py tests/integration/test_race_agent_write.py tests/integration/test_race_external_editor.py tests/integration/test_race_multi_session.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "adr045_race_matrix_pytest",
+      "output_path": "22 passed, 1 deprecation warning",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff check src/scistudio/api/routes/workflow_watcher.py src/scistudio/api/routes/workflows.py src/scistudio/api/schemas.py src/scistudio/api/ws.py tests/integration/conftest.py tests/integration/test_race_autosave.py tests/integration/test_race_lineage_restore.py tests/integration/test_race_agent_write.py tests/integration/test_race_external_editor.py tests/integration/test_race_multi_session.py",
+      "exit_code": 0,
+      "name": "adr045_race_matrix_ruff",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check src/scistudio/api/routes/workflow_watcher.py src/scistudio/api/routes/workflows.py src/scistudio/api/schemas.py src/scistudio/api/ws.py tests/integration/conftest.py tests/integration/test_race_autosave.py tests/integration/test_race_lineage_restore.py tests/integration/test_race_agent_write.py tests/integration/test_race_external_editor.py tests/integration/test_race_multi_session.py",
+      "exit_code": 0,
+      "name": "adr045_race_matrix_format",
+      "output_path": "10 files already formatted",
       "status": "pass",
       "summary": {},
       "timestamp": null

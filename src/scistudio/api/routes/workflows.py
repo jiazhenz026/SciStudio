@@ -73,7 +73,10 @@ def _now_iso() -> str:
     return datetime.now(tz=UTC).isoformat()
 
 
-def _request_source_id(request: Request) -> str | None:
+def _request_source_id(request: Request, body: Any | None = None) -> str | None:
+    body_source_id = getattr(body, "source_id", None)
+    if isinstance(body_source_id, str):
+        return body_source_id
     return request.headers.get("X-Source-Id") or request.headers.get("X-Workflow-Source-Id")
 
 
@@ -280,7 +283,7 @@ async def create_workflow(body: WorkflowCreate, runtime: RuntimeDep, request: Re
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    source_id = _request_source_id(request)
+    source_id = _request_source_id(request, body)
     source = _request_source(request)
     change = await _emit_workflow_changed(
         runtime,
@@ -358,7 +361,7 @@ async def update_workflow(
     # changed_by: prefer an explicit ``X-Changed-By`` header (set by the MCP
     # tool / the embedded agent), else fall back to a generic "api" tag.
     changed_by = request.headers.get("X-Changed-By", "api")
-    source_id = _request_source_id(request)
+    source_id = _request_source_id(request, body)
     source = _request_source(request, changed_by=changed_by)
     change = await _emit_workflow_changed(
         runtime,

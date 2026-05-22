@@ -14,6 +14,7 @@ from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
 
+from scistudio.api.routes.projects import FILE_CHANGED_EVENT_TYPE
 from scistudio.engine.events import (
     BLOCK_CANCELLED,
     BLOCK_DONE,
@@ -63,6 +64,7 @@ _OUTBOUND_EVENTS = frozenset(
         # ADR-036 §3.5: forward blocks.reloaded so the palette can refresh +
         # a passive toast can fire when the user saves a clean blocks/*.py.
         BLOCKS_RELOADED,
+        FILE_CHANGED_EVENT_TYPE,
         # ADR-039 §3.8: forward git.head_changed so the canvas + (future)
         # Git tab invalidate cached log/branch/status state when an
         # external actor moves HEAD or a branch tip.
