@@ -103,18 +103,24 @@
   "docs_landing": {
     "adr": {
       "not_applicable": true,
-      "rationale": "No architecture change. Wave 2 of the #1422 god-file refactor umbrella tracked under ADR-implementation followup."
+      "rationale": "No architecture change. Wave 2 of #1422 god-file refactor tracked under ADR-042 governance."
     },
     "changelog": {
       "paths": [
         "CHANGELOG.md"
       ]
     },
-    "checklist": {},
-    "docs": {},
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "Manager owns docs/planning/frontend-cleanup-1412-checklist.md and updates W2-A row post-merge \u2014 agent does not touch it by dispatch design."
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "Refactor (#1422 god-file split, W2-A). No public-facing docs change; CHANGELOG bullet captures the file split. Behavior preserved 1:1."
+    },
     "spec": {
       "not_applicable": true,
-      "rationale": "Refactor preserves behavior verbatim; no spec/contract change. Module decomposition is implementation detail."
+      "rationale": "Refactor preserves public surfaces verbatim; no spec/contract change."
     }
   },
   "full_audit": {
