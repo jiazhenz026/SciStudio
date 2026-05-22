@@ -1,0 +1,372 @@
+"""Scan / registration helpers for :class:`BlockRegistry`.
+
+Per ADR-047 §C9: this module hosts only module-level private helpers — it
+must contain **zero** ``class`` definitions. The :class:`BlockRegistry`
+class lives in ``__init__.py``.
+
+Owns:
+
+- ``_scan_builtins`` — register the four core blocks (LoadData, SaveData,
+  AIBlock, SubWorkflowBlock).
+- ``_scan_tier1`` — discover blocks from ``.py`` files under configured
+  scan directories.
+- ``_scan_tier2`` — discover blocks via ``scistudio.blocks`` entry points
+  (ADR-025 callable protocol).
+- ``_scan_monorepo_packages`` — development fallback for the
+  ``packages/scistudio-blocks-*`` monorepo plugins.
+- ``_register_spec`` — apply per-spec validation and write into the
+  registry's ``_registry`` + ``_aliases`` dicts.
+- ``_validate_capability_registration`` — ADR-043 capability-id and
+  default-conflict cross-spec validation.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import importlib
+import importlib.metadata
+import importlib.util
+import inspect
+import logging
+import sys
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from scistudio.blocks.io.capabilities import FormatCapability
+from scistudio.core.types.base import DataObject
+
+if TYPE_CHECKING:
+    from scistudio.blocks.registry import BlockRegistry, BlockSpec
+
+logger = logging.getLogger(__name__)
+
+
+def _register_spec(registry: BlockRegistry, spec: BlockSpec) -> None:
+    """Register a spec under its display name and public type name."""
+    _validate_capability_registration(registry, spec)
+    registry._registry[spec.name] = spec
+    if spec.type_name:
+        registry._aliases[spec.type_name] = spec.name
+
+
+def _validate_capability_registration(registry: BlockRegistry, spec: BlockSpec) -> None:
+    """Validate new capability rows against the already-indexed registry."""
+    from scistudio.blocks.registry import CapabilityRegistrationError
+    from scistudio.blocks.registry._capability import _iter_capability_specs, _validate_capability_id
+
+    seen_ids: set[str] = set()
+    for capability in spec.format_capabilities:
+        if capability.id in seen_ids:
+            raise CapabilityRegistrationError(f"{spec.class_name} declares duplicate capability id {capability.id!r}.")
+        seen_ids.add(capability.id)
+        _validate_capability_id(capability)
+
+        for existing_capability, existing_spec in _iter_capability_specs(registry):
+            if existing_spec.name == spec.name:
+                continue
+            if existing_capability.id == capability.id:
+                raise CapabilityRegistrationError(
+                    "Duplicate capability id "
+                    f"{capability.id!r} on {spec.class_name}; already declared by {existing_spec.class_name}."
+                )
+
+    default_index: dict[tuple[str, type[DataObject], str], tuple[FormatCapability, BlockSpec]] = {}
+    prospective_specs = [
+        existing_spec for existing_spec in registry._registry.values() if existing_spec.name != spec.name
+    ]
+    prospective_specs.append(spec)
+    for candidate_spec in prospective_specs:
+        for capability in candidate_spec.format_capabilities:
+            if not capability.is_default:
+                continue
+            for extension in capability.extensions:
+                key = (capability.direction, capability.data_type, extension)
+                previous = default_index.get(key)
+                if previous is not None:
+                    previous_capability, previous_spec = previous
+                    raise CapabilityRegistrationError(
+                        "Conflicting default IO format capabilities for "
+                        f"({capability.direction}, {capability.data_type.__name__}, {extension}): "
+                        f"{previous_capability.id!r} on {previous_spec.class_name} and "
+                        f"{capability.id!r} on {candidate_spec.class_name}."
+                    )
+                default_index[key] = (capability, candidate_spec)
+
+
+def _scan_builtins(registry: BlockRegistry) -> None:
+    """Register built-in core blocks used by the API/frontend.
+
+    Only concrete, user-facing blocks are registered here.  Base
+    classes (AppBlock, CodeBlock, IOBlock) and non-functional process
+    placeholders (Merge, Split, …) are excluded from the palette so
+    end users see only the blocks they can actually use.  The
+    excluded classes remain importable for plugin development and
+    tests.
+    """
+    from scistudio.blocks.ai.ai_block import AIBlock
+    from scistudio.blocks.io.loaders.load_data import LoadData
+    from scistudio.blocks.io.savers.save_data import SaveData
+    from scistudio.blocks.registry._spec import _spec_from_class
+    from scistudio.blocks.subworkflow.subworkflow_block import SubWorkflowBlock
+
+    for cls in (
+        LoadData,
+        SaveData,
+        AIBlock,
+        SubWorkflowBlock,
+    ):
+        _register_spec(registry, _spec_from_class(cls, source="builtin"))
+
+
+def _scan_tier1(registry: BlockRegistry) -> None:
+    """Tier 1: scan configured directories for ``.py`` files containing Block subclasses."""
+    from scistudio.blocks.base.block import Block
+    from scistudio.blocks.registry._spec import _spec_from_class
+
+    for scan_dir in registry._scan_dirs:
+        if not scan_dir.is_dir():
+            continue
+        for py_file in scan_dir.glob("*.py"):
+            if py_file.name.startswith("_"):
+                continue
+            try:
+                mtime = py_file.stat().st_mtime
+                mod_name = f"_scistudio_dropin_{py_file.stem}_{int(mtime)}"
+                spec = importlib.util.spec_from_file_location(mod_name, py_file)
+                if spec is None or spec.loader is None:
+                    continue
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+
+                for attr_name in dir(module):
+                    obj = getattr(module, attr_name)
+                    if (
+                        isinstance(obj, type)
+                        and issubclass(obj, Block)
+                        and obj is not Block
+                        and not inspect.isabstract(obj)
+                        # #706 audit: ``dir(module)`` also surfaces Block
+                        # subclasses *imported* from other modules (e.g.
+                        # ``from scistudio.blocks.code import CodeBlock``).
+                        # Stamping or re-registering those would make the
+                        # worker try to spec_from_file_location the wrong
+                        # source. Restrict the loop body to classes that
+                        # are actually defined in this drop-in file.
+                        and getattr(obj, "__module__", None) == module.__name__
+                    ):
+                        # #706: stamp the source-file path on the class so the
+                        # worker subprocess can reload the synthetic module via
+                        # importlib.util.spec_from_file_location (the synthetic
+                        # mod_name only exists in the parent's sys.modules).
+                        # Only Tier-1 drop-in classes get this attribute;
+                        # Tier-2 entry-point blocks remain importable via the
+                        # normal importlib.import_module path.
+                        # Defensive: if the class disallows attribute
+                        # assignment (e.g. __slots__ without the slot),
+                        # fall through; the worker will then fail loudly
+                        # with the original ModuleNotFoundError rather
+                        # than silently mis-dispatching.
+                        with contextlib.suppress(AttributeError, TypeError):
+                            obj._scistudio_file_path = str(py_file)  # type: ignore[attr-defined]
+                        block_spec = _spec_from_class(obj, source="tier1")
+                        block_spec.file_path = str(py_file)
+                        block_spec.file_mtime = mtime
+                        block_spec.module_path = mod_name
+                        _register_spec(registry, block_spec)
+            except Exception:
+                logger.warning(
+                    "Failed to import block from %s",
+                    py_file,
+                    exc_info=True,
+                )
+                continue
+
+
+def _scan_tier2(registry: BlockRegistry) -> None:
+    """Tier 2: scan ``scistudio.blocks`` entry-points using callable protocol.
+
+    Each entry-point resolves to a callable.  When invoked, it returns
+    either:
+
+    * ``(PackageInfo, list[type[Block]])`` -- package metadata + block list
+    * ``list[type[Block]]`` -- plain list (backward compatible, uses
+      entry-point name as the package display name)
+
+    See ADR-025 for the full specification.
+    """
+    from scistudio.blocks.base.block import Block
+    from scistudio.blocks.base.package_info import PackageInfo
+    from scistudio.blocks.registry._spec import _spec_from_class
+
+    try:
+        eps = importlib.metadata.entry_points()
+    except Exception:
+        logger.warning("Failed to load entry_points for block discovery", exc_info=True)
+        return
+
+    eps_any: Any = eps
+    block_eps: Any = (
+        eps_any.select(group="scistudio.blocks") if hasattr(eps_any, "select") else eps_any.get("scistudio.blocks", [])
+    )
+
+    for ep in block_eps:
+        try:
+            loaded = ep.load()
+        except Exception:
+            logger.warning(
+                "Failed to load entry_point '%s'",
+                ep.name,
+                exc_info=True,
+            )
+            continue
+
+        try:
+            # Entry-points may point at a concrete block class directly.
+            # Classes are callable, so detect them before invoking.
+            if isinstance(loaded, type) and issubclass(loaded, Block):
+                result = loaded
+            else:
+                result = loaded() if callable(loaded) else loaded
+
+            info: PackageInfo | None = None
+            block_classes: list[type] = []
+
+            if isinstance(result, tuple) and len(result) == 2:
+                first, second = result
+                if isinstance(first, PackageInfo) and isinstance(second, list):
+                    info = first
+                    block_classes = second
+                else:
+                    logger.warning(
+                        "Entry-point '%s' returned unexpected tuple format",
+                        ep.name,
+                    )
+                    continue
+            elif isinstance(result, list):
+                block_classes = result
+            else:
+                # Legacy path: entry-point points directly to a class.
+                if isinstance(result, type) and issubclass(result, Block):
+                    block_classes = [result]
+                else:
+                    logger.warning(
+                        "Entry-point '%s' returned unsupported type: %s",
+                        ep.name,
+                        type(result).__name__,
+                    )
+                    continue
+
+            pkg_name = info.name if info is not None else ep.name
+            if info is not None:
+                registry._packages[info.name] = info
+
+            for cls in block_classes:
+                if isinstance(cls, type) and issubclass(cls, Block) and not inspect.isabstract(cls):
+                    block_spec = _spec_from_class(cls, source="entry_point")
+                    block_spec.module_path = cls.__module__
+                    block_spec.class_name = cls.__name__
+                    block_spec.package_name = pkg_name
+                    _register_spec(registry, block_spec)
+                elif isinstance(cls, type) and issubclass(cls, Block) and inspect.isabstract(cls):
+                    logger.warning(
+                        "Entry-point '%s' contained abstract Block subclass: %s",
+                        ep.name,
+                        cls,
+                    )
+                else:
+                    logger.warning(
+                        "Entry-point '%s' contained non-Block item: %s",
+                        ep.name,
+                        cls,
+                    )
+        except Exception:
+            logger.warning(
+                "Failed to process entry_point '%s'",
+                ep.name,
+                exc_info=True,
+            )
+            continue
+
+
+def _scan_monorepo_packages(registry: BlockRegistry) -> None:
+    """Development fallback for plugin packages living in the monorepo.
+
+    The desktop/app development workflow often runs the core package from
+    source without separately installing Phase 11 plugin packages in
+    editable mode. In that case there are no ``scistudio.blocks`` entry
+    points for the plugins yet, but the plugin sources are still present
+    under ``packages/*/src`` in the same repository checkout.
+
+    This fallback mirrors the entry-point callable protocol for any
+    ``scistudio_blocks_*`` package found in the monorepo:
+
+    - prefer ``get_block_package() -> (PackageInfo, list[type[Block]])``
+    - fall back to ``get_blocks() -> list[type[Block]]``
+
+    Installed entry-points remain authoritative because this scan runs
+    after :func:`_scan_tier2` and skips any block type that is already
+    registered.
+    """
+    from scistudio.blocks.base.block import Block
+    from scistudio.blocks.base.package_info import PackageInfo
+    from scistudio.blocks.registry._spec import _spec_from_class
+
+    # ``__file__`` of this module sits at
+    # ``src/scistudio/blocks/registry/_scan.py``. The repo root is
+    # therefore ``parents[4]`` (registry → blocks → scistudio → src → root).
+    repo_root = Path(__file__).resolve().parents[4]
+    packages_dir = repo_root / "packages"
+    if not packages_dir.is_dir():
+        return
+
+    for pkg_dir in packages_dir.glob("scistudio-blocks-*"):
+        src_dir = pkg_dir / "src"
+        if not src_dir.is_dir():
+            continue
+
+        src_dir_str = str(src_dir)
+        if src_dir_str not in sys.path:
+            sys.path.insert(0, src_dir_str)
+
+        module_name = pkg_dir.name.replace("-", "_")
+        try:
+            module = importlib.import_module(module_name)
+        except Exception:
+            logger.warning("Failed to import monorepo plugin package '%s'", module_name, exc_info=True)
+            continue
+
+        result: Any | None = None
+        if hasattr(module, "get_block_package") and callable(module.get_block_package):
+            result = module.get_block_package()
+        elif hasattr(module, "get_blocks") and callable(module.get_blocks):
+            result = module.get_blocks()
+        else:
+            continue
+
+        info: PackageInfo | None = None
+        block_classes: list[type] = []
+        if isinstance(result, tuple) and len(result) == 2:
+            first, second = result
+            if isinstance(first, PackageInfo) and isinstance(second, list):
+                info = first
+                block_classes = second
+        elif isinstance(result, list):
+            block_classes = result
+
+        if not block_classes:
+            continue
+
+        pkg_name = info.name if info is not None else module_name
+        if info is not None:
+            registry._packages[info.name] = info
+
+        for cls in block_classes:
+            if not (isinstance(cls, type) and issubclass(cls, Block) and not inspect.isabstract(cls)):
+                continue
+            block_spec = _spec_from_class(cls, source="monorepo")
+            block_spec.module_path = cls.__module__
+            block_spec.class_name = cls.__name__
+            block_spec.package_name = pkg_name
+            if block_spec.type_name in registry._aliases or block_spec.name in registry._registry:
+                continue
+            _register_spec(registry, block_spec)

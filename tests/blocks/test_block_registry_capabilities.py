@@ -281,32 +281,6 @@ def test_priority_breaks_same_type_ties_after_specificity() -> None:
     assert capability.id == "tests.image.tiff.priority.load"
 
 
-def test_legacy_find_loader_keeps_first_registered_migration_fallback() -> None:
-    registry = _build_registry(_ImageTiffLoader, _SecondImageTiffLoader)
-
-    assert registry.find_loader(_Image, ".tif") is _ImageTiffLoader
-
-
-def test_legacy_find_loader_without_dtype_keeps_registration_order() -> None:
-    registry = _build_registry(_ImageTiffLoader, _DefaultImageTiffLoader)
-
-    assert registry.find_loader(None, ".tif") is _ImageTiffLoader
-
-
-def test_legacy_find_loader_falls_back_when_winning_capability_class_cannot_resolve(monkeypatch: Any) -> None:
-    registry = _build_registry(_DefaultImageTiffLoader, _SecondImageTiffLoader)
-    original_resolve_class = registry._resolve_class
-
-    def _fake_resolve_class(spec: object) -> type | None:
-        if getattr(spec, "class_name", "") == "_DefaultImageTiffLoader":
-            return None
-        return original_resolve_class(spec)  # type: ignore[arg-type]
-
-    monkeypatch.setattr(registry, "_resolve_class", _fake_resolve_class)
-
-    assert registry.find_loader(_Image, ".tif") is _SecondImageTiffLoader
-
-
 def test_scan_time_validation_rejects_missing_handler() -> None:
     class _MissingHandlerLoader(_ImageTiffLoader):
         name: ClassVar[str] = "_MissingHandlerLoader"
