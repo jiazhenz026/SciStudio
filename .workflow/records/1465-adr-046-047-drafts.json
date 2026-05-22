@@ -1,6 +1,13 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": "@jiazhenz026",
+      "exclude": [],
+      "include": [],
+      "reason": "ADR-046 + ADR-047 drafts written per owner directive (short form, Path D precedent from PR #1460). Frontmatter populated, status=Proposed; awaiting owner review."
+    }
+  ],
   "branch": "docs/issue-1465/adr-046-047",
   "changed_test_paths": [],
   "check_results": [
@@ -24,7 +31,27 @@
     }
   ],
   "commit": null,
-  "docs_landing": {},
+  "docs_landing": {
+    "changelog": {},
+    "changelog:N/A docs-only PR; status": {
+      "not_applicable": true,
+      "rationale": "Proposed implementation deferred to follow-up PRs"
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "N/A single-author ADR drafts, no multi-agent dispatch"
+    },
+    "docs": {
+      "paths": [
+        "docs/adr/ADR-046.md",
+        "docs/adr/ADR-047.md"
+      ]
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "N/A ADR drafts; specs follow ADR acceptance in implementer PRs"
+    }
+  },
   "full_audit": {
     "blocks_merge": false,
     "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
@@ -96,13 +123,13 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
       "completed_at": null,
       "stage": "update_docs",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
