@@ -21,6 +21,15 @@ from scistudio.qa.governance.gate_record.paths import (
     _normalize_path,
 )
 
+Persona = Literal["manager", "implementer", "adr_author", "audit_reviewer", "test_engineer"]
+SUPPORTED_PERSONAS: tuple[Persona, ...] = (
+    "manager",
+    "implementer",
+    "adr_author",
+    "audit_reviewer",
+    "test_engineer",
+)
+
 
 class GateStage(StrEnum):
     """Canonical ADR-042 Addendum 1 gate stages."""
@@ -226,6 +235,7 @@ class GateRecord(BaseModel):
     record_path: str | None = None
     task_id: str
     task_kind: Literal["hotfix", "bugfix", "feature", "docs", "maintenance", "manager", "refactor"]
+    persona: Persona | None = None
     branch: str
     owner_directive: str
     issues: list[IssueRef]

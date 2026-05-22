@@ -30,6 +30,7 @@ def _record(**overrides: object) -> dict[str, object]:
         "record_path": ".workflow/records/1267-gate-record-core.json",
         "task_id": "1267-gate-record-core",
         "task_kind": "feature",
+        "persona": "implementer",
         "branch": "feat/issue-1267/gate-record-core",
         "owner_directive": "Implement ADR-042 Addendum 1 Track B.",
         "issues": [{"number": 1267, "url": "https://github.com/zjzcpj/SciStudio/issues/1267"}],
@@ -81,7 +82,32 @@ def test_gate_record_accepts_canonical_six_stage_model() -> None:
 
     assert record.stages[0].stage is GateStage.SCOPE_AND_ISSUE
     assert record.stages[-1].stage is GateStage.COMMIT_AND_SUBMIT_PR
+    assert record.persona == "implementer"
     assert record.admin_labels[0].name == "admin-approved:core-change"
+
+
+def test_gate_record_model_accepts_historical_record_without_persona() -> None:
+    payload = _record()
+    payload.pop("persona")
+
+    record = GateRecord.model_validate(payload)
+
+    assert record.persona is None
+
+
+def test_validate_gate_record_rejects_new_record_without_persona() -> None:
+    payload = _record()
+    payload.pop("persona")
+
+    report = validate_gate_record(payload)
+
+    assert report.blocks_merge
+    assert "gate-record.persona.missing" in {finding.rule_id for finding in report.findings}
+
+
+def test_gate_record_rejects_unsupported_persona() -> None:
+    with pytest.raises(ValidationError, match="persona"):
+        GateRecord.model_validate(_record(persona="freeform_agent"))
 
 
 def test_gate_record_rejects_missing_or_reordered_stage() -> None:
@@ -229,6 +255,8 @@ def test_amend_cli_flips_governance_touch_to_true(tmp_path: Path) -> None:
                 "amend governance touch",
                 "--task-kind",
                 "feature",
+                "--persona",
+                "implementer",
                 "--branch",
                 "feat/issue-1340/amend-governance-touch",
                 "--owner-directive",
@@ -288,6 +316,8 @@ def test_amend_without_governance_touch_flag_preserves_existing_value(tmp_path: 
                 "amend preserve",
                 "--task-kind",
                 "feature",
+                "--persona",
+                "implementer",
                 "--branch",
                 "feat/issue-1340/amend-preserve",
                 "--owner-directive",
@@ -567,6 +597,8 @@ def test_ai_facing_cli_records_canonical_workflow(tmp_path: Path) -> None:
                 "Gate Record Core",
                 "--task-kind",
                 "feature",
+                "--persona",
+                "implementer",
                 "--branch",
                 "feat/issue-1267/gate-record-core",
                 "--owner-directive",
@@ -710,6 +742,7 @@ def test_ai_facing_cli_records_canonical_workflow(tmp_path: Path) -> None:
     record = GateRecord.model_validate(payload)
     assert [stage.status for stage in record.stages] == ["done", "done", "done", "done", "done", "done"]
     assert record.record_path == ".workflow/records/1267-gate-record-core.json"
+    assert record.persona == "implementer"
     assert record.full_audit is not None
     assert record.sentrux is not None
     assert record.commit is not None
@@ -733,6 +766,8 @@ def test_start_cli_accepts_hotfix_task_kind(tmp_path: Path) -> None:
                 "hotfix crash",
                 "--task-kind",
                 "hotfix",
+                "--persona",
+                "implementer",
                 "--branch",
                 "hotfix/crash",
                 "--owner-directive",
@@ -750,7 +785,35 @@ def test_start_cli_accepts_hotfix_task_kind(tmp_path: Path) -> None:
 
     record = GateRecord.model_validate(json.loads(record_path.read_text(encoding="utf-8")))
     assert record.task_kind == "hotfix"
+    assert record.persona == "implementer"
     assert record.branch == "hotfix/crash"
+
+
+def test_start_cli_requires_persona(tmp_path: Path) -> None:
+    record_path = tmp_path / ".workflow" / "records" / "1301-missing-persona.json"
+
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "start",
+                "--repo-root",
+                str(tmp_path),
+                "--issue",
+                "1301",
+                "--slug",
+                "missing persona",
+                "--task-kind",
+                "maintenance",
+                "--branch",
+                "feat/missing-persona",
+                "--owner-directive",
+                "Validate persona requirement.",
+                "--include",
+                "tests/**",
+                "--record",
+                str(record_path),
+            ]
+        )
 
 
 def test_pre_commit_is_lightweight_until_final_gate(tmp_path: Path) -> None:
