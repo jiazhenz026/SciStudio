@@ -63,7 +63,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1431-mcp-tools-pair.json",
+    "shas": [
+      "5b59717c9a5dc01e48345280a89d174d0b965769"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -110,7 +116,13 @@
     "src/scistudio/ai/agent/mcp/tools_inspection.py",
     "scripts/check_god_files.py"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1431
+    ],
+    "number": 1441,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1441"
+  },
   "record_path": ".workflow/records/1431-mcp-tools-pair.json",
   "required_checks": [
     "ruff",
