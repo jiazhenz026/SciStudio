@@ -102,8 +102,9 @@ language_source: en
 | W2-A-impl | implementer | N/A | inline (see §7.2) | Split #1422 god files: App.tsx + BlockNode.tsx | `refactor/issue-1422/god-app-blocknode` | `.claude/worktrees/w2a-app-blocknode` | App.tsx, BlockNode.tsx (+ App.parts/* + BlockNode.parts/* + new tests) | other god files, eslint.config.js | `#1422` (partial) → PR #1450 (merged) | `[x]` |
 | W2-B-impl | implementer | N/A | inline (see §7.2) | Split #1422 god files: DataPreview.tsx + BottomPanel.tsx | `refactor/issue-1422/god-datapreview-bottompanel` | `.claude/worktrees/w2b-datapreview-bottompanel` | DataPreview.tsx, BottomPanel.tsx (+ DataPreview.parts/* + BottomPanel.parts/* + new tests) | other god files, eslint.config.js | `#1422` (partial) → PR #1447 (merged) | `[x]` |
 | W2-C-impl | implementer | N/A | inline (see §7.2) | Split #1422 god files: RunDetail.tsx + lib/api.ts + ConflictMarkerDecoration.ts | `refactor/issue-1422/god-rundetail-api-conflict` | `.claude/worktrees/w2c-rundetail-api-conflict` | RunDetail.tsx, lib/api.ts (re-export shell), ConflictMarkerDecoration.ts (+ RunDetail.parts/* + api/* + ConflictMarkerDecoration.parts/* + new tests) | other god files, eslint.config.js | `#1422` (partial) → PR #1446 (merged) | `[x]` |
-| W3-D-impl | implementer | N/A | inline (see §7.3) | #1413 (max-lines-per-function) + #1414 (complexity) + #1419 partial (max-depth on laneAssign.ts) + unused-vars cleanup on the 3 overlap files (DataRouterModal.tsx, useWebSocket.ts, workflowSlice.ts) | `refactor/issue-1413-1414/lint-fn-complexity` | `.claude/worktrees/w3d-fn-complexity` | 18 MAX_LINES_PER_FN_WAIVERS files + 10 COMPLEXITY_WAIVERS files (deduped union, 21 unique src files) | god files (Wave 2 territory), eqeqeq (Wave 4), eslint.config.js, checklist | `#1413`, `#1414`, partly `#1419` | `[ ]` |
-| W3-E-impl | implementer | N/A | inline (see §7.3) | #1416 (consistent-type-imports tests) + #1417 partial (non-overlap files: App.tsx, RunsList.tsx, RunsList.test.tsx, PairEditorModal.tsx) + #1419 partial (ban-ts-comment on useWebSocket.test.ts) | `cleanup/issue-1416-1417-1419/test-imports-unused-depth` | `.claude/worktrees/w3e-tests-unused-depth` | 12 CONSISTENT_TYPE_IMPORT_WAIVERS test files + 4 NO_UNUSED_VARS_WAIVERS files (minus 3 overlap) + useWebSocket.test.ts (ban-ts-comment) | W3-D-owned files (DataRouterModal.tsx, useWebSocket.ts, workflowSlice.ts), god files, eqeqeq, eslint.config.js, checklist | `#1416`, partly `#1417`, partly `#1419` | `[ ]` |
+| MGR-merge-main | manager | N/A | self | Merge `origin/main` (post-#1410 ADR-045 + #1427 backend god-file + #1459 io-helpers) into umbrella; resolve 2 conflict files (`frontend/src/lib/api.ts`, `frontend/src/store/__tests__/tabState.test.ts`); absorb #1410's 3 new test files. Must land BEFORE W3-D re-dispatch. | `track/frontend-cleanup-1412` | `.claude/worktrees/frontend-cleanup-mgr` | `frontend/src/lib/api.ts`, `frontend/src/lib/api/workflows.ts` (or other api/*.ts where #1410's new methods belong), `frontend/src/store/__tests__/tabState.test.ts`, `CHANGELOG.md`, manager gate-record | every other frontend file | n/a (manager work; closes nothing) | `[ ]` |
+| W3-D-impl | implementer | N/A | inline (see §7.3) | **Re-dispatch pending main-merge**. Refactor for #1413 (max-lines-per-function) + #1414 (complexity) + #1419 partial (max-depth on laneAssign.ts) + unused-vars cleanup on overlap files. Now must preserve #1410 ADR-045 version-vector behavior on useWebSocket.ts / tabSlice.ts / workflowSlice.ts. | `refactor/issue-1413-1414/lint-fn-complexity` (deleted; re-create from post-merge umbrella tip) | `.claude/worktrees/w3d-fn-complexity` (re-create) | 18 MAX_LINES_PER_FN_WAIVERS files + 10 COMPLEXITY_WAIVERS files (deduped union, 21 unique src files); preserve `version_vector` logic on the 3 ADR-045-touched files | god files (Wave 2 territory), eqeqeq (Wave 4), eslint.config.js, checklist | `#1413`, `#1414`, partly `#1419` | `[!]` blocked on MGR-merge-main |
+| W3-E-impl | implementer | N/A | inline (see §7.3) | #1416 (consistent-type-imports tests) + #1417 partial (non-overlap files) + #1419 partial (ban-ts-comment on useWebSocket.test.ts) | `cleanup/issue-1416-1417-1419/test-imports-unused-depth` | `.claude/worktrees/w3e-tests-unused-depth` | 12 CONSISTENT_TYPE_IMPORT_WAIVERS test files + 4 NO_UNUSED_VARS_WAIVERS files (minus 3 overlap) + useWebSocket.test.ts (ban-ts-comment) | W3-D-owned files, god files, eqeqeq, eslint.config.js, checklist | `#1416`, partly `#1417`, partly `#1419` → PR #1457 (merged 21:00 UTC) | `[x]` |
 | W4-audit-nc | audit_reviewer | no-context | inline (see §7.4) | Independently audit frontend code/docs/tests for drift after waves 1–3 land | `audit/2026-05-22-frontend-cleanup-no-context` | `.claude/worktrees/w4-audit-nc` | `docs/audit/2026-05-22-frontend-cleanup-1412-no-context.md` only | implementation files | `N/A (report)` | `[ ]` |
 | W4-audit-wc | audit_reviewer | with-context | inline (see §7.4) | Verify claimed cleanup for #1413–#1422 against checklist, PRs, gate evidence, lint output | `audit/2026-05-22-frontend-cleanup-with-context` | `.claude/worktrees/w4-audit-wc` | `docs/audit/2026-05-22-frontend-cleanup-1412-with-context.md` only | implementation files | `N/A (report)` | `[ ]` |
 | W4-integration | manager | N/A | self | Apply #1415 (eqeqeq, deferred due to god-file overlap), strip all remaining waiver blocks from `frontend/eslint.config.js`, fix CI failures, prepare umbrella PR for owner merge | `track/frontend-cleanup-1412` | `.claude/worktrees/frontend-cleanup-mgr` | `frontend/eslint.config.js`, files in `EQEQEQ_WAIVERS`, audit reports | n/a | `#1415`, umbrella PR | `[ ]` |
@@ -202,6 +203,43 @@ language_source: en
 - [ ] Manager reviewed all three sub-PRs.
 - [ ] Conflicts resolved (esp. shared `frontend/eslint.config.js`).
 - [ ] All three merged into `track/frontend-cleanup-1412`.
+
+### 7.2b Track: Main-merge — absorb #1410 + #1427 + #1459 from main into umbrella
+
+#### 7.2b.1 Track Scope
+
+- Owner: manager (frontend-cleanup-mgr worktree).
+- Trigger: PR #1410 (ADR-045 version-vector) merged to main at 2026-05-22 22:27 UTC as commit `48d2bd11`. Main also has #1427 backend god-file refactor and #1459 io-helpers refactor — backend-only, no frontend overlap.
+- In scope:
+  - `git merge origin/main` into `track/frontend-cleanup-1412`.
+  - Resolve 2 conflict files:
+    - `frontend/src/lib/api.ts`: keep umbrella's re-export shell (from W2-C #1422), fold #1410's new methods into the appropriate `frontend/src/lib/api/<domain>.ts` (likely `workflows.ts` + `lineage.ts` based on ADR-045 surface); re-export from `api.ts` so downstream importers stay unchanged.
+    - `frontend/src/store/__tests__/tabState.test.ts`: combine W3-E's `import type` cleanup with #1410's version-vector assertions; the merge is mechanical (both edit different lines/imports).
+  - Absorb 3 new test files from main untouched:
+    - `frontend/src/hooks/__tests__/useWebSocket.versionVector.test.ts`
+    - `frontend/src/store/__tests__/tabSlice.versionVector.test.ts`
+    - `frontend/src/store/__tests__/workflowSlice.versionVector.test.ts`
+  - Update CHANGELOG.md with a one-line "merged main (ADR-045) into umbrella" note.
+  - Manager gate-record amend with reason "absorbed origin/main post-#1410; resolved api.ts + tabState.test.ts conflicts; ADR-045 version-vector tests now in umbrella scope".
+- Out of scope:
+  - Refactoring any new code that arrived from main (#1410's version-vector logic, #1427/#1459 backend). Those are in main as merged; W3-D will only touch them as side-effect of its lint-rule refactor.
+  - Any waiver removal (Wave 4).
+- Required tests after merge:
+  - `cd frontend && npm run lint` — must pass on the merged state.
+  - `cd frontend && npm test` — all 540+ tests (including the 3 new versionVector tests) must pass.
+  - `cd frontend && npm run typecheck` — pass.
+  - `cd frontend && npm run build` — pass.
+  - Manager gate-record check evidence updated.
+
+#### 7.2b.2 Steps
+
+- [ ] `git fetch origin && git merge origin/main` on umbrella.
+- [ ] Resolve `frontend/src/lib/api.ts` conflict (re-export shell pattern).
+- [ ] Resolve `frontend/src/store/__tests__/tabState.test.ts` conflict.
+- [ ] Run frontend lint/test/typecheck/build locally; fix any regression.
+- [ ] Commit the merge with ADR-042 trailers.
+- [ ] `gate_record amend` + `gate_record check` for the merge work.
+- [ ] Push umbrella; verify umbrella PR #1428 CI re-runs green.
 
 ### 7.3 Track: Wave 3 — Function-shape + test-imports + misc (`#1413` `#1414` `#1416` `#1417` `#1419`)
 
@@ -305,6 +343,7 @@ Append only.
 | 2026-05-22 | manager | Q1 (single tracker issue vs Closes list) unanswered — defaulted to opening #1426 as single tracker. | Recorded default in checklist. | Owner may reverse before integration. |
 | 2026-05-22 | manager | Q2 (#1420 hotfix vs P1) unanswered — defaulted to standard P1 gated workflow (not hotfix mode). | Wave 1 dispatched as `bugfix` task-kind, not `hotfix`. | Owner may escalate to hotfix mode if they have observed UI crashes. |
 | 2026-05-22 | manager | Wave 1/2 dispatch prompts deviated from `agent-dispatch-prompt-template.md`: added custom sections, mixed `gate_record docs --na docs:`/`--na checklist:` recipe into Work To Do step 7 rather than enforcing it in Required Tests And Checks. Result: all 3 W2 PRs failed CI `Verify Workflow Compliance` with `docs_landing.missing-docs` (and W2-A/C also `missing-checklist`); W1 PR hit the same gap and self-fixed mid-run. | Manager patched each W2 gate-record with `gate_record docs --updated CHANGELOG.md --na docs:<rationale> --na checklist:<rationale> --na adr:<rationale> --na spec:<rationale>` from each agent worktree, pushed fix commits, awaiting CI re-run. Wave 3 + Wave 4 audit prompts will compose more strictly from the template with the gate-record CLI recipe enumerated as required checks. | Re-aligned prompt template adherence; no new issue required. |
+| 2026-05-22 | manager | PR #1410 (ADR-045 version-vector) merged to `main` at 22:27 UTC as commit `48d2bd11`, after W3-D was mid-flight but before W3-D committed anything. #1410 touched 3 files in W3-D's scope (`hooks/useWebSocket.ts`, `store/tabSlice.ts`, `store/workflowSlice.ts`) plus 2 conflict files with the umbrella state (`lib/api.ts`, `store/__tests__/tabState.test.ts`). | Per-owner-decision: TaskStop W3-D (no commits to lose); `git branch -D refactor/issue-1413-1414/lint-fn-complexity`; force-removed W3-D worktree (Windows long-path stripped git tracking but left an orphan directory — harmless). Added new track §7.2b (Main-merge) ahead of W3-D re-dispatch. W3-D row marked `[!]` blocked on §7.2b. | Re-dispatch W3-D from post-merge umbrella tip; same scope but agent now refactors `useWebSocket.ts`/`tabSlice.ts`/`workflowSlice.ts` in their ADR-045 state and must preserve version-vector behavior (covered by 3 new tests from main). |
 
 ## 10. Final Readiness
 
