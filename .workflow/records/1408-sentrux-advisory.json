@@ -43,7 +43,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1408-sentrux-advisory.json",
+    "shas": [
+      "b1989321f5ab0df57df37e2613659c14599ba5c1"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "paths": [
@@ -86,7 +92,13 @@
     "CHANGELOG.md",
     ".workflow/records/1408-sentrux-advisory.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1408
+    ],
+    "number": 1409,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1409"
+  },
   "record_path": ".workflow/records/1408-sentrux-advisory.json",
   "required_checks": [
     "ruff check .",
@@ -153,7 +165,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
