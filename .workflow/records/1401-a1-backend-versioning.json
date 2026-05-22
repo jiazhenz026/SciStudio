@@ -46,7 +46,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1401-a1-backend-versioning.json",
+    "shas": [
+      "ec078c94c52affe7f9a53a680d0d45eeaa911b4f"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr_spec": {
       "not_applicable": true,
@@ -103,7 +109,13 @@
     ".workflow/records/1401-a1-backend-versioning.json",
     "docs/audit/adr-045-a1-full-audit.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1401
+    ],
+    "number": 1411,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1411"
+  },
   "record_path": ".workflow/records/1401-a1-backend-versioning.json",
   "required_checks": [
     "pytest",
@@ -185,7 +197,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
