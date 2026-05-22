@@ -46,19 +46,19 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "git diff --check",
+      "command_or_tool": "python -m scistudio.qa.audit.frontmatter_lint docs/adr/ADR-042-addendum4.md docs/specs/adr-042-test-engineer-persona.md --repo-root . --format text",
       "exit_code": 0,
-      "name": "git_diff_check",
-      "output_path": "passed with CRLF warnings only",
+      "name": "frontmatter_lint",
+      "output_path": "passed for addendum and implementation spec after frontend allowlist narrowing",
       "status": "pass",
       "summary": {},
       "timestamp": null
     },
     {
-      "command_or_tool": "python -m scistudio.qa.audit.frontmatter_lint docs/adr/ADR-042-addendum4.md docs/specs/adr-042-test-engineer-persona.md --repo-root . --format text",
+      "command_or_tool": "git diff --check",
       "exit_code": 0,
-      "name": "frontmatter_lint",
-      "output_path": "passed for accepted addendum and implementation spec",
+      "name": "git_diff_check",
+      "output_path": "passed with CRLF warning for regenerated audit JSON only",
       "status": "pass",
       "summary": {},
       "timestamp": null

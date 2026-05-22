@@ -28,35 +28,8 @@ scope:
 governs:
   modules:
     - scistudio.qa.governance
-    - scistudio.qa.governance.gate_record
-  contracts:
-    - scistudio.qa.governance.persona_policy.check
-    - scistudio.qa.governance.test_engineer_scope_guard.check
-    - scistudio.qa.governance.gate_record.models.GateRecord
-    - scistudio.qa.governance.gate_record.cli.main
-    - scistudio.qa.governance.gate_record.validation.validate_gate_record
-  files:
-    - docs/specs/adr-042-test-engineer-persona.md
-    - docs/adr/ADR-042-addendum4.md
-    - docs/ai-developer/rules.md
-    - docs/ai-developer/specific_rules/gated-workflow.md
-    - docs/ai-developer/specific_rules/agent-dispatch.md
-    - docs/ai-developer/specific_rules/test-engineering.md
-    - docs/ai-developer/personas/test-engineer.md
-    - docs/ai-developer/templates/agent-dispatch-prompt-template.md
-    - docs/ai-developer/templates/agent-dispatch-checklist-template.md
-    - docs/ai-developer/checklists/agent-manager-rules-review.md
-    - docs/ai-developer/skills/scistudio-e2e-test/SKILL.md
-    - .agents/skills/test-engineer/SKILL.md
-    - .codex/skills/test-engineer/SKILL.md
-    - .claude/skills/test-engineer/SKILL.md
-    - src/scistudio/qa/governance/persona_policy.py
-    - src/scistudio/qa/governance/test_engineer_scope_guard.py
-    - src/scistudio/qa/governance/gate_record/**
-    - tests/qa/test_persona_policy.py
-    - tests/qa/test_test_engineer_scope_guard.py
-    - tests/qa/test_gate_record.py
-    - tests/qa/test_gate_record_ci.py
+  contracts: []
+  files: []
 tests:
   - tests/qa/test_persona_policy.py
   - tests/qa/test_test_engineer_scope_guard.py
@@ -237,22 +210,29 @@ Acceptance Scenarios:
   `test_engineer`.
 - FR-010: The scope guard MUST allow test files, fixtures, e2e scenarios,
   runtime validation reports, audit evidence, and explicitly scoped QA tooling.
-- FR-011: The scope guard MUST block production source, frontend product code,
+- FR-011: Frontend allowlist matching MUST use explicit test and e2e patterns
+  such as `frontend/**/*.test.*`, `frontend/**/*.spec.*`,
+  `frontend/**/__tests__/**`, `frontend/**/__fixtures__/**`,
+  `frontend/**/__mocks__/**`, `frontend/e2e/**`, `frontend/tests/**`,
+  `frontend/test/**`, `frontend/playwright.config.*`,
+  `frontend/vitest.config.*`, and `frontend/vitest.setup.*`. It MUST NOT use
+  `frontend/**` as an allowlist entry.
+- FR-012: The scope guard MUST block production source, frontend product code,
   runtime/API/MCP/block/scheduler/lineage/plugin/UI implementation files, and
   product-behavior build/package changes by default.
-- FR-012: The scope guard MUST report blocked path, persona, allowlist decision,
+- FR-013: The scope guard MUST report blocked path, persona, allowlist decision,
   amendment state, and recommended handoff.
-- FR-013: Local `pre-commit`, local `pre-push`, local `pr-ready`, and CI gate
+- FR-014: Local `pre-commit`, local `pre-push`, local `pr-ready`, and CI gate
   validation MUST invoke the guard or an equivalent shared validator.
-- FR-014: `docs/ai-developer/personas/test-engineer.md` MUST define allowed
+- FR-015: `docs/ai-developer/personas/test-engineer.md` MUST define allowed
   work, prohibited production-code edits, evidence outputs, and stop
   conditions.
-- FR-015: `docs/ai-developer/specific_rules/test-engineering.md` MUST define
+- FR-016: `docs/ai-developer/specific_rules/test-engineering.md` MUST define
   test architecture, test-case design, runtime validation, e2e, evidence, and
   handoff rules.
-- FR-016: Dispatch templates MUST support `test_engineer` and include the
+- FR-017: Dispatch templates MUST support `test_engineer` and include the
   no-production-code stop condition.
-- FR-017: The e2e skill metadata MUST include `test_engineer` as a related
+- FR-018: The e2e skill metadata MUST include `test_engineer` as a related
   persona.
 
 ### Key Entities

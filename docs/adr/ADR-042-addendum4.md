@@ -163,8 +163,12 @@ behavior for users or runtime execution, including:
 Allowed default write surfaces for `test_engineer` include:
 
 - `tests/**`;
-- `frontend/**` test files, Playwright specs, Vitest tests, test fixtures, and
-  test support utilities;
+- frontend test and e2e paths that match explicit test-only patterns:
+  `frontend/**/*.test.*`, `frontend/**/*.spec.*`, `frontend/**/__tests__/**`,
+  `frontend/**/__fixtures__/**`, `frontend/**/__mocks__/**`,
+  `frontend/e2e/**`, `frontend/tests/**`, `frontend/test/**`,
+  `frontend/playwright.config.*`, `frontend/vitest.config.*`, and
+  `frontend/vitest.setup.*`;
 - `docs/ai-developer/e2e/**` scenario files and e2e verdicts;
 - `docs/audit/**` test reports and validation reports;
 - test-only fixtures, golden files, mocks, sample projects, and test data;
@@ -287,9 +291,17 @@ The guard blocks changed files outside the test-engineer artifact allowlist.
 Allowed by default:
 
 - `tests/**`;
-- `frontend/**` test files and test support files, including `*.test.*`,
-  `*.spec.*`, Playwright specs, Vitest setup, fixtures, and mocks;
+- `frontend/**/*.test.*`;
+- `frontend/**/*.spec.*`;
+- `frontend/**/__tests__/**`;
+- `frontend/**/__fixtures__/**`;
+- `frontend/**/__mocks__/**`;
 - `frontend/e2e/**`;
+- `frontend/tests/**`;
+- `frontend/test/**`;
+- `frontend/playwright.config.*`;
+- `frontend/vitest.config.*`;
+- `frontend/vitest.setup.*`;
 - `docs/ai-developer/e2e/**`;
 - `docs/audit/**` validation reports and test reports;
 - test fixtures, golden files, sample projects, and generated test evidence
@@ -300,7 +312,9 @@ Allowed by default:
 Blocked by default:
 
 - product runtime code under `src/scistudio/**`;
-- frontend product code under `frontend/src/**` unless the path is a test file;
+- frontend product code under `frontend/src/**` unless the exact path also
+  matches one of the explicit frontend test-file or test-directory patterns
+  above; a repo-wide `frontend/**` allowlist is not permitted;
 - workflow runtime, block, API, MCP, data model, lineage, scheduler, plugin, or
   product UI implementation files;
 - package/build/dependency changes whose purpose is product behavior rather

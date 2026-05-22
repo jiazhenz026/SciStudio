@@ -2,7 +2,7 @@
   "tool": "full_audit",
   "status": "pass",
   "generated_at": "1970-01-01T00:00:00Z",
-  "source_sha": "0a6fec2a3933fcb607f01b4d656e8f71659ca3aedf191123be60d54900c6e783",
+  "source_sha": "667df1e9596bb44156d6949c114a8f26500444ab940826501e0f7ffa7952380e",
   "findings": [],
   "summary": {
     "implemented_children": [
@@ -24,7 +24,7 @@
       "tool": "generate_facts",
       "status": "pass",
       "generated_at": "1970-01-01T00:00:00Z",
-      "source_sha": "0a6fec2a3933fcb607f01b4d656e8f71659ca3aedf191123be60d54900c6e783",
+      "source_sha": "667df1e9596bb44156d6949c114a8f26500444ab940826501e0f7ffa7952380e",
       "findings": [],
       "summary": {
         "facts_path": "docs/facts/generated.yaml",
@@ -93,7 +93,7 @@
     {
       "tool": "frontmatter_lint",
       "status": "pass",
-      "generated_at": "2026-05-22T23:01:39.703668Z",
+      "generated_at": "2026-05-22T23:18:39.992150Z",
       "source_sha": "",
       "findings": [],
       "summary": {
@@ -105,11 +105,11 @@
     {
       "tool": "fact_drift",
       "status": "pass",
-      "generated_at": "2026-05-22T23:01:40.819355Z",
-      "source_sha": "0a6fec2a3933fcb607f01b4d656e8f71659ca3aedf191123be60d54900c6e783",
+      "generated_at": "2026-05-22T23:18:41.127664Z",
+      "source_sha": "667df1e9596bb44156d6949c114a8f26500444ab940826501e0f7ffa7952380e",
       "findings": [],
       "summary": {
-        "docs_checked": 206,
+        "docs_checked": 207,
         "substitutions_checked": 0
       },
       "child_reports": []
@@ -117,28 +117,28 @@
     {
       "tool": "doc_drift",
       "status": "pass",
-      "generated_at": "2026-05-22T23:01:41.076980Z",
-      "source_sha": "0a6fec2a3933fcb607f01b4d656e8f71659ca3aedf191123be60d54900c6e783",
+      "generated_at": "2026-05-22T23:18:41.381816Z",
+      "source_sha": "667df1e9596bb44156d6949c114a8f26500444ab940826501e0f7ffa7952380e",
       "findings": [],
       "summary": {
-        "governed_docs_checked": 67,
-        "modules_checked": 176,
+        "governed_docs_checked": 68,
+        "modules_checked": 177,
         "contracts_checked": 374,
         "files_checked": 485,
         "adr_spec_alignment_findings": 0,
-        "active_specs_checked": 5,
-        "adr_spec_links_checked": 5
+        "active_specs_checked": 6,
+        "adr_spec_links_checked": 6
       },
       "child_reports": []
     },
     {
       "tool": "closure",
       "status": "pass",
-      "generated_at": "2026-05-22T23:01:41.338818Z",
-      "source_sha": "0a6fec2a3933fcb607f01b4d656e8f71659ca3aedf191123be60d54900c6e783",
+      "generated_at": "2026-05-22T23:18:41.651516Z",
+      "source_sha": "667df1e9596bb44156d6949c114a8f26500444ab940826501e0f7ffa7952380e",
       "findings": [],
       "summary": {
-        "governed_docs_checked": 67,
+        "governed_docs_checked": 68,
         "governed_modules": 84,
         "governed_contracts": 220,
         "symbols_checked": 2388,
@@ -150,8 +150,8 @@
     {
       "tool": "signature_drift",
       "status": "pass",
-      "generated_at": "2026-05-22T23:01:41.341708Z",
-      "source_sha": "0a6fec2a3933fcb607f01b4d656e8f71659ca3aedf191123be60d54900c6e783",
+      "generated_at": "2026-05-22T23:18:41.655149Z",
+      "source_sha": "667df1e9596bb44156d6949c114a8f26500444ab940826501e0f7ffa7952380e",
       "findings": [],
       "summary": {
         "expected_signatures_checked": 188,
@@ -165,8 +165,8 @@
     {
       "tool": "architecture_drift",
       "status": "pass",
-      "generated_at": "2026-05-22T23:01:41.349575Z",
-      "source_sha": "0a6fec2a3933fcb607f01b4d656e8f71659ca3aedf191123be60d54900c6e783",
+      "generated_at": "2026-05-22T23:18:41.665183Z",
+      "source_sha": "667df1e9596bb44156d6949c114a8f26500444ab940826501e0f7ffa7952380e",
       "findings": [],
       "summary": {
         "architecture_path": "C:/Users/jiazh/Desktop/workspace/SciStudio-adr042-test-engineer-persona/docs/architecture/ARCHITECTURE.md",
@@ -180,7 +180,7 @@
     {
       "tool": "vulture",
       "status": "pass",
-      "generated_at": "2026-05-22T23:01:41.927102Z",
+      "generated_at": "2026-05-22T23:18:42.352919Z",
       "source_sha": "",
       "findings": [
         {
