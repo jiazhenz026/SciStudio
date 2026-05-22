@@ -67,11 +67,17 @@
     "trailers": {}
   },
   "docs_landing": {
-    "changelog": {},
-    "checklist": {},
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "No changelog entry required for issue #891 because this is a pre-release packaging/CI guardrail fix with behavior captured by the issue, PR, tests, and release wheel smoke."
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "No separate checklist required for issue #891 because acceptance criteria are tracked directly in the issue and validated by the gate record plus CI Wheel Release Smoke."
+    },
     "docs": {
       "not_applicable": true,
-      "rationale": "Packaging/CI regression is covered by issue #891, setup.py behavior, CI wheel smoke, and tests; no user-facing doc contract changed"
+      "rationale": "Packaging/CI regression is covered by issue #891, setup.py behavior, CI wheel smoke, and tests; no user-facing doc contract changed."
     }
   },
   "full_audit": {
