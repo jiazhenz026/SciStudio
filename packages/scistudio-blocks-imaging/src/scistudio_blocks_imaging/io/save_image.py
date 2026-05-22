@@ -244,6 +244,14 @@ def _write_tiff(image: Image, path: Path) -> None:
 
 
 def _write_zarr(image: Image, path: Path) -> None:
+    """Write an Image to a Zarr store.
+
+    Persists array data plus ``axes`` as a group attribute. No OME
+    metadata or typed ``Image.Meta`` fields are written — the matching
+    capability declaration in :attr:`SaveImage.format_capabilities` uses
+    ``level="pixel_only"`` to reflect that (issue #1371). OME-Zarr v0.4
+    first-class support is deferred.
+    """
     import zarr
 
     data = _materialise(image)
@@ -282,9 +290,23 @@ class SaveImage(IOBlock):
     # ADR-043 / spec adr-043-package-migration FR-005: explicit per-format
     # SAVE capabilities. Bio-Formats family (CZI/ND2/LIF/OIR/OIB) is
     # intentionally absent — python-bioformats is load-only by library
-    # design. ``typed_meta_writes=("pixel_size", "channels")`` for
-    # PNG/JPEG (only EXIF-mappable fields land in the file); TIFF/zarr
-    # declare richer write fidelity.
+    # design.
+    #
+    # Capability metadata fidelity must match what each writer actually
+    # persists. Issue #1371 narrowed previously broad
+    # ``format_metadata_writes=("ome",)`` declarations to the subset each
+    # writer really preserves:
+    #
+    # * TIFF — ``_write_tiff`` serialises full OME-XML via
+    #   :func:`ome_types.to_xml` and writes it to the ``ImageDescription``
+    #   tag, so ``format_metadata_writes=("ome",)`` is honest.
+    # * Zarr — ``_write_zarr`` writes array data + ``attrs["axes"]`` only;
+    #   no OME or typed Meta field is persisted. The capability drops to
+    #   ``level="pixel_only"`` to match that behaviour.
+    # * PNG / JPEG — Pillow writes only EXIF DPI on save, which is the
+    #   OME ``physical_size_x`` / ``physical_size_y`` round-trip. The
+    #   declaration uses hierarchical OME field paths so downstream
+    #   lossy-save warnings (``lossyOmeFields``) report the truth.
     format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
         FormatCapability(
             id="scistudio-blocks-imaging.image.tiff.save",
@@ -318,13 +340,15 @@ class SaveImage(IOBlock):
             handler="_write_zarr",
             is_default=True,
             roundtrip_group="scistudio-blocks-imaging.image.zarr",
+            # Issue #1371: ``_write_zarr`` writes array data and the
+            # ``axes`` group attribute only; no OME or typed Meta field
+            # is persisted. ``pixel_only`` advertises that honestly.
             metadata_fidelity=MetadataFidelity(
-                level="format_specific",
-                format_metadata_writes=("ome",),
-                typed_meta_writes=("pixel_size", "z_spacing", "channels"),
+                level="pixel_only",
                 notes=(
-                    "Writes array payload + axes as group attributes; vanilla"
-                    " zarr (OME-Zarr v0.4 first-class support is deferred)."
+                    "Writes array payload + axes group attribute; vanilla"
+                    " zarr carries no OME or typed Image.Meta fields (OME-"
+                    "Zarr v0.4 first-class support is deferred)."
                 ),
             ),
         ),
@@ -339,11 +363,19 @@ class SaveImage(IOBlock):
             handler="_save_png",
             is_default=True,
             roundtrip_group="scistudio-blocks-imaging.image.png",
+            # Issue #1371: PNG writer persists only EXIF DPI via Pillow,
+            # i.e. ``ome.images[0].pixels.physical_size_x`` /
+            # ``physical_size_y``. Declaring the precise field paths
+            # prevents the lossy-save warning chip from claiming broad
+            # OME write support.
             metadata_fidelity=MetadataFidelity(
                 level="format_specific",
-                format_metadata_writes=("ome",),
+                format_metadata_writes=(
+                    "ome.pixels.physical_size_x",
+                    "ome.pixels.physical_size_y",
+                ),
                 typed_meta_writes=("pixel_size", "channels"),
-                notes=("Writes PNG via Pillow; only EXIF-mappable OME fields (physical_size_x/y → DPI) are persisted."),
+                notes=("Writes PNG via Pillow; only EXIF DPI (OME physical_size_x/y) is persisted."),
             ),
         ),
         FormatCapability(
@@ -357,14 +389,16 @@ class SaveImage(IOBlock):
             handler="_save_jpeg",
             is_default=True,
             roundtrip_group="scistudio-blocks-imaging.image.jpeg",
+            # Issue #1371: JPEG writer persists only EXIF DPI. See PNG
+            # note above for the field-path rationale.
             metadata_fidelity=MetadataFidelity(
                 level="format_specific",
-                format_metadata_writes=("ome",),
-                typed_meta_writes=("pixel_size", "channels"),
-                notes=(
-                    "Writes JPEG via Pillow; only EXIF-mappable OME fields"
-                    " (physical_size_x/y → DPI) are persisted. Alpha is dropped."
+                format_metadata_writes=(
+                    "ome.pixels.physical_size_x",
+                    "ome.pixels.physical_size_y",
                 ),
+                typed_meta_writes=("pixel_size", "channels"),
+                notes=("Writes JPEG via Pillow; only EXIF DPI (OME physical_size_x/y) is persisted. Alpha is dropped."),
             ),
         ),
     )
@@ -395,9 +429,29 @@ class SaveImage(IOBlock):
     config_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {
-            # ADR-030: ``path`` is inherited from IOBlock base class via MRO merge.
-            # Direction-aware post-processing auto-switches to directory_browser.
-            #
+            # Issue #1369: SaveImage writes single-image outputs to a
+            # concrete file path (``out.tif``, ``out.zarr``, ``out.png``,
+            # ``out.jpg``), so the bottom panel must open the **file**
+            # picker, not the directory picker. The base ``IOBlock``
+            # declares ``path`` as ``ui_widget="file_browser"``, but the
+            # ADR-030 registry post-processor flips that to
+            # ``directory_browser`` for any direction=="output" subclass
+            # that does NOT declare ``path`` in its own ``config_schema``
+            # (see ``scistudio.blocks.registry._subclass_declares_field``).
+            # Multi-image batch mode treats ``path`` as a directory and
+            # auto-numbers entries, but SaveImage's primary single-image
+            # path needs a file. Declaring ``path`` here pins
+            # ``ui_widget="file_browser"`` and short-circuits the
+            # post-processor override. Workflow YAMLs that pass a
+            # directory for batch mode still work — only the UI picker
+            # changes; the runtime path resolution in ``save()`` is
+            # unchanged.
+            "path": {
+                "type": "string",
+                "ui_priority": 0,
+                "ui_widget": "file_browser",
+                "title": "Output path",
+            },
             # Format selection: surfaced as the ADR-043 ``capability_id``
             # dropdown (FormatCapabilityConfig in BottomPanel) — the
             # backend resolves ``capability_id -> format_id`` via
@@ -408,7 +462,7 @@ class SaveImage(IOBlock):
             # :func:`_resolve_format` still honours the ``explicit`` arg
             # (highest precedence) for backward compatibility.
         },
-        "required": [],
+        "required": ["path"],
     }
 
     def load(
@@ -471,8 +525,31 @@ class SaveImage(IOBlock):
                 self._write_single(image, path, fmt)
                 return
 
-            # Multi-item collection: path is treated as directory
-            out_dir = path if path.suffix == "" else path.parent
+            # Multi-item collection: path resolution.
+            # Issue #1369: the config UI now exposes ``path`` via the
+            # file picker (``ui_widget="file_browser"`` declared above),
+            # so a user typing ``out.tif`` for a node that turns out to
+            # receive a multi-item Collection at runtime should NOT
+            # silently lose their filename. Two cases:
+            #   * ``path`` has a suffix (e.g. ``out.tif``) → treat
+            #     ``path.parent`` as ``out_dir`` and ``path.stem`` as
+            #     the per-item filename prefix. Batch writes go to
+            #     ``out_dir/<stem>_0000.<ext>``,
+            #     ``out_dir/<stem>_0001.<ext>``, etc.
+            #   * ``path`` has no suffix (e.g. ``batch_out``) → legacy
+            #     behaviour: treat ``path`` as ``out_dir`` and use the
+            #     default ``image`` prefix. This preserves backward
+            #     compatibility for workflow YAMLs that pass a bare
+            #     directory.
+            # Codex review on PR #1395 flagged the silent filename drop;
+            # this resolution honours both the file-picker UX and the
+            # legacy directory-path workflows.
+            if path.suffix:
+                out_dir = path.parent
+                stem = path.stem
+            else:
+                out_dir = path
+                stem = "image"
             out_dir.mkdir(parents=True, exist_ok=True)
             # Resolve format first so the batch extension can mirror it
             # (extension dispatch needs a real path, so we hand a dummy
@@ -486,7 +563,7 @@ class SaveImage(IOBlock):
             for i, item in enumerate(obj):
                 if not isinstance(item, Image):
                     raise ValueError(f"SaveImage: Collection item {i} is not an Image")
-                item_path = out_dir / f"image_{i:04d}{ext}"
+                item_path = out_dir / f"{stem}_{i:04d}{ext}"
                 self._write_single(item, item_path, fmt)
             return
 

@@ -268,19 +268,60 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 // ---------------------------------------------------------------------------
 
 /**
+ * Strip the `images.<index>.` prefix from a source OME field path so it
+ * can be compared against hierarchical capability declarations like
+ * `ome.pixels.physical_size_x`. ``collectUpstreamOmeFields`` (and the
+ * underlying ``flattenOmeFields``) walks an OME tree starting from
+ * `{ images: [{ pixels: {...} }] }`, so source paths normally include
+ * the `images.<n>.` index prefix; capability declarations use the
+ * structural OME path (`pixels.physical_size_x`, etc.) without the
+ * per-image index. Returns the input unchanged when no prefix matches.
+ *
+ * Codex P1 (PR #1388 / #1371): without this normalisation the new
+ * matcher correctly handled top-level `pixels.physical_size_x` paths
+ * but never matched real-world runtime source paths of the form
+ * `images.0.pixels.physical_size_x`, so DPI-derived OME fields surfaced
+ * as lossy even when the target capability advertised them as
+ * preserved (PNG / JPEG narrow declarations) — a false positive.
+ */
+function stripImagesIndex(field: string): string {
+  // Matches `images.<digits>.<rest>`; the `<digits>.` group is dropped.
+  const match = /^images\.\d+\.(.+)$/.exec(field);
+  return match ? match[1] : field;
+}
+
+/**
  * Return the OME field names present on the source object but NOT declared
  * as writable by the target capability's `metadata_fidelity`. Used by the
  * SaveImage warning chip to surface which fields will silently drop.
  *
- * `sourceOmeFields` is a flat list of dotted field paths (e.g.
- * `pixels.physical_size_x`, `channels.0.emission_wavelength`); the
- * dotted form mirrors how OME-types lays out its model in `model_dump()`.
+ * `sourceOmeFields` is a flat list of dotted field paths produced by
+ * ``flattenOmeFields`` walking the OME tree. The runtime extractor
+ * (``collectUpstreamOmeFields``) walks the full tree from
+ * `{ images: [{ pixels: {...} }, ...] }`, so source paths normally
+ * carry the per-image `images.<index>.` prefix (e.g.
+ * `images.0.pixels.physical_size_x`, `images.0.channels.0.name`). Some
+ * call sites pass the post-`images.<index>` suffix directly
+ * (`pixels.physical_size_x`); the matcher handles both.
  *
- * A field is considered "writable" when it appears in EITHER:
- *   - `metadata_fidelity.format_metadata_writes` (round-tripped via the
- *     format's native metadata block), OR
- *   - `metadata_fidelity.typed_meta_writes` (round-tripped via the
- *     typed Image.Meta sidecar).
+ * A field is considered "writable" when, after normalising the
+ * `images.<index>.` prefix away on the source side:
+ *   - The declaration contains the broad token `"ome"` — round-trips
+ *     every OME field (e.g. TIFF, Bio-Formats).
+ *   - The declaration contains a hierarchical OME path
+ *     (e.g. `"ome.pixels.physical_size_x"`) whose suffix after the
+ *     `ome.` prefix equals the normalised source path.
+ *   - The declaration contains the normalised source path verbatim —
+ *     legacy match used by typed-Meta declarations.
+ *
+ * Issue #1371 (bug-sweep 2026-05-21): previously the helper exact-matched
+ * source paths like `pixels.physical_size_x` against declarations like
+ * the broad `"ome"`, producing false positives for capabilities that
+ * round-trip everything and false negatives when declarations narrowed
+ * to hierarchical OME paths. Codex P1 on PR #1388 caught a secondary
+ * regression where the new matcher missed real runtime
+ * `images.<n>.pixels.*` source paths against declarations declared as
+ * `ome.pixels.*`; ``stripImagesIndex`` normalises that away.
  *
  * `lossless` capabilities round-trip everything; the helper returns `[]`
  * regardless of source field count. `pixel_only` capabilities round-trip
@@ -291,9 +332,24 @@ export function lossyOmeFields(
   targetFidelity: MetadataFidelityResponse,
 ): string[] {
   if (targetFidelity.level === "lossless") return [];
-  const writable = new Set<string>([
+  const declarations = [
     ...(targetFidelity.format_metadata_writes ?? []),
     ...(targetFidelity.typed_meta_writes ?? []),
-  ]);
-  return sourceOmeFields.filter((field) => !writable.has(field));
+  ];
+  // Broad token: any declaration equal to `"ome"` round-trips every
+  // OME field, so no source path is lossy.
+  if (declarations.includes("ome")) return [];
+  // Hierarchical paths after `ome.` prefix stripping; legacy exact matches.
+  const writable = new Set<string>();
+  for (const decl of declarations) {
+    if (decl.startsWith("ome.")) {
+      writable.add(decl.slice("ome.".length));
+    } else {
+      writable.add(decl);
+    }
+  }
+  // The original source path stays in the returned list so the UI shows
+  // the exact field the user sees; only the comparison is normalised
+  // (Codex P1, PR #1388).
+  return sourceOmeFields.filter((field) => !writable.has(stripImagesIndex(field)));
 }

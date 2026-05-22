@@ -48,6 +48,24 @@ class _LoaderTif(IOBlock):
         raise NotImplementedError
 
 
+class _LoaderCompoundTif(IOBlock):
+    """Loader that declares the compound suffix ``.ome.tif`` explicitly."""
+
+    name: ClassVar[str] = "_LoaderCompoundTif"
+    type_name: ClassVar[str] = "test.loader_compound_tif"
+    direction: ClassVar[str] = "input"
+    supported_extensions: ClassVar[dict[str, str]] = {".ome.tif": "ome-tiff"}
+    output_ports: ClassVar[list[OutputPort]] = [
+        OutputPort(name="data", accepted_types=[_FakeImage]),
+    ]
+
+    def load(self, config: BlockConfig, output_dir: str = "") -> DataObject | Collection:
+        raise NotImplementedError
+
+    def save(self, obj: DataObject | Collection, config: BlockConfig) -> None:
+        raise NotImplementedError
+
+
 class _LoaderTifArray(IOBlock):
     """Second loader for ``.tif`` that produces a *less* specific type (Array)."""
 
@@ -197,6 +215,71 @@ class TestFindLoader:
     def test_empty_extension_returns_none(self) -> None:
         reg = _build_registry(_LoaderTif)
         assert reg.find_loader(_FakeImage, "") is None
+
+
+# ---------------------------------------------------------------------------
+# #1109: compound-extension fallback contract
+#
+# ``find_loader`` / ``find_saver`` document compound-first matching consistent
+# with ``IOBlock._detect_format``. A query for ``.ome.tif`` must fall back to
+# a block declaring only ``.tif`` when no compound declaration matches, and
+# must prefer the compound declaration when both are registered.
+# ---------------------------------------------------------------------------
+
+
+class TestCompoundExtensionFallback:
+    def test_compound_query_falls_back_to_single_suffix_loader(self) -> None:
+        """``.ome.tif`` must match a loader declaring only ``.tif``."""
+        reg = _build_registry(_LoaderTif)
+        assert reg.find_loader(_FakeImage, ".ome.tif") is _LoaderTif
+
+    def test_compound_query_prefers_explicit_compound_declaration(self) -> None:
+        """Codex P1 (PR #1392): when both a compound (``.ome.tif``) and a
+        single-suffix (``.tif``) loader are registered, the compound-specific
+        declaration must win. Otherwise the new suffix-fallback would
+        introduce ambiguity for previously-deterministic registrations.
+
+        This is the same "longest matching suffix wins" rule
+        :meth:`IOBlock._detect_format` already obeys: probe the suffix
+        chain from longest to shortest and stop at the first non-empty
+        match set.
+        """
+        reg = _build_registry(_LoaderCompoundTif, _LoaderTif)
+        assert reg.find_loader(_FakeImage, ".ome.tif") is _LoaderCompoundTif
+        # Reverse registration order: still the compound wins.
+        reg_reversed = _build_registry(_LoaderTif, _LoaderCompoundTif)
+        assert reg_reversed.find_loader(_FakeImage, ".ome.tif") is _LoaderCompoundTif
+        # A plain ``.tif`` query still resolves the single-suffix loader
+        # because the compound declaration does not contain ``.tif`` as
+        # one of its declared extensions.
+        assert reg.find_loader(_FakeImage, ".tif") is _LoaderTif
+
+    def test_dtype_none_compound_query_falls_back_to_single_suffix(self) -> None:
+        """Extension-only callers (dtype=None) also receive the compound
+        fallback, since :meth:`find_loader` documents the same compound-first
+        contract as :meth:`IOBlock._detect_format`."""
+        reg = _build_registry(_LoaderTif)
+        assert reg.find_loader(None, ".ome.tif") is _LoaderTif
+
+    def test_three_segment_extension_walks_full_suffix_chain(self) -> None:
+        """``.foo.bar.baz`` must walk ``.foo.bar.baz`` → ``.bar.baz`` → ``.baz``
+        and match the declared ``.tif`` only when one of those equals it."""
+        reg = _build_registry(_LoaderTif)
+        # ``.foo.bar.tif`` walks to ``.bar.tif`` then ``.tif`` (declared).
+        assert reg.find_loader(_FakeImage, ".foo.bar.tif") is _LoaderTif
+        # ``.foo.bar.baz`` has no matching suffix in the registry.
+        assert reg.find_loader(_FakeImage, ".foo.bar.baz") is None
+
+    def test_exact_match_still_wins(self) -> None:
+        """The compound-fallback walk must not break exact-match queries."""
+        reg = _build_registry(_LoaderTif)
+        assert reg.find_loader(_FakeImage, ".tif") is _LoaderTif
+
+    def test_compound_saver_query_falls_back_to_single_suffix(self) -> None:
+        """``find_saver`` honours the same compound-to-single fallback as
+        ``find_loader``, matching the docstring contract."""
+        reg = _build_registry(_SaverTif)
+        assert reg.find_saver(_FakeImage, ".ome.tif") is _SaverTif
 
 
 # ---------------------------------------------------------------------------

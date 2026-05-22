@@ -710,8 +710,32 @@ class TestCapabilityDerivedExtensionDispatch:
         """Text dispatch suffixes appear (subset of _TEXT_FORMAT_MAP)."""
         from scistudio.blocks.io.loaders.load_data import _LOAD_EXTENSION_MAP
 
-        for ext in (".txt", ".md", ".html", ".xml", ".yaml", ".yml", ".toml", ".log"):
+        for ext in (
+            ".txt",
+            ".md",
+            ".markdown",
+            ".html",
+            ".htm",
+            ".xml",
+            ".yaml",
+            ".yml",
+            ".toml",
+            ".log",
+        ):
             assert ext in _LOAD_EXTENSION_MAP, f"missing {ext!r}"
+
+    def test_extension_map_contains_markdown_and_htm_for_text(self) -> None:
+        """#1110: ``.markdown`` and ``.htm`` are mapped to the Text format
+        and live in ``_TEXT_FORMAT_MAP`` so ``_load_text`` accepts them."""
+        from scistudio.blocks.io.loaders.load_data import (
+            _LOAD_EXTENSION_MAP,
+            _TEXT_FORMAT_MAP,
+        )
+
+        assert _LOAD_EXTENSION_MAP[".markdown"] == "text"
+        assert _LOAD_EXTENSION_MAP[".htm"] == "text"
+        assert _TEXT_FORMAT_MAP[".markdown"] == "markdown"
+        assert _TEXT_FORMAT_MAP[".htm"] == "html"
 
     def test_detect_format_resolves_known_extensions(self, tmp_path: Path) -> None:
         """``_detect_format`` returns the registered identifier for a known suffix."""

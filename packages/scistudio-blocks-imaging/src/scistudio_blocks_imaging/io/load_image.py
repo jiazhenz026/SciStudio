@@ -193,6 +193,12 @@ def _load_zarr(path: Path, axes_override: list[str] | None) -> Image:
     Supports both a top-level array store and a group containing a
     single array named ``"data"``. Axis metadata is read from the group
     attribute ``"axes"`` when present.
+
+    Vanilla zarr stores carry no OME metadata, so the returned
+    :class:`Image` always has ``meta.ome is None``. The matching
+    capability declaration in :attr:`LoadImage.format_capabilities` uses
+    ``level="pixel_only"`` to reflect that (issue #1371). OME-Zarr v0.4
+    first-class support is deferred.
     """
     import zarr
 
@@ -265,14 +271,28 @@ class LoadImage(IOBlock):
 
     # ADR-043 / spec adr-043-package-migration FR-004: explicit per-format
     # capability declarations covering TIFF, vanilla Zarr, Pillow PNG/JPEG,
-    # and the Bio-Formats vendor microscopy family (load-only). Every
-    # capability declares ``level="format_specific"`` with
-    # ``format_metadata_reads=("ome",)`` because the handlers populate
-    # :attr:`Image.Meta.ome` to varying fidelity (full OME-XML for TIFF /
-    # CZI / ND2 / LIF / OIR / OIB; EXIF DPI mapped to ome.physical_size_*
-    # for PNG / JPEG; minimal for vanilla zarr stores). ``typed_meta_reads``
-    # enumerates the typed ``Image.Meta`` fields the handler reliably
-    # populates beyond ``ome``.
+    # and the Bio-Formats vendor microscopy family (load-only).
+    #
+    # Capability metadata fidelity must match what each handler actually
+    # extracts from the file. Issue #1371 narrowed previously broad
+    # ``format_metadata_reads=("ome",)`` declarations to the subset each
+    # handler really preserves:
+    #
+    # * TIFF / CZI / ND2 / LIF / OIR / OIB — handlers parse full OME-XML
+    #   (``ome_types.from_xml`` or Bio-Formats' OME service), so
+    #   ``format_metadata_reads=("ome",)`` is honest.
+    # * PNG / JPEG — Pillow exposes only EXIF DPI, which the handler maps
+    #   onto ``ome.images[0].pixels.physical_size_x`` /
+    #   ``physical_size_y``. The declaration uses hierarchical OME field
+    #   paths (``ome.pixels.physical_size_x`` / ``...physical_size_y``) so
+    #   downstream lossy-save warnings (``lossyOmeFields`` in
+    #   ``frontend/src/api/capabilities.ts``) report the truth.
+    # * Zarr — ``_load_zarr`` reads array data + ``attrs["axes"]`` only;
+    #   the handler never populates ``Image.Meta.ome``. The capability
+    #   drops to ``level="pixel_only"`` to match that behaviour.
+    #
+    # ``typed_meta_reads`` enumerates the typed ``Image.Meta`` fields the
+    # handler reliably populates beyond ``ome``.
     format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
         FormatCapability(
             id="scistudio-blocks-imaging.image.tiff.load",
@@ -306,13 +326,16 @@ class LoadImage(IOBlock):
             handler="_load_zarr",
             is_default=True,
             roundtrip_group="scistudio-blocks-imaging.image.zarr",
+            # Issue #1371: ``_load_zarr`` reads only the array payload and
+            # ``attrs["axes"]``; it never populates ``Image.Meta.ome``.
+            # ``pixel_only`` accurately advertises that to capability
+            # consumers and the frontend lossy-save warning chip.
             metadata_fidelity=MetadataFidelity(
-                level="format_specific",
-                format_metadata_reads=("ome",),
-                typed_meta_reads=("source_file",),
+                level="pixel_only",
                 notes=(
                     "Loads array payload + axes from the store; vanilla zarr"
-                    " (OME-Zarr v0.4 first-class support is deferred)."
+                    " carries no OME metadata (OME-Zarr v0.4 first-class"
+                    " support is deferred)."
                 ),
             ),
         ),
@@ -327,11 +350,19 @@ class LoadImage(IOBlock):
             handler="_load_png",
             is_default=True,
             roundtrip_group="scistudio-blocks-imaging.image.png",
+            # Issue #1371: Pillow exposes only EXIF DPI, which the handler
+            # maps onto ``ome.images[0].pixels.physical_size_x`` /
+            # ``physical_size_y``. Declaring the precise field paths (not
+            # bare ``"ome"``) prevents the lossy-save warning chip from
+            # treating PNG as a full-OME read.
             metadata_fidelity=MetadataFidelity(
                 level="format_specific",
-                format_metadata_reads=("ome",),
+                format_metadata_reads=(
+                    "ome.pixels.physical_size_x",
+                    "ome.pixels.physical_size_y",
+                ),
                 typed_meta_reads=("source_file",),
-                notes="Loads PNG via Pillow; EXIF DPI mapped onto Image.Meta.ome.",
+                notes="Loads PNG via Pillow; only EXIF DPI is mapped onto Image.Meta.ome (physical_size_x/y).",
             ),
         ),
         FormatCapability(
@@ -345,11 +376,16 @@ class LoadImage(IOBlock):
             handler="_load_jpeg",
             is_default=True,
             roundtrip_group="scistudio-blocks-imaging.image.jpeg",
+            # Issue #1371: JPEG handler preserves only EXIF DPI →
+            # physical_size_x/y. See PNG note above.
             metadata_fidelity=MetadataFidelity(
                 level="format_specific",
-                format_metadata_reads=("ome",),
+                format_metadata_reads=(
+                    "ome.pixels.physical_size_x",
+                    "ome.pixels.physical_size_y",
+                ),
                 typed_meta_reads=("source_file",),
-                notes="Loads JPEG via Pillow; EXIF DPI mapped onto Image.Meta.ome.",
+                notes="Loads JPEG via Pillow; only EXIF DPI is mapped onto Image.Meta.ome (physical_size_x/y).",
             ),
         ),
         FormatCapability(

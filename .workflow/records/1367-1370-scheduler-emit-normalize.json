@@ -1,0 +1,200 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "mark implement stage done \u2014 both #1367 and #1370 source + test edits committed (ddd1f7cb and 54add908)"
+    }
+  ],
+  "branch": "fix/issue-1367-1370/scheduler-emit-normalize",
+  "changed_test_paths": [
+    "tests/engine/test_scheduler.py",
+    "tests/engine/test_scheduler_interactive.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "653 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/engine/ --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "389 passed, 4 skipped, 8 xfailed in 5.64s",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "mcp__plugin_sentrux_sentrux__scan/check_rules/health",
+      "exit_code": 0,
+      "name": "sentrux",
+      "output_path": "MCP scan+check_rules+health pass; quality_signal=4444, rules_checked=3/15, violations=0",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1367-1370-scheduler-emit-normalize.json",
+    "shas": [
+      "7b75f44e"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "no-architecture-change"
+    },
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/2026-05-21-bug-sweep-checklist.md"
+      ]
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "no-user-facing-docs-required"
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "no-public-contract-change"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1367,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1367"
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1370,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1370"
+    }
+  ],
+  "owner_directive": "Root-cause: BLOCK_READY emission on resume/rerun/reset + interactive normalize_outputs",
+  "planned_files": [
+    "src/scistudio/engine/scheduler.py",
+    "tests/engine/test_scheduler.py",
+    "tests/engine/test_scheduler_interactive.py",
+    "CHANGELOG.md",
+    "docs/planning/2026-05-21-bug-sweep-checklist.md",
+    ".workflow/records/1367-1370-scheduler-emit-normalize.json"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1367,
+      1370
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1391"
+  },
+  "record_path": ".workflow/records/1367-1370-scheduler-emit-normalize.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/engine/scheduler.py",
+      "tests/engine/test_scheduler.py",
+      "tests/engine/test_scheduler_interactive.py",
+      "CHANGELOG.md",
+      "docs/planning/2026-05-21-bug-sweep-checklist.md",
+      ".workflow/records/1367-1370-scheduler-emit-normalize.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "MCP scan+check_rules+health: pass; rules_checked=3/15, violation_count=0, quality_signal=4444, files=1115, import_edges=2638",
+    "pro_required": false,
+    "quality_signal": 4444.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1367-scheduler-emit-normalize",
+  "task_kind": "bugfix"
+}

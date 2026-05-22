@@ -338,6 +338,11 @@ def _is_test_path(path: str) -> bool:
     return (
         normalized.startswith("tests/")
         or "/tests/" in normalized
+        # Codex P2 from PR #1396: also match top-level `__tests__/` (rare but
+        # valid — e.g. a repo with a root-level `__tests__/` directory). Without
+        # the prefix check, `__tests__/foo.tsx` was still classified as a
+        # non-test path because `/__tests__/` substring requires a leading slash.
+        or normalized.startswith("__tests__/")
         or "/__tests__/" in normalized
         or name.startswith("test_")
         or name.endswith("_test.py")
