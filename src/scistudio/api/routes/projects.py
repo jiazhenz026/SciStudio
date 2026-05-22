@@ -1,4 +1,4 @@
-﻿"""Project CRUD and workspace management endpoints."""
+"""Project CRUD and workspace management endpoints."""
 
 from __future__ import annotations
 

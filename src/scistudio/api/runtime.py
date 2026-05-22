@@ -21,6 +21,7 @@ from uuid import uuid4
 import pyarrow.parquet as pq
 import yaml
 
+from scistudio.api import file_contracts
 from scistudio.blocks.registry import BlockRegistry
 from scistudio.core.storage.ref import StorageReference
 from scistudio.core.types.array import Array
@@ -42,7 +43,7 @@ from scistudio.workflow.serializer import absolutify_paths, load_yaml, relativif
 logger = logging.getLogger(__name__)
 
 WORKFLOW_ENTITY_CLASS = "workflow"
-FILE_ENTITY_CLASS = "file"
+FILE_ENTITY_CLASS = file_contracts.FILE_ENTITY_CLASS
 _FIRST_PARTY_WRITE_SUPPRESSION_SECONDS = 2.0
 
 # DataFrame preview paging — cap the per-request payload to keep the response

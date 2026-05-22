@@ -91,8 +91,7 @@ from watchdog.events import (
 )
 from watchdog.observers import Observer
 
-from scistudio.api.file_contracts import ADR036_FILE_ALLOWLIST, FILE_CHANGED_EVENT_TYPE
-from scistudio.api.runtime import FILE_ENTITY_CLASS
+from scistudio.api.file_contracts import ADR036_FILE_ALLOWLIST, FILE_CHANGED_EVENT_TYPE, FILE_ENTITY_CLASS
 from scistudio.engine.events import GIT_HEAD_CHANGED, WORKFLOW_CHANGED, EngineEvent, EventBus
 
 logger = logging.getLogger(__name__)

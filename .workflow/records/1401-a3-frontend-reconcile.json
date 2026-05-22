@@ -6,6 +6,19 @@
       "exclude": [],
       "include": [],
       "reason": "Implementation completed within planned A3 frontend reconcile scope after rebase to tracking 3f617ae4."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "src/scistudio/api/routes/projects.py",
+        "src/scistudio/api/file_contracts.py",
+        "src/scistudio/api/routes/workflow_watcher.py",
+        "src/scistudio/api/runtime.py",
+        "frontend/src/components/BottomPanel.test.tsx",
+        "frontend/src/components/Lineage/__tests__/RunDetail.restore.test.tsx"
+      ],
+      "reason": "Manager-owned CI/gate fix after PR #1443: remove projects.py BOM, move FILE_ENTITY_CLASS into file_contracts to break workflow_watcher-runtime Sentrux cycle, and update full frontend API mocks for the new save-start listener export."
     }
   ],
   "branch": "feat/issue-1401/adr-045-frontend-reconcile",
@@ -213,6 +226,87 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend; npm test",
+      "exit_code": 0,
+      "name": "frontend full vitest latest",
+      "output_path": "46 files passed; 481 tests passed, 13 skipped",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-a3-full-audit.json",
+      "exit_code": 0,
+      "name": "full_audit post-CI-fix",
+      "output_path": "docs/audit/adr-045-a3-full-audit.json; pass after BOM, frontend mock, docs landing, and Sentrux fixes",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend; npm run build",
+      "exit_code": 0,
+      "name": "frontend build post-CI-fix",
+      "output_path": "tsc -b and vite build passed; existing large chunk warning only",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/architecture/ -v --no-cov --timeout=60",
+      "exit_code": 0,
+      "name": "architecture tests post-BOM-fix",
+      "output_path": "328 passed; projects.py UTF-8 BOM removed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/api/test_workflow_version_vector.py tests/api/test_file_version_vector.py tests/api/test_workflow_changed_event_schema.py tests/api/routes/test_workflow_watcher_fallback.py tests/api/test_reload_on_save.py tests/integration/test_race_autosave.py tests/integration/test_race_lineage_restore.py tests/integration/test_race_agent_write.py tests/integration/test_race_external_editor.py tests/integration/test_race_multi_session.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "backend ADR-045 race/API latest",
+      "output_path": "22 passed, 1 metadata-store deprecation warning",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff check src/scistudio/api/routes/projects.py src/scistudio/api/runtime.py src/scistudio/api/file_contracts.py src/scistudio/api/routes/workflow_watcher.py tests/integration/conftest.py tests/integration/test_race_autosave.py tests/integration/test_race_lineage_restore.py tests/integration/test_race_agent_write.py tests/integration/test_race_external_editor.py tests/integration/test_race_multi_session.py",
+      "exit_code": 0,
+      "name": "ruff backend post-CI-fix",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check src/scistudio/api/routes/projects.py src/scistudio/api/runtime.py src/scistudio/api/file_contracts.py src/scistudio/api/routes/workflow_watcher.py",
+      "exit_code": 0,
+      "name": "ruff format post-CI-fix",
+      "output_path": "4 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-a3-full-audit.json",
+      "exit_code": 0,
+      "name": "full_audit final post-CI-fix",
+      "output_path": "docs/audit/adr-045-a3-full-audit.json; pass after final gate evidence update",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-a3-full-audit.json",
+      "exit_code": 0,
+      "name": "full_audit final checklist post-CI-fix",
+      "output_path": "docs/audit/adr-045-a3-full-audit.json; pass after final checklist and scope amendment",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": {
@@ -223,17 +317,19 @@
     "trailers": {}
   },
   "docs_landing": {
-    "ADR/spec": {
+    "changelog": {
       "not_applicable": true,
-      "rationale": "Contract text already updated by A1/A2/manager on tracking; A3 only records frontend implementation evidence and does not weaken the contract."
+      "rationale": "No release-facing changelog entry for internal ADR-045 bugfix slice; umbrella PR will carry final release note."
     },
-    "changelog": {},
     "checklist": {
       "paths": [
         "docs/planning/adr-045-version-vector-checklist.md"
       ]
     },
-    "docs": {}
+    "docs": {
+      "not_applicable": true,
+      "rationale": "Implementation-linked docs land in the manager checklist and existing ADR-045 spec; A3 changes frontend tests only and does not change public docs."
+    }
   },
   "full_audit": {
     "blocks_merge": false,
@@ -286,7 +382,11 @@
   "schema_version": "1",
   "scope": {
     "exclude": [
-      "src/scistudio/**",
+      "src/scistudio/ai/**",
+      "src/scistudio/blocks/**",
+      "src/scistudio/core/**",
+      "src/scistudio/engine/**",
+      "src/scistudio/workflow/**",
       "frontend/package-lock.json",
       "docs/adr/**",
       "docs/specs/**"
@@ -303,18 +403,24 @@
       "frontend/src/store/__tests__/tabState.test.ts",
       "docs/planning/adr-045-version-vector-checklist.md",
       "docs/audit/adr-045-a3-full-audit.json",
-      ".workflow/records/1401-a3-frontend-reconcile.json"
+      ".workflow/records/1401-a3-frontend-reconcile.json",
+      "frontend/src/components/BottomPanel.test.tsx",
+      "frontend/src/components/Lineage/__tests__/RunDetail.restore.test.tsx",
+      "src/scistudio/api/file_contracts.py",
+      "src/scistudio/api/routes/projects.py",
+      "src/scistudio/api/routes/workflow_watcher.py",
+      "src/scistudio/api/runtime.py"
     ]
   },
   "sentrux": {
-    "command_or_tool": "mcp__sentrux__.check_rules",
+    "command_or_tool": "mcp__sentrux__.rescan + check_rules",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "Sentrux MCP free-tier check_rules failed on A3 branch and clean tracking 3f617ae4: max_cycles found 4 > 3. Baseline tracking quality_signal=4248; A3 quality_signal=4245. This is a baseline gate blocker, not claimed pass evidence.",
+    "output_path": "Sentrux MCP rescan quality_signal=4439; check_rules pass=true, rules_checked=3/15, violation_count=0 after moving FILE_ENTITY_CLASS to file_contracts and removing workflow_watcher -> runtime import.",
     "pro_required": false,
-    "quality_signal": 4245.0,
+    "quality_signal": 4439.0,
     "rules_checked": 3,
-    "status": "fail",
+    "status": "pass",
     "summary": {},
     "thresholds": {
       "max_cycles": "3"
