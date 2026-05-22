@@ -237,12 +237,17 @@ jobs:
           cache-dependency-path: "frontend/package-lock.json"
       - name: Install build frontend
         run: python -m pip install --upgrade pip build
+      - name: Build frontend for packaging
+        working-directory: frontend
+        run: npm ci && npm run build
+      - name: Copy build output to Python package
+        run: |
+          rm -rf src/scistudio/api/static
+          cp -r frontend/dist/ src/scistudio/api/static/
       - name: Build wheel with required frontend bundle
         env:
           SCISTUDIO_REQUIRE_FRONTEND_BUILD: "1"
-        run: |
-          # setup.py invokes npm ci and npm run build before collecting wheel package data.
-          python -m build --wheel
+        run: python -m build --wheel
       - name: Inspect wheel SPA contents
         run: |
           python - <<'PY'
