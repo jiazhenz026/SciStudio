@@ -75,22 +75,37 @@
   },
   "docs_landing": {
     "adr": {
-      "not_applicable": true,
-      "rationale": "N/A umbrella scaffold; no architectural change yet"
+      "paths": [
+        "docs/adr/ADR-012.md",
+        "docs/adr/ADR-034.md",
+        "docs/adr/ADR-035.md",
+        "docs/adr/ADR-038.md",
+        "docs/adr/ADR-039.md",
+        "docs/adr/ADR-042-addendum1.md",
+        "docs/adr/ADR-042-addendum3.md",
+        "docs/adr/ADR-044.md",
+        "docs/adr/ADR-045.md"
+      ]
     },
     "changelog": {
       "not_applicable": true,
-      "rationale": "N/A umbrella scaffold lands plan + tooling; CHANGELOG entries land with sub-PRs"
+      "rationale": "Phase 1 sub-PRs are all structural refactors with no user-visible behavior change; rolled-up CHANGELOG entry deferred to umbrella -> main merge follow-up if needed."
     },
     "checklist": {
       "paths": [
         "docs/planning/backend-god-file-refactor-checklist.md"
       ]
     },
-    "docs": {},
+    "docs": {
+      "paths": [
+        "docs/audit/2026-05-22-umbrella-1427-phase1-with-context.md"
+      ]
+    },
     "spec": {
-      "not_applicable": true,
-      "rationale": "N/A scaffold + advisory script only"
+      "paths": [
+        "docs/specs/embedded-coding-agent-spec.md",
+        "docs/specs/adr-042-gate-record-sentrux-workflow.md"
+      ]
     }
   },
   "full_audit": {
@@ -109,7 +124,7 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 1427,
-      "url": null
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1427"
     }
   ],
   "owner_directive": "Manager refactor for backend/engine god files. Phase 1 = Buckets A+B (10 files, 5 agents bundled). User authorized admin-approved:core-change for Bucket B 3 files on 2026-05-22. max-lines=500 advisory. Open umbrella issue/branch/PR scaffold.",
