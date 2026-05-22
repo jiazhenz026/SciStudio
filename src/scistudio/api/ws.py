@@ -14,7 +14,7 @@ from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
 
-from scistudio.api.routes.projects import FILE_CHANGED_EVENT_TYPE
+from scistudio.api.file_contracts import FILE_CHANGED_EVENT_TYPE
 from scistudio.engine.events import (
     BLOCK_CANCELLED,
     BLOCK_DONE,
