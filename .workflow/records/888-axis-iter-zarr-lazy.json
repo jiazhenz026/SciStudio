@@ -84,7 +84,10 @@
       "not_applicable": true,
       "rationale": "No separate checklist; scoped bug fix is covered by issue #888 acceptance criteria and regression test evidence."
     },
-    "docs": {}
+    "docs": {
+      "not_applicable": true,
+      "rationale": "No documentation change; issue #888 states existing docs are the source of truth and this PR only brings code into compliance with that contract."
+    }
   },
   "full_audit": {
     "blocks_merge": true,
