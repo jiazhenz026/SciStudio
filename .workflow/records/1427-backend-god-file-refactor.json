@@ -6,6 +6,24 @@
       "exclude": [],
       "include": [],
       "reason": "Threshold raised from 500 to 750 mid-setup (chat 2026-05-22); umbrella scaffold implementation = checklist + advisory script + gate record now reflects the 750 threshold and 10-file waiver list. No source-code change in scaffold PR; sub-PRs add per-file decomposition + tests under tracked sub-issues."
+    },
+    {
+      "approved_by": "@jiazhenz026",
+      "exclude": [],
+      "include": [
+        "src/scistudio/api/runtime/**",
+        "src/scistudio/ai/agent/mcp/tools_workflow/**",
+        "src/scistudio/ai/agent/mcp/tools_inspection/**",
+        "src/scistudio/api/routes/ai_pty/**",
+        "src/scistudio/qa/governance/gate_record/**",
+        "tests/**",
+        "docs/audit/**",
+        "docs/adr/**",
+        "docs/specs/**",
+        "docs/planning/**",
+        ".workflow/records/**"
+      ],
+      "reason": "Phase 1 sub-PRs (#1441/#1442/#1444/#1445) + audit PR (#1453) merged into umbrella branch on 2026-05-22; broaden manager gate record scope to cover the full integrated diff against main and flip governance_touch=true (qa/governance/gate_record/ is now part of the umbrella diff)."
     }
   ],
   "branch": "umbrella/backend-god-file-refactor",
@@ -85,7 +103,7 @@
     "summary": {},
     "unclassified_failures": []
   },
-  "governance_touch": false,
+  "governance_touch": true,
   "issues": [
     {
       "close_in_pr": true,
