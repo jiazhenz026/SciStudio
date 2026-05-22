@@ -6,6 +6,12 @@
       "exclude": [],
       "include": [],
       "reason": "Manager bootstrap commit landed (92bb4b8d): checklist + gate-record. No source change; sub-agent PRs land actual cascade work targeting track/frontend-cleanup-1412."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Merged origin/main twice into umbrella (commits 8d1e3262 + the second to pick up #1465 .sentrux max_cycles=5). Resolved 2-file conflict on lib/api.ts (hoisted ADR-045 helpers into new api/version.ts) + tabState.test.ts (auto-resolved). Added .claude/** to eslint+prettier ignores. All frontend checks green (lint 0 errors, test 556/569, build clean). Sentrux now pass (4 cycles \u2264 5). Umbrella ready for W3-D re-dispatch."
     }
   ],
   "branch": "track/frontend-cleanup-1412",
@@ -40,46 +46,46 @@
     },
     {
       "command_or_tool": "npm run lint",
-      "exit_code": null,
+      "exit_code": 0,
       "name": "frontend-lint",
-      "output_path": "Manager-bootstrap commit changes no frontend file. Each sub-agent PR runs frontend-lint as it lands.",
-      "status": "skipped",
+      "output_path": "0 errors, 38 pre-existing warnings (post main-merge with .claude/** ignored)",
+      "status": "pass",
       "summary": {},
       "timestamp": null
     },
     {
       "command_or_tool": "npm run format:check",
-      "exit_code": null,
+      "exit_code": 0,
       "name": "frontend-format",
-      "output_path": "Manager-bootstrap commit changes no frontend file.",
-      "status": "skipped",
+      "output_path": "All matched files use Prettier code style!",
+      "status": "pass",
       "summary": {},
       "timestamp": null
     },
     {
       "command_or_tool": "npm run typecheck",
-      "exit_code": null,
+      "exit_code": 0,
       "name": "frontend-typecheck",
-      "output_path": "Manager-bootstrap commit changes no frontend file.",
-      "status": "skipped",
+      "output_path": "tsc --noEmit clean",
+      "status": "pass",
       "summary": {},
       "timestamp": null
     },
     {
       "command_or_tool": "npm test",
-      "exit_code": null,
+      "exit_code": 0,
       "name": "frontend-test",
-      "output_path": "Manager-bootstrap commit changes no frontend file.",
-      "status": "skipped",
+      "output_path": "556 passed, 13 skipped (+3 new ADR-045 versionVector tests from #1410)",
+      "status": "pass",
       "summary": {},
       "timestamp": null
     },
     {
       "command_or_tool": "npm run build",
-      "exit_code": null,
+      "exit_code": 0,
       "name": "frontend-build",
-      "output_path": "Manager-bootstrap commit changes no frontend file.",
-      "status": "skipped",
+      "output_path": "vite build clean in 15.49s, 2138 modules",
+      "status": "pass",
       "summary": {},
       "timestamp": null
     }
@@ -174,9 +180,9 @@
     "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules + health",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "scan: files=1163, lines=300753, quality_signal=4442. check_rules: pass (3/3, 0 violations). health: bottleneck=acyclicity (acyc=3 \u2192 score 2500), modularity=0.177, redundancy=0.085, equality=0.435, depth=19.",
+    "output_path": "post-merge: 4 cycles \u2264 5 threshold (.sentrux/rules.toml bumped by #1465). files=1355, lines=324396, modularity=0.205, redundancy=0.087",
     "pro_required": false,
-    "quality_signal": 4442.0,
+    "quality_signal": 4248.0,
     "rules_checked": 3,
     "status": "pass",
     "summary": {},
