@@ -50,6 +50,7 @@ not duplicate AI-only policy.
 | Approved | `docs/ai-developer/specific_rules/hotfix.md` | AI hotfix-specific rules | AGENTS hotfix mode; ADR-042 task kind `hotfix`; Addendum 1 | Preserves architectural reread requirements and retroactive gate record. |
 | Approved | `docs/ai-developer/specific_rules/docs-change.md` | AI documentation-specific rules | ADR-042 task kind `docs`; documentation normalization | Covers truth, document type, scope, frontmatter, audit, and N/A rationales. |
 | Approved | `docs/ai-developer/specific_rules/agent-dispatch.md` | Multi-agent manager-specific rules | ADR-042 persona `manager`; current agent-manager discipline | Should include sub-agent scope, disjoint write sets, TODO tracking, and review. |
+| Approved | `docs/ai-developer/specific_rules/test-engineering.md` | AI test-engineering-specific rules | ADR-042 Addendum 4 persona `test_engineer` | Covers test architecture, tests, runtime validation, e2e evidence, and production-code stop conditions. |
 
 ### 2.4 Persona Docs
 
@@ -59,6 +60,7 @@ not duplicate AI-only policy.
 | Approved | `docs/ai-developer/personas/implementer.md` | Implementer persona behavior | ADR-042 Section 7.3 | Implements scoped code/docs/tests under gate record. |
 | Approved | `docs/ai-developer/personas/adr-author.md` | ADR/spec author behavior | ADR-042 Section 7.3 and Section 3 schemas | Writes governance text without bypassing schemas or owner decisions. |
 | Approved | `docs/ai-developer/personas/audit-reviewer.md` | Audit reviewer behavior | ADR-042 Section 7.3 | Review-only by default; finding-first reports; fix only when assigned. |
+| Approved | `docs/ai-developer/personas/test-engineer.md` | Test engineer persona behavior | ADR-042 Addendum 4 | Designs tests, adds test artifacts, runs runtime validation/e2e, and stops before production fixes. |
 
 ### 2.5 Skill Documents
 
@@ -76,6 +78,9 @@ not duplicate AI-only policy.
 | Approved | `.codex/skills/implementer/SKILL.md` | Codex implementer persona skill pointer | ADR-042 Section 7.3 and Section 7.4 | Mirrors Claude implementer skill at equivalent fidelity. |
 | Approved | `.codex/skills/adr-author/SKILL.md` | Codex ADR author persona skill pointer | ADR-042 Section 7.3 and Section 7.4 | Mirrors Claude ADR author skill at equivalent fidelity. |
 | Approved | `.codex/skills/audit-reviewer/SKILL.md` | Codex audit reviewer persona skill pointer | ADR-042 Section 7.3 and Section 7.4 | Mirrors Claude audit reviewer skill at equivalent fidelity. |
+| Approved | `.agents/skills/test-engineer/SKILL.md` | Runtime-neutral test engineer persona skill pointer | ADR-042 Addendum 4 | Points to canonical test-engineer docs and rules. |
+| Approved | `.claude/skills/test-engineer/SKILL.md` | Claude test engineer persona skill pointer | ADR-042 Addendum 4 | Mirrors runtime-neutral test engineer pointer at equivalent fidelity. |
+| Approved | `.codex/skills/test-engineer/SKILL.md` | Codex test engineer persona skill pointer | ADR-042 Addendum 4 | Mirrors runtime-neutral test engineer pointer at equivalent fidelity. |
 
 ### 2.6 Templates
 

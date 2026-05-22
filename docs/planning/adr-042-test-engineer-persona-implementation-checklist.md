@@ -207,14 +207,18 @@ language_source: en
 
 ## 9. Manager Documentation Track
 
-- [ ] `docs/ai-developer/rules.md` updated.
-- [ ] `docs/ai-developer/specific_rules/gated-workflow.md` updated.
-- [ ] `docs/ai-developer/specific_rules/agent-dispatch.md` updated.
-- [ ] `docs/ai-developer/specific_rules/test-engineering.md` created.
-- [ ] `docs/ai-developer/personas/test-engineer.md` created.
-- [ ] Dispatch templates/checklists updated.
-- [ ] Runtime skill pointers created.
-- [ ] E2E skill metadata updated.
+- [x] `docs/ai-developer/rules.md` updated -> local manager edit.
+- [x] `docs/ai-developer/specific_rules/gated-workflow.md` updated -> local
+  manager edit.
+- [x] `docs/ai-developer/specific_rules/agent-dispatch.md` updated -> local
+  manager edit.
+- [x] `docs/ai-developer/specific_rules/test-engineering.md` created -> local
+  manager edit.
+- [x] `docs/ai-developer/personas/test-engineer.md` created -> local manager
+  edit.
+- [x] Dispatch templates/checklists updated -> local manager edit.
+- [x] Runtime skill pointers created -> local manager edit.
+- [x] E2E skill metadata updated -> local manager edit.
 - [ ] Docs reviewed with owner.
 
 ## 10. Verification Evidence

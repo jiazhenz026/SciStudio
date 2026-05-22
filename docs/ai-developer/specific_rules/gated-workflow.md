@@ -46,6 +46,7 @@ Start a gate record:
 ```bash
 python -m scistudio.qa.governance.gate_record start \
   --task-kind feature|bugfix|hotfix|refactor|docs|maintenance|manager \
+  --persona manager|implementer|adr_author|audit_reviewer|test_engineer \
   --issue <number> \
   --branch <branch> \
   --owner-directive "<owner instruction>" \
@@ -152,6 +153,7 @@ gate record required by this workflow.
    - `implementer`
    - `adr_author`
    - `audit_reviewer`
+   - `test_engineer`
 4. Select the task kind:
    - `hotfix`
    - `bugfix`
@@ -175,6 +177,7 @@ Create or update the gate record with:
 ```bash
 python -m scistudio.qa.governance.gate_record start \
   --task-kind <task-kind> \
+  --persona <persona> \
   --issue <number> \
   --branch <branch> \
   --owner-directive "<owner instruction>" \
@@ -183,9 +186,9 @@ python -m scistudio.qa.governance.gate_record start \
   --record .workflow/records/<issue>-<task-slug>.json
 ```
 
-The gate record must capture `task_kind`, `branch`, `owner_directive`,
-`scope.include`, `scope.exclude`, `governance_touch`, and expected artifact
-classes.
+The gate record must capture `task_kind`, `persona`, `branch`,
+`owner_directive`, `scope.include`, `scope.exclude`, `governance_touch`, and
+expected artifact classes.
 
 Find or create the GitHub issue before implementation work is committable.
 Prefer an existing issue when one already tracks the work.
@@ -478,6 +481,7 @@ Local hooks or CI must fail AI-authored work when:
   CLI;
 - the gate record lacks issue linkage;
 - the gate record branch, issue, or changed files do not match the PR;
+- new gate records omit `persona` or use an unsupported persona;
 - staged or changed files exceed `scope.include` without an amendment;
 - staged or changed files match `scope.exclude`;
 - governance files are touched without `governance_touch=true`;

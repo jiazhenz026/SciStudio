@@ -91,6 +91,11 @@ language_source: en
 |---|---|---|---|---|---|---|---|---|---|---|
 | `<A1>` | `<implementer>` | `N/A` | `<prompt path>` | `<task>` | `<branch>` | `<path>` | `<files>` | `<paths>` | `<#issue or PR>` | `[ ]` |
 
+For `test_engineer` rows, the write set should default to tests, fixtures,
+validation scripts, e2e scenarios, audit evidence, and explicitly assigned
+QA/governance tooling. Production code paths require a recorded scope
+amendment.
+
 ## 7. Track: <Track Name>
 
 ### 7.1 Track Scope

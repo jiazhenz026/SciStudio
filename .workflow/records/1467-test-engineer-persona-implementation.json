@@ -26,13 +26,22 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.frontmatter_lint docs/ai-developer/personas/test-engineer.md docs/ai-developer/specific_rules/test-engineering.md docs/ai-developer/rules.md docs/ai-developer/specific_rules/gated-workflow.md docs/ai-developer/specific_rules/agent-dispatch.md docs/ai-developer/checklists/agent-manager-rules-review.md --repo-root . --format text",
+      "exit_code": 0,
+      "name": "docs_frontmatter_lint",
+      "output_path": "warnings only: docs are not ADR/spec/architecture frontmatter targets",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
     }
   ],
   "commit": null,
   "docs_landing": {
     "changelog": {
       "not_applicable": true,
-      "rationale": "manager-dispatch-setup-only-no-user-facing-release-note-yet"
+      "rationale": "manager-dispatch-and-ai-governance-doc-update-no-user-facing-release-note-yet"
     },
     "checklist": {
       "paths": [
@@ -41,10 +50,25 @@
         "docs/planning/dispatch-prompts/issue-1467-agent-b-gate-record.md"
       ]
     },
-    "docs": {},
+    "docs": {
+      "paths": [
+        "docs/ai-developer/rules.md",
+        "docs/ai-developer/specific_rules/gated-workflow.md",
+        "docs/ai-developer/specific_rules/agent-dispatch.md",
+        "docs/ai-developer/specific_rules/test-engineering.md",
+        "docs/ai-developer/personas/test-engineer.md",
+        "docs/ai-developer/templates/agent-dispatch-prompt-template.md",
+        "docs/ai-developer/templates/agent-dispatch-checklist-template.md",
+        "docs/ai-developer/checklists/agent-manager-rules-review.md",
+        "docs/ai-developer/skills/scistudio-e2e-test/SKILL.md",
+        ".agents/skills/test-engineer/SKILL.md",
+        ".codex/skills/test-engineer/SKILL.md",
+        ".claude/skills/test-engineer/SKILL.md"
+      ]
+    },
     "tests": {
       "not_applicable": true,
-      "rationale": "implementation-tests-owned-by-dispatched-agents"
+      "rationale": "implementation-tests-owned-by-dispatched-agents-and-will-be-recorded-after-integration"
     }
   },
   "full_audit": null,
