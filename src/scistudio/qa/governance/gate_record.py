@@ -622,17 +622,26 @@ def validate_gate_record(
                     )
                 )
 
-        if require_final_evidence and any(_sentrux_applies(path) for path in normalized_changed):
-            if parsed.sentrux is None:
-                findings.append(_finding("gate-record.sentrux.missing", "applicable changes require Sentrux evidence"))
-            elif parsed.sentrux.status != "pass":
-                findings.append(
-                    _finding(
-                        "gate-record.sentrux.not-passing",
-                        "Sentrux evidence must pass for applicable changes",
-                        evidence={"status": parsed.sentrux.status},
-                    )
+        # ADR-042 Addendum 3: Sentrux is advisory at the gate. Missing,
+        # skipped, or unknown evidence is allowed (sentrux binary may not
+        # be available for this contributor / agent). Recorded
+        # ``status="fail"`` still blocks locally — the developer ran
+        # sentrux, observed a real failure, and is pushing anyway, which
+        # is the only case the gate is now scoped to catch. Use
+        # admin-approved:ai-override to bypass when justified.
+        if (
+            require_final_evidence
+            and any(_sentrux_applies(path) for path in normalized_changed)
+            and parsed.sentrux is not None
+            and parsed.sentrux.status == "fail"
+        ):
+            findings.append(
+                _finding(
+                    "gate-record.sentrux.not-passing",
+                    "Sentrux evidence records a failing status; fix the violation or override (ADR-042 Addendum 3)",
+                    evidence={"status": parsed.sentrux.status},
                 )
+            )
 
     if require_final_evidence:
         for stage in parsed.stages:
