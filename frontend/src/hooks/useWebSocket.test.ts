@@ -10,11 +10,12 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "../lib/api";
+import type * as ApiModule from "../lib/api";
 import { useAppStore } from "../store";
 import { useWorkflowWebSocket } from "./useWebSocket";
 
 vi.mock("../lib/api", async () => {
-  const actual = await vi.importActual<typeof import("../lib/api")>("../lib/api");
+  const actual = await vi.importActual<typeof ApiModule>("../lib/api");
   return {
     ...actual,
     api: {
@@ -64,11 +65,11 @@ class MockWebSocket implements MockSocket {
 
 beforeEach(() => {
   createdSockets.length = 0;
-  // @ts-expect-error - install our mock globally
+  // @ts-expect-error -- MockWebSocket is a minimal stand-in and does not implement the full WebSocket structural type expected by lib.dom.
   global.WebSocket = MockWebSocket;
-  // @ts-expect-error
+  // @ts-expect-error -- WebSocket.OPEN is declared readonly in lib.dom; we overwrite it on the mock so production code sees the same numeric constant.
   global.WebSocket.OPEN = MockWebSocket.OPEN;
-  // @ts-expect-error
+  // @ts-expect-error -- WebSocket.CLOSED is declared readonly in lib.dom; we overwrite it on the mock so production code sees the same numeric constant.
   global.WebSocket.CLOSED = MockWebSocket.CLOSED;
   // Reset only the bits that matter to this test.
   useAppStore.setState({
