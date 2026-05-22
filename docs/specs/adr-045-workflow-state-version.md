@@ -80,8 +80,9 @@ not go through SciStudio write sites.
 
 The frontend records the last clean server version and the in-flight local
 write identity per entity. Incoming events are reconciled by version and
-source_id instead of timing windows, mtime/size tuples, or transient-delete
-probes.
+source_id instead of timing windows. During the staged rollout, watcher
+self-write suppression remains but is limited to exact originating write
+signatures such as path, mtime, size, and delete kind.
 
 The implementation is intentionally split so backend write-site events, file
 tab versioning, frontend reconciliation, and integration audit can proceed in
@@ -143,9 +144,13 @@ If B is clean, it fetches and adopts N+1. If B is dirty, it records a conflict.
 - FR-001: The backend MUST maintain a monotonic integer version per
   `(entity_class, entity_id)` for workflow and file entities.
 - FR-002: Backend GET responses for workflow and editable file content MUST
-  return the current version alongside existing content and mtime data.
-- FR-003: Backend write responses MUST return the new version and echo the
-  client-provided source_id when present.
+  return the current ADR-045 state version alongside existing content and mtime
+  data. Workflow responses MUST expose that counter as `state_version` and MUST
+  preserve `version` as the workflow YAML/schema semver string.
+- FR-003: Backend write responses MUST return the new ADR-045 state version and
+  echo the client-provided source_id when present. Workflow write responses MUST
+  expose that counter as `state_version` and MUST NOT repurpose the workflow
+  YAML/schema `version` field.
 - FR-004: Every first-party workflow write site MUST emit workflow.changed
   after the disk write completes.
 - FR-005: Every first-party editable file write site MUST emit file.changed
@@ -174,8 +179,8 @@ If B is clean, it fetches and adopts N+1. If B is dirty, it records a conflict.
 ### Non-Functional Requirements
 
 - NFR-001: Version assignment must be deterministic and atomic from the API
-  caller's perspective: the returned version is the version broadcast in the
-  event.
+  caller's perspective: the returned state version is the version broadcast in
+  the event.
 - NFR-002: Missing version fields from older events must fail safely through
   legacy behavior until all event sources are migrated.
 - NFR-003: Event payload additions must remain backward-compatible for clients
@@ -191,11 +196,14 @@ If B is clean, it fetches and adopts N+1. If B is dirty, it records a conflict.
 Add version state to `ApiRuntime` and expose narrow helpers for workflow and
 file write paths. Write routes pass source/source_id through these helpers and
 emit versioned events after successful writes. The watcher consults the same
-runtime state to suppress first-party echoes and to classify external writes.
+runtime state to suppress only exact first-party echoes and to classify
+external writes.
 
-Frontend API types carry version/source_id. The workflow and tab stores record
-clean and pending versions. `useWebSocket` becomes a dispatcher that applies
-ADR-045's four-branch reconcile algorithm to workflow and file events.
+Frontend API types carry state_version/source_id for workflow responses and
+the corresponding state counter for editable file responses. The workflow and
+tab stores record clean and pending versions. `useWebSocket` becomes a
+dispatcher that applies ADR-045's four-branch reconcile algorithm to workflow
+and file events.
 
 Contract consistency is a release constraint for this rollout. ADR-045, this
 spec, governed module/file lists, API response types, WebSocket event payloads,
@@ -252,8 +260,9 @@ the ADR/spec in the same change instead of leaving documentation drift.
 - AC-004: Backend file GET/write/event tests prove the same contract for file
   tabs.
 - AC-005: Frontend websocket/store tests cover all four reconcile branches.
-- AC-006: Watcher fallback no longer treats first-party atomic writes as true
-  deletes.
+- AC-006: Watcher fallback no longer treats exact first-party write echoes as
+  remote edits, and it still emits `source="external"` when the same path is
+  modified again with a different file signature shortly afterward.
 - AC-007: Dirty local workflow and file-tab state is never silently overwritten
   by newer remote events.
 - AC-008: CI passes before final completion.

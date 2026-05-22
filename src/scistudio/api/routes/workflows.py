@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
+from pydantic import BaseModel, Field
 
 from scistudio.api.deps import get_runtime
-from scistudio.api.runtime import ApiRuntime
+from scistudio.api.runtime import WORKFLOW_ENTITY_CLASS, ApiRuntime
 from scistudio.api.schemas import (
     CancelPropagationResponse,
     ExecuteFromRequest,
@@ -18,7 +20,6 @@ from scistudio.api.schemas import (
     WorkflowEdge,
     WorkflowExecutionResponse,
     WorkflowNode,
-    WorkflowResponse,
 )
 from scistudio.blocks.base.state import BlockState
 from scistudio.engine.events import WORKFLOW_CHANGED, EngineEvent
@@ -27,6 +28,26 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/workflows", tags=["workflows"])
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
+_API_SOURCES = {"canvas", "agent", "gitRestore", "import", "external"}
+
+
+class VersionedWorkflowResponse(BaseModel):
+    """Workflow response with ADR-045 server-authoritative state version."""
+
+    id: str
+    version: str = Field(default="1.0.0", description="Workflow YAML/schema version.")
+    state_version: int = Field(description="ADR-045 state version, monotonic per workflow.")
+    workflow_version: str = Field(default="1.0.0", description="Workflow YAML/schema version.")
+    description: str = ""
+    nodes: list[WorkflowNode] = Field(default_factory=list)
+    edges: list[WorkflowEdge] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    entity_class: str = WORKFLOW_ENTITY_CLASS
+    entity_id: str
+    source: str | None = None
+    source_id: str | None = None
+    kind: str = "current"
+    timestamp: str
 
 
 def _mark_self_write(path: Path) -> None:
@@ -48,10 +69,37 @@ def _mark_self_write(path: Path) -> None:
         logging.getLogger(__name__).debug("workflow_watcher: mark_self_write failed for %s", path, exc_info=True)
 
 
-def _workflow_response(definition: Any) -> WorkflowResponse:
-    return WorkflowResponse(
+def _now_iso() -> str:
+    return datetime.now(tz=UTC).isoformat()
+
+
+def _request_source_id(request: Request) -> str | None:
+    return request.headers.get("X-Source-Id") or request.headers.get("X-Workflow-Source-Id")
+
+
+def _request_source(request: Request, *, changed_by: str | None = None, default: str = "canvas") -> str:
+    explicit = request.headers.get("X-Workflow-Source") or request.headers.get("X-Source")
+    if explicit in _API_SOURCES:
+        return explicit
+    if changed_by and changed_by not in {"api", "canvas"}:
+        return "agent"
+    return default
+
+
+def _workflow_response(
+    definition: Any,
+    *,
+    state_version: int,
+    source: str | None = None,
+    source_id: str | None = None,
+    kind: str = "current",
+    timestamp: str | None = None,
+) -> VersionedWorkflowResponse:
+    return VersionedWorkflowResponse(
         id=definition.id,
         version=definition.version,
+        state_version=state_version,
+        workflow_version=definition.version,
         description=definition.description,
         nodes=[
             WorkflowNode(
@@ -65,6 +113,11 @@ def _workflow_response(definition: Any) -> WorkflowResponse:
         ],
         edges=[WorkflowEdge(source=edge.source, target=edge.target) for edge in definition.edges],
         metadata=definition.metadata,
+        entity_id=definition.id,
+        source=source,
+        source_id=source_id,
+        kind=kind,
+        timestamp=timestamp or _now_iso(),
     )
 
 
@@ -73,7 +126,11 @@ async def _emit_workflow_changed(
     *,
     workflow_id: str,
     changed_by: str | None,
-) -> None:
+    source: str,
+    source_id: str | None,
+    kind: str,
+    path: str | None = None,
+) -> dict[str, Any]:
     """Broadcast a ``workflow.changed`` event on the shared EventBus.
 
     Originally introduced by #718 part (a) carrying a ``revision`` field; the
@@ -82,15 +139,26 @@ async def _emit_workflow_changed(
     the embedded coding agent's WS subscriber) can invalidate their cached
     view. Cross-process / cross-session durable history now lives in git.
     """
+    version = runtime.bump_workflow_version(workflow_id)
+    runtime.mark_workflow_first_party_write(workflow_id, version, path=runtime.workflow_path(workflow_id), kind=kind)
+    payload = runtime.versioned_change_payload(
+        entity_class=WORKFLOW_ENTITY_CLASS,
+        entity_id=workflow_id,
+        version=version,
+        source=source,
+        source_id=source_id,
+        kind=kind,
+        workflow_id=workflow_id,
+        path=path,
+        changed_by=changed_by,
+    )
     await runtime.event_bus.emit(
         EngineEvent(
             event_type=WORKFLOW_CHANGED,
-            data={
-                "workflow_id": workflow_id,
-                "changed_by": changed_by,
-            },
+            data=payload,
         )
     )
+    return payload
 
 
 @router.get("/list", response_model=list[str])
@@ -102,8 +170,8 @@ async def list_workflows(runtime: RuntimeDep) -> list[str]:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/import", response_model=WorkflowResponse)
-async def import_workflow(file: UploadFile, runtime: RuntimeDep) -> WorkflowResponse:
+@router.post("/import", response_model=VersionedWorkflowResponse)
+async def import_workflow(file: UploadFile, runtime: RuntimeDep) -> VersionedWorkflowResponse:
     """Import an external YAML workflow file into the active project."""
     if not file.filename or not file.filename.endswith((".yaml", ".yml")):
         raise HTTPException(status_code=400, detail="Only .yaml/.yml files are accepted.")
@@ -123,6 +191,7 @@ async def import_workflow(file: UploadFile, runtime: RuntimeDep) -> WorkflowResp
             tmp_path.unlink(missing_ok=True)
 
         out_path = runtime.workflow_path(definition.id)
+        existed = out_path.exists()
         save_yaml(definition, out_path)
         _mark_self_write(out_path)
     except HTTPException:
@@ -133,12 +202,27 @@ async def import_workflow(file: UploadFile, runtime: RuntimeDep) -> WorkflowResp
     # ADR-034 Phase 2: broadcast workflow.changed so any connected client
     # (other browser tabs, the embedded coding agent's WS subscriber)
     # invalidates its cache.
-    await _emit_workflow_changed(runtime, workflow_id=definition.id, changed_by="import")
-    return _workflow_response(definition)
+    change = await _emit_workflow_changed(
+        runtime,
+        workflow_id=definition.id,
+        changed_by="import",
+        source="import",
+        source_id=None,
+        kind="modified" if existed else "created",
+        path=f"workflows/{definition.id}.yaml",
+    )
+    return _workflow_response(
+        definition,
+        state_version=change["version"],
+        source=change["source"],
+        source_id=change["source_id"],
+        kind=change["kind"],
+        timestamp=change["timestamp"],
+    )
 
 
-@router.post("/import-path", response_model=WorkflowResponse)
-async def import_workflow_from_path(body: dict, runtime: RuntimeDep) -> WorkflowResponse:
+@router.post("/import-path", response_model=VersionedWorkflowResponse)
+async def import_workflow_from_path(body: dict, runtime: RuntimeDep) -> VersionedWorkflowResponse:
     """Import a workflow from a filesystem path (returned by the browse dialog).
 
     Emits ``workflow.changed`` after the write so other clients refetch
@@ -158,19 +242,37 @@ async def import_workflow_from_path(body: dict, runtime: RuntimeDep) -> Workflow
 
         definition = load_yaml(path)
         out_path = runtime.workflow_path(definition.id)
+        existed = out_path.exists()
         save_yaml(definition, out_path)
         _mark_self_write(out_path)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    await _emit_workflow_changed(runtime, workflow_id=definition.id, changed_by="import-path")
-    return _workflow_response(definition)
+    source_id = body.get("source_id") if isinstance(body.get("source_id"), str) else None
+    change = await _emit_workflow_changed(
+        runtime,
+        workflow_id=definition.id,
+        changed_by="import-path",
+        source="import",
+        source_id=source_id,
+        kind="modified" if existed else "created",
+        path=f"workflows/{definition.id}.yaml",
+    )
+    return _workflow_response(
+        definition,
+        state_version=change["version"],
+        source=change["source"],
+        source_id=change["source_id"],
+        kind=change["kind"],
+        timestamp=change["timestamp"],
+    )
 
 
-@router.post("/", response_model=WorkflowResponse)
-async def create_workflow(body: WorkflowCreate, runtime: RuntimeDep) -> WorkflowResponse:
+@router.post("/", response_model=VersionedWorkflowResponse)
+async def create_workflow(body: WorkflowCreate, runtime: RuntimeDep, request: Request) -> VersionedWorkflowResponse:
     """Create a new workflow from the supplied graph definition."""
     try:
+        existed = runtime.workflow_path(body.id).exists()
         definition = runtime.save_workflow(body.model_dump())
     except ValueError as exc:
         # Cycle detection and other validation errors → 422
@@ -178,12 +280,29 @@ async def create_workflow(body: WorkflowCreate, runtime: RuntimeDep) -> Workflow
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    await _emit_workflow_changed(runtime, workflow_id=definition.id, changed_by="create")
-    return _workflow_response(definition)
+    source_id = _request_source_id(request)
+    source = _request_source(request)
+    change = await _emit_workflow_changed(
+        runtime,
+        workflow_id=definition.id,
+        changed_by="create",
+        source=source,
+        source_id=source_id,
+        kind="modified" if existed else "created",
+        path=f"workflows/{definition.id}.yaml",
+    )
+    return _workflow_response(
+        definition,
+        state_version=change["version"],
+        source=change["source"],
+        source_id=change["source_id"],
+        kind=change["kind"],
+        timestamp=change["timestamp"],
+    )
 
 
-@router.get("/{workflow_id}", response_model=WorkflowResponse)
-async def get_workflow(workflow_id: str, runtime: RuntimeDep) -> WorkflowResponse:
+@router.get("/{workflow_id}", response_model=VersionedWorkflowResponse)
+async def get_workflow(workflow_id: str, runtime: RuntimeDep) -> VersionedWorkflowResponse:
     """Retrieve a workflow by its identifier.
 
     A YAML on disk that fails pydantic validation (e.g. an agent wrote it
@@ -209,16 +328,16 @@ async def get_workflow(workflow_id: str, runtime: RuntimeDep) -> WorkflowRespons
         ) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return _workflow_response(definition)
+    return _workflow_response(definition, state_version=runtime.current_workflow_version(definition.id))
 
 
-@router.put("/{workflow_id}", response_model=WorkflowResponse)
+@router.put("/{workflow_id}", response_model=VersionedWorkflowResponse)
 async def update_workflow(
     workflow_id: str,
     body: WorkflowCreate,
     runtime: RuntimeDep,
     request: Request,
-) -> WorkflowResponse:
+) -> VersionedWorkflowResponse:
     """Replace a workflow definition.
 
     ADR-039 §5.2 / D39-2.1: the in-memory ``If-Match`` revision check has
@@ -239,8 +358,25 @@ async def update_workflow(
     # changed_by: prefer an explicit ``X-Changed-By`` header (set by the MCP
     # tool / the embedded agent), else fall back to a generic "api" tag.
     changed_by = request.headers.get("X-Changed-By", "api")
-    await _emit_workflow_changed(runtime, workflow_id=definition.id, changed_by=changed_by)
-    return _workflow_response(definition)
+    source_id = _request_source_id(request)
+    source = _request_source(request, changed_by=changed_by)
+    change = await _emit_workflow_changed(
+        runtime,
+        workflow_id=definition.id,
+        changed_by=changed_by,
+        source=source,
+        source_id=source_id,
+        kind="modified",
+        path=f"workflows/{definition.id}.yaml",
+    )
+    return _workflow_response(
+        definition,
+        state_version=change["version"],
+        source=change["source"],
+        source_id=change["source_id"],
+        kind=change["kind"],
+        timestamp=change["timestamp"],
+    )
 
 
 @router.post("/export-path")

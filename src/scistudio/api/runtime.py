@@ -9,11 +9,12 @@ import logging
 import os
 import shutil
 import threading
+import time
 from collections import OrderedDict
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import unquote
 from uuid import uuid4
 
@@ -39,6 +40,10 @@ from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
 from scistudio.workflow.serializer import absolutify_paths, load_yaml, relativify_paths, save_yaml
 
 logger = logging.getLogger(__name__)
+
+WORKFLOW_ENTITY_CLASS = "workflow"
+FILE_ENTITY_CLASS = "file"
+_FIRST_PARTY_WRITE_SUPPRESSION_SECONDS = 2.0
 
 # DataFrame preview paging — cap the per-request payload to keep the response
 # under a few hundred KB even with wide tables.
@@ -354,6 +359,19 @@ class WorkflowRun:
     workflow_git_commit: str | None = None
 
 
+@dataclass(frozen=True)
+class FirstPartyEntityWrite:
+    """Exact file signature for a first-party entity write."""
+
+    version: int
+    seen_at: float
+    path: str | None = None
+    mtime_ns: int | None = None
+    size: int | None = None
+    exists: bool | None = None
+    kind: str | None = None
+
+
 class LogBroadcaster:
     """Fan-out log events to SSE subscribers."""
 
@@ -411,8 +429,13 @@ class ApiRuntime:
         # plus the working-tree dirty state (D39-2.2b) replace the optimistic-
         # concurrency model; cross-tab cache invalidation rides on the existing
         # ``workflow.changed`` event flow (now without a ``revision`` field).
+        self._entity_versions: dict[tuple[str, str], int] = {}
+        self._first_party_entity_writes: dict[tuple[str, str], FirstPartyEntityWrite] = {}
+        self._version_lock = threading.RLock()
 
         self.event_bus = EventBus()
+        event_bus_any = cast(Any, self.event_bus)
+        event_bus_any.runtime = self
         self.resource_manager = ResourceManager(event_bus=self.event_bus)
         self.process_registry = ProcessRegistry()
         self.runner = LocalRunner(event_bus=self.event_bus, registry=self.process_registry)
@@ -790,6 +813,7 @@ class ApiRuntime:
         self._save_known_projects()
         self.active_project = candidate
         self.data_catalog = {}
+        self.reset_version_state_for_project(Path(candidate.path))
         # Issue #1332 / ARCHITECTURE.md §10 + §10.5: rescan TypeRegistry so
         # the project's ``types/`` drop-in DataObject subclasses register,
         # mirroring the block-registry refresh below.
@@ -990,6 +1014,202 @@ class ApiRuntime:
     def workflow_path(self, workflow_id: str) -> Path:
         project = self.require_active_project()
         return Path(project.path) / "workflows" / f"{workflow_id}.yaml"
+
+    def reset_version_state_for_project(self, project_dir: Path) -> None:
+        """Initialize ADR-045 version state from the active project's disk state."""
+        workflows_dir = project_dir / "workflows"
+        seeded: dict[tuple[str, str], int] = {}
+        if workflows_dir.is_dir():
+            for pattern in ("*.yaml", "*.yml"):
+                for path in workflows_dir.glob(pattern):
+                    try:
+                        disk_version = path.stat().st_mtime_ns
+                    except OSError:
+                        continue
+                    key = (WORKFLOW_ENTITY_CLASS, path.stem)
+                    seeded[key] = max(seeded.get(key, 0), int(disk_version))
+        with self._version_lock:
+            self._entity_versions = seeded
+            self._first_party_entity_writes.clear()
+
+    def current_entity_version(
+        self,
+        entity_class: str,
+        entity_id: str,
+        *,
+        path: Path | None = None,
+    ) -> int:
+        """Return the current server-owned version for ``(entity_class, entity_id)``."""
+        key = self._version_key(entity_class, entity_id)
+        with self._version_lock:
+            current = self._entity_versions.get(key)
+            if current is None:
+                current = self._initial_version_from_path(path)
+                self._entity_versions[key] = current
+            return current
+
+    def bump_entity_version(
+        self,
+        entity_class: str,
+        entity_id: str,
+        *,
+        path: Path | None = None,
+    ) -> int:
+        """Advance and return the next monotonic version for an entity."""
+        key = self._version_key(entity_class, entity_id)
+        with self._version_lock:
+            current = self._entity_versions.get(key)
+            if current is None:
+                current = self._initial_version_from_path(path)
+            version = int(current) + 1
+            self._entity_versions[key] = version
+            return version
+
+    def current_workflow_version(self, workflow_id: str) -> int:
+        return self.current_entity_version(
+            WORKFLOW_ENTITY_CLASS,
+            workflow_id,
+            path=self.workflow_path(workflow_id),
+        )
+
+    def bump_workflow_version(self, workflow_id: str) -> int:
+        return self.bump_entity_version(
+            WORKFLOW_ENTITY_CLASS,
+            workflow_id,
+            path=self.workflow_path(workflow_id),
+        )
+
+    def _first_party_write_signature(self, path: Path) -> tuple[str, int | None, int | None, bool]:
+        normalized = str(path.resolve())
+        try:
+            stat = path.stat()
+        except OSError:
+            return normalized, None, None, False
+        return normalized, int(stat.st_mtime_ns), int(stat.st_size), True
+
+    def mark_entity_first_party_write(
+        self,
+        entity_class: str,
+        entity_id: str,
+        version: int,
+        *,
+        path: Path | None = None,
+        kind: str | None = None,
+    ) -> None:
+        """Remember an exact write-site signature so watcher fallback can suppress echoes."""
+        key = self._version_key(entity_class, entity_id)
+        path_key: str | None = None
+        mtime_ns: int | None = None
+        size: int | None = None
+        exists: bool | None = None
+        if path is not None:
+            path_key, mtime_ns, size, exists = self._first_party_write_signature(path)
+        with self._version_lock:
+            self._first_party_entity_writes[key] = FirstPartyEntityWrite(
+                version=int(version),
+                seen_at=time.monotonic(),
+                path=path_key,
+                mtime_ns=mtime_ns,
+                size=size,
+                exists=exists,
+                kind=kind,
+            )
+
+    def mark_workflow_first_party_write(
+        self,
+        workflow_id: str,
+        version: int,
+        *,
+        path: Path | None = None,
+        kind: str | None = None,
+    ) -> None:
+        self.mark_entity_first_party_write(WORKFLOW_ENTITY_CLASS, workflow_id, version, path=path, kind=kind)
+
+    def is_recent_first_party_entity_write(
+        self,
+        entity_class: str,
+        entity_id: str,
+        *,
+        version: int | None = None,
+        path: Path | None = None,
+        kind: str | None = None,
+    ) -> bool:
+        key = self._version_key(entity_class, entity_id)
+        now = time.monotonic()
+        with self._version_lock:
+            entry = self._first_party_entity_writes.get(key)
+            if entry is None:
+                return False
+            if now - entry.seen_at > _FIRST_PARTY_WRITE_SUPPRESSION_SECONDS:
+                self._first_party_entity_writes.pop(key, None)
+                return False
+            if version is not None and int(version) != entry.version:
+                return False
+            if path is None:
+                return version is not None
+            path_key, mtime_ns, size, exists = self._first_party_write_signature(path)
+            if entry.path != path_key:
+                return False
+            if entry.exists is False:
+                return exists is False and entry.kind == "deleted" and kind == "deleted"
+            return exists is True and entry.mtime_ns == mtime_ns and entry.size == size
+
+    def is_recent_workflow_first_party_write(
+        self,
+        workflow_id: str,
+        *,
+        version: int | None = None,
+        path: Path | None = None,
+        kind: str | None = None,
+    ) -> bool:
+        return self.is_recent_first_party_entity_write(
+            WORKFLOW_ENTITY_CLASS,
+            workflow_id,
+            version=version,
+            path=path,
+            kind=kind,
+        )
+
+    def versioned_change_payload(
+        self,
+        *,
+        entity_class: str,
+        entity_id: str,
+        version: int,
+        source: str,
+        source_id: str | None,
+        kind: str,
+        timestamp: str | None = None,
+        **extra: Any,
+    ) -> dict[str, Any]:
+        """Build the shared ADR-045 event/response contract payload."""
+        payload: dict[str, Any] = {
+            "entity_class": entity_class,
+            "entity_id": entity_id,
+            "version": int(version),
+            "source": source,
+            "source_id": source_id,
+            "kind": kind,
+            "timestamp": timestamp or _now_iso(),
+        }
+        payload.update(extra)
+        return payload
+
+    def _version_key(self, entity_class: str, entity_id: str) -> tuple[str, str]:
+        if not entity_class:
+            raise ValueError("entity_class is required")
+        if not entity_id:
+            raise ValueError("entity_id is required")
+        return (entity_class, entity_id)
+
+    @staticmethod
+    def _initial_version_from_path(path: Path | None) -> int:
+        if path is None:
+            return 0
+        try:
+            return int(path.stat().st_mtime_ns)
+        except OSError:
+            return 0
 
     def save_workflow(self, payload: dict[str, Any]) -> WorkflowDefinition:
         # #506: relativify paths in node configs before persisting YAML.

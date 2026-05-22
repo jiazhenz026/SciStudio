@@ -76,6 +76,7 @@ import time
 import unicodedata
 from collections import deque
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
 from typing import Any
@@ -93,6 +94,7 @@ from watchdog.observers import Observer
 from scistudio.engine.events import GIT_HEAD_CHANGED, WORKFLOW_CHANGED, EngineEvent, EventBus
 
 logger = logging.getLogger(__name__)
+_WORKFLOW_ENTITY_CLASS = "workflow"
 
 # Debounce window per path (ADR-034 §3.6: "Coalesce rapid writes within 200ms").
 _DEBOUNCE_SECONDS = 0.2
@@ -158,11 +160,13 @@ class _WorkflowFileHandler(FileSystemEventHandler):
         project_dir: Path,
         broadcast: Callable[[dict[str, Any]], Any],
         loop: asyncio.AbstractEventLoop | None,
+        runtime: Any | None = None,
     ) -> None:
         super().__init__()
         self._project_dir = _normalise(project_dir)
         self._broadcast = broadcast
         self._loop = loop
+        self._runtime = runtime
         self._last_emit: dict[Path, float] = {}
         self._self_writes: deque[tuple[Path, float, int]] = deque(maxlen=_SELF_WRITE_DEQUE_CAP)
         self._lock = RLock()
@@ -230,6 +234,21 @@ class _WorkflowFileHandler(FileSystemEventHandler):
         if isinstance(event, FileMovedEvent):
             kind = "created"
 
+        normalised = _normalise(path)
+        workflow_id = normalised.stem
+
+        if self._runtime is not None and self._runtime.is_recent_workflow_first_party_write(
+            workflow_id,
+            path=path,
+            kind=kind,
+        ):
+            logger.debug(
+                "workflow_watcher: suppressing first-party workflow event %s %s",
+                kind,
+                path,
+            )
+            return
+
         # Suppress spurious deletes that fire as part of an atomic
         # replace (``os.replace(tmp, existing.yaml)`` on Windows emits a
         # ``FileDeletedEvent(existing.yaml)`` immediately followed by a
@@ -244,8 +263,6 @@ class _WorkflowFileHandler(FileSystemEventHandler):
                 path,
             )
             return
-
-        normalised = _normalise(path)
 
         # Self-write suppression (only meaningful for events on existing
         # files; deletions cannot match a (path, mtime, size) tuple).
@@ -267,13 +284,38 @@ class _WorkflowFileHandler(FileSystemEventHandler):
             # happen because we watch project_dir/workflows, but be safe.
             relative = normalised
 
-        payload: dict[str, Any] = {
-            "type": "workflow.changed",
-            "path": str(relative).replace("\\", "/"),
-            "kind": kind,
-            "workflow_id": normalised.stem,
-            "changed_by": "watcher",
-        }
+        relative_path = str(relative).replace("\\", "/")
+        if self._runtime is not None:
+            version = self._runtime.bump_workflow_version(workflow_id)
+            payload = self._runtime.versioned_change_payload(
+                entity_class=_WORKFLOW_ENTITY_CLASS,
+                entity_id=workflow_id,
+                version=version,
+                source="external",
+                source_id=None,
+                kind=kind,
+                workflow_id=workflow_id,
+                path=relative_path,
+                changed_by="watcher",
+            )
+        else:
+            try:
+                version = int(path.stat().st_mtime_ns)
+            except OSError:
+                version = 0
+            payload = {
+                "entity_class": _WORKFLOW_ENTITY_CLASS,
+                "entity_id": workflow_id,
+                "version": version,
+                "source": "external",
+                "source_id": None,
+                "kind": kind,
+                "timestamp": datetime.now(tz=UTC).isoformat(),
+                "workflow_id": workflow_id,
+                "path": relative_path,
+                "changed_by": "watcher",
+            }
+        payload["type"] = "workflow.changed"
         logger.debug("workflow_watcher: emitting %s for %s", kind, payload["path"])
 
         if self._loop is None:
@@ -489,6 +531,7 @@ class WorkflowWatcher:
 
     def __init__(self, event_bus: EventBus) -> None:
         self._event_bus = event_bus
+        self._runtime = getattr(event_bus, "runtime", None)
         # watchdog's Observer is a factory function, not a class — mypy
         # cannot use it as a type annotation. We store it as ``Any``.
         self._observer: Any = None
@@ -557,6 +600,7 @@ class WorkflowWatcher:
                 project_dir=project_dir,
                 broadcast=self._broadcast_to_event_bus,
                 loop=loop,
+                runtime=self._runtime,
             )
             observer = Observer()
             try:
@@ -627,15 +671,11 @@ class WorkflowWatcher:
 
     async def _broadcast_to_event_bus(self, payload: dict[str, Any]) -> None:
         """Emit a ``workflow.changed`` EngineEvent so /ws forwards it."""
+        data = {key: value for key, value in payload.items() if key != "type"}
         await self._event_bus.emit(
             EngineEvent(
                 event_type=WORKFLOW_CHANGED,
-                data={
-                    "workflow_id": payload.get("workflow_id"),
-                    "path": payload.get("path"),
-                    "kind": payload.get("kind"),
-                    "changed_by": payload.get("changed_by", "watcher"),
-                },
+                data=data,
             )
         )
 

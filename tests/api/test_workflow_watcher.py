@@ -84,6 +84,10 @@ def test_modified_yaml_emits_event(tmp_path: Path) -> None:
     assert payload["type"] == "workflow.changed"
     assert payload["kind"] == "modified"
     assert payload["workflow_id"] == "demo"
+    assert payload["entity_class"] == "workflow"
+    assert payload["entity_id"] == "demo"
+    assert payload["source"] == "external"
+    assert isinstance(payload["version"], int)
     # Path is project-relative with forward slashes regardless of host OS.
     assert payload["path"] == "workflows/demo.yaml"
 

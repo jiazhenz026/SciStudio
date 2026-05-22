@@ -232,6 +232,13 @@ def test_websocket_receives_workflow_changed_event_after_write(
     assert message["type"] == WORKFLOW_CHANGED
     assert message["data"]["workflow_id"] == "changed-ws"
     assert message["data"]["changed_by"] == "api"
+    assert message["data"]["entity_class"] == "workflow"
+    assert message["data"]["entity_id"] == "changed-ws"
+    assert isinstance(message["data"]["version"], int)
+    assert message["data"]["source"] == "canvas"
+    assert message["data"]["source_id"] is None
+    assert message["data"]["kind"] == "modified"
+    assert message["data"]["timestamp"]
     # Field is gone, not silently zero.
     assert "revision" not in message["data"]
 
@@ -259,6 +266,9 @@ def test_import_path_emits_workflow_changed_event(
     wait_for_condition(lambda: len(seen) >= 1)
     assert seen[-1].data["workflow_id"] == "changed-import"
     assert seen[-1].data["changed_by"] == "import-path"
+    assert seen[-1].data["source"] == "import"
+    assert seen[-1].data["entity_id"] == "changed-import"
+    assert isinstance(seen[-1].data["version"], int)
 
 
 def test_x_changed_by_header_propagates_to_workflow_changed_event(
@@ -280,3 +290,4 @@ def test_x_changed_by_header_propagates_to_workflow_changed_event(
     assert response.status_code == 200
     wait_for_condition(lambda: len(seen) >= 1)
     assert seen[-1].data["changed_by"] == "embedded-agent"
+    assert seen[-1].data["source"] == "agent"
