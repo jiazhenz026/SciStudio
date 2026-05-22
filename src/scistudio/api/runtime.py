@@ -14,7 +14,7 @@ from collections import OrderedDict
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import unquote
 from uuid import uuid4
 
@@ -421,7 +421,8 @@ class ApiRuntime:
         self._version_lock = threading.RLock()
 
         self.event_bus = EventBus()
-        self.event_bus.runtime = self
+        event_bus_any = cast(Any, self.event_bus)
+        event_bus_any.runtime = self
         self.resource_manager = ResourceManager(event_bus=self.event_bus)
         self.process_registry = ProcessRegistry()
         self.runner = LocalRunner(event_bus=self.event_bus, registry=self.process_registry)

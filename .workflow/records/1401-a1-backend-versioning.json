@@ -28,7 +28,7 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "ruff check src/scistudio/api/runtime.py src/scistudio/api/routes/workflows.py src/scistudio/api/routes/git.py src/scistudio/api/routes/workflow_watcher.py src/scistudio/engine/events.py tests/api/test_workflow_version_vector.py tests/api/test_workflow_changed_event_schema.py tests/api/routes/test_workflow_watcher_fallback.py",
+      "command_or_tool": "ruff check src/scistudio/api/runtime.py src/scistudio/api/routes/workflows.py src/scistudio/api/routes/git.py src/scistudio/api/routes/workflow_watcher.py src/scistudio/engine/events.py tests/api/test_workflow_version_vector.py tests/api/test_workflow_changed_event_schema.py tests/api/routes/test_workflow_watcher_fallback.py tests/api/test_workflow_watcher.py",
       "exit_code": 0,
       "name": "ruff",
       "output_path": "All checks passed",
@@ -37,10 +37,10 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "ruff format --check src/scistudio/api/runtime.py src/scistudio/api/routes/workflows.py src/scistudio/api/routes/git.py src/scistudio/api/routes/workflow_watcher.py src/scistudio/engine/events.py tests/api/test_workflow_version_vector.py tests/api/test_workflow_changed_event_schema.py tests/api/routes/test_workflow_watcher_fallback.py",
+      "command_or_tool": "ruff format --check src/scistudio/api/runtime.py src/scistudio/api/routes/workflows.py src/scistudio/api/routes/git.py src/scistudio/api/routes/workflow_watcher.py src/scistudio/engine/events.py tests/api/test_workflow_version_vector.py tests/api/test_workflow_changed_event_schema.py tests/api/routes/test_workflow_watcher_fallback.py tests/api/test_workflow_watcher.py",
       "exit_code": 0,
       "name": "format",
-      "output_path": "8 files already formatted",
+      "output_path": "9 files already formatted",
       "status": "pass",
       "summary": {},
       "timestamp": null
@@ -151,10 +151,10 @@
     ]
   },
   "sentrux": {
-    "command_or_tool": "mcp__sentrux__.scan/check_rules/health",
+    "command_or_tool": "mcp__sentrux__.rescan/check_rules/health",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "Sentrux MCP: scan quality_signal=4442; check_rules pass; rules_checked=3; total_rules_defined=15; violations=0; pro_required=false",
+    "output_path": "Sentrux MCP: rescan quality_signal=4442; check_rules pass; rules_checked=3; total_rules_defined=15; violations=0; pro_required=false",
     "pro_required": false,
     "quality_signal": 4442.0,
     "rules_checked": 3,
