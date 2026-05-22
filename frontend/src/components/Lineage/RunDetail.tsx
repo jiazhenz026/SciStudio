@@ -480,8 +480,38 @@ export function RunDetail(): ReactElement {
          * implementing the soft-restore semantics from
          * ADR-038 §3.8 / ADR-039 §6 Phase 4. Disabled when
          * ``workflow_git_commit`` is null (degraded-mode run).
+         *
+         * #1400 hotfix: the parent now wires ``onRestored`` so the
+         * canvas refreshes after the YAML is rewritten on disk. Without
+         * this callback the gitRestore succeeded but the canvas kept
+         * showing the in-memory snapshot from before — the WS
+         * ``workflow.changed`` watcher is unreliable for git-checkout
+         * file replacements on Windows (#1322). If the same workflow is
+         * currently open we refetch and replace its slice in place;
+         * otherwise we openTab so the user sees the just-restored state.
          */}
-        <RestoreWorkflowButton run={run} />
+        <RestoreWorkflowButton
+          run={run}
+          onRestored={() => {
+            void (async () => {
+              try {
+                const fresh = await api.getWorkflow(run.workflow_id);
+                const store = useAppStore.getState();
+                if (store.workflowId === run.workflow_id) {
+                  store.setWorkflow(fresh);
+                } else {
+                  store.openTab(fresh, run.workflow_id);
+                }
+              } catch (err) {
+                // best-effort — the gitRestore itself already succeeded;
+                // worst case the user can refresh manually via the file
+                // tree. Surface to console for diagnosis.
+                // eslint-disable-next-line no-console
+                console.warn("[RunDetail] canvas refresh after restore failed:", err);
+              }
+            })();
+          }}
+        />
       </footer>
     </section>
   );
