@@ -2,7 +2,7 @@
   "tool": "full_audit",
   "status": "pass",
   "generated_at": "1970-01-01T00:00:00Z",
-  "source_sha": "0ee36876affaf4ed63ed56f39221fc66253e6efa72ca2dbe126fa8b1a61654a5",
+  "source_sha": "a4ab0cbf119eb20f7db5c30399d0b5161e451f903015ec08b9e10ab43688e2ee",
   "findings": [],
   "summary": {
     "implemented_children": [
@@ -22,7 +22,7 @@
       "tool": "generate_facts",
       "status": "pass",
       "generated_at": "1970-01-01T00:00:00Z",
-      "source_sha": "0ee36876affaf4ed63ed56f39221fc66253e6efa72ca2dbe126fa8b1a61654a5",
+      "source_sha": "a4ab0cbf119eb20f7db5c30399d0b5161e451f903015ec08b9e10ab43688e2ee",
       "findings": [],
       "summary": {
         "facts_path": "docs/facts/generated.yaml",
@@ -91,7 +91,7 @@
     {
       "tool": "frontmatter_lint",
       "status": "pass",
-      "generated_at": "2026-05-22T20:00:02.240867Z",
+      "generated_at": "2026-05-22T20:14:48.444491Z",
       "source_sha": "",
       "findings": [],
       "summary": {
@@ -103,8 +103,8 @@
     {
       "tool": "fact_drift",
       "status": "pass",
-      "generated_at": "2026-05-22T20:00:03.523616Z",
-      "source_sha": "0ee36876affaf4ed63ed56f39221fc66253e6efa72ca2dbe126fa8b1a61654a5",
+      "generated_at": "2026-05-22T20:14:49.623816Z",
+      "source_sha": "a4ab0cbf119eb20f7db5c30399d0b5161e451f903015ec08b9e10ab43688e2ee",
       "findings": [],
       "summary": {
         "docs_checked": 194,
@@ -115,8 +115,8 @@
     {
       "tool": "doc_drift",
       "status": "pass",
-      "generated_at": "2026-05-22T20:00:04.924457Z",
-      "source_sha": "0ee36876affaf4ed63ed56f39221fc66253e6efa72ca2dbe126fa8b1a61654a5",
+      "generated_at": "2026-05-22T20:14:51.348042Z",
+      "source_sha": "a4ab0cbf119eb20f7db5c30399d0b5161e451f903015ec08b9e10ab43688e2ee",
       "findings": [],
       "summary": {
         "governed_docs_checked": 64,
@@ -132,8 +132,8 @@
     {
       "tool": "closure",
       "status": "pass",
-      "generated_at": "2026-05-22T20:00:06.374082Z",
-      "source_sha": "0ee36876affaf4ed63ed56f39221fc66253e6efa72ca2dbe126fa8b1a61654a5",
+      "generated_at": "2026-05-22T20:14:52.554109Z",
+      "source_sha": "a4ab0cbf119eb20f7db5c30399d0b5161e451f903015ec08b9e10ab43688e2ee",
       "findings": [],
       "summary": {
         "governed_docs_checked": 64,
@@ -148,8 +148,8 @@
     {
       "tool": "signature_drift",
       "status": "pass",
-      "generated_at": "2026-05-22T20:00:06.377493Z",
-      "source_sha": "0ee36876affaf4ed63ed56f39221fc66253e6efa72ca2dbe126fa8b1a61654a5",
+      "generated_at": "2026-05-22T20:14:52.557070Z",
+      "source_sha": "a4ab0cbf119eb20f7db5c30399d0b5161e451f903015ec08b9e10ab43688e2ee",
       "findings": [],
       "summary": {
         "expected_signatures_checked": 188,
@@ -163,8 +163,8 @@
     {
       "tool": "architecture_drift",
       "status": "pass",
-      "generated_at": "2026-05-22T20:00:06.388481Z",
-      "source_sha": "0ee36876affaf4ed63ed56f39221fc66253e6efa72ca2dbe126fa8b1a61654a5",
+      "generated_at": "2026-05-22T20:14:52.564906Z",
+      "source_sha": "a4ab0cbf119eb20f7db5c30399d0b5161e451f903015ec08b9e10ab43688e2ee",
       "findings": [],
       "summary": {
         "architecture_path": "C:/Users/jiazh/Desktop/workspace/SciStudio/.claude/worktrees/adr-045-a3-frontend-reconcile/docs/architecture/ARCHITECTURE.md",
@@ -178,7 +178,7 @@
     {
       "tool": "vulture",
       "status": "pass",
-      "generated_at": "2026-05-22T20:00:07.176131Z",
+      "generated_at": "2026-05-22T20:14:53.207603Z",
       "source_sha": "",
       "findings": [
         {

@@ -1096,6 +1096,7 @@ class ApiRuntime:
         *,
         path: Path | None = None,
         kind: str | None = None,
+        pending: bool = False,
     ) -> None:
         """Remember an exact write-site signature so watcher fallback can suppress echoes."""
         key = self._version_key(entity_class, entity_id)
@@ -1104,7 +1105,9 @@ class ApiRuntime:
         size: int | None = None
         exists: bool | None = None
         if path is not None:
-            path_key, mtime_ns, size, exists = self._first_party_write_signature(path)
+            path_key = str(path.resolve())
+            if not pending:
+                path_key, mtime_ns, size, exists = self._first_party_write_signature(path)
         with self._version_lock:
             self._first_party_entity_writes[key] = FirstPartyEntityWrite(
                 version=int(version),
@@ -1151,6 +1154,8 @@ class ApiRuntime:
             path_key, mtime_ns, size, exists = self._first_party_write_signature(path)
             if entry.path != path_key:
                 return False
+            if entry.exists is None:
+                return entry.kind == kind
             if entry.exists is False:
                 return exists is False and entry.kind == "deleted" and kind == "deleted"
             return exists is True and entry.mtime_ns == mtime_ns and entry.size == size
