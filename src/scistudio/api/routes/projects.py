@@ -5,14 +5,15 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from scistudio.api.deps import get_runtime
-from scistudio.api.runtime import ApiRuntime
+from scistudio.api.runtime import FILE_ENTITY_CLASS, ApiRuntime
 from scistudio.api.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
 from scistudio.engine.events import EngineEvent
 
@@ -21,6 +22,8 @@ from scistudio.engine.events import EngineEvent
 # (not in scistudio.engine.events) because the events module is frozen by
 # the dispatch's hard-scope rules; subscribers can opt in by string.
 BLOCKS_RELOADED_EVENT_TYPE: str = "blocks.reloaded"
+FILE_CHANGED_EVENT_TYPE: str = "file.changed"
+_API_SOURCES = {"canvas", "agent", "gitRestore", "import", "external"}
 
 logger = logging.getLogger(__name__)
 
@@ -97,12 +100,21 @@ class FileReadResponse(BaseModel):
     mtime: float
     size: int
     encoding: str = "utf-8"
+    state_version: int
+    entity_class: str = FILE_ENTITY_CLASS
+    entity_id: str
+    source: str | None = None
+    source_id: str | None = None
+    kind: str = "current"
+    timestamp: str
 
 
 class FileWriteRequest(BaseModel):
     """Skeleton — request body shape for PUT file endpoint (per ADR-036 §3.2)."""
 
     content: str
+    source: str | None = None
+    source_id: str | None = None
 
 
 class FileWriteResponse(BaseModel):
@@ -110,6 +122,68 @@ class FileWriteResponse(BaseModel):
 
     mtime: float
     size: int
+    state_version: int
+    entity_class: str = FILE_ENTITY_CLASS
+    entity_id: str
+    source: str
+    source_id: str | None = None
+    kind: str
+    timestamp: str
+
+
+def _now_iso() -> str:
+    return datetime.now(tz=UTC).isoformat()
+
+
+def _project_relative_entity_id(project_root: Path, target: Path) -> str:
+    """Return the ADR-045 file entity id for a sandboxed project file."""
+    try:
+        relative = target.relative_to(project_root)
+    except ValueError:
+        relative = Path(os.path.relpath(target, project_root))
+    return str(relative).replace("\\", "/")
+
+
+def _request_source_id(request: Request, body: FileWriteRequest) -> str | None:
+    return body.source_id or request.headers.get("X-Source-Id") or request.headers.get("X-File-Source-Id")
+
+
+def _request_source(request: Request, body: FileWriteRequest) -> str:
+    explicit = body.source or request.headers.get("X-File-Source") or request.headers.get("X-Source")
+    if explicit in _API_SOURCES:
+        return explicit
+    changed_by = request.headers.get("X-Changed-By")
+    if changed_by and changed_by not in {"api", "canvas"}:
+        return "agent"
+    return "canvas"
+
+
+async def _emit_file_changed(
+    runtime: ApiRuntime,
+    *,
+    entity_id: str,
+    target: Path,
+    project_id: str,
+    source: str,
+    source_id: str | None,
+    kind: str,
+    changed_by: str | None,
+) -> dict[str, Any]:
+    version = runtime.bump_entity_version(FILE_ENTITY_CLASS, entity_id, path=target)
+    runtime.mark_entity_first_party_write(FILE_ENTITY_CLASS, entity_id, version, path=target, kind=kind)
+    payload = runtime.versioned_change_payload(
+        entity_class=FILE_ENTITY_CLASS,
+        entity_id=entity_id,
+        version=version,
+        source=source,
+        source_id=source_id,
+        kind=kind,
+        project_id=project_id,
+        path=entity_id,
+        changed_by=changed_by,
+    )
+    await runtime.event_bus.emit(EngineEvent(event_type=FILE_CHANGED_EVENT_TYPE, data=payload))
+    return payload
 
 
 def _resolve_project_file(runtime: ApiRuntime, project_id: str, path: str) -> tuple[Path, Path]:
@@ -170,7 +244,7 @@ async def read_project_file(
     edge-case matrix lives in the ADR; the helper :func:`_resolve_project_file`
     enforces sandbox + allowlist; size and UTF-8 checks happen here.
     """
-    _, target = _resolve_project_file(runtime, project_id, path)
+    project_root, target = _resolve_project_file(runtime, project_id, path)
 
     if not target.exists():
         raise HTTPException(status_code=404, detail="File not found")
@@ -200,11 +274,17 @@ async def read_project_file(
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"read failed: {exc}") from exc
 
+    entity_id = _project_relative_entity_id(project_root, target)
+    state_version = runtime.current_entity_version(FILE_ENTITY_CLASS, entity_id, path=target)
+
     return FileReadResponse(
         content=content,
         mtime=stat.st_mtime,
         size=stat.st_size,
         encoding="utf-8",
+        state_version=state_version,
+        entity_id=entity_id,
+        timestamp=_now_iso(),
     )
 
 
@@ -213,6 +293,7 @@ async def write_project_file(
     project_id: str,
     runtime: RuntimeDep,
     body: FileWriteRequest,
+    request: Request,
     path: str = "",
 ) -> FileWriteResponse:
     """Write a project-relative file atomically. (ADR-036 §3.2)
@@ -233,7 +314,7 @@ async def write_project_file(
     """
     from scistudio.api.routes.workflow_watcher import mark_self_write
 
-    _, target = _resolve_project_file(runtime, project_id, path)
+    project_root, target = _resolve_project_file(runtime, project_id, path)
 
     encoded = body.content.encode("utf-8")
     if len(encoded) > ADR036_FILE_SIZE_CAP_BYTES:
@@ -249,6 +330,8 @@ async def write_project_file(
         raise HTTPException(status_code=404, detail="Parent directory does not exist")
     if target.exists() and target.is_dir():
         raise HTTPException(status_code=400, detail="Path is a directory, not a file")
+
+    existed = target.exists()
 
     # Atomic write: tempfile in same dir + os.replace.
     tmp_fd, tmp_path = tempfile.mkstemp(prefix=".__scistudio_write_", suffix=target.suffix, dir=str(target.parent))
@@ -310,7 +393,30 @@ async def write_project_file(
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"post-write stat failed: {exc}") from exc
 
-    return FileWriteResponse(mtime=stat.st_mtime, size=stat.st_size)
+    entity_id = _project_relative_entity_id(project_root, target)
+    source = _request_source(request, body)
+    source_id = _request_source_id(request, body)
+    change = await _emit_file_changed(
+        runtime,
+        entity_id=entity_id,
+        target=target,
+        project_id=project_id,
+        source=source,
+        source_id=source_id,
+        kind="modified" if existed else "created",
+        changed_by=request.headers.get("X-Changed-By"),
+    )
+
+    return FileWriteResponse(
+        mtime=stat.st_mtime,
+        size=stat.st_size,
+        state_version=change["version"],
+        entity_id=entity_id,
+        source=change["source"],
+        source_id=change["source_id"],
+        kind=change["kind"],
+        timestamp=change["timestamp"],
+    )
 
 
 # ---------------------------------------------------------------------------

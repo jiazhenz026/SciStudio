@@ -1,0 +1,200 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Implementation completed within the planned A2 file-tab versioning scope; governing ADR/spec wording included for state_version contract consistency."
+    }
+  ],
+  "branch": "feat/issue-1401/adr-045-file-tabs",
+  "changed_test_paths": [
+    "tests/api/test_file_version_vector.py",
+    "tests/api/test_reload_on_save.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check src/scistudio/api/routes/projects.py tests/api/test_file_version_vector.py tests/api/test_projects.py tests/api/test_reload_on_save.py",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/api/test_file_version_vector.py tests/api/test_projects.py tests/api/test_reload_on_save.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "pytest",
+      "output_path": "12 passed, 1 warning. Coverage-gated required selection without --no-cov ran 12 tests successfully, then exited 1 because repo-wide --cov-fail-under=70 applies to targeted runs.",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check src/scistudio/api/routes/projects.py tests/api/test_file_version_vector.py tests/api/test_projects.py tests/api/test_reload_on_save.py",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "4 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/api/test_file_endpoints.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "pytest_compat",
+      "output_path": "15 passed, 1 warning",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1401-a2-file-tabs.json",
+    "shas": [
+      "e9ebae2b2a67789de55f6baa38a2f19b709c2ddc"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "No release-facing changelog entry required for manager-dispatched ADR-045 slice; checklist and governing ADR/spec carry implementation evidence."
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/adr-045-version-vector-checklist.md"
+      ]
+    },
+    "docs": {
+      "paths": [
+        "docs/adr/ADR-045.md",
+        "docs/specs/adr-045-workflow-state-version.md",
+        "docs/audit/adr-045-a2-full-audit.json"
+      ]
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-045-a2-full-audit.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/adr-045-a2-full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1401,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1401"
+    }
+  ],
+  "owner_directive": "ADR-045 A2 backend file-tab versioning and file.changed events",
+  "planned_files": [
+    "src/scistudio/api/routes/projects.py",
+    "tests/api/test_file_version_vector.py",
+    "tests/api/test_projects.py",
+    "tests/api/test_reload_on_save.py",
+    "docs/planning/adr-045-version-vector-checklist.md",
+    "docs/adr/ADR-045.md",
+    "docs/specs/adr-045-workflow-state-version.md",
+    "docs/audit/adr-045-a2-full-audit.json",
+    ".workflow/records/1401-a2-file-tabs.json"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1401
+    ],
+    "number": 1425,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1425"
+  },
+  "record_path": ".workflow/records/1401-a2-file-tabs.json",
+  "required_checks": [
+    "pytest",
+    "ruff",
+    "format",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "src/scistudio/api/runtime.py",
+      "src/scistudio/engine/events.py",
+      "src/scistudio/api/routes/workflows.py",
+      "src/scistudio/api/routes/git.py",
+      "src/scistudio/api/routes/workflow_watcher.py",
+      "frontend/src/**"
+    ],
+    "include": [
+      "src/scistudio/api/routes/projects.py",
+      "tests/api/test_file_version_vector.py",
+      "tests/api/test_projects.py",
+      "tests/api/test_reload_on_save.py",
+      ".workflow/records/1401-a2-file-tabs.json",
+      "docs/planning/adr-045-version-vector-checklist.md",
+      "docs/audit/adr-045-a2-full-audit.json",
+      "docs/adr/ADR-045.md",
+      "docs/specs/adr-045-workflow-state-version.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__sentrux__.scan/check_rules/health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "Sentrux MCP: scan quality_signal=4442; check_rules pass; rules_checked=3; total_rules_defined=15; violations=0; pro_required=false",
+    "pro_required": false,
+    "quality_signal": 4442.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1401-a2-file-tabs",
+  "task_kind": "bugfix"
+}

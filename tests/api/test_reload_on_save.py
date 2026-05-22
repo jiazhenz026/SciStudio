@@ -87,8 +87,16 @@ def test_clean_block_save_triggers_reload_and_event(
         json={"content": clean_source},
     )
     assert r.status_code == 200, r.text
+    saved = r.json()
+    assert saved["state_version"] > 0
+    assert saved["entity_id"] == "blocks/clean_block.py"
 
     assert reload_calls["count"] == 1, "hot_reload was not called for a clean blocks/*.py save"
+
+    file_changed = [evt for evt in captured_events if evt["type"] == projects_module.FILE_CHANGED_EVENT_TYPE]
+    assert len(file_changed) == 1
+    assert file_changed[0]["data"]["version"] == saved["state_version"]
+    assert file_changed[0]["data"]["entity_id"] == "blocks/clean_block.py"
 
     blocks_reloaded = [evt for evt in captured_events if evt["type"] == "blocks.reloaded"]
     assert len(blocks_reloaded) == 1, (
@@ -133,8 +141,16 @@ def test_broken_block_save_does_not_reload_or_emit(
         json={"content": broken_source},
     )
     assert r.status_code == 200, r.text
+    saved = r.json()
+    assert saved["state_version"] > 0
+    assert saved["entity_id"] == "blocks/broken_block.py"
 
     assert reload_calls["count"] == 0, "hot_reload should not run when lint reports diagnostics"
+
+    file_changed = [evt for evt in captured_events if evt["type"] == projects_module.FILE_CHANGED_EVENT_TYPE]
+    assert len(file_changed) == 1
+    assert file_changed[0]["data"]["version"] == saved["state_version"]
+    assert file_changed[0]["data"]["entity_id"] == "blocks/broken_block.py"
 
     blocks_reloaded = [evt for evt in captured_events if evt["type"] == "blocks.reloaded"]
     assert blocks_reloaded == [], f"blocks.reloaded must NOT fire when lint flags the file; saw: {blocks_reloaded}"
