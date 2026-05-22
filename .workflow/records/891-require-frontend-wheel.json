@@ -59,7 +59,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/891-require-frontend-wheel.json",
+    "shas": [
+      "309d18f3bf9c2c84515980bf1e70ffe6613938f9"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -93,7 +99,13 @@
     ".github/workflows/ci.yml",
     "tests/packaging/test_wheel_spa.py"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      891
+    ],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1437"
+  },
   "record_path": ".workflow/records/891-require-frontend-wheel.json",
   "required_checks": [
     "ruff",
@@ -186,7 +198,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
