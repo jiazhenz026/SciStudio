@@ -135,27 +135,40 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
         }
         const currentId = useAppStore.getState().workflowId;
         if (changedId && changedId === currentId) {
-          if (kind === "deleted" || kind === "moved") {
-            setWorkflow(null);
-            appendLog({
-              timestamp: payload.timestamp,
-              level: "warn",
-              message: `Workflow '${changedId}' was ${kind} on disk; canvas cleared.`,
-              workflow_id: changedId,
-              block_id: null,
-            });
-          } else {
-            // modified / created — refetch and replace.
-            api
-              .getWorkflow(changedId)
-              .then((fresh) => {
-                // Re-check inside the resolution: the user may have switched
-                // workflows while the fetch was in flight.
-                if (useAppStore.getState().workflowId === changedId) {
-                  setWorkflow(fresh);
-                }
-              })
-              .catch((err) => {
+          // Hotfix #1400 part 3: git-checkout file replacement on Windows
+          // often emits a transient `deleted` (or `moved`) event followed
+          // microseconds later by `created`/`modified`. Naively trusting
+          // `deleted` here clears the canvas and surfaces "Workflow 'X'
+          // was deleted on disk; canvas cleared" even though the file is
+          // actually present (and now contains the just-restored content).
+          // Probe the file by attempting to fetch it; if it exists, treat
+          // every kind — including `deleted`/`moved` — as a modification
+          // (refetch + setWorkflow). Only if the probe genuinely 404s do
+          // we clear the canvas and warn.
+          api
+            .getWorkflow(changedId)
+            .then((fresh) => {
+              // Re-check inside the resolution: the user may have switched
+              // workflows while the fetch was in flight.
+              if (useAppStore.getState().workflowId === changedId) {
+                setWorkflow(fresh);
+              }
+            })
+            .catch((err) => {
+              // File truly missing only when the kind suggested removal AND
+              // the probe failed. For modified/created with a fetch failure
+              // surface as an error log; for deleted/moved with a confirmed
+              // missing file, clear the canvas (legacy behaviour).
+              if (kind === "deleted" || kind === "moved") {
+                setWorkflow(null);
+                appendLog({
+                  timestamp: payload.timestamp,
+                  level: "warn",
+                  message: `Workflow '${changedId}' was ${kind} on disk; canvas cleared.`,
+                  workflow_id: changedId,
+                  block_id: null,
+                });
+              } else {
                 appendLog({
                   timestamp: payload.timestamp,
                   level: "error",
@@ -165,8 +178,8 @@ export function useWorkflowWebSocket(enabled: boolean): { connected: boolean } {
                   workflow_id: changedId,
                   block_id: null,
                 });
-              });
-          }
+              }
+            });
         }
         // Mismatched id: ignore (workflow lives in another tab or is not loaded).
         return;

@@ -138,13 +138,54 @@ def test_docs_task_without_implementation_files_does_not_require_tests() -> None
     assert not report.blocks_merge
 
 
-def test_sentrux_required_for_applicable_changes() -> None:
+def test_sentrux_missing_evidence_is_allowed_for_applicable_changes() -> None:
+    # ADR-042 Addendum 3: sentrux is opt-in. Missing evidence no longer
+    # blocks the gate, even when applicable changes are present.
     record = _record(sentrux=None)
 
     report = validate_gate_record(record, changed_files=_changed_files())
 
+    assert not report.blocks_merge
+    assert "gate-record.sentrux.missing" not in {finding.rule_id for finding in report.findings}
+
+
+def test_sentrux_skipped_evidence_is_allowed_for_applicable_changes() -> None:
+    # ADR-042 Addendum 3: recorded ``status="skipped"`` (sentrux ran but
+    # had nothing to report, or was deliberately not run) is treated the
+    # same as missing evidence — no block.
+    record = _record(
+        sentrux={
+            "name": "sentrux.free_tier",
+            "command_or_tool": "sentrux check .",
+            "mode": "free-tier",
+            "status": "skipped",
+        }
+    )
+
+    report = validate_gate_record(record, changed_files=_changed_files())
+
+    sentrux_findings = {f.rule_id for f in report.findings if f.rule_id.startswith("gate-record.sentrux.")}
+    assert sentrux_findings == set()
+
+
+def test_sentrux_recorded_failure_still_blocks_locally() -> None:
+    # ADR-042 Addendum 3: the one remaining sentrux gate. The developer
+    # ran sentrux, observed a real failure, and is pushing anyway. The
+    # gate exists to catch exactly this case. Override via
+    # ``admin-approved:ai-override`` if justified.
+    record = _record(
+        sentrux={
+            "name": "sentrux.free_tier",
+            "command_or_tool": "sentrux check .",
+            "mode": "free-tier",
+            "status": "fail",
+        }
+    )
+
+    report = validate_gate_record(record, changed_files=_changed_files())
+
     assert report.blocks_merge
-    assert "gate-record.sentrux.missing" in {finding.rule_id for finding in report.findings}
+    assert "gate-record.sentrux.not-passing" in {f.rule_id for f in report.findings}
 
 
 def test_override_label_vocabulary_is_exact() -> None:
