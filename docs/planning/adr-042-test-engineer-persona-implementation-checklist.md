@@ -28,7 +28,7 @@ language_source: en
   are based on `track/issue-1467/test-engineer-persona`.
 - Protected branch: `main`
 - Umbrella branch: `track/issue-1467/test-engineer-persona`
-- Umbrella PR: `pending`
+- Umbrella PR: `#1474`
 - Umbrella PR title:
   `[DO NOT MERGE] ADR-042 test engineer persona implementation`
 - Final PR target: `main` after manager integration
@@ -84,9 +84,9 @@ language_source: en
 - [x] Scope include/exclude recorded in the gate record ->
   `.workflow/records/1467-test-engineer-persona-implementation.json`.
 - [x] Umbrella branch created -> `track/issue-1467/test-engineer-persona`.
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [ ] Protected branch and umbrella PR number recorded in this checklist.
+- [x] Umbrella PR opened -> `#1474`.
+- [x] Umbrella PR title includes `[DO NOT MERGE]` -> `#1474`.
+- [x] Protected branch and umbrella PR number recorded in this checklist.
 - [x] No `pip install -e .` environment pollution found ->
   `python -c "import scistudio; print(scistudio.__file__)"` resolved inside
   this worktree under `src/scistudio/__init__.py`.
