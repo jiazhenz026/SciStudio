@@ -84,7 +84,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1416-1417-1419-tests-unused-depth.json",
+    "shas": [
+      "5b2c7db01e6736e270a2a23803dde3b97d4c91b9"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "addendum": {
       "not_applicable": true,
@@ -151,7 +157,13 @@
     "CHANGELOG.md",
     ".workflow/records/1416-1417-1419-tests-unused-depth.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1416
+    ],
+    "number": 1457,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1457"
+  },
   "record_path": ".workflow/records/1416-1417-1419-tests-unused-depth.json",
   "required_checks": [
     "ruff,format,pytest,full_audit,sentrux,frontend-lint,frontend-format,frontend-typecheck,frontend-test,frontend-build"
@@ -212,7 +224,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
