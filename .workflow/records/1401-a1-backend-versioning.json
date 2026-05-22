@@ -151,12 +151,12 @@
     ]
   },
   "sentrux": {
-    "command_or_tool": "mcp__sentrux__.scan/rescan/check_rules/health",
+    "command_or_tool": "mcp__sentrux__.scan/check_rules/health",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "Sentrux MCP: scan quality_signal=4248; after removing watcher-runtime import cycle rescan quality_signal=4441; check_rules pass; rules_checked=3; total_rules_defined=15; violations=0; pro_required=false",
+    "output_path": "Sentrux MCP: scan quality_signal=4442; check_rules pass; rules_checked=3; total_rules_defined=15; violations=0; pro_required=false",
     "pro_required": false,
-    "quality_signal": 4441.0,
+    "quality_signal": 4442.0,
     "rules_checked": 3,
     "status": "pass",
     "summary": {},
