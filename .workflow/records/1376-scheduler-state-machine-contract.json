@@ -1,0 +1,181 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/audit/2026-05-22-1376-scheduler-state-machine-contract-full-audit.json"
+      ],
+      "reason": "Commit full_audit JSON evidence generated for this test-only PR."
+    }
+  ],
+  "branch": "test/issue-1376-scheduler-state-machine-contract",
+  "changed_test_paths": [
+    "tests/engine/test_scheduler_state_machine_contract.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/engine/test_scheduler.py tests/engine/test_scheduler_concurrency.py tests/engine/test_scheduler_rerun_cancel.py tests/engine/test_scheduler_terminal_data.py tests/engine/test_scheduler_interactive.py -q --no-cov",
+      "exit_code": 0,
+      "name": "pytest-neighbor-scheduler",
+      "output_path": "68 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff check tests/engine/test_scheduler_state_machine_contract.py",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/engine/test_scheduler_state_machine_contract.py -q --no-cov",
+      "exit_code": 0,
+      "name": "pytest-new-contract",
+      "output_path": "24 passed, 6 strict xfail (#1376 known cancel_block drift)",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check tests/engine/test_scheduler_state_machine_contract.py",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "1 file already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "git diff --check",
+      "exit_code": 0,
+      "name": "git-diff-check",
+      "output_path": "pass",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1376-scheduler-state-machine-contract.json",
+    "shas": [
+      "0b3f5a81f11e220b62d1aa711afd7fe5f35348aa"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {},
+    "checklist": {},
+    "docs": {},
+    "public-docs": {
+      "not_applicable": true,
+      "rationale": "test-only-scheduler-contract-coverage-no-user-facing-behavior-change"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/2026-05-22-1376-scheduler-state-machine-contract-full-audit.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/2026-05-22-1376-scheduler-state-machine-contract-full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1376,
+      "url": null
+    }
+  ],
+  "owner_directive": "Add complete scheduler state-machine table coverage before god-file refactors; tests only, do not modify product code.",
+  "planned_files": [
+    "tests/engine/test_scheduler_state_machine_contract.py",
+    ".workflow/records/1376-scheduler-state-machine-contract.json"
+  ],
+  "pull_request": {
+    "body_closes_issues": [],
+    "number": 1448,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1448"
+  },
+  "record_path": ".workflow/records/1376-scheduler-state-machine-contract.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "pytest",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "src/**",
+      "frontend/**"
+    ],
+    "include": [
+      "tests/engine/test_scheduler_state_machine_contract.py",
+      ".workflow/records/1376-scheduler-state-machine-contract.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "Get-Command sentrux",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "Sentrux CLI unavailable in local environment; test-only PR touches tests plus committed gate/audit evidence. Workflow gate treats missing/skipped Sentrux as advisory after ADR-042 Addendum 3.",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1376-scheduler-state-machine-contract",
+  "task_kind": "bugfix"
+}
