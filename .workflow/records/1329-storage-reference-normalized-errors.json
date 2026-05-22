@@ -60,8 +60,14 @@
     "trailers": {}
   },
   "docs_landing": {
-    "changelog": {},
-    "checklist": {},
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "N/A internal bugfix for unreleased runner/storage error handling; PR summary and issue closure are sufficient"
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "N/A scoped bugfix with regression tests and gate record; no separate checklist artifact required"
+    },
     "docs": {
       "not_applicable": true,
       "rationale": "N/A bugfix normalizes internal worker/storage error propagation; no public contract doc update needed"
