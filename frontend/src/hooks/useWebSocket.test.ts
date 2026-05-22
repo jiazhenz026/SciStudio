@@ -377,7 +377,7 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
     );
   });
 
-  it("clears the canvas when the loaded workflow is deleted on disk", () => {
+  it("clears the canvas when the loaded workflow is deleted on disk", async () => {
     useAppStore.setState({
       workflowId: "demo",
       workflowName: "Demo",
@@ -385,6 +385,10 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
         { id: "n", block_type: "Load", config: {}, execution_mode: null, layout: null },
       ],
     });
+    // Hotfix #1400 part 3: the deleted-event handler now probes the file
+    // first. For a genuine delete the probe fails (404 / network error),
+    // and the legacy clear-canvas + warn-log path runs. Mock that.
+    vi.mocked(api.getWorkflow).mockRejectedValueOnce(new Error("not found"));
     renderHook(() => useWorkflowWebSocket(true));
 
     pushMessage({
@@ -394,6 +398,9 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
       data: { workflow_id: "demo", path: "workflows/demo.yaml", kind: "deleted", changed_by: "watcher" },
     });
 
+    // Wait for the probe promise to reject + the catch block to run.
+    await new Promise((r) => setTimeout(r, 0));
+
     expect(useAppStore.getState().workflowId).toBeNull();
     expect(useAppStore.getState().workflowNodes).toEqual([]);
     // The delete event should also leave a log entry behind.
@@ -401,5 +408,46 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
     expect(logs.some((entry) => entry.message.includes("demo") && entry.message.includes("deleted"))).toBe(
       true,
     );
+  });
+
+  it("treats a transient delete-then-create (git checkout race) as modification", async () => {
+    // Hotfix #1400 part 3: when git-checkout replaces a workflow YAML on
+    // Windows, the watchdog sometimes emits a `deleted` event microseconds
+    // before the actual content lands. Probing the file proves it's still
+    // there with the restored content — the canvas should refresh, not
+    // clear.
+    useAppStore.setState({
+      workflowId: "demo",
+      workflowName: "Demo (stale)",
+      workflowNodes: [],
+    });
+    vi.mocked(api.getWorkflow).mockResolvedValueOnce({
+      id: "demo",
+      name: "Demo (restored)",
+      nodes: [
+        { id: "n", block_type: "Load", config: { restored: true }, execution_mode: null, layout: null },
+      ],
+      edges: [],
+      schemaVersion: 1,
+    } as never);
+    renderHook(() => useWorkflowWebSocket(true));
+
+    pushMessage({
+      type: "workflow.changed",
+      workflow_id: "demo",
+      timestamp: "2026-05-13T00:00:00Z",
+      data: { workflow_id: "demo", path: "workflows/demo.yaml", kind: "deleted", changed_by: "watcher" },
+    });
+
+    await new Promise((r) => setTimeout(r, 0));
+
+    // Canvas should be refreshed, not cleared — workflowId preserved,
+    // nodes replaced with restored content, no scary "deleted" warning.
+    expect(useAppStore.getState().workflowId).toBe("demo");
+    expect(useAppStore.getState().workflowNodes.length).toBe(1);
+    const logs = useAppStore.getState().logEntries;
+    expect(
+      logs.some((entry) => entry.message.includes("deleted on disk; canvas cleared")),
+    ).toBe(false);
   });
 });
