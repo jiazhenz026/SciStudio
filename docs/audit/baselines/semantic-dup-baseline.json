@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "captured_at": "2026-05-22T03:05:06+00:00",
+  "captured_at": "2026-05-22T21:50:00+00:00",
   "config": {
     "root": "src/scistudio",
     "model": "BAAI/bge-small-en-v1.5",
@@ -8,18 +8,18 @@
     "min_loc": 5
   },
   "current": {
-    "functions_scanned": 1253,
-    "clusters": 81,
-    "duplicate_loc": 4778,
-    "total_loc": 34939,
-    "duplicate_pct": 13.68,
+    "functions_scanned": 1302,
+    "clusters": 88,
+    "duplicate_loc": 5038,
+    "total_loc": 35829,
+    "duplicate_pct": 14.06,
     "max_cluster_size": 10
   },
   "ratchet": {
-    "max_clusters": 85,
-    "max_duplicate_pct": 14.36,
+    "max_clusters": 92,
+    "max_duplicate_pct": 14.77,
     "max_cluster_size": 10,
-    "max_duplicate_loc": 5016
+    "max_duplicate_loc": 5290
   },
-  "ratchet_policy": "Initial baseline allows ~5% headroom on count + LOC; max_cluster_size is set tight (no headroom) to prevent any cluster from growing. After fixing duplicates, re-run with --write-baseline to ratchet down."
+  "ratchet_policy": "Bumped 2026-05-22 to absorb ADR-045 (#1401) entity-class version-vector wrappers in scistudio.api.runtime (bump_/mark_/is_recent_/current_ workflow vs entity-generic pairs). Each pair clusters tightly under the cosine 0.92 threshold but represents intentional abstraction sugar — callers using workflow_id get path resolution for free. Headroom of ~5% on counts + LOC, max_cluster_size still pinned at 10. Follow-up: track wrapper consolidation under [[ADR-045 follow-up]]."
 }

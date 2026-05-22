@@ -107,6 +107,9 @@ export default tseslint.config(
       "**/*.config.js",
       "**/*.config.ts",
       "src/scistudio/api/static/**",
+      // Nested git worktrees from sub-agent dispatch should never be
+      // linted as part of the manager worktree (#1426 main-merge hygiene).
+      ".claude/**",
     ],
   },
   js.configs.recommended,

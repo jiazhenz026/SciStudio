@@ -160,18 +160,36 @@ scistudio/                               # ← repo root
 │       │   │   │                       #   concrete IO blocks subclass IOBlock directly.
 │       │   │   ├── loaders/            # Concrete input-only IOBlock subclasses
 │       │   │   │   ├── __init__.py
-│       │   │   │   └── load_data.py    # LoadData: dynamic-port loader covering all six core
-│       │   │   │                       #   DataObject types (Array, DataFrame, Series, Text,
-│       │   │   │                       #   Artifact, CompositeData). Declares dynamic_ports
-│       │   │   │                       #   ClassVar (ADR-028 Addendum 1 §C5) and overrides
-│       │   │   │                       #   get_effective_output_ports() to narrow accepted_types
-│       │   │   │                       #   per the core_type config enum. load() dispatches to
-│       │   │   │                       #   six private module-level _load_* functions per §C9
-│       │   │   │                       #   (no helper classes). Pickle is opt-in via allow_pickle.
+│       │   │   │   ├── load_data.py    # LoadData: dynamic-port loader covering all six core
+│       │   │   │   │                   #   DataObject types (Array, DataFrame, Series, Text,
+│       │   │   │   │                   #   Artifact, CompositeData). Declares dynamic_ports
+│       │   │   │   │                   #   ClassVar (ADR-028 Addendum 1 §C5) and overrides
+│       │   │   │   │                   #   get_effective_output_ports() to narrow accepted_types
+│       │   │   │   │                   #   per the core_type config enum. load() dispatches to
+│       │   │   │   │                   #   six private module-level _load_* functions per §C9
+│       │   │   │   │                   #   (no helper classes). Pickle is opt-in via allow_pickle.
+│       │   │   │   ├── _capability.py  # Path-D sibling (#1459 / Phase 2 of #1427): private
+│       │   │   │   │                   #   FormatCapability declarations + _LOAD_EXTENSION_MAP
+│       │   │   │   │                   #   + _resolve_format. Module-level functions only,
+│       │   │   │   │                   #   no helper classes (§C9 compliance).
+│       │   │   │   └── _helpers.py     # Path-D sibling: _resolve_path, _check_pickle_allowed,
+│       │   │   │                       #   _CORE_TYPE_MAP, _TEXT_FORMAT_MAP, _MIME_GUESS.
+│       │   │   │                       #   Module-level functions only (§C9 compliance).
 │       │   │   └── savers/             # Concrete output-only IOBlock subclasses
 │       │   │       ├── __init__.py
-│       │   │       └── save_data.py    # SaveData: mirror of LoadData, six private _save_* funcs
-│       │   │                           #   dispatched from save() per ADR-028 Addendum 1 §C9.
+│       │   │       ├── save_data.py    # SaveData: mirror of LoadData, six private _save_* funcs
+│       │   │       │                   #   dispatched from save() per ADR-028 Addendum 1 §C9.
+│       │   │       ├── _capability.py  # Path-D sibling (#1459 / Phase 2 of #1427): private
+│       │   │       │                   #   FormatCapability declarations + _SAVE_EXTENSION_MAP
+│       │   │       │                   #   + _resolve_save_format. Module-level functions only
+│       │   │       │                   #   (§C9 compliance).
+│       │   │       ├── _helpers.py     # Path-D sibling: _require_path, _check_pickle_gate,
+│       │   │       │                   #   _unwrap_for_save, _CORE_TYPE_MAP, and the small
+│       │   │       │                   #   per-format coercion helpers shared by _save_*.
+│       │   │       └── _streaming.py   # Path-D sibling: row-group / zero-materialisation
+│       │   │                           #   export helpers used by _save_array (zarr→zarr copy)
+│       │   │                           #   and _save_dataframe (CSV/Parquet streaming). Functions
+│       │   │                           #   only — ADR-031 Phase 3 streaming export paths.
 │       │   │
 │       │   ├── process/                # ProcessBlock — data transformation
 │       │   │   ├── __init__.py

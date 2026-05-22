@@ -2,6 +2,7 @@
  * Workflow CRUD + execution + export endpoints.
  *
  * Extracted from `frontend/src/lib/api.ts` (#1422).
+ * ADR-045 version-vector wire-headers + helpers added in main-merge (#1410).
  */
 
 import type {
@@ -11,13 +12,19 @@ import type {
   WorkflowResponse,
 } from "../../types/api";
 import { apiFetch, JSON_HEADERS } from "./core";
+import {
+  createClientSourceId,
+  rememberPendingWorkflowSourceId,
+  type VersionedWorkflowResponse,
+  type VersionedWriteOptions,
+} from "./version";
 
 export const workflowsApi = {
   listWorkflows: () => apiFetch<string[]>("/api/workflows/list"),
   importWorkflowFile: async (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-    return apiFetch<WorkflowResponse>("/api/workflows/import", {
+    return apiFetch<VersionedWorkflowResponse>("/api/workflows/import", {
       method: "POST",
       body: formData,
     });
@@ -26,26 +33,44 @@ export const workflowsApi = {
     // Read the file via fetch from the backend browse result, then re-upload
     // For now, use a dedicated endpoint that accepts a path
     // TODO: replace the dedicated /api/workflows/import-path endpoint with a fetch-then-import flow that reuses /api/projects/{id}/file.
-    return apiFetch<WorkflowResponse>("/api/workflows/import-path", {
+    return apiFetch<VersionedWorkflowResponse>("/api/workflows/import-path", {
       method: "POST",
       headers: JSON_HEADERS,
       body: JSON.stringify({ path: filePath }),
     });
   },
-  createWorkflow: (body: WorkflowResponse) =>
-    apiFetch<WorkflowResponse>("/api/workflows/", {
+  createWorkflow: async (body: WorkflowResponse, options?: VersionedWriteOptions) => {
+    const sourceId = options?.sourceId ?? createClientSourceId("workflow");
+    rememberPendingWorkflowSourceId(body.id, sourceId);
+    return apiFetch<VersionedWorkflowResponse>("/api/workflows/", {
       method: "POST",
-      headers: JSON_HEADERS,
+      headers: {
+        ...JSON_HEADERS,
+        "X-Source-Id": sourceId,
+        "X-Workflow-Source": options?.source ?? "canvas",
+      },
       body: JSON.stringify(body),
-    }),
+    });
+  },
   getWorkflow: (workflowId: string) =>
-    apiFetch<WorkflowResponse>(`/api/workflows/${encodeURIComponent(workflowId)}`),
-  updateWorkflow: (workflowId: string, body: WorkflowResponse) =>
-    apiFetch<WorkflowResponse>(`/api/workflows/${encodeURIComponent(workflowId)}`, {
+    apiFetch<VersionedWorkflowResponse>(`/api/workflows/${encodeURIComponent(workflowId)}`),
+  updateWorkflow: async (
+    workflowId: string,
+    body: WorkflowResponse,
+    options?: VersionedWriteOptions,
+  ) => {
+    const sourceId = options?.sourceId ?? createClientSourceId("workflow");
+    rememberPendingWorkflowSourceId(workflowId, sourceId);
+    return apiFetch<VersionedWorkflowResponse>(`/api/workflows/${encodeURIComponent(workflowId)}`, {
       method: "PUT",
-      headers: JSON_HEADERS,
+      headers: {
+        ...JSON_HEADERS,
+        "X-Source-Id": sourceId,
+        "X-Workflow-Source": options?.source ?? "canvas",
+      },
       body: JSON.stringify(body),
-    }),
+    });
+  },
   deleteWorkflow: (workflowId: string) =>
     apiFetch<void>(`/api/workflows/${encodeURIComponent(workflowId)}`, {
       method: "DELETE",

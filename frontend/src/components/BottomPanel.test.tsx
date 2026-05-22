@@ -6,6 +6,7 @@ import type { FormatCapabilityResponse } from "../types/api";
 
 vi.mock("../lib/api", () => ({
   api: {},
+  setWorkflowWriteStartedListener: vi.fn(),
 }));
 
 function makeCapability(

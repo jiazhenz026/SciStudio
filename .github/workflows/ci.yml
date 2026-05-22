@@ -222,23 +222,82 @@ jobs:
           fi
           echo "frontend/dist is up to date."
 
-  build-frontend-release:
-    name: Build Frontend for Release
+  wheel-release-smoke:
+    name: Wheel Release Smoke
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
       - uses: actions/setup-node@v6
         with:
           node-version: "20"
           cache: "npm"
           cache-dependency-path: "frontend/package-lock.json"
+      - name: Install build frontend
+        run: python -m pip install --upgrade pip build
       - name: Build frontend for packaging
         working-directory: frontend
         run: npm ci && npm run build
       - name: Copy build output to Python package
-        run: cp -r frontend/dist/ src/scistudio/api/static/
-      - uses: actions/upload-artifact@v7
+        run: |
+          rm -rf src/scistudio/api/static
+          cp -r frontend/dist/ src/scistudio/api/static/
+      - name: Build wheel with required frontend bundle
+        env:
+          SCISTUDIO_REQUIRE_FRONTEND_BUILD: "1"
+        run: python -m build --wheel
+      - name: Inspect wheel SPA contents
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          wheels = list(Path("dist").glob("*.whl"))
+          if len(wheels) != 1:
+              raise SystemExit(f"expected exactly one wheel, found {wheels}")
+
+          with ZipFile(wheels[0]) as wheel:
+              names = set(wheel.namelist())
+
+          index = "scistudio/api/static/index.html"
+          js_assets = [
+              name
+              for name in names
+              if name.startswith("scistudio/api/static/assets/") and name.endswith(".js")
+          ]
+          if index not in names:
+              raise SystemExit(f"missing {index} in {wheels[0]}")
+          if not js_assets:
+              raise SystemExit(f"missing JS asset under scistudio/api/static/assets/ in {wheels[0]}")
+          print(f"{wheels[0]} contains {index} and {len(js_assets)} JS asset(s)")
+          PY
+      - name: Install wheel and smoke-test GUI root
+        run: |
+          python -m venv .venv-wheel-smoke
+          . .venv-wheel-smoke/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install dist/*.whl
+          python - <<'PY'
+          from fastapi.testclient import TestClient
+
+          from scistudio.api.app import create_app
+
+          with TestClient(create_app()) as client:
+              response = client.get("/", follow_redirects=False)
+
+          if response.is_redirect or response.headers.get("location") == "/docs":
+              raise SystemExit("GET / redirected to /docs instead of serving the GUI")
+          if response.status_code != 200:
+              raise SystemExit(f"GET / returned {response.status_code}")
+          if "<html" not in response.text.lower() or "/assets/" not in response.text:
+              raise SystemExit("GET / did not return bundled GUI HTML")
+          print("GET / served bundled GUI HTML")
+          PY
+      - name: Upload verified wheel
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v7
         with:
-          name: frontend-static
-          path: src/scistudio/api/static/
+          name: scistudio-wheel
+          path: dist/*.whl

@@ -230,7 +230,12 @@ describe("saveFileTab (ADR-036 §3.10)", () => {
     if (tab.kind !== "file") throw new Error("expected file");
     expect(tab.dirty).toBe(false);
     expect(tab.contentLoadedAt).toBe(99.5);
-    expect(putProjectFileMock).toHaveBeenCalledWith("proj-1", "a.py", "x = 22\n");
+    expect(putProjectFileMock).toHaveBeenCalledWith(
+      "proj-1",
+      "a.py",
+      "x = 22\n",
+      expect.objectContaining({ sourceId: expect.any(String) }),
+    );
   });
 
   it("read-only tab is a no-op", async () => {
