@@ -1,0 +1,156 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/audit/adr-042-addendum4-full-audit.json"
+      ],
+      "reason": "Record ADR-042 full audit evidence output for the addendum."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/specs/adr-042-test-engineer-persona.md"
+      ],
+      "reason": "Add implementation spec requested by owner for the accepted test_engineer persona addendum."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/specs/adr-042-test-engineer-persona.md",
+        "docs/audit/adr-042-addendum4-full-audit.json"
+      ],
+      "reason": "Ensure spec and full-audit evidence are included after repairing gate record JSON."
+    }
+  ],
+  "branch": "docs/issue-1466/adr-042-test-engineer-persona",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "python -m scistudio.qa.governance.gate_record pre-commit --record .workflow/records/1466-adr-042-test-engineer-persona.json --staged",
+      "exit_code": 0,
+      "name": "gate_record_pre_commit",
+      "output_path": "gate_record: pass",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "git diff --check",
+      "exit_code": 0,
+      "name": "git_diff_check",
+      "output_path": "passed with CRLF warnings only",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.frontmatter_lint docs/adr/ADR-042-addendum4.md docs/specs/adr-042-test-engineer-persona.md --repo-root . --format text",
+      "exit_code": 0,
+      "name": "frontmatter_lint",
+      "output_path": "passed for accepted addendum and implementation spec",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "changelog": {},
+    "checklist": {},
+    "docs": {
+      "paths": [
+        "docs/adr/ADR-042-addendum4.md",
+        "docs/specs/adr-042-test-engineer-persona.md"
+      ]
+    },
+    "tests": {
+      "not_applicable": true,
+      "rationale": "docs-and-spec-only-pr-defers-implementation-tests-to-issue-1467"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-042-addendum4-full-audit.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/adr-042-addendum4-full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1466,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1466"
+    }
+  ],
+  "owner_directive": "Write ADR-042 addendum for test_engineer persona; production code changes are not allowed for the persona by default; analyze gate workflow CLI and affected surfaces.",
+  "planned_files": [
+    "docs/adr/ADR-042-addendum4.md",
+    ".workflow/records/1466-adr-042-test-engineer-persona.json"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1466-adr-042-test-engineer-persona.json",
+  "required_checks": [
+    "frontmatter_lint",
+    "full_audit",
+    "git_diff_check"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "docs/adr/ADR-042-addendum4.md",
+      ".workflow/records/1466-adr-042-test-engineer-persona.json"
+    ]
+  },
+  "sentrux": null,
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1466-adr-042-test-engineer-persona",
+  "task_kind": "docs"
+}
