@@ -22,6 +22,12 @@
         ".workflow/records/1496-adr042-addendum5-routing.json"
       ],
       "reason": "Add the gate record file itself to scope.include."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "AGENTS.md is in mod_guard.PROTECTED_PATTERNS; gate record must declare governance_touch=true for CI's gate_record ci to pass mod_guard via allow_governance_change=True. Original start omitted --governance-touch; this amend corrects the flag and records the rationale."
     }
   ],
   "branch": "docs/issue-1496-adr042-addendum5-routing",
@@ -96,7 +102,7 @@
     "summary": {},
     "unclassified_failures": []
   },
-  "governance_touch": false,
+  "governance_touch": true,
   "issues": [
     {
       "close_in_pr": true,
