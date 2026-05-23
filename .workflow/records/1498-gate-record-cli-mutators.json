@@ -57,7 +57,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1498-gate-record-cli-mutators.json",
+    "shas": [
+      "fe780dbcac0c4f9152933ce0cf78c830a1491da5"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -124,7 +130,7 @@
     "CHANGELOG.md"
   ],
   "provenance": {
-    "head_content_hash": "sha256:1908840aefed1ef6535e20ec7531219f0f64519c3d730c45ab4f4088d623070b",
+    "head_content_hash": "sha256:032c12eb59a24cff0fa8d8a232d6986426a4cf3d83e83ccd8f9ef889a00e89cd",
     "mutations": [
       {
         "content_hash_after": "sha256:cc66d9d6b57df26158155755681c046978bfcccd670bdba6332864e244a1aedf",
@@ -285,11 +291,29 @@
         },
         "timestamp": "2026-05-23T09:32:33.347953Z",
         "tool_version": "scistudio.qa.governance.gate_record/dev"
+      },
+      {
+        "content_hash_after": "sha256:032c12eb59a24cff0fa8d8a232d6986426a4cf3d83e83ccd8f9ef889a00e89cd",
+        "content_hash_before": "sha256:1908840aefed1ef6535e20ec7531219f0f64519c3d730c45ab4f4088d623070b",
+        "subcommand": "finalize",
+        "summary": {
+          "closes_count": 1,
+          "commit_count": 1,
+          "pr_number": 1499
+        },
+        "timestamp": "2026-05-23T09:34:11.116773Z",
+        "tool_version": "scistudio.qa.governance.gate_record/dev"
       }
     ],
     "schema_version": "1"
   },
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1498
+    ],
+    "number": 1499,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1499"
+  },
   "record_path": ".workflow/records/1498-gate-record-cli-mutators.json",
   "required_checks": [
     "ruff",
@@ -362,7 +386,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
