@@ -189,7 +189,7 @@
   "commit": {
     "gate_record_path": ".workflow/records/1492-adr042-local-gate-receipts.json",
     "shas": [
-      "684b40a84bb162f1a88c7f0c828888500d188f64"
+      "7ad49897c47f74366e6ed62ae2e889115c04a3a5"
     ],
     "trailers": {}
   },
