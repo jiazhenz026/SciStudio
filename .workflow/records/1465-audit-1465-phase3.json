@@ -29,8 +29,12 @@
     "trailers": {}
   },
   "docs_landing": {
-    "changelog": {},
-    "checklist": {},
+    "changelog": {
+      "na_rationale": "Audit-only PR. No user-facing or behavior change; only a docs/audit report and gate-record artifacts land in this PR. Per CHANGELOG policy, audit reports are tracked under docs/audit/ and do not require CHANGELOG entries."
+    },
+    "checklist": {
+      "na_rationale": "The umbrella checklist docs/planning/phase3-bucket-d-checklist.md is intentionally not edited by this audit PR; auditor findings are recorded in the audit report itself (docs/audit/2026-05-22-umbrella-1465-phase3-with-context.md §6 confirms no unrecorded drift beyond the 4 entries already in §9 of the checklist). Manager updates the checklist."
+    },
     "docs": {
       "paths": [
         "audit_report=docs/audit/2026-05-22-umbrella-1465-phase3-with-context.md"
@@ -53,7 +57,7 @@
       "close_in_pr": false,
       "followup_rationale": "Issue #1465 is the Phase 3 tracker; it stays open until the umbrella PR #1475 merges to main, per umbrella merge protocol. This audit PR lands the report only; tracking issue is resolved by the umbrella merge, not by this audit landing.",
       "number": 1465,
-      "url": null
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1465"
     }
   ],
   "owner_directive": "Phase 3 Bucket D independent audit (with-context) per dispatch 2026-05-22.",
