@@ -226,6 +226,52 @@ class PullRequestEvidence(BaseModel):
     body_closes_issues: list[int] = Field(default_factory=list)
 
 
+class Mutation(BaseModel):
+    """One CLI mutation recorded in the provenance audit log (Issue #1498).
+
+    Every CLI mutator (``start``, ``plan``, ``amend``, ``docs``, ``check``,
+    ``sentrux``, ``finalize``, ``issue-*``, ``admin-label-*``, ``plan-remove``,
+    ``docs-remove``, ``provenance-rebuild``) appends a Mutation to the
+    record's ``provenance.mutations[]`` before writing. The
+    ``content_hash_after`` is the sha256 of the record JSON minus the
+    ``provenance`` field itself; validators recompute this hash and fail when
+    it disagrees with ``provenance.head_content_hash``, detecting direct JSON
+    edits that bypassed the CLI.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    timestamp: datetime
+    tool_version: str
+    subcommand: str
+    summary: Mapping[str, Any] = Field(default_factory=dict)
+    content_hash_before: str | None = None
+    content_hash_after: str
+
+
+class Provenance(BaseModel):
+    """Audit log of CLI mutations applied to a gate record (Issue #1498).
+
+    ``head_content_hash`` is the sha256 hash of the record JSON minus the
+    ``provenance`` field itself, captured at the time of the last successful
+    CLI mutation. Validators recompute this hash on load and fail when it
+    disagrees with the stored value, detecting direct JSON edits that did not
+    go through the gate-record CLI.
+
+    ``mutations[]`` is the audit trail. The first entry is always the
+    ``start`` mutation; subsequent entries record each ``plan``, ``amend``,
+    ``docs``, ``check``, ``sentrux``, ``finalize``, ``issue-*``,
+    ``admin-label-*``, ``plan-remove``, ``docs-remove``, or
+    ``provenance-rebuild`` invocation.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["1"] = "1"
+    mutations: list[Mutation] = Field(default_factory=list)
+    head_content_hash: str
+
+
 class GateRecord(BaseModel):
     """Pydantic schema for committed ADR-042 gate records."""
 
@@ -253,6 +299,7 @@ class GateRecord(BaseModel):
     full_audit: FullAuditEvidence | None = None
     commit: CommitEvidence | None = None
     pull_request: PullRequestEvidence | None = None
+    provenance: Provenance | None = None
 
     @field_validator("planned_files", "changed_test_paths")
     @classmethod

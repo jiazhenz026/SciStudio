@@ -126,9 +126,16 @@ quick command index every persona should route back to.
 | Need | Command |
 |---|---|
 | Start committed gate record | `python -m scistudio.qa.governance.gate_record start ...` |
-| Record plan | `python -m scistudio.qa.governance.gate_record plan --record <record> ...` |
+| Record plan (additive) | `python -m scistudio.qa.governance.gate_record plan --record <record> --planned-file <path> --required-check <name>` |
+| Remove specific plan entries | `python -m scistudio.qa.governance.gate_record plan-remove --record <record> --planned-file <path>` |
 | Amend scope before new paths are edited | `python -m scistudio.qa.governance.gate_record amend --record <record> --reason <reason> --include <path>` |
-| Record docs landing or N/A | `python -m scistudio.qa.governance.gate_record docs --record <record> --updated <path>` |
+| Record docs landing (additive) | `python -m scistudio.qa.governance.gate_record docs --record <record> --updated <path>` |
+| Remove specific docs-landing entries | `python -m scistudio.qa.governance.gate_record docs-remove --record <record> --updated <path>` |
+| Add an issue reference after start | `python -m scistudio.qa.governance.gate_record issue-add --record <record> --number <N> --url <url>` |
+| Update an existing issue reference (e.g. set URL) | `python -m scistudio.qa.governance.gate_record issue-update --record <record> --number <N> --url <url>` |
+| Remove an issue reference | `python -m scistudio.qa.governance.gate_record issue-remove --record <record> --number <N> --reason <reason>` |
+| Record an expected admin override label | `python -m scistudio.qa.governance.gate_record admin-label-add --record <record> --label admin-approved:core-change --reason <reason>` |
+| Remove an admin override label entry | `python -m scistudio.qa.governance.gate_record admin-label-remove --record <record> --label <label> --reason <reason>` |
 | Record a check in the committed gate record | `python -m scistudio.qa.governance.gate_record check --record <record> --name <name> --command <cmd> --status pass --exit-code 0` |
 | Record Sentrux evidence | `python -m scistudio.qa.governance.gate_record sentrux --record <record> --status pass|fail|skipped` |
 | Validate staged scope | `python -m scistudio.qa.governance.gate_record pre-commit --staged` |
@@ -139,9 +146,23 @@ quick command index every persona should route back to.
 | Record one custom command in the receipt | `python -m scistudio.qa.governance.gate_receipt exec --name <name> --gate-record <record> --base <base-ref> -- <command>` |
 | Validate receipt freshness/completeness | `python -m scistudio.qa.governance.gate_receipt validate --gate-record <record> --base <base-ref> --pr-body-file .workflow/local/pr-body.md` |
 | Finalize commit and PR evidence | `python -m scistudio.qa.governance.gate_record finalize --record <record> --commit <sha> --pr <url> --closes "#<issue>"` |
+| Display the gate-record provenance audit log | `python -m scistudio.qa.governance.gate_record provenance-show --record <record>` |
+| Verify the gate-record content hash (detect direct JSON edits) | `python -m scistudio.qa.governance.gate_record provenance-verify --record <record>` |
+| Re-anchor the gate-record content hash after a legitimate out-of-band edit | `python -m scistudio.qa.governance.gate_record provenance-rebuild --record <record> --reason <reason>` |
 
 `admin-approved:core-change` is not a broad bypass for these commands. It only
 answers protected-core authorization where that guard applies.
+
+Issue #1498 makes ``plan`` and ``docs`` additive by default; pass
+``--replace`` only when intentionally rewriting the field from scratch. Every
+mutator (including ``start``, ``plan``, ``amend``, ``docs``, ``check``,
+``sentrux``, ``finalize``, ``issue-*``, ``admin-label-*``, ``plan-remove``,
+``docs-remove``, ``provenance-rebuild``) appends an entry to the gate
+record's ``provenance.mutations[]`` audit log and updates
+``provenance.head_content_hash``. Validators (``pre-commit`` /
+``commit-msg`` / ``pre-push`` / ``pr-ready`` / ``ci``) re-verify the hash on
+load and fail with ``gate-record.provenance.tampered`` when a direct JSON
+edit bypasses the CLI.
 
 ## 6. Routing
 

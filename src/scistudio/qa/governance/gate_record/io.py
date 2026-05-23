@@ -5,14 +5,23 @@ sub-PR vs umbrella-PR record discovery heuristic live here. Kept separate
 from validation so that a CLI subcommand that only needs to *update* a
 record (``plan``, ``check``, ``docs``, ``sentrux``, ``finalize``) can do so
 without importing the AuditReport-based validation path.
+
+Issue #1498 adds the provenance audit log:
+``_record_mutation`` is invoked by every mutator in :mod:`stages` before
+``_write_record`` writes the file. The provenance ``head_content_hash`` is
+the sha256 of the record JSON minus the ``provenance`` field; validators
+recompute this hash to detect direct JSON edits that bypassed the CLI.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, cast
 
@@ -20,12 +29,87 @@ from scistudio.qa.governance.gate_record.models import (
     CheckEvidence,
     GateRecord,
     GateStage,
+    Mutation,
+    Provenance,
 )
 from scistudio.qa.governance.gate_record.paths import (
     SLUG_RE,
     _match_path,
     _normalize_path,
 )
+
+
+def _tool_version() -> str:
+    """Return ``scistudio.qa.governance.gate_record/<pkg-version>``.
+
+    Falls back to ``dev`` when the package is not installed (e.g., running
+    from a source checkout without ``pip install``).
+    """
+
+    try:
+        return f"scistudio.qa.governance.gate_record/{version('scistudio')}"
+    except PackageNotFoundError:
+        return "scistudio.qa.governance.gate_record/dev"
+
+
+def _record_content_hash(record: GateRecord) -> str:
+    """Return sha256 of canonical record JSON minus the provenance field.
+
+    The provenance field is excluded so that updating ``head_content_hash``
+    itself does not invalidate the hash (avoids a self-referential loop).
+    """
+
+    payload = record.model_dump(mode="json", exclude_none=False)
+    payload.pop("provenance", None)
+    canonical = json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _record_mutation(
+    record: GateRecord,
+    *,
+    subcommand: str,
+    summary: Mapping[str, Any] | None = None,
+) -> None:
+    """Append a Mutation entry to ``record.provenance`` and update head hash.
+
+    Mutates ``record`` in place. Callers must invoke this *before*
+    ``_write_record`` so the persisted JSON includes the new mutation row.
+    """
+
+    previous_hash = record.provenance.head_content_hash if record.provenance else None
+    new_hash = _record_content_hash(record)
+    mutation = Mutation(
+        timestamp=datetime.now(UTC),
+        tool_version=_tool_version(),
+        subcommand=subcommand,
+        summary=dict(summary) if summary else {},
+        content_hash_before=previous_hash,
+        content_hash_after=new_hash,
+    )
+    if record.provenance is None:
+        record.provenance = Provenance(mutations=[mutation], head_content_hash=new_hash)
+    else:
+        record.provenance.mutations.append(mutation)
+        record.provenance.head_content_hash = new_hash
+
+
+def verify_provenance_hash(record: GateRecord) -> tuple[bool, str]:
+    """Verify ``record.provenance.head_content_hash`` matches current content.
+
+    Returns ``(is_valid, computed_hash)``. ``is_valid`` is:
+    - ``True`` when ``record.provenance is None`` (backward-compatible for
+      pre-Issue-#1498 records, which loaded without a provenance field).
+    - ``True`` when the stored ``head_content_hash`` equals
+      ``_record_content_hash(record)``.
+    - ``False`` otherwise — the record's content was modified without going
+      through a CLI mutator (direct JSON edit detected).
+    """
+
+    if record.provenance is None:
+        return True, ""
+    computed = _record_content_hash(record)
+    return computed == record.provenance.head_content_hash, computed
 
 
 def _load_record(record: GateRecord | Mapping[str, Any] | str | Path) -> GateRecord:

@@ -15,14 +15,26 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from scistudio.qa.governance.gate_record.io import _parse_issue_numbers
+from scistudio.qa.governance.gate_record.io import (
+    _load_record,
+    _parse_issue_numbers,
+    verify_provenance_hash,
+)
 from scistudio.qa.governance.gate_record.paths import _normalize_path
 from scistudio.qa.governance.gate_record.stages import (
+    admin_label_add_record,
+    admin_label_remove_record,
     amend_record,
     check_record,
     docs_record,
+    docs_remove_record,
     finalize_record,
+    issue_add_record,
+    issue_remove_record,
+    issue_update_record,
     plan_record,
+    plan_remove_record,
+    provenance_rebuild_record,
     sentrux_record,
     start_record,
 )
@@ -70,12 +82,26 @@ def _build_parser() -> argparse.ArgumentParser:
     start.add_argument("--governance-touch", action="store_true")
     start.add_argument("--record-path", "--record", dest="record_path", type=Path)
 
-    plan = subparsers.add_parser("plan", help="record planned files, checks, and expected tests")
+    plan = subparsers.add_parser("plan", help="record planned files, checks, and expected tests (additive by default)")
     plan.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
     plan.add_argument("--planned-file", "--files", dest="planned_file", action="append", default=[])
     plan.add_argument("--required-check", "--checks", dest="required_check", action="append", default=[])
     plan.add_argument("--changed-test-path", "--tests", dest="changed_test_path", action="append", default=[])
     plan.add_argument("--docs", action="append", default=[], help="planned documentation path or N/A rationale")
+    plan.add_argument(
+        "--replace",
+        action="store_true",
+        help=(
+            "Replace planned_files/required_checks/changed_test_paths instead of merging. "
+            "Use only when intentionally rewriting the plan from scratch (Issue #1498 default = additive merge)."
+        ),
+    )
+
+    plan_remove = subparsers.add_parser("plan-remove", help="remove specific plan entries (Issue #1498)")
+    plan_remove.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
+    plan_remove.add_argument("--planned-file", "--files", dest="planned_file", action="append", default=[])
+    plan_remove.add_argument("--required-check", "--checks", dest="required_check", action="append", default=[])
+    plan_remove.add_argument("--changed-test-path", "--tests", dest="changed_test_path", action="append", default=[])
 
     amend = subparsers.add_parser("amend", help="append a scope amendment")
     amend.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
@@ -93,10 +119,88 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
 
-    docs = subparsers.add_parser("docs", help="record documentation landing")
+    docs = subparsers.add_parser("docs", help="record documentation landing (additive by default)")
     docs.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
     docs.add_argument("--updated", action="append", default=[])
     docs.add_argument("--na", action="append", default=[], help="N/A rationale as KEY=VALUE or KEY:VALUE")
+    docs.add_argument(
+        "--replace",
+        action="store_true",
+        help=(
+            "Replace docs_landing instead of merging. "
+            "Use only when intentionally rewriting the docs landing (Issue #1498 default = additive merge)."
+        ),
+    )
+
+    docs_remove = subparsers.add_parser("docs-remove", help="remove specific docs-landing entries (Issue #1498)")
+    docs_remove.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
+    docs_remove.add_argument("--updated", action="append", default=[])
+    docs_remove.add_argument("--na", action="append", default=[], help="N/A class key to remove")
+
+    issue_add = subparsers.add_parser("issue-add", help="add a new issue reference (Issue #1498)")
+    issue_add.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
+    issue_add.add_argument("--number", type=int, required=True)
+    issue_add.add_argument("--url")
+    issue_add.add_argument("--close-in-pr", dest="close_in_pr", action="store_true", default=True)
+    issue_add.add_argument("--no-close-in-pr", dest="close_in_pr", action="store_false")
+    issue_add.add_argument("--followup-rationale")
+
+    issue_update = subparsers.add_parser("issue-update", help="update an existing issue reference (Issue #1498)")
+    issue_update.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
+    issue_update.add_argument("--number", type=int, required=True)
+    issue_update.add_argument("--url")
+    issue_update.add_argument(
+        "--close-in-pr",
+        dest="close_in_pr",
+        action="store_const",
+        const=True,
+        default=None,
+    )
+    issue_update.add_argument(
+        "--no-close-in-pr",
+        dest="close_in_pr",
+        action="store_const",
+        const=False,
+    )
+    issue_update.add_argument("--followup-rationale")
+
+    issue_remove = subparsers.add_parser("issue-remove", help="remove an issue reference (Issue #1498)")
+    issue_remove.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
+    issue_remove.add_argument("--number", type=int, required=True)
+    issue_remove.add_argument("--reason", required=True)
+
+    admin_label_add = subparsers.add_parser(
+        "admin-label-add", help="record an expected admin override label (Issue #1498)"
+    )
+    admin_label_add.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
+    admin_label_add.add_argument("--label", required=True)
+    admin_label_add.add_argument("--reason", required=True)
+    admin_label_add.add_argument("--approved-by", dest="approved_by")
+
+    admin_label_remove = subparsers.add_parser(
+        "admin-label-remove", help="remove an admin override label entry (Issue #1498)"
+    )
+    admin_label_remove.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
+    admin_label_remove.add_argument("--label", required=True)
+    admin_label_remove.add_argument("--reason", required=True)
+
+    provenance_show = subparsers.add_parser("provenance-show", help="display the provenance audit log (Issue #1498)")
+    provenance_show.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
+    provenance_show.add_argument("--format", choices=("text", "json"), default="text")
+
+    provenance_verify = subparsers.add_parser(
+        "provenance-verify",
+        help="verify head_content_hash matches current content; detect direct JSON edits (Issue #1498)",
+    )
+    provenance_verify.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
+
+    provenance_rebuild = subparsers.add_parser(
+        "provenance-rebuild",
+        help="rebuild head_content_hash after a legitimate out-of-band edit (Issue #1498)",
+    )
+    provenance_rebuild.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
+    provenance_rebuild.add_argument("--reason", required=True)
+    provenance_rebuild.add_argument("--approved-by", dest="approved_by")
 
     check = subparsers.add_parser("check", help="record a check result or full-audit evidence")
     check.add_argument("--gate-record", "--record", dest="gate_record", type=Path, required=True)
@@ -195,6 +299,16 @@ def main(argv: list[str] | None = None) -> int:
                 planned_files=args.planned_file,
                 required_checks=args.required_check,
                 changed_test_paths=args.changed_test_path,
+                replace=args.replace,
+            )
+            print(_normalize_path(str(output_path)))
+            return 0
+        if args.command == "plan-remove":
+            output_path = plan_remove_record(
+                args.gate_record,
+                planned_files=args.planned_file,
+                required_checks=args.required_check,
+                changed_test_paths=args.changed_test_path,
             )
             print(_normalize_path(str(output_path)))
             return 0
@@ -210,9 +324,106 @@ def main(argv: list[str] | None = None) -> int:
             print(_normalize_path(str(output_path)))
             return 0
         if args.command == "docs":
-            output_path = docs_record(args.gate_record, updated=args.updated, na=args.na)
+            output_path = docs_record(
+                args.gate_record,
+                updated=args.updated,
+                na=args.na,
+                replace=args.replace,
+            )
             print(_normalize_path(str(output_path)))
             return 0
+        if args.command == "docs-remove":
+            output_path = docs_remove_record(args.gate_record, updated=args.updated, na=args.na)
+            print(_normalize_path(str(output_path)))
+            return 0
+        if args.command == "issue-add":
+            output_path = issue_add_record(
+                args.gate_record,
+                number=args.number,
+                url=args.url,
+                close_in_pr=args.close_in_pr,
+                followup_rationale=args.followup_rationale,
+            )
+            print(_normalize_path(str(output_path)))
+            return 0
+        if args.command == "issue-update":
+            output_path = issue_update_record(
+                args.gate_record,
+                number=args.number,
+                url=args.url,
+                close_in_pr=args.close_in_pr,
+                followup_rationale=args.followup_rationale,
+            )
+            print(_normalize_path(str(output_path)))
+            return 0
+        if args.command == "issue-remove":
+            output_path = issue_remove_record(
+                args.gate_record,
+                number=args.number,
+                reason=args.reason,
+            )
+            print(_normalize_path(str(output_path)))
+            return 0
+        if args.command == "admin-label-add":
+            output_path = admin_label_add_record(
+                args.gate_record,
+                label=args.label,
+                reason=args.reason,
+                approved_by=args.approved_by,
+            )
+            print(_normalize_path(str(output_path)))
+            return 0
+        if args.command == "admin-label-remove":
+            output_path = admin_label_remove_record(
+                args.gate_record,
+                label=args.label,
+                reason=args.reason,
+            )
+            print(_normalize_path(str(output_path)))
+            return 0
+        if args.command == "provenance-rebuild":
+            output_path = provenance_rebuild_record(
+                args.gate_record,
+                reason=args.reason,
+                approved_by=args.approved_by,
+            )
+            print(_normalize_path(str(output_path)))
+            return 0
+        if args.command == "provenance-show":
+            record = _load_record(args.gate_record)
+            provenance = record.provenance
+            if provenance is None:
+                if args.format == "json":
+                    print(json.dumps({"provenance": None}, indent=2))
+                else:
+                    print("provenance: not recorded (pre-Issue-#1498 record)")
+                return 0
+            if args.format == "json":
+                print(json.dumps(provenance.model_dump(mode="json"), indent=2, sort_keys=True))
+            else:
+                print(f"head_content_hash: {provenance.head_content_hash}")
+                print(f"mutations: {len(provenance.mutations)}")
+                for index, mutation in enumerate(provenance.mutations, 1):
+                    print(
+                        f"  {index}. [{mutation.timestamp.isoformat()}] {mutation.subcommand} "
+                        f"-> {mutation.content_hash_after[:14]}..."
+                    )
+                    if mutation.summary:
+                        print(f"     summary: {dict(mutation.summary)}")
+            return 0
+        if args.command == "provenance-verify":
+            record = _load_record(args.gate_record)
+            is_valid, computed = verify_provenance_hash(record)
+            if record.provenance is None:
+                print("provenance-verify: skipped (no provenance field; pre-Issue-#1498 record)")
+                return 0
+            if is_valid:
+                print(f"provenance-verify: pass (head_content_hash={record.provenance.head_content_hash})")
+                return 0
+            print("provenance-verify: fail (direct edit detected)", file=sys.stderr)
+            print(f"  stored:   {record.provenance.head_content_hash}", file=sys.stderr)
+            print(f"  computed: {computed}", file=sys.stderr)
+            return 1
         if args.command == "check":
             output_path = check_record(
                 args.gate_record,

@@ -1,0 +1,303 @@
+{
+  "admin_labels": [],
+  "amendments": [],
+  "branch": "feat/issue-1498-gate-record-cli-mutators",
+  "changed_test_paths": [
+    "tests/qa/test_gate_record.py",
+    "tests/qa/test_gate_record_mutators.py",
+    "tests/qa/test_gate_record_provenance.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check src/scistudio/qa/governance/gate_record/ tests/qa/",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check src/scistudio/qa/governance/gate_record/ tests/qa/test_gate_record_mutators.py tests/qa/test_gate_record_provenance.py",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "mypy src/scistudio/qa/governance/gate_record/ --ignore-missing-imports --python-version 3.13",
+      "exit_code": 0,
+      "name": "mypy",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "pytest tests/qa --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "pytest-governance",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "No ADR update; the change is CLI surface + schema field, not an architectural decision."
+    },
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {},
+    "docs": {
+      "paths": [
+        "docs/ai-developer/rules.md",
+        "docs/ai-developer/specific_rules/gated-workflow.md"
+      ]
+    },
+    "specs": {
+      "not_applicable": true,
+      "rationale": "No spec update needed; new CLI subcommands are documented in rules.md \u00a75 + gated-workflow.md \u00a72 routing pointers per ADR-042 \u00a73.5."
+    },
+    "tests": {
+      "not_applicable": true,
+      "rationale": "Tests are added under tests/qa/; not a separate docs class."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1498,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1498"
+    }
+  ],
+  "owner_directive": "Owner authorized 2026-05-23 chat: 'directly do it, add all gate-record CLI commands you think are needed'. Audit (PR #1497) found admin_labels has no mutator and issue URL cannot be updated after start; this PR adds the missing CLI mutators + provenance audit log to detect direct JSON edits.",
+  "persona": "implementer",
+  "planned_files": [
+    "src/scistudio/qa/governance/gate_record/models.py",
+    "src/scistudio/qa/governance/gate_record/io.py",
+    "src/scistudio/qa/governance/gate_record/stages.py",
+    "src/scistudio/qa/governance/gate_record/cli.py",
+    "src/scistudio/qa/governance/gate_record/validation.py",
+    "src/scistudio/qa/governance/gate_record/workflow.py",
+    "src/scistudio/qa/governance/gate_record/paths.py",
+    "tests/qa/test_gate_record.py",
+    "tests/qa/test_gate_record_mutators.py",
+    "tests/qa/test_gate_record_provenance.py",
+    "docs/ai-developer/rules.md",
+    "docs/ai-developer/specific_rules/gated-workflow.md",
+    "CHANGELOG.md"
+  ],
+  "provenance": {
+    "head_content_hash": "sha256:ccbade0af7434351805b80deac9fce7513c0ca9ef790349f30071bff6cb1029c",
+    "mutations": [
+      {
+        "content_hash_after": "sha256:cc66d9d6b57df26158155755681c046978bfcccd670bdba6332864e244a1aedf",
+        "content_hash_before": null,
+        "subcommand": "plan-remove",
+        "summary": {
+          "removed_checks": 0,
+          "removed_files": 2,
+          "removed_tests": 0
+        },
+        "timestamp": "2026-05-23T09:25:05.348073Z",
+        "tool_version": "scistudio.qa.governance.gate_record/dev"
+      },
+      {
+        "content_hash_after": "sha256:b4750e2d53b32975d2389e1c2de92282fe6bfa4bcc78854aadcd435820a4c8b4",
+        "content_hash_before": "sha256:cc66d9d6b57df26158155755681c046978bfcccd670bdba6332864e244a1aedf",
+        "subcommand": "docs",
+        "summary": {
+          "added_changelog": 1,
+          "added_checklist": 0,
+          "added_docs": 2,
+          "na_classes": [
+            "tests",
+            "specs",
+            "adr"
+          ],
+          "replace": false
+        },
+        "timestamp": "2026-05-23T09:25:05.572711Z",
+        "tool_version": "scistudio.qa.governance.gate_record/dev"
+      },
+      {
+        "content_hash_after": "sha256:47270d303a5776f025bec96302350771904e23808ee85f50b1945fb3dc4679d2",
+        "content_hash_before": "sha256:b4750e2d53b32975d2389e1c2de92282fe6bfa4bcc78854aadcd435820a4c8b4",
+        "subcommand": "check",
+        "summary": {
+          "exit_code": 0,
+          "full_audit": false,
+          "name": "ruff",
+          "status": "pass"
+        },
+        "timestamp": "2026-05-23T09:25:58.536786Z",
+        "tool_version": "scistudio.qa.governance.gate_record/dev"
+      },
+      {
+        "content_hash_after": "sha256:a16a0c1df5c18ecdb079d1baec840bf515aaee37b4b510ef1744e0f3cde8fcc6",
+        "content_hash_before": "sha256:47270d303a5776f025bec96302350771904e23808ee85f50b1945fb3dc4679d2",
+        "subcommand": "check",
+        "summary": {
+          "exit_code": 0,
+          "full_audit": false,
+          "name": "format",
+          "status": "pass"
+        },
+        "timestamp": "2026-05-23T09:25:58.770414Z",
+        "tool_version": "scistudio.qa.governance.gate_record/dev"
+      },
+      {
+        "content_hash_after": "sha256:6e5c7be3845cf3c2af888e16a39742e80b9dd0edfab1085191b3acdf57f6a894",
+        "content_hash_before": "sha256:a16a0c1df5c18ecdb079d1baec840bf515aaee37b4b510ef1744e0f3cde8fcc6",
+        "subcommand": "check",
+        "summary": {
+          "exit_code": 0,
+          "full_audit": false,
+          "name": "mypy",
+          "status": "pass"
+        },
+        "timestamp": "2026-05-23T09:25:58.995682Z",
+        "tool_version": "scistudio.qa.governance.gate_record/dev"
+      },
+      {
+        "content_hash_after": "sha256:bde726633ffa32649781b5ef483f3bda4b050e0356fb8e4e705c902b909f1f9c",
+        "content_hash_before": "sha256:6e5c7be3845cf3c2af888e16a39742e80b9dd0edfab1085191b3acdf57f6a894",
+        "subcommand": "check",
+        "summary": {
+          "exit_code": 0,
+          "full_audit": false,
+          "name": "pytest-governance",
+          "status": "pass"
+        },
+        "timestamp": "2026-05-23T09:25:59.211969Z",
+        "tool_version": "scistudio.qa.governance.gate_record/dev"
+      },
+      {
+        "content_hash_after": "sha256:ae667021f8db651c682d06b674b58f8725e1f5318e3c61dff36bd6488346c7d7",
+        "content_hash_before": "sha256:bde726633ffa32649781b5ef483f3bda4b050e0356fb8e4e705c902b909f1f9c",
+        "subcommand": "check",
+        "summary": {
+          "exit_code": 0,
+          "full_audit": true,
+          "name": "full_audit",
+          "status": "pass"
+        },
+        "timestamp": "2026-05-23T09:26:03.288891Z",
+        "tool_version": "scistudio.qa.governance.gate_record/dev"
+      },
+      {
+        "content_hash_after": "sha256:ccbade0af7434351805b80deac9fce7513c0ca9ef790349f30071bff6cb1029c",
+        "content_hash_before": "sha256:ae667021f8db651c682d06b674b58f8725e1f5318e3c61dff36bd6488346c7d7",
+        "subcommand": "sentrux",
+        "summary": {
+          "rules_checked": null,
+          "status": "skipped",
+          "total_rules_defined": null
+        },
+        "timestamp": "2026-05-23T09:26:08.165674Z",
+        "tool_version": "scistudio.qa.governance.gate_record/dev"
+      }
+    ],
+    "schema_version": "1"
+  },
+  "pull_request": null,
+  "record_path": ".workflow/records/1498-gate-record-cli-mutators.json",
+  "required_checks": [
+    "ruff",
+    "format",
+    "mypy",
+    "pytest-governance",
+    "full_audit"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/qa/governance/gate_record/**",
+      "src/scistudio/qa/schemas/**",
+      "tests/qa/**",
+      "docs/specs/adr-042-local-gate-receipts.md",
+      "docs/ai-developer/rules.md",
+      "docs/ai-developer/specific_rules/gated-workflow.md",
+      "docs/adr/ADR-042-addendum5.md",
+      "docs/audit/**",
+      "CHANGELOG.md",
+      ".workflow/records/1498-gate-record-cli-mutators.json",
+      ".workflow/local/**"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "Sentrux MCP not available in this session; falling back to local CI gate. Changes are under src/scistudio/qa/governance/gate_record/ + tests/qa/ + docs which sentrux_applies_to_changes covers \u2014 sentrux must pass on CI.",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "pending",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1498-gate-record-cli-mutators",
+  "task_kind": "feature"
+}

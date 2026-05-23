@@ -175,6 +175,25 @@ The legacy `.workflow/gate.py` may remain as a migration helper, but it is not
 sufficient gate evidence unless it delegates to this CLI or emits the committed
 gate record required by this workflow.
 
+Issue #1498 extends the mutator surface and adds a provenance audit log:
+
+- ``issue-add`` / ``issue-update`` / ``issue-remove`` mutate the
+  ``issues[]`` list after ``start``. Previously the only way to set an
+  issue URL post-start was to direct-edit the JSON.
+- ``admin-label-add`` / ``admin-label-remove`` mutate ``admin_labels[]``.
+  Previously there was no CLI mutator at all for that field.
+- ``plan`` and ``docs`` are now additive by default; pass ``--replace``
+  only when intentionally rewriting the field from scratch.
+  ``plan-remove`` / ``docs-remove`` cover the inverse case.
+- ``provenance-show`` displays the gate record's audit log;
+  ``provenance-verify`` confirms ``head_content_hash`` matches current
+  content (and so detects direct JSON edits that bypassed the CLI);
+  ``provenance-rebuild`` re-anchors the hash after a legitimate
+  out-of-band edit, with the rebuild itself recorded as a mutation.
+- All validators (``pre-commit``, ``commit-msg``, ``pre-push``,
+  ``pr-ready``, ``ci``) now emit ``gate-record.provenance.tampered`` when
+  the stored hash does not match the recomputed content hash.
+
 ## 3. Step-By-Step Procedure
 
 ### 3.1 Before Step 1

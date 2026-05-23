@@ -22,6 +22,7 @@ from scistudio.qa.governance.gate_record.io import (
     _discover_gate_record,
     _git_lines,
     _load_record,
+    verify_provenance_hash,
 )
 from scistudio.qa.governance.gate_record.models import (
     POST_PR_STAGES,
@@ -212,6 +213,28 @@ def validate_gate_record(
         parsed = _load_record(record)
     except (OSError, ValidationError, ValueError) as exc:
         return _report([_finding("gate-record.schema.invalid", str(exc))])
+
+    # Issue #1498: detect direct JSON edits by verifying that the record's
+    # current content hash matches ``provenance.head_content_hash``. Records
+    # without a provenance field (pre-Issue-#1498) skip this check; new
+    # records always have provenance because every CLI mutator writes it.
+    is_valid_hash, computed_hash = verify_provenance_hash(parsed)
+    if not is_valid_hash and parsed.provenance is not None:
+        findings.append(
+            _finding(
+                "gate-record.provenance.tampered",
+                (
+                    "gate record content hash does not match provenance.head_content_hash; "
+                    "direct JSON edit detected. Use a gate_record CLI subcommand "
+                    "(issue-update, admin-label-add, etc.) or, after a legitimate "
+                    "out-of-band edit, run gate_record provenance-rebuild --reason ..."
+                ),
+                evidence={
+                    "stored_hash": parsed.provenance.head_content_hash,
+                    "computed_hash": computed_hash,
+                },
+            )
+        )
 
     normalized_changed = [_normalize_path(path) for path in changed_files or []]
     includes = _effective_include(parsed)
