@@ -5,11 +5,12 @@ external-app file-exchange bridge (``blocks/app/bridge.py``) repeat
 ad-hoc today:
 
 - :func:`materialise_to_file` - write a :class:`DataObject` to a file
-  using the saver class returned by
-  :meth:`BlockRegistry.find_saver` (ADR-028 D8 / #1077).
+  using the saver capability returned by
+  :meth:`BlockRegistry.find_saver_capability` (ADR-028 D8 / #1077,
+  ADR-043 / ADR-047).
 - :func:`reconstruct_from_file` - build a typed :class:`DataObject`
   from a file path by routing through
-  :meth:`BlockRegistry.find_loader`.
+  :meth:`BlockRegistry.find_loader_capability` (ADR-043 / ADR-047).
 
 The helpers are intentionally pure (no module-level state). Each
 accepts an optional pre-built :class:`BlockRegistry` so callers in hot
@@ -170,15 +171,28 @@ def _format_supported_savers(obj: DataObject, registry: BlockRegistry) -> str:
 
     Used to build informative error messages when no saver matches the
     requested extension.
+
+    Per ADR-047, this helper migrated from the removed
+    ``BlockRegistry.find_io_blocks_for_type`` API to the
+    capability-aware :meth:`BlockRegistry.list_format_capabilities`
+    enumeration. The output is grouped per block-class so the original
+    ``"<ClassName>=[<exts>]"`` shape is preserved.
     """
-    savers = registry.find_io_blocks_for_type(type(obj), direction="output")
-    if not savers:
+    capabilities = registry.list_format_capabilities(
+        direction="save",
+        data_type=type(obj),
+    )
+    if not capabilities:
         return f"(no saver registered for {type(obj).__name__})"
-    parts: list[str] = []
-    for cls in savers:
-        exts = sorted((getattr(cls, "supported_extensions", {}) or {}).keys())
-        parts.append(f"{cls.__name__}={exts}")
-    return ", ".join(parts)
+    grouped: dict[str, set[str]] = {}
+    order: list[str] = []
+    for capability in capabilities:
+        block_type = capability.block_type
+        if block_type not in grouped:
+            grouped[block_type] = set()
+            order.append(block_type)
+        grouped[block_type].update(capability.extensions)
+    return ", ".join(f"{block_type}={sorted(grouped[block_type])}" for block_type in order)
 
 
 def materialise_to_file(
@@ -204,10 +218,11 @@ def materialise_to_file(
        *dest* via :func:`scistudio.utils.fs.mount_pathlike`. On any link
        failure (e.g. cross-volume hardlink, junction refused), fall
        through to step 4.
-    4. Resolve the saver via :meth:`BlockRegistry.find_saver`,
-       instantiate it (passing ``core_type`` for the dynamic-port
-       ``SaveData`` block when applicable), call ``saver.save(obj,
-       config)`` directly. The saver writes to the computed path.
+    4. Resolve the saver via :meth:`BlockRegistry.find_saver_capability`,
+       instantiate the owning block class (passing ``core_type`` for
+       the dynamic-port ``SaveData`` block when applicable), call
+       ``saver.save(obj, config)`` directly. The saver writes to the
+       computed path.
 
     Args:
         obj: The :class:`DataObject` to write.
@@ -303,7 +318,7 @@ def reconstruct_from_file(
     1. If *extension* is ``None``, derive it from the path's trailing
        suffix (compound-aware, mirroring
        :meth:`IOBlock._detect_format`).
-    2. Resolve the loader via :meth:`BlockRegistry.find_loader`. If a
+    2. Resolve the loader via :meth:`BlockRegistry.find_loader_capability`. If a
        loader matches, instantiate and call
        ``loader.load(config, output_dir="")``. If the loader returns a
        single-item :class:`Collection` (the standard ``IOBlock.run``
@@ -357,7 +372,7 @@ def reconstruct_from_file(
 
     # Walk candidates longest-first. For each:
     #   First pass: exact type match (loader's output IS-A target_type).
-    #   Second pass: dynamic-port fallback (find_loader(DataObject, ext))
+    #   Second pass: dynamic-port fallback via find_loader_capability(DataObject, ext)
     #     when the candidate loader's config_schema declares ``core_type``
     #     and ``target_type`` resolves to a known core-type enum value.
     # The first candidate that resolves a loader wins; on no match across

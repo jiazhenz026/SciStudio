@@ -38,8 +38,14 @@ GOD_FILE_SIZE_WAIVERS: frozenset[str] = frozenset(
     {
         # ``src/scistudio/api/runtime.py`` removed 2026-05-22 (#1430) — the
         # 1839-LOC god-file was split into the ``runtime/`` sub-package.
-        "src/scistudio/engine/scheduler.py",
-        "src/scistudio/blocks/registry.py",
+        # ``src/scistudio/engine/scheduler.py`` removed 2026-05-22 (#1470) —
+        # the 1744-LOC god-file was split into the ``scheduler/`` sub-package
+        # per ADR-046 (Phase 3 D1 of umbrella #1427).
+        # ``src/scistudio/blocks/registry.py`` removed 2026-05-22 (#1471) —
+        # the 1708-LOC god-file was decomposed into the ``registry/``
+        # sub-package via Path D (ADR-047, Phase 3 D2 of umbrella #1427)
+        # and the legacy IO finder API (find_loader / find_saver /
+        # find_io_blocks_for_type) was deleted in the same PR.
         # ``src/scistudio/qa/governance/gate_record.py`` was decomposed into
         # the ``gate_record/`` sub-package in PR for #1433 (umbrella #1427);
         # waiver removed because every new sub-module is below the 750 LOC
@@ -54,7 +60,11 @@ GOD_FILE_SIZE_WAIVERS: frozenset[str] = frozenset(
         # sub-packages whose largest sub-module is < 750 LOC.
         # ``src/scistudio/api/routes/ai_pty.py`` removed 2026-05-22 (#1432) —
         # the 757-LOC route file was split into the ``ai_pty/`` sub-package.
-        "src/scistudio/core/versioning/git_engine.py",
+        # ``src/scistudio/core/versioning/git_engine.py`` removed 2026-05-22
+        # (#1472, Phase 3 D3 of umbrella #1427) — the 849-LOC subprocess
+        # wrapper was decomposed via the class-binding pattern per ADR-046
+        # Addendum 1. Method bodies live in private ``_*_ops.py`` siblings;
+        # the file now sits at ~231 LOC.
     }
 )
 

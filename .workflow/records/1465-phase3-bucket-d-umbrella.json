@@ -1,0 +1,171 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": "@jiazhenz026",
+      "exclude": [],
+      "include": [],
+      "reason": "Umbrella scaffold landed: checklist + manager gate record + ADR-046/047 sub-PRs tracked. D1 PR #1473 already open against main; will retarget when this umbrella PR opens."
+    },
+    {
+      "approved_by": "@jiazhenz026",
+      "exclude": [],
+      "include": [
+        "src/scistudio/engine/scheduler/**",
+        "src/scistudio/blocks/registry/**",
+        "src/scistudio/blocks/code/**",
+        "src/scistudio/blocks/io/materialisation.py",
+        "src/scistudio/core/versioning/**",
+        "tests/**",
+        "docs/audit/**",
+        "docs/adr/**",
+        "docs/specs/**",
+        "docs/planning/**",
+        "scripts/check_god_files.py",
+        ".workflow/records/**"
+      ],
+      "reason": "Phase 3 sub-PRs #1473/#1476/#1477 + audit #1479 merged into umbrella branch; broaden scope to cover the full integrated diff against main + flip governance_touch=true (qa/governance/gate_record/ and CI workflow files in the diff via the sub-PR commits)."
+    },
+    {
+      "approved_by": "@jiazhenz026",
+      "exclude": [],
+      "include": [
+        ".workflow/audit-pr-body.md",
+        ".workflow/**"
+      ],
+      "reason": "Audit PR body draft also in diff (.workflow/audit-pr-body.md)"
+    }
+  ],
+  "branch": "umbrella/phase3-bucket-d",
+  "changed_test_paths": [],
+  "check_results": [],
+  "commit": {
+    "gate_record_path": ".workflow/records/1465-phase3-bucket-d-umbrella.json",
+    "shas": [
+      "8725299d292f4a701f2b355ede8abb82b4a3532d"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "Manager scaffold only \u2014 ADR-046/047 already merged in PR #1468."
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Manager scaffold; sub-PRs handle their own changelog."
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/phase3-bucket-d-checklist.md"
+      ]
+    },
+    "docs": {
+      "paths": [
+        "docs/planning/phase3-bucket-d-checklist.md"
+      ]
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "ADRs authoritative."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1465,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1465"
+    }
+  ],
+  "owner_directive": "Phase 3 of #1427 god-file refactor: scheduler (ADR-046, #1470) + registry+legacy-IO-delete (ADR-047, #1471) + git_engine class-binding split (ADR-046 Addendum 1 in PR, #1472). 3 parallel implementer agents dispatched 2026-05-22; umbrella scaffold built retroactively per agent-dispatch.md \u00a72.",
+  "persona": "manager",
+  "planned_files": [
+    "docs/planning/phase3-bucket-d-checklist.md",
+    ".workflow/records/1465-phase3-bucket-d-umbrella.json"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1465
+    ],
+    "number": 1475,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1475"
+  },
+  "record_path": ".workflow/records/1465-phase3-bucket-d-umbrella.json",
+  "required_checks": [
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "docs/planning/phase3-bucket-d-checklist.md",
+      ".workflow/records/1465-phase3-bucket-d-umbrella.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "MCP scan + check_rules + health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "scan files=1290 q_signal=4230; check_rules pass=true 0 violations; max_cycles=5 honored (4 actual cycles under 5 ceiling). No regressions from umbrella scaffold.",
+    "pro_required": false,
+    "quality_signal": 4230.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1465-phase3-bucket-d-umbrella",
+  "task_kind": "manager"
+}
