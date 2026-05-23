@@ -1,0 +1,209 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": "audit-reviewer-self",
+      "exclude": [],
+      "include": [
+        ".workflow/records/1412-audit-frontend-cleanup-1412-no-context.json"
+      ],
+      "reason": "Meta-include the gate record itself; --include at start used pre-prefix path before the CLI prepended the 1412- issue slug."
+    }
+  ],
+  "branch": "audit/2026-05-22-frontend-cleanup-no-context",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "ruff check .",
+      "exit_code": 0,
+      "name": "ruff_check",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "ruff_format",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run lint",
+      "exit_code": 0,
+      "name": "frontend_lint",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run typecheck",
+      "exit_code": 0,
+      "name": "frontend_typecheck",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run format:check",
+      "exit_code": 0,
+      "name": "frontend_format_check",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm test",
+      "exit_code": 0,
+      "name": "frontend_test",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run build",
+      "exit_code": 0,
+      "name": "frontend_build",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1412-audit-frontend-cleanup-1412-no-context.json",
+    "shas": [
+      "4210bdb542230b9f2b8cfc3d7fc21075b49e7139"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Audit-only PR \u2014 produces an evidence document under docs/audit/ and does not change user-visible behavior. Umbrella PR for the frontend cleanup batch will land any CHANGELOG entry."
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "No-context audit; per the dispatch I MUST NOT read the manager checklist."
+    },
+    "docs": {
+      "paths": [
+        "docs=docs/audit/2026-05-22-frontend-cleanup-1412-no-context.md"
+      ]
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "PYTHONPATH=src python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1412,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1412"
+    }
+  ],
+  "owner_directive": "No-context audit of the frontend cleanup umbrella (#1412 + waves). Independently verify docs/code/tests/contracts agree without reading issue/checklist/dispatch/PR/chat context.",
+  "planned_files": [
+    "docs/audit/2026-05-22-frontend-cleanup-1412-no-context.md",
+    ".workflow/records/1412-audit-frontend-cleanup-1412-no-context.json"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1412
+    ],
+    "number": 1481,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1481"
+  },
+  "record_path": ".workflow/records/1412-audit-frontend-cleanup-1412-no-context.json",
+  "required_checks": [
+    "ruff_check",
+    "ruff_format",
+    "frontend_lint",
+    "frontend_typecheck",
+    "frontend_format_check",
+    "frontend_test",
+    "frontend_build",
+    "full_audit",
+    "sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/2026-05-22-frontend-cleanup-1412-no-context.md",
+      ".workflow/records/audit-frontend-cleanup-1412-no-context.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux MCP scan + check_rules + health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": null,
+    "pro_required": false,
+    "quality_signal": 4128.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {
+      "max_cc": "100",
+      "max_cycles": "5"
+    },
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1412-audit-frontend-cleanup-1412-no-context",
+  "task_kind": "docs"
+}
