@@ -51,7 +51,11 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1493-port-ux-and-validators-hotfix.json",
+    "shas": [],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -104,7 +108,13 @@
     "frontend/src/utils/portCompat.ts",
     "CHANGELOG.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1493
+    ],
+    "number": 1494,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1494"
+  },
   "record_path": ".workflow/records/1493-port-ux-and-validators-hotfix.json",
   "required_checks": [
     "frontend lint",
