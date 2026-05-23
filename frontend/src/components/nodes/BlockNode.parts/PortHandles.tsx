@@ -28,6 +28,13 @@ import {
 } from "../../../config/typeColorMap";
 import type { BlockPortResponse, BlockSchemaResponse } from "../../../types/api";
 import type { BlockNodeData } from "../../../types/ui";
+import {
+  type CodeBlockPortConfig,
+  type CodeBlockPortDirection,
+  codeBlockPortFromVariadicEntry,
+  isCodeBlockConfigTarget,
+  persistCodeBlockPort,
+} from "../../BottomPanel.parts/codeBlockPorts";
 
 import { AddPortDialog } from "./AddPortDialog";
 
@@ -202,12 +209,49 @@ export function PortHandles({
     return effective.map((p) => ({ name: p.name, types: p.accepted_types ?? [] }));
   };
 
+  // Hotfix 2026-05-23 (#1324 partial cover) — Code Block keeps a parallel
+  // ``params.inputs`` / ``params.outputs`` list (full :class:`CodeBlockPortConfig`
+  // shape used by the v2 runtime exchange) that drives the BottomPanel config
+  // editor. Without mirror-writes the canvas "+" / "×" buttons updated only
+  // ``input_ports`` / ``output_ports``, leaving the config-editor table stale.
+  // Layout alignment is tracked separately in #1324.
+  const isCodeBlock = isCodeBlockConfigTarget(null, data.schema);
+
+  const v2KeyFor = (direction: Direction) => (direction === "input" ? "inputs" : "outputs");
+  const v2PortsFor = (direction: Direction): CodeBlockPortConfig[] => {
+    const raw = data.config?.[v2KeyFor(direction)];
+    if (!Array.isArray(raw)) return [];
+    const dir: CodeBlockPortDirection = direction;
+    return raw.map((entry, index) => {
+      const row = (typeof entry === "object" && entry !== null ? entry : {}) as Record<
+        string,
+        unknown
+      >;
+      return {
+        name: String(row.name ?? `${dir}_${index + 1}`),
+        direction: dir,
+        data_type: String(row.data_type ?? "DataObject"),
+        extension: String(row.extension ?? ".txt"),
+        capability_id: row.capability_id == null ? "" : String(row.capability_id),
+        required: typeof row.required === "boolean" ? row.required : true,
+        exchange_folder: String(row.exchange_folder ?? ""),
+      };
+    });
+  };
+
   const handleAddPortConfirmed = (direction: Direction, name: string, typeName: string) => {
     const key = direction === "input" ? "input_ports" : "output_ports";
     const base = seedFromEffectiveIfEmpty(direction);
-    data.onUpdateConfig?.({
+    const patch: Record<string, unknown> = {
       [key]: [...base, { name, types: [typeName] }],
-    });
+    };
+    if (isCodeBlock) {
+      const v2Key = v2KeyFor(direction);
+      const v2Base = v2PortsFor(direction);
+      const newV2Port = codeBlockPortFromVariadicEntry({ name, types: [typeName] }, direction);
+      patch[v2Key] = [...v2Base, persistCodeBlockPort(newV2Port, direction)];
+    }
+    data.onUpdateConfig?.(patch);
     setAddPortDirection(null);
   };
 
@@ -230,7 +274,17 @@ export function PortHandles({
     // not on an empty config (which would otherwise leave config empty
     // and silently restore the just-removed static default).
     const base = seedFromEffectiveIfEmpty(direction);
-    data.onUpdateConfig?.({ [key]: base.filter((p) => p.name !== portName) });
+    const patch: Record<string, unknown> = {
+      [key]: base.filter((p) => p.name !== portName),
+    };
+    if (isCodeBlock) {
+      const v2Key = v2KeyFor(direction);
+      const v2Base = v2PortsFor(direction);
+      patch[v2Key] = v2Base
+        .filter((p) => p.name !== portName)
+        .map((p) => persistCodeBlockPort(p, direction));
+    }
+    data.onUpdateConfig?.(patch);
   };
 
   return (
