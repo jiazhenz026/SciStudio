@@ -1,6 +1,15 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1426-w4-audit-wc.json"
+      ],
+      "reason": "Backfill scope to include the audit's own gate-record JSON path; mark IMPLEMENT done (audit report committed as the audit's 'implementation' artifact)."
+    }
+  ],
   "branch": "audit/2026-05-22-frontend-cleanup-with-context",
   "changed_test_paths": [],
   "check_results": [
@@ -172,7 +181,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
