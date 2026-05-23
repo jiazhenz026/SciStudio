@@ -163,6 +163,8 @@ amendment.
 | Tests | `<targeted pytest command>` | `[ ]` | `<output path or summary>` |
 | Full audit | `python -m scistudio.qa.audit.full_audit ...` | `[ ]` | `<output path>` |
 | Sentrux | `<MCP tool or CLI command>` | `[ ]` | `<evidence or N/A reason>` |
+| Addendum 5 receipt | `python -m scistudio.qa.governance.gate_receipt run --gate-record <record> --base origin/main --pr-body-file .workflow/local/pr-body.md` | `[ ]` | `<receipt path>` |
+| Wrapper preflight | `python scripts/scistudio_pr_create.py --dry-run --title "<title>" --body "<body>"` | `[ ]` | `<output>` |
 
 ## 9. Drift Log
 

@@ -80,6 +80,10 @@ language_source: en
 Use these rules with:
 
 - `docs/ai-developer/rules.md`
+- `docs/ai-developer/specific_rules/gated-workflow.md` for the final-gate
+  workflow that every hotfix exit must complete, including ADR-042 Addendum 5
+  receipt under §3.6 and the `scripts/scistudio_pr_create.py` wrapper under
+  §3.7
 - `docs/ai-developer/specific_rules/bug-fix.md`
 - `docs/ai-developer/personas/implementer.md`
 - `docs/ai-developer/personas/audit-reviewer.md` when the hotfix comes from

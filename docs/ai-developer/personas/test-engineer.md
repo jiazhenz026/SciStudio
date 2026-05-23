@@ -96,5 +96,11 @@ language_source: en
 - E2E workflow:
   `docs/ai-developer/skills/scistudio-e2e-test/SKILL.md`
 
+- ADR-042 Addendum 5 receipt transcript:
+  Wrap test runs with
+  `python -m scistudio.qa.governance.gate_receipt exec --name <name> -- <command>`
+  so stdout/stderr land in the candidate `.log` transcript and exit codes feed
+  receipt validation.
+
 - Root policy:
   `AGENTS.md`

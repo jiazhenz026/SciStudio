@@ -141,6 +141,16 @@ plugin-based extension, manual review steps, and AI-assisted orchestration.
 - Local candidate receipts must be generated or validated with:
   `python -m scistudio.qa.governance.gate_receipt`.
 
+- AI-authored PRs must use the gate-aware wrapper
+  `python scripts/scistudio_pr_create.py` per ADR-042 Addendum 5.
+  Direct `gh pr create` invocations may pass the open-PR step but typically
+  trigger more CI fix-and-push cycles.
+
+- The worktree write guard PreToolUse hook
+  (`scripts/hooks/check-worktree-write-guard.sh`) blocks AI Edit/Write outside
+  the active branch's committed gate scope. Use `gate_record amend` before
+  touching newly discovered files.
+
 - The AI-facing gate command set is indexed in
   `docs/ai-developer/rules.md#5-gate-cli-command-set`.
 

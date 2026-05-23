@@ -1,0 +1,193 @@
+{
+  "admin_labels": [
+    {
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/local/**"
+      ],
+      "reason": "Add .workflow/local/** to scope.include so worktree write guard does not block the local-only Addendum 5 receipt artifacts (pr-body.md, receipt logs). These paths are gitignored and never committed."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1496-adr042-addendum5-routing.json"
+      ],
+      "reason": "Add the gate record file itself to scope.include."
+    }
+  ],
+  "branch": "docs/issue-1496-adr042-addendum5-routing",
+  "changed_test_paths": [],
+  "check_results": [
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.frontmatter_lint --repo-root . <19 edited paths>",
+      "exit_code": 0,
+      "name": "frontmatter_lint",
+      "output_path": "warnings-only: AI-developer docs are out of frontmatter_lint scope (ADR/spec/architecture only); ran clean over all 19 edited paths",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "No ADR edit needed; Addendum 5 contract (ADR-042-addendum5.md) is unchanged. Pointers reference it."
+    },
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "Audit report itself documents the routing change; no user-visible behavior change requires a CHANGELOG entry."
+    },
+    "checklist": {},
+    "docs": {
+      "paths": [
+        "AGENTS.md",
+        "docs/ai-developer/rules.md",
+        "docs/ai-developer/personas/manager.md",
+        "docs/ai-developer/personas/implementer.md",
+        "docs/ai-developer/personas/adr-author.md",
+        "docs/ai-developer/personas/audit-reviewer.md",
+        "docs/ai-developer/personas/test-engineer.md",
+        "docs/ai-developer/specific_rules/gated-workflow.md",
+        "docs/ai-developer/specific_rules/agent-dispatch.md",
+        "docs/ai-developer/specific_rules/bug-fix.md",
+        "docs/ai-developer/specific_rules/new-feature.md",
+        "docs/ai-developer/specific_rules/hotfix.md",
+        "docs/ai-developer/specific_rules/docs-change.md",
+        "docs/ai-developer/specific_rules/test-engineering.md",
+        "docs/ai-developer/templates/agent-dispatch-prompt-template.md",
+        "docs/ai-developer/templates/agent-dispatch-checklist-template.md",
+        "docs/ai-developer/templates/agent-dispatch-audit-with-context-prompt-template.md",
+        "docs/ai-developer/templates/agent-dispatch-audit-no-context-prompt-template.md",
+        "docs/audit/2026-05-23-adr042-addendum5-routing-audit.md"
+      ]
+    },
+    "specs": {
+      "not_applicable": true,
+      "rationale": "No spec edit needed; only short routing pointers are added per ADR-042 \u00a73.5."
+    },
+    "tests": {
+      "not_applicable": true,
+      "rationale": "Documentation-only routing-pointer PR; ADR-042 \u00a73.5 disallows policy duplication in pointer files, so no behavior change to test."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1496,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1496"
+    }
+  ],
+  "owner_directive": "Owner approved 2026-05-23 chat 4-step plan: routing audit found ADR-042 Addendum 5 (receipt/wrapper/worktree write guard) only partially routed; add pointers (no policy duplication) into ~14 AI-developer docs and commit the audit report.",
+  "persona": "adr_author",
+  "planned_files": [
+    "AGENTS.md",
+    "docs/ai-developer/rules.md",
+    "docs/ai-developer/personas/manager.md",
+    "docs/ai-developer/personas/implementer.md",
+    "docs/ai-developer/personas/adr-author.md",
+    "docs/ai-developer/personas/audit-reviewer.md",
+    "docs/ai-developer/personas/test-engineer.md",
+    "docs/ai-developer/specific_rules/gated-workflow.md",
+    "docs/ai-developer/specific_rules/agent-dispatch.md",
+    "docs/ai-developer/specific_rules/bug-fix.md",
+    "docs/ai-developer/specific_rules/new-feature.md",
+    "docs/ai-developer/specific_rules/hotfix.md",
+    "docs/ai-developer/specific_rules/docs-change.md",
+    "docs/ai-developer/specific_rules/test-engineering.md",
+    "docs/ai-developer/templates/agent-dispatch-prompt-template.md",
+    "docs/ai-developer/templates/agent-dispatch-checklist-template.md",
+    "docs/ai-developer/templates/agent-dispatch-audit-with-context-prompt-template.md",
+    "docs/ai-developer/templates/agent-dispatch-audit-no-context-prompt-template.md",
+    "docs/audit/2026-05-23-adr042-addendum5-routing-audit.md"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1496-adr042-addendum5-routing.json",
+  "required_checks": [
+    "frontmatter_lint",
+    "full_audit"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "docs/ai-developer/specific_rules/document-standards.md"
+    ],
+    "include": [
+      "AGENTS.md",
+      "docs/ai-developer/**",
+      "docs/audit/**"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "Sentrux does not apply: docs-only routing-pointer change in AGENTS.md + docs/ai-developer/** + docs/audit/**. Per sentrux_gate.sentrux_applies_to_changes, sentrux applies only to src/ tests/ packages/ frontend/ scripts/hooks/ .github/workflows/ .workflow/ .sentrux/ docs/adr|specs|architecture/.",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "pending",
+      "summary": null
+    }
+  ],
+  "task_id": "1496-adr042-addendum5-routing",
+  "task_kind": "docs"
+}

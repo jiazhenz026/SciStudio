@@ -93,5 +93,13 @@ language_source: en
 - Manager dispatch rules, when dispatched:
   `docs/ai-developer/specific_rules/agent-dispatch.md`
 
+- ADR-042 Addendum 5 receipt and PR-creation wrapper:
+  `python -m scistudio.qa.governance.gate_receipt`,
+  `python scripts/scistudio_pr_create.py`
+
+- Worktree write guard PreToolUse hook (blocks Edit/Write outside the active
+  gate scope):
+  `scripts/hooks/check-worktree-write-guard.sh`
+
 - Root policy:
   `AGENTS.md`

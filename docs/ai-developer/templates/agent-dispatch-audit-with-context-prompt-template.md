@@ -96,6 +96,7 @@ Run or verify:
 - <audit command>
 - <Sentrux MCP/CLI command or N/A reason>
 - <frontend/browser smoke check or N/A reason>
+- `python -m scistudio.qa.governance.gate_receipt validate --gate-record <record> --base origin/main --pr-body-file .workflow/local/pr-body.md` to confirm ADR-042 Addendum 5 receipt fingerprint and required-check completeness
 
 ## Output Required
 

@@ -121,5 +121,10 @@ language_source: en
 - Manager dispatch rules, when dispatched:
   `docs/ai-developer/specific_rules/agent-dispatch.md`
 
+- ADR-042 Addendum 5 governance documents:
+  `docs/adr/ADR-042-addendum5.md` and
+  `docs/specs/adr-042-local-gate-receipts.md` are the contract for any edits
+  to receipt, wrapper, or write-guard behavior.
+
 - Root policy:
   `AGENTS.md`

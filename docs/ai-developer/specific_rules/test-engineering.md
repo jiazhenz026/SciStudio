@@ -106,3 +106,11 @@ Use these rules with:
 - `docs/ai-developer/skills/scistudio-e2e-test/SKILL.md` when running live e2e
 - `docs/ai-developer/specific_rules/agent-dispatch.md` when dispatched by a
   manager
+
+ADR-042 Addendum 5 receipt is the canonical home for test-runner stdout and
+stderr; wrap pytest or other test commands with
+`python -m scistudio.qa.governance.gate_receipt exec --name <name> -- <cmd>`
+so transcripts feed receipt validation. The
+`scripts/scistudio_pr_create.py` wrapper is the required final-PR entry point
+for any test-engineering PR (see
+`docs/ai-developer/specific_rules/gated-workflow.md` §3.7).
