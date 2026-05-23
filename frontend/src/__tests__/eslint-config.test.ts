@@ -39,18 +39,25 @@ export function Bad({ early }: { early: boolean }) {
     expect(ruleIds).toContain("@typescript-eslint/no-explicit-any");
   });
 
-  it("flags max-lines on a non-waivered file longer than 500 lines", async () => {
-    const lines = Array.from({ length: 520 }, (_, i) => `export const v${i} = ${i};`);
+  it("flags max-lines on a non-waivered file longer than 750 lines", async () => {
+    // #1426 Wave 4 raised the threshold from 500 → 750 to fit the
+    // post-#1422 codebase reality (orchestrator files still > 500 after
+    // splitting into .parts/ siblings). Regression guard: any file > 750
+    // LOC must still lint-fail.
+    const lines = Array.from({ length: 770 }, (_, i) => `export const v${i} = ${i};`);
     const source = lines.join("\n") + "\n";
     const ruleIds = await lintAs("src/__tests__/eslint-fixture-maxlines.ts", source);
     expect(ruleIds).toContain("max-lines");
   });
 
-  it("does NOT flag max-lines on App.tsx (#1422 waiver)", async () => {
-    const lines = Array.from({ length: 520 }, (_, i) => `export const v${i} = ${i};`);
+  it("DOES flag max-lines on App.tsx (#1422 waiver retired)", async () => {
+    // #1426 Wave 4 stripped the GOD_FILE_SIZE_WAIVERS block, so every file
+    // — including App.tsx — is now under the global max-lines limit (750).
+    // A regression that bloats App.tsx past 750 LOC MUST now lint-fail.
+    const lines = Array.from({ length: 770 }, (_, i) => `export const v${i} = ${i};`);
     const source = lines.join("\n") + "\n";
     const ruleIds = await lintAs("src/App.tsx", source);
-    expect(ruleIds).not.toContain("max-lines");
+    expect(ruleIds).toContain("max-lines");
   });
 
   it("DOES flag react-hooks/rules-of-hooks on BlockNode.tsx (#1420 waiver retired)", async () => {
