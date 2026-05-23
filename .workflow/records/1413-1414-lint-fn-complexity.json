@@ -84,7 +84,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1413-1414-lint-fn-complexity.json",
+    "shas": [
+      "91f0b7f3bfb274a7787a97d83f2329ce0221ae8c"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "addendum": {
       "not_applicable": true,
@@ -154,7 +160,14 @@
     "CHANGELOG.md",
     ".workflow/records/1413-1414-lint-fn-complexity.json"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1413,
+      1414
+    ],
+    "number": 1478,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1478"
+  },
   "record_path": ".workflow/records/1413-1414-lint-fn-complexity.json",
   "required_checks": [
     "ruff,format,pytest,full_audit,sentrux,frontend-lint,frontend-format,frontend-typecheck,frontend-test,frontend-build"
@@ -215,7 +228,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
