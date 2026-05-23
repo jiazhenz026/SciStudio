@@ -66,6 +66,14 @@
         "tests/qa/test_gate_record_hooks.py"
       ],
       "reason": "Full governance test receipt exposed stale hook expectation for narrowed broad-bypass wording."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "src/scistudio/qa/governance/gate_record/workflow.py"
+      ],
+      "reason": "CI import-cycle fix moved shared workflow-gate orchestration into gate_record.workflow"
     }
   ],
   "branch": "docs/issue-1492-adr042-local-gate-receipts",
@@ -133,15 +141,6 @@
       "timestamp": null
     },
     {
-      "command_or_tool": "PYTHONPATH=src mypy src/scistudio/ --ignore-missing-imports --python-version 3.13",
-      "exit_code": 0,
-      "name": "mypy",
-      "output_path": "Success: no issues found in 287 source files",
-      "status": "pass",
-      "summary": {},
-      "timestamp": null
-    },
-    {
       "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.audit.frontmatter_lint docs/adr/ADR-042-addendum5.md docs/specs/adr-042-local-gate-receipts.md --format text",
       "exit_code": 0,
       "name": "frontmatter_lint",
@@ -155,6 +154,33 @@
       "exit_code": 0,
       "name": "git_diff_check",
       "output_path": "No whitespace errors",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/qa tests/architecture/test_no_new_cycles.py tests/agent_provisioning/test_hooks.py tests/agent_provisioning/test_codex_config.py tests/scripts/test_scistudio_pr_create.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "pytest-ci-fix",
+      "output_path": "342 passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src mypy src/scistudio/ --ignore-missing-imports --python-version 3.13",
+      "exit_code": 0,
+      "name": "mypy",
+      "output_path": "Success: no issues found in 288 source files",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json --out .workflow/local/semantic-dup-report-after-fix.md --json-out .workflow/local/semantic-dup-current-after-fix.json",
+      "exit_code": 0,
+      "name": "semantic-dup-ratchet",
+      "output_path": "Current max_cluster_size=10; duplicate_pct=14.16; all ratchets within limits",
       "status": "pass",
       "summary": {},
       "timestamp": null

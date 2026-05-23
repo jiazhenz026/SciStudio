@@ -87,6 +87,16 @@ def test_local_push_and_pr_hooks_accept_adr042_override_labels() -> None:
     assert 'gh", "pr", "view"' in push_hook
 
 
+def test_pr_hook_validates_receipt_against_real_pr_body() -> None:
+    pr_hook = _text("scripts/hooks/check-gate-before-pr.sh")
+
+    assert 'token in {"--body", "-b"}' in pr_hook
+    assert 'token == "--body-file"' in pr_hook
+    assert '--pr-body "$PR_BODY"' in pr_hook
+    assert '--pr-body "$CMD"' not in pr_hook
+    assert "printf '%s' \"$PR_BODY\"" in pr_hook
+
+
 def test_workflow_orchestrates_adr042_governance_guards() -> None:
     workflow = _text(".github/workflows/workflow-gate.yml")
 

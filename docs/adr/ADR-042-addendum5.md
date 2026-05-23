@@ -23,6 +23,7 @@ governs:
     - scistudio.qa.governance.gate_record.validation.check_pre_push
     - scistudio.qa.governance.gate_record.validation.check_pr_ready
     - scistudio.qa.governance.gate_record.validation.check_pr
+    - scistudio.qa.governance.gate_record.workflow.run_ci
     - scistudio.qa.governance.core_change_guard.check
     - scistudio.qa.governance.human_bypass_guard.check
   entry_points: []

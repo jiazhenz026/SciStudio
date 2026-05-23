@@ -284,7 +284,7 @@ def main(argv: list[str] | None = None) -> int:
         # ADR-042 Addendum 5: the CI subcommand is the local/CI shared
         # orchestration surface. Keep pre-push/pr-ready structural, but make
         # `ci` include the same blocking guard classes the workflow uses.
-        from scistudio.qa.governance.workflow_gate import run_ci
+        from scistudio.qa.governance.gate_record.workflow import run_ci
 
         report = run_ci(
             repo_root=args.repo_root,

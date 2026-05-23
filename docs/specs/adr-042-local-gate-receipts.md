@@ -38,9 +38,9 @@ governs:
     - scistudio.qa.governance.gate_record.validation.check_pre_push
     - scistudio.qa.governance.gate_record.validation.check_pr_ready
     - scistudio.qa.governance.gate_record.validation.check_pr
+    - scistudio.qa.governance.gate_record.workflow.run_ci
     - scistudio.qa.governance.gate_receipt.validate_receipt
     - scistudio.qa.governance.worktree_write_guard.check_hook_payload
-    - scistudio.qa.governance.workflow_gate.run_ci
     - scistudio.qa.governance.core_change_guard.check
     - scistudio.qa.governance.human_bypass_guard.check
   files:
@@ -317,7 +317,8 @@ scope before mutation.
 | `docs/adr/ADR-042-addendum5.md` | create | Accepted governance decision |
 | `docs/specs/adr-042-local-gate-receipts.md` | create | Implementation contract |
 | `src/scistudio/qa/governance/gate_receipt.py` or package | create | Receipt CLI, schema, execution, validation |
-| `src/scistudio/qa/governance/workflow_gate.py` | create | Shared local/CI workflow-gate orchestration |
+| `src/scistudio/qa/governance/gate_record/workflow.py` | create | Shared local/CI workflow-gate orchestration |
+| `src/scistudio/qa/governance/workflow_gate.py` | create | CLI wrapper for shared workflow-gate orchestration |
 | `src/scistudio/qa/governance/worktree_write_guard.py` | create | Pre-write worktree/scope enforcement |
 | `src/scistudio/qa/governance/gate_record/**` | modify | Scoped override handling and validation integration |
 | `scripts/scistudio_pr_create.py` | modify | Use shared orchestration and receipt validation |
