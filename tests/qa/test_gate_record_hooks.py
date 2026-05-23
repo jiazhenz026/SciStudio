@@ -81,7 +81,7 @@ def test_local_push_and_pr_hooks_accept_adr042_override_labels() -> None:
         assert "admin-approved:core-change" in hook
         assert "admin-approved:merge" in hook
         assert "SCISTUDIO_GATE_BYPASS_LABELS" in hook
-        assert "ADR-042 local gate bypassed by approved override label" in hook
+        assert "ADR-042 local gate bypassed by broad override label" in hook
 
     assert "--label" in pr_hook
     assert 'gh", "pr", "view"' in push_hook

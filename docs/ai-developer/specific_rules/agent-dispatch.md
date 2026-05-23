@@ -138,7 +138,9 @@ language_source: en
   label for the current manager task.
 
 - MAY pass the authorized bypass label to local gate hook commands.
-  This only helps local checks; CI still decides final readiness.
+  Only `human-authored` and `admin-approved:ai-override` are broad local
+  bypasses. `admin-approved:core-change` is narrow and must not bypass scope,
+  docs, issue, receipt, or required-check validation.
 
 - MUST record the bypass label, reason, and owner authorization in the
   checklist when any bypass label is used.
@@ -157,6 +159,16 @@ python -m scistudio.qa.governance.gate_record pre-push \
   --bypass-label human-authored|admin-approved:ai-override|admin-approved:core-change|admin-approved:merge
 ```
 
+After integration, the manager must require a valid receipt for the exact
+candidate:
+
+```bash
+python -m scistudio.qa.governance.gate_receipt validate \
+  --gate-record .workflow/records/<record>.json \
+  --base origin/main \
+  --pr-body-file .workflow/local/pr-body.md
+```
+
 ## 7. Verification Rules
 
 - MUST run the checks declared in the manager gate record after integration.
@@ -167,6 +179,10 @@ python -m scistudio.qa.governance.gate_record pre-push \
 
 - MUST record each agent-owned test, docs update, and PR or commit evidence in
   the manager checklist or gate record.
+
+- MUST check whether AI workflow docs or dispatch templates need updates when
+  the work changes wrapper, hook, gate-record, receipt, CI, or AI-runtime
+  behavior.
 
 - MUST wait for CI to pass before calling the coordinated task complete.
 

@@ -171,12 +171,13 @@ def _local_bypass_report(labels: Sequence[str]) -> AuditReport | None:
                 for label in invalid
             ]
         )
-    valid = sorted(set(normalized) & VALID_OVERRIDE_LABELS)
+    broad_bypass_labels = {"human-authored", "admin-approved:ai-override"}
+    valid = sorted(set(normalized) & broad_bypass_labels)
     if valid:
         return _report(
             [],
             summary={
-                "skipped": "local ADR-042 hook bypassed by override label; CI/review remains authoritative",
+                "skipped": "local ADR-042 hook bypassed by broad override label; CI/review remains authoritative",
                 "bypass_labels": valid,
             },
         )

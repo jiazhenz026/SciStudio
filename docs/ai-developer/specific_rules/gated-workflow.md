@@ -40,6 +40,9 @@ self-attestation are not gate evidence.
 AI agents must use the repository-owned gate-record CLI to create, update, and
 validate the committed gate record. The CLI may expose additional convenience
 aliases, but the commands below are the normative AI-facing interface.
+The quick command index is also routed from
+`docs/ai-developer/rules.md#5-gate-cli-command-set`, `AGENTS.md`, and each
+persona guide so all AI runtimes land on the same command set.
 
 Start a gate record:
 
@@ -48,6 +51,7 @@ python -m scistudio.qa.governance.gate_record start \
   --task-kind feature|bugfix|hotfix|refactor|docs|maintenance|manager \
   --persona manager|implementer|adr_author|audit_reviewer|test_engineer \
   --issue <number> \
+  --slug <task-slug> \
   --branch <branch> \
   --owner-directive "<owner instruction>" \
   --include <path-or-glob> \
@@ -61,9 +65,11 @@ Record the plan:
 python -m scistudio.qa.governance.gate_record plan \
   --record .workflow/records/<issue>-<task-slug>.json \
   --files <path-or-glob> \
-  --docs <path-or-na> \
-  --tests <path-or-na> \
-  --checks ruff,format,pytest,full_audit,sentrux
+  --tests <test-path> \
+  --checks ruff \
+  --checks format \
+  --checks pytest \
+  --checks full_audit
 ```
 
 Amend scope:
@@ -135,7 +141,7 @@ python -m scistudio.qa.governance.gate_record ci \
   --gate-record .workflow/records/<issue>-<task-slug>.json \
   --base <base-ref> \
   --head <head-ref> \
-  --pr-body <path-or-text>
+  --pr-body "<body-text>"
 ```
 
 ADR-042 Addendum 5 defines an additional local receipt gate for exact push or
@@ -409,9 +415,9 @@ For Sentrux, the record must store free-tier mode, `rules_checked`,
 `total_rules_defined` when reported, pass/fail status, relevant thresholds from
 `.sentrux/rules.toml`, and `pro_required: false`.
 
-When ADR-042 Addendum 5 receipt tooling is available, Step 5 is not complete
-until the receipt runner has recorded every required check for the exact
-candidate. The required set is the union of:
+ADR-042 Addendum 5 receipt tooling is active. Step 5 is not complete until the
+receipt runner has recorded every required check for the exact candidate. The
+required set is the union of:
 
 - the checks declared in the gate record plan; and
 - CI-parity checks inferred from the current diff.
@@ -422,6 +428,48 @@ changes require the corresponding lint, format, type, test, full-audit, and
 governance checks. Any file change after receipt generation invalidates the
 receipt because `HEAD`, diff, gate record, PR body, and check-set fingerprints
 must match the current candidate.
+
+Use the receipt runner for the hard gate transcript:
+
+```bash
+python -m scistudio.qa.governance.gate_receipt run \
+  --gate-record .workflow/records/<record>.json \
+  --base origin/main \
+  --pr-body-file .workflow/local/pr-body.md
+```
+
+For commands that need custom arguments, wrap the actual command with
+`gate_receipt exec`:
+
+```bash
+python -m scistudio.qa.governance.gate_receipt exec \
+  --name mypy \
+  --gate-record .workflow/records/<record>.json \
+  --base origin/main \
+  --pr-body-file .workflow/local/pr-body.md \
+  -- mypy src/scistudio/ --ignore-missing-imports
+```
+
+The receipt is local-only and lives under
+`.workflow/local/gate-receipts/<head-sha>.json` plus the matching `.log`
+transcript. A pre-PR receipt that includes a PR-body hash may use
+`<head-sha>-pr-<bodyhash>.json` so it can coexist with the no-body pre-push
+receipt for the same HEAD. The committed gate record still needs
+`gate_record check` entries; the local receipt is the hook-verifiable
+transcript for the exact candidate. Raw terminal output or chat summaries do
+not satisfy the hard receipt gate.
+
+Receipt generation has two modes:
+
+- Pre-PR: write the intended PR body to `.workflow/local/pr-body.md`, run
+  `gate_receipt run --pr-body-file .workflow/local/pr-body.md`, then create
+  the PR with the same body through `scripts/scistudio_pr_create.py`.
+- Pre-push: run or validate the receipt without `--pr-body-file` when no PR
+  body is part of the push candidate.
+
+This avoids a chicken-and-egg dependency on an already-created PR. After PR
+creation, `gate_record finalize` changes the gate record hash; rerun the
+receipt for that finalize commit before pushing it.
 
 ### 3.7 Step 6: Commit And Submit PR
 
@@ -436,11 +484,12 @@ Issue: #<number>
 Assisted-by: <runtime>:<model-or-agent-id>
 ```
 
-Push the branch and open the PR. **Prefer the
-`scripts/scistudio_pr_create.py` wrapper over invoking `gh pr create`
-directly** (#1360): it pre-flights `gate_record ci` with the real PR body
-locally and short-circuits the open-PR step when CI would reject the
-record. The wrapper filters `core_change_guard` / `pr_merge_guard` /
+Push the branch and open the PR. **Use the
+`scripts/scistudio_pr_create.py` wrapper instead of invoking `gh pr create`
+directly** (#1360, #1492): it validates the exact local `gate_receipt`, then
+pre-flights `gate_record ci` with the real PR body locally and short-circuits
+the open-PR step when CI would reject the record. The wrapper filters
+`core_change_guard` / `pr_merge_guard` /
 `human_bypass_guard` findings because those guards depend on PR labels
 that cannot exist before the PR does — CI is the authoritative enforcer
 for that subset.
@@ -452,6 +501,13 @@ python scripts/scistudio_pr_create.py \
   --body "<body>"
 ```
 
+Current Addendum 5 behavior: the wrapper first validates the local
+`gate_receipt` for the exact PR body and then runs `gate_record ci` locally.
+`gate_record ci` now invokes the shared local/CI workflow-gate orchestration,
+not only the structural gate-record validator. It still filters only findings
+that are impossible before the PR exists, such as administrator-applied PR
+labels and post-PR finalization.
+
 The wrapper accepts every `gh pr create` flag verbatim and passes them
 through. `--dry-run` runs the pre-flight without invoking `gh`. Set
 `SCISTUDIO_SKIP_PREFLIGHT=1` only for emergency one-off escapes; CI will
@@ -460,6 +516,14 @@ still run the full guard set in the cloud.
 Direct `gh pr create` invocation remains supported for non-AI work or
 when the wrapper is unavailable, but AI-authored PRs that skip the
 wrapper SHOULD expect more CI fix-and-push iterations.
+
+When wrapper, hook, gate-record, receipt, CI, or AI-runtime behavior changes,
+explicitly check whether these docs also need updates:
+`docs/ai-developer/rules.md`,
+`docs/ai-developer/specific_rules/gated-workflow.md`,
+`docs/ai-developer/specific_rules/agent-dispatch.md`, and
+`docs/ai-developer/templates/*dispatch*.md`. Record updated paths or N/A
+rationales in the gate record docs landing.
 
 Record final commit and PR evidence with:
 

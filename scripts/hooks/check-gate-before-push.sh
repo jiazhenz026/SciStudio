@@ -53,6 +53,7 @@ PY
 )
 
 BASE_REF="${SCISTUDIO_GATE_BASE:-origin/main}"
+BROAD_BYPASS=$(printf '%s\n' "$BYPASS_LABELS" | grep -E '^(human-authored|admin-approved:ai-override)$' || true)
 LABEL_ARGS=()
 while IFS= read -r label; do
   [ -n "$label" ] || continue
@@ -70,9 +71,42 @@ OUTPUT=$(PYTHONPATH=src python -m scistudio.qa.governance.gate_record pre-push \
   exit 0
 }
 
-if [ -n "$BYPASS_LABELS" ]; then
-  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"ADR-042 local gate bypassed by approved override label; CI/review still runs."}}'
+if [ -n "$BROAD_BYPASS" ]; then
+  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"ADR-042 local gate bypassed by broad override label; CI/review still runs."}}'
   exit 0
 fi
+
+GATE_RECORD=$(SCISTUDIO_BRANCH="$BRANCH" python - <<'PY'
+import json
+import os
+from pathlib import Path
+
+branch = os.environ.get("SCISTUDIO_BRANCH", "")
+records = []
+for path in sorted(Path(".workflow/records").glob("*.json")):
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        continue
+    if data.get("branch") == branch:
+        records.append(path.as_posix())
+print(records[0] if len(records) == 1 else "")
+PY
+)
+
+if [ -z "$GATE_RECORD" ]; then
+  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"ADR-042 gate: exactly one gate record must match the current branch before push."}}'
+  exit 0
+fi
+
+RECEIPT_OUTPUT=$(PYTHONPATH=src python -m scistudio.qa.governance.gate_receipt validate \
+  --repo-root . \
+  --gate-record "$GATE_RECORD" \
+  --base "$BASE_REF" \
+  --head HEAD 2>&1) || {
+  REASON=$(printf '%s' "$RECEIPT_OUTPUT" | python -c "import json,sys; print(json.dumps(sys.stdin.read()[:1800]))")
+  echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":$REASON}}"
+  exit 0
+}
 
 echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'

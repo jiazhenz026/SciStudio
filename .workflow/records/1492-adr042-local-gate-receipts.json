@@ -4,33 +4,139 @@
     {
       "approved_by": null,
       "exclude": [],
-      "include": [],
-      "reason": "Implemented the owner-approved documentation scope: ADR-042 Addendum 5, local gate receipt spec, and AI developer docs updates."
+      "include": [
+        "src/scistudio/agent_provisioning/templates/hook_worktree_write_guard.py",
+        "tests/agent_provisioning/test_hooks.py",
+        "tests/agent_provisioning/test_codex_config.py"
+      ],
+      "reason": "Implementation requires the reusable AI hook template and orchestrator tests for the ADR-042 worktree guard."
     },
     {
       "approved_by": null,
       "exclude": [],
-      "include": [],
-      "reason": "Owner explicitly requested ADR-042 addendum and implementation spec changes, so this docs task intentionally touches governance documents."
+      "include": [
+        "scripts/hooks/check-gate-before-push.sh",
+        "scripts/hooks/check-gate-before-pr.sh"
+      ],
+      "reason": "Receipt enforcement is wired into existing git-push and gh-pr-create hook scripts."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "AGENTS.md",
+        "docs/ai-developer/personas/implementer.md",
+        "docs/ai-developer/personas/manager.md",
+        "docs/ai-developer/personas/adr-author.md",
+        "docs/ai-developer/personas/audit-reviewer.md",
+        "docs/ai-developer/personas/test-engineer.md"
+      ],
+      "reason": "Owner requested gate-record CLI command-set routing in AGENTS.md and persona documents."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".agents/rules/rules.md",
+        ".claude/rules/rules.md",
+        ".codex/rules/rules.md"
+      ],
+      "reason": "Runtime rules indexes also need to route agents to the gate CLI command set."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1492-adr042-local-gate-receipts.json"
+      ],
+      "reason": "Gate record evidence file itself must remain inside the declared scope after replacing the original docs-only record."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "src/scistudio/qa/governance/gate_record/io.py"
+      ],
+      "reason": "Pre-commit mypy exposed existing gate_record.io return typing while checking changed governance CLI imports."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "tests/qa/test_gate_record_hooks.py"
+      ],
+      "reason": "Full governance test receipt exposed stale hook expectation for narrowed broad-bypass wording."
     }
   ],
   "branch": "docs/issue-1492-adr042-local-gate-receipts",
-  "changed_test_paths": [],
+  "changed_test_paths": [
+    "tests/qa/test_gate_receipt.py",
+    "tests/qa/test_worktree_write_guard.py",
+    "tests/qa/test_gate_record.py",
+    "tests/scripts/test_scistudio_pr_create.py",
+    "tests/agent_provisioning/test_hooks.py",
+    "tests/agent_provisioning/test_codex_config.py"
+  ],
   "check_results": [
     {
-      "command_or_tool": "ruff check .",
+      "command_or_tool": "ruff check <changed python files and tests>",
       "exit_code": 0,
       "name": "ruff",
-      "output_path": "All checks passed; ruff cache warning only: failed to write .ruff_cache due access denied",
+      "output_path": "All checks passed",
       "status": "pass",
       "summary": {},
       "timestamp": null
     },
     {
-      "command_or_tool": "ruff format --check .",
+      "command_or_tool": "ruff format --check <changed python files and tests>",
       "exit_code": 0,
       "name": "format",
-      "output_path": "762 files already formatted",
+      "output_path": "16 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m json.tool .workflow/records/1492-adr042-local-gate-receipts.json",
+      "exit_code": 0,
+      "name": "json_tool_gate_record",
+      "output_path": "Gate record JSON parsed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src python -c <docs_landing.check over current diff>",
+      "exit_code": 0,
+      "name": "docs_landing",
+      "output_path": "docs_landing: pass",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "SCISTUDIO_GOVERNANCE_CHANGE_APPROVED=1 pre-commit run --files <changed files>",
+      "exit_code": 0,
+      "name": "pre_commit_run",
+      "output_path": "All hooks passed",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/qa/test_gate_receipt.py tests/qa/test_worktree_write_guard.py tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/agent_provisioning/test_hooks.py tests/agent_provisioning/test_codex_config.py tests/scripts/test_scistudio_pr_create.py --timeout=60 --no-cov",
+      "exit_code": 0,
+      "name": "pytest-governance",
+      "output_path": "146 passed in 1.85s",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src mypy src/scistudio/ --ignore-missing-imports --python-version 3.13",
+      "exit_code": 0,
+      "name": "mypy",
+      "output_path": "Success: no issues found in 287 source files",
       "status": "pass",
       "summary": {},
       "timestamp": null
@@ -52,74 +158,37 @@
       "status": "pass",
       "summary": {},
       "timestamp": null
-    },
-    {
-      "command_or_tool": "python -m json.tool .workflow/records/1492-adr042-local-gate-receipts.json",
-      "exit_code": 0,
-      "name": "json_tool_gate_record",
-      "output_path": "Gate record JSON parsed",
-      "status": "pass",
-      "summary": {},
-      "timestamp": null
-    },
-    {
-      "command_or_tool": "PYTHONPATH=src python -c <docs_landing.check over changed files and gate record docs_landing>",
-      "exit_code": 0,
-      "name": "docs_landing",
-      "output_path": "docs_landing: pass",
-      "status": "pass",
-      "summary": {},
-      "timestamp": null
-    },
-    {
-      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.governance.gate_record pre-commit --repo-root . --staged",
-      "exit_code": 0,
-      "name": "gate_record_pre_commit",
-      "output_path": "gate_record: pass",
-      "status": "pass",
-      "summary": {},
-      "timestamp": null
-    },
-    {
-      "command_or_tool": "SCISTUDIO_GOVERNANCE_CHANGE_APPROVED=1 pre-commit run --files <changed docs and gate record>",
-      "exit_code": 0,
-      "name": "pre_commit_run",
-      "output_path": "All relevant pre-commit hooks passed; governance approval env used for owner-requested ADR/spec change",
-      "status": "pass",
-      "summary": {},
-      "timestamp": null
-    },
-    {
-      "command_or_tool": "PYTHONPATH=src python -m scistudio.qa.governance.gate_record pre-push --repo-root . --base origin/main --head HEAD --gate-record .workflow/records/1492-adr042-local-gate-receipts.json",
-      "exit_code": 0,
-      "name": "gate_record_pre_push",
-      "output_path": "gate_record: pass",
-      "status": "pass",
-      "summary": {},
-      "timestamp": null
     }
   ],
   "commit": null,
   "docs_landing": {
     "changelog": {
       "not_applicable": true,
-      "rationale": "documentation-only-governance-planning-change-no-release-note"
+      "rationale": "governance-tooling-and-ai-workflow-change-no-user-release-note"
     },
     "checklist": {
       "not_applicable": true,
-      "rationale": "no-manager-dispatch-checklist-needed-for-single-adr-author-docs-task"
+      "rationale": "single-issue-single-agent-implementation-no-manager-dispatch-checklist"
     },
     "docs": {
       "paths": [
         "docs/adr/ADR-042-addendum5.md",
         "docs/specs/adr-042-local-gate-receipts.md",
+        "AGENTS.md",
+        ".agents/rules/rules.md",
+        ".claude/rules/rules.md",
+        ".codex/rules/rules.md",
         "docs/ai-developer/rules.md",
-        "docs/ai-developer/specific_rules/gated-workflow.md"
+        "docs/ai-developer/specific_rules/gated-workflow.md",
+        "docs/ai-developer/specific_rules/agent-dispatch.md",
+        "docs/ai-developer/personas/implementer.md",
+        "docs/ai-developer/personas/manager.md",
+        "docs/ai-developer/personas/adr-author.md",
+        "docs/ai-developer/personas/audit-reviewer.md",
+        "docs/ai-developer/personas/test-engineer.md",
+        "docs/ai-developer/templates/agent-dispatch-checklist-template.md",
+        "docs/ai-developer/templates/agent-dispatch-prompt-template.md"
       ]
-    },
-    "tests": {
-      "not_applicable": true,
-      "rationale": "documentation-and-specification-change-only-planned-implementation-tests-listed-in-spec"
     }
   },
   "full_audit": {
@@ -141,21 +210,56 @@
       "url": "https://github.com/zjzcpj/SciStudio/issues/1492"
     }
   ],
-  "owner_directive": "Owner requested an issue, ADR-042 addendum, implementation spec, and AI developer docs for CI-parity local gate receipts and worktree write guards.",
-  "persona": "adr_author",
+  "owner_directive": "Owner requested implementation of ADR-042 Addendum 5: CI-parity local gate receipts, scoped bypass semantics, worktree write guards, AI wrapper docs, and a PR for issue #1492.",
+  "persona": "implementer",
   "planned_files": [
+    "AGENTS.md",
+    ".agents/rules/rules.md",
+    ".claude/rules/rules.md",
+    ".codex/rules/rules.md",
     "docs/adr/ADR-042-addendum5.md",
     "docs/specs/adr-042-local-gate-receipts.md",
     "docs/ai-developer/rules.md",
     "docs/ai-developer/specific_rules/gated-workflow.md",
-    ".workflow/records/1492-adr042-local-gate-receipts.json"
+    "docs/ai-developer/specific_rules/agent-dispatch.md",
+    "docs/ai-developer/templates/agent-dispatch-checklist-template.md",
+    "docs/ai-developer/templates/agent-dispatch-prompt-template.md",
+    "docs/ai-developer/personas/implementer.md",
+    "docs/ai-developer/personas/manager.md",
+    "docs/ai-developer/personas/adr-author.md",
+    "docs/ai-developer/personas/audit-reviewer.md",
+    "docs/ai-developer/personas/test-engineer.md",
+    "scripts/scistudio_pr_create.py",
+    "scripts/hooks/check-gate-before-push.sh",
+    "scripts/hooks/check-gate-before-pr.sh",
+    "scripts/hooks/check-worktree-write-guard.sh",
+    "src/scistudio/qa/governance/gate_receipt.py",
+    "src/scistudio/qa/governance/worktree_write_guard.py",
+    "src/scistudio/qa/governance/workflow_gate.py",
+    "src/scistudio/qa/governance/gate_record/validation.py",
+    "src/scistudio/qa/governance/gate_record/cli.py",
+    "src/scistudio/agent_provisioning/hooks.py",
+    "src/scistudio/agent_provisioning/codex_config.py",
+    "src/scistudio/agent_provisioning/templates/hook_worktree_write_guard.py",
+    "tests/qa/test_gate_receipt.py",
+    "tests/qa/test_worktree_write_guard.py",
+    "tests/qa/test_gate_record.py",
+    "tests/qa/test_gate_record_ci.py",
+    "tests/scripts/test_scistudio_pr_create.py",
+    "tests/agent_provisioning/test_hooks.py",
+    "tests/agent_provisioning/test_codex_config.py"
   ],
   "pull_request": null,
   "record_path": ".workflow/records/1492-adr042-local-gate-receipts.json",
   "required_checks": [
     "ruff",
     "format",
+    "mypy",
+    "pytest-governance",
+    "pytest-scripts",
+    "pytest-agent-provisioning",
     "frontmatter_lint",
+    "docs_landing",
     "full_audit",
     "gate_record_pre_commit",
     "gate_record_pre_push"
@@ -168,7 +272,26 @@
       "docs/specs/adr-042-local-gate-receipts.md",
       "docs/ai-developer/rules.md",
       "docs/ai-developer/specific_rules/gated-workflow.md",
-      ".workflow/records/1492-adr042-local-gate-receipts.json"
+      "docs/ai-developer/specific_rules/agent-dispatch.md",
+      "docs/ai-developer/templates/agent-dispatch-checklist-template.md",
+      "docs/ai-developer/templates/agent-dispatch-prompt-template.md",
+      "src/scistudio/qa/governance/gate_receipt.py",
+      "src/scistudio/qa/governance/worktree_write_guard.py",
+      "src/scistudio/qa/governance/workflow_gate.py",
+      "src/scistudio/qa/governance/gate_record/validation.py",
+      "src/scistudio/qa/governance/gate_record/cli.py",
+      "scripts/scistudio_pr_create.py",
+      "scripts/hooks/check-worktree-write-guard.sh",
+      "src/scistudio/agent_provisioning/hooks.py",
+      "src/scistudio/agent_provisioning/codex_config.py",
+      ".claude/settings.json",
+      "tests/qa/test_gate_receipt.py",
+      "tests/qa/test_worktree_write_guard.py",
+      "tests/qa/test_gate_record_ci.py",
+      "tests/qa/test_gate_record.py",
+      "tests/scripts/test_scistudio_pr_create.py",
+      "tests/agent_provisioning/test_hooks.py",
+      "tests/agent_provisioning/test_codex_config.py"
     ]
   },
   "sentrux": null,
@@ -211,5 +334,5 @@
     }
   ],
   "task_id": "1492-adr042-local-gate-receipts",
-  "task_kind": "docs"
+  "task_kind": "maintenance"
 }

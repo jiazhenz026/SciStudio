@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Wrapper around ``gh pr create`` that pre-flights ``gate_record ci``.
+"""Wrapper around ``gh pr create`` that pre-flights ADR-042 local gates.
 
 Motivation: local ``gate_record pre-push`` only runs structural
 ``validate_gate_record`` checks. CI's ``Verify Workflow Compliance`` job
@@ -8,8 +8,9 @@ runs the full guard orchestration (``docs_landing``, ``issue_link``,
 PR-state guards). Issues in the first set surface only on CI today,
 causing avoidable fix-and-push cycles (see PR #1351).
 
-This wrapper closes that gap by running ``gate_record ci`` locally with
-the real ``--pr-body`` before invoking ``gh pr create``. It deliberately
+This wrapper closes that gap by running ``gate_receipt validate`` and
+``gate_record ci`` locally with the real ``--pr-body`` before invoking
+``gh pr create``. It deliberately
 filters findings from the three PR-state guards
 (``core_change_guard``, ``pr_merge_guard``, ``human_bypass_guard``)
 because their evidence (admin labels on the PR) cannot exist until the
@@ -224,6 +225,38 @@ def run_gate_record_ci(
         ) from exc
 
 
+def run_gate_receipt_validate(
+    repo_root: Path,
+    gate_record: Path,
+    pr_body: str,
+    *,
+    base: str = "origin/main",
+    head: str = "HEAD",
+) -> tuple[int, str, str]:
+    """Invoke ``gate_receipt validate`` for the exact PR candidate."""
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "scistudio.qa.governance.gate_receipt",
+        "validate",
+        "--gate-record",
+        str(gate_record),
+        "--base",
+        base,
+        "--head",
+        head,
+        "--pr-body",
+        pr_body,
+    ]
+    env = os.environ.copy()
+    src_dir = repo_root / "src"
+    if src_dir.is_dir():
+        env["PYTHONPATH"] = str(src_dir) + os.pathsep + env.get("PYTHONPATH", "")
+    proc = subprocess.run(cmd, capture_output=True, text=True, env=env, cwd=str(repo_root), check=False)
+    return proc.returncode, proc.stdout, proc.stderr
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(argv if argv is not None else sys.argv[1:])
     if "--help" in argv or "-h" in argv:
@@ -260,6 +293,24 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
         base = resolve_base_ref(extract_base(argv))
+
+        receipt_exit, receipt_stdout, receipt_stderr = run_gate_receipt_validate(
+            repo_root,
+            record,
+            body,
+            base=base,
+        )
+        if receipt_exit != 0:
+            print("\nERROR: local gate receipt is missing, stale, or failing.", file=sys.stderr)
+            print(receipt_stdout, file=sys.stderr, end="" if receipt_stdout.endswith("\n") else "\n")
+            print(receipt_stderr, file=sys.stderr, end="" if receipt_stderr.endswith("\n") else "\n")
+            print(
+                "\nRun `python -m scistudio.qa.governance.gate_receipt run "
+                f"--gate-record {record} --base {base} --pr-body-file <body-file>` "
+                "or record each command with `gate_receipt exec`.",
+                file=sys.stderr,
+            )
+            return 1
 
         try:
             report = run_gate_record_ci(repo_root, record, body, base=base)

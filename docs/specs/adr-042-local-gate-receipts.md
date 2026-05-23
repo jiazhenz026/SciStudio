@@ -1,14 +1,13 @@
 ---
 spec_id: adr-042-local-gate-receipts
 title: "ADR-042 Local Gate Receipts And Worktree Guard Specification"
-status: Planned
+status: Implemented
 feature_branch: docs/issue-1492-adr042-local-gate-receipts
 created: 2026-05-23
 input: "Owner-approved ADR-042 Addendum 5: implement CI-parity local gate receipts, scoped override semantics, and AI worktree write guards."
 owners:
   - "@jiazhenz026"
-related_adrs:
-  - 42
+related_adrs: []
 related_specs:
   - adr-042-ai-governance-tools
   - adr-042-code-quality-tools
@@ -22,6 +21,8 @@ scope:
     - Scoped local and CI override semantics.
     - AI write-time worktree and path guards for supported runtimes.
     - AI developer documentation for receipt-based preflight.
+    - AI-facing rules, workflow guidance, dispatch templates, and wrapper usage
+      notes updated for the new receipt gate.
   out:
     - Replacing committed gate records.
     - Committing local receipt logs.
@@ -37,6 +38,9 @@ governs:
     - scistudio.qa.governance.gate_record.validation.check_pre_push
     - scistudio.qa.governance.gate_record.validation.check_pr_ready
     - scistudio.qa.governance.gate_record.validation.check_pr
+    - scistudio.qa.governance.gate_receipt.validate_receipt
+    - scistudio.qa.governance.worktree_write_guard.check_hook_payload
+    - scistudio.qa.governance.workflow_gate.run_ci
     - scistudio.qa.governance.core_change_guard.check
     - scistudio.qa.governance.human_bypass_guard.check
   files:
@@ -44,10 +48,16 @@ governs:
     - docs/adr/ADR-042-addendum5.md
     - docs/ai-developer/rules.md
     - docs/ai-developer/specific_rules/gated-workflow.md
+    - docs/ai-developer/specific_rules/agent-dispatch.md
+    - docs/ai-developer/personas/*.md
+    - docs/ai-developer/templates/agent-dispatch-checklist-template.md
+    - docs/ai-developer/templates/agent-dispatch-prompt-template.md
+    - AGENTS.md
+    - .agents/rules/rules.md
+    - .claude/rules/rules.md
+    - .codex/rules/rules.md
     - scripts/scistudio_pr_create.py
     - scripts/hooks/**
-    - .claude/settings.json
-    - .codex/config.toml
     - src/scistudio/agent_provisioning/**
     - src/scistudio/qa/governance/**
     - tests/qa/**
@@ -60,6 +70,9 @@ tests:
   - tests/qa/test_human_bypass_guard.py
   - tests/qa/test_gate_receipt.py
   - tests/qa/test_worktree_write_guard.py
+  - tests/agent_provisioning/test_hooks.py
+  - tests/agent_provisioning/test_codex_config.py
+  - tests/scripts/test_scistudio_pr_create.py
 acceptance_source: adr
 language_source: en
 ---
@@ -184,6 +197,10 @@ Acceptance Scenarios:
 
 - A PR body is not available before PR creation. The receipt must omit or hash
   an explicit body file and then require revalidation when the PR body changes.
+- Pre-PR receipt generation must not require an existing PR URL or PR number;
+  it uses the intended PR body that the wrapper will pass to `gh pr create`.
+- Finalizing the gate record after PR creation changes the gate record hash and
+  intentionally requires a fresh pre-push receipt.
 - A local dependency is unavailable. The receipt runner must record the failure
   or an accepted N/A rule; it must not silently pass.
 - A broad diff touches frontend and Python surfaces. The required check matrix
@@ -218,6 +235,11 @@ Acceptance Scenarios:
   failing receipts.
 - FR-010: Receipt validity MUST be based on input fingerprints. Freshness time
   limits MAY be added as a secondary stale-file guard only.
+- FR-010A: The implementation MUST support a pre-PR receipt mode that hashes
+  the intended PR body from `.workflow/local/pr-body.md` or another explicit
+  local body file and does not require an existing PR.
+- FR-010B: The implementation MUST support a pre-push receipt mode that omits
+  PR-body hashing when no PR body is part of the push candidate.
 - FR-011: Required-check resolution MUST combine gate-record Phase 5 checks
   with diff-inferred CI parity checks.
 - FR-012: Frontend diffs MUST require frontend lint, format, typecheck, test,
@@ -232,6 +254,22 @@ Acceptance Scenarios:
   define separate policy.
 - FR-017: AI developer docs MUST explain that raw command output is not hard
   gate evidence unless recorded through the receipt runner.
+- FR-018: AI-facing rules and workflow guidance MUST document current wrapper
+  usage after this change: `scripts/scistudio_pr_create.py` validates
+  `gate_receipt validate` and shared `gate_record ci` before invoking
+  `gh pr create`.
+- FR-019: AI-facing rules and workflow guidance MUST document the gate-record
+  CLI semantic change: `gate_record ci` is the shared local/CI workflow-gate
+  orchestration entry point, while `gate_record pre-push` remains the
+  structural branch-diff validator and receipt freshness/completeness is
+  handled by `gate_receipt validate`.
+- FR-020: AI workflow docs and dispatch templates MUST tell agents to check
+  whether additional docs need updates whenever wrapper, hook, gate-record,
+  receipt, CI, or AI-runtime behavior changes. The check must include at
+  least `docs/ai-developer/rules.md`,
+  `docs/ai-developer/specific_rules/gated-workflow.md`,
+  `docs/ai-developer/specific_rules/agent-dispatch.md`, and dispatch
+  templates.
 
 ### Key Entities
 
@@ -261,6 +299,13 @@ Add a receipt validator used by pre-push and pre-PR hooks. The validator
 compares the current candidate fingerprint with the receipt and verifies
 required-check completeness and exit status.
 
+Pre-PR validation and pre-push validation are different candidate modes.
+Pre-PR validation includes the intended PR body hash because the wrapper has
+the exact body it will submit. Pre-push validation validates only the branch
+push candidate and does not require a PR URL or PR body. After PR creation,
+`gate_record finalize` changes the committed gate record and requires a new
+pre-push receipt before the finalize commit is pushed.
+
 Add a worktree write guard script used by Claude Code and Codex project hooks.
 The guard resolves filesystem paths and checks branch, worktree, and gate
 scope before mutation.
@@ -277,13 +322,14 @@ scope before mutation.
 | `src/scistudio/qa/governance/gate_record/**` | modify | Scoped override handling and validation integration |
 | `scripts/scistudio_pr_create.py` | modify | Use shared orchestration and receipt validation |
 | `scripts/hooks/**` | modify/create | Pre-push, pre-PR, and pre-write hook entry points |
-| `.github/workflows/workflow-gate.yml` | modify | Call shared orchestration instead of duplicating inline logic |
-| `.claude/settings.json` | modify | Wire receipt and write-guard hooks for Claude Code |
-| `.codex/config.toml` | modify | Wire equivalent hooks for Codex when present |
+| `.github/workflows/workflow-gate.yml` | no change in initial implementation | Existing CI calls `gate_record ci`; this spec changes that command to invoke shared orchestration |
+| generated `.claude/settings.json` | modify via provisioning template | Wire receipt and write-guard hooks for Claude Code |
+| generated `.codex/config.toml` | modify via provisioning template | Wire equivalent hooks for Codex when present |
 | `src/scistudio/agent_provisioning/**` | modify | Provision equivalent runtime hooks |
 | `.gitignore` | verify/modify | Keep `.workflow/local/**` local-only |
 | `docs/ai-developer/rules.md` | modify | Explain scoped override semantics |
 | `docs/ai-developer/specific_rules/gated-workflow.md` | modify | Explain receipt runner and hard gate behavior |
+| `AGENTS.md`, runtime rules indexes, and persona docs | modify | Route every AI entry point to the shared gate CLI command set |
 | `tests/qa/test_gate_receipt.py` | create | Receipt schema, fingerprint, required-check, stale-check tests |
 | `tests/qa/test_worktree_write_guard.py` | create | Worktree/path/branch/scope guard tests |
 | `tests/qa/test_gate_record_ci.py` | modify | Local/CI orchestration parity regression tests |
@@ -302,7 +348,9 @@ scope before mutation.
 6. Implement `gate_receipt run` and `gate_receipt exec`.
 7. Implement receipt validation in pre-push and pre-PR hooks.
 8. Implement worktree write guard and wire it into supported AI runtimes.
-9. Update AI developer docs and dispatch templates as needed.
+9. Update AI developer docs and dispatch templates, including wrapper usage,
+   `gate_record` CLI semantics, receipt commands, and a required docs-impact
+   check for future governance-tool changes.
 10. Run focused QA tests, full audit, and the relevant frontend/Python checks.
 
 ### 4.4 Verification Plan

@@ -29,12 +29,18 @@ governs:
   files:
     - docs/adr/ADR-042-addendum5.md
     - docs/specs/adr-042-local-gate-receipts.md
+    - AGENTS.md
+    - .agents/rules/rules.md
+    - .claude/rules/rules.md
+    - .codex/rules/rules.md
     - docs/ai-developer/rules.md
     - docs/ai-developer/specific_rules/gated-workflow.md
+    - docs/ai-developer/specific_rules/agent-dispatch.md
+    - docs/ai-developer/personas/*.md
+    - docs/ai-developer/templates/agent-dispatch-checklist-template.md
+    - docs/ai-developer/templates/agent-dispatch-prompt-template.md
     - scripts/scistudio_pr_create.py
     - scripts/hooks/**
-    - .claude/settings.json
-    - .codex/config.toml
     - src/scistudio/agent_provisioning/**
     - src/scistudio/qa/governance/**
     - tests/qa/**
@@ -54,7 +60,7 @@ agent_editable: false
 assisted_by:
   - "Codex:gpt-5"
 
-phase: planning
+phase: implementation
 tags: [qa, ci, ai-governance, workflow-gate, local-preflight]
 owner: "@jiazhenz026"
 co_authors: ["@codex"]
@@ -71,9 +77,10 @@ work. The model closes the gap between local claims and CI evidence by making
 the exact push candidate prove its required checks before `git push` or PR
 creation.
 
-The implementation is tracked by issue #1492. Until the `gate_receipt` command
-and hooks are implemented, this addendum defines target behavior rather than
-claiming current enforcement.
+The implementation is tracked by issue #1492. The initial implementation adds
+`gate_receipt`, shared `gate_record ci` orchestration, scoped local bypass
+semantics, PR-wrapper receipt validation, push/PR hook receipt validation, and
+AI write-guard provisioning.
 
 | Decision | Change | Enforcement target | Detailed section |
 |---|---|---|---|
@@ -138,9 +145,10 @@ orchestration must cover at least:
 - `core_change_guard`;
 - `mod_guard`;
 - `weakened_ci_check`;
-- `human_bypass_guard`;
-- `pr_merge_guard`;
 - Sentrux advisory reporting as defined by ADR-042 Addendum 3.
+
+PR-state guards such as `human_bypass_guard` and `pr_merge_guard` remain CI
+authoritative because their required evidence cannot exist before the PR does.
 
 Local pre-PR execution may filter only findings that are structurally
 impossible before the PR exists, such as administrator-applied PR labels or a
@@ -170,6 +178,11 @@ The `gate_receipt` implementation must write local-only evidence under:
 .workflow/local/gate-receipts/<head-sha>.json
 .workflow/local/gate-receipts/<head-sha>.log
 ```
+
+When a PR body participates in the candidate fingerprint, the implementation
+may add a short PR-body hash suffix, for example
+`<head-sha>-pr-<bodyhash>.json`, so the pre-push and pre-PR receipts for the
+same HEAD can coexist.
 
 The JSON file is the machine-readable receipt. The log file is a human-readable
 stdout/stderr transcript. Hooks must validate the JSON file; they must not
@@ -209,6 +222,26 @@ correctness rule. A recent receipt for a different diff is invalid.
 
 Receipt logs are local-only. `.workflow/local/**` is ignored and must not be
 committed. Committed gate records remain the durable review evidence.
+
+### 5.1 Pre-PR And Pre-Push Candidate Modes
+
+Receipt generation must not depend on an already-created PR. The pre-PR
+candidate uses the intended PR body from a local ignored file, commonly
+`.workflow/local/pr-body.md`. The PR wrapper must create the PR from the same
+body so the receipt's PR-body hash matches the actual candidate.
+
+There are two valid local receipt modes:
+
+| Mode | Required before | Fingerprint includes | Does not require |
+|---|---|---|---|
+| Pre-PR receipt | `scripts/scistudio_pr_create.py` opens a PR | `HEAD`, base ref, diff, gate record hash, intended PR body hash | Existing PR URL or PR number |
+| Pre-push receipt | `git push` sends commits | `HEAD`, base ref, diff, gate record hash | Existing PR URL or PR body |
+
+After PR creation, `gate_record finalize` records PR URL and commit evidence in
+the committed gate record. That changes the gate record hash and therefore
+invalidates the previous local receipt by design. The agent must generate a new
+receipt for the finalize commit before pushing it. CI remains authoritative for
+the final PR metadata and label-provenance facts.
 
 ## 6. Required Checks
 
@@ -267,8 +300,8 @@ They must not define separate policy.
 
 ## 9. Agent Procedure
 
-Once the receipt runner is implemented and wired, AI agents must use one of the
-repository-owned commands before push or PR creation:
+AI agents must use one of the repository-owned commands before push or PR
+creation:
 
 ```bash
 python -m scistudio.qa.governance.gate_receipt run \

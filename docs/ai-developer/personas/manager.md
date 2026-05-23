@@ -96,6 +96,9 @@ language_source: en
 - Gate workflow:
   `docs/ai-developer/specific_rules/gated-workflow.md`
 
+- Gate CLI command set:
+  `docs/ai-developer/rules.md#5-gate-cli-command-set`
+
 - Dispatch rules:
   `docs/ai-developer/specific_rules/agent-dispatch.md`
 

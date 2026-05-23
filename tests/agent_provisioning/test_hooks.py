@@ -16,6 +16,7 @@ import pytest
 from scistudio.agent_provisioning.hooks import write_hooks
 
 _HOOK_NAMES = (
+    "worktree_write_guard.py",
     "deny_scistudio_cli.py",
     "protect_workflow_yaml.py",
     "enforce_list_blocks_before_block_write.py",
@@ -35,7 +36,7 @@ def test_write_hooks_creates_settings_json(tmp_project_dir: Path) -> None:
     assert "hooks" in data
     pre = data["hooks"]["PreToolUse"]
     post = data["hooks"]["PostToolUse"]
-    assert len(pre) == 3
+    assert len(pre) == 4
     assert len(post) == 3
 
     # Every entry references a python interpreter and a hook script path.
@@ -53,8 +54,8 @@ def test_write_hooks_creates_settings_json(tmp_project_dir: Path) -> None:
         assert "MultiEdit" in matcher, f"matcher missing MultiEdit: {matcher!r}"
 
 
-def test_write_hooks_copies_six_scripts(tmp_project_dir: Path) -> None:
-    """All 6 hook scripts land in .claude/hooks/."""
+def test_write_hooks_copies_hook_scripts(tmp_project_dir: Path) -> None:
+    """All canonical hook scripts land in .claude/hooks/."""
     write_hooks(tmp_project_dir, force=False)
     hooks_dir = tmp_project_dir / ".claude" / "hooks"
     for name in _HOOK_NAMES:

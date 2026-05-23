@@ -14,7 +14,7 @@ import re
 import subprocess
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from scistudio.qa.governance.gate_record.models import (
     CheckEvidence,
@@ -32,9 +32,9 @@ def _load_record(record: GateRecord | Mapping[str, Any] | str | Path) -> GateRec
     if isinstance(record, GateRecord):
         return record
     if isinstance(record, Mapping):
-        return GateRecord.model_validate(record)
+        return cast(GateRecord, GateRecord.model_validate(record))
     path = Path(record)
-    return GateRecord.model_validate_json(path.read_text(encoding="utf-8"))
+    return cast(GateRecord, GateRecord.model_validate_json(path.read_text(encoding="utf-8")))
 
 
 def _slugify(value: str) -> str:

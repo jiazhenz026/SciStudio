@@ -15,10 +15,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from scistudio.qa.governance.gate_record.io import (
-    _git_lines,
-    _parse_issue_numbers,
-)
+from scistudio.qa.governance.gate_record.io import _parse_issue_numbers
 from scistudio.qa.governance.gate_record.paths import _normalize_path
 from scistudio.qa.governance.gate_record.stages import (
     amend_record,
@@ -32,7 +29,6 @@ from scistudio.qa.governance.gate_record.stages import (
 from scistudio.qa.governance.gate_record.validation import (
     _env_bypass_labels,
     check_commit_msg,
-    check_pr,
     check_pr_ready,
     check_pre_commit,
     check_pre_push,
@@ -285,12 +281,16 @@ def main(argv: list[str] | None = None) -> int:
             pr_labels=[*args.pr_label, *_env_bypass_labels()],
         )
     else:
-        changed_files = _git_lines(
-            args.repo_root, ["diff", "--name-only", "--diff-filter=ACMRTUXB", f"{args.base}...{args.head}"]
-        )
-        report = check_pr(
-            args.gate_record,
-            changed_files=changed_files,
+        # ADR-042 Addendum 5: the CI subcommand is the local/CI shared
+        # orchestration surface. Keep pre-push/pr-ready structural, but make
+        # `ci` include the same blocking guard classes the workflow uses.
+        from scistudio.qa.governance.workflow_gate import run_ci
+
+        report = run_ci(
+            repo_root=args.repo_root,
+            gate_record=args.gate_record,
+            base=args.base,
+            head=args.head,
             pr_body=args.pr_body,
             pr_labels=args.pr_label,
         )

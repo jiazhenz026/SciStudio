@@ -99,8 +99,17 @@ Known deferred items:
 
 - <test command or N/A reason>
 - <lint/check command>
+- `python -m scistudio.qa.governance.gate_receipt run` or explicit
+  `gate_receipt exec` commands for every required Phase 5 check
 - <docs/audit command or N/A reason>
 - <Sentrux MCP/CLI command or N/A reason>
+
+If the task changes wrapper, hook, gate-record, receipt, CI, or AI-runtime
+behavior, check whether these docs need updates and record updated paths or
+N/A rationale: `docs/ai-developer/rules.md`,
+`docs/ai-developer/specific_rules/gated-workflow.md`,
+`docs/ai-developer/specific_rules/agent-dispatch.md`, and
+`docs/ai-developer/templates/*dispatch*.md`.
 
 ## Output Required
 
