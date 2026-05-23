@@ -172,7 +172,27 @@ class FinishAIBlockError(BaseModel):
     message: str = Field(description="Human-readable error description.")
 
 
+class ActiveWorkflowContextResult(BaseModel):
+    """Result envelope for ``get_active_workflow_context``.
+
+    ADR-040 Addendum 5 / #1488. Both fields are ``None`` when no
+    workflow is open in the GUI. ``workflow_name`` falls back to
+    ``workflow_id`` when the underlying YAML carries no separate
+    ``metadata.title`` / ``metadata.name``.
+    """
+
+    workflow_id: str | None = Field(
+        default=None,
+        description="Identifier of the workflow the GUI is currently editing, or None when no workflow is open.",
+    )
+    workflow_name: str | None = Field(
+        default=None,
+        description="Display name of the active workflow (metadata.title when set, otherwise workflow_id), or None.",
+    )
+
+
 __all__ = [
+    "ActiveWorkflowContextResult",
     "BlockErrorEntry",
     "BlockSchemaResult",
     "BlockSpecEnvelope",

@@ -27,6 +27,7 @@ import { DataPreview } from "../components/DataPreview";
 import { ProjectTree } from "../components/ProjectTree";
 import { TabBar } from "../components/TabBar";
 import { WorkflowCanvas } from "../components/WorkflowCanvas";
+import { resolveVariadicPorts } from "../components/WorkflowCanvas.parts/flowNodeBuilder";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "../components/ui/resizable";
 
 type BottomTabValue = ReturnType<typeof useAppStore.getState>["activeBottomTab"];
@@ -353,6 +354,31 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
           previewLoading={previewLoading}
           selectedNodeId={selectedNodeId}
           selectedNodeLabel={selectedNodeLabel}
+          // #1326 port-info panel: resolve effective per-instance ports for
+          // the selected node. Variadic blocks have their canvas ports
+          // stored in ``node.config.{input,output}_ports``; static blocks
+          // use the schema-level ports as-is.
+          selectedInputPorts={
+            selectedNode && selectedSchema
+              ? resolveVariadicPorts(
+                  selectedSchema.input_ports,
+                  selectedNode.config,
+                  "input",
+                  selectedSchema,
+                )
+              : undefined
+          }
+          selectedOutputPorts={
+            selectedNode && selectedSchema
+              ? resolveVariadicPorts(
+                  selectedSchema.output_ports,
+                  selectedNode.config,
+                  "output",
+                  selectedSchema,
+                )
+              : undefined
+          }
+          selectedSchema={selectedSchema}
         />
       </ResizablePanel>
     </ResizablePanelGroup>

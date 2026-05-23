@@ -16,15 +16,55 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 
 from scistudio.ai.agent.terminal import resolve_windows_executable
+from scistudio.api.deps import get_runtime
+from scistudio.api.runtime import ApiRuntime
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
+
+RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
+
+
+class ActiveContextRequest(BaseModel):
+    """Payload for ``POST /api/ai/active-context``.
+
+    ADR-040 Addendum 5 / #1488. ``workflow_id`` is the id the GUI is
+    currently editing; ``None`` clears the runtime field (e.g. the user
+    closed the editor pane). Empty strings are normalised to ``None``
+    inside :meth:`ApiRuntime.set_active_workflow_id`.
+    """
+
+    workflow_id: str | None = None
+
+
+class ActiveContextResponse(BaseModel):
+    """Echo of the now-current ``active_workflow_id``."""
+
+    workflow_id: str | None = None
+
+
+@router.post("/active-context", response_model=ActiveContextResponse)
+async def set_active_context(
+    payload: ActiveContextRequest,
+    runtime: RuntimeDep,
+) -> ActiveContextResponse:
+    """Update the active workflow id surfaced to the AI chat agent.
+
+    ADR-040 Addendum 5 / #1488. The frontend posts here whenever the
+    user opens, switches, or closes a workflow in the editor; the
+    value is persisted to ``<project>/.scistudio/active_workflow.json``
+    so it survives backend restart, and is surfaced to the chat agent
+    via the ``get_active_workflow_context`` MCP tool.
+    """
+    runtime.set_active_workflow_id(payload.workflow_id)
+    return ActiveContextResponse(workflow_id=runtime.active_workflow_id)
 
 
 @router.get("/status")

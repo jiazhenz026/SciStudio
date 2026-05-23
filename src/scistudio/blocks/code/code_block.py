@@ -118,6 +118,15 @@ class CodeBlock(Block):
     name: ClassVar[str] = "Code Block"
     description: ClassVar[str] = "Run project-local scripts through typed file exchange"
 
+    # Issue #1325: CodeBlock matches AppBlock / AIBlock — user-configurable
+    # variadic ports so the canvas "+" button can append script-specific
+    # inputs / outputs. The ClassVar entries below are the default scaffolds;
+    # the per-instance port lists are stored under
+    # ``config.{input,output}_ports`` and merged at canvas render time by
+    # ``flowNodeBuilder.resolveVariadicPorts``.
+    variadic_inputs: ClassVar[bool] = True
+    variadic_outputs: ClassVar[bool] = True
+
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="data", accepted_types=[DataObject], required=False, description="Declared v2 inputs"),
     ]

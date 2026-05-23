@@ -18,6 +18,7 @@
 
 import type { Edge, HandleType } from "@xyflow/react";
 import { Handle, Position, useEdges, useReactFlow } from "@xyflow/react";
+import { useState } from "react";
 
 import {
   isAnyType,
@@ -27,6 +28,8 @@ import {
 } from "../../../config/typeColorMap";
 import type { BlockPortResponse, BlockSchemaResponse } from "../../../types/api";
 import type { BlockNodeData } from "../../../types/ui";
+
+import { AddPortDialog } from "./AddPortDialog";
 
 type Direction = "input" | "output";
 
@@ -166,18 +169,26 @@ export function PortHandles({
   const edges = useEdges();
   const { deleteElements } = useReactFlow();
 
-  const handleAddPort = (direction: Direction) => {
+  // Issue #1325: opening the add-port dialog defers the actual port
+  // append until the user confirms a name + type. ``addPortDirection``
+  // is the dialog's open / direction state; ``null`` keeps it closed.
+  const [addPortDirection, setAddPortDirection] = useState<Direction | null>(null);
+
+  const portsConfigFor = (direction: Direction): Array<{ name: string; types: string[] }> => {
     const key = direction === "input" ? "input_ports" : "output_ports";
-    const current = Array.isArray(data.config?.[key])
-      ? (data.config[key] as Array<{ name: string; types: string[] }>)
+    const current = data.config?.[key];
+    return Array.isArray(current)
+      ? (current as Array<{ name: string; types: string[] }>)
       : [];
-    const defaultType =
-      direction === "input"
-        ? (data.schema?.allowed_input_types?.[0] ?? "DataObject")
-        : (data.schema?.allowed_output_types?.[0] ?? "DataObject");
+  };
+
+  const handleAddPortConfirmed = (direction: Direction, name: string, typeName: string) => {
+    const key = direction === "input" ? "input_ports" : "output_ports";
+    const current = portsConfigFor(direction);
     data.onUpdateConfig?.({
-      [key]: [...current, { name: `port_${current.length + 1}`, types: [defaultType] }],
+      [key]: [...current, { name, types: [typeName] }],
     });
+    setAddPortDirection(null);
   };
 
   const handleRemovePort = (direction: Direction, portName: string) => {
@@ -221,7 +232,7 @@ export function PortHandles({
           direction="input"
           portStartY={portStartY}
           portCount={effectiveInputPorts.length}
-          onAdd={() => handleAddPort("input")}
+          onAdd={() => setAddPortDirection("input")}
         />
       )}
       {effectiveOutputPorts.map((port, index) => (
@@ -243,7 +254,23 @@ export function PortHandles({
           direction="output"
           portStartY={portStartY}
           portCount={effectiveOutputPorts.length}
-          onAdd={() => handleAddPort("output")}
+          onAdd={() => setAddPortDirection("output")}
+        />
+      )}
+      {addPortDirection && (
+        <AddPortDialog
+          direction={addPortDirection}
+          allowedTypes={
+            addPortDirection === "input"
+              ? (data.schema?.allowed_input_types ?? [])
+              : (data.schema?.allowed_output_types ?? [])
+          }
+          typeHierarchy={data.schema?.type_hierarchy}
+          defaultName={`port_${portsConfigFor(addPortDirection).length + 1}`}
+          onCancel={() => setAddPortDirection(null)}
+          onSubmit={(name, typeName) =>
+            handleAddPortConfirmed(addPortDirection, name, typeName)
+          }
         />
       )}
     </>

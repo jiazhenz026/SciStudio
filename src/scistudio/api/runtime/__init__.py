@@ -202,6 +202,13 @@ class ApiRuntime:
         # active project's ``.scistudio/`` so the per-project ``mcp-bridge``
         # subprocess can discover it.
         self._mcp_port: int | None = None
+        # ADR-040 Addendum 5 / #1488: the workflow id the GUI is currently
+        # editing. Frontend POSTs to ``/api/ai/active-context`` on every
+        # change; the value is persisted to
+        # ``<project>/.scistudio/active_workflow.json`` so it survives
+        # backend restart, and surfaced to the chat agent via the
+        # ``get_active_workflow_context`` MCP tool.
+        self.active_workflow_id: str | None = None
         self._entity_versions: dict[tuple[str, str], int] = {}
         self._entity_disk_versions: dict[tuple[str, str], int] = {}
         self._first_party_entity_writes: dict[tuple[str, str], FirstPartyEntityWrite] = {}
@@ -523,6 +530,10 @@ class ApiRuntime:
     open_project = _projects.open_project
     set_mcp_port = _projects.set_mcp_port
     _publish_mcp_port = _projects._publish_mcp_port
+    # ADR-040 Addendum 5 / #1488: persistence helpers for ``active_workflow_id``.
+    _load_active_workflow_id_from_disk = _projects._load_active_workflow_id_from_disk
+    _publish_active_workflow_id = _projects._publish_active_workflow_id
+    set_active_workflow_id = _projects.set_active_workflow_id
     update_project = _projects.update_project
     delete_project = _projects.delete_project
     project_response = _projects.project_response

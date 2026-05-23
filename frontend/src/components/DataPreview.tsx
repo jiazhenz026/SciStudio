@@ -1,8 +1,13 @@
 import { useMemo } from "react";
 
-import type { DataPreviewResponse } from "../types/api";
+import type {
+  BlockPortResponse,
+  BlockSchemaResponse,
+  DataPreviewResponse,
+} from "../types/api";
 
 import { OMEMetadataPanel } from "./OutputPreview/OMEMetadataPanel";
+import { PortInfoPanel } from "./DataPreview.parts/PortInfoPanel";
 import { PreviewRenderer } from "./DataPreview.parts/PreviewRenderer";
 import { extractRefEntries, type RefEntry } from "./DataPreview.parts/refEntries";
 import { useOmeMetadata } from "./DataPreview.parts/useOmeMetadata";
@@ -20,6 +25,16 @@ interface DataPreviewProps {
   previewCache: Record<string, DataPreviewResponse>;
   previewLoading: Record<string, boolean>;
   onLoadPreview: (dataRef: string) => Promise<void>;
+  /** Effective per-instance input ports of the selected node (after
+   *  resolveVariadicPorts). Empty / undefined when no node is selected
+   *  or the block has no input ports. Drives the #1326 PortInfoPanel. */
+  selectedInputPorts?: BlockPortResponse[];
+  /** Effective per-instance output ports of the selected node. */
+  selectedOutputPorts?: BlockPortResponse[];
+  /** Schema of the selected block. Used by PortInfoPanel for the
+   *  type-hierarchy → color lookup and the declared-port-name set that
+   *  distinguishes static vs user-added variadic rows (#1326 §3). */
+  selectedSchema?: BlockSchemaResponse;
 }
 
 export function DataPreview({
@@ -29,6 +44,9 @@ export function DataPreview({
   previewCache,
   previewLoading,
   onLoadPreview,
+  selectedInputPorts,
+  selectedOutputPorts,
+  selectedSchema,
 }: DataPreviewProps) {
   // #898 — pill labels become source filenames (with truncated-ref fallback).
   const refEntries: RefEntry[] = useMemo(() => {
@@ -61,9 +79,19 @@ export function DataPreview({
           Pick a block to inspect its latest outputs and cached previews.
         </div>
       ) : outputRefs.length === 0 ? (
-        <div className="mt-6 rounded-[1.8rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
-          This block has no previewable outputs yet.
-        </div>
+        <>
+          <div className="mt-6 rounded-[1.8rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
+            This block has no previewable outputs yet.
+          </div>
+          {/* #1326 — port-info panel still renders for blocks with no
+              outputs so the user can read port descriptions before the
+              first run. */}
+          <PortInfoPanel
+            inputPorts={selectedInputPorts ?? []}
+            outputPorts={selectedOutputPorts ?? []}
+            schema={selectedSchema}
+          />
+        </>
       ) : (
         <>
           <div className="mt-5 flex flex-wrap gap-2">
@@ -118,6 +146,15 @@ export function DataPreview({
                 Preview not loaded yet.
               </div>
             )}
+            {/* #1326 — port descriptions section. Rendered inside the
+                scrollable preview region so it appears below the active
+                preview (or the "preview not loaded" placeholder) as the
+                bottom half of the right-side pane per the spec sketch. */}
+            <PortInfoPanel
+              inputPorts={selectedInputPorts ?? []}
+              outputPorts={selectedOutputPorts ?? []}
+              schema={selectedSchema}
+            />
           </div>
         </>
       )}

@@ -54,6 +54,13 @@ class MCPContext(Protocol):
         """Active project workspace root, or ``None`` when no project open."""
         ...
 
+    # ADR-040 Addendum 5 / #1488: the workflow id the GUI is currently
+    # editing. ``None`` when no workflow is open or when no project is
+    # active. Surfaced to the chat agent via the
+    # ``get_active_workflow_context`` MCP tool so the agent has VS Code
+    # Copilot-style editor awareness without per-message context bloat.
+    active_workflow_id: str | None
+
 
 _current_context: MCPContext | None = None
 

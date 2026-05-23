@@ -88,6 +88,13 @@ src/scistudio/api/static/
 # Workflow gate state files (local per-developer)
 .workflow/active/
 
+# Per-project runtime state surfaced into the workspace's .scistudio/
+# directory (MCP port file, ADR-040 Addendum 5 active_workflow.json).
+# Defensive: only created if SciStudio's own repo is ever opened as a
+# workspace project for testing — user projects ignore .scistudio/
+# themselves via their own .gitignore.
+.scistudio/
+
 # Workflow gate scratch files. Canonical gate records under
 # .workflow/records/*.json are intentionally not ignored.
 .workflow/local/

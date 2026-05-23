@@ -70,6 +70,7 @@ from scistudio.ai.agent.mcp.tools_workflow._helpers import (
     _spec_to_dict,
 )
 from scistudio.ai.agent.mcp.tools_workflow._models import (
+    ActiveWorkflowContextResult,
     BlockErrorEntry,
     BlockSchemaResult,
     BlockSpecEnvelope,
@@ -89,6 +90,7 @@ from scistudio.ai.agent.mcp.tools_workflow.finish_ai_block import (
     finish_ai_block,
 )
 from scistudio.ai.agent.mcp.tools_workflow.read import (
+    get_active_workflow_context,
     get_block_schema,
     get_run_status,
     get_workflow,
@@ -118,6 +120,7 @@ __all__ = [  # noqa: RUF022 — grouped by role (helpers / models / tools)
     "_run_block_errors",
     "_spec_to_dict",
     # ---- Pydantic models ----
+    "ActiveWorkflowContextResult",
     "BlockErrorEntry",
     "BlockSchemaResult",
     "BlockSpecEnvelope",
@@ -131,9 +134,10 @@ __all__ = [  # noqa: RUF022 — grouped by role (helpers / models / tools)
     "ValidateWorkflowResult",
     "WorkflowDefinitionEnvelope",
     "WriteWorkflowResult",
-    # ---- 10 MCP tool functions ----
+    # ---- 11 MCP tool functions ----
     "cancel_run",
     "finish_ai_block",
+    "get_active_workflow_context",
     "get_block_schema",
     "get_run_status",
     "get_workflow",
