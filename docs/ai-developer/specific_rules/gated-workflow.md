@@ -138,6 +138,33 @@ python -m scistudio.qa.governance.gate_record ci \
   --pr-body <path-or-text>
 ```
 
+ADR-042 Addendum 5 defines an additional local receipt gate for exact push or
+PR candidates. When `python -m scistudio.qa.governance.gate_receipt` is
+available in the checkout and the corresponding hooks are wired, AI agents must
+use it before push or PR creation:
+
+```bash
+python -m scistudio.qa.governance.gate_receipt run \
+  --gate-record .workflow/records/<issue>-<task-slug>.json \
+  --base <base-ref> \
+  --pr-body-file .workflow/local/pr-body.md
+```
+
+For a single manually selected command, wrap the command so stdout, stderr,
+exit code, and candidate fingerprints are recorded:
+
+```bash
+python -m scistudio.qa.governance.gate_receipt exec \
+  --name mypy \
+  --gate-record .workflow/records/<issue>-<task-slug>.json \
+  --base <base-ref> \
+  -- mypy src/scistudio/ --ignore-missing-imports
+```
+
+Raw command output in chat or terminal history is not hard-gate evidence. The
+receipt JSON under `.workflow/local/gate-receipts/` is the machine-readable
+local proof, and `.workflow/local/**` remains local-only and ignored.
+
 The legacy `.workflow/gate.py` may remain as a migration helper, but it is not
 sufficient gate evidence unless it delegates to this CLI or emits the committed
 gate record required by this workflow.
@@ -382,6 +409,20 @@ For Sentrux, the record must store free-tier mode, `rules_checked`,
 `total_rules_defined` when reported, pass/fail status, relevant thresholds from
 `.sentrux/rules.toml`, and `pro_required: false`.
 
+When ADR-042 Addendum 5 receipt tooling is available, Step 5 is not complete
+until the receipt runner has recorded every required check for the exact
+candidate. The required set is the union of:
+
+- the checks declared in the gate record plan; and
+- CI-parity checks inferred from the current diff.
+
+Frontend changes require receipt entries for the configured frontend lint,
+format, typecheck, test, and build commands. Python, QA, governance, and docs
+changes require the corresponding lint, format, type, test, full-audit, and
+governance checks. Any file change after receipt generation invalidates the
+receipt because `HEAD`, diff, gate record, PR body, and check-set fingerprints
+must match the current candidate.
+
 ### 3.7 Step 6: Commit And Submit PR
 
 Commit the gate record with the code or documentation change.
@@ -468,7 +509,11 @@ evidence helps review; CI evidence is authoritative.
 - MUST treat CI evidence as authoritative.
 - MUST use bypass labels exactly as accepted by the gate CLI.
 - MUST use local bypass labels only when the owner authorizes that bypass.
+- MUST treat `admin-approved:core-change` as authorization for protected core
+  paths only, not as a broad gate-record or receipt bypass.
 - MUST record bypass label use in the gate record or manager checklist.
+- MUST use `gate_receipt run` or `gate_receipt exec` when ADR-042 Addendum 5
+  receipt tooling is available and wired in the checkout.
 - MUST never merge a PR as an AI agent without explicit administrator
   authorization.
 
@@ -484,6 +529,8 @@ Local hooks or CI must fail AI-authored work when:
 - new gate records omit `persona` or use an unsupported persona;
 - staged or changed files exceed `scope.include` without an amendment;
 - staged or changed files match `scope.exclude`;
+- ADR-042 Addendum 5 receipt tooling is wired and the exact candidate lacks a
+  valid receipt with all required checks passing;
 - governance files are touched without `governance_touch=true`;
 - governance, CI, Sentrux, or quality thresholds are weakened without
   owner-approved scope;

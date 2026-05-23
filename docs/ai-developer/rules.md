@@ -95,7 +95,9 @@ language_source: en
 
 - `admin-approved:ai-override` authorizes a one-off AI gate override.
 
-- `admin-approved:core-change` authorizes protected core path changes.
+- `admin-approved:core-change` authorizes protected core path changes only.
+  It does not bypass scope, issue linkage, docs landing, full-audit evidence,
+  local receipt validation, required checks, or CI parity checks.
 
 - `admin-approved:merge` authorizes approved merge automation.
 
@@ -104,6 +106,10 @@ language_source: en
 
 - CI must validate label provenance.
   Chat authorization alone is not enough for final PR readiness.
+
+- `admin-approved:ai-override` is the only accepted label for a one-off broad
+  AI workflow-gate override. It still does not bypass branch protection,
+  normal repository CI, owner review, or administrator merge authorization.
 
 ## 5. Routing
 
