@@ -17,6 +17,15 @@
         "frontend/src/lib/api/**"
       ],
       "reason": "Add CHANGELOG.md and frontend/src/lib/api/** to scope (CHANGELOG required for changelog docs landing; api helper lives under lib/api/ per established convention, not the src/api/ I initially listed)."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "tests/cli/**",
+        "tests/integration/**"
+      ],
+      "reason": "Add tests/cli/** + tests/integration/** to scope: Codex P1 fix required updating the 26->27 tool-count assertion in tests/cli/test_mcp_bridge.py (2 places) and tests/integration/test_phase2_mcp_end_to_end.py. These dirs were not in the original include list and surfaced as gate-record.scope.outside-include in CI workflow compliance."
     }
   ],
   "branch": "feat/ai-context-and-port-ux",
