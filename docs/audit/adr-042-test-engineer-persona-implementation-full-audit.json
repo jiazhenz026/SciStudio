@@ -2,7 +2,7 @@
   "tool": "full_audit",
   "status": "pass",
   "generated_at": "1970-01-01T00:00:00Z",
-  "source_sha": "876851bfd3632ec8b78c85fc3a899d1756963a05090fe68a439a33571a5d1070",
+  "source_sha": "2574313cd9b250af71c848ede3f5e1ea4a837d1d8cb4e6ced9ea3655ec2a2fba",
   "findings": [],
   "summary": {
     "implemented_children": [
@@ -24,7 +24,7 @@
       "tool": "generate_facts",
       "status": "pass",
       "generated_at": "1970-01-01T00:00:00Z",
-      "source_sha": "876851bfd3632ec8b78c85fc3a899d1756963a05090fe68a439a33571a5d1070",
+      "source_sha": "2574313cd9b250af71c848ede3f5e1ea4a837d1d8cb4e6ced9ea3655ec2a2fba",
       "findings": [],
       "summary": {
         "facts_path": "docs/facts/generated.yaml",
@@ -93,7 +93,7 @@
     {
       "tool": "frontmatter_lint",
       "status": "pass",
-      "generated_at": "2026-05-23T00:00:08.975931Z",
+      "generated_at": "2026-05-23T00:09:27.977847Z",
       "source_sha": "",
       "findings": [],
       "summary": {
@@ -105,8 +105,8 @@
     {
       "tool": "fact_drift",
       "status": "pass",
-      "generated_at": "2026-05-23T00:00:10.120559Z",
-      "source_sha": "876851bfd3632ec8b78c85fc3a899d1756963a05090fe68a439a33571a5d1070",
+      "generated_at": "2026-05-23T00:09:29.161923Z",
+      "source_sha": "2574313cd9b250af71c848ede3f5e1ea4a837d1d8cb4e6ced9ea3655ec2a2fba",
       "findings": [],
       "summary": {
         "docs_checked": 214,
@@ -117,8 +117,8 @@
     {
       "tool": "doc_drift",
       "status": "pass",
-      "generated_at": "2026-05-23T00:00:10.372844Z",
-      "source_sha": "876851bfd3632ec8b78c85fc3a899d1756963a05090fe68a439a33571a5d1070",
+      "generated_at": "2026-05-23T00:09:29.421159Z",
+      "source_sha": "2574313cd9b250af71c848ede3f5e1ea4a837d1d8cb4e6ced9ea3655ec2a2fba",
       "findings": [],
       "summary": {
         "governed_docs_checked": 70,
@@ -134,8 +134,8 @@
     {
       "tool": "closure",
       "status": "pass",
-      "generated_at": "2026-05-23T00:00:10.626745Z",
-      "source_sha": "876851bfd3632ec8b78c85fc3a899d1756963a05090fe68a439a33571a5d1070",
+      "generated_at": "2026-05-23T00:09:29.689466Z",
+      "source_sha": "2574313cd9b250af71c848ede3f5e1ea4a837d1d8cb4e6ced9ea3655ec2a2fba",
       "findings": [],
       "summary": {
         "governed_docs_checked": 70,
@@ -150,8 +150,8 @@
     {
       "tool": "signature_drift",
       "status": "pass",
-      "generated_at": "2026-05-23T00:00:10.629691Z",
-      "source_sha": "876851bfd3632ec8b78c85fc3a899d1756963a05090fe68a439a33571a5d1070",
+      "generated_at": "2026-05-23T00:09:29.693316Z",
+      "source_sha": "2574313cd9b250af71c848ede3f5e1ea4a837d1d8cb4e6ced9ea3655ec2a2fba",
       "findings": [],
       "summary": {
         "expected_signatures_checked": 188,
@@ -165,8 +165,8 @@
     {
       "tool": "architecture_drift",
       "status": "pass",
-      "generated_at": "2026-05-23T00:00:10.637622Z",
-      "source_sha": "876851bfd3632ec8b78c85fc3a899d1756963a05090fe68a439a33571a5d1070",
+      "generated_at": "2026-05-23T00:09:29.701932Z",
+      "source_sha": "2574313cd9b250af71c848ede3f5e1ea4a837d1d8cb4e6ced9ea3655ec2a2fba",
       "findings": [],
       "summary": {
         "architecture_path": "C:/Users/jiazh/Desktop/workspace/SciStudio-issue1467-manager/docs/architecture/ARCHITECTURE.md",
@@ -180,7 +180,7 @@
     {
       "tool": "vulture",
       "status": "pass",
-      "generated_at": "2026-05-23T00:00:11.230228Z",
+      "generated_at": "2026-05-23T00:09:30.377481Z",
       "source_sha": "",
       "findings": [
         {

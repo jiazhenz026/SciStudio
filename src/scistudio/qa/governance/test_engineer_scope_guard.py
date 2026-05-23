@@ -6,12 +6,12 @@ import argparse
 import contextlib
 import fnmatch
 import json
-import subprocess
 import sys
 from collections.abc import Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from scistudio.qa.governance.pr_merge_guard import _source_sha
 from scistudio.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
 TEST_ENGINEER_PERSONA = "test_engineer"
@@ -78,20 +78,6 @@ GOVERNANCE_PATTERNS = (
     "docs/ai-developer/personas/**",
     "docs/ai-developer/templates/**",
 )
-
-
-def _source_sha(repo_root: Path | None) -> str:
-    if repo_root is None:
-        return "unknown"
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "HEAD"],
-            cwd=repo_root,
-            text=True,
-            stderr=subprocess.DEVNULL,
-        ).strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return "unknown"
 
 
 def _normalize_path(path: str | Path, repo_root: Path | None = None) -> str:

@@ -509,11 +509,7 @@ def check_pr(
 ) -> AuditReport:
     """Validate a gate record in CI against PR metadata."""
 
-    return validate_gate_record(
-        record,
-        changed_files=changed_files,
-        pr_body=pr_body,
-        pr_labels=pr_labels,
-        guard_reports=guard_reports,
-        require_pr_body=True,
-    )
+    kwargs = locals()
+    kwargs.pop("record")
+    kwargs["require_pr_body"] = True
+    return validate_gate_record(record, **kwargs)
