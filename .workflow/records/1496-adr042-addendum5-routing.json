@@ -1,6 +1,8 @@
 {
   "admin_labels": [
     {
+      "applied_at": null,
+      "applied_by": null,
       "name": "admin-approved:core-change"
     }
   ],
@@ -35,7 +37,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1496-adr042-addendum5-routing.json",
+    "shas": [
+      "985b65dd5c35b2ab36b45b81007b09451ac0a082"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "adr": {
       "not_applicable": true,
@@ -120,7 +128,13 @@
     "docs/ai-developer/templates/agent-dispatch-audit-no-context-prompt-template.md",
     "docs/audit/2026-05-23-adr042-addendum5-routing-audit.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1496
+    ],
+    "number": 1497,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1497"
+  },
   "record_path": ".workflow/records/1496-adr042-addendum5-routing.json",
   "required_checks": [
     "frontmatter_lint",
@@ -184,7 +198,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
