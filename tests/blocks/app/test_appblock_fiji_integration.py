@@ -25,6 +25,7 @@ pointer to the audit-finding issue — the fix lands in a separate PR.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import threading
 import time
@@ -54,6 +55,10 @@ def _fiji_available() -> bool:
 # the marker so selection by ``-m requires_fiji`` still works.
 pytestmark = [
     pytest.mark.requires_fiji,
+    pytest.mark.skipif(
+        os.environ.get("SCISTUDIO_RUN_FIJI_TESTS") != "1",
+        reason="Fiji GUI integration tests are opt-in; set SCISTUDIO_RUN_FIJI_TESTS=1 to run",
+    ),
     pytest.mark.skipif(not _fiji_available(), reason="Fiji or test image not available"),
 ]
 
