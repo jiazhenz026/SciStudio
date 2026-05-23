@@ -90,6 +90,7 @@
     }
   ],
   "owner_directive": "Phase 3 of #1427 god-file refactor: scheduler (ADR-046, #1470) + registry+legacy-IO-delete (ADR-047, #1471) + git_engine class-binding split (ADR-046 Addendum 1 in PR, #1472). 3 parallel implementer agents dispatched 2026-05-22; umbrella scaffold built retroactively per agent-dispatch.md \u00a72.",
+  "persona": "manager",
   "planned_files": [
     "docs/planning/phase3-bucket-d-checklist.md",
     ".workflow/records/1465-phase3-bucket-d-umbrella.json"
