@@ -29,6 +29,7 @@ import { TabBar } from "../components/TabBar";
 import { WorkflowCanvas } from "../components/WorkflowCanvas";
 import { resolveVariadicPorts } from "../components/WorkflowCanvas.parts/flowNodeBuilder";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "../components/ui/resizable";
+import { computeEffectivePorts } from "../utils/computeEffectivePorts";
 
 type BottomTabValue = ReturnType<typeof useAppStore.getState>["activeBottomTab"];
 
@@ -355,26 +356,54 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
           selectedNodeId={selectedNodeId}
           selectedNodeLabel={selectedNodeLabel}
           // #1326 port-info panel: resolve effective per-instance ports for
-          // the selected node. Variadic blocks have their canvas ports
-          // stored in ``node.config.{input,output}_ports``; static blocks
-          // use the schema-level ports as-is.
+          // the selected node.
+          //
+          // Hotfix 2026-05-23: ``node.config`` is a two-tier envelope where
+          // user-editable params live under ``node.config.params`` (see
+          // ``mergeNodeConfig``). The canvas-side BlockNode reads
+          // ``paramsOf(node) = node.config.params``; we mirror that here so
+          // both ``resolveVariadicPorts`` (variadic ports stored at
+          // ``params.{input,output}_ports``) AND ``computeEffectivePorts``
+          // (dynamic-port driving key at ``params.core_type``) see the
+          // same config the canvas sees. Reading ``node.config`` directly
+          // was a pre-existing bug that hid newly-added variadic ports
+          // from the panel and froze dynamic-port types at their
+          // schema-static fallback ``DataObject``.
           selectedInputPorts={
             selectedNode && selectedSchema
-              ? resolveVariadicPorts(
-                  selectedSchema.input_ports,
-                  selectedNode.config,
+              ? computeEffectivePorts(
+                  selectedSchema.dynamic_ports ?? null,
+                  selectedSchema.dynamic_ports?.source_config_key
+                    ? (((selectedNode.config.params as Record<string, unknown> | undefined) ?? {})[
+                        selectedSchema.dynamic_ports.source_config_key
+                      ] as string | undefined)
+                    : undefined,
+                  resolveVariadicPorts(
+                    selectedSchema.input_ports,
+                    (selectedNode.config.params as Record<string, unknown> | undefined) ?? {},
+                    "input",
+                    selectedSchema,
+                  ),
                   "input",
-                  selectedSchema,
                 )
               : undefined
           }
           selectedOutputPorts={
             selectedNode && selectedSchema
-              ? resolveVariadicPorts(
-                  selectedSchema.output_ports,
-                  selectedNode.config,
+              ? computeEffectivePorts(
+                  selectedSchema.dynamic_ports ?? null,
+                  selectedSchema.dynamic_ports?.source_config_key
+                    ? (((selectedNode.config.params as Record<string, unknown> | undefined) ?? {})[
+                        selectedSchema.dynamic_ports.source_config_key
+                      ] as string | undefined)
+                    : undefined,
+                  resolveVariadicPorts(
+                    selectedSchema.output_ports,
+                    (selectedNode.config.params as Record<string, unknown> | undefined) ?? {},
+                    "output",
+                    selectedSchema,
+                  ),
                   "output",
-                  selectedSchema,
                 )
               : undefined
           }

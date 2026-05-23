@@ -22,8 +22,9 @@ interface DataPreviewProps {
   previewLoading: Record<string, boolean>;
   onLoadPreview: (dataRef: string) => Promise<void>;
   /** Effective per-instance input ports of the selected node (after
-   *  resolveVariadicPorts). Empty / undefined when no node is selected
-   *  or the block has no input ports. Drives the #1326 PortInfoPanel. */
+   *  resolveVariadicPorts + computeEffectivePorts). Empty / undefined
+   *  when no node is selected or the block has no input ports.
+   *  Drives the #1326 PortInfoPanel. */
   selectedInputPorts?: BlockPortResponse[];
   /** Effective per-instance output ports of the selected node. */
   selectedOutputPorts?: BlockPortResponse[];
@@ -59,6 +60,27 @@ export function DataPreview({
     preview,
   });
 
+  // Hotfix 2026-05-23 — split the preview region from the port-description
+  // panel so the panel no longer steals vertical space from the active
+  // preview. The panel reserves ~38% of the right column (matches the
+  // center column's BottomPanel initial visual ratio) with its own
+  // internal scroll. ``shrink-0`` keeps the panel from collapsing when
+  // the preview content is tall. The single divider above the panel is
+  // owned by PortInfoPanel's own ``border-t``; we deliberately do NOT
+  // add another ``border-t`` here so the user does not see two parallel
+  // lines with dead space between them.
+  const portPanel =
+    selectedNodeId &&
+    ((selectedInputPorts?.length ?? 0) > 0 || (selectedOutputPorts?.length ?? 0) > 0) ? (
+      <div className="flex shrink-0 basis-[38%] flex-col overflow-y-auto scrollbar-thin">
+        <PortInfoPanel
+          inputPorts={selectedInputPorts ?? []}
+          outputPorts={selectedOutputPorts ?? []}
+          schema={selectedSchema}
+        />
+      </div>
+    ) : null;
+
   return (
     <aside className="flex h-full flex-col overflow-hidden border-l border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(245,241,232,0.98))] p-4">
       <div className="flex items-start justify-between gap-3">
@@ -75,19 +97,9 @@ export function DataPreview({
           Pick a block to inspect its latest outputs and cached previews.
         </div>
       ) : outputRefs.length === 0 ? (
-        <>
-          <div className="mt-6 rounded-[1.8rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
-            This block has no previewable outputs yet.
-          </div>
-          {/* #1326 — port-info panel still renders for blocks with no
-              outputs so the user can read port descriptions before the
-              first run. */}
-          <PortInfoPanel
-            inputPorts={selectedInputPorts ?? []}
-            outputPorts={selectedOutputPorts ?? []}
-            schema={selectedSchema}
-          />
-        </>
+        <div className="mt-6 min-h-0 flex-1 rounded-[1.8rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
+          This block has no previewable outputs yet.
+        </div>
       ) : (
         <>
           <div className="mt-5 flex flex-wrap gap-2">
@@ -142,18 +154,10 @@ export function DataPreview({
                 Preview not loaded yet.
               </div>
             )}
-            {/* #1326 — port descriptions section. Rendered inside the
-                scrollable preview region so it appears below the active
-                preview (or the "preview not loaded" placeholder) as the
-                bottom half of the right-side pane per the spec sketch. */}
-            <PortInfoPanel
-              inputPorts={selectedInputPorts ?? []}
-              outputPorts={selectedOutputPorts ?? []}
-              schema={selectedSchema}
-            />
           </div>
         </>
       )}
+      {portPanel}
     </aside>
   );
 }

@@ -10,6 +10,7 @@ import {
   isRecord,
   nextCodeBlockPortName,
   persistCodeBlockPort,
+  variadicEntryFromCodeBlockPort,
 } from "./codeBlockPorts";
 
 function CodeBlockEnvironmentEditor({
@@ -276,7 +277,18 @@ export function CodeBlockConfigEditor({
     direction: CodeBlockPortDirection,
     ports: CodeBlockPortConfig[],
   ) => {
-    onUpdateConfig({ [key]: ports.map((port) => persistCodeBlockPort(port, direction)) });
+    // Hotfix 2026-05-23 — also mirror into ``input_ports`` / ``output_ports``
+    // so the canvas variadic-port handles, the right-pane PortInfoPanel, and
+    // the workflow edge color resolver see the same set of ports the user
+    // edited in this table. Without this mirror the canvas kept stale ports
+    // until the user clicked the canvas "+" button, which then wrote a
+    // separate list. Layout alignment with Fiji's PortEditorTable is tracked
+    // in #1324.
+    const variadicKey = key === "inputs" ? "input_ports" : "output_ports";
+    onUpdateConfig({
+      [key]: ports.map((port) => persistCodeBlockPort(port, direction)),
+      [variadicKey]: ports.map(variadicEntryFromCodeBlockPort),
+    });
   };
 
   return (

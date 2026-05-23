@@ -105,3 +105,44 @@ export function persistCodeBlockPort(
     exchange_folder: exchangeFolder,
   };
 }
+
+/**
+ * Hotfix 2026-05-23 (#1324 partial cover) — Code Block stores its declared v2
+ * ports under ``params.inputs`` / ``params.outputs`` (full
+ * :class:`CodeBlockPortConfig` shape used by the runtime exchange), while the
+ * canvas + variadic add/remove buttons drive ``params.input_ports`` /
+ * ``params.output_ports`` (the ``{name, types}`` shape every other variadic
+ * block uses). These two lists were edited independently, so adding a port on
+ * the canvas never appeared in the BottomPanel config editor, and vice versa.
+ *
+ * The helpers below project between the two shapes so callers can emit a
+ * single patch that keeps both lists in sync. They are intentionally pure and
+ * unaware of the store — call them inside ``onUpdateConfig`` callbacks.
+ *
+ * Layout still differs (the BottomPanel uses the richer CodeBlockPortTable
+ * with extension / capability / exchange-folder rows). Aligning the layout
+ * with Fiji's PortEditorTable is tracked separately under issue #1324.
+ */
+export function variadicEntryFromCodeBlockPort(port: CodeBlockPortConfig): {
+  name: string;
+  types: string[];
+} {
+  return { name: port.name.trim(), types: [port.data_type.trim() || "DataObject"] };
+}
+
+export function codeBlockPortFromVariadicEntry(
+  entry: { name: string; types?: string[] },
+  direction: CodeBlockPortDirection,
+  existing?: CodeBlockPortConfig,
+): CodeBlockPortConfig {
+  const dataType = entry.types?.[0]?.trim() || existing?.data_type || "DataObject";
+  return {
+    name: entry.name,
+    direction,
+    data_type: dataType,
+    extension: existing?.extension ?? ".txt",
+    capability_id: existing?.capability_id ?? "",
+    required: existing?.required ?? true,
+    exchange_folder: existing?.exchange_folder ?? codeBlockFolder(direction, entry.name),
+  };
+}

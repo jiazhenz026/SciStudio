@@ -276,6 +276,7 @@ export default function App() {
       currentProject,
       workflowId,
       workflowNodes,
+      workflowEdges,
       activeFileTab,
       addNode,
       connectNodes,

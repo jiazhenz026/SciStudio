@@ -1,0 +1,187 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1493-port-ux-and-validators-hotfix.json"
+      ],
+      "reason": "include gate-record file in scope and add full-audit evidence path"
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/audit/2026-05-23-hotfix-1493/summary.md"
+      ],
+      "reason": "include full-audit evidence path"
+    }
+  ],
+  "branch": "hotfix/port-ux-and-validators-20260523",
+  "changed_test_paths": [
+    "frontend/src/components/BottomPanel.test.tsx"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "npx eslint src",
+      "exit_code": null,
+      "name": "frontend lint",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npx tsc --noEmit",
+      "exit_code": null,
+      "name": "frontend typecheck",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "npx vitest run",
+      "exit_code": null,
+      "name": "frontend tests",
+      "output_path": null,
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": null,
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "Hotfix is a frontend-only fix to existing port-resolution / edge-validation paths; ADR-028 dynamic_ports + ADR-029 variadic semantics are unchanged"
+    },
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {},
+    "docs": {},
+    "spec": {
+      "not_applicable": true,
+      "rationale": "docs/specs/port-description-metadata.md row-format contract still holds; no schema/behaviour visible to specs altered"
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "frontend lint+typecheck+vitest + sentrux scan/check_rules/health + Chrome MCP live smoke for 7 bugs",
+    "exit_code": null,
+    "known_debt": [],
+    "output_path": "docs/audit/2026-05-23-hotfix-1493/summary.md",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1493,
+      "url": null
+    }
+  ],
+  "owner_directive": "Live hotfix session 2026-05-23 \u2014 fix 7 GUI bugs (port-description panel layout, dynamic-type sync, variadic add visibility, edge invalidation + color mismatch, self-loop/cycle pre-runtime guard, Code Block port list sync)",
+  "persona": "implementer",
+  "planned_files": [
+    "frontend/src/App.parts/ProjectWorkspace.tsx",
+    "frontend/src/App.parts/useCanvasHandlers.ts",
+    "frontend/src/App.tsx",
+    "frontend/src/components/BottomPanel.parts/CodeBlockConfigEditor.tsx",
+    "frontend/src/components/BottomPanel.parts/codeBlockPorts.ts",
+    "frontend/src/components/BottomPanel.test.tsx",
+    "frontend/src/components/DataPreview.tsx",
+    "frontend/src/components/TypedEdge.tsx",
+    "frontend/src/components/WorkflowCanvas.tsx",
+    "frontend/src/components/nodes/BlockNode.parts/PortHandles.tsx",
+    "frontend/src/utils/portCompat.ts",
+    "CHANGELOG.md"
+  ],
+  "pull_request": null,
+  "record_path": ".workflow/records/1493-port-ux-and-validators-hotfix.json",
+  "required_checks": [
+    "frontend lint",
+    "frontend typecheck",
+    "frontend tests"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/App.parts/ProjectWorkspace.tsx",
+      "frontend/src/App.parts/useCanvasHandlers.ts",
+      "frontend/src/App.tsx",
+      "frontend/src/components/BottomPanel.parts/CodeBlockConfigEditor.tsx",
+      "frontend/src/components/BottomPanel.parts/codeBlockPorts.ts",
+      "frontend/src/components/BottomPanel.test.tsx",
+      "frontend/src/components/DataPreview.tsx",
+      "frontend/src/components/TypedEdge.tsx",
+      "frontend/src/components/WorkflowCanvas.tsx",
+      "frontend/src/components/nodes/BlockNode.parts/PortHandles.tsx",
+      "frontend/src/utils/portCompat.ts",
+      "CHANGELOG.md"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules + health",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": null,
+    "pro_required": false,
+    "quality_signal": 4547.0,
+    "rules_checked": 3,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {
+      "quality_signal_floor": "4000"
+    },
+    "total_rules_defined": 15
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1493-port-ux-and-validators-hotfix",
+  "task_kind": "hotfix"
+}

@@ -481,6 +481,10 @@ describe("BottomPanel", () => {
           exchange_folder: "inputs/raw_image/",
         },
       ],
+      // Hotfix 2026-05-23 — mirror the v2 list into the variadic-port list
+      // the canvas reads from, so the BottomPanel editor and the canvas stay
+      // in sync without a separate user action.
+      input_ports: [{ name: "raw_image", types: ["Image"] }],
     });
 
     fireEvent.change(screen.getByDisplayValue("Image"), { target: { value: "DataFrame" } });
@@ -496,6 +500,7 @@ describe("BottomPanel", () => {
           exchange_folder: "inputs/image/",
         },
       ],
+      input_ports: [{ name: "image", types: ["DataFrame"] }],
     });
 
     fireEvent.click(screen.getByLabelText("Required"));
@@ -511,10 +516,11 @@ describe("BottomPanel", () => {
           exchange_folder: "inputs/image/",
         },
       ],
+      input_ports: [{ name: "image", types: ["Image"] }],
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Remove input image" }));
-    expect(onUpdateConfig).toHaveBeenCalledWith({ inputs: [] });
+    expect(onUpdateConfig).toHaveBeenCalledWith({ inputs: [], input_ports: [] });
   });
 
   it("adds and edits CodeBlock v2 declared output rows", () => {
@@ -572,6 +578,10 @@ describe("BottomPanel", () => {
           exchange_folder: "outputs/output_2/",
         },
       ],
+      output_ports: [
+        { name: "table", types: ["DataFrame"] },
+        { name: "output_2", types: ["DataObject"] },
+      ],
     });
 
     fireEvent.change(screen.getByDisplayValue(".csv"), { target: { value: ".tsv" } });
@@ -587,6 +597,7 @@ describe("BottomPanel", () => {
           exchange_folder: "outputs/table/",
         },
       ],
+      output_ports: [{ name: "table", types: ["DataFrame"] }],
     });
 
     fireEvent.change(screen.getByDisplayValue("outputs/table/"), {
@@ -604,6 +615,7 @@ describe("BottomPanel", () => {
           exchange_folder: "outputs/results/",
         },
       ],
+      output_ports: [{ name: "table", types: ["DataFrame"] }],
     });
   });
 
@@ -661,6 +673,10 @@ describe("BottomPanel", () => {
           required: true,
           exchange_folder: "outputs/output_3/",
         },
+      ],
+      output_ports: [
+        { name: "output_2", types: ["DataObject"] },
+        { name: "output_3", types: ["DataObject"] },
       ],
     });
   });

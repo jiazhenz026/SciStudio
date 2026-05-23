@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { resolveTypeColor } from "../config/typeColorMap";
 import type { BlockSchemaResponse, BlockSummary, WorkflowEdge, WorkflowNode } from "../types/api";
 import { computeEffectivePorts } from "../utils/computeEffectivePorts";
+import { arePortTypesCompatible } from "../utils/portCompat";
 import { AnnotationNode } from "./nodes/AnnotationNode";
 import { BlockNode } from "./nodes/BlockNode";
 import { GroupNode } from "./nodes/GroupNode";
@@ -100,35 +101,89 @@ function useFlowEdges(
       const source = parsePortRef(edge.source);
       const target = parsePortRef(edge.target);
       const sourceNode = nodes.find((node) => node.id === source.nodeId);
+      const targetNode = nodes.find((node) => node.id === target.nodeId);
       const sourceSchema = sourceNode ? schemas[sourceNode.block_type] : undefined;
-      // #889: resolve the source port from the node's effective output
-      // ports — same path BlockNode renders — instead of the static
-      // class-level spec. Variadic blocks (AIBlock / CodeBlock /
-      // AppBlock) declare their ports in ``node.config.output_ports``;
-      // dynamic-port blocks (LoadData) override ``accepted_types`` via
-      // the ``dynamic_ports`` descriptor + driving config value.
+      const targetSchema = targetNode ? schemas[targetNode.block_type] : undefined;
+      // #889 + Hotfix 2026-05-23: resolve the source port from the node's
+      // effective output ports — same path BlockNode renders. The store's
+      // ``mergeNodeConfig`` keeps user-editable params under
+      // ``node.config.params``, so we read the params envelope and pass
+      // it to both ``resolveVariadicPorts`` (variadic blocks store ports
+      // at ``params.{input,output}_ports``) and the dynamic-port driving
+      // value lookup (``params.core_type`` for LoadData / SaveData).
+      // Reading ``node.config`` directly meant edge color/style fell back
+      // to the static schema spec while BlockNode rendered the real
+      // per-instance type — that was the visible "edge color mismatches
+      // port color" symptom.
+      const sourceParams = (sourceNode?.config.params as Record<string, unknown> | undefined) ?? {};
+      const targetParams = (targetNode?.config.params as Record<string, unknown> | undefined) ?? {};
       const variadicSourcePorts =
         sourceNode && sourceSchema
           ? resolveVariadicPorts(
               sourceSchema.output_ports ?? [],
-              sourceNode.config,
+              sourceParams,
               "output",
               sourceSchema,
             )
           : (sourceSchema?.output_ports ?? []);
-      const dynamicPorts = sourceSchema?.dynamic_ports ?? null;
-      const sourceConfigKey = dynamicPorts?.source_config_key;
-      const drivingConfigValue =
-        sourceConfigKey != null
-          ? (sourceNode?.config?.[sourceConfigKey] as string | undefined)
-          : undefined;
-      const effectivePorts = computeEffectivePorts(
-        dynamicPorts,
-        drivingConfigValue,
+      const sourceDynamicPorts = sourceSchema?.dynamic_ports ?? null;
+      const sourceConfigKey = sourceDynamicPorts?.source_config_key;
+      const sourceDrivingConfigValue =
+        sourceConfigKey != null ? (sourceParams[sourceConfigKey] as string | undefined) : undefined;
+      const effectiveSourcePorts = computeEffectivePorts(
+        sourceDynamicPorts,
+        sourceDrivingConfigValue,
         variadicSourcePorts,
         "output",
       );
-      const sourcePort = effectivePorts.find((port) => port.name === source.portName);
+      const sourcePort = effectiveSourcePorts.find((port) => port.name === source.portName);
+
+      // Mirror the source-side effective-port resolution for the target so
+      // we can re-validate type compatibility on every render. Previously
+      // edges kept their original color/style even after the user changed
+      // a config that broke the type match (e.g. LoadData ``core_type``
+      // Array → Text). Now incompatible edges turn dashed-red with a
+      // tooltip explaining the mismatch; clicking the edge still deletes
+      // it via ``handleEdgeClick``.
+      const variadicTargetPorts =
+        targetNode && targetSchema
+          ? resolveVariadicPorts(
+              targetSchema.input_ports ?? [],
+              targetParams,
+              "input",
+              targetSchema,
+            )
+          : (targetSchema?.input_ports ?? []);
+      const targetDynamicPorts = targetSchema?.dynamic_ports ?? null;
+      const targetConfigKey = targetDynamicPorts?.source_config_key;
+      const targetDrivingConfigValue =
+        targetConfigKey != null ? (targetParams[targetConfigKey] as string | undefined) : undefined;
+      const effectiveTargetPorts = computeEffectivePorts(
+        targetDynamicPorts,
+        targetDrivingConfigValue,
+        variadicTargetPorts,
+        "input",
+      );
+      const targetPort = effectiveTargetPorts.find((port) => port.name === target.portName);
+
+      // Only run the compat check when both ports resolved; missing-port
+      // edges are reported by workflow validation at save time and we
+      // should not double-flag them here. The type hierarchy is shared
+      // across blocks (registered globally), so either schema's copy
+      // works — prefer the source's.
+      const typeHierarchy = sourceSchema?.type_hierarchy ?? targetSchema?.type_hierarchy;
+      const invalid =
+        sourcePort != null &&
+        targetPort != null &&
+        !arePortTypesCompatible(
+          sourcePort.accepted_types,
+          targetPort.accepted_types,
+          typeHierarchy,
+        );
+
+      const color = invalid
+        ? "#dc2626"
+        : resolveTypeColor(sourcePort?.accepted_types ?? [], sourceSchema?.type_hierarchy);
       return {
         id: `${edge.source}->${edge.target}`,
         source: source.nodeId,
@@ -137,8 +192,12 @@ function useFlowEdges(
         targetHandle: target.portName,
         type: "typed",
         data: {
-          color: resolveTypeColor(sourcePort?.accepted_types ?? [], sourceSchema?.type_hierarchy),
-          dashed: false,
+          color,
+          dashed: invalid,
+          invalid,
+          invalidReason: invalid
+            ? `Incompatible types: source produces ${sourcePort?.accepted_types.join(", ") || "Any"}, target accepts ${targetPort?.accepted_types.join(", ") || "Any"}`
+            : undefined,
         },
       };
     });
