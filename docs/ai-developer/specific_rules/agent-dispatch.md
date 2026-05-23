@@ -68,6 +68,10 @@ language_source: en
 - MUST give each agent a clear write set.
   Two agents MUST NOT own the same file unless the manager sequences them.
 
+- MUST give `test_engineer` agents test, fixture, validation, e2e, or audit
+  evidence write sets by default.
+  Production code paths require an explicit manager or owner scope amendment.
+
 - MUST give each agent explicit out-of-scope paths.
   If the agent needs one, it must stop and report back.
 
@@ -213,3 +217,6 @@ Use these rules with:
 - `docs/ai-developer/personas/manager.md`
 - `docs/ai-developer/personas/implementer.md` for implementation agents
 - `docs/ai-developer/personas/audit-reviewer.md` for audit agents
+- `docs/ai-developer/personas/test-engineer.md` for test-engineer agents
+- `docs/ai-developer/specific_rules/test-engineering.md` for test-engineer
+  work

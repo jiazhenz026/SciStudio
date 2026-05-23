@@ -14,14 +14,14 @@ Use this template for manager-dispatched non-audit work.
 Fill every placeholder before dispatch.
 
 ```markdown
-[DISPATCH-TEMPLATE-V1: <manager|implementer|adr_author|fix>]
+[DISPATCH-TEMPLATE-V1: <manager|implementer|adr_author|test_engineer|fix>]
 
 ## Task Identity
 
 - Repository: SciStudio
 - Owner request: <one sentence>
 - Task kind: <feature|bugfix|hotfix|refactor|docs|maintenance|manager>
-- Persona: <manager|implementer|adr_author>
+- Persona: <manager|implementer|adr_author|test_engineer>
 - Issue: #<issue>
 - Issue URL: <url>
 - Umbrella PR: #<pr> `[DO NOT MERGE]`
@@ -58,6 +58,11 @@ You must not touch:
 
 If you need an out-of-scope path, stop and report back.
 Do not edit it.
+
+For `test_engineer` dispatches, production code is out of scope by default.
+Only test, fixture, validation, e2e, audit evidence, and explicitly assigned
+QA/governance tooling paths may be edited unless the manager or owner amends
+the gate record.
 
 ## Coordination
 
