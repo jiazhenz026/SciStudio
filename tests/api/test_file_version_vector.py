@@ -11,6 +11,8 @@ from scistudio.api.runtime import FILE_ENTITY_CLASS, ApiRuntime
 from scistudio.engine.events import EngineEvent
 from tests.api.helpers import wait_for_condition
 
+JS_MAX_SAFE_INTEGER = 9_007_199_254_740_991
+
 
 def _open(client: TestClient, project_path: Path) -> str:
     response = client.post(
@@ -40,6 +42,7 @@ def test_file_get_returns_state_version_without_version_field(
     assert body["content"] == "# hello\n"
     assert "version" not in body
     assert isinstance(body["state_version"], int)
+    assert body["state_version"] <= JS_MAX_SAFE_INTEGER
     assert body["entity_class"] == FILE_ENTITY_CLASS
     assert body["entity_id"] == "notes.md"
     assert body["source"] is None

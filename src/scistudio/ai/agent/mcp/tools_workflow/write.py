@@ -8,8 +8,11 @@ umbrella #1427). No behavior change.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
+from pathlib import Path
+from typing import Any
 
 import yaml as yaml_module
 from filelock import FileLock, Timeout
@@ -32,6 +35,7 @@ from scistudio.ai.agent.mcp.tools_workflow._models import (
     RunWorkflowResult,
     WriteWorkflowResult,
 )
+from scistudio.engine.events import WORKFLOW_CHANGED, EngineEvent
 
 logger = logging.getLogger(__name__)
 
@@ -80,9 +84,26 @@ async def write_workflow(
 
     p = _resolve_project_path(path)
     lock_path = str(p) + ".lock"
+    version_context = _workflow_change_context()
+    version: int | None = None
     try:
         with FileLock(lock_path, timeout=_LOCK_TIMEOUT_SECONDS):
             old = p.read_text(encoding="utf-8") if p.exists() else ""
+            existed = p.exists()
+            if version_context is not None:
+                _, runtime = version_context
+                version = runtime.bump_workflow_version(p.stem)
+                mark_entity_write = getattr(runtime, "mark_entity_first_party_write", None)
+                if mark_entity_write is not None:
+                    with contextlib.suppress(TypeError):
+                        mark_entity_write(
+                            "workflow",
+                            p.stem,
+                            version,
+                            path=p,
+                            kind="modified" if existed else "created",
+                            pending=True,
+                        )
             bytes_written = _atomic_write_text(p, yaml)
             summary = _diff_summary(old, yaml)
     except Timeout as exc:
@@ -90,8 +111,77 @@ async def write_workflow(
             f"write_workflow: could not acquire lock for {p} within {_LOCK_TIMEOUT_SECONDS}s (someone else is editing?)"
         ) from exc
 
+    await _emit_agent_workflow_changed(
+        workflow_id=p.stem,
+        path=p,
+        kind="modified" if existed else "created",
+        version=version,
+        version_context=version_context,
+    )
     logger.info("write_workflow: wrote %s (%s)", p, summary)
     return WriteWorkflowResult(path=str(p), bytes_written=bytes_written, diff_summary=summary)
+
+
+def _workflow_change_context() -> tuple[Any, Any] | None:
+    context = _get_workflow_runtime()
+    event_bus = getattr(context, "event_bus", None)
+    runtime = getattr(event_bus, "runtime", context)
+    if event_bus is None or not all(
+        hasattr(runtime, name)
+        for name in (
+            "bump_workflow_version",
+            "mark_workflow_first_party_write",
+            "versioned_change_payload",
+        )
+    ):
+        return None
+    return event_bus, runtime
+
+
+async def _emit_agent_workflow_changed(
+    *,
+    workflow_id: str,
+    path: Any,
+    kind: str,
+    version: int | None = None,
+    version_context: tuple[Any, Any] | None = None,
+) -> None:
+    """Emit ADR-045 versioned workflow change events for MCP writes."""
+    if version_context is None:
+        version_context = _workflow_change_context()
+    if version_context is None:
+        return
+    event_bus, runtime = version_context
+
+    resolved = Path(path)
+    if version is None:
+        version = runtime.bump_workflow_version(workflow_id)
+    runtime.mark_workflow_first_party_write(workflow_id, version, path=resolved, kind=kind)
+    try:
+        from scistudio.api.routes.workflow_watcher import mark_self_write
+
+        mark_self_write(resolved)
+    except Exception:
+        logger.debug("workflow_watcher: mark_self_write failed for %s", resolved, exc_info=True)
+
+    project_dir = getattr(runtime, "project_dir", None)
+    relative_path = str(resolved).replace("\\", "/")
+    if project_dir is not None:
+        with contextlib.suppress(ValueError):
+            relative_path = str(resolved.resolve().relative_to(Path(project_dir).resolve())).replace("\\", "/")
+
+    payload = runtime.versioned_change_payload(
+        entity_class="workflow",
+        entity_id=workflow_id,
+        version=version,
+        source="agent",
+        source_id=None,
+        kind=kind,
+        workflow_id=workflow_id,
+        path=relative_path,
+        changed_by="mcp.write_workflow",
+    )
+    await event_bus.emit(EngineEvent(event_type=WORKFLOW_CHANGED, data=payload))
 
 
 # ---------------------------------------------------------------------------

@@ -316,14 +316,18 @@ class _WorkflowFileHandler(FileSystemEventHandler):
                 disk_mtime = int(path.stat().st_mtime_ns)
             except OSError:
                 disk_mtime = 0
-            cached_version = self._runtime.current_workflow_version(workflow_id)
-            if disk_mtime and disk_mtime <= cached_version:
+            cached_disk_version = self._runtime.current_entity_disk_version(
+                _WORKFLOW_ENTITY_CLASS,
+                workflow_id,
+                path=path,
+            )
+            if disk_mtime and disk_mtime <= cached_disk_version:
                 logger.debug(
                     "workflow_watcher: skipping delayed-echo workflow event %s %s (disk %d <= cached %d)",
                     kind,
                     path,
                     disk_mtime,
-                    cached_version,
+                    cached_disk_version,
                 )
                 return
             version = self._runtime.bump_workflow_version(workflow_id)
@@ -442,14 +446,18 @@ class _ProjectFileHandler(_WorkflowFileHandler):
                 disk_mtime = int(path.stat().st_mtime_ns)
             except OSError:
                 disk_mtime = 0
-            cached_version = self._runtime.current_entity_version(FILE_ENTITY_CLASS, entity_id, path=path)
-            if disk_mtime and disk_mtime <= cached_version:
+            cached_disk_version = self._runtime.current_entity_disk_version(
+                FILE_ENTITY_CLASS,
+                entity_id,
+                path=path,
+            )
+            if disk_mtime and disk_mtime <= cached_disk_version:
                 logger.debug(
                     "workflow_watcher: skipping delayed-echo file event %s %s (disk %d <= cached %d)",
                     kind,
                     path,
                     disk_mtime,
-                    cached_version,
+                    cached_disk_version,
                 )
                 return
             version = self._runtime.bump_entity_version(FILE_ENTITY_CLASS, entity_id, path=path)

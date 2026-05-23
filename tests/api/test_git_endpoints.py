@@ -193,6 +193,35 @@ def test_restore_endpoint_auto_commits_dirty_tree(client: TestClient, opened_pro
     assert target.read_text(encoding="utf-8") == "A"
 
 
+def test_restore_endpoint_to_commit_missing_file_deletes_after_auto_commit(
+    client: TestClient, opened_project: Path, runtime
+) -> None:
+    """Restoring a file to a commit that did not contain it means the
+    file is deleted in the working tree, not a post-auto-commit failure.
+    """
+    _drain(client)
+    sha_without_file = client.get("/api/git/log", params={"limit": 1}).json()[0]["sha"]
+    target = opened_project / "workflows" / "added-later.yaml"
+    target.write_text("workflow:\n  id: added-later\n  nodes: []\n  edges: []\n", encoding="utf-8")
+    client.post("/api/git/commit", json={"message": "add workflow"})
+
+    target.write_text("workflow:\n  id: added-later\n  nodes: [{id: dirty}]\n  edges: []\n", encoding="utf-8")
+    assert client.get("/api/git/status").json()["dirty"] is True
+    captured = _subscribe_workflow_changed(runtime)
+
+    resp = client.post(
+        "/api/git/restore",
+        json={"commit_sha": sha_without_file, "files": ["workflows/added-later.yaml"]},
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["auto_commit_sha"]
+    assert not target.exists()
+    event = next(ev for ev in captured if ev.data["path"] == "workflows/added-later.yaml")
+    assert event.data["kind"] == "deleted"
+
+
 def test_restore_endpoint_clean_tree_no_auto_commit(client: TestClient, opened_project: Path) -> None:
     """A clean working tree at restore time produces ``auto_commit_sha=null``
     and no new commit on HEAD.
@@ -228,7 +257,7 @@ def test_restore_skips_when_file_unchanged(client: TestClient, opened_project: P
     dirty tree before invoking ``engine.restore``, so the no-op
     measure is now: when the working tree is CLEAN and the target
     matches HEAD's content, the restore creates no new commit (no
-    auto-commit because clean, no checkout because unchanged). This
+    auto-commit because clean, no restore because unchanged). This
     test pins that contract.
     """
     _drain(client)

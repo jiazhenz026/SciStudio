@@ -44,6 +44,24 @@ def test_workflow_crud_round_trips_yaml_layout(client: TestClient, opened_projec
     assert not workflow_file.exists()
 
 
+def test_get_workflow_malformed_yaml_returns_debuggable_422(client: TestClient, opened_project: Path) -> None:
+    workflow_file = opened_project / "workflows" / "broken.yaml"
+    workflow_file.write_text(
+        "workflow:\n  id: broken\n  nodes:\n  - id: load\n    block_type: load_data\n   - id: bad_indent\n",
+        encoding="utf-8",
+    )
+
+    resp = client.get("/api/workflows/broken")
+
+    assert resp.status_code == 422
+    detail = resp.json()["detail"]
+    assert detail["message"].startswith("Workflow 'broken' on disk is not valid YAML at line ")
+    assert "expected <block end>" in detail["message"]
+    assert "error" in detail
+    assert "line" in detail
+    assert "column" in detail
+
+
 def test_workflow_execute_and_execute_from_reuses_cached_outputs(
     client: TestClient,
     runtime: ApiRuntime,
