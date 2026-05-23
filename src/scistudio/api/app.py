@@ -118,6 +118,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 return Path(self._rt.active_project.path) if self._rt.active_project else None
 
             @property
+            def active_workflow_id(self) -> str | None:
+                # ADR-040 Addendum 5 / #1488: surface the runtime field
+                # to MCP tools through the protocol member. Defensive
+                # getattr so an older ApiRuntime build without the
+                # field still satisfies the Protocol (returns None).
+                return getattr(self._rt, "active_workflow_id", None)
+
+            @property
             def workflow_runs(self) -> object:
                 return self._rt.workflow_runs
 

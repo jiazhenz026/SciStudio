@@ -29,6 +29,7 @@ from scistudio.ai.agent.mcp.tools_workflow._helpers import (
     _spec_to_dict,
 )
 from scistudio.ai.agent.mcp.tools_workflow._models import (
+    ActiveWorkflowContextResult,
     BlockErrorEntry,
     BlockSchemaResult,
     BlockSpecEnvelope,
@@ -292,7 +293,65 @@ async def get_run_status(
     )
 
 
+# ---------------------------------------------------------------------------
+# (a.10) get_active_workflow_context — ADR-040 Addendum 5 / #1488
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(name="get_active_workflow_context", tags={"category:workflow", "read"})
+async def get_active_workflow_context() -> ActiveWorkflowContextResult:
+    """Return the workflow id the GUI editor currently has open.
+
+    Use when:
+      - The user mentions "this workflow" / "the current workflow"
+        without naming it.
+      - You need editor-context awareness (VS Code Copilot-style)
+        before deciding which `get_workflow` to call.
+
+    Do NOT use to:
+      - Load a workflow's full structure — call ``get_workflow`` with
+        the returned id (``workflows/<id>.yaml``).
+      - List every workflow in the project — call ``list_workflows``
+        via the runtime instead.
+
+    Both fields are ``None`` when no workflow is open in the GUI or
+    when no project is active. ``workflow_name`` falls back to the
+    workflow id when the underlying YAML carries no
+    ``metadata.title`` / ``metadata.name``.
+    """
+    ctx = get_context()
+    # ADR-040 Addendum 5 / #1488. Defensive read: older third-party
+    # MCPContext implementations (e.g. test stubs, alternate adapters)
+    # predate this Protocol member, so an AttributeError here would
+    # take the whole tool offline. ``getattr`` keeps the worst case
+    # to a None envelope rather than a 500.
+    workflow_id = getattr(ctx, "active_workflow_id", None)
+    if not workflow_id:
+        return ActiveWorkflowContextResult(workflow_id=None, workflow_name=None)
+    # Best-effort name resolution. A missing / unreadable file MUST NOT
+    # raise — the agent gets at least the id back so it can still pass
+    # the right key to ``get_workflow`` for the authoritative load.
+    workflow_name: str | None = workflow_id
+    try:
+        path = _resolve_project_path(f"workflows/{workflow_id}.yaml")
+        if path.exists():
+            raw = yaml_module.safe_load(path.read_text(encoding="utf-8")) or {}
+            metadata = raw.get("metadata") if isinstance(raw, dict) else None
+            if isinstance(metadata, dict):
+                candidate = metadata.get("title") or metadata.get("name")
+                if isinstance(candidate, str) and candidate:
+                    workflow_name = candidate
+    except (OSError, ValueError, RuntimeError, PermissionError, yaml_module.YAMLError) as exc:
+        logger.debug(
+            "get_active_workflow_context: name resolution failed for %s (%s)",
+            workflow_id,
+            exc,
+        )
+    return ActiveWorkflowContextResult(workflow_id=workflow_id, workflow_name=workflow_name)
+
+
 __all__: list[str] = [
+    "get_active_workflow_context",
     "get_block_schema",
     "get_run_status",
     "get_workflow",

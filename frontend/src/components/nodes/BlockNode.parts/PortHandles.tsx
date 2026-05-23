@@ -18,6 +18,7 @@
 
 import type { Edge, HandleType } from "@xyflow/react";
 import { Handle, Position, useEdges, useReactFlow } from "@xyflow/react";
+import { useState } from "react";
 
 import {
   isAnyType,
@@ -27,6 +28,8 @@ import {
 } from "../../../config/typeColorMap";
 import type { BlockPortResponse, BlockSchemaResponse } from "../../../types/api";
 import type { BlockNodeData } from "../../../types/ui";
+
+import { AddPortDialog } from "./AddPortDialog";
 
 type Direction = "input" | "output";
 
@@ -166,18 +169,46 @@ export function PortHandles({
   const edges = useEdges();
   const { deleteElements } = useReactFlow();
 
-  const handleAddPort = (direction: Direction) => {
+  // Issue #1325: opening the add-port dialog defers the actual port
+  // append until the user confirms a name + type. ``addPortDirection``
+  // is the dialog's open / direction state; ``null`` keeps it closed.
+  const [addPortDirection, setAddPortDirection] = useState<Direction | null>(null);
+
+  const portsConfigFor = (direction: Direction): Array<{ name: string; types: string[] }> => {
     const key = direction === "input" ? "input_ports" : "output_ports";
-    const current = Array.isArray(data.config?.[key])
-      ? (data.config[key] as Array<{ name: string; types: string[] }>)
-      : [];
-    const defaultType =
-      direction === "input"
-        ? (data.schema?.allowed_input_types?.[0] ?? "DataObject")
-        : (data.schema?.allowed_output_types?.[0] ?? "DataObject");
+    const current = data.config?.[key];
+    return Array.isArray(current) ? (current as Array<{ name: string; types: string[] }>) : [];
+  };
+
+  // Issue #1325 P1 (Codex review): variadic blocks with static defaults
+  // (Code Block's ``data``/``result``) must NOT lose those defaults the
+  // first time the user adds or removes a port. The wire contract:
+  // ``flowNodeBuilder.resolveVariadicPorts`` replaces the schema-level
+  // ports wholesale once ``config.{input,output}_ports`` is non-empty.
+  // Without this seed, the first add-port writes only the new entry to
+  // config, the resolver replaces ``data``/``result``, and any existing
+  // edges attached to those static names break.
+  //
+  // Mitigation: when the per-instance config is still empty, seed it
+  // with the current EFFECTIVE port list (which already reflects any
+  // ADR-028 dynamic-port type substitution) before applying the mutation.
+  // Subsequent adds / removes operate on the now-populated config.
+  const seedFromEffectiveIfEmpty = (
+    direction: Direction,
+  ): Array<{ name: string; types: string[] }> => {
+    const current = portsConfigFor(direction);
+    if (current.length > 0) return current;
+    const effective = direction === "input" ? effectiveInputPorts : effectiveOutputPorts;
+    return effective.map((p) => ({ name: p.name, types: p.accepted_types ?? [] }));
+  };
+
+  const handleAddPortConfirmed = (direction: Direction, name: string, typeName: string) => {
+    const key = direction === "input" ? "input_ports" : "output_ports";
+    const base = seedFromEffectiveIfEmpty(direction);
     data.onUpdateConfig?.({
-      [key]: [...current, { name: `port_${current.length + 1}`, types: [defaultType] }],
+      [key]: [...base, { name, types: [typeName] }],
     });
+    setAddPortDirection(null);
   };
 
   const handleRemovePort = (direction: Direction, portName: string) => {
@@ -194,10 +225,12 @@ export function PortHandles({
       deleteElements({ edges: connected });
     }
     const key = direction === "input" ? "input_ports" : "output_ports";
-    const current = Array.isArray(data.config?.[key])
-      ? (data.config[key] as Array<{ name: string; types: string[] }>)
-      : [];
-    data.onUpdateConfig?.({ [key]: current.filter((p) => p.name !== portName) });
+    // Same seeding concern as ``handleAddPortConfirmed``: a remove on a
+    // not-yet-seeded variadic block must operate on the effective list,
+    // not on an empty config (which would otherwise leave config empty
+    // and silently restore the just-removed static default).
+    const base = seedFromEffectiveIfEmpty(direction);
+    data.onUpdateConfig?.({ [key]: base.filter((p) => p.name !== portName) });
   };
 
   return (
@@ -221,7 +254,7 @@ export function PortHandles({
           direction="input"
           portStartY={portStartY}
           portCount={effectiveInputPorts.length}
-          onAdd={() => handleAddPort("input")}
+          onAdd={() => setAddPortDirection("input")}
         />
       )}
       {effectiveOutputPorts.map((port, index) => (
@@ -243,7 +276,21 @@ export function PortHandles({
           direction="output"
           portStartY={portStartY}
           portCount={effectiveOutputPorts.length}
-          onAdd={() => handleAddPort("output")}
+          onAdd={() => setAddPortDirection("output")}
+        />
+      )}
+      {addPortDirection && (
+        <AddPortDialog
+          direction={addPortDirection}
+          allowedTypes={
+            addPortDirection === "input"
+              ? (data.schema?.allowed_input_types ?? [])
+              : (data.schema?.allowed_output_types ?? [])
+          }
+          typeHierarchy={data.schema?.type_hierarchy}
+          defaultName={`port_${portsConfigFor(addPortDirection).length + 1}`}
+          onCancel={() => setAddPortDirection(null)}
+          onSubmit={(name, typeName) => handleAddPortConfirmed(addPortDirection, name, typeName)}
         />
       )}
     </>

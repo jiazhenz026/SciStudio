@@ -352,6 +352,12 @@ def open_project(self: ApiRuntime, project_id_or_path: str) -> KnownProject:
         )
     # ADR-034: republish the MCP server port file into the newly active project.
     self._publish_mcp_port(Path(candidate.path))
+    # ADR-040 Addendum 5 / #1488: restore ``active_workflow_id`` from the
+    # newly opened project's ``.scistudio/active_workflow.json`` so the
+    # chat agent's ``get_active_workflow_context`` tool reflects what the
+    # user had last open in this project (not a stale value from the
+    # previously opened project).
+    self._load_active_workflow_id_from_disk()
     return candidate
 
 
@@ -384,6 +390,91 @@ def _publish_mcp_port(self: ApiRuntime, project_dir: Path) -> None:
             project_dir,
             exc_info=True,
         )
+
+
+# ADR-040 Addendum 5 / #1488: active-workflow-id persistence.
+#
+# The chat agent's ``get_active_workflow_context`` MCP tool reads
+# ``ApiRuntime.active_workflow_id`` so the agent knows which workflow the
+# user is editing. We mirror that field to disk at
+# ``<project>/.scistudio/active_workflow.json`` so:
+#   * the value survives backend restart (the GUI does not have to
+#     re-POST on every reconnect), and
+#   * project switches restore the workflow the user had last open in
+#     that project rather than carrying the prior project's id over.
+#
+# The file uses the same ``<project>/.scistudio/`` directory as the
+# MCP port file (see ``_publish_mcp_port``) and is .gitignored as
+# per-developer state, not workflow source.
+_ACTIVE_WORKFLOW_FILENAME = "active_workflow.json"
+
+
+def _load_active_workflow_id_from_disk(self: ApiRuntime) -> None:
+    """Read the persisted ``active_workflow_id`` for the active project.
+
+    Called from :func:`open_project` after the MCP port publish so the
+    field reflects the workflow that was last active in the newly
+    opened project. Missing file / malformed JSON / OSError leave the
+    field at ``None`` — a stale or absent persistence file MUST NOT
+    break project open.
+    """
+    if self.active_project is None:
+        self.active_workflow_id = None
+        return
+    target = Path(self.active_project.path) / ".scistudio" / _ACTIVE_WORKFLOW_FILENAME
+    try:
+        raw = target.read_text(encoding="utf-8")
+    except OSError:
+        self.active_workflow_id = None
+        return
+    try:
+        parsed = json.loads(raw)
+    except (ValueError, TypeError):
+        logger.warning(
+            "ApiRuntime: malformed %s — clearing active_workflow_id",
+            target,
+        )
+        self.active_workflow_id = None
+        return
+    value = parsed.get("workflow_id") if isinstance(parsed, dict) else None
+    self.active_workflow_id = value if isinstance(value, str) and value else None
+
+
+def _publish_active_workflow_id(self: ApiRuntime) -> None:
+    """Write the current ``active_workflow_id`` to the active project's
+    ``.scistudio/active_workflow.json``.
+
+    Best-effort: failures are logged and swallowed (e.g. read-only
+    project root) so a persistence-layer issue cannot break the chat
+    agent's POST-to-update flow.
+    """
+    if self.active_project is None:
+        return
+    target_dir = Path(self.active_project.path) / ".scistudio"
+    target = target_dir / _ACTIVE_WORKFLOW_FILENAME
+    payload = {"workflow_id": self.active_workflow_id}
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(payload), encoding="utf-8")
+    except OSError:
+        logger.warning(
+            "ApiRuntime: could not publish active_workflow_id to %s",
+            target,
+            exc_info=True,
+        )
+
+
+def set_active_workflow_id(self: ApiRuntime, workflow_id: str | None) -> None:
+    """Update the in-memory ``active_workflow_id`` and persist to disk.
+
+    Callers must pass either a non-empty workflow id or ``None``; empty
+    strings are normalised to ``None`` so the MCP tool never reports
+    a meaningless empty value to the agent. Persistence is best-effort
+    — see :func:`_publish_active_workflow_id`.
+    """
+    normalised = workflow_id if isinstance(workflow_id, str) and workflow_id else None
+    self.active_workflow_id = normalised
+    self._publish_active_workflow_id()
 
 
 def update_project(

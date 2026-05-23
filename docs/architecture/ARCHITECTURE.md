@@ -1306,7 +1306,7 @@ state, and event bus context that the backend uses. This is why MCP calls can
 validate workflows, reload blocks, start runs, inspect lineage, and reflect live
 runtime state instead of operating as disconnected file edits.
 
-The production MCP surface contains 26 tools:
+The production MCP surface contains 27 tools:
 
 | Area | MCP tool | Purpose | Access |
 |---|---|---|---|
@@ -1320,6 +1320,7 @@ The production MCP surface contains 26 tools:
 | Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;cancel_run</code> | Cancel an active workflow run. | Write |
 | Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;get_run_status</code> | Poll run state, block state, and terminal outcome. | Read |
 | Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;finish_ai_block</code> | Signal completion from inside an AIBlock run. | Write |
+| Workflow | <code>mcp&#95;&#95;scistudio&#95;&#95;get_active_workflow_context</code> | Read the workflow id the GUI editor currently has open (ADR-040 Addendum 5). | Read |
 | Authoring | <code>mcp&#95;&#95;scistudio&#95;&#95;read_block_source</code> | Read project or package block source for reuse or inspection. | Read |
 | Authoring | <code>mcp&#95;&#95;scistudio&#95;&#95;list_block_examples</code> | List scaffold/example block templates. | Read |
 | Authoring | <code>mcp&#95;&#95;scistudio&#95;&#95;scaffold_block</code> | Create a custom block skeleton with typed ports and config. | Write |
