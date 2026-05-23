@@ -87,7 +87,7 @@
   "docs_landing": {
     "changelog": {
       "not_applicable": true,
-      "rationale": "Audit-only PR \u2014 produces an evidence document under docs/audit/ and does not change user-visible behavior. Umbrella PR for the frontend cleanup batch will land any CHANGELOG entry."
+      "rationale": "Audit-only PR — produces an evidence document under docs/audit/ and does not change user-visible behavior. Umbrella PR for the frontend cleanup batch will land any CHANGELOG entry."
     },
     "checklist": {
       "not_applicable": true,
@@ -205,5 +205,6 @@
     }
   ],
   "task_id": "1412-audit-frontend-cleanup-1412-no-context",
-  "task_kind": "docs"
+  "task_kind": "docs",
+  "persona": "audit_reviewer"
 }
