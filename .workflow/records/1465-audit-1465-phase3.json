@@ -8,12 +8,26 @@
         ".workflow/records/1465-audit-1465-phase3.json"
       ],
       "reason": "include audit gate-record file in scope per ADR-042"
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/audit-pr-body.md"
+      ],
+      "reason": "include audit PR body file in scope per ADR-042"
     }
   ],
   "branch": "audit/issue-1465/phase3-review",
   "changed_test_paths": [],
   "check_results": [],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1465-audit-1465-phase3.json",
+    "shas": [
+      "2509fe3c6ff490ee3af07255c1b146ed1b61b3fc"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {},
     "checklist": {},
@@ -33,7 +47,7 @@
     "summary": {},
     "unclassified_failures": []
   },
-  "governance_touch": false,
+  "governance_touch": true,
   "issues": [
     {
       "close_in_pr": false,
@@ -46,7 +60,11 @@
   "planned_files": [
     "docs/audit/2026-05-22-umbrella-1465-phase3-with-context.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "number": null,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1479"
+  },
   "record_path": ".workflow/records/1465-audit-1465-phase3.json",
   "required_checks": [],
   "schema_version": "1",
@@ -103,7 +121,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
