@@ -91,7 +91,7 @@
     },
     "adr": {
       "not_applicable": true,
-      "rationale": "No ADR change \u2014 audit work only."
+      "rationale": "No ADR change — audit work only."
     },
     "changelog": {
       "not_applicable": true,
@@ -99,7 +99,7 @@
     },
     "checklist": {
       "not_applicable": true,
-      "rationale": "Manager updates \u00a77.4.3 checklist row post-audit; the audit-only PR is the artifact."
+      "rationale": "Manager updates §7.4.3 checklist row post-audit; the audit-only PR is the artifact."
     },
     "docs": {
       "paths": [
@@ -108,7 +108,7 @@
     },
     "spec": {
       "not_applicable": true,
-      "rationale": "No spec/contract change \u2014 audit work only."
+      "rationale": "No spec/contract change — audit work only."
     }
   },
   "full_audit": {
@@ -204,5 +204,6 @@
     }
   ],
   "task_id": "1426-w4-audit-wc",
-  "task_kind": "docs"
+  "task_kind": "docs",
+  "persona": "audit_reviewer"
 }
