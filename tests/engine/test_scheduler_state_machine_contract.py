@@ -3,13 +3,11 @@
 The architecture state table is small enough to keep as a table-driven test:
 
 * ``cancel_block`` may only produce ``CANCELLED`` from ``RUNNING``/``PAUSED``.
+  All other initial states are a no-op (#1376 — fix landed alongside
+  this test's xfail removal).
 * ``cancel_workflow`` cancels active blocks and skips not-yet-started blocks.
 * ``PROCESS_EXITED`` only turns ``RUNNING`` into ``ERROR``.
 * Scheduler-owned readiness transitions must emit ``BLOCK_READY`` exactly once.
-
-Rows marked ``xfail`` are known drift from issue #1376. They stay visible here
-so the suite describes the full desired contract without requiring product-code
-changes in this test-only PR.
 """
 
 from __future__ import annotations
@@ -137,22 +135,8 @@ async def _emit(
 @pytest.mark.parametrize(
     ("initial", "expected_b", "expected_c", "expected_events"),
     [
-        pytest.param(
-            BlockState.IDLE,
-            BlockState.IDLE,
-            BlockState.IDLE,
-            [],
-            marks=pytest.mark.xfail(reason="#1376: cancel_block currently cancels IDLE blocks", strict=True),
-            id="IDLE-noop",
-        ),
-        pytest.param(
-            BlockState.READY,
-            BlockState.READY,
-            BlockState.IDLE,
-            [],
-            marks=pytest.mark.xfail(reason="#1376: cancel_block currently cancels READY blocks", strict=True),
-            id="READY-noop",
-        ),
+        pytest.param(BlockState.IDLE, BlockState.IDLE, BlockState.IDLE, [], id="IDLE-noop"),
+        pytest.param(BlockState.READY, BlockState.READY, BlockState.IDLE, [], id="READY-noop"),
         pytest.param(
             BlockState.RUNNING,
             BlockState.CANCELLED,
@@ -167,38 +151,10 @@ async def _emit(
             [(BLOCK_CANCELLED, "B"), (BLOCK_SKIPPED, "C")],
             id="PAUSED-cancelled",
         ),
-        pytest.param(
-            BlockState.DONE,
-            BlockState.DONE,
-            BlockState.IDLE,
-            [],
-            marks=pytest.mark.xfail(reason="#1376: cancel_block currently cancels DONE blocks", strict=True),
-            id="DONE-noop",
-        ),
-        pytest.param(
-            BlockState.ERROR,
-            BlockState.ERROR,
-            BlockState.IDLE,
-            [],
-            marks=pytest.mark.xfail(reason="#1376: cancel_block currently cancels ERROR blocks", strict=True),
-            id="ERROR-noop",
-        ),
-        pytest.param(
-            BlockState.CANCELLED,
-            BlockState.CANCELLED,
-            BlockState.IDLE,
-            [],
-            marks=pytest.mark.xfail(reason="#1376: cancel_block currently re-emits CANCELLED", strict=True),
-            id="CANCELLED-noop",
-        ),
-        pytest.param(
-            BlockState.SKIPPED,
-            BlockState.SKIPPED,
-            BlockState.IDLE,
-            [],
-            marks=pytest.mark.xfail(reason="#1376: cancel_block currently cancels SKIPPED blocks", strict=True),
-            id="SKIPPED-noop",
-        ),
+        pytest.param(BlockState.DONE, BlockState.DONE, BlockState.IDLE, [], id="DONE-noop"),
+        pytest.param(BlockState.ERROR, BlockState.ERROR, BlockState.IDLE, [], id="ERROR-noop"),
+        pytest.param(BlockState.CANCELLED, BlockState.CANCELLED, BlockState.IDLE, [], id="CANCELLED-noop"),
+        pytest.param(BlockState.SKIPPED, BlockState.SKIPPED, BlockState.IDLE, [], id="SKIPPED-noop"),
     ],
 )
 def test_cancel_block_state_table(

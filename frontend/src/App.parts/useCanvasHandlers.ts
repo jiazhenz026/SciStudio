@@ -79,11 +79,17 @@ export function useCanvasHandlers(deps: CanvasHandlersDeps): CanvasHandlers {
         if (!sourceNode || !targetNode) return;
         const sourcePort = edge.source.split(":")[1];
         const targetPort = edge.target.split(":")[1];
+        // #889: pass node configs so the backend resolves effective
+        // ports (LoadData core_type, variadic block-declared ports)
+        // rather than validating against the static class-level
+        // spec.
         const validation = await api.validateConnection({
           source_block: sourceNode.block_type,
           source_port: sourcePort,
           target_block: targetNode.block_type,
           target_port: targetPort,
+          source_node_config: sourceNode.config,
+          target_node_config: targetNode.config,
         });
         if (!validation.compatible) {
           setLastError(validation.reason);
