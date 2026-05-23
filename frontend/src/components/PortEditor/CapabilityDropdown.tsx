@@ -103,6 +103,56 @@ function describeOption(cap: FormatCapabilityResponse): string {
   return `${cap.label} — ${cap.format_id} [${cap.metadata_fidelity.level}]`;
 }
 
+interface PlaceholderArgs {
+  showEmpty: boolean;
+  loading: boolean;
+  hasCapabilities: boolean;
+}
+
+function placeholderLabel({ showEmpty, loading, hasCapabilities }: PlaceholderArgs): string {
+  if (showEmpty) return "Enter extension to pick a capability";
+  if (loading) return "Loading capabilities...";
+  if (!hasCapabilities) return "No matching capability";
+  return "Select a capability...";
+}
+
+interface HintProps {
+  error: string | null;
+  ambiguous: boolean;
+  ambiguousCount: number;
+  selected: FormatCapabilityResponse | null;
+}
+
+function CapabilityHint({ error, ambiguous, ambiguousCount, selected }: HintProps) {
+  if (error) {
+    return (
+      <span className="text-[11px] text-red-600" role="alert">
+        {error}
+      </span>
+    );
+  }
+  if (ambiguous) {
+    return (
+      <span className="text-[11px] text-amber-700">
+        {ambiguousCount} capabilities match — pick one to persist a stable
+        <code className="mx-1 rounded bg-amber-50 px-1">capability_id</code>.
+      </span>
+    );
+  }
+  if (
+    selected &&
+    selected.direction === "save" &&
+    selected.metadata_fidelity.level === "pixel_only"
+  ) {
+    return (
+      <span className="text-[11px] text-amber-700">
+        This saver is payload-only; OME / typed-meta fields will be dropped.
+      </span>
+    );
+  }
+  return null;
+}
+
 export function CapabilityDropdown({
   direction,
   dataType,
@@ -197,13 +247,11 @@ export function CapabilityDropdown({
         >
           {(showEmpty || capabilities.length !== 1 || !value) && (
             <option value="">
-              {showEmpty
-                ? "Enter extension to pick a capability"
-                : loading
-                  ? "Loading capabilities..."
-                  : capabilities.length === 0
-                    ? "No matching capability"
-                    : "Select a capability..."}
+              {placeholderLabel({
+                showEmpty,
+                loading,
+                hasCapabilities: capabilities.length > 0,
+              })}
             </option>
           )}
           {capabilities.map((cap) => (
@@ -214,22 +262,12 @@ export function CapabilityDropdown({
         </select>
         {selected ? <FidelityBadge level={selected.metadata_fidelity.level} /> : null}
       </label>
-      {error ? (
-        <span className="text-[11px] text-red-600" role="alert">
-          {error}
-        </span>
-      ) : ambiguous ? (
-        <span className="text-[11px] text-amber-700">
-          {capabilities.length} capabilities match — pick one to persist a stable
-          <code className="mx-1 rounded bg-amber-50 px-1">capability_id</code>.
-        </span>
-      ) : selected &&
-        selected.direction === "save" &&
-        selected.metadata_fidelity.level === "pixel_only" ? (
-        <span className="text-[11px] text-amber-700">
-          This saver is payload-only; OME / typed-meta fields will be dropped.
-        </span>
-      ) : null}
+      <CapabilityHint
+        error={error}
+        ambiguous={ambiguous}
+        ambiguousCount={capabilities.length}
+        selected={selected}
+      />
     </div>
   );
 }

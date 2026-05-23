@@ -2,6 +2,8 @@ import { useState } from "react";
 
 import { api } from "../lib/api";
 import type { ProjectResponse } from "../types/api";
+import { ProjectFormFields } from "./ProjectDialog.parts/ProjectFormFields";
+import { RecentProjectsList } from "./ProjectDialog.parts/RecentProjectsList";
 
 interface ProjectDialogProps {
   open: boolean;
@@ -90,130 +92,24 @@ export function ProjectDialog({
           </button>
         </div>
 
-        <div className={`grid gap-4 ${mode === "new" ? "md:grid-cols-2" : ""}`}>
-          <label className="grid gap-2 text-sm text-stone-700">
-            <span className="font-medium">
-              {mode === "new" ? "Project name" : "Project ID or path"}
-            </span>
-            {mode === "open" ? (
-              <div className="flex gap-2">
-                <input
-                  className="min-w-0 flex-1 rounded-2xl border border-stone-300 bg-white px-4 py-3 outline-none transition focus:border-ember"
-                  onChange={(event) => {
-                    onChange({ path: event.target.value });
-                    setPathError(null);
-                  }}
-                  placeholder="C:\\research\\atlas-project"
-                  value={path}
-                />
-                <button
-                  className="shrink-0 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm font-medium text-stone-600 transition hover:border-ember hover:text-ember"
-                  onClick={() => void handleBrowse()}
-                  type="button"
-                >
-                  Browse
-                </button>
-              </div>
-            ) : (
-              <input
-                className="rounded-2xl border border-stone-300 bg-white px-4 py-3 outline-none transition focus:border-ember"
-                onChange={(event) => onChange({ name: event.target.value })}
-                placeholder="Multimodal Atlas"
-                value={name}
-              />
-            )}
-          </label>
-          {mode === "new" ? (
-            <div className="grid gap-2 text-sm text-stone-700">
-              <span className="font-medium">Parent directory</span>
-              <div className="flex gap-2">
-                <input
-                  className="min-w-0 flex-1 rounded-2xl border border-stone-300 bg-white px-4 py-3 outline-none transition focus:border-ember"
-                  onChange={(event) => {
-                    onChange({ path: event.target.value });
-                    setPathError(null);
-                  }}
-                  placeholder="C:\\projects"
-                  value={path}
-                />
-                <button
-                  className="shrink-0 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm font-medium text-stone-600 transition hover:border-ember hover:text-ember"
-                  onClick={() => void handleBrowse()}
-                  type="button"
-                >
-                  Browse
-                </button>
-              </div>
-            </div>
-          ) : null}
-          {mode === "new" ? (
-            <label className="grid gap-2 text-sm text-stone-700 md:col-span-2">
-              <span className="font-medium">Description</span>
-              <textarea
-                className="min-h-28 rounded-2xl border border-stone-300 bg-white px-4 py-3 outline-none transition focus:border-ember"
-                onChange={(event) => onChange({ description: event.target.value })}
-                placeholder="Integrated IF, Raman, and LC-MS pilot."
-                value={description}
-              />
-            </label>
-          ) : null}
-        </div>
+        <ProjectFormFields
+          mode={mode}
+          name={name}
+          description={description}
+          path={path}
+          onChange={onChange}
+          onPathChangeClearError={() => setPathError(null)}
+          onBrowse={() => void handleBrowse()}
+        />
 
         {pathError ? <p className="mt-2 text-sm text-red-600">{pathError}</p> : null}
 
-        <div className="mt-6 rounded-[1.5rem] border border-stone-200 bg-white/80 p-4">
-          <p className="text-xs uppercase tracking-[0.3em] text-stone-500">Recent projects</p>
-          <div className="mt-3 flex max-h-64 flex-col gap-2 overflow-y-auto">
-            {recentProjects.length ? (
-              recentProjects.map((project) => (
-                <button
-                  className="flex items-center justify-between rounded-2xl border border-stone-200 px-4 py-3 text-left transition hover:border-pine hover:bg-pine/5"
-                  key={project.id}
-                  onClick={() => onOpenRecent(project.id)}
-                  type="button"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium text-ink">{project.name}</span>
-                    <span className="block truncate text-xs text-stone-500">{project.path}</span>
-                  </span>
-                  <span className="flex shrink-0 items-center gap-2">
-                    <span className="rounded-full bg-sand px-3 py-1 text-xs text-stone-700">
-                      {project.workflow_count} workflow{project.workflow_count === 1 ? "" : "s"}
-                    </span>
-                    {onDeleteProject ? (
-                      <span
-                        className="rounded-full p-1 text-stone-400 transition hover:bg-red-50 hover:text-red-600"
-                        onClick={(event) => handleDeleteProject(event, project.id, project.name)}
-                        onKeyDown={() => {}}
-                        role="button"
-                        tabIndex={0}
-                        title="Delete project"
-                      >
-                        <svg
-                          className="size-4"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </span>
-                    ) : null}
-                  </span>
-                </button>
-              ))
-            ) : (
-              <p className="text-sm text-stone-500">
-                No project history yet. Create one to get started.
-              </p>
-            )}
-          </div>
-        </div>
+        <RecentProjectsList
+          recentProjects={recentProjects}
+          onOpenRecent={onOpenRecent}
+          onDeleteProject={onDeleteProject}
+          onDeleteClick={handleDeleteProject}
+        />
 
         <div className="mt-6 flex justify-end gap-3">
           <button

@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { ApiError } from "../../lib/api";
 import { useAppStore } from "../../store";
 import type { GitStatus } from "../../types/api";
+import { WorkingTreeList } from "./CommitDialog.parts/WorkingTreeList";
 
 export interface CommitDialogProps {
   open: boolean;
@@ -133,13 +134,6 @@ export function CommitDialog(props: CommitDialogProps): JSX.Element | null {
 
   if (!open) return null;
 
-  const fileEntries: { kind: string; path: string }[] = [];
-  if (status) {
-    for (const p of status.modified) fileEntries.push({ kind: "M", path: p });
-    for (const p of status.staged) fileEntries.push({ kind: "S", path: p });
-    for (const p of status.untracked) fileEntries.push({ kind: "A", path: p });
-  }
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
@@ -171,25 +165,7 @@ export function CommitDialog(props: CommitDialogProps): JSX.Element | null {
           autoFocus
         />
 
-        <div className="mt-3">
-          <p className="text-xs font-semibold uppercase text-stone-500">Working tree</p>
-          {status === null ? (
-            <p className="mt-1 text-xs text-stone-400">Loading file list…</p>
-          ) : !status.dirty ? (
-            <p className="mt-1 text-xs text-stone-400">No changes to commit.</p>
-          ) : (
-            <ul
-              data-testid="commit-dialog-files"
-              className="mt-1 max-h-24 overflow-y-auto text-xs font-mono"
-            >
-              {fileEntries.map((entry, i) => (
-                <li key={`${entry.kind}-${entry.path}-${i}`} className="text-stone-600">
-                  {entry.kind} {entry.path}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <WorkingTreeList status={status} />
 
         {localError && (
           <div

@@ -7,15 +7,11 @@
  * Uses the HTML5 Drag and Drop API (no external dependencies).
  */
 
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 
-interface ItemDescriptor {
-  index: number;
-  port: string;
-  ref: string;
-  name: string;
-  type: string;
-}
+import { InputPanels } from "./DataRouterModal.parts/InputPanels";
+import { OutputPanels } from "./DataRouterModal.parts/OutputPanels";
+import type { ItemDescriptor } from "./DataRouterModal.parts/types";
 
 interface DataRouterModalProps {
   blockId: string;
@@ -26,43 +22,6 @@ interface DataRouterModalProps {
   onCancel: () => void;
 }
 
-// Row colors for visual grouping.
-const ROW_COLORS = [
-  "bg-blue-50 border-blue-200",
-  "bg-green-50 border-green-200",
-  "bg-purple-50 border-purple-200",
-  "bg-amber-50 border-amber-200",
-  "bg-rose-50 border-rose-200",
-  "bg-cyan-50 border-cyan-200",
-  "bg-indigo-50 border-indigo-200",
-  "bg-lime-50 border-lime-200",
-];
-
-function ItemCard({
-  item,
-  draggable,
-  onDragStart,
-  colorIndex,
-}: {
-  item: ItemDescriptor;
-  draggable: boolean;
-  onDragStart?: (e: React.DragEvent, ref: string) => void;
-  colorIndex?: number;
-}) {
-  const colorClass =
-    colorIndex != null ? ROW_COLORS[colorIndex % ROW_COLORS.length] : "bg-white border-stone-200";
-  return (
-    <div
-      className={`flex items-center gap-2 rounded border px-2 py-1.5 text-xs ${colorClass} ${draggable ? "cursor-grab" : "cursor-default opacity-50"}`}
-      draggable={draggable}
-      onDragStart={(e) => onDragStart?.(e, item.ref)}
-    >
-      <span className="truncate font-medium text-ink">{item.name}</span>
-      <span className="shrink-0 text-[10px] text-stone-400">{item.type}</span>
-    </div>
-  );
-}
-
 export function DataRouterModal({
   blockId,
   inputPorts,
@@ -71,6 +30,9 @@ export function DataRouterModal({
   onConfirm,
   onCancel,
 }: DataRouterModalProps) {
+  // `blockId` is part of the public contract and is surfaced as a
+  // data attribute on the modal root for tests / analytics hooks
+  // (also prevents the no-unused-vars lint per #1417).
   // Track which items have been assigned to which output port.
   // Key: output port name, Value: list of item refs.
   const [assignments, setAssignments] = useState<Record<string, string[]>>(() =>
@@ -139,6 +101,8 @@ export function DataRouterModal({
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40"
       onClick={onCancel}
+      data-block-id={blockId}
+      data-testid="data-router-modal"
     >
       <div
         className="flex max-h-[85vh] w-[900px] flex-col rounded-xl border border-stone-200 bg-white shadow-xl"
@@ -154,41 +118,14 @@ export function DataRouterModal({
 
         {/* Body */}
         <div className="flex flex-1 gap-4 overflow-y-auto p-5">
-          {/* Input panels */}
-          <div
-            className="flex flex-1 flex-col gap-3"
-            onDrop={handleDropOnInput}
+          <InputPanels
+            inputPorts={inputPorts}
+            itemsPerPort={itemsPerPort}
+            assignedRefs={assignedRefs}
+            onDragStart={handleDragStart}
+            onDropOnInput={handleDropOnInput}
             onDragOver={handleDragOver}
-          >
-            <div className="text-xs font-medium uppercase tracking-wide text-stone-400">Inputs</div>
-            {inputPorts.map((portName) => {
-              const portItems = itemsPerPort[portName] ?? [];
-              const unassignedPortItems = portItems.filter((item) => !assignedRefs.has(item.ref));
-              return (
-                <div key={portName} className="rounded-lg border border-stone-200 bg-stone-50 p-3">
-                  <div className="mb-2 text-xs font-medium text-stone-600">
-                    {portName}{" "}
-                    <span className="text-stone-400">
-                      ({unassignedPortItems.length}/{portItems.length})
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {unassignedPortItems.map((item) => (
-                      <ItemCard
-                        key={item.ref}
-                        item={item}
-                        draggable
-                        onDragStart={handleDragStart}
-                      />
-                    ))}
-                    {unassignedPortItems.length === 0 && (
-                      <span className="text-[10px] italic text-stone-400">All items assigned</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          />
 
           {/* Arrow divider */}
           <div className="flex items-center text-stone-300">
@@ -204,45 +141,14 @@ export function DataRouterModal({
             </svg>
           </div>
 
-          {/* Output panels */}
-          <div className="flex flex-1 flex-col gap-3">
-            <div className="text-xs font-medium uppercase tracking-wide text-stone-400">
-              Outputs
-            </div>
-            {outputPorts.map((portName, portIndex) => {
-              const portRefs = assignments[portName] ?? [];
-              return (
-                <div
-                  key={portName}
-                  className="min-h-[60px] rounded-lg border-2 border-dashed border-stone-200 bg-stone-50 p-3 transition-colors hover:border-blue-300"
-                  onDrop={(e) => handleDropOnOutput(e, portName)}
-                  onDragOver={handleDragOver}
-                >
-                  <div className="mb-2 text-xs font-medium text-stone-600">
-                    {portName} <span className="text-stone-400">({portRefs.length})</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {portRefs.map((ref) => {
-                      const item = itemByRef[ref];
-                      if (!item) return null;
-                      return (
-                        <ItemCard
-                          key={ref}
-                          item={item}
-                          draggable
-                          onDragStart={handleDragStart}
-                          colorIndex={portIndex}
-                        />
-                      );
-                    })}
-                    {portRefs.length === 0 && (
-                      <span className="text-[10px] italic text-stone-400">Drop items here</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <OutputPanels
+            outputPorts={outputPorts}
+            assignments={assignments}
+            itemByRef={itemByRef}
+            onDropOnOutput={handleDropOnOutput}
+            onDragOver={handleDragOver}
+            onDragStart={handleDragStart}
+          />
         </div>
 
         {/* Footer */}

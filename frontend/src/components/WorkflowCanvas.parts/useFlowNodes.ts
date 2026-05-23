@@ -1,0 +1,150 @@
+/**
+ * useFlowNodes — builds the ReactFlow `nodes` array from workflow nodes.
+ * Extracted from WorkflowCanvas in #1413.
+ */
+import type { Node } from "@xyflow/react";
+import { useMemo } from "react";
+
+import type {
+  BlockSchemaResponse,
+  BlockSummary,
+  WorkflowEdge,
+  WorkflowNode,
+} from "../../types/api";
+import {
+  buildAnnotationNode,
+  buildBlockNode,
+  buildGroupNode,
+  computeUpstreamOmeFields,
+  defaultLayout,
+  paramsOf,
+} from "./flowNodeBuilder";
+
+/** Derive canvas display label for a node. */
+function resolveLabel(
+  node: WorkflowNode,
+  summary?: BlockSummary,
+  schema?: BlockSchemaResponse,
+): string {
+  if (node.block_type === "io_block") {
+    const params = (node.config.params as Record<string, unknown> | undefined) ?? {};
+    const direction = params.direction as string | undefined;
+    if (direction === "output") return "Save Block";
+    return "Load Block";
+  }
+  return summary?.name ?? schema?.name ?? node.block_type;
+}
+
+export interface UseFlowNodesOpts {
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  blocks: BlockSummary[];
+  schemas: Record<string, BlockSchemaResponse>;
+  blockStates: Record<string, string>;
+  blockErrors: Record<string, string>;
+  blockErrorSummaries: Record<string, string>;
+  selectedNodeId: string | null;
+  blockOutputs?: Record<string, Record<string, unknown>>;
+  dragPositions: Record<string, { x: number; y: number }>;
+  onUpdateNodeConfig: (nodeId: string, patch: Record<string, unknown>) => void;
+  makeOnRun: (nodeId: string) => () => void;
+  makeOnRestart: (nodeId: string) => () => void;
+  makeOnDelete: (nodeId: string) => () => void;
+  makeOnErrorClick: (nodeId: string) => () => void;
+  makeOnUpdateConfig: (nodeId: string) => (patch: Record<string, unknown>) => void;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function useFlowNodes(opts: UseFlowNodesOpts): Array<Node<any>> {
+  const {
+    nodes,
+    edges,
+    blocks,
+    schemas,
+    blockStates,
+    blockErrors,
+    blockErrorSummaries,
+    selectedNodeId,
+    blockOutputs,
+    dragPositions,
+    onUpdateNodeConfig,
+    makeOnRun,
+    makeOnRestart,
+    makeOnDelete,
+    makeOnErrorClick,
+    makeOnUpdateConfig,
+  } = opts;
+
+  return useMemo(() => {
+    return nodes.map((node, index) => {
+      const storePos = node.layout ?? defaultLayout(index);
+      const position = dragPositions[node.id] ?? storePos;
+      const params = paramsOf(node);
+
+      if (node.block_type === "_annotation") {
+        return buildAnnotationNode({
+          node,
+          position,
+          params,
+          selectedNodeId,
+          onUpdateNodeConfig,
+        });
+      }
+      if (node.block_type === "_group") {
+        return buildGroupNode({
+          node,
+          position,
+          params,
+          selectedNodeId,
+          onUpdateNodeConfig,
+        });
+      }
+
+      const summary = blocks.find((block) => block.type_name === node.block_type);
+      const schema = schemas[node.block_type];
+      const upstreamOmeFields = computeUpstreamOmeFields({
+        nodeId: node.id,
+        edges,
+        blockOutputs,
+      });
+
+      return buildBlockNode({
+        node,
+        position,
+        params,
+        summary,
+        schema,
+        status: blockStates[node.id] ?? "idle",
+        errorMessage: blockErrors[node.id],
+        errorSummary: blockErrorSummaries[node.id],
+        label: resolveLabel(node, summary, schema),
+        upstreamOmeFields,
+        selectedNodeId,
+        callbacks: {
+          onRun: makeOnRun(node.id),
+          onRestart: makeOnRestart(node.id),
+          onDelete: makeOnDelete(node.id),
+          onUpdateConfig: makeOnUpdateConfig(node.id),
+          onErrorClick: makeOnErrorClick(node.id),
+        },
+      });
+    });
+  }, [
+    blocks,
+    blockStates,
+    blockErrors,
+    blockErrorSummaries,
+    blockOutputs,
+    dragPositions,
+    edges,
+    makeOnDelete,
+    makeOnErrorClick,
+    makeOnRestart,
+    makeOnRun,
+    makeOnUpdateConfig,
+    nodes,
+    onUpdateNodeConfig,
+    schemas,
+    selectedNodeId,
+  ]);
+}
