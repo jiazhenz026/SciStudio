@@ -93,7 +93,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/889-multi-fix-1376-827-1487.json",
+    "shas": [
+      "eb17c3567ad9e9bb2ec70bffbf6bf37ae977d419"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "paths": [
@@ -166,7 +172,16 @@
     "frontend/src/config/__tests__/typeColorMap.test.ts",
     "CHANGELOG.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1376,
+      889,
+      827,
+      1487
+    ],
+    "number": 1490,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1490"
+  },
   "record_path": ".workflow/records/889-multi-fix-1376-827-1487.json",
   "required_checks": [
     "ruff",
@@ -249,7 +264,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
