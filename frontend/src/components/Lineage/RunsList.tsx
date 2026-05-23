@@ -172,26 +172,14 @@ const STATUS_LABEL: Record<LineageRunStatus, string> = {
   running: "running",
 };
 
-const STATUS_GLYPH: Record<LineageRunStatus, string> = {
-  completed: "✓",
-  failed: "✗",
-  cancelled: "⊘",
-  running: "⟳",
-};
-
-const STATUS_COLOR: Record<LineageRunStatus, string> = {
-  completed: "text-emerald-600",
-  failed: "text-rose-600",
-  cancelled: "text-stone-500",
-  running: "text-amber-600",
-};
-
 /**
  * Hotfix #998: solid background pill colors for the RunsList status
  * pill. The pill is the primary visual content of each row; timestamp
- * is demoted to a small right-aligned label. The text-color variant
- * (`STATUS_COLOR` above) is retained for RunDetail.tsx's header which
- * uses StatusIcon's glyph + text-color pair.
+ * is demoted to a small right-aligned label.
+ *
+ * The earlier `StatusIcon` glyph (✓ / ✗ / ⟳ / ⊘) + `sr-only` label
+ * pattern was removed because the pill text is now directly readable
+ * by screen readers, so the icon was dead code.
  */
 const STATUS_PILL_BG: Record<LineageRunStatus, string> = {
   completed: "bg-emerald-600 text-white",
@@ -199,17 +187,6 @@ const STATUS_PILL_BG: Record<LineageRunStatus, string> = {
   cancelled: "bg-slate-500 text-white",
   running: "bg-amber-500 text-white",
 };
-
-function StatusIcon({ status }: { status: LineageRunStatus }): ReactElement {
-  return (
-    <>
-      <span aria-hidden="true" className={STATUS_COLOR[status]}>
-        {STATUS_GLYPH[status]}
-      </span>
-      <span className="sr-only">{STATUS_LABEL[status]}</span>
-    </>
-  );
-}
 
 function formatLocalDateTime(iso: string, now: Date): string {
   if (!iso) return "—";

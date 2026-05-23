@@ -1,0 +1,257 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [],
+      "reason": "Implementation complete: App.tsx split into 9 modules under App.parts/ + 3 presentation components; BlockNode.tsx split into 10 modules under BlockNode.parts/; BlockNode.test.tsx split into 8 themed test files under __tests__/BlockNode/. All files <=500 LOC. 494 tests pass; lint/typecheck/format/build/audit/sentrux all clean. Wave 1 (#1420/#1421) discipline preserved verbatim."
+    }
+  ],
+  "branch": "refactor/issue-1422/god-app-blocknode",
+  "changed_test_paths": [
+    "frontend/src/components/nodes/BlockNode.test.tsx",
+    "frontend/src/components/nodes/__tests__/BlockNode/test-utils.tsx",
+    "frontend/src/components/nodes/__tests__/BlockNode/capabilities.test.tsx",
+    "frontend/src/components/nodes/__tests__/BlockNode/ports.test.tsx",
+    "frontend/src/components/nodes/__tests__/BlockNode/errors.test.tsx",
+    "frontend/src/components/nodes/__tests__/BlockNode/caret.test.tsx",
+    "frontend/src/components/nodes/__tests__/BlockNode/nativeDialog.test.tsx",
+    "frontend/src/components/nodes/__tests__/BlockNode/hooks1420.test.tsx"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "cd frontend && npm run lint",
+      "exit_code": 0,
+      "name": "frontend-lint",
+      "output_path": "0 errors, 38 warnings (all pre-existing, none on changed files)",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run format:check",
+      "exit_code": 0,
+      "name": "frontend-format",
+      "output_path": "All matched files use Prettier code style",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run typecheck",
+      "exit_code": 0,
+      "name": "frontend-typecheck",
+      "output_path": "tsc --noEmit clean",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm test",
+      "exit_code": 0,
+      "name": "frontend-test",
+      "output_path": "494 passed | 13 skipped (507 total) across 51 test files; includes 14 new tests in inlineConfigHelpers.test.ts",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "cd frontend && npm run build",
+      "exit_code": 0,
+      "name": "frontend-build",
+      "output_path": "tsc -b + vite build, 2108 modules transformed, completed in 16.09s",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m ruff check .",
+      "exit_code": 0,
+      "name": "ruff",
+      "output_path": "All checks passed!",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m ruff format --check .",
+      "exit_code": 0,
+      "name": "format",
+      "output_path": "662 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+      "exit_code": 0,
+      "name": "full_audit",
+      "output_path": "docs/audit/full-audit-latest.json (gitignored); status=pass, findings=0; child_reports: generate_facts/frontmatter_lint/fact_drift/doc_drift/closure/signature_drift/architecture_drift/vulture all pass (vulture has 6 pre-existing dead-code findings unrelated to this PR)",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1422-god-app-blocknode.json",
+    "shas": [
+      "87908e05a4d1ec1feb16c187f303e38dfbbe5a32"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "adr": {
+      "not_applicable": true,
+      "rationale": "No architecture change. Wave 2 of #1422 god-file refactor tracked under ADR-042 governance."
+    },
+    "changelog": {
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    "checklist": {
+      "not_applicable": true,
+      "rationale": "Manager owns docs/planning/frontend-cleanup-1412-checklist.md and updates W2-A row post-merge — agent does not touch it by dispatch design."
+    },
+    "docs": {
+      "not_applicable": true,
+      "rationale": "Refactor (#1422 god-file split, W2-A). No public-facing docs change; CHANGELOG bullet captures the file split. Behavior preserved 1:1."
+    },
+    "spec": {
+      "not_applicable": true,
+      "rationale": "Refactor preserves public surfaces verbatim; no spec/contract change."
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/full-audit-latest.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/full-audit-latest.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": false,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1422,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1422"
+    }
+  ],
+  "owner_directive": "Split App.tsx (1379 LOC) and BlockNode.tsx (1176 LOC) so every produced file <=500 LOC. Behavior-preserving. Preserve Wave 1 (#1420/#1421) fixes.",
+  "planned_files": [
+    "frontend/src/App.tsx",
+    "frontend/src/App.parts/AppLevelMergeFlow.tsx",
+    "frontend/src/App.parts/useBootEffect.ts",
+    "frontend/src/App.parts/useWorkflowAutosave.ts",
+    "frontend/src/App.parts/useFileTabsAutosave.ts",
+    "frontend/src/App.parts/useActiveTabSync.ts",
+    "frontend/src/App.parts/useAppKeyboardShortcuts.ts",
+    "frontend/src/App.parts/projectActions.ts",
+    "frontend/src/App.parts/workflowActions.ts",
+    "frontend/src/App.parts/AppCanvasLayout.tsx",
+    "frontend/src/components/nodes/BlockNode.tsx",
+    "frontend/src/components/nodes/BlockNode.parts/badgeStyles.ts",
+    "frontend/src/components/nodes/BlockNode.parts/StatusBadge.tsx",
+    "frontend/src/components/nodes/BlockNode.parts/FileBrowserModal.tsx",
+    "frontend/src/components/nodes/BlockNode.parts/inlineConfigHelpers.ts",
+    "frontend/src/components/nodes/BlockNode.parts/InlineCapabilitySelector.tsx",
+    "frontend/src/components/nodes/BlockNode.parts/InlineConfigField.tsx",
+    "frontend/src/components/nodes/BlockNode.parts/InlineTextInputField.tsx",
+    "frontend/src/components/nodes/BlockNode.parts/ErrorMessage.tsx",
+    "frontend/src/components/nodes/BlockNode.parts/PausedToast.tsx",
+    "frontend/src/components/nodes/BlockNode.parts/PortHandles.tsx",
+    "frontend/src/components/nodes/BlockNode.test.tsx",
+    "frontend/src/components/nodes/__tests__/BlockNode/test-utils.tsx",
+    "frontend/src/components/nodes/__tests__/BlockNode/capabilities.test.tsx",
+    "frontend/src/components/nodes/__tests__/BlockNode/ports.test.tsx",
+    "frontend/src/components/nodes/__tests__/BlockNode/errors.test.tsx",
+    "frontend/src/components/nodes/__tests__/BlockNode/caret.test.tsx",
+    "frontend/src/components/nodes/__tests__/BlockNode/nativeDialog.test.tsx",
+    "frontend/src/components/nodes/__tests__/BlockNode/hooks1420.test.tsx",
+    "CHANGELOG.md"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1422
+    ],
+    "number": 1450,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1450"
+  },
+  "record_path": ".workflow/records/1422-god-app-blocknode.json",
+  "required_checks": [
+    "frontend-lint,frontend-format,frontend-typecheck,frontend-test,frontend-build,ruff,format,full_audit,sentrux"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/App.tsx",
+      "frontend/src/App.parts/**",
+      "frontend/src/components/nodes/BlockNode.tsx",
+      "frontend/src/components/nodes/BlockNode.test.tsx",
+      "frontend/src/components/nodes/BlockNode.parts/**",
+      "frontend/src/components/nodes/__tests__/**",
+      "CHANGELOG.md",
+      ".workflow/records/1422-god-app-blocknode.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux check",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "MCP sentrux scan + check_rules + health all PASS. scan: files=1183, import_edges=2672, lines=300990, quality_signal=4448. check_rules: pass=true, rules_checked=3 of 15, violation_count=0. health: quality_signal=4448, bottleneck=acyclicity (raw=3, score=2500). pro_required=false.",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": null,
+    "status": "pass",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": null
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1422-god-app-blocknode",
+  "task_kind": "refactor",
+  "persona": "implementer"
+}

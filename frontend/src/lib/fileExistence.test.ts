@@ -9,9 +9,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "./api";
+import type * as ApiModule from "./api";
 
 vi.mock("./api", async () => {
-  const actual = await vi.importActual<typeof import("./api")>("./api");
+  const actual = await vi.importActual<typeof ApiModule>("./api");
   return {
     ...actual,
     api: {

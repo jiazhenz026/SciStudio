@@ -2,3 +2,6 @@ dist/
 node_modules/
 coverage/
 package-lock.json
+# Nested git worktrees from sub-agent dispatch should never be linted
+# as part of the manager worktree (#1426 main-merge hygiene).
+.claude/

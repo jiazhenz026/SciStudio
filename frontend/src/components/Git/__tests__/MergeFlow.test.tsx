@@ -10,10 +10,11 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MergeFlow } from "../MergeFlow";
+import type * as ApiModule from "../../../lib/api";
 
 // Mock the api module before importing the component.
 vi.mock("../../../lib/api", async () => {
-  const actual = await vi.importActual<typeof import("../../../lib/api")>("../../../lib/api");
+  const actual = await vi.importActual<typeof ApiModule>("../../../lib/api");
   return {
     ...actual,
     api: {

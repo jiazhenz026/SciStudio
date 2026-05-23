@@ -15,26 +15,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type { JSX, KeyboardEvent as ReactKeyboardEvent } from "react";
 
+import { selectVisibleCommits } from "../../store/gitSlice";
 import { useAppStore } from "../../store";
-import type { GitCommit, GitHistoryFilter } from "../../types/api";
-import { classifyPrefix, selectVisibleCommits } from "../../store/gitSlice";
+import type { GitCommit } from "../../types/api";
 import { GitDiffModal } from "./GitDiffModal";
-import { GraphSVG } from "./GitGraph/GraphSVG";
-import { useGraphData } from "./GitGraph/integration";
-import { useGraphInteractions } from "./GitGraph/interactions";
-
-const PREFIX_ICON: Record<string, string> = {
-  auto: "·",
-  agent: "🤖",
-  user: "👤",
-};
-
-const FILTER_OPTIONS: { value: GitHistoryFilter; label: string }[] = [
-  { value: "manual", label: "Manual milestones" },
-  { value: "all", label: "All (incl. auto)" },
-  { value: "auto", label: "Auto only (debug)" },
-  { value: "agent", label: "Agent only (debug)" },
-];
+import { GitGraphPane } from "./GitHistoryList.parts/GitGraphPane";
+import { HistoryListBody } from "./GitHistoryList.parts/HistoryListBody";
+import { HistoryToolbar } from "./GitHistoryList.parts/HistoryToolbar";
 
 export interface GitHistoryListProps {
   branch?: string;
@@ -44,56 +31,34 @@ export interface GitHistoryListProps {
   className?: string;
 }
 
-export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
-  const { branch, onCommitClick, onRestoreClick, showFilterDropdown = true, className } = props;
+interface UseDiffActionOpts {
+  onCommitClick?: (commit: GitCommit) => void;
+}
 
-  const logCache = useAppStore((s) => s.logCache);
-  const logLoading = useAppStore((s) => s.logLoading);
-  const historyFilter = useAppStore((s) => s.historyFilter);
-  const setHistoryFilter = useAppStore((s) => s.setHistoryFilter);
-  const loadLog = useAppStore((s) => s.loadLog);
-  const restore = useAppStore((s) => s.restore);
+interface DiffOpenState {
+  from: string;
+  to?: string;
+}
 
-  const key = branch && branch.length > 0 ? branch : "<all>";
-  const commits = logCache[key] ?? null;
-  const loading = logLoading[key] === true;
-
-  // Internal diff modal state — opened by default if onCommitClick not given.
-  const [diffOpen, setDiffOpen] = useState<{ from: string; to?: string } | null>(null);
-  // ADR-039 §3.5b / D39-2.4b — view toggle: list vs branch graph.
-  // Hotfix #1000: default Git tab view is Graph (per Phase 4a feedback —
-  // graph is the primary affordance; List is a fallback for plain text).
-  const [viewMode, setViewMode] = useState<"list" | "graph">("graph");
-  // #1400: lifted selection state, shared between Graph and List views.
-  // Driven by graph-dot click and by list-row click. Consumed by the
-  // top-toolbar [Diff] / [Restore] buttons next to Refresh so both views
-  // get the same affordance.
-  const [selectedCommit, setSelectedCommit] = useState<GitCommit | null>(null);
-
-  useEffect(() => {
-    if (commits === null && !loading) {
-      void loadLog(branch);
-    }
-  }, [branch, commits, loading, loadLog]);
-
+function useDiffAction(opts: UseDiffActionOpts): {
+  diffOpen: DiffOpenState | null;
+  setDiffOpen: (s: DiffOpenState | null) => void;
+  handleDiff: (commit: GitCommit) => void;
+} {
+  const [diffOpen, setDiffOpen] = useState<DiffOpenState | null>(null);
   // ADR-039 Addendum 1 §11.3 (issue #1355): opening the diff modal is no
-  // longer driven by row clicks. Both the per-row `[Diff]` button and the
-  // `d` hotkey go through `handleDiff`. The optional `onCommitClick` prop
-  // is preserved so embedders that still want a row-level selection
-  // callback (notification, telemetry) can opt in without re-introducing
-  // the modal.
+  // longer driven by row clicks. The per-row [Diff] button + `d` hotkey
+  // both come through here.
   const handleDiff = useCallback(
     (commit: GitCommit) => {
-      if (onCommitClick) {
-        onCommitClick(commit);
+      if (opts.onCommitClick) {
+        opts.onCommitClick(commit);
         return;
       }
       // Codex P2-B on PR #940: for a root commit (no parents), comparing
-      // `from=commit.sha` to working tree (the backend default for `to`)
-      // shows the inverse of the initial state rather than the commit's
-      // own patch. Use the empty-tree hash (well-known git constant) as
-      // the parent so the initial commit displays as additions of every
-      // file.
+      // `from=commit.sha` to working tree shows the inverse of the initial
+      // state. Use the empty-tree hash as the parent so the initial commit
+      // displays as additions of every file.
       const parent = commit.parents[0];
       if (parent) {
         setDiffOpen({ from: parent, to: commit.sha });
@@ -102,10 +67,14 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
         setDiffOpen({ from: EMPTY_TREE_SHA, to: commit.sha });
       }
     },
-    [onCommitClick],
+    [opts],
   );
+  return { diffOpen, setDiffOpen, handleDiff };
+}
 
-  const handleRestore = useCallback(
+function useRestoreAction(onRestoreClick?: (commit: GitCommit) => void) {
+  const restore = useAppStore((s) => s.restore);
+  return useCallback(
     (commit: GitCommit) => {
       if (onRestoreClick) {
         onRestoreClick(commit);
@@ -116,20 +85,44 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
       );
       if (!ok) return;
       void restore(commit.sha).catch((err) => {
-        // eslint-disable-next-line no-console
         console.warn("[GitHistoryList] restore failed:", err);
       });
     },
     [onRestoreClick, restore],
   );
+}
+
+export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
+  const { branch, onCommitClick, onRestoreClick, showFilterDropdown = true, className } = props;
+
+  const logCache = useAppStore((s) => s.logCache);
+  const logLoading = useAppStore((s) => s.logLoading);
+  const historyFilter = useAppStore((s) => s.historyFilter);
+  const setHistoryFilter = useAppStore((s) => s.setHistoryFilter);
+  const loadLog = useAppStore((s) => s.loadLog);
+
+  const key = branch && branch.length > 0 ? branch : "<all>";
+  const commits = logCache[key] ?? null;
+  const loading = logLoading[key] === true;
+
+  // Hotfix #1000: default Git tab view is Graph (per Phase 4a feedback —
+  // graph is the primary affordance; List is a fallback for plain text).
+  const [viewMode, setViewMode] = useState<"list" | "graph">("graph");
+  // #1400: lifted selection state, shared between Graph and List views.
+  const [selectedCommit, setSelectedCommit] = useState<GitCommit | null>(null);
+
+  useEffect(() => {
+    if (commits === null && !loading) {
+      void loadLog(branch);
+    }
+  }, [branch, commits, loading, loadLog]);
+
+  const { diffOpen, setDiffOpen, handleDiff } = useDiffAction({ onCommitClick });
+  const handleRestore = useRestoreAction(onRestoreClick);
 
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLLIElement>, commit: GitCommit) => {
-      // ADR-039 Addendum 1 §11.3 (issue #1355): Enter no longer opens the
-      // diff modal. The row remains keyboard-focusable so its inline
-      // buttons are Tab-reachable, but activation of the row itself is a
-      // no-op. `d` opens the diff, `r` triggers the restore confirm —
-      // mirroring the per-row buttons.
+      // ADR-039 Addendum 1 §11.3 (issue #1355): `d` opens diff, `r` restore.
       if (event.key.toLowerCase() === "d") {
         event.preventDefault();
         handleDiff(commit);
@@ -146,227 +139,40 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
   return (
     <div data-testid="git-history-list" className={`flex h-full flex-col ${className ?? ""}`}>
       {showFilterDropdown && (
-        <div className="flex items-center gap-2 border-b border-stone-200 px-3 py-2">
-          <label htmlFor="git-history-filter-select" className="sr-only">
-            Filter commits
-          </label>
-          <select
-            id="git-history-filter-select"
-            data-testid="git-history-filter"
-            value={historyFilter}
-            onChange={(e) => setHistoryFilter(e.target.value as GitHistoryFilter)}
-            className="rounded border border-stone-300 px-2 py-1 text-xs"
-          >
-            {FILTER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            data-testid="git-history-refresh"
-            onClick={() => void loadLog(branch)}
-            className="rounded border border-stone-300 px-2 py-1 text-xs hover:bg-stone-50"
-          >
-            Refresh
-          </button>
-          {/*
-            #1400: top-toolbar Diff/Restore work in BOTH Graph and List
-            views. Click a graph dot or a list row to select a commit; the
-            buttons then act on the selection. Disabled until a commit is
-            chosen. Mirrors the per-row List view buttons + the d/r
-            hotkeys (kept for muscle-memory continuity).
-          */}
-          <button
-            type="button"
-            data-testid="git-history-toolbar-diff"
-            onClick={() => {
-              if (selectedCommit) handleDiff(selectedCommit);
-            }}
-            disabled={selectedCommit === null}
-            title={
-              selectedCommit
-                ? `Diff ${selectedCommit.short_sha} against its parent.`
-                : "Select a commit (click a graph dot or a list row) to enable."
-            }
-            className="rounded border border-stone-300 px-2 py-1 text-xs hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Diff
-          </button>
-          <button
-            type="button"
-            data-testid="git-history-toolbar-restore"
-            onClick={() => {
-              if (selectedCommit) handleRestore(selectedCommit);
-            }}
-            disabled={selectedCommit === null}
-            title={
-              selectedCommit
-                ? `Soft-restore files from ${selectedCommit.short_sha} into the working tree.`
-                : "Select a commit (click a graph dot or a list row) to enable."
-            }
-            className="rounded border border-stone-300 px-2 py-1 text-xs hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Restore
-          </button>
-          {selectedCommit && (
-            <span
-              data-testid="git-history-toolbar-selection"
-              className="text-[10px] text-stone-500"
-              title={`Selected commit: ${selectedCommit.sha}`}
-            >
-              ({selectedCommit.short_sha})
-            </span>
-          )}
-          {/*
-            Hotfix #1000: Graph is the default and renders FIRST in the
-            toggle (left side) — matches "graph is the primary affordance"
-            feedback. List moves to the right as the fallback.
-          */}
-          <div
-            data-testid="git-history-view-toggle"
-            className="ml-auto flex gap-1 rounded border border-stone-300 p-0.5 text-xs"
-          >
-            <button
-              type="button"
-              data-testid="git-history-view-graph"
-              aria-pressed={viewMode === "graph"}
-              onClick={() => setViewMode("graph")}
-              className={`rounded px-2 py-0.5 ${
-                viewMode === "graph" ? "bg-stone-200" : "hover:bg-stone-100"
-              }`}
-            >
-              Graph
-            </button>
-            <button
-              type="button"
-              data-testid="git-history-view-list"
-              aria-pressed={viewMode === "list"}
-              onClick={() => setViewMode("list")}
-              className={`rounded px-2 py-0.5 ${
-                viewMode === "list" ? "bg-stone-200" : "hover:bg-stone-100"
-              }`}
-            >
-              List
-            </button>
-          </div>
-        </div>
+        <HistoryToolbar
+          historyFilter={historyFilter}
+          onFilterChange={setHistoryFilter}
+          onRefresh={() => void loadLog(branch)}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          selectedCommit={selectedCommit}
+          onDiffSelected={() => {
+            if (selectedCommit) handleDiff(selectedCommit);
+          }}
+          onRestoreSelected={() => {
+            if (selectedCommit) handleRestore(selectedCommit);
+          }}
+        />
       )}
 
       {viewMode === "graph" ? (
-        // ADR-039 Addendum 1 §11.3 (issue #1355): the graph commit-dot
-        // click no longer opens GitDiffModal directly. #1400: the click
-        // now sets the shared `selectedCommit` so the top-toolbar
-        // [Diff] / [Restore] buttons act on it. GraphSVG also still
-        // shows its own focus highlight via the interactions hook.
         <GitGraphPane
           onCommitClick={(sha) => {
             const c = (commits ?? []).find((x) => x.sha === sha);
             if (c) setSelectedCommit(c);
           }}
         />
-      ) : loading ? (
-        <div data-testid="git-history-loading" className="px-3 py-4 text-xs text-stone-500">
-          Loading commit history…
-        </div>
-      ) : commits === null ? (
-        <div data-testid="git-history-loading" className="px-3 py-4 text-xs text-stone-500">
-          Loading commit history…
-        </div>
-      ) : visibleCommits.length === 0 ? (
-        commits.length === 0 ? (
-          <div data-testid="git-history-empty" className="px-3 py-4 text-xs text-stone-500">
-            No commits yet on this branch.
-          </div>
-        ) : (
-          <div
-            data-testid="git-history-empty-after-filter"
-            className="px-3 py-4 text-xs text-stone-500"
-          >
-            Only auto/agent commits exist on this branch. Switch the filter to All to see them.
-          </div>
-        )
       ) : (
-        <ul data-testid="git-history-rows" role="list" className="min-h-0 flex-1 overflow-y-auto">
-          {visibleCommits.map((commit) => {
-            const prefix = classifyPrefix(commit.subject);
-            // ADR-039 Addendum 1 §11.3 (issue #1355): the row is no
-            // longer a click-to-open-diff button. It stays focusable
-            // (Tab + arrow keys) so the per-row `[Diff]` / `[Restore]`
-            // buttons and the `d` / `r` hotkeys are reachable, but
-            // activating the row itself does not open the modal.
-            // #1400: clicking the row DOES set `selectedCommit` so the
-            // top-toolbar buttons can act on it. The diff modal is still
-            // opened only via explicit Diff button / `d` hotkey.
-            const isSelected = selectedCommit?.sha === commit.sha;
-            return (
-              <li
-                key={commit.sha}
-                data-testid={`git-history-row-${commit.short_sha}`}
-                data-commit-prefix={prefix}
-                data-selected={isSelected ? "true" : undefined}
-                tabIndex={0}
-                onClick={() => setSelectedCommit(commit)}
-                onKeyDown={(e) => onKeyDown(e, commit)}
-                className={`flex items-center gap-2 border-b border-stone-100 px-3 py-2 text-xs hover:bg-stone-50 focus:bg-stone-100 focus:outline-none ${
-                  isSelected ? "bg-stone-100" : ""
-                }`}
-              >
-                <span data-testid="git-history-row-icon" aria-hidden>
-                  {PREFIX_ICON[prefix] ?? "·"}
-                </span>
-                <code data-testid="git-history-row-short-sha" className="font-mono text-stone-500">
-                  {commit.short_sha}
-                </code>
-                <span
-                  data-testid="git-history-row-subject"
-                  className="flex-1 truncate text-ink"
-                  title={commit.subject}
-                >
-                  {commit.subject}
-                </span>
-                <span
-                  data-testid="git-history-row-author"
-                  className="hidden text-stone-500 sm:inline"
-                >
-                  {commit.author_name}
-                </span>
-                <time
-                  data-testid="git-history-row-date"
-                  dateTime={commit.author_date}
-                  className="text-stone-400"
-                >
-                  {new Date(commit.author_date).toLocaleString()}
-                </time>
-                <button
-                  type="button"
-                  data-testid={`git-history-row-diff-${commit.short_sha}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDiff(commit);
-                  }}
-                  title="Show diff against parent commit."
-                  className="ml-2 rounded border border-stone-300 px-2 py-0.5 text-[10px] hover:bg-stone-100"
-                >
-                  Diff
-                </button>
-                <button
-                  type="button"
-                  data-testid={`git-history-row-restore-${commit.short_sha}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRestore(commit);
-                  }}
-                  title="Soft-restore: copy this commit's files into the working tree without moving HEAD."
-                  className="ml-1 rounded border border-stone-300 px-2 py-0.5 text-[10px] hover:bg-stone-100"
-                >
-                  Restore this version
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        <HistoryListBody
+          loading={loading}
+          commits={commits}
+          visibleCommits={visibleCommits}
+          selectedCommit={selectedCommit}
+          onSelect={setSelectedCommit}
+          onKeyDown={onKeyDown}
+          onDiff={handleDiff}
+          onRestore={handleRestore}
+        />
       )}
 
       {diffOpen && (
@@ -377,69 +183,6 @@ export function GitHistoryList(props: GitHistoryListProps): JSX.Element {
           onClose={() => setDiffOpen(null)}
         />
       )}
-    </div>
-  );
-}
-
-/**
- * ADR-039 §3.5b — branch graph panel.
- *
- * Mounted by `GitHistoryList` when the user toggles to "Graph" mode.
- * Pulls assignments / edges via `useGraphData()` and wires
- * `useGraphInteractions` for scroll-driven virtualization + keyboard
- * navigation.
- *
- * ADR-039 Addendum 1 §11.3 (issue #1355): `onCommitClick` is now
- * optional. Callers in this file omit it because the dot click is a
- * focus-only affordance now; the diff modal is reached via the List
- * view's per-row `[Diff]` button. Embedders that still want a custom
- * click target (selection, telemetry) can pass one.
- */
-function GitGraphPane({
-  onCommitClick,
-}: {
-  onCommitClick?: (sha: string) => void;
-} = {}): JSX.Element {
-  const data = useGraphData();
-  const interactions = useGraphInteractions(data.commits.length, onCommitClick, data.commits);
-
-  if (data.loading) {
-    return (
-      <div
-        data-testid="git-graph-loading"
-        className="flex flex-1 items-center justify-center px-3 py-4 text-xs text-stone-500"
-      >
-        Loading commit graph…
-      </div>
-    );
-  }
-  if (data.commits.length === 0) {
-    return (
-      <div
-        data-testid="git-graph-empty"
-        className="flex flex-1 items-center justify-center px-3 py-4 text-xs text-stone-500"
-      >
-        No commits to display.
-      </div>
-    );
-  }
-  return (
-    <div
-      ref={interactions.scrollContainerRef}
-      data-testid="git-graph-scroll"
-      className="min-h-0 flex-1 overflow-y-auto outline-none"
-      tabIndex={0}
-      onKeyDown={interactions.onCommitDotKeyDown}
-    >
-      <GraphSVG
-        assignments={data.assignments}
-        edges={data.edges}
-        commits={data.commits}
-        onCommitClick={interactions.onCommitClick}
-        visibleRange={interactions.visibleRange}
-        hoveredIdx={null}
-        focusedIdx={interactions.focusedRow}
-      />
     </div>
   );
 }

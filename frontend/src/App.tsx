@@ -1,28 +1,51 @@
-import { ReactFlowProvider } from "@xyflow/react";
-import type { PanelImperativeHandle } from "react-resizable-panels";
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
+// SciStudio App shell.
+//
+// Refactored under #1422 to delegate large concerns to focused modules in
+// ./App.parts/:
+//   - useAppKeyboardShortcuts — global Ctrl-S / Ctrl-Z / etc. listener,
+//   - useFileTabsAutosave    — ADR-036 §3.9 per-tab debounced save,
+//   - useProjectActions      — project / workflow / file CRUD callbacks,
+//   - AppLevelMergeFlow      — ADR-039 §3.5 modal that survives project
+//                              close,
+//   - ProjectWorkspace       — three-column ResizablePanelGroup tree
+//                              shown when a project is open,
+//   - InteractiveModals      — DataRouter / PairEditor pause-prompts.
+//
+// Wave 1 (#1420 / #1421) discipline preserved:
+//   - Every callback that is referenced by a useEffect or another
+//     useCallback's dependency array stays wrapped in `useCallback` so its
+//     identity is stable across renders.
+//   - Every effect's dependency array is exhaustive (or carries the same
+//     rationale comment + inline disable as the pre-split version).
+//   - The hooks that originally lived under early returns now sit at the
+//     top level of their own component (InlineTextInputField via the
+//     BlockNode split; useAppKeyboardShortcuts here).
 
-import { ApiError, api } from "./lib/api";
-import { probeProjectFileExistence } from "./lib/fileExistence";
+import { ReactFlowProvider } from "@xyflow/react";
+import { useCallback, useMemo, useState } from "react";
+
+import { api } from "./lib/api";
 import { useLogStream } from "./hooks/useSSE";
-import { useWorkflowWebSocket, sendWebSocketMessage } from "./hooks/useWebSocket";
+import { useWorkflowWebSocket } from "./hooks/useWebSocket";
 import { useAppStore } from "./store";
 import type { AnyTab, FileTab } from "./store/types";
-import type { ProjectResponse, WorkflowResponse } from "./types/api";
-import { DataRouterModal } from "./components/DataRouterModal";
-import { PairEditorModal } from "./components/PairEditorModal";
-import { BlockPalette } from "./components/BlockPalette";
-import { BottomPanel } from "./components/BottomPanel";
-import { CodeEditor } from "./components/CodeEditor";
-import { MergeFlow } from "./components/Git/MergeFlow";
-import { DataPreview } from "./components/DataPreview";
+import type { WorkflowResponse } from "./types/api";
+
+import { AppLevelMergeFlow } from "./App.parts/AppLevelMergeFlow";
+import { InteractiveModals } from "./App.parts/InteractiveModals";
+import { ProjectWorkspace } from "./App.parts/ProjectWorkspace";
+import { useAppKeyboardShortcuts } from "./App.parts/useAppKeyboardShortcuts";
+import { useAppLifecycleEffects } from "./App.parts/useAppLifecycleEffects";
+import { useBottomPanelControls } from "./App.parts/useBottomPanelControls";
+import { useCanvasHandlers } from "./App.parts/useCanvasHandlers";
+import { useFileTabsAutosave } from "./App.parts/useFileTabsAutosave";
+import { useProjectActions } from "./App.parts/useProjectActions";
+import { useWorkflowExecutionActions } from "./App.parts/useWorkflowExecutionActions";
+import { useWorkflowSync } from "./App.parts/useWorkflowSync";
+
 import { ProjectDialog } from "./components/ProjectDialog";
-import { ProjectTree } from "./components/ProjectTree";
-import { TabBar } from "./components/TabBar";
 import { Toolbar } from "./components/Toolbar";
 import { WelcomeScreen } from "./components/WelcomeScreen";
-import { WorkflowCanvas } from "./components/WorkflowCanvas";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "./components/ui/resizable";
 import { TooltipProvider } from "./components/ui/tooltip";
 
 function emptyWorkflow(id = "main"): WorkflowResponse {
@@ -37,6 +60,7 @@ function emptyWorkflow(id = "main"): WorkflowResponse {
 }
 
 export default function App() {
+  // --- Zustand selectors -------------------------------------------------
   const currentProject = useAppStore((state) => state.currentProject);
   const recentProjects = useAppStore((state) => state.recentProjects);
   const projectDialogOpen = useAppStore((state) => state.projectDialogOpen);
@@ -55,7 +79,6 @@ export default function App() {
   const workflowEdges = useAppStore((state) => state.workflowEdges);
   const workflowDirty = useAppStore((state) => state.workflowDirty);
   const workflowName = useAppStore((state) => state.workflowName);
-  const setWorkflowName = useAppStore((state) => state.setWorkflowName);
   const setWorkflow = useAppStore((state) => state.setWorkflow);
   const addNode = useAppStore((state) => state.addNode);
   const updateNodeConfig = useAppStore((state) => state.updateNodeConfig);
@@ -76,8 +99,6 @@ export default function App() {
   const logEntries = useAppStore((state) => state.logEntries);
   const isRunning = useAppStore((state) => state.isRunning);
   const resetExecution = useAppStore((state) => state.resetExecution);
-  const interactivePrompt = useAppStore((state) => state.interactivePrompt);
-  const setInteractivePrompt = useAppStore((state) => state.setInteractivePrompt);
 
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
   const activeBottomTab = useAppStore((state) => state.activeBottomTab);
@@ -113,20 +134,12 @@ export default function App() {
   const switchTab = useAppStore((state) => state.switchTab);
   const closeTab = useAppStore((state) => state.closeTab);
   const syncActiveTab = useAppStore((state) => state.syncActiveTab);
-  // ADR-036 §3.10 — file tab actions. Stubs throw in skeleton; the I36a
-  // implementation lands the real bodies. App.tsx wires the consumers
-  // here so they take effect transparently once I36a merges.
+  // ADR-036 §3.10 / §3.7 — file tab actions.
   const saveFileTab = useAppStore((state) => state.saveFileTab);
   const updateFileTabContent = useAppStore((state) => state.updateFileTabContent);
-  // ADR-036 §3.4 / §3.7 / §3.12 (I36c) — open editor tabs from the
-  // toolbar's "View source" button and the "New" menu's
-  // "New custom block" / "New note" actions.
   const openFileTab = useAppStore((state) => state.openFileTab);
 
-  // ADR-036 §3.7 — derive the active tab + its kind for the toolbar swap
-  // and content-area kind switch. Note: tabs are typed as `TabState`
-  // (alias of WorkflowTab in the skeleton); cast through `AnyTab` so the
-  // narrowing is honest about the future discriminated-union form.
+  // ADR-036 §3.7 — derive the active tab + its kind for the toolbar swap.
   const activeTab = useMemo<AnyTab | null>(() => {
     const found = (tabs as AnyTab[]).find((t) => t.id === activeTabId);
     return found ?? null;
@@ -136,22 +149,19 @@ export default function App() {
 
   const [busy, setBusy] = useState(false);
   const [leftTab, setLeftTab] = useState<"blocks" | "project">("blocks");
-  const bootedRef = useRef(false);
-  // Imperative handle into the bottom-panel ResizablePanel. We use
-  // react-resizable-panels' ``.collapse()`` / ``.expand()`` API so the
-  // panel can be folded by canvas clicks and re-expanded by tab / node
-  // clicks without driving the underlying size through React state. The
-  // existing ``bottomPanelCollapsed`` zustand flag is left untouched —
-  // another agent is currently debugging it; we route through the ref
-  // instead.
-  const bottomPanelRef = useRef<PanelImperativeHandle>(null);
-  const expandBottomPanel = useCallback(() => {
-    bottomPanelRef.current?.expand();
-  }, []);
-  const handleCanvasPaneClick = useCallback(() => {
-    if (bottomPanelPinned) return;
-    bottomPanelRef.current?.collapse();
-  }, [bottomPanelPinned]);
+
+  // Bottom-panel imperative controls + cross-component callbacks.
+  const {
+    bottomPanelRef,
+    handleCanvasPaneClick,
+    handleNodeSelect,
+    handleErrorClick,
+    handleBottomTabChange,
+  } = useBottomPanelControls({
+    bottomPanelPinned,
+    setSelectedNodeId,
+    setActiveBottomTab,
+  });
 
   const { connected: wsConnected } = useWorkflowWebSocket(Boolean(currentProject));
   const { connected: sseConnected } = useLogStream(
@@ -188,639 +198,120 @@ export default function App() {
     ],
   );
 
-  async function refreshProjects() {
-    const projects = await api.listProjects();
-    startTransition(() => setProjects(projects));
-  }
+  // API-backed sync: project list refresh, block catalog refresh, workflow
+  // save / save-as. Wrapped in a hook so identity stability is owned in one
+  // place rather than being scattered across App.tsx.
+  const { refreshProjects, refreshBlocks, saveWorkflow, saveWorkflowAs } = useWorkflowSync({
+    currentProject,
+    setCurrentProject,
+    setBlocks,
+    setBlockSchema,
+    setProjects,
+    markWorkflowSaved,
+    setLastError,
+    workflowPayload,
+    workflowId,
+  });
 
-  async function refreshBlocks() {
-    const payload = await api.listBlocks();
-    startTransition(() => setBlocks(payload.blocks));
-    const schemas = await Promise.all(
-      payload.blocks.map((block) => api.getBlockSchema(block.type_name)),
-    );
-    startTransition(() => {
-      schemas.forEach((schema) => setBlockSchema(schema));
-    });
-  }
+  // Project / workflow / file CRUD actions live in their own hook to keep
+  // App.tsx focused on lifecycle + JSX.
+  const projectActions = useProjectActions({
+    currentProject,
+    setCurrentProject,
+    setWorkflow,
+    resetExecution,
+    openTab,
+    openFileTab,
+    closeProjectDialog,
+    setLastError,
+    refreshProjects,
+    setBusy,
+  });
+  const {
+    loadWorkflowById,
+    openProject,
+    submitProjectDialog,
+    deleteProject,
+    newWorkflow,
+    createNewCustomBlock,
+    createNewNote,
+    importWorkflow,
+  } = projectActions;
 
-  async function loadWorkflowForProject(project: ProjectResponse) {
-    if (project.current_workflow_id) {
-      const workflow = await api.getWorkflow(project.current_workflow_id);
-      // #796: pass the workflow id as the displayName fallback so a YAML with
-      // an empty `id:` still gets a non-blank tab label.
-      openTab(workflow, project.current_workflow_id);
-      return;
-    }
-    const workflow = emptyWorkflow("main");
-    openTab(workflow, "main");
-  }
-
-  async function loadWorkflowById(wfId: string, displayName?: string) {
-    try {
-      const workflow = await api.getWorkflow(wfId);
-      // #796: pass the caller-supplied displayName through to openTab so it can
-      // fall back when workflow.id is empty (workflow YAML missing `id:`).
-      openTab(workflow, displayName ?? wfId);
-      resetExecution();
-      setLastError(null);
-    } catch (error) {
-      setLastError((error as Error).message);
-    }
-  }
-
-  async function openProject(projectIdOrPath: string) {
-    setBusy(true);
-    try {
-      const project = await api.openProject(projectIdOrPath);
-      // Bug 5: Clear current canvas state before loading new project.
-      // Reset workflow and clear all tabs so old project state is gone.
-      setWorkflow(null);
-      resetExecution();
-      // Force-clear all tabs from the store (useAppStore.setState is
-      // available via the bound set, but the simplest approach is to
-      // leverage the fact that openTab will create a fresh tab after
-      // we clear the tabs array here).
-      useAppStore.setState({ tabs: [], activeTabId: null });
-
-      setCurrentProject(project);
-      await refreshProjects();
-      await loadWorkflowForProject(project);
-      setLastError(null);
-      closeProjectDialog();
-    } catch (error) {
-      setLastError((error as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function submitProjectDialog() {
-    setBusy(true);
-    try {
-      if (projectDialog.mode === "new") {
-        const project = await api.createProject({
-          name: projectDialog.name,
-          description: projectDialog.description,
-          path: projectDialog.path,
-        });
-        setCurrentProject(project);
-        openTab(emptyWorkflow("main"));
-        await refreshProjects();
-      } else {
-        await openProject(projectDialog.path);
-        return;
-      }
-      closeProjectDialog();
-      setLastError(null);
-    } catch (error) {
-      setLastError((error as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function deleteProject(projectId: string) {
-    try {
-      await api.deleteProject(projectId);
-      // If the deleted project is the current one, close it
-      if (currentProject?.id === projectId) {
-        setCurrentProject(null);
-        setWorkflow(null);
-        resetExecution();
-      }
-      await refreshProjects();
-    } catch (error) {
-      setLastError((error as Error).message);
-    }
-  }
-
-  async function saveWorkflow() {
-    if (!currentProject) {
-      return;
-    }
-    try {
-      let saved: WorkflowResponse;
+  const loadPreview = useCallback(
+    async (dataRef: string) => {
       try {
-        saved = await api.updateWorkflow(workflowPayload.id, workflowPayload);
-      } catch {
-        saved = await api.createWorkflow(workflowPayload);
-      }
-      markWorkflowSaved();
-      await refreshProjects();
-      setCurrentProject({
-        ...currentProject,
-        current_workflow_id: saved.id,
-        workflows: currentProject.workflows.includes(saved.id)
-          ? currentProject.workflows
-          : [...currentProject.workflows, saved.id],
-      });
-    } catch (error) {
-      setLastError((error as Error).message);
-    }
-  }
-
-  function newWorkflow() {
-    const name = window.prompt("Workflow name:", "Untitled");
-    if (name === null) return; // cancelled
-    const id = name.trim() || "Untitled";
-    const workflow = emptyWorkflow(id);
-    openTab(workflow);
-    resetExecution();
-  }
-
-  /**
-   * ADR-036 §3.7 / §3.12 (I36c) — "New custom block".
-   *
-   * 1. Prompt for a stem (default ``my_block``); validate as a Python-friendly
-   *    identifier.
-   * 2. Fetch the server-hosted template via ``GET /api/blocks/template``.
-   * 3. PUT the template into ``blocks/<stem>.py``.
-   * 4. Open the new file in an editor tab via ``openFileTab``.
-   *
-   * Failures surface a passive ``window.alert`` rather than blocking — the
-   * tree refresh hook still picks up the new file on next refresh.
-   */
-  async function createNewCustomBlock(): Promise<void> {
-    if (!currentProject) return;
-    const stem = window.prompt("New custom block filename (without .py):", "my_block");
-    if (stem === null) return;
-    const trimmed = stem.trim();
-    if (!trimmed) {
-      window.alert("Filename must not be empty.");
-      return;
-    }
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmed)) {
-      window.alert("Filename must be a Python identifier (letters, digits, underscores).");
-      return;
-    }
-    const filePath = `blocks/${trimmed}.py`;
-    // Audit 2026-05-14 P1 #2 — probe before PUT so we never silently
-    // overwrite an existing block file from a one-click toolbar action.
-    const probe = await probeProjectFileExistence(currentProject.id, filePath);
-    if (probe.kind === "exists") {
-      window.alert(`A custom block named "${trimmed}.py" already exists. Pick a different name.`);
-      return;
-    }
-    if (probe.kind === "unknown") {
-      window.alert(`Failed to check for existing block: ${probe.message}`);
-      return;
-    }
-    try {
-      const tpl = await api.getBlockTemplate("basic");
-      await api.putProjectFile(currentProject.id, filePath, tpl.content);
-      openFileTab(filePath);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      window.alert(`Failed to create custom block: ${message}`);
-    }
-  }
-
-  /**
-   * ADR-036 §3.7 / §3.12 (I36c) — "New note" (markdown).
-   *
-   * Creates an empty ``notes/<stem>.md`` (or ``<stem>.md`` at project root
-   * when ``notes/`` does not exist). No template content per the ADR —
-   * the user's first line is the title.
-   */
-  async function createNewNote(): Promise<void> {
-    if (!currentProject) return;
-    const stem = window.prompt("New note filename (without .md):", "note");
-    if (stem === null) return;
-    const trimmed = stem.trim();
-    if (!trimmed) {
-      window.alert("Filename must not be empty.");
-      return;
-    }
-    if (!/^[A-Za-z0-9._-]+$/.test(trimmed)) {
-      window.alert(
-        "Note filename may only contain letters, digits, underscores, dots, and hyphens.",
-      );
-      return;
-    }
-    // Prefer notes/ if it exists; fall back to project root. We probe via
-    // a directory-listing on notes/ — only a 404 means "no notes/ dir";
-    // other errors must NOT silently move the file to project root (audit
-    // 2026-05-14 P2 #6 — fixed in-PR alongside the P1 existence check).
-    let filePath = `notes/${trimmed}.md`;
-    try {
-      await api.getProjectTree(currentProject.id, "notes");
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 404) {
-        filePath = `${trimmed}.md`;
-      } else {
-        const message = error instanceof Error ? error.message : String(error);
-        window.alert(`Failed to locate notes directory: ${message}`);
-        return;
-      }
-    }
-    // Audit 2026-05-14 P1 #2 — probe before PUT so we never silently
-    // overwrite an existing note from a one-click toolbar action.
-    const probe = await probeProjectFileExistence(currentProject.id, filePath);
-    if (probe.kind === "exists") {
-      window.alert(
-        `A note named "${trimmed}.md" already exists at ${filePath}. Pick a different name.`,
-      );
-      return;
-    }
-    if (probe.kind === "unknown") {
-      window.alert(`Failed to check for existing note: ${probe.message}`);
-      return;
-    }
-    try {
-      await api.putProjectFile(currentProject.id, filePath, "");
-      openFileTab(filePath);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      window.alert(`Failed to create note: ${message}`);
-    }
-  }
-
-  async function importWorkflow() {
-    if (!currentProject) return;
-    // Use an HTML file input to pick a YAML file, then upload via multipart
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".yaml,.yml";
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      try {
-        const workflow = await api.importWorkflowFile(file);
-        openTab(workflow);
-        resetExecution();
-        setLastError(null);
-
-        // Update project's workflow list
-        setCurrentProject({
-          ...currentProject,
-          current_workflow_id: workflow.id,
-          workflows: currentProject.workflows.includes(workflow.id)
-            ? currentProject.workflows
-            : [...currentProject.workflows, workflow.id],
-        });
+        setPreviewLoading(dataRef, true);
+        const payload = await api.getDataPreview(dataRef);
+        cachePreview(payload);
       } catch (error) {
-        setLastError((error as Error).message);
-      }
-    };
-    input.click();
-  }
-
-  async function saveWorkflowAs() {
-    if (!currentProject) return;
-
-    // First, ensure the current workflow is saved to the project
-    try {
-      await saveWorkflow();
-    } catch {
-      // Ignore — saveWorkflow already sets lastError
-    }
-
-    // Open a native Save As dialog for .yaml files
-    try {
-      const defaultName = (workflowId ?? "Untitled") + ".yaml";
-      const result = await api.openNativeSaveDialog({
-        defaultFilename: defaultName,
-        fileFilter: "YAML files (*.yaml)|*.yaml|All files (*.*)|*.*",
-      });
-      if (!result.paths || result.paths.length === 0) return; // cancelled
-      let savePath = result.paths[0];
-
-      // Ensure .yaml extension
-      if (!savePath.endsWith(".yaml") && !savePath.endsWith(".yml")) {
-        savePath += ".yaml";
-      }
-
-      // Export the workflow YAML to the chosen path
-      await api.exportWorkflowToPath(workflowPayload.id, savePath);
-    } catch (error) {
-      setLastError((error as Error).message);
-    }
-  }
-
-  async function loadPreview(dataRef: string) {
-    try {
-      setPreviewLoading(dataRef, true);
-      const payload = await api.getDataPreview(dataRef);
-      cachePreview(payload);
-    } catch (error) {
-      setPreviewLoading(dataRef, false);
-      setLastError((error as Error).message);
-    }
-  }
-
-  async function runWorkflow() {
-    if (!currentProject) {
-      return;
-    }
-    try {
-      await saveWorkflow();
-      const targetWorkflowId = workflowPayload.id;
-      await api.executeWorkflow(targetWorkflowId);
-      setLastError(null);
-      // #793: do NOT auto-switch to the Logs tab. Engine events bump an unread
-      // badge instead; the user navigates when they choose to.
-    } catch (error) {
-      setLastError((error as Error).message);
-    }
-  }
-
-  async function pauseWorkflow() {
-    if (!workflowId) {
-      return;
-    }
-    await api.pauseWorkflow(workflowId);
-  }
-
-  async function resumeWorkflow() {
-    if (!workflowId) {
-      return;
-    }
-    await api.resumeWorkflow(workflowId);
-  }
-
-  async function cancelWorkflow() {
-    if (!workflowId) {
-      return;
-    }
-    await api.cancelWorkflow(workflowId);
-  }
-
-  async function startFromSelected() {
-    if (!workflowId || !selectedNodeId) {
-      return;
-    }
-    try {
-      await saveWorkflow();
-      await api.executeFrom(workflowId, selectedNodeId);
-      setLastError(null);
-      // #793: no auto tab-switch.
-    } catch (error) {
-      setLastError((error as Error).message);
-    }
-  }
-
-  async function cancelSelectedBlock() {
-    if (!workflowId || !selectedNodeId) {
-      return;
-    }
-    await api.cancelBlock(workflowId, selectedNodeId);
-  }
-
-  const handleRunBlock = useCallback(
-    async (blockId: string) => {
-      if (!workflowId) return;
-      try {
-        await saveWorkflow();
-        await api.executeFrom(workflowId, blockId);
-        setLastError(null);
-        // #793: no auto tab-switch.
-      } catch (error) {
+        setPreviewLoading(dataRef, false);
         setLastError((error as Error).message);
       }
     },
-    [saveWorkflow, setLastError, workflowId],
+    [cachePreview, setLastError, setPreviewLoading],
   );
 
-  const handleRestartBlock = useCallback(
-    async (blockId: string) => {
-      if (!workflowId) return;
-      try {
-        await saveWorkflow();
-        await api.executeFrom(workflowId, blockId);
-        setLastError(null);
-        // #793: no auto tab-switch.
-      } catch (error) {
-        setLastError((error as Error).message);
-      }
-    },
-    [saveWorkflow, setLastError, workflowId],
-  );
+  // Workflow execution callbacks (run / pause / resume / cancel / per-block).
+  const {
+    runWorkflow,
+    pauseWorkflow,
+    resumeWorkflow,
+    cancelWorkflow,
+    startFromSelected,
+    handleRunBlock,
+    handleRestartBlock,
+  } = useWorkflowExecutionActions({
+    currentProject,
+    workflowId,
+    selectedNodeId,
+    saveWorkflow,
+    setLastError,
+    workflowPayloadId: workflowPayload.id,
+  });
 
-  // #793: handleNodeSelect intentionally keeps the "config" switch because
-  // selecting a node IS an explicit user request to see that node's config.
-  // Selecting a node also re-expands the bottom panel — otherwise the
-  // implicit "config" tab switch is invisible while the panel is collapsed.
-  const handleNodeSelect = useCallback(
-    (nodeId: string | null) => {
-      setSelectedNodeId(nodeId);
-      if (nodeId) {
-        setActiveBottomTab("config");
-        expandBottomPanel();
-      }
-    },
-    [expandBottomPanel, setSelectedNodeId, setActiveBottomTab],
-  );
-
-  // Clicking an error badge on a block selects that node and opens the
-  // Logs tab — the same tab that now hosts the (filterable) error rows
-  // since the dedicated Problems tab was removed. Also expand the bottom
-  // panel so the user sees the logs they were just routed to.
-  const handleErrorClick = useCallback(
-    (blockId: string) => {
-      setSelectedNodeId(blockId);
-      setActiveBottomTab("logs");
-      expandBottomPanel();
-    },
-    [expandBottomPanel, setSelectedNodeId, setActiveBottomTab],
-  );
-
-  // Tab clicks in the BottomPanel always expand the panel — clicking a
-  // tab when the panel is collapsed is an explicit "open this" request.
-  // Expanding a non-collapsed panel is a no-op so this is safe to call
-  // unconditionally.
-  const handleBottomTabChange = useCallback(
-    (tab: typeof activeBottomTab) => {
-      setActiveBottomTab(tab);
-      expandBottomPanel();
-    },
-    [expandBottomPanel, setActiveBottomTab, activeBottomTab],
-  );
-
-  // Boot: load projects and blocks
-  useEffect(() => {
-    if (bootedRef.current) {
-      return;
-    }
-    bootedRef.current = true;
-    void (async () => {
-      setBusy(true);
-      try {
-        await Promise.all([refreshProjects(), refreshBlocks()]);
-      } catch (error) {
-        setLastError((error as Error).message);
-      } finally {
-        setBusy(false);
-      }
-    })();
-  }, []);
-
-  // Auto-save on dirty (workflow tabs)
-  useEffect(() => {
-    if (!currentProject || !workflowDirty) {
-      return undefined;
-    }
-    const timeout = window.setTimeout(() => {
-      void saveWorkflow();
-    }, 800);
-    return () => window.clearTimeout(timeout);
-  }, [currentProject, workflowDirty, workflowPayload]);
-
-  // ADR-036 §3.9 — auto-save loop for file tabs (mirrors the workflow
-  // auto-save above). Each dirty file tab gets an independent 800 ms
-  // debounce timer; editing one tab does not affect another.
-  //
-  // #870: per-tab timer state must live OUTSIDE the effect closure. The
-  // naive `useEffect` cleanup pattern tears down every dirty tab's timer
-  // on every keystroke (because `tabs` changes identity each
-  // updateFileTabContent call), so editing tab A keeps cancelling
-  // tab B's debounce and B never autosaves. We track
-  // `{timerId, contentSnapshot}` per tab id in a ref so each tab's
-  // timer survives unrelated keystrokes.
-  const fileTabAutosaveTimers = useRef<Map<string, { timerId: number; contentSnapshot: string }>>(
-    new Map(),
-  );
-  useEffect(() => {
-    const timers = fileTabAutosaveTimers.current;
-    if (!currentProject) {
-      // Project closed — drop everything pending.
-      timers.forEach(({ timerId }) => window.clearTimeout(timerId));
-      timers.clear();
-      return undefined;
-    }
-    const dirtyFileTabs = (tabs as AnyTab[]).filter(
-      (t) => t.kind === "file" && t.dirty && !t.readOnly,
-    ) as FileTab[];
-    const dirtyIds = new Set(dirtyFileTabs.map((t) => t.id));
-
-    // Cancel timers for tabs no longer dirty / no longer present.
-    timers.forEach(({ timerId }, id) => {
-      if (!dirtyIds.has(id)) {
-        window.clearTimeout(timerId);
-        timers.delete(id);
-      }
+  // Canvas / toolbar handlers (palette add, edge connect, view source, save).
+  const { handleAddBlockFromPalette, handleCanvasConnect, handleViewSource, handleSave } =
+    useCanvasHandlers({
+      currentProject,
+      workflowId,
+      workflowNodes,
+      activeFileTab,
+      addNode,
+      connectNodes,
+      openFileTab,
+      saveFileTab,
+      saveWorkflow,
+      setLastError,
     });
 
-    // For each dirty tab, schedule (or reset only if content changed).
-    // Leaving an in-flight timer untouched when content is unchanged is
-    // the load-bearing part of the fix — that is what lets tab B's
-    // debounce reach 800 ms while the user keeps typing in tab A.
-    for (const tab of dirtyFileTabs) {
-      const existing = timers.get(tab.id);
-      if (existing && existing.contentSnapshot === tab.content) continue;
-      if (existing) window.clearTimeout(existing.timerId);
-      const timerId = window.setTimeout(() => {
-        timers.delete(tab.id);
-        void saveFileTab(tab.id).catch((error) => {
-          // eslint-disable-next-line no-console
-          console.warn(`saveFileTab(${tab.id}) failed:`, error);
-        });
-      }, 800);
-      timers.set(tab.id, { timerId, contentSnapshot: tab.content });
-    }
-    return undefined;
-  }, [currentProject, tabs, saveFileTab]);
+  // App-level lifecycle effects (boot, workflow autosave, tab snapshot sync).
+  useAppLifecycleEffects({
+    currentProject,
+    workflowDirty,
+    workflowPayload,
+    refreshProjects,
+    refreshBlocks,
+    saveWorkflow,
+    setBusy,
+    setLastError,
+    activeTabId,
+    selectedNodeId,
+    workflowDescription,
+    workflowNodes,
+    workflowEdges,
+    syncActiveTab,
+  });
 
-  // Defensive: cancel all pending file-tab autosaves on unmount so a
-  // timer cannot fire against a torn-down store. The ref Map is also
-  // intentionally not in any dep array elsewhere.
-  useEffect(() => {
-    const timers = fileTabAutosaveTimers.current;
-    return () => {
-      timers.forEach(({ timerId }) => window.clearTimeout(timerId));
-      timers.clear();
-    };
-  }, []);
+  // ADR-036 §3.9 — per-tab autosave loop.
+  useFileTabsAutosave({
+    currentProject,
+    tabs: tabs as AnyTab[],
+    saveFileTab,
+  });
 
-  // Sync active tab snapshot when workflow state changes
-  useEffect(() => {
-    if (activeTabId) {
-      syncActiveTab();
-    }
-  }, [workflowNodes, workflowEdges, workflowDirty, workflowDescription, selectedNodeId]);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const listener = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement;
-      const isInput =
-        target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT";
-      const ctrl = event.ctrlKey || event.metaKey;
-      const key = event.key.toLowerCase();
-
-      // Escape always works
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setSelectedNodeId(null);
-        return;
-      }
-
-      // Ctrl+S always works — routes to file save when a file tab is
-      // active (ADR-036 §3.7), workflow save otherwise.
-      if (ctrl && key === "s" && !event.shiftKey) {
-        event.preventDefault();
-        if (activeFileTab) {
-          if (!activeFileTab.readOnly) {
-            void saveFileTab(activeFileTab.id).catch((error) => {
-              // eslint-disable-next-line no-console
-              console.warn(`saveFileTab(${activeFileTab.id}) failed:`, error);
-            });
-          }
-        } else {
-          void saveWorkflow();
-        }
-        return;
-      }
-
-      // Ctrl+Shift+S: Save As (workflow only — file tabs save in place)
-      if (ctrl && key === "s" && event.shiftKey) {
-        event.preventDefault();
-        if (!activeFileTab) {
-          void saveWorkflowAs();
-        }
-        return;
-      }
-
-      // Skip other shortcuts when in input fields
-      if (isInput) return;
-
-      if (ctrl && key === "z") {
-        event.preventDefault();
-        undoWorkflow();
-      } else if (ctrl && key === "y") {
-        event.preventDefault();
-        redoWorkflow();
-      } else if (ctrl && key === "enter") {
-        event.preventDefault();
-        void runWorkflow();
-      } else if (ctrl && key === ".") {
-        event.preventDefault();
-        void cancelWorkflow();
-      } else if (ctrl && key === "b") {
-        event.preventDefault();
-        togglePalette();
-      } else if (ctrl && key === "d") {
-        event.preventDefault();
-        togglePreview();
-      } else if (ctrl && key === "j") {
-        event.preventDefault();
-        toggleBottomPanel();
-      } else if (ctrl && key === "m") {
-        event.preventDefault();
-        toggleMinimap();
-      } else if (ctrl && key === "o") {
-        event.preventDefault();
-        openProjectDialog("open");
-      } else if (ctrl && key === "a") {
-        event.preventDefault();
-        // Select all handled by ReactFlow internally
-      } else if ((event.key === "Delete" || event.key === "Backspace") && selectedNodeId) {
-        removeNode(selectedNodeId);
-      }
-    };
-    window.addEventListener("keydown", listener);
-    return () => window.removeEventListener("keydown", listener);
-  }, [
+  // Global keyboard shortcuts.
+  useAppKeyboardShortcuts({
     activeFileTab,
     cancelWorkflow,
     openProjectDialog,
@@ -837,11 +328,7 @@ export default function App() {
     togglePalette,
     togglePreview,
     undoWorkflow,
-  ]);
-
-  // ADR-034 Phase 1.3: the legacy onSendChat / AIChat plumbing was removed.
-  // The AI Chat bottom tab now hosts <TerminalTabs/>, which manages its own
-  // PTY-backed sessions through `terminalTabsSlice`.
+  });
 
   return (
     <ReactFlowProvider>
@@ -865,7 +352,7 @@ export default function App() {
               setWorkflow(emptyWorkflow());
               resetExecution();
             }}
-            onNewWorkflow={() => newWorkflow()}
+            onNewWorkflow={newWorkflow}
             onNewCustomBlock={
               currentProject
                 ? () => {
@@ -880,41 +367,8 @@ export default function App() {
                   }
                 : undefined
             }
-            onViewSource={
-              currentProject && workflowId
-                ? async () => {
-                    // #878: ensure the workflow exists on disk before
-                    // trying to open its YAML — a freshly-created or
-                    // unsaved workflow has no backing file yet, so the
-                    // GET /api/projects/{id}/file returns 404 and the
-                    // user previously saw a native ``"<id> 不存在"``
-                    // alert. Save first; on failure the existing
-                    // saveWorkflow error UX surfaces and we abort the
-                    // view.
-                    try {
-                      await saveWorkflow();
-                    } catch (error) {
-                      // eslint-disable-next-line no-console
-                      console.warn("View source: saveWorkflow failed", error);
-                      return;
-                    }
-                    openFileTab(`workflows/${workflowId}.yaml`, { readOnly: true });
-                  }
-                : undefined
-            }
-            onSave={() => {
-              // ADR-036 §3.7 — route Save by active tab kind.
-              if (activeFileTab) {
-                if (!activeFileTab.readOnly) {
-                  void saveFileTab(activeFileTab.id).catch((error) => {
-                    // eslint-disable-next-line no-console
-                    console.warn(`saveFileTab(${activeFileTab.id}) failed:`, error);
-                  });
-                }
-              } else {
-                void saveWorkflow();
-              }
-            }}
+            onViewSource={currentProject && workflowId ? handleViewSource : undefined}
+            onSave={handleSave}
             onSaveAs={() => void saveWorkflowAs()}
             onImport={() => void importWorkflow()}
             onRun={() => void runWorkflow()}
@@ -943,244 +397,59 @@ export default function App() {
           ) : null}
 
           {currentProject ? (
-            <ResizablePanelGroup
-              orientation="horizontal"
-              className="min-h-0 flex-1"
-              onLayoutChanged={(layout) => {
-                const sizes = Object.values(layout);
-                if (sizes[0] != null && sizes[0] >= 4) setPanelSize("palette", sizes[0]);
-                if (sizes[2] != null && sizes[2] >= 4) setPanelSize("preview", sizes[2]);
-              }}
-            >
-              {/* Left Sidebar — tab switcher + content */}
-              <ResizablePanel
-                defaultSize="15%"
-                minSize="4%"
-                maxSize="28%"
-                collapsible
-                collapsedSize="0%"
-              >
-                <div className="flex h-full flex-col overflow-hidden">
-                  {/* Tab switcher */}
-                  <div className="flex shrink-0 border-b border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))]">
-                    <button
-                      className={`flex-1 px-3 py-2 text-xs font-medium transition ${leftTab === "blocks" ? "border-b-2 border-ember text-ink" : "text-stone-400 hover:text-stone-600"}`}
-                      onClick={() => setLeftTab("blocks")}
-                      type="button"
-                    >
-                      Blocks
-                    </button>
-                    <button
-                      className={`flex-1 px-3 py-2 text-xs font-medium transition ${leftTab === "project" ? "border-b-2 border-ember text-ink" : "text-stone-400 hover:text-stone-600"}`}
-                      onClick={() => setLeftTab("project")}
-                      type="button"
-                    >
-                      Project
-                    </button>
-                  </div>
-                  {/* Tab content */}
-                  <div className="min-h-0 flex-1">
-                    {leftTab === "blocks" ? (
-                      <BlockPalette
-                        blocks={blocks}
-                        collapsed={false}
-                        onAddBlock={(block) => {
-                          const defaultParams: Record<string, unknown> = {};
-                          if (block.direction) {
-                            defaultParams.direction = block.direction;
-                          } else if (block.type_name === "io_block") {
-                            defaultParams.direction =
-                              block.name === "Load Block" ? "input" : "output";
-                          }
-                          // Bug 7: Set default output_dir for AppBlocks when a project is open
-                          if (block.base_category === "app" && currentProject) {
-                            defaultParams.output_dir = `${currentProject.path}/data/exchange/outputs`;
-                          }
-                          addNode(
-                            block,
-                            { x: 160, y: 160 },
-                            Object.keys(defaultParams).length > 0 ? defaultParams : undefined,
-                          );
-                        }}
-                        onReload={() => void refreshBlocks()}
-                        onSearch={setPaletteSearch}
-                        search={paletteSearch}
-                      />
-                    ) : currentProject ? (
-                      <ProjectTree
-                        projectId={currentProject.id}
-                        projectPath={currentProject.path}
-                        onLoadWorkflow={(workflowId, displayName) =>
-                          void loadWorkflowById(workflowId, displayName)
-                        }
-                        onReloadBlocks={() => void refreshBlocks()}
-                      />
-                    ) : (
-                      <div className="p-4 text-xs text-stone-400">No project open</div>
-                    )}
-                  </div>
-                </div>
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-
-              {/* Center: Tab Bar + Canvas + Bottom Panel vertical split */}
-              <ResizablePanel defaultSize="63%">
-                <div className="flex h-full flex-col">
-                  <TabBar
-                    tabs={tabs}
-                    activeTabId={activeTabId}
-                    onSwitchTab={switchTab}
-                    onCloseTab={closeTab}
-                    onNewTab={() => newWorkflow()}
-                  />
-                  <ResizablePanelGroup
-                    orientation="vertical"
-                    className="min-h-0 flex-1"
-                    onLayoutChanged={(layout) => {
-                      const sizes = Object.values(layout);
-                      if (sizes[1] != null && sizes[1] >= 10) setPanelSize("bottom", sizes[1]);
-                    }}
-                  >
-                    <ResizablePanel defaultSize="70%" minSize="20%">
-                      {activeFileTab ? (
-                        // ADR-036 §3.7 — file tab → Monaco editor.
-                        <CodeEditor
-                          tab={activeFileTab}
-                          onContentChange={(content) => {
-                            try {
-                              updateFileTabContent(activeFileTab.id, content);
-                            } catch (error) {
-                              // Skeleton stub throws; soft-warn so the UI
-                              // still works in dev mode pre-I36a-merge.
-                              // eslint-disable-next-line no-console
-                              console.warn(
-                                `updateFileTabContent(${activeFileTab.id}) failed:`,
-                                error,
-                              );
-                            }
-                          }}
-                          onSave={() => {
-                            if (activeFileTab.readOnly) return;
-                            void saveFileTab(activeFileTab.id).catch((error) => {
-                              // eslint-disable-next-line no-console
-                              console.warn(`saveFileTab(${activeFileTab.id}) failed:`, error);
-                            });
-                          }}
-                        />
-                      ) : (
-                        <WorkflowCanvas
-                          blockStates={blockStates}
-                          blockErrors={blockErrors}
-                          blockErrorSummaries={blockErrorSummaries}
-                          blockOutputs={blockOutputs}
-                          blocks={blocks.filter((block) => {
-                            const value =
-                              `${block.name} ${block.description} ${block.subcategory || block.base_category}`.toLowerCase();
-                            return value.includes(paletteSearch.toLowerCase());
-                          })}
-                          edges={workflowEdges}
-                          minimapVisible={minimapVisible}
-                          nodes={workflowNodes}
-                          onAddNode={addNode}
-                          onConnect={async (edge) => {
-                            try {
-                              const sourceNode = workflowNodes.find(
-                                (node) => node.id === edge.source.split(":")[0],
-                              );
-                              const targetNode = workflowNodes.find(
-                                (node) => node.id === edge.target.split(":")[0],
-                              );
-                              if (!sourceNode || !targetNode) {
-                                return;
-                              }
-                              const sourcePort = edge.source.split(":")[1];
-                              const targetPort = edge.target.split(":")[1];
-                              const validation = await api.validateConnection({
-                                source_block: sourceNode.block_type,
-                                source_port: sourcePort,
-                                target_block: targetNode.block_type,
-                                target_port: targetPort,
-                              });
-                              if (!validation.compatible) {
-                                setLastError(validation.reason);
-                                return;
-                              }
-                              connectNodes(edge);
-                              setLastError(null);
-                            } catch (error) {
-                              setLastError((error as Error).message);
-                            }
-                          }}
-                          onDeleteEdge={removeEdge}
-                          onDeleteNode={removeNode}
-                          onErrorClick={handleErrorClick}
-                          onPaneClick={handleCanvasPaneClick}
-                          onRunBlock={handleRunBlock}
-                          onRestartBlock={handleRestartBlock}
-                          onSelectNode={handleNodeSelect}
-                          onUpdateNodeConfig={updateNodeConfig}
-                          onUpdateNodePosition={updateNodeLayout}
-                          schemas={blockSchemas}
-                          selectedNodeId={selectedNodeId}
-                        />
-                      )}
-                    </ResizablePanel>
-                    <ResizableHandle withHandle />
-                    <ResizablePanel
-                      panelRef={bottomPanelRef}
-                      // collapsedSize is in % of the canvas-column height.
-                      // 8% on a typical 800–1000px column ≈ 64–80px, which
-                      // accommodates the ~60px tab strip without clipping
-                      // it. The previous 3% (~24–30px) cut off the bottom
-                      // half of the tab buttons.
-                      collapsedSize="8%"
-                      collapsible
-                      // 45% gives Git / Lineage / Logs tabs enough vertical
-                      // room for their list + detail content out-of-the-box.
-                      // 30% (prior default) made the Git history list
-                      // unreadable on a 1080p canvas column.
-                      defaultSize="45%"
-                      minSize="10%"
-                    >
-                      <BottomPanel
-                        activeTab={activeBottomTab}
-                        logEntries={logEntries}
-                        onTabChange={handleBottomTabChange}
-                        onTogglePin={toggleBottomPanelPinned}
-                        onUpdateConfig={(patch) => {
-                          if (selectedNodeId) {
-                            updateNodeConfig(selectedNodeId, patch);
-                          }
-                        }}
-                        pinned={bottomPanelPinned}
-                        selectedNode={selectedNode}
-                        selectedSchema={selectedSchema}
-                        unreadLogsCount={unreadLogsCount}
-                      />
-                    </ResizablePanel>
-                  </ResizablePanelGroup>
-                </div>
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-
-              {/* Data Preview — full height right column */}
-              <ResizablePanel
-                defaultSize="22%"
-                minSize="15%"
-                maxSize="42%"
-                collapsible
-                collapsedSize="0%"
-              >
-                <DataPreview
-                  blockOutputs={blockOutputs}
-                  onLoadPreview={loadPreview}
-                  previewCache={previewCache}
-                  previewLoading={previewLoading}
-                  selectedNodeId={selectedNodeId}
-                  selectedNodeLabel={selectedNodeLabel}
-                />
-              </ResizablePanel>
-            </ResizablePanelGroup>
+            <ProjectWorkspace
+              currentProject={currentProject}
+              leftTab={leftTab}
+              onLeftTabChange={setLeftTab}
+              blocks={blocks}
+              paletteSearch={paletteSearch}
+              setPaletteSearch={setPaletteSearch}
+              onAddBlockFromPalette={handleAddBlockFromPalette}
+              onReloadBlocks={() => void refreshBlocks()}
+              onLoadWorkflowById={(id, displayName) => void loadWorkflowById(id, displayName)}
+              tabs={tabs as AnyTab[]}
+              activeTabId={activeTabId}
+              activeFileTab={activeFileTab}
+              switchTab={switchTab}
+              closeTab={closeTab}
+              onNewWorkflowTab={newWorkflow}
+              updateFileTabContent={updateFileTabContent}
+              saveFileTab={saveFileTab}
+              blockStates={blockStates}
+              blockOutputs={blockOutputs}
+              blockErrors={blockErrors}
+              blockErrorSummaries={blockErrorSummaries}
+              blockSchemas={blockSchemas}
+              workflowNodes={workflowNodes}
+              workflowEdges={workflowEdges}
+              selectedNodeId={selectedNodeId}
+              minimapVisible={minimapVisible}
+              onCanvasAddNode={addNode}
+              onCanvasConnect={handleCanvasConnect}
+              onCanvasDeleteEdge={removeEdge}
+              onCanvasDeleteNode={removeNode}
+              onErrorClick={handleErrorClick}
+              onCanvasPaneClick={handleCanvasPaneClick}
+              onRunBlock={handleRunBlock}
+              onRestartBlock={handleRestartBlock}
+              onSelectNode={handleNodeSelect}
+              onUpdateNodeConfig={updateNodeConfig}
+              onUpdateNodePosition={updateNodeLayout}
+              bottomPanelRef={bottomPanelRef}
+              bottomPanelPinned={bottomPanelPinned}
+              toggleBottomPanelPinned={toggleBottomPanelPinned}
+              activeBottomTab={activeBottomTab}
+              onBottomTabChange={handleBottomTabChange}
+              logEntries={logEntries}
+              unreadLogsCount={unreadLogsCount}
+              selectedNode={selectedNode}
+              selectedSchema={selectedSchema}
+              previewCache={previewCache}
+              previewLoading={previewLoading}
+              selectedNodeLabel={selectedNodeLabel}
+              onLoadPreview={loadPreview}
+              setPanelSize={setPanelSize}
+            />
           ) : (
             <div className="min-h-0 flex-1">
               <WelcomeScreen
@@ -1207,65 +476,8 @@ export default function App() {
             recentProjects={recentProjects}
           />
 
-          {/* #591/#594: Interactive block modals */}
-          {interactivePrompt?.blockType === "DataRouter" && (
-            <DataRouterModal
-              blockId={interactivePrompt.blockId}
-              inputPorts={(interactivePrompt.data.input_ports as string[]) ?? []}
-              outputPorts={(interactivePrompt.data.output_ports as string[]) ?? []}
-              itemsPerPort={
-                (interactivePrompt.data.items_per_port as Record<
-                  string,
-                  Array<{ index: number; port: string; ref: string; name: string; type: string }>
-                >) ?? {}
-              }
-              onConfirm={(assignments) => {
-                sendWebSocketMessage({
-                  type: "interactive_complete",
-                  block_id: interactivePrompt.blockId,
-                  data: { assignments },
-                });
-                setInteractivePrompt(null);
-              }}
-              onCancel={() => {
-                sendWebSocketMessage({
-                  type: "cancel_block",
-                  block_id: interactivePrompt.blockId,
-                  workflow_id: workflowId,
-                });
-                setInteractivePrompt(null);
-              }}
-            />
-          )}
-          {interactivePrompt?.blockType === "PairEditor" && (
-            <PairEditorModal
-              blockId={interactivePrompt.blockId}
-              ports={(interactivePrompt.data.ports as string[]) ?? []}
-              itemsPerPort={
-                (interactivePrompt.data.items_per_port as Record<
-                  string,
-                  Array<{ index: number; name: string; type: string }>
-                >) ?? {}
-              }
-              collectionLength={(interactivePrompt.data.collection_length as number) ?? 0}
-              onConfirm={(reorder) => {
-                sendWebSocketMessage({
-                  type: "interactive_complete",
-                  block_id: interactivePrompt.blockId,
-                  data: { reorder },
-                });
-                setInteractivePrompt(null);
-              }}
-              onCancel={() => {
-                sendWebSocketMessage({
-                  type: "cancel_block",
-                  block_id: interactivePrompt.blockId,
-                  workflow_id: workflowId,
-                });
-                setInteractivePrompt(null);
-              }}
-            />
-          )}
+          {/* #591/#594: Interactive block modals. */}
+          <InteractiveModals />
 
           {busy ? (
             <div className="fixed bottom-4 right-4 rounded-full bg-ink px-4 py-2 text-sm text-white">
@@ -1273,57 +485,10 @@ export default function App() {
             </div>
           ) : null}
 
-          {/* ADR-039 §3.5 (#975) — MergeFlow modal lives at App level so
-              it survives BOTH bottom-tab switches AND project close. If
-              we mounted it inside `BottomPanel.tsx` (the previous PR #974
-              fix), closing/switching the active project would unmount
-              BottomPanel and bypass MergeFlow's mid-conflict close-guard.
-              The modal is hidden via `isOpen={mergeFlowSource !== null}`
-              and reads the same gitSlice state regardless of project. */}
+          {/* ADR-039 §3.5 (#975) — MergeFlow modal lives at App level. */}
           <AppLevelMergeFlow />
         </div>
       </TooltipProvider>
     </ReactFlowProvider>
-  );
-}
-
-/**
- * App-level MergeFlow mount (ADR-039 §3.5, issue #975).
- *
- * Wraps the gitSlice subscription so the App component itself does not
- * re-render on every `mergeFlowSource` change. Driven by
- * `gitSlice.mergeFlowSource` + `gitSlice.mergeFlowProjectId`. Mounted
- * outside the `{currentProject ? (...)}` ternary so the modal's
- * close-guard survives project-switch and project-close events during
- * mid-conflict resolution.
- *
- * Visibility gate (#975 Codex P1 on PR #980): the modal renders only
- * when the active project ID matches the one stamped at modal-open
- * time. If the user switches to a different project mid-conflict, the
- * modal hides (state preserved) so MergeFlow's Complete/Abort actions
- * cannot be routed to the wrong backend project context. Switching
- * back to the original project re-shows the modal in its in-flight
- * state. Closing the modal (via Abort) clears `mergeFlowProjectId`
- * along with `mergeFlowSource` via the slice setter.
- */
-function AppLevelMergeFlow() {
-  const mergeFlowSource = useAppStore((s) => s.mergeFlowSource);
-  const mergeFlowProjectId = useAppStore((s) => s.mergeFlowProjectId);
-  const currentProject = useAppStore((s) => s.currentProject);
-  const setMergeFlowSource = useAppStore((s) => s.setMergeFlowSource);
-  const openFileTab = useAppStore((s) => s.openFileTab);
-  // Only render when the active project matches the one that opened
-  // the modal. Different project → hide (state preserved). Same
-  // project (or modal closed) → render normally.
-  const projectMatches = mergeFlowProjectId === null || mergeFlowProjectId === currentProject?.id;
-  return (
-    <MergeFlow
-      sourceBranch={mergeFlowSource ?? ""}
-      isOpen={mergeFlowSource !== null && projectMatches}
-      onClose={() => setMergeFlowSource(null)}
-      onOpenFile={(path) => {
-        openFileTab(path);
-      }}
-    />
   );
 }
