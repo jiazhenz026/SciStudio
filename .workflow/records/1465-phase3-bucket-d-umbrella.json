@@ -6,6 +6,34 @@
       "exclude": [],
       "include": [],
       "reason": "Umbrella scaffold landed: checklist + manager gate record + ADR-046/047 sub-PRs tracked. D1 PR #1473 already open against main; will retarget when this umbrella PR opens."
+    },
+    {
+      "approved_by": "@jiazhenz026",
+      "exclude": [],
+      "include": [
+        "src/scistudio/engine/scheduler/**",
+        "src/scistudio/blocks/registry/**",
+        "src/scistudio/blocks/code/**",
+        "src/scistudio/blocks/io/materialisation.py",
+        "src/scistudio/core/versioning/**",
+        "tests/**",
+        "docs/audit/**",
+        "docs/adr/**",
+        "docs/specs/**",
+        "docs/planning/**",
+        "scripts/check_god_files.py",
+        ".workflow/records/**"
+      ],
+      "reason": "Phase 3 sub-PRs #1473/#1476/#1477 + audit #1479 merged into umbrella branch; broaden scope to cover the full integrated diff against main + flip governance_touch=true (qa/governance/gate_record/ and CI workflow files in the diff via the sub-PR commits)."
+    },
+    {
+      "approved_by": "@jiazhenz026",
+      "exclude": [],
+      "include": [
+        ".workflow/audit-pr-body.md",
+        ".workflow/**"
+      ],
+      "reason": "Audit PR body draft also in diff (.workflow/audit-pr-body.md)"
     }
   ],
   "branch": "umbrella/phase3-bucket-d",
@@ -52,7 +80,7 @@
     "summary": {},
     "unclassified_failures": []
   },
-  "governance_touch": false,
+  "governance_touch": true,
   "issues": [
     {
       "close_in_pr": true,
