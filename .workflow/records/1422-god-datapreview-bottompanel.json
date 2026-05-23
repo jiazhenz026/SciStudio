@@ -231,5 +231,6 @@
     }
   ],
   "task_id": "1422-god-datapreview-bottompanel",
-  "task_kind": "refactor"
+  "task_kind": "refactor",
+  "persona": "implementer"
 }

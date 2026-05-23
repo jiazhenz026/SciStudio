@@ -7,7 +7,7 @@
       "include": [
         "docs/planning/frontend-cleanup-1412-checklist.md"
       ],
-      "reason": "Add manager checklist \u00a77.1 row updates per dispatch prompt requirement (W1-impl finishes by editing only its own checklist rows)"
+      "reason": "Add manager checklist §7.1 row updates per dispatch prompt requirement (W1-impl finishes by editing only its own checklist rows)"
     }
   ],
   "branch": "fix/issue-1420-1421/hooks-order",
@@ -82,7 +82,7 @@
     },
     "docs": {
       "not_applicable": true,
-      "rationale": "bugfix is behavior-preserving \u2014 no ADR/spec/architecture surface changed; CHANGELOG + checklist cover the change set"
+      "rationale": "bugfix is behavior-preserving — no ADR/spec/architecture surface changed; CHANGELOG + checklist cover the change set"
     }
   },
   "full_audit": {
@@ -195,5 +195,6 @@
     }
   ],
   "task_id": "1420-hooks-order",
-  "task_kind": "bugfix"
+  "task_kind": "bugfix",
+  "persona": "implementer"
 }

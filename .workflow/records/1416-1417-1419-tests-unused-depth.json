@@ -229,5 +229,6 @@
     }
   ],
   "task_id": "1416-tests-unused-depth",
-  "task_kind": "refactor"
+  "task_kind": "refactor",
+  "persona": "implementer"
 }

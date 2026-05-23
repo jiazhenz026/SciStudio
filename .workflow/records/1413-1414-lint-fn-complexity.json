@@ -5,7 +5,7 @@
       "approved_by": null,
       "exclude": [],
       "include": [],
-      "reason": "Manager takeover from stopped sub-agent. Sub-agent completed 21-file refactor + .parts/ extractions + all frontend checks (lint 0 errors, typecheck clean, format clean, vitest 571/584 with +15 new helper tests, build clean) before hanging on a pytest-skip decision. Manager re-verified all frontend checks pass, added full_audit (pass, 0 findings) and sentrux (pass, 4 cycles \u2264 5, quality 4260), recorded pytest skipped (frontend-only refactor, backend unchanged)."
+      "reason": "Manager takeover from stopped sub-agent. Sub-agent completed 21-file refactor + .parts/ extractions + all frontend checks (lint 0 errors, typecheck clean, format clean, vitest 571/584 with +15 new helper tests, build clean) before hanging on a pytest-skip decision. Manager re-verified all frontend checks pass, added full_audit (pass, 0 findings) and sentrux (pass, 4 cycles ≤ 5, quality 4260), recorded pytest skipped (frontend-only refactor, backend unchanged)."
     }
   ],
   "branch": "refactor/issue-1413-1414/lint-fn-complexity",
@@ -98,7 +98,7 @@
     },
     "adr": {
       "not_applicable": true,
-      "rationale": "No ADR change \u2014 implementation-level cleanup of #1412 baseline waivers."
+      "rationale": "No ADR change — implementation-level cleanup of #1412 baseline waivers."
     },
     "changelog": {
       "paths": [
@@ -115,7 +115,7 @@
     },
     "spec": {
       "not_applicable": true,
-      "rationale": "No public contract or schema change \u2014 refactor preserves all exports."
+      "rationale": "No public contract or schema change — refactor preserves all exports."
     }
   },
   "full_audit": {
@@ -188,7 +188,7 @@
     "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules + health",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": "post-W3-D-refactor: 4 cycles \u2264 5 threshold (unchanged from umbrella baseline), files=1355, lines=321061 (-3.3k from extraction into .parts/), modularity=0.204, redundancy=0.087, quality_signal 4260 (slight improvement vs umbrella's 4248)",
+    "output_path": "post-W3-D-refactor: 4 cycles ≤ 5 threshold (unchanged from umbrella baseline), files=1355, lines=321061 (-3.3k from extraction into .parts/), modularity=0.204, redundancy=0.087, quality_signal 4260 (slight improvement vs umbrella's 4248)",
     "pro_required": false,
     "quality_signal": 4260.0,
     "rules_checked": 3,
@@ -236,5 +236,6 @@
     }
   ],
   "task_id": "1413-lint-fn-complexity",
-  "task_kind": "refactor"
+  "task_kind": "refactor",
+  "persona": "implementer"
 }

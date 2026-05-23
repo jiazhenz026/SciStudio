@@ -1,0 +1,250 @@
+{
+  "admin_labels": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "tests/qa/governance/test_gate_record_package.py"
+      ],
+      "reason": "Update self-hosting gate-record package test fixture for required --persona CLI argument."
+    }
+  ],
+  "branch": "track/issue-1467/test-engineer-persona",
+  "changed_test_paths": [
+    "tests/qa/test_persona_policy.py",
+    "tests/qa/test_test_engineer_scope_guard.py",
+    "tests/qa/test_gate_record.py",
+    "tests/qa/test_gate_record_ci.py",
+    "tests/qa/governance/test_gate_record_package.py"
+  ],
+  "check_results": [
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.frontmatter_lint docs/planning/adr-042-test-engineer-persona-implementation-checklist.md docs/planning/dispatch-prompts/issue-1467-agent-a-code-guard.md docs/planning/dispatch-prompts/issue-1467-agent-b-gate-record.md --repo-root . --format text",
+      "exit_code": 0,
+      "name": "frontmatter_lint",
+      "output_path": "warnings only: planning docs are not ADR/spec/architecture frontmatter targets",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scistudio.qa.audit.frontmatter_lint docs/ai-developer/personas/test-engineer.md docs/ai-developer/specific_rules/test-engineering.md docs/ai-developer/rules.md docs/ai-developer/specific_rules/gated-workflow.md docs/ai-developer/specific_rules/agent-dispatch.md docs/ai-developer/checklists/agent-manager-rules-review.md --repo-root . --format text",
+      "exit_code": 0,
+      "name": "docs_frontmatter_lint",
+      "output_path": "warnings only: docs are not ADR/spec/architecture frontmatter targets",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "git diff --check",
+      "exit_code": 0,
+      "name": "git_diff_check",
+      "output_path": "passed with CRLF warning for gate record only",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check .",
+      "exit_code": 0,
+      "name": "ruff_format_check_full",
+      "output_path": "735 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "ruff format --check src/scistudio/qa/governance/persona_policy.py src/scistudio/qa/governance/test_engineer_scope_guard.py src/scistudio/qa/governance/gate_record tests/qa/test_persona_policy.py tests/qa/test_test_engineer_scope_guard.py tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py tests/qa/governance/test_gate_record_package.py",
+      "exit_code": 0,
+      "name": "ruff_format_check",
+      "output_path": "16 files already formatted",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "PYTHONPATH=src pytest tests/qa/test_persona_policy.py tests/qa/test_test_engineer_scope_guard.py tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py tests/qa/governance/test_gate_record_package.py -q --no-cov",
+      "exit_code": 0,
+      "name": "targeted_pytest",
+      "output_path": "targeted persona, scope guard, gate-record, and self-hosting package tests passed with --no-cov after semantic duplication refactor",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json --out .tmp-semantic-dup/local-report.md --json-out .tmp-semantic-dup/local-current.json",
+      "exit_code": 1,
+      "name": "semantic_dup_local",
+      "output_path": "Skipped locally: fastembed is not installed in manager environment; CI semantic duplication ratchet is authoritative.",
+      "status": "skipped",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python -m scistudio.qa.governance.gate_record ci --gate-record .workflow/records/1467-test-engineer-persona-implementation.json --base origin/main --head HEAD --pr-body <PR #1474 body>",
+      "exit_code": 0,
+      "name": "gate_record_ci",
+      "output_path": "gate_record: pass",
+      "status": "pass",
+      "summary": {},
+      "timestamp": null
+    }
+  ],
+  "commit": {
+    "gate_record_path": ".workflow/records/1467-test-engineer-persona-implementation.json",
+    "shas": [
+      "bac272cbf43b3adc24dfa695f1fae9d4d8a9ff9f"
+    ],
+    "trailers": {}
+  },
+  "docs_landing": {
+    "changelog": {
+      "not_applicable": true,
+      "rationale": "ai-governance-tooling-change-no-user-facing-release-note"
+    },
+    "checklist": {
+      "paths": [
+        "docs/planning/adr-042-test-engineer-persona-implementation-checklist.md"
+      ]
+    },
+    "docs": {
+      "paths": [
+        "tests/qa/governance/test_gate_record_package.py",
+        "docs/audit/adr-042-test-engineer-persona-implementation-full-audit.json"
+      ]
+    }
+  },
+  "full_audit": {
+    "blocks_merge": false,
+    "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output docs/audit/adr-042-test-engineer-persona-implementation-full-audit.json",
+    "exit_code": 0,
+    "known_debt": [],
+    "output_path": "docs/audit/adr-042-test-engineer-persona-implementation-full-audit.json",
+    "status": "pass",
+    "summary": {},
+    "unclassified_failures": []
+  },
+  "governance_touch": true,
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 1467,
+      "url": "https://github.com/zjzcpj/SciStudio/issues/1467"
+    }
+  ],
+  "owner_directive": "Manager-dispatch implementation of ADR-042 test_engineer persona; 1-2 implementation agents own code changes while manager maintains docs, checklist, gate evidence, and integration.",
+  "persona": "manager",
+  "planned_files": [
+    "src/scistudio/qa/governance/persona_policy.py",
+    "src/scistudio/qa/governance/test_engineer_scope_guard.py",
+    "src/scistudio/qa/governance/gate_record/**",
+    "tests/qa/test_persona_policy.py",
+    "tests/qa/test_test_engineer_scope_guard.py",
+    "tests/qa/test_gate_record.py",
+    "tests/qa/test_gate_record_ci.py",
+    "docs/ai-developer/**",
+    ".agents/skills/test-engineer/SKILL.md",
+    ".codex/skills/test-engineer/SKILL.md",
+    ".claude/skills/test-engineer/SKILL.md",
+    "docs/planning/adr-042-test-engineer-persona-implementation-checklist.md",
+    "docs/planning/dispatch-prompts/issue-1467-*.md",
+    "docs/audit/adr-042-test-engineer-persona-implementation-full-audit.json"
+  ],
+  "pull_request": {
+    "body_closes_issues": [
+      1467
+    ],
+    "number": 1474,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1474"
+  },
+  "record_path": ".workflow/records/1467-test-engineer-persona-implementation.json",
+  "required_checks": [
+    "ruff",
+    "targeted_pytest",
+    "frontmatter_lint",
+    "full_audit",
+    "gate_record",
+    "ci"
+  ],
+  "schema_version": "1",
+  "scope": {
+    "exclude": [
+      "src/scistudio/blocks/**",
+      "src/scistudio/engine/**",
+      "src/scistudio/api/**",
+      "frontend/src/**"
+    ],
+    "include": [
+      ".workflow/records/1467-test-engineer-persona-implementation.json",
+      "docs/planning/adr-042-test-engineer-persona-implementation-checklist.md",
+      "docs/planning/dispatch-prompts/issue-1467-*.md",
+      "src/scistudio/qa/governance/**",
+      "tests/qa/test_persona_policy.py",
+      "tests/qa/test_test_engineer_scope_guard.py",
+      "tests/qa/test_gate_record.py",
+      "tests/qa/test_gate_record_ci.py",
+      "tests/qa/test_gate_record_hooks.py",
+      "docs/ai-developer/**",
+      ".agents/skills/test-engineer/**",
+      ".codex/skills/test-engineer/**",
+      ".claude/skills/test-engineer/**",
+      "docs/audit/adr-042-test-engineer-persona-implementation-full-audit.json"
+    ]
+  },
+  "sentrux": {
+    "command_or_tool": "sentrux --version",
+    "mode": "free-tier",
+    "name": "sentrux.free_tier",
+    "output_path": "Sentrux CLI unavailable in manager environment; CI/free-tier gate remains authoritative if configured.",
+    "pro_required": false,
+    "quality_signal": null,
+    "rules_checked": 0,
+    "status": "skipped",
+    "summary": {},
+    "thresholds": {},
+    "total_rules_defined": 0
+  },
+  "stages": [
+    {
+      "completed_at": null,
+      "stage": "scope_and_issue",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "plan",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "implement",
+      "status": "done",
+      "summary": "implementation agents integrated; manager interface fix applied"
+    },
+    {
+      "completed_at": null,
+      "stage": "update_docs",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "test_and_checks",
+      "status": "done",
+      "summary": null
+    },
+    {
+      "completed_at": null,
+      "stage": "commit_and_submit_pr",
+      "status": "done",
+      "summary": null
+    }
+  ],
+  "task_id": "1467-test-engineer-persona-implementation",
+  "task_kind": "manager"
+}

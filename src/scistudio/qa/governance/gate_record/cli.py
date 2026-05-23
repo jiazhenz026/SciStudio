@@ -66,6 +66,7 @@ def _build_parser() -> argparse.ArgumentParser:
     start.add_argument("--issue-url")
     start.add_argument("--slug", required=True)
     start.add_argument("--task-kind", required=True)
+    start.add_argument("--persona", required=True)
     start.add_argument("--branch", required=True)
     start.add_argument("--owner-directive", required=True)
     start.add_argument("--include", action="append", default=[])
@@ -182,6 +183,7 @@ def main(argv: list[str] | None = None) -> int:
                 issue_url=args.issue_url,
                 slug=args.slug,
                 task_kind=args.task_kind,
+                persona=args.persona,
                 branch=args.branch,
                 owner_directive=args.owner_directive,
                 include=args.include,

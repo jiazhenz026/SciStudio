@@ -1,0 +1,349 @@
+{
+  "tool": "full_audit",
+  "status": "pass",
+  "generated_at": "1970-01-01T00:00:00Z",
+  "source_sha": "667df1e9596bb44156d6949c114a8f26500444ab940826501e0f7ffa7952380e",
+  "findings": [],
+  "summary": {
+    "implemented_children": [
+      "generate_facts",
+      "frontmatter_lint",
+      "fact_drift",
+      "doc_drift",
+      "closure",
+      "signature_drift",
+      "architecture_drift",
+      "vulture"
+    ],
+    "deferred_children": [
+      "semantic_dup"
+    ]
+  },
+  "child_reports": [
+    {
+      "tool": "generate_facts",
+      "status": "pass",
+      "generated_at": "1970-01-01T00:00:00Z",
+      "source_sha": "667df1e9596bb44156d6949c114a8f26500444ab940826501e0f7ffa7952380e",
+      "findings": [],
+      "summary": {
+        "facts_path": "docs/facts/generated.yaml",
+        "generated_in_memory": true,
+        "total_facts": 2576,
+        "facts_by_kind": {
+          "expected-signature": 188,
+          "symbol": 2388
+        },
+        "facts_by_source": {
+          "docs/adr/ADR-001.md": 9,
+          "docs/adr/ADR-002.md": 4,
+          "docs/adr/ADR-003.md": 2,
+          "docs/adr/ADR-004.md": 7,
+          "docs/adr/ADR-005.md": 4,
+          "docs/adr/ADR-006.md": 2,
+          "docs/adr/ADR-007.md": 2,
+          "docs/adr/ADR-008.md": 2,
+          "docs/adr/ADR-009.md": 4,
+          "docs/adr/ADR-011.md": 5,
+          "docs/adr/ADR-012.md": 2,
+          "docs/adr/ADR-013.md": 1,
+          "docs/adr/ADR-014.md": 2,
+          "docs/adr/ADR-015.md": 3,
+          "docs/adr/ADR-017.md": 10,
+          "docs/adr/ADR-018.md": 18,
+          "docs/adr/ADR-019.md": 43,
+          "docs/adr/ADR-020.md": 16,
+          "docs/adr/ADR-021.md": 8,
+          "docs/specs/adr-041-codeblock-v2.md": 12,
+          "docs/specs/adr-042-consistency-tools.md": 13,
+          "docs/specs/adr-043-io-format-capability-registry.md": 19,
+          "griffe": 2388
+        },
+        "facts_by_confidence": {
+          "generated": 2388,
+          "normative": 188
+        },
+        "facts_by_stability": {
+          "stable": 188,
+          "unknown": 2388
+        },
+        "symbol_facts": 2388,
+        "symbols_by_kind": {
+          "attribute": 1288,
+          "class": 260,
+          "function": 623,
+          "module": 217
+        },
+        "top_symbol_packages": {
+          "scistudio.blocks": 751,
+          "scistudio.qa": 491,
+          "scistudio.api": 469,
+          "scistudio.core": 346,
+          "scistudio.engine": 201,
+          "scistudio.workflow": 58,
+          "scistudio.cli": 27,
+          "scistudio.utils": 26,
+          "scistudio.agent_provisioning": 9,
+          "scistudio.testing": 9,
+          "scistudio.ai": 1
+        }
+      },
+      "child_reports": []
+    },
+    {
+      "tool": "frontmatter_lint",
+      "status": "pass",
+      "generated_at": "2026-05-22T23:18:39.992150Z",
+      "source_sha": "",
+      "findings": [],
+      "summary": {
+        "repo_root": "C:/Users/jiazh/Desktop/workspace/SciStudio-adr042-test-engineer-persona",
+        "findings": 0
+      },
+      "child_reports": []
+    },
+    {
+      "tool": "fact_drift",
+      "status": "pass",
+      "generated_at": "2026-05-22T23:18:41.127664Z",
+      "source_sha": "667df1e9596bb44156d6949c114a8f26500444ab940826501e0f7ffa7952380e",
+      "findings": [],
+      "summary": {
+        "docs_checked": 207,
+        "substitutions_checked": 0
+      },
+      "child_reports": []
+    },
+    {
+      "tool": "doc_drift",
+      "status": "pass",
+      "generated_at": "2026-05-22T23:18:41.381816Z",
+      "source_sha": "667df1e9596bb44156d6949c114a8f26500444ab940826501e0f7ffa7952380e",
+      "findings": [],
+      "summary": {
+        "governed_docs_checked": 68,
+        "modules_checked": 177,
+        "contracts_checked": 374,
+        "files_checked": 485,
+        "adr_spec_alignment_findings": 0,
+        "active_specs_checked": 6,
+        "adr_spec_links_checked": 6
+      },
+      "child_reports": []
+    },
+    {
+      "tool": "closure",
+      "status": "pass",
+      "generated_at": "2026-05-22T23:18:41.651516Z",
+      "source_sha": "667df1e9596bb44156d6949c114a8f26500444ab940826501e0f7ffa7952380e",
+      "findings": [],
+      "summary": {
+        "governed_docs_checked": 68,
+        "governed_modules": 84,
+        "governed_contracts": 220,
+        "symbols_checked": 2388,
+        "maintainer_rules": 1,
+        "maintainer_covered_symbols": 21
+      },
+      "child_reports": []
+    },
+    {
+      "tool": "signature_drift",
+      "status": "pass",
+      "generated_at": "2026-05-22T23:18:41.655149Z",
+      "source_sha": "667df1e9596bb44156d6949c114a8f26500444ab940826501e0f7ffa7952380e",
+      "findings": [],
+      "summary": {
+        "expected_signatures_checked": 188,
+        "expected_model_fields_checked": 0,
+        "expected_cli_commands_checked": 0,
+        "symbols_available": 2388,
+        "cli_facts_available": 0
+      },
+      "child_reports": []
+    },
+    {
+      "tool": "architecture_drift",
+      "status": "pass",
+      "generated_at": "2026-05-22T23:18:41.665183Z",
+      "source_sha": "667df1e9596bb44156d6949c114a8f26500444ab940826501e0f7ffa7952380e",
+      "findings": [],
+      "summary": {
+        "architecture_path": "C:/Users/jiazh/Desktop/workspace/SciStudio-adr042-test-engineer-persona/docs/architecture/ARCHITECTURE.md",
+        "symbols_available": 2388,
+        "fences_checked": 6,
+        "fences_skipped": 1,
+        "references_checked": 0
+      },
+      "child_reports": []
+    },
+    {
+      "tool": "vulture",
+      "status": "pass",
+      "generated_at": "2026-05-22T23:18:42.352919Z",
+      "source_sha": "",
+      "findings": [
+        {
+          "rule_id": "vulture.dead-code",
+          "severity": "warning",
+          "file": "src/scistudio/blocks/io/loaders/load_data.py",
+          "message": "unused variable 'od' (100% confidence)",
+          "id": "vulture.dead-code",
+          "tool": null,
+          "finding_class": "vulture",
+          "path": "src/scistudio/blocks/io/loaders/load_data.py",
+          "line": 214,
+          "symbol": null,
+          "subject": null,
+          "expected": null,
+          "actual": null,
+          "drift_class": null,
+          "remediation": null,
+          "evidence": {
+            "confidence": 100
+          },
+          "suggested_fix": null,
+          "git_evidence": null,
+          "related_findings": []
+        },
+        {
+          "rule_id": "vulture.dead-code",
+          "severity": "warning",
+          "file": "src/scistudio/blocks/io/loaders/load_data.py",
+          "message": "unused variable 'od' (100% confidence)",
+          "id": "vulture.dead-code",
+          "tool": null,
+          "finding_class": "vulture",
+          "path": "src/scistudio/blocks/io/loaders/load_data.py",
+          "line": 215,
+          "symbol": null,
+          "subject": null,
+          "expected": null,
+          "actual": null,
+          "drift_class": null,
+          "remediation": null,
+          "evidence": {
+            "confidence": 100
+          },
+          "suggested_fix": null,
+          "git_evidence": null,
+          "related_findings": []
+        },
+        {
+          "rule_id": "vulture.dead-code",
+          "severity": "warning",
+          "file": "src/scistudio/core/metadata_store.py",
+          "message": "unused variable 'existing_paths' (100% confidence)",
+          "id": "vulture.dead-code",
+          "tool": null,
+          "finding_class": "vulture",
+          "path": "src/scistudio/core/metadata_store.py",
+          "line": 405,
+          "symbol": null,
+          "subject": null,
+          "expected": null,
+          "actual": null,
+          "drift_class": null,
+          "remediation": null,
+          "evidence": {
+            "confidence": 100
+          },
+          "suggested_fix": null,
+          "git_evidence": null,
+          "related_findings": []
+        },
+        {
+          "rule_id": "vulture.dead-code",
+          "severity": "warning",
+          "file": "src/scistudio/core/units.py",
+          "message": "unused variable 'source_type' (100% confidence)",
+          "id": "vulture.dead-code",
+          "tool": null,
+          "finding_class": "vulture",
+          "path": "src/scistudio/core/units.py",
+          "line": 187,
+          "symbol": null,
+          "subject": null,
+          "expected": null,
+          "actual": null,
+          "drift_class": null,
+          "remediation": null,
+          "evidence": {
+            "confidence": 100
+          },
+          "suggested_fix": null,
+          "git_evidence": null,
+          "related_findings": []
+        },
+        {
+          "rule_id": "vulture.dead-code",
+          "severity": "warning",
+          "file": "src/scistudio/engine/checkpoint.py",
+          "message": "unused variable 'fallback_type_name' (100% confidence)",
+          "id": "vulture.dead-code",
+          "tool": null,
+          "finding_class": "vulture",
+          "path": "src/scistudio/engine/checkpoint.py",
+          "line": 185,
+          "symbol": null,
+          "subject": null,
+          "expected": null,
+          "actual": null,
+          "drift_class": null,
+          "remediation": null,
+          "evidence": {
+            "confidence": 100
+          },
+          "suggested_fix": null,
+          "git_evidence": null,
+          "related_findings": []
+        },
+        {
+          "rule_id": "vulture.dead-code",
+          "severity": "warning",
+          "file": "src/scistudio/utils/logging.py",
+          "message": "unused variable 'json_output' (100% confidence)",
+          "id": "vulture.dead-code",
+          "tool": null,
+          "finding_class": "vulture",
+          "path": "src/scistudio/utils/logging.py",
+          "line": 6,
+          "symbol": null,
+          "subject": null,
+          "expected": null,
+          "actual": null,
+          "drift_class": null,
+          "remediation": null,
+          "evidence": {
+            "confidence": 100
+          },
+          "suggested_fix": null,
+          "git_evidence": null,
+          "related_findings": []
+        }
+      ],
+      "summary": {
+        "pyproject_config_honored": {
+          "ignore_decorators": [
+            "@app.*",
+            "@router.*",
+            "@pytest.fixture"
+          ],
+          "ignore_names": [],
+          "exclude": [
+            "src/scistudio/api/static/**"
+          ]
+        },
+        "paths": [
+          "src/scistudio"
+        ],
+        "min_confidence": 80,
+        "targets_resolved": 1,
+        "allowlist": "vulture_allowlist.py",
+        "total_findings": 6,
+        "vulture_available": true
+      },
+      "child_reports": []
+    }
+  ]
+}
