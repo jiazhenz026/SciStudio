@@ -1,6 +1,15 @@
 {
   "admin_labels": [],
-  "amendments": [],
+  "amendments": [
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        ".workflow/records/1465-audit-1465-phase3.json"
+      ],
+      "reason": "include audit gate-record file in scope per ADR-042"
+    }
+  ],
   "branch": "audit/issue-1465/phase3-review",
   "changed_test_paths": [],
   "check_results": [],
@@ -27,8 +36,8 @@
   "governance_touch": false,
   "issues": [
     {
-      "close_in_pr": true,
-      "followup_rationale": null,
+      "close_in_pr": false,
+      "followup_rationale": "Issue #1465 is the Phase 3 tracker; it stays open until the umbrella PR #1475 merges to main, per umbrella merge protocol. This audit PR lands the report only; tracking issue is resolved by the umbrella merge, not by this audit landing.",
       "number": 1465,
       "url": null
     }
@@ -76,7 +85,7 @@
     {
       "completed_at": null,
       "stage": "implement",
-      "status": "pending",
+      "status": "done",
       "summary": null
     },
     {
