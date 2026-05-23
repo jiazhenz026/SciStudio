@@ -55,7 +55,7 @@ governs:
     - src/scistudio/blocks/io/capabilities.py
     - src/scistudio/blocks/io/simple_io.py
     - src/scistudio/blocks/io/io_block.py
-    - src/scistudio/blocks/registry.py
+    - src/scistudio/blocks/registry/**
     - src/scistudio/blocks/io/materialisation.py
     - src/scistudio/blocks/app/app_block.py
     - src/scistudio/blocks/app/bridge.py

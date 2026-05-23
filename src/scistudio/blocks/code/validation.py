@@ -269,46 +269,25 @@ def _capability_lookup_diagnostics(
     data_type: type[DataObject],
     registry: BlockRegistry,
 ) -> list[CodeBlockValidationDiagnostic]:
+    # ADR-047: the ADR-043 capability methods are the only supported lookup
+    # surface. Production ``BlockRegistry`` always defines them; tests that
+    # mock the registry must supply them too.
     method_name = "find_saver_capability" if port.direction == "input" else "find_loader_capability"
     capability_method = getattr(registry, method_name, None)
-    if callable(capability_method):
-        try:
-            capability_method(
-                data_type=data_type,
-                extension=port.extension,
-                capability_id=port.capability_id,
-            )
-        except Exception as exc:
-            return [
-                CodeBlockValidationDiagnostic(
-                    field="capability",
-                    port_name=port.name,
-                    message=(f"{port.direction} {port.data_type} {port.extension} capability lookup failed: {exc}"),
-                )
-            ]
-        return []
-
-    legacy_method_name = "find_saver" if port.direction == "input" else "find_loader"
-    legacy_method = getattr(registry, legacy_method_name, None)
-    if not callable(legacy_method):
+    if not callable(capability_method):
         return []
     try:
-        match = legacy_method(data_type, port.extension)
+        capability_method(
+            data_type=data_type,
+            extension=port.extension,
+            capability_id=port.capability_id,
+        )
     except Exception as exc:
         return [
             CodeBlockValidationDiagnostic(
                 field="capability",
                 port_name=port.name,
-                message=f"{legacy_method_name} failed for {port.data_type} {port.extension}: {exc}",
-            )
-        ]
-    if match is None:
-        expected = "saver" if port.direction == "input" else "loader"
-        return [
-            CodeBlockValidationDiagnostic(
-                field="capability",
-                port_name=port.name,
-                message=f"no {expected} capability for data_type {port.data_type!r} and extension {port.extension!r}",
+                message=(f"{port.direction} {port.data_type} {port.extension} capability lookup failed: {exc}"),
             )
         ]
     return []

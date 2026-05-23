@@ -40,9 +40,12 @@ GOD_FILE_SIZE_WAIVERS: frozenset[str] = frozenset(
         # 1839-LOC god-file was split into the ``runtime/`` sub-package.
         # ``src/scistudio/engine/scheduler.py`` removed 2026-05-22 (#1470) —
         # the 1744-LOC god-file was split into the ``scheduler/`` sub-package
-        # per ADR-046 (Phase 3 D1 of umbrella #1427). Every sibling module
-        # measures below the 750 LOC threshold.
-        "src/scistudio/blocks/registry.py",
+        # per ADR-046 (Phase 3 D1 of umbrella #1427).
+        # ``src/scistudio/blocks/registry.py`` removed 2026-05-22 (#1471) —
+        # the 1708-LOC god-file was decomposed into the ``registry/``
+        # sub-package via Path D (ADR-047, Phase 3 D2 of umbrella #1427)
+        # and the legacy IO finder API (find_loader / find_saver /
+        # find_io_blocks_for_type) was deleted in the same PR.
         # ``src/scistudio/qa/governance/gate_record.py`` was decomposed into
         # the ``gate_record/`` sub-package in PR for #1433 (umbrella #1427);
         # waiver removed because every new sub-module is below the 750 LOC
