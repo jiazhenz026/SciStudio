@@ -8,9 +8,17 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useAppStore } from "../../store";
+import { PermissionModePicker } from "./SetupScreen.parts/PermissionModePicker";
+import { ProviderPicker } from "./SetupScreen.parts/ProviderPicker";
+import type {
+  AiStatusResponse,
+  PermissionMode,
+  ProviderName,
+  ProviderStatus,
+} from "./SetupScreen.parts/types";
 
 export interface SetupLaunchConfig {
-  provider: "claude-code" | "codex";
+  provider: ProviderName;
   dangerous: boolean;
 }
 
@@ -19,17 +27,6 @@ export interface SetupScreenProps {
   tabId: string;
   onLaunch: (config: SetupLaunchConfig) => void;
   onCancel: () => void;
-}
-
-interface ProviderStatus {
-  name: "claude-code" | "codex";
-  available: boolean;
-  version: string | null;
-  logged_in: boolean;
-}
-
-interface AiStatusResponse {
-  providers: ProviderStatus[];
 }
 
 // Module-level cache (30s TTL). Multiple SetupScreens mounted within 30s share
@@ -63,15 +60,16 @@ export function _resetSetupStatusCache(): void {
   _statusInflight = null;
 }
 
-export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
-  const currentProject = useAppStore((s) => s.currentProject);
-  const projectPath = currentProject?.path ?? null;
+interface UseSetupStatusResult {
+  status: AiStatusResponse | null;
+  statusError: string | null;
+  statusLoading: boolean;
+}
 
+function useSetupStatus(): UseSetupStatusResult {
   const [status, setStatus] = useState<AiStatusResponse | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
-  const [provider, setProvider] = useState<"claude-code" | "codex" | null>(null);
-  const [permissionMode, setPermissionMode] = useState<"safe" | "dangerous" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,14 +93,22 @@ export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
     };
   }, []);
 
+  return { status, statusError, statusLoading };
+}
+
+export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
+  const currentProject = useAppStore((s) => s.currentProject);
+  const projectPath = currentProject?.path ?? null;
+
+  const { status, statusError, statusLoading } = useSetupStatus();
+  const [provider, setProvider] = useState<ProviderName | null>(null);
+  const [permissionMode, setPermissionMode] = useState<PermissionMode | null>(null);
+
   const providersByName = useMemo(() => {
-    const map: Partial<Record<"claude-code" | "codex", ProviderStatus>> = {};
+    const map: Partial<Record<ProviderName, ProviderStatus>> = {};
     for (const p of status?.providers ?? []) map[p.name] = p;
     return map;
   }, [status]);
-
-  const claudeStatus = providersByName["claude-code"];
-  const codexStatus = providersByName["codex"];
 
   const selectedProviderStatus = provider ? providersByName[provider] : undefined;
   const launchDisabled =
@@ -110,13 +116,6 @@ export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
     !permissionMode ||
     !projectPath ||
     (selectedProviderStatus !== undefined && !selectedProviderStatus.available);
-
-  function renderProviderHint(s?: ProviderStatus): string | null {
-    if (!s) return statusLoading ? null : "(not installed)";
-    if (!s.available) return "(not installed)";
-    if (!s.logged_in) return "(not logged in)";
-    return null;
-  }
 
   return (
     <div
@@ -135,87 +134,20 @@ export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
         </div>
       ) : null}
 
-      <fieldset className="grid gap-2" data-testid="setup-provider-group">
-        <legend className="text-sm font-medium text-ink">Provider</legend>
-        {(
-          [
-            { value: "claude-code", label: "Claude Code", s: claudeStatus },
-            { value: "codex", label: "Codex", s: codexStatus },
-          ] as const
-        ).map((opt) => {
-          const hint = renderProviderHint(opt.s);
-          const disabled = !!opt.s && !opt.s.available;
-          return (
-            <label
-              key={opt.value}
-              className={`flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm ${
-                disabled
-                  ? "border-stone-200 text-stone-400"
-                  : "border-stone-300 text-ink hover:bg-stone-50"
-              }`}
-            >
-              <input
-                type="radio"
-                name={`setup-provider-${tabId}`}
-                value={opt.value}
-                checked={provider === opt.value}
-                disabled={disabled}
-                onChange={() => setProvider(opt.value)}
-                data-testid={`setup-provider-${opt.value}`}
-              />
-              <span>{opt.label}</span>
-              {opt.s?.version ? (
-                <span className="text-xs text-stone-400">v{opt.s.version}</span>
-              ) : null}
-              {hint ? (
-                <span
-                  className="text-xs italic text-stone-500"
-                  data-testid={`setup-provider-${opt.value}-hint`}
-                >
-                  {hint}
-                </span>
-              ) : null}
-            </label>
-          );
-        })}
-      </fieldset>
+      <ProviderPicker
+        tabId={tabId}
+        claudeStatus={providersByName["claude-code"]}
+        codexStatus={providersByName["codex"]}
+        statusLoading={statusLoading}
+        provider={provider}
+        onChange={setProvider}
+      />
 
-      <fieldset className="grid gap-2" data-testid="setup-permission-group">
-        <legend className="text-sm font-medium text-ink">Permission mode</legend>
-        <label className="flex items-start gap-2 rounded-2xl border border-stone-300 px-3 py-2 text-sm text-ink hover:bg-stone-50">
-          <input
-            type="radio"
-            name={`setup-permission-${tabId}`}
-            value="safe"
-            checked={permissionMode === "safe"}
-            onChange={() => setPermissionMode("safe")}
-            data-testid="setup-permission-safe"
-            className="mt-1"
-          />
-          <span>
-            <span className="font-medium">Ask</span> — default; the CLI prompts for tool use
-            (Shift+Tab / /permissions).
-          </span>
-        </label>
-        <label className="flex items-start gap-2 rounded-2xl border border-stone-300 px-3 py-2 text-sm text-ink hover:bg-stone-50">
-          <input
-            type="radio"
-            name={`setup-permission-${tabId}`}
-            value="dangerous"
-            checked={permissionMode === "dangerous"}
-            onChange={() => setPermissionMode("dangerous")}
-            data-testid="setup-permission-dangerous"
-            className="mt-1"
-          />
-          <span>
-            <span className="font-medium">Bypass</span> — skips all approvals
-            (--dangerously-skip-permissions / --dangerously-bypass-approvals-and-sandbox).
-            <span className="block text-xs">
-              Use only in ephemeral sandboxes. Cannot be toggled mid-session.
-            </span>
-          </span>
-        </label>
-      </fieldset>
+      <PermissionModePicker
+        tabId={tabId}
+        permissionMode={permissionMode}
+        onChange={setPermissionMode}
+      />
 
       <div
         className="rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-600"

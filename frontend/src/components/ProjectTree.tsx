@@ -1,15 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { api } from "../lib/api";
 import { useAppStore } from "../store";
 import type { TreeEntry } from "../types/api";
-
-interface TreeNodeData extends TreeEntry {
-  path: string;
-  children?: TreeNodeData[];
-  loaded: boolean;
-  expanded: boolean;
-}
+import { ContextMenu } from "./ProjectTree.parts/ContextMenu";
+import type { ContextMenuState, TreeNodeData } from "./ProjectTree.parts/types";
+import { useTreeNodes } from "./ProjectTree.parts/useTreeNodes";
 
 interface ProjectTreeProps {
   projectId: string;
@@ -17,8 +13,7 @@ interface ProjectTreeProps {
   /**
    * #796: callback receives both the backend workflow id (filename stem) AND
    * the user-facing display name. The display name acts as a fallback when the
-   * workflow YAML has an empty/missing `id:` field (e.g. on macOS where some
-   * older or hand-edited YAMLs omit it, leaving the tab + title blank).
+   * workflow YAML has an empty/missing `id:` field.
    */
   onLoadWorkflow: (filePath: string, displayName: string) => void;
   onReloadBlocks: () => void;
@@ -41,12 +36,6 @@ function formatSize(size: number | null | undefined): string {
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-interface ContextMenuState {
-  x: number;
-  y: number;
-  node: TreeNodeData;
 }
 
 // ADR-036 §3.5 (Phase 2C / I36c): file extensions the embedded Monaco editor
@@ -78,9 +67,7 @@ function TreeNodeRow({
       type="button"
     >
       {node.type === "directory" ? (
-        <span className="w-3 text-[10px] text-stone-400">
-          {node.expanded ? "\u25BC" : "\u25B6"}
-        </span>
+        <span className="w-3 text-[10px] text-stone-400">{node.expanded ? "▼" : "▶"}</span>
       ) : (
         <span className="w-3" />
       )}
@@ -93,158 +80,49 @@ function TreeNodeRow({
   );
 }
 
+function handleDoubleClickRoute(
+  node: TreeNodeData,
+  onLoadWorkflow: (filePath: string, displayName: string) => void,
+  onReloadBlocks: () => void,
+): void {
+  if (node.type === "directory") return;
+  const ext = node.name.split(".").pop()?.toLowerCase() ?? "";
+
+  // Double-click .yaml in workflows/ -> load workflow (#796).
+  if ((ext === "yaml" || ext === "yml") && node.path.startsWith("workflows/")) {
+    const workflowId = node.name.replace(/\.(yaml|yml)$/, "");
+    const displayName = workflowId || node.name;
+    onLoadWorkflow(workflowId, displayName);
+    return;
+  }
+
+  // ADR-036 §3.5 (I36c): .py under blocks/ refreshes the palette AND opens
+  // the file in the Monaco editor.
+  if (ext === "py" && node.path.startsWith("blocks/")) {
+    onReloadBlocks();
+    useAppStore.getState().openFileTab(node.path);
+    return;
+  }
+
+  // Editable extensions anywhere in the project open in the Monaco editor.
+  if (EDITABLE_EXTENSIONS.includes(ext)) {
+    useAppStore.getState().openFileTab(node.path);
+    return;
+  }
+}
+
 export function ProjectTree({
   projectId,
   projectPath,
   onLoadWorkflow,
   onReloadBlocks,
 }: ProjectTreeProps) {
-  const [rootNodes, setRootNodes] = useState<TreeNodeData[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { rootNodes, loading, refresh, handleToggle } = useTreeNodes(projectId);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  const contextMenuRef = useRef<HTMLDivElement>(null);
-
-  const loadChildren = useCallback(
-    async (parentPath: string): Promise<TreeNodeData[]> => {
-      const response = await api.getProjectTree(projectId, parentPath);
-      return response.entries.map((entry) => ({
-        ...entry,
-        path: parentPath ? `${parentPath}/${entry.name}` : entry.name,
-        children: entry.type === "directory" ? [] : undefined,
-        loaded: false,
-        expanded: false,
-      }));
-    },
-    [projectId],
-  );
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const children = await loadChildren("");
-      setRootNodes(children);
-    } catch {
-      // silently ignore -- project may not be ready
-    } finally {
-      setLoading(false);
-    }
-  }, [loadChildren]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  // ADR-034: auto-refresh the tree when the filesystem watcher reports a
-  // project-relevant change (e.g. agent-driven ``write_workflow``).
-  // ``projectTreeRefreshCounter`` is bumped by the ``workflow.changed`` /
-  // future broader-fs-watcher handlers; subscribing to it via the store
-  // makes the tree reflect on-disk reality without the user clicking
-  // "Refresh".
-  const refreshCounter = useAppStore((s) => s.projectTreeRefreshCounter);
-  useEffect(() => {
-    if (refreshCounter === 0) return; // initial mount handled by [refresh] above
-    void refresh();
-  }, [refreshCounter, refresh]);
-
-  // Close context menu on outside click
-  useEffect(() => {
-    if (!contextMenu) return undefined;
-    const handler = (e: MouseEvent) => {
-      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
-        setContextMenu(null);
-      }
-    };
-    window.addEventListener("mousedown", handler);
-    return () => window.removeEventListener("mousedown", handler);
-  }, [contextMenu]);
-
-  const updateNode = useCallback(
-    (
-      nodes: TreeNodeData[],
-      targetPath: string,
-      updater: (n: TreeNodeData) => TreeNodeData,
-    ): TreeNodeData[] => {
-      return nodes.map((node) => {
-        if (node.path === targetPath) {
-          return updater(node);
-        }
-        if (node.children && targetPath.startsWith(node.path + "/")) {
-          return { ...node, children: updateNode(node.children, targetPath, updater) };
-        }
-        return node;
-      });
-    },
-    [],
-  );
-
-  const handleToggle = useCallback(
-    async (node: TreeNodeData) => {
-      if (node.type !== "directory") return;
-
-      if (node.expanded) {
-        // Collapse
-        setRootNodes((prev) => updateNode(prev, node.path, (n) => ({ ...n, expanded: false })));
-        return;
-      }
-
-      // Expand: load children if not loaded
-      if (!node.loaded) {
-        try {
-          const children = await loadChildren(node.path);
-          setRootNodes((prev) =>
-            updateNode(prev, node.path, (n) => ({
-              ...n,
-              expanded: true,
-              loaded: true,
-              children,
-            })),
-          );
-        } catch {
-          // ignore
-        }
-      } else {
-        setRootNodes((prev) => updateNode(prev, node.path, (n) => ({ ...n, expanded: true })));
-      }
-    },
-    [loadChildren, updateNode],
-  );
 
   const handleDoubleClick = useCallback(
     (node: TreeNodeData) => {
-      if (node.type === "directory") return;
-      const ext = node.name.split(".").pop()?.toLowerCase() ?? "";
-
-      // Double-click .yaml in workflows/ -> load workflow.
-      // #796: derive both the backend workflow id (filename stem) and a
-      // non-empty display-name fallback. node.name is the literal filename as
-      // reported by the backend FS scan, which is always non-empty for an
-      // entry returned by the project-tree API.
-      if ((ext === "yaml" || ext === "yml") && node.path.startsWith("workflows/")) {
-        const workflowId = node.name.replace(/\.(yaml|yml)$/, "");
-        // Fall back to the raw filename if the stem somehow ends up empty
-        // (e.g. a file literally named ".yaml" — unusual but defensible).
-        const displayName = workflowId || node.name;
-        onLoadWorkflow(workflowId, displayName);
-        return;
-      }
-
-      // ADR-036 §3.5 (I36c): .py under blocks/ both refreshes the palette
-      // (so the user sees the side-effect of the lint-gated reload) AND
-      // opens the file in the Monaco editor. Both behaviours fire on the
-      // same double-click — saving the file then triggers the backend
-      // hot-reload via PUT /api/projects/{id}/file.
-      if (ext === "py" && node.path.startsWith("blocks/")) {
-        onReloadBlocks();
-        useAppStore.getState().openFileTab(node.path);
-        return;
-      }
-
-      // ADR-036 §3.5 (I36c): editable extensions anywhere in the project
-      // open in the Monaco editor.
-      if (EDITABLE_EXTENSIONS.includes(ext)) {
-        useAppStore.getState().openFileTab(node.path);
-        return;
-      }
+      handleDoubleClickRoute(node, onLoadWorkflow, onReloadBlocks);
     },
     [onLoadWorkflow, onReloadBlocks],
   );
@@ -304,35 +182,13 @@ export function ProjectTree({
         {renderNodes(rootNodes, 0)}
       </div>
 
-      {contextMenu ? (
-        <div
-          ref={contextMenuRef}
-          className="fixed z-50 rounded-lg border border-stone-200 bg-white py-1 shadow-lg"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-        >
-          <button
-            className="w-full px-4 py-1.5 text-left text-xs text-stone-700 hover:bg-stone-100"
-            onClick={() => copyToClipboard(contextMenu.node.name)}
-            type="button"
-          >
-            Copy Name
-          </button>
-          <button
-            className="w-full px-4 py-1.5 text-left text-xs text-stone-700 hover:bg-stone-100"
-            onClick={() => copyToClipboard(contextMenu.node.path)}
-            type="button"
-          >
-            Copy Path
-          </button>
-          <button
-            className="w-full px-4 py-1.5 text-left text-xs text-stone-700 hover:bg-stone-100"
-            onClick={() => handleReveal(contextMenu.node)}
-            type="button"
-          >
-            Reveal in Explorer
-          </button>
-        </div>
-      ) : null}
+      <ContextMenu
+        contextMenu={contextMenu}
+        onClose={() => setContextMenu(null)}
+        onCopyName={copyToClipboard}
+        onCopyPath={copyToClipboard}
+        onReveal={handleReveal}
+      />
     </aside>
   );
 }

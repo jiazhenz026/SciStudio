@@ -325,6 +325,149 @@ export interface GraphEdge {
  *                      needed for parent-SHA → row-index resolution.
  * @returns Array of edges (one per parent link), suitable for SVG rendering.
  */
+/**
+ * Resolve the lane a parent SHA should be drawn on for a given child commit.
+ *
+ *   - parent[0]: the lane the parent eventually lands in. We find it from
+ *     `assignments[parentIdx].lane` when known. If the parent is truncated
+ *     (dangling), use the child lane as a stub.
+ *   - parent[1..]: from `childAssign.merge_lanes[p-1]`. The parent SHA gets
+ *     written into `active_lanes[new_lane]` during assignLanes, so when the
+ *     parent is later drawn it WILL land in `merge_lanes[p-1]`.
+ */
+function resolveParentLane(
+  childAssign: LaneAssignment,
+  childLane: number,
+  parentIdx: number,
+  parentOrdinal: number,
+  assignments: LaneAssignment[],
+): number {
+  if (parentOrdinal === 0) {
+    if (parentIdx >= 0 && assignments[parentIdx]) {
+      return assignments[parentIdx].lane;
+    }
+    return childLane;
+  }
+  // merge_lanes is parallel to parents.slice(1)
+  const ml = childAssign.merge_lanes[parentOrdinal - 1];
+  return ml !== undefined ? ml : childLane;
+}
+
+/**
+ * Build the SVG `d` attribute for one edge.
+ *
+ *   - Case 1 (child lane === parent lane, or dangling parent): straight
+ *     vertical.
+ *   - FORK-OUT (parent lane > child lane): corner sits on the child's row
+ *     so the child dot draws on top.
+ *   - FORK-BACK (parent lane < child lane): corner sits on the parent's
+ *     row so the parent dot draws on top.
+ *
+ * Hotfixes #1012 / #1005 / #994 / #1010 describe the visual contract.
+ */
+function buildEdgePath(
+  childCenter: { x: number; y: number },
+  parentCenter: { x: number; y: number },
+  childLane: number,
+  parentLane: number,
+  parentIdx: number,
+): string {
+  if (childLane === parentLane || parentIdx < 0) {
+    return `M ${childCenter.x} ${childCenter.y} L ${parentCenter.x} ${parentCenter.y}`;
+  }
+  if (parentLane > childLane) {
+    // FORK-OUT (hotfix #1012 — supersedes #1005's mid-row corner): the
+    // parent lives on a side lane to the right of the child. Corner at
+    // the CHILD's row so the child dot draws on top.
+    //   ●── (child, lane C)
+    //         │
+    //         ●  (parent, lane P > C)
+    return (
+      `M ${childCenter.x} ${childCenter.y} ` +
+      `L ${parentCenter.x} ${childCenter.y} ` +
+      `L ${parentCenter.x} ${parentCenter.y}`
+    );
+  }
+  // FORK-BACK (hotfix #1012): the child lives on a side lane, parent on a
+  // lane to the left (typically main). Corner at the PARENT's row so the
+  // parent dot draws on top.
+  //         ●   (child, lane C)
+  //         │
+  //   ●─────┘   (parent, lane P < C)
+  return (
+    `M ${childCenter.x} ${childCenter.y} ` +
+    `L ${childCenter.x} ${parentCenter.y} ` +
+    `L ${parentCenter.x} ${parentCenter.y}`
+  );
+}
+
+/**
+ * Resolve the palette index for an edge.
+ *
+ * Hotfix #994: edge color follows the side-branch lane (`max(childLane,
+ * parentLane)`) — matches IntelliJ / vscode-git-graph (the OUTER branch's
+ * colour wins).
+ *
+ * Hotfix #1010: `color_index` is per-branch (allocation order), not
+ * `lane % PALETTE.length`. Look up the actual palette index from whichever
+ * endpoint sits on the larger lane.
+ */
+function resolveEdgeColor(
+  childAssign: LaneAssignment,
+  childLane: number,
+  parentLane: number,
+  parentIdx: number,
+  assignments: LaneAssignment[],
+): number {
+  let colorIndex: number;
+  if (childLane >= parentLane || parentIdx < 0) {
+    colorIndex = childAssign.color_index;
+  } else {
+    colorIndex = assignments[parentIdx].color_index;
+  }
+  return ((colorIndex % PALETTE.length) + PALETTE.length) % PALETTE.length;
+}
+
+function buildOneEdge(
+  child: GitCommit,
+  childAssign: LaneAssignment,
+  i: number,
+  parentOrdinal: number,
+  parentSha: string,
+  parentIdx: number,
+  assignments: LaneAssignment[],
+): GraphEdge {
+  const childLane = childAssign.lane;
+  const parentLane = resolveParentLane(
+    childAssign,
+    childLane,
+    parentIdx,
+    parentOrdinal,
+    assignments,
+  );
+  const childCenter = centerOf(i, childLane);
+  const parentCenter =
+    parentIdx >= 0
+      ? centerOf(parentIdx, parentLane)
+      : // Dangling: stub goes half a row below the child.
+        { x: childCenter.x, y: childCenter.y + ROW_HEIGHT / 2 };
+
+  const path = buildEdgePath(childCenter, parentCenter, childLane, parentLane, parentIdx);
+  const colorIndex = resolveEdgeColor(childAssign, childLane, parentLane, parentIdx, assignments);
+
+  return {
+    child_sha: child.sha,
+    parent_sha: parentSha,
+    child_idx: i,
+    parent_idx: parentIdx,
+    child_lane: childLane,
+    parent_lane: parentLane,
+    path,
+    color_index: colorIndex,
+    dangling: parentIdx < 0,
+  };
+}
+
 export function routeEdges(assignments: LaneAssignment[], commits: GitCommit[]): GraphEdge[] {
   if (assignments.length === 0) return [];
 
@@ -339,7 +482,6 @@ export function routeEdges(assignments: LaneAssignment[], commits: GitCommit[]):
       // Skip silently rather than crash.
       continue;
     }
-    const childLane = childAssign.lane;
 
     for (let p = 0; p < child.parents.length; p++) {
       const parentSha = child.parents[p];
@@ -349,106 +491,7 @@ export function routeEdges(assignments: LaneAssignment[], commits: GitCommit[]):
         continue;
       }
       const parentIdx = index.has(parentSha) ? index.get(parentSha)! : -1;
-
-      // Parent lane resolution:
-      //   - For parents[0]: the lane the parent eventually lands in. We
-      //     find it from `assignments[parentIdx].lane` when known. If the
-      //     parent is truncated (dangling), use the child lane as a stub.
-      //   - For parents[1..]: from `childAssign.merge_lanes[p-1]`. This is
-      //     the lane the merge fold-in "comes in" on; the parent SHA gets
-      //     written into `active_lanes[new_lane]` during assignLanes, so
-      //     when the parent is later drawn it WILL land in `merge_lanes[p-1]`.
-      let parentLane: number;
-      if (p === 0) {
-        if (parentIdx >= 0 && assignments[parentIdx]) {
-          parentLane = assignments[parentIdx].lane;
-        } else {
-          parentLane = childLane;
-        }
-      } else {
-        // merge_lanes is parallel to parents.slice(1)
-        const ml = childAssign.merge_lanes[p - 1];
-        parentLane = ml !== undefined ? ml : childLane;
-      }
-
-      const childCenter = centerOf(i, childLane);
-      const parentCenter =
-        parentIdx >= 0
-          ? centerOf(parentIdx, parentLane)
-          : // Dangling: stub goes half a row below the child.
-            { x: childCenter.x, y: childCenter.y + ROW_HEIGHT / 2 };
-
-      let path: string;
-      if (childLane === parentLane || parentIdx < 0) {
-        // Case 1 (or dangling stub): straight vertical.
-        path = `M ${childCenter.x} ${childCenter.y} ` + `L ${parentCenter.x} ${parentCenter.y}`;
-      } else if (parentLane > childLane) {
-        // FORK-OUT (hotfix #1012 — supersedes #1005's mid-row corner):
-        // The parent lives on a side lane to the right of the child.
-        // This is a merge fold-in or new branch sprouting off the
-        // child's lane. Place the corner at the CHILD's row so the
-        // child dot draws on top of the corner — the horizontal
-        // segment extends RIGHT from the child dot, then drops
-        // vertically onto the parent's lane. Pre-#1012 the corner sat
-        // at midY (the empty space between two dot rows), which made
-        // the horizontal cross-cut OTHER lanes' vertical edges at
-        // mid-row coordinates — visually it looked like dangling
-        // lines because the horizontal segment overlapped main's
-        // vertical line without a dot to anchor it.
-        //   ●── (child, lane C)
-        //         │
-        //         │
-        //         ●  (parent, lane P > C)
-        path =
-          `M ${childCenter.x} ${childCenter.y} ` +
-          `L ${parentCenter.x} ${childCenter.y} ` +
-          `L ${parentCenter.x} ${parentCenter.y}`;
-      } else {
-        // FORK-BACK (hotfix #1012): the child lives on a side lane,
-        // the parent is on a lane to the left (typically main). This
-        // is a side branch terminating into the trunk. Place the
-        // corner at the PARENT's row so the parent dot draws on top —
-        // the line first drops vertically on the child's lane, then
-        // turns LEFT at the parent's row and ends inside the parent
-        // dot.
-        //         ●   (child, lane C)
-        //         │
-        //         │
-        //   ●─────┘   (parent, lane P < C)
-        path =
-          `M ${childCenter.x} ${childCenter.y} ` +
-          `L ${childCenter.x} ${parentCenter.y} ` +
-          `L ${parentCenter.x} ${parentCenter.y}`;
-      }
-
-      // Hotfix #994: edge color follows the side-branch lane —
-      // `max(childLane, parentLane)`. This matches IntelliJ /
-      // vscode-git-graph: the OUTER branch's colour wins.
-      //
-      // Hotfix #1010: `color_index` is now per-branch (allocation order),
-      // not `lane % PALETTE.length`. So we look up the actual palette
-      // index from whichever endpoint sits on the larger lane, instead of
-      // recomputing from the lane number. For dangling parents fall back
-      // to the child's colour.
-      let colorIndex: number;
-      if (childLane >= parentLane || parentIdx < 0) {
-        colorIndex = childAssign.color_index;
-      } else {
-        colorIndex = assignments[parentIdx].color_index;
-      }
-      colorIndex = ((colorIndex % PALETTE.length) + PALETTE.length) % PALETTE.length;
-
-      out.push({
-        child_sha: child.sha,
-        parent_sha: parentSha,
-        child_idx: i,
-        parent_idx: parentIdx,
-        child_lane: childLane,
-        parent_lane: parentLane,
-        path,
-        color_index: colorIndex,
-        dangling: parentIdx < 0,
-      });
+      out.push(buildOneEdge(child, childAssign, i, p, parentSha, parentIdx, assignments));
     }
   }
 

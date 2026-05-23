@@ -225,11 +225,12 @@
  * confirm action dispatches rerunRun.
  */
 
-import { useEffect, useState, type ReactElement } from "react";
+import { useState, type ReactElement } from "react";
 
 import { api } from "../../lib/api";
 import { useAppStore } from "../../store";
-import type { LineageRerunValidation } from "../../types/lineage";
+import { useRerunValidation } from "./RerunDialog.parts/useRerunValidation";
+import { ValidationWarnings } from "./RerunDialog.parts/ValidationWarnings";
 
 export interface RerunDialogProps {
   runId: string;
@@ -237,58 +238,11 @@ export interface RerunDialogProps {
 }
 
 export function RerunDialog({ runId, onClose }: RerunDialogProps): ReactElement {
-  const detail = useAppStore((s) => s.runDetails[runId]);
-  const detailLoading = useAppStore((s) => s.runDetailLoading[runId] ?? false);
-  const fetchRunDetail = useAppStore((s) => s.fetchRunDetail);
   const fetchRuns = useAppStore((s) => s.fetchRuns);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [validation, setValidation] = useState<LineageRerunValidation | null>(null);
-  const [validationLoading, setValidationLoading] = useState(true);
-
-  // Defensive: if the dialog opens via deep-link with no detail cached,
-  // populate it.
-  useEffect(() => {
-    if (detail === undefined && !detailLoading) {
-      void fetchRunDetail(runId);
-    }
-  }, [detail, detailLoading, fetchRunDetail, runId]);
-
-  // Kick off the validation request.
-  useEffect(() => {
-    let cancelled = false;
-    setValidationLoading(true);
-    setValidation(null);
-    api.lineage
-      .validateRerun(runId)
-      .then((res) => {
-        if (cancelled) return;
-        setValidation(res);
-        setValidationLoading(false);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        // Validation is advisory; failure should not block the user.
-        setValidation({ input_warnings: [], env_warnings: [] });
-        setValidationLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [runId]);
-
-  // Esc closes the dialog.
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent): void {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
-    }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [onClose]);
+  const { validation, validationLoading, detailLoading } = useRerunValidation(runId, onClose);
 
   async function handleConfirm(): Promise<void> {
     setSubmitting(true);
@@ -307,8 +261,7 @@ export function RerunDialog({ runId, onClose }: RerunDialogProps): ReactElement 
       return;
     }
     // Refresh is best-effort; if it fails, the user can hit Retry on the
-    // tab's error banner. The rerun has already kicked off — close the
-    // dialog so they don't double-submit.
+    // tab's error banner.
     try {
       await fetchRuns();
     } catch {
@@ -318,10 +271,6 @@ export function RerunDialog({ runId, onClose }: RerunDialogProps): ReactElement 
   }
 
   const checking = detailLoading || validationLoading;
-  const hasNoWarnings =
-    validation !== null &&
-    validation.input_warnings.length === 0 &&
-    validation.env_warnings.length === 0;
 
   return (
     <div
@@ -361,56 +310,7 @@ export function RerunDialog({ runId, onClose }: RerunDialogProps): ReactElement 
           </p>
         )}
 
-        {validation && !checking && (
-          <section className="mt-4 space-y-3" data-testid="rerun-dialog-warnings">
-            {hasNoWarnings ? (
-              <p
-                className="rounded bg-emerald-50 p-3 text-sm text-emerald-700"
-                data-testid="rerun-dialog-warnings-clean"
-              >
-                No drift detected. Re-running will reproduce the original results as closely as the
-                current environment allows.
-              </p>
-            ) : (
-              <>
-                {validation.input_warnings.length > 0 && (
-                  <div
-                    className="rounded bg-amber-50 p-3"
-                    data-testid="rerun-dialog-input-warnings"
-                  >
-                    <h4 className="text-sm font-semibold text-amber-800">
-                      Input file changes ({validation.input_warnings.length})
-                    </h4>
-                    <ul className="mt-1 list-disc pl-5 text-xs text-amber-700">
-                      {validation.input_warnings.map((w, i) => (
-                        <li key={`${w.path}-${i}`}>
-                          <code>{w.path}</code> — {w.reason}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {validation.env_warnings.length > 0 && (
-                  <div className="rounded bg-amber-50 p-3" data-testid="rerun-dialog-env-warnings">
-                    <h4 className="text-sm font-semibold text-amber-800">
-                      Environment drift ({validation.env_warnings.length})
-                    </h4>
-                    <ul className="mt-1 list-disc pl-5 text-xs text-amber-700">
-                      {validation.env_warnings.map((w, i) => (
-                        <li key={`${w.package}-${i}`}>
-                          <code>{w.package}</code>: {w.old} → {w.new}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                <p className="text-xs text-stone-600">
-                  These warnings are advisory only. You can still proceed.
-                </p>
-              </>
-            )}
-          </section>
-        )}
+        {validation && !checking && <ValidationWarnings validation={validation} />}
 
         {submitError && (
           <p

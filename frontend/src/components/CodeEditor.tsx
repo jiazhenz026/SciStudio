@@ -26,9 +26,11 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { registerConflictDecorations, resolveRegionText } from "./Git/ConflictMarkerDecoration";
 import { useAppStore } from "../store";
 import type { FileTab } from "../store/types";
+import { defineSoftDarkTheme } from "./CodeEditor.parts/theme";
+import { useConflictDecorations } from "./CodeEditor.parts/useConflictDecorations";
+import { useLintMarkers } from "./CodeEditor.parts/useLintMarkers";
 
 export interface CodeEditorProps {
   tab: FileTab;
@@ -38,82 +40,34 @@ export interface CodeEditorProps {
   onSave: () => void;
 }
 
-interface LintDiagnostic {
-  line: number;
-  column: number;
-  end_line: number;
-  end_column: number;
-  code: string;
-  severity: "error" | "warning" | "info" | string;
-  message: string;
-}
-
-interface LintResponse {
-  diagnostics: LintDiagnostic[];
-  note?: string;
-}
-
-const LINT_DEBOUNCE_MS = 600;
-
-/**
- * Map a ruff severity to Monaco's MarkerSeverity numeric enum:
- *   Hint = 1, Info = 2, Warning = 4, Error = 8.
- * We avoid importing monaco at module scope so the editor stays lazy.
- */
-function severityToMarkerSeverity(severity: string): number {
-  switch (severity) {
-    case "error":
-      return 8;
-    case "warning":
-      return 4;
-    case "info":
-      return 2;
-    default:
-      return 1;
-  }
+// Minimal subset of `@monaco-editor/react`'s EditorProps that we use.
+// Declared inline so we don't pull the type at module scope (which would
+// defeat the lazy-import goal — TS can drop type-only imports, but
+// keeping this explicit makes the intent obvious to future readers).
+interface EditorComponentProps {
+  height?: string | number;
+  width?: string | number;
+  theme?: string;
+  language?: string;
+  value?: string;
+  path?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  options?: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  beforeMount?: (monaco: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onMount?: (editor: any, monaco: any) => void;
+  onChange?: (value: string | undefined) => void;
 }
 
 export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // ADR-039 §3.5a — when this tab's file is in a git merge-conflict
-  // state, the Monaco instance needs `ConflictMarkerDecoration` registered
-  // so the user sees the in-editor highlight + glyph-margin action
-  // buttons over each `<<<<<<< ====== >>>>>>>` region.
-  //
-  // Skeleton scope (D39-2.4a):
-  //   - subscribe to `gitSlice.mergeInProgress.conflicted_files`
-  //   - the dispatch authorized adding a minimal `activeConflict` field;
-  //     we reuse the EXISTING `mergeInProgress` field (already present
-  //     after D39-2.3b — see `frontend/src/store/gitSlice.ts:141-150`)
-  //     to avoid widening the slice surface
-  //   - if `tab.filePath` is in that list, call
-  //     `registerConflictDecorations(editor, monaco, onAction)` after
-  //     mount; dispose on unmount or when file leaves conflict state
-  //   - the `onAction` callback is left as a TODO since wiring it
-  //     requires the dispose-aware Monaco-content-mutation API that
-  //     D39-2.4b will design alongside `ConflictResolveView.tsx`
-  //
-  // IMPL phase (D39-2.4b) MUST:
-  //   - implement `onAction` to splice text into the model based on
-  //     the parsed region
-  //   - tighten the `any` types if it can be done without violating
-  //     ADR-036's lazy-load boundary
-  //   - test interactively in Chrome: synthesize a merge conflict,
-  //     open the file, click each glyph button, verify git-state
-  //     correctness
   const conflictedFiles = useAppStore((s) => s.mergeInProgress?.conflicted_files ?? null);
   const isInConflict = conflictedFiles !== null && conflictedFiles.includes(tab.filePath);
 
-  // Codex P1 (PR #945): the conflict-decoration effect below depends on
-  // `editorRef.current` / `monacoRef.current`, but refs don't trigger
-  // re-renders. If a file is opened with `isInConflict === true` BEFORE
-  // Monaco's lazy chunk finishes loading, the effect's first run bails
-  // out (refs are null) and never re-runs because its dep array only
-  // tracks `isInConflict` + `tab.filePath`. We use this `editorReady`
-  // state flag — flipped to `true` inside `handleEditorMount` — as the
-  // re-render trigger so the effect runs a second time once the editor
-  // is actually mounted.
+  // Codex P1 (PR #945): used as a re-render trigger so the conflict-decoration
+  // effect runs again once Monaco has mounted (refs alone don't re-render).
   const [editorReady, setEditorReady] = useState(false);
 
   // Lazy-loaded Monaco React module + the editor + monaco instances.
@@ -123,12 +77,6 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
   const editorRef = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const monacoRef = useRef<any>(null);
-  const lintTimerRef = useRef<number | null>(null);
-  // #871: monotonic request id; responses whose id is below the latest
-  // in-flight value are stale (a newer lint kicked off while we awaited)
-  // and must be discarded so out-of-order arrivals don't repaint stale
-  // markers.
-  const lintRequestIdRef = useRef(0);
 
   // Keep the most recent callbacks in refs so the editor's onChange /
   // onMount handlers (registered once at mount time) always see the
@@ -151,7 +99,6 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
     void (async () => {
       const mod = await import("@monaco-editor/react");
       if (cancelled) return;
-      // The default export is the memoised <Editor>.
       setEditorComponent(() => mod.default as unknown as React.ComponentType<EditorComponentProps>);
     })();
     return () => {
@@ -186,163 +133,30 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
     }
   }, [tab.language]);
 
-  // Cleanup: cancel any pending lint timer on unmount.
-  useEffect(() => {
-    return () => {
-      if (lintTimerRef.current !== null) {
-        window.clearTimeout(lintTimerRef.current);
-        lintTimerRef.current = null;
-      }
-    };
-  }, []);
-
   // ADR-039 §3.5a — register / dispose the conflict-marker decoration
   // provider when this tab enters / leaves conflict state.
-  //
-  // SKELETON (D39-2.4a): the effect is wired (effect runs, dispose fires
-  // on cleanup) but the `registerConflictDecorations` body throws — that
-  // throw is wrapped in a try/catch so accidental conflict-state entry
-  // during development DOES NOT crash the editor. D39-2.4b lifts the
-  // throw; the try/catch then becomes a real error path.
-  useEffect(() => {
-    if (!isInConflict) return;
-    // Codex P1 (PR #945): re-run after Monaco mounts. `editorReady` is
-    // set inside `handleEditorMount`, which guarantees both refs are
-    // populated by the time this branch is reached.
-    if (!editorReady) return;
-    const editor = editorRef.current;
-    const monaco = monacoRef.current;
-    if (!editor || !monaco) return;
-    let dispose: (() => void) | null = null;
-    try {
-      dispose = registerConflictDecorations(editor, monaco, (action, region) => {
-        // D39-2.4b: splice the chosen text into the Monaco model. Uses
-        // `pushEditOperations` so the change participates in Monaco's
-        // undo stack — the user can Ctrl+Z to revert a misclicked
-        // "Accept Both" without losing the conflict markers.
-        try {
-          const model = editor.getModel();
-          if (!model) return;
-          const fullText = model.getValue();
-          const next = resolveRegionText(fullText, region, action);
-          if (next === fullText) return;
-          const fullRange = model.getFullModelRange();
-          editor.executeEdits("conflict-resolution", [
-            {
-              range: fullRange,
-              text: next,
-              forceMoveMarkers: true,
-            },
-          ]);
-        } catch (err) {
-          console.warn("ConflictMarkerDecoration: failed to apply action", err);
-        }
-      });
-    } catch (err) {
-      console.warn("ConflictMarkerDecoration failed to register:", err);
-    }
-    return () => {
-      if (dispose) {
-        try {
-          dispose();
-        } catch {
-          /* ignore */
-        }
-      }
-    };
-  }, [isInConflict, tab.filePath, editorReady]);
+  useConflictDecorations({
+    isInConflict,
+    editorReady,
+    filePath: tab.filePath,
+    editorRef,
+    monacoRef,
+  });
 
-  // Schedule a debounced lint POST. Called from the editor's onChange.
-  function scheduleLint(content: string, language: string) {
-    if (language !== "python") return;
-    if (lintTimerRef.current !== null) {
-      window.clearTimeout(lintTimerRef.current);
-    }
-    lintTimerRef.current = window.setTimeout(() => {
-      lintTimerRef.current = null;
-      void runLint(content);
-    }, LINT_DEBOUNCE_MS);
-  }
-
-  async function runLint(content: string) {
-    const requestId = ++lintRequestIdRef.current;
-    try {
-      const response = await fetch("/api/lint/python", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, filename: tab.filePath }),
-      });
-      if (!response.ok) return;
-      // #871: drop the response if a newer lint request has fired while we
-      // awaited. Without this guard, a slow response can repaint stale
-      // diagnostics over the latest ones.
-      if (requestId !== lintRequestIdRef.current) return;
-      const payload = (await response.json()) as LintResponse;
-      if (requestId !== lintRequestIdRef.current) return;
-      applyMarkers(payload.diagnostics ?? []);
-    } catch {
-      // Silent: lint is a best-effort UX affordance, not load-bearing.
-    }
-  }
-
-  function applyMarkers(diagnostics: LintDiagnostic[]) {
-    const editor = editorRef.current;
-    const monaco = monacoRef.current;
-    if (!editor || !monaco) return;
-    const model = editor.getModel();
-    if (!model) return;
-    const markers = diagnostics.map((d) => ({
-      severity: severityToMarkerSeverity(d.severity),
-      startLineNumber: d.line,
-      startColumn: d.column,
-      endLineNumber: d.end_line,
-      endColumn: d.end_column,
-      message: d.message,
-      code: d.code,
-      source: "ruff",
-    }));
-    try {
-      monaco.editor.setModelMarkers(model, "ruff", markers);
-    } catch {
-      /* ignore */
-    }
-  }
-
-  // SPIKE: soft-dark theme (One Dark-ish warm palette, lower contrast than vs-dark).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function handleBeforeMount(monaco: any) {
-    monaco.editor.defineTheme("scistudio-soft-dark", {
-      base: "vs-dark",
-      inherit: true,
-      rules: [],
-      colors: {
-        "editor.background": "#282c34",
-        "editor.foreground": "#abb2bf",
-        "editorLineNumber.foreground": "#4b5263",
-        "editorLineNumber.activeForeground": "#abb2bf",
-        "editor.selectionBackground": "#3e4452",
-        "editor.inactiveSelectionBackground": "#3e445280",
-        "editorCursor.foreground": "#56b6c2",
-        "editor.lineHighlightBackground": "#2c313a",
-        "editorIndentGuide.background": "#3b4048",
-        "editorIndentGuide.activeBackground": "#5c6370",
-        "editorWhitespace.foreground": "#3b4048",
-        "editorBracketMatch.background": "#3e4452",
-        "editorBracketMatch.border": "#56b6c2",
-      },
-    });
-  }
+  // #871 + ADR-036 §3.7 — debounced lint pipeline.
+  const { scheduleLint } = useLintMarkers({
+    filePath: tab.filePath,
+    editorRef,
+    monacoRef,
+  });
 
   // OnMount handler: stash editor + monaco; wire Ctrl+S; run an initial lint.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function handleEditorMount(editor: any, monaco: any) {
     editorRef.current = editor;
     monacoRef.current = monaco;
-    // Codex P1 (PR #945): trigger the conflict-decoration effect to
-    // re-run now that the refs are populated. Without this flip, the
-    // effect's earlier render saw null refs and bailed; the effect
-    // would never re-run because `useRef` updates don't trigger
-    // re-renders.
+    // Codex P1 (PR #945): trigger the conflict-decoration effect to re-run
+    // now that the refs are populated.
     setEditorReady(true);
     try {
       // Ctrl/Cmd + S → onSave
@@ -401,7 +215,7 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
             insertSpaces: true,
             wordWrap: "off",
           }}
-          beforeMount={handleBeforeMount}
+          beforeMount={defineSoftDarkTheme}
           onMount={handleEditorMount}
           onChange={handleEditorChange}
         />
@@ -415,26 +229,6 @@ export function CodeEditor({ tab, onContentChange, onSave }: CodeEditorProps) {
       )}
     </div>
   );
-}
-
-// Minimal subset of `@monaco-editor/react`'s EditorProps that we use.
-// Declared inline so we don't pull the type at module scope (which would
-// defeat the lazy-import goal — TS can drop type-only imports, but
-// keeping this explicit makes the intent obvious to future readers).
-interface EditorComponentProps {
-  height?: string | number;
-  width?: string | number;
-  theme?: string;
-  language?: string;
-  value?: string;
-  path?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  options?: Record<string, any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  beforeMount?: (monaco: any) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onMount?: (editor: any, monaco: any) => void;
-  onChange?: (value: string | undefined) => void;
 }
 
 export default CodeEditor;
