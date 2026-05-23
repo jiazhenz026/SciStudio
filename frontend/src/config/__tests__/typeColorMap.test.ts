@@ -39,10 +39,7 @@ describe("resolveTypeColor", () => {
 
   it("falls back to the base type via typeHierarchy", () => {
     expect(
-      resolveTypeColor(
-        ["MyMask"],
-        [{ name: "MyMask", base_type: "Mask", description: "" }],
-      ),
+      resolveTypeColor(["MyMask"], [{ name: "MyMask", base_type: "Mask", description: "" }]),
     ).toBe(typeColorMap.Mask);
   });
 
@@ -52,9 +49,7 @@ describe("resolveTypeColor", () => {
 
   it("uses the hash palette for unknown types", () => {
     // Deterministic: the same name resolves to the same color across calls.
-    expect(resolveTypeColor(["SomePluginType"])).toBe(
-      resolveTypeColor(["SomePluginType"]),
-    );
+    expect(resolveTypeColor(["SomePluginType"])).toBe(resolveTypeColor(["SomePluginType"]));
   });
 });
 

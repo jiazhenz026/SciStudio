@@ -113,8 +113,8 @@ def _sanitize_value(value: Any) -> Any:
     if isinstance(value, dict):
         return {str(k): _sanitize_value(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
-        rendered = [_sanitize_value(item) for item in value]
-        return rendered if isinstance(value, list) else tuple(rendered)
+        items = [_sanitize_value(item) for item in value]
+        return items if isinstance(value, list) else tuple(items)
     if isinstance(value, (str, int, float, bool)) or value is None:
         # Truncate long strings only — small numeric values pass through
         # untouched so JSON output stays human-readable.
@@ -123,10 +123,10 @@ def _sanitize_value(value: Any) -> Any:
         return value
 
     # Fallback: stringify and truncate.
-    rendered = repr(value)
-    if len(rendered) > _PAYLOAD_TRUNCATION_LIMIT:
-        return f"<truncated len={len(rendered)}>"
-    return rendered
+    rendered_repr = repr(value)
+    if len(rendered_repr) > _PAYLOAD_TRUNCATION_LIMIT:
+        return f"<truncated len={len(rendered_repr)}>"
+    return rendered_repr
 
 
 def _sanitize_data(data: Any) -> Any:
