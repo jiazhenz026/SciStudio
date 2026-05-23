@@ -85,7 +85,15 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1482-break-cycles-1482.json",
+    "shas": [
+      "215ecd63467ee480ff831876713b7cf6224241d5",
+      "a9ae8a552c472b3bf77ddb7226cb5ab4402830cc",
+      "124ee5689e83f9c82a69b0ea9b92576b2bf0e7a1"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "all": {
       "not_applicable": true,
@@ -133,7 +141,13 @@
     ".workflow/records/1482-full-audit.json",
     "tests/architecture/test_no_new_cycles.py"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1482
+    ],
+    "number": 1483,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1483"
+  },
   "record_path": ".workflow/records/1482-break-cycles-1482.json",
   "required_checks": [
     "pytest tests/blocks/io tests/blocks/code tests/blocks (impacted) \u2014 pass",
@@ -220,7 +234,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
