@@ -44,6 +44,20 @@
       "exclude": [],
       "include": [],
       "reason": "Flip governance_touch=true. Main-merge brought in #1467 changes to src/scistudio/qa/governance/* and .github/workflows/* which require the flag; missed earlier."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "tests/qa/**",
+        "src/scistudio/qa/**",
+        "src/scistudio/**",
+        ".github/**",
+        "docs/**",
+        ".sentrux/**",
+        "packages/**"
+      ],
+      "reason": "Broaden scope to include backend test paths brought in by main-merge of #1467/#1474 (governance-related tests)."
     }
   ],
   "branch": "track/frontend-cleanup-1412",
