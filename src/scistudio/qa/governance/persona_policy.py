@@ -12,12 +12,13 @@ from typing import Any
 
 from scistudio.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
-ALLOWED_PERSONAS = frozenset({"manager", "implementer", "adr_author", "audit_reviewer"})
+ALLOWED_PERSONAS = frozenset({"manager", "implementer", "adr_author", "audit_reviewer", "test_engineer"})
 REQUIRED_PERSONA_SKILLS = {
     "manager": "agent-manager",
     "implementer": "implementation-worker",
     "adr_author": "adr-author",
     "audit_reviewer": "audit-reviewer",
+    "test_engineer": "test-engineer",
 }
 SUPPORTED_RUNTIME_ROOTS = (".agents", ".claude", ".codex", ".gemini")
 
@@ -67,7 +68,7 @@ def check(
             Finding(
                 rule_id="persona_policy.unsupported-persona",
                 severity=Severity.ERROR,
-                message="persona must be one of the four ADR-042 personas",
+                message="persona must be one of the ADR-042 personas",
                 evidence={"persona": persona, "allowed": sorted(ALLOWED_PERSONAS)},
             )
         )

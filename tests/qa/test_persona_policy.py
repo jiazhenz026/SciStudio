@@ -33,6 +33,27 @@ def test_persona_policy_accepts_supported_persona_fixture(tmp_path: Path) -> Non
     assert report.status == AuditStatus.PASS
 
 
+def test_persona_policy_accepts_test_engineer_with_required_skill(tmp_path: Path) -> None:
+    declaration = _valid_declaration(tmp_path)
+    declaration["persona"] = "test_engineer"
+    declaration["skill"] = "test-engineer"
+    declaration["skill_path"] = _write(tmp_path, ".codex/skills/test-engineer/SKILL.md")
+
+    report = check(repo_root=tmp_path, declaration=declaration)
+
+    assert report.status == AuditStatus.PASS
+
+
+def test_persona_policy_rejects_test_engineer_skill_mismatch(tmp_path: Path) -> None:
+    declaration = _valid_declaration(tmp_path)
+    declaration["persona"] = "test_engineer"
+
+    report = check(repo_root=tmp_path, declaration=declaration)
+
+    assert report.status == AuditStatus.FAIL
+    assert "persona_policy.skill-mismatch" in {finding.rule_id for finding in report.findings}
+
+
 def test_persona_policy_rejects_unsupported_persona(tmp_path: Path) -> None:
     declaration = _valid_declaration(tmp_path)
     declaration["persona"] = "freeform_agent"

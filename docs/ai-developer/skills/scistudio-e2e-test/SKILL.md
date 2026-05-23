@@ -3,7 +3,7 @@ name: scistudio-e2e-test
 description: Drive a live end-to-end SciStudio session — start the backend (and Vite if needed), open Chrome via Chrome MCP, walk the scenario file the user points at, capture screenshots/console/network as evidence, and write a pass/fail verdict back into that file. Trigger whenever the user says "跑 e2e", "do an e2e", "run e2e on PR #N", "verify in Chrome", "hotfix repro", or otherwise asks you to take a SciStudio change for a real spin in the browser instead of trusting CI alone. Also trigger when the user hands you a path under docs/ai-developer/e2e/.
 metadata:
   type: scistudio-skill
-  related_personas: [manager, implementer]
+  related_personas: [manager, implementer, test_engineer]
   related_rules:
     - .claude/rules/frontend-smoke-test.md
     - docs/ai-developer/specific_rules/hotfix.md
