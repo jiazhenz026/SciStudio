@@ -32,6 +32,15 @@
         ".workflow/records/1482-full-audit.json"
       ],
       "reason": "Include .workflow/records/1482-full-audit.json (full-audit evidence file referenced by gate check)."
+    },
+    {
+      "approved_by": null,
+      "exclude": [],
+      "include": [
+        "docs/audit/1482-sentrux-evidence.json",
+        "docs/audit/1482-full-audit.json"
+      ],
+      "reason": "Move sentrux + full-audit evidence files from .workflow/records/ to docs/audit/ per PR #1337 worked example. .workflow/records/*.json is reserved for gate-record JSONs; pre-push validator's _discover_gate_record else picks the wrong record."
     }
   ],
   "branch": "refactor/break-cycles-1482",
@@ -88,10 +97,10 @@
   },
   "full_audit": {
     "blocks_merge": false,
-    "command": "python -m scistudio.qa.audit.full_audit --format json --output .workflow/records/1482-full-audit.json",
+    "command": "python -m scistudio.qa.audit.full_audit --format json --output docs/audit/1482-full-audit.json",
     "exit_code": 0,
     "known_debt": [],
-    "output_path": ".workflow/records/1482-full-audit.json",
+    "output_path": "docs/audit/1482-full-audit.json",
     "status": "pass",
     "summary": {},
     "unclassified_failures": []
@@ -165,7 +174,7 @@
     "command_or_tool": "mcp__plugin_sentrux_sentrux__scan + check_rules + health",
     "mode": "free-tier",
     "name": "sentrux.free_tier",
-    "output_path": ".workflow/records/1482-sentrux-evidence.json",
+    "output_path": "docs/audit/1482-sentrux-evidence.json",
     "pro_required": false,
     "quality_signal": 4817.0,
     "rules_checked": 3,
