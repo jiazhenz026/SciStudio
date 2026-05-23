@@ -160,7 +160,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1492-adr042-local-gate-receipts.json",
+    "shas": [
+      "684b40a84bb162f1a88c7f0c828888500d188f64"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "changelog": {
       "not_applicable": true,
@@ -249,7 +255,13 @@
     "tests/agent_provisioning/test_hooks.py",
     "tests/agent_provisioning/test_codex_config.py"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1492
+    ],
+    "number": 1495,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1495"
+  },
   "record_path": ".workflow/records/1492-adr042-local-gate-receipts.json",
   "required_checks": [
     "ruff",
@@ -329,7 +341,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
