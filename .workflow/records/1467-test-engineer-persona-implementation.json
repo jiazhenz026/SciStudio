@@ -15,7 +15,8 @@
     "tests/qa/test_persona_policy.py",
     "tests/qa/test_test_engineer_scope_guard.py",
     "tests/qa/test_gate_record.py",
-    "tests/qa/test_gate_record_ci.py"
+    "tests/qa/test_gate_record_ci.py",
+    "tests/qa/governance/test_gate_record_package.py"
   ],
   "check_results": [
     {
@@ -67,8 +68,17 @@
       "command_or_tool": "PYTHONPATH=src pytest tests/qa/test_persona_policy.py tests/qa/test_test_engineer_scope_guard.py tests/qa/test_gate_record.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py tests/qa/governance/test_gate_record_package.py -q --no-cov",
       "exit_code": 0,
       "name": "targeted_pytest",
-      "output_path": "targeted persona, scope guard, gate-record, and self-hosting package tests passed with --no-cov",
+      "output_path": "targeted persona, scope guard, gate-record, and self-hosting package tests passed with --no-cov after semantic duplication refactor",
       "status": "pass",
+      "summary": {},
+      "timestamp": null
+    },
+    {
+      "command_or_tool": "python scripts/semantic_dup_scan.py --check docs/audit/baselines/semantic-dup-baseline.json --out .tmp-semantic-dup/local-report.md --json-out .tmp-semantic-dup/local-current.json",
+      "exit_code": 1,
+      "name": "semantic_dup_local",
+      "output_path": "Skipped locally: fastembed is not installed in manager environment; CI semantic duplication ratchet is authoritative.",
+      "status": "skipped",
       "summary": {},
       "timestamp": null
     },
