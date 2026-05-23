@@ -101,6 +101,8 @@ Known deferred items:
 - <lint/check command>
 - `python -m scistudio.qa.governance.gate_receipt run` or explicit
   `gate_receipt exec` commands for every required Phase 5 check
+- `python scripts/scistudio_pr_create.py` for the final PR (do not use
+  `gh pr create` directly; ADR-042 Addendum 5)
 - <docs/audit command or N/A reason>
 - <Sentrux MCP/CLI command or N/A reason>
 

@@ -107,5 +107,11 @@ language_source: en
 - ADR-042 document standards reference:
   `docs/ai-developer/specific_rules/document-standards.md`
 
+- ADR-042 Addendum 5 receipt audit:
+  Verify `.workflow/local/gate-receipts/<head-sha>.json` exists for the PR
+  candidate, fingerprint matches, and every required check has
+  `exit_code == 0`. Treat `admin-approved:core-change` as narrow
+  protected-core authorization only, never as a scope/docs/receipt bypass.
+
 - Root policy:
   `AGENTS.md`

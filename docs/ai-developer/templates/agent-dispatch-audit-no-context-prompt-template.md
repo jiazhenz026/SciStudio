@@ -90,6 +90,7 @@ Run or verify:
 - <test command>
 - <audit command>
 - <Sentrux MCP/CLI command or N/A reason>
+- `python -m scistudio.qa.governance.gate_receipt validate --gate-record <record> --base origin/main` to confirm any ADR-042 Addendum 5 receipt files under `.workflow/local/gate-receipts/` match the current `HEAD` and required checks pass (this does not require manager context)
 
 ## Output Required
 

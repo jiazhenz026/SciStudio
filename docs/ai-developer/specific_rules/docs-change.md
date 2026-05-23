@@ -79,3 +79,8 @@ Use these rules with:
 - `docs/ai-developer/specific_rules/gated-workflow.md`
 - `docs/ai-developer/personas/adr-author.md` when editing ADRs or specs
 - `docs/ai-developer/personas/audit-reviewer.md` when fixing audit findings
+
+ADR-042 Addendum 5 receipt and the `scripts/scistudio_pr_create.py` wrapper
+apply to every docs-change PR that touches `docs/adr/`, `docs/specs/`, or
+`docs/ai-developer/`; see
+`docs/ai-developer/specific_rules/gated-workflow.md` §3.6 and §3.7.

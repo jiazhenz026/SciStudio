@@ -116,5 +116,11 @@ language_source: en
   and
   `docs/ai-developer/templates/agent-dispatch-audit-no-context-prompt-template.md`
 
+- ADR-042 Addendum 5 PR-creation wrapper for the final dispatch PR:
+  `scripts/scistudio_pr_create.py`
+
+- Post-integration receipt validation:
+  `python -m scistudio.qa.governance.gate_receipt validate --gate-record <record> --base origin/main --pr-body-file .workflow/local/pr-body.md`
+
 - Root policy:
   `AGENTS.md`

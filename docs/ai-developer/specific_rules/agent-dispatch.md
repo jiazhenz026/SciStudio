@@ -169,6 +169,13 @@ python -m scistudio.qa.governance.gate_receipt validate \
   --pr-body-file .workflow/local/pr-body.md
 ```
 
+Each dispatched worktree is auto-provisioned with the worktree write guard
+PreToolUse hook
+(`scripts/hooks/check-worktree-write-guard.sh`,
+`src/scistudio/agent_provisioning/templates/hook_worktree_write_guard.py`). The
+manager does not re-register the hook per dispatch, but should expect agents
+to hit it whenever a write strays outside the gate scope.
+
 ## 7. Verification Rules
 
 - MUST run the checks declared in the manager gate record after integration.

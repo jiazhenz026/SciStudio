@@ -80,3 +80,7 @@ Use these rules with:
   findings
 - `docs/ai-developer/personas/adr-author.md` when the fix requires ADR/spec
   text
+
+ADR-042 Addendum 5 receipt and the `scripts/scistudio_pr_create.py` wrapper
+are mandatory for every bug-fix PR; see
+`docs/ai-developer/specific_rules/gated-workflow.md` §3.6 and §3.7.

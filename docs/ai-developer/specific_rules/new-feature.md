@@ -66,3 +66,7 @@ Use these rules with:
 - `docs/ai-developer/personas/implementer.md`
 - `docs/ai-developer/personas/adr-author.md` when the feature includes
   spec or ADR writing
+
+ADR-042 Addendum 5 receipt and the `scripts/scistudio_pr_create.py` wrapper
+are mandatory for every feature PR; see
+`docs/ai-developer/specific_rules/gated-workflow.md` §3.6 and §3.7.

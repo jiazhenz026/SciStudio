@@ -138,10 +138,17 @@ quick command index every persona should route back to.
 | Generate exact-candidate local receipt | `python -m scistudio.qa.governance.gate_receipt run --gate-record <record> --base <base-ref> --pr-body-file .workflow/local/pr-body.md` |
 | Record one custom command in the receipt | `python -m scistudio.qa.governance.gate_receipt exec --name <name> --gate-record <record> --base <base-ref> -- <command>` |
 | Validate receipt freshness/completeness | `python -m scistudio.qa.governance.gate_receipt validate --gate-record <record> --base <base-ref> --pr-body-file .workflow/local/pr-body.md` |
+| Open AI-authored PR via gate-aware wrapper | `python scripts/scistudio_pr_create.py --title "<title>" --body "<body>"` |
 | Finalize commit and PR evidence | `python -m scistudio.qa.governance.gate_record finalize --record <record> --commit <sha> --pr <url> --closes "#<issue>"` |
 
 `admin-approved:core-change` is not a broad bypass for these commands. It only
 answers protected-core authorization where that guard applies.
+
+The worktree write guard PreToolUse hook
+(`scripts/hooks/check-worktree-write-guard.sh`) blocks Edit/Write outside the
+active branch's committed gate scope. New worktrees are auto-provisioned with
+this hook via
+`src/scistudio/agent_provisioning/templates/hook_worktree_write_guard.py`.
 
 ## 6. Routing
 

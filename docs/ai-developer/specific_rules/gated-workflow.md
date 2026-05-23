@@ -295,6 +295,15 @@ agent stages or commits the extra files.
 
 Keep changes within `scope.include` and outside `scope.exclude`.
 
+The worktree write guard PreToolUse hook
+(`scripts/hooks/check-worktree-write-guard.sh`) enforces this at Edit/Write
+time by reading the committed gate record matching the current branch. New
+worktrees are auto-provisioned with this hook via
+`src/scistudio/agent_provisioning/templates/hook_worktree_write_guard.py`. The
+hook fails with exit code 2 when the current branch is `main`/`master`/`HEAD`,
+when no committed gate record matches the branch, when the target is outside
+`scope.include`, or when it matches `scope.exclude`.
+
 Before touching newly discovered files outside the original plan, update the
 gate record with:
 
