@@ -41,8 +41,8 @@ def test_codex_config_mcp_block_matches_install_render(tmp_project_dir: Path) ->
     )
 
 
-def test_codex_config_emits_six_hooks(tmp_project_dir: Path) -> None:
-    """ADR-040 Addendum 4: Codex gets the same 6-hook surface as Claude.
+def test_codex_config_emits_hooks(tmp_project_dir: Path) -> None:
+    """ADR-040/042: Codex gets the same hook surface as Claude.
 
     Asserts ``features.hooks = true``, 3 PreToolUse + 3 PostToolUse
     matcher groups, and each hook command line references a script
@@ -58,10 +58,11 @@ def test_codex_config_emits_six_hooks(tmp_project_dir: Path) -> None:
 
     pre = data.get("hooks", {}).get("PreToolUse", [])
     post = data.get("hooks", {}).get("PostToolUse", [])
-    assert len(pre) == 3, f"expected 3 PreToolUse hooks, got {len(pre)}"
+    assert len(pre) == 4, f"expected 4 PreToolUse hooks, got {len(pre)}"
     assert len(post) == 3, f"expected 3 PostToolUse hooks, got {len(post)}"
 
     expected_pre_scripts = {
+        "worktree_write_guard.py",
         "deny_scistudio_cli.py",
         "protect_workflow_yaml.py",
         "enforce_list_blocks_before_block_write.py",

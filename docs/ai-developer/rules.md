@@ -88,6 +88,11 @@ language_source: en
 
 - MUST wait for CI to pass before treating the task as complete.
 
+- MUST generate or validate the local Addendum 5 receipt before push or PR
+  creation. Use `python -m scistudio.qa.governance.gate_receipt run` or wrap
+  custom commands with `gate_receipt exec`; raw terminal output is not hard
+  gate evidence.
+
 - MUST keep runtime pointers and skills short.
   They must point to canonical docs and must not copy policy.
 
@@ -95,7 +100,9 @@ language_source: en
 
 - `admin-approved:ai-override` authorizes a one-off AI gate override.
 
-- `admin-approved:core-change` authorizes protected core path changes.
+- `admin-approved:core-change` authorizes protected core path changes only.
+  It does not bypass scope, issue linkage, docs landing, full-audit evidence,
+  local receipt validation, required checks, or CI parity checks.
 
 - `admin-approved:merge` authorizes approved merge automation.
 
@@ -105,7 +112,38 @@ language_source: en
 - CI must validate label provenance.
   Chat authorization alone is not enough for final PR readiness.
 
-## 5. Routing
+- `admin-approved:ai-override` is the only accepted label for a one-off broad
+  AI workflow-gate override. It still does not bypass branch protection,
+  normal repository CI, owner review, or administrator merge authorization.
+
+## 5. Gate CLI Command Set
+
+All AI-authored work uses these repository-owned commands. The detailed
+procedure and examples live in
+`docs/ai-developer/specific_rules/gated-workflow.md`; this section is the
+quick command index every persona should route back to.
+
+| Need | Command |
+|---|---|
+| Start committed gate record | `python -m scistudio.qa.governance.gate_record start ...` |
+| Record plan | `python -m scistudio.qa.governance.gate_record plan --record <record> ...` |
+| Amend scope before new paths are edited | `python -m scistudio.qa.governance.gate_record amend --record <record> --reason <reason> --include <path>` |
+| Record docs landing or N/A | `python -m scistudio.qa.governance.gate_record docs --record <record> --updated <path>` |
+| Record a check in the committed gate record | `python -m scistudio.qa.governance.gate_record check --record <record> --name <name> --command <cmd> --status pass --exit-code 0` |
+| Record Sentrux evidence | `python -m scistudio.qa.governance.gate_record sentrux --record <record> --status pass|fail|skipped` |
+| Validate staged scope | `python -m scistudio.qa.governance.gate_record pre-commit --staged` |
+| Validate commit message trailers | `python -m scistudio.qa.governance.gate_record commit-msg <commit-msg-file>` |
+| Validate branch diff before push | `python -m scistudio.qa.governance.gate_record pre-push --base <base-ref> --head HEAD` |
+| Validate shared local/CI workflow gate | `python -m scistudio.qa.governance.gate_record ci --gate-record <record> --base <base-ref> --head HEAD --pr-body <body>` |
+| Generate exact-candidate local receipt | `python -m scistudio.qa.governance.gate_receipt run --gate-record <record> --base <base-ref> --pr-body-file .workflow/local/pr-body.md` |
+| Record one custom command in the receipt | `python -m scistudio.qa.governance.gate_receipt exec --name <name> --gate-record <record> --base <base-ref> -- <command>` |
+| Validate receipt freshness/completeness | `python -m scistudio.qa.governance.gate_receipt validate --gate-record <record> --base <base-ref> --pr-body-file .workflow/local/pr-body.md` |
+| Finalize commit and PR evidence | `python -m scistudio.qa.governance.gate_record finalize --record <record> --commit <sha> --pr <url> --closes "#<issue>"` |
+
+`admin-approved:core-change` is not a broad bypass for these commands. It only
+answers protected-core authorization where that guard applies.
+
+## 6. Routing
 
 Task-specific rules MUST include `docs/ai-developer/specific_rules/gated-workflow.md`
 unless the owner explicitly authorizes hotfix mode.
@@ -113,6 +151,7 @@ unless the owner explicitly authorizes hotfix mode.
 | Need | Read |
 |---|---|
 | Gate execution | `docs/ai-developer/specific_rules/gated-workflow.md` |
+| Gate CLI command index | `docs/ai-developer/rules.md#5-gate-cli-command-set` |
 | New feature | `docs/ai-developer/specific_rules/new-feature.md` |
 | Bug fix | `docs/ai-developer/specific_rules/bug-fix.md` |
 | Hotfix | `docs/ai-developer/specific_rules/hotfix.md` |

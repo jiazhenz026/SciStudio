@@ -138,6 +138,12 @@ plugin-based extension, manual review steps, and AI-assisted orchestration.
 - Gate records must be created and updated with:
   `python -m scistudio.qa.governance.gate_record`.
 
+- Local candidate receipts must be generated or validated with:
+  `python -m scistudio.qa.governance.gate_receipt`.
+
+- The AI-facing gate command set is indexed in
+  `docs/ai-developer/rules.md#5-gate-cli-command-set`.
+
 ### 3.8 Hotfix Mode
 
 - Hotfix mode is allowed only when the owner explicitly authorizes hotfix mode.
@@ -160,6 +166,9 @@ If any item is missing, the task is not complete.
 
 - Use `docs/ai-developer/rules.md` if you are any AI agent working in this
   repository.
+
+- Use `docs/ai-developer/rules.md#5-gate-cli-command-set` for the canonical
+  AI-facing gate record and local receipt commands.
 
 - Use `docs/ai-developer/specific_rules/gated-workflow.md` if you are doing
   AI-authored work that needs gate evidence.

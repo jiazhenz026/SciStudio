@@ -1,3 +1,4 @@
+# mypy: disable-error-code=no-untyped-def
 """Tests for ``scripts/scistudio_pr_create.py``.
 
 Covers the four pure-function pieces (``extract_body``,
@@ -321,6 +322,7 @@ class TestMainBaseWiring:
             return {"findings": []}
 
         monkeypatch.setattr(wrapper, "run_gate_record_ci", _fake_run_gate_record_ci)
+        monkeypatch.setattr(wrapper, "run_gate_receipt_validate", lambda *args, **kwargs: (0, "", ""))
 
         # Avoid actually invoking gh pr create.
         def _fake_subprocess_call(cmd):
@@ -354,6 +356,7 @@ class TestMainBaseWiring:
             return {"findings": []}
 
         monkeypatch.setattr(wrapper, "run_gate_record_ci", _fake_run_gate_record_ci)
+        monkeypatch.setattr(wrapper, "run_gate_receipt_validate", lambda *args, **kwargs: (0, "", ""))
         monkeypatch.setattr(wrapper.subprocess, "call", lambda cmd: 0)
 
         rc = wrapper.main(["--title", "X", "--body", "Closes #1382"])

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import cast
 
 import pytest
 from pydantic import ValidationError
@@ -386,7 +387,7 @@ def test_pr_ready_does_not_require_commit_and_submit_pr_stage_done() -> None:
 
     record_data = _record()
     pending_stages: list[dict[str, object]] = []
-    for stage in record_data["stages"]:
+    for stage in cast(list[dict[str, object]], record_data["stages"]):
         copy = dict(stage)
         if stage["stage"] == GateStage.COMMIT_AND_SUBMIT_PR.value:
             copy["status"] = "pending"
@@ -415,7 +416,7 @@ def test_ci_still_requires_commit_and_submit_pr_stage_done() -> None:
 
     record_data = _record()
     pending_stages: list[dict[str, object]] = []
-    for stage in record_data["stages"]:
+    for stage in cast(list[dict[str, object]], record_data["stages"]):
         copy = dict(stage)
         if stage["stage"] == GateStage.COMMIT_AND_SUBMIT_PR.value:
             copy["status"] = "pending"
@@ -445,7 +446,7 @@ def test_pre_push_does_not_require_commit_and_submit_pr_stage_done() -> None:
 
     record_data = _record()
     pending_stages: list[dict[str, object]] = []
-    for stage in record_data["stages"]:
+    for stage in cast(list[dict[str, object]], record_data["stages"]):
         copy = dict(stage)
         if stage["stage"] == GateStage.COMMIT_AND_SUBMIT_PR.value:
             copy["status"] = "pending"
@@ -844,11 +845,9 @@ def test_pre_commit_is_lightweight_until_final_gate(tmp_path: Path) -> None:
     [
         "human-authored",
         "admin-approved:ai-override",
-        "admin-approved:core-change",
-        "admin-approved:merge",
     ],
 )
-def test_override_labels_bypass_local_intermediate_hooks(tmp_path: Path, label: str) -> None:
+def test_broad_override_labels_bypass_local_intermediate_hooks(tmp_path: Path, label: str) -> None:
     pre_commit = check_pre_commit(
         tmp_path,
         staged_files=["docs/adr/ADR-042.md"],
@@ -861,6 +860,32 @@ def test_override_labels_bypass_local_intermediate_hooks(tmp_path: Path, label: 
     for report in (pre_commit, commit_msg, pre_push, pr_ready):
         assert not report.blocks_merge
         assert report.summary["bypass_labels"] == [label]
+
+
+@pytest.mark.parametrize("label", ["admin-approved:core-change", "admin-approved:merge"])
+def test_narrow_admin_labels_do_not_bypass_scope_or_trailers(tmp_path: Path, label: str) -> None:
+    data = _record(
+        full_audit=None,
+        sentrux=None,
+        changed_test_paths=[],
+        scope={"include": ["src/scistudio/**"], "exclude": []},
+    )
+    record_path = tmp_path / ".workflow" / "records" / "1267-gate-record-core.json"
+    record_path.parent.mkdir(parents=True)
+    record_path.write_text(json.dumps(data), encoding="utf-8")
+
+    pre_commit = check_pre_commit(
+        tmp_path,
+        gate_record=record_path,
+        staged_files=["docs/adr/ADR-042.md"],
+        bypass_labels=[label],
+    )
+    commit_msg = check_commit_msg("fix: missing trailers", bypass_labels=[label])
+
+    assert pre_commit.blocks_merge
+    assert "gate-record.scope.outside-include" in {finding.rule_id for finding in pre_commit.findings}
+    assert commit_msg.blocks_merge
+    assert "gate-record.commit-trailer.missing" in {finding.rule_id for finding in commit_msg.findings}
 
 
 def test_invalid_override_label_does_not_bypass_local_hooks(tmp_path: Path) -> None:

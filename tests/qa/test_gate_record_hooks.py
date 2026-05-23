@@ -81,10 +81,20 @@ def test_local_push_and_pr_hooks_accept_adr042_override_labels() -> None:
         assert "admin-approved:core-change" in hook
         assert "admin-approved:merge" in hook
         assert "SCISTUDIO_GATE_BYPASS_LABELS" in hook
-        assert "ADR-042 local gate bypassed by approved override label" in hook
+        assert "ADR-042 local gate bypassed by broad override label" in hook
 
     assert "--label" in pr_hook
     assert 'gh", "pr", "view"' in push_hook
+
+
+def test_pr_hook_validates_receipt_against_real_pr_body() -> None:
+    pr_hook = _text("scripts/hooks/check-gate-before-pr.sh")
+
+    assert 'token in {"--body", "-b"}' in pr_hook
+    assert 'token == "--body-file"' in pr_hook
+    assert '--pr-body "$PR_BODY"' in pr_hook
+    assert '--pr-body "$CMD"' not in pr_hook
+    assert "printf '%s' \"$PR_BODY\"" in pr_hook
 
 
 def test_workflow_orchestrates_adr042_governance_guards() -> None:

@@ -106,6 +106,9 @@ language_source: en
 - Gate workflow:
   `docs/ai-developer/specific_rules/gated-workflow.md`
 
+- Gate CLI command set:
+  `docs/ai-developer/rules.md#5-gate-cli-command-set`
+
 - Docs change rules:
   `docs/ai-developer/specific_rules/docs-change.md`
 

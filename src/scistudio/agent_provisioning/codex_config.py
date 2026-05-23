@@ -43,6 +43,11 @@ _TARGET_REL = ".codex/config.toml"
 # compatibility) and ``^apply_patch$`` so the same hook fires regardless
 # of which surface Codex routes through on a given turn.
 _PRE_HOOKS: tuple[tuple[str, str, str], ...] = (
+    (
+        "^(Edit|Write|MultiEdit|apply_patch)$",
+        "worktree_write_guard.py",
+        "Checking ADR-042 worktree and gate scope",
+    ),
     ("^Bash$", "deny_scistudio_cli.py", "Checking SciStudio CLI usage"),
     (
         "^(Edit|Write|MultiEdit|apply_patch)$",

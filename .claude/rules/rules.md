@@ -6,6 +6,9 @@ This file is a pointer only. It is not an independent policy source.
 
 - Use `docs/ai-developer/rules.md` for rules every AI persona must follow.
 
+- Use `docs/ai-developer/rules.md#5-gate-cli-command-set` for the canonical
+  AI-facing gate record and local receipt commands.
+
 - Use `docs/ai-developer/specific_rules/gated-workflow.md` for AI-authored
   gate workflow work.
 
@@ -36,6 +39,9 @@ This file is a pointer only. It is not an independent policy source.
 
 - Use `docs/ai-developer/personas/audit-reviewer.md` if you are the audit
   reviewer persona.
+
+- Use `docs/ai-developer/personas/test-engineer.md` if you are the test
+  engineer persona.
 
 - Use `docs/ai-developer/templates/agent-dispatch-checklist-template.md` if you
   are creating a manager dispatch checklist.

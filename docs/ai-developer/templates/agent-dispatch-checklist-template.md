@@ -84,6 +84,17 @@ language_source: en
 | Pre-commit | `python -m scistudio.qa.governance.gate_record pre-commit --staged` | `<label or N/A>` | `[ ]` | `<output or summary>` |
 | Commit message | `python -m scistudio.qa.governance.gate_record commit-msg <commit-msg-file>` | `<label or N/A>` | `[ ]` | `<output or summary>` |
 | Pre-push | `python -m scistudio.qa.governance.gate_record pre-push` | `<label or N/A>` | `[ ]` | `<output or summary>` |
+| Receipt | `python -m scistudio.qa.governance.gate_receipt validate --gate-record <record> --base <base> --pr-body-file <body-file>` | `<broad label or N/A>` | `[ ]` | `<receipt path or error>` |
+
+## 5.1 Docs Impact Check
+
+- Wrapper/hook/gate-record/receipt/CI/runtime behavior changed: `<yes|no>`
+- AI docs checked:
+  `docs/ai-developer/rules.md`,
+  `docs/ai-developer/specific_rules/gated-workflow.md`,
+  `docs/ai-developer/specific_rules/agent-dispatch.md`,
+  `docs/ai-developer/templates/*dispatch*.md`
+- Updated docs or N/A rationale: `<paths or rationale>`
 
 ## 6. Dispatch Matrix
 
