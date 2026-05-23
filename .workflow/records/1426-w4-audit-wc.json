@@ -68,7 +68,13 @@
       "timestamp": null
     }
   ],
-  "commit": null,
+  "commit": {
+    "gate_record_path": ".workflow/records/1426-w4-audit-wc.json",
+    "shas": [
+      "88baa0c6"
+    ],
+    "trailers": {}
+  },
   "docs_landing": {
     "addendum": {
       "not_applicable": true,
@@ -119,7 +125,13 @@
   "planned_files": [
     "docs/audit/2026-05-22-frontend-cleanup-1412-with-context.md"
   ],
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [
+      1426
+    ],
+    "number": 1480,
+    "url": "https://github.com/zjzcpj/SciStudio/pull/1480"
+  },
   "record_path": ".workflow/records/1426-w4-audit-wc.json",
   "required_checks": [
     "ruff,format,frontend-lint,frontend-format,frontend-typecheck,frontend-test,frontend-build,sentrux,full_audit"
@@ -178,7 +190,7 @@
     {
       "completed_at": null,
       "stage": "commit_and_submit_pr",
-      "status": "pending",
+      "status": "done",
       "summary": null
     }
   ],
